@@ -726,7 +726,8 @@ export const de: Record<TranslationKey, string> = {
   chatAttachmentSummary: "{0} — {1} Anhänge",
   chatAttachmentSummarySkipped: "{0} — {1} Anhänge, {2} übersprungen",
   chatAttachmentSummarySkippedOne: "{0} — 1 Anhang, {2} übersprungen",
-  chatAttachmentHint: "PDF-, Bild- (PNG/JPG/GIF/WebP) oder Text-Dateien (TXT/MD/CSV) anhängen — je bis zu 20 MB.",
+  chatAttachmentHint:
+    "PDF-, Bild- (PNG/JPG/GIF/WebP), Text- (TXT/MD/CSV/VTT), Webseiten- (HTML), Office- (DOCX/XLSX/PPTX) oder E-Mail-Dateien (EML/MSG/MHTML) anhängen — je bis zu 20 MB, E-Mails bis zu 64 MB.",
   chatToolCall: "Werkzeug verwendet: {0}",
   chatToolError: "Werkzeugfehler",
   dictationHold: "Zum Diktieren gedrückt halten",
@@ -1747,6 +1748,8 @@ export const de: Record<TranslationKey, string> = {
   calendarEventStartTime: "Startzeit",
   calendarEventDuration: "Dauer (Minuten)",
   calendarEventLocation: "Ort",
+  calendarEventAttendees: "Teilnehmer",
+  calendarEventSendInvitations: "Einladungen senden",
   calendarEventRepeat: "Wiederholung",
   calendarEventRepeatNever: "Nie",
   calendarEventExceptionsDiscarded: "Das Ausschalten der Wiederholung verwirft {0} angepasste(n) Termin(e); mit Rückgängig lassen sie sich wiederherstellen.",
@@ -2202,6 +2205,8 @@ export const de: Record<TranslationKey, string> = {
   inlineAiEditEntityChange: "Änderungsantrag",
   inlineAiEditEntityMilestone: "Meilenstein",
   inlineAiEditEntityStakeholder: "Stakeholder",
+  inlineAiEditEntityAbsence: "Abwesenheit",
+  inlineAiEditEntityMeeting: "Termin",
   activityAiInlineEdit: "KI-Inline-Bearbeitung",
   taskDedup: "Duplikate & vereinheitlichen",
   taskDedupTitle: "Aufgaben deduplizieren & vereinheitlichen",
@@ -4121,6 +4126,8 @@ export const de: Record<TranslationKey, string> = {
 
   versionHighlightDocumentImages: "Dokumente können jetzt Bilder enthalten. Ziehen Sie ein Bild auf das Dokument, fügen Sie es aus der Zwischenablage ein oder wählen Sie eine Datei aus: Es wird geprüft, bei Bedarf verkleinert und in Ihrem Turso-Projekt gespeichert, während im Dokument selbst nur ein Verweis liegt — eine Arbeitsbereichsdatei enthält also nie Bilddaten. Eine Bildbibliothek listet alle Bilder des Projekts mit Name, Größe und der Zahl der Dokumente auf, die sie verwenden, erlaubt Umbenennen und Löschen und kennzeichnet deutlich jedes Bild, dessen gespeicherte Daten fehlen. Word- und PowerPoint-Exporte nennen ein ausgelassenes Bild in einem sichtbaren Platzhalter, statt es stillschweigend wegzulassen. Bilder benötigen ein Turso-Projekt; ohne ein solches bleibt der übrige Dokumenteneditor unverändert.",
   versionHighlightDocumentImageExport: "Ein Dokument mit Bildern wird jetzt samt dieser Bilder exportiert. Word- und PowerPoint-Dateien enthalten das Bild selbst statt einer Platzhalterzeile, und ein HTML- oder PDF-Export bettet es direkt in die Datei ein, sodass das Dokument als einzelner Anhang weitergegeben werden kann und nichts nachgeladen werden muss. Ein Bild, das die Anwendung nicht darstellen kann — weil die gespeicherten Daten fehlen oder die Größe nie erfasst wurde —, wird weiterhin in einem sichtbaren Platzhalter benannt und nicht stillschweigend weggelassen. Word und PowerPoint enthalten jedes Bild eines Dokuments; HTML und PDF, die die Daten als Text einbetten müssen, fallen ab etwa 25 MB insgesamt auf diesen Platzhalter zurück, damit sich die Datei noch öffnen lässt.",
+  versionHighlightAiCalendarWrites:
+    "Der KI-Assistent kann Abwesenheiten und Termine jetzt nicht nur lesen, sondern auch schreiben. Bitten Sie ihn, einen Urlaub einzutragen, einen Termin zu verschieben oder einen veralteten zu löschen — er schlägt die Änderung genauso vor wie eine Aufgabenänderung. Jede vorgemerkte Schreiboperation wird vor dem Übernehmen Feld für Feld auf der Prüfkarte beschrieben, sodass genau das gespeichert wird, was Sie bestätigen — einschließlich der Serienregel, die als Satz und nicht als Rohdaten dargestellt wird. Eine Schreiboperation, die den Teilnehmern eine Einladung senden würde, läuft immer über diese Karte, wie klein die Änderung auch ist, denn eine einmal versendete Einladung lässt sich nicht zurücknehmen.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",
@@ -4276,6 +4283,8 @@ export const de: Record<TranslationKey, string> = {
   chatProposalShowMore: "Alle anzeigen",
   chatProposalRowToggle: "Einbeziehen",
   chatProposalCascaded: "Benötigt eine von Ihnen abgelehnte Änderung",
+  chatProposalSelectAll: "Alle auswählen",
+  chatProposalApplied: "{0} übernommen",
   chatProposalFailed: "Nicht übernommen – seit Ihrer Prüfung geändert",
   chatProposalFailedDependency: "Nicht übernommen – ein Eintrag, den diese Änderung benötigt, wurde nicht erstellt",
   chatProposalFailedUnreadable: "Nicht übernommen – das Ziel konnte nicht erneut gelesen werden",

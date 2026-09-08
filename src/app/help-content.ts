@@ -159,11 +159,26 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   // entry is worth having.
   { id: "feature-install", group: "features", titleKey: "helpSecInstallTitle", bodyKey: "helpSecInstallBody" },
   { id: "feature-undo", group: "features", titleKey: "helpSecUndoTitle", bodyKey: "helpSecUndoBody", relatedViews: ["open-points", "raid", "changes", "stakeholders", "resources"] },
-  // ★ Six `InlineEntity` members, only five with a surface — `resource` has
-  // none (see `use-entity-inline-ai-edit.tsx`'s own comment on that entry),
-  // which is why `relatedViews` below lists five, not six. Not the four the
-  // rich-text bullet in AGENTS.md happens to list; `stakeholder` is
-  // inline-editable too.
+  // ★★ `relatedViews` LISTS THE SURFACES, NOT THE `InlineEntity` MEMBERS, and
+  // the two numbers are deliberately not quoted here — this comment carried a
+  // "six members, five with a surface" tally that went stale the moment the
+  // union grew (`absence` and `calendarEvent` are describable by the chat
+  // review card and have no inline editor either, exactly as `resource` does
+  // not). No gate reads a count in a `src/` comment, so the number would have
+  // gone on rotting silently. Derive both instead:
+  //   grep -n "^  | \"" src/app/inline-ai-edit/entity-descriptor.ts   # the union
+  //   grep -n "useEntityInlineAiEdit(\"" src/app/workspace-section.tsx
+  // ★★★ THE SECOND COMMAND IS DELIBERATELY PATH-SCOPED AND STILL DOES NOT
+  // ENUMERATE THE SURFACES ON ITS OWN — measured, and the first draft of this
+  // comment shipped the repo-wide form, which returns FOUR surfaces plus a
+  // MATCH ON ITS OWN PROSE in `use-entity-inline-ai-edit.tsx`, i.e. it
+  // over-counts and under-counts at once. TASKS are the fifth surface and take
+  // a DIFFERENT entry point: `use-tasks-inline-ai-edit.tsx` → `useInlineAiEdit`
+  // (`use-inline-ai-edit.ts`), a task-bound wrapper over the same generic hook,
+  // so no grep for the generic one can ever see it. Count it by hand, or take
+  // both wrappers' call sites together.
+  // Note this list is NOT the four the rich-text bullet in AGENTS.md happens to
+  // list; `stakeholder` is inline-editable too.
   { id: "feature-inline-ai-edit", group: "features", titleKey: "helpSecInlineAiEditTitle", bodyKey: "helpSecInlineAiEditBody", relatedViews: ["open-points", "raid", "changes", "milestones", "stakeholders"] },
   { id: "feature-digest", group: "features", titleKey: "helpSecDigestTitle", bodyKey: "helpSecDigestBody", relatedViews: ["dashboard"] },
   // ★ No `relatedViews` on these two: they apply to nearly every table and

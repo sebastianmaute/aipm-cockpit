@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { RICH_FIELDS } from "./plan";
-import { sanitizeRaidItem, sanitizeChangeItem, sanitizeMilestone, sanitizeStakeholder, sanitizeResource } from "../sanitize";
+import { sanitizeRaidItem, sanitizeChangeItem, sanitizeMilestone, sanitizeStakeholder, sanitizeResource, sanitizeAbsence } from "../sanitize";
+import { sanitizeCalendarEvent } from "../calendar-event";
 import { descriptionHtml } from "../rich-text-plain";
 
 // The RICH-TEXT diff fields (slice B). Their sanitizers UPGRADE a legacy plain
@@ -16,7 +17,19 @@ import { descriptionHtml } from "../rich-text-plain";
 // `stakeholder.notes`. Sharing it also makes THIS test the guard on the list:
 // a wrong entry (e.g. "stakeholder.notes") flips the expectation to an upgrade
 // its sanitizer never performs, and the case fails. `task.description` is in the
-// set but unreached — CASES covers the four sanitizer-backed entities only.
+// set but unreached — CASES covers the sanitizer-backed entities only, i.e.
+// every `InlineEntity` except `task`, whose apply path is `buildTaskCleanPatch`
+// rather than a full-record sanitizer.
+//
+// ★★ NO ROW COUNT IS QUOTED HERE ANY MORE. This sentence read "the FOUR
+// sanitizer-backed entities" while the array held FIVE — it rotted the day
+// `resource` was added and nothing could see it — and adding `absence` and
+// `calendarEvent` would have rotted it again. Derive it:
+//   grep -c "entity: \"" src/app/inline-ai-edit/descriptor-drift.test.ts
+// ★★★ AND THE ARRAY IS A HAND-COPY, NOT AN ENUMERATION over
+// `INLINE_DESCRIPTORS`: a new entity silently falls OUTSIDE this file's promise
+// while every test in it stays green. Add the row by hand, or the describe
+// block's name is a claim the file no longer honours.
 
 // One valid full item per entity + a valid replacement value per diff field.
 // Each field is set on a valid base, run through the sanitizer, and must survive
@@ -62,15 +75,74 @@ const RES_VALUES: Record<string, unknown> = {
   emails: ["c@d.co", "e@f.co"],
 };
 
+// ★★ THE BASE PAIR IS DELIBERATELY WIDE (Jan 1 → Dec 31) and the two
+// replacement dates sit INSIDE it. `sanitizeAbsence` SWAPS the pair rather than
+// rejecting it when `endDate < startDate`, so a narrow base would make the
+// per-field case for one date silently write the OTHER field and read as a drop
+// — a fixture defect indistinguishable from the sanitizer losing the value.
+const ABS_BASE = { id: 1, assignee: "Ada", startDate: "2026-01-01", endDate: "2026-12-31" };
+const ABS_VALUES: Record<string, unknown> = {
+  assignee: "New", assigneeEmail: "a@b.co", startDate: "2026-02-02", endDate: "2026-03-03",
+  type: "sick", note: "n",
+};
+
+// ★ `sendInvitations` is stored present-or-absent (only `true` survives), so
+// the case value must be `true` — `false` would assert the sanitizer keeps a
+// key it drops, the same trap `RES_VALUES.isExternal` documents above.
+// ★★ `recurrence` is compared through `String(...)`, so both sides render
+// "[object Object]" and this row proves SURVIVAL, not shape: a dropped rule
+// reads "undefined" and reds, a mis-shaped one does not. The shape is owned by
+// `calendar-recurrence-text`'s own differential tests and by the parity sweep.
+const EVT_BASE = { id: 1, title: "T", startDate: "2026-01-01" };
+const EVT_VALUES: Record<string, unknown> = {
+  title: "New", startDate: "2026-02-02", startTime: "14:30", durationMinutes: 90,
+  location: "Berlin", notes: "n", sendInvitations: true,
+  recurrence: { freq: "weekly", interval: 2 },
+};
+
 const CASES = [
   { entity: "raid" as const, base: RAID_BASE, values: RAID_VALUES, sanitize: sanitizeRaidItem },
   { entity: "change" as const, base: CHANGE_BASE, values: CHANGE_VALUES, sanitize: sanitizeChangeItem },
   { entity: "milestone" as const, base: MILE_BASE, values: MILE_VALUES, sanitize: sanitizeMilestone },
   { entity: "stakeholder" as const, base: STK_BASE, values: STK_VALUES, sanitize: sanitizeStakeholder },
   { entity: "resource" as const, base: RES_BASE, values: RES_VALUES, sanitize: sanitizeResource },
+  { entity: "absence" as const, base: ABS_BASE, values: ABS_VALUES, sanitize: sanitizeAbsence },
+  { entity: "calendarEvent" as const, base: EVT_BASE, values: EVT_VALUES, sanitize: sanitizeCalendarEvent },
 ];
 
+/** Entities the descriptor map declares that CASES deliberately omits, each
+ *  with the reason it cannot be covered here.
+ *
+ *  ★ `task` has no single `sanitizeTask` to call — verify with
+ *    `grep -rn "export function sanitizeTask\b" src/app`, which returns
+ *    nothing. Every other descriptor entity has one exported sanitizer that
+ *    takes the whole row, which is what a case needs. */
+const NO_SINGLE_SANITIZER: readonly string[] = ["task"];
+
 describe("descriptor diffFields are dispatcher-writable", () => {
+  // ★★★ THE ANTI-ROT ASSERTION, and the reason this file is no longer the
+  //  hand-copy its own header warns about. `CASES` is still written by hand —
+  //  it has to be, since each row needs a base object and a per-field
+  //  replacement value that nothing can derive — but it is now COMPARED against
+  //  the descriptor map, in BOTH directions:
+  //    · a new `INLINE_DESCRIPTORS` entry with no row reds here BY NAME, where
+  //      it used to fall silently outside this describe block's promise while
+  //      every test in the file stayed green;
+  //    · a row for an entity the map no longer declares reds too;
+  //    · and an entry in the exception list that stops being a real exception
+  //      (someone exports a `sanitizeTask`) reds as well, so the carve-out
+  //      cannot outlive its reason.
+  //  ★ It cannot catch a union member with NO descriptor entry — nothing at
+  //  runtime can, because the union is a type. That case is a hard tsc error on
+  //  `Record<InlineEntity, EntityDescriptor>` instead, which is the one site of
+  //  the four in open-followups §434 that announces itself.
+  it("covers every entity the descriptor map declares, or names it as an exception", () => {
+    const covered = CASES.map((c) => c.entity as string);
+    expect([...covered, ...NO_SINGLE_SANITIZER].sort()).toEqual(
+      Object.keys(INLINE_DESCRIPTORS).sort(),
+    );
+  });
+
   for (const { entity, base, values, sanitize } of CASES) {
     for (const field of INLINE_DESCRIPTORS[entity].diffFields) {
       it(`${entity}.${field} survives sanitize`, () => {

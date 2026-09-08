@@ -8,7 +8,6 @@ import {
   type SettingsUpdateInput,
   toResourceSummary,
   toKnowledgeSummary,
-  toCalendarEventSummary,
   toBudgetBucketSummary,
 } from "./chat-tools";
 import { resourceLogName } from "./chat-tool-summaries";
@@ -58,7 +57,6 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     setResources,
     insights,
     knowledgeItems,
-    calendarEvents,
     budgets,
     activityLog,
     effectiveFilters,
@@ -86,7 +84,6 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const resourcesRef = useRef(resources);
   const insightsRef = useRef(insights);
   const knowledgeItemsRef = useRef(knowledgeItems);
-  const calendarEventsRef = useRef(calendarEvents);
   const budgetsRef = useRef(budgets);
   const activityLogRef = useRef(activityLog);
   const viewDigest = useViewDigest({
@@ -124,9 +121,6 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     knowledgeItemsRef.current = knowledgeItems;
   }, [knowledgeItems]);
-  useEffect(() => {
-    calendarEventsRef.current = calendarEvents;
-  }, [calendarEvents]);
   useEffect(() => {
     budgetsRef.current = budgets;
   }, [budgets]);
@@ -784,7 +778,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       listAllocations: () => getAllocationsSnapshotRef.current(),
 
       listKnowledgeItems: () => (knowledgeItemsRef.current ?? []).map(toKnowledgeSummary),
-      listCalendarEvents: () => (calendarEventsRef.current ?? []).map(toCalendarEventSummary),
+      // ★★ `listCalendarEvents` MOVED to use-register-tools.ts (reached through
+      // the `...registerTools` spread above), where the meeting writers live.
+      // Restoring it here would give the slice a second ref that only catches
+      // up in an effect, so a create and a list in one turn would disagree —
+      // and because a literal AFTER the spread WINS, the stale one would be the
+      // one that shipped. That file's header carries the full reasoning.
       listBudgetBuckets: () => (budgetsRef.current ?? []).map(toBudgetBucketSummary),
     }),
     // Empty deps otherwise: every reactive value is read via a ref. Identity is

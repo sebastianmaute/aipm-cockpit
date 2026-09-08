@@ -110,8 +110,19 @@ export function ChatThreadList({
       {/* `shrink-0` keeps the primary action at full height when the list below
           it is long; it sits OUTSIDE the scroll wrapper so it can never be
           scrolled away (see `listClassName`). */}
-      <Button variant="secondary" size="sm" onClick={onNew} className="w-full shrink-0 justify-center gap-1.5">
-        <PlusIcon aria-hidden className="h-4 w-4" />
+      {/* ★★ `flex` is LOAD-BEARING and was missing: `Button`'s BASE_CLASS carries no
+          display, so `justify-center` and `gap-1.5` were inert and the glyph and label
+          were laid out as inline content — which WRAPS to two lines once the sidebar
+          is dragged narrow (`w-56`, `min-w-[10rem]`). `whitespace-nowrap` keeps the
+          label on one line at every width the resize handle allows, and the icon needs
+          its own `shrink-0` because a nowrap label can now out-demand the row. */}
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onNew}
+        className="flex w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap"
+      >
+        <PlusIcon aria-hidden className="h-4 w-4 shrink-0" />
         {t(lang, "chatThreadNew")}
       </Button>
 

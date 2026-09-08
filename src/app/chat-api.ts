@@ -127,7 +127,8 @@ export function buildSystemPrompt(
     //    second, weaker confirmation trains the model to narrate a step the user
     //    never sees.
     "Some turns are STAGED for the user to review instead of being applied: any turn that deletes something, and any turn that writes more than one row. You do not choose this and cannot opt out of it.",
-    "A tool result saying the write was staged means NOTHING was written. Do not call that tool again for the same change, and never tell the user the change is done — tell them it is waiting for their approval in the review card.",
+    "A tool result saying the write was staged means NOTHING was written. Do not call that tool again for the same change, and never tell the user the change is done — tell them it is waiting for their approval. Describe what is waiting; do not name the surface it appears on.",
+    "A later message may say the user approved a staged batch and give the number applied. Those writes ARE committed from that point on: never re-propose them, and never tell the user they are still waiting for approval.",
     "While writes are staged, read tools still return COMMITTED state, so they will not reflect anything you staged in this turn. A staged create's result carries a PROVISIONAL id: reference it in later calls in THIS turn so dependent writes are linked correctly, but it is not the id the row will finally have, so never show it to the user.",
     "When the user references a record by name or fragment, call the matching list_ tool to find its ID first.",
     `Active language code: ${lang}.`,
@@ -259,6 +260,48 @@ export function closeDanglingToolUses(messages: ApiMessage[]): ApiMessage[] {
     }
   }
   return out;
+}
+
+/**
+ * Add a model-facing note to the transcript without creating a second
+ * consecutive user turn.
+ *
+ * ★★ IT MERGES INTO A TRAILING USER MESSAGE AND OTHERWISE APPENDS ONE. Both
+ *  branches are live, and the caller does not get to assume which: the apply
+ *  path takes the APPEND branch, because by the time the user clicks Apply the
+ *  turn has finished and the transcript's tail is the assistant's closing
+ *  message. The merge branch covers a transcript that ends on a user message —
+ *  a staged turn's `tool_result` carrier — where a note belongs with the calls
+ *  it annotates rather than after them.
+ *
+ * ★★ IT IS NOT AN API-VALIDITY FIX, and an earlier version of this comment said
+ *  it was — citing `closeDanglingToolUses`' refusal to insert "a second user
+ *  turn that would split the results and stay invalid". That refusal is about
+ *  keeping `tool_result` blocks adjacent to their `tool_use`, which is narrower
+ *  than it reads. Consecutive user turns already occur on the shipped staged
+ *  path — the carrier is a user message and the user's next send appends
+ *  another — so adjacency is not an invariant this codebase holds. Measured by
+ *  a test that asserted the strong version and went red against unmodified
+ *  behaviour.
+ *
+ * ★★ The note goes AFTER any `tool_result` blocks in the carrier, never before:
+ *  the API requires a user message's `tool_result` blocks to lead its content.
+ *
+ * ★ A `string` content is widened to a `[TextBlock]` pair rather than
+ *  concatenated into one string, so the note stays a distinguishable block
+ *  instead of fusing with whatever the user typed.
+ */
+export function appendUserNote(messages: ApiMessage[], note: string): ApiMessage[] {
+  const noteBlock: TextBlock = { type: "text", text: note };
+  const tail = messages[messages.length - 1];
+  if (!tail || tail.role !== "user") {
+    return [...messages, { role: "user", content: [noteBlock] }];
+  }
+  const content: ContentBlock[] =
+    typeof tail.content === "string"
+      ? [{ type: "text", text: tail.content }, noteBlock]
+      : [...tail.content, noteBlock];
+  return [...messages.slice(0, -1), { role: "user", content }];
 }
 
 /** ★★★ TOOLS CARRY THEIR OWN CACHE BREAKPOINT, and this is the one that matters.

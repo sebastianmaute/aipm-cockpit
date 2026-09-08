@@ -10,6 +10,7 @@ import {
   requireToken,
 } from "./chat-tools-updates";
 import {
+  type Absence,
   type ChangeItem,
   type Milestone,
   type Priority,
@@ -23,7 +24,7 @@ import {
 import type { Lang } from "./i18n";
 import { type DepRejection } from "./task-dependency-write";
 import { type KnowledgeLinkKind } from "./document-link";
-import { type RecurrenceRule, type EventException } from "./calendar-event";
+import { type CalendarEvent, type RecurrenceRule, type EventException } from "./calendar-event";
 
 import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
@@ -160,6 +161,58 @@ export type StakeholderInput = {
   influence?: string;
   interest?: string;
   notes?: string;
+};
+
+/** Loose write-tool inputs: the model supplies these, the dispatcher routes
+ *  them through `sanitizeAbsence`, which enforces the type enum, the note cap,
+ *  the FK shape and the date ordering, and fills the defaults. Only the fields
+ *  a human must supply are non-optional here.
+ *
+ *  ★ `type` is a plain `string`, not `AbsenceType`: the model's value is
+ *  UNTRUSTED, and widening it here is what lets the merge-site guard
+ *  (`dropUnacceptedAbsenceFields`) refuse an unrecognised one rather than
+ *  having `sanitizeAbsence` silently reset it to the "other" fallback. */
+export type AbsenceInput = {
+  assignee: string;
+  startDate: string;
+  endDate: string;
+  assigneeEmail?: string;
+  type?: string;
+  note?: string;
+  resourceId?: number;
+};
+
+/** What the model reads back after an absence write. Deliberately NOT the whole
+ *  row: `localModifiedAt` and `outlookEventId` are the two `TOKEN_EXCLUDED`
+ *  fields, bookkeeping the model neither chooses nor needs. */
+export type AbsenceSummary = {
+  id: number;
+  assignee: string;
+  startDate: string;
+  endDate: string;
+  type: string;
+  note?: string;
+};
+
+/** Loose write-tool inputs for a meeting; `sanitizeCalendarEvent` is the single
+ *  validator every one of them lands in.
+ *
+ *  ★★ `recurrence` is `unknown` ON PURPOSE. `RecurrenceRule` is a three-shape
+ *  union with cross-field constraints (`until` against the series start) that
+ *  only `sanitizeRecurrence` can check, and it needs the `startDate` a bare
+ *  decoder has no access to. Typing it as the union here would assert the model
+ *  had already satisfied those constraints, which is exactly the claim the
+ *  sanitizer exists to test. */
+export type CalendarEventInput = {
+  title: string;
+  startDate: string;
+  startTime?: string;
+  durationMinutes?: number;
+  location?: string;
+  notes?: string;
+  attendeeResourceIds?: number[];
+  sendInvitations?: boolean;
+  recurrence?: unknown;
 };
 
 /** Safe-subset app-settings patch the AI may write. Every field is re-validated
@@ -333,6 +386,24 @@ export type ToolDispatcher = {
   createStakeholder(input: StakeholderInput): StakeholderSummary;
   updateStakeholder(id: number, patch: Partial<StakeholderInput>): StakeholderSummary | null;
   deleteStakeholder(id: number): boolean;
+
+  /** The FULL stored absence, for the concurrency token only — never a
+   *  model-facing read. `AbsenceSummary` drops the two excluded fields, so a
+   *  token hashed from one would be blind to them (see `getRaidRow`). */
+  getAbsenceRow(id: number): Absence | null;
+  listAbsences(): AbsenceSummary[];
+  createAbsence(input: AbsenceInput): AbsenceSummary;
+  updateAbsence(id: number, patch: Partial<AbsenceInput>): AbsenceSummary | null;
+  deleteAbsence(id: number): boolean;
+
+  /** The FULL stored meeting, for the concurrency token only. `listCalendarEvents`
+   *  below is the model-facing read; it keeps `recurrence`/`exceptions` but drops
+   *  `localModifiedAt`/`outlookEventId`, which the token must still cover. */
+  getCalendarEventRow(id: number): CalendarEvent | null;
+  createCalendarEvent(input: CalendarEventInput): CalendarEventSummary;
+  updateCalendarEvent(id: number, patch: Partial<CalendarEventInput>): CalendarEventSummary | null;
+  deleteCalendarEvent(id: number): boolean;
+
   /** Apply a safe-subset settings patch; returns the fields actually applied
    *  (after validation/clamping). Throws in a read-only popout. */
   updateSettings(patch: SettingsUpdateInput): Record<string, unknown>;
@@ -451,10 +522,11 @@ function requireId(input: Record<string, unknown>): number {
   return id;
 }
 
-// ★ The eight entity → summary projections live in ./chat-tool-summaries (moved
+// ★ The entity → summary projections live in ./chat-tool-summaries (moved
 //   for the 800-line file-size ratchet). Re-exported here so no import changes.
 //   `runTool` calls none of them, so no value import is needed back.
 export {
+  toAbsenceSummary,
   toRaidSummary,
   toChangeSummary,
   toMilestoneSummary,
@@ -630,7 +702,7 @@ export async function runTool(
       return d.listKnowledgeItems();
 
     case "list_calendar_events":
-      return d.listCalendarEvents();
+      return withRowTokens("calendarEvent", d.listCalendarEvents(), (id) => d.getCalendarEventRow(id));
 
     case "list_budget_buckets":
       return d.listBudgetBuckets();
@@ -776,6 +848,55 @@ export async function runTool(
     case "delete_stakeholder": {
       const id = requireId(input);
       if (!d.deleteStakeholder(id)) throw new Error(`stakeholder #${id} not found`);
+      return { deleted: id };
+    }
+
+    // ★★★ THE WRAP IS WHAT MAKES `update_absence` REACHABLE AT ALL, and its
+    // absence is not a missing optimisation but a DEAD WRITE PATH. There is no
+    // `get_absence` tool, and `AbsenceSummary` carries no token, so this list is
+    // the ONLY place a model can obtain one — and `requireToken` throws on
+    // absence. A lone `update_absence` is one write, so `shouldStage` returns
+    // false and nothing stamps it either: "move Ada's holiday to the 12th" —
+    // the common case — failed outright. Pinned by the `absence` ROUND_TRIP row
+    // in `chat-tools.test.ts`; see the list_calendar_events twin below.
+    case "list_absences":
+      return withRowTokens("absence", d.listAbsences(), (id) => d.getAbsenceRow(id));
+
+    case "create_absence":
+      return d.createAbsence(input as AbsenceInput);
+
+    case "update_absence": {
+      const id = requireId(input);
+      const current = d.getAbsenceRow(id);
+      if (!current) throw new Error(`absence #${id} not found`);
+      requireToken("absence", current, input, `absence #${id}`);
+      const updated = d.updateAbsence(id, patchWithoutId(input, "absence"));
+      if (!updated) throw new Error(`absence #${id} not found`);
+      return updated;
+    }
+
+    case "delete_absence": {
+      const id = requireId(input);
+      if (!d.deleteAbsence(id)) throw new Error(`absence #${id} not found`);
+      return { deleted: id };
+    }
+
+    case "create_calendar_event":
+      return d.createCalendarEvent(input as CalendarEventInput);
+
+    case "update_calendar_event": {
+      const id = requireId(input);
+      const current = d.getCalendarEventRow(id);
+      if (!current) throw new Error(`calendar event #${id} not found`);
+      requireToken("calendarEvent", current, input, `calendar event #${id}`);
+      const updated = d.updateCalendarEvent(id, patchWithoutId(input, "calendarEvent"));
+      if (!updated) throw new Error(`calendar event #${id} not found`);
+      return updated;
+    }
+
+    case "delete_calendar_event": {
+      const id = requireId(input);
+      if (!d.deleteCalendarEvent(id)) throw new Error(`calendar event #${id} not found`);
       return { deleted: id };
     }
 

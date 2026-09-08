@@ -216,6 +216,8 @@ export const TOKEN_ROW_SOURCE: Readonly<
   update_milestone: { kind: "milestone", getRow: (d, id) => d.getMilestoneRow(id) },
   update_resource: { kind: "resource", getRow: (d, id) => d.getResourceRow(id) },
   update_stakeholder: { kind: "stakeholder", getRow: (d, id) => d.getStakeholderRow(id) },
+  update_absence: { kind: "absence", getRow: (d, id) => d.getAbsenceRow(id) },
+  update_calendar_event: { kind: "calendarEvent", getRow: (d, id) => d.getCalendarEventRow(id) },
 };
 
 /** `requireToken`'s OWN predicate for "a usable token", mirrored so this refusal

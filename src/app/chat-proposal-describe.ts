@@ -15,10 +15,17 @@
 //
 // ★★ IT TAKES THE FULL `Workspace`, NOT `RecommendPlanWorkspace`. That type is
 // `Pick<Workspace, "tasks"|"raid"|"changes"|"milestones"|"stakeholders">` and
-// has no `resources`, while chat can write all SIX entities.
-// `describeEntityCalls` builds `ownIds` from `ws[d.wsKey]` UNGUARDED and before
-// any branch, so a resource call against a workspace missing that slice THROWS
-// rather than yielding an empty plan. Pinned by the resource test.
+// has no `resources`, while chat can write every `INLINE_DESCRIPTORS` entity.
+// ★★★ THIS PARAGRAPH USED TO END "`describeEntityCalls` builds `ownIds` from
+// `ws[d.wsKey]` UNGUARDED … so a resource call against a workspace missing that
+// slice THROWS", offered as the reason for the full type. That read as a
+// property of the ENGINE and it is no longer one: both `ownIds` there and
+// `seedItem` here now `Array.isArray`-guard the read, because `calendarEvents`
+// is a genuinely OPTIONAL slice that a `Pick` cannot supply either. The
+// argument for the full type survives on its own terms — a narrowed workspace
+// resolves NO rows for the entities it omits, so every id grounds as
+// "unknown-id" and every link title renders as `#<id>` — which is a wrong CARD
+// rather than a throw, and harder to notice.
 import type { Workspace } from "./workspace";
 import { describeEntityCalls, type EditPlan, type ToolUseLike } from "./inline-ai-edit/plan";
 import {
@@ -42,9 +49,16 @@ type ProposalOp = "create" | "update" | "delete";
 /** Tool name → the descriptor entity it addresses, and which operation it is.
  *
  *  ★★ DERIVED FROM `INLINE_DESCRIPTORS`, never hand-typed. Each descriptor
- *   already names its own `createTool`/`updateTool`/`deleteTool`, so the 18
- *   strings have exactly one definition and a renamed tool cannot leave a stale
- *   copy here. `chat-proposal-describe.test.ts` cross-checks the derived key set
+ *   already names its own `createTool`/`updateTool`/`deleteTool`, so every one
+ *   of those strings has exactly one definition and a renamed tool cannot leave
+ *   a stale copy here.
+ *  ★ NO COUNT IS QUOTED, deliberately: this said "the 18 strings" and was
+ *   already 24 by the time anyone read it, because the number is three times
+ *   the size of a union that grows. It is the derivation, not the total, that
+ *   is the claim. If a number is ever needed, derive it from the union rather
+ *   than restating one: `grep -c "^  | \"" src/app/inline-ai-edit/entity-descriptor.ts`
+ *   is NOT it either — read `InlineEntity`'s own declaration and multiply by
+ *   three. A placeholder command here would be worse than no command. `chat-proposal-describe.test.ts` cross-checks the derived key set
  *   against the gate's own `isEntityWriteTool`, in both directions. */
 const toolEntity: Record<string, InlineEntity> = {};
 const toolOp: Record<string, ProposalOp> = {};
@@ -135,8 +149,15 @@ function seedItem(
   if (op === "create") return { id: Number.NaN } as unknown as RowItem;
   const id = Number((input as { id?: unknown }).id);
   if (op === "delete") return { id } as unknown as RowItem;
-  const rows = ws[d.wsKey] as ReadonlyArray<{ id: number }>;
-  return (rows.find((r) => r.id === id) ?? { id: Number.NaN }) as unknown as RowItem;
+  // ★★ `Array.isArray` for the same reason `describeEntityCalls` now guards its
+  //  own `ws[d.wsKey]` read: `calendarEvents` is an OPTIONAL workspace slice, so
+  //  an `update_calendar_event` staged against a project that has never had a
+  //  meeting reached `undefined.find` here. An absent slice means "no rows",
+  //  which is the NaN sentinel — i.e. "unknown-id", exactly what an id matching
+  //  no row should produce.
+  const rows = ws[d.wsKey] as unknown;
+  const list = Array.isArray(rows) ? (rows as ReadonlyArray<{ id: number }>) : [];
+  return (list.find((r) => r.id === id) ?? { id: Number.NaN }) as unknown as RowItem;
 }
 
 const DEPENDENCY_TOOL = "set_task_dependencies";

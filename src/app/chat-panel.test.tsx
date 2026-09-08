@@ -13,6 +13,7 @@ import { loadThreads, saveThread } from "./chat-threads-store";
 import type { ChatThread } from "./chat-threads";
 import { t } from "./i18n";
 import { buildSystemPrompt, systemBlocksText } from "./chat-api";
+import { appliedProposalNotice } from "./chat-proposal-stage";
 import type { ToolDispatcher } from "./chat-tools";
 import { defaultAiConfig as baseAiConfig } from "./settings-types";
 import type { OperatingGuide } from "./operating-guide";
@@ -2006,6 +2007,16 @@ describe("staged tool calls (the review card)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
   }
 
+  /** The card's ROW checkboxes, in row order.
+   *
+   *  ★★ NEVER `getAllByRole("checkbox")` HERE. The card also renders a header
+   *   select-all, which is the FIRST checkbox in DOM order — so a positional
+   *   index over every checkbox silently shifts by one the moment that control
+   *   is present, and two tests in this file did exactly that. `data-proposal-row`
+   *   is the row marker the card sets for precisely this kind of query. */
+  const rowBoxes = (card: HTMLElement): HTMLInputElement[] =>
+    Array.from(card.querySelectorAll('[data-proposal-row] input[type="checkbox"]'));
+
   /** The `tool_result` blocks the SECOND request carries back to the model. */
   function resultsIn(body: string): { type: string; tool_use_id: string; content: string }[] {
     const sent = JSON.parse(body) as { messages: { role: string; content: unknown }[] };
@@ -2115,6 +2126,76 @@ describe("staged tool calls (the review card)", () => {
       /refer to it as id/,
     );
     expect(peekMintId("task", [])).toBeGreaterThan(before);
+  });
+
+  it("tells the MODEL the batch landed, and shows the user it landed", async () => {
+    // ★★★ THE DEFECT THIS PINS WAS REPORTED FROM THE RUNNING APP, and both of
+    //   its halves were invisible to this file. `applyPendingProposal` wrote the
+    //   workspace and the card and never touched `history`, so the only thing
+    //   the transcript ever said about the batch was `STAGED_TOOL_RESULT` —
+    //   "has NOT been applied". Two turns later the model duly reminded the user
+    //   to go and approve writes that were already committed.
+    //   ★★ ASSERTED ON THE REQUEST BODY, not on component state: what matters is
+    //   that the notice reaches the API on the NEXT turn. A state assertion
+    //   would pass with the message stranded in a ref nothing sends.
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.deleteTask).mockReturnValue(true);
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } }]),
+        doneTurn("ok"),
+        doneTurn("after"),
+      ],
+      bodies,
+    );
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    send();
+
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+
+    // The USER half: success had no string at all, so a clean Apply merely
+    // emptied the selection and disabled the button — indistinguishable from a
+    // dead control, which is exactly how it was reported.
+    await waitFor(() =>
+      expect(within(card).getByText(t("en-US", "chatProposalApplied", 1))).toBeInTheDocument(),
+    );
+
+    // The MODEL half: send again and read what the request carries.
+    send("and then?");
+    await waitFor(() => expect(bodies.length).toBeGreaterThanOrEqual(3));
+    const sent = bodies[bodies.length - 1];
+    expect(sent).toContain(appliedProposalNotice(1, 0));
+
+    // ★★ IT IS CARRIED AS THE USER, EXACTLY ONCE. Role matters: an assistant-role
+    //   note would be the model appearing to assert its own success, which is
+    //   the thing this whole fix exists to stop it inventing. Once matters
+    //   because Apply is clickable again after a partial failure, and a notice
+    //   duplicated per click would tell the model a row landed twice.
+    //   ★★★ TWO WRONGER VERSIONS OF THIS ASSERTION CAME FIRST, both about WHERE
+    //   the note sits, and the measurement refuted each. It does NOT ride the
+    //   staged `tool_result` carrier: by the time Apply is clicked the turn has
+    //   finished, so the transcript's tail is the ASSISTANT's closing message
+    //   and `appendUserNote` therefore appends. Its merge branch is real but is
+    //   not the path this test walks. And a no-consecutive-user-turns assertion
+    //   is false against the app as it already ships — the carrier is a user
+    //   message and the next send appends another. Assert the property, not a
+    //   guess about the layout.
+    const messages = (JSON.parse(sent) as { messages: { role: string; content: unknown }[] })
+      .messages;
+    const carrying = messages.filter((m) => JSON.stringify(m.content).includes("approved them"));
+    expect(carrying).toHaveLength(1);
+    expect(carrying[0].role).toBe("user");
   });
 
   it("Apply replays every kept row INSIDE one undo batch", async () => {
@@ -2233,7 +2314,7 @@ describe("staged tool calls (the review card)", () => {
         .getAllByText(/^Not applied/)
         .filter((el) => el.tagName === "P"),
     ).toHaveLength(1);
-    const boxes = within(card).getAllByRole("checkbox");
+    const boxes = rowBoxes(card);
     expect(boxes[0]).not.toBeChecked(); // landed → cannot be re-applied
     expect(boxes[1]).toBeChecked(); // refused → still offered for retry
   });
@@ -2324,17 +2405,72 @@ describe("staged tool calls (the review card)", () => {
     send();
 
     const card = await screen.findByRole("region", CARD);
-    expect(within(card).getAllByRole("checkbox")).toHaveLength(2);
-    expect(within(card).getAllByRole("checkbox")[1]).toBeChecked();
+    expect(rowBoxes(card)).toHaveLength(2);
+    expect(rowBoxes(card)[1]).toBeChecked();
 
-    fireEvent.click(within(card).getAllByRole("checkbox")[0]);
+    fireEvent.click(rowBoxes(card)[0]);
 
     await waitFor(() =>
-      expect(within(card).getAllByRole("checkbox")[1]).not.toBeChecked(),
+      expect(rowBoxes(card)[1]).not.toBeChecked(),
     );
     // Disabled as well as unchecked: re-ticking it alone would send a write at
     // a provisional id (see `isCascadedRow`).
-    expect(within(card).getAllByRole("checkbox")[1]).toBeDisabled();
+    expect(rowBoxes(card)[1]).toBeDisabled();
+  });
+
+  it("select-all re-selects a cascaded row by restoring what it depends on", async () => {
+    // ★★★ THE CASE THAT DECIDED THE HANDLER'S SHAPE. Row 1 names the id row 0
+    //   will mint, so deselecting the create cascades row 1 off and disables it.
+    //   Select-all then selects the WHOLE plan — including the create — so the
+    //   dependency is satisfied and row 1 is legitimately selectable again.
+    //   Mutant: filter cascaded rows out of `toggleAllProposalRows` (its first
+    //   shape) and row 1 stays unticked while its create is back, which is the
+    //   half-applied selection a user cannot explain.
+    const provisional = peekMintId("task", []);
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK },
+          {
+            type: "tool_use",
+            id: "t2",
+            name: "update_task",
+            input: { id: provisional, assignee: "you" },
+          },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    send();
+
+    const card = await screen.findByRole("region", CARD);
+    fireEvent.click(rowBoxes(card)[0]); // cascade row 1 off
+    await waitFor(() => expect(rowBoxes(card)[1]).toBeDisabled());
+
+    // Select-all now re-ticks everything it is ALLOWED to.
+    fireEvent.click(
+      within(card).getByRole("checkbox", { name: t("en-US", "chatProposalSelectAll") }),
+    );
+
+    // ★★★ THE DEPENDENT COMES BACK TOO, AND THAT IS THE CORRECT OUTCOME — this
+    //   assertion was written the other way round first and the run refuted it.
+    //   Selecting the whole plan re-selects the create, so nothing depends on a
+    //   refused row any more: the cascade is resolved, not bypassed. The unsafe
+    //   state this guards against is a dependent selected while its create is
+    //   NOT, which select-all cannot produce.
+    await waitFor(() => expect(rowBoxes(card)[0]).toBeChecked());
+    expect(rowBoxes(card)[1]).toBeChecked();
+    expect(rowBoxes(card)[1]).toBeEnabled();
   });
 
   it("a project switch clears a pending proposal, even when the transcript comes back", async () => {

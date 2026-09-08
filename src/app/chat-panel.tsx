@@ -33,6 +33,7 @@ import { buildAttachmentSummary } from "./chat-attachment-summary";
 import {
   buildSystemPrompt,
   callClaude,
+  appendUserNote,
   closeDanglingToolUses,
   CONTINUE_NUDGE,
   INTERRUPTED_TOOL_RESULT,
@@ -72,6 +73,7 @@ import {
   mintProvisionalIds,
   newProposalId,
   proposalTitles,
+  appliedProposalNotice,
   stagedToolResult,
 } from "./chat-proposal-stage";
 import type { UndoBatch } from "./use-undo-batch";
@@ -115,6 +117,16 @@ interface PendingProposal {
    *  ★★ A Map, not a Set: the apply path distinguishes four outcomes and
    *  collapsing them here is what made the card call every one a conflict. */
   readonly failed: ReadonlyMap<number, ProposalFailureKind>;
+  /** How many rows the last Apply actually committed, or `null` before any
+   *  Apply on this card.
+   *
+   *  ★★★ SUCCESS HAD NO REPRESENTATION AT ALL, and that is why a working Apply
+   *   read as a dead button: on a clean run the selection empties and Apply
+   *   disables itself, which is pixel-identical to a no-op. Every other outcome
+   *   the card can reach — four failure kinds — had a string; the one that
+   *   normally happens had none. `null` is deliberately distinct from `0`: no
+   *   Apply yet, versus an Apply that committed nothing. */
+  readonly applied: number | null;
 }
 
 /** `runBatched`'s stand-in when no batch was threaded: run the plan, collect
@@ -612,6 +624,7 @@ function ChatPanelInner({
               selected: new Set(described.map((_, i) => i)),
               applying: false,
               failed: new Map<number, ProposalFailureKind>(),
+              applied: null,
             });
             setDisplay((prev) => [
               ...prev,
@@ -785,6 +798,35 @@ function ChatPanelInner({
     });
   }
 
+  /**
+   * Select every row, or clear the selection.
+   *
+   * ★★★ SELECTING EVERYTHING IS SAFE, AND FILTERING OUT THE CASCADED ROWS IS
+   *  NOT THE SAFER VERSION — it is a bug, which is how this was first written.
+   *  "Cascaded" is not a property of a row; `isCascadedRow` is a function of the
+   *  CURRENT selection, true exactly when some row this one depends on is
+   *  unselected. Every dependency is another row of the same plan, so the
+   *  all-selected set makes the predicate false everywhere: nothing is held
+   *  back, and the danger `cascadeDeselect` guards — applying a dependent while
+   *  its create stays refused — cannot arise.
+   *  ★★ The filtered version evaluated the predicate against the selection as it
+   *  was BEFORE the click, so a dependent whose create was about to be
+   *  re-selected stayed out: select-all then left a row unticked with no
+   *  disabled state to explain why. Measured by the test below, which was
+   *  written expecting the filter to be right.
+   *
+   * ★★ CLEARING NEEDS NO CASCADE. `cascadeDeselect` propagates one row's
+   *  deselection to its dependents; the empty set already contains that
+   *  closure, so calling it per row would be equivalent and slower.
+   */
+  function toggleAllProposalRows(next: boolean) {
+    setPendingProposal((prev) => {
+      if (!prev || prev.applying) return prev;
+      const selected = next ? new Set(prev.rows.map((_, i) => i)) : new Set<number>();
+      return { ...prev, selected };
+    });
+  }
+
   /** Discard the plan without writing anything, leaving the transcript honest
    *  about the fact that a proposal was made here. The marker is REPLACED (not
    *  removed) so the surrounding messages keep their order and the discard is
@@ -836,11 +878,28 @@ function ChatPanelInner({
           .filter((r): r is FailedAppliedRow => !r.ok)
           .map((r) => [r.index, failureKindOf(r)] as const),
       );
+      const appliedCount = result.rows.length - failed.size;
       setPendingProposal((prev) =>
         prev?.id === p.id
-          ? { ...prev, applying: false, failed, selected: new Set(failed.keys()) }
+          ? {
+              ...prev,
+              applying: false,
+              failed,
+              selected: new Set(failed.keys()),
+              applied: appliedCount,
+            }
           : prev,
       );
+      // ★★★ THE MODEL IS TOLD, and nothing did this before. Its only word on the
+      // batch was `STAGED_TOOL_RESULT` ("has NOT been applied"), which nothing
+      // superseded — so a later turn reminded the user to approve writes that
+      // had already landed, and pointed them at a surface by a name the UI does
+      // not use. Reported from the running app.
+      // ★★ `appendUserNote` MERGES into the staged turn's trailing user-role
+      // tool_result carrier, so the notice sits with the calls it is about. Not
+      // an API-validity constraint — consecutive user turns already occur here;
+      // see that function's own note, which corrects an earlier claim.
+      setHistory((prev) => appendUserNote(prev, appliedProposalNotice(appliedCount, failed.size)));
     } catch (err) {
       // `applyProposal` catches per row, so reaching here means the BATCH
       // itself refused (a nested batch). Nothing was written; surface it and
@@ -1095,6 +1154,8 @@ function ChatPanelInner({
                       rows={proposalCardRows}
                       selected={pendingProposal.selected}
                       onToggleRow={toggleProposalRow}
+                      onToggleAll={toggleAllProposalRows}
+                      applied={pendingProposal.applied}
                       onApply={applyPendingProposal}
                       onDiscard={discardProposal}
                       busy={pendingProposal.applying}

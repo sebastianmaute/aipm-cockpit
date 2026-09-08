@@ -2,9 +2,11 @@
 //
 // ★ Extracted for the file-size ratchet: chat-tools.ts sat at 797 of the 800
 //   cap (the gate counts `wc -l` + 1, so that WAS the gate's number) and the
-//   B2b slice needed to add a `getSnapshot()` field. These eight functions are
+//   B2b slice needed to add a `getSnapshot()` field. These functions are
 //   the most cohesive unit in the file — no dispatcher access, no i18n, no
-//   state, one input each.
+//   state, one input each. (No count is quoted: the set grows with every
+//   entity the AI can read, and a tally here rots on the next one. Derive it
+//   with `grep -c "^export function to" src/app/chat-tool-summaries.ts`.)
 //
 // ★ They stay re-exported from chat-tools.ts so no existing import breaks.
 //
@@ -12,6 +14,7 @@
 //   chat-tools.ts imports nothing from here at runtime today, but a type-only
 //   edge is erased by the compiler, so this direction can never create a cycle.
 import type {
+  Absence,
   RaidItem,
   ChangeItem,
   Milestone,
@@ -22,6 +25,7 @@ import type {
 import { type KnowledgeItem, linkKindOf } from "./document-link";
 import { type CalendarEvent } from "./calendar-event";
 import type {
+  AbsenceSummary,
   RaidSummary,
   ChangeSummary,
   MilestoneSummary,
@@ -108,6 +112,21 @@ export function toKnowledgeSummary(item: KnowledgeItem): KnowledgeSummary {
     url: item.url,
     linkKind: linkKindOf(item),
     taskIds: item.taskIds ?? [],
+  };
+}
+
+/** ★ Drops `localModifiedAt` and `outlookEventId` — the two `TOKEN_EXCLUDED`
+ *  fields for this entity. Bookkeeping the model neither chooses nor needs, and
+ *  keeping them out is why `getAbsenceRow` (the FULL row) exists separately for
+ *  the concurrency token. */
+export function toAbsenceSummary(absence: Absence): AbsenceSummary {
+  return {
+    id: absence.id,
+    assignee: absence.assignee,
+    startDate: absence.startDate,
+    endDate: absence.endDate,
+    type: absence.type,
+    note: absence.note,
   };
 }
 

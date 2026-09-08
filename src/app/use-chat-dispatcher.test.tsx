@@ -1244,6 +1244,153 @@ describe("useChatDispatcher – read-only guard for entity write methods", () =>
   });
 });
 
+// ★★★ THESE PIN REF FRESHNESS — that a write EARLIER IN THE SAME TURN is
+// visible to the next tool call — which is the entire reason the writers in
+// use-register-tools.ts maintain `absencesRef`/`calendarEventsRef` alongside
+// their setters instead of using a functional setter. React state has not
+// re-rendered between two calls in one turn, so a reader sourced from state
+// would be pre-create and the second write would compute its `next` from a
+// stale list, DROPPING the first row.
+//
+// ★★ The obvious assertion — "the two creates get different ids" — is VACUOUS
+// here and must not be used: `mintId` keeps a module-level monotonic high-water
+// mark per kind (id-mint-session.ts), so it hands out a fresh id on the second
+// call whether or not the list it was given was stale. The observable that does
+// discriminate is the resulting LIST LENGTH.
+//
+// Mutation-proved: deleting `absencesRef.current = next` from `createAbsence`
+// turns the two-create absence test RED (it reads 1 instead of 2), and the same
+// deletion in `createCalendarEvent` turns the meetings one RED.
+describe("useChatDispatcher – intra-turn ref freshness for absences and meetings", () => {
+  it("listAbsences sees a create from earlier in the SAME turn", () => {
+    const { result } = renderDispatcher();
+    result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05",
+    });
+    result.current.createAbsence({
+      assignee: "Bob", startDate: "2026-07-01", endDate: "2026-07-03",
+    });
+
+    const list = result.current.listAbsences();
+    expect(list).toHaveLength(2);
+    expect(list.map((a) => a.assignee)).toEqual(["Alice", "Bob"]);
+  });
+
+  it("updateAbsence can patch a row created earlier in the same turn", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", type: "vacation",
+    });
+
+    // Without the ref write, `updateAbsence` would not find the row and would
+    // return null — the create having been invisible to it.
+    const updated = result.current.updateAbsence(created.id, { note: "Approved" });
+    expect(updated).not.toBeNull();
+    expect(updated?.note).toBe("Approved");
+    expect(result.current.listAbsences()).toHaveLength(1);
+  });
+
+  // ★★★ THE MERGE-SITE GUARD AT ITS REAL CALL SITE, which nothing pinned before.
+  //  `sanitize-absence-patch.test.ts` exercises `dropUnacceptedAbsenceFields`
+  //  DIRECTLY, so it proves the helper's rule and says nothing about whether
+  //  `updateAbsence` still calls it — a helper test cannot pin its own wiring.
+  //  Deleting the call from `use-register-tools.ts` left the whole suite green.
+  //
+  //  The guard is what makes a refused value mean "leave the stored one alone".
+  //  Without it `sanitizeAbsence` RESETS an unrecognised `type` to its `"other"`
+  //  fallback — a silent demotion, invisible on the AI review card, which is
+  //  exactly what `INLINE_DESCRIPTORS.absence.rawTypeGuards` now previews as a
+  //  rejection. The two halves must move together: the preview promises this
+  //  write does not happen.
+  //
+  //  ★ `note` is asserted alongside so the test cannot pass by the patch being
+  //   dropped WHOLESALE — the guard filters per field, it does not refuse the
+  //   call.
+  it("updateAbsence drops a refused type at the merge site instead of demoting the row", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", type: "vacation",
+    });
+    expect(created.type).toBe("vacation");
+
+    const updated = result.current.updateAbsence(created.id, {
+      // Not an `AbsenceType`; the cast is the point — this is what an unguarded
+      // model call looks like on the wire.
+      type: "sabbatical" as never,
+      note: "Approved",
+    });
+    expect(updated?.type).toBe("vacation");
+    expect(updated?.note).toBe("Approved");
+  });
+
+  it("listCalendarEvents answers empty on an ABSENT slice without writing to it", () => {
+    const { result } = renderDispatcher();
+    // The workspace seeds `calendarEvents` as `undefined` ("absent"), which is
+    // NOT the same fact as `[]` ("the user deleted every meeting") — every
+    // backend round-trips the difference. A read must not collapse it.
+    expect(result.current.listCalendarEvents()).toEqual([]);
+    expect(result.current.getCalendarEventRow(1)).toBeNull();
+  });
+
+  it("createCalendarEvent moves the absent slice to a one-element list, and the second create in the same turn keeps the first", () => {
+    const { result } = renderDispatcher();
+    const first = result.current.createCalendarEvent({
+      title: "Kickoff", startDate: "2026-06-01",
+    });
+    expect(result.current.listCalendarEvents()).toHaveLength(1);
+
+    result.current.createCalendarEvent({ title: "Retro", startDate: "2026-06-08" });
+
+    const list = result.current.listCalendarEvents();
+    expect(list).toHaveLength(2);
+    expect(list.map((e) => e.title)).toEqual(["Kickoff", "Retro"]);
+    // The full-row getter reads the same ref, so the token source and the
+    // model-facing read cannot disagree about a row written this turn.
+    expect(result.current.getCalendarEventRow(first.id)?.title).toBe("Kickoff");
+  });
+
+  it("updateCalendarEvent can patch a meeting created earlier in the same turn", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createCalendarEvent({
+      title: "Kickoff", startDate: "2026-06-01",
+    });
+
+    const updated = result.current.updateCalendarEvent(created.id, { location: "Room 3" });
+    expect(updated).not.toBeNull();
+    expect(updated?.location).toBe("Room 3");
+    expect(result.current.listCalendarEvents()).toHaveLength(1);
+  });
+
+  it("deleting the last meeting leaves an EMPTY list, not the absent slice", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createCalendarEvent({
+      title: "Kickoff", startDate: "2026-06-01",
+    });
+    expect(result.current.deleteCalendarEvent(created.id)).toBe(true);
+    expect(result.current.listCalendarEvents()).toEqual([]);
+    // A second delete of the same id must report false rather than throwing on
+    // a list the writer might have reset to `undefined`.
+    expect(result.current.deleteCalendarEvent(created.id)).toBe(false);
+  });
+
+  it("both entities refuse every write in read-only mode", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05",
+    })).toThrow();
+    expect(() => result.current.updateAbsence(1, { note: "x" })).toThrow();
+    expect(() => result.current.deleteAbsence(1)).toThrow();
+    expect(() => result.current.createCalendarEvent({
+      title: "Kickoff", startDate: "2026-06-01",
+    })).toThrow();
+    expect(() => result.current.updateCalendarEvent(1, { location: "x" })).toThrow();
+    expect(() => result.current.deleteCalendarEvent(1)).toThrow();
+    // Reads stay available, as they do for every other register.
+    expect(() => result.current.listAbsences()).not.toThrow();
+    expect(() => result.current.listCalendarEvents()).not.toThrow();
+  });
+});
+
 describe("useChatDispatcher – setTaskDependencies", () => {
   it("writes a valid link: the task's dependencies becomes the applied list", () => {
     const { result } = renderDispatcher();
@@ -2611,6 +2758,42 @@ describe("useChatDispatcher — the register delete tools arm the destructive-sa
     });
     act(() => { result.current.deleteStakeholder(id); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("deleteAbsence arms only when an absence was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteAbsence(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createAbsence({
+        assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05",
+      }).id;
+    });
+    act(() => { result.current.deleteAbsence(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    // Positive observable: the delete really ran, so the arming is not being
+    // counted on a no-op path.
+    expect(result.current.listAbsences()).toEqual([]);
+  });
+
+  it("deleteCalendarEvent arms only when a meeting was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    // ★ The miss runs against the ABSENT slice (`calendarEvents` is seeded
+    // `undefined`), which is the stronger fixture: it pins BOTH that a miss
+    // does not arm AND that the `?? []` read reaches the `!doomed` guard
+    // instead of throwing on undefined.
+    act(() => { result.current.deleteCalendarEvent(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createCalendarEvent({
+        title: "Kickoff", startDate: "2026-06-01",
+      }).id;
+    });
+    act(() => { result.current.deleteCalendarEvent(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    expect(result.current.listCalendarEvents()).toEqual([]);
   });
 });
 

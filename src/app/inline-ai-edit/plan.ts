@@ -159,10 +159,33 @@ export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: D
 //  `INLINE_DESCRIPTORS` with it. Widening it back makes that lookup `any` under
 //  a `Record<string, …>` index — the descriptor a create's links are projected
 //  through would then be unchecked.
+//
+// ★★★ THESE TWO TABLES ARE A FOURTH RIPPLE SITE FOR A NEW `InlineEntity`
+//  MEMBER (`docs/open-followups.md` §434 enumerates four), AND THE ONLY ONE
+//  THAT DEGRADES THE REVIEW CARD. They are NOT derived from
+//  `INLINE_DESCRIPTORS`, but `TOOL_ENTITY`/`toolOp` (chat-proposal-describe.ts)
+//  ARE — so a descriptor entry alone is enough to ROUTE a `create_*`/`delete_*`
+//  call into `describeEntityCalls`, where a name missing from both tables
+//  matches neither `d.updateTool` nor either lookup, falls through, and leaves
+//  an EMPTY plan. `describeProposal` still pushes one row per call
+//  unconditionally, `proposalCardRows` maps 1:1 and filters nothing, and
+//  `isEmptyPlan` is never consulted on the chat path — it only suppresses
+//  `PlanDetail`'s `<ul>` in `chat-proposal-block.tsx`. The result is a row that
+//  renders TICKED BY DEFAULT, with a title and a tool name and no detail list,
+//  behind an `Apply` gated only on `busy || selectedCount === 0`: the user is
+//  invited to approve a write whose contents are not shown. That is exactly
+//  what the four calendar tools did when their descriptors landed here and
+//  these tables did not.
+//  ★ Deliberately not folded into the descriptor record: `DELETE_TOOLS` needs a
+//   `wsKey` for label resolution and `CREATE_TOOLS` does not, and six of the
+//   eight rows predate the descriptors. The cheap guard is a test that
+//   enumerates over `INLINE_DESCRIPTORS` and asserts every `createTool` /
+//   `deleteTool` appears here.
 const CREATE_TOOLS: Record<string, InlineEntity> = {
   create_raid_item: "raid", create_change: "change",
   create_milestone: "milestone", create_stakeholder: "stakeholder", create_task: "task",
   create_resource: "resource",
+  create_absence: "absence", create_calendar_event: "calendarEvent",
 };
 const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> = {
   delete_task: { entity: "task", wsKey: "tasks" },
@@ -171,6 +194,11 @@ const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> =
   delete_milestone: { entity: "milestone", wsKey: "milestones" },
   delete_stakeholder: { entity: "stakeholder", wsKey: "stakeholders" },
   delete_resource: { entity: "resource", wsKey: "resources" },
+  delete_absence: { entity: "absence", wsKey: "absences" },
+  // ★ `calendarEvents` is an OPTIONAL slice, so the delete branch's own
+  //  `Array.isArray` guard on `ws[wsKey]` is load-bearing for this row — an
+  //  absent slice yields `unknown-id`, which is the right answer.
+  delete_calendar_event: { entity: "calendarEvent", wsKey: "calendarEvents" },
 };
 
 // Fields stored as rich HTML, keyed `${entity}.${field}`. Only the PREVIEW
@@ -295,9 +323,23 @@ export function previewNormalizerFor(
  *  one. */
 const PERSON_ENTITIES: ReadonlySet<string> = new Set(["resource", "stakeholder"]);
 
+/** The date rule a descriptor gets when it declares no `acceptsDate`: exactly
+ *  `sanitizeIsoDate`'s round-trip, which is what `sanitizeAbsence` and every
+ *  register sanitizer actually call. Named rather than inlined so the override
+ *  and the default read as two answers to one question. */
+const defaultAcceptsDate = (v: string): boolean => sanitizeIsoDate(v) === v;
+
+// ★★ `assignee` SITS LAST IN BOTH CHAINS, and the position is what makes it
+//  safe to add. An `Absence` declares none of the four names ahead of it, so
+//  without this a `create_absence` row is titled with the literal string
+//  "absence" and a `delete_absence` row with its numeric id — on the card whose
+//  whole job is telling the user WHOSE holiday is about to go. `Task` also
+//  carries `assignee`, but `taskName` precedes it, so a task only reaches this
+//  leg when it has no name at all — a degenerate input where the assignee is
+//  still the better label than the word "task".
 function titleOf(entity: string, input: Record<string, unknown>): string {
   if (PERSON_ENTITIES.has(entity)) return personName(input) || entity;
-  return str(input.title ?? input.taskName ?? input.name ?? input.description ?? entity);
+  return str(input.title ?? input.taskName ?? input.name ?? input.description ?? input.assignee ?? entity);
 }
 
 interface EntityItem { id: number; [k: string]: unknown }
@@ -366,9 +408,41 @@ function pushLinkDiffs(
    *   The conditional spread below is what holds that even if a caller passes
    *   `""` anyway. */
   subject?: string,
+  /** The tool this input came from, so a merge-site refusal below can be
+   *  DISCLOSED as a `rejected` row rather than silently omitted. Optional only
+   *  because the create branch has nothing to reject — see the guard. */
+  toolName?: string,
 ): void {
   for (const [f, link] of Object.entries(d.linkFields)) {
     if (!(f in input)) continue;
+    // ★★★ THE MERGE-SITE GUARD, ON LINK FIELDS TOO. `rawTypeGuards` models an
+    //  ALLOW-LIST merge site, and the update branch already consults it for
+    //  every `diffFields` member — but a LINK field is not in `diffFields`, so
+    //  until now `attendeeResourceIds` and `absence.resourceId` bypassed it
+    //  entirely. `CALENDAR_EVENT_FIELD_GUARDS.attendeeResourceIds` refuses any
+    //  array with a non-number member, so `[7, "9"]` previewed "attendees:
+    //  Ada → Ada, Grace" against a write that stores neither; a bare `"7,9"`
+    //  was worse still — `sanitizeAttendees` answers `undefined` for a
+    //  non-array, so the card promised the attendee list CLEARED on a write
+    //  that leaves it untouched. `absence.resourceId`'s own docstring records
+    //  the same shape as a "known misrender"; this is what closes it, because
+    //  `plan.rejected` IS the way to spell "unchanged" that comment says
+    //  `pushLinkDiffs` lacks.
+    //
+    //  ★★★ `target === "row"` IS LOAD-BEARING AND THE BRIEF THAT SPECIFIED
+    //   THIS FIX OMITTED IT. `dropUnacceptedAbsenceFields` /
+    //   `dropUnacceptedCalendarEventFields` are called ONLY from `updateAbsence`
+    //   / `updateCalendarEvent` (`use-register-tools.ts`); both CREATES hand
+    //   `input` straight to their sanitizer. On a create, therefore, this
+    //   module's `link.sanitize` — the writer's own `sanitizeAttendees` — is
+    //   EXACTLY what the write stores, and applying the guard there would
+    //   invent a rejection for a value that lands. Same divergence, opposite
+    //   direction. Verified by reading both write paths, not inferred.
+    const guard = target === "row" ? d.rawTypeGuards?.[f] : undefined;
+    if (guard && !guard(input[f])) {
+      if (toolName) plan.rejected.push({ toolName, reason: "bad-input", detail: `${f}=${str(input[f])}` });
+      continue;
+    }
     const beforeIds = link.sanitize(prior[f]);
     const afterIds = link.sanitize(input[f]);
     const before = resolveLinkTitles(beforeIds, link, ws);
@@ -388,7 +462,20 @@ export function describeEntityCalls(
 ): EditPlan {
   const { descriptor: d, item, ws } = ctx;
   const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
-  const ownIds = new Set((ws[d.wsKey] as ReadonlyArray<{ id: number }>).map((r) => r.id));
+  // ★★★ `Array.isArray`, NOT a bare read — `Workspace.calendarEvents` is an
+  //  OPTIONAL slice (`calendarEvents?: readonly CalendarEvent[]`), absent on
+  //  every project that has never had a meeting, and `emptyWorkspace()` omits
+  //  it outright. This line runs BEFORE any branch, so an unguarded
+  //  `undefined.map` threw for `create_calendar_event` — i.e. for the FIRST
+  //  meeting a user ever asks the model to schedule, on the review card whose
+  //  whole job is to let them refuse it. `link-titles.ts` and
+  //  `chat-proposal-stage.ts` already guard their own `wsKey` reads the same
+  //  way; this one and `chat-proposal-describe.ts`'s `seedItem` did not.
+  //  An absent slice means "no rows", so an empty id set is the right answer.
+  const rows = ws[d.wsKey] as unknown;
+  const ownIds = new Set(
+    (Array.isArray(rows) ? (rows as ReadonlyArray<{ id: number }>) : []).map((r) => r.id),
+  );
 
   for (const b of blocks) {
     if (b.type !== "tool_use" || typeof b.name !== "string") continue;
@@ -544,7 +631,17 @@ export function describeEntityCalls(
         // Match the sanitizer EXACTLY — sanitizeIsoDate is format + year-range
         // (1900-2100), returning the input verbatim when valid and "" otherwise,
         // so a previewed date can never diverge from what apply persists.
-        if (d.dateFields.has(f) && after !== "" && sanitizeIsoDate(after) !== after) { bad(`${f}=${after}`); continue; }
+        // ★★★ THE ENTITY'S OWN DATE RULE, defaulting to `sanitizeIsoDate` —
+        //  which is what `sanitizeAbsence` and every register sanitizer call,
+        //  so seven of the eight descriptors want the default and must keep it.
+        //  `sanitizeCalendarEvent` calls `isoDateOrUndefined` instead (regex +
+        //  `Date.parse`, NO year bound, against the default's regex + 1900–2100
+        //  and nothing else), and the two disagree in BOTH directions:
+        //  `startDate: "2026-01-32"` previewed as an accepted change and then
+        //  made the sanitizer return null, which `updateCalendarEvent` throws
+        //  on — costing the WHOLE patch — while `"1899-12-31"` previewed as
+        //  REJECTED and landed. See `EntityDescriptor.acceptsDate`.
+        if (d.dateFields.has(f) && after !== "" && !(d.acceptsDate ?? defaultAcceptsDate)(after)) { bad(`${f}=${after}`); continue; }
         // ★★ A THROW ON APPLY COSTS THE WHOLE PATCH, not just this field.
         // `buildTaskCleanPatch` throws "assigneeEmail is invalid" for an address
         // `isValidEmail` rejects, and the dispatcher surfaces that as a failed
@@ -569,6 +666,21 @@ export function describeEntityCalls(
         //  `withAiRichFields` at the call site; nested inside, it is dead code
         //  and this refusal becomes the divergence rather than the fix.
         if (d.stringOnlyFields.has(f) && typeof input[f] !== "string") { bad(`${f}=${after}`); continue; }
+        // ★★★ THE MERGE-SITE GUARD, for the entities whose merge site is an
+        //  ALLOW-LIST. `stringOnlyFields` above is the same idea hand-scoped to
+        //  one field and one type; this consults the WRITER'S OWN table, so it
+        //  covers every field of that entity and cannot drift from it. A
+        //  refused value never reaches the sanitizer, so the stored value
+        //  survives — projecting it would promise a change the write does not
+        //  make. Measured on `absence.note`, `calendarEvent.location` and, worst
+        //  of all, `calendarEvent.sendInvitations`, where the false diff read as
+        //  "invitations turned OFF" on a write that keeps them on.
+        //  ★ RAW, never `after`: by then a boolean is "true" and a number "1",
+        //   so a type predicate over the rendered string admits everything.
+        //  ★★ Read the member's own docstring before pointing a SEVENTH entity
+        //   at it — a deny-list merge site needs the opposite treatment.
+        const guard = d.rawTypeGuards?.[f];
+        if (guard && !guard(input[f])) { bad(`${f}=${after}`); continue; }
         // ★★★ THE RAW VALUE, NEVER `after`. `after` has been through
         //  `numberPreview`, which renders `true` as "1" — so checking the
         //  rendered string cannot see a boolean, and the card showed a
@@ -588,7 +700,9 @@ export function describeEntityCalls(
       // that comparison costs — lives on `pushLinkDiffs`, which the create
       // branch below calls too. Do not restate it here; one spelling is the
       // point (§405).
-      pushLinkDiffs(plan, d, input, item, ws, "row");
+      // ★ `name` is threaded so a merge-site refusal on a LINK field lands in
+      //  `plan.rejected` beside the `bad()` rows above, rather than vanishing.
+      pushLinkDiffs(plan, d, input, item, ws, "row", undefined, name);
       // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)
       // changed, whose current value is no longer valid for the item as patched,
       // is silently reset by the sanitizer to the field's default (RAID status
@@ -604,6 +718,38 @@ export function describeEntityCalls(
         const def = defaultEnumFor(d.entity, f, effective);
         if (def === undefined || def === cur) continue;
         plan.updates.push({ entity: d.entity, field: f, before: cur, after: def });
+      }
+      // ★★★ SANITIZER-INDUCED CROSS-FIELD REWRITES. The enum block above is the
+      //  same idea one field at a time; this is the WHOLE-ROW case, which no
+      //  per-field entry can express. `sanitizeAbsence` SWAPS the date pair when
+      //  `endDate < startDate` rather than rejecting it, so
+      //  `update_absence({startDate})` past the stored `endDate` previewed ONE
+      //  change and wrote TWO, both different from what the card said.
+      //
+      //  ★★★ A REJECTION WOULD BE THE WRONG FIX, and it was the first option on
+      //   the table. The write SUCCEEDS — and the two REPLAYING consumers
+      //   (`chat-proposal-apply.ts`, `use-insight-recommendations.ts`) resend the
+      //   original tool input and never read this plan, so a "refused" card sits
+      //   in front of a write that lands: the §384 shape this module exists to
+      //   prevent, reintroduced by the fix. Disclosing the swap is the only
+      //   answer that is true for BOTH consumer kinds.
+      //
+      //  ★ `raw` is set to the corrected value too, so the REBUILDING consumer's
+      //   patch carries the already-ordered pair — which the sanitizer then
+      //   stores unchanged, i.e. the same row the replaying consumers produce.
+      const stored = d.crossFieldRewrite?.({ ...item, ...applied });
+      for (const [f, finalValue] of Object.entries(stored ?? {})) {
+        const before = str(item[f]);
+        const at = plan.updates.findIndex((u) => u.entity === d.entity && u.field === f);
+        if (at >= 0) {
+          // The swap can land a field back on its stored value, which must not
+          // render as a `before === after` row.
+          if (finalValue === before) plan.updates.splice(at, 1);
+          else plan.updates[at] = { ...plan.updates[at], after: finalValue, raw: finalValue };
+        } else if (finalValue !== before) {
+          plan.updates.push({ entity: d.entity, field: f, before, after: finalValue, raw: finalValue });
+        }
+        applied[f] = finalValue;
       }
       continue;
     }
@@ -673,7 +819,7 @@ export function describeEntityCalls(
         plan.rejected.push({ toolName: name, reason: "unsupported", detail: str(input.id) });
         continue;
       }
-      const rows = ws[wsKey] as ReadonlyArray<{ id: number; title?: string; taskName?: string; name?: string }>;
+      const rows = ws[wsKey] as ReadonlyArray<{ id: number; title?: string; taskName?: string; name?: string; assignee?: string }>;
       const found = Array.isArray(rows) ? rows.find((r) => r.id === id) : undefined;
       if (!found) { plan.rejected.push({ toolName: name, reason: "unknown-id", detail: str(input.id) }); continue; }
       // ★★★ Same job-title collision as `titleOf` above, on the stored ROW
@@ -682,9 +828,12 @@ export function describeEntityCalls(
       // carries `title` ("Engineer") and no `name`; a stakeholder carries both,
       // and `title` wins the generic chain. Either way the user is offered a
       // deletion named after a job rather than the person.
+      // `assignee` last, for the same reason and with the same safety as in
+      // `titleOf` above — it is an `Absence`'s only human-readable field, and
+      // every other entity here reaches a name before it.
       const label = PERSON_ENTITIES.has(entity)
         ? personName(found as Record<string, unknown>) || str(id)
-        : str(found.title ?? found.taskName ?? found.name ?? id);
+        : str(found.title ?? found.taskName ?? found.name ?? found.assignee ?? id);
       plan.deletes.push({ entity, label, toolName: name, id });
       continue;
     }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   sanitizeCalendarEvent, encodeRecurrence, decodeRecurrence,
   encodeExceptions, decodeExceptions, encodeAttendees, decodeAttendees,
-  applyOccurrenceMove,
+  applyOccurrenceMove, acceptsEventDate,
 } from "./calendar-event";
 import type { CalendarEvent, RecurrenceRule } from "./calendar-event";
 
@@ -281,5 +281,28 @@ describe("applyOccurrenceMove", () => {
     const nonRecurring: CalendarEvent = { ...base };
     const movedNonRecurring = applyOccurrenceMove(nonRecurring, nonRecurring.startDate, "2026-08-05");
     expect(sanitizeCalendarEvent(movedNonRecurring)).toEqual(movedNonRecurring);
+  });
+});
+
+// `acceptsEventDate` exists so the AI review card can ask THIS module's own
+// question instead of a similar one. It is exported for
+// `INLINE_DESCRIPTORS.calendarEvent.acceptsDate`; these cases pin it at the
+// source, where the two legs that separate it from `sanitizeIsoDate` live.
+describe("acceptsEventDate", () => {
+  it("agrees with sanitizeCalendarEvent on the shapes that separate it from sanitizeIsoDate", () => {
+    // The `Date.parse` leg `sanitizeIsoDate` lacks: an impossible calendar day.
+    expect(acceptsEventDate("2026-01-32")).toBe(false);
+    expect(sanitizeCalendarEvent({ ...base, startDate: "2026-01-32" })).toBeNull();
+
+    // The absent year bound `sanitizeIsoDate` has: pre-1900 is STORED here.
+    expect(acceptsEventDate("1899-12-31")).toBe(true);
+    expect(sanitizeCalendarEvent({ ...base, startDate: "1899-12-31" })?.startDate).toBe("1899-12-31");
+  });
+
+  it("refuses a non-string and a non-ISO string", () => {
+    expect(acceptsEventDate(20260101)).toBe(false);
+    expect(acceptsEventDate("2026-1-1")).toBe(false);
+    expect(acceptsEventDate(null)).toBe(false);
+    expect(acceptsEventDate("2026-07-27")).toBe(true);
   });
 });

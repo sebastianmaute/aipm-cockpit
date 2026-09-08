@@ -50,8 +50,15 @@ describe("shouldStage", () => {
 const DESTRUCTIVE_NAMES = [
   "delete_task", "delete_all_tasks", "delete_resource", "delete_raid_item",
   "delete_change", "delete_milestone", "delete_stakeholder", "delete_document",
+  "delete_absence", "delete_calendar_event",
 ];
 
+// ★★ `create_calendar_event`/`update_calendar_event`'s "does not stage alone"
+//    row below is CONDITIONALLY true, not unconditionally: with
+//    `sendInvitations: true` they DO stage alone (see the "shouldStage —
+//    invitations" describe block). The row only keeps passing because `call()`
+//    with no third argument passes no payload — this list asserts a property of
+//    the NAME, and the payload-driven exception is tested separately.
 const NON_DESTRUCTIVE_WRITE_NAMES = [
   "create_task", "update_task", "set_task_dependencies", "send_inquiry",
   "create_resource", "update_resource",
@@ -60,6 +67,8 @@ const NON_DESTRUCTIVE_WRITE_NAMES = [
   "create_milestone", "update_milestone",
   "create_stakeholder", "update_stakeholder",
   "create_document", "update_document",
+  "create_absence", "update_absence",
+  "create_calendar_event", "update_calendar_event",
 ];
 
 const NON_WRITE_NAMES = [
@@ -68,7 +77,7 @@ const NON_WRITE_NAMES = [
   "list_stakeholders", "list_resources", "list_allocations",
   "list_knowledge_items", "list_calendar_events", "list_budget_buckets",
   "search_history", "search_chats", "get_resource", "update_settings",
-  "list_documents", "get_document",
+  "list_documents", "get_document", "list_absences",
 ];
 
 describe("the classification covers the live tool surface", () => {
@@ -98,6 +107,53 @@ describe("the classification covers the live tool surface", () => {
     const live = (TOOL_DEFS as ReadonlyArray<{ name: string }>).map((d) => d.name);
     const classified = [...DESTRUCTIVE_NAMES, ...NON_DESTRUCTIVE_WRITE_NAMES, ...NON_WRITE_NAMES];
     expect([...classified].sort()).toEqual([...live].sort());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A lone calendar-event write that would email attendees — the one write in
+// the app whose effect leaves the building and that undo cannot reverse.
+
+describe("shouldStage — invitations", () => {
+  // ★★★ A SINGLE EVENT WRITE IS NOT OTHERWISE STAGED. It is neither destructive
+  // nor a second write, so without this rule it applies unreviewed — and unlike
+  // every other write in the app its effect leaves the building: it mails the
+  // attendees, and the undo engine cannot recall a sent invitation.
+  test("stages a lone event write that would send invitations", () => {
+    expect(
+      shouldStage([call("create_calendar_event", { title: "X", sendInvitations: true })]),
+    ).toBe(true);
+  });
+
+  // ★★ THE OTHER HALF, and it is what stops a stage-everything mutant passing.
+  // A rule that staged every calendar write would satisfy the test above while
+  // making the review card routine — and a card the user clears reflexively
+  // stops being read, which is the reasoning `isDestructiveCall` already
+  // records for update_document.
+  test("does not stage the same write without invitations", () => {
+    expect(shouldStage([call("create_calendar_event", { title: "X" })])).toBe(false);
+    expect(
+      shouldStage([call("create_calendar_event", { title: "X", sendInvitations: false })]),
+    ).toBe(false);
+  });
+
+  test("also stages an UPDATE that would send invitations", () => {
+    expect(
+      shouldStage([call("update_calendar_event", { id: 1, sendInvitations: true })]),
+    ).toBe(true);
+  });
+
+  test("survives a malformed payload rather than throwing", () => {
+    expect(() =>
+      shouldStage([call("create_calendar_event", { sendInvitations: "yes" })]),
+    ).not.toThrow();
+    expect(shouldStage([call("create_calendar_event", { sendInvitations: "yes" })])).toBe(false);
+  });
+
+  // Name-only, not payload-driven: no other tool's `sendInvitations` field (if
+  // one existed) could trip this — the check is gated on the tool NAME first.
+  test("a non-calendar tool carrying the same field name never stages alone", () => {
+    expect(shouldStage([call("create_task", { sendInvitations: true })])).toBe(false);
   });
 });
 
@@ -214,6 +270,7 @@ describe("isCreateTool", () => {
   const CREATE_NAMES = [
     "create_task", "create_raid_item", "create_change", "create_milestone",
     "create_stakeholder", "create_resource", "create_document",
+    "create_absence", "create_calendar_event",
   ];
 
   test("matches exactly the live create tools", () => {
@@ -657,25 +714,39 @@ describe("CREATE_MINT_KIND", () => {
   // ★★★ THE VALUE HALF — the one `TARGET_MINTED_BY`'s test cannot do for its own
   //     table. Membership alone is blind to a create mapped to the WRONG kind,
   //     which mints from a different entity's sequence and hands the plan an id
-  //     that collides with a live row of another type. Six of the seven rows are
-  //     therefore checked against an INDEPENDENT source: `INLINE_DESCRIPTORS`
-  //     already states each entity's `createTool` beside its `entity`, and those
-  //     six `InlineEntity` spellings are exactly the six `MintKind` spellings the
-  //     live minters pass (grep for the mintId call sites under src/app).
+  //     that collides with a live row of another type. Every row but
+  //     `create_document` is therefore checked against an INDEPENDENT source:
+  //     `INLINE_DESCRIPTORS` already states each entity's `createTool` beside its
+  //     `entity`, and those `InlineEntity` spellings are exactly the `MintKind`
+  //     spellings the live minters pass (grep for the mintId call sites under
+  //     src/app).
+  //     ★★ NO ROW COUNT IS QUOTED. This said "six of the seven rows" and
+  //     "those six `InlineEntity` spellings"; both went stale when `absence` and
+  //     `calendarEvent` gained descriptors, and neither was load-bearing — the
+  //     loop covers whatever the map holds.
   test("maps each descriptor's create tool to that descriptor's OWN entity", () => {
     const descriptors = Object.values(INLINE_DESCRIPTORS) as EntityDescriptor[];
     // Anti-vacuity: an empty descriptor map would make the loop below assert
-    // nothing at all, and this test would still be green.
-    expect(descriptors).toHaveLength(6);
+    // nothing at all, and this test would still be green. A FLOOR rather than an
+    // exact count, matching the sibling test above — the number is not the
+    // claim, and pinning it makes every union widening chase this file.
+    expect(descriptors.length).toBeGreaterThan(5);
     for (const d of descriptors) {
       expect(CREATE_MINT_KIND[d.createTool]).toBe(d.entity);
     }
   });
 
-  // ★ THE UNGUARDED ROW, stated rather than hidden. `create_document` has no
-  //   `INLINE_DESCRIPTORS` entry, so nothing independent can confirm its kind —
-  //   this pins the literal, which catches a typo and not a wrong decision. The
-  //   live minter is `workspace-context.tsx`'s `mintDocId`.
+  // ★ THE ONLY UNGUARDED ROW LEFT, stated rather than hidden. `create_document`
+  //   has no `INLINE_DESCRIPTORS` entry, so nothing independent can confirm its
+  //   kind — this pins the literal, which catches a typo and not a wrong
+  //   decision. The live minter is `workspace-context.tsx`'s `mintDocId`.
+  //   ★★ TWO SIBLINGS WERE REMOVED HERE, not lost: `create_absence` and
+  //   `create_calendar_event` had their own literal-pinning tests under the same
+  //   "no `INLINE_DESCRIPTORS` entry either" reasoning, and that reasoning
+  //   stopped being true the moment both entities gained descriptors. The loop
+  //   above now makes exactly those two assertions against an INDEPENDENT
+  //   source, which is strictly stronger than the literals were — keeping them
+  //   would have left two tests whose stated justification was false.
   test("create_document mints from the document sequence", () => {
     expect(CREATE_MINT_KIND.create_document).toBe("document");
   });

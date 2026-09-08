@@ -43,13 +43,18 @@ import { stripComments } from "../../test/strip-comments";
 // ★★★ WHAT REMAINS OUTSIDE BOTH, because a false coverage claim reads as
 //  protection and stops the next audit. `update_task` is the ONLY update
 //  tool whose accepted surface is enumerable from source at all: it is built by
-//  `buildPatch`, a whitelist. The other five go through `patchWithoutId`, which
-//  has no whitelist — it forwards whatever the model emits minus `id`,
-//  `expectedToken` and the token-excluded fields (its docstring says so), so
-//  their accepted surface is bounded downstream by the sanitizers, not by any
-//  set of `input.<name>` reads a regex could find. Nothing here says anything
-//  about those five, and a seventh update tool reading its inputs in some other
-//  file would be invisible to both scans.
+//  `buildPatch`, a whitelist. Every OTHER update tool goes through
+//  `patchWithoutId`, which has no whitelist — it forwards whatever the model
+//  emits minus `id`, `expectedToken` and the token-excluded fields (its
+//  docstring says so), so their accepted surface is bounded downstream by the
+//  sanitizers, not by any set of `input.<name>` reads a regex could find.
+//  Nothing here says anything about them, and a NEW update tool reading its
+//  inputs in some other file would be invisible to both scans.
+//  ★★ NO COUNT IS QUOTED ANY MORE. This read "the other five" and "a seventh
+//  update tool"; both went stale the moment `update_absence` and
+//  `update_calendar_event` joined the union, and neither number was
+//  load-bearing. Derive it:
+//    grep -c "updateTool:" src/app/inline-ai-edit/entity-descriptor.ts
 
 /** Inputs a write tool accepts that the preview deliberately does NOT show.
  *
@@ -70,6 +75,8 @@ const DECLARED_EXCLUSIONS: Record<string, string> = {
   "update_milestone.id": "names the row being previewed, not a change to it",
   "update_stakeholder.id": "names the row being previewed, not a change to it",
   "update_resource.id": "names the row being previewed, not a change to it",
+  "update_absence.id": "names the row being previewed, not a change to it",
+  "update_calendar_event.id": "names the row being previewed, not a change to it",
 
   // `expectedToken` is the optimistic-concurrency token from the read that
   // produced this proposal (`expectedTokenField`, declared beside the
@@ -82,6 +89,16 @@ const DECLARED_EXCLUSIONS: Record<string, string> = {
   "update_milestone.expectedToken": "concurrency token, not user data — never persisted on the row",
   "update_stakeholder.expectedToken": "concurrency token, not user data — never persisted on the row",
   "update_resource.expectedToken": "concurrency token, not user data — never persisted on the row",
+  "update_absence.expectedToken": "concurrency token, not user data — never persisted on the row",
+  "update_calendar_event.expectedToken": "concurrency token, not user data — never persisted on the row",
+
+  // ★★★ THOSE FOUR ARE THE **ONLY** THING `absence` AND `calendarEvent` NEEDED
+  //  when they joined the union, and that is the measurement worth recording:
+  //  every OTHER input `update_absence` and `update_calendar_event` declare is
+  //  previewable, so their `diffFields` + `linkFields` are complete against the
+  //  tool schemas rather than merely plausible. Both entries are structural and
+  //  repeat the six above verbatim — an exclusion that had to invent a NEW
+  //  reason would have been a finding.
 
   // ★★ The one exclusion that is NOT structural, and the one to re-check if
   //  `resourceFields.name` ever changes meaning. It is a write ALIAS: a

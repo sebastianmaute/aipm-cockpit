@@ -47,6 +47,18 @@ const ENTITY_LABEL_KEY: Record<InlineEntity, TranslationKey> = {
   // today. Mint the dedicated key if the resources table ever gains the
   // inline editor.
   resource: "resource",
+  // ★★ THE SAME "no surface, exhaustive Record" CASE AS `resource`, and they
+  // resolve it OPPOSITE WAYS on purpose. `resource` could reuse a key whose EN
+  // value is exactly the entity's name; nothing in the dictionary named a
+  // single absence or a single meeting — `importSectionAbsences` and
+  // `calendarMeetings` are PLURALS, and this family's values are lowercase
+  // mid-sentence nouns ("task", "RAID item"), which "Resource" already is not.
+  // Reusing a plural to avoid two strings would put a wrong word on the one
+  // surface this map feeds, so both were minted in the family's own register.
+  // Verify the register before adding a member: `grep -n inlineAiEditEntity
+  // src/app/i18n.ts`.
+  absence: "inlineAiEditEntityAbsence",
+  calendarEvent: "inlineAiEditEntityMeeting",
 };
 
 export function useEntityInlineAiEdit(entity: InlineEntity, deps: EntityInlineAiEditDeps): EntityInlineAiEdit {

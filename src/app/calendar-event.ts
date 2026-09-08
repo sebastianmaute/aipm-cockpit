@@ -40,11 +40,30 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const TITLE_MAX = 200;
 const LOCATION_MAX = 200;
+const NOTES_MAX = 2000;
 const MAX_EXCEPTIONS = 500;
 const MAX_ATTENDEES = 100;
 const DEFAULT_TIME = "09:00";
 const DEFAULT_DURATION = 60;
+const DURATION_MIN = 5;
+const DURATION_MAX = 1440;
 
+/** ★★★ THE `Date.parse` LEG IS A FIELD-RANGE CHECK, NOT A CALENDAR CHECK, and
+ *  three comments across this slice called it the latter before it was
+ *  measured. On an ISO date-ONLY string the spec's Date Time String Format
+ *  requires MM in 01–12 and DD in 01–31, so `"2026-13-01"` and `"2026-01-32"`
+ *  are NaN — but a day that overflows its own MONTH is accepted and silently
+ *  rolled over: `"2026-02-30"` parses (to Mar 2) and `"2026-04-31"` parses (to
+ *  May 1). This function returns the INPUT `v`, never the parsed date, so such
+ *  a value is stored verbatim as written.
+ *  ★★ THAT MATTERS TO ANYONE WRITING A TEST HERE: a case built on `2026-02-30`
+ *   is VACUOUS, because both this rule and a bare regex accept it. One was
+ *   written that way in `calendar-recurrence-text.test.ts` and survived the
+ *   mutant meant to kill it. Reproduce:
+ *   `node -e "for (const d of ['2026-01-32','2026-02-30','2026-13-01']) console.log(d, Date.parse(d+'T00:00:00Z'))"`
+ *  ★ Closing the month-overflow hole would change what is STORED, and this
+ *   sanitizer runs on every LOAD — an existing row would start being dropped.
+ *   Stated, not fixed. */
 function isoDateOrUndefined(v: unknown): string | undefined {
   return typeof v === "string" && ISO_DATE.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))
     ? v : undefined;
@@ -121,7 +140,7 @@ function sanitizeExceptions(raw: unknown): EventException[] | undefined {
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function sanitizeAttendees(raw: unknown): number[] | undefined {
+export function sanitizeAttendees(raw: unknown): number[] | undefined {
   if (!Array.isArray(raw)) return undefined;
   const seen = new Set<number>();
   for (const v of raw) {
@@ -135,6 +154,97 @@ function sanitizeAttendees(raw: unknown): number[] | undefined {
   return seen.size ? [...seen] : undefined;
 }
 
+// --- per-field rules, shared with the AI review card -----------------------
+//
+// ★★★ THESE EXIST SO THE PREVIEW CANNOT RESTATE THEM. `INLINE_DESCRIPTORS`
+// (inline-ai-edit/entity-descriptor.ts) renders a staged `update_calendar_event`
+// by running each field through the APPLY path's own normalisation, and that
+// map's contract is "call the real function, never a copy of its cap or its
+// algorithm". The caps below are private to this module, so without a named
+// export per field the descriptor would have to re-spell 200 / 2000 / [5,1440]
+// / the HH:MM regex — four places to drift from one. `sanitizeCalendarEvent`
+// calls exactly these, so there is one spelling of each.
+
+export function sanitizeEventTitle(v: unknown): string {
+  return sanitizeText(v, TITLE_MAX);
+}
+
+export function sanitizeEventLocation(v: unknown): string {
+  return sanitizeText(v, LOCATION_MAX);
+}
+
+/** ★ `sanitizeMultiline`, so it clips WITHOUT trimming — unlike `title` and
+ *  `location` beside it, and unlike `Absence.note`, which is the same SHAPE at
+ *  a different cap (TEXTAREA_MAX). Read the field's own rule; the name does not
+ *  tell you which family it is in. */
+export function sanitizeEventNotes(v: unknown): string {
+  return sanitizeMultiline(v, NOTES_MAX);
+}
+
+/** The stored `startTime` for any input — a value failing the HH:MM test is
+ *  silently RESET to the 09:00 default rather than refused, so a preview that
+ *  showed the model's spelling would promise a time the write does not keep. */
+export function normalizeEventStartTime(v: unknown): string {
+  return typeof v === "string" && HHMM.test(v) ? v : DEFAULT_TIME;
+}
+
+/** The durations the write stores VERBATIM.
+ *
+ *  ★★ AN ACCEPTANCE PREDICATE, NOT A CLAMP, and that is what the review card
+ *   needs: `intInRange` silently substitutes the 60-minute default for anything
+ *   out of range, so a card that previewed the model's `3` would show a change
+ *   the write does not make. Composed from the REAL `intInRange` with a
+ *   fallback that can never equal its input (`NaN === v` is false for every
+ *   `v`), so the bounds have one spelling rather than two.
+ *
+ *  ★★★ IT MUST STAY A `function` DECLARATION — DO NOT TIDY IT INTO A `const`
+ *   ARROW. `sanitize-records.ts` imports it to build `CALENDAR_EVENT_FIELD_
+ *   GUARDS`, a module-level const, and this module imports the `./sanitize`
+ *   barrel that re-exports that file: a CYCLE. A function declaration is
+ *   hoisted, so its binding is initialised before either module body runs and
+ *   the read resolves whichever side is evaluated first. A `const` arrow is not
+ *   — it puts that read in the TDZ and throws at import time, in ONE evaluation
+ *   order only. That is intermittent, load-order dependent, and invisible to
+ *   both tsc and lint. The same applies to `isSendInvitationsFlag` if it is
+ *   ever imported the same way. */
+export function acceptsEventDuration(v: unknown): boolean {
+  return intInRange(v, DURATION_MIN, DURATION_MAX, Number.NaN) === v;
+}
+
+/** Whether `sanitizeCalendarEvent` would ACCEPT this value as `startDate`.
+ *
+ *  ★★★ IT EXISTS BECAUSE THE PREVIEW'S DEFAULT DATE RULE AND THIS MODULE'S
+ *   DISAGREE IN BOTH DIRECTIONS, and each direction is its own defect.
+ *   `sanitizeIsoDate` (sanitize-core.ts) is regex + a 1900–2100 year bound and
+ *   nothing else; `isoDateOrUndefined` here is regex + `Date.parse` and NO year
+ *   bound. So `"2026-01-32"` previewed as an accepted change and then made
+ *   `sanitizeCalendarEvent` return null — which `updateCalendarEvent` throws on,
+ *   costing the WHOLE patch — while `"1899-12-31"` previewed as REJECTED and
+ *   landed. `INLINE_DESCRIPTORS.calendarEvent.acceptsDate` points here so the
+ *   card asks the writer's own question (§405), rather than a second spelling
+ *   of a similar one.
+ *
+ *  ★★ THE FIX IS ON THE PREVIEW SIDE ON PURPOSE. Adding a year bound to
+ *   `isoDateOrUndefined` would close the same gap by CHANGING WHAT IS STORED —
+ *   and this sanitizer runs on every LOAD, so an existing out-of-range row
+ *   would start returning null and drop the meeting. Parity, not policy.
+ *
+ *  ★★★ A HOISTED `function` DECLARATION, for exactly the reason spelled out on
+ *   `acceptsEventDuration` above: an importer building a module-level const off
+ *   it across this module's `./sanitize` barrel cycle reads the binding before
+ *   either body runs. Do not tidy it into a `const` arrow. */
+export function acceptsEventDate(v: unknown): boolean {
+  return isoDateOrUndefined(v) !== undefined;
+}
+
+/** The stored shape of `sendInvitations`: PRESENT-ONLY-WHEN-TRUE, exactly like
+ *  `Resource.isExternal`. A row that does not invite carries no key at all, so
+ *  a preview comparing `undefined` against an incoming `false` would render a
+ *  spurious diff on the one field that mails people. */
+export function isSendInvitationsFlag(v: unknown): boolean {
+  return v === true;
+}
+
 export function sanitizeCalendarEvent(input: unknown): CalendarEvent | null {
   if (!input || typeof input !== "object") return null;
   const raw = input as Record<string, unknown>;
@@ -142,14 +252,13 @@ export function sanitizeCalendarEvent(input: unknown): CalendarEvent | null {
   const id = toNumber(raw.id);
   if (!Number.isFinite(id) || id <= 0) return null;
 
-  const title = sanitizeText(raw.title, TITLE_MAX);
+  const title = sanitizeEventTitle(raw.title);
   if (!title) return null;
 
   const startDate = isoDateOrUndefined(raw.startDate);
   if (!startDate) return null;
 
-  const startTime = typeof raw.startTime === "string" && HHMM.test(raw.startTime)
-    ? raw.startTime : DEFAULT_TIME;
+  const startTime = normalizeEventStartTime(raw.startTime);
 
   const recurrence = sanitizeRecurrence(raw.recurrence, startDate);
   return {
@@ -157,9 +266,9 @@ export function sanitizeCalendarEvent(input: unknown): CalendarEvent | null {
     title,
     startDate,
     startTime,
-    durationMinutes: intInRange(raw.durationMinutes, 5, 1440, DEFAULT_DURATION),
-    location: sanitizeText(raw.location, LOCATION_MAX) || undefined,
-    notes: sanitizeMultiline(raw.notes, 2000) || undefined,
+    durationMinutes: intInRange(raw.durationMinutes, DURATION_MIN, DURATION_MAX, DEFAULT_DURATION),
+    location: sanitizeEventLocation(raw.location) || undefined,
+    notes: sanitizeEventNotes(raw.notes) || undefined,
     recurrence,
     // A per-occurrence exception has no meaning without a rule to except
     // from — without a recurrence, `expandOccurrences` renders the single
@@ -172,7 +281,7 @@ export function sanitizeCalendarEvent(input: unknown): CalendarEvent | null {
     // editor's own submit path.
     exceptions: recurrence ? sanitizeExceptions(raw.exceptions) : undefined,
     attendeeResourceIds: sanitizeAttendees(raw.attendeeResourceIds),
-    sendInvitations: raw.sendInvitations === true ? true : undefined,
+    sendInvitations: isSendInvitationsFlag(raw.sendInvitations) ? true : undefined,
     localModifiedAt: sanitizeText(raw.localModifiedAt, 1024) || undefined,
     outlookEventId: sanitizeText(raw.outlookEventId, 1024) || undefined,
   };

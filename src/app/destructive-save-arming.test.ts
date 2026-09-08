@@ -59,6 +59,23 @@ import { evaluateSaveGuard } from "./save-guard";
  *      guard, task-manager.tsx onClearUnlinked       when nothing matched"
  *   M10 drop the `|| removesShift` disjunct ONLY,→ "onClearUnlinked does NOT arm      [mutated]
  *       task-manager.tsx onClearUnlinked             when nothing matched"
+ *   M11 arming removed, use-register-tools       → "deleteAbsence arms only when      [mutated]
+ *       deleteAbsence                                 an absence was removed"
+ *   M12 arming removed, use-register-tools       → "deleteCalendarEvent arms only     [mutated]
+ *       deleteCalendarEvent                           when a meeting was removed"
+ *   M13 hoist the arming above the !doomed       → the same absence assertion's       [mutated]
+ *       guard, use-register-tools deleteAbsence        NEGATIVE half
+ *   M14 hoist the arming above the !doomed       → the same meeting assertion's       [mutated]
+ *       guard, deleteCalendarEvent                     NEGATIVE half
+ * ★★ M11/M12 and M13/M14 are SEPARATE mutants on the same two `it` blocks
+ * because each block carries two independent assertions and a single mutant
+ * only reaches one of them: removing the arming outright kills the POSITIVE
+ * ("arms once for a row that exists") and leaves the negative green, while
+ * hoisting it above the guard kills the NEGATIVE ("a miss does not arm") and
+ * leaves the positive green. Both were confirmed by the failure TEXT, not just
+ * by the count — the hoists fail with "expected to not be called at all". This
+ * mirrors M1/M2 for `deleteTask`; dropping either half of a pair would leave
+ * one of the two assertions unproved while the row still read as covered.
  * [mutated] = a mutant applied to the committed tree and reverted here.
  * [red step] = the assertion was observed failing against a tree that genuinely
  * lacked the arming, which is the same observable as deleting it.
@@ -88,6 +105,8 @@ const ARMED_AI_ROUTES: Record<string, string> = {
   delete_milestone: "use-chat-dispatcher.test.tsx",
   delete_stakeholder: "use-chat-dispatcher.test.tsx",
   delete_document: "use-chat-dispatcher.test.tsx",
+  delete_absence: "use-chat-dispatcher.test.tsx",
+  delete_calendar_event: "use-chat-dispatcher.test.tsx",
 };
 
 function removalToolNames(): string[] {

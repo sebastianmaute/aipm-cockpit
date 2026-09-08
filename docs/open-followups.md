@@ -658,6 +658,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§431](#431-one-malformed-api-date-reached-the-budget-aggregates-as-a-phantom-period-key--closed-2026-09-07) | One malformed API date reached the budget aggregates as a phantom period key | found 2026-09-07 in cold review of the guardrail-bounds branch; the first-party path §367 said had not been probed | S-M — one row rule at ONE consumer; the roll deliberately keeps its unparseable key | **CLOSED** 2026-09-07 |
 | [§432](#432-two-surfaces-tell-the-user-to-re-fetch-hours-that-a-re-fetch-cannot-repair--closed-2026-09-07) | Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S-M — an `undated` subset of `unattributed`, plus one string each | **CLOSED** 2026-09-07 |
 | [§433](#433-a-phantom-period-key-made-an-empty-allocation-read-as-populated--closed-2026-09-07) | A phantom period key made an empty allocation read as populated | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S — one read-side predicate; stored data deliberately untouched | **CLOSED** 2026-09-07 |
+| [§434](#434-adding-an-inlineentity-member-has-four-ripple-sites-one-a-hard-build-break-and-nothing-enumerates-them--closed-2026-09-08) | Adding an `InlineEntity` member has four ripple sites and nothing enumerates them | found 2026-09-07 reviewing the AI-calendar-writes plan for inline-edit write parity | S-M — one is a tsc break, three were silent, all four now pinned | closed 2026-09-08 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -31949,3 +31950,75 @@ is reachable — but a probe on the wrong backend will find nothing and conclude
 gone, the constraint from this entry stands: count what you remove and show it — a load path that
 silently deletes stored numbers is the shape §148 and the six-write-paths rule exist to prevent.
 
+## 434. Adding an `InlineEntity` member has four ripple sites, one a hard build break, and nothing enumerates them — CLOSED 2026-09-08
+
+**Status:** CLOSED 2026-09-08 — all four sites are now either self-announcing or pinned by an enumerating assertion. Verified by command, not by inspection: site A is a `Record<InlineEntity, …>` and reds under `npx tsc --noEmit`; site B no longer carries a count (`grep -n "only five with a surface" src/app/help-content.ts` returns nothing, replaced by a derivation recipe); site C is pinned by `npx vitest run src/app/inline-ai-edit/descriptor-drift.test.ts -t "names it as an exception"` (mutation-proved 2026-09-08: deleting the `calendarEvent` row gives 1 failed / 55 passed, killed BY NAME — the sum is 56 rather than 64 because that row also carries nine per-field cases); site D by `npx vitest run src/app/inline-ai-edit/plan.test.ts -t "describable"`.
+★ **THE HEADING SAID "three" UNTIL 2026-09-07**, when a cold review found a fourth site and this entry's own count rotted — the exact failure its sub-finding below records about `descriptor-drift.test.ts`, one level up. The title and its index row were both retitled; `git log -S` on the old wording finds the change. Read that as the argument for the remedy at the foot of this entry, not merely as bookkeeping.
+★ **Filed as §430 and renumbered to §434 on 2026-09-07.** A peer branch minted §430 for an unrelated cache-shedding defect and reached `origin/main` first, so that number is theirs under the reservation rule (a §number is reserved only once it is ON `origin/main`). The commit that filed this entry, `73971d52`, still says §430 in its subject and cannot be amended in a shared worktree — if you arrived from it, this is the entry it meant.
+ The three sites were located by grep on this branch, not inferred. Reproduce with `grep -rn "Record<InlineEntity" src/app` (two hits: the descriptor record itself and `ENTITY_LABEL_KEY`), `grep -n "only five with a surface" src/app/help-content.ts` (one hit, a count in prose), and `grep -n "^const CASES" -A 7 src/app/inline-ai-edit/descriptor-drift.test.ts` (five hardcoded rows, no enumeration over the descriptor record).
+
+`InlineEntity` (`inline-ai-edit/entity-descriptor.ts`) is a six-member union today. Adding a member
+— which is what any slice giving the model write tools for a new entity has to do, so the review
+card can describe a staged row — touches four places besides `INLINE_DESCRIPTORS`. ★★ **AS FILED,
+ONLY ONE OF THE FOUR ANNOUNCED ITSELF. All four now do** — read the table below as the record of
+what was wrong, and the CLOSED banner in the Status line for what each is held by today.
+
+| site | what breaks | how it is found |
+|---|---|---|
+| `use-entity-inline-ai-edit.tsx` `ENTITY_LABEL_KEY: Record<InlineEntity, TranslationKey>` | exhaustive record — a missing member is a **tsc error**, and satisfying it needs a `TranslationKey` decision (mint EN+DE, or reuse) | `npx tsc --noEmit`, loudly |
+| `help-content.ts` — "Six `InlineEntity` members, only five with a surface" | a COUNT in a comment, restated as the reason `relatedViews` lists five | nothing. No gate reads a count, and `docs:symbols:check` does not scan `src/` at all |
+| `descriptor-drift.test.ts` `CASES` | a hardcoded five-row array, NOT an enumeration over `INLINE_DESCRIPTORS` — a new entity is silently outside "descriptor diffFields are dispatcher-writable" | nothing. The suite stays green and one entity fewer is covered |
+| `inline-ai-edit/plan.ts` `CREATE_TOOLS` / `DELETE_TOOLS` | hand-maintained tables, NOT derived — while `TOOL_ENTITY`/`toolOp` (`chat-proposal-describe.ts`) ARE. So a descriptor entry alone ROUTES a `create_*`/`delete_*` into `describeEntityCalls`, where a name missing from both tables matches nothing and returns `emptyPlan()` | nothing, until it was found by cold review. **This is the one that degrades the review card**, and the heading's "three" is now four |
+
+★★★ **THE FOURTH SITE IS THE WORST OF THEM, and it was live for the calendar slice.** An empty plan
+is not an empty ROW: `describeProposal` pushes one row per call unconditionally (its docstring says a
+call it cannot diff still gets a row), `proposalCardRows` maps 1:1 and filters nothing, and
+`isEmptyPlan` is never consulted on the chat path — in `chat-proposal-block.tsx` it only suppresses
+`PlanDetail`'s `<ul>`. So all four calendar create/delete tools rendered a row **ticked by default**,
+carrying a title and a tool name and no detail list, behind an `Apply` gated only on `busy ||
+selectedCount === 0`: the user was invited to approve a write whose contents were not shown. Fixed on
+`feat/preview-write-path-parity-sweep` by adding the four rows, and pinned by an enumerating sweep in
+`plan.test.ts` ("every descriptor's create/delete tool is describable") that derives its cases from
+`INLINE_DESCRIPTORS` and asserts in both directions, so a SEVENTH member fails there without anyone
+remembering to. ★ **The other three were closed on 2026-09-08**: B by deleting the count in favour of
+a derivation, C by an assertion comparing `CASES` against `Object.keys(INLINE_DESCRIPTORS)` in both
+directions with `task` named as an explicit exception (it has no single `sanitizeTask`), and A by
+being a hard tsc error all along.
+
+★★★ **THE TWO SILENT ONES ARE THE POINT, AND THEY FAIL IN OPPOSITE DIRECTIONS.** The
+`help-content.ts` count becomes a false claim that reads as verified. `descriptor-drift.test.ts`
+becomes a test whose NAME still promises the property it no longer covers for the new member — a
+false coverage claim, which is worse than no claim because it stops the audit, in a file that looks
+like the enumerating
+sweep beside it and is not. `plan.sanitizer-parity.test.ts` DOES enumerate over `INLINE_DESCRIPTORS`,
+so a reader who checks that one and stops concludes the whole directory self-extends. It does not.
+
+**The instance, as filed.** `docs/superpowers/plans/2026-09-07-ai-calendar-writes.md` Task 8 adds
+`absence` and `calendarEvent` descriptor entries and named none of the three sites then known — verified by
+`grep -n "ENTITY_LABEL_KEY\|help-content\|descriptor-drift" docs/superpowers/plans/2026-09-07-ai-calendar-writes.md`,
+which returns nothing. An implementer therefore meets the tsc break mid-task with no instruction and
+improvises two i18n keys, and ships past the other two without ever seeing them. Fold the three into
+that plan before executing it — Task 3 already touches `field-labels.ts` and i18n, so the label keys
+belong there rather than in Task 8.
+
+★ **A SUB-FINDING, ALREADY TRUE TODAY AND INDEPENDENT OF ANY NEW MEMBER:** that file's own header
+comment says "CASES covers the four sanitizer-backed entities only" while `CASES` holds **five**
+(raid · change · milestone · stakeholder · resource). The count rotted when `resource` was added and
+nothing noticed, which is the same failure this entry is about, one member earlier. `task` is the
+genuinely absent one — it has no single `sanitizeTask` the row could call.
+
+★★ **WHAT IS NOT A DEFECT HERE, recorded so nobody files it as one.** A descriptor entry with no
+inline-edit SURFACE is deliberate and has a precedent: `resource` has a descriptor so a chat plan can
+be described, and no `useEntityInlineAiEdit("resource")` call site — its own comment says the
+`ENTITY_LABEL_KEY` row "exists because `Record<InlineEntity, …>` is exhaustive, not because it
+renders anywhere today". The calendar slice deliberately takes the same shape: the two entities are
+readable on the review card and get no popover on the Resources → Calendar sub-tab. Mounting the
+editor there is a scope decision, not an omission — and that sub-tab is outside `A11Y_VIEWS`, so it
+would arrive unscanned.
+
+**Remedy, if taken as a class rather than per-slice:** derive `CASES` from `INLINE_DESCRIPTORS` with
+a both-directions allowlist for the members that legitimately have no single sanitizer. ★★ That
+allowlist must assert in BOTH directions: a discovery sweep is only better than the hardcoded list it
+replaces while it cannot pass over an EMPTY set, and a one-directional allowlist is exactly how it
+learns to. Then delete the count from `help-content.ts` in favour of a reproduce grep. That leaves
+`ENTITY_LABEL_KEY` as the one ripple site, which is the one that already fails loudly. S-M.

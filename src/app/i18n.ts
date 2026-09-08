@@ -767,7 +767,8 @@ const enUS = {
   chatAttachmentSummary: "{0} — {1} attachments",
   chatAttachmentSummarySkippedOne: "{0} — 1 attachment, {2} skipped",
   chatAttachmentSummarySkipped: "{0} — {1} attachments, {2} skipped",
-  chatAttachmentHint: "Attach PDF, image (PNG/JPG/GIF/WebP), or text (TXT/MD/CSV) files — up to 20 MB each.",
+  chatAttachmentHint:
+    "Attach PDF, image (PNG/JPG/GIF/WebP), text (TXT/MD/CSV/VTT), web page (HTML), Office (DOCX/XLSX/PPTX) or mail (EML/MSG/MHTML) files — up to 20 MB each, 64 MB for mail.",
   chatToolCall: "Used {0}",
   chatToolError: "Tool error",
   dictationHold: "Hold to dictate",
@@ -1821,6 +1822,8 @@ const enUS = {
   calendarEventStartTime: "Start time",
   calendarEventDuration: "Duration (minutes)",
   calendarEventLocation: "Location",
+  calendarEventAttendees: "Attendees",
+  calendarEventSendInvitations: "Send invitations",
   calendarEventRepeat: "Repeat",
   calendarEventExceptionsDiscarded: "Turning repeat off discards {0} adjusted occurrence(s); undo restores them.",
   calendarEventRepeatNever: "Never",
@@ -2298,6 +2301,8 @@ const enUS = {
   inlineAiEditEntityChange: "change request",
   inlineAiEditEntityMilestone: "milestone",
   inlineAiEditEntityStakeholder: "stakeholder",
+  inlineAiEditEntityAbsence: "absence",
+  inlineAiEditEntityMeeting: "meeting",
   activityAiInlineEdit: "AI inline edit",
   taskDedup: "Deduplicate & unify",
   taskDedupTitle: "Deduplicate & unify tasks",
@@ -4325,6 +4330,8 @@ const enUS = {
 
   versionHighlightDocumentImages: "Documents can now hold images. Drop one onto the document, paste it from the clipboard, or pick a file: it is checked, downscaled if it is larger than it needs to be, and stored in your Turso project, while the document itself keeps only a reference — so a workspace file never carries image bytes. An image library lists every image in the project with its name, its size and how many documents use it, lets you rename or delete one, and clearly marks any whose stored bytes are missing. Word and PowerPoint exports name an omitted image in a visible placeholder rather than dropping it silently. Images need a Turso project; without one the rest of the document editor is unchanged.",
   versionHighlightDocumentImageExport: "A document that contains images now exports with those images in it. Word and PowerPoint files carry the picture itself instead of a placeholder line, and an HTML or PDF export embeds it directly in the file, so the document travels as a single attachment with nothing to fetch. An image the app cannot draw — one whose stored bytes are missing, or whose size was never recorded — is still named in a visible placeholder rather than dropped silently. Word and PowerPoint carry every image a document holds; HTML and PDF, which must inline the bytes as text, fall back to that placeholder past about 25 MB in total so the file stays openable.",
+  versionHighlightAiCalendarWrites:
+    "The AI assistant can now read and write resource absences and calendar meetings, not just read them. Ask it to book a holiday, move a meeting or clear a stale one and it proposes the change the same way it proposes a task edit. Every staged write is described field by field on the review card before it lands, so what you approve is what gets stored — including the recurrence rule, rendered as a sentence rather than raw data. A write that would email the attendees always goes through that card, however small the change, because an invitation cannot be taken back once sent.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",
@@ -4503,6 +4510,8 @@ const enUS = {
   chatProposalShowMore: "Show all",
   chatProposalRowToggle: "Include",
   chatProposalCascaded: "Needs a change you rejected",
+  chatProposalSelectAll: "Select all",
+  chatProposalApplied: "{0} applied",
   chatProposalFailed: "Not applied — changed since you reviewed",
   chatProposalFailedDependency: "Not applied — a row it depends on was not created",
   chatProposalFailedUnreadable: "Not applied — its target could not be read back",

@@ -5,12 +5,20 @@ import {
   buildAttachmentBlock,
   checkAttachmentSize,
   MAX_ATTACHMENT_BYTES,
+  MAX_MAIL_BYTES,
   ATTACHMENT_ACCEPT,
+  PDF_EXTENSIONS,
+  IMAGE_EXTENSIONS,
+  TEXT_EXTENSIONS,
+  HTML_EXTENSIONS,
+  OFFICE_EXTENSIONS,
+  MAIL_EXTENSIONS,
   type AttachmentKind,
   type AttachmentBlock,
   type ImageBlock,
   type DocumentBlock,
 } from "./chat-attachments";
+import { loadI18n, t } from "./i18n";
 
 // ---------------------------------------------------------------------------
 // classifyAttachment — mime-type path
@@ -430,5 +438,80 @@ describe("mail classification", () => {
     expect(classifyAttachment("application/vnd.ms-outlook", "a.msg")).toBe("mail");
     expect(classifyAttachment("application/octet-stream", "a.msg")).toBe("mail");
     expect(ATTACHMENT_ACCEPT.split(",")).toContain(".msg");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The picker's hint against the picker's own accept list
+// ---------------------------------------------------------------------------
+
+/** ★★★ THE HINT IS THE ONLY PLACE A USER LEARNS WHAT THEY MAY ATTACH, and
+ *  nothing tied it to `ATTACHMENT_ACCEPT` — so it under-disclosed by THREE
+ *  whole families and one cap while every test in this file stayed green. It
+ *  read "PDF, image (PNG/JPG/GIF/WebP), or text (TXT/MD/CSV) files — up to 20 MB
+ *  each" long after HTML, Office and mail were accepted, and after mail gained
+ *  the wider `MAX_MAIL_BYTES` envelope. A user with a `.msg` was told to convert
+ *  it; the picker would have taken it.
+ *
+ *  ★★ The families are read from the SAME sets `classifyAttachment` and
+ *  `ATTACHMENT_ACCEPT` consult, so a NEW family is covered the moment it is
+ *  declared — not when somebody remembers to extend a list here. */
+const HINT_FAMILIES: ReadonlyArray<{ family: string; exts: ReadonlySet<string> }> = [
+  { family: "pdf", exts: PDF_EXTENSIONS },
+  { family: "image", exts: IMAGE_EXTENSIONS },
+  { family: "text", exts: TEXT_EXTENSIONS },
+  { family: "html", exts: HTML_EXTENSIONS },
+  { family: "office", exts: OFFICE_EXTENSIONS },
+  { family: "mail", exts: MAIL_EXTENSIONS },
+];
+
+/** Families the hint never names. Returns the NAMES rather than a boolean so a
+ *  red run says which family went undisclosed, which is the whole finding. */
+function familiesMissingFrom(hint: string): string[] {
+  const upper = hint.toUpperCase();
+  return HINT_FAMILIES.filter(
+    (f) => ![...f.exts].some((ext) => upper.includes(ext.slice(1).toUpperCase())),
+  ).map((f) => f.family);
+}
+
+describe("the attachment hint discloses what the picker accepts", () => {
+  // ★★★ THE NEGATIVE CONTROL, AND IT RUNS FIRST ON PURPOSE. A predicate that
+  //  cannot fail passes every hint, including an empty one — and this exact
+  //  shape (an absence assertion with no positive observable) is why the defect
+  //  below shipped. The historical string is the fixture: it must report
+  //  html + office + mail, and reporting fewer means the predicate is broken,
+  //  not that the string was fine.
+  it("names every family a hint omits", () => {
+    const shipped =
+      "Attach PDF, image (PNG/JPG/GIF/WebP), or text (TXT/MD/CSV) files — up to 20 MB each.";
+    expect(familiesMissingFrom(shipped)).toEqual(["html", "office", "mail"]);
+    expect(familiesMissingFrom("")).toEqual(HINT_FAMILIES.map((f) => f.family));
+  });
+
+  it("names every accepted family in English", () => {
+    expect(familiesMissingFrom(t("en-US", "chatAttachmentHint"))).toEqual([]);
+  });
+
+  // ★ The DE dictionary is lazy — a DE assertion without `loadI18n("de")` reads
+  //  the EN fallback and passes for the wrong reason.
+  it("names every accepted family in German", async () => {
+    await loadI18n("de");
+    expect(familiesMissingFrom(t("de", "chatAttachmentHint"))).toEqual([]);
+  });
+
+  // ★★ Mail rides `MAX_MAIL_BYTES`, not `MAX_ATTACHMENT_BYTES` — a hint quoting
+  //  only the flat-file cap tells a user their 40 MB mailbox export is too
+  //  large when `checkAttachmentSize` would admit it. Both numbers are derived,
+  //  so raising either cap without re-wording the hint is a red run.
+  it("quotes both size caps, in both languages", async () => {
+    await loadI18n("de");
+    const flat = `${MAX_ATTACHMENT_BYTES / 1024 / 1024} MB`;
+    const mail = `${MAX_MAIL_BYTES / 1024 / 1024} MB`;
+    expect(flat).not.toBe(mail); // anti-vacuity: two distinct caps, or this proves nothing
+    for (const lang of ["en-US", "de"] as const) {
+      const hint = t(lang, "chatAttachmentHint");
+      expect(hint).toContain(flat);
+      expect(hint).toContain(mail);
+    }
   });
 });

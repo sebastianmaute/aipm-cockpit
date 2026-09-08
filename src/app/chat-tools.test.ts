@@ -10,6 +10,7 @@ import {
   toStakeholderSummary,
   toResourceSummary,
   toKnowledgeSummary,
+  toAbsenceSummary,
   toCalendarEventSummary,
   toBudgetBucketSummary,
   type ToolDispatcher,
@@ -24,7 +25,9 @@ import {
   type Stakeholder,
   type TaskDependency,
   type NoteLogEntry,
+  type Absence,
 } from "./types";
+import type { CalendarEvent } from "./calendar-event";
 import { entityToken, type TokenEntity } from "./ai-entity-token";
 import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
 import type { ActivitySummary } from "./history-search";
@@ -133,6 +136,49 @@ function makeResource(over: Partial<Resource> = {}): Resource {
   } as Resource;
 }
 
+// ★★★ `resourceId` AND `sendInvitations` ARE LOAD-BEARING FIXTURE FIELDS, NOT
+//   decoration. Each is dropped by its entity's `*Summary` mapper and is absent
+//   from that entity's `TOKEN_EXCLUDED` row, so a summary-derived token and a
+//   full-row token genuinely differ — which is the only thing that lets the
+//   ROUND_TRIP rows below tell "the getter returns the FULL row" from "the
+//   getter returns something, and a string came back". Without them both rows
+//   pass against a `getXRow` wired to the summary.
+//   ★★ For `calendarEvent`, `sendInvitations` is the ONLY field with that
+//   property: `CalendarEventSummary` covers every other declared field of
+//   `CalendarEvent` bar `localModifiedAt`/`outlookEventId`, and both of those
+//   ARE token-excluded. So adding `sendInvitations` to `toCalendarEventSummary`
+//   would make that entity's summary token-EQUIVALENT to its full row and would
+//   silently disarm this separation — pair any such change with a different
+//   discriminator rather than deleting the assertion.
+function makeAbsence(over: Partial<Absence> = {}): Absence {
+  return {
+    id: 50,
+    assignee: "Ada Lovelace",
+    startDate: "2026-07-06",
+    endDate: "2026-07-10",
+    type: "vacation",
+    note: "Booked in January",
+    // Summary-omitted, token-covered — see the note above.
+    resourceId: 7,
+    ...over,
+  } as Absence;
+}
+
+function makeCalendarEvent(over: Partial<CalendarEvent> = {}): CalendarEvent {
+  return {
+    id: 60,
+    title: "Steering committee",
+    startDate: "2026-07-08",
+    startTime: "09:00",
+    durationMinutes: 60,
+    location: "Room 4",
+    attendeeResourceIds: [7],
+    // Summary-omitted, token-covered — see the note above.
+    sendInvitations: true,
+    ...over,
+  } as CalendarEvent;
+}
+
 function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
   return {
     listTasks: vi.fn(() => [makeTask()]),
@@ -197,6 +243,33 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       id === 40 ? { id: 40, name: "S", category: "Other", influence: "Medium", interest: "Medium" } : null,
     ),
     deleteStakeholder: vi.fn((id: number) => id === 40),
+    // Absences and meetings: the four the ROUND_TRIP rows below drive are real
+    // stubs; the rest keep the "throw a named error" convention the unstubbed
+    // readers below use, so a future test that reuses this fixture and forgets
+    // to override one fails legibly instead of returning a silent stand-in.
+    // ★★ THE TWO `getXRow` STUBS RETURN THE FULL ROW, NEVER THE SUMMARY — that
+    //   is the thing the token assertions actually pin (see `makeAbsence`).
+    getAbsenceRow: vi.fn((id: number) => (id === 50 ? makeAbsence() : null)),
+    listAbsences: vi.fn(() => [toAbsenceSummary(makeAbsence())]),
+    createAbsence: vi.fn(() => {
+      throw new Error("createAbsence not stubbed");
+    }),
+    updateAbsence: vi.fn((id: number) =>
+      id === 50 ? toAbsenceSummary(makeAbsence({ note: "Renamed by the AI" })) : null,
+    ),
+    deleteAbsence: vi.fn(() => {
+      throw new Error("deleteAbsence not stubbed");
+    }),
+    getCalendarEventRow: vi.fn((id: number) => (id === 60 ? makeCalendarEvent() : null)),
+    createCalendarEvent: vi.fn(() => {
+      throw new Error("createCalendarEvent not stubbed");
+    }),
+    updateCalendarEvent: vi.fn((id: number) =>
+      id === 60 ? toCalendarEventSummary(makeCalendarEvent({ title: "Renamed by the AI" })) : null,
+    ),
+    deleteCalendarEvent: vi.fn(() => {
+      throw new Error("deleteCalendarEvent not stubbed");
+    }),
     updateSettings: vi.fn((patch) => ({ ...(patch as Record<string, unknown>) })),
     listResources: vi.fn(() => [
       { id: 7, firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" },
@@ -261,14 +334,14 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       throw new Error("listAllocations not stubbed");
     }),
     // Same "throw a named error" convention — none of the tests using this
-    // fixture exercise these three; a future test that reuses it and forgets
+    // fixture exercise these two; a future test that reuses it and forgets
     // to override one fails legibly instead of returning a silent [].
     listKnowledgeItems: vi.fn(() => {
       throw new Error("listKnowledgeItems not stubbed");
     }),
-    listCalendarEvents: vi.fn(() => {
-      throw new Error("listCalendarEvents not stubbed");
-    }),
+    // Driven by the meeting ROUND_TRIP row below — a real stub, like its
+    // `listAbsences` sibling above.
+    listCalendarEvents: vi.fn(() => [toCalendarEventSummary(makeCalendarEvent())]),
     listBudgetBuckets: vi.fn(() => {
       throw new Error("listBudgetBuckets not stubbed");
     }),
@@ -591,6 +664,10 @@ const FRESH_CHANGE_TOKEN = entityToken("change", makeChangeItem());
 const FRESH_MILESTONE_TOKEN = entityToken("milestone", makeMilestone());
 const FRESH_STAKEHOLDER_TOKEN = entityToken("stakeholder", makeStakeholder());
 const FRESH_RESOURCE_TOKEN = entityToken("resource", makeResource());
+// And the two calendar entities (absence 50, meeting 60), whose only read path
+// is their `list_*` tool — there is no `get_absence`/`get_calendar_event`.
+const FRESH_ABSENCE_TOKEN = entityToken("absence", makeAbsence());
+const FRESH_EVENT_TOKEN = entityToken("calendarEvent", makeCalendarEvent());
 
 describe("runTool — update_task / buildPatch", () => {
   it("builds a partial patch from only the provided fields", async () => {
@@ -1710,10 +1787,19 @@ describe("runTool — knowledge/calendar/budget read tools", () => {
     await expect(runTool(d, "list_knowledge_items", {})).resolves.toBe(items);
   });
 
+  // ★★ NOT `toBe(events)` LIKE ITS TWO NEIGHBOURS, and the difference is the
+  //   `withRowTokens` wrap rather than a style choice: this list is the ONLY
+  //   place a model can obtain a meeting's `expectedToken`, so the case maps its
+  //   rows and cannot return the dispatcher's own array by reference. Deep
+  //   equality still pins the routing; the wrap itself is pinned by the
+  //   `calendarEvent` ROUND_TRIP row, which is what would catch its removal.
   it("routes list_calendar_events to the dispatcher", async () => {
-    const events: unknown[] = [];
-    const d = { listCalendarEvents: () => events } as unknown as ToolDispatcher;
-    await expect(runTool(d, "list_calendar_events", {})).resolves.toBe(events);
+    const events = [{ id: 60, title: "Steering committee" }];
+    const d = {
+      listCalendarEvents: () => events,
+      getCalendarEventRow: () => null,
+    } as unknown as ToolDispatcher;
+    await expect(runTool(d, "list_calendar_events", {})).resolves.toEqual(events);
   });
 
   it("routes list_budget_buckets to the dispatcher", async () => {
@@ -2081,6 +2167,22 @@ const ROUND_TRIP: Array<{
       id: 7, token: FRESH_RESOURCE_TOKEN, patch: { title: "Renamed by the AI" }, pick: one },
     { entity: "resource", readTool: "list_resources", updateTool: "update_resource", method: "updateResource" as const,
       id: 7, token: FRESH_RESOURCE_TOKEN, patch: { title: "Renamed by the AI" }, pick: first },
+    // ★★★ THESE TWO ARE THE REGRESSION FOR THE DEAD UNSTAGED WRITE PATH, and
+    //   nothing else in the suite can be. `plan.write-path.test.ts` computes
+    //   `expectedToken: entityToken(kind, before)` ITSELF and injects it, so it
+    //   proves the WRITER accepts a correct token and never that the model can
+    //   OBTAIN one; the two `CALENDAR_SUMMARY_KEYS` contract tests sit BELOW the
+    //   `withRowTokens` wrap (one probes the mapper, one the dispatcher method)
+    //   and neither goes through `runTool`. With the wrap removed from
+    //   `list_absences`/`list_calendar_events` these rows go red on the
+    //   `toBe(token)` line — `undefined` against a string — and every other test
+    //   in the repo stays green, which is exactly the state that shipped: a lone
+    //   `update_absence` is one write, `shouldStage` returns false, and
+    //   `requireToken` then throws on a token no read path ever emitted.
+    { entity: "absence", readTool: "list_absences", updateTool: "update_absence", method: "updateAbsence" as const,
+      id: 50, token: FRESH_ABSENCE_TOKEN, patch: { note: "Renamed by the AI" }, pick: first },
+    { entity: "calendarEvent", readTool: "list_calendar_events", updateTool: "update_calendar_event", method: "updateCalendarEvent" as const,
+      id: 60, token: FRESH_EVENT_TOKEN, patch: { title: "Renamed by the AI" }, pick: first },
   ];
 })();
 
@@ -2135,6 +2237,23 @@ describe("the read path hands out a token the write path accepts", () => {
       taskName: "Renamed by the AI",
     });
     expect(d.updateTask).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★★ THE SAME ANTI-VACUITY THE `list_tasks` CASE ABOVE BUYS, for the two
+  //   entities whose ONLY read path is a list tool. Their ROUND_TRIP rows assert
+  //   the token EQUALS the full row's, which is only a stronger claim than "a
+  //   token is present" while the summary's token DIFFERS — so assert that
+  //   separation directly rather than assuming it. `resourceId` (absence) and
+  //   `sendInvitations` (meeting) are what supply it; see `makeAbsence`.
+  it.each([
+    { entity: "absence" as const, full: makeAbsence(), summary: toAbsenceSummary(makeAbsence()) },
+    {
+      entity: "calendarEvent" as const,
+      full: makeCalendarEvent(),
+      summary: toCalendarEventSummary(makeCalendarEvent()),
+    },
+  ])("$entity: the summary's token differs from the full row's", ({ entity, full, summary }) => {
+    expect(entityToken(entity, summary)).not.toBe(entityToken(entity, full));
   });
 
   // Anti-vacuity for the block above. Every case there passes a token that the

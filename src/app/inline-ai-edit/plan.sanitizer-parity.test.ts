@@ -4,16 +4,20 @@ import { describe, it, expect } from "vitest";
 import { describeEntityCalls, previewNormalizerFor, RICH_FIELDS, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
 import {
+  dropUnacceptedAbsenceFields,
+  dropUnacceptedCalendarEventFields,
   dropUnacceptedChangeFields,
   dropUnacceptedMilestoneFields,
   dropUnacceptedRaidFields,
   dropUnacceptedStakeholderFields,
+  sanitizeAbsence,
   sanitizeChangeItem,
   sanitizeMilestone,
   sanitizeRaidItem,
   sanitizeResource,
   sanitizeStakeholder,
 } from "../sanitize";
+import { sanitizeCalendarEvent } from "../calendar-event";
 import { buildTaskCleanPatch } from "../chat-task-patch";
 import { applyModelChangeStatus } from "../change-log";
 import { applyStatusChange, isTaskStatus } from "../task-status";
@@ -213,6 +217,37 @@ const RES_BASE = {
   department: "Delivery", company: "AIPM", location: "Berlin", businessPhone: "+49 30 1",
   notes: "n",
 };
+// ★★ A WIDE date pair, for the reason `descriptor-drift.test.ts` gives: the
+// absence sanitizer SWAPS `startDate`/`endDate` rather than rejecting a
+// reversed pair, so a narrow base would make a probe on one date silently write
+// the other and report a mismatch that is the fixture's fault.
+const ABS_BASE = {
+  id: 1, assignee: "Ada", assigneeEmail: "a@b.co",
+  startDate: "2026-01-01", endDate: "2026-12-31", type: "vacation", note: "n",
+};
+// ★★★ `sendInvitations: true` IS LOAD-BEARING, not decoration, and it is the
+// fixture blind spot (4) at the top of this file warns about — seen from the
+// side where populating it is CORRECT. Left absent, the flag is `undefined` on
+// both sides of every probe: the merge-site guard drops a non-boolean, the
+// sanitizer maps `false` to `undefined`, and the preview renders "false"
+// throughout, so the field agrees with itself for all ten probes and this sweep
+// says nothing about the one field on this entity that MAILS PEOPLE. With it
+// set, a probe the guard refuses must leave the flag ON, which is the claim
+// worth checking.
+// ★★★ `startTime` AND `durationMinutes` ARE DELIBERATELY OFF THEIR DEFAULTS
+// ("09:00" / 60), and this is blind spot (4) above answered rather than
+// ignored. Both fields CLAMP rather than refuse — `normalizeEventStartTime`
+// substitutes "09:00" and `intInRange` 60 — so on a fixture holding the default
+// every refused probe reads back the value already there and the sweep records
+// agreement it did not test, exactly as `STK_BASE`'s enums did before a review
+// probe went looking. (4) forbids editing a fixture to manufacture a red
+// OUTSIDE the direction under test; a non-default clamp target puts a real
+// stored value on the other side of the probes that ARE that direction, which
+// is the same justification limitation (5) gives `TASK_BASE.lastUpdateDate`.
+const EVT_BASE = {
+  id: 1, title: "T", startDate: "2026-01-01", startTime: "14:30",
+  durationMinutes: 90, location: "Room 1", notes: "n", sendInvitations: true,
+};
 
 /** What the field holds after the apply path runs, rendered as the preview
  *  renders it — or `null` when the write would be REJECTED outright (the
@@ -226,6 +261,13 @@ type StoredReader = (field: string, value: unknown) => string | null;
  *  The preview renders the same predicate, via `isExternalFlag`. */
 function readStored(out: Record<string, unknown>, field: string): string {
   if (field === "isExternal") return String(out.isExternal === true);
+  // ★★ THE SECOND FIELD WITH THAT STORAGE SHAPE, and it arrived with the
+  //  calendar entity: `sanitizeCalendarEvent` writes `sendInvitations` only for
+  //  `true`, so a row that mails nobody carries no key and `?? ""` would render
+  //  "" against the preview's "false". Same asymmetry, same reason, read as a
+  //  PREDICATE rather than a key — exactly as the preview's own
+  //  `isSendInvitationsFlag` entry does.
+  if (field === "sendInvitations") return String(out.sendInvitations === true);
   return String(out[field] ?? "");
 }
 
@@ -389,6 +431,39 @@ const changeReader: StoredReader = (field, value) => {
  *  that assertion reds and composing this reader is the fix. */
 const resourceReader: StoredReader = sanitizerReader(RES_BASE, sanitizeResource as never);
 
+/** The ABSENCE apply path. `updateAbsence` (`use-register-tools.ts`) runs the
+ *  model's patch through `dropUnacceptedAbsenceFields` before merging it over
+ *  the stored row, so a refused `type` leaves the stored one alone rather than
+ *  being demoted to the `"other"` fallback — composed here for the same reason
+ *  `raidReader` and `changeReader` compose theirs, and BEFORE any exception
+ *  entry could go stale against it. */
+const absenceReader: StoredReader = (field, value) => {
+  const patch = dropUnacceptedAbsenceFields({ [field]: value });
+  const out = sanitizeAbsence({ ...ABS_BASE, ...patch });
+  return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
+};
+
+/** The CALENDAR EVENT apply path, composed the same way over
+ *  `dropUnacceptedCalendarEventFields`.
+ *
+ *  ★★ THIS ENTITY'S GUARD MATTERS MORE THAN MOST because its sanitizer CLAMPS
+ *   rather than refuses on two fields — `durationMinutes` falls back to 60 and
+ *   `startTime` to "09:00" — so without the merge-site step a non-number
+ *   duration would read back as a silent demotion to 60 rather than as the
+ *   stored value surviving, and the sweep would be measuring the wrong write. */
+const calendarEventReader: StoredReader = (field, value) => {
+  const patch = dropUnacceptedCalendarEventFields({ [field]: value });
+  const out = sanitizeCalendarEvent({ ...EVT_BASE, ...patch });
+  return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
+};
+
+// ★★★ A HAND-COPIED LIST, NOT AN ENUMERATION over `INLINE_DESCRIPTORS`, and the
+// file's own header calls the contract "enumerated over `diffFields` … so a new
+// field, OR A NEW ENTITY, is covered the moment it is declared". Only the first
+// half of that is true: `fieldsUnderTest` does enumerate a listed entity's
+// diffFields, but an entity absent from THIS array is swept not at all, silently
+// — the floors below are all computed from `CASES`, so they shrink with it and
+// nothing reds. Add the row AND its reader when the union grows.
 const CASES: ReadonlyArray<{
   entity: InlineEntity;
   base: Record<string, unknown>;
@@ -400,7 +475,20 @@ const CASES: ReadonlyArray<{
   { entity: "milestone", base: MILE_BASE, read: milestoneReader },
   { entity: "stakeholder", base: STK_BASE, read: stakeholderReader },
   { entity: "resource", base: RES_BASE, read: resourceReader },
+  { entity: "absence", base: ABS_BASE, read: absenceReader },
+  { entity: "calendarEvent", base: EVT_BASE, read: calendarEventReader },
 ];
+
+// ★★★ THE ANTI-VACUITY GUARD ON THAT HAND-COPY. Without it the array is exactly
+// the silent-skip shape the header warns about for exception lists, one level
+// up: a new `InlineEntity` gets ZERO differential coverage while every floor
+// here recomputes around it and the file stays green. Comparing against the
+// descriptor map's own keys is the one derivation available at runtime.
+describe("the parity sweep covers every descriptor", () => {
+  it("has a CASES row for every INLINE_DESCRIPTORS entity", () => {
+    expect(CASES.map((c) => c.entity).sort()).toEqual(Object.keys(INLINE_DESCRIPTORS).sort());
+  });
+});
 
 // --- explicit exclusions ---------------------------------------------------
 //

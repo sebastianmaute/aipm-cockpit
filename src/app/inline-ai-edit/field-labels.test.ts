@@ -15,7 +15,11 @@ describe("fieldLabel", () => {
   // This constant is only the VACUITY GUARD: without it an empty
   // FIELD_LABEL_KEY next to an empty descriptor map registers zero assertions
   // and reports green.
-  const PREVIEWABLE_FIELD_COUNT = 68;
+  // ★★ 68 → 84 when `absence` (6 diffFields + 1 linkField) and `calendarEvent`
+  // (8 + 1) joined the union. Re-derived by running this test, not by adding 16
+  // to the old number — which is how the "58 + 8 + 2" arithmetic above went
+  // stale while still summing to the right total.
+  const PREVIEWABLE_FIELD_COUNT = 84;
 
   it("covers every previewable field of every entity", () => {
     // A missing entry is not a crash — it falls back to the raw property name —
@@ -81,6 +85,42 @@ describe("fieldLabel", () => {
     expect(fieldLabel("de", "raid", "closedDate")).toBe(t("de", "fieldClosedDate"));
     // …and the fallback is the raw name in DE too, never a blank.
     expect(fieldLabel("de", "task", "somethingNew")).toBe("somethingNew");
+  });
+
+  // Task 3 (absence + calendarEvent field labels) landed BEFORE `calendarEvent`
+  // was an `InlineEntity`, so `fieldLabel`'s typed `entity` parameter could not
+  // take that literal and this asserted directly against the map + `t()`. An
+  // EN-only check cannot prove the entry is wired: if the English string
+  // happened to equal the raw field name it would pass whether or not
+  // `FIELD_LABEL_KEY` carried it, via the raw-name fallback.
+  it("labels a calendarEvent field key in German", async () => {
+    await loadI18n("de");
+    const key = FIELD_LABEL_KEY["calendarEvent.durationMinutes"];
+    expect(key).toBeDefined();
+    const de = t("de", key);
+    const en = t("en-US", key);
+    expect(de).not.toBe(en);
+    expect(de).not.toBe("durationMinutes");
+  });
+
+  // ★★★ THE SAME CLAIM THROUGH THE PRODUCTION FUNCTION, and it is NOT redundant
+  //  with the test above. That one reads `FIELD_LABEL_KEY` itself, so it proves
+  //  the MAP has the entry and says nothing about `keyedFieldLabel`'s
+  //  composition — the `${entity}.${field}` join, the lookup, and the raw-name
+  //  fallback. Now that `calendarEvent` and `absence` are real `InlineEntity`
+  //  members the typed call site compiles, so the composition can be exercised.
+  //  ★ Asserted as NOT the raw field name in BOTH languages: a broken join
+  //  falls through to the fallback, which returns exactly that.
+  it("routes a new entity's field through fieldLabel, not just the map", async () => {
+    await loadI18n("de");
+    expect(fieldLabel("en-US", "calendarEvent", "durationMinutes")).toBe(
+      t("en-US", FIELD_LABEL_KEY["calendarEvent.durationMinutes"]),
+    );
+    expect(fieldLabel("en-US", "calendarEvent", "durationMinutes")).not.toBe("durationMinutes");
+    expect(fieldLabel("de", "absence", "note")).toBe(t("de", FIELD_LABEL_KEY["absence.note"]));
+    expect(fieldLabel("de", "absence", "note")).not.toBe("note");
+    // The fallback still holds for a field neither entity declares.
+    expect(fieldLabel("en-US", "calendarEvent", "somethingNew")).toBe("somethingNew");
   });
 
   // §406 — `set_task_dependencies` has no create/update/delete triple, so it is
