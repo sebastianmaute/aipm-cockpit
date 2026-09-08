@@ -706,24 +706,22 @@ describe("buildSystemPrompt app-context + guides", () => {
 
   it("caches the stable prefix (incl. guide) and leaves volatile state uncached", () => {
     const blocks = buildSystemPrompt("en-US", snap, [guide], true, {});
-    // Three blocks: [0] cached always-on stable prefix, [1] uncached
-    // view-scoped guide half, [2] uncached volatile turn-context suffix. This
-    // assertion must go red if the split collapses back to two blocks.
-    expect(blocks).toHaveLength(3);
+    // Two blocks: [0] cached always-on stable prefix, [1] uncached volatile
+    // turn-context suffix. `guide` here has `scope: {}` (always-on), so it
+    // contributes no view-scoped text — `buildStableSystemBlocks` omits that
+    // middle block entirely rather than sending it empty, so this fixture
+    // never has a THIRD block to skip. This assertion must go red if a
+    // view-scoped block reappears unexpectedly, or the split changes shape
+    // some other way.
+    expect(blocks).toHaveLength(2);
     // Block 0 = cached stable prefix, contains the guide text (`guide` here
     // has `scope: {}`, i.e. it is always-on).
     expect(blocks[0].cache_control?.type).toBe("ephemeral");
     expect(blocks[0].text).toContain("Be decisive.");
-    // Block 1 = the view-scoped guide half. `guide` is always-on for this
-    // fixture, so nothing is view-scoped and this block is empty — assert
-    // that positively rather than skipping it, so a guide silently leaking
-    // into the wrong half would be caught.
+    // Block 1 = uncached volatile suffix, contains the APP CONTEXT + state.
     expect(blocks[1].cache_control).toBeUndefined();
-    expect(blocks[1].text).toBe("");
-    // Block 2 = uncached volatile suffix, contains the APP CONTEXT + state.
-    expect(blocks[2].cache_control).toBeUndefined();
-    expect(blocks[2].text).toContain("APP CONTEXT");
-    expect(blocks[2].text).toContain("Current view: milestones");
+    expect(blocks[1].text).toContain("APP CONTEXT");
+    expect(blocks[1].text).toContain("Current view: milestones");
   });
 });
 
@@ -735,18 +733,23 @@ describe("prompt caching", () => {
     vi.restoreAllMocks();
   });
 
-  // ★★★ `system` is now TWO blocks, not one — Task 7 (the prompt-cache-layout
-  //   slice) moved the volatile half (APP CONTEXT et al.) off the `system`
-  //   array and onto the current user turn, via `buildWireMessages`, so the
-  //   `system` array sent over the wire is only ever `buildStableSystemBlocks`'
-  //   output. See the "prompt cache layout wiring" describe block below for
-  //   where the relocated volatile half is now asserted.
+  // ★★★ `system` no longer carries the volatile half — Task 7 (the
+  //   prompt-cache-layout slice) moved it (APP CONTEXT et al.) off the
+  //   `system` array and onto the current user turn, via `buildWireMessages`,
+  //   so the `system` array sent over the wire is only ever
+  //   `buildStableSystemBlocks`'s output. See the "prompt cache layout
+  //   wiring" describe block below for where the relocated volatile half is
+  //   now asserted.
   //   ★★ The guide-block cache split (Slice G) then split THAT array further:
   //   block 0 is the view-invariant half and carries the sole `cache_control`
-  //   marker `system` gets; block 1 is the current view's guide text and
-  //   deliberately carries none, so a view switch cannot invalidate block 0's
-  //   cache entry. Two blocks is therefore the correct count, not a defect.
-  it("sends system as two blocks, only the first cache-controlled", async () => {
+  //   marker `system` gets; a SECOND block for the current view's guide text
+  //   is appended ONLY when the view contributes one, and is omitted
+  //   entirely otherwise — never sent as an empty string. `ChatPanel` here is
+  //   rendered with no `guides` prop (defaults to `[]`), so no view ever
+  //   contributes guide text and `system` is a ONE-element array: just block
+  //   0, cache-controlled. A fixture WITH guides gets a real second block
+  //   instead (see "caches the stable prefix (incl. guide)..." above).
+  it("sends system as one block when there is no view-scoped guide, cache-controlled", async () => {
     let rejectFetch!: (reason: unknown) => void;
     const pending = new Promise<Response>((_res, rej) => { rejectFetch = rej; });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
@@ -773,10 +776,11 @@ describe("prompt caching", () => {
     expect(fetchSpy.mock.calls.length).toBeGreaterThan(0);
     const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
     expect(Array.isArray(body.system)).toBe(true);
-    // Two blocks since the guide-block cache split: [0] is the view-invariant
-    // half and carries the cache marker, [1] is the current view's guide and
-    // deliberately carries none.
-    expect(body.system).toHaveLength(2);
+    // One block: no `guides` prop was passed to `ChatPanel` (defaults to
+    // `[]`), so there is no view-scoped guide text for
+    // `buildStableSystemBlocks` to put in a second block, and it omits that
+    // block rather than sending it empty.
+    expect(body.system).toHaveLength(1);
     expect(body.system[0].cache_control.type).toBe("ephemeral");
 
     // ★★ Anthropic allows FOUR cache_control breakpoints per request and this
@@ -880,15 +884,16 @@ describe("prompt cache layout wiring", () => {
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
 
     const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
-    // Two blocks since the guide-block cache split: [0] is the view-invariant
-    // half and carries the cache marker, [1] is the current view's guide and
-    // deliberately carries none.
-    expect(body.system).toHaveLength(2);
+    // One block: no `guides` prop was passed to `ChatPanel` (defaults to
+    // `[]`), so there is no view-scoped guide text and
+    // `buildStableSystemBlocks` omits that second block rather than sending
+    // it empty — see "sends system as one block..." above.
+    expect(body.system).toHaveLength(1);
     expect(JSON.stringify(body.system)).not.toContain("APP CONTEXT");
     // …and it did not simply vanish: it must be on the final user message.
     // ★★ THIS IS WHAT STOPS THE ASSERTIONS ABOVE PASSING VACUOUSLY — dropping
     //   the turn context entirely (rather than relocating it) would also
-    //   satisfy a two-block `system` and the `not.toContain` above, and would
+    //   satisfy a one-block `system` and the `not.toContain` above, and would
     //   be a far worse bug than the one being fixed: the model would lose
     //   today's date, the current view and the insight list on every turn.
     expect(JSON.stringify(body.messages[body.messages.length - 1])).toContain("APP CONTEXT");

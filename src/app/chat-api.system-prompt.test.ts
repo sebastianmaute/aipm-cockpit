@@ -22,13 +22,20 @@ function snapshot(over: Record<string, unknown> = {}) {
 }
 
 // ★★★ The tools breakpoint is the ONLY thing keeping ~6.5k tokens of tool
-// schemas out of the per-view cache churn. `stableText` changes on every view
-// switch by default (groundInGuides defaults true; most builtin feature guides
-// are view-scoped — measured 23 guides / 22 view-scoped on 2026-09-08 by the
-// reproduce command in `withCacheBreakpoint`'s docstring in chat-api.ts; this
-// line said "20 of 21" for several releases, so run it rather than trusting
-// any number here), so without a segment closing at the end of `tools`,
-// that guide swap rewrites the schemas too. Deleting it breaks NOTHING visible.
+// schemas out of the per-view cache churn. Before the guide-block cache
+// split, `stableText` (now block 0) itself changed on every view switch by
+// default; after the split it is block 1 — a separate, unmarked block
+// holding only the current view's guide text, omitted entirely when the
+// view has none — that changes (or appears/disappears) per view
+// (groundInGuides defaults true; most builtin feature guides are view-scoped
+// — measured 23 guides / 22 view-scoped on 2026-09-08 by the reproduce
+// command in `withCacheBreakpoint`'s docstring in chat-api.ts; this line
+// said "20 of 21" for several releases, so run it rather than trusting any
+// number here). Block 0 no longer moves with the view, but this breakpoint
+// still matters: without it, `tools` shares the single prefix ending at the
+// system block's own marker, so any edit to block 0 (an always-on guide
+// toggled, `groundInGuides` flipped, the fixed instructions changed) would
+// still rewrite the schemas along with it. Deleting it breaks NOTHING visible.
 describe("tools cache breakpoint", () => {
   it("marks exactly the LAST tool and leaves TOOL_DEFS itself unmutated", () => {
     const marked = CACHED_TOOLS.filter((d) => "cache_control" in d);
@@ -88,13 +95,14 @@ describe("buildSystemPrompt staged-write instructions", () => {
     // Anti-vacuity for the three presence checks above: they read `stable`, so a
     // regression that moved this text into the volatile suffix would leave them
     // red for the right reason, and this pins the placement decision itself.
-    // ★ `buildSystemPrompt` now returns THREE blocks — [always-on stable,
-    //   view-scoped stable, turn context] — since `buildStableSystemBlocks`
-    //   split into two. The middle one is empty here (`guides` is `[]`), so
-    //   skip it rather than destructuring positionally into `volatile`; every
-    //   later `[stable, volatile] = buildSystemPrompt(...)` pattern in this
-    //   file has the same fix for the same reason.
-    const [stable, , volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
+    // ★ `buildSystemPrompt` returns [always-on stable, turn context] here —
+    //   TWO blocks, not three — because `guides` is `[]`, so
+    //   `buildStableSystemBlocks` contributes no view-scoped guide text and
+    //   omits that middle block entirely rather than sending it empty. A
+    //   fixture WITH a view-scoped guide gets three blocks and destructures
+    //   `[stable, , volatile]` instead (see "returns two blocks with
+    //   cache_control on the FIRST only" further down this file).
+    const [stable, volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
     expect(stable.text).toContain("STAGED");
     expect(volatile.text).not.toContain("STAGED");
   });
@@ -109,7 +117,10 @@ describe("buildSystemPrompt view scoping", () => {
   // rather than a large win. Moving it back breaks nothing visible and
   // silently raises cost, exactly like the digest below.
   it("puts the view scope in the UNCACHED block, never the cached one", () => {
-    const [stable, , volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
+    // `guides` is `[]`, so there is no view-scoped guide block — two-element
+    // destructure, not three (see the note on the "keeps them in the CACHED
+    // prefix" test above).
+    const [stable, volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
     expect(stable.cache_control).toEqual({ type: "ephemeral" });
     expect(stable.text).not.toContain("VIEW SCOPE");
     expect(stable.text).not.toContain("capacity versus allocation");
@@ -121,7 +132,8 @@ describe("buildSystemPrompt view scoping", () => {
   // Order matters for readability of the prompt: what the surface IS, then
   // what is currently on it.
   it("emits VIEW SCOPE before VIEW STATE", () => {
-    const [, , volatile] = buildSystemPrompt(
+    // No view-scoped guide block (`guides` is `[]`) — two-element destructure.
+    const [, volatile] = buildSystemPrompt(
       "en-US",
       snapshot({ viewDigest: "3 people over capacity" }),
       [],
@@ -142,7 +154,8 @@ describe("buildSystemPrompt view scoping", () => {
   // nothing visible — it just invalidates the cache on every filter change and
   // silently raises cost. Nothing else would catch that.
   it("puts the digest in the UNCACHED block, never the cached one", () => {
-    const [stable, , volatile] = buildSystemPrompt(
+    // No view-scoped guide block (`guides` is `[]`) — two-element destructure.
+    const [stable, volatile] = buildSystemPrompt(
       "en-US",
       snapshot({ viewDigest: "3 people over capacity" }),
       [],
@@ -157,7 +170,8 @@ describe("buildSystemPrompt view scoping", () => {
   });
 
   it("omits the VIEW STATE block when the view contributes no digest", () => {
-    const [, , volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
+    // No view-scoped guide block (`guides` is `[]`) — two-element destructure.
+    const [, volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
     expect(volatile.text).not.toContain("VIEW STATE");
   });
 
@@ -165,7 +179,8 @@ describe("buildSystemPrompt view scoping", () => {
   // gate, or a user preference would silently switch off shipped behaviour.
   // Unchanged by the move to the volatile suffix — only the block it lands in.
   it("keeps the view scope when groundInGuides is off", () => {
-    const [, , volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
+    // No view-scoped guide block (`guides` is `[]`) — two-element destructure.
+    const [, volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
     expect(volatile.text).toContain("VIEW SCOPE");
   });
 });
@@ -209,7 +224,8 @@ describe("buildSystemPrompt insight block placement", () => {
   ];
 
   it("puts both insight sections in the UNCACHED block, never the cached one", () => {
-    const [stable, , volatile] = buildSystemPrompt("en-US", snapshot({ insights }), [], false, {});
+    // No view-scoped guide block (`guides` is `[]`) — two-element destructure.
+    const [stable, volatile] = buildSystemPrompt("en-US", snapshot({ insights }), [], false, {});
     expect(stable.cache_control).toEqual({ type: "ephemeral" });
     expect(stable.text).not.toContain("Current project insights");
     expect(stable.text).not.toContain("CACHEPROBE");
@@ -309,11 +325,12 @@ describe("buildSystemPrompt split into buildStableSystemBlocks + buildTurnContex
   // pins the actual substance of `buildTurnContext`'s output, since the
   // composition check above cannot fail on a change inside either builder.
   it("gives the fixture real, non-empty text on both sides of the split", () => {
-    // ★ `buildSystemPrompt` returns THREE blocks now (see the note in the
-    //   "staged-write instructions" describe above): skip the middle
-    //   view-scoped stable block (empty here — this fixture's one guide has
-    //   `scope: {}`, i.e. always-on) to reach the real turn context.
-    const [stable, , volatile] = buildSystemPrompt("en-US", richSnapshot, guides, true, {});
+    // ★ `buildSystemPrompt` returns [stable, turn context] here — this
+    //   fixture's one guide has `scope: {}` (always-on), so it contributes no
+    //   view-scoped text and `buildStableSystemBlocks` omits that middle
+    //   block entirely rather than emitting it empty (see the note on the
+    //   "staged-write instructions" describe above).
+    const [stable, volatile] = buildSystemPrompt("en-US", richSnapshot, guides, true, {});
     expect(stable.text.length).toBeGreaterThan(0);
     expect(volatile.text.length).toBeGreaterThan(0);
     // Confirm the enriched fields actually landed, not just SOME text.
@@ -362,11 +379,14 @@ describe("buildStableSystemBlocks two-block split", () => {
     expect(blocks[1].text).not.toContain("ALWAYSPROBE");
   });
 
-  it("still returns two blocks when the view contributes no guide", () => {
+  it("returns exactly one block, still carrying the marker, when the view contributes no guide", () => {
+    // The old contract pushed an empty block 1 unconditionally; the current
+    // one omits it rather than sending meaningless payload — see
+    // `buildStableSystemBlocks`'s own doc comment.
     const blocks = buildStableSystemBlocks("en-US", snapshot({ currentView: "workload" }), guides, true, {});
-    expect(blocks).toHaveLength(2);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].cache_control).toEqual({ type: "ephemeral" });
     expect(blocks[0].text).toContain("ALWAYSPROBE");
-    expect(blocks[1].text).toBe("");
   });
 });
 
@@ -391,13 +411,63 @@ describe("block 0 is byte-identical across every view", () => {
     expect(new Set(blocks0).size).toBe(1);
   });
 
-  it("emits a DIFFERENT block 1 per view, so the sweep above is not comparing empty strings", () => {
-    const blocks1 = views.map(
-      (view) => buildStableSystemBlocks("en-US", snapshot({ currentView: view }), guides, true, {})[1].text,
+  // ★ Block 1 no longer always EXISTS (it is omitted, not empty, when the
+  //   view contributes no guide — "workload" here), so this compares the
+  //   joined text of everything AFTER block 0 rather than indexing `[1]`
+  //   directly, which would be `undefined` for that view. The "workload"
+  //   case is deliberately KEPT, not dropped: an empty tail is one of the
+  //   three real shapes this sweep exists to span (0/1/2 view-scoped guides).
+  it("emits a DIFFERENT tail per view, so the sweep above is not comparing empty strings", () => {
+    const tails = views.map((view) =>
+      buildStableSystemBlocks("en-US", snapshot({ currentView: view }), guides, true, {})
+        .slice(1)
+        .map((b) => b.text)
+        .join(""),
     );
-    expect(new Set(blocks1).size).toBe(3);
-    expect(blocks1[1]).toContain("BUDGETPROBE");
-    expect(blocks1[2]).toContain("RAIDPROBEA");
-    expect(blocks1[2]).toContain("RAIDPROBEB");
+    expect(new Set(tails).size).toBe(3);
+    expect(tails[0]).toBe("");
+    expect(tails[1]).toContain("BUDGETPROBE");
+    expect(tails[2]).toContain("RAIDPROBEA");
+    expect(tails[2]).toContain("RAIDPROBEB");
+  });
+});
+
+// ★★★ GUARD FOR THE FIX ITSELF: `buildStableSystemBlocks` must never return a
+// block with empty `text` — that was the ORIGINAL defect (a guaranteed-empty
+// block 1 on any view without a view-scoped guide). Swept across a view WITH
+// a view-scoped guide and one WITHOUT, so this cannot pass vacuously against
+// a fixture that happens to always produce a non-empty block 1.
+describe("buildStableSystemBlocks never emits an empty-text block", () => {
+  const guides: OperatingGuide[] = [
+    { id: "always", name: "Leadership", content: "ALWAYSPROBE", enabled: true, priority: 1, scope: {}, builtIn: true },
+    { id: "budget", name: "Budget guide", content: "BUDGETPROBE", enabled: true, priority: 2, scope: { views: ["budget"] }, builtIn: true },
+  ];
+
+  it("has no empty-text block on a view with a view-scoped guide", () => {
+    const blocks = buildStableSystemBlocks("en-US", snapshot({ currentView: "budget" }), guides, true, {});
+    for (const block of blocks) expect(block.text.length).toBeGreaterThan(0);
+  });
+
+  it("has no empty-text block on a view with NO view-scoped guide", () => {
+    const blocks = buildStableSystemBlocks("en-US", snapshot({ currentView: "workload" }), guides, true, {});
+    for (const block of blocks) expect(block.text.length).toBeGreaterThan(0);
+  });
+});
+
+// ★ BRANCH-COVERAGE GAP a reviewer flagged: every existing `groundInGuides:
+// false` test in this file also passes `guides: []`, so the ternary in
+// `buildStableSystemBlocks` —
+// `groundInGuides ? assembleGuideBlocks(...) : { alwaysOn: "", viewScoped: "" }`
+// — never had a fixture where the two branches could actually disagree. This
+// one does: a non-empty ALWAYS-ON guide, with grounding turned off.
+describe("buildStableSystemBlocks respects groundInGuides even with real guide content", () => {
+  const guides: OperatingGuide[] = [
+    { id: "always", name: "Leadership", content: "SHOULDNOTAPPEAR", enabled: true, priority: 1, scope: {}, builtIn: true },
+  ];
+
+  it("excludes the always-on guide's text when groundInGuides is off", () => {
+    const blocks = buildStableSystemBlocks("en-US", snapshot(), guides, false, {});
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].text).not.toContain("SHOULDNOTAPPEAR");
   });
 });

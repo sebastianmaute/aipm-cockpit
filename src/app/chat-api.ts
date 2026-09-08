@@ -132,18 +132,34 @@ export function maxOutputTokensFor(model: string): number {
 export const CONTINUE_NUDGE =
   "Your previous message was cut off at the length limit. Continue exactly where you left off — do not repeat anything you already wrote.";
 
-/** The STABLE half of the system prompt: returns TWO blocks, not one. Block 0
- *  carries the cache_control marker and is genuinely call-invariant — fixed
- *  instructions plus only the guides that apply on EVERY view
- *  (`operating-guide.ts`'s `assembleGuideBlocks`/`isAlwaysOn`). Block 1
- *  carries the CURRENT view's guides and no marker of its own: it is
- *  call-invariant per VIEW, not per call — `groundInGuides` defaults true and
- *  most builtin guides are view-scoped, so block 1's text changes on every
- *  view switch out of the box (see `CACHED_TOOLS`'s doc comment below for the
- *  same underlying fact, argued in full). Putting the view-dependent text in
- *  its OWN block after the marker is what lets block 0's cache entry survive
- *  a view switch, instead of the whole stable half rewriting every time the
- *  view changes.
+/** The STABLE half of the system prompt: returns ONE block, or TWO when the
+ *  current view contributes guide text. Block 0 carries the cache_control
+ *  marker and is genuinely call-invariant — fixed instructions plus only the
+ *  guides that apply on EVERY view (`operating-guide.ts`'s
+ *  `assembleGuideBlocks`/`isAlwaysOn`). Block 1, when present, carries the
+ *  CURRENT view's guides and no marker of its own: it is call-invariant per
+ *  VIEW, not per call — `groundInGuides` defaults true and most builtin
+ *  guides are view-scoped, so block 1's text (and its very presence) changes
+ *  on every view switch out of the box — see `CACHED_TOOLS`'s doc comment
+ *  below, which discusses the same view-scoped-guide fact from the
+ *  tools-breakpoint's angle. Putting the view-dependent text in its OWN
+ *  block after the marker is what lets block 0's cache entry survive a view
+ *  switch, instead of the whole stable half rewriting every time the view
+ *  changes.
+ *
+ *  ★★★ NO CONSTANT BLOCK COUNT — block 1 is OMITTED, not sent as an empty
+ *  string, when `segments.viewScoped` is `""` (no view-scoped guide applies
+ *  to the current view, or `groundInGuides` is off). That is the ORDINARY
+ *  case on any view without a feature guide: an empty
+ *  `{ type: "text", text: "" }` is meaningless payload, and this app should
+ *  not send a content block it has nothing to put in. Nothing downstream
+ *  depends on a fixed block count — the load-bearing properties are that
+ *  block 0 is view-invariant and carries the marker, and that any
+ *  view-scoped text sits AFTER that marker; both hold whether or not block 1
+ *  exists, and the cached `tools`+block-0 cache entry is unaffected either
+ *  way. Whether Anthropic's API itself would reject an empty-string `text`
+ *  content block is unverified here and is NOT the reason for this — do not
+ *  cite an API error as the justification.
  *
  *  ★★ Split out of `buildSystemPrompt` (Task 5 of the prompt-cache-layout
  *  slice) so the layout engine (Task 6) and the relocation (Task 7) can each
@@ -214,22 +230,29 @@ export function buildStableSystemBlocks(
     : { alwaysOn: "", viewScoped: "" };
   const stableText = [stableInstructions, segments.alwaysOn].filter(Boolean).join("\n\n");
 
-  // ★★★ TWO BLOCKS, MARKER ON THE FIRST. Block 0 is byte-identical on every
-  //     view, so its cache entry survives a view switch; block 1 holds only
-  //     the current view's guide text and deliberately carries NO marker of
-  //     its own — it still sits inside whatever a LATER cache_control marker
-  //     covers (e.g. `chat-cache-layout.ts`'s message-level breakpoints), so
-  //     it is not necessarily uncached, just not the boundary of a cache
-  //     lookup by itself. Adding a second marker here was never an option
-  //     anyway: tools(1) + this system marker(1) + the two message
-  //     breakpoints already spend the four `cache_control` breakpoints
-  //     Anthropic allows per request. Do NOT "tidy" this back into one
-  //     block: the whole saving is that the view-scoped text sits AFTER the
-  //     marker.
-  return [
+  // ★★★ MARKER ON THE FIRST BLOCK, AND A SECOND BLOCK ONLY WHEN THERE IS
+  //     SOMETHING TO PUT IN IT. Block 0 is byte-identical on every view, so
+  //     its cache entry survives a view switch; block 1, when the current
+  //     view contributes guide text, holds only that text and deliberately
+  //     carries NO marker of its own — it still sits inside whatever a LATER
+  //     cache_control marker covers (e.g. `chat-cache-layout.ts`'s
+  //     message-level breakpoints), so it is not necessarily uncached, just
+  //     not the boundary of a cache lookup by itself. Adding a second marker
+  //     here was never an option anyway: tools(1) + this system marker(1) +
+  //     the two message breakpoints already spend the four `cache_control`
+  //     breakpoints Anthropic allows per request. Do NOT "tidy" this back
+  //     into always emitting two blocks — an empty second block is
+  //     meaningless payload — and do not fold block 1 back into block 0
+  //     either: the whole saving is that the view-scoped text (when it
+  //     exists) sits AFTER the marker, which holds regardless of whether
+  //     block 1 is present this call.
+  const blocks: SystemBlock[] = [
     { type: "text", text: stableText, cache_control: { type: "ephemeral" } },
-    { type: "text", text: segments.viewScoped },
   ];
+  if (segments.viewScoped) {
+    blocks.push({ type: "text", text: segments.viewScoped });
+  }
+  return blocks;
 }
 
 /** The VOLATILE half of the system prompt (uncached): per-call state — the
@@ -440,22 +463,32 @@ export function appendUserNote(messages: ApiMessage[], note: string): ApiMessage
 
 /** ★★★ TOOLS CARRY THEIR OWN CACHE BREAKPOINT, and this is the one that matters.
  *  Without it, `tools` shares the single prefix that ends at the system block's
- *  breakpoint — so ANY view-dependent byte in `stableText` rewrites all ~6.5k
- *  tokens of tool schemas along with it.
- *  ★★★ AND `stableText` IS VIEW-DEPENDENT BY DEFAULT — this was mis-analysed
- *  once and the wrong conclusion nearly shipped. `settings.ai.groundInGuides`
- *  defaults to TRUE (`settings-types.ts`, and a missing key reads as true), and
- *  most `BUILTIN_FEATURE_GUIDES` are view-scoped (mean ~1 KB, Open Points
- *  ~2.9 KB) — do not trust a number here, it has already rotted once;
+ *  breakpoint — so ANY edit to block 0 (an always-on guide toggled or edited,
+ *  `groundInGuides` flipped, the fixed instructions changed) rewrites all
+ *  ~6.5k tokens of tool schemas along with it.
+ *  ★★★ THIS IS NO LONGER A VIEW-SWITCH ARGUMENT, and an earlier version of
+ *  this comment made it one — it said `stableText` itself was view-dependent
+ *  by default, which was true before the guide-block cache split
+ *  (`buildStableSystemBlocks` above) and is FALSE now. That split moved the
+ *  view-scoped guide text OUT of `stableText`/block 0 and into a separate,
+ *  unmarked block 1 that is omitted entirely when the view has none — block
+ *  0 is byte-identical across every view by construction (see
+ *  `buildStableSystemBlocks`'s own doc comment, and the "block 0 is
+ *  byte-identical across every view" tests in
+ *  `chat-api.system-prompt.test.ts`). `settings.ai.groundInGuides` still
+ *  defaults to TRUE (`settings-types.ts`, and a missing key reads as true),
+ *  and most `BUILTIN_FEATURE_GUIDES` are still view-scoped (mean ~1 KB, Open
+ *  Points ~2.9 KB) — do not trust a number here, it has already rotted once;
  *  reproduce it instead:
  *  `node -e "const s=require('fs').readFileSync('src/app/operating-guide-builtin.generated.ts','utf8');const b=s.slice(s.indexOf('BUILTIN_FEATURE_GUIDES'));console.log((b.match(/\"name\":/g)||[]).length,(b.match(/\"views\":/g)||[]).length)"`
  *  (a bare `grep -c scope` answers 27 and is worthless — the guide prose
- *  discusses project scope). So `selectActiveGuides` swaps a multi-KB guide in
- *  and out of `guideBlock` on EVERY view switch, for every user, out of the
- *  box. Moving the
- *  ~100-token view-scope block into the volatile suffix therefore never bought a
- *  cache read on its own; only this breakpoint does, by closing a segment at the
- *  end of `tools` so the guide swap re-caches only the smaller system slice.
+ *  discusses project scope) — but that swap now lands in block 1 alone, on
+ *  every view switch, for every user, out of the box. A view switch by
+ *  itself therefore no longer invalidates THIS breakpoint's segment. What
+ *  still justifies keeping it is that block 0 can change independently of
+ *  the view (an always-on guide toggled or edited, `groundInGuides`
+ *  flipped, the fixed instructions changed), and without this breakpoint any
+ *  one of those would still rewrite the tool schemas along with it.
  *  ★ Marking the LAST tool is how a tools-block breakpoint is expressed — the
  *  segment covers everything up to and including the marked element. */
 function withCacheBreakpoint(defs: typeof TOOL_DEFS) {
