@@ -1030,6 +1030,32 @@ export const acceptsInfluenceInterest: StakeholderFieldGuard = (v) =>
   typeof v === "string" && INFLUENCE_INTEREST_SET.has(v);
 
 const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> = {
+  // ★★★ NOT MODEL-WRITABLE, AND THE SWEEP COULD NOT HAVE FOUND IT. `resourceId`
+  //  is the FK linking a stakeholder to a Resource. It appears in NO tool schema
+  //  (`sed -n '/^const stakeholderFields = {/,/^};/p' src/app/chat-tool-defs.ts`
+  //  lists eight keys, none of them this one), it is NOT in
+  //  `TOKEN_EXCLUDED.stakeholder` (which is `["localModifiedAt"]` alone), and
+  //  `sanitizeStakeholder` STORES it — `toNumber` coerces, so `"7"` lands as 7.
+  //  ★★★ WHY NO GATE SAW IT, and this is the durable lesson: the write-path
+  //  sweep derives its field axis from the descriptor UNION the seed row's
+  //  stored keys (`sweptFields`, `src/test/inline-sweep-fixtures.ts`). This
+  //  field was in NEITHER, so the sweep passed over it in silence — it reported
+  //  `Tests 37 passed (37)` while the defect was live. A green sweep bounds what
+  //  it looked at, never what exists. Seeding `resourceId: 4` on the fixture
+  //  turned it into three violations immediately:
+  //    stakeholder.resourceId on one more than the stored number: 4 -> 5
+  //    stakeholder.resourceId on a negative number:               4 -> undefined
+  //    stakeholder.resourceId on a numeric string:                4 -> 7
+  //  all three "with NO preview line". The middle one is the damaging direction:
+  //  the store is sparse (`if (rid > 0)`) and the sanitizer rebuilds the record,
+  //  so a negative or zero value SILENTLY UNLINKS the stakeholder from its
+  //  resource behind a card that mentioned nothing. `stakeholder-resource-fk`
+  //  is now seeded and axis-listed so this can never go quiet again, and
+  //  `plan.model-writable-surface.test.ts` ratchets the whole class.
+  //  ★★ Same shape as `raid.ownerResourceId` one entity over, which §435 fixed
+  //  in the commit immediately before this one and MISSED here — the register's
+  //  "seven fields" was the sweep's count, not the defect's.
+  resourceId: () => false,
   // ★★★ NOT MODEL-WRITABLE, and `entity-descriptor.ts` already says so at its
   //  own `stakeholderFields` ("`Stakeholder.raci` IS a relationship, but
   //  `stakeholderFields` does not …"). It appears in NO tool schema
@@ -1142,8 +1168,12 @@ export function dropUnacceptedResourceFields<T extends object>(patch: T): T {
 // --- Absence + calendar event merge-site guards -----------------------------
 //
 // ★★★ THESE TWO ARE ALLOWLISTS, NOT DENYLISTS — the opposite shape from the
-// four guard tables above. `MILESTONE_FIELD_GUARDS` / `CHANGE_FIELD_GUARDS` /
-// `RAID_FIELD_GUARDS` / `STAKEHOLDER_FIELD_GUARDS` all iterate their OWN
+// five guard tables above. `MILESTONE_FIELD_GUARDS` / `CHANGE_FIELD_GUARDS` /
+// `RAID_FIELD_GUARDS` / `STAKEHOLDER_FIELD_GUARDS` / `RESOURCE_FIELD_GUARDS`
+// (★ enumerate rather than trust this line:
+// `grep -n "_FIELD_GUARDS: Readonly" src/app/sanitize-records.ts` — the rows
+// above this comment are the denylists, the two below it the allowlists) all
+// iterate their OWN
 // entries and `delete` a field that fails its guard — a field with no entry in
 // the table is left alone, because those sanitizers already have a closed,
 // hand-enumerated set of writable fields elsewhere in the load/update path.

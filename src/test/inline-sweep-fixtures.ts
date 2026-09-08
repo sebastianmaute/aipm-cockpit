@@ -250,6 +250,15 @@ export function seedGuardedMilestone(over: Partial<Milestone> = {}): Milestone {
 export function seedGuardedStakeholder(over: Partial<Stakeholder> = {}): Stakeholder {
   return {
     id: 40,
+    // ★★★ SEEDED BECAUSE IT WAS INVISIBLE. `sweptFields` derives its axis from
+    //  the descriptor UNION this row's own keys, so a field in neither is never
+    //  swept — and `resourceId` was in neither, which is why the sweep read
+    //  `Tests 37 passed (37)` while an undisclosed model-writable FK sat behind
+    //  it (`sanitize-records.ts` `STAKEHOLDER_FIELD_GUARDS.resourceId` carries
+    //  the measurement). It is seeded NON-ZERO on purpose: the store is sparse
+    //  (`if (rid > 0)`), so a 0 seed would make the clearing probes read as "no
+    //  change" and hide the unlink direction entirely.
+    resourceId: 4,
     name: "Ada Lovelace",
     category: "Sponsor",
     influence: "High",
@@ -678,7 +687,7 @@ export const AXIS_FIELDS: Record<InlineEntity, readonly string[]> = {
   raid: ["category", "causedByRaidIds", "closedDate", "impact", "knowledgeLinks", "linkedTaskIds", "owner", "ownerEmail", "ownerResourceId", "probability", "raisedDate", "severity", "stakeholderIds", "status", "targetDate", "title"],
   change: ["costImpact", "decisionBy", "decisionDate", "impact", "knowledgeLinks", "linkedRaidIds", "linkedTaskIds", "raisedDate", "requestedBy", "scheduleImpactDays", "stakeholderIds", "status", "title", "type"],
   milestone: ["achievedDate", "date", "knowledgeLinks", "linkedTaskIds", "name"],
-  stakeholder: ["category", "email", "influence", "interest", "knowledgeLinks", "name", "notes", "organization", "raci", "title"],
+  stakeholder: ["category", "email", "influence", "interest", "knowledgeLinks", "name", "notes", "organization", "raci", "resourceId", "title"],
   resource: ["absenceOverride", "active", "birthday", "businessPhone", "company", "department", "email", "emails", "firstName", "isExternal", "lastName", "location", "notes", "roleId", "title", "utilization", "utilizationMode"],
   absence: ["assignee", "assigneeEmail", "endDate", "note", "resourceId", "startDate", "type"],
   calendarEvent: ["attendeeResourceIds", "durationMinutes", "location", "notes", "recurrence", "sendInvitations", "startDate", "startTime", "title"],
