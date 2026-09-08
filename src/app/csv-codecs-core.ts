@@ -199,7 +199,7 @@ export const RESOURCES_CSV_COLUMNS = [
   "department", "email", "company", "birthday", "notes",
   "roleId", "utilizationMode", "utilization", "absenceOverride", "active", "localModifiedAt",
   "emails", "isExternal",
-] as const;
+] as const satisfies readonly (keyof Resource)[];
 export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "internalRateDay", "externalRateDay", "rateBasis", "localModifiedAt", "order"] as const;
 export const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
