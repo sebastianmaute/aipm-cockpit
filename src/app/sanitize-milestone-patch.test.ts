@@ -313,7 +313,7 @@ describe("dropUnacceptedMilestoneFields", () => {
   });
 
   describe("the merge site's own nesting", () => {
-    it("nests the guard OUTSIDE withAiRichFields at all three call sites", () => {
+    it("nests the guard OUTSIDE withAiRichFields at all six call sites", () => {
       // ★★★ THE ORDER IS THE WHOLE GUARD, and no behavioural test in this file
       //  can see it — `applyMilestoneUpdate` is a MIRROR of the call site, so
       //  re-nesting the real one leaves every assertion above green. That is
@@ -355,7 +355,24 @@ describe("dropUnacceptedMilestoneFields", () => {
       //  would pass vacuously. It is also the ANTI-VACUITY guard on the strip —
       //  an over-blanking stripper that ate the real calls reds here rather
       //  than reporting a clean `inner` over an empty corpus.
-      expect(outer).toHaveLength(3);
+      //
+      // ★★★ THREE → SIX on 2026-09-08, and this is what a ratchet moving
+      //  CORRECTLY looks like, so do not read the bump as the count being
+      //  relaxed. It was 3 because only the three UPDATE sites existed;
+      //  §438 routed the CREATE tools through the same guards, which added
+      //  `createRaid`, `createChange` and `createMilestone` with the identical
+      //  nesting. `outer` went 3 → 6 and **`inner` stayed 0** — the ordering is
+      //  right at all six, which is exactly the claim this test makes.
+      //  ★★ It fired the way its own comment above predicted: "the trap is
+      //  armed for whoever adds one, and it is invisible until they do." The
+      //  create sites were added by someone who had not read this file, and
+      //  the only thing that caught it was the FULL suite in CI — the local
+      //  runs for that change covered `inline-ai-edit/`, chat-tools and
+      //  chat-proposal-apply, none of which import this file.
+      //  ★ Bump this number ONLY together with a re-read of `inner`. A change
+      //  that pushed `outer` up while `inner` also moved off 0 would be the
+      //  real defect wearing this failure's clothes.
+      expect(outer).toHaveLength(6);
       expect(inner).toHaveLength(0);
     });
   });
