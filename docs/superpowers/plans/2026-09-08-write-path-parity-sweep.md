@@ -282,7 +282,7 @@ function sweptFields(entity: InlineEntity, before: Record<string, unknown>): str
 }
 ```
 
-Then add this `it.each` **inside the existing `describe("the sweep's own coverage", ...)` block from Task 2**, immediately after its completeness test — do not open a second `describe` with the same name:
+Then add this `it.each` **inside the existing `describe("the sweep's own coverage", ...)` block** — do not open a second `describe` with the same name. That block no longer holds only Task 2's completeness test: it now also carries `seeds the row each entity claims to drive`, `seeds a distinguishable value for every diffField`, and `derives replayable plumbing for every entity`, all added after Task 2 was written. Append this one after those; order within the block does not matter.
 
 ```ts
   // ★★ A FLOOR, NOT A TALLY. The exact number moves whenever a descriptor or a
@@ -291,7 +291,9 @@ Then add this `it.each` **inside the existing `describe("the sweep's own coverag
   //  sweep over an EMPTY axis, which passes everything — that is what this
   //  catches. The floors are per entity so one rich entity cannot carry a
   //  starved one.
-  it.each(SWEEP)("$entity sweeps a non-empty field axis", ({ entity, wsKey, id, seed }) => {
+  it.each(SWEEP)("$entity sweeps a non-empty field axis", ({ entity, id, seed }) => {
+    // `wsKey` is DERIVED — it is not a field on SweepEntity. See sweepPlumbing.
+    const { wsKey } = sweepPlumbing(entity);
     const ws = { ...emptyWorkspace(), ...seed } as unknown as Workspace;
     const rows = ws[wsKey] as ReadonlyArray<{ id: number }> | undefined;
     const before = rows?.find((r) => r.id === id);
