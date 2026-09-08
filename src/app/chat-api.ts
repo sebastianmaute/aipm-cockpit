@@ -132,7 +132,17 @@ export const CONTINUE_NUDGE =
  *  slice) so the layout engine (Task 6) and the relocation (Task 7) can each
  *  address the two halves independently. `buildSystemPrompt` below is kept
  *  as a thin composition of this and `buildTurnContext` — nothing about
- *  which text lands in which half changed here. */
+ *  which text lands in which half changed here.
+ *
+ *  ★★★ `toolFlags` CANNOT MOVE A BYTE OF THIS OUTPUT — measured, not assumed
+ *  (a differential probe holding every other input fixed and flipping
+ *  `historySearch`/`chatSearch` found this half byte-identical while
+ *  `buildTurnContext`'s output changed). The tool-advertising blocks
+ *  `toolFlags` gates (view scope, activity recap, chat pointer) all live in
+ *  the volatile half; it is accepted here only so both halves share one
+ *  param list. This is what makes the block genuinely STABLE across a
+ *  conversation's turns even when a setting toggle changes mid-thread — see
+ *  Task 7, which depends on it. */
 export function buildStableSystemBlocks(
   lang: Lang,
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
