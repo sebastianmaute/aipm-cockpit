@@ -59,19 +59,39 @@ describe("activityMessage", () => {
   });
 
   /**
-   * ★★ A count that is not a number must not render `NaN`-selected text or
-   * throw. `changeText` coerces an object arg to `""`, and `Number("")` is 0 —
-   * finite, so it takes the plural; a genuinely absent arg is `NaN` and takes
-   * the plural by the explicit guard. Both land on the same safe form, which is
-   * why the assertion is the same for both.
+   * A count that is not a number must not throw and must not render
+   * singular text.
+   *
+   * ★★★ THESE TWO CASES TAKE DIFFERENT BRANCHES AND PRODUCE DIFFERENT STRINGS,
+   * and an earlier version of this comment called them "the same safe form"
+   * three lines above two visibly different expectations. `[""]` is
+   * `Number("") === 0`, which `Intl` puts in `other`, so it renders the plural
+   * with an EMPTY slot; `[]` has no arg at all, so `t()` leaves the literal
+   * `{0}` in place — a pre-existing property of `t()` (it only replaces slots
+   * it was given args for), surfaced here rather than introduced.
+   *
+   * ★★ NEITHER CASE PINS A GUARD, because there is no guard left to pin: both
+   * reach `other` through `Intl` itself. What they pin is that a malformed
+   * count cannot produce the SINGULAR — which is the user-visible property —
+   * and that neither input throws.
    */
-  it("falls through to the plural for a count that is not a number", () => {
+  it("renders the plural, not the singular, for a count that is not a number", () => {
+    // `Number("") === 0` → `other` → the plural key, with an empty slot.
     expect(activityMessage("en-US", "ai.allocationPlan", [""])).toBe(
       "AI planned  allocation cells",
     );
+    // No arg at all → `t()` leaves the literal `{0}`. Different branch, and
+    // deliberately a different expectation from the case above.
     expect(activityMessage("en-US", "ai.allocationPlan", [])).toBe(
       "AI planned {0} allocation cells",
     );
+    // ★ The property the test is NAMED for, asserted rather than implied: the
+    //   singular is the form that must never appear for a malformed count.
+    for (const args of [[""], [], ["abc"], [Number.NaN]]) {
+      expect(activityMessage("en-US", "ai.allocationPlan", args)).not.toContain(
+        "1 allocation cell",
+      );
+    }
   });
 
   it("keeps the unknown-kind fallback for a kind this release does not know", () => {
