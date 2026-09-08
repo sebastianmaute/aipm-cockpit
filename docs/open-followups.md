@@ -659,7 +659,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§432](#432-two-surfaces-tell-the-user-to-re-fetch-hours-that-a-re-fetch-cannot-repair--closed-2026-09-07) | Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S-M — an `undated` subset of `unattributed`, plus one string each | **CLOSED** 2026-09-07 |
 | [§433](#433-a-phantom-period-key-made-an-empty-allocation-read-as-populated--closed-2026-09-07) | A phantom period key made an empty allocation read as populated | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S — one read-side predicate; stored data deliberately untouched | **CLOSED** 2026-09-07 |
 | [§434](#434-adding-an-inlineentity-member-has-four-ripple-sites-one-a-hard-build-break-and-nothing-enumerates-them--closed-2026-09-08) | Adding an `InlineEntity` member has four ripple sites and nothing enumerates them | found 2026-09-07 reviewing the AI-calendar-writes plan for inline-edit write parity | S-M — one is a tsc break, three were silent, all four now pinned | closed 2026-09-08 |
-| [§450](#450-fifty-eight-keys-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Fifty-eight keys dodge plural agreement with a parenthetical plural, invisible to every detector for the class | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 9 activity keys, then the sentence keys, then 3 unit labels; add a value-axis detector | **OPEN** |
+| [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, invisible to every detector for the class | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -30340,13 +30340,21 @@ exception A and for the 45-vs-31 dispute, which is NOT closed by the measurement
 count says what is true today and says nothing about what either earlier pass counted.
 ★★ The live figures, each with the command that produced it, measured 2026-09-08 on `960b639e`:
 **42** plural pairs in `i18n.ts` (`grep -cE '^  [A-Za-z0-9_]+One:' src/app/i18n.ts`), **42** in
-`i18n.de.ts` (same command, that file), every one of the 42 carrying a bare base sibling, **39**
-`tPlural` call sites outside tests
-(`grep -rn "tPlural(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.' | wc -l`), and
-**4** provider ternaries
+`i18n.de.ts` (same command, that file), every one of the 42 carrying a bare base sibling — that
+second half is proved by the stranded-singular scan in `i18n-plural.test.ts`, NOT by the grep, which
+counts `…One` keys and cannot see whether a base exists — and **4** provider ternaries
 (`grep -rnoE '"[A-Za-z]+One"' src/app/next-actions/providers/ --include=*.ts --exclude=*.test.ts`).
-★ Quote none of these without re-running its command: this entry exists because two passes recorded
-numbers without one. **A THIRD SHAPE OF THIS CLASS was found while measuring — see §450**, and it is
+★★★ **A COUNT OF `tPlural` CALL SITES WAS HERE AND HAS BEEN REMOVED, because no grep can produce
+one.** It said "39 call sites" beside
+`grep -rn "tPlural(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.' | wc -l`, and that
+command refutes the number it was attached to three ways at once: it matches `tPlural`'s own
+DECLARATION and a doc comment in `i18n.ts`; the §415-B fix itself ADDED a match, so a figure pinned
+to a pre-fix SHA is stale in the same paragraph that announces the fix; and the docstring written to
+explain all this QUOTED THE COMMAND, so the comment then matched itself and pushed the raw count up
+again. Counting call sites needs a parser, not a regex. The pairing count above is the figure worth
+having, and it is gated.
+★ Quote none of the remaining numbers without re-running its command: this entry exists because two
+passes recorded numbers without one. **A THIRD SHAPE OF THIS CLASS was found while measuring — see §450**, and it is
 invisible to every detector named below.
 Earlier verification, 2026-09-07:
 `npx tsc --noEmit` (exit 0 — `PluralBaseKey` makes a missing singular a type error, so the
@@ -30409,7 +30417,10 @@ predicted by the plan:**
 
 1. **The count is not always slot `{0}`.** `actionCommitteeInfoWhy` (`"Due {0} — {1} ({2} days)"`)
    carries it at `{2}`, and `chatAttachmentSummarySkipped` (`"{0} — {1} attachments, {2} skipped"`)
-   at `{1}`. `tPlural` therefore takes `count` as a SELECTOR only and never injects it into the
+   at `{1}`. ★ A THIRD was added 2026-09-08: `chatAttachmentSummary`, the non-skipped sibling, also
+   at `{1}`. The original pair was a pair of EXAMPLES and was later read as a total — say "three,
+   enumerated at the call sites" rather than naming two, because the slot is fixed by argument order
+   at the call and no scan over the STRINGS can recover it. `tPlural` therefore takes `count` as a SELECTOR only and never injects it into the
    args — the caller passes the number in whatever position the string uses. Injecting it would
    have worked for most of this table, which is what makes it the dangerous design.
 2. **`dashboardGreetingSummary` carried TWO independent counts** (`"{0} items need you · {1}
@@ -30461,10 +30472,18 @@ which consults an `ACTIVITY_PLURAL` table — kind → `{ base, slot }` — and 
 than a silent fall-through to the plural; `activity-message.test.ts` pins the singular, the plural,
 zero, a stringified count (the panel's `changeText` spelling), the German pair, the unknown-kind
 fallback, and the prototype-member guard. ★★ The `slot` is a slot rather than a flag because
-`tPlural` takes `count` as a SELECTOR and never injects it — two converted keys elsewhere carry
-their count at `{1}` and `{2}`, so a table that assumed `{0}` would be wrong the first time this
-class grew. ★★ `ACTIVITY_PLURAL` restates the base key `ACTIVITY_KIND_TO_KEY` already maps, which
-is a real drift risk and is pinned as one: nothing else compares the two tables. The duplication
+`tPlural` takes `count` as a SELECTOR and never injects it — **three** converted keys elsewhere
+carry their count outside `{0}`, so a table that assumed `{0}` would be wrong the first time this
+class grew. ★★ THREE, NOT TWO, AND THE TWO CAME FROM THIS ENTRY: finding 1 below names
+`actionCommitteeInfoWhy` (`{2}`) and `chatAttachmentSummarySkipped` (`{1}`) as its examples, and a
+first cut of this paragraph reused that pair as if it were the total. `chatAttachmentSummary` — the
+non-skipped sibling, on the `return` immediately below the `skipped > 0` branch in
+`chat-attachment-summary.ts` — carries its count at `{1}` too. Enumerate at the CALL SITE, since argument order fixes the slot and the string cannot
+tell you it:
+`grep -rn "tPlural(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'` ★★ `ACTIVITY_PLURAL` restates the base key `ACTIVITY_KIND_TO_KEY` already maps, which
+is a real drift risk and is pinned as one — `activity-message.test.ts` asserts
+`activityPluralBase(kind) === ACTIVITY_KIND_TO_KEY[kind]` for every member, and nothing else in the
+repo compares the two tables. The duplication
 buys the compile-time proof; deriving `base` from the Record needs a cast and throws it away.
 ★★★ **THE ALLOWLIST IN `i18n-plural.test.ts` GOT LONGER, NOT SHORTER, AND THAT IS CORRECT.** Both
 keys still appear as bare literals in two dispatch tables — the kind→key Record and `ACTIVITY_PLURAL`
@@ -30474,25 +30493,33 @@ what proves this fixed is the unit test, and a reviewer who reads a growing exce
 regression will reach the opposite conclusion. The two entries that used to read `LIVE DEFECT
 (§415 B, OPEN)` now name the table each literal sits in.
 
-The defect as it stood: `activityAiAllocationPlanOne` and `activityAiRaciSuggestOne` existed in both
-dictionaries and were unreachable. Their base keys are referenced only by `activity-log.ts`'s `ACTIVITY_KEY` map, and
-every activity kind is rendered through a generic `t()` on a looked-up key — in
-`activity-log-panel.tsx` (the user-visible surface, `t(lang, key, ...args)`) and in
-`activity-prompt.ts`'s `renderActivityEntry` (the AI-prompt surface, on a hardcoded `"en-US"`).
-There are TWO such renderers, not one; special-casing either for two keys was out of scope. So the
-activity log still reads "AI planned 1 allocation cells".
-★★ **Go to `activity-log-panel.tsx` for the user-visible string** — `renderActivityEntry` is the
-AI-prompt path and renders on a hardcoded `"en-US"`, so it cannot produce a German defect at all.
-An earlier brief for this work named `renderActivityEntry` as the user-visible renderer; a reader
-who follows that lands in the one file where the DE half of the class is unreachable by
-construction. Enumerate both before concluding anything — the two renderers are the two
-`const key = activityMessageKey(...)` lines, and this grep also returns the declaration plus four
-comment mentions (trap 2 below, in miniature):
-`grep -rn "activityMessageKey" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'`
-★★★ **Nothing catches this class automatically, and no gate can be added cheaply.** The pairing
-test finds a singular with no BASE sibling; it cannot find a singular that no code path reaches,
-because reachability here runs through a `Record` map and a generic call rather than a literal key.
-Verify by hand:
+**THE DEFECT AS IT STOOD — every sentence in this paragraph is PAST TENSE and none of it describes
+the tree today.** `activityAiAllocationPlanOne` and `activityAiRaciSuggestOne` existed in both
+dictionaries and were unreachable. Their base keys were referenced only by `activity-log.ts`'s
+`ACTIVITY_KIND_TO_KEY` map, and every activity kind was rendered through a generic `t()` on a
+looked-up key — in `activity-log-panel.tsx` (the user-visible surface) and in `activity-prompt.ts`'s
+`renderActivityEntry` (the AI-prompt surface, on a hardcoded `"en-US"`). There were TWO such
+renderers, not one. So the activity log read "AI planned 1 allocation cells".
+★★★ **THIS BLOCK WAS LEFT IN PRESENT TENSE WHEN B WAS CLOSED, AND SAID THE DEFECT WAS STILL LIVE
+TWELVE LINES UNDER A HEADING SAYING FIXED.** Caught by a cold reviewer, not by any gate — no gate
+reads tense. Three of its claims had become false in the same commit that closed the entry: the base
+keys are no longer referenced "only by" the Record (`ACTIVITY_PLURAL` in `activity-message.ts` names
+both), the generic-`t()` rendering is gone (both renderers call `activityMessage`), and the
+navigation advice pointed at "the two `const key = activityMessageKey(...)` lines" when the fix had
+collapsed them to one. **When you close an entry, re-read the whole entry — the closing sentence is
+the smallest part of the edit.**
+★★ **The user-visible half is `activity-log-panel.tsx`** — `renderActivityEntry` renders on a
+hardcoded `"en-US"` and cannot produce a German defect at all. An earlier brief named it as the
+user-visible renderer; a reader who followed that landed in the one file where the DE half of the
+class is unreachable by construction. That trap is still worth knowing, because both paths now share
+`activityMessage` and only one of them can be wrong in German.
+★★★ **What no gate could see then, and still cannot: whether a rendered key EVER ASKS for its
+singular.** The pairing test finds a singular with no BASE sibling; reachability here ran through a
+`Record` and a generic call rather than a literal key. ★ That is narrower than the "no gate can be
+added cheaply" this paragraph used to claim — `PluralBaseKey` on `ACTIVITY_PLURAL.base` now makes an
+unpaired member a tsc error, and the call-site scan in `i18n-plural.test.ts` covers paired keys with
+a literal call site. Neither reaches a Record-routed key, which is what the unit test is for.
+Verify the current state by hand:
 
 ```bash
 grep -rn "activityAiAllocationPlan\|activityAiRaciSuggest" src/app --include=*.ts --include=*.tsx | grep -v "i18n.ts:\|i18n.de.ts:"
@@ -32062,14 +32089,12 @@ replaces while it cannot pass over an EMPTY set, and a one-directional allowlist
 learns to. Then delete the count from `help-content.ts` in favour of a reproduce grep. That leaves
 `ENTITY_LABEL_KEY` as the one ripple site, which is the one that already fails loudly. S-M.
 
-## 450. Fifty-eight keys dodge plural agreement with a parenthetical plural, and every detector for this class is blind to them by construction — OPEN
+## 450. Keys in both dictionaries dodge plural agreement with a parenthetical plural, and every detector for this class is blind to them by construction — OPEN
 
-**Status:** 2026-09-08 — never probed beyond the enumeration below, which is a dictionary scan and
-not a rendering check. Verified with
-`grep -cE '^  [A-Za-z0-9_]+: ".*\([sne]+\)' src/app/i18n.ts` (**58**), the same command against
-`src/app/i18n.de.ts` (**51**), and
-`grep -cE '^  activity[A-Za-z0-9_]+: ".*\([sne]+\)' src/app/i18n.ts` (**9**). Every one of the 58 was
-read by eye and all 58 are genuine plural escapes — no false positives in the match set.
+**Status:** 2026-09-08 — never probed beyond the dictionary scan below, which counts KEYS and checks
+no rendering. Verified with the wrapped-aware parse in the code block below (**72** EN, **62** DE),
+`grep -cE '^  activity[A-Za-z0-9_]+: ".*\([sne]+\)' src/app/i18n.ts` (**9**, all single-line), and
+`npm run followups:index:check` (exit 0).
 
 Found 2026-09-08 while measuring §415's disputed count, not by looking for it. The dictionary carries
 a third way of handling a count, alongside the paired `…One` keys and §415's four engine ternaries:
@@ -32077,49 +32102,93 @@ a third way of handling a count, alongside the paired `…One` keys and §415's 
 `day(s)`, `place(s)`, `email(s)`; DE spells it `Aufgabe(n)`, `Konflikt(e)`, `Element(e)`, `Tag(e)`,
 `Aktion(en)`, `Dokument(en)`.
 
+★★★ **NO COUNT IS IN THIS HEADING, AND PUTTING ONE BACK IS A REGRESSION.** The first cut of this
+entry was titled "Fifty-eight keys…" and was wrong by fourteen. The heading, the index row and the
+anchor slug all carried the number, so correcting it meant moving all three — which is the reason
+this repo's own rule is to quote the direction and never the total.
+
+★★★ **THE OBVIOUS GREP UNDERCOUNTS, AND ITS ERROR IS INVISIBLE FROM ITS OWN OUTPUT.**
+`grep -cE '^  [A-Za-z0-9_]+: ".*\([sne]+\)' src/app/i18n.ts` returns 58, because it is anchored to a
+key whose VALUE STARTS ON THE SAME LINE — and 200 values in `i18n.ts` (198 in `i18n.de.ts`) are
+wrapped onto the next line. Fourteen of those wrapped EN values carry the escape. Parse instead:
+
+```bash
+node -e 'const fs=require("fs");function keys(f){const L=fs.readFileSync(f,"utf8").split(/\r?\n/);const m=new Map();for(let i=0;i<L.length;i++){const x=L[i].match(/^  ([A-Za-z0-9_]+):\s*(.*)$/);if(!x)continue;m.set(x[1], x[2].trim()===""?(L[i+1]||"").trim():x[2].trim());}return m;}
+for(const f of ["src/app/i18n.ts","src/app/i18n.de.ts"])console.log(f,[...keys(f)].filter(([,v])=>/\([sne]+\)/.test(v)).length);'
+```
+
+→ **72** EN, **62** DE. ★★ THE CONTROL THAT MAKES THE UNDERCOUNT UNDENIABLE, and it uses this
+entry's own exemplar: `grep -c -F 'Konflikt(e)' src/app/i18n.de.ts` returns **4** against
+`grep -cE '^  [A-Za-z0-9_]+: ".*Konflikt\(e\)' src/app/i18n.de.ts` → **1**. A single-line grep sees
+one quarter of the instances of a string this entry cites by name.
+★★★ **AND THE FIRST CUT DEFENDED THE WRONG DIRECTION.** It said "every one of the 58 was read by eye
+and all 58 are genuine — no false positives in the match set", which was true and irrelevant: the
+error was fourteen FALSE NEGATIVES. Eyeballing a match set can only ever rule out false positives.
+When a number matters, the question to ask of the command is what it CANNOT see.
+
+★★ **72/62 IS STILL A FLOOR, because German escapes in two further shapes this regex cannot
+express.** A SLASH — `jiraSyncDone` DE is `"{0} Vorgang/Vorgänge …"`, `raidReferencedBy` DE is
+`"{0} RAID-Eintrag/-Einträgen"` — and `(er)`, which `[sne]` has no `r` for: `fieldsAdjusted` DE is
+`"{0} Feld(er) …"`. Any detector built for this class has to cover all three shapes, so do not treat
+the parenthesis as the definition of the defect.
+
 ★★★ **THESE KEYS ARE INVISIBLE TO EVERY DETECTOR §415 OWNS, PERMANENTLY, AND NOT BECAUSE ANY OF THEM
 IS TOO NARROW.** All three enumerate over keys that HAVE a `…One` sibling: `PluralBaseKey` is a
 mapped type over `${K}One extends TranslationKey`; the stranded-singular scan in
-`i18n-plural.test.ts` looks for a `…One` with no base; and the call-site scan in the same file walks
-only base keys that are already paired. A key written `task(s)` has no sibling and never will, so it
-is outside the domain of all three — this is not a gap that widening an existing scan closes, it
-needs a detector on a different axis (scan dictionary VALUES for the escape shape, rather than key
-NAMES for a suffix). ★★ Say that in as many words to whoever picks this up: an entry that reads
-"58 keys use `task(s)`" lands as a formatting preference, and the reason it is not one is that
-nothing in the repo can tell you when the number changes.
+`i18n-plural.test.ts` filters on `endsWith("One")`; and the call-site scan in the same file derives
+its bases from already-paired keys. A key written `task(s)` has no sibling and never will, so it is
+outside the DOMAIN of all three — not a gap that widening an existing scan closes. It needs a
+detector on a different axis: scan dictionary VALUES for the escape shapes, rather than key NAMES for
+a suffix. The only other test that reads the dictionaries, `i18n-encoding.test.ts`, checks mojibake
+and umlauts and cannot see this either. ★★ Say that in as many words to whoever picks this up: an
+entry that reads "N keys use `task(s)`" lands as a formatting preference, and the reason it is not
+one is that nothing in the repo can tell you when N changes.
 
-★★ **THE TWO DICTIONARIES DISAGREE — 58 EN against 51 DE — AND THE GAP IS NOT SLOPPINESS.** Some
-German nouns are number-invariant in the nominative plural, so the translator had nothing to escape:
-`guardTimelogPartialFetch` is `"{0} employee(s)"` in EN and `"{0} Mitarbeiter"` in DE, which is
-already correct for every count. So the DE side is in slightly better shape than the EN side here,
-and a conversion slice cannot assume the two files convert key-for-key.
+**The EN/DE gap is 72 vs 62, and number-invariance explains only a minority of it.** Nine keys escape
+in EN where DE does not, and only two of the nine are the clean story — `guardTimelogPartialFetch`
+(`"{0} employee(s)"` against `"{0} Mitarbeiter"`) and `reportSentToast` (`"Empfänger"`) — where the
+German noun is invariant in the plural and there was nothing to escape. ★★★ **DO NOT GENERALISE THAT
+INTO "DE IS IN BETTER SHAPE", WHICH IS WHAT THE FIRST CUT DID.** Three of the nine are BARE German
+plurals that are ungrammatical at a count of one, i.e. worse than an escape rather than better:
+`tasksDeleteSelectedDialogMessage` renders "die 1 ausgewählten Aufgaben" and
+`birthdayBannerTitle` / `birthdayToast` render "1 bevorstehende Geburtstage". The rest are the slash
+and `(er)` shapes above, which the counting regex cannot see at all. [The three ungrammatical
+readings are REASONED from German agreement, not rendered.]
 
-**Not one class, two.** 55 of the 58 interpolate a count into a SENTENCE and are the same defect
-`tPlural` exists for. The remaining three — `calendarEventIntervalUnitDaily` / `…Weekly` /
-`…Monthly`, each a bare `"day(s)"` / `"week(s)"` / `"month(s)"` — are standalone UNIT LABELS rendered
-beside a separate number input, so the count that should select them is not in their args at all.
-They need the count threaded to them, which is a different change from converting a sentence, and
-lumping them in is how a "mechanical" slice acquires a design question halfway through.
+**Not one class, but three, and only the first is mechanical.** Of the 58 the single-line grep does
+see, **54** interpolate a count into a SENTENCE and are the same defect `tPlural` exists for. **Four**
+carry no `{N}` slot at all: `calendarEventIntervalUnitDaily` / `…Weekly` / `…Monthly` are bare unit
+LABELS — `"day(s)"`, `"week(s)"`, `"month(s)"` — rendered beside a separate number input, so the
+count that should select them is not in their args and has to be threaded in first; and
+`aiPromptProcessAttachmentBody` is AI-PROMPT COPY with no count anywhere in it
+("…the attached document(s) - tasks, risks…"), so it cannot disagree with a number and is not
+convertible at all. Reproduce the split:
 
-★ Nine of the 58 sit in the activity log, directly beside the two keys §415 exception B was about —
-`activityBulkEdit`, `activityBulkDelete`, `activityBulkInquiries`, `activityJiraSync`,
+```bash
+node -e 'const h=require("fs").readFileSync("src/app/i18n.ts","utf8").split(/\r?\n/).filter(l=>/^  [A-Za-z0-9_]+: ".*\([sne]+\)/.test(l));console.log(h.length, h.filter(l=>!/\{\d\}/.test(l)).length);'
+```
+
+★ **Eight** of the escape-bearing keys sit in the activity log, beside the two keys §415 exception B
+was about — `activityBulkEdit`, `activityBulkDelete`, `activityBulkInquiries`,
 `activityHistoryRestore`, `activityCalendarAutoPulled`, `activityAiTaskDedup`, `activityUndo`,
-`activityRedo`. Those nine already render through `activityMessage`, so converting them is the
-cheapest tier: add a member to `ACTIVITY_PLURAL` per key and author the singular. ★★ `activityJiraSync`
-is NOT in that cheap tier despite its neighbourhood — its escape is at `{2}` (`"{2} conflict(s)"`)
-while it carries three independent numbers, so it is finding 2's split-or-accept decision, not a
-conversion.
+`activityRedo`. All eight already render through `activityMessage`, so converting them is the
+cheapest tier: one `ACTIVITY_PLURAL` member per key plus an authored singular.
+★★ The grep for activity keys returns NINE, and the ninth is deliberately NOT in that tier:
+`activityJiraSync` is `"Jira sync: {0} pulled, {1} pushed, {2} conflict(s)"` — three independent
+numbers with the escape at `{2}` — so it is finding 2's split-or-accept decision, not a conversion.
+Counting it with the other eight is how a tier sized as mechanical acquires a design question.
 
 **Related and deliberately not merged:** §415 exception A (four engine ternaries, correct for en/de,
 not locale-general) and §415's `undoLabelBulkEdit` note (a noun passed as an ARGUMENT, which no
-dictionary scan can ever surface). Together with this entry those are the three shapes a complete
-sweep of plural agreement has to cover; each needs a different pass, and only the paired-key shape
-has any gate at all.
+dictionary scan can ever surface). With this entry those are the three shapes a complete sweep of
+plural agreement has to cover; each needs a different pass, and only the paired-key shape has a gate.
 
-**Remedy:** tier it. (1) The nine activity-log keys through the table that now exists. (2) The
+**Remedy:** tier it. (1) The eight activity-log keys, through the table that now exists. (2) The
 remaining sentence keys, per surface, authoring a real German singular each time rather than deriving
-one — the house rule the whole class turns on. (3) The three unit labels, which need a count threaded
-in first. Then add the value-axis detector, or the number silently drifts again. M-L, and the German
-half needs translation judgement per string, so it is not mechanical. ★ Do NOT convert on the
-strength of the grep alone: a key whose count cannot be 1 in practice needs no singular, and
-authoring one that never renders is exactly §415 exception B in reverse.
+one — the house rule the whole class turns on — and covering the slash and `(er)` shapes, not only
+the parenthesis. (3) `activityJiraSync` and any other multi-count string, as split-or-accept
+decisions. (4) The three unit labels, which need a count threaded in first. `aiPromptProcessAttachmentBody`
+is in none of the tiers. Then add the value-axis detector, or the number drifts again with nothing to
+say so. M-L, and the German half needs translation judgement per string, so it is not mechanical.
+★ Do NOT convert on the strength of a grep alone: a key whose count cannot be 1 in practice needs no
+singular, and authoring one that never renders is §415 exception B in reverse.
