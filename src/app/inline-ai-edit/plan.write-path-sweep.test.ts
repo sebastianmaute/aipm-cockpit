@@ -34,17 +34,27 @@
 // with its sibling so the two suites cannot seed different rows and disagree
 // about what was covered. The docstrings there are load-bearing; read them
 // before touching a seeded value.
-import { describe, expect, it } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it } from "vitest";
+import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";
 import {
   AXIS_FIELDS,
   JUNK_KEY,
+  type Row,
   SWEEP,
+  type SweepEntity,
   sweepPlumbing,
   sweptFields,
 } from "../../test/inline-sweep-fixtures";
+import { entityToken, TOKEN_EXCLUDED } from "../ai-entity-token";
 import { TOKEN_ROW_SOURCE } from "../chat-proposal-apply";
+import { runTool } from "../chat-tools";
+import { resetMintState } from "../id-mint-session";
+import { useChatDispatcher } from "../use-chat-dispatcher";
+import { useWorkspace } from "../workspace-context";
 import { emptyWorkspace, type Workspace } from "../workspace";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
+import { describeEntityCalls, type EditPlan } from "./plan";
 
 describe("the sweep's own coverage", () => {
   // ★★ THE ONE MAINTAINED THING IN THE SWEEP, AND ITS GUARD. A new FIELD is
@@ -169,4 +179,315 @@ describe("the sweep's own coverage", () => {
     expect(fields).not.toContain("id");
     expect(fields).not.toContain(JUNK_KEY);
   });
+});
+
+// --- the probe layer --------------------------------------------------------
+
+/** The live provider state as a `Workspace`, which is what `describeEntityCalls`
+ *  takes. Read from `useWorkspace()` rather than rebuilt from the seed on
+ *  purpose: a mirror fixture can drift from what the provider holds, and a
+ *  preview grounded against a drifted workspace is not the preview production
+ *  would render.
+ *
+ *  ★★ A COPY OF THE HELPER OF THE SAME NAME IN `plan.write-path.test.ts`, and
+ *  the duplication is forced rather than chosen: a test file importing another
+ *  test file re-registers that file's `describe`s, so every one of its cases
+ *  would run a second time under this file's name. The two copies CAN drift, and
+ *  the drift is silent in the dangerous direction — a workspace slice added
+ *  there and not here leaves this sweep previewing against a workspace missing
+ *  it, which reads as "the preview disclosed nothing" rather than as an error.
+ *  The real fix is to move it into `src/test/inline-sweep-fixtures.ts` and
+ *  delete both copies; that touches the sibling file, so it is left for whoever
+ *  next has both open.
+ *
+ *  ★★ THE ABSENT SLICE IS CARRIED THROUGH AS ABSENT. `calendarEvents` is
+ *  `readonly CalendarEvent[] | undefined` and `undefined` means "the slice is
+ *  not there", never "there are no meetings" — copying it as `[]` would hand
+ *  `describeEntityCalls` a workspace claiming a presence the provider does not,
+ *  which is the very distinction the calendar write path holds. */
+function snapshot(ws: ReturnType<typeof useWorkspace>): Workspace {
+  return {
+    ...emptyWorkspace(),
+    tasks: [...ws.tasks],
+    raid: [...ws.raid],
+    resources: [...ws.resources],
+    roles: [...ws.roles],
+    disciplines: [...ws.disciplines],
+    grades: [...ws.grades],
+    stakeholders: [...ws.stakeholders],
+    milestones: [...ws.milestones],
+    changes: [...ws.changes],
+    absences: [...ws.absences],
+    calendarEvents: ws.calendarEvents ? [...ws.calendarEvents] : undefined,
+  };
+}
+
+/** Copied from `plan.write-path.test.ts` for the same reason as `snapshot`. */
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** The seeded row exactly as the fixture LITERAL declares it — before any
+ *  sanitizer has touched it.
+ *
+ *  ★★ RIGHT SOURCE FOR CHOOSING A PROBE, WRONG ONE FOR JUDGING A WRITE, and the
+ *  split is the same one `AXIS_FIELDS` documents about itself. A probe only
+ *  needs the field's TYPE, which survives the sanitizer; every read-back
+ *  comparison below instead reads `before` out of `replayOneField`, which is the
+ *  provider's own post-write row. Judging a write against this literal would
+ *  compare the stored row to something the provider never held. */
+function seedRowOf(s: SweepEntity): Row {
+  const { wsKey } = sweepPlumbing(s.entity);
+  const ws = { ...emptyWorkspace(), ...s.seed } as unknown as Workspace;
+  const rows = ws[wsKey] as ReadonlyArray<{ id: number }> | undefined;
+  const found = rows?.find((r) => r.id === s.id);
+  if (!found) throw new Error(`fixture did not seed ${wsKey} #${s.id}`);
+  return found as Row;
+}
+
+/** The value probes for one field, DERIVED from its stored value's type rather
+ *  than listed per field — so a new field is probed the moment it exists and
+ *  nothing has to be maintained when a descriptor or a seed grows.
+ *
+ *  ★★ DELIBERATELY NARROWER THAN `plan.sanitizer-parity.test.ts`'s ten-probe
+ *  list, and the reason is cost, not principle: every probe here is a full
+ *  `renderHook` mount plus an `act`, where that file's is a function call. The
+ *  breadth over TEXT shapes (surrogate straddles, length caps, CRLF) is that
+ *  sweep's job at the sanitizer layer. This one exists for the LAYER, not the
+ *  value space — so it probes each type just widely enough to move the field,
+ *  plus one wrong-type probe to reach the merge-site guard.
+ *
+ *  ★★★ EVERY PROBE MUST DIFFER FROM THE STORED VALUE, AND MOST OF THEM HOLD
+ *  THAT BY ASSERTION RATHER THAN BY CONSTRUCTION. A probe equal to what is
+ *  already stored cannot move the field, so every parity relation over it is
+ *  trivially satisfiable — a green that means nothing ran. "every probe can move
+ *  the field it is aimed at" below is what enforces it against the fixed
+ *  literals here, and it is not theoretical: the plan this table came from
+ *  shipped TWO dead probes, and both were found by running that assertion, not
+ *  by reading the table.
+ *   • the `null` branch returned `{ label: "an explicit null", value: null }`
+ *     for a field whose stored value IS `null`. An explicit null is a good CLEAR
+ *     probe against a NON-null field and a dead one here; if it is wanted, it
+ *     belongs in the other branches.
+ *   • the number branch led with the literal `3`, and `seedGuardedRaid` seeds
+ *     `probability: 3`. That one is now derived from the stored value, because a
+ *     collision a seed can reintroduce at any time is better closed by
+ *     construction than re-caught by a test.
+ *
+ *  ★ `-1` and the string literals stay literal on purpose. Deriving everything
+ *  would leave the assertion above with nothing live to guard, and a guard that
+ *  cannot fire reads as protection while being none. No seed carries them today;
+ *  the day one does, the assertion names the field. */
+function probesFor(current: unknown): ReadonlyArray<{ label: string; value: unknown }> {
+  if (typeof current === "boolean") {
+    return [
+      { label: "the opposite boolean", value: !current },
+      { label: "a non-boolean string", value: "yes" },
+    ];
+  }
+  if (typeof current === "number") {
+    return [
+      { label: "one more than the stored number", value: current + 1 },
+      { label: "a negative number", value: -1 },
+      { label: "a numeric string", value: "7" },
+    ];
+  }
+  if (Array.isArray(current)) {
+    return [
+      { label: "an empty array", value: [] },
+      { label: "a non-array string", value: "nope" },
+    ];
+  }
+  if (current === null) {
+    return [
+      { label: "a plain number", value: 1 },
+      { label: "a plain string", value: "nope" },
+    ];
+  }
+  // string, undefined, or an object-valued field (recurrence).
+  return [
+    { label: "a padded string", value: "  padded  " },
+    { label: "the empty string", value: "" },
+    { label: "the number 42", value: 42 },
+  ];
+}
+
+/** Preview ONE field's probe and REPLAY it through the real dispatcher.
+ *
+ *  ★★ A near-copy of `previewAndWrite` in `plan.write-path.test.ts`, and
+ *  deliberately not folded into it: that one takes a whole hand-written case
+ *  with an `expectStored` map, this one takes one field and returns raw rows for
+ *  the caller to relate. Merging them would need a union parameter and would
+ *  make the hand-written cases harder to read, which is the thing they are for.
+ *
+ *  ★★★ IT RETURNS THE ROWS RAW AND FILTERS NOTHING, WHICH IS THE POINT OF THE
+ *  SHAPE. `localModifiedAt` is stamped unconditionally by all eight writers and
+ *  is `TOKEN_EXCLUDED` on all eight, so it moves on every single replay while
+ *  the model's patch can never carry it — a caller relating "moved" to
+ *  "previewed" has to subtract the writer-stamped set itself. Doing that
+ *  subtraction HERE would hide a real undisclosed write behind a helper nobody
+ *  re-reads, so the helper hands back `before` and `stored` untouched and each
+ *  caller states which fields it excluded and why.
+ *
+ *  ★★ `expectedToken` is stamped from the STORED row, exactly as
+ *  `chat-proposal-apply.ts` does it. Without it `requireToken` refuses the call,
+ *  every read-back compares a row against itself, and the sweep reports perfect
+ *  agreement while never having written anything. */
+async function replayOneField(
+  s: SweepEntity,
+  field: string,
+  probe: unknown,
+): Promise<{ plan: EditPlan; before: Row; stored: Row }> {
+  const { result } = renderHook(
+    () => ({ d: useChatDispatcher(makeDispatcherArgs()), ws: useWorkspace() }),
+    { wrapper: dispatcherWrapperWith(s.seed) },
+  );
+
+  // `tool`, `kind` and `wsKey` are DERIVED, never fields on `s` — see the
+  // `sweepPlumbing` docstring for why hand-copying them is banned.
+  const { tool, kind, wsKey } = sweepPlumbing(s.entity);
+
+  const wsBefore = snapshot(result.current.ws);
+  const rowsBefore = wsBefore[wsKey] as ReadonlyArray<{ id: number }> | undefined;
+  const before = rowsBefore?.find((r) => r.id === s.id) as Row | undefined;
+  if (!before) throw new Error(`fixture did not seed ${wsKey} #${s.id}`);
+
+  const input: Record<string, unknown> = { id: s.id, [field]: probe };
+
+  const plan = describeEntityCalls([{ type: "tool_use", name: tool, input }], {
+    descriptor: INLINE_DESCRIPTORS[s.entity],
+    item: before,
+    ws: wsBefore,
+  });
+
+  await act(async () => {
+    await runTool(result.current.d, tool, { ...input, expectedToken: entityToken(kind, before) });
+  });
+
+  const wsAfter = snapshot(result.current.ws);
+  const rowsAfter = wsAfter[wsKey] as ReadonlyArray<{ id: number }> | undefined;
+  const stored = rowsAfter?.find((r) => r.id === s.id) as Row | undefined;
+  if (!stored) throw new Error(`${wsKey} #${s.id} vanished during the replay`);
+
+  return { plan, before, stored };
+}
+
+beforeEach(() => {
+  // The minter is module-scoped; nothing here creates, but resetting keeps this
+  // file order-independent under `npm run test:shuffle`.
+  resetMintState();
+});
+
+describe("the probe layer", () => {
+  // ★★★ THE PROBE SET'S OWN ANTI-VACUITY GUARD, and the reason `probesFor` is
+  //  allowed to hold fixed literals at all. A probe equal to the value already
+  //  stored cannot move the field, and a field that never moves satisfies every
+  //  parity relation the sweep will build on top of it — so a dead probe does
+  //  not weaken a finding, it manufactures a clean one. Both dead probes this
+  //  caught are named in the `probesFor` docstring; neither was visible by
+  //  reading the table.
+  //
+  //  ★★ IT READS THE SEED LITERAL, NOT A READ-BACK, which is sound here and
+  //   would not be for a write assertion: a probe is chosen by the field's TYPE
+  //   and the type survives the sanitizer. `seedRowOf` carries the split.
+  it.each(SWEEP)("$entity — every probe can move the field it is aimed at", (s) => {
+    const row = seedRowOf(s);
+    const dead: string[] = [];
+    const starved: string[] = [];
+    let examined = 0;
+    for (const field of sweptFields(s.entity, row)) {
+      const probes = probesFor(row[field]);
+      examined += probes.length;
+      // TWO is the design floor, not a round number: each branch owes at least
+      // one probe that moves the field plus one wrong-type probe that reaches
+      // the merge-site guard. A branch cut to one silently drops one of those.
+      if (probes.length < 2) starved.push(`${s.entity}.${field} (${probes.length})`);
+      for (const p of probes) {
+        if (same(p.value, row[field])) dead.push(`${s.entity}.${field} <- ${p.label}`);
+      }
+    }
+    expect(
+      dead,
+      `a probe equal to the stored value cannot move the field, so every relation over it is trivially satisfiable: ${dead.join(", ")}`,
+    ).toEqual([]);
+    expect(starved, `a field probed fewer than twice has lost a branch: ${starved.join(", ")}`).toEqual([]);
+    // Anti-vacuity: both lists above are empty over an EMPTY axis too. Tied to
+    // the recorded axis rather than to `> 0`, so a scan that silently narrowed
+    // to a couple of fields is red rather than green.
+    expect(examined, `${s.entity}: the probe scan ran over a starved axis`).toBeGreaterThanOrEqual(
+      2 * AXIS_FIELDS[s.entity].length,
+    );
+  });
+
+  // ★★★ THE FLOOR THE WHOLE SWEEP RESTS ON. Everything Task 5 relates —
+  //  "previewed ⇒ stored", "rejected ⇒ unchanged" — is satisfied by a replay
+  //  that writes NOTHING. A missing `expectedToken`, a renamed tool, a wrapper
+  //  that never mounts the provider: each one turns the sweep green across all
+  //  eight entities while proving nothing, and no other assertion in either file
+  //  can tell that apart from real agreement. This one demands a POSITIVE
+  //  observable per entity: some swept field, driven by some probe, actually
+  //  changed in the row the provider holds.
+  //
+  //  ★★ TOKEN-EXCLUDED FIELDS ARE SKIPPED, and skipping them is what makes the
+  //   observation mean anything. `patchWithoutId` strips them from every model
+  //   patch, so the writer cannot move them THROUGH THE PATCH — while
+  //   `localModifiedAt`, which every writer stamps unconditionally, changes on
+  //   every replay regardless. Left in, the first field tried would "move" on
+  //   all eight entities and this floor would certify a sweep that writes
+  //   nothing, which is precisely the failure it exists to prevent.
+  //
+  //  ★★★ `calendarEvent.sendInvitations` IS A LIVE PROBE TARGET, AND IT IS THE
+  //   ONE FIELD IN THIS LOOP WITH A REAL-WORLD SIDE EFFECT. It is NOT
+  //   token-excluded — `TOKEN_EXCLUDED.calendarEvent` is `localModifiedAt` and
+  //   `outlookEventId` only, and `CALENDAR_EVENT_FIELD_GUARDS` actively accepts
+  //   it — so the skip above does not cover it. A strict `true` is what trips
+  //   `shouldStage`, and whether a unit-test replay can actually send mail is
+  //   recorded as UNVERIFIED in this slice's plan.
+  //   Nothing here drives `true` today, and that is CONTINGENT rather than
+  //   guarded: the seed holds `true`, so the boolean branch's `!current` sends
+  //   `false`, and the wrong-type probe is the string `"yes"`, which the guard
+  //   rejects. FLIP THAT SEED TO `false` AND THIS LOOP DRIVES `true` THROUGH THE
+  //   REAL DISPATCHER. Settle the mail question before doing so — and do not
+  //   narrow the probe to dodge it, which would un-sweep the field instead.
+  //
+  //  ★★ THE JUNK-KEY HALF IS AN ABSENCE CLAIM AND IS DELIBERATELY IN THE SAME
+  //   TEST AS THE POSITIVE ONE. "a key no schema declares never lands" passes
+  //   just as well when the replay wrote nothing at all, so it is worthless
+  //   standing alone; pairing it with the moved-field observation for the same
+  //   entity is what turns it into evidence. This is the control the `JUNK_KEY`
+  //   docstring in `inline-sweep-fixtures.ts` asks for and did not have.
+  it.each(SWEEP)(
+    "$entity — the replay moves a real field, and a key no schema declares never lands",
+    async (s) => {
+      const { kind } = sweepPlumbing(s.entity);
+      const row = seedRowOf(s);
+      const excluded = new Set(TOKEN_EXCLUDED[kind]);
+
+      let moved: string | undefined;
+      for (const field of sweptFields(s.entity, row)) {
+        if (excluded.has(field)) continue;
+        for (const p of probesFor(row[field])) {
+          const { before, stored } = await replayOneField(s, field, p.value);
+          if (!same(before[field], stored[field])) {
+            moved = `${field} <- ${p.label}`;
+            break;
+          }
+        }
+        if (moved) break;
+      }
+      expect(
+        moved,
+        `${s.entity}: no probe on any swept field moved the stored row — the replay is not reaching the writer, and every parity relation built on it would be vacuous`,
+      ).toBeDefined();
+
+      const junk = await replayOneField(s, JUNK_KEY, "landed");
+      expect(
+        junk.stored[JUNK_KEY],
+        `${s.entity}: "${JUNK_KEY}" reached the stored row — the write path accepts a key no schema declares`,
+      ).toBeUndefined();
+    },
+    // Raised from the 20s default because the RED path is the slow one: an
+    // entity whose replay writes nothing tries every probe on every swept
+    // field. A timeout there would report "slow" where the assertion above
+    // reports "the replay is not reaching the writer".
+    60_000,
+  );
 });
