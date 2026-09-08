@@ -88,7 +88,13 @@ describe("buildSystemPrompt staged-write instructions", () => {
     // Anti-vacuity for the three presence checks above: they read `stable`, so a
     // regression that moved this text into the volatile suffix would leave them
     // red for the right reason, and this pins the placement decision itself.
-    const [stable, volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
+    // ★ `buildSystemPrompt` now returns THREE blocks — [always-on stable,
+    //   view-scoped stable, turn context] — since `buildStableSystemBlocks`
+    //   split into two. The middle one is empty here (`guides` is `[]`), so
+    //   skip it rather than destructuring positionally into `volatile`; every
+    //   later `[stable, volatile] = buildSystemPrompt(...)` pattern in this
+    //   file has the same fix for the same reason.
+    const [stable, , volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
     expect(stable.text).toContain("STAGED");
     expect(volatile.text).not.toContain("STAGED");
   });
@@ -103,7 +109,7 @@ describe("buildSystemPrompt view scoping", () => {
   // rather than a large win. Moving it back breaks nothing visible and
   // silently raises cost, exactly like the digest below.
   it("puts the view scope in the UNCACHED block, never the cached one", () => {
-    const [stable, volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
+    const [stable, , volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
     expect(stable.cache_control).toEqual({ type: "ephemeral" });
     expect(stable.text).not.toContain("VIEW SCOPE");
     expect(stable.text).not.toContain("capacity versus allocation");
@@ -115,7 +121,7 @@ describe("buildSystemPrompt view scoping", () => {
   // Order matters for readability of the prompt: what the surface IS, then
   // what is currently on it.
   it("emits VIEW SCOPE before VIEW STATE", () => {
-    const [, volatile] = buildSystemPrompt(
+    const [, , volatile] = buildSystemPrompt(
       "en-US",
       snapshot({ viewDigest: "3 people over capacity" }),
       [],
@@ -136,7 +142,7 @@ describe("buildSystemPrompt view scoping", () => {
   // nothing visible — it just invalidates the cache on every filter change and
   // silently raises cost. Nothing else would catch that.
   it("puts the digest in the UNCACHED block, never the cached one", () => {
-    const [stable, volatile] = buildSystemPrompt(
+    const [stable, , volatile] = buildSystemPrompt(
       "en-US",
       snapshot({ viewDigest: "3 people over capacity" }),
       [],
@@ -151,7 +157,7 @@ describe("buildSystemPrompt view scoping", () => {
   });
 
   it("omits the VIEW STATE block when the view contributes no digest", () => {
-    const [, volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
+    const [, , volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
     expect(volatile.text).not.toContain("VIEW STATE");
   });
 
@@ -159,7 +165,7 @@ describe("buildSystemPrompt view scoping", () => {
   // gate, or a user preference would silently switch off shipped behaviour.
   // Unchanged by the move to the volatile suffix — only the block it lands in.
   it("keeps the view scope when groundInGuides is off", () => {
-    const [, volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
+    const [, , volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
     expect(volatile.text).toContain("VIEW SCOPE");
   });
 });
@@ -203,7 +209,7 @@ describe("buildSystemPrompt insight block placement", () => {
   ];
 
   it("puts both insight sections in the UNCACHED block, never the cached one", () => {
-    const [stable, volatile] = buildSystemPrompt("en-US", snapshot({ insights }), [], false, {});
+    const [stable, , volatile] = buildSystemPrompt("en-US", snapshot({ insights }), [], false, {});
     expect(stable.cache_control).toEqual({ type: "ephemeral" });
     expect(stable.text).not.toContain("Current project insights");
     expect(stable.text).not.toContain("CACHEPROBE");
@@ -303,7 +309,11 @@ describe("buildSystemPrompt split into buildStableSystemBlocks + buildTurnContex
   // pins the actual substance of `buildTurnContext`'s output, since the
   // composition check above cannot fail on a change inside either builder.
   it("gives the fixture real, non-empty text on both sides of the split", () => {
-    const [stable, volatile] = buildSystemPrompt("en-US", richSnapshot, guides, true, {});
+    // ★ `buildSystemPrompt` returns THREE blocks now (see the note in the
+    //   "staged-write instructions" describe above): skip the middle
+    //   view-scoped stable block (empty here — this fixture's one guide has
+    //   `scope: {}`, i.e. always-on) to reach the real turn context.
+    const [stable, , volatile] = buildSystemPrompt("en-US", richSnapshot, guides, true, {});
     expect(stable.text.length).toBeGreaterThan(0);
     expect(volatile.text.length).toBeGreaterThan(0);
     // Confirm the enriched fields actually landed, not just SOME text.
@@ -320,5 +330,42 @@ describe("buildSystemPrompt split into buildStableSystemBlocks + buildTurnContex
     expect(volatile.text).toContain("Today is");
     expect(volatile.text).toContain("Known groups");
     expect(volatile.text).toContain("APP CONTEXT");
+  });
+});
+
+describe("buildStableSystemBlocks two-block split", () => {
+  const guides: OperatingGuide[] = [
+    {
+      id: "always", name: "Leadership", content: "ALWAYSPROBE", enabled: true,
+      priority: 1, scope: {}, builtIn: true,
+    },
+    {
+      id: "budget", name: "Budget guide", content: "BUDGETPROBE", enabled: true,
+      priority: 3, scope: { views: ["budget"] }, builtIn: true,
+    },
+  ];
+
+  it("returns two blocks with cache_control on the FIRST only", () => {
+    const blocks = buildStableSystemBlocks("en-US", snapshot({ currentView: "budget" }), guides, true, {});
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(blocks[1].cache_control).toBeUndefined();
+  });
+
+  it("puts the always-on guide in block 0 and the view guide in block 1", () => {
+    const blocks = buildStableSystemBlocks("en-US", snapshot({ currentView: "budget" }), guides, true, {});
+    // Positive on BOTH sides first: a block dropped entirely satisfies every
+    // `not.toContain` below, so the negatives alone would pass vacuously.
+    expect(blocks[0].text).toContain("ALWAYSPROBE");
+    expect(blocks[1].text).toContain("BUDGETPROBE");
+    expect(blocks[0].text).not.toContain("BUDGETPROBE");
+    expect(blocks[1].text).not.toContain("ALWAYSPROBE");
+  });
+
+  it("still returns two blocks when the view contributes no guide", () => {
+    const blocks = buildStableSystemBlocks("en-US", snapshot({ currentView: "workload" }), guides, true, {});
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].text).toContain("ALWAYSPROBE");
+    expect(blocks[1].text).toBe("");
   });
 });

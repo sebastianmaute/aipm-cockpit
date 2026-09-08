@@ -5,7 +5,7 @@
 import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import type { Lang } from "./i18n";
-import { selectActiveGuides, assembleGuideBlock, type OperatingGuide } from "./operating-guide";
+import { selectActiveGuides, assembleGuideBlocks, type OperatingGuide } from "./operating-guide";
 import type { AttachmentBlock } from "./chat-attachments";
 import { buildInsightsPromptBlock } from "./insights/insight-prompt";
 import { buildViewScopeBlock, buildViewStateBlock } from "./view-ai-scope-block";
@@ -132,20 +132,26 @@ export function maxOutputTokensFor(model: string): number {
 export const CONTINUE_NUDGE =
   "Your previous message was cut off at the length limit. Continue exactly where you left off — do not repeat anything you already wrote.";
 
-/** The STABLE half of the system prompt (cached): fixed instructions that
- *  never interpolate per-call state, plus the (large) guide text. Anthropic
- *  prompt-cache is prefix-based, so this must come FIRST in the request and
- *  contain only call-invariant content — EXCEPT for the guide block, which is
- *  call-invariant per VIEW, not per call: `groundInGuides` defaults true and
- *  most builtin guides are view-scoped, so this half changes on every view
- *  switch out of the box. See `CACHED_TOOLS`'s doc comment below (the same
- *  fact, argued in full) rather than re-deriving it here.
+/** The STABLE half of the system prompt: returns TWO blocks, not one. Block 0
+ *  carries the cache_control marker and is genuinely call-invariant — fixed
+ *  instructions plus only the guides that apply on EVERY view
+ *  (`operating-guide.ts`'s `assembleGuideBlocks`/`isAlwaysOn`). Block 1
+ *  carries the CURRENT view's guides and no marker of its own: it is
+ *  call-invariant per VIEW, not per call — `groundInGuides` defaults true and
+ *  most builtin guides are view-scoped, so block 1's text changes on every
+ *  view switch out of the box (see `CACHED_TOOLS`'s doc comment below for the
+ *  same underlying fact, argued in full). Putting the view-dependent text in
+ *  its OWN block after the marker is what lets block 0's cache entry survive
+ *  a view switch, instead of the whole stable half rewriting every time the
+ *  view changes.
  *
  *  ★★ Split out of `buildSystemPrompt` (Task 5 of the prompt-cache-layout
  *  slice) so the layout engine (Task 6) and the relocation (Task 7) can each
  *  address the two halves independently. `buildSystemPrompt` below is kept
  *  as a thin composition of this and `buildTurnContext` — nothing about
- *  which text lands in which half changed here.
+ *  which text lands in which half changed here. The always-on/view-scoped
+ *  split WITHIN this half is a later addition (`operating-guide.ts`'s
+ *  `assembleGuideBlocks`) and does not affect that composition.
  *
  *  ★★★ `toolFlags` CANNOT MOVE A BYTE OF THIS OUTPUT — measured, not assumed
  *  (a differential probe holding every other input fixed and flipping
@@ -153,9 +159,9 @@ export const CONTINUE_NUDGE =
  *  `buildTurnContext`'s output changed). The tool-advertising blocks
  *  `toolFlags` gates (view scope, activity recap, chat pointer) all live in
  *  the volatile half; it is accepted here only so both halves share one
- *  param list. This is what makes the block genuinely STABLE across a
- *  conversation's turns even when a setting toggle changes mid-thread — see
- *  Task 7, which depends on it. */
+ *  param list. This is what makes both these blocks genuinely STABLE across
+ *  a conversation's turns even when a setting toggle changes mid-thread —
+ *  see Task 7, which depends on it. */
 export function buildStableSystemBlocks(
   lang: Lang,
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
@@ -171,11 +177,12 @@ export function buildStableSystemBlocks(
   // half. Kept on the signature anyway so both halves take the IDENTICAL
   // param list `buildSystemPrompt` composes them from unchanged.
   void toolFlags;
-  // STABLE prefix (cached): fixed instructions plus the (large) guide text.
-  // Anthropic prompt-cache is prefix-based, so this must come FIRST. For what
-  // "stable" does and does NOT mean here — the guide block is invariant per
-  // VIEW, not per call — see this function's docstring above; do not restate
-  // the rule here, this copy is how the two drifted apart.
+  // STABLE prefix (cached): fixed instructions plus the always-on guides
+  // (block 0), followed by the current view's guides (block 1, no marker of
+  // its own). Anthropic prompt-cache is prefix-based, so block 0 must come
+  // FIRST. For what "stable" does and does NOT mean for block 1 — see this
+  // function's docstring above; do not restate the rule here, this copy is
+  // how the two drifted apart before.
   const stableInstructions = [
     "You are an assistant embedded in AI PM Cockpit, an AI-assisted project management app for tracking open project items (tasks, RAID, changes, milestones, budget).",
     "The user is a project lead tracking open tasks. Each task has: id, taskName, assignee, assigneeEmail, dueDate (YYYY-MM-DD), lastUpdateDate, priority (Low/Medium/High/Urgent), status (To Do/In Progress/On Hold/In Review/Cancelled/Done), blockers, notes, group (single optional category), labels (zero or more tags).",
@@ -200,14 +207,29 @@ export function buildStableSystemBlocks(
     "When the user references a record by name or fragment, call the matching list_ tool to find its ID first.",
     `Active language code: ${lang}.`,
   ].join("\n");
-  const guideBlock = groundInGuides
-    ? assembleGuideBlock(selectActiveGuides(guides, {
+  const segments = groundInGuides
+    ? assembleGuideBlocks(selectActiveGuides(guides, {
         mode: snapshot.mode, modules: snapshot.enabledModules, view: snapshot.currentView,
       }))
-    : "";
-  const stableText = [stableInstructions, guideBlock].filter(Boolean).join("\n\n");
+    : { alwaysOn: "", viewScoped: "" };
+  const stableText = [stableInstructions, segments.alwaysOn].filter(Boolean).join("\n\n");
 
-  return [{ type: "text", text: stableText, cache_control: { type: "ephemeral" } }];
+  // ★★★ TWO BLOCKS, MARKER ON THE FIRST. Block 0 is byte-identical on every
+  //     view, so its cache entry survives a view switch; block 1 holds only
+  //     the current view's guide text and deliberately carries NO marker of
+  //     its own — it still sits inside whatever a LATER cache_control marker
+  //     covers (e.g. `chat-cache-layout.ts`'s message-level breakpoints), so
+  //     it is not necessarily uncached, just not the boundary of a cache
+  //     lookup by itself. Adding a second marker here was never an option
+  //     anyway: tools(1) + this system marker(1) + the two message
+  //     breakpoints already spend the four `cache_control` breakpoints
+  //     Anthropic allows per request. Do NOT "tidy" this back into one
+  //     block: the whole saving is that the view-scoped text sits AFTER the
+  //     marker.
+  return [
+    { type: "text", text: stableText, cache_control: { type: "ephemeral" } },
+    { type: "text", text: segments.viewScoped },
+  ];
 }
 
 /** The VOLATILE half of the system prompt (uncached): per-call state — the
