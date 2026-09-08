@@ -369,3 +369,35 @@ describe("buildStableSystemBlocks two-block split", () => {
     expect(blocks[1].text).toBe("");
   });
 });
+
+describe("block 0 is byte-identical across every view", () => {
+  // A fixture spanning all three guide-count shapes the real app produces
+  // (some views get 0 view-scoped guides, some 1, some 2). If block 0's
+  // header counted the view-scoped guides, these would differ.
+  const guides: OperatingGuide[] = [
+    { id: "lead", name: "Leadership", content: "LEADPROBE", enabled: true, priority: 1, scope: {}, builtIn: true },
+    { id: "overview", name: "App overview", content: "OVERVIEWPROBE", enabled: true, priority: 2, scope: {}, builtIn: true },
+    { id: "budget", name: "Budget", content: "BUDGETPROBE", enabled: true, priority: 3, scope: { views: ["budget"] }, builtIn: true },
+    { id: "raid1", name: "RAID a", content: "RAIDPROBEA", enabled: true, priority: 4, scope: { views: ["raid"] }, builtIn: true },
+    { id: "raid2", name: "RAID b", content: "RAIDPROBEB", enabled: true, priority: 5, scope: { views: ["raid"] }, builtIn: true },
+  ];
+  // 0 view-scoped, 1 view-scoped, 2 view-scoped — the three real shapes.
+  const views = ["workload", "budget", "raid"];
+
+  it("emits the same block 0 on every view", () => {
+    const blocks0 = views.map(
+      (view) => buildStableSystemBlocks("en-US", snapshot({ currentView: view }), guides, true, {})[0].text,
+    );
+    expect(new Set(blocks0).size).toBe(1);
+  });
+
+  it("emits a DIFFERENT block 1 per view, so the sweep above is not comparing empty strings", () => {
+    const blocks1 = views.map(
+      (view) => buildStableSystemBlocks("en-US", snapshot({ currentView: view }), guides, true, {})[1].text,
+    );
+    expect(new Set(blocks1).size).toBe(3);
+    expect(blocks1[1]).toContain("BUDGETPROBE");
+    expect(blocks1[2]).toContain("RAIDPROBEA");
+    expect(blocks1[2]).toContain("RAIDPROBEB");
+  });
+});
