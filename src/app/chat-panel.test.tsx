@@ -2786,6 +2786,11 @@ describe("cache-token usage recording", () => {
   // be undone in afterEach so nothing outside this block can ever observe it.
   beforeEach(() => {
     vi.mocked(useAiUsageContext).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
+    // DEFAULT_AI_USAGE_CONTEXT.record is a plain vi.fn() created ONCE at
+    // module scope (see the vi.hoisted() block above) — vi.restoreAllMocks()
+    // in afterEach does not clear its call history, so calls would otherwise
+    // accumulate across every test file-wide. Clear it here too.
+    DEFAULT_AI_USAGE_CONTEXT.record.mockClear();
   });
   afterEach(() => {
     vi.restoreAllMocks();

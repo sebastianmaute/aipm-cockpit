@@ -279,6 +279,17 @@ describe("AiUsageProvider", () => {
 
     const noticeText = t("en-US", "aiUsageCapBasisChanged");
 
+    // This scenario is an UPGRADING user, not a fresh install: they already
+    // carried a (pre-0.294) usage blob before this mount, so the "warnings
+    // now arrive earlier" explanation is true for them and must fire. A
+    // fresh-install user (no blob at all) must NEVER see it — that is its
+    // own test below.
+    const other = "2000-01-01";
+    localStorage.setItem(
+      AI_USAGE_KEY,
+      JSON.stringify({ [other]: { input: 1, output: 1 } }),
+    );
+
     const first = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
@@ -318,6 +329,13 @@ describe("AiUsageProvider", () => {
       );
     }
 
+    // An upgrading user (pre-existing blob) — see the note in the test above.
+    const other = "2000-01-01";
+    localStorage.setItem(
+      AI_USAGE_KEY,
+      JSON.stringify({ [other]: { input: 1, output: 1 } }),
+    );
+
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
@@ -327,6 +345,107 @@ describe("AiUsageProvider", () => {
       result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 });
     });
 
+    expect(showToast.mock.calls.filter((c) => c[1] === noticeText)).toHaveLength(1);
+  });
+
+  it("seeds the cap-basis notice flag immediately on a fresh install, before any crossing", async () => {
+    // localStorage is clear (beforeEach) — no AI_USAGE_KEY blob has ever been
+    // written, i.e. a genuinely fresh install. Mounting alone (no record())
+    // must seed the flag so the explanatory notice can never fire for this
+    // user later — there is no "before" for them to be told about.
+    renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+
+    expect(window.localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY)).toBe("1");
+  });
+
+  it("does NOT seed the cap-basis notice flag when a usage blob is already present, even if empty", async () => {
+    // An EMPTY-but-PRESENT blob (e.g. all history aged out) is not the same
+    // as "never written" — this user did experience the old cap basis at
+    // some point, so the flag must stay unset until they actually cross 80%.
+    localStorage.setItem(AI_USAGE_KEY, JSON.stringify({}));
+
+    renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+
+    expect(window.localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY)).toBeNull();
+  });
+
+  it("does NOT explain the cap basis for a fresh install, even after it crosses 80%", async () => {
+    const showToast = vi.fn();
+    const cap = 1_000;
+    const ai = { ...defaultAiConfig, tokenMultiplier: 1, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
+
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <AiUsageProvider lang="en-US" ai={ai} showToast={showToast}>
+          {children}
+        </AiUsageProvider>
+      );
+    }
+
+    // localStorage is clear (beforeEach) — fresh install, no prior blob.
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    await act(async () => {});
+
+    const noticeText = t("en-US", "aiUsageCapBasisChanged");
+
+    act(() => {
+      result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 });
+    });
+
+    // The 80 % warning itself still fires...
+    expect(showToast.mock.calls.some((c) => c[1] === t("en-US", "usage80Toast"))).toBe(true);
+    // ...but the cap-basis explanation never does — this user never
+    // experienced the old (uncached-only) cap basis.
+    expect(showToast.mock.calls.some((c) => c[1] === noticeText)).toBe(false);
+  });
+
+  it("explains the cap basis when a weekly bucket already above 80% at load crosses 100%", async () => {
+    // ★ crossed80 is an EDGE detector (prev < threshold && next >= threshold).
+    //   A bucket already above 80 % when the provider mounts never crosses
+    //   that edge again, so the two crossed80 call sites can never reach this
+    //   user — only the crossed100 call sites can, which is what this pins.
+    const showToast = vi.fn();
+    const weekCap = 1_000;
+    const ai = {
+      ...defaultAiConfig,
+      tokenMultiplier: 1,
+      sessionTokenCap: 1_000_000, // never crosses — isolates the WEEKLY path
+      weeklyTokenCap: weekCap,
+    };
+
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <AiUsageProvider lang="en-US" ai={ai} showToast={showToast}>
+          {children}
+        </AiUsageProvider>
+      );
+    }
+
+    // Seed TODAY's bucket (so weekToDate counts it) already at 85 % of the
+    // weekly cap — an upgrading user with real prior usage, already above
+    // 80 % before this mount.
+    const d = new Date();
+    const todayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    localStorage.setItem(
+      AI_USAGE_KEY,
+      JSON.stringify({ [todayKey]: { input: 850, output: 0, cacheWrite: 0, cacheRead: 0 } }),
+    );
+
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    await act(async () => {});
+
+    const noticeText = t("en-US", "aiUsageCapBasisChanged");
+    const selfLimitText = t("en-US", "aiSelfLimitReached");
+
+    // 850 + 200 = 1050: never "crosses" 80 % (already above it), but DOES
+    // cross 100 %.
+    act(() => {
+      result.current.record({ input: 200, output: 0, cacheWrite: 0, cacheRead: 0 });
+    });
+
+    expect(showToast.mock.calls.some((c) => c[1] === selfLimitText)).toBe(true);
     expect(showToast.mock.calls.filter((c) => c[1] === noticeText)).toHaveLength(1);
   });
 

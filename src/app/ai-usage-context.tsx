@@ -54,6 +54,16 @@ function loadBuckets(): UsageBuckets {
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(AI_USAGE_KEY);
+    // ★ raw === null means the key was NEVER written — a genuinely fresh
+    //   install with no prior usage blob, as opposed to an empty-but-present
+    //   one (raw === "" or "{}") or storage having thrown (caught below).
+    //   Only THIS case never experienced the pre-cache-accounting cap basis,
+    //   so seed the notice flag now: noteCapBasisOnce() must never explain a
+    //   "before" that, for this user, never existed.
+    if (raw === null) {
+      window.localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
+      return {};
+    }
     if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
@@ -188,12 +198,20 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       }
       // Crossing 100 % of a self-imposed cap: ADVISORY notice only — nothing is
       // blocked, the assistant keeps working.
+      // ★ Also note the cap-basis explanation here, not just on the crossed80
+      //   branches above: crossed80 is an EDGE detector, so a bucket already
+      //   above 80 % when the provider mounted (e.g. the weekly total) can
+      //   jump straight to a 100 % crossing without ever registering an 80 %
+      //   "crossing" — noteCapBasisOnce()'s localStorage flag makes this
+      //   call site idempotent with the two above, so this cannot double-fire.
       if (!warned100Ref.current.session && crossed100(prevSession, nextSession, sessionCap)) {
         warned100Ref.current.session = true;
+        noteCapBasisOnce(showToast, lang);
         showToast("error", t(lang, "aiSelfLimitReached"));
       }
       if (!warned100Ref.current.week && crossed100(prevWeek, nextWeek, weeklyCap)) {
         warned100Ref.current.week = true;
+        noteCapBasisOnce(showToast, lang);
         showToast("error", t(lang, "aiSelfLimitReached"));
       }
     },
