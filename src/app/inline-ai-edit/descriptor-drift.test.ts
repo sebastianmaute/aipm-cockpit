@@ -110,7 +110,39 @@ const CASES = [
   { entity: "calendarEvent" as const, base: EVT_BASE, values: EVT_VALUES, sanitize: sanitizeCalendarEvent },
 ];
 
+/** Entities the descriptor map declares that CASES deliberately omits, each
+ *  with the reason it cannot be covered here.
+ *
+ *  ★ `task` has no single `sanitizeTask` to call — verify with
+ *    `grep -rn "export function sanitizeTask\b" src/app`, which returns
+ *    nothing. Every other descriptor entity has one exported sanitizer that
+ *    takes the whole row, which is what a case needs. */
+const NO_SINGLE_SANITIZER: readonly string[] = ["task"];
+
 describe("descriptor diffFields are dispatcher-writable", () => {
+  // ★★★ THE ANTI-ROT ASSERTION, and the reason this file is no longer the
+  //  hand-copy its own header warns about. `CASES` is still written by hand —
+  //  it has to be, since each row needs a base object and a per-field
+  //  replacement value that nothing can derive — but it is now COMPARED against
+  //  the descriptor map, in BOTH directions:
+  //    · a new `INLINE_DESCRIPTORS` entry with no row reds here BY NAME, where
+  //      it used to fall silently outside this describe block's promise while
+  //      every test in the file stayed green;
+  //    · a row for an entity the map no longer declares reds too;
+  //    · and an entry in the exception list that stops being a real exception
+  //      (someone exports a `sanitizeTask`) reds as well, so the carve-out
+  //      cannot outlive its reason.
+  //  ★ It cannot catch a union member with NO descriptor entry — nothing at
+  //  runtime can, because the union is a type. That case is a hard tsc error on
+  //  `Record<InlineEntity, EntityDescriptor>` instead, which is the one site of
+  //  the four in open-followups §434 that announces itself.
+  it("covers every entity the descriptor map declares, or names it as an exception", () => {
+    const covered = CASES.map((c) => c.entity as string);
+    expect([...covered, ...NO_SINGLE_SANITIZER].sort()).toEqual(
+      Object.keys(INLINE_DESCRIPTORS).sort(),
+    );
+  });
+
   for (const { entity, base, values, sanitize } of CASES) {
     for (const field of INLINE_DESCRIPTORS[entity].diffFields) {
       it(`${entity}.${field} survives sanitize`, () => {

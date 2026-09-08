@@ -161,7 +161,7 @@ export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: D
 //  through would then be unchecked.
 //
 // ★★★ THESE TWO TABLES ARE A FOURTH RIPPLE SITE FOR A NEW `InlineEntity`
-//  MEMBER (`docs/open-followups.md` §434 enumerates three), AND THE ONLY ONE
+//  MEMBER (`docs/open-followups.md` §434 enumerates four), AND THE ONLY ONE
 //  THAT DEGRADES THE REVIEW CARD. They are NOT derived from
 //  `INLINE_DESCRIPTORS`, but `TOOL_ENTITY`/`toolOp` (chat-proposal-describe.ts)
 //  ARE — so a descriptor entry alone is enough to ROUTE a `create_*`/`delete_*`
