@@ -137,6 +137,12 @@ describe("AiUsagePanel", () => {
     // line — assert DOM order directly so a future reorder that puts them
     // back under the weekly heading fails here, not just by inspection.
     const sessionLabel = screen.getByText(t("en-US", "aiUsageSession"));
+    // ★★ THE `<dl>` MUST BE IN THIS CHAIN, not just the hit rate. An earlier
+    //    revision asserted over the hit rate alone while the test's NAME and
+    //    comment promised the breakdown too — moving the `<dl>` BY ITSELF back
+    //    under the weekly bar left it green. `aiUsageUncachedInput` is the
+    //    `<dl>`'s first row, so anchoring on it covers the whole block.
+    const breakdownFirstRow = screen.getByText(t("en-US", "aiUsageUncachedInput"));
     const hitRate = screen.getByText(t("en-US", "aiUsageCacheHitRate", "86"));
     const weekLabel = screen.getByText(t("en-US", "aiUsageWeek"));
     // aiUsageResetAt interpolates a locale-formatted date via {0}; match on
@@ -144,9 +150,34 @@ describe("AiUsagePanel", () => {
     const resetLine = screen.getByText(/^Resets /);
 
     const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
-    expect(sessionLabel.compareDocumentPosition(hitRate) & FOLLOWING).toBeTruthy();
+    expect(sessionLabel.compareDocumentPosition(breakdownFirstRow) & FOLLOWING).toBeTruthy();
+    expect(breakdownFirstRow.compareDocumentPosition(hitRate) & FOLLOWING).toBeTruthy();
     expect(hitRate.compareDocumentPosition(weekLabel) & FOLLOWING).toBeTruthy();
     expect(weekLabel.compareDocumentPosition(resetLine) & FOLLOWING).toBeTruthy();
+  });
+
+  it("hides the hit rate entirely when no input-side tokens have been counted", () => {
+    // ★ The hit rate would otherwise render a confident "0%", asserting a
+    //   measurement nobody took. `inputSide` sums input + cacheRead +
+    //   cacheWrite, so all three must be zero to reach the hidden branch —
+    //   `output` is deliberately non-zero here to prove it is NOT in the
+    //   denominator (a mutant folding output into `inputSide` would render
+    //   the line again and turn this red).
+    render(
+      <AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />,
+      {
+        wrapper: seededWrapper("en-US", {
+          input: 0,
+          output: 250,
+          cacheWrite: 0,
+          cacheRead: 0,
+        }),
+      },
+    );
+    expect(screen.queryByText(/Cache hit rate/)).toBeNull();
+    // Positive control: the panel really rendered, so the absence above is a
+    // hidden line and not an empty render.
+    expect(screen.getByText(t("en-US", "aiUsageSession"))).toBeInTheDocument();
   });
 
   describe("in German", () => {

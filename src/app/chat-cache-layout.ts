@@ -126,10 +126,18 @@ function largestPowerOfTwoAtMost(n: number): number {
  *    than losing 20 positions of an ordinary turn.
  *
  *  Deduplicated: when `cachedPrefixLength` is itself a power of two, anchor
- *  and boundary land on the SAME index — returning both would claim two
- *  breakpoints while the wire carries one marker, which would make the
- *  `marks.length <= MAX_MESSAGE_BREAKPOINTS` assertion in the test file true
- *  for the wrong reason at exactly the value most worth checking. */
+ *  and boundary land on the SAME index, and returning both would claim two
+ *  breakpoints while the wire carries one marker. The dedup keeps this
+ *  function's RETURN VALUE honest about how many breakpoints it is spending.
+ *  ★★ IT BUYS NOTHING ON THE WIRE, and an earlier revision of this comment
+ *  implied it did by pointing at the test file's
+ *  `marks.length <= MAX_MESSAGE_BREAKPOINTS` assertion. That assertion cannot
+ *  see it: `withCacheControl` is idempotent at a given index, so an
+ *  un-deduplicated pair on a power-of-two length marks the same block twice
+ *  and produces a byte-identical request. Measured over L=0..10 — every
+ *  length is identical between this function and a no-dedup mutant. So no
+ *  test in the suite detects a dedup regression, and the reason to keep the
+ *  dedup is the honest return value, not a caught defect. */
 function checkpointMarks(cachedPrefixLength: number): number[] {
   if (cachedPrefixLength <= 0) return [];
   const boundary = cachedPrefixLength - 1;

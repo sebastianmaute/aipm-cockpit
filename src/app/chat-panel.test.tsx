@@ -2786,11 +2786,6 @@ describe("cache-token usage recording", () => {
   // be undone in afterEach so nothing outside this block can ever observe it.
   beforeEach(() => {
     vi.mocked(useAiUsageContext).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
-    // No DEFAULT_AI_USAGE_CONTEXT.record.mockClear() here: the single test in
-    // this describe overrides useAiUsageContext with its own local
-    // recordSpy before rendering, so it never calls DEFAULT_AI_USAGE_CONTEXT's
-    // record at all — nothing anywhere in this file asserts on that mock's
-    // call history (verified via `grep -n "DEFAULT_AI_USAGE_CONTEXT"`).
   });
   afterEach(() => {
     vi.restoreAllMocks();

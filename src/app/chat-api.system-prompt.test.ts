@@ -23,8 +23,11 @@ function snapshot(over: Record<string, unknown> = {}) {
 
 // ★★★ The tools breakpoint is the ONLY thing keeping ~6.5k tokens of tool
 // schemas out of the per-view cache churn. `stableText` changes on every view
-// switch by default (groundInGuides defaults true; 20 of 21 builtin feature
-// guides are view-scoped), so without a segment closing at the end of `tools`,
+// switch by default (groundInGuides defaults true; most builtin feature guides
+// are view-scoped — measured 23 guides / 22 view-scoped on 2026-09-08 by the
+// reproduce command in `withCacheBreakpoint`'s docstring in chat-api.ts; this
+// line said "20 of 21" for several releases, so run it rather than trusting
+// any number here), so without a segment closing at the end of `tools`,
 // that guide swap rewrites the schemas too. Deleting it breaks NOTHING visible.
 describe("tools cache breakpoint", () => {
   it("marks exactly the LAST tool and leaves TOOL_DEFS itself unmutated", () => {
@@ -223,16 +226,16 @@ describe("buildSystemPrompt insight block placement", () => {
 // buildTurnContext(...args) }]` — the test below builds `composed` the same
 // way, over the same `args` tuple, so `expect(composed).toEqual(legacy)` is a
 // TAUTOLOGY: it compares that expression to itself and cannot go red for any
-// change inside either builder (verified by mutation — deleting the "Known
-// groups: …" line from `buildTurnContext`'s return array changes both sides
-// identically and the test stays green). The property this once checked —
+// change inside either builder (verified by mutation — renaming the "Known
+// groups: …" line in `buildTurnContext`'s return array changes both sides
+// identically and THIS test stays green; the anti-vacuity test below is what
+// turns the FILE red on that mutant, and it was added for exactly that
+// reason). The property this once checked —
 // that the split is byte-identical to the PRE-SPLIT, single-function
 // `buildSystemPrompt` — was only ever checkable against that pre-split code,
-// which no longer exists in the tree; it is not reconstructable here, and a
-// hand-written golden string for the whole prompt would buy brittleness for a
-// property the per-block placement tests above (staged-write / view-scoping /
-// insight-placement) already cover piecewise. What the test below DOES still
-// pin, and is worth pinning: that `buildSystemPrompt` stays a two-block
+// which no longer exists in the tree, so it is not reconstructable here.
+// What the test below DOES still pin, and is worth pinning: that
+// `buildSystemPrompt` stays a two-block
 // composition, stable half first, one turn-context text block last — a
 // regression that inlined new logic into `buildSystemPrompt` itself, or
 // reordered the two halves, or dropped one, would turn it red. The fixture is

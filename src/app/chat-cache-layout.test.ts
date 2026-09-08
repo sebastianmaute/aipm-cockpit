@@ -183,10 +183,21 @@ describe("checkpointMarks (observed through buildWireMessages, not exported)", (
   // half still leaves that one shared index marked, so those four rows catch
   // NEITHER mutant. Consequently the distinct rows are load-bearing for BOTH
   // mutants and must not be trimmed as redundant with the coincide rows; the
-  // coincide rows instead pin the DEDUPLICATION (that the wire carries one
-  // marker, not two) and are load-bearing for that. See the mutation-proof
-  // step in the commit history / task report for the actual mutate-run-restore
-  // cycle.
+  // coincide rows are kept as plain regression coverage of the power-of-two
+  // boundary, and pin nothing else.
+  // ★★★ IN PARTICULAR THEY DO NOT PIN THE DEDUPLICATION, and an earlier
+  // revision of THIS comment claimed they did — a false claim written while
+  // correcting a different false claim in the same lines. Dedup is
+  // UNOBSERVABLE through `buildWireMessages` at every row: `withCacheControl`
+  // is idempotent at a given index, and `markedIndices` below collects
+  // POSITIONS, not markers, so an un-deduplicated `[anchor, boundary]` on a
+  // coincide row applies the same mark twice to the same block and yields a
+  // byte-identical wire. Measured over L=0..10, not reasoned — every row is
+  // IDENTICAL between the real function and a no-dedup mutant. The
+  // `marks.length <= MAX_MESSAGE_BREAKPOINTS` assertions do not see it either;
+  // they count `cache_control` occurrences, which is 1 either way. Nothing in
+  // this file detects a dedup regression — do not add a sentence saying
+  // otherwise without a mutant that actually goes red.
   it.each<[number, number[]]>([
     [0, []],
     [1, [0]],

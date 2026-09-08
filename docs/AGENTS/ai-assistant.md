@@ -1078,22 +1078,24 @@
   would otherwise report a confident "no regression" while measuring nothing.
   ★★ **ONE REAL DIFFERENCE DID SHOW, and it is not a content loss: NEW is less terse.** On the
   insight probe — whose prompt says "exactly as written" — OLD answered with the bare token in all
-  three reps and NEW answered with a full elaborated sentence in all three. A clean 3–0 split, not
-  noise. Content accuracy was identical; what shifted is adherence to a terseness instruction, which
-  is consistent with the role change below (tail-position content reads more like conversational
-  material to discuss than a system instruction to obey). It costs OUTPUT tokens, billed at 5×. Not
-  filed as a defect — the sample is one probe — but do not cite "30/30" as evidence that nothing
-  about the answers changed.
+  three reps and NEW answered with a full elaborated sentence in all three. ★★ **3–0 at n=3 per arm
+  is SUGGESTIVE, NOT ESTABLISHED — Fisher two-sided p = 0.10**, i.e. a split this clean turns up one
+  time in ten under the null. An earlier revision of this bullet called it "not noise", which applied
+  a lax standard to the finding it wanted to be real two sentences after applying a strict one to the
+  finding it wanted to be null. Content accuracy was identical; what shifted is adherence to a
+  terseness instruction. It costs OUTPUT tokens, billed at 5×. Not filed as a defect — one probe, and
+  a mechanism for it would be a story invented to fit n=3 — but do not cite "30/30" as evidence that
+  nothing about the answers changed.
   ★★ **And "no change to the bytes the model receives — only their position" (the spec's own framing)
   undersells what moved.** The bytes are byte-identical, but they moved from a `system` block into a
   trailing text block of the last `user` message — that changes the ROLE under which the model reads
-  ~1–3 KB of instruction text (today's date, task count, view scope/state, insights, the activity
-  recap), not merely its offset in the prefix. The eval above is what bears on it, and within that
-  eval's stated ceiling the role change cost no CONTENT — every moved block was still read under
-  both layouts — while measurably costing some terseness on the one probe that asked for it. The
-  spec already names the fallback if a future eval goes badly: keep the view-scope block's output in
-  `system` and take the smaller cache win instead of the full one, rather than assume the larger one
-  is free. That fallback is NOT needed on this evidence and remains available.
+  every one of them (today's date, task count, view scope/state, insights, the activity recap), not
+  merely their offset in the prefix. ★ No size figure is quoted here on purpose: the "1–3 KB" a
+  reader will find nearby describes the GUIDE block, a different payload, and reusing a neighbouring
+  number for this one is how an unmeasured figure acquires a citation. The eval above is what bears
+  on this, and within its stated ceiling the role change cost no CONTENT. The spec names the fallback
+  if a future eval goes badly: keep the view-scope block's output in `system` and take the smaller
+  cache win. Not needed on this evidence; still available.
   ★★★ **`CACHED_TOOLS` (`chat-api.ts`) closes the FIRST segment of the prefix** — the LAST tool carries
   `cache_control`, so a per-view guide swap inside `system` re-caches only the smaller system slice after
   it, never the whole `tools` payload. Without it the cached prefix is `tools` + `stableText`, and the

@@ -171,9 +171,11 @@ export function buildStableSystemBlocks(
   // half. Kept on the signature anyway so both halves take the IDENTICAL
   // param list `buildSystemPrompt` composes them from unchanged.
   void toolFlags;
-  // STABLE prefix (cached): fixed instructions that never interpolate per-call
-  // state, plus the (large) guide text. Anthropic prompt-cache is prefix-based,
-  // so this must come FIRST and contain only call-invariant content.
+  // STABLE prefix (cached): fixed instructions plus the (large) guide text.
+  // Anthropic prompt-cache is prefix-based, so this must come FIRST. For what
+  // "stable" does and does NOT mean here — the guide block is invariant per
+  // VIEW, not per call — see this function's docstring above; do not restate
+  // the rule here, this copy is how the two drifted apart.
   const stableInstructions = [
     "You are an assistant embedded in AI PM Cockpit, an AI-assisted project management app for tracking open project items (tasks, RAID, changes, milestones, budget).",
     "The user is a project lead tracking open tasks. Each task has: id, taskName, assignee, assigneeEmail, dueDate (YYYY-MM-DD), lastUpdateDate, priority (Low/Medium/High/Urgent), status (To Do/In Progress/On Hold/In Review/Cancelled/Done), blockers, notes, group (single optional category), labels (zero or more tags).",
