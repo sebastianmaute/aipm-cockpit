@@ -4602,6 +4602,13 @@ export type PluralBaseKey = {
  * order at the call, so no scan over these strings can recover it, and a
  * grep-based count of call sites also matches this comment and the declaration
  * below. Read each call and compare its 3rd argument against its 4th.
+ * ★★ THAT RECIPE HAS ONE BLIND SPOT and it is the newest call site: it works
+ * only where the base key and the count are written as LITERALS at the call.
+ * `activityMessage` (`activity-message.ts`) passes both from a table, so its
+ * 3rd argument reads as a variable and comparing it against the 4th tells you
+ * nothing — the slot for those kinds lives in that file's `ACTIVITY_PLURAL`.
+ * Any future table-driven caller needs the same footnote, or the enumeration
+ * silently under-reports.
  *
  * ★★ Separately, a key that used to carry
  * TWO independent counts (`{0} items need you · {1} milestones soon`) was

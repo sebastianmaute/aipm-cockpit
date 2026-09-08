@@ -205,13 +205,23 @@ describe("ActivityLogPanel", () => {
     expect(order).toEqual(["alpha.kind", "mid.kind", "zeta.kind"]);
   });
 
-  // ★★★ AN `args` ELEMENT IS THE ONE HOSTILE SHAPE THE LOAD BOUNDARY LETS
-  // THROUGH, which is what separates it from every other row of
-  // `hostileEntries`. `sanitizeActivityEntry` DROPS an entry whose `kind` or
-  // `timestamp` is not a string and STRIPS a malformed `changes`, but for args
-  // it checks `Array.isArray(e.args)` and never looks at the ELEMENTS — so a
-  // hostile element arrives at the panel on a FULLY SANITIZED log, from every
-  // backend, not merely on a bypassed boundary.
+  // ★★★ THIS COMMENT USED TO SAY THE LOAD BOUNDARY LETS A HOSTILE `args`
+  // ELEMENT THROUGH — that `sanitizeActivityEntry` "checks
+  // `Array.isArray(e.args)` and never looks at the ELEMENTS, so a hostile
+  // element arrives at the panel on a FULLY SANITIZED log". THAT IS FALSE, and
+  // was false while the sanitizer's own comment three lines from the code
+  // described the opposite: `argsBad` inspects every element
+  // (`typeof a !== "string" && typeof a !== "number"`) and COERCES each
+  // offender to `""` in place, deliberately preserving arity because `args` is
+  // positional (§164). So a stored entry cannot carry `{toString: 1}`, and
+  // this fixture reaches the panel only by BYPASSING the boundary — which is
+  // still worth pinning, because `renderActivityEntry` runs inside `runTool`
+  // where a throw kills a chat turn.
+  // ★★ Corrected 2026-09-08 after a review used this comment to reason about
+  // whether the plural path could be handed a Symbol. A false claim about a
+  // GUARD is worse than none: it was about to be inherited into a second file
+  // as the premise of a risk assessment.
+  // Reproduce: grep -n "argsBad" src/app/activity-log.ts
   // `t()` interpolates with `String(a)`, and `String({toString: 1})` throws
   // "Cannot convert object to primitive value": a non-callable own `toString`
   // makes ToPrimitive fall through to `Object.prototype.valueOf`, which returns

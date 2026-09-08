@@ -36,7 +36,21 @@ import { type Lang, type PluralBaseKey, t, tPlural } from "./i18n";
  * the enumeration it was prescribing from 40 hits to 41 the moment it was
  * written. The canonical statement lives in `tPlural`'s own docstring in
  * `i18n.ts`; the slot is fixed by argument order at the call site, so read each
- * call and compare its 3rd argument against its 4th.
+ * call and compare its 3rd argument against its 4th. ★ That recipe does NOT
+ * cover THIS call site: `activityMessage` passes a table-driven base and slot,
+ * so its 3rd argument is a variable and reading it tells you nothing — the
+ * answer for these two kinds is the `slot` field below.
+ *
+ * ★★ THE BARE INDEX BELOW IS SAFE DERIVATIVELY, NOT LOCALLY, and no second
+ * guard is added here on purpose. `activityMessage` returns early unless
+ * `activityMessageKey(kind)` resolved, and THAT carries the `hasOwnProperty`
+ * check — so `ACTIVITY_PLURAL[kind]` is only ever reached with a genuine own
+ * key of `ACTIVITY_KIND_TO_KEY`, none of which is an `Object.prototype`
+ * member. A local `hasOwnProperty` here would be unreachable, i.e. exactly the
+ * inert-but-load-bearing-looking guard this file deleted one commit ago. If a
+ * future `ActivityKind` is ever named `toString`, the early return is the line
+ * that stops it, and `activity-message.test.ts`'s prototype-member test is
+ * what pins that.
  */
 const ACTIVITY_PLURAL: Partial<Record<ActivityKind, { base: PluralBaseKey; slot: number }>> = {
   "ai.allocationPlan": { base: "activityAiAllocationPlan", slot: 0 },
@@ -83,7 +97,17 @@ export function activityMessage(lang: Lang, kind: string, args: (string | number
     //    load-bearing and the test named for it stayed green with it deleted.
     //    Reproduce: node -e "console.log([NaN,Infinity,0,-0].map(v=>new
     //    Intl.PluralRules('de').select(v)).join(' '))" → other other other other
-    return tPlural(lang, plural.base, typeof raw === "number" ? raw : Number(raw), ...args);
+    // ★★ `Number(raw)` UNCONDITIONALLY, and an earlier cut wrote
+    //    `typeof raw === "number" ? raw : Number(raw)`. That ternary was the
+    //    same shape as the guard above — inert but reading as deliberate —
+    //    because `Number(n)` is `n` for EVERY number, `-0` and `NaN` included.
+    //    Reproduce: node -e "console.log([0,-0,NaN,1e21].every(n=>Object.is(Number(n),n)))" → true
+    // ★ `Number` THROWS on a Symbol, where the `String(a)` interpolation this
+    //   replaced did not. Unreachable: `sanitizeActivityEntry` coerces every
+    //   non-string/non-number `args` element to `""` at the load boundary, so
+    //   a Symbol cannot reach a stored entry. A caller that bypasses that
+    //   boundary and hands this a Symbol in the count slot gets a TypeError.
+    return tPlural(lang, plural.base, Number(raw), ...args);
   }
 
   return t(lang, key, ...args);

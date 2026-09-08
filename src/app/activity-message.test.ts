@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ACTIVITY_KIND_TO_KEY } from "./activity-log";
 import {
@@ -21,10 +22,52 @@ describe("activityMessage", () => {
    * a key the entry does not use. Nothing else in the repo compares them.
    */
   it("keeps every plural base in step with the kind→key map", () => {
-    expect(ACTIVITY_PLURAL_KINDS.length).toBeGreaterThan(0);
+    // ★★ EXACT, not `> 0`, and the loose form is what this replaced. The
+    // anti-vacuity floor is the guard meant to notice a DELETED row, and at
+    // `> 0` it stays green with one member left — so it did not do the one job
+    // it was there for. Measured 2026-09-08: two members. Bump this
+    // deliberately when a third kind is added, which is the point.
+    expect(ACTIVITY_PLURAL_KINDS.length).toBe(2);
     for (const kind of ACTIVITY_PLURAL_KINDS) {
       expect(activityPluralBase(kind)).toBe(ACTIVITY_KIND_TO_KEY[kind]);
     }
+  });
+
+  /**
+   * ★★★ THE COMPLETENESS PIN, AND IT GUARDS THE ONLY DIRECTION LEFT OPEN.
+   * The drift pin above compares the members that are PRESENT; a kind whose
+   * key gains a `…One` sibling and never gets an `ACTIVITY_PLURAL` row is
+   * invisible to it, and that omission IS the original defect — the renderer
+   * silently keeps calling `t()` and emits "1 allocation cells" again.
+   *
+   * ★★ The i18n-plural scan is NOT a substitute, and reading it as one is the
+   * trap. It would fire (the new base key sits as a bare literal in
+   * `activity-log.ts`'s Record, so it lands in `bareOffenders`), but its own
+   * failure message offers "convert it, OR add `key@file` to EXCEPTIONS with
+   * the reason" — and this branch added four exception rows, modelling exactly
+   * the resolution that leaves the defect in place. A developer following that
+   * message can turn the gate green without touching `ACTIVITY_PLURAL`. This
+   * test is the one that cannot be satisfied that way.
+   *
+   * ★ Reads the dictionary from SOURCE rather than importing it, because the
+   * EN key set is a compile-time type (`keyof typeof enUS`) with no runtime
+   * export. The key half of a line is never wrapped, so a `^  key:` anchor is
+   * safe here — unlike a VALUE scan, where ~200 EN values wrap onto the next
+   * line and an anchored grep undercounts by 24% (§450).
+   */
+  it("routes every map-reachable key that HAS a singular sibling through ACTIVITY_PLURAL", () => {
+    const src = readFileSync("src/app/i18n.ts", "utf8");
+    const keys = new Set([...src.matchAll(/^ {2}([A-Za-z0-9_]+):/gm)].map((m) => m[1]));
+    // Cross-check the scan itself: the sibling suite measures the same
+    // population independently and quotes 42. A scan that reads nothing would
+    // make this whole test vacuous.
+    const paired = [...keys].filter((k) => !k.endsWith("One") && keys.has(`${k}One`));
+    expect(paired.length).toBeGreaterThanOrEqual(40);
+
+    const missing = Object.entries(ACTIVITY_KIND_TO_KEY)
+      .filter(([kind, key]) => keys.has(`${key}One`) && !ACTIVITY_PLURAL_KINDS.includes(kind as never))
+      .map(([kind, key]) => `${kind} → ${key} (has ${key}One)`);
+    expect(missing, `add an ACTIVITY_PLURAL row for: ${missing.join(", ")}`).toEqual([]);
   });
 
   it("selects the singular at a count of one and the plural elsewhere", () => {
