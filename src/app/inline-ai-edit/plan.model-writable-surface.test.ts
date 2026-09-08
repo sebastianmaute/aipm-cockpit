@@ -63,10 +63,23 @@ const UNSWEPT_BY_DESIGN: Record<InlineEntity, readonly string[]> = {
    *  reason this list is long rather than alarming. `update_task` does NOT go
    *  through `patchWithoutId`; it goes through `buildPatch`
    *  (`chat-tools-updates.ts`), which names each field it copies and drops
-   *  everything else. So none of these is model-writable, and the sweep would
-   *  find nothing to compare. ★ If `buildPatch` is ever replaced by a
-   *  `patchWithoutId` call, EVERY name below becomes live in one commit — this
-   *  comment is the tripwire for that, since no test can see the swap. */
+   *  everything else. ★ If `buildPatch` is ever replaced by a `patchWithoutId`
+   *  call, almost every name below becomes live in one commit — this comment is
+   *  the tripwire for that, since no test can see the swap.
+   *
+   *  ★★★ `dependencies` IS MODEL-WRITABLE AND IS THE EXCEPTION TO THE PARAGRAPH
+   *  ABOVE. An earlier version of this comment said "so none of these is
+   *  model-writable", which was false, and the commit message that shipped it
+   *  repeated the error. `set_task_dependencies` (`chat-tools.ts`) takes the
+   *  model's array and hands it straight to the writer with no `buildPatch`,
+   *  reachable from chat, inline AI edit and insight-recommendation replay.
+   *  It is exempt for a DIFFERENT reason: it is a separate tool with its own
+   *  describer (`describeDependencyCall`, `chat-proposal-describe.ts`), so the
+   *  write IS disclosed — it is simply outside this axis, which is built from
+   *  the `update_*` tools alone. No data hole; a false justification.
+   *  ★★ Refuted by cold review with a command. Do not restore the flat claim:
+   *  a reader who believes "no task field can be model-writable without
+   *  appearing in `buildPatch`" will miss the next tool of this shape. */
   task: [
     "completedDate",
     "createdDate",
@@ -92,7 +105,22 @@ const UNSWEPT_BY_DESIGN: Record<InlineEntity, readonly string[]> = {
    *  and copies only fields its table names), so a field with no table entry is
    *  dropped by construction rather than by anybody remembering it. That is the
    *  opposite of the five denylist entities, where an unnamed field passes
-   *  straight through — which is why their lists above must stay empty. */
+   *  straight through — which is why their lists above must stay empty.
+   *
+   *  ★★★ THAT SENTENCE WAS FALSE WHEN THIS EXEMPTION WAS FIRST WRITTEN, and it
+   *  is only true now because §438 made it true. The allowlist reached the
+   *  UPDATE path alone; `create_calendar_event` spread raw input, so
+   *  model-supplied `exceptions` — a field no write schema advertises, whose
+   *  exact shape the READ tool's description teaches — reached storage with
+   *  nothing to refuse it. This entry was therefore a suppression hiding a live
+   *  undisclosed write, in the file whose stated purpose is to stop
+   *  suppressions, three lines under a preamble warning against exactly that.
+   *  Caught by cold review, with the stored value measured.
+   *  ★★ It stays exempt because the shape claim now holds at BOTH call sites —
+   *  `plan.create-path-guards.test.ts` pins the create half — and NOT because
+   *  the field is unimportant. If either guard is removed this entry becomes a
+   *  lie again, and the honest move then is to delete it and let this test go
+   *  red. */
   calendarEvent: ["exceptions"],
 };
 
