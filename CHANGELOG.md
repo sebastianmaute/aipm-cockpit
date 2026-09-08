@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.294.0] - 2026-09-08 "Borges"
+## [0.295.0] - 2026-09-08 "Borges"
 
 ### Added
 - The AI assistant's chat transcript is now cached instead of being rebuilt as
