@@ -98,6 +98,27 @@ function seedTask(id: number, taskName: string): Task {
 
 const LINKED_TASKS: Task[] = [seedTask(1, "First"), seedTask(2, "Second"), seedTask(3, "Third")];
 
+/** ★★★ THE FIELD NO PREVIEW CAN DISCLOSE, seeded on all four registers that
+ *  carry it. `knowledgeLinks` is neither a `diffField` nor a `linkField` on raid,
+ *  change, milestone or stakeholder, yet every one of those four sanitizers reads
+ *  it off the patch (`sanitizeKnowledgeLinks(input.knowledgeLinks ?? …)`) and
+ *  stores it only `if (dl.length)` — so a model patch carrying garbage WIPES the
+ *  stored links behind a card that says nothing. `sanitize-records.ts` records
+ *  that as reachable and deliberately unguarded ("Same shape on raid's
+ *  `ownerResourceId`"), i.e. a KNOWN product decision, not a fixture problem.
+ *
+ *  ★★ It is seeded NON-EMPTY for the same reason every other value here is off
+ *  its fallback: the sparse `if (dl.length)` store means an absent key and a
+ *  refused write are the same shape, so an unseeded row scores agreement against
+ *  the very wipe this axis exists to expose.
+ *
+ *  ★ `url` must be `isSafeHttpUrl`-clean and `name` non-blank, or
+ *  `sanitizeKnowledgeLinks` drops the entry and the seed silently becomes the
+ *  empty array it was written to avoid. */
+const KNOWLEDGE_LINKS = [
+  { id: "kl-1", name: "Vendor SLA", url: "https://example.com/sla", kind: "file" as const },
+];
+
 /** ★★★ EVERY VALUE OFF ITS FALLBACK, AND EVERY `diffFields` MEMBER PRESENT —
  *  the same rule as the `seedGuarded*` helpers below, applied to the one entity
  *  that lacked one. `seedTask` is deliberately unchanged: the `CASES` above read
@@ -163,11 +184,30 @@ function seedRaid(over: Partial<RaidItem> = {}): RaidItem {
  *  is the same one stated the other way round: `sanitizeRaidItem` stores each of
  *  them SPARSELY (`if (owner) item.owner = owner`), so their fallback is an
  *  ABSENT key — and a probe refused on a field the seed left absent compares
- *  `undefined` against `undefined` and scores agreement. */
+ *  `undefined` against `undefined` and scores agreement.
+ *
+ *  ★★ THE TWO EMPTY LINK LISTS `seedRaid` LEAVES BEHIND ARE FILLED HERE, and
+ *  the reason is the CLEAR direction. `sanitizeIdList` runs unconditionally, so
+ *  a refused list stores `[]` — which against an already-empty seed is the value
+ *  already stored, and the sweep scores agreement. An ACCEPT is distinguishable
+ *  from an empty seed (the list becomes non-empty); a refused CLEAR is not.
+ *  ★ The ids point at rows the SWEEP's own seed supplies (raid #11, stakeholder
+ *  #40); in the `CASES` entries that share this helper they are deliberately
+ *  dangling, which is inert — no case's input touches a link field, so no
+ *  preview line ever resolves them.
+ *
+ *  ★★ `ownerResourceId` is the OTHER unguarded-and-undisclosable field, named as
+ *  such beside `knowledgeLinks` in `sanitize-records.ts`. It is stored
+ *  `if (ownerResourceId !== undefined)`, so an absent seed is once again the
+ *  refusal's own shape. */
 function seedGuardedRaid(): RaidItem {
   return seedRaid({
     category: "A",
     status: "Validated",
+    causedByRaidIds: [11],
+    stakeholderIds: [40],
+    ownerResourceId: 4,
+    knowledgeLinks: KNOWLEDGE_LINKS,
     severity: "High",
     probability: 3,
     impact: 4,
@@ -211,9 +251,13 @@ function seedGuardedChange(over: Partial<ChangeItem> = {}): ChangeItem {
     costImpact: 4500,
     raisedDate: "2026-01-02",
     decisionDate: "2026-03-04",
-    linkedTaskIds: [],
-    linkedRaidIds: [],
-    stakeholderIds: [],
+    // ★★ NON-EMPTY for the clear-direction reason `seedGuardedRaid` states: a
+    //  refused list stores `[]`, which against an empty seed is indistinguishable
+    //  from the value already there.
+    linkedTaskIds: [1],
+    linkedRaidIds: [10],
+    stakeholderIds: [40],
+    knowledgeLinks: KNOWLEDGE_LINKS,
     ...over,
   };
 }
@@ -231,7 +275,11 @@ function seedGuardedMilestone(over: Partial<Milestone> = {}): Milestone {
     date: "2026-06-01",
     achievedDate: "2026-05-20",
     description: "<p>Feature-complete and signed off by the sponsor.</p>",
-    linkedTaskIds: [],
+    // ★★ NON-EMPTY for the clear-direction reason `seedGuardedRaid` states.
+    //  `sanitizeMilestoneTaskIds` is assigned unconditionally, so a refused
+    //  value stores `[]` — against an empty seed that is the stored value.
+    linkedTaskIds: [1],
+    knowledgeLinks: KNOWLEDGE_LINKS,
     ...over,
   };
 }
@@ -257,7 +305,13 @@ function seedGuardedStakeholder(over: Partial<Stakeholder> = {}): Stakeholder {
     title: "Head of Operations",
     email: "ada.lovelace@contoso.example",
     notes: "Prefers a written summary the day before each steering call.",
-    raci: {},
+    // ★★ `raci` was `{}` — `coerceRaciMap`'s own fallback for every unrecognised
+    //  input, and it is assigned UNCONDITIONALLY, so an empty seed makes a wipe
+    //  read back as the value already stored. Keys are milestone ids
+    //  (`RACI_KEY_RE` is `/^\d+$/`) and values members of `RACI_ROLES`; #30 is
+    //  the milestone this file seeds elsewhere.
+    raci: { "30": "A" as const },
+    knowledgeLinks: KNOWLEDGE_LINKS,
     ...over,
   };
 }
@@ -281,6 +335,13 @@ function seedGuardedAbsence(over: Partial<Absence> = {}): Absence {
     type: "vacation",
     note: "Booked with the team",
     assigneeEmail: "m.Jordan@example.com",
+    // ★★ THE FIELD `rawTypeGuards` ADDED TO THE AXIS. `resourceId` is an FK, so
+    //  it is a `linkFields` member and absent from `diffFields` — and it is also
+    //  in `ABSENCE_FIELD_GUARDS`, which on this entity IS the accepted surface.
+    //  `sanitizeAbsence` assigns `fkIdOrUndefined(raw.resourceId)`
+    //  unconditionally, so its fallback is `undefined` and an unseeded row makes
+    //  a refused unlink indistinguishable from a stored one.
+    resourceId: 4,
     ...over,
   };
 }
@@ -309,6 +370,11 @@ function seedGuardedCalendarEvent(over: Partial<CalendarEvent> = {}): CalendarEv
     notes: "Agenda in the shared drive",
     sendInvitations: true,
     recurrence: { freq: "weekly", interval: 2, byDay: ["WE"] },
+    // ★★ The `linkFields` member, and the clear direction again:
+    //  `sanitizeAttendees(v) ?? []` means a refused list stores nothing, which
+    //  against an unseeded row is what is already there. Resource #4 is the row
+    //  `seedResource` mints.
+    attendeeResourceIds: [4],
     ...over,
   };
 }
@@ -333,9 +399,33 @@ function seedResource(over: Partial<Resource> = {}): Resource {
     id: 4,
     firstName: "Cher",
     lastName: "Bono",
-    roleId: null,
-    utilizationMode: "percent",
-    utilization: {},
+    // ★★★ THE THREE THAT WERE SEEDED ON THEIR OWN FALLBACKS. All three are
+    //  assigned UNCONDITIONALLY by `sanitizeResource`, so a refused probe rebuilds
+    //  exactly the value the seed already held and the sweep scores agreement:
+    //  `roleId` fell back to `null` (`Number.isFinite && > 0 ? n : null`),
+    //  `utilizationMode` to `"percent"` (`s === "hours" ? "hours" : "percent"`)
+    //  and `utilization` to `{}` (`coercePeriodMap` of anything unrecognised).
+    //  ★ Keys must match `PERIOD_KEY_RE` (`YYYY-MM` or `YYYY-Wnn`) and values are
+    //   clamped to [0, 1000] in "hours" mode, so 120 survives verbatim.
+    //  ★★ `roleId: 3` is deliberately DANGLING and cannot be otherwise:
+    //   `TestSeed` has no `roles` slice, so nothing here can seed the row it
+    //   points at. Inert for this axis — `sanitizeResource` never checks
+    //   existence, and the preview resolves an unknown role to `#3` only when a
+    //   patch actually touches the field.
+    roleId: 3,
+    utilizationMode: "hours",
+    utilization: { "2026-07": 120 },
+    // ★★ Three more off their fallbacks, all stored SPARSELY — so for each of
+    //  them an unseeded row and a refused write are the same absent key.
+    //  ★★★ `active` is the `isExternal` shape INVERTED and the inversion is the
+    //   whole point: `sanitizeResource` writes it only for a literal `false`
+    //   (`input.active === false || input.active === "false"`), so `false` — the
+    //   soft-archived state — is the ONLY distinguishable value. Seeding `true`
+    //   would store nothing and be indistinguishable from a refusal, exactly as
+    //   `isExternal: false` would be.
+    birthday: "1984-03-17",
+    absenceOverride: { "2026-08": 40 },
+    active: false,
     title: "Delivery Lead",
     email: "cher.bono@example.com",
     emails: ["c.bono@partner.example"],
@@ -930,15 +1020,47 @@ interface SweepEntity {
   seed: TestSeed;
 }
 
+/** ★★ THE SUPPORTING ROWS ARE PART OF THE FIXTURE, not decoration. Every link
+ *  list and FK on a swept row is now seeded NON-EMPTY (see `seedGuardedRaid` for
+ *  why the clear direction demands it), and each of those ids is given a row to
+ *  point at HERE so the sweep's own workspace resolves what it names. The one
+ *  exception is `resource.roleId`, which `TestSeed` has no slice for and which is
+ *  documented as deliberately dangling on `seedResource`. */
 const SWEEP: SweepEntity[] = [
   { entity: "task", id: 1, seed: { tasks: [seedGuardedTask()] } },
-  { entity: "raid", id: 10, seed: { raid: [seedGuardedRaid()], tasks: LINKED_TASKS } },
-  { entity: "change", id: 20, seed: { changes: [seedGuardedChange()], tasks: LINKED_TASKS } },
+  {
+    entity: "raid",
+    id: 10,
+    seed: {
+      raid: [seedGuardedRaid(), seedRaid({ id: 11, title: "Upstream vendor risk" })],
+      tasks: LINKED_TASKS,
+      stakeholders: [seedGuardedStakeholder()],
+      resources: [seedResource()],
+    },
+  },
+  {
+    entity: "change",
+    id: 20,
+    seed: {
+      changes: [seedGuardedChange()],
+      tasks: LINKED_TASKS,
+      raid: [seedRaid()],
+      stakeholders: [seedGuardedStakeholder()],
+    },
+  },
   { entity: "milestone", id: 30, seed: { milestones: [seedGuardedMilestone()], tasks: LINKED_TASKS } },
-  { entity: "stakeholder", id: 40, seed: { stakeholders: [seedGuardedStakeholder()], tasks: LINKED_TASKS } },
+  {
+    entity: "stakeholder",
+    id: 40,
+    seed: { stakeholders: [seedGuardedStakeholder()], tasks: LINKED_TASKS, milestones: [seedGuardedMilestone()] },
+  },
   { entity: "resource", id: 4, seed: { resources: [seedResource()] } },
-  { entity: "absence", id: 50, seed: { absences: [seedGuardedAbsence()] } },
-  { entity: "calendarEvent", id: 60, seed: { calendarEvents: [seedGuardedCalendarEvent()] } },
+  { entity: "absence", id: 50, seed: { absences: [seedGuardedAbsence()], resources: [seedResource()] } },
+  {
+    entity: "calendarEvent",
+    id: 60,
+    seed: { calendarEvents: [seedGuardedCalendarEvent()], resources: [seedResource()] },
+  },
 ];
 
 /** What the REPLAY needs, read from the same production declarations the
@@ -958,13 +1080,29 @@ function sweepPlumbing(entity: InlineEntity): { tool: string; kind: TokenEntity;
   return { tool, kind: source.kind, wsKey: INLINE_DESCRIPTORS[entity].wsKey as WsKey };
 }
 
-/** A key no schema declares. The non-vacuity control: it must be DROPPED on
- *  every entity. If it lands, that is a finding; if the assertion cannot tell
- *  "dropped" from "never probed", the sweep proves nothing. */
+/** A key no schema declares, kept as a PLACEHOLDER for the probe layer.
+ *
+ *  ★★★ ITS ONE ASSERTION TODAY IS VACUOUS, AND THE DOCSTRING THAT USED TO SIT
+ *  HERE DESCRIBED A TEST THIS FILE DOES NOT CONTAIN. It read: "the non-vacuity
+ *  control: it must be DROPPED on every entity. If it lands, that is a finding."
+ *  That is a claim about a WRITE — send this key in a patch, prove the writer
+ *  drops it — and nothing here sends anything. The only use is
+ *  `expect(fields).not.toContain(JUNK_KEY)` in the axis test below, which cannot
+ *  fail under any mutation: `fields` is the union of `diffFields`,
+ *  `rawTypeGuards`, `linkFields` and the seeded row's own keys, and this string
+ *  appears in none of the four by construction. A comment promising coverage
+ *  that does not exist is worse than no comment — it is what stops the next
+ *  audit from looking.
+ *
+ *  ★ Left in place rather than deleted because the probe layer is where it earns
+ *  its keep: probing this key and asserting the stored row is untouched is a real
+ *  non-vacuity control for a sweep whose other probes all target real fields.
+ *  Move it there, or delete it — do not restore the claim above without the
+ *  test that backs it. */
 const JUNK_KEY = "zzzNotASchemaFieldAnywhere";
 
 /** The fields swept for one entity: what the preview DECLARES, unioned with
- *  what the writer can actually MOVE.
+ *  everything the writer can actually MOVE.
  *
  *  ★★★ `Object.keys(storedRow)` IS THE §418 HALF AND IT IS NOT INTERCHANGEABLE
  *  WITH THE DESCRIPTOR. Seven of the eight update tools route through
@@ -973,62 +1111,120 @@ const JUNK_KEY = "zzzNotASchemaFieldAnywhere";
  *  ROW, not the descriptor, and the code never names the fields for a regex to
  *  find. Only `update_task` has a whitelist (`buildPatch`).
  *
- *  ★★ THE GUARD TABLES WOULD HAVE BEEN THE NATURAL SOURCE AND ARE THE WRONG
- *  ONE. Two of the six are exported now, so availability does not decide it —
- *  a guard table is one LAYER of the merge, and this sweep exists to see
- *  divergence at layers a table cannot show. Sourcing the axis from a table
- *  would narrow the sweep to the thing it is trying to get underneath.
+ *  ★★★ `rawTypeGuards` IS A THIRD TERM AND IT IS NOT AN EXCEPTION TO THE
+ *  PARAGRAPH BELOW — it is the half that paragraph gets wrong when read as a
+ *  blanket rule. The descriptor carries it for `absence` and `calendarEvent`
+ *  ONLY (`entity-descriptor.ts`, the `rawTypeGuards: ABSENCE_FIELD_GUARDS` and
+ *  `rawTypeGuards: CALENDAR_EVENT_FIELD_GUARDS` members), and on those two the
+ *  merge guard is an ALLOW-LIST: `dropUnacceptedAbsenceFields` keeps a field
+ *  only when the table has an entry for it and that entry accepts the value, so
+ *  the TABLE **is** the writable surface. For the four DROP-KEY entities the
+ *  paragraph below is right and the table is merely one layer; for these two it
+ *  is the accepted surface itself, and omitting it un-sweeps every guarded field
+ *  the seed happens not to carry (`absence.resourceId` is the live instance).
+ *
+ *  ★★ THE GUARD TABLES WOULD HAVE BEEN THE NATURAL SOURCE FOR THE WHOLE AXIS
+ *  AND ARE THE WRONG ONE. Two of the six are exported now, so availability does
+ *  not decide it — for raid, change, milestone and stakeholder a guard table is
+ *  one LAYER of the merge, and this sweep exists to see divergence at layers a
+ *  table cannot show. Sourcing the axis from a table ALONE would narrow the
+ *  sweep to the thing it is trying to get underneath. Unioning one in cannot.
+ *
+ *  ★★ `linkFields` is DISJOINT from `diffFields` by construction — the
+ *  descriptor states that invariant on the member itself ("THE TWO SETS MUST
+ *  STAY DISJOINT FROM `diffFields`") — so an FK or a relationship array can only
+ *  reach this axis through this term or through the stored row. `resource.roleId`
+ *  is the worked example: it is writable, it is previewed as a link diff, and no
+ *  `diffFields` scan will ever name it.
  *
  *  ★ Rich fields are excluded: they route through `sanitizeRichText` and are
- *  swept by `plan.sanitizer-parity.test.ts`, which owns that comparison. `id` is
- *  excluded because it addresses the row rather than being written to it. */
+ *  swept by `plan.sanitizer-parity.test.ts`, which owns that comparison.
+ *
+ *  ★★ `id` is filtered out of the STORED half ONLY, and that asymmetry is
+ *  deliberate rather than an oversight: the row always carries an `id` and it
+ *  addresses the row rather than being written to it, so filtering it there is
+ *  bookkeeping. Leaving the three DECLARED terms unfiltered is what gives the
+ *  `expect(fields).not.toContain("id")` assertion below its meaning — it can
+ *  only ever fire on a DESCRIPTOR that declares `id` as a diff field, a link
+ *  field or a raw type guard, which would mean the preview claims to disclose
+ *  changes to a row's own identity. */
 function sweptFields(entity: InlineEntity, before: Record<string, unknown>): string[] {
-  const declared = INLINE_DESCRIPTORS[entity].diffFields.filter(
-    (f) => !RICH_FIELDS.has(`${entity}.${f}`),
-  );
-  const stored = Object.keys(before).filter(
-    (f) => f !== "id" && !RICH_FIELDS.has(`${entity}.${f}`),
-  );
+  const d = INLINE_DESCRIPTORS[entity];
+  const notRich = (f: string) => !RICH_FIELDS.has(`${entity}.${f}`);
+  const declared = [
+    ...d.diffFields,
+    ...Object.keys(d.rawTypeGuards ?? {}),
+    ...Object.keys(d.linkFields),
+  ].filter(notRich);
+  const stored = Object.keys(before).filter((f) => f !== "id" && notRich(f));
   return [...new Set([...declared, ...stored])];
 }
 
-/** Each entity's axis width AS MEASURED on 2026-09-08, and the floor it must
- *  hold from now on.
+/** Each entity's swept field axis AS MEASURED on 2026-09-08, and the SET it must
+ *  keep covering from now on.
  *
- *  ★★★ A RATCHET, NOT A TALLY, AND NOT A FLAT FLOOR. The plan specified one
- *  global `>= 4`; the eight measured widths are 10 / 14 / 13 / 4 / 9 / 14 / 6 /
- *  8, so a flat 4 is exactly calibrated for `milestone` and nearly INERT for
- *  the rest — `raid` and `resource` could each lose ten of their fourteen
- *  fields and the "anti-vacuity" guard would still be green. A guard that
- *  cannot fire is the shape this repo has shipped before, and it reads as
- *  protection while being none.
+ *  ★★★ A SET, NOT A COUNT, AND THE DIFFERENCE IS A SUBSTITUTION. This was
+ *  `Record<InlineEntity, number>` holding the eight measured widths, and a count
+ *  ratchet is structurally blind to a swap — one field out, one field in, same
+ *  number, one field silently un-swept. Measured 2026-09-08 rather than argued:
+ *  replacing `birthday: "1984-03-17"` with `localModifiedAt: "…"` in
+ *  `seedResource` is one-for-one in the stored-keys term, so `resource` stays at
+ *  seventeen fields and the old count ratchet would have been GREEN; the set
+ *  assertion goes red with "resource no longer sweeps birthday". It also
+ *  documents what each entity actually covers — a reader of a number has to go
+ *  and re-derive the members before the number means anything.
  *
- *  ★★ The ratchet keeps the property a flat floor was reaching for: GROWTH IS
- *  FREE. A descriptor or a seed row gaining a field raises the real width and
- *  nothing here objects, so this is not a number that gets "fixed" by lowering
- *  it on every ordinary change. Only a SHRINKING axis is red — which is the one
- *  event worth a human look, because a narrowed axis silently un-sweeps fields.
- *  Lower an entry only alongside the deliberate removal that justifies it.
+ *  ★★★ AND NOT A FLAT FLOOR EITHER, which is what the plan specified (one global
+ *  `>= 4`). The narrowest entity is `milestone` at 5, so a flat 4 would be
+ *  calibrated for it alone and nearly INERT for the rest — `resource` could lose
+ *  thirteen of its seventeen fields with the guard still green. A guard that
+ *  cannot fire reads as protection while being none.
  *
- *  ★ `Record<InlineEntity, number>` is load-bearing: a NEW entity fails tsc here
- *  until it is given a floor, so it cannot join the sweep unmeasured.
+ *  ★★ GROWTH IS FREE, which is the property a ratchet has to keep to survive
+ *  ordinary work: the assertion is a SUBSET check, so a descriptor or a seed row
+ *  gaining a field passes untouched. Only a SHRINKING axis is red — the one
+ *  event worth a human look, because a narrowed axis un-sweeps fields in
+ *  silence. Remove an entry only alongside the deliberate removal that justifies
+ *  it, and never to make a red run green.
  *
- *  ★ Reproduce the real widths rather than trusting these numbers. Do it with a
+ *  ★ `Record<InlineEntity, …>` is load-bearing: a NEW entity fails tsc here
+ *  until it is given a recorded set, so it cannot join the sweep unmeasured.
+ *
+ *  ★★ THE AXIS IS MEASURED OFF THE SEED LITERAL, and the probe layer will not
+ *  be. `sweptFields` is handed the row out of `{...emptyWorkspace(), ...seed}` —
+ *  no sanitizer has run on it — whereas a probe reads the row back AFTER a write,
+ *  i.e. after `sanitizeResource` and friends have rebuilt it. The two agree today
+ *  only because every field recorded here is assigned by its sanitizer whenever
+ *  the seed holds a distinguishable value (the sparse `if (x)` stores all have a
+ *  non-empty seed, which is what the distinguishability test enforces). This
+ *  floor rests on that agreement; a sanitizer that started DROPPING a seeded
+ *  field would shrink the real read-back axis without moving anything here.
+ *
+ *  ★ Reproduce the real sets rather than trusting this table. Do it with a
  *  temporary `appendFileSync` to a scratch path inside the `it.each` below, run
  *  it, read the file, then remove the line. NOT with `console.log`: measured
  *  2026-09-08, a log added there printed NOTHING under
- *  `npx vitest run --maxWorkers=1 <this file> -t "sweeps a non-empty field axis"`,
+ *  `npx vitest run --maxWorkers=1 <this file> -t "recorded axis names"`,
  *  and the cause was never established — so a silent log here reads as a
- *  measurement that ran and found nothing, which is the wrong answer twice. */
-const AXIS_FLOOR: Record<InlineEntity, number> = {
-  task: 10,
-  raid: 14,
-  change: 13,
-  milestone: 4,
-  stakeholder: 9,
-  resource: 14,
-  absence: 6,
-  calendarEvent: 8,
+ *  measurement that ran and found nothing, which is the wrong answer twice.
+ *  ★★ An `appendFileSync` reached through a bare `require` does NOT work here
+ *  either (the file is ESM under vitest); use `await import("node:fs")` in an
+ *  async test. And assert `Test Files 1` on that run — a `-t` filter that matches
+ *  nothing exits 0 with an empty scratch file, which is the same observation as a
+ *  measurement that ran and found nothing.
+ *
+ *  ★ Rich fields are absent from every row by construction — `sweptFields`
+ *  filters `RICH_FIELDS`, which is why `raid.description`, `change.
+ *  impactDescription` and their peers are not listed. */
+const AXIS_FIELDS: Record<InlineEntity, readonly string[]> = {
+  task: ["assignee", "assigneeEmail", "blockers", "dueDate", "group", "labels", "lastUpdateDate", "priority", "status", "taskName"],
+  raid: ["category", "causedByRaidIds", "closedDate", "impact", "knowledgeLinks", "linkedTaskIds", "owner", "ownerEmail", "ownerResourceId", "probability", "raisedDate", "severity", "stakeholderIds", "status", "targetDate", "title"],
+  change: ["costImpact", "decisionBy", "decisionDate", "impact", "knowledgeLinks", "linkedRaidIds", "linkedTaskIds", "raisedDate", "requestedBy", "scheduleImpactDays", "stakeholderIds", "status", "title", "type"],
+  milestone: ["achievedDate", "date", "knowledgeLinks", "linkedTaskIds", "name"],
+  stakeholder: ["category", "email", "influence", "interest", "knowledgeLinks", "name", "notes", "organization", "raci", "title"],
+  resource: ["absenceOverride", "active", "birthday", "businessPhone", "company", "department", "email", "emails", "firstName", "isExternal", "lastName", "location", "notes", "roleId", "title", "utilization", "utilizationMode"],
+  absence: ["assignee", "assigneeEmail", "endDate", "note", "resourceId", "startDate", "type"],
+  calendarEvent: ["attendeeResourceIds", "durationMinutes", "location", "notes", "recurrence", "sendInvitations", "startDate", "startTime", "title"],
 };
 
 describe("the sweep's own coverage", () => {
@@ -1067,19 +1263,52 @@ describe("the sweep's own coverage", () => {
   //  it exists to find. `seedGuardedTask` was written because the task row had
   //  this hole in `group` and `labels`; this assertion is what stops the next
   //  entity from acquiring it silently.
-  //  ★ An empty ARRAY is fine and deliberately allowed: a link list that starts
-  //  empty still distinguishes "refused" from "stored", because a successful
-  //  write makes it non-empty. Only `undefined`/`null`/`""` are indistinguishable.
-  it("seeds a distinguishable value for every diffField", () => {
+  //
+  //  ★★★ IT ITERATES THE WHOLE `sweptFields` AXIS, NOT `diffFields`. That is not
+  //   a widening at the margin: `diffFields` and `linkFields` are DISJOINT by
+  //   construction, so the narrow form could not see a single FK or relationship
+  //   array on any entity, nor anything reaching the axis through the §418
+  //   stored-row half. Every hole it was silent on fell in exactly those two
+  //   classes — the FKs (`resource.roleId` null, `absence.resourceId` absent),
+  //   the id lists (`[]` on raid, change, milestone and the meeting's
+  //   attendees) and the maps (`stakeholder.raci`, `resource.utilization`, both
+  //   `{}`). NO TALLY IS QUOTED: every seed edit moves it. Reproduce by
+  //   reverting a seed value and reading the names this test prints.
+  //
+  //  ★★★ AN EMPTY ARRAY IS A HOLE, AND THE COMMENT THAT SAID OTHERWISE WAS HALF
+  //   RIGHT. It read: "a link list that starts empty still distinguishes refused
+  //   from stored, because a successful write makes it non-empty." That is true
+  //   of the ACCEPT direction and FALSE of the CLEAR direction — every id list
+  //   here is assigned UNCONDITIONALLY (`sanitizeIdList`, `sanitizeMilestone-
+  //   TaskIds`, `sanitizeAttendees(v) ?? []`), so a REFUSED clear stores `[]`,
+  //   which against an empty seed is the value already there. The seeds now
+  //   carry non-empty lists instead of the blind spot being recorded.
+  //  ★★ `{}` is the same argument for a MAP (`raci`, `utilization`,
+  //   `absenceOverride`): `coerceRaciMap`/`coercePeriodMap` return `{}` for
+  //   anything unrecognised, so an empty seed is the refusal's own output.
+  //
+  //  ★★ WHAT THIS CANNOT SEE, and it is not a small residue: an ENUM or a
+  //   SCALAR sitting on its sanitizer's fallback is a hole of exactly the same
+  //   kind and is indistinguishable from a legitimate value here — nothing in
+  //   this loop knows that `"percent"` is `sanitizeUtilizationMode`'s default or
+  //   that `"Other"` is `sanitizeStakeholder`'s. Those are held by hand, in each
+  //   `seedGuarded*` docstring, and `resource.utilizationMode` was one of them.
+  it("seeds a distinguishable value for every swept field", () => {
     const holes: string[] = [];
     for (const s of SWEEP) {
       const { wsKey } = sweepPlumbing(s.entity);
       const rows = (s.seed as Record<string, readonly Record<string, unknown>[] | undefined>)[wsKey];
       const row = rows?.find((r) => r.id === s.id);
       if (!row) continue; // the seeded-row test above owns that failure
-      for (const field of INLINE_DESCRIPTORS[s.entity].diffFields) {
+      for (const field of sweptFields(s.entity, row)) {
         const v = row[field];
-        if (v === undefined || v === null || v === "") holes.push(`${s.entity}.${field}`);
+        const empty =
+          v === undefined ||
+          v === null ||
+          v === "" ||
+          (Array.isArray(v) && v.length === 0) ||
+          (typeof v === "object" && !Array.isArray(v) && Object.keys(v as object).length === 0);
+        if (empty) holes.push(`${s.entity}.${field}`);
       }
     }
     expect(holes).toEqual([]);
@@ -1098,10 +1327,11 @@ describe("the sweep's own coverage", () => {
   });
 
   // ★★ WHAT THIS FORBIDS IS A SWEEP OVER A STARVED AXIS, which passes
-  //  everything it does not run. The floors are PER ENTITY so one rich entity
-  //  cannot carry a narrowed one, and each is the measured width rather than a
-  //  round number — see `AXIS_FLOOR` for why a flat floor was rejected.
-  it.each(SWEEP)("$entity sweeps a non-empty field axis", ({ entity, id, seed }) => {
+  //  everything it does not run. The recorded sets are PER ENTITY so one rich
+  //  entity cannot carry a narrowed one, and each names its members rather than
+  //  counting them — see `AXIS_FIELDS` for why a count and a flat floor were
+  //  both rejected.
+  it.each(SWEEP)("$entity sweeps every field its recorded axis names", ({ entity, id, seed }) => {
     // `wsKey` is DERIVED — it is not a field on SweepEntity. See sweepPlumbing.
     const { wsKey } = sweepPlumbing(entity);
     const ws = { ...emptyWorkspace(), ...seed } as unknown as Workspace;
@@ -1109,10 +1339,14 @@ describe("the sweep's own coverage", () => {
     const before = rows?.find((r) => r.id === id);
     expect(before, `fixture did not seed ${wsKey} #${id}`).toBeDefined();
     const fields = sweptFields(entity, before as unknown as Record<string, unknown>);
+    // A SUBSET check, so growth is free and only a shrink is red. Reported as
+    // the missing NAMES rather than as two numbers: a count says an axis moved,
+    // a name says which field stopped being swept.
+    const dropped = AXIS_FIELDS[entity].filter((f) => !fields.includes(f));
     expect(
-      fields.length,
-      `${entity} swept ${fields.length} fields, floor ${AXIS_FLOOR[entity]} — a SHRINKING axis un-sweeps fields silently`,
-    ).toBeGreaterThanOrEqual(AXIS_FLOOR[entity]);
+      dropped,
+      `${entity} no longer sweeps ${dropped.join(", ")} — a SHRINKING axis un-sweeps fields silently`,
+    ).toEqual([]);
     expect(fields).not.toContain("id");
     expect(fields).not.toContain(JUNK_KEY);
   });
