@@ -660,6 +660,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§433](#433-a-phantom-period-key-made-an-empty-allocation-read-as-populated--closed-2026-09-07) | A phantom period key made an empty allocation read as populated | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S — one read-side predicate; stored data deliberately untouched | **CLOSED** 2026-09-07 |
 | [§434](#434-adding-an-inlineentity-member-has-four-ripple-sites-one-a-hard-build-break-and-nothing-enumerates-them--closed-2026-09-08) | Adding an `InlineEntity` member has four ripple sites and nothing enumerates them | found 2026-09-07 reviewing the AI-calendar-writes plan for inline-edit write parity | S-M — one is a tsc break, three were silent, all four now pinned | closed 2026-09-08 |
 | [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, invisible to every detector for the class | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
+| [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s `testTimeout`, so it reds under load and the red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — one-pass rewrite of the scan; do NOT raise the global timeout | **OPEN** |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -32192,3 +32193,38 @@ is in none of the tiers. Then add the value-axis detector, or the number drifts 
 say so. M-L, and the German half needs translation judgement per string, so it is not mechanical.
 ★ Do NOT convert on the strength of a grep alone: a key whose count cannot be 1 in practice needs no
 singular, and authoring one that never renders is §415 exception B in reverse.
+
+## 451. A tree-scanning i18n test sits at ~25s against the 20s testTimeout, so it reds under load and its red looks like a content failure — OPEN
+
+**Status:** 2026-09-08 — measured, not inferred. `npx vitest run --maxWorkers=1 src/app/i18n-plural.test.ts`
+FAILS with `Test timed out in 20000ms`; the same command with `--testTimeout=180000` PASSES and reports
+`Duration 29.51s (… tests 24.77s)`. Both runs were on an otherwise-idle worktree at one worker, so this
+is not the contention shape.
+
+Found 2026-09-08 during the pre-merge gate run for the §415 exception B fix. `i18n-plural.test.ts`'s
+"routes every paired base key through tPlural, outside a documented exception" walks the whole `src/`
+tree and regex-matches every paired base key against every source file. On this machine that takes
+~25s against `vitest.config.ts`'s 20s `testTimeout`, so it fails on TIME, having asserted nothing.
+
+**Why it is worth an entry rather than a shrug.** The failure prints as a red test with the test's own
+name and a source excerpt, which reads exactly like the scan having FOUND an unrouted key. It produced
+two false reds in one session — once inside `npm run test:shuffle`, and once alone at `--maxWorkers=1`,
+where the obvious "it must be contention" explanation does not apply. Diagnosing the second one cost a
+round of suspecting a just-committed edit, because a slow scan and a real finding are indistinguishable
+from the summary line. A gate whose red is ambiguous is worth less than its runtime suggests.
+
+**Blast radius: the CI job, not just local runs.** `unit-tests-shuffled` is BLOCKING and inherits the
+same 20s timeout, and a shared runner is slower than an idle laptop. Nothing about this is specific to
+`--sequence.shuffle`; `unit-tests` is exposed identically.
+
+**Not caused by the branch that found it.** `git diff 960b639e..HEAD -- src/app/i18n-plural.test.ts`
+changed comments and grew one allowlist from two rows to four. The branch added exactly one file to the
+scanned tree.
+
+**Fix, in preference order.** (1) Make the scan cheap: it re-reads and re-scans the tree per key; read
+each file ONCE and test all keys against it, which is a one-pass rewrite of the same assertion. (2) Failing
+that, give this one `it` an explicit generous timeout as its LAST argument, with a comment saying the
+number is a scan budget and not a behavioural claim. ★ Do NOT raise the GLOBAL `testTimeout` — it is
+already 20s precisely to catch load-starved property suites, and raising it to accommodate one slow scan
+blinds every other test in the repo. ★ Do NOT delete or narrow the scan: it is the only detector for its
+class, which is what §415 and §450 are both about.
