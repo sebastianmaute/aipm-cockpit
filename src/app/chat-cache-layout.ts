@@ -25,6 +25,15 @@
 // conversation grows" — a marker that moves every turn is the RECOMMENDED
 // shape, not a defect to eliminate.
 //
+// ★ THAT FACT IS DOCUMENTED, NOT MEASURED HERE. It comes from Anthropic's
+// bundled reference (`shared/prompt-caching.md`), not from a live call against
+// this account. The plan's Task 11 Step 4 owes the actual measurement: send
+// two consecutive messages in a real conversation and read
+// `cache_read_input_tokens` off the second response — non-zero and roughly
+// the transcript size is what would confirm it. Until that runs, treat the
+// citation above as the source, not as something this file has verified.
+//
+
 // ★★★ THIS FILE ALREADY GOT THAT BACKWARDS ONCE — do not repeat it. An
 // earlier revision asserted prefix stability with `cache_control` INCLUDED in
 // a byte-for-byte `.toEqual`, correctly observed that a plain moving-boundary
