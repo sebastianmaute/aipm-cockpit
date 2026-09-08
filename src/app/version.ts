@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.293.1";
-export const APP_BUILD_DATE = "2026-09-08"; // 0.293.1: the activity log no longer says "AI planned 1 allocation cells" — the two AI planning entries pick the singular wording at a count of one, in both languages (Vandermeer)
+export const APP_VERSION = "0.294.0";
+export const APP_BUILD_DATE = "2026-09-08"; // 0.294.0: the AI assistant's chat transcript is now sent as a stable cacheable prefix instead of being rebuilt every turn, the usage meter counts every token class Anthropic bills — including cached reads and writes — instead of only input and output, Settings shows the session's cache breakdown and hit rate, and a one-time toast explains why a usage-cap warning may now arrive earlier with no setting changed (Chiang)
+// 0.293.1: the activity log no longer says "AI planned 1 allocation cells" — the two AI planning entries pick the singular wording at a count of one, in both languages (Vandermeer)
 // 0.293.0: the AI assistant can now read and write resource absences and calendar meetings, every staged write is described on the review card before it lands, and any write that would email attendees is forced through that card however small the turn (Vandermeer)
 // 0.292.0: an overdue-trend insight is no longer crowded out of the list by a run of time-booking guardrail findings, booked hours that carry no usable date are named separately and given the one remedy that works, switching a bucket between planning modes stops warning about hours that are not there, and the per-device booking cache is now bounded by what it actually stores (Yoshimoto)
 // 0.291.1: a Reports arrangement saved in a form the app can no longer read now falls back to the standard set of blocks, instead of being replaced by a layout carried over from older settings (Hoban)
@@ -19,13 +20,26 @@ export const APP_BUILD_DATE = "2026-09-08"; // 0.293.1: the activity log no long
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.293.x line is "Vandermeer", and a PATCH release keeps its minor line's
- *  name — 0.293.1 is "Vandermeer" like 0.293.0, exactly as 0.291.1 kept
- *  "Hoban". Only a MINOR bump needs the sweep below.
+ *  0.294.x line is "Chiang" (Ted Chiang, American author of "Story of Your
+ *  Life" and "Exhalation"). A PATCH release keeps its minor line's name, as
+ *  0.293.1 kept "Vandermeer" like 0.293.0, exactly as 0.291.1 kept "Hoban".
+ *  Only a MINOR bump needs the sweep below.
  *  ★★ This lead sentence still opened "The 0.291.x line is Hoban" through
  *  0.292.0 and 0.293.0 — two minor bumps that moved the constant and left the
  *  prose, which is the ungated-lead-sentence trap this docstring warns about
- *  further down, recurring twice after being written up. Corrected 2026-09-08.
+ *  further down, recurring twice after being written up. Corrected again at
+ *  the 0.294.0 bump (2026-09-08) — update this sentence IN THE SAME COMMIT as
+ *  the constant, every time.
+ *  0.294.x sweep, checked BEFORE the bump, by BOTH commands this docstring
+ *  prescribes: `grep -ic chiang CHANGELOG.md` returned 1, a hit for the
+ *  0.120.0 line (`## [0.120.0] - 2026-06-21 "Chiang"`) — a different minor
+ *  line, and uniqueness is per-minor-line not across history, so 0.294.x is
+ *  free to use it. Positive controls fired in the same run (`vandermeer` 4,
+ *  `yoshimoto` 1, `hoban` 2) and the negative control `zzznotaname` returned
+ *  0, so the hit is real and not a broken pattern. The dash-agnostic header
+ *  pattern confirms the one hit IS 0.120.0 and nothing in the 0.294.x range.
+ *  0.293.x line was "Vandermeer" (Jeff VanderMeer, American author of the
+ *  "Southern Reach" trilogy, 2014).
  *  0.291.x line was "Hoban" (Russell Hoban, American-British author of
  *  "Riddley Walker", 1980, written in an invented post-collapse English).
  *  Checked BEFORE the bump, by BOTH commands this docstring prescribes, in a
@@ -156,7 +170,7 @@ export const APP_BUILD_DATE = "2026-09-08"; // 0.293.1: the activity log no long
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Vandermeer";
+export const APP_MILESTONE = "Chiang";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

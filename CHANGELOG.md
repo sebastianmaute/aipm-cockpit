@@ -8,6 +8,36 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.294.0] - 2026-09-08 "Chiang"
+
+### Added
+- The AI assistant's chat transcript is now cached instead of being rebuilt as
+  fresh input on every turn. Anthropic matches its prompt cache against a
+  fixed, byte-identical prefix; a block that changed on every turn used to sit
+  ahead of the message history, which meant the whole conversation was billed
+  as new input each time you sent another message. That block now travels
+  with the current turn instead, so a multi-turn conversation can reuse the
+  cached prefix and cost less as it goes on.
+- The Settings panel now shows the current session's cache breakdown —
+  uncached input, cached input and cache writes — alongside its hit rate, in
+  both English and German.
+- A one-time toast explains the changed basis for your usage cap the first
+  time it would otherwise be a surprise: caps now count cached tokens too, so
+  a warning can arrive earlier than before even though nothing you configured
+  has changed.
+
+### Fixed
+- The usage meter now counts every token class Anthropic actually bills, not
+  only plain input and output. Cache writes (billed at 1.25× the input rate)
+  and cache reads (billed at 0.1×) were invisible to the session and weekly
+  caps, so the more effectively the cache was working, the more the caps
+  under-counted real spend.
+- A usage record stored before this release is now normalised field by field
+  when it is loaded, instead of being cast as-is. The new cache fields would
+  otherwise read as `undefined` on an old record, and an `undefined` arithmetic
+  comparison against a cap is always false — silently disabling the user's
+  configured cap with no error anywhere.
+
 ## [0.293.1] - 2026-09-08 "Vandermeer"
 
 ### Fixed
