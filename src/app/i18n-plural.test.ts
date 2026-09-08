@@ -53,9 +53,13 @@ describe("tPlural", () => {
     expect(tPlural("en-GB", "activityEntriesLogged", 1, 1)).toBe("1 entry logged");
   });
 
-  // ★ The count is NOT injected as {0}. Two of the converted keys carry the
-  // count in another slot, so args are forwarded verbatim and the call site
-  // passes the number wherever it belongs.
+  // ★ The count is NOT injected as {0}. THREE of the converted keys carry the
+  // count in another slot (`chatAttachmentSummary` and
+  // `chatAttachmentSummarySkipped` at `{1}`, `actionCommitteeInfoWhy` at `{2}`),
+  // so args are forwarded verbatim and the call site passes the number wherever
+  // it belongs. ★★ This said "Two" until 2026-09-08, inheriting the pair from
+  // `tPlural`'s own docstring, which had named two EXAMPLES; see that docstring
+  // for why the enumeration has to be done at the call sites.
   it("forwards args verbatim rather than injecting the count", () => {
     expect(tPlural("en-US", "timelogTestOk", 1, 1, "read")).toBe("Connected — 1 user, scope: read");
     expect(tPlural("en-US", "timelogTestOk", 3, 3, "read")).toBe("Connected — 3 users, scope: read");

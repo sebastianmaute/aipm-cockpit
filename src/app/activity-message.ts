@@ -26,9 +26,17 @@ import { type Lang, type PluralBaseKey, t, tPlural } from "./i18n";
  * the duplication buys the check, so do not "simplify" it away.
  *
  * ★★ THE SLOT IS NOT ALWAYS `{0}` IN THIS CLASS GENERALLY — `tPlural` takes
- * `count` as a SELECTOR and never injects it, precisely because two converted
- * keys elsewhere carry their count at `{2}` and `{1}`. Both members here happen
- * to use `{0}`; a third that does not is why this is a slot and not a flag.
+ * `count` as a SELECTOR and never injects it, precisely because THREE converted
+ * keys elsewhere carry their count outside `{0}`: `chatAttachmentSummary` and
+ * `chatAttachmentSummarySkipped` at `{1}`, `actionCommitteeInfoWhy` at `{2}`.
+ * Both members here happen to use `{0}`; a third MEMBER that does not is why
+ * this is a slot and not a flag.
+ * ★★ NO REPRODUCE GREP IS QUOTED HERE, DELIBERATELY. A first cut of this
+ * paragraph prescribed one, and the comment then MATCHED ITSELF — it pushed
+ * the enumeration it was prescribing from 40 hits to 41 the moment it was
+ * written. The canonical statement lives in `tPlural`'s own docstring in
+ * `i18n.ts`; the slot is fixed by argument order at the call site, so read each
+ * call and compare its 3rd argument against its 4th.
  */
 const ACTIVITY_PLURAL: Partial<Record<ActivityKind, { base: PluralBaseKey; slot: number }>> = {
   "ai.allocationPlan": { base: "activityAiAllocationPlan", slot: 0 },
@@ -66,12 +74,16 @@ export function activityMessage(lang: Lang, kind: string, args: (string | number
   const plural = ACTIVITY_PLURAL[kind as ActivityKind];
   if (plural) {
     const raw = args[plural.slot];
-    const count = typeof raw === "number" ? raw : Number(raw);
-    // ★ A non-numeric count falls through to the plural rather than rendering
-    //   `NaN`-selected text. `Number("")` is 0 and `Number(undefined)` is NaN,
-    //   so the guard has to be `isFinite`, not a truthiness test — 0 is a real
-    //   count and takes the plural in both supported languages.
-    if (Number.isFinite(count)) return tPlural(lang, plural.base, count, ...args);
+    // ★★ NO FINITENESS GUARD HERE, DELIBERATELY, AND AN EARLIER CUT HAD ONE.
+    //    `Intl.PluralRules.select` maps NaN and ±Infinity to `other` in all
+    //    three supported locales, `other` resolves to the BASE key, and the
+    //    drift pin guarantees that base is the same key the fall-through below
+    //    would render — so `if (Number.isFinite(count))` was behaviourally
+    //    identical to `true` at every input, while its comment claimed it was
+    //    load-bearing and the test named for it stayed green with it deleted.
+    //    Reproduce: node -e "console.log([NaN,Infinity,0,-0].map(v=>new
+    //    Intl.PluralRules('de').select(v)).join(' '))" → other other other other
+    return tPlural(lang, plural.base, typeof raw === "number" ? raw : Number(raw), ...args);
   }
 
   return t(lang, key, ...args);

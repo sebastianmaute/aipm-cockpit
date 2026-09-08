@@ -22,7 +22,8 @@
 //    change when the UI switches to German. The EN dict is static (only DE is
 //    lazily loaded), so no loadI18n call is needed.
 //
-// ★★★ Rendering goes through `activityMessageKey`, NEVER a bare
+// ★★★ Rendering goes through `activityMessage`, whose `activityMessageKey`
+//     call carries the own-property guard — NEVER a bare
 //     ACTIVITY_KIND_TO_KEY[kind] index. `sanitizeActivityEntry` deliberately
 //     KEEPS an unrecognised string kind (forward-compat with newer releases),
 //     so kind: "toString" reaches here — and a bare index resolves it to a

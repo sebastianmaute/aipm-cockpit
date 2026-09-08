@@ -4590,9 +4590,20 @@ export type PluralBaseKey = {
  * one helper instead of a ternary at each call site — so the rule is kept and
  * the duplication is not.
  *
- * ★★ `count` is NOT injected into the args. Two converted keys carry the
- * count in a slot other than `{0}` (`actionCommitteeInfoWhy` at `{2}`,
- * `chatAttachmentSummarySkipped` at `{1}`) — a third key that used to carry
+ * ★★ `count` is NOT injected into the args. THREE converted keys carry the
+ * count in a slot other than `{0}` — `actionCommitteeInfoWhy` at `{2}`,
+ * `chatAttachmentSummarySkipped` AND its non-skipped sibling
+ * `chatAttachmentSummary` at `{1}`. ★★★ THIS DOCSTRING IS THE SOURCE THE OTHER
+ * COPIES ARE DERIVED FROM, AND IT SAID "Two" FOR A RELEASE: it named the
+ * skipped variant and omitted the sibling declared one line above it in this
+ * very file, and that pair was then restated as a TOTAL in a test comment, in
+ * `activity-message.ts` and twice in `docs/open-followups.md` §415. Corrected
+ * 2026-09-08 by enumerating the CALL SITES — the slot is fixed by argument
+ * order at the call, so no scan over these strings can recover it, and a
+ * grep-based count of call sites also matches this comment and the declaration
+ * below. Read each call and compare its 3rd argument against its 4th.
+ *
+ * ★★ Separately, a key that used to carry
  * TWO independent counts (`{0} items need you · {1} milestones soon`) was
  * REMOVED rather than converted to `tPlural`, because one selection cannot
  * agree two independent counts at once. Do NOT reintroduce it as a single
