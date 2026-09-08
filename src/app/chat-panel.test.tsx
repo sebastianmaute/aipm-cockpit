@@ -38,14 +38,25 @@ vi.mock("./chat-threads-store", () => ({
 // real context's own default value (chat-panel is rendered directly in this
 // file with no <AiUsageProvider>, so it was already reading that default).
 // Individual tests override the return value to spy on `record`.
-vi.mock("./ai-usage-context", () => ({
-  useAiUsageContext: vi.fn(() => ({
+//
+// Hoisted (vi.hoisted) so this object can be shared between the factory below
+// and the per-test beforeEach in the "cache-token usage recording" describe
+// block: vi.mock(...) calls are hoisted above ordinary top-level statements,
+// so a factory referencing a plain module-scope `const` declared later in
+// this file would hit it before that const is initialized (a TDZ
+// ReferenceError) — vi.hoisted() is vitest's sanctioned way around that.
+const { DEFAULT_AI_USAGE_CONTEXT } = vi.hoisted(() => ({
+  DEFAULT_AI_USAGE_CONTEXT: {
     sessionTotal: 0,
     sessionUsage: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 },
     weekTotal: 0,
     nextReset: new Date(),
     record: vi.fn(),
-  })),
+  },
+}));
+
+vi.mock("./ai-usage-context", () => ({
+  useAiUsageContext: vi.fn(() => DEFAULT_AI_USAGE_CONTEXT),
 }));
 
 vi.mock("./use-push-to-talk", () => ({
@@ -2569,15 +2580,33 @@ describe("staged tool calls (the review card)", () => {
 // send-side assertions elsewhere.
 // ---------------------------------------------------------------------------
 describe("cache-token usage recording", () => {
-  afterEach(() => vi.restoreAllMocks());
+  // ★★ RE-APPLY THE DEFAULT BOTH BEFORE AND AFTER EACH TEST. vi.restoreAllMocks()
+  // restores only vi.spyOn spies — it does NOT undo a mockReturnValue() set on
+  // a plain vi.fn() created inside a vi.mock factory. Left unguarded, this
+  // block's override of useAiUsageContext() would survive into whatever runs
+  // next in this file, and unit-tests-shuffled reorders tests WITHIN a file
+  // (not just across files) — so under some seed, a later test reading the
+  // default stub would inherit this block's captured recordSpy instead. Same
+  // hazard this file already documents for call history, not implementation,
+  // above the chat-threads-store vi.mock (see its "does NOT clear call
+  // history" comment).
+  // ★★★ beforeEach ALONE IS NOT ENOUGH — measured, not theorised. It resets
+  // the mock only before the NEXT test INSIDE this describe; a sibling
+  // describe further down the file (which has no beforeEach of its own) still
+  // reads whatever this block's last test left behind. The override must also
+  // be undone in afterEach so nothing outside this block can ever observe it.
+  beforeEach(() => {
+    vi.mocked(useAiUsageContext).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(useAiUsageContext).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
+  });
 
   it("records cache tokens from every turn of a send", async () => {
     const recordSpy = vi.fn();
     vi.mocked(useAiUsageContext).mockReturnValue({
-      sessionTotal: 0,
-      sessionUsage: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 },
-      weekTotal: 0,
-      nextReset: new Date(),
+      ...DEFAULT_AI_USAGE_CONTEXT,
       record: recordSpy,
     });
 
