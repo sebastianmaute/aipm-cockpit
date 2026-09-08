@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.293.0";
-export const APP_BUILD_DATE = "2026-09-08"; // 0.293.0: the AI assistant can now read and write resource absences and calendar meetings, every staged write is described on the review card before it lands, and any write that would email attendees is forced through that card however small the turn (Vandermeer)
+export const APP_VERSION = "0.294.0";
+export const APP_BUILD_DATE = "2026-09-08"; // 0.294.0: the assistant can no longer write fields it was never given — eight undisclosed writes closed, and every create tool now runs through the same guard its edit path already used (Jimenez)
 // 0.292.0: an overdue-trend insight is no longer crowded out of the list by a run of time-booking guardrail findings, booked hours that carry no usable date are named separately and given the one remedy that works, switching a bucket between planning modes stops warning about hours that are not there, and the per-device booking cache is now bounded by what it actually stores (Yoshimoto)
 // 0.291.1: a Reports arrangement saved in a form the app can no longer read now falls back to the standard set of blocks, instead of being replaced by a layout carried over from older settings (Hoban)
 // 0.291.0: a task or reminder that says "1 change" now says it in both languages and in every place it is counted, an overdue steering reminder no longer reads as if it were due tomorrow, a bulk edit of one row stops calling it "1 tasks", and a link to a task that has been deleted says so instead of showing a bare number (Hoban)
@@ -148,7 +148,7 @@ export const APP_BUILD_DATE = "2026-09-08"; // 0.293.0: the AI assistant can now
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Vandermeer";
+export const APP_MILESTONE = "Jimenez";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
