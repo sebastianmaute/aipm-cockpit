@@ -22,7 +22,8 @@
 //    change when the UI switches to German. The EN dict is static (only DE is
 //    lazily loaded), so no loadI18n call is needed.
 //
-// ★★★ Rendering goes through `activityMessageKey`, NEVER a bare
+// ★★★ Rendering goes through `activityMessage`, whose `activityMessageKey`
+//     call carries the own-property guard — NEVER a bare
 //     ACTIVITY_KIND_TO_KEY[kind] index. `sanitizeActivityEntry` deliberately
 //     KEEPS an unrecognised string kind (forward-compat with newer releases),
 //     so kind: "toString" reaches here — and a bare index resolves it to a
@@ -32,9 +33,8 @@ import {
   type ActivityActor,
   type ActivityEntry,
   MAX_FIELD_CHANGES,
-  activityMessageKey,
 } from "./activity-log";
-import { t } from "./i18n";
+import { activityMessage } from "./activity-message";
 
 export interface RenderedActivity {
   /** The entry's ISO timestamp, verbatim. */
@@ -92,10 +92,9 @@ function knownActor(raw: unknown): ActivityActor | undefined {
 }
 
 export function renderActivityEntry(entry: ActivityEntry): RenderedActivity {
-  const key = activityMessageKey(entry.kind);
-  const summary = key
-    ? t("en-US", key, ...entry.args)
-    : t("en-US", "activityUnknownKind", entry.kind);
+  // ★ One arg list here, unlike the panel: this renderer does no formatting,
+  //   so the values it renders are the values that select the plural form.
+  const summary = activityMessage("en-US", entry.kind, entry.args);
 
   // ★ Conditional spread, mirroring `appendActivityEntry`: `{ actor }` with an
   //   undefined value puts an `actor: undefined` KEY on every rendered entry,

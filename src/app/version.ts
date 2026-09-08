@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.293.0";
-export const APP_BUILD_DATE = "2026-09-08"; // 0.293.0: the AI assistant can now read and write resource absences and calendar meetings, every staged write is described on the review card before it lands, and any write that would email attendees is forced through that card however small the turn (Vandermeer)
+export const APP_VERSION = "0.293.1";
+export const APP_BUILD_DATE = "2026-09-08"; // 0.293.1: the activity log no longer says "AI planned 1 allocation cells" — the two AI planning entries pick the singular wording at a count of one, in both languages (Vandermeer)
+// 0.293.0: the AI assistant can now read and write resource absences and calendar meetings, every staged write is described on the review card before it lands, and any write that would email attendees is forced through that card however small the turn (Vandermeer)
 // 0.292.0: an overdue-trend insight is no longer crowded out of the list by a run of time-booking guardrail findings, booked hours that carry no usable date are named separately and given the one remedy that works, switching a bucket between planning modes stops warning about hours that are not there, and the per-device booking cache is now bounded by what it actually stores (Yoshimoto)
 // 0.291.1: a Reports arrangement saved in a form the app can no longer read now falls back to the standard set of blocks, instead of being replaced by a layout carried over from older settings (Hoban)
 // 0.291.0: a task or reminder that says "1 change" now says it in both languages and in every place it is counted, an overdue steering reminder no longer reads as if it were due tomorrow, a bulk edit of one row stops calling it "1 tasks", and a link to a task that has been deleted says so instead of showing a bare number (Hoban)
@@ -18,7 +19,14 @@ export const APP_BUILD_DATE = "2026-09-08"; // 0.293.0: the AI assistant can now
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.291.x line is "Hoban" (Russell Hoban, American-British author of
+ *  0.293.x line is "Vandermeer", and a PATCH release keeps its minor line's
+ *  name — 0.293.1 is "Vandermeer" like 0.293.0, exactly as 0.291.1 kept
+ *  "Hoban". Only a MINOR bump needs the sweep below.
+ *  ★★ This lead sentence still opened "The 0.291.x line is Hoban" through
+ *  0.292.0 and 0.293.0 — two minor bumps that moved the constant and left the
+ *  prose, which is the ungated-lead-sentence trap this docstring warns about
+ *  further down, recurring twice after being written up. Corrected 2026-09-08.
+ *  0.291.x line was "Hoban" (Russell Hoban, American-British author of
  *  "Riddley Walker", 1980, written in an invented post-collapse English).
  *  Checked BEFORE the bump, by BOTH commands this docstring prescribes, in a
  *  run whose controls fired: `grep -ic hoban CHANGELOG.md` returns 0 and the

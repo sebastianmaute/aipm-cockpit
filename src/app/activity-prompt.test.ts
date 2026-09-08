@@ -136,3 +136,35 @@ describe("renderActivityEntry locale pinning", () => {
     expect(r.summary).toBe("Task #7 created: Fix login");
   });
 });
+
+/**
+ * §415 exception B. Both keys are reached through `ACTIVITY_KIND_TO_KEY` — a
+ * Record routed to a generic renderer — so a key-shape scan cannot see whether
+ * their authored singular is ever selected. It was not: this surface rendered
+ * "AI planned 1 allocation cells".
+ *
+ * ★ The plural cases are the control. Without them a renderer hardwired to the
+ * singular for these two kinds would pass the assertion above.
+ */
+describe("renderActivityEntry — count agreement on map-routed keys", () => {
+  it("selects the singular when the count is 1", () => {
+    expect(renderActivityEntry(entry({ kind: "ai.allocationPlan", args: [1] })).summary).toBe(
+      "AI planned 1 allocation cell",
+    );
+    expect(renderActivityEntry(entry({ kind: "ai.raciSuggest", args: [1] })).summary).toBe(
+      "Applied 1 AI-proposed RACI assignment",
+    );
+  });
+
+  it("selects the plural for every other count, zero included", () => {
+    expect(renderActivityEntry(entry({ kind: "ai.allocationPlan", args: [2] })).summary).toBe(
+      "AI planned 2 allocation cells",
+    );
+    expect(renderActivityEntry(entry({ kind: "ai.allocationPlan", args: [0] })).summary).toBe(
+      "AI planned 0 allocation cells",
+    );
+    expect(renderActivityEntry(entry({ kind: "ai.raciSuggest", args: [3] })).summary).toBe(
+      "Applied 3 AI-proposed RACI assignments",
+    );
+  });
+});

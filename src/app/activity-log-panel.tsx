@@ -23,9 +23,9 @@ import {
   type ActivityKind,
   MAX_FIELD_CHANGES,
   activityGroupOf,
-  activityMessageKey,
   humanizeFieldName,
 } from "./activity-log";
+import { activityMessage } from "./activity-message";
 import { type Lang, t, tPlural } from "./i18n";
 import { useDisplayTimezone } from "./display-timezone-context";
 import { formatDisplayTimestamp } from "./tz-display";
@@ -259,7 +259,6 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
       entries.map((e) => {
         const kind = typeof e.kind === "string" ? e.kind : "";
         const timestamp = typeof e.timestamp === "string" ? e.timestamp : "";
-        const key = activityMessageKey(kind);
         const args = Array.isArray(e.args) ? e.args.map(changeText) : [];
         // The own-property guard is load-bearing — see ACTOR_KEYS. Kept on the
         // row so the filter reads the SAME derivation the cell renders from.
@@ -271,7 +270,10 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
           changes: normalizeChanges(e.changes),
           actorKey,
           actorLabel: actorKey ? t(lang, actorKey) : ACTOR_UNKNOWN,
-          message: key ? t(lang, key, ...args) : t(lang, "activityUnknownKind", kind),
+          // ★ `activityMessage` selects the plural form from this SAME list, so
+          //   `changeText` must keep a count recoverable by `Number` — see its
+          //   docstring before introducing any numeric formatting here.
+          message: activityMessage(lang, kind, args),
           group: activityGroupOf(kind as ActivityKind),
         };
       }),
