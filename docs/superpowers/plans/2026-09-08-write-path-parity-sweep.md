@@ -396,6 +396,41 @@ field, which would burn a fix cycle on a non-defect.
    against a recurring event, so today's green says nothing about it. Check it
    before trusting a calendarEvent finding.
 
+5. ★★★ **WRITER-STAMPED FIELDS WILL FIRE RELATION 3 ON EVERY PROBE OF EVERY ENTITY
+   UNLESS EXCLUDED.** Relation 3 is "moved but never previewed ⇒ undisclosed write".
+   `localModifiedAt` is stamped **unconditionally by all eight writers** and is listed in
+   `TOKEN_EXCLUDED` for **all eight** entities. Those two facts compose into a permanent
+   false positive: the exclusion drives `patchWithoutId`'s strip, so the model's patch can
+   never carry the field, so the preview has nothing to diff and emits no line — while the
+   stored row changes on every single write. Left unhandled this swamps Task 6's finding
+   count and buries every real finding underneath it.
+   **Relation 3 must subtract the writer-stamped set before comparing.** Derive that set
+   rather than hardcoding it where possible, and state it as a limit in the sweep's own
+   limits block: the sweep cannot see an undisclosed write to a field the writer also
+   stamps, because it cannot distinguish the two causes.
+
+   ★★ **A GREP SCOPED TO `use-chat-dispatcher.ts` FINDS A QUARTER OF THE SURFACE.** Only
+   `updateTask` and `updateResource` live there; the other six are in
+   `src/app/use-register-tools.ts`. There is also a NINTH stamping path outside the eight
+   update tools — the dependencies write in `use-chat-dispatcher.ts`.
+
+   ★★ **`task.completedDate` IS A SECOND INSTANCE AND IT IS NOT EXCLUDED.**
+   `applyStatusChange` derives it whenever the patch carries a valid status. It is absent
+   from `diffFields` and absent from `TOKEN_EXCLUDED.task`, so a `status: "Done"` probe
+   moves a field the card cannot mention. Conditional, so it will not swamp anything — but
+   it is a genuine parity gap of exactly the shape this sweep exists to find, and it must
+   be classified deliberately (finding, or documented limit) rather than absorbed into the
+   same subtraction as `localModifiedAt`. The two are not the same case: one is bookkeeping
+   the model never asked for, the other is a user-visible completion date.
+
+   ★ Also writer-derived, but PRESENT in `diffFields` so the preview can disclose them —
+   not automatically findings: `change.status`/`change.decisionDate` via
+   `applyModelChangeStatus`, and `resource.firstName`/`lastName` via `splitName(patch.name)`
+   (the existing `CASES` already pin the name-alias half).
+   ★ `raid.noteLog` and `change.noteLog` are re-applied from the STORED row rather than
+   changed, so they should compare equal and be inert. **Not verified by a read-back** —
+   confirm before treating a noteLog difference as a finding.
+
 4. **No mail is believed to be sent by a unit-test replay** — the dispatcher stores
    a flag and the send lives outside it. **This was not verified**, and it is the
    one write in this file with a real-world side effect, so confirm it before
