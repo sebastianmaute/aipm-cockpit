@@ -62,184 +62,42 @@
 // over every entity × every `diffField`. The two are complements: that one is
 // exhaustive and shallow, this one is narrow and deep. Add a case here when a
 // defect turns on the DISPATCHER doing something the sanitizer cannot show.
+//
+// ★ THE MECHANICAL SWEEP IS A SEPARATE FILE, `plan.write-path-sweep.test.ts`,
+// and its header says why the two are not merged. The seeded rows both drive
+// live in `src/test/inline-sweep-fixtures.ts` — one copy, because two copies of
+// a seed drift and a drifted seed turns an assertion vacuous while every gate
+// stays green. Read a seed's docstring there before changing its value.
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";
+import {
+  LINKED_TASKS,
+  type Row,
+  rejectedFields,
+  same,
+  seedGuardedAbsence,
+  seedGuardedCalendarEvent,
+  seedGuardedChange,
+  seedGuardedMilestone,
+  seedGuardedRaid,
+  seedGuardedStakeholder,
+  seedRaid,
+  seedResource,
+  seedTask,
+  snapshot,
+  type WsKey,
+} from "../../test/inline-sweep-fixtures";
 import { entityToken, type TokenEntity } from "../ai-entity-token";
 import { runTool } from "../chat-tools";
 import { resetMintState } from "../id-mint-session";
 import { type TestSeed } from "../test-providers";
-import { type Absence, type ChangeItem, DEFAULT_TASK_STATUS, type Milestone, type RaidItem, type Resource, type Stakeholder, type Task } from "../types";
-import { type CalendarEvent } from "../calendar-event";
+import { type Task } from "../types";
 import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
-import { emptyWorkspace, type Workspace } from "../workspace";
+import { type Workspace } from "../workspace";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
 import { describeEntityCalls, type EditPlan } from "./plan";
-
-/** A minimal VALID `Task`, mirroring `chat-proposal-apply.test.tsx`'s rule:
- *  every non-optional field of the type and nothing more, so a write is refused
- *  by the code under test rather than by a sanitizer rejecting a lazy fixture. */
-function seedTask(id: number, taskName: string): Task {
-  return {
-    id,
-    taskName,
-    assignee: "M. Jordan",
-    assigneeEmail: "",
-    dueDate: "2026-09-30",
-    lastUpdateDate: "2026-05-19",
-    priority: "Medium",
-    status: DEFAULT_TASK_STATUS,
-    blockers: "",
-    description: "",
-  };
-}
-
-const LINKED_TASKS: Task[] = [seedTask(1, "First"), seedTask(2, "Second"), seedTask(3, "Third")];
-
-function seedRaid(over: Partial<RaidItem> = {}): RaidItem {
-  return {
-    id: 10,
-    category: "R",
-    title: "R",
-    status: "Open",
-    raisedDate: "2026-05-01",
-    linkedTaskIds: [1, 2, 3],
-    causedByRaidIds: [],
-    stakeholderIds: [],
-    ...over,
-  };
-}
-
-/** A RAID row whose every merge-site-guarded field carries a NON-DEFAULT value,
- *  so a reset-to-default is observable rather than indistinguishable from a
- *  preserved value: `category: "A"` is not `RAID_CATEGORIES[0]` and
- *  `status: "Validated"` is not `ASSUMPTION_STATUSES[0]`. A base row missing any
- *  of them would make the cases below pass for the wrong reason — a field that
- *  was already absent cannot be observed being cleared. */
-function seedGuardedRaid(): RaidItem {
-  return seedRaid({
-    category: "A",
-    status: "Validated",
-    severity: "High",
-    probability: 3,
-    impact: 4,
-    targetDate: "2026-06-30",
-    closedDate: "2026-07-31",
-  });
-}
-
-/** A CHANGE row whose every merge-site-guarded field carries a NON-DEFAULT
- *  value, for the reason `seedGuardedRaid` gives: `type: "Scope"` is not
- *  `sanitizeChangeItem`'s hardcoded "Other" fallback, and `impact`,
- *  `decisionDate`, `scheduleImpactDays` and `costImpact` are all populated, so a
- *  cleared key is observable. `status: "Approved"` is likewise not the "Proposed"
- *  fallback — that half is `applyModelChangeStatus`'s and is pinned here as the
- *  boundary between the two guards. */
-function seedGuardedChange(over: Partial<ChangeItem> = {}): ChangeItem {
-  return {
-    id: 20,
-    title: "Move the cutover window",
-    description: "",
-    type: "Scope",
-    status: "Approved",
-    impact: "High",
-    scheduleImpactDays: 12,
-    costImpact: 4500,
-    raisedDate: "2026-01-02",
-    decisionDate: "2026-03-04",
-    linkedTaskIds: [],
-    linkedRaidIds: [],
-    stakeholderIds: [],
-    ...over,
-  };
-}
-
-/** ★ `achievedDate` is POPULATED on purpose. The parity sweep's `MILE_BASE`
- *  leaves it blank, which is exactly why this member of the class was invisible
- *  there: a clear of an empty field reads as agreement. */
-function seedGuardedMilestone(over: Partial<Milestone> = {}): Milestone {
-  return {
-    id: 30,
-    name: "GA",
-    date: "2026-06-01",
-    achievedDate: "2026-05-20",
-    linkedTaskIds: [],
-    ...over,
-  };
-}
-
-/** ★★★ EVERY ENUM OFF ITS FALLBACK, and that is the entire point. This entity's
- *  defect survived four earlier tasks because the parity sweep's `STK_BASE`
- *  holds exactly the values `sanitizeStakeholder` resets to — so a refused value
- *  read back as the value already stored and the sweep saw agreement. "Sponsor"
- *  is not the "Other" fallback and "High"/"Low" are not "Medium". */
-function seedGuardedStakeholder(over: Partial<Stakeholder> = {}): Stakeholder {
-  return {
-    id: 40,
-    name: "Ada Lovelace",
-    category: "Sponsor",
-    influence: "High",
-    interest: "Low",
-    raci: {},
-    ...over,
-  };
-}
-
-/** An ABSENCE whose merge-site-guarded fields carry NON-DEFAULT values, for the
- *  reason `seedGuardedRaid` gives. `type: "vacation"` is not `sanitizeAbsence`'s
- *  hardcoded `"other"` fallback and `note` is populated, so a reset and a
- *  cleared key are both observable — against a row already holding `"other"` and
- *  no note, a refused value reads back as the value already stored and the case
- *  would pass for the wrong reason. */
-function seedGuardedAbsence(over: Partial<Absence> = {}): Absence {
-  return {
-    id: 50,
-    assignee: "M. Jordan",
-    startDate: "2026-07-06",
-    endDate: "2026-07-17",
-    type: "vacation",
-    note: "Booked with the team",
-    ...over,
-  };
-}
-
-/** A MEETING whose two guarded fields are both off their fallback:
- *  `durationMinutes: 90` is not `sanitizeCalendarEvent`'s 60-minute
- *  `intInRange` default, and `sendInvitations: true` is the PRESENT state of a
- *  flag stored present-only-when-true. The flag matters most — it is the one
- *  write in the app that leaves the building, and a row that did not already
- *  invite could not show the clear. */
-function seedGuardedCalendarEvent(over: Partial<CalendarEvent> = {}): CalendarEvent {
-  return {
-    id: 60,
-    title: "Steering committee",
-    startDate: "2026-07-08",
-    startTime: "14:00",
-    durationMinutes: 90,
-    location: "Room 1",
-    notes: "Agenda in the shared drive",
-    sendInvitations: true,
-    ...over,
-  };
-}
-
-function seedResource(over: Partial<Resource> = {}): Resource {
-  return {
-    id: 4,
-    firstName: "Cher",
-    lastName: "Bono",
-    roleId: null,
-    utilizationMode: "percent",
-    utilization: {},
-    ...over,
-  };
-}
-
-/** The workspace slices this file writes to, and the key each case reads back
- *  through. Deliberately narrow — a case needing another slice adds it here so
- *  the read-back stays a lookup rather than a per-case cast. */
-type WsKey = "raid" | "resources" | "changes" | "milestones" | "stakeholders" | "absences" | "calendarEvents";
 
 interface WriteCase {
   name: string;
@@ -580,35 +438,6 @@ const CASES: WriteCase[] = [
   },
 ];
 
-/** The live provider state as a `Workspace`, which is what `describeEntityCalls`
- *  takes. Read from `useWorkspace()` rather than rebuilt from the seed on
- *  purpose: a mirror fixture can drift from what the provider holds, and a
- *  preview grounded against a drifted workspace is not the preview production
- *  would render. */
-function snapshot(ws: ReturnType<typeof useWorkspace>): Workspace {
-  return {
-    ...emptyWorkspace(),
-    tasks: [...ws.tasks],
-    raid: [...ws.raid],
-    resources: [...ws.resources],
-    roles: [...ws.roles],
-    disciplines: [...ws.disciplines],
-    grades: [...ws.grades],
-    stakeholders: [...ws.stakeholders],
-    milestones: [...ws.milestones],
-    changes: [...ws.changes],
-    absences: [...ws.absences],
-    // ★★ THE ABSENT SLICE IS CARRIED THROUGH AS ABSENT. `calendarEvents` is
-    // `readonly CalendarEvent[] | undefined` and `undefined` means "the slice
-    // is not there", never "there are no meetings" — copying it as `[]` would
-    // hand `describeEntityCalls` a workspace claiming a presence the provider
-    // does not, which is the very distinction the calendar write path holds.
-    calendarEvents: ws.calendarEvents ? [...ws.calendarEvents] : undefined,
-  };
-}
-
-type Row = Record<string, unknown> & { id: number };
-
 function rowOf(ws: Workspace, c: WriteCase): Row {
   // `| undefined` because `calendarEvents` is an OPTIONAL slice: an unseeded
   // one is absent rather than empty, and `rows?.find` turns that into the same
@@ -653,19 +482,6 @@ async function previewAndWrite(c: WriteCase): Promise<{ plan: EditPlan; before: 
   const stored = rowOf(snapshot(result.current.ws), c);
   return { plan, before, stored };
 }
-
-/** Every field name a `Rejected` entry blames. `detail` is `${field}=${value}`
- *  for a single field and `${a}+${b}=empty` for a group, so the names are the
- *  `+`-split of everything left of the FIRST `=` (a rejected value may itself
- *  contain one — an email, a date). */
-function rejectedFields(plan: EditPlan): string[] {
-  return plan.rejected.flatMap((r) => {
-    const eq = r.detail.indexOf("=");
-    return eq <= 0 ? [] : r.detail.slice(0, eq).split("+");
-  });
-}
-
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 beforeEach(() => {
   // The minter is module-scoped; nothing here creates, but resetting keeps this
