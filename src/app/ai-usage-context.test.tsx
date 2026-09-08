@@ -50,25 +50,35 @@ describe("AiUsageProvider", () => {
   });
 
   it("normalises a pre-0.294 stored blob instead of casting it", async () => {
-    // A blob written before the cache-token widening carries only
-    // input/output — loadBuckets must normalise it field-wise rather than
-    // casting, or a later NaN-widening in weekToDate silently disables the
-    // weekly cap (crossed80/crossed100 are permanently false against NaN).
+    // ★★★ THE SEED DAY MUST NOT BE TODAY. addToBuckets (ai-usage.ts) rebuilds
+    // ONLY today's bucket ({ ...b, [k]: … }) and spreads every OTHER day's
+    // bucket through byte-for-byte, exactly as loadBuckets returned it. A
+    // fixture seeded on today's key is therefore normalised by addToBuckets
+    // on the way past regardless of what loadBuckets does, and cannot tell
+    // the normalising read apart from a raw `as UsageBuckets` cast — that
+    // shape was measured vacuous against the cast mutant. A day far in the
+    // past guarantees it is never "today", however long this fixture lives.
+    const other = "2000-01-01";
     localStorage.setItem(
       AI_USAGE_KEY,
-      JSON.stringify({ "2026-09-08": { input: 100, output: 50 } }),
+      JSON.stringify({ [other]: { input: 100, output: 50 } }),
     );
     const { result } = renderHook(() => useAiUsageContext(), {
       wrapper: makeWrapper(vi.fn()),
     });
     await act(async () => {});
 
-    // Reading must not yield undefined fields downstream: record then read back.
+    // Record today's usage (untouched, unrelated day) then read the WHOLE
+    // persisted blob back — record()'s save persists prevBuckets spread
+    // through unchanged, so the legacy day's shape survives the round-trip
+    // exactly as loadBuckets produced it.
     act(() => {
-      result.current.record({ input: 0, output: 0, cacheWrite: 0, cacheRead: 0 });
+      result.current.record({ input: 1, output: 1, cacheWrite: 1, cacheRead: 1 });
     });
 
-    expect(Number.isNaN(result.current.weekTotal)).toBe(false);
+    const raw = localStorage.getItem(AI_USAGE_KEY);
+    const persisted = JSON.parse(raw ?? "{}") as Record<string, unknown>;
+    expect(persisted[other]).toEqual({ input: 100, output: 50, cacheWrite: 0, cacheRead: 0 });
   });
 
   it("multiplies counted tokens by tokenMultiplier (5) toward sessionTotal", async () => {
