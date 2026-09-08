@@ -217,9 +217,29 @@ estimated spend using the published multipliers (cache write 1.25×, cache read 
 output 5×) alongside the raw token figure. Silently re-basing an existing user setting from tokens to
 cost is the worse failure and is not done.
 
+> **Correction (2026-09-08, post-implementation) — NOT SHIPPED.** This paragraph and its sibling
+> immediately below both describe work on "the diagnostics surface" that was never built: there is no
+> cost-weighted spend estimate anywhere in `src/app`, and `diagnostics-panel.tsx` is untouched by this
+> branch (`git diff --name-only 3a690305..HEAD -- src/app/diagnostics-panel.tsx` returns nothing).
+> §7's Files list is the one the implementation actually followed — its own entry for
+> `settings-sections/ai-usage-panel.tsx` records that an earlier draft of that list also said
+> diagnostics and was corrected in place before the branch was built; that correction is what shipped.
+> The cache line (reads, writes, uncached input, session hit rate) landed in the settings AI-usage
+> panel, and it carries only the raw token/hit-rate figures — no cost-weighted spend estimate was
+> built there either. This is a dated design record of what was proposed at spec-writing time, left
+> as originally written on purpose (rewriting a signed record to match today's tree destroys the only
+> thing it is good for) — do not treat it as describing shipped behaviour, and do not implement it
+> from this paragraph without re-confirming intent against §7 and the current code first. The other
+> two NOT SHIPPED / NOT MET annotations below (§4's "Diagnostics surface" bullet, §10's success
+> criterion) are the same finding; this is the one place it is explained in full.
+
 **Diagnostics surface.** The existing diagnostics ring gains a cache line: reads, writes, uncached input,
 and a hit rate for the session. New EN + DE strings (real umlauts; `i18n.de.ts` is patched via a node
 utf8 write, never the Edit tool).
+
+> **NOT SHIPPED — see the correction above, at the "Cost-weighted spend" paragraph.** The cache line
+> landed in the settings AI-usage panel (`ai-usage-panel.tsx`), not the diagnostics ring;
+> `diagnostics-panel.tsx` is untouched by this branch.
 
 ## 5. Verification
 
@@ -297,6 +317,9 @@ first", and what each consumer owes under it differs because one has a transcrip
 - `src/app/use-entity-inline-ai-edit.tsx`, `src/app/use-tasks-inline-ai-edit.tsx`,
   `src/app/use-inline-entity-edit.ts` — `recordUsage` mapping carries four fields.
 - `src/app/i18n.ts`, `src/app/i18n.de.ts` — diagnostics cache strings + the one-time cap notice.
+  (**NOT SHIPPED as "diagnostics" — see the correction at §4's "Cost-weighted spend" paragraph.** The
+  new strings sit beside `ai-usage-panel.tsx`, matching the entry two rows above, not a diagnostics
+  surface.)
 - `CHANGELOG.md`, `src/app/version.ts` — release entry, including the cap-behaviour change.
 - `docs/AGENTS/ai-assistant.md` — the cache section is rewritten: the per-block "must stay in the
   uncached suffix" reasoning is now about the *turn tail*, not the system suffix, and the sentences that
@@ -335,6 +358,8 @@ first", and what each consumer owes under it differs because one has a transcrip
 - A second send in a conversation reports non-zero `cache_read_input_tokens` against a live key.
 - The usage meter's total input equals uncached input + cache reads + cache writes, and the diagnostics
   ring shows a hit rate.
+  (**NOT MET — see the correction at §4's "Cost-weighted spend" paragraph.** No diagnostics-ring hit
+  rate was built; the session hit rate lives in the settings AI-usage panel instead.)
 - Session and weekly caps count every billed input token — still scaled by `tokenMultiplier` exactly as
   today, so the unit the user configured against is unchanged and only the omission is fixed.
 - No change to the bytes the model receives — only their position.

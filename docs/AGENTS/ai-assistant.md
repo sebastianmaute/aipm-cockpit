@@ -1061,6 +1061,21 @@
   in a session scratchpad, so this bullet is the only durable trace of the run; no path to it is
   recorded here on purpose, since a scratchpad path is machine- and session-specific and would rot
   immediately.
+  ★★★ **THE ANSWER-QUALITY EVAL THIS SAME SLICE OWES IS STILL OWED, NOT RUN — as of 2026-09-08, the
+  same date as the measurement above.** The plan's Task 11 Step 5 and the spec's §6 both call for a
+  five-prompt eval comparing OLD vs NEW layouts by inspecting the model's ANSWERS. Nobody has done it.
+  Do not read the live measurement bullet above as covering it — that run counts tokens and cache
+  flags and never once opens or compares an answer, so it validates the COST claim alone and says
+  nothing about quality. The two are separate verifications and only one has been discharged; `never
+  machine-verified` is the honest status for the other until it actually runs.
+  ★★ **And "no change to the bytes the model receives — only their position" (the spec's own framing)
+  undersells what moved.** The bytes are byte-identical, but they moved from a `system` block into a
+  trailing text block of the last `user` message — that changes the ROLE under which the model reads
+  ~1–3 KB of instruction text (today's date, task count, view scope/state, insights, the activity
+  recap), not merely its offset in the prefix. Nothing measured in this repo bears on whether that
+  role change affects answer quality — that is exactly what the owed eval above exists to catch. The
+  spec already names the fallback if it goes badly: keep the view-scope block's output in `system` and
+  take the smaller cache win instead of the full one, rather than assume the larger one is free.
   ★★★ **`CACHED_TOOLS` (`chat-api.ts`) closes the FIRST segment of the prefix** — the LAST tool carries
   `cache_control`, so a per-view guide swap inside `system` re-caches only the smaller system slice after
   it, never the whole `tools` payload. Without it the cached prefix is `tools` + `stableText`, and the
