@@ -51,6 +51,10 @@ function setup(over: Partial<React.ComponentProps<typeof NotesWindow>> = {}) {
       resources={RESOURCES}
       lang="en-US"
       entityLabel="Task ABC"
+      // These specs pin window chrome, dismissal and sanitising, not the AI
+      // disclosure; `false` keeps that line out of the tree. `over` can raise
+      // it for a test that wants it.
+      aiReadable={false}
       {...over}
     />,
   );
@@ -213,6 +217,7 @@ describe("NotesWindow", () => {
         resources={RESOURCES}
         lang="en-US"
         entityLabel="Task ABC"
+        aiReadable={false}
       />,
     );
     expect(container.querySelector("img")).toBeNull();
@@ -271,6 +276,7 @@ describe("NotesWindow", () => {
               resources={RESOURCES}
               lang="en-US"
               entityLabel="Task ABC"
+              aiReadable={false}
             />
           </>
         );

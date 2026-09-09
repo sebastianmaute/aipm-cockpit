@@ -75,6 +75,9 @@ export function renderNotePanel(entries: NoteLogEntry[] = []): RenderedNotePanel
       resources={RESOURCES}
       lang={EN}
       labelSuffix={null}
+      // These specs are about dictation; `false` keeps the AI disclosure out of
+      // the tree rather than asserting anything about it.
+      aiReadable={false}
     />,
   );
   const composer = pushToTalkCalls[0];

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NoteLogPanel, type NoteLogPanelProps } from "./note-log-panel";
@@ -18,6 +18,23 @@ vi.mock("./use-push-to-talk", () => ({
     toggle: () => {},
     press: vi.fn(),
     release: vi.fn(),
+  }),
+}));
+
+// The AI read-access disclosure is gated on the master switch as well as on the
+// register, so the panel's `useSettings()` has to be controllable. Default OFF,
+// which is what every pre-existing test in this file assumes (nothing extra
+// renders); the disclosure describe below sets both halves explicitly.
+const aiState = vi.hoisted(() => ({ enabled: false, apiKey: "" }));
+vi.mock("./use-settings", () => ({
+  useSettings: () => ({
+    // `dictation` is spelled out rather than dropped: the composer and every
+    // row mic read it, and the real hook always supplies it.
+    settings: { ai: aiState, dictation: { engine: "web-speech", hotkey: "F4" } },
+    setSettings: vi.fn(),
+    hydrated: true,
+    i18nReady: true,
+    lang: "en-US",
   }),
 }));
 
@@ -65,6 +82,7 @@ function setup(over: Partial<React.ComponentProps<typeof NoteLogPanel>> = {}) {
       resources={RESOURCES}
       lang="en-US"
       labelSuffix={null}
+      aiReadable={false}
       {...over}
     />,
   );
@@ -235,6 +253,7 @@ describe("NoteLogPanel", () => {
       self: 1,
       resources: RESOURCES,
       lang: EN,
+      aiReadable: false,
     };
     render(
       <>
@@ -297,7 +316,48 @@ describe("NoteLogPanelProps.labelSuffix (open-followups §142)", () => {
       self: null,
       resources: [],
       lang: "en-US",
+      // Supplied so the ONLY missing member is `labelSuffix` — otherwise the
+      // expect-error directive above would be satisfied by a different
+      // omission and this test would stop pinning what it names. (★ Do not
+      // spell that directive's name at the start of a comment line here: tsc
+      // reads it as a SECOND directive and then fails the file as unused.)
+      aiReadable: false,
     };
     expect(props).toBeTruthy();
+  });
+});
+
+// ★★★ THIS COMPONENT SERVES THREE REGISTERS AND ONLY ONE OF THEM IS READABLE.
+// `get_task` exposes a task's `noteLog` to the model; nothing exposes a RAID
+// item's or a change's. A disclosure that ignored the register would be a false
+// claim on two of the three surfaces — the exact defect class this slice
+// removes — so the "off" cases below are the load-bearing half of this suite.
+describe("NoteLogPanel — the assistant's read access", () => {
+  beforeEach(() => {
+    aiState.enabled = false;
+    aiState.apiKey = "";
+  });
+
+  it("discloses the assistant's read access when the log is AI-readable", () => {
+    aiState.enabled = true;
+    aiState.apiKey = "sk-test";
+    setup({ aiReadable: true });
+    expect(screen.getByText(t(EN, "noteLogAiReadOnly"))).toBeTruthy();
+  });
+
+  it("says nothing on a register the assistant cannot read", () => {
+    aiState.enabled = true;
+    aiState.apiKey = "sk-test";
+    setup({ aiReadable: false });
+    expect(screen.queryByText(t(EN, "noteLogAiReadOnly"))).toBeNull();
+  });
+
+  it("says nothing when the AI master switch is off", () => {
+    // The KEY stays present, so what this pins is the switch itself rather
+    // than an unconfigured assistant — `isAiEnabled` requires both.
+    aiState.enabled = false;
+    aiState.apiKey = "sk-test";
+    setup({ aiReadable: true });
+    expect(screen.queryByText(t(EN, "noteLogAiReadOnly"))).toBeNull();
   });
 });

@@ -46,6 +46,7 @@ export const de: Record<TranslationKey, string> = {
   noteLogPlaceholder: "Notiz schreiben…",
   noteLogAuthor: "Notizautor",
   noteLogAdd: "Notiz hinzufügen",
+  noteLogAiReadOnly: "Der Assistent kann diese Notizen lesen. Er kann keine hinzufügen oder ändern.",
   noteLogNoAuthor: "Kein Autor",
   selfResourceLabel: "Ich bin diese Ressource",
   selfResourceHint: "Wird verwendet, um Notizen und Aktivitäten Ihnen zuzuordnen.",

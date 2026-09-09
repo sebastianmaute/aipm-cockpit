@@ -214,3 +214,43 @@ describe("useNotesWindow — the change arm", () => {
     expect(typeof row?.localModifiedAt).toBe("string");
   });
 });
+
+// ★★★ ONLY A TASK'S NOTE LOG IS READABLE BY THE MODEL — `get_task` exposes it
+// and nothing exposes a RAID item's or a change's. The panel discloses that to
+// the user, so whoever knows the register has to say which one it is.
+describe("useNotesWindow — the AI read-access flag", () => {
+  // The floating window serves all three registers off ONE props object, so its
+  // disclosure flag must follow the OPEN target rather than being constant. A
+  // hardcoded `true` here would ship the false claim to RAID and change notes
+  // through the PRIMARY surface, which is the one users actually reach.
+  it("marks the floating window readable only while a TASK's log is open", () => {
+    const { result } = setup();
+    // Shut: no target, so there is nothing to claim about.
+    expect(result.current.notesWindowProps.aiReadable).toBe(false);
+
+    act(() => {
+      result.current.openTaskNotes(7);
+    });
+    expect(result.current.notesWindowProps.aiReadable).toBe(true);
+
+    act(() => {
+      result.current.openRaidNotes(3);
+    });
+    expect(result.current.notesWindowProps.aiReadable).toBe(false);
+
+    act(() => {
+      result.current.openChangeNotes(5);
+    });
+    expect(result.current.notesWindowProps.aiReadable).toBe(false);
+  });
+
+  // The in-editor panel takes its register as an argument instead of from
+  // state; in production it is only ever called with "task", so this is the one
+  // place the other two branches are exercised at all.
+  it("marks the in-editor panel readable by the register it is asked for", () => {
+    const { result } = setup();
+    expect(result.current.notePanelPropsFor("task", 7).aiReadable).toBe(true);
+    expect(result.current.notePanelPropsFor("raid", 3).aiReadable).toBe(false);
+    expect(result.current.notePanelPropsFor("change", 5).aiReadable).toBe(false);
+  });
+});

@@ -42,6 +42,7 @@ const enUS = {
   noteLogPlaceholder: "Write a note…",
   noteLogAuthor: "Note author",
   noteLogAdd: "Add note",
+  noteLogAiReadOnly: "The assistant can read these notes. It cannot add or change one.",
   noteLogNoAuthor: "No author",
   selfResourceLabel: "I am this resource",
   selfResourceHint: "Used to attribute notes and activity to you.",
