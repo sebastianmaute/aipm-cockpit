@@ -405,6 +405,29 @@ export function verdict(run) {
     return { code: EXIT.UNUSABLE, reasons: ["run did not complete"], notes };
   }
 
+  if (!Array.isArray(run.perProbe) || run.perProbe.length === 0) {
+    return {
+      code: EXIT.UNUSABLE,
+      reasons: ["run carried no probe results — nothing was measured"],
+      notes,
+    };
+  }
+
+  // Absence of measurement must never be indistinguishable from a clean
+  // result. `0` is a real, meaningful score and must survive this check —
+  // this is a finiteness check, not a truthiness check, on purpose.
+  const isMeasured = (x) => typeof x === "number" && Number.isFinite(x);
+  for (const p of run.perProbe) {
+    for (const arm of ["A", "B", "X"]) {
+      if (!isMeasured(p[arm])) {
+        reasons.push(
+          `${p.id}: arm ${arm} was not measured (got ${JSON.stringify(p[arm])}) — the probe is malformed, not a scored result`,
+        );
+      }
+    }
+  }
+  if (reasons.length > 0) return { code: EXIT.UNUSABLE, reasons, notes };
+
   for (const p of run.perProbe) {
     if (p.X > 0) {
       reasons.push(

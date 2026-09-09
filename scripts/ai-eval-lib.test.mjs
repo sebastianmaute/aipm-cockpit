@@ -539,4 +539,62 @@ describe("verdict", () => {
     });
     expect(verdict(r).reasons.length).toBe(2);
   });
+
+  it("is UNUSABLE when the probe list is empty — a complete run with nothing in it is a contradiction, not a pass", () => {
+    const r = run({ perProbe: [] });
+    const v = verdict(r);
+    expect(v.code).toBe(E.UNUSABLE);
+    expect(v.reasons.join(" ")).toMatch(/no probe/i);
+  });
+
+  it("is UNUSABLE when a probe's arms were never measured, and names the probe", () => {
+    // No A/B/X at all — an arm that produced no response, not an arm that
+    // scored zero. Absence of measurement must not read as a clean result.
+    const r = run({ perProbe: [{ id: "date" }] });
+    const v = verdict(r);
+    expect(v.code).toBe(E.UNUSABLE);
+    expect(v.reasons.join(" ")).toMatch(/date/);
+    expect(v.reasons.join(" ")).toMatch(/not measured/i);
+  });
+
+  it("treats an all-zero probe as MEASURED, not malformed — 0 is a real score", () => {
+    // The finiteness check must not degrade into a truthiness check: 0 is
+    // falsy but it is a genuine measured value and must reach the normal
+    // arm-A-zero reasoning, never the "not measured" reasoning.
+    const r = run({ perProbe: [{ id: "date", A: 0, B: 0, X: 0 }] });
+    const v = verdict(r);
+    expect(v.code).toBe(E.UNUSABLE);
+    expect(v.reasons.length).toBe(1);
+    expect(v.reasons[0]).toMatch(/arm A/i);
+    expect(v.reasons[0]).not.toMatch(/not measured/i);
+  });
+
+  it("lets an incomplete run short-circuit even when the probe list is also broken", () => {
+    // Precedence: complete:false wins outright. A leaking negative control and
+    // a zeroed arm A on the same probe must not also get reported — the run
+    // never finished, so nothing past that is worth saying.
+    const r = run({
+      complete: false,
+      perProbe: [{ id: "date", A: 0, B: 0, X: 0.5 }],
+    });
+    const v = verdict(r);
+    expect(v.code).toBe(E.UNUSABLE);
+    expect(v.reasons).toEqual(["run did not complete"]);
+  });
+
+  it("reports both the leak and the arm-A-zero reason when a single probe carries both", () => {
+    const r = run({ perProbe: [{ id: "date", A: 0, B: 0, X: 0.5 }] });
+    const v = verdict(r);
+    expect(v.code).toBe(E.UNUSABLE);
+    expect(v.reasons.length).toBe(2);
+    expect(v.reasons.join(" ")).toMatch(/negative control/i);
+    expect(v.reasons.join(" ")).toMatch(/arm A/i);
+  });
+
+  it("never mutates its input run object", () => {
+    const r = run({ perProbe: [{ id: "date", A: 1.0, B: 0, X: 0 }] });
+    const before = JSON.stringify(r);
+    verdict(r);
+    expect(JSON.stringify(r)).toBe(before);
+  });
 });
