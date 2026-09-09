@@ -30,13 +30,19 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";
 import { JUNK_KEY, KNOWLEDGE_LINKS, snapshot, type WsKey } from "../../test/inline-sweep-fixtures";
+import { TOKEN_EXCLUDED, type TokenEntity } from "../ai-entity-token";
+import { TOOL_DEFS } from "../chat-tool-defs";
 import { runTool } from "../chat-tools";
+import { createInputWithoutId, patchWithoutId } from "../chat-tools-updates";
 import { resetMintState } from "../id-mint-session";
 import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
 
 type CreateCase = {
-  entity: string;
+  /** ★ `TokenEntity`, not `string`, so the `TOKEN_EXCLUDED` derivation below
+   *  indexes the table with no cast — a cast there would let a typo'd entity
+   *  name silently derive the empty field list and probe nothing. */
+  entity: TokenEntity;
   tool: string;
   wsKey: WsKey;
   /** The minimum the sanitizer accepts. A create that returns null throws and
@@ -196,3 +202,258 @@ describe("every create tool applies its entity's merge-site guard", () => {
     expect(row?.[key], `${c.tool} dropped ${key}, which it must accept`).toEqual(value);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────────
+// `createInputWithoutId` — the strip itself, per entity, per excluded field.
+//
+// ★★★ THE BLOCK ABOVE DOES NOT COVER THIS AND CANNOT BE MADE TO. It pins each
+// entity's MERGE-SITE guard (`dropUnaccepted*Fields`), which is a different
+// mechanism sitting one layer down: every field it probes is one those guards
+// refuse on their own, so reverting a `createInputWithoutId` wrapping in
+// `chat-tools.ts` leaves all fourteen assertions above GREEN. Measured, not
+// reasoned — see the mutation record at the foot of this block.
+//
+// ★★★ AND THE TWIN'S ALARM DOES NOT REACH HERE EITHER. `patchWithoutId`'s
+// docstring says "`ai-entity-token.test.ts` drives the real dispatch path per
+// tool, so reverting this strip … turns that suite red" — true, and true of the
+// UPDATE half alone: that file's ROUND_TRIP table is `update_*` only, so the
+// create half had no equivalent. Reverting any of the seven create wrappings,
+// or adding an eighth pass-through create that skips the strip, was silent.
+//
+// ★★ THE AXIS IS DERIVED FROM `TOKEN_EXCLUDED`, not retyped. Two reasons, and
+// the second is the one that matters: a hand-copied list goes stale the moment
+// a row gains a member, and `ai-entity-token.ts` states in as many words that
+// adding a row there is THREE decisions — one of which is "what must a CREATE
+// drop?", i.e. this. Deriving means a new member is probed the day it lands
+// rather than the day someone remembers this file exists.
+
+/** A value each excluded field's sanitizer WOULD store if the strip were
+ *  removed — off every fallback, so "absent" and "refused" cannot be confused.
+ *
+ *  ★★ `noteLog` is the one member that is NOT load-bearing on this path and
+ *  saying so is the honest form: `sanitizeRaidItem` / `sanitizeModelChangeItem`
+ *  are DOM-free by contract and drop it outright (`change-log.ts` — a stored
+ *  log is re-attached afterwards by `withStoredNoteLog`, and a create has no
+ *  stored row to re-attach from), so its two rows below assert the uniform rule
+ *  rather than catch a reachable write. The mutation record names which rows
+ *  are which. Do NOT delete them on that ground — the whole point of the
+ *  derived axis is that it does not editorialise about reachability, which is
+ *  exactly the judgement that has been got wrong here before. */
+const EXCLUDED_PROBES: Readonly<Record<string, unknown>> = {
+  localModifiedAt: "2000-01-01T00:00:00.000Z",
+  outlookEventId: "AAMkAGModelSuppliedOutlookId",
+  inquiriesSent: 7,
+  noteLog: [{ id: 1, timestamp: "2000-01-01T00:00:00.000Z", html: "<p>model note</p>", text: "model note" }],
+};
+
+const EXCLUDED_CASES: CreateCase[] = CASES.flatMap((c) =>
+  TOKEN_EXCLUDED[c.entity].map((field) => ({
+    ...c,
+    field,
+    probe: EXCLUDED_PROBES[field],
+    // Every excluded field is stored SPARSELY by its sanitizer (`if (value)` /
+    // `if (inq > 0)`), so there is no default to observe and absence is the
+    // only correct expectation — the same reasoning the `resource`/`active` row
+    // above records at length.
+    expected: undefined,
+    because: `TOKEN_EXCLUDED.${c.entity} names it, so no create may let the model choose it`,
+  })),
+);
+
+describe("every pass-through create tool strips its entity's TOKEN_EXCLUDED fields", () => {
+  beforeEach(() => {
+    resetMintState();
+  });
+
+  /** ★★★ THE DERIVATION'S OWN ANTI-VACUITY, and without it the fifteen cases
+   *  below can quietly become fewer. Two independent ways this axis goes hollow
+   *  with every assertion still green: a `CASES` row deleted (that entity stops
+   *  being probed at all), or a `TOKEN_EXCLUDED` member added with no
+   *  `EXCLUDED_PROBES` entry (the probe is then `undefined`, the payload
+   *  carries `{field: undefined}`, and `expect(undefined).toBeUndefined()`
+   *  passes having tested nothing). `task` is the one deliberate absence:
+   *  `create_task` reads named fields off `input` one at a time — an allowlist —
+   *  so it is NOT routed through `createInputWithoutId` and a strip there would
+   *  read as a guard while being unreachable. */
+  it("probes every tokened entity that has a pass-through create, and every field it excludes", () => {
+    const probed = CASES.map((c) => c.entity).sort();
+    const passThrough = (Object.keys(TOKEN_EXCLUDED) as TokenEntity[]).filter((k) => k !== "task").sort();
+    expect(probed).toEqual(passThrough);
+
+    const unprobed = EXCLUDED_CASES.filter((c) => !(c.field in EXCLUDED_PROBES)).map((c) => `${c.entity}.${c.field}`);
+    expect(unprobed, "add a value to EXCLUDED_PROBES — an undefined probe passes vacuously").toEqual([]);
+    // `N match` beside the `0 mismatch`: the axis is non-empty and every row
+    // carries a real value. A count is deliberately NOT asserted — it moves
+    // whenever a TOKEN_EXCLUDED row does, which is the axis working.
+    expect(EXCLUDED_CASES.length).toBeGreaterThan(CASES.length);
+  });
+
+  /** ★★★ THE MIRROR OF `ai-entity-token.test.ts`'s "names every update tool that
+   *  exists, so a new one cannot slip past", and the create side had no such
+   *  case — which is precisely why an EIGHTH pass-through create that skipped
+   *  `createInputWithoutId` would have been silent. Every case above is driven
+   *  off `CASES`, so `CASES` is the vacuity surface: delete a row and that
+   *  entity stops being probed, add a create tool and nothing notices. This
+   *  closes both directions at once by comparing against what the tool
+   *  DEFINITIONS declare.
+   *
+   *  ★★ IT ENUMERATES, IT DOES NOT FILTER, and the difference is the whole
+   *  point. A predicate that quietly skipped anything unrecognised would let a
+   *  new create tool through by default; an EQUALITY against
+   *  (participants ∪ named non-participants) makes a new tool RED until someone
+   *  decides which side it belongs on. That decision is the deliverable, not the
+   *  green run.
+   *
+   *  ★★ `TOOL_DEFS` SPREADS `DOCUMENT_TOOL_DEFS` FROM A SECOND FILE
+   *  (`chat-tool-defs-documents.ts`), so a grep over `chat-tool-defs.ts` alone
+   *  under-counts — which is how `update_document` was missed when the update
+   *  twin was specified. Reading the composed array is what makes
+   *  `create_document` visible here at all. */
+  const NOT_PASS_THROUGH_CREATES = [
+    // Reads twelve NAMED fields off `input` into an object literal — an
+    // allowlist, structurally the same guarantee `buildPatch` gives
+    // `update_task` — so no undeclared key can reach the handler and a strip
+    // would be unreachable code that READS as a guard.
+    "create_task",
+    // `d.createDocument(title, input.blocks)` — two explicit args, no spread,
+    // so there is no `input` object for a strip to act on. A document is also a
+    // meta-blob with no CSV projection, hence no `TokenEntity` row to look up.
+    "create_document",
+  ];
+
+  it("names every create tool that exists, so a new one cannot slip past", () => {
+    const defined = TOOL_DEFS.map((d) => d.name).filter((n) => n.startsWith("create_"));
+    const covered = CASES.map((c) => c.tool).concat(NOT_PASS_THROUGH_CREATES).sort();
+    expect(defined.slice().sort()).toEqual(covered);
+  });
+
+  it.each(EXCLUDED_CASES)("$tool refuses a model-supplied $field", async (c) => {
+    const row = await createWith(c);
+
+    // ★★★ ANTI-VACUITY, per case, for the same reason the block above states
+    //  it: a create the sanitizer REJECTS stores no row, and "the excluded
+    //  field is absent" then passes for entirely the wrong reason.
+    expect(row, `${c.tool} stored no row at all — its valid payload is not valid`).toBeDefined();
+    expect(row?.id).toBeDefined();
+    // …and the POSITIVE observable, folded in per case rather than left to a
+    // sibling test: the same dispatch that refused the excluded field DID store
+    // a declared one on the model's own value.
+    const [key, value] = Object.entries(c.valid)[0];
+    expect(row?.[key], `${c.tool} dropped ${key}, which it must accept`).toEqual(value);
+
+    expect(row?.[c.field]).toBeUndefined();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// The two strip helpers, pinned to ONE key set.
+//
+// ★★★ `createInputWithoutId` IS A LINE-FOR-LINE DUPLICATE OF `patchWithoutId`
+// — same three deletes, differing only in return type (`T` vs `Partial<T>`) —
+// and its docstring states the goal in as many words: a reader deriving one
+// helper from the other "cannot get a narrower strip than the code has". THAT
+// WAS PROSE ONLY. Either function could gain or lose a `delete` with the other
+// none the wiser, and the create half is the one with no independent alarm, so
+// a silent narrowing there is the expensive direction.
+//
+// ★★ A TEST RATHER THAN AN EXTRACTION, deliberately. Folding seven duplicated
+// lines into a shared private helper was the obvious alternative and was NOT
+// taken: the two are deliberately separate READING SURFACES carrying different
+// docstrings (one explains an address, the other a mint), and collapsing them
+// would delete the explanation that makes each call site legible. A test pins
+// the invariant without paying that. If they are ever merged, this block is
+// what proves the merge lost nothing.
+
+describe("the update and create strip helpers agree on exactly one key set", () => {
+  /** A field NO `TOKEN_EXCLUDED` row names, so it must SURVIVE both helpers.
+   *  ★★★ THIS IS THE ANTI-VACUITY HALF AND WITHOUT IT THE BLOCK IS A
+   *  TAUTOLOGY: two helpers that stripped their input down to `{}` would agree
+   *  perfectly on the empty key set and pass every equality below. The survivor
+   *  is what makes "identical" mean "identically CORRECT" rather than merely
+   *  "identically destructive". */
+  const SURVIVOR = "zzFieldNoExclusionRowNames";
+
+  const KINDS = Object.keys(TOKEN_EXCLUDED) as TokenEntity[];
+
+  it.each(KINDS)("%s — both helpers strip id, expectedToken and every excluded field, and keep the rest", (kind) => {
+    const input: Record<string, unknown> = {
+      id: 42,
+      expectedToken: "a-stale-token",
+      [SURVIVOR]: "must survive",
+    };
+    for (const field of TOKEN_EXCLUDED[kind]) input[field] = EXCLUDED_PROBES[field] ?? "probe";
+
+    // Sanity on the fixture itself: an input that never carried the excluded
+    // fields would let a helper deleting NOTHING pass.
+    expect(Object.keys(input).sort()).toEqual(
+      ["id", "expectedToken", SURVIVOR].concat([...TOKEN_EXCLUDED[kind]]).sort(),
+    );
+
+    const patched = Object.keys(patchWithoutId(input, kind)).sort();
+    const created = Object.keys(createInputWithoutId(input, kind)).sort();
+
+    // The named invariant, asserted directly so a divergence names itself…
+    expect(patched, `patchWithoutId and createInputWithoutId disagree on ${kind}`).toEqual(created);
+    // …and the absolute key set, which is strictly stronger: it also catches
+    // the case where BOTH helpers are wrong in the SAME way, which mutual
+    // equality is structurally blind to.
+    expect(created).toEqual([SURVIVOR]);
+  });
+
+  /** ★★ The `it.each` above is driven off `Object.keys(TOKEN_EXCLUDED)`, so it
+   *  cannot under-run — but it also cannot notice if that table were emptied.
+   *  `0 mismatch` is worthless without `N match`. */
+  it("runs against every TokenEntity, and every one of them excludes something", () => {
+    expect(KINDS.length).toBeGreaterThan(0);
+    expect(KINDS.filter((k) => TOKEN_EXCLUDED[k].length === 0)).toEqual([]);
+  });
+});
+
+// ★★ MUTATION RECORD — 2026-09-09, at the CALL SITE in `chat-tools.ts`, one
+// wrapping at a time reverted to the bare `input as TInput` this helper
+// replaced. Each mutant was verified to have LANDED before its run, and the
+// file's runtime test count was 30, so every tally below sums to 30:
+//   `create_raid_item`       → 3 failed / 27 passed
+//   `create_stakeholder`     → 1 failed / 29 passed
+//   `create_calendar_event`  → 0 failed / 30 passed  ← SURVIVED, see below
+// A fourth mutant was aimed at THIS FILE instead, to prove the coverage guard
+// above is not decoration: deleting the `inquiriesSent` row from
+// `EXCLUDED_PROBES` gives 1 failed / 29 passed, and the ONE failure is the
+// guard. `create_raid_item refuses a model-supplied inquiriesSent` went on
+// PASSING — vacuously, on `expect(undefined).toBeUndefined()` — which is
+// precisely the hole the guard is the only detector for.
+//
+// ★★ TWO MORE, once the enumeration and the helper-parity block landed. The
+// file's runtime test count is now 40, and both tallies sum to 40:
+//   • A NINTH create tool (`create_zzprobe`, added to `DOCUMENT_TOOL_DEFS` so
+//     the mutant also proves the composed `TOOL_DEFS` is what is being read)
+//     → 1 failed / 39 passed, the failure being the enumeration ALONE. That is
+//     the measurement behind this block's premise: no other test in this file,
+//     and none in `ai-entity-token.test.ts`, notices a new create tool.
+//   • Narrowing the strip — `delete create.expectedToken` removed from
+//     `createInputWithoutId`, so it no longer matches `patchWithoutId`
+//     → 8 failed / 32 passed, one per `TokenEntity`, ALL of them in the
+//     helper-parity block. Every one of the 15 stored-row cases above went on
+//     passing, because `expectedToken` never reaches a stored row — so the
+//     parity block is the only detector for a divergence between the twins,
+//     which is exactly the gap its opening ★★★ describes.
+// Only rows in THIS block moved; the fourteen in the block above stayed green
+// under all three, which is the measurement behind its opening ★★★.
+// ★★★ THREE MUTANTS AT THREE DIFFERENT SHAPES, NOT ONE — raid excludes four
+// fields, stakeholder one, and calendar-event is an ALLOWLIST entity. A single
+// raid mutant would leave the one-field entities unproved and would say nothing
+// about the allowlist half, and a reader could not then tell a working
+// assertion from an unreachable one.
+// ★★ THE SURVIVORS ARE NAMED BECAUSE A SILENT PASS IS THE THING THIS COMMENT
+// EXISTS TO PREVENT, and both are EQUIVALENT MUTANTS rather than test gaps:
+//   • Under the raid mutant `localModifiedAt`, `outlookEventId` and
+//     `inquiriesSent` all went red; `noteLog` did NOT, because the sanitizer
+//     drops the field before the strip could matter (see `EXCLUDED_PROBES`).
+//   • `create_calendar_event` survived WHOLESALE. `createInputWithoutId`'s
+//     docstring predicts exactly this — the two allowlist guards
+//     (`dropUnacceptedCalendarEventFields`, `dropUnacceptedAbsenceFields`)
+//     already drop both excluded fields, so reverting the strip there changes
+//     no stored row. That prediction is now MEASURED rather than inherited.
+// Those four allowlist rows are the backstop for the day an allowlist is
+// widened — `ai-entity-token.ts` says the `absence`/`calendarEvent` exclusion
+// rows are legitimate ONLY while those guards hold — not a live detector today.

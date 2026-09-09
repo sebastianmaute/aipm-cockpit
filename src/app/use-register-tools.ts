@@ -403,8 +403,19 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // a whole record from the merged blob, so without the guard a value the
         // preview refused still reaches the stored row. It lands one of two
         // ways, and BOTH are preview/apply divergences:
-        //   CLEARED — `impact` and `decisionDate` lose their key, `raisedDate`
-        //     is written as "", `type` resets to the hardcoded "Other".
+        //   CLEARED — `impact` loses its key, `raisedDate` is written as "",
+        //     `type` resets to the hardcoded "Other".
+        //   ★★ `decisionDate` USED TO HEAD THAT LIST AND NO LONGER BELONGS IN IT.
+        //     Its `CHANGE_FIELD_GUARDS` row is `() => false`, so the drop is
+        //     UNCONDITIONAL — it is not a value failing a date check, it is the
+        //     FIELD being refused, on this call site and on the create above.
+        //     The field is DERIVED and the model supplies its VALUE on no
+        //     surface: this guard covers both tool paths, `changeFields` does
+        //     not offer it, and `SEED_OFFERED_KEYS` (`ai-project-proposal.ts`)
+        //     covers `propose_project` — the last of the three, closed
+        //     2026-09-09. ★ The model can still CAUSE a write by choosing
+        //     `status`; `applyChangeStatus` stamps the date. Derivation, not
+        //     authoring — the two are easy to conflate here.
         //   WRITTEN ANYWAY — `scheduleImpactDays` and `costImpact`, since the
         //     sanitizer now stores those two VERBATIM (any coercible, finite,
         //     non-negative number). A model `1.5` would be saved as 1.5 while

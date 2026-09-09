@@ -298,9 +298,15 @@ const CASES: WriteCase[] = [
   {
     // `raisedDate` is written UNCONDITIONALLY by the sanitizer
     // (`raisedDate: sanitizeIsoDate(o.raisedDate)`), so an unparseable value
-    // blanked it to ""; `decisionDate` lost its key instead. ★★ The second half
-    // is the one no fixture in the parity sweep can reach — `CHANGE_BASE` leaves
-    // `decisionDate` blank, so the field it clears was already empty there.
+    // blanked it to ""; `decisionDate` lost its key instead.
+    // ★★ THE SECOND HALF NO LONGER TURNS ON THE VALUE BEING UNPARSEABLE, and an
+    // earlier revision of this comment read as if it did. `CHANGE_FIELD_GUARDS
+    // .decisionDate` is `() => false`, so the key is dropped UNCONDITIONALLY —
+    // the field is refused, never the value. A well-formed date is dropped here
+    // exactly as "not a date" is; the case name still holds either way.
+    // ★★ It is also the half no fixture in the parity sweep can reach —
+    // `CHANGE_BASE` leaves `decisionDate` blank, so the field it clears was
+    // already empty there.
     name: "unparseable change dates leave the stored dates alone",
     tool: "update_change",
     entity: "change",
@@ -326,11 +332,30 @@ const CASES: WriteCase[] = [
     expectStored: { scheduleImpactDays: 12, costImpact: 4500 },
   },
   {
-    // ★★★ THE OTHER DIRECTION, and the reason the guard carves `""` out rather
-    // than demanding a parseable date — see the raid case above. `expectStored`
-    // is `undefined` rather than `""` because the sanitizer stores
-    // `decisionDate` sparsely (`if (decDate) item.decisionDate = …`).
-    name: "an explicitly empty change date still clears the stored one",
+    // ★★★ THIS CASE INVERTED WHEN `decisionDate` STOPPED BEING MODEL-WRITABLE.
+    // It used to pin the `""`-carve-out ("an explicitly empty change date still
+    // clears the stored one"), which was right while the field was offered: the
+    // preview discloses `""` as a real clear, so refusing it here would have
+    // made the card promise a clear the write dropped. The field is now refused
+    // OUTRIGHT — withdrawn from `changeFields` and given a `() => false` row in
+    // `CHANGE_FIELD_GUARDS` — because only a status transition through
+    // `applyChangeStatus` may move it.
+    // ★★ THE SEED IS WHY THE CLEAR HAD TO GO WITH THE REST: it is `status:
+    // "Approved"` + `decisionDate: "2026-03-04"`, so honouring the clear would
+    // strip the decision date off a DECIDED change — the same broken invariant
+    // as landing a date on a "Proposed" one, not a milder case.
+    // ★ `raisedDate` KEEPS the carve-out; it is unguarded by status. That half
+    // still lives in `sanitize-change-patch.test.ts`.
+    // ★★ THE CARD AND THE WRITER NOW AGREE, and that took a SECOND change.
+    // While `INLINE_DESCRIPTORS.change` still listed `decisionDate` in
+    // `diffFields`/`dateFields` the preview went on disclosing this `""` clear
+    // — the date guard is `after !== "" && …`, so an empty string sailed
+    // through it — and `plan.write-path-sweep.test.ts` reported exactly that,
+    // as `change.decisionDate on the empty string`, the only probe that broke.
+    // The field has since been withdrawn from both lists, so no diff row is
+    // offered for it at all. Do NOT restore either list to make this case's
+    // clear visible again: the fix is that it is INVISIBLE, matching the write.
+    name: "an explicitly empty change date is refused, not honoured as a clear",
     tool: "update_change",
     entity: "change",
     kind: "change",
@@ -338,7 +363,7 @@ const CASES: WriteCase[] = [
     id: 20,
     seed: { changes: [seedGuardedChange()] },
     input: { id: 20, decisionDate: "" },
-    expectStored: { decisionDate: undefined },
+    expectStored: { decisionDate: "2026-03-04" },
   },
   {
     // ★★★ THE BOUNDARY BETWEEN THE TWO CHANGE GUARDS, and the reason `status` is

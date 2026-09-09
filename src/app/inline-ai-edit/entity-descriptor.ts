@@ -499,10 +499,53 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   },
   change: {
     entity: "change", updateTool: "update_change", deleteTool: "delete_change", createTool: "create_change", wsKey: "changes",
-    diffFields: ["title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays", "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes"],
+    // ★★★ `decisionDate` IS ABSENT FROM BOTH LISTS BELOW ON PURPOSE, and it is
+    //  the last half of the same withdrawal as its absence from `changeFields`
+    //  (`chat-tool-defs.ts`) and its refusing `CHANGE_FIELD_GUARDS` row
+    //  (`sanitize-records.ts`): the field is DERIVED — `applyChangeStatus` owns
+    //  the `status`/`decisionDate` pair for every TRANSITION in the app, and the
+    //  change modal renders it read-only — so the model supplies its VALUE on NO
+    //  surface. ★★ THIS ABSENCE IS NOT WHAT MAKES THAT TRUE, and reading it that
+    //  way is how the last hole survived: a descriptor governs the PREVIEW, and
+    //  TWO guards govern the WRITE — `CHANGE_FIELD_GUARDS.decisionDate`
+    //  (`() => false`, on BOTH `dropUnacceptedChangeFields` call sites) and
+    //  `SEED_OFFERED_KEYS` (`ai-project-proposal.ts`) filtering the
+    //  `propose_project` seed, which until 2026-09-09 passed a model-authored
+    //  `decisionDate` straight into `sanitizeChangeItem`.
+    //  ★★★ A THIRD, `changeFields` NOT OFFERING IT, IS AN AUTHORING GUARD AND NOT
+    //  A WRITE GUARD — an earlier revision counted it as one of "three separate
+    //  guards [that] govern the WRITE", which `chat-tool-defs.ts` denies at that
+    //  very schema, in as many words: NEITHER strip helper has a whitelist, so an
+    //  UNDECLARED key still lands on either path. Schema absence decides what the
+    //  model is OFFERED; it stops nothing that arrives anyway. Keep the two
+    //  claims apart — merging them is what makes an absence read as protection.
+    //  ★ TEMPLATE IMPORT still accepts one, and that does not falsify the claim:
+    //  it is a user-supplied blob, not a model surface. The one tool that writes
+    //  `Settings` is `update_settings`, and `computeSettingsPatch`
+    //  (`chat-settings-patch.ts`) is a hard allowlist of six fields that cannot
+    //  reach `templates`; nothing in the dispatchers names it either. Reproduce,
+    //  with `use-templates.ts` as the positive control that the grep works:
+    //  grep -c templates src/app/chat-settings-patch.ts src/app/chat-tools.ts src/app/use-templates.ts
+    //  ★ What the model CAN still do is choose `status` and have
+    //  `applyChangeStatus` stamp the clock's date. That is derivation, not
+    //  authoring — do not "correct" this to "the model cannot cause a write".
+    //  ★ The qualifier is load-bearing: the Outlook two-way pull writes
+    //  `decisionDate` alone (`withDate`, `use-calendar-integrations`) with no
+    //  transition, so unqualified "owns the field" is false. It is the
+    //  TRANSITION that is exclusive. Leaving it here was
+    //  not cosmetic. The preview's date guard is `after !== "" && …`, so an
+    //  EMPTY STRING sailed straight through it and the inline-edit card
+    //  disclosed a clear the writer refuses; `plan.write-path-sweep.test.ts`
+    //  reported exactly that, as `change.decisionDate on the empty string`.
+    //  ★★ `dateFields` ALONE IS NOT LOAD-BEARING and a mutant reverting only
+    //  that half cannot go red: the date guard runs INSIDE `for (const f of
+    //  d.diffFields)` (`plan.ts`), so a `dateFields` member outside
+    //  `diffFields` is unreachable. It is withdrawn for consistency, so the
+    //  next reader does not restore `diffFields` to "complete the pair".
+    diffFields: ["title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays", "costImpact", "requestedBy", "raisedDate", "decisionBy", "resolutionNotes"],
     requiredNonEmpty: new Set(["title"]),
     requiredNonEmptyGroups: [],
-    dateFields: new Set(["raisedDate", "decisionDate"]),
+    dateFields: new Set(["raisedDate"]),
     numericFields: { scheduleImpactDays: acceptsScheduleDays, costImpact: acceptsCostAmount },
     stringOnlyFields: new Set(),
     enumFields: { type: constSet(CHANGE_TYPES), status: constSet(CHANGE_STATUSES), impact: constSet(CHANGE_IMPACT_LEVELS) },

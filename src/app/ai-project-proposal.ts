@@ -97,6 +97,29 @@ export const PROPOSAL_TOOL = {
                 category: { type: "string", enum: ["R", "A", "I", "D"] },
                 description: { type: "string" },
                 severity: { type: "string", enum: ["Low", "Medium", "High", "Critical"] },
+                // ★★★ DECLARED SO THE SEED FILTER PERMITS IT. `buildProposalSystemPrompt`
+                //  asks the model to put an owner's exact name on any risk they own, and
+                //  `remapSeed` links that name to the seeded directory row
+                //  (`linkResource(r.owner, r.ownerEmail)`, `template-apply.ts`). While this
+                //  was undeclared the filter stripped it and `ownerResourceId` was
+                //  permanently `null` for every AI seed — the prompt asked for something the
+                //  allowlist then threw away. Tasks kept `assignee` through the same prompt
+                //  sentence only because `buildSeedTask` reads named fields and never spreads.
+                // ★★ `ownerEmail` IS DECLARED TOO, and it is not redundant with `owner`:
+                //  `linkResource` tries the EMAIL leg FIRST, so the address is the only
+                //  thing that can pick between two seeded people who share a display
+                //  name. The reasoning — and the wrong-link it prevents — lives above
+                //  `SEED_OFFERED_KEYS`; do not restate it here.
+                owner: {
+                  type: "string",
+                  description:
+                    "Exact name of the team member who owns this, when the source names one — matching a name in the resources list. Do not invent one.",
+                },
+                ownerEmail: {
+                  type: "string",
+                  description:
+                    "That owner's email address, when the source gives one — matching the email on their resources entry, and used to tell apart two people with the same name. Do not invent one.",
+                },
               },
               required: ["title", "category"],
             },
@@ -121,7 +144,20 @@ export const PROPOSAL_TOOL = {
             type: "array",
             items: {
               type: "object",
-              properties: { name: { type: "string" }, organization: { type: "string" }, title: { type: "string" } },
+              properties: {
+                name: { type: "string" },
+                organization: { type: "string" },
+                title: { type: "string" },
+                // ★★ DECLARED FOR THE SAME REASON AS `raid.ownerEmail`, and through the
+                //  very same `linkResource`: the email leg runs FIRST, so the address is
+                //  the only thing that can tell apart two seeded people sharing a display
+                //  name. Reasoning above `SEED_OFFERED_KEYS`; do not restate it here.
+                email: {
+                  type: "string",
+                  description:
+                    "This person's email address, when the source gives one — matching the email on their resources entry, and used to tell apart two people with the same name. Do not invent one.",
+                },
+              },
               required: ["name"],
             },
           },
@@ -159,6 +195,130 @@ export const PROPOSAL_TOOL = {
 
 function isObj(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** ★★★ THE SEED LISTS' ALLOWLIST, READ OFF `PROPOSAL_TOOL` ITSELF. The four
+ *  `buildList` lists hand the model's raw item to their entity's LOAD sanitizer,
+ *  and those sanitizers preserve far more than this tool ever declares — so
+ *  before this filter a forced `propose_project` call could set ANY persisted
+ *  column on a seeded row: `outlookEventId` (forging a calendar link),
+ *  `localModifiedAt` (fabricating sync provenance), `inquiriesSent`, and a
+ *  change's `decisionDate` on a pending `status`, which is precisely the pair
+ *  `applyChangeStatus` exists to hold and which never runs on this path.
+ *
+ *  ★★ DERIVED, NEVER RETYPED, and that is the whole design. The axis is what the
+ *  model is OFFERED, so a property added to a schema above is permitted the same
+ *  day and one never offered can never arrive — a second hand-written list would
+ *  drift from the schema silently, which is the defect class this closes.
+ *
+ *  ★ It is an ALLOWLIST over the keys the model SENDS, not a denylist of stored
+ *  column names. The entity sanitizers read `knowledgeLinks ?? documentLinks`,
+ *  so the input spelling and the stored spelling differ and a denylist naming
+ *  stored columns would miss the alias. It also cannot miss a column nobody
+ *  thought to name — `status`, `targetDate` and `type` are all undeclared too.
+ *
+ *  ★★★ THE COST OF THAT PROPERTY IS THAT A FIELD THE PROMPT ASKS FOR MUST BE
+ *  DECLARED, AND ONE WAS NOT. `buildProposalSystemPrompt` tells the model to put
+ *  an owner's exact name on any risk they own so `remapSeed` can link it to the
+ *  seeded directory; `raid.owner` was undeclared, so this filter stripped it and
+ *  `ownerResourceId` came out `null` on every AI seed. Declaring it (above) is
+ *  the fix, and it is the design working — the axis is the schema, so the schema
+ *  is where a wanted field is added. Before adding a list to `SEED_SCHEMAS` or a
+ *  sentence to the prompt, check the other half agrees.
+ *  ★★★ `raid.ownerEmail` IS DECLARED, and the argument that kept it out for a
+ *  release was FALSE. It read that a declared email "would buy no link the name
+ *  leg does not already make" and that "an email could not have disambiguated
+ *  them" — both wrong, because `linkResource(name, email)` tries the EMAIL leg
+ *  FIRST. `remapSeed` indexes `resByName` FIRST-WINS, so two seeded people
+ *  sharing a display name collapse to whichever the model listed first:
+ *  withholding the address did not leave the link ABSENT, it left it WRONG.
+ *  `resolveRaidOwnerEmail` (`raid-inquiry.ts`) then prefers the LINKED row's
+ *  address over the item's own, so "Send inquiry" mails risk detail to a person
+ *  the source never named for that item — which is why this is a correctness
+ *  fix and not a convenience. Pinned where it manifests, by "links a seeded RAID
+ *  owner by EMAIL when two directory rows share a name".
+ *  ★ Withholding it bought no safety either: `raidFields` (`chat-tool-defs.ts`)
+ *  ALREADY offers `owner` and `ownerEmail` together on `create_raid_item` /
+ *  `update_raid_item`, landing in the same `sanitizeRaidItem`. The seed path was
+ *  the only place the pair was split.
+ *  ★★ THE SURVIVING TRUE PART of the old paragraph: with no email supplied,
+ *  linking is by NAME ONLY, and same-named rows still resolve first-wins by
+ *  declaration order.
+ *  ★★★ `stakeholders.email` IS DECLARED TOO, and it is the SAME decision's
+ *  second instance rather than a separate one. An earlier revision of this
+ *  paragraph left the field out and recorded it as merely "outside this change"
+ *  — but `remapSeed` resolves a stakeholder through the SAME
+ *  `linkResource(s.name, s.email)` over the SAME first-wins `resByName`, and
+ *  `stakeholderFields` (`chat-tool-defs.ts`) ALREADY offers `email` on
+ *  `create_stakeholder` / `update_stakeholder`. Both legs of the argument above
+ *  therefore hold verbatim. Pinned by "links a seeded stakeholder by EMAIL when
+ *  two directory rows share a name".
+ *  ★ That case is the only one that can prove it: the stakeholder NAME leg is
+ *  pinned in `template-apply.test.ts`, which drives `remapSeed` on a hand-built
+ *  seed and is therefore blind to this schema entirely.
+ *  ★★ NEITHER ADDRESS IS VALIDATED, and the two do not even share a cap.
+ *  `sanitizeRaidItem` puts `ownerEmail` through `sanitizeEmail`, itself just
+ *  `sanitizeText(…, EMAIL_MAX)` (320); `sanitizeStakeholder` puts `email`
+ *  through `sanitizeText(…, BUDGET_NAME_MAX)` (200). Both only TRIM and CAP —
+ *  no format check whatever — so each stores whatever string the model sent.
+ *  The prompt's "Do not invent owners or emails" and the two schema descriptions
+ *  are the only things asking for a real address. Do not read either sanitizer
+ *  as a validator, and do not assume the raid cap applies here.
+ *
+ *  ★★ Do NOT name the plain change sanitizer in this file, in a comment or
+ *  otherwise: `sanitize-model-change-wiring.test.ts` asserts its bare name
+ *  occurs here ZERO times, as the control for the repairing wrapper's count.
+ *
+ *  ★ CONSEQUENCE worth knowing before "simplifying" the changes call site: the
+ *  repairing change sanitizer used there can no longer see `scheduleImpactDays`
+ *  or `costImpact`, because the seed schema offers neither — so its numeric
+ *  repair is now inert on THIS path. Keep the wrapper anyway: it is the correct
+ *  sanitizer for model input and goes live the day the schema offers a number.
+ *
+ *  ★ `tasks` and `resources` are deliberately absent from the CALL SITES below
+ *  (though present in this map): `buildSeedTask` / `buildSeedResource` assemble
+ *  an object literal from named fields and never spread, so they are immune by
+ *  construction and need no filter. */
+const SEED_SCHEMAS = PROPOSAL_TOOL.input_schema.properties.seed.properties;
+type SeedList = keyof typeof SEED_SCHEMAS;
+
+/** ★★ BUILT BY REDUCE, NOT `Object.fromEntries`, AND THAT IS NOT A STYLE CHOICE.
+ *  `Object.fromEntries` is typed to return `{ [k: string]: T }` whatever its
+ *  input tuples say, and casting that to a Record over the KEY UNION is a
+ *  TS2352 "neither type sufficiently overlaps" error — the compiler is right,
+ *  the index signature guarantees none of the six keys. The advertised escape,
+ *  `as unknown as`, silences it by throwing the check away.
+ *  ★★ The union is worth keeping rather than widening to `Record<string, …>`,
+ *  but NOT because a typo would fail OPEN — an earlier revision of this
+ *  paragraph said it would turn the filter "OFF on that list, silently", and
+ *  that is invented. What actually happens, measured: `tsconfig.json` sets
+ *  `"strict": true`, and the upstream TS option `noUncheckedIndexedAccess` does not exist in it
+ *  (`grep -c noUncheckedIndexedAccess tsconfig.json` → 0), so
+ *  `SEED_OFFERED_KEYS.typo` on a string-keyed
+ *  Record compiles as a NON-OPTIONAL `ReadonlySet<string>` and is `undefined` at
+ *  runtime; `pickOfferedFields` then calls `offered.has(k)` with no guard, so the
+ *  FIRST key of the first item throws a TypeError. Every seed item schema has a
+ *  required property, so any non-empty item reaches one. That throw leaves
+ *  `proposalToSeed`, so `runIngest` (`create-project-wizard.tsx`) never reaches
+ *  its `setStep(1)` — a dead ingest, which is loud, and the OPPOSITE of a
+ *  silently permissive filter. Only a zero-key item would quietly yield `{}`.
+ *  The union is worth keeping because it turns that runtime throw into a COMPILE
+ *  error, so the typo never ships — not because the runtime would be lenient. */
+const SEED_OFFERED_KEYS = (Object.keys(SEED_SCHEMAS) as SeedList[]).reduce((acc, list) => {
+  acc[list] = new Set<string>(Object.keys(SEED_SCHEMAS[list].items.properties));
+  return acc;
+}, {} as Record<SeedList, ReadonlySet<string>>);
+
+/** Keep only the properties the tool offered for this list. Iterates the ITEM
+ *  and keeps guarded keys — the shape `dropUnacceptedAbsenceFields` uses, not the
+ *  iterate-the-guard-table shape, which by construction cannot see a key the
+ *  table never registered. */
+function pickOfferedFields(
+  item: Record<string, unknown>, offered: ReadonlySet<string>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(item)) if (offered.has(k)) out[k] = v;
+  return out;
 }
 
 /** Narrow raw tool_use.input into a ProjectProposal. Requires a non-empty
@@ -215,13 +375,21 @@ export function proposalToDraftPatch(p: ProjectProposal): Partial<ProjectFormDra
   return patch;
 }
 
-/** Validate one raw list: cap to SEED_CAP_PER_ENTITY, assign 1-based temp ids,
- *  run each record through its sanitizer, drop failures. */
-function buildList<T>(raw: unknown[] | undefined, sanitize: (x: unknown) => T | null): T[] {
+/** Validate one raw list: cap to SEED_CAP_PER_ENTITY, drop every property the
+ *  tool did not offer, assign 1-based temp ids, run each record through its
+ *  sanitizer, drop failures.
+ *
+ *  ★★ ORDER: filter FIRST, stamp `id` after. `id` is not in any seed item schema
+ *  — filtering a stamped record would strip it and every sanitizer would then
+ *  refuse the row (they all require a positive id), emptying the seed. A model's
+ *  own `id` is dropped by the filter and replaced here, as before. */
+function buildList<T>(
+  raw: unknown[] | undefined, offered: ReadonlySet<string>, sanitize: (x: unknown) => T | null,
+): T[] {
   if (!Array.isArray(raw)) return [];
   const out: T[] = [];
   raw.slice(0, SEED_CAP_PER_ENTITY).forEach((item, i) => {
-    const withId = isObj(item) ? { ...item, id: i + 1 } : item;
+    const withId = isObj(item) ? { ...pickOfferedFields(item, offered), id: i + 1 } : item;
     const s = sanitize(withId);
     if (s) out.push(s);
   });
@@ -280,17 +448,26 @@ function buildSeedResource(raw: unknown, id: number): Resource | null {
 
 /** Turn the proposal's seed into a validated TemplateSeed (or undefined when no
  *  usable content). Seeded resources let remapSeed link task/RAID owners +
- *  stakeholders to the directory by name; unmatched owners stay plain strings. */
+ *  stakeholders to the directory by name OR email; unmatched owners stay plain
+ *  strings.
+ *  ★★ "OR EMAIL" IS NEW, AND THIS LINE SAID THE OPPOSITE FOR A RELEASE: it read
+ *  "BY NAME ONLY … no seed item schema declares [an email], so the filter drops
+ *  it and only the name leg can ever fire on this path." Both `raid.ownerEmail`
+ *  and `stakeholders.email` are declared now, so the EMAIL leg — which
+ *  `linkResource` tries FIRST — fires here too, and it is what disambiguates two
+ *  seeded people sharing a display name. See the `SEED_OFFERED_KEYS` note.
+ *  ★ Still true: with no address supplied, the name leg alone resolves, and
+ *  same-named rows go first-wins by declaration order. */
 export function proposalToSeed(p: ProjectProposal, today: string): TemplateSeed | undefined {
   const s = p.seed;
   if (!s) return undefined;
-  const raid = buildList(s.raid, sanitizeRaidItem);
+  const raid = buildList(s.raid, SEED_OFFERED_KEYS.raid, sanitizeRaidItem);
   // ★ The MODEL-input sanitizer, not the plain one: this seed is model-authored,
   //  so a `1.5` day count is repaired to 2 rather than stored verbatim (which is
   //  what the plain sanitizer now does, correctly, for a LOAD).
-  const changes = buildList(s.changes, sanitizeModelChangeItem);
-  const milestones = buildList(s.milestones, sanitizeMilestone);
-  const stakeholders = buildList(s.stakeholders, sanitizeStakeholder);
+  const changes = buildList(s.changes, SEED_OFFERED_KEYS.changes, sanitizeModelChangeItem);
+  const milestones = buildList(s.milestones, SEED_OFFERED_KEYS.milestones, sanitizeMilestone);
+  const stakeholders = buildList(s.stakeholders, SEED_OFFERED_KEYS.stakeholders, sanitizeStakeholder);
   const resources: Resource[] = Array.isArray(s.resources)
     ? s.resources
         .slice(0, SEED_CAP_PER_ENTITY)

@@ -19,7 +19,35 @@ describe("fieldLabel", () => {
   // (8 + 1) joined the union. Re-derived by running this test, not by adding 16
   // to the old number — which is how the "58 + 8 + 2" arithmetic above went
   // stale while still summing to the right total.
-  const PREVIEWABLE_FIELD_COUNT = 84;
+  // ★★ 84 → 83 when `change.decisionDate` was WITHDRAWN from that entity's
+  // `diffFields`, and this guard is what noticed: the field is DERIVED
+  // (`applyChangeStatus` owns the `status`/`decisionDate` pair for every
+  // TRANSITION in the app — the Outlook two-way pull writes the date alone, so
+  // the field itself is not exclusively owned; the modal
+  // renders it read-only), so the model supplies its VALUE on no surface and
+  // the preview must not offer a diff row for it. ★★ Three guards make that
+  // true, not this removal: `CHANGE_FIELD_GUARDS.decisionDate` (`() => false`)
+  // on both `dropUnacceptedChangeFields` call sites, its absence from
+  // `changeFields`, and `SEED_OFFERED_KEYS` on the `propose_project` seed. The
+  // model can still CAUSE a write by choosing `status` — `applyChangeStatus`
+  // then stamps the clock's date — which is derivation, not authoring.
+  // A DELIBERATE removal, not drift
+  // — the direction that matters is that the number went DOWN, which is the
+  // one event worth a human look. Re-derived by running this file, not by
+  // subtracting one.
+  // ★ `FIELD_LABEL_KEY["change.decisionDate"]` is deliberately LEFT in place:
+  // the FIRST loop below is one-directional (every previewable field needs a
+  // label, never the reverse), the label names a real translated field the
+  // change modal still renders, and `fieldLabel` is a lookup with a raw-name
+  // fallback — so removing it would only make a future re-offer render
+  // `decisionDate` as a property name.
+  // ★★ IT IS NOT AN UNUSED ENTRY, which is what this said until 2026-09-09.
+  // "names a real translation key for every entry" below iterates
+  // `Object.entries(FIELD_LABEL_KEY)` and asserts THIS entry resolves to a
+  // non-empty EN string, so it is exercised on every run and deleting
+  // `changeFieldDecisionDate` from the dictionary turns that test red. Only the
+  // COUNT loop stopped seeing it.
+  const PREVIEWABLE_FIELD_COUNT = 83;
 
   it("covers every previewable field of every entity", () => {
     // A missing entry is not a crash — it falls back to the raw property name —

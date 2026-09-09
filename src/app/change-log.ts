@@ -40,14 +40,48 @@ export function isTerminalChangeStatus(status: ChangeStatus): boolean {
  * back to pending keeps a stale date the select would have cleared.
  *
  * ★ It is NOT the only writer of `decisionDate` itself, and reading it that way
- * sends you hunting a bug that is not there: the Outlook two-way pull writes the
- * date alone (`withDate`), and a user or the model may set it directly on an
- * otherwise unchanged row. What is exclusive is the TRANSITION.
+ * sends you hunting a bug that is not there. TWO writers remain: this transition,
+ * and the Outlook two-way pull, which writes the date ALONE through its `withDate`
+ * (`use-calendar-integrations` — both the manual pull and the background
+ * auto-pull). What is exclusive is the TRANSITION, never the field.
+ * ★★ THE MODEL WAS WITHDRAWN ON 2026-09-09 and a USER never had it: the modal
+ * renders the date as a read-only `<span>` (`change-edit-modal`), and
+ * `CHANGE_FIELD_GUARDS.decisionDate` (`sanitize-records.ts`) now refuses it on
+ * BOTH `dropUnacceptedChangeFields` call sites (`use-register-tools`, create and
+ * update), with `changeFields` (`chat-tool-defs.ts`) and `INLINE_DESCRIPTORS.change`
+ * no longer offering it. An earlier revision of this line said a user or the model
+ * "may set it directly on an otherwise unchanged row" — neither can.
+ * ★ A stored value still round-trips: `sanitizeChangeItem` preserves it on every
+ * load/decode path — all five of JSON, CSV, Markdown, Turso and IndexedDB. That is
+ * not an authoring path and is not a third writer.
+ * ★★ WHY it round-trips is the load-bearing half, and it lives nowhere else in the
+ * tree: `CHANGE_FIELD_GUARDS` is read by `dropUnacceptedChangeFields` ALONE — a
+ * MODEL-write guard — and `sanitizeChangeItem` never consults it. So the table
+ * cannot reach a load, a decode, or the seed row below, and the seed's repairing
+ * wrapper `sanitizeModelChangeItem` only delegates to the plain sanitizer, which
+ * is exactly why `SEED_OFFERED_KEYS` is the ONLY guard on that path rather than a
+ * belt-and-braces second one. Reproduce both halves:
+ *   grep -rn "CHANGE_FIELD_GUARDS" src/app --include=*.ts | grep -vE ":[0-9]+:\s*(//|\*)"
+ * — exactly two lines, a declaration and a single reader, both in
+ * `sanitize-records.ts`, the reader inside `dropUnacceptedChangeFields`. ★ The
+ * filter must strip BOTH comment styles: a bare `grep -v "//"` leaves every ` * `
+ * block-comment hit standing, this paragraph included, and the output then reads
+ * as though the table had four readers.
  *
- * ★ Nor do the seed/import paths use it — `proposalToSeed` and template import
- * build rows through `sanitizeChangeItem` alone, so a model-authored proposal
- * can still carry a decided status with no date. Deliberate: those rebuild a
- * whole register from an untrusted blob rather than transitioning a live row.
+ * ★ Nor do the seed/import paths use it, and the two no longer behave alike.
+ * TEMPLATE IMPORT still builds rows through `sanitizeChangeItem` alone, so an
+ * imported blob can carry either half of the pair on its own. Deliberate: it
+ * rebuilds a whole register from an untrusted blob rather than transitioning a
+ * live row.
+ * ★★ `proposalToSeed` can no longer carry EITHER half. `PROPOSAL_TOOL`'s seed
+ * schema offers a change a `title` and a `description` and nothing else, and the
+ * seed boundary now drops every property it did not offer (`SEED_OFFERED_KEYS`,
+ * `ai-project-proposal.ts`) before the sanitizer sees the row. So a seeded change
+ * is always "Proposed" with no date — a consistent pending pair, which is why
+ * this transition has nothing to hold there. An earlier revision of this line
+ * said such a proposal "can still carry a decided status with no date"; it could
+ * carry a model-authored `decisionDate` too, and that was the half that went
+ * unnamed.
  *
  * ★ Lives in this pure module rather than beside the hook that used to own it
  * so the AI dispatcher can reach it without importing a React module.
