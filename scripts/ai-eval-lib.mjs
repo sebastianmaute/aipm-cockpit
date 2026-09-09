@@ -6,6 +6,7 @@
 // ★★ No network, no filesystem, no clock, no key. If a function here needs the
 //    time or a file, it takes it as an argument. That is what makes the whole
 //    verdict path testable, and the verdict is the only thing anyone will trust.
+import { createHash } from "node:crypto";
 
 /** Exit codes, matching version-sync-check and both followups gates.
  *
@@ -160,4 +161,56 @@ export function probeById(id) {
   const found = PROBES.find((p) => p.id === id);
   if (!found) throw new Error(`unknown probe: ${id}`);
   return found;
+}
+
+export function sha256(text) {
+  return createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+const FILLER_WORDS = [
+  "the", "project", "schedule", "owner", "risk", "budget", "review", "phase",
+  "milestone", "capacity", "vendor", "scope", "release", "sprint", "backlog",
+  "stakeholder", "estimate", "baseline", "variance", "dependency",
+];
+
+/** The frozen shape of the drift anchor.
+ *
+ *  ★★★ CHANGING ANY FIELD HERE INVALIDATES EVERY RECORDED ANCHOR SCORE, which
+ *  is precisely what the hash guard exists to catch. Do not tune these to make
+ *  a run pass. If the anchor genuinely must change, that is a new series: say
+ *  so in the artifact and stop comparing across the boundary.
+ *
+ *  `words` is sized so the anchor's token count lands near production's ~31k
+ *  prefix — the dimension that governs whether a model change hurts is prefix
+ *  length and needle depth, not content. */
+export const ANCHOR_SPEC = Object.freeze({
+  seed: 20260909,
+  words: 24000,
+  targetAtFraction: 0.72,
+  decoyAtFraction: 0.31,
+});
+
+/** Deterministic filler with the two tokens planted at fixed depths.
+ *
+ *  ★★ Throws when `target === decoy`: a colliding pair makes every anchor
+ *  response score as "ambiguous" — silently, forever, with nothing raising an
+ *  error. `plantedToken` cannot produce that collision by construction, but
+ *  this function takes both as plain strings, so a caller can still pass the
+ *  same value twice. */
+export function buildAnchorPrompt(spec, target, decoy) {
+  if (target === decoy) {
+    throw new Error(
+      `buildAnchorPrompt: target and decoy must differ, both were ${JSON.stringify(target)}`,
+    );
+  }
+  const rand = mulberry32(spec.seed);
+  const targetAt = Math.floor(spec.words * spec.targetAtFraction);
+  const decoyAt = Math.floor(spec.words * spec.decoyAtFraction);
+  const out = [];
+  for (let i = 0; i < spec.words; i += 1) {
+    if (i === targetAt) out.push(`reference code ${target}`);
+    else if (i === decoyAt) out.push(`reference code ${decoy}`);
+    else out.push(FILLER_WORDS[Math.floor(rand() * FILLER_WORDS.length)]);
+  }
+  return out.join(" ");
 }

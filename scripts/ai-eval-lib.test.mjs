@@ -145,3 +145,70 @@ describe("PROBES", () => {
     expect(() => probeById("nope")).toThrow(/unknown probe/i);
   });
 });
+
+import { ANCHOR_SPEC, buildAnchorPrompt, sha256 } from "./ai-eval-lib.mjs";
+
+describe("buildAnchorPrompt", () => {
+  const target = "zzztargetzzz";
+  const decoy = "zzzdecoyzzz";
+
+  it("is byte-identical across calls with the same spec", () => {
+    const a = buildAnchorPrompt(ANCHOR_SPEC, target, decoy);
+    const b = buildAnchorPrompt(ANCHOR_SPEC, target, decoy);
+    expect(a).toBe(b);
+  });
+
+  it("places the target and the decoy exactly once each", () => {
+    const text = buildAnchorPrompt(ANCHOR_SPEC, target, decoy);
+    expect(text.split(target).length - 1).toBe(1);
+    expect(text.split(decoy).length - 1).toBe(1);
+  });
+
+  it("puts the target deep in the text, not near its head", () => {
+    const text = buildAnchorPrompt(ANCHOR_SPEC, target, decoy);
+    // Needle depth is the property that makes this representative of a real
+    // ~31k prefix. A token near the head would test nothing the short arms do not.
+    expect(text.indexOf(target) / text.length).toBeGreaterThan(0.5);
+  });
+
+  it("keeps the decoy before the target, so the model must pass it to reach the answer", () => {
+    // ANCHOR_SPEC places the decoy at 0.31 and the target at 0.72 of the way
+    // through — that ORDER is the point, not merely that both exist.
+    const text = buildAnchorPrompt(ANCHOR_SPEC, target, decoy);
+    expect(text.indexOf(decoy)).toBeLessThan(text.indexOf(target));
+  });
+
+  it("changes when the spec changes, so the hash guard can see an edit", () => {
+    const other = { ...ANCHOR_SPEC, seed: ANCHOR_SPEC.seed + 1 };
+    expect(buildAnchorPrompt(other, target, decoy)).not.toBe(
+      buildAnchorPrompt(ANCHOR_SPEC, target, decoy),
+    );
+  });
+
+  it("refuses a target equal to its own decoy", () => {
+    // ★★ A colliding target/decoy makes every anchor response score as
+    //    "ambiguous" — silently, forever, with nothing raising an error.
+    //    plantedToken can no longer produce that collision, but this function
+    //    takes both as plain strings, so a caller can still pass the same
+    //    value twice.
+    expect(() => buildAnchorPrompt(ANCHOR_SPEC, target, target)).toThrow(
+      /target.*decoy|decoy.*target/i,
+    );
+  });
+});
+
+describe("sha256", () => {
+  it("is stable and hex", () => {
+    expect(sha256("abc")).toBe(sha256("abc"));
+    expect(sha256("abc")).toMatch(/^[0-9a-f]{64}$/);
+    expect(sha256("abc")).not.toBe(sha256("abd"));
+  });
+
+  it("matches the published NIST test vector for 'abc'", () => {
+    // ★★ The three assertions above are self-referential — any deterministic
+    //    64-hex function passes them. This is the only one that says it is SHA-256.
+    expect(sha256("abc")).toBe(
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    );
+  });
+});
