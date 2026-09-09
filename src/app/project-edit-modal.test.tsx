@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { ProjectEditModal, ProjectModalShell } from "./project-edit-modal";
+import { t } from "./i18n";
 import type { ProjectMeta } from "./types";
 
 const META = {
@@ -54,7 +55,13 @@ describe("ProjectEditModal", () => {
     );
     expect(screen.getByDisplayValue("Apollo")).toBeInTheDocument();
     // Headline claim: the WRITE direction reaches the caller.
-    await user.click(screen.getByRole("button", { name: /edit project/i }));
+    // ★★ EXACT name, never the unanchored /edit project/i this used to carry.
+    // The header now renders a help icon named "Help – Edit project"
+    // (`MODAL_HELP.projectEdit`), built from the SAME `projectsEdit` string the
+    // submit wears — so a substring match finds two buttons and the query
+    // throws. An RTL string `name` is a whole-string match, so this selects the
+    // submit alone, and composing it from the i18n key keeps a DE run resolving.
+    await user.click(screen.getByRole("button", { name: t("en-US", "projectsEdit") }));
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ name: "Apollo", code: "APL" });
   });

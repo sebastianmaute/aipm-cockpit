@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.298.0";
-export const APP_BUILD_DATE = "2026-09-09"; // 0.298.0: the AI usage caps now measure what a request costs instead of counting every token the same — a cached read bills at a tenth of an input token and an output token at five times one — so the cap warning that used to fire in the first two messages of every session now fires when it means something; Settings shows output separately and explains the change, the counting-multiplier setting is retired, and the assistant's task list no longer carries note logs the guide told it never to use, cutting a quarter off what that request ships (Malzberg)
+export const APP_VERSION = "0.299.0";
+export const APP_BUILD_DATE = "2026-09-09"; // 0.299.0: nineteen dialogs now carry a help icon in their header that opens the matching Help entry in a popover over the dialog, instead of sending you to the Help view behind it — the popover floats free of the dialog so a long explanation is no longer cut off at the dialog's edge, it scrolls when it needs to, and Tab stays inside the dialog while it is open; the AI settings dialog now offers the AI entry rather than nothing, and two dialogs whose only candidate entry described a different surface were left with no icon rather than a misleading one (Yefremov)
+// 0.298.0: the AI usage caps now measure what a request costs instead of counting every token the same — a cached read bills at a tenth of an input token and an output token at five times one — so the cap warning that used to fire in the first two messages of every session now fires when it means something; Settings shows output separately and explains the change, the counting-multiplier setting is retired, and the assistant's task list no longer carries note logs the guide told it never to use, cutting a quarter off what that request ships (Malzberg)
 // 0.297.0: the assistant can no longer put fields it was never offered into a new project's starter content — eighteen were reachable across risks, changes, milestones and stakeholders — a seeded risk's owner links to the team directory again by name or email, and a change's decision date is no longer something the assistant can set at all (Gentle)
 // 0.296.0: the AI assistant's always-on operating guides are split into their own cached prompt block, so moving between views mid-conversation no longer re-sends ~13,300 tokens of identical prompt text — measured at roughly half the cost over a conversation that switches view (McHugh)
 // 0.295.0: the AI assistant's chat transcript is now sent as a stable cacheable prefix instead of being rebuilt every turn, the usage meter counts every token class Anthropic bills — including cached reads and writes — instead of only input and output, Settings shows the session's cache breakdown and hit rate, and a one-time toast explains why a usage-cap warning may now arrive earlier with no setting changed (Borges)
@@ -24,8 +25,8 @@ export const APP_BUILD_DATE = "2026-09-09"; // 0.298.0: the AI usage caps now me
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.296.x line is "McHugh" (Maureen F. McHugh, American author of "China
- *  Mountain Zhang", 1992). A PATCH release keeps its minor line's
+ *  0.299.x line is "Yefremov" (Ivan Yefremov, Soviet author of "Andromeda
+ *  Nebula", 1957). A PATCH release keeps its minor line's
  *  name, as 0.293.1 kept "Vandermeer" like 0.293.0, exactly as 0.291.1 kept
  *  "Hoban". Only a MINOR bump needs the sweep below.
  *  ★★ Updated at the 0.294.0 bump. This sentence is the trap the paragraph
@@ -255,7 +256,7 @@ export const APP_BUILD_DATE = "2026-09-09"; // 0.298.0: the AI usage caps now me
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Malzberg";
+export const APP_MILESTONE = "Yefremov";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

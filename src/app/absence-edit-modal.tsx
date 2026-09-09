@@ -13,6 +13,7 @@ import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { clampRangeEnd } from "./date-range";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { MODAL_HELP } from "./help-content";
 import { Input, Textarea } from "./form-controls";
 import { AssigneeField } from "./modal-edit-fields";
 import { SegmentedControl } from "./segmented-control";
@@ -112,6 +113,7 @@ export function AbsenceEditModal({
       lang={lang}
       title={title}
       modalId="absence"
+      helpConceptId={MODAL_HELP.absenceEdit}
       onClose={onClose}
       onSubmit={handleSubmit}
       offset={offset}

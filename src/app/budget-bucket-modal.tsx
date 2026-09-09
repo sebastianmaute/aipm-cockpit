@@ -5,6 +5,7 @@ import { type Lang, t } from "./i18n";
 import { ModalFieldError } from "./edit-modal-chrome";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import { SegmentedControl } from "./segmented-control";
@@ -301,6 +302,7 @@ export function BudgetBucketModal({
         <ModalHeader
           lang={lang}
           title={t(lang, "budgetEditBucket")}
+          helpConceptId={MODAL_HELP.budgetBucket}
           onClose={onClose}
           dragHandleProps={handleProps}
           headerExtra={<ModalFieldControls modalId="budget" lang={lang} />}

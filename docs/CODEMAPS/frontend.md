@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.298.0 "Malzberg" | Files scanned: 342 .tsx + 552 .ts under src/app (excl. 906 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.299.0 "Yefremov" | Files scanned: 342 .tsx + 552 .ts under src/app (excl. 906 test files) | Token estimate: ~1050 -->
 
 # Frontend
 

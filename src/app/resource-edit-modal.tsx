@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { MODAL_HELP } from "./help-content";
 import { Input, Textarea } from "./form-controls";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
@@ -127,6 +128,7 @@ export function ResourceEditModal({
       lang={lang}
       title={title}
       modalId="resource"
+      helpConceptId={MODAL_HELP.resourceEdit}
       onClose={onClose}
       onSubmit={handleSubmit}
       offset={offset}

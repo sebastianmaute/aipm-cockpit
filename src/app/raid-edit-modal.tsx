@@ -46,6 +46,7 @@ import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
 import { EditModalShell, ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
+import { MODAL_HELP } from "./help-content";
 import { Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
 import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
@@ -289,6 +290,7 @@ export function RaidEditModal({
       lang={lang}
       title={isNew ? t(lang, "raidNewItem") : t(lang, "raidEditItem", draft.id)}
       modalId="raid"
+      helpConceptId={MODAL_HELP.raidEdit}
       onClose={onCancel}
       onSubmit={handleSubmit}
       offset={offset}
