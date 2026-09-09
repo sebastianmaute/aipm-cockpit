@@ -1187,12 +1187,42 @@
   `npx tsc --noEmit --ignoreConfig --strict --skipLibCheck --module esnext --target es2022 --moduleResolution bundler --jsx react-jsx --esModuleInterop --resolveJsonModule --lib es2022,dom,dom.iterable --allowJs --types node scripts/ai-eval.ts`
   ★ And `vitest.config.ts` globs only `scripts/**/*.{test,spec}.mjs`, so a `.ts` test placed beside
   the lib would silently never run — keep the harness's tests `.mjs`.
-  ★★★ **STATUS: IT HAS NEVER BEEN RUN AGAINST THE LIVE API AND CARRIES NO RECORDED BASELINE.** No
-  `docs/baselines/ai-eval-*` artifact exists, because only a live run writes one. Its probe
-  calibration is therefore UNVERIFIED — and calibration is the exact thing the 2026-09-08 manual run
-  failed at, scoring 3/3 everywhere with no headroom. The design expects the FIRST live run to record
-  the calibration band. Do not cite the existence of this harness as evidence that anything about the
-  answers is proven.
+  ★★★ **STATUS: IT HAS NOW RUN LIVE ONCE, AND THAT RUN WAS UNUSABLE — read the recorded artifact,
+  never this paragraph.** An earlier revision here said it had never run and that no
+  `docs/baselines/ai-eval-*` artifact existed; both files were committed the same day and the claim
+  survived, which is the ordinary way a status line rots. What the run said: `claude-sonnet-5`, salt
+  1, 5 reps, 60 requests. Four probes behaved (arm A hit rates 1.0 / 1.0 / 0.8 / 1.0) and
+  **`chatPointer` scored 0.0 on BOTH arms** — with `wrongBlock` at zero everywhere, so it produced no
+  target at all rather than returning the decoy. The negative control scored 0 on all five, so the
+  probes genuinely require their block, and the anchor scored 1.0. Pre-flight passed, so the token
+  WAS in the prompt exactly once in the declared half. That is a probe-calibration finding, not a
+  finding about the app — and it is exactly the failure mode the 2026-09-08 manual run had from the
+  other side (3/3 everywhere, no headroom). Do not cite the existence of this harness, or a green
+  run of it, as evidence that anything about the answers is proven.
+  ★★★ **THE RUN COULD NOT SAY WHY, WHICH IS WHY THE ARTIFACT NOW RECORDS `samples` AND `usage`.**
+  Scores alone make a refusal, a paraphrase and an answer to a different question the same number,
+  and telling them apart cost a whole second run. Each record now carries every NON-HIT reply's text
+  plus ONE exemplar hit per (probe, arm), truncated — the reply text ONLY, never anything from the
+  request, which is regenerable from the salt and the builders anyway. ★★ It also recorded
+  `input_tokens` (1605) and dropped both cache fields, so a harness whose PURPOSE is measuring prompt
+  cost could not say what the run cost: `input_tokens` is the UNCACHED REMAINDER, not the prompt, and
+  a ~31k-token prefix read from cache is invisible in it — the same defect the app's own meter
+  carried before 0.295.0. All four billed classes are now recorded per arm and summed, weighted
+  through `ai-usage.ts`'s own `usageCostEquivalent` (never a local copy of the ratios), with
+  `USAGE_COST_WEIGHTS` stored beside the figure so a later weight change shows up in the series
+  instead of silently rewriting every earlier run. Deliberately NOT converted to currency.
+  ★★★ **THE DIAGNOSTIC FILTER AND WHY IT CANNOT REPORT PASS.** `AI_EVAL_PROBES=<id,...>`,
+  `AI_EVAL_REPS=<n>` and `AI_EVAL_ARMS=<A,B,X,N,R>` narrow a run, so iterating on one broken probe
+  costs a request rather than sixty. A filter that reported a normal verdict would be the precise
+  failure this whole harness exists to prevent — a confident green over a measurement of almost
+  nothing — so it is refused structurally, not by convention: `verdict` and `shouldWriteRolling` both
+  REQUIRE the flag (absent THROWS; a defaulted field would make the one line a caller forgets the
+  line that turns a one-probe diagnostic into a green light), `buildRunRecord` derives the verdict
+  from the SAME `filter` argument it records so the two cannot disagree, the narrowing is written
+  into the artifact, and a filtered run never overwrites the rolling drift reference. ★★ A filter
+  naming EVERY probe and arm is still a filter: proving one equivalent to the standard run means
+  re-deriving the plan, and a check that re-derives what it guards drifts away from it. ★ An unknown
+  probe id or arm REFUSES rather than being ignored, before anything is spent.
   ★★★ **`CACHED_TOOLS` (`chat-api.ts`) closes the FIRST segment of the prefix** — the LAST tool carries
   `cache_control`, so an edit to block 0 (a guide toggled, `groundInGuides` flipped, or the fixed
   instructions changed) re-caches only the smaller system slice after it, never the whole `tools`
