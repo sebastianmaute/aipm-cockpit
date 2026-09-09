@@ -8,6 +8,33 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.297.0] - 2026-09-09 "Gentle"
+
+### Fixed
+- The assistant can no longer set fields it was never offered when it proposes
+  a new project. Its starter content — risks, changes, milestones and
+  stakeholders — was passed through to storage as sent, so any column the
+  loader preserves could be filled in even though the tool never asked for it.
+  Eighteen were reachable, among them a forged calendar link, a fabricated
+  "last synced" timestamp, and a decision date on a change still marked
+  Proposed. Each list now keeps only the properties the tool actually offers.
+- A risk seeded by the assistant links to your team directory again. The tool
+  asks the model for an owner's name so the risk can be matched to the person,
+  and the filter above was discarding it, so every AI-proposed risk arrived
+  unassigned. The owner's name and email are both accepted now, and the email
+  is what tells two people with the same name apart — without it, "Send
+  inquiry" on such a risk could have been addressed to the wrong colleague.
+- The same applies to a seeded stakeholder's email.
+- A change's decision date is no longer something the assistant can set. It is
+  derived from the change's status, so a model could previously date a
+  decision on a change that stayed Proposed simply by leaving the status out.
+  The field is no longer offered on any assistant tool and is refused if sent
+  anyway.
+- Every "create" tool now drops the internal bookkeeping fields its "edit"
+  counterpart already dropped. The edit path had stripped them for some time;
+  the create path never had, so seven tools could write them on the model's
+  own value.
+
 ## [0.296.0] - 2026-09-09 "McHugh"
 
 ### Changed

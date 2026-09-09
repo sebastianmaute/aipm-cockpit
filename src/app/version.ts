@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.296.0";
-export const APP_BUILD_DATE = "2026-09-09"; // 0.296.0: the AI assistant's always-on operating guides are split into their own cached prompt block, so moving between views mid-conversation no longer re-sends ~13,300 tokens of identical prompt text — measured at roughly half the cost over a conversation that switches view (McHugh)
+export const APP_VERSION = "0.297.0";
+export const APP_BUILD_DATE = "2026-09-09"; // 0.297.0: the assistant can no longer put fields it was never offered into a new project's starter content — eighteen were reachable across risks, changes, milestones and stakeholders — a seeded risk's owner links to the team directory again by name or email, and a change's decision date is no longer something the assistant can set at all (Gentle)
+// 0.296.0: the AI assistant's always-on operating guides are split into their own cached prompt block, so moving between views mid-conversation no longer re-sends ~13,300 tokens of identical prompt text — measured at roughly half the cost over a conversation that switches view (McHugh)
 // 0.295.0: the AI assistant's chat transcript is now sent as a stable cacheable prefix instead of being rebuilt every turn, the usage meter counts every token class Anthropic bills — including cached reads and writes — instead of only input and output, Settings shows the session's cache breakdown and hit rate, and a one-time toast explains why a usage-cap warning may now arrive earlier with no setting changed (Borges)
 // 0.294.0: the assistant can no longer write fields it was never given — eight undisclosed writes closed, and every create tool now runs through the same guard its edit path already used (Jimenez)
 // 0.293.1: the activity log no longer says "AI planned 1 allocation cells" — the two AI planning entries pick the singular wording at a count of one, in both languages (Vandermeer)
@@ -59,9 +60,20 @@ export const APP_BUILD_DATE = "2026-09-09"; // 0.296.0: the AI assistant's alway
  *  the 0.296.0 one being renamed — the collision this sweep existed to find),
  *  and negative `zzznotaname` 0. The header pattern also demonstrably matched
  *  BOTH dash shapes, `0.296.0` with a hyphen and `0.37.0` with an EM DASH.
- *  ★★ "Gentle" was clear in the same run and remains unspent. "McHugh" is a
- *  single ASCII word, so it is not exposed to the `[^"]+` vs `[A-Za-z]+`
- *  character-class trap described further down.
+ *  ★★ "Gentle" was clear in the same run and was SPENT on 0.297.0 — this line
+ *  said "remains unspent" until that bump, which is the shape to watch for: a
+ *  note recording a name as available is falsified by the next release that
+ *  takes it, and nothing gates it. "McHugh" is a single ASCII word, so it is
+ *  not exposed to the `[^"]+` vs `[A-Za-z]+` character-class trap below.
+ *  ★★★ 0.297.0's OWN SWEEP FOUND A BROKEN CONTROL IN THE PRESCRIBED RECIPE, and
+ *  the bug is in the pattern, never in the name. A dash-agnostic header regex
+ *  written with a BRACKET CLASS — `[-–—]` — does not match the EM DASH in the
+ *  0.37.0 header, because a multibyte character in a `grep -E` bracket
+ *  expression is compared byte-wise: "Kowal" came back 0 where the
+ *  zero-anywhere grep found it. Use ALTERNATION instead, `(-|–|—)`, which
+ *  returns Kowal 1 and McHugh 1 together. A control that silently fails to
+ *  fire makes every 0 beside it worthless, which is the whole point of running
+ *  controls in the same invocation.
  *  ★★★ 0.295.0 SHIPPED ONCE ALREADY AS "Chiang" AND WAS RENAMED WITHIN THE
  *  SAME DAY, and the rename is the useful part of this record — not the name.
  *  "Chiang" passed the LEGALITY check below (uniqueness is per-minor-line, and
@@ -219,7 +231,7 @@ export const APP_BUILD_DATE = "2026-09-09"; // 0.296.0: the AI assistant's alway
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "McHugh";
+export const APP_MILESTONE = "Gentle";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
