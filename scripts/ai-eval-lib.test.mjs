@@ -140,9 +140,68 @@ describe("PROBES", () => {
     }
   });
 
+  // ★★★ The fix for the salience defect: five identical "reference code"
+  //     labels made the model return the most salient code rather than the one
+  //     asked for, and the vaguest description lost every time.
+  it("gives every block a DISTINCT label", () => {
+    const labels = PROBES.map((p) => p.label);
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const l of labels) expect(typeof l === "string" && l.length > 0).toBe(true);
+  });
+
+  it("asks each question for its OWN label and for none of the other four", () => {
+    // The question and the prompt text are the two halves that must agree; a
+    // question naming a label its block does not use is unanswerable, and a
+    // question naming TWO labels is ambiguous again by another route.
+    for (const p of PROBES) {
+      expect(p.question).toContain(p.label);
+      for (const other of PROBES) {
+        if (other.id === p.id) continue;
+        expect(p.question).not.toContain(other.label);
+      }
+    }
+  });
+
+  it("exposes each block's label as the single source the prompt interpolates", () => {
+    expect(labelOf("chatPointer")).toBe(probeById("chatPointer").label);
+    expect(() => labelOf("nope")).toThrow(/unknown probe/i);
+  });
+
+  it("keeps no label a substring of another, so no question can name two", () => {
+    for (const p of PROBES) {
+      for (const other of PROBES) {
+        if (other.id === p.id) continue;
+        expect(p.label.includes(other.label)).toBe(false);
+      }
+    }
+  });
+
   it("looks a probe up by id and throws on an unknown one", () => {
     expect(probeById("date").id).toBe("date");
     expect(() => probeById("nope")).toThrow(/unknown probe/i);
+  });
+});
+
+import { labelOf, tokenSubstringConflicts, TOKEN_IDS } from "./ai-eval-lib.mjs";
+
+describe("tokenSubstringConflicts", () => {
+  it("reports nothing for the real token set at the salts in use", () => {
+    // `plantedToken` guarantees DISTINCT tokens, never non-containment, and
+    // the scorer matches by substring across the whole set — one containment
+    // would score every correct answer "ambiguous", silently and forever.
+    for (const salt of [1, 2, 3, 4, 5]) {
+      const tokens = Object.fromEntries(TOKEN_IDS.map((id) => [id, plantedToken(id, salt)]));
+      expect(tokenSubstringConflicts(tokens)).toEqual([]);
+    }
+  });
+
+  it("names both sides when one token contains another", () => {
+    const c = tokenSubstringConflicts({ a: "vorquenzilmab", b: "quenzil" });
+    expect(c.join(" ")).toMatch(/b's token is contained in a's/);
+  });
+
+  it("ignores blank and non-string entries rather than matching everything", () => {
+    expect(tokenSubstringConflicts({ a: "vorquen", b: "", c: undefined })).toEqual([]);
   });
 });
 
@@ -259,34 +318,84 @@ import { scoreResponse, hitRate } from "./ai-eval-lib.mjs";
 describe("scoreResponse", () => {
   const t = "vorquenzil";
   const d = "mabtresk";
+  // The FULL planted set: the target's own block, its designated decoy, and
+  // three others. `third` is the one the old one-decoy scorer was blind to.
+  const third = "glimscedrav";
+  const set = {
+    date: t, viewScope: d, insights: third,
+    activityRecap: "ythkeshobr", chatPointer: "wintazuflen",
+  };
 
   it("scores the target alone as a hit", () => {
-    expect(scoreResponse("vorquenzil", t, d)).toBe("hit");
+    expect(scoreResponse("vorquenzil", t, set)).toEqual({ outcome: "hit", otherBlocks: [] });
   });
 
-  it("scores the decoy alone as wrong-block", () => {
-    expect(scoreResponse("I think it is mabtresk", t, d)).toBe("wrong-block");
+  it("scores the designated decoy alone as wrong-block", () => {
+    const r = scoreResponse("I think it is mabtresk", t, set);
+    expect(r.outcome).toBe("wrong-block");
+    expect(r.otherBlocks).toEqual(["viewScope"]);
   });
 
-  it("scores neither as absent", () => {
-    expect(scoreResponse("I could not find a code.", t, d)).toBe("absent");
+  // ★★★ THE WIDENING. Mutation-proved: narrowing the scan back to the
+  //     designated decoy turns this red and nothing else.
+  it("scores a THIRD block's token as wrong-block, not absent, and names it", () => {
+    // This is the case the one-decoy scorer got wrong. It reported `absent` —
+    // "read nothing" — while the model had read a different block entirely,
+    // which is what made three zeros on the chatPointer probe undiagnosable.
+    const r = scoreResponse("I think it is glimscedrav", t, set);
+    expect(r.outcome).toBe("wrong-block");
+    expect(r.otherBlocks).toEqual(["insights"]);
   });
 
-  it("scores both as ambiguous, never as a hit", () => {
-    // The question named ONE block. Returning both means it did not answer the
-    // question asked, so counting it as a hit would inflate every rate.
-    expect(scoreResponse("either vorquenzil or mabtresk", t, d)).toBe("ambiguous");
+  it("names every foreign block it found, sorted", () => {
+    const r = scoreResponse("maybe wintazuflen or glimscedrav", t, set);
+    expect(r.outcome).toBe("wrong-block");
+    expect(r.otherBlocks).toEqual(["chatPointer", "insights"]);
+  });
+
+  it("scores neither as absent, with no blocks named", () => {
+    expect(scoreResponse("I could not find a code.", t, set))
+      .toEqual({ outcome: "absent", otherBlocks: [] });
+  });
+
+  it("scores target + designated decoy as ambiguous, never as a hit", () => {
+    // The question named ONE block. Returning several means it did not answer
+    // the question asked, so counting it as a hit would inflate every rate.
+    expect(scoreResponse("either vorquenzil or mabtresk", t, set).outcome).toBe("ambiguous");
+  });
+
+  // ★★★ THE RULE THAT STOPS A CONTEXT-DUMPING MODEL SCORING A PERFECT RUN,
+  //     pinned with a THIRD block's token rather than the designated decoy —
+  //     the widening must make this rule stronger, never weaker.
+  //     Mutation-proved: letting a non-decoy token through as a hit turns this
+  //     red and nothing else.
+  it("scores target + a THIRD block's token as ambiguous, never as a hit", () => {
+    const r = scoreResponse("either vorquenzil or glimscedrav", t, set);
+    expect(r.outcome).toBe("ambiguous");
+    expect(r.otherBlocks).toEqual(["insights"]);
   });
 
   it("is case-insensitive on the token", () => {
-    expect(scoreResponse("VORQUENZIL", t, d)).toBe("hit");
+    expect(scoreResponse("VORQUENZIL", t, set).outcome).toBe("hit");
   });
 
-  it("scores a repeated target with no decoy as a hit, not ambiguous", () => {
-    // Repetition is not ambiguity — only the DECOY's presence flips the verdict
-    // to "ambiguous". A model that says the right thing twice still answered
-    // the question that was asked.
-    expect(scoreResponse("vorquenzil, vorquenzil", t, d)).toBe("hit");
+  it("scores a repeated target with no other token as a hit, not ambiguous", () => {
+    // Repetition is not ambiguity — only ANOTHER block's token flips the
+    // verdict. A model that says the right thing twice still answered the
+    // question that was asked.
+    expect(scoreResponse("vorquenzil, vorquenzil", t, set).outcome).toBe("hit");
+  });
+
+  it("never counts the target against itself, whatever the map is keyed by", () => {
+    // The anchor arm keys its set by "anchor"/"anchorDecoy", not by probe id.
+    const r = scoreResponse("vorquenzil", t, { somethingElse: t, other: d });
+    expect(r).toEqual({ outcome: "hit", otherBlocks: [] });
+  });
+
+  it("ignores blank entries rather than matching every reply against them", () => {
+    // Arm X blanks a token when BUILDING its prompt; a blank reaching the
+    // scorer must not make `"".includes` true for every reply on earth.
+    expect(scoreResponse("nothing here", t, { date: t, viewScope: "" }).outcome).toBe("absent");
   });
 });
 
@@ -329,6 +438,32 @@ describe("gradeArm", () => {
 
   it("counts wrong-block outcomes", () => {
     expect(gradeArm(responses, "vorquenzil").wrongBlock).toBe(1);
+  });
+
+  it("tallies WHICH blocks were returned instead", () => {
+    // The count says a probe failed; this says what it reached instead, which
+    // is the difference between another full run and a diagnosis.
+    const rs = [
+      { text: "a", outcome: "wrong-block", toolUses: 0, outputTokens: 3, otherBlocks: ["date"] },
+      { text: "b", outcome: "wrong-block", toolUses: 0, outputTokens: 3, otherBlocks: ["date"] },
+      { text: "c", outcome: "wrong-block", toolUses: 0, outputTokens: 3, otherBlocks: ["insights"] },
+    ];
+    expect(gradeArm(rs, "vorquenzil").wrongBlockFrom).toEqual({ date: 2, insights: 1 });
+  });
+
+  it("keeps ambiguous replies OUT of the wrong-block tally", () => {
+    // An ambiguous reply named the target too — it DID reach the right block
+    // and then dumped more, which is a different failure from a misread.
+    const rs = [
+      { text: "a", outcome: "ambiguous", toolUses: 0, outputTokens: 3, otherBlocks: ["date"] },
+    ];
+    const g = gradeArm(rs, "vorquenzil");
+    expect(g.wrongBlock).toBe(0);
+    expect(g.wrongBlockFrom).toEqual({});
+  });
+
+  it("survives a response with no otherBlocks field at all", () => {
+    expect(gradeArm(responses, "vorquenzil").wrongBlockFrom).toEqual({});
   });
 
   it("counts an elaborated answer against adherence", () => {

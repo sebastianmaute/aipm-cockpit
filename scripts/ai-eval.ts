@@ -27,6 +27,7 @@ import {
   EXIT, PROBES, plantedToken, sha256, ANCHOR_SPEC, buildAnchorPrompt,
   preflight, spendDecision, scoreResponse, hitRate, gradeArm,
   shouldWriteRolling, parseFilter, filterSpec, buildRunRecord, FILTER_ENV,
+  labelOf, tokenSubstringConflicts,
 } from "./ai-eval-lib.mjs";
 
 const ROLLING_PATH = "docs/baselines/ai-eval-rolling-prompt.txt";
@@ -85,10 +86,19 @@ type Filter = {
  *  fields, which a real decode cannot be made to do.
  *
  *  Every field carrying a probe token takes it from `tokens`, so one call site
- *  controls where each token lands. */
+ *  controls where each token lands.
+ *
+ *  ★★★ EACH BLOCK INTRODUCES ITS TOKEN WITH ITS OWN LABEL, READ FROM `PROBES`
+ *  VIA `labelOf` — never a literal here. All five said "reference code" until
+ *  2026-09-09, so the model had five identically-labelled codes and one prose
+ *  description to tell them apart by; it answered `chatPointer` with the DATE
+ *  block's token on three straight reps, because that one sits on the first
+ *  line of the turn context. Reading the label from the probe is what stops the
+ *  prompt and the question drifting apart — a mismatch there makes the probe
+ *  unanswerable while every gate stays green. */
 function snapshotFor(tokens: Record<string, string>) {
   return {
-    today: `2026-09-09 (reference code ${tokens.date})`,
+    today: `2026-09-09 (${labelOf("date")} ${tokens.date})`,
     language: "en-US",
     holidayCountries: ["DE"],
     storageKind: "file",
@@ -105,12 +115,12 @@ function snapshotFor(tokens: Record<string, string>) {
     insights: [
       {
         id: 1, key: "eval-probe", type: "milestoneSlip", severity: "high",
-        data: { name: `Phase gate (reference code ${tokens.insights})`, daysOverdue: 6 },
+        data: { name: `Phase gate (${labelOf("insights")} ${tokens.insights})`, daysOverdue: 6 },
         status: "active", firstSeenAt: "2026-09-01T08:00:00Z",
         lastSeenAt: "2026-09-08T08:00:00Z", occurrences: 3,
       },
     ],
-    viewDigest: `Budget view, 12 rows after filters. Reference code ${tokens.viewScope}.`,
+    viewDigest: `Budget view, 12 rows after filters. The ${labelOf("viewScope")} is ${tokens.viewScope}.`,
     timezone: "Europe/Berlin",
     // ★★★ `ActivitySummary` carries NO free-text field — every other member is
     //     a count — so `latestAt` is the only place a token can ride, and it
@@ -122,13 +132,13 @@ function snapshotFor(tokens: Record<string, string>) {
     //     probe over a block that cannot carry a needle at all.
     activitySummary: {
       total: 12, byActor: { user: 9, ai: 2, integration: 1, unknown: 0 },
-      latestAt: `reference code ${tokens.activityRecap}`, days: 7,
+      latestAt: `${labelOf("activityRecap")} ${tokens.activityRecap}`, days: 7,
     },
     // ★ `inlineTitle` collapses whitespace and strips double quotes; the
     //   tokens are bare syllables, so they survive it unchanged.
     chatPointer: {
       count: 4,
-      recent: [{ title: `Budget rebaseline (reference code ${tokens.chatPointer})`, at: "2026-09-07" }],
+      recent: [{ title: `Budget rebaseline (${labelOf("chatPointer")} ${tokens.chatPointer})`, at: "2026-09-07" }],
     },
   } as unknown as Parameters<typeof buildTurnContext>[1];
 }
@@ -434,6 +444,15 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   //   is free, but a failure in one would abort the very diagnostic run whose
   //   whole point is investigating a different probe.
   const failures: string[] = [];
+  // ★★★ NO PLANTED TOKEN MAY CONTAIN ANOTHER. `scoreResponse` now matches by
+  //     substring across the WHOLE planted set, so one containment would score
+  //     every correct answer "ambiguous" — silently, on every arm, forever. The
+  //     repair is to rotate AI_EVAL_SALT; it is deliberately NOT a change to
+  //     how tokens are minted, because a re-mint at the same salt would make
+  //     the rolling replay miss every time and read as catastrophic drift.
+  for (const c of tokenSubstringConflicts({ ...tokens, anchor: anchorTarget, anchorDecoy })) {
+    failures.push(`planted tokens collide at salt ${salt}: ${c} — rotate AI_EVAL_SALT`);
+  }
   for (const probe of activeProbes) {
     const armA = flatten(assembleArm("current", tokens, probe.question), "turn");
     const armB = flatten(assembleCandidate(tokens, probe.question), "turn");
@@ -549,17 +568,33 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   //     AI_EVAL_SPEND and a key, both already checked by `spendDecision`.
   const request = deps.request ?? liveRequest(apiKey);
 
-  type Scored = Reply & { outcome: string };
+  type Scored = Reply & { outcome: string; otherBlocks: string[] };
   const perProbeReplies: Record<string, { A: Scored[]; B: Scored[]; X: Scored[] }> = {};
   const driftReplies: { R: Scored[]; N: Scored[] } = { R: [], N: [] };
   let complete = true;
 
-  const send = async (arm: Arm, target: string, decoy: string): Promise<Scored> => {
+  // ★★★ THE SCORER GETS THE WHOLE PLANTED SET, not this probe's designated
+  //     decoy. With one decoy, a reply carrying a THIRD probe's token scored
+  //     "absent" — and that is exactly what happened: the first full run
+  //     reported `wrongBlock: 0` everywhere while the model was answering
+  //     `chatPointer` with the DATE block's token. `otherBlocks` then names
+  //     which block it reached, which is the whole diagnostic value.
+  const probeTokens = { ...tokens };
+  // The anchor is a DIFFERENT prompt with its own two planted tokens; handing
+  // it the probe set would be harmless but dishonest — it plants none of them.
+  const anchorTokens = { anchor: anchorTarget, anchorDecoy };
+
+  const send = async (
+    arm: Arm, target: string, tokenSet: Record<string, string>,
+  ): Promise<Scored> => {
     const reply = await request(arm.system, arm.messages);
     // ★★ The outcome is attached HERE, not recomputed later. gradeArm's
-    //    wrongBlock axis reads `outcome`; handing it a bare reply silently
-    //    reports zero wrong-block hits on every run.
-    return { ...reply, outcome: scoreResponse(reply.text, target, decoy) };
+    //    wrongBlock axis reads `outcome` and its tally reads `otherBlocks`;
+    //    handing it a bare reply silently reports zero wrong-block hits on
+    //    every run.
+    const scored = scoreResponse(reply.text, target, tokenSet) as
+      { outcome: string; otherBlocks: string[] };
+    return { ...reply, outcome: scored.outcome, otherBlocks: scored.otherBlocks };
   };
 
   // ★★★ INTERLEAVED BY (probe, rep, arm). Running an arm to completion before
@@ -569,16 +604,15 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
     for (const probe of activeProbes) {
       perProbeReplies[probe.id] = { A: [], B: [], X: [] };
       const target = tokens[probe.id];
-      const decoy = tokens[probe.distractorBlock];
       for (let rep = 0; rep < reps; rep += 1) {
         if (armWanted("A")) {
           perProbeReplies[probe.id].A.push(
-            await send(assembleArm("current", tokens, probe.question), target, decoy),
+            await send(assembleArm("current", tokens, probe.question), target, probeTokens),
           );
         }
         if (armWanted("B")) {
           perProbeReplies[probe.id].B.push(
-            await send(assembleCandidate(tokens, probe.question), target, decoy),
+            await send(assembleCandidate(tokens, probe.question), target, probeTokens),
           );
         }
       }
@@ -589,7 +623,7 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
       //    for a result that must be flatly zero.
       if (armWanted("X")) {
         perProbeReplies[probe.id].X.push(
-          await send(assembleControl(tokens, probe.id, probe.question), target, decoy),
+          await send(assembleControl(tokens, probe.id, probe.question), target, probeTokens),
         );
       }
     }
@@ -597,7 +631,7 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
     for (let rep = 0; rep < reps; rep += 1) {
       if (armWanted("N")) {
         driftReplies.N.push(
-          await send(assembleAnchor(anchorPrompt, ANCHOR_QUESTION), anchorTarget, anchorDecoy),
+          await send(assembleAnchor(anchorPrompt, ANCHOR_QUESTION), anchorTarget, anchorTokens),
         );
       }
       if (plan.R > 0 && rollingText !== null) {
@@ -605,8 +639,12 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
         // replay is scored against that run's tokens, never today's.
         const replaySalt = last?.salt ?? salt;
         const rTarget = plantedToken(PROBES[0].id, replaySalt);
-        const rDecoy = plantedToken(PROBES[0].distractorBlock, replaySalt);
-        driftReplies.R.push(await send(assembleReplay(rollingText), rTarget, rDecoy));
+        // The whole set at THAT salt, for the same reason the probe arms get
+        // the whole set at today's: a replay that returned another block's
+        // token would otherwise be recorded as having returned nothing.
+        const replayTokens: Record<string, string> = {};
+        for (const p of PROBES) replayTokens[p.id] = plantedToken(p.id, replaySalt);
+        driftReplies.R.push(await send(assembleReplay(rollingText), rTarget, replayTokens));
       }
     }
   } catch (err) {
@@ -681,7 +719,8 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   //     (The content is model output against a synthetic snapshot — there is no
   //     real project data anywhere in this harness.)
   const samples: {
-    probe: string; arm: string; rep: number; outcome: string; text: string;
+    probe: string; arm: string; rep: number; outcome: string;
+    otherBlocks: string[]; text: string;
   }[] = [];
   const exemplarTaken = new Set<string>();
   const collect = (probeId: string, arm: string, rs: Scored[]) => {
@@ -690,7 +729,13 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
       const isExemplar = r.outcome === "hit" && !exemplarTaken.has(key);
       if (r.outcome !== "hit" || isExemplar) {
         if (isExemplar) exemplarTaken.add(key);
-        samples.push({ probe: probeId, arm, rep, outcome: r.outcome, text: truncate(r.text) });
+        samples.push({
+          probe: probeId, arm, rep, outcome: r.outcome,
+          // WHICH block it reached instead. The text alone shows the token; the
+          // id is what makes a run's failure readable at a glance.
+          otherBlocks: r.otherBlocks ?? [],
+          text: truncate(r.text),
+        });
       }
     });
   };

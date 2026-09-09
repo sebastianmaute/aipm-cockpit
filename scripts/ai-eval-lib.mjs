@@ -107,14 +107,39 @@ function generateToken(id, salt, attempt) {
 /** The five relocatable blocks, one probe each.
  *
  *  `id`               which snapshot-derived block carries the target token
+ *  `label`            how that block INTRODUCES its token in the prompt, and
+ *                     the exact phrase this probe's question asks for
  *  `distractorBlock`  which OTHER block carries the decoy
  *  `question`         the user turn; its only correct answer is the target
  *  `headroom`         how this probe is made non-trivial: "distractor",
  *                     "depth" or "composition" (see the spec's Probes section)
  *
- *  ★★ Every question says "exactly as written". That phrasing is what makes the
- *  `adherence` graded axis measurable at all — without an explicit terseness
- *  instruction, an elaborated answer is not a deviation from anything.
+ *  ★★★ EVERY LABEL IS DISTINCT, AND THAT IS A BUG FIX. All five blocks used to
+ *  introduce their token as a "reference code" and every question asked for
+ *  "the reference code carried by <description of the block>", so the model had
+ *  to tell five IDENTICALLY-labelled codes apart from prose descriptions alone
+ *  — and the vaguest description loses systematically. Measured 2026-09-09: on
+ *  three arm-A reps the `chatPointer` probe returned, identically, the DATE
+ *  block's token, which sits on the first line of the turn context. The model
+ *  was not failing to reach the block; it was returning the most SALIENT code.
+ *  A probe that measures salience while claiming to measure reachability is
+ *  worse than no probe — it reports a real number about the wrong thing.
+ *
+ *  ★★ The labels are what the QUESTIONS ask for, so the two cannot be edited
+ *  apart: `probeById(id).label` is the single source the CLI's snapshot text
+ *  interpolates, and a unit test asserts each question contains its OWN label
+ *  and none of the other four.
+ *
+ *  ★★ DIFFICULTY STILL COMES FROM DEPTH AND DISTRACTION, not from ambiguity.
+ *  The other four codes are still present, the decoy still rides a different
+ *  block, the token is still nonsense the prompt cannot otherwise emit, and
+ *  placement is unchanged. What was removed is the model's need to GUESS which
+ *  of five identical labels was meant.
+ *
+ *  ★★ Every question still says "exactly as written". That phrasing is what
+ *  makes the `adherence` graded axis measurable at all — without an explicit
+ *  terseness instruction, an elaborated answer is not a deviation from
+ *  anything. Do not soften it.
  *
  *  ★ `Object.freeze` on the outer array is shallow — each probe object is
  *  frozen individually too, so `PROBES[0].question = "x"` cannot silently
@@ -122,40 +147,85 @@ function generateToken(id, salt, attempt) {
 export const PROBES = Object.freeze([
   Object.freeze({
     id: "date",
+    label: "calendar code",
     distractorBlock: "viewScope",
     headroom: "distractor",
     question:
-      "Two reference codes appear in your context. Reply with the code attached to today's date, exactly as written, and nothing else.",
+      "Several labelled reference codes appear in your context. Reply with the calendar code, exactly as written, and nothing else.",
   }),
   Object.freeze({
     id: "viewScope",
+    label: "view code",
     distractorBlock: "date",
     headroom: "distractor",
     question:
-      "Two reference codes appear in your context. Reply with the code attached to the current view's scope description, exactly as written, and nothing else.",
+      "Several labelled reference codes appear in your context. Reply with the view code, exactly as written, and nothing else.",
   }),
   Object.freeze({
     id: "insights",
+    label: "finding code",
     distractorBlock: "activityRecap",
     headroom: "depth",
     question:
-      "Reply with the reference code carried by the last active insight, exactly as written, and nothing else.",
+      "Several labelled reference codes appear in your context. Reply with the finding code, exactly as written, and nothing else.",
   }),
   Object.freeze({
     id: "activityRecap",
+    label: "activity code",
     distractorBlock: "insights",
     headroom: "distractor",
     question:
-      "Reply with the reference code carried by the recent-activity summary, exactly as written, and nothing else.",
+      "Several labelled reference codes appear in your context. Reply with the activity code, exactly as written, and nothing else.",
   }),
   Object.freeze({
     id: "chatPointer",
+    label: "transcript code",
     distractorBlock: "insights",
     headroom: "distractor",
     question:
-      "Reply with the reference code carried by the past-conversations pointer, exactly as written, and nothing else.",
+      "Several labelled reference codes appear in your context. Reply with the transcript code, exactly as written, and nothing else.",
   }),
 ]);
+
+/** The label a block introduces its token with. The CLI's snapshot text reads
+ *  it from here so the prompt and the question can never name it differently —
+ *  a silent mismatch would make the probe unanswerable while every gate stayed
+ *  green. */
+export function labelOf(id) {
+  return probeById(id).label;
+}
+
+/** Planted tokens that contain one another, which nothing else can detect.
+ *
+ *  ★★★ `plantedToken` guarantees the tokens are DISTINCT, never that none is a
+ *  SUBSTRING of another — and `scoreResponse` matches by substring across the
+ *  whole planted set, so one containment would make every correct answer score
+ *  "ambiguous", silently and forever. The exposure grew tenfold when the scorer
+ *  widened from one decoy to all five tokens, which is why this is asserted now
+ *  and was not before.
+ *
+ *  ★★ IT IS A PRE-FLIGHT ASSERTION AND DELIBERATELY NOT A CHANGE TO THE MINT.
+ *  Rejecting substrings inside `plantedToken` would give different tokens at
+ *  the SAME salt, and the rolling drift reference holds a previous run's bytes
+ *  that are scored against `plantedToken(id, thatRunsSalt)` — a re-mint would
+ *  make the replay miss every time and read as catastrophic drift. The repair
+ *  for a conflict is to rotate `AI_EVAL_SALT`, not to change how tokens are
+ *  made. */
+export function tokenSubstringConflicts(tokens) {
+  const entries = Object.entries(tokens ?? {}).filter(
+    ([, t]) => typeof t === "string" && t.length > 0,
+  );
+  const conflicts = [];
+  for (const [outerId, outer] of entries) {
+    for (const [innerId, inner] of entries) {
+      if (outerId === innerId) continue;
+      if (outer.toLowerCase().includes(inner.toLowerCase())) {
+        conflicts.push(`${innerId}'s token is contained in ${outerId}'s`);
+      }
+    }
+  }
+  return conflicts;
+}
 
 export function probeById(id) {
   const found = PROBES.find((p) => p.id === id);
@@ -242,21 +312,58 @@ export function buildAnchorPrompt(spec, target, decoy) {
   return text;
 }
 
-/** Classify one response against its probe's target and decoy.
+/** Classify one response against the WHOLE planted token set for the run.
  *
- *  ★★ "hit" requires the target AND the absence of the decoy. A response
- *  carrying both did not answer the question that was asked — it named two
- *  blocks when one was requested — so it is recorded as `ambiguous` and counted
- *  as a miss. Folding it into `hit` would inflate every rate and would hide
- *  exactly the confusion a relocation is most likely to cause. */
-export function scoreResponse(text, target, decoy) {
+ *  `tokens` is `{blockId: token}` for every token planted in the prompt this
+ *  reply answered — not just this probe's designated decoy. Returns
+ *  `{outcome, otherBlocks}`, where `otherBlocks` names every NON-target block
+ *  whose token appears, sorted, and is empty on `hit` and `absent`.
+ *
+ *  The four outcomes, stated plainly because `verdict` and `gradeArm` both read
+ *  them and each means something different about what the model did:
+ *
+ *  - `hit`         — the target and no other planted token. The only success.
+ *  - `wrong-block` — no target, but at least one OTHER planted token. It read
+ *                    something, just not the block it was asked for, and
+ *                    `otherBlocks` says which.
+ *  - `ambiguous`   — the target AND at least one other planted token. Counted
+ *                    as a MISS: it named several blocks when one was asked for.
+ *  - `absent`      — no planted token at all. It produced nothing usable.
+ *
+ *  ★★★ THE SET, NOT THE DESIGNATED DECOY, AND THAT IS A BUG FIX. This used to
+ *  take one `decoy` string, so a reply carrying a THIRD probe's token scored
+ *  `absent` — "read nothing" and "read the wrong thing" were indistinguishable
+ *  in exactly the case that matters most. The first full live run therefore
+ *  reported `wrongBlock: 0` everywhere while the model was returning the DATE
+ *  block's token on every `chatPointer` rep. `otherBlocks` is the diagnostic
+ *  payload: naming the block is what turned three opaque zeros into an obvious
+ *  answer.
+ *
+ *  ★★ AMBIGUOUS STILL OUTRANKS HIT, and the widening makes that rule STRONGER,
+ *  not weaker: any other planted token demotes a hit, not merely the designated
+ *  decoy. That rule is what stops a context-dumping model scoring a perfect
+ *  run, and folding it into `hit` would inflate every rate while hiding exactly
+ *  the confusion a relocation is most likely to cause.
+ *
+ *  ★ The target is excluded from `otherBlocks` BY VALUE, not by key, so a
+ *  caller whose map is keyed differently (the anchor arm's is) cannot
+ *  accidentally have the target counted against itself. */
+export function scoreResponse(text, target, tokens) {
   const hay = String(text).toLowerCase();
-  const hasTarget = hay.includes(target.toLowerCase());
-  const hasDecoy = hay.includes(decoy.toLowerCase());
-  if (hasTarget && hasDecoy) return "ambiguous";
-  if (hasTarget) return "hit";
-  if (hasDecoy) return "wrong-block";
-  return "absent";
+  const wanted = String(target).toLowerCase();
+  const hasTarget = wanted.length > 0 && hay.includes(wanted);
+  const otherBlocks = Object.entries(tokens ?? {})
+    .filter(([, tok]) => {
+      if (typeof tok !== "string" || tok.length === 0) return false;
+      const t = tok.toLowerCase();
+      return t !== wanted && hay.includes(t);
+    })
+    .map(([id]) => id)
+    .sort();
+  if (hasTarget && otherBlocks.length > 0) return { outcome: "ambiguous", otherBlocks };
+  if (hasTarget) return { outcome: "hit", otherBlocks: [] };
+  if (otherBlocks.length > 0) return { outcome: "wrong-block", otherBlocks };
+  return { outcome: "absent", otherBlocks: [] };
 }
 
 /** Fraction of outcomes that were hits. Empty is 0, never NaN — a NaN rate
@@ -285,7 +392,7 @@ export const GRADED_AXES = Object.freeze([
     id: "wrongBlock",
     worseDirection: "higher",
     meaning:
-      "the decoy was returned instead of the target; unambiguous, it read something but not the block asked for",
+      "ANOTHER block's planted token was returned instead of the target — any of them, not merely this probe's designated decoy (widened 2026-09-09, after a run reported zero here while the model returned the date block's token on every chatPointer rep). Unambiguous: it read something, just not the block asked for. Read it against `wrongBlockFrom`, which tallies WHICH blocks were returned and is the whole diagnostic value of the axis; a reply carrying the target AS WELL is `ambiguous`, not this, and is deliberately excluded from both",
   },
   {
     id: "adherence",
@@ -315,9 +422,23 @@ export function gradeArm(responses, target) {
   const total = responses.length;
   const sum = (f) => responses.reduce((acc, r) => acc + f(r), 0);
   const hits = responses.filter((r) => r.outcome === "hit");
+  const wrongs = responses.filter((r) => r.outcome === "wrong-block");
+  // ★★ WHICH block was returned instead, tallied. The count alone says a probe
+  //    failed; this says what it reached instead, which is the difference
+  //    between "run it again and stare at it" and a diagnosis. Built from
+  //    `wrong-block` responses ONLY — an `ambiguous` reply named the target too
+  //    and is a dump, not a misread, so folding it in here would inflate the
+  //    tally with replies that DID reach the right block.
+  const wrongBlockFrom = {};
+  for (const r of wrongs) {
+    for (const id of r.otherBlocks ?? []) {
+      wrongBlockFrom[id] = (wrongBlockFrom[id] ?? 0) + 1;
+    }
+  }
   return {
     toolReaches: sum((r) => r.toolUses ?? 0),
-    wrongBlock: responses.filter((r) => r.outcome === "wrong-block").length,
+    wrongBlock: wrongs.length,
+    wrongBlockFrom,
     // Elaboration only means anything against a response that actually
     // named the target — a wrong-block response never touched the target's
     // wording at all, so it belongs to `wrongBlock`, not here.
