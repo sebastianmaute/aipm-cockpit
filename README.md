@@ -361,6 +361,18 @@ If WebCrypto / IndexedDB is unavailable the app degrades to holding the secrets 
 - Do not use this app with production credentials on shared or untrusted machines — anyone with access to the browser profile can read every stored credential.
 - Rotate or revoke credentials when a machine changes hands or a key may have been exposed.
 
+## Further reading
+
+This README is the product and capability reference. Four other documents carry
+the rest, and each owns its subject outright rather than restating this one:
+
+| Document | What it owns |
+|----------|--------------|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, the full script table, project layout, conventions, the testing layers, code style, and the pull-request checklist. |
+| [docs/RUNBOOK.md](docs/RUNBOOK.md) | Operations: build and deploy, hosting options, security headers, rollback, secrets, monitoring, and a symptom-indexed list of common issues. |
+| [docs/CODEMAPS/](docs/CODEMAPS/) | Five layered overviews of the codebase — architecture, frontend, backend, data, and dependencies. |
+| [AGENTS.md](AGENTS.md) | The always-loaded engineering reference: the hard CI-enforced constraints and the landmines that have already cost someone a debugging session. |
+
 ## License
 
 European Union Public Licence v1.2 (EUPL-1.2) — see the [LICENSE](./LICENSE) file for the
