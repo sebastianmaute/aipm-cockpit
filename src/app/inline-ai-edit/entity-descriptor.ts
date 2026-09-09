@@ -504,7 +504,21 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  (`chat-tool-defs.ts`) and its refusing `CHANGE_FIELD_GUARDS` row
     //  (`sanitize-records.ts`): the field is DERIVED — `applyChangeStatus` owns
     //  the `status`/`decisionDate` pair for every TRANSITION in the app, and the
-    //  change modal renders it read-only — so the model authors it on NO surface.
+    //  change modal renders it read-only — so the model supplies its VALUE on NO
+    //  surface. ★★ THIS ABSENCE IS NOT WHAT MAKES THAT TRUE, and reading it that
+    //  way is how the last hole survived: a descriptor governs the PREVIEW, and
+    //  three separate guards govern the WRITE — `CHANGE_FIELD_GUARDS.decisionDate`
+    //  (`() => false`, on BOTH `dropUnacceptedChangeFields` call sites),
+    //  `changeFields` not offering it, and `SEED_OFFERED_KEYS`
+    //  (`ai-project-proposal.ts`) filtering the `propose_project` seed, which
+    //  until 2026-09-09 passed a model-authored `decisionDate` straight into
+    //  `sanitizeChangeItem`. ★ TEMPLATE IMPORT still accepts one, and that does
+    //  not falsify the claim: it is a user-supplied blob, not a model surface —
+    //  no tool writes `settings.templates` (`grep -rn 'name: "' src/app/
+    //  chat-tool-defs*.ts | grep -i template` is empty).
+    //  ★ What the model CAN still do is choose `status` and have
+    //  `applyChangeStatus` stamp the clock's date. That is derivation, not
+    //  authoring — do not "correct" this to "the model cannot cause a write".
     //  ★ The qualifier is load-bearing: the Outlook two-way pull writes
     //  `decisionDate` alone (`withDate`, `use-calendar-integrations`) with no
     //  transition, so unqualified "owns the field" is false. It is the

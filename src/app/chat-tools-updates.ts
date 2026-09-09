@@ -144,20 +144,41 @@ export function patchWithoutId<T>(
  *  peers iterate their own refusal table and delete only the fields they name,
  *  so a field with NO row is untouched — `sanitize-records.ts` states the split
  *  against the two ALLOWLIST guards, `dropUnacceptedAbsenceFields` and
- *  `dropUnacceptedCalendarEventFields`). Neither `localModifiedAt` nor
- *  `outlookEventId` has a row in any of the five, and the sanitizers PRESERVE
- *  both — so a model-supplied value landed verbatim in the stored row on
- *  create, for fields no create schema in `chat-tool-defs.ts` offers it. The
- *  update path was clean only because of the strip above, never because the
- *  handlers refuse these fields.
+ *  `dropUnacceptedCalendarEventFields`). No excluded field has a row in any of
+ *  the five, and each entity's sanitizer PRESERVES its own excluded fields — so
+ *  a model-supplied value landed verbatim in the stored row on create, for
+ *  fields no create schema in `chat-tool-defs.ts` offers it. The update path was
+ *  clean only because of the strip above, never because the handlers refuse
+ *  these fields.
+ *
+ *  ★★ PER ENTITY, NOT UNIFORMLY — an earlier revision said the sanitizers
+ *  "PRESERVE both `localModifiedAt` and `outlookEventId`", which two of the five
+ *  cannot do: `Stakeholder` and `Resource` HAVE NO `outlookEventId` FIELD
+ *  (`types.ts`), and their `TOKEN_EXCLUDED` rows are `["localModifiedAt"]`
+ *  alone, so the conclusion holds for each entity only over ITS OWN row. What
+ *  each sanitizer keeps (`grep -n "localModifiedAt\|outlookEventId\|inquiriesSent"
+ *  src/app/sanitize-records.ts src/app/sanitize-entities.ts`): milestone and
+ *  change keep both; raid keeps both plus `inquiriesSent`; stakeholder and
+ *  resource keep `localModifiedAt` only.
+ *  ★★ `noteLog` is the exception in the other direction and makes the
+ *  call-site claim below narrower than it reads: NO register sanitizer preserves
+ *  it (`grep -c noteLog src/app/sanitize-records.ts` → 0 — not even a comment),
+ *  because each builds an explicit object literal, so the `noteLog` members of
+ *  the raid and change exclusion rows were ALREADY inert on this path before
+ *  this helper existed. It is `localModifiedAt` (and `outlookEventId` where the
+ *  entity has one) that the five would otherwise have stored verbatim.
  *
  *  ★★ TWO OF THE SEVEN CALL SITES ARE DEFENCE IN DEPTH, NOT LOAD-BEARING —
  *  do not read that as licence to delete them. `create_absence` and
  *  `create_calendar_event` guard with an ALLOWLIST
  *  (`dropUnacceptedAbsenceFields` / `dropUnacceptedCalendarEventFields`)
  *  that already drops both fields, so reverting the strip at either one
- *  changes no stored row; the same revert at any of the other five does. The
- *  uniform rule — every pass-through
+ *  changes no stored row; the same revert at any of the other five does — but
+ *  ★ per FIELD, not per row: it is `localModifiedAt`, plus `outlookEventId` on
+ *  the three entities that have one, that would then land. A revert of the
+ *  `noteLog` member alone changes nothing anywhere (see the sanitizer note
+ *  above), so do not read this as "every excluded field is load-bearing at five
+ *  call sites". The uniform rule — every pass-through
  *  `create_*` strips — is what is worth keeping: `ai-entity-token.ts` says in
  *  as many words that the `absence`/`calendarEvent` exclusion rows are
  *  legitimate ONLY because those two allowlists hold, so this is the backstop
@@ -171,6 +192,17 @@ export function patchWithoutId<T>(
  *  handler and a strip there would be unreachable code that READS as a guard.
  *  Route a create through here the moment it spreads `input`.
  *
+ *  ★★★ THE ARITHMETIC DOES NOT CLOSE FROM `chat-tools.ts` ALONE, so state the
+ *  ninth: there are NINE create tools, not eight. `create_document` is declared
+ *  in `chat-tool-defs-documents.ts` and dispatched in `chat-tools-documents.ts`,
+ *  never in `chat-tools.ts`, so a reader counting cases there gets 7 + 1 and
+ *  cannot reconcile it. It needs no strip — it is not a `TokenEntity` and takes
+ *  no token — but a grep that misses it also misses the reason `TOOL_DEFS` is
+ *  COMPOSED (`chat-tool-defs.ts` spreads `DOCUMENT_TOOL_DEFS`), which is the
+ *  same trap twice. Enumerate across BOTH def files, never one — the leading
+ *  anchor is what keeps this line out of its own result set (9 today):
+ *    grep -rnE '^\s+name: "create_' src/app --include=*.ts | grep -v test
+ *
  *  ★ `id` goes for the same reason on both sides, stated differently: an update
  *  takes it as the address rather than a field, and a create MINTS it (every
  *  handler assigns its own `id` after the spread), so a model-supplied one is
@@ -183,17 +215,14 @@ export function patchWithoutId<T>(
  *  row. Keeping the three deletes identical is the point: a reader deriving one
  *  helper from the other cannot get a narrower strip than the code has.
  *
- *  ★★ THOSE TWO DELETES ARE KEPT FOR SYMMETRY WITH `patchWithoutId`, NOT FOR
- *  REACHABILITY — say so, or the `create_task` paragraph above undercuts itself.
- *  By its own argument both are already unreachable here: a create MINTS its `id`
- *  after the spread (so a model-supplied one never survives), and every sanitizer
- *  downstream builds an explicit object literal (so a stray `expectedToken` never
- *  reaches a stored row). If unreachability alone justified omitting a strip,
- *  these two would go as well. It does not — what justifies keeping them is that
- *  three identical deletes cannot be misread, whereas `create_task` is excluded
- *  because ROUTING it through a spread-based helper would be the wrong shape for
- *  a handler that is already an allowlist. Reachability is the weaker half of
- *  that argument in both directions; do not lean on it alone. */
+ *  ★★ THE `id` AND `expectedToken` DELETES ARE KEPT FOR SYMMETRY, NOT FOR
+ *  REACHABILITY, and both are in fact already unreachable here: a create MINTS
+ *  its `id` after the spread, and every sanitizer downstream builds an explicit
+ *  object literal a stray `expectedToken` cannot survive. So do not justify
+ *  EITHER strip by reachability — the reason to keep them is that three
+ *  identical deletes cannot be misread, and the reason `create_task` is excluded
+ *  is SHAPE (routing an allowlist handler through a spread-based helper), never
+ *  that its strip would be unreachable. */
 export function createInputWithoutId<T>(
   input: Record<string, unknown>,
   kind: TokenEntity,

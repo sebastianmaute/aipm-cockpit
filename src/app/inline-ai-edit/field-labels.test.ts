@@ -24,17 +24,29 @@ describe("fieldLabel", () => {
   // (`applyChangeStatus` owns the `status`/`decisionDate` pair for every
   // TRANSITION in the app — the Outlook two-way pull writes the date alone, so
   // the field itself is not exclusively owned; the modal
-  // renders it read-only), so the model authors it on no surface and the
-  // preview must not offer a diff row for it. A DELIBERATE removal, not drift
+  // renders it read-only), so the model supplies its VALUE on no surface and
+  // the preview must not offer a diff row for it. ★★ Three guards make that
+  // true, not this removal: `CHANGE_FIELD_GUARDS.decisionDate` (`() => false`)
+  // on both `dropUnacceptedChangeFields` call sites, its absence from
+  // `changeFields`, and `SEED_OFFERED_KEYS` on the `propose_project` seed. The
+  // model can still CAUSE a write by choosing `status` — `applyChangeStatus`
+  // then stamps the clock's date — which is derivation, not authoring.
+  // A DELIBERATE removal, not drift
   // — the direction that matters is that the number went DOWN, which is the
   // one event worth a human look. Re-derived by running this file, not by
   // subtracting one.
   // ★ `FIELD_LABEL_KEY["change.decisionDate"]` is deliberately LEFT in place:
-  // the loop below is one-directional (every previewable field needs a label,
-  // never the reverse), the label names a real translated field the change
-  // modal still renders, and `fieldLabel` is a lookup with a raw-name fallback
-  // — so an unused entry costs nothing and removing it would only make a
-  // future re-offer render `decisionDate` as a property name.
+  // the FIRST loop below is one-directional (every previewable field needs a
+  // label, never the reverse), the label names a real translated field the
+  // change modal still renders, and `fieldLabel` is a lookup with a raw-name
+  // fallback — so removing it would only make a future re-offer render
+  // `decisionDate` as a property name.
+  // ★★ IT IS NOT AN UNUSED ENTRY, which is what this said until 2026-09-09.
+  // "names a real translation key for every entry" below iterates
+  // `Object.entries(FIELD_LABEL_KEY)` and asserts THIS entry resolves to a
+  // non-empty EN string, so it is exercised on every run and deleting
+  // `changeFieldDecisionDate` from the dictionary turns that test red. Only the
+  // COUNT loop stopped seeing it.
   const PREVIEWABLE_FIELD_COUNT = 83;
 
   it("covers every previewable field of every entity", () => {

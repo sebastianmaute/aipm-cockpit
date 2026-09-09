@@ -168,10 +168,10 @@ type MilestoneFieldGuard = (value: unknown) => boolean;
  *    so a garbage value stores `[]`. The preview models that exact function and
  *    shows the emptying, so the two already agree; guarding it would make the
  *    card promise a clear the write no longer performs.
- *  • `localModifiedAt` / `outlookEventId` — unreachable because `patchWithoutId`
- *    STRIPS them (`TOKEN_EXCLUDED.milestone`), NOT because they are absent from
- *    `milestoneFields`. ★★ Corrected in cold review: `patchWithoutId` has no
- *    whitelist, so absence from the tool schema protects nothing by itself.
+ *  • `localModifiedAt` / `outlookEventId` — unreachable because BOTH strip
+ *    helpers remove them (`TOKEN_EXCLUDED.milestone`): `patchWithoutId` on
+ *    update AND `createInputWithoutId` on create, neither whitelisted — NOT
+ *    because they are absent from `milestoneFields`. ★★★ Naming one is the bug.
  *  • `knowledgeLinks` — REACHABLE, and deliberately still unguarded. It is
  *    neither stripped nor declared, so a patch carrying it wipes the stored
  *    links, and the preview cannot show that (it is neither a `diffField` nor a
@@ -579,6 +579,11 @@ const repairCostAmount = (v: unknown): number | undefined => {
  * (`use-register-tools.ts`) and `proposalToSeed` (`ai-project-proposal.ts`),
  * where the number is a model's suggestion with no stored value behind it, so
  * rounding a `1.5` to 2 keeps the field the model asked for instead of losing it.
+ * ★★ Only the FIRST still reaches the repair: `SEED_OFFERED_KEYS` drops every
+ * property `PROPOSAL_TOOL` did not offer, and its seed `changes` items offer
+ * `title`/`description` alone, so neither amount arrives via `proposalToSeed`.
+ * Keep the wrapper — it goes live the day that schema offers a number. Verify:
+ *   sed -n '/^          changes: {/,/^          },/p' src/app/ai-project-proposal.ts
  *
  * ★★★ NOT FOR AN UPDATE, and wiring it into one would re-open the defect this
  * branch exists to close. `updateChange` runs `dropUnacceptedChangeFields` and
@@ -652,30 +657,20 @@ const CHANGE_FIELD_GUARDS: Readonly<Record<string, ChangeFieldGuard>> = {
   //  TRANSITION in the app, only `applyChangeStatus` (`change-log.ts`) may stamp
   //  or clear it, and the edit modal renders it read-only.
   //  ★★ READ THAT QUALIFIER LITERALLY — the TRANSITION is exclusive, the FIELD is
-  //  not, and `change-log.ts`'s own docstring warns against collapsing the two.
-  //  The Outlook two-way pull writes the date ALONE through `withDate`
-  //  (`use-calendar-integrations`, manual and background), with no transition; an
-  //  earlier revision of this comment said "only a status transition … may stamp
-  //  or clear it", which that path refutes. Nothing about it weakens this row:
-  //  the pull is not a MODEL write, and this table guards model writes only.
-  //  But withdrawing a property
-  //  from a schema protects nothing on its own — `patchWithoutId` has no
-  //  whitelist, so an undeclared key still reaches the merge. This denylist row
-  //  is the guard, and it covers BOTH call sites of
-  //  `dropUnacceptedChangeFields` (create and update).
+  //  not; `change-log.ts` owns that distinction and the round-trip scope, so do
+  //  not restate them here. What belongs here: withdrawing a property from a
+  //  schema protects nothing on its own, because NEITHER strip helper has a
+  //  whitelist (`patchWithoutId` on update, `createInputWithoutId` on create) —
+  //  an undeclared key still reaches the merge on either path. This row is the
+  //  guard, on BOTH call sites of `dropUnacceptedChangeFields`.
   //  ★★ THE UPDATE ARM IS THE SHARPER OF THE TWO DEFECTS IT CLOSES.
   //  `applyModelChangeStatus` returns `{...item, status: stored}` when the model
   //  supplies no valid status, leaving `decisionDate` exactly as the merge
   //  produced it — so a model could date a decision on a change that stayed
   //  "Proposed" simply by OMITTING `status`, breaking the invariant
   //  `applyChangeStatus` exists to hold.
-  //  ★ `() => false` rather than a shape check ON PURPOSE, again as with
-  //  `knowledgeLinks`: a well-formed date is exactly what must not land, so
-  //  validating the shape would accept the defect.
-  //  ★★ SCOPE: this table is read ONLY by `dropUnacceptedChangeFields`, a
-  //  MODEL-write guard. `sanitizeChangeItem` does not consult it, so stored
-  //  `decisionDate` values still round-trip through every load/decode path
-  //  (JSON, CSV, Markdown, Turso, IndexedDB) untouched.
+  //  ★ `() => false` not a shape check, for `knowledgeLinks`' reason above: a
+  //  well-formed date is exactly what must not land.
   decisionDate: () => false,
   scheduleImpactDays: acceptsScheduleDays,
   costImpact: acceptsCostAmount,
@@ -1045,15 +1040,17 @@ type StakeholderFieldGuard = (value: unknown) => boolean;
  *
  *  ★★ THAT LIST COVERS THE TOOL-DECLARED FIELDS ONLY, and saying so is the
  *  point: `raci`, `resourceId` and `knowledgeLinks` are REACHABLE and unguarded.
- *  `patchWithoutId` has no whitelist — it strips `id`, `expectedToken` and
- *  `TOKEN_EXCLUDED.stakeholder` (`localModifiedAt`) and forwards the rest — so a
+ *  NEITHER strip helper has a whitelist — `patchWithoutId` (update) and
+ *  `createInputWithoutId` (create) strip `id`, `expectedToken` and
+ *  `TOKEN_EXCLUDED.stakeholder` (`localModifiedAt`) and forward the rest — so a
  *  patch carrying them lands, `raci` is overwritten unconditionally by
  *  `coerceRaciMap` (junk wipes the map) and the other two drop on a refused
  *  value. None is a `diffField` or a `linkField`, so the preview shows nothing
  *  either way. Pre-existing and out of this guard's scope, recorded because the
  *  milestone list one entity over made exactly this omission and had to be
  *  corrected for it — an exclusion list that reads as exhaustive and is not is
- *  the false assurance that stops the next audit. */
+ *  the false assurance that stops the next audit. ★★ Both strips are load-bearing
+ *  here: a denylist with no `localModifiedAt` row, and the field is PRESERVED. */
 export const acceptsStakeholderCategory: StakeholderFieldGuard = (v) =>
   typeof v === "string" && STAKEHOLDER_CATEGORY_SET.has(v);
 export const acceptsInfluenceInterest: StakeholderFieldGuard = (v) =>
@@ -1207,21 +1204,26 @@ export function dropUnacceptedResourceFields<T extends object>(patch: T): T {
 // entries and `delete` a field that fails its guard — a field with no entry in
 // the table is left alone, because those sanitizers already have a closed,
 // hand-enumerated set of writable fields elsewhere in the load/update path.
-// Absences and calendar events have no such enumeration: `patchWithoutId`
-// forwards whatever the model emitted, minus `id`/`expectedToken`/the token
-// exclusions (docs/open-followups.md §418), so a field this table does not
-// name is a field the model can write. Iterating the PATCH and keeping only
-// entries with a passing guard closes that gap — including against a field
-// invented by a future model or added to the entity after this table was
-// written, which a denylist here could not do.
+// Absences and calendar events have no such enumeration: BOTH strip helpers
+// (`patchWithoutId`, `createInputWithoutId`) forward whatever the model emitted
+// minus `id`/`expectedToken`/the token exclusions (docs/open-followups.md §418),
+// so a field this table does not name is one the model can write on EITHER path.
+// Iterating the PATCH and keeping entries with a passing guard closes that gap,
+// including against a field invented by a future model or added to the entity
+// after this table was written, which a denylist here could not do.
 
 /** Which model-supplied absence fields survive the merge.
  *
- *  ★★★ IT EXISTS BECAUSE `patchWithoutId` FORWARDS EVERYTHING. The model's
+ *  ★★★ IT EXISTS BECAUSE BOTH STRIP HELPERS FORWARD EVERYTHING. The model's
  *   patch reaches the writer with only `id`, `expectedToken` and the token
- *   exclusions removed (open-followups §418), so any key absent from this table
- *   is a key the model can write. `outlookEventId` and `localModifiedAt` are
- *   owned by sync and are the reason this table is not optional.
+ *   exclusions removed, on create as well as update (§418), so any key absent
+ *   from this table is one the model can write. `outlookEventId` and
+ *   `localModifiedAt` are owned by sync and are why this is not optional.
+ *   ★★ UNLIKE the milestone/stakeholder guards
+ *   above, though, the strip is NOT what makes those two unreachable here: this
+ *   ALLOWLIST names neither, so it refuses both first and the strip is inert
+ *   defence-in-depth. Keep it — `ai-entity-token.ts` says that row is
+ *   legitimate ONLY while this allowlist holds.
  *
  *  ★★ `type` is dropped rather than corrected when unrecognised. `sanitizeAbsence`
  *   RESETS an unknown type to a fallback, and a reset is invisible on the review

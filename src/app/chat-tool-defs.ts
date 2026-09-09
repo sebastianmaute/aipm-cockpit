@@ -116,9 +116,14 @@ const changeFields = {
   //  status is supplied, leaving whatever the merge produced, which breaks the
   //  very invariant `applyChangeStatus` exists to hold.
   //  ★★ REMOVING IT FROM THIS SCHEMA IS HALF THE FIX AND CANNOT STAND ALONE:
-  //  `patchWithoutId` has no whitelist, so an UNDECLARED key still lands. The
-  //  refusing `CHANGE_FIELD_GUARDS.decisionDate` row (`sanitize-records.ts`) is
-  //  what actually makes it unwritable, on both the create and the update merge.
+  //  NEITHER strip helper has a whitelist — `patchWithoutId` on update,
+  //  `createInputWithoutId` on create (both `chat-tools-updates.ts`) — so an
+  //  UNDECLARED key still lands on EITHER path. The refusing
+  //  `CHANGE_FIELD_GUARDS.decisionDate` row (`sanitize-records.ts`) is what
+  //  actually makes it unwritable, on both the create and the update merge.
+  //  ★ And the model's OTHER entry point is `propose_project`, which no guard
+  //  in this file touches: `SEED_OFFERED_KEYS` (`ai-project-proposal.ts`) is
+  //  what closes it, so "absent from every schema" needs that third name too.
   resolutionNotes: { type: "string" as const, description: "Resolution notes" },
   linkedTaskIds: idList("IDs of related tasks"),
   linkedRaidIds: idList("IDs of related RAID items"),
