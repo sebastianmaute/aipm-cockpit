@@ -1192,13 +1192,38 @@
   `docs/baselines/ai-eval-*` artifact existed; both files were committed the same day and the claim
   survived, which is the ordinary way a status line rots. What the run said: `claude-sonnet-5`, salt
   1, 5 reps, 60 requests. Four probes behaved (arm A hit rates 1.0 / 1.0 / 0.8 / 1.0) and
-  **`chatPointer` scored 0.0 on BOTH arms** — with `wrongBlock` at zero everywhere, so it produced no
-  target at all rather than returning the decoy. The negative control scored 0 on all five, so the
-  probes genuinely require their block, and the anchor scored 1.0. Pre-flight passed, so the token
-  WAS in the prompt exactly once in the declared half. That is a probe-calibration finding, not a
-  finding about the app — and it is exactly the failure mode the 2026-09-08 manual run had from the
-  other side (3/3 everywhere, no headroom). Do not cite the existence of this harness, or a green
-  run of it, as evidence that anything about the answers is proven.
+  **`chatPointer` scored 0.0 on BOTH arms**, with `wrongBlock` at zero everywhere. The negative
+  control scored 0 on all five, so the probes genuinely require their block, and the anchor scored
+  1.0. Pre-flight passed, so the token WAS in the prompt exactly once in the declared half. That is a
+  probe-calibration finding, not a finding about the app — and it is exactly the failure mode the
+  2026-09-08 manual run had from the other side (3/3 everywhere, no headroom). Do not cite the
+  existence of this harness, or a green run of it, as evidence that anything about the answers is
+  proven.
+  ★★★ **THAT `wrongBlock: 0` WAS THE INSTRUMENT LYING, AND AN EARLIER REVISION OF THIS PARAGRAPH
+  READ IT THE WRONG WAY** — it said the model "produced no target at all rather than returning the
+  decoy", which is literally true and invites precisely the wrong conclusion. The filtered diagnostic
+  found three arm-A reps returning, identically, the DATE block's token: the model was not failing to
+  reach the block, it was returning the most SALIENT code. Two defects, both fixed 2026-09-09, and
+  neither is visible from a score. **(1)** All five blocks introduced their token as a "reference
+  code" and every question asked for "the reference code carried by <description of the block>", so
+  the model had to tell five IDENTICALLY-labelled codes apart from prose alone and the vaguest
+  description lost every time — a probe measuring salience while claiming to measure reachability.
+  Each block now carries a DISTINCT label (calendar / view / finding / activity / transcript code),
+  read from `PROBES` by `labelOf` so the prompt text and the question cannot be edited apart, and a
+  unit test asserts each question names its OWN label and none of the other four. The decoy,
+  placement, nonsense tokens and "exactly as written" are unchanged: difficulty still comes from
+  depth and distraction. **(2)** `scoreResponse` knew the target and that probe's DESIGNATED decoy
+  only, so a reply carrying a THIRD probe's token scored `absent` — "read nothing" and "read the
+  wrong thing" were the same number, and blind in exactly the case that matters. It now takes the
+  whole planted set and returns `{outcome, otherBlocks}`; `gradeArm` adds `wrongBlockFrom` tallying
+  WHICH block was returned instead. ★★ `ambiguous` still outranks `hit` and the widening makes that
+  rule STRONGER — ANY foreign planted token demotes a hit now, not merely the designated decoy — and
+  that is the rule stopping a context-dumping model scoring a perfect run. ★★ Widening the scan to
+  five substrings created a new silent failure with it: one planted token CONTAINING another would
+  score every correct answer `ambiguous` forever, so `tokenSubstringConflicts` asserts it at
+  pre-flight. It is an ASSERTION and deliberately not a change to `plantedToken`: a re-mint at the
+  same salt would make the rolling replay miss every time and read as catastrophic drift. Rotate
+  `AI_EVAL_SALT` if it ever fires.
   ★★★ **THE RUN COULD NOT SAY WHY, WHICH IS WHY THE ARTIFACT NOW RECORDS `samples` AND `usage`.**
   Scores alone make a refusal, a paraphrase and an answer to a different question the same number,
   and telling them apart cost a whole second run. Each record now carries every NON-HIT reply's text
