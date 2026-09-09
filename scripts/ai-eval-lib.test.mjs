@@ -497,6 +497,15 @@ describe("hitRate", () => {
 import { GRADED_AXES, gradeArm } from "./ai-eval-lib.mjs";
 
 describe("GRADED_AXES", () => {
+  it("says outputTokens is only comparable at the same cap", () => {
+    // A cap change moves what the axis can reach, so a rise can be headroom
+    // rather than behaviour. The pre-registration has to say so, or the axis
+    // silently means something different after the cap moves.
+    const axis = GRADED_AXES.find((a) => a.id === "outputTokens");
+    expect(axis.meaning).toMatch(/maxOutputTokens/);
+    expect(axis.meaning).toMatch(/truncation|stopReasons/);
+  });
+
   it("pre-registers a direction and a meaning for every axis", () => {
     expect(GRADED_AXES.map((a) => a.id)).toEqual([
       "toolReaches", "wrongBlock", "adherence", "outputTokens",
@@ -1082,6 +1091,20 @@ describe("buildRunRecord", () => {
     expect(buildRunRecord({ ...base, filter: null, rollingWrittenHash: "abc" }).rollingWrittenHash)
       .toBe("abc");
     expect(buildRunRecord({ ...base, filter: null }).rollingWrittenHash).toBeNull();
+  });
+
+  it("carries maxOutputTokens and responseShape through, nulling them when absent", () => {
+    // ★★ Same explicit-field-list hazard as rollingWrittenHash above, and the
+    //    same consequence: `outputTokens` is only comparable between runs at
+    //    the same cap, and a dropped `responseShape` puts a run back to being
+    //    undiagnosable — which is what cost the 2026-09-09 sweep a rerun.
+    const shape = { stopReasons: { end_turn: 12, max_tokens: 3 }, blockTypes: { text: 12 } };
+    const rec = buildRunRecord({ ...base, filter: null, maxOutputTokens: 512, responseShape: shape });
+    expect(rec.maxOutputTokens).toBe(512);
+    expect(rec.responseShape).toEqual(shape);
+    const bare = buildRunRecord({ ...base, filter: null });
+    expect(bare.maxOutputTokens).toBeNull();
+    expect(bare.responseShape).toBeNull();
   });
 
   it("refuses to build a record with no filter field", () => {

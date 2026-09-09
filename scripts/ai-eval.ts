@@ -49,10 +49,28 @@ const REPS = 5;
  *  not comparing across the boundary, exactly like `ANCHOR_SPEC`. */
 const MODEL = "claude-sonnet-5";
 
-/** How many output tokens one probe reply may cost. Every probe asks for a bare
- *  reference code and nothing else, so this is generous; it also bounds the
- *  worst case when a model ignores the instruction and starts explaining. */
-const MAX_OUTPUT_TOKENS = 64;
+/** How many output tokens one probe reply may cost.
+ *
+ *  ★★★ RAISED FROM 64 ON 2026-09-09 BECAUSE 64 WAS MEASURING THE CAP, NOT THE
+ *  MODEL. The four single-hop probes answer in 11-13 tokens and never come near
+ *  it, but the composition probe consumed EXACTLY 64 on all three reps of the
+ *  calibration sweep and returned empty text — a probe colliding with the
+ *  output ceiling scores `absent` whether or not it found the block, so it
+ *  measures nothing. A cap that forecloses a sentence of reasoning before the
+ *  answer is a limit on the INSTRUMENT, and it silently caps how hard any probe
+ *  can ever be.
+ *
+ *  ★★ IT IS RECORDED IN EVERY RUN RECORD, because the `outputTokens` graded
+ *  axis is a mean and is compared across runs: the cap bounds what that axis
+ *  can reach, so runs at different caps are not comparable on it. Changing this
+ *  line starts a new comparison series for that axis, exactly like `MODEL`.
+ *
+ *  ★ COST: output bills at 5x input. The 65-request run recorded 841 output
+ *  tokens in total (mean 13). If every reply instead ran to this cap the run
+ *  would emit 65 x 512 = 33,280, worth 166,400 weighted tokens against that
+ *  run's recorded 681,288 — about +24% worst case, and nowhere near it in
+ *  practice. Cheap insurance against a probe that needs room to think. */
+const MAX_OUTPUT_TOKENS = 512;
 
 /** The anchor arm's question. Fixed and probe-INDEPENDENT: the anchor is one
  *  synthetic prompt with its own target and decoy at frozen depths, so it must
@@ -347,6 +365,13 @@ type Reply = {
   inputTokens: number;
   cacheWriteTokens: number;
   cacheReadTokens: number;
+  /** The API's own `stop_reason`. `"max_tokens"` means the reply was TRUNCATED
+   *  and whatever it scored is a fact about the cap, not about the model. */
+  stopReason: string;
+  /** A census of the content-block TYPES the API returned — types and counts
+   *  only, never their content. A reply that produced no text is then
+   *  self-explaining in the artifact instead of needing another spend. */
+  blockTypes: Record<string, number>;
 };
 
 /** The harness's ONLY network boundary. Everything else in this file is pure
@@ -386,9 +411,23 @@ function liveRequest(apiKey: string): RequestFn {
     }
     const body = await res.json() as {
       content?: { type: string; text?: string }[];
+      stop_reason?: string;
       usage?: Partial<ApiUsage>;
     };
     const blocks = Array.isArray(body.content) ? body.content : [];
+    // ★★★ THE CENSUS, RECORDED WHATEVER HAPPENED. The 2026-09-09 sweep produced
+    //     three replies with empty text, zero tool uses and exactly the output
+    //     cap, and nothing recorded could say what the response carried
+    //     instead — a `thinking` block is the obvious candidate for a reasoning
+    //     model, but that is a HYPOTHESIS and this census is what settles it on
+    //     the next run rather than another round of reading the code. Types and
+    //     counts only: block CONTENT is not captured here or anywhere.
+    const blockTypes: Record<string, number> = {};
+    for (const b of blocks) {
+      const t = typeof b?.type === "string" ? b.type : "(untyped)";
+      blockTypes[t] = (blockTypes[t] ?? 0) + 1;
+    }
+    if (blocks.length === 0) blockTypes["(no blocks)"] = 1;
     // ★★★ ALL FOUR BILLED CLASSES, THROUGH THE APP'S OWN NORMALISER. The first
     //     live run recorded `input_tokens` alone (1605) and dropped both cache
     //     fields, so a harness whose PURPOSE is measuring prompt cost could not
@@ -406,6 +445,8 @@ function liveRequest(apiKey: string): RequestFn {
       inputTokens: usage.input_tokens,
       cacheWriteTokens: usage.cache_creation_input_tokens,
       cacheReadTokens: usage.cache_read_input_tokens,
+      stopReason: typeof body.stop_reason === "string" ? body.stop_reason : "(absent)",
+      blockTypes,
     };
   };
 }
@@ -886,7 +927,8 @@ ${armA.turn}`;
   //     real project data anywhere in this harness.)
   const samples: {
     probe: string; arm: string; rep: number; outcome: string;
-    otherBlocks: string[]; text: string;
+    otherBlocks: string[]; stopReason: string; blockTypes: Record<string, number>;
+    text: string;
   }[] = [];
   const exemplarTaken = new Set<string>();
   const collect = (probeId: string, arm: string, rs: Scored[]) => {
@@ -900,6 +942,11 @@ ${armA.turn}`;
           // WHICH block it reached instead. The text alone shows the token; the
           // id is what makes a run's failure readable at a glance.
           otherBlocks: r.otherBlocks ?? [],
+          // Why this reply looks the way it does. A `max_tokens` stop with no
+          // text block is a truncation, not a miss, and reading it as a miss is
+          // how a capped probe gets mistaken for an unreachable block.
+          stopReason: r.stopReason ?? "(unrecorded)",
+          blockTypes: r.blockTypes ?? {},
           text: truncate(r.text),
         });
       }
@@ -949,6 +996,38 @@ ${armA.turn}`;
     ? JSON.stringify(flatten(assembleArm("current", tokens, PROBES[0].question), "turn"))
     : null;
 
+  // ★★ RUN-LEVEL CENSUS, over EVERY reply — not only the sampled ones. Samples
+  //    keep all non-hits plus one exemplar hit, so a truncation that struck the
+  //    unsampled hits would otherwise leave no trace at all.
+  const allReplies: Scored[] = [
+    ...activeProbes.flatMap((p) => [
+      ...(perProbeReplies[p.id]?.A ?? []),
+      ...(perProbeReplies[p.id]?.B ?? []),
+      ...(perProbeReplies[p.id]?.X ?? []),
+    ]),
+    ...driftReplies.N, ...driftReplies.R,
+  ];
+  const stopReasons: Record<string, number> = {};
+  const blockTypeCensus: Record<string, number> = {};
+  for (const r of allReplies) {
+    const sr = r.stopReason ?? "(unrecorded)";
+    stopReasons[sr] = (stopReasons[sr] ?? 0) + 1;
+    for (const [t, n] of Object.entries(r.blockTypes ?? {})) {
+      blockTypeCensus[t] = (blockTypeCensus[t] ?? 0) + n;
+    }
+  }
+  const responseShape = { stopReasons, blockTypes: blockTypeCensus };
+  // ★ Loud in the TERMINAL too, not only in the artifact: a truncated reply
+  //   scores `absent` whatever the model found, so a run carrying one is
+  //   measuring the cap on that probe and the operator should know before
+  //   reading a single rate.
+  const truncated = stopReasons["max_tokens"] ?? 0;
+  if (truncated > 0) {
+    console.error(
+      `WARNING: ${truncated} of ${allReplies.length} replies stopped at max_tokens (${MAX_OUTPUT_TOKENS}) — those scores measure the cap, not the model`,
+    );
+  }
+
   const firstA = activeProbes.length > 0
     ? perProbeReplies[activeProbes[0].id]?.A[0] ?? null
     : null;
@@ -961,6 +1040,7 @@ ${armA.turn}`;
     rollingWrittenHash: rollingBytes === null ? null : sha256(rollingBytes),
     anchorSpec: ANCHOR_SPEC,
     reps,
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
     salt,
     // ★★★ `filter` reaches the record and the verdict as ONE argument — see
     //     `buildRunRecord`. There is no second place to pass it and therefore
@@ -979,6 +1059,7 @@ ${armA.turn}`;
       cacheReadTokens: firstA?.cacheReadTokens ?? null,
     },
     usage,
+    responseShape,
     perProbe,
     graded: activeProbes.map((p) => ({
       id: p.id,

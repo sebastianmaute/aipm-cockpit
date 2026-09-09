@@ -504,7 +504,7 @@ export const GRADED_AXES = Object.freeze([
     id: "outputTokens",
     worseDirection: "higher",
     meaning:
-      "mean output tokens per response; billed at five times input, so a move is a cost fact even where it is not a quality fact — but a fall here alongside a fall in hit rate is not an improvement: a model that gives up tersely scores better on this axis than one that succeeds and explains itself, so read the two together, not this one alone",
+      "mean output tokens per response; billed at five times input, so a move is a cost fact even where it is not a quality fact — but a fall here alongside a fall in hit rate is not an improvement: a model that gives up tersely scores better on this axis than one that succeeds and explains itself, so read the two together, not this one alone. ★★★ COMPARABLE ONLY BETWEEN RUNS AT THE SAME `maxOutputTokens`, which every record carries: the cap bounds what this axis can reach, so a run at a raised cap can show a rise that is headroom rather than behaviour. A mean sitting AT the cap is not a measurement of anything — it is truncation, and `responseShape.stopReasons` says so",
   },
 ]);
 
@@ -937,12 +937,25 @@ export function buildRunRecord(input) {
     rollingWrittenHash: input.rollingWrittenHash ?? null,
     anchorSpec: input.anchorSpec,
     reps: input.reps,
+    // ★★ Recorded beside `reps` and `model` because it bounds the
+    //    `outputTokens` axis: two runs at different caps are not comparable on
+    //    it, and a reply that ran to the cap measured the cap, not the model.
+    maxOutputTokens: input.maxOutputTokens ?? null,
     salt: input.salt,
     // Sits high in the record on purpose: a reader must not have to scroll past
     // five probe rows to discover that only one of them was run.
     filter: input.filter,
     sizes: input.sizes,
     usage: input.usage,
+    // ★★★ WHAT THE API ACTUALLY RETURNED, tallied across every reply of the
+    //     run: `stop_reason`, and a census of content-block TYPES (types and
+    //     counts only — never their content). The 2026-09-09 sweep recorded
+    //     three `chatPointer` replies with EMPTY text, zero tool uses and
+    //     exactly `MAX_OUTPUT_TOKENS` output tokens, and nothing in the
+    //     artifact could say what the response had carried instead — which
+    //     cost another spend to find out. Same lesson as the run before it:
+    //     the artifact must answer the obvious next question without a rerun.
+    responseShape: input.responseShape ?? null,
     perProbe: input.perProbe,
     graded: input.graded,
     drift: input.drift,
