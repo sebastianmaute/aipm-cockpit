@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.295.0";
-export const APP_BUILD_DATE = "2026-09-08"; // 0.295.0: the AI assistant's chat transcript is now sent as a stable cacheable prefix instead of being rebuilt every turn, the usage meter counts every token class Anthropic bills — including cached reads and writes — instead of only input and output, Settings shows the session's cache breakdown and hit rate, and a one-time toast explains why a usage-cap warning may now arrive earlier with no setting changed (Borges)
+export const APP_VERSION = "0.296.0";
+export const APP_BUILD_DATE = "2026-09-09"; // 0.296.0: the AI assistant's always-on operating guides are split into their own cached prompt block, so moving between views mid-conversation no longer re-sends ~13,300 tokens of identical guide text — measured at roughly half the cost over a conversation that switches view (Kowal)
+// 0.295.0: the AI assistant's chat transcript is now sent as a stable cacheable prefix instead of being rebuilt every turn, the usage meter counts every token class Anthropic bills — including cached reads and writes — instead of only input and output, Settings shows the session's cache breakdown and hit rate, and a one-time toast explains why a usage-cap warning may now arrive earlier with no setting changed (Borges)
 // 0.294.0: the assistant can no longer write fields it was never given — eight undisclosed writes closed, and every create tool now runs through the same guard its edit path already used (Jimenez)
 // 0.293.1: the activity log no longer says "AI planned 1 allocation cells" — the two AI planning entries pick the singular wording at a count of one, in both languages (Vandermeer)
 // 0.293.0: the AI assistant can now read and write resource absences and calendar meetings, every staged write is described on the review card before it lands, and any write that would email attendees is forced through that card however small the turn (Vandermeer)
@@ -197,7 +198,7 @@ export const APP_BUILD_DATE = "2026-09-08"; // 0.295.0: the AI assistant's chat 
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Borges";
+export const APP_MILESTONE = "Kowal";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

@@ -8,6 +8,36 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.296.0] - 2026-09-09 "Kowal"
+
+### Changed
+- Moving between views mid-conversation no longer re-sends the AI assistant's
+  always-on operating guides. Those guides — the project leadership guide and
+  the app overview — are identical whichever screen you are on, but they used
+  to sit behind a one-line header that counted the guides in scope, and that
+  count changed as you navigated. Because the prompt cache matches a prefix
+  byte for byte, a single changed digit threw roughly 13,300 tokens of
+  unchanged text out of the cache every time you switched view. The always-on
+  guides now form their own cached block, and only the current screen's guide
+  sits after it.
+- **Measured against the live API on 2026-09-09 (Sonnet 5): a conversation
+  that switches view costs about half as much — 52% less over the measured
+  turns, and 78% less on the switch itself.** A conversation that never
+  changes view costs about 0.5% more, from the few extra bytes the second
+  block adds, so this is a saving for anyone who moves around the app while
+  talking to the assistant and a rounding error for anyone who does not.
+- The assistant's answers are unaffected. The same guides are sent, in the
+  same order, in the same role — only the block boundary moved, so no
+  answer-quality evaluation was required for this change.
+
+### Notes
+- The figures above come from one live two-arm run of a four-turn
+  conversation across a single pair of views, not from a repeated trial, and
+  they measure cache billing only. How much any individual saves depends on
+  how often they switch view mid-conversation, which is not yet measured.
+- Cached tokens are billed at a tenth, but still occupy the full context
+  window; this change does not make the assistant's prompt smaller.
+
 ## [0.295.0] - 2026-09-08 "Borges"
 
 ### Added
