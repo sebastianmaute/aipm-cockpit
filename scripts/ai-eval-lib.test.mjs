@@ -239,6 +239,15 @@ describe("PROBE_HARDENING", () => {
     }
   });
 
+  it("plants no composition alternatives while composition is off", () => {
+    // The derived set must SHRINK when a knob is turned off, or pre-flight's
+    // exactly-once assertion would demand tokens the snapshot never wrote.
+    if (compositionProbeId() !== null) return;
+    for (const alt of COMPOSITION_ALT_IDS) {
+      expect(plantedProbeIds()).not.toContain(alt);
+    }
+  });
+
   it("keeps every planted id inside the declared token universe", () => {
     // An id outside TOKEN_IDS loses the collision-free guarantee, and
     // `plantedToken` throws rather than mint one silently.
@@ -396,7 +405,12 @@ describe("sha256", () => {
   });
 });
 
-import { scoreResponse, hitRate } from "./ai-eval-lib.mjs";
+import { scoreResponse, hitRate, OUTCOMES, MISS_OUTCOMES } from "./ai-eval-lib.mjs";
+
+/** A reply as the API returns it. `scoreResponse` REQUIRES all three fields —
+ *  the defaults here are the ordinary case, and each test that cares about a
+ *  miss cause overrides them explicitly. */
+const rep = (text, extra = {}) => ({ text, toolUses: 0, stopReason: "end_turn", ...extra });
 
 describe("scoreResponse", () => {
   const t = "vorquenzil";
@@ -410,11 +424,11 @@ describe("scoreResponse", () => {
   };
 
   it("scores the target alone as a hit", () => {
-    expect(scoreResponse("vorquenzil", t, set)).toEqual({ outcome: "hit", otherBlocks: [] });
+    expect(scoreResponse(rep("vorquenzil"), t, set)).toEqual({ outcome: "hit", otherBlocks: [] });
   });
 
   it("scores the designated decoy alone as wrong-block", () => {
-    const r = scoreResponse("I think it is mabtresk", t, set);
+    const r = scoreResponse(rep("I think it is mabtresk"), t, set);
     expect(r.outcome).toBe("wrong-block");
     expect(r.otherBlocks).toEqual(["viewScope"]);
   });
@@ -425,26 +439,26 @@ describe("scoreResponse", () => {
     // This is the case the one-decoy scorer got wrong. It reported `absent` —
     // "read nothing" — while the model had read a different block entirely,
     // which is what made three zeros on the chatPointer probe undiagnosable.
-    const r = scoreResponse("I think it is glimscedrav", t, set);
+    const r = scoreResponse(rep("I think it is glimscedrav"), t, set);
     expect(r.outcome).toBe("wrong-block");
     expect(r.otherBlocks).toEqual(["insights"]);
   });
 
   it("names every foreign block it found, sorted", () => {
-    const r = scoreResponse("maybe wintazuflen or glimscedrav", t, set);
+    const r = scoreResponse(rep("maybe wintazuflen or glimscedrav"), t, set);
     expect(r.outcome).toBe("wrong-block");
     expect(r.otherBlocks).toEqual(["chatPointer", "insights"]);
   });
 
   it("scores neither as absent, with no blocks named", () => {
-    expect(scoreResponse("I could not find a code.", t, set))
+    expect(scoreResponse(rep("I could not find a code."), t, set))
       .toEqual({ outcome: "absent", otherBlocks: [] });
   });
 
   it("scores target + designated decoy as ambiguous, never as a hit", () => {
     // The question named ONE block. Returning several means it did not answer
     // the question asked, so counting it as a hit would inflate every rate.
-    expect(scoreResponse("either vorquenzil or mabtresk", t, set).outcome).toBe("ambiguous");
+    expect(scoreResponse(rep("either vorquenzil or mabtresk"), t, set).outcome).toBe("ambiguous");
   });
 
   // ★★★ THE RULE THAT STOPS A CONTEXT-DUMPING MODEL SCORING A PERFECT RUN,
@@ -453,32 +467,120 @@ describe("scoreResponse", () => {
   //     Mutation-proved: letting a non-decoy token through as a hit turns this
   //     red and nothing else.
   it("scores target + a THIRD block's token as ambiguous, never as a hit", () => {
-    const r = scoreResponse("either vorquenzil or glimscedrav", t, set);
+    const r = scoreResponse(rep("either vorquenzil or glimscedrav"), t, set);
     expect(r.outcome).toBe("ambiguous");
     expect(r.otherBlocks).toEqual(["insights"]);
   });
 
   it("is case-insensitive on the token", () => {
-    expect(scoreResponse("VORQUENZIL", t, set).outcome).toBe("hit");
+    expect(scoreResponse(rep("VORQUENZIL"), t, set).outcome).toBe("hit");
   });
 
   it("scores a repeated target with no other token as a hit, not ambiguous", () => {
     // Repetition is not ambiguity — only ANOTHER block's token flips the
     // verdict. A model that says the right thing twice still answered the
     // question that was asked.
-    expect(scoreResponse("vorquenzil, vorquenzil", t, set).outcome).toBe("hit");
+    expect(scoreResponse(rep("vorquenzil, vorquenzil"), t, set).outcome).toBe("hit");
   });
 
   it("never counts the target against itself, whatever the map is keyed by", () => {
     // The anchor arm keys its set by "anchor"/"anchorDecoy", not by probe id.
-    const r = scoreResponse("vorquenzil", t, { somethingElse: t, other: d });
+    const r = scoreResponse(rep("vorquenzil"), t, { somethingElse: t, other: d });
     expect(r).toEqual({ outcome: "hit", otherBlocks: [] });
   });
 
   it("ignores blank entries rather than matching every reply against them", () => {
     // Arm X blanks a token when BUILDING its prompt; a blank reaching the
     // scorer must not make `"".includes` true for every reply on earth.
-    expect(scoreResponse("nothing here", t, { date: t, viewScope: "" }).outcome).toBe("absent");
+    expect(scoreResponse(rep("nothing here"), t, { date: t, viewScope: "" }).outcome).toBe("absent");
+  });
+
+  // ★★★ GUARD (a) OF THE SPLIT. Mutation-proved: collapsing tool-call and
+  //     truncated back into `absent` turns these three red and nothing else.
+  it("scores a tool call with no token as tool-call, not absent", () => {
+    // A model event: it distrusted its context and went looking. Measured
+    // 2026-09-09 on the composition probe — 2 of 3 reps did exactly this, and
+    // the old vocabulary reported all of it as "produced nothing".
+    const r = scoreResponse(rep("", { toolUses: 1, stopReason: "tool_use" }), t, set);
+    expect(r.outcome).toBe("tool-call");
+  });
+
+  it("scores a reply cut off at the cap as truncated, not absent", () => {
+    // An INSTRUMENT event: the score measures the cap, and nothing about
+    // reachability can be concluded from it.
+    const r = scoreResponse(rep("", { stopReason: "max_tokens" }), t, set);
+    expect(r.outcome).toBe("truncated");
+  });
+
+  it("keeps absent for a completed reply that simply found nothing", () => {
+    expect(scoreResponse(rep("I could not find it.", { stopReason: "end_turn" }), t, set).outcome)
+      .toBe("absent");
+  });
+
+  it("ranks tool-call ABOVE truncated when a reply did both", () => {
+    // The re-sweep produced both shapes for ONE model behaviour: think, then
+    // call a tool — once stopping cleanly at `tool_use`, once running into the
+    // cap on the way. Letting truncation win would split one decision across
+    // two buckets on an incidental collision.
+    const r = scoreResponse(rep("", { toolUses: 1, stopReason: "max_tokens" }), t, set);
+    expect(r.outcome).toBe("tool-call");
+  });
+
+  // ★★★ THE DECISION THE LEAD ASKED FOR, PINNED. A hit that also called a tool
+  //     is still a hit: the probe asks whether the block is REACHABLE, and a
+  //     reply carrying the target reached it. The tool call is recorded by
+  //     `toolReaches`, which sums over every reply regardless of outcome.
+  it("still scores a hit when the reply ALSO called a tool", () => {
+    const r = scoreResponse(rep("vorquenzil", { toolUses: 1, stopReason: "tool_use" }), t, set);
+    expect(r.outcome).toBe("hit");
+  });
+
+  it("still scores wrong-block when a foreign token arrived alongside a tool call", () => {
+    // The first three branches are unchanged by the split: only the old
+    // `absent` bucket divides.
+    const r = scoreResponse(rep("mabtresk", { toolUses: 1, stopReason: "tool_use" }), t, set);
+    expect(r.outcome).toBe("wrong-block");
+  });
+
+  it("refuses a bare string — a miss cannot name its cause from text alone", () => {
+    expect(() => scoreResponse("vorquenzil", t, set)).toThrow(/whole reply/i);
+    expect(() => scoreResponse({ text: "x" }, t, set)).toThrow(/whole reply/i);
+    expect(() => scoreResponse({ text: "x", toolUses: 0 }, t, set)).toThrow(/whole reply/i);
+  });
+});
+
+describe("the outcome vocabulary", () => {
+  it("declares exactly one success and five misses", () => {
+    expect(OUTCOMES).toEqual([
+      "hit", "wrong-block", "ambiguous", "tool-call", "truncated", "absent",
+    ]);
+    expect(MISS_OUTCOMES).toEqual([
+      "wrong-block", "ambiguous", "tool-call", "truncated", "absent",
+    ]);
+  });
+
+  // ★★★ GUARD (b) OF THE SPLIT. Mutation-proved: letting `tool-call` (or any
+  //     other miss) count towards the rate turns this red.
+  it("counts NOTHING but hit towards the rate", () => {
+    for (const miss of MISS_OUTCOMES) {
+      expect(hitRate([miss, miss, miss])).toBe(0);
+    }
+    expect(hitRate(["hit", "tool-call", "truncated", "absent"])).toBeCloseTo(0.25);
+  });
+
+  it("carries every miss through to a hard verdict failure, not a partial pass", () => {
+    // The whole path: outcomes -> hitRate -> verdict. A tool call or a
+    // truncation must never soften into a partial success on the way.
+    for (const miss of ["tool-call", "truncated"]) {
+      const A = hitRate([miss, miss, miss]);
+      const v = verdict({
+        complete: true, filter: null,
+        perProbe: [{ id: "chatPointer", A, B: 1, X: 0 }],
+      });
+      expect(A).toBe(0);
+      expect(v.code).toBe(E.UNUSABLE);
+      expect(v.reasons.join(" ")).toMatch(/arm A scored zero/);
+    }
   });
 });
 
@@ -541,6 +643,20 @@ describe("gradeArm", () => {
       { text: "c", outcome: "wrong-block", toolUses: 0, outputTokens: 3, otherBlocks: ["insights"] },
     ];
     expect(gradeArm(rs, "vorquenzil").wrongBlockFrom).toEqual({ date: 2, insights: 1 });
+  });
+
+  it("counts the two new miss causes per arm", () => {
+    const rs = [
+      { text: "", outcome: "tool-call", toolUses: 1, outputTokens: 300 },
+      { text: "", outcome: "truncated", toolUses: 0, outputTokens: 512 },
+      { text: "vorquenzil", outcome: "hit", toolUses: 1, outputTokens: 13 },
+    ];
+    const g = gradeArm(rs, "vorquenzil");
+    expect(g.toolCall).toBe(1);
+    expect(g.truncated).toBe(1);
+    // The hit that ALSO called a tool is not a toolCall miss — but its tool use
+    // still lands on toolReaches, which is the only record of that event.
+    expect(g.toolReaches).toBe(2);
   });
 
   it("keeps ambiguous replies OUT of the wrong-block tally", () => {
@@ -1105,6 +1221,20 @@ describe("buildRunRecord", () => {
     const bare = buildRunRecord({ ...base, filter: null });
     expect(bare.maxOutputTokens).toBeNull();
     expect(bare.responseShape).toBeNull();
+  });
+
+  it("carries the top-level truncation summary through", () => {
+    // ★★ A run carrying truncations is partly measuring its own cap, and that
+    //    must be readable from the record's SHAPE rather than reconstructed by
+    //    hunting through samples. Explicit field list, so an untested
+    //    pass-through is a field silently dropped — twice already.
+    const trunc = {
+      replies: 2, ofReplies: 15, maxOutputTokens: 512,
+      probes: ["chatPointer"], arms: ["A"],
+    };
+    expect(buildRunRecord({ ...base, filter: null, truncation: trunc }).truncation)
+      .toEqual(trunc);
+    expect(buildRunRecord({ ...base, filter: null }).truncation).toBeNull();
   });
 
   it("refuses to build a record with no filter field", () => {

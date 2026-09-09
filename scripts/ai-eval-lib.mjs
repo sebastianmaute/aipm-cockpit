@@ -162,15 +162,31 @@ function generateToken(id, salt, attempt) {
  *  cannot drift apart. That derivation is the whole point — the two defects
  *  this harness has shipped were both a prompt and a question disagreeing.
  *
+ *  ★★★ NEITHER `competitor` NOR `fillerBefore` IS A DIFFICULTY LEVER ON THIS
+ *  MODEL, and an earlier revision of this docstring called the first one "the
+ *  strongest lever". MEASURED 2026-09-09, arm A, 3 reps, both applied: `date`
+ *  1.0, `viewScope` 1.0, `insights` 1.0, `activityRecap` 1.0. Telling "current"
+ *  from "previous" and reading four lines down are both trivial here. They are
+ *  KEPT for what they actually buy, stated below — not for difficulty.
+ *
  *  `competitor`   plant a SECOND, near-miss code in the SAME block, labelled
  *                 "previous <label>" while the target becomes "current
- *                 <label>", and ask for the current one. The strongest lever,
- *                 and it stays unambiguous because the distinguishing
- *                 attribute is written in the prompt text itself. Off → one
- *                 code, plain label.
+ *                 <label>", and ask for the current one. ★★ ITS VALUE IS
+ *                 DISCRIMINATION, NOT DIFFICULTY: without a near-miss inside
+ *                 the block, "reached the right block" and "picked the right
+ *                 item within it" are the same observation. With one they
+ *                 separate — a reply returning `insightsPrev` records
+ *                 `wrong-block` NAMING `insightsPrev`, a different diagnosis
+ *                 from one naming `date`. Unambiguous because the
+ *                 distinguishing attribute is written in the prompt text
+ *                 itself. Off → one code, plain label.
  *  `fillerBefore` how many realistic, code-free items precede the target
- *                 INSIDE its block, so the target is neither the first nor the
- *                 most salient thing in it.
+ *                 INSIDE its block. ★★ ITS VALUE IS REPRESENTATIVENESS: the
+ *                 app sends up to `MAX_PROMPT_INSIGHTS` insights, a multi-line
+ *                 digest and a real list of conversations, so the one-item
+ *                 blocks this replaced were the LESS realistic prompt. That it
+ *                 also puts the target away from the first line is a bonus the
+ *                 model happens not to care about.
  *                 ★★ INERT for `date` and `activityRecap`: those tokens ride a
  *                 single short field the app fills with a date and a timestamp
  *                 (`today`, `ActivitySummary.latestAt`), and there is no list
@@ -199,7 +215,18 @@ export const PROBE_HARDENING = Object.freeze({
   viewScope: Object.freeze({ competitor: true, fillerBefore: 4, composition: false }),
   insights: Object.freeze({ competitor: true, fillerBefore: 4, composition: false }),
   activityRecap: Object.freeze({ competitor: true, fillerBefore: 0, composition: false }),
-  chatPointer: Object.freeze({ competitor: false, fillerBefore: 2, composition: true }),
+  // ★★★ COMPOSITION IS OFF, AND IT IS OFF ON EVIDENCE — do not switch it back
+  //     on expecting a difficulty lever. At the 512 cap it drew, over three
+  //     arm-A reps: one clean hit, and TWO replies that thought and then called
+  //     a TOOL instead of answering (`{thinking, tool_use}`, one of them also
+  //     hitting the cap). Hit rate 0.33, `toolReaches` 2, mean output 326
+  //     tokens against 13 for every single-hop probe. So it does produce a
+  //     gradient — by making the model distrust its context and go looking,
+  //     which is a DIFFERENT phenomenon from the block being hard to read. As a
+  //     reachability probe it is confounded, and a confounded number is worse
+  //     than a saturated one. The mechanism stays here, off, because the shape
+  //     is worth having available; the knob and its one-probe cap are unchanged.
+  chatPointer: Object.freeze({ competitor: false, fillerBefore: 2, composition: false }),
 });
 
 /** The two qualifiers a `competitor` probe writes into its block and its
@@ -419,16 +446,41 @@ export function buildAnchorPrompt(spec, target, decoy) {
  *  `{outcome, otherBlocks}`, where `otherBlocks` names every NON-target block
  *  whose token appears, sorted, and is empty on `hit` and `absent`.
  *
- *  The four outcomes, stated plainly because `verdict` and `gradeArm` both read
- *  them and each means something different about what the model did:
+ *  The SIX outcomes, stated plainly because `verdict` and `gradeArm` both read
+ *  them and each means something different about what the model did. Exactly
+ *  one is a success; the other five are all misses, and `hitRate` counts
+ *  nothing but `hit`:
  *
- *  - `hit`         — the target and no other planted token. The only success.
+ *  - `hit`         — the target and no other planted token. THE ONLY SUCCESS.
  *  - `wrong-block` — no target, but at least one OTHER planted token. It read
  *                    something, just not the block it was asked for, and
  *                    `otherBlocks` says which.
- *  - `ambiguous`   — the target AND at least one other planted token. Counted
- *                    as a MISS: it named several blocks when one was asked for.
- *  - `absent`      — no planted token at all. It produced nothing usable.
+ *  - `ambiguous`   — the target AND at least one other planted token. A MISS:
+ *                    it named several blocks when one was asked for.
+ *  - `tool-call`   — no planted token, and the model called a TOOL instead of
+ *                    answering from its context. A model event: it distrusted
+ *                    what it had been given and went looking.
+ *  - `truncated`   — no planted token, no tool call, and the reply stopped at
+ *                    `max_tokens`. An INSTRUMENT event: the score measures the
+ *                    cap, not the model, and nothing can be concluded about
+ *                    reachability from it.
+ *  - `absent`      — none of the above. It ran to completion and produced
+ *                    nothing usable. This is the only case the word now means.
+ *
+ *  ★★★ A HIT ACCOMPANIED BY A TOOL CALL IS STILL A HIT, and that is a decision,
+ *  not an oversight. The probe asks whether the block is REACHABLE; a reply
+ *  carrying the target reached it, whatever else it did on the way. The tool
+ *  call is a different defect and it already has its own axis — `toolReaches`
+ *  sums tool uses over EVERY reply regardless of outcome — so nothing is lost
+ *  by keeping it out of the hit rate, while folding it in would depress
+ *  `hitRate` and raise `toolReaches` for one event and double-count it.
+ *
+ *  ★★★ WHY THE VOCABULARY GREW: THIS IS THE THIRD TIME A BUCKET COARSER THAN
+ *  THE FAILURE MODES IT MEETS REPORTED THE WRONG CAUSE. `wrongBlock` could not
+ *  separate "read the wrong block" from "read nothing"; `absent` could not
+ *  separate "no answer" from "hit the cap"; and it could not separate either
+ *  from "went looking with a tool". The first two each cost a live run to
+ *  diagnose. A miss must name its cause.
  *
  *  ★★★ THE SET, NOT THE DESIGNATED DECOY, AND THAT IS A BUG FIX. This used to
  *  take one `decoy` string, so a reply carrying a THIRD probe's token scored
@@ -448,8 +500,30 @@ export function buildAnchorPrompt(spec, target, decoy) {
  *  ★ The target is excluded from `otherBlocks` BY VALUE, not by key, so a
  *  caller whose map is keyed differently (the anchor arm's is) cannot
  *  accidentally have the target counted against itself. */
-export function scoreResponse(text, target, tokens) {
-  const hay = String(text).toLowerCase();
+export const OUTCOMES = Object.freeze([
+  "hit", "wrong-block", "ambiguous", "tool-call", "truncated", "absent",
+]);
+
+/** Only `hit` is a success. Everything else is a miss, and `hitRate` counts
+ *  nothing but `hit` for exactly that reason. */
+export const MISS_OUTCOMES = Object.freeze(
+  OUTCOMES.filter((o) => o !== "hit"),
+);
+
+export function scoreResponse(reply, target, tokens) {
+  // ★★★ THE WHOLE REPLY IS REQUIRED, NOT ITS TEXT. Classifying a miss needs the
+  //     tool count and the stop reason, and an optional argument would let a
+  //     caller silently fall back to the old text-only behaviour — which is the
+  //     conflation this split exists to remove. Absent throws.
+  if (typeof reply !== "object" || reply === null
+    || typeof reply.text !== "string"
+    || typeof reply.toolUses !== "number"
+    || typeof reply.stopReason !== "string") {
+    throw new Error(
+      "scoreResponse: needs the whole reply — { text, toolUses, stopReason } — because a miss cannot name its cause from text alone",
+    );
+  }
+  const hay = reply.text.toLowerCase();
   const wanted = String(target).toLowerCase();
   const hasTarget = wanted.length > 0 && hay.includes(wanted);
   const otherBlocks = Object.entries(tokens ?? {})
@@ -460,9 +534,23 @@ export function scoreResponse(text, target, tokens) {
     })
     .map(([id]) => id)
     .sort();
+  // ★★ THE FIRST THREE BRANCHES ARE UNTOUCHED, and deliberately come first: a
+  //    reply that produced the target answered the question, whatever else it
+  //    did on the way. Only the old `absent` bucket splits below.
   if (hasTarget && otherBlocks.length > 0) return { outcome: "ambiguous", otherBlocks };
   if (hasTarget) return { outcome: "hit", otherBlocks: [] };
   if (otherBlocks.length > 0) return { outcome: "wrong-block", otherBlocks };
+  // ★★★ TOOL-CALL OUTRANKS TRUNCATED, and the 2026-09-09 re-sweep is why. Two
+  //     replies made the SAME decision — think, then call a tool instead of
+  //     answering — and one of them additionally ran into the cap
+  //     (`stop_reason: max_tokens` with a `tool_use` block; the other stopped
+  //     cleanly at `tool_use`). Letting truncation win would split one model
+  //     behaviour across two buckets on an incidental cap collision. Truncation
+  //     loses nothing by losing here: `stopReason` rides every reply, the run's
+  //     `responseShape.stopReasons` tallies it, and the record carries a
+  //     top-level `truncation` summary.
+  if (reply.toolUses > 0) return { outcome: "tool-call", otherBlocks: [] };
+  if (reply.stopReason === "max_tokens") return { outcome: "truncated", otherBlocks: [] };
   return { outcome: "absent", otherBlocks: [] };
 }
 
@@ -486,7 +574,7 @@ export const GRADED_AXES = Object.freeze([
     id: "toolReaches",
     worseDirection: "higher",
     meaning:
-      "the model called a tool for an answer already present in its context; currently at zero, so it has room only in the bad direction",
+      "the model called a tool for an answer already present in its context — it distrusted what it was given and went looking. ★★ NO LONGER AT ZERO, and the line that said so was refuted on 2026-09-09: the composition probe drew 2 tool calls in 3 reps. A tool call with NO target scores the `tool-call` outcome and is a miss; a tool call ALONGSIDE the target is still a `hit`, and this axis is the only place that event is recorded — so read this axis whenever a hit rate looks healthy, not only when it does not",
   },
   {
     id: "wrongBlock",
@@ -498,13 +586,13 @@ export const GRADED_AXES = Object.freeze([
     id: "adherence",
     worseDirection: "higher",
     meaning:
-      "answers that elaborated where the probe said 'exactly as written', counted over hits only (a wrong-block miss is not an elaboration defect — that is wrongBlock's) — read it against its adherenceOf denominator, never in isolation: 0 means clean only when adherenceOf is the arm's full hit count, and means no signal at all when adherenceOf is 0. The one real difference the manual eval surfaced, still unadjudicated.",
+      "answers that elaborated where the probe said 'exactly as written', counted over hits only (a wrong-block miss is not an elaboration defect — that is wrongBlock's) — read it against its adherenceOf denominator, never in isolation: 0 means clean only when adherenceOf is the arm's full hit count, and means no signal at all when adherenceOf is 0. The one real difference the manual eval surfaced, still unadjudicated. ★ A hit that ALSO called a tool counts here like any other hit; its text is whatever the model said around the tool call, so read it with `toolReaches`.",
   },
   {
     id: "outputTokens",
     worseDirection: "higher",
     meaning:
-      "mean output tokens per response; billed at five times input, so a move is a cost fact even where it is not a quality fact — but a fall here alongside a fall in hit rate is not an improvement: a model that gives up tersely scores better on this axis than one that succeeds and explains itself, so read the two together, not this one alone. ★★★ COMPARABLE ONLY BETWEEN RUNS AT THE SAME `maxOutputTokens`, which every record carries: the cap bounds what this axis can reach, so a run at a raised cap can show a rise that is headroom rather than behaviour. A mean sitting AT the cap is not a measurement of anything — it is truncation, and `responseShape.stopReasons` says so",
+      "mean output tokens per response; billed at five times input, so a move is a cost fact even where it is not a quality fact — but a fall here alongside a fall in hit rate is not an improvement: a model that gives up tersely scores better on this axis than one that succeeds and explains itself, so read the two together, not this one alone. ★★★ COMPARABLE ONLY BETWEEN RUNS AT THE SAME `maxOutputTokens`, which every record carries: the cap bounds what this axis can reach, so a run at a raised cap can show a rise that is headroom rather than behaviour. A mean sitting AT the cap is not a measurement of anything — it is truncation, which the `truncated` outcome, the arm's `truncated` count and the record's top-level `truncation` summary all name. ★★ A REASONING MODEL SPENDS THIS AXIS ON THINKING: the 2026-09-09 re-sweep measured a mean of 326 output tokens where the answer itself was 13, because the response carried a `thinking` block. So a rise here is not necessarily verbosity in the ANSWER, and `responseShape.blockTypes` is what tells the two apart",
   },
 ]);
 
@@ -539,6 +627,13 @@ export function gradeArm(responses, target) {
     toolReaches: sum((r) => r.toolUses ?? 0),
     wrongBlock: wrongs.length,
     wrongBlockFrom,
+    // ★★ The other two named miss causes, per arm. Diagnostic COUNTS, not
+    //    pre-registered axes — they say why an arm's hit rate is what it is.
+    //    `truncated` in particular is an INSTRUMENT event: an arm carrying any
+    //    is partly measuring the cap, and its hit rate is a lower bound on what
+    //    the model could have done with room.
+    toolCall: responses.filter((r) => r.outcome === "tool-call").length,
+    truncated: responses.filter((r) => r.outcome === "truncated").length,
     // Elaboration only means anything against a response that actually
     // named the target — a wrong-block response never touched the target's
     // wording at all, so it belongs to `wrongBlock`, not here.
@@ -956,6 +1051,13 @@ export function buildRunRecord(input) {
     //     cost another spend to find out. Same lesson as the run before it:
     //     the artifact must answer the obvious next question without a rerun.
     responseShape: input.responseShape ?? null,
+    // ★★★ INSTRUMENT-LIMITED, AT THE TOP LEVEL. A truncated reply scores a miss
+    //     whatever the model found, so a run carrying any is partly measuring
+    //     its own cap — and that has to be readable from the record's shape,
+    //     not reconstructed by hunting through `samples`. Always present, with
+    //     `replies: 0` on a clean run, so an absent field can never be mistaken
+    //     for a zero.
+    truncation: input.truncation ?? null,
     perProbe: input.perProbe,
     graded: input.graded,
     drift: input.drift,

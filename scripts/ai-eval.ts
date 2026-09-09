@@ -220,10 +220,19 @@ function snapshotFor(tokens: Record<string, string>) {
           at: "2026-09-07",
         },
       ]
-    : [{
-        title: `Budget rebaseline (${plantLabel("chatPointer")} ${tokens.chatPointer})`,
-        at: "2026-09-07",
-      }];
+    : [
+        // ★ Depth WITHOUT the composition confound: code-free earlier
+        //   conversations, so the block still looks like the list the app
+        //   really sends and the target is not its only entry, while the
+        //   question stays a plain one-hop lookup for the one labelled code.
+        ...CHAT_ALT_TITLES.slice(0, h.chatPointer.fillerBefore).map((title, i) => ({
+          title, at: `2026-09-0${2 + i}`,
+        })),
+        {
+          title: `Budget rebaseline (${plantLabel("chatPointer")} ${tokens.chatPointer})`,
+          at: "2026-09-07",
+        },
+      ];
 
   // activityRecap — competitor only. `latestAt` is the block's one free-text
   // slot; the rest of the sentence is generated from counts, so there is
@@ -799,7 +808,9 @@ ${armA.turn}`;
     //    wrongBlock axis reads `outcome` and its tally reads `otherBlocks`;
     //    handing it a bare reply silently reports zero wrong-block hits on
     //    every run.
-    const scored = scoreResponse(reply.text, target, tokenSet) as
+    // The WHOLE reply, not its text: a miss cannot name its cause without the
+    // tool count and the stop reason, and `scoreResponse` refuses less.
+    const scored = scoreResponse(reply, target, tokenSet) as
       { outcome: string; otherBlocks: string[] };
     return { ...reply, outcome: scored.outcome, otherBlocks: scored.otherBlocks };
   };
@@ -1017,6 +1028,39 @@ ${armA.turn}`;
     }
   }
   const responseShape = { stopReasons, blockTypes: blockTypeCensus };
+  // ★★★ WHICH PROBES AND ARMS WERE INSTRUMENT-LIMITED, at the top of the
+  //     record. A truncated reply scores a miss whatever the model found, so a
+  //     run carrying any is partly measuring its own cap — and that must be
+  //     readable from the record's shape rather than reconstructed by hunting
+  //     through `samples`. Always emitted, `replies: 0` on a clean run: an
+  //     absent field must never be mistakable for a zero.
+  const truncatedProbes = new Set<string>();
+  const truncatedArms = new Set<string>();
+  for (const p of activeProbes) {
+    for (const arm of ["A", "B", "X"] as const) {
+      for (const r of perProbeReplies[p.id]?.[arm] ?? []) {
+        if (r.outcome === "truncated" || r.stopReason === "max_tokens") {
+          truncatedProbes.add(p.id);
+          truncatedArms.add(arm);
+        }
+      }
+    }
+  }
+  for (const [arm, rs] of [["N", driftReplies.N], ["R", driftReplies.R]] as const) {
+    for (const r of rs) {
+      if (r.outcome === "truncated" || r.stopReason === "max_tokens") {
+        truncatedProbes.add(arm === "N" ? "anchor" : "rolling");
+        truncatedArms.add(arm);
+      }
+    }
+  }
+  const truncation = {
+    replies: allReplies.filter((r) => r.stopReason === "max_tokens").length,
+    ofReplies: allReplies.length,
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
+    probes: [...truncatedProbes].sort(),
+    arms: [...truncatedArms].sort(),
+  };
   // ★ Loud in the TERMINAL too, not only in the artifact: a truncated reply
   //   scores `absent` whatever the model found, so a run carrying one is
   //   measuring the cap on that probe and the operator should know before
@@ -1060,6 +1104,7 @@ ${armA.turn}`;
     },
     usage,
     responseShape,
+    truncation,
     perProbe,
     graded: activeProbes.map((p) => ({
       id: p.id,
