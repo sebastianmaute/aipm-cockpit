@@ -1,9 +1,12 @@
 "use client";
 
-import { type ReactNode } from "react";
-import { ArrowsPointingInIcon, XMarkIcon } from "./icons";
+import { useRef, useState, type ReactNode } from "react";
+import { ArrowsPointingInIcon, QuestionMarkCircleIcon, XMarkIcon } from "./icons";
+import { HELP_ENTRIES, type HelpEntryId } from "./help-content";
+import { HelpBodyText } from "./help-body-text";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
+import { usePopoverDismiss } from "./use-popover-dismiss";
 import { useVoiceCommand } from "./voice-command-context";
 import { VoiceCommandButton } from "./voice-button";
 
@@ -52,6 +55,19 @@ interface ModalHeaderProps {
    *  this removes the control AND the collision. Defaults to false, so every
    *  existing call site renders byte-identically. */
   hideVoiceCommand?: boolean;
+  /** When set, render a help icon opening this Help entry in a popover over
+   *  the dialog. Absent ⇒ no icon, which is how confirmations and gates stay
+   *  clean without an exclusion list.
+   *
+   *  ★ The popover opens IN PLACE rather than deep-linking the Help view,
+   *  because `requestHelpConcept` sets activeTab = "help" and would switch the
+   *  view BEHIND the still-open dialog (docs/open-followups.md §424). */
+  helpConceptId?: HelpEntryId;
+  /** Qualifies the help icon's accessible name. Pass the modal's own title.
+   *  ★ SAME REASON AS `closeLabel` TWO PROPS UP: two stacked headers otherwise
+   *  put two controls named "Help" in one document, speech input does not
+   *  scope by aria-modal, and axe has no rule that flags it. */
+  helpTitle?: string;
   /** Extra controls rendered in the header's right cluster, before the close
    *  button (e.g. a reset-size button for a resizable modal panel). */
   headerExtra?: ReactNode;
@@ -77,12 +93,22 @@ export function ModalHeader({
   hideClose = false,
   closeLabel,
   hideVoiceCommand = false,
+  helpConceptId,
+  helpTitle,
   headerExtra,
   onResetLayout,
   logo,
 }: ModalHeaderProps) {
   const voice = useVoiceCommand();
   const closeName = closeLabel ?? t(lang, "alertModalClose");
+  const [helpOpen, setHelpOpen] = useState(false);
+  const helpWrapRef = useRef<HTMLDivElement | null>(null);
+  // ★ SHARED PRIMITIVE, never a hand-rolled Escape/outside-click pair: this
+  // pushes kind "layer" into dismissal-stack.ts, so only the topmost layer
+  // claims Escape and the popover closes while the MODAL stays open.
+  usePopoverDismiss(helpOpen, helpWrapRef, () => setHelpOpen(false));
+  const helpEntry = helpConceptId ? HELP_ENTRIES.find((e) => e.id === helpConceptId) : undefined;
+  const helpName = t(lang, "modalHelpAbout", helpTitle ?? title);
   return (
     <header
       {...dragHandleProps}
@@ -98,6 +124,34 @@ export function ModalHeader({
       </div>
       <div className="flex items-center gap-1" onPointerDown={stopDrag}>
         {headerExtra}
+        {helpEntry && (
+          <div ref={helpWrapRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setHelpOpen((v) => !v)}
+              aria-expanded={helpOpen}
+              aria-label={helpName}
+              title={helpName}
+              className={`rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
+            >
+              <QuestionMarkCircleIcon aria-hidden="true" className="h-4 w-4" />
+            </button>
+            {helpOpen && (
+              <div
+                role="dialog"
+                aria-label={t(lang, helpEntry.titleKey)}
+                className="absolute right-0 top-full z-20 mt-1 w-80 max-w-[90vw] rounded-md border border-line bg-surface p-3 text-left"
+              >
+                <p className="mb-1 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
+                  {t(lang, helpEntry.titleKey)}
+                </p>
+                <p className="max-w-[64ch] whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                  <HelpBodyText body={t(lang, helpEntry.bodyKey)} labelClass="font-medium text-foreground" />
+                </p>
+              </div>
+            )}
+          </div>
+        )}
         {voice && !hideVoiceCommand && (
           <VoiceCommandButton lang={lang} onCommand={voice.onCommand} onError={voice.onError} />
         )}

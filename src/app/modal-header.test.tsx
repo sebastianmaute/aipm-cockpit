@@ -1,10 +1,13 @@
 // src/app/modal-header.test.tsx
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ModalHeader } from "./modal-header";
+import { Modal } from "./modal";
+import { HELP_ENTRIES } from "./help-content";
 import { ResetSizeIcon } from "./task-manager-ui";
 import { VoiceCommandProvider } from "./voice-command-context";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import type { ReactNode } from "react";
 
 // VoiceCommandButton depends on browser speech APIs — mock the module to avoid
@@ -141,5 +144,136 @@ describe("ModalHeader", () => {
     // The <header> element receives the drag props; the cursor-move class signals it.
     const header = screen.getByRole("banner");
     expect(header.className).toContain("cursor-move");
+  });
+});
+
+describe("ModalHeader help icon", () => {
+  it("renders no help icon when no helpConceptId is passed", () => {
+    render(<ModalHeader lang="en-US" title="Edit risk" onClose={() => {}} />, { wrapper });
+    expect(screen.queryByRole("button", { name: /^Help/ })).toBeNull();
+    // ★ ANTI-VACUITY: the negative above passes on a header that rendered
+    // nothing at all. This asserts the header DID render, so the absence is
+    // a real absence.
+    expect(screen.getByRole("button", { name: t("en-US", "alertModalClose") })).toBeInTheDocument();
+  });
+
+  it("renders a help icon named after the modal when helpConceptId is passed", () => {
+    render(
+      <ModalHeader
+        lang="en-US"
+        title="Edit risk"
+        onClose={() => {}}
+        helpConceptId="concept-raid"
+        helpTitle="Edit risk"
+      />,
+      { wrapper },
+    );
+    expect(screen.getByRole("button", { name: "Help – Edit risk" })).toBeInTheDocument();
+  });
+
+  it("shows the entry's own body when the icon is clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <ModalHeader
+        lang="en-US"
+        title="Edit risk"
+        onClose={() => {}}
+        helpConceptId="concept-raid"
+        helpTitle="Edit risk"
+      />,
+      { wrapper },
+    );
+    await user.click(screen.getByRole("button", { name: "Help – Edit risk" }));
+    const entry = HELP_ENTRIES.find((e) => e.id === "concept-raid")!;
+    expect(screen.getByText(t("en-US", entry.titleKey))).toBeInTheDocument();
+  });
+
+  it("gives two stacked headers distinct help-icon names", () => {
+    render(
+      <>
+        <ModalHeader
+          lang="en-US"
+          title="Edit risk"
+          onClose={() => {}}
+          helpConceptId="concept-raid"
+          helpTitle="Edit risk"
+        />
+        <ModalHeader
+          lang="en-US"
+          title="Edit change"
+          onClose={() => {}}
+          helpConceptId="concept-change"
+          helpTitle="Edit change"
+        />
+      </>,
+      { wrapper },
+    );
+    // ★ COLLISION SEED: two headers with genuinely DIFFERENT titles. A
+    // single-header fixture satisfies a distinctness check trivially and is
+    // vacuous. Both names are asserted individually, so a bare "Help" on
+    // either one turns this red.
+    expect(screen.getByRole("button", { name: "Help – Edit risk" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Help – Edit change" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Help" })).toBeNull();
+  });
+
+  it("closes the popover on Escape without closing the modal", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    // ★★ RENDERED INSIDE THE REAL `Modal`, ON PURPOSE. `ModalHeader` owns no
+    // Escape handler of its own — `modal.tsx` does — so a bare header makes
+    // the `onClose` half VACUOUSLY true: nothing would have called it either
+    // way. Stacking the two layers is the only way this assertion can observe
+    // the distinction the shared dismissal stack exists to make.
+    render(
+      <Modal open onClose={onClose} ariaLabel="Edit risk dialog">
+        <ModalHeader
+          lang="en-US"
+          title="Edit risk"
+          onClose={onClose}
+          helpConceptId="concept-raid"
+          helpTitle="Edit risk"
+        />
+      </Modal>,
+      { wrapper },
+    );
+    const entry = HELP_ENTRIES.find((e) => e.id === "concept-raid")!;
+    const popoverName = t("en-US", entry.titleKey);
+    // ★ Scoped by NAME, not a bare `getByRole("dialog")` — the enclosing
+    // `Modal` is a dialog too, so an unscoped query is ambiguous here.
+    await user.click(screen.getByRole("button", { name: "Help – Edit risk" }));
+    expect(screen.getByRole("dialog", { name: popoverName })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: popoverName })).toBeNull();
+    // The modal's own close must NOT have fired -- that is the whole point of
+    // registering the popover as its own dismissal layer.
+    expect(onClose).not.toHaveBeenCalled();
+    // ★ And the modal is still open, so "Escape closed everything" cannot
+    // masquerade as a pass.
+    expect(screen.getByRole("dialog", { name: "Edit risk dialog" })).toBeInTheDocument();
+    // ★★ THE FALSIFIER for the negative above. A second Escape, with the
+    // popover gone and the modal topmost, MUST reach `Modal` — so a fixture
+    // in which `onClose` could never fire at all (a broken render, a modal
+    // that never registered) turns this red instead of silently certifying
+    // the `not.toHaveBeenCalled()` one line up.
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the help icon in German", async () => {
+    // ★ The DE dictionary is LAZY — without this the assertion would read the
+    // EN string and pass for the wrong reason.
+    await loadI18n("de");
+    render(
+      <ModalHeader
+        lang="de"
+        title="Risiko bearbeiten"
+        onClose={() => {}}
+        helpConceptId="concept-raid"
+        helpTitle="Risiko bearbeiten"
+      />,
+      { wrapper },
+    );
+    expect(screen.getByRole("button", { name: "Hilfe – Risiko bearbeiten" })).toBeInTheDocument();
   });
 });
