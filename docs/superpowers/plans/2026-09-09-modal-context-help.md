@@ -1172,20 +1172,27 @@ npx vitest run src/app/modal-header.test.tsx src/app/help-content.test.ts src/ap
 Record the per-file test counts. Every mutant's `failed + passed` must equal the count for the file
 it targets.
 
-| # | Mutant (the exact edit) | Must turn red |
-|---|---|---|
-| 1 | In a call site, delete `helpConceptId={MODAL_HELP.raidEdit}` | Task 7's count check; the site's own test |
-| 2 | In `modal-header.tsx`, change `{helpEntry && (` to `{true && (` | "renders no help icon when no helpConceptId is passed" |
-| 3 | In `modal-header.tsx`, change the popover's `helpEntry.bodyKey` to `helpEntry.titleKey` | "shows the entry's own body" |
-| 4 | In `use-popover-dismiss.ts`, change `kind: "layer"` to `kind: "modal"` | "closes the popover on Escape without closing the modal" |
-| 5 | In `modal-header.tsx`, change `t(lang, "modalHelpAbout", helpTitle ?? title)` to `"Help"` | "gives two stacked headers distinct help-icon names" |
-| 6 | In `i18n.de.ts`, change `modalHelpAbout` to the EN string `"Help – {0}"` | "names the help icon in German" |
+| # | Mutant (the exact edit) | Must turn red | Run this file |
+|---|---|---|---|
+| 1 | In `raid-edit-modal.tsx`, delete `helpConceptId={MODAL_HELP.raidEdit}` | Task 7's count check; that modal's own test | `src/app/raid-edit-modal.test.tsx` |
+| 2 | In `modal-header.tsx`, change `{helpEntry && (` to `{true && (` | "renders no help icon when no helpConceptId is passed" | `src/app/modal-header.test.tsx` |
+| 3 | In `modal-header.tsx`, change the popover's `helpEntry.bodyKey` to `helpEntry.titleKey` | "shows the entry's own body" | `src/app/modal-header.test.tsx` |
+| 4 | In `use-popover-dismiss.ts`, change `kind: "layer"` to `kind: "modal"` | "closes the popover on Escape without closing the modal" | `src/app/modal-header.test.tsx` |
+| 5 | In `modal-header.tsx`, change `t(lang, "modalHelpAbout", helpTitle ?? title)` to `"Help"` | "gives two stacked headers distinct help-icon names" | `src/app/modal-header.test.tsx` |
+| 6 | In `i18n.de.ts`, change `modalHelpAbout` to the EN string `"Help – {0}"` | "names the help icon in German" | `src/app/modal-header.test.tsx` |
+
+★ Mutant 1's target test file must be one that actually renders that modal. If
+`raid-edit-modal.test.tsx` does not exist, run the count check from Task 7 Step 2 instead and record
+its before/after numbers (`20` → `19`) as that mutant's evidence.
+
+★ Mutant 6 edits `i18n.de.ts` — revert it with a **node utf8 write**, never the Edit tool, for the
+same umlaut/curly-quote reason Task 4 gives.
 
 - [ ] **Step 1-6: For each mutant in turn**
 
 ```bash
 # after placing mutant N with the Edit tool:
-npx vitest run <the target test file> > /tmp/mN.log 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " /tmp/mN.log
+npx vitest run <the "Run this file" path for mutant N from the table above> > /tmp/mN.log 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " /tmp/mN.log
 ```
 Record the `N failed / M passed` line. Then revert by inverse Edit and confirm:
 
