@@ -32,4 +32,16 @@ describe("mulberry32", () => {
       expect(v).toBeLessThan(1);
     }
   });
+
+  it("pins the exact output stream, so an algorithm swap cannot pass", () => {
+    // ★★ The three tests above are all self-referential — same-seed agreement,
+    //    cross-seed difference, and range. A DIFFERENT but still valid seeded
+    //    PRNG satisfies every one of them. These literals are the only thing
+    //    that pins THIS algorithm, and the seeded anchor arm's whole value is
+    //    that it regenerates byte-identically forever.
+    const r = mulberry32(12345);
+    expect([r(), r(), r()]).toEqual([
+      0.9797282677609473, 0.3067522644996643, 0.484205421525985,
+    ]);
+  });
 });
