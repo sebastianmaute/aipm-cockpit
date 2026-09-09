@@ -44,11 +44,15 @@ export function HelpBodyText({
   );
 }
 
-/** ★★ Copied VERBATIM from `help-content-pane.tsx`, which still renders its own
- *  copy for the entry TITLE (not a body, so it cannot route through
- *  `HelpBodyText`). The two must stay byte-identical or a search term
- *  highlights differently in a title than in the body beneath it. */
-function Highlighted({ text, query }: { text: string; query: string }) {
+/** One entry's search-term highlighting, shared rather than copied.
+ *
+ *  ★★ EXPORTED because `help-content-pane.tsx` renders an entry's TITLE, which
+ *  is not a body and so cannot route through `HelpBodyText`. It calls this
+ *  DIRECTLY for the title and reaches it through `HelpBodyText` for the primer
+ *  and the body. A second copy is how those two drift: change the `<mark>`
+ *  class in one place only, and a search term highlights differently in a
+ *  title than in the body directly beneath it, inside one view. */
+export function Highlighted({ text, query }: { text: string; query: string }) {
   return (
     <>
       {highlightSegments(text, query).map((seg, k) =>

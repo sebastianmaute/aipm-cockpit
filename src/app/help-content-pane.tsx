@@ -8,31 +8,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { HELP_ENTRIES, HELP_GROUP_LABEL, helpGroupOrder, type HelpReadingLevel } from "./help-content";
-import { matchesQuery, highlightSegments } from "./help-search";
+import { matchesQuery } from "./help-search";
 import { stripHelpMarkers } from "./help-body-markup";
-import { HelpBodyText } from "./help-body-text";
+import { HelpBodyText, Highlighted } from "./help-body-text";
 import { navLabelKey, type AppView } from "./nav-config";
 import { INTERACTIVE } from "./interaction-styles";
 
 /** DOM id for an entry's content section — shared so the in-pane view's
  *  relations map + deep-link scroll can target sections this component renders. */
 export const helpSectionId = (id: string) => `help-sec-${id}`;
-
-function Highlighted({ text, query }: { text: string; query: string }) {
-  return (
-    <>
-      {highlightSegments(text, query).map((seg, k) =>
-        seg.match ? (
-          <mark key={k} className="bg-ui-green/20 text-inherit">
-            {seg.text}
-          </mark>
-        ) : (
-          <span key={k}>{seg.text}</span>
-        ),
-      )}
-    </>
-  );
-}
 
 export function HelpContentPane({
   lang,
