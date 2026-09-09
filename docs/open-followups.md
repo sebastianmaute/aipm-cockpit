@@ -31535,10 +31535,43 @@ and the outside button on press 5. The popover therefore carries its OWN close b
 load-bearing for containment as well as being a second dismissal affordance; "keeps Tab inside the
 dialog while the help popover is open" (`modal-header.test.tsx`) pins it, mutation-proved by adding
 `disabled` to that button (2 failed / 17 passed, the Tab test among them).
-★ **EYE-VERIFICATION OF THE CLIPPING IS OWED AND NOT DONE.** jsdom has no layout and axe does not
-evaluate clipping, so no test in this repo can see it. The claim that shipped is "the primitive that
-prevents clipping is now in use", NOT "clipping was observed fixed" — check
-`documents-rename-modal` and `task-linked-task-modal`, the two shortest panels, in a browser.
+★ **EYE-VERIFICATION OF THE CLIPPING IS DONE — MEASURED 2026-09-09, and read the scope, which is
+narrower than "verified".** jsdom has no layout and axe does not evaluate clipping, so no test in
+this repo can see it; this was a THROWAWAY seeded Playwright spec (deleted, never committed) reading
+`getBoundingClientRect`/`elementFromPoint` through `page.evaluate` against a `PORT=3100` dev server
+at `--workers=1`, Chromium only, three viewports, three consecutive identical runs.
+Both named modals **DO NOT CLIP**. `documents-rename-modal` (modal 420x229, `overflow: hidden`):
+the panel is 320x368.5, `position: fixed`, its `parentElement` IS `document.body`, the modal does
+NOT contain it, and it escapes by **193.5px at the bottom** and 33px at the left —
+`elementFromPoint` 96px BELOW the modal's bottom edge returns a `<span>` inside the panel.
+`task-linked-task-modal` (modal 440x402) escapes by **13px at the left only**; its bottom stays 25px
+inside, because that modal is tall enough that the 323px panel always fits. ★★ So the portal buys an
+amputation on the short modal and a sliver on the tall one — do not generalise the rename figure.
+★★★ THE PREMISE ITSELF WAS MEASURED, not assumed, and this is the part worth keeping: a stand-in
+div injected as a CHILD of the modal panel at the OLD `absolute right-0 top-full` offset, at the
+real panel's exact size and `z-index: 2147483647`, is **absent from the entire 19-element
+`elementsFromPoint` hit stack** at a point 191px past the modal's bottom — while a second control
+ghost placed WHOLLY INSIDE the modal IS found by the same probe. That second ghost is what stops
+"not in the stack" from being explained by a ghost that never painted. ★★ `elementsFromPoint`
+(PLURAL) is load-bearing: the probe point lies inside the REAL portaled popover, so the singular
+call returns the popover and a "not the ghost" assertion would prove OCCLUSION, not clipping — a
+different question answered at exit 0.
+★★★ A STACKED MODAL SILENTLY MEASURES THE WRONG BOX. `document.querySelector("[data-modal-panel]")`
+returns the FIRST panel in the DOM, which for `TaskLinkedTaskModal` is the task editor underneath
+(1200x684, not 440x402). Anchor on `trigger.closest("[data-modal-panel]")`. The wrong-box run exits 0.
+★★ **`max-h-[60vh]` IS INERT AT A NORMAL VIEWPORT, and the commit's stated justification does not
+cover the two modals checked.** Computed `max-height` tracks 60vh exactly (432/336/252px at 720/560/
+420), and where it BINDS (@1024x420) the content is genuinely reachable — rename `scrollHeight` 367
+> `clientHeight` 250, `scrollTop` reads back 117 = the full difference. But at 1280x720 BOTH panels
+have `scrollHeight === clientHeight` and nothing scrolls. The commit cites "bodies over 1000
+characters"; the two modals named here carry the two SHORTEST bodies in the map (`feature-documents`
+665, `concept-dependency` 405). The three bodies that actually exceed 1000 — `feature-ai` (1300,
+`aiSettings`), `feature-jira` (1124, `jiraConflicts`), `feature-document-history` (1081,
+`documentsHistory`) — were **NOT measured**. The cap almost certainly binds there; nobody has seen it.
+★ ALSO UNMEASURED, deliberately listed so a reader does not over-read the pass: no `EditModalShell`
+consumer (that shell serves seven sites); the flip-above-anchor branch (`MIN_SPACE_BELOW`) never
+triggered, every case having room below; the viewport clamp held in all six cases but was never
+STRESSED, nothing coming near an edge; and Chromium alone.
 ★★ CONSEQUENCE FOR GAP 4 BELOW: shipping the popover means the deep-link route was never needed
 here, so `HelpMenu` gaining a deep-link input is now a SEPARATE want with no caller pushing it —
 lower priority than this entry originally implied, not higher.
