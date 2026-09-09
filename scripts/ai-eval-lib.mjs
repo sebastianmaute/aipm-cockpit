@@ -297,7 +297,7 @@ export const GRADED_AXES = Object.freeze([
     id: "outputTokens",
     worseDirection: "higher",
     meaning:
-      "mean output tokens per response; billed at five times input, so a move is a cost fact even where it is not a quality fact",
+      "mean output tokens per response; billed at five times input, so a move is a cost fact even where it is not a quality fact — but a fall here alongside a fall in hit rate is not an improvement: a model that gives up tersely scores better on this axis than one that succeeds and explains itself, so read the two together, not this one alone",
   },
 ]);
 
@@ -327,4 +327,58 @@ export function gradeArm(responses, target) {
     adherenceOf: hits.length,
     outputTokens: total === 0 ? 0 : sum((r) => r.outputTokens ?? 0) / total,
   };
+}
+
+function countOf(haystack, needle) {
+  if (!needle) return 0;
+  return String(haystack).toLowerCase().split(needle.toLowerCase()).length - 1;
+}
+
+/** Everything that must hold before a single token is spent.
+ *
+ *  ★★★ THE STRUCTURAL POSITION CHECKS ARE THE LOAD-BEARING ONES. Without them
+ *  a toggle that silently stopped toggling gives two IDENTICAL arms, and the
+ *  run reports a confident "no regression" while comparing a layout with
+ *  itself. That is worse than no harness: it is a green light nobody earned.
+ *
+ *  Returns every failure rather than the first, so one run tells you the whole
+ *  story instead of one fix per invocation. */
+export function preflight(input) {
+  const failures = [];
+  const { target, decoy, armPrompts } = input;
+
+  for (const arm of ["A", "B"]) {
+    const p = armPrompts[arm];
+    const whole = `${p.system}\n${p.turn}`;
+    if (countOf(whole, target) !== 1) {
+      failures.push(
+        `arm ${arm}: target must appear exactly once in the assembled prompt, found ${countOf(whole, target)}`,
+      );
+    }
+    if (countOf(whole, decoy) !== 1) {
+      failures.push(
+        `arm ${arm}: decoy must appear exactly once in the assembled prompt, found ${countOf(whole, decoy)}`,
+      );
+    }
+  }
+
+  if (countOf(armPrompts.A.system, target) !== 1) {
+    failures.push("arm A: the target must sit in system — that is what arm A is");
+  }
+  if (countOf(armPrompts.B.system, target) !== 0) {
+    failures.push("arm B: the target must NOT sit in system — the toggle did not toggle");
+  }
+
+  if (input.anchorHash !== input.recordedAnchorHash) {
+    failures.push(
+      `anchor hash mismatch: the generator changed (${input.anchorHash} vs recorded ${input.recordedAnchorHash})`,
+    );
+  }
+  if (input.recordedRollingHash != null && input.rollingHash !== input.recordedRollingHash) {
+    failures.push(
+      `rolling prompt hash mismatch: the stored drift reference is not what the last run wrote`,
+    );
+  }
+
+  return { ok: failures.length === 0, failures };
 }

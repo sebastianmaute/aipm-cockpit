@@ -378,3 +378,100 @@ describe("gradeArm", () => {
     expect(graded.adherenceOf).toBe(2);
   });
 });
+
+import { preflight } from "./ai-eval-lib.mjs";
+
+const okInput = () => ({
+  target: "vorquenzil",
+  decoy: "mabtresk",
+  armPrompts: {
+    // Arm A carries the token in `system`; arm B carries it on the turn tail.
+    A: { system: "... reference code vorquenzil ... and reference code mabtresk ...", turn: "question" },
+    B: { system: "... reference code mabtresk ...", turn: "question ... reference code vorquenzil ..." },
+  },
+  anchorHash: "abc",
+  recordedAnchorHash: "abc",
+  rollingHash: "def",
+  recordedRollingHash: "def",
+});
+
+describe("preflight", () => {
+  it("passes a well-formed input", () => {
+    expect(preflight(okInput())).toEqual({ ok: true, failures: [] });
+  });
+
+  it("fails when the target appears twice in one arm", () => {
+    const input = okInput();
+    input.armPrompts.A.system += " vorquenzil again";
+    const res = preflight(input);
+    expect(res.ok).toBe(false);
+    expect(res.failures.join(" ")).toMatch(/target.*exactly once.*A/i);
+  });
+
+  it("fails when the target is missing from an arm entirely", () => {
+    const input = okInput();
+    input.armPrompts.B.turn = "question with no code";
+    const res = preflight(input);
+    expect(res.ok).toBe(false);
+    expect(res.failures.join(" ")).toMatch(/target.*exactly once.*B/i);
+  });
+
+  it("fails when arm A carries the target outside system", () => {
+    // A's whole point is that the block sits in `system`. If it does not, arm A
+    // is not the layout it claims to be and the comparison means nothing.
+    const input = okInput();
+    input.armPrompts.A = { system: "no code here", turn: "question reference code vorquenzil" };
+    const res = preflight(input);
+    expect(res.ok).toBe(false);
+    expect(res.failures.join(" ")).toMatch(/arm A.*system/i);
+  });
+
+  it("fails when arm B carries the target in system", () => {
+    // The failure that would otherwise produce two IDENTICAL arms and a
+    // confident "no regression" — a toggle that silently stopped toggling.
+    const input = okInput();
+    input.armPrompts.B = { system: "reference code vorquenzil", turn: "question" };
+    const res = preflight(input);
+    expect(res.ok).toBe(false);
+    expect(res.failures.join(" ")).toMatch(/arm B.*not.*system/i);
+  });
+
+  it("fails when the decoy is missing", () => {
+    const input = okInput();
+    input.armPrompts.A.system = "reference code vorquenzil";
+    input.armPrompts.B.system = "nothing";
+    const res = preflight(input);
+    expect(res.ok).toBe(false);
+    expect(res.failures.join(" ")).toMatch(/decoy/i);
+  });
+
+  it("fails on an anchor hash mismatch", () => {
+    const input = okInput();
+    input.anchorHash = "changed";
+    const res = preflight(input);
+    expect(res.ok).toBe(false);
+    expect(res.failures.join(" ")).toMatch(/anchor hash/i);
+  });
+
+  it("fails on a rolling hash mismatch", () => {
+    const input = okInput();
+    input.rollingHash = "changed";
+    const res = preflight(input);
+    expect(res.ok).toBe(false);
+    expect(res.failures.join(" ")).toMatch(/rolling/i);
+  });
+
+  it("accepts an absent rolling reference, so the first run can bootstrap", () => {
+    const input = okInput();
+    input.rollingHash = null;
+    input.recordedRollingHash = null;
+    expect(preflight(input).ok).toBe(true);
+  });
+
+  it("reports every failure at once rather than stopping at the first", () => {
+    const input = okInput();
+    input.anchorHash = "changed";
+    input.rollingHash = "changed";
+    expect(preflight(input).failures.length).toBe(2);
+  });
+});
