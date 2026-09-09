@@ -264,6 +264,41 @@ across runs cannot, and confounds the prompt change with anything that moved in 
 including a model update, which is exactly when the verdict most needs to be trusted. That
 toggle requirement belongs in each of those three plans.
 
+**It is an internal builder parameter, not a user-facing setting** — not a field on `AiConfig`,
+not a row in Settings, not something `sanitizeAiConfig` sees. It defaults to shipped behaviour
+and is flipped only by the harness. Exposing it would ship a half-evaluated option to users,
+which is the opposite of the point.
+
+The cost is not uniform, and the third row is the one that constrains implementation rather than
+merely adding a flag:
+
+| Slice | What the toggle must do | Cost |
+|---|---|---|
+| tool-array gating | nothing new — `toolsFor` already takes `ToolFlags`, and `variantFor` already builds and caches one array per combination while recomputing the cache breakpoint per variant | the mechanism is the slice |
+| G2 | a parameter threaded through `buildStableSystemBlocks` and `buildTurnContext` selecting where the view-scoped block lands | moderate; both already take parameters |
+| leadership-guide trim | the untrimmed text must stay **reachable** while the eval runs, so the trim has to be a filter or transform over the existing corpus rather than a deletion at source | highest; it shapes the implementation |
+
+**Half of this is already owed.** Slice B's spec names a fallback — keep the view-scope block's
+output in `system` and take the smaller cache win if a future eval goes badly — and G2 inherits
+it. A fallback nothing can switch to is a paragraph, not a fallback. Honouring what those specs
+already promise needs the same toggle, so H is making an existing obligation explicit rather
+than levying a new one.
+
+**After a slice's eval passes**, its plan says which ending it takes: keep the toggle as the live
+fallback its spec promises, with a test pinning the default so the wrong layout cannot ship
+silently; or remove it, accepting that the old layout becomes unreconstructable and a future
+re-eval has no arm A. Keep is the better fit for G2 and the guide trim, which both name a
+fallback; remove for tool gating, where the flag is the feature and there is nothing to fall back
+to.
+
+**The risk a toggle carries** is that the un-taken branch ships untested, and two identical arms
+would report a confident "no regression". The pre-flight assertion above is the guard: it already
+requires each planted token to sit in the position its arm expects — arm A in `system`, arm B on
+the turn tail — so a toggle that silently stops toggling refuses the run instead of passing it.
+
+**Only arm B needs a code toggle.** Arms R and N are byte replay, so they impose nothing on
+anyone.
+
 ## Out of scope
 
 - **Assertions on tool arguments, entity ids and view adherence.** The roadmap's broader H
