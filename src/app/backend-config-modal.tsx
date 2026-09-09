@@ -14,7 +14,7 @@
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
-import { MODAL_HELP } from "./help-content";
+import { type HelpEntryId } from "./help-content";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { type Settings } from "./settings-types";
 import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
@@ -37,21 +37,27 @@ export interface BackendConfigModalProps {
   /** Body override. When provided, render this instead of IntegrationsSection
    *  (e.g. the AI-assistant config surface renders AiSection here). */
   children?: React.ReactNode;
-  /** Suppress the header's help icon.
+  /** Which Help entry the header's icon opens. REQUIRED, and required rather
+   *  than optional-with-a-default on purpose: tsc then catches a consumer that
+   *  forgets it, which a default never would.
    *
-   *  ★ PASS IT WITH A `children` BODY THAT IS NOT ABOUT STORAGE. This modal
-   *  hardcodes `MODAL_HELP.backendConfig` (the Storage entry: IndexedDB,
-   *  JSON/CSV files, SharePoint), which is correct for its default
-   *  IntegrationsSection body — but `children` lets a consumer replace that
-   *  body wholesale, and the empty-state AI instance renders `AiSection`
-   *  under it. Opening the Storage entry from a dialog about the Anthropic
-   *  API key is worse than showing no icon at all.
-   *  SUPPRESSED rather than repointed: no Help entry describes the AI
-   *  settings. Kept as a suppression flag rather than a `helpConceptId`
-   *  override so the id stays declared once, here — `help-content.test.ts`
-   *  pins each MODAL_HELP key to exactly one call site. Defaults to false, so
-   *  every existing call site renders byte-identically. */
-  hideHelp?: boolean;
+   *  ★★ IT IS A PROP BECAUSE `children` REPLACES THE BODY. This modal used to
+   *  hardcode `MODAL_HELP.backendConfig` (Storage: IndexedDB, JSON/CSV files,
+   *  SharePoint), which is right for its default `IntegrationsSection` body —
+   *  but the empty-state AI instance renders `AiSection` under it, so the icon
+   *  opened the Storage entry over a dialog about the Anthropic API key. That
+   *  was closed by a `hideHelp` suppression flag (REMOVED — it no longer
+   *  exists on this component or on `ModalHeader`) justified by "no Help entry
+   *  describes the AI settings", which was FALSE: scanning all 66 entries'
+   *  titles and bodies for /anthropic|api key/i returns TWO — `feature-ai` and
+   *  `feature-ai-advanced` — and `feature-ai`'s body opens "Add an Anthropic
+   *  API key in Settings → AI, …", exactly the dialog's subject. So the AI
+   *  instance now passes `MODAL_HELP.aiSettings` and the flag is gone.
+   *
+   *  ★ PASS A LITERAL `MODAL_HELP.<key>`, never a computed id:
+   *  `help-content.test.ts` scans the sources for that exact spelling, and a
+   *  ternary or a variable reads to it as an unwired key. */
+  helpConceptId: HelpEntryId;
 }
 
 export function BackendConfigModal({
@@ -63,7 +69,7 @@ export function BackendConfigModal({
   hidePortfolioSwitch,
   noCurrentProject,
   children,
-  hideHelp = false,
+  helpConceptId,
 }: BackendConfigModalProps) {
   const TITLE_ID = "backend-config-modal-title";
   return (
@@ -87,8 +93,7 @@ export function BackendConfigModal({
         <ModalHeader
           lang={lang}
           title={title}
-          helpConceptId={MODAL_HELP.backendConfig}
-          hideHelp={hideHelp}
+          helpConceptId={helpConceptId}
           titleId={TITLE_ID}
           onClose={onClose}
         />

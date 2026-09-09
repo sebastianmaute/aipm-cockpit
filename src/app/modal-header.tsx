@@ -63,24 +63,6 @@ interface ModalHeaderProps {
    *  because `requestHelpConcept` sets activeTab = "help" and would switch the
    *  view BEHIND the still-open dialog (docs/open-followups.md §424). */
   helpConceptId?: HelpEntryId;
-  /** Suppress the help icon in this header even though `helpConceptId` is set.
-   *
-   *  ★ PASS IT WHERE ONE COMPONENT HARDCODES A HELP ID BUT A CONSUMER REPLACES
-   *  THE BODY. `BackendConfigModal` is the case: it owns
-   *  `MODAL_HELP.backendConfig` (Storage) for its own default body, but its
-   *  `children` prop lets a consumer render something else entirely — the
-   *  empty-state AI instance renders `AiSection` under it, so the icon would
-   *  open the Storage entry over a dialog about the Anthropic API key. A wrong
-   *  entry is worse than no icon.
-   *  SUPPRESSED rather than repointed: no Help entry describes the AI settings
-   *  today. Suppressed HERE rather than by making the id conditional at the
-   *  call site, because `help-content.test.ts` scans for the bare
-   *  attribute-equals-MODAL_HELP-dot-key spelling and a ternary would read as
-   *  an unwired key. (Spelled out rather than quoted: the literal form is what
-   *  that scan — and the grep people run beside it — matches, so writing it
-   *  here would make this comment count as a 20th call site.) Defaults to
-   *  false, so every existing call site renders byte-identically. */
-  hideHelp?: boolean;
   /** Qualifies the help icon's accessible name. Pass the modal's own title.
    *  ★ SAME REASON AS `closeLabel` TWO PROPS UP: two stacked headers otherwise
    *  put two controls named "Help" in one document, speech input does not
@@ -112,7 +94,6 @@ export function ModalHeader({
   closeLabel,
   hideVoiceCommand = false,
   helpConceptId,
-  hideHelp = false,
   helpTitle,
   headerExtra,
   onResetLayout,
@@ -126,8 +107,7 @@ export function ModalHeader({
   // `PopoverPanel` reads this through effect dependencies, so it MUST be
   // stable — its docstring says so explicitly.
   const closeHelp = useCallback(() => setHelpOpen(false), []);
-  const helpEntry =
-    helpConceptId && !hideHelp ? HELP_ENTRIES.find((e) => e.id === helpConceptId) : undefined;
+  const helpEntry = helpConceptId ? HELP_ENTRIES.find((e) => e.id === helpConceptId) : undefined;
   const helpName = t(lang, "modalHelpAbout", helpTitle ?? title);
   const helpCloseName = helpEntry
     ? `${t(lang, "alertModalClose")} – ${t(lang, helpEntry.titleKey)}`

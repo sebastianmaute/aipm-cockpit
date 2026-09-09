@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { BackendConfigModal } from "./backend-config-modal";
+import { HELP_ENTRIES, MODAL_HELP } from "./help-content";
 import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
 
@@ -9,12 +10,12 @@ import { t } from "./i18n";
 // Modal and IntegrationsSection are mocked so this test focuses on the shell.
 //
 // ★★ ModalHeader is deliberately NOT mocked. The help-icon tests below turn on
-// whether an icon RENDERS, and a stub that decides that for itself proves only
-// that a prop was threaded — it would stay green if the real header started
-// rendering the icon regardless of `hideHelp`. The real header costs nothing
-// here: `useVoiceCommand` returns null with no provider (no mic), and its ✕
-// carries the same `alertModalClose` name the old stub gave it, so the close
-// tests below are unaffected.
+// which ENTRY the icon opens, and a stub proves only that a prop was threaded —
+// it would stay green if the real header ignored the id and opened a hardcoded
+// one, which is exactly the defect the required `helpConceptId` replaced. The
+// real header costs nothing here: `useVoiceCommand` returns null with no
+// provider (no mic), and its ✕ carries the same `alertModalClose` name the old
+// stub gave it, so the close tests below are unaffected.
 vi.mock("./modal", () => ({
   Modal: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
     open ? <div data-testid="modal">{children}</div> : null,
@@ -45,6 +46,9 @@ function setup(over: Partial<React.ComponentProps<typeof BackendConfigModal>> = 
     settings: defaultSettings,
     onChangeSettings,
     onClose,
+    // Required on the component; the storage id is what two of its three
+    // consumers pass, so it is the right default for the shell tests.
+    helpConceptId: MODAL_HELP.backendConfig,
     ...over,
   };
   render(<BackendConfigModal {...props} />);
@@ -93,15 +97,43 @@ describe("BackendConfigModal", () => {
     expect(screen.getByRole("button", { name: /^Help/ })).toBeTruthy();
   });
 
-  it("hideHelp suppresses the help icon", () => {
-    setup({ title: "Configure AI", hideHelp: true });
-    expect(screen.queryByRole("button", { name: /^Help/ })).toBeNull();
-    // ★ ANTI-VACUITY: the negative above passes on a modal that rendered
-    // nothing at all. These assert the header DID render, so the absence is a
-    // real absence rather than a missing subtree.
-    expect(screen.getByText("Configure AI")).toBeTruthy();
-    expect(
-      screen.getAllByRole("button", { name: t("en-US", "alertModalClose") }).length,
-    ).toBeGreaterThan(0);
+  it("opens the entry the CONSUMER chose, not a hardcoded one", () => {
+    // ★★★ THE REGRESSION THIS REPLACES. The modal used to hardcode
+    // `MODAL_HELP.backendConfig` and take a `hideHelp` flag (REMOVED), because the
+    // empty-state AI instance replaces the whole body with `AiSection` and the
+    // Storage entry would have been wrong over it. The flag's justification —
+    // "no Help entry describes the AI settings" — was false: `feature-ai`'s
+    // body opens "Add an Anthropic API key in Settings → AI, …". So the id is
+    // now a REQUIRED prop and the AI instance repoints instead of suppressing.
+    //
+    // ★ Asserted through the two entries' real TITLES, so a modal that
+    // threaded the prop but ignored it (the shape a stubbed header would hide)
+    // still fails. `ModalHeader` is deliberately not mocked here — see the top
+    // of this file.
+    const storage = HELP_ENTRIES.find((e) => e.id === MODAL_HELP.backendConfig)!;
+    const ai = HELP_ENTRIES.find((e) => e.id === MODAL_HELP.aiSettings)!;
+    // ★ The two entries must actually DIFFER, or every assertion below is
+    // vacuous — this test would pass with the prop ignored.
+    expect(MODAL_HELP.aiSettings).not.toBe(MODAL_HELP.backendConfig);
+
+    const { unmount } = render(
+      <BackendConfigModal
+        lang="en-US"
+        title="Configure AI"
+        settings={defaultSettings}
+        onChangeSettings={vi.fn()}
+        onClose={vi.fn()}
+        helpConceptId={MODAL_HELP.aiSettings}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Help/ }));
+    expect(screen.getByRole("dialog", { name: t("en-US", ai.titleKey) })).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: t("en-US", storage.titleKey) })).toBeNull();
+    unmount();
+
+    setup({ title: "Configure Storage", helpConceptId: MODAL_HELP.backendConfig });
+    fireEvent.click(screen.getByRole("button", { name: /^Help/ }));
+    expect(screen.getByRole("dialog", { name: t("en-US", storage.titleKey) })).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: t("en-US", ai.titleKey) })).toBeNull();
   });
 });

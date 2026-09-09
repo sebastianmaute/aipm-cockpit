@@ -84,7 +84,7 @@ describe("MODAL_HELP", () => {
     // trivially. This floor is the positive observable -- it fails if the map
     // is emptied, and it is the reason a "0 unresolvable" result means
     // anything at all.
-    expect(entries.length).toBe(18);
+    expect(entries.length).toBe(19);
 
     const unresolvable = entries.filter(([, id]) => !known.has(id));
     expect(unresolvable).toEqual([]);
@@ -96,7 +96,7 @@ describe("MODAL_HELP", () => {
     }
   });
 
-  it("wires every MODAL_HELP key to exactly one call site", () => {
+  it("wires every MODAL_HELP key, one call site each unless allowlisted", () => {
     // ★★ The two tests above pin the MAP -- that each key names a real entry.
     // NOTHING pinned the WIRING. A modal that silently loses its
     // `helpConceptId`, or a MODAL_HELP key no call site references, is
@@ -120,23 +120,54 @@ describe("MODAL_HELP", () => {
       }
     }
 
-    // ★★★ ANTI-VACUITY, and it is load-bearing rather than decorative: a wrong
-    // directory or a filter that matches nothing yields an EMPTY scan, and an
-    // empty scan satisfies... nothing here, because `used` would then be empty
-    // and the key-set comparison below fails loudly. But it fails NAMING every
-    // MODAL_HELP key as missing, which reads like 19 unwired modals rather
-    // than a broken scan -- a diagnosis that sends the next reader to the
-    // wrong 20 files. This floor makes the scan itself the thing that fails.
+    // ★★ A DIAGNOSTIC, NOT AN INDEPENDENT DETECTOR -- do not upgrade this
+    // description. A wrong directory or a filter that matches nothing yields
+    // an EMPTY scan, and the key-set comparison below already CANNOT pass
+    // vacuously over one: `used` would be empty and the comparison fails
+    // loudly. What it fails with is the problem -- it names every MODAL_HELP
+    // key as missing, which reads like 19 unwired modals rather than a broken
+    // scan, and sends the next reader to the wrong 19 files. This floor makes
+    // the scan itself the thing that fails, so the failure message is right.
     // 366 non-test .tsx files today (find src/app -name "*.tsx" ! -name
     // "*.test.tsx" | wc -l); 200 is far below that and far above zero.
     expect(files.length).toBeGreaterThan(200);
 
+    // ★★ SET EQUALITY BOTH DIRECTIONS. A key with no call site is an unwired
+    // modal; a scanned key absent from the map cannot typecheck today but
+    // would be the shape of a rename that only half landed.
     expect([...used.keys()].sort()).toEqual(Object.keys(MODAL_HELP).sort());
 
-    // ★ One site per key. Two modals sharing a key is not necessarily wrong,
-    // but it is never accidental -- make it a deliberate edit here.
+    // ★★ ONE SITE PER KEY, WITH AN EXPLICIT ALLOWLIST. Two modals sharing a
+    // key is not necessarily wrong, but it is never accidental -- so it has to
+    // be a deliberate edit HERE, with the reason written beside it.
+    const MULTI_SITE_KEYS: Readonly<Record<string, string>> = {
+      // `BackendConfigModal` takes a REQUIRED `helpConceptId` (it used to
+      // hardcode this id and carry a `hideHelp` flag, REMOVED). Its two STORAGE
+      // consumers -- the create-project form's "configure" step and the
+      // empty-state "Backend setup" button -- both pass this literal; the
+      // empty state's AI instance passes `aiSettings`, because that one
+      // replaces the modal body with `AiSection`.
+      backendConfig: "BackendConfigModal's two storage consumers pass it directly",
+    };
+
     for (const [key, hits] of used) {
+      const reason = MULTI_SITE_KEYS[key];
+      if (reason) {
+        // ★★★ THE ALLOWLIST IS ASSERTED IN BOTH DIRECTIONS, which is the half
+        // an allowlist usually lacks. Without this a key that dropped back to
+        // ONE site would sit here forever, silently exempting itself from the
+        // check the other 18 keys get.
+        expect(hits.length, `MODAL_HELP.${key} is allowlisted (${reason}) but has one site`)
+          .toBeGreaterThan(1);
+        continue;
+      }
       expect(hits, `MODAL_HELP.${key}`).toHaveLength(1);
+    }
+
+    // ★ And the allowlist may not name a key the map has dropped -- otherwise
+    // a removed row leaves a dangling exemption behind.
+    for (const key of Object.keys(MULTI_SITE_KEYS)) {
+      expect(Object.keys(MODAL_HELP), `MULTI_SITE_KEYS.${key}`).toContain(key);
     }
   });
 });

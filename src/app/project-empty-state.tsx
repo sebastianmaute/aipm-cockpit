@@ -27,6 +27,7 @@ import { TursoProjectPicker } from "./turso-project-picker";
 import { getTursoConfig } from "./turso-config";
 import { AiSection } from "./settings-sections/ai-section";
 import { type Contact } from "./contacts";
+import { MODAL_HELP } from "./help-content";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { Button } from "./button";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
@@ -353,6 +354,7 @@ export function ProjectEmptyState({
           settings={settings}
           onChangeSettings={onChangeSettings}
           onClose={() => setConfigOpen(false)}
+          helpConceptId={MODAL_HELP.backendConfig}
           noCurrentProject
         />
       )}
@@ -364,10 +366,15 @@ export function ProjectEmptyState({
           settings={settings}
           onChangeSettings={onChangeSettings}
           onClose={() => setAiConfigOpen(false)}
-          // ★ This instance replaces the modal's whole body with AiSection, so
-          //   the hardcoded Storage help entry would be wrong here. No Help
-          //   entry describes the AI settings, so suppress rather than repoint.
-          hideHelp
+          // ★★ This instance replaces the modal's whole body with `AiSection`,
+          //    so the Storage entry the other two open would be wrong here —
+          //    it used to carry `hideHelp` (REMOVED) on the grounds "no Help entry
+          //    describes the AI settings", which was FALSE. `feature-ai`'s body
+          //    opens "Add an Anthropic API key in Settings → AI, …" — the exact
+          //    subject of this dialog. (Measured over all 66 entries' titles +
+          //    bodies: /anthropic|api key/i matches `feature-ai` and
+          //    `feature-ai-advanced`.) So it is REPOINTED, not suppressed.
+          helpConceptId={MODAL_HELP.aiSettings}
         >
           <AiSection lang={lang} settings={settings} onChange={onChangeSettings} hideUsage />
         </BackendConfigModal>

@@ -235,8 +235,18 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *  change here by reading the entry, not by running tsc.
  *
  *  ★ `help-content.test.ts` pins that every value resolves AND that the map
- *  still has 18 rows — the count is the anti-vacuity floor, so update it
+ *  still has 19 rows — the count is the anti-vacuity floor, so update it
  *  deliberately when adding a modal, never to make a red run green.
+ *
+ *  ★★ ONE KEY MAY SERVE SEVERAL CALL SITES, and `backendConfig` does.
+ *  `BackendConfigModal` takes a REQUIRED `helpConceptId`, so its three
+ *  consumers each pass a literal: two pass `backendConfig` (Storage) and the
+ *  empty-state AI instance passes `aiSettings`, because that instance replaces
+ *  the modal's whole body with `AiSection`. The wiring test therefore allows a
+ *  key more than one site only through an explicit `MULTI_SITE_KEYS` list with
+ *  its reason written beside it — and asserts every listed key really HAS more
+ *  than one, so the allowlist cannot rot into covering a key that dropped back
+ *  to one.
  *
  *  ★★ A modal with NO apt entry gets NO ROW, and that is the deliberate
  *  answer rather than the nearest-neighbour one. TWO modals have now been
@@ -271,6 +281,7 @@ export const MODAL_HELP = {
   assetPreview: "feature-documents",
   jiraConflicts: "feature-jira",
   backendConfig: "feature-storage",
+  aiSettings: "feature-ai",
   backendSetupWizard: "feature-setup-wizard",
   tursoProjectPicker: "feature-projects",
   projectEdit: "feature-projects",
