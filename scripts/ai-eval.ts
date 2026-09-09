@@ -25,7 +25,7 @@ import { USAGE_COST_WEIGHTS, usageCostEquivalent } from "../src/app/ai-usage";
 import type { Usage } from "../src/app/ai-usage";
 import {
   EXIT, PROBES, plantedToken, sha256, ANCHOR_SPEC, buildAnchorPrompt,
-  preflight, spendDecision, scoreResponse, hitRate, gradeArm,
+  preflight, driftReferenceCheck, spendDecision, scoreResponse, hitRate, gradeArm,
   shouldWriteRolling, parseFilter, filterSpec, buildRunRecord, FILTER_ENV,
   tokenSubstringConflicts, PROBE_HARDENING, plantLabel, priorLabel,
   plantedProbeIds, compositionProbeId, COMPOSITION_ALT_IDS,
@@ -298,6 +298,30 @@ function assembleArm(variant: "current", tokens: Record<string, string>, questio
  *  deliberate byte-for-byte ALIAS of arm A — see `assembleCandidate`. */
 const CANDIDATE_VARIANT = "current";
 
+/** Whether arm B is still a byte-alias of arm A.
+ *
+ *  ★★★ FLIP THIS IN THE SAME EDIT AS `CANDIDATE_VARIANT`, NEVER SEPARATELY.
+ *  Pre-flight checks BOTH directions against the arms' actual bytes, so a stale
+ *  value fails whichever way it is stale: `true` with differing arms says a
+ *  variant was registered and this flag was forgotten, `false` with identical
+ *  arms says the candidate did not relocate anything. There is no way to leave
+ *  it wrong and still spend money.
+ *
+ *  ★★★ WHY A FLAG AND NOT `CANDIDATE_VARIANT !== "current"`: that comparison is
+ *  a TS2367 error today, because `assembleArm`'s `variant` parameter is typed as
+ *  the literal `"current"` and the comparison narrows to `never`. Nothing here
+ *  typechecks in CI (`tsconfig.json` excludes `scripts/`), so the error would
+ *  surface only to whoever next ran tsc by hand — which is worse than an
+ *  explicit flag, not better.
+ *
+ *  ★★★ WHY THE CHECK EXISTS AT ALL. Without it, the moment a slice registers a
+ *  real variant, "the variant moved the block" and "the variant is a silent
+ *  no-op" produce IDENTICAL green output: a PASS over a layout compared with
+ *  itself, which is the single outcome this harness exists to make impossible.
+ *  `preflight`'s own docstring concedes it cannot prove relocation when both
+ *  arms declare the same half — this is the check that forces them to differ. */
+const ARMS_ARE_ALIAS = true;
+
 /** Arm B — the candidate.
  *
  *  ★★ THIS IS THE ONE ARM THAT LEGITIMATELY SHARES ARM A'S BUILDER, and only
@@ -416,7 +440,13 @@ function liveRequest(apiKey: string): RequestFn {
       }),
     });
     if (!res.ok) {
-      throw new Error(`anthropic ${res.status}: ${await res.text()}`);
+      // ★ BOUNDED. This reaches the terminal via the run's catch, and an
+      //   error body is an untrusted response of unbounded length. Anthropic's
+      //   error envelopes do not echo the auth header, so this is not a leak —
+      //   bounded anyway, because "the remote decides how many bytes land on
+      //   your screen" is not a property worth keeping.
+      const detail = (await res.text()).slice(0, 500);
+      throw new Error(`anthropic ${res.status}: ${detail}`);
     }
     const body = await res.json() as {
       content?: { type: string; text?: string }[];
@@ -569,9 +599,26 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   const reps = filter?.reps ?? REPS;
   const armWanted = (arm: string): boolean => !filter?.arms || filter.arms.includes(arm);
 
-  const salt = Number(env.AI_EVAL_SALT ?? "1");
-  const anchorTarget = plantedToken("anchor", salt);
-  const anchorDecoy = plantedToken("anchorDecoy", salt);
+  // ★★★ THE ONE ENV INPUT THAT WAS UNVALIDATED, and the failure was silent
+  //     rather than loud: `AI_EVAL_SALT=not-a-number` yielded NaN, and
+  //     `plantedToken` is happy to mint from NaN — a stable, valid, UNRECORDED
+  //     token universe (`plantedToken("date", NaN)` = "murkkeshphadkesh"),
+  //     which then serialised into the run record as `"salt": null`, i.e. a
+  //     recorded run nobody can ever reproduce. Rejected the way `parseFilter`
+  //     already rejects reps, and for the same reason.
+  const rawSalt = (env.AI_EVAL_SALT ?? "1").trim();
+  if (!/^\d+$/.test(rawSalt) || Number(rawSalt) < 1) {
+    console.error(
+      `invalid AI_EVAL_SALT — spending nothing: must be a whole number of at least 1, got ${JSON.stringify(env.AI_EVAL_SALT ?? "")}`,
+    );
+    return EXIT.UNUSABLE;
+  }
+  const salt = Number(rawSalt);
+  // ★★ The anchor pair is minted from `ANCHOR_SPEC.salt`, NOT from the run
+  //    salt — see that field for why rotating `AI_EVAL_SALT` used to trip the
+  //    anchor-hash guard and make the documented collision repair unusable.
+  const anchorTarget = plantedToken("anchor", ANCHOR_SPEC.salt);
+  const anchorDecoy = plantedToken("anchorDecoy", ANCHOR_SPEC.salt);
   const anchorPrompt = buildAnchorPrompt(ANCHOR_SPEC, anchorTarget, anchorDecoy);
   const anchorHash = sha256(anchorPrompt);
 
@@ -599,12 +646,26 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   //     non-null one — a run that did not write must not blank the reference
   //     the run before it left. Runs recorded before this field existed carry
   //     none, so the check simply stays quiet until a run writes one.
+  //
+  //     ★★★ THE SALT TRAVELS WITH THE HASH, FOR THE SAME REASON. The rolling
+  //     file was written by the run that carries the reference hash, so it holds
+  //     THAT run's tokens — not the last recorded run's, and not today's. The
+  //     replay used to read `last.salt`, which applied the "compare against what
+  //     the last run WROTE" lesson to the hash and not to the salt sitting
+  //     beside it. Latent while every recorded run is salt 1; live the moment
+  //     anyone rotates `AI_EVAL_SALT`, at which point the replay would be scored
+  //     against tokens that are not in the file and read as total drift.
   const writtenRolling = recorded.runs
-    .map((r) => (r as { rollingWrittenHash?: string | null }).rollingWrittenHash ?? null)
-    .filter((x): x is string => typeof x === "string");
-  const recordedRollingHash = writtenRolling.length > 0
+    .filter((r): r is Record<string, unknown> & { rollingWrittenHash: string } =>
+      typeof (r as { rollingWrittenHash?: unknown }).rollingWrittenHash === "string")
+    .map((r) => ({
+      hash: r.rollingWrittenHash,
+      salt: typeof r.salt === "number" ? r.salt : null,
+    }));
+  const rollingRef = writtenRolling.length > 0
     ? writtenRolling[writtenRolling.length - 1]
     : null;
+  const recordedRollingHash = rollingRef?.hash ?? null;
 
   // ★ ONE token map for the whole run. It was rebuilt per probe and again for
   //   the size print; `plantedToken` is deterministic so every copy was
@@ -626,6 +687,11 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   //     repair is to rotate AI_EVAL_SALT; it is deliberately NOT a change to
   //     how tokens are minted, because a re-mint at the same salt would make
   //     the rolling replay miss every time and read as catastrophic drift.
+  //     ★★ THAT REPAIR IS ONLY EXECUTABLE BECAUSE THE ANCHOR PAIR NO LONGER
+  //     RIDES THIS SALT. While it did, rotating tripped the anchor-hash guard
+  //     and exited 2 — the fix worked on a first run and nowhere else. The one
+  //     collision rotation cannot repair is anchor-against-anchorDecoy, which
+  //     is fixed at `ANCHOR_SPEC.salt` and would be a new anchor series.
   for (const c of tokenSubstringConflicts({ ...tokens, anchor: anchorTarget, anchorDecoy })) {
     failures.push(`planted tokens collide at salt ${salt}: ${c} — rotate AI_EVAL_SALT`);
   }
@@ -647,9 +713,73 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
       `PROBE_HARDENING.${composedId}.fillerBefore exceeds the ${COMPOSITION_ALT_IDS.length} near-miss ids COMPOSITION_ALT_IDS declares — add ids to TOKEN_IDS first`,
     );
   }
+
+  // ★★★ A `fillerBefore` ABOVE ITS ARRAY'S LENGTH SILENTLY CLAMPS. Every
+  //     composition path is `ARRAY.slice(0, fillerBefore)`, and `slice` is happy
+  //     to be asked for more than it has — so `fillerBefore: 9` on `viewScope`
+  //     produces the same four lines as `4`, and `PROBE_HARDENING`'s docstring
+  //     promise that "a knob and the prompt it governs cannot drift apart" is
+  //     quietly false. The COMPOSITION path above was guarded; these three were
+  //     not, which is the same defect one branch over.
+  //     ★ `date` and `activityRecap` are deliberately absent: neither block has
+  //     a list to pad, their `fillerBefore` is documented as structurally inert
+  //     at its declaration, and both sit at 0.
+  const fillerCaps: [string, number][] = [
+    ["viewScope", VIEW_DIGEST_FILLER.length],
+    ["insights", INSIGHT_FILLER.length],
+    ["chatPointer", CHAT_ALT_TITLES.length],
+  ];
+  for (const [id, cap] of fillerCaps) {
+    const want = (PROBE_HARDENING as Record<string, { fillerBefore: number }>)[id].fillerBefore;
+    if (want > cap) {
+      failures.push(
+        `PROBE_HARDENING.${id}.fillerBefore is ${want} but only ${cap} filler entries exist — the slice would silently clamp and the block would be shallower than the knob claims`,
+      );
+    }
+  }
+  // ★★ RUN-LEVEL, SO IT RUNS ONCE — NOT INSIDE THE PROBE LOOP. Both references
+  //    are probe-independent; checking them per probe printed the same mismatch
+  //    five times and buried the per-probe failures under it.
+  const drift = driftReferenceCheck({
+    anchorHash,
+    recordedAnchorHash: last?.anchorHash ?? anchorHash,
+    rollingHash,
+    recordedRollingHash,
+  });
+  if (!drift.ok) failures.push(...drift.failures);
+
   for (const probe of activeProbes) {
     const armA = flatten(assembleArm("current", tokens, probe.question), "turn");
     const armB = flatten(assembleCandidate(tokens, probe.question), "turn");
+
+    // ★★★ ARM B MUST BE PROVABLY THE ARM `ARMS_ARE_ALIAS` SAYS IT IS. Both
+    //     directions fail here, at PRE-FLIGHT, before a cent is spent — see the
+    //     flag's own docstring for why either direction is silent otherwise.
+    const armAWhole = `${armA.system}\n${armA.turn}`;
+    const armBWhole = `${armB.system}\n${armB.turn}`;
+    const armsIdentical = armAWhole === armBWhole;
+    if (ARMS_ARE_ALIAS && !armsIdentical) {
+      failures.push(
+        `${probe.id}: ARMS_ARE_ALIAS is true but arm B differs from arm A — a variant was registered without flipping ARMS_ARE_ALIAS beside CANDIDATE_VARIANT`,
+      );
+    }
+    if (!ARMS_ARE_ALIAS && armsIdentical) {
+      failures.push(
+        `${probe.id}: ARMS_ARE_ALIAS is false but arm B is byte-identical to arm A — the candidate variant ${CANDIDATE_VARIANT} did not relocate anything`,
+      );
+    }
+    // ★★★ THIS IS WHAT MAKES THE ABOVE MORE THAN A BYTE COMPARISON. A variant
+    //     can differ in bytes for a reason that is not a relocation at all (a
+    //     reordered field, a reworded label) while the probed block never
+    //     changed half — and `preflight`'s position assertions cannot tell,
+    //     because they only ever check each arm against its OWN declaration.
+    //     Requiring the two declared halves to differ is what forces those
+    //     assertions to prove the move.
+    if (!ARMS_ARE_ALIAS && armA.expectedHalf === armB.expectedHalf) {
+      failures.push(
+        `${probe.id}: both arms declare the ${armA.expectedHalf} half — relocation is proven only when the declared halves differ, so a candidate must declare the other one`,
+      );
+    }
 
     // ★★★ ARM X IS PRE-FLIGHTED HERE AND DELIBERATELY NOT THROUGH `preflight`.
     //     `preflight` asserts the target appears EXACTLY ONCE per arm; arm X is
@@ -699,16 +829,17 @@ ${armA.turn}`;
       target: tokens[probe.id],
       decoy: tokens[probe.distractorBlock],
       armPrompts: { A: armA, B: armB },
-      anchorHash,
-      recordedAnchorHash: last?.anchorHash ?? anchorHash,
-      rollingHash,
-      recordedRollingHash,
+      // ★ The two drift references are NOT passed: they are run-level and are
+      //   checked once, above, by `driftReferenceCheck`.
       // ★★ NOTHING IS SUPPRESSED HERE. Both arms declare "turn" and both
       //    position assertions run and hold. That is honest for an A/A
       //    self-test — arm B is a deliberate alias of arm A until a gated slice
       //    registers a variant, so there is genuinely no relocation to prove.
       //    A real candidate declares the OTHER half for its arm and `preflight`
-      //    then proves the block moved. There is no flag to drop.
+      //    then proves the block moved. There is no flag to drop here —
+      //    `ARMS_ARE_ALIAS` above is not a suppression, it is the assertion
+      //    that the two arms are what the flag claims, and it is what forces a
+      //    candidate to declare the other half so these assertions bite.
     });
     if (!res.ok) failures.push(`${probe.id}: ${res.failures.join("; ")}`);
   }
@@ -853,9 +984,11 @@ ${armA.turn}`;
         );
       }
       if (plan.R > 0 && rollingText !== null) {
-        // The stored bytes carry the SALT of the run that wrote them, so the
-        // replay is scored against that run's tokens, never today's.
-        const replaySalt = last?.salt ?? salt;
+        // The stored bytes carry the SALT of the run that WROTE them, so the
+        // replay is scored against that run's tokens — never today's, and never
+        // the last RECORDED run's, which need not be the one that wrote the
+        // file. See `rollingRef` for the measurement behind that distinction.
+        const replaySalt = rollingRef?.salt ?? salt;
         const rTarget = plantedToken(PROBES[0].id, replaySalt);
         // The whole set at THAT salt, for the same reason the probe arms get
         // the whole set at today's: a replay that returned another block's
@@ -874,15 +1007,32 @@ ${armA.turn}`;
     complete = false;
   }
 
-  // ★★★ THE CENSUS — what was dispatched against what came back.
-  //     `verdict` refuses a run that measured NOTHING and refuses a probe whose
-  //     arm is not a finite number, but it is handed `perProbe` and cannot know
-  //     how many probes or reps SHOULD have been in it: a run that silently
-  //     dropped three of five probes hands over two well-formed rows and passes.
-  //     Only this file knows the plan, so only this file can compare the plan
-  //     against the result. Anything short forces `complete: false`, which
-  //     `verdict` turns into UNUSABLE — never REGRESSION, because a run that
-  //     did not happen says nothing about the candidate.
+  // ★★★ THE CENSUS — what was DISPATCHED against what came back, and that is
+  //     its exact scope. `verdict` refuses a run that measured NOTHING and
+  //     refuses a probe whose arm is not a finite number, but it is handed
+  //     `perProbe` and cannot know how many replies each row should have held:
+  //     a dispatch that threw partway leaves a short row that is otherwise
+  //     well-formed, and passes. Only this file holds `plan`, so only this file
+  //     can catch that. Anything short forces `complete: false`, which `verdict`
+  //     turns into UNUSABLE — never REGRESSION, because a run that did not
+  //     happen says nothing about the candidate.
+  //
+  //     ★★★ IT CANNOT CATCH A SHORTFALL IN THE PLAN ITSELF, and this comment
+  //     claimed for a release that it could ("a run that silently dropped three
+  //     of five probes"). `plan`, the census loop and `requests` all derive from
+  //     `activeProbes`/`reps`/`armWanted` — the same values that drive dispatch
+  //     — so a run that dropped three probes shrinks the plan with them and
+  //     every comparison below still passes. It is self-referential on that
+  //     axis. A shrunken plan is caught instead by the CONSTANTS check
+  //     immediately below (an unfiltered run must be the fixed standard run)
+  //     and, for a deliberately narrowed run, by `verdict`'s filter guard,
+  //     which refuses to report PASS at all.
+  //
+  // ★ STRUCTURALLY UNFALSIFIABLE TODAY, and kept anyway: every `Scored` in
+  //   these arrays was built by `send`, which always attaches a string
+  //   `outcome`, so this can only fire against a future push site that bypasses
+  //   `send`. Cheap, and the alternative is trusting that no such site is ever
+  //   added. Do not read a green run as this having checked anything.
   const isScored = (r: Scored | undefined) => typeof r?.outcome === "string";
   const census: string[] = [];
   for (const probe of activeProbes) {
@@ -907,6 +1057,27 @@ ${armA.turn}`;
   if (driftReplies.R.length !== plan.R || !driftReplies.R.every(isScored)) {
     census.push(`rolling replay: returned ${driftReplies.R.length} of ${plan.R} planned replies`);
   }
+  // ★★★ THE PLAN AGAINST THE CONSTANTS, NOT AGAINST ITSELF. This is the half
+  //     every check above is structurally blind to, for the reason the census
+  //     comment gives. `filter === null` is the standard run and the ONLY shape
+  //     allowed to report PASS, so it must be the whole fixed run and nothing
+  //     less; a narrowed run is already poison to `verdict` either way.
+  if (filter === null) {
+    const wanted = `${PROBES.length} probes, reps ${REPS}, A ${REPS}/B ${REPS}/X 1`;
+    const planned = `${activeProbes.length} probes, reps ${reps}, A ${plan.A}/B ${plan.B}/X ${plan.X}`;
+    if (
+      activeProbes.length !== PROBES.length
+      || reps !== REPS
+      || plan.A !== REPS
+      || plan.B !== REPS
+      || plan.X !== 1
+    ) {
+      census.push(
+        `unfiltered run planned ${planned}, but the standard run is ${wanted} — the plan itself fell short, which every per-arm check above is blind to`,
+      );
+    }
+  }
+
   if (census.length > 0) {
     complete = false;
     console.error("run did not produce every planned result:");

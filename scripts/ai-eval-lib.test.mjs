@@ -547,6 +547,18 @@ describe("scoreResponse", () => {
     expect(() => scoreResponse({ text: "x" }, t, set)).toThrow(/whole reply/i);
     expect(() => scoreResponse({ text: "x", toolUses: 0 }, t, set)).toThrow(/whole reply/i);
   });
+
+  it("refuses a missing or empty token map rather than scoring every dump a hit", () => {
+    // ★ With no map, `otherBlocks` is always [] — `wrong-block` and `ambiguous`
+    //   are unreachable and a reply naming three blocks scores `hit`. The
+    //   fallback did not degrade the score, it inverted it.
+    expect(() => scoreResponse(rep("vorquenzil"), t)).toThrow(/planted token map/i);
+    expect(() => scoreResponse(rep("vorquenzil"), t, null)).toThrow(/planted token map/i);
+    expect(() => scoreResponse(rep("vorquenzil"), t, {})).toThrow(/planted token map/i);
+    expect(() => scoreResponse(rep("vorquenzil"), t, [])).toThrow(/planted token map/i);
+    // The direction the fallback hid: with the map present this is `ambiguous`.
+    expect(scoreResponse(rep("vorquenzil or mabtresk"), t, set).outcome).toBe("ambiguous");
+  });
 });
 
 describe("the outcome vocabulary", () => {
@@ -772,12 +784,22 @@ describe("preflight", () => {
   it("fails when arm B carries the target in the half it did not declare", () => {
     // The failure that would otherwise produce two IDENTICAL arms and a
     // confident "no regression" — a toggle that silently stopped toggling.
+    //
+    // ★★ THE FIXTURE MUST KEEP THE DECLARED HALF INTACT, or this test does not
+    //    test its own name. An earlier version MOVED the target out of `turn`
+    //    into `system`, which left `inExpected === 0` — so the assertion that
+    //    fired was the exactly-once-in-the-declared-half one, and `inOther` was
+    //    never observed at all. It survived weakening `if (inOther !== 0)` to
+    //    `if (inOther > 1)`. Here arm B carries the target ONCE in the `turn`
+    //    half it declares (so that assertion is satisfied and cannot mask
+    //    anything) and ALSO once in `system`, which is the direction the name
+    //    promises and the only assertion that can catch it.
     const input = okInput();
     input.armPrompts.B.system = "reference code vorquenzil and reference code mabtresk";
-    input.armPrompts.B.turn = "question";
+    input.armPrompts.B.turn = "question ... reference code vorquenzil ...";
     const res = preflight(input);
     expect(res.ok).toBe(false);
-    expect(res.failures.join(" ")).toMatch(/arm B.*exactly once in the turn half/i);
+    expect(res.failures.join(" ")).toMatch(/arm B.*must not appear in the system half/i);
   });
 
   it("fails when the decoy is missing", () => {
@@ -789,34 +811,80 @@ describe("preflight", () => {
     expect(res.failures.join(" ")).toMatch(/decoy/i);
   });
 
-  it("fails on an anchor hash mismatch", () => {
+  it("reports every failure at once rather than stopping at the first", () => {
+    // ★ Both arms lose the decoy — exactly one failure each, so the count is
+    //   the property under test rather than an artefact of how many assertions
+    //   one broken arm happens to trip. The old version of this test used the
+    //   two drift-reference mismatches, which now live in
+    //   `driftReferenceCheck`; the property it pinned (report both, do not stop
+    //   at arm A) is unchanged and is pinned here instead.
+    const input = okInput();
+    input.armPrompts.A.system = "... reference code vorquenzil ...";
+    input.armPrompts.B.system = "nothing";
+    const res = preflight(input);
+    expect(res.failures.length).toBe(2);
+    expect(res.failures.join(" ")).toMatch(/arm A/);
+    expect(res.failures.join(" ")).toMatch(/arm B/);
+  });
+
+  it("no longer checks the run-level drift references, which are hoisted out", () => {
+    // ★★ `preflight` runs once per PROBE. Keeping a RUN-level check here
+    //    printed one anchor mismatch per probe and buried the per-probe
+    //    failures under five identical lines. A stale reference reaching this
+    //    function must now be ignored by it, not re-reported.
     const input = okInput();
     input.anchorHash = "changed";
-    const res = preflight(input);
+    input.rollingHash = "changed";
+    expect(preflight(input)).toEqual({ ok: true, failures: [] });
+  });
+});
+
+import { driftReferenceCheck } from "./ai-eval-lib.mjs";
+
+describe("driftReferenceCheck", () => {
+  const okDrift = () => ({
+    anchorHash: "abc",
+    recordedAnchorHash: "abc",
+    rollingHash: "def",
+    recordedRollingHash: "def",
+  });
+
+  it("passes when both references match", () => {
+    expect(driftReferenceCheck(okDrift())).toEqual({ ok: true, failures: [] });
+  });
+
+  it("fails on an anchor hash mismatch", () => {
+    const res = driftReferenceCheck({ ...okDrift(), anchorHash: "changed" });
     expect(res.ok).toBe(false);
     expect(res.failures.join(" ")).toMatch(/anchor hash/i);
   });
 
   it("fails on a rolling hash mismatch", () => {
-    const input = okInput();
-    input.rollingHash = "changed";
-    const res = preflight(input);
+    const res = driftReferenceCheck({ ...okDrift(), rollingHash: "changed" });
     expect(res.ok).toBe(false);
     expect(res.failures.join(" ")).toMatch(/rolling/i);
   });
 
   it("accepts an absent rolling reference, so the first run can bootstrap", () => {
-    const input = okInput();
-    input.rollingHash = null;
-    input.recordedRollingHash = null;
-    expect(preflight(input).ok).toBe(true);
+    expect(driftReferenceCheck({
+      ...okDrift(), rollingHash: null, recordedRollingHash: null,
+    }).ok).toBe(true);
   });
 
-  it("reports every failure at once rather than stopping at the first", () => {
-    const input = okInput();
-    input.anchorHash = "changed";
-    input.rollingHash = "changed";
-    expect(preflight(input).failures.length).toBe(2);
+  it("accepts a rolling file with no recorded WRITTEN reference yet", () => {
+    // ★ Absence is not drift: a series in which no run has written a rolling
+    //   reference must still be able to spend. Only a recorded write can
+    //   disagree with the file.
+    expect(driftReferenceCheck({
+      ...okDrift(), rollingHash: "whatever", recordedRollingHash: null,
+    }).ok).toBe(true);
+  });
+
+  it("reports both mismatches at once rather than stopping at the first", () => {
+    const res = driftReferenceCheck({
+      ...okDrift(), anchorHash: "changed", rollingHash: "changed",
+    });
+    expect(res.failures.length).toBe(2);
   });
 });
 

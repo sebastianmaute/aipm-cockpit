@@ -385,6 +385,21 @@ export const ANCHOR_SPEC = Object.freeze({
   words: 24000,
   targetAtFraction: 0.72,
   decoyAtFraction: 0.31,
+  // ★★★ THE ANCHOR'S OWN SALT, AND IT IS DELIBERATELY NOT THE RUN SALT. The
+  //     anchor is the fixed reference every run is compared against, so its two
+  //     tokens must be run-INDEPENDENT: minting them from `AI_EVAL_SALT` made
+  //     `anchorHash` a function of the run salt, which meant the documented
+  //     repair for a token collision — "rotate AI_EVAL_SALT" — tripped the
+  //     anchor-hash drift guard and exited 2. The repair was executable only on
+  //     a first run, i.e. exactly when it was not needed.
+  //
+  //     ★★★ 1 IS NOT ARBITRARY AND MUST NOT BE TUNED: every recorded run used
+  //     salt 1, so this value is what keeps `anchorHash` equal to the committed
+  //     baseline. Changing it moves the hash, every future run then fails
+  //     pre-flight against `docs/baselines/ai-eval-runs.json`, and the series is
+  //     bricked. It is read ONLY to mint the anchor pair — `buildAnchorPrompt`
+  //     never touches it, so adding it did not change a byte of the prompt.
+  salt: 1,
 });
 
 /** Deterministic filler with the two tokens planted at fixed depths.
@@ -523,10 +538,23 @@ export function scoreResponse(reply, target, tokens) {
       "scoreResponse: needs the whole reply — { text, toolUses, stopReason } — because a miss cannot name its cause from text alone",
     );
   }
+  // ★★★ THE TOKEN MAP IS REQUIRED TOO, for exactly the reason `reply` is. It
+  //     used to default to `{}`, which is the same silent fallback this function
+  //     throws on two lines above: with an omitted or empty map `otherBlocks` is
+  //     always `[]`, so `wrong-block` and `ambiguous` become UNREACHABLE and
+  //     every context-dumping reply scores `hit`. That is not a degraded score,
+  //     it is an inverted one — the confusion a relocation is most likely to
+  //     cause is precisely what the fallback hid.
+  if (typeof tokens !== "object" || tokens === null || Array.isArray(tokens)
+    || Object.keys(tokens).length === 0) {
+    throw new Error(
+      "scoreResponse: needs the whole planted token map — an empty or missing map makes wrong-block and ambiguous unreachable, so every context dump would score hit",
+    );
+  }
   const hay = reply.text.toLowerCase();
   const wanted = String(target).toLowerCase();
   const hasTarget = wanted.length > 0 && hay.includes(wanted);
-  const otherBlocks = Object.entries(tokens ?? {})
+  const otherBlocks = Object.entries(tokens)
     .filter(([, tok]) => {
       if (typeof tok !== "string" || tok.length === 0) return false;
       const t = tok.toLowerCase();
@@ -695,6 +723,10 @@ const otherHalf = (half) => (half === "system" ? "turn" : "system");
  *  position check that does not know where to look would otherwise pass every
  *  input silently, which is precisely the vacuity this replaced.
  *
+ *  ★★ PER-PROBE ONLY. The run-level drift references moved out to
+ *  `driftReferenceCheck` — see there for why keeping them here printed the same
+ *  mismatch once per probe and buried everything else.
+ *
  *  Returns every failure rather than the first, so one run tells you the whole
  *  story instead of one fix per invocation. */
 export function preflight(input) {
@@ -737,6 +769,25 @@ export function preflight(input) {
     }
   }
 
+  return { ok: failures.length === 0, failures };
+}
+
+/** The two RUN-level drift references, checked ONCE per run.
+ *
+ *  ★★★ THESE LIVED IN `preflight` AND THAT WAS A REPORTING BUG, not a design.
+ *  `preflight` is called once per PROBE, so a single anchor-generator change
+ *  printed five identical "anchor hash mismatch" lines — measured — and buried
+ *  the per-probe failures underneath them. Neither check has anything to do
+ *  with a probe: the anchor is probe-independent by construction and the rolling
+ *  reference is one file. One run, one line each.
+ *
+ *  ★★ `recordedRollingHash` NULL IS NOT A MISMATCH — it is the first run, or a
+ *  series in which no run has yet WRITTEN a rolling reference. Treating absence
+ *  as drift would make the harness unbootstrappable.
+ *
+ *  Returns every failure rather than the first, same contract as `preflight`. */
+export function driftReferenceCheck(input) {
+  const failures = [];
   if (input.anchorHash !== input.recordedAnchorHash) {
     failures.push(
       `anchor hash mismatch: the generator changed (${input.anchorHash} vs recorded ${input.recordedAnchorHash})`,
@@ -747,7 +798,6 @@ export function preflight(input) {
       `rolling prompt hash mismatch: the stored drift reference is not what the last run wrote`,
     );
   }
-
   return { ok: failures.length === 0, failures };
 }
 
