@@ -52,7 +52,8 @@ export function isTerminalChangeStatus(status: ChangeStatus): boolean {
  * no longer offering it. An earlier revision of this line said a user or the model
  * "may set it directly on an otherwise unchanged row" — neither can.
  * ★ A stored value still round-trips: `sanitizeChangeItem` preserves it on every
- * load/decode path. That is not an authoring path and is not a third writer.
+ * load/decode path — all five of JSON, CSV, Markdown, Turso and IndexedDB. That is
+ * not an authoring path and is not a third writer.
  * ★★ WHY it round-trips is the load-bearing half, and it lives nowhere else in the
  * tree: `CHANGE_FIELD_GUARDS` is read by `dropUnacceptedChangeFields` ALONE — a
  * MODEL-write guard — and `sanitizeChangeItem` never consults it. So the table
