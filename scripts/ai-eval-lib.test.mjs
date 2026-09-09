@@ -345,4 +345,36 @@ describe("gradeArm", () => {
     const bare = [{ text: "  vorquenzil \n", outcome: "hit", toolUses: 0, outputTokens: 4 }];
     expect(gradeArm(bare, "vorquenzil").adherence).toBe(0);
   });
+
+  it("reports the elaboration count against its hit denominator", () => {
+    // `responses` above is 2 hits (one bare, one elaborated) + 1 wrong-block.
+    // adherenceOf must be the HIT count (2), never the response count (3).
+    const graded = gradeArm(responses, "vorquenzil");
+    expect(graded.adherence).toBe(1);
+    expect(graded.adherenceOf).toBe(2);
+  });
+
+  it("reports adherence 0 over a 0 denominator when the arm has no hits at all", () => {
+    // This is the "no signal" case, not a clean run — an arm that missed
+    // every rep must never read as having perfect adherence. Pinned
+    // explicitly so a reader of adherence alone (without adherenceOf) cannot
+    // mistake 0/0 for 0/N.
+    const noHits = [
+      { text: "mabtresk", outcome: "wrong-block", toolUses: 0, outputTokens: 3 },
+      { text: "nothing here", outcome: "absent", toolUses: 0, outputTokens: 5 },
+    ];
+    const graded = gradeArm(noHits, "vorquenzil");
+    expect(graded.adherence).toBe(0);
+    expect(graded.adherenceOf).toBe(0);
+  });
+
+  it("reports adherence equal to its denominator when every hit elaborated", () => {
+    const allElaborated = [
+      { text: "The code is vorquenzil.", outcome: "hit", toolUses: 0, outputTokens: 6 },
+      { text: "It is vorquenzil, I believe.", outcome: "hit", toolUses: 0, outputTokens: 8 },
+    ];
+    const graded = gradeArm(allElaborated, "vorquenzil");
+    expect(graded.adherence).toBe(2);
+    expect(graded.adherenceOf).toBe(2);
+  });
 });

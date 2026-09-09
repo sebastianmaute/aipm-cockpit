@@ -291,7 +291,7 @@ export const GRADED_AXES = Object.freeze([
     id: "adherence",
     worseDirection: "higher",
     meaning:
-      "answers that elaborated where the probe said 'exactly as written'; the one real difference the manual eval surfaced, still unadjudicated",
+      "answers that elaborated where the probe said 'exactly as written', counted over hits only (a wrong-block miss is not an elaboration defect — that is wrongBlock's) — read it against its adherenceOf denominator, never in isolation: 0 means clean only when adherenceOf is the arm's full hit count, and means no signal at all when adherenceOf is 0. The one real difference the manual eval surfaced, still unadjudicated.",
   },
   {
     id: "outputTokens",
@@ -301,21 +301,30 @@ export const GRADED_AXES = Object.freeze([
   },
 ]);
 
-/** Reduce one arm's responses to the graded vector. */
+/** Reduce one arm's responses to the graded vector.
+ *
+ *  ★★ `adherence` is a raw count over HITS ONLY, so it is meaningless without
+ *  its denominator — `adherenceOf` (the arm's hit count) travels alongside it
+ *  for exactly that reason. An arm that missed every rep has zero hits and
+ *  therefore zero elaborations by construction: `adherence: 0` there is "no
+ *  signal", not "perfect adherence", and reading it as the latter would let
+ *  the worst possible run (zero hits) score the best possible value on a
+ *  `worseDirection: "higher"` axis. Always read `adherence` against
+ *  `adherenceOf`, never alone. */
 export function gradeArm(responses, target) {
   const total = responses.length;
   const sum = (f) => responses.reduce((acc, r) => acc + f(r), 0);
+  const hits = responses.filter((r) => r.outcome === "hit");
   return {
     toolReaches: sum((r) => r.toolUses ?? 0),
     wrongBlock: responses.filter((r) => r.outcome === "wrong-block").length,
     // Elaboration only means anything against a response that actually
     // named the target — a wrong-block response never touched the target's
     // wording at all, so it belongs to `wrongBlock`, not here.
-    adherence: responses.filter(
-      (r) =>
-        r.outcome === "hit" &&
-        String(r.text).trim().toLowerCase() !== target.toLowerCase(),
+    adherence: hits.filter(
+      (r) => String(r.text).trim().toLowerCase() !== target.toLowerCase(),
     ).length,
+    adherenceOf: hits.length,
     outputTokens: total === 0 ? 0 : sum((r) => r.outputTokens ?? 0) / total,
   };
 }
