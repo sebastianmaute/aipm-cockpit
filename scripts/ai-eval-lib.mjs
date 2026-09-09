@@ -450,3 +450,32 @@ export function verdict(run) {
 
   return { code: reasons.length > 0 ? EXIT.REGRESSION : EXIT.PASS, reasons, notes };
 }
+
+/** The environment variable that opts into spending real money. */
+export const SPEND_ENV = "AI_EVAL_SPEND";
+
+/** Decide whether this invocation spends.
+ *
+ *  ★★ Dry run is the DEFAULT, and it is not a degraded mode — it assembles
+ *  every arm and runs every pre-flight assertion, so most breakage (a moved
+ *  symbol, a leaking token, a touched anchor) surfaces with no key at all.
+ *
+ *  ★★★ The CI refusal outranks the opt-in. Every other `npm run` in this repo
+ *  is free and safe, so this one is a tab-completion away from being added to a
+ *  pipeline by somebody who assumed the same. */
+export function spendDecision({ env, hasKey }) {
+  const wantsSpend = Boolean(env[SPEND_ENV]);
+  if (!wantsSpend) return { mode: "dry", code: EXIT.PASS };
+  if (env.CI) {
+    return { mode: "refuse", code: EXIT.UNUSABLE, reason: "refusing to spend: CI is set" };
+  }
+  if (!hasKey) {
+    return { mode: "refuse", code: EXIT.UNUSABLE, reason: "refusing to spend: no API key available" };
+  }
+  return { mode: "live", code: EXIT.PASS };
+}
+
+/** The rolling drift reference is written by complete live runs and nothing else. */
+export function shouldWriteRolling({ mode, complete }) {
+  return mode === "live" && complete === true;
+}

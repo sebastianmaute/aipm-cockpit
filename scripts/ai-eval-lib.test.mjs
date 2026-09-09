@@ -598,3 +598,53 @@ describe("verdict", () => {
     expect(JSON.stringify(r)).toBe(before);
   });
 });
+
+import { spendDecision, shouldWriteRolling, SPEND_ENV } from "./ai-eval-lib.mjs";
+
+describe("spendDecision", () => {
+  it("dry-runs when the opt-in is absent", () => {
+    const d = spendDecision({ env: {}, hasKey: true });
+    expect(d.mode).toBe("dry");
+    expect(d.code).toBe(0);
+  });
+
+  it("spends when the opt-in is set and a key is present", () => {
+    const d = spendDecision({ env: { [SPEND_ENV]: "1" }, hasKey: true });
+    expect(d.mode).toBe("live");
+  });
+
+  it("refuses to spend under CI even with the opt-in", () => {
+    const d = spendDecision({ env: { CI: "true", [SPEND_ENV]: "1" }, hasKey: true });
+    expect(d.mode).toBe("refuse");
+    expect(d.code).toBe(2);
+    expect(d.reason).toMatch(/CI/);
+  });
+
+  it("refuses to spend with the opt-in but no key", () => {
+    const d = spendDecision({ env: { [SPEND_ENV]: "1" }, hasKey: false });
+    expect(d.mode).toBe("refuse");
+    expect(d.code).toBe(2);
+    expect(d.reason).toMatch(/key/i);
+  });
+
+  it("still dry-runs under CI without the opt-in, since it spends nothing", () => {
+    const d = spendDecision({ env: { CI: "true" }, hasKey: false });
+    expect(d.mode).toBe("dry");
+  });
+});
+
+describe("shouldWriteRolling", () => {
+  it("writes after a complete live run", () => {
+    expect(shouldWriteRolling({ mode: "live", complete: true })).toBe(true);
+  });
+
+  it("never writes after an incomplete run", () => {
+    // Overwriting from a run nobody scored poisons the drift reference
+    // invisibly: the NEXT run compares against garbage and reports no drift.
+    expect(shouldWriteRolling({ mode: "live", complete: false })).toBe(false);
+  });
+
+  it("never writes from a dry run", () => {
+    expect(shouldWriteRolling({ mode: "dry", complete: true })).toBe(false);
+  });
+});
