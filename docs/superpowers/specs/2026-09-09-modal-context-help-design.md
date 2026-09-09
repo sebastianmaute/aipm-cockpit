@@ -289,3 +289,63 @@ a distinctness check trivially.
 Feature slice, so it takes a version bump, a `CHANGELOG.md` entry and `npm run version:sync`
 per the release checklist. Nothing is pushed, no MR is opened and nothing is merged without an
 explicit instruction from the user.
+
+---
+
+## 9. Amendments
+
+★ **APPEND-ONLY.** Everything above is a dated design record and is NOT edited to match the tree —
+rewriting a signed record destroys the only thing it is good for. Deviations are listed here, each
+with one line of reason and the date it was recorded.
+
+### 2026-09-09 — deviations from §3.5's table
+
+Three shipped differently before this section existed:
+
+| Spec row | Shipped | Reason |
+|---|---|---|
+| `resource-edit-modal` → `concept-resource` | `resourceEdit: "feature-resources"` | the concept primer explains what a resource IS; the modal edits one, so the feature entry describing the Resources view is the apter body. |
+| `task-form-modal` → `feature-tasks` | `taskForm: "feature-add"` | `feature-add` is the entry that describes adding and editing a task; `feature-tasks` describes the Open Points LIST. |
+| `task-time-tracking-modal` → `feature-timelog` | ROW REMOVED (`db5ac5ed`) | `feature-timelog` describes the external Timelog INTEGRATION, implying those figures sync somewhere they do not. No entry mentions estimates at all. A wrong entry is worse than no icon. |
+
+Two more on 2026-09-09:
+
+| Spec row | Shipped | Reason |
+|---|---|---|
+| `calendar-event-modal` → `feature-resources` | ROW REMOVED | that entry enumerates the Calendar sub-tab as "tasks, absences, and holidays"; the modal edits recurring MEETING SERIES, so the entry named three things that are not what is being edited. Measured over all 66 entries' titles + bodies: `/series/i` matches zero. Same criterion as `taskTimeTracking`. |
+| — (not in the table) | `aiSettings: "feature-ai"` ADDED | `BackendConfigModal`'s `children` prop lets the empty state replace its whole body with `AiSection`. That instance had been suppressing the icon with a `hideHelp` flag on the stated grounds that no entry described the AI settings — false: `/anthropic\|api key/i` matches `feature-ai` and `feature-ai-advanced`, and `feature-ai`'s body opens "Add an Anthropic API key in Settings → AI, …". Repointed, and the flag deleted. |
+
+Net: **19** `MODAL_HELP` rows, **20** call sites, **19** distinct keys wired. The table above still
+reads as twenty declarations; it is the 2026-09-09 record, not a census.
+
+### 2026-09-09 — §3.5's "one call site per key" no longer holds
+
+`backend-config-modal` now takes a REQUIRED `helpConceptId` rather than hardcoding
+`MODAL_HELP.backendConfig`, so its three consumers each pass a literal — two `backendConfig`, one
+`aiSettings`. The wiring test in `help-content.test.ts` was rewritten accordingly: set equality both
+directions, plus a `MULTI_SITE_KEYS` allowlist that must itself be justified AND is asserted to
+contain only keys that genuinely have more than one site.
+
+### 2026-09-09 — §3.3's dismissal paragraph is superseded
+
+§3.3 specified `usePopoverDismiss(open, wrapperRef, …)` and an inline anchored panel. That panel was
+`absolute right-0 top-full z-20` inside a `relative` wrapper, and **every** declaring modal's panel
+is `overflow-hidden` (`edit-modal-chrome.tsx` serves seven, `documents-rename-modal.tsx` and
+`task-linked-task-modal.tsx` one each) — z-index cannot escape overflow, so it clipped at the panel
+edge. It now renders through the shared `PopoverPanel`, which portals to `document.body`; that is
+still "the shared primitive, never hand-rolled", just a different one.
+
+★★ §3.3's Escape claim survives the swap and its `kind` claim does not, which matters because they
+read as one sentence there. `escapeOwner()` is kind-AGNOSTIC, so Escape still closes the popover and
+leaves the modal open. But `PopoverPanel` pushes `kind: "modal"` — which MEANS "traps Tab" — so
+`modal.tsx` stands its own Tab trap down, and the primitive's cycle returns WITHOUT trapping when
+the panel holds no focusables. Measured with a probe over a text-only panel: focus reached
+`document.body` on the 4th Tab and a button rendered outside the modal on the 5th (WCAG 2.4.3). The
+popover therefore gained its own close button, which is load-bearing for containment as well as
+being a second dismissal affordance; `modal-header.test.tsx` pins it.
+
+### 2026-09-09 — still owed
+
+Eye-verification in a browser that the popover no longer clips, on
+`documents-rename-modal` (w-420) and `task-linked-task-modal` (w-440), the two shortest panels.
+jsdom has no layout and axe does not evaluate clipping, so no test in this repo can see it.
