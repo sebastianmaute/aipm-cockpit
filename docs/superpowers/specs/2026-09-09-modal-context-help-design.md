@@ -336,8 +336,7 @@ contain only keys that genuinely have more than one site.
 
 §3.3 specified `usePopoverDismiss(open, wrapperRef, …)` and an inline anchored panel. That panel was
 `absolute right-0 top-full z-20` inside a `relative` wrapper, and **every** declaring modal's panel
-is `overflow-hidden` (`edit-modal-chrome.tsx` serves seven, `documents-rename-modal.tsx` and
-`task-linked-task-modal.tsx` one each) — z-index cannot escape overflow, so it clipped at the panel
+CLIPS its overflow — z-index cannot escape overflow, so it clipped at the panel
 edge. It now renders through the shared `PopoverPanel`, which portals to `document.body`; that is
 still "the shared primitive, never hand-rolled", just a different one.
 

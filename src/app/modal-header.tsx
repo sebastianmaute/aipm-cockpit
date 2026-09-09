@@ -146,10 +146,8 @@ export function ModalHeader({
               <QuestionMarkCircleIcon aria-hidden="true" className="h-4 w-4" />
             </button>
             {/* ★ SHARED PRIMITIVE, never a hand-rolled absolute panel. EVERY
-                declaring modal's panel is `overflow-hidden`
-                (`edit-modal-chrome.tsx` serves seven of them,
-                `documents-rename-modal.tsx` and `task-linked-task-modal.tsx`
-                one each), and z-index CANNOT escape overflow — so the
+                declaring modal's panel clips its overflow, and z-index
+                CANNOT escape overflow — so the
                 `absolute right-0 top-full` panel this replaced was clipped at
                 the panel edge. `PopoverPanel` portals to `document.body` and
                 positions `fixed` from the trigger's rect, which is why there

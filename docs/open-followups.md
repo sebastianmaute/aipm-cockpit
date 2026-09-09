@@ -31515,8 +31515,8 @@ the floating `HelpMenu` a deep-link input. What shipped does NEITHER: the icon r
 own body in a popover OVER the dialog, so the modal is never closed and no navigation happens.
 ★★★ **DISMISSAL IS `PopoverPanel` AS OF 2026-09-09, NOT `usePopoverDismiss`, AND THE SWAP WAS A
 CLIPPING FIX.** The first cut rendered an inline `absolute right-0 top-full z-20` panel inside a
-`relative` wrapper. Every declaring modal's panel is `overflow-hidden` — `edit-modal-chrome.tsx`
-(seven sites), `documents-rename-modal.tsx` (w-420), `task-linked-task-modal.tsx` (w-440) — and
+`relative` wrapper. Every declaring modal's panel CLIPS its overflow — mostly `overflow-hidden`,
+but `jira-conflicts-modal.tsx` is `overflow-y-auto`, which clips as a scroll container — and
 z-index cannot escape overflow, so the popover clipped at the panel edge; the panel also had no
 `max-h` while some bodies run past 1000 characters. It now routes through the shared `PopoverPanel`,
 which portals to `document.body` and positions `fixed` from the trigger's rect, and carries
@@ -31564,12 +31564,15 @@ cover the two modals checked.** Computed `max-height` tracks 60vh exactly (432/3
 420), and where it BINDS (@1024x420) the content is genuinely reachable — rename `scrollHeight` 367
 > `clientHeight` 250, `scrollTop` reads back 117 = the full difference. But at 1280x720 BOTH panels
 have `scrollHeight === clientHeight` and nothing scrolls. The commit cites "bodies over 1000
-characters"; the two modals named here carry the two SHORTEST bodies in the map (`feature-documents`
-665, `concept-dependency` 405). The three bodies that actually exceed 1000 — `feature-ai` (1300,
-`aiSettings`), `feature-jira` (1124, `jiraConflicts`), `feature-document-history` (1081,
-`documentsHistory`) — were **NOT measured**. The cap almost certainly binds there; nobody has seen it.
+characters"; neither modal checked carries one. Exactly three rows do — `aiSettings`,
+`jiraConflicts` and `documentsHistory` — and none of the three was measured. The cap almost
+certainly binds there; nobody has seen it. ★ No character counts are quoted, deliberately: a first
+cut of this paragraph gave four, and two were wrong — one body was called the map's second-shortest
+when eight rows are shorter, and one length mixed the escaped SOURCE with the rendered string. Any
+probe re-deriving them must resolve 66/66 bodies before reading a length (§453) and must decide
+which of the two conventions it is counting.
 ★ ALSO UNMEASURED, deliberately listed so a reader does not over-read the pass: no `EditModalShell`
-consumer (that shell serves seven sites); the flip-above-anchor branch (`MIN_SPACE_BELOW`) never
+consumer; the flip-above-anchor branch (`MIN_SPACE_BELOW`) never
 triggered, every case having room below; the viewport clamp held in all six cases but was never
 STRESSED, nothing coming near an edge; and Chromium alone.
 ★★ CONSEQUENCE FOR GAP 4 BELOW: shipping the popover means the deep-link route was never needed
@@ -32980,8 +32983,10 @@ body-scoped.
    `taskTimeTracking` in gap 3 — `feature-resources` enumerates the Calendar sub-tab as "tasks,
    absences, and holidays", so it named three things that are not what is being edited, and a wrong
    entry is worse than no icon. The call site carries a comment saying so. What remains open is
-   unchanged in substance: WRITE a meeting-series entry, then wire it. Reproduce the absence:
-   `grep -n "calendarEvent" src/app/help-content.ts` (no map row).
+   unchanged in substance: WRITE a meeting-series entry, then wire it. ★ No reproduce grep is given
+   for the absence: this file's own prose names `calendarEvent` twice, so the obvious one returns
+   comment hits and refutes itself. The absence is already gated by `help-content.test.ts` — the map
+   row count and the both-directions wiring comparison both go red if a row returns.
 2. **"image" and "asset" appear in ZERO of the 66 bodies** — and zero across titles and primers
    too. So the three documents/asset modals point at entries with no content about what they do.
 3. **No task-effort entry.** "estimate", "time spent" and "remaining" are each 0 across the 66
