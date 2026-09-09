@@ -51,7 +51,6 @@ export type AiConfig = {
   activityRecap?: boolean; // The ambient activity recap sentence. Default ON (undefined = on).
   chatSearch?: boolean; // The search_chats tool + the ambient chat pointer. Default ON (undefined = on).
   maxChatTurns?: number; // Max assistant round-trips per user message (integer 1–50). Default 12.
-  tokenMultiplier?: number; // Multiplier applied to counted tokens before caps (>0, decimals ok). Default 5.
 };
 
 /** Is the `search_history` tool live?
@@ -111,8 +110,6 @@ export function clampInsightRecInterval(v: unknown): number {
     : DEFAULT_INSIGHT_REC_INTERVAL_MIN;
 }
 
-export const DEFAULT_TOKEN_MULTIPLIER = 5;
-
 export const defaultAiConfig: AiConfig = {
   apiKey: "",
   model: CHAT_MODELS[0].id,
@@ -121,7 +118,6 @@ export const defaultAiConfig: AiConfig = {
   weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP,
   groundInGuides: true,
   maxChatTurns: DEFAULT_MAX_CHAT_TURNS,
-  tokenMultiplier: DEFAULT_TOKEN_MULTIPLIER,
   insightRecommendationIntervalMinutes: DEFAULT_INSIGHT_REC_INTERVAL_MIN,
 };
 
@@ -133,11 +129,6 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
   };
   // Chat-turn cap: integer in [1, 50]; anything invalid or out of range → default.
   const coerceTurns = clampMaxChatTurns;
-  // Token multiplier: any finite value > 0 (decimals allowed); else default.
-  const coerceMultiplier = (v: unknown): number => {
-    const n = Number(v);
-    return Number.isFinite(n) && n > 0 ? n : DEFAULT_TOKEN_MULTIPLIER;
-  };
   // Pattern (not allowlist): sanitize runs at load, BEFORE the async live-model
   // fetch, so a previously-selected live model must survive the round-trip.
   const rawModel = typeof obj.model === "string" ? obj.model.trim() : "";
@@ -173,7 +164,6 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     actionSuggestions: obj.actionSuggestions === false ? false : undefined,
     chatSearch: obj.chatSearch === false ? false : undefined,
     maxChatTurns: coerceTurns(obj.maxChatTurns),
-    tokenMultiplier: coerceMultiplier(obj.tokenMultiplier),
   };
 }
 

@@ -91,19 +91,20 @@ describe("sanitizeAiConfig maxChatTurns", () => {
   });
 });
 
-describe("sanitizeAiConfig tokenMultiplier", () => {
-  it("defaults to 5", () => {
-    expect(defaultAiConfig.tokenMultiplier).toBe(5);
-    expect(sanitizeAiConfig({}).tokenMultiplier).toBe(5);
-  });
-  it("rejects 0 / negative / NaN → 5", () => {
-    expect(sanitizeAiConfig({ tokenMultiplier: 0 }).tokenMultiplier).toBe(5);
-    expect(sanitizeAiConfig({ tokenMultiplier: -3 }).tokenMultiplier).toBe(5);
-    expect(sanitizeAiConfig({ tokenMultiplier: NaN }).tokenMultiplier).toBe(5);
-  });
-  it("keeps a positive integer and a positive decimal", () => {
-    expect(sanitizeAiConfig({ tokenMultiplier: 3 }).tokenMultiplier).toBe(3);
-    expect(sanitizeAiConfig({ tokenMultiplier: 2.5 }).tokenMultiplier).toBe(2.5);
+describe("sanitizeAiConfig retired tokenMultiplier field", () => {
+  it("ignores a stored tokenMultiplier instead of rejecting the blob", () => {
+    // ★★★ Every existing device has one persisted: `defaultAiConfig` carried it
+    // and `writeSettings` writes the whole object. A reader that threw, or that
+    // dropped the surrounding fields, would refuse every real settings blob in
+    // existence. The field must simply not survive the round-trip.
+    const out = sanitizeAiConfig({
+      apiKey: "k",
+      sessionTokenCap: 1234,
+      tokenMultiplier: 5,
+    });
+    expect("tokenMultiplier" in out).toBe(false);
+    expect(out.sessionTokenCap).toBe(1234);
+    expect(out.apiKey).toBe("k");
   });
 });
 

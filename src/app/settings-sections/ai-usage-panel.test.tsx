@@ -33,10 +33,10 @@ function Seed({ usage, children }: { usage: Usage; children: ReactNode }) {
   return <>{children}</>;
 }
 
-// tokenMultiplier pinned to 1 so the seeded Usage lands in sessionUsage
-// unscaled — the default multiplier (5) would otherwise inflate every field.
+// No scaling to defeat any more: the provider stores raw counts, so the
+// seeded Usage lands in sessionUsage unchanged.
 function seededWrapper(lang: Lang, usage: Usage) {
-  const ai = { ...defaultAiConfig, tokenMultiplier: 1 };
+  const ai = { ...defaultAiConfig };
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <AiUsageProvider lang={lang} ai={ai} showToast={vi.fn()}>

@@ -12,9 +12,7 @@ beforeEach(() => {
 });
 
 function makeWrapper(showToast: (kind: "info" | "error", text: string) => void) {
-  // Pin the multiplier to 1 so these raw-count assertions are unaffected by the
-  // default 5× multiplier (that behaviour is covered by its own tests below).
-  const ai = { ...defaultAiConfig, tokenMultiplier: 1 };
+  const ai = { ...defaultAiConfig };
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <AiUsageProvider lang="en-US" ai={ai} showToast={showToast}>
@@ -117,8 +115,11 @@ describe("AiUsageProvider", () => {
 
   it("ignores a stored tokenMultiplier instead of scaling by it", async () => {
     // Every existing device has a persisted tokenMultiplier, so this is the
-    // upgrade path, not an edge case.
-    const ai = { ...defaultAiConfig, tokenMultiplier: 5 };
+    // upgrade path, not an edge case. The field no longer exists on AiConfig
+    // (retired below), so a stored value can only arrive as an untyped extra
+    // property on the settings blob — cast to prove the reader ignores it
+    // rather than typechecking it away.
+    const ai = { ...defaultAiConfig, tokenMultiplier: 5 } as typeof defaultAiConfig;
     function Wrapper({ children }: { children: ReactNode }) {
       return (
         <AiUsageProvider lang="en-US" ai={ai} showToast={vi.fn()}>
@@ -138,8 +139,8 @@ describe("AiUsageProvider", () => {
     const showToast = vi.fn();
     const cap = 1_000;
     // Set cap to 1 000 tokens; 80 % = 800. Record 900 → crosses 80 % but not
-    // 100 % (multiplier pinned to 1 so the scaled count == raw count).
-    const ai = { ...defaultAiConfig, tokenMultiplier: 1, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
+    // 100 % (an all-input usage prices at weight 1, so the cost equals the raw count).
+    const ai = { ...defaultAiConfig, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
 
     function Wrapper({ children }: { children: ReactNode }) {
       return (
@@ -168,8 +169,8 @@ describe("AiUsageProvider", () => {
   it("does NOT re-fire showToast on a second record above the 80 % threshold", async () => {
     const showToast = vi.fn();
     const cap = 1_000;
-    // Multiplier 1 so 900 + 50 = 950 stays above 80 % but below 100 % (no 100 % toast).
-    const ai = { ...defaultAiConfig, tokenMultiplier: 1, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
+    // All-input usage prices at weight 1, so 900 + 50 = 950 stays above 80 % but below 100 % (no 100 % toast).
+    const ai = { ...defaultAiConfig, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
 
     function Wrapper({ children }: { children: ReactNode }) {
       return (
@@ -199,7 +200,6 @@ describe("AiUsageProvider", () => {
     // Session cap is very large so it never fires; weekly cap is 1 000.
     const ai = {
       ...defaultAiConfig,
-      tokenMultiplier: 1,
       sessionTokenCap: DEFAULT_SESSION_TOKEN_CAP,
       weeklyTokenCap: weekCap,
     };
@@ -226,7 +226,7 @@ describe("AiUsageProvider", () => {
   it("fires the self-limit notice once when session usage crosses 100 % of the cap, without blocking", async () => {
     const showToast = vi.fn();
     const cap = 1_000;
-    const ai = { ...defaultAiConfig, tokenMultiplier: 1, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
+    const ai = { ...defaultAiConfig, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
 
     function Wrapper({ children }: { children: ReactNode }) {
       return (
@@ -264,7 +264,7 @@ describe("AiUsageProvider", () => {
     const cap = 1_000;
     // Cap unchanged across the two mounts — only the notice's persistence
     // (localStorage, not a per-instance ref) is under test here.
-    const ai = { ...defaultAiConfig, tokenMultiplier: 1, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
+    const ai = { ...defaultAiConfig, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
 
     function Wrapper({ children }: { children: ReactNode }) {
       return (
@@ -317,7 +317,7 @@ describe("AiUsageProvider", () => {
     const showToast = vi.fn();
     // Same cap for both scopes so a single record() crosses 80 % of BOTH at
     // once — the notice must still appear exactly once, not once per scope.
-    const ai = { ...defaultAiConfig, tokenMultiplier: 1, sessionTokenCap: 1_000, weeklyTokenCap: 1_000 };
+    const ai = { ...defaultAiConfig, sessionTokenCap: 1_000, weeklyTokenCap: 1_000 };
 
     function Wrapper({ children }: { children: ReactNode }) {
       return (
@@ -372,7 +372,7 @@ describe("AiUsageProvider", () => {
   it("does NOT explain the cap basis for a fresh install, even after it crosses 80%", async () => {
     const showToast = vi.fn();
     const cap = 1_000;
-    const ai = { ...defaultAiConfig, tokenMultiplier: 1, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
+    const ai = { ...defaultAiConfig, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
 
     function Wrapper({ children }: { children: ReactNode }) {
       return (
@@ -408,7 +408,6 @@ describe("AiUsageProvider", () => {
     const weekCap = 1_000;
     const ai = {
       ...defaultAiConfig,
-      tokenMultiplier: 1,
       sessionTokenCap: 1_000_000, // never crosses — isolates the WEEKLY path
       weeklyTokenCap: weekCap,
     };
