@@ -245,6 +245,12 @@ const enUS = {
   close: "Close",
   loading: "Loading…",
   modalResetSize: "Reset dialog size",
+  /** Accessible name for a modal header's help icon. {0} is the modal's own
+   *  title, which is what makes two stacked modals' icons distinguishable —
+   *  speech input does not scope by aria-modal, and axe has no rule that flags
+   *  two controls sharing an accessible name. Same reason `closeLabel` and
+   *  `hideVoiceCommand` exist on ModalHeader. */
+  modalHelpAbout: "Help – {0}",
   diagnosticsTitle: "Diagnostics",
   diagnosticsIntro: "Recent technical events on this device. No project content or secrets are recorded.",
   diagnosticsCopyBundle: "Copy diagnostic bundle",
