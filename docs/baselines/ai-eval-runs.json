@@ -160,6 +160,158 @@
         ],
         "notes": []
       }
+    },
+    {
+      "date": "2026-09-09",
+      "model": "claude-sonnet-5",
+      "gitSha": "unrecorded",
+      "anchorHash": "cd0bfc655837f13b73c8df731dd1908fd1a1af57877765eb597ba330b9aed83a",
+      "rollingHash": "ab7cea71438e611b66c9629f764949839a804a97b7984d6f2bc8c558440a42fe",
+      "anchorSpec": {
+        "seed": 20260909,
+        "words": 24000,
+        "targetAtFraction": 0.72,
+        "decoyAtFraction": 0.31
+      },
+      "reps": 3,
+      "salt": 1,
+      "filter": {
+        "probes": [
+          "chatPointer"
+        ],
+        "reps": 3,
+        "arms": [
+          "A"
+        ],
+        "spec": "probes=chatPointer reps=3 arms=A"
+      },
+      "sizes": {
+        "systemChars": 41467,
+        "turnChars": 2034,
+        "toolsChars": 45532,
+        "inputTokens": 1601,
+        "cacheWriteTokens": 31177,
+        "cacheReadTokens": 0
+      },
+      "usage": {
+        "requests": 3,
+        "total": {
+          "input": 4803,
+          "output": 39,
+          "cacheWrite": 31177,
+          "cacheRead": 62354
+        },
+        "costEquivalent": 50204.65,
+        "byArm": {
+          "A": {
+            "input": 4803,
+            "output": 39,
+            "cacheWrite": 31177,
+            "cacheRead": 62354
+          },
+          "B": {
+            "input": 0,
+            "output": 0,
+            "cacheWrite": 0,
+            "cacheRead": 0
+          },
+          "X": {
+            "input": 0,
+            "output": 0,
+            "cacheWrite": 0,
+            "cacheRead": 0
+          },
+          "N": {
+            "input": 0,
+            "output": 0,
+            "cacheWrite": 0,
+            "cacheRead": 0
+          },
+          "R": {
+            "input": 0,
+            "output": 0,
+            "cacheWrite": 0,
+            "cacheRead": 0
+          }
+        },
+        "costWeights": {
+          "input": 1,
+          "cacheWrite": 1.25,
+          "cacheRead": 0.1,
+          "output": 5
+        }
+      },
+      "perProbe": [
+        {
+          "id": "chatPointer",
+          "A": 0,
+          "B": 0,
+          "X": 0
+        }
+      ],
+      "graded": [
+        {
+          "id": "chatPointer",
+          "A": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "adherence": 0,
+            "adherenceOf": 0,
+            "outputTokens": 13
+          },
+          "B": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "adherence": 0,
+            "adherenceOf": 0,
+            "outputTokens": 0
+          }
+        }
+      ],
+      "drift": {
+        "anchor": {
+          "hitRate": 0,
+          "graded": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "adherence": 0,
+            "adherenceOf": 0,
+            "outputTokens": 0
+          }
+        },
+        "rolling": null
+      },
+      "samples": [
+        {
+          "probe": "chatPointer",
+          "arm": "A",
+          "rep": 0,
+          "outcome": "absent",
+          "text": "tsavazumurkazuyth"
+        },
+        {
+          "probe": "chatPointer",
+          "arm": "A",
+          "rep": 1,
+          "outcome": "absent",
+          "text": "tsavazumurkazuyth"
+        },
+        {
+          "probe": "chatPointer",
+          "arm": "A",
+          "rep": 2,
+          "outcome": "absent",
+          "text": "tsavazumurkazuyth"
+        }
+      ],
+      "complete": true,
+      "verdict": {
+        "code": 2,
+        "reasons": [
+          "run was FILTERED (probes=chatPointer reps=3 arms=A) — it measured a subset of the probes, reps or arms the verdict is defined over, so it can diagnose but never pass"
+        ],
+        "notes": []
+      }
     }
   ]
 }
