@@ -194,12 +194,23 @@ function isObj(v: unknown): v is Record<string, unknown> {
  *  (though present in this map): `buildSeedTask` / `buildSeedResource` assemble
  *  an object literal from named fields and never spread, so they are immune by
  *  construction and need no filter. */
-const SEED_OFFERED_KEYS = Object.fromEntries(
-  Object.entries(PROPOSAL_TOOL.input_schema.properties.seed.properties).map(([list, schema]) => [
-    list,
-    new Set<string>(Object.keys(schema.items.properties)),
-  ]),
-) as Record<keyof typeof PROPOSAL_TOOL.input_schema.properties.seed.properties, ReadonlySet<string>>;
+const SEED_SCHEMAS = PROPOSAL_TOOL.input_schema.properties.seed.properties;
+type SeedList = keyof typeof SEED_SCHEMAS;
+
+/** ★★ BUILT BY REDUCE, NOT `Object.fromEntries`, AND THAT IS NOT A STYLE CHOICE.
+ *  `Object.fromEntries` is typed to return `{ [k: string]: T }` whatever its
+ *  input tuples say, and casting that to a Record over the KEY UNION is a
+ *  TS2352 "neither type sufficiently overlaps" error — the compiler is right,
+ *  the index signature guarantees none of the six keys. The advertised escape,
+ *  `as unknown as`, silences it by throwing the check away.
+ *  ★ The union is worth keeping rather than widening to `Record<string, …>`:
+ *  a mistyped list name would then compile, yield `undefined` at runtime, and
+ *  hand `pickOfferedFields` no offered set — turning the filter OFF on that
+ *  list, silently, which is the exact defect this constant exists to prevent. */
+const SEED_OFFERED_KEYS = (Object.keys(SEED_SCHEMAS) as SeedList[]).reduce((acc, list) => {
+  acc[list] = new Set<string>(Object.keys(SEED_SCHEMAS[list].items.properties));
+  return acc;
+}, {} as Record<SeedList, ReadonlySet<string>>);
 
 /** Keep only the properties the tool offered for this list. Iterates the ITEM
  *  and keeps guarded keys — the shape `dropUnacceptedAbsenceFields` uses, not the
