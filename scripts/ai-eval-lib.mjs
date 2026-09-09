@@ -196,7 +196,22 @@ export const ANCHOR_SPEC = Object.freeze({
  *  response score as "ambiguous" — silently, forever, with nothing raising an
  *  error. `plantedToken` cannot produce that collision by construction, but
  *  this function takes both as plain strings, so a caller can still pass the
- *  same value twice. */
+ *  same value twice.
+ *
+ *  ★★★ POSTCONDITION, not four argument validators: this function is scored by
+ *  substring occurrence downstream (`scoreResponse`), so "the target occurs
+ *  exactly once and the decoy occurs exactly once" IS the contract — a silent
+ *  breach makes the drift reference meaningless rather than merely wrong. One
+ *  assertion on the actual output subsumes every way the inputs could produce
+ *  a bad text: an index tie at `words` small enough that `targetAt === decoyAt`
+ *  (the target wins the if/else chain and the decoy never gets an iteration),
+ *  a fraction of 1.0 landing on the never-visited index `spec.words` (the loop
+ *  is `i < spec.words`), `words: 0` producing an empty string with neither
+ *  token, and a decoy that is itself a substring of the target (or vice
+ *  versa), which double-counts one of them. None of those four is reachable at
+ *  the frozen `ANCHOR_SPEC` today, which is exactly why a postcondition is
+ *  needed rather than a comment — the failure is invisible until someone
+ *  edits the fractions or the word count. */
 export function buildAnchorPrompt(spec, target, decoy) {
   if (target === decoy) {
     throw new Error(
@@ -212,7 +227,19 @@ export function buildAnchorPrompt(spec, target, decoy) {
     else if (i === decoyAt) out.push(`reference code ${decoy}`);
     else out.push(FILLER_WORDS[Math.floor(rand() * FILLER_WORDS.length)]);
   }
-  return out.join(" ");
+  const text = out.join(" ");
+  for (const [label, needle] of [
+    ["target", target],
+    ["decoy", decoy],
+  ]) {
+    const count = text.split(needle).length - 1;
+    if (count !== 1) {
+      throw new Error(
+        `buildAnchorPrompt: expected the ${label} (${JSON.stringify(needle)}) to occur exactly once, got ${count}`,
+      );
+    }
+  }
+  return text;
 }
 
 /** Classify one response against its probe's target and decoy.

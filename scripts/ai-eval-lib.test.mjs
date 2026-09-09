@@ -195,6 +195,47 @@ describe("buildAnchorPrompt", () => {
       /target.*decoy|decoy.*target/i,
     );
   });
+
+  it("still places each exactly once at the default spec (positive case)", () => {
+    // The four negatives below only prove the function CAN refuse things —
+    // this keeps a positive case beside them so the suite also proves the
+    // postcondition does not fire on the happy path.
+    const text = buildAnchorPrompt(ANCHOR_SPEC, target, decoy);
+    expect(text.split(target).length - 1).toBe(1);
+    expect(text.split(decoy).length - 1).toBe(1);
+  });
+
+  it("throws rather than silently drop the decoy when words is too small", () => {
+    // words: 1 floors both targetAt and decoyAt to 0 — the if/else chain lets
+    // the target win the tie and the decoy never gets an iteration.
+    expect(() =>
+      buildAnchorPrompt({ ...ANCHOR_SPEC, words: 1 }, target, decoy),
+    ).toThrow(/decoy/i);
+  });
+
+  it("throws rather than silently drop the target when words is 0", () => {
+    expect(() =>
+      buildAnchorPrompt({ ...ANCHOR_SPEC, words: 0 }, target, decoy),
+    ).toThrow(/target/i);
+  });
+
+  it("throws rather than silently drop the target when its fraction is out of range", () => {
+    // targetAtFraction: 1.0 lands on index `words`, which the loop `i < words`
+    // never visits.
+    expect(() =>
+      buildAnchorPrompt(
+        { ...ANCHOR_SPEC, words: 100, targetAtFraction: 1.0 },
+        target,
+        decoy,
+      ),
+    ).toThrow(/target/i);
+  });
+
+  it("throws rather than silently double-count a decoy that is a substring of the target", () => {
+    expect(() =>
+      buildAnchorPrompt(ANCHOR_SPEC, "abcdef1234567890", "abcdef"),
+    ).toThrow(/decoy/i);
+  });
 });
 
 describe("sha256", () => {
