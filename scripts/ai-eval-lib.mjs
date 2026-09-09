@@ -362,11 +362,18 @@ export function preflight(input) {
     }
   }
 
-  if (countOf(armPrompts.A.system, target) !== 1) {
-    failures.push("arm A: the target must sit in system — that is what arm A is");
-  }
-  if (countOf(armPrompts.B.system, target) !== 0) {
-    failures.push("arm B: the target must NOT sit in system — the toggle did not toggle");
+  // ★★★ `expectRelocated` is FALSE only in the A/A self-test, where arm B is a
+  //    deliberate alias of arm A and there is no toggle to verify. Every real
+  //    candidate MUST pass true. A slice that finds this check inconvenient and
+  //    flips it to false has disabled the one assertion standing between it and
+  //    a confident "no regression" measured against itself.
+  if (input.expectRelocated !== false) {
+    if (countOf(armPrompts.A.system, target) !== 1) {
+      failures.push("arm A: the target must sit in system — that is what arm A is");
+    }
+    if (countOf(armPrompts.B.system, target) !== 0) {
+      failures.push("arm B: the target must NOT sit in system — the toggle did not toggle");
+    }
   }
 
   if (input.anchorHash !== input.recordedAnchorHash) {

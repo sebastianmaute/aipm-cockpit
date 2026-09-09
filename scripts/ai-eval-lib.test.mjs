@@ -476,6 +476,21 @@ describe("preflight", () => {
   });
 });
 
+describe("preflight expectRelocated", () => {
+  it("skips the structural checks only when explicitly told to", () => {
+    const input = okInput();
+    input.armPrompts.B = { ...input.armPrompts.A };
+    input.expectRelocated = false;
+    expect(preflight(input).ok).toBe(true);
+  });
+
+  it("still applies them when the flag is absent", () => {
+    const input = okInput();
+    input.armPrompts.B = { ...input.armPrompts.A };
+    expect(preflight(input).ok).toBe(false);
+  });
+});
+
 import { verdict, EXIT as E } from "./ai-eval-lib.mjs";
 
 const run = (over = {}) => ({
