@@ -3,7 +3,7 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.296.0";
-export const APP_BUILD_DATE = "2026-09-09"; // 0.296.0: the AI assistant's always-on operating guides are split into their own cached prompt block, so moving between views mid-conversation no longer re-sends ~13,300 tokens of identical prompt text — measured at roughly half the cost over a conversation that switches view (Kowal)
+export const APP_BUILD_DATE = "2026-09-09"; // 0.296.0: the AI assistant's always-on operating guides are split into their own cached prompt block, so moving between views mid-conversation no longer re-sends ~13,300 tokens of identical prompt text — measured at roughly half the cost over a conversation that switches view (McHugh)
 // 0.295.0: the AI assistant's chat transcript is now sent as a stable cacheable prefix instead of being rebuilt every turn, the usage meter counts every token class Anthropic bills — including cached reads and writes — instead of only input and output, Settings shows the session's cache breakdown and hit rate, and a one-time toast explains why a usage-cap warning may now arrive earlier with no setting changed (Borges)
 // 0.294.0: the assistant can no longer write fields it was never given — eight undisclosed writes closed, and every create tool now runs through the same guard its edit path already used (Jimenez)
 // 0.293.1: the activity log no longer says "AI planned 1 allocation cells" — the two AI planning entries pick the singular wording at a count of one, in both languages (Vandermeer)
@@ -22,8 +22,8 @@ export const APP_BUILD_DATE = "2026-09-09"; // 0.296.0: the AI assistant's alway
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.295.x line is "Borges" (Jorge Luis Borges, Argentine author of "Ficciones"
- *  and "The Garden of Forking Paths"). A PATCH release keeps its minor line's
+ *  0.296.x line is "McHugh" (Maureen F. McHugh, American author of "China
+ *  Mountain Zhang", 1992). A PATCH release keeps its minor line's
  *  name, as 0.293.1 kept "Vandermeer" like 0.293.0, exactly as 0.291.1 kept
  *  "Hoban". Only a MINOR bump needs the sweep below.
  *  ★★ Updated at the 0.294.0 bump. This sentence is the trap the paragraph
@@ -41,6 +41,27 @@ export const APP_BUILD_DATE = "2026-09-09"; // 0.296.0: the AI assistant's alway
  *  further down, recurring twice after being written up. Corrected again at
  *  the 0.295.0 bump (2026-09-08) — update this sentence IN THE SAME COMMIT as
  *  the constant, every time.
+ *  ★★★ 0.296.0 REPEATED THE "Chiang" MISTAKE BELOW, ONE RELEASE LATER, FROM
+ *  THE SAME CAUSE — and the paragraph warning against it was already sitting
+ *  here when it happened. It was bumped as "Kowal", which passed the
+ *  per-minor-line LEGALITY check (0.296.x was empty) while having one prior
+ *  use at 0.37.0, so it failed the zero-anywhere DESIRABILITY bar. The author
+ *  had told himself in-session that reuse in an unrelated minor line was
+ *  fine — verbatim the pre-authorisation the "Chiang" note calls WRONG. Caught
+ *  by re-reading this docstring while fixing something else, not by any gate;
+ *  nothing checks this, and that is the point. Renamed to "McHugh" before
+ *  anything was pushed.
+ *  0.296.x sweep for "McHugh", run BEFORE the rename by BOTH commands this
+ *  docstring prescribes: `grep -ic mchugh CHANGELOG.md` returned 0 (a true
+ *  zero-anywhere absence, the stronger DESIRABILITY bar) and the dash-agnostic
+ *  header pattern returned nothing. Controls fired in the SAME run: positives
+ *  `borges` 1, `chiang` 1, `moorcock` 1 and `kowal` 2 (its 0.37.0 header plus
+ *  the 0.296.0 one being renamed — the collision this sweep existed to find),
+ *  and negative `zzznotaname` 0. The header pattern also demonstrably matched
+ *  BOTH dash shapes, `0.296.0` with a hyphen and `0.37.0` with an EM DASH.
+ *  ★★ "Gentle" was clear in the same run and remains unspent. "McHugh" is a
+ *  single ASCII word, so it is not exposed to the `[^"]+` vs `[A-Za-z]+`
+ *  character-class trap described further down.
  *  ★★★ 0.295.0 SHIPPED ONCE ALREADY AS "Chiang" AND WAS RENAMED WITHIN THE
  *  SAME DAY, and the rename is the useful part of this record — not the name.
  *  "Chiang" passed the LEGALITY check below (uniqueness is per-minor-line, and
@@ -198,7 +219,7 @@ export const APP_BUILD_DATE = "2026-09-09"; // 0.296.0: the AI assistant's alway
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Kowal";
+export const APP_MILESTONE = "McHugh";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

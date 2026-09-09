@@ -92,9 +92,13 @@ function pluralGuideWord(count: number): string {
  *  ★★★ THE ALWAYS-ON HEADER COUNTS ONLY THE ALWAYS-ON GUIDES, and that is the
  *  entire point. The single-block predecessor opened with "You have N
  *  operating guides" where N included the view-scoped ones, so N moved from
- *  2 to 3 to 4 as the user navigated — putting a varying digit ahead of ~9.9k
- *  tokens of identical text and breaking the cache prefix on every view
- *  switch. Measured before this change: the longest common prefix of the
+ *  2 to 3 to 4 as the user navigated — putting a varying digit ahead of
+ *  ~12,275 tokens of identical always-on guide text and breaking the cache
+ *  prefix on every view switch. (Measured 2026-09-09 at 2.92 chars/token; an
+ *  earlier ~9.9k figure here assumed 3.6. The block that now survives a view
+ *  switch is larger still — 13,305 tokens — because it also carries the fixed
+ *  instructions that sit AHEAD of that digit.)
+ *  Measured before this change: the longest common prefix of the
  *  assembled block across the 34 nav-reachable views (of 35 `AppView`
  *  members — `learning-insights` is deep-link-only) was 9 characters.
  *  Including it could not have raised that figure: a common prefix only

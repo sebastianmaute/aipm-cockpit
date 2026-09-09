@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.296.0] - 2026-09-09 "Kowal"
+## [0.296.0] - 2026-09-09 "McHugh"
 
 ### Changed
 - Moving between views mid-conversation no longer re-sends the AI assistant's
