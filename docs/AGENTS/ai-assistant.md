@@ -1260,10 +1260,10 @@
   NOTHING for that send. Pre-existing control flow, deliberately unchanged by this slice — read this
   before citing "the meter is now honest" as unconditional.
   ★★ **`ai-usage-context.tsx`'s `loadBucketsAndSeedBasisNotices` normalizes each field (via `ai-usage.ts`'s
-  `normalizeUsage`) instead of casting, and that closes a real trap.** A usage blob persisted before this
-  slice has no `cacheWrite`/`cacheRead`; `undefined + n` is `NaN`; and `NaN < threshold` and
-  `NaN >= threshold` are BOTH false — so a cap fed an un-normalized legacy bucket would silently stop
-  firing forever, with no error anywhere. Never replace the per-field normalize with a plain object cast.
+  `normalizeUsage`) instead of casting, and that closes a real trap** — a usage blob persisted before this
+  slice has no `cacheWrite`/`cacheRead`, and an un-normalized legacy bucket would silently stop firing a cap
+  forever (the NaN mechanics are under "AI usage caps run on a COST basis" below). Never replace the
+  per-field normalize with a plain object cast.
   ★ `buildViewScopeBlock` and `buildViewStateBlock` output both sit inside `buildTurnContext`, scope
   before state — a readability choice (what the surface IS, then what is on it), not a cost one, since
   the tools breakpoint plus the message-level breakpoints above are where the saving comes from.
@@ -1365,13 +1365,10 @@
   write 1.25x and cache read 0.1x everywhere), so the basis needs NO price table and NO per-model branch and
   cannot go stale when a published rate moves. ★★ The one thing that would make the design wrong is a future
   model breaking the ratio; at that point the basis has to become model-aware.
-  ★★ THE WEIGHTS ARE APPLIED AT COMPARISON TIME, NEVER BEFORE PERSISTENCE. Buckets store the API's own raw
-  counts and are priced on read, by that one function, for the session total and the week-to-date cap alike —
-  so the two caps cannot land on different scales. The blunt whole-request multiplier setting that used to
-  scale every field at WRITE time is retired and must not be reintroduced: the factor in force at write time
-  was never recorded beside the numbers, so a re-basing was permanent and stored buckets could not afterwards
-  be re-interpreted. ★ The record path, the advisory notices and the retired setting are owned by
-  [`platform.md`](platform.md)'s "Usage-limit notices + counting knobs" bullet; this one owns only the basis.
+  ★★ THE WEIGHTS ARE APPLIED AT COMPARISON TIME, NEVER BEFORE PERSISTENCE — buckets store the API's own raw
+  counts and are priced on read. ★ The record path (where `record()` writes those raw counts), the advisory
+  notices and the retired write-time multiplier setting are owned by [`platform.md`](platform.md)'s
+  "Usage-limit notices + counting knobs" bullet; this one owns only the basis.
   ★★★ THE OLD UNWEIGHTED SUM WAS DELETED RATHER THAN RE-BODIED. It added the four fields flat, so a cached
   turn — billed at a tenth — consumed exactly as much of a cap as a fresh one, which is the over-counting this
   change exists to fix. A reader meeting a function named for a total expects a plain sum, so leaving that

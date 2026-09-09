@@ -32795,15 +32795,16 @@ reasoning.
 **Why it inverted.** A cached history is billed at 0.1x, so what a trim saves is tenth-price tokens.
 A trim is also a HEAD trim: it changes the first message, which invalidates the prefix, so each trim
 event pays a 1.25x cache WRITE of everything behind the cut. The saving is small and recurring; the
-cost is large and paid up front. Modelled against the 31,100-token fixed prefix (tools 17,796 +
-block 0 13,305), payback takes **~47 turns at a 20,000-token history, ~26 at 50,000 and ~19 at
-100,000** — and only if the conversation continues that long AFTER the cut, which is exactly when a
-user is least likely to still be in the same thread.
+cost is large and paid up front. Modelled against the 31,101-token fixed prefix (tools 17,796 +
+block 0 13,305 — matching `docs/AGENTS/ai-assistant.md`'s recorded switch-turn figure), payback takes
+**~47 turns at a 20,000-token history, ~26 at 50,000 and ~19 at 100,000** — and only if the conversation
+continues that long AFTER the cut, which is exactly when a user is least likely to still be in the same
+thread.
 
 **What those three numbers assume.** The spec does not record the trim fraction, and the figures are
 not derivable without one. A HALF-trim reproduces them to within a turn or two — dropping half of a
 20,000-token history saves 0.1 x 10,000 = 1,000 equivalent tokens per subsequent turn, against a trim
-event costing 1.25 x (31,100 + 10,000) where 0.1 x (31,100 + 20,000) would otherwise have been paid,
+event costing 1.25 x (31,101 + 10,000) where 0.1 x (31,101 + 20,000) would otherwise have been paid,
 i.e. ~46 turns; the same arithmetic gives ~25 at 50,000 and ~18 at 100,000. Read the assumption as
 recovered, not as stated: it is the one that fits, not one anybody wrote down.
 
