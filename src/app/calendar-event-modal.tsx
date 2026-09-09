@@ -36,7 +36,6 @@ import { clampRangeEnd } from "./date-range";
 import { parseUtc } from "./calendar-window";
 import { weekdayIndex } from "./recurrence";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
-import { MODAL_HELP } from "./help-content";
 import { FieldHint } from "./field-hint";
 import { Checkbox, Input, Select } from "./form-controls";
 import { SegmentedControl } from "./segmented-control";
@@ -174,7 +173,13 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
       lang={lang}
       title={title}
       modalId="calendarEvent"
-      helpConceptId={MODAL_HELP.calendarEvent}
+      /* ★ NO `helpConceptId`, deliberately — the row was REMOVED from
+         `MODAL_HELP` rather than repointed. This modal edits recurring MEETING
+         SERIES; the nearest entry (`feature-resources`) enumerates the Calendar
+         sub-tab as "tasks, absences, and holidays", none of which is what is
+         being edited here, and "series" appears in 0 of the 66 help bodies.
+         Same criterion that removed `taskTimeTracking`: a wrong entry is worse
+         than no icon. Write a meeting-series entry before restoring a row. */
       onClose={onClose}
       onSubmit={handleSubmit}
       offset={offset}

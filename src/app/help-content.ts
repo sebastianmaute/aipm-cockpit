@@ -235,18 +235,26 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *  change here by reading the entry, not by running tsc.
  *
  *  ★ `help-content.test.ts` pins that every value resolves AND that the map
- *  still has 19 rows — the count is the anti-vacuity floor, so update it
+ *  still has 18 rows — the count is the anti-vacuity floor, so update it
  *  deliberately when adding a modal, never to make a red run green.
  *
  *  ★★ A modal with NO apt entry gets NO ROW, and that is the deliberate
- *  answer rather than the nearest-neighbour one. `taskTimeTracking` (the
- *  Jira-style estimate / spent / remaining dialog) pointed at
- *  `feature-timelog`, which describes the external Timelog INTEGRATION —
- *  a different subject that implies those figures sync somewhere they do
- *  not. No entry mentions estimates at all (reproduce: search every body
- *  for "estimate" / "time spent" / "remaining" — zero hits), so the row was
- *  REMOVED. Do NOT reinstate it by picking the closest-sounding id; write a
- *  task-effort entry first. */
+ *  answer rather than the nearest-neighbour one. TWO modals have now been
+ *  removed on that criterion, not one:
+ *    • `taskTimeTracking` (the Jira-style estimate / spent / remaining
+ *      dialog) pointed at `feature-timelog`, which describes the external
+ *      Timelog INTEGRATION — a different subject that implies those figures
+ *      sync somewhere they do not. No entry mentions estimates at all
+ *      (reproduce: search every body for "estimate" / "time spent" /
+ *      "remaining" — zero hits).
+ *    • `calendarEvent` (the recurring MEETING SERIES editor) pointed at
+ *      `feature-resources`, whose Calendar sentence enumerates that sub-tab
+ *      as "tasks, absences, and holidays" — so the entry told the reader the
+ *      surface holds three things that are not what they are editing.
+ *      Measured 2026-09-09 over all 66 entries' titles + bodies: "series"
+ *      matches ZERO of them.
+ *  Do NOT reinstate either by picking the closest-sounding id; write a
+ *  task-effort / meeting-series entry first. */
 export const MODAL_HELP = {
   raidEdit: "concept-raid",
   changeEdit: "concept-change",
@@ -254,7 +262,6 @@ export const MODAL_HELP = {
   stakeholderEdit: "concept-stakeholder",
   resourceEdit: "feature-resources",
   absenceEdit: "feature-resources",
-  calendarEvent: "feature-resources",
   taskForm: "feature-add",
   taskLinkedTask: "concept-dependency",
   budgetBucket: "concept-budget",
