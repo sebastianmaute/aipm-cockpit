@@ -140,25 +140,30 @@ describe("MODAL_HELP", () => {
     // ★★ ONE SITE PER KEY, WITH AN EXPLICIT ALLOWLIST. Two modals sharing a
     // key is not necessarily wrong, but it is never accidental -- so it has to
     // be a deliberate edit HERE, with the reason written beside it.
-    const MULTI_SITE_KEYS: Readonly<Record<string, string>> = {
+    // ★★★ THE ALLOWLIST CARRIES AN EXACT COUNT, NOT A FLOOR. A floor
+    // (`toBeGreaterThan(1)`) closes only the DOWNWARD direction -- a key that
+    // dropped back to one site -- and leaves the upward one open: a FOURTH
+    // `BackendConfigModal` consumer passing this id would land green while
+    // falsifying `help-content.ts`'s "two pass `backendConfig`" docstring,
+    // which nothing else pins. An exact count closes both, so every one of the
+    // 19 keys keeps a counted assertion rather than 18 counted and one floored.
+    const MULTI_SITE_KEYS: Readonly<Record<string, number>> = {
       // `BackendConfigModal` takes a REQUIRED `helpConceptId` (it used to
       // hardcode this id and carry a `hideHelp` flag, REMOVED). Its two STORAGE
       // consumers -- the create-project form's "configure" step and the
       // empty-state "Backend setup" button -- both pass this literal; the
       // empty state's AI instance passes `aiSettings`, because that one
       // replaces the modal body with `AiSection`.
-      backendConfig: "BackendConfigModal's two storage consumers pass it directly",
+      backendConfig: 2,
     };
 
     for (const [key, hits] of used) {
-      const reason = MULTI_SITE_KEYS[key];
-      if (reason) {
-        // ★★★ THE ALLOWLIST IS ASSERTED IN BOTH DIRECTIONS, which is the half
-        // an allowlist usually lacks. Without this a key that dropped back to
-        // ONE site would sit here forever, silently exempting itself from the
-        // check the other 18 keys get.
-        expect(hits.length, `MODAL_HELP.${key} is allowlisted (${reason}) but has one site`)
-          .toBeGreaterThan(1);
+      const expected = MULTI_SITE_KEYS[key];
+      if (expected !== undefined) {
+        // ★★ `!== undefined`, never truthiness: a future `0` here would mean
+        // "allowlisted with no sites", which must fail loudly rather than fall
+        // through to the one-site branch and pass for the wrong reason.
+        expect(hits, `MODAL_HELP.${key} (allowlisted for ${expected} sites)`).toHaveLength(expected);
         continue;
       }
       expect(hits, `MODAL_HELP.${key}`).toHaveLength(1);
