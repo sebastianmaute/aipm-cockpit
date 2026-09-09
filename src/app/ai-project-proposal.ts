@@ -144,7 +144,20 @@ export const PROPOSAL_TOOL = {
             type: "array",
             items: {
               type: "object",
-              properties: { name: { type: "string" }, organization: { type: "string" }, title: { type: "string" } },
+              properties: {
+                name: { type: "string" },
+                organization: { type: "string" },
+                title: { type: "string" },
+                // ★★ DECLARED FOR THE SAME REASON AS `raid.ownerEmail`, and through the
+                //  very same `linkResource`: the email leg runs FIRST, so the address is
+                //  the only thing that can tell apart two seeded people sharing a display
+                //  name. Reasoning above `SEED_OFFERED_KEYS`; do not restate it here.
+                email: {
+                  type: "string",
+                  description:
+                    "This person's email address, when the source gives one — matching the email on their resources entry, and used to tell apart two people with the same name. Do not invent one.",
+                },
+              },
               required: ["name"],
             },
           },
@@ -231,14 +244,26 @@ function isObj(v: unknown): v is Record<string, unknown> {
  *  ★★ THE SURVIVING TRUE PART of the old paragraph: with no email supplied,
  *  linking is by NAME ONLY, and same-named rows still resolve first-wins by
  *  declaration order.
- *  ★★ `sanitizeEmail` is `sanitizeText(…, EMAIL_MAX)` — it trims and caps at 320
- *  and validates NOTHING, so this stores whatever string the model sent. The
- *  prompt's "Do not invent owners or emails" is the only thing asking for a real
- *  address, and the schema's own description repeats it. Do not read the
- *  sanitizer as a validator.
- *  ★★ `stakeholders.email` stays UNDECLARED — but NOT because the name leg
- *  suffices there. `linkResource(s.name, s.email)` gives the stakeholder leg the
- *  identical first-wins wrong-link exposure; it is simply outside this change.
+ *  ★★★ `stakeholders.email` IS DECLARED TOO, and it is the SAME decision's
+ *  second instance rather than a separate one. An earlier revision of this
+ *  paragraph left the field out and recorded it as merely "outside this change"
+ *  — but `remapSeed` resolves a stakeholder through the SAME
+ *  `linkResource(s.name, s.email)` over the SAME first-wins `resByName`, and
+ *  `stakeholderFields` (`chat-tool-defs.ts`) ALREADY offers `email` on
+ *  `create_stakeholder` / `update_stakeholder`. Both legs of the argument above
+ *  therefore hold verbatim. Pinned by "links a seeded stakeholder by EMAIL when
+ *  two directory rows share a name".
+ *  ★ That case is the only one that can prove it: the stakeholder NAME leg is
+ *  pinned in `template-apply.test.ts`, which drives `remapSeed` on a hand-built
+ *  seed and is therefore blind to this schema entirely.
+ *  ★★ NEITHER ADDRESS IS VALIDATED, and the two do not even share a cap.
+ *  `sanitizeRaidItem` puts `ownerEmail` through `sanitizeEmail`, itself just
+ *  `sanitizeText(…, EMAIL_MAX)` (320); `sanitizeStakeholder` puts `email`
+ *  through `sanitizeText(…, BUDGET_NAME_MAX)` (200). Both only TRIM and CAP —
+ *  no format check whatever — so each stores whatever string the model sent.
+ *  The prompt's "Do not invent owners or emails" and the two schema descriptions
+ *  are the only things asking for a real address. Do not read either sanitizer
+ *  as a validator, and do not assume the raid cap applies here.
  *
  *  ★★ Do NOT name the plain change sanitizer in this file, in a comment or
  *  otherwise: `sanitize-model-change-wiring.test.ts` asserts its bare name
@@ -423,11 +448,16 @@ function buildSeedResource(raw: unknown, id: number): Resource | null {
 
 /** Turn the proposal's seed into a validated TemplateSeed (or undefined when no
  *  usable content). Seeded resources let remapSeed link task/RAID owners +
- *  stakeholders to the directory by name; unmatched owners stay plain strings.
- *  ★ BY NAME ONLY, and that is a property of THIS producer, not of `remapSeed`:
- *  `linkResource` also takes an email, but no seed item schema declares one
- *  (`raid.ownerEmail`, `stakeholders.email` — see the `SEED_OFFERED_KEYS` note),
- *  so the filter drops it and only the name leg can ever fire on this path. */
+ *  stakeholders to the directory by name OR email; unmatched owners stay plain
+ *  strings.
+ *  ★★ "OR EMAIL" IS NEW, AND THIS LINE SAID THE OPPOSITE FOR A RELEASE: it read
+ *  "BY NAME ONLY … no seed item schema declares [an email], so the filter drops
+ *  it and only the name leg can ever fire on this path." Both `raid.ownerEmail`
+ *  and `stakeholders.email` are declared now, so the EMAIL leg — which
+ *  `linkResource` tries FIRST — fires here too, and it is what disambiguates two
+ *  seeded people sharing a display name. See the `SEED_OFFERED_KEYS` note.
+ *  ★ Still true: with no address supplied, the name leg alone resolves, and
+ *  same-named rows go first-wins by declaration order. */
 export function proposalToSeed(p: ProjectProposal, today: string): TemplateSeed | undefined {
   const s = p.seed;
   if (!s) return undefined;

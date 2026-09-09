@@ -166,7 +166,10 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
     //  sanitizer reads `knowledgeLinks ?? documentLinks`. The allowlist filters
     //  on the key the model SENDS, which is the case a denylist of stored column
     //  names would miss, so both spellings are exercised.
-    stakeholders: ["localModifiedAt", "email", "notes", "resourceId", "knowledgeLinks"],
+    // ★ `email` is NOT here either, and for the raid reason exactly: the schema
+    //  declares it so `linkResource(s.name, s.email)` can pick between two
+    //  same-named directory rows. Asserted in the anti-vacuity case below.
+    stakeholders: ["localModifiedAt", "notes", "resourceId", "knowledgeLinks"],
   };
 
   function seedWithSmuggledFields() {
@@ -195,8 +198,8 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
             achievedDate: "2026-11-01", knowledgeLinks: [{ name: "forged", url: "https://x.io" }],
           }],
           stakeholders: [{
-            name: "Ada Lovelace", organization: "ACME", title: "CTO",
-            id: 999, localModifiedAt: "2026-01-02T03:04:05Z", email: "forged@x.io",
+            name: "Ada Lovelace", organization: "ACME", title: "CTO", email: "ada@x.io",
+            id: 999, localModifiedAt: "2026-01-02T03:04:05Z",
             notes: "smuggled", resourceId: 42,
             documentLinks: [{ name: "forged", url: "https://x.io" }],
           }],
@@ -262,6 +265,11 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
     expect(seed?.milestones?.[0]).toMatchObject({ name: "Go-live", date: "2026-12-01" });
     expect(seed?.stakeholders?.[0]).toMatchObject({
       name: "Ada Lovelace", organization: "ACME", title: "CTO",
+      // ★★ Same story as `raid.ownerEmail` one list up, through the same
+      //  `linkResource`: it used to be asserted ABSENT here on the false ground
+      //  that the name leg links everything. A stripped address left the
+      //  stakeholder's `resourceId` WRONG, not missing.
+      email: "ada@x.io",
     });
   });
 
@@ -374,6 +382,45 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
     expect(out.raid?.[0]?.ownerResourceId, "bound to the first-wins NAME row").not.toBe(firstId);
     // The email leg beat first-wins-by-name: the SECOND row, not the first.
     expect(out.raid?.[0]?.ownerResourceId).toBe(secondId);
+  });
+
+  it("links a seeded stakeholder by EMAIL when two directory rows share a name", () => {
+    // ★★★ THE STAKEHOLDER LEG OF THE SAME DEFECT, and the same argument end to
+    //  end: `remapSeed` resolves a stakeholder through the very same
+    //  `linkResource(s.name, s.email)` over the same FIRST-WINS `resByName`, so
+    //  while `email` was undeclared two seeded people sharing a display name
+    //  bound the stakeholder to whichever the model listed first — a WRONG
+    //  `resourceId`, not an absent one.
+    // ★ Its NAME-leg sibling lives in `template-apply.test.ts` ("re-links seeded
+    //  person FKs…"), which drives `remapSeed` on a hand-built seed and so is
+    //  blind to this schema. THIS case is the only one that proves the FILTER
+    //  lets the address through.
+    const seed = proposalToSeed(
+      {
+        meta: { name: "x" },
+        features: [],
+        seed: {
+          resources: [
+            { firstName: "Ada", lastName: "Lovelace", email: "ada.first@x.io" },
+            { firstName: "Ada", lastName: "Lovelace", email: "ada.second@x.io" },
+          ],
+          stakeholders: [
+            { name: "Ada Lovelace", organization: "ACME", email: "ada.second@x.io" },
+          ],
+        },
+      },
+      TODAY,
+    );
+    expect(seed?.resources, "both directory rows must survive").toHaveLength(2);
+    const out = remapSeed(emptyWorkspace(), seed!);
+    const firstId = out.resources?.[0]?.id;
+    const secondId = out.resources?.[1]?.id;
+    expect(firstId).toEqual(expect.any(Number));
+    expect(secondId).toEqual(expect.any(Number));
+    expect(firstId).not.toBe(secondId);
+    expect(out.stakeholders?.[0]?.resourceId).toEqual(expect.any(Number));
+    expect(out.stakeholders?.[0]?.resourceId, "bound to the first-wins NAME row").not.toBe(firstId);
+    expect(out.stakeholders?.[0]?.resourceId).toBe(secondId);
   });
 
   it("assigns the builder's 1-based id after filtering, not the model's", () => {
