@@ -180,6 +180,13 @@ export function useNotesWindow(deps: NotesWindowDeps): UseNotesWindowResult {
     resources,
     lang,
     entityLabel: notesEntityLabel,
+    // ★★★ DERIVED, never constant. This ONE props object serves all three
+    // registers — the window switches on `notesTarget` — and only a task's
+    // note log is readable by the model: `get_task` returns it, while the RAID
+    // and change summaries in `chat-tool-summaries.ts` carry no `noteLog` at
+    // all. Hardcoding `true` here would ship a false disclosure to two of the
+    // three registers through the surface users actually reach.
+    aiReadable: notesTarget?.kind === "task",
   };
 
   return {
@@ -199,6 +206,11 @@ export function useNotesWindow(deps: NotesWindowDeps): UseNotesWindowResult {
       resources,
       lang,
       labelSuffix: nameOf(kind, id),
+      // Same rule as `notesWindowProps` above, off this call's own register:
+      // only `get_task` exposes a note log to the model. Production only ever
+      // calls this with "task", but the discriminator stays real so a second
+      // register mounting an in-editor panel cannot inherit a false claim.
+      aiReadable: kind === "task",
     }),
   };
 }

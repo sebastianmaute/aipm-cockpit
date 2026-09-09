@@ -341,6 +341,8 @@ function notePanelProps(over: Partial<NoteLogPanelProps> = {}) {
     resources: [],
     lang: EN,
     labelSuffix: "Draft charter",
+    // The task register — the one note log `get_task` exposes to the model.
+    aiReadable: true,
     ...over,
   };
   return { onAdd, onEdit, onDelete, taskNotePanel };

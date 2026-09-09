@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { TextButton } from "../text-button";
-import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS, DEFAULT_TOKEN_MULTIPLIER } from "../settings-types";
+import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS } from "../settings-types";
 import {
   DEFAULT_INSIGHT_REC_INTERVAL_MIN,
   MIN_INSIGHT_REC_INTERVAL_MIN,
@@ -349,18 +349,6 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         defaultValue={DEFAULT_WEEKLY_TOKEN_CAP}
         onChange={(n) =>
           onChange({ ...settings, ai: { ...settings.ai, weeklyTokenCap: n } })
-        }
-      />
-      <CapInput
-        label={t(lang, "aiTokenMultiplier")}
-        hint={t(lang, "aiTokenMultiplierHint")}
-        value={settings.ai.tokenMultiplier}
-        defaultValue={DEFAULT_TOKEN_MULTIPLIER}
-        min={0.1}
-        step={0.5}
-        decimal
-        onChange={(n) =>
-          onChange({ ...settings, ai: { ...settings.ai, tokenMultiplier: n } })
         }
       />
       <CapInput

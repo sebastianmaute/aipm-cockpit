@@ -29,6 +29,7 @@ import { browserTimeZone } from "./timezone";
 import { resourceDisplayName } from "./resource-foundation";
 import { useDictationMic } from "./dictation-mic";
 import { useSettings } from "./use-settings";
+import { isAiEnabled } from "./settings-types";
 import type { Settings } from "./settings-types";
 import type { NoteLogEntry, Resource } from "./types";
 
@@ -175,10 +176,21 @@ export interface NoteLogPanelProps {
    *  Required (open-followups §142): `null` is the explicit "no suffix"
    *  sentinel — see `notes-window.tsx`. */
   labelSuffix: string | null;
+  /** Can the AI assistant read THIS register's notes?
+   *
+   *  ★★★ REQUIRED, not optional, and it is not a styling flag. This component
+   *  serves tasks, RAID items and changes; `get_task` exposes a task's note
+   *  log to the model and nothing exposes the other two. A blanket disclosure
+   *  would therefore be a false claim on two of the three surfaces — the exact
+   *  defect this prop exists to avoid, and a default of `true` would
+   *  reintroduce it silently. Set by the two places that know the register:
+   *  `notesWindowProps` (from the open target) and `notePanelPropsFor` (from
+   *  its `kind` argument), both in use-notes-window.ts. */
+  aiReadable: boolean;
 }
 
 export function NoteLogPanel(props: NoteLogPanelProps) {
-  const { entries, onAdd, onEdit, onDelete, self, resources, lang, labelSuffix } = props;
+  const { entries, onAdd, onEdit, onDelete, self, resources, lang, labelSuffix, aiReadable } = props;
 
   const [composerHtml, setComposerHtml] = useState("");
   // Remount nonce: bumping it swaps a fresh (empty) composer NoteEditor in after
@@ -243,6 +255,12 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
   return (
     <>
       <div className="shrink-0 border-b border-line p-3">
+        {/* ★ Gated on the master switch as well as the register: telling a user
+            who has the assistant switched off what it can read is noise about
+            a feature they are not using. */}
+        {aiReadable && isAiEnabled(settings.ai) && (
+          <p className="mb-2 text-xs text-muted-foreground">{t(lang, "noteLogAiReadOnly")}</p>
+        )}
         {/* focus/blur bubble from the contenteditable, registering THIS field
             as the active dictation target for the hold-to-talk hotkey
             (mirrors raid-edit-modal.tsx). */}

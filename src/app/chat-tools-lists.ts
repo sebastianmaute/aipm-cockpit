@@ -6,12 +6,13 @@
 // "how many tasks exist?" needed a second call, and the model paid for markup
 // it cannot reason about (it reasons about a description's TEXT).
 //
-// ★ ONLY THE LIST PATH IS SLIMMED. `get_task` keeps full fidelity on purpose:
+// ★ ONLY THE LIST PATH IS NARROWED. `get_task` keeps full fidelity on purpose:
 // an assistant about to EDIT a description needs the markup it is editing, and
-// the volume that justifies the projection is all on the list side. That split
-// is pinned by the "get_task keeps the full markup that the list projection
-// strips" control in `chat-tools.test.ts` — without it, slimming BOTH paths
-// would satisfy every other assertion in that block.
+// a note log the model is told it has no tool to read or write is only worth
+// paying for on demand. That split is pinned by the "get_task keeps the full
+// note log and markup that the list projection strips" control in
+// `chat-tools.test.ts` — without it, narrowing BOTH paths would satisfy every
+// other assertion in that block.
 //
 // ★ Pure and DOM-free. `htmlToPlainText` is regex-only (it never reaches
 // DOMPurify), so this module is safe to import from the tool layer, which runs
@@ -19,7 +20,7 @@
 import { entityToken, type TokenEntity } from "./ai-entity-token";
 import { htmlToPlainText } from "./html-to-text";
 import { coerceNumericInput } from "./resolve-limit";
-import type { NoteLogEntry, Task } from "./types";
+import type { Task } from "./types";
 
 /** A read-path row carrying the optimistic-concurrency token the matching
  *  `update_*` tool demands back.
@@ -113,22 +114,26 @@ export function withRowTokens<T extends { id: number }>(
   return rows.map((row) => withToken(kind, row, getRow(row.id)));
 }
 
-/** A `noteLog` entry as the list path reports it: the entry minus its `html`
- *  body. Dropping the markup is not a truncation — `NoteLogEntry.text` is the
- *  CANONICAL plain projection of that html (`sanitizeNoteLogWith` re-derives
- *  it on every load whenever the html projects to anything, and drops an entry
- *  that would end up with no text at all), so the reader loses nothing it could
- *  have read. Timestamp, author and id survive: the model still knows when and
- *  by whom a note was written. */
-export type NoteLogListEntry = Omit<NoteLogEntry, "html">;
-
-/** A task as `list_tasks` reports it: every field of `Task`, with the two rich
- *  HTML carriers projected to text. ★ `description` and `noteLog` are the
- *  ENTIRE slimming target on this path — the other five list tools already
- *  project to `*Summary` types that carry no rich HTML at all. */
+/** A task as `list_tasks` reports it: every field of `Task` except the note
+ *  log, with `description` projected to plain text.
+ *
+ *  ★★★ `noteLog` IS DROPPED OUTRIGHT, NOT PROJECTED, and it must stay dropped.
+ *  On a 140-task project it was 37.8% of the STORED rows — the largest field
+ *  there by a factor of five — and 26.4% of what the list path actually
+ *  SHIPPED, which had already stripped each entry's markup. ★★ THE TWO ARE NOT
+ *  INTERCHANGEABLE: the saving is 9,459 tokens (the shipped figure), and
+ *  quoting the stored-row bound as the saving overstates it by 67%. Meanwhile
+ *  `lib/app-feature-guide.md` told the model four times that it had no tool for
+ *  notes, so the app was paying to ship data it had forbidden the model to use.
+ *  ★★ The capability was RELOCATED, not deleted: `get_task` still returns the
+ *  full `Task` including `noteLog` with its HTML, at roughly 112 tokens per
+ *  task on demand instead of thousands in bulk. `get_task`'s tool description
+ *  carries the read-only constraint. Pinned by "list_tasks carries no note log
+ *  at all" and by the get_task control beside it — both are needed.
+ *  ★ The other five list tools already project to `*Summary` types that carry
+ *  no rich HTML at all, which is why only this one needed narrowing. */
 export type TaskListItem = Omit<Task, "description" | "noteLog"> & {
   description: string;
-  noteLog?: NoteLogListEntry[];
 };
 
 export type ListEnvelope<T> = {
@@ -142,20 +147,17 @@ export type ListEnvelope<T> = {
   limit?: number;
 };
 
-function slimNoteEntry(entry: NoteLogEntry): NoteLogListEntry {
-  const { html, ...rest } = entry;
-  // `text` is guaranteed non-empty by the load sanitizer, but this projection
-  // also runs over rows minted in-session, so fall back rather than emit an
-  // entry whose body is gone in both spellings.
-  return { ...rest, text: entry.text || (html ? htmlToPlainText(html) : "") };
-}
-
 export function slimTaskForList(task: Task): TaskListItem {
+  // `noteLog` is destructured only to EXCLUDE it from `rest`; it is
+  // deliberately never re-attached. See TaskListItem's docstring. This repo's
+  // eslint config sets no `ignoreRestSiblings` (verified: `--print-config`
+  // shows the rule with no options object), so the binding needs a real read
+  // to satisfy `no-unused-vars` — `void` is that read, not a workaround.
   const { description, noteLog, ...rest } = task;
+  void noteLog;
   return {
     ...rest,
     description: description ? htmlToPlainText(description) : "",
-    ...(noteLog === undefined ? {} : { noteLog: noteLog.map(slimNoteEntry) }),
   };
 }
 
@@ -207,9 +209,9 @@ export function listTasksEnvelope(
   const page = limit === undefined ? tasks : tasks.slice(0, limit);
   return {
     // ★ The token comes from the FULL `task`, never from the slimmed item the
-    // model sees: `slimTaskForList` projects `description` and `noteLog` to
-    // text, and a token derived from that projection could not tell two
-    // descriptions apart that differ only in markup.
+    // model sees: `slimTaskForList` projects `description` to text and drops
+    // `noteLog` outright, and a token derived from that projection could not
+    // tell two descriptions apart that differ only in markup.
     items: page.map((task) => withToken("task", slimTaskForList(task), task)),
     total: tasks.length,
     ...(limit === undefined ? {} : { limit }),

@@ -46,6 +46,7 @@ export const de: Record<TranslationKey, string> = {
   noteLogPlaceholder: "Notiz schreiben…",
   noteLogAuthor: "Notizautor",
   noteLogAdd: "Notiz hinzufügen",
+  noteLogAiReadOnly: "Der Assistent kann diese Notizen lesen. Er kann keine hinzufügen oder ändern.",
   noteLogNoAuthor: "Kein Autor",
   selfResourceLabel: "Ich bin diese Ressource",
   selfResourceHint: "Wird verwendet, um Notizen und Aktivitäten Ihnen zuzuordnen.",
@@ -3606,17 +3607,19 @@ export const de: Record<TranslationKey, string> = {
   fieldsAdjusted: "Gespeichert — {0} Feld(er) auf Grenzwerte angepasst",
 
   usage80Toast: "Sie haben 80 % Ihres Token-Budgets verbraucht",
-  aiUsageCapBasisChanged:
-    "Die Token-Zählung umfasst jetzt zwischengespeicherte Eingaben, die Anthropic separat abrechnet. Ihre Obergrenzen bleiben unverändert, daher erscheinen Warnungen früher als bisher.",
+  aiUsageCostBasisChanged:
+    "Ihre Token-Obergrenzen messen jetzt die tatsächlichen Kosten einer Anfrage. Die Einstellung für den Zählfaktor entfällt — senken Sie stattdessen direkt eine Obergrenze. Vor dieser Aktualisierung erfasste Nutzung liegt weiterhin auf der alten Skala, bis die Woche zurückgesetzt wird.",
   aiUsageLimitReached:
     "Claude-Nutzungslimit erreicht — dies ist Anthropics eigenes Raten-/Nutzungslimit. Bitte warten Sie und versuchen Sie es nach dem Zurücksetzen erneut.",
   aiSelfLimitReached:
     "Sie haben Ihr eigenes Token-Limit erreicht. Dies ist nur ein Hinweis — der Assistent arbeitet weiter. Sie können das Limit in den Einstellungen anpassen.",
   aiUsageSession: "Aktuelle Sitzung",
   aiUsageWeek: "Aktuelle Woche (alle Modelle)",
-  aiUsageCacheRead: "Zwischengespeicherte Eingabe (gezählte Tokens)",
-  aiUsageCacheWrite: "Cache-Schreibvorgänge (gezählte Tokens)",
-  aiUsageUncachedInput: "Nicht zwischengespeicherte Eingabe (gezählte Tokens)",
+  aiUsageCacheRead: "Zwischengespeicherte Eingabe",
+  aiUsageCacheWrite: "Cache-Schreibvorgänge",
+  aiUsageUncachedInput: "Nicht zwischengespeicherte Eingabe",
+  aiUsageOutput: "Ausgabe",
+  aiUsageBasisHint: "Die Balken zählen kostenäquivalente Tokens, keine rohen: zwischengespeicherte Eingabe zählt 0,1, Cache-Schreibvorgänge 1,25, Ausgaben 5.",
   aiUsageCacheHitRate: "Cache-Trefferquote: {0} %",
   aiUsageResetAt: "Zurückgesetzt {0}",
   aiSessionCap: "Sitzungs-Token-Limit",
@@ -3625,8 +3628,6 @@ export const de: Record<TranslationKey, string> = {
   aiWeeklyCapHint: "Ihr eigenes empfohlenes wöchentliches Token-Limit. Nur ein Richtwert — Sie werden benachrichtigt, nicht blockiert. Wird wöchentlich zurückgesetzt.",
   aiMaxTurns: "Maximale Assistenzschritte pro Nachricht",
   aiMaxTurnsHint: "Wie viele Tool-/Fortsetzungsdurchläufe der Assistent nutzen darf, um eine Nachricht zu beantworten (1–50). Höhere Werte ermöglichen komplexere mehrstufige Arbeit, kosten aber mehr Token.",
-  aiTokenMultiplier: "Token-Zählfaktor",
-  aiTokenMultiplierHint: "Die gezählten Token jeder Anfrage werden hiermit multipliziert, bevor sie auf Ihre Limits angerechnet werden (Standard 5).",
 
   settingsSectionExport: "Export",
   exportSectionHint: "Legen Sie fest, welche Abschnitte in Dokumentexporte (XLSX, DOCX, PDF, PPTX, Markdown) einbezogen werden. Standard: Aufgaben, RAID und Kalendertermine.",

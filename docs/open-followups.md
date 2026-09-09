@@ -667,6 +667,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§447](#447-sanitize-recordsts-sits-at-exactly-the-1600-line-ratchet-limit-with-zero-headroom-and-it-is-not-baselined--open) | `sanitize-records.ts` is at the 1600-line ratchet LIMIT with zero headroom and no baseline entry | found 2026-09-09 by the prose pass on the AI create-path branch, which needed ~30 lines in a file that had 2 | S-M — extract the seven guard tables; do NOT `--update` the baseline or hand-write a row | **OPEN** |
 | [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, invisible to every detector for the class | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
 | [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s `testTimeout`, so it reds under load and the red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
+| [§452](#452-the-c1-chat-history-budget-is-deliberately-not-built-a-trim-saves-tokens-at-01x-and-pays-a-125x-rewrite-so-payback-needs-tens-of-further-turns--open) | The C1 chat-history budget is deliberately not built: a trim saves tokens at 0.1x and pays a 1.25x rewrite, so payback needs tens of further turns | decided 2026-09-09 while moving the caps onto a cost basis — the economics inverted when the guide-block cache split landed | N/A — a decision NOT to build; revisit only if the bursty-use case below becomes the common one | **OPEN** |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -32780,3 +32781,44 @@ repo's own many-small-files rule rather than working around a ratchet.
 ~30 lines back out of prose it was already editing — a paragraph arguing with an earlier revision of
 itself, a round-trip claim `change-log.ts` owns verbatim, and an argument restated thirty lines from its
 original. No fact was deleted. There is no second round of that available; the file is now dense.
+## 452. The C1 chat-history budget is deliberately not built: a trim saves tokens at 0.1x and pays a 1.25x rewrite, so payback needs tens of further turns — OPEN
+
+**Status:** 2026-09-09 — never machine-verified. Every figure below is MODELLED from Anthropic's
+published cache ratios and the prefix size the guide-block cache-split slice measured; no run has been
+instrumented to confirm a payback point, and nothing here has been reproduced against live usage.
+
+A history budget — trim the oldest turns once the transcript passes some size — was on the roadmap as
+slice C1. Its economics inverted when the guide-block cache split landed, and this entry records the
+argument for NOT building it rather than leaving the roadmap item to be picked up on its original
+reasoning.
+
+**Why it inverted.** A cached history is billed at 0.1x, so what a trim saves is tenth-price tokens.
+A trim is also a HEAD trim: it changes the first message, which invalidates the prefix, so each trim
+event pays a 1.25x cache WRITE of everything behind the cut. The saving is small and recurring; the
+cost is large and paid up front. Modelled against the 31,101-token fixed prefix (tools 17,796 +
+block 0 13,305 — matching `docs/AGENTS/ai-assistant.md`'s recorded switch-turn figure), payback takes
+**~47 turns at a 20,000-token history, ~26 at 50,000 and ~19 at 100,000** — and only if the conversation
+continues that long AFTER the cut, which is exactly when a user is least likely to still be in the same
+thread.
+
+**What those three numbers assume.** The spec does not record the trim fraction, and the figures are
+not derivable without one. A HALF-trim reproduces them to within a turn or two — dropping half of a
+20,000-token history saves 0.1 x 10,000 = 1,000 equivalent tokens per subsequent turn, against a trim
+event costing 1.25 x (31,101 + 10,000) where 0.1 x (31,101 + 20,000) would otherwise have been paid,
+i.e. ~46 turns; the same arithmetic gives ~25 at 50,000 and ~18 at 100,000. Read the assumption as
+recovered, not as stated: it is the one that fits, not one anybody wrote down.
+
+**The case that still favours it.** Bursty use. The cache TTL is five minutes, so a user who returns
+after a gap has lost the prefix anyway and pays a full write regardless — there a smaller history is
+genuinely cheaper, because the 0.1x that makes trimming pointless is not in force. That is a
+different feature with a different control (trim on a COLD start, not on a size threshold), and it
+should not be built by widening this one.
+
+**Do not build it as a per-turn trim.** `docs/AGENTS/ai-assistant.md`'s "A head-trim of history would
+destroy the whole property" bullet and `chat-cache-layout.ts`'s header both say the same thing from
+the code side: any future budget has to be coarse and hysteretic, or it pays a 1.25x rewrite on every
+send and is worse than not caching at all.
+
+**What would reopen this.** A measured cache-write volume against measured view-switch and
+thread-resume frequency — the usage meter can now supply both halves, since it stores raw counts and
+prices them at read. Until someone runs that, this entry is arithmetic, not evidence.

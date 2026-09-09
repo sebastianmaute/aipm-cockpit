@@ -412,10 +412,10 @@ const RICH_NOTE: NoteLogEntry = {
 
 /** The list path's WIRE shape, spelled out here rather than imported, so these
  *  tests describe what a caller receives instead of restating the projection's
- *  own types back at it. `html` is optional because the projection drops it. */
-type ListNote = Omit<NoteLogEntry, "html"> & { html?: string };
+ *  own types back at it. `noteLog` is typed as `never` so a test asserting on
+ *  one fails to compile rather than silently reading undefined. */
 type ListEnvelope = {
-  items: (Omit<Task, "noteLog"> & { noteLog?: ListNote[] })[];
+  items: (Omit<Task, "noteLog"> & { noteLog?: never })[];
   total: number;
   limit?: number;
 };
@@ -444,17 +444,21 @@ describe("runTool — list_tasks / get_task", () => {
     expect(result.items[0].description).not.toContain("<p>");
   });
 
-  it("list_tasks drops each note's html body and keeps its text projection", async () => {
+  it("list_tasks carries no note log at all", async () => {
+    // ★★★ THIS IS THE TEST THAT PINS THE SAVING, which is 9,459 tokens —
+    // 26.4% of what the list path was actually shipping on a 140-task project.
+    // ★★ NOT 37.8%: that is the note log's share of the STORED rows, a bound,
+    // and the payload had already stripped each entry's markup before it was
+    // measured. Re-deriving the saving from the bound overstates it by 67%.
+    // At the time, the operating guide denied the model any note access four
+    // times over, so the app was paying to ship data it had forbidden the
+    // model to use; that guide has since been corrected, and only its RAID and
+    // Changes denials still stand. Without this assertion the field drifts
+    // straight back in the next time `TaskListItem` is widened, and no gate
+    // reports it.
     const d = makeDispatcher({ listTasks: vi.fn(() => [makeTask({ noteLog: [RICH_NOTE] })]) });
     const result = (await runTool(d, "list_tasks", {})) as ListEnvelope;
-    const note = result.items[0].noteLog?.[0];
-    expect(note?.text).toBe("Partner call moved to Friday");
-    expect(note?.html).toBeUndefined();
-    // Everything else about the entry survives — this is a projection, not a
-    // truncation, so the model still sees when and by whom a note was written.
-    expect(note?.id).toBe(7);
-    expect(note?.timestamp).toBe("2026-05-01T00:00:00.000Z");
-    expect(note?.authorName).toBe("Alice");
+    expect("noteLog" in result.items[0]).toBe(false);
   });
 
   it("list_tasks slices items by limit while total still counts every row", async () => {
@@ -521,10 +525,11 @@ describe("runTool — list_tasks / get_task", () => {
     expect("limit" in result).toBe(out !== undefined);
   });
 
-  // ★ THE CONTROL. Slimming BOTH paths would satisfy every assertion above; only
-  // this pins that an assistant about to EDIT a description still gets the markup
-  // it is editing. Both tools read the SAME row here, so a shared projection fails.
-  it("get_task keeps the full markup that the list projection strips", async () => {
+  // ★★★ THE CONTROL, AND BOTH HALVES ARE LOAD-BEARING. A test proving only
+  // that notes are gone from the list would still pass if `get_task` lost them
+  // too — which would delete the capability rather than relocate it. Both
+  // tools read the SAME row here, so a shared projection fails this.
+  it("get_task keeps the full note log and markup that the list projection strips", async () => {
     const task = makeTask({ description: RICH_DESCRIPTION, noteLog: [RICH_NOTE] });
     const d = makeDispatcher({ getTask: vi.fn(() => task), listTasks: vi.fn(() => [task]) });
 
@@ -535,6 +540,7 @@ describe("runTool — list_tasks / get_task", () => {
 
     const list = (await runTool(d, "list_tasks", {})) as ListEnvelope;
     expect(list.items[0].description).not.toContain("<strong>");
+    expect("noteLog" in list.items[0]).toBe(false);
   });
 
   it("get_task coerces a numeric-string id and returns the task", async () => {
@@ -2368,4 +2374,49 @@ describe("a summary-derived token would be a false permit", () => {
       expect(entityToken(kind, a())).not.toBe(entityToken(kind, b()));
     },
   );
+});
+
+describe("tool descriptions match what the tools actually return", () => {
+  const defOf = (name: string) => {
+    const d = TOOL_DEFS.find((x) => x.name === name);
+    if (!d) throw new Error(`no tool def named ${name}`);
+    return d;
+  };
+
+  it("list_tasks no longer advertises a note projection it does not perform", () => {
+    expect(defOf("list_tasks").description).not.toContain("noteLog");
+  });
+
+  it("get_task states that the note log is read-only", () => {
+    // The constraint lives HERE, in the tools array, rather than only in the
+    // operating guide: this is the block the model reads while choosing what
+    // to call, and the guide sits thousands of tokens away.
+    const d = defOf("get_task").description;
+    expect(d).toContain("noteLog");
+    expect(d.toLowerCase()).toContain("read-only");
+  });
+
+  it("keeps RAID and change notes out of every summary the model can see", () => {
+    // ★★★ THE PIN FOR get_task's THIRD SENTENCE — "Notes on RAID items and
+    // change items are not readable at all." That sentence is PROMPT TEXT the
+    // model acts on, and until this test nothing tied it to the code: adding
+    // `noteLog` to either summariser would have made the model's own tool
+    // description a lie with every gate in this repo still green, which is the
+    // exact drift class this slice exists to close. The doc's reproduce
+    // (`grep -c noteLog src/app/chat-tool-summaries.ts`) is a reproduce, not a
+    // gate; this is the gate.
+    // ★ Asserted over the SERIALISED summary rather than with `in`, so a note
+    // log nested inside any field is caught too, not just a top-level key.
+    const raid = makeRaidItem({ noteLog: [RICH_NOTE] });
+    const change = makeChangeItem({ noteLog: [RICH_NOTE] });
+    expect(JSON.stringify(toRaidSummary(raid))).not.toContain("noteLog");
+    expect(JSON.stringify(toChangeSummary(change))).not.toContain("noteLog");
+    // The note's own text must not survive under some other key either.
+    expect(JSON.stringify(toRaidSummary(raid))).not.toContain("Partner call");
+    expect(JSON.stringify(toChangeSummary(change))).not.toContain("Partner call");
+    // CONTROL: the fixtures really do carry a note log, so the four assertions
+    // above are not passing over empty input.
+    expect(raid.noteLog).toHaveLength(1);
+    expect(change.noteLog).toHaveLength(1);
+  });
 });

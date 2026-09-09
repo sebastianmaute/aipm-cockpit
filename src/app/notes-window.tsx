@@ -39,7 +39,7 @@ export interface NotesWindowProps extends Omit<NoteLogPanelProps, "labelSuffix">
 }
 
 export function NotesWindow(props: NotesWindowProps) {
-  const { open, onClose, entries, onAdd, onEdit, onDelete, self, resources, lang, entityLabel } = props;
+  const { open, onClose, entries, onAdd, onEdit, onDelete, self, resources, lang, entityLabel, aiReadable } = props;
 
   const { ref: panelRef, reset: resetSize } = useResizable(STORAGE_KEY_SIZE);
   // Drag/position (shared with help-menu); size stays on useResizable above.
@@ -113,7 +113,13 @@ export function NotesWindow(props: NotesWindowProps) {
           change every existing accessible name. `labelSuffix` is now a
           required prop specifically so a future third mount site cannot
           omit it and collide silently; this is the "no suffix" case, made
-          explicit rather than implicit. */}
+          explicit rather than implicit.
+
+          ★ `aiReadable` is FORWARDED, never defaulted here: this window serves
+          tasks, RAID items and changes off one props object, and only a task's
+          notes are readable by the model. `useNotesWindow` derives it from the
+          OPEN target — a constant in this file would make the disclosure a
+          false claim on two of the three registers. */}
       <NoteLogPanel
         entries={entries}
         onAdd={onAdd}
@@ -123,6 +129,7 @@ export function NotesWindow(props: NotesWindowProps) {
         resources={resources}
         lang={lang}
         labelSuffix={null}
+        aiReadable={aiReadable}
       />
     </div>
   );

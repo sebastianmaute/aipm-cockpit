@@ -257,6 +257,11 @@
   ★ RESPONSE COST, measured over the 14 tasks of `sample-workspace-small.json`: `list_tasks` is **10673**
   bytes with tokens against **10183** without and **12153** before the envelope/slimming projection — so the
   token gives back about a quarter of that saving (~35 bytes per row, net −12.2% rather than −16.2%).
+  ★★ SUPERSEDED ON THE ABSOLUTE FIGURES 2026-09-09 — THE RATIO CLAIM ABOVE STILL HOLDS, THE TOTALS DO NOT.
+  Dropping the note log from the list path (the envelope bullet below) took that same 14-task response from
+  10671 to **7909** bytes, so `list_tasks` no longer costs 10673 anywhere. Re-running the pre-drop code today
+  gives 10671, two bytes off the number above — near enough to confirm it, not near enough to pretend it was
+  re-derived. Read all three of those numbers as the record of what the row token cost when it landed.
   ★ `withRowTokens` does one `find` per row via the full-row getter. Stated, not optimised: these registers
   are project-scale, and an id→row Map per call buys nothing at that size.
   ★★ THE TWO IN-APP CALLERS DIFFER IN *WHEN* THEY DERIVE, and in both cases that is the whole design.
@@ -283,26 +288,51 @@
   is optional and untrusted — anything that is not a positive finite number is treated as absent, and an
   absent one returns everything, key for key as before, so no existing prompt sees a shape it was not written
   against. It used to be `return d.listTasks()`: the whole array, no total, every rich field in full.
-  ★★ THE SLIMMING TARGET IS `Task.description` AND `Task.noteLog`, AND NOTHING ELSE — do NOT restate this as
+  ★★ THE NARROWING TARGET IS `Task.description` AND `Task.noteLog`, AND NOTHING ELSE — do NOT restate this as
   "the seven rich fields were slimmed", which would be false. Every other entity list tool already projects
   through `chat-tool-summaries.ts` to a `*Summary` type carrying no rich HTML at all (reproduce:
   `grep -n "description\|mitigation\|noteLog" src/app/chat-tool-summaries.ts` returns nothing), so
   `list_tasks` was the ONLY tool returning full rows. `slimTaskForList` keeps every other field of `Task`
   untouched.
-  ★ The two are slimmed by DIFFERENT mechanisms and the second one is the subtle half. `description` is
-  projected through `htmlToPlainText`. `noteLog` is NOT re-plain-texted: `NoteLogEntry` already carries
-  `text`, a canonical plain projection of `html` that `sanitizeNoteLogWith` re-derives on every load, so the
-  list path simply DROPS `html` and keeps the `text` already there (`NoteLogListEntry` =
-  `Omit<NoteLogEntry, "html">`). Timestamp, author and id survive, so the model still knows when and by whom
-  a note was written.
-  ★★ ONLY THE LIST PATH IS SLIMMED. `get_task` keeps full fidelity ON PURPOSE — an assistant about to EDIT a
+  ★★★ THE TWO ARE HANDLED DIFFERENTLY, AND `noteLog` IS NOT SLIMMED BUT DROPPED. `description` is projected
+  through `htmlToPlainText`. `noteLog` is omitted from the list payload ENTIRELY: it was 37.8% of the
+  STORED ROWS on a 140-task project — the largest field by a factor of five, though only 26.4% of what the
+  list path was really sending, since that path already stripped each entry's markup (re-measured below) —
+  while the operating guide told the
+  model four times that it has no note tool, so the app was paying to ship data it had forbidden the model
+  to use. ★★ An earlier cut projected each entry to a text-only shape and kept it on the list; that type and
+  its projection helper were REMOVED rather than left callable, so a reader cannot restore the field by
+  reaching for them. ★★ The capability was RELOCATED, not deleted — `get_task` returns the full note log
+  with its HTML on demand, and its tool description carries the read-only constraint.
+  ★★ ONLY THE LIST PATH IS NARROWED. `get_task` keeps full fidelity ON PURPOSE — an assistant about to EDIT a
   description needs the markup it is editing, and it is the list side that carries the volume justifying the
-  projection. `chat-tools.test.ts` holds a control asserting `get_task` keeps the markup the list projection
-  strips; without it, slimming BOTH paths would satisfy every other assertion in that block.
-  ★ SIZE EFFECT, RECORDED AS INHERITED RATHER THAN RE-MEASURED: the branch that landed this measured the
-  real response over the 14 tasks of `sample-workspace-small.json` at 12153 → 10183 bytes (−16.2%), most of
-  it `noteLog` rather than `description`. Nothing pins that number, no test asserts it, and it moves with the
-  sample — read it as a magnitude, and re-measure before quoting it anywhere that matters.
+  projection. `chat-tools.test.ts` holds a control asserting `get_task` keeps the note log and the markup
+  the list projection strips; without it, narrowing BOTH paths would satisfy every other assertion in that
+  block.
+  ★★ SIZE EFFECT, RE-MEASURED 2026-09-09 — THE INHERITED −16.2% IS NOT REFUTED, IT IS SUPERSEDED. That
+  figure (12153 → 10183 bytes over the 14 tasks of `sample-workspace-small.json`) belongs to the EARLIER
+  change — full rows to envelope-plus-projection, back when the note log was SLIMMED rather than dropped —
+  so its "after" is THIS change's "before" and nobody should read it as today's cost. Today: the real
+  response with row tokens over the same 14 tasks goes 10671 → **7909** bytes
+  (−25.9%). At the projection level, before the envelope and the tokens, at 2.92 chars/token: small
+  3479 → 2534, big 10641 → 7803, and the 140-task project 35793 → **26334** — a saving of **9459 tokens,
+  26.4%**. Nothing pins any of these, no test asserts them, and every one moves with the sample.
+  ★★★ 26.4% IS THE SAVING; THE 37.8% ABOVE IS THE RAW-ROW BOUND, AND THE TWO ARE NOT INTERCHANGEABLE. The
+  bound is the note log's share of the STORED rows, which is what the spec measured (its 15719-token figure
+  is the same arm — this run puts it at 42101 → 26334, −37.5%, on the 140-task project). But the shipped list
+  path had ALREADY stripped each entry's html and kept its canonical text, so the drop removes the smaller,
+  already-projected payload and the honest number is the one against that baseline. Quoting the bound as the
+  saving puts it at 15767 tokens against a real 9459 — 67% too high.
+  ★ Reproduce (scratchpad script, deliberately never committed): read `sample-workspace-<size>.json` directly
+  rather than through `jsonToWorkspace`, which needs a DOM; map the rows through `slimTaskForList` and,
+  for the old arm, through the pre-change copy of that same function recovered with
+  `git show <sha>~1:src/app/chat-tools-lists.ts` (recovering it beats hand-copying the deleted projection,
+  which is the step that would quietly re-introduce the raw-row arm as if it were the old one); compare
+  `JSON.stringify(...).length`. The with-tokens arm calls `listTasksEnvelope` on each side instead.
+  ★ The guide's denials went from FOUR to TWO in the same slice, and the survivors are the true ones: RAID
+  and Changes really have no note access, because `chat-tool-summaries.ts` carries no note log at all
+  (reproduce: `grep -c "noteLog" src/app/chat-tool-summaries.ts` returns 0). The two that were removed
+  denied a capability `get_task` has always had.
   ★ `chat-tools-lists.ts` is pure and DOM-free: `htmlToPlainText` is regex-only and never reaches DOMPurify,
   so the module is safe to import from the tool layer, which runs in the browser and in bare node under
   vitest.
@@ -1229,11 +1259,11 @@
   or is cancelled, after earlier turns in the same multi-turn loop already burned billed tokens records
   NOTHING for that send. Pre-existing control flow, deliberately unchanged by this slice — read this
   before citing "the meter is now honest" as unconditional.
-  ★★ **`ai-usage-context.tsx`'s `loadBucketsAndSeedCapBasisNotice` normalizes each field (via `ai-usage.ts`'s
-  `normalizeUsage`) instead of casting, and that closes a real trap.** A usage blob persisted before this
-  slice has no `cacheWrite`/`cacheRead`; `undefined + n` is `NaN`; and `NaN < threshold` and
-  `NaN >= threshold` are BOTH false — so a cap fed an un-normalized legacy bucket would silently stop
-  firing forever, with no error anywhere. Never replace the per-field normalize with a plain object cast.
+  ★★ **`ai-usage-context.tsx`'s `loadBucketsAndSeedBasisNotices` normalizes each field (via `ai-usage.ts`'s
+  `normalizeUsage`) instead of casting, and that closes a real trap** — a usage blob persisted before this
+  slice has no `cacheWrite`/`cacheRead`, and an un-normalized legacy bucket would silently stop firing a cap
+  forever (the NaN mechanics are under "AI usage caps run on a COST basis" below). Never replace the
+  per-field normalize with a plain object cast.
   ★ `buildViewScopeBlock` and `buildViewStateBlock` output both sit inside `buildTurnContext`, scope
   before state — a readability choice (what the surface IS, then what is on it), not a cost one, since
   the tools breakpoint plus the message-level breakpoints above are where the saving comes from.
@@ -1328,4 +1358,25 @@
     --include=*.tsx | grep -v test`). It is kept deliberately, not by oversight — deleting it would mean
     the next real disclosure gets hand-rolled `aria-expanded`, which is the failure this variant exists to
     prevent. Do not "clean it up" as dead code.
-
+- **AI usage caps run on a COST basis, not a raw token count:** `usageCostEquivalent` (`ai-usage.ts`)
+  weights each of the four usage classes by its Anthropic billing ratio against the base input price —
+  `USAGE_COST_WEIGHTS` is input **1**, cache write **1.25**, cache read **0.1**, output **5**. Those ratios
+  hold across every current model (Sonnet $3/$15, Haiku $1/$5, Opus $15/$75 — all 1:5 input:output, cache
+  write 1.25x and cache read 0.1x everywhere), so the basis needs NO price table and NO per-model branch and
+  cannot go stale when a published rate moves. ★★ The one thing that would make the design wrong is a future
+  model breaking the ratio; at that point the basis has to become model-aware.
+  ★★ THE WEIGHTS ARE APPLIED AT COMPARISON TIME, NEVER BEFORE PERSISTENCE — buckets store the API's own raw
+  counts and are priced on read. ★ The record path (where `record()` writes those raw counts), the advisory
+  notices and the retired write-time multiplier setting are owned by [`platform.md`](platform.md)'s
+  "Usage-limit notices + counting knobs" bullet; this one owns only the basis.
+  ★★★ THE OLD UNWEIGHTED SUM WAS DELETED RATHER THAN RE-BODIED. It added the four fields flat, so a cached
+  turn — billed at a tenth — consumed exactly as much of a cap as a fresh one, which is the over-counting this
+  change exists to fix. A reader meeting a function named for a total expects a plain sum, so leaving that
+  name callable would have let the raw sum back into a cap comparison by accident; removing the name makes
+  the mistake unavailable instead of merely discouraged.
+  ★★ EVERY READER MUST DEFAULT A MISSING FIELD TO 0. A bucket persisted before this change carries only the
+  input and output counts; multiplying an absent one by its weight yields NaN, and NaN fails BOTH the
+  below-threshold and at-threshold comparisons — so a cap fed a legacy bucket would stop firing forever, with
+  no error anywhere. That is a silently disabled cap, the worst outcome available here, which is why
+  `normalizeUsage` is one shared helper rather than a defaulting step repeated at each call site. Never
+  replace it with a plain object cast.
