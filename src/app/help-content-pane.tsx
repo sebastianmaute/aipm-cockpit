@@ -9,7 +9,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { HELP_ENTRIES, HELP_GROUP_LABEL, helpGroupOrder, type HelpReadingLevel } from "./help-content";
 import { matchesQuery, highlightSegments } from "./help-search";
-import { parseHelpBody, stripHelpMarkers } from "./help-body-markup";
+import { stripHelpMarkers } from "./help-body-markup";
+import { HelpBodyText } from "./help-body-text";
 import { navLabelKey, type AppView } from "./nav-config";
 import { INTERACTIVE } from "./interaction-styles";
 
@@ -169,21 +170,13 @@ export function HelpContentPane({
                       the distinction, because it never has. */}
                   {primerFor(e) ? (
                     <p className="mb-2 max-w-[64ch] whitespace-pre-line rounded border border-line bg-surface-muted p-2 text-sm leading-relaxed text-foreground">
-                      {parseHelpBody(primerFor(e)).map((seg, i) =>
-                        seg.isLabel ? (
-                          <span key={i} className="font-medium">
-                            <Highlighted text={seg.text} query={query} />
-                          </span>
-                        ) : (
-                          <Highlighted key={i} text={seg.text} query={query} />
-                        ),
-                      )}
+                      <HelpBodyText body={primerFor(e)} labelClass="font-medium" query={query} />
                     </p>
                   ) : null}
                   <p className="max-w-[64ch] whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                     {/* ★ Segments, not one string: a label renders emphasised
-                        against the body. `Highlighted` runs PER segment, so a
-                        search term spanning a label boundary matches (the
+                        against the body. `HelpBodyText` highlights PER segment,
+                        so a search term spanning a label boundary matches (the
                         search body is stripped) but highlights only within its
                         own segment. Accepted — see the spec.
                         ★★ `font-medium` IS THE WHOLE EFFECT — do not drop it.
@@ -195,15 +188,11 @@ export function HelpContentPane({
                         which is the WCAG-safer outcome — but a "simplification"
                         that keeps the colour class and drops the weight would
                         render labels perfectly invisible. */}
-                    {parseHelpBody(t(lang, e.bodyKey)).map((seg, i) =>
-                      seg.isLabel ? (
-                        <span key={i} className="font-medium text-foreground">
-                          <Highlighted text={seg.text} query={query} />
-                        </span>
-                      ) : (
-                        <Highlighted key={i} text={seg.text} query={query} />
-                      ),
-                    )}
+                    <HelpBodyText
+                      body={t(lang, e.bodyKey)}
+                      labelClass="font-medium text-foreground"
+                      query={query}
+                    />
                   </p>
                   {(e.relatedConcepts?.length ?? 0) > 0 || (e.relatedViews?.length ?? 0) > 0 ? (
                     <p className="mt-1.5 text-xs text-muted-foreground">
