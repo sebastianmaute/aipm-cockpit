@@ -277,7 +277,7 @@ export const TOOL_DEFS = [
   {
     name: "list_tasks",
     description:
-      "List the tasks in the app. Use this whenever you need to know what's in the app. Returns `{items, total}` — `total` is ALWAYS the number of tasks that exist, so you never need a second call to count them. Each item carries every task field, with `description` and each `noteLog` entry projected to PLAIN TEXT (the markup is stripped); call get_task when you need a description's original HTML, e.g. before editing it.",
+      "List the tasks in the app. Use this whenever you need to know what's in the app. Returns `{items, total}` — `total` is ALWAYS the number of tasks that exist, so you never need a second call to count them. Each item carries every task field EXCEPT the note log, with `description` projected to PLAIN TEXT (the markup is stripped). Call get_task when you need a description's original HTML, e.g. before editing it, or when you need one task's notes.",
     input_schema: {
       type: "object",
       properties: {
@@ -290,7 +290,8 @@ export const TOOL_DEFS = [
   },
   {
     name: "get_task",
-    description: "Fetch a single task by its numeric ID.",
+    description:
+      "Fetch a single task by its numeric ID. Returns every field, including the original HTML of `description` and the task's full `noteLog`. The note log is READ-ONLY: no tool can add, edit or delete a note, so never offer to write one — the user does that in the task's notes window. Notes on RAID items and change items are not readable at all.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },

@@ -2370,3 +2370,24 @@ describe("a summary-derived token would be a false permit", () => {
     },
   );
 });
+
+describe("tool descriptions match what the tools actually return", () => {
+  const defOf = (name: string) => {
+    const d = TOOL_DEFS.find((x) => x.name === name);
+    if (!d) throw new Error(`no tool def named ${name}`);
+    return d;
+  };
+
+  it("list_tasks no longer advertises a note projection it does not perform", () => {
+    expect(defOf("list_tasks").description).not.toContain("noteLog");
+  });
+
+  it("get_task states that the note log is read-only", () => {
+    // The constraint lives HERE, in the tools array, rather than only in the
+    // operating guide: this is the block the model reads while choosing what
+    // to call, and the guide sits thousands of tokens away.
+    const d = defOf("get_task").description;
+    expect(d).toContain("noteLog");
+    expect(d.toLowerCase()).toContain("read-only");
+  });
+});
