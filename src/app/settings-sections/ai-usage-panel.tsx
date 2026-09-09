@@ -97,7 +97,12 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps)
           <dt>{t(lang, "aiUsageCacheWrite")}</dt>
           <dd className="tabular-nums">{sessionUsage.cacheWrite.toLocaleString(locale)}</dd>
         </div>
+        <div className="flex justify-between gap-2">
+          <dt>{t(lang, "aiUsageOutput")}</dt>
+          <dd className="tabular-nums">{sessionUsage.output.toLocaleString(locale)}</dd>
+        </div>
       </dl>
+      <p className="mt-1 text-xs text-muted-foreground">{t(lang, "aiUsageBasisHint")}</p>
       {inputSide > 0 && (
         <p className="mt-1 text-xs text-muted-foreground">
           {t(lang, "aiUsageCacheHitRate", String(hitRatePct))}

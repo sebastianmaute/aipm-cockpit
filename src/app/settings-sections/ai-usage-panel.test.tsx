@@ -184,6 +184,55 @@ describe("AiUsagePanel", () => {
     expect(screen.getByText(t("en-US", "aiUsageSession"))).toBeInTheDocument();
   });
 
+  it("shows the output row, which carries the heaviest weight", () => {
+    render(
+      <AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />,
+      {
+        wrapper: seededWrapper("en-US", {
+          input: 100,
+          output: 10,
+          cacheWrite: 20,
+          cacheRead: 1000,
+        }),
+      },
+    );
+    expect(screen.getByText(t("en-US", "aiUsageOutput"))).toBeInTheDocument();
+    expect(screen.getByText("10")).toBeInTheDocument();
+  });
+
+  it("renders raw counts, not multiplied ones", () => {
+    // The three input-side rows were rendered at 5x while labelled as token
+    // counts, because sessionUsage held multiplier-scaled values.
+    render(
+      <AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />,
+      {
+        wrapper: seededWrapper("en-US", {
+          input: 100,
+          output: 10,
+          cacheWrite: 20,
+          cacheRead: 1000,
+        }),
+      },
+    );
+    expect(screen.getByText("1,000")).toBeInTheDocument();
+    expect(screen.queryByText("5,000")).not.toBeInTheDocument();
+  });
+
+  it("says what unit the bars are in", () => {
+    render(
+      <AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />,
+      {
+        wrapper: seededWrapper("en-US", {
+          input: 100,
+          output: 10,
+          cacheWrite: 20,
+          cacheRead: 1000,
+        }),
+      },
+    );
+    expect(screen.getByText(t("en-US", "aiUsageBasisHint"))).toBeInTheDocument();
+  });
+
   describe("in German", () => {
     beforeAll(async () => {
       await loadI18n("de");
