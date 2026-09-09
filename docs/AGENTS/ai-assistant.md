@@ -1137,14 +1137,17 @@
   leadership IN TOTAL (1.14x) — which is exactly why view scoping saves far less than the 22-of-23
   guide-count ratio below suggests. Measured 2026-09-09 via a `vite-node` script importing
   `builtinSeeds` from `use-operating-guides` and summing `content.length` grouped on whether
-  `scope.views` is empty-or-absent: always-on (leadership + App overview) = 35,788 chars ≈ 9.9k
-  tokens; the 22 view-scoped guides total 28,977 chars, largest single guide 4,103 chars — re-run
-  rather than trust these numbers. Meanwhile `assembleGuideBlocks`' predecessor put a varying guide
-  COUNT in a single shared header ahead of
-  all of it, so a view switch re-wrote ~9.9k tokens of byte-identical text at 1.25x. Measured before
-  the change: the longest common prefix of the assembled block across all 34 nav-reachable views was
-  9 characters (`AppView` has 35 members; `learning-insights` is deep-link-only and was not probed —
-  including it could not raise the figure, since a common prefix only shrinks as strings are added).
+  `scope.views` is empty-or-absent: always-on (leadership + App overview) = 35,788 chars, estimated at
+  the time via chars÷3.6 as ≈9.9k tokens; the 22 view-scoped guides total 28,977 chars, largest single
+  guide 4,103 chars — re-run rather than trust these numbers. ★ That chars÷3.6 estimate was LOW: the
+  live cache measurement below puts the full block-0 payload (this always-on guide text plus the fixed
+  instructions ahead of it, 38,791 chars) at a measured 13,305 tokens — a real ratio of 2.92 chars/token
+  for this payload, not 3.6. Meanwhile `assembleGuideBlocks`' predecessor put a varying guide COUNT in a
+  single shared header ahead of all of it, so a view switch re-wrote what is now measured at 13,305
+  tokens of byte-identical text at 1.25x (previously estimated ~9.9k). Measured before the change: the
+  longest common prefix of the assembled block across all 34 nav-reachable views was 9 characters
+  (`AppView` has 35 members; `learning-insights` is deep-link-only and was not probed — including it
+  could not raise the figure, since a common prefix only shrinks as strings are added).
   ★★ Block 1 has no marker ON PURPOSE — all four breakpoints are already committed (tools 1,
   system 1, messages 2) — and it still sits inside whatever a LATER marker covers, so it is not
   necessarily uncached, merely never the boundary of a cache lookup by itself. Adding a fifth marker
@@ -1154,10 +1157,37 @@
   view-scoped guides onto the turn tail) is slice G2 in
   `docs/superpowers/specs/2026-09-08-ai-guide-block-cache-split-design.md` and is gated on the
   answer-quality eval, because it is a `system`-to-`user` role change.
-  ★★★ **THE SAVING IS ARITHMETIC, NOT OBSERVED — never machine-verified as of 2026-09-08.** No live
-  run has confirmed that a view switch now reads the block-0 entry instead of re-writing it. The
-  confirming measurement is two real sends with a view change between them, reading
-  `cache_read_input_tokens` off the second. Do not cite this bullet as a measured win.
+  ★★★ **MEASURED 2026-09-09 — THE SAVING IS CONFIRMED, WITH STATED BOUNDS.** A live two-arm run against
+  the real Anthropic API (`claude-sonnet-5`, `max_tokens: 64`) replayed a canned 4-turn conversation
+  carrying the real 24 guides from `builtinSeeds` and the real 52-tool array from `toolsFor`, with a
+  view switch between turn 2 and turn 3 (`budget` → `raid-report`, chosen because the guide COUNT
+  differs between them) — one request per arm per turn, 8 requests total, reading
+  `cache_read_input_tokens`/`cache_creation_input_tokens` off each response. The OLD arm reconstructed
+  the pre-split single system block; the NEW arm is `buildStableSystemBlocks` + `buildTurnContext` +
+  `buildWireMessages` on this branch. At the switch (turn 3): cache read rose 17,796 → 31,101
+  (+13,305), cache write fell 13,836 → 563 (−13,273), billed cost (fresh-input 1.0x / cache-write
+  1.25x / cache-read 0.1x / output 5x token-equivalents) fell 19,632.6 → 4,381.9 (**−77.7%**). Two
+  independently-derived readings agree on the moved amount: the NEW arm's turn-1 cache WRITE (13,305)
+  and the NEW−OLD cache-READ delta at the switch (31,101 − 17,796 = 13,305) are the same number — that
+  is block 0. The `tools` entry alone is a measured 17,796 tokens (both arms read exactly that whenever
+  only `tools` survives in cache). Over turns 2–4 (turn 1 excluded — see below), cumulative cost fell
+  27,295.9 → 13,027.2 (**−52.3%**).
+  ★★ **Steady state within one view is NOT free.** Turn 4 (no switch since turn 3) cost 3,670.5 (OLD)
+  vs 3,688.7 (NEW) — NEW is **0.5% worse**, the price of the extra per-request header bytes the
+  two-block layout adds. A conversation that never switches view mid-session pays slightly more.
+  ★★★ **DO NOT quote a turn-1-inclusive cumulative figure.** The harness's own turn-1-through-4 total
+  (−51.4%) is contaminated: in this measurement session the NEW arm's turn 1 read the `tools` segment
+  warm from the OLD arm's prior run, while OLD's turn 1 paid a cold write — turn 1 is not comparable
+  between arms, only turns 2–4 are.
+  ★ **Limits, stated with the result, not separately:** n=1 per arm (no repetition), one model, one
+  canned conversation, one view pair, and output tokens carry a 5x cost multiplier while varying
+  30–64 tokens across the eight requests — the per-turn cache-read/cache-write token counts are the
+  deterministic part; the cost column inherits that output-token noise. This measured CACHE BEHAVIOUR
+  ONLY — nothing here evaluates answer quality, and this slice never changed what the model is told,
+  so attach no eval claim to it. Reproduce with a script importing `buildStableSystemBlocks`,
+  `buildTurnContext`, `toolsFor` and `buildWireMessages`, replaying a canned multi-turn conversation
+  across a view switch and reading the two cache fields off each response — the harness itself is a
+  throwaway scratchpad script, not part of this repo.
   ★★★ **THE VIEW-SCOPED GUIDE (BLOCK 1) STAYS IN `system` FOR NOW, AND THAT IS A DECISION WITH A NAMED
   SUCCESSOR, NOT AN OPEN QUESTION.** Only block 1 of `buildStableSystemBlocks`'s output is
   view-dependent — block 0 (the always-on half, carrying the marker) is not; see that function's own
