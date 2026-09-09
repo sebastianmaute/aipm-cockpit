@@ -224,6 +224,42 @@ export type HelpEntryId = (typeof HELP_ENTRIES_LITERAL)[number]["id"];
  *  expected. Widening here is what keeps this a one-file change. */
 export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
 
+/** Which Help entry each modal's header help icon opens.
+ *
+ *  ★ A modal absent from this map renders NO icon — that is how confirmations
+ *  and gates (confirm-dialog, type-to-confirm-dialog, secret-unlock-gate,
+ *  project-empty-state) stay clean without an exclusion list.
+ *
+ *  ★★ THE VALUES ARE A JUDGEMENT CALL, NOT A TYPECHECK RESULT. `HelpEntryId`
+ *  rejects a mistyped id; nothing rejects a well-spelled wrong one. Review a
+ *  change here by reading the entry, not by running tsc.
+ *
+ *  ★ `help-content.test.ts` pins that every value resolves AND that the map
+ *  still has 20 rows — the count is the anti-vacuity floor, so update it
+ *  deliberately when adding a modal, never to make a red run green. */
+export const MODAL_HELP = {
+  raidEdit: "concept-raid",
+  changeEdit: "concept-change",
+  milestoneEdit: "concept-milestone",
+  stakeholderEdit: "concept-stakeholder",
+  resourceEdit: "concept-resource",
+  absenceEdit: "feature-resources",
+  calendarEvent: "feature-resources",
+  taskForm: "feature-tasks",
+  taskLinkedTask: "concept-dependency",
+  taskTimeTracking: "feature-timelog",
+  budgetBucket: "concept-budget",
+  documentsHistory: "feature-document-history",
+  documentsRename: "feature-documents",
+  assetLibrary: "feature-documents",
+  assetPreview: "feature-documents",
+  jiraConflicts: "feature-jira",
+  backendConfig: "feature-storage",
+  backendSetupWizard: "feature-setup-wizard",
+  tursoProjectPicker: "feature-projects",
+  projectEdit: "feature-projects",
+} as const satisfies Record<string, HelpEntryId>;
+
 /** How much teaching the Help surfaces do. Per-DEVICE (`Settings.helpReadingLevel`),
  *  deliberately not per-project — see the field's own comment in settings-types. */
 export type HelpReadingLevel = "guided" | "standard" | "expert";

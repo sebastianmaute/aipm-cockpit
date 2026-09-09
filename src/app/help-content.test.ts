@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL, helpGroupOrder } from "./help-content";
+import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL, helpGroupOrder, MODAL_HELP } from "./help-content";
 import { allNavViews } from "./nav-config";
 
 describe("help-content backbone", () => {
@@ -69,6 +69,28 @@ describe("helpGroupOrder", () => {
       const order = helpGroupOrder(level);
       expect([...order].sort()).toEqual([...HELP_GROUP_ORDER].sort());
       expect(new Set(order).size).toBe(order.length);
+    }
+  });
+});
+
+describe("MODAL_HELP", () => {
+  it("maps every declared modal to an id that exists in HELP_ENTRIES", () => {
+    const known = new Set(HELP_ENTRIES.map((e) => e.id));
+    const entries = Object.entries(MODAL_HELP);
+
+    // ★ ANTI-VACUITY: an empty or truncated map would satisfy the loop below
+    // trivially. This floor is the positive observable -- it fails if the map
+    // is emptied, and it is the reason a "0 unresolvable" result means
+    // anything at all.
+    expect(entries.length).toBe(20);
+
+    const unresolvable = entries.filter(([, id]) => !known.has(id));
+    expect(unresolvable).toEqual([]);
+  });
+
+  it("resolves each declared id to exactly one entry", () => {
+    for (const id of Object.values(MODAL_HELP)) {
+      expect(HELP_ENTRIES.filter((e) => e.id === id)).toHaveLength(1);
     }
   });
 });
