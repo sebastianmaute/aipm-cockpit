@@ -103,9 +103,15 @@ export function ModalHeader({
   const closeName = closeLabel ?? t(lang, "alertModalClose");
   const [helpOpen, setHelpOpen] = useState(false);
   const helpWrapRef = useRef<HTMLDivElement | null>(null);
-  // ★ SHARED PRIMITIVE, never a hand-rolled Escape/outside-click pair: this
-  // pushes kind "layer" into dismissal-stack.ts, so only the topmost layer
-  // claims Escape and the popover closes while the MODAL stays open.
+  // ★ SHARED PRIMITIVE, never a hand-rolled Escape/outside-click pair.
+  // ★★ STACK ORDER SCOPES ESCAPE, NOT `kind` — an earlier revision of this
+  // comment said otherwise. `escapeOwner()` in dismissal-stack.ts is
+  // kind-AGNOSTIC: it walks the stack from the TOP and returns the first entry
+  // that claims. The popover is pushed above the Modal, so it takes Escape and
+  // the modal stays open. `kind` means "traps Tab" and nothing else; "layer"
+  // is right here because the popover traps nothing, but flipping it to
+  // "modal" would NOT change the Escape behaviour this line depends on — so a
+  // test asserting the modal survives cannot pin the kind, and none claims to.
   usePopoverDismiss(helpOpen, helpWrapRef, () => setHelpOpen(false));
   const helpEntry = helpConceptId ? HELP_ENTRIES.find((e) => e.id === helpConceptId) : undefined;
   const helpName = t(lang, "modalHelpAbout", helpTitle ?? title);
