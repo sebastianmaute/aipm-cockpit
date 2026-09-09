@@ -81,10 +81,22 @@ test("nextWeekReset is next Monday 00:00 local", () => {
 
 describe("usageCostEquivalent", () => {
   // The four figures below are turns 1 and 4 of the NEW arm of the live
-  // 8-request measurement recorded in docs/AGENTS/ai-assistant.md
-  // (2026-09-09, claude-sonnet-5). They are used rather than round numbers
-  // because the cold/warm SPREAD is the property under test: a single fixture
-  // passes under several wrong weightings.
+  // 8-request measurement (2026-09-09, claude-sonnet-5). ★ Of the eight
+  // numbers, docs/AGENTS/ai-assistant.md corroborates three — 13305, 17796
+  // and the 3688.7 cost of turn 4 — and independently states the same weight
+  // set; the per-turn breakdown lives only in
+  // docs/superpowers/plans/2026-09-09-ai-cost-basis-and-task-list-narrowing.md,
+  // because the harness was a scratchpad script that is not part of this repo.
+  //
+  // ★★ WHAT THIS BLOCK DOES NOT PIN: the weights themselves. Two fixtures are
+  // two equations in four unknowns, so this describe() passes under a large
+  // family of wrong weightings — 1,166 of them were found by sweep on
+  // 2026-09-09, including one that satisfies both toBeCloseTo fixtures, the
+  // >5 ratio, the ordering test AND the strict toBe(150). The weights are
+  // uniquely determined by the four `weekToDate` assertions ABOVE, so do not
+  // delete one of those believing this block still covers the weighting.
+  // What the cold/warm pair buys, and nothing else provides, is the SPREAD
+  // demonstration in the third test.
   it("prices a cold first turn, where the cache write dominates", () => {
     const cold = { input: 1279, cacheWrite: 13305, cacheRead: 17796, output: 64 };
     // 1279*1 + 13305*1.25 + 17796*0.1 + 64*5
