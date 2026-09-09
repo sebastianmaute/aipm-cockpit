@@ -233,9 +233,16 @@ free and safe. This one is not, and the guard is shaped accordingly.
 - **The key is read only from `ANTHROPIC_API_KEY` or a key file.** Never a CLI argument (it
   would land in shell history and process listings), never printed, not even truncated.
 
-Modelled, not measured: 4 arms x 5 probes x 3 reps plus the 1-rep negative control is about
-**65 requests**, order of $2 per run against a mostly-cached ~31k prefix. Calibration runs cost
-extra and are separate.
+Modelled, not measured: arms A and B run per probe per rep (2 x 5 x 5 = 50); the negative
+control is one rep per probe (5); and the two drift arms are **probe-independent** — one fixed
+prompt each, so they run per rep only rather than per probe (5 + 5). That is **65 requests**,
+order of $2 per run against a mostly-cached ~31k prefix. Calibration runs cost extra and are
+separate.
+
+★ Reps default to 5 rather than the manual eval's 3. Cost is linear and trivial at this scale,
+and 3 is thin enough that the one real finding the manual run surfaced could not be adjudicated
+(Fisher p = 0.10 on a perfectly clean 3–0 split). 5 does not make a rate difference gateable
+either — see the verdict section — it makes the recorded vector worth reading.
 
 ## Failure handling
 
