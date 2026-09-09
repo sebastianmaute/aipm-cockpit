@@ -3793,7 +3793,7 @@ const enUS = {
 
   usage80Toast: "You've used 80% of your token budget",
   aiUsageCostBasisChanged:
-    "Your token caps now measure what a request costs: cached input counts at a tenth, cache writes at 1.25x, and output at 5x. The counting multiplier setting is gone — lower a cap directly instead. Usage recorded before this update is still on the old scale until the week resets.",
+    "Your token caps now measure what a request costs. The counting multiplier setting is gone — lower a cap directly instead. Usage recorded before this update is still on the old scale until the week resets.",
   aiUsageLimitReached:
     "Claude usage limit reached — this is Anthropic's own rate/usage limit. Please wait and try again after it resets.",
   aiSelfLimitReached:

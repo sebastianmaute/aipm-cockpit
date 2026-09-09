@@ -34,6 +34,15 @@ export const AI_CAP_BASIS_NOTICE_KEY = "aipm-cockpit:ai-cap-basis-notice";
 /** ★★ SUPERSEDES `AI_CAP_BASIS_NOTICE_KEY`. Whoever sets this one also sets
  *  that one, so a user who never saw the cap-basis notice is shown ONE message
  *  covering both changes rather than two.
+ *  ★★★ ITS VALUE IS NOT A BOOLEAN. `AiUsagePanel` writes the ISO timestamp of
+ *  the first observation and keeps the notice up until that week resets,
+ *  because the notice's own text promises exactly that ("still on the old
+ *  scale until the week resets") and a one-shot flag made the sentence false
+ *  for anyone who read it on day 1. The literal `"1"` remains a valid value
+ *  meaning "already seen, never show" — the seeding below still writes it for
+ *  a fresh install, and every pre-0.297 device carries it. Read the shape off
+ *  `costBasisNoticeDue` in `settings-sections/ai-usage-panel.tsx`, which owns
+ *  it; do NOT treat this key as a flag anywhere new.
  *  ★★★ THE NOTICE ITSELF LIVES IN `AiUsagePanel`, not here. It was a toast on
  *  the four crossing branches below and was NEVER PAINTED: `useToast` holds a
  *  single `Toast | null` slot with no queue, and each branch called it in the

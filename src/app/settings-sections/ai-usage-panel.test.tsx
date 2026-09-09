@@ -302,7 +302,7 @@ describe("AiUsagePanel", () => {
   describe("the changed-cost-basis explanation", () => {
     const noticeText = t("en-US", "aiUsageCostBasisChanged");
 
-    it("explains the changed basis to an upgrading device and stamps both flags", () => {
+    it("explains the changed basis to an upgrading device and records WHEN, not merely THAT", () => {
       seedUpgradingDevice();
       render(
         <AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />,
@@ -310,10 +310,90 @@ describe("AiUsagePanel", () => {
       );
 
       expect(screen.getByText(noticeText)).toBeInTheDocument();
-      // ★ Stamping BOTH keys is what stops the superseded cap-basis notice
+      // ★★ The cost key stores the ISO timestamp of the first observation, NOT
+      //    a boolean — that timestamp is the only thing that can give the line
+      //    the week-long lifetime its own text promises. Asserting it is not
+      //    "1" is the half that goes red on a revert to the one-shot flag.
+      const stored = localStorage.getItem(AI_COST_BASIS_NOTICE_KEY);
+      expect(stored).not.toBe("1");
+      expect(stored).toMatch(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/);
+      expect(Number.isNaN(new Date(stored ?? "").getTime())).toBe(false);
+      // ★ The cap key stays a bare sentinel — only the cost key has a
+      //   lifetime. Stamping it is what stops the superseded cap-basis notice
       //   re-announcing a change already announced.
-      expect(localStorage.getItem(AI_COST_BASIS_NOTICE_KEY)).toBe("1");
       expect(localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY)).toBe("1");
+    });
+
+    it("keeps showing on a remount within the same week, without extending the window", () => {
+      seedUpgradingDevice();
+      const first = render(
+        <AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />,
+        { wrapper },
+      );
+      const stampedAt = localStorage.getItem(AI_COST_BASIS_NOTICE_KEY);
+      expect(screen.getByText(noticeText)).toBeInTheDocument();
+      first.unmount();
+
+      // A second Settings visit inside the same week. The one-shot flag this
+      // replaced hid the line here, while the user's history stayed
+      // mis-scaled for the rest of the week with nothing on screen to say so.
+      render(
+        <AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />,
+        { wrapper },
+      );
+      expect(screen.getByText(noticeText)).toBeInTheDocument();
+      // ★★★ The stamp must NOT be refreshed. Re-stamping "now" on every mount
+      //     would slide the window forward forever, so the line could never
+      //     expire — the same defect as never showing it, just louder.
+      expect(localStorage.getItem(AI_COST_BASIS_NOTICE_KEY)).toBe(stampedAt);
+    });
+
+    it("stops showing once the stored week has reset", () => {
+      seedUpgradingDevice();
+      // A first observation far enough in the past that its week reset long
+      // ago. Chosen over faking the clock deliberately: the stored value IS
+      // the input under test, and a fixed past date can never race the real
+      // "today" the way a relative offset can (a 6-hour offset lands in the
+      // PREVIOUS week whenever the test runs early on a Monday).
+      localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "2000-01-01T00:00:00.000Z");
+      render(
+        <AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />,
+        { wrapper },
+      );
+
+      expect(screen.queryByText(noticeText)).toBeNull();
+      expect(screen.getByText(t("en-US", "aiUsageBasisHint"))).toBeInTheDocument();
+    });
+
+    it("never shows it for an unparseable stored value", () => {
+      seedUpgradingDevice();
+      // Degrade to silence, never to a notice that cannot expire: a value we
+      // cannot date has no computable window, so showing it would strand the
+      // line on screen forever.
+      localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "not-a-date");
+      render(
+        <AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />,
+        { wrapper },
+      );
+
+      expect(screen.queryByText(noticeText)).toBeNull();
+      expect(screen.getByText(t("en-US", "aiUsageBasisHint"))).toBeInTheDocument();
+    });
+
+    it("never shows it for a stamp in the future, which no week can reset past", () => {
+      seedUpgradingDevice();
+      // ★★ A device whose clock was briefly wrong at first observation. This
+      //    value PARSES, so the unparseable guard does not catch it, and the
+      //    window comparison alone would keep the line up until 2999 — the
+      //    same cannot-expire failure, reached by a different route.
+      localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "2999-01-01T00:00:00.000Z");
+      render(
+        <AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />,
+        { wrapper },
+      );
+
+      expect(screen.queryByText(noticeText)).toBeNull();
+      expect(screen.getByText(t("en-US", "aiUsageBasisHint"))).toBeInTheDocument();
     });
 
     it("places the explanation immediately after the unit hint, not stranded elsewhere", () => {
@@ -329,8 +409,13 @@ describe("AiUsagePanel", () => {
       expect(hint.nextElementSibling).toBe(notice);
     });
 
-    it("does not return once the flag is stamped", () => {
+    it("never shows it for the legacy \"1\" sentinel, whatever the date today", () => {
       seedUpgradingDevice();
+      // ★★ Every pre-0.297 device carries this: written by the retired toast
+      //    path, or seeded on a fresh install. It must keep meaning "never
+      //    show", and it must NOT be read as a date — `new Date("1")` is the
+      //    year 2001, not an Invalid Date (verified in V8), so a parse that
+      //    ran before this branch would be reading a timestamp nobody wrote.
       localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "1");
       render(
         <AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />,
