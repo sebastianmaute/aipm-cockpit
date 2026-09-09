@@ -21,7 +21,9 @@ describe("fieldLabel", () => {
   // stale while still summing to the right total.
   // ★★ 84 → 83 when `change.decisionDate` was WITHDRAWN from that entity's
   // `diffFields`, and this guard is what noticed: the field is DERIVED
-  // (`applyChangeStatus` owns the `status`/`decisionDate` pair, the modal
+  // (`applyChangeStatus` owns the `status`/`decisionDate` pair for every
+  // TRANSITION in the app — the Outlook two-way pull writes the date alone, so
+  // the field itself is not exclusively owned; the modal
   // renders it read-only), so the model authors it on no surface and the
   // preview must not offer a diff row for it. A DELIBERATE removal, not drift
   // — the direction that matters is that the number went DOWN, which is the

@@ -151,13 +151,13 @@ export function patchWithoutId<T>(
  *  update path was clean only because of the strip above, never because the
  *  handlers refuse these fields.
  *
- *  ★★ TWO OF THE SEVEN CALL SITES ARE DEFENCE IN DEPTH, NOT LOAD-BEARING, AND
- *  A MUTATION RUN WILL TELL YOU SO — do not read that as licence to delete
- *  them. Measured: reverting the strip at `create_absence` or at
- *  `create_calendar_event` leaves `plan.offered-surface-sweep.test.ts` at
- *  6 failed / 67 passed, i.e. UNCHANGED, because those two handlers guard with
- *  an ALLOWLIST that already drops both fields; the same revert at the other
- *  five takes it to 7 failed / 66. The uniform rule — every pass-through
+ *  ★★ TWO OF THE SEVEN CALL SITES ARE DEFENCE IN DEPTH, NOT LOAD-BEARING —
+ *  do not read that as licence to delete them. `create_absence` and
+ *  `create_calendar_event` guard with an ALLOWLIST
+ *  (`dropUnacceptedAbsenceFields` / `dropUnacceptedCalendarEventFields`)
+ *  that already drops both fields, so reverting the strip at either one
+ *  changes no stored row; the same revert at any of the other five does. The
+ *  uniform rule — every pass-through
  *  `create_*` strips — is what is worth keeping: `ai-entity-token.ts` says in
  *  as many words that the `absence`/`calendarEvent` exclusion rows are
  *  legitimate ONLY because those two allowlists hold, so this is the backstop
@@ -181,7 +181,19 @@ export function patchWithoutId<T>(
  *  meaningless rather than refused, and a model that sends it anyway (having
  *  learnt it from the six update schemas) must not have it spread onto the new
  *  row. Keeping the three deletes identical is the point: a reader deriving one
- *  helper from the other cannot get a narrower strip than the code has. */
+ *  helper from the other cannot get a narrower strip than the code has.
+ *
+ *  ★★ THOSE TWO DELETES ARE KEPT FOR SYMMETRY WITH `patchWithoutId`, NOT FOR
+ *  REACHABILITY — say so, or the `create_task` paragraph above undercuts itself.
+ *  By its own argument both are already unreachable here: a create MINTS its `id`
+ *  after the spread (so a model-supplied one never survives), and every sanitizer
+ *  downstream builds an explicit object literal (so a stray `expectedToken` never
+ *  reaches a stored row). If unreachability alone justified omitting a strip,
+ *  these two would go as well. It does not — what justifies keeping them is that
+ *  three identical deletes cannot be misread, whereas `create_task` is excluded
+ *  because ROUTING it through a spread-based helper would be the wrong shape for
+ *  a handler that is already an allowlist. Reachability is the weaker half of
+ *  that argument in both directions; do not lean on it alone. */
 export function createInputWithoutId<T>(
   input: Record<string, unknown>,
   kind: TokenEntity,

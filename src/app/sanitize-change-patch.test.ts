@@ -117,8 +117,13 @@ describe("dropUnacceptedChangeFields", () => {
   it("refuses decisionDate outright — it is derived, not model-authored", () => {
     // ★★★ THE WHOLE POINT OF THE ROW, and a shape check would defeat it: a
     // WELL-FORMED date is the value that must not land. `applyChangeStatus`
-    // (`change-log.ts`) owns the `status`/`decisionDate` pair, so the only
-    // legitimate writer is a status transition. Withdrawn from `changeFields`
+    // (`change-log.ts`) owns the `status`/`decisionDate` pair for every
+    // TRANSITION in the app, so the only legitimate MODEL writer is a status
+    // transition. ★ The two qualifiers are load-bearing: the Outlook two-way
+    // pull writes the date alone (`withDate`, `use-calendar-integrations`) with
+    // no transition, so it is a legitimate writer too — just not a model one,
+    // and this guard table is read only by `dropUnacceptedChangeFields`.
+    // Withdrawn from `changeFields`
     // in the same change; this row is what makes the withdrawal real, since
     // `patchWithoutId` has no whitelist and an undeclared key still merges.
     expect(dropUnacceptedChangeFields({ decisionDate: "2026-02-03" })).toEqual({});
@@ -142,11 +147,18 @@ describe("dropUnacceptedChangeFields", () => {
     expect(dropUnacceptedChangeFields(patch)).toEqual(patch);
   });
 
+  // ★★ `decisionDate` IS DELIBERATELY NOT IN THIS TABLE, for the same reason it
+  //  left the `""` list below: the title is "when the sanitizer would not accept
+  //  it", and its guard is now `() => false`, which SHORT-CIRCUITS
+  //  `acceptsChangeDate` entirely. A row here would pass for a dead reason — no
+  //  mutant reverting the date predicate could be killed through it — and read as
+  //  cover for a predicate it no longer exercises. The real behaviour is pinned
+  //  unconditionally by "refuses decisionDate outright" above; the stored-value
+  //  arm is retained (annotated) in the "survives a refused value" table below.
   it.each([
     ["type", "Umfang"],
     ["impact", "Sehr hoch"],
     ["raisedDate", "02/01/2026"],
-    ["decisionDate", "not a date"],
     ["scheduleImpactDays", "soon"],
     ["costImpact", -1],
   ])("drops %s when the sanitizer would not accept it", (field, value) => {
@@ -208,6 +220,15 @@ describe("a refused value leaves the stored field alone", () => {
     ["raisedDate", "02/01/2026", "2026-01-02"],
     // ★ `decisionDate` is the DROP shape and is likewise invisible to any
     // fixture that leaves it blank.
+    // ★★ RETAINED AS A DEFENCE-IN-DEPTH PIN, AND IT NO LONGER EXERCISES THE DATE
+    //  PREDICATE. Its guard is `() => false`, which short-circuits
+    //  `acceptsChangeDate`, so "not a date" is refused for being the FIELD, not
+    //  for being unparseable — a mutant reverting the date predicate cannot be
+    //  killed through this row. What it still pins, and what "refuses
+    //  decisionDate outright" above does NOT, is that the STORED "2026-03-04"
+    //  survives the refusal rather than being deleted: that test asserts only
+    //  `.not.toBe(<model value>)`, which a delete would also satisfy. Keep the
+    //  row; do not read it as date-predicate cover.
     ["decisionDate", "not a date", "2026-03-04"],
     ["scheduleImpactDays", "soon", 12],
     ["costImpact", -1, 4500],

@@ -40,9 +40,19 @@ export function isTerminalChangeStatus(status: ChangeStatus): boolean {
  * back to pending keeps a stale date the select would have cleared.
  *
  * ★ It is NOT the only writer of `decisionDate` itself, and reading it that way
- * sends you hunting a bug that is not there: the Outlook two-way pull writes the
- * date alone (`withDate`), and a user or the model may set it directly on an
- * otherwise unchanged row. What is exclusive is the TRANSITION.
+ * sends you hunting a bug that is not there. TWO writers remain: this transition,
+ * and the Outlook two-way pull, which writes the date ALONE through its `withDate`
+ * (`use-calendar-integrations` — both the manual pull and the background
+ * auto-pull). What is exclusive is the TRANSITION, never the field.
+ * ★★ THE MODEL WAS WITHDRAWN ON 2026-09-09 and a USER never had it: the modal
+ * renders the date as a read-only `<span>` (`change-edit-modal`), and
+ * `CHANGE_FIELD_GUARDS.decisionDate` (`sanitize-records.ts`) now refuses it on
+ * BOTH `dropUnacceptedChangeFields` call sites (`use-register-tools`, create and
+ * update), with `changeFields` (`chat-tool-defs.ts`) and `INLINE_DESCRIPTORS.change`
+ * no longer offering it. An earlier revision of this line said a user or the model
+ * "may set it directly on an otherwise unchanged row" — neither can.
+ * ★ A stored value still round-trips: `sanitizeChangeItem` preserves it on every
+ * load/decode path. That is not an authoring path and is not a third writer.
  *
  * ★ Nor do the seed/import paths use it — `proposalToSeed` and template import
  * build rows through `sanitizeChangeItem` alone, so a model-authored proposal

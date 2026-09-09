@@ -138,7 +138,9 @@ export type ChangeInput = {
   requestedBy?: string;
   raisedDate?: string;
   decisionBy?: string;
-  decisionDate?: string;
+  // ★ `decisionDate` is deliberately ABSENT: no schema offers it and
+  //  `CHANGE_FIELD_GUARDS.decisionDate` (`sanitize-records.ts`) refuses it.
+  //  `ChangeSummary` (a READ shape) still carries it — do not conflate the two.
   resolutionNotes?: string;
   linkedTaskIds?: number[];
   linkedRaidIds?: number[];

@@ -503,8 +503,12 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  the last half of the same withdrawal as its absence from `changeFields`
     //  (`chat-tool-defs.ts`) and its refusing `CHANGE_FIELD_GUARDS` row
     //  (`sanitize-records.ts`): the field is DERIVED — `applyChangeStatus` owns
-    //  the `status`/`decisionDate` pair and the change modal renders it
-    //  read-only — so the model authors it on NO surface. Leaving it here was
+    //  the `status`/`decisionDate` pair for every TRANSITION in the app, and the
+    //  change modal renders it read-only — so the model authors it on NO surface.
+    //  ★ The qualifier is load-bearing: the Outlook two-way pull writes
+    //  `decisionDate` alone (`withDate`, `use-calendar-integrations`) with no
+    //  transition, so unqualified "owns the field" is false. It is the
+    //  TRANSITION that is exclusive. Leaving it here was
     //  not cosmetic. The preview's date guard is `after !== "" && …`, so an
     //  EMPTY STRING sailed straight through it and the inline-edit card
     //  disclosed a clear the writer refuses; `plan.write-path-sweep.test.ts`

@@ -648,9 +648,17 @@ const CHANGE_FIELD_GUARDS: Readonly<Record<string, ChangeFieldGuard>> = {
   raisedDate: acceptsChangeDate,
   // ★★★ NOT MODEL-WRITABLE, AND THIS ROW IS WHAT MAKES THAT TRUE — the same
   //  shape as `knowledgeLinks` above. `decisionDate` was withdrawn from
-  //  `changeFields` (`chat-tool-defs.ts`) because it is DERIVED: only a status
-  //  transition through `applyChangeStatus` (`change-log.ts`) may stamp or clear
-  //  it, and the edit modal renders it read-only. But withdrawing a property
+  //  `changeFields` (`chat-tool-defs.ts`) because it is DERIVED: for every
+  //  TRANSITION in the app, only `applyChangeStatus` (`change-log.ts`) may stamp
+  //  or clear it, and the edit modal renders it read-only.
+  //  ★★ READ THAT QUALIFIER LITERALLY — the TRANSITION is exclusive, the FIELD is
+  //  not, and `change-log.ts`'s own docstring warns against collapsing the two.
+  //  The Outlook two-way pull writes the date ALONE through `withDate`
+  //  (`use-calendar-integrations`, manual and background), with no transition; an
+  //  earlier revision of this comment said "only a status transition … may stamp
+  //  or clear it", which that path refutes. Nothing about it weakens this row:
+  //  the pull is not a MODEL write, and this table guards model writes only.
+  //  But withdrawing a property
   //  from a schema protects nothing on its own — `patchWithoutId` has no
   //  whitelist, so an undeclared key still reaches the merge. This denylist row
   //  is the guard, and it covers BOTH call sites of

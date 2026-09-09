@@ -43,6 +43,17 @@ const RAID_VALUES: Record<string, unknown> = {
   raisedDate: "2026-02-02", targetDate: "2026-03-03", closedDate: "2026-04-04",
 };
 const CHANGE_BASE = { id: 1, title: "T", type: "Other", status: "Proposed", raisedDate: "2026-01-01" };
+// ★★ `decisionDate` HERE IS CURRENTLY UNREAD — RETAINED ON PURPOSE, NOT DEAD DATA.
+//  The loop below iterates `INLINE_DESCRIPTORS[entity].diffFields` and looks each
+//  member up in this map (one-directional: every diff field needs a value, never
+//  the reverse). `change.decisionDate` was WITHDRAWN from `diffFields` on
+//  2026-09-09 because it is DERIVED, so no `change.decisionDate survives sanitize`
+//  case is generated any more and this row is not read by anything.
+//  ★ Kept against a re-offer: restore the field to `diffFields` and the case comes
+//  back with its fixture already in place. `refactor-cleaner` and any dead-data
+//  sweep should leave it — the same call `field-labels.test.ts` makes for
+//  `FIELD_LABEL_KEY["change.decisionDate"]`, and for the same one-directional
+//  reason. Do NOT add a test to make it read.
 const CHANGE_VALUES: Record<string, unknown> = {
   title: "New", description: "d", type: "Scope", status: "Approved", impact: "High",
   impactDescription: "id", scheduleImpactDays: 5, costImpact: 100, requestedBy: "Ann",

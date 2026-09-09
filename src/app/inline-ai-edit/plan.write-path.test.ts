@@ -298,9 +298,15 @@ const CASES: WriteCase[] = [
   {
     // `raisedDate` is written UNCONDITIONALLY by the sanitizer
     // (`raisedDate: sanitizeIsoDate(o.raisedDate)`), so an unparseable value
-    // blanked it to ""; `decisionDate` lost its key instead. ★★ The second half
-    // is the one no fixture in the parity sweep can reach — `CHANGE_BASE` leaves
-    // `decisionDate` blank, so the field it clears was already empty there.
+    // blanked it to ""; `decisionDate` lost its key instead.
+    // ★★ THE SECOND HALF NO LONGER TURNS ON THE VALUE BEING UNPARSEABLE, and an
+    // earlier revision of this comment read as if it did. `CHANGE_FIELD_GUARDS
+    // .decisionDate` is `() => false`, so the key is dropped UNCONDITIONALLY —
+    // the field is refused, never the value. A well-formed date is dropped here
+    // exactly as "not a date" is; the case name still holds either way.
+    // ★★ It is also the half no fixture in the parity sweep can reach —
+    // `CHANGE_BASE` leaves `decisionDate` blank, so the field it clears was
+    // already empty there.
     name: "unparseable change dates leave the stored dates alone",
     tool: "update_change",
     entity: "change",
