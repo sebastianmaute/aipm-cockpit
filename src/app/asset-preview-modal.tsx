@@ -187,8 +187,13 @@ export function AssetPreviewModal({
         <ModalHeader
           lang={lang}
           title={t(lang, "assetPreviewTitle", current?.name ?? "")}
+          // No helpTitle: ModalHeader names the help icon from `helpTitle ?? title`,
+          // so passing both would spell this interpolation TWICE in one element —
+          // and the two copies can drift. The point of helpTitle is that the icon's
+          // accessible name MATCHES the visible title; duplicating the expression is
+          // what breaks that guarantee, silently. Pass helpTitle only where the help
+          // name must genuinely DIFFER from the title.
           helpConceptId={MODAL_HELP.assetPreview}
-          helpTitle={t(lang, "assetPreviewTitle", current?.name ?? "")}
           titleId={TITLE_ID}
           onClose={onClose}
           dragHandleProps={handleProps}

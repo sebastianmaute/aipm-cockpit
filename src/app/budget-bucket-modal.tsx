@@ -303,7 +303,6 @@ export function BudgetBucketModal({
           lang={lang}
           title={t(lang, "budgetEditBucket")}
           helpConceptId={MODAL_HELP.budgetBucket}
-          helpTitle={t(lang, "budgetEditBucket")}
           onClose={onClose}
           dragHandleProps={handleProps}
           headerExtra={<ModalFieldControls modalId="budget" lang={lang} />}

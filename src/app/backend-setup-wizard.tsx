@@ -171,7 +171,6 @@ export function BackendSetupWizard({
           lang={lang}
           title={t(lang, "setupWizardTitle")}
           helpConceptId={MODAL_HELP.backendSetupWizard}
-          helpTitle={t(lang, "setupWizardTitle")}
           titleId={TITLE_ID}
           onClose={handleClose}
         />

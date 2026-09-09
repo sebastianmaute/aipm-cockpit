@@ -49,7 +49,6 @@ export function ProjectModalShell({ lang, title, sizeKey, onClose, children }: P
           lang={lang}
           title={title}
           helpConceptId={MODAL_HELP.projectEdit}
-          helpTitle={title}
           onClose={onClose}
           headerExtra={<ResetSizeButton onClick={resetSize} lang={lang} />}
         />

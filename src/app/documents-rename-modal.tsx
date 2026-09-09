@@ -42,7 +42,6 @@ export function DocumentsRenameModal({
           lang={lang}
           title={t(lang, "documentsRename")}
           helpConceptId={MODAL_HELP.documentsRename}
-          helpTitle={t(lang, "documentsRename")}
           titleId={RENAME_TITLE_ID}
           onClose={onCancel}
         />

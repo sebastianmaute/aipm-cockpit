@@ -66,7 +66,6 @@ export function TaskLinkedTaskModal({ lang, today, onCreate, onClose }: TaskLink
           lang={lang}
           title={t(lang, "taskEditorNewLinkedTask")}
           helpConceptId={MODAL_HELP.taskLinkedTask}
-          helpTitle={t(lang, "taskEditorNewLinkedTask")}
           onClose={onClose}
         />
         <div className="space-y-3 p-5">

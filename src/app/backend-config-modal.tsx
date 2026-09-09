@@ -72,7 +72,6 @@ export function BackendConfigModal({
           lang={lang}
           title={title}
           helpConceptId={MODAL_HELP.backendConfig}
-          helpTitle={title}
           titleId={TITLE_ID}
           onClose={onClose}
         />

@@ -146,7 +146,6 @@ export function TaskFormModal({
           lang={lang}
           title={dialogTitle}
           helpConceptId={MODAL_HELP.taskForm}
-          helpTitle={dialogTitle}
           onClose={onCancel}
           dragHandleProps={handleProps}
           headerExtra={<ModalFieldControls modalId="task" lang={lang} />}

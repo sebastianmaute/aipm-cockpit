@@ -91,7 +91,6 @@ export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPick
           lang={lang}
           title={t(lang, "tursoPickerTitle")}
           helpConceptId={MODAL_HELP.tursoProjectPicker}
-          helpTitle={t(lang, "tursoPickerTitle")}
           titleId={TITLE_ID}
           onClose={onClose}
         />

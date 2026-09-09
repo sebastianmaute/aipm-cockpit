@@ -40,7 +40,6 @@ export function AssetLibraryModal({ open, onClose, onInsert, ...rest }: AssetLib
           lang={rest.lang}
           title={t(rest.lang, "assetLibraryTitle")}
           helpConceptId={MODAL_HELP.assetLibrary}
-          helpTitle={t(rest.lang, "assetLibraryTitle")}
           titleId={ASSET_LIBRARY_TITLE_ID}
           onClose={onClose}
         />

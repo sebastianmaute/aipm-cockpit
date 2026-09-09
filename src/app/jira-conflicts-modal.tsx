@@ -185,7 +185,6 @@ export function JiraConflictsModal({
           lang={lang}
           title={t(lang, "jiraConflictTitle")}
           helpConceptId={MODAL_HELP.jiraConflicts}
-          helpTitle={t(lang, "jiraConflictTitle")}
           onClose={onClose}
           dragHandleProps={handleProps}
           onResetLayout={() => {

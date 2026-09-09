@@ -153,7 +153,6 @@ export function TaskTimeTrackingModal({
           lang={lang}
           title={t(lang, "taskTimeTracking")}
           helpConceptId={MODAL_HELP.taskTimeTracking}
-          helpTitle={t(lang, "taskTimeTracking")}
           onClose={onClose}
           // WCAG 2.4.6 / speech input. This dialog opens ON TOP of the task
           // form, which renders a Close and a Cancel of its own — and every

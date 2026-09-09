@@ -481,7 +481,6 @@ export function DocumentsHistoryModal({
           lang={lang}
           title={t(lang, "documentsHistoryFor", doc.title)}
           helpConceptId={MODAL_HELP.documentsHistory}
-          helpTitle={t(lang, "documentsHistoryFor", doc.title)}
           titleId={HISTORY_TITLE_ID}
           onClose={onClose}
         />
