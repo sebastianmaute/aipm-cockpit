@@ -19,7 +19,21 @@ describe("fieldLabel", () => {
   // (8 + 1) joined the union. Re-derived by running this test, not by adding 16
   // to the old number — which is how the "58 + 8 + 2" arithmetic above went
   // stale while still summing to the right total.
-  const PREVIEWABLE_FIELD_COUNT = 84;
+  // ★★ 84 → 83 when `change.decisionDate` was WITHDRAWN from that entity's
+  // `diffFields`, and this guard is what noticed: the field is DERIVED
+  // (`applyChangeStatus` owns the `status`/`decisionDate` pair, the modal
+  // renders it read-only), so the model authors it on no surface and the
+  // preview must not offer a diff row for it. A DELIBERATE removal, not drift
+  // — the direction that matters is that the number went DOWN, which is the
+  // one event worth a human look. Re-derived by running this file, not by
+  // subtracting one.
+  // ★ `FIELD_LABEL_KEY["change.decisionDate"]` is deliberately LEFT in place:
+  // the loop below is one-directional (every previewable field needs a label,
+  // never the reverse), the label names a real translated field the change
+  // modal still renders, and `fieldLabel` is a lookup with a raw-name fallback
+  // — so an unused entry costs nothing and removing it would only make a
+  // future re-offer render `decisionDate` as a property name.
+  const PREVIEWABLE_FIELD_COUNT = 83;
 
   it("covers every previewable field of every entity", () => {
     // A missing entry is not a crash — it falls back to the raw property name —

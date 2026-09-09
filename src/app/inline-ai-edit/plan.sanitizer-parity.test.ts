@@ -695,15 +695,30 @@ const fieldsUnderTest = (entity: InlineEntity): string[] =>
  *  under test except the enum and date fields.
  *
  *  ★★ THE EXCLUSION IS DELIBERATELY WIDER THAN THE SET THAT YIELDS NOTHING, and
- *  the two numbers must not be conflated. It drops 20 of the 52 fields under
- *  test (11 enum + 9 date); only 13 of those actually contribute zero
- *  comparisons — the 11 enum fields plus `task.dueDate` and `milestone.date`.
- *  The other SEVEN date fields each contribute exactly one: `raid.raisedDate`,
- *  `raid.targetDate`, `raid.closedDate`, `change.raisedDate`,
- *  `change.decisionDate`, `milestone.achievedDate`, `task.lastUpdateDate`. The date guard is
+ *  the two numbers must not be conflated. MEASURED 2026-09-09 by printing them
+ *  from inside the totals test: it drops 23 of the 65 fields under test
+ *  (12 enum + 11 date). The date guard is
  *  `after !== "" && sanitizeIsoDate(after) !== after`, so the EMPTY-STRING probe
- *  sails straight through it, and the two fields that still yield nothing are
- *  the ones `requiredNonEmpty` catches first.
+ *  sails straight through it and most date fields still contribute exactly one
+ *  comparison; the ones that yield nothing are those `requiredNonEmpty` catches
+ *  first.
+ *
+ *  ★★★ THE FOUR FIGURES THIS REPLACED WERE STALE BEFORE THE COMMIT THAT
+ *  REPLACED THEM, and that is the point worth keeping. They read "20 of the 52
+ *  … (11 enum + 9 date)"; the same print on the PRE-change tree returned
+ *  66 under test with 12 date fields, so the recorded pair had drifted under
+ *  sibling commits with every floor green — the floors are computed from
+ *  `diffFields` × `PROBES`, so nothing here can go red on a wrong COMMENT.
+ *  ★★ THE `decisionDate` WITHDRAWAL ACCOUNTS FOR EXACTLY ONE OF THE DELTA:
+ *  66 → 65 under test, 12 → 11 date, `compared` 318 → 317 (measured on both
+ *  trees, so its "one comparison" is attributed rather than assumed). The rest
+ *  of the gap was already there. Do not infer either half — print them.
+ *
+ *  ★ NOT RE-MEASURED, AND SAID SO RATHER THAN RESTATED: which specific fields
+ *  contribute zero (the old sentence named the enum set plus `task.dueDate` and
+ *  `milestone.date`, 13 of them) was inherited from the 2026-09-06 pass and is
+ *  the same vintage as the counts just corrected. `comparedByField` carries the
+ *  per-field split if you want it; treat the naming as a hypothesis until then.
  *
  *  ★★★ THAT IS WHY THIS PARAGRAPH NO LONGER CLAIMS "ZERO BY CONSTRUCTION". It
  *  did, and said so as a MEASUREMENT — "exactly the 11 enum fields plus
@@ -845,9 +860,19 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     expect(silent).toEqual([]);
 
     // (3) AGGREGATE, as a fraction of what the comparable fields could yield.
-    // MEASURED 2026-09-06: 265 comparisons over 32 comparable fields × 10
-    // probes = 320 possible, i.e. 83%.
-    // ★★ THIS LINE SAID 269/84% AND WAS ALREADY STALE WHEN §396 ARRIVED — the
+    // MEASURED 2026-09-09: 317 comparisons over 42 comparable fields × 10
+    // probes = 420 possible, i.e. 75%, against 650 enumerated pairs.
+    // ★★★ AND THE 2026-09-06 FIGURES BELOW WERE STALE BEFORE THIS LINE TOUCHED
+    // THEM — 265/32/320/520 against a pre-change tree that printed
+    // 318/42/420/660. Withdrawing `change.decisionDate` from the change
+    // descriptor's `diffFields` accounts for exactly ONE of the numerator (318
+    // → 317) and ten of the enumerated pairs (660 → 650, one field × ten
+    // probes); the comparable count and the denominator did not move, because a
+    // date field was never comparable. Everything else in the gap predates it
+    // and drifted under sibling commits with every floor green — which is the
+    // failure this whole block keeps recording about itself. Print them, do not
+    // subtract from them, and do not read a green run as covering a comment.
+    // ★★ THE 2026-09-06 LINE SAID 269/84% AND WAS ALREADY STALE WHEN §396 ARRIVED — the
     // numerator had drifted under a sibling commit and no gate could see it,
     // which is the failure the paragraph below describes happening again.
     // Attributed by measurement, not by reading the log: printed with and
@@ -884,8 +909,9 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     // return NOTHING left `silent` empty and `possible` zero, so both floors
     // above passed with the whole differential switched off (measured: 7 passed,
     // EXIT=0). Pinning the comparable pairs to a majority of the ENUMERATED ones
-    // — 320 of 520, i.e. 62%, on 2026-09-06 — means the denominator cannot be
-    // shrunk to make the numerator look good.
+    // — 420 of 650, i.e. 65%, MEASURED 2026-09-09 (it read "320 of 520, 62%,
+    // on 2026-09-06", the same stale vintage as the figures above) — means the
+    // denominator cannot be shrunk to make the numerator look good.
     expect(possible).toBeGreaterThan(enumerated / 2);
     expect(compared).toBeGreaterThan(possible / 2);
 

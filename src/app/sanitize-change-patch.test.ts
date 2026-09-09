@@ -101,15 +101,32 @@ function mergeWithStatus(
 
 describe("dropUnacceptedChangeFields", () => {
   it("keeps every value the sanitizer accepts", () => {
+    // ★ `decisionDate` is deliberately ABSENT from this bag: it is no longer
+    // model-writable at all (see the refusal test below), so a well-formed date
+    // for it is exactly what must NOT survive this call.
     const patch = {
       type: "Cost",
       impact: "Critical",
       raisedDate: "2026-02-02",
-      decisionDate: "2026-02-03",
       scheduleImpactDays: 3,
       costImpact: 0,
     };
     expect(dropUnacceptedChangeFields(patch)).toEqual(patch);
+  });
+
+  it("refuses decisionDate outright — it is derived, not model-authored", () => {
+    // ★★★ THE WHOLE POINT OF THE ROW, and a shape check would defeat it: a
+    // WELL-FORMED date is the value that must not land. `applyChangeStatus`
+    // (`change-log.ts`) owns the `status`/`decisionDate` pair, so the only
+    // legitimate writer is a status transition. Withdrawn from `changeFields`
+    // in the same change; this row is what makes the withdrawal real, since
+    // `patchWithoutId` has no whitelist and an undeclared key still merges.
+    expect(dropUnacceptedChangeFields({ decisionDate: "2026-02-03" })).toEqual({});
+    // The sharper arm: with NO status supplied, `applyModelChangeStatus` returns
+    // `{...item, status: stored}` and leaves whatever the merge produced — so
+    // without this guard the model could date a decision on a change that stays
+    // "Proposed", breaking the invariant `applyChangeStatus` exists to hold.
+    expect(mergeGuarded(storedChange(), { decisionDate: "2026-02-03" }).decisionDate).not.toBe("2026-02-03");
   });
 
   it("returns the patch object itself when nothing is dropped", () => {
@@ -148,7 +165,26 @@ describe("dropUnacceptedChangeFields", () => {
 });
 
 describe("dates: an explicit empty string is a real clear", () => {
-  it.each(["raisedDate", "decisionDate"])(
+  // ★★ `decisionDate` USED TO BE IN THIS LIST AND IS NOW ITS COUNTEREXAMPLE.
+  //  The reasoning below still holds for `raisedDate`; for `decisionDate` the
+  //  field is no longer model-writable AT ALL, so `""` is refused with every
+  //  other value. That is deliberate — accepting the clear would let a model
+  //  strip the date off an "Approved" change, which breaks the same invariant
+  //  in the other direction and would be the identical defect, not a milder one.
+  //  ★★★ IT HAD A COST AND IT IS NOW PAID, WHICH TOOK A SECOND CHANGE.
+  //  Refusing the value here while `INLINE_DESCRIPTORS.change` still listed
+  //  `decisionDate` in `diffFields` + `dateFields` left the two surfaces
+  //  DISAGREEING: the preview's date guard is `after !== "" && …`, so `""`
+  //  sailed through it and the inline-edit card DISCLOSED a clear this refuses.
+  //  `plan.write-path-sweep.test.ts` reported exactly that, as
+  //  `change.decisionDate on the empty string`, and it was the ONLY probe that
+  //  broke (a padded string and `42` were refused by the card too). The field
+  //  has since been withdrawn from BOTH descriptor lists, so nothing is offered
+  //  for it and the card can no longer promise what this refuses. ★ Withdrawing
+  //  it moved one recorded axis — `PREVIEWABLE_FIELD_COUNT` in
+  //  `field-labels.test.ts`, 84 → 83 — and that guard going red is the guard
+  //  working, not a reason to put the field back.
+  it.each(["raisedDate"])(
     "keeps %s = \"\" so a disclosed clear still lands",
     (field) => {
       // The preview's date guard is `after !== "" && sanitizeIsoDate(after) !==

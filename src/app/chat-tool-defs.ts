@@ -105,7 +105,20 @@ const changeFields = {
   requestedBy: { type: "string" as const, description: "Who requested the change" },
   raisedDate: { type: "string" as const, description: "Date raised YYYY-MM-DD (defaults to today)" },
   decisionBy: { type: "string" as const, description: "Decision maker" },
-  decisionDate: { type: "string" as const, description: "Decision date YYYY-MM-DD" },
+  // ★★★ `decisionDate` IS ABSENT ON PURPOSE — it is DERIVED, not authored.
+  //  `applyChangeStatus` (`change-log.ts`) owns the `status`/`decisionDate` pair
+  //  for every transition in the app, and the edit modal renders the date as a
+  //  read-only `<span>`, never an input. Offering it produced two defects:
+  //  a CREATE advertised it and then dropped it (an absent status defaults to
+  //  "Proposed", whose transition DELETES the date, so the card disclosed
+  //  nothing), and an UPDATE could land it while the change stayed "Proposed" —
+  //  `applyModelChangeStatus` returns `{...item, status: stored}` when no valid
+  //  status is supplied, leaving whatever the merge produced, which breaks the
+  //  very invariant `applyChangeStatus` exists to hold.
+  //  ★★ REMOVING IT FROM THIS SCHEMA IS HALF THE FIX AND CANNOT STAND ALONE:
+  //  `patchWithoutId` has no whitelist, so an UNDECLARED key still lands. The
+  //  refusing `CHANGE_FIELD_GUARDS.decisionDate` row (`sanitize-records.ts`) is
+  //  what actually makes it unwritable, on both the create and the update merge.
   resolutionNotes: { type: "string" as const, description: "Resolution notes" },
   linkedTaskIds: idList("IDs of related tasks"),
   linkedRaidIds: idList("IDs of related RAID items"),

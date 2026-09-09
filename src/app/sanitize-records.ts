@@ -646,7 +646,29 @@ const CHANGE_FIELD_GUARDS: Readonly<Record<string, ChangeFieldGuard>> = {
   type: (v) => typeof v === "string" && CHANGE_TYPE_SET.has(v),
   impact: (v) => typeof v === "string" && CHANGE_IMPACT_SET.has(v),
   raisedDate: acceptsChangeDate,
-  decisionDate: acceptsChangeDate,
+  // ★★★ NOT MODEL-WRITABLE, AND THIS ROW IS WHAT MAKES THAT TRUE — the same
+  //  shape as `knowledgeLinks` above. `decisionDate` was withdrawn from
+  //  `changeFields` (`chat-tool-defs.ts`) because it is DERIVED: only a status
+  //  transition through `applyChangeStatus` (`change-log.ts`) may stamp or clear
+  //  it, and the edit modal renders it read-only. But withdrawing a property
+  //  from a schema protects nothing on its own — `patchWithoutId` has no
+  //  whitelist, so an undeclared key still reaches the merge. This denylist row
+  //  is the guard, and it covers BOTH call sites of
+  //  `dropUnacceptedChangeFields` (create and update).
+  //  ★★ THE UPDATE ARM IS THE SHARPER OF THE TWO DEFECTS IT CLOSES.
+  //  `applyModelChangeStatus` returns `{...item, status: stored}` when the model
+  //  supplies no valid status, leaving `decisionDate` exactly as the merge
+  //  produced it — so a model could date a decision on a change that stayed
+  //  "Proposed" simply by OMITTING `status`, breaking the invariant
+  //  `applyChangeStatus` exists to hold.
+  //  ★ `() => false` rather than a shape check ON PURPOSE, again as with
+  //  `knowledgeLinks`: a well-formed date is exactly what must not land, so
+  //  validating the shape would accept the defect.
+  //  ★★ SCOPE: this table is read ONLY by `dropUnacceptedChangeFields`, a
+  //  MODEL-write guard. `sanitizeChangeItem` does not consult it, so stored
+  //  `decisionDate` values still round-trip through every load/decode path
+  //  (JSON, CSV, Markdown, Turso, IndexedDB) untouched.
+  decisionDate: () => false,
   scheduleImpactDays: acceptsScheduleDays,
   costImpact: acceptsCostAmount,
 };

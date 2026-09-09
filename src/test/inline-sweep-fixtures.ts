@@ -681,7 +681,21 @@ export function sweptFields(entity: InlineEntity, before: Record<string, unknown
  *
  *  ★ Rich fields are absent from every row by construction — `sweptFields`
  *  filters `RICH_FIELDS`, which is why `raid.description`, `change.
- *  impactDescription` and their peers are not listed. */
+ *  impactDescription` and their peers are not listed.
+ *
+ *  ★★★ `change.decisionDate` IS STILL LISTED WHILE NO LONGER BEING A
+ *  `diffFields` MEMBER, AND THAT IS THE UNION DOING ITS JOB, not a stale row.
+ *  The field was withdrawn from the change descriptor on 2026-09-09 because it
+ *  is DERIVED, but `sweptFields` unions the DECLARED terms with the STORED
+ *  keys of the seed — and `seedGuardedChange` sets `decisionDate:
+ *  "2026-03-04"` — so it stays on the axis through the stored half and the
+ *  sweep goes on probing it. That is the stronger outcome: the sweep now
+ *  asserts a field the card never offers also never lands, where before it was
+ *  asserting agreement on a field the card offered and the writer refused.
+ *  ★★ Measured, not reasoned: this row was left untouched across that
+ *  withdrawal and "change sweeps every field its recorded axis names" stayed
+ *  green. A withdrawal from `diffFields` only shrinks this axis for a field the
+ *  seed does NOT carry — check the seed before assuming an entry must go. */
 export const AXIS_FIELDS: Record<InlineEntity, readonly string[]> = {
   task: ["assignee", "assigneeEmail", "blockers", "dueDate", "group", "labels", "lastUpdateDate", "priority", "status", "taskName"],
   raid: ["category", "causedByRaidIds", "closedDate", "impact", "knowledgeLinks", "linkedTaskIds", "owner", "ownerEmail", "ownerResourceId", "probability", "raisedDate", "severity", "stakeholderIds", "status", "targetDate", "title"],

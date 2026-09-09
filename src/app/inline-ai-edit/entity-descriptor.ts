@@ -499,10 +499,25 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   },
   change: {
     entity: "change", updateTool: "update_change", deleteTool: "delete_change", createTool: "create_change", wsKey: "changes",
-    diffFields: ["title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays", "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes"],
+    // ★★★ `decisionDate` IS ABSENT FROM BOTH LISTS BELOW ON PURPOSE, and it is
+    //  the last half of the same withdrawal as its absence from `changeFields`
+    //  (`chat-tool-defs.ts`) and its refusing `CHANGE_FIELD_GUARDS` row
+    //  (`sanitize-records.ts`): the field is DERIVED — `applyChangeStatus` owns
+    //  the `status`/`decisionDate` pair and the change modal renders it
+    //  read-only — so the model authors it on NO surface. Leaving it here was
+    //  not cosmetic. The preview's date guard is `after !== "" && …`, so an
+    //  EMPTY STRING sailed straight through it and the inline-edit card
+    //  disclosed a clear the writer refuses; `plan.write-path-sweep.test.ts`
+    //  reported exactly that, as `change.decisionDate on the empty string`.
+    //  ★★ `dateFields` ALONE IS NOT LOAD-BEARING and a mutant reverting only
+    //  that half cannot go red: the date guard runs INSIDE `for (const f of
+    //  d.diffFields)` (`plan.ts`), so a `dateFields` member outside
+    //  `diffFields` is unreachable. It is withdrawn for consistency, so the
+    //  next reader does not restore `diffFields` to "complete the pair".
+    diffFields: ["title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays", "costImpact", "requestedBy", "raisedDate", "decisionBy", "resolutionNotes"],
     requiredNonEmpty: new Set(["title"]),
     requiredNonEmptyGroups: [],
-    dateFields: new Set(["raisedDate", "decisionDate"]),
+    dateFields: new Set(["raisedDate"]),
     numericFields: { scheduleImpactDays: acceptsScheduleDays, costImpact: acceptsCostAmount },
     stringOnlyFields: new Set(),
     enumFields: { type: constSet(CHANGE_TYPES), status: constSet(CHANGE_STATUSES), impact: constSet(CHANGE_IMPACT_LEVELS) },
