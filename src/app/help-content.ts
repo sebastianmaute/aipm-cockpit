@@ -44,7 +44,20 @@ export const HELP_GROUP_LABEL: Record<HelpGroup, TranslationKey> = {
   automated: "helpGroupAutomated",
 };
 
-export const HELP_ENTRIES: readonly HelpEntry[] = [
+/** The entry literal, deliberately NOT exported and deliberately NOT annotated.
+ *
+ *  ★★ THE SPLIT INTO TWO BINDINGS IS LOAD-BEARING IN BOTH DIRECTIONS, and
+ *  collapsing it either way breaks something. An explicit `: readonly
+ *  HelpEntry[]` HERE widens `id` back to `string` even with `as const` below —
+ *  `HelpEntryId` then compiles, exports, and catches nothing. But exporting
+ *  THIS binding as `HELP_ENTRIES` does not work either: `as const` makes it a
+ *  66-member heterogeneous tuple, and the three OPTIONAL fields (`primerKey`,
+ *  `relatedViews`, `relatedConcepts`) then do not exist on every member, so
+ *  every consumer that reads one fails to typecheck (measured: 18 errors
+ *  across 4 files). So the literal keeps the precise type for the union to be
+ *  derived from, and `HELP_ENTRIES` below re-exports it at the WIDE type its
+ *  consumers have always seen. */
+const HELP_ENTRIES_LITERAL = [
   // ── Concepts (what / why / in this app) ──
   { id: "concept-milestone", group: "concepts", titleKey: "helpConceptMilestoneTitle", bodyKey: "helpConceptMilestoneBody", primerKey: "helpConceptMilestonePrimer", relatedViews: ["milestones", "gantt"], relatedConcepts: ["concept-dependency", "concept-baseline"] },
   { id: "concept-raid", group: "concepts", titleKey: "helpConceptRaidTitle", bodyKey: "helpConceptRaidBody", primerKey: "helpConceptRaidPrimer", relatedViews: ["raid"], relatedConcepts: ["concept-change", "concept-stakeholder"] },
@@ -193,7 +206,23 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   // ★ "automated", not "features": nothing here is a control the reader
   // operates — the detection runs whether or not they visit the view.
   { id: "automated-insights", group: "automated", titleKey: "helpAutomatedInsightsTitle", bodyKey: "helpAutomatedInsightsBody", relatedViews: ["insights", "dashboard"], relatedConcepts: ["concept-milestone", "concept-budget", "concept-raid"] },
-];
+] as const satisfies readonly HelpEntry[];
+
+/** Every id in `HELP_ENTRIES`, as a union.
+ *
+ *  ★ It derives from `HELP_ENTRIES_LITERAL`, never from `HELP_ENTRIES` — the
+ *  latter is annotated, so deriving from it yields `string`: a union that
+ *  compiles, exports, and catches nothing. See that binding's comment.
+ *
+ *  ★★ IT CATCHES A MISTYPED ID, NEVER A WELL-SPELLED WRONG ONE. Pointing a
+ *  surface at an entry that exists but describes something else typechecks
+ *  perfectly. Any table mapping a surface to an id is reviewed as CONTENT, and
+ *  a green tsc says nothing about whether that mapping is right. */
+export type HelpEntryId = (typeof HELP_ENTRIES_LITERAL)[number]["id"];
+
+/** The consumer-facing binding, at the WIDE element type every reader already
+ *  expected. Widening here is what keeps this a one-file change. */
+export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
 
 /** How much teaching the Help surfaces do. Per-DEVICE (`Settings.helpReadingLevel`),
  *  deliberately not per-project — see the field's own comment in settings-types. */
