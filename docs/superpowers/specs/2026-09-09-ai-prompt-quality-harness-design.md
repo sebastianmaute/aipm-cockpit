@@ -71,10 +71,20 @@ under `src` is coverage-gated and would ship in the app bundle, which this is no
 
 ### Landmines this arrangement walks into
 
-- **`jsonToWorkspace` returns an EMPTY workspace under bare node** — it needs a DOM. The
-  harness seeds from `sample-workspace-small.json`, so it installs jsdom before the first
-  decode. Without it the run evaluates against an empty workspace and reports confident
-  nonsense.
+- **No workspace decode, and therefore no jsdom.** An earlier draft of this spec said the
+  harness seeds from `sample-workspace-small.json` and must install jsdom first, because
+  `jsonToWorkspace` returns an empty workspace under bare node. That is a true fact about
+  `jsonToWorkspace` and irrelevant here: the two builders take a **snapshot**, and
+  `getSnapshot`'s return is a structural object literal — a handful of scalars, string arrays
+  and bounded summaries. The harness constructs one directly. That is also the better design:
+  the probes need the snapshot fields to hold planted tokens at chosen depths, which a real
+  workspace decode cannot be made to do.
+- **The real payloads still come from the real code.** `builtinSeeds` and `toolsFor` supply the
+  two large blocks (~13,305 and 17,796 tokens); only the small per-call state is synthetic.
+  Importing `builtinSeeds` pulls React and the guide store transitively, which is safe under
+  vite-node — verified that the store and `device-store` touch `localStorage` only inside
+  function bodies, never at module top level. Re-check that if either module gains a top-level
+  initialiser.
 - **Never name the runner with a `test` or `spec` segment and an `.mjs` extension.** Vitest's
   `include` would execute it — in CI without a key, and on a dev machine with one.
 - **A new `npm run` entry is a three-file change.** `package.json` `scriptsDescriptions` plus
