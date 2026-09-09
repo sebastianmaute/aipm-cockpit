@@ -121,10 +121,14 @@ describe("AiUsagePanel", () => {
     expect(screen.getByText(/86%/)).toBeInTheDocument();
     // ★ Pins the FOLLOW-UP fix: UsageBar's own `used`/`cap` figures now take
     //   the same `locale` prop as the breakdown below it, rather than calling
-    //   bare `.toLocaleString()` (host-default locale). Session total is
-    //   1000+100+500+9000=10600; sessionCap=100000 (11%), weeklyCap=500000 (2%).
-    expect(screen.getByText(/10,600 \/ 100,000/)).toBeInTheDocument();
-    expect(screen.getByText(/10,600 \/ 500,000/)).toBeInTheDocument();
+    //   bare `.toLocaleString()` (host-default locale). The GROUPING SEPARATOR
+    //   is what this pins — the total beside it is incidental to that.
+    // ★★ The total is the COST-EQUIVALENT one, not a raw sum: 1000*1 + 100*5
+    //   + 500*1.25 + 9000*0.1 = 3025. It read 10600 until the caps moved onto
+    //   the billing weights; the bar has always shown sessionTotal, and it is
+    //   sessionTotal's basis that changed underneath it.
+    expect(screen.getByText(/3,025 \/ 100,000/)).toBeInTheDocument();
+    expect(screen.getByText(/3,025 \/ 500,000/)).toBeInTheDocument();
   });
 
   it("orders the session cache breakdown and hit-rate between the session and weekly bars", () => {
@@ -198,8 +202,9 @@ describe("AiUsagePanel", () => {
       expect(screen.getByText(/86 %/)).toBeInTheDocument();
       // ★ Same follow-up pin as the "en-US" test above, in the German
       //   direction: the bar figures must use dot grouping under "de".
-      expect(screen.getByText(/10\.600 \/ 100\.000/)).toBeInTheDocument();
-      expect(screen.getByText(/10\.600 \/ 500\.000/)).toBeInTheDocument();
+      //   3025 is the cost-equivalent session total; see the en-US test.
+      expect(screen.getByText(/3\.025 \/ 100\.000/)).toBeInTheDocument();
+      expect(screen.getByText(/3\.025 \/ 500\.000/)).toBeInTheDocument();
     });
   });
 });
