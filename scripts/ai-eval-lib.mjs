@@ -382,3 +382,48 @@ export function preflight(input) {
 
   return { ok: failures.length === 0, failures };
 }
+
+/** Turn a completed run into an exit code plus its reasons.
+ *
+ *  ★★★ WHAT THIS CAN AND CANNOT DECIDE, stated rather than implied. The hard
+ *  fail is narrow on purpose: arm B scoring ZERO on a probe where arm A did
+ *  not. At the default rep count a smaller drop is inside noise, so failing on
+ *  it would block work on a coin flip. Smaller drops are recorded in `notes`
+ *  for a human, and gating on a RATE difference needs a higher rep count and
+ *  its own calibration — see the spec.
+ *
+ *  ★★ Three separate conditions all map to UNUSABLE and they are not the same
+ *  thing: an incomplete run, a leaking negative control, and a null arm that
+ *  itself fell. Each says the measurement is void; none says the candidate is
+ *  bad. Collapsing any of them into REGRESSION blames a slice for a broken
+ *  instrument. */
+export function verdict(run) {
+  const reasons = [];
+  const notes = [];
+
+  if (!run.complete) {
+    return { code: EXIT.UNUSABLE, reasons: ["run did not complete"], notes };
+  }
+
+  for (const p of run.perProbe) {
+    if (p.X > 0) {
+      reasons.push(
+        `${p.id}: negative control scored ${p.X} — the token is reachable with its block deleted, so this probe measures nothing`,
+      );
+    }
+    if (p.A === 0) {
+      reasons.push(`${p.id}: arm A scored zero — the null regressed, the measurement is void`);
+    }
+  }
+  if (reasons.length > 0) return { code: EXIT.UNUSABLE, reasons, notes };
+
+  for (const p of run.perProbe) {
+    if (p.B === 0 && p.A > 0) {
+      reasons.push(`${p.id}: arm B scored zero where arm A scored ${p.A}`);
+    } else if (p.B < p.A) {
+      notes.push(`${p.id}: arm B ${p.B} below arm A ${p.A} — inside noise at this rep count, recorded only`);
+    }
+  }
+
+  return { code: reasons.length > 0 ? EXIT.REGRESSION : EXIT.PASS, reasons, notes };
+}

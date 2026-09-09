@@ -475,3 +475,68 @@ describe("preflight", () => {
     expect(preflight(input).failures.length).toBe(2);
   });
 });
+
+import { verdict, EXIT as E } from "./ai-eval-lib.mjs";
+
+const run = (over = {}) => ({
+  complete: true,
+  perProbe: [
+    { id: "date", A: 1.0, B: 1.0, X: 0 },
+    { id: "viewScope", A: 0.6, B: 0.6, X: 0 },
+  ],
+  ...over,
+});
+
+describe("verdict", () => {
+  it("passes when B holds up against A", () => {
+    expect(verdict(run()).code).toBe(E.PASS);
+  });
+
+  it("is UNUSABLE when the run did not complete", () => {
+    expect(verdict(run({ complete: false })).code).toBe(E.UNUSABLE);
+  });
+
+  it("is UNUSABLE when the negative control scored above zero", () => {
+    // The token surfaced with its block deleted, so it is reachable from
+    // somewhere else and the probe never measured reachability at all.
+    const r = run({ perProbe: [{ id: "date", A: 1.0, B: 1.0, X: 0.34 }] });
+    const v = verdict(r);
+    expect(v.code).toBe(E.UNUSABLE);
+    expect(v.reasons.join(" ")).toMatch(/negative control/i);
+  });
+
+  it("is UNUSABLE when the null arm itself fell to zero", () => {
+    // A regressed null is not a verdict about the candidate. Reporting it as
+    // REGRESSION would blame the slice for something that moved under both arms.
+    const r = run({ perProbe: [{ id: "date", A: 0, B: 0, X: 0 }] });
+    const v = verdict(r);
+    expect(v.code).toBe(E.UNUSABLE);
+    expect(v.reasons.join(" ")).toMatch(/arm A/i);
+  });
+
+  it("is REGRESSION when B is zero on a probe where A is not", () => {
+    const r = run({ perProbe: [{ id: "date", A: 1.0, B: 0, X: 0 }] });
+    const v = verdict(r);
+    expect(v.code).toBe(E.REGRESSION);
+    expect(v.reasons.join(" ")).toMatch(/date/);
+  });
+
+  it("records a partial drop without failing on it", () => {
+    // At the default rep count a one-rep difference is inside noise. It is
+    // reported so a human can see it, and gates nothing.
+    const r = run({ perProbe: [{ id: "date", A: 1.0, B: 0.67, X: 0 }] });
+    const v = verdict(r);
+    expect(v.code).toBe(E.PASS);
+    expect(v.notes.join(" ")).toMatch(/date/);
+  });
+
+  it("reports every failing probe, not just the first", () => {
+    const r = run({
+      perProbe: [
+        { id: "date", A: 1.0, B: 0, X: 0 },
+        { id: "viewScope", A: 1.0, B: 0, X: 0 },
+      ],
+    });
+    expect(verdict(r).reasons.length).toBe(2);
+  });
+});
