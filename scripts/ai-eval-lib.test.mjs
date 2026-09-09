@@ -301,3 +301,48 @@ describe("hitRate", () => {
     expect(hitRate([])).toBe(0);
   });
 });
+
+import { GRADED_AXES, gradeArm } from "./ai-eval-lib.mjs";
+
+describe("GRADED_AXES", () => {
+  it("pre-registers a direction and a meaning for every axis", () => {
+    expect(GRADED_AXES.map((a) => a.id)).toEqual([
+      "toolReaches", "wrongBlock", "adherence", "outputTokens",
+    ]);
+    for (const axis of GRADED_AXES) {
+      expect(axis.worseDirection).toBe("higher");
+      expect(axis.meaning.length).toBeGreaterThan(20);
+    }
+  });
+});
+
+describe("gradeArm", () => {
+  const responses = [
+    { text: "vorquenzil", outcome: "hit", toolUses: 0, outputTokens: 4 },
+    { text: "The code is vorquenzil, taken from the date block.", outcome: "hit", toolUses: 1, outputTokens: 12 },
+    { text: "mabtresk", outcome: "wrong-block", toolUses: 0, outputTokens: 3 },
+  ];
+
+  it("sums tool reaches across reps", () => {
+    expect(gradeArm(responses, "vorquenzil").toolReaches).toBe(1);
+  });
+
+  it("counts wrong-block outcomes", () => {
+    expect(gradeArm(responses, "vorquenzil").wrongBlock).toBe(1);
+  });
+
+  it("counts an elaborated answer against adherence", () => {
+    // A bare token is adherent; anything longer is not. Both probes said
+    // "exactly as written", so this is measured against an explicit instruction.
+    expect(gradeArm(responses, "vorquenzil").adherence).toBe(1);
+  });
+
+  it("averages output tokens", () => {
+    expect(gradeArm(responses, "vorquenzil").outputTokens).toBeCloseTo(19 / 3);
+  });
+
+  it("treats an exact bare token as adherent regardless of surrounding space", () => {
+    const bare = [{ text: "  vorquenzil \n", outcome: "hit", toolUses: 0, outputTokens: 4 }];
+    expect(gradeArm(bare, "vorquenzil").adherence).toBe(0);
+  });
+});

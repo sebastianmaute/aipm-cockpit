@@ -266,3 +266,56 @@ export function hitRate(outcomes) {
   if (outcomes.length === 0) return 0;
   return outcomes.filter((o) => o === "hit").length / outcomes.length;
 }
+
+/** The four graded axes, pre-registered.
+ *
+ *  ★★★ DIRECTION AND MEANING ARE FIXED BEFORE ANY RUN AND CARRY NO THRESHOLDS.
+ *  A threshold invented after seeing numbers is a verdict authored to fit them,
+ *  and a guessed threshold that fires blocks work on a number nobody can
+ *  defend. These report. Promoting one to a gate is its own decision, needing
+ *  its own calibration evidence, and belongs in the spec — not in a patch. */
+export const GRADED_AXES = Object.freeze([
+  {
+    id: "toolReaches",
+    worseDirection: "higher",
+    meaning:
+      "the model called a tool for an answer already present in its context; currently at zero, so it has room only in the bad direction",
+  },
+  {
+    id: "wrongBlock",
+    worseDirection: "higher",
+    meaning:
+      "the decoy was returned instead of the target; unambiguous, it read something but not the block asked for",
+  },
+  {
+    id: "adherence",
+    worseDirection: "higher",
+    meaning:
+      "answers that elaborated where the probe said 'exactly as written'; the one real difference the manual eval surfaced, still unadjudicated",
+  },
+  {
+    id: "outputTokens",
+    worseDirection: "higher",
+    meaning:
+      "mean output tokens per response; billed at five times input, so a move is a cost fact even where it is not a quality fact",
+  },
+]);
+
+/** Reduce one arm's responses to the graded vector. */
+export function gradeArm(responses, target) {
+  const total = responses.length;
+  const sum = (f) => responses.reduce((acc, r) => acc + f(r), 0);
+  return {
+    toolReaches: sum((r) => r.toolUses ?? 0),
+    wrongBlock: responses.filter((r) => r.outcome === "wrong-block").length,
+    // Elaboration only means anything against a response that actually
+    // named the target — a wrong-block response never touched the target's
+    // wording at all, so it belongs to `wrongBlock`, not here.
+    adherence: responses.filter(
+      (r) =>
+        r.outcome === "hit" &&
+        String(r.text).trim().toLowerCase() !== target.toLowerCase(),
+    ).length,
+    outputTokens: total === 0 ? 0 : sum((r) => r.outputTokens ?? 0) / total,
+  };
+}
