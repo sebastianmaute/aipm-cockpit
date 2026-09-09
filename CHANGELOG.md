@@ -30,6 +30,18 @@ longer carries its own changelog comment.
   same order, in the same role — only the block boundary moved, so no
   answer-quality evaluation was required for this change.
 
+### Security
+- Next.js updated 16.2.11 → 16.3.4, closing two advisories rated critical: an
+  unauthenticated remote code execution on Windows-hosted servers, and a second
+  in the image-optimization path when AVIF files are served. The pinned 16.2.11
+  was inside the affected range. `sharp` moves to 0.35.4 with it, closing a
+  high-severity issue in the bundled libheif, and the Tiptap editor packages
+  move to 3.31.3, closing a high-severity issue in `@tiptap/core`.
+- These advisories were published after the previous release and are unrelated
+  to anything else in this version; they are included here because leaving them
+  unpatched was the greater risk. Dependency ranges are otherwise unchanged and
+  Next stays exactly pinned.
+
 ### Notes
 - The figures above come from one live two-arm run of a four-turn
   conversation across a single pair of views, not from a repeated trial, and
