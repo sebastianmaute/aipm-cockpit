@@ -105,14 +105,20 @@ export const PROPOSAL_TOOL = {
                 //  permanently `null` for every AI seed — the prompt asked for something the
                 //  allowlist then threw away. Tasks kept `assignee` through the same prompt
                 //  sentence only because `buildSeedTask` reads named fields and never spreads.
-                // ★★ `ownerEmail` is deliberately NOT declared, and that is not an oversight
-                //  — see the note above `SEED_OFFERED_KEYS`. `sanitizeRaidItem` runs this
-                //  through `sanitizeText(o.owner, BUDGET_NAME_MAX)`, so declaring it re-opens
-                //  no injection surface.
+                // ★★ `ownerEmail` IS DECLARED TOO, and it is not redundant with `owner`:
+                //  `linkResource` tries the EMAIL leg FIRST, so the address is the only
+                //  thing that can pick between two seeded people who share a display
+                //  name. The reasoning — and the wrong-link it prevents — lives above
+                //  `SEED_OFFERED_KEYS`; do not restate it here.
                 owner: {
                   type: "string",
                   description:
                     "Exact name of the team member who owns this, when the source names one — matching a name in the resources list. Do not invent one.",
+                },
+                ownerEmail: {
+                  type: "string",
+                  description:
+                    "That owner's email address, when the source gives one — matching the email on their resources entry, and used to tell apart two people with the same name. Do not invent one.",
                 },
               },
               required: ["title", "category"],
@@ -206,16 +212,33 @@ function isObj(v: unknown): v is Record<string, unknown> {
  *  the fix, and it is the design working — the axis is the schema, so the schema
  *  is where a wanted field is added. Before adding a list to `SEED_SCHEMAS` or a
  *  sentence to the prompt, check the other half agrees.
- *  ★★ `raid.ownerEmail` and `stakeholders.email` stay UNDECLARED, deliberately.
- *  `linkResource(name, email)` tries email first and falls back to name, so the
- *  NAME leg alone links every row the prompt can honestly produce: the prompt
- *  says "Do not invent owners or emails", and an address the model did not
- *  invent came off a resource it also seeded — where the name matches too. A
- *  declared email would therefore buy no link the name leg does not already
- *  make, while adding a model-authored address to a stored row (both sanitizers
- *  persist it). CONSEQUENCE, and it is real: linking here is by NAME ONLY, so
- *  two seeded people sharing a display name resolve first-wins by declaration
- *  order and an email could not have disambiguated them.
+ *  ★★★ `raid.ownerEmail` IS DECLARED, and the argument that kept it out for a
+ *  release was FALSE. It read that a declared email "would buy no link the name
+ *  leg does not already make" and that "an email could not have disambiguated
+ *  them" — both wrong, because `linkResource(name, email)` tries the EMAIL leg
+ *  FIRST. `remapSeed` indexes `resByName` FIRST-WINS, so two seeded people
+ *  sharing a display name collapse to whichever the model listed first:
+ *  withholding the address did not leave the link ABSENT, it left it WRONG.
+ *  `resolveRaidOwnerEmail` (`raid-inquiry.ts`) then prefers the LINKED row's
+ *  address over the item's own, so "Send inquiry" mails risk detail to a person
+ *  the source never named for that item — which is why this is a correctness
+ *  fix and not a convenience. Pinned where it manifests, by "links a seeded RAID
+ *  owner by EMAIL when two directory rows share a name".
+ *  ★ Withholding it bought no safety either: `raidFields` (`chat-tool-defs.ts`)
+ *  ALREADY offers `owner` and `ownerEmail` together on `create_raid_item` /
+ *  `update_raid_item`, landing in the same `sanitizeRaidItem`. The seed path was
+ *  the only place the pair was split.
+ *  ★★ THE SURVIVING TRUE PART of the old paragraph: with no email supplied,
+ *  linking is by NAME ONLY, and same-named rows still resolve first-wins by
+ *  declaration order.
+ *  ★★ `sanitizeEmail` is `sanitizeText(…, EMAIL_MAX)` — it trims and caps at 320
+ *  and validates NOTHING, so this stores whatever string the model sent. The
+ *  prompt's "Do not invent owners or emails" is the only thing asking for a real
+ *  address, and the schema's own description repeats it. Do not read the
+ *  sanitizer as a validator.
+ *  ★★ `stakeholders.email` stays UNDECLARED — but NOT because the name leg
+ *  suffices there. `linkResource(s.name, s.email)` gives the stakeholder leg the
+ *  identical first-wins wrong-link exposure; it is simply outside this change.
  *
  *  ★★ Do NOT name the plain change sanitizer in this file, in a comment or
  *  otherwise: `sanitize-model-change-wiring.test.ts` asserts its bare name

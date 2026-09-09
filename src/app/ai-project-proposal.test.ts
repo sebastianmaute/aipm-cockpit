@@ -155,10 +155,11 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
   //  them from PROPOSAL_TOOL, as the fix does, would make this test tautological:
   //  it must fail if the derivation is widened, so it cannot share it.
   const SMUGGLED: Readonly<Record<string, readonly string[]>> = {
-    // ★ `owner` is NOT here: the seed schema declares it, because the system
-    //  prompt asks the model for it and `remapSeed` links it. It is asserted in
-    //  the anti-vacuity case below instead. `ownerEmail` stays undeclared.
-    raid: ["outlookEventId", "localModifiedAt", "inquiriesSent", "ownerEmail", "targetDate"],
+    // ★ `owner` and `ownerEmail` are NOT here: the seed schema declares BOTH,
+    //  because the system prompt asks for them and `remapSeed` links on the pair
+    //  (email leg first). They are asserted in the anti-vacuity case below
+    //  instead. `targetDate` and `inquiriesSent` are genuinely undeclared.
+    raid: ["outlookEventId", "localModifiedAt", "inquiriesSent", "targetDate"],
     changes: ["outlookEventId", "localModifiedAt", "decisionDate", "requestedBy"],
     milestones: ["outlookEventId", "localModifiedAt", "achievedDate", "knowledgeLinks"],
     // ★ `knowledgeLinks` here is reached from a `documentLinks` INPUT key — the
@@ -177,10 +178,10 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
           raid: [{
             // Declared by the schema:
             title: "Vendor slip", category: "R", description: "<p>late</p>", severity: "High",
-            owner: "Ada Lovelace",
+            owner: "Ada Lovelace", ownerEmail: "ada@x.io",
             // Never offered:
             id: 999, outlookEventId: "AAMk-forged", localModifiedAt: "2026-01-02T03:04:05Z",
-            inquiriesSent: 7, ownerEmail: "forged@x.io", targetDate: "2026-10-10",
+            inquiriesSent: 7, targetDate: "2026-10-10",
           }],
           changes: [{
             title: "Scope cut", description: "<p>trim</p>",
@@ -247,9 +248,15 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
       //  for it and `remapSeed`'s `linkResource(r.owner, r.ownerEmail)` is the
       //  only thing that turns a seeded name into a directory FK; while it was
       //  undeclared the filter stripped it and `ownerResourceId` was null on
-      //  every AI seed. Its sibling `ownerEmail` is asserted ABSENT above — the
-      //  name leg alone links, so the address is not worth storing.
+      //  every AI seed.
       owner: "Ada Lovelace",
+      // ★★ `ownerEmail` must survive WITH ITS VALUE for the same reason and one
+      //  more: `linkResource` tries the EMAIL leg FIRST, so it is the only thing
+      //  that can tell apart two seeded people sharing a display name. It used
+      //  to be asserted ABSENT here, on the false ground that the name leg links
+      //  everything — a stripped address left the FK WRONG, not missing. The
+      //  disambiguation itself is pinned below, on `remapSeed`.
+      ownerEmail: "ada@x.io",
     });
     expect(seed?.changes?.[0]).toMatchObject({ title: "Scope cut", description: "<p>trim</p>" });
     expect(seed?.milestones?.[0]).toMatchObject({ name: "Go-live", date: "2026-12-01" });
@@ -318,6 +325,55 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
     expect(out.raid?.[0]?.ownerResourceId).toEqual(expect.any(Number));
     // The plain string is kept too — the register renders it when nothing links.
     expect(out.raid?.[0]?.owner).toBe("Ada Lovelace");
+  });
+
+  it("links a seeded RAID owner by EMAIL when two directory rows share a name", () => {
+    // ★★★ WHY `ownerEmail` IS DECLARED, and the case the NAME leg cannot cover.
+    //  `remapSeed` indexes `resByName` FIRST-WINS, so two seeded people sharing a
+    //  display name collapse to whichever the model listed first. `linkResource`
+    //  tries the EMAIL leg BEFORE the name, so an address is the only thing that
+    //  can select the second one. While the filter stripped `ownerEmail`, the
+    //  item bound to the WRONG resource — not to none — and
+    //  `resolveRaidOwnerEmail` prefers the LINKED row's address over the cached
+    //  one, so "Send inquiry" mailed risk detail to a person the source never
+    //  named for this item. A wrong link is worse than an absent one.
+    const seed = proposalToSeed(
+      {
+        meta: { name: "x" },
+        features: [],
+        seed: {
+          resources: [
+            { firstName: "Ada", lastName: "Lovelace", email: "ada.first@x.io" },
+            { firstName: "Ada", lastName: "Lovelace", email: "ada.second@x.io" },
+          ],
+          raid: [
+            {
+              title: "Vendor slip",
+              category: "R",
+              owner: "Ada Lovelace",
+              ownerEmail: "ada.second@x.io",
+            },
+          ],
+        },
+      },
+      TODAY,
+    );
+    expect(seed?.resources, "both directory rows must survive").toHaveLength(2);
+    const out = remapSeed(emptyWorkspace(), seed!);
+    const firstId = out.resources?.[0]?.id;
+    const secondId = out.resources?.[1]?.id;
+    // ★ Anti-vacuity: the two rows must be TELLABLE APART and the FK must be a
+    //  real id, or `toBe` below could pass on two `undefined`s or one shared id.
+    expect(firstId).toEqual(expect.any(Number));
+    expect(secondId).toEqual(expect.any(Number));
+    expect(firstId).not.toBe(secondId);
+    expect(out.raid?.[0]?.ownerResourceId).toEqual(expect.any(Number));
+    // ★ Stated as BOTH halves on purpose: `not.toBe(firstId)` names the defect
+    //  (bound to the first-wins name row) in the failure message, so a red here
+    //  cannot be read as some unrelated id drift; `toBe(secondId)` is the pin.
+    expect(out.raid?.[0]?.ownerResourceId, "bound to the first-wins NAME row").not.toBe(firstId);
+    // The email leg beat first-wins-by-name: the SECOND row, not the first.
+    expect(out.raid?.[0]?.ownerResourceId).toBe(secondId);
   });
 
   it("assigns the builder's 1-based id after filtering, not the model's", () => {
