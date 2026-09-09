@@ -60,6 +60,7 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run ooxml:manifest` | Regenerate the ordered OOXML part-manifest baseline (docs/baselines/ooxml-parts.json) — deliberate act only, never run to make a red pipeline pass |
 | `npm run version:check` | Fail if a version restatement (package.json, lockfile, README badge, codemap headers) has drifted from src/app/version.ts |
 | `npm run version:sync` | Propagate src/app/version.ts's version and codename to every restatement |
+| `npm run ai:eval` | AI prompt-quality harness (slice H). DRY RUN BY DEFAULT — assembles every arm, runs pre-flight and spends nothing. A live run needs AI_EVAL_SPEND=1 plus ANTHROPIC_API_KEY and refuses outright under CI. Never a pipeline gate: every live run costs real tokens. |
 <!-- END AUTO-GENERATED -->
 
 There is no separate `tsc` script — `next build` runs the TypeScript check
