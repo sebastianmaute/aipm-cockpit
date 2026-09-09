@@ -135,6 +135,15 @@ Open [http://localhost:3000](http://localhost:3000).
 
 No environment variables are required to run the app — every integration is configurable in-app via Settings. See [Environment Variables & Security](#environment-variables--security) for the optional build-time overrides.
 
+### Deploying
+
+The production build above is deployable as-is: it is a normal Next.js server
+app, and since no backend holds accounts or project data, hosting it is just
+serving the build. [docs/RUNBOOK.md](docs/RUNBOOK.md) carries the operational
+side — the build and deploy steps, the hosting options that are known to work
+(and the one that does not), the security headers, the post-deploy smoke test,
+and rollback.
+
 ### Development Scripts
 
 <!-- AUTO-GENERATED from package.json scripts -->
@@ -183,6 +192,16 @@ The active backend is chosen in Settings → Integrations / Storage Configuratio
 | Local JSON / CSV / Markdown | File System Access API — reads and writes a local file you pick. | When you want a portable file you control (commit to git, drop in a shared drive, diff by hand). Markdown/CSV are human-readable; JSON is the complete round-trip. |
 | SharePoint JSON / CSV | Workspace as a single JSON or CSV blob in a SharePoint document library via Microsoft Graph; requires M365 sign-in. | When the team already lives in Microsoft 365 and you want the workspace stored alongside other project documents. |
 | Turso (libSQL) | Relational schema (one table per entity) via the Turso HTTP `/v2/pipeline` API; works with Turso Cloud and a local/self-hosted `tursodb`. | For multi-device or multi-project use — relational queries, baseline/variance trends, and the shared multi-tenant database that backs the portfolio in Turso mode. |
+
+### Browser support
+
+The **Local JSON / CSV / Markdown** backend is built on the [File System Access
+API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API),
+which is Chromium-only — it is unavailable in Firefox and Safari, so the
+pick-a-file backend cannot be used there. Every other backend is unaffected:
+Browser (IndexedDB), SharePoint and Turso use no part of that API, and the
+export/import paths work in any browser. On Firefox or Safari, stay on the
+default Browser backend or configure Turso.
 
 ### Multi-tab editing
 
