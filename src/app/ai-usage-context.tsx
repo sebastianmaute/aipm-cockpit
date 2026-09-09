@@ -31,6 +31,10 @@ export const AI_USAGE_KEY = "aipm-cockpit:ai-usage";
  *  explain the change ACROSS the upgrade, so a per-session flag would re-fire
  *  it on every reload and a ref would lose it on remount. */
 export const AI_CAP_BASIS_NOTICE_KEY = "aipm-cockpit:ai-cap-basis-notice";
+/** ★★ SUPERSEDES `AI_CAP_BASIS_NOTICE_KEY`. Setting this one also sets that
+ *  one (see `noteCostBasisOnce`), so a user who never saw the cap-basis notice
+ *  is shown ONE message covering both changes rather than two. */
+export const AI_COST_BASIS_NOTICE_KEY = "aipm-cockpit:ai-cost-basis-notice";
 
 export type AiUsageContextValue = {
   sessionTotal: number;
@@ -51,26 +55,28 @@ const AiUsageContext = createContext<AiUsageContextValue>({
 });
 
 // ★ Named to surface its side effect at the call site (a lazy useState
-//   initializer below) — despite the "load" shape this ALSO WRITES the
-//   AI_CAP_BASIS_NOTICE_KEY seed on a genuinely fresh install (see the
+//   initializer below) — despite the "load" shape this ALSO WRITES BOTH
+//   basis-notice seeds on a genuinely fresh install (see the
 //   raw === null branch). Kept as a synchronous write inside the lazy
 //   initializer rather than moved to a mount effect: an effect only runs
 //   AFTER the first commit, so it would open a window between mount and
 //   effect-run where the flag is not yet seeded, changing the current
 //   before-first-paint timing for no benefit — the write is idempotent, so
 //   there is nothing to gain from deferring it.
-function loadBucketsAndSeedCapBasisNotice(): UsageBuckets {
+function loadBucketsAndSeedBasisNotices(): UsageBuckets {
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(AI_USAGE_KEY);
     // ★ raw === null means the key was NEVER written — a genuinely fresh
     //   install with no prior usage blob, as opposed to an empty-but-present
     //   one (raw === "" or "{}") or storage having thrown (caught below).
-    //   Only THIS case never experienced the pre-cache-accounting cap basis,
-    //   so seed the notice flag now: noteCapBasisOnce() must never explain a
-    //   "before" that, for this user, never existed.
+    //   Only THIS case never experienced either superseded cap basis — neither
+    //   the pre-cache-accounting one nor the pre-cost-weighting one — so seed
+    //   both flags now: noteCostBasisOnce() must never explain a "before"
+    //   that, for this user, never existed.
     if (raw === null) {
       window.localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
+      window.localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "1");
       return {};
     }
     if (!raw) return {};
@@ -95,15 +101,19 @@ function loadBucketsAndSeedCapBasisNotice(): UsageBuckets {
 // flag is set BEFORE showToast is ever called — a second call in the same
 // tick (session and weekly crossing together) sees the flag already "1" and
 // stays silent, so the notice fires once GLOBALLY, not once per scope.
-function noteCapBasisOnce(showToast: (kind: "info" | "error", text: string) => void, lang: Lang): void {
+// ★★ Writes BOTH keys. The cap-basis notice this supersedes explained a
+// change that is now subsumed by the cost-basis one; marking it seen here
+// stops any later reader re-announcing something already announced.
+function noteCostBasisOnce(showToast: (kind: "info" | "error", text: string) => void, lang: Lang): void {
   if (typeof window === "undefined") return;
   try {
-    if (window.localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY) === "1") return;
+    if (window.localStorage.getItem(AI_COST_BASIS_NOTICE_KEY) === "1") return;
+    window.localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "1");
     window.localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
   } catch {
     return; // storage unavailable: skip the notice rather than repeating it
   }
-  showToast("info", t(lang, "aiUsageCapBasisChanged"));
+  showToast("info", t(lang, "aiUsageCostBasisChanged"));
 }
 
 function saveBuckets(buckets: UsageBuckets): void {
@@ -123,7 +133,7 @@ type AiUsageProviderProps = {
 };
 
 export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProviderProps) {
-  const [buckets, setBuckets] = useState<UsageBuckets>(() => loadBucketsAndSeedCapBasisNotice());
+  const [buckets, setBuckets] = useState<UsageBuckets>(() => loadBucketsAndSeedBasisNotices());
   const [sessionTotal, setSessionTotal] = useState(0);
   const [sessionUsage, setSessionUsage] = useState<Usage>(EMPTY_SESSION_USAGE);
 
@@ -192,30 +202,30 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
 
       if (!warnedRef.current.session && crossed80(prevSession, nextSession, sessionCap)) {
         warnedRef.current.session = true;
-        noteCapBasisOnce(showToast, lang);
+        noteCostBasisOnce(showToast, lang);
         showToast("error", t(lang, "usage80Toast"));
       }
       if (!warnedRef.current.week && crossed80(prevWeek, nextWeek, weeklyCap)) {
         warnedRef.current.week = true;
-        noteCapBasisOnce(showToast, lang);
+        noteCostBasisOnce(showToast, lang);
         showToast("error", t(lang, "usage80Toast"));
       }
       // Crossing 100 % of a self-imposed cap: ADVISORY notice only — nothing is
       // blocked, the assistant keeps working.
-      // ★ Also note the cap-basis explanation here, not just on the crossed80
+      // ★ Also note the cost-basis explanation here, not just on the crossed80
       //   branches above: crossed80 is an EDGE detector, so a bucket already
       //   above 80 % when the provider mounted (e.g. the weekly total) can
       //   jump straight to a 100 % crossing without ever registering an 80 %
-      //   "crossing" — noteCapBasisOnce()'s localStorage flag makes this
+      //   "crossing" — noteCostBasisOnce()'s localStorage flag makes this
       //   call site idempotent with the two above, so this cannot double-fire.
       if (!warned100Ref.current.session && crossed100(prevSession, nextSession, sessionCap)) {
         warned100Ref.current.session = true;
-        noteCapBasisOnce(showToast, lang);
+        noteCostBasisOnce(showToast, lang);
         showToast("error", t(lang, "aiSelfLimitReached"));
       }
       if (!warned100Ref.current.week && crossed100(prevWeek, nextWeek, weeklyCap)) {
         warned100Ref.current.week = true;
-        noteCapBasisOnce(showToast, lang);
+        noteCostBasisOnce(showToast, lang);
         showToast("error", t(lang, "aiSelfLimitReached"));
       }
     },

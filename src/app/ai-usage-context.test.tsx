@@ -2,7 +2,13 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type ReactNode } from "react";
-import { AI_CAP_BASIS_NOTICE_KEY, AI_USAGE_KEY, AiUsageProvider, useAiUsageContext } from "./ai-usage-context";
+import {
+  AI_CAP_BASIS_NOTICE_KEY,
+  AI_COST_BASIS_NOTICE_KEY,
+  AI_USAGE_KEY,
+  AiUsageProvider,
+  useAiUsageContext,
+} from "./ai-usage-context";
 import { defaultAiConfig } from "./settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
 import { t } from "./i18n";
@@ -72,7 +78,7 @@ describe("AiUsageProvider", () => {
     // Record today's usage (untouched, unrelated day) then read the WHOLE
     // persisted blob back — record()'s save persists prevBuckets spread
     // through unchanged, so the legacy day's shape survives the round-trip
-    // exactly as loadBucketsAndSeedCapBasisNotice produced it.
+    // exactly as loadBucketsAndSeedBasisNotices produced it.
     act(() => {
       result.current.record({ input: 1, output: 1, cacheWrite: 1, cacheRead: 1 });
     });
@@ -150,10 +156,13 @@ describe("AiUsageProvider", () => {
       );
     }
 
-    // The one-time cap-basis explanatory notice is covered by its own tests
+    // The one-time cost-basis explanatory notice is covered by its own tests
     // below — pre-seed its flag so it does not add a second showToast call
-    // here and this test stays scoped to the 80 % warning alone.
+    // here and this test stays scoped to the 80 % warning alone. Both keys are
+    // set: only the COST one is read, but leaving the superseded one behind
+    // would read as suppression it no longer provides.
     localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
+    localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "1");
 
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
@@ -182,6 +191,7 @@ describe("AiUsageProvider", () => {
 
     // See the note above — this test is scoped to the 80 % warning alone.
     localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
+    localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "1");
 
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
@@ -214,6 +224,7 @@ describe("AiUsageProvider", () => {
 
     // See the note above — this test is scoped to the 80 % warning alone.
     localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
+    localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "1");
 
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
@@ -259,7 +270,7 @@ describe("AiUsageProvider", () => {
     expect(result.current.sessionTotal).toBe(1150);
   });
 
-  it("explains the changed cap basis once when the first 80% warning fires, then never again on remount", async () => {
+  it("explains the changed cost basis once when the first 80% warning fires, then never again on remount", async () => {
     const showToast = vi.fn();
     const cap = 1_000;
     // Cap unchanged across the two mounts — only the notice's persistence
@@ -274,14 +285,13 @@ describe("AiUsageProvider", () => {
       );
     }
 
-    const noticeText = t("en-US", "aiUsageCapBasisChanged");
+    const noticeText = t("en-US", "aiUsageCostBasisChanged");
 
     // This scenario is an UPGRADING user, not a fresh install: they already
     // carried a legacy usage blob (input/output only) before this mount, so
-    // the "warnings now arrive earlier" explanation is true for them and
-    // must fire. A
-    // fresh-install user (no blob at all) must NEVER see it — that is its
-    // own test below.
+    // the "usage recorded before this update reads high" explanation is true
+    // for them and must fire. A fresh-install user (no blob at all) must NEVER
+    // see it — that is its own test below.
     const other = "2000-01-01";
     localStorage.setItem(
       AI_USAGE_KEY,
@@ -297,7 +307,7 @@ describe("AiUsageProvider", () => {
     });
 
     expect(showToast.mock.calls.filter((c) => c[1] === noticeText)).toHaveLength(1);
-    expect(window.localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY)).toBe("1");
+    expect(window.localStorage.getItem(AI_COST_BASIS_NOTICE_KEY)).toBe("1");
     first.unmount();
 
     // A FRESH provider mount (simulating a page reload after the upgrade)
@@ -313,7 +323,7 @@ describe("AiUsageProvider", () => {
     expect(showToast.mock.calls.filter((c) => c[1] === noticeText)).toHaveLength(1);
   });
 
-  it("fires the cap-basis notice once globally even when session and weekly cross 80% together", async () => {
+  it("fires the cost-basis notice once globally even when session and weekly cross 80% together", async () => {
     const showToast = vi.fn();
     // Same cap for both scopes so a single record() crosses 80 % of BOTH at
     // once — the notice must still appear exactly once, not once per scope.
@@ -337,7 +347,7 @@ describe("AiUsageProvider", () => {
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
-    const noticeText = t("en-US", "aiUsageCapBasisChanged");
+    const noticeText = t("en-US", "aiUsageCostBasisChanged");
 
     act(() => {
       result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 });
@@ -346,30 +356,32 @@ describe("AiUsageProvider", () => {
     expect(showToast.mock.calls.filter((c) => c[1] === noticeText)).toHaveLength(1);
   });
 
-  it("seeds the cap-basis notice flag immediately on a fresh install, before any crossing", async () => {
+  it("seeds BOTH basis-notice flags immediately on a fresh install, before any crossing", async () => {
     // localStorage is clear (beforeEach) — no AI_USAGE_KEY blob has ever been
     // written, i.e. a genuinely fresh install. Mounting alone (no record())
-    // must seed the flag so the explanatory notice can never fire for this
+    // must seed the flags so the explanatory notice can never fire for this
     // user later — there is no "before" for them to be told about.
     renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
     await act(async () => {});
 
+    expect(window.localStorage.getItem(AI_COST_BASIS_NOTICE_KEY)).toBe("1");
     expect(window.localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY)).toBe("1");
   });
 
-  it("does NOT seed the cap-basis notice flag when a usage blob is already present, even if empty", async () => {
+  it("does NOT seed either basis-notice flag when a usage blob is already present, even if empty", async () => {
     // An EMPTY-but-PRESENT blob (e.g. all history aged out) is not the same
-    // as "never written" — this user did experience the old cap basis at
-    // some point, so the flag must stay unset until they actually cross 80%.
+    // as "never written" — this user did experience the old cost basis at
+    // some point, so the flags must stay unset until they actually cross 80%.
     localStorage.setItem(AI_USAGE_KEY, JSON.stringify({}));
 
     renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
     await act(async () => {});
 
+    expect(window.localStorage.getItem(AI_COST_BASIS_NOTICE_KEY)).toBeNull();
     expect(window.localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY)).toBeNull();
   });
 
-  it("does NOT explain the cap basis for a fresh install, even after it crosses 80%", async () => {
+  it("does NOT explain the cost basis for a fresh install, even after it crosses 80%", async () => {
     const showToast = vi.fn();
     const cap = 1_000;
     const ai = { ...defaultAiConfig, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
@@ -386,7 +398,7 @@ describe("AiUsageProvider", () => {
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
-    const noticeText = t("en-US", "aiUsageCapBasisChanged");
+    const noticeText = t("en-US", "aiUsageCostBasisChanged");
 
     act(() => {
       result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 });
@@ -394,12 +406,12 @@ describe("AiUsageProvider", () => {
 
     // The 80 % warning itself still fires...
     expect(showToast.mock.calls.some((c) => c[1] === t("en-US", "usage80Toast"))).toBe(true);
-    // ...but the cap-basis explanation never does — this user never
-    // experienced the old (uncached-only) cap basis.
+    // ...but the cost-basis explanation never does — this user never
+    // experienced either superseded cap basis.
     expect(showToast.mock.calls.some((c) => c[1] === noticeText)).toBe(false);
   });
 
-  it("explains the cap basis when a weekly bucket already above 80% at load crosses 100%", async () => {
+  it("explains the cost basis when a weekly bucket already above 80% at load crosses 100%", async () => {
     // ★ crossed80 is an EDGE detector (prev < threshold && next >= threshold).
     //   A bucket already above 80 % when the provider mounts never crosses
     //   that edge again, so the two crossed80 call sites can never reach this
@@ -433,7 +445,7 @@ describe("AiUsageProvider", () => {
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
-    const noticeText = t("en-US", "aiUsageCapBasisChanged");
+    const noticeText = t("en-US", "aiUsageCostBasisChanged");
     const selfLimitText = t("en-US", "aiSelfLimitReached");
 
     // 850 + 200 = 1050: never "crosses" 80 % (already above it), but DOES
@@ -460,5 +472,41 @@ describe("AiUsageProvider", () => {
     const values = Object.values(buckets);
     expect(values[0].input).toBe(300);
     expect(values[0].output).toBe(100);
+  });
+
+  it("shows the cost-basis notice once and never the superseded cap-basis one", async () => {
+    // An UPGRADING user, so the fresh-install seed branch does not fire and the
+    // notice is genuinely due. The day is far in the past for the reason the
+    // legacy-blob test above spells out: it can never collide with "today".
+    localStorage.setItem(
+      AI_USAGE_KEY,
+      JSON.stringify({ "2000-01-01": { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 } }),
+    );
+    const toasts: string[] = [];
+    const showToast = (_kind: "info" | "error", text: string): void => {
+      toasts.push(text);
+    };
+    const ai = { ...defaultAiConfig, sessionTokenCap: 100 };
+
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <AiUsageProvider lang="en-US" ai={ai} showToast={showToast}>
+          {children}
+        </AiUsageProvider>
+      );
+    }
+
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    await act(async () => {});
+
+    act(() => { result.current.record({ input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { result.current.record({ input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+
+    const notices = toasts.filter((x) => x === t("en-US", "aiUsageCostBasisChanged"));
+    expect(notices).toHaveLength(1);
+    // Setting the new flag must also set the superseded one, so a later build
+    // that still reads it cannot re-explain a change already announced.
+    expect(window.localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY)).toBe("1");
+    expect(window.localStorage.getItem(AI_COST_BASIS_NOTICE_KEY)).toBe("1");
   });
 });

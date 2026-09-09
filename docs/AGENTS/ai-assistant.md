@@ -1229,7 +1229,7 @@
   or is cancelled, after earlier turns in the same multi-turn loop already burned billed tokens records
   NOTHING for that send. Pre-existing control flow, deliberately unchanged by this slice — read this
   before citing "the meter is now honest" as unconditional.
-  ★★ **`ai-usage-context.tsx`'s `loadBucketsAndSeedCapBasisNotice` normalizes each field (via `ai-usage.ts`'s
+  ★★ **`ai-usage-context.tsx`'s `loadBucketsAndSeedBasisNotices` normalizes each field (via `ai-usage.ts`'s
   `normalizeUsage`) instead of casting, and that closes a real trap.** A usage blob persisted before this
   slice has no `cacheWrite`/`cacheRead`; `undefined + n` is `NaN`; and `NaN < threshold` and
   `NaN >= threshold` are BOTH false — so a cap fed an un-normalized legacy bucket would silently stop

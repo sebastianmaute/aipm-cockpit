@@ -3791,8 +3791,8 @@ const enUS = {
   fieldsAdjusted: "Saved — {0} field(s) adjusted to fit limits",
 
   usage80Toast: "You've used 80% of your token budget",
-  aiUsageCapBasisChanged:
-    "Token counts now include cached input, which Anthropic bills separately. Your caps are unchanged, so warnings arrive earlier than before.",
+  aiUsageCostBasisChanged:
+    "Your token caps now measure what a request costs: cached input counts at a tenth, cache writes at 1.25x, and output at 5x. The counting multiplier setting is gone — lower a cap directly instead. Usage recorded before this update reads high until the week resets.",
   aiUsageLimitReached:
     "Claude usage limit reached — this is Anthropic's own rate/usage limit. Please wait and try again after it resets.",
   aiSelfLimitReached:
@@ -3800,9 +3800,11 @@ const enUS = {
   aiUsageSession: "Current session",
   aiUsageWeek: "Current week (all models)",
   aiUsageResetAt: "Resets {0}",
-  aiUsageCacheRead: "Cached input (counted tokens)",
-  aiUsageCacheWrite: "Cache writes (counted tokens)",
-  aiUsageUncachedInput: "Uncached input (counted tokens)",
+  aiUsageCacheRead: "Cached input",
+  aiUsageCacheWrite: "Cache writes",
+  aiUsageUncachedInput: "Uncached input",
+  aiUsageOutput: "Output",
+  aiUsageBasisHint: "Bars count cost-equivalent tokens, not raw ones: cached input counts 0.1, cache writes 1.25, output 5.",
   aiUsageCacheHitRate: "Cache hit rate: {0}%",
   aiSessionCap: "Session token cap",
   aiWeeklyCap: "Weekly token cap",
@@ -3810,8 +3812,6 @@ const enUS = {
   aiWeeklyCapHint: "Your own advisory weekly token limit. Advisory only — you'll be notified, not blocked. Resets weekly.",
   aiMaxTurns: "Max assistant turns per message",
   aiMaxTurnsHint: "How many tool/continuation round-trips the assistant may take to answer one message (1–50). Higher allows more complex multi-step work but costs more tokens.",
-  aiTokenMultiplier: "Token counting multiplier",
-  aiTokenMultiplierHint: "Each call's counted tokens are multiplied by this before counting toward your caps (default 5).",
 
   settingsSectionExport: "Export",
   exportSectionHint: "Choose which sections to include in document exports (XLSX, DOCX, PDF, PPTX, Markdown). Default: Tasks, RAID and Calendar events.",
