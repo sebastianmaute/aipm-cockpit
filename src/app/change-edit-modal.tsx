@@ -42,6 +42,7 @@ import {
   StakeholderChipPicker,
   ModalEditFooter,
 } from "./edit-modal-chrome";
+import { MODAL_HELP } from "./help-content";
 import { Input, Select } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
 import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
@@ -307,6 +308,7 @@ export function ChangeEditModal({
       lang={lang}
       title={title}
       modalId="change"
+      helpConceptId={MODAL_HELP.changeEdit}
       onClose={onCancel}
       onSubmit={handleSubmit}
       offset={offset}

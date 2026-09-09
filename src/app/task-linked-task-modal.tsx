@@ -6,6 +6,7 @@ import { Button } from "./button";
 import { Input, Select } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import { PRIORITIES, type Priority } from "./types";
 
 export type LinkDirection = "predecessor" | "successor";
@@ -61,7 +62,13 @@ export function TaskLinkedTaskModal({ lang, today, onCreate, onClose }: TaskLink
         data-modal-panel
         className="relative flex w-[440px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
-        <ModalHeader lang={lang} title={t(lang, "taskEditorNewLinkedTask")} onClose={onClose} />
+        <ModalHeader
+          lang={lang}
+          title={t(lang, "taskEditorNewLinkedTask")}
+          helpConceptId={MODAL_HELP.taskLinkedTask}
+          helpTitle={t(lang, "taskEditorNewLinkedTask")}
+          onClose={onClose}
+        />
         <div className="space-y-3 p-5">
           <label className={labelClass}>
             {t(lang, "taskName")}

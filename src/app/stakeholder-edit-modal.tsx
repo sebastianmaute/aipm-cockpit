@@ -30,6 +30,7 @@ import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { MODAL_HELP } from "./help-content";
 import { FieldGroup, Input, Select, Textarea } from "./form-controls";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
@@ -165,6 +166,7 @@ export function StakeholderEditModal({
       lang={lang}
       title={title}
       modalId="stakeholder"
+      helpConceptId={MODAL_HELP.stakeholderEdit}
       onClose={onCancel}
       onSubmit={handleSubmit}
       offset={offset}

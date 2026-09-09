@@ -20,6 +20,7 @@ import { useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import {
   BACKEND_SETUP_STEPS,
   clampStep,
@@ -169,6 +170,8 @@ export function BackendSetupWizard({
         <ModalHeader
           lang={lang}
           title={t(lang, "setupWizardTitle")}
+          helpConceptId={MODAL_HELP.backendSetupWizard}
+          helpTitle={t(lang, "setupWizardTitle")}
           titleId={TITLE_ID}
           onClose={handleClose}
         />

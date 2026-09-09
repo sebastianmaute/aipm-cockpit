@@ -22,6 +22,7 @@ import { type Lang, t } from "./i18n";
 import type { DocumentAsset } from "./document-asset";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import { Button } from "./button";
 import { useResizable } from "./use-resizable";
 import { useDraggable } from "./use-draggable";
@@ -186,6 +187,8 @@ export function AssetPreviewModal({
         <ModalHeader
           lang={lang}
           title={t(lang, "assetPreviewTitle", current?.name ?? "")}
+          helpConceptId={MODAL_HELP.assetPreview}
+          helpTitle={t(lang, "assetPreviewTitle", current?.name ?? "")}
           titleId={TITLE_ID}
           onClose={onClose}
           dragHandleProps={handleProps}

@@ -36,6 +36,7 @@ import { clampRangeEnd } from "./date-range";
 import { parseUtc } from "./calendar-window";
 import { weekdayIndex } from "./recurrence";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { MODAL_HELP } from "./help-content";
 import { FieldHint } from "./field-hint";
 import { Checkbox, Input, Select } from "./form-controls";
 import { SegmentedControl } from "./segmented-control";
@@ -173,6 +174,7 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
       lang={lang}
       title={title}
       modalId="calendarEvent"
+      helpConceptId={MODAL_HELP.calendarEvent}
       onClose={onClose}
       onSubmit={handleSubmit}
       offset={offset}

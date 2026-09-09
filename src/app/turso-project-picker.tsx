@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import { Button } from "./button";
 import { EmptyState } from "./empty-state";
 import { getTursoConfig } from "./turso-config";
@@ -86,7 +87,14 @@ export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPick
         data-modal-panel
         className="relative flex max-h-[90vh] w-[520px] min-w-[360px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
-        <ModalHeader lang={lang} title={t(lang, "tursoPickerTitle")} titleId={TITLE_ID} onClose={onClose} />
+        <ModalHeader
+          lang={lang}
+          title={t(lang, "tursoPickerTitle")}
+          helpConceptId={MODAL_HELP.tursoProjectPicker}
+          helpTitle={t(lang, "tursoPickerTitle")}
+          titleId={TITLE_ID}
+          onClose={onClose}
+        />
         <div className="overflow-y-auto p-6">
           {state.kind === "loading" && (
             <p className="text-sm text-muted-foreground">{t(lang, "tursoPickerLoading")}</p>

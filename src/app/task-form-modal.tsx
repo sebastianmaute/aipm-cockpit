@@ -3,6 +3,7 @@
 import { type ReactNode, type RefObject } from "react";
 import { ModalFieldControls } from "./modal-field-controls";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import type { listContacts } from "./contacts";
@@ -144,6 +145,8 @@ export function TaskFormModal({
         <ModalHeader
           lang={lang}
           title={dialogTitle}
+          helpConceptId={MODAL_HELP.taskForm}
+          helpTitle={dialogTitle}
           onClose={onCancel}
           dragHandleProps={handleProps}
           headerExtra={<ModalFieldControls modalId="task" lang={lang} />}

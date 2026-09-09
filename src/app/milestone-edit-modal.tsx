@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { MODAL_HELP } from "./help-content";
 import { Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
 import { capHtmlText, descriptionHtml } from "./rich-text-plain";
@@ -135,6 +136,7 @@ export function MilestoneEditModal({
       lang={lang}
       title={title}
       modalId="milestone"
+      helpConceptId={MODAL_HELP.milestoneEdit}
       onClose={onClose}
       onSubmit={handleSubmit}
       offset={offset}

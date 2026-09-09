@@ -14,6 +14,7 @@
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { type Settings } from "./settings-types";
 import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
@@ -67,7 +68,14 @@ export function BackendConfigModal({
         data-modal-panel
         className="relative flex max-h-[90vh] w-[680px] min-w-[360px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
-        <ModalHeader lang={lang} title={title} titleId={TITLE_ID} onClose={onClose} />
+        <ModalHeader
+          lang={lang}
+          title={title}
+          helpConceptId={MODAL_HELP.backendConfig}
+          helpTitle={title}
+          titleId={TITLE_ID}
+          onClose={onClose}
+        />
         <div className="overflow-y-auto p-6">
           {children ?? (
             <IntegrationsSection

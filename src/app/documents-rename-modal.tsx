@@ -10,6 +10,7 @@
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import { Button } from "./button";
 import { Input } from "./form-controls";
 
@@ -40,6 +41,8 @@ export function DocumentsRenameModal({
         <ModalHeader
           lang={lang}
           title={t(lang, "documentsRename")}
+          helpConceptId={MODAL_HELP.documentsRename}
+          helpTitle={t(lang, "documentsRename")}
           titleId={RENAME_TITLE_ID}
           onClose={onCancel}
         />

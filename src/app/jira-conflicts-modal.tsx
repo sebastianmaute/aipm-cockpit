@@ -5,6 +5,7 @@ import { type Lang, type TranslationKey, t } from "./i18n";
 import type { ConflictFieldKey, ConflictItem } from "./jira-api";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
@@ -183,6 +184,8 @@ export function JiraConflictsModal({
         <ModalHeader
           lang={lang}
           title={t(lang, "jiraConflictTitle")}
+          helpConceptId={MODAL_HELP.jiraConflicts}
+          helpTitle={t(lang, "jiraConflictTitle")}
           onClose={onClose}
           dragHandleProps={handleProps}
           onResetLayout={() => {

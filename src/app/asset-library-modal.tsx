@@ -11,6 +11,7 @@
 
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import { AssetLibrary, type AssetLibraryProps } from "./asset-library";
 import { t } from "./i18n";
 
@@ -38,6 +39,8 @@ export function AssetLibraryModal({ open, onClose, onInsert, ...rest }: AssetLib
         <ModalHeader
           lang={rest.lang}
           title={t(rest.lang, "assetLibraryTitle")}
+          helpConceptId={MODAL_HELP.assetLibrary}
+          helpTitle={t(rest.lang, "assetLibraryTitle")}
           titleId={ASSET_LIBRARY_TITLE_ID}
           onClose={onClose}
         />

@@ -7,6 +7,7 @@ import { EffortField } from "./effort-field";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import { ProgressTrack } from "./progress-track";
 
 /** Qualify a control name that this dialog shares with the task form beneath it
@@ -151,6 +152,8 @@ export function TaskTimeTrackingModal({
         <ModalHeader
           lang={lang}
           title={t(lang, "taskTimeTracking")}
+          helpConceptId={MODAL_HELP.taskTimeTracking}
+          helpTitle={t(lang, "taskTimeTracking")}
           onClose={onClose}
           // WCAG 2.4.6 / speech input. This dialog opens ON TOP of the task
           // form, which renders a Close and a Cancel of its own — and every
