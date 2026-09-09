@@ -1128,6 +1128,71 @@
   on this, and within its stated ceiling the role change cost no CONTENT. The spec names the fallback
   if a future eval goes badly: keep the view-scope block's output in `system` and take the smaller
   cache win. Not needed on this evidence; still available.
+  ★★★ **THAT EVAL IS NOW IN-REPO AS `npm run ai:eval`** (slice H), and the two-file split IS the
+  design. `scripts/ai-eval-lib.mjs` holds EVERY decision — probes, the seeded anchor, token minting,
+  scoring, the graded axes, pre-flight, the verdict, the spend refusals — and is unit-tested with no
+  network, no key, no clock and no filesystem, so every judgement the harness makes is checkable
+  without spending anything. `scripts/ai-eval.ts` is I/O only and runs under `npx vite-node`
+  precisely so it can import the app's REAL builders (`buildStableSystemBlocks`, `buildTurnContext`,
+  `buildWireMessages`, `toolsFor`, `builtinSeeds`): a harness that rebuilds the prompt measures its
+  own copy of it. Dry run is the default and spends nothing, but is NOT a degraded mode — it
+  assembles every arm and runs every pre-flight assertion, so a moved symbol or a leaking token
+  surfaces with no key at all. Spending needs an explicit `AI_EVAL_SPEND` opt-in and is refused
+  outright under CI.
+  ★★ **EXIT 2 IS THE LOAD-BEARING CODE**, the same split every other gate in this repo uses: 0 pass,
+  1 a real regression, 2 the harness could not do its job (an incomplete run, a negative control that
+  leaked, a null arm that itself fell). A run that measured NOTHING must never report 0 — that is a
+  green light nobody earned; reporting a broken instrument as 1 is the same mistake from the other
+  side, blaming a slice for the harness.
+  ★★★ **THE POSITION ASSERTION IS THE LANDMINE HERE — ITS FIRST CUT WAS FALSE FOR THIS APP AND WAS
+  SILENTLY SWITCHED OFF.** It was written to assert "arm A's target sits in `system`". Measured
+  against the real builders, that is false for every probe: `buildStableSystemBlocks` contains NONE
+  of the relocatable block builders and `buildTurnContext` contains ALL of them, so every relocatable
+  block travels in the volatile half — which `buildWireMessages` places in the MESSAGES array, never
+  in `system`. The false assertion was then buried under an `expectRelocated: false` escape hatch and
+  read as passing, which is how a load-bearing check ends up permanently disabled. It now works the
+  other way round: each arm DECLARES an `expectedHalf` (`"system"` or `"turn"`), and pre-flight
+  asserts the target occurs exactly once in the declared half and ZERO times in the other. A missing
+  or unknown half is a FAILURE, never a skip — a check that does not know where to look passes
+  everything. The flag was removed; do NOT reintroduce it. ★★ **ITS LIMIT, stated because the first
+  version's whole failure was an assertion nobody could state the limits of: when both arms declare
+  the SAME half, those checks pass WITHOUT proving the arms differ.** Relocation is proven only when
+  the two declared halves DIFFER. Until a gated slice registers a real variant, arm B is an alias of
+  arm A and a green run is an honest A/A self-test of the machinery, not evidence about a candidate.
+  ★★ **THE FOUR GRADED AXES REPORT, THEY DO NOT GATE, AND TWO OF THEM CANNOT BE READ ALONE.**
+  `adherence` is counted over HITS ONLY and is recorded with its denominator `adherenceOf`: a run
+  that collapses to zero hits scores `adherence: 0`, which on a higher-is-worse axis reads as
+  perfect — the worst possible run taking the best possible value. Never read it without the
+  denominator. `outputTokens` carries the same shape of trap and NO denominator can fix it: a model
+  that gives up tersely scores better than one that succeeds and explains itself, so a fall here
+  ALONGSIDE a fall in hit rate is very plausibly one failure showing up twice, not a wash.
+  ★★ **WHAT THE UNIT SUITE PINS THAT NOTHING ELSE COULD** — each was a SILENT failure, found by
+  probing the lib rather than by reading it. (1) Planted tokens were not collision-free: 11 of salts
+  1..5000 produced a within-run collision, including a target equal to its own decoy on the anchor
+  arm, which `scoreResponse` can only ever call ambiguous, silently, forever. `plantedToken` now
+  regenerates a candidate against every earlier id in a declared ORDERED id universe, so it is
+  collision-free BY CONSTRUCTION, and an unknown id throws rather than losing the guarantee quietly.
+  (2) `buildAnchorPrompt` silently dropped a token at boundary inputs; it now asserts as a
+  POSTCONDITION that target and decoy each occur exactly once — one assertion on the OUTPUT subsumes
+  every way the inputs could produce a bad text. (3) `verdict` returned PASS on a run that measured
+  nothing (an empty probe list, or a probe whose arms were undefined); it now refuses, while a
+  genuine `0` is still treated as measured. (4) The negative control is deliberately NOT handed to
+  `preflight` — it is the arm whose target was REMOVED, so it would fail by construction, and the
+  only way to make it pass would be to weaken the check for A and B too. It gets its own two
+  assertions instead: target zero times, decoy exactly once.
+  ★★ **NOTHING TYPECHECKS THE CLI.** `tsconfig.json` excludes `scripts`, proved by mutation in BOTH
+  directions — the same deliberate type error yields zero errors inside `scripts/` and a TS2322 at
+  the repo root — so a green `npx tsc --noEmit` says nothing whatever about `scripts/ai-eval.ts`.
+  The one-off that does check it:
+  `npx tsc --noEmit --ignoreConfig --strict --skipLibCheck --module esnext --target es2022 --moduleResolution bundler --jsx react-jsx --esModuleInterop --resolveJsonModule --lib es2022,dom,dom.iterable --allowJs --types node scripts/ai-eval.ts`
+  ★ And `vitest.config.ts` globs only `scripts/**/*.{test,spec}.mjs`, so a `.ts` test placed beside
+  the lib would silently never run — keep the harness's tests `.mjs`.
+  ★★★ **STATUS: IT HAS NEVER BEEN RUN AGAINST THE LIVE API AND CARRIES NO RECORDED BASELINE.** No
+  `docs/baselines/ai-eval-*` artifact exists, because only a live run writes one. Its probe
+  calibration is therefore UNVERIFIED — and calibration is the exact thing the 2026-09-08 manual run
+  failed at, scoring 3/3 everywhere with no headroom. The design expects the FIRST live run to record
+  the calibration band. Do not cite the existence of this harness as evidence that anything about the
+  answers is proven.
   ★★★ **`CACHED_TOOLS` (`chat-api.ts`) closes the FIRST segment of the prefix** — the LAST tool carries
   `cache_control`, so an edit to block 0 (a guide toggled, `groundInGuides` flipped, or the fixed
   instructions changed) re-caches only the smaller system slice after it, never the whole `tools`
