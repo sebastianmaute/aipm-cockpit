@@ -8,6 +8,8 @@ import {
   SEED_CAP_PER_ENTITY,
 } from "./ai-project-proposal";
 import { ALL_MODULE_IDS } from "./feature-modules";
+import { remapSeed } from "./template-apply";
+import { emptyWorkspace } from "./workspace";
 
 describe("parseProposal", () => {
   it("returns null for a non-object or missing name", () => {
@@ -153,7 +155,10 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
   //  them from PROPOSAL_TOOL, as the fix does, would make this test tautological:
   //  it must fail if the derivation is widened, so it cannot share it.
   const SMUGGLED: Readonly<Record<string, readonly string[]>> = {
-    raid: ["outlookEventId", "localModifiedAt", "inquiriesSent", "owner", "targetDate"],
+    // ★ `owner` is NOT here: the seed schema declares it, because the system
+    //  prompt asks the model for it and `remapSeed` links it. It is asserted in
+    //  the anti-vacuity case below instead. `ownerEmail` stays undeclared.
+    raid: ["outlookEventId", "localModifiedAt", "inquiriesSent", "ownerEmail", "targetDate"],
     changes: ["outlookEventId", "localModifiedAt", "decisionDate", "requestedBy"],
     milestones: ["outlookEventId", "localModifiedAt", "achievedDate", "knowledgeLinks"],
     // ★ `knowledgeLinks` here is reached from a `documentLinks` INPUT key — the
@@ -172,9 +177,10 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
           raid: [{
             // Declared by the schema:
             title: "Vendor slip", category: "R", description: "<p>late</p>", severity: "High",
+            owner: "Ada Lovelace",
             // Never offered:
             id: 999, outlookEventId: "AAMk-forged", localModifiedAt: "2026-01-02T03:04:05Z",
-            inquiriesSent: 7, owner: "Mallory", targetDate: "2026-10-10",
+            inquiriesSent: 7, ownerEmail: "forged@x.io", targetDate: "2026-10-10",
           }],
           changes: [{
             title: "Scope cut", description: "<p>trim</p>",
@@ -237,12 +243,81 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
     const seed = seedWithSmuggledFields();
     expect(seed?.raid?.[0]).toMatchObject({
       title: "Vendor slip", category: "R", description: "<p>late</p>", severity: "High",
+      // ★★ `owner` is the field this block exists to protect. The prompt asks
+      //  for it and `remapSeed`'s `linkResource(r.owner, r.ownerEmail)` is the
+      //  only thing that turns a seeded name into a directory FK; while it was
+      //  undeclared the filter stripped it and `ownerResourceId` was null on
+      //  every AI seed. Its sibling `ownerEmail` is asserted ABSENT above — the
+      //  name leg alone links, so the address is not worth storing.
+      owner: "Ada Lovelace",
     });
     expect(seed?.changes?.[0]).toMatchObject({ title: "Scope cut", description: "<p>trim</p>" });
     expect(seed?.milestones?.[0]).toMatchObject({ name: "Go-live", date: "2026-12-01" });
     expect(seed?.stakeholders?.[0]).toMatchObject({
       name: "Ada Lovelace", organization: "ACME", title: "CTO",
     });
+  });
+
+  /** ★★★ THE MIRROR OF `inline-ai-edit/plan.create-path-guards.test.ts`'s "names
+   *  every create tool that exists, so a new one cannot slip past", and the seed
+   *  side had no such case. Every assertion above is driven off `SMUGGLED`, so
+   *  `SMUGGLED` is the vacuity surface: a SEVENTH seed list added to
+   *  `PROPOSAL_TOOL` gets a `buildList` call with no offered set — or a
+   *  hand-rolled `buildSeedX` literal that filters nothing — and every case
+   *  above stays green while saying nothing about it.
+   *
+   *  ★★ IT ENUMERATES, IT DOES NOT FILTER, and the difference is the whole
+   *  point. A predicate that quietly skipped anything unrecognised would let a
+   *  new list through by default; an EQUALITY against (filtered ∪ named
+   *  non-participants) makes a new list RED until someone decides which side it
+   *  belongs on. That decision is the deliverable, not the green run.
+   *
+   *  ★ The axis is `PROPOSAL_TOOL`'s own seed schema — the same object
+   *  `SEED_OFFERED_KEYS` is `Object.keys`'d from, so the two key sets cannot
+   *  disagree and a list added to the schema is visible here the same day. */
+  const NOT_FILTERED = [
+    // `buildSeedResource` reads eleven NAMED fields off `raw` into an object
+    // literal and never spreads it, so no undeclared key can reach
+    // `sanitizeResource` and a filter would be unreachable code that READS as a
+    // guard — structurally the same argument `create_task` makes on the create
+    // path (`chat-tools-updates.ts`).
+    "resources",
+    // `buildSeedTask` does the same over its own named fields. That is also why
+    // `assignee` survives here while `raid.owner` did not: same prompt sentence,
+    // opposite outcomes, because only the raid list runs through the filter.
+    "tasks",
+  ];
+
+  it("names every seed list that exists, so a new one cannot slip past", () => {
+    const declared = Object.keys(PROPOSAL_TOOL.input_schema.properties.seed.properties);
+    const covered = Object.keys(SMUGGLED).concat(NOT_FILTERED).sort();
+    expect(declared.slice().sort()).toEqual(covered);
+  });
+
+  it("links a seeded RAID owner to the seeded directory row", () => {
+    // ★★★ THE REGRESSION THIS DECLARATION FIXES, pinned where it MANIFESTS.
+    //  Asserting `owner` survives `proposalToSeed` (above) proves the filter
+    //  permits it; only `remapSeed` proves the field is USED. While `owner` was
+    //  undeclared, `linkResource(r.owner, r.ownerEmail)` saw two blanks and
+    //  `ownerResourceId` was `null` for every AI-proposed project.
+    const seed = proposalToSeed(
+      {
+        meta: { name: "x" },
+        features: [],
+        seed: {
+          resources: [{ firstName: "Ada", lastName: "Lovelace", email: "ada@x.io" }],
+          raid: [{ title: "Vendor slip", category: "R", owner: "Ada Lovelace" }],
+        },
+      },
+      TODAY,
+    );
+    expect(seed?.resources, "no directory row to link to").toHaveLength(1);
+    const out = remapSeed(emptyWorkspace(), seed!);
+    expect(out.raid?.[0]?.ownerResourceId).toBe(out.resources?.[0]?.id);
+    // …and the FK is a real id, not two undefineds comparing equal.
+    expect(out.raid?.[0]?.ownerResourceId).toEqual(expect.any(Number));
+    // The plain string is kept too — the register renders it when nothing links.
+    expect(out.raid?.[0]?.owner).toBe("Ada Lovelace");
   });
 
   it("assigns the builder's 1-based id after filtering, not the model's", () => {

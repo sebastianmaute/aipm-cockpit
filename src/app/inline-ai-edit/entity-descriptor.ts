@@ -507,15 +507,25 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  change modal renders it read-only — so the model supplies its VALUE on NO
     //  surface. ★★ THIS ABSENCE IS NOT WHAT MAKES THAT TRUE, and reading it that
     //  way is how the last hole survived: a descriptor governs the PREVIEW, and
-    //  three separate guards govern the WRITE — `CHANGE_FIELD_GUARDS.decisionDate`
-    //  (`() => false`, on BOTH `dropUnacceptedChangeFields` call sites),
-    //  `changeFields` not offering it, and `SEED_OFFERED_KEYS`
-    //  (`ai-project-proposal.ts`) filtering the `propose_project` seed, which
-    //  until 2026-09-09 passed a model-authored `decisionDate` straight into
-    //  `sanitizeChangeItem`. ★ TEMPLATE IMPORT still accepts one, and that does
-    //  not falsify the claim: it is a user-supplied blob, not a model surface —
-    //  no tool writes `settings.templates` (`grep -rn 'name: "' src/app/
-    //  chat-tool-defs*.ts | grep -i template` is empty).
+    //  TWO guards govern the WRITE — `CHANGE_FIELD_GUARDS.decisionDate`
+    //  (`() => false`, on BOTH `dropUnacceptedChangeFields` call sites) and
+    //  `SEED_OFFERED_KEYS` (`ai-project-proposal.ts`) filtering the
+    //  `propose_project` seed, which until 2026-09-09 passed a model-authored
+    //  `decisionDate` straight into `sanitizeChangeItem`.
+    //  ★★★ A THIRD, `changeFields` NOT OFFERING IT, IS AN AUTHORING GUARD AND NOT
+    //  A WRITE GUARD — an earlier revision counted it as one of "three separate
+    //  guards [that] govern the WRITE", which `chat-tool-defs.ts` denies at that
+    //  very schema, in as many words: NEITHER strip helper has a whitelist, so an
+    //  UNDECLARED key still lands on either path. Schema absence decides what the
+    //  model is OFFERED; it stops nothing that arrives anyway. Keep the two
+    //  claims apart — merging them is what makes an absence read as protection.
+    //  ★ TEMPLATE IMPORT still accepts one, and that does not falsify the claim:
+    //  it is a user-supplied blob, not a model surface. The one tool that writes
+    //  `Settings` is `update_settings`, and `computeSettingsPatch`
+    //  (`chat-settings-patch.ts`) is a hard allowlist of six fields that cannot
+    //  reach `templates`; nothing in the dispatchers names it either. Reproduce,
+    //  with `use-templates.ts` as the positive control that the grep works:
+    //  grep -c templates src/app/chat-settings-patch.ts src/app/chat-tools.ts src/app/use-templates.ts
     //  ★ What the model CAN still do is choose `status` and have
     //  `applyChangeStatus` stamp the clock's date. That is derivation, not
     //  authoring — do not "correct" this to "the model cannot cause a write".

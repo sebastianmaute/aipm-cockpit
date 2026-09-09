@@ -97,6 +97,23 @@ export const PROPOSAL_TOOL = {
                 category: { type: "string", enum: ["R", "A", "I", "D"] },
                 description: { type: "string" },
                 severity: { type: "string", enum: ["Low", "Medium", "High", "Critical"] },
+                // ★★★ DECLARED SO THE SEED FILTER PERMITS IT. `buildProposalSystemPrompt`
+                //  asks the model to put an owner's exact name on any risk they own, and
+                //  `remapSeed` links that name to the seeded directory row
+                //  (`linkResource(r.owner, r.ownerEmail)`, `template-apply.ts`). While this
+                //  was undeclared the filter stripped it and `ownerResourceId` was
+                //  permanently `null` for every AI seed — the prompt asked for something the
+                //  allowlist then threw away. Tasks kept `assignee` through the same prompt
+                //  sentence only because `buildSeedTask` reads named fields and never spreads.
+                // ★★ `ownerEmail` is deliberately NOT declared, and that is not an oversight
+                //  — see the note above `SEED_OFFERED_KEYS`. `sanitizeRaidItem` runs this
+                //  through `sanitizeText(o.owner, BUDGET_NAME_MAX)`, so declaring it re-opens
+                //  no injection surface.
+                owner: {
+                  type: "string",
+                  description:
+                    "Exact name of the team member who owns this, when the source names one — matching a name in the resources list. Do not invent one.",
+                },
               },
               required: ["title", "category"],
             },
@@ -179,7 +196,27 @@ function isObj(v: unknown): v is Record<string, unknown> {
  *  column names. The entity sanitizers read `knowledgeLinks ?? documentLinks`,
  *  so the input spelling and the stored spelling differ and a denylist naming
  *  stored columns would miss the alias. It also cannot miss a column nobody
- *  thought to name — `status`, `owner` and `type` are all undeclared too.
+ *  thought to name — `status`, `targetDate` and `type` are all undeclared too.
+ *
+ *  ★★★ THE COST OF THAT PROPERTY IS THAT A FIELD THE PROMPT ASKS FOR MUST BE
+ *  DECLARED, AND ONE WAS NOT. `buildProposalSystemPrompt` tells the model to put
+ *  an owner's exact name on any risk they own so `remapSeed` can link it to the
+ *  seeded directory; `raid.owner` was undeclared, so this filter stripped it and
+ *  `ownerResourceId` came out `null` on every AI seed. Declaring it (above) is
+ *  the fix, and it is the design working — the axis is the schema, so the schema
+ *  is where a wanted field is added. Before adding a list to `SEED_SCHEMAS` or a
+ *  sentence to the prompt, check the other half agrees.
+ *  ★★ `raid.ownerEmail` and `stakeholders.email` stay UNDECLARED, deliberately.
+ *  `linkResource(name, email)` tries email first and falls back to name, so the
+ *  NAME leg alone links every row the prompt can honestly produce: the prompt
+ *  says "Do not invent owners or emails", and an address the model did not
+ *  invent came off a resource it also seeded — where the name matches too. A
+ *  declared email would therefore buy no link the name leg does not already
+ *  make, while adding a model-authored address to a stored row (both sanitizers
+ *  persist it). CONSEQUENCE, and it is real: linking here is by NAME ONLY, so
+ *  two seeded people sharing a display name resolve first-wins by declaration
+ *  order and an email could not have disambiguated them.
+ *
  *  ★★ Do NOT name the plain change sanitizer in this file, in a comment or
  *  otherwise: `sanitize-model-change-wiring.test.ts` asserts its bare name
  *  occurs here ZERO times, as the control for the repairing wrapper's count.
@@ -203,10 +240,22 @@ type SeedList = keyof typeof SEED_SCHEMAS;
  *  TS2352 "neither type sufficiently overlaps" error — the compiler is right,
  *  the index signature guarantees none of the six keys. The advertised escape,
  *  `as unknown as`, silences it by throwing the check away.
- *  ★ The union is worth keeping rather than widening to `Record<string, …>`:
- *  a mistyped list name would then compile, yield `undefined` at runtime, and
- *  hand `pickOfferedFields` no offered set — turning the filter OFF on that
- *  list, silently, which is the exact defect this constant exists to prevent. */
+ *  ★★ The union is worth keeping rather than widening to `Record<string, …>`,
+ *  but NOT because a typo would fail OPEN — an earlier revision of this
+ *  paragraph said it would turn the filter "OFF on that list, silently", and
+ *  that is invented. What actually happens, measured: `tsconfig.json` sets
+ *  `"strict": true`, and the upstream TS option `noUncheckedIndexedAccess` does not exist in it
+ *  (`grep -c noUncheckedIndexedAccess tsconfig.json` → 0), so
+ *  `SEED_OFFERED_KEYS.typo` on a string-keyed
+ *  Record compiles as a NON-OPTIONAL `ReadonlySet<string>` and is `undefined` at
+ *  runtime; `pickOfferedFields` then calls `offered.has(k)` with no guard, so the
+ *  FIRST key of the first item throws a TypeError. Every seed item schema has a
+ *  required property, so any non-empty item reaches one. That throw leaves
+ *  `proposalToSeed`, so `runIngest` (`create-project-wizard.tsx`) never reaches
+ *  its `setStep(1)` — a dead ingest, which is loud, and the OPPOSITE of a
+ *  silently permissive filter. Only a zero-key item would quietly yield `{}`.
+ *  The union is worth keeping because it turns that runtime throw into a COMPILE
+ *  error, so the typo never ships — not because the runtime would be lenient. */
 const SEED_OFFERED_KEYS = (Object.keys(SEED_SCHEMAS) as SeedList[]).reduce((acc, list) => {
   acc[list] = new Set<string>(Object.keys(SEED_SCHEMAS[list].items.properties));
   return acc;
@@ -351,7 +400,11 @@ function buildSeedResource(raw: unknown, id: number): Resource | null {
 
 /** Turn the proposal's seed into a validated TemplateSeed (or undefined when no
  *  usable content). Seeded resources let remapSeed link task/RAID owners +
- *  stakeholders to the directory by name; unmatched owners stay plain strings. */
+ *  stakeholders to the directory by name; unmatched owners stay plain strings.
+ *  ★ BY NAME ONLY, and that is a property of THIS producer, not of `remapSeed`:
+ *  `linkResource` also takes an email, but no seed item schema declares one
+ *  (`raid.ownerEmail`, `stakeholders.email` — see the `SEED_OFFERED_KEYS` note),
+ *  so the filter drops it and only the name leg can ever fire on this path. */
 export function proposalToSeed(p: ProjectProposal, today: string): TemplateSeed | undefined {
   const s = p.seed;
   if (!s) return undefined;

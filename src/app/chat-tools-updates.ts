@@ -145,7 +145,8 @@ export function patchWithoutId<T>(
  *  so a field with NO row is untouched — `sanitize-records.ts` states the split
  *  against the two ALLOWLIST guards, `dropUnacceptedAbsenceFields` and
  *  `dropUnacceptedCalendarEventFields`). No excluded field has a row in any of
- *  the five, and each entity's sanitizer PRESERVES its own excluded fields — so
+ *  the five, and each entity's sanitizer PRESERVES its own excluded fields BAR
+ *  `noteLog`, which no register sanitizer touches at all (the ★★ note below) — so
  *  a model-supplied value landed verbatim in the stored row on create, for
  *  fields no create schema in `chat-tool-defs.ts` offers it. The update path was
  *  clean only because of the strip above, never because the handlers refuse
@@ -176,9 +177,16 @@ export function patchWithoutId<T>(
  *  changes no stored row; the same revert at any of the other five does — but
  *  ★ per FIELD, not per row: it is `localModifiedAt`, plus `outlookEventId` on
  *  the three entities that have one, that would then land. A revert of the
- *  `noteLog` member alone changes nothing anywhere (see the sanitizer note
- *  above), so do not read this as "every excluded field is load-bearing at five
- *  call sites". The uniform rule — every pass-through
+ *  `noteLog` member alone changes no STORED ROW (see the sanitizer note above),
+ *  so do not read this as "every excluded field is load-bearing at five call
+ *  sites".
+ *  ★★ "No stored row" is the whole of that claim and an earlier revision
+ *  overstated it as "changes nothing anywhere", which is false: `entityToken`
+ *  covers `PROJECTORS[kind].columns` MINUS `TOKEN_EXCLUDED[kind]`, those columns
+ *  ARE the CSV column lists, and `noteLog` is a member of the task, raid and
+ *  change lists (`grep -n noteLog src/app/csv-codecs-core.ts`) — so dropping the
+ *  member widens the TOKEN and every stored note-log edit starts invalidating
+ *  it. Storage-inert, concurrency-relevant. The uniform rule — every pass-through
  *  `create_*` strips — is what is worth keeping: `ai-entity-token.ts` says in
  *  as many words that the `absence`/`calendarEvent` exclusion rows are
  *  legitimate ONLY because those two allowlists hold, so this is the backstop

@@ -32745,10 +32745,35 @@ at 1600 it emits `task-manager.tsx` ALONE and DELETES the other three baseline r
 at all, so an entry above 1600 does not buy headroom — it removes the ceiling. Widening a gate to admit
 a change this repo just made is the shape AGENTS.md warns about.
 
-**The repair is a split.** `sanitize-records.ts` carries the seven per-entity `*_FIELD_GUARDS` tables and
-their seven `dropUnaccepted*Fields` helpers alongside the record sanitizers. The guard tables are a
-cohesive unit with one reader each and are the natural extraction; the `absence`/`calendarEvent` allowlist
-pair is a second candidate, since those two differ structurally from the other five. Either follows the
+**The repair is a split, and it is not free.** `sanitize-records.ts` carries the seven per-entity
+`*_FIELD_GUARDS` tables and their seven `dropUnaccepted*Fields` helpers alongside the record sanitizers.
+The guard tables are the natural extraction — but ★★ **they are NOT "a cohesive unit with one reader
+each", and that sentence was the justification for the whole repair.** Five of the seven are module-private
+`const` with exactly one reader (their own `dropUnaccepted*Fields` loop). Two are not:
+`ABSENCE_FIELD_GUARDS` and `CALENDAR_EVENT_FIELD_GUARDS` are `export const`, and their second reader is
+`src/app/inline-ai-edit/entity-descriptor.ts` — imported at its import block and consumed as `rawTypeGuards`
+on the `absence` and `calendarEvent` descriptors. Reproduce, with the five as the control that the grep
+distinguishes them:
+
+```
+grep -nE "^(export )?const [A-Z_]+_FIELD_GUARDS" src/app/sanitize-records.ts
+grep -n "_FIELD_GUARDS,$\|rawTypeGuards:" src/app/inline-ai-edit/entity-descriptor.ts
+```
+
+The first prints seven rows, five bare `const` and two `export const`; the second prints the two imports
+and the two `rawTypeGuards` consumptions. Anchoring the first at `^` matters — an unanchored grep also
+matches a comment inside `sanitize-records.ts` that quotes the pattern, which is the self-matching-grep
+trap.
+
+**What that changes about the repair.** An extraction of the five private tables moves code that nothing
+outside the file can see, so it is a pure relocation. Extracting the two exported ones converts an existing
+cross-module import into an import of a NEW module — `entity-descriptor.ts` would import from the extracted
+file instead of `sanitize-records.ts` — which is a change to the public shape of the sanitizer layer, not a
+relocation, and `entity-descriptor.ts` already documents both as "derived from" the sanitizer's tables in
+prose that names the old home. So the split has two tiers with different costs, and the cheap tier is the
+five. The `absence`/`calendarEvent` pair remains a candidate on its own merits (those two are ALLOWLIST
+guards where the other five are denylists — `sanitize-records.ts` states the split) but it is the tier that
+moves a published symbol, and the prose citing its old location has to move with it. Either tier follows the
 repo's own many-small-files rule rather than working around a ratchet.
 
 **★ The lines this branch spent were reclaimed honestly and should not be re-spent.** The pass took its
