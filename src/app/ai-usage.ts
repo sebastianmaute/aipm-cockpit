@@ -20,7 +20,8 @@ const EMPTY_USAGE: Usage = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 };
  *  a published rate moves.
  *  ★★ IF A FUTURE MODEL BREAKS THE RATIO these stop being model-free and the
  *  basis has to become model-aware. That is the one thing that would make this
- *  design wrong; see the spec's closing section. */
+ *  design wrong; see the "What would make this design wrong" section that
+ *  closes docs/superpowers/specs/2026-09-09-ai-cost-basis-and-task-list-narrowing-design.md */
 export const USAGE_COST_WEIGHTS = {
   input: 1,
   cacheWrite: 1.25,
@@ -38,10 +39,11 @@ export const USAGE_COST_WEIGHTS = {
  *  the raw sum back into a cap comparison by accident; deleting the name makes
  *  that mistake unavailable instead of merely discouraged.
  *
- *  ★★ Normalises first, for the reason `normalizeUsage`'s own docstring gives:
- *  `undefined * weight` is NaN, every comparison against NaN is false, and a
- *  NaN total makes `crossed80`/`crossed100` permanently false — a silently
- *  disabled cap, the worst outcome available here. */
+ *  ★★ Normalises first, for the reason the `Usage` docstring at the top of this
+ *  file gives (NOT `normalizeUsage`'s own, which only says a non-finite value
+ *  becomes 0): `undefined * weight` is NaN, every comparison against NaN is
+ *  false, and a NaN total makes `crossed80`/`crossed100` permanently false — a
+ *  silently disabled cap, the worst outcome available here. */
 export function usageCostEquivalent(u: Partial<Usage> | undefined): number {
   const n = normalizeUsage(u);
   return (

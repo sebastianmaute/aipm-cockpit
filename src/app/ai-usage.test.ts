@@ -80,7 +80,7 @@ test("nextWeekReset is next Monday 00:00 local", () => {
 });
 
 describe("usageCostEquivalent", () => {
-  // The four figures below are turns 1 and 4 of the NEW arm of the live
+  // The eight figures below are turns 1 and 4 of the NEW arm of the live
   // 8-request measurement (2026-09-09, claude-sonnet-5). ★ Of the eight
   // numbers, docs/AGENTS/ai-assistant.md corroborates three — 13305, 17796
   // and the 3688.7 cost of turn 4 — and independently states the same weight
@@ -90,11 +90,19 @@ describe("usageCostEquivalent", () => {
   //
   // ★★ WHAT THIS BLOCK DOES NOT PIN: the weights themselves. Two fixtures are
   // two equations in four unknowns, so this describe() passes under a large
-  // family of wrong weightings — 1,166 of them were found by sweep on
-  // 2026-09-09, including one that satisfies both toBeCloseTo fixtures, the
-  // >5 ratio, the ordering test AND the strict toBe(150). The weights are
-  // uniquely determined by the four `weekToDate` assertions ABOVE, so do not
-  // delete one of those believing this block still covers the weighting.
+  // family of wrong weightings — including ones that satisfy both toBeCloseTo
+  // fixtures, the >5 ratio, the ordering test AND the strict toBe(150) at once.
+  // (A count was quoted here and has been removed: the sweep's grid, bounds and
+  // step were recorded nowhere, so the figure could not be re-derived.)
+  //
+  // ★★★ WHAT DOES PIN THEM: the FIVE `weekToDate` assertions above
+  // (`grep -n "weekToDate(" src/app/ai-usage.test.ts`), which are
+  // OVER-DETERMINED BY EXACTLY ONE. Any four of the five uniquely fix all four
+  // weights — solved for each of the five drop-one cases — so deleting ONE is
+  // safe and deleting TWO is not, and nothing will tell you which deletion was
+  // the fatal one. An earlier revision of this comment said "the four
+  // assertions" and "do not delete one of those": wrong on the count, and wrong
+  // in both directions on the imperative.
   // What the cold/warm pair buys, and nothing else provides, is the SPREAD
   // demonstration in the third test.
   it("prices a cold first turn, where the cache write dominates", () => {

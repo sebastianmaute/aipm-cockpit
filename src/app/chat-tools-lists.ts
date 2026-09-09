@@ -118,10 +118,13 @@ export function withRowTokens<T extends { id: number }>(
  *  log, with `description` projected to plain text.
  *
  *  ★★★ `noteLog` IS DROPPED OUTRIGHT, NOT PROJECTED, and it must stay dropped.
- *  It was 37.8% of this payload on a 140-task project — the single largest
- *  field by a factor of five — while `lib/app-feature-guide.md` told the model
- *  four times that it has no tool for notes. The app was paying to ship data
- *  it had forbidden the model to use.
+ *  On a 140-task project it was 37.8% of the STORED rows — the largest field
+ *  there by a factor of five — and 26.4% of what the list path actually
+ *  SHIPPED, which had already stripped each entry's markup. ★★ THE TWO ARE NOT
+ *  INTERCHANGEABLE: the saving is 9,459 tokens (the shipped figure), and
+ *  quoting the stored-row bound as the saving overstates it by 67%. Meanwhile
+ *  `lib/app-feature-guide.md` told the model four times that it had no tool for
+ *  notes, so the app was paying to ship data it had forbidden the model to use.
  *  ★★ The capability was RELOCATED, not deleted: `get_task` still returns the
  *  full `Task` including `noteLog` with its HTML, at roughly 112 tokens per
  *  task on demand instead of thousands in bulk. `get_task`'s tool description

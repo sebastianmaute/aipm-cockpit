@@ -445,12 +445,17 @@ describe("runTool — list_tasks / get_task", () => {
   });
 
   it("list_tasks carries no note log at all", async () => {
-    // ★★★ THIS IS THE TEST THAT PINS THE SAVING. `noteLog` was 37.8% of the
-    // list payload on a 140-task project, and the operating guide denies the
-    // model any note access — so the app was paying to ship data it had
-    // instructed the model four times not to use. Without this assertion the
-    // field drifts straight back in the next time `TaskListItem` is widened,
-    // and no gate reports it.
+    // ★★★ THIS IS THE TEST THAT PINS THE SAVING, which is 9,459 tokens —
+    // 26.4% of what the list path was actually shipping on a 140-task project.
+    // ★★ NOT 37.8%: that is the note log's share of the STORED rows, a bound,
+    // and the payload had already stripped each entry's markup before it was
+    // measured. Re-deriving the saving from the bound overstates it by 67%.
+    // At the time, the operating guide denied the model any note access four
+    // times over, so the app was paying to ship data it had forbidden the
+    // model to use; that guide has since been corrected, and only its RAID and
+    // Changes denials still stand. Without this assertion the field drifts
+    // straight back in the next time `TaskListItem` is widened, and no gate
+    // reports it.
     const d = makeDispatcher({ listTasks: vi.fn(() => [makeTask({ noteLog: [RICH_NOTE] })]) });
     const result = (await runTool(d, "list_tasks", {})) as ListEnvelope;
     expect("noteLog" in result.items[0]).toBe(false);
@@ -2389,5 +2394,29 @@ describe("tool descriptions match what the tools actually return", () => {
     const d = defOf("get_task").description;
     expect(d).toContain("noteLog");
     expect(d.toLowerCase()).toContain("read-only");
+  });
+
+  it("keeps RAID and change notes out of every summary the model can see", () => {
+    // ★★★ THE PIN FOR get_task's THIRD SENTENCE — "Notes on RAID items and
+    // change items are not readable at all." That sentence is PROMPT TEXT the
+    // model acts on, and until this test nothing tied it to the code: adding
+    // `noteLog` to either summariser would have made the model's own tool
+    // description a lie with every gate in this repo still green, which is the
+    // exact drift class this slice exists to close. The doc's reproduce
+    // (`grep -c noteLog src/app/chat-tool-summaries.ts`) is a reproduce, not a
+    // gate; this is the gate.
+    // ★ Asserted over the SERIALISED summary rather than with `in`, so a note
+    // log nested inside any field is caught too, not just a top-level key.
+    const raid = makeRaidItem({ noteLog: [RICH_NOTE] });
+    const change = makeChangeItem({ noteLog: [RICH_NOTE] });
+    expect(JSON.stringify(toRaidSummary(raid))).not.toContain("noteLog");
+    expect(JSON.stringify(toChangeSummary(change))).not.toContain("noteLog");
+    // The note's own text must not survive under some other key either.
+    expect(JSON.stringify(toRaidSummary(raid))).not.toContain("Partner call");
+    expect(JSON.stringify(toChangeSummary(change))).not.toContain("Partner call");
+    // CONTROL: the fixtures really do carry a note log, so the four assertions
+    // above are not passing over empty input.
+    expect(raid.noteLog).toHaveLength(1);
+    expect(change.noteLog).toHaveLength(1);
   });
 });

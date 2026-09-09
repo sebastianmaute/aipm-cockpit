@@ -26,17 +26,25 @@ vi.mock("./use-push-to-talk", () => ({
 // which is what every pre-existing test in this file assumes (nothing extra
 // renders); the disclosure describe below sets both halves explicitly.
 const aiState = vi.hoisted(() => ({ enabled: false, apiKey: "" }));
-vi.mock("./use-settings", () => ({
-  useSettings: () => ({
-    // `dictation` is spelled out rather than dropped: the composer and every
-    // row mic read it, and the real hook always supplies it.
-    settings: { ai: aiState, dictation: { engine: "web-speech", hotkey: "F4" } },
-    setSettings: vi.fn(),
-    hydrated: true,
-    i18nReady: true,
-    lang: "en-US",
-  }),
-}));
+// ★★ BUILT FROM THE REAL `defaultSettings`, not hand-assembled. A `vi.mock`
+// factory is NOT typechecked against the module it replaces, so a hand-built
+// `settings` holding only the fields this component reads today would make any
+// FUTURE settings read silently yield `undefined` in every test in this file
+// rather than failing — and this mock is file-wide, so it also stands in for
+// the pre-existing tests. Spreading the real defaults means a new field is
+// present with its real default the moment it exists.
+vi.mock("./use-settings", async () => {
+  const { defaultSettings } = await import("./settings-types");
+  return {
+    useSettings: () => ({
+      settings: { ...defaultSettings, ai: aiState },
+      setSettings: vi.fn(),
+      hydrated: true,
+      i18nReady: true,
+      lang: "en-US",
+    }),
+  };
+});
 
 // ProseMirror (the composer + inline edit RichTextEditor) touches layout APIs
 // jsdom lacks; stub them so the editor mounts. Mirrors notes-window.test.tsx.
