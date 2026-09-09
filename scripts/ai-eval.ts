@@ -101,10 +101,19 @@ function assembleArm(variant: "current", tokens: Record<string, string>, questio
   return { system, messages };
 }
 
-function flatten(arm: Arm): { system: string; turn: string } {
+/** Split one arm into the two halves `preflight` asserts positions against, and
+ *  declare which half is expected to carry the probe's target.
+ *
+ *  ★★★ "turn" IS THE CORRECT ANSWER FOR EVERY PROBE TODAY, and it is measured,
+ *  not assumed: `buildStableSystemBlocks` contains none of the relocatable
+ *  block builders and `buildTurnContext` contains all of them, so all five
+ *  targets ride the volatile half that `buildWireMessages` puts in messages.
+ *  A candidate variant that moves a block into the cached system array declares
+ *  "system" for its arm and `preflight` then proves the move happened. */
+function flatten(arm: Arm, expectedHalf: "system" | "turn") {
   const system = arm.system.map((b) => b.text).join("\n");
   const turn = JSON.stringify(arm.messages);
-  return { system, turn };
+  return { expectedHalf, system, turn };
 }
 
 function main(): number {
@@ -134,7 +143,7 @@ function main(): number {
   for (const probe of PROBES) {
     const tokens: Record<string, string> = {};
     for (const p of PROBES) tokens[p.id] = plantedToken(p.id, salt);
-    const armA = flatten(assembleArm("current", tokens, probe.question));
+    const armA = flatten(assembleArm("current", tokens, probe.question), "turn");
     const armB = armA; // identity until a gated slice registers a variant
     const res = preflight({
       target: tokens[probe.id],
@@ -144,22 +153,12 @@ function main(): number {
       recordedAnchorHash: last?.anchorHash ?? anchorHash,
       rollingHash,
       recordedRollingHash: last?.rollingHash ?? null,
-      // A/A self-test: arm B is an alias of arm A until a gated slice registers
-      // a variant, so there is no relocation to assert. Every real candidate
-      // drops this flag.
-      //
-      // ★★★ IT IS ALSO SUPPRESSING A SECOND, DIFFERENT FAILURE TODAY, and that
-      //     is not what the flag is named for. Measured, not reasoned: with the
-      //     flag off, arm A fails "the target must sit in system" on ALL FIVE
-      //     probes, `date` and `viewScope` included — because every relocatable
-      //     block lives in the VOLATILE half, which `buildTurnContext` returns
-      //     as a string and `buildWireMessages` puts in MESSAGES, never in the
-      //     system array. So `preflight`'s arm-A check is written against a
-      //     layout the app does not currently have. A slice registering a real
-      //     variant must fix that check (assert the target's HALF, not the
-      //     literal `system` field) rather than assume dropping this flag is
-      //     enough — dropping it today reds every probe.
-      expectRelocated: false,
+      // ★★ NOTHING IS SUPPRESSED HERE. Both arms declare "turn" and both
+      //    position assertions run and hold. That is honest for an A/A
+      //    self-test — arm B is a deliberate alias of arm A until a gated slice
+      //    registers a variant, so there is genuinely no relocation to prove.
+      //    A real candidate declares the OTHER half for its arm and `preflight`
+      //    then proves the block moved. There is no flag to drop.
     });
     if (!res.ok) failures.push(`${probe.id}: ${res.failures.join("; ")}`);
   }
@@ -190,7 +189,7 @@ function main(): number {
   const sizeTokens: Record<string, string> = {};
   for (const p of PROBES) sizeTokens[p.id] = plantedToken(p.id, salt);
   const sizeArm = assembleArm("current", sizeTokens, PROBES[0].question);
-  const sizeFlat = flatten(sizeArm);
+  const sizeFlat = flatten(sizeArm, "turn");
   const toolsJson = JSON.stringify(toolsFor({}));
   // ★ Block 0 is broken out because it is the CACHED prefix and the half any
   //   recorded fixed-prefix figure refers to. Block 1 is the current view's

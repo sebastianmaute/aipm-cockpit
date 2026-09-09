@@ -385,9 +385,19 @@ const okInput = () => ({
   target: "vorquenzil",
   decoy: "mabtresk",
   armPrompts: {
-    // Arm A carries the token in `system`; arm B carries it on the turn tail.
-    A: { system: "... reference code vorquenzil ... and reference code mabtresk ...", turn: "question" },
-    B: { system: "... reference code mabtresk ...", turn: "question ... reference code vorquenzil ..." },
+    // A genuine relocation: arm A carries the token in `system`, arm B on the
+    // turn tail. Each arm DECLARES the half it carries it in — the half is
+    // never assumed by `preflight`, which is the whole point of the fix.
+    A: {
+      expectedHalf: "system",
+      system: "... reference code vorquenzil ... and reference code mabtresk ...",
+      turn: "question",
+    },
+    B: {
+      expectedHalf: "turn",
+      system: "... reference code mabtresk ...",
+      turn: "question ... reference code vorquenzil ...",
+    },
   },
   anchorHash: "abc",
   recordedAnchorHash: "abc",
@@ -416,24 +426,15 @@ describe("preflight", () => {
     expect(res.failures.join(" ")).toMatch(/target.*exactly once.*B/i);
   });
 
-  it("fails when arm A carries the target outside system", () => {
-    // A's whole point is that the block sits in `system`. If it does not, arm A
-    // is not the layout it claims to be and the comparison means nothing.
-    const input = okInput();
-    input.armPrompts.A = { system: "no code here", turn: "question reference code vorquenzil" };
-    const res = preflight(input);
-    expect(res.ok).toBe(false);
-    expect(res.failures.join(" ")).toMatch(/arm A.*system/i);
-  });
-
-  it("fails when arm B carries the target in system", () => {
+  it("fails when arm B carries the target in the half it did not declare", () => {
     // The failure that would otherwise produce two IDENTICAL arms and a
     // confident "no regression" — a toggle that silently stopped toggling.
     const input = okInput();
-    input.armPrompts.B = { system: "reference code vorquenzil", turn: "question" };
+    input.armPrompts.B.system = "reference code vorquenzil and reference code mabtresk";
+    input.armPrompts.B.turn = "question";
     const res = preflight(input);
     expect(res.ok).toBe(false);
-    expect(res.failures.join(" ")).toMatch(/arm B.*not.*system/i);
+    expect(res.failures.join(" ")).toMatch(/arm B.*exactly once in the turn half/i);
   });
 
   it("fails when the decoy is missing", () => {
@@ -476,18 +477,57 @@ describe("preflight", () => {
   });
 });
 
-describe("preflight expectRelocated", () => {
-  it("skips the structural checks only when explicitly told to", () => {
+describe("preflight position assertions", () => {
+  it("fails when the target sits in the wrong half, and names the half it was expected in", () => {
     const input = okInput();
-    input.armPrompts.B = { ...input.armPrompts.A };
-    input.expectRelocated = false;
-    expect(preflight(input).ok).toBe(true);
+    // Same bytes, opposite declaration: the target is genuinely in `system`,
+    // but this arm claims to carry it in the turn.
+    input.armPrompts.A.expectedHalf = "turn";
+    const res = preflight(input);
+    expect(res.ok).toBe(false);
+    expect(res.failures.join(" ")).toMatch(/arm A.*exactly once in the turn half/i);
   });
 
-  it("still applies them when the flag is absent", () => {
+  it("fails when the target sits in BOTH halves", () => {
+    // ★ The half the old pair could not see. A token duplicated across both
+    //   halves satisfies "once in the expected half" on its own — only the
+    //   zero-in-the-other-half assertion catches it. The whole-prompt
+    //   exactly-once check fires too, which is the point: both are real.
+    const input = okInput();
+    input.armPrompts.A.turn = "question ... reference code vorquenzil ...";
+    const res = preflight(input);
+    expect(res.ok).toBe(false);
+    expect(res.failures.join(" ")).toMatch(/arm A.*must not appear in the turn half/i);
+  });
+
+  it("passes the A/A self-test cleanly, with nothing suppressed", () => {
+    // Arm B is a deliberate alias of arm A until a gated slice registers a
+    // variant. Both arms declare the same half and both assertions hold
+    // honestly — there is no flag switching anything off. ★ This configuration
+    // does NOT prove the arms differ; nothing can, because they do not.
     const input = okInput();
     input.armPrompts.B = { ...input.armPrompts.A };
-    expect(preflight(input).ok).toBe(false);
+    expect(preflight(input)).toEqual({ ok: true, failures: [] });
+  });
+
+  it("passes a genuine relocation in either direction", () => {
+    const input = okInput();
+    const a = input.armPrompts.A;
+    const b = input.armPrompts.B;
+    input.armPrompts.A = b;
+    input.armPrompts.B = a;
+    expect(preflight(input)).toEqual({ ok: true, failures: [] });
+  });
+
+  it("fails an arm that declares no half rather than skipping the check", () => {
+    // ★★ A position check that does not know where to look must never pass
+    //    silently — that vacuity is what the old hardcoded assertion decayed
+    //    into once it was flagged off.
+    const input = okInput();
+    delete input.armPrompts.A.expectedHalf;
+    const res = preflight(input);
+    expect(res.ok).toBe(false);
+    expect(res.failures.join(" ")).toMatch(/arm A: expectedHalf must be/i);
   });
 });
 

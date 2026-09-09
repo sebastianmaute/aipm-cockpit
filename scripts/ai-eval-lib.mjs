@@ -334,12 +334,50 @@ function countOf(haystack, needle) {
   return String(haystack).toLowerCase().split(needle.toLowerCase()).length - 1;
 }
 
+/** The two halves of a request an arm can carry a relocatable block in: the
+ *  cacheable system array, or the volatile turn context that rides in messages. */
+const HALVES = Object.freeze(["system", "turn"]);
+
+const otherHalf = (half) => (half === "system" ? "turn" : "system");
+
 /** Everything that must hold before a single token is spent.
  *
- *  ★★★ THE STRUCTURAL POSITION CHECKS ARE THE LOAD-BEARING ONES. Without them
- *  a toggle that silently stopped toggling gives two IDENTICAL arms, and the
- *  run reports a confident "no regression" while comparing a layout with
- *  itself. That is worse than no harness: it is a green light nobody earned.
+ *  ★★★ THE POSITION CHECKS ARE THE LOAD-BEARING ONES. Without them a toggle
+ *  that silently stopped toggling gives two IDENTICAL arms, and the run reports
+ *  a confident "no regression" while comparing a layout with itself. That is
+ *  worse than no harness: it is a green light nobody earned.
+ *
+ *  ★★★ EACH ARM DECLARES ITS OWN `expectedHalf`; THE HALF IS NEVER HARDCODED
+ *  HERE, AND THAT IS A BUG FIX, NOT A GENERALISATION. This function used to
+ *  assert "the target sits in arm A's `system`" as a constant. Measured against
+ *  the app's real builders: `buildStableSystemBlocks` contains NONE of the
+ *  relocatable block builders and `buildTurnContext` contains all of them, so
+ *  every one of the five probes carries its target in the TURN half and the
+ *  assertion was false for all of them. It was then buried under an
+ *  `expectRelocated: false` escape hatch, which is how a load-bearing check
+ *  ends up permanently switched off: the next person to register a real variant
+ *  would have dropped the flag, watched every probe red, and concluded the
+ *  harness was broken rather than the assertion.
+ *
+ *  ★★ STRICTLY STRONGER THAN THE PAIR IT REPLACES. Per arm: the target occurs
+ *  exactly ONCE in the half that arm declares, and ZERO times in the other. The
+ *  old pair only constrained arm A's system count and arm B's system count, so
+ *  a token that moved somewhere unintended inside arm B passed. Both directions
+ *  are needed — the once-in-expected half alone cannot see a token that ALSO
+ *  leaked into the other half.
+ *
+ *  ★★★ WHAT THIS CANNOT PROVE, stated because the previous version's whole
+ *  failure was an assertion nobody could state the limits of: when both arms
+ *  declare the SAME half, these checks pass without proving the arms differ —
+ *  because in that configuration they do not differ. That is the A/A self-test
+ *  and it is honest there. It is NOT a licence for a real candidate to declare
+ *  the same half twice: a candidate whose two arms sit in one half has no
+ *  toggle, and this function will not say so. Relocation is proven only when
+ *  the two declared halves differ.
+ *
+ *  ★★ A MISSING OR UNKNOWN `expectedHalf` IS A FAILURE, never a skip. A
+ *  position check that does not know where to look would otherwise pass every
+ *  input silently, which is precisely the vacuity this replaced.
  *
  *  Returns every failure rather than the first, so one run tells you the whole
  *  story instead of one fix per invocation. */
@@ -360,19 +398,26 @@ export function preflight(input) {
         `arm ${arm}: decoy must appear exactly once in the assembled prompt, found ${countOf(whole, decoy)}`,
       );
     }
-  }
 
-  // ★★★ `expectRelocated` is FALSE only in the A/A self-test, where arm B is a
-  //    deliberate alias of arm A and there is no toggle to verify. Every real
-  //    candidate MUST pass true. A slice that finds this check inconvenient and
-  //    flips it to false has disabled the one assertion standing between it and
-  //    a confident "no regression" measured against itself.
-  if (input.expectRelocated !== false) {
-    if (countOf(armPrompts.A.system, target) !== 1) {
-      failures.push("arm A: the target must sit in system — that is what arm A is");
+    const expected = p.expectedHalf;
+    if (!HALVES.includes(expected)) {
+      failures.push(
+        `arm ${arm}: expectedHalf must be "system" or "turn", got ${JSON.stringify(expected)} — an arm that does not declare which half carries the target cannot have its position checked`,
+      );
+      continue;
     }
-    if (countOf(armPrompts.B.system, target) !== 0) {
-      failures.push("arm B: the target must NOT sit in system — the toggle did not toggle");
+    const other = otherHalf(expected);
+    const inExpected = countOf(p[expected], target);
+    const inOther = countOf(p[other], target);
+    if (inExpected !== 1) {
+      failures.push(
+        `arm ${arm}: the target must appear exactly once in the ${expected} half this arm declares, found ${inExpected}`,
+      );
+    }
+    if (inOther !== 0) {
+      failures.push(
+        `arm ${arm}: the target must not appear in the ${other} half — arm ${arm} declares ${expected}, found ${inOther} in ${other}`,
+      );
     }
   }
 
