@@ -1179,7 +1179,10 @@
   genuine `0` is still treated as measured. (4) The negative control is deliberately NOT handed to
   `preflight` — it is the arm whose target was REMOVED, so it would fail by construction, and the
   only way to make it pass would be to weaken the check for A and B too. It gets its own two
-  assertions instead: target zero times, decoy exactly once.
+  assertions instead: target zero times, and every OTHER planted token exactly once — not merely the
+  decoy, but the near-miss competitors and the composition alternatives too, enumerated from
+  `plantedProbeIds` so the assertion cannot go stale when a hardening knob is switched off. A strip
+  that removed more than the target would stop the control being arm A minus one thing.
   ★★ **NOTHING TYPECHECKS THE CLI.** `tsconfig.json` excludes `scripts`, proved by mutation in BOTH
   directions — the same deliberate type error yields zero errors inside `scripts/` and a TS2322 at
   the repo root — so a green `npx tsc --noEmit` says nothing whatever about `scripts/ai-eval.ts`.
@@ -1187,8 +1190,10 @@
   `npx tsc --noEmit --ignoreConfig --strict --skipLibCheck --module esnext --target es2022 --moduleResolution bundler --jsx react-jsx --esModuleInterop --resolveJsonModule --lib es2022,dom,dom.iterable --allowJs --types node scripts/ai-eval.ts`
   ★ And `vitest.config.ts` globs only `scripts/**/*.{test,spec}.mjs`, so a `.ts` test placed beside
   the lib would silently never run — keep the harness's tests `.mjs`.
-  ★★★ **STATUS: IT HAS NOW RUN LIVE ONCE, AND THAT RUN WAS UNUSABLE — read the recorded artifact,
-  never this paragraph.** An earlier revision here said it had never run and that no
+  ★★★ **STATUS: IT HAS NOW RUN LIVE SEVERAL TIMES — SIX RUNS ARE RECORDED AS OF 2026-09-09 — AND IT
+  WAS THE FIRST OF THEM THAT WAS UNUSABLE. Read the recorded artifact, never this paragraph.** An
+  earlier revision said it had run ONCE, by which point FIVE FURTHER runs were already recorded, two
+  of them passing. An earlier one still said it had never run and that no
   `docs/baselines/ai-eval-*` artifact existed; both files were committed the same day and the claim
   survived, which is the ordinary way a status line rots. What the run said: `claude-sonnet-5`, salt
   1, 5 reps, 60 requests. Four probes behaved (arm A hit rates 1.0 / 1.0 / 0.8 / 1.0) and
@@ -1199,6 +1204,13 @@
   2026-09-08 manual run had from the other side (3/3 everywhere, no headroom). Do not cite the
   existence of this harness, or a green run of it, as evidence that anything about the answers is
   proven.
+  ★★ **THE LATER RUNS ARE NOT THAT RUN, and everything above is the record of the FIRST one.** Once
+  the two calibration fixes below had landed, a full run was recorded that PASSES — verdict `0`,
+  every probe hit on both arms, the negative control silent on all five, the seeded anchor and the
+  rolling replay both 1.0, and zero tool reaches. ★★★ IT IS AN A/A SELF-TEST AND NOTHING MORE: arm B
+  is a deliberate alias of arm A until a gated slice registers a variant, so the two arms compare the
+  current layout with itself. It is evidence that the machinery measures what it claims to, and it is
+  NOT evidence that any relocation is safe — which is the reading the sentence above forbids.
   ★★★ **THAT `wrongBlock: 0` WAS THE INSTRUMENT LYING, AND AN EARLIER REVISION OF THIS PARAGRAPH
   READ IT THE WRONG WAY** — it said the model "produced no target at all rather than returning the
   decoy", which is literally true and invites precisely the wrong conclusion. The filtered diagnostic
@@ -1236,10 +1248,13 @@
   NEVER FROM AMBIGUITY.** An ambiguous probe is not a hard probe, it is a broken one, and it fails
   in a way that looks identical to a regression — which is what the two runs above cost. Every
   question must keep exactly one answer a careful reader would agree on.
-  ★★ `composition` is ON FOR ONE PROBE ONLY (pinned by a test) and implemented for `chatPointer`
+  ★★ `composition` may be on for AT MOST ONE probe — a CAP, pinned by a test that asserts the count
+  is `<= 1`, NOT a claim that one probe has it on. **At HEAD it is OFF for all five**
+  (`PROBE_HARDENING` sets `composition: false` on every row and `compositionProbeId()` returns
+  `null`), switched off on evidence — see the measurement below. It is implemented for `chatPointer`
   alone, whose block is the one that naturally holds a LIST to select from; the CLI REFUSES at
-  pre-flight if it is switched on elsewhere, rather than asking a question with no answer. It is
-  also the only mechanism that changes WHAT the probe measures — it now needs two blocks, so a
+  pre-flight if it is switched on for any other probe, rather than asking a question with no answer.
+  It is also the only mechanism that changes WHAT the probe measures — it needs two blocks, so a
   failure does not say which was missed.
   ★★★ **INSIGHT ORDER IS SEVERITY, NEVER ARRAY POSITION, and getting that wrong buries nothing or
   drops the target outright.** `buildInsightsPromptBlock` SORTS by `INSIGHT_SEVERITY_RANK` and then

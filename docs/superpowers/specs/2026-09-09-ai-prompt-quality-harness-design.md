@@ -170,7 +170,15 @@ verdict is trusted.
 All free. The run **refuses to spend** until every one passes:
 
 - each planted token appears exactly once in the assembled prompt
-- it sits in the structural position that arm expects — arm A in `system`, arm B on the turn tail
+- it sits in the structural position that arm expects — each arm DECLARES its own `expectedHalf`,
+  and the target must occur exactly once in that half and zero times in the other. A missing or
+  unknown half is a FAILURE, never a skip. ★ **As designed, this bullet hardcoded the halves — "arm
+  A in `system`, arm B on the turn tail" — and implementation measured that false for every probe:
+  `buildStableSystemBlocks` contains NONE of the relocatable block builders and `buildTurnContext`
+  contains all of them, so every target rides the TURN half and both arms declare `turn` today.**
+  Consequence, and it is the whole point of the check: relocation is proven ONLY when the two arms
+  declare DIFFERENT halves. Two arms declaring the same half pass these assertions without proving
+  the arms differ — honest for the current A/A self-test, and not a licence for a real candidate.
 - each distractor is present, in its own block
 - the anchor's regenerated hash matches the recorded hash
 - the rolling prompt file's hash matches what the last run recorded writing
@@ -310,8 +318,14 @@ to.
 
 **The risk a toggle carries** is that the un-taken branch ships untested, and two identical arms
 would report a confident "no regression". The pre-flight assertion above is the guard: it already
-requires each planted token to sit in the position its arm expects — arm A in `system`, arm B on
-the turn tail — so a toggle that silently stops toggling refuses the run instead of passing it.
+requires each planted token to sit in the position its arm expects — in the half that arm DECLARES,
+exactly once there and zero times in the other — so a toggle that silently stops toggling refuses
+the run instead of passing it. ★ The declared half replaced this section's original hardcoded "arm A
+in `system`, arm B on the turn tail", which implementation measured false for every probe (see
+"Pre-flight assertions"). It also narrows the guarantee: the assertions catch a toggle that stops
+toggling only when the two arms declare DIFFERENT halves. Same-half arms — the A/A self-test the
+harness ships with — pass without proving the arms differ, so this guard arrives with the first real
+candidate, not before it.
 
 **Only arm B needs a code toggle.** Arms R and N are byte replay, so they impose nothing on
 anyone.
