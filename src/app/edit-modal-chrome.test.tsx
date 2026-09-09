@@ -136,3 +136,21 @@ describe("EditModalShell field-visibility control", () => {
     expect(trigger.closest("header")).not.toBeNull();
   });
 });
+
+describe("EditModalShell help icon", () => {
+  test("forwards helpConceptId to the modal header", () => {
+    renderShell({ title: "Edit risk", helpConceptId: "concept-raid" });
+    // The name carries the SHELL's own title, which is what pins the
+    // forwarding: six of the seven consumers render neither <Modal nor
+    // <ModalHeader directly, so this is their only route to the icon.
+    expect(screen.getByRole("button", { name: "Help – Edit risk" })).toBeInTheDocument();
+  });
+
+  test("renders no help icon when the consumer passes no id", () => {
+    // The falsifier for the assertion above: without it, an icon rendered
+    // unconditionally by ModalHeader would satisfy the positive case and the
+    // pair would prove nothing about the shell forwarding anything.
+    renderShell({ title: "Edit risk" });
+    expect(screen.queryByRole("button", { name: /^Help/ })).toBeNull();
+  });
+});
