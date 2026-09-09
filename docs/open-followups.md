@@ -664,6 +664,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§437](#437-stakeholder-resourceid-was-an-eighth-undisclosed-model-write-the-sweep-could-not-see--closed-2026-09-08) | Stakeholder resourceId was an eighth undisclosed model write the sweep could not see | found 2026-09-08 by a cold review extending the type-minus-axis subtraction past its brief | S — one guard, one seed, plus the ratchet that closes the class | **CLOSED** 2026-09-08 |
 | [§438](#438-every-create-tool-but-create_task-bypassed-its-merge-site-guard--closed-2026-09-08) | Every create tool but create_task bypassed its merge-site guard | found 2026-09-08 by cold review of cd71c77b; pre-existing, not a regression | M — six call sites, plus a pin; the create-path RELATION is §439 | **CLOSED** 2026-09-08 |
 | [§439](#439-the-parity-sweep-has-no-create-path-relation-so-a-create-card-is-compared-against-nothing--open) | The parity sweep has no create-path relation, so a create card is compared against nothing | found 2026-09-08 — the structural reason §438 was invisible | L — needs a relation stated over a row that did not exist before | open |
+| [§447](#447-sanitize-recordsts-sits-at-exactly-the-1600-line-ratchet-limit-with-zero-headroom-and-it-is-not-baselined--open) | `sanitize-records.ts` is at the 1600-line ratchet LIMIT with zero headroom and no baseline entry | found 2026-09-09 by the prose pass on the AI create-path branch, which needed ~30 lines in a file that had 2 | S-M — extract the seven guard tables; do NOT `--update` the baseline or hand-write a row | **OPEN** |
 | [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, invisible to every detector for the class | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
 | [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s `testTimeout`, so it reds under load and the red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
 <!-- INDEX:END -->
@@ -32717,3 +32718,40 @@ number is a scan budget and not a behavioural claim. ★ Do NOT raise the GLOBAL
 already 20s precisely to catch load-starved property suites, and raising it to accommodate one slow scan
 blinds every other test in the repo. ★ Do NOT delete or narrow the scan: it is the only detector for its
 class, which is what §415 and §450 are both about.
+
+## 447. sanitize-records.ts sits at exactly the 1600-line ratchet LIMIT with zero headroom, and it is not baselined — OPEN
+
+**Status:** OPEN. Filed 2026-09-09. Measured, not inferred:
+`node -e "console.log(require('fs').readFileSync('src/app/sanitize-records.ts','utf8').split('\n').length)"`
+prints **1600**, and `node scripts/check-file-sizes.mjs` exits 0 — today. The same command against
+`origin/main` before this branch prints 1568, and `grep -c sanitize-records docs/baselines/file-sizes.json`
+is **0**.
+
+Found 2026-09-09 by the prose-correction pass on the AI create-path branch, which needed ~30 lines of
+corrections in a file that had 2 lines of headroom.
+
+**Why zero headroom is the finding, not the 1600.** `check-file-sizes.mjs` compares a file against its
+baseline entry ONLY when the file is already over the LIMIT. `sanitize-records.ts` has no entry, so it is
+governed by the bare LIMIT alone, and the next line anyone adds to it — a comment, an import, one guard
+row — fails **file-size-ratchet**, which is BLOCKING. The failure will land on whoever next touches the
+file, with no connection to this branch, and the gate's own message recommends the one repair that must
+not be used (below).
+
+**★★★ Do NOT run `npm run size:check -- --update` to clear it.** It writes only files ABOVE the LIMIT, so
+at 1600 it emits `task-manager.tsx` ALONE and DELETES the other three baseline rows. It also discards the
+2026-09-03 doubling. That is a destructive repair the failure message actively suggests.
+
+**★★ Do not hand-write a baseline row either.** A baselined file stops being compared against the LIMIT
+at all, so an entry above 1600 does not buy headroom — it removes the ceiling. Widening a gate to admit
+a change this repo just made is the shape AGENTS.md warns about.
+
+**The repair is a split.** `sanitize-records.ts` carries the seven per-entity `*_FIELD_GUARDS` tables and
+their seven `dropUnaccepted*Fields` helpers alongside the record sanitizers. The guard tables are a
+cohesive unit with one reader each and are the natural extraction; the `absence`/`calendarEvent` allowlist
+pair is a second candidate, since those two differ structurally from the other five. Either follows the
+repo's own many-small-files rule rather than working around a ratchet.
+
+**★ The lines this branch spent were reclaimed honestly and should not be re-spent.** The pass took its
+~30 lines back out of prose it was already editing — a paragraph arguing with an earlier revision of
+itself, a round-trip claim `change-log.ts` owns verbatim, and an argument restated thirty lines from its
+original. No fact was deleted. There is no second round of that available; the file is now dense.
