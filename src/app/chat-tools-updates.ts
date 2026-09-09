@@ -131,6 +131,68 @@ export function patchWithoutId<T>(
   return patch as Partial<T>;
 }
 
+/** THE CREATE-PATH TWIN OF `patchWithoutId` ABOVE — same three deletes, same
+ *  reason, opposite half of the write surface. Read the two together; the
+ *  matching `WithoutId` names exist so that a `grep -n "WithoutId"` returns
+ *  both, because finding one and not the other is how this defect shipped.
+ *
+ *  ★★★ THE ASYMMETRY THIS CLOSES. `patchWithoutId` is on every `update_*` case
+ *  in `chat-tools.ts`; the seven pass-through `create_*` cases had NOTHING, and
+ *  forwarded the model's raw `input` straight into the handler, which spreads it
+ *  into the sanitizer. That is not caught downstream: five of the seven create
+ *  handlers guard with a DENYLIST (`dropUnacceptedRaidFields` and its four
+ *  peers iterate their own refusal table and delete only the fields they name,
+ *  so a field with NO row is untouched — `sanitize-records.ts` states the split
+ *  against the two ALLOWLIST guards, `dropUnacceptedAbsenceFields` and
+ *  `dropUnacceptedCalendarEventFields`). Neither `localModifiedAt` nor
+ *  `outlookEventId` has a row in any of the five, and the sanitizers PRESERVE
+ *  both — so a model-supplied value landed verbatim in the stored row on
+ *  create, for fields no create schema in `chat-tool-defs.ts` offers it. The
+ *  update path was clean only because of the strip above, never because the
+ *  handlers refuse these fields.
+ *
+ *  ★★ TWO OF THE SEVEN CALL SITES ARE DEFENCE IN DEPTH, NOT LOAD-BEARING, AND
+ *  A MUTATION RUN WILL TELL YOU SO — do not read that as licence to delete
+ *  them. Measured: reverting the strip at `create_absence` or at
+ *  `create_calendar_event` leaves `plan.offered-surface-sweep.test.ts` at
+ *  6 failed / 67 passed, i.e. UNCHANGED, because those two handlers guard with
+ *  an ALLOWLIST that already drops both fields; the same revert at the other
+ *  five takes it to 7 failed / 66. The uniform rule — every pass-through
+ *  `create_*` strips — is what is worth keeping: `ai-entity-token.ts` says in
+ *  as many words that the `absence`/`calendarEvent` exclusion rows are
+ *  legitimate ONLY because those two allowlists hold, so this is the backstop
+ *  for the day one of them is widened, and "five of the seven" is a rule nobody
+ *  can keep straight.
+ *
+ *  ★★ `create_task` is deliberately NOT routed through this helper and that is
+ *  not an oversight. Its case reads named fields off `input` one at a time into
+ *  an object literal — an ALLOWLIST, structurally the same guarantee
+ *  `buildPatch` gives `update_task` — so no undeclared key can reach the
+ *  handler and a strip there would be unreachable code that READS as a guard.
+ *  Route a create through here the moment it spreads `input`.
+ *
+ *  ★ `id` goes for the same reason on both sides, stated differently: an update
+ *  takes it as the address rather than a field, and a create MINTS it (every
+ *  handler assigns its own `id` after the spread), so a model-supplied one is
+ *  never the row's id and must not ride along as a stray property.
+ *
+ *  ★ `expectedToken` is stripped here too even though no `create_*` schema
+ *  advertises it — a create has no row to compare against, so the field is
+ *  meaningless rather than refused, and a model that sends it anyway (having
+ *  learnt it from the six update schemas) must not have it spread onto the new
+ *  row. Keeping the three deletes identical is the point: a reader deriving one
+ *  helper from the other cannot get a narrower strip than the code has. */
+export function createInputWithoutId<T>(
+  input: Record<string, unknown>,
+  kind: TokenEntity,
+): T {
+  const create = { ...input };
+  delete create.id;
+  delete create.expectedToken;
+  for (const field of TOKEN_EXCLUDED[kind]) delete create[field];
+  return create as T;
+}
+
 /** The optimistic-concurrency token as the six entity `update_*` schemas
  *  advertise it. Spread into `input_schema.properties` by `chat-tool-defs.ts`.
  *

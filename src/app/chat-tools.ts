@@ -5,6 +5,7 @@ import {
   asPriority,
   asString,
   buildPatch,
+  createInputWithoutId,
   patchWithoutId,
   requireTaskWriteToken,
   requireToken,
@@ -746,8 +747,14 @@ export async function runTool(
         d.isChatSearchEnabled(),
       );
 
+    // ★★ EVERY PASS-THROUGH `create_*` CASE STRIPS ITS INPUT, exactly as every
+    //    `update_*` case below calls `patchWithoutId`. The create handlers
+    //    spread what they are handed, and five of the seven guard with a
+    //    DENYLIST that names neither excluded field — so a bare `input as
+    //    XInput` cast let the model write `localModifiedAt`/`outlookEventId`
+    //    verbatim. See `createInputWithoutId`'s docstring for the split.
     case "create_raid_item":
-      return d.createRaid(input as RaidInput);
+      return d.createRaid(createInputWithoutId<RaidInput>(input, "raid"));
 
     case "update_raid_item": {
       const id = requireId(input);
@@ -768,7 +775,7 @@ export async function runTool(
     }
 
     case "create_change":
-      return d.createChange(input as ChangeInput);
+      return d.createChange(createInputWithoutId<ChangeInput>(input, "change"));
 
     case "update_change": {
       const id = requireId(input);
@@ -787,7 +794,7 @@ export async function runTool(
     }
 
     case "create_milestone":
-      return d.createMilestone(input as MilestoneInput);
+      return d.createMilestone(createInputWithoutId<MilestoneInput>(input, "milestone"));
 
     case "update_milestone": {
       const id = requireId(input);
@@ -806,7 +813,7 @@ export async function runTool(
     }
 
     case "create_resource":
-      return d.createResource(input as ResourceInput);
+      return d.createResource(createInputWithoutId<ResourceInput>(input, "resource"));
 
     case "get_resource": {
       const id = requireId(input);
@@ -833,7 +840,7 @@ export async function runTool(
     }
 
     case "create_stakeholder":
-      return d.createStakeholder(input as StakeholderInput);
+      return d.createStakeholder(createInputWithoutId<StakeholderInput>(input, "stakeholder"));
 
     case "update_stakeholder": {
       const id = requireId(input);
@@ -863,7 +870,7 @@ export async function runTool(
       return withRowTokens("absence", d.listAbsences(), (id) => d.getAbsenceRow(id));
 
     case "create_absence":
-      return d.createAbsence(input as AbsenceInput);
+      return d.createAbsence(createInputWithoutId<AbsenceInput>(input, "absence"));
 
     case "update_absence": {
       const id = requireId(input);
@@ -882,7 +889,7 @@ export async function runTool(
     }
 
     case "create_calendar_event":
-      return d.createCalendarEvent(input as CalendarEventInput);
+      return d.createCalendarEvent(createInputWithoutId<CalendarEventInput>(input, "calendarEvent"));
 
     case "update_calendar_event": {
       const id = requireId(input);

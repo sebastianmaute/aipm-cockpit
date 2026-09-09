@@ -93,7 +93,28 @@ export type TokenEntity =
  *    outlookEventId   calendar write-back bookkeeping
  *    inquiriesSent    a counter bumped by sending a status inquiry
  *    noteLog          a dated append; adding a note does not invalidate an
- *                     edit to other fields */
+ *                     edit to other fields
+ *
+ *  ★★★ THREE CONSUMERS ASK THREE DIFFERENT QUESTIONS OF THIS ONE LIST, AND THEY
+ *  AGREE ON MEMBERSHIP ONLY BY COINCIDENCE OF TODAY'S FACTS:
+ *    (1) `entityToken` below — "whose CHANGE must not invalidate a token?"
+ *        The list is the token's blind spot, justified by the carve-out above:
+ *        the app computes these values, so a concurrent bump is not a conflict.
+ *    (2) `patchWithoutId` (`chat-tools-updates.ts`) — "what may a model not
+ *        WRITE on an update?" It reads (1) as an obligation: a field the token
+ *        cannot see must not be model-writable, or the blindness becomes a
+ *        false PERMIT.
+ *    (3) `createInputWithoutId` (same file) — "what must a CREATE drop?" Same
+ *        obligation, opposite half of the write surface; it exists because the
+ *        five denylist create guards refuse neither field.
+ *  ★★ SO A NEW ROW IS THREE DECISIONS, NOT ONE. Adding a field here to spare a
+ *  token a spurious bump ALSO makes it unwritable by the model on both paths —
+ *  which is right for bookkeeping the app owns and WRONG for anything a schema
+ *  advertises. Check each question separately before editing a row; this repo
+ *  has been bitten by one shape rule applied at two consumers that owed
+ *  different things. If the answers ever diverge, SPLIT the list rather than
+ *  widening it — a consumer reading the wrong question off a shared constant
+ *  fails silently at whichever end was not considered. */
 export const TOKEN_EXCLUDED: Readonly<Record<TokenEntity, readonly string[]>> = {
   task: ["localModifiedAt", "lastSyncedAt", "outlookEventId", "inquiriesSent", "noteLog"],
   raid: ["localModifiedAt", "outlookEventId", "inquiriesSent", "noteLog"],
