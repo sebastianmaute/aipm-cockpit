@@ -235,19 +235,28 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *  change here by reading the entry, not by running tsc.
  *
  *  ★ `help-content.test.ts` pins that every value resolves AND that the map
- *  still has 20 rows — the count is the anti-vacuity floor, so update it
- *  deliberately when adding a modal, never to make a red run green. */
+ *  still has 19 rows — the count is the anti-vacuity floor, so update it
+ *  deliberately when adding a modal, never to make a red run green.
+ *
+ *  ★★ A modal with NO apt entry gets NO ROW, and that is the deliberate
+ *  answer rather than the nearest-neighbour one. `taskTimeTracking` (the
+ *  Jira-style estimate / spent / remaining dialog) pointed at
+ *  `feature-timelog`, which describes the external Timelog INTEGRATION —
+ *  a different subject that implies those figures sync somewhere they do
+ *  not. No entry mentions estimates at all (reproduce: search every body
+ *  for "estimate" / "time spent" / "remaining" — zero hits), so the row was
+ *  REMOVED. Do NOT reinstate it by picking the closest-sounding id; write a
+ *  task-effort entry first. */
 export const MODAL_HELP = {
   raidEdit: "concept-raid",
   changeEdit: "concept-change",
   milestoneEdit: "concept-milestone",
   stakeholderEdit: "concept-stakeholder",
-  resourceEdit: "concept-resource",
+  resourceEdit: "feature-resources",
   absenceEdit: "feature-resources",
   calendarEvent: "feature-resources",
-  taskForm: "feature-tasks",
+  taskForm: "feature-add",
   taskLinkedTask: "concept-dependency",
-  taskTimeTracking: "feature-timelog",
   budgetBucket: "concept-budget",
   documentsHistory: "feature-document-history",
   documentsRename: "feature-documents",

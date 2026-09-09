@@ -7,7 +7,6 @@ import { EffortField } from "./effort-field";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
-import { MODAL_HELP } from "./help-content";
 import { ProgressTrack } from "./progress-track";
 
 /** Qualify a control name that this dialog shares with the task form beneath it
@@ -152,7 +151,12 @@ export function TaskTimeTrackingModal({
         <ModalHeader
           lang={lang}
           title={t(lang, "taskTimeTracking")}
-          helpConceptId={MODAL_HELP.taskTimeTracking}
+          // ★ NO `helpConceptId` ON PURPOSE — the header renders no help icon
+          // without one, which is the designed absence, not an oversight. This
+          // dialog's subject (a task's own estimate / spent / remaining) has no
+          // Help entry; the row it used to carry pointed at the external
+          // Timelog integration, a different subject. See the ★★ note on
+          // `MODAL_HELP` in `help-content.ts` before adding one back.
           onClose={onClose}
           // WCAG 2.4.6 / speech input. This dialog opens ON TOP of the task
           // form, which renders a Close and a Cancel of its own — and every

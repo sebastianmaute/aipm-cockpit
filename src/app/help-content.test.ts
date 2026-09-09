@@ -84,7 +84,7 @@ describe("MODAL_HELP", () => {
     // trivially. This floor is the positive observable -- it fails if the map
     // is emptied, and it is the reason a "0 unresolvable" result means
     // anything at all.
-    expect(entries.length).toBe(20);
+    expect(entries.length).toBe(19);
 
     const unresolvable = entries.filter(([, id]) => !known.has(id));
     expect(unresolvable).toEqual([]);
@@ -124,7 +124,7 @@ describe("MODAL_HELP", () => {
     // directory or a filter that matches nothing yields an EMPTY scan, and an
     // empty scan satisfies... nothing here, because `used` would then be empty
     // and the key-set comparison below fails loudly. But it fails NAMING every
-    // MODAL_HELP key as missing, which reads like 20 unwired modals rather
+    // MODAL_HELP key as missing, which reads like 19 unwired modals rather
     // than a broken scan -- a diagnosis that sends the next reader to the
     // wrong 20 files. This floor makes the scan itself the thing that fails.
     // 366 non-test .tsx files today (find src/app -name "*.tsx" ! -name
