@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL, helpGroupOrder, MODAL_HELP } from "./help-content";
 import { allNavViews } from "./nav-config";
 
@@ -91,6 +93,50 @@ describe("MODAL_HELP", () => {
   it("resolves each declared id to exactly one entry", () => {
     for (const id of Object.values(MODAL_HELP)) {
       expect(HELP_ENTRIES.filter((e) => e.id === id)).toHaveLength(1);
+    }
+  });
+
+  it("wires every MODAL_HELP key to exactly one call site", () => {
+    // ★★ The two tests above pin the MAP -- that each key names a real entry.
+    // NOTHING pinned the WIRING. A modal that silently loses its
+    // `helpConceptId`, or a MODAL_HELP key no call site references, is
+    // invisible to tsc (the map still typechecks), to eslint (nothing is
+    // unused -- the object is exported) and to axe (a missing help icon is
+    // not a violation, just an absence). Until this test the only detector
+    // was a grep nobody runs.
+    //
+    // ★ Recursive, mirroring `label-binding.guard.test.ts`: `src/app` is flat
+    // by convention but not in fact, and a scan that skipped a subdir would be
+    // a silent hole rather than a failure.
+    const files = readdirSync(__dirname, { recursive: true, encoding: "utf8" }).filter(
+      (f) => f.endsWith(".tsx") && !f.endsWith(".test.tsx"),
+    );
+
+    const used = new Map<string, string[]>();
+    for (const f of files) {
+      const src = readFileSync(join(__dirname, f), "utf8");
+      for (const m of src.matchAll(/helpConceptId=\{MODAL_HELP\.([A-Za-z0-9_]+)\}/g)) {
+        used.set(m[1], [...(used.get(m[1]) ?? []), f]);
+      }
+    }
+
+    // ★★★ ANTI-VACUITY, and it is load-bearing rather than decorative: a wrong
+    // directory or a filter that matches nothing yields an EMPTY scan, and an
+    // empty scan satisfies... nothing here, because `used` would then be empty
+    // and the key-set comparison below fails loudly. But it fails NAMING every
+    // MODAL_HELP key as missing, which reads like 20 unwired modals rather
+    // than a broken scan -- a diagnosis that sends the next reader to the
+    // wrong 20 files. This floor makes the scan itself the thing that fails.
+    // 366 non-test .tsx files today (find src/app -name "*.tsx" ! -name
+    // "*.test.tsx" | wc -l); 200 is far below that and far above zero.
+    expect(files.length).toBeGreaterThan(200);
+
+    expect([...used.keys()].sort()).toEqual(Object.keys(MODAL_HELP).sort());
+
+    // ★ One site per key. Two modals sharing a key is not necessarily wrong,
+    // but it is never accidental -- make it a deliberate edit here.
+    for (const [key, hits] of used) {
+      expect(hits, `MODAL_HELP.${key}`).toHaveLength(1);
     }
   });
 });
