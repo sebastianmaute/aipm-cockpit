@@ -668,6 +668,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, invisible to every detector for the class | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
 | [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s `testTimeout`, so it reds under load and the red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
 | [§452](#452-the-c1-chat-history-budget-is-deliberately-not-built-a-trim-saves-tokens-at-01x-and-pays-a-125x-rewrite-so-payback-needs-tens-of-further-turns--open) | The C1 chat-history budget is deliberately not built: a trim saves tokens at 0.1x and pays a 1.25x rewrite, so payback needs tens of further turns | decided 2026-09-09 while moving the caps onto a cost basis — the economics inverted when the guide-block cache split landed | N/A — a decision NOT to build; revisit only if the bursty-use case below becomes the common one | **OPEN** |
+| [§454](#454-asking-all-five-probes-in-one-reply-would-buy-5x-the-resolution-at-a-third-of-the-cost-but-partial-credit-is-a-new-outcome-shape-through-scoreresponse-hitrate-and-verdict--open) | Asking all five probes in ONE reply would buy 5x the resolution at a third of the cost, but partial credit is a new outcome shape end to end | proposed 2026-09-09 during the six-run calibration of the AI prompt-quality harness — every lever that made retrieval harder measured as SPENT | M — a new outcome shape through `scoreResponse`, `hitRate` and `verdict` plus a restarted series; add it as the MEASUREMENT beside the single-probe gate, never as a replacement | **OPEN** |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -32822,3 +32823,72 @@ send and is worse than not caching at all.
 **What would reopen this.** A measured cache-write volume against measured view-switch and
 thread-resume frequency — the usage meter can now supply both halves, since it stores raw counts and
 prices them at read. Until someone runs that, this entry is arithmetic, not evidence.
+
+## 454. Asking all five probes in ONE reply would buy 5x the resolution at a third of the cost, but partial credit is a new outcome shape through `scoreResponse`, `hitRate` and `verdict` — OPEN
+
+**Status:** 2026-09-09 — never machine-verified, and the split is the point. MEASURED today over six
+live runs, all recorded in `docs/baselines/ai-eval-runs.json`: the calibrated baseline (every probe at
+1.0 on both gating arms, negative control 0, seeded anchor 1.0, rolling replay 1.0, zero tool
+reaches), the 65-request / 704,767-weighted-token cost of a full run, and the two difficulty levers
+that measured as SPENT. NOT measured, at all: every claim below about how the AGGREGATE form would
+behave. That prompt has never been sent to any model, by anyone. The resolution arithmetic is
+arithmetic and needs no run; the aggregate form's reliability is a guess and this entry does not
+pretend otherwise.
+
+**The proposal.** One request per rep instead of five, asking for all five planted codes at once:
+
+> "Several labelled reference codes appear in your context. Reply with the calendar code, the view
+> code, the finding code, the activity code and the transcript code, one per line, in that order,
+> each exactly as written and nothing else."
+
+**Why it is worth recording**, in the order the argument actually carries weight.
+
+1. **It creates resolution ARITHMETICALLY rather than by making the task harder.** Every attempt to
+   make retrieval harder failed against `claude-sonnet-5`, and each attempt risked reintroducing the
+   ambiguity the labels were calibrated to remove. This lever does not touch difficulty at all: each
+   code stays an unambiguous one-hop lookup against a distinct label. What changes is the UNIT OF
+   OBSERVATION — one binary per request becomes five, so 5 reps yields 25 observations per arm
+   instead of 5, and per-probe resolution goes from 0.2 to 0.04 with no change in model behaviour
+   required. Nothing else on the table buys resolution without also buying risk.
+2. **It costs LESS, not more.** One request per rep instead of five takes a full run from 65 requests
+   to roughly 25 — 5 each for A, B, X, the seeded anchor and the rolling replay — which pro-rata is
+   about $0.80 against the measured $2.11. That inverts the economics of iterating on the harness
+   itself: today a calibration round is the expensive part of touching it.
+3. **It degrades in the shape a relocation regression actually has.** If a layout change makes one
+   block unreadable, that code goes missing from the list while the other four remain — visible as
+   4/5, rather than as a probe that either passed or vanished.
+4. **It cannot reintroduce ambiguity,** because it reuses the block labels that already measured
+   clean rather than inventing a new question.
+
+**The caveats, at full strength.** `scoreResponse`, `hitRate` and `verdict` are binary end to end.
+Partial credit is a NEW OUTCOME SHAPE threaded through all three, plus every recorded run's schema —
+this is its own slice, not a tweak, and costing it as a prompt change is how it would get built badly.
+Worse, it measures a DIFFERENT THING: five-in-one-reply reliability, not five independent single
+answers. A model could plausibly be better at the aggregate form (one pass, five lookups, no
+per-request framing cost) or worse (four correct codes and one confabulated to complete the list),
+and nothing here can say which. The two are therefore NOT interchangeable, and the recorded series
+would restart from a new baseline — six runs of history do not carry over. **If it is built, keep
+the single-probe form as the GATE and add this as the MEASUREMENT.** Replacing the gate spends the
+only calibrated thing the harness has.
+
+**The evidence that motivated it,** all measured today and all in `docs/baselines/ai-eval-runs.json`.
+Two difficulty levers measured as spent against `claude-sonnet-5`: near-miss competitor codes ("the
+current view code" beside "the previous view code") and burying the target several lines deep both
+left the hit rate at 1.0. A composition probe requiring two blocks DID produce a gradient — but by
+making the model distrust its context and reach for a TOOL, not by making a block harder to read, so
+it was confounded as a reachability probe and reverted. That is what leaves arithmetic as the only
+untried lever.
+
+**The power arithmetic this generalises.** At 5 reps the per-probe resolution is 0.2, so a per-probe
+drop of that size is about one standard error and indistinguishable from noise. Gating a per-probe
+0.2 drop at conventional power needs roughly 60 reps per arm per probe — about 600 requests and ~$20
+a run. POOLING across the five probes reaches the same power at roughly 13-15 reps, about 160
+requests and ~$5. This proposal is the cheap generalisation of that pooling: it pools without paying
+for the extra reps at all.
+
+**Saturation at 1.0 is NOT the defect being fixed here,** and reading it as one is the mistake this
+paragraph exists to prevent. The harness's question is whether a change STOPPED the model reading a
+block, and for that a baseline pinned at 1.0 is the BEST possible baseline, because every drop is
+signal and there is no floor to subtract. This entry is about resolution for a DIFFERENT question —
+how big a drop can be detected, not whether a drop exists — so nothing above should be read as a
+repair of the current arrangement.
