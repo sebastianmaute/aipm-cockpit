@@ -31,7 +31,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";
 import { JUNK_KEY, KNOWLEDGE_LINKS, snapshot, type WsKey } from "../../test/inline-sweep-fixtures";
 import { TOKEN_EXCLUDED, type TokenEntity } from "../ai-entity-token";
+import { TOOL_DEFS } from "../chat-tool-defs";
 import { runTool } from "../chat-tools";
+import { createInputWithoutId, patchWithoutId } from "../chat-tools-updates";
 import { resetMintState } from "../id-mint-session";
 import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
@@ -286,6 +288,45 @@ describe("every pass-through create tool strips its entity's TOKEN_EXCLUDED fiel
     expect(EXCLUDED_CASES.length).toBeGreaterThan(CASES.length);
   });
 
+  /** ★★★ THE MIRROR OF `ai-entity-token.test.ts`'s "names every update tool that
+   *  exists, so a new one cannot slip past", and the create side had no such
+   *  case — which is precisely why an EIGHTH pass-through create that skipped
+   *  `createInputWithoutId` would have been silent. Every case above is driven
+   *  off `CASES`, so `CASES` is the vacuity surface: delete a row and that
+   *  entity stops being probed, add a create tool and nothing notices. This
+   *  closes both directions at once by comparing against what the tool
+   *  DEFINITIONS declare.
+   *
+   *  ★★ IT ENUMERATES, IT DOES NOT FILTER, and the difference is the whole
+   *  point. A predicate that quietly skipped anything unrecognised would let a
+   *  new create tool through by default; an EQUALITY against
+   *  (participants ∪ named non-participants) makes a new tool RED until someone
+   *  decides which side it belongs on. That decision is the deliverable, not the
+   *  green run.
+   *
+   *  ★★ `TOOL_DEFS` SPREADS `DOCUMENT_TOOL_DEFS` FROM A SECOND FILE
+   *  (`chat-tool-defs-documents.ts`), so a grep over `chat-tool-defs.ts` alone
+   *  under-counts — which is how `update_document` was missed when the update
+   *  twin was specified. Reading the composed array is what makes
+   *  `create_document` visible here at all. */
+  const NOT_PASS_THROUGH_CREATES = [
+    // Reads twelve NAMED fields off `input` into an object literal — an
+    // allowlist, structurally the same guarantee `buildPatch` gives
+    // `update_task` — so no undeclared key can reach the handler and a strip
+    // would be unreachable code that READS as a guard.
+    "create_task",
+    // `d.createDocument(title, input.blocks)` — two explicit args, no spread,
+    // so there is no `input` object for a strip to act on. A document is also a
+    // meta-blob with no CSV projection, hence no `TokenEntity` row to look up.
+    "create_document",
+  ];
+
+  it("names every create tool that exists, so a new one cannot slip past", () => {
+    const defined = TOOL_DEFS.map((d) => d.name).filter((n) => n.startsWith("create_"));
+    const covered = CASES.map((c) => c.tool).concat(NOT_PASS_THROUGH_CREATES).sort();
+    expect(defined.slice().sort()).toEqual(covered);
+  });
+
   it.each(EXCLUDED_CASES)("$tool refuses a model-supplied $field", async (c) => {
     const row = await createWith(c);
 
@@ -304,6 +345,70 @@ describe("every pass-through create tool strips its entity's TOKEN_EXCLUDED fiel
   });
 });
 
+// ────────────────────────────────────────────────────────────────────────────
+// The two strip helpers, pinned to ONE key set.
+//
+// ★★★ `createInputWithoutId` IS A LINE-FOR-LINE DUPLICATE OF `patchWithoutId`
+// — same three deletes, differing only in return type (`T` vs `Partial<T>`) —
+// and its docstring states the goal in as many words: a reader deriving one
+// helper from the other "cannot get a narrower strip than the code has". THAT
+// WAS PROSE ONLY. Either function could gain or lose a `delete` with the other
+// none the wiser, and the create half is the one with no independent alarm, so
+// a silent narrowing there is the expensive direction.
+//
+// ★★ A TEST RATHER THAN AN EXTRACTION, deliberately. Folding seven duplicated
+// lines into a shared private helper was the obvious alternative and was NOT
+// taken: the two are deliberately separate READING SURFACES carrying different
+// docstrings (one explains an address, the other a mint), and collapsing them
+// would delete the explanation that makes each call site legible. A test pins
+// the invariant without paying that. If they are ever merged, this block is
+// what proves the merge lost nothing.
+
+describe("the update and create strip helpers agree on exactly one key set", () => {
+  /** A field NO `TOKEN_EXCLUDED` row names, so it must SURVIVE both helpers.
+   *  ★★★ THIS IS THE ANTI-VACUITY HALF AND WITHOUT IT THE BLOCK IS A
+   *  TAUTOLOGY: two helpers that stripped their input down to `{}` would agree
+   *  perfectly on the empty key set and pass every equality below. The survivor
+   *  is what makes "identical" mean "identically CORRECT" rather than merely
+   *  "identically destructive". */
+  const SURVIVOR = "zzFieldNoExclusionRowNames";
+
+  const KINDS = Object.keys(TOKEN_EXCLUDED) as TokenEntity[];
+
+  it.each(KINDS)("%s — both helpers strip id, expectedToken and every excluded field, and keep the rest", (kind) => {
+    const input: Record<string, unknown> = {
+      id: 42,
+      expectedToken: "a-stale-token",
+      [SURVIVOR]: "must survive",
+    };
+    for (const field of TOKEN_EXCLUDED[kind]) input[field] = EXCLUDED_PROBES[field] ?? "probe";
+
+    // Sanity on the fixture itself: an input that never carried the excluded
+    // fields would let a helper deleting NOTHING pass.
+    expect(Object.keys(input).sort()).toEqual(
+      ["id", "expectedToken", SURVIVOR].concat([...TOKEN_EXCLUDED[kind]]).sort(),
+    );
+
+    const patched = Object.keys(patchWithoutId(input, kind)).sort();
+    const created = Object.keys(createInputWithoutId(input, kind)).sort();
+
+    // The named invariant, asserted directly so a divergence names itself…
+    expect(patched, `patchWithoutId and createInputWithoutId disagree on ${kind}`).toEqual(created);
+    // …and the absolute key set, which is strictly stronger: it also catches
+    // the case where BOTH helpers are wrong in the SAME way, which mutual
+    // equality is structurally blind to.
+    expect(created).toEqual([SURVIVOR]);
+  });
+
+  /** ★★ The `it.each` above is driven off `Object.keys(TOKEN_EXCLUDED)`, so it
+   *  cannot under-run — but it also cannot notice if that table were emptied.
+   *  `0 mismatch` is worthless without `N match`. */
+  it("runs against every TokenEntity, and every one of them excludes something", () => {
+    expect(KINDS.length).toBeGreaterThan(0);
+    expect(KINDS.filter((k) => TOKEN_EXCLUDED[k].length === 0)).toEqual([]);
+  });
+});
+
 // ★★ MUTATION RECORD — 2026-09-09, at the CALL SITE in `chat-tools.ts`, one
 // wrapping at a time reverted to the bare `input as TInput` this helper
 // replaced. Each mutant was verified to have LANDED before its run, and the
@@ -317,6 +422,21 @@ describe("every pass-through create tool strips its entity's TOKEN_EXCLUDED fiel
 // guard. `create_raid_item refuses a model-supplied inquiriesSent` went on
 // PASSING — vacuously, on `expect(undefined).toBeUndefined()` — which is
 // precisely the hole the guard is the only detector for.
+//
+// ★★ TWO MORE, once the enumeration and the helper-parity block landed. The
+// file's runtime test count is now 40, and both tallies sum to 40:
+//   • A NINTH create tool (`create_zzprobe`, added to `DOCUMENT_TOOL_DEFS` so
+//     the mutant also proves the composed `TOOL_DEFS` is what is being read)
+//     → 1 failed / 39 passed, the failure being the enumeration ALONE. That is
+//     the measurement behind this block's premise: no other test in this file,
+//     and none in `ai-entity-token.test.ts`, notices a new create tool.
+//   • Narrowing the strip — `delete create.expectedToken` removed from
+//     `createInputWithoutId`, so it no longer matches `patchWithoutId`
+//     → 8 failed / 32 passed, one per `TokenEntity`, ALL of them in the
+//     helper-parity block. Every one of the 15 stored-row cases above went on
+//     passing, because `expectedToken` never reaches a stored row — so the
+//     parity block is the only detector for a divergence between the twins,
+//     which is exactly the gap its opening ★★★ describes.
 // Only rows in THIS block moved; the fourteen in the block above stayed green
 // under all three, which is the measurement behind its opening ★★★.
 // ★★★ THREE MUTANTS AT THREE DIFFERENT SHAPES, NOT ONE — raid excludes four
