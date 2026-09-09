@@ -435,6 +435,122 @@ export function preflight(input) {
   return { ok: failures.length === 0, failures };
 }
 
+/** Every arm a run can dispatch. A, B and X are per-probe and gate; N (the
+ *  seeded anchor) and R (the rolling replay) are probe-independent drift arms
+ *  and only ever inform. */
+export const ARM_IDS = Object.freeze(["A", "B", "X", "N", "R"]);
+
+/** The three environment variables that narrow a run, and the only three. */
+export const FILTER_ENV = Object.freeze({
+  probes: "AI_EVAL_PROBES",
+  reps: "AI_EVAL_REPS",
+  arms: "AI_EVAL_ARMS",
+});
+
+/** An upper bound on `AI_EVAL_REPS`. Not a narrowing limit — a typo'd `500`
+ *  would otherwise quietly plan a run costing two orders of magnitude more than
+ *  the standard one, and the operator finds out from the bill. */
+const MAX_FILTER_REPS = 50;
+
+/** Render a filter as the one-line string that travels into both the artifact
+ *  and the verdict's reason, so the record and the refusal can never describe
+ *  different narrowings. */
+export function filterSpec(filter) {
+  if (filter == null) return "none";
+  if (typeof filter.spec === "string" && filter.spec.length > 0) return filter.spec;
+  const parts = [];
+  if (filter.probes) parts.push(`probes=${filter.probes.join(",")}`);
+  if (filter.reps != null) parts.push(`reps=${filter.reps}`);
+  if (filter.arms) parts.push(`arms=${filter.arms.join(",")}`);
+  return parts.length > 0 ? parts.join(" ") : "none";
+}
+
+/** Read the diagnostic filter out of the environment.
+ *
+ *  ★★ A filter exists so one broken probe can be re-run for cents instead of
+ *  the standard run's sixty requests. That affordability is the whole point,
+ *  and it is also the danger: a narrowed run that reported a normal verdict
+ *  would be a confident green over a measurement of almost nothing. `verdict`
+ *  and `shouldWriteRolling` both refuse outright on a non-null filter, which is
+ *  why this returns a DESCRIPTION rather than a set of booleans — the thing
+ *  that narrowed the run travels with the run, into the artifact, forever.
+ *
+ *  ★★ NO VARIABLE SET AT ALL RETURNS `null`, NOT AN "EVERYTHING" FILTER. Those
+ *  two are not the same: `null` is the standard run and is the only shape that
+ *  can pass. A filter naming every probe, every arm and the default rep count
+ *  is still a filter and still cannot pass — deliberately, because proving it
+ *  equivalent to the standard run means re-deriving the plan, and a check that
+ *  has to re-derive the thing it guards is a check that will drift away from it.
+ *
+ *  ★ An empty or whitespace-only value is treated as UNSET, so `AI_EVAL_ARMS=`
+ *  clears rather than selects nothing — selecting nothing is a run that
+ *  dispatches nothing and reports a verdict over it, the exact vacuity this
+ *  harness exists to refuse.
+ *
+ *  Returns `{ok: true, filter}` or `{ok: false, errors}`; a bad value is a
+ *  refusal, never a silently ignored one. */
+export function parseFilter(env) {
+  const rawProbes = trimmedOrNull(env[FILTER_ENV.probes]);
+  const rawReps = trimmedOrNull(env[FILTER_ENV.reps]);
+  const rawArms = trimmedOrNull(env[FILTER_ENV.arms]);
+  if (rawProbes === null && rawReps === null && rawArms === null) {
+    return { ok: true, filter: null };
+  }
+
+  const errors = [];
+  const knownProbes = PROBES.map((p) => p.id);
+  let probes = null;
+  if (rawProbes !== null) {
+    probes = uniq(rawProbes.split(",").map((s) => s.trim()).filter((s) => s.length > 0));
+    const unknown = probes.filter((id) => !knownProbes.includes(id));
+    if (unknown.length > 0) {
+      errors.push(
+        `${FILTER_ENV.probes}: unknown probe id(s) ${unknown.join(", ")} — known ids are ${knownProbes.join(", ")}`,
+      );
+    }
+    if (probes.length === 0) errors.push(`${FILTER_ENV.probes}: named no probes`);
+  }
+
+  let reps = null;
+  if (rawReps !== null) {
+    if (!/^\d+$/.test(rawReps)) {
+      errors.push(`${FILTER_ENV.reps}: must be a whole number, got ${JSON.stringify(rawReps)}`);
+    } else {
+      reps = Number(rawReps);
+      if (reps < 1 || reps > MAX_FILTER_REPS) {
+        errors.push(`${FILTER_ENV.reps}: must be between 1 and ${MAX_FILTER_REPS}, got ${reps}`);
+      }
+    }
+  }
+
+  let arms = null;
+  if (rawArms !== null) {
+    arms = uniq(rawArms.split(",").map((s) => s.trim().toUpperCase()).filter((s) => s.length > 0));
+    const unknown = arms.filter((a) => !ARM_IDS.includes(a));
+    if (unknown.length > 0) {
+      errors.push(
+        `${FILTER_ENV.arms}: unknown arm(s) ${unknown.join(", ")} — known arms are ${ARM_IDS.join(", ")}`,
+      );
+    }
+    if (arms.length === 0) errors.push(`${FILTER_ENV.arms}: named no arms`);
+  }
+
+  if (errors.length > 0) return { ok: false, errors };
+  const filter = { probes, reps, arms, spec: "" };
+  filter.spec = filterSpec({ probes, reps, arms });
+  return { ok: true, filter };
+}
+
+function trimmedOrNull(value) {
+  if (typeof value !== "string") return null;
+  const t = value.trim();
+  return t.length === 0 ? null : t;
+}
+
+function uniq(list) {
+  return [...new Set(list)];
+}
+
 /** Turn a completed run into an exit code plus its reasons.
  *
  *  ★★★ WHAT THIS CAN AND CANNOT DECIDE, stated rather than implied. The hard
@@ -450,12 +566,29 @@ export function preflight(input) {
  *  bad. Collapsing any of them into REGRESSION blames a slice for a broken
  *  instrument. */
 export function verdict(run) {
+  // ★★★ A FILTERED RUN CAN NEVER REPORT PASS, AND `filter` IS REQUIRED RATHER
+  //     THAN DEFAULTED FOR EXACTLY THAT REASON. A defaulted field makes
+  //     omission mean "unfiltered", so the one line a caller forgets is the
+  //     line that turns a one-probe one-rep diagnostic into a green light for
+  //     the whole harness. Absent throws; `null` is the standard run; anything
+  //     else is a narrowing and is refused BEFORE a single score is read — the
+  //     refusal must not depend on the scores happening to be good.
+  if (!("filter" in run) || (run.filter !== null && typeof run.filter !== "object")) {
+    throw new Error(
+      "verdict: `filter` is required and must be null (a standard run) or a filter object — an omitted filter would let a narrowed run report PASS",
+    );
+  }
+
   const reasons = [];
   const notes = [];
 
-  if (!run.complete) {
-    return { code: EXIT.UNUSABLE, reasons: ["run did not complete"], notes };
+  if (run.filter !== null) {
+    reasons.push(
+      `run was FILTERED (${filterSpec(run.filter)}) — it measured a subset of the probes, reps or arms the verdict is defined over, so it can diagnose but never pass`,
+    );
   }
+  if (!run.complete) reasons.push("run did not complete");
+  if (reasons.length > 0) return { code: EXIT.UNUSABLE, reasons, notes };
 
   if (!Array.isArray(run.perProbe) || run.perProbe.length === 0) {
     return {
@@ -527,7 +660,67 @@ export function spendDecision({ env, hasKey }) {
   return { mode: "live", code: EXIT.PASS };
 }
 
-/** The rolling drift reference is written by complete live runs and nothing else. */
-export function shouldWriteRolling({ mode, complete }) {
-  return mode === "live" && complete === true;
+/** The rolling drift reference is written by complete, UNFILTERED live runs and
+ *  nothing else.
+ *
+ *  ★★★ `filtered` IS REQUIRED, for the same reason `verdict`'s `filter` is: a
+ *  defaulted boolean makes omission mean "not filtered", and the file a
+ *  forgotten argument would overwrite is the one every later run measures drift
+ *  against. A filtered run's arm A is not arm A's full bytes — a narrowed rep
+ *  count still writes the same prompt, but a narrowed PROBE set writes a prompt
+ *  built for a different question — so a replay of it attributes to drift
+ *  whatever the narrowing changed, silently and forever. */
+export function shouldWriteRolling({ mode, complete, filtered }) {
+  if (typeof filtered !== "boolean") {
+    throw new Error(
+      "shouldWriteRolling: `filtered` is required — an omitted flag would let a narrowed run overwrite the drift reference every later run is measured against",
+    );
+  }
+  return mode === "live" && complete === true && filtered === false;
+}
+
+/** Assemble the artifact record for one run.
+ *
+ *  ★★★ PURE, AND IT CALLS `verdict` ITSELF. That is the structural half of the
+ *  filter guard: the record's `filter` field and the verdict's `filter`
+ *  argument are the SAME value from ONE parameter, so a caller cannot record a
+ *  narrowing while reporting an unnarrowed verdict, or the reverse. Two call
+ *  sites taking the flag separately is precisely how a guard ends up
+ *  half-applied — the record says "filtered", the exit code says PASS, and a
+ *  reader believes the exit code.
+ *
+ *  ★ `date` is a parameter because the lib is clock-free; the CLI owns the
+ *  clock, as it owns every other I/O. */
+export function buildRunRecord(input) {
+  if (!("filter" in input) || (input.filter !== null && typeof input.filter !== "object")) {
+    throw new Error(
+      "buildRunRecord: `filter` is required and must be null (a standard run) or a filter object",
+    );
+  }
+  const v = verdict({
+    complete: input.complete,
+    perProbe: input.perProbe,
+    filter: input.filter,
+  });
+  return {
+    date: input.date,
+    model: input.model,
+    gitSha: input.gitSha,
+    anchorHash: input.anchorHash,
+    rollingHash: input.rollingHash,
+    anchorSpec: input.anchorSpec,
+    reps: input.reps,
+    salt: input.salt,
+    // Sits high in the record on purpose: a reader must not have to scroll past
+    // five probe rows to discover that only one of them was run.
+    filter: input.filter,
+    sizes: input.sizes,
+    usage: input.usage,
+    perProbe: input.perProbe,
+    graded: input.graded,
+    drift: input.drift,
+    samples: input.samples,
+    complete: input.complete,
+    verdict: v,
+  };
 }

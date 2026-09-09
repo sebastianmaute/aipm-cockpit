@@ -535,6 +535,9 @@ import { verdict, EXIT as E } from "./ai-eval-lib.mjs";
 
 const run = (over = {}) => ({
   complete: true,
+  // `filter` is REQUIRED by verdict, not defaulted — see its guard. `null` is
+  // the standard, unnarrowed run; every override below inherits it.
+  filter: null,
   perProbe: [
     { id: "date", A: 1.0, B: 1.0, X: 0 },
     { id: "viewScope", A: 0.6, B: 0.6, X: 0 },
@@ -690,16 +693,169 @@ describe("spendDecision", () => {
 
 describe("shouldWriteRolling", () => {
   it("writes after a complete live run", () => {
-    expect(shouldWriteRolling({ mode: "live", complete: true })).toBe(true);
+    expect(shouldWriteRolling({ mode: "live", complete: true, filtered: false })).toBe(true);
   });
 
   it("never writes after an incomplete run", () => {
     // Overwriting from a run nobody scored poisons the drift reference
     // invisibly: the NEXT run compares against garbage and reports no drift.
-    expect(shouldWriteRolling({ mode: "live", complete: false })).toBe(false);
+    expect(shouldWriteRolling({ mode: "live", complete: false, filtered: false })).toBe(false);
   });
 
   it("never writes from a dry run", () => {
-    expect(shouldWriteRolling({ mode: "dry", complete: true })).toBe(false);
+    expect(shouldWriteRolling({ mode: "dry", complete: true, filtered: false })).toBe(false);
+  });
+
+  // GUARD 2 of the four filter properties. Mutation-proved: dropping
+  // `&& filtered === false` from the return turns this red and nothing else.
+  it("never writes the drift reference from a FILTERED run", () => {
+    expect(shouldWriteRolling({ mode: "live", complete: true, filtered: true })).toBe(false);
+  });
+
+  it("refuses to answer at all when `filtered` was not supplied", () => {
+    // A defaulted flag makes omission mean "not filtered", and the file a
+    // forgotten argument overwrites is the drift reference every later run is
+    // measured against.
+    expect(() => shouldWriteRolling({ mode: "live", complete: true })).toThrow(/filtered/i);
+  });
+});
+
+import { parseFilter, filterSpec, buildRunRecord, FILTER_ENV, ARM_IDS } from "./ai-eval-lib.mjs";
+
+describe("parseFilter", () => {
+  it("returns null when no filter variable is set — the standard run", () => {
+    expect(parseFilter({})).toEqual({ ok: true, filter: null });
+  });
+
+  it("treats an empty or whitespace-only value as unset, not as 'select nothing'", () => {
+    // Selecting nothing would dispatch nothing and then report a verdict over
+    // it, which is the vacuity this harness exists to refuse.
+    expect(parseFilter({ [FILTER_ENV.arms]: "", [FILTER_ENV.probes]: "   " }))
+      .toEqual({ ok: true, filter: null });
+  });
+
+  it("parses probes, reps and arms and carries a readable spec", () => {
+    const r = parseFilter({
+      [FILTER_ENV.probes]: "chatPointer",
+      [FILTER_ENV.reps]: "1",
+      [FILTER_ENV.arms]: "a",
+    });
+    expect(r.ok).toBe(true);
+    expect(r.filter.probes).toEqual(["chatPointer"]);
+    expect(r.filter.reps).toBe(1);
+    expect(r.filter.arms).toEqual(["A"]);
+    expect(r.filter.spec).toBe("probes=chatPointer reps=1 arms=A");
+  });
+
+  it("leaves an unset dimension null rather than filling it in", () => {
+    const r = parseFilter({ [FILTER_ENV.probes]: "date,insights,date" });
+    expect(r.filter.probes).toEqual(["date", "insights"]); // deduped
+    expect(r.filter.reps).toBeNull();
+    expect(r.filter.arms).toBeNull();
+  });
+
+  it("refuses an unknown probe id rather than silently ignoring it", () => {
+    const r = parseFilter({ [FILTER_ENV.probes]: "chatPointer,nosuchprobe" });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join(" ")).toMatch(/nosuchprobe/);
+  });
+
+  it("refuses an unknown arm rather than silently ignoring it", () => {
+    const r = parseFilter({ [FILTER_ENV.arms]: "A,Q" });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join(" ")).toMatch(/unknown arm/i);
+    expect(ARM_IDS).toEqual(["A", "B", "X", "N", "R"]);
+  });
+
+  it("refuses a non-numeric or out-of-range rep count", () => {
+    expect(parseFilter({ [FILTER_ENV.reps]: "one" }).ok).toBe(false);
+    expect(parseFilter({ [FILTER_ENV.reps]: "0" }).ok).toBe(false);
+    expect(parseFilter({ [FILTER_ENV.reps]: "500" }).ok).toBe(false);
+    expect(parseFilter({ [FILTER_ENV.reps]: "3" }).ok).toBe(true);
+  });
+
+  it("still counts as a filter when it names everything", () => {
+    // Proving a filter equivalent to the standard run means re-deriving the
+    // plan, and a check that re-derives the thing it guards drifts from it.
+    const r = parseFilter({ [FILTER_ENV.arms]: "A,B,X,N,R" });
+    expect(r.filter).not.toBeNull();
+  });
+
+  it("renders 'none' for a null filter", () => {
+    expect(filterSpec(null)).toBe("none");
+  });
+});
+
+describe("the filter can never report PASS", () => {
+  const good = [{ id: "date", A: 1.0, B: 1.0, X: 0 }];
+
+  // GUARD 1 of the four filter properties. Mutation-proved: removing the
+  // `run.filter !== null` reason turns this red and nothing else.
+  it("is UNUSABLE on an otherwise perfect run when a filter was applied", () => {
+    const v = verdict({
+      complete: true,
+      perProbe: good,
+      filter: { probes: ["date"], reps: 1, arms: ["A"], spec: "probes=date reps=1 arms=A" },
+    });
+    expect(v.code).toBe(E.UNUSABLE);
+    expect(v.reasons.join(" ")).toMatch(/FILTERED/);
+    expect(v.reasons.join(" ")).toMatch(/probes=date reps=1 arms=A/);
+  });
+
+  it("refuses to answer at all when `filter` was not supplied", () => {
+    expect(() => verdict({ complete: true, perProbe: good })).toThrow(/filter/i);
+  });
+
+  it("treats an explicit undefined as missing too, never as unfiltered", () => {
+    expect(() => verdict({ complete: true, perProbe: good, filter: undefined }))
+      .toThrow(/filter/i);
+  });
+
+  it("still passes an unfiltered run — the guard costs the standard run nothing", () => {
+    expect(verdict({ complete: true, perProbe: good, filter: null }).code).toBe(E.PASS);
+  });
+
+  it("reports BOTH the filter and the incompleteness when both hold", () => {
+    const v = verdict({ complete: false, perProbe: good, filter: { probes: ["date"] } });
+    expect(v.code).toBe(E.UNUSABLE);
+    expect(v.reasons.join(" ")).toMatch(/FILTERED/);
+    expect(v.reasons.join(" ")).toMatch(/did not complete/);
+  });
+});
+
+describe("buildRunRecord", () => {
+  const base = {
+    date: "2026-09-09", model: "m", gitSha: "abc", anchorHash: "h", rollingHash: null,
+    anchorSpec: { seed: 1 }, reps: 5, salt: 1,
+    sizes: {}, usage: {}, graded: [], drift: {}, samples: [],
+    perProbe: [{ id: "date", A: 1.0, B: 1.0, X: 0 }],
+    complete: true,
+  };
+
+  // GUARD 3 of the four filter properties: the record carries the narrowing,
+  // so a reader can never mistake a narrowed record for a full one.
+  it("records the filter that was applied", () => {
+    const f = { probes: ["chatPointer"], reps: 1, arms: ["A"], spec: "probes=chatPointer reps=1 arms=A" };
+    const rec = buildRunRecord({ ...base, filter: f });
+    expect(rec.filter).toEqual(f);
+  });
+
+  // GUARD 4: an unfiltered run behaves exactly as before.
+  it("records filter: null and a PASS verdict for a standard run", () => {
+    const rec = buildRunRecord({ ...base, filter: null });
+    expect(rec.filter).toBeNull();
+    expect(rec.verdict.code).toBe(E.PASS);
+    expect(rec.complete).toBe(true);
+  });
+
+  it("derives the verdict from the SAME filter it records, so the two cannot disagree", () => {
+    const rec = buildRunRecord({ ...base, filter: { probes: ["date"], spec: "probes=date" } });
+    expect(rec.filter).not.toBeNull();
+    expect(rec.verdict.code).toBe(E.UNUSABLE);
+    expect(rec.verdict.reasons.join(" ")).toMatch(/FILTERED/);
+  });
+
+  it("refuses to build a record with no filter field", () => {
+    expect(() => buildRunRecord({ ...base })).toThrow(/filter/i);
   });
 });

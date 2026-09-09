@@ -11,14 +11,22 @@ import {
   buildTurnContext,
   toolsFor,
   ANTHROPIC_VERSION,
+  normalizeApiUsage,
 } from "../src/app/chat-api";
 import { buildWireMessages } from "../src/app/chat-cache-layout";
 import { builtinSeeds } from "../src/app/use-operating-guides";
-import type { ApiMessage, SystemBlock } from "../src/app/chat-api";
+import type { ApiMessage, ApiUsage, SystemBlock } from "../src/app/chat-api";
+// ★★ The weights are IMPORTED, never restated. A second copy of the four
+//    ratios is a second thing to drift, and a drifted weight makes two runs'
+//    cost figures silently incomparable. `usageCostEquivalent` applies them;
+//    `USAGE_COST_WEIGHTS` is recorded in the artifact so a later change to them
+//    is visible in the series rather than retroactively rewriting it.
+import { USAGE_COST_WEIGHTS, usageCostEquivalent } from "../src/app/ai-usage";
+import type { Usage } from "../src/app/ai-usage";
 import {
   EXIT, PROBES, plantedToken, sha256, ANCHOR_SPEC, buildAnchorPrompt,
-  preflight, spendDecision, scoreResponse, hitRate, gradeArm, verdict,
-  shouldWriteRolling,
+  preflight, spendDecision, scoreResponse, hitRate, gradeArm,
+  shouldWriteRolling, parseFilter, filterSpec, buildRunRecord, FILTER_ENV,
 } from "./ai-eval-lib.mjs";
 
 const ROLLING_PATH = "docs/baselines/ai-eval-rolling-prompt.txt";
@@ -46,6 +54,27 @@ const MAX_OUTPUT_TOKENS = 64;
  *  make the drift series incomparable with itself. */
 const ANCHOR_QUESTION =
   "Two reference codes appear in the text above. Reply with the second one, exactly as written, and nothing else.";
+
+/** How much of a reply is recorded in the artifact. The observed answers ran
+ *  11-22 output tokens, so this is far more than any well-behaved reply needs;
+ *  it exists to bound a model that ignores "and nothing else" entirely. */
+const MAX_SAMPLE_CHARS = 400;
+
+function truncate(text: string): string {
+  const s = String(text);
+  return s.length <= MAX_SAMPLE_CHARS
+    ? s
+    : `${s.slice(0, MAX_SAMPLE_CHARS)}…[+${s.length - MAX_SAMPLE_CHARS} chars]`;
+}
+
+/** The diagnostic filter, as `parseFilter` returns it. `null` members are
+ *  dimensions the operator did not narrow. */
+type Filter = {
+  probes: string[] | null;
+  reps: number | null;
+  arms: string[] | null;
+  spec: string;
+};
 
 /** The snapshot both prompt builders take.
  *
@@ -195,8 +224,17 @@ function assembleReplay(storedJson: string): Arm {
   };
 }
 
-/** One reply, reduced to the four things anything downstream reads. */
-type Reply = { text: string; toolUses: number; outputTokens: number; inputTokens: number };
+/** One reply, reduced to what anything downstream reads. The four token counts
+ *  are the four BILLED classes — `inputTokens` alone is the uncached portion
+ *  and says nothing about a cached prefix's cost. */
+type Reply = {
+  text: string;
+  toolUses: number;
+  outputTokens: number;
+  inputTokens: number;
+  cacheWriteTokens: number;
+  cacheReadTokens: number;
+};
 
 /** The harness's ONLY network boundary. Everything else in this file is pure
  *  assembly or a filesystem read/write, so injecting this function is enough to
@@ -235,16 +273,51 @@ function liveRequest(apiKey: string): RequestFn {
     }
     const body = await res.json() as {
       content?: { type: string; text?: string }[];
-      usage?: { output_tokens?: number; input_tokens?: number };
+      usage?: Partial<ApiUsage>;
     };
     const blocks = Array.isArray(body.content) ? body.content : [];
+    // ★★★ ALL FOUR BILLED CLASSES, THROUGH THE APP'S OWN NORMALISER. The first
+    //     live run recorded `input_tokens` alone (1605) and dropped both cache
+    //     fields, so a harness whose PURPOSE is measuring prompt cost could not
+    //     say what the run cost — a ~31k-token cached prefix is invisible in
+    //     `input_tokens`. That is the same defect the app's own meter carried
+    //     before 0.295.0. `normalizeApiUsage` defaults a missing or non-finite
+    //     field to 0 rather than `undefined`, which matters here because an
+    //     `undefined` would propagate through the sums as NaN and every later
+    //     comparison against it would silently be false.
+    const usage = normalizeApiUsage(body.usage);
     return {
       text: blocks.filter((b) => b.type === "text").map((b) => b.text ?? "").join("\n"),
       toolUses: blocks.filter((b) => b.type === "tool_use").length,
-      outputTokens: body.usage?.output_tokens ?? 0,
-      inputTokens: body.usage?.input_tokens ?? 0,
+      outputTokens: usage.output_tokens,
+      inputTokens: usage.input_tokens,
+      cacheWriteTokens: usage.cache_creation_input_tokens,
+      cacheReadTokens: usage.cache_read_input_tokens,
     };
   };
+}
+
+/** The four billed classes of one or many replies, in `ai-usage.ts`'s own
+ *  vocabulary so `usageCostEquivalent` can weight it without a translation
+ *  layer that could invert a field. */
+const ZERO_USAGE: Usage = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 };
+
+function usageOf(replies: { inputTokens: number; outputTokens: number; cacheWriteTokens: number; cacheReadTokens: number }[]): Usage {
+  return replies.reduce<Usage>((acc, r) => ({
+    input: acc.input + r.inputTokens,
+    output: acc.output + r.outputTokens,
+    cacheWrite: acc.cacheWrite + r.cacheWriteTokens,
+    cacheRead: acc.cacheRead + r.cacheReadTokens,
+  }), ZERO_USAGE);
+}
+
+function sumUsage(parts: Usage[]): Usage {
+  return parts.reduce<Usage>((a, u) => ({
+    input: a.input + u.input,
+    output: a.output + u.output,
+    cacheWrite: a.cacheWrite + u.cacheWrite,
+    cacheRead: a.cacheRead + u.cacheRead,
+  }), ZERO_USAGE);
 }
 
 /** Split one arm into the two halves `preflight` asserts positions against, and
@@ -310,6 +383,29 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
     return decision.code;
   }
 
+  // ★★★ THE DIAGNOSTIC FILTER. It exists so one broken probe can be re-run for
+  //     cents rather than sixty requests, and everything downstream treats a
+  //     non-null filter as poison: `verdict` refuses to pass, and
+  //     `shouldWriteRolling` refuses to write. Parsed FIRST so a typo'd probe
+  //     id costs nothing.
+  const parsed = parseFilter(env) as
+    | { ok: true; filter: Filter | null }
+    | { ok: false; errors: string[] };
+  if (!parsed.ok) {
+    console.error("invalid filter — spending nothing:");
+    for (const e of parsed.errors) console.error(`  ${e}`);
+    console.error(
+      `usage: ${FILTER_ENV.probes}=<id,...> ${FILTER_ENV.reps}=<n> ${FILTER_ENV.arms}=<A,B,X,N,R>`,
+    );
+    return EXIT.UNUSABLE;
+  }
+  const filter = parsed.filter;
+  const activeProbes = filter?.probes
+    ? PROBES.filter((p) => filter.probes?.includes(p.id))
+    : PROBES;
+  const reps = filter?.reps ?? REPS;
+  const armWanted = (arm: string): boolean => !filter?.arms || filter.arms.includes(arm);
+
   const salt = Number(env.AI_EVAL_SALT ?? "1");
   const anchorTarget = plantedToken("anchor", salt);
   const anchorDecoy = plantedToken("anchorDecoy", salt);
@@ -334,8 +430,11 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   const tokens: Record<string, string> = {};
   for (const p of PROBES) tokens[p.id] = plantedToken(p.id, salt);
 
+  // ★ Pre-flight covers the ACTIVE probes only. Asserting an unselected probe
+  //   is free, but a failure in one would abort the very diagnostic run whose
+  //   whole point is investigating a different probe.
   const failures: string[] = [];
-  for (const probe of PROBES) {
+  for (const probe of activeProbes) {
     const armA = flatten(assembleArm("current", tokens, probe.question), "turn");
     const armB = flatten(assembleCandidate(tokens, probe.question), "turn");
 
@@ -380,12 +479,29 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   }
 
   // A and B run per probe per rep. X is one rep per probe. R and N are
-  // probe-INDEPENDENT single-probe arms measuring drift, so they run REPS times
-  // each and never per probe — they inform the artifact, they do not gate.
+  // probe-INDEPENDENT single-probe arms measuring drift, so they run `reps`
+  // times each and never per probe — they inform the artifact, they do not gate.
+  // ★ THE PLAN IS COMPUTED ONCE, HERE, and the census below compares against
+  //   these same numbers — a separately-derived plan would let the two disagree
+  //   about what a short run even is.
+  const plan = {
+    A: armWanted("A") ? reps : 0,
+    B: armWanted("B") ? reps : 0,
+    X: armWanted("X") ? 1 : 0,
+    N: armWanted("N") ? reps : 0,
+    R: armWanted("R") && rollingExists && last !== null ? reps : 0,
+  };
   const requests =
-    (2 * PROBES.length * REPS) + PROBES.length + (rollingExists ? REPS : 0) + REPS;
+    activeProbes.length * (plan.A + plan.B + plan.X) + plan.N + plan.R;
   console.log(`mode: ${decision.mode}`);
-  console.log(`probes: ${PROBES.length}, reps: ${REPS}, planned requests: ${requests}`);
+  console.log(
+    `probes: ${activeProbes.length}/${PROBES.length}, reps: ${reps}, planned requests: ${requests}`,
+  );
+  if (filter !== null) {
+    // Loud, and on stderr: a narrowed run is a diagnostic and must never be
+    // mistaken for the standard one, in the terminal or in the artifact.
+    console.error(`FILTERED RUN (${filterSpec(filter)}) — this run cannot report PASS`);
+  }
   console.log(`anchor hash: ${anchorHash}`);
   console.log(`rolling reference: ${rollingExists ? "present" : "absent (first run)"}`);
 
@@ -400,8 +516,10 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   //    per token — dense JSON schema and dense prose, neither of them 4. A
   //    printed "~10,367 tok" for a 41,467-char prompt would be wrong by
   //    thousands of tokens and would be read as a measurement. Divide by ~2.7
-  //    for an order-of-magnitude read; a real figure comes from the live run's
-  //    own `usage.input_tokens`, which Task 10 records.
+  //    for an order-of-magnitude read; the real figures come from the live
+  //    run's own `usage`, which the record carries in all four billed classes
+  //    — and note `input_tokens` ALONE is not the prompt size, it is only the
+  //    uncached remainder (1605 against a ~31k-token prompt on the first run).
   const sizeArm = assembleArm("current", tokens, PROBES[0].question);
   const sizeFlat = flatten(sizeArm, "turn");
   const toolsJson = JSON.stringify(toolsFor({}));
@@ -436,11 +554,6 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   const driftReplies: { R: Scored[]; N: Scored[] } = { R: [], N: [] };
   let complete = true;
 
-  // Whether arm R runs at all. Hoisted so the dispatch loop and the census
-  // below cannot disagree about it — a census demanding replies the loop was
-  // never going to send would report every first run as incomplete.
-  const replayPlanned = rollingText !== null && last !== null;
-
   const send = async (arm: Arm, target: string, decoy: string): Promise<Scored> => {
     const reply = await request(arm.system, arm.messages);
     // ★★ The outcome is attached HERE, not recomputed later. gradeArm's
@@ -453,33 +566,41 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   //    starting the next lets any drift within the run land entirely on
   //    whichever went last, which is indistinguishable from a regression.
   try {
-    for (const probe of PROBES) {
+    for (const probe of activeProbes) {
       perProbeReplies[probe.id] = { A: [], B: [], X: [] };
       const target = tokens[probe.id];
       const decoy = tokens[probe.distractorBlock];
-      for (let rep = 0; rep < REPS; rep += 1) {
-        perProbeReplies[probe.id].A.push(
-          await send(assembleArm("current", tokens, probe.question), target, decoy),
-        );
-        perProbeReplies[probe.id].B.push(
-          await send(assembleCandidate(tokens, probe.question), target, decoy),
-        );
+      for (let rep = 0; rep < reps; rep += 1) {
+        if (armWanted("A")) {
+          perProbeReplies[probe.id].A.push(
+            await send(assembleArm("current", tokens, probe.question), target, decoy),
+          );
+        }
+        if (armWanted("B")) {
+          perProbeReplies[probe.id].B.push(
+            await send(assembleCandidate(tokens, probe.question), target, decoy),
+          );
+        }
       }
       // ★★ THE CONTROL IS DISPATCHED, not merely allocated. Its score is the
       //    one zero in this artifact that carries meaning, and `verdict` reads
       //    it — an X array left empty makes `hitRate` return 0, which reads as
       //    a clean control and is in fact no control at all. One rep is enough
       //    for a result that must be flatly zero.
-      perProbeReplies[probe.id].X.push(
-        await send(assembleControl(tokens, probe.id, probe.question), target, decoy),
-      );
+      if (armWanted("X")) {
+        perProbeReplies[probe.id].X.push(
+          await send(assembleControl(tokens, probe.id, probe.question), target, decoy),
+        );
+      }
     }
 
-    for (let rep = 0; rep < REPS; rep += 1) {
-      driftReplies.N.push(
-        await send(assembleAnchor(anchorPrompt, ANCHOR_QUESTION), anchorTarget, anchorDecoy),
-      );
-      if (replayPlanned && rollingText !== null) {
+    for (let rep = 0; rep < reps; rep += 1) {
+      if (armWanted("N")) {
+        driftReplies.N.push(
+          await send(assembleAnchor(anchorPrompt, ANCHOR_QUESTION), anchorTarget, anchorDecoy),
+        );
+      }
+      if (plan.R > 0 && rollingText !== null) {
         // The stored bytes carry the SALT of the run that wrote them, so the
         // replay is scored against that run's tokens, never today's.
         const replaySalt = last?.salt ?? salt;
@@ -508,14 +629,15 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   //     did not happen says nothing about the candidate.
   const isScored = (r: Scored | undefined) => typeof r?.outcome === "string";
   const census: string[] = [];
-  for (const probe of PROBES) {
+  for (const probe of activeProbes) {
     const got = perProbeReplies[probe.id];
     if (!got) {
       census.push(`${probe.id}: dispatched no arms at all`);
       continue;
     }
-    for (const [arm, want] of [["A", REPS], ["B", REPS], ["X", 1]] as const) {
+    for (const arm of ["A", "B", "X"] as const) {
       const rs = got[arm];
+      const want = plan[arm];
       if (rs.length !== want) {
         census.push(`${probe.id}: arm ${arm} returned ${rs.length} of ${want} planned replies`);
       } else if (!rs.every(isScored)) {
@@ -523,12 +645,11 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
       }
     }
   }
-  if (driftReplies.N.length !== REPS || !driftReplies.N.every(isScored)) {
-    census.push(`anchor: returned ${driftReplies.N.length} of ${REPS} planned replies`);
+  if (driftReplies.N.length !== plan.N || !driftReplies.N.every(isScored)) {
+    census.push(`anchor: returned ${driftReplies.N.length} of ${plan.N} planned replies`);
   }
-  const wantReplay = replayPlanned ? REPS : 0;
-  if (driftReplies.R.length !== wantReplay || !driftReplies.R.every(isScored)) {
-    census.push(`rolling replay: returned ${driftReplies.R.length} of ${wantReplay} planned replies`);
+  if (driftReplies.R.length !== plan.R || !driftReplies.R.every(isScored)) {
+    census.push(`rolling replay: returned ${driftReplies.R.length} of ${plan.R} planned replies`);
   }
   if (census.length > 0) {
     complete = false;
@@ -540,35 +661,105 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   // ★★ Only A, B and X reach the verdict. R and N measure DRIFT — they say
   //    whether the instrument moved, never whether the candidate is worse — so
   //    folding them in would let a model update fail a slice.
-  const perProbe = PROBES.map((p) => ({
+  const perProbe = activeProbes.map((p) => ({
     id: p.id,
     A: hitRate(outcomesOf(perProbeReplies[p.id]?.A ?? [])),
     B: hitRate(outcomesOf(perProbeReplies[p.id]?.B ?? [])),
     X: hitRate(outcomesOf(perProbeReplies[p.id]?.X ?? [])),
   }));
-  const v = verdict({ complete, perProbe });
 
-  const record = {
+  // ★★★ WHAT THE MODEL ACTUALLY SAID, for every reply that was not a hit, plus
+  //     ONE exemplar hit per (probe, arm) so a reader can see what a good answer
+  //     looks like without storing all sixty. The first live run recorded scores
+  //     alone, and `chatPointer` scoring 0.0 on the UNCHANGED baseline was then
+  //     undiagnosable — a refusal, a paraphrase and an answer to a different
+  //     question are one number, and telling them apart cost another full run.
+  //
+  //     ★★ ONLY the reply text, truncated. Nothing from the REQUEST is captured:
+  //     the prompt is regenerable from the salt and the builders, and an
+  //     artifact that quoted requests would grow without bound for no gain.
+  //     (The content is model output against a synthetic snapshot — there is no
+  //     real project data anywhere in this harness.)
+  const samples: {
+    probe: string; arm: string; rep: number; outcome: string; text: string;
+  }[] = [];
+  const exemplarTaken = new Set<string>();
+  const collect = (probeId: string, arm: string, rs: Scored[]) => {
+    rs.forEach((r, rep) => {
+      const key = `${probeId}:${arm}`;
+      const isExemplar = r.outcome === "hit" && !exemplarTaken.has(key);
+      if (r.outcome !== "hit" || isExemplar) {
+        if (isExemplar) exemplarTaken.add(key);
+        samples.push({ probe: probeId, arm, rep, outcome: r.outcome, text: truncate(r.text) });
+      }
+    });
+  };
+  for (const p of activeProbes) {
+    for (const arm of ["A", "B", "X"] as const) collect(p.id, arm, perProbeReplies[p.id]?.[arm] ?? []);
+  }
+  collect("anchor", "N", driftReplies.N);
+  collect("rolling", "R", driftReplies.R);
+
+  // ★★ EVERY BILLED CLASS, SUMMED ACROSS THE WHOLE RUN AND PER ARM, plus the
+  //    weighted total from `usageCostEquivalent`. Weighted, not summed: a cached
+  //    read bills at a tenth and an output token at five times, so an unweighted
+  //    total answers a question nobody asked. NOT converted to currency — a
+  //    dollar figure would hardcode a price into an artifact meant to be
+  //    comparable across years.
+  const armUsage: Record<string, Usage> = {
+    A: usageOf(activeProbes.flatMap((p) => perProbeReplies[p.id]?.A ?? [])),
+    B: usageOf(activeProbes.flatMap((p) => perProbeReplies[p.id]?.B ?? [])),
+    X: usageOf(activeProbes.flatMap((p) => perProbeReplies[p.id]?.X ?? [])),
+    N: usageOf(driftReplies.N),
+    R: usageOf(driftReplies.R),
+  };
+  const totalUsage = sumUsage(Object.values(armUsage));
+  const usage = {
+    requests:
+      activeProbes.reduce(
+        (n, p) => n + (perProbeReplies[p.id]?.A.length ?? 0)
+          + (perProbeReplies[p.id]?.B.length ?? 0) + (perProbeReplies[p.id]?.X.length ?? 0),
+        0,
+      ) + driftReplies.N.length + driftReplies.R.length,
+    total: totalUsage,
+    costEquivalent: usageCostEquivalent(totalUsage),
+    byArm: armUsage,
+    // Recorded so a later change to the weights is visible in the series
+    // instead of silently rewriting every earlier run's cost figure.
+    costWeights: USAGE_COST_WEIGHTS,
+  };
+
+  const firstA = activeProbes.length > 0
+    ? perProbeReplies[activeProbes[0].id]?.A[0] ?? null
+    : null;
+  const record = buildRunRecord({
     date: new Date().toISOString().slice(0, 10),
     model: MODEL,
     gitSha: env.GIT_SHA ?? "unrecorded",
     anchorHash,
     rollingHash,
     anchorSpec: ANCHOR_SPEC,
-    reps: REPS,
+    reps,
     salt,
-    // ★ The one REAL token figure this harness has. Everything printed above is
-    //   chars, and the chars/token ratio on this content is nowhere near 4 —
-    //   see the size-print comment. Taken from arm A's first reply, so it is
-    //   null on a run that never got one.
+    // ★★★ `filter` reaches the record and the verdict as ONE argument — see
+    //     `buildRunRecord`. There is no second place to pass it and therefore
+    //     no way to record a narrowing while reporting an unnarrowed verdict.
+    filter,
+    // ★ The REAL token figures for the first arm-A request. `inputTokens` is
+    //   the UNCACHED portion ALONE — it read 1605 on the first live run while
+    //   the prompt is ~31k tokens, because the rest was a cache read. All four
+    //   classes are here for that reason.
     sizes: {
       systemChars: sizeFlat.system.length,
       turnChars: sizeFlat.turn.length,
       toolsChars: toolsJson.length,
-      inputTokens: perProbeReplies[PROBES[0].id]?.A[0]?.inputTokens ?? null,
+      inputTokens: firstA?.inputTokens ?? null,
+      cacheWriteTokens: firstA?.cacheWriteTokens ?? null,
+      cacheReadTokens: firstA?.cacheReadTokens ?? null,
     },
+    usage,
     perProbe,
-    graded: PROBES.map((p) => ({
+    graded: activeProbes.map((p) => ({
       id: p.id,
       A: gradeArm(perProbeReplies[p.id]?.A ?? [], tokens[p.id]),
       B: gradeArm(perProbeReplies[p.id]?.B ?? [], tokens[p.id]),
@@ -578,20 +769,21 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
         hitRate: hitRate(outcomesOf(driftReplies.N)),
         graded: gradeArm(driftReplies.N, anchorTarget),
       },
-      rolling: !replayPlanned
+      rolling: plan.R === 0
         ? null
         : {
             hitRate: hitRate(outcomesOf(driftReplies.R)),
             comparedAgainstRunDate: last?.date ?? null,
           },
     },
+    samples,
     complete,
-    verdict: v,
-  };
+  }) as { verdict: { code: number; reasons: string[]; notes: string[] } };
+  const v = record.verdict;
   recorded.runs.push(record as unknown as Record<string, unknown>);
   deps.writeArtifact(RUNS_PATH, `${JSON.stringify(recorded, null, 2)}\n`);
 
-  if (shouldWriteRolling({ mode: decision.mode, complete })) {
+  if (shouldWriteRolling({ mode: decision.mode, complete, filtered: filter !== null })) {
     // ★★ Written from THIS run's arm A, and only because the run completed.
     //    An incomplete run leaves the file alone: overwriting from a run nobody
     //    scored poisons the reference invisibly, and the NEXT run then compares
