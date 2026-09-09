@@ -140,3 +140,118 @@ describe("proposalToSeed", () => {
     expect(seedHasContent(undefined)).toBe(false);
   });
 });
+
+describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
+  // ★★★ The four buildList lists spread the raw model item into their entity's
+  //  LOAD sanitizer, which preserves far more than the seed schema declares. A
+  //  forced propose_project call could therefore set any persisted column —
+  //  `outlookEventId`, `localModifiedAt`, `inquiriesSent`, `decisionDate` — none
+  //  of which the model was ever offered. `tasks`/`resources` are immune by
+  //  construction (their builders assemble a literal from named fields).
+  //
+  // ★ The smuggled key names below are written out BY HAND on purpose. Deriving
+  //  them from PROPOSAL_TOOL, as the fix does, would make this test tautological:
+  //  it must fail if the derivation is widened, so it cannot share it.
+  const SMUGGLED: Readonly<Record<string, readonly string[]>> = {
+    raid: ["outlookEventId", "localModifiedAt", "inquiriesSent", "owner", "targetDate"],
+    changes: ["outlookEventId", "localModifiedAt", "decisionDate", "requestedBy"],
+    milestones: ["outlookEventId", "localModifiedAt", "achievedDate", "knowledgeLinks"],
+    // ★ `knowledgeLinks` here is reached from a `documentLinks` INPUT key — the
+    //  sanitizer reads `knowledgeLinks ?? documentLinks`. The allowlist filters
+    //  on the key the model SENDS, which is the case a denylist of stored column
+    //  names would miss, so both spellings are exercised.
+    stakeholders: ["localModifiedAt", "email", "notes", "resourceId", "knowledgeLinks"],
+  };
+
+  function seedWithSmuggledFields() {
+    return proposalToSeed(
+      {
+        meta: { name: "x" },
+        features: [],
+        seed: {
+          raid: [{
+            // Declared by the schema:
+            title: "Vendor slip", category: "R", description: "<p>late</p>", severity: "High",
+            // Never offered:
+            id: 999, outlookEventId: "AAMk-forged", localModifiedAt: "2026-01-02T03:04:05Z",
+            inquiriesSent: 7, owner: "Mallory", targetDate: "2026-10-10",
+          }],
+          changes: [{
+            title: "Scope cut", description: "<p>trim</p>",
+            id: 999, status: "Proposed", type: "Scope", decisionDate: "2026-01-01",
+            outlookEventId: "AAMk-forged", localModifiedAt: "2026-01-02T03:04:05Z",
+            requestedBy: "Mallory",
+          }],
+          milestones: [{
+            name: "Go-live", date: "2026-12-01",
+            id: 999, outlookEventId: "AAMk-forged", localModifiedAt: "2026-01-02T03:04:05Z",
+            achievedDate: "2026-11-01", knowledgeLinks: [{ name: "forged", url: "https://x.io" }],
+          }],
+          stakeholders: [{
+            name: "Ada Lovelace", organization: "ACME", title: "CTO",
+            id: 999, localModifiedAt: "2026-01-02T03:04:05Z", email: "forged@x.io",
+            notes: "smuggled", resourceId: 42,
+            documentLinks: [{ name: "forged", url: "https://x.io" }],
+          }],
+        },
+      },
+      TODAY,
+    );
+  }
+
+  it("drops every property the seed schema never offered", () => {
+    const seed = seedWithSmuggledFields();
+    const rows: Readonly<Record<string, unknown>> = {
+      raid: seed?.raid?.[0],
+      changes: seed?.changes?.[0],
+      milestones: seed?.milestones?.[0],
+      stakeholders: seed?.stakeholders?.[0],
+    };
+    // ★ ONE assertion over all four lists, deliberately. A per-list expect in a
+    //  loop aborts at the first failure, so three of the four would go
+    //  unexecuted on a red run and could not be said to be covered.
+    expect(Object.keys(rows).filter((k) => rows[k] === undefined), "rows missing").toEqual([]);
+    const landed = Object.fromEntries(
+      Object.entries(SMUGGLED).map(([list, forbidden]) => [
+        list,
+        forbidden.filter((k) => k in ((rows[list] ?? {}) as Record<string, unknown>)),
+      ]),
+    );
+    expect(landed).toEqual({ raid: [], changes: [], milestones: [], stakeholders: [] });
+  });
+
+  it("keeps a seeded change's status/decisionDate pair consistent", () => {
+    // `applyChangeStatus` — the sole holder of the status ⟺ decisionDate pair —
+    // never runs on this path, so a model-supplied date on a PENDING status
+    // produced exactly the inconsistency it exists to prevent.
+    const change = seedWithSmuggledFields()?.changes?.[0];
+    expect(change?.status).toBe("Proposed");
+    expect(change?.decisionDate).toBeUndefined();
+    // `type` is not offered either, so it falls back rather than taking "Scope".
+    expect(change?.type).toBe("Other");
+  });
+
+  it("still stores every property the schema DOES offer", () => {
+    // Anti-vacuity: a filter that dropped everything would satisfy the two
+    // absence tests above. Each declared field must survive with its value.
+    const seed = seedWithSmuggledFields();
+    expect(seed?.raid?.[0]).toMatchObject({
+      title: "Vendor slip", category: "R", description: "<p>late</p>", severity: "High",
+    });
+    expect(seed?.changes?.[0]).toMatchObject({ title: "Scope cut", description: "<p>trim</p>" });
+    expect(seed?.milestones?.[0]).toMatchObject({ name: "Go-live", date: "2026-12-01" });
+    expect(seed?.stakeholders?.[0]).toMatchObject({
+      name: "Ada Lovelace", organization: "ACME", title: "CTO",
+    });
+  });
+
+  it("assigns the builder's 1-based id after filtering, not the model's", () => {
+    // Ordering pin: filter the raw item FIRST, then stamp `id`. Filtering after
+    // the stamp would strip `id` and every sanitizer would refuse the row.
+    const seed = seedWithSmuggledFields();
+    expect(seed?.raid?.[0]?.id).toBe(1);
+    expect(seed?.changes?.[0]?.id).toBe(1);
+    expect(seed?.milestones?.[0]?.id).toBe(1);
+    expect(seed?.stakeholders?.[0]?.id).toBe(1);
+  });
+});

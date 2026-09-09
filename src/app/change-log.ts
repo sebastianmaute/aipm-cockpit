@@ -54,10 +54,20 @@ export function isTerminalChangeStatus(status: ChangeStatus): boolean {
  * ★ A stored value still round-trips: `sanitizeChangeItem` preserves it on every
  * load/decode path. That is not an authoring path and is not a third writer.
  *
- * ★ Nor do the seed/import paths use it — `proposalToSeed` and template import
- * build rows through `sanitizeChangeItem` alone, so a model-authored proposal
- * can still carry a decided status with no date. Deliberate: those rebuild a
- * whole register from an untrusted blob rather than transitioning a live row.
+ * ★ Nor do the seed/import paths use it, and the two no longer behave alike.
+ * TEMPLATE IMPORT still builds rows through `sanitizeChangeItem` alone, so an
+ * imported blob can carry either half of the pair on its own. Deliberate: it
+ * rebuilds a whole register from an untrusted blob rather than transitioning a
+ * live row.
+ * ★★ `proposalToSeed` can no longer carry EITHER half. `PROPOSAL_TOOL`'s seed
+ * schema offers a change a `title` and a `description` and nothing else, and the
+ * seed boundary now drops every property it did not offer (`SEED_OFFERED_KEYS`,
+ * `ai-project-proposal.ts`) before the sanitizer sees the row. So a seeded change
+ * is always "Proposed" with no date — a consistent pending pair, which is why
+ * this transition has nothing to hold there. An earlier revision of this line
+ * said such a proposal "can still carry a decided status with no date"; it could
+ * carry a model-authored `decisionDate` too, and that was the half that went
+ * unnamed.
  *
  * ★ Lives in this pure module rather than beside the hook that used to own it
  * so the AI dispatcher can reach it without importing a React module.

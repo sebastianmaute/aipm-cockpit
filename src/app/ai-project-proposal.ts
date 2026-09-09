@@ -161,6 +161,58 @@ function isObj(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/** ★★★ THE SEED LISTS' ALLOWLIST, READ OFF `PROPOSAL_TOOL` ITSELF. The four
+ *  `buildList` lists hand the model's raw item to their entity's LOAD sanitizer,
+ *  and those sanitizers preserve far more than this tool ever declares — so
+ *  before this filter a forced `propose_project` call could set ANY persisted
+ *  column on a seeded row: `outlookEventId` (forging a calendar link),
+ *  `localModifiedAt` (fabricating sync provenance), `inquiriesSent`, and a
+ *  change's `decisionDate` on a pending `status`, which is precisely the pair
+ *  `applyChangeStatus` exists to hold and which never runs on this path.
+ *
+ *  ★★ DERIVED, NEVER RETYPED, and that is the whole design. The axis is what the
+ *  model is OFFERED, so a property added to a schema above is permitted the same
+ *  day and one never offered can never arrive — a second hand-written list would
+ *  drift from the schema silently, which is the defect class this closes.
+ *
+ *  ★ It is an ALLOWLIST over the keys the model SENDS, not a denylist of stored
+ *  column names. The entity sanitizers read `knowledgeLinks ?? documentLinks`,
+ *  so the input spelling and the stored spelling differ and a denylist naming
+ *  stored columns would miss the alias. It also cannot miss a column nobody
+ *  thought to name — `status`, `owner` and `type` are all undeclared too.
+ *  ★★ Do NOT name the plain change sanitizer in this file, in a comment or
+ *  otherwise: `sanitize-model-change-wiring.test.ts` asserts its bare name
+ *  occurs here ZERO times, as the control for the repairing wrapper's count.
+ *
+ *  ★ CONSEQUENCE worth knowing before "simplifying" the changes call site: the
+ *  repairing change sanitizer used there can no longer see `scheduleImpactDays`
+ *  or `costImpact`, because the seed schema offers neither — so its numeric
+ *  repair is now inert on THIS path. Keep the wrapper anyway: it is the correct
+ *  sanitizer for model input and goes live the day the schema offers a number.
+ *
+ *  ★ `tasks` and `resources` are deliberately absent from the CALL SITES below
+ *  (though present in this map): `buildSeedTask` / `buildSeedResource` assemble
+ *  an object literal from named fields and never spread, so they are immune by
+ *  construction and need no filter. */
+const SEED_OFFERED_KEYS = Object.fromEntries(
+  Object.entries(PROPOSAL_TOOL.input_schema.properties.seed.properties).map(([list, schema]) => [
+    list,
+    new Set<string>(Object.keys(schema.items.properties)),
+  ]),
+) as Record<keyof typeof PROPOSAL_TOOL.input_schema.properties.seed.properties, ReadonlySet<string>>;
+
+/** Keep only the properties the tool offered for this list. Iterates the ITEM
+ *  and keeps guarded keys — the shape `dropUnacceptedAbsenceFields` uses, not the
+ *  iterate-the-guard-table shape, which by construction cannot see a key the
+ *  table never registered. */
+function pickOfferedFields(
+  item: Record<string, unknown>, offered: ReadonlySet<string>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(item)) if (offered.has(k)) out[k] = v;
+  return out;
+}
+
 /** Narrow raw tool_use.input into a ProjectProposal. Requires a non-empty
  *  meta.name; drops unknown feature ids; passes seed lists through untouched
  *  (validation happens in proposalToSeed). Returns null when unusable. */
@@ -215,13 +267,21 @@ export function proposalToDraftPatch(p: ProjectProposal): Partial<ProjectFormDra
   return patch;
 }
 
-/** Validate one raw list: cap to SEED_CAP_PER_ENTITY, assign 1-based temp ids,
- *  run each record through its sanitizer, drop failures. */
-function buildList<T>(raw: unknown[] | undefined, sanitize: (x: unknown) => T | null): T[] {
+/** Validate one raw list: cap to SEED_CAP_PER_ENTITY, drop every property the
+ *  tool did not offer, assign 1-based temp ids, run each record through its
+ *  sanitizer, drop failures.
+ *
+ *  ★★ ORDER: filter FIRST, stamp `id` after. `id` is not in any seed item schema
+ *  — filtering a stamped record would strip it and every sanitizer would then
+ *  refuse the row (they all require a positive id), emptying the seed. A model's
+ *  own `id` is dropped by the filter and replaced here, as before. */
+function buildList<T>(
+  raw: unknown[] | undefined, offered: ReadonlySet<string>, sanitize: (x: unknown) => T | null,
+): T[] {
   if (!Array.isArray(raw)) return [];
   const out: T[] = [];
   raw.slice(0, SEED_CAP_PER_ENTITY).forEach((item, i) => {
-    const withId = isObj(item) ? { ...item, id: i + 1 } : item;
+    const withId = isObj(item) ? { ...pickOfferedFields(item, offered), id: i + 1 } : item;
     const s = sanitize(withId);
     if (s) out.push(s);
   });
@@ -284,13 +344,13 @@ function buildSeedResource(raw: unknown, id: number): Resource | null {
 export function proposalToSeed(p: ProjectProposal, today: string): TemplateSeed | undefined {
   const s = p.seed;
   if (!s) return undefined;
-  const raid = buildList(s.raid, sanitizeRaidItem);
+  const raid = buildList(s.raid, SEED_OFFERED_KEYS.raid, sanitizeRaidItem);
   // ★ The MODEL-input sanitizer, not the plain one: this seed is model-authored,
   //  so a `1.5` day count is repaired to 2 rather than stored verbatim (which is
   //  what the plain sanitizer now does, correctly, for a LOAD).
-  const changes = buildList(s.changes, sanitizeModelChangeItem);
-  const milestones = buildList(s.milestones, sanitizeMilestone);
-  const stakeholders = buildList(s.stakeholders, sanitizeStakeholder);
+  const changes = buildList(s.changes, SEED_OFFERED_KEYS.changes, sanitizeModelChangeItem);
+  const milestones = buildList(s.milestones, SEED_OFFERED_KEYS.milestones, sanitizeMilestone);
+  const stakeholders = buildList(s.stakeholders, SEED_OFFERED_KEYS.stakeholders, sanitizeStakeholder);
   const resources: Resource[] = Array.isArray(s.resources)
     ? s.resources
         .slice(0, SEED_CAP_PER_ENTITY)
