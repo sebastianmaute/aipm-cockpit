@@ -1156,6 +1156,482 @@
         ],
         "notes": []
       }
+    },
+    {
+      "date": "2026-09-09",
+      "model": "claude-sonnet-5",
+      "gitSha": "unrecorded",
+      "anchorHash": "cd0bfc655837f13b73c8df731dd1908fd1a1af57877765eb597ba330b9aed83a",
+      "rollingHash": "ca4466cd6b83b9a4d2da088167d2593fa2b503dc836371921718c14334116d53",
+      "rollingWrittenHash": "559a81272855cd751aab5c26b4aa57ba8e3914767b764796e4b00a26f79fb281",
+      "anchorSpec": {
+        "seed": 20260909,
+        "words": 24000,
+        "targetAtFraction": 0.72,
+        "decoyAtFraction": 0.31
+      },
+      "reps": 5,
+      "maxOutputTokens": 512,
+      "salt": 1,
+      "filter": null,
+      "sizes": {
+        "systemChars": 41467,
+        "turnChars": 2910,
+        "toolsChars": 45532,
+        "inputTokens": 1972,
+        "cacheWriteTokens": 31177,
+        "cacheReadTokens": 0
+      },
+      "usage": {
+        "requests": 65,
+        "total": {
+          "input": 472002,
+          "output": 1522,
+          "cacheWrite": 31177,
+          "cacheRead": 1861838
+        },
+        "costEquivalent": 704767.05,
+        "byArm": {
+          "A": {
+            "input": 49275,
+            "output": 300,
+            "cacheWrite": 31177,
+            "cacheRead": 748248
+          },
+          "B": {
+            "input": 49275,
+            "output": 300,
+            "cacheWrite": 0,
+            "cacheRead": 779425
+          },
+          "X": {
+            "input": 9807,
+            "output": 792,
+            "cacheWrite": 0,
+            "cacheRead": 155885
+          },
+          "N": {
+            "input": 288860,
+            "output": 65,
+            "cacheWrite": 0,
+            "cacheRead": 89140
+          },
+          "R": {
+            "input": 74785,
+            "output": 65,
+            "cacheWrite": 0,
+            "cacheRead": 89140
+          }
+        },
+        "costWeights": {
+          "input": 1,
+          "cacheWrite": 1.25,
+          "cacheRead": 0.1,
+          "output": 5
+        }
+      },
+      "responseShape": {
+        "stopReasons": {
+          "end_turn": 64,
+          "max_tokens": 1
+        },
+        "blockTypes": {
+          "text": 64,
+          "thinking": 2
+        }
+      },
+      "truncation": {
+        "replies": 1,
+        "ofReplies": 65,
+        "maxOutputTokens": 512,
+        "probes": [
+          "insights"
+        ],
+        "arms": [
+          "X"
+        ]
+      },
+      "perProbe": [
+        {
+          "id": "date",
+          "A": 1,
+          "B": 1,
+          "X": 0
+        },
+        {
+          "id": "viewScope",
+          "A": 1,
+          "B": 1,
+          "X": 0
+        },
+        {
+          "id": "insights",
+          "A": 1,
+          "B": 1,
+          "X": 0
+        },
+        {
+          "id": "activityRecap",
+          "A": 1,
+          "B": 1,
+          "X": 0
+        },
+        {
+          "id": "chatPointer",
+          "A": 1,
+          "B": 1,
+          "X": 0
+        }
+      ],
+      "graded": [
+        {
+          "id": "date",
+          "A": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "wrongBlockFrom": {},
+            "toolCall": 0,
+            "truncated": 0,
+            "adherence": 0,
+            "adherenceOf": 5,
+            "outputTokens": 13
+          },
+          "B": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "wrongBlockFrom": {},
+            "toolCall": 0,
+            "truncated": 0,
+            "adherence": 0,
+            "adherenceOf": 5,
+            "outputTokens": 13
+          }
+        },
+        {
+          "id": "viewScope",
+          "A": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "wrongBlockFrom": {},
+            "toolCall": 0,
+            "truncated": 0,
+            "adherence": 0,
+            "adherenceOf": 5,
+            "outputTokens": 13
+          },
+          "B": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "wrongBlockFrom": {},
+            "toolCall": 0,
+            "truncated": 0,
+            "adherence": 0,
+            "adherenceOf": 5,
+            "outputTokens": 13
+          }
+        },
+        {
+          "id": "insights",
+          "A": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "wrongBlockFrom": {},
+            "toolCall": 0,
+            "truncated": 0,
+            "adherence": 0,
+            "adherenceOf": 5,
+            "outputTokens": 11
+          },
+          "B": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "wrongBlockFrom": {},
+            "toolCall": 0,
+            "truncated": 0,
+            "adherence": 0,
+            "adherenceOf": 5,
+            "outputTokens": 11
+          }
+        },
+        {
+          "id": "activityRecap",
+          "A": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "wrongBlockFrom": {},
+            "toolCall": 0,
+            "truncated": 0,
+            "adherence": 0,
+            "adherenceOf": 5,
+            "outputTokens": 12
+          },
+          "B": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "wrongBlockFrom": {},
+            "toolCall": 0,
+            "truncated": 0,
+            "adherence": 0,
+            "adherenceOf": 5,
+            "outputTokens": 12
+          }
+        },
+        {
+          "id": "chatPointer",
+          "A": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "wrongBlockFrom": {},
+            "toolCall": 0,
+            "truncated": 0,
+            "adherence": 0,
+            "adherenceOf": 5,
+            "outputTokens": 11
+          },
+          "B": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "wrongBlockFrom": {},
+            "toolCall": 0,
+            "truncated": 0,
+            "adherence": 0,
+            "adherenceOf": 5,
+            "outputTokens": 11
+          }
+        }
+      ],
+      "drift": {
+        "anchor": {
+          "hitRate": 1,
+          "graded": {
+            "toolReaches": 0,
+            "wrongBlock": 0,
+            "wrongBlockFrom": {},
+            "toolCall": 0,
+            "truncated": 0,
+            "adherence": 0,
+            "adherenceOf": 5,
+            "outputTokens": 13
+          }
+        },
+        "rolling": {
+          "hitRate": 1,
+          "comparedAgainstRunDate": "2026-09-09"
+        }
+      },
+      "samples": [
+        {
+          "probe": "date",
+          "arm": "A",
+          "rep": 0,
+          "outcome": "hit",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "tsavazumurkazuyth"
+        },
+        {
+          "probe": "date",
+          "arm": "B",
+          "rep": 0,
+          "outcome": "hit",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "tsavazumurkazuyth"
+        },
+        {
+          "probe": "date",
+          "arm": "X",
+          "rep": 0,
+          "outcome": "absent",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "2026-09-09"
+        },
+        {
+          "probe": "viewScope",
+          "arm": "A",
+          "rep": 0,
+          "outcome": "hit",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "tresktsavolnzilmab"
+        },
+        {
+          "probe": "viewScope",
+          "arm": "B",
+          "rep": 0,
+          "outcome": "hit",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "tresktsavolnzilmab"
+        },
+        {
+          "probe": "viewScope",
+          "arm": "X",
+          "rep": 0,
+          "outcome": "absent",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "(current view code is blank/empty)"
+        },
+        {
+          "probe": "insights",
+          "arm": "A",
+          "rep": 0,
+          "outcome": "hit",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "mabscesceflenquen"
+        },
+        {
+          "probe": "insights",
+          "arm": "B",
+          "rep": 0,
+          "outcome": "hit",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "mabscesceflenquen"
+        },
+        {
+          "probe": "insights",
+          "arm": "X",
+          "rep": 0,
+          "outcome": "truncated",
+          "otherBlocks": [],
+          "stopReason": "max_tokens",
+          "blockTypes": {
+            "thinking": 1
+          },
+          "text": ""
+        },
+        {
+          "probe": "activityRecap",
+          "arm": "A",
+          "rep": 0,
+          "outcome": "hit",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "zilurnquenolnquen"
+        },
+        {
+          "probe": "activityRecap",
+          "arm": "B",
+          "rep": 0,
+          "outcome": "hit",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "zilurnquenolnquen"
+        },
+        {
+          "probe": "activityRecap",
+          "arm": "X",
+          "rep": 0,
+          "outcome": "absent",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "thinking": 1,
+            "text": 1
+          },
+          "text": "The current activity code was not actually provided (the text left it blank), so I don't have a value to give you."
+        },
+        {
+          "probe": "chatPointer",
+          "arm": "A",
+          "rep": 0,
+          "outcome": "hit",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "flenmabscequentresk"
+        },
+        {
+          "probe": "chatPointer",
+          "arm": "B",
+          "rep": 0,
+          "outcome": "hit",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "flenmabscequentresk"
+        },
+        {
+          "probe": "chatPointer",
+          "arm": "X",
+          "rep": 0,
+          "outcome": "absent",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "Budget rebaseline (transcript code )"
+        },
+        {
+          "probe": "anchor",
+          "arm": "N",
+          "rep": 0,
+          "outcome": "hit",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "phadtsavmabglimwint"
+        },
+        {
+          "probe": "rolling",
+          "arm": "R",
+          "rep": 0,
+          "outcome": "hit",
+          "otherBlocks": [],
+          "stopReason": "end_turn",
+          "blockTypes": {
+            "text": 1
+          },
+          "text": "tsavazumurkazuyth"
+        }
+      ],
+      "complete": true,
+      "verdict": {
+        "code": 0,
+        "reasons": [],
+        "notes": []
+      }
     }
   ]
 }
