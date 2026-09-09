@@ -45,3 +45,52 @@ describe("mulberry32", () => {
     ]);
   });
 });
+
+import { PROBES, plantedToken, probeById } from "./ai-eval-lib.mjs";
+
+describe("plantedToken", () => {
+  it("is stable for a given block and salt", () => {
+    expect(plantedToken("date", 7)).toBe(plantedToken("date", 7));
+  });
+
+  it("differs between blocks at the same salt", () => {
+    expect(plantedToken("date", 7)).not.toBe(plantedToken("insights", 7));
+  });
+
+  it("differs between salts for the same block", () => {
+    expect(plantedToken("date", 7)).not.toBe(plantedToken("date", 8));
+  });
+
+  it("is alphabetic and long enough not to collide with ordinary prose", () => {
+    for (const p of PROBES) {
+      const tok = plantedToken(p.id, 1);
+      expect(tok).toMatch(/^[a-z]{10,}$/);
+    }
+  });
+});
+
+describe("PROBES", () => {
+  it("covers the five blocks slice B relocated", () => {
+    expect(PROBES.map((p) => p.id)).toEqual([
+      "date", "viewScope", "insights", "activityRecap", "chatPointer",
+    ]);
+  });
+
+  it("gives every probe a distractor in a DIFFERENT block", () => {
+    for (const p of PROBES) {
+      expect(p.distractorBlock).not.toBe(p.id);
+      expect(PROBES.map((q) => q.id)).toContain(p.distractorBlock);
+    }
+  });
+
+  it("asks each question in a form whose only correct answer is the token", () => {
+    for (const p of PROBES) {
+      expect(p.question).toContain("exactly as written");
+    }
+  });
+
+  it("looks a probe up by id and throws on an unknown one", () => {
+    expect(probeById("date").id).toBe("date");
+    expect(() => probeById("nope")).toThrow(/unknown probe/i);
+  });
+});
