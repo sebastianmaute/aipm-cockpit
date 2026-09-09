@@ -1224,6 +1224,48 @@
   pre-flight. It is an ASSERTION and deliberately not a change to `plantedToken`: a re-mint at the
   same salt would make the rolling replay miss every time and read as catastrophic drift. Rotate
   `AI_EVAL_SALT` if it ever fires.
+  ★★★ **THE RELABELLED RUN THEN PASSED AT 1.0 ON EVERY PROBE, WHICH IS ITS OWN PROBLEM.** A binary
+  score at saturation detects a total block failure and essentially nothing else — the exact
+  limitation of the manual eval this slice exists to escape, arriving from the other direction.
+  `PROBE_HARDENING` (`ai-eval-lib.mjs`) is the ONE place difficulty is tuned: three switches per
+  probe, from which the block text, the question and the planted-token universe are ALL derived, so
+  a knob cannot drift away from the prompt it governs. `competitor` plants a near-miss code in the
+  SAME block ("previous <label>" against the target's "current <label>"); `fillerBefore` puts
+  realistic code-free items ahead of the target; `composition` makes the answer depend on a fact in
+  a DIFFERENT block. ★★ **THE RULE THAT GOVERNS EVERY KNOB: DIFFICULTY COMES FROM RETRIEVAL EFFORT,
+  NEVER FROM AMBIGUITY.** An ambiguous probe is not a hard probe, it is a broken one, and it fails
+  in a way that looks identical to a regression — which is what the two runs above cost. Every
+  question must keep exactly one answer a careful reader would agree on.
+  ★★ `composition` is ON FOR ONE PROBE ONLY (pinned by a test) and implemented for `chatPointer`
+  alone, whose block is the one that naturally holds a LIST to select from; the CLI REFUSES at
+  pre-flight if it is switched on elsewhere, rather than asking a question with no answer. It is
+  also the only mechanism that changes WHAT the probe measures — it now needs two blocks, so a
+  failure does not say which was missed.
+  ★★★ **INSIGHT ORDER IS SEVERITY, NEVER ARRAY POSITION, and getting that wrong buries nothing or
+  drops the target outright.** `buildInsightsPromptBlock` SORTS by `INSIGHT_SEVERITY_RANK` and then
+  SLICES to `MAX_PROMPT_INSIGHTS` — so an array ordered to bury the target does nothing, and an
+  array longer than the cap silently drops entries, which for the target is a probe measuring
+  nothing. The harness plants the target at `low`, its competitor at `medium` and the filler at
+  `high`.
+  ★★★ **ADD A TOKEN ID BY APPENDING TO `TOKEN_IDS`, NEVER BY INSERTING.** `plantedToken` regenerates
+  a candidate only against ids EARLIER in that list, so appending leaves every existing token
+  byte-identical at every salt — which is what keeps the committed rolling reference replayable and
+  the recorded runs comparable. An insert can change a later id's token on some salt, and the replay
+  then misses every time and reads as catastrophic drift. Pinned by a test asserting the five
+  original salt-1 tokens verbatim.
+  ★★★ **THE ROLLING REFERENCE IS COMPARED AGAINST WHAT THE LAST RUN *WROTE*, NEVER WHAT IT READ, and
+  it was the wrong one until 2026-09-09.** A run recorded `rollingHash` = the hash of the file it
+  READ at start and then OVERWROTE that file, so the next run read different bytes and pre-flight
+  reported "the stored drift reference is not what the last run wrote" — refusing to spend at all.
+  It could only ever pass while the prompt was UNCHANGED, i.e. in exactly the case where the check
+  had nothing to catch, which is why three green runs went by without exposing it. Measured: the
+  committed rolling file hashed to `ca4466cd…` while the last recorded run carried `ab7cea71…`.
+  Runs now record `rollingWrittenHash` (null when they wrote nothing — a filtered or incomplete run
+  must not blank the reference the run before it left), and the comparison is against the most
+  recent non-null one. ★★ `buildRunRecord` copies an EXPLICIT field list, so this field was silently
+  dropped on its first cut and every later run would have found no reference at all; that is now
+  pinned by its own test. Records written before the field existed carry none, so the check stays
+  quiet until a run writes one.
   ★★★ **THE RUN COULD NOT SAY WHY, WHICH IS WHY THE ARTIFACT NOW RECORDS `samples` AND `usage`.**
   Scores alone make a refusal, a paraphrase and an answer to a different question the same number,
   and telling them apart cost a whole second run. Each record now carries every NON-HIT reply's text
