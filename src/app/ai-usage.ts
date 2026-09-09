@@ -12,6 +12,46 @@ export type UsageBuckets = Record<string, Usage>; // key: YYYY-MM-DD (local)
 
 const EMPTY_USAGE: Usage = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 };
 
+/** Billing weight per usage class, as a RATIO against the base input price
+ *  rather than as money. Anthropic holds these ratios across its current
+ *  models (Sonnet $3/$15, Haiku $1/$5, Opus $15/$75 — all 1:5 input:output;
+ *  cache write 1.25x and cache read 0.1x everywhere), so a cost basis built on
+ *  them needs NO price table and NO per-model branch, and cannot go stale when
+ *  a published rate moves.
+ *  ★★ IF A FUTURE MODEL BREAKS THE RATIO these stop being model-free and the
+ *  basis has to become model-aware. That is the one thing that would make this
+ *  design wrong; see the spec's closing section. */
+export const USAGE_COST_WEIGHTS = {
+  input: 1,
+  cacheWrite: 1.25,
+  cacheRead: 0.1,
+  output: 5,
+} as const;
+
+/** What one recording costs, in units of base input tokens — the number the
+ *  caps compare against.
+ *
+ *  ★★★ THIS REPLACES `usageTotal`, WHICH WAS DELETED RATHER THAN RE-BODIED.
+ *  That function summed the four fields unweighted, so a cached turn (billed at
+ *  a tenth) consumed exactly as much of a cap as a fresh one. A reader seeing
+ *  the name `usageTotal` expects a plain sum, so leaving it callable would let
+ *  the raw sum back into a cap comparison by accident; deleting the name makes
+ *  that mistake unavailable instead of merely discouraged.
+ *
+ *  ★★ Normalises first, for the reason `normalizeUsage`'s own docstring gives:
+ *  `undefined * weight` is NaN, every comparison against NaN is false, and a
+ *  NaN total makes `crossed80`/`crossed100` permanently false — a silently
+ *  disabled cap, the worst outcome available here. */
+export function usageCostEquivalent(u: Partial<Usage> | undefined): number {
+  const n = normalizeUsage(u);
+  return (
+    n.input * USAGE_COST_WEIGHTS.input +
+    n.cacheWrite * USAGE_COST_WEIGHTS.cacheWrite +
+    n.cacheRead * USAGE_COST_WEIGHTS.cacheRead +
+    n.output * USAGE_COST_WEIGHTS.output
+  );
+}
+
 /** Coerce anything read from storage (or an older build) into a complete Usage.
  *  A non-finite value becomes 0 for the same reason a missing one does. */
 export function normalizeUsage(u: Partial<Usage> | undefined): Usage {
