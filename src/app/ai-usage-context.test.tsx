@@ -45,8 +45,11 @@ describe("AiUsageProvider", () => {
       result.current.record({ input: 100, output: 50, cacheWrite: 0, cacheRead: 0 });
     });
 
-    expect(result.current.sessionTotal).toBe(150);
-    expect(result.current.weekTotal).toBe(150);
+    // Cost basis, not a raw sum: 100 input * 1 + 50 output * 5 = 350. This
+    // predates the weighted-cost design (Task 1) and previously passed only
+    // because the provider had not yet switched to usageCostEquivalent.
+    expect(result.current.sessionTotal).toBe(350);
+    expect(result.current.weekTotal).toBe(350);
   });
 
   it("normalises a legacy stored blob (input/output only) instead of casting it", async () => {
@@ -81,7 +84,40 @@ describe("AiUsageProvider", () => {
     expect(persisted[other]).toEqual({ input: 100, output: 50, cacheWrite: 0, cacheRead: 0 });
   });
 
-  it("multiplies counted tokens by tokenMultiplier (5) toward sessionTotal", async () => {
+  it("stores raw API counts in sessionUsage rather than scaled ones", async () => {
+    // The panel labels these three figures as token counts. Before this change
+    // they were multiplied by tokenMultiplier (default 5) and rendered at 5x
+    // while claiming to be counts.
+    const { result } = renderHook(() => useAiUsageContext(), {
+      wrapper: makeWrapper(vi.fn()),
+    });
+    await act(async () => {});
+
+    act(() => { result.current.record({ input: 100, output: 10, cacheWrite: 20, cacheRead: 1000 }); });
+
+    expect(result.current.sessionUsage).toEqual({
+      input: 100,
+      output: 10,
+      cacheWrite: 20,
+      cacheRead: 1000,
+    });
+  });
+
+  it("totals the session on the cost basis", async () => {
+    const { result } = renderHook(() => useAiUsageContext(), {
+      wrapper: makeWrapper(vi.fn()),
+    });
+    await act(async () => {});
+
+    act(() => { result.current.record({ input: 100, output: 10, cacheWrite: 20, cacheRead: 1000 }); });
+
+    // 100*1 + 10*5 + 20*1.25 + 1000*0.1 = 275
+    expect(result.current.sessionTotal).toBeCloseTo(275, 6);
+  });
+
+  it("ignores a stored tokenMultiplier instead of scaling by it", async () => {
+    // Every existing device has a persisted tokenMultiplier, so this is the
+    // upgrade path, not an edge case.
     const ai = { ...defaultAiConfig, tokenMultiplier: 5 };
     function Wrapper({ children }: { children: ReactNode }) {
       return (
@@ -93,48 +129,9 @@ describe("AiUsageProvider", () => {
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
-    act(() => { result.current.record({ input: 100, output: 100, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { result.current.record({ input: 100, output: 10, cacheWrite: 20, cacheRead: 1000 }); });
 
-    // The multiplier applies to BOTH the session total AND the weekly buckets,
-    // so the two caps are compared against the same (multiplied) scale.
-    expect(result.current.sessionTotal).toBe(1000);
-    expect(result.current.weekTotal).toBe(1000);
-  });
-
-  it("accumulates raw tokens when tokenMultiplier is 1", async () => {
-    const ai = { ...defaultAiConfig, tokenMultiplier: 1 };
-    function Wrapper({ children }: { children: ReactNode }) {
-      return (
-        <AiUsageProvider lang="en-US" ai={ai} showToast={vi.fn()}>
-          {children}
-        </AiUsageProvider>
-      );
-    }
-    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
-    await act(async () => {});
-
-    act(() => { result.current.record({ input: 100, output: 100, cacheWrite: 0, cacheRead: 0 }); });
-
-    expect(result.current.sessionTotal).toBe(200);
-  });
-
-  it("applies tokenMultiplier to the cache fields exactly as to input and output", async () => {
-    const ai = { ...defaultAiConfig, tokenMultiplier: 2 };
-    function Wrapper({ children }: { children: ReactNode }) {
-      return (
-        <AiUsageProvider lang="en-US" ai={ai} showToast={vi.fn()}>
-          {children}
-        </AiUsageProvider>
-      );
-    }
-    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
-    await act(async () => {});
-
-    act(() => {
-      result.current.record({ input: 1, output: 1, cacheWrite: 1, cacheRead: 1 });
-    });
-
-    expect(result.current.sessionTotal).toBe(8); // 4 fields x 1 token x 2
+    expect(result.current.sessionTotal).toBeCloseTo(275, 6);
   });
 
   it("fires showToast once when session usage crosses 80 % of sessionTokenCap", async () => {

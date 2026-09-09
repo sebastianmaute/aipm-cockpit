@@ -15,7 +15,7 @@ import {
   addToBuckets,
   nextWeekReset,
   normalizeUsage,
-  usageTotal,
+  usageCostEquivalent,
   weekToDate,
   type Usage,
   type UsageBuckets,
@@ -24,7 +24,7 @@ import { crossed80, crossed100 } from "./usage-warning";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { AiConfig } from "./settings-types";
-import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_TOKEN_MULTIPLIER } from "./settings-types";
+import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
 
 export const AI_USAGE_KEY = "aipm-cockpit:ai-usage";
 /** ★ One-time, and keyed in localStorage rather than a ref: the point is to
@@ -144,24 +144,19 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
 
   const sessionCap = ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
   const weeklyCap = ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
-  const multiplier = ai.tokenMultiplier ?? DEFAULT_TOKEN_MULTIPLIER;
 
   const record = useCallback(
     (u: Usage): void => {
-      // Apply the counting multiplier ONCE, up front, so ALL FOUR fields —
-      // input, output AND the two cache fields — count in the same
-      // (multiplied) units. tokenMultiplier is a blunt safety margin over
-      // "counted tokens", not a per-field billing weight, so scaling the
-      // cache fields differently would silently re-base a cap the user
-      // configured under the old (input+output-only) meaning.
+      // ★★★ STORE RAW, WEIGHT AT READ. The buckets hold the API's own counts;
+      // the per-field billing weights are applied here, at comparison time,
+      // and never baked into what is persisted. The previous shape multiplied
+      // every field by `tokenMultiplier` BEFORE writing, which is why that
+      // re-basing was permanent — the multiplier in force at write time was
+      // never recorded beside the numbers, so stored history could not be
+      // re-interpreted. It still cannot, for buckets written before this
+      // change; see the cost-basis notice.
       const normalized = normalizeUsage(u);
-      const scaled: Usage = {
-        input: normalized.input * multiplier,
-        output: normalized.output * multiplier,
-        cacheWrite: normalized.cacheWrite * multiplier,
-        cacheRead: normalized.cacheRead * multiplier,
-      };
-      const tokens = usageTotal(scaled);
+      const tokens = usageCostEquivalent(normalized);
 
       // Read previous values from refs — no state reads inside updaters.
       const prevSession = sessionTotalRef.current;
@@ -172,13 +167,13 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       // Compute next values purely.
       const nextSession = prevSession + tokens;
       const nextSessionUsage: Usage = {
-        input: prevSessionUsage.input + scaled.input,
-        output: prevSessionUsage.output + scaled.output,
-        cacheWrite: prevSessionUsage.cacheWrite + scaled.cacheWrite,
-        cacheRead: prevSessionUsage.cacheRead + scaled.cacheRead,
+        input: prevSessionUsage.input + normalized.input,
+        output: prevSessionUsage.output + normalized.output,
+        cacheWrite: prevSessionUsage.cacheWrite + normalized.cacheWrite,
+        cacheRead: prevSessionUsage.cacheRead + normalized.cacheRead,
       };
       const prevWeek = weekToDate(prevBuckets, now);
-      const nextBuckets = addToBuckets(prevBuckets, now, scaled);
+      const nextBuckets = addToBuckets(prevBuckets, now, normalized);
       const nextWeek = weekToDate(nextBuckets, now);
 
       // Advance refs before setState so back-to-back record() calls in the
@@ -224,7 +219,7 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
         showToast("error", t(lang, "aiSelfLimitReached"));
       }
     },
-    [lang, sessionCap, weeklyCap, multiplier, showToast],
+    [lang, sessionCap, weeklyCap, showToast],
   );
 
   const now = new Date();
