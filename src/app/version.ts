@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.297.0";
-export const APP_BUILD_DATE = "2026-09-09"; // 0.297.0: the assistant can no longer put fields it was never offered into a new project's starter content — eighteen were reachable across risks, changes, milestones and stakeholders — a seeded risk's owner links to the team directory again by name or email, and a change's decision date is no longer something the assistant can set at all (Gentle)
+export const APP_VERSION = "0.298.0";
+export const APP_BUILD_DATE = "2026-09-09"; // 0.298.0: the AI usage caps now measure what a request costs instead of counting every token the same — a cached read bills at a tenth of an input token and an output token at five times one — so the cap warning that used to fire in the first two messages of every session now fires when it means something; Settings shows output separately and explains the change, the counting-multiplier setting is retired, and the assistant's task list no longer carries note logs the guide told it never to use, cutting a quarter off what that request ships (Malzberg)
+// 0.297.0: the assistant can no longer put fields it was never offered into a new project's starter content — eighteen were reachable across risks, changes, milestones and stakeholders — a seeded risk's owner links to the team directory again by name or email, and a change's decision date is no longer something the assistant can set at all (Gentle)
 // 0.296.0: the AI assistant's always-on operating guides are split into their own cached prompt block, so moving between views mid-conversation no longer re-sends ~13,300 tokens of identical prompt text — measured at roughly half the cost over a conversation that switches view (McHugh)
 // 0.295.0: the AI assistant's chat transcript is now sent as a stable cacheable prefix instead of being rebuilt every turn, the usage meter counts every token class Anthropic bills — including cached reads and writes — instead of only input and output, Settings shows the session's cache breakdown and hit rate, and a one-time toast explains why a usage-cap warning may now arrive earlier with no setting changed (Borges)
 // 0.294.0: the assistant can no longer write fields it was never given — eight undisclosed writes closed, and every create tool now runs through the same guard its edit path already used (Jimenez)
@@ -254,7 +255,7 @@ export const APP_BUILD_DATE = "2026-09-09"; // 0.297.0: the assistant can no lon
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Gentle";
+export const APP_MILESTONE = "Malzberg";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
