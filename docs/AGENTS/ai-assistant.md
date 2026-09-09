@@ -1302,6 +1302,39 @@
   settles it on the next run. A `thinking` block is the obvious candidate for a reasoning model —
   **that is a hypothesis the census will confirm or refute, not a claim.** The CLI also warns on
   stderr when any reply stops at `max_tokens`.
+  ★★★ **THE CENSUS CONFIRMED IT, AND THEN REFUTED THE PROBE.** At the 512 cap, `chatPointer` over
+  three arm-A reps: one clean `hit` (`end_turn`, `{thinking, text}`), and TWO replies that thought
+  and then called a **tool** instead of answering (`{thinking, tool_use}`, one of them also running
+  into the cap). Hit rate 0.33, `toolReaches` 2, mean output 326 tokens against 13 for every
+  single-hop probe. So composition DOES create a gradient — by making the model distrust its context
+  and go looking, which is a DIFFERENT phenomenon from the block being hard to read. **As a
+  reachability probe it is confounded, and a confounded number is worse than a saturated one.** It
+  is switched OFF; the knob and its one-probe cap stay, with that measurement recorded beside them
+  so nobody switches it back on expecting a difficulty lever.
+  ★★ **COMPETITORS AND DEPTH STAY, AND THE REASON IS NOT DIFFICULTY.** They measured as having no
+  effect on this model and an earlier revision of `PROBE_HARDENING`'s docstring called competitors
+  "the strongest lever"; that is corrected. What they actually buy: `competitor` gives
+  DISCRIMINATION — without a near-miss inside the block, "reached the right block" and "picked the
+  right item within it" are the same observation, and with one they separate into different named
+  diagnoses. `fillerBefore` gives REPRESENTATIVENESS — the app sends up to `MAX_PROMPT_INSIGHTS`
+  insights, a multi-line digest and a real conversation list, so the one-item blocks it replaced
+  were the LESS realistic prompt. Both cost about +3% weighted per run.
+  ★★★ **SIX OUTCOMES, NOT FOUR, BECAUSE `absent` CONFLATED THREE EVENTS.** This is the THIRD time a
+  scoring bucket coarser than the failure modes it meets reported the wrong cause here — `wrongBlock`
+  could not separate "read the wrong block" from "read nothing", `absent` could not separate "no
+  answer" from "hit the cap", and it could not separate either from "went looking with a tool" — and
+  the first two each cost a live run to diagnose. `tool-call` (a MODEL event: it distrusted its
+  context) and `truncated` (an INSTRUMENT event: the score measures the cap) now split out;
+  `hit`/`wrong-block`/`ambiguous` keep their exact meanings and only the `absent` bucket divides.
+  ★★ **`tool-call` OUTRANKS `truncated`**, because the re-sweep produced both shapes for ONE model
+  decision and letting truncation win would split it across two buckets on an incidental cap
+  collision; truncation loses nothing, since `stopReason` rides every reply and the record carries a
+  top-level `truncation` summary. ★★★ **A HIT THAT ALSO CALLED A TOOL IS STILL A HIT** — the probe
+  asks whether the block is REACHABLE and the reply reached it; `toolReaches` sums tool uses over
+  every reply regardless of outcome, so folding it into the hit rate would depress one axis and
+  raise another for a single event. ★ `scoreResponse` now REQUIRES the whole reply rather than its
+  text, because a miss cannot name its cause from text alone, and an optional argument would let a
+  caller fall back to the conflation this removed.
   ★★★ **THE RUN COULD NOT SAY WHY, WHICH IS WHY THE ARTIFACT NOW RECORDS `samples` AND `usage`.**
   Scores alone make a refusal, a paraphrase and an answer to a different question the same number,
   and telling them apart cost a whole second run. Each record now carries every NON-HIT reply's text
