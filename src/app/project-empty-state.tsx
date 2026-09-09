@@ -364,6 +364,10 @@ export function ProjectEmptyState({
           settings={settings}
           onChangeSettings={onChangeSettings}
           onClose={() => setAiConfigOpen(false)}
+          // ★ This instance replaces the modal's whole body with AiSection, so
+          //   the hardcoded Storage help entry would be wrong here. No Help
+          //   entry describes the AI settings, so suppress rather than repoint.
+          hideHelp
         >
           <AiSection lang={lang} settings={settings} onChange={onChangeSettings} hideUsage />
         </BackendConfigModal>

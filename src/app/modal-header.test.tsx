@@ -171,6 +171,24 @@ describe("ModalHeader help icon", () => {
     expect(screen.getByRole("button", { name: "Help – Edit risk" })).toBeInTheDocument();
   });
 
+  it("hideHelp removes the icon even though helpConceptId is set", () => {
+    render(
+      <ModalHeader
+        lang="en-US"
+        title="Edit risk"
+        onClose={() => {}}
+        helpConceptId="concept-raid"
+        helpTitle="Edit risk"
+        hideHelp
+      />,
+      { wrapper },
+    );
+    expect(screen.queryByRole("button", { name: /^Help/ })).toBeNull();
+    // ★ ANTI-VACUITY, as in the no-helpConceptId case above: assert the header
+    // itself rendered, or a broken render would satisfy the negative.
+    expect(screen.getByRole("button", { name: t("en-US", "alertModalClose") })).toBeInTheDocument();
+  });
+
   it("shows the entry's own body when the icon is clicked", async () => {
     const user = userEvent.setup();
     render(

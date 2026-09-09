@@ -6,27 +6,18 @@ import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
 
 // BackendConfigModal wraps Modal + ModalHeader + IntegrationsSection.
-// Mock all three so this test focuses on the shell behaviour only.
+// Modal and IntegrationsSection are mocked so this test focuses on the shell.
+//
+// ★★ ModalHeader is deliberately NOT mocked. The help-icon tests below turn on
+// whether an icon RENDERS, and a stub that decides that for itself proves only
+// that a prop was threaded — it would stay green if the real header started
+// rendering the icon regardless of `hideHelp`. The real header costs nothing
+// here: `useVoiceCommand` returns null with no provider (no mic), and its ✕
+// carries the same `alertModalClose` name the old stub gave it, so the close
+// tests below are unaffected.
 vi.mock("./modal", () => ({
   Modal: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
     open ? <div data-testid="modal">{children}</div> : null,
-}));
-
-vi.mock("./modal-header", () => ({
-  ModalHeader: ({
-    title,
-    onClose,
-  }: {
-    title: string;
-    onClose: () => void;
-  }) => (
-    <div data-testid="modal-header">
-      <span>{title}</span>
-      <button type="button" onClick={onClose} aria-label={t("en-US", "alertModalClose")}>
-        {t("en-US", "alertModalClose")}
-      </button>
-    </div>
-  ),
 }));
 
 vi.mock("./settings-sections/integrations-section", () => ({
@@ -79,8 +70,8 @@ describe("BackendConfigModal", () => {
 
   it("header Close button (first) also fires onClose", () => {
     const { onClose } = setup();
-    // Both the mocked ModalHeader and the footer render a Close button;
-    // the header's button is the first one in the DOM.
+    // Both the ModalHeader and the footer render a Close button; the header's
+    // button is the first one in the DOM.
     const closeBtns = screen.getAllByRole("button", {
       name: t("en-US", "alertModalClose"),
     });
@@ -92,5 +83,25 @@ describe("BackendConfigModal", () => {
     const { onChangeSettings } = setup();
     fireEvent.click(screen.getByTestId("integrations-section"));
     expect(onChangeSettings).toHaveBeenCalledWith(defaultSettings);
+  });
+
+  // The icon's real accessible name is `Help – <title>` with an EN DASH
+  // (U+2013). `/^Help/` sidesteps the dash; modal-header.test.tsx pins the
+  // full name.
+  it("renders the help icon on the default (storage) body", () => {
+    setup({ title: "Configure Storage" });
+    expect(screen.getByRole("button", { name: /^Help/ })).toBeTruthy();
+  });
+
+  it("hideHelp suppresses the help icon", () => {
+    setup({ title: "Configure AI", hideHelp: true });
+    expect(screen.queryByRole("button", { name: /^Help/ })).toBeNull();
+    // ★ ANTI-VACUITY: the negative above passes on a modal that rendered
+    // nothing at all. These assert the header DID render, so the absence is a
+    // real absence rather than a missing subtree.
+    expect(screen.getByText("Configure AI")).toBeTruthy();
+    expect(
+      screen.getAllByRole("button", { name: t("en-US", "alertModalClose") }).length,
+    ).toBeGreaterThan(0);
   });
 });

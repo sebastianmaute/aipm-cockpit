@@ -37,6 +37,21 @@ export interface BackendConfigModalProps {
   /** Body override. When provided, render this instead of IntegrationsSection
    *  (e.g. the AI-assistant config surface renders AiSection here). */
   children?: React.ReactNode;
+  /** Suppress the header's help icon.
+   *
+   *  ★ PASS IT WITH A `children` BODY THAT IS NOT ABOUT STORAGE. This modal
+   *  hardcodes `MODAL_HELP.backendConfig` (the Storage entry: IndexedDB,
+   *  JSON/CSV files, SharePoint), which is correct for its default
+   *  IntegrationsSection body — but `children` lets a consumer replace that
+   *  body wholesale, and the empty-state AI instance renders `AiSection`
+   *  under it. Opening the Storage entry from a dialog about the Anthropic
+   *  API key is worse than showing no icon at all.
+   *  SUPPRESSED rather than repointed: no Help entry describes the AI
+   *  settings. Kept as a suppression flag rather than a `helpConceptId`
+   *  override so the id stays declared once, here — `help-content.test.ts`
+   *  pins each MODAL_HELP key to exactly one call site. Defaults to false, so
+   *  every existing call site renders byte-identically. */
+  hideHelp?: boolean;
 }
 
 export function BackendConfigModal({
@@ -48,6 +63,7 @@ export function BackendConfigModal({
   hidePortfolioSwitch,
   noCurrentProject,
   children,
+  hideHelp = false,
 }: BackendConfigModalProps) {
   const TITLE_ID = "backend-config-modal-title";
   return (
@@ -72,6 +88,7 @@ export function BackendConfigModal({
           lang={lang}
           title={title}
           helpConceptId={MODAL_HELP.backendConfig}
+          hideHelp={hideHelp}
           titleId={TITLE_ID}
           onClose={onClose}
         />
