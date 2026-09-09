@@ -31455,7 +31455,15 @@ AI settings") as FALSE and left "should this instance offer `feature-ai` instead
 to §453. It should: measured over all 66 entries' titles and bodies, `/anthropic|api key/i` matches
 `feature-ai` and `feature-ai-advanced`, and `feature-ai`'s body opens "Add an Anthropic API key in
 Settings → AI, then accept the consent screen on the AI Assistant tab" — the exact subject of that
-dialog. `BackendConfigModal` therefore takes a REQUIRED `helpConceptId` instead of hardcoding the
+dialog.
+★★★ **THAT COUNT IS BODY-SCOPED AND ITS PROBE ASSERTED 66/66 BEFORE ANY TERM WAS READ — do not
+re-derive it with a shell one-liner, and no runnable command is given here on purpose.** §453 owns
+this rule and records why: the obvious line-anchored form resolves only **35 of 66** bodies
+(multi-line and differently-indented values fall out) and therefore UNDERCOUNTS every term, while a
+bare `grep -i` over `src/app/i18n.ts` fails the other way across ~3967 keys of which 66 are help
+bodies. Rebuild the node probe per §453's Status line, assert 66/66, then read a count. A tidy
+command here would silently return the wrong answer to the next reader, which is worse than making
+them rebuild it. `BackendConfigModal` therefore takes a REQUIRED `helpConceptId` instead of hardcoding the
 Storage id, its three consumers each pass a literal, and the AI instance passes
 `MODAL_HELP.aiSettings`. Required rather than optional-with-a-default so tsc catches a consumer that
 forgets it. Reproduce:

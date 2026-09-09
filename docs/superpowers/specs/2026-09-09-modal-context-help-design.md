@@ -318,6 +318,12 @@ Two more on 2026-09-09:
 Net: **19** `MODAL_HELP` rows, **20** call sites, **19** distinct keys wired. The table above still
 reads as twenty declarations; it is the 2026-09-09 record, not a census.
 
+★★ The two body-scoped counts above (`/series/i` → 0, `/anthropic\|api key/i` → 2) came from a node
+probe that parsed every `bodyKey` out of `help-content.ts`, resolved each against `i18n.ts`, and
+**asserted 66/66 resolved before reading a single term**. That assertion is the guard, and
+`docs/open-followups.md` §453 records why: the obvious line-anchored shell form resolves only 35 of
+66 bodies and undercounts every term. Rebuild the probe rather than reaching for a one-liner.
+
 ### 2026-09-09 — §3.5's "one call site per key" no longer holds
 
 `backend-config-modal` now takes a REQUIRED `helpConceptId` rather than hardcoding
