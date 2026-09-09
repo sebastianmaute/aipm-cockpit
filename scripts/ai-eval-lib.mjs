@@ -34,7 +34,19 @@ const TOKEN_SYLLABLES = [
   "drav", "yth", "kesh", "obr", "wint", "azu", "flen", "murk", "tsav", "erol",
 ];
 
-/** A nonsense token for one block, derived from (blockId, salt).
+/** Every id that gets a token in one run, in a FIXED order.
+ *
+ *  ★★★ The order is load-bearing: a token is regenerated until it differs from
+ *  the token of every id EARLIER in this list at the same salt, so the mapping
+ *  is total, deterministic and collision-free by construction. Reordering this
+ *  list changes tokens. Adding an id to a run without adding it here removes
+ *  that id's guarantee, which is why an unknown id throws. */
+export const TOKEN_IDS = Object.freeze([
+  "date", "viewScope", "insights", "activityRecap", "chatPointer",
+  "anchor", "anchorDecoy",
+]);
+
+/** A nonsense token for one id, derived from (id, salt).
  *
  *  ★★ It must satisfy two properties at once and they pull apart: unique
  *  enough that no other part of a ~31k-token prompt can emit it by accident,
@@ -44,17 +56,48 @@ const TOKEN_SYLLABLES = [
  *
  *  ★ The salt exists so a run can rotate tokens. A token reused across many
  *  runs risks ending up in a cached prefix somewhere and being answerable
- *  without reading the block, which would silently turn every probe green. */
-export function plantedToken(blockId, salt) {
+ *  without reading the block, which would silently turn every probe green.
+ *
+ *  ★★★ Collision-free BY CONSTRUCTION, not merely unlikely. Measured against
+ *  the first cut (a bare FNV-1a hash of `${id}:${salt}` with no retry): 11 of
+ *  salts 1..5000 produced a within-run collision among the seven TOKEN_IDS,
+ *  including `insights`/`activityRecap` at 2126 (each other's designated
+ *  distractor) and `anchor`/`anchorDecoy` at 1418 — a target equal to its own
+ *  decoy, which the scorer can only ever call ambiguous, silently, forever. So
+ *  a candidate is regenerated, folding in an attempt counter, until it differs
+ *  from the token of every id that sorts EARLIER in `TOKEN_IDS` at the same
+ *  salt. The first id in the list never retries. An id outside `TOKEN_IDS` has
+ *  no such guarantee, so it throws rather than silently risk a collision. */
+export function plantedToken(id, salt) {
+  const index = TOKEN_IDS.indexOf(id);
+  if (index === -1) throw new Error(`unknown token id: ${id}`);
+  // The comparison set is the ACTUAL resolved tokens of every earlier id, not
+  // their attempt-0 candidates — an earlier id may itself have needed a retry
+  // against ids before IT, and comparing against its raw candidate would miss
+  // that. Each earlier id has strictly smaller index, so this recursion always
+  // terminates at index 0.
+  const earlierTokens = TOKEN_IDS.slice(0, index).map((other) =>
+    plantedToken(other, salt),
+  );
+  let attempt = 0;
+  let candidate = generateToken(id, salt, attempt);
+  while (earlierTokens.includes(candidate)) {
+    attempt += 1;
+    candidate = generateToken(id, salt, attempt);
+  }
+  return candidate;
+}
+
+function generateToken(id, salt, attempt) {
   let h = 2166136261 >>> 0;
-  const key = `${blockId}:${salt}`;
+  const key = `${id}:${salt}:${attempt}`;
   for (let i = 0; i < key.length; i += 1) {
     h ^= key.charCodeAt(i);
     h = Math.imul(h, 16777619) >>> 0;
   }
   const rand = mulberry32(h);
   let out = "";
-  while (out.length < 10) {
+  while (out.length < 16) {
     out += TOKEN_SYLLABLES[Math.floor(rand() * TOKEN_SYLLABLES.length)];
   }
   return out;
@@ -70,43 +113,47 @@ export function plantedToken(blockId, salt) {
  *
  *  ★★ Every question says "exactly as written". That phrasing is what makes the
  *  `adherence` graded axis measurable at all — without an explicit terseness
- *  instruction, an elaborated answer is not a deviation from anything. */
+ *  instruction, an elaborated answer is not a deviation from anything.
+ *
+ *  ★ `Object.freeze` on the outer array is shallow — each probe object is
+ *  frozen individually too, so `PROBES[0].question = "x"` cannot silently
+ *  succeed. */
 export const PROBES = Object.freeze([
-  {
+  Object.freeze({
     id: "date",
     distractorBlock: "viewScope",
     headroom: "distractor",
     question:
       "Two reference codes appear in your context. Reply with the code attached to today's date, exactly as written, and nothing else.",
-  },
-  {
+  }),
+  Object.freeze({
     id: "viewScope",
     distractorBlock: "date",
     headroom: "distractor",
     question:
       "Two reference codes appear in your context. Reply with the code attached to the current view's scope description, exactly as written, and nothing else.",
-  },
-  {
+  }),
+  Object.freeze({
     id: "insights",
     distractorBlock: "activityRecap",
     headroom: "depth",
     question:
       "Reply with the reference code carried by the last active insight, exactly as written, and nothing else.",
-  },
-  {
+  }),
+  Object.freeze({
     id: "activityRecap",
     distractorBlock: "insights",
     headroom: "distractor",
     question:
       "Reply with the reference code carried by the recent-activity summary, exactly as written, and nothing else.",
-  },
-  {
+  }),
+  Object.freeze({
     id: "chatPointer",
     distractorBlock: "insights",
     headroom: "distractor",
     question:
       "Reply with the reference code carried by the past-conversations pointer, exactly as written, and nothing else.",
-  },
+  }),
 ]);
 
 export function probeById(id) {
