@@ -214,3 +214,28 @@ export function buildAnchorPrompt(spec, target, decoy) {
   }
   return out.join(" ");
 }
+
+/** Classify one response against its probe's target and decoy.
+ *
+ *  ★★ "hit" requires the target AND the absence of the decoy. A response
+ *  carrying both did not answer the question that was asked — it named two
+ *  blocks when one was requested — so it is recorded as `ambiguous` and counted
+ *  as a miss. Folding it into `hit` would inflate every rate and would hide
+ *  exactly the confusion a relocation is most likely to cause. */
+export function scoreResponse(text, target, decoy) {
+  const hay = String(text).toLowerCase();
+  const hasTarget = hay.includes(target.toLowerCase());
+  const hasDecoy = hay.includes(decoy.toLowerCase());
+  if (hasTarget && hasDecoy) return "ambiguous";
+  if (hasTarget) return "hit";
+  if (hasDecoy) return "wrong-block";
+  return "absent";
+}
+
+/** Fraction of outcomes that were hits. Empty is 0, never NaN — a NaN rate
+ *  compares false against every threshold, so an arm that produced nothing
+ *  would read as passing. */
+export function hitRate(outcomes) {
+  if (outcomes.length === 0) return 0;
+  return outcomes.filter((o) => o === "hit").length / outcomes.length;
+}

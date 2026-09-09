@@ -212,3 +212,51 @@ describe("sha256", () => {
     );
   });
 });
+
+import { scoreResponse, hitRate } from "./ai-eval-lib.mjs";
+
+describe("scoreResponse", () => {
+  const t = "vorquenzil";
+  const d = "mabtresk";
+
+  it("scores the target alone as a hit", () => {
+    expect(scoreResponse("vorquenzil", t, d)).toBe("hit");
+  });
+
+  it("scores the decoy alone as wrong-block", () => {
+    expect(scoreResponse("I think it is mabtresk", t, d)).toBe("wrong-block");
+  });
+
+  it("scores neither as absent", () => {
+    expect(scoreResponse("I could not find a code.", t, d)).toBe("absent");
+  });
+
+  it("scores both as ambiguous, never as a hit", () => {
+    // The question named ONE block. Returning both means it did not answer the
+    // question asked, so counting it as a hit would inflate every rate.
+    expect(scoreResponse("either vorquenzil or mabtresk", t, d)).toBe("ambiguous");
+  });
+
+  it("is case-insensitive on the token", () => {
+    expect(scoreResponse("VORQUENZIL", t, d)).toBe("hit");
+  });
+
+  it("scores a repeated target with no decoy as a hit, not ambiguous", () => {
+    // Repetition is not ambiguity — only the DECOY's presence flips the verdict
+    // to "ambiguous". A model that says the right thing twice still answered
+    // the question that was asked.
+    expect(scoreResponse("vorquenzil, vorquenzil", t, d)).toBe("hit");
+  });
+});
+
+describe("hitRate", () => {
+  it("counts only hits, over all reps", () => {
+    expect(hitRate(["hit", "hit", "absent", "wrong-block"])).toBeCloseTo(0.5);
+  });
+
+  it("is 0 for an empty list rather than NaN", () => {
+    // A NaN rate compares false against every threshold, which would make an
+    // empty arm read as passing.
+    expect(hitRate([])).toBe(0);
+  });
+});
