@@ -64,11 +64,6 @@ export function normalizeUsage(u: Partial<Usage> | undefined): Usage {
   };
 }
 
-/** Every billed token in one number — what the caps compare against. */
-export function usageTotal(u: Usage): number {
-  return u.input + u.output + u.cacheWrite + u.cacheRead;
-}
-
 const isoDate = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -99,7 +94,9 @@ export function weekToDate(b: UsageBuckets, now: Date): number {
   let total = 0;
   for (const [k, u] of Object.entries(b)) {
     const d = new Date(`${k}T00:00:00`);
-    if (d >= start && d <= now) total += usageTotal(normalizeUsage(u));
+    // `usageCostEquivalent` normalises internally, so the explicit
+    // normalizeUsage call this replaced would have been redundant.
+    if (d >= start && d <= now) total += usageCostEquivalent(u);
   }
   return total;
 }

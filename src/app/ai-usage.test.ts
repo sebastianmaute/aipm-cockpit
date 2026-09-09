@@ -24,7 +24,9 @@ test("weekToDate sums Monday..now of the current week only", () => {
   b = addToBuckets(b, PREV_SUN, { input: 1000, output: 0, cacheWrite: 0, cacheRead: 0 }); // excluded
   b = addToBuckets(b, MON, { input: 100, output: 100, cacheWrite: 0, cacheRead: 0 });
   b = addToBuckets(b, WED, { input: 200, output: 0, cacheWrite: 0, cacheRead: 0 });
-  expect(weekToDate(b, WED)).toBe(400); // 100+100+200, prev week excluded
+  // Cost basis, not a raw sum: MON (100*1 + 100*5=600) + WED (200*1=200) = 800;
+  // prev week still excluded.
+  expect(weekToDate(b, WED)).toBe(800);
 });
 
 it("accumulates all four fields into a bucket", () => {
@@ -33,10 +35,11 @@ it("accumulates all four fields into a bucket", () => {
   expect(b2["2026-09-08"]).toEqual({ input: 11, output: 22, cacheWrite: 33, cacheRead: 44 });
 });
 
-it("counts every billed field in the week total", () => {
+it("counts every billed field in the week total, weighted by cost", () => {
   const now = new Date(2026, 8, 8); // Tuesday
   const b = addToBuckets({}, now, { input: 1, output: 2, cacheWrite: 4, cacheRead: 8 });
-  expect(weekToDate(b, now)).toBe(15);
+  // 1*1 + 4*1.25 + 8*0.1 + 2*5 = 1 + 5 + 0.8 + 10 = 16.8
+  expect(weekToDate(b, now)).toBeCloseTo(16.8, 6);
 });
 
 // ★ THE UPGRADE CASE. A legacy bucket persisted before the cache fields
@@ -46,7 +49,8 @@ it("treats a legacy bucket's missing cache fields as zero", () => {
   const legacy = { "2026-09-08": { input: 5, output: 5 } } as unknown as UsageBuckets;
   const b = addToBuckets(legacy, new Date(2026, 8, 8), { input: 1, output: 1, cacheWrite: 1, cacheRead: 1 });
   expect(b["2026-09-08"]).toEqual({ input: 6, output: 6, cacheWrite: 1, cacheRead: 1 });
-  expect(weekToDate(b, new Date(2026, 8, 8))).toBe(14);
+  // 6*1 + 1*1.25 + 1*0.1 + 6*5 = 6 + 1.25 + 0.1 + 30 = 37.35
+  expect(weekToDate(b, new Date(2026, 8, 8))).toBeCloseTo(37.35, 6);
 });
 
 // ★ THE LOAD-BEARING CALL. A bucket read from storage reaches weekToDate
@@ -55,7 +59,17 @@ it("treats a legacy bucket's missing cache fields as zero", () => {
 // is already complete by then.
 it("defaults a raw legacy bucket's missing fields when totalling the week", () => {
   const legacy = { "2026-09-08": { input: 5, output: 5 } } as unknown as UsageBuckets;
-  expect(weekToDate(legacy, new Date(2026, 8, 8))).toBe(10);
+  // 5*1 + 5*5 = 30 (missing cacheWrite/cacheRead default to 0).
+  expect(weekToDate(legacy, new Date(2026, 8, 8))).toBe(30);
+});
+
+it("weekToDate totals the week on the cost basis, not the raw sum", () => {
+  const now = new Date(2026, 8, 9); // Wed 2026-09-09
+  const buckets = {
+    "2026-09-08": { input: 0, output: 0, cacheWrite: 0, cacheRead: 1000 },
+  };
+  // Raw sum would be 1000; cached input is billed at a tenth.
+  expect(weekToDate(buckets, now)).toBeCloseTo(100, 6);
 });
 
 test("nextWeekReset is next Monday 00:00 local", () => {
