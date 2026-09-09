@@ -1266,6 +1266,42 @@
   dropped on its first cut and every later run would have found no reference at all; that is now
   pinned by its own test. Records written before the field existed carry none, so the check stays
   quiet until a run writes one.
+  ★★★ **THE HARDENING DID NOT WORK, AND THAT IS THE FINDING — RECORD IT RATHER THAN BUYING MORE
+  RUNS AGAINST IT.** The calibration sweep (arm A, 3 reps) came back `date` 1.0, `viewScope` 1.0,
+  `insights` 1.0, `activityRecap` 1.0. Near-miss competitors ("current" vs "previous" code) and
+  burying the target four lines down are both trivial for `claude-sonnet-5`: **those two levers are
+  spent.** Combined with the pre-hardening run (all five at 1.0) and the 2026-09-08 manual eval (3/3
+  everywhere), the honest reading is that this model sits at 1.0 on ANY unambiguous single-hop
+  retrieval from a ~31k-token context, and that distractor DENSITY would be spent for the same
+  reason — it is still one-hop string matching against a distinct label. ★★ **SATURATION IS ONLY A
+  DEFECT AGAINST A GOAL THIS HARNESS DOES NOT HAVE.** Its stated purpose is telling whether a
+  prompt-layout change STOPPED the model reading a block; for that, a baseline pinned at 1.0 is the
+  best possible baseline, because any drop is signal and `verdict`'s hard fail (arm B zero where arm
+  A was not) is exactly the right gate. It becomes a defect only if the aim shifts to detecting
+  PARTIAL degradation, which needs resolution the rep count cannot buy — at 5 reps the per-probe
+  resolution is 0.2 and the standard error at p≈0.8 is 0.18, so a 0.2 drop is one SE.
+  ★★ **DO NOT REACH FOR THE OBVIOUS FIXES.** Reducing label distinctness, semantic indirection, or
+  making the answer require inference about content all reintroduce AMBIGUITY, and an ambiguous
+  probe fails in a way indistinguishable from a regression — that lesson has been paid for twice
+  (`chatPointer` at 0.0 for two runs). The one mechanism worth trying is a FINER RULER rather than a
+  harder task: one question asking for all five codes at once, scored 0-5 per reply. That gives 25
+  observations per arm at 5 reps instead of 5, for FEWER requests, introduces no ambiguity because
+  the labels are already distinct, and degrades in exactly the way a relocation would (one code goes
+  missing, the rest stay). It needs a partial-credit outcome shape `hitRate`/`verdict` do not have,
+  so it is its own decision, not a tweak.
+  ★★★ **THE OUTPUT CAP IS PART OF THE INSTRUMENT, AND 64 WAS MEASURING ITSELF.** `chatPointer`
+  scored 0.0 on all three sweep reps at EXACTLY 64 output tokens — `MAX_OUTPUT_TOKENS` — with empty
+  text and zero tool uses. A probe colliding with the ceiling scores `absent` whether or not it
+  found the block. Raised to 512; worst case if every reply ran to it is 65 × 512 = 33,280 output
+  tokens, 166,400 weighted against a recorded full run's 681,288 (about +24%, and nowhere near it at
+  11-13 tokens per answer). ★★ Every record now carries `maxOutputTokens`, because `outputTokens` is
+  a MEAN compared across runs and the cap bounds what it can reach — a rise after a cap change can
+  be headroom rather than behaviour. ★★ And every reply now records `stop_reason` plus a census of
+  the content-block TYPES returned (types and counts only). Nothing recorded could say what those
+  three empty replies had carried instead of text, which cost a spend to find out; the census
+  settles it on the next run. A `thinking` block is the obvious candidate for a reasoning model —
+  **that is a hypothesis the census will confirm or refute, not a claim.** The CLI also warns on
+  stderr when any reply stops at `max_tokens`.
   ★★★ **THE RUN COULD NOT SAY WHY, WHICH IS WHY THE ARTIFACT NOW RECORDS `samples` AND `usage`.**
   Scores alone make a refusal, a paraphrase and an answer to a different question the same number,
   and telling them apart cost a whole second run. Each record now carries every NON-HIT reply's text
