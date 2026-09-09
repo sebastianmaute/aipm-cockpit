@@ -66,14 +66,37 @@ export const APP_BUILD_DATE = "2026-09-09"; // 0.297.0: the assistant can no lon
  *  takes it, and nothing gates it. "McHugh" is a single ASCII word, so it is
  *  not exposed to the `[^"]+` vs `[A-Za-z]+` character-class trap below.
  *  ★★★ 0.297.0's OWN SWEEP FOUND A BROKEN CONTROL IN THE PRESCRIBED RECIPE, and
- *  the bug is in the pattern, never in the name. A dash-agnostic header regex
- *  written with a BRACKET CLASS — `[-–—]` — does not match the EM DASH in the
- *  0.37.0 header, because a multibyte character in a `grep -E` bracket
- *  expression is compared byte-wise: "Kowal" came back 0 where the
- *  zero-anywhere grep found it. Use ALTERNATION instead, `(-|–|—)`, which
- *  returns Kowal 1 and McHugh 1 together. A control that silently fails to
- *  fire makes every 0 beside it worthless, which is the whole point of running
- *  controls in the same invocation.
+ *  the bug is in the pattern, never in the name. Use ALTERNATION for a
+ *  dash-agnostic header regex — `(-|–|—)` — never a BRACKET CLASS.
+ *  ★★ WHY, in the smallest statement that survives testing. Under a BYTE
+ *  locale a multibyte character inside a `grep -E` bracket expression is
+ *  byte-decomposed, so `[-–—]` is not three characters but the byte set
+ *  {2D, E2, 80, 93, 94}. BARE, it then matches every U+20xx punctuation mark
+ *  through the shared `E2` lead byte — `…` and `•` included, neither of them a
+ *  dash. ANCHORED, where the class must consume a whole position, it matches
+ *  ONE byte of a three-byte dash and the surrounding match fails. A UTF-8
+ *  locale masks both. Alternation is correct in all four cells.
+ *  ★★★ AN EARLIER REVISION OF THIS NOTE SAID ONLY "does not match the EM DASH",
+ *  which is true of the ANCHORED form alone — a reader running the BARE form
+ *  sees it match and concludes the warning is stale, which is the exact failure
+ *  the note exists to prevent. It took a peer challenging it and four measured
+ *  cells to get a wording that holds; the peer's own replacement ("depending on
+ *  environment") was wrong the other way, since both cells are reachable on ONE
+ *  machine and the axis is the pattern's SHAPE. Measured on GNU grep 3.0 with
+ *  LC_ALL/LANG/LC_CTYPE unset:
+ *    anchored `[-–—]` vs the 0.37.0 header  -> 0   (under-match)
+ *    bare     `[-–—]` vs a file of … and •  -> 2   (false positives)
+ *    both, under LC_ALL=C.UTF-8             -> 1 and 0   (correct)
+ *    `(-|–|—)` in every combination         -> correct
+ *  ★★★ THE TWO DIRECTIONS ARE NOT EQUALLY DANGEROUS. The over-match is LOUD.
+ *  The anchored under-match returns 0, which is EXACTLY what a clean sweep
+ *  returns, so it cannot be told from the answer you were hoping for. Treat any
+ *  past clean sweep run with the bracket form as UNVERIFIED — "Gentle" included.
+ *  The zero-anywhere `grep -ic <name> CHANGELOG.md` bar is byte-safe and is why
+ *  0.297.0's sweep still stands: a plain ASCII substring, no class, no
+ *  multibyte, so it cannot enter any of these cells.
+ *  ★★ A control that silently fails to fire makes every 0 beside it worthless,
+ *  which is the whole point of running controls in the same invocation.
  *  ★★★ 0.295.0 SHIPPED ONCE ALREADY AS "Chiang" AND WAS RENAMED WITHIN THE
  *  SAME DAY, and the rename is the useful part of this record — not the name.
  *  "Chiang" passed the LEGALITY check below (uniqueness is per-minor-line, and
