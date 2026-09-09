@@ -45,6 +45,16 @@ const TOKEN_SYLLABLES = [
 export const TOKEN_IDS = Object.freeze([
   "date", "viewScope", "insights", "activityRecap", "chatPointer",
   "anchor", "anchorDecoy",
+  // ★★★ THE HARDENING TOKENS ARE APPENDED, NEVER INSERTED, and that is
+  //     load-bearing. `plantedToken` regenerates a candidate only against ids
+  //     EARLIER in this list, so appending leaves all seven original tokens
+  //     byte-identical at every salt — which is what keeps the committed
+  //     rolling drift reference replayable and the three recorded runs
+  //     comparable. Inserting one of these above `chatPointer` could change a
+  //     later id's token on some salt, and the replay would then miss every
+  //     time and read as catastrophic drift.
+  "datePrev", "viewScopePrev", "insightsPrev", "activityRecapPrev",
+  "chatPointerAlt1", "chatPointerAlt2",
 ]);
 
 /** A nonsense token for one id, derived from (id, salt).
@@ -144,48 +154,138 @@ function generateToken(id, salt, attempt) {
  *  ★ `Object.freeze` on the outer array is shallow — each probe object is
  *  frozen individually too, so `PROBES[0].question = "x"` cannot silently
  *  succeed. */
-export const PROBES = Object.freeze([
-  Object.freeze({
-    id: "date",
-    label: "calendar code",
-    distractorBlock: "viewScope",
-    headroom: "distractor",
-    question:
-      "Several labelled reference codes appear in your context. Reply with the calendar code, exactly as written, and nothing else.",
-  }),
-  Object.freeze({
-    id: "viewScope",
-    label: "view code",
-    distractorBlock: "date",
-    headroom: "distractor",
-    question:
-      "Several labelled reference codes appear in your context. Reply with the view code, exactly as written, and nothing else.",
-  }),
-  Object.freeze({
-    id: "insights",
-    label: "finding code",
-    distractorBlock: "activityRecap",
-    headroom: "depth",
-    question:
-      "Several labelled reference codes appear in your context. Reply with the finding code, exactly as written, and nothing else.",
-  }),
-  Object.freeze({
-    id: "activityRecap",
-    label: "activity code",
-    distractorBlock: "insights",
-    headroom: "distractor",
-    question:
-      "Several labelled reference codes appear in your context. Reply with the activity code, exactly as written, and nothing else.",
-  }),
-  Object.freeze({
+/** ★★★ THE DIFFICULTY KNOBS — THE ONE PLACE TO EDIT.
+ *
+ *  Turn a probe UP or DOWN by changing ONE line here. Nothing else needs
+ *  touching: the block text, the question and the planted-token universe are
+ *  all DERIVED from these three switches, so a knob and the prompt it governs
+ *  cannot drift apart. That derivation is the whole point — the two defects
+ *  this harness has shipped were both a prompt and a question disagreeing.
+ *
+ *  `competitor`   plant a SECOND, near-miss code in the SAME block, labelled
+ *                 "previous <label>" while the target becomes "current
+ *                 <label>", and ask for the current one. The strongest lever,
+ *                 and it stays unambiguous because the distinguishing
+ *                 attribute is written in the prompt text itself. Off → one
+ *                 code, plain label.
+ *  `fillerBefore` how many realistic, code-free items precede the target
+ *                 INSIDE its block, so the target is neither the first nor the
+ *                 most salient thing in it.
+ *                 ★★ INERT for `date` and `activityRecap`: those tokens ride a
+ *                 single short field the app fills with a date and a timestamp
+ *                 (`today`, `ActivitySummary.latestAt`), and there is no list
+ *                 to pad. Padding them would make the block unrepresentative
+ *                 of what the app sends, which is worse than an easy probe.
+ *  `composition`  the answer requires combining TWO blocks: the code belongs to
+ *                 the item satisfying a condition stated in a DIFFERENT block.
+ *                 ★★★ AT MOST ONE PROBE, pinned by a test. If composition
+ *                 proves too hard we want to learn it from one probe rather
+ *                 than lose a whole run — and it is the only mechanism here
+ *                 that changes WHAT the probe measures (it now needs two
+ *                 blocks, so a failure does not say which one was missed).
+ *                 ★★ Implemented for `chatPointer` ONLY — its block is the one
+ *                 that naturally holds a LIST to select from. Switching it on
+ *                 elsewhere needs block text for that block too, and the CLI
+ *                 refuses at pre-flight rather than silently asking an
+ *                 unanswerable question.
+ *
+ *  ★★★ WHATEVER YOU TURN, THE RULE IS: DIFFICULTY COMES FROM RETRIEVAL EFFORT,
+ *  NEVER FROM AMBIGUITY. Every question must keep exactly one answer a careful
+ *  reader would agree on. An ambiguous probe is not a hard probe — it is a
+ *  broken one, and it fails in a way that looks identical to a regression.
+ *  `chatPointer` scored 0.0 for two runs on exactly that mistake. */
+export const PROBE_HARDENING = Object.freeze({
+  date: Object.freeze({ competitor: true, fillerBefore: 0, composition: false }),
+  viewScope: Object.freeze({ competitor: true, fillerBefore: 4, composition: false }),
+  insights: Object.freeze({ competitor: true, fillerBefore: 4, composition: false }),
+  activityRecap: Object.freeze({ competitor: true, fillerBefore: 0, composition: false }),
+  chatPointer: Object.freeze({ competitor: false, fillerBefore: 2, composition: true }),
+});
+
+/** The two qualifiers a `competitor` probe writes into its block and its
+ *  question. Exported so the CLI's prompt text and the question come from ONE
+ *  pair of strings. */
+export const CURRENT_QUALIFIER = "current";
+export const PREVIOUS_QUALIFIER = "previous";
+
+/** The fixed opening of every probe question. */
+export const QUESTION_PREAMBLE =
+  "Several labelled reference codes appear in your context.";
+
+/** The extra codes the composition probe's block plants beside its target —
+ *  the near-miss conversations the model must NOT return. */
+export const COMPOSITION_ALT_IDS = Object.freeze(["chatPointerAlt1", "chatPointerAlt2"]);
+
+const PROBE_SPECS = [
+  { id: "date", label: "calendar code", distractorBlock: "viewScope", headroom: "distractor" },
+  { id: "viewScope", label: "view code", distractorBlock: "date", headroom: "depth" },
+  { id: "insights", label: "finding code", distractorBlock: "activityRecap", headroom: "depth" },
+  { id: "activityRecap", label: "activity code", distractorBlock: "insights", headroom: "distractor" },
+  {
     id: "chatPointer",
     label: "transcript code",
     distractorBlock: "insights",
-    headroom: "distractor",
-    question:
-      "Several labelled reference codes appear in your context. Reply with the transcript code, exactly as written, and nothing else.",
-  }),
-]);
+    headroom: "composition",
+    // ★★ Names the DISCRIMINATING ATTRIBUTE, not the block. The current view is
+    //    stated in the VIEW SCOPE block ('the user is looking at the "budget"
+    //    view') and exactly one listed conversation is about that view, so the
+    //    answer is unique — but reaching it needs both blocks. Deliberately
+    //    avoids the literal phrase "view code", which is another probe's label.
+    compositionAsk:
+      "the transcript code of the earlier conversation about the view you are currently looking at",
+  },
+];
+
+function askFrom(spec) {
+  const h = PROBE_HARDENING[spec.id];
+  if (h?.composition) return spec.compositionAsk;
+  return h?.competitor ? `the ${CURRENT_QUALIFIER} ${spec.label}` : `the ${spec.label}`;
+}
+
+function questionFrom(spec) {
+  return `${QUESTION_PREAMBLE} Reply with ${askFrom(spec)}, exactly as written, and nothing else.`;
+}
+
+export const PROBES = Object.freeze(
+  PROBE_SPECS.map((spec) => Object.freeze({ ...spec, question: questionFrom(spec) })),
+);
+
+/** The label the target's own block writes beside the token: qualified when a
+ *  near-miss competitor shares the block, plain otherwise. */
+export function plantLabel(id) {
+  return PROBE_HARDENING[id]?.competitor
+    ? `${CURRENT_QUALIFIER} ${probeById(id).label}`
+    : probeById(id).label;
+}
+
+/** The label the near-miss competitor writes. Only meaningful where
+ *  `competitor` is on; the CLI plants nothing for it otherwise. */
+export function priorLabel(id) {
+  return `${PREVIOUS_QUALIFIER} ${probeById(id).label}`;
+}
+
+/** Every token id the snapshot plants, DERIVED from the knobs.
+ *
+ *  ★★ Derived and not listed, because pre-flight asserts each of these appears
+ *  EXACTLY ONCE in the assembled prompt. A hardcoded list would fail that
+ *  assertion the moment a knob was turned off — which is the failure mode that
+ *  would push someone to weaken the assertion instead of the list. */
+export function plantedProbeIds() {
+  const ids = [];
+  for (const p of PROBES) {
+    const h = PROBE_HARDENING[p.id] ?? {};
+    ids.push(p.id);
+    if (h.competitor) ids.push(`${p.id}Prev`);
+    if (h.composition) ids.push(...COMPOSITION_ALT_IDS);
+  }
+  return ids;
+}
+
+/** The probe `composition` is switched on for, or null. */
+export function compositionProbeId() {
+  const on = PROBES.filter((p) => PROBE_HARDENING[p.id]?.composition);
+  return on.length > 0 ? on[0].id : null;
+}
 
 /** The label a block introduces its token with. The CLI's snapshot text reads
  *  it from here so the prompt and the question can never name it differently —
@@ -829,6 +929,12 @@ export function buildRunRecord(input) {
     gitSha: input.gitSha,
     anchorHash: input.anchorHash,
     rollingHash: input.rollingHash,
+    // ★★ The hash of what THIS run WROTE, or null when it wrote nothing. The
+    //    next run's pre-flight compares the file on disk against the most
+    //    recent non-null one of these — never against `rollingHash`, which is
+    //    what a run READ before overwriting it. Getting that backwards made
+    //    every run after a prompt change refuse to spend.
+    rollingWrittenHash: input.rollingWrittenHash ?? null,
     anchorSpec: input.anchorSpec,
     reps: input.reps,
     salt: input.salt,

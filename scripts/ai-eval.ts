@@ -27,8 +27,13 @@ import {
   EXIT, PROBES, plantedToken, sha256, ANCHOR_SPEC, buildAnchorPrompt,
   preflight, spendDecision, scoreResponse, hitRate, gradeArm,
   shouldWriteRolling, parseFilter, filterSpec, buildRunRecord, FILTER_ENV,
-  labelOf, tokenSubstringConflicts,
+  tokenSubstringConflicts, PROBE_HARDENING, plantLabel, priorLabel,
+  plantedProbeIds, compositionProbeId, COMPOSITION_ALT_IDS,
 } from "./ai-eval-lib.mjs";
+
+/** One probe's difficulty knobs. The table itself lives in the lib — see
+ *  `PROBE_HARDENING` there for what each switch does and which are inert. */
+type Hardening = { competitor: boolean; fillerBefore: number; composition: boolean };
 
 const ROLLING_PATH = "docs/baselines/ai-eval-rolling-prompt.txt";
 const RUNS_PATH = "docs/baselines/ai-eval-runs.json";
@@ -77,28 +82,140 @@ type Filter = {
   spec: string;
 };
 
+/** Realistic, CODE-FREE digest lines for the budget view, used as `fillerBefore`
+ *  depth for the `viewScope` probe. Shape and length mirror `view-ai-digest.ts`,
+ *  which emits a count line, a filter line and an enumerated `Visible rows:`
+ *  sample — so four of these is a representative digest, not a padded one. */
+const VIEW_DIGEST_FILLER = [
+  "Budget view — 6 role rows across 4 periods; figures are project totals, not filtered.",
+  "Planned 4,180 h against a 4,500 h baseline; 320 h of headroom remains.",
+  "Roles over baseline: Solution Architect (+140 h), Test Manager (+60 h).",
+  "Visible rows: #101 Solution Architect [amber]; #102 Test Manager [red]; #103 Developer [green].",
+  "Two buckets carry a red RAG on cost-per-unit: Integration and Rollout.",
+];
+
+/** Realistic, CODE-FREE insights used as `fillerBefore` depth for the `insights`
+ *  probe. Every one is `high` severity so it sorts AHEAD of the target.
+ *
+ *  ★★★ SEVERITY IS THE ORDERING LEVER, NOT ARRAY POSITION.
+ *  `buildInsightsPromptBlock` SORTS by `INSIGHT_SEVERITY_RANK` (high 0, medium
+ *  1, low 2) and then SLICES to `MAX_PROMPT_INSIGHTS` (10). So an array whose
+ *  order was meant to bury the target does nothing, and an array longer than 10
+ *  drops entries — which for the target is a probe that silently measures
+ *  nothing. The target is `low`, the competitor `medium`, these are `high`, and
+ *  the total stays at 6. */
+const INSIGHT_FILLER = [
+  { type: "overdueTrend", data: { current: 14, delta: 5, prior: 9 } },
+  { type: "stalledWork", data: { count: 7 } },
+  { type: "budgetVariance", data: { name: "Integration", variancePct: 12, buckets: 4 } },
+  { type: "raidAging", data: { name: "Vendor SLA gap", daysSinceUpdate: 21 } },
+  { type: "milestoneSlip", data: { name: "Pilot cutover", daysOverdue: 3 } },
+];
+
+/** The near-miss conversations the composition probe must NOT return. Neither
+ *  title is about the budget view, which is what makes the answer unique. */
+const CHAT_ALT_TITLES = ["Resource levelling review", "Milestone re-forecast"];
+
 /** The snapshot both prompt builders take.
  *
  *  ★★★ A LITERAL, NOT A DECODED WORKSPACE. `getSnapshot`'s return type is
  *  structural — scalars, string arrays and bounded summaries — so nothing here
  *  needs `jsonToWorkspace`, and therefore nothing needs jsdom. It is also the
- *  only way to get planted tokens to sit at chosen depths inside chosen
- *  fields, which a real decode cannot be made to do.
+ *  only way to get planted tokens to sit at chosen depths inside chosen fields,
+ *  which a real decode cannot be made to do.
  *
- *  Every field carrying a probe token takes it from `tokens`, so one call site
- *  controls where each token lands.
+ *  ★★★ EVERY LABEL AND EVERY PLANTED TOKEN COMES FROM THE PROBE, VIA
+ *  `plantLabel`/`priorLabel` — never a literal here, and every switch below
+ *  reads `PROBE_HARDENING`. All five blocks said "reference code" until
+ *  2026-09-09, and the model answered `chatPointer` with the DATE block's token
+ *  on three straight reps because that one sits on the first line of the turn
+ *  context. Deriving the block text from the same table the QUESTION is derived
+ *  from is what stops the two drifting apart — a mismatch makes the probe
+ *  unanswerable while every gate stays green.
  *
- *  ★★★ EACH BLOCK INTRODUCES ITS TOKEN WITH ITS OWN LABEL, READ FROM `PROBES`
- *  VIA `labelOf` — never a literal here. All five said "reference code" until
- *  2026-09-09, so the model had five identically-labelled codes and one prose
- *  description to tell them apart by; it answered `chatPointer` with the DATE
- *  block's token on three straight reps, because that one sits on the first
- *  line of the turn context. Reading the label from the probe is what stops the
- *  prompt and the question drifting apart — a mismatch there makes the probe
- *  unanswerable while every gate stays green. */
+ *  ★★ THE HARDENING IS PER-BLOCK BECAUSE THE BLOCKS DIFFER IN WHAT THEY CAN
+ *  CARRY. Three of them hold a LIST the app really does fill with several items
+ *  (digest lines, insights, recent conversations), so depth there is
+ *  representative. `today` and `ActivitySummary.latestAt` are single short
+ *  fields the app fills with a date and a timestamp; padding those would make
+ *  the block unrepresentative of what the app sends, which is a worse defect
+ *  than an easy probe. Those two get the competitor lever only. */
 function snapshotFor(tokens: Record<string, string>) {
+  const h = PROBE_HARDENING as Record<string, Hardening>;
+
+  // date — competitor only. `today` is a short date field the app fills with a
+  // date; there is no list to pad, so `fillerBefore` is structurally inert here.
+  const dateField = h.date.competitor
+    ? `2026-09-09 (${plantLabel("date")} ${tokens.date}; ${priorLabel("date")} ${tokens.datePrev})`
+    : `2026-09-09 (${plantLabel("date")} ${tokens.date})`;
+
+  // viewScope — depth then competitor. The PREVIOUS code is written first so
+  // the target is not the first code the model meets in the block.
+  const digestLines = [...VIEW_DIGEST_FILLER.slice(0, h.viewScope.fillerBefore)];
+  digestLines.push(
+    h.viewScope.competitor
+      ? `The ${priorLabel("viewScope")} was ${tokens.viewScopePrev}; the ${plantLabel("viewScope")} is ${tokens.viewScope}.`
+      : `The ${plantLabel("viewScope")} is ${tokens.viewScope}.`,
+  );
+
+  // insights — depth then competitor. See INSIGHT_FILLER on why severity, not
+  // array order, decides what the model reads first.
+  const insights: Record<string, unknown>[] = INSIGHT_FILLER
+    .slice(0, h.insights.fillerBefore)
+    .map((f, i) => ({
+      id: 100 + i, key: `eval-filler-${i}`, type: f.type, severity: "high",
+      data: f.data, status: "active", firstSeenAt: "2026-09-01T08:00:00Z",
+      lastSeenAt: "2026-09-08T08:00:00Z", occurrences: 2,
+    }));
+  if (h.insights.competitor) {
+    insights.push({
+      id: 200, key: "eval-probe-prev", type: "milestoneSlip", severity: "medium",
+      data: { name: `Design freeze (${priorLabel("insights")} ${tokens.insightsPrev})`, daysOverdue: 11 },
+      status: "active", firstSeenAt: "2026-08-20T08:00:00Z",
+      lastSeenAt: "2026-09-08T08:00:00Z", occurrences: 4,
+    });
+  }
+  // ★★ The token rides `data.name`, which `factLine` interpolates for a
+  //    `milestoneSlip`. `status` must be one of `insight-prompt.ts`'s
+  //    SURFACED_STATUSES or the whole block is dropped and the probe
+  //    silently measures nothing.
+  insights.push({
+    id: 201, key: "eval-probe", type: "milestoneSlip", severity: "low",
+    data: { name: `Phase gate (${plantLabel("insights")} ${tokens.insights})`, daysOverdue: 6 },
+    status: "active", firstSeenAt: "2026-09-01T08:00:00Z",
+    lastSeenAt: "2026-09-08T08:00:00Z", occurrences: 3,
+  });
+
+  // chatPointer — composition. The block lists several conversations, each with
+  // its own transcript code, and only ONE is about the view the VIEW SCOPE
+  // block says the user is on. The answer is unique; reaching it needs both
+  // blocks. `fillerBefore` is capped by COMPOSITION_ALT_IDS and the CLI refuses
+  // at pre-flight rather than silently listing fewer near-misses than asked.
+  const recent = h.chatPointer.composition
+    ? [
+        ...CHAT_ALT_TITLES.slice(0, h.chatPointer.fillerBefore).map((title, i) => ({
+          title: `${title} (${plantLabel("chatPointer")} ${tokens[COMPOSITION_ALT_IDS[i]]})`,
+          at: `2026-09-0${2 + i}`,
+        })),
+        {
+          title: `Budget rebaseline (${plantLabel("chatPointer")} ${tokens.chatPointer})`,
+          at: "2026-09-07",
+        },
+      ]
+    : [{
+        title: `Budget rebaseline (${plantLabel("chatPointer")} ${tokens.chatPointer})`,
+        at: "2026-09-07",
+      }];
+
+  // activityRecap — competitor only. `latestAt` is the block's one free-text
+  // slot; the rest of the sentence is generated from counts, so there is
+  // nothing to pad and `fillerBefore` is structurally inert here too.
+  const latestAt = h.activityRecap.competitor
+    ? `logged under ${plantLabel("activityRecap")} ${tokens.activityRecap} (the ${priorLabel("activityRecap")} was ${tokens.activityRecapPrev})`
+    : `${plantLabel("activityRecap")} ${tokens.activityRecap}`;
+
   return {
-    today: `2026-09-09 (${labelOf("date")} ${tokens.date})`,
+    today: dateField,
     language: "en-US",
     holidayCountries: ["DE"],
     storageKind: "file",
@@ -108,19 +225,8 @@ function snapshotFor(tokens: Record<string, string>) {
     mode: "expert",
     enabledModules: [],
     currentView: "budget",
-    // ★★ The token rides `data.name`, which `factLine` interpolates for a
-    //    `milestoneSlip`. `status` must be one of `insight-prompt.ts`'s
-    //    SURFACED_STATUSES or the whole block is dropped and the probe
-    //    silently measures nothing.
-    insights: [
-      {
-        id: 1, key: "eval-probe", type: "milestoneSlip", severity: "high",
-        data: { name: `Phase gate (${labelOf("insights")} ${tokens.insights})`, daysOverdue: 6 },
-        status: "active", firstSeenAt: "2026-09-01T08:00:00Z",
-        lastSeenAt: "2026-09-08T08:00:00Z", occurrences: 3,
-      },
-    ],
-    viewDigest: `Budget view, 12 rows after filters. The ${labelOf("viewScope")} is ${tokens.viewScope}.`,
+    insights,
+    viewDigest: digestLines.join("\n"),
     timezone: "Europe/Berlin",
     // ★★★ `ActivitySummary` carries NO free-text field — every other member is
     //     a count — so `latestAt` is the only place a token can ride, and it
@@ -132,14 +238,11 @@ function snapshotFor(tokens: Record<string, string>) {
     //     probe over a block that cannot carry a needle at all.
     activitySummary: {
       total: 12, byActor: { user: 9, ai: 2, integration: 1, unknown: 0 },
-      latestAt: `${labelOf("activityRecap")} ${tokens.activityRecap}`, days: 7,
+      latestAt, days: 7,
     },
     // ★ `inlineTitle` collapses whitespace and strips double quotes; the
     //   tokens are bare syllables, so they survive it unchanged.
-    chatPointer: {
-      count: 4,
-      recent: [{ title: `Budget rebaseline (${labelOf("chatPointer")} ${tokens.chatPointer})`, at: "2026-09-07" }],
-    },
+    chatPointer: { count: recent.length + 1, recent },
   } as unknown as Parameters<typeof buildTurnContext>[1];
 }
 
@@ -432,13 +535,36 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   const last = (recorded.runs[recorded.runs.length - 1] ?? null) as
     | { anchorHash?: string; rollingHash?: string | null; salt?: number; date?: string }
     | null;
+  // ★★★ THE DRIFT REFERENCE MUST BE COMPARED AGAINST WHAT THE LAST RUN WROTE,
+  //     NEVER AGAINST WHAT IT READ, and this was wrong until 2026-09-09. A run
+  //     records `rollingHash` = the hash of the file it READ at start, then
+  //     OVERWRITES that file — so the next run reads different bytes and
+  //     `preflight` reported "the stored drift reference is not what the last
+  //     run wrote" on every run following a prompt change. It could only ever
+  //     pass while the prompt was unchanged, i.e. in exactly the case where the
+  //     check had nothing to catch. Measured: the committed rolling file hashes
+  //     to ca4466cd… while the last recorded run carries ab7cea71…, so the next
+  //     run would have refused to spend at all. `rollingWrittenHash` (below) is
+  //     what a run stores when it WRITES, and the reference is the most recent
+  //     non-null one — a run that did not write must not blank the reference
+  //     the run before it left. Runs recorded before this field existed carry
+  //     none, so the check simply stays quiet until a run writes one.
+  const writtenRolling = recorded.runs
+    .map((r) => (r as { rollingWrittenHash?: string | null }).rollingWrittenHash ?? null)
+    .filter((x): x is string => typeof x === "string");
+  const recordedRollingHash = writtenRolling.length > 0
+    ? writtenRolling[writtenRolling.length - 1]
+    : null;
 
   // ★ ONE token map for the whole run. It was rebuilt per probe and again for
   //   the size print; `plantedToken` is deterministic so every copy was
   //   identical, but three copies of a map the pre-flight, the live arms and
   //   the rolling write all key off is three chances for them to disagree.
   const tokens: Record<string, string> = {};
-  for (const p of PROBES) tokens[p.id] = plantedToken(p.id, salt);
+  // ★★ Keyed off `plantedProbeIds`, NOT off PROBES: hardening plants near-miss
+  //    competitors and composition alternatives beside the five targets, and a
+  //    map built from PROBES alone renders them as the literal "undefined".
+  for (const id of plantedProbeIds()) tokens[id] = plantedToken(id, salt);
 
   // ★ Pre-flight covers the ACTIVE probes only. Asserting an unselected probe
   //   is free, but a failure in one would abort the very diagnostic run whose
@@ -453,6 +579,24 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   for (const c of tokenSubstringConflicts({ ...tokens, anchor: anchorTarget, anchorDecoy })) {
     failures.push(`planted tokens collide at salt ${salt}: ${c} — rotate AI_EVAL_SALT`);
   }
+
+  // ★★★ COMPOSITION IS IMPLEMENTED FOR ONE BLOCK ONLY. `PROBE_HARDENING` is a
+  //     table anyone can edit, and switching `composition` on for a probe whose
+  //     block has no list to select from would ask a question with no answer —
+  //     which is indistinguishable from a regression. Refuse instead.
+  const composedId = compositionProbeId();
+  if (composedId !== null && composedId !== "chatPointer") {
+    failures.push(
+      `PROBE_HARDENING: composition is only implemented for chatPointer, not ${composedId} — that block has no list of candidates to select from, so the question would have no answer`,
+    );
+  }
+  if (composedId !== null
+    && (PROBE_HARDENING as Record<string, { fillerBefore: number }>)[composedId].fillerBefore
+      > COMPOSITION_ALT_IDS.length) {
+    failures.push(
+      `PROBE_HARDENING.${composedId}.fillerBefore exceeds the ${COMPOSITION_ALT_IDS.length} near-miss ids COMPOSITION_ALT_IDS declares — add ids to TOKEN_IDS first`,
+    );
+  }
   for (const probe of activeProbes) {
     const armA = flatten(assembleArm("current", tokens, probe.question), "turn");
     const armB = flatten(assembleCandidate(tokens, probe.question), "turn");
@@ -465,6 +609,21 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
     //     a strip that silently stopped stripping gives a control identical to
     //     arm A, which then scores high, and `verdict` calls the probe void
     //     AFTER the money is spent. So: zero targets, and the decoy untouched.
+    // ★★★ EVERY PLANTED TOKEN, EXACTLY ONCE — not merely the target and the
+    //     decoy. Hardening plants near-miss competitors and composition
+    //     alternatives beside them, and a competitor that silently failed to
+    //     land would turn a hardened probe back into an easy one with every
+    //     gate still green. `plantedProbeIds` is derived from the same knobs
+    //     the block text is, so this cannot go stale when one is turned off.
+    const armAText = `${armA.system}
+${armA.turn}`;
+    for (const id of plantedProbeIds()) {
+      const n = occurrences(armAText, tokens[id]);
+      if (n !== 1) {
+        failures.push(`${probe.id}: planted token ${id} appears ${n} times in arm A, expected exactly 1`);
+      }
+    }
+
     const controlText = wholeOf(assembleControl(tokens, probe.id, probe.question));
     const targetInControl = occurrences(controlText, tokens[probe.id]);
     if (targetInControl !== 0) {
@@ -472,11 +631,18 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
         `${probe.id}: the negative control still carries the target ${targetInControl} time(s) — the strip did not strip`,
       );
     }
-    const decoyInControl = occurrences(controlText, tokens[probe.distractorBlock]);
-    if (decoyInControl !== 1) {
-      failures.push(
-        `${probe.id}: the negative control must keep its decoy exactly once, found ${decoyInControl} — without it a control cannot tell "answered from elsewhere" from "answered nothing"`,
-      );
+    // The strip must remove the TARGET and only the target: every other planted
+    // token — the decoy, the near-miss competitors, the composition
+    // alternatives — has to survive, or the control stops being arm A minus one
+    // thing and starts being a different prompt.
+    for (const id of plantedProbeIds()) {
+      if (id === probe.id) continue;
+      const n = occurrences(controlText, tokens[id]);
+      if (n !== 1) {
+        failures.push(
+          `${probe.id}: the negative control must keep ${id} exactly once, found ${n} — the strip must remove the target and nothing else`,
+        );
+      }
     }
 
     const res = preflight({
@@ -486,7 +652,7 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
       anchorHash,
       recordedAnchorHash: last?.anchorHash ?? anchorHash,
       rollingHash,
-      recordedRollingHash: last?.rollingHash ?? null,
+      recordedRollingHash,
       // ★★ NOTHING IS SUPPRESSED HERE. Both arms declare "turn" and both
       //    position assertions run and hold. That is honest for an A/A
       //    self-test — arm B is a deliberate alias of arm A until a gated slice
@@ -774,6 +940,15 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
     costWeights: USAGE_COST_WEIGHTS,
   };
 
+  // ★ Decided and hashed BEFORE the record is built, because the record has to
+  //   carry the hash of what this run wrote for the NEXT run to compare against.
+  const willWriteRolling = shouldWriteRolling({
+    mode: decision.mode, complete, filtered: filter !== null,
+  });
+  const rollingBytes = willWriteRolling
+    ? JSON.stringify(flatten(assembleArm("current", tokens, PROBES[0].question), "turn"))
+    : null;
+
   const firstA = activeProbes.length > 0
     ? perProbeReplies[activeProbes[0].id]?.A[0] ?? null
     : null;
@@ -783,6 +958,7 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
     gitSha: env.GIT_SHA ?? "unrecorded",
     anchorHash,
     rollingHash,
+    rollingWrittenHash: rollingBytes === null ? null : sha256(rollingBytes),
     anchorSpec: ANCHOR_SPEC,
     reps,
     salt,
@@ -828,13 +1004,12 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   recorded.runs.push(record as unknown as Record<string, unknown>);
   deps.writeArtifact(RUNS_PATH, `${JSON.stringify(recorded, null, 2)}\n`);
 
-  if (shouldWriteRolling({ mode: decision.mode, complete, filtered: filter !== null })) {
-    // ★★ Written from THIS run's arm A, and only because the run completed.
-    //    An incomplete run leaves the file alone: overwriting from a run nobody
-    //    scored poisons the reference invisibly, and the NEXT run then compares
-    //    against garbage and reports no drift.
-    const built = assembleArm("current", tokens, PROBES[0].question);
-    deps.writeArtifact(ROLLING_PATH, JSON.stringify(flatten(built, "turn")));
+  if (rollingBytes !== null) {
+    // ★★ Written from THIS run's arm A, and only because the run completed and
+    //    was unfiltered. An incomplete run leaves the file alone: overwriting
+    //    from a run nobody scored poisons the reference invisibly, and the NEXT
+    //    run then compares against garbage and reports no drift.
+    deps.writeArtifact(ROLLING_PATH, rollingBytes);
   }
 
   for (const r of v.reasons) console.error(r);

@@ -182,6 +182,89 @@ describe("PROBES", () => {
   });
 });
 
+import {
+  PROBE_HARDENING, plantLabel, priorLabel, plantedProbeIds, compositionProbeId,
+  CURRENT_QUALIFIER, PREVIOUS_QUALIFIER, COMPOSITION_ALT_IDS,
+} from "./ai-eval-lib.mjs";
+
+describe("PROBE_HARDENING", () => {
+  it("carries a knob set for every probe and for nothing else", () => {
+    expect(Object.keys(PROBE_HARDENING).sort()).toEqual(PROBES.map((p) => p.id).sort());
+  });
+
+  // ★★★ The lead's constraint, pinned rather than trusted: if composition
+  //     proves too hard we learn it from ONE probe instead of losing the run.
+  it("switches composition on for AT MOST ONE probe", () => {
+    expect(PROBES.filter((p) => PROBE_HARDENING[p.id].composition).length)
+      .toBeLessThanOrEqual(1);
+  });
+
+  it("gives the composition probe an ask of its own", () => {
+    const id = compositionProbeId();
+    if (id === null) return;
+    expect(typeof probeById(id).compositionAsk).toBe("string");
+    expect(probeById(id).compositionAsk.length).toBeGreaterThan(20);
+  });
+
+  it("never asks a competitor probe for a code its block does not label", () => {
+    // competitor ON  -> the block writes "current <label>" and the question
+    //                   asks for it; competitor OFF -> both use the plain label.
+    for (const p of PROBES) {
+      if (PROBE_HARDENING[p.id].composition) continue;
+      expect(p.question).toContain(plantLabel(p.id));
+      if (PROBE_HARDENING[p.id].competitor) {
+        expect(plantLabel(p.id)).toBe(`${CURRENT_QUALIFIER} ${p.label}`);
+        expect(priorLabel(p.id)).toBe(`${PREVIOUS_QUALIFIER} ${p.label}`);
+        // The question must name the CURRENT one, never the previous.
+        expect(p.question).not.toContain(priorLabel(p.id));
+      } else {
+        expect(plantLabel(p.id)).toBe(p.label);
+      }
+    }
+  });
+
+  it("still says 'exactly as written' on every question, hardened or not", () => {
+    for (const p of PROBES) expect(p.question).toContain("exactly as written");
+  });
+
+  it("derives the planted id set from the knobs, not from a list", () => {
+    const ids = plantedProbeIds();
+    for (const p of PROBES) {
+      const h = PROBE_HARDENING[p.id];
+      expect(ids).toContain(p.id);
+      expect(ids.includes(`${p.id}Prev`)).toBe(h.competitor);
+      for (const alt of COMPOSITION_ALT_IDS) {
+        if (h.composition) expect(ids).toContain(alt);
+      }
+    }
+  });
+
+  it("keeps every planted id inside the declared token universe", () => {
+    // An id outside TOKEN_IDS loses the collision-free guarantee, and
+    // `plantedToken` throws rather than mint one silently.
+    for (const id of plantedProbeIds()) {
+      expect(TOKEN_IDS).toContain(id);
+      expect(() => plantedToken(id, 1)).not.toThrow();
+    }
+  });
+
+  it("plants a distinct token for every planted id", () => {
+    const toks = plantedProbeIds().map((id) => plantedToken(id, 1));
+    expect(new Set(toks).size).toBe(toks.length);
+  });
+
+  it("leaves the five original tokens byte-identical after the append", () => {
+    // The committed rolling drift reference holds a previous run's bytes and is
+    // scored against plantedToken(id, thatRunsSalt). A changed mint would make
+    // the replay miss every time and read as catastrophic drift.
+    expect(plantedToken("date", 1)).toBe("tsavazumurkazuyth");
+    expect(plantedToken("viewScope", 1)).toBe("tresktsavolnzilmab");
+    expect(plantedToken("insights", 1)).toBe("mabscesceflenquen");
+    expect(plantedToken("activityRecap", 1)).toBe("zilurnquenolnquen");
+    expect(plantedToken("chatPointer", 1)).toBe("flenmabscequentresk");
+  });
+});
+
 import { labelOf, tokenSubstringConflicts, TOKEN_IDS } from "./ai-eval-lib.mjs";
 
 describe("tokenSubstringConflicts", () => {
@@ -988,6 +1071,17 @@ describe("buildRunRecord", () => {
     expect(rec.filter).not.toBeNull();
     expect(rec.verdict.code).toBe(E.UNUSABLE);
     expect(rec.verdict.reasons.join(" ")).toMatch(/FILTERED/);
+  });
+
+  it("carries rollingWrittenHash through, and nulls it when nothing was written", () => {
+    // ★★ `buildRunRecord` copies an EXPLICIT field list, so a new field added
+    //    at the call site is silently dropped unless it is added here too —
+    //    which is how this very field went missing on its first cut. The next
+    //    run's pre-flight reads it; a dropped one makes the drift reference
+    //    permanently unverifiable, with every gate green.
+    expect(buildRunRecord({ ...base, filter: null, rollingWrittenHash: "abc" }).rollingWrittenHash)
+      .toBe("abc");
+    expect(buildRunRecord({ ...base, filter: null }).rollingWrittenHash).toBeNull();
   });
 
   it("refuses to build a record with no filter field", () => {
