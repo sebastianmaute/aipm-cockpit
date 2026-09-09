@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stop a mid-conversation view switch from re-writing ~9.9k tokens (a chars÷3.6 estimate at the time; measured 2026-09-09 at 13,305 tokens — see the addendum below) of operating-guide text that did not change, by splitting the stable system block into a view-invariant half (which keeps the cache marker) and a view-scoped half (which does not).
+**Goal:** Stop a mid-conversation view switch from re-writing ~9.9k tokens of operating-guide text that did not change (a chars÷3.6 estimate at the time; the actual re-written payload is block 0 — the guide text plus the fixed instructions ahead of it — measured 2026-09-09 at 13,305 tokens; see the addendum below for the decomposition), by splitting the stable system block into a view-invariant half (which keeps the cache marker) and a view-scoped half (which does not).
 
 **Architecture:** `selectActiveGuides` already returns the active guides in priority order, with the unscoped ones (leadership, App overview) leading. This slice partitions that list on view-scope, assembles it as TWO strings instead of one, and has `buildStableSystemBlocks` return two `SystemBlock`s with `cache_control` on the first. No new breakpoint is spent — the existing system marker moves earlier. Nothing the model reads changes, so no answer-quality eval is required.
 
@@ -16,8 +16,9 @@
 
 ★★★ **The header count is the whole defect, not the split.** `assembleGuideBlock` opens with
 `You have N operating guides, in priority order.` and N varies by view (2, 3 or 4). That digit sits
-ahead of ~9.9k tokens (a chars÷3.6 estimate; measured 2026-09-09 at 13,305 tokens — see the addendum
-below) of byte-identical guide text, so the cache prefix breaks on every view switch.
+ahead of ~9.9k tokens of byte-identical guide text (a chars÷3.6 estimate; the actual re-written payload
+is block 0, measured 2026-09-09 at 13,305 tokens — see the addendum below for the decomposition), so
+the cache prefix breaks on every view switch.
 The longest common prefix of the assembled block across the 34 nav-reachable views is **9
 characters** (`AppView` has 35 members; `learning-insights` is deep-link-only and not nav-reachable,
 and including it could not raise the figure). If you
@@ -205,8 +206,9 @@ function guideParts(guides: readonly OperatingGuide[], startIndex: number): stri
  *  entire point. The single-block predecessor opened with "You have N
  *  operating guides" where N included the view-scoped ones, so N moved from
  *  2 to 3 to 4 as the user navigated — putting a varying digit ahead of what
- *  was estimated at the time as ~9.9k tokens (measured 2026-09-09 at 13,305
- *  tokens — see the addendum at the end of this plan) of identical text and
+ *  was estimated at the time as ~9.9k tokens of identical text (the actual
+ *  re-written payload is block 0, measured 2026-09-09 at 13,305 tokens — see
+ *  the addendum at the end of this plan for the decomposition) and
  *  breaking the cache prefix on every view switch. Measured before this
  *  change: the longest common prefix of the
  *  assembled block across the 34 nav-reachable views (of 35 `AppView`
@@ -545,18 +547,25 @@ Add to the cache-boundary section of `docs/AGENTS/ai-assistant.md`, adjacent to 
   the comparison that matters is per-REQUEST, never against the whole feature-guide corpus, because
   only ONE view-scoped guide is ever active at a time: the unscoped leadership guide alone runs
   ~8x the largest single view guide, even though the 22 view-scoped guides are comparable to
-  leadership IN TOTAL (1.14x) — which is exactly why view scoping saves far less than the 22-of-23
+  leadership ALONE (1.14x — not leadership plus App overview, which is not part of either side of this
+  ratio) — which is exactly why view scoping saves far less than the 22-of-23
   guide-count ratio suggests. Measured 2026-09-09 via a `vite-node` script importing `builtinSeeds`
   from `use-operating-guides` and summing `content.length` grouped on whether `scope.views` is
   empty-or-absent: always-on (leadership + App overview) = 35,788 chars, estimated at the time via
   chars÷3.6 as ≈9.9k tokens; the 22 view-scoped guides total 28,977 chars, largest single guide 4,103
-  chars — re-run rather than trust these numbers. That estimate was LOW: a live cache measurement
-  (2026-09-09, see the addendum at the end of this plan) puts the full block-0 payload (this always-on
-  guide text plus the fixed instructions ahead of it, 38,791 chars) at a measured 13,305 tokens — a
-  real ratio of 2.92 chars/token for this payload, not 3.6. Meanwhile `assembleGuideBlocks`'
-  predecessor put a varying guide COUNT in a single shared header ahead of
-  all of it, so a view switch re-wrote what is now measured at 13,305 tokens of byte-identical text
-  at 1.25x (previously estimated ~9.9k). Measured before the change: the longest common prefix of the
+  chars — re-run rather than trust these numbers. That chars÷3.6 estimate and the measured figure below
+  are NOT the same SCOPE, and reading them as directly comparable overstates the ratio's share of the
+  gap. The estimate covers the always-on GUIDE TEXT alone (35,788 chars → 9,941 tokens at 3.6); a live
+  cache measurement (2026-09-09, see the addendum at the end of this plan) is of BLOCK 0 — that guide
+  text PLUS the fixed instructions ahead of it (38,791 chars) — at a measured 13,305 tokens, a real
+  ratio of 2.92 chars/token for that larger payload. Of the 3,364-token gap: ~69% (~2,334 tokens) is the
+  ratio correction (3.6 was too generous), ~31% (~1,030 tokens) is the added scope (fixed instructions
+  the original estimate never counted). At the measured ratio the guide text alone is ~12,275 tokens
+  (35,788 × 13,305 ÷ 38,791 — assumes uniform character density, unverified). Meanwhile
+  `assembleGuideBlocks`' predecessor put a varying guide COUNT in a single shared header ahead of
+  all of it, so a view switch re-wrote what is now measured at 13,305 tokens of byte-identical block-0
+  text at 1.25x (the ~9.9k figure earlier here was the narrower guide-text-only estimate, not this
+  payload). Measured before the change: the longest common prefix of the
   assembled block across the 34 nav-reachable views (of 35 `AppView` members — `learning-insights`
   is deep-link-only) was 9 characters.
   ★★ Block 1 has no marker ON PURPOSE — all four breakpoints are already committed (tools 1,
@@ -651,8 +660,12 @@ single source of truth); the short version: a two-arm replay (`claude-sonnet-5`,
 conversation, a view switch between turns 2 and 3) showed the switch turn's cache read rising
 17,796 → 31,101 and its cache write falling 13,836 → 563, a −77.7% cost drop on that turn and −52.3%
 cumulative over turns 2–4; steady state within one view costs 0.5% more under the new layout. The
-two chars÷3.6 estimates elsewhere in this plan (~9.9k tokens) were LOW — the measured figure for the
-same payload (block 0) is 13,305 tokens, a real ratio of 2.92 chars/token. Reproduce with a script
+two chars÷3.6 estimates elsewhere in this plan (~9.9k tokens) covered the always-on GUIDE TEXT ALONE
+(35,788 chars) — NOT the same payload as the 13,305-token measurement, which is of BLOCK 0 (that guide
+text PLUS the fixed instructions ahead of it, 38,791 chars), a real ratio of 2.92 chars/token for that
+larger payload. Of the 3,364-token gap, roughly 69% is the ratio correction (3.6 was too generous) and
+roughly 31% is the added scope the original estimate never counted; see `docs/AGENTS/ai-assistant.md`'s
+corresponding bullet for the full decomposition. Reproduce with a script
 importing `buildStableSystemBlocks`, `buildTurnContext`, `toolsFor` and `buildWireMessages`, replaying
 a canned multi-turn conversation across a view switch and reading `cache_read_input_tokens` /
 `cache_creation_input_tokens` off each response; the harness itself is a scratchpad script, not part

@@ -13,9 +13,10 @@ Baseline: 0.295.0 "Borges", branch `feat/ai-prompt-cache-layout` @ `65e4cfc0`
 ## Problem
 
 The operating guides are large, they are sent on every turn, and today a view switch throws all
-of them out of the cache — including the ~9.9k tokens (a chars÷3.6 estimate at the time; measured
-2026-09-09 at 13,305 tokens for the equivalent block-0 payload — see "What was measured" at the end
-of this file) of them that did not change.
+of them out of the cache — including the ~9.9k tokens (a chars÷3.6 estimate at the time) of them that
+did not change; the actual re-written payload is block 0 (this guide text plus the fixed instructions
+ahead of it), measured 2026-09-09 at 13,305 tokens — see "What was measured" at the end of this file
+for the decomposition.
 
 Measured 2026-09-08 against this tree (`builtinSeeds()`, `selectActiveGuides`, `assembleGuideBlock`,
 `toolsFor({})`; ~3.6 chars/token unless noted):
@@ -42,10 +43,11 @@ ahead of everything and invalidates all of it.
 views is 9 characters** (`"You have "`). (`AppView` has 35 members; `learning-insights` is
 deep-link-only and unreachable from the nav tree, so it was not probed — including it could not
 have raised the figure, since a common prefix only shrinks as strings are added.) The always-on
-guide text below it — estimated at the time as ~9.9k tokens, measured 2026-09-09 at 13,305 tokens
-for the equivalent block-0 payload (see "What was measured" at the end of this file) — is
-byte-identical on every view and is re-written at 1.25× anyway, on every switch, because of the
-count.
+guide text below it — estimated at the time as ~9.9k tokens — is byte-identical on every view and is
+re-written at 1.25× anyway, on every switch, because of the count. The re-written payload is actually
+block 0 (this guide text plus the fixed instructions ahead of it), measured 2026-09-09 at 13,305
+tokens — see "What was measured" at the end of this file for why the two figures are not the same
+scope.
 
 ★★★ This is why the split alone is not the fix. Partitioning the array while leaving one shared
 counted header in front leaves block 1 differing per view over a single digit, and buys **nothing**.
@@ -55,12 +57,13 @@ Anyone implementing this must fix the header or the slice is inert while looking
 revision of this paragraph gave. `BUILTIN_FEATURE_GUIDES` really is 22-of-23 view-scoped, and that
 figure is quoted correctly in several places — but `builtinSeeds()` returns **24** guides: the
 leadership guide is added separately and is unscoped. It does NOT outweigh the entire feature-guide
-corpus 3:1 — measured 2026-09-09, the 22 view-scoped guides total 28,977 chars against leadership's
-32,989 (plus App overview's 2,799), a ratio of **1.14x**, not 3x. The corpus total is the wrong
+corpus 3:1 — measured 2026-09-09, the 22 view-scoped guides total 28,977 chars against leadership
+ALONE at 32,989 chars (App overview's 2,799 is not part of either side of this ratio), a ratio of
+**1.14x**, not 3x. The corpus total is the wrong
 comparison anyway: the corpus is never sent — only ONE view-scoped guide is ever active per
 request — so what actually matters is that leadership alone dwarfs the single active view guide on
-every request (~8x the largest one, 4,103 chars). That leadership and the corpus are comparable IN
-TOTAL (1.14x) is precisely why view scoping saves far less than the 22-of-23 guide-count ratio
+every request (~8x the largest one, 4,103 chars). That leadership ALONE and the view-scoped corpus are
+comparable (1.14x) is precisely why view scoping saves far less than the 22-of-23 guide-count ratio
 suggests. Reproduce:
 `npx vite-node` a script importing `builtinSeeds` from `use-operating-guides` and summing
 `content.length` grouped on whether `scope.views` is empty-or-absent.
@@ -100,8 +103,10 @@ numbering continues from block 1's count — otherwise the two blocks disagree a
 ## What this buys, and what it does not
 
 **Buys:** on a mid-conversation view switch, the tools + instructions + always-on guides entry stays
-alive — estimated at the time as roughly 9.9k tokens moving from a 1.25× re-write to a 0.1× read;
-**measured 2026-09-09 at 13,305 tokens** (see "What was measured" at the end of this file).
+alive — the always-on guide text alone was estimated at the time as roughly 9.9k tokens moving from a
+1.25× re-write to a 0.1× read; the entry actually measured is block 0 (guide text plus the fixed
+instructions ahead of it), **13,305 tokens, measured 2026-09-09** (see "What was measured" at the end
+of this file for why the two are not the same scope).
 
 **Does not buy:** the history. Block 2 still precedes the messages in the prefix, so a view switch
 still invalidates every message-level entry and the transcript is re-written. **That is the ceiling
@@ -169,8 +174,9 @@ the answer-quality eval rather than ahead of it. The eval harness and its ceilin
 view-dependent, so a view switch re-caches everything behind them, therefore consider moving the
 guide to the turn tail. The measurement inverts the premise. The dominant guide is **not**
 view-dependent — it is unscoped and never changes — so a view switch re-pays for content that was
-identical (estimated at the time as ~9.9k tokens; measured 2026-09-09 at 13,305 tokens for the
-equivalent block-0 payload). The first move is therefore to stop paying for the part that did not
+identical (the guide text alone estimated at the time as ~9.9k tokens; the actual re-written payload,
+block 0, measured 2026-09-09 at 13,305 tokens — see "What was measured" for why the two are not the
+same scope). The first move is therefore to stop paying for the part that did not
 change (this slice), and only then to decide about the part that did (slice G2).
 
 ## Out of scope
@@ -197,9 +203,18 @@ At the switch (turn 3): cache read rose 17,796 → 31,101 (+13,305), cache write
 (−13,273), billed cost (token-equivalents at fresh-input 1.0×, cache-write 1.25×, cache-read 0.1×,
 output 5×) fell 19,632.6 → 4,381.9 (**−77.7%**). Two independently-derived readings agree on the
 moved amount: the NEW arm's turn-1 cache write (13,305) and the NEW−OLD cache-read delta at the
-switch (31,101 − 17,796 = 13,305) are the same number — that is block 0, and it corrects the
-~9.9k-token estimate used throughout this file (the payload is 38,791 chars, a real ratio of 2.92
-chars/token, not the ~3.6 assumed above). The `tools` entry alone measured 17,796 tokens (both arms
+switch (31,101 − 17,796 = 13,305) are the same number — that is block 0.
+
+That measurement is NOT the same scope as the ~9.9k-token estimate used throughout this file, and
+reading them as directly comparable overstates the ratio's share of the gap. The estimate covers the
+always-on GUIDE TEXT alone (35,788 chars → 9,941 tokens at 3.6); 13,305 tokens is for block 0 — that
+guide text PLUS the fixed instructions ahead of it (38,791 chars total) — a real ratio of 2.92
+chars/token for that larger payload. Of the 3,364-token gap: ~69% (~2,334 tokens) is the ratio
+correction (3.6 was too generous), ~31% (~1,030 tokens) is the added scope (fixed instructions the
+original estimate never counted). At the measured ratio the guide text alone is ~12,275 tokens
+(35,788 × 13,305 ÷ 38,791 — assumes uniform character density across the payload, unverified).
+
+The `tools` entry alone measured 17,796 tokens (both arms
 read exactly that whenever only `tools` survives in cache), correcting the ~12,596/~12.6k estimates
 above. Over turns 2–4 (turn 1 excluded — see below), cumulative cost fell 27,295.9 → 13,027.2
 (**−52.3%**).

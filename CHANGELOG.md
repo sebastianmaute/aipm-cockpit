@@ -17,7 +17,7 @@ longer carries its own changelog comment.
   to sit behind a one-line header that counted the guides in scope, and that
   count changed as you navigated. Because the prompt cache matches a prefix
   byte for byte, a single changed digit threw roughly 13,300 tokens of
-  unchanged text out of the cache every time you switched view. The always-on
+  unchanged prompt text out of the cache every time you switched view. The always-on
   guides now form their own cached block, and only the current screen's guide
   sits after it.
 - **Measured against the live API on 2026-09-09 (Sonnet 5): a conversation

@@ -1134,17 +1134,24 @@
   the comparison that matters is per-REQUEST, never against the whole feature-guide corpus, because
   only ONE view-scoped guide is ever active at a time: the unscoped leadership guide alone runs
   ~8x the largest single view guide, even though the 22 view-scoped guides are comparable to
-  leadership IN TOTAL (1.14x) — which is exactly why view scoping saves far less than the 22-of-23
+  leadership ALONE (1.14x — not leadership plus App overview, which is not part of either side of this
+  ratio) — which is exactly why view scoping saves far less than the 22-of-23
   guide-count ratio below suggests. Measured 2026-09-09 via a `vite-node` script importing
   `builtinSeeds` from `use-operating-guides` and summing `content.length` grouped on whether
   `scope.views` is empty-or-absent: always-on (leadership + App overview) = 35,788 chars, estimated at
   the time via chars÷3.6 as ≈9.9k tokens; the 22 view-scoped guides total 28,977 chars, largest single
-  guide 4,103 chars — re-run rather than trust these numbers. ★ That chars÷3.6 estimate was LOW: the
-  live cache measurement below puts the full block-0 payload (this always-on guide text plus the fixed
-  instructions ahead of it, 38,791 chars) at a measured 13,305 tokens — a real ratio of 2.92 chars/token
-  for this payload, not 3.6. Meanwhile `assembleGuideBlocks`' predecessor put a varying guide COUNT in a
-  single shared header ahead of all of it, so a view switch re-wrote what is now measured at 13,305
-  tokens of byte-identical text at 1.25x (previously estimated ~9.9k). Measured before the change: the
+  guide 4,103 chars — re-run rather than trust these numbers. ★ That chars÷3.6 estimate and the measured
+  figure below are NOT the same SCOPE, and reading them as directly comparable overstates the ratio's
+  share of the gap. The estimate covers the always-on GUIDE TEXT alone (35,788 chars → 9,941 tokens at
+  3.6); the live cache measurement below is of BLOCK 0 — that guide text PLUS the fixed instructions
+  ahead of it (38,791 chars) — at a measured 13,305 tokens, a real ratio of 2.92 chars/token for that
+  larger payload. Of the 3,364-token gap: ~69% (~2,334 tokens) is the ratio correction (3.6 was too
+  generous), ~31% (~1,030 tokens) is the added scope (fixed instructions the original estimate never
+  counted). At the measured ratio the guide text alone is ~12,275 tokens (35,788 × 13,305 ÷ 38,791 —
+  assumes uniform character density, unverified). Meanwhile `assembleGuideBlocks`' predecessor put a
+  varying guide COUNT in a single shared header ahead of all of it, so a view switch re-wrote what is
+  now measured at 13,305 tokens of byte-identical block-0 text at 1.25x (the ~9.9k figure earlier here
+  was the narrower guide-text-only estimate, not this payload). Measured before the change: the
   longest common prefix of the assembled block across all 34 nav-reachable views was 9 characters
   (`AppView` has 35 members; `learning-insights` is deep-link-only and was not probed — including it
   could not raise the figure, since a common prefix only shrinks as strings are added).

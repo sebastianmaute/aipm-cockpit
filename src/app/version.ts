@@ -3,7 +3,7 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.296.0";
-export const APP_BUILD_DATE = "2026-09-09"; // 0.296.0: the AI assistant's always-on operating guides are split into their own cached prompt block, so moving between views mid-conversation no longer re-sends ~13,300 tokens of identical guide text — measured at roughly half the cost over a conversation that switches view (Kowal)
+export const APP_BUILD_DATE = "2026-09-09"; // 0.296.0: the AI assistant's always-on operating guides are split into their own cached prompt block, so moving between views mid-conversation no longer re-sends ~13,300 tokens of identical prompt text — measured at roughly half the cost over a conversation that switches view (Kowal)
 // 0.295.0: the AI assistant's chat transcript is now sent as a stable cacheable prefix instead of being rebuilt every turn, the usage meter counts every token class Anthropic bills — including cached reads and writes — instead of only input and output, Settings shows the session's cache breakdown and hit rate, and a one-time toast explains why a usage-cap warning may now arrive earlier with no setting changed (Borges)
 // 0.294.0: the assistant can no longer write fields it was never given — eight undisclosed writes closed, and every create tool now runs through the same guard its edit path already used (Jimenez)
 // 0.293.1: the activity log no longer says "AI planned 1 allocation cells" — the two AI planning entries pick the singular wording at a count of one, in both languages (Vandermeer)
