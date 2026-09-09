@@ -24,8 +24,10 @@
   ★★ Anthropic checks the prompt-cache prefix in the fixed order **`tools` → `system` → `messages`**, and an
   entry is reusable only while the prefix is byte-identical from the very start — so per-turn content placed
   ANYWHERE before `messages` makes the WHOLE transcript uncacheable, not merely the one segment it sits in.
-  `buildSystemPrompt` is now a thin composition of two builders: `buildStableSystemBlocks` (the cached half —
-  fixed instructions + the operating-guide text, `cache_control`-terminated) and `buildTurnContext` (the
+  `buildSystemPrompt` is now a thin composition of two builders: `buildStableSystemBlocks` (the STABLE
+  half — itself two blocks: fixed instructions + the always-on guide text, `cache_control`-terminated,
+  then the current view's guide text with no marker of its own — see the two-block bullet under
+  "View-scoped AI prompts" below) and `buildTurnContext` (the
   volatile half — today, task count, current view/mode, … — returned as a plain string). `chat-panel.tsx`
   calls the two separately and sends the volatile half riding the OUTGOING turn's last message, never
   `system`, via `chat-cache-layout.ts`'s `buildWireMessages`; `buildSystemPrompt` itself (both halves in
@@ -1097,9 +1099,18 @@
   if a future eval goes badly: keep the view-scope block's output in `system` and take the smaller
   cache win. Not needed on this evidence; still available.
   ★★★ **`CACHED_TOOLS` (`chat-api.ts`) closes the FIRST segment of the prefix** — the LAST tool carries
-  `cache_control`, so a per-view guide swap inside `system` re-caches only the smaller system slice after
-  it, never the whole `tools` payload. Without it the cached prefix is `tools` + `stableText`, and the
-  guide swap would rewrite the entire tool payload on every view switch. `chat-cache-layout.ts`'s
+  `cache_control`, so an edit to block 0 (a guide toggled, `groundInGuides` flipped, or the fixed
+  instructions changed) re-caches only the smaller system slice after it, never the whole `tools`
+  payload. Without it the only marker ahead of `messages` would be block 0's own, so `tools` sits
+  INSIDE that one segment and a block-0 edit forces the whole `tools`+block-0 prefix to rewrite
+  together, even though no tool schema changed.
+  ★★ THAT IS NOT WHAT PROTECTS A VIEW SWITCH ANY MORE, and an earlier revision of this bullet gave that
+  as the reason ("a per-view guide swap … re-caches only the smaller system slice … the guide swap
+  would rewrite the entire tool payload on every view switch"). The reason changed under it once
+  `buildStableSystemBlocks` split into two blocks and moved the per-view guide text into block 1, AFTER
+  both the `tools` marker and the block-0 marker (see that function's own two-block doc comment) — a
+  view switch now changes only block 1, so it never reaches either marker regardless of whether `tools`
+  carries a breakpoint of its own. `chat-cache-layout.ts`'s
   `buildWireMessages` adds up to `MAX_MESSAGE_BREAKPOINTS` (2) more breakpoints inside the message
   history itself: a moving BOUNDARY (the last message before the turn-context tail — this is what buys
   most of the coverage, and a moving marker is the cheap, recommended shape per the fact above, not a
@@ -1117,21 +1128,97 @@
   `git add` it). Both counts have grown before and will again; re-run rather than trust either number
   here. Nothing in this repo counts tokens — any token figure quoted near this is a ~4-bytes/token
   estimate, not a measurement.
-  ★★★ **THE GUIDE STAYS IN `system` DELIBERATELY, AND THAT IS A DECISION WITH AN OPEN QUESTION, NOT AN
-  OVERSIGHT.** `buildStableSystemBlocks`'s `stableText` is still view-dependent: `settings.ai.groundInGuides`
-  defaults to **true** (`settings-types.ts`, a missing key reads as true), and most `BUILTIN_FEATURE_GUIDES`
-  are view-scoped — **22 of 23** measured 2026-09-08, corrected from a stale "20 of the 21" that had
-  rotted by two; don't trust either number, re-run it:
+  ★★★ **`buildStableSystemBlocks` RETURNS TWO BLOCKS AND ONLY THE FIRST CARRIES A MARKER.** Block 0
+  is the instructions plus every always-on guide; block 1 is the current view's guides alone. The
+  split exists because the guide payload is dominated by content that does NOT vary by view — and
+  the comparison that matters is per-REQUEST, never against the whole feature-guide corpus, because
+  only ONE view-scoped guide is ever active at a time: the unscoped leadership guide alone runs
+  ~8x the largest single view guide, even though the 22 view-scoped guides are comparable to
+  leadership ALONE (1.14x — not leadership plus App overview, which is not part of either side of this
+  ratio) — which is exactly why view scoping saves far less than the 22-of-23
+  guide-count ratio below suggests. Measured 2026-09-09 via a `vite-node` script importing
+  `builtinSeeds` from `use-operating-guides` and summing `content.length` grouped on whether
+  `scope.views` is empty-or-absent: always-on (leadership + App overview) = 35,788 chars, estimated at
+  the time via chars÷3.6 as ≈9.9k tokens; the 22 view-scoped guides total 28,977 chars, largest single
+  guide 4,103 chars — re-run rather than trust these numbers. ★ That chars÷3.6 estimate and the measured
+  figure below are NOT the same SCOPE, and reading them as directly comparable overstates the ratio's
+  share of the gap. The estimate covers the always-on GUIDE TEXT alone (35,788 chars → 9,941 tokens at
+  3.6); the live cache measurement below is of BLOCK 0 — that guide text PLUS the fixed instructions
+  ahead of it (38,791 chars) — at a measured 13,305 tokens, a real ratio of 2.92 chars/token for that
+  larger payload. Of the 3,364-token gap: ~69% (~2,334 tokens) is the ratio correction (3.6 was too
+  generous), ~31% (~1,030 tokens) is the added scope (fixed instructions the original estimate never
+  counted). At the measured ratio the guide text alone is ~12,275 tokens (35,788 × 13,305 ÷ 38,791 —
+  assumes uniform character density, unverified). Meanwhile `assembleGuideBlocks`' predecessor put a
+  varying guide COUNT in a single shared header ahead of all of it, so a view switch re-wrote what is
+  now measured at 13,305 tokens of byte-identical block-0 text at 1.25x (the ~9.9k figure earlier here
+  was the narrower guide-text-only estimate, not this payload). Measured before the change: the
+  longest common prefix of the assembled block across all 34 nav-reachable views was 9 characters
+  (`AppView` has 35 members; `learning-insights` is deep-link-only and was not probed — including it
+  could not raise the figure, since a common prefix only shrinks as strings are added).
+  ★★ Block 1 has no marker ON PURPOSE — all four breakpoints are already committed (tools 1,
+  system 1, messages 2) — and it still sits inside whatever a LATER marker covers, so it is not
+  necessarily uncached, merely never the boundary of a cache lookup by itself. Adding a fifth marker
+  is an API error, not a silent no-op.
+  ★★ THE HISTORY IS STILL RE-WRITTEN ON A VIEW SWITCH, because block 1 precedes the messages in the
+  prefix. That is this slice's ceiling, not an oversight; the successor that removes it (moving the
+  view-scoped guides onto the turn tail) is slice G2 in
+  `docs/superpowers/specs/2026-09-08-ai-guide-block-cache-split-design.md` and is gated on the
+  answer-quality eval, because it is a `system`-to-`user` role change.
+  ★★★ **MEASURED 2026-09-09 — THE SAVING IS CONFIRMED, WITH STATED BOUNDS.** A live two-arm run against
+  the real Anthropic API (`claude-sonnet-5`, `max_tokens: 64`) replayed a canned 4-turn conversation
+  carrying the real 24 guides from `builtinSeeds` and the real 52-tool array from `toolsFor`, with a
+  view switch between turn 2 and turn 3 (`budget` → `raid-report`, chosen because the guide COUNT
+  differs between them) — one request per arm per turn, 8 requests total, reading
+  `cache_read_input_tokens`/`cache_creation_input_tokens` off each response. The OLD arm reconstructed
+  the pre-split single system block; the NEW arm is `buildStableSystemBlocks` + `buildTurnContext` +
+  `buildWireMessages` on this branch. At the switch (turn 3): cache read rose 17,796 → 31,101
+  (+13,305), cache write fell 13,836 → 563 (−13,273), billed cost (fresh-input 1.0x / cache-write
+  1.25x / cache-read 0.1x / output 5x token-equivalents) fell 19,632.6 → 4,381.9 (**−77.7%**). Two
+  independently-derived readings agree on the moved amount: the NEW arm's turn-1 cache WRITE (13,305)
+  and the NEW−OLD cache-READ delta at the switch (31,101 − 17,796 = 13,305) are the same number — that
+  is block 0. The `tools` entry alone is a measured 17,796 tokens (both arms read exactly that whenever
+  only `tools` survives in cache). Over turns 2–4 (turn 1 excluded — see below), cumulative cost fell
+  27,295.9 → 13,027.2 (**−52.3%**).
+  ★★ **Steady state within one view is NOT free.** Turn 4 (no switch since turn 3) cost 3,670.5 (OLD)
+  vs 3,688.7 (NEW) — NEW is **0.5% worse**, the price of the extra per-request header bytes the
+  two-block layout adds. A conversation that never switches view mid-session pays slightly more.
+  ★★★ **DO NOT quote a turn-1-inclusive cumulative figure.** The harness's own turn-1-through-4 total
+  (−51.4%) is contaminated: in this measurement session the NEW arm's turn 1 read the `tools` segment
+  warm from the OLD arm's prior run, while OLD's turn 1 paid a cold write — turn 1 is not comparable
+  between arms, only turns 2–4 are.
+  ★ **Limits, stated with the result, not separately:** n=1 per arm (no repetition), one model, one
+  canned conversation, one view pair, and output tokens carry a 5x cost multiplier while varying
+  30–64 tokens across the eight requests — the per-turn cache-read/cache-write token counts are the
+  deterministic part; the cost column inherits that output-token noise. This measured CACHE BEHAVIOUR
+  ONLY — nothing here evaluates answer quality, and this slice never changed what the model is told,
+  so attach no eval claim to it. Reproduce with a script importing `buildStableSystemBlocks`,
+  `buildTurnContext`, `toolsFor` and `buildWireMessages`, replaying a canned multi-turn conversation
+  across a view switch and reading the two cache fields off each response — the harness itself is a
+  throwaway scratchpad script, not part of this repo.
+  ★★★ **THE VIEW-SCOPED GUIDE (BLOCK 1) STAYS IN `system` FOR NOW, AND THAT IS A DECISION WITH A NAMED
+  SUCCESSOR, NOT AN OPEN QUESTION.** Only block 1 of `buildStableSystemBlocks`'s output is
+  view-dependent — block 0 (the always-on half, carrying the marker) is not; see that function's own
+  two-block doc comment. `settings.ai.groundInGuides` defaults to **true** (`settings-types.ts`, a
+  missing key reads as true), and most `BUILTIN_FEATURE_GUIDES` are view-scoped — **22 of 23** measured
+  2026-09-08, corrected from a stale "20 of the 21" that had rotted by two; don't trust either number,
+  re-run it:
   `node -e "const s=require('fs').readFileSync('src/app/operating-guide-builtin.generated.ts','utf8');const b=s.slice(s.indexOf('BUILTIN_FEATURE_GUIDES'));console.log((b.match(/\"name\":/g)||[]).length,(b.match(/\"views\":/g)||[]).length)"`
   (a bare `grep -c scope` answers 27 and is worthless — the guide prose discusses project scope). So
-  `selectActiveGuides` still swaps a 1–3 KB block on every view switch, and under the new layout **a
-  mid-conversation view switch still invalidates the transcript cache**, because `system` precedes
-  `messages` in the checked order above. Moving the guide onto the turn tail too was considered and
-  deliberately NOT done: today it is read from cache at a fraction of cost for any user who does not
-  switch views mid-conversation, and moving it makes it fresh on every send for every user instead — the
-  cheaper option depends entirely on how often real users switch views mid-conversation, a number nobody
-  has yet. Settle it with the usage meter below (cache-write volume vs view-switch frequency), not a
-  guess; recorded as an open follow-up alongside the measurement that would close it.
+  `selectActiveGuides` still swaps a 1–3 KB block-1 payload on every view switch, and under the new
+  layout **a mid-conversation view switch still invalidates the transcript cache**, because block 1
+  precedes `messages` in the checked order above — block 0 and `tools` are untouched, but the byte
+  sequence leading up to `messages` differs, so the transcript segment cannot be read from cache
+  either way. Moving block 1 onto the turn tail too — closing that remaining gap — is no longer an
+  open question sitting here with nobody assigned to it: it is slice G2, specced in
+  `docs/superpowers/specs/2026-09-08-ai-guide-block-cache-split-design.md`, deliberately not shipped
+  alongside this split because it is a `system`-to-`user` role change and is gated on the
+  answer-quality eval (see that bullet above for what "gated" means in practice). The tradeoff this
+  bullet used to pose as unresolved — cheap for a user who never switches views mid-conversation vs.
+  fresh-every-send for everyone — is G2's to weigh, not a guess to make here. Settle it with the usage
+  meter below (cache-write volume vs view-switch frequency) — that measurement is what slice G2
+  (named above) needs before it can be built, not a separate `docs/open-followups.md` entry; none
+  exists for this and none should be minted on a branch (a follow-up number is reserved only once
+  merged to `origin/main`).
   ★★ **A head-trim of history would destroy the whole property.** Dropping the oldest turns changes the
   first message, invalidating the entire prefix on every send and paying a cache WRITE (1.25×) each
   time — worse than not caching at all. Any future history budget must be coarse and hysteretic;

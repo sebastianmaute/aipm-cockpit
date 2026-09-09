@@ -706,7 +706,16 @@ describe("buildSystemPrompt app-context + guides", () => {
 
   it("caches the stable prefix (incl. guide) and leaves volatile state uncached", () => {
     const blocks = buildSystemPrompt("en-US", snap, [guide], true, {});
-    // Block 0 = cached stable prefix, contains the guide text.
+    // Two blocks: [0] cached always-on stable prefix, [1] uncached volatile
+    // turn-context suffix. `guide` here has `scope: {}` (always-on), so it
+    // contributes no view-scoped text — `buildStableSystemBlocks` omits that
+    // middle block entirely rather than sending it empty, so this fixture
+    // never has a THIRD block to skip. This assertion must go red if a
+    // view-scoped block reappears unexpectedly, or the split changes shape
+    // some other way.
+    expect(blocks).toHaveLength(2);
+    // Block 0 = cached stable prefix, contains the guide text (`guide` here
+    // has `scope: {}`, i.e. it is always-on).
     expect(blocks[0].cache_control?.type).toBe("ephemeral");
     expect(blocks[0].text).toContain("Be decisive.");
     // Block 1 = uncached volatile suffix, contains the APP CONTEXT + state.
@@ -724,13 +733,23 @@ describe("prompt caching", () => {
     vi.restoreAllMocks();
   });
 
-  // ★★★ `system` is now ONE block, not two — Task 7 (the prompt-cache-layout
-  //   slice) moved the volatile half (APP CONTEXT et al.) off the `system`
-  //   array and onto the current user turn, via `buildWireMessages`, so the
-  //   `system` array sent over the wire is only ever `buildStableSystemBlocks`'
-  //   single cached block. See the "prompt cache layout wiring" describe block
-  //   below for where the relocated volatile half is now asserted.
-  it("sends system as a single cache-controlled content block", async () => {
+  // ★★★ `system` no longer carries the volatile half — Task 7 (the
+  //   prompt-cache-layout slice) moved it (APP CONTEXT et al.) off the
+  //   `system` array and onto the current user turn, via `buildWireMessages`,
+  //   so the `system` array sent over the wire is only ever
+  //   `buildStableSystemBlocks`'s output. See the "prompt cache layout
+  //   wiring" describe block below for where the relocated volatile half is
+  //   now asserted.
+  //   ★★ The guide-block cache split (Slice G) then split THAT array further:
+  //   block 0 is the view-invariant half and carries the sole `cache_control`
+  //   marker `system` gets; a SECOND block for the current view's guide text
+  //   is appended ONLY when the view contributes one, and is omitted
+  //   entirely otherwise — never sent as an empty string. `ChatPanel` here is
+  //   rendered with no `guides` prop (defaults to `[]`), so no view ever
+  //   contributes guide text and `system` is a ONE-element array: just block
+  //   0, cache-controlled. A fixture WITH guides gets a real second block
+  //   instead (see "caches the stable prefix (incl. guide)..." above).
+  it("sends system as one block when there is no view-scoped guide, cache-controlled", async () => {
     let rejectFetch!: (reason: unknown) => void;
     const pending = new Promise<Response>((_res, rej) => { rejectFetch = rej; });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
@@ -757,8 +776,19 @@ describe("prompt caching", () => {
     expect(fetchSpy.mock.calls.length).toBeGreaterThan(0);
     const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
     expect(Array.isArray(body.system)).toBe(true);
+    // One block: no `guides` prop was passed to `ChatPanel` (defaults to
+    // `[]`), so there is no view-scoped guide text for
+    // `buildStableSystemBlocks` to put in a second block, and it omits that
+    // block rather than sending it empty.
     expect(body.system).toHaveLength(1);
     expect(body.system[0].cache_control.type).toBe("ephemeral");
+
+    // ★★ Anthropic allows FOUR cache_control breakpoints per request and this
+    //    app spends all four: tools 1, system 1, messages 2. Asserted on the
+    //    ASSEMBLED request rather than any one layer, because exceeding four
+    //    is an API error that no single layer can see coming.
+    const markerCount = (JSON.stringify(body).match(/"cache_control"/g) ?? []).length;
+    expect(markerCount).toBeLessThanOrEqual(4);
 
     // Clean up pending fetch.
     const abortError = Object.assign(new Error("Aborted"), { name: "AbortError" });
@@ -837,7 +867,7 @@ describe("prompt cache layout wiring", () => {
   //   API actually receives, so the assertion cannot pass while the wrong
   //   thing still ships, and it survives a refactor of how the panel reaches
   //   the network.
-  it("sends a system array of exactly one block, with the context on the turn", async () => {
+  it("sends a system array with the guide-cache split, and the context on the turn", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => okResponse());
     render(
       <ChatPanel
@@ -854,6 +884,10 @@ describe("prompt cache layout wiring", () => {
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
 
     const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+    // One block: no `guides` prop was passed to `ChatPanel` (defaults to
+    // `[]`), so there is no view-scoped guide text and
+    // `buildStableSystemBlocks` omits that second block rather than sending
+    // it empty — see "sends system as one block..." above.
     expect(body.system).toHaveLength(1);
     expect(JSON.stringify(body.system)).not.toContain("APP CONTEXT");
     // …and it did not simply vanish: it must be on the final user message.

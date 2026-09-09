@@ -31,7 +31,7 @@ describe("buildViewScopeBlock", () => {
   // `toContain("operating guide")` assertion stays green after the rule is
   // inverted to "...where the two conflict, this view scope wins", which is
   // the one thing this test exists to prevent. The rule is deliberately the
-  // INVERSE of assembleGuideBlock's "earlier wins", so nothing else guards it.
+  // INVERSE of assembleGuideBlocks's "earlier wins", so nothing else guards it.
   it("states that the OPERATING GUIDE wins on conflict, not the view scope", () => {
     const text = buildViewScopeBlock("dashboard", ALL);
     expect(text).toContain("where the two conflict, the operating guide wins");

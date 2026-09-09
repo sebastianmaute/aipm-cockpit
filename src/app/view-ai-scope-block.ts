@@ -41,7 +41,7 @@ export function buildViewScopeBlock(
     lines.push(`Relevant tools here: ${hints.join(", ")}.`);
   }
   // Precedence, stated so the model can act on it. This is the INVERSE of the
-  // guide-vs-guide rule in assembleGuideBlock ("earlier wins"), so it has to be
+  // guide-vs-guide rule in assembleGuideBlocks ("earlier wins"), so it has to be
   // said out loud — a reader will otherwise assume that rule extends here.
   lines.push(
     "This describes the surface. An operating guide describes how the user wants you to work; where the two conflict, the operating guide wins.",

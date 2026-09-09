@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stop a mid-conversation view switch from re-writing ~9.9k tokens of operating-guide text that did not change, by splitting the stable system block into a view-invariant half (which keeps the cache marker) and a view-scoped half (which does not).
+**Goal:** Stop a mid-conversation view switch from re-writing ~9.9k tokens of operating-guide text that did not change (a chars÷3.6 estimate at the time; the actual re-written payload is block 0 — the guide text plus the fixed instructions ahead of it — measured 2026-09-09 at 13,305 tokens; see the addendum below for the decomposition), by splitting the stable system block into a view-invariant half (which keeps the cache marker) and a view-scoped half (which does not).
 
 **Architecture:** `selectActiveGuides` already returns the active guides in priority order, with the unscoped ones (leadership, App overview) leading. This slice partitions that list on view-scope, assembles it as TWO strings instead of one, and has `buildStableSystemBlocks` return two `SystemBlock`s with `cache_control` on the first. No new breakpoint is spent — the existing system marker moves earlier. Nothing the model reads changes, so no answer-quality eval is required.
 
@@ -16,8 +16,12 @@
 
 ★★★ **The header count is the whole defect, not the split.** `assembleGuideBlock` opens with
 `You have N operating guides, in priority order.` and N varies by view (2, 3 or 4). That digit sits
-ahead of ~9.9k tokens of byte-identical guide text, so the cache prefix breaks on every view switch.
-The longest common prefix of the assembled block across all 34 views is **9 characters**. If you
+ahead of ~9.9k tokens of byte-identical guide text (a chars÷3.6 estimate; the actual re-written payload
+is block 0, measured 2026-09-09 at 13,305 tokens — see the addendum below for the decomposition), so
+the cache prefix breaks on every view switch.
+The longest common prefix of the assembled block across the 34 nav-reachable views is **9
+characters** (`AppView` has 35 members; `learning-insights` is deep-link-only and not nav-reachable,
+and including it could not raise the figure). If you
 split the array and leave one shared counted header in front, block 1 still differs per view and
 this slice saves NOTHING while every test but the sweep passes. Task 3 is the gate.
 
@@ -201,10 +205,17 @@ function guideParts(guides: readonly OperatingGuide[], startIndex: number): stri
  *  ★★★ THE ALWAYS-ON HEADER COUNTS ONLY THE ALWAYS-ON GUIDES, and that is the
  *  entire point. The single-block predecessor opened with "You have N
  *  operating guides" where N included the view-scoped ones, so N moved from
- *  2 to 3 to 4 as the user navigated — putting a varying digit ahead of ~9.9k
- *  tokens of identical text and breaking the cache prefix on every view
- *  switch. Measured before this change: the longest common prefix of the
- *  assembled block across all 34 views was 9 characters.
+ *  2 to 3 to 4 as the user navigated — putting a varying digit ahead of what
+ *  was estimated at the time as ~9.9k tokens of identical text (the actual
+ *  re-written payload is block 0, measured 2026-09-09 at 13,305 tokens — see
+ *  the addendum at the end of this plan for the decomposition) and
+ *  breaking the cache prefix on every view switch. Measured before this
+ *  change: the longest common prefix of the
+ *  assembled block across the 34 nav-reachable views (of 35 `AppView`
+ *  members — `learning-insights` is deep-link-only) was 9 characters.
+ *  Including it could not have raised that figure: a common prefix only
+ *  shrinks as strings are added, and 9 (`"You have "`) is already the floor
+ *  once the digit varies.
  *
  *  Numbering continues across the two segments so they cannot disagree about
  *  which guide is "GUIDE 3". */
@@ -532,23 +543,43 @@ Add to the cache-boundary section of `docs/AGENTS/ai-assistant.md`, adjacent to 
 ```markdown
   ★★★ **`buildStableSystemBlocks` RETURNS TWO BLOCKS AND ONLY THE FIRST CARRIES A MARKER.** Block 0
   is the instructions plus every always-on guide; block 1 is the current view's guide alone. The
-  split exists because the guide payload is dominated by content that does NOT vary by view — the
-  leadership guide is unscoped and roughly 3x the whole feature-guide corpus — while
+  split exists because the guide payload is dominated by content that does NOT vary by view — and
+  the comparison that matters is per-REQUEST, never against the whole feature-guide corpus, because
+  only ONE view-scoped guide is ever active at a time: the unscoped leadership guide alone runs
+  ~8x the largest single view guide, even though the 22 view-scoped guides are comparable to
+  leadership ALONE (1.14x — not leadership plus App overview, which is not part of either side of this
+  ratio) — which is exactly why view scoping saves far less than the 22-of-23
+  guide-count ratio suggests. Measured 2026-09-09 via a `vite-node` script importing `builtinSeeds`
+  from `use-operating-guides` and summing `content.length` grouped on whether `scope.views` is
+  empty-or-absent: always-on (leadership + App overview) = 35,788 chars, estimated at the time via
+  chars÷3.6 as ≈9.9k tokens; the 22 view-scoped guides total 28,977 chars, largest single guide 4,103
+  chars — re-run rather than trust these numbers. That chars÷3.6 estimate and the measured figure below
+  are NOT the same SCOPE, and reading them as directly comparable overstates the ratio's share of the
+  gap. The estimate covers the always-on GUIDE TEXT alone (35,788 chars → 9,941 tokens at 3.6); a live
+  cache measurement (2026-09-09, see the addendum at the end of this plan) is of BLOCK 0 — that guide
+  text PLUS the fixed instructions ahead of it (38,791 chars) — at a measured 13,305 tokens, a real
+  ratio of 2.92 chars/token for that larger payload. Of the 3,364-token gap: ~69% (~2,334 tokens) is the
+  ratio correction (3.6 was too generous), ~31% (~1,030 tokens) is the added scope (fixed instructions
+  the original estimate never counted). At the measured ratio the guide text alone is ~12,275 tokens
+  (35,788 × 13,305 ÷ 38,791 — assumes uniform character density, unverified). Meanwhile
   `assembleGuideBlocks`' predecessor put a varying guide COUNT in a single shared header ahead of
-  all of it, so a view switch re-wrote ~9.9k tokens of byte-identical text at 1.25x. Measured before
-  the change: the longest common prefix of the assembled block across all 34 views was 9 characters.
+  all of it, so a view switch re-wrote what is now measured at 13,305 tokens of byte-identical block-0
+  text at 1.25x (the ~9.9k figure earlier here was the narrower guide-text-only estimate, not this
+  payload). Measured before the change: the longest common prefix of the
+  assembled block across the 34 nav-reachable views (of 35 `AppView` members — `learning-insights`
+  is deep-link-only) was 9 characters.
   ★★ Block 1 has no marker ON PURPOSE — all four breakpoints are already committed (tools 1,
-  system 1, messages 2) — and it is cached anyway by the message-level breakpoints whose prefix
-  contains it. Adding a fifth is an API error, not a silent no-op.
+  system 1, messages 2) — and it still sits inside whatever a LATER marker covers, so it is not
+  necessarily uncached, merely never the boundary of a cache lookup by itself. Adding a fifth is an
+  API error, not a silent no-op.
   ★★ THE HISTORY IS STILL RE-WRITTEN ON A VIEW SWITCH, because block 1 precedes the messages in the
   prefix. That is this slice's ceiling, not an oversight; the successor that removes it (moving the
   view-scoped guide onto the turn tail) is slice G2 in
   `docs/superpowers/specs/2026-09-08-ai-guide-block-cache-split-design.md` and is gated on the
   answer-quality eval, because it is a `system`-to-`user` role change.
-  ★★★ **THE SAVING IS ARITHMETIC, NOT OBSERVED — never machine-verified as of 2026-09-08.** No live
-  run has confirmed that a view switch now reads the block-0 entry instead of re-writing it. The
-  confirming measurement is two real sends with a view change between them, reading
-  `cache_read_input_tokens` off the second. Do not cite this bullet as a measured win.
+  ★★★ **MEASURED 2026-09-09 — THE SAVING IS CONFIRMED, WITH STATED BOUNDS.** See the addendum at the
+  end of this plan for the full two-arm result; the short version is `docs/AGENTS/ai-assistant.md`'s
+  own bullet on this, kept as the single source of truth rather than duplicated here.
 ```
 
 - [ ] **Step 2: Run the doc gates**
@@ -595,10 +626,11 @@ Expected: `Test Files 4 passed (4)` and `EXIT=0`.
 ★ Assert the file COUNT is 4 against your own list length. A mistyped path is dropped **silently**
 when mixed with valid paths and the run still exits 0 — the tally alone will not tell you.
 
-- [ ] **Step 4: Report what is owed**
+- [ ] **Step 4: Report what was measured**
 
-State plainly in the final report that the live cache measurement (Task 5, Step 1's last bullet) is
-**not** done, and that the slice's saving is arithmetic until it is.
+State plainly in the final report that the live cache measurement (Task 5, Step 1's last bullet) has
+since been RUN (2026-09-09) and CONFIRMED the mechanism — see the addendum at the end of this plan
+and `docs/AGENTS/ai-assistant.md`'s corresponding bullet for the numbers and their stated bounds.
 
 ---
 
@@ -609,10 +641,33 @@ State plainly in the final report that the live cache measurement (Task 5, Step 
   (`chat-api`), Task 4 (`chat-panel`); `inline-ai-edit-call.ts` needs no change because it spreads
   `buildSystemPrompt`'s output and appends its own block, so 2→3 blocks is transparent. Testing
   items 1-5 → Tasks 2, 3, 4. Risks: "inert-but-green" → Task 3 Step 4's mutation; "measurement owed"
-  → Task 5 Step 1 and Task 6 Step 4.
+  → Task 5 Step 1 and Task 6 Step 4, RESOLVED 2026-09-09 (see the addendum below).
 - **Not covered on purpose.** Slice G2 (turn-tail move) and the two out-of-scope items from the
   spec (trimming the leadership guide, gating tool families) are separate slices with their own
   eval requirements.
 - **Type consistency.** `partitionGuidesByViewScope` and `assembleGuideBlocks` are spelled
   identically in Tasks 1, 2 and 5; both return the `{ alwaysOn, viewScoped }` shape throughout.
   `assembleGuideBlock` (singular) is deleted in Task 1 and referenced nowhere afterwards.
+
+---
+
+## Addendum (2026-09-09): the owed measurement, run
+
+The live cache measurement this plan deferred (Task 5's "never machine-verified" bullet, Task 6
+Step 4) has been run against the real Anthropic API and CONFIRMS the mechanism, with stated bounds.
+Full numbers and limits live in `docs/AGENTS/ai-assistant.md`'s corresponding bullet (kept as the
+single source of truth); the short version: a two-arm replay (`claude-sonnet-5`, one canned 4-turn
+conversation, a view switch between turns 2 and 3) showed the switch turn's cache read rising
+17,796 → 31,101 and its cache write falling 13,836 → 563, a −77.7% cost drop on that turn and −52.3%
+cumulative over turns 2–4; steady state within one view costs 0.5% more under the new layout. The
+two chars÷3.6 estimates elsewhere in this plan (~9.9k tokens) covered the always-on GUIDE TEXT ALONE
+(35,788 chars) — NOT the same payload as the 13,305-token measurement, which is of BLOCK 0 (that guide
+text PLUS the fixed instructions ahead of it, 38,791 chars), a real ratio of 2.92 chars/token for that
+larger payload. Of the 3,364-token gap, roughly 69% is the ratio correction (3.6 was too generous) and
+roughly 31% is the added scope the original estimate never counted; see `docs/AGENTS/ai-assistant.md`'s
+corresponding bullet for the full decomposition. Reproduce with a script
+importing `buildStableSystemBlocks`, `buildTurnContext`, `toolsFor` and `buildWireMessages`, replaying
+a canned multi-turn conversation across a view switch and reading `cache_read_input_tokens` /
+`cache_creation_input_tokens` off each response; the harness itself is a scratchpad script, not part
+of this repo. This measured cache behaviour only — no answer-quality claim is attached, since this
+slice never changed what the model is told.
