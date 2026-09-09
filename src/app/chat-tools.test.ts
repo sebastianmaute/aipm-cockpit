@@ -412,10 +412,10 @@ const RICH_NOTE: NoteLogEntry = {
 
 /** The list path's WIRE shape, spelled out here rather than imported, so these
  *  tests describe what a caller receives instead of restating the projection's
- *  own types back at it. `html` is optional because the projection drops it. */
-type ListNote = Omit<NoteLogEntry, "html"> & { html?: string };
+ *  own types back at it. `noteLog` is typed as `never` so a test asserting on
+ *  one fails to compile rather than silently reading undefined. */
 type ListEnvelope = {
-  items: (Omit<Task, "noteLog"> & { noteLog?: ListNote[] })[];
+  items: (Omit<Task, "noteLog"> & { noteLog?: never })[];
   total: number;
   limit?: number;
 };
@@ -444,17 +444,16 @@ describe("runTool — list_tasks / get_task", () => {
     expect(result.items[0].description).not.toContain("<p>");
   });
 
-  it("list_tasks drops each note's html body and keeps its text projection", async () => {
+  it("list_tasks carries no note log at all", async () => {
+    // ★★★ THIS IS THE TEST THAT PINS THE SAVING. `noteLog` was 37.8% of the
+    // list payload on a 140-task project, and the operating guide denies the
+    // model any note access — so the app was paying to ship data it had
+    // instructed the model four times not to use. Without this assertion the
+    // field drifts straight back in the next time `TaskListItem` is widened,
+    // and no gate reports it.
     const d = makeDispatcher({ listTasks: vi.fn(() => [makeTask({ noteLog: [RICH_NOTE] })]) });
     const result = (await runTool(d, "list_tasks", {})) as ListEnvelope;
-    const note = result.items[0].noteLog?.[0];
-    expect(note?.text).toBe("Partner call moved to Friday");
-    expect(note?.html).toBeUndefined();
-    // Everything else about the entry survives — this is a projection, not a
-    // truncation, so the model still sees when and by whom a note was written.
-    expect(note?.id).toBe(7);
-    expect(note?.timestamp).toBe("2026-05-01T00:00:00.000Z");
-    expect(note?.authorName).toBe("Alice");
+    expect("noteLog" in result.items[0]).toBe(false);
   });
 
   it("list_tasks slices items by limit while total still counts every row", async () => {
@@ -521,10 +520,11 @@ describe("runTool — list_tasks / get_task", () => {
     expect("limit" in result).toBe(out !== undefined);
   });
 
-  // ★ THE CONTROL. Slimming BOTH paths would satisfy every assertion above; only
-  // this pins that an assistant about to EDIT a description still gets the markup
-  // it is editing. Both tools read the SAME row here, so a shared projection fails.
-  it("get_task keeps the full markup that the list projection strips", async () => {
+  // ★★★ THE CONTROL, AND BOTH HALVES ARE LOAD-BEARING. A test proving only
+  // that notes are gone from the list would still pass if `get_task` lost them
+  // too — which would delete the capability rather than relocate it. Both
+  // tools read the SAME row here, so a shared projection fails this.
+  it("get_task keeps the full note log and markup that the list projection strips", async () => {
     const task = makeTask({ description: RICH_DESCRIPTION, noteLog: [RICH_NOTE] });
     const d = makeDispatcher({ getTask: vi.fn(() => task), listTasks: vi.fn(() => [task]) });
 
@@ -535,6 +535,7 @@ describe("runTool — list_tasks / get_task", () => {
 
     const list = (await runTool(d, "list_tasks", {})) as ListEnvelope;
     expect(list.items[0].description).not.toContain("<strong>");
+    expect("noteLog" in list.items[0]).toBe(false);
   });
 
   it("get_task coerces a numeric-string id and returns the task", async () => {

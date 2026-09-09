@@ -283,22 +283,25 @@
   is optional and untrusted — anything that is not a positive finite number is treated as absent, and an
   absent one returns everything, key for key as before, so no existing prompt sees a shape it was not written
   against. It used to be `return d.listTasks()`: the whole array, no total, every rich field in full.
-  ★★ THE SLIMMING TARGET IS `Task.description` AND `Task.noteLog`, AND NOTHING ELSE — do NOT restate this as
+  ★★ THE NARROWING TARGET IS `Task.description` AND `Task.noteLog`, AND NOTHING ELSE — do NOT restate this as
   "the seven rich fields were slimmed", which would be false. Every other entity list tool already projects
   through `chat-tool-summaries.ts` to a `*Summary` type carrying no rich HTML at all (reproduce:
   `grep -n "description\|mitigation\|noteLog" src/app/chat-tool-summaries.ts` returns nothing), so
   `list_tasks` was the ONLY tool returning full rows. `slimTaskForList` keeps every other field of `Task`
   untouched.
-  ★ The two are slimmed by DIFFERENT mechanisms and the second one is the subtle half. `description` is
-  projected through `htmlToPlainText`. `noteLog` is NOT re-plain-texted: `NoteLogEntry` already carries
-  `text`, a canonical plain projection of `html` that `sanitizeNoteLogWith` re-derives on every load, so the
-  list path simply DROPS `html` and keeps the `text` already there (`NoteLogListEntry` =
-  `Omit<NoteLogEntry, "html">`). Timestamp, author and id survive, so the model still knows when and by whom
-  a note was written.
-  ★★ ONLY THE LIST PATH IS SLIMMED. `get_task` keeps full fidelity ON PURPOSE — an assistant about to EDIT a
+  ★★★ THE TWO ARE HANDLED DIFFERENTLY, AND `noteLog` IS NOT SLIMMED BUT DROPPED. `description` is projected
+  through `htmlToPlainText`. `noteLog` is omitted from the list payload ENTIRELY: it was 37.8% of that
+  payload on a 140-task project — the largest field by a factor of five — while the operating guide told the
+  model four times that it has no note tool, so the app was paying to ship data it had forbidden the model
+  to use. ★★ An earlier cut projected each entry to a text-only shape and kept it on the list; that type and
+  its projection helper were REMOVED rather than left callable, so a reader cannot restore the field by
+  reaching for them. ★★ The capability was RELOCATED, not deleted — `get_task` returns the full note log
+  with its HTML on demand, and its tool description carries the read-only constraint.
+  ★★ ONLY THE LIST PATH IS NARROWED. `get_task` keeps full fidelity ON PURPOSE — an assistant about to EDIT a
   description needs the markup it is editing, and it is the list side that carries the volume justifying the
-  projection. `chat-tools.test.ts` holds a control asserting `get_task` keeps the markup the list projection
-  strips; without it, slimming BOTH paths would satisfy every other assertion in that block.
+  projection. `chat-tools.test.ts` holds a control asserting `get_task` keeps the note log and the markup
+  the list projection strips; without it, narrowing BOTH paths would satisfy every other assertion in that
+  block.
   ★ SIZE EFFECT, RECORDED AS INHERITED RATHER THAN RE-MEASURED: the branch that landed this measured the
   real response over the 14 tasks of `sample-workspace-small.json` at 12153 → 10183 bytes (−16.2%), most of
   it `noteLog` rather than `description`. Nothing pins that number, no test asserts it, and it moves with the
