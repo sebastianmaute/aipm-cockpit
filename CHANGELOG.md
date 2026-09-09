@@ -8,6 +8,39 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.299.0] - 2026-09-09 "Yefremov"
+
+### Added
+- Nineteen dialogs now carry a help icon in their header. It opens the matching
+  Help entry in a small panel over the dialog, so the explanation arrives where
+  the question was asked. The dialog stays open and nothing behind it moves —
+  the alternative would have been to deep-link the Help view, which switches
+  the view behind a dialog you are still filling in.
+- The panel floats free of the dialog rather than being drawn inside it. Every
+  one of those dialogs clips its overflow, and a panel drawn inside is cut at
+  the dialog's edge — measured on the narrowest dialog, where the explanation
+  extends about 190px past the bottom of a 229px-tall dialog and would
+  otherwise have been almost entirely invisible.
+- The panel scrolls when the entry is longer than the space available, capped
+  at 60% of the window height.
+- The AI settings dialog now offers the AI entry, which describes exactly that
+  setup. It previously offered nothing.
+
+### Changed
+- Tab now stays inside a dialog while its help panel is open. The panel is a
+  dialog of its own and carries a close button, which is what keeps focus from
+  walking out to the page behind — reachable by keyboard, and a second way to
+  dismiss the panel besides Escape.
+- Each help icon is named for the dialog it belongs to, so two stacked dialogs
+  do not present two controls with the same name to a screen reader or to
+  speech input.
+- Two dialogs no longer offer an icon at all. The only Help entry either could
+  have pointed at describes a different surface — the resource calendar rather
+  than the meeting-series editor it is actually editing, and an external
+  time-tracking integration rather than a task's own effort. A wrong entry is
+  worse than no icon, so both were left without one until an entry exists that
+  describes them.
+
 ## [0.298.0] - 2026-09-09 "Malzberg"
 
 ### Changed
