@@ -53,6 +53,19 @@ export function isTerminalChangeStatus(status: ChangeStatus): boolean {
  * "may set it directly on an otherwise unchanged row" — neither can.
  * ★ A stored value still round-trips: `sanitizeChangeItem` preserves it on every
  * load/decode path. That is not an authoring path and is not a third writer.
+ * ★★ WHY it round-trips is the load-bearing half, and it lives nowhere else in the
+ * tree: `CHANGE_FIELD_GUARDS` is read by `dropUnacceptedChangeFields` ALONE — a
+ * MODEL-write guard — and `sanitizeChangeItem` never consults it. So the table
+ * cannot reach a load, a decode, or the seed row below, and the seed's repairing
+ * wrapper `sanitizeModelChangeItem` only delegates to the plain sanitizer, which
+ * is exactly why `SEED_OFFERED_KEYS` is the ONLY guard on that path rather than a
+ * belt-and-braces second one. Reproduce both halves:
+ *   grep -rn "CHANGE_FIELD_GUARDS" src/app --include=*.ts | grep -vE ":[0-9]+:\s*(//|\*)"
+ * — exactly two lines, a declaration and a single reader, both in
+ * `sanitize-records.ts`, the reader inside `dropUnacceptedChangeFields`. ★ The
+ * filter must strip BOTH comment styles: a bare `grep -v "//"` leaves every ` * `
+ * block-comment hit standing, this paragraph included, and the output then reads
+ * as though the table had four readers.
  *
  * ★ Nor do the seed/import paths use it, and the two no longer behave alike.
  * TEMPLATE IMPORT still builds rows through `sanitizeChangeItem` alone, so an

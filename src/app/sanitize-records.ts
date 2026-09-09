@@ -182,9 +182,9 @@ type MilestoneFieldGuard = (value: unknown) => boolean;
 const MILESTONE_FIELD_GUARDS: Readonly<Record<string, MilestoneFieldGuard>> = {
   // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
   //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
-  //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
-  //  absence from the schema protects nothing by itself — the comment above this
-  //  table says so, and this field was the live instance of it.
+  //  src/app/chat-tool-defs.ts` -> 0), but NEITHER strip helper has a whitelist
+  //  (`patchWithoutId` on update, `createInputWithoutId` on create), so absence
+  //  from the schema protects nothing by itself — the comment above this table says so, and this field was the live instance of it.
   //  ★★ WHAT IT COST: the sanitizer reads the merged `{...existing, ...patch}`,
   //  so a patch value REPLACED the stored links before `sanitizeKnowledgeLinks`
   //  ran; garbage reduced to `[]`, the sparse `if (dl.length)` then omitted the
@@ -628,9 +628,9 @@ export function sanitizeModelChangeItem(input: unknown): ChangeItem | null {
 const CHANGE_FIELD_GUARDS: Readonly<Record<string, ChangeFieldGuard>> = {
   // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
   //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
-  //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
-  //  absence from the schema protects nothing by itself — the comment above this
-  //  table says so, and this field was the live instance of it.
+  //  src/app/chat-tool-defs.ts` -> 0), but NEITHER strip helper has a whitelist
+  //  (`patchWithoutId` on update, `createInputWithoutId` on create), so absence
+  //  from the schema protects nothing by itself — the comment above this table says so, and this field was the live instance of it.
   //  ★★ WHAT IT COST: the sanitizer reads the merged `{...existing, ...patch}`,
   //  so a patch value REPLACED the stored links before `sanitizeKnowledgeLinks`
   //  ran; garbage reduced to `[]`, the sparse `if (dl.length)` then omitted the
@@ -878,9 +878,9 @@ export const acceptsRaidStatus: RaidFieldGuard = (v, category) =>
 const RAID_FIELD_GUARDS: Readonly<Record<string, RaidFieldGuard>> = {
   // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
   //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
-  //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
-  //  absence from the schema protects nothing by itself — the comment above this
-  //  table says so, and this field was the live instance of it.
+  //  src/app/chat-tool-defs.ts` -> 0), but NEITHER strip helper has a whitelist
+  //  (`patchWithoutId` on update, `createInputWithoutId` on create), so absence
+  //  from the schema protects nothing by itself — the comment above this table says so, and this field was the live instance of it.
   //  ★★ WHAT IT COST: the sanitizer reads the merged `{...existing, ...patch}`,
   //  so a patch value REPLACED the stored links before `sanitizeKnowledgeLinks`
   //  ran; garbage reduced to `[]`, the sparse `if (dl.length)` then omitted the
@@ -900,8 +900,8 @@ const RAID_FIELD_GUARDS: Readonly<Record<string, RaidFieldGuard>> = {
   knowledgeLinks: () => false,
   // ★★★ NOT MODEL-WRITABLE. `ownerResourceId` appears in NO tool schema
   //  (`grep -c ownerResourceId src/app/chat-tool-defs.ts` -> 0, control on the
-  //  same pattern: `title` 19, `status` 14) — but `patchWithoutId` forwards
-  //  everything, so absence from the schema protects nothing on its own.
+  //  same pattern: `title` 19, `status` 14) — but NEITHER strip helper has a
+  //  whitelist (`patchWithoutId` / `createInputWithoutId` both forward it), so absence from the schema protects nothing on its own.
   //  ★★ WHAT IT COST: `fkIdOrUndefined` accepts any finite positive number and
   //  `null` clears the link, so a model patch REPOINTED a RAID item's owner to
   //  a different resource, or unlinked it, with the card silent — the field is
@@ -1087,7 +1087,7 @@ const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> 
   //  own `stakeholderFields` ("`Stakeholder.raci` IS a relationship, but
   //  `stakeholderFields` does not …"). It appears in NO tool schema
   //  (`grep -c raci src/app/chat-tool-defs.ts` -> 0). The descriptor knowing a
-  //  field is unwritable is not a guard — `patchWithoutId` still forwards it.
+  //  field is unwritable is not a guard — `patchWithoutId` AND `createInputWithoutId` both still forward it, neither having a whitelist.
   //  ★★ WHAT IT COST: `sanitizeStakeholder` rebuilds `raci` from the merged
   //  blob, so ANY unrecognised patch value replaced the stored assignment map
   //  and reduced it to `{}` — every RACI role on that stakeholder erased,
@@ -1097,9 +1097,9 @@ const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> 
   raci: () => false,
   // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
   //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
-  //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
-  //  absence from the schema protects nothing by itself — the comment above this
-  //  table says so, and this field was the live instance of it.
+  //  src/app/chat-tool-defs.ts` -> 0), but NEITHER strip helper has a whitelist
+  //  (`patchWithoutId` on update, `createInputWithoutId` on create), so absence
+  //  from the schema protects nothing by itself — the comment above this table says so, and this field was the live instance of it.
   //  ★★ WHAT IT COST: the sanitizer reads the merged `{...existing, ...patch}`,
   //  so a patch value REPLACED the stored links before `sanitizeKnowledgeLinks`
   //  ran; garbage reduced to `[]`, the sparse `if (dl.length)` then omitted the
