@@ -31,9 +31,18 @@ export const AI_USAGE_KEY = "aipm-cockpit:ai-usage";
  *  explain the change ACROSS the upgrade, so a per-session flag would re-fire
  *  it on every reload and a ref would lose it on remount. */
 export const AI_CAP_BASIS_NOTICE_KEY = "aipm-cockpit:ai-cap-basis-notice";
-/** ★★ SUPERSEDES `AI_CAP_BASIS_NOTICE_KEY`. Setting this one also sets that
- *  one (see `noteCostBasisOnce`), so a user who never saw the cap-basis notice
- *  is shown ONE message covering both changes rather than two. */
+/** ★★ SUPERSEDES `AI_CAP_BASIS_NOTICE_KEY`. Whoever sets this one also sets
+ *  that one, so a user who never saw the cap-basis notice is shown ONE message
+ *  covering both changes rather than two.
+ *  ★★★ THE NOTICE ITSELF LIVES IN `AiUsagePanel`, not here. It was a toast on
+ *  the four crossing branches below and was NEVER PAINTED: `useToast` holds a
+ *  single `Toast | null` slot with no queue, and each branch called it in the
+ *  same tick as its own cap warning, so React batched the pair and only the
+ *  warning survived to render — while the flag had already been written, so it
+ *  could never fire again. The crossing edges could not reach the intended
+ *  audience either: `crossed80`/`crossed100` both require `prevUsed <
+ *  threshold`, so a device already at or above its cap at mount never crossed
+ *  anything. A panel line beside the numbers depends on no edge at all. */
 export const AI_COST_BASIS_NOTICE_KEY = "aipm-cockpit:ai-cost-basis-notice";
 
 export type AiUsageContextValue = {
@@ -72,8 +81,8 @@ function loadBucketsAndSeedBasisNotices(): UsageBuckets {
     //   one (raw === "" or "{}") or storage having thrown (caught below).
     //   Only THIS case never experienced either superseded cap basis — neither
     //   the pre-cache-accounting one nor the pre-cost-weighting one — so seed
-    //   both flags now: noteCostBasisOnce() must never explain a "before"
-    //   that, for this user, never existed.
+    //   both flags now: the panel's migration line must never explain a
+    //   "before" that, for this user, never existed.
     if (raw === null) {
       window.localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
       window.localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "1");
@@ -95,25 +104,6 @@ function loadBucketsAndSeedBasisNotices(): UsageBuckets {
   } catch {
     return {};
   }
-}
-
-// ★ Guards a localStorage read+write with a synchronous try/catch so the
-// flag is set BEFORE showToast is ever called — a second call in the same
-// tick (session and weekly crossing together) sees the flag already "1" and
-// stays silent, so the notice fires once GLOBALLY, not once per scope.
-// ★★ Writes BOTH keys. The cap-basis notice this supersedes explained a
-// change that is now subsumed by the cost-basis one; marking it seen here
-// stops any later reader re-announcing something already announced.
-function noteCostBasisOnce(showToast: (kind: "info" | "error", text: string) => void, lang: Lang): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (window.localStorage.getItem(AI_COST_BASIS_NOTICE_KEY) === "1") return;
-    window.localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "1");
-    window.localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
-  } catch {
-    return; // storage unavailable: skip the notice rather than repeating it
-  }
-  showToast("info", t(lang, "aiUsageCostBasisChanged"));
 }
 
 function saveBuckets(buckets: UsageBuckets): void {
@@ -200,32 +190,29 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       // Side effects outside the updaters: persist and warn.
       saveBuckets(nextBuckets);
 
+      // ★ EXACTLY ONE showToast per crossing. `useToast` holds a single
+      //   `Toast | null` slot with no queue, so two calls in one tick leave
+      //   only the second painted — see AI_COST_BASIS_NOTICE_KEY above for the
+      //   notice that was lost to precisely that and now renders in the panel.
       if (!warnedRef.current.session && crossed80(prevSession, nextSession, sessionCap)) {
         warnedRef.current.session = true;
-        noteCostBasisOnce(showToast, lang);
         showToast("error", t(lang, "usage80Toast"));
       }
       if (!warnedRef.current.week && crossed80(prevWeek, nextWeek, weeklyCap)) {
         warnedRef.current.week = true;
-        noteCostBasisOnce(showToast, lang);
         showToast("error", t(lang, "usage80Toast"));
       }
       // Crossing 100 % of a self-imposed cap: ADVISORY notice only — nothing is
-      // blocked, the assistant keeps working.
-      // ★ Also note the cost-basis explanation here, not just on the crossed80
-      //   branches above: crossed80 is an EDGE detector, so a bucket already
-      //   above 80 % when the provider mounted (e.g. the weekly total) can
-      //   jump straight to a 100 % crossing without ever registering an 80 %
-      //   "crossing" — noteCostBasisOnce()'s localStorage flag makes this
-      //   call site idempotent with the two above, so this cannot double-fire.
+      // blocked, the assistant keeps working. It is a separate pair of flags
+      // from the 80 % ones because a bucket already above 80 % when the
+      // provider mounted never crosses that edge again and would otherwise be
+      // told nothing at all.
       if (!warned100Ref.current.session && crossed100(prevSession, nextSession, sessionCap)) {
         warned100Ref.current.session = true;
-        noteCostBasisOnce(showToast, lang);
         showToast("error", t(lang, "aiSelfLimitReached"));
       }
       if (!warned100Ref.current.week && crossed100(prevWeek, nextWeek, weeklyCap)) {
         warned100Ref.current.week = true;
-        noteCostBasisOnce(showToast, lang);
         showToast("error", t(lang, "aiSelfLimitReached"));
       }
     },

@@ -3608,7 +3608,7 @@ export const de: Record<TranslationKey, string> = {
 
   usage80Toast: "Sie haben 80 % Ihres Token-Budgets verbraucht",
   aiUsageCostBasisChanged:
-    "Ihre Token-Obergrenzen messen jetzt die tatsächlichen Kosten einer Anfrage: zwischengespeicherte Eingaben zählen zu einem Zehntel, Cache-Schreibvorgänge mit dem 1,25-Fachen und Ausgaben mit dem 5-Fachen. Die Einstellung für den Zählfaktor entfällt — senken Sie stattdessen direkt eine Obergrenze. Vor dieser Aktualisierung erfasste Nutzung wird zu hoch angezeigt, bis die Woche zurückgesetzt wird.",
+    "Ihre Token-Obergrenzen messen jetzt die tatsächlichen Kosten einer Anfrage: zwischengespeicherte Eingaben zählen zu einem Zehntel, Cache-Schreibvorgänge mit dem 1,25-Fachen und Ausgaben mit dem 5-Fachen. Die Einstellung für den Zählfaktor entfällt — senken Sie stattdessen direkt eine Obergrenze. Vor dieser Aktualisierung erfasste Nutzung liegt weiterhin auf der alten Skala, bis die Woche zurückgesetzt wird.",
   aiUsageLimitReached:
     "Claude-Nutzungslimit erreicht — dies ist Anthropics eigenes Raten-/Nutzungslimit. Bitte warten Sie und versuchen Sie es nach dem Zurücksetzen erneut.",
   aiSelfLimitReached:

@@ -2,7 +2,12 @@
 // src/app/settings-sections/ai-usage-panel.tsx
 // Usage bars sub-component for AiSection. Reads from the shared AiUsageProvider.
 
-import { useAiUsageContext } from "../ai-usage-context";
+import { useEffect, useState } from "react";
+import {
+  AI_CAP_BASIS_NOTICE_KEY,
+  AI_COST_BASIS_NOTICE_KEY,
+  useAiUsageContext,
+} from "../ai-usage-context";
 import { ProgressTrack } from "../progress-track";
 import { type Lang, t, localeFor } from "../i18n";
 import {
@@ -28,19 +33,27 @@ function UsageBar({ label, used, cap, locale }: UsageBarProps) {
   const safeCap = cap > 0 ? cap : 1;
   const ratio = Math.min(used / safeCap, 1);
   const pct = Math.round(ratio * 100);
+  // ★★ DISPLAY BOUNDARY ONLY. `used` is a COST-EQUIVALENT total, so the
+  //    per-field weights (cacheRead 0.1, cacheWrite 1.25) make it fractional
+  //    for almost every real turn — a cold turn prices at 20009.85, which
+  //    rendered as "20,009.85 / 200,000" and handed assistive tech a
+  //    fractional aria-valuenow. `ratio` above deliberately keeps the full
+  //    precision, and NOTHING here may round on the way to crossed80/
+  //    crossed100 (ai-usage-context.tsx) — the caps compare exact values.
+  const usedLabel = Math.round(used);
 
   return (
     <div className="mt-2">
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <span className="text-xs font-medium text-foreground">{label}</span>
         <span className="shrink-0 text-xs text-muted-foreground">
-          {used.toLocaleString(locale)} / {cap.toLocaleString(locale)} ({pct}%)
+          {usedLabel.toLocaleString(locale)} / {cap.toLocaleString(locale)} ({pct}%)
         </span>
       </div>
       <ProgressTrack height="h-3">
         <div
           role="progressbar"
-          aria-valuenow={used}
+          aria-valuenow={usedLabel}
           aria-valuemin={0}
           aria-valuemax={cap}
           aria-label={label}
@@ -52,6 +65,32 @@ function UsageBar({ label, used, cap, locale }: UsageBarProps) {
   );
 }
 
+// ★ Read ONCE, at mount, via the lazy-useState initialiser below — the same
+//   shape AiUsageProvider uses for its buckets. Degrades to "do not show"
+//   whenever storage is unreachable (SSR, quota, privacy mode): a settings
+//   panel that throws is worse than a migration line nobody sees.
+function costBasisNoticeDue(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(AI_COST_BASIS_NOTICE_KEY) !== "1";
+  } catch {
+    return false;
+  }
+}
+
+// ★★ Stamps BOTH keys. The cap-basis notice this supersedes explained a change
+//    now subsumed by the cost-basis one, so marking it seen here stops any
+//    later reader re-announcing something already announced.
+function markCostBasisNoticeSeen(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "1");
+    window.localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
+  } catch {
+    // non-fatal: storage quota or private browsing. The line simply repeats.
+  }
+}
+
 type AiUsagePanelProps = {
   lang: Lang;
   sessionCap: number;
@@ -60,6 +99,15 @@ type AiUsagePanelProps = {
 
 export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps) {
   const { sessionTotal, weekTotal, nextReset, sessionUsage } = useAiUsageContext();
+
+  // ★★★ NOT a state setter in an effect (`react-hooks/set-state-in-effect` is
+  //     fatal here, and re-rendering would only make the line vanish mid-read).
+  //     The flag is read once at mount and stamped once after commit, so the
+  //     line stays for THIS visit and never returns.
+  const [showCostBasisNotice] = useState(costBasisNoticeDue);
+  useEffect(() => {
+    if (showCostBasisNotice) markCostBasisNoticeSeen();
+  }, [showCostBasisNotice]);
 
   const effectiveSessionCap = sessionCap > 0 ? sessionCap : DEFAULT_SESSION_TOKEN_CAP;
   const effectiveWeeklyCap = weeklyCap > 0 ? weeklyCap : DEFAULT_WEEKLY_TOKEN_CAP;
@@ -103,6 +151,11 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps)
         </div>
       </dl>
       <p className="mt-1 text-xs text-muted-foreground">{t(lang, "aiUsageBasisHint")}</p>
+      {showCostBasisNotice && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t(lang, "aiUsageCostBasisChanged")}
+        </p>
+      )}
       {inputSide > 0 && (
         <p className="mt-1 text-xs text-muted-foreground">
           {t(lang, "aiUsageCacheHitRate", String(hitRatePct))}
