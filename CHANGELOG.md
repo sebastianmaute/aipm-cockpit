@@ -8,6 +8,51 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.298.0] - 2026-09-09 "Malzberg"
+
+### Changed
+- The AI usage caps now measure what a request costs instead of counting every
+  token the same. Each class is weighted by what Anthropic bills for it — a
+  cached read at a tenth of an input token, a cache write at 1.25 times, an
+  output token at five times — so two conversations can be ranked by what they
+  actually cost. Those ratios hold across the current models, so the basis
+  needs no price table and no per-model branch.
+- That fixes a warning which had started arriving too early. The previous
+  release widened the meter to count cache tokens against caps calibrated when
+  only input and output were counted, so a warm turn counted about 162,400
+  units against a 200,000 session cap instead of about 2,200 — both threshold
+  notices fired inside the first two messages of every session and the bar
+  stayed pinned at 100%. The caps are advisory, so nothing was ever blocked;
+  what broke was the signal.
+- Usage is now stored as the raw counts the API returns, with the weights
+  applied when a cap is compared. The old code multiplied before storing, so
+  the factor in force at write time was never recorded beside the numbers and
+  stored history could not afterwards be re-read on another basis.
+- The counting-multiplier setting is retired. Lower a cap directly instead.
+- Settings shows output as its own row and states the basis the caps are
+  measured on.
+- Usage recorded before this update stays on the old scale until the week
+  resets. A line in the usage panel says so, and removes itself once that
+  reset has passed rather than on your next visit.
+- Default caps are unchanged, deliberately. At the new unit a warm turn prices
+  at about 3,700, giving roughly 54 turns against the 200,000 session cap
+  against roughly 92 before the widening — the unit change and the retired
+  multiplier roughly cancel.
+
+### Fixed
+- The assistant's task list no longer ships a note log the guide had told it
+  never to use. Measured over a 140-task project, the note log was 9,459
+  tokens — 26.4% of what listing tasks actually sent — while the operating
+  guide stated four times that there was no tool for notes.
+- The capability moved rather than disappearing. Asking for a single task
+  still returns that task's full note log, at roughly 112 tokens on demand
+  instead of thousands in bulk, and that tool now states the constraint that
+  applies: the note log is read-only, and no tool can add, edit or delete a
+  note.
+- The note window discloses that read access, on the task register only. Notes
+  on RAID items and change items are not readable by the assistant at all, and
+  those windows no longer imply otherwise.
+
 ## [0.297.0] - 2026-09-09 "Gentle"
 
 ### Fixed
