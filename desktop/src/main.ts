@@ -1,10 +1,11 @@
-import { app, BrowserWindow, dialog } from "electron";
+import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from "electron";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { ChildProcess } from "node:child_process";
 import { APP_ORIGIN, APP_PORT } from "./lib/constants";
 import { classifyPortOwner, type PortProbe } from "./lib/port-owner";
 import { shouldReportServerExit } from "./lib/exit-reporting";
+import { HELP_MENU_ITEMS, formatVersionDetail, helpHashScript } from "./lib/menu-model";
 import { resolveLogDir } from "./lib/log-paths";
 import { waitForReady } from "./lib/readiness";
 import { killServer, spawnServer } from "./server-child";
@@ -42,7 +43,58 @@ function fail(title: string, message: string): void {
   app.quit();
 }
 
+// Populate the Help menu, which Electron's default menu leaves empty here.
+//
+// ★ The other submenus stay ROLE-BASED (Electron's own File/Edit/View/Window),
+// so this adds the missing menu without taking ownership of behaviour nobody
+// asked us to change. View keeps reload and devtools deliberately: they are
+// what makes a remote "it looks wrong" report diagnosable on a laptop we
+// cannot reach.
+//
+// ★★ Labels are English-only. The app itself is EN/DE, but the language lives
+// in renderer settings and the main process has no reader for it -- adding one
+// would mean an IPC channel and a preload, which is the Node surface this
+// shell deliberately does not expose. Recorded as a known limitation, not an
+// oversight.
+function buildMenu(): void {
+  const help: MenuItemConstructorOptions[] = HELP_MENU_ITEMS.map((item) =>
+    item.id === "help"
+      ? {
+          label: item.label,
+          click: () => {
+            // Set the fragment on the page that is already loaded rather than
+            // navigating: a reload would discard unsaved work.
+            void win?.webContents.executeJavaScript(helpHashScript()).catch((e: unknown) => {
+              log(`help menu: ${String(e)}`);
+            });
+          },
+        }
+      : {
+          label: item.label,
+          click: () => {
+            dialog.showMessageBox({
+              type: "info",
+              title: item.label,
+              message: formatVersionDetail(app.getVersion(), join(logDir, "launch.log")),
+              buttons: ["OK"],
+            });
+          },
+        },
+  );
+
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      { role: "fileMenu" },
+      { role: "editMenu" },
+      { role: "viewMenu" },
+      { role: "windowMenu" },
+      { label: "Help", submenu: help },
+    ]),
+  );
+}
+
 async function start(): Promise<void> {
+  buildMenu();
   win = new BrowserWindow({
     width: 1400,
     height: 900,
