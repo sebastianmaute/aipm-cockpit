@@ -40,7 +40,7 @@ const { priorImportFlag } = vi.hoisted(() => {
   process.env.AI_EVAL_IMPORT = "1";
   return { priorImportFlag: prior };
 });
-import { runEval } from "./ai-eval.ts";
+import { runEval, parseAnthropicBody, anthropicErrorMessage } from "./ai-eval.ts";
 
 // ★★ Put the worker's env back. This is HYGIENE, not a fix for a live leak,
 //    and the first two versions of this comment each asserted a mechanism
@@ -726,5 +726,216 @@ describe("runEval — the drift reference, and the salt that travels with it", (
     };
     expect(record.drift.rolling).not.toBeNull();
     expect(record.drift.rolling?.hitRate).toBe(1);
+  });
+});
+
+// ★★★ THE ONLY COVERAGE THE LIVE PATH'S RESPONSE HALF WILL EVER HAVE.
+//     `liveRequest` is unreachable from this suite BY CONSTRUCTION: it has
+//     exactly one construction site, and every test above injects `request`
+//     there instead. Reproduce with
+//     `grep -n "const request = deps.request" scripts/ai-eval.ts` — a single
+//     line, the code itself. ★ That anchor was chosen because it appears in no
+//     comment in the file it greps, so unlike a bare `liveRequest(` it cannot
+//     count its own citation.
+//     ★★ That unreachability is a spend-safety property, not an oversight, so
+//     it is deliberately NOT widened here: these tests call the two PURE
+//     functions split out of `liveRequest` and never build a transport, a
+//     header or a key.
+
+/** A `content` array whose members may be deliberately malformed. The parser
+ *  takes untrusted input, so the interesting cases are the ones its declared
+ *  parameter type forbids — this is the cast that lets a test express them. */
+const bodyWithBlocks = (blocks: unknown[]) =>
+  ({ content: blocks as { type: string; text?: string }[] });
+
+// ★★ MUTATION-PROVED 2026-09-10. Each mutant was applied to
+//    `scripts/ai-eval.ts` alone, run under `npx vitest run
+//    scripts/ai-eval.test.ts` (one vitest process at a time), then reverted to
+//    a byte-identical file. NONE survived; the kill counts are re-derivable by
+//    re-applying the mutant and counting the reds.
+//      `blockTypes[t] = (blockTypes[t] ?? 0) + 1` -> `= 1`          kills 2
+//      `"(untyped)"` -> `"x"`                                      kills 1
+//      delete the `(no blocks)` line                                kills 2
+//      drop the `type === "text"` filter from the text join         kills 1
+//      `b.text ?? ""` -> `String(b.text)`                          kills 1
+//      `blocks.filter(tool_use).length` -> `blocks.length`         kills 1
+//      drop the `typeof stop_reason === "string"` guard             kills 1
+//      `normalizeApiUsage(body.usage)` -> `(body.usage ?? {})`     kills 2
+describe("parseAnthropicBody — the response half of the live transport", () => {
+  it("counts every block type the API returned", () => {
+    // Arrange
+    const body = bodyWithBlocks([
+      { type: "text", text: "a" },
+      { type: "tool_use" },
+      { type: "text", text: "b" },
+      { type: "thinking" },
+    ]);
+
+    // Act
+    const reply = parseAnthropicBody(body);
+
+    // Assert
+    expect(reply.blockTypes).toEqual({ text: 2, tool_use: 1, thinking: 1 });
+  });
+
+  it("records a block whose type is not a string as (untyped)", () => {
+    // Arrange — the census exists to explain a reply nobody predicted, so a
+    //   block that does not even carry a string type must still be counted
+    //   rather than dropped or crashed on.
+    const body = bodyWithBlocks([{ type: 42 }, { type: "text", text: "a" }, {}]);
+
+    // Act
+    const reply = parseAnthropicBody(body);
+
+    // Assert
+    expect(reply.blockTypes).toEqual({ "(untyped)": 2, text: 1 });
+  });
+
+  it("records (no blocks) when the content array is empty", () => {
+    // Arrange / Act
+    const reply = parseAnthropicBody(bodyWithBlocks([]));
+
+    // Assert — an empty census and a census of nothing are indistinguishable
+    //   in the artifact; this sentinel is what tells them apart.
+    expect(reply.blockTypes).toEqual({ "(no blocks)": 1 });
+  });
+
+  it("records (no blocks) when content is absent or not an array", () => {
+    // Arrange / Act
+    const absent = parseAnthropicBody({});
+    const notArray = parseAnthropicBody({ content: "nope" } as unknown as { content?: { type: string }[] });
+
+    // Assert
+    expect(absent.blockTypes).toEqual({ "(no blocks)": 1 });
+    expect(notArray.blockTypes).toEqual({ "(no blocks)": 1 });
+  });
+
+  it("joins the text of text blocks only", () => {
+    // Arrange
+    const body = bodyWithBlocks([
+      { type: "text", text: "first" },
+      { type: "tool_use", text: "NOT THIS" },
+      { type: "text", text: "second" },
+    ]);
+
+    // Act
+    const reply = parseAnthropicBody(body);
+
+    // Assert
+    expect(reply.text).toBe("first\nsecond");
+  });
+
+  it("contributes an empty string, never the word undefined, for a text block with no text", () => {
+    // Arrange
+    const body = bodyWithBlocks([{ type: "text" }, { type: "text", text: "b" }]);
+
+    // Act
+    const reply = parseAnthropicBody(body);
+
+    // Assert — `String(b.text)` would put the literal "undefined" into a
+    //   scored response, where it is indistinguishable from model output.
+    expect(reply.text).toBe("\nb");
+    expect(reply.text).not.toContain("undefined");
+  });
+
+  it("counts tool_use blocks and nothing else as tool uses", () => {
+    // Arrange
+    const body = bodyWithBlocks([
+      { type: "tool_use" },
+      { type: "text", text: "a" },
+      { type: "tool_use" },
+      { type: "thinking" },
+    ]);
+
+    // Act
+    const reply = parseAnthropicBody(body);
+
+    // Assert
+    expect(reply.toolUses).toBe(2);
+  });
+
+  it("falls back to (absent) when stop_reason is missing or not a string", () => {
+    // Arrange / Act
+    const missing = parseAnthropicBody({});
+    const nonString = parseAnthropicBody({ stop_reason: 7 as unknown as string });
+    const present = parseAnthropicBody({ stop_reason: "max_tokens" });
+
+    // Assert — `"max_tokens"` is the one value the artifact reads as "this
+    //   reply was truncated", so a silent `undefined` there would report a
+    //   capped reply as an uncapped one.
+    expect(missing.stopReason).toBe("(absent)");
+    expect(nonString.stopReason).toBe("(absent)");
+    expect(present.stopReason).toBe("max_tokens");
+  });
+
+  it("zeroes all four billed classes when the body carries no usage at all", () => {
+    // Arrange / Act
+    const reply = parseAnthropicBody({});
+
+    // Assert — this is the defect the parser's own comment records: an
+    //   `undefined` here propagates through the run's sums as NaN, and every
+    //   later comparison against NaN is silently false.
+    expect(reply.inputTokens).toBe(0);
+    expect(reply.outputTokens).toBe(0);
+    expect(reply.cacheWriteTokens).toBe(0);
+    expect(reply.cacheReadTokens).toBe(0);
+    for (const n of [reply.inputTokens, reply.outputTokens, reply.cacheWriteTokens, reply.cacheReadTokens]) {
+      expect(Number.isFinite(n)).toBe(true);
+    }
+  });
+
+  it("carries every billed class through, defaulting the absent and non-finite ones to 0", () => {
+    // Arrange — the first live run recorded `input_tokens` alone; a partial
+    //   usage object is therefore the realistic case, not the exotic one.
+    const body = {
+      usage: { input_tokens: 1605, cache_read_input_tokens: 31000, output_tokens: Number.NaN },
+    };
+
+    // Act
+    const reply = parseAnthropicBody(body);
+
+    // Assert
+    expect(reply.inputTokens).toBe(1605);
+    expect(reply.cacheReadTokens).toBe(31000);
+    expect(reply.outputTokens).toBe(0);
+    expect(reply.cacheWriteTokens).toBe(0);
+  });
+});
+
+// ★★ MUTATION-PROVED 2026-09-10, same method as the ledger above:
+//      `body.slice(0, ERROR_DETAIL_LIMIT)` -> `body.slice(0, 400)` kills 2
+//      drop the message template's status segment                kills 2
+describe("anthropicErrorMessage — the bounded failure detail", () => {
+  it("names the status and echoes a short body whole", () => {
+    // Arrange / Act
+    const msg = anthropicErrorMessage(429, "rate limited");
+
+    // Assert — neither padded nor truncated.
+    expect(msg).toBe("anthropic 429: rate limited");
+  });
+
+  it("bounds the remote's body at 500 characters", () => {
+    // Arrange — an error body is an untrusted response of unbounded length,
+    //   and this reaches the terminal via the run's catch.
+    const huge = "x".repeat(5000);
+
+    // Act
+    const msg = anthropicErrorMessage(500, huge);
+
+    // Assert — the bound is written out as a literal on purpose. Asserting
+    //   against the source's own constant would move both halves together and
+    //   pin nothing.
+    expect(msg).toBe(`anthropic 500: ${"x".repeat(500)}`);
+    expect(msg.length).toBe("anthropic 500: ".length + 500);
+  });
+
+  it("leaves a body of exactly the bound untouched", () => {
+    // Arrange / Act — the off-by-one either side of the slice.
+    const atBound = anthropicErrorMessage(400, "y".repeat(500));
+    const overBound = anthropicErrorMessage(400, "y".repeat(501));
+
+    // Assert
+    expect(atBound).toBe(overBound);
+    expect(atBound.endsWith("y".repeat(500))).toBe(true);
   });
 });

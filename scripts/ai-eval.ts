@@ -412,6 +412,79 @@ type Reply = {
  *  exercise the entire live path without a key, a request or a cent. */
 type RequestFn = (system: SystemBlock[], messages: ApiMessage[]) => Promise<Reply>;
 
+/** The decoded shape of an Anthropic messages response, as far as anything
+ *  here reads it. Every field is optional because a response is untrusted
+ *  input of unknown shape — the parser below defaults each one rather than
+ *  assuming it arrived. */
+type AnthropicBody = {
+  content?: { type: string; text?: string }[];
+  stop_reason?: string;
+  usage?: Partial<ApiUsage>;
+};
+
+/** How many bytes of a failed response's body reach the terminal. */
+const ERROR_DETAIL_LIMIT = 500;
+
+/** The message thrown for a non-2xx response, with the remote's body bounded.
+ *
+ *  ★ BOUNDED. This reaches the terminal via the run's catch, and an error body
+ *  is an untrusted response of unbounded length. Anthropic's error envelopes do
+ *  not echo the auth header, so this is not a leak — bounded anyway, because
+ *  "the remote decides how many bytes land on your screen" is not a property
+ *  worth keeping.
+ *
+ *  ★ The key is not a parameter here and must never become one: `liveRequest`
+ *  closes over it and passes it only in the request header, so nothing on this
+ *  path holds it to spill into a message. */
+export function anthropicErrorMessage(status: number, body: string): string {
+  return `anthropic ${status}: ${body.slice(0, ERROR_DETAIL_LIMIT)}`;
+}
+
+/** Reduce a decoded response body to the `Reply` everything downstream reads.
+ *
+ *  ★★ PURE, AND SPLIT OUT OF `liveRequest` FOR THAT REASON. `liveRequest` is
+ *  unreachable from any test by construction — `deps.request ?? liveRequest(
+ *  apiKey)` is its sole construction site and every test injects `request`, so
+ *  no test can build a transport or reach a key. That is a spend-safety
+ *  property worth keeping, so the half that DECIDES anything lives here
+ *  instead, where a literal object exercises it without widening the seam. */
+export function parseAnthropicBody(body: AnthropicBody): Reply {
+  const blocks = Array.isArray(body.content) ? body.content : [];
+  // ★★★ THE CENSUS, RECORDED WHATEVER HAPPENED. The 2026-09-09 sweep produced
+  //     three replies with empty text, zero tool uses and exactly the output
+  //     cap, and nothing recorded could say what the response carried
+  //     instead — a `thinking` block is the obvious candidate for a reasoning
+  //     model, but that is a HYPOTHESIS and this census is what settles it on
+  //     the next run rather than another round of reading the code. Types and
+  //     counts only: block CONTENT is not captured here or anywhere.
+  const blockTypes: Record<string, number> = {};
+  for (const b of blocks) {
+    const t = typeof b?.type === "string" ? b.type : "(untyped)";
+    blockTypes[t] = (blockTypes[t] ?? 0) + 1;
+  }
+  if (blocks.length === 0) blockTypes["(no blocks)"] = 1;
+  // ★★★ ALL FOUR BILLED CLASSES, THROUGH THE APP'S OWN NORMALISER. The first
+  //     live run recorded `input_tokens` alone (1605) and dropped both cache
+  //     fields, so a harness whose PURPOSE is measuring prompt cost could not
+  //     say what the run cost — a ~31k-token cached prefix is invisible in
+  //     `input_tokens`. That is the same defect the app's own meter carried
+  //     before 0.295.0. `normalizeApiUsage` defaults a missing or non-finite
+  //     field to 0 rather than `undefined`, which matters here because an
+  //     `undefined` would propagate through the sums as NaN and every later
+  //     comparison against it would silently be false.
+  const usage = normalizeApiUsage(body.usage);
+  return {
+    text: blocks.filter((b) => b.type === "text").map((b) => b.text ?? "").join("\n"),
+    toolUses: blocks.filter((b) => b.type === "tool_use").length,
+    outputTokens: usage.output_tokens,
+    inputTokens: usage.input_tokens,
+    cacheWriteTokens: usage.cache_creation_input_tokens,
+    cacheReadTokens: usage.cache_read_input_tokens,
+    stopReason: typeof body.stop_reason === "string" ? body.stop_reason : "(absent)",
+    blockTypes,
+  };
+}
+
 /** Build the real transport. Mirrors the app's own call shape — same endpoint,
  *  same version header, same tool array — so the harness measures the request
  *  the app actually makes.
@@ -439,54 +512,8 @@ function liveRequest(apiKey: string): RequestFn {
         tools: toolsFor({}),
       }),
     });
-    if (!res.ok) {
-      // ★ BOUNDED. This reaches the terminal via the run's catch, and an
-      //   error body is an untrusted response of unbounded length. Anthropic's
-      //   error envelopes do not echo the auth header, so this is not a leak —
-      //   bounded anyway, because "the remote decides how many bytes land on
-      //   your screen" is not a property worth keeping.
-      const detail = (await res.text()).slice(0, 500);
-      throw new Error(`anthropic ${res.status}: ${detail}`);
-    }
-    const body = await res.json() as {
-      content?: { type: string; text?: string }[];
-      stop_reason?: string;
-      usage?: Partial<ApiUsage>;
-    };
-    const blocks = Array.isArray(body.content) ? body.content : [];
-    // ★★★ THE CENSUS, RECORDED WHATEVER HAPPENED. The 2026-09-09 sweep produced
-    //     three replies with empty text, zero tool uses and exactly the output
-    //     cap, and nothing recorded could say what the response carried
-    //     instead — a `thinking` block is the obvious candidate for a reasoning
-    //     model, but that is a HYPOTHESIS and this census is what settles it on
-    //     the next run rather than another round of reading the code. Types and
-    //     counts only: block CONTENT is not captured here or anywhere.
-    const blockTypes: Record<string, number> = {};
-    for (const b of blocks) {
-      const t = typeof b?.type === "string" ? b.type : "(untyped)";
-      blockTypes[t] = (blockTypes[t] ?? 0) + 1;
-    }
-    if (blocks.length === 0) blockTypes["(no blocks)"] = 1;
-    // ★★★ ALL FOUR BILLED CLASSES, THROUGH THE APP'S OWN NORMALISER. The first
-    //     live run recorded `input_tokens` alone (1605) and dropped both cache
-    //     fields, so a harness whose PURPOSE is measuring prompt cost could not
-    //     say what the run cost — a ~31k-token cached prefix is invisible in
-    //     `input_tokens`. That is the same defect the app's own meter carried
-    //     before 0.295.0. `normalizeApiUsage` defaults a missing or non-finite
-    //     field to 0 rather than `undefined`, which matters here because an
-    //     `undefined` would propagate through the sums as NaN and every later
-    //     comparison against it would silently be false.
-    const usage = normalizeApiUsage(body.usage);
-    return {
-      text: blocks.filter((b) => b.type === "text").map((b) => b.text ?? "").join("\n"),
-      toolUses: blocks.filter((b) => b.type === "tool_use").length,
-      outputTokens: usage.output_tokens,
-      inputTokens: usage.input_tokens,
-      cacheWriteTokens: usage.cache_creation_input_tokens,
-      cacheReadTokens: usage.cache_read_input_tokens,
-      stopReason: typeof body.stop_reason === "string" ? body.stop_reason : "(absent)",
-      blockTypes,
-    };
+    if (!res.ok) throw new Error(anthropicErrorMessage(res.status, await res.text()));
+    return parseAnthropicBody(await res.json() as AnthropicBody);
   };
 }
 
