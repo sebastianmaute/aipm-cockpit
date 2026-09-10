@@ -541,6 +541,22 @@ MSG
 
 ---
 
+## Task 5b: Add meetings to the Resources body — USER-APPROVED SCOPE ADDITION
+
+**Files:** `src/app/i18n.ts`, `src/app/i18n.de.ts`
+
+Task 5 surfaced this and the user approved fixing it in-slice rather than filing it.
+
+`helpSecResourcesBody` still enumerates the Resources → Calendar sub-tab as **"tasks, absences, and holidays"** (DE: "Aufgaben, Abwesenheiten und Feiertagen"), omitting meetings. That omission is not incidental: it is the precise reason `MODAL_HELP`'s own note gives for why `calendarEvent` could not be pointed at `feature-resources` last slice. With `feature-meeting-series` now written, leaving it makes the new entry undiscoverable from the entry a Calendar user would actually open.
+
+- [ ] **Step 1: Add meetings to the enumeration in BOTH dictionaries.** One clause; do not rewrite the surrounding sentence.
+- [ ] **Step 2: `i18n.de.ts` is NEVER touched with Edit or Write** — node UTF-8 write, `\r\n` anchors, real umlauts, uniqueness asserted in both directions, `out === s` guard, growth guard.
+- [ ] **Step 3: Byte-check in node, not `grep -c`.** ★★ Curly quotes are **44 in `i18n.de.ts` and 26 in `i18n.ts` at HEAD and must stay there** — the expectation is UNCHANGED-FROM-HEAD, not zero. Reading it as zero sends you hunting a corruption that does not exist. Also check LF-only lines 0, ASCII substitutes 0, `\u00XX` escapes 0, NUL 0.
+- [ ] **Step 4:** `npx tsc --noEmit` (EN/DE parity) + `npx vitest run src/app/i18n-encoding.test.ts src/app/help-content-gate.test.ts` in ONE invocation. The gate file is what proves the DE clause is a translation rather than an English pass-through.
+- [ ] **Step 5: Commit** on its own, naming both paths.
+
+---
+
 ## Task 6: Re-wire the two deliberately-unwired modals
 
 **Files:**
