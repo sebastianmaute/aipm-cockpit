@@ -80,15 +80,30 @@ export function HelpIconButton({
           positions `fixed` from the trigger's rect, which is why there
           is no `relative` wrapper left here to anchor anything.
 
-          ★★ WHAT THE PRIMITIVE'S `kind: "modal"` BUYS AND COSTS. ★★★ THIS
-          IS A REQUIREMENT, NOT AN OBSERVATION: render this component only
-          inside a `Modal`. When it lived in `ModalHeader` that was a
-          property of the host and could not be got wrong; as a standalone
-          export nothing in the props or the types enforces it. Outside a
-          `Modal` the analysis below simply does not apply — with no
-          competing trap the popover cycles within itself, which is correct
-          popover behaviour but is NOT what the containment reasoning here
-          is about.
+          ★★ WHAT THE PRIMITIVE'S `kind: "modal"` BUYS AND COSTS, AND WHERE
+          THAT ANALYSIS APPLIES. ★★★ THIS PARAGRAPH USED TO READ "render
+          this component only inside a `Modal`" AS A FLAT REQUIREMENT. It
+          is not one, and `notes-window.tsx` is the measured counterexample
+          — a `kind: "layer"` window, `role="dialog"` with no `aria-modal`,
+          which by design does not trap Tab. What is true is narrower: the
+          Tab analysis BELOW is about a competing modal trap, so outside a
+          `Modal` it does not apply, and nothing here may be read as a
+          containment claim for such a host.
+
+          ★★ THE OLD WORDING PREDICTED THE RIGHT THING AND FORBADE IT
+          ANYWAY: "with no competing trap the popover cycles within
+          itself". Measured on that window across twelve
+          `userEvent.tab()` presses with the popover open — focus stayed on
+          the popover's close button every press, while the SAME fixture
+          with no icon at all reached `<body>` on press 7 and a control
+          OUTSIDE the window on press 8. The escape is the host's own
+          non-modal nature; the icon neither caused it nor made it earlier.
+
+          ★★★ SO THE STANDING RULE IS A MEASUREMENT, NOT A PROHIBITION: a
+          host that is not a `Modal` must MEASURE its own baseline before
+          and its treatment after, and record both. A verdict without a
+          baseline cannot tell "the icon broke containment" from "this host
+          never had any" — and only the first of those is a regression.
 
           ESCAPE IS UNCHANGED. `escapeOwner()` (`dismissal-stack.ts`) is
           kind-AGNOSTIC — it walks the stack from the TOP and returns the

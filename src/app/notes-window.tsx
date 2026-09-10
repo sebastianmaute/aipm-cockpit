@@ -18,6 +18,8 @@ import { ResetSizeButton } from "./task-manager-ui";
 import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
 import { usePanelInitialFocus } from "./use-panel-focus";
 import { NoteLogPanel, type NoteLogPanelProps } from "./note-log-panel";
+import { HelpIconButton } from "./help-icon-button";
+import { MODAL_HELP } from "./help-content";
 
 const STORAGE_KEY_POS = "aipm-cockpit:notes-window-pos";
 const STORAGE_KEY_SIZE = "aipm-cockpit:notes-window-size";
@@ -100,6 +102,40 @@ export function NotesWindow(props: NotesWindowProps) {
           {t(lang, "noteLogTitle")} — {entityLabel}
         </h3>
         <div className="flex items-center gap-1">
+          {/* ★★★ THE FIRST `HelpIconButton` OUTSIDE A `Modal`, AND THAT WAS
+              MEASURED BEFORE IT WAS WIRED — the component's docstring used to
+              make "inside a `Modal`" a flat REQUIREMENT, and this mount is why
+              it no longer does. Read that docstring for the general rule; what
+              follows is this window's own numbers.
+
+              This window is NOT a `Modal`: `kind: "layer"`, `role="dialog"`
+              with NO `aria-modal`, and its own header comment says it does not
+              trap focus. So there was never a Tab trap here for the popover's
+              `kind: "modal"` push to stand down — the mechanism the containment
+              reasoning in `help-icon-button.tsx` is about is simply absent.
+
+              ★★ TWO PROBES, twelve `userEvent.tab()` presses each, one button
+              rendered OUTSIDE the window as the falsifier.
+
+              BASELINE (no help icon anywhere): 1 the window itself, 2 Reset
+              size, 3 Close, 4 Add note, 5 Edit – #1, 6 Delete – #1, then
+              7 `<body>` and 8 the OUTSIDE button, cycling from there.
+
+              TREATMENT (this icon, popover OPEN): the popover's own close
+              button on all twelve, never leaving the panel.
+
+              ★★★ READ THE DIFFERENCE, NOT THE TREATMENT. Tab already walked
+              out of this window on press 7 with no help icon present, because
+              non-modal is what this window IS. The icon did not cause that and
+              did not make it earlier — with the popover open it does not
+              happen at all inside twelve presses. So: this window does NOT
+              contain Tab today, this slice did not change that, and nothing
+              here should be read as a claim that the icon is contained. */}
+          <HelpIconButton
+            lang={lang}
+            conceptId={MODAL_HELP.notesWindow}
+            dialogTitle={`${t(lang, "noteLogTitle")} — ${entityLabel}`}
+          />
           <ResetSizeButton onClick={resetSize} lang={lang} labelKey="modalResetSize" />
           <IconButton onClick={onClose} label={t(lang, "close")} title={t(lang, "close")}>
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />

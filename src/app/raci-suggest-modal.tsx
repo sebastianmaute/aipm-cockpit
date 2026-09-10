@@ -157,8 +157,11 @@ export function RaciSuggestModal({
               help slot. `HelpIconButton` is the SINGLE renderer of a help
               popover; a headerless dialog must consume it rather than grow its
               own. It is inside the `<Modal>` on purpose: the component's
-              docstring makes that a requirement, because its Tab-containment
-              reasoning only applies against a competing modal trap. `-my-1`
+              Tab-containment reasoning only applies against a competing modal
+              trap, so a `Modal` host is where it holds without measuring. (Not
+              a prohibition on other hosts — `notes-window.tsx` mounts it
+              outside one, having measured that window's baseline first.)
+              `-my-1`
               keeps the icon's padding from growing this row's height. */}
           <div className="flex items-start justify-between gap-2">
             <h2 className="text-base font-semibold text-foreground">{title}</h2>

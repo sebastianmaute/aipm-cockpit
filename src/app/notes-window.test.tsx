@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Modal } from "./modal";
 import { NotesWindow } from "./notes-window";
 import { t } from "./i18n";
+import { HELP_ENTRIES, MODAL_HELP } from "./help-content";
 import type { NoteLogEntry, Resource } from "./types";
 
 // ProseMirror (the composer + inline edit RichTextEditor) touches layout APIs
@@ -306,5 +307,34 @@ describe("NotesWindow", () => {
       // synchronous rAF into every test appended after it in this file.
       vi.unstubAllGlobals();
     }
+  });
+
+  // ★★ THE SOURCE SCAN IN `help-content.test.ts` CANNOT SEE THIS. That test
+  // greps non-test `.tsx` for `conceptId={MODAL_HELP.<key>}` — it proves the
+  // literal is PRESENT in this file, never that it is RENDERED. The same green
+  // would hold with the icon inside a branch nothing reaches. This is the pin
+  // that it reaches the DOM.
+  it("renders the help trigger, named by this window's own title", async () => {
+    const user = userEvent.setup();
+    setup();
+    const dialogTitle = `${t(EN, "noteLogTitle")} — Task ABC`;
+    const trigger = screen.getByRole("button", {
+      name: t(EN, "modalHelpAbout", dialogTitle),
+    });
+    // ★ The DISCRIMINATOR, not decoration: a bare "Help" would render and pass
+    // an existence check while colliding with any second help icon in the
+    // document. Qualifying by the entity label is the whole point of threading
+    // `dialogTitle`, and only naming the expected string can catch a regression
+    // to the unqualified form.
+    expect(trigger.getAttribute("aria-label")).toContain("Task ABC");
+
+    // ★★ ANTI-VACUITY, and it pins the MAP not just the wiring: an id that
+    // resolved to no entry makes `HelpIconButton` render NOTHING, so the
+    // getByRole above would already fail — but a WELL-SPELLED WRONG id
+    // typechecks and renders fine. Asserting the popover's own heading is what
+    // ties this surface to `feature-rich-text` specifically.
+    const entry = HELP_ENTRIES.find((e) => e.id === MODAL_HELP.notesWindow)!;
+    await user.click(trigger);
+    expect(screen.getByRole("dialog", { name: t(EN, entry.titleKey) })).toBeTruthy();
   });
 });

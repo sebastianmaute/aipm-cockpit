@@ -326,6 +326,15 @@ export const MODAL_HELP = {
   taskForm: "feature-add",
   taskLinkedTask: "concept-dependency",
   taskTimeTracking: "feature-task-effort",
+  // ★ NOT a task key despite sitting beside them: `NotesWindow` is one surface
+  // shared by tasks, RAID items and changes (`use-notes-window.ts` feeds all
+  // three off one props object). `feature-rich-text` is pointed at because its
+  // BODY describes this window — the dated entries, the floating drag, the
+  // notes badge, the self-stamped author, the save-as-you-go — not because its
+  // title happens to say "notes". ★★ That body still says "Tasks and RAID
+  // items" and the window serves changes too; the copy is stale by one
+  // register, which is a CONTENT fix and not this key's to make.
+  notesWindow: "feature-rich-text",
   budgetBucket: "concept-budget",
   documentsHistory: "feature-document-history",
   documentsRename: "feature-documents",
