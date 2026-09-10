@@ -838,6 +838,23 @@ describe("parseAnthropicBody — the response half of the live transport", () =>
     expect(reply.text).not.toContain("undefined");
   });
 
+  it("keeps a falsy-but-present text, so the nullish default cannot become an || default", () => {
+    // Arrange - 0 is FALSY but not nullish. Every other test in this file feeds
+    //   text that is absent or a non-empty string, and ?? and || agree on both
+    //   of those, so the entire suite passed with the `?? ""` default mutated
+    //   to `|| ""`. A cold review built that mutant and measured it surviving.
+    //   This is the separating input.
+    const body = bodyWithBlocks([{ type: "text", text: 0 as unknown as string }]);
+
+    // Act
+    const reply = parseAnthropicBody(body);
+
+    // Assert - `|| ""` yields the empty string here, discarding content the
+    //   model actually returned rather than defaulting a MISSING field.
+    //   Scoring would then judge a different answer than was sent.
+    expect(reply.text).toBe("0");
+  });
+
   it("counts tool_use blocks and nothing else as tool uses", () => {
     // Arrange
     const body = bodyWithBlocks([

@@ -835,11 +835,11 @@ export function filterSpec(filter) {
  *
  *  ★★ A filter exists so one broken probe can be re-run for cents instead of
  *  the standard run's full sweep — 65 requests, from
- *  `activeProbes * (A + B + X) + N + R` in `ai-eval.ts`. It was SIXTY before a
- *  rolling reference existed, and this line said so for one commit past the
- *  point that stopped being true; the reference is committed now, so `R` is
- *  never 0 here and 60 cannot occur again. Derive it, do not trust this
- *  number: `PROBES.length * (2 * REPS + 1) + 2 * REPS`. That affordability is the whole point,
+ *  `activeProbes * (A + B + X) + N + R` in `ai-eval.ts`. `R` is `reps` only
+ *  when a rolling reference exists AND a previous run is recorded — BOTH
+ *  preconditions, not just the committed file — so the pre-reference sweep of
+ *  60 cannot occur here again. Derive it, do not trust this number:
+ *  `PROBES.length * (2 * REPS + 1) + 2 * REPS`. That affordability is the whole point,
  *  and it is also the danger: a narrowed run that reported a normal verdict
  *  would be a confident green over a measurement of almost nothing. `verdict`
  *  and `shouldWriteRolling` both refuse outright on a non-null filter, which is

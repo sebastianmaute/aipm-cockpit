@@ -65,11 +65,14 @@ const MODEL = "claude-sonnet-5";
  *  can reach, so runs at different caps are not comparable on it. Changing this
  *  line starts a new comparison series for that axis, exactly like `MODEL`.
  *
- *  ★ COST: output bills at 5x input. The 65-request run recorded 841 output
- *  tokens in total (mean 13). If every reply instead ran to this cap the run
- *  would emit 65 x 512 = 33,280, worth 166,400 weighted tokens against that
- *  run's recorded 681,288 — about +24% worst case, and nowhere near it in
- *  practice. Cheap insurance against a probe that needs room to think. */
+ *  ★ COST: output bills at 5x input, and real output sits nowhere near this
+ *  cap. TWO recorded runs are 65 requests, so a request count does not name one
+ *  — an earlier revision of this line said "the 65-request run" and quoted a
+ *  total that is right for one of them and wrong for the other. They emitted
+ *  841 and 1522 output tokens (means 13 and 23). If every reply instead ran to
+ *  the cap a run would emit 65 x 512 = 33,280, worth 166,400 weighted tokens —
+ *  +24.4% and +23.6% against their recorded weighted totals, so about +24%
+ *  worst case either way, and nowhere near it in practice. Cheap insurance against a probe that needs room to think. */
 const MAX_OUTPUT_TOKENS = 512;
 
 /** The anchor arm's question. Fixed and probe-INDEPENDENT: the anchor is one
