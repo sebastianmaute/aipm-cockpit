@@ -1610,6 +1610,19 @@ Expected: both EXIT=0, and an `.exe` installer listed.
 - [ ] **Step 5: Manually verify the installer** (this step is a human action, and it is the point of the whole plan)
 
 1. Run the `.exe`. Expect a SmartScreen prompt (unsigned, as designed) — dismiss via *More info → Run anyway*.
+   ★★★ **A LOCALLY BUILT INSTALLER DOES NOT PROMPT, AND THAT IS NOT A DEFECT.** Reported by the
+   user on 2026-09-10 as a discrepancy against this line, and then measured: the built
+   `.exe` is genuinely `NotSigned` (`Get-AuthenticodeSignature` → `Status: NotSigned`,
+   `SignerCertificate` NONE — note electron-builder still logs `signing with signtool.exe`, which
+   is a STEP NAME and not evidence a signature was applied), **and** it carries no
+   Mark-of-the-Web: `Get-Item -Stream *` returns `:$DATA` alone, with no `Zone.Identifier`.
+   SmartScreen's App Reputation check keys off that stream, which a BROWSER writes on download.
+   So this step cannot be performed on the machine that built the artifact — copy it through the
+   path a colleague will actually use, or read the step as unverified.
+   ★★ **This is a third way Task 2's control can fail to prompt**, alongside the two that step
+   already names, and it is the one that looks like a passing test: whether a file opened from a
+   UNC share acquires a `Zone.Identifier` at all is precisely what that spike has to establish, so
+   do NOT treat a silent install from the share as evidence either way until it does.
 2. Confirm it installs **without** an admin/UAC elevation prompt.
 3. Launch from the Start menu. Expect the splash, then the app.
 4. **Confirm the app is styled.** An unstyled app means Task 5's copy did not reach the package.
@@ -1641,132 +1654,125 @@ echo "EXIT=$?"
 
 ## Task 15: Packaged-app smoke test
 
+**Status: DONE 2026-09-10** — `e2e/desktop-smoke.spec.ts`, commit `902066af`. The text below is
+the CORRECTED task; the version originally planned here carried six defects, four of which made it
+unrunnable and two of which made it **vacuous while green**. They are recorded at the end because
+every one of them is the class of mistake this task exists to catch.
+
 **Files:**
 - Create: `e2e/desktop-smoke.spec.ts`
+- Modify: `playwright.config.ts` (project + `testIgnore` + env-gated `webServer`)
+- Modify: `package.json` (`e2e:desktop` script **and** its `scriptsDescriptions` entry)
+- Regenerate: `CONTRIBUTING.md` via `npm run docs:scripts`
 
-⚠️ **The obvious smoke test is vacuous.** "Window opens, title matches" passes against an app serving the missing-`.next/static` failure — booted, functional, entirely unstyled. Two of the assertions below exist specifically to catch that.
+⚠️ **The obvious smoke test is vacuous three separate ways.** "Window opens, title matches" passes
+against an app serving the missing-`.next/static` failure — booted, functional, entirely unstyled.
+So does a styling assertion made on a window Chromium is serving from its **persistent HTTP cache**.
+So does any assertion at all if it runs against the **splash** page rather than the app.
+
+**Precondition:** a fresh package. `npm --prefix desktop run build` then `npm run desktop:package`.
+Do **not** run `npm run desktop:build` if `.next/` must not be rebuilt — `desktop:package` consumes
+the existing `.next/standalone` plus `desktop/dist` and `desktop/splash.html`.
 
 - [ ] **Step 1: Write the test**
 
-Create `e2e/desktop-smoke.spec.ts`. ⚠️ `e2e/**` is CRLF — create it with the Write tool, never `sed`.
+Create `e2e/desktop-smoke.spec.ts` with the Write tool (never `sed`). Read the committed file for
+the full text; the load-bearing decisions are:
 
-```ts
-import { test, expect, _electron as electron } from "@playwright/test";
-import { APP_VERSION } from "../src/app/version";
+1. **Launch the PACKAGED executable**, `desktop/release/win-unpacked/AI PM Cockpit.exe`, via
+   `_electron.launch({ executablePath })`. `test.skip` with the path and `npm run desktop:package`
+   when it is absent, so a fresh clone does not go red.
+2. **A throwaway `--user-data-dir` per launch** (`mkdtempSync`). Non-negotiable — see defect 5.
+3. **Poll `app.windows()` for a window whose `url()` starts with `APP_ORIGIN`**, 90s budget. The app
+   reuses ONE window (`loadFile(splash.html)` then `loadURL(APP_ORIGIN)`), so `firstWindow()`
+   resolves against the splash.
+4. **Assertion order: styling first, `toBeVisible()` after.** See defect 6.
+5. Assert `getComputedStyle(document.body).backgroundColor` is neither `""` nor `rgba(0, 0, 0, 0)`,
+   AND that the document carries stylesheet **rules** (`document.styleSheets` → summed
+   `cssRules.length`). Two independent witnesses; each failure message contains the literal
+   `CSS bundle did not load`, which Step 4 greps for.
+6. Assert `documentElement.getAttribute("data-app-version") === APP_VERSION` — the
+   `e2e/a11y.spec.ts` guard (open-followups §58) extended to the package.
+7. Second test: loopback **control first** (must be 200 — a server that is down refuses everywhere),
+   then assert a non-internal IPv4 address REFUSES, `AbortSignal.timeout(3000)`.
+8. `test.describe.serial` + wait for port 17300 to be **released** after each `app.close()` — poll
+   the condition, never sleep a guessed interval.
 
-const PORT = 17300;
+- [ ] **Step 2: Keep it out of CI, and off the dev server**
 
-test("the packaged app boots, is styled, and reports this version", async () => {
-  const app = await electron.launch({ args: ["desktop/dist/main.js"] });
-  const page = await app.firstWindow();
-  await page.waitForURL(`http://127.0.0.1:${PORT}/**`, { timeout: 90000 });
+`playwright.config.ts`: add `desktop-smoke\.spec\.ts` to the `chromium` project's `testIgnore`
+(which ignores only `visual.spec.ts` otherwise, so the spec would land in the **blocking** e2e job
+where no package exists); add a `desktop` project with `testMatch`, `timeout: 240_000` and
+`workers: 1` (`testProject.workers` exists — verified in `node_modules/playwright/types/test.d.ts`);
+and gate `webServer` on `PLAYWRIGHT_NO_WEBSERVER`, since it is global and unconditional and would
+otherwise boot a Turbopack dev server this spec never touches.
 
-  // ★★★ ANTI-VACUITY 1. A "window opened" assertion passes against an app
-  // whose .next/static never got copied — it boots and serves, it is simply
-  // unstyled. Assert a computed style that only exists if the CSS bundle
-  // loaded.
-  const body = page.locator("body");
-  await expect(body).toBeVisible();
-  const bg = await body.evaluate((el) => getComputedStyle(el).backgroundColor);
-  expect(bg, "body has no themed background — the CSS bundle did not load, so .next/static is missing from the package").not.toBe("");
-  expect(bg).not.toBe("rgba(0, 0, 0, 0)");
+`package.json`: an `e2e:desktop` script setting that env var (the `node -e` form `desktop:build`
+already uses), plus its `scriptsDescriptions` entry — a new script without one fails
+`docs:scripts:check`. Then `npm run docs:scripts` to regenerate `CONTRIBUTING.md`.
 
-  // ★★★ ANTI-VACUITY 2. Prove the window is showing THIS build, not a dev
-  // server someone left running on the same port. Mirrors the guard in
-  // e2e/a11y.spec.ts (open-followups §58), extended to the packaged app.
-  const served = await page.evaluate(() =>
-    document.documentElement.getAttribute("data-app-version"),
-  );
-  expect(
-    served,
-    `Packaged app reports ${served ?? "(absent)"} but this checkout is ${APP_VERSION}.`,
-  ).toBe(APP_VERSION);
-
-  await app.close();
-});
-
-test("the server answers on loopback and REFUSES on the LAN address", async () => {
-  const app = await electron.launch({ args: ["desktop/dist/main.js"] });
-  const page = await app.firstWindow();
-  await page.waitForURL(`http://127.0.0.1:${PORT}/**`, { timeout: 90000 });
-
-  // Control: loopback must answer, or the "refused" half below is vacuous —
-  // a server that is simply down refuses everywhere.
-  const loopback = await fetch(`http://127.0.0.1:${PORT}/`).then((r) => r.status);
-  expect(loopback, "loopback did not answer, so the LAN assertion below proves nothing").toBe(200);
-
-  // ★★★ THE SECURITY ASSERTION. A 0.0.0.0 bind would publish the app AND the
-  // user's entire workspace to the corporate LAN. This is the kind of thing
-  // that silently regresses when someone widens a bind to fix a networking
-  // problem.
-  const { networkInterfaces } = await import("node:os");
-  const lan = Object.values(networkInterfaces())
-    .flat()
-    .find((i) => i && i.family === "IPv4" && !i.internal)?.address;
-
-  test.skip(!lan, "no non-loopback IPv4 interface on this machine");
-
-  await expect(
-    fetch(`http://${lan}:${PORT}/`, { signal: AbortSignal.timeout(3000) }),
-  ).rejects.toThrow();
-
-  await app.close();
-});
-```
-
-- [ ] **Step 2: Typecheck**
+- [ ] **Step 3: Typecheck and run**
 
 ```bash
-npx tsc --noEmit > /tmp/tsc2.log 2>&1; echo "EXIT=$?"
-grep -c "error TS" /tmp/tsc2.log
+npx tsc --noEmit > "$SP/t15-tsc.log" 2>&1; echo "EXIT=$?"; grep -c "error TS" "$SP/t15-tsc.log"
+npm run e2e:desktop > "$SP/ds.log" 2>&1; echo "EXIT=$?"; tail -20 "$SP/ds.log"
 ```
 
-Expected: EXIT=0, `0` errors. (`next build` does not typecheck specs and vitest never typechecks — a spec-only type error passes both and fails CI.)
+Measured: tsc EXIT=0 / 0 errors; `2 passed (8.8s)`. `playwright.config.ts` IS inside the tsconfig
+`include` (`**/*.ts`, excluding only `node_modules` and `scripts`), so tsc really does cover it.
 
-- [ ] **Step 3: Run the smoke test**
+- [ ] **Step 4: Prove the styling assertion is not vacuous**
+
+Rename the packaged static directory aside — **`desktop/release/win-unpacked/resources/standalone/.next/static`**, NOT anything under `.next/standalone`, which the packaged app never reads:
 
 ```bash
-npx playwright test e2e/desktop-smoke.spec.ts --project=chromium --workers=1 > /tmp/ds.log 2>&1; echo "EXIT=$?"
-tail -20 /tmp/ds.log
+powershell -NoProfile -Command "Rename-Item 'desktop/release/win-unpacked/resources/standalone/.next/static' static-hidden"
+npm run e2e:desktop > "$SP/ds2.log" 2>&1; echo "MUTANT_EXIT=$?"
+grep -c "CSS bundle did not load" "$SP/ds2.log"
+powershell -NoProfile -Command "Rename-Item 'desktop/release/win-unpacked/resources/standalone/.next/static-hidden' static"
+npm run e2e:desktop > "$SP/ds3.log" 2>&1; echo "RESTORE_EXIT=$?"
 ```
 
-Expected: EXIT=0, 2 passed. `--workers=1` because both tests bind the same fixed port; in parallel the second would find the port held by the first.
+Measured: `MUTANT_EXIT=1`, **2** matches, failing on the transparent-background assertion; test 2
+`did not run` (serial). `RESTORE_EXIT=0`, 2 passed. **If the mutant passes, the assertion is
+vacuous** — that is the entire failure this test exists to catch, and it happened (defect 5).
 
-- [ ] **Step 4: Prove the style assertion is not vacuous**
+- [ ] **Step 5: Commit** — `e2e/desktop-smoke.spec.ts playwright.config.ts package.json CONTRIBUTING.md`
 
-Package without the static copy and confirm the smoke test goes red on the styling assertion specifically:
+### The six defects this task shipped with, all measured
 
-```bash
-powershell -NoProfile -Command "Rename-Item .next/standalone/.next/static static-hidden"
-npx playwright test e2e/desktop-smoke.spec.ts --project=chromium --workers=1 > /tmp/ds2.log 2>&1; echo "MUTANT_EXIT=$?"
-grep -c "CSS bundle did not load" /tmp/ds2.log
-powershell -NoProfile -Command "Rename-Item .next/standalone/.next/static-hidden static"
-npx playwright test e2e/desktop-smoke.spec.ts --project=chromium --workers=1 > /tmp/ds3.log 2>&1; echo "RESTORE_EXIT=$?"
-```
+The first four made it unrunnable; **5 and 6 are the expensive ones**, because each produced a
+green-or-misleading run rather than an obvious error.
 
-Expected: `MUTANT_EXIT=1` with the named message, then `RESTORE_EXIT=0`. **If the mutant passes, the assertion is vacuous and must be strengthened before proceeding** — that is the entire failure this test exists to catch.
+1. **It launched `desktop/dist/main.js`.** Unpackaged, `process.resourcesPath` is
+   `desktop/node_modules/electron/dist/resources`, which holds no `standalone/`, so
+   `spawnServer(process.resourcesPath)` points at a `server.js` that does not exist and the app can
+   only die in its own start-up dialog.
+2. **Its mutation step renamed `.next/standalone/.next/static`** — a path the packaged app never
+   reads, so the mutant would have changed nothing and "proved" the assertion by passing.
+3. **It left the spec in the blocking CI e2e job.** `chromium`'s `testIgnore` was `visual.spec.ts`
+   alone.
+4. **It ignored the global `webServer`**, which would boot `npm run dev` on :3000 as a pure side
+   effect (measured: :3000 was not listening at all when the task was run).
+5. **★★★ Chromium's persistent HTTP cache made the styling assertion unfalsifiable.** With the
+   static directory renamed aside, the first mutation run **passed** — `2 passed (9.0s)`. Probed on
+   the app's real user-data dir at that exact state: `document.styleSheets[0].cssRules.length` was
+   **97** and body background `rgb(255, 255, 255)`, while a Node-side `fetch` of that same
+   stylesheet URL returned **404**. The bundle was coming from the disk cache an earlier styled run
+   had written. Same probe with a fresh `mkdtemp` profile: background `rgba(0, 0, 0, 0)`, **0**
+   rules. **The vacuity was in the LAUNCH, not the expectation** — and the obvious strengthening
+   would ALSO have been vacuous, because `--surface`/`--background`/`--foreground` resolve to real
+   values (`#ffffff`, `#646461`) on an unstyled page, set inline by the SSR scheme apply. The rule
+   count is the witness an inline style cannot fake.
+6. **★★ The planned assertion order misattributes the failure.** With a valid mutant,
+   `await expect(body).toBeVisible()` fires first, and an unstyled body has a zero-size box — so
+   Playwright reports `Received: hidden` with **0** occurrences of `CSS bundle did not load`. A red
+   run that reads like a broken selector. Styling assertions must precede it.
 
-- [ ] **Step 5: Commit**
-
-```bash
-git add e2e/desktop-smoke.spec.ts
-git commit --only e2e/desktop-smoke.spec.ts -F - <<'EOF'
-test(desktop): smoke the packaged app, styling and loopback bind included
-
-A "window opens" test passes against an app whose .next/static never got
-copied -- it boots and serves, it is merely unstyled. So this asserts a
-computed background colour, and mutation-proves it by hiding the static
-directory and observing the named failure.
-
-Also pins that the packaged window shows THIS build (the data-app-version
-guard from e2e/a11y.spec.ts, extended to the package), and asserts the
-server answers on loopback while REFUSING on the LAN address -- with the
-loopback control first, since a server that is down refuses everywhere.
-
-Claude-Session: https://[session link removed]
-EOF
-echo "EXIT=$?"
-```
+★ Two smaller measurements worth keeping: the app creates **one** `BrowserWindow` and navigates it
+(so URL polling is right for a reason the plan got wrong — navigation, not window ordering), and
+`app.close()` **does** release port 17300 promptly (the release poll returned on its first iteration
+in every run), so the wait is a cheap guard rather than a workaround.
 
 ---
 
@@ -2028,7 +2034,10 @@ Expected: **empty**. Any leftover file means a mutant or probe from an earlier t
 - [ ] The installer installs **without** admin rights, and the installed app launches, is **styled**, and reports this checkout's version.
 - [ ] Closing the window leaves **no** orphaned process.
 - [ ] A second launch focuses the first window.
-- [ ] The smoke test's styling assertion is mutation-proved (Task 15 Step 4).
+- [x] The smoke test's styling assertion is mutation-proved (Task 15 Step 4) — 2026-09-10:
+      `MUTANT_EXIT=1` with 2 matches on the named message, `RESTORE_EXIT=0`, 2 passed. ★ It took
+      TWO fixes to get there, both recorded in Task 15: the first mutant PASSED (Chromium's disk
+      cache), and the second failed on the wrong assertion.
 - [ ] The version satellite is mutation-proved (Task 3 Step 8).
 - [ ] The rollout note exists, so the first-launch empty state is explained before a colleague meets it.
 - [ ] The full gate chain in Task 18 is green, and `git status --porcelain` is empty.
