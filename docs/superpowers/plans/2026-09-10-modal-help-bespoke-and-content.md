@@ -650,6 +650,12 @@ Raise the floor to `expect(entries.length).toBe(22)` (**not** 24).
 
 - [ ] **Step 3: Write `help-icon-button.test.tsx` — with a real collision seed**
 
+★★★ **ADD A THIRD TEST: THE TAB-CONTAINMENT PIN. A cold review of Task 1 found the behaviour moved but its pin did not.** The close button is load-bearing for focus containment, and that guarantee now lives in `help-icon-button.tsx` — but its ONLY test is `modal-header.test.tsx`'s "keeps Tab inside the dialog while the help popover is open", reachable solely through `ModalHeader`. This is the `path-scanning-test-does-not-follow-a-move` shape: a headerless consumer gets no local pin, and renaming or pruning the header suite silently unpins the claim without a single gate noticing.
+
+Write a test that renders `HelpIconButton` inside a `Modal`, with **one focusable control outside the modal**, opens the popover, drives enough `userEvent.tab()` presses to cycle, and asserts focus never reaches the outside control or `document.body`. ★ The outside control is the anti-vacuity half — without it the assertion passes against a fixture where focus had nowhere to escape to in the first place.
+
+★★ **Mutate it to prove it fires:** delete the popover's close button (its only focusable child) and confirm the test goes RED — that is the exact defect the button exists to prevent, measured last slice at `document.body` on press 4 and an outside control on press 5. Record `N failed / M passed`, and revert by an anchored inverse Edit with a uniqueness assertion in both directions, ending on an empty `git diff --stat`.
+
 ```tsx
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
