@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { Modal } from "./modal";
@@ -406,6 +406,20 @@ describe("NotesWindow", () => {
       const panelClose = screen.getByRole("button", {
         name: `${t(EN, "alertModalClose")} – ${t(EN, HELP_ENTRIES.find((e) => e.id === "feature-rich-text")!.titleKey)}`,
       });
+      // ★★★ AWAIT THE autoFocus LANDING BEFORE PRESSING TAB. This is a
+      // PRECONDITION, not a relaxed assertion — the twelve presses below still
+      // assert exactly what they did. `PopoverPanel` gates its `autoFocus`
+      // effect on a MEASURED `pos`, and jsdom has no layout, so under a
+      // squeezed worker the focus had not landed when the loop began: press 1
+      // hit the TRIGGER instead of the panel and the run went red. Measured
+      // 2026-09-10 in CI — pipeline 6819 failed and the SAME commit at the
+      // SAME seed passed on retry, which is what rules out an order
+      // dependence (eight shuffled seeds are green locally, and vitest
+      // isolates per file, so neither intra- nor cross-file order explains it).
+      // ★ It also PINS `autoFocus`, which until now was only implicitly pinned
+      // by press 1 happening to be correct. Deleting the prop turns this red.
+      await waitFor(() => expect(document.activeElement).toBe(panelClose));
+
       const open: Element[] = [];
       for (let i = 0; i < 12; i++) {
         await user.tab();

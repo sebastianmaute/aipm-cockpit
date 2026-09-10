@@ -17,7 +17,7 @@
 // `modal-header.test.tsx` drives six presses through `ModalHeader`; the one
 // here drives twelve against this component directly.
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HelpIconButton } from "./help-icon-button";
 import { HELP_ENTRIES, MODAL_HELP, type HelpEntryId } from "./help-content";
@@ -105,6 +105,21 @@ describe("HelpIconButton", () => {
     const entry = HELP_ENTRIES.find((e) => e.id === MODAL_HELP.raciSuggest)!;
     const popoverClose = `${t("en-US", "alertModalClose")} – ${t("en-US", entry.titleKey)}`;
     await user.click(screen.getByRole("button", { name: "Help – Suggest RACI" }));
+
+    // ★★★ AWAIT THE autoFocus LANDING BEFORE PRESSING TAB. This is a
+    // PRECONDITION, not a relaxed assertion — the twelve presses below still
+    // assert exactly what they did. `PopoverPanel` gates its `autoFocus`
+    // effect on a MEASURED `pos`, and jsdom has no layout, so under a
+    // squeezed worker the focus had not landed when the loop began: press 1
+    // hit the TRIGGER instead of the panel and the run went red. Measured
+    // 2026-09-10 in CI — pipeline 6819 failed and the SAME commit at the
+    // SAME seed passed on retry, which is what rules out an order
+    // dependence (eight shuffled seeds are green locally, and vitest
+    // isolates per file, so neither intra- nor cross-file order explains it).
+    // ★ It also PINS `autoFocus`, which until now was only implicitly pinned
+    // by press 1 happening to be correct. Deleting the prop turns this red.
+    const popoverCloseBtn = screen.getByRole("button", { name: popoverClose });
+    await waitFor(() => expect(document.activeElement).toBe(popoverCloseBtn));
 
     const whileOpen: string[] = [];
     for (let i = 0; i < 12; i++) {
