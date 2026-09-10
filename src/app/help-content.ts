@@ -51,7 +51,12 @@ export const HELP_GROUP_LABEL: Record<HelpGroup, TranslationKey> = {
  *  HelpEntry[]` HERE widens `id` back to `string` even with `as const` below —
  *  `HelpEntryId` then compiles, exports, and catches nothing. But exporting
  *  THIS binding as `HELP_ENTRIES` does not work either: `as const` makes it a
- *  66-member heterogeneous tuple, and the three OPTIONAL fields (`primerKey`,
+ *  heterogeneous tuple one member per entry (★ no count is quoted — every
+ *  slice that adds an entry moves it, and nothing gates a number in a `src/`
+ *  comment. ★★ Derive it with `grep -c "^  { id: " src/app/help-content.ts`,
+ *  anchored at the ROW: the obvious unanchored form matches this very comment
+ *  and reports one too many — a self-referential grep is measured against the
+ *  file it is written in), and the three OPTIONAL fields (`primerKey`,
  *  `relatedViews`, `relatedConcepts`) then do not exist on every member, so
  *  every consumer that reads one fails to typecheck (measured: 18 errors
  *  across 4 files). So the literal keeps the precise type for the union to be
@@ -200,6 +205,17 @@ const HELP_ENTRIES_LITERAL = [
   { id: "feature-table-columns", group: "features", titleKey: "helpSecTableColumnsTitle", bodyKey: "helpSecTableColumnsBody" },
   { id: "feature-print", group: "features", titleKey: "helpSecPrintTitle", bodyKey: "helpSecPrintBody" },
 
+  // ── Subjects a bespoke modal needs and nothing covered (§453 gaps 1-3) ──
+  // ★★ These three exist because `MODAL_HELP` below had NO apt entry to point
+  // three dialogs at, not because a coverage gate asked for them — the gate is
+  // defined over VIEWS and is structurally blind to a subject like "estimates".
+  // Read the ★★ note on `MODAL_HELP` for the two rows that were REMOVED rather
+  // than pointed at the nearest-sounding id, and then restored once these
+  // entries existed and had been read against their surfaces.
+  { id: "feature-meeting-series", group: "features", titleKey: "helpSecMeetingSeriesTitle", bodyKey: "helpSecMeetingSeriesBody", relatedViews: ["calendar"] },
+  { id: "feature-document-assets", group: "features", titleKey: "helpSecDocumentAssetsTitle", bodyKey: "helpSecDocumentAssetsBody", relatedViews: ["documents"] },
+  { id: "feature-task-effort", group: "features", titleKey: "helpSecTaskEffortTitle", bodyKey: "helpSecTaskEffortBody", relatedViews: ["open-points"] },
+
   // ── What's automated ──
   { id: "automated-tracking", group: "automated", titleKey: "helpAutomatedTrackingTitle", bodyKey: "helpAutomatedTrackingBody", relatedViews: ["dashboard", "actions", "open-points"], relatedConcepts: ["concept-task-status"] },
   { id: "automated-health", group: "automated", titleKey: "helpAutomatedHealthTitle", bodyKey: "helpAutomatedHealthBody", relatedViews: ["dashboard", "budget", "trends"], relatedConcepts: ["concept-budget", "concept-baseline"] },
@@ -224,7 +240,13 @@ export type HelpEntryId = (typeof HELP_ENTRIES_LITERAL)[number]["id"];
  *  expected. Widening here is what keeps this a one-file change. */
 export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
 
-/** Which Help entry each modal's header help icon opens.
+/** Which Help entry each modal's help icon opens.
+ *
+ *  ★ NOT "header" icon any more, and the distinction is the point of
+ *  `HelpIconButton`: most rows are consumed as `ModalHeader`'s
+ *  `helpConceptId`, but a dialog that hand-rolls its chrome renders the
+ *  affordance itself — `raciSuggest` is the first such row. The wiring test
+ *  therefore scans BOTH attribute spellings; see its comment.
  *
  *  ★ A modal absent from this map renders NO icon — that is how confirmations
  *  and gates (confirm-dialog, type-to-confirm-dialog, secret-unlock-gate,
@@ -235,8 +257,17 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *  change here by reading the entry, not by running tsc.
  *
  *  ★ `help-content.test.ts` pins that every value resolves AND that the map
- *  still has 19 rows — the count is the anti-vacuity floor, so update it
- *  deliberately when adding a modal, never to make a red run green.
+ *  still has an EXACT number of rows — the count is the anti-vacuity floor, so
+ *  update it deliberately when adding a modal, never to make a red run green.
+ *
+ *  ★★★ NO ROW COUNT IS QUOTED HERE, AND RESTORING ONE IS A REGRESSION. This
+ *  line said "22 rows" while the map held 23 and the test asserted 23 — the
+ *  commit that added `notesWindow` bumped the test and left the prose. Three
+ *  independent reviewers found it, and the direction of the harm is what makes
+ *  it worth a ★★★: a maintainer who reds the count, reads 22 here and believes
+ *  it concludes the TEST has drifted and edits the test down, which is exactly
+ *  what the sentence above forbids. The count lives in ONE place — read it off
+ *  `expect(entries.length).toBe(...)` in `help-content.test.ts`.
  *
  *  ★★ ONE KEY MAY SERVE SEVERAL CALL SITES, and `backendConfig` does.
  *  `BackendConfigModal` takes a REQUIRED `helpConceptId`, so its three
@@ -249,31 +280,82 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *  to one.
  *
  *  ★★ A modal with NO apt entry gets NO ROW, and that is the deliberate
- *  answer rather than the nearest-neighbour one. TWO modals have now been
- *  removed on that criterion, not one:
+ *  answer rather than the nearest-neighbour one. TWO modals were removed on
+ *  that criterion, not one — both are BACK below, and the record of why they
+ *  went is the part worth keeping:
  *    • `taskTimeTracking` (the Jira-style estimate / spent / remaining
  *      dialog) pointed at `feature-timelog`, which describes the external
  *      Timelog INTEGRATION — a different subject that implies those figures
- *      sync somewhere they do not. No entry mentions estimates at all
- *      (reproduce: search every body for "estimate" / "time spent" /
- *      "remaining" — zero hits).
+ *      sync somewhere they do not.
  *    • `calendarEvent` (the recurring MEETING SERIES editor) pointed at
  *      `feature-resources`, whose Calendar sentence enumerates that sub-tab
  *      as "tasks, absences, and holidays" — so the entry told the reader the
  *      surface holds three things that are not what they are editing.
- *      Measured 2026-09-09 over all 66 entries' titles + bodies: "series"
- *      matches ZERO of them.
- *  Do NOT reinstate either by picking the closest-sounding id; write a
- *  task-effort / meeting-series entry first. */
+ *  ★★★ THE SUBJECT GAP THAT JUSTIFIED BOTH REMOVALS IS NOW CLOSED, AND THIS
+ *  NOTE USED TO CARRY THE MEASUREMENTS AS IF THEY STILL HELD. It said "no
+ *  entry mentions estimates at all … zero hits" and, of "series", "measured
+ *  2026-09-09 over all 66 entries' titles + bodies: matches ZERO of them".
+ *  Both were true when written and BOTH WERE FALSIFIED BY THE VERY COMMIT
+ *  that added `feature-meeting-series`, `feature-document-assets` and
+ *  `feature-task-effort` above (§453 gaps 1-3) — a removal's justification
+ *  outliving the condition it measured is this file's own recurring defect.
+ *  Read them as the RECORD of why the two rows went, never as today's state.
+ *  ★★ ADDING THE ENTRY IS NOT THE SAME AS RESTORING THE ROW, and this note
+ *  used to stop there, with the map deliberately unchanged. THE WIRING
+ *  DECISION HAS SINCE BEEN TAKEN — separately, and by reading each new entry
+ *  against the surface it would open from, which is the only review this map
+ *  has:
+ *    • `calendarEvent` → `feature-meeting-series`, whose body is about the
+ *      repeat rule, its three mutually exclusive end conditions and the
+ *      per-occurrence exceptions — the fields this dialog actually edits.
+ *    • `taskTimeTracking` → `feature-task-effort`, whose body describes the
+ *      estimate / spent / remaining triple and states outright that the
+ *      figures are the task's own and do not sync anywhere. That sentence is
+ *      the correction of the exact confusion `feature-timelog` created here.
+ *  So the criterion did not change and is not weakened by these two rows: an
+ *  entry that MATCHES earns a row, an id that merely sounds close never does.
+ *  Do NOT add the next one by picking the closest-sounding id.
+ *  ★★ `raciSuggest` IS THE NEXT ONE, and it earned its row the same way:
+ *  `concept-raci`'s body defines the four ROLES the dialog prints on
+ *  every row (`Current: <role> → Proposed: <role>`) and states the
+ *  exactly-one-Accountable-per-milestone rule, which is the SAME RULE one of
+ *  that dialog's three skip explanations states in its own words
+ *  (`raciSuggestSkippedAccountable`).
+ *  ★★ TWO WORDS HERE WERE WRONG AND BOTH OVERSTATED THE MATCH. It said "role
+ *  LETTERS": the body names Responsible / Accountable / Consulted / Informed
+ *  as words and never gives letters, and the dialog renders `ROLE_LABEL_KEY`
+ *  words too — R/A/C/I are the internal `RaciRole` keys, not user-visible
+ *  here. And it said the dialog quotes the rule "VERBATIM": the body says
+ *  "having exactly one Accountable person per milestone prevents confusion"
+ *  while the skip string says "… because that milestone already has an
+ *  Accountable." Same rule, different words. The row is still earned — but a
+ *  justification that overstates its evidence is how the next reviewer talks
+ *  themselves into a weaker match, which is exactly what this block exists to
+ *  prevent. Two
+ *  further bespoke dialogs a term probe offered alongside it — the steering
+ *  report and the insight recommendation review — were DOWNGRADED on the same
+ *  read: no entry describes either subject, so neither got a row. */
 export const MODAL_HELP = {
   raidEdit: "concept-raid",
   changeEdit: "concept-change",
   milestoneEdit: "concept-milestone",
   stakeholderEdit: "concept-stakeholder",
+  raciSuggest: "concept-raci",
   resourceEdit: "feature-resources",
   absenceEdit: "feature-resources",
+  calendarEvent: "feature-meeting-series",
   taskForm: "feature-add",
   taskLinkedTask: "concept-dependency",
+  taskTimeTracking: "feature-task-effort",
+  // ★ NOT a task key despite sitting beside them: `NotesWindow` is one surface
+  // shared by tasks, RAID items and changes (`use-notes-window.ts` feeds all
+  // three off one props object). `feature-rich-text` is pointed at because its
+  // BODY describes this window — the dated entries, the floating drag, the
+  // notes badge, the self-stamped author, the save-as-you-go — not because its
+  // title happens to say "notes". ★★ That body still says "Tasks and RAID
+  // items" and the window serves changes too; the copy is stale by one
+  // register, which is a CONTENT fix and not this key's to make.
+  notesWindow: "feature-rich-text",
   budgetBucket: "concept-budget",
   documentsHistory: "feature-document-history",
   documentsRename: "feature-documents",

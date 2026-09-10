@@ -371,9 +371,11 @@ export function ProjectEmptyState({
           //    it used to carry `hideHelp` (REMOVED) on the grounds "no Help entry
           //    describes the AI settings", which was FALSE. `feature-ai`'s body
           //    opens "Add an Anthropic API key in Settings → AI, …" — the exact
-          //    subject of this dialog. (Measured over all 66 entries' titles +
-          //    bodies: /anthropic|api key/i matches `feature-ai` and
-          //    `feature-ai-advanced`.) So it is REPOINTED, not suppressed.
+          //    subject of this dialog. (Measured over every entry's title +
+          //    body: /anthropic|api key/i matches `feature-ai` and
+          //    `feature-ai-advanced`. Re-measured 2026-09-10 after the corpus
+          //    grew by three entries, at 69/69 resolved: same two, unchanged.)
+          //    So it is REPOINTED, not suppressed.
           helpConceptId={MODAL_HELP.aiSettings}
         >
           <AiSection lang={lang} settings={settings} onChange={onChangeSettings} hideUsage />

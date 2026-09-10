@@ -17,6 +17,8 @@ import { type Lang, t, tPlural } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
 import { Checkbox } from "./form-controls";
+import { HelpIconButton } from "./help-icon-button";
+import { MODAL_HELP } from "./help-content";
 import { ROLE_LABEL_KEY } from "./raci-chip-picker";
 import {
   cellKey,
@@ -151,7 +153,22 @@ export function RaciSuggestModal({
         className="relative flex max-h-[90vh] w-[620px] max-w-[95vw] flex-col rounded-xl border border-line bg-surface"
       >
         <div className="border-b border-line px-6 py-4">
-          <h2 className="text-base font-semibold text-foreground">{title}</h2>
+          {/* This dialog hand-rolls its chrome — no `ModalHeader`, so no shared
+              help slot. `HelpIconButton` is the SINGLE renderer of a help
+              popover; a headerless dialog must consume it rather than grow its
+              own. It is inside the `<Modal>` on purpose: the component's
+              Tab-containment reasoning only applies against a competing modal
+              trap, so a `Modal` host is where it holds without measuring. (Not
+              a prohibition on other hosts — `notes-window.tsx` mounts it
+              outside one, having measured that window's baseline first.)
+              `-my-1`
+              keeps the icon's padding from growing this row's height. */}
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="text-base font-semibold text-foreground">{title}</h2>
+            <div className="-my-1 shrink-0">
+              <HelpIconButton lang={lang} conceptId={MODAL_HELP.raciSuggest} dialogTitle={title} />
+            </div>
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">{t(lang, "raciSuggestIntro")}</p>
         </div>
 

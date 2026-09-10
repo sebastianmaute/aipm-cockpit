@@ -31,6 +31,10 @@ export function VersionInfoModal({
     <Modal open={open} onClose={onClose} ariaLabel={t(lang, "version")} align="center" zIndex={50}>
       <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg border border-line bg-surface p-4">
         <div className="mb-2 flex items-center justify-between">
+          {/* ★ NO help icon: this dialog is already information — it exists to
+              state what version you are on, and there is nothing behind it left
+              to explain. §424's rule — a dialog declaring nothing is the
+              designed answer for progress, confirmations and gates. */}
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t(lang, "version")}
           </h3>

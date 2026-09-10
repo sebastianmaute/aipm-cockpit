@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useId, useRef, useState, type ReactNode } from "react";
-import { ArrowsPointingInIcon, QuestionMarkCircleIcon, XMarkIcon } from "./icons";
-import { HELP_ENTRIES, type HelpEntryId } from "./help-content";
-import { HelpBodyText } from "./help-body-text";
+import { type ReactNode } from "react";
+import { ArrowsPointingInIcon, XMarkIcon } from "./icons";
+import { type HelpEntryId } from "./help-content";
+import { HelpIconButton } from "./help-icon-button";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
-import { PopoverPanel } from "./popover-panel";
 import { useVoiceCommand } from "./voice-command-context";
 import { VoiceCommandButton } from "./voice-button";
 
@@ -101,17 +100,6 @@ export function ModalHeader({
 }: ModalHeaderProps) {
   const voice = useVoiceCommand();
   const closeName = closeLabel ?? t(lang, "alertModalClose");
-  const [helpOpen, setHelpOpen] = useState(false);
-  const helpTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const helpPanelId = useId();
-  // `PopoverPanel` reads this through effect dependencies, so it MUST be
-  // stable — its docstring says so explicitly.
-  const closeHelp = useCallback(() => setHelpOpen(false), []);
-  const helpEntry = helpConceptId ? HELP_ENTRIES.find((e) => e.id === helpConceptId) : undefined;
-  const helpName = t(lang, "modalHelpAbout", helpTitle ?? title);
-  const helpCloseName = helpEntry
-    ? `${t(lang, "alertModalClose")} – ${t(lang, helpEntry.titleKey)}`
-    : "";
   return (
     <header
       {...dragHandleProps}
@@ -127,111 +115,8 @@ export function ModalHeader({
       </div>
       <div className="flex items-center gap-1" onPointerDown={stopDrag}>
         {headerExtra}
-        {helpEntry && (
-          <>
-            <button
-              type="button"
-              ref={helpTriggerRef}
-              onClick={() => setHelpOpen((v) => !v)}
-              aria-expanded={helpOpen}
-              aria-haspopup="dialog"
-              /* ★ Set only while OPEN. `aria-controls` must resolve to a node
-                 that EXISTS and the panel is unmounted while closed — the same
-                 shape as `entity-combobox-search.tsx`. */
-              aria-controls={helpOpen ? helpPanelId : undefined}
-              aria-label={helpName}
-              title={helpName}
-              className={`rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
-            >
-              <QuestionMarkCircleIcon aria-hidden="true" className="h-4 w-4" />
-            </button>
-            {/* ★ SHARED PRIMITIVE, never a hand-rolled absolute panel. EVERY
-                declaring modal's panel clips its overflow, and z-index
-                CANNOT escape overflow — so the
-                `absolute right-0 top-full` panel this replaced was clipped at
-                the panel edge. `PopoverPanel` portals to `document.body` and
-                positions `fixed` from the trigger's rect, which is why there
-                is no `relative` wrapper left here to anchor anything.
-
-                ★★ WHAT THE PRIMITIVE'S `kind: "modal"` BUYS AND COSTS, given
-                this header always renders inside a `Modal`:
-
-                ESCAPE IS UNCHANGED. `escapeOwner()` (`dismissal-stack.ts`) is
-                kind-AGNOSTIC — it walks the stack from the TOP and returns the
-                first entry that claims — so the popover, pushed above the
-                Modal, takes Escape and the modal stays open. That held under
-                the old `usePopoverDismiss` (`kind: "layer"`, hardcoded inside
-                the hook — there was never a choice at this call site) and holds
-                now, so the test asserting the modal survives cannot pin the
-                kind and does not claim to.
-
-                ★★★ TAB IS THE HALF THAT CHANGES, AND THE CLOSE BUTTON BELOW IS
-                WHAT MAKES IT SAFE. `kind` MEANS "traps Tab": `modal.tsx`'s Tab
-                branch defers to the topmost `"modal"` entry, which is now this
-                popover — and `PopoverPanel`'s own cycle returns WITHOUT
-                trapping when the panel holds no focusables. A text-only panel
-                would therefore stand BOTH traps down and let Tab walk out of
-                the dialog (WCAG 2.4.3). MEASURED, not reasoned, by two probes
-                each driving twelve `userEvent.tab()` presses inside a `Modal`
-                that also rendered one button OUTSIDE it. A bare `Modal` +
-                text-only `PopoverPanel` harness (four controls in the modal)
-                reached `document.body` on the 4th press and the OUTSIDE button
-                on the 5th, then cycled through both forever. This header with
-                the close button below never left the panel across all twelve.
-                So the button is LOAD-BEARING for containment, not decoration.
-                Pinned by "keeps Tab inside the dialog while the help popover
-                is open" in `modal-header.test.tsx`.
-
-                ★ `autoFocus` is left at the primitive's DEFAULT (true), so
-                opening lands focus on that close button. This panel is
-                `role="dialog"`; leaving focus outside an open dialog is the
-                shape where AT announces nothing, and the docstring's reason
-                for passing `false` — a destructive first control — does not
-                apply to a Close.
-
-                ★ `max-h-[60vh] overflow-y-auto` is on the PANEL rather than an
-                inner wrapper so the scroll region CONTAINS the close button:
-                that keeps it keyboard-scrollable (focus sits inside the
-                scroller, so arrow keys act on it) without adding a bare
-                `tabIndex={0}` stop. Some bodies run past 1000 characters and
-                the old panel had no height cap at all. The primitive's
-                close-on-scroll listener ignores scrolls it contains, so this
-                cannot dismiss itself. */}
-            <PopoverPanel
-              open={helpOpen}
-              anchorRef={helpTriggerRef}
-              onClose={closeHelp}
-              id={helpPanelId}
-              role="dialog"
-              ariaLabel={t(lang, helpEntry.titleKey)}
-              className="max-h-[60vh] w-80 max-w-[90vw] overflow-y-auto p-3 text-left"
-            >
-              <div className="mb-1 flex items-start justify-between gap-2">
-                <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-                  {t(lang, helpEntry.titleKey)}
-                </p>
-                {/* ★ QUALIFIED BY THE ENTRY TITLE, never a bare "Close". The
-                    header's own ✕ is in the same document and defaults to the
-                    unqualified `alertModalClose` string; two controls sharing
-                    an accessible name is a WCAG 2.4.6 / speech-input defect
-                    that axe has no rule for, so the unit test beside this file
-                    is the only detector. Same en-dash convention `closeLabel`
-                    documents above. */}
-                <button
-                  type="button"
-                  onClick={closeHelp}
-                  aria-label={helpCloseName}
-                  title={helpCloseName}
-                  className={`-mr-1 -mt-1 shrink-0 rounded-md p-1 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
-                >
-                  <XMarkIcon aria-hidden="true" className="h-4 w-4" />
-                </button>
-              </div>
-              <p className="max-w-[64ch] whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                <HelpBodyText body={t(lang, helpEntry.bodyKey)} labelClass="font-medium text-foreground" />
-              </p>
-            </PopoverPanel>
-          </>
+        {helpConceptId && (
+          <HelpIconButton lang={lang} conceptId={helpConceptId} dialogTitle={helpTitle ?? title} />
         )}
         {voice && !hideVoiceCommand && (
           <VoiceCommandButton lang={lang} onCommand={voice.onCommand} onError={voice.onError} />

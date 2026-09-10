@@ -34,6 +34,36 @@ export function RecommendationReviewModal({ lang, summary, plan, onConfirm, onCa
   return (
     <Modal open onClose={onCancel} ariaLabel={t(lang, "insightRecommendationReviewTitle")} align="center">
       <div className="w-[460px] max-w-[95vw] rounded-xl border border-line bg-surface p-4">
+        {/* ★★ NO help icon, deliberately — and this one was a WIRE candidate
+            downgraded on re-review, so the evidence is recorded rather than the
+            verdict alone. The candidate was automated-insights, which is about
+            DETECTION AND TRIAGE: the five watched patterns, the status
+            lifecycle, and where insights are listed. It never says
+            "recommendation", "AI", "propose" or "apply" — which is the only
+            question this dialog poses, namely what Apply will write. Its status
+            sentence does describe a real consequence (applying sets
+            status: "acted", in use-insight-recommendations.ts), but a
+            consequence is not the subject.
+            ★★★ THE ALTERNATION IS PART OF THE NUMBER — quoting either count
+            against the other pattern is the unlabelled-convention defect §453
+            records. Measured over all 69 help bodies at 69/69 resolved:
+            "recommend" matches 1 (feature-template-suggest, a project
+            template); "apply|applied" matches 4 (feature-templates,
+            feature-per-project-functions, feature-documents, feature-timelog);
+            the wider "apply|applied|applies" matches 6, adding
+            feature-timezones and feature-ai in the scope sense. None is the
+            sense of applying an AI-proposed write.
+            ★ The near-miss, named so the next reader need not re-derive it, is
+            feature-inline-ai-edit: it describes this mechanic almost verbatim
+            ("you see each field it proposes to touch with its current and its
+            new value, and nothing is written until you confirm"), and this file
+            already notes it reuses that editor's EditPlan shape — but its
+            scoping clause is "without leaving the row", so wiring it would tell
+            a reader they are in the inline row editor, which they are not.
+            ★ And no existing entry can be pointed at a surface whose purpose is
+            applying AI-proposed writes: feature-ai-advanced says of Analyze with
+            AI that "it never edits your data".
+            See docs/open-followups.md §456. */}
         <h2 className="mb-2 text-sm font-semibold text-foreground">
           {t(lang, "insightRecommendationReviewTitle")}
         </h2>

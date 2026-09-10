@@ -319,4 +319,33 @@ describe("RaciSuggestModal per-row accessible names", () => {
       screen.getByRole("checkbox", { name: `${include} – Ada – Go live` }),
     ).toBeInTheDocument();
   });
+
+  // ★★★ THIS IS THE ONLY THING THAT PROVES THE HELP ICON REACHES THE DOM HERE.
+  // `help-content.test.ts` scans non-test `.tsx` for `conceptId={MODAL_HELP.x}`
+  // and proves the LITERAL IS PRESENT in this file — never that it renders. The
+  // same green holds with the icon inside a branch nothing reaches, or deleted
+  // from the JSX while the import lingers. This modal is the FIRST headerless
+  // consumer of `HelpIconButton`, so it is exactly the site where a "does it
+  // actually mount outside a `ModalHeader`" regression would land, and it had
+  // source-literal coverage alone until this test. `notes-window.test.tsx`
+  // carries the twin of this for the other bespoke consumer; the asymmetry was
+  // a cold-review finding, not a deliberate scoping call.
+  it("renders the help trigger, named by this dialog's own title", () => {
+    renderModal([cell(1, "Ada", 10, "Design freeze")]);
+    // ★ Named by the DIALOG title, not by the entry title: two stacked dialogs
+    // would otherwise put two controls called "Help" in one document, and axe
+    // has no rule that flags a duplicate accessible name in any view.
+    expect(
+      screen.getByRole("button", {
+        name: t("en-US", "modalHelpAbout", t("en-US", "raciSuggestTitle")),
+      }),
+    ).toBeInTheDocument();
+    // ★ ANTI-VACUITY: a positive observable from the SAME render. Without it
+    // this passes against a modal that failed to mount at all — `getByRole`
+    // would throw, but so would it if the icon were merely misnamed, and the
+    // two failures read identically.
+    expect(
+      screen.getByRole("button", { name: t("en-US", "raciSuggestApply") }),
+    ).toBeInTheDocument();
+  });
 });
