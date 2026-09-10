@@ -20,9 +20,15 @@ import { PopoverPanel } from "./popover-panel";
  *  read it before deleting anything inside the panel.
  *
  *  ★ Renders NOTHING when `conceptId` resolves to no entry, so a caller cannot
- *  ship a dead trigger. That mirrors the `helpEntry && (…)` guard this replaced:
+ *  ship a dead trigger. That mirrors the resolved-entry guard REMOVED from
+ *  `ModalHeader` in the same commit that created this file — do NOT go looking
+ *  for that local, it no longer exists anywhere:
  *  `ModalHeader` gates only on the PROP being set and leaves the resolve to this
- *  component, so an unknown id is a no-op on both paths. */
+ *  component, so an unknown id is a no-op on both paths.
+ *
+ *  ★★ The branch is UNREACHABLE for a typed caller — `HelpEntryId` is derived
+ *  from `HELP_ENTRIES_LITERAL`, so `find` cannot miss without a cast — and it is
+ *  therefore defensive rather than tested. Do not read it as pinned. */
 export function HelpIconButton({
   lang,
   conceptId,
@@ -74,8 +80,15 @@ export function HelpIconButton({
           positions `fixed` from the trigger's rect, which is why there
           is no `relative` wrapper left here to anchor anything.
 
-          ★★ WHAT THE PRIMITIVE'S `kind: "modal"` BUYS AND COSTS, given
-          this affordance renders inside a `Modal`:
+          ★★ WHAT THE PRIMITIVE'S `kind: "modal"` BUYS AND COSTS. ★★★ THIS
+          IS A REQUIREMENT, NOT AN OBSERVATION: render this component only
+          inside a `Modal`. When it lived in `ModalHeader` that was a
+          property of the host and could not be got wrong; as a standalone
+          export nothing in the props or the types enforces it. Outside a
+          `Modal` the analysis below simply does not apply — with no
+          competing trap the popover cycles within itself, which is correct
+          popover behaviour but is NOT what the containment reasoning here
+          is about.
 
           ESCAPE IS UNCHANGED. `escapeOwner()` (`dismissal-stack.ts`) is
           kind-AGNOSTIC — it walks the stack from the TOP and returns the
