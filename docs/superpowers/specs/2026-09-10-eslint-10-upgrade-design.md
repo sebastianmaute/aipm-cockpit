@@ -202,8 +202,14 @@ a future JSDoc-declared one, which is why Task 4 below adds a cheap guard.
 
 1. **The upgrade.** Edit `eslint.config.mjs` (CRLF-anchored) and `package.json`, run
    `npm install`, commit all three files including the lockfile.
-2. **Verify.** `npx eslint --max-warnings=0 src` must exit 0 — read the code unpiped, never
-   through a pipe. Confirm `--print-config` still reports 86 enabled rules and 17 `react/*`.
+2. **Verify at CI's SCOPE, not just CI's strictness.** `npm run lint` is
+   `eslint --max-warnings=0` with **no path argument** — the whole repo, not `src`. A
+   `npx eslint --max-warnings=0 src` matches the strictness and not the scope, and every
+   measurement behind this design used the whole-repo scope (2122 files), so the verification
+   must too. Read the exit code unpiped, never through a pipe. Confirm `--print-config` still
+   reports 86 enabled rules and 17 `react/*`. ★ If the whole-repo run reds on gitignored
+   `.worktrees/` or `.demo-tmp/` leftovers, that is the pre-existing cause `AGENTS.md` records —
+   not the upgrade. Clear them and re-run rather than narrowing the scope to hide it.
 3. **Close the records.** Mark §53 closed in `docs/open-followups.md` with a dated `**Status:**`
    line citing a real command; flip the `eslint` row in `docs/tech-debt-register.md` from
    ⛔ BLOCKED to resolved and move it to the Resolved table; correct TD-1's cross-reference,
