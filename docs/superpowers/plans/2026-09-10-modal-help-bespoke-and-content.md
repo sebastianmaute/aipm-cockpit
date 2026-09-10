@@ -921,6 +921,16 @@ Record: the corrected surface counts (33 / 33 / 20 / 13, against the 34 / 36 / ~
 
 ## Task 11: Green gate chain
 
+★★★ **A CPU-HEAVY TEST CAN PASS LOCALLY AND FAIL IN CI PURELY BECAUSE CI ADDS COVERAGE INSTRUMENTATION.** Measured on the peer's 0.300.0 pipeline 2026-09-10, not theorised: one test of 16,508 failed — a property sweep that took 25.2s against a 20s `testTimeout`, because thousands of `expect()` calls inside a loop hit the matcher machinery under v8 coverage. It passed locally every time, because a bare local run has no coverage.
+
+**This slice adds exactly the shape at risk**: `help-icon-button.test.tsx`'s containment test drives **24 awaited `userEvent.tab()` presses** across two twelve-press sequences, plus a `Modal` render. Measure it the way CI will, not the way a bare run does:
+
+```bash
+npx vitest run --coverage src/app/help-icon-button.test.tsx
+```
+
+★★ **Read the TEST RESULT, never that command's exit code.** A single non-`src` file measures ~0% coverage and trips the global floors, so it exits **1 while every test passes** — the plumbing-failure-wears-the-gate's-name shape.
+
 ★ Run these **one at a time**. Never two vitest processes at once.
 
 - [ ] **Step 1**
