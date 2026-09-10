@@ -20,8 +20,20 @@ known to be wrong or stale; the design doc carries the corrected versions:
 
 1. **The Architecture paragraph above drops a conjunct.** `resolveBasedir` has **two** callers.
    `detectFlowVersion` is gated on `settings.react.flowVersion` — a *different* key the pin does
-   not set — and is unreachable only because no enabled rule reaches `testFlowVersion`. "The only
-   route" is true of this config, not of the plugin.
+   not set. "The only route" is true of this config, not of the plugin.
+
+   ★★★ **The correction that first stood here was itself false and is the reason this item now
+   runs long.** It read "unreachable only because no enabled rule reaches `testFlowVersion`",
+   evidenced by injecting `flowVersion: "detect"` and getting a clean lint. Both halves are
+   wrong. An enabled rule *does* reach `testFlowVersion` — `propTypes.js`'s
+   `resolveSuperParameterPropsType`, three times on `src/app/error-boundary.tsx` alone; what
+   stops it is `getFlowVersionFromContext` throwing on the **absent setting**, before
+   `detectFlowVersion` runs. And the clean lint was **unfalsifiable evidence**: it is the
+   predicted outcome under both hypotheses, because `propTypes.js` wraps the call in its own
+   `try/catch`. Injecting the key does not reopen the crash — measured, it produces three
+   `contextOrFilename.getFilename is not a function` throws, all swallowed, lint still exit 0.
+   That is a **second silent degradation**, the same class as the one accepted cost, not a
+   crash. To re-check this, instrument the call; the exit code cannot answer it.
 
 2. **`files: 2122` is a dated measurement, not a target.** After merging `origin/main` (0.301.0)
    the same whole-repo run reports **2125**, still 0 findings at exit 0. Anyone writing down 2122
@@ -33,8 +45,10 @@ known to be wrong or stale; the design doc carries the corrected versions:
 
 Also added after the fact and absent from every task here: a **forward-hazards** section in the
 design (six `react/*` rules that hard-crash under v10, plus the `getComments` family), and a
-positive control pinning the guard test's needle set — narrowing it had left the suite green with
-a live offender in the tree.
+positive control plus an equality assertion pinning the guard test's needle set — narrowing the set
+had left the suite green with a live offender in the tree. ★★ The control alone pins the COUNT and
+that the matcher fires, not the VALUES: it builds its fixture from each needle, so a needle
+corrupted to a non-tag at unchanged cardinality survived it. The `toEqual` is what closes that.
 
 ---
 

@@ -289,18 +289,27 @@ This is a silent degradation, not a crash, and it is the one thing PR 4022 would
 Its blast radius here is empty today:
 
 ```bash
-grep -rn "@extends\|@augments" src e2e scripts     # → 1 hit, see below
+grep -rn "@extends\|@augments" src e2e e2e-crossengine scripts   # → 1 hit, see below
 grep -rn "extends React.Component\|extends Component" src --include=*.tsx --include=*.ts
-                                                   # → 2 hits, see below
+                                                   # → 3 hits, see below
 ```
 
 ★★ **BOTH ANNOTATIONS WERE BROKEN BY TASK 4 OF THIS SAME DESIGN, and read as "→ no matches" and
 "→ 1 hit" until 0.301.x.** The guard test added in that task is itself matched by both commands:
-its docstring names the tags it scans for, and its `extends Component` assertion matches the
-second. Neither is a real offender — the scan excludes itself by basename, so the tags in its own
+its docstring names the tags it scans for, and two of its lines carry `extends Component`.
+Neither is a real offender — the scan excludes itself by basename, so the tags in its own
 docstring cannot make it red — but the recipe as published now contradicts the sentence it
 supports. This is the self-referential-grep trap: a command quoted in a file it scans matches
 itself the moment it lands. Re-run it **after** the edit, never before.
+
+★★★ **AND THE CORRECTION ABOVE WAS ITSELF RE-STALED INSIDE ITS OWN COMMIT RANGE — third instance
+of this class here.** It was written as "2 hits … its `extends Component` assertion matches the
+second", against the tree as it stood *before* the guard-test commit three commits earlier in the
+same range. That commit replaced the `toContain("extends Component")` assertion the sentence
+names with a regex and added two *new* self-matching lines, so the count was 3 and the named
+mechanism no longer existed. A correction inherits none of the verification of the thing it
+corrects: re-run the command against the tree at the END of the round, not at the moment the
+replacement sentence is typed.
 
 The one class component is detected by `isES6Component`, not the JSDoc path. Nothing would detect
 a future JSDoc-declared one, which is why Task 4 below adds a cheap guard.

@@ -15,9 +15,24 @@ const eslintConfig = defineConfig([
   //
   // ★★ TWO CALLERS, TWO DIFFERENT GATES — do not restate this as one. resolveBasedir is
   // also reached from detectFlowVersion, gated on settings.react.flowVersion, a SEPARATE
-  // key this pin does not set. That route is unreachable only because no enabled rule
-  // reaches testFlowVersion (measured: injecting flowVersion: "detect" alongside this pin
-  // lints clean), so adding flowVersion: "detect" would reopen it.
+  // key this pin does not set.
+  //
+  // ★★★ WHAT HOLDS THAT SECOND ROUTE SHUT IS THE UNSET SETTING, NOT AN UNREACHED RULE, and
+  // this comment asserted the opposite for a release. An enabled rule DOES reach
+  // testFlowVersion today — propTypes.js resolveSuperParameterPropsType, three times on
+  // src/app/error-boundary.tsx alone. It gets no further because getFlowVersionFromContext
+  // (version.js) throws 'Could not retrieve flowVersion from settings' when the key is
+  // absent, before detectFlowVersion is ever called.
+  //
+  // ★★★ SO SETTING flowVersion: "detect" DOES NOT REOPEN THE CRASH — it opens a SECOND
+  // SILENT DEGRADATION, the same class as the getJSDocComment one below. Measured, not
+  // reasoned: with it injected, the same three calls throw
+  // "contextOrFilename.getFilename is not a function" and propTypes.js's own try/catch
+  // swallows all three into a params-length fallback. Lint still exits 0.
+  //
+  // ★★ AND THE OLD "measured: … lints clean" WAS UNFALSIFIABLE EVIDENCE. A clean lint is
+  // the predicted outcome under BOTH hypotheses, so it confirmed the one already believed
+  // and nobody looked again. To re-measure, instrument the call — do not read the exit code.
   //
   // Derived, not restated — and the reason is the absence of a gate, not the presence of
   // one: version-sync-check reads APP_VERSION and the codename only, so NOTHING in this
