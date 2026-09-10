@@ -42,7 +42,8 @@
     "ai:eval": "npx vite-node scripts/ai-eval.ts",
     "desktop:copy-static": "node desktop/scripts/copy-static.mjs",
     "desktop:build": "node -e \"process.env.NEXT_STANDALONE='1';require('child_process').execSync('npm run build',{stdio:'inherit',env:process.env})\" && npm run desktop:copy-static && npm --prefix desktop run build",
-    "desktop:package": "npm --prefix desktop exec electron-builder -- --config electron-builder.yml --project desktop"
+    "desktop:package": "npm --prefix desktop exec electron-builder -- --config electron-builder.yml --project desktop",
+    "e2e:desktop": "node -e \"process.env.PLAYWRIGHT_NO_WEBSERVER='1';require('child_process').execSync('npx playwright test --project=desktop --workers=1',{stdio:'inherit',env:process.env})\""
   },
   "scriptsDescriptions": {
     "dev": "Start Next.js dev server with hot reload on http://localhost:3000",
@@ -79,7 +80,8 @@
     "ai:eval": "AI prompt-quality harness (slice H). DRY RUN BY DEFAULT — assembles every arm, runs pre-flight and spends nothing. A live run needs AI_EVAL_SPEND=1 plus ANTHROPIC_API_KEY and refuses outright under CI. Never a pipeline gate: every live run costs real tokens.",
     "desktop:copy-static": "Copy .next/static and public/ into .next/standalone (next build --output standalone does not copy either) and verify a CSS bundle is present — omitting this ships an Electron package that boots and renders completely unstyled with no build-time error. Requires a prior `NEXT_STANDALONE=1 npm run build`.",
     "desktop:build": "Build the Electron desktop shell: a standalone Next build (NEXT_STANDALONE=1), then desktop:copy-static, then compile desktop/ TypeScript to desktop/dist/. Run before desktop:package.",
-    "desktop:package": "Package the built Electron shell into a Windows NSIS installer via electron-builder, reading desktop/electron-builder.yml. Run desktop:build first."
+    "desktop:package": "Package the built Electron shell into a Windows NSIS installer via electron-builder, reading desktop/electron-builder.yml. Run desktop:build first.",
+    "e2e:desktop": "Smoke the PACKAGED desktop app (e2e/desktop-smoke.spec.ts): launches desktop/release/win-unpacked/, asserts the window is styled (a missing .next/static ships an app that boots and serves completely unstyled) and reports this checkout's version, and asserts the server answers on loopback while REFUSING on the machine's LAN address. Needs a prior `npm run desktop:package`; skips with a named message otherwise. Runs in NO CI job, and PLAYWRIGHT_NO_WEBSERVER=1 keeps it from booting a Next dev server it never uses"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.16.0",
