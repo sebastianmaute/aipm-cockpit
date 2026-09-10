@@ -31453,6 +31453,12 @@ estimate/spent/remaining) and `calendarEvent` (`feature-resources` enumerates th
 as "tasks, absences, and holidays", and the modal edits recurring MEETING SERIES; `/series/i`
 matches zero of the 66 entries). Both call sites carry a comment recording the absence as
 deliberate, so a later reader does not "complete the pattern".
+★★★ **BOTH REMOVALS WERE REVERSED ON 2026-09-10 AND BOTH DELIBERATE-ABSENCE COMMENTS ARE GONE —
+read the sentence above as the dated record of why they went, never as today's map.** The entries
+they lacked were written (`8de167fe`) and the rows restored to point at them (`3d5cde98`); the
+"`/series/i` matches zero" measurement was falsified by the very commit that filled the gap, which
+is the precise defect §453 is about. The criterion did not weaken: each restored row was decided by
+reading the NEW body against the surface it opens from, not by picking the closest-sounding id.
 ★★ **THE `hideHelp` SUPPRESSION FLAG IS GONE — DELETED 2026-09-09, AND THIS ENTRY'S OWN ★★ IS WHAT
 SETTLED IT.** That paragraph recorded the flag's stated justification ("no Help entry describes the
 AI settings") as FALSE and left "should this instance offer `feature-ai` instead of nothing?" open
@@ -31475,9 +31481,64 @@ forgets it. Reproduce:
 lines and BOTH are prose recording the removal (each carrying a `REMOVED` absence marker so
 `src:symbols:check` stays clean); zero code sites. ★ Read the two lines, do not read the count —
 a `2` here and a `2` under the old flag look identical.
-★ THE MODAL/WINDOW COUNTS BELOW (34 files / 36 sites) ARE STILL NOT RE-DERIVED — they came from a
-multiline scan, are NOT reachable by the greps above, and were inherited unverified by this slice
-too. Re-measure them as their own paragraph instructs before relying on them.
+**2026-09-10 — the bespoke half was taken, and the inherited counts were finally re-derived.**
+
+★★★ **THREE OF THE FOUR RECORDED SURFACE COUNTS WERE WRONG.** The entry carried 34 files / 36
+sites / 20 headers / ~14 bespoke, every one inherited and flagged unverified. Re-measured
+2026-09-10 by a comment-stripping scan (a TypeScript parse, so comments are structurally invisible)
+over every non-test `.tsx` under `src/app`: **33 files / 33 sites / 20 `ModalHeader` sites / 13
+headerless**. Only the 20 survived.
+★★ **THE POSITIVE CONTROL IS WHAT MAKES THAT SCAN READABLE, and without one a strip that silently
+removes nothing is invisible.** The raw regex over the same corpus returns **38** where the parse
+returns 33, and names the four files that carry the literal tag inside prose comments —
+`edit-modal-chrome.tsx` (raw 3, stripped 1), plus `jira-conflicts-modal.tsx`,
+`raci-suggest-modal.tsx` and `shift-edit-modal.tsx` (raw 2, stripped 1 each). A scan reporting
+raw == stripped over this tree has not stripped anything.
+★★★ **THE SCAN MUST RECURSE, AND A NON-RECURSIVE ONE FAILS AT EXIT 0 REPORTING PLAUSIBLE NUMBERS.**
+`src/app` is flat by convention but not in fact: `insights/recommendation-review-modal.tsx` sits in
+a subdirectory, and a flat `readdir` therefore reports **32 / 32 / 20 / 12** — self-consistent,
+one short on three axes, and short of exactly the dialog §456's downgrade paragraph turns on.
+
+★ **`HelpIconButton` was extracted from `ModalHeader`** (`09edc874`) so a headerless dialog can
+render one without a header. Acceptance was that `modal-header.test.tsx` passed **completely
+unchanged**, 18/18 — and the evidence a reader can check without running anything is that the test
+file is ABSENT from that commit's diff: `git show --stat 09edc874`.
+
+★ **The triage of the 13 headerless sites: 1 WIRED, 12 REFUSED.** `raci-suggest-modal.tsx` →
+`concept-raci`, earned because that body defines the four role letters the dialog prints on every
+row and states the exactly-one-Accountable rule the dialog quotes verbatim in one of its skip
+explanations. The other twelve split 5 REFUSE-STRUCTURAL (progress dialogs, an acknowledgement
+gate, an information dialog) and 7 REFUSE-NO-CONTENT, each recorded at its OWN call site so a later
+reader tempted to "complete the pattern" meets the reason where the icon would have gone. §456
+collects the shape; the per-site evidence stays beside the code.
+★★ **Two of the three WIRE candidates a term probe offered were DOWNGRADED on re-review** — the
+steering report editor and the insight recommendation review. Read that as the criterion working,
+not as a shortfall: a wrong entry is worse than no icon, and both near-misses are close enough that
+the next reviewer will reach for them again. §456 records why each was refused.
+
+★ **`help-menu` is EXCLUDED OUTRIGHT, on a different ground from the twelve refusals:** it renders
+`HelpContentPane` — it IS Help, so an icon opening Help from inside Help is incoherent rather than
+merely unsupported. Recorded at its call site for the same "complete the pattern" reason. So
+`grep -rn "NO help icon" src/app --include=*.tsx | grep -v "\.test\."` returns **13**, which is the
+twelve refusals PLUS this exclusion — do not read the 13 as thirteen refusals.
+
+★★★ **`notes-window`: measured, WIRED — and the reason is a BASELINE-vs-TREATMENT pair, never a
+containment claim.** `notes-window` does NOT contain Tab and never did: with NO help icon present,
+twelve `userEvent.tab()` presses reached `document.body` on press 7 and a control OUTSIDE the
+window on press 8. With the help icon present and its popover open, focus stayed on the popover's
+close button for all twelve. So the icon neither caused the escape nor made it earlier; the cause
+is the window's own `kind: "layer"` / no-`aria-modal` design, which this slice did not change.
+★★★ **DO NOT WRITE A CONTAINMENT CLAIM FOR THIS SURFACE** — the honest record is the pair above, and
+"the popover keeps Tab inside" is true only of the popover, not of the window around it.
+★ `HelpIconButton`'s stated "only inside a `Modal`" requirement was rewritten to a measurement rule
+in the same commit (`8cba6433`), because the requirement was a restatement of where it had happened
+to be used rather than a property anything checked.
+
+★★ **NUMBERS IN THE CLOSED GAPS BELOW HAVE MOVED and are kept as dated records.** `MODAL_HELP` now
+holds **23** rows across **24** call sites (still exactly one multi-site key, `backendConfig`), and
+`HelpEntryId` is a **69**-member union, not 19/20/66. Re-derive rather than quoting: an AST count of
+`helpConceptId`/`conceptId` attributes whose value is a `MODAL_HELP` member is comment-immune where
+a grep is not.
 
 **The ask.** Every window and modal should carry a question-mark icon opening its own Help entry,
 deep-linked — the Calendar window's icon opening the Calendar entry, the Edit Task modal's
@@ -31493,9 +31554,23 @@ Reproduce the caller set:
 
 **What does not exist.**
 
-1. ~~**No modal or window renders a help opener.**~~ **CLOSED 2026-09-09 for `ModalHeader`, and
-   ONLY for it.** 19 modals render one; `modal-header.tsx` is now a fourth `QuestionMarkCircleIcon`
-   file. The 14 bespoke `Modal` sites and both hand-rolled floating windows still render none.
+1. ~~**No modal or window renders a help opener.**~~ **CLOSED 2026-09-10 — every surface is now
+   either WIRED or a RECORDED REFUSAL, with nothing left unexamined.** The `ModalHeader` half
+   closed 2026-09-09 (the 20 header sites; `modal-header.tsx` became a fourth
+   `QuestionMarkCircleIcon` file). The bespoke half closed on 2026-09-10: of the 13 headerless
+   `Modal` sites, 1 is wired and 12 carry a refusal at their own call site; of the two hand-rolled
+   floating windows, `notes-window` is WIRED and `help-menu` is excluded outright with its reason
+   recorded where the icon would have gone. ★★ The check that justifies striking this: 13 headerless
+   sites from the comment-stripped scan, against 13 `NO help icon` call-site comments (12 refusals
+   plus `help-menu`) and 2 `HelpIconButton` consumers outside the header primitive
+   (`notes-window.tsx`, `raci-suggest-modal.tsx`) — 12 + 1 wired = the 13 sites, and the two windows
+   are accounted for separately. Reproduce:
+   `grep -rn "NO help icon" src/app --include=*.tsx | grep -v "\.test\."` and
+   `grep -rln "HelpIconButton" src/app --include=*.tsx | grep -v "\.test\."`.
+   ★★★ **"CLOSED" HERE MEANS EVERY SURFACE WAS DECIDED, NOT THAT EVERY ICON POINTS SOMEWHERE
+   RIGHT.** That is a different axis and it is NOT clean: §453 gap 2 records three wired icons still
+   resolving to an entry with no content about their subject, and gap 5 one that under-states its
+   own. A well-spelled wrong id typechecks (gap 3 below), so nothing gates it.
    ★ `InfoTooltip` is a HOVER HINT and opens nothing — do not count its ~50 call sites as prior
    art for this.
 2. ~~**No surface→entry map for anything that is not a view.**~~ **CLOSED 2026-09-09.** `MODAL_HELP`
@@ -31583,19 +31658,22 @@ STRESSED, nothing coming near an edge; and Chromium alone.
 here, so `HelpMenu` gaining a deep-link input is now a SEPARATE want with no caller pushing it —
 lower priority than this entry originally implied, not higher.
 
-**Blast radius — WHAT REMAINS.** 34 non-test files render `Modal` across 36 sites, but only 20 use
-`ModalHeader`. Those 20 are now DONE, in the sense that the mechanism reaches all of them and the
-declarations were reviewed by eye; a modal declaring NOTHING is the deliberate answer for
-confirmations and gates. ★ The `hideHelp` escape that used to account for one of them is deleted
-(see the Status line), so there is no longer any suppression path — a header either gets an id or
-gets no icon. ★★ "20" is INHERITED AND UNVERIFIED like the 34/36 beside it; re-derive it with the
-multiline scan the paragraph below demands before relying on it. Still untouched: the
-roughly 14 sites needing bespoke placement, plus two non-modal floating windows (`help-menu`,
-`notes-window`) that hand-roll their own title bars via `useDraggableWindow`.
-★ The 34/36 figures are INHERITED AND STILL UNVERIFIED — see the Status line.
-★★ THE OBVIOUS GREP UNDERCOUNTS: several call sites break the `<Modal` tag across lines, so
-`grep -rl "<Modal"` misses them. The 34/36 figures came from a multiline scan of every non-test
-`.tsx` under `src/app`. Re-measure with a multiline scan rather than trusting either number here.
+**Blast radius — NOTHING REMAINS UNEXAMINED.** **33** non-test files render `Modal` across **33**
+sites, of which **20** use `ModalHeader` and **13** are headerless. All 20 header sites are DONE —
+the mechanism reaches every one and the declarations were reviewed by eye; a modal declaring
+NOTHING is the deliberate answer for confirmations and gates. All 13 bespoke sites are decided too
+(1 wired, 12 refused at their own call sites), as are both non-modal floating windows (`help-menu`,
+`notes-window`) that hand-roll their own title bars via `useDraggableWindow` — see gap 1 and the
+Status block. ★ The `hideHelp` escape that used to account for one of the headers is deleted (see
+the Status line), so there is no longer any suppression path — a header either gets an id or gets
+no icon.
+★★★ **34 / 36 / ~14 WERE ALL WRONG, AND ONLY THE 20 SURVIVED RE-DERIVATION.** They were inherited
+unverified through several revisions of this entry, each of which flagged them as such and none of
+which measured them. Re-measured 2026-09-10; the scan, its positive control and the recursion trap
+that makes a wrong answer look plausible are in the Status block above.
+★★ THE OBVIOUS GREP FAILS BOTH WAYS. It UNDERCOUNTS because several call sites break the `<Modal`
+tag across lines, and it OVERCOUNTS because four files write the literal tag in prose comments. Use
+a parse, keep a positive control, and recurse into subdirectories.
 `ModalHeader` already has a trailing-action slot — `headerExtra`, rendered before the voice mic,
 the reset-layout button and the ✕, and occupied at 5 call sites today. Composing into
 `headerExtra` per site works; a dedicated `helpConceptId?: string` prop is the only shape that
@@ -32952,23 +33030,64 @@ prices them at read. Until someone runs that, this entry is arithmetic, not evid
 
 ## 453. Four Help-CONTENT gaps the modal-help-icon slice surfaced but did not fill — OPEN
 
-**Status:** open — gaps 1–3 stand; **gap 4 was SETTLED later the same day and gap 1's `calendarEvent`
-observation now describes an UNWIRED modal**, both recorded in place below. The heading still says
+**Status:** open — but almost nothing in the original four now reads as it did. As of 2026-09-10:
+**gaps 1 and 3 are FILLED and their modals RE-WIRED; gap 2's PROSE is written but its three call
+sites still point somewhere else, so the failure mode gap 2 named is the one thing here still
+shipping; gap 4 was SETTLED on 2026-09-09; and a FIFTH gap was found on 2026-09-10 and is recorded
+below as gap 5.** Each of those is written in place at the gap it belongs to, not only here.
+Verified 2026-09-10 by
+`grep -n "calendarEvent:\|taskTimeTracking:\|documentsRename:\|assetLibrary:\|assetPreview:\|notesWindow:\|feature-document-assets" src/app/help-content.ts`
+— which shows the two restored rows, the new entry present in the entry list and absent from
+`MODAL_HELP`, and the three documents/asset rows still pointing at `feature-documents` — plus a
+rebuilt 66/66 term probe whose rules are below. The heading still says
 "Four" because this is a dated record of what the slice surfaced, and because renumbering or
-retitling would break the index anchor for no gain. Nothing about the PROSE was fixed — writing Help
-prose was out of that slice's scope, and §424's own record (two removed map rows, three re-pointed
-rows, one added row) is unreadable without this. §424 is the ICON plumbing; this is the CONTENT
+retitling would break the index anchor for no gain. ★★ An earlier revision here said "Nothing about
+the PROSE was fixed — writing Help prose was out of that slice's scope". That was true when written
+and was overtaken on 2026-09-10, when three entries were written; §424's own record (two removed map
+rows, both since RESTORED, three re-pointed rows, one added row) is unreadable without this. §424 is the ICON plumbing; this is the CONTENT
 behind it. Verified 2026-09-09 by a throwaway node probe that reads `bodyKey`s out of
 `src/app/help-content.ts` and resolves each against `src/app/i18n.ts`, then counts terms across
 only those bodies. The probe is NOT committed; rebuild it from those two files.
-★★★ WHATEVER YOU REBUILD, ASSERT IT RESOLVED **66/66** BODIES BEFORE READING A SINGLE COUNT — that
-assertion is the whole guard, and it is not hypothetical. The obvious line-anchored shell form,
+★★★ WHATEVER YOU REBUILD, ASSERT IT RESOLVED **EVERY** BODY BEFORE READING A SINGLE COUNT — that
+assertion is the whole guard, and it is not hypothetical. ★ The denominator is the corpus AT THE
+TIME: **66** when this was measured, **69** on 2026-09-10, and it grows with each Help slice — so a
+probe hard-coding `66` will fail on a correct run today. Assert against the resolved count, not a
+literal. The obvious line-anchored shell form,
 `for k in $(grep -oE 'bodyKey: "[A-Za-z0-9_]+"' src/app/help-content.ts | sed 's/.*"\(.*\)"/\1/');`
 `do grep -E "^  $k: " src/app/i18n.ts; done`, resolves only **35 of 66** (multi-line and
 differently-indented values fall out) and therefore UNDERCOUNTS every term below — it reports
 "meeting" in 2 bodies where the real answer is 3. A zero from it is not evidence of absence.
-★★ Positive controls must also be non-zero or the corpus is silently empty: at 66/66 they were
-task=59, budget=20, milestone=19, risk=10. ★★ Do NOT substitute a bare `grep -i "<term>"
+★★ Positive controls must also be non-zero or the corpus is silently empty.
+★★★ **THIS LINE USED TO QUOTE FOUR BARE NUMBERS — `task=59, budget=20, milestone=19, risk=10` —
+BESIDE FINDINGS COUNTED THE OTHER WAY, AND THAT MIXTURE IS THE DEFECT CORRECTED HERE ON
+2026-09-10.** Those four are OCCURRENCE counts; every gap below reports BODIES ("appears in 3 of the
+66 bodies"). Both conventions, re-measured that day by a rebuilt probe that asserted 66/66 before
+reading anything, titles and primers excluded, case-insensitive:
+
+| term | occurrences | bodies (of 66) |
+|---|---|---|
+| task | 59 | 28 |
+| budget | 20 | 14 |
+| milestone | 19 | 13 |
+| risk | 10 | 8 |
+
+★★ Mixing the two MISLEADS rather than merely being untidy: the gap between them is NOT a fixed
+ratio, so a reader cannot convert one into the other. `task` runs 2.1 occurrences per matching body,
+`budget` 1.4. Write which convention a number is in, every time — §456 records the same defect
+biting a refusal comment.
+★★★ **THE MATCHING CONVENTION IS BARE SUBSTRING, AND THIS ENTRY IS ONLY SELF-CONSISTENT READ THAT
+WAY.** "tasks", "multitask" and "task's" all count toward `task`. Under whole-word matching the
+controls above STOP REPRODUCING, because plurals are the dominant form: task 59→35 occurrences,
+milestone 19→8, risk 10→4. So a rebuilt probe that tokenises will fail these controls while being
+perfectly correct in itself — it is the CONVENTION that has to match, not only the corpus size.
+★★ **NO CONCLUSION BELOW MOVES, AND THIS IS NOT A RETRACTION OF THE GAPS.** `series`, `image` and
+`asset` each returned **0 occurrences AND 0 bodies, under substring AND whole-word**. Substring is
+the STRICTER test of a zero — it can only ever match more, never less — so the three zeroes are not
+a tokenisation artifact.
+★ The 66 is the corpus AS MEASURED, not today's size: it had grown to 69 by 2026-09-10 (§456). The
+66-body figures are reproducible today by resolving all 69 and excluding the three entries commit
+`8de167fe` added (`feature-meeting-series`, `feature-document-assets`, `feature-task-effort`).
+★★ Do NOT substitute a bare `grep -i "<term>"
 src/app/i18n.ts` — that file holds ~3967 keys of which 66 are help bodies, so it fails the OTHER
 way, matching UI labels and reporting coverage that does not exist. Every count below is
 body-scoped.
@@ -32991,12 +33110,43 @@ body-scoped.
    for the absence: this file's own prose names `calendarEvent` twice, so the obvious one returns
    comment hits and refutes itself. The absence is already gated by `help-content.test.ts` — the map
    row count and the both-directions wiring comparison both go red if a row returns.
+   ★★★ **FILLED AND RE-WIRED 2026-09-10 — READ EVERYTHING ABOVE AS THE RECORD OF THE GAP, NOT AS
+   TODAY'S STATE.** Commit `8de167fe` wrote `feature-meeting-series` (EN + DE), whose body is about
+   the repeat rule, its three mutually exclusive end conditions and the per-occurrence exceptions —
+   the fields the dialog actually edits — and `3d5cde98` restored the map row pointing
+   `calendarEvent` at it, deleting the deliberate-absence comment in the same commit. Reproduce:
+   `grep -n "calendarEvent:" src/app/help-content.ts`. ★ The removal's justification is preserved
+   beside the map in `help-content.ts` and is explicitly marked as a dated record, because a
+   removal's reasoning outliving the condition it measured is this file's own recurring defect.
 2. **"image" and "asset" appear in ZERO of the 66 bodies** — and zero across titles and primers
    too. So the three documents/asset modals point at entries with no content about what they do.
+   ★★★ **HALF-FILLED 2026-09-10, AND THE REMAINING HALF IS THE ONE THAT SHIPS.** `8de167fe` wrote
+   `feature-document-assets` (EN + DE) — the Turso gate, the picker/paste/drop paths, the accepted
+   formats, the downscale rule, the dedupe, the read-only image block, the 20-image cap and the
+   export behaviour. But **the wiring decision was NOT taken for these rows**: `documentsRename`,
+   `assetLibrary` and `assetPreview` all still resolve to `feature-documents`, which contains no
+   image copy at all. So a user opening the asset library and clicking the icon still gets an entry
+   that does not answer the question the dialog raised. Reproduce:
+   `grep -n "documentsRename:\|assetLibrary:\|assetPreview:\|feature-document-assets" src/app/help-content.ts`
+   — the new id appears in the ENTRY list and nowhere in `MODAL_HELP`. ★★ Whether to re-point them
+   is a judgement about Help CONTENT, not a mechanical completion: the criterion recorded beside the
+   map is that an entry which MATCHES earns a row and an id that merely sounds close never does, and
+   two of the three rows are a RENAME dialog and a PREVIEW, not the library. Decide it by reading
+   the new body against each surface, the way `calendarEvent` and `taskTimeTracking` were decided.
+   ★★ **DO NOT RE-DERIVE "STILL UNFILLED" FROM A TERM PROBE.** `asset` returns **0 occurrences in 0
+   bodies across all 69** even now, because the new body says "picture" and "image" throughout and
+   never uses the word. `image` is what moved: 0/0 at 66 → 6 occurrences in 1 body at 69, that one
+   body being the new entry.
 3. **No task-effort entry.** "estimate", "time spent" and "remaining" are each 0 across the 66
    bodies. "effort" appears once, in `concept-dependency`, meaning wasted rework — not tracked
    effort. This is why `taskTimeTracking` was wired and then REMOVED from `MODAL_HELP` rather than
    left pointing somewhere plausible.
+   ★★★ **FILLED AND RE-WIRED 2026-09-10.** `8de167fe` wrote `feature-task-effort` (EN + DE), whose
+   body describes the estimate / spent / remaining triple and states outright that the figures are
+   the task's own and do not sync anywhere — the correction of the exact confusion `feature-timelog`
+   created here — and `3d5cde98` restored the `taskTimeTracking` row pointing at it, deleting the
+   deliberate-absence comment in the same commit. Reproduce:
+   `grep -n "taskTimeTracking:" src/app/help-content.ts`.
 4. ~~**AI settings.**~~ **SETTLED 2026-09-09 — the answer was "yes", and the entry already
    existed.** The gap as first stated ("no Help entry describes the AI settings") was FALSE as
    measured: `feature-ai`'s body opens "add an anthropic api key in settings → ai", and "api key"
@@ -33007,18 +33157,39 @@ body-scoped.
    `helpConceptId`, a new `MODAL_HELP.aiSettings` row points at `feature-ai`, and the AI instance
    passes it. Nothing had to be written. ★ Cost: `backendConfig` gained a second call site, so
    `help-content.test.ts`'s wiring assertion is no longer "exactly one site per key" — see §424's
-   Status line for the allowlist that replaced it. ★ Gaps 1–3 are unaffected; they still need prose.
+   Status line for the allowlist that replaced it. ★ Gaps 1–3 were unaffected by this settlement and
+   all three still needed prose when it was written; 1 and 3 have since been written AND re-wired,
+   and 2's prose exists but nothing points at it — read each gap, not this sentence.
+5. **`feature-rich-text` names two note-log registers and the window serves three — the copy is
+   stale by one.** FOUND 2026-09-10, NOT FIXED, and deliberately so: this is a CONTENT change
+   needing EN/DE parity, which the slice that found it was not writing. The body reads "Tasks and
+   RAID items additionally keep a note log", but `use-notes-window.ts` declares
+   `NotesTargetKind = "task" | "raid" | "change"` and feeds one surface off `tasks`, `raid` AND
+   `changes` — it even exposes `openChangeNotes`. Reproduce:
+   `grep -n "NotesTargetKind\|openChangeNotes" src/app/use-notes-window.ts`, against
+   `grep -n "notesWindow:" src/app/help-content.ts`. ★★ This one differs in KIND from gaps 1–3: they
+   were MISSING entries, this is an entry that EXISTS, is correctly pointed at, and under-states its
+   own subject — so no term probe over the corpus can surface it. It was found by reading the body
+   against the code the icon opens from, which is the only method that finds this class. ★ The
+   `MODAL_HELP.notesWindow` row carries the same observation at its call site, so a reader who meets
+   the map first is not left to re-derive it.
 
 **Why this is not just a docs chore.** Gaps 1-3 mean a user who opens those modals and clicks the
 new icon gets an entry that does not answer the question the dialog raised. That is the failure
 mode §424's own a11y paragraph warns about from the other direction: a control that looks like
 help and is not. Filling 1-3 is writing prose; 4 was a one-line decision that needed no prose at
 all, and it was taken — see gap 4.
-★★ **GAPS 1 AND 3 NO LONGER HAVE AN ICON BEHIND THEM**, which lowers the urgency but does not close
-them: both modals were unwired rather than left pointing somewhere plausible, so today a user gets
-NO icon there rather than a misleading one. Gap 2 is the one still shipping the failure mode above —
-the three documents/asset modals DO carry icons, pointing at entries with no content about images or
-assets. Reproduce: `grep -n "assetLibrary\|assetPreview\|documentsRename" src/app/help-content.ts`.
+★★★ **THAT PARAGRAPH IS THE STATEMENT OF THE ORIGINAL PROBLEM; AS OF 2026-09-10 IT DESCRIBES GAP 2
+ALONE.** An earlier revision here said "GAPS 1 AND 3 NO LONGER HAVE AN ICON BEHIND THEM", which was
+true for one day: both modals were unwired rather than left pointing somewhere plausible, and both
+have since been re-wired to entries written for them. What is left is exactly the case that
+paragraph describes: the three documents/asset modals DO carry icons and DO point at an entry with
+no image content, even though the entry that would answer them now exists. Reproduce:
+`grep -n "assetLibrary\|assetPreview\|documentsRename" src/app/help-content.ts`.
+★★ Read gap 5 as a SEPARATE failure mode, not a fourth instance of this one: there the icon opens
+an entry that IS about the surface and merely under-states it by one register, which is a smaller
+harm and a different detector.
+
 ## 454. Asking all five probes in ONE reply would buy 5x the resolution at a third of the cost, but partial credit is a new outcome shape through `scoreResponse`, `hitRate` and `verdict` — OPEN
 
 **Status:** 2026-09-09 — never machine-verified, and the split is the point. MEASURED today over six
