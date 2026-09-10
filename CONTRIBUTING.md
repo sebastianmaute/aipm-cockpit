@@ -107,6 +107,16 @@ docs/CODEMAPS/            — per-layer architecture notes (regenerated, not han
 See [CODEMAPS/architecture.md](CODEMAPS/architecture.md) for the data-flow
 diagram and service boundaries.
 
+## Sample Workspace
+
+| File | Description |
+|------|-------------|
+| `sample-workspace-small.json` | Hand-curated demo workspace (master; tasks, RAID, milestones, stakeholders + RACI, budgets, resources, calendar events, a steering committee, dated note logs, a project document with one stored version, and a few demo document links). The source of truth. Descriptions are a deliberate **mix** of formatted HTML and legacy plain text — both shapes are valid at rest, so the sample covers the read-time upgrade path rather than pretending only one exists. |
+| `sample-workspace-big.json` | Scaled demo dataset (3× the small content entities), generated via the pure `scaleWorkspace` helper — for testing larger workspaces. |
+| `sample-workspace-huge.json` | Scaled demo dataset (10× the small content entities), same generator. |
+
+Regenerate the `-big`/`-huge` tiers with `npx vite-node scripts/generate-sample-workspace.ts` after editing the small master.
+
 ## Conventions
 
 ### Read `AGENTS.md` first
