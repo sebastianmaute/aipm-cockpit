@@ -1128,6 +1128,266 @@
   on this, and within its stated ceiling the role change cost no CONTENT. The spec names the fallback
   if a future eval goes badly: keep the view-scope block's output in `system` and take the smaller
   cache win. Not needed on this evidence; still available.
+  ★★★ **THAT EVAL IS NOW IN-REPO AS `npm run ai:eval`** (slice H), and the two-file split IS the
+  design. `scripts/ai-eval-lib.mjs` holds EVERY decision — probes, the seeded anchor, token minting,
+  scoring, the graded axes, pre-flight, the verdict, the spend refusals — and is unit-tested with no
+  network, no key, no clock and no filesystem, so every judgement the harness makes is checkable
+  without spending anything. `scripts/ai-eval.ts` is I/O only and runs under `npx vite-node`
+  precisely so it can import the app's REAL builders (`buildStableSystemBlocks`, `buildTurnContext`,
+  `buildWireMessages`, `toolsFor`, `builtinSeeds`): a harness that rebuilds the prompt measures its
+  own copy of it. Dry run is the default and spends nothing, but is NOT a degraded mode — it
+  assembles every arm and runs every pre-flight assertion, so a moved symbol or a leaking token
+  surfaces with no key at all. Spending needs an explicit `AI_EVAL_SPEND` opt-in and is refused
+  outright under CI.
+  ★★ **EXIT 2 IS THE LOAD-BEARING CODE**, the same split every other gate in this repo uses: 0 pass,
+  1 a real regression, 2 the harness could not do its job (an incomplete run, a negative control that
+  leaked, a null arm that itself fell). A run that measured NOTHING must never report 0 — that is a
+  green light nobody earned; reporting a broken instrument as 1 is the same mistake from the other
+  side, blaming a slice for the harness.
+  ★★★ **THE POSITION ASSERTION IS THE LANDMINE HERE — ITS FIRST CUT WAS FALSE FOR THIS APP AND WAS
+  SILENTLY SWITCHED OFF.** It was written to assert "arm A's target sits in `system`". Measured
+  against the real builders, that is false for every probe: `buildStableSystemBlocks` contains NONE
+  of the relocatable block builders and `buildTurnContext` contains ALL of them, so every relocatable
+  block travels in the volatile half — which `buildWireMessages` places in the MESSAGES array, never
+  in `system`. The false assertion was then buried under an `expectRelocated: false` escape hatch and
+  read as passing, which is how a load-bearing check ends up permanently disabled. It now works the
+  other way round: each arm DECLARES an `expectedHalf` (`"system"` or `"turn"`), and pre-flight
+  asserts the target occurs exactly once in the declared half and ZERO times in the other. A missing
+  or unknown half is a FAILURE, never a skip — a check that does not know where to look passes
+  everything. The flag was removed; do NOT reintroduce it. ★★ **ITS LIMIT, stated because the first
+  version's whole failure was an assertion nobody could state the limits of: when both arms declare
+  the SAME half, those checks pass WITHOUT proving the arms differ.** Relocation is proven only when
+  the two declared halves DIFFER. Until a gated slice registers a real variant, arm B is an alias of
+  arm A and a green run is an honest A/A self-test of the machinery, not evidence about a candidate.
+  ★★ **THE FOUR GRADED AXES REPORT, THEY DO NOT GATE, AND TWO OF THEM CANNOT BE READ ALONE.**
+  `adherence` is counted over HITS ONLY and is recorded with its denominator `adherenceOf`: a run
+  that collapses to zero hits scores `adherence: 0`, which on a higher-is-worse axis reads as
+  perfect — the worst possible run taking the best possible value. Never read it without the
+  denominator. `outputTokens` carries the same shape of trap and NO denominator can fix it: a model
+  that gives up tersely scores better than one that succeeds and explains itself, so a fall here
+  ALONGSIDE a fall in hit rate is very plausibly one failure showing up twice, not a wash.
+  ★★ **THE RECORDED `anchorSpec` CHANGES SHAPE AT THE SALT FIX, AND NOTHING COMPARES IT ACROSS
+  RUNS.** All six entries in `docs/baselines/ai-eval-runs.json` recorded a FOUR-field `anchorSpec`
+  (seed, words, targetAtFraction, decoyAtFraction). `ANCHOR_SPEC` now carries a fifth, salt, pinned
+  to 1 so the anchor pair is no longer minted from the RUN salt — which is what made the documented
+  "rotate the salt" repair trip the anchor guard. The next run therefore appends a five-field spec
+  to a series whose earlier entries have four. Nothing reads `anchorSpec` across runs, so nothing
+  breaks; it is recorded here so the discontinuity is not re-discovered later as a mystery.
+  ★ The `anchorHash` is UNCHANGED and identical on all six entries — the new field pins the salt the
+  pair was ALREADY minted at, so it moved no prompt bytes. Verify rather than trusting this line:
+  recompute the hash from `buildAnchorPrompt` and compare it against the recorded `anchorHash`; a
+  fifth field that had moved the bytes would show up there and nowhere else.
+  ★★ **WHAT THE UNIT SUITE PINS THAT NOTHING ELSE COULD** — each was a SILENT failure, found by
+  probing the lib rather than by reading it. (1) Planted tokens were not collision-free: 11 of salts
+  1..5000 produced a within-run collision, including a target equal to its own decoy on the anchor
+  arm, which `scoreResponse` can only ever call ambiguous, silently, forever. `plantedToken` now
+  regenerates a candidate against every earlier id in a declared ORDERED id universe, so it is
+  collision-free BY CONSTRUCTION, and an unknown id throws rather than losing the guarantee quietly.
+  (2) `buildAnchorPrompt` silently dropped a token at boundary inputs; it now asserts as a
+  POSTCONDITION that target and decoy each occur exactly once — one assertion on the OUTPUT subsumes
+  every way the inputs could produce a bad text. (3) `verdict` returned PASS on a run that measured
+  nothing (an empty probe list, or a probe whose arms were undefined); it now refuses, while a
+  genuine `0` is still treated as measured. (4) The negative control is deliberately NOT handed to
+  `preflight` — it is the arm whose target was REMOVED, so it would fail by construction, and the
+  only way to make it pass would be to weaken the check for A and B too. It gets its own two
+  assertions instead: target zero times, and every OTHER planted token exactly once — not merely the
+  decoy, but the near-miss competitors and the composition alternatives too, enumerated from
+  `plantedProbeIds` so the assertion cannot go stale when a hardening knob is switched off. A strip
+  that removed more than the target would stop the control being arm A minus one thing.
+  ★★ **NOTHING TYPECHECKS THE CLI.** `tsconfig.json` excludes `scripts`, proved by mutation in BOTH
+  directions — the same deliberate type error yields zero errors inside `scripts/` and a TS2322 at
+  the repo root — so a green `npx tsc --noEmit` says nothing whatever about `scripts/ai-eval.ts`.
+  The one-off that does check it:
+  `npx tsc --noEmit --ignoreConfig --strict --skipLibCheck --module esnext --target es2022 --moduleResolution bundler --jsx react-jsx --esModuleInterop --resolveJsonModule --lib es2022,dom,dom.iterable --allowJs --types node scripts/ai-eval.ts`
+  ★★ `vitest.config.ts` globs `scripts/**/*.{test,spec}.ts` as well as `.mjs`, so the harness's
+  `scripts/ai-eval.test.ts` really does run. This line said the OPPOSITE until that glob landed, and
+  reading the stale form would send a contributor to rename a live test file. `coverage.include`
+  stays `src/**`, so a script test raises no floor. Verify the globs, not this sentence:
+  `grep -n -A 4 "include:" vitest.config.ts`.
+  ★★★ **STATUS: IT HAS NOW RUN LIVE SEVERAL TIMES — SIX RUNS ARE RECORDED AS OF 2026-09-09 — AND IT
+  WAS THE FIRST OF THEM THAT WAS UNUSABLE. Read the recorded artifact, never this paragraph.** An
+  earlier revision said it had run ONCE — TRUE WHEN IT WAS WRITTEN; five further runs landed after
+  it, two of them passing, and nothing updated the line. An earlier one still said it had never run and that no
+  `docs/baselines/ai-eval-*` artifact existed; both files were committed the same day and the claim
+  survived, which is the ordinary way a status line rots. What the run said: `claude-sonnet-5`, salt
+  1, 5 reps, 60 requests. Four probes behaved (arm A hit rates 1.0 / 1.0 / 0.8 / 1.0) and
+  **`chatPointer` scored 0.0 on BOTH arms**, with `wrongBlock` at zero everywhere. The negative
+  control scored 0 on all five, so the probes genuinely require their block, and the anchor scored
+  1.0. Pre-flight passed, so the token WAS in the prompt exactly once in the declared half. That is a
+  probe-calibration finding, not a finding about the app — and it is exactly the failure mode the
+  2026-09-08 manual run had from the other side (3/3 everywhere, no headroom). Do not cite the
+  existence of this harness, or a green run of it, as evidence that anything about the answers is
+  proven.
+  ★★ **THE LATER RUNS ARE NOT THAT RUN, and everything above is the record of the FIRST one.** Once
+  the two calibration fixes below had landed, a full run was recorded that PASSES — verdict `0`,
+  every probe hit on both arms, the negative control silent on all five, the seeded anchor and the
+  rolling replay both 1.0, and zero tool reaches. ★★★ IT IS AN A/A SELF-TEST AND NOTHING MORE: arm B
+  is a deliberate alias of arm A until a gated slice registers a variant, so the two arms compare the
+  current layout with itself. It is evidence that the machinery measures what it claims to, and it is
+  NOT evidence that any relocation is safe — which is the reading the sentence above forbids.
+  ★★★ **THAT `wrongBlock: 0` WAS THE INSTRUMENT LYING, AND AN EARLIER REVISION OF THIS PARAGRAPH
+  READ IT THE WRONG WAY** — it said the model "produced no target at all rather than returning the
+  decoy", which is literally true and invites precisely the wrong conclusion. The filtered diagnostic
+  found three arm-A reps returning, identically, the DATE block's token: the model was not failing to
+  reach the block, it was returning the most SALIENT code. Two defects, both fixed 2026-09-09, and
+  neither is visible from a score. **(1)** All five blocks introduced their token as a "reference
+  code" and every question asked for "the reference code carried by <description of the block>", so
+  the model had to tell five IDENTICALLY-labelled codes apart from prose alone and the vaguest
+  description lost every time — a probe measuring salience while claiming to measure reachability.
+  Each block now carries a DISTINCT label (calendar / view / finding / activity / transcript code),
+  read from `PROBES` by `labelOf` so the prompt text and the question cannot be edited apart, and a
+  unit test asserts each question names its OWN label and none of the other four. The decoy,
+  placement, nonsense tokens and "exactly as written" are unchanged: difficulty still comes from
+  depth and distraction. **(2)** `scoreResponse` knew the target and that probe's DESIGNATED decoy
+  only, so a reply carrying a THIRD probe's token scored `absent` — "read nothing" and "read the
+  wrong thing" were the same number, and blind in exactly the case that matters. It now takes the
+  whole planted set and returns `{outcome, otherBlocks}`; `gradeArm` adds `wrongBlockFrom` tallying
+  WHICH block was returned instead. ★★ `ambiguous` still outranks `hit` and the widening makes that
+  rule STRONGER — ANY foreign planted token demotes a hit now, not merely the designated decoy — and
+  that is the rule stopping a context-dumping model scoring a perfect run. ★★ Widening the scan to
+  five substrings created a new silent failure with it: one planted token CONTAINING another would
+  score every correct answer `ambiguous` forever, so `tokenSubstringConflicts` asserts it at
+  pre-flight. It is an ASSERTION and deliberately not a change to `plantedToken`: a re-mint at the
+  same salt would make the rolling replay miss every time and read as catastrophic drift. Rotate
+  `AI_EVAL_SALT` if it ever fires.
+  ★★★ **THE RELABELLED RUN THEN PASSED AT 1.0 ON EVERY PROBE, WHICH IS ITS OWN PROBLEM.** A binary
+  score at saturation detects a total block failure and essentially nothing else — the exact
+  limitation of the manual eval this slice exists to escape, arriving from the other direction.
+  `PROBE_HARDENING` (`ai-eval-lib.mjs`) is the ONE place difficulty is tuned: three switches per
+  probe, from which the block text, the question and the planted-token universe are ALL derived, so
+  a knob cannot drift away from the prompt it governs. `competitor` plants a near-miss code in the
+  SAME block ("previous <label>" against the target's "current <label>"); `fillerBefore` puts
+  realistic code-free items ahead of the target; `composition` makes the answer depend on a fact in
+  a DIFFERENT block. ★★ **THE RULE THAT GOVERNS EVERY KNOB: DIFFICULTY COMES FROM RETRIEVAL EFFORT,
+  NEVER FROM AMBIGUITY.** An ambiguous probe is not a hard probe, it is a broken one, and it fails
+  in a way that looks identical to a regression — which is what the two runs above cost. Every
+  question must keep exactly one answer a careful reader would agree on.
+  ★★ `composition` may be on for AT MOST ONE probe — a CAP, pinned by a test that asserts the count
+  is `<= 1`, NOT a claim that one probe has it on. **At HEAD it is OFF for all five**
+  (`PROBE_HARDENING` sets `composition: false` on every row and `compositionProbeId()` returns
+  `null`), switched off on evidence — see the measurement below. It is implemented for `chatPointer`
+  alone, whose block is the one that naturally holds a LIST to select from; the CLI REFUSES at
+  pre-flight if it is switched on for any other probe, rather than asking a question with no answer.
+  It is also the only mechanism that changes WHAT the probe measures — it needs two blocks, so a
+  failure does not say which was missed.
+  ★★★ **INSIGHT ORDER IS SEVERITY, NEVER ARRAY POSITION, and getting that wrong buries nothing or
+  drops the target outright.** `buildInsightsPromptBlock` SORTS by `INSIGHT_SEVERITY_RANK` and then
+  SLICES to `MAX_PROMPT_INSIGHTS` — so an array ordered to bury the target does nothing, and an
+  array longer than the cap silently drops entries, which for the target is a probe measuring
+  nothing. The harness plants the target at `low`, its competitor at `medium` and the filler at
+  `high`.
+  ★★★ **ADD A TOKEN ID BY APPENDING TO `TOKEN_IDS`, NEVER BY INSERTING.** `plantedToken` regenerates
+  a candidate only against ids EARLIER in that list, so appending leaves every existing token
+  byte-identical at every salt — which is what keeps the committed rolling reference replayable and
+  the recorded runs comparable. An insert can change a later id's token on some salt, and the replay
+  then misses every time and reads as catastrophic drift. Pinned by a test asserting the five
+  original salt-1 tokens verbatim.
+  ★★★ **THE ROLLING REFERENCE IS COMPARED AGAINST WHAT THE LAST RUN *WROTE*, NEVER WHAT IT READ, and
+  it was the wrong one until 2026-09-09.** A run recorded `rollingHash` = the hash of the file it
+  READ at start and then OVERWROTE that file, so the next run read different bytes and pre-flight
+  reported "the stored drift reference is not what the last run wrote" — refusing to spend at all.
+  It could only ever pass while the prompt was UNCHANGED, i.e. in exactly the case where the check
+  had nothing to catch, which is why three green runs went by without exposing it. Measured: the
+  committed rolling file hashed to `ca4466cd…` while the last recorded run carried `ab7cea71…`.
+  Runs now record `rollingWrittenHash` (null when they wrote nothing — a filtered or incomplete run
+  must not blank the reference the run before it left), and the comparison is against the most
+  recent non-null one. ★★ `buildRunRecord` copies an EXPLICIT field list, so this field was silently
+  dropped on its first cut and every later run would have found no reference at all; that is now
+  pinned by its own test. Records written before the field existed carry none, so the check stays
+  quiet until a run writes one.
+  ★★★ **THE HARDENING DID NOT WORK, AND THAT IS THE FINDING — RECORD IT RATHER THAN BUYING MORE
+  RUNS AGAINST IT.** The calibration sweep (arm A, 3 reps) came back `date` 1.0, `viewScope` 1.0,
+  `insights` 1.0, `activityRecap` 1.0. Near-miss competitors ("current" vs "previous" code) and
+  burying the target four lines down are both trivial for `claude-sonnet-5`: **those two levers are
+  spent.** Combined with the pre-hardening run (all five at 1.0) and the 2026-09-08 manual eval (3/3
+  everywhere), the honest reading is that this model sits at 1.0 on ANY unambiguous single-hop
+  retrieval from a ~31k-token context, and that distractor DENSITY would be spent for the same
+  reason — it is still one-hop string matching against a distinct label. ★★ **SATURATION IS ONLY A
+  DEFECT AGAINST A GOAL THIS HARNESS DOES NOT HAVE.** Its stated purpose is telling whether a
+  prompt-layout change STOPPED the model reading a block; for that, a baseline pinned at 1.0 is the
+  best possible baseline, because any drop is signal and `verdict`'s hard fail (arm B zero where arm
+  A was not) is exactly the right gate. It becomes a defect only if the aim shifts to detecting
+  PARTIAL degradation, which needs resolution the rep count cannot buy — at 5 reps the per-probe
+  resolution is 0.2 and the standard error at p≈0.8 is 0.18, so a 0.2 drop is one SE.
+  ★★ **DO NOT REACH FOR THE OBVIOUS FIXES.** Reducing label distinctness, semantic indirection, or
+  making the answer require inference about content all reintroduce AMBIGUITY, and an ambiguous
+  probe fails in a way indistinguishable from a regression — that lesson has been paid for twice
+  (`chatPointer` at 0.0 for two runs). The one mechanism worth trying is a FINER RULER rather than a
+  harder task: one question asking for all five codes at once, scored 0-5 per reply. That gives 25
+  observations per arm at 5 reps instead of 5, for FEWER requests, introduces no ambiguity because
+  the labels are already distinct, and degrades in exactly the way a relocation would (one code goes
+  missing, the rest stay). It needs a partial-credit outcome shape `hitRate`/`verdict` do not have,
+  so it is its own decision, not a tweak.
+  ★★★ **THE OUTPUT CAP IS PART OF THE INSTRUMENT, AND 64 WAS MEASURING ITSELF.** `chatPointer`
+  scored 0.0 on all three sweep reps at EXACTLY 64 output tokens — `MAX_OUTPUT_TOKENS` — with empty
+  text and zero tool uses. A probe colliding with the ceiling scores `absent` whether or not it
+  found the block. Raised to 512; worst case if every reply ran to it is 65 × 512 = 33,280 output
+  tokens, 166,400 weighted against a recorded full run's 681,288 (about +24%, and nowhere near it at
+  11-13 tokens per answer). ★★ Every record now carries `maxOutputTokens`, because `outputTokens` is
+  a MEAN compared across runs and the cap bounds what it can reach — a rise after a cap change can
+  be headroom rather than behaviour. ★★ And every reply now records `stop_reason` plus a census of
+  the content-block TYPES returned (types and counts only). Nothing recorded could say what those
+  three empty replies had carried instead of text, which cost a spend to find out; the census
+  settles it on the next run. A `thinking` block is the obvious candidate for a reasoning model —
+  **that is a hypothesis the census will confirm or refute, not a claim.** The CLI also warns on
+  stderr when any reply stops at `max_tokens`.
+  ★★★ **THE CENSUS CONFIRMED IT, AND THEN REFUTED THE PROBE.** At the 512 cap, `chatPointer` over
+  three arm-A reps: one clean `hit` (`end_turn`, `{thinking, text}`), and TWO replies that thought
+  and then called a **tool** instead of answering (`{thinking, tool_use}`, one of them also running
+  into the cap). Hit rate 0.33, `toolReaches` 2, mean output 326 tokens against 13 for every
+  single-hop probe. So composition DOES create a gradient — by making the model distrust its context
+  and go looking, which is a DIFFERENT phenomenon from the block being hard to read. **As a
+  reachability probe it is confounded, and a confounded number is worse than a saturated one.** It
+  is switched OFF; the knob and its one-probe cap stay, with that measurement recorded beside them
+  so nobody switches it back on expecting a difficulty lever.
+  ★★ **COMPETITORS AND DEPTH STAY, AND THE REASON IS NOT DIFFICULTY.** They measured as having no
+  effect on this model and an earlier revision of `PROBE_HARDENING`'s docstring called competitors
+  "the strongest lever"; that is corrected. What they actually buy: `competitor` gives
+  DISCRIMINATION — without a near-miss inside the block, "reached the right block" and "picked the
+  right item within it" are the same observation, and with one they separate into different named
+  diagnoses. `fillerBefore` gives REPRESENTATIVENESS — the app sends up to `MAX_PROMPT_INSIGHTS`
+  insights, a multi-line digest and a real conversation list, so the one-item blocks it replaced
+  were the LESS realistic prompt. Both cost about +3% weighted per run.
+  ★★★ **SIX OUTCOMES, NOT FOUR, BECAUSE `absent` CONFLATED THREE EVENTS.** This is the THIRD time a
+  scoring bucket coarser than the failure modes it meets reported the wrong cause here — `wrongBlock`
+  could not separate "read the wrong block" from "read nothing", `absent` could not separate "no
+  answer" from "hit the cap", and it could not separate either from "went looking with a tool" — and
+  the first two each cost a live run to diagnose. `tool-call` (a MODEL event: it distrusted its
+  context) and `truncated` (an INSTRUMENT event: the score measures the cap) now split out;
+  `hit`/`wrong-block`/`ambiguous` keep their exact meanings and only the `absent` bucket divides.
+  ★★ **`tool-call` OUTRANKS `truncated`**, because the re-sweep produced both shapes for ONE model
+  decision and letting truncation win would split it across two buckets on an incidental cap
+  collision; truncation loses nothing, since `stopReason` rides every reply and the record carries a
+  top-level `truncation` summary. ★★★ **A HIT THAT ALSO CALLED A TOOL IS STILL A HIT** — the probe
+  asks whether the block is REACHABLE and the reply reached it; `toolReaches` sums tool uses over
+  every reply regardless of outcome, so folding it into the hit rate would depress one axis and
+  raise another for a single event. ★ `scoreResponse` now REQUIRES the whole reply rather than its
+  text, because a miss cannot name its cause from text alone, and an optional argument would let a
+  caller fall back to the conflation this removed.
+  ★★★ **THE RUN COULD NOT SAY WHY, WHICH IS WHY THE ARTIFACT NOW RECORDS `samples` AND `usage`.**
+  Scores alone make a refusal, a paraphrase and an answer to a different question the same number,
+  and telling them apart cost a whole second run. Each record now carries every NON-HIT reply's text
+  plus ONE exemplar hit per (probe, arm), truncated — the reply text ONLY, never anything from the
+  request, which is regenerable from the salt and the builders anyway. ★★ It also recorded
+  `input_tokens` (1605) and dropped both cache fields, so a harness whose PURPOSE is measuring prompt
+  cost could not say what the run cost: `input_tokens` is the UNCACHED REMAINDER, not the prompt, and
+  a ~31k-token prefix read from cache is invisible in it — the same defect the app's own meter
+  carried before 0.295.0. All four billed classes are now recorded per arm and summed, weighted
+  through `ai-usage.ts`'s own `usageCostEquivalent` (never a local copy of the ratios), with
+  `USAGE_COST_WEIGHTS` stored beside the figure so a later weight change shows up in the series
+  instead of silently rewriting every earlier run. Deliberately NOT converted to currency.
+  ★★★ **THE DIAGNOSTIC FILTER AND WHY IT CANNOT REPORT PASS.** `AI_EVAL_PROBES=<id,...>`,
+  `AI_EVAL_REPS=<n>` and `AI_EVAL_ARMS=<A,B,X,N,R>` narrow a run, so iterating on one broken probe
+  costs a request rather than sixty. A filter that reported a normal verdict would be the precise
+  failure this whole harness exists to prevent — a confident green over a measurement of almost
+  nothing — so it is refused structurally, not by convention: `verdict` and `shouldWriteRolling` both
+  REQUIRE the flag (absent THROWS; a defaulted field would make the one line a caller forgets the
+  line that turns a one-probe diagnostic into a green light), `buildRunRecord` derives the verdict
+  from the SAME `filter` argument it records so the two cannot disagree, the narrowing is written
+  into the artifact, and a filtered run never overwrites the rolling drift reference. ★★ A filter
+  naming EVERY probe and arm is still a filter: proving one equivalent to the standard run means
+  re-deriving the plan, and a check that re-derives what it guards drifts away from it. ★ An unknown
+  probe id or arm REFUSES rather than being ignored, before anything is spent.
   ★★★ **`CACHED_TOOLS` (`chat-api.ts`) closes the FIRST segment of the prefix** — the LAST tool carries
   `cache_control`, so an edit to block 0 (a guide toggled, `groundInGuides` flipped, or the fixed
   instructions changed) re-caches only the smaller system slice after it, never the whole `tools`

@@ -1,6 +1,6 @@
 {
   "name": "aipm-cockpit",
-  "version": "0.299.0",
+  "version": "0.300.0",
   "private": true,
   "license": "EUPL-1.2",
   "engines": {
@@ -38,7 +38,8 @@
     "rownames:check": "node scripts/check-rowname-surfaces.mjs",
     "ooxml:manifest": "jiti scripts/update-ooxml-manifest.ts",
     "version:check": "node scripts/check-version-sync.mjs",
-    "version:sync": "node scripts/check-version-sync.mjs --update"
+    "version:sync": "node scripts/check-version-sync.mjs --update",
+    "ai:eval": "npx vite-node scripts/ai-eval.ts"
   },
   "scriptsDescriptions": {
     "dev": "Start Next.js dev server with hot reload on http://localhost:3000",
@@ -71,7 +72,8 @@
     "rownames:check": "Enumerate where a per-row control's accessible name is composed and which surfaces a unit test asserts are distinct (WCAG 2.4.6) — REPORTING ONLY, never blocking, and a COVERED line is not evidence the test is non-vacuous",
     "ooxml:manifest": "Regenerate the ordered OOXML part-manifest baseline (docs/baselines/ooxml-parts.json) — deliberate act only, never run to make a red pipeline pass",
     "version:check": "Fail if a version restatement (package.json, lockfile, README badge, codemap headers) has drifted from src/app/version.ts",
-    "version:sync": "Propagate src/app/version.ts's version and codename to every restatement"
+    "version:sync": "Propagate src/app/version.ts's version and codename to every restatement",
+    "ai:eval": "AI prompt-quality harness (slice H). DRY RUN BY DEFAULT — assembles every arm, runs pre-flight and spends nothing. A live run needs AI_EVAL_SPEND=1 plus ANTHROPIC_API_KEY and refuses outright under CI. Never a pipeline gate: every live run costs real tokens."
   },
   "dependencies": {
     "@azure/msal-browser": "^5.16.0",

@@ -8,6 +8,32 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.300.0] - 2026-09-10 "Mohanraj"
+
+### Added
+- A developer harness that measures whether the assistant still reads each part of
+  its prompt, so the next round of cost work can be checked instead of assumed.
+  Cost changes all work by removing prompt text or moving it, and every one of them
+  risks the model quietly no longer reading something; cheaper output that is also
+  worse is not a saving. The harness plants a unique nonsense token in one prompt
+  block and a decoy in another, then asks the model to return the target exactly as
+  written — a hit is evidence that block was read, and returning the decoy counts as
+  a miss rather than an alternative answer. Five arms run interleaved (the current
+  layout, a candidate layout, a negative control and two drift references) so a
+  score move can be attributed to the change rather than to the model shifting
+  underneath the measurement. Run it with `npm run ai:eval`. A dry run is the
+  default and spends nothing; spending needs an explicit opt-in, and the harness
+  refuses to spend when it detects a CI environment. It exits 0 on pass, 1 on a
+  real regression and 2 when it could not do its job — a run that measured nothing
+  never reports success.
+- `docs/features.md` now carries the full feature table, linked from the README,
+  which keeps the README to the product overview and the operational reference.
+
+### Changed
+- Help and the in-app feature guide no longer describe the token-counting
+  multiplier that 0.298.0 retired, in both English and German. The setting was
+  gone; only the text describing it remained.
+
 ## [0.299.0] - 2026-09-09 "Yefremov"
 
 ### Added
