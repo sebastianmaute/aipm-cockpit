@@ -361,6 +361,24 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
                             # via scripts/stop-dev.mjs — port-scoped (netstat/taskkill on win, lsof/kill on
                             # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a
                             # scriptsDescriptions entry or docs:scripts:check fails.
+                            # ★★★ WHICH docs it regenerates is DISCOVERED, NEVER NAMED, so no grep over the
+                            # script can enumerate them: `findDocs` walks top-level `*.md` plus
+                            # `docs/**/*.md`, and `syncFile` returns "no-marker" for any file lacking the
+                            # pair `<!-- AUTO-GENERATED from package.json scripts -->` … `<!-- END
+                            # AUTO-GENERATED -->`. CONSEQUENCE: `grep README scripts/sync-script-docs.mjs`
+                            # returns nothing whether README participates or not — it CANNOT answer the
+                            # question, and on 2026-09-10 an empty result was read as proof that it does
+                            # not, in a plan that then prescribed that grep as the verification. An empty
+                            # grep confirms whatever you already believed. Enumerate the participants
+                            # instead, which is one command:
+                            #   grep -rn "AUTO-GENERATED from package.json scripts" --include=*.md .
+                            # ★★ It returns CONTRIBUTING.md ALONE today, so this is a TWO-file change
+                            # (package.json + CONTRIBUTING.md) — read that off the grep, never off this
+                            # line. ★ README carried the pair from the initial commit until `be21ebf3`
+                            # curated its table down to six hand-picked commands; a standing note calling
+                            # it a three-file change was true when written and was falsified by that
+                            # commit. Re-adding the markers to README would silently put it back under the
+                            # generator and replace the curated list with the full one.
 npm run followups:check     # REPORT, not a gate — it runs in NO CI job and exits 0 even with missing
                             # symbols (measured: exit 0 while printing SYMBOL_MISSING=10). Classifies every
                             # `docs/open-followups.md` entry by whether the names/paths/line numbers it
