@@ -84,7 +84,7 @@ describe("MODAL_HELP", () => {
     // trivially. This floor is the positive observable -- it fails if the map
     // is emptied, and it is the reason a "0 unresolvable" result means
     // anything at all.
-    expect(entries.length).toBe(19);
+    expect(entries.length).toBe(23);
 
     const unresolvable = entries.filter(([, id]) => !known.has(id));
     expect(unresolvable).toEqual([]);
@@ -115,7 +115,13 @@ describe("MODAL_HELP", () => {
     const used = new Map<string, string[]>();
     for (const f of files) {
       const src = readFileSync(join(__dirname, f), "utf8");
-      for (const m of src.matchAll(/helpConceptId=\{MODAL_HELP\.([A-Za-z0-9_]+)\}/g)) {
+      // ★★ TWO ATTRIBUTE SPELLINGS, ONE MAP. `ModalHeader` takes
+      // `helpConceptId`; a headerless dialog renders `<HelpIconButton
+      // conceptId={...}>` directly. Matching only the first spelling would
+      // report every bespoke site as an unwired key -- a red that names every
+      // wrong file in the map. `ModalHeader`'s own internal `conceptId={helpConceptId}`
+      // does not match, because the value is not a `MODAL_HELP.` member.
+      for (const m of src.matchAll(/(?:helpConceptId|conceptId)=\{MODAL_HELP\.([A-Za-z0-9_]+)\}/g)) {
         used.set(m[1], [...(used.get(m[1]) ?? []), f]);
       }
     }
@@ -125,12 +131,32 @@ describe("MODAL_HELP", () => {
     // an EMPTY scan, and the key-set comparison below already CANNOT pass
     // vacuously over one: `used` would be empty and the comparison fails
     // loudly. What it fails with is the problem -- it names every MODAL_HELP
-    // key as missing, which reads like 19 unwired modals rather than a broken
-    // scan, and sends the next reader to the wrong 19 files. This floor makes
+    // key as missing, which reads like every modal in the map being unwired
+    // rather than a broken scan, and sends the next reader to as many wrong
+    // files as the map has keys. This floor makes
     // the scan itself the thing that fails, so the failure message is right.
-    // 366 non-test .tsx files today (find src/app -name "*.tsx" ! -name
-    // "*.test.tsx" | wc -l); 200 is far below that and far above zero.
+    // ★ NO FILE TALLY IS QUOTED — this comment said 366 while the commit it
+    // shipped in made it 367, by adding `help-icon-button.tsx`. Derive it:
+    // find src/app -name "*.tsx" ! -name "*.test.tsx" | wc -l. 200 is far
+    // below that and far above zero.
     expect(files.length).toBeGreaterThan(200);
+
+    // ★★★ THE `recursive: true` ABOVE WAS A NO-OP AGAINST EVERY ASSERTION IN
+    // THIS FILE UNTIL THIS LINE, and a cold review caught it by mutation.
+    // Every wiring site today sits in `src/app` ROOT, so flipping the flag to
+    // `false` drops the corpus by ~36 files, leaves `used` byte-identical,
+    // clears the floor above and passes the set equality below — nothing reds,
+    // and the "silent hole rather than a failure" the comment beside the flag
+    // warns about is exactly what you get. A discovery sweep that would follow
+    // a move has to PROVE it follows one; the flag alone proves nothing.
+    // ★★ Asserted BOTH DIRECTIONS deliberately. The floor above says the scan
+    // is non-empty; this says it reaches a KNOWN subdirectory member. Pick a
+    // file that is not a wiring site, so the assertion keeps its meaning if
+    // the subdir ever gains or loses one.
+    // ★ Node's recursive `readdirSync` joins with the platform separator, so
+    // normalise before matching or this passes on posix and fails on Windows.
+    const scanned = files.map((f) => f.replace(/\\/g, "/"));
+    expect(scanned).toContain("insights/recommendation-review-modal.tsx");
 
     // ★★ SET EQUALITY BOTH DIRECTIONS. A key with no call site is an unwired
     // modal; a scanned key absent from the map cannot typecheck today but
@@ -145,8 +171,11 @@ describe("MODAL_HELP", () => {
     // dropped back to one site -- and leaves the upward one open: a FOURTH
     // `BackendConfigModal` consumer passing this id would land green while
     // falsifying `help-content.ts`'s "two pass `backendConfig`" docstring,
-    // which nothing else pins. An exact count closes both, so every one of the
-    // 19 keys keeps a counted assertion rather than 18 counted and one floored.
+    // which nothing else pins. An exact count closes both, so EVERY key keeps a
+    // counted assertion rather than all-but-one counted and one floored.
+    // ★ No key tally is quoted in this paragraph or the two above it: the floor
+    // on line ~87 is the one place the count lives, and restating it here means
+    // a wiring change reds one assertion and silently stales three comments.
     const MULTI_SITE_KEYS: Readonly<Record<string, number>> = {
       // `BackendConfigModal` takes a REQUIRED `helpConceptId` (it used to
       // hardcode this id and carry a `hideHelp` flag, REMOVED). Its two STORAGE

@@ -8,6 +8,33 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.301.0] - 2026-09-10 "Arnason"
+
+### Added
+- The two dialogs 0.299.0 deliberately left without a help icon now have one.
+  Both were held back because their only candidate entry described a different
+  surface; each now has an entry of its own — recurring meetings in the
+  resource calendar for the meeting-series editor, and how a task's effort is
+  estimated and rolled up for the effort editor.
+- A third new Help entry covers images inside documents.
+- The help icon now also reaches surfaces that have no dialog header to carry
+  it: the RACI suggestion dialog and the floating note-log window. Both open
+  the entry in a panel over the surface rather than switching the view behind
+  it, the same behaviour the headered dialogs got in 0.299.0.
+
+### Changed
+- The rich-text Help section names changes as a third note-log register,
+  alongside tasks and risks. It had described two while the app carried three,
+  and this release is what routes a reader to that sentence.
+
+### Notes
+- Twelve further dialogs were examined and deliberately left without a help
+  icon. In each case the nearest entry describes a different surface, and a
+  wrong entry is worse than none — the same judgement 0.299.0 recorded for the
+  two dialogs this release has now closed. Each refusal is recorded at its call
+  site with the reason, so the next reader does not re-litigate it as an
+  oversight.
+
 ## [0.300.0] - 2026-09-10 "Mohanraj"
 
 ### Added

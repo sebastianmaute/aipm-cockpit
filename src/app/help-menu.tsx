@@ -123,6 +123,10 @@ export function HelpMenu({ lang }: { lang: Lang }) {
             onMouseDown={onTitleBarMouseDown}
             className="flex shrink-0 cursor-move select-none items-center justify-between border-b border-line px-4 py-2"
           >
+            {/* ★ NO help icon here, and this is not an oversight: this window
+                renders HelpContentPane — it IS Help. It is also a draggable
+                window rather than a Modal, so it sits outside the §424 sweep
+                entirely. Do not "complete the pattern". */}
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t(lang, "help")}
             </h3>

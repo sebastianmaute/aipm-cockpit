@@ -62,6 +62,11 @@ export function PickListImportModal({
     <Modal open={open} onClose={onClose} ariaLabel={ariaLabel} align="center" zIndex={50}>
       <div className={`flex max-h-[80vh] w-full ${maxWidthClass} flex-col overflow-hidden rounded-xl border border-line bg-surface`}>
         <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
+          {/* ★ NO help icon, deliberately. Measured over all 69 help bodies at
+              69/69 resolved, "import" matches 2 — feature-rich-text and
+              feature-ai-advanced — and in both the mention is incidental rather
+              than the subject. A wrong entry is worse than no icon. See
+              docs/open-followups.md §456 for the entry collecting all seven. */}
           <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">{title}</h2>
           <IconButton size="md" onClick={onClose} label={cancelLabel} title={cancelLabel}>
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />

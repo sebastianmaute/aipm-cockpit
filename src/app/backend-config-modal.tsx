@@ -48,8 +48,8 @@ export interface BackendConfigModalProps {
    *  opened the Storage entry over a dialog about the Anthropic API key. That
    *  was closed by a `hideHelp` suppression flag (REMOVED — it no longer
    *  exists on this component or on `ModalHeader`) justified by "no Help entry
-   *  describes the AI settings", which was FALSE: scanning all 66 entries'
-   *  titles and bodies for /anthropic|api key/i returns TWO — `feature-ai` and
+   *  describes the AI settings", which was FALSE: scanning every entry's
+   *  title and body for /anthropic|api key/i returns TWO — `feature-ai` and
    *  `feature-ai-advanced` — and `feature-ai`'s body opens "Add an Anthropic
    *  API key in Settings → AI, …", exactly the dialog's subject. So the AI
    *  instance now passes `MODAL_HELP.aiSettings` and the flag is gone.

@@ -46,6 +46,14 @@ export function TaskDedupModal({
         className="relative flex max-h-[90vh] w-[620px] max-w-[95vw] flex-col rounded-xl border border-line bg-surface"
       >
         <div className="border-b border-line px-6 py-4">
+          {/* ★ NO help icon, deliberately. This dialog resolves duplicate TASKS;
+              measured over all 69 help bodies at 69/69 resolved, "dedup|duplicat"
+              matches 4 and every one is a different sense — duplicate
+              accountability in RACI (concept-raci), duplicate stakeholders
+              (workflow-stakeholders), duplicate committee members
+              (feature-steering), duplicate document versions
+              (feature-document-history). A wrong entry is worse than no icon.
+              See docs/open-followups.md §456 for the entry collecting all seven. */}
           <h2 className="text-base font-semibold text-foreground">{title}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t(lang, "taskDedupIntro")}</p>
         </div>
