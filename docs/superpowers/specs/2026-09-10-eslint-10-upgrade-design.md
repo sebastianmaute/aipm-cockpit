@@ -97,8 +97,14 @@ The request that opened this work was to adapt and bundle
 [jsx-eslint/eslint-plugin-react#4022](https://github.com/jsx-eslint/eslint-plugin-react/pull/4022).
 Measured, that is both larger than it looks and unnecessary here.
 
-**Larger.** Upstream `master` is **38 commits / 152 files** ahead of the published `v7.37.5` and
-still self-reports version `7.37.5`. The `getFilename` migration this crash needs already sits on
+**Larger.** Upstream `master` is well ahead of the published `v7.37.5` and still self-reports
+version `7.37.5`. ★★ **NO COMMIT/FILE TOTAL IS QUOTED, AND RESTORING ONE IS A REGRESSION.** This
+read "38 commits / 152 files", measured once against a moving upstream branch: it was stale the
+next time anyone pushed to `master`, nothing in this repo can re-derive it, and a cold review
+flagged it as the one number in the row with no local measurement behind it. Quote the direction,
+never the total — and if the magnitude matters for a decision, re-measure it at that moment:
+`git ls-remote https://github.com/jsx-eslint/eslint-plugin-react master`, then compare against
+the `v7.37.5` tag. The `getFilename` migration this crash needs already sits on
 master, unpublished. So "bundle the PR" means bundling an unreleased upstream snapshot *plus* a
 32-file PR on top, and owning it until upstream publishes.
 
@@ -215,8 +221,13 @@ what actually gates.
 rests on: "byte-identical", "same file set", `LOST/GAINED/SEVERITY (none)`. Re-deriving them needs
 eslint 9 installed, which this worktree cannot do without `npm ci`. A cold review corroborated the
 *rule-set* half by borrowing a real `eslint@9.39.4` read-only from a sibling worktree and driving
-it against this config — identical `86`/`17` and `82`/`17` — but the file-count half of the
-before/after has not been replayed. Treat the carry-forward as an argument, not a measurement.
+it against this config — identical across both arms at `86`/`17` and `82`/`17` — but the
+file-count half of the before/after has not been replayed. ★★ **THOSE TWO PAIRS ARE TWO FILE
+TYPES, AND NAMING NEITHER MADE THE LINE UNFALSIFIABLE** — a cold review flagged `82`/`17` as
+irreproducible for exactly that reason. `86` is the `.ts`/`.tsx` arm, `82` the `.mjs` one: the
+TypeScript-specific rules do not apply to plain `.mjs`, and `react/*` is 17 in both. Reproduce:
+`npx eslint --print-config src/app/task-manager.tsx` against
+`npx eslint --print-config scripts/version-sync-lib.mjs`. Treat the carry-forward as an argument, not a measurement.
 
 **A green run over zero findings is the vacuous shape this repo has been bitten by, so the
 result is only worth its controls.**
