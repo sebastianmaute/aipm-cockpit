@@ -84,7 +84,7 @@ describe("MODAL_HELP", () => {
     // trivially. This floor is the positive observable -- it fails if the map
     // is emptied, and it is the reason a "0 unresolvable" result means
     // anything at all.
-    expect(entries.length).toBe(19);
+    expect(entries.length).toBe(21);
 
     const unresolvable = entries.filter(([, id]) => !known.has(id));
     expect(unresolvable).toEqual([]);
@@ -119,7 +119,7 @@ describe("MODAL_HELP", () => {
       // `helpConceptId`; a headerless dialog renders `<HelpIconButton
       // conceptId={...}>` directly. Matching only the first spelling would
       // report every bespoke site as an unwired key -- a red that names the
-      // wrong 19 files. `ModalHeader`'s own internal `conceptId={helpConceptId}`
+      // wrong 21 files. `ModalHeader`'s own internal `conceptId={helpConceptId}`
       // does not match, because the value is not a `MODAL_HELP.` member.
       for (const m of src.matchAll(/(?:helpConceptId|conceptId)=\{MODAL_HELP\.([A-Za-z0-9_]+)\}/g)) {
         used.set(m[1], [...(used.get(m[1]) ?? []), f]);
@@ -131,8 +131,8 @@ describe("MODAL_HELP", () => {
     // an EMPTY scan, and the key-set comparison below already CANNOT pass
     // vacuously over one: `used` would be empty and the comparison fails
     // loudly. What it fails with is the problem -- it names every MODAL_HELP
-    // key as missing, which reads like 19 unwired modals rather than a broken
-    // scan, and sends the next reader to the wrong 19 files. This floor makes
+    // key as missing, which reads like 21 unwired modals rather than a broken
+    // scan, and sends the next reader to the wrong 21 files. This floor makes
     // the scan itself the thing that fails, so the failure message is right.
     // 366 non-test .tsx files today (find src/app -name "*.tsx" ! -name
     // "*.test.tsx" | wc -l); 200 is far below that and far above zero.
@@ -152,7 +152,7 @@ describe("MODAL_HELP", () => {
     // `BackendConfigModal` consumer passing this id would land green while
     // falsifying `help-content.ts`'s "two pass `backendConfig`" docstring,
     // which nothing else pins. An exact count closes both, so every one of the
-    // 19 keys keeps a counted assertion rather than 18 counted and one floored.
+    // 21 keys keeps a counted assertion rather than 20 counted and one floored.
     const MULTI_SITE_KEYS: Readonly<Record<string, number>> = {
       // `BackendConfigModal` takes a REQUIRED `helpConceptId` (it used to
       // hardcode this id and carry a `hideHelp` flag, REMOVED). Its two STORAGE

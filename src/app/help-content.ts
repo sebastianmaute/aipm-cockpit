@@ -210,7 +210,8 @@ const HELP_ENTRIES_LITERAL = [
   // three dialogs at, not because a coverage gate asked for them — the gate is
   // defined over VIEWS and is structurally blind to a subject like "estimates".
   // Read the ★★ note on `MODAL_HELP` for the two rows that were REMOVED rather
-  // than pointed at the nearest-sounding id.
+  // than pointed at the nearest-sounding id, and then restored once these
+  // entries existed and had been read against their surfaces.
   { id: "feature-meeting-series", group: "features", titleKey: "helpSecMeetingSeriesTitle", bodyKey: "helpSecMeetingSeriesBody", relatedViews: ["calendar"] },
   { id: "feature-document-assets", group: "features", titleKey: "helpSecDocumentAssetsTitle", bodyKey: "helpSecDocumentAssetsBody", relatedViews: ["documents"] },
   { id: "feature-task-effort", group: "features", titleKey: "helpSecTaskEffortTitle", bodyKey: "helpSecTaskEffortBody", relatedViews: ["open-points"] },
@@ -250,7 +251,7 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *  change here by reading the entry, not by running tsc.
  *
  *  ★ `help-content.test.ts` pins that every value resolves AND that the map
- *  still has 19 rows — the count is the anti-vacuity floor, so update it
+ *  still has 21 rows — the count is the anti-vacuity floor, so update it
  *  deliberately when adding a modal, never to make a red run green.
  *
  *  ★★ ONE KEY MAY SERVE SEVERAL CALL SITES, and `backendConfig` does.
@@ -265,7 +266,8 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *
  *  ★★ A modal with NO apt entry gets NO ROW, and that is the deliberate
  *  answer rather than the nearest-neighbour one. TWO modals were removed on
- *  that criterion, not one:
+ *  that criterion, not one — both are BACK below, and the record of why they
+ *  went is the part worth keeping:
  *    • `taskTimeTracking` (the Jira-style estimate / spent / remaining
  *      dialog) pointed at `feature-timelog`, which describes the external
  *      Timelog INTEGRATION — a different subject that implies those figures
@@ -283,11 +285,21 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *  `feature-task-effort` above (§453 gaps 1-3) — a removal's justification
  *  outliving the condition it measured is this file's own recurring defect.
  *  Read them as the RECORD of why the two rows went, never as today's state.
- *  ★★ ADDING THE ENTRY IS NOT THE SAME AS RESTORING THE ROW, and this map is
- *  deliberately unchanged: pointing either dialog at its new entry is a
- *  wiring decision reviewed as CONTENT (read the entry against the surface),
- *  not something the entry's existence settles. The rule above still governs.
- *  Do NOT reinstate either by picking the closest-sounding id. */
+ *  ★★ ADDING THE ENTRY IS NOT THE SAME AS RESTORING THE ROW, and this note
+ *  used to stop there, with the map deliberately unchanged. THE WIRING
+ *  DECISION HAS SINCE BEEN TAKEN — separately, and by reading each new entry
+ *  against the surface it would open from, which is the only review this map
+ *  has:
+ *    • `calendarEvent` → `feature-meeting-series`, whose body is about the
+ *      repeat rule, its three mutually exclusive end conditions and the
+ *      per-occurrence exceptions — the fields this dialog actually edits.
+ *    • `taskTimeTracking` → `feature-task-effort`, whose body describes the
+ *      estimate / spent / remaining triple and states outright that the
+ *      figures are the task's own and do not sync anywhere. That sentence is
+ *      the correction of the exact confusion `feature-timelog` created here.
+ *  So the criterion did not change and is not weakened by these two rows: an
+ *  entry that MATCHES earns a row, an id that merely sounds close never does.
+ *  Do NOT add the next one by picking the closest-sounding id. */
 export const MODAL_HELP = {
   raidEdit: "concept-raid",
   changeEdit: "concept-change",
@@ -295,8 +307,10 @@ export const MODAL_HELP = {
   stakeholderEdit: "concept-stakeholder",
   resourceEdit: "feature-resources",
   absenceEdit: "feature-resources",
+  calendarEvent: "feature-meeting-series",
   taskForm: "feature-add",
   taskLinkedTask: "concept-dependency",
+  taskTimeTracking: "feature-task-effort",
   budgetBucket: "concept-budget",
   documentsHistory: "feature-document-history",
   documentsRename: "feature-documents",
