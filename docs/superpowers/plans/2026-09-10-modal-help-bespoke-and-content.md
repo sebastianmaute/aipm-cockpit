@@ -950,3 +950,14 @@ Expected: no `M` on any file this slice did not intend, and **no** `sample-works
 ## The slice ENDS here
 
 **NO** version bump, **NO** `CHANGELOG.md` entry, **NO** push, **NO** MR. Release is a separate explicit instruction from the user.
+
+### ★★★ RELEASE-TIME CONSTRAINT — the base is moving under us
+
+Peer session `aipm-wt-a-56` has **MR !465 (0.300.0 "Mohanraj")** in flight, `feat/ai-prompt-quality-harness` → `main`, pipeline #6800, merging on green with auto-merge explicitly off. This branch was cut off `origin/main` = `9adcafde` (0.299.0).
+
+- **DO NOT REBASE UNTIL !465 LANDS.** It carries ~60 commits and moves `main` to 0.300.0. Rebasing first means doing the work twice.
+- **Nothing in it renames, moves or deletes an existing i18n key**, so the six appended `helpSec*` keys should apply cleanly.
+- ★★ **If git surfaces `helpSecUsageLimitsBody`, KEEP BOTH SIDES.** `f37bc539` rewrites that one key's VALUE in both dictionaries (dropping a retired counting-multiplier claim); our change appends six new keys after `helpSecPrint*`. The two are independent — resolving either-or silently drops one.
+- ★★ **Re-assert the DE anchor's uniqueness after rebasing.** ~60 commits will have moved it; the measured `i18n.de.ts:3546` is a fact about the pre-rebase tree only. Task 5b's script asserts presence and uniqueness in both directions before writing, which is exactly the case this covers — do not weaken it to a bare `indexOf`.
+- ★ **`vitest.config.ts` in !465 widens the scripts glob to `scripts/**/*.{test,spec}.ts`** as well as `.mjs`. A stray probe file left under `scripts/` therefore becomes part of the CI unit run. Verified 2026-09-10 for this slice: every probe was written to the session scratchpad OUTSIDE the repo and `git status --untracked-files=all` shows no stray `.mjs` in the tree. Re-check before pushing.
+- ★ !465 also moves the README feature table to `docs/features.md`. This slice touches no README prose, so it should not matter — but the region will look different.
