@@ -279,7 +279,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§50](#50-undo-of-a-bulk-edit-reverts-write-through-fields--closed-2026-08-18) | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | **CLOSED** 2026-08-18 |
 | [§51](#51-a-second-load-sensitive-test--use-tasks-dedup-on-confirm--open-narrower-the-recorded-symptom-cannot-recur-the-mechanism-is-unreproduced) | A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — open, narrower: the recorded symptom cannot recur, the mechanism is unreproduced | found 0.211.1 (main #5418) | S–M | open |
 | [§52](#52-usecolumnresizes-v1v2-migration-pins-defaults-for-existing-users--open-deliberate) | `useColumnResize`'s v1→v2 migration pins defaults for existing users — open, deliberate | 0.212.0 (Nayler) | M | open |
-| [§53](#53-eslint-10-is-blocked-upstream-by-eslint-plugin-react--open-not-actionable-today) | ESLint 10 is blocked upstream by `eslint-plugin-react` — open, not actionable today | 0.211.2 | — | open |
+| [§53](#53-eslint-10-is-blocked-upstream-by-eslint-plugin-react--closed-2026-09-10-routed-around) | ~~ESLint 10 is blocked upstream by `eslint-plugin-react`~~ | 0.211.2 | — | **CLOSED** 2026-09-10 |
 | [§54](#54-prod-only-csp-blocks-prosemirrors-base-css--closed-2026-08-09) | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | **CLOSED** 2026-08-09 |
 | [§55](#55-twelve-hand-rolled-aria-pressed-toggles-still-show-their-on-state-by-colour-alone--closed-2026-09-01) | ~~Twelve hand-rolled `aria-pressed` toggles still show their on-state by colour alone~~ | 0.212.0 (Nayler) | M | **CLOSED** 2026-09-01 (8 of 12 migrated to `ToggleButton`, RACI ringed, 3 adjudicated non-defects) |
 | [§56](#56-togglebuttons-pressed-state-is-near-invisible-in-all-three-dark-schemes--closed-2026-09-01) | ~~`ToggleButton`'s pressed state is near-invisible in all three DARK schemes~~ | 0.212.0 (Nayler) | S–M | **CLOSED** 2026-09-01 (state borders DERIVED at a 3:1 floor, so an imported theme is covered too) |
@@ -3503,9 +3503,25 @@ failing without the guard.
 
 ---
 
-## 53. ESLint 10 is blocked upstream by `eslint-plugin-react` — open, not actionable today
+## 53. ESLint 10 is blocked upstream by `eslint-plugin-react` — CLOSED 2026-09-10, routed around
 
-**Status:** open — an upstream block on eslint 10, re-measured against the live registry. Reproduced 2026-08-28 by `grep -n "getFilename" node_modules/eslint-plugin-react/lib/util/version.js`.
+**Status:** CLOSED 2026-09-10 — routed around rather than waiting on upstream. `eslint@10` is in `package.json`; the crash is avoided by pinning `settings.react.version` in `eslint.config.mjs`, since the `detect` path is the only route into the removed API. Verified by `npm run lint` (exit 0 at CI's whole-repo scope) and by `grep -n "version: reactVersion" eslint.config.mjs`.
+
+★★★ **CLOSED by routing around the block, not by upstream fixing it.** `eslint-plugin-react` is
+still 7.37.5 and still calls the removed API; nothing was vendored, forked or patched. The entry
+below is correct and remains the record of the 2026-08-03 attempt — what it missed is that the
+crash has exactly ONE trigger. `resolveBasedir` is reached only from `detectReactVersion`, which
+`getReactVersionFromContext` calls only when `settings.react.version === "detect"` — the value
+`eslint-config-next` sets. Pinning that version in our own flat config skips the path.
+
+★★ **The one accepted cost, stated rather than buried:** `componentUtil`'s `isExplicitComponent`
+calls the removed `getJSDocComment` inside a pre-existing `try/catch`, so a class declared a
+component only by a JSDoc `augments`/`extends` tag silently stops being detected. There are zero
+such sites, and `src/app/jsdoc-component-declaration.guard.test.ts` is what keeps it that way — no
+gate can see this class.
+
+★★ Design and full evidence, including the mutation that proves the pin is load-bearing:
+`docs/superpowers/specs/2026-09-10-eslint-10-upgrade-design.md`.
 
 Attempted 2026-08-03 as the slice §45 called for. **Reverted; nothing shipped.** `eslint@10.8.0`
 installs cleanly and then crashes before linting a single file.
