@@ -37,3 +37,15 @@ desktop/** text eol=lf
 # time. `-text` states it outright, the same way the golden fixtures above do.
 *.ico -text
 *.bmp -text
+
+# This banner carries a C2PA content-credentials manifest, and a C2PA claim is a
+# hash over the file's BYTES with the manifest's own range excluded -- so any
+# line-ending conversion invalidates it. Measured 2026-09-10: committing it under
+# core.autocrlf=true stripped 66 CR bytes (10534 -> 10468), i.e. the repo copy
+# would not have validated on a non-CRLF checkout. `-text` stores it verbatim.
+#
+# Only this file is pinned, not *.svg: every other SVG here is hand-edited LF
+# source that SHOULD stay normalised. Pin any further credentialed asset the
+# same way, individually, and re-check with:
+#   git cat-file blob :<path> | cmp - <path>
+public/ai-pm-cockpit-banner.svg -text

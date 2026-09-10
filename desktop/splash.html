@@ -1,8 +1,100 @@
 <!doctype html>
 <meta charset="utf-8" />
 <title>AI PM Cockpit</title>
+<!--
+  The banner below is inlined from public/ai-pm-cockpit-banner.svg. It is a COPY:
+  change the source and re-inline it, because electron-builder's files: globs
+  cannot reach outside desktop/ and a resource placed beside the asar is not
+  reachable by a relative <img src> from here.
+
+  Regenerate rather than hand-editing the markup.
+-->
 <style>
-  body { font: 14px system-ui, sans-serif; display: grid; place-items: center; height: 100vh; margin: 0; color: #333; }
-  .msg { text-align: center; }
+  /* The banner paints its own #153a5c ground across the full viewBox, so the
+     page matches it -- otherwise the artwork sits on a white card and the
+     window reads as a broken page rather than a splash. */
+  :root { color-scheme: dark; }
+  body {
+    font: 14px system-ui, sans-serif;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 22px;
+    height: 100vh;
+    margin: 0;
+    padding: 0 16px;
+    background: #153a5c;
+    color: #c9d3dc;
+  }
+  /* Sized in CSS because the SVG declares only a viewBox. min() keeps it from
+     overflowing if the window is ever opened narrow. */
+  .banner { width: min(660px, 100%); height: auto; display: block; }
+  .msg { text-align: center; margin: 0; }
 </style>
-<div class="msg"><p>Starting AI PM Cockpit…</p></div>
+  <svg class="banner" viewBox="0 0 1200 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AI PM Cockpit" xmlns:c2pa="http://c2pa.org/manifest">
+    <title>AI PM Cockpit</title>
+
+    <!-- background -->
+    <rect x="0" y="0" width="1200" height="280" fill="#003459" />
+
+    <!-- HUD grid lines (instrument-panel motif) -->
+    <g stroke="#e2e6e7" stroke-width="1" opacity="0.12">
+      <line x1="0" y1="60" x2="1200" y2="60" />
+      <line x1="0" y1="220" x2="1200" y2="220" />
+      <line x1="300" y1="0" x2="300" y2="280" />
+      <line x1="900" y1="0" x2="900" y2="280" />
+    </g>
+
+    <!-- right-side abstract cockpit arcs -->
+    <g fill="none" stroke="#5daee0" stroke-width="2">
+      <circle cx="1030" cy="140" r="150" opacity="0.10" />
+      <circle cx="1030" cy="140" r="105" opacity="0.18" />
+      <circle cx="1030" cy="140" r="60" opacity="0.28" />
+    </g>
+    <g fill="none" stroke="#ae448c" stroke-width="1.5" opacity="0.35">
+      <path d="M 950 60 A 120 120 0 0 1 1110 100" />
+      <path d="M 960 220 A 120 120 0 0 0 1120 175" />
+    </g>
+
+    <!-- cockpit gauge icon -->
+    <g transform="translate(150,140)">
+      <circle r="72" fill="none" stroke="#5daee0" stroke-width="5" />
+      <circle r="72" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.4" />
+
+      <!-- tick marks -->
+      <g stroke="#ffffff" stroke-width="3" opacity="0.85">
+        <line x1="0" y1="-72" x2="0" y2="-58" />
+        <line x1="0" y1="72" x2="0" y2="58" transform="rotate(180)" />
+        <line x1="0" y1="-72" x2="0" y2="-58" transform="rotate(45)" />
+        <line x1="0" y1="-72" x2="0" y2="-58" transform="rotate(90)" />
+        <line x1="0" y1="-72" x2="0" y2="-58" transform="rotate(135)" />
+        <line x1="0" y1="-72" x2="0" y2="-58" transform="rotate(-45)" />
+        <line x1="0" y1="-72" x2="0" y2="-58" transform="rotate(-90)" />
+        <line x1="0" y1="-72" x2="0" y2="-58" transform="rotate(-135)" />
+      </g>
+
+      <!-- needle pointing to "on track" green zone -->
+      <g transform="rotate(-35)">
+        <line x1="0" y1="10" x2="0" y2="-56" stroke="#e84663" stroke-width="4" stroke-linecap="round" />
+      </g>
+      <circle r="7" fill="#ffffff" />
+    </g>
+
+    <!-- wordmark -->
+    <g font-family="Arial, Helvetica, sans-serif">
+      <text x="270" y="130" fill="#ffffff" font-size="56" font-weight="700" letter-spacing="2">
+        AI PM COCKPIT
+      </text>
+      <text x="272" y="168" fill="#e2e6e7" font-size="22" font-weight="400" letter-spacing="1">
+        Plan. Track. Steer your projects.
+      </text>
+    </g>
+
+    <!-- small status dots (RAG-style accent, decorative) -->
+    <g transform="translate(272,190)">
+      <circle cx="0" cy="0" r="5" fill="#5daee0" />
+      <circle cx="24" cy="0" r="5" fill="#ae448c" />
+      <circle cx="48" cy="0" r="5" fill="#e84663" opacity="0.7" />
+    </g>
+  </svg>
+<p class="msg">Starting AI PM Cockpit…</p>
