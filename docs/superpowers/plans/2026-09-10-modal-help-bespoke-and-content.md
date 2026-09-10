@@ -25,6 +25,8 @@
 - `src/app/**.ts(x)` and `src/test/**.ts` are **CRLF**: Edit tool only, **never** `sed -i`. `docs/**` is LF-only.
 - **Never read a gate's exit code through a pipe.** Redirect, `echo "EXIT=$?"` unpiped, then grep the log.
 - **Never run two vitest processes at once.**
+- ★★★ **COLD VITE CACHE IN THIS WORKTREE LOOKS EXACTLY LIKE A BROKEN SUITE.** Measured 2026-09-10 during Task 1: the first two invocations returned `Test Files no tests` at **EXIT=1** with `[vitest-pool]: Failed to start forks worker` / `Timeout waiting for worker to respond`, at 81s and 60s, and `--maxWorkers=1` did **not** help. It was **not** contention — CPU 3%, 11.9 GB of 31.7 GB free, zero other vitest processes — and not a broken suite. Running one cheap file (`npx vitest run src/app/icons.test.ts --reporter=dot`) warmed the transform cache, after which the real file passed in 27.6s (import alone 12.5s) and every later run was fine. **Warm before concluding red.** This is a distinct cause from the contention case AGENTS.md records for the same error string; do not collapse the two.
+- ★ **The three dirty files named in earlier briefs (`sample-workspace-huge.json`, `package-lock.json`, `not-in-use.env.local.bak`) are NOT in this worktree** — they belong to the main checkout at `C:/Projects/aipm-cockpit`, where the session's opening `gitStatus` snapshot was taken. `.worktrees/rebase` is clean. Do not read an empty `git status` here as a missing file. The never-stage rule still stands wherever they do appear.
 - Never stage `sample-workspace-huge.json` or `not-in-use.env.local.bak`. Never `git add -A` / `git add .` — name paths.
 - `git checkout -- <file>` and `git restore` are deny-blocked. `git stash` must **never** be run in this worktree. Never `--amend`.
 - Every commit ends with `Claude-Session: https://[session link removed]`.
@@ -46,7 +48,7 @@
 | `src/app/calendar-event-modal.tsx`, `task-time-tracking-modal.tsx` | Re-wired; deliberate-absence comments deleted. |
 | 3 bespoke modals (Task 7) | Render `<HelpIconButton>`. |
 | 5 bespoke modals (Task 8) | Gain a refusal comment. |
-| `docs/open-followups.md` | §424 + §453 Status; one new entry for the five refusals. |
+| `docs/open-followups.md` | §424 + §453 Status; one new entry (§454) for the seven no-content refusals. |
 
 ---
 
@@ -358,9 +360,9 @@ No code. Produce this table in the task report; it drives Tasks 7 and 8.
 | `timelog-panel` (`loadingTimelog`) | REFUSE-STRUCTURAL — transient progress |
 | `integration-disclaimer` (`disclaimerTitle`) | REFUSE-STRUCTURAL — the dialog *is* the explanation |
 | `version-info` (`version`) | REFUSE-STRUCTURAL — already information |
-| `raci-suggest-modal` | **WIRE** → `concept-raci` |
-| `steering-committee-panel` | **WIRE** → `feature-steering` |
-| `insights/recommendation-review-modal` | **WIRE** → `automated-insights` |
+| `raci-suggest-modal` | **WIRE** → `concept-raci` — ✅ survived re-review |
+| `steering-committee-panel` | ~~WIRE → `feature-steering`~~ → **REFUSE-NO-CONTENT** (downgraded, see below) |
+| `insights/recommendation-review-modal` | ~~WIRE → `automated-insights`~~ → **REFUSE-NO-CONTENT** (downgraded, see below) |
 | `alloc-plan-modal` | REFUSE-NO-CONTENT |
 | `calendar-pull-summary-modal` | REFUSE-NO-CONTENT |
 | `comm-send-preview-modal` | REFUSE-NO-CONTENT |
@@ -369,7 +371,21 @@ No code. Produce this table in the task report; it drives Tasks 7 and 8.
 
 ★★★ **THE THREE WIRE VERDICTS ARE CANDIDATES FROM A TERM PROBE, NOT DECISIONS.** A probe proves a subject is ABSENT from every body; it cannot prove a present term *describes* the dialog. The `HelpEntryId` union catches a MISTYPED id, never a well-spelled WRONG one — last slice a by-eye pass over 20 pairings changed three. **Open each candidate entry's title and body and read them against the dialog before wiring.** Downgrading a WIRE to REFUSE-NO-CONTENT here is a correct outcome, not a failure.
 
-- [ ] **Step 4: No commit** — this task produces a report, not a diff. Confirm with `git status --porcelain=v1` (expect empty).
+### DONE 2026-09-10 — measured, and two of the three candidates were downgraded
+
+Scan reproduced with both positive controls passing (`shift-edit-modal` and `jira-conflicts-modal` each `raw=2 stripped=1`): **33 files / 33 sites / 20 `ModalHeader` / 13 headerless** — confirming §424's recorded 34 / 36 / 20 / ~14 is wrong on three of four cells. The 13 headerless files match the triage table one-for-one. Window set confirmed as exactly the predicted three.
+
+The by-eye pass (66/66 bodies resolved, 3,972 i18n keys indexed) **changed two of three verdicts**, which is the same criterion that removed `calendarEvent → feature-resources` last slice:
+
+- **`steering-committee-panel` → REFUSE-NO-CONTENT.** `feature-steering`'s subject is the committee *record* — name, members, meeting schedule (date/title/agenda/location), info-schedule lead-days, Action Center pack reminders, Outlook push. The dialog is a per-meeting **status report** editor: rich-text body, recipients, Send via M365, AI Generate, a version list with line diff and Restore. The entry names none of it. Its one adjacent noun — the "information pack" circulating N working days before a meeting — is the active hazard: it invites the reader to identify the report with the reminder rules, and the code does not connect them (`committeeInfoSchedules` is label + lead days; `MeetingReport` is a separate stored artifact). No better entry exists — `concept-steering`, `feature-version-history`, `feature-rich-text` and `feature-reports` were each checked and each fails for a concrete reason.
+- **`insights/recommendation-review-modal` → REFUSE-NO-CONTENT.** `automated-insights` is about *detection and triage*: five watched patterns, the status lifecycle, where insights are listed. It never says "recommendation", "AI", "propose" or "apply" — and that is the only question the dialog poses ("what will Apply write?"). Its status sentence does describe a real consequence (`use-insight-recommendations.ts` sets `status: "acted"`), but a consequence is not the subject. The near-miss worth naming in the refusal comment is **`feature-inline-ai-edit`**, which describes the mechanic almost verbatim and which this modal's own comment says it shares an `EditPlan` shape with — it still fails, because its scoping clause is "without leaving the row", so wiring it would tell the reader they are in the inline row editor. Note also that `feature-ai-advanced` asserts of the AI helpers that "it never edits your data", so **no** existing entry can be pointed at a surface whose purpose is applying AI-proposed writes.
+
+**Consequences for later tasks — apply these, do not follow the original numbers:**
+- Task 7 wires **one** site, not three. `MODAL_HELP` floor becomes **22**, not 24.
+- Task 7's collision test can no longer seed from `steeringReport`. Seed it with the **same** `conceptId` under two different `dialogTitle`s — a sharper test anyway, since it proves the accessible name derives from the dialog title rather than from the entry.
+- Task 8 records **twelve** refusals (5 structural + **7** no-content), not ten.
+
+- [x] **Step 4: No commit** — this task produced a report, not a diff. Confirmed clean.
 
 ---
 
@@ -377,15 +393,24 @@ No code. Produce this table in the task report; it drives Tasks 7 and 8.
 
 **Files:** none.
 
-★★★ `src/app/i18n.ts` and `src/app/i18n.de.ts` are shared with peer session `aipm-wt-a-b7`. This is a **step**, not a note.
+★★★ `src/app/i18n.ts` and `src/app/i18n.de.ts` are shared with a peer session. This is a **step**, not a note.
 
-- [ ] **Step 1: Check the peer is still live and what it holds**
+★★ **THE PEER NAMED IN THE FIRST DRAFT OF THIS PLAN (`aipm-wt-a-b7`) NO LONGER EXISTS.** A session name is not a durable handle — it is minted per session, and the worktree it refers to outlives it. Re-run `ListAgents` and address whoever holds `C:/Projects/aipm-wt-a` today; do not go looking for a name written into a plan hours earlier.
 
-Use `ListAgents`. If `aipm-wt-a-b7` is listed, message it with `SendMessage`: this branch is about to add six keys to both dictionaries (three help titles, three help bodies), branch `feat/modal-help-bespoke` off `9adcafde`, and ask whether it currently holds uncommitted edits in either file.
+**DONE 2026-09-10 — cleared.** Peer `aipm-wt-a-56` answered:
+- No uncommitted changes in either dictionary.
+- No plans to add, move or reflow any `helpSec*` key; its work is under `scripts/` plus docs.
+- We are in **different worktrees**, so neither session can see the other's uncommitted edits to these files at all. What IS shared is the stash stack and the refs — never run bare `git stash` / `git stash pop` here.
 
-- [ ] **Step 2: Wait for the reply before opening either file.** If the peer does not answer, say so explicitly in the report and proceed only with the user's go-ahead. Do not treat silence as consent.
+★★ **One committed change of the peer's is in this key family and is NOT on `origin/main` yet.** `f37bc539` ("fix(ai): drop the retired counting multiplier from the guide and Help") rewrites the VALUE of `helpSecUsageLimitsBody` in BOTH dictionaries. Verified independently rather than taken on trust — `git log --oneline origin/main..feat/ai-prompt-quality-harness -- src/app/i18n.ts src/app/i18n.de.ts` returns exactly that one commit, carrying 5 `helpSecUsageLimitsBody` hits across the two files. It should merge cleanly (we APPEND six new keys after `helpSecPrint*`; it edits one existing key's value), but it is the same family and possibly a nearby region: **after any rebase onto a main that already carries it, expect it in the neighbourhood and do NOT "tidy" it back.**
 
-- [ ] **Step 3: No commit.**
+Verified independently before writing anything:
+- All six new keys are absent from both dictionaries today (0/0 each).
+- The DE anchor `helpSecPrintTitle: "Drucken und PDF",` occurs **exactly once** in `i18n.de.ts`, so Task 5's uniqueness assertion will hold.
+
+★ Task 5's byte-check must also scan for **NUL bytes**, not only LF-only lines / ASCII substitutes / `\u00XX` escapes — the Edit tool has been observed turning a space into a NUL on this path. And check in node, never `grep -c`: a bracket class under a byte locale decomposes a multi-byte character and answers a different question.
+
+- [ ] ~~Step 1 / Step 2~~ — **done, no action left.** Step 3: no commit (this record lands with the plan-correction commit).
 
 ---
 
@@ -591,10 +616,10 @@ MSG
 
 ---
 
-## Task 7: Wire the three bespoke sites
+## Task 7: Wire the one bespoke site that survived re-review
 
 **Files:**
-- Modify: `src/app/raci-suggest-modal.tsx`, `src/app/steering-committee-panel.tsx`, `src/app/insights/recommendation-review-modal.tsx`, `src/app/help-content.ts`, `src/app/help-content.test.ts`
+- Modify: `src/app/raci-suggest-modal.tsx`, `src/app/help-content.ts`, `src/app/help-content.test.ts`
 - Create: `src/app/help-icon-button.test.tsx`
 
 ★ Do this only for candidates that survived Task 3 Step 3's by-eye re-review. Wire fewer if fewer survived.
@@ -603,20 +628,25 @@ MSG
 
 ```ts
   raciSuggest: "concept-raci",
-  steeringReport: "feature-steering",
-  recommendationReview: "automated-insights",
 ```
-and raise the floor to `expect(entries.length).toBe(24)`.
+
+★★★ **ONE ROW, NOT THREE — the other two candidates were downgraded in Task 3's re-review.** Do not add `steeringReport` or `recommendationReview`; they are REFUSE-NO-CONTENT and are recorded in Task 8 instead.
+
+Raise the floor to `expect(entries.length).toBe(22)` (**not** 24).
 
 - [ ] **Step 2: Render the button in each dialog's own title row**
 
-Each of the three hand-rolls its chrome, so there is no shared slot — place it beside the dialog's existing title, before its close control:
+`raci-suggest-modal.tsx` hand-rolls its chrome, so there is no shared slot — place it beside the dialog's existing title, before its close control:
 
 ```tsx
 <HelpIconButton lang={lang} conceptId={MODAL_HELP.raciSuggest} dialogTitle={title} />
 ```
 
-★ `dialogTitle` must be the dialog's own visible title. Passing a constant would give two stacked dialogs the same accessible name — the WCAG 2.4.6 defect no gate can see.
+★ The local `title` is already in scope: `const title = t(lang, "raciSuggestTitle");` → "Proposed RACI assignments". Pass that binding, not a new literal.
+
+★ `dialogTitle` must be the dialog's own visible title. Passing a bare literal like `"Help"` would give two stacked dialogs the same accessible name — the WCAG 2.4.6 defect no gate can see. ★★ A *constant* is fine **here specifically**: `RaciSuggestModal` has exactly one call site (`use-raci-suggest.tsx`) and renders from a hook, so two instances of it can never stack, and its title is distinct from every other dialog's. Do not generalise that to a per-row control, where the value can repeat within one rendered list — that is the whole premise of this defect class.
+
+★★ **USE THE PRIMITIVE, DO NOT HAND-ROLL.** `HelpIconButton` is the single renderer of a help popover; a headerless dialog must not grow its own. If it does not fit this dialog's title row, STOP and report rather than inlining a substitute.
 
 - [ ] **Step 3: Write `help-icon-button.test.tsx` — with a real collision seed**
 
@@ -647,8 +677,11 @@ describe("HelpIconButton", () => {
     // instance satisfies a distinctness check trivially and is vacuous.
     render(
       <div>
+        {/* ★★ SAME conceptId, DIFFERENT dialogTitle. That is the sharper seed:
+            it proves the accessible name derives from the DIALOG TITLE and not
+            from the entry, which two different conceptIds could never isolate. */}
         <HelpIconButton lang="en-US" conceptId={MODAL_HELP.raciSuggest} dialogTitle="Suggest RACI" />
-        <HelpIconButton lang="en-US" conceptId={MODAL_HELP.steeringReport} dialogTitle="Committee report" />
+        <HelpIconButton lang="en-US" conceptId={MODAL_HELP.raciSuggest} dialogTitle="Committee report" />
       </div>,
     );
     const names = screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"));
@@ -677,15 +710,22 @@ Change one `dialogTitle` in the collision test so both instances receive the **s
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/app/help-content.ts src/app/help-content.test.ts src/app/help-icon-button.test.tsx src/app/raci-suggest-modal.tsx src/app/steering-committee-panel.tsx src/app/insights/recommendation-review-modal.tsx
+git add src/app/help-content.ts src/app/help-content.test.ts src/app/help-icon-button.test.tsx src/app/raci-suggest-modal.tsx
 git commit -F- <<'MSG'
-feat(help): wire the three headerless dialogs that have an entry
+feat(help): wire the one headerless dialog that has an entry
 
 Of the thirteen headerless Modal sites, five are structurally not help
-candidates and five have no entry on their subject. These three do, and each
+candidates and seven have no entry on their subject. This one does, and the
 pairing was re-read against the entry's real title and body rather than
 accepted from a term probe -- the id union catches a mistyped id, never a
 well-spelled wrong one.
+
+Two candidates the term probe offered were downgraded on that re-read.
+feature-steering describes the committee record -- members, meeting schedule,
+information-pack lead days -- not the per-meeting status report editor the
+dialog actually is. automated-insights describes detection and triage and
+never mentions recommendations, previews or applying, which is the only
+question its dialog poses. A wrong entry is worse than no icon.
 
 Claude-Session: https://[session link removed]
 MSG
@@ -693,11 +733,17 @@ MSG
 
 ---
 
-## Task 8: Record the ten refusals
+## Task 8: Record the twelve refusals
 
 **Files:**
-- Modify: 10 dialog files (5 structural + 5 no-content)
+- Modify: 12 dialog files (5 structural + **7** no-content)
 - Modify: `docs/open-followups.md`
+
+★★★ **SEVEN NO-CONTENT SITES, NOT FIVE.** Task 3's re-review downgraded `steering-committee-panel` and `insights/recommendation-review-modal` from WIRE. Their refusal comments must carry the specific evidence below, not a generic reason — a refusal that does not say *what was checked and rejected* gets re-litigated by the next reader.
+
+**`steering-committee-panel.tsx`** — the entry checked was `feature-steering`, whose subject is the committee record (name, members, meeting schedule, information-pack lead days, Outlook push), while this dialog is a per-meeting status-report editor (rich text, recipients, Send, AI Generate, versions + Restore). Probe over all 66 bodies at 66/66 resolved: `"status report"` matches **0 of 66**; the broader `"report"` matches **11 of 66** and every one is a different sense — the Reports nav entry, the Reports tab, task statistics, Planning's utilization pop-out, and several as a plain verb. `concept-steering`, `feature-version-history`, `feature-rich-text` and `feature-reports` were each considered and each fails. Name in the comment that the "information pack" is the lead-day reminder rule (`committeeInfoSchedules`), NOT the stored `MeetingReport` — that conflation is the trap.
+
+**`insights/recommendation-review-modal.tsx`** — the entry checked was `automated-insights` (detection and triage: five watched patterns, the status lifecycle, where insights are listed). Probe over the same corpus: `"recommend"` matches **1 of 66** (`feature-template-suggest`, a project template), and `"apply|applied"` matches **4 of 66** (`feature-templates`, `feature-per-project-functions`, `feature-documents`, `feature-timelog`) — none the sense of applying an AI-proposed write. ★★ **State the alternation you probed.** The wider `apply|applied|applies` returns **6**, adding `feature-timezones` and `feature-ai` in the scope sense; quoting 4 against the wider pattern, or 6 against the narrower, is exactly the kind of unlabelled-convention defect Task 10 is correcting in §453. Name `feature-inline-ai-edit` as the near-miss — it describes the mechanic almost verbatim and shares an `EditPlan` shape, but its "without leaving the row" scoping makes it wrong here — and note that `feature-ai-advanced` asserts the AI helpers "never edit your data", so no existing entry can serve this surface.
 
 - [ ] **Step 1: Add a refusal comment at each of the five REFUSE-NO-CONTENT sites**
 
@@ -734,11 +780,13 @@ Add to `help-menu.tsx`, near its header:
 
 - [ ] **Step 4: File the new register entry**
 
-Add a new `## <n>.` heading to `docs/open-followups.md` for the five no-content subjects, where `<n>` is one past today's max. Derive it — never trust a quoted number:
+Add a new `## <n>.` heading to `docs/open-followups.md` for the **seven** no-content subjects, where `<n>` is one past today's max. Derive it — never trust a quoted number:
 
 ```bash
 grep -oE "^## [0-9]+\." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1
 ```
+
+**Measured 2026-09-10: max is 453 on this branch AND on `origin/main`, so the new entry is §454** (`git show origin/main:docs/open-followups.md | grep -cE "^## 454\."` returns 0). Re-derive anyway — that check is cheap and the number moves.
 
 ★★★ The number is reserved only once on `origin/main`; two branches have minted the same one before. Re-check at merge time.
 
@@ -765,14 +813,25 @@ Expected `EXIT=0` both. ★★ **Exit 1 is DRIFT; exit 2 is the gate unable to s
 
 ★★★ **MEASURE FIRST. DO NOT REASON.** Every surface wired so far renders inside `<Modal>`, so `PopoverPanel`'s `kind: "modal"` push lands above a `Modal` entry that knows to defer. `notes-window` hand-rolls its chrome via `useDraggableWindow` and pushes its own dismissal entry, so the stack shape differs and nothing has measured what Tab does there.
 
-- [ ] **Step 1: Write a throwaway probe**
+★★★ **MEASURED AHEAD OF THIS TASK, AND IT REFRAMES THE QUESTION.** `notes-window.tsx` registers `useDismissable({ open, kind: "layer", onDismiss: onClose, claims: claimsFocusWithin })`. Its kind is **`"layer"`, not `"modal"`** — and the window is `role="dialog"` **without** `aria-modal`. So the mechanism the plan assumed (a `Modal` Tab trap that `PopoverPanel`'s `"modal"` push stands down) is not present here at all: there may be **no Tab trap in `notes-window` to stand down**.
 
-Render `NotesWindow` with a `HelpIconButton` inside it and **one button outside it**, open the popover, drive twelve `userEvent.tab()` presses, and record where focus lands on each press. This mirrors the probe that found the `Modal` case (`document.body` on press 4, outside control on press 5).
+★★★ **THEREFORE THE PROBE NEEDS A BASELINE CONTROL, AND WITHOUT ONE ITS VERDICT IS UNATTRIBUTABLE.** If Tab already walks out of `notes-window` today — with no help icon anywhere near it — then observing that it walks out *with* one proves nothing about the icon, and refusing on that basis would be recording a pre-existing property as a regression this slice caused. A negative observation needs a falsifier attached.
 
-- [ ] **Step 2: Read the result**
+- [ ] **Step 1: Measure the BASELINE first — `NotesWindow` with NO help icon**
 
-- If focus stays within the window across all twelve → **WIRE**: add a `MODAL_HELP.notesWindow` row, raise the floor to 25, render the button, keep the probe's numbers in the commit body.
-- If focus escapes → **REFUSE**, record the exact press number and landing element in `notes-window.tsx` and in the §424 Status line. This is an acceptable outcome for this slice, not a failure.
+Render `NotesWindow` open, plus **one button outside it**, and drive twelve `userEvent.tab()` presses. Record the landing element on each press. This is the control.
+
+- [ ] **Step 2: Measure the TREATMENT — the same fixture plus a `HelpIconButton` inside, popover OPEN**
+
+Identical fixture and identical twelve presses, changing only the icon's presence and the popover being open. This mirrors the probe that found the `Modal` case (`document.body` on press 4, an outside control on press 5).
+
+- [ ] **Step 3: Read the DIFFERENCE, never the treatment alone**
+
+- **Baseline already escapes, treatment escapes no earlier** → the icon changes nothing; containment was never a property of this window. **WIRE is permissible**, and the commit body must say plainly that `notes-window` does not contain Tab today and that this slice did not change that. Do NOT claim the icon is contained.
+- **Baseline contains, treatment escapes** → the icon caused it. **REFUSE**, and record the exact press number and landing element in `notes-window.tsx` and in the §424 Status line.
+- **Baseline contains, treatment contains** → **WIRE**, floor to 23 (not 25 — Task 7 wires one site, not three), keep both sets of numbers in the commit body.
+
+★ Report both twelve-press sequences verbatim whatever the verdict. "Measured, refused, recorded" remains an acceptable outcome for this slice, not a failure — but so is "measured, wired, and here is why the escape was pre-existing".
 
 - [ ] **Step 3: Commit** either the wiring or the recorded refusal.
 
@@ -785,9 +844,22 @@ Render `NotesWindow` with a `HelpIconButton` inside it and **one button outside 
 
 - [ ] **Step 1: Correct §453's positive controls**
 
-§453 records `task=59 budget=20 milestone=19 risk=10` beside findings that are **body** counts. Measured 2026-09-10: those four are **occurrence** counts; as bodies they are `28 / 14 / 13 / 8`. Label both conventions explicitly so the next reader rebuilding the probe calibrates against the right one.
+§453 records `task=59 budget=20 milestone=19 risk=10` beside findings that are **body** counts. Label both conventions explicitly so the next reader rebuilding the probe calibrates against the right one.
 
-★★ No conclusion moves — `image` and `asset` are 0 under both, `series` is 0 under both. Say that in the correction, so it does not read as a retraction of the gaps.
+**VERIFIED 2026-09-10 — both rows reproduce exactly** (66/66 bodies resolved, titles and primers excluded, case-insensitive):
+
+| term | occurrences | bodies (of 66) |
+|---|---|---|
+| task | **59** | **28** |
+| budget | **20** | **14** |
+| milestone | **19** | **13** |
+| risk | **10** | **8** |
+
+★★★ **THE MATCHING CONVENTION IS BARE SUBSTRING, AND THE ENTRY IS ONLY SELF-CONSISTENT READ THAT WAY** — "tasks", "multitask" and "task's" all count toward `task`. Under whole-word (`\btask\b`) the figures move materially and §453's own controls **stop reproducing**: task 59→35 occurrences, milestone 19→8, risk 10→4, because plurals are the dominant form. So the correction must name the convention, not merely split occurrences from bodies.
+
+★★ Say in the correction *why* mixing them misleads rather than merely being untidy: the gap is **not a fixed ratio**, so a reader cannot convert between conventions. `task` runs 2.1 occurrences per matching body, `budget` 1.4.
+
+★★ No conclusion moves — `series`, `image` and `asset` each return **0 occurrences and 0 bodies, under substring AND whole-word**. Substring is the stricter test of a zero (it can only match more, never less), so the three zeroes are not a tokenisation artifact. Say that in the correction, so it does not read as a retraction of the gaps.
 
 - [ ] **Step 2: Update §453's gap statuses** — gaps 1–3 filled by Task 5, both re-wirings by Task 6.
 
