@@ -124,6 +124,39 @@ Expected — these are the numbers this plan was written against, so **report an
 
 The seven moving sections total **25 028 bytes**: 3658 + 7408 + 2467 + 944 + 6555 + 1294 + 2702.
 
+★★★ **THESE FIGURES EXCLUDE EACH SECTION'S OWN `## ` HEADING LINE, AND TASKS 2-7 ASK
+YOU TO `sed` A RANGE THAT INCLUDES IT.** The `awk` above `next`s the heading line
+before it starts accumulating, so every one of the seven baselines is the BODY
+alone. A Task 2-7 Step 1 that extracts `sed -n '<first>,<last>p'` therefore measures
+exactly one heading line MORE, and reads as a mismatch against the number printed
+beside it. This was not caught while writing the plan; it was caught 2026-09-10 by
+the Task 4 agent, which stopped at Step 1 on a 30-byte disagreement rather than
+guessing — the correct response, and the reason that stop-and-report rule is there.
+
+Both numbers, measured — use the left column to check an extraction that keeps the
+heading and the right one for what actually gets written into the new file:
+
+| Section | `sed` range | With heading | Body only |
+|---|---|---|---|
+| Storage Backends | 117-162 | 3678 | 3658 |
+| Integrations | 163-221 | 7424 | 7408 |
+| Automation / Notifications | 222-254 | 2497 | 2467 |
+| Sample Workspace | 255-264 | 964 | 944 |
+| AI Cost & Prompt Caching | 274-323 | 6583 | 6555 |
+| Environment Variables & Security | 324-336 | 1330 | 1294 |
+| Security Model | 337-364 | 2720 | 2702 |
+
+Reproduce the pair yourself rather than trusting the table — a heading's length is
+the whole discrepancy, so the check is worth one command:
+
+```bash
+for r in "117 162" "163 221" "222 254" "255 264" "274 323" "324 336" "337 364"; do set -- $r; b=$(sed -n "$1,$2p" README.md | wc -c); h=$(sed -n "$1p" README.md | wc -c); echo "$1-$2 withHeading=$b heading=$h body=$((b-h))"; done
+```
+
+★ Task 7 is the one that wants the **with-heading** figure (964): it keeps
+`## Sample Workspace` when inserting into CONTRIBUTING. The other five drop their
+heading in favour of a new `#` title, so they want the body figure.
+
 - [ ] **Step 2: Confirm the line ranges**
 
 ```bash
@@ -828,34 +861,77 @@ The helpers live in the scratchpad by design; nothing is staged.
 
 ---
 
-## Task 10: Correct the false claim in AGENTS.md
+## Task 10: Correct the generated-README claim — REWRITTEN 2026-09-10
+
+⚠️ **This task as originally written was wrong twice over, and both errors were in
+the plan rather than in the tree.** It was rewritten after measurement, before any
+of it was executed. The original text is preserved in git at `a5a742cd`.
+
+**What the original got wrong:**
+
+1. **`AGENTS.md` does not carry the claim.** The only match for
+   `grep -n "docs:scripts\|sync-script-docs\|GENERATED" AGENTS.md` is line 363,
+   "New script → also add a `scriptsDescriptions` entry or docs:scripts:check
+   fails" — which is **true** and names no second file. The false claim lives in
+   the session memory file `scriptsdescriptions-is-a-three-file-change.md`, whose
+   description reads "CONTRIBUTING.md and README.md are GENERATED". Correcting
+   AGENTS.md would have meant editing a true statement.
+2. **The prescribed verification could never answer the question.** The plan said
+   to run `grep -n "README" scripts/sync-script-docs.mjs` and read an empty result
+   as proof. But that script takes **no file list**: `findDocs()` walks top-level
+   `*.md` plus `docs/**/*.md`, and `syncFile` includes a file only if it carries
+   the **marker pair** `<!-- AUTO-GENERATED from package.json scripts -->` …
+   `<!-- END AUTO-GENERATED -->`. Participation is **discovered, never named**, so
+   that grep returns nothing whether the claim is true or false. It is the
+   grep-granularity failure: a command that confirms whatever you already believed.
+
+**What is actually true, measured 2026-09-10:**
+
+- Only `CONTRIBUTING.md` carries the marker pair (`grep -rn "AUTO-GENERATED from
+  package.json scripts" --include=*.md .` → one hit, `CONTRIBUTING.md:29`). So it
+  is a **two**-file change today (`package.json` + `CONTRIBUTING.md`), not three.
+- The memory was **true when written and was falsified by a later commit.**
+  `git log --oneline -S"AUTO-GENERATED from package.json scripts" -- README.md`
+  returns `43c0d5f4` (initial commit, markers added) and `be21ebf3`
+  ("docs(readme): … curate the scripts table", markers removed). README's table
+  is now a hand-curated six-command subset that disclaims itself in its own
+  closing paragraph.
 
 **Files:**
-- Modify: `AGENTS.md`
+- Modify: `AGENTS.md` (add the marker-pair mechanism — a *new* fact, not a correction)
+- Modify: the session memory file + its `MEMORY.md` index line (the actual correction)
 
-⚠️ `AGENTS.md` is always loaded into every session, so a false claim there is read by everyone, forever. This one says `README.md` is generated from `scriptsDescriptions`.
-
-- [ ] **Step 1: Confirm the claim is false before correcting it**
+- [ ] **Step 1: Re-derive both facts rather than trusting the prose above**
 
 ```bash
-grep -n "README" scripts/sync-script-docs.mjs; echo "GREP_EXIT=$?"
-grep -n "scriptsdescriptions-is-a-three-file-change\|CONTRIBUTING.md + README.md are GENERATED" AGENTS.md
+grep -rn "AUTO-GENERATED from package.json scripts" --include=*.md . | grep -v node_modules
+grep -n "findDocs\|walkMd\|no-marker" scripts/sync-script-docs.mjs
+git log --oneline -S"AUTO-GENERATED from package.json scripts" -- README.md
 ```
 
-Expected: **no** match in `sync-script-docs.mjs` (`GREP_EXIT=1`), and a match in AGENTS.md — the claim exists and the code does not support it.
+Expected: exactly one marker hit, in `CONTRIBUTING.md`; the discovery functions
+present in the script; and the two commits above.
 
-⚠️ If `sync-script-docs.mjs` *does* mention README, the claim is true and this task is void. Stop and report; do not "correct" a true statement.
+⚠️ If a **second** file carries the marker pair, this task's arithmetic changes —
+report the count rather than writing "two".
 
-- [ ] **Step 2: Fix the wording**
+- [ ] **Step 2: Add the mechanism to AGENTS.md**
 
-Change the `npm run stop` bullet's trailing sentence — which currently says a new script needs a `scriptsDescriptions` entry "or docs:scripts:check fails" and elsewhere names both files — so it names **CONTRIBUTING.md alone** as generated. Add the measurement inline:
+The `npm run stop` bullet's trailing sentence stays as it is; it is true. Append
+the fact that makes the trap avoidable next time — that participation is by marker
+pair, so no filename grep over the script can enumerate it:
 
 ```
-★★ CONTRIBUTING.md ALONE is generated from `scriptsDescriptions` — this file
-claimed README.md was too, and it never has been. Verified 2026-09-10 by
-`grep -n "README" scripts/sync-script-docs.mjs`, which returns nothing, and by
-a run that regenerated CONTRIBUTING.md only. README's own script table is a
-hand-curated six-command subset that says so in its closing paragraph.
+★★ WHICH docs it regenerates is DISCOVERED, never named: `findDocs` walks
+top-level `*.md` + `docs/**/*.md` and `syncFile` skips any file lacking the
+marker pair `<!-- AUTO-GENERATED from package.json scripts -->` … `<!-- END
+AUTO-GENERATED -->`. So `grep README scripts/sync-script-docs.mjs` returns
+nothing whether README participates or not — it CANNOT answer the question, and
+was read as proof that it does not (2026-09-10). Enumerate the participants with
+`grep -rn "AUTO-GENERATED from package.json scripts" --include=*.md .`, which
+returns CONTRIBUTING.md ALONE today. ★ README carried the pair from the initial
+commit until `be21ebf3` removed it; its table is now a hand-curated subset that
+says so in its own closing paragraph. Read a count off the grep, not off this line.
 ```
 
 - [ ] **Step 3: Verify the docs gates**
@@ -874,16 +950,28 @@ Expected: both `0`, claims reporting **none added**.
 ```bash
 git add AGENTS.md
 git commit --only AGENTS.md -F - <<'EOF'
-docs(agents): correct the claim that README is generated
+docs(agents): say how sync-script-docs picks its files, because a grep cannot
 
-AGENTS.md said CONTRIBUTING.md and README.md are both generated from
-scriptsDescriptions. Only CONTRIBUTING.md is, and README never has been --
-`grep -n "README" scripts/sync-script-docs.mjs` returns nothing, and a run
-regenerated CONTRIBUTING.md alone.
+The plan for this task told me to prove README is not generated by running
+`grep -n "README" scripts/sync-script-docs.mjs` and reading the empty result
+as evidence. That command cannot answer the question in either direction:
+the script takes no file list. findDocs walks top-level *.md plus
+docs/**/*.md, and syncFile skips anything lacking the marker pair, so
+participation is discovered and no filename appears in the source at all.
+An empty grep was going to confirm whatever I already believed.
 
-This file is loaded into every session, so a false claim in it is read by
-everyone. README's script table is a hand-curated subset that disclaims
-itself in its own closing paragraph.
+The conclusion happened to be right -- CONTRIBUTING.md alone carries the
+markers today -- but it was right by luck, and the honest check is one grep
+for the marker pair across the docs. AGENTS.md now carries that, so the next
+reader enumerates instead of inferring.
+
+Also corrected the provenance: README carried the pair from the initial
+commit until be21ebf3 curated its table down to six commands. The standing
+note claiming both files are generated was true when written and was
+falsified by that commit -- not an authoring error, ordinary decay.
+
+AGENTS.md never actually claimed README was generated; its one nearby
+sentence is true and is left alone.
 
 Claude-Session: https://[session link removed]
 EOF
