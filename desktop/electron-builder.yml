@@ -8,9 +8,28 @@ files:
   - package.json
 # The built Next standalone server ships as an unpacked resource, so
 # process.resourcesPath/standalone/server.js resolves at runtime.
+#
+# ★★★ TWO ENTRIES, AND THE SECOND ONE IS NOT REDUNDANT. electron-builder's
+# copy filter (app-builder-lib/out/util/filter.js, createFilter) hard-rejects a
+# path whose relative name is exactly "node_modules":
+#
+#     if (relative === "node_modules") { return false }
+#
+# That runs BEFORE any pattern matching, so the first entry below silently
+# ships the standalone tree WITHOUT its traced dependencies, and adding
+# `filter: ["**/*"]` would not help -- the rejection never consults patterns.
+# The packaged app then installs and launches, shows the splash, and dies with
+# `Cannot find module 'next'`; nothing at build time says a word.
+#
+# Naming the directory as its own `from` sidesteps it: paths are then relative
+# to node_modules itself ("next", "@next/env", ...), so none of them is ever
+# the literal "node_modules" and the filter has nothing to reject. Nested
+# package node_modules are unaffected -- the filter only rejects the ROOT one.
 extraResources:
   - from: ../.next/standalone
     to: standalone
+  - from: ../.next/standalone/node_modules
+    to: standalone/node_modules
 win:
   target: nsis
   # Unsigned: no certificate is available. See the spec's Section 7 security
