@@ -39,19 +39,21 @@ for (const { to } of copies) {
 // The CSS bundle is the specific artifact whose absence renders the app
 // unstyled, so name it rather than trusting a non-empty directory.
 //
-// ★ Where the bundler puts it is NOT fixed: webpack emits a dedicated
-// `.next/static/css/` directory, but Turbopack (this repo's actual build —
-// `.next/turbopack` exists once built) interleaves `.css` files into
-// `.next/static/chunks/` alongside JS chunks. Hardcoding the webpack path
-// made this check fail on every real build here, so it searches the whole
-// copied static tree instead of one hardcoded subdirectory.
-const staticDir = join(STANDALONE, ".next", "static");
-const hasCss =
-  existsSync(staticDir) &&
-  readdirSync(staticDir, { recursive: true }).some((f) => String(f).endsWith(".css"));
-if (!hasCss) {
-  console.error(`No CSS bundle found under ${staticDir} — the packaged app would render unstyled.`);
+// ★★ Scan RECURSIVELY and do not hardcode a subdirectory. Next 16 / Turbopack
+// emits the bundle to .next/static/chunks/, NOT the .next/static/css/ that
+// older Next versions used — a guard pinned to either literal path passes
+// vacuously or fails on a correct copy the next time that emit path moves.
+const staticRoot = join(STANDALONE, ".next", "static");
+const cssFiles = existsSync(staticRoot)
+  ? readdirSync(staticRoot, { recursive: true })
+      .map(String)
+      .filter((f) => f.endsWith(".css"))
+  : [];
+if (cssFiles.length === 0) {
+  console.error(`No .css bundle anywhere under ${staticRoot} — the packaged app would render unstyled.`);
   process.exit(1);
 }
 
-console.log("Copied .next/static and public/ into .next/standalone, and verified a CSS bundle is present.");
+console.log(
+  `Copied .next/static and public/ into .next/standalone; verified ${cssFiles.length} CSS bundle(s) present.`,
+);
