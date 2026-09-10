@@ -1166,6 +1166,17 @@
   denominator. `outputTokens` carries the same shape of trap and NO denominator can fix it: a model
   that gives up tersely scores better than one that succeeds and explains itself, so a fall here
   ALONGSIDE a fall in hit rate is very plausibly one failure showing up twice, not a wash.
+  ★★ **THE RECORDED `anchorSpec` CHANGES SHAPE AT THE SALT FIX, AND NOTHING COMPARES IT ACROSS
+  RUNS.** All six entries in `docs/baselines/ai-eval-runs.json` recorded a FOUR-field `anchorSpec`
+  (seed, words, targetAtFraction, decoyAtFraction). `ANCHOR_SPEC` now carries a fifth, salt, pinned
+  to 1 so the anchor pair is no longer minted from the RUN salt — which is what made the documented
+  "rotate the salt" repair trip the anchor guard. The next run therefore appends a five-field spec
+  to a series whose earlier entries have four. Nothing reads `anchorSpec` across runs, so nothing
+  breaks; it is recorded here so the discontinuity is not re-discovered later as a mystery.
+  ★ The `anchorHash` is UNCHANGED and identical on all six entries — the new field pins the salt the
+  pair was ALREADY minted at, so it moved no prompt bytes. Verify rather than trusting this line:
+  recompute the hash from `buildAnchorPrompt` and compare it against the recorded `anchorHash`; a
+  fifth field that had moved the bytes would show up there and nowhere else.
   ★★ **WHAT THE UNIT SUITE PINS THAT NOTHING ELSE COULD** — each was a SILENT failure, found by
   probing the lib rather than by reading it. (1) Planted tokens were not collision-free: 11 of salts
   1..5000 produced a within-run collision, including a target equal to its own decoy on the anchor
