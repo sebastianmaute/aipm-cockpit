@@ -316,10 +316,22 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *  entry that MATCHES earns a row, an id that merely sounds close never does.
  *  Do NOT add the next one by picking the closest-sounding id.
  *  ★★ `raciSuggest` IS THE NEXT ONE, and it earned its row the same way:
- *  `concept-raci`'s body defines the four role letters the dialog prints on
+ *  `concept-raci`'s body defines the four ROLES the dialog prints on
  *  every row (`Current: <role> → Proposed: <role>`) and states the
- *  exactly-one-Accountable-per-milestone rule, which is verbatim one of that
- *  dialog's three skip explanations (`raciSuggestSkippedAccountable`). Two
+ *  exactly-one-Accountable-per-milestone rule, which is the SAME RULE one of
+ *  that dialog's three skip explanations states in its own words
+ *  (`raciSuggestSkippedAccountable`).
+ *  ★★ TWO WORDS HERE WERE WRONG AND BOTH OVERSTATED THE MATCH. It said "role
+ *  LETTERS": the body names Responsible / Accountable / Consulted / Informed
+ *  as words and never gives letters, and the dialog renders `ROLE_LABEL_KEY`
+ *  words too — R/A/C/I are the internal `RaciRole` keys, not user-visible
+ *  here. And it said the dialog quotes the rule "VERBATIM": the body says
+ *  "having exactly one Accountable person per milestone prevents confusion"
+ *  while the skip string says "… because that milestone already has an
+ *  Accountable." Same rule, different words. The row is still earned — but a
+ *  justification that overstates its evidence is how the next reviewer talks
+ *  themselves into a weaker match, which is exactly what this block exists to
+ *  prevent. Two
  *  further bespoke dialogs a term probe offered alongside it — the steering
  *  report and the insight recommendation review — were DOWNGRADED on the same
  *  read: no entry describes either subject, so neither got a row. */

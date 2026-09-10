@@ -124,7 +124,7 @@ this slice's own recorded failure mode.
 
 **Body length** (source chars, i.e. as written in `i18n.ts` including escapes — NOT the
 rendered string; the two conventions differ and mixing them is a recorded defect here):
-max **1401** (`helpSecRichTextBody`), median **539**, min **268**
+max **1401** (`helpSecRichTextBody`), median **539** — ★★ CORRECTED 2026-09-10: the median does NOT reproduce (543 excluding quote delimiters, 545 including, 540.5 rendered; the two middle values are 537/549). Min and max are exact under the quotes-included convention, which is what made the median read as checked. Left in place as the record of what was designed against; the plan carries the measurement — min **268**
 (`helpSecTemplateSuggestBody`). Use the median as the prose target.
 
 ---

@@ -8,8 +8,8 @@
 
 **Tech Stack:** React 19 / Next 16, TypeScript, vitest + Testing Library, Playwright (axe gate only).
 
-**Spec:** `docs/superpowers/specs/2026-09-10-modal-help-bespoke-and-content-design.md` (commit `7431856a`)
-**Branch:** `feat/modal-help-bespoke`, cut off `origin/main` = `9adcafde`
+**Spec:** `docs/superpowers/specs/2026-09-10-modal-help-bespoke-and-content-design.md` (commit `4eb31114`)
+**Branch:** `feat/modal-help-bespoke`. Cut off `origin/main` = `9adcafde`, REBASED 2026-09-10 onto `6cf9fcf7` (0.300.0) — every SHA cited in this plan and in the register entries it touches was rewritten by that rebase, and the citations were remapped in the same commit. A SHA from an MR description or a commit message written before then will not resolve.
 
 ---
 
@@ -48,7 +48,7 @@
 | `src/app/calendar-event-modal.tsx`, `task-time-tracking-modal.tsx` | Re-wired; deliberate-absence comments deleted. |
 | 3 bespoke modals (Task 7) | Render `<HelpIconButton>`. |
 | 5 bespoke modals (Task 8) | Gain a refusal comment. |
-| `docs/open-followups.md` | §424 + §453 Status; one new entry (§454) for the seven no-content refusals. |
+| `docs/open-followups.md` | §424 + §453 Status; TWO new entries — §456 (the twelve refusals) and §457 (the stale calendar reachability claim). ★ NOT §454: it and §455 were taken by a sibling branch that merged first, which Task 9 records in capitals. This row said §454 until a cold review caught it contradicting that task. |
 
 ---
 
@@ -446,7 +446,7 @@ For each entry, read the implementing code and produce a table of `claim → fil
 
 - [ ] **Step 2: Write the EN strings into `src/app/i18n.ts`**
 
-Insert after `helpSecPrintBody` (currently `i18n.ts:3758`; **re-locate it by symbol, not by that number** — an insertion above moves it). Target the median body length, **539 source characters**; the corpus runs 268–1401. Use the Edit tool (CRLF file).
+Insert after `helpSecPrintBody` (currently `i18n.ts:3758`; **re-locate it by symbol, not by that number** — an insertion above moves it). Target the median body length; the corpus runs 268–1401. ★★ **NO MEDIAN IS QUOTED, because the one this plan and the spec both carried — 539 — does not reproduce under any convention.** Re-measured 2026-09-10 over the 66-body base corpus: 543 excluding the quote delimiters, 545 including them, 540.5 rendered; the two middle values are 537 and 549. The min and max above ARE exact under the quotes-included convention, which is what made the median look checked. ★ Read it as a rough centre, not a target that binds — the three bodies actually written to it came in at 943 / 930 / 861 source characters, and were accepted at those lengths. Use the Edit tool (CRLF file).
 
 - [ ] **Step 3: Write the DE strings into `src/app/i18n.de.ts` — NEVER with Edit or Write**
 
