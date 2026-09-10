@@ -27,6 +27,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiMessage, SystemBlock } from "../src/app/chat-api";
 import {
   EXIT, PROBES, plantedToken, plantedProbeIds, ANCHOR_SPEC, FILTER_ENV,
+  buildAnchorPrompt, sha256,
 } from "./ai-eval-lib.mjs";
 
 // ★★★ MUST RUN BEFORE THE IMPORT BELOW. `scripts/ai-eval.ts` self-executes at
@@ -211,6 +212,47 @@ describe("runEval — dry run", () => {
 
     // Assert — an unparseable salt mints a stable but unrecordable token
     // universe, so it is refused rather than coerced.
+    expect(code).toBe(EXIT.UNUSABLE);
+    expect(h.sent).toHaveLength(0);
+    expect(h.writes).toHaveLength(0);
+    expect(err.join("\n")).toContain("invalid AI_EVAL_SALT");
+  });
+
+  it("refuses a salt of zero — the lower bound is 1, and 0 is on the wrong side of it", async () => {
+    // Arrange
+    const h = harness({ env: { ...LIVE_ENV, AI_EVAL_SALT: "0" } });
+
+    // Act
+    const code = await runEval(h.deps);
+
+    // Assert — ★★ MUTATION-PROVED against `Number(rawSalt) < 0`, an off-by-one
+    //    that no other test in this file can see: salt 0 is then accepted, no
+    //    "invalid AI_EVAL_SALT" line is printed and the run dispatches the
+    //    whole standard plan. The existing "not-a-number" test cannot catch it
+    //    because the regex rejects that input before the range is consulted.
+    expect(code).toBe(EXIT.UNUSABLE);
+    expect(h.sent).toHaveLength(0);
+    expect(h.writes).toHaveLength(0);
+    expect(err.join("\n")).toContain("invalid AI_EVAL_SALT");
+  });
+
+  it("refuses a salt too large to survive the run record it would be written into", async () => {
+    // Arrange — 309 digits is the shortest input that reaches this: `/^\d+$/`
+    // is satisfied, `Number` overflows to Infinity, and
+    // `JSON.stringify({salt: Infinity})` is `{"salt":null}`. Accepting it mints
+    // a stable, valid, UNRECORDABLE token universe — verbatim the defect the
+    // guard exists to refuse, arriving through the guard itself.
+    const huge = "9".repeat(309);
+    expect(Number(huge)).toBe(Infinity);
+    const h = harness({ env: { ...LIVE_ENV, AI_EVAL_SALT: huge } });
+
+    // Act
+    const code = await runEval(h.deps);
+
+    // Assert — ★★ MUTATION-PROVED against the pre-fix guard (drop
+    //    `Number.isSafeInteger` and test `saltValue < 1` alone): `Infinity < 1`
+    //    is FALSE, so the salt is accepted and the run spends the full standard
+    //    plan on a run nobody can ever reproduce.
     expect(code).toBe(EXIT.UNUSABLE);
     expect(h.sent).toHaveLength(0);
     expect(h.writes).toHaveLength(0);
@@ -554,5 +596,105 @@ describe("runEval — the rolling drift replay", () => {
       expect(arm.system).toBe(parsed.system);
       expect(arm.turn).toBe(parsed.turn);
     });
+  });
+});
+
+/** Today's anchor hash, RECOMPUTED from the same three inputs the CLI uses
+ *  rather than pasted as a constant. A literal here would pin whatever the
+ *  hash was on the day it was typed, so a test seeding "the recorded hash
+ *  matches" would keep passing after the generator moved — which is precisely
+ *  the drift this guard exists to catch. */
+function recordedAnchorHash(): string {
+  return sha256(buildAnchorPrompt(
+    ANCHOR_SPEC,
+    plantedToken("anchor", ANCHOR_SPEC.salt),
+    plantedToken("anchorDecoy", ANCHOR_SPEC.salt),
+  ));
+}
+
+describe("runEval — the drift reference, and the salt that travels with it", () => {
+  it("refuses to spend when the recorded anchor hash is not today's", async () => {
+    // Arrange — a stored run whose anchor hash cannot be today's. A changed
+    // anchor generator means every recorded N score was measured against a
+    // different question, so the series is not comparable and the run has
+    // nothing to learn by spending.
+    const h = harness({
+      files: { [RUNS_PATH]: JSON.stringify({ runs: [{ anchorHash: "0".repeat(64) }] }) },
+    });
+
+    // Act
+    const code = await runEval(h.deps);
+
+    // Assert — ★★ THIS IS THE WIRING PIN, and it is the half that costs money.
+    //    `driftReferenceCheck` was fully unit-tested in the library and its
+    //    RESULT unused here: mutation-proved against `if (false && !drift.ok)`,
+    //    under which the check still computes, pre-flight still reports OK, and
+    //    the run dispatches all 60 requests against a reference it has already
+    //    established is incomparable.
+    expect(code).toBe(EXIT.UNUSABLE);
+    expect(h.sent).toHaveLength(0);
+    expect(h.writes).toHaveLength(0);
+    expect(err.join("\n")).toContain("anchor hash mismatch");
+  });
+
+  it("mints the anchor pair at ANCHOR_SPEC.salt, so rotating AI_EVAL_SALT does not trip the anchor guard", async () => {
+    // Arrange — a recorded anchor hash minted at `ANCHOR_SPEC.salt`, against a
+    // run rotated to salt 2. Rotation is the DOCUMENTED repair for a planted-
+    // token collision, so it must remain executable on a tree that already has
+    // recorded runs; while the anchor pair rode the run salt it did not.
+    const h = harness({
+      env: { ...LIVE_ENV, AI_EVAL_SALT: "2" },
+      files: {
+        [RUNS_PATH]: JSON.stringify({ runs: [{ anchorHash: recordedAnchorHash() }] }),
+      },
+    });
+
+    // Act
+    await runEval(h.deps);
+
+    // Assert — ★★ MUTATION-PROVED against `plantedToken("anchor", salt)`: the
+    //    pair then moves with the rotation, today's hash stops matching the
+    //    recorded one, pre-flight pushes one anchor mismatch and the run spends
+    //    nothing. ★ The exit code is deliberately NOT asserted — the fake
+    //    answering model mints its replies at the default salt, so a rotated
+    //    run scores zero and the verdict is a regression either way. What is
+    //    under test is that the run got as far as SPENDING.
+    expect(err.join("\n")).not.toContain("anchor hash mismatch");
+    expect(h.sent).toHaveLength(STANDARD_REQUESTS);
+  });
+
+  it("scores the rolling replay at the salt of the run that WROTE the file, not the last recorded run's", async () => {
+    // Arrange — a real first run writes both artifacts and records
+    // `rollingWrittenHash` beside its own `salt`. Append a LATER run that wrote
+    // nothing, at a different salt: the rolling reference is then the FIRST
+    // entry while the last RECORDED entry is the second. That split is the only
+    // arrangement that tells `rollingRef.salt` and `last.salt` apart — every
+    // other test in this file has them equal, which is why this survived.
+    const first = harness();
+    await runEval(first.deps);
+    const stored = JSON.parse(first.files[RUNS_PATH]) as {
+      runs: Record<string, unknown>[];
+    };
+    const wrote = stored.runs[stored.runs.length - 1];
+    expect(wrote.salt).toBe(SALT);
+    expect(typeof wrote.rollingWrittenHash).toBe("string");
+    stored.runs.push({ ...wrote, salt: SALT + 1, rollingWrittenHash: null });
+    const second = harness({
+      files: { ...first.files, [RUNS_PATH]: JSON.stringify(stored) },
+    });
+
+    // Act
+    await runEval(second.deps);
+
+    // Assert — ★★ MUTATION-PROVED against `last?.salt ?? salt`: the replay is
+    //    then scored for a token minted at salt 2, which is not in the stored
+    //    bytes at all, and a perfectly healthy replay is recorded as total
+    //    drift. Latent on today's baseline because every recorded run is salt
+    //    1 — live the moment anyone rotates.
+    const record = second.lastRecord() as {
+      drift: { rolling: { hitRate: number } | null };
+    };
+    expect(record.drift.rolling).not.toBeNull();
+    expect(record.drift.rolling?.hitRate).toBe(1);
   });
 });

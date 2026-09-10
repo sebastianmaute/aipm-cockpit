@@ -604,16 +604,36 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   //     `plantedToken` is happy to mint from NaN — a stable, valid, UNRECORDED
   //     token universe (`plantedToken("date", NaN)` = "murkkeshphadkesh"),
   //     which then serialised into the run record as `"salt": null`, i.e. a
-  //     recorded run nobody can ever reproduce. Rejected the way `parseFilter`
-  //     already rejects reps, and for the same reason.
+  //     recorded run nobody can ever reproduce.
+  //
+  //     ★★★ AND THE DIGIT REGEX ALONE DOES NOT CLOSE IT — the first cut of this
+  //     guard let the very defect described above back in through the guard
+  //     written to stop it. A salt of 309 or more digits satisfies `\d+`,
+  //     `Number` returns Infinity, and `Infinity < 1` is FALSE, so it was
+  //     ACCEPTED: `plantedToken` is as happy to mint from Infinity as from NaN,
+  //     and the record again reads `"salt": null`, because
+  //     `JSON.stringify({salt: Infinity})` is `{"salt":null}`. Hence
+  //     `Number.isSafeInteger`, which is the property the record actually
+  //     needs — a salt that does not survive a JSON round-trip cannot be
+  //     reproduced from the run that recorded it.
+  //
+  //     ★★ THIS IS NOT THE BOUND `parseFilter` PUTS ON REPS, and saying so was
+  //     the error this comment used to make. `parseFilter` bounds BOTH ends
+  //     (`reps < 1 || reps > MAX_FILTER_REPS`) because reps drives SPEND, so
+  //     its upper bound is a DOMAIN maximum protecting the wallet — catching
+  //     Infinity is a side effect of that, not its purpose. Salt has no spend
+  //     dimension: a run costs the same at every salt, so there is no domain
+  //     maximum to impose and the only upper bound salt needs is
+  //     representability.
   const rawSalt = (env.AI_EVAL_SALT ?? "1").trim();
-  if (!/^\d+$/.test(rawSalt) || Number(rawSalt) < 1) {
+  const saltValue = Number(rawSalt);
+  if (!/^\d+$/.test(rawSalt) || !Number.isSafeInteger(saltValue) || saltValue < 1) {
     console.error(
       `invalid AI_EVAL_SALT — spending nothing: must be a whole number of at least 1, got ${JSON.stringify(env.AI_EVAL_SALT ?? "")}`,
     );
     return EXIT.UNUSABLE;
   }
-  const salt = Number(rawSalt);
+  const salt = saltValue;
   // ★★ The anchor pair is minted from `ANCHOR_SPEC.salt`, NOT from the run
   //    salt — see that field for why rotating `AI_EVAL_SALT` used to trip the
   //    anchor-hash guard and make the documented collision repair unusable.
