@@ -23,7 +23,7 @@
 //     and `readTextIfExists`/`writeArtifact` are in-memory, so
 //     `docs/baselines/*` is neither read nor written. `AI_EVAL_SPEND` appears
 //     ONLY inside an injected env object — never on `process.env`.
-import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiMessage, SystemBlock } from "../src/app/chat-api";
 import {
   EXIT, PROBES, plantedToken, plantedProbeIds, ANCHOR_SPEC, FILTER_ENV,
@@ -35,10 +35,31 @@ import {
 //     AI_EVAL_IMPORT is "1". `vi.hoisted` is the only way to set an env var
 //     ahead of a static import; without it the import alone starts a real run
 //     and calls `process.exit` out from under the test worker.
-vi.hoisted(() => {
+const { priorImportFlag } = vi.hoisted(() => {
+  const prior = process.env.AI_EVAL_IMPORT;
   process.env.AI_EVAL_IMPORT = "1";
+  return { priorImportFlag: prior };
 });
 import { runEval } from "./ai-eval.ts";
+
+// ★★ Put the worker's env back — but NOT because a leak is reachable today,
+//    and the first version of this comment claimed it was. A cold review said
+//    vitest reuses worker processes across files, so this write would reach
+//    whatever ran next. MEASURED AND REFUTED: vitest 4.1.8 is configured with
+//    neither `pool` nor `isolate` in `vitest.config.ts`, so it runs the default
+//    `forks` pool at `isolate: true` and every test FILE gets a fresh process.
+//    Two probe files in one `--maxWorkers=1` run, the second asserting it could
+//    see a var the first planted, failed with "expected undefined to be
+//    'planted'". A probe that merely READS the key passes either way — it is
+//    vacuous, and it stayed green with this restore deleted.
+//    The restore stays because that isolation is a DEFAULT, not a guarantee:
+//    `pool: "threads"` shares ONE `process.env` across the entire run, and
+//    nothing here pins the pool. Restoring to `undefined` means DELETING the
+//    key — assigning the string "undefined" would leak a truthy value.
+afterAll(() => {
+  if (priorImportFlag === undefined) delete process.env.AI_EVAL_IMPORT;
+  else process.env.AI_EVAL_IMPORT = priorImportFlag;
+});
 
 /** The two artifact paths `runEval` addresses. Hardcoded because they are not
  *  exported and because asserting on them IS the write-decision test — a
