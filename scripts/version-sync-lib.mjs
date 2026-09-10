@@ -69,6 +69,13 @@ export const SATELLITES = [
     ],
   },
   {
+    file: "desktop/package.json",
+    label: "desktop/package.json version",
+    patterns: [
+      { key: "version", kind: "version", re: /("name": "[^"]+",\r?\n  "version": ")([^"]+)(")/ },
+    ],
+  },
+  {
     file: "package-lock.json",
     label: "package-lock.json root + packages[''] version",
     patterns: [

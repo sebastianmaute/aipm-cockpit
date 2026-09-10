@@ -3,6 +3,8 @@
 // ★★ Every case here runs against FIXTURE STRINGS, never the real repo files.
 // A test that reads package.json passes or fails depending on whether someone
 // happens to be mid-release, which makes it a clock rather than a test.
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -196,5 +198,25 @@ describe("diffSatellite", () => {
 
   it("returns nothing when every reading matches", () => {
     expect(diffSatellite(sat("package.json"), { version: "9.9.9" }, "9.9.9", "Zelazny")).toEqual([]);
+  });
+});
+
+describe("desktop/package.json satellite", () => {
+  // desktop/package.json carries a version too, so it must be registered here
+  // or it silently drifts like package.json and package-lock.json did before
+  // this gate existed.
+  it("is a registered version satellite", () => {
+    const s = SATELLITES.find((x) => x.file === "desktop/package.json");
+    if (!s) throw new Error("desktop/package.json must be a satellite or its version silently drifts");
+    expect(s.patterns).toHaveLength(1);
+    expect(s.patterns[0].kind).toBe("version");
+  });
+
+  it("matches the file's real shape", () => {
+    const text = readFileSync("desktop/package.json", "utf8");
+    const s = sat("desktop/package.json");
+    const m = text.match(s.patterns[0].re);
+    if (!m) throw new Error("pattern did not match desktop/package.json — the file's key order or indent moved");
+    expect(m[2]).toMatch(/^\d+\.\d+\.\d+$/);
   });
 });

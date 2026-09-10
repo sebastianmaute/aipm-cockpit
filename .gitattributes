@@ -22,3 +22,9 @@ src/app/__fixtures__/golden-workspace.md -text
 # core.autocrlf can't check it out as CRLF and make `prebuild`'s regeneration
 # see phantom line-ending drift against the freshly generated LF file.
 src/app/operating-guide-builtin.generated.ts text eol=lf
+
+# The desktop/ subtree is a new Electron wrapper, not part of src/app's CRLF
+# working-tree convention (which core.autocrlf governs alone, with no
+# .gitattributes entry of its own). Pin it to LF so it matches the rest of the
+# LF-pinned tooling (scripts/, docs/) rather than inheriting CRLF by accident.
+desktop/** text eol=lf
