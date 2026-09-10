@@ -8,6 +8,46 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.302.0] - 2026-09-10 "Blaylock"
+
+### Changed
+
+- **ESLint 9 → 10**, with `eslint-plugin-react` left entirely alone. The package that
+  blocked this upgrade is still 7.37.5 and still calls `context.getFilename()`, which
+  ESLint 10 removed — nothing is vendored, forked or patched. `eslint.config.mjs` pins
+  `settings.react.version` from `react/package.json` instead, which keeps the config off
+  the `"detect"` path that was the only route reaching the removed call. Upstream
+  PR #4022 was evaluated and deliberately not adopted: its rule-level work touches no
+  rule this repo enables.
+- **The enabled rule set is unchanged.** 113 resolved rule keys, 86 enabled, all 17
+  `react/*` rules loading — byte-identical to what ESLint 9 produced. Whole-repo lint
+  exits 0 over 2125 files.
+
+### Known limitations
+
+- **One silent degradation, accepted.** `componentUtil.js` calls the removed
+  `sourceCode.getJSDocComment()` inside a pre-existing `try/catch`, so a class whose only
+  claim to being a React component is a JSDoc `@augments`/`@extends` tag stops being
+  detected. There is no crash and no warning — lint still exits 0. The repo has zero such
+  declarations, and `src/app/jsdoc-component-declaration.guard.test.ts` is the only thing
+  that will report it if that changes.
+- **Do not set `settings.react.flowVersion`.** A second route reaches the same removed
+  API and is held shut only by that key being absent. Setting it to `"detect"` produces
+  swallowed failures and a clean exit 0 — a second silent degradation, not a crash.
+- **Six `react/*` rules hard-crash under ESLint 10** (`forward-ref-uses-ref`,
+  `jsx-curly-spacing`, `jsx-equals-spacing`, `jsx-filename-extension`,
+  `jsx-one-expression-per-line`, `jsx-tag-spacing`). None is enabled here — they are
+  absent from the resolved config, not merely off — so enabling one takes lint from
+  exit 0 to exit 2 with no report written. Treat six as a floor, not an enumeration.
+
+### Added
+
+- `jsdoc-component-declaration.guard.test.ts` — scans every tree `npm run lint` covers
+  (`src`, `e2e`, `e2e-crossengine`, `scripts` and the root configs, minus the one file
+  `globalIgnores` excludes) for JSDoc-only component declarations. Its needle set is
+  pinned by an equality assertion and its per-tree membership by named members, both
+  mutation-proved; the file-count floor is a backstop, not the detector.
+
 ## [0.301.0] - 2026-09-10 "Arnason"
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "aipm-cockpit",
-  "version": "0.301.0",
+  "version": "0.302.0",
   "private": true,
   "license": "EUPL-1.2",
   "engines": {
@@ -109,7 +109,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-v8": "^4.1.8",
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-next": "16.2.6",
     "fake-indexeddb": "^6.2.5",
     "fast-check": "^4.8.0",

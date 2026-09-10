@@ -1,10 +1,48 @@
+import { createRequire } from "node:module";
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
+const reactVersion = createRequire(import.meta.url)("react/package.json").version;
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // eslint-config-next sets settings.react.version = "detect" and nothing else under
+  // settings.react. Under ESLint 10 that detect path is the only route THIS config reaches
+  // into eslint-plugin-react 7.37.5's removed context.getFilename(), which aborts rule
+  // loading outright — exit 2, with no report file written at all.
+  //
+  // ★★ TWO CALLERS, TWO DIFFERENT GATES — do not restate this as one. resolveBasedir is
+  // also reached from detectFlowVersion, gated on settings.react.flowVersion, a SEPARATE
+  // key this pin does not set.
+  //
+  // ★★★ WHAT HOLDS THAT SECOND ROUTE SHUT IS THE UNSET SETTING, NOT AN UNREACHED RULE, and
+  // this comment asserted the opposite for a release. An enabled rule DOES reach
+  // testFlowVersion today — propTypes.js resolveSuperParameterPropsType, three times on
+  // src/app/error-boundary.tsx alone. It gets no further because getFlowVersionFromContext
+  // (version.js) throws 'Could not retrieve flowVersion from settings' when the key is
+  // absent, before detectFlowVersion is ever called.
+  //
+  // ★★★ SO SETTING flowVersion: "detect" DOES NOT REOPEN THE CRASH — it opens a SECOND
+  // SILENT DEGRADATION, the same class as the getJSDocComment one below. Measured, not
+  // reasoned: with it injected, the same three calls throw
+  // "contextOrFilename.getFilename is not a function" and propTypes.js's own try/catch
+  // swallows all three into a params-length fallback. Lint still exits 0.
+  //
+  // ★★ AND THE OLD "measured: … lints clean" WAS UNFALSIFIABLE EVIDENCE. A clean lint is
+  // the predicted outcome under BOTH hypotheses, so it confirmed the one already believed
+  // and nobody looked again. To re-measure, instrument the call — do not read the exit code.
+  //
+  // Derived, not restated — and the reason is the absence of a gate, not the presence of
+  // one: version-sync-check reads APP_VERSION and the codename only, so NOTHING in this
+  // repo would catch a stale hardcoded React version. That is what makes deriving
+  // load-bearing rather than tidy.
+  //
+  // Keep the pin even after upstream ships v10 support: it is deterministic. It does NOT
+  // save "a probe per rule load" — detectReactVersion memoises into
+  // cachedDetectedReactVersion, so what it avoids is one filesystem probe per process.
+  { settings: { react: { version: reactVersion } } },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
