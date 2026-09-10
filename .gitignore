@@ -12,6 +12,9 @@ node_modules/
 
 # Compiler output for the desktop/ subtree (tsc -p desktop/tsconfig.json emits here)
 desktop/dist/
+# electron-builder packaging output (installers, unpacked app trees) -- large,
+# machine-specific, and rebuilt from desktop:package; never tracked.
+desktop/release/
 /.pnp
 .pnp.*
 .yarn/*

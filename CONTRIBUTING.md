@@ -62,6 +62,8 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run version:sync` | Propagate src/app/version.ts's version and codename to every restatement |
 | `npm run ai:eval` | AI prompt-quality harness (slice H). DRY RUN BY DEFAULT — assembles every arm, runs pre-flight and spends nothing. A live run needs AI_EVAL_SPEND=1 plus ANTHROPIC_API_KEY and refuses outright under CI. Never a pipeline gate: every live run costs real tokens. |
 | `npm run desktop:copy-static` | Copy .next/static and public/ into .next/standalone (next build --output standalone does not copy either) and verify a CSS bundle is present — omitting this ships an Electron package that boots and renders completely unstyled with no build-time error. Requires a prior `NEXT_STANDALONE=1 npm run build`. |
+| `npm run desktop:build` | Build the Electron desktop shell: a standalone Next build (NEXT_STANDALONE=1), then desktop:copy-static, then compile desktop/ TypeScript to desktop/dist/. Run before desktop:package. |
+| `npm run desktop:package` | Package the built Electron shell into a Windows NSIS installer via electron-builder, reading desktop/electron-builder.yml. Run desktop:build first. |
 <!-- END AUTO-GENERATED -->
 
 There is no separate `tsc` script — `next build` runs the TypeScript check

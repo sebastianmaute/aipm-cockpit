@@ -1,0 +1,25 @@
+appId: io.github.sebastianmaute.aipm-cockpit
+productName: aipm-cockpit
+directories:
+  output: release
+files:
+  - dist/**
+  - splash.html
+  - package.json
+# The built Next standalone server ships as an unpacked resource, so
+# process.resourcesPath/standalone/server.js resolves at runtime.
+extraResources:
+  - from: ../.next/standalone
+    to: standalone
+win:
+  target: nsis
+  # Unsigned: no certificate is available. See the spec's Section 7 security
+  # note -- this means SmartScreen prompts on install, and (once the updater
+  # lands) that the share ACL is the only integrity control on updates.
+  signAndEditExecutable: false
+nsis:
+  # Per-user install: corporate laptops routinely deny admin rights, and a
+  # machine-wide installer turns "double-click to run" back into a ticket.
+  perMachine: false
+  oneClick: false
+  allowToChangeInstallationDirectory: true

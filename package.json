@@ -40,7 +40,9 @@
     "version:check": "node scripts/check-version-sync.mjs",
     "version:sync": "node scripts/check-version-sync.mjs --update",
     "ai:eval": "npx vite-node scripts/ai-eval.ts",
-    "desktop:copy-static": "node desktop/scripts/copy-static.mjs"
+    "desktop:copy-static": "node desktop/scripts/copy-static.mjs",
+    "desktop:build": "node -e \"process.env.NEXT_STANDALONE='1';require('child_process').execSync('npm run build',{stdio:'inherit',env:process.env})\" && npm run desktop:copy-static && npm --prefix desktop run build",
+    "desktop:package": "npm --prefix desktop exec electron-builder -- --config electron-builder.yml --project desktop"
   },
   "scriptsDescriptions": {
     "dev": "Start Next.js dev server with hot reload on http://localhost:3000",
@@ -75,7 +77,9 @@
     "version:check": "Fail if a version restatement (package.json, lockfile, README badge, codemap headers) has drifted from src/app/version.ts",
     "version:sync": "Propagate src/app/version.ts's version and codename to every restatement",
     "ai:eval": "AI prompt-quality harness (slice H). DRY RUN BY DEFAULT — assembles every arm, runs pre-flight and spends nothing. A live run needs AI_EVAL_SPEND=1 plus ANTHROPIC_API_KEY and refuses outright under CI. Never a pipeline gate: every live run costs real tokens.",
-    "desktop:copy-static": "Copy .next/static and public/ into .next/standalone (next build --output standalone does not copy either) and verify a CSS bundle is present — omitting this ships an Electron package that boots and renders completely unstyled with no build-time error. Requires a prior `NEXT_STANDALONE=1 npm run build`."
+    "desktop:copy-static": "Copy .next/static and public/ into .next/standalone (next build --output standalone does not copy either) and verify a CSS bundle is present — omitting this ships an Electron package that boots and renders completely unstyled with no build-time error. Requires a prior `NEXT_STANDALONE=1 npm run build`.",
+    "desktop:build": "Build the Electron desktop shell: a standalone Next build (NEXT_STANDALONE=1), then desktop:copy-static, then compile desktop/ TypeScript to desktop/dist/. Run before desktop:package.",
+    "desktop:package": "Package the built Electron shell into a Windows NSIS installer via electron-builder, reading desktop/electron-builder.yml. Run desktop:build first."
   },
   "dependencies": {
     "@azure/msal-browser": "^5.16.0",
