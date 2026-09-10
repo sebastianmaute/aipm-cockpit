@@ -577,7 +577,7 @@ export async function runEval(overrides: Partial<EvalDeps> = {}): Promise<number
   }
 
   // ★★★ THE DIAGNOSTIC FILTER. It exists so one broken probe can be re-run for
-  //     cents rather than sixty requests, and everything downstream treats a
+  //     cents rather than the full 65, and everything downstream treats a
   //     non-null filter as poison: `verdict` refuses to pass, and
   //     `shouldWriteRolling` refuses to write. Parsed FIRST so a typo'd probe
   //     id costs nothing.
@@ -1117,7 +1117,7 @@ ${armA.turn}`;
 
   // ★★★ WHAT THE MODEL ACTUALLY SAID, for every reply that was not a hit, plus
   //     ONE exemplar hit per (probe, arm) so a reader can see what a good answer
-  //     looks like without storing all sixty. The first live run recorded scores
+  //     looks like without storing every one. The first live run recorded scores
   //     alone, and `chatPointer` scoring 0.0 on the UNCHANGED baseline was then
   //     undiagnosable — a refusal, a paraphrase and an answer to a different
   //     question are one number, and telling them apart cost another full run.

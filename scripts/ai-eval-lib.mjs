@@ -834,7 +834,12 @@ export function filterSpec(filter) {
 /** Read the diagnostic filter out of the environment.
  *
  *  ★★ A filter exists so one broken probe can be re-run for cents instead of
- *  the standard run's sixty requests. That affordability is the whole point,
+ *  the standard run's full sweep — 65 requests, from
+ *  `activeProbes * (A + B + X) + N + R` in `ai-eval.ts`. It was SIXTY before a
+ *  rolling reference existed, and this line said so for one commit past the
+ *  point that stopped being true; the reference is committed now, so `R` is
+ *  never 0 here and 60 cannot occur again. Derive it, do not trust this
+ *  number: `PROBES.length * (2 * REPS + 1) + 2 * REPS`. That affordability is the whole point,
  *  and it is also the danger: a narrowed run that reported a normal verdict
  *  would be a confident green over a measurement of almost nothing. `verdict`
  *  and `shouldWriteRolling` both refuse outright on a non-null filter, which is
