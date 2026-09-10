@@ -83,11 +83,30 @@ describe("plantedToken", () => {
     //  (sqrt(2**32) ≈ 65536) — measured first collision at salt 66350
     //  ("viewScope" vs "chatPointer"), none in 1..3000. Coverage of ordinary
     //  usage, not a substitute for the targeted pin below.
+    //
+    //  ★★ THE ASSERTION IS HOISTED OUT OF THE LOOP, and that is a CI fix, not a
+    //  style preference. 3000 iterations each calling a matcher ran 25.2s under
+    //  v8 coverage instrumentation in the pipeline and blew the 20s testTimeout,
+    //  while the same sweep passes in a fraction of that locally WITHOUT
+    //  coverage — which is why nothing local caught it. The minting is not the
+    //  cost; the matcher machinery is. Collect, then assert once.
+    const collisions = [];
+    let checked = 0;
     for (let salt = 1; salt <= 3000; salt += 1) {
       const tokens = TOKEN_IDS.map((id) => plantedToken(id, salt));
-      expect(new Set(tokens).size).toBe(TOKEN_IDS.length);
+      checked += 1;
+      if (new Set(tokens).size !== TOKEN_IDS.length) collisions.push(salt);
     }
-  });
+    //  ★ A bare "no collisions" assertion passes just as well over a loop that
+    //  never ran — a bound typo'd to 0 would read as a clean sweep. This catches
+    //  that. It does NOT prove the range is right: both 3000s are literals a
+    //  single edit would change together, so read it as a typo guard, not as a
+    //  pin on the range. The range's justification is the measurement above.
+    expect(checked).toBe(3000);
+    expect(collisions).toEqual([]);
+    // The explicit timeout is belt-and-braces for a loaded runner; the hoist
+    // alone is what brings this back under the global 20s.
+  }, 60000);
 
   it("resolves the salt where a first-candidate-only draw naturally collides", () => {
     // ★★★ THE MUTATION-KILLING PIN. At salt 66350, generateToken(id, 66350, 0)
