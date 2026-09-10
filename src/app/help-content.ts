@@ -51,7 +51,12 @@ export const HELP_GROUP_LABEL: Record<HelpGroup, TranslationKey> = {
  *  HelpEntry[]` HERE widens `id` back to `string` even with `as const` below —
  *  `HelpEntryId` then compiles, exports, and catches nothing. But exporting
  *  THIS binding as `HELP_ENTRIES` does not work either: `as const` makes it a
- *  66-member heterogeneous tuple, and the three OPTIONAL fields (`primerKey`,
+ *  heterogeneous tuple one member per entry (★ no count is quoted — every
+ *  slice that adds an entry moves it, and nothing gates a number in a `src/`
+ *  comment. ★★ Derive it with `grep -c "^  { id: " src/app/help-content.ts`,
+ *  anchored at the ROW: the obvious unanchored form matches this very comment
+ *  and reports one too many — a self-referential grep is measured against the
+ *  file it is written in), and the three OPTIONAL fields (`primerKey`,
  *  `relatedViews`, `relatedConcepts`) then do not exist on every member, so
  *  every consumer that reads one fails to typecheck (measured: 18 errors
  *  across 4 files). So the literal keeps the precise type for the union to be
@@ -200,6 +205,16 @@ const HELP_ENTRIES_LITERAL = [
   { id: "feature-table-columns", group: "features", titleKey: "helpSecTableColumnsTitle", bodyKey: "helpSecTableColumnsBody" },
   { id: "feature-print", group: "features", titleKey: "helpSecPrintTitle", bodyKey: "helpSecPrintBody" },
 
+  // ── Subjects a bespoke modal needs and nothing covered (§453 gaps 1-3) ──
+  // ★★ These three exist because `MODAL_HELP` below had NO apt entry to point
+  // three dialogs at, not because a coverage gate asked for them — the gate is
+  // defined over VIEWS and is structurally blind to a subject like "estimates".
+  // Read the ★★ note on `MODAL_HELP` for the two rows that were REMOVED rather
+  // than pointed at the nearest-sounding id.
+  { id: "feature-meeting-series", group: "features", titleKey: "helpSecMeetingSeriesTitle", bodyKey: "helpSecMeetingSeriesBody", relatedViews: ["calendar"] },
+  { id: "feature-document-assets", group: "features", titleKey: "helpSecDocumentAssetsTitle", bodyKey: "helpSecDocumentAssetsBody", relatedViews: ["documents"] },
+  { id: "feature-task-effort", group: "features", titleKey: "helpSecTaskEffortTitle", bodyKey: "helpSecTaskEffortBody", relatedViews: ["open-points"] },
+
   // ── What's automated ──
   { id: "automated-tracking", group: "automated", titleKey: "helpAutomatedTrackingTitle", bodyKey: "helpAutomatedTrackingBody", relatedViews: ["dashboard", "actions", "open-points"], relatedConcepts: ["concept-task-status"] },
   { id: "automated-health", group: "automated", titleKey: "helpAutomatedHealthTitle", bodyKey: "helpAutomatedHealthBody", relatedViews: ["dashboard", "budget", "trends"], relatedConcepts: ["concept-budget", "concept-baseline"] },
@@ -249,22 +264,30 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *  to one.
  *
  *  ★★ A modal with NO apt entry gets NO ROW, and that is the deliberate
- *  answer rather than the nearest-neighbour one. TWO modals have now been
- *  removed on that criterion, not one:
+ *  answer rather than the nearest-neighbour one. TWO modals were removed on
+ *  that criterion, not one:
  *    • `taskTimeTracking` (the Jira-style estimate / spent / remaining
  *      dialog) pointed at `feature-timelog`, which describes the external
  *      Timelog INTEGRATION — a different subject that implies those figures
- *      sync somewhere they do not. No entry mentions estimates at all
- *      (reproduce: search every body for "estimate" / "time spent" /
- *      "remaining" — zero hits).
+ *      sync somewhere they do not.
  *    • `calendarEvent` (the recurring MEETING SERIES editor) pointed at
  *      `feature-resources`, whose Calendar sentence enumerates that sub-tab
  *      as "tasks, absences, and holidays" — so the entry told the reader the
  *      surface holds three things that are not what they are editing.
- *      Measured 2026-09-09 over all 66 entries' titles + bodies: "series"
- *      matches ZERO of them.
- *  Do NOT reinstate either by picking the closest-sounding id; write a
- *  task-effort / meeting-series entry first. */
+ *  ★★★ THE SUBJECT GAP THAT JUSTIFIED BOTH REMOVALS IS NOW CLOSED, AND THIS
+ *  NOTE USED TO CARRY THE MEASUREMENTS AS IF THEY STILL HELD. It said "no
+ *  entry mentions estimates at all … zero hits" and, of "series", "measured
+ *  2026-09-09 over all 66 entries' titles + bodies: matches ZERO of them".
+ *  Both were true when written and BOTH WERE FALSIFIED BY THE VERY COMMIT
+ *  that added `feature-meeting-series`, `feature-document-assets` and
+ *  `feature-task-effort` above (§453 gaps 1-3) — a removal's justification
+ *  outliving the condition it measured is this file's own recurring defect.
+ *  Read them as the RECORD of why the two rows went, never as today's state.
+ *  ★★ ADDING THE ENTRY IS NOT THE SAME AS RESTORING THE ROW, and this map is
+ *  deliberately unchanged: pointing either dialog at its new entry is a
+ *  wiring decision reviewed as CONTENT (read the entry against the surface),
+ *  not something the entry's existence settles. The rule above still governs.
+ *  Do NOT reinstate either by picking the closest-sounding id. */
 export const MODAL_HELP = {
   raidEdit: "concept-raid",
   changeEdit: "concept-change",
