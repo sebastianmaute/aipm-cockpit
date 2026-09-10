@@ -115,7 +115,13 @@ describe("MODAL_HELP", () => {
     const used = new Map<string, string[]>();
     for (const f of files) {
       const src = readFileSync(join(__dirname, f), "utf8");
-      for (const m of src.matchAll(/helpConceptId=\{MODAL_HELP\.([A-Za-z0-9_]+)\}/g)) {
+      // ★★ TWO ATTRIBUTE SPELLINGS, ONE MAP. `ModalHeader` takes
+      // `helpConceptId`; a headerless dialog renders `<HelpIconButton
+      // conceptId={...}>` directly. Matching only the first spelling would
+      // report every bespoke site as an unwired key -- a red that names the
+      // wrong 19 files. `ModalHeader`'s own internal `conceptId={helpConceptId}`
+      // does not match, because the value is not a `MODAL_HELP.` member.
+      for (const m of src.matchAll(/(?:helpConceptId|conceptId)=\{MODAL_HELP\.([A-Za-z0-9_]+)\}/g)) {
         used.set(m[1], [...(used.get(m[1]) ?? []), f]);
       }
     }
