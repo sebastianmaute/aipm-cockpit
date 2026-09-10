@@ -12,6 +12,32 @@
 
 ---
 
+## ★★ EXECUTED AND SUPERSEDED IN PLACES — read this before following any step
+
+All seven tasks shipped on `chore/eslint-10-upgrade`. This file is kept as the execution record,
+so its steps are **not** rewritten to match what was later learned. Three things below are now
+known to be wrong or stale; the design doc carries the corrected versions:
+
+1. **The Architecture paragraph above drops a conjunct.** `resolveBasedir` has **two** callers.
+   `detectFlowVersion` is gated on `settings.react.flowVersion` — a *different* key the pin does
+   not set — and is unreachable only because no enabled rule reaches `testFlowVersion`. "The only
+   route" is true of this config, not of the plugin.
+
+2. **`files: 2122` is a dated measurement, not a target.** After merging `origin/main` (0.301.0)
+   the same whole-repo run reports **2125**, still 0 findings at exit 0. Anyone writing down 2122
+   post-merge and comparing will read the delta as breakage. Re-derive, or read the exit code.
+
+3. **Task 6's proposed tech-debt row is not what shipped.** The row was corrected on 2026-09-10
+   after cold review — the trigger bound, the derivation rationale and the file count all changed.
+   Read `docs/tech-debt-register.md` itself, never this copy of it.
+
+Also added after the fact and absent from every task here: a **forward-hazards** section in the
+design (six `react/*` rules that hard-crash under v10, plus the `getComments` family), and a
+positive control pinning the guard test's needle set — narrowing it had left the suite green with
+a live offender in the tree.
+
+---
+
 ## Preconditions
 
 Read these before Task 1. They are not optional and each has cost a build in this repo.
