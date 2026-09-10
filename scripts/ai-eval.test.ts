@@ -42,20 +42,25 @@ const { priorImportFlag } = vi.hoisted(() => {
 });
 import { runEval } from "./ai-eval.ts";
 
-// ★★ Put the worker's env back — but NOT because a leak is reachable today,
-//    and the first version of this comment claimed it was. A cold review said
-//    vitest reuses worker processes across files, so this write would reach
-//    whatever ran next. MEASURED AND REFUTED: vitest 4.1.8 is configured with
-//    neither `pool` nor `isolate` in `vitest.config.ts`, so it runs the default
-//    `forks` pool at `isolate: true` and every test FILE gets a fresh process.
-//    Two probe files in one `--maxWorkers=1` run, the second asserting it could
-//    see a var the first planted, failed with "expected undefined to be
-//    'planted'". A probe that merely READS the key passes either way — it is
-//    vacuous, and it stayed green with this restore deleted.
-//    The restore stays because that isolation is a DEFAULT, not a guarantee:
-//    `pool: "threads"` shares ONE `process.env` across the entire run, and
-//    nothing here pins the pool. Restoring to `undefined` means DELETING the
-//    key — assigning the string "undefined" would leak a truthy value.
+// ★★ Put the worker's env back. This is HYGIENE, not a fix for a live leak,
+//    and the first two versions of this comment each asserted a mechanism
+//    nobody had measured — which is why the evidence is written out here.
+//    A cold review said vitest reuses worker processes across files, so this
+//    write would reach whatever ran next. Under THIS repo's config it does
+//    not: `vitest.config.ts` sets neither `pool` nor `isolate`, and two probe
+//    files in one `--maxWorkers=1 --fileParallelism=false` run — the second
+//    asserting it can see a variable the first planted — fail, whether the
+//    write is made at module scope or inside a test body.
+//    ★ The shape that proves NOTHING: a probe that merely READS the key
+//    passes either way. One stayed green with this restore deleted.
+//    ★★ What is NOT settled is which non-default config would leak. A
+//    reviewer reproduced one at `--isolate=false` against this real file;
+//    the same flag against synthetic probes did not reproduce for me, at
+//    `--isolate=false` or `--pool=threads`. Two measurements disagree and
+//    neither has been reconciled, so NO mechanism is claimed here. The
+//    restore costs three lines and makes the question moot.
+//    Restoring to `undefined` DELETES the key — assigning the string
+//    "undefined" would leave a truthy value behind.
 afterAll(() => {
   if (priorImportFlag === undefined) delete process.env.AI_EVAL_IMPORT;
   else process.env.AI_EVAL_IMPORT = priorImportFlag;
