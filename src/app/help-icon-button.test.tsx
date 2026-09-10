@@ -1,12 +1,21 @@
 // src/app/help-icon-button.test.tsx
 //
 // ★★ THIS FILE EXISTS BECAUSE THE BEHAVIOUR MOVED AND ITS PIN DID NOT.
-// `HelpIconButton` was extracted from `ModalHeader`, but the only test of its
-// focus containment is `modal-header.test.tsx`'s "keeps Tab inside the dialog
-// while the help popover is open" — reachable ONLY through `ModalHeader`. A
-// headerless consumer (`raci-suggest-modal.tsx` is the first) had no local pin
-// at all, so deleting the popover's close button would have gone red in a file
-// that names a component the change did not touch, or not at all.
+// `HelpIconButton` was extracted from `ModalHeader`, and BEFORE THIS FILE the
+// only test of its focus containment WAS `modal-header.test.tsx`'s "keeps Tab
+// inside the dialog while the help popover is open" — reachable ONLY through
+// `ModalHeader`. A headerless consumer (`raci-suggest-modal.tsx` is the first)
+// had no local pin at all, so deleting the popover's close button would have
+// gone red in a file that names a component the change did not touch, or not
+// at all.
+//
+// ★★ PAST TENSE IS LOAD-BEARING — an earlier revision said "the only test of
+// its focus containment IS `modal-header.test.tsx`'s" and shipped inside the
+// same commit as the local test below, so the file's own header denied the
+// file's own contents. A reader hunting the local pin concludes there is none.
+// Note the two tests SHARE A NAME and are not equivalent: the one in
+// `modal-header.test.tsx` drives six presses through `ModalHeader`; the one
+// here drives twelve against this component directly.
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

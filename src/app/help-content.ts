@@ -257,8 +257,17 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *  change here by reading the entry, not by running tsc.
  *
  *  ★ `help-content.test.ts` pins that every value resolves AND that the map
- *  still has 22 rows — the count is the anti-vacuity floor, so update it
- *  deliberately when adding a modal, never to make a red run green.
+ *  still has an EXACT number of rows — the count is the anti-vacuity floor, so
+ *  update it deliberately when adding a modal, never to make a red run green.
+ *
+ *  ★★★ NO ROW COUNT IS QUOTED HERE, AND RESTORING ONE IS A REGRESSION. This
+ *  line said "22 rows" while the map held 23 and the test asserted 23 — the
+ *  commit that added `notesWindow` bumped the test and left the prose. Three
+ *  independent reviewers found it, and the direction of the harm is what makes
+ *  it worth a ★★★: a maintainer who reds the count, reads 22 here and believes
+ *  it concludes the TEST has drifted and edits the test down, which is exactly
+ *  what the sentence above forbids. The count lives in ONE place — read it off
+ *  `expect(entries.length).toBe(...)` in `help-content.test.ts`.
  *
  *  ★★ ONE KEY MAY SERVE SEVERAL CALL SITES, and `backendConfig` does.
  *  `BackendConfigModal` takes a REQUIRED `helpConceptId`, so its three

@@ -321,20 +321,100 @@ describe("NotesWindow", () => {
     const trigger = screen.getByRole("button", {
       name: t(EN, "modalHelpAbout", dialogTitle),
     });
-    // ★ The DISCRIMINATOR, not decoration: a bare "Help" would render and pass
-    // an existence check while colliding with any second help icon in the
-    // document. Qualifying by the entity label is the whole point of threading
-    // `dialogTitle`, and only naming the expected string can catch a regression
-    // to the unqualified form.
+    // ★ The `getByRole` ABOVE is the discriminator — it queries by the full
+    // qualified name, so a regression to a bare "Help" throws there. This line
+    // is a READABILITY restatement of what that query already enforces, kept
+    // because the failure it produces names the missing substring instead of
+    // dumping every button in the document.
+    // ★★ An earlier comment here called this line "the DISCRIMINATOR, not
+    // decoration" and said "only naming the expected string can catch a
+    // regression" — both false, and in the direction that matters: it credits
+    // a redundant assertion with the work the query does, so deleting the
+    // query and keeping this line would read as safe. It is not.
     expect(trigger.getAttribute("aria-label")).toContain("Task ABC");
 
+    // ★★★ THE EXPECTED ID IS HARDCODED, AND IT MUST STAY HARDCODED. An
+    // earlier revision derived it — `HELP_ENTRIES.find(e => e.id ===
+    // MODAL_HELP.notesWindow)` — and its comment claimed that tied the
+    // surface to `feature-rich-text` specifically. It did the opposite:
+    // expectation and component read the SAME constant, so repointing
+    // `notesWindow` at any other real entry moved both together and the test
+    // stayed GREEN. That is precisely the "well-spelled wrong id" case the
+    // comment named as its reason for existing — a derived assertion cannot
+    // falsify the derivation. Cold review caught it by mutation.
+    expect(MODAL_HELP.notesWindow).toBe("feature-rich-text");
     // ★★ ANTI-VACUITY, and it pins the MAP not just the wiring: an id that
     // resolved to no entry makes `HelpIconButton` render NOTHING, so the
-    // getByRole above would already fail — but a WELL-SPELLED WRONG id
-    // typechecks and renders fine. Asserting the popover's own heading is what
-    // ties this surface to `feature-rich-text` specifically.
-    const entry = HELP_ENTRIES.find((e) => e.id === MODAL_HELP.notesWindow)!;
+    // getByRole above would already fail — but a well-spelled wrong id
+    // typechecks and renders fine, which the line above is what catches.
+    // This second half proves the entry actually REACHES the popover heading.
+    const entry = HELP_ENTRIES.find((e) => e.id === "feature-rich-text")!;
     await user.click(trigger);
     expect(screen.getByRole("dialog", { name: t(EN, entry.titleKey) })).toBeTruthy();
+  });
+
+  // ★★★ THIS PINS A MEASUREMENT THAT LIVED ONLY IN PROSE. `notes-window.tsx`
+  // records two probe arms — a baseline with no help icon where Tab leaves the
+  // window, and a treatment with the popover open where it does not — and
+  // concludes "this window does NOT contain Tab today, this slice did not
+  // change that". Nothing pressed Tab in any test, so that conclusion had no
+  // regression guard in either direction: a later change that gave the window
+  // a trap, or that stopped `PopoverPanel` containing on a non-`Modal` host,
+  // would go unnoticed while the comment went on asserting a measurement
+  // nobody could re-run. The component's own docstring states the rule as
+  // "MEASURE the baseline before and the treatment after, and record both" —
+  // recording it in a comment is not recording it.
+  //
+  // ★★ THE ASSERTIONS ARE NOT THE PROBE'S NUMBERS, deliberately. The recorded
+  // 7-and-8 positions were measured with NO icon in the tree; the icon adds a
+  // tab stop, so pinning those ordinals here would fail for a reason that has
+  // nothing to do with the property. What is pinned is the SHAPE both arms
+  // showed: closed, focus escapes the window within twelve presses; open, it
+  // never leaves the popover.
+  //
+  // ★ A RED HERE IS A QUESTION, NOT A BUG. The escape arm pins today's
+  // NON-containment. If someone deliberately gives this window a focus trap
+  // that is an improvement, and this test is where they find out they changed
+  // a recorded property — go update the measurement in `notes-window.tsx`
+  // rather than deleting the assertion.
+  it("does not contain Tab when the popover is closed, and does while it is open", async () => {
+    const user = userEvent.setup();
+    setup();
+    // The falsifier: a control OUTSIDE the window. Without it, "focus left the
+    // window" is unobservable — every assertion would pass against a tree that
+    // simply ran out of focusables.
+    const outside = document.createElement("button");
+    outside.textContent = "outside";
+    document.body.appendChild(outside);
+    try {
+      const trigger = screen.getByRole("button", {
+        name: t(EN, "modalHelpAbout", `${t(EN, "noteLogTitle")} — Task ABC`),
+      });
+
+      // ARM 1 — popover CLOSED. Focus must reach the outside button.
+      const closed: Element[] = [];
+      for (let i = 0; i < 12; i++) {
+        await user.tab();
+        closed.push(document.activeElement as Element);
+      }
+      expect(closed).toContain(outside);
+
+      // ARM 2 — popover OPEN. Focus must never leave the popover's close
+      // button, which is the panel's only focusable and therefore the whole
+      // reason `HelpIconButton` renders one (see its docstring).
+      await user.click(trigger);
+      const panelClose = screen.getByRole("button", {
+        name: `${t(EN, "alertModalClose")} – ${t(EN, HELP_ENTRIES.find((e) => e.id === "feature-rich-text")!.titleKey)}`,
+      });
+      const open: Element[] = [];
+      for (let i = 0; i < 12; i++) {
+        await user.tab();
+        open.push(document.activeElement as Element);
+      }
+      expect(open).toEqual(Array(12).fill(panelClose));
+      expect(open).not.toContain(outside);
+    } finally {
+      outside.remove();
+    }
   });
 });

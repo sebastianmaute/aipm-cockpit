@@ -83,6 +83,16 @@ export function NotesWindow(props: NotesWindowProps) {
 
   if (!open) return null;
 
+  // ★★ ONE SPELLING, THREE SINKS. This string is the window's accessible name
+  // (`aria-label`), its visible heading, and the `dialogTitle` qualifying the
+  // help trigger's own name. Spelled separately, an edit to one leaves the
+  // trigger announcing "Help – <old name>" while the dialog announces the new
+  // one — a WCAG 2.5.3 label-in-name mismatch that NOTHING here can catch:
+  // axe's `label-content-name-mismatch` is tagged `experimental` and axe's
+  // default `tagExclude` drops it, so the gate never runs it in any view.
+  // Deriving all three from one const makes the drift unrepresentable.
+  const windowTitle = `${t(lang, "noteLogTitle")} — ${entityLabel}`;
+
   return (
     <div
       ref={panelRef}
@@ -90,7 +100,7 @@ export function NotesWindow(props: NotesWindowProps) {
       // Focus target for `usePanelInitialFocus` — carries no focus ring, and is
       // deliberately not in the tab order.
       tabIndex={-1}
-      aria-label={`${t(lang, "noteLogTitle")} — ${entityLabel}`}
+      aria-label={windowTitle}
       style={{ left: pos?.x ?? DEFAULT_X, top: pos?.y ?? DEFAULT_Y, maxWidth: "100vw", maxHeight: "calc(100vh - 32px)" }}
       className="fixed z-40 flex h-[560px] min-h-72 w-[480px] min-w-[320px] resize flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-card)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
     >
@@ -98,9 +108,7 @@ export function NotesWindow(props: NotesWindowProps) {
         onMouseDown={onTitleBarMouseDown}
         className="flex shrink-0 cursor-move select-none items-center justify-between border-b border-line px-4 py-2"
       >
-        <h3 className="truncate text-sm font-semibold text-foreground">
-          {t(lang, "noteLogTitle")} — {entityLabel}
-        </h3>
+        <h3 className="truncate text-sm font-semibold text-foreground">{windowTitle}</h3>
         <div className="flex items-center gap-1">
           {/* ★★★ THE FIRST `HelpIconButton` OUTSIDE A `Modal`, AND THAT WAS
               MEASURED BEFORE IT WAS WIRED — the component's docstring used to
@@ -134,7 +142,7 @@ export function NotesWindow(props: NotesWindowProps) {
           <HelpIconButton
             lang={lang}
             conceptId={MODAL_HELP.notesWindow}
-            dialogTitle={`${t(lang, "noteLogTitle")} — ${entityLabel}`}
+            dialogTitle={windowTitle}
           />
           <ResetSizeButton onClick={resetSize} lang={lang} labelKey="modalResetSize" />
           <IconButton onClick={onClose} label={t(lang, "close")} title={t(lang, "close")}>

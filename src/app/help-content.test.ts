@@ -135,9 +135,28 @@ describe("MODAL_HELP", () => {
     // rather than a broken scan, and sends the next reader to as many wrong
     // files as the map has keys. This floor makes
     // the scan itself the thing that fails, so the failure message is right.
-    // 366 non-test .tsx files today (find src/app -name "*.tsx" ! -name
-    // "*.test.tsx" | wc -l); 200 is far below that and far above zero.
+    // ★ NO FILE TALLY IS QUOTED — this comment said 366 while the commit it
+    // shipped in made it 367, by adding `help-icon-button.tsx`. Derive it:
+    // find src/app -name "*.tsx" ! -name "*.test.tsx" | wc -l. 200 is far
+    // below that and far above zero.
     expect(files.length).toBeGreaterThan(200);
+
+    // ★★★ THE `recursive: true` ABOVE WAS A NO-OP AGAINST EVERY ASSERTION IN
+    // THIS FILE UNTIL THIS LINE, and a cold review caught it by mutation.
+    // Every wiring site today sits in `src/app` ROOT, so flipping the flag to
+    // `false` drops the corpus by ~36 files, leaves `used` byte-identical,
+    // clears the floor above and passes the set equality below — nothing reds,
+    // and the "silent hole rather than a failure" the comment beside the flag
+    // warns about is exactly what you get. A discovery sweep that would follow
+    // a move has to PROVE it follows one; the flag alone proves nothing.
+    // ★★ Asserted BOTH DIRECTIONS deliberately. The floor above says the scan
+    // is non-empty; this says it reaches a KNOWN subdirectory member. Pick a
+    // file that is not a wiring site, so the assertion keeps its meaning if
+    // the subdir ever gains or loses one.
+    // ★ Node's recursive `readdirSync` joins with the platform separator, so
+    // normalise before matching or this passes on posix and fails on Windows.
+    const scanned = files.map((f) => f.replace(/\\/g, "/"));
+    expect(scanned).toContain("insights/recommendation-review-modal.tsx");
 
     // ★★ SET EQUALITY BOTH DIRECTIONS. A key with no call site is an unwired
     // modal; a scanned key absent from the map cannot typecheck today but

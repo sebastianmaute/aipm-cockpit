@@ -27,8 +27,15 @@ import { PopoverPanel } from "./popover-panel";
  *  component, so an unknown id is a no-op on both paths.
  *
  *  ★★ The branch is UNREACHABLE for a typed caller — `HelpEntryId` is derived
- *  from `HELP_ENTRIES_LITERAL`, so `find` cannot miss without a cast — and it is
- *  therefore defensive rather than tested. Do not read it as pinned. */
+ *  from `HELP_ENTRIES_LITERAL`, so `find` cannot miss without a cast. It IS
+ *  pinned, through exactly that cast: "renders nothing when the id resolves to
+ *  no entry" in `help-icon-button.test.tsx`.
+ *
+ *  ★★ An earlier revision of this line said "defensive rather than tested. Do
+ *  not read it as pinned" while that test sat in the same commit range. Read
+ *  the direction of the error: an UNDERSTATED coverage claim is the rare one,
+ *  and it is the one that gets a live test deleted as redundant. Unreachable
+ *  for a typed caller and untested are different properties — say which. */
 export function HelpIconButton({
   lang,
   conceptId,
@@ -128,8 +135,18 @@ export function HelpIconButton({
           on the 5th, then cycled through both forever. This affordance
           with the close button below never left the panel across all
           twelve. So the button is LOAD-BEARING for containment, not
-          decoration. Pinned by "keeps Tab inside the dialog while the
-          help popover is open" in `modal-header.test.tsx`.
+          decoration.
+
+          ★★★ PINNED BY "keeps Tab inside the dialog while the help popover
+          is open" in `help-icon-button.test.tsx` — the LOCAL one, beside
+          this component. A test of that exact NAME also exists in
+          `modal-header.test.tsx`, and an earlier revision here cited only
+          that one; it drives SIX presses through `ModalHeader`, where the
+          local test drives TWELVE against this component directly. Citing
+          the distant same-named test is post-extraction citation drift: a
+          reader deleting the close button gets two reds and a docstring
+          pointing at the weaker of them. Both are real; cite the one that
+          pins the property being described.
 
           ★ `autoFocus` is left at the primitive's DEFAULT (true), so
           opening lands focus on that close button. This panel is
