@@ -17,6 +17,7 @@
 import { useState } from "react";
 import { BackendConfigModal } from "./backend-config-modal";
 import { type Contact } from "./contacts";
+import { MODAL_HELP } from "./help-content";
 import { t, type Lang } from "./i18n";
 import { ProjectForm } from "./project-form";
 import { Select } from "./form-controls";
@@ -151,6 +152,7 @@ export function CreateProjectForm({
           settings={settings}
           onChangeSettings={onChangeSettings}
           onClose={() => setConfigOpen(false)}
+          helpConceptId={MODAL_HELP.backendConfig}
           noCurrentProject
         />
       )}

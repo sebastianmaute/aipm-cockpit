@@ -248,6 +248,7 @@ export const de: Record<TranslationKey, string> = {
   close: "Schließen",
   loading: "Wird geladen…",
   modalResetSize: "Dialoggröße zurücksetzen",
+  modalHelpAbout: "Hilfe – {0}",
   diagnosticsTitle: "Diagnose",
   diagnosticsIntro: "Aktuelle technische Ereignisse auf diesem Gerät. Keine Projektinhalte oder Geheimnisse werden erfasst.",
   diagnosticsCopyBundle: "Diagnosepaket kopieren",

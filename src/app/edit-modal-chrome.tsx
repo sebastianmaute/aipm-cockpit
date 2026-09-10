@@ -12,6 +12,7 @@ import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { Modal, MODAL_BACKDROP_CLASS } from "./modal";
 import { ModalHeader } from "./modal-header";
+import type { HelpEntryId } from "./help-content";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useConfirm } from "./confirm-dialog";
 import type { ModalId } from "./modal-fields";
@@ -32,6 +33,17 @@ interface EditModalShellProps {
   onDragReset: () => void;
   /** localStorage key for the persisted panel size (see `useResizable`). */
   sizeKey: string;
+  /** Forwarded to the header's help icon.
+   *
+   *  ★ NOT ONE of the seven consumers renders a `<ModalHeader>` (or a `<Modal>`)
+   *  of its own, so this is their ONLY route to the icon — and the shell
+   *  HARDCODES `headerExtra` to `ModalFieldControls`, so per-site composition is
+   *  not available to them either. Reproduce (one hit, and it is a COMMENT in
+   *  absence-edit-modal.tsx, not markup — count it as code and you conclude the
+   *  opposite): `grep -rnE '<Modal([ >]|$)|<ModalHeader' $(grep -rln
+   *  EditModalShell src/app --include="*.tsx" | grep -v "\.test\." | grep -v
+   *  edit-modal-chrome)` */
+  helpConceptId?: HelpEntryId;
   /** Panel alignment. Default "center"; "start" (top-aligned) for tall modals
    *  (raid) that pair with `backdropScroll`. */
   align?: "start" | "center";
@@ -83,6 +95,7 @@ export function EditModalShell({
   dragHandleProps,
   onDragReset,
   sizeKey,
+  helpConceptId,
   align = "center",
   backdropScroll = false,
   panelClassName,
@@ -113,6 +126,13 @@ export function EditModalShell({
           title={title}
           onClose={onClose}
           dragHandleProps={dragHandleProps}
+          helpConceptId={helpConceptId}
+          // The shell's OWN title, so no consumer has to pass it twice and none
+          // can set the two inconsistently. Currently redundant with
+          // ModalHeader's `helpTitle ?? title` fallback (both receive the same
+          // string, so no test can tell it from omission) — kept explicit so the
+          // name stays right if that fallback ever changes.
+          helpTitle={title}
           headerExtra={<ModalFieldControls modalId={modalId} lang={lang} />}
           onResetLayout={() => {
             onDragReset();

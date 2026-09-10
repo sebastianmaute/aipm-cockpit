@@ -1,5 +1,5 @@
 import { describe, test, it, expect, vi, beforeEach, beforeAll } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -220,7 +220,17 @@ describe("TaskFormModal — submit name does not collide with the editor openers
   it("qualifies the CREATE-mode submit so it differs from the openers, still containing the visible label", () => {
     stubTaskForm();
     render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
-    const submit = screen.getByRole("button", { name: /new task$/i });
+    // ★★ SCOPED TO THE <form>, and the scope is what makes the regex usable.
+    // The ModalHeader now renders a help icon named "Help – <dialog title>"
+    // (`MODAL_HELP.taskForm`), so a SCREEN-level /new task$/i matches it too
+    // and the query throws. Scoping rather than switching to the submit's exact
+    // composed name is deliberate: selecting by the full name would make the
+    // `not.toBe(openerName)` assertion below a restatement of the selector,
+    // and that assertion is the point of this test. The header sits outside
+    // the form, so the form scope excludes the help icon by construction.
+    const forms = document.querySelectorAll("form");
+    expect(forms).toHaveLength(1);
+    const submit = within(forms[0] as HTMLElement).getByRole("button", { name: /new task$/i });
     expect(submit).toHaveAttribute("type", "submit");
     const name = submit.getAttribute("aria-label")!;
     expect(name).not.toBe(openerName);

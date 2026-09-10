@@ -12,6 +12,7 @@ import { type Contact } from "./contacts";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import { ProjectForm } from "./project-form";
 import { ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
@@ -47,6 +48,7 @@ export function ProjectModalShell({ lang, title, sizeKey, onClose, children }: P
         <ModalHeader
           lang={lang}
           title={title}
+          helpConceptId={MODAL_HELP.projectEdit}
           onClose={onClose}
           headerExtra={<ResetSizeButton onClick={resetSize} lang={lang} />}
         />

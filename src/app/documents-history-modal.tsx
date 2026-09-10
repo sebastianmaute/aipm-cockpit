@@ -24,6 +24,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { MODAL_HELP } from "./help-content";
 import { Button } from "./button";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { type Lang, t, tPlural, type TranslationKey } from "./i18n";
@@ -479,6 +480,7 @@ export function DocumentsHistoryModal({
         <ModalHeader
           lang={lang}
           title={t(lang, "documentsHistoryFor", doc.title)}
+          helpConceptId={MODAL_HELP.documentsHistory}
           titleId={HISTORY_TITLE_ID}
           onClose={onClose}
         />
