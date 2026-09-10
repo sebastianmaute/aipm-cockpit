@@ -99,6 +99,11 @@ async function start(): Promise<void> {
     width: 1400,
     height: 900,
     show: true,
+    // The splash artwork's own ground (public/splash-aipm-cockpit.svg paints
+    // #003459 across its full viewBox, and desktop/splash.html matches it).
+    // Without this, Electron's default white shows for the frame or two before
+    // the splash paints, which reads as a broken window on every launch.
+    backgroundColor: "#003459",
     webPreferences: {
       // The renderer loads an HTTP origin: remote content, trusted no more
       // than a browser tab would be.

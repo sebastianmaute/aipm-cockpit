@@ -49,3 +49,15 @@ desktop/** text eol=lf
 # same way, individually, and re-check with:
 #   git cat-file blob :<path> | cmp - <path>
 public/ai-pm-cockpit-banner.svg -text
+#
+# ★★ The splash asset below is credentialed too, but the damage runs the OTHER
+# WAY and the banner's reason above does not transfer. Measured 2026-09-10: it
+# holds ZERO CR bytes, so `git add` strips nothing -- it is CHECKOUT that breaks
+# it, because autocrlf=true rewrites an LF text file to CRLF in the working
+# tree. Unpinned it would land as `i/lf w/crlf` (the state every e2e/*.ts is
+# in), i.e. the file on disk would no longer be the bytes the credential was
+# signed over, while the blob stayed valid. Pinned it reads `i/lf w/lf
+# attr/-text`. Verify with `git ls-files --eol <path>`, and the blob with the
+# cmp above -- the cmp ALONE cannot see this direction, since it compares the
+# blob against the very working copy a bad checkout would have rewritten.
+public/splash-aipm-cockpit.svg -text
