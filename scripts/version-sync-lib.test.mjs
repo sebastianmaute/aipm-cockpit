@@ -1,8 +1,16 @@
 // Tests for the version-sync gate's shared layer.
 //
-// ★★ Every case here runs against FIXTURE STRINGS, never the real repo files.
-// A test that reads package.json passes or fails depending on whether someone
-// happens to be mid-release, which makes it a clock rather than a test.
+// ★★ Every case here runs against FIXTURE STRINGS, never the real repo files,
+// with ONE deliberate exception. A test that reads package.json passes or
+// fails depending on whether someone happens to be mid-release, which makes
+// it a clock rather than a test.
+// ★ THE EXCEPTION: "desktop/package.json satellite" > "matches the file's
+// real shape" reads that file for real, because its whole job is to catch the
+// file's key order or indent moving out from under the satellite regex —
+// against a fixture string it would only pin the regex to a string this test
+// wrote, which is vacuous. It is NOT a clock: it asserts the captured version
+// is SEMVER-SHAPED, never a specific version, so it does not care where a
+// release is.
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
