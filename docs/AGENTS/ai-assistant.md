@@ -1188,12 +1188,15 @@
   the repo root — so a green `npx tsc --noEmit` says nothing whatever about `scripts/ai-eval.ts`.
   The one-off that does check it:
   `npx tsc --noEmit --ignoreConfig --strict --skipLibCheck --module esnext --target es2022 --moduleResolution bundler --jsx react-jsx --esModuleInterop --resolveJsonModule --lib es2022,dom,dom.iterable --allowJs --types node scripts/ai-eval.ts`
-  ★ And `vitest.config.ts` globs only `scripts/**/*.{test,spec}.mjs`, so a `.ts` test placed beside
-  the lib would silently never run — keep the harness's tests `.mjs`.
+  ★★ `vitest.config.ts` globs `scripts/**/*.{test,spec}.ts` as well as `.mjs`, so the harness's
+  `scripts/ai-eval.test.ts` really does run. This line said the OPPOSITE until that glob landed, and
+  reading the stale form would send a contributor to rename a live test file. `coverage.include`
+  stays `src/**`, so a script test raises no floor. Verify the globs, not this sentence:
+  `grep -n -A 4 "include:" vitest.config.ts`.
   ★★★ **STATUS: IT HAS NOW RUN LIVE SEVERAL TIMES — SIX RUNS ARE RECORDED AS OF 2026-09-09 — AND IT
   WAS THE FIRST OF THEM THAT WAS UNUSABLE. Read the recorded artifact, never this paragraph.** An
-  earlier revision said it had run ONCE, by which point FIVE FURTHER runs were already recorded, two
-  of them passing. An earlier one still said it had never run and that no
+  earlier revision said it had run ONCE — TRUE WHEN IT WAS WRITTEN; five further runs landed after
+  it, two of them passing, and nothing updated the line. An earlier one still said it had never run and that no
   `docs/baselines/ai-eval-*` artifact existed; both files were committed the same day and the claim
   survived, which is the ordinary way a status line rots. What the run said: `claude-sonnet-5`, salt
   1, 5 reps, 60 requests. Four probes behaved (arm A hit rates 1.0 / 1.0 / 0.8 / 1.0) and
