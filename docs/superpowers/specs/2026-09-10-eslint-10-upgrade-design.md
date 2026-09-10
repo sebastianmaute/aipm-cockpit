@@ -1,7 +1,10 @@
 # ESLint 10 upgrade — design
 
 **Date:** 2026-09-10
-**Status:** design approved, not implemented
+**Status:** implemented and merged into `chore/eslint-10-upgrade`; corrected 2026-09-10 after two
+cold reviews. ★★ Several claims below are marked ★★/★★★ where the original text was **false or
+incomplete** — those markers are the record of what a review caught, not decoration. Every one was
+prose; no shipped behaviour changed.
 **Closes:** `docs/open-followups.md` §53 · the `eslint` ⛔ BLOCKED row in `docs/tech-debt-register.md`
 
 ## Goal
@@ -43,19 +46,48 @@ the removed API is never touched.
 **Nothing else in the toolchain blocks v10.** Scanning every eslint-facing package for the APIs
 ESLint 10 removed returns zero unguarded call sites outside `eslint-plugin-react`:
 
+★★★ **THE FIRST VERSION OF THIS COMMAND COULD NOT READ THREE OF ITS NINE ROWS, AND REPORTED
+THEM AS CLEAN.** It iterated `node_modules/$pkg`, but `eslint-plugin-jsx-a11y`,
+`eslint-plugin-import` and `eslint-import-resolver-typescript` are **not hoisted** — they live
+under `node_modules/eslint-config-next/node_modules/`. `grep -rl … <missing dir> | wc -l` prints
+`0` because the path is absent, and those zeros were read as evidence. Compounding it, the
+trailing `grep -v "/node_modules/"` stripped every nested hit even when the path *was* correct,
+so no addressing could have rescued it. A scan that reads nothing passes everything.
+
+★★ Two later replacements were **also** wrong, which is the reusable part: `require.resolve('<pkg>/package.json')`
+fails with `ERR_PACKAGE_PATH_NOT_EXPORTED` for five of the ten (their `exports` maps don't expose
+`./package.json`), and simply dropping the filter makes `eslint-config-next` report **9** — it
+absorbs its nested child's hits. A replacement recipe inherits none of the verification of the
+one it replaces. This is the third version, and the one that was run:
+
 ```bash
 for pkg in eslint-config-next @next/eslint-plugin-next eslint-plugin-react-hooks \
            eslint-plugin-jsx-a11y eslint-plugin-import eslint-import-resolver-typescript \
-           @typescript-eslint/eslint-plugin @typescript-eslint/parser @typescript-eslint/utils; do
+           @typescript-eslint/eslint-plugin @typescript-eslint/parser @typescript-eslint/utils \
+           eslint-plugin-react; do
+  dir=$(npm ls --parseable "$pkg" 2>/dev/null | head -1)          # real location, hoisted or not
+  [ -z "$dir" ] && { echo "$pkg: UNRESOLVED"; continue; }
   echo -n "$pkg: "
   grep -rlE "context\.(getFilename|getSourceCode|getScope|getAncestors|getDeclaredVariables|markVariableAsUsed|getCwd|getPhysicalFilename)\(|isSpaceBetweenTokens|getJSDocComment|CLIEngine" \
-    "node_modules/$pkg" --include=*.js --include=*.cjs --include=*.mjs 2>/dev/null \
-    | grep -v "/node_modules/" | wc -l
+    "$dir" --include=*.js --include=*.cjs --include=*.mjs --exclude-dir=node_modules 2>/dev/null \
+    | wc -l                                                        # prune each package's OWN deps
 done
 ```
 
+★★ **`eslint-plugin-react-hooks` returning 2 is the positive control** — it is what distinguishes
+"the pattern found nothing" from "the pattern cannot match". Nine zeros with no non-zero row would
+be worthless. Read that row first; if it is 0, the scan is broken, not the toolchain clean.
+
+★★ **The regex does not cover `getComments`**, which ESLint 10 also removed
+(`SourceCode.prototype.getComments` is `undefined` under 10). `eslint-plugin-react` references it
+15 times across 6 files. None is on an enabled-rule path today — see the forward hazards below —
+but the scan cannot see that class at all.
+
 `eslint-plugin-react-hooks@7.1.1` is the only non-zero row (2 files) and every one of its call
-sites is `??`-guarded (`context.sourceCode ?? context.getSourceCode()`); its peer range already
+sites is guarded — ★★ by a `typeof` ternary, **not** the `??` this spec claimed for four
+revisions: `typeof context.getSourceCode === 'function' ? () => context.getSourceCode() : () => context.sourceCode`.
+Note it prefers the *old* API where present, the opposite order from the invented quote. The
+conclusion (guarded, therefore safe) was right; the quoted code never existed in the package. Its peer range already
 names `^10.0.0`, as do `typescript-eslint@8.59.2` and `@typescript-eslint/parser@8.59.2`.
 `eslint-config-next@16.2.6` peers `eslint: ">=9.0.0"`.
 
@@ -89,10 +121,13 @@ Enumerate today's set with `npx eslint --print-config src/app/task-manager.tsx` 
 
 ## The change
 
-Three files. Ten lines of source.
+Three files, plus one new test. ★ The line counts below were `+8` / "ten lines" when written and
+were already wrong at commit time (`git diff --numstat` reported 10/0); the comment block has since
+grown again in the 2026-09-10 correction round. **Derive it, don't read it here:**
+`git diff --numstat $(git merge-base origin/main HEAD)...HEAD -- eslint.config.mjs`.
 
 ```
-eslint.config.mjs    +8
+eslint.config.mjs    +8       # stale — see above
 package.json         +1 / -1     "eslint": "^9"  →  "^10"
 package-lock.json    +569 / -408
 ```
@@ -119,15 +154,30 @@ const eslintConfig = defineConfig([
 ]);
 ```
 
-**The version is derived, not written down.** A literal `"19.2.4"` would be a fourth place the
-React version lives, and this repo runs a blocking `version-sync-check` job precisely because
-restated versions rot here. `createRequire` reads it from the installed package, which is exactly
-what `detect` computed — measured: with the pin in place, `--print-config` reports
-`{"version":"19.2.4"}`, matching the `react` pin.
+**The version is derived, not written down.** `createRequire` reads it from the installed
+package, which is exactly what `detect` computed — measured: with the pin in place,
+`--print-config` reports `{"version":"19.2.4"}`, matching the `react` pin.
 
-**No `overrides` entry.** The peer conflict (`eslint-plugin-react` peers `^9.7`) is a warning
-under both `npm install` and `npm ci`, never an error. This was proved by mutation, not assumed —
-see below.
+★★★ **THE REASON IS THE ABSENCE OF A GATE, NOT THE PRESENCE OF ONE — and this paragraph argued
+the opposite for four revisions.** It said a literal `"19.2.4"` would be caught because "this repo
+runs a blocking `version-sync-check` job precisely because restated versions rot here". That job
+never looks at React: `SATELLITES` in `scripts/version-sync-lib.mjs` is `package.json` /
+`package-lock.json` / `README.md` / `docs/CODEMAPS/*.md`, and it compares `APP_VERSION` and the
+codename only (`grep -in react scripts/check-version-sync.mjs` returns nothing). A hardcoded React
+version would have been **equally out of scope**. So the derivation is load-bearing for the
+opposite reason to the one given: **nothing in this repo would ever catch a stale one.** A false
+justification is worse than none — it tells the next reader a guard exists.
+
+**No `overrides` entry.** ★★ "A warning under both `npm install` and `npm ci`, never an error" is
+**false as stated**: `npm install --dry-run --strict-peer-deps` exits **1** with `ERESOLVE`, and
+it fails first on a package this spec never named — `eslint-plugin-import@2.32.0`. **Three**
+packages carry a conflicting `eslint` peer, not one (`eslint-plugin-import@2.32.0`,
+`eslint-plugin-jsx-a11y@6.10.2`, `eslint-plugin-react@7.37.5`). The decision still holds *for this
+repo*, and that is the claim to make: there is no `.npmrc`, `npm config get strict-peer-deps` is
+`false`, and every CI install site is a plain `npm ci` with no strict-peer flag — verify with
+`grep -n "npm ci" .gitlab-ci.yml` (three sites today) rather than trusting a count here. Proved
+by mutation, not assumed — see below. Note `package.json` *does* carry an `overrides` block (four
+entries); what it has no key for is `eslint-plugin-react`.
 
 `eslint.config.mjs` and `package.json` are both `i/lf w/crlf` (`git ls-files --eol`). Edit them
 with the Edit tool or a `\r\n`-anchored script; a `\n`-anchored node replace silently no-ops and
@@ -151,6 +201,22 @@ empty).
 | lock idempotent | second `npm install` | `up to date in 2s`, no further churn |
 | `npm audit` | `npm audit --audit-level=moderate` | 3 moderate, dev-only, **identical to baseline**; the CI gate is `--omit=dev --audit-level=high` |
 | `docs:claims:check` | `npm run docs:claims:check` | exit 0 — 490 citations, none added |
+
+★★ **THIS TABLE IS A DATED MEASUREMENT, NOT A LIVE PROPERTY — read `2122` as "what that run saw",
+never as a number to match.** Post-merge with `origin/main` (0.301.0) the same whole-repo run
+reports **2125 files**, still 0 errors / 0 warnings at exit 0. The delta is the merge bringing in
+main's files, not a regression. The number is nonetheless quoted as a property in three places
+(here, the plan, and the new tech-debt row), so anyone following the plan after a merge sees a
+mismatch and may read it as breakage. Re-derive rather than compare:
+`npx eslint --max-warnings=0 -f json . | node -e "…"` — or simply trust the exit code, which is
+what actually gates.
+
+★★ **The differential rows are the ones nobody has re-run**, and they are what the safety argument
+rests on: "byte-identical", "same file set", `LOST/GAINED/SEVERITY (none)`. Re-deriving them needs
+eslint 9 installed, which this worktree cannot do without `npm ci`. A cold review corroborated the
+*rule-set* half by borrowing a real `eslint@9.39.4` read-only from a sibling worktree and driving
+it against this config — identical `86`/`17` and `82`/`17` — but the file-count half of the
+before/after has not been replayed. Treat the carry-forward as an argument, not a measurement.
 
 **A green run over zero findings is the vacuous shape this repo has been bitten by, so the
 result is only worth its controls.**
@@ -178,6 +244,39 @@ reinstalled from scratch. **Survived**: install exit 0, zero `npm error`, `eslin
 resolved. So the override is not required and is deliberately absent from this design — shipping
 it would mean shipping a guard that cannot be shown to fire.
 
+## Forward hazards — safe today, fatal the day someone enables one
+
+★★★ **NOT A LIVE DEFECT, AND NOT DERIVABLE FROM ANYTHING ABOVE.** Found by cold review after this
+design was written, by running all 103 `react/*` rules one at a time under both engines.
+
+**Six rules throw under v10 and not under v9**, none of them among our enabled 17:
+`forward-ref-uses-ref`, `jsx-curly-spacing`, `jsx-equals-spacing`, `jsx-filename-extension`,
+`jsx-one-expression-per-line`, `jsx-tag-spacing`. Enabling any of them **hard-crashes lint** —
+a loud failure, not a silent one, so it cannot ship unnoticed; but it will read as "my new rule is
+broken" rather than "this plugin predates ESLint 10".
+
+★★ **Treat six as a FLOOR, not an enumeration.** One snippet cannot reach every removed-API path.
+Separately, `SourceCode.prototype.getComments` is `undefined` under ESLint 10 and
+`eslint-plugin-react` references it 15 times across 6 files (`jsx-curly-brace-presence`,
+`jsx-curly-spacing`, `jsx-props-no-multi-spaces`, `jsx-sort-props`, `no-arrow-function-lifecycle`,
+`util/propTypesSort.js`). None of those, and none of `propTypesSort`'s four consumers
+(`jsx-sort-default-props`, `jsx-sort-props`, `sort-default-props`, `sort-prop-types`), is enabled
+here. The toolchain scan's regex does not look for `getComments` at all.
+
+★ **Why the seven scanned rules are safe is stronger than "off".** They are **ABSENT** from the
+resolved config — `--print-config` has no key for them, so they never load. That is a different
+state from present-but-off: 22 `react/*` keys *are* present, of which 5 are explicitly `off`
+(`jsx-no-target-blank`, `no-unknown-property`, `no-unsafe`, `prop-types`, `react-in-jsx-scope`).
+
+**So the nine hits in `eslint-plugin-react` decompose cleanly**, which is better evidence for the
+"exactly one degradation" claim than this design originally carried:
+
+| Hits | Status |
+|---|---|
+| 7 rules | **absent** from the resolved config; never load |
+| `lib/util/eslint.js` (4 matches) | feature-detected compat shim (`sourceCode.X ? … : context.X(…)`); the removed branch is dead under v10 |
+| `lib/util/componentUtil.js:72` | **the one live hit** — the accepted cost below |
+
 ## Accepted cost
 
 `componentUtil.js:72` calls `sourceCode.getJSDocComment(node)`, removed in ESLint 10. It sits
@@ -190,10 +289,18 @@ This is a silent degradation, not a crash, and it is the one thing PR 4022 would
 Its blast radius here is empty today:
 
 ```bash
-grep -rn "@extends\|@augments" src e2e scripts     # → no matches
+grep -rn "@extends\|@augments" src e2e scripts     # → 1 hit, see below
 grep -rn "extends React.Component\|extends Component" src --include=*.tsx --include=*.ts
-                                                   # → 1 hit, error-boundary.tsx:19, syntactic
+                                                   # → 2 hits, see below
 ```
+
+★★ **BOTH ANNOTATIONS WERE BROKEN BY TASK 4 OF THIS SAME DESIGN, and read as "→ no matches" and
+"→ 1 hit" until 0.301.x.** The guard test added in that task is itself matched by both commands:
+its docstring names the tags it scans for, and its `extends Component` assertion matches the
+second. Neither is a real offender — the scan excludes itself by basename, so the tags in its own
+docstring cannot make it red — but the recipe as published now contradicts the sentence it
+supports. This is the self-referential-grep trap: a command quoted in a file it scans matches
+itself the moment it lands. Re-run it **after** the edit, never before.
 
 The one class component is detected by `isES6Component`, not the JSDoc path. Nothing would detect
 a future JSDoc-declared one, which is why Task 4 below adds a cheap guard.

@@ -2982,6 +2982,15 @@ every number here as a measurement with a date, not a property.
   harder, not easier. Quote the LARGER size.
   There is also a hook blocking `eslint.config.mjs` edits, which a major would likely require. That is
   a slice with its own verification, not an install.
+  ★★ **[SPENT 2026-09-10 — the upgrade SHIPPED. §53 is CLOSED and the repo runs eslint 10.10.0.]**
+  Every forward-looking clause above is now a record, not advice. What actually happened, against
+  each prediction: the `--max-warnings=0` gate was real and the run was clean anyway (whole repo,
+  0 errors / 0 warnings, rule set unchanged at 86 enabled / 17 `react/*`); measured rule drift was
+  again **ZERO**, so "quote the LARGER size" overstated it; the config hook did bite exactly as
+  predicted and did need a human, which was the single most accurate line here; and it was **not**
+  an install — the block lived in a transitive plugin and was routed around with a
+  `settings.react.version` pin. See §53 and
+  `docs/superpowers/specs/2026-09-10-eslint-10-upgrade-design.md`.
 
 ★★★ **The npm-`overrides` workaround was tried and it does not work. Both forms were EXECUTED, not
 reasoned about — do not repeat them.**
@@ -3536,11 +3545,17 @@ impossible here". §45 above is the cautionary case: it earned its own correctio
 measurement in the grammar of a property.
 
 ★★★ **THIS BLOCKER WAS ALREADY DOCUMENTED, AND NOBODY LOOKED.** The `eslint` row in
-[`tech-debt-register.md`](tech-debt-register.md) has recorded it all along, on `main`, before the
-attempt — naming the same package, the same removed API and the same consequence:
+[`tech-debt-register.md`](tech-debt-register.md) **had** recorded it all along, on `main`, before
+the attempt — naming the same package, the same removed API and the same consequence:
 
 > `eslint-config-next`'s bundled `eslint-plugin-react` calls `context.getFilename` (removed in
 > eslint 10's flat-config API) → lint crashes.
+
+★ **Past tense from 2026-09-10:** that row was retired when this entry closed, so the quote above
+is a record of what the register *said*, not something you can grep for today
+(`grep -n "flat-config API) → lint crashes" docs/tech-debt-register.md` now returns nothing). The
+`eslint` deferred-major row is gone; a **Resolved** row took its place. The lesson the paragraph
+teaches — consult the tech-debt register before spending an install-and-crash cycle — is unchanged.
 
 Neither the plan nor §45 consulted it, so a full install-and-crash cycle was spent re-deriving a
 finding the repo already held. ★★ The near-miss is worse than the waste: §45 asserted "the risk is
@@ -3642,9 +3657,16 @@ Reverted to **eslint 9.39.4**. `npx eslint --max-warnings=0 src/app`, `npx eslin
 and `npx tsc --noEmit` all exit **0**; working tree clean. The branch that carried the attempt kept its
 Node-24 and cleanup commits and dropped ESLint from its scope, so nothing downstream is waiting on this.
 
-**To close:** re-measure `eslint-plugin-react`'s peer range. When a version supporting ESLint 10 is
+**To close:** ~~re-measure `eslint-plugin-react`'s peer range. When a version supporting ESLint 10 is
 published, re-run the spike from the top — install, `--print-config` to re-establish what is actually in
-effect, then the unpiped gate — and treat the result as a fresh measurement.
+effect, then the unpiped gate — and treat the result as a fresh measurement.~~
+
+★★ **SPENT — this entry was CLOSED 2026-09-10 by routing around the block, not by waiting for it to
+lift.** The closure condition above was never met and no longer needs to be: upstream is still at
+7.37.5 with `context.getFilename` intact, and the repo runs ESLint 10 anyway via the
+`settings.react.version` pin in `eslint.config.mjs`. Struck rather than deleted because a reader
+arriving at the bottom of a CLOSED entry was being handed live instructions — but the *record* of
+what would have closed it the other way is worth keeping.
 
 ---
 
@@ -17108,7 +17130,9 @@ single rule in `eslint.config.mjs` (`"@typescript-eslint/no-unused-vars": "error
 ★ `eslint.config.mjs` is protected by a hook, so an agent cannot edit it — that route needs a human.
 
 ★★★ **IT CONFLICTS WITH §53 (ESLint 10, blocked upstream) AND WITH §45's eslint-10 bullet — read both
-first.** ★★ §45's heading reads `~~brace-expansion advisory~~ — CLOSED in 0.211.1`, so a reader
+first.** ★★ **[§53 CLOSED 2026-09-10 — the block was ROUTED AROUND, not lifted; the repo is on
+ESLint 10 today. The conflict this sentence warns of no longer exists. Left in place because the
+surrounding entry is itself a dated record.]** ★★ §45's heading reads `~~brace-expansion advisory~~ — CLOSED in 0.211.1`, so a reader
 following this pointer hits a strikethrough and stops. **Do not stop:** the eslint-10 material is
 genuinely inside that closed entry, several paragraphs down, and the bullet meant here is the one
 opening "★★ eslint 10 is a major landing." Find it with
