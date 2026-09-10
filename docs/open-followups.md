@@ -669,6 +669,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s `testTimeout`, so it reds under load and the red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
 | [§452](#452-the-c1-chat-history-budget-is-deliberately-not-built-a-trim-saves-tokens-at-01x-and-pays-a-125x-rewrite-so-payback-needs-tens-of-further-turns--open) | The C1 chat-history budget is deliberately not built: a trim saves tokens at 0.1x and pays a 1.25x rewrite, so payback needs tens of further turns | decided 2026-09-09 while moving the caps onto a cost basis — the economics inverted when the guide-block cache split landed | N/A — a decision NOT to build; revisit only if the bursty-use case below becomes the common one | **OPEN** |
 | [§454](#454-asking-all-five-probes-in-one-reply-would-buy-5x-the-resolution-at-a-third-of-the-cost-but-partial-credit-is-a-new-outcome-shape-through-scoreresponse-hitrate-and-verdict--open) | Asking all five probes in ONE reply would buy 5x the resolution at a third of the cost, but partial credit is a new outcome shape end to end | proposed 2026-09-09 during the six-run calibration of the AI prompt-quality harness — every lever that made retrieval harder measured as SPENT | M — a new outcome shape through `scoreResponse`, `hitRate` and `verdict` plus a restarted series; add it as the MEASUREMENT beside the single-probe gate, never as a replacement | **OPEN** |
+| [§455](#455-three-latent-defects-in-the-harness-response-parser-all-pre-existing-and-identical-across-the-liverequest-split--open) | Three latent defects in the harness response parser: a null content entry throws, a prototype-keyed block type is never counted, and the error bound can split a surrogate pair | found 2026-09-10 by the differential equivalence review of `f590f57b` — it was testing whether the extraction changed behaviour, and these fell out of the corpus | S — each is a one-line change, but each alters output that review just certified unchanged, so each needs its own test | **OPEN** |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -32892,3 +32893,42 @@ block, and for that a baseline pinned at 1.0 is the BEST possible baseline, beca
 signal and there is no floor to subtract. This entry is about resolution for a DIFFERENT question —
 how big a drop can be detected, not whether a drop exists — so nothing above should be read as a
 repair of the current arrangement.
+
+## 455. Three latent defects in the harness response parser, all pre-existing and identical across the liveRequest split — OPEN
+
+**Status:** 2026-09-10 — MEASURED, not reasoned, and all three still reproduce. The
+guarded-then-unguarded inconsistency behind (1) is visible directly:
+`grep -n "b?.type\|b.type" scripts/ai-eval.ts` returns the census line guarding with
+`b?.type` and the two filters immediately below it using `b.type` bare. Runnable demos for (2) and
+(3) sit in those sections. A differential over 20,178 inputs found all three IDENTICAL on both sides
+of `f590f57b`, so none is a regression; they fell out of a review asking a different question.
+
+**1. A `null` entry in `content` throws.** The census loop guards with `b?.type`; the two `.filter()`
+calls immediately after it use `b.type` unguarded, so a null or undefined block raises a TypeError.
+The optional chaining two lines above sets an expectation of null-tolerance that the filters do not
+honour — that inconsistency is the defect, more than the throw itself. ★ It fails LOUDLY: the throw
+reaches the run's catch and exits 2, which is the harness behaving as designed, since a run that
+measured nothing must never report success. That is why this is filed rather than fixed.
+
+**2. A block typed with the prototype key is silently never counted.** The census accumulates into an
+object literal, so assigning that particular key sets the prototype instead of creating an own
+property. Two such blocks plus one text block record as `{"text":1}` — the anomalous blocks vanish
+from the record entirely. Reproduce:
+`node -e "const c={};for(const t of ['__proto__','__proto__','text']){c[t]=(c[t]??0)+1}console.log(JSON.stringify(c))"`
+prints `{"text":1}`. ★★ This is the one worth caring about. The census exists PRECISELY to
+explain responses nobody expected: it was added after three replies came back empty at the output
+cap and nothing recorded could say what they had carried instead. A block type it structurally
+cannot record is a hole in the exact instrument built to close that class of question.
+
+**3. The error-detail bound can cut a surrogate pair,** leaving a lone surrogate at the end of the
+message. Reproduce:
+`node -e "const s='x'.repeat(499)+String.fromCodePoint(128512);const c=s.slice(0,500).charCodeAt(499);console.log(c>=0xD800&&c<=0xDBFF)"`
+prints `true`. Cosmetic — the message is already truncated by construction.
+
+**Why these were not fixed in the commit that found them.** Each changes output that the differential
+had just certified as unchanged across the extraction. Repairing them in the same breath as
+certifying equivalence spends the certification to buy three small improvements, and the
+certification is the more valuable artifact. ★ Sketches, none applied: guard both filters with
+`b?.type`; build the census on a null-prototype object; bound the error detail by code points rather
+than UTF-16 units. Each needs its own test, and the second needs care that the run record still
+serialises, since the census is written into the artifact.
