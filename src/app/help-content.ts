@@ -240,7 +240,13 @@ export type HelpEntryId = (typeof HELP_ENTRIES_LITERAL)[number]["id"];
  *  expected. Widening here is what keeps this a one-file change. */
 export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
 
-/** Which Help entry each modal's header help icon opens.
+/** Which Help entry each modal's help icon opens.
+ *
+ *  ★ NOT "header" icon any more, and the distinction is the point of
+ *  `HelpIconButton`: most rows are consumed as `ModalHeader`'s
+ *  `helpConceptId`, but a dialog that hand-rolls its chrome renders the
+ *  affordance itself — `raciSuggest` is the first such row. The wiring test
+ *  therefore scans BOTH attribute spellings; see its comment.
  *
  *  ★ A modal absent from this map renders NO icon — that is how confirmations
  *  and gates (confirm-dialog, type-to-confirm-dialog, secret-unlock-gate,
@@ -251,7 +257,7 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *  change here by reading the entry, not by running tsc.
  *
  *  ★ `help-content.test.ts` pins that every value resolves AND that the map
- *  still has 21 rows — the count is the anti-vacuity floor, so update it
+ *  still has 22 rows — the count is the anti-vacuity floor, so update it
  *  deliberately when adding a modal, never to make a red run green.
  *
  *  ★★ ONE KEY MAY SERVE SEVERAL CALL SITES, and `backendConfig` does.
@@ -299,12 +305,21 @@ export const HELP_ENTRIES: readonly HelpEntry[] = HELP_ENTRIES_LITERAL;
  *      the correction of the exact confusion `feature-timelog` created here.
  *  So the criterion did not change and is not weakened by these two rows: an
  *  entry that MATCHES earns a row, an id that merely sounds close never does.
- *  Do NOT add the next one by picking the closest-sounding id. */
+ *  Do NOT add the next one by picking the closest-sounding id.
+ *  ★★ `raciSuggest` IS THE NEXT ONE, and it earned its row the same way:
+ *  `concept-raci`'s body defines the four role letters the dialog prints on
+ *  every row (`Current: <role> → Proposed: <role>`) and states the
+ *  exactly-one-Accountable-per-milestone rule, which is verbatim one of that
+ *  dialog's three skip explanations (`raciSuggestSkippedAccountable`). Two
+ *  further bespoke dialogs a term probe offered alongside it — the steering
+ *  report and the insight recommendation review — were DOWNGRADED on the same
+ *  read: no entry describes either subject, so neither got a row. */
 export const MODAL_HELP = {
   raidEdit: "concept-raid",
   changeEdit: "concept-change",
   milestoneEdit: "concept-milestone",
   stakeholderEdit: "concept-stakeholder",
+  raciSuggest: "concept-raci",
   resourceEdit: "feature-resources",
   absenceEdit: "feature-resources",
   calendarEvent: "feature-meeting-series",
