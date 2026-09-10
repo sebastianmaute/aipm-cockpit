@@ -808,9 +808,27 @@ Add a new `## <n>.` heading to `docs/open-followups.md` for the **seven** no-con
 grep -oE "^## [0-9]+\." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1
 ```
 
-**Measured 2026-09-10: max is 453 on this branch AND on `origin/main`, so the new entry is §454** (`git show origin/main:docs/open-followups.md | grep -cE "^## 454\."` returns 0). Re-derive anyway — that check is cheap and the number moves.
+★★★ **DO NOT MINT §454 — IT IS ALREADY TAKEN ON AN UNMERGED BRANCH, AND THE OBVIOUS DERIVATION WALKS STRAIGHT INTO THE COLLISION.** `origin/main` and this branch both max out at 453, so `grep | sort -n | tail -1` says 454 is free. It is not: peer branch `feat/ai-prompt-quality-harness` (MR !465, merging on green ahead of us) adds **109 lines to the register, minting BOTH §454 and §455** — "Asking all five probes in ONE reply…" and "Three latent defects in the harness response parser…".
 
-★★★ The number is reserved only once on `origin/main`; two branches have minted the same one before. Re-check at merge time.
+**This slice therefore takes §456** (and §457 for the second entry below). Verify before writing:
+
+```bash
+git show feat/ai-prompt-quality-harness:docs/open-followups.md | grep -oE "^## [0-9]+\." | grep -oE "[0-9]+" | sort -n | tail -1
+```
+
+★★★ **THE LESSON, WHICH IS THE REUSABLE PART: a follow-up number is reserved once on `origin/main`, so deriving it from `origin/main` ALONE is not enough while any sibling branch is in flight.** This repo has already shipped that exact collision once. Check every unmerged branch that touches the register, not just the merge base. Re-check again at merge time — !465 lands before this slice does.
+
+### Second entry — §457: the stale reachability claim in `calendar-event-move-handler.ts`
+
+Found by Task 5 while reading the calendar area; confirmed by the peer session, whose area it is, and formally handed over for this slice to file.
+
+The file's header says the band "can't be exercised end to end yet, since `resource-calendar.tsx` only mounts it when `onEditEvent` is ALSO present, and that prop lands separately with the series editor modal." That is **stale as to reachability**: `resources-panel.tsx` wires `onEditEvent={isPopout ? undefined : onEditCalendarEvent}` and `resource-calendar.tsx` mounts `CalendarBand` under `{onEditEvent ? (`, so the band mounts and the drag path IS reachable.
+
+★★★ **STATE BOTH GATES, NOT ONE — the shorter correction is itself a defect.** The two props are NOT gated identically: `onEditEvent` is gated on `!isPopout` alone, while `onMoveOccurrence` carries a SECOND precondition, `isPopout || !onSaveCalendarEvent ? undefined : buildMoveOccurrenceHandler(...)`. So the band mounts whenever a non-popout panel supplies an edit handler, but the MOVE is inert unless a save handler is present too. A test written from "both props are wired, gated on `!isPopout`" can mount the band, drag, observe nothing, and conclude the drag path is broken when it is merely **unarmed**.
+
+★ **Do not simply delete the stale sentence** — replace it. The sentence records why the band was genuinely untestable when it was written, which is real history; deleting it loses that and leaves the next reader to re-derive the gating from scratch.
+
+★ Note in the entry that **nothing gates this class**: `docs:symbols:check` reads only `AGENTS.md` + `docs/AGENTS/*.md`, so a stale claim inside a `src/` comment is invisible to it forever, and `src:symbols:check` is a report rather than a gate and catches only invented NAMES, never false claims about real ones. This one needed a human reading the area.
 
 The entry needs a `**Status:**` line with today's ISO date that cites a command or says `never machine-verified` — `followups-status-check` is blocking. It also needs an index row between the `INDEX:BEGIN` / `INDEX:END` markers — `followups-index-check` is blocking.
 
