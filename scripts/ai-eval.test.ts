@@ -55,8 +55,12 @@ import { runEval } from "./ai-eval.ts";
 //    passes either way. One stayed green with this restore deleted.
 //    ★★ What is NOT settled is which non-default config would leak. A
 //    reviewer reproduced one at `--isolate=false` against this real file;
-//    the same flag against synthetic probes did not reproduce for me, at
-//    `--isolate=false` or `--pool=threads`. Two measurements disagree and
+//    synthetic probes did not reproduce it for me under `--isolate=false`,
+//    `--no-isolate` (the spelling vitest's own help documents — checked,
+//    because a null result from a no-op flag would be worthless) or
+//    `--no-isolate --pool=threads`. Nor is threads a shared-env mechanism:
+//    `SHARE_ENV` appears nowhere in `vitest` or `tinypool`, and without it
+//    each worker gets a COPY of `process.env`. Two measurements disagree and
 //    neither has been reconciled, so NO mechanism is claimed here. The
 //    restore costs three lines and makes the question moot.
 //    Restoring to `undefined` DELETES the key — assigning the string
