@@ -9,6 +9,9 @@
 # depth and subsumes the anchored line above; the anchored line is kept so the
 # root case stays obvious.
 node_modules/
+
+# Compiler output for the desktop/ subtree (tsc -p desktop/tsconfig.json emits here)
+desktop/dist/
 /.pnp
 .pnp.*
 .yarn/*
