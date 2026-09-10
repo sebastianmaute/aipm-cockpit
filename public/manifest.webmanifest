@@ -1,6 +1,6 @@
 {
-  "name": "AIPM Cockpit",
-  "short_name": "AIPM Cockpit",
+  "name": "AI PM Cockpit",
+  "short_name": "AI PM Cockpit",
   "description": "AI-assisted project cockpit — task, RAID, budget and milestone tracking that plugs into M365, Jira and Timelog. Local-first, no backend.",
   "start_url": "/",
   "scope": "/",

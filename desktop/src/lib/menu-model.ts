@@ -40,5 +40,5 @@ export function helpHashScript(hash: string = HELP_VIEW_HASH): string {
 // that file when reporting a problem, and this is the one place in the app
 // that can tell them where it is without them knowing what %LOCALAPPDATA% means.
 export function formatVersionDetail(version: string, logPath: string): string {
-  return `aipm-cockpit ${version}\n\nLog file:\n${logPath}`;
+  return `AI PM Cockpit ${version}\n\nLog file:\n${logPath}`;
 }

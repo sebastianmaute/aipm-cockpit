@@ -1,5 +1,8 @@
 appId: io.github.sebastianmaute.aipm-cockpit
-productName: aipm-cockpit
+productName: AI PM Cockpit
+# The display name above has spaces; the installer filename deliberately does
+# not, so a download URL never needs percent-encoding around it.
+artifactName: aipm-cockpit-${version}-setup.exe
 directories:
   output: release
 files:
@@ -32,6 +35,18 @@ extraResources:
     to: standalone/node_modules
 win:
   target: nsis
+  # ★★ Paths here are resolved by app-builder-lib's getResource(), which tries
+  # `resolve(buildResources, path)` FIRST and only then `resolve(projectDir,
+  # path)`. buildResources defaults to `<projectDir>/build`, and projectDir is
+  # `desktop/` because desktop:package passes `--project desktop` -- so `..`
+  # climbs to the repo root and finds public/. Verified by reading
+  # platformPackager.js rather than by guessing; a miss throws a named
+  # InvalidConfigurationError that quotes both directories it tried, so this
+  # fails loudly at build time rather than shipping a default icon.
+  #
+  # ★ Six sizes up to 256x256 at 32bpp. electron-builder REQUIRES a 256x256
+  # entry; without one it refuses the icon rather than downscaling.
+  icon: ../public/app.ico
   # Unsigned: no certificate is available. See the spec's Section 7 security
   # note -- this means SmartScreen prompts on install, and (once the updater
   # lands) that the share ACL is the only integrity control on updates.
@@ -42,3 +57,19 @@ nsis:
   perMachine: false
   oneClick: false
   allowToChangeInstallationDirectory: true
+  installerIcon: ../public/app.ico
+  uninstallerIcon: ../public/app.ico
+  # ★★★ The sidebar is 164x314 24-bit BMP and those numbers are NOT advisory:
+  # NSIS blits the bitmap into a fixed-size control on the welcome/finish
+  # pages, so a differently-sized or differently-encoded image is cropped or
+  # rejected rather than scaled. Measured on this file: `BM`, 164x314, 24bpp,
+  # Windows 3.x header. Re-measure after ANY edit to it -- an image editor
+  # saving 32bpp or adding a colour profile changes none of what a filename or
+  # a preview shows you. `.gitattributes` pins *.bmp to -text for the same
+  # reason: one silent CRLF conversion corrupts it with no error anywhere.
+  #
+  # ★ These two only render because `oneClick: false` above makes this an
+  # ASSISTED installer with welcome/finish pages. A one-click installer has
+  # nowhere to put them and would ignore both silently.
+  installerSidebar: ../public/sidebar.bmp
+  uninstallerSidebar: ../public/sidebar.bmp

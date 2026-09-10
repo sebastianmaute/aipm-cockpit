@@ -45,6 +45,7 @@ describe("helpHashScript", () => {
 describe("formatVersionDetail", () => {
   it("names the version and where the log lives", () => {
     const text = formatVersionDetail("0.301.0", "C:\\Users\\x\\AppData\\Local\\aipm-cockpit\\logs\\launch.log");
+    expect(text).toContain("AI PM Cockpit");
     expect(text).toContain("0.301.0");
     expect(text).toContain("launch.log");
   });

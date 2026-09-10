@@ -118,7 +118,7 @@ async function start(): Promise<void> {
     fail(
       "Port in use",
       `Another program is already using port ${APP_PORT} on this computer. ` +
-        `aipm-cockpit cannot start until that program is closed. ` +
+        `AI PM Cockpit cannot start until that program is closed. ` +
         `It will not use a different port, because its saved data belongs to this one.`,
     );
     return;
@@ -131,9 +131,9 @@ async function start(): Promise<void> {
       log(`server exited with code ${code}`);
       if (shouldReportServerExit({ quitting, windowAlive: !!win && !win.isDestroyed() })) {
         dialog.showErrorBox(
-          "aipm-cockpit stopped",
+          "AI PM Cockpit stopped",
           `The application's background service stopped unexpectedly (code ${code}). ` +
-            `Please close and reopen aipm-cockpit.\n\nDetails: ${join(logDir, "launch.log")}`,
+            `Please close and reopen AI PM Cockpit.\n\nDetails: ${join(logDir, "launch.log")}`,
         );
       }
     });
@@ -148,7 +148,7 @@ async function start(): Promise<void> {
 
     if (!ready.ready) {
       fail(
-        "aipm-cockpit did not start",
+        "AI PM Cockpit did not start",
         "The application's background service did not finish starting in time.",
       );
       return;

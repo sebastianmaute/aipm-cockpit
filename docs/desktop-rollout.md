@@ -1,4 +1,4 @@
-# Installing aipm-cockpit on your laptop
+# Installing AI PM Cockpit on your laptop
 
 ## Installing
 
