@@ -39,7 +39,8 @@
     "ooxml:manifest": "jiti scripts/update-ooxml-manifest.ts",
     "version:check": "node scripts/check-version-sync.mjs",
     "version:sync": "node scripts/check-version-sync.mjs --update",
-    "ai:eval": "npx vite-node scripts/ai-eval.ts"
+    "ai:eval": "npx vite-node scripts/ai-eval.ts",
+    "desktop:copy-static": "node desktop/scripts/copy-static.mjs"
   },
   "scriptsDescriptions": {
     "dev": "Start Next.js dev server with hot reload on http://localhost:3000",
@@ -73,7 +74,8 @@
     "ooxml:manifest": "Regenerate the ordered OOXML part-manifest baseline (docs/baselines/ooxml-parts.json) — deliberate act only, never run to make a red pipeline pass",
     "version:check": "Fail if a version restatement (package.json, lockfile, README badge, codemap headers) has drifted from src/app/version.ts",
     "version:sync": "Propagate src/app/version.ts's version and codename to every restatement",
-    "ai:eval": "AI prompt-quality harness (slice H). DRY RUN BY DEFAULT — assembles every arm, runs pre-flight and spends nothing. A live run needs AI_EVAL_SPEND=1 plus ANTHROPIC_API_KEY and refuses outright under CI. Never a pipeline gate: every live run costs real tokens."
+    "ai:eval": "AI prompt-quality harness (slice H). DRY RUN BY DEFAULT — assembles every arm, runs pre-flight and spends nothing. A live run needs AI_EVAL_SPEND=1 plus ANTHROPIC_API_KEY and refuses outright under CI. Never a pipeline gate: every live run costs real tokens.",
+    "desktop:copy-static": "Copy .next/static and public/ into .next/standalone (next build --output standalone does not copy either) and verify a CSS bundle is present — omitting this ships an Electron package that boots and renders completely unstyled with no build-time error. Requires a prior `NEXT_STANDALONE=1 npm run build`."
   },
   "dependencies": {
     "@azure/msal-browser": "^5.16.0",
