@@ -4,12 +4,18 @@ import { join } from "node:path";
 import type { ChildProcess } from "node:child_process";
 import { APP_ORIGIN, APP_PORT } from "./lib/constants";
 import { classifyPortOwner, type PortProbe } from "./lib/port-owner";
+import { shouldReportServerExit } from "./lib/exit-reporting";
 import { resolveLogDir } from "./lib/log-paths";
 import { waitForReady } from "./lib/readiness";
 import { killServer, spawnServer } from "./server-child";
 
 let serverChild: ChildProcess | null = null;
 let win: BrowserWindow | null = null;
+// Set the moment WE decide to stop. killServer goes through `taskkill /F` on
+// Windows, so a deliberate shutdown exits the child with code 1 -- exactly
+// what a crash looks like. Without this flag every normal close ended with an
+// error dialog claiming the background service had stopped unexpectedly.
+let quitting = false;
 
 const logDir = resolveLogDir(process.env);
 function log(line: string): void {
@@ -71,7 +77,7 @@ async function start(): Promise<void> {
     serverChild.stderr?.on("data", (d: Buffer) => log(`server: ${d.toString().trimEnd()}`));
     serverChild.on("exit", (code) => {
       log(`server exited with code ${code}`);
-      if (win && !win.isDestroyed()) {
+      if (shouldReportServerExit({ quitting, windowAlive: !!win && !win.isDestroyed() })) {
         dialog.showErrorBox(
           "aipm-cockpit stopped",
           `The application's background service stopped unexpectedly (code ${code}). ` +
@@ -119,6 +125,12 @@ if (!app.requestSingleInstanceLock()) {
   // ★★★ The child MUST die with the parent. An orphan holds the pinned port,
   // so the next launch correctly refuses to start and the app appears
   // permanently broken.
-  app.on("before-quit", () => killServer(serverChild));
-  process.on("exit", () => killServer(serverChild));
+  app.on("before-quit", () => {
+    quitting = true;
+    killServer(serverChild);
+  });
+  process.on("exit", () => {
+    quitting = true;
+    killServer(serverChild);
+  });
 }
