@@ -71,6 +71,12 @@ export function CalendarPullSummaryModal({
         className="relative max-h-[90vh] w-[560px] max-w-[95vw] overflow-y-auto rounded-xl border border-line bg-surface"
       >
         <div className="flex items-center justify-between border-b border-line px-6 py-4">
+          {/* ★ NO help icon, deliberately. Measured over all 69 help bodies at
+              69/69 resolved, "outlook" matches 3 — concept-steering,
+              feature-steering and feature-activity — every one about steering
+              or the activity log, none about what a calendar PULL brought back.
+              A wrong entry is worse than no icon. See docs/open-followups.md
+              §456 for the entry collecting all seven. */}
           <h2 className="text-base font-semibold text-foreground">{title}</h2>
           <button
             type="button"

@@ -671,6 +671,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§453](#453-four-help-content-gaps-the-modal-help-icon-slice-surfaced-but-did-not-fill--open) | Four Help-CONTENT gaps the modal-help-icon slice surfaced but did not fill | found 2026-09-09 wiring the §424 modal help icons | S–M — three are Help prose; the fourth is a one-line decision | **OPEN** |
 | [§454](#454-asking-all-five-probes-in-one-reply-would-buy-5x-the-resolution-at-a-third-of-the-cost-but-partial-credit-is-a-new-outcome-shape-through-scoreresponse-hitrate-and-verdict--open) | Asking all five probes in ONE reply would buy 5x the resolution at a third of the cost, but partial credit is a new outcome shape end to end | proposed 2026-09-09 during the six-run calibration of the AI prompt-quality harness — every lever that made retrieval harder measured as SPENT | M — a new outcome shape through `scoreResponse`, `hitRate` and `verdict` plus a restarted series; add it as the MEASUREMENT beside the single-probe gate, never as a replacement | **OPEN** |
 | [§455](#455-three-latent-defects-in-the-harness-response-parser-all-pre-existing-and-identical-across-the-liverequest-split--open) | Three latent defects in the harness response parser: a null content entry throws, a prototype-keyed block type is never counted, and the error bound can split a surrogate pair | found 2026-09-10 by the differential equivalence review of `f590f57b` — it was testing whether the extraction changed behaviour, and these fell out of the corpus | S — each is a one-line change, but each alters output that review just certified unchanged, so each needs its own test | **OPEN** |
+| [§456](#456-twelve-headerless-dialogs-deliberately-carry-no-help-icon-and-only-the-call-site-comments-record-why--open) | Twelve headerless dialogs deliberately carry no help icon, and only the call-site comments record why | recorded 2026-09-10 finishing the §424 sweep — 13 sites, 1 wired, 12 refused | N/A — a RECORD of deliberate absences; re-measure the term counts before reusing one | **OPEN** |
+| [§457](#457-a-stale-reachability-claim-in-the-calendar-meetings-band-move-handler-and-the-one-gate-correction-is-itself-wrong--open) | A stale reachability claim in the calendar meetings-band move handler, and the one-gate correction is itself wrong | found 2026-09-10 while recording the §424 refusals | S — replace the sentence naming BOTH gates; a one-gate fix invites a false "drag is broken" diagnosis | **OPEN** |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -33124,3 +33126,43 @@ certification is the more valuable artifact. ★ Sketches, none applied: guard b
 `b?.type`; build the census on a null-prototype object; bound the error detail by code points rather
 than UTF-16 units. Each needs its own test, and the second needs care that the run record still
 serialises, since the census is written into the artifact.
+
+## 456. Twelve headerless dialogs deliberately carry no help icon, and only the call-site comments record why — OPEN
+
+**Status:** open as a RECORD rather than as a defect — the twelve refusals are correct as of 2026-09-10, and each is written at its own call site so a later reader meets the reason where the icon would have gone. Verified that day by `grep -rn "NO help icon" src/app --include=*.tsx | grep -v "\.test\." | wc -l` returning **13** — the twelve refusals plus `help-menu.tsx`, which is excluded for a different reason (below). Whether any individual refusal is still RIGHT is a judgement about Help CONTENT that no command can answer, so on that axis: never machine-verified.
+
+§424 wired the dialogs that render a `ModalHeader`. Thirteen headerless `<Modal>` sites remained; exactly ONE was wired (`raci-suggest-modal.tsx`). The other twelve are refusals, in two classes. They are collected here so the shape is visible in one place, while the per-site evidence stays beside the code — a reader tempted to "complete the pattern" meets it at the call site, which is the only place that stops them.
+
+**Five are REFUSE-STRUCTURAL** — not help candidates by their nature, not for want of content. `actions-panel.tsx`, `step0-import-panel.tsx` and `timelog-panel.tsx` are transient progress dialogs, gone before a reader could open one. `integration-disclaimer.tsx` is an acknowledgement gate: the dialog IS the explanation, so a second one behind an icon would only repeat it. `version-info.tsx` is already information. A dialog that declares nothing is the DESIGNED answer for progress, confirmations and gates — not an omission.
+
+**Seven are REFUSE-NO-CONTENT** — each dialog would deserve an entry, but no entry in the corpus is ABOUT it. The standing criterion is that a wrong entry is worse than no icon: an icon that resolves to adjacent-but-different prose is the failure mode §424's own a11y paragraph warns about, a control that looks like help and is not.
+
+| dialog | term probed | result |
+|---|---|---|
+| `task-dedup-modal.tsx` | `dedup\|duplicat` | 4 bodies, every one a different sense — duplicate accountability in RACI, duplicate stakeholders, duplicate committee members, duplicate document versions |
+| `alloc-plan-modal.tsx` | `allocat` | 1 body (`concept-resource`), the resource CONCEPT rather than a proposed plan |
+| `calendar-pull-summary-modal.tsx` | `outlook` | 3 bodies, all steering or activity |
+| `comm-send-preview-modal.tsx` | `communicat\|email` | 3 bodies, all incidental |
+| `pick-list-import-modal.tsx` | `import` | 2 bodies, both incidental |
+| `steering-committee-panel.tsx` | `status report` | **0** bodies — a WIRE candidate downgraded on re-review |
+| `insights/recommendation-review-modal.tsx` | `recommend` | 1 body, a project template — also a downgrade |
+
+★★ **The two downgrades are the entries worth reading**, because in each the near-miss is close enough that the next reviewer will reach for it again. The steering report editor's candidate was `feature-steering`, whose subject is the committee RECORD; the trap is that its one adjacent noun, the "information pack", is the lead-day reminder rule (an `InfoSchedule` is a label plus `leadDays`) and NOT the stored `MeetingReport` — nothing in the code connects them. The recommendation review modal's candidate was `automated-insights`, which is about detection and triage and never says "recommendation", "AI", "propose" or "apply"; its near-miss `feature-inline-ai-edit` describes the mechanic almost verbatim but scopes itself to "without leaving the row". Both call sites carry the full rejection list, each alternative refused for a stated reason. Do not re-derive them from this summary — read the comments.
+
+★★★ **A COUNT WITHOUT ITS PATTERN IS NOT A MEASUREMENT.** The review modal's comment quotes `apply|applied` → 4 and the wider `apply|applied|applies` → 6, and says which is which, because quoting either number against the other pattern is exactly the unlabelled-convention defect §453 records. Any future probe here must write the pattern next to the number.
+
+**Rebuilding the probe.** It is not committed. It reads every `bodyKey` out of `src/app/help-content.ts`, resolves each against `src/app/i18n.ts`, and greps ONLY those resolved bodies. ★★★ Assert it resolves **69/69** before reading a single count — a resolver that silently drops bodies under-reports every term and the under-report looks exactly like a clean refusal, which would CONFIRM a refusal rather than test it. The corpus was 66 when §453 measured it and 69 on 2026-09-10; every count here is stated against 69, and the corpus grows with each Help slice, so re-measure rather than restating these numbers. One count did move between the two runs: `report` was 11 of 66 and is 12 of 69.
+
+**Why this is filed at all.** Twelve deliberate absences are indistinguishable from twelve oversights to anyone reading the tree later, and the cheap repair — "wire it to the closest entry" — is the one that ships the failure mode. `docs:symbols:check` cannot help: it reads only `AGENTS.md` and `docs/AGENTS/*.md`, and it proves a NAME exists, never that pointing an icon at it is right.
+
+## 457. A stale reachability claim in the calendar meetings-band move handler, and the one-gate correction is itself wrong — OPEN
+
+**Status:** open — found 2026-09-10 while recording the §424 refusals, and deliberately NOT fixed in that commit. Verified that day by `grep -n "exercised end to end" src/app/calendar-event-move-handler.ts` (the stale sentence), `grep -n "onEditEvent=\|onMoveOccurrence=" src/app/resources-panel.tsx` (both gates), and `grep -n "onEditEvent ?" src/app/resource-calendar.tsx` (the mount condition).
+
+The header comment on `buildMoveOccurrenceHandler` says the meetings band "can't be exercised end to end yet, since `resource-calendar.tsx` only mounts it when `onEditEvent` is ALSO present, and that prop lands separately with the series editor modal". That is **stale as to reachability**: `resources-panel.tsx` now wires `onEditEvent`, and `resource-calendar.tsx` mounts `CalendarBand` under a check on it, so the band mounts and the drag path IS reachable.
+
+★★★ **STATE BOTH GATES — the shorter correction is itself a defect, and it is the one a reader will write.** `onEditEvent` is gated on `!isPopout` alone. `onMoveOccurrence` carries a SECOND precondition: it is undefined when `isPopout` OR when no save handler is supplied. So the band mounts whenever a non-popout panel supplies an edit handler, but the MOVE is inert without a save handler. A test written from the tempting one-line correction — "both are wired, gated on `!isPopout`" — can mount the band, drag, observe nothing, and wrongly conclude the drag path is BROKEN when it is merely **unarmed**. That misdiagnosis is more expensive than the stale sentence it replaces.
+
+★ **REPLACE the sentence, do not delete it.** It records why the band was genuinely untestable when it was written, which is real history and explains the extraction's shape. The repair is to say what was true then and what is true now, with both gates named.
+
+★ **Nothing gates this class, in either direction.** `docs:symbols:check` reads only `AGENTS.md` and `docs/AGENTS/*.md`, so a stale claim in a `src/` comment is invisible to it forever. `src:symbols:check` is a REPORT, not a gate, and it catches only invented NAMES — every name in this sentence is real, and the sentence is still false. The only detector for a claim like this is someone reading it and going to look.

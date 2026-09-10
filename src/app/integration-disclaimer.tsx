@@ -52,6 +52,10 @@ function DisclaimerModal({ lang, open, onAck }: { lang: Lang; open: boolean; onA
     <Modal open={open} onClose={onAck} ariaLabel={t(lang, "disclaimerTitle")} align="center" zIndex={70}>
       <div className="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-line bg-surface text-foreground shadow-[var(--shadow-card)]">
         <div className="min-h-0 flex-1 overflow-auto p-5 pr-3">
+          {/* ★ NO help icon: an acknowledgement gate — the dialog IS the
+              explanation, so a second one behind an icon would only repeat it.
+              §424's rule — a dialog declaring nothing is the designed answer
+              for progress, confirmations and gates. */}
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
             <span aria-hidden="true">⚠</span>
             {t(lang, "disclaimerTitle")}

@@ -311,6 +311,9 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             className="flex flex-col items-center gap-4 px-8 py-6 text-foreground"
           >
             <Spinner />
+            {/* ★ NO help icon: a transient progress dialog, gone before a reader
+                could open one. §424's rule — a dialog declaring nothing is the
+                designed answer for progress, confirmations and gates. */}
             <span className="text-sm font-medium">{t(lang, "actionAiAnalyzing")}</span>
             <button
               type="button"

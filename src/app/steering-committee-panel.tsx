@@ -570,6 +570,42 @@ export function SteeringCommitteePanel({
                   className="print-root flex h-[600px] min-h-[320px] max-h-[85vh] min-w-[320px] w-[min(90vw,720px)] resize flex-col overflow-auto rounded-lg border border-line bg-surface p-4"
                 >
                   <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+                    {/* ★★ NO help icon, deliberately — and this one was a WIRE
+                        candidate downgraded on re-review, so the evidence is
+                        recorded rather than the verdict alone. The candidate was
+                        feature-steering, whose subject is the committee RECORD:
+                        name, members, the meeting schedule (date, title, agenda,
+                        location), the information-schedule lead-days, the Action
+                        Center pack reminders and the Outlook push. This dialog is
+                        none of that — it is a per-meeting STATUS REPORT editor:
+                        rich-text body, recipients seeded from committee members,
+                        Send via M365, AI Generate, and a version list with a line
+                        diff and Restore.
+                        Measured over all 69 help bodies at 69/69 resolved,
+                        "status report" matches 0. The broader "report" matches 12,
+                        every one a different sense (the Reports nav entry, the
+                        Reports tab, task statistics, Planning's utilization
+                        pop-out, and several as a plain verb) — none this dialog's.
+                        ★★ THE TRAP: feature-steering's one adjacent noun is the
+                        "information pack" that circulates N working days before a
+                        meeting. That is the lead-day REMINDER RULE (an
+                        InfoSchedule is a label plus leadDays, nothing more), NOT
+                        the stored MeetingReport, and no code connects the two.
+                        Conflating them is the mistake this comment exists to
+                        prevent.
+                        Also rejected, each for its own reason: concept-steering
+                        (the governance CONCEPT, equally silent on any report);
+                        feature-version-history (append-only FULL-WORKSPACE
+                        versions — a different subject from this dialog's
+                        per-meeting report snapshots; ★ note both are Turso-gated,
+                        so backend availability does NOT separate them and an
+                        earlier draft of this comment wrongly said it did —
+                        loadVersions here is called only when report.tursoActive);
+                        feature-rich-text (it enumerates the seven rich fields and
+                        a meeting report body is not one of them); feature-reports
+                        (the READ-ONLY Reports view — "Nothing on these views edits
+                        anything", the exact opposite of this dialog).
+                        See docs/open-followups.md §456. */}
                     <h2 className="text-sm font-semibold text-foreground">{title}</h2>
                     <div className="flex items-center gap-2 print:hidden">
                       <PrintButton lang={lang} />

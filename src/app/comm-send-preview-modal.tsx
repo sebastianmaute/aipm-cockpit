@@ -45,6 +45,12 @@ export function CommSendPreviewModal(props: CommSendPreviewModalProps) {
       zIndex={50}
     >
       <div className="flex max-h-[80vh] w-full max-w-lg flex-col gap-3 overflow-auto rounded-lg border border-line bg-surface p-4">
+        {/* ★ NO help icon, deliberately. Measured over all 69 help bodies at
+            69/69 resolved, "communicat|email" matches 3 — feature-add,
+            feature-jira and feature-timelog — and in every one the mention is
+            incidental rather than the subject. A wrong entry is worse than no
+            icon. See docs/open-followups.md §456 for the entry collecting all
+            seven. */}
         <h2
           id="comm-send-preview-title"
           className="text-base font-semibold text-ui-dark-blue dark:text-ui-light-grey"
