@@ -88,6 +88,18 @@ export const SATELLITES = [
     ],
   },
   {
+    file: "desktop/package-lock.json",
+    label: "desktop/package-lock.json root + packages[''] version",
+    patterns: [
+      { key: "version", kind: "version", re: /(^\{\r?\n  "name": "[^"]+",\r?\n  "version": ")([^"]+)(")/ },
+      {
+        key: "version2",
+        kind: "version",
+        re: /(    "": \{\r?\n      "name": "[^"]+",\r?\n      "version": ")([^"]+)(")/,
+      },
+    ],
+  },
+  {
     file: "README.md",
     label: "README shields badge",
     patterns: [

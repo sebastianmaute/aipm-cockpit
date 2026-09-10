@@ -1,16 +1,17 @@
 // Tests for the version-sync gate's shared layer.
 //
 // ★★ Every case here runs against FIXTURE STRINGS, never the real repo files,
-// with ONE deliberate exception. A test that reads package.json passes or
+// with TWO deliberate exceptions. A test that reads package.json passes or
 // fails depending on whether someone happens to be mid-release, which makes
 // it a clock rather than a test.
-// ★ THE EXCEPTION: "desktop/package.json satellite" > "matches the file's
-// real shape" reads that file for real, because its whole job is to catch the
-// file's key order or indent moving out from under the satellite regex —
-// against a fixture string it would only pin the regex to a string this test
-// wrote, which is vacuous. It is NOT a clock: it asserts the captured version
-// is SEMVER-SHAPED, never a specific version, so it does not care where a
-// release is.
+// ★ THE EXCEPTIONS: "desktop/package.json satellite" > "matches the file's
+// real shape" and "desktop/package-lock.json satellite" > "matches the
+// file's real shape" each read their file for real, because their whole job
+// is to catch the file's key order or indent moving out from under the
+// satellite regex — against a fixture string either would only pin the regex
+// to a string this test wrote, which is vacuous. Neither is a clock: each
+// asserts the captured version is SEMVER-SHAPED, never a specific version,
+// so it does not care where a release is.
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
@@ -226,5 +227,35 @@ describe("desktop/package.json satellite", () => {
     const m = text.match(s.patterns[0].re);
     if (!m) throw new Error("pattern did not match desktop/package.json — the file's key order or indent moved");
     expect(m[2]).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+});
+
+describe("desktop/package-lock.json satellite", () => {
+  // desktop/package-lock.json restates the version TWICE (root + packages[""]),
+  // the same shape as the root package-lock.json — and it is exactly the
+  // unregistered-lockfile drift that left the root one eleven releases stale
+  // before this gate existed. An unregistered desktop lockfile drifts the
+  // same silent way.
+  it("is a registered version satellite with both occurrences", () => {
+    const s = SATELLITES.find((x) => x.file === "desktop/package-lock.json");
+    if (!s) {
+      throw new Error("desktop/package-lock.json must be a satellite or its version silently drifts");
+    }
+    expect(s.patterns).toHaveLength(2);
+    expect(s.patterns.map((p) => p.kind)).toEqual(["version", "version"]);
+  });
+
+  it("matches the file's real shape", () => {
+    const text = readFileSync("desktop/package-lock.json", "utf8");
+    const s = sat("desktop/package-lock.json");
+    for (const p of s.patterns) {
+      const m = text.match(p.re);
+      if (!m) {
+        throw new Error(
+          `pattern ${p.key} did not match desktop/package-lock.json — the file's key order or indent moved`,
+        );
+      }
+      expect(m[2]).toMatch(/^\d+\.\d+\.\d+$/);
+    }
   });
 });
