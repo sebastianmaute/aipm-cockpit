@@ -832,6 +832,12 @@ The file's header says the band "can't be exercised end to end yet, since `resou
 
 The entry needs a `**Status:**` line with today's ISO date that cites a command or says `never machine-verified` — `followups-status-check` is blocking. It also needs an index row between the `INDEX:BEGIN` / `INDEX:END` markers — `followups-index-check` is blocking.
 
+★★★ **THREE BLOCKING GATES, NOT TWO — `docs:claims:check` COVERS THIS FILE AND A NATURAL FINDING REDDENS IT.** `docs/open-followups.md` is inside that ratchet's scope, so writing `src/app/resources-panel.tsx:717` — exactly what a careful investigator writes — adds NEW `path:LINE` citations and turns it red. **Cite the SYMBOL plus a reproduce grep, never a line number.** And **never** run `node scripts/check-doc-claims.mjs --update` to admit the citation: re-baselining defeats the only property the gate checks. ★ An agent told to "cite what you found" WILL cite lines — the instruction has to say line numbers are forbidden.
+
+★★★ **`followups-status-check`'s Status regex DOES NOT SPAN LINES.** A conforming phrase (`never machine-verified`, or a cited command) that normal prose wrapping breaks across two lines reports as `NO_VERIFICATION` and exits 1 — and nothing in the failure message points at wrapping, so it reads as a missing Status line and invites you to invent a verification, which that gate's own rule forbids. **Keep the Status line unwrapped on ONE line however long it runs**; this file has no line-length gate.
+
+★★ Run all three unpiped, and remember the two-exit-code split on the followups pair: **1 is DRIFT, 2 is the gate unable to scan at all** — and a scan that reads nothing passes everything, so 2 demands the opposite response to 1.
+
 ★★★ **DO NOT add a second index row for an existing section.** The gate compares SETS and is structurally blind to a duplicate; it reports duplicates on a separate axis precisely because of that.
 
 - [ ] **Step 5: Run the two register gates unpiped**
