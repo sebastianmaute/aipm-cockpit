@@ -4,7 +4,7 @@
 // NO CSS and NO images. It fails at RUNTIME and nothing at build time reports
 // it, which is why this script asserts its own result rather than trusting the
 // copy, and why the packaged smoke test asserts a computed style.
-import { cpSync, existsSync, readdirSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
@@ -25,6 +25,13 @@ for (const { from, to } of copies) {
     console.error(`Source missing: ${from}`);
     process.exit(1);
   }
+  // ★★ Clear the destination first. cpSync merges rather than replaces, so a
+  // stale file from an EARLIER build survives a copy from a source that no
+  // longer contains it — and the CSS guard below then passes on that stale
+  // file while the current build emitted none. That is the exact failure this
+  // script exists to prevent, one layer down: measured during this task, where
+  // the destination had to be cleared by hand for the guard test to be real.
+  rmSync(to, { recursive: true, force: true });
   cpSync(from, to, { recursive: true });
 }
 
