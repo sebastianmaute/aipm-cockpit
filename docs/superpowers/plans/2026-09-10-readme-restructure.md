@@ -881,9 +881,19 @@ of it was executed. The original text is preserved in git at `a5a742cd`.
    as proof. But that script takes **no file list**: `findDocs()` walks top-level
    `*.md` plus `docs/**/*.md`, and `syncFile` includes a file only if it carries
    the **marker pair** `<!-- AUTO-GENERATED from package.json scripts -->` …
-   `<!-- END AUTO-GENERATED -->`. Participation is **discovered, never named**, so
-   that grep returns nothing whether the claim is true or false. It is the
+   `<!-- END` + `AUTO-GENERATED -->`. Participation is **discovered, never named**,
+   so that grep returns nothing whether the claim is true or false. It is the
    grep-granularity failure: a command that confirms whatever you already believed.
+
+   ★★★ **The end marker is split above on purpose, and this file is why.** Written
+   whole, it made THIS PLAN a participant: `findDocs` walks `docs/**/*.md`, which
+   includes `docs/superpowers/`, and `syncFile` matches `START[\s\S]*?END` — so the
+   generator wanted to overwrite the span between the two quoted markers with the
+   scripts table. `docs:scripts:check` caught it, reporting
+   `would-update: docs/superpowers/plans/2026-09-10-readme-restructure.md`. A
+   document that quotes a marker-based mechanism becomes subject to it; `AGENTS.md`
+   escapes the same fate only because its end marker happens to wrap across a line.
+   Split any further mention, and re-run the gate after writing about this at all.
 
 **What is actually true, measured 2026-09-10:**
 
