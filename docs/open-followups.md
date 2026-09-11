@@ -668,7 +668,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§441](#441-relation-a-cannot-see-a-trespass-that-destroys-rather-than-stores-and-the-property-that-blinds-it-is-the-one-that-keeps-it-exemption-free--open) | Relation A cannot see a trespass that DESTROYS rather than STORES, and the property that blinds it is the one that keeps it exemption-free — OPEN | found 2026-09-08 by acceptance mutant 2 of the offered-surface slice, which SURVIVED | M-L — a design call: movement clause plus exemptions, or leave it to the write-path sweep; typed probes for the listed fields | open |
 | [§442](#442-changedecisiondate-is-offered-on-create-unconditionally-discarded-and-disclosed-nowhere--closed-2026-09-09) | `change.decisionDate` is offered on create, unconditionally discarded, and disclosed nowhere | found 2026-09-08 by the create arm of the offered-surface sweep's Relation B | S — closed by WITHDRAWING the field; the title's "unconditionally" was itself false, and the body says so | **CLOSED** 2026-09-09 |
 | [§443](#443-two-create-axis-fields-are-unmeasured-for-two-different-reasons-and-the-guard-that-reports-the-first-enumerates-probe-derivations-by-hand--open) | Two create-axis fields are unmeasured for two different reasons, and the guard that reports the first enumerates probe derivations by hand — OPEN | found 2026-09-08 while measuring the offered-surface sweep's create arm | S-M — one is a policy exclusion to keep, one is a probe that cannot move | open |
-| [§444](#444-npm-run-testshuffle-is-owed-for-featoffered-surface-sweep-landing--open) | `npm run test:shuffle` is owed for `feat/offered-surface-sweep-landing` — OPEN | found 2026-09-08 — withheld on the original branch (a peer session held a full suite) and on the landing (no full suite locally); CI's `unit-tests-shuffled` runs it on the merge request | XS — one full-suite run at the pinned seed | open |
+| [§444](#444-npm-run-testshuffle-is-owed-for-featoffered-surface-sweep-landing--closed-2026-09-11) | `npm run test:shuffle` is owed for `feat/offered-surface-sweep-landing` | found 2026-09-08 — withheld on the original branch (a peer session held a full suite) and on the landing (no full suite locally) | XS — closed by CI's `unit-tests-shuffled` job 29515 on `6b23d75b` (MR !470), 1063 files green | **CLOSED** 2026-09-11 |
 | [§445](#445-propose_project-is-a-whole-model-write-surface-both-offered-surface-relations-are-structurally-unable-to-reach--open) | `propose_project` is a whole model-write surface both offered-surface relations are structurally unable to reach — OPEN | found 2026-09-09 while closing §442, on a branch that forked before `2645debb`, which fixed the write defect on main the same day | S — a decision: give `propose_project` a relation of its own, or affirm `SEED_OFFERED_KEYS` as the whole answer | open |
 | [§446](#446-changedecisionby-is-authored-freely-with-no-coupling-to-status-so-a-decider-can-be-named-on-an-undecided-change--open) | `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change — OPEN | found 2026-09-09 while closing §442; reported independently by two agents, fixed by neither | S-M — decide the invariant first; a guard on the model alone closes nothing while the modal accepts it | open |
 | [§447](#447-sanitize-recordsts-sits-at-exactly-the-1600-line-ratchet-limit-with-zero-headroom-and-it-is-not-baselined--open) | `sanitize-records.ts` is at the 1600-line ratchet LIMIT with zero headroom and no baseline entry | found 2026-09-09 by the prose pass on the AI create-path branch, which needed ~30 lines in a file that had 2 | S-M — extract the seven guard tables; do NOT `--update` the baseline or hand-write a row | **OPEN** |
@@ -33187,14 +33187,20 @@ field's `CALENDAR_EVENT_FIELD_GUARDS` row moves nothing. Measured for `startTime
 (0 failed in both sweeps); for `sendInvitations` it follows from the same `dead` classification and
 was not run.
 
-## 444. `npm run test:shuffle` is owed for `feat/offered-surface-sweep-landing` — OPEN
+## 444. `npm run test:shuffle` is owed for `feat/offered-surface-sweep-landing` — CLOSED 2026-09-11
 
-**Status:** OPEN 2026-09-11 — never machine-verified locally. The run was deliberately not made on
-the original branch, `feat/offered-surface-sweep` (a peer session held a full suite), nor on the
-landing branch, `feat/offered-surface-sweep-landing`, which ran under a standing instruction to run
-no full suite locally. CI's BLOCKING `unit-tests-shuffled` job runs the same pinned seed on the
-landing's merge request; this entry is to be closed citing that pipeline, before the merge. Owed
-command: `npm run test:shuffle`.
+**Status:** CLOSED 2026-09-11 by CI, not locally: the BLOCKING `unit-tests-shuffled` job 29515
+(https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29515), in merge-request
+pipeline 6900 for !470, passed on `6b23d75b`, the landing branch after it merged `origin/main` at
+0.303.0. The job ran `vitest run --sequence.shuffle --sequence.seed=1 --reporter=dot`, the same
+command as `npm run test:shuffle`, and its log reports `Test Files  1063 passed (1063)`.
+★ Only a pipeline on `6b23d75b` or later could close this. The seed fixes the RNG, not the order,
+and the merge brought in nine test files from main (six under `desktop/`, three under `scripts/`;
+`git diff --name-only --diff-filter=A 33496bdb 6b23d75b -- "*.test.*"`), so an earlier pipeline
+shuffled a different suite.
+The run was never made locally: not on the original branch, `feat/offered-surface-sweep` (a peer
+session held a full suite), and not on the landing branch, which ran under a standing instruction
+to run no full suite locally.
 
 `test:shuffle` is the ONLY local reproduction of CI's BLOCKING `unit-tests-shuffled` job. A bare
 `--sequence.shuffle` shuffles test order WITHIN a file as well as file order, so it catches
@@ -33202,10 +33208,11 @@ intra-file order dependence (§75) and not merely cross-file leakage — and `np
 nothing, so a green local suite says nothing about it.
 
 ★★ `plan.offered-surface-sweep.test.ts` is the shape that breaks under reordering: it mints ids
-through `id-mint-session.ts`, whose `highWater` map is MODULE-SCOPED and therefore shared with every
-other file in the same worker. The file already carries the mitigation — a `beforeEach` calling
-`resetMintState()`, with a comment naming this gate as the reason — so the expectation is a PASS.
-What is owed is the evidence, not the fix.
+through `id-mint-session.ts`, whose `highWater` map is MODULE-SCOPED. Vitest isolates each test
+file by default (`isolate: true`, which `vitest.config.ts` does not override), so the map is shared
+by the tests of ONE file, not across files — and test order within a file is exactly what the
+shuffle permutes. The file carries the mitigation, a `beforeEach` calling `resetMintState()` with a
+comment naming this gate as the reason, so the expected answer was a PASS; job 29515 is the evidence.
 
 ★ Owed for the BRANCH, not for the file: the gate runs the whole suite, so a green answer is a
 property of the branch and cannot be obtained by running the new file alone. CI's
