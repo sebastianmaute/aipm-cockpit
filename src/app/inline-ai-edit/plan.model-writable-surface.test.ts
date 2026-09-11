@@ -1,17 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { TOKEN_EXCLUDED } from "../ai-entity-token";
-import {
-  ABSENCES_CSV_COLUMNS,
-  CHANGES_CSV_COLUMNS,
-  CSV_COLUMNS,
-  EVENTS_CSV_COLUMNS,
-  MILESTONES_CSV_COLUMNS,
-  RAID_CSV_COLUMNS,
-  RESOURCES_CSV_COLUMNS,
-  STAKEHOLDERS_CSV_COLUMNS,
-} from "../csv-codecs-core";
 import { AXIS_FIELDS } from "../../test/inline-sweep-fixtures";
+import { PERSISTED_COLUMNS } from "../../test/offered-surface-axis";
 import { type InlineEntity } from "./entity-descriptor";
 import { RICH_FIELDS } from "./plan";
 
@@ -31,24 +22,31 @@ import { RICH_FIELDS } from "./plan";
  *  review doing this subtraction BY HAND, one entity beyond its brief.
  *
  *  So this file does that subtraction mechanically, forever, from a source the
- *  sweep does not control: the CSV column lists. Those are the right source
- *  because `ai-entity-token.ts`'s `ProjectedRows` already makes tsc prove each
- *  array covers its entity type — so a field added to `types.ts` and persisted
- *  cannot fail to appear here, and this test then forces a DECISION about it.
+ *  sweep does not control: the CSV column lists.
  *
  *  ★★ IT IS A SET RATCHET, NOT A COUNT, for the reason `AXIS_FIELDS` is: a
  *  count is blind to substitution. Adding a field and dropping another leaves
  *  any tally unmoved. */
-const PERSISTED_COLUMNS: Record<InlineEntity, readonly string[]> = {
-  task: CSV_COLUMNS,
-  raid: RAID_CSV_COLUMNS,
-  change: CHANGES_CSV_COLUMNS,
-  milestone: MILESTONES_CSV_COLUMNS,
-  stakeholder: STAKEHOLDERS_CSV_COLUMNS,
-  resource: RESOURCES_CSV_COLUMNS,
-  absence: ABSENCES_CSV_COLUMNS,
-  calendarEvent: EVENTS_CSV_COLUMNS,
-};
+/** `PERSISTED_COLUMNS` now lives in `src/test/offered-surface-axis.ts`, shared
+ *  with `plan.offered-surface-sweep.test.ts`. Its docstring there carries the
+ *  reason the CSV column lists are the right source: `ai-entity-token.ts`'s
+ *  `ProjectedRows` already makes tsc prove each array covers its entity type,
+ *  so a persisted field cannot fail to appear and this file then forces a
+ *  decision about it.
+ *
+ *  ★★ THE TWO DETECTORS ASK DIFFERENT QUESTIONS AND NEITHER REPLACES THE OTHER.
+ *  This file is STATIC accounting at zero runtime cost — "is every persisted
+ *  column accounted for by the sweep's axis?" — and it catches a new column
+ *  arriving unswept before anyone writes a probe for it.
+ *  `plan.offered-surface-sweep.test.ts` is BEHAVIOURAL — "does an undeclared
+ *  field actually land, and does a declared one actually work?" — and it costs a
+ *  dispatcher mount per field. Deleting either leaves a hole the other does not
+ *  cover.
+ *
+ *  ★ `UNSWEPT_BY_DESIGN.task` stays long here because `update_task` uses a
+ *  genuine whitelist (`buildPatch`), reasoning the schema axis does not
+ *  reproduce — so this file's axis is deliberately NOT re-based on
+ *  `declaredProperties`. */
 
 /** Persisted fields the sweep deliberately does NOT cover, with the reason.
  *
