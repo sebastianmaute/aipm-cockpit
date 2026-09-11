@@ -227,7 +227,7 @@ describe("classifyTag", () => {
   // ★★★ UNSCANNABLE IS NOT DRIFT, and conflating them is the failure mode.
   // An empty CI_COMMIT_TAG means this job ran on a pipeline that is not a tag
   // pipeline — a rules bug. Reporting that as "drift" would send the reader to
-  // version.ts, which is correct.
+  // version.ts — a file with nothing wrong in it.
   it("reports unscannable, not drift, on an absent tag", () => {
     expect(classifyTag("", "0.301.0").verdict).toBe("unscannable");
     expect(classifyTag(undefined, "0.301.0").verdict).toBe("unscannable");
