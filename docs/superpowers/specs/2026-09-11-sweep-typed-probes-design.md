@@ -97,9 +97,30 @@ exemption list".
 
 ### 2. The admission check
 
-Before either relation judges a field, the probe is put through the storage layer. The reference row,
-with the probe substituted into the field, is embedded as the only row of its slice (`wsKey`) in a
-workspace JSON and read back through `jsonToWorkspace` (`src/app/workspace.ts`).
+Before either relation judges a field, the reference row with the probe substituted into the field is
+passed to that entity's **writer sanitizer** for the arm being judged, `ADMISSION_ORACLE[entity][arm]`
+(`src/test/sweep-probes.ts`):
+
+| entity | create | update |
+|---|---|---|
+| raid | `sanitizeRaidItem` | `sanitizeRaidItem` |
+| change | `sanitizeModelChangeItem` | `sanitizeChangeItem` |
+| milestone | `sanitizeMilestone` | `sanitizeMilestone` |
+| stakeholder | `sanitizeStakeholder` | `sanitizeStakeholder` |
+| resource | `sanitizeResource` | `sanitizeResource` |
+| absence | `sanitizeAbsence` | `sanitizeAbsence` |
+| calendarEvent | `sanitizeCalendarEvent` | `sanitizeCalendarEvent` |
+| task | one-row `jsonToWorkspace` round trip | same |
+
+★★ **WHY NOT `jsonToWorkspace` FOR ALL EIGHT, as this section first said.** `jsonToWorkspace`
+(`src/app/workspace.ts`) CASTS raid rows (only `sanitizeRaidRichFields` runs) and task rows (only
+`migrateTask` and `sanitizeNoteFields` run). As the oracle it would admit almost any probe on those two
+entities, including one the writer's own sanitizer reshapes, which is the vacuity this slice removes.
+Reproduce: `grep -n "tasks: (p.tasks\|raid: (p.raid" src/app/workspace.ts`.
+
+★ **TASK IS THE ONE WEAK ORACLE, AND IT IS WEAK ON PURPOSE.** `create_task` has no row sanitizer: its
+writer builds the row field by field. The oracle for task is therefore the at-rest store alone, which
+admits nearly any value. That is recorded, and pinned by a unit test, rather than hidden.
 
 A field is **measured** only if:
 
@@ -111,13 +132,13 @@ Both comparisons use the comparison the judging relation itself uses: `same` for
 falls back to `String(value)`, which renders every object as `"[object Object]"`, so an object probe
 would always compare equal to its reference and never be admitted.
 
-Otherwise the relation records a finding of the new kind `unmeasured`, with the reason ("the storage
-layer reshapes the probe" or "the probe equals the reference"), and skips the field.
+The outcome has three kinds, and the two non-probe kinds want different repairs:
 
-`jsonToWorkspace` is the oracle because every one of the eight inline entities goes through it,
-including `task`, which has no row sanitizer of its own. It answers "can this column hold this value
-at rest", which is the exact condition under which a non-landing means something. The sweep already
-runs under jsdom (`vitest.config.ts`), which the JSON load path needs.
+- **`dead`** — the harness cannot derive a distinguishable probe: nothing to derive from, the derived
+  value equals the reference, or the mail-safety policy (`calendarEvent.sendInvitations`). The repair
+  is a fixture or a probe shape. This is the existing kind, unchanged in meaning.
+- **`unmeasured`** (new) — a probe was derived, but the writer's sanitizer will not hold it unchanged.
+  The repair is a probe shape, or a product decision about what the column accepts.
 
 ### 3. What each relation asserts
 
@@ -135,9 +156,14 @@ escape, which is §443's durable concern.
 
 ### 5. Fixtures
 
-Seed `calendarEvent.exceptions` with a valid `EventException[]` on the sweep's calendar-event seed
-(`src/test/inline-sweep-fixtures.ts`) and on `CREATE_BASE.calendarEvent`
-(`src/test/offered-surface-axis.ts`). Both already carry a `recurrence`, which `sanitizeCalendarEvent`
+Seed `calendarEvent.exceptions` with a valid two-element `EventException[]` on the sweep's
+calendar-event seed (`seedGuardedCalendarEvent`, `src/test/inline-sweep-fixtures.ts`) ONLY.
+★★ NOT on `CREATE_BASE.calendarEvent`: the sweep's floor "the create base names only declared fields"
+forbids an undeclared key there, and `exceptions` is undeclared. It is not needed either — the create
+arm's reference is the control row, which holds no `exceptions`, so `probeFor` falls back to the
+seeded array.
+
+The calendar-event seed already carries a `recurrence`, which `sanitizeCalendarEvent`
 requires before it stores `exceptions`. The other object fields (`stakeholder.raci`,
 `resource.utilization`, `resource.absenceOverride`, `calendarEvent.recurrence`) are already seeded as
 objects, so the object branch reaches them.
@@ -155,6 +181,9 @@ objects, so the object branch reaches them.
   exists and a suffixed string fails the round trip.
 - **Relation A gets the same ledger.** It asserts `findings` is empty today, and typed probes may now
   expose a real undeclared write.
+- **Citation.** Every new `unmeasured` or `dead` entry cites §462, the register entry Task 8 files for
+  "fields the typed probes cannot measure". Reserve the number by re-running the register-max command
+  against `origin/main` before writing any citation.
 
 ### 7. A real undeclared write that Relation A finds is FIXED in this slice
 
