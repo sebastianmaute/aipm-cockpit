@@ -8,7 +8,9 @@
 // column can hold, which the writer would not produce on its own. An invalid
 // value is stopped by the sanitizer whether or not the guard runs, so it
 // proves nothing to either relation — that was §441's whole probe-shape
-// blindness, and `trespassProbeFor` (deleted) produced exactly such values.
+// blindness, and `trespassProbeFor`, the derivation this module replaces,
+// produced exactly such values (it is REMOVED once the sweep is repointed
+// at this module).
 //
 // A field whose probe the writer's sanitizer will not hold unchanged is
 // reported `unmeasured`, BY NAME, in the sweep's both-directions ledger. It is
@@ -74,10 +76,18 @@ function leafRank(v: unknown): number {
  *  into an exemption list one rename at a time. */
 export function changedInKind(v: unknown): unknown {
   if (typeof v === "boolean") return !v;
-  if (typeof v === "number") return v + 1;
+  // `Infinity + 1 === Infinity`, and `NaN` is never "different from it" —
+  // both would silently violate this function's own contract.
+  if (typeof v === "number") return Number.isFinite(v) ? v + 1 : undefined;
   if (typeof v === "string") {
     if (DATE.test(v)) {
       const d = new Date(`${v}T00:00:00Z`);
+      // A regex-valid YYYY-MM-DD can still be calendar-invalid ("2026-13-01",
+      // "2026-01-32") — `Date.parse` rejects an out-of-range month or day
+      // (unlike a day that merely overflows its own month, which rolls over
+      // silently; see `isoDateOrUndefined` in calendar-event.ts). Such a
+      // `Date` is Invalid, and `.toISOString()` throws a RangeError.
+      if (Number.isNaN(d.getTime())) return undefined;
       d.setUTCDate(d.getUTCDate() + 1);
       return d.toISOString().slice(0, 10);
     }
@@ -116,8 +126,24 @@ export function changedInKind(v: unknown): unknown {
 }
 
 const asRow = (r: unknown): Row | null => (r === null || r === undefined ? null : (r as Row));
+/** Runs under jsdom (`vitest.config.ts` `environment: "jsdom"`) — the rich-field
+ *  pass this round trip's task decode runs (`sanitizeNoteFields` →
+ *  `sanitizeRichHtml`) is DOM-dependent.
+ *
+ *  `{ strict: true }` deliberately: non-strict `jsonToWorkspace` swallows ANY
+ *  construction-time exception into `emptyWorkspace()`, so a genuine failure
+ *  here (a missing DOM, chiefly) would read as `.tasks[0] === undefined` —
+ *  indistinguishable from "the create writer's sanitizer refuses the whole
+ *  row", the exact wrong diagnosis `admitProbe` would then report. Strict is
+ *  safe for this envelope: `{tasks:[row], raid:[]}` always satisfies both
+ *  shape checks (`Array.isArray` on `tasks`/`raid`), the JSON is built by
+ *  `JSON.stringify` so it never fails to parse, and the two other strict-only
+ *  throws in `jsonToWorkspace` guard `p.documents`/`p.documentVersions`, keys
+ *  this envelope never sets — so the only strict throw this call can ever hit
+ *  is the outer catch-all re-raising a REAL construction exception, which is
+ *  exactly what should surface rather than be swallowed. */
 const taskAtRest = (row: Row): Row | null =>
-  asRow(jsonToWorkspace(JSON.stringify({ tasks: [row], raid: [] })).tasks[0]);
+  asRow(jsonToWorkspace(JSON.stringify({ tasks: [row], raid: [] }), { strict: true }).tasks[0]);
 
 /** The sanitizer each entity's WRITER runs on the given arm — the oracle for
  *  "can this column hold this value". Typed over `InlineEntity`, so a new
@@ -152,6 +178,10 @@ export function admitProbe(
 ): string | undefined {
   const kept = ADMISSION_ORACLE[entity][arm]({ ...reference, [field]: probe });
   if (!kept) return `the ${arm} writer's sanitizer refuses the whole row once ${field} is ${JSON.stringify(probe)}`;
+  // Deliberately `kept`, not `reference`: this asks whether the SANITIZED row
+  // — the probe's own post-sanitizer siblings — still carries the probe
+  // unchanged, a different question from `probeFor`'s `eq`, which always
+  // compares against the pre-sanitizer `reference`.
   if (!compare(kept[field], probe, kept)) {
     return `the ${arm} writer's sanitizer reshapes ${JSON.stringify(probe)} to ${JSON.stringify(kept[field])}`;
   }
@@ -165,10 +195,27 @@ export function admitProbe(
  *  judged against, so a probe can no longer be derived against one row and
  *  judged against another (§459's `absence.startDate`, §443's `startTime`).
  *
- *  Source, most specific first: a declared `enum` member that differs from
- *  the reference; the reference value changed in kind; the SEEDED value — sent
- *  as is where the reference carries none, because the fixture already proved
- *  the sanitizer accepts it; otherwise nothing, and the field is `dead`. */
+ *  Source: a declared `enum` member that differs from the reference is
+ *  EXCLUSIVE of everything else — an enum field only accepts its declared
+ *  members, so a value built by `changedInKind` or drawn from the seed could
+ *  land outside that closed vocabulary and be refused for the wrong reason
+ *  (an out-of-vocabulary value, not a same-vocabulary alternative). When the
+ *  reference already equals every member, the field is correctly `dead` — a
+ *  state that needs a single-member (or duplicate-member) enum and is
+ *  unreachable through today's schema: the shortest declared enum anywhere is
+ *  3 members (`stakeholder.influence`/`stakeholder.interest`), scanned across
+ *  every entity and both arms (`sweep-probes.test.ts`).
+ *
+ *  Without a governing enum, the two remaining sources FALL THROUGH one to
+ *  the next rather than excluding each other: the reference value changed in
+ *  kind, THEN — only when that produced nothing — the seed row's value, sent
+ *  as is where the reference carries none (the fixture already proved the
+ *  sanitizer accepts it) or changed in kind where it does not. A reference
+ *  that is a non-blank OBJECT with only blank leaves (`{ a: "" }`) is the case
+ *  this matters for: `changedInKind` derives nothing from it, and an `else if`
+ *  chain used to stop there even though the seed held a usable value.
+ *
+ *  Otherwise nothing, and the field is `dead`. */
 export function probeFor(args: {
   entity: InlineEntity;
   arm: Arm;
@@ -189,10 +236,12 @@ export function probeFor(args: {
   const members = declared ? schemaProperty(entity, arm, field).enum : undefined;
   if (members && members.length > 0) {
     candidate = members.find((m) => !eq(m, ref));
-  } else if (!isBlank(ref)) {
-    candidate = changedInKind(ref);
-  } else if (!isBlank(seedRow[field])) {
-    candidate = eq(seedRow[field], ref) ? changedInKind(seedRow[field]) : seedRow[field];
+  } else {
+    if (!isBlank(ref)) candidate = changedInKind(ref);
+    const seeded = seedRow[field];
+    if (candidate === undefined && !isBlank(seeded)) {
+      candidate = eq(seeded, ref) ? changedInKind(seeded) : seeded;
+    }
   }
 
   if (candidate === undefined) return { kind: "dead", reason: "nothing to derive a distinguishable probe from" };

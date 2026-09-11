@@ -35,6 +35,22 @@ describe("changedInKind", () => {
     expect(changedInKind(input)).toBeUndefined();
   });
 
+  // A regex-valid YYYY-MM-DD can still be calendar-invalid: `Date.parse`
+  // rejects an out-of-range month or day (unlike a day that merely overflows
+  // its own month, which rolls over silently — `isoDateOrUndefined` in
+  // calendar-event.ts). Without a guard the resulting Invalid Date throws a
+  // RangeError from `.toISOString()`.
+  it("has nothing to derive from a calendar-invalid date", () => {
+    expect(changedInKind("2026-01-32")).toBeUndefined();
+    expect(changedInKind("2026-13-01")).toBeUndefined();
+  });
+
+  // `Infinity + 1 === Infinity` and `NaN` is never "different from it".
+  it("has nothing to derive from a non-finite number", () => {
+    expect(changedInKind(Infinity)).toBeUndefined();
+    expect(changedInKind(NaN)).toBeUndefined();
+  });
+
   // ★★ A free-text leaf is the change most likely to be refused inside a
   //  structured value (a closed vocabulary such as a recurrence `freq`), so
   //  the object branch changes a number, boolean, date or time leaf first.
@@ -53,7 +69,7 @@ describe("changedInKind", () => {
 
 describe("isBlank", () => {
   it.each([[undefined], [null], [""], [[]], [{}]])("%j is blank", (v) => expect(isBlank(v)).toBe(true));
-  it.each([[false], [0], ["a"], [[0]], [{ a: 1 }]])("%j is not blank", (v) => expect(isBlank(v)).toBe(false));
+  it.each([[false], [0], ["a"], [[0]], [{ a: 1 }], [{ a: "" }]])("%j is not blank", (v) => expect(isBlank(v)).toBe(false));
 });
 
 describe("ADMISSION_ORACLE", () => {
@@ -121,6 +137,22 @@ describe("probeFor", () => {
     else expect(outcome.kind).not.toBe("dead");
   });
 
+  // The enum source is EXCLUSIVE of the other two, even when one of them also
+  // carries a usable value — `task.priority` is a real 4-member enum (the
+  // shortest declared enum anywhere is 3 members, `stakeholder.influence`/
+  // `stakeholder.interest`; checked by scanning every entity and both arms via
+  // `declaredProperties`/`schemaProperty` — no declared field has a 1- or
+  // 2-member enum today, so the "every member already equals the reference"
+  // dead case cannot be exercised through the real schema and is not faked
+  // here).
+  it("keeps the enum source exclusive of the seed, even when the seed carries a usable value", () => {
+    const outcome = probeFor({
+      entity: "task", arm: "create", field: "priority", declared: true,
+      reference: { priority: "Low" }, seedRow: { priority: "NotAMember" }, compare: sameAt,
+    });
+    expect(outcome).toEqual({ kind: "probe", value: "Medium" });
+  });
+
   // §459's task probe: the create reference holds no email, so the SEEDED address is sent as is.
   it("sends the seeded value as is when the reference carries none", () => {
     const outcome = probeFor({
@@ -128,6 +160,22 @@ describe("probeFor", () => {
       reference: { id: 1, taskName: "A task" }, seedRow: { assigneeEmail: "m.Jordan@example.com" }, compare: sameAt,
     });
     expect(outcome).toEqual({ kind: "probe", value: "m.Jordan@example.com" });
+  });
+
+  // `raci` is undeclared on both stakeholder tools (AGENTS.md's own §438 list),
+  // so `declared: false` here is realistic, not a shortcut. The reference's
+  // raci map is a non-blank object (isBlank only checks key COUNT) whose one
+  // entry is an invalid leaf — `coerceRaciMap` (sanitize-records.ts) drops a
+  // value outside RACI_SET — so `changedInKind` derives nothing from it. The
+  // seed's entry is one `coerceRaciMap` keeps unchanged.
+  it("falls through to the seed when the reference is a thin object with only blank leaves", () => {
+    const outcome = probeFor({
+      entity: "stakeholder", arm: "create", field: "raci", declared: false,
+      reference: { id: 1, name: "Ada Lovelace", raci: { "1": "" } },
+      seedRow: { raci: { "3": "R" } },
+      compare: sameAt,
+    });
+    expect(outcome).toEqual({ kind: "probe", value: { "3": "R" } });
   });
 
   it("is dead when there is nothing to derive from", () => {
