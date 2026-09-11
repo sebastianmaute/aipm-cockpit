@@ -2678,6 +2678,7 @@ EOF
 
 **Files:**
 - Modify: `.gitlab-ci.yml`
+- Modify: this plan (Task 7 only — its YAML block is kept byte-identical to the job, modulo CRLF)
 
 - [ ] **Step 1: Add the job**
 
@@ -2715,32 +2716,59 @@ Append at the end of `.gitlab-ci.yml`:
 # reach `release`.
 # ★ `dependencies: []` (not `needs:`) says the same "no needs:" thing to the
 # artifact-download side: this job fetches NO artifacts from earlier jobs --
-# not node_modules, not the ~93 MiB installer -- since `release:publish` only
-# needs the installer's download URL, never its bytes.
+# not node_modules, not the installer -- since `release:publish` only needs
+# the installer's download URL, never its bytes.
+# ★ `cache: []` switches off the npm cache this job would otherwise inherit
+# from `default:`. Nothing here needs node_modules: `release:publish` is
+# plain `node scripts/publish-release.mjs`, which imports only node builtins
+# and two local .mjs files that import nothing themselves -- so there is no
+# `npm ci` either. `default:` carries no before_script today; if one is ever
+# added, this job inherits it, and wants `before_script: []`.
 # ★★ No allow_failure: a tag whose Release was never created looks published
 # and is not -- README and docs/desktop-rollout.md send people to a page with
 # no download on it.
-# ★ Default image (node:24-bookworm-slim). No release-cli, no curl: the script
-# uses node's global fetch.
+# ★ Image inherited from `default:` (node:24-bookworm-slim). No release-cli,
+# no curl: the script uses node's global fetch.
 publish-release:
   stage: release
   dependencies: []
+  cache: []
   rules:
     - if: $CI_COMMIT_TAG
   script:
     - npm run release:publish
 ```
 
-★ It needs no `node_modules` either — `publish-release.mjs` imports only node builtins and two local `.mjs` files.
+★ It needs no `node_modules` — `publish-release.mjs` imports only `node:fs` statically and `./version-sync-lib.mjs` + `./release-publish-lib.mjs` dynamically, and neither lib has a single `import` or `require`. The `release:publish` script line is plain `node scripts/publish-release.mjs` (no `vite-node`/`tsx` wrapper) and `package.json` defines no `prerelease:publish` hook, so `npm run` works on a checkout with no install. That is what licenses `cache: []` and the absence of `npm ci`. Measured 2026-09-11 by reading the files, not assumed:
+
+```bash
+grep -nE "\bfrom\s+['\"]|\bimport\s*\(|\brequire\s*\(" scripts/publish-release.mjs scripts/release-publish-lib.mjs scripts/version-sync-lib.mjs
+grep -nE '"(pre|post)?release:publish"' package.json
+```
+
+→ three hits, all in `publish-release.mjs` (`node:fs`, and the two local `.mjs` files); and `release:publish` alone (the script line plus its `scriptsDescriptions` entry), no `pre`/`post` hook.
+
+★★ **`default:` is the thing to re-check if this job ever misbehaves.** Today it sets `image` (`node:24-bookworm-slim`) and `cache` (the `.npm/` pull cache) and nothing else — no `before_script`, no `artifacts`, no `interruptible`. `cache: []` overrides the one inherited key that would cost anything; `image` is inherited on purpose.
 
 - [ ] **Step 2: Verify the YAML and the job's keys**
 
+Write a verifier to the scratchpad with the **Write tool** (not `node -e` — quoting a YAML key like `$CI_COMMIT_TAG` through a shell is its own trap). It loads `.gitlab-ci.yml` with the repo's own `js-yaml` (`node_modules/yaml` does not exist here), takes an optional path argument so it can be pointed at a mutated copy, and asserts, printing PASS/FAIL per line and exiting 1 on any FAIL:
+
+1. the job's key set is **exactly** `{stage, dependencies, cache, rules, script}` — which alone rules out `needs`, `allow_failure`, `extends` and `before_script`, and each of those also gets its own named check;
+2. `stage: release`; `dependencies: []`; `cache: []`; `rules` deep-equals `[{if: "$CI_COMMIT_TAG"}]` (one rule, no `when`, no `allow_failure`); `script` is `["npm run release:publish"]`;
+3. `release` is the LAST entry of `stages`, and `publish-release` is the only job in it;
+4. the job's EFFECTIVE values after `default:` — the job has no `extends`, so `default:` is the only merge source: image `node:24-bookworm-slim`, cache `[]`, no inherited `before_script`; and `default:` holds only `image` + `cache`;
+5. `workflow:rules` admits `$CI_COMMIT_TAG`, and `dast-zap`'s `when: manual` rule still carries `allow_failure: true`;
+6. `ARTIFACT_JOB` read out of `scripts/release-publish-lib.mjs` names a job that exists and runs on tags (Step 3 checks the same by grep).
+
 ```bash
-node -e "const y=require('js-yaml');const c=y.load(require('fs').readFileSync('.gitlab-ci.yml','utf8'));console.log(JSON.stringify(c['publish-release']));console.log('stages:',JSON.stringify(c.stages))" > "$SP/b-t7.log" 2>&1; echo "EXIT=$?"
-cat "$SP/b-t7.log"
+node "$SP/t7-pub-verify.cjs" > "$SP/t7-pub-verify.log" 2>&1; echo "EXIT=$?"
+cat "$SP/t7-pub-verify.log"
 ```
 
-Expected: EXIT=0; the job shows `stage: release`, **no** `needs` key at all, `dependencies: []`, one rule, and **no** `allow_failure`; `stages` includes `release` last.
+Measured 2026-09-11: `EXIT=0`, every line PASS, and the literal job prints as `{"stage":"release","dependencies":[],"cache":[],"rules":[{"if":"$CI_COMMIT_TAG"}],"script":["npm run release:publish"]}` with `stages` `["install","quality","build","e2e","release"]`.
+
+★★ **Then prove it can go red.** A second scratchpad script wrote six mutated copies of `.gitlab-ci.yml` INTO THE SCRATCHPAD (never the repo) — add `needs: [desktop-package-tag]`, drop `cache: []`, drop `dependencies: []`, add `allow_failure: true`, move the job to `stage: e2e`, and drop `dast-zap`'s manual `allow_failure` — and ran the verifier on each: **6 of 6 exited 1**, each naming the assertion it broke. A verifier nobody has seen fail is a claim, not a check.
 
 - [ ] **Step 3: Confirm the job name in the URL matches the job that exists**
 
@@ -2751,13 +2779,19 @@ grep -n "ARTIFACT_JOB = " scripts/release-publish-lib.mjs
 grep -n "^desktop-package-tag:" .gitlab-ci.yml
 ```
 
-Expected: the exported constant and the YAML job name are the same string. ★★ **Nothing checks this automatically** — a rename on either side produces a 404 at download time, long after a green pipeline.
+Expected: the exported constant and the YAML job name are the same string. Measured 2026-09-11: both print `desktop-package-tag`. ★★ **Nothing checks this automatically** — a rename on either side produces a 404 at download time, long after a green pipeline. (The Step 2 verifier's last two checks are the same comparison, but that script lives in a scratchpad and runs in no CI job.)
 
 - [ ] **Step 4: Commit**
 
+Path-limited, from a message file written with the Write tool, and with THIS plan in the same commit so the YAML block above cannot drift from the job it describes:
+
 ```bash
-git add .gitlab-ci.yml
-git commit --only .gitlab-ci.yml -F - <<'EOF'
+git commit -F "$SP/t7-pub-msg.txt" -- .gitlab-ci.yml docs/superpowers/plans/2026-09-10-release-publishing.md
+```
+
+The message:
+
+```text
 ci(release): publish the Release from the tag build's artifact
 
 No needs: at all -- dependencies: [] plus ordinary stage order means this job
@@ -2769,10 +2803,25 @@ asset link 404s later -- see the ★★★ note on the job. No allow_failure: a 
 whose Release was never created looks published and is not, and README sends
 people to it.
 
-Runs on the default node image -- no release-cli, no curl.
+cache: [] as well, which the plan's block was missing: without it the job
+inherits default:'s npm cache pull for nothing. It needs no node_modules --
+release:publish is plain `node scripts/publish-release.mjs`, which imports
+node:fs and two local .mjs files that import nothing, and package.json has no
+prerelease:publish hook -- so there is no npm ci either. default: carries only
+image and cache, so no before_script is inherited; the job comment says what
+to do if one is ever added.
+
+Runs on the image inherited from default: (node:24-bookworm-slim) -- no
+release-cli, no curl. The comment no longer quotes the installer's size: the
+job never downloads it, so the figure bought nothing and would only go stale.
+
+The plan's Task 7 is synced to what landed: its YAML block is byte-identical
+to the job (modulo CRLF), Step 2 describes the verifier that was actually run
+-- key set, effective values after default:, stage order, the dast-zap
+precondition and ARTIFACT_JOB, driven red by six mutants (6 of 6 exit 1) --
+and this commit block replaces the one it prescribed.
 
 Claude-Session: https://[session link removed]
-EOF
 ```
 
 ---

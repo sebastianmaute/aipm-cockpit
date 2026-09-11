@@ -576,3 +576,56 @@ desktop-package-tag:
     # unacceptable behind a published Release asset link -- the link would go
     # dead silently, weeks later, with nothing failing.
     expire_in: never
+
+# Tag pipelines only: create the Release and point it at the installer.
+#
+# ★★★ NO `needs:`, AND THAT IS DELIBERATE -- do NOT "optimise" this back to
+# needs: [desktop-package-tag]. GitLab evaluates `needs:` purely against the
+# STATUS of the jobs listed, and dependency jobs start the moment those finish
+# WITHOUT waiting for the rest of the pipeline's stages to complete (GitLab
+# source: atomic_processing_service.rb; GitLab docs: "Jobs start as soon as
+# their dependencies finish without waiting for pipeline stages to complete").
+# desktop-package-tag itself needs only [install, tag-version-check] (Task 4)
+# -- so needs: [desktop-package-tag] HERE would let this job fire the instant
+# that ONE job succeeds, even if some OTHER blocking gate on the same tag
+# pipeline (lint, typecheck, semgrep, unit tests, build, ...) later fails --
+# e2e and prod-smoke do NOT run on tag pipelines at all (their own rules
+# match merge_request_event / the default branch only), so neither is among
+# those gates. The per-tag asset URL this job publishes only resolves
+# through a pipeline GitLab calls SUCCESSFUL, so a needs:-based publish can
+# create a Release whose download link 404s -- the exact bug this plan
+# exists to close, just moved one job over. Omitting `needs:` puts this job
+# on ordinary STAGE order: it sits in `release`, the LAST stage, and
+# inherits the default `when: on_success`, which the GitLab docs define
+# verbatim as: "on_success (default): Run the job only when no jobs in
+# earlier stages fail." -- closing the dead-link case for EVERY blocking
+# gate on the tag pipeline, not just the tag guard.
+# ★★ THAT INCLUDES dast-zap's `when: manual` rule. A manual job's
+# allow_failure DEFAULTS TO FALSE inside `rules:`, and a blocking manual job
+# stops the pipeline at its own stage -- so publish-release also depends on
+# dast-zap's manual rule keeping `allow_failure: true`. If that key were
+# ever dropped, every tag pipeline would sit "blocked" in e2e and never
+# reach `release`.
+# ★ `dependencies: []` (not `needs:`) says the same "no needs:" thing to the
+# artifact-download side: this job fetches NO artifacts from earlier jobs --
+# not node_modules, not the installer -- since `release:publish` only needs
+# the installer's download URL, never its bytes.
+# ★ `cache: []` switches off the npm cache this job would otherwise inherit
+# from `default:`. Nothing here needs node_modules: `release:publish` is
+# plain `node scripts/publish-release.mjs`, which imports only node builtins
+# and two local .mjs files that import nothing themselves -- so there is no
+# `npm ci` either. `default:` carries no before_script today; if one is ever
+# added, this job inherits it, and wants `before_script: []`.
+# ★★ No allow_failure: a tag whose Release was never created looks published
+# and is not -- README and docs/desktop-rollout.md send people to a page with
+# no download on it.
+# ★ Image inherited from `default:` (node:24-bookworm-slim). No release-cli,
+# no curl: the script uses node's global fetch.
+publish-release:
+  stage: release
+  dependencies: []
+  cache: []
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - npm run release:publish
