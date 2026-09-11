@@ -42,7 +42,7 @@
     "ai:eval": "npx vite-node scripts/ai-eval.ts",
     "desktop:copy-static": "node desktop/scripts/copy-static.mjs",
     "desktop:build": "node -e \"process.env.NEXT_STANDALONE='1';require('child_process').execSync('npm run build',{stdio:'inherit',env:process.env})\" && npm run desktop:copy-static && npm --prefix desktop run build",
-    "desktop:package": "npm --prefix desktop exec electron-builder -- --config electron-builder.yml --project desktop",
+    "desktop:package": "npm --prefix desktop exec electron-builder -- --win --publish never --config electron-builder.yml --project desktop",
     "tag:check": "node scripts/check-tag-version.mjs",
     "release:publish": "node scripts/publish-release.mjs",
     "e2e:desktop": "node -e \"process.env.PLAYWRIGHT_NO_WEBSERVER='1';require('child_process').execSync('npx playwright test --project=desktop --workers=1',{stdio:'inherit',env:process.env})\""
