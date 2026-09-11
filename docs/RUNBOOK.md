@@ -165,6 +165,48 @@ on a browser that has already migrated means the older code reads from
 the migration boundary in environments with real user data. If you have to,
 warn users to re-import from an export.
 
+## Publishing a desktop release
+
+1. Bump `src/app/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, `APP_MILESTONE`),
+   add the `CHANGELOG.md` entry, and propagate with `npm run version:sync`,
+   which rewrites every other file that restates the version —
+   `version-sync-check` is blocking.
+2. Merge to the default branch.
+3. Tag the merged commit: `git tag v<version> && git push origin v<version>`.
+   The tag **must** match `APP_VERSION`; `tag-version-check` runs as soon as the
+   tag pipeline starts and fails otherwise, which skips the installer build (exit 1 is
+   drift, exit 2 means it could not scan at all). Whoever pushes the tag needs
+   Developer+ and the right to create protected tags — the pipeline's job token
+   acts with the pusher's access.
+4. The tag pipeline runs `desktop-package-tag` (blocking; a full wine build, so
+   slow) and then, only once every earlier stage has passed, `publish-release`,
+   which creates the Release and attaches the installer link.
+5. Check the Releases page: the asset link should download
+   `aipm-cockpit-<version>-setup.exe`. If `publish-release` failed with exit 2 —
+   safe to retry, and that includes a 201 whose body it could not confirm —
+   re-run the job: a create that did land answers 409 the second time, and the
+   job then exits 0 only after reading that Release and finding the link. Exit 1
+   needs a human: a 403 is step 3's access, and a 409 whose Release lacks the
+   link means adding the link or deleting that Release, then retrying.
+
+★ Tag-build artifacts never expire, deliberately — a published download must not
+vanish. The manual `desktop-package` build on other pipelines still expires
+after a week.
+
+★★ If `desktop-package-tag` cannot run on the wine image, the fallback is a
+local Windows build (`npm ci` and `npm --prefix desktop ci`, then
+`npm run desktop:build && npm run desktop:package`; the installer lands in
+`desktop/release/`), attached by hand to a Release you create yourself — a
+failed `desktop-package-tag` stops the pipeline before `publish-release` runs.
+See `docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md`
+for why that is the sanctioned fallback rather than a thing to debug in CI.
+
+★★ The installer is unsigned. A copy downloaded through a browser carries the
+Mark-of-the-Web stream the browser writes on download, which is what SmartScreen
+checks, so colleagues should expect the prompt; a locally built copy never gets
+that stream, so it does not prompt. So "no prompt appeared" from a local build
+is not evidence the prompt is gone for colleagues.
+
 ## Secrets
 
 The repo contains **no production secrets**. Multiple credential paths, all browser-local:

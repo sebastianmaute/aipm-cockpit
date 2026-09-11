@@ -2832,68 +2832,98 @@ Claude-Session: https://[session link removed]
 - Modify: `docs/desktop-rollout.md`
 - Modify: `docs/RUNBOOK.md`
 
-`docs/desktop-rollout.md:5` currently says "Run the installer from the share" and owns the download location (README deliberately names none, so there is exactly one place to update).
+`docs/desktop-rollout.md:5` currently says "Run the installer from the share" and owns the download location (README links to that file and names no download location itself, so there is exactly one place to update). ★ Checked when this landed: nothing else in the rollout doc names a share, a network path, a size or a publisher.
 
 - [ ] **Step 1: Replace the rollout doc's install step**
 
-With the **Edit tool**, replace this line in `docs/desktop-rollout.md`:
+With the **Edit tool**, replace these three steps in `docs/desktop-rollout.md`:
 
 ```markdown
 1. Run the installer from the share.
+2. Windows will show a blue **"Windows protected your PC"** box. This is expected: the app is not code-signed. Click **More info**, then **Run anyway**.
+3. The app installs for your user only — you do **not** need admin rights.
 ```
 
 with:
 
 ```markdown
 1. Download the installer from the project's **Releases** page — pick the newest
-   release and click the `aipm-cockpit-<version>-setup.exe` asset link.
+   release and click its asset link, `aipm-cockpit-<version>-setup.exe (Windows installer)`.
    You need to be signed in to GitLab with access to the project's pipelines.
    If the link answers with a 404 or a permission error, ask a project
    maintainer for access to the project.
 2. Run it.
+3. Windows will show a blue **"Windows protected your PC"** box. This is expected: the app is not code-signed. Click **More info**, then **Run anyway**.
+4. The app installs for your user only — you do **not** need admin rights.
 ```
+
+★ The link text is the asset link's NAME as `buildReleasePayload` in `scripts/release-publish-lib.mjs` builds it — the file name plus ` (Windows installer)` — not the bare file name an earlier revision of this block quoted.
 
 ★★ **This text is deliberately NEUTRAL about WHO has access, because nobody has measured it.** GitLab's permissions docs make job-artifact access depend on the user's role AND on the project's pipeline-visibility setting; depending on that setting, a signed-in NON-member of an internal project may or may not be able to download. Two earlier revisions of this step each asserted a rule — "being signed in is enough", then "project membership is required" — and neither was verified. **Task 11 Step 6 settles it** by opening the asset link as a signed-in non-member. Once it has, tighten this paragraph to the measured rule, and `buildAssetUrl`'s docstring in `scripts/release-publish-lib.mjs` with it, which points at that step.
 
 ★ No size is quoted in this user-facing text, as in the Release description (Task 5): a figure there goes stale on the next release and nothing checks it.
 
-Then renumber the two steps that follow (the SmartScreen box becomes 3, the
-per-user install becomes 4).
+The block above already carries the renumbering: the SmartScreen box becomes 3
+and the per-user install 4, which is the file's actual structure (three steps
+before this change, verified).
 
 - [ ] **Step 2: Add the operator procedure to the RUNBOOK**
 
-`docs/RUNBOOK.md` owns operations — build, deploy, rollback — and cutting a release is one. Add a section (place it after the existing build/deploy material, before the common-issues list):
+`docs/RUNBOOK.md` owns operations — build, deploy, rollback — and cutting a release is one. It has no desktop or Electron section to merge into, so add one between `## Rollback` and `## Secrets` (after the build/deploy/rollback material, before the common-issues list):
 
 ```markdown
 ## Publishing a desktop release
 
-1. Bump `src/app/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, milestone), add
-   the `CHANGELOG.md` entry, and propagate with `npm run version:sync` — six
-   places carry the version and `version-sync-check` is blocking.
+1. Bump `src/app/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, `APP_MILESTONE`),
+   add the `CHANGELOG.md` entry, and propagate with `npm run version:sync`,
+   which rewrites every other file that restates the version —
+   `version-sync-check` is blocking.
 2. Merge to the default branch.
-3. Tag it: `git tag v<version> && git push origin v<version>`. The tag **must**
-   match `APP_VERSION`; `tag-version-check` fails the pipeline immediately
-   otherwise (exit 1 is drift, exit 2 means it could not scan at all).
-4. The tag pipeline runs `desktop-package-tag` (blocking, ~20 min, wine image)
-   and then `publish-release`, which creates the Release and attaches the
-   installer link.
+3. Tag the merged commit: `git tag v<version> && git push origin v<version>`.
+   The tag **must** match `APP_VERSION`; `tag-version-check` runs as soon as the
+   tag pipeline starts and fails otherwise, which skips the installer build (exit 1 is
+   drift, exit 2 means it could not scan at all). Whoever pushes the tag needs
+   Developer+ and the right to create protected tags — the pipeline's job token
+   acts with the pusher's access.
+4. The tag pipeline runs `desktop-package-tag` (blocking; a full wine build, so
+   slow) and then, only once every earlier stage has passed, `publish-release`,
+   which creates the Release and attaches the installer link.
 5. Check the Releases page: the asset link should download
-   `aipm-cockpit-<version>-setup.exe`.
+   `aipm-cockpit-<version>-setup.exe`. If `publish-release` failed with exit 2 —
+   safe to retry, and that includes a 201 whose body it could not confirm —
+   re-run the job: a create that did land answers 409 the second time, and the
+   job then exits 0 only after reading that Release and finding the link. Exit 1
+   needs a human: a 403 is step 3's access, and a 409 whose Release lacks the
+   link means adding the link or deleting that Release, then retrying.
 
 ★ Tag-build artifacts never expire, deliberately — a published download must not
-vanish. Branch builds still expire after a week.
+vanish. The manual `desktop-package` build on other pipelines still expires
+after a week.
 
-★★ If `desktop-package-tag` fails on the wine image, the fallback is a local
-Windows build (`npm run desktop:build && npm run desktop:package`) uploaded to
-the Release by hand. See
-`docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md` for
-why that is the sanctioned fallback rather than a thing to debug in CI.
+★★ If `desktop-package-tag` cannot run on the wine image, the fallback is a
+local Windows build (`npm ci` and `npm --prefix desktop ci`, then
+`npm run desktop:build && npm run desktop:package`; the installer lands in
+`desktop/release/`), attached by hand to a Release you create yourself — a
+failed `desktop-package-tag` stops the pipeline before `publish-release` runs.
+See `docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md`
+for why that is the sanctioned fallback rather than a thing to debug in CI.
 
-★★ The installer is unsigned. A downloaded copy prompts SmartScreen; a locally
-built one does not, because SmartScreen keys off the Mark-of-the-Web stream a
-browser writes on download. So "no prompt appeared" from a local build is not
-evidence the prompt is gone for colleagues.
+★★ The installer is unsigned. A copy downloaded through a browser carries the
+Mark-of-the-Web stream the browser writes on download, which is what SmartScreen
+checks, so colleagues should expect the prompt; a locally built copy never gets
+that stream, so it does not prompt. So "no prompt appeared" from a local build
+is not evidence the prompt is gone for colleagues.
 ```
+
+★★ **Six claims in this block's first revision did not survive checking, and are corrected above:**
+- "six places carry the version" — `version:sync` (`scripts/version-sync-lib.mjs`) also writes `desktop/package.json` and `desktop/package-lock.json` now. The count is dropped rather than replaced, since the next satellite moves it again; "milestone" is named as the real field, `APP_MILESTONE`.
+- "~20 min" — nothing measured it: the probe's "Measured" section is still unfilled. Now "a full wine build, so slow".
+- "fails the pipeline immediately" — `tag-version-check` has `needs: []` and `desktop-package-tag` lists it in its own `needs:`, so the effect worth telling an operator is that the installer build is SKIPPED. Said that way.
+- "Branch builds still expire after a week" — on non-tag pipelines `desktop-package` is `when: manual`; said so.
+- The fallback said "uploaded to the Release by hand", but `desktop-package-tag` is blocking and `publish-release` runs on stage order with `when: on_success`, so when the wine build fails there is no Release to upload to. It now says to create one. It also needed `npm --prefix desktop ci`: `desktop/` has its own lockfile, and the CI job installs it before `npm run desktop:package`.
+- "A downloaded copy prompts SmartScreen" was stated as fact; it is reasoning from the Mark-of-the-Web measurement in the probe ("What this does NOT establish"), so it now says colleagues should expect the prompt.
+
+Two lines were ADDED, both checked against the code: step 3's access requirement matches the 403 message in `classifyCreateResponse`, and step 5's re-run advice matches `publish-release.mjs`'s exit contract — exit 2 covers a 201 whose body does not confirm, and a retry after a landed create gets a 409 that `classifyExistingRelease` resolves to 0 only when the existing Release carries the link (1 when it does not).
 
 - [ ] **Step 3: Check the docs gates**
 
@@ -2904,26 +2934,67 @@ grep -iE "none added|out of range" "$SP/b-t8-claims.log"
 
 Expected: EXIT=0 and "none added". ★ Neither new block carries a `path:LINE` citation, so the ratchet must not move. If it did, you introduced one — convert it to a symbol name rather than re-baselining.
 
+Measured when this landed — `CLAIMS_EXIT=0` and:
+
+```
+doc-claims ratchet ok — 490 line citations across 11 docs, none added (1 unresolvable + 2 out-of-range grandfathered; 9 third-party, not repo debt)
+```
+
+★★ "11 docs" counts only the docs that HOLD a citation, so it cannot show that `docs/RUNBOOK.md` is in scope at all. The falsifier, run then reverted: a backticked `scripts/publish-release.mjs` plus `:51` added to the RUNBOOK's step 2 turned the gate red (exit 1, "docs/RUNBOOK.md: NEW line citation to scripts/publish-release.mjs (1×)"), and removing it restored the line above. The two totals in that line move whenever any doc gains or loses a citation; quote the "none added", not the numbers.
+
 - [ ] **Step 4: Commit**
 
+Written to a message file and committed path-limited, so nothing else staged in the shared tree can ride along:
+
 ```bash
-git add docs/desktop-rollout.md docs/RUNBOOK.md
-git commit --only docs/desktop-rollout.md docs/RUNBOOK.md -F - <<'EOF'
+git commit -F <msgfile> -- docs/desktop-rollout.md docs/RUNBOOK.md docs/superpowers/plans/2026-09-10-release-publishing.md
+```
+
+```
 docs: name the download location, and the release procedure
 
-desktop-rollout.md said "run the installer from the share" and it owns the
-download location -- README deliberately names none, so there is exactly one
-place to update. It now points at the Releases page and says what to do if the
-link 404s. It deliberately does not say WHO has access: that depends on the
-project's pipeline-visibility setting and is measured by Task 11 Step 6.
+desktop-rollout.md said "run the installer from the share", and it owns the
+download location -- README links to it and names no location itself, so
+there is exactly one place to update. It now points at the Releases page,
+names the asset link as publish-release creates it, and says what to do if
+the link 404s. It deliberately does not say WHO has access: that depends on
+the project's pipeline-visibility setting and is measured by Task 11 Step 6.
+Nothing else in the file named a share, a size or a publisher.
 
-RUNBOOK gains the operator procedure: bump, merge, tag, and what each of the two
-tag jobs does. It records the wine fallback (a local build uploaded by hand) as
-sanctioned rather than something to debug in CI, and that a local build's
-missing SmartScreen prompt is not evidence about a downloaded one.
+RUNBOOK gains the operator procedure, between Rollback and Secrets: bump,
+merge, tag, what each tag job does, and what a failed publish-release means.
+Exit 2 -- a 201 it could not confirm included -- is safe to re-run, because
+a create that landed answers 409 and is confirmed by reading it back; exit 1
+needs a human, and a 403 names the tag pusher's access, which step 3 now
+states. It records the wine fallback as sanctioned rather than something to
+debug in CI, and that a local build's missing SmartScreen prompt is not
+evidence about a downloaded one.
+
+Claims the plan's blocks carried that did not survive checking:
+- "six places carry the version": version:sync also writes
+  desktop/package.json and desktop/package-lock.json now. The count is
+  dropped, not replaced; the milestone field is named, APP_MILESTONE.
+- "~20 min": nothing measured it -- the probe's Measured section is still
+  empty. Now "a full wine build, so slow".
+- "fails the pipeline immediately": the effect worth telling an operator is
+  that desktop-package-tag, which needs tag-version-check, is skipped.
+- "branch builds expire after a week": desktop-package is a manual job on
+  non-tag pipelines; said so.
+- the fallback said "uploaded to the Release", but a failed
+  desktop-package-tag stops the pipeline before publish-release runs, so
+  there is no Release to upload to. It now says to create one, and that the
+  local build needs npm --prefix desktop ci first (desktop/ has its own
+  lockfile).
+- the SmartScreen line stated as fact what is reasoning from the probe's
+  Mark-of-the-Web measurement; colleagues now "should expect" the prompt.
+- the asset link is named "aipm-cockpit-<version>-setup.exe (Windows
+  installer)" by buildReleasePayload, not the bare file name.
+
+The plan's Task 8 is synced: both blocks are byte-identical to the two docs,
+Step 3 carries the gate's real output and a falsifier that proves the RUNBOOK
+is in the gate's scope, and this block replaces the commit it prescribed.
 
 Claude-Session: https://[session link removed]
-EOF
 ```
 
 ---
