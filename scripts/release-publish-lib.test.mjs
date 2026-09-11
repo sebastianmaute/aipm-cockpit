@@ -238,6 +238,7 @@ describe("classifyCreateResponse", () => {
     ["a null body (unparsed)", null],
     ["an undefined body", undefined],
     ["an array body", []],
+    ["an array carrying our tag and link", Object.assign([], withOurLink())],
   ])("refuses to confirm a 201 with %s, code 2", (_label, json) => {
     const r = classifyCreateResponse(201, json, EXPECTED);
     expect(r.kind).toBe("fail");

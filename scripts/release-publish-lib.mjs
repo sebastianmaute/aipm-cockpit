@@ -265,7 +265,9 @@ export function classifyCreateResponse(status, json, expected) {
     return { kind: "fail", code: 2, message: nonNumericStatus(status) };
   }
   if (status === 201) {
-    if (json?.tag_name === expected.tagName && hasOurLink(json, expected)) {
+    // ★ The same plain-object rule classifyExistingRelease applies, so the two
+    // classifiers agree on what counts as a Release body.
+    if (isPlainObject(json) && json.tag_name === expected.tagName && hasOurLink(json, expected)) {
       return { kind: "created" };
     }
     return {

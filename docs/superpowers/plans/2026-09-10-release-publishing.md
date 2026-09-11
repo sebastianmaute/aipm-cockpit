@@ -44,17 +44,17 @@ All measured on 2026-09-10 from a real local package, so the implementer can che
 
 | Thing | Measured |
 |---|---|
-| `desktop/release/win-unpacked/` | **314 MB** — an expanded duplicate of the installer's own contents |
-| `aipm-cockpit-0.301.0-setup.exe` | **97,353,634 bytes (92.8 MB)** |
+| `desktop/release/win-unpacked/` | **314 MiB** — an expanded duplicate of the installer's own contents |
+| `aipm-cockpit-0.301.0-setup.exe` | **97,353,634 bytes (97.4 MB / 92.8 MiB)** |
 | `aipm-cockpit-0.301.0-setup.exe.blockmap` | **102,463 bytes** |
-| A clean `desktop/release/` uploaded whole | ≈ **408 MB** (314 + 93 + ~1), matching the spec's 407 |
-| After narrowing to installer + blockmap | ≈ **93 MB**, a ~77% reduction |
+| A clean `desktop/release/` uploaded whole | ≈ **408 MiB** (314 + 93 + ~1), matching the spec's 407 |
+| After narrowing to installer + blockmap | ≈ **93 MiB** (97.5 MB), a ~77% reduction |
 
-Reproduce: `du -sm desktop/release/*` and `ls -l desktop/release/*.exe desktop/release/*.blockmap`.
+Reproduce: `du -sm desktop/release/*` and `ls -l desktop/release/*.exe desktop/release/*.blockmap`. ★ `du -m` counts MiB (1,048,576 bytes), so every `du`-derived figure here is MiB; a decimal MB figure is 4.9% larger. An earlier revision labelled the installer "92.8 MB", which is its MiB figure under a decimal unit.
 
-★★ **A local `desktop/release/` can hold TWO installers and that is not a bug.** electron-builder does not clean the directory, so a build predating the `artifactName` change leaves `aipm-cockpit Setup 0.301.0.exe` beside the new name — which is how a local `du` reports 500 MB rather than 408. CI always starts clean. The globs chosen in Task 4 are self-protecting against this anyway: `*-setup.exe` does not match `aipm-cockpit Setup 0.301.0.exe` (capital S, spaces).
+★★ **A local `desktop/release/` can hold TWO installers and that is not a bug.** electron-builder does not clean the directory, so a build predating the `artifactName` change leaves `aipm-cockpit Setup 0.301.0.exe` beside the new name — which is how a local `du` reports 500 MiB rather than 408. CI always starts clean. The globs chosen in Task 4 are self-protecting against this anyway: `*-setup.exe` does not match `aipm-cockpit Setup 0.301.0.exe` (capital S, spaces).
 
-★★★ **THE ARTIFACT IS 92.8 MB AND GITLAB'S DEFAULT `max_artifacts_size` IS 100 MB PER JOB.** That is ~7% headroom, and the spec records that the settings endpoint is admin-only and unreadable from here — so **this instance's real limit is unknown**, and 100 MB is the documented default, not a measured fact about  (GitLab). One electron bump or a few more bundled assets crosses it, and the failure lands as an upload error *after* a successful 20-minute build. Spike 1 measures it; Task 11 is where it is first observed.
+★★★ **THE ARTIFACT IS 92.9 MiB (97.5 MB — the installer plus its blockmap) AND GITLAB'S DEFAULT `max_artifacts_size` IS 100 MB PER JOB.** That is ~7.1% headroom if GitLab's "MB" there means MiB, and only ~2.5% if it is decimal — which unit it applies is NOT established here, so plan for the smaller figure. The spec records that the settings endpoint is admin-only and unreadable from here — so **this instance's real limit is unknown**, and 100 MB is the documented default, not a measured fact about  (GitLab). One electron bump or a few more bundled assets crosses it, and the failure lands as an upload error *after* a successful 20-minute build. Spike 1 measures it; Task 11 is where it is first observed.
 
 ## File structure
 
@@ -66,6 +66,7 @@ Reproduce: `du -sm desktop/release/*` and `ls -l desktop/release/*.exe desktop/r
 | `scripts/release-publish-lib.mjs` (new) | PURE. `buildAssetUrl(env, version)` and `buildReleasePayload(env, version, milestone)` (Task 5); `expectedFromPayload`, `classifyCreateResponse` and `classifyExistingRelease`, which decide every exit code the CLI can return (Task 6). No fetch, no I/O, no shebang. |
 | `scripts/release-publish-lib.test.mjs` (new) | Unit tests, including that the token never appears in the payload, and every classifier branch and boundary. |
 | `scripts/publish-release.mjs` (new) | CLI. Does the POST — and, after a 409, one GET — with `redirect: "manual"` and a 30 s timeout; maps the lib's verdicts to exit codes; supports `--dry-run`. Shebang. |
+| `scripts/publish-release.integration.test.mjs` (new) | The CLI end to end: spawns it against a fake Releases API on an ephemeral port with a canary token — the redirect, the argument guard, the redaction and the trailing-slash strip, each mutation-proved (Task 6 Step 10). |
 | `package.json` | Two scripts (`tag:check`, `release:publish`) **and** their `scriptsDescriptions` entries. |
 | `CONTRIBUTING.md` | Regenerated script table (`npm run docs:scripts`). |
 | `.gitlab-ci.yml` | `release` stage; `tag-version-check` job; `.desktop-package` hidden base + `desktop-package` + `desktop-package-tag`; `publish-release` job. |
@@ -78,7 +79,7 @@ Two library/CLI splits, mirroring `followup-index-lib.mjs` + `check-followup-ind
 
 ---
 
-## Task 1: Spike — is the wine image reachable, and does 93 MB upload?
+## Task 1: Spike — is the wine image reachable, and does a ~93 MiB artifact upload?
 
 **Files:**
 - Create: `docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md`
@@ -104,9 +105,10 @@ manual job once and reading its log.
 1. Can these runners pull and run `electronuserland/builder:wine`? It has never
    run here. The runners are Linux (`node:24-bookworm-slim` by default), so a
    Windows NSIS target needs wine, and that image is the only thing providing it.
-2. Does a 92.8 MB artifact clear this instance's `max_artifacts_size`? The
+2. Does a 92.9 MiB (97.5 MB) artifact clear this instance's `max_artifacts_size`? The
    setting is admin-only and unreadable from here. GitLab's documented DEFAULT
-   is 100 MB per job, which would leave ~7% headroom.
+   is 100 MB per job, which would leave ~7.1% headroom if that MB is MiB and
+   ~2.5% if it is decimal.
 
 ## Procedure
 
@@ -813,14 +815,14 @@ stages:
   artifacts:
     # ★★★ THE INSTALLER AND ITS BLOCKMAP, NEVER desktop/release/ WHOLE. This is
     # a defect fix, not an optimisation: measured 2026-09-10, the directory is
-    # ~408 MB of which win-unpacked/ is 314 MB -- an expanded duplicate of the
-    # installer's own contents. Narrowed it is ~93 MB.
+    # ~408 MiB of which win-unpacked/ is 314 MiB -- an expanded duplicate of the
+    # installer's own contents. Narrowed it is ~93 MiB (97.5 MB).
     #
     # ★ The globs are self-protecting against a stale pre-artifactName build:
     # `*-setup.exe` does not match `aipm-cockpit Setup 0.301.0.exe`. CI starts
     # clean anyway; a local tree may hold both.
     #
-    # ★★ 92.8 MB sits against a documented 100 MB max_artifacts_size DEFAULT
+    # ★★ 92.9 MiB (97.5 MB) sits against a documented 100 MB max_artifacts_size DEFAULT
     # that is admin-only and unreadable from here. A rejection arrives AFTER a
     # green 20-minute build. See the spike finding under specs/_probes/.
     #
@@ -1309,7 +1311,7 @@ npx vitest run scripts/release-publish-lib.test.mjs > "$SP/b-t5b.log" 2>&1; echo
 grep -E "Test Files|Tests " "$SP/b-t5b.log"
 ```
 
-Expected: EXIT=0, `Test Files 1 passed (1)`, `Tests 16 passed (16)` — 6 `buildAssetUrl` cases, 2 `installerName` cases, 8 `buildReleasePayload` cases. ★★★ THAT COUNT IS POST-REVIEW, NOT THE INITIAL CUT — a Task 5 review round added a `describe("installerName")` block (fail-closed semver validation) plus five `buildReleasePayload`/`buildAssetUrl` cases (link_type pinned to `"package"`, real description content, a real CHANGELOG.md markdown link, a whitespace-only-tag case, and a Proxy-based test proving the lib never READS an env key outside `CI_PROJECT_URL`/`CI_COMMIT_TAG`, not merely that it never serialises one). The original cut was 8 (four `buildAssetUrl` + four `buildReleasePayload`). ★ Count the `it(` blocks in the file rather than trusting this number; a count in prose is the cheapest thing to check and the easiest to leave rotting. ★★ 16 is the count AT THIS TASK'S COMMIT. Task 6 grows the same file to 97 and replaces this block's header comment and `required()`, and from then on `grep -c "  it("` undercounts — Task 6 Step 4 says why and what to use instead.
+Expected: EXIT=0, `Test Files 1 passed (1)`, `Tests 16 passed (16)` — 6 `buildAssetUrl` cases, 2 `installerName` cases, 8 `buildReleasePayload` cases. ★★★ THAT COUNT IS POST-REVIEW, NOT THE INITIAL CUT — a Task 5 review round added a `describe("installerName")` block (fail-closed semver validation) plus five `buildReleasePayload`/`buildAssetUrl` cases (link_type pinned to `"package"`, real description content, a real CHANGELOG.md markdown link, a whitespace-only-tag case, and a Proxy-based test proving the lib never READS an env key outside `CI_PROJECT_URL`/`CI_COMMIT_TAG`, not merely that it never serialises one). The original cut was 8 (four `buildAssetUrl` + four `buildReleasePayload`). ★ Count the `it(` blocks in the file rather than trusting this number; a count in prose is the cheapest thing to check and the easiest to leave rotting. ★★ 16 is the count AT THIS TASK'S COMMIT. Task 6 grows the same file to 98 and replaces this block's header comment and `required()`, and from then on `grep -c "  it("` undercounts — Task 6 Step 4 says why and what to use instead.
 
 - [ ] **Step 5: Commit**
 
@@ -1345,6 +1347,7 @@ EOF
 - Modify: `scripts/release-publish-lib.mjs` (the two response classifiers, `expectedFromPayload`, and one shared emptiness rule)
 - Modify: `scripts/release-publish-lib.test.mjs`
 - Create: `scripts/publish-release.mjs`
+- Create: `scripts/publish-release.integration.test.mjs`
 - Modify: `package.json` (`scripts` + `scriptsDescriptions`)
 - Regenerate: `CONTRIBUTING.md`
 
@@ -1362,11 +1365,13 @@ EOF
 
 A cold review of the first classifier cut then found four more, each reproduced against a verbatim copy of that cut before it was fixed: `classifyExistingRelease` read ANY JSON object on a 200 as the Release (`200 []` and `200 {}` → code 1, "delete that Release"; another tag's Release carrying our link → code 0); `expected` was never validated (`C(201, {assets:{links:[{}]}}, {})` → "created", because `undefined === undefined` on both comparisons, and `expected = undefined` threw); 408 and 429 were refusals (code 1); and a string `"201"` coerced through the range checks and read "HTTP 201 is not 201 Created".
 
+A second cold review, of the committed CLI, found that it had NO committed test at all — truncate-then-redact, a followed redirect or a deleted argument guard would each have shipped green — and that its catch could itself throw (`String()` of a prototype-less object), which exits 1, the refusal code. Step 10 and the catch's own inner try close those. It also found this section's Step 8 `--dryrun` row unable to see the guard by exit code; that is measured, and recorded, at Step 8.
+
 **The exit-code contract** (the CLI's header carries the same text):
 
 - **0** — a 201 whose body echoes this tag AND this asset link; or a 409 whose existing Release already carries this link (an earlier create landed and only its response was lost); or `--dry-run`.
 - **1** — the API REFUSED: a 4xx other than 408, 409 and 429, or a 409 whose existing Release for this tag lacks this link. A human has to act.
-- **2** — everything else, all safe to retry: missing env, an unknown argument, a network failure, the 30 s timeout, 408 and 429, a 5xx, a redirect, a 2xx that does not confirm, a GET after a 409 that cannot be read, a structural failure.
+- **2** — everything else, all safe to retry: missing env, an unknown argument, a network failure, the 30 s timeout, 408 and 429, a 5xx, a redirect, a 2xx that does not confirm, a GET after a 409 that cannot be read, a structural failure — including an error that cannot even be described, since the catch builds its message inside its own try with a fixed fallback.
 
 ★★ **408 and 429 are 2 BY DECISION.** A request timeout or a rate limit says nothing about whether this Release may be created, and a retry is safe BECAUSE of the 409 path: if the timed-out create did land, the retry answers 409 and the GET confirms it.
 
@@ -1482,6 +1487,7 @@ describe("classifyCreateResponse", () => {
     ["a null body (unparsed)", null],
     ["an undefined body", undefined],
     ["an array body", []],
+    ["an array carrying our tag and link", Object.assign([], withOurLink())],
   ])("refuses to confirm a 201 with %s, code 2", (_label, json) => {
     const r = classifyCreateResponse(201, json, EXPECTED);
     expect(r.kind).toBe("fail");
@@ -1818,7 +1824,9 @@ export function classifyCreateResponse(status, json, expected) {
     return { kind: "fail", code: 2, message: nonNumericStatus(status) };
   }
   if (status === 201) {
-    if (json?.tag_name === expected.tagName && hasOurLink(json, expected)) {
+    // ★ The same plain-object rule classifyExistingRelease applies, so the two
+    // classifiers agree on what counts as a Release body.
+    if (isPlainObject(json) && json.tag_name === expected.tagName && hasOurLink(json, expected)) {
       return { kind: "created" };
     }
     return {
@@ -1933,18 +1941,19 @@ npx vitest list scripts/release-publish-lib.test.mjs > "$SP/b-t6-list.log" 2>&1
 grep -c "^scripts/release-publish-lib.test.mjs >" "$SP/b-t6-list.log"
 ```
 
-Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  97 passed (97)`, and the anchored `grep -c` prints `97`. ★★ **`grep -c "  it("` CANNOT DERIVE THIS COUNT ANY MORE** — it prints 29, because every `it.each` row is its own test at runtime. `vitest list` enumerates what actually runs; the `^` anchor is load-bearing, since npm echoes its own `npm notice run vitest list scripts/release-publish-lib.test.mjs` line into the log and the unanchored grep prints 98.
+Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  98 passed (98)`, and the anchored `grep -c` prints `98`. ★★ **`grep -c "  it("` CANNOT DERIVE THIS COUNT ANY MORE** — it prints 29, because every `it.each` row is its own test at runtime. `vitest list` enumerates what actually runs; the `^` anchor is load-bearing, since npm echoes its own `npm notice run vitest list scripts/release-publish-lib.test.mjs` line into the log and the unanchored grep prints 99.
 
 - [ ] **Step 5: Mutation-test the classifiers**
 
-One mutant at a time, never two vitest processes at once: an anchored replace whose anchor AND replacement are each asserted unique, a run of ONLY this test file, the per-case failures recorded, then the inverse anchored replace and a hash check that the file is byte-identical to its pre-mutant state. Measured on the committed code — 65 mutants, 62 killed, 3 surviving, all 3 equivalent:
+One mutant at a time, never two vitest processes at once: an anchored replace whose anchor AND replacement are each asserted unique, a run of ONLY this test file, the per-case failures recorded, then the inverse anchored replace and a hash check that the file is byte-identical to its pre-mutant state. Measured on the first commit — 65 mutants, 62 killed, 3 surviving, all 3 equivalent. The fix round then made the 201 branch require `isPlainObject(json)` too, so every mutant on that rewritten line was re-run against it (the rows marked *fix round*):
 
 | Mutants | Result |
 |---|---|
 | `hasExpected`: `&&` → OR, body → `true`; `isNonEmptyString` without `trim`, without `typeof` | KILLED by the `BAD_EXPECTED` rows (and `trim` also by Task 5's whitespace-tag test, which is the shared rule working) |
 | the non-numeric guard removed, in either classifier | KILLED by the non-numeric rows |
 | `status === 201` → any 2xx | KILLED by the 200 / 204 / 299 rows |
-| 201 body: the tag check dropped; the link check dropped | KILLED by the 201-refusal table |
+| 201 body: the tag check dropped; the link check dropped (*fix round*: re-run on the rewritten line) | KILLED by the 201-refusal table |
+| *fix round*: the 201 branch's `isPlainObject(json)` reverted to `json?.tag_name`; → `true` | KILLED by the array-carrying-our-tag row (and, for `true`, by the null / undefined rows too) |
 | every range edge — 2xx `>= 200` → `> 200` / `>= 199`, `< 300` → `<= 300`; 3xx `>= 300` → `> 300`, `< 400` → `< 399` / `<= 400`; 4xx `>= 400` → `> 400`, `< 500` → `< 499`; 5xx `>= 500` → `> 500`, `< 600` → `<= 600` | KILLED, each by exactly ONE boundary row (200, 199, 300, 300, 399, 400, 400, 499, 500, 600) |
 | the 409 branch removed; the 408/429 branch removed; 429 dropped from it | KILLED |
 | 4xx code 1 → 2; the 403 advice on every 4xx; the 403 advice removed | KILLED |
@@ -1956,10 +1965,10 @@ One mutant at a time, never two vitest processes at once: an anchored replace wh
 | existing: tag check dropped; link-list check dropped; code 0 → 1; code 1 → 2; link check → `true` | KILLED |
 | `expectedFromPayload`: `!== 1` → `< 1`; `Array.isArray` dropped; tag or url read without `required()`; `obj?.[key]` → `obj[key]`; `label` → `key`; `"none"` → `0` | KILLED |
 | the missing-`expected` and non-numeric verdicts' codes changed | KILLED |
-| `json?.` → `json.` at the 201 check; `assets?.` → `assets.` in the existing check | KILLED |
+| `assets?.` → `assets.` in the existing check | KILLED |
 | **`status === 201` → `==`** | SURVIVED — EQUIVALENT. The non-numeric guard returns first, so `status` is a number here, and `==` between two numbers is `===`. |
 | **`status !== 200` → `!=`** | SURVIVED — EQUIVALENT, by the same guard in `classifyExistingRelease`. |
-| **`hasOurLink`'s `json?.` → `json.`** | SURVIVED — EQUIVALENT. Both callers establish a non-nullish `json` first: the create path only reaches it after `json?.tag_name === expected.tagName` holds for a non-empty `tagName`, and the existing path only after `isPlainObject(json)`. |
+| **`hasOurLink`'s `json?.` → `json.`** (*fix round*: re-run, still survives) | SURVIVED — EQUIVALENT. Both callers establish a non-nullish `json` first: each reaches it only after `isPlainObject(json)` holds. |
 
 ★★ A surviving mutant is a QUESTION, not a verdict. Each of the three above was run, not assumed, and each is equivalent for a reason that names the guard that makes it so — delete that guard and the mutant stops being equivalent.
 
@@ -1971,7 +1980,8 @@ Create `scripts/publish-release.mjs`:
 #!/usr/bin/env node
 // Create the GitLab Release for the current tag and attach the installer link.
 //
-// EXIT CODES — 0 means a CONFIRMED Release, and nothing else does:
+// EXIT CODES — outside --dry-run, 0 means a CONFIRMED Release and nothing
+// else does:
 //   0  a 201 whose body echoes this tag AND this asset link; or a 409 whose
 //      existing Release already carries this link (an earlier create landed
 //      and only its response was lost); or --dry-run printed the payload
@@ -2046,7 +2056,8 @@ try {
   const payload = buildReleasePayload(process.env, version, milestone);
   const expected = expectedFromPayload(payload);
 
-  const api = process.env.CI_API_V4_URL;
+  // ★ Trailing slashes stripped, so `.../api/v4/` cannot build `v4//projects`.
+  const api = (process.env.CI_API_V4_URL ?? "").replace(/\/+$/, "");
   const projectId = process.env.CI_PROJECT_ID;
   // ★ Name WHICH one is missing, never the value of any of them.
   const missing = [!api && "CI_API_V4_URL", !projectId && "CI_PROJECT_ID", !dryRun && !token && "CI_JOB_TOKEN"].filter(
@@ -2112,8 +2123,17 @@ try {
   // `cause` — an errno code (ECONNREFUSED, ECONNRESET), or for a blocked port
   // no code at all, only a message ("bad port"). An AbortSignal timeout
   // arrives as a TimeoutError.
-  const cause = err?.cause?.code ?? err?.cause?.message;
-  const detail = err instanceof Error ? `${err.name}: ${err.message}${cause ? ` (${cause})` : ""}` : String(err);
+  // ★★ Describing `err` can itself throw — String() of a prototype-less
+  // object has no toString — and a throw from INSIDE this catch is uncaught,
+  // so Node would exit 1, the REFUSAL code. Hence its own try and a fixed
+  // fallback: this catch always exits 2.
+  let detail = "an error that could not be described";
+  try {
+    const cause = err?.cause?.code ?? err?.cause?.message;
+    detail = err instanceof Error ? `${err.name}: ${err.message}${cause ? ` (${cause})` : ""}` : String(err);
+  } catch {
+    // keep the fallback
+  }
   fail(2, `CANNOT PUBLISH: ${detail}`);
 }
 ```
@@ -2135,7 +2155,7 @@ Expected: `DRY_EXIT=0`; `Would POST https://gitlab.example/api/v4/projects/1/rel
 
 - [ ] **Step 8: Prove it refuses rather than half-publishing**
 
-Every call carries a CANARY token, so "prints no token" is a count rather than a hope. The non-dry calls run under `env -u CI_API_V4_URL -u CI_JOB_TOKEN`, which strips any real value inherited from your shell BEFORE the canary is set, so they cannot reach a network.
+Every call carries a CANARY token, so "prints no token" is a count rather than a hope. Each call strips any real `CI_API_V4_URL` / `CI_JOB_TOKEN` inherited from your shell with `env -u` BEFORE the canary is set, so none can reach a real API: the refusals have no API URL at all, and the `--dryrun` row's URL is `127.0.0.1:1`, a port on fetch's blocked-ports list, so fetch refuses it without opening a socket.
 
 ```bash
 env -u CI_API_V4_URL CI_PROJECT_URL=https://gitlab.example/g/p CI_COMMIT_TAG= CI_PROJECT_ID=1 CI_JOB_TOKEN=canary-not-a-token \
@@ -2144,7 +2164,7 @@ env -u CI_API_V4_URL -u CI_JOB_TOKEN CI_PROJECT_URL= CI_COMMIT_TAG=v0.301.0 CI_P
   node scripts/publish-release.mjs > "$SP/b-t6-nourl.log" 2>&1; echo "NOURL_EXIT=$?"
 env -u CI_API_V4_URL -u CI_JOB_TOKEN CI_PROJECT_URL=https://gitlab.example/g/p CI_COMMIT_TAG=v0.301.0 CI_PROJECT_ID=1 CI_JOB_TOKEN=canary-not-a-token \
   node scripts/publish-release.mjs > "$SP/b-t6-noapi.log" 2>&1; echo "NOAPI_EXIT=$?"
-env -u CI_API_V4_URL CI_PROJECT_URL=https://gitlab.example/g/p CI_COMMIT_TAG=v0.301.0 CI_PROJECT_ID=1 CI_JOB_TOKEN=canary-not-a-token \
+env -u CI_API_V4_URL -u CI_JOB_TOKEN CI_API_V4_URL=http://127.0.0.1:1/api/v4 CI_PROJECT_URL=https://gitlab.example/g/p CI_COMMIT_TAG=v0.301.0 CI_PROJECT_ID=1 CI_JOB_TOKEN=canary-not-a-token \
   node scripts/publish-release.mjs --dryrun > "$SP/b-t6-typo.log" 2>&1; echo "TYPO_EXIT=$?"
 cat "$SP/b-t6-notag.log" "$SP/b-t6-nourl.log" "$SP/b-t6-noapi.log" "$SP/b-t6-typo.log"
 grep -c canary "$SP/b-t6-dry.log" "$SP/b-t6-notag.log" "$SP/b-t6-nourl.log" "$SP/b-t6-noapi.log" "$SP/b-t6-typo.log"
@@ -2152,9 +2172,19 @@ grep -c canary "$SP/b-t6-dry.log" "$SP/b-t6-notag.log" "$SP/b-t6-nourl.log" "$SP
 
 Expected: `NOTAG_EXIT=2`, `NOURL_EXIT=2`, `NOAPI_EXIT=2`, `TYPO_EXIT=2`, naming in turn `CI_COMMIT_TAG is missing or empty`, `CI_PROJECT_URL is missing or empty`, `missing CI_API_V4_URL`, and `unknown argument(s) --dryrun`; and `:0` for every log in the last line. ★ Read the COUNT, not `grep`'s exit status, which is 1 whenever the count is 0.
 
+★★★ **FOR THE `--dryrun` ROW, THE MESSAGE IS THE ASSERTION — ITS EXIT CODE CANNOT SEE THE GUARD.** Measured against a scratchpad copy of the CLI with the unknown-argument guard DELETED, under every environment this row could use:
+
+| Environment | Guard present | Guard deleted |
+|---|---|---|
+| API at blocked port 1, canary token (the row above) | 2 — `unknown argument(s) --dryrun` | 2 — `fetch failed (bad port)` |
+| API set, token unset | 2 — `unknown argument(s) --dryrun` | 2 — `missing CI_JOB_TOKEN` |
+| API unset (this row's previous form) | 2 — `unknown argument(s) --dryrun` | 2 — `missing CI_API_V4_URL` |
+
+Any environment that cannot reach a network exits 2 either way, because failing to reach one IS exit 2. So a green `TYPO_EXIT=2` alone proves nothing; the `unknown argument(s) --dryrun` line does. The exit code only discriminates against an API that would CONFIRM the POST — which is Step 10's live-server row, where deleting the guard turns 2 into 0.
+
 - [ ] **Step 9: Drive the real path against a local fake API**
 
-A unit test cannot see `redirect: "manual"`, the timeout, or the redaction, so run the CLI against a throwaway local HTTP server — written to the scratchpad with the Write tool, never a heredoc — that answers each case below, logs every request it receives (method, path, and whether a `JOB-TOKEN` header was PRESENT, never its value), and is killed by the PID that started it. Every call sets `CI_JOB_TOKEN=canary-not-a-token`. Measured:
+The CLASSIFIER unit tests cannot see `redirect: "manual"`, the timeout or the redaction — those live in the CLI. Step 10 commits an integration test that pins the redirect, the argument guard and the redaction; this one-off matrix additionally covers what that test skips (the 30 s timeout, a refused connection, a blocked port, a missing lib). Run the CLI against a throwaway local HTTP server — written to the scratchpad with the Write tool, never a heredoc — that answers each case below, logs every request it receives (method, path, and whether a `JOB-TOKEN` header was PRESENT, never its value), and is killed by the PID that started it. Every call sets `CI_JOB_TOKEN=canary-not-a-token`. Measured:
 
 | Case | Exit | What the server saw |
 |---|---|---|
@@ -2183,7 +2213,252 @@ plus the six local env rows of Steps 7 and 8 (26 cases in all). `grep -c canary`
 ★★ Both zeros need a positive control or they prove nothing. The echo row's output contains `[REDACTED]` exactly once, so the token really did come back; and a scratchpad COPY of the CLI with truncate-then-redact instead of redact-then-truncate leaks a `canar` prefix on the straddle row where the committed order leaks none.
 ★ The timeout path runs at the real 30 s. The design has no env hook to shorten it, deliberately — an override is one more input to a job that holds a token.
 
-- [ ] **Step 10: Add the npm script and its description**
+- [ ] **Step 10: Pin the CLI end to end with a committed test**
+
+A one-off matrix proves the CLI once; only a committed test keeps it proved. Create `scripts/publish-release.integration.test.mjs`:
+
+```js
+// @vitest-environment node
+//
+// scripts/publish-release.mjs END TO END: the real CLI, spawned as a child
+// process, against a fake Releases API on an ephemeral loopback port.
+//
+// ★★ The classifiers have their own unit tests; THIS file covers what only a
+// real run can see — `redirect: "manual"`, the unknown-argument guard, the
+// trailing-slash strip, and redaction of an echoed body BEFORE it is cut to
+// its excerpt. Each of those was mutation-proved against this file.
+//
+// ★ The child is started with async `spawn`, never `spawnSync`: the fake API
+// lives in THIS process, and a synchronous spawn would block the event loop
+// that has to answer the child's request.
+//
+// ★ Every CI_* variable is stripped from the child's environment before the
+// fake ones are set, so a real CI_JOB_TOKEN from the pipeline running this
+// test can never reach the child — and the canary is the only token it sees.
+import { spawn } from "node:child_process";
+import http from "node:http";
+import { fileURLToPath } from "node:url";
+import { afterEach, describe, expect, it } from "vitest";
+
+const REPO = fileURLToPath(new URL("..", import.meta.url));
+const CLI = fileURLToPath(new URL("./publish-release.mjs", import.meta.url));
+const TOKEN = "canary-not-a-token";
+const RELEASES = "/api/v4/projects/1/releases";
+const EXISTING = `${RELEASES}/v0.301.0`;
+const MOVED = "/api/v4/moved";
+
+const send = (res, status, body, headers = {}) => {
+  res.writeHead(status, { "Content-Type": "application/json", ...headers });
+  res.end(typeof body === "string" ? body : JSON.stringify(body));
+};
+/** The Release body a real GitLab would return for the payload we POSTed. */
+const echo = (payload) => ({ tag_name: payload.tag_name, assets: { links: payload.assets.links } });
+const withOtherLink = (payload) => ({
+  tag_name: payload.tag_name,
+  assets: { links: [{ url: "https://example.com/other.exe" }] },
+});
+
+let api;
+afterEach(async () => {
+  if (!api) return;
+  api.server.closeAllConnections();
+  await new Promise((resolve) => api.server.close(resolve));
+  api = undefined;
+});
+
+/**
+ * Start the fake API. `respond({ req, res, posted, body })` answers each
+ * request; `posted` is the payload of the first POST to the releases endpoint.
+ */
+async function startApi(respond) {
+  const requests = [];
+  let posted = null;
+  const server = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      requests.push(`${req.method} ${req.url}`);
+      if (req.method === "POST" && req.url === RELEASES && posted === null) posted = JSON.parse(body);
+      respond({ req, res, posted, body });
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return { server, requests, url: `http://127.0.0.1:${server.address().port}/api/v4` };
+}
+
+function runCli(apiUrl, args) {
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("CI_")));
+  Object.assign(env, {
+    CI_PROJECT_URL: "https://gitlab.example/g/p",
+    CI_COMMIT_TAG: "v0.301.0",
+    CI_PROJECT_ID: "1",
+    CI_API_V4_URL: apiUrl,
+    CI_JOB_TOKEN: TOKEN,
+  });
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [CLI, ...args], { cwd: REPO, env });
+    let out = "";
+    child.stdout.on("data", (d) => (out += d));
+    child.stderr.on("data", (d) => (out += d));
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code, out }));
+  });
+}
+
+// Each row: how the fake API answers, what the CLI must exit with, exactly
+// which requests the API must have received, and text the output must hold.
+const ROWS = [
+  {
+    name: "201 echoing our tag and link exits 0",
+    respond: ({ res, posted }) => send(res, 201, echo(posted)),
+    code: 0,
+    requests: [`POST ${RELEASES}`],
+    outHas: ["created release for v0.301.0"],
+  },
+  {
+    name: "201 naming another tag exits 2",
+    respond: ({ res, posted }) => send(res, 201, { ...echo(posted), tag_name: "v0.999.0" }),
+    code: 2,
+    requests: [`POST ${RELEASES}`],
+    outHas: ["CANNOT CONFIRM: 201 but the body lacks"],
+  },
+  {
+    // Followed, a 302 turns the POST into a GET whose `200 []` once read as "created".
+    name: "302 exits 2 and is NOT followed",
+    respond: ({ req, res }) =>
+      req.url === RELEASES ? send(res, 302, "", { Location: MOVED }) : send(res, 200, []),
+    code: 2,
+    requests: [`POST ${RELEASES}`],
+    outHas: ["HTTP 302 redirect"],
+  },
+  {
+    // A followed 307 RE-POSTS to the new location, which here would confirm —
+    // so this row exits 0 and records two requests if the redirect is followed.
+    name: "307 exits 2 and is NOT followed, even to a location that would confirm",
+    respond: ({ req, res, body }) =>
+      req.url === RELEASES ? send(res, 307, "", { Location: MOVED }) : send(res, 201, echo(JSON.parse(body))),
+    code: 2,
+    requests: [`POST ${RELEASES}`],
+    outHas: ["HTTP 307 redirect"],
+  },
+  {
+    name: "409, then a GET carrying our link, exits 0",
+    respond: ({ req, res, posted }) =>
+      req.method === "POST" ? send(res, 409, { message: "Release already exists" }) : send(res, 200, echo(posted)),
+    code: 0,
+    requests: [`POST ${RELEASES}`, `GET ${EXISTING}`],
+    outHas: ["already exists with this asset link"],
+  },
+  {
+    name: "409, then a GET without our link, exits 1",
+    respond: ({ req, res, posted }) =>
+      req.method === "POST" ? send(res, 409, { message: "Release already exists" }) : send(res, 200, withOtherLink(posted)),
+    code: 1,
+    requests: [`POST ${RELEASES}`, `GET ${EXISTING}`],
+    outHas: ["exists WITHOUT", "Release links API"],
+  },
+  {
+    name: "403 exits 1 with the Developer+ advice",
+    respond: ({ res }) => send(res, 403, { message: "403 Forbidden" }),
+    code: 1,
+    requests: [`POST ${RELEASES}`],
+    outHas: ["API refused: HTTP 403", "Developer+"],
+  },
+  {
+    name: "429 exits 2 (transient)",
+    respond: ({ res }) => send(res, 429, { message: "Retry later" }),
+    code: 2,
+    requests: [`POST ${RELEASES}`],
+    outHas: ["HTTP 429 is transient"],
+  },
+  {
+    name: "500 exits 2",
+    respond: ({ res }) => send(res, 500, { message: "500 Internal Server Error" }),
+    code: 2,
+    requests: [`POST ${RELEASES}`],
+    outHas: ["HTTP 500"],
+  },
+  {
+    name: "400 whose body echoes the token exits 1, with the token redacted",
+    respond: ({ req, res }) => send(res, 400, { message: `bad request from token ${req.headers["job-token"]}` }),
+    code: 1,
+    requests: [`POST ${RELEASES}`],
+    outHas: ["API refused: HTTP 400", "bad request from token [REDACTED]"],
+  },
+  {
+    // `{"message":"` is 12 chars, so 1983 filler puts the token at char 1995,
+    // straddling the CLI's 2000-char excerpt cut. Truncate-then-redact would
+    // leave "canar" in the output; redact-then-truncate cuts the MARKER.
+    name: "a token straddling the 2000-char excerpt cut leaks no prefix",
+    respond: ({ req, res }) => send(res, 400, { message: `${"y".repeat(1983)}${req.headers["job-token"]} tail` }),
+    code: 1,
+    requests: [`POST ${RELEASES}`],
+    outHas: ["yyyyy[REDA"],
+  },
+  {
+    // The API would CONFIRM a POST, so only the guard keeps this at 2.
+    name: "--dryrun (a typo) exits 2 and sends nothing",
+    args: ["--dryrun"],
+    respond: ({ res, posted }) => send(res, 201, echo(posted)),
+    code: 2,
+    requests: [],
+    outHas: ["unknown argument(s) --dryrun"],
+  },
+  {
+    name: "--dry-run exits 0 and sends nothing",
+    args: ["--dry-run"],
+    respond: ({ res, posted }) => send(res, 201, echo(posted)),
+    code: 0,
+    requests: [],
+    outHas: ["--dry-run, nothing sent", "JOB-TOKEN present"],
+  },
+  {
+    name: "trailing slashes on CI_API_V4_URL do not reach the request path",
+    apiSuffix: "//",
+    respond: ({ res, posted }) => send(res, 201, echo(posted)),
+    code: 0,
+    requests: [`POST ${RELEASES}`],
+    outHas: ["created release for v0.301.0"],
+  },
+];
+
+describe("publish-release.mjs against a fake Releases API", () => {
+  it.each(ROWS)("$name", async ({ respond, args = [], apiSuffix = "", code, requests, outHas }) => {
+    api = await startApi(respond);
+    const r = await runCli(`${api.url}${apiSuffix}`, args);
+    expect(r.code, r.out).toBe(code);
+    expect(api.requests).toEqual(requests);
+    for (const text of outHas) expect(r.out).toContain(text);
+    // The canary must never reach the output — not whole, and not as a prefix.
+    expect(r.out).not.toContain(TOKEN);
+    expect(r.out).not.toContain("canar");
+  });
+});
+```
+
+```bash
+npx vitest run scripts/publish-release.integration.test.mjs --maxWorkers=1 > "$SP/b-t6-int.log" 2>&1; echo "EXIT=$?"
+grep -E "Test Files|Tests " "$SP/b-t6-int.log"
+npx vitest list scripts/publish-release.integration.test.mjs > "$SP/b-t6-int-list.log" 2>&1
+grep -c "^scripts/publish-release.integration.test.mjs >" "$SP/b-t6-int-list.log"
+```
+
+Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  14 passed (14)`, and the anchored `grep -c` prints `14`.
+
+★★ It spawns with async `spawn`, never `spawnSync`: the fake API lives in the test's own process, and a synchronous spawn blocks the event loop that has to answer the child. ★ It strips every `CI_*` variable before setting the fake ones, so a real `CI_JOB_TOKEN` in the pipeline running the suite never reaches the child.
+
+Mutation-proved one mutant at a time, as in Step 5 — each is the defect a review said would otherwise ship green:
+
+| Mutant in `publish-release.mjs` | Result |
+|---|---|
+| truncate BEFORE redacting the body excerpt | KILLED by the straddle row alone — `canar` reaches the output |
+| `redirect: "follow"` on the POST | KILLED by the 302 row AND the 307 row — two requests reach the API, and the followed 307 re-POSTs to a location that CONFIRMS, so it exits 0 |
+| the unknown-argument guard deleted | KILLED by the `--dryrun` row — the POST is sent, confirmed, and exits 0 |
+| the trailing-slash strip deleted | KILLED by the trailing-slash row — the request path becomes `/api/v4//projects/1/releases` |
+
+★ The 307 row is the one that proves `redirect: "manual"`, not the 302: a followed 302 becomes a GET whose unrelated answer still exits 2, so only the request COUNT catches it there, while a followed 307 keeps the POST and its body and would publish.
+
+- [ ] **Step 11: Add the npm script and its description**
 
 Edit `package.json` with the **Edit tool** (its working copy is CRLF — the Edit tool preserves that). In `"scripts"`, after `"tag:check"`:
 
@@ -2194,12 +2469,12 @@ Edit `package.json` with the **Edit tool** (its working copy is CRLF — the Edi
 In `"scriptsDescriptions"`, after its `"tag:check"` entry:
 
 ```json
-    "release:publish": "Create the GitLab Release for the current tag and attach an asset link to the installer built by desktop-package-tag. Needs CI_API_V4_URL, CI_PROJECT_ID, CI_PROJECT_URL, CI_COMMIT_TAG and CI_JOB_TOKEN. Exit 0 ONLY on a confirmed Release: a 201 echoing this tag and link, or a 409 whose existing Release already carries the link. Exit 1 is a 4xx refusal (a human must act), or a 409 whose Release lacks the link. Exit 2 is everything else, all safe to retry: missing env, an unknown argument, network, the 30 s timeout, 408/429, 5xx, a redirect, an unconfirmable 2xx. `--dry-run` validates the same env except the token, prints the payload and whether a token is present, and sends nothing. Uses node's fetch deliberately: no release-cli image, no curl.",
+    "release:publish": "Create the GitLab Release for the current tag and attach an asset link to the installer built by desktop-package-tag. Needs CI_API_V4_URL, CI_PROJECT_ID, CI_PROJECT_URL, CI_COMMIT_TAG and CI_JOB_TOKEN. Outside --dry-run, exit 0 means a confirmed Release and nothing else: a 201 echoing this tag and link, or a 409 whose existing Release already carries the link. Exit 1 is a 4xx refusal (a human must act), or a 409 whose Release lacks the link. Exit 2 is everything else, all safe to retry: missing env, an unknown argument, network, the 30 s timeout, 408/429, 5xx, a redirect, an unconfirmable 2xx. `--dry-run` validates the same env except the token, prints the payload and whether a token is present, and sends nothing. Uses node's fetch deliberately: no release-cli image, no curl.",
 ```
 
 ★ Both lines END IN A COMMA: `tag:check` is not the last entry in either object — `e2e:desktop` follows it in both — so a snippet without one is invalid JSON.
 
-- [ ] **Step 11: Regenerate and check**
+- [ ] **Step 12: Regenerate and check**
 
 ```bash
 npm run docs:scripts > "$SP/b-t6-gen.log" 2>&1; echo "GEN_EXIT=$?"
@@ -2209,7 +2484,9 @@ grep -hE "unchanged|would-update|updated" "$SP/b-t6-gen.log" "$SP/b-t6-chk.log"
 
 Expected: both EXIT=0; the GENERATE run prints `updated: CONTRIBUTING.md`, and only the CHECK run prints `unchanged: CONTRIBUTING.md`.
 
-- [ ] **Step 12: Commit — two commits, each path-limited**
+- [ ] **Step 13: Commit — three commits, each path-limited**
+
+The first two landed the classifiers and the CLI; the third is the fix round from the second cold review.
 
 ```bash
 git commit -F - -- scripts/release-publish-lib.mjs scripts/release-publish-lib.test.mjs <<'EOF'
@@ -2275,6 +2552,40 @@ it now needs.
 
 Claude-Session: https://[session link removed]
 EOF
+git add scripts/publish-release.integration.test.mjs
+git commit -F - -- scripts/publish-release.mjs scripts/publish-release.integration.test.mjs scripts/release-publish-lib.mjs scripts/release-publish-lib.test.mjs package.json CONTRIBUTING.md .gitlab-ci.yml docs/superpowers/plans/2026-09-10-release-publishing.md <<'EOF'
+fix(ci): release:publish is tested end to end, and its catch cannot exit 1
+
+scripts/publish-release.integration.test.mjs spawns the real CLI against a
+fake Releases API on an ephemeral port: 14 rows, a canary token, and the
+canary asserted absent on every one. Mutation-proved: truncating before
+redacting, following a redirect on the POST, deleting the unknown-argument
+guard and deleting the trailing-slash strip each turn it red. Before it, all
+four would have shipped green.
+
+The catch built its message with String(err), which throws for a
+prototype-less object, and a throw inside a catch exits 1 -- the refusal
+code. The description now has its own try and a fixed fallback; a scratchpad
+copy throwing Object.create(null) exits 1 before the fix and 2 after.
+
+Trailing slashes on CI_API_V4_URL are stripped, so .../api/v4/ cannot build
+v4//projects. classifyCreateResponse's 201 branch applies the same
+isPlainObject rule as classifyExistingRelease, so an array carrying our tag
+and link is fail/2, pinned by a test. The CLI header, scriptsDescriptions and
+CONTRIBUTING say that 0 means a confirmed Release outside --dry-run.
+
+The plan's Step 8 --dryrun row now points at fetch's blocked port 1 and
+asserts the message, because its exit code cannot see the guard: with the
+guard deleted it still exits 2 (bad port), as it does under every other
+environment the row could use -- measured. Sizes in the measurement record
+are labelled MiB where du produced them (97,353,634 bytes is 97.4 MB /
+92.8 MiB), and the same comments in .gitlab-ci.yml follow. The user-facing
+Task 8 text drops the size and says a download needs project membership, not
+merely a signed-in account, which the lib's own docstring already claimed
+desktop-rollout.md said. Task 10 now runs three files: 128 tests (16 + 98 + 14).
+
+Claude-Session: https://[session link removed]
+EOF
 ```
 
 ★ `git add` the new CLI first — a pathspec naming an untracked file fails `git commit -- <path>`. ★★ Never `git add -A`: another agent may be mid-edit in the same tree, and `git commit -- <paths>` commits exactly those paths while leaving anything someone else staged untouched.
@@ -2322,7 +2633,7 @@ Append at the end of `.gitlab-ci.yml`:
 # reach `release`.
 # ★ `dependencies: []` (not `needs:`) says the same "no needs:" thing to the
 # artifact-download side: this job fetches NO artifacts from earlier jobs --
-# not node_modules, not the ~93 MB installer -- since `release:publish` only
+# not node_modules, not the ~93 MiB installer -- since `release:publish` only
 # needs the installer's download URL, never its bytes.
 # ★★ No allow_failure: a tag whose Release was never created looks published
 # and is not -- README and docs/desktop-rollout.md send people to a page with
@@ -2404,11 +2715,17 @@ with:
 
 ```markdown
 1. Download the installer from the project's **Releases** page — pick the newest
-   release and click the `aipm-cockpit-<version>-setup.exe` asset link (~93 MB).
-   You need to be signed in to GitLab: the project is `internal`, so downloads
-   are not public.
+   release and click the `aipm-cockpit-<version>-setup.exe` asset link.
+   You need to be a **member of the GitLab project**, not merely signed in: the
+   project is `internal`, and GitLab serves its job artifacts only to Reporter
+   and up, or to a Guest where project-based pipeline visibility is enabled. If
+   the link answers with a 404 or a permission error, ask a maintainer to add you.
 2. Run it.
 ```
+
+★★ **The project-membership caveat is REQUIRED here, not optional.** `scripts/release-publish-lib.mjs`'s `buildAssetUrl` docstring already says `docs/desktop-rollout.md` carries it — this step is what makes that claim true. An earlier revision of this step said being signed in was enough, which contradicts that docstring and GitLab's permissions docs. It is stated by those docs, NOT yet verified on this instance; Task 11 checks it with a non-member account.
+
+★ No size is quoted in this user-facing text, as in the Release description (Task 5): a figure there goes stale on the next release and nothing checks it.
 
 Then renumber the two steps that follow (the SmartScreen box becomes 3, the
 per-user install becomes 4).
@@ -2467,7 +2784,9 @@ docs: name the download location, and the release procedure
 desktop-rollout.md said "run the installer from the share" and it owns the
 download location -- README deliberately names none, so there is exactly one
 place to update. It now points at the Releases page, and says the download needs
-a signed-in GitLab user, since an internal project serves no public artifacts.
+project membership -- Reporter and up, or a Guest with project-based pipeline
+visibility -- since an internal project serves its job artifacts to members
+only, not to every signed-in user.
 
 RUNBOOK gains the operator procedure: bump, merge, tag, and what each of the two
 tag jobs does. It records the wine fallback (a local build uploaded by hand) as
@@ -2543,14 +2862,14 @@ tail -5 "$SP/b-g-lint.log"
 
 Expected: `0` TS errors (read the COUNT, not the exit code) and `LINT_EXIT=0`. Use this eslint form, not `npm run lint`, which exits 1 on gitignored `.worktrees/` leftovers.
 
-- [ ] **Step 2: The two new script suites, named explicitly**
+- [ ] **Step 2: The three new script suites, named explicitly**
 
 ```bash
-npx vitest run scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs > "$SP/b-g-unit.log" 2>&1; echo "EXIT=$?"
+npx vitest run scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs scripts/publish-release.integration.test.mjs > "$SP/b-g-unit.log" 2>&1; echo "EXIT=$?"
 grep -E "Test Files|Tests " "$SP/b-g-unit.log"
 ```
 
-Expected: EXIT=0, `Test Files  2 passed (2)`, `Tests  113 passed (113)` (16 + 97). Derive it rather than trusting this line — `npx vitest list scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs > "$SP/b-g-list.log" 2>&1; grep -cE "^scripts/(tag-version|release-publish)-lib\.test\.mjs >" "$SP/b-g-list.log"`. ★★ NOT `grep -c "  it("`, which this line used to prescribe: it prints 16 + 29, because every `it.each` row in Task 6's classifier tests is its own test at runtime. The release-publish-lib half grew from 8 to 16 in the Task 5 review round and to 97 in Task 6. ★★★ **Assert `Test Files 2` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
+Expected: EXIT=0, `Test Files  3 passed (3)`, `Tests  128 passed (128)` (16 + 98 + 14). Derive it rather than trusting this line — `npx vitest list scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs scripts/publish-release.integration.test.mjs > "$SP/b-g-list.log" 2>&1; grep -cE "^scripts/(tag-version-lib|release-publish-lib|publish-release\.integration)\.test\.mjs >" "$SP/b-g-list.log"`. ★★ NOT `grep -c "  it("`, which this line used to prescribe: it prints 16 + 29 + 0, because every `it.each` row is its own test at runtime and the integration file is a single `it.each`. The release-publish-lib file grew from 8 to 16 in the Task 5 review round and to 98 in Task 6; the integration file is Task 6's too. ★★★ **Assert `Test Files 3` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
 
 - [ ] **Step 3: Docs, version and followup gates**
 
@@ -2664,11 +2983,11 @@ This needs a version bump, a CHANGELOG entry and a merge, none of which are in t
 - [ ] Spike 1's finding is committed with its **Measured** section filled in, and its decision table applied.
 - [ ] `npm run tag:check` exits **1** on a mismatched tag, **2** on an empty one, **0** on a matching one — and the 0 case NAMES both values.
 - [ ] The mismatched tag has been driven red **in CI**, not only locally.
-- [ ] The stored tag artifact is the installer plus its `.blockmap`, ~93 MB, and contains no `win-unpacked/`.
+- [ ] The stored tag artifact is the installer plus its `.blockmap`, ~93 MiB (97.5 MB), and contains no `win-unpacked/`.
 - [ ] `desktop-package-tag` carries **no** `allow_failure`, and `desktop-package` still carries it under its manual rule.
 - [ ] Tag artifacts are `expire_in: never`; branch artifacts are still `1 week`.
 - [ ] `ARTIFACT_JOB` in `scripts/release-publish-lib.mjs` is the same string as the `desktop-package-tag` job name.
-- [ ] `docs/desktop-rollout.md` names the Releases page, and says the download needs a signed-in GitLab user.
+- [ ] `docs/desktop-rollout.md` names the Releases page, and says the download needs project membership (Reporter and up, or a Guest with project-based pipeline visibility) — not merely a signed-in account.
 - [ ] `AGENTS.md`'s CI enumeration lists the five changed or new jobs.
 - [ ] Task 10's gate chain is green and `git status --porcelain` is empty.
 

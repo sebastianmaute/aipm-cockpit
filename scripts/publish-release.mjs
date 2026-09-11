@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Create the GitLab Release for the current tag and attach the installer link.
 //
-// EXIT CODES — 0 means a CONFIRMED Release, and nothing else does:
+// EXIT CODES — outside --dry-run, 0 means a CONFIRMED Release and nothing
+// else does:
 //   0  a 201 whose body echoes this tag AND this asset link; or a 409 whose
 //      existing Release already carries this link (an earlier create landed
 //      and only its response was lost); or --dry-run printed the payload
@@ -76,7 +77,8 @@ try {
   const payload = buildReleasePayload(process.env, version, milestone);
   const expected = expectedFromPayload(payload);
 
-  const api = process.env.CI_API_V4_URL;
+  // ★ Trailing slashes stripped, so `.../api/v4/` cannot build `v4//projects`.
+  const api = (process.env.CI_API_V4_URL ?? "").replace(/\/+$/, "");
   const projectId = process.env.CI_PROJECT_ID;
   // ★ Name WHICH one is missing, never the value of any of them.
   const missing = [!api && "CI_API_V4_URL", !projectId && "CI_PROJECT_ID", !dryRun && !token && "CI_JOB_TOKEN"].filter(
@@ -142,7 +144,16 @@ try {
   // `cause` — an errno code (ECONNREFUSED, ECONNRESET), or for a blocked port
   // no code at all, only a message ("bad port"). An AbortSignal timeout
   // arrives as a TimeoutError.
-  const cause = err?.cause?.code ?? err?.cause?.message;
-  const detail = err instanceof Error ? `${err.name}: ${err.message}${cause ? ` (${cause})` : ""}` : String(err);
+  // ★★ Describing `err` can itself throw — String() of a prototype-less
+  // object has no toString — and a throw from INSIDE this catch is uncaught,
+  // so Node would exit 1, the REFUSAL code. Hence its own try and a fixed
+  // fallback: this catch always exits 2.
+  let detail = "an error that could not be described";
+  try {
+    const cause = err?.cause?.code ?? err?.cause?.message;
+    detail = err instanceof Error ? `${err.name}: ${err.message}${cause ? ` (${cause})` : ""}` : String(err);
+  } catch {
+    // keep the fallback
+  }
   fail(2, `CANNOT PUBLISH: ${detail}`);
 }

@@ -517,14 +517,14 @@ dast-zap:
   artifacts:
     # ★★★ THE INSTALLER AND ITS BLOCKMAP, NEVER desktop/release/ WHOLE. This is
     # a defect fix, not an optimisation: measured 2026-09-10, the directory is
-    # ~408 MB of which win-unpacked/ is 314 MB -- an expanded duplicate of the
-    # installer's own contents. Narrowed it is ~93 MB.
+    # ~408 MiB of which win-unpacked/ is 314 MiB -- an expanded duplicate of the
+    # installer's own contents. Narrowed it is ~93 MiB (97.5 MB).
     #
     # ★ The globs are self-protecting against a stale pre-artifactName build:
     # `*-setup.exe` does not match `aipm-cockpit Setup 0.301.0.exe`. CI starts
     # clean anyway; a local tree may hold both.
     #
-    # ★★ 92.8 MB sits against a documented 100 MB max_artifacts_size DEFAULT
+    # ★★ 92.9 MiB (97.5 MB) sits against a documented 100 MB max_artifacts_size DEFAULT
     # that is admin-only and unreadable from here. A rejection arrives AFTER a
     # green 20-minute build. See the spike finding under specs/_probes/.
     #
