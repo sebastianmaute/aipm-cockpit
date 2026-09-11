@@ -9,7 +9,7 @@
 // tools.
 //
 // ★★ `createTool` WAS THERE THE WHOLE TIME, and saying otherwise overstates the
-// work. It is a declared member of `InlineEntityDescriptor` and all eight
+// work. It is a declared member of `EntityDescriptor` and all eight
 // entities carry one (`grep -c 'createTool: "create_' entity-descriptor.ts` →
 // 8); `chat-proposal-describe.ts` indexes `toolEntity[d.createTool]` off it.
 // `sweepPlumbing` simply declines to read it. The same wrong sentence sat in
@@ -64,6 +64,10 @@ type CreateCase = {
    *  value means the sanitizer's own default won instead of the model's. */
   expected: unknown;
   because: string;
+  /** A field the created row must have STORED for the probe to be able to land
+   *  at all. Asserted before the refusal, so a trimmed `valid` payload fails
+   *  loudly instead of leaving the pin green while it tests nothing. */
+  precondition?: { field: string; why: string };
 };
 
 const CASES: CreateCase[] = [
@@ -155,6 +159,14 @@ const CASES: CreateCase[] = [
     probe: [{ date: "2026-06-08", kind: "skip" }],
     expected: undefined,
     because: "a live undisclosed write: in no write schema, while the read tool teaches the model its exact shape",
+    // ★★ That dependency was prose until this line. `calendar-event.ts` keeps
+    //  `exceptions: recurrence ? … : undefined`, so trimming the recurrence out
+    //  of `CREATE_BASE.calendarEvent` left this pin green while it tested
+    //  nothing — the positive control reads only `title`. Now it goes red.
+    precondition: {
+      field: "recurrence",
+      why: "exceptions are stored only when a recurrence is present, so without it this pin cannot see the guard",
+    },
   },
 ];
 
@@ -190,6 +202,9 @@ describe("every create tool applies its entity's merge-site guard", () => {
     //  before reading anything back off it.
     expect(row, `${c.tool} stored no row at all — its valid payload is not valid`).toBeDefined();
     expect(row?.id).toBeDefined();
+    if (c.precondition) {
+      expect(row?.[c.precondition.field], `${c.tool}: ${c.precondition.why}`).toBeDefined();
+    }
 
     expect(row?.[c.field]).toEqual(c.expected);
   });
