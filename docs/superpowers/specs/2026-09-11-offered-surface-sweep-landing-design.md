@@ -135,3 +135,45 @@ suite and the shuffled suite run in CI.
 
 Cold review before release. No bump, no CHANGELOG. Push, MR (`--auto-merge=false`), poll, merge on
 green — each only on the user's say-so.
+
+## As executed (2026-09-11)
+
+Added after execution; everything above is the spec as committed in `07805104` "docs(spec): land the
+offered-surface sweep's detector, which 0.297.0 left behind" and is not rewritten. This section covers
+only the departures that change a decision this spec made, up to `32769326` "docs(followups): close
+436 and 439, file 440-446 and 459-461, and correct the create-path gate comment". Every other
+departure (the commit map, corrected counts, mutant outcomes, the create-strip note's shape, the
+Task 9 split) is recorded in the plan,
+`docs/superpowers/plans/2026-09-11-offered-surface-sweep-landing.md`, section "As executed
+(2026-09-11)".
+
+- **Green to land, by a ledger ("The measurement gate", points 2 and 3).** The first run on main gave
+  73 tests with 5 failing cases and 6 finding lines, all in Relation B and none a write-path defect.
+  The go/cut decision taken at that stop was to hold those findings in `EXPECTED_FINDINGS`, checked in
+  both directions: a new finding turns its case red, and so does a ledgered finding that stops firing
+  (`eef92310` "test(ai): hold the sweep's six known findings in a ledger checked both ways"). No field
+  was exempted, no probe narrowed and no floor weakened. The sweep landed at 74 tests, 0 failing.
+- **The ledger compares field and kind, not text.** In the first fix round the entries were re-keyed
+  from exact finding strings to `{ subject, kind }` over one `FINDING_KINDS` array, compared as sorted
+  `subject:kind` tokens in both directions, so rewording a production error message no longer turns
+  the sweep red (`70615677` "test(ai): key the sweep's findings ledger by field and kind, and correct
+  the comments a review disproved").
+- **Register ("Register" table).** Its rows landed as decided: §436 and §439 CLOSED 2026-09-11;
+  §440, §441, §443, §446 OPEN; §442 CLOSED 2026-09-09; §444 OPEN until the merge request's
+  `unit-tests-shuffled` job; §445 OPEN, because its reachability claim still holds although
+  `2645debb` fixed the write defect. Three entries the table does not list were also filed OPEN in
+  `32769326`: §459 (two create-arm probes invalid by construction, `task.assigneeEmail` and
+  `absence.startDate`, first seen on the local-only original branch), §460 (a create card can preview meeting attendees the
+  create then stores none of; suspected, not runtime-verified) and §461 (an absence stores an assignee
+  email that is not an address, where a task refuses it).
+- **"The one `src/app/*.ts` edit allowed is a comment" ("Non-goals").** Two such files carry comment
+  edits, not one: `src/app/chat-tools-updates.ts` ("The one comment", `78569052`, adjusted by
+  `70615677`) and `src/app/inline-ai-edit/plan.ts` (`32769326`, a comment false since `68486cd4`,
+  released in 0.294.0). Neither changes behaviour, and this command lists exactly those two files:
+  `git diff --stat fe82d1db 32769326 -- 'src/app/*.ts' ':(exclude)*.test.ts'`
+- **Probe fixes deferred.** The sweep's probe blind spots found during execution (Relation A's trespass
+  probe is never a valid value; `validProbeFor` has no object branch; two create-arm probes derived
+  from seeded values; no fixture seeds `exceptions`) are recorded in the sweep's comments, in §441 and,
+  for the two create-arm probes, in §459, not fixed. Fixing them, and fixing §460 together with the `plan.test.ts` case "does NOT apply the
+  guard to a create, whose write never sees it", is a follow-up slice. This keeps to "Non-goals":
+  nothing §440, §441, §443, §445 or §446 describes was fixed here.

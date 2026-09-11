@@ -8,6 +8,8 @@
 
 **Tech Stack:** Vitest 4 + Testing Library (unit), TypeScript, git. No production code changes except one docstring paragraph.
 
+> **As executed:** see "As executed › A second src/app comment edit" — `inline-ai-edit/plan.ts` comments also changed, in 32769326.
+
 ---
 
 ## Read before starting
@@ -58,6 +60,8 @@ Commit messages carry backticks and quotes, so write each to `$SCRATCH/tN-msg.tx
 | `src/app/inline-ai-edit/plan.model-writable-surface.test.ts` | Modify (cherry-pick `f99aa51a`, `799ae26c`) | §437 ratchet, now reading shared `PERSISTED_COLUMNS` |
 | `src/app/chat-tools-updates.ts` | Modify (one docstring paragraph) | Records the measured create-strip redundancy |
 | `docs/open-followups.md` | Modify | Close §436 · §439; mint §440–446 |
+
+> **As executed:** see "As executed › Commit map" — the sweep gained a ledger, axis comments changed, §459–§461 were filed.
 
 ---
 
@@ -278,6 +282,8 @@ Expected: nine `1`s. Any other count: stop and report — main moved since plann
 
 All three factual claims were re-verified against main while planning: the grep prints `8`, `chat-proposal-describe.ts:66` is `toolEntity[d.createTool] = d.entity;`, and `sweepPlumbing` (`src/test/inline-sweep-fixtures.ts`) reads `.updateTool` only.
 
+> **As executed:** see "As executed › Task 3: the prescribed comment named a type that does not exist" — the type is `EntityDescriptor`; 82e7ee87 fixed the comment.
+
 - [ ] **Step 3: Correct the "PIN, NOT A SWEEP" paragraph**
 
 `old_string`:
@@ -371,6 +377,8 @@ node -e "const s=require('fs').readFileSync(process.argv[1],'utf8');console.log(
 ```
 
 Expected: one file changed; `CREATE_BASE.` count `7`; `valid: {` count `0`; `w/crlf`; `bare LF 0`.
+
+> **As executed:** see "As executed › Task 3 Step 7: the `CREATE_BASE.` count" — 8 at a278cc30 (Step 6's own comment), 9 at 32769326.
 
 - [ ] **Step 8: Run it**
 
@@ -492,6 +500,8 @@ Sort each failure into exactly one bucket:
 
 If there are no failures, Task 6 is skipped.
 
+> **As executed:** see "As executed › Task 5: the baseline and the go/cut stop" — five bucket (b) failures; the go/cut decision added a findings ledger.
+
 - [ ] **Step 3: Record the write-path sweep's verbose fingerprint (Task 7's mutant 4 needs it)**
 
 ```bash
@@ -504,9 +514,13 @@ grep -E "^\s+(✓|×|↓)" "$SCRATCH/t5-wps.log" | sed -E 's/ [0-9]+ms$//' | md5
 
 Write `$SCRATCH/landing-baseline.md` containing: the sweep file's RUNTIME test count (its own line in the Step 1 output — expected 73, which is 5 axis checks × 8 entities + 2 × 8 Relation A + 1 + 2 × 8 Relation B); its failed/passed split; the three finding-string counts; the full failure list with bucket labels; the write-path sweep's passed count and md5. Tasks 6, 7, 8 and 9 read their numbers from this file only.
 
+> **As executed:** see "As executed › Task 5: the baseline and the go/cut stop" — 73 tests, 5 failed, 6 finding lines; 74 tests after the ledger.
+
 ---
 
 ## Task 6 (only if Task 5 found bucket (a) failures): re-baseline `AXIS_BASELINE` as a recorded decision
+
+> **As executed:** see "As executed › Task 6: skipped" — no axis-size case failed; `AXIS_BASELINE` is unchanged.
 
 **Files:**
 - Modify: `src/test/offered-surface-axis.ts` (the `AXIS_BASELINE` object and its docstring only)
@@ -592,6 +606,8 @@ git commit --only src/test/offered-surface-axis.ts -F "$SCRATCH/t6-msg.txt"; ech
 
 **The scorecard rule.** Record each mutant as `N failed / M passed` for the sweep file, with `N + M` equal to the runtime count in `$SCRATCH/landing-baseline.md`, plus the names of the newly failing cases. A mutant that changes nothing is SURVIVED; name it as such.
 
+> **As executed:** see "As executed › Task 7: mutant outcomes" — M3 survived, M4 died on the create arm; sums are 74.
+
 **Every mutant follows this shape:**
 
 1. `git status --short` prints nothing.
@@ -631,6 +647,8 @@ Mutant: `const item = sanitizeCalendarEvent({ ...input, id });`
 
 Expected: KILLED — Relation A `calendarEvent` create fails on `exceptions` (§438's defect, reintroduced).
 
+> **As executed:** see "As executed › Task 7: mutant outcomes" — SURVIVED on main; only `plan.create-path-guards.test.ts` catches it.
+
 - [ ] **Mutant 4 — Relation B, allowlist entity: §436's own reproduce** — `src/app/sanitize-records.ts`
 
 Original: `  note: (v) => typeof v === "string",` (inside `ABSENCE_FIELD_GUARDS`; confirm the count is `1`)
@@ -650,6 +668,8 @@ grep -E "^\s+(✓|×|↓)" "$SCRATCH/t7-m4-wps.log" | sed -E 's/ [0-9]+ms$//' | 
 ```
 
 Expected: the offered-surface sweep KILLED on Relation B `absence` update, field `note`; the write-path sweep's passed count AND md5 identical to `$SCRATCH/landing-baseline.md` (it stays blind — §436's measurement). Record both halves. If the write-path sweep moves, §436's measurement no longer holds: report before continuing.
+
+> **As executed:** see "As executed › Task 7: mutant outcomes" — killed on the absence CREATE arm; the update arm stayed green.
 
 - [ ] **Mutant 5 — Relation B, denylist entity** — `src/app/sanitize-records.ts`
 
@@ -755,6 +775,8 @@ With the Edit tool, `old_string`:
 
 Confirm the `old_string` is unique first: `grep -c -F ' *  can keep straight.' src/app/chat-tools-updates.ts` prints `1`.
 
+> **As executed:** see "As executed › Task 8: the note's shape" — main already had this paragraph; a five-line measurement was inserted into it instead.
+
 - [ ] **Step 5: Verify**
 
 ```bash
@@ -765,6 +787,8 @@ npx eslint --max-warnings=0 $F > "$SCRATCH/t8-eslint.log" 2>&1; echo "EXIT=$?"
 ```
 
 Expected: 9 insertions (eight text lines plus one ` *` separator), 0 deletions; `bare LF 0`; `EXIT=0`.
+
+> **As executed:** see "As executed › Task 8: the note's shape" — 78569052 has 5 insertions, not 9.
 
 - [ ] **Step 6: Commit**
 
@@ -800,6 +824,8 @@ git commit --only src/app/chat-tools-updates.ts -F "$SCRATCH/t8-msg.txt"; echo "
 - Modify: `docs/open-followups.md` (LF-only, ~2.5 MB — edit by node script with uniqueness assertions, never by Edit on an ambiguous anchor)
 
 Every row's text was written against branch code. Each reproduce command below is re-run on this branch and its result compared with the row's claim. **A row whose claim no longer holds is corrected in this same commit** — never flagged for later.
+
+> **As executed:** see "As executed › Task 9: split in two, and landed with the second fix round" — drafted, then applied; committed with fix round 2; §459–§461 added.
 
 - [ ] **Step 1: Confirm the numbers are still free**
 
@@ -857,6 +883,8 @@ Run each command on THIS branch and edit the corresponding scratch copy wherever
 | §444 | — | Leave OPEN. Replace its body's reason (a peer session held a full suite) with: `This slice follows the standing instruction to run no full suite locally; CI's blocking unit-tests-shuffled job is the run that settles it, and this entry is closed citing that pipeline.` Task 11 closes it. |
 | §445 | `grep -c "propose_project" src/app/chat-tool-defs.ts` (row says **0**) · `grep -n "TOOL_DEFS" src/test/offered-surface-axis.ts` · `grep -n "buildList(s.changes" src/app/ai-project-proposal.ts` · `git show 2645debb --stat --format=%s` | If `2645debb` (proposal seed-schema strip, 0.297.0) changed what can land through `propose_project`, add one sentence saying so; the REACHABILITY claim — neither relation drives `propose_project` — is what keeps the row OPEN. Drop the row only if a relation now reaches it. |
 | §446 | `grep -n "decisionBy" src/app/chat-tool-defs.ts` (one property) · `grep -n "decisionBy" src/app/sanitize-records.ts` (one line, no `status` term, no `CHANGE_FIELD_GUARDS` row) · `grep -c "decisionBy" src/app/change-log.ts` (→ **0**) · `grep -n "decisionBy" src/app/inline-ai-edit/entity-descriptor.ts` | Correct any count that moved. |
+
+> **As executed:** see "As executed › Task 9: prescribed wording that landed differently" — several rows landed reworded; the register entries are the record.
 
 - [ ] **Step 4: Every SHA in the ported text must exist on this branch**
 
@@ -1002,6 +1030,8 @@ Expected: four `EXIT=0`; `CR 0`. `docs:claims:check` is a ratchet — a NEW `pat
 
 - [ ] **Step 8: Commit**
 
+> **As executed:** see "As executed › Task 9: split in two, and landed with the second fix round" — landed as 32769326, with `plan.ts`, under another subject.
+
 Message (`$SCRATCH/t9-msg.txt`):
 
 ```
@@ -1085,3 +1115,327 @@ glab mr merge <iid> --yes --auto-merge=false > "$SCRATCH/t11-merge.log" 2>&1; ec
 ```
 
 Then poll the post-merge `main` pipeline and report its result.
+
+---
+
+## As executed (2026-09-11)
+
+This section was added after execution. Everything above it is the plan as committed in `26f3deb2`
+"docs(plan): land the offered-surface sweep in eleven tasks, measured on main" and is not rewritten;
+the lines starting `> **As executed:**` above it point here. It records execution up to
+`32769326` "docs(followups): close 436 and 439, file 440-446 and 459-461, and correct the create-path
+gate comment". Task 11 (release) had not run at that commit, so §444 is still OPEN.
+
+Figures quoted as "N failed / M passed" come from the commit messages or register entries named
+beside them; they are vitest runs and are not re-run here. Where a claim can be checked without
+vitest, a command that reproduces it sits beside it.
+
+### Commit map
+
+| Plan task | Commit | Departure |
+|---|---|---|
+| Task 1 | `a546d615` docs(ai): carry the offered-surface sweep's spec and plan onto main as dated records | none |
+| Task 2 | `ce982ce6` test(ai): carry the offered-surface sweep and its axis onto main, verbatim | none |
+| Task 3 | `a278cc30` test(ai): the create-path pins read their payloads from the shared CREATE_BASE | the two Task 3 subsections below |
+| Task 4 | `7d95c061` test(ai): the §437 ratchet reads the shared PERSISTED_COLUMNS | none |
+| not in the plan | `82e7ee87` test(ai): pin the recurrence the calendarEvent create pin depends on | "Two commits the plan did not list" |
+| not in the plan | `87566496` docs(ai): correct three axis docstrings that main's code has outrun | "Two commits the plan did not list" |
+| Task 5 | no commit; its go/cut stop produced `eef92310` test(ai): hold the sweep's six known findings in a ledger checked both ways | "Task 5", "Ledger decision 1" |
+| Task 6 | skipped | "Task 6: skipped" |
+| Task 7 | no commit (every mutant is reverted); the scorecard is in `32769326`'s message | "Task 7: mutant outcomes" |
+| Task 8 | `78569052` docs(ai): put the measurement back beside the create-strip rule, re-measured on main | "Task 8: the note's shape" |
+| fix round 1 | `70615677` test(ai): key the sweep's findings ledger by field and kind, and correct the comments a review disproved | "Ledger decision 2" |
+| Task 9 and fix round 2 | `32769326` (subject above) | the three Task 9 subsections |
+| Task 10 | not recorded at `32769326` | none yet |
+| Task 11 | not run at `32769326` | none yet |
+
+Reproduce: `git log --format='%h %s' fe82d1db..32769326`.
+
+Fix rounds 1 and 2 are the review-driven corrections defined under "Task 9: split in two, and landed
+with the second fix round".
+
+### Task 3: the prescribed comment named a type that does not exist
+
+- **Plan said:** Task 3 Step 2's `new_string` has the header say that `createTool` "is a declared
+  member of `InlineEntityDescriptor`".
+- **What happened:** that text landed as prescribed in `a278cc30`. No type of that name exists; the
+  interface is `EntityDescriptor`. `82e7ee87` "test(ai): pin the recurrence the calendarEvent create
+  pin depends on" corrected the one word in the comment ("Also corrects the header's type name" in its
+  message). Nothing was renamed: no type of that name has ever existed on main, and only the comment
+  changed.
+- **Evidence:** `git grep -n "InlineEntityDescriptor" fe82d1db` prints nothing, and neither does
+  `git log --oneline -S InlineEntityDescriptor fe82d1db -- src`;
+  `git grep -n "interface EntityDescriptor" fe82d1db -- src` prints one line, in
+  `src/app/inline-ai-edit/entity-descriptor.ts`. The wrong name still appears in Task 3 Step 2 above
+  and in the two 2026-09-08 records, which are dated and not rewritten.
+- **Why:** the "All three factual claims were re-verified" note under Step 2 covered the grep count,
+  the `chat-proposal-describe.ts` indexing and `sweepPlumbing`. The type name was a fourth claim, and
+  nothing checked it.
+
+### Task 3 Step 7: the `CREATE_BASE.` count
+
+- **Plan said:** `grep -c "CREATE_BASE\." $F` prints `7`.
+- **What happened:** it printed `8` at `a278cc30` and prints `9` at `32769326`. The eighth reference is
+  the comment Step 6 itself prescribes ("That is why `CREATE_BASE.calendarEvent` carries a
+  recurrence"); the ninth is a comment `82e7ee87` added beside its new precondition. The seven payload
+  lines are as planned, and `valid: {` counts `0` at both commits.
+- **Evidence:**
+
+  ```bash
+  F=src/app/inline-ai-edit/plan.create-path-guards.test.ts
+  git show a278cc30:$F | grep -c "CREATE_BASE\."          # 8
+  git show 32769326:$F | grep -c "CREATE_BASE\."          # 9
+  git show 32769326:$F | grep -c "valid: CREATE_BASE\."   # 7
+  ```
+
+- **Why:** the expected value counted the payload lines only and missed the prescribed comment.
+
+### Two commits the plan did not list
+
+Both landed between Task 4 and the Task 5 baseline, which `eef92310`'s message says was measured at
+`87566496`.
+
+- **`82e7ee87`** "test(ai): pin the recurrence the calendarEvent create pin depends on" adds an optional
+  `precondition` to `CreateCase` in `plan.create-path-guards.test.ts`, and the `calendarEvent` case now
+  asserts that the created row stored a `recurrence` before it reads `exceptions`. Its message: with the
+  recurrence removed from `CREATE_BASE.calendarEvent` the pin stayed green (40 passed) while testing
+  nothing; with the precondition the same mutant gives 1 failed / 39 passed. Why: Step 6's comment
+  stated that dependency in prose only, and nothing asserted it.
+- **`87566496`** "docs(ai): correct three axis docstrings that main's code has outrun" changes comments
+  only in `src/test/offered-surface-axis.ts` (`git show --stat --format= 87566496`: one file, 19
+  insertions, 14 deletions). The SCOPE paragraph said `propose_project` could still land
+  `change.decisionDate`, which `2645debb`'s `SEED_OFFERED_KEYS` filter had already closed; the
+  `undeclaredColumns` reproduce no longer reproduced, because `29744af1`'s create strip removed the leak
+  it measured; a `chat-tools.ts` line citation had drifted and now names the symbol. Why: the "File
+  structure" table allows edits to the axis only through Task 6's `AXIS_BASELINE` step, but the ported
+  docstrings described code main had since changed.
+
+`70615677` later changed comments in the axis, `plan.create-path-guards.test.ts`,
+`plan.model-writable-surface.test.ts` and `chat-tools-updates.ts` as well (see "Ledger decision 2" and
+"Task 8: the note's shape").
+
+### Task 5: the baseline and the go/cut stop
+
+- **Plan said:** Step 2 sorts every failure into a bucket, and any bucket (b) failure is a STOP for a
+  go/cut decision. Step 4 expects a runtime count of 73; Task 6 Step 4 and the Task 7 scorecard reuse
+  that count.
+- **What happened:** the first run on main gave 73 tests with 5 failing, all in Relation B, so all
+  five were bucket (b) and no axis-size case failed. The 5 failing cases carry **6 finding lines**,
+  because the `calendarEvent` create case reports two fields, so a count of failing tests (5) and a
+  count of findings (6) are different numbers here. The six findings, none of them a write-path
+  defect:
+
+  | Case (entity:arm) | Finding | Recorded as |
+  |---|---|---|
+  | `task:create` | `task.assigneeEmail`, create threw | §459, a badly derived probe |
+  | `resource:update` | `resource.name`, unchanged | the recorded `SYNTHETIC_INPUTS` decision |
+  | `resource:create` | `resource.name`, dropped | the recorded `SYNTHETIC_INPUTS` decision |
+  | `absence:create` | `absence.startDate`, dropped | §459, a badly derived probe |
+  | `calendarEvent:create` | `calendarEvent.sendInvitations`, dead | §443, unmeasured by policy |
+  | `calendarEvent:create` | `calendarEvent.startTime`, dead | §443, dead by construction |
+
+  The write-path sweep's baseline was 37 passed, verbose-output md5 `2cff2178852afbef0ddd5fef7fbcdcd1`.
+  The stop's decision is "Ledger decision 1" below. After it the sweep runs **74** tests, not 73: the
+  extra case is "every expected-findings ledger entry names a real entity, arm, subject and kind". Every
+  later offered-surface sweep scorecard in this section sums to 74.
+- **Evidence:** `eef92310`'s message ("73 tests with 5 failing, all in Relation B"); `32769326`'s
+  message ("sweep 73 tests, 5 failed, 6 finding lines"); the ledger holds six entries under five keys:
+  `git show 32769326:src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts | grep -c '{ subject: "'`
+  prints `6`.
+
+### Ledger decision 1: both directions
+
+- **Plan said:** a red case is a finding, never to be made green by exempting a field, narrowing a
+  probe, weakening a floor, adding a skip or editing `SYNTHETIC_INPUTS` ("Read before starting"). The
+  spec requires the sweep to be green to land, because `unit-tests` is blocking.
+- **What happened:** at the Task 5 stop the user chose to hold the findings in a ledger checked in
+  both directions. Relation B now compares its findings with `EXPECTED_FINDINGS` instead of with the
+  empty list. A finding missing from the ledger turns its case red, and so does a ledgered finding that stops firing. Every field is still
+  probed and every finding is still computed; nothing was exempted.
+- **Evidence:** `eef92310` "test(ai): hold the sweep's six known findings in a ledger checked both
+  ways". Its mutants: dropping the absence entry gives 1 failed / 73 passed; a bogus task entry gives
+  1 failed / 73 passed; misspelling the absence key as `absense:create` gives 2 failed / 72 passed, and
+  tsc rejects it too (TS2353).
+- **Why:** Relation B reports dead and decided fields as findings by design, so on main's code it
+  cannot be green on its own. Checking both directions means an entry cannot outlive the finding it
+  records.
+
+### Ledger decision 2: keyed by field and kind
+
+- **Plan said:** nothing; the ledger is not in the plan. As first landed in `eef92310` it held exact
+  finding strings.
+- **What happened:** in the first fix round, at the user's choice, the entries were re-keyed by field
+  and kind: they are now `{ subject, kind }` over one `FINDING_KINDS` array, and the verdict compares
+  sorted `subject:kind` tokens in both directions. The full finding line stays in the failure text. The case is still red on
+  a new finding, on a ledgered finding that stops firing, and on a field changing kind.
+- **Evidence:** `70615677`'s message, each mutant applied and reverted alone: deleting the
+  `absence.startDate` entry gives 1 failed / 73 (absence create); changing the `task.assigneeEmail` kind
+  from `threw` to `dropped` gives 1 failed / 73 (task create); rewording the "assigneeEmail is invalid"
+  message in `use-chat-dispatcher.ts` gives 0 failed / 74, which is the point of the change; a resource
+  subject under `task:create` gives 2 failed / 72; an unknown kind gives 2 failed / 72. Clean runs:
+  sweep 74, `plan.create-path-guards.test.ts` 40, `plan.model-writable-surface.test.ts` 24.
+  `32769326`'s message re-measures the ledger: delete an entry 1 / 73, add a stale entry 1 / 73,
+  mistype a key 2 / 72.
+- **Why:** with exact strings, rewording a production error message or editing a shared seed turned
+  Relation B red, and the cheapest response was to paste the new output into the ledger, which is the
+  reflex the ledger exists to prevent.
+
+### Task 6: skipped
+
+- **Plan said:** Task 6 runs only if Task 5 finds bucket (a) failures.
+- **What happened:** there were none, so `AXIS_BASELINE` and its docstring are as ported. Main's
+  declarations added after the fork did not move the recorded axis sizes: the size case passed for all
+  eight entities.
+- **Evidence:** the eight rows are identical at the verbatim port and at `32769326` (task 11/17,
+  raid 16/6, change 15/5, milestone 5/3, stakeholder 8/4, resource 13/6, absence 7/2, calendarEvent
+  9/3 declared/undeclared), and the docstring still names the first measurement:
+
+  ```bash
+  A=src/test/offered-surface-axis.ts
+  diff <(git show ce982ce6:$A | grep -A 9 "export const AXIS_BASELINE") \
+       <(git show 32769326:$A | grep -A 9 "export const AXIS_BASELINE")   # prints nothing
+  git show 32769326:$A | grep -c "= 754e8129, 2026-09-08"                  # 1
+  ```
+
+### Task 7: mutant outcomes
+
+- **Plan said:** mutants 1, 3, 4, 5 and 6 are KILLED and mutant 2 SURVIVES. Mutant 3 is expected to
+  fail Relation A's `calendarEvent` create on `exceptions`; mutant 4 is expected to fail Relation B's
+  `absence` UPDATE arm on `note`. Each scorecard sums to Task 5's runtime count.
+- **What happened** (`32769326`'s message; offered-surface sweep figures unless another file is named;
+  every sum is 74 because the mutants ran after the ledger landed):
+
+  | Mutant | Outcome on main |
+  |---|---|
+  | M1 | KILLED, Relation A `stakeholder` create |
+  | M2 | SURVIVED, as expected (§441) |
+  | M3 | **SURVIVED** the sweep (0 failed / 74, per §441), where the branch killed it. On main only `plan.create-path-guards.test.ts` catches it: 1 failed / 39 passed, the `create_calendar_event` refuses `exceptions` case |
+  | M4 | KILLED on the `absence` **CREATE** arm, 1 failed / 73; the UPDATE arm stays green. The write-path sweep stayed byte-identical: 37 passed, same md5 as the baseline (§436) |
+  | M5 | KILLED on both `raid` arms, 2 failed / 72 |
+  | M6 | KILLED by floor 1, 6 failed / 68 |
+
+- **Why M3 survives:** `29744af1`'s create strip now removes `localModifiedAt` and `outlookEventId`
+  before the handler runs, and the third undeclared field, `exceptions`, is seeded by no sweep fixture,
+  so its trespass probe is a string that `sanitizeExceptions` drops whatever the guard does. §441 ("A
+  THIRD INSTANCE, MEASURED ON MAIN ON 2026-09-11") has the detail.
+- **Why M4 is caught on the create arm only** (by reading, not separately measured; see §436): the
+  UPDATE arm reads `rawTypeGuards`, which for
+  `absence` and `calendarEvent` is the same object as the allow-list, so a narrowed row reads as a
+  disclosed refusal there. §436 therefore closes by the CREATE arm, with a Residual block for the rest.
+- **Consequence:** the plan's own rule ("Any other outcome changes a register row's text in Task 9")
+  applied: §441 now says four of the six mutants are killed on main.
+
+### Task 8: the note's shape
+
+- **Plan said:** Step 4 inserts a nine-line paragraph headed "TWO OF THE SEVEN CALL SITES ARE DEFENCE
+  IN DEPTH" after `can keep straight.`, and Step 5 expects 9 insertions, 0 deletions.
+- **What happened:** main already carried that paragraph (0.297.0 kept it and dropped only the figures
+  beside it), so the template would have duplicated it. `78569052` inserted a five-line measurement
+  into that paragraph instead, after its `sites".` line: 5 insertions, 0 deletions. `70615677` then
+  moved those five lines to the paragraph's end, after `can keep straight.`, so that "that claim" again
+  refers to the claim before it (5 insertions, 5 deletions in this file). The "two back-to-back JSDoc
+  blocks merged" in its message is in `plan.model-writable-surface.test.ts`, not here. The Step 3
+  decision rule held: against a clean 0 failed / 74 passed, reverting the strip at `create_absence` or
+  `create_calendar_event` leaves the sweep unchanged, and reverting it at any of the other five gives
+  1 failed / 73, that entity's Relation A create case.
+- **Evidence:** `git show fe82d1db:src/app/chat-tools-updates.ts | grep -c "TWO OF THE SEVEN CALL SITES"`
+  prints `1`; `git show --stat --format= 78569052` shows 5 insertions; both commits' messages.
+- **Why:** the plan's premise that "0.297.0 kept that docstring's rule sentence and dropped the
+  measurement" was right, but the template restated the paragraph that had been kept.
+
+### Task 9: split in two, and landed with the second fix round
+
+- **Plan said:** Task 9 is one task that extracts, re-verifies, applies by script, runs the gates and
+  commits `docs/open-followups.md` alone, under the Step 8 message template.
+- **What happened:** execution ran it in two parts, one drafting the entries for §436, §439–§446 and
+  §459 for review and one writing them into `docs/open-followups.md`. Two review-driven fix rounds ran
+  before anything in the register was committed: fix round 1 is `70615677`, whose subject says it
+  corrects "the comments a review disproved" and which does not touch the register; fix round 2 has no
+  commit of its own, and its corrections are listed in `32769326`'s message. The register edits landed
+  with fix round 2 in `32769326`, together with a comment change to `src/app/inline-ai-edit/plan.ts`
+  (see "A second src/app comment edit") and under a different subject from the Step 8 template.
+- **Index rows:** `32769326`'s message states that the rows for 436, 439, 440–446 and 459–461 match
+  the output of the register's own index rebuild recipe (the `REBUILD` script in the register's
+  preamble) byte-for-byte, and that the recipe was not run over the whole table because it would
+  rewrite 122 unrelated rows. §442's State cell reads `**CLOSED** 2026-09-09`, without the
+  `(fixed in 0.297.0)` the Step 6 script would have written.
+- **Evidence:** `git log --format='%h %s' fe82d1db..32769326 -- docs/open-followups.md` prints one line,
+  `32769326`; `git show --stat --format= 70615677` lists five files, none of them the register.
+
+### Task 9: entries the plan did not list (§459–§461)
+
+- **Plan said:** close §436 and §439, mint §440–§446; the spec's "Register" table lists the same.
+- **What happened:** three more entries were filed OPEN in `32769326`, numbered after §458, the highest
+  entry on `origin/main` at `fe82d1db`:
+  - **§459**, two Relation B create-arm probes invalid by construction (`task.assigneeEmail`,
+    `absence.startDate`). First reported on 2026-09-08 on the local-only original branch and never
+    filed there; these are the two ledgered findings with no other home.
+  - **§460**, a create card can preview meeting attendees the create then stores none of. Suspected
+    and not runtime-verified. The preview's link guard runs on updates only, while since `68486cd4`
+    "fix(ai-write): route every create tool through its merge-site guard (§438)", released in 0.294.0,
+    both allow-list creates enforce it. The preview half is pinned as correct by the `plan.test.ts`
+    case "does NOT apply the guard to a create, whose write never sees it", so a fix must rewrite that
+    case in the same change; `32769326` does not touch that test.
+  - **§461**, an absence stores an assignee email that is not an address, where a task refuses the same
+    value loudly.
+- **Evidence:**
+
+  ```bash
+  grep -nE "^## (436|439|44[0-6]|459|46[01])\." docs/open-followups.md
+  # 436 and 439 CLOSED 2026-09-11; 440, 441, 443, 444, 445, 446 OPEN;
+  # 442 CLOSED 2026-09-09; 459, 460, 461 OPEN
+  git show fe82d1db:docs/open-followups.md | grep -oE "^## [0-9]+\." | grep -oE "[0-9]+" | sort -n | tail -1   # 458
+  ```
+
+### Task 9: prescribed wording that landed differently
+
+The Step 3 table prescribes replacement text for several rows. Where the landed text differs, the
+register entry is the record; read it rather than the table:
+
+- **§436:** the prescribed Status start "CLOSED 2026-09-11 by Relation B of" landed as "CLOSED
+  2026-09-11 by the CREATE arm of Relation B in", followed by a Residual block for what the closure does
+  not cover (the UPDATE arm, and three `calendarEvent` fields outside the create arm).
+- **§439:** the prescribed replacement sentence landed reworded. The 73 / 11 / 15 figures are dated to
+  `681c6c07` on the original branch, all fifteen findings are accounted for, and the landing figures
+  are 73 tests with 5 failing at the first run on main and 74 tests with 0 failing at landing.
+- **§440–§446:** the corrections are listed in `32769326`'s message: §441's mutant 2 and mutant 3 are
+  described as "replace", not "delete", and it adds the probe-shape blind spots and says four of six
+  mutants are killed on main; §442's guard change is described correctly and its greps print exactly
+  the call sites; §443's "only the finding output says so" is corrected; §444 names the landing branch;
+  §445 stays OPEN, because the write defect is fixed (`2645debb`) but its reachability claim still
+  holds; §446's Status names its greps as presence witnesses.
+- **SHAs:** landing-branch SHAs cited in the register carry their subject lines, so they can still be
+  found after a squash (`32769326`'s message).
+
+### A second src/app comment edit
+
+- **Plan said:** "No production code changes except one docstring paragraph" ("Tech Stack"), the
+  paragraph being Task 8's in `src/app/chat-tools-updates.ts`.
+- **What happened:** `32769326` also changes comments in `src/app/inline-ai-edit/plan.ts`, 28 changed
+  lines and all of them comment, with no behaviour change. The comment above the create path's link
+  gate said both allow-list creates skip the allow-list, which has been false since `68486cd4`
+  (0.294.0); it now says so and points at §460, and the `toolName` parameter docstring agrees with it.
+- **Evidence:** `git diff --stat fe82d1db 32769326 -- 'src/app/*.ts' ':(exclude)*.test.ts'` lists
+  exactly `src/app/chat-tools-updates.ts` and `src/app/inline-ai-edit/plan.ts`.
+- **Why:** the comment sits on the gate §460 describes and had been false since `68486cd4`, so it was
+  corrected in the commit that filed §460.
+
+### Probe blind spots: recorded, not fixed
+
+- **Plan said:** nothing beyond what the ported §441 (as on `feat/offered-surface-sweep`'s tip, which
+  Task 9 Step 2 extracts) already recorded: mutant 2's blind spot and the `change.decisionDate`
+  date-probe instance (its Task 9 Step 3 row re-runs the `NEEDS A VALID PROBE` grep).
+- **What happened:** execution found more, and recorded it without fixing it. Added to the sweep's
+  comments in `70615677` and to §441 in `32769326`: a third instance, `calendarEvent.exceptions`, which no sweep fixture
+  seeds, so mutant 3 survives (see "Task 7: mutant outcomes"); the three instances named as one class,
+  because Relation A's trespass probe is never a valid value, so an undeclared field whose sanitizer
+  rejects or reshapes an arbitrary value is invisible to it (at least `knowledgeLinks`,
+  `calendarEvent.exceptions`, `stakeholder.raci`, five resource fields and `change.decisionDate`); and
+  a Relation B sibling, `validProbeFor` having no object branch, so a refused `recurrence` reads as
+  landed on create. Recorded in §459 and in the ledger's comments: two create-arm probes derived from
+  seeded values the create will not accept.
+- **Evidence:** `70615677`'s message ends "Probes are recorded, not changed: fixing them is a follow-up
+  slice."; `git grep -n "NEVER A VALID VALUE\|NO OBJECT BRANCH" 32769326 -- src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`
+  prints the two recording comments.
+- **Deferred to a follow-up slice:** fixing those probes, and fixing §460 together with the
+  `plan.test.ts` case "does NOT apply the guard to a create, whose write never sees it".
