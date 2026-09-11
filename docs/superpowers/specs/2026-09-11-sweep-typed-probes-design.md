@@ -184,9 +184,11 @@ objects, so the object branch reaches them.
 - **Relation A gets a ledger of the same shape, `EXPECTED_UNDECLARED_FINDINGS`, checked in both
   directions.** It asserts `findings` is empty today, and typed probes may now expose a real undeclared
   write.
-- **Citation.** Every new `unmeasured` or `dead` entry cites §462, the register entry Task 8 files for
-  "fields the typed probes cannot measure". Reserve the number by re-running the register-max command
-  against `origin/main` before writing any citation.
+- **Citation.** Every new `unmeasured` or `dead` entry cites §463, the register entry Task 8 files for
+  "fields the typed probes cannot measure" (reserved as 462+1: `origin/main` had already taken §462 for
+  an unrelated entry — "There is no Linux installer…" — by the time Task 8 ran its register-max check).
+  Reserve the number by re-running the register-max command against `origin/main` before writing any
+  citation.
 
 ### 7. A real undeclared write that Relation A finds is FIXED in this slice
 
@@ -267,3 +269,83 @@ Read no exit code through a pipe.
 - Stage explicit paths only; `git commit --only <paths>`; never `--amend`; never `git add -A`.
 - Subagent-driven, with scratch files in the session scratchpad only.
 - No push, MR or merge without an explicit say; never `--auto-merge`; a review before release.
+
+## Closing note (2026-09-11)
+
+**Gate runs, final state:**
+
+- Sweep alone (`plan.offered-surface-sweep.test.ts`, `--maxWorkers=1`): `Test Files 1 passed (1)` /
+  `Tests 74 passed (74)`.
+- Sweep plus `src/test/sweep-probes.test.ts` together: 119 passed.
+- The five fixture consumers (the sweep, `plan.test.ts`, `plan.create-path-guards.test.ts`,
+  `plan.write-path-sweep.test.ts` and `sweep-probes.test.ts`): `Test Files 5 passed (5)` /
+  `Tests 212 passed (212)`.
+- Task 8's doc/size gates, each run unpiped and read from a redirected log:
+  `followups:index:check` — EXIT=0, "450 headings compared against 450 index rows... every entry has
+  an index row, and every index row has an entry."
+  `followups:status:check` — EXIT=0, "219 open entries scanned... all open entries carry a conforming
+  Status line" (one violation surfaced and was fixed mid-task: §443's Status line used the bare word
+  "CLOSED" while its heading stays OPEN, tripping the gate's `SAYS_CLOSED` check; reworded to "is now
+  resolved").
+  `docs:claims:check` — EXIT=0, "490 line citations across 11 docs, none added" (one violation
+  surfaced and was fixed: a new `src/app/use-chat-dispatcher.ts:311,684` citation in §463 was rejected
+  by the ratchet and replaced with a `grep -n "localModifiedAt: new Date"` symbol-shaped reproduce).
+  `docs:symbols:check` — EXIT=0, "13 doc(s): 1650 named symbols all resolve".
+  `size:check` — EXIT=0, "file-size ratchet ok".
+  `sanitize-records.ts` line count: **1600** on this branch, **1600** on `origin/main` — equal, as the
+  task required (not the plan's guessed "1601"; both counts happen to land at exactly 1600, which
+  satisfies the equality check either way).
+
+**Task 7 mutant table** (full detail, anchors and revert proofs in the slice's `tp7-results.md`):
+
+| mutant | mechanism | Test Files / Tests | verdict |
+|---|---|---|---|
+| 1 (spec's "mutant 2") | `updateResource`: drop `dropUnacceptedResourceFields(patch)` → `...patch,` | 1 failed (1) / 1 failed \| 73 passed (74) | KILLED — new `[stored]` findings for `resource.absenceOverride`, `resource.birthday`, `resource.utilization` |
+| 2 (spec's "mutant 3") | `createCalendarEvent`: drop `dropUnacceptedCalendarEventFields(input)` → `...input` | 1 failed (1) / 1 failed \| 73 passed (74) | KILLED — new `[stored]` finding for `calendarEvent.exceptions` |
+| 3 | `admitProbe` forced to admit everything (`return undefined;`) | 1 failed (1) / 5 failed \| 69 passed (74) | KILLED — every `unmeasured` entry for the affected entities vanishes from the actual findings |
+| 4 | `admitProbe` forced to admit nothing | 1 failed (1) / 32 failed \| 42 passed (74) | KILLED — nearly every arm turns `[unmeasured]` |
+
+No mutant survived.
+
+**Ledger counts, final:**
+
+- Relation A (`EXPECTED_UNDECLARED_FINDINGS`): 12 entries — 6 `dead` (`task.jiraKey` ×2,
+  `raid.noteLog` ×2, `change.noteLog` ×2) and 6 `unmeasured` (`task.resourceId` ×2,
+  `stakeholder.raci`, `resource.utilizationMode` ×2, `resource.active`). Coverage rose from 20/92 to
+  80/92 undeclared field-and-arm pairs over the slice (Task 5b).
+- Relation B (`EXPECTED_FINDINGS`): 4 entries, all `dead` (`resource.name` ×2,
+  `calendarEvent.sendInvitations` ×2). Down from `task.assigneeEmail` and `absence.startDate` also
+  being invalid probes (§459, closed) and `calendarEvent.startTime` (§443, closed).
+
+**Task 6:** none found — Relation A recorded zero `stored` findings across every run, both before
+Task 5b's seeding (20/92 coverage) and after (80/92 coverage). No live undeclared write existed to
+fix; the register (§463) and the mutant table above are the record that the check itself fires.
+
+**What the plan got wrong, corrected during execution:**
+
+1. **Step 1's expected register-max was wrong.** The plan expected `origin/main`'s max heading number
+   to still be 461 by the time Task 8 ran. It had already advanced to 462 (an unrelated entry, "There
+   is no Linux installer…"), so this task's new entry took 463 (max+1), and all 14 `§462` citations in
+   the sweep test file's two ledgers, plus the one in this spec, were repointed to `§463` in the same
+   commit, per the plan's own fallback instruction.
+2. **§460's plan-supplied CLOSED reproduce witness would have been stale on arrival.** The entry as
+   filed cited `grep -n 'target === "row" ? d.rawTypeGuards' src/app/inline-ai-edit/plan.ts` as its
+   OPEN-state witness; by the time this task closed it, `047a60f5` had already lifted that exact
+   condition, so the string no longer exists in `plan.ts` at all. Closed with
+   `grep -n 'const guard = d.rawTypeGuards' src/app/inline-ai-edit/plan.ts` instead, and the stale
+   witness was kept, explicitly marked stale, under "As filed" rather than deleted — deleting it would
+   have erased the record of what the gate used to look like.
+3. **§443's Status line tripped the status gate's own `SAYS_CLOSED` check by literal wording**, not by
+   intent — see the gate-run note above. The gate reads any block containing the bare word `CLOSED`
+   as a body claiming closure regardless of the heading, so "narrowed" entries that resolve one half
+   while staying OPEN overall must avoid the word entirely in the Status paragraph.
+4. **A citation in §463's own text tripped `docs:claims:check`'s ratchet** — see the gate-run note
+   above. Corrected to a `grep`-shaped reproduce, per this repo's own standing rule to cite the symbol
+   and a grep rather than a line number.
+5. **The `resource.active` bullet's initial claim ("Not present on the CREATE arm — the create control
+   row's own `active` default lets a probe be derived and measured there") was too vague to defend.**
+   Traced through `probeFor`'s actual branches before publishing: `CREATE_BASE.resource` carries no
+   `active` key at all (only `firstName`/`lastName`), so the create arm's reference differs from the
+   seed's `false` on its own and a real, admitted probe is derived — the update arm's reference already
+   IS that seeded `false`, leaving only the invalid `true` probe-shape violation. §463's final wording
+   names the mechanism rather than asserting the conclusion alone.
