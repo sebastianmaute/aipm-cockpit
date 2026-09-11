@@ -10,6 +10,12 @@
 // imported .mjs makes vitest throw naming the WRONG file. The CLI
 // (check-tag-version.mjs) owns the shebang, the I/O and the exit codes.
 
+// SOURCE_FILE is a plain exported string constant -- importing it here adds
+// no I/O and no cycle (version-sync-lib.mjs does not import this module). It
+// lets describeVerdict's messages name the file without the CLI having to
+// stitch that in after the fact.
+import { SOURCE_FILE } from "./version-sync-lib.mjs";
+
 /** Tags are `v<version>`. Exported so the test compares against one source. */
 export const TAG_PREFIX = "v";
 
@@ -64,4 +70,72 @@ export function classifyTag(tag, appVersion) {
   }
 
   return { verdict: "match", tag, appVersion };
+}
+
+/**
+ * Turn a classifyTag() result into what the CLI should print and how it
+ * should exit: `{ code, stream, message }`, `stream` one of "stdout"/"stderr".
+ *
+ * ★★★ THE DEFAULT BRANCH IS THE WHOLE POINT OF THIS FUNCTION, not a fallback
+ * bolted on afterward. A CLI whose success path is "the fall-through" reports
+ * "ok" and exits 0 on a verdict it has never seen -- measured: a stubbed lib
+ * returning `{verdict: "ambiguous"}` made the old inline CLI print "ok" and
+ * exit 0. ANY result this function does not recognise as match/drift/
+ * unscannable -- an unknown verdict string, or a null/undefined/non-object
+ * result entirely (classifyTag threw, or a renamed export resolved to
+ * `undefined` and was never called) -- resolves to exit 2, stderr, naming
+ * what came back. A guard that cannot classify must never report agreement.
+ *
+ * `source` names where the CLI read the tag from ("argv" or "CI_COMMIT_TAG")
+ * and is used only by the unscannable message, so the operator is told where
+ * to look rather than always being pointed at CI_COMMIT_TAG.
+ */
+export function describeVerdict(result, source) {
+  if (result === null || typeof result !== "object" || typeof result.verdict !== "string") {
+    return {
+      code: 2,
+      stream: "stderr",
+      message: `[tag:check] CANNOT SCAN: classifyTag returned an unrecognised result (${JSON.stringify(result)}).`,
+    };
+  }
+
+  if (result.verdict === "match") {
+    return {
+      code: 0,
+      stream: "stdout",
+      // ★ NAME both values on success. A bare exit 0 cannot be told apart
+      // from a gate that stopped reading the file.
+      message: `[tag:check] ok — tag ${result.tag} matches ${SOURCE_FILE} version=${result.appVersion}`,
+    };
+  }
+
+  if (result.verdict === "drift") {
+    // ★★ Only the missing-prefix branch loses the bump advice: both versions
+    // are EQUAL when the tag is merely un-prefixed, so bumping version.ts
+    // cannot fix it -- only re-tagging can.
+    const advice = result.tag.startsWith(TAG_PREFIX)
+      ? `Either tag ${result.expected} instead, or bump ${SOURCE_FILE} (and propagate with \`npm run version:sync\`) before tagging.`
+      : `Re-tag as ${result.expected} -- ${SOURCE_FILE} already says ${result.appVersion}.`;
+    return {
+      code: 1,
+      stream: "stderr",
+      message:
+        `[tag:check] DRIFT: tag ${result.tag} but ${SOURCE_FILE} says ${result.appVersion} — ${result.detail}.\n` +
+        `[tag:check] ${advice}`,
+    };
+  }
+
+  if (result.verdict === "unscannable") {
+    return {
+      code: 2,
+      stream: "stderr",
+      message: `[tag:check] CANNOT SCAN (source: ${source}): ${result.reason}`,
+    };
+  }
+
+  return {
+    code: 2,
+    stream: "stderr",
+    message: `[tag:check] CANNOT SCAN: classifyTag returned an unrecognised verdict "${result.verdict}".`,
+  };
 }

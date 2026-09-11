@@ -178,7 +178,7 @@ Create `scripts/tag-version-lib.test.mjs`:
 
 ```js
 import { describe, expect, it } from "vitest";
-import { classifyTag, TAG_PREFIX } from "./tag-version-lib.mjs";
+import { classifyTag, describeVerdict, TAG_PREFIX } from "./tag-version-lib.mjs";
 
 describe("classifyTag", () => {
   it("accepts a tag that names exactly the app version", () => {
@@ -251,6 +251,53 @@ describe("classifyTag", () => {
     expect(TAG_PREFIX).toBe("v");
   });
 });
+
+describe("describeVerdict", () => {
+  // ★★★ THE DEFAULT CASE IS THE GUARD. A verdict describeVerdict does not
+  // recognise -- a typo, a future fourth verdict, or classifyTag returning
+  // nothing at all -- must resolve to exit 2 (CANNOT SCAN), never to a silent
+  // exit 0. A guard that cannot classify must never report agreement.
+  it("maps every verdict to its exit code and stream, and refuses to guess on the rest", () => {
+    expect(describeVerdict(classifyTag("v0.301.0", "0.301.0"), "CI_COMMIT_TAG")).toMatchObject({
+      code: 0,
+      stream: "stdout",
+    });
+    expect(describeVerdict(classifyTag("v0.302.0", "0.301.0"), "CI_COMMIT_TAG")).toMatchObject({
+      code: 1,
+      stream: "stderr",
+    });
+    expect(describeVerdict(classifyTag("", "0.301.0"), "CI_COMMIT_TAG")).toMatchObject({
+      code: 2,
+      stream: "stderr",
+    });
+    expect(describeVerdict({ verdict: "ambiguous" }, "CI_COMMIT_TAG")).toMatchObject({
+      code: 2,
+      stream: "stderr",
+    });
+    expect(describeVerdict(undefined, "CI_COMMIT_TAG")).toMatchObject({ code: 2, stream: "stderr" });
+    expect(describeVerdict(null, "CI_COMMIT_TAG")).toMatchObject({ code: 2, stream: "stderr" });
+  });
+
+  // ★★ Both versions are EQUAL when the tag is merely missing the "v" --
+  // bumping src/app/version.ts cannot fix a prefix typo, and telling an
+  // operator to do so is wrong advice baked into a passing gate.
+  it("does not advise bumping version.ts when the tag lacks a v prefix", () => {
+    const result = classifyTag("0.301.0", "0.301.0");
+    expect(result.verdict).toBe("drift");
+    const { message } = describeVerdict(result, "CI_COMMIT_TAG");
+    expect(message).not.toMatch(/bump/i);
+  });
+
+  // ★ An empty env beats argv under the old `??` precedence, and the
+  // unscannable message always named CI_COMMIT_TAG even when the value came
+  // from argv. `source` fixes both: it must be threaded through, not
+  // hardcoded.
+  it("names the source passed in inside the unscannable message", () => {
+    const result = classifyTag("", "0.301.0");
+    expect(describeVerdict(result, "argv").message).toMatch(/argv/);
+    expect(describeVerdict(result, "CI_COMMIT_TAG").message).toMatch(/CI_COMMIT_TAG/);
+  });
+});
 ```
 
 - [ ] **Step 2: Run it and watch it fail**
@@ -278,6 +325,12 @@ Create `scripts/tag-version-lib.mjs`:
 // ★ NO SHEBANG. This module is imported by a vitest spec, and a `#!` line on an
 // imported .mjs makes vitest throw naming the WRONG file. The CLI
 // (check-tag-version.mjs) owns the shebang, the I/O and the exit codes.
+
+// SOURCE_FILE is a plain exported string constant -- importing it here adds
+// no I/O and no cycle (version-sync-lib.mjs does not import this module). It
+// lets describeVerdict's messages name the file without the CLI having to
+// stitch that in after the fact.
+import { SOURCE_FILE } from "./version-sync-lib.mjs";
 
 /** Tags are `v<version>`. Exported so the test compares against one source. */
 export const TAG_PREFIX = "v";
@@ -334,6 +387,74 @@ export function classifyTag(tag, appVersion) {
 
   return { verdict: "match", tag, appVersion };
 }
+
+/**
+ * Turn a classifyTag() result into what the CLI should print and how it
+ * should exit: `{ code, stream, message }`, `stream` one of "stdout"/"stderr".
+ *
+ * ★★★ THE DEFAULT BRANCH IS THE WHOLE POINT OF THIS FUNCTION, not a fallback
+ * bolted on afterward. A CLI whose success path is "the fall-through" reports
+ * "ok" and exits 0 on a verdict it has never seen -- measured: a stubbed lib
+ * returning `{verdict: "ambiguous"}` made the old inline CLI print "ok" and
+ * exit 0. ANY result this function does not recognise as match/drift/
+ * unscannable -- an unknown verdict string, or a null/undefined/non-object
+ * result entirely (classifyTag threw, or a renamed export resolved to
+ * `undefined` and was never called) -- resolves to exit 2, stderr, naming
+ * what came back. A guard that cannot classify must never report agreement.
+ *
+ * `source` names where the CLI read the tag from ("argv" or "CI_COMMIT_TAG")
+ * and is used only by the unscannable message, so the operator is told where
+ * to look rather than always being pointed at CI_COMMIT_TAG.
+ */
+export function describeVerdict(result, source) {
+  if (result === null || typeof result !== "object" || typeof result.verdict !== "string") {
+    return {
+      code: 2,
+      stream: "stderr",
+      message: `[tag:check] CANNOT SCAN: classifyTag returned an unrecognised result (${JSON.stringify(result)}).`,
+    };
+  }
+
+  if (result.verdict === "match") {
+    return {
+      code: 0,
+      stream: "stdout",
+      // ★ NAME both values on success. A bare exit 0 cannot be told apart
+      // from a gate that stopped reading the file.
+      message: `[tag:check] ok — tag ${result.tag} matches ${SOURCE_FILE} version=${result.appVersion}`,
+    };
+  }
+
+  if (result.verdict === "drift") {
+    // ★★ Only the missing-prefix branch loses the bump advice: both versions
+    // are EQUAL when the tag is merely un-prefixed, so bumping version.ts
+    // cannot fix it -- only re-tagging can.
+    const advice = result.tag.startsWith(TAG_PREFIX)
+      ? `Either tag ${result.expected} instead, or bump ${SOURCE_FILE} (and propagate with \`npm run version:sync\`) before tagging.`
+      : `Re-tag as ${result.expected} -- ${SOURCE_FILE} already says ${result.appVersion}.`;
+    return {
+      code: 1,
+      stream: "stderr",
+      message:
+        `[tag:check] DRIFT: tag ${result.tag} but ${SOURCE_FILE} says ${result.appVersion} — ${result.detail}.\n` +
+        `[tag:check] ${advice}`,
+    };
+  }
+
+  if (result.verdict === "unscannable") {
+    return {
+      code: 2,
+      stream: "stderr",
+      message: `[tag:check] CANNOT SCAN (source: ${source}): ${result.reason}`,
+    };
+  }
+
+  return {
+    code: 2,
+    stream: "stderr",
+    message: `[tag:check] CANNOT SCAN: classifyTag returned an unrecognised verdict "${result.verdict}".`,
+  };
+}
 ```
 
 - [ ] **Step 4: Run it and watch it pass**
@@ -343,7 +464,7 @@ npx vitest run scripts/tag-version-lib.test.mjs > "$SP/b-t2b.log" 2>&1; echo "EX
 grep -E "Test Files|Tests " "$SP/b-t2b.log"
 ```
 
-Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  7 passed (7)`. **Assert the 7 against the list above** — a missing test path mixed with a real one is dropped silently at exit 0.
+Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  10 passed (10)` (derive it with `grep -c "  it(" scripts/tag-version-lib.test.mjs` rather than trusting this line — the `classifyTag` describe block above accounts for 7, and a second `describeVerdict` describe block added in Task 3's review round accounts for the other 3). **Assert the count against `grep -c`** — a missing test path mixed with a real one is dropped silently at exit 0.
 
 - [ ] **Step 5: Commit**
 
@@ -387,47 +508,55 @@ Create `scripts/check-tag-version.mjs`:
 // EXIT CODES, following version:check's convention in this repo:
 //   0  the tag names exactly APP_VERSION
 //   1  DRIFT — they disagree; fix the tag or version.ts
-//   2  the gate could not do its job (no tag, or version.ts's shape moved)
+//   2  the gate could not do its job (no tag, version.ts's shape moved, or a
+//      classification this script does not recognise)
 //
 // ★★ 1 and 2 demand opposite responses, which is why they are separate: a gate
 // that scans nothing passes everything, so 2 must never be reported as 0 and
 // must not be reported as 1 either.
+//
+// ★★★ EVERYTHING RUNS INSIDE ONE TOP-LEVEL TRY, including the two library
+// imports. A STATIC `import` can't be caught: a renamed export in either lib
+// throws at module-load time, before any of this file's own code runs, and
+// prints a raw Node stack that reads as a crashed tool rather than "the gate
+// could not scan". `await import()` rejects into the same catch as every
+// other failure here, so a moved shape always exits 2 with a clean message.
 import { readFileSync } from "node:fs";
-import { SOURCE_FILE, readSourceFrom } from "./version-sync-lib.mjs";
-import { classifyTag } from "./tag-version-lib.mjs";
 
-const tag = process.env.CI_COMMIT_TAG ?? process.argv[2] ?? "";
+// ★ argv wins over env, and the source travels with the value: an empty
+// CI_COMMIT_TAG used to beat a real argv value under `??`, and the
+// unscannable message always named CI_COMMIT_TAG even when the tag came from
+// argv. Both are fixed by resolving them together, once.
+const argvTag = process.argv[2];
+const tag = argvTag || process.env.CI_COMMIT_TAG || "";
+const source = argvTag ? "argv" : "CI_COMMIT_TAG";
 
-let appVersion;
 try {
-  // readSourceFrom THROWS when the declaration shape moved, which is exactly
-  // the unscannable case rather than a drift.
-  appVersion = readSourceFrom(readFileSync(SOURCE_FILE, "utf8")).version;
+  const { SOURCE_FILE, readSourceFrom } = await import("./version-sync-lib.mjs");
+  const { classifyTag, describeVerdict } = await import("./tag-version-lib.mjs");
+
+  // readSourceFrom THROWS when the declaration shape moved, which lands in
+  // the catch below exactly like every other structural failure.
+  const appVersion = readSourceFrom(readFileSync(SOURCE_FILE, "utf8")).version;
+
+  const result = classifyTag(tag, appVersion);
+  const { code, stream, message } = describeVerdict(result, source);
+
+  if (stream === "stdout") console.log(message);
+  else console.error(message);
+
+  process.exit(code);
 } catch (err) {
-  console.error(`[tag:check] cannot read ${SOURCE_FILE}: ${err.message}`);
+  // ★★ No path above may exit 0 or 1 from here down — a structural failure
+  // (a missing file, a moved declaration shape, a renamed export resolving
+  // to `undefined` and throwing when called) is exit 2, the same code
+  // describeVerdict uses for a verdict it cannot classify. Before this
+  // rewrite, only the readFileSync/readSourceFrom read was guarded, so a
+  // throw from anything after it — or from this file's own logic — fell
+  // through to Node's default exit 1, which is the DRIFT code.
+  console.error(`[tag:check] CANNOT SCAN: ${err.message}`);
   process.exit(2);
 }
-
-const result = classifyTag(tag, appVersion);
-
-if (result.verdict === "unscannable") {
-  console.error(`[tag:check] CANNOT SCAN: ${result.reason}`);
-  process.exit(2);
-}
-
-if (result.verdict === "drift") {
-  console.error(
-    `[tag:check] DRIFT: tag ${result.tag} but ${SOURCE_FILE} says ${result.appVersion} — ${result.detail}.`,
-  );
-  console.error(
-    `[tag:check] Either tag ${result.expected} instead, or bump ${SOURCE_FILE} (and propagate with \`npm run version:sync\`) before tagging.`,
-  );
-  process.exit(1);
-}
-
-// ★ NAME both values on success. A bare exit 0 cannot be told apart from a
-// gate that stopped reading the file.
-console.log(`[tag:check] ok — tag ${result.tag} matches ${SOURCE_FILE} version=${result.appVersion}`);
 ```
 
 - [ ] **Step 2: Prove it goes GREEN on a matching tag**
@@ -501,7 +630,7 @@ Expected: `artifactName: aipm-cockpit-${version}-setup.exe` (a literal `${versio
 ```bash
 git add scripts/check-tag-version.mjs package.json CONTRIBUTING.md
 git commit --only scripts/check-tag-version.mjs package.json CONTRIBUTING.md -F - <<'EOF'
-feat(ci): tag:check gate, mutation-proved red
+feat(ci): tag:check gate, driven red
 
 Wires the pure comparison to a CLI with the two-exit-code split this repo uses
 for version:check: 1 is DRIFT (fix the tag or version.ts), 2 is the gate unable
@@ -1317,7 +1446,7 @@ npx vitest run scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test
 grep -E "Test Files|Tests " "$SP/b-g-unit.log"
 ```
 
-Expected: EXIT=0, `Test Files 2 passed (2)`, `Tests 15 passed (15)` (7 + 8; derive it with `grep -c "  it(" scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs` rather than trusting this line). ★★★ **Assert `Test Files 2` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
+Expected: EXIT=0, `Test Files 2 passed (2)`, `Tests 18 passed (18)` (10 + 8; derive it with `grep -c "  it(" scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs` rather than trusting this line). ★★★ **Assert `Test Files 2` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
 
 - [ ] **Step 3: Docs, version and followup gates**
 

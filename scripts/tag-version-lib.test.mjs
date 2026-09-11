@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyTag, TAG_PREFIX } from "./tag-version-lib.mjs";
+import { classifyTag, describeVerdict, TAG_PREFIX } from "./tag-version-lib.mjs";
 
 describe("classifyTag", () => {
   it("accepts a tag that names exactly the app version", () => {
@@ -70,5 +70,52 @@ describe("classifyTag", () => {
 
   it("exports the prefix it compares against", () => {
     expect(TAG_PREFIX).toBe("v");
+  });
+});
+
+describe("describeVerdict", () => {
+  // ★★★ THE DEFAULT CASE IS THE GUARD. A verdict describeVerdict does not
+  // recognise -- a typo, a future fourth verdict, or classifyTag returning
+  // nothing at all -- must resolve to exit 2 (CANNOT SCAN), never to a silent
+  // exit 0. A guard that cannot classify must never report agreement.
+  it("maps every verdict to its exit code and stream, and refuses to guess on the rest", () => {
+    expect(describeVerdict(classifyTag("v0.301.0", "0.301.0"), "CI_COMMIT_TAG")).toMatchObject({
+      code: 0,
+      stream: "stdout",
+    });
+    expect(describeVerdict(classifyTag("v0.302.0", "0.301.0"), "CI_COMMIT_TAG")).toMatchObject({
+      code: 1,
+      stream: "stderr",
+    });
+    expect(describeVerdict(classifyTag("", "0.301.0"), "CI_COMMIT_TAG")).toMatchObject({
+      code: 2,
+      stream: "stderr",
+    });
+    expect(describeVerdict({ verdict: "ambiguous" }, "CI_COMMIT_TAG")).toMatchObject({
+      code: 2,
+      stream: "stderr",
+    });
+    expect(describeVerdict(undefined, "CI_COMMIT_TAG")).toMatchObject({ code: 2, stream: "stderr" });
+    expect(describeVerdict(null, "CI_COMMIT_TAG")).toMatchObject({ code: 2, stream: "stderr" });
+  });
+
+  // ★★ Both versions are EQUAL when the tag is merely missing the "v" --
+  // bumping src/app/version.ts cannot fix a prefix typo, and telling an
+  // operator to do so is wrong advice baked into a passing gate.
+  it("does not advise bumping version.ts when the tag lacks a v prefix", () => {
+    const result = classifyTag("0.301.0", "0.301.0");
+    expect(result.verdict).toBe("drift");
+    const { message } = describeVerdict(result, "CI_COMMIT_TAG");
+    expect(message).not.toMatch(/bump/i);
+  });
+
+  // ★ An empty env beats argv under the old `??` precedence, and the
+  // unscannable message always named CI_COMMIT_TAG even when the value came
+  // from argv. `source` fixes both: it must be threaded through, not
+  // hardcoded.
+  it("names the source passed in inside the unscannable message", () => {
+    const result = classifyTag("", "0.301.0");
+    expect(describeVerdict(result, "argv").message).toMatch(/argv/);
+    expect(describeVerdict(result, "CI_COMMIT_TAG").message).toMatch(/CI_COMMIT_TAG/);
   });
 });
