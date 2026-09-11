@@ -121,8 +121,10 @@ export const KNOWLEDGE_LINKS = [
  *  and restamps the FK, and the sweep ledgers it `unmeasured` for that reason.
  *  None is one `update_task` reacts to: `buildPatch` (`chat-tools-updates.ts`)
  *  whitelists the declared fields, so none of these can move through a patch,
- *  and `createTask` builds its row field by field. `resourceId: 4` and the `dependencies` predecessor point at
- *  rows the SWEEP's task seed supplies.
+ *  and `createTask` builds its row field by field. `resourceId: 4` and the
+ *  `dependencies` predecessor point at rows the SWEEP's task seed supplies.
+ *  The estimate minutes, `healthOverride` and `jiraIssueType` values mean
+ *  nothing beyond being valid.
  *  ★★ `jiraKey` is the one undeclared column deliberately LEFT BLANK: a
  *   `jiraKey` makes the row Jira-synced, and `assertJiraManagedUnchanged` then
  *   THROWS on every `status` or `assignee` change — which would turn Relation
@@ -577,10 +579,36 @@ export function snapshot(ws: ReturnType<typeof useWorkspace>): Workspace {
  *  reason `snapshot` is: it was a duplicated one-liner, and a one-liner that
  *  drifts is harder to notice than a block that does.
  *
- *  ★ `JSON.stringify` is key-ORDER sensitive, which is sound for these callers
- *  and would not be in general: every comparison here is a field's value against
- *  the same field read back through one sanitizer, not two independently-built
- *  objects. */
+ *  ★ `JSON.stringify` is key-ORDER sensitive (and element-order sensitive for
+ *  arrays), which would not be sound in general. Only a key order INSIDE one
+ *  field's value matters here: every caller compares a single field, never a
+ *  whole row.
+ *  ★★ WHAT MAKES IT SOUND IS THE SEEDS, NOT "ONE SANITIZER ON BOTH SIDES". The
+ *   update suites compare the provider's `before` row against the writer's
+ *   stored one, and the provider holds the seed LITERAL unsanitized — the
+ *   `Seeder` in `test-providers.tsx` calls the raw `useState` setters. Every
+ *   structured seed value below is therefore written in its sanitizer's own
+ *   output order (`recurrence` as `sanitizeRecurrence` builds it, links as
+ *   `sanitizeKnowledgeLinks` does, and so on); one that is not would read as
+ *   CHANGED on every write that rebuilds the row.
+ *  ★★ RELATION A OF `plan.offered-surface-sweep.test.ts` compares a probe the
+ *   test built against a value a writer's sanitizer built. For seven entities
+ *   that is guarded: `probeFor` admits the probe with this same `same` against
+ *   `ADMISSION_ORACLE`'s output (`admitProbe`, `src/test/sweep-probes.ts`),
+ *   which IS the writer's sanitizer, so a sanitizer that reorders a field's
+ *   keys makes admission fail and the field `unmeasured` — a ledger
+ *   disagreement, loud, on both arms (the create arm's probe is this seed's
+ *   value as is, admitted against the control row, with the same result).
+ *  ★★★ NOT FOR `task`. Its oracle is a `jsonToWorkspace` round trip, which
+ *   preserves key order and CASTS every task field bar `description` and
+ *   `noteLog`, so it can never report a reorder. Were a task writer to start
+ *   storing `knowledgeLinks` or `dependencies` through a normaliser whose key
+ *   order differed from the probe's, a real landing would compare UNEQUAL and
+ *   read as a pass — silent. What closes it today is only that the task seed
+ *   holds both in the order their sanitizers emit (`sanitizeKnowledgeLinks`:
+ *   `id`, `name`, `url`, `kind`; `sanitizeDependencies`: `taskId`, `type`),
+ *   and every probe keeps that order: the create arm sends the seed as is,
+ *   and the update arm's array probe only drops an element. */
 export const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 // --- the mechanical sweep's own fixture -------------------------------------

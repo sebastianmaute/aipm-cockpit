@@ -173,8 +173,31 @@ function viaPreview(normalize: ((v: unknown, row: Record<string, unknown>) => st
 }
 
 /** Relation A's comparison: the model's LITERAL value, never its presence —
- *  which is what keeps the relation free of an exemption list for the fields
- *  every writer stamps (`localModifiedAt`, `outlookEventId`). */
+ *  which is what keeps the relation free of an exemption list for a column the
+ *  writer itself fills. The two such columns are NOT alike, and which passes a
+ *  guard removal could turn red differs:
+ *  ★★ `localModifiedAt` is STAMPED — but on UPDATE only. All eight `update_*`
+ *   writers put `localModifiedAt: new Date().toISOString()` LAST in their merge
+ *   literal (`use-register-tools.ts`, `use-chat-dispatcher.ts`), so it
+ *   overwrites whatever came before it; the update arm's pass on it therefore
+ *   cannot go red under ANY guard removal, and certifies nothing. No `create_*`
+ *   writer stamps it, so on the create arm it is held off by the
+ *   `createInputWithoutId` strip (`chat-tools-updates.ts`) on five entities,
+ *   by the allow-list guards on absence and calendarEvent, and by `createTask`
+ *   naming its fields — and that pass CAN go red.
+ *  ★★ `outlookEventId` is NOT stamped by any writer here (the Outlook push owns
+ *   it). On raid, change and milestone it is never forwarded only because
+ *   `patchWithoutId` / `createInputWithoutId` strip it, and their sanitizers
+ *   keep whatever reaches them — so removing that strip turns Relation A red,
+ *   on either arm. (Task never reaches either strip — `buildPatch` and
+ *   `createTask` name their fields — and on absence and calendarEvent the
+ *   allow-list guards drop it as well.) Measured on the create arm, with the
+ *   trespass probes this file used before `probeFor`: the note above
+ *   `createInputWithoutId` records that reverting the strip at any of its five
+ *   deny-list call sites took this file to 1 failed, that entity's Relation A
+ *   create case. ★ That names the CASE, not the field: on raid, change and
+ *   milestone `localModifiedAt` lands through the same revert. The update arm
+ *   is read from the code, not measured by mutant. */
 const sameAt: Compare = (a, b) => same(a, b);
 
 /** The `TokenEntity` kind for an entity's update tool, for `entityToken`. */
@@ -552,7 +575,12 @@ const EXPECTED_FINDINGS: Ledger = {
  *  below as "not seeded", each with the reason a value would be unsafe or
  *  unholdable. Every remaining `unmeasured` entry is a probe SHAPE the seed
  *  cannot fix, or the task oracle's own envelope. Measured on the run that
- *  landed the seeds: no live undeclared write. */
+ *  landed the seeds: no live undeclared write.
+ *  ★★ Read task's 15 probed pairs per arm as a DIFFERENT guarantee from the
+ *  other entities': no merge-site guard stands behind them. `createTask` and
+ *  `update_task`'s `buildPatch` → `buildTaskCleanPatch` are allow-list writers,
+ *  protected by the ABSENCE of code forwarding these columns — `seedGuardedTask`'s docstring in
+ *  `src/test/inline-sweep-fixtures.ts` says so. */
 const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
   "task:create": [
     // §462 — not seeded: a `jiraKey` makes the seed task Jira-synced, and
