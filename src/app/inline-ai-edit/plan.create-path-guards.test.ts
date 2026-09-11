@@ -30,8 +30,32 @@
 // than enumerating an axis, so it cannot replace a mechanical sweep and must not
 // be read as create-path parity coverage. The axis-driven create relation it
 // was waiting for is `plan.offered-surface-sweep.test.ts` (§439); what this file
-// buys on top is that the seven guards cannot be quietly removed from the create
-// sites again.
+// buys beside it is that the seven guards cannot be quietly removed from the
+// create sites again.
+//
+// ★★★ "BESIDE" IS TRUE OF ONE PIN ONLY — DO NOT DELETE ANY OF THEM AS COVERED
+// BY THAT SWEEP. Its Relation A never sends a VALID value, so it is blind to
+// any field whose sanitizer rejects or reshapes an arbitrary one (§441 carries
+// the detail and the fix). Each pin's status, per pin:
+//  - `knowledgeLinks` (raid, change, milestone) — the ONLY create-path
+//    detector for that field. Relation A's probe is `[{ trespass }]`, which
+//    `sanitizeKnowledgeLinks` empties (no name/url) whatever the guard does.
+//  - `exceptions` (calendarEvent) and `active` (resource) — the ONLY detector
+//    for the create site's guard CALL. Measured 2026-09-11 (product code = main
+//    at fe82d1db): removing `dropUnacceptedCalendarEventFields` or
+//    `dropUnacceptedResourceFields` from its create call leaves the sweep at 0
+//    failed / 74 and turns exactly this file's pin red. Relation A probes a
+//    string `exceptions`, which `sanitizeExceptions` drops, and `active: true`,
+//    which `sanitizeResource` never stores.
+//  - `resourceId` (stakeholder) — genuinely BESIDE. Relation A probes 1004 off
+//    the seeded 4 and would see it stored; measured the same day, removing the
+//    `create_stakeholder` guard call reds this pin AND Relation A's stakeholder
+//    create case.
+//  - `JUNK_KEY` (absence) — detects NEITHER. Measured the same day: removing
+//    `dropUnacceptedAbsenceFields` from the `create_absence` call leaves this
+//    file AND the sweep green, because `sanitizeAbsence` builds its row from
+//    named fields and drops an unnamed key on its own. It pins the OUTCOME's
+//    shape, which holds without the allowlist; see that case below.
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -144,6 +168,11 @@ const CASES: CreateCase[] = [
     //  with. A junk key is the honest probe for an allowlist: it asserts the
     //  shape itself — nothing unnamed survives — which is the property that
     //  makes the entry safe.
+    //  ★★ BUT THE PROPERTY HOLDS WITHOUT THE ALLOWLIST, so this pin cannot see
+    //   the allowlist go: `sanitizeAbsence` builds its row from named fields
+    //   and drops a junk key on its own. Measured 2026-09-11 — removing the
+    //   `create_absence` guard call leaves this case green (the header above
+    //   records it). Do not read a green run here as the guard being present.
     because: "allowlist shape: a field the table does not name must not survive",
   },
   {

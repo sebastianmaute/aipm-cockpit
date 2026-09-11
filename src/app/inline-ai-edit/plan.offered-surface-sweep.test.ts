@@ -116,12 +116,29 @@ describe("the offered-surface axis", () => {
   //  key ledgers nothing, silently, in the direction where its finding has
   //  already been fixed: the real key expects nothing and gets nothing, while
   //  the stale entry is never compared. tsc rejects one; vitest does not.
-  it("every expected-findings ledger key names a real entity and arm", () => {
-    const stray = Object.keys(EXPECTED_FINDINGS).filter((key) => {
+  //
+  //  ★ The entries get the same check, and here it improves the ERROR rather
+  //   than preventing a silent pass. A subject filed under the WRONG entity's
+  //   key, or a kind outside `FINDING_KINDS`, can never be emitted, so that
+  //   arm's verdict already goes red — but with "a missing one was fixed",
+  //   which sends the reader to close a register row over what is a typo.
+  //   This names the typo instead. `subject` is a plain string, so tsc checks
+  //   neither half.
+  it("every expected-findings ledger entry names a real entity, arm, subject and kind", () => {
+    const stray = Object.entries(EXPECTED_FINDINGS).flatMap(([key, entries]) => {
       const [entity, arm, ...rest] = key.split(":");
-      return rest.length > 0 || !ENTITIES.some((e) => e === entity) || !(arm === "create" || arm === "update");
+      if (rest.length > 0 || !ENTITIES.some((e) => e === entity) || !(arm === "create" || arm === "update")) {
+        return [`${key} (no such entity:arm)`];
+      }
+      return (entries ?? [])
+        .filter(
+          (f) =>
+            !(f.subject === entity || f.subject.startsWith(`${entity}.`)) ||
+            !FINDING_KINDS.some((k) => k === f.kind),
+        )
+        .map((f) => `${key} → ${f.subject}:${f.kind}`);
     });
-    expect(stray, `ledger keys naming no real entity:arm pair: ${stray.join(", ")}`).toEqual([]);
+    expect(stray, `ledger entries naming no real entity:arm, subject or kind: ${stray.join(", ")}`).toEqual([]);
   });
 });
 
@@ -250,18 +267,58 @@ async function updateWith(
  *  ★★★ RELATION A ASSERTS ON THIS VALUE, NEVER ON THE FIELD'S PRESENCE, AND
  *  THAT IS THE PROPERTY THAT KEEPS IT FREE OF AN EXEMPTION LIST.
  *  `localModifiedAt` is on all eight undeclared axes and `outlookEventId` on
- *  five; both are legitimately written by the writer on every call, and neither
- *  is EVER written to the model's value. A presence-based assertion would need
- *  all of them exempted, and an exemption list is exactly how §437's ratchet
- *  came to hide a live undisclosed write.
+ *  six (every entity but stakeholder and resource — `grep -c '"outlookEventId"'
+ *  src/app/csv-codecs-core.ts` → 6, and no tool schema declares it); both are
+ *  legitimately written by the writer on every call, and neither is EVER
+ *  written to the model's value. A presence-based assertion would need all of
+ *  them exempted, and an exemption list is exactly how §437's ratchet came to
+ *  hide a live undisclosed write.
  *
  *  ★★★ DERIVED FROM THE SEEDED VALUE'S TYPE, NOT A FIXED STRING. A guard
  *  written `typeof v === "number"` refuses a string for the RIGHT reason, so a
  *  string-only probe cannot tell a working guard from a type mismatch and would
  *  report a clean run over a field it never actually reached. Where the seed
  *  carries no value the string is the honest fallback — there is nothing to
- *  derive from — and the relation reports that case at the gate rather than
- *  swallowing it. */
+ *  derive from.
+ *
+ *  ★★★ BUT A TRESPASS PROBE IS NEVER A VALID VALUE, AND THAT MAKES A WHOLE
+ *  CLASS OF FIELDS INVISIBLE TO THIS RELATION (§441). It asserts the stored
+ *  value is not SAME as the probe; so for ANY undeclared field whose sanitizer
+ *  rejects or reshapes an arbitrary value, the probe can never be stored as
+ *  sent — guard or no guard — and the relation passes over the field GREEN
+ *  whatever the guard does. Verified instances, traced from source; this is
+ *  AT LEAST these, not an enumeration of the axis:
+ *   - `knowledgeLinks` — where seeded (raid, change, milestone, stakeholder)
+ *     the probe is `[{ trespass }]`, elsewhere the string;
+ *     `sanitizeKnowledgeLinks` returns `[]` for a non-array, drops every
+ *     element without a name and url, and mints an id on any it keeps.
+ *   - `calendarEvent.exceptions` — unseeded, so the probe is the string;
+ *     `sanitizeExceptions` drops a non-array outright. So removing the
+ *     `create_calendar_event` guard outright leaves this file green: the other
+ *     two undeclared columns are stripped by `createInputWithoutId` anyway.
+ *   - `stakeholder.raci` — seeded as an object, and there is no object branch
+ *     below, so the probe is the string; `coerceRaciMap` turns it into `{}`.
+ *   - `resource.utilizationMode` — seed `"hours"`, so the probe is the string;
+ *     `sanitizeUtilizationMode` maps anything but `"hours"` to `"percent"`.
+ *   - `resource.utilization` / `resource.absenceOverride` — object seeds, so
+ *     the probe is the string; `coercePeriodMap` returns an object, never it.
+ *   - `resource.birthday` — the string probe fails `BIRTHDAY_RE` and
+ *     `sanitizeBirthday` drops it.
+ *   - `resource.active` — seed `false`, so the probe is `true`;
+ *     `sanitizeResource` stores the key only when it is `false`.
+ *   - `change.decisionDate` — a date seed, but there is no date branch below,
+ *     so the probe is the string; `sanitizeIsoDate` rejects it.
+ *  Where a guard on those fields is caught at all, something else catches it:
+ *  `plan.create-path-guards.test.ts` pins `knowledgeLinks` (raid, change,
+ *  milestone), `exceptions` and `resource.active` on create; stakeholder's
+ *  create guard CALL is covered there by its `resourceId` pin, and its
+ *  `knowledgeLinks` row by `plan.write-path-sweep.test.ts` on update, which
+ *  shares the table (measured 2026-09-11: that row admitting everything reds
+ *  the write-path sweep's stakeholder case and leaves this file green). `raci`
+ *  has no create pin and needs none — `create_stakeholder` writes `raci: {}`
+ *  AFTER spreading the guarded input (`use-register-tools.ts`) — and on update
+ *  it is `plan.write-path-sweep.test.ts` that drives it. The probes stay as
+ *  they are for now; §441 carries the fix. */
 const TRESPASS_STRING = "TRESPASS-offered-surface-sweep";
 
 function trespassProbeFor(current: unknown): unknown {
@@ -355,6 +412,15 @@ function validProbeFor(
   if (prop.type === "number") return 7;
   if (prop.type === "boolean") return true;
   if (prop.type === "array") return ["probed"];
+  // ★★★ THERE IS NO OBJECT BRANCH, AND ONE FIELD FALLS THROUGH IT TO A
+  //  VACUOUS PASS (§441). `calendarEvent.recurrence` is schema type `object`
+  //  and seeded as one, so it reaches this line and gets `"probed"`. On create
+  //  the guard (`CALENDAR_EVENT_FIELD_GUARDS.recurrence`, `isPlainObject`)
+  //  drops it and the row stores no recurrence, and `recurrenceText` — the
+  //  field's preview normaliser — projects both the probe and that missing rule
+  //  to `""`. So the create arm reads it as LANDED having moved nothing, and it
+  //  counts toward that entity's floor 2. Recorded, not fixed here; §441
+  //  carries the fix.
   return "probed";
 }
 
@@ -441,8 +507,8 @@ const MAIL_UNSAFE_BOOLEANS: ReadonlySet<string> = new Set(["calendarEvent.sendIn
  *
  *  ★★ APPLIED ONLY WHERE THE SEED-DERIVED PROBE WOULD BE DEAD. A live probe is
  *  left exactly as it was, so findings from before this existed stay
- *  comparable — a re-derivation that moved an already-working probe would make
- *  every count in the gate report incommensurable with the last one. */
+ *  comparable — a re-derivation that moved an already-working probe could
+ *  change what `EXPECTED_FINDINGS` holds for a reason that is not the product. */
 function probeAgainstControl(
   entity: InlineEntity,
   field: string,
@@ -536,6 +602,9 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
     expect(probed, `${entity}: Relation A ran over an empty undeclared axis`).toBe(
       AXIS_BASELINE[entity].undeclared,
     );
+    // ★★ No positive observable of this arm's own: a replay that wrote nothing
+    //  passes every line here, and only Relation B's floor 2 — a SIBLING test,
+    //  on the same `updateWith` harness — shows that the harness writes at all.
     expect(findings, `${findings.length} undeclared update writes`).toEqual([]);
     // Non-vacuity: the seed must actually exist, or every read-back above
     // compared undefined against a string and agreed.
@@ -607,6 +676,30 @@ it("no Relation B probe drives calendarEvent.sendInvitations true", () => {
   ).toBeUndefined();
 });
 
+/** What a Relation B finding can SAY, one member per finding template below.
+ *  `dead` is shared by both arms: the derived probe cannot move the field. The
+ *  update arm adds `unchanged` (a valid probe changed nothing and the card said
+ *  nothing). The create arm adds `threw`, `no-row` and `dropped` for a probed
+ *  field, and `control-threw` / `control-no-row` for the base create itself —
+ *  the only two whose subject is the bare entity rather than `entity.field`.
+ *
+ *  ★ A `const` array and not only a union, so the ledger test in "the
+ *  offered-surface axis" can check a kind at RUNTIME — vitest never typechecks,
+ *  so a union alone would guard nothing while the suite runs. */
+const FINDING_KINDS = ["control-threw", "control-no-row", "dead", "unchanged", "threw", "no-row", "dropped"] as const;
+type FindingKind = (typeof FINDING_KINDS)[number];
+
+/** One Relation B finding. `subject` + `kind` is all the verdict compares;
+ *  `detail` is the full line a red run prints, and nothing compares it. */
+type Finding = { subject: string; kind: FindingKind; detail: string };
+type LedgerEntry = Pick<Finding, "subject" | "kind">;
+
+/** Builds a finding whose `detail` is `${subject}: ${text}` — the exact line
+ *  each template printed before the ledger was re-keyed. */
+function finding(subject: string, kind: FindingKind, text: string): Finding {
+  return { subject, kind, detail: `${subject}: ${text}` };
+}
+
 /**
  * ★★★ AN EXPECTED-FINDINGS LEDGER, CHECKED IN BOTH DIRECTIONS — AND NOT AN
  *  EXEMPTION LIST. Relation B compares the findings it computes against the
@@ -618,13 +711,27 @@ it("no Relation B probe drives calendarEvent.sendInvitations true", () => {
  *  87566496: 73 tests, 5 failed, 6 finding lines, every one in Relation B and
  *  none of them a write-path defect — and `unit-tests` is a blocking CI job.
  *
+ * ★★★ AN ENTRY IS A SUBJECT AND A KIND, NEVER A MESSAGE. `subject` is
+ *  `entity.field` (the bare entity for the two control kinds) and `kind` is a
+ *  member of `FINDING_KINDS`; the verdict compares `subject:kind` tokens and
+ *  nothing else. The full line — the thrown message, the "sent X, stored Y" —
+ *  is the `detail`, which the failure text prints and no assertion reads. The
+ *  first cut of this ledger (eef92310) held those lines VERBATIM, so rewording
+ *  a production error message (`use-chat-dispatcher.ts`'s "assigneeEmail is
+ *  invalid") or editing a seed in `src/test/inline-sweep-fixtures.ts` turned
+ *  the case red — and the cheap repair, pasting the new output in, is the
+ *  exact reflex this ledger exists to refuse.
+ *
  * ★★★ BOTH DIRECTIONS TURN THE CASE RED.
  *  - A finding NOT in the ledger. Treat it as a finding and take it to a
  *    go/cut; never add it here to make a run green.
  *  - A ledgered finding that STOPS firing. Delete its entry, and close or amend
  *    the register row it cites.
- *  So an entry has to keep firing VERBATIM to stay, which is what stops this
- *  rotting into an exemption list: a fixed field cannot linger here unseen.
+ *  So an entry stays while the same subject keeps producing the same KIND. A
+ *  change of wording or of seed value does not move it; a change of kind does
+ *  — `dropped` becoming `threw` on the same field is a different outcome and
+ *  reds exactly as a new finding would. That is what stops this rotting into
+ *  an exemption list: a fixed field cannot linger here unseen.
  *
  * ★★ WHAT IT DOES NOT CHANGE. Every field stays on the axis, is probed, and
  *  has its finding computed exactly as before; only the VERDICT reads the
@@ -636,48 +743,72 @@ it("no Relation B probe drives calendarEvent.sendInvitations true", () => {
  *
  * ★ Keyed `entity:arm`, and `Partial` because most pairs expect nothing. The
  *  key type makes a typo a tsc error, but vitest does not typecheck, so "the
- *  offered-surface axis" repeats that check at runtime.
+ *  offered-surface axis" repeats that check at runtime — for the key, for each
+ *  entry's subject belonging to that key's entity, and for each kind.
  */
-const EXPECTED_FINDINGS: Readonly<Partial<Record<`${InlineEntity}:${"create" | "update"}`, readonly string[]>>> = {
+const EXPECTED_FINDINGS: Readonly<Partial<Record<`${InlineEntity}:${"create" | "update"}`, readonly LedgerEntry[]>>> = {
   "task:create": [
     // §459 — the string probe suffixes the seed email, which is then invalid; create refuses it loudly.
-    "task.assigneeEmail: create THREW on a valid \"m.Jordan@example.com probed\" — assigneeEmail is invalid",
+    { subject: "task.assigneeEmail", kind: "threw" },
   ],
   "resource:update": [
     // The recorded decision in `SYNTHETIC_INPUTS` (offered-surface-axis.ts): a convenience input the writer splits.
-    "resource.name: declared and offered, but a valid \"probed\" changed nothing and the card said nothing",
+    { subject: "resource.name", kind: "unchanged" },
   ],
   "resource:create": [
     // The recorded decision in `SYNTHETIC_INPUTS` (offered-surface-axis.ts): a convenience input the writer splits.
-    "resource.name: create was offered the field and dropped it — sent \"probed\", stored \"\"",
+    { subject: "resource.name", kind: "dropped" },
   ],
   "absence:create": [
     // §459 — the create-arm probe is derived from the SEED start, later than CREATE_BASE's end, so sanitizeAbsence swaps the two.
-    "absence.startDate: create was offered the field and dropped it — sent \"2026-07-07\", stored \"2026-06-02\"",
+    { subject: "absence.startDate", kind: "dropped" },
   ],
   "calendarEvent:create": [
     // §443 — unmeasured by policy: a strict true would stage a real invitation.
-    "calendarEvent.sendInvitations: the derived probe equals what the base create produces on its own — a landing here would prove nothing",
+    { subject: "calendarEvent.sendInvitations", kind: "dead" },
     // §443 — dead by construction: the HH:MM probe equals CREATE_BASE's own startTime.
-    "calendarEvent.startTime: the derived probe equals what the base create produces on its own — a landing here would prove nothing",
+    { subject: "calendarEvent.startTime", kind: "dead" },
   ],
 };
 
-function expectedFindings(entity: InlineEntity, arm: "create" | "update"): readonly string[] {
+function expectedFindings(entity: InlineEntity, arm: "create" | "update"): readonly LedgerEntry[] {
   return EXPECTED_FINDINGS[`${entity}:${arm}`] ?? [];
 }
 
+const tokenOf = (f: LedgerEntry): string => `${f.subject}:${f.kind}`;
+
+/** The verdict both Relation B arms end on: sorted `subject:kind` tokens,
+ *  compared in both directions. ★★ The message carries every actual finding's
+ *  full `detail` — the only place the thrown message or the "sent X, stored Y"
+ *  still appears — because a red run that printed tokens alone would send the
+ *  reader to re-run the sweep by hand to learn what happened. */
+function expectLedgerAgrees(entity: InlineEntity, arm: "create" | "update", findings: readonly Finding[]): void {
+  const expected = expectedFindings(entity, arm).map(tokenOf).sort();
+  const actualLines = findings.length > 0 ? findings.map((f) => `  [${f.kind}] ${f.detail}`) : ["  (none)"];
+  expect(
+    findings.map(tokenOf).sort(),
+    [
+      `${entity} ${arm}: findings differ from EXPECTED_FINDINGS — a new subject:kind is a finding (go/cut, never ledger it to go green); a missing one was fixed (delete its entry, close its register row)`,
+      "actual findings:",
+      ...actualLines,
+      `expected: ${expected.length > 0 ? expected.join(", ") : "(none)"}`,
+    ].join("\n"),
+  ).toEqual(expected);
+}
+
 describe.each(ENTITIES)("Relation B — %s: a declared field must land or be visibly refused", (entity) => {
-  // ★★★ THE DETECTOR §436 ASKED FOR, IN ITS OWN WORDS: "something that asserts
-  //  each allow-list still ADMITS the fields the tool schema advertises".
-  //  §436 measured that narrowing `ABSENCE_FIELD_GUARDS.note` to `() => false`
-  //  leaves `plan.write-path-sweep.test.ts` GREEN with per-entity violation
-  //  counts byte-identical to a clean run, while the model loses the ability to
-  //  write an absence note at all. The preview reads the same table object via
-  //  `rawTypeGuards`, so both sides move together and the sweep certifies
-  //  itself. This relation reads the SCHEMA, which that table cannot move.
+  // ★★★ THIS ARM IS NOT §436'S DETECTOR, AND AN EARLIER REVISION OF THIS
+  //  COMMENT SAID IT WAS — "this relation reads the SCHEMA, which that table
+  //  cannot move". The AXIS comes from the schema; the VERDICT does not. For
+  //  `absence` and `calendarEvent` the descriptor's `rawTypeGuards` IS the
+  //  write-side table (`ABSENCE_FIELD_GUARDS` / `CALENDAR_EVENT_FIELD_GUARDS`,
+  //  the same object, `entity-descriptor.ts`), so narrowing a row there makes
+  //  the PREVIEW reject the probe too, and this arm reads that disclosed
+  //  refusal as agreement (the `refused` line below). It stays green over the
+  //  very mutant §436 measured. The create arm is what catches it — the comment
+  //  above that test says why, and what would take that away.
   it("update: every declared field moves, or the card says why not", async () => {
-    const findings: string[] = [];
+    const findings: Finding[] = [];
     let landed = 0;
     let probed = 0;
     let dead = 0;
@@ -687,7 +818,9 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
       const probe = validProbeFor(entity, "update", field, seedRow[field]);
       if (same(probe, seedRow[field])) {
         dead += 1;
-        findings.push(`${entity}.${field}: the derived probe equals the stored value — it cannot move the field`);
+        findings.push(
+          finding(`${entity}.${field}`, "dead", "the derived probe equals the stored value — it cannot move the field"),
+        );
         continue;
       }
       probed += 1;
@@ -708,7 +841,11 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
 
       if (same(before[field], stored[field])) {
         findings.push(
-          `${entity}.${field}: declared and offered, but a valid ${JSON.stringify(probe)} changed nothing and the card said nothing`,
+          finding(
+            `${entity}.${field}`,
+            "unchanged",
+            `declared and offered, but a valid ${JSON.stringify(probe)} changed nothing and the card said nothing`,
+          ),
         );
         continue;
       }
@@ -728,10 +865,7 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
     //  whole entity green while proving nothing. This demands that some declared
     //  field, driven by some probe, actually moved.
     expect(landed, `${entity}: no declared field landed — the harness wrote nothing`).toBeGreaterThan(0);
-    expect(
-      [...findings].sort(),
-      `${entity} update: findings differ from EXPECTED_FINDINGS — a new line is a finding (go/cut, never ledger it to go green); a missing one was fixed (delete its entry, close its register row)`,
-    ).toEqual([...expectedFindings(entity, "update")].sort());
+    expectLedgerAgrees(entity, "update", findings);
   });
 
   // ★★★ THE CREATE ARM HAS NO REJECTION BRANCH, AND WRITING IT AS THOUGH IT DID
@@ -746,6 +880,27 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
   //   is not. With no refusal channel, a guard correctly rejecting a bad value
   //   is indistinguishable from a lost capability. `validProbeFor` derives from
   //   the seed's own value for exactly this reason.
+  //
+  //  ★★★ IT IS ALSO WHY THIS ARM, AND ONLY THIS ARM, IS THE DETECTOR §436 ASKED
+  //   FOR, in its own words: "something that asserts each allow-list still
+  //   ADMITS the fields the tool schema advertises". §436 measured that
+  //   narrowing `ABSENCE_FIELD_GUARDS.note` to `() => false` leaves
+  //   `plan.write-path-sweep.test.ts` GREEN with per-entity violation counts
+  //   byte-identical to a clean run, while the model loses the ability to write
+  //   an absence note at all. The preview reads the same table object via
+  //   `rawTypeGuards`, so both sides move together — which is why that sweep
+  //   certifies itself, and why this relation's UPDATE arm does too (it counts
+  //   the preview's refusal as a disclosed one; see the comment above it). On
+  //   create the narrowed row drops the note, the card has no way to say so,
+  //   and the field reads `dropped`. Measured 2026-09-11 against this file on
+  //   the landing branch (product code = main at fe82d1db): 1 failed / 73, the
+  //   absence create case only; the absence update case stays green.
+  //
+  //  ★★ SO THE DETECTOR RESTS ON A MISSING FEATURE. If the create card ever
+  //   gains a refusal channel (§440), a narrowed allowlist row becomes a
+  //   disclosed refusal on this arm too, and §436 has no detector left in this
+  //   file — unless a "refused a valid probe" kind is added to `FINDING_KINDS`
+  //   in the same change. Close §440 without that and this goes quietly green.
   //
   //  ★★★ SO THE PROBE IS DERIVED FROM THE SEEDED ROW OF THIS ENTITY, NOT FROM
   //   NOTHING, and passing `undefined` here would be the same defect the array
@@ -769,8 +924,9 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
   //   here, because a made-up id CAN be legitimately refused and that
   //   reintroduces the ambiguity above. If the fallback then yields a probe the
   //   created row would have held anyway, the honest outcome is that the field
-  //   is DEAD to this arm and reported as such at the gate, not a value made up
-  //   to move it.
+  //   is DEAD to this arm and emits a `dead` finding — held in
+  //   `EXPECTED_FINDINGS` with a citation, or turning this case red against it
+  //   — not a value made up to move it.
   //
   //  ★★★ THE COMPARISON GOES THROUGH `previewNormalizerFor`, NOT AGAINST THE
   //   RAW PROBE. That is the production resolution order (descriptor entry →
@@ -779,7 +935,7 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
   //   field, which on the first cut of the update sweep was 6 of 35 "findings"
   //   — the harness, not the product.
   it("create: every declared field lands on the created row", async () => {
-    const findings: string[] = [];
+    const findings: Finding[] = [];
     let landed = 0;
     let probed = 0;
     let dead = 0;
@@ -796,21 +952,28 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
     //  the field reads as LANDED having proved nothing — the arm's own version
     //  of the vacuity `dead` exists to make visible.
     //
-    //  ★★ THAT IS LIVE, NOT THEORETICAL. Wherever the seed carries `""` the
-    //   derived probe is `""` (`validProbeFor` suffixes only a NON-empty
-    //   string), and a writer defaulting an unsupplied field to `""` produces
-    //   the same value — so the field agrees with itself on both sides. Nothing
-    //   in this arm could tell that apart from a working write before this
-    //   control existed, which is why every previously-clean verdict here was
-    //   only as good as the probes behind it.
+    //  ★★ THAT IS LIVE, NOT THEORETICAL — `calendarEvent.startTime` in
+    //   `EXPECTED_FINDINGS` is exactly this. The seed holds "14:00", the HH:MM
+    //   rule in `validProbeFor` maps anything but "09:00" onto "09:00", and
+    //   `CREATE_BASE.calendarEvent` already supplies "09:00". A boolean negated
+    //   off the SEED can land on the writer's own default the same way, which
+    //   is what `probeAgainstControl` exists to re-derive. Nothing in this arm
+    //   could tell that apart from a working write before this control
+    //   existed, which is why every previously-clean verdict here was only as
+    //   good as the probes behind it.
+    //   ★ An earlier revision gave `""` as the example ("wherever the seed
+    //    carries `""` the derived probe is `""`"), which is false:
+    //    `validProbeFor` on an empty string falls through its type branches to
+    //    `"probed"` for a string field.
     //
     //  ★★★ `dead` IS AN HONEST OUTCOME, NOT A FAILURE OF THE PRODUCT. It says
     //   the DERIVED PROBE cannot distinguish a working field from a broken one
     //   here — the same verdict `validProbeFor`'s array branch already records
     //   for an empty seed. Do NOT close one by inventing a value: a fabricated
     //   foreign key CAN be legitimately refused, and this arm has no refusal
-    //   channel to explain that away. It is reported at the gate, exactly as
-    //   the block comment above this test says it should be.
+    //   channel to explain that away. It is a `dead` finding, held in or
+    //   turning red against `EXPECTED_FINDINGS`, exactly as the block comment
+    //   above this test says it should be.
     //
     //  ★★ A THROWING CONTROL IS REPORTED, NEVER SWALLOWED. With no control row
     //   nothing can be classified `dead`, so every field stays `probed`, the
@@ -818,9 +981,11 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
     //   it was before this control existed.
     const control = await createWith(entity, {});
     if (control.threw !== undefined) {
-      findings.push(`${entity}: the control create THREW on the base payload alone — ${control.threw}`);
+      findings.push(
+        finding(entity, "control-threw", `the control create THREW on the base payload alone — ${control.threw}`),
+      );
     } else if (!control.row) {
-      findings.push(`${entity}: the control create stored no row from the base payload alone`);
+      findings.push(finding(entity, "control-no-row", "the control create stored no row from the base payload alone"));
     }
     const controlRow = control.row;
 
@@ -846,10 +1011,15 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
           ? (probeAgainstControl(entity, field, seedRow[field], controlRow, normalize) ?? seeded)
           : seeded;
 
+      const subject = `${entity}.${field}`;
       if (controlRow && normalizedAs(probe, controlRow, normalize) === asBase) {
         dead += 1;
         findings.push(
-          `${entity}.${field}: the derived probe equals what the base create produces on its own — a landing here would prove nothing`,
+          finding(
+            subject,
+            "dead",
+            "the derived probe equals what the base create produces on its own — a landing here would prove nothing",
+          ),
         );
         continue;
       }
@@ -857,18 +1027,22 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
       probed += 1;
       const { row, threw } = await createWith(entity, { [field]: probe });
       if (threw !== undefined) {
-        findings.push(`${entity}.${field}: create THREW on a valid ${JSON.stringify(probe)} — ${threw}`);
+        findings.push(finding(subject, "threw", `create THREW on a valid ${JSON.stringify(probe)} — ${threw}`));
         continue;
       }
       if (!row) {
-        findings.push(`${entity}.${field}: the create stored no row at all`);
+        findings.push(finding(subject, "no-row", "the create stored no row at all"));
         continue;
       }
       const shown = normalizedAs(probe, row, normalize);
       const actual = normalizedAs(row[field], row, normalize);
       if (shown !== actual) {
         findings.push(
-          `${entity}.${field}: create was offered the field and dropped it — sent ${JSON.stringify(shown)}, stored ${JSON.stringify(actual)}`,
+          finding(
+            subject,
+            "dropped",
+            `create was offered the field and dropped it — sent ${JSON.stringify(shown)}, stored ${JSON.stringify(actual)}`,
+          ),
         );
         continue;
       }
@@ -884,12 +1058,10 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
       AXIS_BASELINE[entity].declared,
     );
     // Floor 2 again, for this arm. Every branch above is satisfied by a create
-    // that stores nothing, and `!row` would then be the only signal — which the
-    // `CREATE_BASE` floor in Task 2 already rules out for a different reason.
+    // that stores nothing, and `!row` would then be the only signal — which
+    // "the create base satisfies every schema-required field", in "the
+    // offered-surface axis" above, already rules out for a different reason.
     expect(landed, `${entity}: no declared field landed on a created row`).toBeGreaterThan(0);
-    expect(
-      [...findings].sort(),
-      `${entity} create: findings differ from EXPECTED_FINDINGS — a new line is a finding (go/cut, never ledger it to go green); a missing one was fixed (delete its entry, close its register row)`,
-    ).toEqual([...expectedFindings(entity, "create")].sort());
+    expectLedgerAgrees(entity, "create", findings);
   });
 });

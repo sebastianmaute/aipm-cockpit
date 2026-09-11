@@ -114,7 +114,9 @@ export function schemaProperty(entity: InlineEntity, op: "create" | "update", fi
  *
  *  ★★★ THIS IS RELATION A'S AXIS, AND IT IS NOT AN EXEMPTION LIST. Everything
  *  here SHOULD be unwritable; the relation asserts it. `localModifiedAt` sits in
- *  all eight of these sets and `outlookEventId` in five — both are legitimately
+ *  all eight of these sets and `outlookEventId` in six (every entity but
+ *  stakeholder and resource: `grep -c '"outlookEventId"' src/app/csv-codecs-core.ts`
+ *  → 6, and no tool schema declares it) — both are legitimately
  *  written by THE WRITER, which is why the relation asserts on the PROBE VALUE
  *  rather than on the field's presence, and so needs no exemption for them.
  *
@@ -157,7 +159,8 @@ export function undeclaredColumns(entity: InlineEntity): readonly string[] {
  *  `firstName`/`lastName` assertion when the create base for `resource` is
  *  built — the relations carry no exemptions at all, which is the property that
  *  makes this detector worth more than the sweep it sits beside. The finding is
- *  classified as explained in the gate report, not fixed in the code. */
+ *  held in the sweep's `EXPECTED_FINDINGS`, citing this decision, not fixed in
+ *  the code. */
 export const SYNTHETIC_INPUTS: Partial<Record<InlineEntity, readonly string[]>> = {
   resource: ["name"],
 };
@@ -176,10 +179,17 @@ export const SYNTHETIC_INPUTS: Partial<Record<InlineEntity, readonly string[]>> 
  *  transition, so it does not own the FIELD) and the
  *  modal renders it read-only. It therefore LEFT the declared set and JOINED the
  *  undeclared one; the change's persisted column count did not move, which is
- *  why the two numbers trade one-for-one. The consequence is the point: Relation
- *  A now probes it on BOTH arms and asserts the model's value never lands, which
- *  is a stronger guarantee than Relation B's "it was offered and dropped"
- *  finding that this replaced. */
+ *  why the two numbers trade one-for-one. Relation A now probes it on BOTH arms
+ *  and asserts the model's value never lands.
+ *  ★★★ THAT ASSERTION IS VACUOUS FOR THIS FIELD, AND THIS DOCSTRING USED TO
+ *  CALL IT "a stronger guarantee than Relation B's finding". The trespass probe
+ *  derived from a date seed is a non-date STRING (`trespassProbeFor` has no
+ *  date branch), which `sanitizeIsoDate` rejects on its own — so the probe can
+ *  never land, guard (`CHANGE_FIELD_GUARDS.decisionDate`) or no guard, and a
+ *  green Relation A proves nothing about the guard. It is one instance of the
+ *  general blind spot recorded at `trespassProbeFor` (§441). What still stands
+ *  is the classification: the field is no longer offered, so Relation B no
+ *  longer reports it as "offered and dropped". */
 export const AXIS_BASELINE: Record<InlineEntity, { declared: number; undeclared: number }> = {
   task: { declared: 11, undeclared: 17 },
   raid: { declared: 16, undeclared: 6 },

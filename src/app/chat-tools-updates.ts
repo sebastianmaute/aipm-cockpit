@@ -180,11 +180,6 @@ export function patchWithoutId<T>(
  *  `noteLog` member alone changes no STORED ROW (see the sanitizer note above),
  *  so do not read this as "every excluded field is load-bearing at five call
  *  sites".
- *  ★ Measured 2026-09-11, one call site at a time, against
- *  `plan.offered-surface-sweep.test.ts` (clean: 0 failed / 74 passed): reverting
- *  the strip at `create_absence` or `create_calendar_event` leaves it UNCHANGED;
- *  reverting it at any of the other five takes it to 1 failed / 73, the failure
- *  being that entity's Relation A create case.
  *  ★★ "No stored row" is the whole of that claim and an earlier revision
  *  overstated it as "changes nothing anywhere", which is false: `entityToken`
  *  covers `PROJECTORS[kind].columns` MINUS `TOKEN_EXCLUDED[kind]`, those columns
@@ -197,6 +192,11 @@ export function patchWithoutId<T>(
  *  legitimate ONLY because those two allowlists hold, so this is the backstop
  *  for the day one of them is widened, and "five of the seven" is a rule nobody
  *  can keep straight.
+ *  ★ Measured 2026-09-11, one call site at a time, against
+ *  `plan.offered-surface-sweep.test.ts` (clean: 0 failed / 74 passed): reverting
+ *  the strip at `create_absence` or `create_calendar_event` leaves it UNCHANGED;
+ *  reverting it at any of the other five takes it to 1 failed / 73, the failure
+ *  being that entity's Relation A create case.
  *
  *  ★★ `create_task` is deliberately NOT routed through this helper and that is
  *  not an oversight. Its case reads named fields off `input` one at a time into

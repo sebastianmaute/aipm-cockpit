@@ -22,22 +22,22 @@ import { RICH_FIELDS } from "./plan";
  *  review doing this subtraction BY HAND, one entity beyond its brief.
  *
  *  So this file does that subtraction mechanically, forever, from a source the
- *  sweep does not control: the CSV column lists.
+ *  sweep does not control: the CSV column lists, read as `PERSISTED_COLUMNS`
+ *  from `src/test/offered-surface-axis.ts`, which it shares with
+ *  `plan.offered-surface-sweep.test.ts`. `PERSISTED_COLUMNS`'s docstring there
+ *  carries the reason the CSV column lists are the right source:
+ *  `ai-entity-token.ts`'s `ProjectedRows` already makes tsc prove each array
+ *  covers its entity type, so a persisted field cannot fail to appear and this
+ *  file then forces a decision about it.
  *
  *  ★★ IT IS A SET RATCHET, NOT A COUNT, for the reason `AXIS_FIELDS` is: a
  *  count is blind to substitution. Adding a field and dropping another leaves
- *  any tally unmoved. */
-/** `PERSISTED_COLUMNS` now lives in `src/test/offered-surface-axis.ts`, shared
- *  with `plan.offered-surface-sweep.test.ts`. Its docstring there carries the
- *  reason the CSV column lists are the right source: `ai-entity-token.ts`'s
- *  `ProjectedRows` already makes tsc prove each array covers its entity type,
- *  so a persisted field cannot fail to appear and this file then forces a
- *  decision about it.
+ *  any tally unmoved.
  *
  *  ★★ THE TWO DETECTORS ASK DIFFERENT QUESTIONS AND NEITHER REPLACES THE OTHER.
  *  This file is STATIC accounting at zero runtime cost — "is every persisted
- *  column accounted for by the sweep's axis?" — and it catches a new column
- *  arriving unswept before anyone writes a probe for it.
+ *  column accounted for by the write-path sweep's axis?" — and it catches a new
+ *  column arriving unswept before anyone writes a probe for it.
  *  `plan.offered-surface-sweep.test.ts` is BEHAVIOURAL — "does an undeclared
  *  field actually land, and does a declared one actually work?" — and it costs a
  *  dispatcher mount per field. Deleting either leaves a hole the other does not
