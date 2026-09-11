@@ -47,8 +47,9 @@ They differ only in which way they assert on it.
 ## Goal
 
 One probe derivation, shared by both relations, whose every probe is checked against the storage
-layer before a relation may judge it. A field the check cannot admit is reported `unmeasured`, by
-name, in the both-directions ledger. It no longer passes green.
+layer before a relation may judge it. A field whose probe the check refuses is reported `unmeasured`,
+and one with no derivable probe `dead`, by name, in the both-directions ledger. It no longer passes
+green.
 
 ## Non-goals
 
@@ -89,7 +90,7 @@ came from deriving against the seed while the create arm judges against the cont
    - array: one element dropped. When the reference is empty or absent, the full seeded array is used;
    - **object (new):** one key of the seeded object set to a changed value of the same kind, applied
      recursively.
-3. **Nothing.** The field is reported `unmeasured`. No value is invented.
+3. **Nothing.** The field is reported `dead`. No value is invented.
 
 Email and time are recognised by the SHAPE of the value, as dates already are. There is still no
 per-field override map, which `validProbeFor`'s docstring rejects as "one rename away from becoming an
@@ -120,7 +121,8 @@ Reproduce: `grep -n "tasks: (p.tasks\|raid: (p.raid" src/app/workspace.ts`.
 
 ★ **TASK IS THE ONE WEAK ORACLE, AND IT IS WEAK ON PURPOSE.** `create_task` has no row sanitizer: its
 writer builds the row field by field. The oracle for task is therefore the at-rest store alone, which
-admits nearly any value. That is recorded, and pinned by a unit test, rather than hidden.
+admits nearly any value. That is recorded, and pinned by a unit test, rather than hidden. The sweep
+already runs under jsdom (`vitest.config.ts`), which that round trip's JSON load path needs.
 
 A field is **measured** only if:
 
