@@ -152,18 +152,6 @@ function seedFor(entity: InlineEntity): SweepEntity {
   return s;
 }
 
-/** The seeded row as the fixture literal declares it — the right source for
- *  CHOOSING a probe, because a probe needs only the field's TYPE and the type
- *  survives the sanitizer. Never the right source for JUDGING a write: every
- *  comparison below reads `before` out of `updateWith`, which is the provider's
- *  own post-write row. Judging against this literal would compare the stored row
- *  to something the provider never held. */
-function snapshotSeedRow(s: SweepEntity): Row | undefined {
-  const wsKey = INLINE_DESCRIPTORS[s.entity].wsKey as WsKey;
-  const rows = (s.seed as Record<string, ReadonlyArray<Row>>)[wsKey];
-  return rows?.find((r) => r.id === s.id);
-}
-
 /** The seeded row as the PROVIDER holds it after load — the reference both
  *  update arms derive against and judge against, and the seed both create arms
  *  fall back to. ★★ Never the fixture literal: the provider's load path can
@@ -183,6 +171,11 @@ function loadedSeedRow(entity: InlineEntity): Row {
 function viaPreview(normalize: ((v: unknown, row: Record<string, unknown>) => string) | undefined): Compare {
   return (a, b, row) => normalizedAs(a, row, normalize) === normalizedAs(b, row, normalize);
 }
+
+/** Relation A's comparison: the model's LITERAL value, never its presence —
+ *  which is what keeps the relation free of an exemption list for the fields
+ *  every writer stamps (`localModifiedAt`, `outlookEventId`). */
+const sameAt: Compare = (a, b) => same(a, b);
 
 /** The `TokenEntity` kind for an entity's update tool, for `entityToken`. */
 function kindOf(entity: InlineEntity) {
@@ -281,73 +274,6 @@ async function updateWith(
   return { before, stored, plan, threw };
 }
 
-/** A value that differs from anything a writer would produce for this field, so
- *  "did the model's value land" is answerable.
- *
- *  ★★★ RELATION A ASSERTS ON THIS VALUE, NEVER ON THE FIELD'S PRESENCE, AND
- *  THAT IS THE PROPERTY THAT KEEPS IT FREE OF AN EXEMPTION LIST.
- *  `localModifiedAt` is on all eight undeclared axes and `outlookEventId` on
- *  six (every entity but stakeholder and resource — `grep -c '"outlookEventId"'
- *  src/app/csv-codecs-core.ts` → 6, and no tool schema declares it); both are
- *  legitimately written by the writer on every call, and neither is EVER
- *  written to the model's value. A presence-based assertion would need all of
- *  them exempted, and an exemption list is exactly how §437's ratchet came to
- *  hide a live undisclosed write.
- *
- *  ★★★ DERIVED FROM THE SEEDED VALUE'S TYPE, NOT A FIXED STRING. A guard
- *  written `typeof v === "number"` refuses a string for the RIGHT reason, so a
- *  string-only probe cannot tell a working guard from a type mismatch and would
- *  report a clean run over a field it never actually reached. Where the seed
- *  carries no value the string is the honest fallback — there is nothing to
- *  derive from.
- *
- *  ★★★ BUT A TRESPASS PROBE IS NEVER A VALID VALUE, AND THAT MAKES A WHOLE
- *  CLASS OF FIELDS INVISIBLE TO THIS RELATION (§441). It asserts the stored
- *  value is not SAME as the probe; so for ANY undeclared field whose sanitizer
- *  rejects or reshapes an arbitrary value, the probe can never be stored as
- *  sent — guard or no guard — and the relation passes over the field GREEN
- *  whatever the guard does. Verified instances, traced from source; this is
- *  AT LEAST these, not an enumeration of the axis:
- *   - `knowledgeLinks` — where seeded (raid, change, milestone, stakeholder)
- *     the probe is `[{ trespass }]`, elsewhere the string;
- *     `sanitizeKnowledgeLinks` returns `[]` for a non-array, drops every
- *     element without a name and url, and mints an id on any it keeps.
- *   - `calendarEvent.exceptions` — unseeded, so the probe is the string;
- *     `sanitizeExceptions` drops a non-array outright. So removing the
- *     `create_calendar_event` guard outright leaves this file green: the other
- *     two undeclared columns are stripped by `createInputWithoutId` anyway.
- *   - `stakeholder.raci` — seeded as an object, and there is no object branch
- *     below, so the probe is the string; `coerceRaciMap` turns it into `{}`.
- *   - `resource.utilizationMode` — seed `"hours"`, so the probe is the string;
- *     `sanitizeUtilizationMode` maps anything but `"hours"` to `"percent"`.
- *   - `resource.utilization` / `resource.absenceOverride` — object seeds, so
- *     the probe is the string; `coercePeriodMap` returns an object, never it.
- *   - `resource.birthday` — the string probe fails `BIRTHDAY_RE` and
- *     `sanitizeBirthday` drops it.
- *   - `resource.active` — seed `false`, so the probe is `true`;
- *     `sanitizeResource` stores the key only when it is `false`.
- *   - `change.decisionDate` — a date seed, but there is no date branch below,
- *     so the probe is the string; `sanitizeIsoDate` rejects it.
- *  Where a guard on those fields is caught at all, something else catches it:
- *  `plan.create-path-guards.test.ts` pins `knowledgeLinks` (raid, change,
- *  milestone), `exceptions` and `resource.active` on create; stakeholder's
- *  create guard CALL is covered there by its `resourceId` pin, and its
- *  `knowledgeLinks` row by `plan.write-path-sweep.test.ts` on update, which
- *  shares the table (measured 2026-09-11: that row admitting everything reds
- *  the write-path sweep's stakeholder case and leaves this file green). `raci`
- *  has no create pin and needs none — `create_stakeholder` writes `raci: {}`
- *  AFTER spreading the guarded input (`use-register-tools.ts`) — and on update
- *  it is `plan.write-path-sweep.test.ts` that drives it. The probes stay as
- *  they are for now; §441 carries the fix. */
-const TRESPASS_STRING = "TRESPASS-offered-surface-sweep";
-
-function trespassProbeFor(current: unknown): unknown {
-  if (typeof current === "boolean") return !current;
-  if (typeof current === "number") return current + 1000;
-  if (Array.isArray(current)) return [{ trespass: "offered-surface-sweep" }];
-  return TRESPASS_STRING;
-}
-
 /** One side of a landing comparison, projected the way the card renders it.
  *
  *  ★★ THE THREE CREATE-ARM COMPARISONS MUST AGREE ON THIS PROJECTION OR THE ARM
@@ -377,67 +303,83 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
   //  watched by a green sweep — because every detector asked only about
   //  editing. This asks about both.
   it("create: the created row carries none of the model's undeclared values", async () => {
-    const findings: string[] = [];
+    const findings: Finding[] = [];
     let probed = 0;
-    const seedRow = (snapshotSeedRow(seedFor(entity)) ?? {}) as Row;
+    let skipped = 0;
+    const control = await createWith(entity, {});
+    const reference: Row = control.row ?? CREATE_BASE[entity];
+    const seedRow = loadedSeedRow(entity);
 
     for (const field of undeclaredColumns(entity)) {
-      // Typed from the SEEDED value where there is one, so a `typeof v ===
-      // "number"` guard is actually reached rather than refusing a string for
-      // the right reason and reading as clean.
-      const probe = trespassProbeFor(seedRow[field]);
+      const subject = `${entity}.${field}`;
+      // ★★★ A PROBE THE COLUMN CAN HOLD, NOT A TRESPASS STRING. The relation
+      //  asks whether the GUARD stops the model's value; a value the sanitizer
+      //  refuses on its own proves nothing either way (§441). `probeFor` admits
+      //  the probe through the create writer's sanitizer first, and a field it
+      //  cannot admit is `unmeasured` — named in the ledger, never judged green.
+      const outcome = probeFor({ entity, arm: "create", field, declared: false, reference, seedRow, compare: sameAt });
+      if (outcome.kind !== "probe") {
+        skipped += 1;
+        findings.push(finding(subject, outcome.kind, outcome.reason));
+        continue;
+      }
+      const probe = outcome.value;
       probed += 1;
       const { row, threw } = await createWith(entity, { [field]: probe });
-      // A loud refusal is agreement: the field did not land, and the writer said
-      // so. Only a SILENT acceptance is a finding.
+      // A loud refusal is agreement: the field did not land, and the writer said so.
       if (threw !== undefined) continue;
       if (!row) {
-        findings.push(`${entity}.${field}: the create stored no row at all — the base payload is not valid`);
+        findings.push(finding(subject, "no-row", "the create stored no row at all — the base payload is not valid"));
         continue;
       }
       if (same(row[field], probe)) {
-        findings.push(`${entity}.${field}: create stored the model's undeclared value ${JSON.stringify(probe)}`);
+        findings.push(finding(subject, "stored", `create stored the model's undeclared value ${JSON.stringify(probe)}`));
       }
     }
 
-    expect(probed, `${entity}: Relation A ran over an empty undeclared axis`).toBe(
+    expect(probed + skipped, `${entity}: Relation A ran over an empty undeclared axis`).toBe(
       AXIS_BASELINE[entity].undeclared,
     );
-    expect(findings, `${findings.length} undeclared create writes`).toEqual([]);
+    expectLedgerAgrees("A", entity, "create", findings);
   });
 
   it("update: an undeclared field does not move", async () => {
     const s = seedFor(entity);
-    const findings: string[] = [];
+    const findings: Finding[] = [];
     let probed = 0;
-
-    const seedRow = (snapshotSeedRow(s) ?? {}) as Row;
+    let skipped = 0;
+    const reference = loadedSeedRow(entity);
 
     for (const field of undeclaredColumns(entity)) {
-      const probe = trespassProbeFor(seedRow[field]);
-      const { before, stored, threw } = await updateWith(entity, field, probe);
+      const subject = `${entity}.${field}`;
+      const outcome = probeFor({ entity, arm: "update", field, declared: false, reference, seedRow: reference, compare: sameAt });
+      if (outcome.kind !== "probe") {
+        skipped += 1;
+        findings.push(finding(subject, outcome.kind, outcome.reason));
+        continue;
+      }
+      const probe = outcome.value;
       probed += 1;
+      const { before, stored, threw } = await updateWith(entity, field, probe);
       if (threw !== undefined) continue;
       // ★★ The comparison is against the PROBE, not against "did the field
       //  change". `localModifiedAt` changes on every single replay — all eight
       //  writers stamp it unconditionally — so a movement test would fire on
-      //  every entity and bury every real finding. Asserting the model's value
-      //  did not land is sound for a writer-stamped field and for a guarded one
-      //  alike.
+      //  every entity and bury every real finding.
       if (same(stored[field], probe)) {
         findings.push(
-          `${entity}.${field}: update stored the model's undeclared value (was ${JSON.stringify(before[field])})`,
+          finding(subject, "stored", `update stored the model's undeclared value (was ${JSON.stringify(before[field])})`),
         );
       }
     }
 
-    expect(probed, `${entity}: Relation A ran over an empty undeclared axis`).toBe(
+    expect(probed + skipped, `${entity}: Relation A ran over an empty undeclared axis`).toBe(
       AXIS_BASELINE[entity].undeclared,
     );
     // ★★ No positive observable of this arm's own: a replay that wrote nothing
     //  passes every line here, and only Relation B's floor 2 — a SIBLING test,
     //  on the same `updateWith` harness — shows that the harness writes at all.
-    expect(findings, `${findings.length} undeclared update writes`).toEqual([]);
+    expectLedgerAgrees("A", entity, "update", findings);
     // Non-vacuity: the seed must actually exist, or every read-back above
     // compared undefined against a string and agreed.
     expect(Object.keys(s.seed).length, `${entity}: the SWEEP fixture seeds nothing`).toBeGreaterThan(0);
@@ -597,8 +539,159 @@ const EXPECTED_FINDINGS: Ledger = {
 /** Relation A's ledger — the same both-directions contract as
  *  `EXPECTED_FINDINGS`, for the undeclared axis. It holds `dead` and
  *  `unmeasured` entries only: a `stored` finding is a live undeclared write,
- *  and is fixed rather than ledgered. Filled by plan Task 5 from a measured run. */
-const EXPECTED_UNDECLARED_FINDINGS: Ledger = {};
+ *  and is fixed rather than ledgered. Filled by plan Task 5 from a measured
+ *  run (2026-09-11) — every entry below is `dead` or `unmeasured`; that run
+ *  found no live undeclared write. */
+const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
+  "task:create": [
+    // §462 — the loaded SWEEP seed and the create-arm control row both leave
+    // these audit/system-only columns blank, so `probeFor` has no non-blank
+    // value on either side to derive a probe from ("nothing to derive a
+    // distinguishable probe from" — the writer's sanitizer is never reached).
+    { subject: "task.completedDate", kind: "dead" },
+    { subject: "task.createdDate", kind: "dead" },
+    { subject: "task.dependencies", kind: "dead" },
+    { subject: "task.healthOverride", kind: "dead" },
+    { subject: "task.jiraIssueType", kind: "dead" },
+    { subject: "task.jiraKey", kind: "dead" },
+    { subject: "task.knowledgeLinks", kind: "dead" },
+    { subject: "task.lastSyncedAt", kind: "dead" },
+    { subject: "task.localModifiedAt", kind: "dead" },
+    { subject: "task.noteLog", kind: "dead" },
+    { subject: "task.originalEstimateMinutes", kind: "dead" },
+    { subject: "task.outlookEventId", kind: "dead" },
+    { subject: "task.remainingEstimateMinutes", kind: "dead" },
+    { subject: "task.resourceId", kind: "dead" },
+    { subject: "task.startDate", kind: "dead" },
+    { subject: "task.timeSpentMinutes", kind: "dead" },
+  ],
+  "task:update": [
+    // §462 — same mechanism as the create arm above: the loaded SWEEP seed
+    // (both reference and seedRow on this arm) leaves these columns blank, so
+    // `probeFor` has nothing non-blank to derive a probe from.
+    { subject: "task.completedDate", kind: "dead" },
+    { subject: "task.createdDate", kind: "dead" },
+    { subject: "task.dependencies", kind: "dead" },
+    { subject: "task.healthOverride", kind: "dead" },
+    { subject: "task.inquiriesSent", kind: "dead" },
+    { subject: "task.jiraIssueType", kind: "dead" },
+    { subject: "task.jiraKey", kind: "dead" },
+    { subject: "task.knowledgeLinks", kind: "dead" },
+    { subject: "task.lastSyncedAt", kind: "dead" },
+    { subject: "task.localModifiedAt", kind: "dead" },
+    { subject: "task.noteLog", kind: "dead" },
+    { subject: "task.originalEstimateMinutes", kind: "dead" },
+    { subject: "task.outlookEventId", kind: "dead" },
+    { subject: "task.remainingEstimateMinutes", kind: "dead" },
+    { subject: "task.resourceId", kind: "dead" },
+    { subject: "task.startDate", kind: "dead" },
+    { subject: "task.timeSpentMinutes", kind: "dead" },
+  ],
+  "raid:create": [
+    // §462 — blank on both the loaded seed and the create control row; same
+    // "nothing to derive a distinguishable probe from" mechanism as task above.
+    { subject: "raid.inquiriesSent", kind: "dead" },
+    { subject: "raid.localModifiedAt", kind: "dead" },
+    { subject: "raid.noteLog", kind: "dead" },
+    { subject: "raid.outlookEventId", kind: "dead" },
+  ],
+  "raid:update": [
+    { subject: "raid.inquiriesSent", kind: "dead" },
+    // §462 — the seeded `knowledgeLinks` carries exactly one element, so the
+    // array probe (drop-one-element) is `[]`; the update writer's sanitizer
+    // (`sanitizeKnowledgeLinks`) reshapes an empty list to `undefined`. A
+    // second seeded link would let the probe drop to a still-non-empty,
+    // still-valid list and make this field measurable — see report.
+    { subject: "raid.knowledgeLinks", kind: "unmeasured" },
+    { subject: "raid.localModifiedAt", kind: "dead" },
+    { subject: "raid.noteLog", kind: "dead" },
+    { subject: "raid.outlookEventId", kind: "dead" },
+  ],
+  "change:create": [
+    { subject: "change.localModifiedAt", kind: "dead" },
+    { subject: "change.noteLog", kind: "dead" },
+    { subject: "change.outlookEventId", kind: "dead" },
+  ],
+  "change:update": [
+    // §462 — same single-element `knowledgeLinks` seed as raid above: the
+    // drop-one-element probe is `[]`, and the update writer's sanitizer
+    // reshapes it to `undefined`.
+    { subject: "change.knowledgeLinks", kind: "unmeasured" },
+    { subject: "change.localModifiedAt", kind: "dead" },
+    { subject: "change.noteLog", kind: "dead" },
+    { subject: "change.outlookEventId", kind: "dead" },
+  ],
+  "milestone:create": [
+    { subject: "milestone.localModifiedAt", kind: "dead" },
+    { subject: "milestone.outlookEventId", kind: "dead" },
+  ],
+  "milestone:update": [
+    // §462 — same single-element `knowledgeLinks` seed as raid/change above.
+    { subject: "milestone.knowledgeLinks", kind: "unmeasured" },
+    { subject: "milestone.localModifiedAt", kind: "dead" },
+    { subject: "milestone.outlookEventId", kind: "dead" },
+  ],
+  "stakeholder:create": [
+    { subject: "stakeholder.localModifiedAt", kind: "dead" },
+  ],
+  "stakeholder:update": [
+    // §462 — same single-element `knowledgeLinks` seed as raid/change/milestone.
+    { subject: "stakeholder.knowledgeLinks", kind: "unmeasured" },
+    { subject: "stakeholder.localModifiedAt", kind: "dead" },
+    // §462 — the derived probe changes the seeded RACI value's own string leaf
+    // ("A" → "A probed"), which is not one of the closed RACI codes
+    // `coerceRaciMap` accepts, so the update writer's sanitizer reshapes it to
+    // `{}`. `probeFor`'s enum branch does not apply here — it only runs for a
+    // DECLARED field's schema enum, and `raci`'s per-key code is not itself a
+    // schema-declared field; a probe holding a genuine RACI letter (e.g. "R")
+    // would land unchanged and make this field measurable — see report.
+    { subject: "stakeholder.raci", kind: "unmeasured" },
+  ],
+  "resource:create": [
+    { subject: "resource.localModifiedAt", kind: "dead" },
+    // §462 — the derived probe increments the seeded period's numeric leaf
+    // past the sanitizer's own bound; `coercePeriodMap`/`intInRange` clamps it
+    // back to 100, so the probe never lands unchanged. A probe within the
+    // valid range but still different from the seed would make this field
+    // measurable — see report.
+    { subject: "resource.utilization", kind: "unmeasured" },
+    // §462 — the derived probe appends " probed" to the seeded string, which
+    // is not one of the two closed `utilizationMode` values ("hours"/
+    // "percent"); `sanitizeUtilizationMode` maps anything else to "percent".
+    // `probeFor`'s enum branch does not apply — this is an undeclared field,
+    // so no schema enum is consulted; the other closed-vocabulary member
+    // would land unchanged and make this field measurable — see report.
+    { subject: "resource.utilizationMode", kind: "unmeasured" },
+  ],
+  "resource:update": [
+    // §462 — the seeded resource's `active` reference is already `false`
+    // (the writer's own present-only-when-false stance, per the removed
+    // `trespassProbeFor` docstring's §441 note), so the only differing probe
+    // is `true`; `sanitizeResource` never stores `true` (an absent key IS
+    // "active"). A seed whose reference is active (so the differing probe is
+    // `false`, which the writer WOULD store) would make this field
+    // measurable — see report.
+    { subject: "resource.active", kind: "unmeasured" },
+    { subject: "resource.localModifiedAt", kind: "dead" },
+    { subject: "resource.utilizationMode", kind: "unmeasured" },
+  ],
+  "absence:create": [
+    { subject: "absence.localModifiedAt", kind: "dead" },
+    { subject: "absence.outlookEventId", kind: "dead" },
+  ],
+  "absence:update": [
+    { subject: "absence.localModifiedAt", kind: "dead" },
+    { subject: "absence.outlookEventId", kind: "dead" },
+  ],
+  "calendarEvent:create": [
+    { subject: "calendarEvent.localModifiedAt", kind: "dead" },
+    { subject: "calendarEvent.outlookEventId", kind: "dead" },
+  ],
+  "calendarEvent:update": [
+    { subject: "calendarEvent.localModifiedAt", kind: "dead" },
+    { subject: "calendarEvent.outlookEventId", kind: "dead" },
+  ],
+};
 
 const LEDGERS = { A: EXPECTED_UNDECLARED_FINDINGS, B: EXPECTED_FINDINGS } as const;
 

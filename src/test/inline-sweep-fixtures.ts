@@ -332,6 +332,16 @@ export function seedGuardedCalendarEvent(over: Partial<CalendarEvent> = {}): Cal
     notes: "Agenda in the shared drive",
     sendInvitations: true,
     recurrence: { freq: "weekly", interval: 2, byDay: ["WE"] },
+    // ★★ TWO exceptions, so the array probe (drop one element) leaves a
+    //  non-empty, still-valid list. Both dates fall on the seeded recurrence's
+    //  Wednesday. Without a seed, Relation A could only send `exceptions` a value
+    //  `sanitizeExceptions` drops for not being an array, whatever the guard
+    //  does (§441). `CREATE_BASE` must NOT carry it: its declared-only floor
+    //  forbids an undeclared key, and the create arm falls back to this seed.
+    exceptions: [
+      { date: "2026-07-22", kind: "skip" },
+      { date: "2026-07-29", kind: "move", toDate: "2026-07-30" },
+    ],
     // ★★ The `linkFields` member, and the clear direction again:
     //  `sanitizeAttendees(v) ?? []` means a refused list stores nothing, which
     //  against an unseeded row is what is already there. Resource #4 is the row
