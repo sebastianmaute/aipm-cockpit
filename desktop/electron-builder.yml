@@ -1,0 +1,108 @@
+appId: io.github.sebastianmaute.aipm-cockpit
+productName: AI PM Cockpit
+# The display name above has spaces; the installer filename deliberately does
+# not, so a download URL never needs percent-encoding around it.
+artifactName: aipm-cockpit-${version}-setup.exe
+directories:
+  output: release
+files:
+  - dist/**
+  - splash.html
+  - package.json
+# The built Next standalone server ships as an unpacked resource, so
+# process.resourcesPath/standalone/server.js resolves at runtime.
+#
+# ★★★ TWO ENTRIES, AND THE SECOND ONE IS NOT REDUNDANT. electron-builder's
+# copy filter (app-builder-lib/out/util/filter.js, createFilter) hard-rejects a
+# path whose relative name is exactly "node_modules":
+#
+#     if (relative === "node_modules") { return false }
+#
+# That runs BEFORE any pattern matching, so the first entry below silently
+# ships the standalone tree WITHOUT its traced dependencies, and adding
+# `filter: ["**/*"]` would not help -- the rejection never consults patterns.
+# The packaged app then installs and launches, shows the splash, and dies with
+# `Cannot find module 'next'`; nothing at build time says a word.
+#
+# Naming the directory as its own `from` sidesteps it: paths are then relative
+# to node_modules itself ("next", "@next/env", ...), so none of them is ever
+# the literal "node_modules" and the filter has nothing to reject. Nested
+# package node_modules are unaffected -- the filter only rejects the ROOT one.
+extraResources:
+  - from: ../.next/standalone
+    to: standalone
+  - from: ../.next/standalone/node_modules
+    to: standalone/node_modules
+win:
+  target: nsis
+  # ★★ Paths here are resolved by app-builder-lib's getResource(), which tries
+  # `resolve(buildResources, path)` FIRST and only then `resolve(projectDir,
+  # path)`. buildResources defaults to `<projectDir>/build`, and projectDir is
+  # `desktop/` because desktop:package passes `--project desktop` -- so `..`
+  # climbs to the repo root and finds public/. Verified by reading
+  # platformPackager.js rather than by guessing; a miss on THIS PATH throws a
+  # named InvalidConfigurationError that quotes both directories it tried, so
+  # a wrong path fails loudly at build time. That is only path resolution --
+  # it says nothing about whether the resolved icon is actually STAMPED into
+  # the exe. With `win.signAndEditExecutable: false` (as this file had it
+  # before), resource editing is skipped entirely and the packaged exe ships
+  # Electron's stock icon with only an info-level log line, never a warning
+  # or failure, even though this path resolves correctly every time. `icon:`
+  # only supplies the RESOURCE. Whether it is ever applied is gated by
+  # `win.signAndEditExecutable` ALONE, which must not be `false` (unset =
+  # default true); `signExecutable` affects signing only. In app-builder-lib
+  # winPackager.js, `signApp` returns before `signAndEditResources` only when
+  # `signAndEditExecutable` is false; it reads `signExecutable` too, but only
+  # to skip its closing walk over files to sign, and `signIf` reads it to
+  # skip signing each file -- neither path touches resources.
+  #
+  # ★ Six sizes up to 256x256 at 32bpp. electron-builder REQUIRES a 256x256
+  # entry; without one it refuses the icon rather than downscaling.
+  icon: ../public/app.ico
+  # No certificate is available, so code SIGNING must stay off. But
+  # `signAndEditExecutable: false` skips BOTH signing AND resource editing --
+  # the step that stamps the icon above plus the VersionInfo strings into
+  # the exe -- which is why every shortcut, the taskbar and the window used
+  # to show Electron's own icon and "Electron" as the product name.
+  # `signExecutable: false` skips signing ALONE and leaves resource editing
+  # ON. What resource editing stamps (winPackager.js `signAndEditResources`):
+  # the icon, FileDescription and ProductName (both = productName above),
+  # CompanyName, LegalCopyright, InternalName, and the file and product
+  # versions.
+  # ★★ CompanyName and the default LegalCopyright both come from
+  # desktop/package.json `author`, not from this file (app-builder-lib
+  # appInfo.js: `companyName` returns `author.name`; `copyright` defaults to
+  # "Copyright © <year> <companyName || productName>" unless a `copyright:`
+  # key is set here, and none is). CompanyName is written
+  # ONLY when an author exists: without one the exe kept Electron's own
+  # "GitHub, Inc." and the copyright named the product (both measured
+  # 2026-09-11), and the build only warned "author is missed in the
+  # package.json". A plain-string author is enough, because the package reader
+  # parses it into `{ name }` (normalizePackageData.js `parsePerson`).
+  #
+  # See the spec's Section 7 security note -- unsigned means SmartScreen
+  # prompts on install, and (once the updater lands) the share ACL is the
+  # only integrity control on updates.
+  signExecutable: false
+nsis:
+  # Per-user install: corporate laptops routinely deny admin rights, and a
+  # machine-wide installer turns "double-click to run" back into a ticket.
+  perMachine: false
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: ../public/app.ico
+  uninstallerIcon: ../public/app.ico
+  # ★★★ The sidebar is 164x314 24-bit BMP and those numbers are NOT advisory:
+  # NSIS blits the bitmap into a fixed-size control on the welcome/finish
+  # pages, so a differently-sized or differently-encoded image is cropped or
+  # rejected rather than scaled. Measured on this file: `BM`, 164x314, 24bpp,
+  # Windows 3.x header. Re-measure after ANY edit to it -- an image editor
+  # saving 32bpp or adding a colour profile changes none of what a filename or
+  # a preview shows you. `.gitattributes` pins *.bmp to -text for the same
+  # reason: one silent CRLF conversion corrupts it with no error anywhere.
+  #
+  # ★ These two only render because `oneClick: false` above makes this an
+  # ASSISTED installer with welcome/finish pages. A one-click installer has
+  # nowhere to put them and would ignore both silently.
+  installerSidebar: ../public/sidebar.bmp
+  uninstallerSidebar: ../public/sidebar.bmp

@@ -8,6 +8,59 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.303.0] - 2026-09-11 "Christie"
+
+### Added
+
+- **A Windows desktop app.** AI PM Cockpit now comes as a Windows installer that
+  installs for your user only — no admin rights, no Node.js, no terminal. The app runs
+  its own server inside the desktop shell, bound to `127.0.0.1:17300` and never to the
+  machine's network address. The port is fixed on purpose: the app's saved data belongs
+  to it, so if another program already holds it the app says so and refuses to start
+  rather than quietly moving somewhere else. Opening it a second time brings the running
+  window to the front; closing the window closes the app. A failed start or a stopped
+  background service is reported in a dialog, with a launch log at
+  `%LOCALAPPDATA%\aipm-cockpit\logs\launch.log`. The Help menu opens the app's own Help
+  view, and **Help → Version** shows the version and where that log file lives.
+- **It looks like itself.** The installer, shortcuts, taskbar and window say
+  "AI PM Cockpit" and carry the app's icon instead of Electron's; the exe's version
+  details name its author, Sebastian Maute, rather than "GitHub, Inc."; the installer has
+  a branded sidebar and its own icons; and an animated splash with the app banner shows
+  while it starts. The installable web app's manifest now uses the same name and logo.
+- **Releases from a tag.** Pushing a `v<version>` tag runs a pipeline that first checks
+  the tag names exactly the app's version (`npm run tag:check`), then builds the Windows
+  installer as an artifact that never expires, then creates a GitLab Release whose asset
+  link points at it (`npm run release:publish`). The step-by-step procedure, and how to
+  recover a red tag pipeline, is in `docs/RUNBOOK.md` under "Publishing a desktop
+  release"; `docs/desktop-rollout.md` tells colleagues where to download the installer
+  and what to expect on a first run.
+- `npm run e2e:desktop` smokes the packaged app on your own machine: the window is
+  styled, it reports this checkout's version, and its server answers on loopback while
+  refusing on the machine's LAN address. It runs in no CI job.
+
+### Changed
+
+- **The README is now an entry point**: why the cockpit exists, a one-minute tour, how
+  to get started (the desktop install first, then running from source) and an index of
+  the documentation. The detail it used to carry lives in files of its own —
+  `docs/storage.md`, `docs/integrations.md`, `docs/automation.md`, `docs/ai-cost.md` and
+  `docs/security.md` (environment variables and the security model, now in one place) —
+  and the sample-workspace section moved to `CONTRIBUTING.md`.
+- `npm run version:sync` and the blocking `version-sync-check` now also cover
+  `desktop/package.json` and both version entries in `desktop/package-lock.json`, so the
+  installer's version cannot drift from the app's without failing CI.
+
+### Known limitations
+
+- **No tag pipeline has run yet.** Neither the CI installer build nor a published
+  Release has been observed, so treat the release procedure as untested until the first
+  tag goes through.
+- **The installer is not code-signed**, so Windows shows "Windows protected your PC" on
+  install; choose **More info → Run anyway**.
+- **The desktop app starts empty** even if you have used the app in your browser. It
+  keeps its own data store; nothing is lost, and the browser version keeps its copy.
+- The desktop menu labels are English-only.
+
 ## [0.302.0] - 2026-09-10 "Blaylock"
 
 ### Changed

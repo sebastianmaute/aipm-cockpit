@@ -58,9 +58,15 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run followups:index:check` | Fail if docs/open-followups.md's index table disagrees with its `## <n>.` headings — a heading with no row, a row with no heading, or a §number used twice on either axis (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all) |
 | `npm run rownames:check` | Enumerate where a per-row control's accessible name is composed and which surfaces a unit test asserts are distinct (WCAG 2.4.6) — REPORTING ONLY, never blocking, and a COVERED line is not evidence the test is non-vacuous |
 | `npm run ooxml:manifest` | Regenerate the ordered OOXML part-manifest baseline (docs/baselines/ooxml-parts.json) — deliberate act only, never run to make a red pipeline pass |
-| `npm run version:check` | Fail if a version restatement (package.json, lockfile, README badge, codemap headers) has drifted from src/app/version.ts |
+| `npm run version:check` | Fail if a version restatement (every file in SATELLITES, scripts/version-sync-lib.mjs) has drifted from src/app/version.ts |
 | `npm run version:sync` | Propagate src/app/version.ts's version and codename to every restatement |
 | `npm run ai:eval` | AI prompt-quality harness (slice H). DRY RUN BY DEFAULT — assembles every arm, runs pre-flight and spends nothing. A live run needs AI_EVAL_SPEND=1 plus ANTHROPIC_API_KEY and refuses outright under CI. Never a pipeline gate: every live run costs real tokens. |
+| `npm run desktop:copy-static` | Copy .next/static and public/ into .next/standalone (next build --output standalone does not copy either) and verify a CSS bundle is present — omitting this ships an Electron package that boots and renders completely unstyled with no build-time error. Requires a prior `NEXT_STANDALONE=1 npm run build`. |
+| `npm run desktop:build` | Build the Electron desktop shell: a standalone Next build (NEXT_STANDALONE=1), then desktop:copy-static, then compile desktop/ TypeScript to desktop/dist/. Run before desktop:package. |
+| `npm run desktop:package` | Package the built Electron shell into a Windows NSIS installer via electron-builder, reading desktop/electron-builder.yml. Run desktop:build first. |
+| `npm run tag:check` | Assert the current tag names exactly src/app/version.ts's APP_VERSION. Reads CI_COMMIT_TAG (or argv[2] locally). Exit 1 is DRIFT — the tag and version.ts disagree, so an installer would misreport its own version; exit 2 means the gate could not scan at all (no tag, or version.ts's shape moved), which demands the opposite response. BLOCKING on tag pipelines. |
+| `npm run release:publish` | Create the GitLab Release for the current tag and attach an asset link to the installer built by desktop-package-tag. Needs CI_API_V4_URL, CI_PROJECT_ID, CI_PROJECT_URL, CI_COMMIT_TAG and CI_JOB_TOKEN. Outside --dry-run, exit 0 means a confirmed Release and nothing else: a 201 echoing this tag and link, or a 409 whose existing Release already carries the link. Exit 1 is a 4xx refusal (a human must act), or a 409 whose Release lacks the link. Exit 2 is everything else, all safe to retry: missing env, an unknown argument, network, the 30 s timeout, 408/429, 5xx, a redirect, an unconfirmable 2xx. `--dry-run` validates the same env except the token, prints the payload and whether a token is present, and sends nothing. Uses node's fetch deliberately: no release-cli image, no curl. |
+| `npm run e2e:desktop` | Smoke the PACKAGED desktop app (e2e/desktop-smoke.spec.ts): launches desktop/release/win-unpacked/, asserts the window is styled (a missing .next/static ships an app that boots and serves completely unstyled) and reports this checkout's version, and asserts the server answers on loopback while REFUSING on the machine's LAN address. Needs a prior `npm run desktop:package`; skips with a named message otherwise. Runs in NO CI job, and PLAYWRIGHT_NO_WEBSERVER=1 keeps it from booting a Next dev server it never uses |
 <!-- END AUTO-GENERATED -->
 
 There is no separate `tsc` script — `next build` runs the TypeScript check
@@ -103,6 +109,16 @@ docs/CODEMAPS/            — per-layer architecture notes (regenerated, not han
 
 See [CODEMAPS/architecture.md](CODEMAPS/architecture.md) for the data-flow
 diagram and service boundaries.
+
+## Sample Workspace
+
+| File | Description |
+|------|-------------|
+| `sample-workspace-small.json` | Hand-curated demo workspace (master; tasks, RAID, milestones, stakeholders + RACI, budgets, resources, calendar events, a steering committee, dated note logs, a project document with one stored version, and a few demo document links). The source of truth. Descriptions are a deliberate **mix** of formatted HTML and legacy plain text — both shapes are valid at rest, so the sample covers the read-time upgrade path rather than pretending only one exists. |
+| `sample-workspace-big.json` | Scaled demo dataset (3× the small content entities), generated via the pure `scaleWorkspace` helper — for testing larger workspaces. |
+| `sample-workspace-huge.json` | Scaled demo dataset (10× the small content entities), same generator. |
+
+Regenerate the `-big`/`-huge` tiers with `npx vite-node scripts/generate-sample-workspace.ts` after editing the small master.
 
 ## Conventions
 
@@ -320,12 +336,16 @@ Then propagate the version everywhere else it is written down — run
 `version.ts`. **`npm run version:check` compares all of them to `APP_VERSION`,
 and the `version-sync-check` job is BLOCKING**, so drift now fails the pipeline
 instead of accumulating silently. Hand-edit only if the gate reports a shape it
-cannot anchor on — and fix the pattern in that case, never the file:
+cannot anchor on — and fix the pattern in that case, never the file. The table
+mirrors `SATELLITES` in `scripts/version-sync-lib.mjs`; where the two disagree the
+lib is right (`grep -n 'file: "' scripts/version-sync-lib.mjs` lists its files):
 
 | place | what to change |
 |---|---|
 | `package.json` | `version` |
+| `desktop/package.json` | `version` |
 | `package-lock.json` | `version` **twice** — the root one and the `packages[""]` one |
+| `desktop/package-lock.json` | `version` **twice** — the root one and the `packages[""]` one |
 | `README.md` | the shields badge — version **and** codename |
 | `docs/CODEMAPS/*.md` (5 files) | the `<!-- Generated: … \| App <version> "<codename>" … -->` header, including the regen date and any file counts that moved |
 

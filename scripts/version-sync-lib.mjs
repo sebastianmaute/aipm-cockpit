@@ -1,7 +1,9 @@
 // scripts/version-sync-lib.mjs — shared layer for the version-sync gate.
 //
 // WHY: src/app/version.ts is the source of truth for the app version and
-// codename, and six other places restate one or both. Nothing compared them
+// codename, and every file in SATELLITES below restates one or both (no count
+// here on purpose: one went stale when the desktop/ satellites landed, so read
+// the list itself). Nothing compared them
 // until this gate: `grep -rn "APP_VERSION" scripts/ .gitlab-ci.yml` returned
 // nothing. They have drifted before and silently — package.json six releases
 // behind, package-lock.json eleven, while version.ts and CHANGELOG.md were
@@ -69,8 +71,27 @@ export const SATELLITES = [
     ],
   },
   {
+    file: "desktop/package.json",
+    label: "desktop/package.json version",
+    patterns: [
+      { key: "version", kind: "version", re: /("name": "[^"]+",\r?\n  "version": ")([^"]+)(")/ },
+    ],
+  },
+  {
     file: "package-lock.json",
     label: "package-lock.json root + packages[''] version",
+    patterns: [
+      { key: "version", kind: "version", re: /(^\{\r?\n  "name": "[^"]+",\r?\n  "version": ")([^"]+)(")/ },
+      {
+        key: "version2",
+        kind: "version",
+        re: /(    "": \{\r?\n      "name": "[^"]+",\r?\n      "version": ")([^"]+)(")/,
+      },
+    ],
+  },
+  {
+    file: "desktop/package-lock.json",
+    label: "desktop/package-lock.json root + packages[''] version",
     patterns: [
       { key: "version", kind: "version", re: /(^\{\r?\n  "name": "[^"]+",\r?\n  "version": ")([^"]+)(")/ },
       {

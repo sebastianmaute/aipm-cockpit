@@ -361,6 +361,24 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
                             # via scripts/stop-dev.mjs — port-scoped (netstat/taskkill on win, lsof/kill on
                             # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a
                             # scriptsDescriptions entry or docs:scripts:check fails.
+                            # ★★★ WHICH docs it regenerates is DISCOVERED, NEVER NAMED, so no grep over the
+                            # script can enumerate them: `findDocs` walks top-level `*.md` plus
+                            # `docs/**/*.md`, and `syncFile` returns "no-marker" for any file lacking the
+                            # pair `<!-- AUTO-GENERATED from package.json scripts -->` … `<!-- END
+                            # AUTO-GENERATED -->`. CONSEQUENCE: `grep README scripts/sync-script-docs.mjs`
+                            # returns nothing whether README participates or not — it CANNOT answer the
+                            # question, and on 2026-09-10 an empty result was read as proof that it does
+                            # not, in a plan that then prescribed that grep as the verification. An empty
+                            # grep confirms whatever you already believed. Enumerate the participants
+                            # instead, which is one command:
+                            #   grep -rn "AUTO-GENERATED from package.json scripts" --include=*.md .
+                            # ★★ It returns CONTRIBUTING.md ALONE today, so this is a TWO-file change
+                            # (package.json + CONTRIBUTING.md) — read that off the grep, never off this
+                            # line. ★ README carried the pair from the initial commit until `be21ebf3`
+                            # curated its table down to six hand-picked commands; a standing note calling
+                            # it a three-file change was true when written and was falsified by that
+                            # commit. Re-adding the markers to README would silently put it back under the
+                            # generator and replace the curated list with the full one.
 npm run followups:check     # REPORT, not a gate — it runs in NO CI job and exits 0 even with missing
                             # symbols (measured: exit 0 while printing SYMBOL_MISSING=10). Classifies every
                             # `docs/open-followups.md` entry by whether the names/paths/line numbers it
@@ -750,9 +768,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   in Commands carries the bisect] · **agents-symbol-check** BLOCKING
   [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] ·
   **version-sync-check** BLOCKING [`npm run version:check` — `src/app/version.ts` is the source of
-  truth for the version and codename; `package.json`, BOTH `package-lock.json` entries, the README
-  badge and every `docs/CODEMAPS` header restate one or both, and nothing compared them before this
-  job. Propagate with `npm run version:sync` rather than hand-editing six places. ★★ TWO FAILURE
+  truth for the version and codename; every file the Releasing bullet below points at restates one or
+  both, and nothing compared them before this job. Propagate with `npm run version:sync` rather than
+  hand-editing them. ★★ TWO FAILURE
   MODES, TWO EXIT CODES: **1 is DRIFT** (a satellite disagrees with `version.ts` — fix with
   `version:sync`), **2 is the gate unable to do its job** (a missing file, a moved regex shape, an
   empty codemap glob — a gate that scans nothing passes everything). Both were 1 until 0.260.x, so a
@@ -789,13 +807,21 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   empty. ★★★ It also reports a §number used TWICE on either axis, which the set difference it is
   built on is structurally BLIND to: paste one index row and both differences come back empty while
   the two counts disagree. ★ DO NOT satisfy a red run by renumbering an entry — a follow-up number
-  is a permanent handle other docs cite] · **unit** [coverage floors: global lines 92/funcs 91/branch
+  is a permanent handle other docs cite] ·
+  **tag-version-check** BLOCKING [tag pipelines only, `needs: []` — `npm run tag:check` asserts the tag
+  is `v` + `APP_VERSION` (`scripts/check-tag-version.mjs` over `scripts/tag-version-lib.mjs`). ★★ SAME
+  TWO-EXIT-CODE SPLIT: **1 is DRIFT** (the installer would misreport its own version), **2 is the gate
+  unable to scan** (an empty tag — a rules bug — or `version.ts`'s shape moved). `desktop-package-tag`
+  lists it in its own `needs:`, so the wine build waits for it rather than racing it (that a FAILED
+  guard then SKIPS the build is expected `needs:` behaviour, but no GitLab doc checked here states it
+  and no tag pipeline has shown it; `publish-release` is held back either way, by stage order)] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
   unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
   false}]` so it cannot run concurrently with **unit-tests** — two full vitest runs on one runner is the
   machine-saturation condition behind the load-sensitive flakes; guards against intra-file test-order
-  dependence, open-followups §75]) → build → e2e [**e2e** · **prod-smoke** BLOCKING
-  [`npm run e2e:smoke:prod` — `next start` + the smoke driver, consuming build's `.next/` artifact.
+  dependence, open-followups §75]) → build → e2e [**e2e** (MR and default-branch pipelines only — its
+  two `rules:` match nothing on a tag) · **prod-smoke** BLOCKING (the same two rules, so not on a tag
+  either) [`npm run e2e:smoke:prod` — `next start` + the smoke driver, consuming build's `.next/` artifact.
   ★★ THE ONLY GATE THAT SEES THE PROD CSP, and the reason is per-suite. Dev grants `'unsafe-inline'` on
   `style-src-elem` while prod is nonce-only (`src/proxy.ts`), so anything meeting the DEV policy is blind
   to this class. The unit suite never starts a server at all. **e2e** does, but `playwright.config.ts`
@@ -805,21 +831,33 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   same blind spot, so fixing one would not have covered the other. That is how §54 stayed invisible for
   months. ★ **dast-zap** DOES serve a prod build (`Dockerfile.dast` ends `CMD ["npm","run","start"]`), so
   it is the one other suite that meets this policy — but it does not gate MR or default-branch pipelines,
-  where its rule is `when: manual` WITH `allow_failure: true`. ★★ It is NOT unconditionally non-blocking,
+  where its rule is `when: manual` WITH `allow_failure: true` — tag pipelines match that rule too, and
+  without the key a blocking manual job holds every later stage, so `publish-release` would never run.
+  ★★ It is NOT unconditionally non-blocking,
   and an earlier revision of this bullet said it "cannot fail a pipeline", which is false in the very mode
   the line names: `allow_failure: true` is indented under the `- when: manual` rule ONLY, there is no
   job-level one, and a `rules:` entry that omits it defaults to FALSE — so on a `schedule`
   pipeline the first rule matches and dast-zap runs BLOCKING. Its ZAP findings still cannot fail it
   (`zap-baseline.py … -I … || true`), but the unguarded `docker build` / `docker network create dastnet`
   / `docker run` steps can, and `network create` fails outright on a re-run where the network survives.
-  Reproduce with `sed -n '/^dast-zap:/,/^  image:/p' .gitlab-ci.yml`] · **dast-zap** weekly/manual].
+  Reproduce with `sed -n '/^dast-zap:/,/^  image:/p' .gitlab-ci.yml`] · **desktop-package** (manual,
+  non-tag, `allow_failure: true`, artifact 1 week) · **desktop-package-tag** (tag pipelines, **BLOCKING**,
+  artifact `expire_in: never`) · **dast-zap** weekly/manual] → release [**publish-release** BLOCKING, tag
+  pipelines only — `npm run release:publish` (`scripts/publish-release.mjs` over
+  `scripts/release-publish-lib.mjs`) creates the GitLab Release with a PER-TAG artifact link. ★★ NO
+  `needs:`, on purpose — stage order is what holds it behind every earlier gate; the YAML comment says
+  why. ★★★ That URL embeds the producing job's name (`ARTIFACT_JOB`) and the installer's path, so
+  renaming `desktop-package-tag` or changing electron-builder's `artifactName` alone would 404 the next
+  Release's download while the build stays green. `release-publish-lib.test.mjs` reads `.gitlab-ci.yml`
+  and `desktop/electron-builder.yml` as text and fails on either drift, and on the job's artifact
+  `paths:` no longer covering the installer].
   All quality gates are ratchets. ★★ The
   `quality-gate-bypass` escape hatch is NOT uniform — reproduce with
   `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and
   **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
   in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
   `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `version-sync-check`,
-  `doc-claims-check`, `followups-status-check`, `followups-index-check`, `unit-tests`,
+  `doc-claims-check`, `followups-status-check`, `followups-index-check`, `tag-version-check`, `unit-tests`,
   `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
   `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
   sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a
@@ -855,14 +893,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   New CI gate → also update this line.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
   `CHANGELOG.md` entry, append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE
-  strings). ★★ FIVE MORE PLACES CARRY THE VERSION, AND `npm run version:check` NOW GATES THEM:
-  `package.json` `version`, `package-lock.json` (TWO occurrences — the root `version` and the
-  `packages[""]` one), the README shields badge (version **and** codename), and the
-  `<!-- Generated: … | App <version> "<codename>" … -->` header on all five `docs/CODEMAPS/*.md`.
+  strings). ★★ EVERY OTHER COPY OF THE VERSION IS GATED BY `npm run version:check`, and the list is
+  `SATELLITES` in `scripts/version-sync-lib.mjs` — not this line, which said "FIVE MORE PLACES" and
+  missed `desktop/package.json` + `desktop/package-lock.json`. Read it with
+  `grep -n 'file: "' scripts/version-sync-lib.mjs` (one line per file or glob; each lockfile carries
+  TWO occurrences); CONTRIBUTING.md's Versioning table says what changes in each.
   Verified 2026-07-30: `package.json` had been stuck at 0.203.0 for six releases, `package-lock.json`
   at 0.199.0 for eleven, and the README badge + codemap headers at 0.203.0 — while `version.ts` and
   `CHANGELOG.md` were correct.
-  Propagate them with `npm run version:sync` rather than editing six places by hand — the
+  Propagate them with `npm run version:sync` rather than editing each by hand — the
   `version-sync-check` CI job is BLOCKING, so drift now fails the pipeline instead of accumulating.
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend. `calendarEvents`
