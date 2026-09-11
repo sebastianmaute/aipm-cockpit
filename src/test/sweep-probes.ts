@@ -195,11 +195,20 @@ export function admitProbe(
  *  judged against, so a probe can no longer be derived against one row and
  *  judged against another (§459's `absence.startDate`, §443's `startTime`).
  *
- *  Source: a declared `enum` member that differs from the reference is
- *  EXCLUSIVE of everything else — an enum field only accepts its declared
- *  members, so a value built by `changedInKind` or drawn from the seed could
- *  land outside that closed vocabulary and be refused for the wrong reason
- *  (an out-of-vocabulary value, not a same-vocabulary alternative). When the
+ *  Source: a declared `enum` is EXCLUSIVE of everything else — an enum field
+ *  only accepts its declared members, so a value built by `changedInKind` or
+ *  drawn from the seed could land outside that closed vocabulary and be
+ *  refused for the wrong reason (an out-of-vocabulary value, not a
+ *  same-vocabulary alternative). Within the enum, the FIRST member that
+ *  DIFFERS from the reference is not necessarily one the writer will hold: a
+ *  declared enum can be wider than what one row accepts — `raid.status`'s
+ *  schema enum is the union of all four RAID categories' vocabularies, but
+ *  `sanitizeRaidItem` accepts only the row's own category's subset and
+ *  reshapes anything else. So the differing members are walked IN DECLARED
+ *  ORDER and the first one `admitProbe` actually holds is taken; if none of
+ *  them is held, the field is `unmeasured` with the FIRST differing member's
+ *  refusal (the one derivation would have picked without this walk, so the
+ *  reported reason matches what a reader would reproduce by hand). When the
  *  reference already equals every member, the field is correctly `dead` — a
  *  state that needs a single-member (or all-duplicate-member) enum and is
  *  unreachable today: `sweep-probes.test.ts`'s "has no declared enum with
@@ -232,16 +241,26 @@ export function probeFor(args: {
   const ref = reference[field];
   const eq = (a: unknown, b: unknown) => compare(a, b, reference);
 
-  let candidate: unknown;
   const members = declared ? schemaProperty(entity, arm, field).enum : undefined;
   if (members && members.length > 0) {
-    candidate = members.find((m) => !eq(m, ref));
-  } else {
-    if (!isBlank(ref)) candidate = changedInKind(ref);
-    const seeded = seedRow[field];
-    if (candidate === undefined && !isBlank(seeded)) {
-      candidate = eq(seeded, ref) ? changedInKind(seeded) : seeded;
+    const differing = members.filter((m) => !eq(m, ref));
+    if (differing.length === 0) {
+      return { kind: "dead", reason: "nothing to derive a distinguishable probe from" };
     }
+    let firstRefusal: string | undefined;
+    for (const member of differing) {
+      const refusal = admitProbe(entity, arm, field, reference, member, compare);
+      if (refusal === undefined) return { kind: "probe", value: member };
+      firstRefusal ??= refusal;
+    }
+    return { kind: "unmeasured", reason: firstRefusal! };
+  }
+
+  let candidate: unknown;
+  if (!isBlank(ref)) candidate = changedInKind(ref);
+  const seeded = seedRow[field];
+  if (candidate === undefined && !isBlank(seeded)) {
+    candidate = eq(seeded, ref) ? changedInKind(seeded) : seeded;
   }
 
   if (candidate === undefined) return { kind: "dead", reason: "nothing to derive a distinguishable probe from" };

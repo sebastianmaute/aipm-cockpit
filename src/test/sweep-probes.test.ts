@@ -216,4 +216,23 @@ describe("probeFor", () => {
     // 2026-06-02 + 1 day is later than the end date, so `sanitizeAbsence` swaps the pair.
     expect(outcome.kind).toBe("unmeasured");
   });
+
+  // The declared `status` enum is the UNION of all four RAID categories'
+  // vocabularies (`ALL_RAID_STATUSES`, chat-tool-defs.ts), but `sanitizeRaidItem`
+  // (sanitize-records.ts) accepts only the row's OWN category's subset
+  // (`statusSetForCategory`) and falls back to that subset's first member on a
+  // mismatch. The union's first member, "Open", is a RISK status — refused for
+  // an Assumption row. A derivation that stopped at the first DIFFERING member
+  // would land on "Open", which the writer reshapes to "Pending"; walking past
+  // it to the next differing member the writer actually admits ("Pending"
+  // itself, the first member of `ASSUMPTION_STATUSES`) keeps the probe live.
+  it("walks past an enum member the writer refuses to the next differing one it admits", () => {
+    const outcome = probeFor({
+      entity: "raid", arm: "update", field: "status", declared: true,
+      reference: { id: 10, category: "A", title: "R", status: "Validated" },
+      seedRow: { id: 10, category: "A", title: "R", status: "Validated" },
+      compare: sameAt,
+    });
+    expect(outcome).toEqual({ kind: "probe", value: "Pending" });
+  });
 });
