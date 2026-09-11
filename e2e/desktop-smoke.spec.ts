@@ -354,6 +354,8 @@ const RESOURCE_EDITING_HINT =
 
 type ExeIdentity = {
   productName: string | null;
+  companyName: string | null;
+  legalCopyright: string | null;
   packagedIconHash: string;
   appIcoIconHash: string;
   stockIconHash: string;
@@ -362,15 +364,41 @@ type ExeIdentity = {
 function parseExeIdentity(stdout: string): ExeIdentity {
   const parsed: unknown = JSON.parse(stdout);
   const record = (parsed ?? {}) as Record<string, unknown>;
+  const strings = ["productName", "companyName", "legalCopyright"] as const;
   const hashes = ["packagedIconHash", "appIcoIconHash", "stockIconHash"] as const;
-  const productName = record.productName;
   if (
-    (productName !== null && typeof productName !== "string") ||
+    strings.some((key) => record[key] !== null && typeof record[key] !== "string") ||
     hashes.some((key) => typeof record[key] !== "string")
   ) {
     throw new Error(`Unexpected identity-probe output: ${stdout}`);
   }
   return parsed as ExeIdentity;
+}
+
+const DESKTOP_PACKAGE_JSON = join(__dirname, "..", "desktop", "package.json");
+
+// The author NAME exactly as electron-builder derives it, since that is what
+// it stamps as CompanyName: app-builder-lib appInfo.js `companyName` returns
+// `author.name`, and normalizePackageData.js `parsePerson` first turns a
+// string author "Name <email> (url)" into `{ name }` -- the text before the
+// first `<` or `(`, trimmed. A hardcoded name here would go stale on the
+// first edit to package.json and blame the build for it.
+function readAuthorName(pkgJson: string): string {
+  const author: unknown = (JSON.parse(pkgJson) as { author?: unknown }).author;
+  let name = "";
+  if (typeof author === "string") {
+    name = /^([^(<]+)/.exec(author)?.[1] ?? "";
+  } else if (typeof author === "object" && author !== null) {
+    const field = (author as { name?: unknown }).name;
+    name = typeof field === "string" ? field : "";
+  }
+  if (name.trim() === "") {
+    throw new Error(
+      `No \`author\` name in ${DESKTOP_PACKAGE_JSON} — without one electron-builder ` +
+        `writes no CompanyName and the exe keeps Electron's "GitHub, Inc.".`,
+    );
+  }
+  return name.trim();
 }
 
 // ★★★ REGRESSION PIN for the resource-editing fix in
@@ -379,10 +407,13 @@ function parseExeIdentity(stdout: string): ExeIdentity {
 // Electron's own icon and ProductName ('Electron') -- electron-builder says
 // so only in an info-level log line, never a warning or failure, and nothing
 // else in this file would have caught it, since the boot test asserts
-// CSS/version-string, never the exe's own binary metadata. (CompanyName is
-// deliberately NOT asserted: it stays Electron's "GitHub, Inc." even WITH
-// resource editing on, because electron-builder writes it only from a
-// package.json `author` and desktop/package.json has none.)
+// CSS/version-string, never the exe's own binary metadata.
+//
+// ★★ CompanyName and LegalCopyright are pinned to desktop/package.json's
+// `author`, because that is their ONLY source: with resource editing on but no
+// author, CompanyName stayed Electron's "GitHub, Inc." (measured 2026-09-11) --
+// a second way to ship Electron's identity that the ProductName and icon pins
+// cannot see.
 //
 // ★★ OUTSIDE the serial describe on purpose. A failure in a serial test skips
 // every later test in its group, so inside it a broken boot would have hidden
@@ -413,6 +444,7 @@ test("packaged exe carries the app's product identity and icon, not Electron's",
     "electron.exe",
   );
   const appIco = join(__dirname, "..", "public", "app.ico");
+  const authorName = readAuthorName(readFileSync(DESKTOP_PACKAGE_JSON, "utf8"));
 
   // ★★ THROW, never skip: without the stock exe the "not Electron's icon"
   // assertion has nothing to compare against, and a skip would report success.
@@ -440,9 +472,16 @@ test("packaged exe carries the app's product identity and icon, not Electron's",
   // ProductName writes NO line and would shift every value after it into the
   // wrong slot. Single-quoted literals for the paths: '' escapes a literal
   // single quote, which a Windows path can contain (C:\Users\o'brien).
+  //
+  // ★ BOM-less UTF-8 console output, because Windows PowerShell 5.1 otherwise
+  // writes stdout in the console code page: measured 2026-09-11, the "©" in
+  // LegalCopyright reached Node as U+FFFD by default and as U+00A9 with this
+  // line, and the output still began with "{" (no BOM for JSON.parse to trip
+  // on). An author name with non-ASCII letters would be mangled the same way.
   const psEscape = (path: string): string => path.replace(/'/g, "''");
   const script = [
     "$ErrorActionPreference = 'Stop'",
+    "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false",
     "Add-Type -AssemblyName System.Drawing",
     "function IconHash($path) {",
     "  $bmp = ([System.Drawing.Icon]::ExtractAssociatedIcon($path)).ToBitmap()",
@@ -454,8 +493,11 @@ test("packaged exe carries the app's product identity and icon, not Electron's",
     `$packaged = '${psEscape(PACKAGED_EXE)}'`,
     `$stock = '${psEscape(stockElectronExe)}'`,
     `$appIco = '${psEscape(appIco)}'`,
+    "$versionInfo = (Get-Item -LiteralPath $packaged).VersionInfo",
     "[pscustomobject]@{",
-    "  productName = (Get-Item -LiteralPath $packaged).VersionInfo.ProductName",
+    "  productName = $versionInfo.ProductName",
+    "  companyName = $versionInfo.CompanyName",
+    "  legalCopyright = $versionInfo.LegalCopyright",
     "  packagedIconHash = IconHash $packaged",
     "  appIcoIconHash = IconHash $appIco",
     "  stockIconHash = IconHash $stock",
@@ -490,6 +532,17 @@ test("packaged exe carries the app's product identity and icon, not Electron's",
     `packaged exe's VersionInfo ProductName should be "${PRODUCT_NAME}" ` +
       `(electron-builder.yml productName), not Electron's default -- ${RESOURCE_EDITING_HINT}`,
   ).toBe(PRODUCT_NAME);
+  expect(
+    identity.companyName,
+    `packaged exe's VersionInfo CompanyName should be "${authorName}" ` +
+      `(desktop/package.json author) -- electron-builder writes CompanyName only ` +
+      `from \`author\`, so "GitHub, Inc." means the exe predates it; repackage`,
+  ).toBe(authorName);
+  expect(
+    identity.legalCopyright,
+    `packaged exe's LegalCopyright should name "${authorName}" ` +
+      `(electron-builder's default copyright is "Copyright © <year> <author>")`,
+  ).toContain(authorName);
   expect(
     identity.packagedIconHash,
     `packaged exe's icon is stock Electron's -- resource editing was skipped; ` +
