@@ -35,10 +35,10 @@ import {
   ENTITIES,
   PERSISTED_COLUMNS,
   requiredForCreate,
-  schemaProperty,
   SYNTHETIC_INPUTS,
   undeclaredColumns,
 } from "../../test/offered-surface-axis";
+import { type Arm, type Compare, probeFor, type Row } from "../../test/sweep-probes";
 import { entityToken } from "../ai-entity-token";
 import { TOKEN_ROW_SOURCE } from "../chat-proposal-apply";
 import { runTool } from "../chat-tools";
@@ -125,24 +125,24 @@ describe("the offered-surface axis", () => {
   //   This names the typo instead. `subject` is a plain string, so tsc checks
   //   neither half.
   it("every expected-findings ledger entry names a real entity, arm, subject and kind", () => {
-    const stray = Object.entries(EXPECTED_FINDINGS).flatMap(([key, entries]) => {
-      const [entity, arm, ...rest] = key.split(":");
-      if (rest.length > 0 || !ENTITIES.some((e) => e === entity) || !(arm === "create" || arm === "update")) {
-        return [`${key} (no such entity:arm)`];
-      }
-      return (entries ?? [])
-        .filter(
-          (f) =>
-            !(f.subject === entity || f.subject.startsWith(`${entity}.`)) ||
-            !FINDING_KINDS.some((k) => k === f.kind),
-        )
-        .map((f) => `${key} → ${f.subject}:${f.kind}`);
-    });
+    const stray = (["A", "B"] as const).flatMap((relation) =>
+      Object.entries(LEDGERS[relation]).flatMap(([key, entries]) => {
+        const [entity, arm, ...rest] = key.split(":");
+        if (rest.length > 0 || !ENTITIES.some((e) => e === entity) || !(arm === "create" || arm === "update")) {
+          return [`${relation} ${key} (no such entity:arm)`];
+        }
+        return (entries ?? [])
+          .filter(
+            (f) =>
+              !(f.subject === entity || f.subject.startsWith(`${entity}.`)) ||
+              !FINDING_KINDS.some((k) => k === f.kind),
+          )
+          .map((f) => `${relation} ${key} → ${f.subject}:${f.kind}`);
+      }),
+    );
     expect(stray, `ledger entries naming no real entity:arm, subject or kind: ${stray.join(", ")}`).toEqual([]);
   });
 });
-
-type Row = Record<string, unknown>;
 
 const SEED_BY_ENTITY = new Map<InlineEntity, SweepEntity>(SWEEP.map((s) => [s.entity, s]));
 
@@ -162,6 +162,26 @@ function snapshotSeedRow(s: SweepEntity): Row | undefined {
   const wsKey = INLINE_DESCRIPTORS[s.entity].wsKey as WsKey;
   const rows = (s.seed as Record<string, ReadonlyArray<Row>>)[wsKey];
   return rows?.find((r) => r.id === s.id);
+}
+
+/** The seeded row as the PROVIDER holds it after load — the reference both
+ *  update arms derive against and judge against, and the seed both create arms
+ *  fall back to. ★★ Never the fixture literal: the provider's load path can
+ *  reshape a seeded value, and a probe derived from the literal would then be
+ *  judged against a row the provider never held. */
+function loadedSeedRow(entity: InlineEntity): Row {
+  const s = seedFor(entity);
+  const { result } = renderHook(() => useWorkspace(), { wrapper: dispatcherWrapperWith(s.seed) });
+  const wsKey = INLINE_DESCRIPTORS[entity].wsKey as WsKey;
+  const row = (snapshot(result.current)[wsKey] as ReadonlyArray<Row> | undefined)?.find((r) => r.id === s.id);
+  if (!row) throw new Error(`fixture did not seed ${wsKey} #${s.id}`);
+  return row;
+}
+
+/** Relation B's comparison: through the card's own normaliser, so a correct
+ *  write of a normalised field is not read as a change or a drop. */
+function viaPreview(normalize: ((v: unknown, row: Record<string, unknown>) => string) | undefined): Compare {
+  return (a, b, row) => normalizedAs(a, row, normalize) === normalizedAs(b, row, normalize);
 }
 
 /** The `TokenEntity` kind for an entity's update tool, for `entityToken`. */
@@ -328,102 +348,6 @@ function trespassProbeFor(current: unknown): unknown {
   return TRESPASS_STRING;
 }
 
-/** A VALID value for a declared field, different from what is stored.
- *
- *  ★★★ RELATION B NEEDS A VALID PROBE WHERE RELATION A NEEDS AN INVALID ONE,
- *  AND CONFUSING THE TWO INVERTS THE RESULT. Relation A asks "can the model
- *  write something it was never offered", so any distinguishable value serves.
- *  Relation B asks "does the field the model WAS offered actually work", so a
- *  value the sanitizer legitimately rejects would report a lost capability
- *  where the guard is simply doing its job.
- *
- *  Resolution order, most specific first:
- *   1. the schema's own `enum` — pick a member the seed does not already hold;
- *   2. the SEED row's current value, mutated in kind (a date +1 day, a number
- *      +1, a boolean flipped, a string suffixed). This is what makes dates work
- *      without a format table: a valid date mutated by a day is still valid.
- *   3. the declared `type`, for a field the seed does not carry.
- *
- *  ★★ Step 2 is why there is no per-field override map here. A map of "this
- *  field wants a date, that one wants an email" is a maintenance surface that
- *  rots silently and, worse, is one rename away from becoming an exemption
- *  list. Deriving from a value the fixture already proved valid cannot rot in
- *  that direction.
- *
- *  ★ `op` is threaded rather than hardcoded to `"update"`. The two ops share one
- *  field bag per entity today, so it makes no difference — but a create-only
- *  property would make a hardcoded `"update"` lookup THROW inside the create
- *  arm, which reads as a broken harness rather than as the schema divergence it
- *  would be. */
-function validProbeFor(
-  entity: InlineEntity,
-  op: "create" | "update",
-  field: string,
-  current: unknown,
-): unknown {
-  const prop = schemaProperty(entity, op, field);
-  if (prop.enum && prop.enum.length > 0) {
-    const other = prop.enum.find((v) => v !== current);
-    return other ?? prop.enum[0];
-  }
-  if (typeof current === "boolean") return !current;
-  if (typeof current === "number") return current + 1;
-  if (typeof current === "string" && /^\d{4}-\d{2}-\d{2}$/.test(current)) {
-    const d = new Date(`${current}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + 1);
-    return d.toISOString().slice(0, 10);
-  }
-  if (typeof current === "string" && /^\d{2}:\d{2}$/.test(current)) {
-    return current === "09:00" ? "10:00" : "09:00";
-  }
-  if (typeof current === "string" && current.length > 0) return `${current} probed`;
-  // ★★★ THE ARRAY PROBE DROPS A KNOWN-GOOD ELEMENT; IT DOES NOT APPEND A NEW
-  //  ONE. The old shape was `[...current, "probed"]`, which appends a STRING to
-  //  what is usually a list of NUMERIC ids. A sanitizer that drops the
-  //  non-numeric entry and keeps the valid ones stores an array equal to the
-  //  original, and the relation reads that as "a valid value changed nothing" —
-  //  so the LANDING half measured the probe, not the product. It is the same
-  //  defect `trespassProbeFor` already avoids by deriving from the seeded
-  //  value's type: a probe a guard refuses for the RIGHT reason cannot tell a
-  //  working guard from a type mismatch, and reports a capability lost where
-  //  the guard is simply doing its job.
-  //
-  //  ★★ DROPPING is the strongest probe available here, because every element
-  //  that REMAINS is a value the store already holds. No type guard and no
-  //  foreign-key check can legitimately refuse it, so a failure to land is
-  //  unambiguously a SILENT DROP rather than a probe artifact. Appending would
-  //  need a plausible NEW element, and a fabricated id CAN be legitimately
-  //  refused — which reintroduces the exact ambiguity this removes.
-  //
-  //  ★ A SINGLE element yields the EMPTY array. A `requiredNonEmptyGroups` rule
-  //  will refuse that, correctly — and Relation B accepts a refusal the card
-  //  DISCLOSES, so that path is an answer rather than a finding.
-  //
-  //  ★★ AN EMPTY seed returns the array UNCHANGED and lands in the relation's
-  //  `dead` category BY DESIGN. There is nothing to derive an element type from
-  //  — `SchemaProperty` carries no `items` — so any element would be invented,
-  //  and a loud "the derived probe cannot move this field" is the honest
-  //  outcome. Do NOT close it with a per-field override map or an exemption.
-  if (Array.isArray(current)) {
-    if (current.length >= 2) return current.slice(1);
-    if (current.length === 1) return [];
-    return current;
-  }
-  if (prop.type === "number") return 7;
-  if (prop.type === "boolean") return true;
-  if (prop.type === "array") return ["probed"];
-  // ★★★ THERE IS NO OBJECT BRANCH, AND ONE FIELD FALLS THROUGH IT TO A
-  //  VACUOUS PASS (§441). `calendarEvent.recurrence` is schema type `object`
-  //  and seeded as one, so it reaches this line and gets `"probed"`. On create
-  //  the guard (`CALENDAR_EVENT_FIELD_GUARDS.recurrence`, `isPlainObject`)
-  //  drops it and the row stores no recurrence, and `recurrenceText` — the
-  //  field's preview normaliser — projects both the probe and that missing rule
-  //  to `""`. So the create arm reads it as LANDED having moved nothing, and it
-  //  counts toward that entity's floor 2. Recorded, not fixed here; §441
-  //  carries the fix.
-  return "probed";
-}
-
 /** One side of a landing comparison, projected the way the card renders it.
  *
  *  ★★ THE THREE CREATE-ARM COMPARISONS MUST AGREE ON THIS PROJECTION OR THE ARM
@@ -439,98 +363,6 @@ function normalizedAs(
   normalize: ((v: unknown, row: Record<string, unknown>) => string) | undefined,
 ): string {
   return normalize ? normalize(value, row as Record<string, unknown>) : String(value ?? "");
-}
-
-/** ★★★ THE ONE FIELD WHOSE PROBE IS NOT DERIVED, AND THE ONLY REASON IS MAIL.
- *  `calendarEvent.sendInvitations` is stored PRESENT-ONLY-WHEN-TRUE
- *  (`sanitizeCalendarEvent`), so an unsupplied create leaves it `undefined` and
- *  rule 2 below — negate the CONTROL — yields exactly `true`. That is the value
- *  `sendsInvitations` keys on in `chat-proposal.ts`, the one write in this app
- *  that leaves the building.
- *
- *  ★★★ THIS IS A SAFETY EXCLUSION, NOT AN EXEMPTION, AND THE DIFFERENCE IS
- *   OBSERVABLE: the field stays classified `dead` and still emits its finding
- *   line, so it is reported as UNMEASURED rather than silently waved through.
- *   An exemption would remove it from the axis; this leaves it on the axis and
- *   admits the probe cannot reach it safely.
- *
- *  ★★ IT IS ASSERTED, NOT TRUSTED — the standalone mail guard below pins that
- *   `probeAgainstControl` returns `undefined` here, so deleting this entry
- *   turns that test red BEFORE any probe runs. The pre-existing half of that
- *   guard reads `validProbeFor` and is structurally blind to this derivation,
- *   which is why it needed a second assertion rather than being relied upon.
- *
- *  ★ Do NOT widen this set to make a red run green. Every other member of the
- *   axis is measurable by construction (see the safety argument on
- *   `probeAgainstControl`); a second entry here would be the exemption list
- *   this file exists to do without. */
-const MAIL_UNSAFE_BOOLEANS: ReadonlySet<string> = new Set(["calendarEvent.sendInvitations"]);
-
-/** A create probe derived against the CONTROL ROW rather than against the seed.
- *
- *  ★★★ WHY A SECOND DERIVATION EXISTS AT ALL. `validProbeFor` derives from the
- *  SEEDED value, and the create arm JUDGES against the control — the row the
- *  base payload produces on its own. Those are two different reference points,
- *  so a probe that moves the seeded value can still land on precisely the value
- *  the writer would have produced anyway, and the arm can prove nothing with
- *  it. Measured 2026-09-08: 16 of 85 declared create probes came out `dead`
- *  that way — 19% of the surface this file exists to measure, unmeasured.
- *
- *  ★★★ THE SAFETY ARGUMENT, WHICH IS THE WHOLE REASON THESE THREE CASES AND NO
- *  OTHERS. The create arm has NO REFUSAL CHANNEL (the create branch of
- *  `describeEntityCalls` emits no `rejected` entries at all), so a guard
- *  correctly refusing a bad value is indistinguishable from a lost capability.
- *  Every value produced here is therefore one nothing can legitimately refuse:
- *
- *   1. ENUM — a member of the schema's OWN `enum`, so the tool advertised it as
- *      acceptable for this very field. Picked to differ from the CONTROL's
- *      value, not the seed's. A single-member enum yields nothing and the field
- *      stays honestly `dead`.
- *   2. BOOLEAN — `!control`. A boolean field accepts both booleans by
- *      definition; the guard tables spell this one `typeof v === "boolean"`.
- *      Negating the CONTROL rather than the seed is the entire point: negating
- *      the seed is what produced the control's own value in the dead cases.
- *   3. ARRAY — the FULL seeded array, used only when the existing derivation
- *      (which DROPS an element) collapsed onto the control. The fixture already
- *      proved that literal acceptable to this entity's sanitizer for this
- *      field, so it is type-correct by demonstration rather than by assumption.
- *
- *  ★★★ NOTHING HERE IS FABRICATED, AND THAT IS THE LOAD-BEARING PROPERTY. No
- *  invented foreign key, no enum member the schema does not declare, no string
- *  in a numeric list. A made-up value CAN be legitimately refused, and on an arm
- *  with no refusal channel that manufactures a finding — the failure direction
- *  that wastes the most time. If none of the three cases applies (a string, a
- *  number, a date), `undefined` comes back and the caller keeps the seed-derived
- *  probe, so the field stays `dead` and says so. That is the honest outcome; do
- *  NOT close it with a per-field override map, which `validProbeFor`'s own
- *  docstring forbids for the reason it rots into an exemption list.
- *
- *  ★★ APPLIED ONLY WHERE THE SEED-DERIVED PROBE WOULD BE DEAD. A live probe is
- *  left exactly as it was, so findings from before this existed stay
- *  comparable — a re-derivation that moved an already-working probe could
- *  change what `EXPECTED_FINDINGS` holds for a reason that is not the product. */
-function probeAgainstControl(
-  entity: InlineEntity,
-  field: string,
-  seedValue: unknown,
-  controlRow: Row,
-  normalize: ((v: unknown, row: Record<string, unknown>) => string) | undefined,
-): unknown {
-  const asControl = normalizedAs(controlRow[field], controlRow, normalize);
-  const differs = (candidate: unknown) => normalizedAs(candidate, controlRow, normalize) !== asControl;
-
-  const prop = schemaProperty(entity, "create", field);
-  if (prop.enum && prop.enum.length > 0) return prop.enum.find(differs);
-
-  if (prop.type === "boolean" || typeof seedValue === "boolean") {
-    if (MAIL_UNSAFE_BOOLEANS.has(`${entity}.${field}`)) return undefined;
-    const flipped = controlRow[field] !== true;
-    return differs(flipped) ? flipped : undefined;
-  }
-
-  if (Array.isArray(seedValue)) return differs(seedValue) ? seedValue : undefined;
-
-  return undefined;
 }
 
 beforeEach(() => {
@@ -613,80 +445,70 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
 });
 
 // ★★★ THE ONE PROBE IN THIS FILE WITH A REAL-WORLD SIDE EFFECT.
-//  `calendarEvent.sendInvitations` is DECLARED — it is in `calendarEventFields`
-//  — so Relation B drives it, and `CALENDAR_EVENT_FIELD_GUARDS` accepts it. A
-//  strict `true` trips `shouldStage` in `chat-proposal.ts`, which in production
-//  mails the attendees. Whether a unit-test replay can actually send that mail
-//  has NEVER BEEN ESTABLISHED — it is UNKNOWN, not known-safe, and the
-//  difference is not worth finding out by accident.
+//  `calendarEvent.sendInvitations` is DECLARED, so Relation B would drive it,
+//  and a strict `true` trips `shouldStage` in `chat-proposal.ts`, which in
+//  production mails the attendees. Whether a unit-test replay can replay that
+//  mail has NEVER BEEN ESTABLISHED, and is not worth finding out by accident.
 //
-//  ★★★ `validProbeFor` DERIVES THE BOOLEAN BRANCH AS `!current`, SO THE SAFETY
-//   IS CONTINGENT ON A SEED VALUE IN ANOTHER FILE. `seedGuardedCalendarEvent`
-//   holds `sendInvitations: true`, making the probe `false`. Flip that seed —
-//   a one-token edit made for reasons having nothing to do with mail — and the
-//   same loop drives `true` through the real dispatcher. This turns that
-//   contingency into an assertion.
+//  ★★★ STATED OVER THE ONE DERIVATION, AT EVERY REFERENCE A ROW CAN HOLD.
+//   Both relations and both arms call `probeFor` and nothing else, so this
+//   covers every path a probe can take to the dispatcher — the hand-kept list
+//   of derivations §443 warned about no longer exists to fall out of date. The
+//   three references are the three states the flag can be stored in:
+//   present-only-when-true means `undefined` is the create control's value.
 //
-//  ★★ SITED OUTSIDE THE RELATION LOOP DELIBERATELY. A guard inside it would run
-//   only on the iterations that reached this field, i.e. exactly the runs that
-//   did not need protecting.
-//
-//  ★ Do NOT make a red run here green by special-casing the field in
-//   `validProbeFor`. That un-sweeps it, trading a loud question for a silent
-//   hole. Settle the mail question instead.
-it("no Relation B probe drives calendarEvent.sendInvitations true", () => {
-  const declared = declaredProperties("calendarEvent", "update");
+//  ★★ SITED OUTSIDE THE RELATION LOOPS, so it runs even when no loop reaches
+//   the field.
+it("no probe drives calendarEvent.sendInvitations true", () => {
   expect(
-    declared,
+    declaredProperties("calendarEvent", "update"),
     "`sendInvitations` left the declared surface — either it is genuinely unwritable now, or the schema narrowed and this guard has gone vacuous",
   ).toContain("sendInvitations");
-  const seed = seedFor("calendarEvent");
-  const row = (seed.seed as Record<string, ReadonlyArray<Row>>).calendarEvents?.find((r) => r.id === seed.id);
-  expect(row, "the calendarEvent fixture no longer seeds the row this guard reads").toBeDefined();
-  expect(
-    validProbeFor("calendarEvent", "update", "sendInvitations", row!.sendInvitations),
-    "a Relation B probe would drive calendarEvent.sendInvitations TRUE through the real dispatcher — the one write in this file that leaves the building. If the seed just changed, that is why you are reading this.",
-  ).not.toBe(true);
-
-  // ★★★ THE SECOND DERIVATION, WHICH THE ASSERTION ABOVE IS STRUCTURALLY BLIND
-  //  TO. `validProbeFor` is the UPDATE arm's; the create arm re-derives through
-  //  `probeAgainstControl` against the CONTROL row, and the control leaves this
-  //  flag `undefined` — the writer stores it present-only-when-true — so the
-  //  boolean rule `!control` yields exactly `true`. `MAIL_UNSAFE_BOOLEANS` is
-  //  what stops it, and this line is what stops `MAIL_UNSAFE_BOOLEANS` from
-  //  being deleted as dead weight: remove the entry and this goes red before
-  //  any probe reaches the dispatcher.
-  //
-  //  ★★ `toBeUndefined`, not `not.toBe(true)`. `undefined` is the signal that
-  //   the field keeps its seed-derived probe and stays classified `dead`; a
-  //   `false` here would read as safe while quietly re-deriving the field.
-  //
-  //  ★ The control row is a LITERAL, not a dispatcher call. `probeAgainstControl`
-  //   is pure, so pinning it needs no create — and a guard that had to run a
-  //   create to prove a create is safe would be the wrong shape.
-  expect(
-    probeAgainstControl(
-      "calendarEvent",
-      "sendInvitations",
-      row!.sendInvitations,
-      { sendInvitations: undefined },
-      previewNormalizerFor(INLINE_DESCRIPTORS.calendarEvent, "sendInvitations"),
-    ),
-    "the create arm's control-aware derivation would drive calendarEvent.sendInvitations TRUE — `MAIL_UNSAFE_BOOLEANS` is the only thing standing between this file and a real invitation",
-  ).toBeUndefined();
+  const seedRow = loadedSeedRow("calendarEvent");
+  for (const arm of ["create", "update"] as const) {
+    for (const sendInvitations of [undefined, false, true]) {
+      const outcome = probeFor({
+        entity: "calendarEvent",
+        arm,
+        field: "sendInvitations",
+        declared: true,
+        reference: { ...seedRow, sendInvitations },
+        seedRow,
+        compare: viaPreview(previewNormalizerFor(INLINE_DESCRIPTORS.calendarEvent, "sendInvitations")),
+      });
+      expect(
+        outcome.kind,
+        `a ${arm} probe at sendInvitations=${String(sendInvitations)} would reach the dispatcher — the one write in this file that leaves the building`,
+      ).toBe("dead");
+    }
+  }
 });
 
-/** What a Relation B finding can SAY, one member per finding template below.
- *  `dead` is shared by both arms: the derived probe cannot move the field. The
- *  update arm adds `unchanged` (a valid probe changed nothing and the card said
- *  nothing). The create arm adds `threw`, `no-row` and `dropped` for a probed
- *  field, and `control-threw` / `control-no-row` for the base create itself —
- *  the only two whose subject is the bare entity rather than `entity.field`.
+/** What a finding can SAY. `dead` — the harness cannot derive a
+ *  distinguishable probe (nothing to derive from, it equals the reference, or
+ *  mail safety). `unmeasured` — a probe was derived but the writer's sanitizer
+ *  will not hold it unchanged, so neither relation may judge the field. Both
+ *  are shared by every arm. Relation B's update arm adds `unchanged`; its
+ *  create arm adds `threw`, `no-row` and `dropped` for a probed field and
+ *  `control-threw` / `control-no-row` for the base create — the only two whose
+ *  subject is the bare entity. Relation A adds `stored`: the model's
+ *  undeclared value landed, which is a defect to FIX (plan Task 6), never to
+ *  ledger.
  *
  *  ★ A `const` array and not only a union, so the ledger test in "the
  *  offered-surface axis" can check a kind at RUNTIME — vitest never typechecks,
  *  so a union alone would guard nothing while the suite runs. */
-const FINDING_KINDS = ["control-threw", "control-no-row", "dead", "unchanged", "threw", "no-row", "dropped"] as const;
+const FINDING_KINDS = [
+  "control-threw",
+  "control-no-row",
+  "dead",
+  "unmeasured",
+  "unchanged",
+  "threw",
+  "no-row",
+  "dropped",
+  "stored",
+] as const;
 type FindingKind = (typeof FINDING_KINDS)[number];
 
 /** One Relation B finding. `subject` + `kind` is all the verdict compares;
@@ -746,35 +568,40 @@ function finding(subject: string, kind: FindingKind, text: string): Finding {
  *  offered-surface axis" repeats that check at runtime — for the key, for each
  *  entry's subject belonging to that key's entity, and for each kind.
  */
-const EXPECTED_FINDINGS: Readonly<Partial<Record<`${InlineEntity}:${"create" | "update"}`, readonly LedgerEntry[]>>> = {
-  "task:create": [
-    // §459 — the string probe suffixes the seed email, which is then invalid; create refuses it loudly.
-    { subject: "task.assigneeEmail", kind: "threw" },
-  ],
+type LedgerKey = `${InlineEntity}:${Arm}`;
+type Ledger = Readonly<Partial<Record<LedgerKey, readonly LedgerEntry[]>>>;
+
+const EXPECTED_FINDINGS: Ledger = {
   "resource:update": [
-    // The recorded decision in `SYNTHETIC_INPUTS` (offered-surface-axis.ts): the dispatcher splits `name` into
-    // firstName/lastName and stores nothing under `name`, so `row.name` never moves. Blind to the split itself.
-    { subject: "resource.name", kind: "unchanged" },
+    // §462 — a synthetic input (`SYNTHETIC_INPUTS.resource`, offered-surface-axis.ts): `sanitizeResource`
+    // (sanitize-entities.ts) stores it as firstName/lastName, so no loaded row carries a `name` to derive a probe from.
+    { subject: "resource.name", kind: "dead" },
   ],
   "resource:create": [
-    // The recorded decision in `SYNTHETIC_INPUTS` (offered-surface-axis.ts): ignored, not split — CREATE_BASE's
-    // firstName/lastName take precedence, and `sanitizeResource` splits `name` only when both are empty.
-    { subject: "resource.name", kind: "dropped" },
+    // §462 — a synthetic input (`SYNTHETIC_INPUTS.resource`, offered-surface-axis.ts): `sanitizeResource`
+    // (sanitize-entities.ts) stores it as firstName/lastName, so no loaded row carries a `name` to derive a probe from.
+    { subject: "resource.name", kind: "dead" },
   ],
-  "absence:create": [
-    // §459 — the create-arm probe is derived from the SEED start, later than CREATE_BASE's end, so sanitizeAbsence swaps the two.
-    { subject: "absence.startDate", kind: "dropped" },
+  "calendarEvent:update": [
+    // mail-safety policy (§443); `probeFor` reports it dead.
+    { subject: "calendarEvent.sendInvitations", kind: "dead" },
   ],
   "calendarEvent:create": [
-    // §443 — unmeasured by policy: a strict true would stage a real invitation.
+    // mail-safety policy (§443); `probeFor` reports it dead.
     { subject: "calendarEvent.sendInvitations", kind: "dead" },
-    // §443 — dead by construction: the HH:MM probe equals CREATE_BASE's own startTime.
-    { subject: "calendarEvent.startTime", kind: "dead" },
   ],
 };
 
-function expectedFindings(entity: InlineEntity, arm: "create" | "update"): readonly LedgerEntry[] {
-  return EXPECTED_FINDINGS[`${entity}:${arm}`] ?? [];
+/** Relation A's ledger — the same both-directions contract as
+ *  `EXPECTED_FINDINGS`, for the undeclared axis. It holds `dead` and
+ *  `unmeasured` entries only: a `stored` finding is a live undeclared write,
+ *  and is fixed rather than ledgered. Filled by plan Task 5 from a measured run. */
+const EXPECTED_UNDECLARED_FINDINGS: Ledger = {};
+
+const LEDGERS = { A: EXPECTED_UNDECLARED_FINDINGS, B: EXPECTED_FINDINGS } as const;
+
+function expectedFindings(relation: "A" | "B", entity: InlineEntity, arm: Arm): readonly LedgerEntry[] {
+  return LEDGERS[relation][`${entity}:${arm}`] ?? [];
 }
 
 const tokenOf = (f: LedgerEntry): string => `${f.subject}:${f.kind}`;
@@ -784,13 +611,14 @@ const tokenOf = (f: LedgerEntry): string => `${f.subject}:${f.kind}`;
  *  full `detail` — the only place the thrown message or the "sent X, stored Y"
  *  still appears — because a red run that printed tokens alone would send the
  *  reader to re-run the sweep by hand to learn what happened. */
-function expectLedgerAgrees(entity: InlineEntity, arm: "create" | "update", findings: readonly Finding[]): void {
-  const expected = expectedFindings(entity, arm).map(tokenOf).sort();
+function expectLedgerAgrees(relation: "A" | "B", entity: InlineEntity, arm: Arm, findings: readonly Finding[]): void {
+  const expected = expectedFindings(relation, entity, arm).map(tokenOf).sort();
   const actualLines = findings.length > 0 ? findings.map((f) => `  [${f.kind}] ${f.detail}`) : ["  (none)"];
+  const ledgerName = relation === "A" ? "EXPECTED_UNDECLARED_FINDINGS" : "EXPECTED_FINDINGS";
   expect(
     findings.map(tokenOf).sort(),
     [
-      `${entity} ${arm}: findings differ from EXPECTED_FINDINGS — a new subject:kind is a finding (go/cut, never ledger it to go green); a missing one was fixed (delete its entry, close its register row)`,
+      `Relation ${relation} — ${entity} ${arm}: findings differ from ${ledgerName} — a new subject:kind is a finding (go/cut, never ledger it to go green); a missing one was fixed (delete its entry, close its register row)`,
       "actual findings:",
       ...actualLines,
       `expected: ${expected.length > 0 ? expected.join(", ") : "(none)"}`,
@@ -813,18 +641,26 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
     const findings: Finding[] = [];
     let landed = 0;
     let probed = 0;
-    let dead = 0;
-    const seedRow = (snapshotSeedRow(seedFor(entity)) ?? {}) as Row;
+    let skipped = 0;
+    const reference = loadedSeedRow(entity);
 
     for (const field of declaredProperties(entity, "update")) {
-      const probe = validProbeFor(entity, "update", field, seedRow[field]);
-      if (same(probe, seedRow[field])) {
-        dead += 1;
-        findings.push(
-          finding(`${entity}.${field}`, "dead", "the derived probe equals the stored value — it cannot move the field"),
-        );
+      const subject = `${entity}.${field}`;
+      const outcome = probeFor({
+        entity,
+        arm: "update",
+        field,
+        declared: true,
+        reference,
+        seedRow: reference,
+        compare: viaPreview(previewNormalizerFor(INLINE_DESCRIPTORS[entity], field)),
+      });
+      if (outcome.kind !== "probe") {
+        skipped += 1;
+        findings.push(finding(subject, outcome.kind, outcome.reason));
         continue;
       }
+      const probe = outcome.value;
       probed += 1;
       const { before, stored, plan, threw } = await updateWith(entity, field, probe);
 
@@ -844,7 +680,7 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
       if (same(before[field], stored[field])) {
         findings.push(
           finding(
-            `${entity}.${field}`,
+            subject,
             "unchanged",
             `declared and offered, but a valid ${JSON.stringify(probe)} changed nothing and the card said nothing`,
           ),
@@ -854,11 +690,12 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
       landed += 1;
     }
 
-    // ★ EXACT, not a `>=` slack bound: `probed + dead` must account for every
+    // ★ EXACT, not a `>=` slack bound: `probed + skipped` must account for every
     //  declared field. A slack bound cannot tell "the axis shrank" from "two
     //  probes came out dead", and those want opposite responses — the first is a
-    //  schema change to investigate, the second a `validProbeFor` shape to fix.
-    expect(probed + dead, `${entity}: Relation B did not reach every declared field`).toBe(
+    //  schema change to investigate, the second a probe shape to fix or a column
+    //  to decide.
+    expect(probed + skipped, `${entity}: Relation B did not reach every declared field`).toBe(
       AXIS_BASELINE[entity].declared,
     );
     // ★★★ FLOOR 2 — A POSITIVE OBSERVABLE PER ENTITY. Every branch above is
@@ -867,7 +704,7 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
     //  whole entity green while proving nothing. This demands that some declared
     //  field, driven by some probe, actually moved.
     expect(landed, `${entity}: no declared field landed — the harness wrote nothing`).toBeGreaterThan(0);
-    expectLedgerAgrees(entity, "update", findings);
+    expectLedgerAgrees("B", entity, "update", findings);
   });
 
   // ★★★ THE CREATE ARM HAS NO REJECTION BRANCH, AND WRITING IT AS THOUGH IT DID
@@ -883,7 +720,7 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
   //
   //  ★★ THAT MAKES THE PROBE'S VALIDITY LOAD-BEARING in a way the update arm's
   //   is not. With no refusal channel, a guard correctly rejecting a bad value
-  //   is indistinguishable from a lost capability. `validProbeFor` derives from
+  //   is indistinguishable from a lost capability. `probeFor` derives from
   //   the seed's own value for exactly this reason.
   //
   //  ★★★ IT IS ALSO WHY THIS ARM, AND ONLY THIS ARM, IS THE DETECTOR §436 ASKED
@@ -907,31 +744,13 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
   //   file — unless a "refused a valid probe" kind is added to `FINDING_KINDS`
   //   in the same change. Close §440 without that and this goes quietly green.
   //
-  //  ★★★ SO THE PROBE IS DERIVED FROM THE SEEDED ROW OF THIS ENTITY, NOT FROM
-  //   NOTHING, and passing `undefined` here would be the same defect the array
-  //   branch of `validProbeFor` already records. A create has no CURRENT value
-  //   by construction, so with `undefined` every array-typed declared field
-  //   falls past that branch to the terminal `prop.type === "array"` fallback
-  //   and gets `["probed"]` — a STRING in what is usually a list of numeric
-  //   ids. A sanitizer that drops the non-numeric entry stores the array the
-  //   writer would have stored anyway, and this arm reads that as "the create
-  //   was offered the field and dropped it": a fabricated finding, and on the
-  //   arm with no refusal channel to explain it away.
-  //
-  //   A seeded value cannot do that. It is type-correct because the fixture
-  //   already proved it so, and referentially valid because every id inside it
-  //   already exists in the store — so nothing can legitimately refuse it, and
-  //   a failure to land is unambiguous. The rule is general: no per-field map,
-  //   which would rot silently and is one rename from being an exemption list.
-  //
-  //  ★★ WHERE THE SEED CARRIES NO VALUE the derivation is left exactly as it is
-  //   — a fabricated FOREIGN KEY is the one thing that must never be invented
-  //   here, because a made-up id CAN be legitimately refused and that
-  //   reintroduces the ambiguity above. If the fallback then yields a probe the
-  //   created row would have held anyway, the honest outcome is that the field
-  //   is DEAD to this arm and emits a `dead` finding — held in
-  //   `EXPECTED_FINDINGS` with a citation, or turning this case red against it
-  //   — not a value made up to move it.
+  //  ★★★ SO EVERY PROBE IS ADMITTED BEFORE IT IS JUDGED. `probeFor` puts the
+  //   probe through this entity's create-writer sanitizer first
+  //   (`ADMISSION_ORACLE`, `src/test/sweep-probes.ts`); a probe the sanitizer
+  //   would not hold unchanged is `unmeasured` and never reaches this arm's
+  //   verdict. So a `dropped` here is a value the column CAN hold and the create
+  //   did not keep — never a probe the sanitizer was always going to refuse.
+  //   Nothing is invented: a field with no value to derive from is `dead`.
   //
   //  ★★★ THE COMPARISON GOES THROUGH `previewNormalizerFor`, NOT AGAINST THE
   //   RAW PROBE. That is the production resolution order (descriptor entry →
@@ -943,42 +762,24 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
     const findings: Finding[] = [];
     let landed = 0;
     let probed = 0;
-    let dead = 0;
-    const s = seedFor(entity);
-    const seedRow = (snapshotSeedRow(s) ?? {}) as Row;
+    let skipped = 0;
+    const seedRow = loadedSeedRow(entity);
 
     // ★★★ THE CONTROL CREATE — WHY THIS ARM NEEDS ONE AND THE UPDATE ARM DOES
-    //  NOT. The update arm can ask `same(probe, seedRow[field])` and call the
-    //  field DEAD when the probe equals the value already stored, because an
-    //  update HAS a prior value for the probe to be indistinguishable from. A
-    //  create has none by construction. So if the probe happens to equal the
-    //  value the writer would have produced from `CREATE_BASE` ALONE, the
-    //  landing comparison below agrees against a row the probe never moved, and
-    //  the field reads as LANDED having proved nothing — the arm's own version
-    //  of the vacuity `dead` exists to make visible.
+    //  NOT. The update arm's `probeFor` call derives against the very row it
+    //  will judge against and calls the field DEAD when the derived probe
+    //  equals it, because an update HAS a prior value for the probe to be
+    //  indistinguishable from. A create has none by construction. So if the
+    //  probe happens to equal the value the writer would have produced from
+    //  `CREATE_BASE` ALONE, the landing comparison below agrees against a row
+    //  the probe never moved, and the field reads as LANDED having proved
+    //  nothing — the arm's own version of the vacuity `dead` exists to make
+    //  visible.
     //
-    //  ★★ THAT IS LIVE, NOT THEORETICAL — `calendarEvent.startTime` in
-    //   `EXPECTED_FINDINGS` is exactly this. The seed holds "14:00", the HH:MM
-    //   rule in `validProbeFor` maps anything but "09:00" onto "09:00", and
-    //   `CREATE_BASE.calendarEvent` already supplies "09:00". A boolean negated
-    //   off the SEED can land on the writer's own default the same way, which
-    //   is what `probeAgainstControl` exists to re-derive. Nothing in this arm
-    //   could tell that apart from a working write before this control
-    //   existed, which is why every previously-clean verdict here was only as
-    //   good as the probes behind it.
-    //   ★ An earlier revision gave `""` as the example ("wherever the seed
-    //    carries `""` the derived probe is `""`"), which is false:
-    //    `validProbeFor` on an empty string falls through its type branches to
-    //    `"probed"` for a string field.
-    //
-    //  ★★★ `dead` IS AN HONEST OUTCOME, NOT A FAILURE OF THE PRODUCT. It says
-    //   the DERIVED PROBE cannot distinguish a working field from a broken one
-    //   here — the same verdict `validProbeFor`'s array branch already records
-    //   for an empty seed. Do NOT close one by inventing a value: a fabricated
-    //   foreign key CAN be legitimately refused, and this arm has no refusal
-    //   channel to explain that away. It is a `dead` finding, held in or
-    //   turning red against `EXPECTED_FINDINGS`, exactly as the block comment
-    //   above this test says it should be.
+    //  ★★ `probeFor` derives against THIS row and judges against it, so a probe
+    //   can no longer be derived against the seed and land on a value the base
+    //   payload already produces — which is how `calendarEvent.startTime` and
+    //   `absence.startDate` sat in the ledger until the typed-probe slice.
     //
     //  ★★ A THROWING CONTROL IS REPORTED, NEVER SWALLOWED. With no control row
     //   nothing can be classified `dead`, so every field stays `probed`, the
@@ -993,42 +794,29 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
       findings.push(finding(entity, "control-no-row", "the control create stored no row from the base payload alone"));
     }
     const controlRow = control.row;
+    // The reference the probe is derived and judged against. With no control
+    // row (already reported above) the base payload is the nearest honest
+    // stand-in, so derivation and admission still mean something.
+    const reference: Row = controlRow ?? CREATE_BASE[entity];
 
     for (const field of declaredProperties(entity, "create")) {
       const normalize = previewNormalizerFor(INLINE_DESCRIPTORS[entity], field);
-      const seeded = validProbeFor(entity, "create", field, seedRow[field]);
-
-      // ★★ THROUGH THE SAME NORMALISER THE LANDING COMPARISON USES, and each
-      //  side against ITS OWN row. A raw comparison here would let a probe the
-      //  write path normalises ONTO the control's value count as live, so the
-      //  field would "land" by agreeing with a value it never moved — the exact
-      //  vacuity this control exists to close, reintroduced one layer up.
-      //
-      // ★★★ THE SECOND DERIVATION FIRES HERE AND NOWHERE ELSE — only once the
-      //  seed-derived probe has been SHOWN dead against this entity's control.
-      //  `probeAgainstControl` carries the rule and its safety argument; the
-      //  one thing to keep in mind at this call site is that it returns
-      //  `undefined` when it has nothing safe to offer, and the field then
-      //  falls through to the `dead` branch below with its finding intact.
-      const asBase = controlRow ? normalizedAs(controlRow[field], controlRow, normalize) : "";
-      const probe =
-        controlRow && normalizedAs(seeded, controlRow, normalize) === asBase
-          ? (probeAgainstControl(entity, field, seedRow[field], controlRow, normalize) ?? seeded)
-          : seeded;
-
       const subject = `${entity}.${field}`;
-      if (controlRow && normalizedAs(probe, controlRow, normalize) === asBase) {
-        dead += 1;
-        findings.push(
-          finding(
-            subject,
-            "dead",
-            "the derived probe equals what the base create produces on its own — a landing here would prove nothing",
-          ),
-        );
+      const outcome = probeFor({
+        entity,
+        arm: "create",
+        field,
+        declared: true,
+        reference,
+        seedRow,
+        compare: viaPreview(normalize),
+      });
+      if (outcome.kind !== "probe") {
+        skipped += 1;
+        findings.push(finding(subject, outcome.kind, outcome.reason));
         continue;
       }
-
+      const probe = outcome.value;
       probed += 1;
       const { row, threw } = await createWith(entity, { [field]: probe });
       if (threw !== undefined) {
@@ -1054,12 +842,12 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
       landed += 1;
     }
 
-    // ★ EXACT, not a `>=` slack bound, mirroring the update arm. `probed + dead`
-    //  must account for every declared field: a slack bound cannot tell "the
-    //  axis shrank" from "two probes came out dead", and those want opposite
-    //  responses — the first is a schema change to investigate, the second a
-    //  `validProbeFor` shape or a `CREATE_BASE` that already supplies the value.
-    expect(probed + dead, `${entity}: Relation B's create arm did not reach every declared field`).toBe(
+    // ★ EXACT, not a `>=` slack bound, mirroring the update arm. `probed +
+    //  skipped` must account for every declared field: a slack bound cannot
+    //  tell "the axis shrank" from "two probes came out dead", and those want
+    //  opposite responses — the first is a schema change to investigate, the
+    //  second a probe shape to fix or a column to decide.
+    expect(probed + skipped, `${entity}: Relation B's create arm did not reach every declared field`).toBe(
       AXIS_BASELINE[entity].declared,
     );
     // Floor 2 again, for this arm. Every branch above is satisfied by a create
@@ -1067,6 +855,6 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
     // "the create base satisfies every schema-required field", in "the
     // offered-surface axis" above, already rules out for a different reason.
     expect(landed, `${entity}: no declared field landed on a created row`).toBeGreaterThan(0);
-    expectLedgerAgrees(entity, "create", findings);
+    expectLedgerAgrees("B", entity, "create", findings);
   });
 });
