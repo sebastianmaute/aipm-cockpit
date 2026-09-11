@@ -22,3 +22,42 @@ src/app/__fixtures__/golden-workspace.md -text
 # core.autocrlf can't check it out as CRLF and make `prebuild`'s regeneration
 # see phantom line-ending drift against the freshly generated LF file.
 src/app/operating-guide-builtin.generated.ts text eol=lf
+
+# The desktop/ subtree is a new Electron wrapper, not part of src/app's CRLF
+# working-tree convention (which core.autocrlf governs alone, with no
+# .gitattributes entry of its own). Pin it to LF so it matches the rest of the
+# LF-pinned tooling (scripts/, docs/) rather than inheriting CRLF by accident.
+desktop/** text eol=lf
+
+# Windows installer assets are consumed BYTE-EXACTLY by NSIS and by Windows
+# itself: the sidebar must stay a 164x314 24-bit BMP and the icon a multi-size
+# ICO. Git would normally infer "binary" from a NUL byte in the first 8000, but
+# that is a heuristic over image DATA, not a guarantee — and a single spurious
+# CRLF conversion corrupts the file with no error at commit, build or install
+# time. `-text` states it outright, the same way the golden fixtures above do.
+*.ico -text
+*.bmp -text
+
+# This banner carries a C2PA content-credentials manifest, and a C2PA claim is a
+# hash over the file's BYTES with the manifest's own range excluded -- so any
+# line-ending conversion invalidates it. Measured 2026-09-10: committing it under
+# core.autocrlf=true stripped 66 CR bytes (10534 -> 10468), i.e. the repo copy
+# would not have validated on a non-CRLF checkout. `-text` stores it verbatim.
+#
+# Only this file is pinned, not *.svg: every other SVG here is hand-edited LF
+# source that SHOULD stay normalised. Pin any further credentialed asset the
+# same way, individually, and re-check with:
+#   git cat-file blob :<path> | cmp - <path>
+public/ai-pm-cockpit-banner.svg -text
+#
+# ★★ The splash asset below is credentialed too, but the damage runs the OTHER
+# WAY and the banner's reason above does not transfer. Measured 2026-09-10: it
+# holds ZERO CR bytes, so `git add` strips nothing -- it is CHECKOUT that breaks
+# it, because autocrlf=true rewrites an LF text file to CRLF in the working
+# tree. Unpinned it would land as `i/lf w/crlf` (the state every e2e/*.ts is
+# in), i.e. the file on disk would no longer be the bytes the credential was
+# signed over, while the blob stayed valid. Pinned it reads `i/lf w/lf
+# attr/-text`. Verify with `git ls-files --eol <path>`, and the blob with the
+# cmp above -- the cmp ALONE cannot see this direction, since it compares the
+# blob against the very working copy a bad checkout would have rewritten.
+public/splash-aipm-cockpit.svg -text

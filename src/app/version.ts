@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.302.0";
-export const APP_BUILD_DATE = "2026-09-10"; // 0.302.0: the toolchain moves to ESLint 10 with the package that blocked it — eslint-plugin-react 7.37.5, which still calls an API ESLint 10 removed — left entirely unpatched, unforked and unvendored; pinning settings.react.version from react/package.json keeps the config off the only path that reached the removed call, so all 17 react rules still load and the resolved rule set stays byte-identical to ESLint 9, at the price of one silent degradation (a component declared by JSDoc tag alone stops being detected) that a new guard test is the sole detector for (Blaylock)
+export const APP_VERSION = "0.303.0";
+export const APP_BUILD_DATE = "2026-09-11"; // 0.303.0: AI PM Cockpit now ships as a per-user Windows desktop app that needs no admin rights, no Node.js and no terminal — it runs the app's own server on 127.0.0.1:17300 only, never on the machine's network address, keeps that port fixed because the saved data belongs to it, and says so in a dialog rather than a blank window when it cannot start; it names itself "AI PM Cockpit" with its own icon, author and branded installer instead of Electron's; a v-tag now drives the release, checking the tag against the app version, building the installer as a kept artifact and creating a GitLab Release that links to it, though no tag pipeline has run yet; and the README became an entry point, with its detail moved into docs of their own (Christie)
+// 0.302.0: the toolchain moves to ESLint 10 with the package that blocked it — eslint-plugin-react 7.37.5, which still calls an API ESLint 10 removed — left entirely unpatched, unforked and unvendored; pinning settings.react.version from react/package.json keeps the config off the only path that reached the removed call, so all 17 react rules still load and the resolved rule set stays byte-identical to ESLint 9, at the price of one silent degradation (a component declared by JSDoc tag alone stops being detected) that a new guard test is the sole detector for (Blaylock)
 // 0.300.0: a developer harness that measures whether the assistant still reads each part of its prompt, so the next round of cost work can be checked instead of assumed — it plants a unique nonsense token in one prompt block and a decoy in another, asks the model to return the target, and runs five arms including a negative control and two drift references, so a score move can be blamed on the change rather than on the model shifting underneath it; it refuses to report success on a run that measured nothing, and refuses to spend when it detects CI. Help and the in-app feature guide no longer describe the token-counting multiplier that 0.298.0 retired, and the README's feature table moved to docs/features.md (Mohanraj)
 // 0.299.0: nineteen dialogs now carry a help icon in their header that opens the matching Help entry in a popover over the dialog, instead of sending you to the Help view behind it — the popover floats free of the dialog so a long explanation is no longer cut off at the dialog's edge, it scrolls when it needs to, and Tab stays inside the dialog while it is open; the AI settings dialog now offers the AI entry rather than nothing, and two dialogs whose only candidate entry described a different surface were left with no icon rather than a misleading one (Yefremov)
 // 0.298.0: the AI usage caps now measure what a request costs instead of counting every token the same — a cached read bills at a tenth of an input token and an output token at five times one — so the cap warning that used to fire in the first two messages of every session now fires when it means something; Settings shows output separately and explains the change, the counting-multiplier setting is retired, and the assistant's task list no longer carries note logs the guide told it never to use, cutting a quarter off what that request ships (Malzberg)
@@ -26,11 +27,17 @@ export const APP_BUILD_DATE = "2026-09-10"; // 0.302.0: the toolchain moves to E
 // 0.283.0: when the assistant is about to delete something, or to change more than one row at once, it now shows you the plan first — every row with what it would change — and writes nothing until you approve it; the rows you keep are applied as ONE step you can undo in one press (Lessing)
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
-/** Minor-series milestone codename (sci-fi/fantasy author names). The
+/** Minor-series milestone codename (an author's surname). The
  *  0.299.x line is "Yefremov" (Ivan Yefremov, Soviet author of "Andromeda
  *  Nebula", 1957). A PATCH release keeps its minor line's
  *  name, as 0.293.1 kept "Vandermeer" like 0.293.0, exactly as 0.291.1 kept
  *  "Hoban". Only a MINOR bump needs the sweep below.
+ *  SELECTION: take the FIRST name in `docs/release-codenames.md`'s
+ *  "Candidate Names Not Yet Used" list and, in the same release commit, move
+ *  it to the FRONT of that file's "Already Used" list (newest first). That
+ *  list does not name every shipped codename, so CHANGELOG.md stays the
+ *  record: still run the sweep below on the pick, and if it collides, drop it
+ *  from the candidates and take the next.
  *  ★★ Updated at the 0.294.0 bump. This sentence is the trap the paragraph
  *  below describes, and it has now been left stale THREE times; it is ungated,
  *  so nothing but a reader will ever catch it. "Jimenez" (Simon Jimenez,
@@ -258,7 +265,7 @@ export const APP_BUILD_DATE = "2026-09-10"; // 0.302.0: the toolchain moves to E
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Blaylock";
+export const APP_MILESTONE = "Christie";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

@@ -1,0 +1,18 @@
+{
+  "name": "aipm-cockpit-desktop",
+  "version": "0.303.0",
+  "author": "Sebastian Maute",
+  "private": true,
+  "description": "Desktop shell for AI PM Cockpit",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "26.15.3"
+  },
+  "allowScripts": {
+    "electron": true
+  }
+}

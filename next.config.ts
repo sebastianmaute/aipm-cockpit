@@ -30,6 +30,12 @@ const nextConfig: NextConfig = {
   // Suppress the `X-Powered-By: Next.js` response header — it discloses the
   // tech stack for no functional benefit (ZAP baseline alert 10037).
   poweredByHeader: false,
+  // ★★ ENV-GATED, deliberately. The desktop build needs `standalone` (a
+  // traced, self-contained server under .next/standalone), but CI's `build`
+  // job feeds `.next/` to prod-smoke's `next start`. Making this the default
+  // would change the artifact shape for every job in the pipeline to serve
+  // one manual job. Set NEXT_STANDALONE=1 only for desktop packaging.
+  ...(process.env.NEXT_STANDALONE === "1" ? { output: "standalone" as const } : {}),
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

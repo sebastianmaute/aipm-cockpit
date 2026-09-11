@@ -22,6 +22,12 @@ export default defineConfig({
       "src/**/*.{test,spec}.{ts,tsx}",
       "scripts/**/*.{test,spec}.mjs",
       "scripts/**/*.{test,spec}.ts",
+      // ★ desktop/ holds the Electron shell's PURE launch logic (readiness
+      // polling, port-owner classification, log paths). Coverage `include`
+      // below deliberately stays src/** ONLY, so these tests raise NO floor —
+      // they are opt-in quality, not gate-enforced. Do not read the coverage
+      // gate as covering this directory.
+      "desktop/**/*.{test,spec}.ts",
     ],
     // Headroom above the 5s default: the CPU-heavy property suites (fast-check,
     // 100 runs each) plus fake-indexeddb setup occasionally exceed 5s when a

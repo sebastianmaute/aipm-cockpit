@@ -2,6 +2,19 @@
 
 # dependencies
 /node_modules
+# ★ Anchored `/node_modules` above covers the ROOT install only. Subtrees with
+# their own package.json (desktop/) install their own, and an unignored one is
+# hundreds of MB of untracked files in a worktree that other sessions share --
+# one `git add -A` away from being committed. This bare pattern matches at any
+# depth and subsumes the anchored line above; the anchored line is kept so the
+# root case stays obvious.
+node_modules/
+
+# Compiler output for the desktop/ subtree (tsc -p desktop/tsconfig.json emits here)
+desktop/dist/
+# electron-builder packaging output (installers, unpacked app trees) -- large,
+# machine-specific, and rebuilt from desktop:package; never tracked.
+desktop/release/
 /.pnp
 .pnp.*
 .yarn/*
