@@ -340,9 +340,12 @@ duplication-gate:
 
 # Tag pipelines only: refuse a tag that disagrees with src/app/version.ts.
 #
-# ★ needs: [] so it runs IMMEDIATELY and fails the pipeline before the
-# 20-minute wine build, not after it.
-# ★★ No allow_failure. Publishing an installer that misreports its own version
+# ★ needs: [] so it runs IMMEDIATELY, without waiting for the rest of the
+# quality stage.
+# ★★ desktop-package-tag lists THIS job in its own needs: (see the comment on
+# that job), so a failing guard here SKIPS the wine build instead of letting
+# it run for 20 minutes and only then reddening the pipeline.
+# ★★★ No allow_failure. Publishing an installer that misreports its own version
 # is the whole failure this prevents.
 tag-version-check:
   stage: quality
@@ -464,9 +467,11 @@ dast-zap:
     paths: [zap-report.html, zap-report.json]
     expire_in: 1 week
 
-# Windows desktop installer. MANUAL: the build is slow and the artifact is
-# large, so running it per-MR would dominate pipeline time and storage for no
-# signal.
+# Windows desktop installer. On a BRANCH this stays MANUAL: the build is slow
+# and the artifact is large, so running it per-MR would dominate pipeline time
+# and storage for no signal. On a TAG it is automatic and BLOCKING -- see
+# desktop-package-tag below, not "MANUAL" -- a release must not silently skip
+# its own installer.
 #
 # ★ The runners are Linux, so a Windows NSIS target needs wine — that is what
 # this image provides. If this image is ever unreachable from this GitLab
@@ -485,9 +490,13 @@ dast-zap:
 #
 # ★★★ THAT SECOND RULE NOW EXISTS, AS ITS OWN JOB, AND ITS allow_failure IS
 # DELIBERATELY ABSENT. desktop-package-tag is BLOCKING: a release that silently
-# did not build is worse than a red pipeline. The two jobs also carry different
-# artifact retention, which `artifacts:expire_in` cannot express per-rule --
-# that is why this is a base plus two jobs rather than one job with two rules.
+# did not build is worse than a red pipeline. desktop-package ITSELF also
+# gained a second rule (`if: $CI_COMMIT_TAG` -> `when: never`), and that one
+# omits allow_failure too -- harmless, because `when: never` means the rule
+# never produces a job at all, so there is nothing for allow_failure to apply
+# to. The two concrete jobs also carry different artifact retention, which
+# `artifacts:expire_in` cannot express per-rule -- that is why this is a base
+# plus two jobs rather than one job with two rules.
 .desktop-package:
   stage: e2e
   image: electronuserland/builder:wine
@@ -498,6 +507,10 @@ dast-zap:
     - npm --prefix desktop ci || npm --prefix desktop install
     - npm --prefix desktop run build
     - npm run desktop:package
+    # ★★★ M3: an empty glob match logs electron-builder/gitlab's own "No files
+    # to upload" and otherwise leaves the job GREEN with no artifact. Fail
+    # loudly instead -- `ls` exits non-zero if either glob matches nothing.
+    - ls -l desktop/release/*-setup.exe desktop/release/*-setup.exe.blockmap
   artifacts:
     # ★★★ THE INSTALLER AND ITS BLOCKMAP, NEVER desktop/release/ WHOLE. This is
     # a defect fix, not an optimisation: measured 2026-09-10, the directory is
@@ -511,6 +524,14 @@ dast-zap:
     # ★★ 92.8 MB sits against a documented 100 MB max_artifacts_size DEFAULT
     # that is admin-only and unreadable from here. A rejection arrives AFTER a
     # green 20-minute build. See the spike finding under specs/_probes/.
+    #
+    # ★ `extends:` deep-merges HASHES ("You can use extends to merge hashes
+    # but not arrays" -- GitLab docs), so a concrete job below that overrides
+    # `artifacts:` to set only its own `expire_in` still inherits `paths` from
+    # HERE and must NOT repeat it -- an earlier revision of this comment (and
+    # of the plan) wrongly claimed extends "would otherwise drop paths".
+    # Proven with the merge verifier (Task 4 Step 4), not by reasoning about
+    # merge semantics.
     paths:
       - desktop/release/*-setup.exe
       - desktop/release/*-setup.exe.blockmap
@@ -525,20 +546,27 @@ desktop-package:
     - when: manual
       allow_failure: true
   artifacts:
-    paths:
-      - desktop/release/*-setup.exe
-      - desktop/release/*-setup.exe.blockmap
     expire_in: 1 week
 
 desktop-package-tag:
   extends: .desktop-package
+  # ★★★ CRITICAL: also needs the tag guard, not just install. GitLab evaluates
+  # `needs:` purely against the STATUS of what is listed (atomic_processing_
+  # service.rb; docs: "Jobs start as soon as their dependencies finish without
+  # waiting for pipeline stages to complete") -- with needs: [install] alone,
+  # a drifted tag still ran this 20-minute wine build to completion, and
+  # Task 7's publish-release (needs: [desktop-package-tag]) still created a
+  # Release whose per-tag asset URL then 404s, because that URL resolves only
+  # through a pipeline GitLab calls SUCCESSFUL. Listing tag-version-check here
+  # makes a failing guard SKIP this job outright.
+  # ★ Deliberately NOT on the .desktop-package BASE above -- a branch pipeline
+  # has no tag-version-check job, and a base needs: naming a job that does not
+  # exist on that pipeline fails pipeline CREATION ("needs ... not added").
+  needs: [install, tag-version-check]
   # ★★★ NO allow_failure, ON PURPOSE. See the comment above the base job.
   rules:
     - if: $CI_COMMIT_TAG
   artifacts:
-    paths:
-      - desktop/release/*-setup.exe
-      - desktop/release/*-setup.exe.blockmap
     # ★★★ never, because README and docs/desktop-rollout.md tell people to
     # download this. An expiring artifact is fine for a manual check and
     # unacceptable behind a published Release asset link -- the link would go

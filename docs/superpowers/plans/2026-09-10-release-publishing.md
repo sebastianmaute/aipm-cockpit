@@ -4,7 +4,7 @@
 
 **Goal:** A `v*` tag publishes a GitLab Release whose asset link points at a Windows installer that provably carries that version.
 
-**Architecture:** Three small CI jobs and two pure script libraries. A tag guard fails the pipeline before anything expensive runs if the tag disagrees with `src/app/version.ts`; the existing manual `desktop-package` job splits into a hidden base plus a branch job and a tag job so artifact scope and retention can differ; a `release` stage job calls the Releases API through `node:fetch` and attaches a per-tag artifact URL. All comparison and payload logic lives in pure, unit-tested `scripts/*-lib.mjs` modules — the CI YAML holds no logic.
+**Architecture:** Three small CI jobs and two pure script libraries. A tag guard fails the pipeline before anything expensive runs if the tag disagrees with `src/app/version.ts` — the tag build's own `needs:` waits on that guard, so a drifted tag skips the 20-minute wine build instead of running it anyway; the existing manual `desktop-package` job splits into a hidden base plus a branch job and a tag job so artifact scope and retention can differ; a `release` stage job carries no `needs:` at all and relies on stage order (`dependencies: []` plus the default `when: on_success`) so it only runs once every earlier-stage job has succeeded, then calls the Releases API through `node:fetch` and attaches a per-tag artifact URL. All comparison and payload logic lives in pure, unit-tested `scripts/*-lib.mjs` modules — the CI YAML holds no logic.
 
 **Tech Stack:** GitLab CI (self-managed,  (GitLab)), `electronuserland/builder:wine`, Node 24 (`node:24-bookworm-slim`, global `fetch`), vitest over `scripts/**/*.test.mjs`, electron-builder NSIS.
 
@@ -21,7 +21,7 @@ These are not suggestions. Each one has cost someone a debugging session in this
 - **Never `git add -A` or `git add .`.** Stage explicit paths. **Never** stage `sample-workspace-huge.json` or `not-in-use.env.local.bak`.
 - `git checkout -- <file>` and `git restore` are deny-blocked. **Never `git stash` in this worktree** (the stack is shared with other checkouts). **Never `--amend`.** `rm -rf` is gate-blocked — use PowerShell `Remove-Item -Recurse -Force`.
 - **No shebang on any `.mjs` that a test imports.** A `#!` line on an imported module makes vitest throw, naming the *wrong* file. Libraries get no shebang; CLIs do.
-- **`.gitlab-ci.yml`, `scripts/**`, `docs/**` and `AGENTS.md` are LF.** Check with `git ls-files --eol <path>` before editing. **Never `sed -i`** — under Git Bash it re-lines a whole CRLF file, and `core.autocrlf=true` hides that from the diff.
+- **`scripts/**`, `docs/**` and `AGENTS.md` are LF, blob and working copy alike. `.gitlab-ci.yml` is stored LF in the blob but THIS WORKING COPY is CRLF** (`git ls-files --eol .gitlab-ci.yml` → `i/lf w/crlf`, no `.gitattributes` entry for it) — edit it with the Edit tool only and preserve its CRLF working copy; do not re-line it to LF. Check any path with `git ls-files --eol <path>` before editing. **Never `sed -i`** — under Git Bash it re-lines a whole CRLF file, and `core.autocrlf=true` hides that from the diff.
 - **Write helper scripts with the Write tool**, never a bash heredoc or inline `node -e`: this session measured backslashes being silently halved that way, corrupting a regex.
 - **Never echo, log or commit `CI_JOB_TOKEN`**, any Turso URL, or any auth token. The publish script must not print its own headers.
 - **No version bump, no CHANGELOG entry, no push, no tag, no MR** during Tasks 1–9. Task 10 is local gates. Task 11 requires the user's explicit say-so and is the only task that touches the remote.
@@ -686,9 +686,13 @@ Keep the whole existing comment block above the job — every line of it is stil
 #
 # ★★★ THAT SECOND RULE NOW EXISTS, AS ITS OWN JOB, AND ITS allow_failure IS
 # DELIBERATELY ABSENT. desktop-package-tag is BLOCKING: a release that silently
-# did not build is worse than a red pipeline. The two jobs also carry different
-# artifact retention, which `artifacts:expire_in` cannot express per-rule --
-# that is why this is a base plus two jobs rather than one job with two rules.
+# did not build is worse than a red pipeline. desktop-package ITSELF also
+# gained a second rule (`if: $CI_COMMIT_TAG` -> `when: never`), and that one
+# omits allow_failure too -- harmless, because `when: never` means the rule
+# never produces a job at all, so there is nothing for allow_failure to apply
+# to. The two concrete jobs also carry different artifact retention, which
+# `artifacts:expire_in` cannot express per-rule -- that is why this is a base
+# plus two jobs rather than one job with two rules.
 .desktop-package:
   stage: e2e
   image: electronuserland/builder:wine
@@ -699,6 +703,10 @@ Keep the whole existing comment block above the job — every line of it is stil
     - npm --prefix desktop ci || npm --prefix desktop install
     - npm --prefix desktop run build
     - npm run desktop:package
+    # ★★★ M3: an empty glob match logs electron-builder/gitlab's own "No files
+    # to upload" and otherwise leaves the job GREEN with no artifact. Fail
+    # loudly instead -- `ls` exits non-zero if either glob matches nothing.
+    - ls -l desktop/release/*-setup.exe desktop/release/*-setup.exe.blockmap
   artifacts:
     # ★★★ THE INSTALLER AND ITS BLOCKMAP, NEVER desktop/release/ WHOLE. This is
     # a defect fix, not an optimisation: measured 2026-09-10, the directory is
@@ -712,6 +720,13 @@ Keep the whole existing comment block above the job — every line of it is stil
     # ★★ 92.8 MB sits against a documented 100 MB max_artifacts_size DEFAULT
     # that is admin-only and unreadable from here. A rejection arrives AFTER a
     # green 20-minute build. See the spike finding under specs/_probes/.
+    #
+    # ★ `extends:` deep-merges HASHES ("You can use extends to merge hashes
+    # but not arrays" -- GitLab docs), so a concrete job below that overrides
+    # `artifacts:` to set only its own `expire_in` still inherits `paths` from
+    # HERE and must NOT repeat it -- an earlier revision of this comment
+    # wrongly claimed extends "would otherwise drop paths". Proven with the
+    # merge verifier (Step 4), not by reasoning about merge semantics.
     paths:
       - desktop/release/*-setup.exe
       - desktop/release/*-setup.exe.blockmap
@@ -726,20 +741,27 @@ desktop-package:
     - when: manual
       allow_failure: true
   artifacts:
-    paths:
-      - desktop/release/*-setup.exe
-      - desktop/release/*-setup.exe.blockmap
     expire_in: 1 week
 
 desktop-package-tag:
   extends: .desktop-package
+  # ★★★ CRITICAL: also needs the tag guard, not just install. GitLab evaluates
+  # `needs:` purely against the STATUS of what is listed (atomic_processing_
+  # service.rb; docs: "Jobs start as soon as their dependencies finish without
+  # waiting for pipeline stages to complete") -- with needs: [install] alone,
+  # a drifted tag still ran this 20-minute wine build to completion, and
+  # Task 7's publish-release (needs: [desktop-package-tag]) still created a
+  # Release whose per-tag asset URL then 404s, because that URL resolves only
+  # through a pipeline GitLab calls SUCCESSFUL. Listing tag-version-check here
+  # makes a failing guard SKIP this job outright.
+  # ★ Deliberately NOT on the .desktop-package BASE above -- a branch pipeline
+  # has no tag-version-check job, and a base needs: naming a job that does not
+  # exist on that pipeline fails pipeline CREATION ("needs ... not added").
+  needs: [install, tag-version-check]
   # ★★★ NO allow_failure, ON PURPOSE. See the comment above the base job.
   rules:
     - if: $CI_COMMIT_TAG
   artifacts:
-    paths:
-      - desktop/release/*-setup.exe
-      - desktop/release/*-setup.exe.blockmap
     # ★★★ never, because README and docs/desktop-rollout.md tell people to
     # download this. An expiring artifact is fine for a manual check and
     # unacceptable behind a published Release asset link -- the link would go
@@ -747,7 +769,9 @@ desktop-package-tag:
     expire_in: never
 ```
 
-★ `artifacts.paths` is repeated in both jobs rather than inherited alone, because `extends` merges by key and a job overriding `artifacts:` to set `expire_in` would otherwise drop `paths`. Verified in Step 4 by reading the merged config, not by reasoning about merge semantics.
+★ `artifacts.paths` is declared ONCE, on the base, and inherited by both concrete jobs — NOT repeated in each. `extends` deep-merges HASHES, so a concrete job that overrides `artifacts:` to set only its own `expire_in` still inherits `paths` from the base. An earlier revision of this plan claimed the opposite (that `extends` "would otherwise drop `paths`"), which is false and was corrected here and in the base job's own comment; both concrete jobs resolving `paths` is verified in Step 4 by reading the merged config, not by reasoning about merge semantics.
+
+★ **Declined:** loosening all three tag rules to `if: $CI_COMMIT_TAG =~ /^v/` was considered and rejected. Keeping the bare `if: $CI_COMMIT_TAG` means a non-`v` tag still matches every one of these jobs and fails LOUDLY at `tag-version-check` (which compares against `v$APP_VERSION`), rather than silently excluding itself from the guard while `publish-release` (Task 7) would otherwise still be free to run with no build behind it.
 
 - [ ] **Step 3: Add the tag guard job**
 
@@ -756,9 +780,12 @@ Insert into the `quality` stage section (beside the other blocking gates):
 ```yaml
 # Tag pipelines only: refuse a tag that disagrees with src/app/version.ts.
 #
-# ★ needs: [] so it runs IMMEDIATELY and fails the pipeline before the
-# 20-minute wine build, not after it.
-# ★★ No allow_failure. Publishing an installer that misreports its own version
+# ★ needs: [] so it runs IMMEDIATELY, without waiting for the rest of the
+# quality stage.
+# ★★ desktop-package-tag lists THIS job in its own needs: (see the comment on
+# that job), so a failing guard here SKIPS the wine build instead of letting
+# it run for 20 minutes and only then reddening the pipeline.
+# ★★★ No allow_failure. Publishing an installer that misreports its own version
 # is the whole failure this prevents.
 tag-version-check:
   stage: quality
@@ -773,14 +800,39 @@ tag-version-check:
 
 - [ ] **Step 4: Verify the YAML parses and the merge did what you think**
 
-Do not eyeball `extends:` merges — print them.
+Do not eyeball `extends:` merges — print them, RESOLVED. **A plain `require('js-yaml').load(...)` only returns each job's LITERAL keys, and since `paths` now lives on `.desktop-package` alone (M1), it will not appear in either concrete job's literal keys — that is the fix working, not a regression.** Resolve `extends:` the way GitLab does (deep-merge mapping keys, replace arrays wholesale) for the jobs this task touches:
 
 ```bash
-node -e "const y=require('js-yaml');const c=y.load(require('fs').readFileSync('.gitlab-ci.yml','utf8'));for(const k of ['desktop-package','desktop-package-tag','tag-version-check'])console.log(k, JSON.stringify(c[k]))" > "$SP/b-t4.log" 2>&1; echo "EXIT=$?"
+node -e "
+const y=require('js-yaml');
+const c=y.load(require('fs').readFileSync('.gitlab-ci.yml','utf8'));
+function merge(base, child){
+  const out={...base};
+  for(const [k,v] of Object.entries(child)){
+    if(k==='extends') continue;
+    if(v && typeof v==='object' && !Array.isArray(v) && out[k] && typeof out[k]==='object' && !Array.isArray(out[k])){
+      out[k]=merge(out[k], v);
+    } else { out[k]=v; }
+  }
+  return out;
+}
+function resolve(name){
+  const job=c[name];
+  if(!job.extends) return job;
+  const parents=Array.isArray(job.extends)?job.extends:[job.extends];
+  let merged={};
+  for(const p of parents) merged=merge(merged, resolve(p));
+  return merge(merged, job);
+}
+for(const k of ['desktop-package','desktop-package-tag','tag-version-check']){
+  const r=resolve(k);
+  console.log(k, JSON.stringify({needs:r.needs, rules:r.rules, allow_failure:r.allow_failure, artifacts:r.artifacts}));
+}
+" > "$SP/b-t4.log" 2>&1; echo "EXIT=$?"
 cat "$SP/b-t4.log"
 ```
 
-Expected: EXIT=0 and, for each job, the keys you intended. **Note that `extends:` is resolved by GitLab, not by a YAML parser** — this step proves the file is well-formed YAML and shows each job's literal keys, so confirm `artifacts.paths` is present on BOTH concrete jobs and that `desktop-package-tag` has no `allow_failure` anywhere.
+Expected: EXIT=0; RESOLVED `desktop-package` shows `needs: ["install"]`; RESOLVED `desktop-package-tag` shows `needs: ["install","tag-version-check"]` and no `allow_failure` anywhere in the job or its rules; BOTH concrete jobs' resolved `artifacts.paths` show the installer + blockmap globs, inherited from the base rather than repeated.
 
 ★ `js-yaml` resolves from the repo root today (4.3.2, a transitive dependency — verified 2026-09-10). If a future install drops it, use GitLab's own `CI Lint` in the project UI during Task 11 and record that here rather than skipping the check.
 
@@ -1223,8 +1275,28 @@ Append at the end of `.gitlab-ci.yml`:
 ```yaml
 # Tag pipelines only: create the Release and point it at the installer.
 #
-# ★ needs the TAG build specifically. Without that, this could publish a link
-# to an artifact that does not exist yet.
+# ★★★ NO `needs:`, AND THAT IS DELIBERATE -- do NOT "optimise" this back to
+# needs: [desktop-package-tag]. GitLab evaluates `needs:` purely against the
+# STATUS of the jobs listed, and dependency jobs start the moment those finish
+# WITHOUT waiting for the rest of the pipeline's stages to complete (GitLab
+# source: atomic_processing_service.rb; GitLab docs: "Jobs start as soon as
+# their dependencies finish without waiting for pipeline stages to complete").
+# desktop-package-tag itself needs only [install, tag-version-check] (Task 4)
+# -- so needs: [desktop-package-tag] HERE would let this job fire the instant
+# that ONE job succeeds, even if some OTHER blocking gate on the same tag
+# pipeline (lint, unit tests, e2e, ...) later fails. The per-tag asset URL
+# this job publishes only resolves through a pipeline GitLab calls
+# SUCCESSFUL, so a needs:-based publish can create a Release whose download
+# link 404s -- the exact bug this plan exists to close, just moved one job
+# over. Omitting `needs:` puts this job on ordinary STAGE order: it sits in
+# `release`, the LAST stage, and inherits the default `when: on_success`,
+# which GitLab defines as running only once every job in every EARLIER STAGE
+# has succeeded -- closing the dead-link case for EVERY blocking gate on the
+# tag pipeline, not just the tag guard.
+# ★ `dependencies: []` (not `needs:`) says the same "no needs:" thing to the
+# artifact-download side: this job fetches NO artifacts from earlier jobs --
+# not node_modules, not the ~93 MB installer -- since `release:publish` only
+# needs the installer's download URL, never its bytes.
 # ★★ No allow_failure: a tag whose Release was never created looks published
 # and is not -- README and docs/desktop-rollout.md send people to a page with
 # no download on it.
@@ -1232,7 +1304,7 @@ Append at the end of `.gitlab-ci.yml`:
 # uses node's global fetch.
 publish-release:
   stage: release
-  needs: [desktop-package-tag]
+  dependencies: []
   rules:
     - if: $CI_COMMIT_TAG
   script:
@@ -1248,7 +1320,7 @@ node -e "const y=require('js-yaml');const c=y.load(require('fs').readFileSync('.
 cat "$SP/b-t7.log"
 ```
 
-Expected: EXIT=0; the job shows `stage: release`, `needs: [desktop-package-tag]`, one rule, and **no** `allow_failure`; `stages` includes `release` last.
+Expected: EXIT=0; the job shows `stage: release`, **no** `needs` key at all, `dependencies: []`, one rule, and **no** `allow_failure`; `stages` includes `release` last.
 
 - [ ] **Step 3: Confirm the job name in the URL matches the job that exists**
 
@@ -1268,9 +1340,14 @@ git add .gitlab-ci.yml
 git commit --only .gitlab-ci.yml -F - <<'EOF'
 ci(release): publish the Release from the tag build's artifact
 
-needs: [desktop-package-tag] specifically, so the asset link cannot point at an
-artifact that does not exist yet. No allow_failure: a tag whose Release was
-never created looks published and is not, and README sends people to it.
+No needs: at all -- dependencies: [] plus ordinary stage order means this job
+only runs once every job in every earlier stage has succeeded, which closes
+the dead-link case for every blocking gate on the tag pipeline, not just
+desktop-package-tag. A needs:-based publish would fire the moment that one
+job succeeded regardless of any other gate, and could create a Release whose
+asset link 404s later -- see the ★★★ note on the job. No allow_failure: a tag
+whose Release was never created looks published and is not, and README sends
+people to it.
 
 Runs on the default node image -- no release-cli, no curl.
 
@@ -1389,7 +1466,7 @@ That file's CI bullet enumerates every pipeline job and ends with "New CI gate �
 
 With the **Edit tool**, find the `- **CI is GitLab**` bullet's stage list (`install → quality (...) → build → e2e [...]`) and:
 
-1. Add to the `quality` list: `**tag-version-check** BLOCKING [tag pipelines only — `npm run tag:check` asserts `$CI_COMMIT_TAG` equals `v$APP_VERSION`, via `scripts/check-tag-version.mjs` over the pure `scripts/tag-version-lib.mjs`. ★★ SAME TWO-EXIT-CODE SPLIT as `version:check`: **1 is DRIFT** (tag and `version.ts` disagree, so a published installer would misreport itself), **2 is the gate unable to scan** (empty tag — a rules bug — or the declaration shape moved). `needs: []`, so it fails before the 20-minute wine build rather than after it]`
+1. Add to the `quality` list: `**tag-version-check** BLOCKING [tag pipelines only — `npm run tag:check` asserts `$CI_COMMIT_TAG` equals `v$APP_VERSION`, via `scripts/check-tag-version.mjs` over the pure `scripts/tag-version-lib.mjs`. ★★ SAME TWO-EXIT-CODE SPLIT as `version:check`: **1 is DRIFT** (tag and `version.ts` disagree, so a published installer would misreport itself), **2 is the gate unable to scan** (empty tag — a rules bug — or the declaration shape moved). `needs: []` so it runs immediately, and `desktop-package-tag` lists it in its OWN `needs:` too, so a failing guard here skips the 20-minute wine build outright rather than letting it run and only then reddening the pipeline]`
 2. **ADD** the desktop jobs to the `e2e` stage list, immediately before `· **dast-zap** weekly/manual]`. Measured 2026-09-10: `grep -n "desktop-package" AGENTS.md` returns **nothing** — that file has never mentioned the packaging job at all, so there is no existing text to replace. Add: `· **desktop-package** (manual, non-tag, `allow_failure: true`) · **desktop-package-tag** (tag pipelines, **BLOCKING**, artifact `expire_in: never`)`
 3. Add a new stage after `e2e`: `→ release [**publish-release** BLOCKING on tag pipelines — `npm run release:publish` (`scripts/publish-release.mjs` over `scripts/release-publish-lib.mjs`) creates the GitLab Release and attaches a PER-TAG artifact link. ★★★ The producing job's name is embedded in that URL, so renaming `desktop-package-tag` 404s the download on every past Release and NOTHING checks it]`
 
