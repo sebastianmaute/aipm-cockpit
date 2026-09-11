@@ -25,10 +25,14 @@ release.
   `@img/**` and `sharp/**` out of that `extraResources` copy, and the
   `.desktop-package` CI job (shared by `desktop-package` and
   `desktop-package-tag`) fails the build if a sharp package reappears anywhere
-  in the packaged app. This frees an estimated ~6 MiB against GitLab's per-job
-  artifact size limit, where the installer plus its `.blockmap` had left only
-  about 1.3 MB of headroom, if the limit is GitLab's documented 100 MiB default
-  (unconfirmed for this instance — the setting is admin-only).
+  in the packaged app. Measured on a manual `desktop-package` run against this
+  branch (job 29645, MR !471 pipeline 6908): the installer shrank from
+  103,565,559 B (v0.303.0) to 97,186,650 B — 6,378,909 B, about 6.1 MiB,
+  smaller — and the sharp guard ran and passed. GitLab accepted the resulting
+  97,169,276 B artifact archive, leaving about 7.3 MiB of headroom against
+  GitLab's per-job artifact size limit, up from about 1.3 MB before this fix —
+  both figures assuming the limit is GitLab's documented 100 MiB default,
+  which is still unconfirmed for this instance (the setting is admin-only).
 
 ### Added
 
@@ -56,9 +60,6 @@ release.
   code-signed, so Windows shows "Windows protected your PC" on install; the
   desktop app starts with its own empty data store even if you have used the
   app in your browser; and the desktop menu labels are English-only.
-- **The sharp-removal fix's effect on artifact size is estimated, not measured.**
-  The ~6 MiB figure comes from recompressing the two removed packages locally;
-  no `desktop-package` run has yet been observed with the filter in place.
 
 ## [0.303.0] - 2026-09-11 "Christie"
 
