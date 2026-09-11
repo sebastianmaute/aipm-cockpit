@@ -10,9 +10,11 @@ manual job once and reading its log.
 1. Can these runners pull and run `electronuserland/builder:wine`? It has never
    run here. The runners are Linux (`node:24-bookworm-slim` by default), so a
    Windows NSIS target needs wine, and that image is the only thing providing it.
-2. Does a 92.8 MB artifact clear this instance's `max_artifacts_size`? The
-   setting is admin-only and unreadable from here. GitLab's documented DEFAULT
-   is 100 MB per job, which would leave ~7% headroom.
+2. Does a 92.9 MiB (97.5 MB) artifact — the installer plus its blockmap — clear
+   this instance's `max_artifacts_size`? The setting is admin-only and
+   unreadable from here. GitLab's documented DEFAULT is 100 MB per job: ~7.1%
+   headroom if that "MB" means MiB, only ~2.5% if it is decimal. Which unit
+   GitLab applies is NOT established here, so plan for the smaller figure.
 
 ## Procedure
 

@@ -90,14 +90,17 @@ export function installerName(version) {
  * link. `desktop-package-tag` sets `expire_in: never` specifically to close
  * that gap for this one link.
  *
- * ★★ Downloading needs PROJECT MEMBERSHIP, not merely a signed-in account:
- * per GitLab's permissions docs ("Download artifacts",
- * https://docs.gitlab.com/user/permissions/), an `internal` project serves
- * artifacts only to a Guest with project-based pipeline visibility enabled,
- * or to Reporter and up — a signed-in non-member gets nothing. Stated by
- * those docs, NOT YET VERIFIED on this instance; Task 11 checks it with a
- * non-member account. docs/desktop-rollout.md carries the same caveat so a
- * colleague hits a clear permission error rather than being surprised by one.
+ * ★★ WHO MAY DOWNLOAD IS NOT SETTLED, so nothing here claims it. The project
+ * is `internal`, so an anonymous visitor gets nothing; past that, GitLab's
+ * permissions docs ("Download artifacts",
+ * https://docs.gitlab.com/user/permissions/) make job-artifact access depend
+ * on the user's role AND on the project's pipeline-visibility setting, so
+ * whether a signed-in NON-member can download is a property of this project's
+ * settings that nobody has measured. Task 11 Step 6 of
+ * docs/superpowers/plans/2026-09-10-release-publishing.md opens this link as
+ * a signed-in non-member and records the answer with that setting;
+ * docs/desktop-rollout.md (the plan's Task 8) tells a colleague what to do
+ * when the link 404s.
  */
 export function buildAssetUrl(env, version) {
   const base = required(env, "CI_PROJECT_URL");

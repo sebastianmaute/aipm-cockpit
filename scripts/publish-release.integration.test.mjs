@@ -46,9 +46,20 @@ afterEach(async () => {
   api = undefined;
 });
 
+/** The only paths a row's `respond` is ever asked to answer. */
+const KNOWN_PATHS = new Set([RELEASES, EXISTING, MOVED]);
+
 /**
  * Start the fake API. `respond({ req, res, posted, body })` answers each
- * request; `posted` is the payload of the first POST to the releases endpoint.
+ * request to a KNOWN path; `posted` is the payload of the first POST to the
+ * releases endpoint.
+ *
+ * ★ Every other path gets a 404 here, before any row sees it. A CLI that
+ * builds a wrong URL (a `v4//projects` path, say) must fail FAST on the
+ * `requests` assertion — without this, a row's `respond` ran against a null
+ * `posted`, threw inside the server, left the request unanswered, and the row
+ * died on the 20 s test timeout instead of on the assertion that names the
+ * defect.
  */
 async function startApi(respond) {
   const requests = [];
@@ -58,6 +69,7 @@ async function startApi(respond) {
     req.on("data", (c) => (body += c));
     req.on("end", () => {
       requests.push(`${req.method} ${req.url}`);
+      if (!KNOWN_PATHS.has(req.url)) return send(res, 404, { message: "404 Not Found" });
       if (req.method === "POST" && req.url === RELEASES && posted === null) posted = JSON.parse(body);
       respond({ req, res, posted, body });
     });
@@ -138,6 +150,19 @@ const ROWS = [
     outHas: ["exists WITHOUT", "Release links API"],
   },
   {
+    // The GET after a 409 must not follow a redirect either: here the moved
+    // location would CONFIRM, so a followed GET exits 0 on a Release nobody read.
+    name: "409, then a GET answering 307, exits 2 and does NOT follow it",
+    respond: ({ req, res, posted }) => {
+      if (req.method === "POST") return send(res, 409, { message: "Release already exists" });
+      if (req.url === EXISTING) return send(res, 307, "", { Location: MOVED });
+      return send(res, 200, echo(posted));
+    },
+    code: 2,
+    requests: [`POST ${RELEASES}`, `GET ${EXISTING}`],
+    outHas: ["returned HTTP 307, not 200"],
+  },
+  {
     name: "403 exits 1 with the Developer+ advice",
     respond: ({ res }) => send(res, 403, { message: "403 Forbidden" }),
     code: 1,
@@ -206,8 +231,9 @@ describe("publish-release.mjs against a fake Releases API", () => {
   it.each(ROWS)("$name", async ({ respond, args = [], apiSuffix = "", code, requests, outHas }) => {
     api = await startApi(respond);
     const r = await runCli(`${api.url}${apiSuffix}`, args);
-    expect(r.code, r.out).toBe(code);
+    // Requests first: a wrong URL or a followed redirect shows up here, by name.
     expect(api.requests).toEqual(requests);
+    expect(r.code, r.out).toBe(code);
     for (const text of outHas) expect(r.out).toContain(text);
     // The canary must never reach the output — not whole, and not as a prefix.
     expect(r.out).not.toContain(TOKEN);

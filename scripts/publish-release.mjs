@@ -78,7 +78,13 @@ try {
   const expected = expectedFromPayload(payload);
 
   // ★ Trailing slashes stripped, so `.../api/v4/` cannot build `v4//projects`.
-  const api = (process.env.CI_API_V4_URL ?? "").replace(/\/+$/, "");
+  // A backward scan, not `/\/+$/`: that regex backtracks quadratically when a
+  // long run of slashes is NOT at the end (measured: 100k slashes then one
+  // other character took ~12 s), and this scan is linear.
+  const rawApi = process.env.CI_API_V4_URL ?? "";
+  let apiEnd = rawApi.length;
+  while (apiEnd > 0 && rawApi[apiEnd - 1] === "/") apiEnd--;
+  const api = rawApi.slice(0, apiEnd);
   const projectId = process.env.CI_PROJECT_ID;
   // ★ Name WHICH one is missing, never the value of any of them.
   const missing = [!api && "CI_API_V4_URL", !projectId && "CI_PROJECT_ID", !dryRun && !token && "CI_JOB_TOKEN"].filter(

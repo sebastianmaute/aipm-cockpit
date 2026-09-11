@@ -105,10 +105,11 @@ manual job once and reading its log.
 1. Can these runners pull and run `electronuserland/builder:wine`? It has never
    run here. The runners are Linux (`node:24-bookworm-slim` by default), so a
    Windows NSIS target needs wine, and that image is the only thing providing it.
-2. Does a 92.9 MiB (97.5 MB) artifact clear this instance's `max_artifacts_size`? The
-   setting is admin-only and unreadable from here. GitLab's documented DEFAULT
-   is 100 MB per job, which would leave ~7.1% headroom if that MB is MiB and
-   ~2.5% if it is decimal.
+2. Does a 92.9 MiB (97.5 MB) artifact — the installer plus its blockmap — clear
+   this instance's `max_artifacts_size`? The setting is admin-only and
+   unreadable from here. GitLab's documented DEFAULT is 100 MB per job: ~7.1%
+   headroom if that "MB" means MiB, only ~2.5% if it is decimal. Which unit
+   GitLab applies is NOT established here, so plan for the smaller figure.
 
 ## Procedure
 
@@ -1166,7 +1167,10 @@ every pipeline kind), `installerName` fails closed on a non-semver version via
 `SEMVER_RE` instead of merely rejecting emptiness, `buildAssetUrl`'s docstring
 gained the `Projects::ArtifactsController` / release_fields / project-membership
 notes, and `buildReleasePayload` links `CHANGELOG.md` as a real markdown link
-(dropping the stale hard-coded "~93 MB").
+(dropping the stale hard-coded "~93 MB"). ★★ `buildAssetUrl`'s download-access
+paragraph below is the text as REWRITTEN in Task 6's last fix round: the Task 5
+cut asserted a membership rule and cited a Task 11 check that did not exist.
+Task 6 also replaces this block's header comment and `required()`.
 
 ```js
 // Pure construction of the GitLab Release payload and its asset URL.
@@ -1244,14 +1248,17 @@ export function installerName(version) {
  * link. `desktop-package-tag` sets `expire_in: never` specifically to close
  * that gap for this one link.
  *
- * ★★ Downloading needs PROJECT MEMBERSHIP, not merely a signed-in account:
- * per GitLab's permissions docs ("Download artifacts",
- * https://docs.gitlab.com/user/permissions/), an `internal` project serves
- * artifacts only to a Guest with project-based pipeline visibility enabled,
- * or to Reporter and up — a signed-in non-member gets nothing. Stated by
- * those docs, NOT YET VERIFIED on this instance; Task 11 checks it with a
- * non-member account. docs/desktop-rollout.md carries the same caveat so a
- * colleague hits a clear permission error rather than being surprised by one.
+ * ★★ WHO MAY DOWNLOAD IS NOT SETTLED, so nothing here claims it. The project
+ * is `internal`, so an anonymous visitor gets nothing; past that, GitLab's
+ * permissions docs ("Download artifacts",
+ * https://docs.gitlab.com/user/permissions/) make job-artifact access depend
+ * on the user's role AND on the project's pipeline-visibility setting, so
+ * whether a signed-in NON-member can download is a property of this project's
+ * settings that nobody has measured. Task 11 Step 6 of
+ * docs/superpowers/plans/2026-09-10-release-publishing.md opens this link as
+ * a signed-in non-member and records the answer with that setting;
+ * docs/desktop-rollout.md (the plan's Task 8) tells a colleague what to do
+ * when the link 404s.
  */
 export function buildAssetUrl(env, version) {
   const base = required(env, "CI_PROJECT_URL");
@@ -1937,11 +1944,14 @@ export function classifyExistingRelease(status, json, expected) {
 ```bash
 npx vitest run scripts/release-publish-lib.test.mjs > "$SP/b-t6b.log" 2>&1; echo "EXIT=$?"
 grep -E "Test Files|Tests " "$SP/b-t6b.log"
-npx vitest list scripts/release-publish-lib.test.mjs > "$SP/b-t6-list.log" 2>&1
+npx vitest list scripts/release-publish-lib.test.mjs --maxWorkers=1 > "$SP/b-t6-list.log" 2>&1
+grep -c "Failed to start" "$SP/b-t6-list.log"
 grep -c "^scripts/release-publish-lib.test.mjs >" "$SP/b-t6-list.log"
 ```
 
-Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  98 passed (98)`, and the anchored `grep -c` prints `98`. ★★ **`grep -c "  it("` CANNOT DERIVE THIS COUNT ANY MORE** — it prints 29, because every `it.each` row is its own test at runtime. `vitest list` enumerates what actually runs; the `^` anchor is load-bearing, since npm echoes its own `npm notice run vitest list scripts/release-publish-lib.test.mjs` line into the log and the unanchored grep prints 99.
+Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  98 passed (98)`, `0` "Failed to start" lines, and the count `98`. ★★ **`grep -c "  it("` CANNOT DERIVE THIS COUNT ANY MORE** — it prints 29, because every `it.each` row is its own test at runtime. `vitest list` enumerates what actually runs.
+★★★ **`vitest list` EXITS 0 EVEN WHEN IT LISTS NOTHING.** Measured on a loaded machine: its worker failed to start ("Failed to start forks worker"), it printed no tests, and it still exited 0, so the count read `0` and looked like an empty file. Hence `--maxWorkers=1`, and the "Failed to start" count, which must be `0` before the tally means anything.
+★ Neither guard in the pattern is load-bearing ON ITS OWN, and an earlier revision here said the `^` was. npm echoes its own `npm notice run vitest list scripts/release-publish-lib.test.mjs …` line into the log, and either guard excludes it. Measured: both guards 98, `^` alone 98, ` >` alone 98, neither 99. Keep both, each a backstop for the other.
 
 - [ ] **Step 5: Mutation-test the classifiers**
 
@@ -2057,7 +2067,13 @@ try {
   const expected = expectedFromPayload(payload);
 
   // ★ Trailing slashes stripped, so `.../api/v4/` cannot build `v4//projects`.
-  const api = (process.env.CI_API_V4_URL ?? "").replace(/\/+$/, "");
+  // A backward scan, not `/\/+$/`: that regex backtracks quadratically when a
+  // long run of slashes is NOT at the end (measured: 100k slashes then one
+  // other character took ~12 s), and this scan is linear.
+  const rawApi = process.env.CI_API_V4_URL ?? "";
+  let apiEnd = rawApi.length;
+  while (apiEnd > 0 && rawApi[apiEnd - 1] === "/") apiEnd--;
+  const api = rawApi.slice(0, apiEnd);
   const projectId = process.env.CI_PROJECT_ID;
   // ★ Name WHICH one is missing, never the value of any of them.
   const missing = [!api && "CI_API_V4_URL", !projectId && "CI_PROJECT_ID", !dryRun && !token && "CI_JOB_TOKEN"].filter(
@@ -2266,9 +2282,20 @@ afterEach(async () => {
   api = undefined;
 });
 
+/** The only paths a row's `respond` is ever asked to answer. */
+const KNOWN_PATHS = new Set([RELEASES, EXISTING, MOVED]);
+
 /**
  * Start the fake API. `respond({ req, res, posted, body })` answers each
- * request; `posted` is the payload of the first POST to the releases endpoint.
+ * request to a KNOWN path; `posted` is the payload of the first POST to the
+ * releases endpoint.
+ *
+ * ★ Every other path gets a 404 here, before any row sees it. A CLI that
+ * builds a wrong URL (a `v4//projects` path, say) must fail FAST on the
+ * `requests` assertion — without this, a row's `respond` ran against a null
+ * `posted`, threw inside the server, left the request unanswered, and the row
+ * died on the 20 s test timeout instead of on the assertion that names the
+ * defect.
  */
 async function startApi(respond) {
   const requests = [];
@@ -2278,6 +2305,7 @@ async function startApi(respond) {
     req.on("data", (c) => (body += c));
     req.on("end", () => {
       requests.push(`${req.method} ${req.url}`);
+      if (!KNOWN_PATHS.has(req.url)) return send(res, 404, { message: "404 Not Found" });
       if (req.method === "POST" && req.url === RELEASES && posted === null) posted = JSON.parse(body);
       respond({ req, res, posted, body });
     });
@@ -2358,6 +2386,19 @@ const ROWS = [
     outHas: ["exists WITHOUT", "Release links API"],
   },
   {
+    // The GET after a 409 must not follow a redirect either: here the moved
+    // location would CONFIRM, so a followed GET exits 0 on a Release nobody read.
+    name: "409, then a GET answering 307, exits 2 and does NOT follow it",
+    respond: ({ req, res, posted }) => {
+      if (req.method === "POST") return send(res, 409, { message: "Release already exists" });
+      if (req.url === EXISTING) return send(res, 307, "", { Location: MOVED });
+      return send(res, 200, echo(posted));
+    },
+    code: 2,
+    requests: [`POST ${RELEASES}`, `GET ${EXISTING}`],
+    outHas: ["returned HTTP 307, not 200"],
+  },
+  {
     name: "403 exits 1 with the Developer+ advice",
     respond: ({ res }) => send(res, 403, { message: "403 Forbidden" }),
     code: 1,
@@ -2426,8 +2467,9 @@ describe("publish-release.mjs against a fake Releases API", () => {
   it.each(ROWS)("$name", async ({ respond, args = [], apiSuffix = "", code, requests, outHas }) => {
     api = await startApi(respond);
     const r = await runCli(`${api.url}${apiSuffix}`, args);
-    expect(r.code, r.out).toBe(code);
+    // Requests first: a wrong URL or a followed redirect shows up here, by name.
     expect(api.requests).toEqual(requests);
+    expect(r.code, r.out).toBe(code);
     for (const text of outHas) expect(r.out).toContain(text);
     // The canary must never reach the output — not whole, and not as a prefix.
     expect(r.out).not.toContain(TOKEN);
@@ -2439,24 +2481,30 @@ describe("publish-release.mjs against a fake Releases API", () => {
 ```bash
 npx vitest run scripts/publish-release.integration.test.mjs --maxWorkers=1 > "$SP/b-t6-int.log" 2>&1; echo "EXIT=$?"
 grep -E "Test Files|Tests " "$SP/b-t6-int.log"
-npx vitest list scripts/publish-release.integration.test.mjs > "$SP/b-t6-int-list.log" 2>&1
+npx vitest list scripts/publish-release.integration.test.mjs --maxWorkers=1 > "$SP/b-t6-int-list.log" 2>&1
+grep -c "Failed to start" "$SP/b-t6-int-list.log"
 grep -c "^scripts/publish-release.integration.test.mjs >" "$SP/b-t6-int-list.log"
 ```
 
-Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  14 passed (14)`, and the anchored `grep -c` prints `14`.
+Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  15 passed (15)`, `0` "Failed to start" lines, and the count `15` (Step 4 explains why that zero must be checked).
+
+★ The fake API answers ONLY the three paths a row expects (the releases endpoint, the existing Release, and a redirect target) and 404s everything else before any row sees it. So a CLI that builds a wrong URL fails FAST, on the `requests` assertion, which the test checks first. Without that, a wrong path reached a row's handler with nothing posted, the handler threw, the request went unanswered, and the row died on the 20 s test timeout.
+
+★★ **The catch's fixed-fallback message has NO committed test**, and cannot have one without adding an injection point to the CLI: nothing reachable from outside makes the description itself throw. It was proved once, on scratchpad copies throwing `Object.create(null)` at the top of the try — exit 1 before the inner try existed, exit 2 after.
 
 ★★ It spawns with async `spawn`, never `spawnSync`: the fake API lives in the test's own process, and a synchronous spawn blocks the event loop that has to answer the child. ★ It strips every `CI_*` variable before setting the fake ones, so a real `CI_JOB_TOKEN` in the pipeline running the suite never reaches the child.
 
 Mutation-proved one mutant at a time, as in Step 5 — each is the defect a review said would otherwise ship green:
 
-| Mutant in `publish-release.mjs` | Result |
+| Mutant in `publish-release.mjs` | Result — the failing row, and the assertion that fired |
 |---|---|
-| truncate BEFORE redacting the body excerpt | KILLED by the straddle row alone — `canar` reaches the output |
-| `redirect: "follow"` on the POST | KILLED by the 302 row AND the 307 row — two requests reach the API, and the followed 307 re-POSTs to a location that CONFIRMS, so it exits 0 |
-| the unknown-argument guard deleted | KILLED by the `--dryrun` row — the POST is sent, confirmed, and exits 0 |
-| the trailing-slash strip deleted | KILLED by the trailing-slash row — the request path becomes `/api/v4//projects/1/releases` |
+| truncate BEFORE redacting the body excerpt | KILLED by the straddle row alone: its `yyyyy[REDA` check fails, since the cut now lands inside the token, and `canar` reaches the output |
+| `redirect: "follow"` on the POST only | KILLED by the 302 row AND the 307 row, both on `requests`: two requests reach the API. Unguarded, the followed 307 re-POSTs to a location that CONFIRMS |
+| `redirect: "follow"` on the GET only | KILLED by the 409-then-307 row, on `requests`: three requests, because the followed GET reaches the confirming location |
+| the unknown-argument guard deleted | KILLED by the `--dryrun` row, on `requests`: the POST is sent |
+| the trailing-slash strip deleted | KILLED by the trailing-slash row, on `requests`: the path becomes `/api/v4///projects/1/releases` (the URL's `//` plus the endpoint's own `/`), and it failed in ~240 ms instead of timing out |
 
-★ The 307 row is the one that proves `redirect: "manual"`, not the 302: a followed 302 becomes a GET whose unrelated answer still exits 2, so only the request COUNT catches it there, while a followed 307 keeps the POST and its body and would publish.
+Every row that failed did so in under 300 ms. ★ The 307 row is the one that proves `redirect: "manual"` on the POST, not the 302: a followed 302 becomes a GET whose unrelated answer still exits 2, so only the request COUNT catches it there, while a followed 307 keeps the POST and its body and would publish.
 
 - [ ] **Step 11: Add the npm script and its description**
 
@@ -2484,9 +2532,9 @@ grep -hE "unchanged|would-update|updated" "$SP/b-t6-gen.log" "$SP/b-t6-chk.log"
 
 Expected: both EXIT=0; the GENERATE run prints `updated: CONTRIBUTING.md`, and only the CHECK run prints `unchanged: CONTRIBUTING.md`.
 
-- [ ] **Step 13: Commit — three commits, each path-limited**
+- [ ] **Step 13: Commit — four commits, each path-limited**
 
-The first two landed the classifiers and the CLI; the third is the fix round from the second cold review.
+The first two landed the classifiers and the CLI; the third and fourth are the fix rounds from the second and third cold reviews. ★ The third message's closing claims (project membership, 128 tests) are a RECORD of that commit and are superseded by the fourth: see Task 8 and Task 10 for the current text.
 
 ```bash
 git commit -F - -- scripts/release-publish-lib.mjs scripts/release-publish-lib.test.mjs <<'EOF'
@@ -2583,6 +2631,40 @@ are labelled MiB where du produced them (97,353,634 bytes is 97.4 MB /
 Task 8 text drops the size and says a download needs project membership, not
 merely a signed-in account, which the lib's own docstring already claimed
 desktop-rollout.md said. Task 10 now runs three files: 128 tests (16 + 98 + 14).
+
+Claude-Session: https://[session link removed]
+EOF
+git commit -F - -- scripts/publish-release.mjs scripts/publish-release.integration.test.mjs scripts/release-publish-lib.mjs docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md docs/superpowers/plans/2026-09-10-release-publishing.md <<'EOF'
+fix(ci): the plan's probe, Task 11 and Task 8 say only what was measured
+
+After 2de4b877 the probe file and the plan's copy of it disagreed: the plan
+said 92.9 MiB with a unit caveat, while the committed probe still said
+92.8 MB and ~7%. Both now carry the same text, byte for byte.
+
+buildAssetUrl's docstring, and the plan, said "Task 11 checks it with a
+non-member account", but Task 11 had no such step. It now has one (Step 6):
+open the asset link as a signed-in non-member and record the result together
+with the project's pipeline-visibility setting. Until that has run, neither
+Task 8's user-facing text nor the docstring asserts an access rule. Two
+earlier revisions asserted opposite rules, and neither was measured.
+
+The integration test's fake API now 404s every path a row does not expect,
+so a wrong URL fails fast on the requests assertion (now checked first)
+instead of on a 20 s timeout. The slash-strip mutant, which builds
+/api/v4///projects/1/releases, now dies in ~240 ms. A new row pins that the
+GET after a 409 does not follow a 307 either; following on the GET alone
+turns it red. That makes 15 rows, and Task 10 now expects 129 tests
+(16 + 98 + 15).
+
+The trailing-slash strip is now a backward scan instead of /\/+$/. The regex
+took ~12 s on 100k slashes followed by one other character; the scan took
+0.1 ms.
+
+The plan's Step 4 said the ^ anchor was load-bearing. Measured: either guard
+alone excludes npm's echoed command line (98), and only dropping both prints
+99. The plan also records that vitest list exits 0 when its worker fails to
+start and lists nothing, so the derivations now run it with --maxWorkers=1
+and check for "Failed to start".
 
 Claude-Session: https://[session link removed]
 EOF
@@ -2716,14 +2798,13 @@ with:
 ```markdown
 1. Download the installer from the project's **Releases** page — pick the newest
    release and click the `aipm-cockpit-<version>-setup.exe` asset link.
-   You need to be a **member of the GitLab project**, not merely signed in: the
-   project is `internal`, and GitLab serves its job artifacts only to Reporter
-   and up, or to a Guest where project-based pipeline visibility is enabled. If
-   the link answers with a 404 or a permission error, ask a maintainer to add you.
+   You need to be signed in to GitLab with access to the project's pipelines.
+   If the link answers with a 404 or a permission error, ask a project
+   maintainer for access to the project.
 2. Run it.
 ```
 
-★★ **The project-membership caveat is REQUIRED here, not optional.** `scripts/release-publish-lib.mjs`'s `buildAssetUrl` docstring already says `docs/desktop-rollout.md` carries it — this step is what makes that claim true. An earlier revision of this step said being signed in was enough, which contradicts that docstring and GitLab's permissions docs. It is stated by those docs, NOT yet verified on this instance; Task 11 checks it with a non-member account.
+★★ **This text is deliberately NEUTRAL about WHO has access, because nobody has measured it.** GitLab's permissions docs make job-artifact access depend on the user's role AND on the project's pipeline-visibility setting; depending on that setting, a signed-in NON-member of an internal project may or may not be able to download. Two earlier revisions of this step each asserted a rule — "being signed in is enough", then "project membership is required" — and neither was verified. **Task 11 Step 6 settles it** by opening the asset link as a signed-in non-member. Once it has, tighten this paragraph to the measured rule, and `buildAssetUrl`'s docstring in `scripts/release-publish-lib.mjs` with it, which points at that step.
 
 ★ No size is quoted in this user-facing text, as in the Release description (Task 5): a figure there goes stale on the next release and nothing checks it.
 
@@ -2783,10 +2864,9 @@ docs: name the download location, and the release procedure
 
 desktop-rollout.md said "run the installer from the share" and it owns the
 download location -- README deliberately names none, so there is exactly one
-place to update. It now points at the Releases page, and says the download needs
-project membership -- Reporter and up, or a Guest with project-based pipeline
-visibility -- since an internal project serves its job artifacts to members
-only, not to every signed-in user.
+place to update. It now points at the Releases page and says what to do if the
+link 404s. It deliberately does not say WHO has access: that depends on the
+project's pipeline-visibility setting and is measured by Task 11 Step 6.
 
 RUNBOOK gains the operator procedure: bump, merge, tag, and what each of the two
 tag jobs does. It records the wine fallback (a local build uploaded by hand) as
@@ -2869,7 +2949,7 @@ npx vitest run scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test
 grep -E "Test Files|Tests " "$SP/b-g-unit.log"
 ```
 
-Expected: EXIT=0, `Test Files  3 passed (3)`, `Tests  128 passed (128)` (16 + 98 + 14). Derive it rather than trusting this line — `npx vitest list scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs scripts/publish-release.integration.test.mjs > "$SP/b-g-list.log" 2>&1; grep -cE "^scripts/(tag-version-lib|release-publish-lib|publish-release\.integration)\.test\.mjs >" "$SP/b-g-list.log"`. ★★ NOT `grep -c "  it("`, which this line used to prescribe: it prints 16 + 29 + 0, because every `it.each` row is its own test at runtime and the integration file is a single `it.each`. The release-publish-lib file grew from 8 to 16 in the Task 5 review round and to 98 in Task 6; the integration file is Task 6's too. ★★★ **Assert `Test Files 3` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
+Expected: EXIT=0, `Test Files  3 passed (3)`, `Tests  129 passed (129)` (16 + 98 + 15). Derive it rather than trusting this line — `npx vitest list scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs scripts/publish-release.integration.test.mjs --maxWorkers=1 > "$SP/b-g-list.log" 2>&1; grep -c "Failed to start" "$SP/b-g-list.log"; grep -cE "^scripts/(tag-version-lib|release-publish-lib|publish-release\.integration)\.test\.mjs >" "$SP/b-g-list.log"` — the first count must be `0`, because `vitest list` exits 0 even when its worker fails to start and lists nothing (Task 6 Step 4). ★★ NOT `grep -c "  it("`, which this line used to prescribe: it prints 16 + 29 + 0, because every `it.each` row is its own test at runtime and the integration file is a single `it.each`. The release-publish-lib file grew from 8 to 16 in the Task 5 review round and to 98 in Task 6; the integration file is Task 6's too. ★★★ **Assert `Test Files 3` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
 
 - [ ] **Step 3: Docs, version and followup gates**
 
@@ -2976,6 +3056,17 @@ git tag -d v9.9.9
 
 This needs a version bump, a CHANGELOG entry and a merge, none of which are in this plan. When the user asks for it, follow `docs/RUNBOOK.md`'s new "Publishing a desktop release" section.
 
+- [ ] **Step 6: Measure who can download — as a signed-in NON-member**
+
+Needs a published Release, so it runs after Step 5. Open the Release's asset link while signed in to GitLab as a user who is **NOT a member of the project** — a colleague outside it, or a test account. Record, in `docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md`'s **Measured** section:
+
+1. The outcome: the installer downloads, or a 404 / permission error.
+2. The project's pipeline-visibility setting (**Settings → CI/CD → General pipelines**, "Project-based pipeline visibility" — read it, or ask a maintainer who can).
+
+Then make Task 8's `docs/desktop-rollout.md` wording and `buildAssetUrl`'s docstring in `scripts/release-publish-lib.mjs` say the measured rule. Both deliberately assert NONE today, and both point here.
+
+★★ This is the only step that can settle it. GitLab's permissions docs make job-artifact access depend on both the role and that setting, and two earlier revisions of this plan asserted opposite rules without measuring either. A download that works for you, a member, proves nothing about a colleague who is not one.
+
 ---
 
 ## Definition of done
@@ -2987,7 +3078,8 @@ This needs a version bump, a CHANGELOG entry and a merge, none of which are in t
 - [ ] `desktop-package-tag` carries **no** `allow_failure`, and `desktop-package` still carries it under its manual rule.
 - [ ] Tag artifacts are `expire_in: never`; branch artifacts are still `1 week`.
 - [ ] `ARTIFACT_JOB` in `scripts/release-publish-lib.mjs` is the same string as the `desktop-package-tag` job name.
-- [ ] `docs/desktop-rollout.md` names the Releases page, and says the download needs project membership (Reporter and up, or a Guest with project-based pipeline visibility) — not merely a signed-in account.
+- [ ] `docs/desktop-rollout.md` names the Releases page and says what to do on a 404, and its access wording matches what Task 11 Step 6 measured.
+- [ ] Task 11 Step 6 is recorded: whether a signed-in non-member could download, and the project's pipeline-visibility setting.
 - [ ] `AGENTS.md`'s CI enumeration lists the five changed or new jobs.
 - [ ] Task 10's gate chain is green and `git status --porcelain` is empty.
 
