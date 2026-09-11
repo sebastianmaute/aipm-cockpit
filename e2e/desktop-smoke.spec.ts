@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { createServer } from "node:net";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { connect, createServer } from "node:net";
 import { networkInterfaces, tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   test,
   expect,
@@ -58,18 +58,31 @@ const PRODUCT_NAME = readProductName(readFileSync(BUILDER_YML, "utf8"));
 // names the exe `${productFilename}.exe`, and productFilename is productName
 // passed through sanitizeFileName (app-builder-lib appInfo.js) unless an
 // `executableName` is set, which this config does not do. A hardcoded name
-// here would, after a rename, name an exe the build no longer writes: if none
-// is left in win-unpacked/, every test in this file SKIPS -- a gate reporting
-// success -- and if a stale one is, the identity test fails with a
-// ProductName mismatch that blames the build when this spec is out of date.
-const PACKAGED_EXE = join(
-  __dirname,
-  "..",
-  "desktop",
-  "release",
-  "win-unpacked",
-  `${PRODUCT_NAME}.exe`,
-);
+// here would, after a rename, name an exe the build no longer writes.
+//
+// ★★ This derivation SKIPS sanitizeFileName, so it matches only while that is
+// the identity on productName (it is for "AI PM Cockpit": the packaged exe
+// carries exactly that name). A productName it would rewrite yields a path
+// the build never writes -- which requirePackagedExe() below turns into a
+// FAILURE rather than a skip, because win-unpacked/ then exists without it.
+const UNPACKED_DIR = join(__dirname, "..", "desktop", "release", "win-unpacked");
+const PACKAGED_EXE = join(UNPACKED_DIR, `${PRODUCT_NAME}.exe`);
+
+// SKIP only when there is no package at all; FAIL when there is one but the
+// derived exe is not in it. A skip in the second case would report success
+// over a package this spec can no longer find -- the rename trap above.
+function requirePackagedExe(): void {
+  if (existsSync(PACKAGED_EXE)) return;
+  if (existsSync(UNPACKED_DIR)) {
+    const exes = readdirSync(UNPACKED_DIR).filter((f) => f.toLowerCase().endsWith(".exe"));
+    throw new Error(
+      `${UNPACKED_DIR} exists but holds no "${basename(PACKAGED_EXE)}" (derived from ` +
+        `electron-builder.yml productName); it holds: ${exes.join(", ") || "(no .exe)"}. ` +
+        `Either the package is stale or the derivation no longer matches sanitizeFileName.`,
+    );
+  }
+  test.skip(true, `No packaged app at ${PACKAGED_EXE} — build one with \`npm run desktop:package\`.`);
+}
 
 // The window may sit on splash.html for as long as main.ts's own readiness
 // budget (60s) plus the standalone server's cold start, so this is generous by
@@ -141,19 +154,52 @@ async function waitForPortRelease(): Promise<void> {
 // run against the wrong build and pass whenever the two versions match (reasoned
 // from main.ts's owner branches, not measured). What this spec actually
 // reported was waitForPortRelease()'s "leaked server child ... after
-// app.close()", blaming the package for a process it never started. A foreign
-// holder is caught too, before main.ts's own "Port in use" dialog. Binding the
-// port ourselves on the app's host asks the OS the same question the app's
-// server will, so it fails first and names the likely culprit.
+// app.close()", blaming the package for a process it never started.
+//
+// ★★★ TWO CHECKS, AND THE CONNECT IS THE ONE THAT MIRRORS THE APP. main.ts
+// decides ownership with an HTTP fetch of APP_ORIGIN (`probePort`), i.e. by
+// CONNECTING to 127.0.0.1 -- so this connects first, and anything that
+// accepts fails the pre-flight: an installed copy, a same-checkout
+// `next dev`/`next start`, or any foreign server. A bind alone is NOT enough,
+// and was all this used to do: measured 2026-09-11 with Node, a holder bound
+// to 0.0.0.0, to `::`, or at Node's default listen let a bind on 127.0.0.1
+// SUCCEED -- the port read as free -- while a connect to 127.0.0.1 succeeded
+// in all of those cases. Only a holder on 127.0.0.1 itself made the bind fail.
+// The bind stays as a second check, on the address the app's server binds.
+const PORT_HELD_HINT =
+  `is ${PRODUCT_NAME} (installed copy) or a dev server running? Close it and re-run.`;
+
+function portAcceptsConnections(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = connect({ host: APP_HOST, port: APP_PORT });
+    socket.setTimeout(2_000);
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once("timeout", () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.once("error", () => resolve(false));
+  });
+}
+
 async function assertPortFree(): Promise<void> {
+  if (await portAcceptsConnections()) {
+    throw new Error(
+      `port ${APP_PORT} in use before launch (something accepted a connection to ` +
+        `${APP_HOST}:${APP_PORT}) — ${PORT_HELD_HINT}`,
+    );
+  }
   await new Promise<void>((resolve, reject) => {
     const probe = createServer();
     probe.once("error", (error: NodeJS.ErrnoException) => {
       reject(
         error.code === "EADDRINUSE"
           ? new Error(
-              `port ${APP_PORT} in use before launch — is ${PRODUCT_NAME} ` +
-                `(installed copy) running? Close it and re-run.`,
+              `port ${APP_PORT} in use before launch (${APP_HOST}:${APP_PORT} cannot be ` +
+                `bound) — ${PORT_HELD_HINT}`,
             )
           : error,
       );
@@ -207,10 +253,7 @@ async function shutdown({ app, profile }: Launched): Promise<void> {
 
 test.describe.serial("packaged desktop app", () => {
   test("boots, is styled, and reports this version", async () => {
-    test.skip(
-      !existsSync(PACKAGED_EXE),
-      `No packaged app at ${PACKAGED_EXE} — build one with \`npm run desktop:package\`.`,
-    );
+    requirePackagedExe();
 
     const launched = await launchPackagedApp();
     try {
@@ -279,9 +322,13 @@ test.describe.serial("packaged desktop app", () => {
       // nothing at all.
       await expect(page.locator("body")).toBeVisible();
 
-      // ★★★ ANTI-VACUITY 2. Prove the window shows THIS build, not a dev
-      // server someone left on the port. Mirrors the guard in e2e/a11y.spec.ts
-      // (open-followups §58), extended to the packaged app.
+      // ★★★ ANTI-VACUITY 2. Prove the package is THIS checkout's build, not a
+      // stale one from an earlier version. Mirrors the guard in
+      // e2e/a11y.spec.ts (open-followups §58), extended to the packaged app.
+      // ★★ It does NOT rule out a server someone left on the port: a
+      // same-checkout `next dev` reports this very version. That job belongs
+      // to assertPortFree()'s connect check, which fails the launch whenever
+      // anything already answers on the app's origin.
       const served = await page.evaluate(() =>
         document.documentElement.getAttribute("data-app-version"),
       );
@@ -295,10 +342,7 @@ test.describe.serial("packaged desktop app", () => {
   });
 
   test("answers on loopback and REFUSES on the LAN address", async () => {
-    test.skip(
-      !existsSync(PACKAGED_EXE),
-      `No packaged app at ${PACKAGED_EXE} — build one with \`npm run desktop:package\`.`,
-    );
+    requirePackagedExe();
 
     // Resolved BEFORE launching: skipping after launch would leak an app onto
     // the pinned port for the rest of the run.
@@ -361,8 +405,30 @@ type ExeIdentity = {
   stockIconHash: string;
 };
 
-function parseExeIdentity(stdout: string): ExeIdentity {
-  const parsed: unknown = JSON.parse(stdout);
+// Runs the identity probe and returns its parsed output. Every failure --
+// the probe not starting or timing out, a non-zero exit, output that is not
+// JSON, JSON of the wrong shape -- throws with the probe's own stdout AND
+// stderr attached, since stderr is where PowerShell explains itself.
+function runIdentityProbe(script: string): ExeIdentity {
+  const result = spawnSync("powershell", ["-NoProfile", "-Command", script], {
+    encoding: "utf8",
+    timeout: 30_000,
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const output = `\n--- stdout ---\n${result.stdout ?? ""}\n--- stderr ---\n${result.stderr ?? ""}`;
+  if (result.error) {
+    throw new Error(`Identity probe did not run: ${result.error.message}${output}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(`Identity probe exited ${result.status ?? `on ${result.signal}`}${output}`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch (error) {
+    throw new Error(`Identity probe printed no parseable JSON (${String(error)})${output}`);
+  }
   const record = (parsed ?? {}) as Record<string, unknown>;
   const strings = ["productName", "companyName", "legalCopyright"] as const;
   const hashes = ["packagedIconHash", "appIcoIconHash", "stockIconHash"] as const;
@@ -370,7 +436,7 @@ function parseExeIdentity(stdout: string): ExeIdentity {
     strings.some((key) => record[key] !== null && typeof record[key] !== "string") ||
     hashes.some((key) => typeof record[key] !== "string")
   ) {
-    throw new Error(`Unexpected identity-probe output: ${stdout}`);
+    throw new Error(`Unexpected identity-probe output${output}`);
   }
   return parsed as ExeIdentity;
 }
@@ -379,19 +445,27 @@ const DESKTOP_PACKAGE_JSON = join(__dirname, "..", "desktop", "package.json");
 
 // The author NAME exactly as electron-builder derives it, since that is what
 // it stamps as CompanyName: app-builder-lib appInfo.js `companyName` returns
-// `author.name`, and normalizePackageData.js `parsePerson` first turns a
-// string author "Name <email> (url)" into `{ name }` -- the text before the
-// first `<` or `(`, trimmed. A hardcoded name here would go stale on the
-// first edit to package.json and blame the build for it.
+// `author.name` AFTER normalizePackageData.js has run `unParsePerson` then
+// `parsePerson` over it. That round trip flattens an object author to
+// "name <email> (url)" and re-parses it, so BOTH forms keep only the text
+// before the first `<` or `(`, trimmed -- an object `{ name: "Acme (EU)" }`
+// becomes "Acme". Measured 2026-09-11 by running electron-builder's own
+// normalizePackageData on five authors (plain string, string with email and
+// url, and three objects): this rule on the string / on `.name` matched it
+// every time. A hardcoded name here would go stale on the first edit to
+// package.json and blame the build for it.
+const AUTHOR_NAME_RE = /^([^(<]+)/;
+
 function readAuthorName(pkgJson: string): string {
   const author: unknown = (JSON.parse(pkgJson) as { author?: unknown }).author;
-  let name = "";
+  let raw = "";
   if (typeof author === "string") {
-    name = /^([^(<]+)/.exec(author)?.[1] ?? "";
+    raw = author;
   } else if (typeof author === "object" && author !== null) {
     const field = (author as { name?: unknown }).name;
-    name = typeof field === "string" ? field : "";
+    raw = typeof field === "string" ? field : "";
   }
+  const name = AUTHOR_NAME_RE.exec(raw)?.[1] ?? "";
   if (name.trim() === "") {
     throw new Error(
       `No \`author\` name in ${DESKTOP_PACKAGE_JSON} — without one electron-builder ` +
@@ -410,10 +484,12 @@ function readAuthorName(pkgJson: string): string {
 // CSS/version-string, never the exe's own binary metadata.
 //
 // ★★ CompanyName and LegalCopyright are pinned to desktop/package.json's
-// `author`, because that is their ONLY source: with resource editing on but no
-// author, CompanyName stayed Electron's "GitHub, Inc." (measured 2026-09-11) --
-// a second way to ship Electron's identity that the ProductName and icon pins
-// cannot see.
+// `author`, because it is CompanyName's only source and LegalCopyright's
+// default (a `copyright:` key in the builder config would override the
+// latter -- appInfo.js `copyright`; this config sets none). With resource
+// editing on but no author, CompanyName stayed Electron's "GitHub, Inc."
+// (measured 2026-09-11) -- a second way to ship Electron's identity that the
+// ProductName and icon pins cannot see.
 //
 // ★★ OUTSIDE the serial describe on purpose. A failure in a serial test skips
 // every later test in its group, so inside it a broken boot would have hidden
@@ -421,18 +497,17 @@ function readAuthorName(pkgJson: string): string {
 // launch/shutdown discipline the boot tests do.
 test("packaged exe carries the app's product identity and icon, not Electron's", () => {
   // Platform FIRST: on any other OS the missing-exe message below would send
-  // the reader off to build a package this test could never inspect.
-  // ExtractAssociatedIcon + VersionInfo via System.Drawing are Windows-only
-  // (Windows PowerShell 5.1, not pwsh -- System.Drawing is available there
-  // without an extra package reference).
+  // the reader off to build a package this test could never inspect. The
+  // probe is Windows-only: the icon hashes need System.Drawing's
+  // ExtractAssociatedIcon and the VersionInfo strings come from `Get-Item`
+  // (FileVersionInfo). It runs under `powershell` because Windows PowerShell
+  // 5.1 ships with every Windows install; pwsh may not be present (it runs the
+  // same probe fine where it is -- measured with pwsh 7.6.6).
   test.skip(
     process.platform !== "win32",
     "PowerShell/System.Drawing icon + VersionInfo probe is Windows-only",
   );
-  test.skip(
-    !existsSync(PACKAGED_EXE),
-    `No packaged app at ${PACKAGED_EXE} — build one with \`npm run desktop:package\`.`,
-  );
+  requirePackagedExe();
 
   const stockElectronExe = join(
     __dirname,
@@ -460,7 +535,8 @@ test("packaged exe carries the app's product identity and icon, not Electron's",
   // ★★★ ALL THREE icons go through the SAME API, ExtractAssociatedIcon,
   // app.ico included. `New-Object System.Drawing.Icon(<ico>, w, h)` was the
   // first choice for the app.ico side and does NOT match: measured
-  // 2026-09-11, at the extracted 32x32 it hashed 2477954E… while the packaged
+  // 2026-09-11 under Windows PowerShell 5.1 (pwsh 7 gives a third value,
+  // C58E77A3…), at the extracted 32x32 it hashed 2477954E… while the packaged
   // exe hashed 23C9617F… -- and ExtractAssociatedIcon on app.ico hashed
   // 23C9617F…, identical to the exe, to the full 64 digits. The image is the
   // same; the two constructions do not produce byte-identical bitmaps (every
@@ -504,13 +580,7 @@ test("packaged exe carries the app's product identity and icon, not Electron's",
     "} | ConvertTo-Json -Compress",
   ].join("\n");
 
-  const identity = parseExeIdentity(
-    execFileSync("powershell", ["-NoProfile", "-Command", script], {
-      encoding: "utf8",
-      timeout: 30_000,
-      windowsHide: true,
-    }),
-  );
+  const identity = runIdentityProbe(script);
 
   // ★★ ANTI-VACUITY: every hash must be a real SHA-256 of a real image before
   // any comparison between them means anything.

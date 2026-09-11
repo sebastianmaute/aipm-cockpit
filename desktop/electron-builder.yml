@@ -50,8 +50,11 @@ win:
   # or failure, even though this path resolves correctly every time. `icon:`
   # only supplies the RESOURCE. Whether it is ever applied is gated by
   # `win.signAndEditExecutable` ALONE, which must not be `false` (unset =
-  # default true); `signExecutable` affects signing only (app-builder-lib
-  # winPackager.js: `signApp` checks the former, `signIf` the latter).
+  # default true); `signExecutable` affects signing only. In app-builder-lib
+  # winPackager.js, `signApp` returns before `signAndEditResources` only when
+  # `signAndEditExecutable` is false; it reads `signExecutable` too, but only
+  # to skip its closing walk over files to sign, and `signIf` reads it to
+  # skip signing each file -- neither path touches resources.
   #
   # ★ Six sizes up to 256x256 at 32bpp. electron-builder REQUIRES a 256x256
   # entry; without one it refuses the icon rather than downscaling.
@@ -69,16 +72,17 @@ win:
   # ★★ CompanyName and the default LegalCopyright both come from
   # desktop/package.json `author`, not from this file (app-builder-lib
   # appInfo.js: `companyName` returns `author.name`; `copyright` defaults to
-  # "Copyright © <year> <companyName || productName>"). CompanyName is written
+  # "Copyright © <year> <companyName || productName>" unless a `copyright:`
+  # key is set here, and none is). CompanyName is written
   # ONLY when an author exists: without one the exe kept Electron's own
   # "GitHub, Inc." and the copyright named the product (both measured
   # 2026-09-11), and the build only warned "author is missed in the
   # package.json". A plain-string author is enough, because the package reader
   # parses it into `{ name }` (normalizePackageData.js `parsePerson`).
   #
-  # Unsigned, as above: see the spec's Section 7 security note -- unsigned means SmartScreen prompts on
-  # install, and (once the updater lands) the share ACL is the only
-  # integrity control on updates.
+  # See the spec's Section 7 security note -- unsigned means SmartScreen
+  # prompts on install, and (once the updater lands) the share ACL is the
+  # only integrity control on updates.
   signExecutable: false
 nsis:
   # Per-user install: corporate laptops routinely deny admin rights, and a
