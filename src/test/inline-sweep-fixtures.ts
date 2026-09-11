@@ -67,9 +67,18 @@ export const LINKED_TASKS: Task[] = [seedTask(1, "First"), seedTask(2, "Second")
  *
  *  ★ `url` must be `isSafeHttpUrl`-clean and `name` non-blank, or
  *  `sanitizeKnowledgeLinks` drops the entry and the seed silently becomes the
- *  empty array it was written to avoid. */
+ *  empty array it was written to avoid. Each entry is in that function's own
+ *  output key order (`id`, `name`, `url`, `kind`), so it round-trips unchanged.
+ *
+ *  ★★ TWO LINKS, NOT ONE, for Relation A of `plan.offered-surface-sweep.test.ts`.
+ *  Its update probe drops one element of the stored list; from a single link
+ *  that is `[]`, which the same sparse `if (dl.length)` store turns into an
+ *  absent key — so the writer's sanitizer could never hold the probe and the
+ *  field was `unmeasured` on all four registers. From two it is a one-link
+ *  list every one of them keeps. */
 export const KNOWLEDGE_LINKS = [
   { id: "kl-1", name: "Vendor SLA", url: "https://example.com/sla", kind: "file" as const },
+  { id: "kl-2", name: "Cutover runbook", url: "https://example.com/runbook", kind: "folder" as const },
 ];
 
 /** ★★★ EVERY VALUE OFF ITS FALLBACK, AND EVERY `diffFields` MEMBER PRESENT —
@@ -91,23 +100,72 @@ export const KNOWLEDGE_LINKS = [
  *  and a correctly-refused one are indistinguishable unless the seed holds a
  *  value to preserve.
  *
- *  ★ `status` is "In Progress" rather than "Done" on purpose — "Done" carries
- *  the `status` ⟺ `completedDate` invariant (`docs/AGENTS/task-status.md`), and
- *  a seed that violated it would make every finding on this entity arguable. */
+ *  ★★ `status` is "Done" TOGETHER WITH `completedDate`, and the pair is the
+ *  point: `status === "Done"` ⟺ `completedDate` set is the invariant
+ *  (`docs/AGENTS/task-status.md`), and load does NOT repair a split pair, so a
+ *  seed carrying only one half would make every finding on this entity
+ *  arguable. It was "In Progress" with no `completedDate` until the
+ *  offered-surface sweep needed the date seeded (below). "Done" is off the
+ *  `DEFAULT_TASK_STATUS` fallback exactly as "In Progress" was, and nothing
+ *  that drives this row writes differently for a closed task: `update_task`
+ *  gates on `jiraKey` alone (`assertJiraManagedUnchanged`), never on status.
+ *
+ *  ★★★ THE REST OF THE ROW IS FOR RELATION A OF
+ *  `plan.offered-surface-sweep.test.ts`, and each value is a column no tool
+ *  schema declares. `probeFor` (`src/test/sweep-probes.ts`) never invents a
+ *  value: it changes the seed's own value in kind, or sends it as is, and a
+ *  column the seed leaves blank is `dead` — probed by nothing. Every value here
+ *  is one `jsonToWorkspace` (the task arm's admission oracle, `migrateTask` +
+ *  `sanitizeNoteFields`) holds unchanged, bar `resourceId`: the oracle's
+ *  one-row envelope carries no resources, so `migrateWorkspaceV5` backfills one
+ *  and restamps the FK, and the sweep ledgers it `unmeasured` for that reason.
+ *  None is one `update_task` reacts to: `buildPatch` (`chat-tools-updates.ts`)
+ *  whitelists the declared fields, so none of these can move through a patch,
+ *  and `createTask` builds its row field by field. `resourceId: 4` and the `dependencies` predecessor point at
+ *  rows the SWEEP's task seed supplies.
+ *  ★★ `jiraKey` is the one undeclared column deliberately LEFT BLANK: a
+ *   `jiraKey` makes the row Jira-synced, and `assertJiraManagedUnchanged` then
+ *   THROWS on every `status` or `assignee` change — which would turn Relation
+ *   B's landing probes on both into refusals. `jiraIssueType` and
+ *   `lastSyncedAt` are seeded anyway because nothing but `jiraKey` gates on
+ *   Jira state; they read as a task once synced and since unlinked.
+ *  ★ `noteLog` entries are in `sanitizeNoteLog`'s own output key order (`id`,
+ *   `timestamp`, `html`, `text`) and carry `text` equal to the html's
+ *   projection, or the round trip reshapes them and the probe is `unmeasured`.
+ *   Two of them, so the array probe (drop one element) stays non-empty. */
 export function seedGuardedTask(over: Partial<Task> = {}): Task {
   return {
     id: 1,
     taskName: "Guarded task",
     assignee: "M. Jordan",
     assigneeEmail: "m.Jordan@example.com",
+    startDate: "2026-04-06",
     dueDate: "2026-09-30",
     lastUpdateDate: "2026-05-19",
+    createdDate: "2026-04-02",
     priority: "High",
-    status: "In Progress",
+    status: "Done",
+    completedDate: "2026-05-18",
     blockers: "Waiting on the vendor contract",
     description: "<p>Original description.</p>",
+    inquiriesSent: 2,
     group: "Workstream A",
     labels: ["alpha", "beta"],
+    dependencies: [{ taskId: 2, type: "FS" }],
+    jiraIssueType: "Story",
+    lastSyncedAt: "2026-05-17T16:00:00.000Z",
+    localModifiedAt: "2026-05-19T09:30:00.000Z",
+    healthOverride: "A",
+    resourceId: 4,
+    originalEstimateMinutes: 960,
+    timeSpentMinutes: 600,
+    remainingEstimateMinutes: 120,
+    knowledgeLinks: KNOWLEDGE_LINKS,
+    outlookEventId: "AAMkAGI2NGVhZTVlLTI1OGMtNDI1My1iNWE0LWE0ZDk0ZTk0ZTNjOABGAAAAAAB",
+    noteLog: [
+      { id: 1, timestamp: "2026-05-12T08:00:00.000Z", html: "<p>Chased the vendor for the signed contract.</p>", text: "Chased the vendor for the signed contract." },
+      { id: 2, timestamp: "2026-05-18T15:45:00.000Z", html: "<p>Contract signed; closing this out.</p>", text: "Contract signed; closing this out." },
+    ],
     ...over,
   };
 }
@@ -152,7 +210,16 @@ export function seedRaid(over: Partial<RaidItem> = {}): RaidItem {
  *  ★★ `ownerResourceId` is the OTHER unguarded-and-undisclosable field, named as
  *  such beside `knowledgeLinks` in `sanitize-records.ts`. It is stored
  *  `if (ownerResourceId !== undefined)`, so an absent seed is once again the
- *  refusal's own shape. */
+ *  refusal's own shape.
+ *
+ *  ★★ `inquiriesSent`, `localModifiedAt` and `outlookEventId` are for Relation
+ *  A of `plan.offered-surface-sweep.test.ts`, which cannot probe a column the
+ *  seed leaves blank (`probeFor` never invents a value). All three are
+ *  `TOKEN_EXCLUDED.raid`, so no model patch can move them, and
+ *  `sanitizeRaidItem` keeps each as seeded (`inquiriesSent` only when > 0).
+ *  ★ `noteLog` is the undeclared column deliberately NOT seeded:
+ *   `sanitizeRaidItem` stores no note log at all (the writer re-applies the
+ *   stored one, §49), so no value is one the admission oracle holds. */
 export function seedGuardedRaid(): RaidItem {
   return seedRaid({
     category: "A",
@@ -170,6 +237,9 @@ export function seedGuardedRaid(): RaidItem {
     mitigation: "<p>Weekly checkpoint with the vendor delivery lead.</p>",
     owner: "K. Fischer",
     ownerEmail: "k.fischer@example.com",
+    inquiriesSent: 2,
+    localModifiedAt: "2026-06-12T08:15:00.000Z",
+    outlookEventId: "AAMkADk0ZmVkLTE2NzUtNDU3Mi1iMDJlLTMwNzNiNDI3NTc5MgBGAAAAAAB",
   });
 }
 
@@ -187,7 +257,13 @@ export function seedGuardedRaid(): RaidItem {
  *  other four take), so its fallback is a literal `""` — a refused probe
  *  against a `""` seed reads back as the value already stored and the sweep
  *  scores agreement. The other four fall back to an ABSENT key, which is the
- *  same hole one shape over. */
+ *  same hole one shape over.
+ *
+ *  ★★ `localModifiedAt` and `outlookEventId` are for Relation A of
+ *  `plan.offered-surface-sweep.test.ts`, for `seedGuardedRaid`'s reason: both
+ *  are `TOKEN_EXCLUDED.change`, and `sanitizeChangeItem` keeps both as seeded.
+ *  ★ `noteLog` stays unseeded for raid's reason — `sanitizeChangeItem` stores
+ *   none (`withStoredNoteLog` re-applies the stored log after it). */
 export function seedGuardedChange(over: Partial<ChangeItem> = {}): ChangeItem {
   return {
     id: 20,
@@ -211,6 +287,8 @@ export function seedGuardedChange(over: Partial<ChangeItem> = {}): ChangeItem {
     linkedRaidIds: [10],
     stakeholderIds: [40],
     knowledgeLinks: KNOWLEDGE_LINKS,
+    localModifiedAt: "2026-03-04T11:20:00.000Z",
+    outlookEventId: "AAMkAGVmMDEzMTM4LTZmYWUtNDdkYS05YTFhLWQ1ZTg1ZDI2MzQwMwBGAAAAAAB",
     ...over,
   };
 }
@@ -220,7 +298,10 @@ export function seedGuardedChange(over: Partial<ChangeItem> = {}): ChangeItem {
  *  there: a clear of an empty field reads as agreement.
  *  ★ `description` is populated for the same reason, one field over — it is the
  *  milestone descriptor's only other optional member, stored sparsely, so an
- *  absent seed makes a refusal on it indistinguishable from a stored refusal. */
+ *  absent seed makes a refusal on it indistinguishable from a stored refusal.
+ *  ★★ `localModifiedAt` and `outlookEventId` are for Relation A of
+ *  `plan.offered-surface-sweep.test.ts`, for `seedGuardedRaid`'s reason: both
+ *  are `TOKEN_EXCLUDED.milestone`, and `sanitizeMilestone` keeps both as seeded. */
 export function seedGuardedMilestone(over: Partial<Milestone> = {}): Milestone {
   return {
     id: 30,
@@ -233,6 +314,8 @@ export function seedGuardedMilestone(over: Partial<Milestone> = {}): Milestone {
     //  value stores `[]` — against an empty seed that is the stored value.
     linkedTaskIds: [1],
     knowledgeLinks: KNOWLEDGE_LINKS,
+    localModifiedAt: "2026-05-20T17:05:00.000Z",
+    outlookEventId: "AAMkAGQ3ZDk4ZTFiLWJiMzYtNGI2Ny04ZjYyLTYwOTg0ZmQ4OGE1NQBGAAAAAAB",
     ...over,
   };
 }
@@ -274,6 +357,10 @@ export function seedGuardedStakeholder(over: Partial<Stakeholder> = {}): Stakeho
     //  the milestone this fixture seeds elsewhere.
     raci: { "30": "A" as const },
     knowledgeLinks: KNOWLEDGE_LINKS,
+    // ★★ For Relation A of `plan.offered-surface-sweep.test.ts`, which cannot
+    //  probe a blank column: `TOKEN_EXCLUDED.stakeholder`, kept as seeded by
+    //  `sanitizeStakeholder`.
+    localModifiedAt: "2026-04-28T13:40:00.000Z",
     ...over,
   };
 }
@@ -304,6 +391,12 @@ export function seedGuardedAbsence(over: Partial<Absence> = {}): Absence {
     //  unconditionally, so its fallback is `undefined` and an unseeded row makes
     //  a refused unlink indistinguishable from a stored one.
     resourceId: 4,
+    // ★★ For Relation A of `plan.offered-surface-sweep.test.ts`, which cannot
+    //  probe a blank column: both are `TOKEN_EXCLUDED.absence`, dropped from
+    //  every model patch by `dropUnacceptedAbsenceFields`, and kept as seeded
+    //  by `sanitizeAbsence`.
+    localModifiedAt: "2026-06-15T07:50:00.000Z",
+    outlookEventId: "AAMkAGFiNmQ0YjEyLWI0ZDgtNDYxZC1hYjA3LTE5MWFlN2E0ZDVhMQBGAAAAAAB",
     ...over,
   };
 }
@@ -333,20 +426,30 @@ export function seedGuardedCalendarEvent(over: Partial<CalendarEvent> = {}): Cal
     sendInvitations: true,
     recurrence: { freq: "weekly", interval: 2, byDay: ["WE"] },
     // ★★ TWO exceptions, so the array probe (drop one element) leaves a
-    //  non-empty, still-valid list. Both dates fall on the seeded recurrence's
-    //  Wednesday. Without a seed, Relation A could only send `exceptions` a value
+    //  non-empty, still-valid list. Both dates are REAL occurrences of the
+    //  seeded recurrence — every second Wednesday from `startDate`, 2026-07-08,
+    //  so 07-22 and 08-05 — and the move lands on the Thursday after. Without a
+    //  seed, Relation A could only send `exceptions` a value
     //  `sanitizeExceptions` drops for not being an array, whatever the guard
     //  does (§441). `CREATE_BASE` must NOT carry it: its declared-only floor
     //  forbids an undeclared key, and the create arm falls back to this seed.
+    //  ★ In `sanitizeExceptions`' own output order (sorted by `date`; keys
+    //   `date`, `kind`, `toDate`), so the round trip holds it unchanged.
     exceptions: [
       { date: "2026-07-22", kind: "skip" },
-      { date: "2026-07-29", kind: "move", toDate: "2026-07-30" },
+      { date: "2026-08-05", kind: "move", toDate: "2026-08-06" },
     ],
     // ★★ The `linkFields` member, and the clear direction again:
     //  `sanitizeAttendees(v) ?? []` means a refused list stores nothing, which
     //  against an unseeded row is what is already there. Resource #4 is the row
     //  `seedResource` mints.
     attendeeResourceIds: [4],
+    // ★★ For Relation A, which cannot probe a blank column: both are
+    //  `TOKEN_EXCLUDED.calendarEvent`, dropped from every model patch by
+    //  `dropUnacceptedCalendarEventFields`, and kept as seeded by
+    //  `sanitizeCalendarEvent`.
+    localModifiedAt: "2026-07-01T12:00:00.000Z",
+    outlookEventId: "AAMkADBlNDE5NmM1LTcxNjAtNGQ2Yi1iNDNkLTk3MzUyNjI2ZDUwOQBGAAAAAAB",
     ...over,
   };
 }
@@ -378,7 +481,12 @@ export function seedResource(over: Partial<Resource> = {}): Resource {
     //  `utilizationMode` to `"percent"` (`s === "hours" ? "hours" : "percent"`)
     //  and `utilization` to `{}` (`coercePeriodMap` of anything unrecognised).
     //  ★ Keys must match `PERIOD_KEY_RE` (`YYYY-MM` or `YYYY-Wnn`) and values are
-    //   clamped to [0, 1000] in "hours" mode, so 120 survives verbatim.
+    //   clamped to [0, 1000] in "hours" mode but to [0, 100] in "percent".
+    //  ★★ 80, not the 120 it was, and the clamp is why: Relation A of
+    //   `plan.offered-surface-sweep.test.ts` sends this map AS IS on the create
+    //   arm, where the control row's mode is the "percent" default — so 120 came
+    //   back as 100 and the field was `unmeasured`. 80 survives both clamps, and
+    //   so does the update arm's 81.
     //  ★★ `roleId: 3` is deliberately DANGLING and cannot be otherwise:
     //   `TestSeed` has no `roles` slice, so nothing here can seed the row it
     //   points at. Inert for this axis — `sanitizeResource` never checks
@@ -386,7 +494,7 @@ export function seedResource(over: Partial<Resource> = {}): Resource {
     //   patch actually touches the field.
     roleId: 3,
     utilizationMode: "hours",
-    utilization: { "2026-07": 120 },
+    utilization: { "2026-07": 80 },
     // ★★ Three more off their fallbacks, all stored SPARSELY — so for each of
     //  them an unseeded row and a refused write are the same absent key.
     //  ★★★ `active` is the `isExternal` shape INVERTED and the inversion is the
@@ -407,6 +515,10 @@ export function seedResource(over: Partial<Resource> = {}): Resource {
     businessPhone: "+49 89 123456",
     isExternal: true,
     notes: "Works Tuesday to Friday.",
+    // ★★ For Relation A of `plan.offered-surface-sweep.test.ts`, which cannot
+    //  probe a blank column: `TOKEN_EXCLUDED.resource`, kept as seeded by
+    //  `sanitizeResource` (any non-empty string).
+    localModifiedAt: "2026-06-30T10:00:00.000Z",
     ...over,
   };
 }
@@ -503,7 +615,13 @@ export interface SweepEntity {
  *  exception is `resource.roleId`, which `TestSeed` has no slice for and which is
  *  documented as deliberately dangling on `seedResource`. */
 export const SWEEP: SweepEntity[] = [
-  { entity: "task", id: 1, seed: { tasks: [seedGuardedTask()] } },
+  // ★ Task #2 is the `dependencies` predecessor and resource #4 the
+  //  `resourceId` target `seedGuardedTask` names.
+  {
+    entity: "task",
+    id: 1,
+    seed: { tasks: [seedGuardedTask(), seedTask(2, "Sign the vendor contract")], resources: [seedResource()] },
+  },
   {
     entity: "raid",
     id: 10,

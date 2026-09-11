@@ -541,155 +541,83 @@ const EXPECTED_FINDINGS: Ledger = {
  *  `unmeasured` entries only: a `stored` finding is a live undeclared write,
  *  and is fixed rather than ledgered. Filled by plan Task 5 from a measured
  *  run (2026-09-11) — every entry below is `dead` or `unmeasured`; that run
- *  found no live undeclared write. */
+ *  found no live undeclared write.
+ *
+ *  ★★ SHORT BECAUSE THE SEEDS CARRY THE COLUMNS. `probeFor` never invents a
+ *  value, so a column the SWEEP seed left blank was `dead`: 72 of the 92
+ *  undeclared field-and-arm pairs went unprobed, measured the same day, 63 of
+ *  them `dead` and 9 `unmeasured`. Every sweep seed in
+ *  `src/test/inline-sweep-fixtures.ts` now carries a value its entity's
+ *  sanitizer holds unchanged for each undeclared column, bar the three named
+ *  below as "not seeded", each with the reason a value would be unsafe or
+ *  unholdable. Every remaining `unmeasured` entry is a probe SHAPE the seed
+ *  cannot fix, or the task oracle's own envelope. Measured on the run that
+ *  landed the seeds: no live undeclared write. */
 const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
   "task:create": [
-    // §462 — the loaded SWEEP seed and the create-arm control row both leave
-    // these audit/system-only columns blank, so `probeFor` has no non-blank
-    // value on either side to derive a probe from ("nothing to derive a
-    // distinguishable probe from" — the writer's sanitizer is never reached).
-    { subject: "task.completedDate", kind: "dead" },
-    { subject: "task.createdDate", kind: "dead" },
-    { subject: "task.dependencies", kind: "dead" },
-    { subject: "task.healthOverride", kind: "dead" },
-    { subject: "task.jiraIssueType", kind: "dead" },
+    // §462 — not seeded: a `jiraKey` makes the seed task Jira-synced, and
+    // `assertJiraManagedUnchanged` (chat-task-patch.ts) then throws on every
+    // `status`/`assignee` change Relation B probes. Blank on the control row too.
     { subject: "task.jiraKey", kind: "dead" },
-    { subject: "task.knowledgeLinks", kind: "dead" },
-    { subject: "task.lastSyncedAt", kind: "dead" },
-    { subject: "task.localModifiedAt", kind: "dead" },
-    { subject: "task.noteLog", kind: "dead" },
-    { subject: "task.originalEstimateMinutes", kind: "dead" },
-    { subject: "task.outlookEventId", kind: "dead" },
-    { subject: "task.remainingEstimateMinutes", kind: "dead" },
-    { subject: "task.resourceId", kind: "dead" },
-    { subject: "task.startDate", kind: "dead" },
-    { subject: "task.timeSpentMinutes", kind: "dead" },
+    // §462 — a harness limit, not the column: the task oracle's one-row
+    // `jsonToWorkspace` envelope (`taskAtRest`, sweep-probes.ts) carries no
+    // resources, so `migrateWorkspaceV5` backfills one from the assignee and
+    // restamps `resourceId` to its minted id (sent 4, held 1).
+    { subject: "task.resourceId", kind: "unmeasured" },
   ],
   "task:update": [
-    // §462 — same mechanism as the create arm above: the loaded SWEEP seed
-    // (both reference and seedRow on this arm) leaves these columns blank, so
-    // `probeFor` has nothing non-blank to derive a probe from.
-    { subject: "task.completedDate", kind: "dead" },
-    { subject: "task.createdDate", kind: "dead" },
-    { subject: "task.dependencies", kind: "dead" },
-    { subject: "task.healthOverride", kind: "dead" },
-    { subject: "task.inquiriesSent", kind: "dead" },
-    { subject: "task.jiraIssueType", kind: "dead" },
+    // §462 — not seeded, for the create arm's reason above.
     { subject: "task.jiraKey", kind: "dead" },
-    { subject: "task.knowledgeLinks", kind: "dead" },
-    { subject: "task.lastSyncedAt", kind: "dead" },
-    { subject: "task.localModifiedAt", kind: "dead" },
-    { subject: "task.noteLog", kind: "dead" },
-    { subject: "task.originalEstimateMinutes", kind: "dead" },
-    { subject: "task.outlookEventId", kind: "dead" },
-    { subject: "task.remainingEstimateMinutes", kind: "dead" },
-    { subject: "task.resourceId", kind: "dead" },
-    { subject: "task.startDate", kind: "dead" },
-    { subject: "task.timeSpentMinutes", kind: "dead" },
+    // §462 — the create arm's oracle-envelope restamp (sent 5, held 1).
+    { subject: "task.resourceId", kind: "unmeasured" },
   ],
   "raid:create": [
-    // §462 — blank on both the loaded seed and the create control row; same
-    // "nothing to derive a distinguishable probe from" mechanism as task above.
-    { subject: "raid.inquiriesSent", kind: "dead" },
-    { subject: "raid.localModifiedAt", kind: "dead" },
+    // §462 — not seeded, because no value is one the column can hold through
+    // this oracle: `sanitizeRaidItem` stores no `noteLog` at all (the update
+    // writer re-applies the stored log after it, §49). Seeding one would only
+    // turn this `dead` into `unmeasured`. Blank on the control row too.
     { subject: "raid.noteLog", kind: "dead" },
-    { subject: "raid.outlookEventId", kind: "dead" },
   ],
   "raid:update": [
-    { subject: "raid.inquiriesSent", kind: "dead" },
-    // §462 — the seeded `knowledgeLinks` carries exactly one element, so the
-    // array probe (drop-one-element) is `[]`; the update writer's sanitizer
-    // (`sanitizeKnowledgeLinks`) reshapes an empty list to `undefined`. A
-    // second seeded link would let the probe drop to a still-non-empty,
-    // still-valid list and make this field measurable — see report.
-    { subject: "raid.knowledgeLinks", kind: "unmeasured" },
-    { subject: "raid.localModifiedAt", kind: "dead" },
+    // §462 — not seeded, for the create arm's reason above.
     { subject: "raid.noteLog", kind: "dead" },
-    { subject: "raid.outlookEventId", kind: "dead" },
   ],
   "change:create": [
-    { subject: "change.localModifiedAt", kind: "dead" },
+    // §462 — not seeded, for raid's reason: `sanitizeChangeItem` stores no
+    // `noteLog` (the update writer re-applies the stored log through
+    // `withStoredNoteLog`). Blank on the control row too.
     { subject: "change.noteLog", kind: "dead" },
-    { subject: "change.outlookEventId", kind: "dead" },
   ],
   "change:update": [
-    // §462 — same single-element `knowledgeLinks` seed as raid above: the
-    // drop-one-element probe is `[]`, and the update writer's sanitizer
-    // reshapes it to `undefined`.
-    { subject: "change.knowledgeLinks", kind: "unmeasured" },
-    { subject: "change.localModifiedAt", kind: "dead" },
+    // §462 — not seeded, for the create arm's reason above.
     { subject: "change.noteLog", kind: "dead" },
-    { subject: "change.outlookEventId", kind: "dead" },
-  ],
-  "milestone:create": [
-    { subject: "milestone.localModifiedAt", kind: "dead" },
-    { subject: "milestone.outlookEventId", kind: "dead" },
-  ],
-  "milestone:update": [
-    // §462 — same single-element `knowledgeLinks` seed as raid/change above.
-    { subject: "milestone.knowledgeLinks", kind: "unmeasured" },
-    { subject: "milestone.localModifiedAt", kind: "dead" },
-    { subject: "milestone.outlookEventId", kind: "dead" },
-  ],
-  "stakeholder:create": [
-    { subject: "stakeholder.localModifiedAt", kind: "dead" },
   ],
   "stakeholder:update": [
-    // §462 — same single-element `knowledgeLinks` seed as raid/change/milestone.
-    { subject: "stakeholder.knowledgeLinks", kind: "unmeasured" },
-    { subject: "stakeholder.localModifiedAt", kind: "dead" },
-    // §462 — the derived probe changes the seeded RACI value's own string leaf
-    // ("A" → "A probed"), which is not one of the closed RACI codes
-    // `coerceRaciMap` accepts, so the update writer's sanitizer reshapes it to
-    // `{}`. `probeFor`'s enum branch does not apply here — it only runs for a
-    // DECLARED field's schema enum, and `raci`'s per-key code is not itself a
-    // schema-declared field; a probe holding a genuine RACI letter (e.g. "R")
-    // would land unchanged and make this field measurable — see report.
+    // §462 — a probe SHAPE, not a seed: the derived probe changes the seeded
+    // RACI code's own string leaf ("A" → "A probed"), which is not one of the
+    // closed codes `coerceRaciMap` accepts, so `sanitizeStakeholder` reshapes
+    // the map to `{}`. The enum branch of `probeFor` runs for a DECLARED
+    // field's schema enum only, and `raci` is undeclared; a probe holding
+    // another genuine RACI code (e.g. "R") would be held unchanged.
     { subject: "stakeholder.raci", kind: "unmeasured" },
   ],
   "resource:create": [
-    { subject: "resource.localModifiedAt", kind: "dead" },
-    // §462 — the derived probe increments the seeded period's numeric leaf
-    // past the sanitizer's own bound; `coercePeriodMap`/`intInRange` clamps it
-    // back to 100, so the probe never lands unchanged. A probe within the
-    // valid range but still different from the seed would make this field
-    // measurable — see report.
-    { subject: "resource.utilization", kind: "unmeasured" },
-    // §462 — the derived probe appends " probed" to the seeded string, which
-    // is not one of the two closed `utilizationMode` values ("hours"/
-    // "percent"); `sanitizeUtilizationMode` maps anything else to "percent".
-    // `probeFor`'s enum branch does not apply — this is an undeclared field,
-    // so no schema enum is consulted; the other closed-vocabulary member
-    // would land unchanged and make this field measurable — see report.
+    // §462 — a probe SHAPE, not a seed: the control row's `utilizationMode` is
+    // the "percent" default, so the derived probe is "percent probed", outside
+    // the closed pair `sanitizeUtilizationMode` accepts; it maps anything but
+    // "hours" to "percent". No schema enum exists to draw "hours" from.
     { subject: "resource.utilizationMode", kind: "unmeasured" },
   ],
   "resource:update": [
-    // §462 — the seeded resource's `active` reference is already `false`
-    // (the writer's own present-only-when-false stance, per the removed
-    // `trespassProbeFor` docstring's §441 note), so the only differing probe
-    // is `true`; `sanitizeResource` never stores `true` (an absent key IS
-    // "active"). A seed whose reference is active (so the differing probe is
-    // `false`, which the writer WOULD store) would make this field
-    // measurable — see report.
+    // §462 — a probe SHAPE, not a seed: the seeded `active` is `false`, the
+    // only value `sanitizeResource` stores (an absent key IS active), so the
+    // one differing probe is `true`, which it never stores. Seeding `true`
+    // instead is not a fix — it stores nothing, leaving the column blank and
+    // the field `dead`.
     { subject: "resource.active", kind: "unmeasured" },
-    { subject: "resource.localModifiedAt", kind: "dead" },
+    // §462 — a probe SHAPE: the seeded "hours" becomes "hours probed", which
+    // `sanitizeUtilizationMode` maps to "percent" (the create arm's reason).
     { subject: "resource.utilizationMode", kind: "unmeasured" },
-  ],
-  "absence:create": [
-    { subject: "absence.localModifiedAt", kind: "dead" },
-    { subject: "absence.outlookEventId", kind: "dead" },
-  ],
-  "absence:update": [
-    { subject: "absence.localModifiedAt", kind: "dead" },
-    { subject: "absence.outlookEventId", kind: "dead" },
-  ],
-  "calendarEvent:create": [
-    { subject: "calendarEvent.localModifiedAt", kind: "dead" },
-    { subject: "calendarEvent.outlookEventId", kind: "dead" },
-  ],
-  "calendarEvent:update": [
-    { subject: "calendarEvent.localModifiedAt", kind: "dead" },
-    { subject: "calendarEvent.outlookEventId", kind: "dead" },
   ],
 };
 

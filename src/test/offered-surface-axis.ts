@@ -205,15 +205,26 @@ export const SYNTHETIC_INPUTS: Partial<Record<InlineEntity, readonly string[]>> 
  *  undeclared one; the change's persisted column count did not move, which is
  *  why the two numbers trade one-for-one. Relation A now probes it on BOTH arms
  *  and asserts the model's value never lands.
- *  ★★★ THAT ASSERTION IS VACUOUS FOR THIS FIELD, AND THIS DOCSTRING USED TO
- *  CALL IT "a stronger guarantee than Relation B's finding". The trespass probe
- *  derived from a date seed is a non-date STRING (`trespassProbeFor` has no
- *  date branch), which `sanitizeIsoDate` rejects on its own — so the probe can
- *  never land, guard (`CHANGE_FIELD_GUARDS.decisionDate`) or no guard, and a
- *  green Relation A proves nothing about the guard. It is one instance of the
- *  general blind spot recorded at `trespassProbeFor` (§441). What still stands
- *  is the classification: the field is no longer offered, so Relation B no
- *  longer reports it as "offered and dropped". */
+ *  ★★★ THAT ASSERTION WAS VACUOUS FOR THIS FIELD UNTIL THE TYPED PROBES, and
+ *  this docstring once called it "a stronger guarantee than Relation B's
+ *  finding". History, kept as the record: the probe then came from
+ *  `trespassProbeFor` (REMOVED by the typed-probe slice), which had no date
+ *  branch, so a date seed yielded a non-date STRING that `sanitizeIsoDate`
+ *  rejects on its own — the probe could never land, guard
+ *  (`CHANGE_FIELD_GUARDS.decisionDate`) or no guard (§441).
+ *  ★★ NOW: Relation A's probe comes from `probeFor` (`src/test/sweep-probes.ts`),
+ *  admitted through the writer's own sanitizer before it is judged. Measured on
+ *  the 2026-09-11 run that seeded the sweep's blank columns: `decisionDate` is
+ *  PROBED on both arms — neither arm's `EXPECTED_UNDECLARED_FINDINGS` entry
+ *  names it — and lands on neither. The update arm sends the seeded
+ *  "2026-03-04" a day later, a date `sanitizeChangeItem` holds, so it does
+ *  measure the guard. ★ The create arm sends the seed's date as is, and read
+ *  from the code rather than measured by mutant, it still cannot see the
+ *  guard: the create base carries no `status`, so `createChange` runs the
+ *  "Proposed" transition through `applyChangeStatus`, which clears the date
+ *  whatever the guard did — the "destroys rather than stores" half of §441.
+ *  What also stands is the classification: the field is no longer offered, so
+ *  Relation B no longer reports it as "offered and dropped". */
 export const AXIS_BASELINE: Record<InlineEntity, { declared: number; undeclared: number }> = {
   task: { declared: 11, undeclared: 17 },
   raid: { declared: 16, undeclared: 6 },
