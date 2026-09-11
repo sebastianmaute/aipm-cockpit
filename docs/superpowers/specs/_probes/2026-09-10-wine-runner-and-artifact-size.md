@@ -1,6 +1,7 @@
 # Spike: the wine runner and the artifact size limit
 
-**Status:** OPEN — resolved by the first manual run of `desktop-package`.
+**Status:** RESOLVED 2026-09-11 — both questions answered YES; the decision
+table's "Both fine" row applies. See **Measured**.
 
 Two unknowns, one measurement. Both are settled by triggering the existing
 manual job once and reading its log.
@@ -35,7 +36,50 @@ manual job once and reading its log.
 
 ## Measured
 
-_(fill in: date, pipeline URL, job outcome, artifact size as GitLab reports it)_
+All on 2026-09-11. Four `desktop-package` runs, the first two red for reasons
+that are NOT these questions:
+
+| Pipeline | Job | Outcome |
+|---|---|---|
+| 6894 (MR !468) | [29413](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29413) | Red at the root typecheck — `desktop/src/main.ts` imports `electron`, which only `desktop/node_modules` has. Fixed by excluding that file in the root `tsconfig.json`. |
+| 6896 (MR !468) | [29451](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29451) | Red at the `ls` guard. With no platform flag electron-builder packaged for the HOST, and the runner is Linux: it built `target=snap` and `target=AppImage` under the `-setup.exe` artifactName (134,289,527 B, no `.blockmap`), and logged "Implicit publishing triggered by CI detection". Fixed by `--win --publish never` in `desktop:package` (MR !469). |
+| 6898 (MR !469) | [29489](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29489) | **Green.** `target=nsis`, 131 s. |
+| 6904 (tag `v0.303.0`) | [29602](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29602) | **Green** as `desktop-package-tag`, 132 s; `publish-release` then created the first Release. |
+
+**Question 1 — the image: YES.** `electronuserland/builder:wine` pulled on the
+first run in 45 s (29413: `Pulling docker image` 14:42:18 → `Using docker image`
+14:43:03), 43 s on the second, and under 1 s on the two green runs, all at the
+same digest (`sha256:41ae5409…`), so the runner keeps it cached even under the
+`always` pull policy.
+
+**Question 2 — the size: YES, with little room.** What GitLab stored:
+
+| Job | Installer | `.blockmap` | Archive GitLab accepted |
+|---|---|---|---|
+| 29489 | 103,565,557 B | 107,483 B | 103,549,498 B — `201 Created` |
+| 29602 | 103,565,559 B | 107,444 B | 103,549,382 B — `201 Created` |
+
+Installer plus `.blockmap` is ~98.9 MiB in CI, about 6 MiB more than the
+92.9 MiB (same two files) of the local build this spike was sized from. An accepted 103.5 MB archive rules out a DECIMAL
+100 MB limit; it does not say which limit applies. If it is the 100 MiB default
+(104,857,600 B), the headroom is ~1.3 MB (1.25 %) — one sizeable dependency
+away from a rejection, which arrives only at the upload, after a green build.
+
+**Contents: the installer and its `.blockmap`, nothing else.** Read from the
+upload log, not from a downloaded archive: `desktop/release/*-setup.exe` and
+`desktop/release/*-setup.exe.blockmap` each "found 1 matching artifact files",
+and those two globs are the job's only `artifacts:paths`, so `win-unpacked/`
+cannot be in it. The tag job's artifacts report no expiry (`expire_in: never`).
+
+**Who can download (plan Task 11 Step 6): any signed-in user.** A signed-in
+colleague who is NOT a project member opened the v0.303.0 Release's asset link
+and the installer downloaded (reported by the user, 2026-09-11). The settings
+that make it so, read from `GET /example-group/aipm-cockpit`: `visibility: internal` (so an
+anonymous visitor gets nothing) and `public_jobs: true` (Settings → CI/CD →
+General pipelines → "Project-based pipeline visibility"). GitLab's permissions
+docs tie a non-member's artifact access to that setting; turning it off was NOT
+tried, so treat it as the likely cause if colleagues start getting 404s. Not
+measured either: a GitLab EXTERNAL user, whom `internal` projects exclude.
 
 ## Decision table — decided in advance, so the outcome cannot be rationalised
 
