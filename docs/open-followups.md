@@ -685,6 +685,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§460](#460-a-create-card-can-preview-meeting-attendees-the-create-then-stores-none-of-because-the-previews-link-guard-runs-on-updates-only--open) | A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only — OPEN | found 2026-09-11 by cold review of the offered-surface landing: a `plan.ts` comment still described both allow-list creates as unguarded | S — lift the `target === "row"` gate on link guards, behind a test driving `[4, "4"]` through card and write | open |
 | [§461](#461-an-absence-stores-an-assignee-email-that-is-not-an-address-where-a-task-refuses-the-same-value-loudly--open) | An absence stores an assignee email that is not an address, where a task refuses the same value loudly — OPEN | found 2026-09-11 by cold review of the offered-surface landing, beside §459's task probe | S-M — decide per field whether an assignee email is format-checked, then guard the writer, not the card | open |
 | [§462](#462-there-is-no-linux-installer-and-several-windows-only-assumptions-stand-in-the-way-of-one--open) | There is no Linux installer, and several Windows-only assumptions stand in the way of one — OPEN | found 2026-09-11 while explaining the CI installer's size gap (the sharp finding in the wine-runner spike) | S-M — a native Linux job with its own artifact and Release link, XDG log paths, a rollout section | open |
+| [§463](#463-export-silently-drops-enabled-sections-and-no-path-exports-calendar-events-knowledge-items-or-insights--open) | Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — OPEN | found 2026-09-11 by a read-only code check of `main` @ `1826cf64` while triaging the demo-backlog issues #38–#74 (issue #75) | S-M — two object literals, but deciding what each export path should contain (and whether they should be one function) is the work | open |
+| [§464](#464-cpi-means-two-different-numbers-and-two-winloss-hints-are-wrong--open) | "CPI" means two different numbers, and two win/loss hints are wrong — OPEN | found 2026-09-11 by the same read-only code check (issue #76) | S-M — the two hints are EN+DE string fixes; separating the two CPIs on the surfaces is the larger half | open |
+| [§465](#465-non-eur-fixed-price-buckets-every-money-figure-is-inflated-by-the-fx-rate-and-the-margin-is-wrong--open) | Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong — OPEN | found 2026-09-11 by the same read-only code check (issue #77, beside issue #42) | M — a decision about where the currency boundary sits, and stored amounts carry no marker saying which convention they were entered under | open |
+| [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--open) | Help promises a burn-down forecast that the chart does not draw — OPEN | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -34176,3 +34180,186 @@ What a Linux build would need:
 
 macOS is deliberately NOT part of this entry: it needs a macOS build host, Apple Developer ID signing
 and notarization, which are a separate problem from anything above.
+
+## 463. Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — OPEN
+
+**Status:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
+while triaging the demo-backlog issues #38–#74; filed as
+https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/75. Established by reading the
+two call sites and the builders, never by running an export. Presence witnesses re-run 2026-09-11:
+`grep -n "exportWorkspace({" src/app/export-menu.tsx` (one line, eleven slices),
+`grep -n -A5 "const handleExportCurrentProject" src/app/task-manager.tsx` (sixteen slices),
+`grep -n "config === undefined && ws.project" src/app/csv-codecs-config.ts src/app/markdown-codecs-core.ts`
+(one line each) and `grep -n "aipm-cockpit-tasks" src/app/export.ts` (the filename template).
+
+The header export menu builds the workspace it exports INLINE, from the slices `action-menus.tsx`
+destructures out of `useWorkspace()` and threads into `ExportMenu`: tasks, RAID, absences, shifts,
+resources, roles, disciplines, grades, plan, budgets and FX rates. `pick` passes exactly that object to
+`exportWorkspace`. Eight of the fifteen `EXPORT_SECTION_KEYS` therefore have no data to draw on from
+that button — project, milestones, changes, stakeholders, status, `calendarEvents`, `knowledgeItems`
+and `insights` — and TWO of the eight, `project` and `calendarEvents`, are ON in
+`defaultExportConfig` (`settings-types.ts`), whose comment says calendar events are "project data a
+user expects in an export, like tasks/RAID".
+
+The Projects-panel export is a SECOND, differently-shaped call: `handleExportCurrentProject`
+(`task-manager.tsx`) assembles its own object and adds project, milestones, changes, stakeholders and
+status — but not `calendarEvents`, `knowledgeItems` or `insights`. So those three toggles in
+Settings → Export change nothing on either button, on any format, and that is the sharp half of this
+entry: the UI offers a switch with no reachable effect.
+
+★★ **The drop is SILENT, by construction rather than by oversight.** `buildExportSections` includes a
+section only when the config enables it AND the builder returns non-null, and every builder in
+`BUILDERS` returns null for an absent or empty slice (`ws.calendarEvents ?? []`, then a length check).
+An absent slice and a genuinely empty one are indistinguishable at that point, so PDF/DOCX/XLSX/PPTX
+emit no heading, no empty table and no notice — the reader sees a document that looks complete.
+
+★ CSV and Markdown do not go through `buildExportSections` at all: `exportWorkspace` hands them to the
+storage serializers as `workspaceToCsv(ws, cfg)` / `workspaceToMarkdown(ws, cfg)`. There the project
+block is gated on `config === undefined`, i.e. on being a STORAGE save rather than an export, so
+`project` is never written by an export in those two formats even when the slice is present and the
+toggle is on. That gate is deliberate; it is recorded here because it means "enable project" cannot be
+satisfied in CSV/MD by fixing the call sites alone.
+
+★ Cosmetic but in the same file: `defaultFilename` (`export.ts`) builds
+`aipm-cockpit-tasks-<date>.<ext>` for every format, so a multi-section export is named "tasks" and
+carries no project code.
+
+★ Neighbours, and NOT the same defect: §141 covers CSV/MD fidelity through the storage serializers
+(rich text), and §304 covers export column headers going out untranslated. Both are about what a
+section LOOKS like; this entry is about a section not being there.
+
+Size S–M: the call sites are two object literals, but deciding what the Projects-panel export and the
+header export should each contain — and whether they should be one function — is the real work.
+
+## 464. "CPI" means two different numbers, and two win/loss hints are wrong — OPEN
+
+**Status:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
+while triaging the demo-backlog issues #38–#74; filed as
+https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/76. Established by reading the
+two engines and the three surfaces, not by a run. Presence witnesses re-run 2026-09-11:
+`grep -n "const cpi" src/app/evm.ts` (one line, `ev / ac`),
+`grep -n "const costPerformanceIndex\|const winLossValue" src/app/budget-report.ts` (two lines) and
+`grep -n "budgetWinLossHint\|budgetReportColWinLossHint\|evmCpiHint\|budgetCciCpiHint" src/app/i18n.ts`
+(the four hint strings).
+
+Two unrelated quantities are both labelled CPI, and a user can see them a click apart.
+
+- The Budget view's tile is `budgetCciCpi`, "Cost performance (CPI)", rendered as a PERCENT. Its value
+  is `costPerformanceIndex` from `budget-report.ts` — `earnedValue / cost`, where earned value is the
+  bucket's budget COST scaled by percent complete (`budget-earned-value.ts`). That is an
+  internal-rate MONEY ratio.
+- The Budget report and the Dashboard show `evmCpi`, "CPI", rendered as a RATIO to two decimals. Its
+  value is `evm.cpi` — `ev / ac` in `evm.ts`, both sides derived from task estimates and
+  `timeSpentMinutes`, i.e. HOURS.
+
+They can disagree freely, and the app invites the comparison: the Dashboard's CPI tile activates
+`openBudget`, so following it lands the reader on the view showing the other CPI under almost the same
+label. The Dashboard's own Budget health rating is computed from `evm.cpi` (`dashboard.ts`), and the AI
+snapshot passes BOTH through `ai-dashboard-snapshot.ts` (`cpi` from the EVM model,
+`costPerformanceIndex` from the project rollup) — so the assistant can be handed two numbers that a
+prompt would reasonably read as one.
+
+★ A related asymmetry that is NOT currently visible, recorded so it is not mistaken for a bug later:
+`computeBudgetReport` is called WITHOUT `tasks` from the report panel and from `dashboard.ts`, which
+makes `earnedValue` and `costPerformanceIndex` null in both — deliberate, and the comment on
+`getBudgetRollup` in `task-manager.tsx` says so. Neither surface renders a bucket's earned value, so
+nothing shows a blank today.
+
+Two hints are wrong about the figure they annotate:
+
+- `budgetWinLossHint` reads "Hours won or lost versus plan." (DE: "Stunden über oder unter Plan.") and
+  is attached to the Budget panel's win/loss figure, which renders `inCur(br.winLossValue)` — MONEY, in
+  the bucket currency. `winLossHours` exists on the report row but is displayed nowhere in `src/app`
+  (its only other readers are the spillover carry and the project rollup sum), so the hint describes a
+  number the user cannot see while sitting next to one it does not describe.
+- `budgetReportColWinLossHint` reads "Difference between revenue and cost in EUR; negative means the
+  bucket runs at a loss." That holds for a FIXED-price bucket only: `winLossValue` is
+  `isFixed ? revenue - cost : budgetValue - consumedValue`, and on the T&M branch both terms are
+  revenue-side, so the column is remaining budget, not margin.
+
+Size S–M: the two hints are string fixes (EN + DE together). Deciding what to do about the two CPIs is
+the larger half — rename one, or make the Dashboard tile deep-link to the figure it actually shows.
+
+## 465. Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong — OPEN
+
+**Status:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
+while triaging the demo-backlog issues #38–#74; filed as
+https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/77. The worked example below is
+REASONED from the code, never run — no bucket was created and no figure was read off a screen.
+Presence witnesses re-run 2026-09-11: `grep -n "fixedPriceAmount" src/app/types.ts src/app/budget-report.ts`
+(the field's docstring, and the one engine read),
+`grep -n "const inCur\|const cci = \|const projCur" src/app/budget-panel.tsx` (the two converters and
+the rollup currency label) and
+`grep -rn "currencyToEur(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."` (one line — the
+definition in `fx.ts`, and no caller).
+
+`BudgetBucket.fixedPriceAmount` is documented as "Fixed-price contract amount in the bucket currency",
+and `budget-bucket-modal.tsx` stores what the user typed, unconverted. `budget-report.ts` declares "All
+amounts in EUR (converted to bucket currency only at display)" and then uses `fixedPriceAmount`
+DIRECTLY as `revenue`, `budgetValue` and the base of `consumedValue`. Nothing converts it: `fx.ts`
+exports `currencyToEur`, and the grep above shows it has no production caller — every conversion in the
+app runs the other way, through `eurToCurrency`.
+
+The two surfaces are internally consistent with each other and both wrong by the same factor. The
+Budget panel converts the engine's figures OUT with `inCur` / `cci`, multiplying a number that was
+never EUR by the rate again. The Budget report formats the same figures AS EUR and states in its own
+comment that the FX rate is shown for context only.
+
+Worked example — a USD bucket, contract amount 10,000 entered, rate 1.10 USD per EUR, 100 h budget,
+50 h actual, €50/h internal rate (so cost = €2,500):
+
+| | Budget panel (bucket currency) | Budget report (labelled EUR) | Correct |
+|---|---|---|---|
+| Win/loss | $8,250 | €7,500 | $7,250 (€6,590.91) |
+| Consumed | $5,500 | €5,000 | $5,000 |
+| Margin | 75.0 % | 75.0 % | 72.5 % |
+
+The margin error is the one that matters: the percentage is `(revenue - cost) / revenue`, and treating a
+USD contract as EUR revenue inflates the numerator without touching the EUR-denominated cost, so the
+bucket reports a healthier margin than it has. The direction depends on the rate — a currency weaker
+than the euro overstates margin, a stronger one understates it. Project rollups sum bucket values, so
+the USD amount is added into an EUR total there too.
+
+★ UNVERIFIED NEIGHBOUR, recorded as a lead rather than a finding: the Budget panel labels the project
+rollup with `projCur = plan.currency || "EUR"`, whose own comment says the rollup is in the plan base
+currency (EUR). `ResourcePlan.currency` is a free ISO-4217 string, so a plan set to anything but EUR
+would label EUR figures in that currency. Not probed.
+
+★ A SECOND lead was chased and REFUTED, so do not re-file it: the suspicion that externals are excluded
+from planned hours but not from actuals does not hold for applied TimeLog bookings —
+`pickMatchableResources` (`timelog-matchable.ts`) filters on `!r.isExternal`, so the apply path
+(`timelog-apply.ts`) never matches an external in the first place.
+
+★ Related issue #42 covers the same buckets from the user-facing side.
+
+Size M: the fix is a decision about where the boundary sits — convert at the writer, at the engine
+boundary, or keep the field in bucket currency and convert on every read — and whichever is chosen,
+existing stored amounts carry no marker saying which convention they were entered under.
+
+## 466. Help promises a burn-down forecast that the chart does not draw — OPEN
+
+**Status:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
+while triaging the demo-backlog issues #38–#74; filed as
+https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/78. Established by reading the
+string and the chart, not by a run. Presence witnesses re-run 2026-09-11:
+`grep -n "helpAutomatedHealthBody" src/app/i18n.ts src/app/i18n.de.ts src/app/help-content.ts` (the two
+strings and the entry that renders them) and
+`grep -niE "forecast|projection" src/app/burndown-chart.tsx src/app/budget-burndown.ts` (prints NOTHING
+— the absence IS the finding, so re-run it rather than trusting this line).
+
+The Help entry `automated-health` says, in EN, that earned-value indicators "along with a burn-down
+forecast, update automatically as work progresses"; the DE string carries the same promise as "sowie
+eine Burn-down-Prognose". No such forecast is drawn. `computeBurndownSeries` (`budget-burndown.ts`)
+emits the planned glide path across every period and the ACTUAL remaining only up to today — past that
+index it pushes `null` — and `burndown-chart.tsx` renders exactly three things per chart: a dashed
+planned line, a solid actual line and a dashed today marker. There is no projected-completion line, no
+extrapolation of the actual series, and no forecast band.
+
+★ The entry's TITLE is half right, which is why this reads as a wording slip rather than a missing
+feature: "Health ratings & forecasts are calculated for you" is satisfied by `forecastEndDate`
+(`snapshot.ts`), a real forecast — but a DATE in the Trends surface, Turso-only, not a line on this
+chart. So the fix is to say what exists, in both languages, rather than to build a projection.
+
+★ §453 (open) covers Help-content gaps and does not include this one.
+
+Size S: two strings, EN and DE together.
