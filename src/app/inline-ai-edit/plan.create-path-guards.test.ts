@@ -56,6 +56,14 @@
 //    file AND the sweep green, because `sanitizeAbsence` builds its row from
 //    named fields and drops an unnamed key on its own. It pins the OUTCOME's
 //    shape, which holds without the allowlist; see that case below.
+//
+// ★★ ONE MORE THING LIVES HERE THAT IS NOT A GUARD PIN. The "§460" describe
+// below is a card-vs-write DIFFERENTIAL on `attendeeResourceIds`, not a
+// refused-field pin, and it is not covered by the "per pin" list above. It
+// sits in this file rather than its own because this file already carries the
+// dispatcher/`runTool` create harness a differential needs, and
+// `plan.write-path.test.ts` — which runs that same differential shape — drives
+// `update_*` tools only (verified: no `create_*` tool name appears in it).
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
