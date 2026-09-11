@@ -46,10 +46,10 @@ They differ only in which way they assert on it.
 
 ## Goal
 
-One probe derivation, shared by both relations, whose every probe is checked against the storage
-layer before a relation may judge it. A field whose probe the check refuses is reported `unmeasured`,
-and one with no derivable probe `dead`, by name, in the both-directions ledger. It no longer passes
-green.
+One probe derivation, shared by both relations, whose every probe is checked against the writer's own
+sanitizer before a relation may judge it. A field whose probe the check refuses is reported
+`unmeasured`, and one with no derivable probe `dead`, by name, in the both-directions ledger. It no
+longer passes green.
 
 ## Non-goals
 
@@ -126,7 +126,7 @@ already runs under jsdom (`vitest.config.ts`), which that round trip's JSON load
 
 A field is **measured** only if:
 
-- the probe survives the round trip unchanged, **and**
+- the admission oracle holds the probe unchanged, **and**
 - the probe differs from the reference value.
 
 Both comparisons use the comparison the judging relation itself uses: `same` for Relation A, and
@@ -180,9 +180,10 @@ objects, so the object branch reaches them.
 - **`calendarEvent.sendInvitations`** stays `dead`.
 - **New `unmeasured` entries** name each field the admission check cannot admit. Expected (not yet
   measured): undeclared closed-set fields such as `resource.utilizationMode`, where no schema `enum`
-  exists and a suffixed string fails the round trip.
-- **Relation A gets the same ledger.** It asserts `findings` is empty today, and typed probes may now
-  expose a real undeclared write.
+  exists and the writer's sanitizer refuses a suffixed string.
+- **Relation A gets a ledger of the same shape, `EXPECTED_UNDECLARED_FINDINGS`, checked in both
+  directions.** It asserts `findings` is empty today, and typed probes may now expose a real undeclared
+  write.
 - **Citation.** Every new `unmeasured` or `dead` entry cites §462, the register entry Task 8 files for
   "fields the typed probes cannot measure". Reserve the number by re-running the register-max command
   against `origin/main` before writing any citation.
