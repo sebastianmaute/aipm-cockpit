@@ -4,7 +4,7 @@
 
 **Goal:** A `v*` tag publishes a GitLab Release whose asset link points at a Windows installer that provably carries that version.
 
-**Architecture:** Three small CI jobs and two pure script libraries. A tag guard fails the pipeline before anything expensive runs if the tag disagrees with `src/app/version.ts` — the tag build's own `needs:` waits on that guard, so a drifted tag skips the 20-minute wine build instead of running it anyway; the existing manual `desktop-package` job splits into a hidden base plus a branch job and a tag job so artifact scope and retention can differ; a `release` stage job carries no `needs:` at all and relies on stage order (`dependencies: []` plus the default `when: on_success`) so it only runs once every earlier-stage job has succeeded, then calls the Releases API through `node:fetch` and attaches a per-tag artifact URL. All comparison and payload logic lives in pure, unit-tested `scripts/*-lib.mjs` modules — the CI YAML holds no logic.
+**Architecture:** Three small CI jobs and two pure script libraries. A tag guard fails when the tag disagrees with `src/app/version.ts`, without stopping the rest of the pipeline — every other quality and build job still runs; only the tag build's own `needs:` waits on that guard, so a drifted tag skips the 20-minute wine build and the publish job downstream of it, instead of running them anyway; the existing manual `desktop-package` job splits into a hidden base plus a branch job and a tag job so artifact scope and retention can differ; a `release` stage job carries no `needs:` at all and relies on stage order (`dependencies: []` plus the default `when: on_success`) so it only runs once every earlier-stage job has succeeded, then calls the Releases API through `node:fetch` and attaches a per-tag artifact URL. All comparison and payload logic lives in pure, unit-tested `scripts/*-lib.mjs` modules — the CI YAML holds no logic.
 
 **Tech Stack:** GitLab CI (self-managed,  (GitLab)), `electronuserland/builder:wine`, Node 24 (`node:24-bookworm-slim`, global `fetch`), vitest over `scripts/**/*.test.mjs`, electron-builder NSIS.
 
@@ -755,15 +755,33 @@ stages:
   - e2e
   # Tag pipelines only: publishes the Release that points at e2e's installer.
   # A separate stage rather than a `needs:` inside e2e, so the ordering is
-  # visible in the pipeline graph and does not depend on same-stage needs.
+  # visible in the pipeline graph and does not depend on same-stage needs --
+  # and, more to the point, so STAGE ORDER is what makes publish-release wait
+  # on every earlier-stage gate before it runs (Task 7).
   - release
 ```
 
 - [ ] **Step 2: Replace the `desktop-package` job with a base plus two jobs**
 
-Keep the whole existing comment block above the job — every line of it is still true — and **extend** its `★★` `allow_failure` note as shown. Replace from `desktop-package:` to the end of its `artifacts:` block with:
+`5fa964cf` already rewrote the comment block above the job — the header used to call the job MANUAL without distinguishing branch from tag, which stopped being true once this split exists, so it now names `desktop-package-tag` and says the tag path is automatic and BLOCKING. The rewritten header is reproduced below, verbatim, **extended** with the `★★`/`★★★` `allow_failure` notes. Replace from `desktop-package:` to the end of its `artifacts:` block with:
 
 ```yaml
+# Windows desktop installer. On a BRANCH this stays MANUAL: the build is slow
+# and the artifact is large, so running it per-MR would dominate pipeline time
+# and storage for no signal. On a TAG it is automatic and BLOCKING -- see
+# desktop-package-tag below, not "MANUAL" -- a release must not silently skip
+# its own installer.
+#
+# ★ The runners are Linux, so a Windows NSIS target needs wine — that is what
+# this image provides. If this image is ever unreachable from this GitLab
+# instance, DELETE this job rather than leaving it broken: local packaging on
+# Windows (npm run desktop:package) is the supported path either way.
+#
+# ★★ This REBUILDS the app with NEXT_STANDALONE=1 rather than consuming the
+# build job's artifact. That is deliberate and is the one place the
+# never-rebuild rule does not hold: `build` produces a NON-standalone .next/,
+# so the artifact is the wrong SHAPE, not merely stale.
+#
 # ★★ allow_failure was indented under the `- when: manual` rule ONLY, mirroring
 # dast-zap. A rules entry that omits it defaults to FALSE, so a second rule
 # added here without its own allow_failure would make this job BLOCKING on any
@@ -788,9 +806,9 @@ Keep the whole existing comment block above the job — every line of it is stil
     - npm --prefix desktop ci || npm --prefix desktop install
     - npm --prefix desktop run build
     - npm run desktop:package
-    # ★★★ M3: an empty glob match logs electron-builder/gitlab's own "No files
-    # to upload" and otherwise leaves the job GREEN with no artifact. Fail
-    # loudly instead -- `ls` exits non-zero if either glob matches nothing.
+    # ★★★ an empty glob match only makes the RUNNER log "No files to upload"
+    # and leaves the job GREEN with no artifact. Fail loudly instead -- `ls`
+    # exits non-zero when either glob matches nothing, so list both globs.
     - ls -l desktop/release/*-setup.exe desktop/release/*-setup.exe.blockmap
   artifacts:
     # ★★★ THE INSTALLER AND ITS BLOCKMAP, NEVER desktop/release/ WHOLE. This is
@@ -809,9 +827,10 @@ Keep the whole existing comment block above the job — every line of it is stil
     # ★ `extends:` deep-merges HASHES ("You can use extends to merge hashes
     # but not arrays" -- GitLab docs), so a concrete job below that overrides
     # `artifacts:` to set only its own `expire_in` still inherits `paths` from
-    # HERE and must NOT repeat it -- an earlier revision of this comment
-    # wrongly claimed extends "would otherwise drop paths". Proven with the
-    # merge verifier (Step 4), not by reasoning about merge semantics.
+    # HERE and must NOT repeat it -- an earlier revision of this comment (and
+    # of the plan) wrongly claimed extends "would otherwise drop paths".
+    # Proven with the merge verifier (Task 4 Step 4), not by reasoning about
+    # merge semantics.
     paths:
       - desktop/release/*-setup.exe
       - desktop/release/*-setup.exe.blockmap
@@ -834,11 +853,12 @@ desktop-package-tag:
   # `needs:` purely against the STATUS of what is listed (atomic_processing_
   # service.rb; docs: "Jobs start as soon as their dependencies finish without
   # waiting for pipeline stages to complete") -- with needs: [install] alone,
-  # a drifted tag still ran this 20-minute wine build to completion, and
-  # Task 7's publish-release (needs: [desktop-package-tag]) still created a
+  # a drifted tag still ran this 20-minute wine build to completion, and a
+  # publish job wired by needs: to this job would still have created a
   # Release whose per-tag asset URL then 404s, because that URL resolves only
-  # through a pipeline GitLab calls SUCCESSFUL. Listing tag-version-check here
-  # makes a failing guard SKIP this job outright.
+  # through a pipeline GitLab calls SUCCESSFUL. Task 7's publish-release
+  # therefore carries no needs: and is gated by stage order instead. Listing
+  # tag-version-check here makes a failing guard SKIP this job outright.
   # ★ Deliberately NOT on the .desktop-package BASE above -- a branch pipeline
   # has no tag-version-check job, and a base needs: naming a job that does not
   # exist on that pipeline fails pipeline CREATION ("needs ... not added").
@@ -952,8 +972,9 @@ desktop-package-tag is BLOCKING, and its missing allow_failure is deliberate:
 the file's existing comment warned that a rules entry omitting it defaults to
 false, and that is exactly what a tag build wants.
 
-tag-version-check runs with needs: [] so a tag that disagrees with version.ts
-fails the pipeline before the 20-minute wine build rather than after it.
+tag-version-check runs with needs: [] so it reports back immediately; a
+drifted tag skips the wine build outright, because the build job needs the
+guard.
 
 Claude-Session: https://[session link removed]
 EOF
@@ -1369,15 +1390,24 @@ Append at the end of `.gitlab-ci.yml`:
 # desktop-package-tag itself needs only [install, tag-version-check] (Task 4)
 # -- so needs: [desktop-package-tag] HERE would let this job fire the instant
 # that ONE job succeeds, even if some OTHER blocking gate on the same tag
-# pipeline (lint, unit tests, e2e, ...) later fails. The per-tag asset URL
-# this job publishes only resolves through a pipeline GitLab calls
-# SUCCESSFUL, so a needs:-based publish can create a Release whose download
-# link 404s -- the exact bug this plan exists to close, just moved one job
-# over. Omitting `needs:` puts this job on ordinary STAGE order: it sits in
-# `release`, the LAST stage, and inherits the default `when: on_success`,
-# which GitLab defines as running only once every job in every EARLIER STAGE
-# has succeeded -- closing the dead-link case for EVERY blocking gate on the
-# tag pipeline, not just the tag guard.
+# pipeline (lint, typecheck, semgrep, unit tests, build, ...) later fails --
+# e2e and prod-smoke do NOT run on tag pipelines at all (their own rules
+# match merge_request_event / the default branch only), so neither is among
+# those gates. The per-tag asset URL this job publishes only resolves
+# through a pipeline GitLab calls SUCCESSFUL, so a needs:-based publish can
+# create a Release whose download link 404s -- the exact bug this plan
+# exists to close, just moved one job over. Omitting `needs:` puts this job
+# on ordinary STAGE order: it sits in `release`, the LAST stage, and
+# inherits the default `when: on_success`, which the GitLab docs define
+# verbatim as: "on_success (default): Run the job only when no jobs in
+# earlier stages fail." -- closing the dead-link case for EVERY blocking
+# gate on the tag pipeline, not just the tag guard.
+# ★★ THAT INCLUDES dast-zap's `when: manual` rule. A manual job's
+# allow_failure DEFAULTS TO FALSE inside `rules:`, and a blocking manual job
+# stops the pipeline at its own stage -- so publish-release also depends on
+# dast-zap's manual rule keeping `allow_failure: true`. If that key were
+# ever dropped, every tag pipeline would sit "blocked" in e2e and never
+# reach `release`.
 # ★ `dependencies: []` (not `needs:`) says the same "no needs:" thing to the
 # artifact-download side: this job fetches NO artifacts from earlier jobs --
 # not node_modules, not the ~93 MB installer -- since `release:publish` only
