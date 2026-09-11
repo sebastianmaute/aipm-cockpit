@@ -875,10 +875,11 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
   //  `describeEntityCalls` pushes link diffs and a `plan.creates` entry and
   //  emits NO `rejected` entries whatever. A grep count cannot certify that
   //  (§440): one `plan.rejected.push` sits in `pushLinkDiffs`, which the create
-  //  branch DOES call. It stays silent there only because that call passes
-  //  `target` `"create"` — the guard is looked up for `"row"` alone — and no
-  //  `toolName`. So there is nothing for a "or the card refused it" disjunct to
-  //  fall through to, and this arm asserts LANDING ONLY.
+  //  branch DOES call. It stays silent there because the create call passes
+  //  no `toolName`: since §460 the guard itself runs on a create too, so a
+  //  refused link is OMITTED from the card rather than reported. So there is
+  //  nothing for a "or the card refused it" disjunct to fall through to, and
+  //  this arm asserts LANDING ONLY.
   //
   //  ★★ THAT MAKES THE PROBE'S VALIDITY LOAD-BEARING in a way the update arm's
   //   is not. With no refusal channel, a guard correctly rejecting a bad value
