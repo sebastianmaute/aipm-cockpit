@@ -40,17 +40,31 @@ win:
   # path)`. buildResources defaults to `<projectDir>/build`, and projectDir is
   # `desktop/` because desktop:package passes `--project desktop` -- so `..`
   # climbs to the repo root and finds public/. Verified by reading
-  # platformPackager.js rather than by guessing; a miss throws a named
-  # InvalidConfigurationError that quotes both directories it tried, so this
-  # fails loudly at build time rather than shipping a default icon.
+  # platformPackager.js rather than by guessing; a miss on THIS PATH throws a
+  # named InvalidConfigurationError that quotes both directories it tried, so
+  # a wrong path fails loudly at build time. That is only path resolution --
+  # it says nothing about whether the resolved icon is actually STAMPED into
+  # the exe. With `win.signAndEditExecutable: false` (as this file had it
+  # before), resource editing is skipped entirely and the packaged exe ships
+  # Electron's stock icon with no build-time warning, even though this path
+  # resolves correctly every time. `icon:` only supplies the RESOURCE;
+  # `signExecutable` below governs whether it is ever applied.
   #
   # ★ Six sizes up to 256x256 at 32bpp. electron-builder REQUIRES a 256x256
   # entry; without one it refuses the icon rather than downscaling.
   icon: ../public/app.ico
-  # Unsigned: no certificate is available. See the spec's Section 7 security
-  # note -- this means SmartScreen prompts on install, and (once the updater
-  # lands) that the share ACL is the only integrity control on updates.
-  signAndEditExecutable: false
+  # No certificate is available, so code SIGNING must stay off. But
+  # `signAndEditExecutable: false` skips BOTH signing AND resource editing --
+  # the step that stamps the icon above plus the product metadata
+  # (ProductName/CompanyName/FileDescription) into the exe -- which is why
+  # every shortcut, the taskbar and the window used to show Electron's own
+  # icon and "Electron"/"GitHub, Inc." metadata instead of ours.
+  # `signExecutable: false` skips signing ALONE and leaves resource editing
+  # ON, so the icon + product metadata still get applied. See the spec's
+  # Section 7 security note -- unsigned means SmartScreen prompts on
+  # install, and (once the updater lands) the share ACL is the only
+  # integrity control on updates.
+  signExecutable: false
 nsis:
   # Per-user install: corporate laptops routinely deny admin rights, and a
   # machine-wide installer turns "double-click to run" back into a ticket.
