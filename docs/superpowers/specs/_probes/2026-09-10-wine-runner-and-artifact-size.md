@@ -60,7 +60,8 @@ same digest (`sha256:41ae5409…`), so the runner keeps it cached even under the
 | 29602 | 103,565,559 B | 107,444 B | 103,549,382 B — `201 Created` |
 
 Installer plus `.blockmap` is ~98.9 MiB in CI, about 6 MiB more than the
-92.9 MiB (same two files) of the local build this spike was sized from. An accepted 103.5 MB archive rules out a DECIMAL
+92.9 MiB (same two files) of the local build this spike was sized from — a gap
+consistent with the sharp finding under **The size gap** below. An accepted 103.5 MB archive rules out a DECIMAL
 100 MB limit; it does not say which limit applies. If it is the 100 MiB default
 (104,857,600 B), the headroom is ~1.3 MB (1.25 %) — one sizeable dependency
 away from a rejection, which arrives only at the upload, after a green build.
@@ -80,6 +81,77 @@ General pipelines → "Project-based pipeline visibility"). GitLab's permissions
 docs tie a non-member's artifact access to that setting; turning it off was NOT
 tried, so treat it as the likely cause if colleagues start getting 404s. Not
 measured either: a GitLab EXTERNAL user, whom `internal` projects exclude.
+
+**The size gap: the installer carried Linux sharp.** Measured 2026-09-11 by
+downloading tag job 29602's artifact (103,549,382 B) with
+`glab api --hostname gitlab.example.com example-group/aipm-cockpit/jobs/29602/artifacts`
+and unpacking it with 7-Zip in three layers: the artifact zip, the NSIS
+installer inside it, then `$PLUGINSDIR/app-64.7z` inside that. Under
+`resources/standalone/node_modules/@img/` sat the following — sizes from
+`du -sh` on the unpacked tree, i.e. DISK USAGE rounded to 4 KiB clusters, not
+apparent bytes:
+
+- `sharp-linux-x64`, 413K, including `lib/sharp-linux-x64-0.35.4.node`;
+- `sharp-libvips-linux-x64`, 18M;
+- `colour`, 57K, a pure-JS dependency of sharp.
+
+Those two sharp directories, archived on their own with `7z a -mx=7`, make an
+archive of 6,291,480 B (apparent bytes) = 6.0 MiB. That is CONSISTENT WITH the
+~6 MiB gap above, not proof that it is the gap: the gap compares a local 0.301.0
+build against a CI 0.303.0 build, so anything else that changed between those
+versions is inside it too. `du -s` gives the CI standalone `node_modules` as
+38,191 KiB against 19,733 KiB for the local 0.301.0 build. No other native file
+(`.node`, `.so`, `.dll`, `.dylib`) and no other platform-named package exists
+anywhere in the CI standalone tree, so sharp is the whole class.
+
+How it got there: the ROOT `npm ci`, which installs sharp, runs in the `install`
+job on the default `node:24-bookworm-slim` image — Linux — and hands its
+`node_modules/` on as an artifact; `.desktop-package` receives it through
+`needs: [install]` and itself runs only `npm --prefix desktop ci`. So the
+tree the job builds from carries sharp's Linux prebuilt binaries; Next's
+standalone output traces them into `.next/standalone/node_modules`; and the
+second `extraResources` entry in `desktop/electron-builder.yml` ships that
+directory into the installer. A Windows install can never load a Linux `.node`
+file.
+
+The local Windows build is no better, only smaller. Its
+`desktop/release/win-unpacked` (0.301.0) carries `@img/sharp-win32-x64` (`du -sh`
+445K; its `colour` 53K) holding only `sharp-win32-x64-0.35.4.node`: the
+`libvips-42.dll` (18,614,784 B apparent, by `ls -l`) and `libvips-cpp-8.18.6.dll`
+it links against were NOT traced, although both sit in the repo root's
+`node_modules/@img/sharp-win32-x64/lib/`. So no installer build has ever carried
+a loadable sharp.
+
+Nothing needs one — reasoned from the code, not observed at runtime. Only Next's
+image optimizer (`/_next/image`) loads sharp, and nothing reaches it: no file
+imports `next/image` (`grep -rnE "from ['\"]next/image['\"]" src` finds nothing;
+the two plain-text hits for `next/image` are a comment in
+`src/app/asset-preview-modal.tsx` and the `_next/image` exclusion in
+`src/proxy.ts`'s matcher), `next.config.ts` sets no `images`, and the app
+generates no metadata images. Its one metadata file, `src/app/favicon.ico`, is a
+STATIC one: `next-metadata-route-loader` routes a non-dynamic metadata file
+through `getStaticAssetRouteCode`, which embeds the file's bytes in a plain
+`NextResponse` and never touches sharp (that loader contains no `sharp` at all:
+`grep -n "sharp" node_modules/next/dist/build/webpack/loaders/next-metadata-route-loader.js`
+prints nothing). There is no `opengraph-image`, `twitter-image`, `icon` or
+`apple-icon` file under `src/app`. Removing it
+cannot break the server's boot either: Next requires sharp LAZILY —
+`require('sharp')` sits inside `getSharp()` in
+`next/dist/server/image-optimizer.js`, whose only caller is `optimizeImage()`
+(`grep -rn "getSharp(" node_modules/next/dist/server --include=*.js`, read
+against the installed Next 16.3.4).
+
+The fix, 2026-09-11: a `filter` on that `extraResources` entry drops the
+TOP-LEVEL `@img/**` and `sharp/**` (which takes `@img/colour` with it), and the
+`.desktop-package` CI job now fails if the packaged
+`win-unpacked/resources/standalone/node_modules` lacks `next/package.json` —
+so the check cannot pass against a tree that is not there — or if a `find` walk
+of it turns up a `node_modules/sharp` or `node_modules/@img/sharp-*` at ANY
+depth, which covers a nested copy the filter would let through. The check sits
+on the base job, so a tag pipeline goes red in `e2e`, before `publish-release`
+can publish the installer. **Its effect on the artifact size is NOT measured.**
+~6 MiB back is the expectation from the 7z archive above, not an observation;
+the next `desktop-package` run is the measurement.
 
 ## Decision table — decided in advance, so the outcome cannot be rationalised
 
