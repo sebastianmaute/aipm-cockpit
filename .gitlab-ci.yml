@@ -526,6 +526,29 @@ dast-zap:
     # and leaves the job GREEN with no artifact. Fail loudly instead -- `ls`
     # exits non-zero when either glob matches nothing, so list both globs.
     - ls -l desktop/release/*-setup.exe desktop/release/*-setup.exe.blockmap
+    # ★★ NO sharp IN THE PACKAGED APP, AT ANY DEPTH. desktop/electron-builder.yml
+    # filters the TOP-LEVEL `sharp` and `@img/**` out of the standalone
+    # node_modules -- why, and what it cost, is that file's comment on the second
+    # extraResources entry. That filter cannot see a copy nested inside another
+    # package's node_modules; this walk can, and FAILS the build on either kind
+    # instead of quietly putting ~6 MiB back into an artifact whose headroom is
+    # ~1.3 MB if the limit is GitLab's 100 MiB default. It reads win-unpacked/,
+    # the tree electron-builder packs into the installer: on disk in this job,
+    # just not uploaded.
+    # ★ It sits on the BASE job, so it runs in the manual desktop-package AND the
+    # blocking desktop-package-tag -- a tag pipeline goes red here, in e2e,
+    # before publish-release (release stage) could publish the installer.
+    # ★★★ The next/package.json test is what keeps the walk from being vacuous:
+    # a search of a directory that is not there finds nothing and passes. It
+    # also catches the traced dependencies not shipping at all, which the app
+    # only reports at launch as `Cannot find module 'next'`. find's own failure
+    # is checked separately, because an empty result from a failed walk would
+    # otherwise read as a clean tree.
+    - |
+      nm=desktop/release/win-unpacked/resources/standalone/node_modules
+      test -f "$nm/next/package.json" || { echo "sharp guard: $nm/next/package.json is missing -- the packaged tree moved, or its node_modules did not ship"; exit 1; }
+      hits=$(find "$nm" \( -path '*/node_modules/sharp' -o -path '*/node_modules/@img/sharp-*' \) -prune -print) || { echo "sharp guard: find failed under $nm"; exit 1; }
+      if [ -n "$hits" ]; then echo "sharp guard: sharp is in the packaged app -- see the sharp filter in desktop/electron-builder.yml:"; echo "$hits"; exit 1; fi
   artifacts:
     # ★★★ THE INSTALLER AND ITS BLOCKMAP, NEVER desktop/release/ WHOLE. This is
     # a defect fix, not an optimisation: measured 2026-09-10, the directory is

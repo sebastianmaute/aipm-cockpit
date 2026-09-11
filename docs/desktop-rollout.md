@@ -4,9 +4,10 @@
 
 1. Download the installer from the project's **Releases** page — pick the newest
    release and click its asset link, `aipm-cockpit-<version>-setup.exe (Windows installer)`.
-   You need to be signed in to GitLab with access to the project's pipelines.
-   If the link answers with a 404 or a permission error, ask a project
-   maintainer for access to the project.
+   Sign in to GitLab first. You should not need to be a member of the project:
+   a signed-in colleague outside it has downloaded the installer this way. If
+   the link answers with a 404 or a permission error, check that you are signed
+   in; if you are, ask a project maintainer.
 2. Run it.
 3. Windows will show a blue **"Windows protected your PC"** box. This is expected: the app is not code-signed. Click **More info**, then **Run anyway**.
 4. The app installs for your user only — you do **not** need admin rights.

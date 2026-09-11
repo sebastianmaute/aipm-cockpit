@@ -8,6 +8,59 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.0.0] - 2026-09-11 "Pratchett"
+
+This release replaces `v0.303.0` below: that tag's Release and tag are being
+withdrawn by hand, and 1.0.0 is the one kept as the first published installer
+release.
+
+### Changed
+
+- **The Windows installer no longer carries sharp's Linux binaries.** CI packages
+  the installer on a Linux runner, so `npm ci` had been installing
+  `@img/sharp-linux-x64` and `@img/sharp-libvips-linux-x64` (18 MB unpacked, about
+  6.0 MiB compressed) into the Next standalone server the installer bundles —
+  binaries Windows can never load, for a native module the app never calls
+  (nothing imports `next/image`). `desktop/electron-builder.yml` now filters
+  `@img/**` and `sharp/**` out of that `extraResources` copy, and the
+  `.desktop-package` CI job (shared by `desktop-package` and
+  `desktop-package-tag`) fails the build if a sharp package reappears anywhere
+  in the packaged app. Measured on a manual `desktop-package` run against this
+  branch (job 29645, MR !471 pipeline 6908): the installer shrank from
+  103,565,559 B (v0.303.0) to 97,186,650 B — 6,378,909 B, about 6.1 MiB,
+  smaller — and the sharp guard ran and passed. GitLab accepted the resulting
+  97,169,276 B artifact archive, leaving about 7.3 MiB of headroom against
+  GitLab's per-job artifact size limit, up from about 1.3 MB before this fix —
+  both figures assuming the limit is GitLab's documented 100 MiB default,
+  which is still unconfirmed for this instance (the setting is admin-only).
+
+### Added
+
+- A spike write-up
+  (`docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md`)
+  recording what the first four installer builds (`desktop-package` /
+  `desktop-package-tag`) and the first published GitLab Release actually
+  measured: the `electronuserland/builder:wine` image took 45 s to pull on the
+  first run and 43 s on the second, then under 1 s on each of the two runs that
+  followed (all four at the same image digest), so the runner keeps it cached
+  once pulled; the installer plus its `.blockmap`, a 103.5 MB archive, was
+  accepted by GitLab — which rules out a decimal 100 MB limit, and is about
+  1.3 MB under the 100 MiB default, if that is the limit here; the uploaded
+  artifact carries only the
+  installer and its `.blockmap`, never `win-unpacked/`; and a signed-in
+  colleague who is not a member of this project could open the Release's asset
+  link and download the installer (the project is `internal` with
+  `public_jobs: true`).
+- `docs/open-followups.md` §462: there is no Linux installer anywhere in this
+  pipeline, only the Windows NSIS target.
+
+### Known limitations
+
+- Carried over from 0.303.0, unchanged by this release: the installer is not
+  code-signed, so Windows shows "Windows protected your PC" on install; the
+  desktop app starts with its own empty data store even if you have used the
+  app in your browser; and the desktop menu labels are English-only.
+
 ## [0.303.0] - 2026-09-11 "Christie"
 
 ### Added

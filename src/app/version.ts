@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.303.0";
-export const APP_BUILD_DATE = "2026-09-11"; // 0.303.0: AI PM Cockpit now ships as a per-user Windows desktop app that needs no admin rights, no Node.js and no terminal — it runs the app's own server on 127.0.0.1:17300 only, never on the machine's network address, keeps that port fixed because the saved data belongs to it, and says so in a dialog rather than a blank window when it cannot start; it names itself "AI PM Cockpit" with its own icon, author and branded installer instead of Electron's; a v-tag now drives the release, checking the tag against the app version, building the installer as a kept artifact and creating a GitLab Release that links to it, though no tag pipeline has run yet; and the README became an entry point, with its detail moved into docs of their own (Christie)
+export const APP_VERSION = "1.0.0";
+export const APP_BUILD_DATE = "2026-09-11"; // 1.0.0: AI PM Cockpit's first release published as an installer package — it replaces the 0.303.0 GitLab Release, which is being withdrawn along with its tag; the Windows installer no longer carries sharp's Linux binaries that a Linux CI runner had been installing into the bundled server though the app never loads them, measured about 6.1 MiB smaller (103,565,559 B → 97,186,650 B) against v0.303.0's installer, with the desktop-package CI jobs now failing if a sharp package reappears; and a spike write-up records what the first CI builds and the first GitLab Release actually measured — image pull times, artifact sizes and contents, and that a signed-in non-member can download the installer — leaving a new open follow-up for a Linux installer (Pratchett)
+// 0.303.0: AI PM Cockpit now ships as a per-user Windows desktop app that needs no admin rights, no Node.js and no terminal — it runs the app's own server on 127.0.0.1:17300 only, never on the machine's network address, keeps that port fixed because the saved data belongs to it, and says so in a dialog rather than a blank window when it cannot start; it names itself "AI PM Cockpit" with its own icon, author and branded installer instead of Electron's; a v-tag now drives the release, checking the tag against the app version, building the installer as a kept artifact and creating a GitLab Release that links to it, though no tag pipeline has run yet; and the README became an entry point, with its detail moved into docs of their own (Christie)
 // 0.302.0: the toolchain moves to ESLint 10 with the package that blocked it — eslint-plugin-react 7.37.5, which still calls an API ESLint 10 removed — left entirely unpatched, unforked and unvendored; pinning settings.react.version from react/package.json keeps the config off the only path that reached the removed call, so all 17 react rules still load and the resolved rule set stays byte-identical to ESLint 9, at the price of one silent degradation (a component declared by JSDoc tag alone stops being detected) that a new guard test is the sole detector for (Blaylock)
 // 0.300.0: a developer harness that measures whether the assistant still reads each part of its prompt, so the next round of cost work can be checked instead of assumed — it plants a unique nonsense token in one prompt block and a decoy in another, asks the model to return the target, and runs five arms including a negative control and two drift references, so a score move can be blamed on the change rather than on the model shifting underneath it; it refuses to report success on a run that measured nothing, and refuses to spend when it detects CI. Help and the in-app feature guide no longer describe the token-counting multiplier that 0.298.0 retired, and the README's feature table moved to docs/features.md (Mohanraj)
 // 0.299.0: nineteen dialogs now carry a help icon in their header that opens the matching Help entry in a popover over the dialog, instead of sending you to the Help view behind it — the popover floats free of the dialog so a long explanation is no longer cut off at the dialog's edge, it scrolls when it needs to, and Tab stays inside the dialog while it is open; the AI settings dialog now offers the AI entry rather than nothing, and two dialogs whose only candidate entry described a different surface were left with no icon rather than a misleading one (Yefremov)
@@ -28,8 +29,18 @@ export const APP_BUILD_DATE = "2026-09-11"; // 0.303.0: AI PM Cockpit now ships 
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (an author's surname). The
- *  0.299.x line is "Yefremov" (Ivan Yefremov, Soviet author of "Andromeda
- *  Nebula", 1957). A PATCH release keeps its minor line's
+ *  1.0.x line is "Pratchett" (Terry Pratchett, British author of the Discworld
+ *  novels, beginning with "The Colour of Magic", 1983) — the user's explicit
+ *  choice for the 1.0 release, deliberately REUSING a name already spent
+ *  twice before (0.51.0 and 0.124.0, both also "Pratchett"). That is legal:
+ *  uniqueness is per MINOR LINE, not across history (see the ★★★ note below),
+ *  and the 0.51.x/0.124.x lines are unrelated to 1.0.x, so this is not a
+ *  collision. The docstring elsewhere on this point (the "Banks"/"Chiang"
+ *  history) says this repo normally PREFERS a name unused anywhere in the
+ *  history and has rejected a legal reuse on that ground alone — this one
+ *  is the exception, made on the user's explicit instruction rather than by
+ *  the usual candidate-list sweep, and is recorded here for that reason. A
+ *  PATCH release keeps its minor line's
  *  name, as 0.293.1 kept "Vandermeer" like 0.293.0, exactly as 0.291.1 kept
  *  "Hoban". Only a MINOR bump needs the sweep below.
  *  SELECTION: take the FIRST name in `docs/release-codenames.md`'s
@@ -188,8 +199,8 @@ export const APP_BUILD_DATE = "2026-09-11"; // 0.303.0: AI PM Cockpit now ships 
  *  proof a name is taken: reuse across minor lines is permitted and is common.
  *  Enumerate today's reuses — it dedups WITHIN a minor line, so 0.278.0 and
  *  0.278.1 sharing a name is correctly not reported:
- *  grep -oE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md \
- *    | sed -E 's/^## \[(0\.[0-9]+)\.[0-9]+\][^"]*"([^"]+)"$/\2|\1/' \
+ *  grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md \
+ *    | sed -E 's/^## \[([0-9]+\.[0-9]+)\.[0-9]+\][^"]*"([^"]+)"$/\2|\1/' \
  *    | sort -u | cut -d'|' -f1 | uniq -d
  *  ★★ Run it rather than trusting any list, this sentence included: measured
  *  2026-09-07 it returned names the deleted ledger never flagged as reuses at
@@ -208,7 +219,7 @@ export const APP_BUILD_DATE = "2026-09-11"; // 0.303.0: AI PM Cockpit now ships 
  *  and the pattern matches the header you just wrote, which reads as a
  *  collision with yourself. Both commands, not one:
  *  `grep -ic <name> CHANGELOG.md`
- *  `grep -oE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md | grep -i <name>`
+ *  `grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md | grep -i <name>`
  *  ★★★ AN ANCHORED GREP MISSES HEADERS ON TWO SEPARATE AXES, and each has
  *  already reported a taken name as free. (1) THE DASH — older headers use an
  *  em dash and newer ones a hyphen, so a `] - ` anchor is blind to a large
@@ -218,8 +229,22 @@ export const APP_BUILD_DATE = "2026-09-11"; // 0.303.0: AI PM Cockpit now ships 
  *  anchor cannot see them; that is how "Banks" reached this constant, the
  *  CHANGELOG heading and all six satellites before it was caught. Measure both
  *  populations rather than trusting a figure written here:
- *  `grep -coE '^## \[0\.[0-9]+\.[0-9]+\]' CHANGELOG.md` (all version headers)
- *  `grep -coE '^## \[0\.[0-9]+\.[0-9]+\] *"' CHANGELOG.md` (codename first)
+ *  `grep -coE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md` (all version headers)
+ *  `grep -coE '^## \[[0-9]+\.[0-9]+\.[0-9]+\] *"' CHANGELOG.md` (codename first)
+ *  ★ (3) THE BRACKET — one header, `## 0.124.0 "Pratchett" — 2026-06-22`, omits
+ *  the brackets around the version entirely. It is 1 of 437 `## ` headers total
+ *  — not among the 436 bracketed ones the two commands above count — measured
+ *  by running all three:
+ *  `grep -cE '^## [0-9]+\.[0-9]+\.[0-9]+ ' CHANGELOG.md` prints 1 (bracketless),
+ *  `grep -cE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md` prints 436 (bracketed),
+ *  `grep -cE '^## ' CHANGELOG.md` prints 437 (every header, either shape).
+ *  Every pattern
+ *  on this page is anchored on the `\[`, so all of them miss it — a bracketless
+ *  header reads as absent from every sweep here, not merely as a dash/order
+ *  miss. Left unfixed rather than patched in: a third alternation branch here
+ *  is exactly the kind of pattern change this docstring says to PROVE against
+ *  the full header population, not guess at, and this file's job today is
+ *  widening `\[0\.` to `\[[0-9]+\.` for the 1.0.x line, not that.
  *  ★★★ THE NAME CLASS IS `[^"]+`, NOT `[A-Za-z]+`, and the first cut of that
  *  correction shipped `[A-Za-z]+` — one character class from the defect it was
  *  written to end. It silently drops every codename that is not a single ASCII
@@ -227,7 +252,7 @@ export const APP_BUILD_DATE = "2026-09-11"; // 0.303.0: AI PM Cockpit now ships 
  *  candidate of any of those shapes returns zero hits and reads as free. Prove
  *  a replacement pattern by showing it sees ALL named headers, never by showing
  *  it finds the one name you happened to check:
- *  `grep -coE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md`
+ *  `grep -coE '^## \[[0-9]+\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md`
  *  ★★ AND PROVE THE ZERO. A candidate cleared by a run whose positive controls
  *  never fired is not cleared at all. 0.289.x was swept with three known-taken
  *  positives and a "zzznotaname" negative control before it was written here.
@@ -265,7 +290,7 @@ export const APP_BUILD_DATE = "2026-09-11"; // 0.303.0: AI PM Cockpit now ships 
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Christie";
+export const APP_MILESTONE = "Pratchett";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

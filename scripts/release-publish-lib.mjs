@@ -103,17 +103,16 @@ export function installerName(version) {
  * link. `desktop-package-tag` sets `expire_in: never` specifically to close
  * that gap for this one link.
  *
- * ★★ WHO MAY DOWNLOAD IS NOT SETTLED, so nothing here claims it. The project
- * is `internal`, so an anonymous visitor gets nothing; past that, GitLab's
+ * ★★ WHO MAY DOWNLOAD: a signed-in NON-member can — measured ONCE, on
+ * 2026-09-11, when one downloaded v0.303.0's installer through this link;
+ * external users were not tried. It is a property of this project's SETTINGS, not of the
+ * URL: the project is `internal` (an anonymous visitor gets nothing) and has
+ * `public_jobs: true` ("Project-based pipeline visibility"), and GitLab's
  * permissions docs ("Download artifacts",
- * https://docs.gitlab.com/user/permissions/) make job-artifact access depend
- * on the user's role AND on the project's pipeline-visibility setting, so
- * whether a signed-in NON-member can download is a property of this project's
- * settings that nobody has measured. Task 11 Step 6 of
- * docs/superpowers/plans/2026-09-10-release-publishing.md opens this link as
- * a signed-in non-member and records the answer with that setting;
- * docs/desktop-rollout.md (the plan's Task 8) tells a colleague what to do
- * when the link 404s.
+ * https://docs.gitlab.com/user/permissions/) tie a non-member's artifact
+ * access to that setting. The measurement and what it left open are in
+ * docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md;
+ * docs/desktop-rollout.md tells a colleague what to do when the link 404s.
  *
  * ★★ THE TAG GOES INTO THE URL UNENCODED, and that is safe only because of
  * the throw below: the tag must be exactly "v" + a version installerName()

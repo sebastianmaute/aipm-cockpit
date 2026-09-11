@@ -684,6 +684,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§459](#459-two-relation-b-create-arm-probes-are-invalid-by-construction-because-the-harness-mutates-the-seed-rows-value-without-regard-to-what-the-create-will-accept--open) | Two Relation B create-arm probes are invalid by construction, because the harness mutates the seed row's value without regard to what the create will accept — OPEN | first reported 2026-09-08 on the original branch (`1375f3c7`, local-only) and never filed there; analysed and filed 2026-09-11 from the sweep's first run on the landing branch | S — one probe derivation, two fields; both held in the sweep's ledger | open |
 | [§460](#460-a-create-card-can-preview-meeting-attendees-the-create-then-stores-none-of-because-the-previews-link-guard-runs-on-updates-only--open) | A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only — OPEN | found 2026-09-11 by cold review of the offered-surface landing: a `plan.ts` comment still described both allow-list creates as unguarded | S — lift the `target === "row"` gate on link guards, behind a test driving `[4, "4"]` through card and write | open |
 | [§461](#461-an-absence-stores-an-assignee-email-that-is-not-an-address-where-a-task-refuses-the-same-value-loudly--open) | An absence stores an assignee email that is not an address, where a task refuses the same value loudly — OPEN | found 2026-09-11 by cold review of the offered-surface landing, beside §459's task probe | S-M — decide per field whether an assignee email is format-checked, then guard the writer, not the card | open |
+| [§462](#462-there-is-no-linux-installer-and-several-windows-only-assumptions-stand-in-the-way-of-one--open) | There is no Linux installer, and several Windows-only assumptions stand in the way of one — OPEN | found 2026-09-11 while explaining the CI installer's size gap (the sharp finding in the wine-runner spike) | S-M — a native Linux job with its own artifact and Release link, XDG log paths, a rollout section | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -34100,3 +34101,78 @@ already uneven: `sanitizeRaidItem` stores `ownerEmail` through the same `sanitiz
 guard (`grep -n "ownerEmail = sanitizeEmail" src/app/sanitize-records.ts`). This may be one instance
 of a per-field choice rather than a slip; whichever it is, it wants writing down where both writers
 can be seen.
+
+## 462. There is no Linux installer, and several Windows-only assumptions stand in the way of one — OPEN
+
+**Status:** OPEN 2026-09-11 — a deferred decision, not a defect; no Linux package has been built or
+run on purpose. Presence witnesses re-run 2026-09-11: `grep -n "^artifactName:" desktop/electron-builder.yml`
+(the one installer name), `grep -n -A 1 "^win:" desktop/electron-builder.yml` (`target: nsis`, the only
+target), `grep -n '"desktop:package": "npm' package.json` (`--win`),
+`grep -nF '\\logs' desktop/src/lib/log-paths.ts` (the hard-coded backslash separator) and
+`grep -n "links.length !== 1" scripts/release-publish-lib.mjs` (exactly one Release asset link).
+
+The desktop app ships for Windows only, and that was a scoping decision rather than an oversight. The
+Electron design's non-goals read: "Cross-platform builds. Windows first; macOS/Linux are not in scope and
+nothing here should block them later." (`docs/superpowers/specs/2026-09-10-electron-app-bundling-design.md`).
+This entry records what now DOES stand in the way of a Linux build, so the second half of that sentence
+can be checked instead of assumed.
+
+- **One installer name for every target.** `desktop/electron-builder.yml` sets a TOP-LEVEL
+  `artifactName: aipm-cockpit-${version}-setup.exe`, so a Linux target inherits a `-setup.exe` name
+  unless it sets its own. Observed, not reasoned: CI job 29451 (MR !468), run before `--win` was added,
+  built `target=snap` and `target=AppImage` under that name (the wine-runner spike,
+  `docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md`, "Measured").
+  ★★ A per-target name is currently FORBIDDEN by a test, not merely absent:
+  `release-publish-lib.test.mjs` fails on ANY indented `artifactName:` line in that file — its guard
+  against an `nsis:`/`win:` override drifting from `installerName()` — so a `linux:` block carrying its
+  own name turns it red. Narrow that assertion to the Windows blocks in the same change; do not delete
+  it. Witness: `grep -n "artifactName:" scripts/release-publish-lib.test.mjs`.
+- **One target.** The only platform block is `win:` with `target: nsis`; there is no `linux:`
+  (`grep -n "^linux:" desktop/electron-builder.yml` prints nothing).
+- **One platform flag.** Root `package.json`'s `desktop:package` passes `--win` — added in MR !469
+  because without a flag electron-builder packages for the HOST, which on CI is the Linux runner. A Linux
+  build needs its own script; `--win` must stay on the Windows one.
+- **A Windows-shaped log path.** `resolveLogDir` (`desktop/src/lib/log-paths.ts`) takes the first
+  non-empty of `LOCALAPPDATA`, `TEMP` and `TMP`, else `"."`, and joins it with a HARD-CODED backslash
+  (`${base}\\${APP_DIR}\\logs`). On Linux a backslash is an ordinary filename character. So — reasoned
+  from the code, never run — in the usual case (none of the three is set; the POSIX name is `TMPDIR`)
+  `main.ts`'s `mkdirSync` creates ONE directory literally named `.\aipm-cockpit\logs` in whatever the
+  launcher's working directory is. With `TEMP=/tmp` set, the path is `/tmp\aipm-cockpit\logs`, a single
+  entry directly under `/` that an ordinary user cannot create: `log()` swallows the error and there is
+  no log at all. App DATA is not hand-rolled — nothing else under `desktop/src` builds a path
+  (`grep -rn "getPath\|userData" desktop/src` finds nothing), so it lives wherever Electron's default
+  `userData` puts it; whether that is XDG-conformant is Electron's choice and is not checked here.
+- **One Release asset.** `publish-release` publishes a single link: `ARTIFACT_JOB` in
+  `scripts/release-publish-lib.mjs` names `desktop-package-tag`, the per-tag URL embeds that job and
+  `installerName()`, and the payload check throws unless there is exactly ONE asset link.
+- **A Windows-only rollout doc.** `docs/desktop-rollout.md` walks the reader through the SmartScreen
+  "Windows protected your PC" prompt and gives the log as `%LOCALAPPDATA%\aipm-cockpit\logs\launch.log`
+  (`grep -n "LOCALAPPDATA" docs/desktop-rollout.md`).
+
+★ NOT a blocker: `killServer` (`desktop/src/server-child.ts`) already branches on
+`process.platform === "win32"` and sends `SIGTERM` everywhere else.
+
+What a Linux build would need:
+
+1. An AppImage and/or `.deb` target, built NATIVELY on the Linux runner — no wine.
+2. Its OWN CI job, not a second target on `.desktop-package`: GitLab's artifact size limit applies per
+   job, and the Windows job had ~1.3 MB of headroom before the sharp filter (if the limit is the
+   100 MiB default). ★★ Even alone it may not fit: the one Linux package this CI has produced (job
+   29451, before the sharp filter; snap and AppImage wrote the same filename, so which one it was is not
+   established) was 134,289,527 B, above a 100 MiB (104,857,600 B) limit. How much a `.deb`, or the
+   filter, would take off is unmeasured.
+3. Nothing for sharp. The Linux prebuilt that the root `npm ci` in the `install` job puts in
+   `node_modules/` WOULD be the right binary on Linux, but it would still have no caller (nothing
+   reaches `/_next/image` — the spike doc's "The size gap" section), and the sharp `filter` sits on the
+   shared top-level `extraResources`, so it drops the top-level sharp packages from a Linux package too.
+   That is the correct outcome; do not scope the filter to Windows. The sharp guard in
+   `.desktop-package` walks `win-unpacked/` for sharp at any depth, so a Linux job needs the same walk
+   against its own unpacked tree.
+4. A second Release asset link and a Linux-specific `artifactName` (both above).
+5. XDG-conformant log paths — `$XDG_STATE_HOME`, defaulting to `~/.local/state` — instead of the
+   backslash join above.
+6. A Linux section in `docs/desktop-rollout.md`: how to run the AppImage or install the `.deb`, and
+   where the log is.
+
+macOS is deliberately NOT part of this entry: it needs a macOS build host, Apple Developer ID signing
+and notarization, which are a separate problem from anything above.
