@@ -176,9 +176,8 @@ warn users to re-import from an export.
    The tag **must** match `APP_VERSION`; `tag-version-check` runs as soon as the
    tag pipeline starts and fails otherwise (exit 1 is drift, exit 2 means it
    could not scan at all). A failure holds back `publish-release`, which runs
-   only once every earlier stage has passed. It should also skip the installer
-   build, which lists the check in its `needs:`, but that half is GitLab
-   behaviour no tag pipeline has shown yet. Whoever pushes the tag needs
+   only once every earlier stage has passed.
+   Whoever pushes the tag needs
    Developer+ and the right to create protected tags, because the pipeline's job
    token acts with the pusher's access — GitLab behaviour as documented,
    unverified here.
@@ -219,7 +218,7 @@ local Windows build (`npm ci` and `npm --prefix desktop ci`, then
 `desktop/release/`), attached by hand to a Release you create yourself — a
 failed `desktop-package-tag` stops the pipeline before `publish-release` runs.
 If the image is unreachable for good and the `desktop-package` jobs are deleted,
-remove or disable `publish-release` in the same change: it has no `needs:`, so
+remove `publish-release` in the same change: it has no `needs:`, so
 on its own it would go on running on every tag and publish a Release whose link
 names a job that no longer exists — a green pipeline over a download that 404s.
 See `docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md`

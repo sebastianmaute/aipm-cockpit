@@ -484,7 +484,7 @@ dast-zap:
 # ★ The runners are Linux, so a Windows NSIS target needs wine — that is what
 # this image provides. If this image is ever unreachable from this GitLab
 # instance, DELETE this base and both desktop-package jobs rather than leaving
-# them broken -- and remove or disable publish-release IN THE SAME CHANGE. It
+# them broken -- and remove publish-release IN THE SAME CHANGE. It
 # has no needs:, so on its own it would go on running on every tag and publish
 # a Release whose asset link names a job that no longer exists: a green
 # pipeline over a download that 404s. Local packaging on Windows
@@ -535,7 +535,7 @@ dast-zap:
     #
     # ★★ 92.9 MiB (97.5 MB) sits against a documented 100 MB max_artifacts_size DEFAULT
     # that is admin-only and unreadable from here. A rejection arrives AFTER a
-    # green 20-minute build. See the spike finding under specs/_probes/.
+    # green build. See the spike finding under specs/_probes/.
     #
     # ★ `extends:` deep-merges HASHES ("You can use extends to merge hashes
     # but not arrays" -- GitLab docs), so a concrete job below that overrides

@@ -13,7 +13,7 @@
  *
  * ★★★ THIS STRING IS PART OF EVERY PUBLISHED DOWNLOAD URL. Renaming the CI job
  * without changing it here — or changing it here without renaming the job —
- * silently 404s the download of the NEXT Release, with every gate green.
+ * silently 404s the download of the NEXT Release.
  * What happens to a PAST Release's link is not established: each one names
  * the job inside its own tag's pipeline, which a later rename does not touch,
  * but the per-tag URL (see buildAssetUrl) resolves only through the latest

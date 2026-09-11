@@ -4,7 +4,7 @@
 
 **Goal:** A `v*` tag publishes a GitLab Release whose asset link points at a Windows installer that provably carries that version.
 
-**Architecture:** Three small CI jobs and two pure script libraries. A tag guard fails when the tag disagrees with `src/app/version.ts`, without stopping the rest of the pipeline — every other quality and build job still runs; only the tag build's own `needs:` waits on that guard, so a drifted tag skips the 20-minute wine build and the publish job downstream of it, instead of running them anyway; the existing manual `desktop-package` job splits into a hidden base plus a branch job and a tag job so artifact scope and retention can differ; a `release` stage job carries no `needs:` at all and relies on stage order (`dependencies: []` plus the default `when: on_success`) so it only runs once every earlier-stage job has succeeded, then calls the Releases API through `node:fetch` and attaches a per-tag artifact URL. All comparison and payload logic lives in pure, unit-tested `scripts/*-lib.mjs` modules — the CI YAML holds no logic.
+**Architecture:** Three small CI jobs and two pure script libraries. A tag guard fails when the tag disagrees with `src/app/version.ts`, without stopping the rest of the pipeline — every other quality and build job still runs; only the tag build's own `needs:` waits on that guard, so a drifted tag skips the publish job downstream of it; the existing manual `desktop-package` job splits into a hidden base plus a branch job and a tag job so artifact scope and retention can differ; a `release` stage job carries no `needs:` at all and relies on stage order (`dependencies: []` plus the default `when: on_success`) so it only runs once every earlier-stage job has succeeded, then calls the Releases API through `node:fetch` and attaches a per-tag artifact URL. All comparison and payload logic lives in pure, unit-tested `scripts/*-lib.mjs` modules — the CI YAML holds no logic.
 
 **Tech Stack:** GitLab CI (self-managed,  (GitLab)), `electronuserland/builder:wine`, Node 24 (`node:24-bookworm-slim`, global `fetch`), vitest over `scripts/**/*.test.mjs`, electron-builder NSIS.
 
@@ -54,7 +54,7 @@ Reproduce: `du -sm desktop/release/*` and `ls -l desktop/release/*.exe desktop/r
 
 ★★ **A local `desktop/release/` can hold TWO installers and that is not a bug.** electron-builder does not clean the directory, so a build predating the `artifactName` change leaves `aipm-cockpit Setup 0.301.0.exe` beside the new name — which is how a local `du` reports 500 MiB rather than 408. CI always starts clean. The globs chosen in Task 4 are self-protecting against this anyway: `*-setup.exe` does not match `aipm-cockpit Setup 0.301.0.exe` (capital S, spaces).
 
-★★★ **THE ARTIFACT IS 92.9 MiB (97.5 MB — the installer plus its blockmap) AND GITLAB'S DEFAULT `max_artifacts_size` IS 100 MB PER JOB.** That is ~7.1% headroom if GitLab's "MB" there means MiB, and only ~2.5% if it is decimal — which unit it applies is NOT established here, so plan for the smaller figure. The spec records that the settings endpoint is admin-only and unreadable from here — so **this instance's real limit is unknown**, and 100 MB is the documented default, not a measured fact about  (GitLab). One electron bump or a few more bundled assets crosses it, and the failure lands as an upload error *after* a successful 20-minute build. Spike 1 measures it; Task 11 is where it is first observed.
+★★★ **THE ARTIFACT IS 92.9 MiB (97.5 MB — the installer plus its blockmap) AND GITLAB'S DEFAULT `max_artifacts_size` IS 100 MB PER JOB.** That is ~7.1% headroom if GitLab's "MB" there means MiB, and only ~2.5% if it is decimal — which unit it applies is NOT established here, so plan for the smaller figure. The spec records that the settings endpoint is admin-only and unreadable from here — so **this instance's real limit is unknown**, and 100 MB is the documented default, not a measured fact about  (GitLab). One electron bump or a few more bundled assets crosses it, and the failure lands as an upload error *after* a successful build. Spike 1 measures it; Task 11 is where it is first observed.
 
 ## File structure
 
@@ -132,7 +132,7 @@ _(fill in: date, pipeline URL, job outcome, artifact size as GitLab reports it)_
 
 | Outcome | Action |
 |---|---|
-| Image unreachable | **DELETE the `desktop-package` and `desktop-package-tag` jobs, AND remove or disable `publish-release` in the same change.** Publish from a local Windows build instead, and say so in `docs/RUNBOOK.md`. A broken job left in place is worse than no job: it reports a red pipeline nobody can act on. ★★ Deleting the build jobs ALONE is worse still: `publish-release` has no `needs:`, so it would go on running on every tag and publish a Release whose asset link names a job that no longer exists — a green pipeline over a download that 404s. The build job's own comment in `.gitlab-ci.yml` prescribes the same. |
+| Image unreachable | **DELETE the `desktop-package` and `desktop-package-tag` jobs, AND remove `publish-release` in the same change.** Publish from a local Windows build instead, and say so in `docs/RUNBOOK.md`. A broken job left in place is worse than no job: it reports a red pipeline nobody can act on. ★★ Deleting the build jobs ALONE is worse still: `publish-release` has no `needs:`, so it would go on running on every tag and publish a Release whose asset link names a job that no longer exists — a green pipeline over a download that 404s. The build job's own comment in `.gitlab-ci.yml` prescribes the same. |
 | Image fine, artifact rejected as too large | Keep the build job; **drop the Release asset link** and have `docs/desktop-rollout.md` point at a manually-uploaded copy. Do NOT chase the limit by splitting the installer — a two-part download is worse than a share link. |
 | Both fine | Proceed with the rest of the plan unchanged. |
 
@@ -778,7 +778,7 @@ stages:
 # ★ The runners are Linux, so a Windows NSIS target needs wine — that is what
 # this image provides. If this image is ever unreachable from this GitLab
 # instance, DELETE this base and both desktop-package jobs rather than leaving
-# them broken -- and remove or disable publish-release IN THE SAME CHANGE. It
+# them broken -- and remove publish-release IN THE SAME CHANGE. It
 # has no needs:, so on its own it would go on running on every tag and publish
 # a Release whose asset link names a job that no longer exists: a green
 # pipeline over a download that 404s. Local packaging on Windows
@@ -829,7 +829,7 @@ stages:
     #
     # ★★ 92.9 MiB (97.5 MB) sits against a documented 100 MB max_artifacts_size DEFAULT
     # that is admin-only and unreadable from here. A rejection arrives AFTER a
-    # green 20-minute build. See the spike finding under specs/_probes/.
+    # green build. See the spike finding under specs/_probes/.
     #
     # ★ `extends:` deep-merges HASHES ("You can use extends to merge hashes
     # but not arrays" -- GitLab docs), so a concrete job below that overrides
@@ -1193,7 +1193,7 @@ Task 6 also replaces this block's header comment and `required()`.
  *
  * ★★★ THIS STRING IS PART OF EVERY PUBLISHED DOWNLOAD URL. Renaming the CI job
  * without changing it here — or changing it here without renaming the job —
- * silently 404s the download of the NEXT Release, with every gate green.
+ * silently 404s the download of the NEXT Release.
  * What happens to a PAST Release's link is not established: each one names
  * the job inside its own tag's pipeline, which a later rename does not touch,
  * but the per-tag URL (see buildAssetUrl) resolves only through the latest
@@ -2900,9 +2900,8 @@ before this change, verified).
    The tag **must** match `APP_VERSION`; `tag-version-check` runs as soon as the
    tag pipeline starts and fails otherwise (exit 1 is drift, exit 2 means it
    could not scan at all). A failure holds back `publish-release`, which runs
-   only once every earlier stage has passed. It should also skip the installer
-   build, which lists the check in its `needs:`, but that half is GitLab
-   behaviour no tag pipeline has shown yet. Whoever pushes the tag needs
+   only once every earlier stage has passed.
+   Whoever pushes the tag needs
    Developer+ and the right to create protected tags, because the pipeline's job
    token acts with the pusher's access — GitLab behaviour as documented,
    unverified here.
@@ -2943,7 +2942,7 @@ local Windows build (`npm ci` and `npm --prefix desktop ci`, then
 `desktop/release/`), attached by hand to a Release you create yourself — a
 failed `desktop-package-tag` stops the pipeline before `publish-release` runs.
 If the image is unreachable for good and the `desktop-package` jobs are deleted,
-remove or disable `publish-release` in the same change: it has no `needs:`, so
+remove `publish-release` in the same change: it has no `needs:`, so
 on its own it would go on running on every tag and publish a Release whose link
 names a job that no longer exists — a green pipeline over a download that 404s.
 See `docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md`
@@ -3129,7 +3128,7 @@ with
   and no tag pipeline has shown it; `publish-release` is held back either way, by stage order)] · **unit** [coverage floors: global lines 92/funcs 91/branch
 ```
 
-★ A later review round reworded the parenthetical: it first said the skip "is GitLab's default", which claims a documented default the note below says no fetched doc states. All four sites that describe the skip — this one, `docs/RUNBOOK.md` step 3, and the comments on `tag-version-check` and `desktop-package-tag` in `.gitlab-ci.yml` — now say the same thing: the WAIT is real, the skip is expected and unshown, and `publish-release` is held back regardless by its stage and default `when: on_success` (documented verbatim, and quoted in the YAML comment on that job).
+★ A later review round reworded the parenthetical: it first said the skip "is GitLab's default", which claims a documented default the note below says no fetched doc states.
 
 ★★ "Skips" is hedged on purpose. GitLab's docs say needs-jobs "start as soon as their dependencies finish", which verifies the WAIT; neither `docs.gitlab.com/ci/yaml/` nor `docs.gitlab.com/ci/yaml/needs/` states what happens to a job whose `needs:` entry FAILS (both fetched 2026-09-11). Do not upgrade the hedge without a citation or a real tag pipeline.
 
@@ -3169,7 +3168,7 @@ with
   Release's download with every gate green].
 ```
 
-★★★ An earlier draft of this step said a rename "404s the download on every PAST Release". That half is not established and was dropped: a past Release's link names the job inside ITS OWN tag's pipeline, which a later rename does not touch, and the web form resolves against "the latest successful pipeline" for the ref. What IS established is the half the text keeps — `release-publish-lib.test.mjs` asserts `ARTIFACT_JOB` against the literal `"desktop-package-tag"` and reads no YAML (`grep -rn "gitlab-ci" scripts/release-publish-lib.test.mjs scripts/publish-release.integration.test.mjs` returns nothing), so a rename on one side only is caught by nothing. ★ `ARTIFACT_JOB`'s own docstring in `scripts/release-publish-lib.mjs` said "past ones included" when this task landed; that file was outside this task and was reported, not edited. A later review round corrected the docstring (comment only) to what is known — a one-sided rename 404s the NEXT Release, a past Release's fate is not established, and the per-tag URL resolves only through the latest successful pipeline for the tag and only while its `expire_in: never` artifact still exists — and Task 5's lib block above changed with it.
+★★★ An earlier draft of this step said a rename "404s the download on every PAST Release". That half is not established and was dropped: a past Release's link names the job inside ITS OWN tag's pipeline, which a later rename does not touch, and the web form resolves against "the latest successful pipeline" for the ref. What IS established is the half the text keeps — `release-publish-lib.test.mjs` asserts `ARTIFACT_JOB` against the literal `"desktop-package-tag"` and reads no YAML (`grep -rn "gitlab-ci" scripts/release-publish-lib.test.mjs scripts/publish-release.integration.test.mjs` returns nothing). ★ `ARTIFACT_JOB`'s own docstring in `scripts/release-publish-lib.mjs` said "past ones included" when this task landed; that file was outside this task and was reported, not edited. A later review round corrected the docstring (comment only) to what is known — a one-sided rename 404s the NEXT Release, a past Release's fate is not established, and the per-tag URL resolves only through the latest successful pipeline for the tag and only while its `expire_in: never` artifact still exists — and Task 5's lib block above changed with it.
 
 4. The `quality-gate-bypass` sentence lists "EVERY other quality-stage job"; `tag-version-check` is a quality-stage job with no bypass label, so it joins the list. Replace
 
