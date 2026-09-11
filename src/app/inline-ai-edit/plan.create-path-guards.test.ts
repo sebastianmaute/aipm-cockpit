@@ -2,11 +2,18 @@
 //
 // ★★★ THE CREATE PATH IS NOT THE UPDATE PATH, and for one release it was the
 // half of the write surface nothing watched. `plan.write-path-sweep.test.ts`
-// drives `update_*` tools ONLY — its plumbing reads
-// `INLINE_DESCRIPTORS[entity].updateTool` and there is no create relation to
-// read — so every guard added at a merge site was, until §438, a guard on
-// editing alone. A field the model was refused when EDITING was accepted when
-// CREATING, silently, on six of the seven create tools.
+// drives `update_*` tools ONLY — its plumbing hardcodes
+// `INLINE_DESCRIPTORS[entity].updateTool` — so every guard added at a merge
+// site was, until §438, a guard on editing alone. A field the model was refused
+// when EDITING was accepted when CREATING, silently, on six of the seven create
+// tools.
+//
+// ★★ `createTool` WAS THERE THE WHOLE TIME, and saying otherwise overstates the
+// work. It is a declared member of `InlineEntityDescriptor` and all eight
+// entities carry one (`grep -c 'createTool: "create_' entity-descriptor.ts` →
+// 8); `chat-proposal-describe.ts` indexes `toolEntity[d.createTool]` off it.
+// `sweepPlumbing` simply declines to read it. The same wrong sentence sat in
+// §439 and is corrected there too.
 //
 // ★★★ THAT IS NOT HYPOTHETICAL AND THIS FILE EXISTS BECAUSE IT WAS MEASURED.
 // `knowledgeLinks` was stored verbatim by create for raid, change and
@@ -19,17 +26,18 @@
 // shape, so the model had been told how to build a value it was never told it
 // could write.
 //
-// ★★ THIS IS A PIN, NOT A SWEEP. It asserts one refused field per entity
-// rather than enumerating an axis, so it cannot replace the mechanical sweep
-// and must not be read as create-path parity coverage. A real create relation —
-// comparing the create CARD against the created ROW — is still owed; see §438.
-// What this file buys is that the seven guards cannot be quietly removed from
-// the create sites again.
+// ★★ THIS IS A PIN, NOT A SWEEP. It asserts one refused field per entity rather
+// than enumerating an axis, so it cannot replace a mechanical sweep and must not
+// be read as create-path parity coverage. The axis-driven create relation it
+// was waiting for is `plan.offered-surface-sweep.test.ts` (§439); what this file
+// buys on top is that the seven guards cannot be quietly removed from the create
+// sites again.
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";
 import { JUNK_KEY, KNOWLEDGE_LINKS, snapshot, type WsKey } from "../../test/inline-sweep-fixtures";
+import { CREATE_BASE } from "../../test/offered-surface-axis";
 import { TOKEN_EXCLUDED, type TokenEntity } from "../ai-entity-token";
 import { TOOL_DEFS } from "../chat-tool-defs";
 import { runTool } from "../chat-tools";
@@ -63,7 +71,7 @@ const CASES: CreateCase[] = [
     entity: "raid",
     tool: "create_raid_item",
     wsKey: "raid",
-    valid: { title: "A risk" },
+    valid: CREATE_BASE.raid,
     field: "knowledgeLinks",
     probe: KNOWLEDGE_LINKS,
     expected: undefined,
@@ -73,7 +81,7 @@ const CASES: CreateCase[] = [
     entity: "change",
     tool: "create_change",
     wsKey: "changes",
-    valid: { title: "A change" },
+    valid: CREATE_BASE.change,
     field: "knowledgeLinks",
     probe: KNOWLEDGE_LINKS,
     expected: undefined,
@@ -83,7 +91,7 @@ const CASES: CreateCase[] = [
     entity: "milestone",
     tool: "create_milestone",
     wsKey: "milestones",
-    valid: { name: "A milestone", date: "2026-06-01" },
+    valid: CREATE_BASE.milestone,
     field: "knowledgeLinks",
     probe: KNOWLEDGE_LINKS,
     expected: undefined,
@@ -93,7 +101,7 @@ const CASES: CreateCase[] = [
     entity: "stakeholder",
     tool: "create_stakeholder",
     wsKey: "stakeholders",
-    valid: { name: "Ada Lovelace" },
+    valid: CREATE_BASE.stakeholder,
     field: "resourceId",
     probe: 9,
     expected: undefined,
@@ -103,7 +111,7 @@ const CASES: CreateCase[] = [
     entity: "resource",
     tool: "create_resource",
     wsKey: "resources",
-    valid: { firstName: "Grace", lastName: "Hopper" },
+    valid: CREATE_BASE.resource,
     field: "active",
     probe: false,
     // ★★★ `undefined`, NOT `true`, and the first cut of this row asserted
@@ -123,7 +131,7 @@ const CASES: CreateCase[] = [
     entity: "absence",
     tool: "create_absence",
     wsKey: "absences",
-    valid: { assignee: "Ada Lovelace", startDate: "2026-06-01", endDate: "2026-06-02" },
+    valid: CREATE_BASE.absence,
     field: JUNK_KEY,
     probe: "should never land",
     expected: undefined,
@@ -138,16 +146,11 @@ const CASES: CreateCase[] = [
     entity: "calendarEvent",
     tool: "create_calendar_event",
     wsKey: "calendarEvents",
-    valid: {
-      title: "Weekly sync",
-      startDate: "2026-06-01",
-      startTime: "09:00",
-      durationMinutes: 30,
-      // `sanitizeCalendarEvent` stores exceptions only when a recurrence is
-      // present, so without this the probe cannot land and the assertion would
-      // pass whatever the guard did.
-      recurrence: { freq: "weekly", interval: 1 },
-    },
+    // `sanitizeCalendarEvent` stores exceptions only when a recurrence is
+    // present, so without it the probe cannot land and the assertion would pass
+    // whatever the guard did. That is why `CREATE_BASE.calendarEvent` carries a
+    // recurrence rather than being the bare `required` set — see its docstring.
+    valid: CREATE_BASE.calendarEvent,
     field: "exceptions",
     probe: [{ date: "2026-06-08", kind: "skip" }],
     expected: undefined,
