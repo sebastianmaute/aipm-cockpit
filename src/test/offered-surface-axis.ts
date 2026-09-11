@@ -22,16 +22,18 @@
 // model is sent.
 //
 // ★★ SCOPE — `propose_project` IS OUT OF IT, AND NOT BY OVERSIGHT. This axis is
-// `TOOL_DEFS`, and `propose_project` appears nowhere in `chat-tool-defs.ts`, so
-// no relation built here can reach that surface. It IS a model-write path:
-// `proposalToSeed` (`ai-project-proposal.ts`) runs
-// `buildList(s.changes, sanitizeModelChangeItem)` with NO
-// `dropUnacceptedChangeFields`, so a model-authored proposal can still land an
-// undeclared field — `change.decisionDate` included — on a change row. That is
-// PRE-EXISTING and deliberate, for the reason `change-log.ts` records for the
-// seed/import exemption: those rebuild a whole register from an untrusted blob
-// rather than transitioning a live row, so the guards that protect a prior value
-// have no prior value to protect. Do not read a green run here as covering it.
+// `TOOL_DEFS`, and `propose_project`'s schema is not in it — it is
+// `PROPOSAL_TOOL` in `ai-project-proposal.ts`; `chat-tool-defs.ts` names it
+// only in a comment — so no relation built here can reach that surface. It IS a
+// model-write path, and `proposalToSeed` runs no `dropUnacceptedChangeFields`:
+// a seed rebuilds a whole register from an untrusted blob rather than
+// transitioning a live row, so the guards that protect a prior value have no
+// prior value to protect (`change-log.ts` records that exemption). What bounds
+// it is `SEED_OFFERED_KEYS` (`2645debb`, 0.297.0), which drops every key the
+// seed schema does not offer before the sanitizer runs, so `change.decisionDate`
+// cannot land that way. This paragraph was written before that filter and said
+// the hole was open. Nothing in this sweep tests the filter; do not read a green
+// run here as covering it.
 import { TOOL_DEFS } from "../app/chat-tool-defs";
 import {
   ABSENCES_CSV_COLUMNS,
@@ -122,8 +124,11 @@ export function schemaProperty(entity: InlineEntity, op: "create" | "update", fi
  *  entities — a trespass string supplied by the model lands verbatim in
  *  `localModifiedAt` on raid, change, milestone, stakeholder and resource, and
  *  in `outlookEventId` on raid, change and milestone. `task`, `absence` and
- *  `calendarEvent` guard it. Reproduce by running
- *  `plan.offered-surface-sweep.test.ts` and reading the Relation A create arm.
+ *  `calendarEvent` guard it. That was the branch's code: on main the create strip
+ *  (`createInputWithoutId` over `TOKEN_EXCLUDED`, `29744af1`, 0.297.0) removes
+ *  each leaked field from the model's input on those five, so the Relation A
+ *  create arm no longer reproduces it. The finding stands as the record of why
+ *  that strip exists.
  *  The sentence was written as a REASON THE AXIS NEEDS NO EXEMPTION and would
  *  have read as a verified fact about the write path, which is the class of
  *  false claim that stops the next audit before it starts. */
@@ -136,8 +141,8 @@ export function undeclaredColumns(entity: InlineEntity): readonly string[] {
  *
  *  ★★ `resource.name` is a CONVENIENCE INPUT, not a field: the writer splits it
  *  into `firstName`/`lastName`, documented in `chat-tool-defs.ts` (`resourceFields`)
- *  and again at `chat-tools.ts:238`. It is the only one in the tree as of
- *  2026-09-08 — measured, not assumed.
+ *  and again on `ResourceInput.name` in `chat-tools.ts`. It is the only one in
+ *  the tree as of 2026-09-08 — measured, not assumed.
  *
  *  ★★★ THIS IS FLOOR 3'S EXCEPTION LIST AND NOTHING ELSE READS IT. It is never
  *  subtracted from `declaredProperties`, so both relations still probe the TRUE
