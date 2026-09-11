@@ -1,4 +1,6 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { createServer } from "node:net";
 import { networkInterfaces, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -30,13 +32,43 @@ import { APP_VERSION } from "../src/app/version";
 // ★★ `__dirname`, NOT `import.meta.url` — Playwright transpiles specs to CJS,
 // so `import.meta` is a syntax error here (same note as
 // e2e/meta-decode-loss.spec.ts).
+const BUILDER_YML = join(__dirname, "..", "desktop", "electron-builder.yml");
+
+// The top-level `productName:` of electron-builder.yml, tolerating surrounding
+// quotes and a trailing `# comment`. A tiny reader rather than a YAML
+// dependency: this spec needs exactly one scalar, and a missing or empty one
+// throws at load, naming the file, instead of yielding a wrong path.
+function readProductName(yml: string): string {
+  const line = yml.match(/^productName:[ \t]*(.*)$/m);
+  if (!line) {
+    throw new Error(`No top-level \`productName:\` line in ${BUILDER_YML}`);
+  }
+  const raw = line[1].trim();
+  const quoted = raw.match(/^(["'])(.*?)\1(?:\s+#.*)?$/);
+  const value = (quoted ? quoted[2] : raw.replace(/\s+#.*$/, "")).trim();
+  if (value === "") {
+    throw new Error(`\`productName:\` in ${BUILDER_YML} is empty`);
+  }
+  return value;
+}
+
+const PRODUCT_NAME = readProductName(readFileSync(BUILDER_YML, "utf8"));
+
+// ★ DERIVED from productName, never spelled a second time. electron-builder
+// names the exe `${productFilename}.exe`, and productFilename is productName
+// passed through sanitizeFileName (app-builder-lib appInfo.js) unless an
+// `executableName` is set, which this config does not do. A hardcoded name
+// here would, after a rename, name an exe the build no longer writes: if none
+// is left in win-unpacked/, every test in this file SKIPS -- a gate reporting
+// success -- and if a stale one is, the identity test fails with a
+// ProductName mismatch that blames the build when this spec is out of date.
 const PACKAGED_EXE = join(
   __dirname,
   "..",
   "desktop",
   "release",
   "win-unpacked",
-  "AI PM Cockpit.exe",
+  `${PRODUCT_NAME}.exe`,
 );
 
 // The window may sit on splash.html for as long as main.ts's own readiness
@@ -101,6 +133,35 @@ async function waitForPortRelease(): Promise<void> {
   );
 }
 
+// ★★★ PRE-FLIGHT: the port must be free BEFORE a launch. An installed copy of
+// the app holds 17300 while it runs, and it serves the same
+// `data-app-version` marker, so main.ts's `classifyPortOwner` rates it "ours"
+// -- not "foreign" -- and the app under test spawns NO server of its own. Its
+// window then loads the INSTALLED copy's server, so the boot test's assertions
+// run against the wrong build and pass whenever the two versions match (reasoned
+// from main.ts's owner branches, not measured). What this spec actually
+// reported was waitForPortRelease()'s "leaked server child ... after
+// app.close()", blaming the package for a process it never started. A foreign
+// holder is caught too, before main.ts's own "Port in use" dialog. Binding the
+// port ourselves on the app's host asks the OS the same question the app's
+// server will, so it fails first and names the likely culprit.
+async function assertPortFree(): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const probe = createServer();
+    probe.once("error", (error: NodeJS.ErrnoException) => {
+      reject(
+        error.code === "EADDRINUSE"
+          ? new Error(
+              `port ${APP_PORT} in use before launch — is ${PRODUCT_NAME} ` +
+                `(installed copy) running? Close it and re-run.`,
+            )
+          : error,
+      );
+    });
+    probe.listen(APP_PORT, APP_HOST, () => probe.close(() => resolve()));
+  });
+}
+
 type Launched = { app: ElectronApplication; profile: string };
 
 // ★★★ EVERY LAUNCH GETS A THROWAWAY `--user-data-dir`, AND WITHOUT IT THE
@@ -122,6 +183,7 @@ type Launched = { app: ElectronApplication; profile: string };
 // test red for an unrelated reason — which is what makes a mutation run
 // readable at all.
 async function launchPackagedApp(): Promise<Launched> {
+  await assertPortFree();
   const profile = mkdtempSync(join(tmpdir(), "aipm-desktop-smoke-"));
   return {
     app: await electron.launch({
@@ -153,6 +215,18 @@ test.describe.serial("packaged desktop app", () => {
     const launched = await launchPackagedApp();
     try {
       const page = await appWindow(launched.app);
+
+      // ★★★ RACE FIX. appWindow() resolves the instant the window's URL
+      // flips to the app origin, which can be BEFORE the stylesheet has
+      // applied under CPU load -- measured 2026-09-10: this spec failed with
+      // "body background is fully transparent" against a GOOD build, then
+      // passed 3/3 on immediate re-run with no code change. A <link
+      // rel="stylesheet"> blocks the `load` event, so waiting for `load`
+      // waits out exactly that race without weakening the anti-vacuity
+      // checks below -- with .next/static missing (the mutation this spec
+      // exists to catch), `load` still fires (after the 404) and every
+      // assertion below still fails.
+      await page.waitForLoadState("load");
 
       // ★★★ ANTI-VACUITY 1. A "window opened" assertion passes against an app
       // whose .next/static never got copied into the package — it boots and
@@ -260,4 +334,172 @@ test.describe.serial("packaged desktop app", () => {
       await shutdown(launched);
     }
   });
+});
+
+// The SHA-256 of zero bytes. Hashing an EMPTY stream is what the probe below
+// did when ExtractAssociatedIcon failed under PowerShell's default
+// `$ErrorActionPreference = 'Continue'`, which it ran under before the 'Stop'
+// line was added: the failed call was only statement-terminating, so every
+// later statement errored and carried on over an empty MemoryStream, and the
+// script exited 0 having hashed nothing -- which made "differs from stock"
+// pass against a missing stock exe. A real icon never hashes to this; it is
+// the backstop should 'Stop' ever be dropped again.
+const EMPTY_SHA256 =
+  "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855";
+const SHA256_HEX = /^[0-9A-F]{64}$/;
+
+const RESOURCE_EDITING_HINT =
+  "`win.signAndEditExecutable` in desktop/electron-builder.yml must not be " +
+  "`false` (unset = default true); `signExecutable` affects signing only";
+
+type ExeIdentity = {
+  productName: string | null;
+  packagedIconHash: string;
+  appIcoIconHash: string;
+  stockIconHash: string;
+};
+
+function parseExeIdentity(stdout: string): ExeIdentity {
+  const parsed: unknown = JSON.parse(stdout);
+  const record = (parsed ?? {}) as Record<string, unknown>;
+  const hashes = ["packagedIconHash", "appIcoIconHash", "stockIconHash"] as const;
+  const productName = record.productName;
+  if (
+    (productName !== null && typeof productName !== "string") ||
+    hashes.some((key) => typeof record[key] !== "string")
+  ) {
+    throw new Error(`Unexpected identity-probe output: ${stdout}`);
+  }
+  return parsed as ExeIdentity;
+}
+
+// ★★★ REGRESSION PIN for the resource-editing fix in
+// desktop/electron-builder.yml. With the old `signAndEditExecutable: false`,
+// resource editing was skipped entirely and the packaged exe silently kept
+// Electron's own icon and ProductName ('Electron') -- electron-builder says
+// so only in an info-level log line, never a warning or failure, and nothing
+// else in this file would have caught it, since the boot test asserts
+// CSS/version-string, never the exe's own binary metadata. (CompanyName is
+// deliberately NOT asserted: it stays Electron's "GitHub, Inc." even WITH
+// resource editing on, because electron-builder writes it only from a
+// package.json `author` and desktop/package.json has none.)
+//
+// ★★ OUTSIDE the serial describe on purpose. A failure in a serial test skips
+// every later test in its group, so inside it a broken boot would have hidden
+// this one. It launches nothing and binds no port, so it needs none of the
+// launch/shutdown discipline the boot tests do.
+test("packaged exe carries the app's product identity and icon, not Electron's", () => {
+  // Platform FIRST: on any other OS the missing-exe message below would send
+  // the reader off to build a package this test could never inspect.
+  // ExtractAssociatedIcon + VersionInfo via System.Drawing are Windows-only
+  // (Windows PowerShell 5.1, not pwsh -- System.Drawing is available there
+  // without an extra package reference).
+  test.skip(
+    process.platform !== "win32",
+    "PowerShell/System.Drawing icon + VersionInfo probe is Windows-only",
+  );
+  test.skip(
+    !existsSync(PACKAGED_EXE),
+    `No packaged app at ${PACKAGED_EXE} — build one with \`npm run desktop:package\`.`,
+  );
+
+  const stockElectronExe = join(
+    __dirname,
+    "..",
+    "desktop",
+    "node_modules",
+    "electron",
+    "dist",
+    "electron.exe",
+  );
+  const appIco = join(__dirname, "..", "public", "app.ico");
+
+  // ★★ THROW, never skip: without the stock exe the "not Electron's icon"
+  // assertion has nothing to compare against, and a skip would report success.
+  for (const [what, path, remedy] of [
+    ["stock Electron exe", stockElectronExe, "run `npm --prefix desktop install`"],
+    ["app icon", appIco, "it is the source electron-builder.yml `win.icon` names"],
+  ] as const) {
+    if (!existsSync(path)) {
+      throw new Error(`No ${what} at ${path} — the icon comparison needs it; ${remedy}.`);
+    }
+  }
+
+  // ★★★ ALL THREE icons go through the SAME API, ExtractAssociatedIcon,
+  // app.ico included. `New-Object System.Drawing.Icon(<ico>, w, h)` was the
+  // first choice for the app.ico side and does NOT match: measured
+  // 2026-09-11, at the extracted 32x32 it hashed 2477954E… while the packaged
+  // exe hashed 23C9617F… -- and ExtractAssociatedIcon on app.ico hashed
+  // 23C9617F…, identical to the exe, to the full 64 digits. The image is the
+  // same; the two constructions do not produce byte-identical bitmaps (every
+  // entry in app.ico is PNG-compressed). Comparing through one API makes the
+  // equality a property of the ICON, not of the decoder.
+  //
+  // `$ErrorActionPreference = 'Stop'` comes FIRST, before anything can fail.
+  // One JSON object rather than a line per value, because a null
+  // ProductName writes NO line and would shift every value after it into the
+  // wrong slot. Single-quoted literals for the paths: '' escapes a literal
+  // single quote, which a Windows path can contain (C:\Users\o'brien).
+  const psEscape = (path: string): string => path.replace(/'/g, "''");
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "Add-Type -AssemblyName System.Drawing",
+    "function IconHash($path) {",
+    "  $bmp = ([System.Drawing.Icon]::ExtractAssociatedIcon($path)).ToBitmap()",
+    "  $ms = New-Object System.IO.MemoryStream",
+    "  $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)",
+    "  $sha = [System.Security.Cryptography.SHA256]::Create()",
+    "  ([BitConverter]::ToString($sha.ComputeHash($ms.ToArray()))).Replace('-', '')",
+    "}",
+    `$packaged = '${psEscape(PACKAGED_EXE)}'`,
+    `$stock = '${psEscape(stockElectronExe)}'`,
+    `$appIco = '${psEscape(appIco)}'`,
+    "[pscustomobject]@{",
+    "  productName = (Get-Item -LiteralPath $packaged).VersionInfo.ProductName",
+    "  packagedIconHash = IconHash $packaged",
+    "  appIcoIconHash = IconHash $appIco",
+    "  stockIconHash = IconHash $stock",
+    "} | ConvertTo-Json -Compress",
+  ].join("\n");
+
+  const identity = parseExeIdentity(
+    execFileSync("powershell", ["-NoProfile", "-Command", script], {
+      encoding: "utf8",
+      timeout: 30_000,
+      windowsHide: true,
+    }),
+  );
+
+  // ★★ ANTI-VACUITY: every hash must be a real SHA-256 of a real image before
+  // any comparison between them means anything.
+  for (const [what, hash] of [
+    ["packaged exe", identity.packagedIconHash],
+    ["public/app.ico", identity.appIcoIconHash],
+    ["stock electron.exe", identity.stockIconHash],
+  ] as const) {
+    expect(hash, `${what} icon hash is not a SHA-256 hex digest`).toMatch(SHA256_HEX);
+    expect(
+      hash,
+      `${what} icon hash is the SHA-256 of EMPTY input — ExtractAssociatedIcon ` +
+        `failed and the probe hashed nothing`,
+    ).not.toBe(EMPTY_SHA256);
+  }
+
+  expect(
+    identity.productName,
+    `packaged exe's VersionInfo ProductName should be "${PRODUCT_NAME}" ` +
+      `(electron-builder.yml productName), not Electron's default -- ${RESOURCE_EDITING_HINT}`,
+  ).toBe(PRODUCT_NAME);
+  expect(
+    identity.packagedIconHash,
+    `packaged exe's icon is stock Electron's -- resource editing was skipped; ` +
+      RESOURCE_EDITING_HINT,
+  ).not.toBe(identity.stockIconHash);
+  // The positive pin: "not Electron's" would pass for ANY other icon,
+  // including a wrong `win.icon:` path that still resolves to some .ico.
+  expect(
+    identity.packagedIconHash,
+    "packaged exe's icon is not public/app.ico -- check `win.icon` in " +
+      "desktop/electron-builder.yml",
+  ).toBe(identity.appIcoIconHash);
 });
