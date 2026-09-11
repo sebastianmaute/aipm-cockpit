@@ -46,21 +46,29 @@ win:
   # it says nothing about whether the resolved icon is actually STAMPED into
   # the exe. With `win.signAndEditExecutable: false` (as this file had it
   # before), resource editing is skipped entirely and the packaged exe ships
-  # Electron's stock icon with no build-time warning, even though this path
-  # resolves correctly every time. `icon:` only supplies the RESOURCE;
-  # `signExecutable` below governs whether it is ever applied.
+  # Electron's stock icon with only an info-level log line, never a warning
+  # or failure, even though this path resolves correctly every time. `icon:`
+  # only supplies the RESOURCE. Whether it is ever applied is gated by
+  # `win.signAndEditExecutable` ALONE, which must not be `false` (unset =
+  # default true); `signExecutable` affects signing only (app-builder-lib
+  # winPackager.js: `signApp` checks the former, `signIf` the latter).
   #
   # ★ Six sizes up to 256x256 at 32bpp. electron-builder REQUIRES a 256x256
   # entry; without one it refuses the icon rather than downscaling.
   icon: ../public/app.ico
   # No certificate is available, so code SIGNING must stay off. But
   # `signAndEditExecutable: false` skips BOTH signing AND resource editing --
-  # the step that stamps the icon above plus the product metadata
-  # (ProductName/CompanyName/FileDescription) into the exe -- which is why
-  # every shortcut, the taskbar and the window used to show Electron's own
-  # icon and "Electron"/"GitHub, Inc." metadata instead of ours.
+  # the step that stamps the icon above plus the VersionInfo strings into
+  # the exe -- which is why every shortcut, the taskbar and the window used
+  # to show Electron's own icon and "Electron" as the product name.
   # `signExecutable: false` skips signing ALONE and leaves resource editing
-  # ON, so the icon + product metadata still get applied. See the spec's
+  # ON. What resource editing stamps (winPackager.js `signAndEditResources`):
+  # the icon, FileDescription and ProductName (both = productName above),
+  # LegalCopyright, InternalName, and the file and product versions.
+  # ★★ NOT CompanyName: that is written only when package.json carries an
+  # `author`, and desktop/package.json has none, so the exe KEEPS Electron's
+  # own "GitHub, Inc." -- measured 2026-09-11 on a correctly packaged exe
+  # whose ProductName and icon were both ours. See the spec's
   # Section 7 security note -- unsigned means SmartScreen prompts on
   # install, and (once the updater lands) the share ACL is the only
   # integrity control on updates.
