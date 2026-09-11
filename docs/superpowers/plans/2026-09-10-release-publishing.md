@@ -1793,6 +1793,12 @@ describe("the lib's constants agree with the files they describe", () => {
     const name = eb.map((l) => /^artifactName:\s*["']?([^"'\s]+)["']?\s*(#.*)?$/.exec(l)).find(Boolean)?.[1];
     expect(name?.replace(/\$\{version\}/g, version), `${EB_FILE} artifactName, with its version macro = ${version}, is not installerName() in ${LIB_FILE}`).toBe(installerName(version));
 
+    // electron-builder lets a TARGET block (nsis:/win:) set its own artifactName,
+    // which overrides the top-level one this test just checked -- so a nested
+    // artifactName can drift from installerName() while the assertion above
+    // stays green, and the published Release link 404s.
+    expect(eb.some((l) => /^\s+artifactName:/.test(l)), `${EB_FILE}: a nested artifactName (under nsis:/win:) overrides the top-level one that installerName() in ${LIB_FILE} mirrors`).toBe(false);
+
     // electron-builder resolves directories.output against its PROJECT dir
     // (app-builder-lib packager.js), which desktop:package sets with --project.
     const projectDir = /--project\s+(\S+)/.exec(JSON.parse(readRepoFile("package.json")).scripts["desktop:package"] ?? "")?.[1];
