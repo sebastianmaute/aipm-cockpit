@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ARTIFACT_JOB,
+  INSTALLER_DIR,
   buildAssetUrl,
   buildReleasePayload,
   classifyCreateResponse,
@@ -396,5 +399,113 @@ describe("classifyExistingRelease", () => {
     const r = classifyExistingRelease(200, json, expected);
     expect(r.code).toBe(2);
     expect(r.message).toMatch(/no expected tagName and assetUrl/);
+  });
+});
+
+// ★★ The asset URL carries the tag UNENCODED (the CHANGELOG link encodes it),
+// which is safe only while the tag is exactly "v" + a version installerName()
+// has accepted. Each row below would otherwise put something else in the path.
+describe("the tag must name the version", () => {
+  it("refuses a tag that is not v + the version, in the URL and so in the payload", () => {
+    for (const tag of ["v0.302.0", "0.301.0", "v0.301.0#x", "v0.301.0?job=other", "v0.301.0-rc.1"]) {
+      const env = { ...ENV, CI_COMMIT_TAG: tag };
+      expect(() => buildAssetUrl(env, "0.301.0"), tag).toThrow(/is not "v0\.301\.0"/);
+      expect(() => buildReleasePayload(env, "0.301.0", "Arnason"), tag).toThrow(/is not "v0\.301\.0"/);
+    }
+  });
+
+  it("accepts a pre-release tag that names its pre-release version", () => {
+    const env = { ...ENV, CI_COMMIT_TAG: "v0.301.0-rc.1" };
+    expect(buildAssetUrl(env, "0.301.0-rc.1")).toContain("/-/jobs/artifacts/v0.301.0-rc.1/raw/");
+  });
+});
+
+// ★★★ THREE COUPLINGS NOTHING ELSE COMPARES, and each breaks the same way: a
+// green pipeline over a Release whose download 404s. ARTIFACT_JOB must name a
+// top-level job in .gitlab-ci.yml; INSTALLER_DIR and installerName() must be
+// where desktop/electron-builder.yml writes the installer; and that job's
+// artifact paths must upload it. A changed artifactName still passes the
+// job's own `ls -l` guard and uploads -- only the LINK breaks.
+// ★ The YAML is read as TEXT with anchored line regexes, so no YAML
+// dependency. Paths resolve from process.cwd(), like the sibling script
+// tests: import.meta.url is not a file: URL under vitest.
+const CI_FILE = ".gitlab-ci.yml";
+const EB_FILE = "desktop/electron-builder.yml";
+const LIB_FILE = "scripts/release-publish-lib.mjs";
+const readRepoFile = (file) => readFileSync(path.join(process.cwd(), file), "utf8");
+const readLines = (file) => readRepoFile(file).split(/\r?\n/);
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const indentOf = (line) => /^\s*/.exec(line)[0].length;
+const isNoise = (line) => /^\s*(#.*)?$/.test(line);
+
+/** The indented lines under a top-level `name:` key, up to the next column-0 line. */
+function topLevelBlock(lines, name) {
+  const key = new RegExp(`^${escapeRe(name)}:\\s*(#.*)?$`);
+  const start = lines.findIndex((l) => key.test(l));
+  if (start < 0) return null;
+  const end = lines.findIndex((l, i) => i > start && /^\S/.test(l));
+  return lines.slice(start + 1, end < 0 ? lines.length : end);
+}
+
+/** The lines nested under the first `key:` line of `block`. */
+function subBlock(block, key) {
+  const re = new RegExp(`^\\s+${escapeRe(key)}:\\s*(#.*)?$`);
+  const start = block.findIndex((l) => re.test(l));
+  if (start < 0) return null;
+  const indent = indentOf(block[start]);
+  const end = block.findIndex((l, i) => i > start && !isNoise(l) && indentOf(l) <= indent);
+  return block.slice(start + 1, end < 0 ? block.length : end);
+}
+
+/** The `artifacts: paths:` a job uploads -- its own, else its `extends:` base's. */
+function artifactPaths(lines, job) {
+  const block = topLevelBlock(lines, job);
+  if (block === null) return null;
+  const artifacts = subBlock(block, "artifacts") ?? [];
+  const at = artifacts.findIndex((l) => /^\s+paths:/.test(l));
+  if (at >= 0) {
+    const inline = /^\s+paths:\s*\[(.*)\]\s*$/.exec(artifacts[at]);
+    if (inline) return inline[1].split(",").map((p) => p.trim()).filter(Boolean);
+    const items = [];
+    for (const l of artifacts.slice(at + 1)) {
+      if (isNoise(l)) continue;
+      const item = /^\s+-\s+(\S+)\s*$/.exec(l);
+      if (!item || indentOf(l) <= indentOf(artifacts[at])) break;
+      items.push(item[1]);
+    }
+    return items;
+  }
+  // ★ `extends:` deep-merges hashes, so a job that sets only `expire_in`
+  // still uploads its base's `paths` (the .desktop-package comment says so).
+  const base = block.map((l) => /^\s+extends:\s*(\S+)\s*$/.exec(l)).find(Boolean);
+  return base ? artifactPaths(lines, base[1]) : null;
+}
+
+/** A GitLab artifact glob as a RegExp -- `*` only; anything richer throws. */
+function globToRe(glob) {
+  if (/\*\*|[?[\]{}]/.test(glob)) throw new Error(`artifact glob "${glob}" uses syntax this test does not model`);
+  return new RegExp(`^${glob.split("*").map(escapeRe).join("[^/]*")}$`);
+}
+
+describe("the lib's constants agree with the files they describe", () => {
+  it("names a real job, the builder's real output, and a path that job uploads", () => {
+    const version = "0.301.0";
+    const ci = readLines(CI_FILE);
+    const eb = readLines(EB_FILE);
+
+    expect(topLevelBlock(ci, ARTIFACT_JOB), `${CI_FILE} has no top-level "${ARTIFACT_JOB}:" job, but ARTIFACT_JOB in ${LIB_FILE} names it`).not.toBeNull();
+
+    const name = eb.map((l) => /^artifactName:\s*["']?([^"'\s]+)["']?\s*(#.*)?$/.exec(l)).find(Boolean)?.[1];
+    expect(name?.replace(/\$\{version\}/g, version), `${EB_FILE} artifactName, with its version macro = ${version}, is not installerName() in ${LIB_FILE}`).toBe(installerName(version));
+
+    // electron-builder resolves directories.output against its PROJECT dir
+    // (app-builder-lib packager.js), which desktop:package sets with --project.
+    const projectDir = /--project\s+(\S+)/.exec(JSON.parse(readRepoFile("package.json")).scripts["desktop:package"] ?? "")?.[1];
+    const output = (topLevelBlock(eb, "directories") ?? []).map((l) => /^\s+output:\s*["']?([^"'\s]+)["']?\s*(#.*)?$/.exec(l)).find(Boolean)?.[1];
+    expect(projectDir && output && path.posix.join(projectDir, output), `${EB_FILE} directories.output, under package.json's --project dir, is not INSTALLER_DIR in ${LIB_FILE}`).toBe(INSTALLER_DIR);
+
+    const target = `${INSTALLER_DIR}/${installerName(version)}`;
+    const globs = artifactPaths(ci, ARTIFACT_JOB) ?? [];
+    expect(globs.some((g) => globToRe(g).test(target)), `no artifacts path of ${ARTIFACT_JOB} in ${CI_FILE} (its own, or via extends:) matches ${target} from ${LIB_FILE}; found ${JSON.stringify(globs)}`).toBe(true);
   });
 });

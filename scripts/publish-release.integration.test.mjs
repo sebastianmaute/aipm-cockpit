@@ -6,7 +6,9 @@
 // ★★ The classifiers have their own unit tests; THIS file covers what only a
 // real run can see — `redirect: "manual"`, the unknown-argument guard, the
 // trailing-slash strip, and redaction of an echoed body BEFORE it is cut to
-// its excerpt. Each of those was mutation-proved against this file.
+// its excerpt. Each of those was mutation-proved against this file. It also
+// pins the catch's exit code, the missing-env exit, the lib's tag guard
+// reaching exit 2, and the Content-Type header (through the fake API's 415).
 //
 // ★ The child is started with async `spawn`, never `spawnSync`: the fake API
 // lives in THIS process, and a synchronous spawn would block the event loop
@@ -15,16 +17,24 @@
 // ★ Every CI_* variable is stripped from the child's environment before the
 // fake ones are set, so a real CI_JOB_TOKEN from the pipeline running this
 // test can never reach the child — and the canary is the only token it sees.
+//
+// ★★ The tag is `v` + this checkout's APP_VERSION, read the way the CLI reads
+// it. The lib refuses any other tag, so a hardcoded one would turn every row
+// but the unknown-argument one red on the next version bump.
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import http from "node:http";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { SOURCE_FILE, readSourceFrom } from "./version-sync-lib.mjs";
 
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 const CLI = fileURLToPath(new URL("./publish-release.mjs", import.meta.url));
+const TAG = `v${readSourceFrom(readFileSync(path.join(REPO, SOURCE_FILE), "utf8")).version}`;
 const TOKEN = "canary-not-a-token";
 const RELEASES = "/api/v4/projects/1/releases";
-const EXISTING = `${RELEASES}/v0.301.0`;
+const EXISTING = `${RELEASES}/${TAG}`;
 const MOVED = "/api/v4/moved";
 
 const send = (res, status, body, headers = {}) => {
@@ -60,6 +70,12 @@ const KNOWN_PATHS = new Set([RELEASES, EXISTING, MOVED]);
  * `posted`, threw inside the server, left the request unanswered, and the row
  * died on the 20 s test timeout instead of on the assertion that names the
  * defect.
+ *
+ * ★ A POST without a JSON content-type gets a 415, so a CLI that drops its
+ * Content-Type header fails every row that expects a POST to land — fetch
+ * labels a string body text/plain by default. Whether real GitLab answers
+ * 415 or misreads the body is not established; either way the header is
+ * required.
  */
 async function startApi(respond) {
   const requests = [];
@@ -70,6 +86,9 @@ async function startApi(respond) {
     req.on("end", () => {
       requests.push(`${req.method} ${req.url}`);
       if (!KNOWN_PATHS.has(req.url)) return send(res, 404, { message: "404 Not Found" });
+      if (req.method === "POST" && !String(req.headers["content-type"] ?? "").startsWith("application/json")) {
+        return send(res, 415, { message: "415 Unsupported Media Type" });
+      }
       if (req.method === "POST" && req.url === RELEASES && posted === null) posted = JSON.parse(body);
       respond({ req, res, posted, body });
     });
@@ -78,15 +97,29 @@ async function startApi(respond) {
   return { server, requests, url: `http://127.0.0.1:${server.address().port}/api/v4` };
 }
 
-function runCli(apiUrl, args) {
+/** An API base nothing listens on: a loopback port bound, read, then closed. */
+async function closedApiUrl() {
+  const server = http.createServer();
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address();
+  await new Promise((resolve) => server.close(resolve));
+  return `http://127.0.0.1:${port}/api/v4`;
+}
+
+/** ★ An `overrides` value of `undefined` DELETES that variable from the child's env. */
+function runCli(apiUrl, args, overrides = {}) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("CI_")));
   Object.assign(env, {
     CI_PROJECT_URL: "https://gitlab.example/g/p",
-    CI_COMMIT_TAG: "v0.301.0",
+    CI_COMMIT_TAG: TAG,
     CI_PROJECT_ID: "1",
     CI_API_V4_URL: apiUrl,
     CI_JOB_TOKEN: TOKEN,
   });
+  for (const [k, v] of Object.entries(overrides)) {
+    if (v === undefined) delete env[k];
+    else env[k] = v;
+  }
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [CLI, ...args], { cwd: REPO, env });
     let out = "";
@@ -105,7 +138,7 @@ const ROWS = [
     respond: ({ res, posted }) => send(res, 201, echo(posted)),
     code: 0,
     requests: [`POST ${RELEASES}`],
-    outHas: ["created release for v0.301.0"],
+    outHas: [`created release for ${TAG}`],
   },
   {
     name: "201 naming another tag exits 2",
@@ -223,14 +256,43 @@ const ROWS = [
     respond: ({ res, posted }) => send(res, 201, echo(posted)),
     code: 0,
     requests: [`POST ${RELEASES}`],
-    outHas: ["created release for v0.301.0"],
+    outHas: [`created release for ${TAG}`],
+  },
+  {
+    // Nothing listens, so fetch itself throws and the CLI's catch decides:
+    // exit 2, retry-safe — never 1, the refusal code.
+    name: "a network failure exits 2 from the catch",
+    closedApi: true,
+    respond: ({ res, posted }) => send(res, 201, echo(posted)),
+    code: 2,
+    requests: [],
+    outHas: ["CANNOT PUBLISH: TypeError: fetch failed"],
+  },
+  {
+    // Without the missing-env check the POST goes to .../projects/undefined/
+    // releases, which the fake API 404s: a refusal, exit 1.
+    name: "CI_PROJECT_ID unset exits 2 and sends nothing",
+    env: { CI_PROJECT_ID: undefined },
+    respond: ({ res, posted }) => send(res, 201, echo(posted)),
+    code: 2,
+    requests: [],
+    outHas: ["CANNOT PUBLISH: missing CI_PROJECT_ID"],
+  },
+  {
+    // The API would CONFIRM a POST, so only the lib's tag guard keeps this at 2.
+    name: "a tag that is not v + APP_VERSION exits 2 and sends nothing",
+    env: { CI_COMMIT_TAG: `${TAG}-not-this-version` },
+    respond: ({ res, posted }) => send(res, 201, echo(posted)),
+    code: 2,
+    requests: [],
+    outHas: [`CI_COMMIT_TAG "${TAG}-not-this-version" is not "${TAG}"`],
   },
 ];
 
 describe("publish-release.mjs against a fake Releases API", () => {
-  it.each(ROWS)("$name", async ({ respond, args = [], apiSuffix = "", code, requests, outHas }) => {
+  it.each(ROWS)("$name", async ({ respond, args = [], apiSuffix = "", env = {}, closedApi = false, code, requests, outHas }) => {
     api = await startApi(respond);
-    const r = await runCli(`${api.url}${apiSuffix}`, args);
+    const r = await runCli(closedApi ? await closedApiUrl() : `${api.url}${apiSuffix}`, args, env);
     // Requests first: a wrong URL or a followed redirect shows up here, by name.
     expect(api.requests).toEqual(requests);
     expect(r.code, r.out).toBe(code);

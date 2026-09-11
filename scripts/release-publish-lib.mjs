@@ -20,11 +20,18 @@
  * successful pipeline for that tag, and only while that pipeline's artifact
  * still exists. desktop-package-tag sets `expire_in: never`, so expiry is not
  * what would remove it; deleting the artifact or the pipeline would. It is
- * exported so the test pins it against one source rather than two literals.
+ * exported so the tests pin it against one source rather than two literals,
+ * and one of them reads .gitlab-ci.yml and fails when no top-level job there
+ * carries this name.
  */
 export const ARTIFACT_JOB = "desktop-package-tag";
 
-/** Where electron-builder's artifactName puts the installer, relative to the repo root. */
+/**
+ * Where electron-builder's artifactName puts the installer, relative to the
+ * repo root: desktop/electron-builder.yml's `directories.output`, resolved
+ * against the --project dir package.json's desktop:package passes. A test
+ * compares the two.
+ */
 export const INSTALLER_DIR = "desktop/release";
 
 /**
@@ -107,11 +114,21 @@ export function installerName(version) {
  * a signed-in non-member and records the answer with that setting;
  * docs/desktop-rollout.md (the plan's Task 8) tells a colleague what to do
  * when the link 404s.
+ *
+ * ★★ THE TAG GOES INTO THE URL UNENCODED, and that is safe only because of
+ * the throw below: the tag must be exactly "v" + a version installerName()
+ * has already accepted as a plain semver, so no `#` or `?` can reach the
+ * path. tag-version-check enforces the same rule in its own job, but that is
+ * another process — this one must not rely on it having run.
  */
 export function buildAssetUrl(env, version) {
   const base = required(env, "CI_PROJECT_URL");
   const tag = required(env, "CI_COMMIT_TAG");
-  return `${base}/-/jobs/artifacts/${tag}/raw/${INSTALLER_DIR}/${installerName(version)}?job=${ARTIFACT_JOB}`;
+  const exe = installerName(version);
+  if (tag !== `v${version}`) {
+    throw new Error(`CI_COMMIT_TAG "${tag}" is not "v${version}" — the tag must name APP_VERSION exactly`);
+  }
+  return `${base}/-/jobs/artifacts/${tag}/raw/${INSTALLER_DIR}/${exe}?job=${ARTIFACT_JOB}`;
 }
 
 /**

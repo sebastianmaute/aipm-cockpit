@@ -64,9 +64,9 @@ Reproduce: `du -sm desktop/release/*` and `ls -l desktop/release/*.exe desktop/r
 | `scripts/tag-version-lib.test.mjs` (new) | Unit tests for the above, including the mismatch case the spec demands. |
 | `scripts/check-tag-version.mjs` (new) | CLI. Reads `src/app/version.ts` via `version-sync-lib.mjs`, reads `CI_COMMIT_TAG`, owns the exit codes. Shebang. |
 | `scripts/release-publish-lib.mjs` (new) | PURE. `buildAssetUrl(env, version)` and `buildReleasePayload(env, version, milestone)` (Task 5); `expectedFromPayload`, `classifyCreateResponse` and `classifyExistingRelease`, which decide every exit code the CLI can return (Task 6). No fetch, no I/O, no shebang. |
-| `scripts/release-publish-lib.test.mjs` (new) | Unit tests, including that the token never appears in the payload, and every classifier branch and boundary. |
+| `scripts/release-publish-lib.test.mjs` (new) | Unit tests, including that the token never appears in the payload, and every classifier branch and boundary — and, since the final review round, that `ARTIFACT_JOB`, `INSTALLER_DIR` and `installerName()` agree with `.gitlab-ci.yml` and `desktop/electron-builder.yml`. |
 | `scripts/publish-release.mjs` (new) | CLI. Does the POST — and, after a 409, one GET — with `redirect: "manual"` and a 30 s timeout; maps the lib's verdicts to exit codes; supports `--dry-run`. Shebang. |
-| `scripts/publish-release.integration.test.mjs` (new) | The CLI end to end: spawns it against a fake Releases API on an ephemeral port with a canary token — the redirect, the argument guard, the redaction and the trailing-slash strip, each mutation-proved (Task 6 Step 10). |
+| `scripts/publish-release.integration.test.mjs` (new) | The CLI end to end: spawns it against a fake Releases API on an ephemeral port with a canary token — the redirect, the argument guard, the redaction and the trailing-slash strip, each mutation-proved (Task 6 Step 10); the final review round added the catch, a missing variable, the tag guard and the Content-Type header, not yet mutation-proved. |
 | `package.json` | Two scripts (`tag:check`, `release:publish`) **and** their `scriptsDescriptions` entries. |
 | `CONTRIBUTING.md` | Regenerated script table (`npm run docs:scripts`). |
 | `.gitlab-ci.yml` | `release` stage; `tag-version-check` job; `.desktop-package` hidden base + `desktop-package` + `desktop-package-tag`; `publish-release` job. |
@@ -1207,11 +1207,18 @@ Task 6 also replaces this block's header comment and `required()`.
  * successful pipeline for that tag, and only while that pipeline's artifact
  * still exists. desktop-package-tag sets `expire_in: never`, so expiry is not
  * what would remove it; deleting the artifact or the pipeline would. It is
- * exported so the test pins it against one source rather than two literals.
+ * exported so the tests pin it against one source rather than two literals,
+ * and one of them reads .gitlab-ci.yml and fails when no top-level job there
+ * carries this name.
  */
 export const ARTIFACT_JOB = "desktop-package-tag";
 
-/** Where electron-builder's artifactName puts the installer, relative to the repo root. */
+/**
+ * Where electron-builder's artifactName puts the installer, relative to the
+ * repo root: desktop/electron-builder.yml's `directories.output`, resolved
+ * against the --project dir package.json's desktop:package passes. A test
+ * compares the two.
+ */
 export const INSTALLER_DIR = "desktop/release";
 
 function required(env, key) {
@@ -1281,11 +1288,21 @@ export function installerName(version) {
  * a signed-in non-member and records the answer with that setting;
  * docs/desktop-rollout.md (the plan's Task 8) tells a colleague what to do
  * when the link 404s.
+ *
+ * ★★ THE TAG GOES INTO THE URL UNENCODED, and that is safe only because of
+ * the throw below: the tag must be exactly "v" + a version installerName()
+ * has already accepted as a plain semver, so no `#` or `?` can reach the
+ * path. tag-version-check enforces the same rule in its own job, but that is
+ * another process — this one must not rely on it having run.
  */
 export function buildAssetUrl(env, version) {
   const base = required(env, "CI_PROJECT_URL");
   const tag = required(env, "CI_COMMIT_TAG");
-  return `${base}/-/jobs/artifacts/${tag}/raw/${INSTALLER_DIR}/${installerName(version)}?job=${ARTIFACT_JOB}`;
+  const exe = installerName(version);
+  if (tag !== `v${version}`) {
+    throw new Error(`CI_COMMIT_TAG "${tag}" is not "v${version}" — the tag must name APP_VERSION exactly`);
+  }
+  return `${base}/-/jobs/artifacts/${tag}/raw/${INSTALLER_DIR}/${exe}?job=${ARTIFACT_JOB}`;
 }
 
 /**
@@ -1406,12 +1423,15 @@ A second cold review, of the committed CLI, found that it had NO committed test 
 
 - [ ] **Step 1: Write the failing classifier tests**
 
-In `scripts/release-publish-lib.test.mjs`, widen the import to:
+In `scripts/release-publish-lib.test.mjs`, widen the import to (the `node:fs` and `node:path` imports and `INSTALLER_DIR` arrived in the final review round, for the two describes it appended to the end of the block below):
 
 ```js
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ARTIFACT_JOB,
+  INSTALLER_DIR,
   buildAssetUrl,
   buildReleasePayload,
   classifyCreateResponse,
@@ -1674,6 +1694,114 @@ describe("classifyExistingRelease", () => {
     const r = classifyExistingRelease(200, json, expected);
     expect(r.code).toBe(2);
     expect(r.message).toMatch(/no expected tagName and assetUrl/);
+  });
+});
+
+// ★★ The asset URL carries the tag UNENCODED (the CHANGELOG link encodes it),
+// which is safe only while the tag is exactly "v" + a version installerName()
+// has accepted. Each row below would otherwise put something else in the path.
+describe("the tag must name the version", () => {
+  it("refuses a tag that is not v + the version, in the URL and so in the payload", () => {
+    for (const tag of ["v0.302.0", "0.301.0", "v0.301.0#x", "v0.301.0?job=other", "v0.301.0-rc.1"]) {
+      const env = { ...ENV, CI_COMMIT_TAG: tag };
+      expect(() => buildAssetUrl(env, "0.301.0"), tag).toThrow(/is not "v0\.301\.0"/);
+      expect(() => buildReleasePayload(env, "0.301.0", "Arnason"), tag).toThrow(/is not "v0\.301\.0"/);
+    }
+  });
+
+  it("accepts a pre-release tag that names its pre-release version", () => {
+    const env = { ...ENV, CI_COMMIT_TAG: "v0.301.0-rc.1" };
+    expect(buildAssetUrl(env, "0.301.0-rc.1")).toContain("/-/jobs/artifacts/v0.301.0-rc.1/raw/");
+  });
+});
+
+// ★★★ THREE COUPLINGS NOTHING ELSE COMPARES, and each breaks the same way: a
+// green pipeline over a Release whose download 404s. ARTIFACT_JOB must name a
+// top-level job in .gitlab-ci.yml; INSTALLER_DIR and installerName() must be
+// where desktop/electron-builder.yml writes the installer; and that job's
+// artifact paths must upload it. A changed artifactName still passes the
+// job's own `ls -l` guard and uploads -- only the LINK breaks.
+// ★ The YAML is read as TEXT with anchored line regexes, so no YAML
+// dependency. Paths resolve from process.cwd(), like the sibling script
+// tests: import.meta.url is not a file: URL under vitest.
+const CI_FILE = ".gitlab-ci.yml";
+const EB_FILE = "desktop/electron-builder.yml";
+const LIB_FILE = "scripts/release-publish-lib.mjs";
+const readRepoFile = (file) => readFileSync(path.join(process.cwd(), file), "utf8");
+const readLines = (file) => readRepoFile(file).split(/\r?\n/);
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const indentOf = (line) => /^\s*/.exec(line)[0].length;
+const isNoise = (line) => /^\s*(#.*)?$/.test(line);
+
+/** The indented lines under a top-level `name:` key, up to the next column-0 line. */
+function topLevelBlock(lines, name) {
+  const key = new RegExp(`^${escapeRe(name)}:\\s*(#.*)?$`);
+  const start = lines.findIndex((l) => key.test(l));
+  if (start < 0) return null;
+  const end = lines.findIndex((l, i) => i > start && /^\S/.test(l));
+  return lines.slice(start + 1, end < 0 ? lines.length : end);
+}
+
+/** The lines nested under the first `key:` line of `block`. */
+function subBlock(block, key) {
+  const re = new RegExp(`^\\s+${escapeRe(key)}:\\s*(#.*)?$`);
+  const start = block.findIndex((l) => re.test(l));
+  if (start < 0) return null;
+  const indent = indentOf(block[start]);
+  const end = block.findIndex((l, i) => i > start && !isNoise(l) && indentOf(l) <= indent);
+  return block.slice(start + 1, end < 0 ? block.length : end);
+}
+
+/** The `artifacts: paths:` a job uploads -- its own, else its `extends:` base's. */
+function artifactPaths(lines, job) {
+  const block = topLevelBlock(lines, job);
+  if (block === null) return null;
+  const artifacts = subBlock(block, "artifacts") ?? [];
+  const at = artifacts.findIndex((l) => /^\s+paths:/.test(l));
+  if (at >= 0) {
+    const inline = /^\s+paths:\s*\[(.*)\]\s*$/.exec(artifacts[at]);
+    if (inline) return inline[1].split(",").map((p) => p.trim()).filter(Boolean);
+    const items = [];
+    for (const l of artifacts.slice(at + 1)) {
+      if (isNoise(l)) continue;
+      const item = /^\s+-\s+(\S+)\s*$/.exec(l);
+      if (!item || indentOf(l) <= indentOf(artifacts[at])) break;
+      items.push(item[1]);
+    }
+    return items;
+  }
+  // ★ `extends:` deep-merges hashes, so a job that sets only `expire_in`
+  // still uploads its base's `paths` (the .desktop-package comment says so).
+  const base = block.map((l) => /^\s+extends:\s*(\S+)\s*$/.exec(l)).find(Boolean);
+  return base ? artifactPaths(lines, base[1]) : null;
+}
+
+/** A GitLab artifact glob as a RegExp -- `*` only; anything richer throws. */
+function globToRe(glob) {
+  if (/\*\*|[?[\]{}]/.test(glob)) throw new Error(`artifact glob "${glob}" uses syntax this test does not model`);
+  return new RegExp(`^${glob.split("*").map(escapeRe).join("[^/]*")}$`);
+}
+
+describe("the lib's constants agree with the files they describe", () => {
+  it("names a real job, the builder's real output, and a path that job uploads", () => {
+    const version = "0.301.0";
+    const ci = readLines(CI_FILE);
+    const eb = readLines(EB_FILE);
+
+    expect(topLevelBlock(ci, ARTIFACT_JOB), `${CI_FILE} has no top-level "${ARTIFACT_JOB}:" job, but ARTIFACT_JOB in ${LIB_FILE} names it`).not.toBeNull();
+
+    const name = eb.map((l) => /^artifactName:\s*["']?([^"'\s]+)["']?\s*(#.*)?$/.exec(l)).find(Boolean)?.[1];
+    expect(name?.replace(/\$\{version\}/g, version), `${EB_FILE} artifactName, with its version macro = ${version}, is not installerName() in ${LIB_FILE}`).toBe(installerName(version));
+
+    // electron-builder resolves directories.output against its PROJECT dir
+    // (app-builder-lib packager.js), which desktop:package sets with --project.
+    const projectDir = /--project\s+(\S+)/.exec(JSON.parse(readRepoFile("package.json")).scripts["desktop:package"] ?? "")?.[1];
+    const output = (topLevelBlock(eb, "directories") ?? []).map((l) => /^\s+output:\s*["']?([^"'\s]+)["']?\s*(#.*)?$/.exec(l)).find(Boolean)?.[1];
+    expect(projectDir && output && path.posix.join(projectDir, output), `${EB_FILE} directories.output, under package.json's --project dir, is not INSTALLER_DIR in ${LIB_FILE}`).toBe(INSTALLER_DIR);
+
+    const target = `${INSTALLER_DIR}/${installerName(version)}`;
+    const globs = artifactPaths(ci, ARTIFACT_JOB) ?? [];
+    expect(globs.some((g) => globToRe(g).test(target)), `no artifacts path of ${ARTIFACT_JOB} in ${CI_FILE} (its own, or via extends:) matches ${target} from ${LIB_FILE}; found ${JSON.stringify(globs)}`).toBe(true);
   });
 });
 ```
@@ -1971,7 +2099,7 @@ grep -c "Failed to start" "$SP/b-t6-list.log"
 grep -c "^scripts/release-publish-lib.test.mjs >" "$SP/b-t6-list.log"
 ```
 
-Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  98 passed (98)`, `0` "Failed to start" lines, and the count `98`. ★★ **`grep -c "  it("` CANNOT DERIVE THIS COUNT ANY MORE** — it prints 29, because every `it.each` row is its own test at runtime. `vitest list` enumerates what actually runs.
+Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  98 passed (98)`, `0` "Failed to start" lines, and the count `98`. ★★ **`grep -c "  it("` CANNOT DERIVE THIS COUNT ANY MORE** — it prints 29, because every `it.each` row is its own test at runtime. `vitest list` enumerates what actually runs. ★★ 98 and 29 are the counts AT THIS TASK'S COMMIT. The final review round appended three tests (two tag/version cases and the YAML coupling test), so the committed file runs 101 and the grep prints 32.
 ★★★ **`vitest list` EXITS 0 EVEN WHEN IT LISTS NOTHING.** Measured on a loaded machine: its worker failed to start ("Failed to start forks worker"), it printed no tests, and it still exited 0, so the count read `0` and looked like an empty file. Hence `--maxWorkers=1`, and the "Failed to start" count, which must be `0` before the tally means anything.
 ★ Neither guard in the pattern is load-bearing ON ITS OWN, and an earlier revision here said the `^` was. npm echoes its own `npm notice run vitest list scripts/release-publish-lib.test.mjs …` line into the log, and either guard excludes it. Measured: both guards 98, `^` alone 98, ` >` alone 98, neither 99. Keep both, each a backstop for the other.
 
@@ -2264,7 +2392,9 @@ A one-off matrix proves the CLI once; only a committed test keeps it proved. Cre
 // ★★ The classifiers have their own unit tests; THIS file covers what only a
 // real run can see — `redirect: "manual"`, the unknown-argument guard, the
 // trailing-slash strip, and redaction of an echoed body BEFORE it is cut to
-// its excerpt. Each of those was mutation-proved against this file.
+// its excerpt. Each of those was mutation-proved against this file. It also
+// pins the catch's exit code, the missing-env exit, the lib's tag guard
+// reaching exit 2, and the Content-Type header (through the fake API's 415).
 //
 // ★ The child is started with async `spawn`, never `spawnSync`: the fake API
 // lives in THIS process, and a synchronous spawn would block the event loop
@@ -2273,16 +2403,24 @@ A one-off matrix proves the CLI once; only a committed test keeps it proved. Cre
 // ★ Every CI_* variable is stripped from the child's environment before the
 // fake ones are set, so a real CI_JOB_TOKEN from the pipeline running this
 // test can never reach the child — and the canary is the only token it sees.
+//
+// ★★ The tag is `v` + this checkout's APP_VERSION, read the way the CLI reads
+// it. The lib refuses any other tag, so a hardcoded one would turn every row
+// but the unknown-argument one red on the next version bump.
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import http from "node:http";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { SOURCE_FILE, readSourceFrom } from "./version-sync-lib.mjs";
 
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 const CLI = fileURLToPath(new URL("./publish-release.mjs", import.meta.url));
+const TAG = `v${readSourceFrom(readFileSync(path.join(REPO, SOURCE_FILE), "utf8")).version}`;
 const TOKEN = "canary-not-a-token";
 const RELEASES = "/api/v4/projects/1/releases";
-const EXISTING = `${RELEASES}/v0.301.0`;
+const EXISTING = `${RELEASES}/${TAG}`;
 const MOVED = "/api/v4/moved";
 
 const send = (res, status, body, headers = {}) => {
@@ -2318,6 +2456,12 @@ const KNOWN_PATHS = new Set([RELEASES, EXISTING, MOVED]);
  * `posted`, threw inside the server, left the request unanswered, and the row
  * died on the 20 s test timeout instead of on the assertion that names the
  * defect.
+ *
+ * ★ A POST without a JSON content-type gets a 415, so a CLI that drops its
+ * Content-Type header fails every row that expects a POST to land — fetch
+ * labels a string body text/plain by default. Whether real GitLab answers
+ * 415 or misreads the body is not established; either way the header is
+ * required.
  */
 async function startApi(respond) {
   const requests = [];
@@ -2328,6 +2472,9 @@ async function startApi(respond) {
     req.on("end", () => {
       requests.push(`${req.method} ${req.url}`);
       if (!KNOWN_PATHS.has(req.url)) return send(res, 404, { message: "404 Not Found" });
+      if (req.method === "POST" && !String(req.headers["content-type"] ?? "").startsWith("application/json")) {
+        return send(res, 415, { message: "415 Unsupported Media Type" });
+      }
       if (req.method === "POST" && req.url === RELEASES && posted === null) posted = JSON.parse(body);
       respond({ req, res, posted, body });
     });
@@ -2336,15 +2483,29 @@ async function startApi(respond) {
   return { server, requests, url: `http://127.0.0.1:${server.address().port}/api/v4` };
 }
 
-function runCli(apiUrl, args) {
+/** An API base nothing listens on: a loopback port bound, read, then closed. */
+async function closedApiUrl() {
+  const server = http.createServer();
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address();
+  await new Promise((resolve) => server.close(resolve));
+  return `http://127.0.0.1:${port}/api/v4`;
+}
+
+/** ★ An `overrides` value of `undefined` DELETES that variable from the child's env. */
+function runCli(apiUrl, args, overrides = {}) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("CI_")));
   Object.assign(env, {
     CI_PROJECT_URL: "https://gitlab.example/g/p",
-    CI_COMMIT_TAG: "v0.301.0",
+    CI_COMMIT_TAG: TAG,
     CI_PROJECT_ID: "1",
     CI_API_V4_URL: apiUrl,
     CI_JOB_TOKEN: TOKEN,
   });
+  for (const [k, v] of Object.entries(overrides)) {
+    if (v === undefined) delete env[k];
+    else env[k] = v;
+  }
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [CLI, ...args], { cwd: REPO, env });
     let out = "";
@@ -2363,7 +2524,7 @@ const ROWS = [
     respond: ({ res, posted }) => send(res, 201, echo(posted)),
     code: 0,
     requests: [`POST ${RELEASES}`],
-    outHas: ["created release for v0.301.0"],
+    outHas: [`created release for ${TAG}`],
   },
   {
     name: "201 naming another tag exits 2",
@@ -2481,14 +2642,43 @@ const ROWS = [
     respond: ({ res, posted }) => send(res, 201, echo(posted)),
     code: 0,
     requests: [`POST ${RELEASES}`],
-    outHas: ["created release for v0.301.0"],
+    outHas: [`created release for ${TAG}`],
+  },
+  {
+    // Nothing listens, so fetch itself throws and the CLI's catch decides:
+    // exit 2, retry-safe — never 1, the refusal code.
+    name: "a network failure exits 2 from the catch",
+    closedApi: true,
+    respond: ({ res, posted }) => send(res, 201, echo(posted)),
+    code: 2,
+    requests: [],
+    outHas: ["CANNOT PUBLISH: TypeError: fetch failed"],
+  },
+  {
+    // Without the missing-env check the POST goes to .../projects/undefined/
+    // releases, which the fake API 404s: a refusal, exit 1.
+    name: "CI_PROJECT_ID unset exits 2 and sends nothing",
+    env: { CI_PROJECT_ID: undefined },
+    respond: ({ res, posted }) => send(res, 201, echo(posted)),
+    code: 2,
+    requests: [],
+    outHas: ["CANNOT PUBLISH: missing CI_PROJECT_ID"],
+  },
+  {
+    // The API would CONFIRM a POST, so only the lib's tag guard keeps this at 2.
+    name: "a tag that is not v + APP_VERSION exits 2 and sends nothing",
+    env: { CI_COMMIT_TAG: `${TAG}-not-this-version` },
+    respond: ({ res, posted }) => send(res, 201, echo(posted)),
+    code: 2,
+    requests: [],
+    outHas: [`CI_COMMIT_TAG "${TAG}-not-this-version" is not "${TAG}"`],
   },
 ];
 
 describe("publish-release.mjs against a fake Releases API", () => {
-  it.each(ROWS)("$name", async ({ respond, args = [], apiSuffix = "", code, requests, outHas }) => {
+  it.each(ROWS)("$name", async ({ respond, args = [], apiSuffix = "", env = {}, closedApi = false, code, requests, outHas }) => {
     api = await startApi(respond);
-    const r = await runCli(`${api.url}${apiSuffix}`, args);
+    const r = await runCli(closedApi ? await closedApiUrl() : `${api.url}${apiSuffix}`, args, env);
     // Requests first: a wrong URL or a followed redirect shows up here, by name.
     expect(api.requests).toEqual(requests);
     expect(r.code, r.out).toBe(code);
@@ -2508,7 +2698,7 @@ grep -c "Failed to start" "$SP/b-t6-int-list.log"
 grep -c "^scripts/publish-release.integration.test.mjs >" "$SP/b-t6-int-list.log"
 ```
 
-Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  15 passed (15)`, `0` "Failed to start" lines, and the count `15` (Step 4 explains why that zero must be checked).
+Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  15 passed (15)`, `0` "Failed to start" lines, and the count `15` (Step 4 explains why that zero must be checked). ★★ 15 is the count at this step. The final review round added three rows — a network failure, `CI_PROJECT_ID` unset, and a tag that is not `v` + `APP_VERSION` — so the committed file (the block above) runs 18.
 
 ★ The fake API answers ONLY the three paths a row expects (the releases endpoint, the existing Release, and a redirect target) and 404s everything else before any row sees it. So a CLI that builds a wrong URL fails FAST, on the `requests` assertion, which the test checks first. Without that, a wrong path reached a row's handler with nothing posted, the handler threw, the request went unanswered, and the row died on the 20 s test timeout.
 
@@ -3178,12 +3368,14 @@ with
   pipelines only — `npm run release:publish` (`scripts/publish-release.mjs` over
   `scripts/release-publish-lib.mjs`) creates the GitLab Release with a PER-TAG artifact link. ★★ NO
   `needs:`, on purpose — stage order is what holds it behind every earlier gate; the YAML comment says
-  why. ★★★ That URL embeds the producing job's name (`ARTIFACT_JOB`), and nothing compares the constant
-  to the YAML — its unit test pins a literal — so renaming `desktop-package-tag` alone 404s the next
-  Release's download with every gate green].
+  why. ★★★ That URL embeds the producing job's name (`ARTIFACT_JOB`) and the installer's path, so
+  renaming `desktop-package-tag` or changing electron-builder's `artifactName` alone would 404 the next
+  Release's download while the build stays green. `release-publish-lib.test.mjs` reads `.gitlab-ci.yml`
+  and `desktop/electron-builder.yml` as text and fails on either drift, and on the job's artifact
+  `paths:` no longer covering the installer].
 ```
 
-★★★ An earlier draft of this step said a rename "404s the download on every PAST Release". That half is not established and was dropped: a past Release's link names the job inside ITS OWN tag's pipeline, which a later rename does not touch, and the web form resolves against "the latest successful pipeline" for the ref. What IS established is the half the text keeps — `release-publish-lib.test.mjs` asserts `ARTIFACT_JOB` against the literal `"desktop-package-tag"` and reads no YAML (`grep -rn "gitlab-ci" scripts/release-publish-lib.test.mjs scripts/publish-release.integration.test.mjs` returns nothing). ★ `ARTIFACT_JOB`'s own docstring in `scripts/release-publish-lib.mjs` said "past ones included" when this task landed; that file was outside this task and was reported, not edited. A later review round corrected the docstring (comment only) to what is known — a one-sided rename 404s the NEXT Release, a past Release's fate is not established, and the per-tag URL resolves only through the latest successful pipeline for the tag and only while its `expire_in: never` artifact still exists — and Task 5's lib block above changed with it.
+★★★ An earlier draft of this step said a rename "404s the download on every PAST Release". That half is not established and was dropped: a past Release's link names the job inside ITS OWN tag's pipeline, which a later rename does not touch, and the web form resolves against "the latest successful pipeline" for the ref. What IS established is the half the text keeps — `release-publish-lib.test.mjs` asserts `ARTIFACT_JOB` against the literal `"desktop-package-tag"` and reads no YAML (`grep -rn "gitlab-ci" scripts/release-publish-lib.test.mjs scripts/publish-release.integration.test.mjs` returns nothing). ★ `ARTIFACT_JOB`'s own docstring in `scripts/release-publish-lib.mjs` said "past ones included" when this task landed; that file was outside this task and was reported, not edited. A later review round corrected the docstring (comment only) to what is known — a one-sided rename 404s the NEXT Release, a past Release's fate is not established, and the per-tag URL resolves only through the latest successful pipeline for the tag and only while its `expire_in: never` artifact still exists — and Task 5's lib block above changed with it. ★★ The final review round then made the kept half false as well, on purpose: `release-publish-lib.test.mjs` now reads `.gitlab-ci.yml` and `desktop/electron-builder.yml` and fails when `ARTIFACT_JOB`, `INSTALLER_DIR` or `installerName()` drifts from them (Task 6's appended block), so the grep above now returns that test's lines, and the `with` block above carries the corrected sentence.
 
 4. The `quality-gate-bypass` sentence lists "EVERY other quality-stage job"; `tag-version-check` is a quality-stage job with no bypass label, so it joins the list. Replace
 
@@ -3352,7 +3544,7 @@ npx vitest run scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test
 grep -E "Test Files|Tests " "$SP/b-g-unit.log"
 ```
 
-Expected: EXIT=0, `Test Files  3 passed (3)`, `Tests  129 passed (129)` (16 + 98 + 15). Derive it rather than trusting this line — `npx vitest list scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs scripts/publish-release.integration.test.mjs --maxWorkers=1 > "$SP/b-g-list.log" 2>&1; grep -c "Failed to start" "$SP/b-g-list.log"; grep -cE "^scripts/(tag-version-lib|release-publish-lib|publish-release\.integration)\.test\.mjs >" "$SP/b-g-list.log"` — the first count must be `0`, because `vitest list` exits 0 even when its worker fails to start and lists nothing (Task 6 Step 4). ★★ NOT `grep -c "  it("`, which this line used to prescribe: it prints 16 + 29 + 0, because every `it.each` row is its own test at runtime and the integration file is a single `it.each`. The release-publish-lib file grew from 8 to 16 in the Task 5 review round and to 98 in Task 6; the integration file is Task 6's too. ★★★ **Assert `Test Files 3` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
+Expected: EXIT=0, `Test Files  3 passed (3)`, `Tests  135 passed (135)` (16 + 101 + 18). Derive it rather than trusting this line — `npx vitest list scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs scripts/publish-release.integration.test.mjs --maxWorkers=1 > "$SP/b-g-list.log" 2>&1; grep -c "Failed to start" "$SP/b-g-list.log"; grep -cE "^scripts/(tag-version-lib|release-publish-lib|publish-release\.integration)\.test\.mjs >" "$SP/b-g-list.log"` — the first count must be `0`, because `vitest list` exits 0 even when its worker fails to start and lists nothing (Task 6 Step 4). ★★ NOT `grep -c "  it("`, which this line used to prescribe: it prints 16 + 32 + 0, because every `it.each` row is its own test at runtime and the integration file is a single `it.each`. The release-publish-lib file grew from 8 to 16 in the Task 5 review round, to 98 in Task 6, and to 101 in the final review round; the integration file is Task 6's too, and grew from 15 to 18 in that same final round. ★★★ **Assert `Test Files 3` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
 
 - [ ] **Step 3: Docs, version and followup gates**
 

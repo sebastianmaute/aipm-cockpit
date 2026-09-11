@@ -846,9 +846,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   pipelines only — `npm run release:publish` (`scripts/publish-release.mjs` over
   `scripts/release-publish-lib.mjs`) creates the GitLab Release with a PER-TAG artifact link. ★★ NO
   `needs:`, on purpose — stage order is what holds it behind every earlier gate; the YAML comment says
-  why. ★★★ That URL embeds the producing job's name (`ARTIFACT_JOB`), and nothing compares the constant
-  to the YAML — its unit test pins a literal — so renaming `desktop-package-tag` alone 404s the next
-  Release's download with every gate green].
+  why. ★★★ That URL embeds the producing job's name (`ARTIFACT_JOB`) and the installer's path, so
+  renaming `desktop-package-tag` or changing electron-builder's `artifactName` alone would 404 the next
+  Release's download while the build stays green. `release-publish-lib.test.mjs` reads `.gitlab-ci.yml`
+  and `desktop/electron-builder.yml` as text and fails on either drift, and on the job's artifact
+  `paths:` no longer covering the installer].
   All quality gates are ratchets. ★★ The
   `quality-gate-bypass` escape hatch is NOT uniform — reproduce with
   `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and
