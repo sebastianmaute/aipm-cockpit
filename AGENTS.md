@@ -807,7 +807,13 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   empty. ★★★ It also reports a §number used TWICE on either axis, which the set difference it is
   built on is structurally BLIND to: paste one index row and both differences come back empty while
   the two counts disagree. ★ DO NOT satisfy a red run by renumbering an entry — a follow-up number
-  is a permanent handle other docs cite] · **unit** [coverage floors: global lines 92/funcs 91/branch
+  is a permanent handle other docs cite] ·
+  **tag-version-check** BLOCKING [tag pipelines only, `needs: []` — `npm run tag:check` asserts the tag
+  is `v` + `APP_VERSION` (`scripts/check-tag-version.mjs` over `scripts/tag-version-lib.mjs`). ★★ SAME
+  TWO-EXIT-CODE SPLIT: **1 is DRIFT** (the installer would misreport its own version), **2 is the gate
+  unable to scan** (an empty tag — a rules bug — or `version.ts`'s shape moved). `desktop-package-tag`
+  lists it in its own `needs:`, so the wine build waits for it rather than racing it (that a FAILED
+  guard then skips the build is GitLab's default, not measured here)] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
   unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
   false}]` so it cannot run concurrently with **unit-tests** — two full vitest runs on one runner is the
@@ -823,21 +829,31 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   same blind spot, so fixing one would not have covered the other. That is how §54 stayed invisible for
   months. ★ **dast-zap** DOES serve a prod build (`Dockerfile.dast` ends `CMD ["npm","run","start"]`), so
   it is the one other suite that meets this policy — but it does not gate MR or default-branch pipelines,
-  where its rule is `when: manual` WITH `allow_failure: true`. ★★ It is NOT unconditionally non-blocking,
+  where its rule is `when: manual` WITH `allow_failure: true` — tag pipelines match that rule too, and
+  without the key a blocking manual job holds every later stage, so `publish-release` would never run.
+  ★★ It is NOT unconditionally non-blocking,
   and an earlier revision of this bullet said it "cannot fail a pipeline", which is false in the very mode
   the line names: `allow_failure: true` is indented under the `- when: manual` rule ONLY, there is no
   job-level one, and a `rules:` entry that omits it defaults to FALSE — so on a `schedule`
   pipeline the first rule matches and dast-zap runs BLOCKING. Its ZAP findings still cannot fail it
   (`zap-baseline.py … -I … || true`), but the unguarded `docker build` / `docker network create dastnet`
   / `docker run` steps can, and `network create` fails outright on a re-run where the network survives.
-  Reproduce with `sed -n '/^dast-zap:/,/^  image:/p' .gitlab-ci.yml`] · **dast-zap** weekly/manual].
+  Reproduce with `sed -n '/^dast-zap:/,/^  image:/p' .gitlab-ci.yml`] · **desktop-package** (manual,
+  non-tag, `allow_failure: true`, artifact 1 week) · **desktop-package-tag** (tag pipelines, **BLOCKING**,
+  artifact `expire_in: never`) · **dast-zap** weekly/manual] → release [**publish-release** BLOCKING, tag
+  pipelines only — `npm run release:publish` (`scripts/publish-release.mjs` over
+  `scripts/release-publish-lib.mjs`) creates the GitLab Release with a PER-TAG artifact link. ★★ NO
+  `needs:`, on purpose — stage order is what holds it behind every earlier gate; the YAML comment says
+  why. ★★★ That URL embeds the producing job's name (`ARTIFACT_JOB`), and nothing compares the constant
+  to the YAML — its unit test pins a literal — so renaming `desktop-package-tag` alone 404s the next
+  Release's download with every gate green].
   All quality gates are ratchets. ★★ The
   `quality-gate-bypass` escape hatch is NOT uniform — reproduce with
   `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and
   **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
   in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
   `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `version-sync-check`,
-  `doc-claims-check`, `followups-status-check`, `followups-index-check`, `unit-tests`,
+  `doc-claims-check`, `followups-status-check`, `followups-index-check`, `tag-version-check`, `unit-tests`,
   `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
   `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
   sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a

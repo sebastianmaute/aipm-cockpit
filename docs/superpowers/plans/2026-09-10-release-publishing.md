@@ -3002,46 +3002,134 @@ Claude-Session: https://[session link removed]
 ## Task 9: Update the CI enumeration in AGENTS.md
 
 **Files:**
-- Modify: `AGENTS.md`
+- Modify: `AGENTS.md` (the CI bullet in Steps 1–3; the Releasing bullet and the `version-sync-check` entry in Step 4)
+- Modify: `CONTRIBUTING.md`, `.gitlab-ci.yml` (Step 4 — comments only in the YAML)
 
-That file's CI bullet enumerates every pipeline job and ends with "New CI gate → also update this line." Three jobs changed shape and two are new, so this is required, not optional.
+That file's CI bullet enumerates every pipeline job and ends with "New CI gate → also update this line." Four jobs are new to this branch — `tag-version-check`, `desktop-package`, `desktop-package-tag`, `publish-release`, none of them on `main` — and so is the `release` stage, so this is required, not optional. Re-measured 2026-09-11: `grep -n "desktop-package" AGENTS.md` returned **nothing** (exit 1) before this task, so there was no existing text to replace.
 
-★★ `docs:symbols:check` gates this file: a backticked MIXED-CASE name that exists nowhere in `src`/`scripts`/`e2e` fails the build. `tag-version-check`, `desktop-package-tag` and `publish-release` are job names, not code symbols — but `check-tag-version.mjs`, `tag-version-lib.mjs`, `publish-release.mjs` and `release-publish-lib.mjs` are real files, so backticking them is safe. Run the gate; do not reason about it.
+★★ `docs:symbols:check` gates this file, and only MIXED-CASE backticked names — MEASURED 2026-09-11, not reasoned: a probe appending one invented kebab-case name and one invented camelCase name to the new text failed the gate (exit 1) on the camelCase one ALONE. So the job names are never scanned, and `ARTIFACT_JOB` / `APP_VERSION` (SCREAMING_CASE) are not either.
 
 - [ ] **Step 1: Extend the pipeline enumeration**
 
-With the **Edit tool**, find the `- **CI is GitLab**` bullet's stage list (`install → quality (...) → build → e2e [...]`) and:
+With the **Edit tool**, in the `- **CI is GitLab**` bullet. Every replacement below is the exact committed text, two-space indent included.
 
-1. Add to the `quality` list: `**tag-version-check** BLOCKING [tag pipelines only — `npm run tag:check` asserts `$CI_COMMIT_TAG` equals `v$APP_VERSION`, via `scripts/check-tag-version.mjs` over the pure `scripts/tag-version-lib.mjs`. ★★ SAME TWO-EXIT-CODE SPLIT as `version:check`: **1 is DRIFT** (tag and `version.ts` disagree, so a published installer would misreport itself), **2 is the gate unable to scan** (empty tag — a rules bug — or the declaration shape moved). `needs: []` so it runs immediately, and `desktop-package-tag` lists it in its OWN `needs:` too, so a failing guard here skips the 20-minute wine build outright rather than letting it run and only then reddening the pipeline]`
-2. **ADD** the desktop jobs to the `e2e` stage list, immediately before `· **dast-zap** weekly/manual]`. Measured 2026-09-10: `grep -n "desktop-package" AGENTS.md` returns **nothing** — that file has never mentioned the packaging job at all, so there is no existing text to replace. Add: `· **desktop-package** (manual, non-tag, `allow_failure: true`) · **desktop-package-tag** (tag pipelines, **BLOCKING**, artifact `expire_in: never`)`
-3. Add a new stage after `e2e`: `→ release [**publish-release** BLOCKING on tag pipelines — `npm run release:publish` (`scripts/publish-release.mjs` over `scripts/release-publish-lib.mjs`) creates the GitLab Release and attaches a PER-TAG artifact link. ★★★ The producing job's name is embedded in that URL, so renaming `desktop-package-tag` 404s the download on every past Release and NOTHING checks it]`
+1. The `quality` list. Replace the line
 
-★ Keep it short. That file regrew 111% in fifteen days once; a bullet past ~60 lines of subsystem detail belongs in `docs/AGENTS/`.
-
-- [ ] **Step 2: Run the gate that reads this file**
-
-```bash
-npm run docs:symbols:check > "$SP/b-t9.log" 2>&1; echo "SYMBOLS_EXIT=$?"
-tail -5 "$SP/b-t9.log"
+```text
+  is a permanent handle other docs cite] · **unit** [coverage floors: global lines 92/funcs 91/branch
 ```
 
-Expected: EXIT=0. A failure names the backticked symbol it could not resolve — fix the name, never the allowlist.
+with
+
+```text
+  is a permanent handle other docs cite] ·
+  **tag-version-check** BLOCKING [tag pipelines only, `needs: []` — `npm run tag:check` asserts the tag
+  is `v` + `APP_VERSION` (`scripts/check-tag-version.mjs` over `scripts/tag-version-lib.mjs`). ★★ SAME
+  TWO-EXIT-CODE SPLIT: **1 is DRIFT** (the installer would misreport its own version), **2 is the gate
+  unable to scan** (an empty tag — a rules bug — or `version.ts`'s shape moved). `desktop-package-tag`
+  lists it in its own `needs:`, so the wine build waits for it rather than racing it (that a FAILED
+  guard then skips the build is GitLab's default, not measured here)] · **unit** [coverage floors: global lines 92/funcs 91/branch
+```
+
+★★ "Skips" is hedged on purpose. GitLab's docs say needs-jobs "start as soon as their dependencies finish", which verifies the WAIT; neither `docs.gitlab.com/ci/yaml/` nor `docs.gitlab.com/ci/yaml/needs/` states what happens to a job whose `needs:` entry FAILS (both fetched 2026-09-11). Do not upgrade the hedge without a citation or a real tag pipeline.
+
+2. The dast-zap sentence inside the **prod-smoke** bracket. Replace
+
+```text
+  where its rule is `when: manual` WITH `allow_failure: true`. ★★ It is NOT unconditionally non-blocking,
+```
+
+with
+
+```text
+  where its rule is `when: manual` WITH `allow_failure: true` — tag pipelines match that rule too, and
+  without the key a blocking manual job holds every later stage, so `publish-release` would never run.
+  ★★ It is NOT unconditionally non-blocking,
+```
+
+Cited: the `allow_failure` section of `docs.gitlab.com/ci/yaml/` — "A blocked pipeline does not run any jobs in later stages until the manual job is started and completes successfully."
+
+3. The `e2e` list and the new `release` stage. Replace
+
+```text
+  Reproduce with `sed -n '/^dast-zap:/,/^  image:/p' .gitlab-ci.yml`] · **dast-zap** weekly/manual].
+```
+
+with
+
+```text
+  Reproduce with `sed -n '/^dast-zap:/,/^  image:/p' .gitlab-ci.yml`] · **desktop-package** (manual,
+  non-tag, `allow_failure: true`, artifact 1 week) · **desktop-package-tag** (tag pipelines, **BLOCKING**,
+  artifact `expire_in: never`) · **dast-zap** weekly/manual] → release [**publish-release** BLOCKING, tag
+  pipelines only — `npm run release:publish` (`scripts/publish-release.mjs` over
+  `scripts/release-publish-lib.mjs`) creates the GitLab Release with a PER-TAG artifact link. ★★ NO
+  `needs:`, on purpose — stage order is what holds it behind every earlier gate; the YAML comment says
+  why. ★★★ That URL embeds the producing job's name (`ARTIFACT_JOB`), and nothing compares the constant
+  to the YAML — its unit test pins a literal — so renaming `desktop-package-tag` alone 404s the next
+  Release's download with every gate green].
+```
+
+★★★ An earlier draft of this step said a rename "404s the download on every PAST Release". That half is not established and was dropped: a past Release's link names the job inside ITS OWN tag's pipeline, which a later rename does not touch, and the web form resolves against "the latest successful pipeline" for the ref. What IS established is the half the text keeps — `release-publish-lib.test.mjs` asserts `ARTIFACT_JOB` against the literal `"desktop-package-tag"` and reads no YAML (`grep -rn "gitlab-ci" scripts/release-publish-lib.test.mjs scripts/publish-release.integration.test.mjs` returns nothing), so a rename on one side only is caught by nothing. ★ `ARTIFACT_JOB`'s own docstring in `scripts/release-publish-lib.mjs` still says "past ones included"; that file is outside this task and is reported, not edited.
+
+4. The `quality-gate-bypass` sentence lists "EVERY other quality-stage job"; `tag-version-check` is a quality-stage job with no bypass label, so it joins the list. Replace
+
+```text
+  `doc-claims-check`, `followups-status-check`, `followups-index-check`, `unit-tests`,
+```
+
+with
+
+```text
+  `doc-claims-check`, `followups-status-check`, `followups-index-check`, `tag-version-check`, `unit-tests`,
+```
+
+Reproduce: the quality stage holds 16 jobs (parse `.gitlab-ci.yml` with the repo's `js-yaml` and group by `stage`), and `grep -n quality-gate-bypass .gitlab-ci.yml` still returns five lines in three jobs — so the list is 16 − 3 = 13 names.
+
+★ Keep it short. That file regrew 111% in fifteen days once; a bullet past ~60 lines of subsystem detail belongs in `docs/AGENTS/`. Measured: Step 1 grows `AGENTS.md` from 176,997 to 178,530 bytes (`wc -c`).
+
+- [ ] **Step 2: Run the gates that read this file**
+
+```bash
+npm run docs:symbols:check > "$SP/t9-symbols.log" 2>&1; echo "SYMBOLS_EXIT=$?"; tail -1 "$SP/t9-symbols.log"
+npm run docs:claims:check > "$SP/t9-claims.log" 2>&1; echo "CLAIMS_EXIT=$?"; tail -1 "$SP/t9-claims.log"
+```
+
+Measured 2026-09-11 after Step 1:
+
+```text
+SYMBOLS_EXIT=0
+13 doc(s): 1649 named symbols all resolve (against 49491 identifiers in src/scripts/e2e)
+CLAIMS_EXIT=0
+doc-claims ratchet ok — 490 line citations across 11 docs, none added (1 unresolvable + 2 out-of-range grandfathered; 9 third-party, not repo debt)
+```
+
+The totals are a moment's, not a property — read the EXIT lines. A symbols failure names the backticked symbol it could not resolve — fix the name, never the allowlist.
 
 - [ ] **Step 3: Commit**
 
-```bash
-git add AGENTS.md
-git commit --only AGENTS.md -F - <<'EOF'
-docs(agents): enumerate the tag guard, the split packaging jobs and the release job
+`AGENTS.md` and `docs/superpowers/plans/` are both `text eol=lf`; check `git ls-files --eol AGENTS.md` reads `i/lf w/lf` before committing.
 
-That bullet ends with "New CI gate -> also update this line", and five jobs
-changed or arrived. Records the two-exit-code split on tag-version-check, that
-desktop-package-tag is blocking where desktop-package is not, and that the
-producing job's name is embedded in every published download URL with nothing
-checking it.
+```bash
+git commit -F "$SP/t9-msg-a.txt" -- AGENTS.md docs/superpowers/plans/2026-09-10-release-publishing.md
+```
+
+with `$SP/t9-msg-a.txt` holding exactly:
+
+```text
+docs(agents): enumerate the tag-pipeline jobs and the release stage
+
+The CI bullet ends with "New CI gate -> also update this line", and none of
+tag-version-check, desktop-package, desktop-package-tag or publish-release was
+in it. Records the tag guard's two-exit-code split, that desktop-package-tag
+blocks where desktop-package does not, that publish-release has no needs: on
+purpose, and that nothing compares the job name embedded in every asset URL
+to the YAML. Adds the clause publish-release depends on to the dast-zap
+sentence, and tag-version-check to the quality-stage jobs with no bypass label.
+
+The plan's draft said a rename 404s every PAST Release; that half is not
+established and was dropped, and the plan now says why.
 
 Claude-Session: https://[session link removed]
-EOF
 ```
 
 ---
