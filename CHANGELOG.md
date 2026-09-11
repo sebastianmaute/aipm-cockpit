@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.303.0] - 2026-09-11 "Jeter"
+## [0.303.0] - 2026-09-11 "Christie"
 
 ### Added
 
