@@ -63,9 +63,9 @@ Reproduce: `du -sm desktop/release/*` and `ls -l desktop/release/*.exe desktop/r
 | `scripts/tag-version-lib.mjs` (new) | PURE. `classifyTag(tag, appVersion)` → `match` / `drift` / `unscannable`. No I/O, no `process.exit`, no shebang. |
 | `scripts/tag-version-lib.test.mjs` (new) | Unit tests for the above, including the mismatch case the spec demands. |
 | `scripts/check-tag-version.mjs` (new) | CLI. Reads `src/app/version.ts` via `version-sync-lib.mjs`, reads `CI_COMMIT_TAG`, owns the exit codes. Shebang. |
-| `scripts/release-publish-lib.mjs` (new) | PURE. `buildAssetUrl(env)` and `buildReleasePayload(env)`. No fetch, no I/O, no shebang. |
-| `scripts/release-publish-lib.test.mjs` (new) | Unit tests, including that the token never appears in the payload. |
-| `scripts/publish-release.mjs` (new) | CLI. Does the one `fetch`, supports `--dry-run`. Shebang. |
+| `scripts/release-publish-lib.mjs` (new) | PURE. `buildAssetUrl(env, version)` and `buildReleasePayload(env, version, milestone)` (Task 5); `expectedFromPayload`, `classifyCreateResponse` and `classifyExistingRelease`, which decide every exit code the CLI can return (Task 6). No fetch, no I/O, no shebang. |
+| `scripts/release-publish-lib.test.mjs` (new) | Unit tests, including that the token never appears in the payload, and every classifier branch and boundary. |
+| `scripts/publish-release.mjs` (new) | CLI. Does the POST — and, after a 409, one GET — with `redirect: "manual"` and a 30 s timeout; maps the lib's verdicts to exit codes; supports `--dry-run`. Shebang. |
 | `package.json` | Two scripts (`tag:check`, `release:publish`) **and** their `scriptsDescriptions` entries. |
 | `CONTRIBUTING.md` | Regenerated script table (`npm run docs:scripts`). |
 | `.gitlab-ci.yml` | `release` stage; `tag-version-check` job; `.desktop-package` hidden base + `desktop-package` + `desktop-package-tag`; `publish-release` job. |
@@ -1309,7 +1309,7 @@ npx vitest run scripts/release-publish-lib.test.mjs > "$SP/b-t5b.log" 2>&1; echo
 grep -E "Test Files|Tests " "$SP/b-t5b.log"
 ```
 
-Expected: EXIT=0, `Test Files 1 passed (1)`, `Tests 16 passed (16)` — 6 `buildAssetUrl` cases, 2 `installerName` cases, 8 `buildReleasePayload` cases. ★★★ THAT COUNT IS POST-REVIEW, NOT THE INITIAL CUT — a Task 5 review round added a `describe("installerName")` block (fail-closed semver validation) plus five `buildReleasePayload`/`buildAssetUrl` cases (link_type pinned to `"package"`, real description content, a real CHANGELOG.md markdown link, a whitespace-only-tag case, and a Proxy-based test proving the lib never READS an env key outside `CI_PROJECT_URL`/`CI_COMMIT_TAG`, not merely that it never serialises one). The original cut was 8 (four `buildAssetUrl` + four `buildReleasePayload`). ★ Count the `it(` blocks in the file rather than trusting this number; a count in prose is the cheapest thing to check and the easiest to leave rotting.
+Expected: EXIT=0, `Test Files 1 passed (1)`, `Tests 16 passed (16)` — 6 `buildAssetUrl` cases, 2 `installerName` cases, 8 `buildReleasePayload` cases. ★★★ THAT COUNT IS POST-REVIEW, NOT THE INITIAL CUT — a Task 5 review round added a `describe("installerName")` block (fail-closed semver validation) plus five `buildReleasePayload`/`buildAssetUrl` cases (link_type pinned to `"package"`, real description content, a real CHANGELOG.md markdown link, a whitespace-only-tag case, and a Proxy-based test proving the lib never READS an env key outside `CI_PROJECT_URL`/`CI_COMMIT_TAG`, not merely that it never serialises one). The original cut was 8 (four `buildAssetUrl` + four `buildReleasePayload`). ★ Count the `it(` blocks in the file rather than trusting this number; a count in prose is the cheapest thing to check and the easiest to leave rotting. ★★ 16 is the count AT THIS TASK'S COMMIT. Task 6 grows the same file to 97 and replaces this block's header comment and `required()`, and from then on `grep -c "  it("` undercounts — Task 6 Step 4 says why and what to use instead.
 
 - [ ] **Step 5: Commit**
 
@@ -1342,13 +1342,628 @@ EOF
 ## Task 6: The publish CLI
 
 **Files:**
+- Modify: `scripts/release-publish-lib.mjs` (the two response classifiers, `expectedFromPayload`, and one shared emptiness rule)
+- Modify: `scripts/release-publish-lib.test.mjs`
 - Create: `scripts/publish-release.mjs`
 - Modify: `package.json` (`scripts` + `scriptsDescriptions`)
 - Regenerate: `CONTRIBUTING.md`
 
 ★ No `release-cli` image and no `curl`. The spec rejects the `release:` keyword because it drags in another image, and this pipeline already carries one unverified image dependency. Node 24 has global `fetch`, and `node:24-bookworm-slim` is already the default image.
 
-- [ ] **Step 1: Write the CLI**
+★★★ **THIS SECTION IS THE POST-REVIEW STATE, AND EVERY CODE BLOCK IN IT IS BYTE-IDENTICAL TO THE COMMITTED FILES.** The first cut of this task was one inline CLI whose success path was the fall-through. A pre-implementation review ran it VERBATIM in a sandbox against a local fake API with a canary token, and measured:
+
+1. **CRITICAL — `res.ok` accepted any 2xx.** A 200 HTML page exited 0 "created release"; a POST answered 302 was followed by fetch as a GET, got `200 []`, and ALSO exited 0 "created". The fake server logged both requests.
+2. **CRITICAL — 409 was a plain refusal.** GitLab answers `error(_('Release already exists'), 409)` (`app/services/releases/create_service.rb`). A create that succeeds but whose response is lost (timeout, reset) then makes every retry 409 and fail forever, while the asset URL — which resolves only through a SUCCESSFUL pipeline — stays dead.
+3. Structural failures exited 1, the refusal code: a renamed lib export is a static-import SyntaxError, and `fetch failed` an uncaught TypeError.
+4. No timeout.
+5. A typo'd `--dryrun` reached `fetch` and sent a real POST.
+6. `--dry-run` exited 0 with `CI_API_V4_URL` and `CI_PROJECT_ID` unset.
+7. The response handling was inline and untested — the same lesson as Task 3's `describeVerdict`.
+
+A cold review of the first classifier cut then found four more, each reproduced against a verbatim copy of that cut before it was fixed: `classifyExistingRelease` read ANY JSON object on a 200 as the Release (`200 []` and `200 {}` → code 1, "delete that Release"; another tag's Release carrying our link → code 0); `expected` was never validated (`C(201, {assets:{links:[{}]}}, {})` → "created", because `undefined === undefined` on both comparisons, and `expected = undefined` threw); 408 and 429 were refusals (code 1); and a string `"201"` coerced through the range checks and read "HTTP 201 is not 201 Created".
+
+**The exit-code contract** (the CLI's header carries the same text):
+
+- **0** — a 201 whose body echoes this tag AND this asset link; or a 409 whose existing Release already carries this link (an earlier create landed and only its response was lost); or `--dry-run`.
+- **1** — the API REFUSED: a 4xx other than 408, 409 and 429, or a 409 whose existing Release for this tag lacks this link. A human has to act.
+- **2** — everything else, all safe to retry: missing env, an unknown argument, a network failure, the 30 s timeout, 408 and 429, a 5xx, a redirect, a 2xx that does not confirm, a GET after a 409 that cannot be read, a structural failure.
+
+★★ **408 and 429 are 2 BY DECISION.** A request timeout or a rate limit says nothing about whether this Release may be created, and a retry is safe BECAUSE of the 409 path: if the timed-out create did land, the retry answers 409 and the GET confirms it.
+
+- [ ] **Step 1: Write the failing classifier tests**
+
+In `scripts/release-publish-lib.test.mjs`, widen the import to:
+
+```js
+import { describe, expect, it } from "vitest";
+import {
+  ARTIFACT_JOB,
+  buildAssetUrl,
+  buildReleasePayload,
+  classifyCreateResponse,
+  classifyExistingRelease,
+  expectedFromPayload,
+  installerName,
+} from "./release-publish-lib.mjs";
+```
+
+and append:
+
+```js
+// The (status, json) shapes publish-release.mjs classifies. EXPECTED is what
+// expectedFromPayload() returns for ENV's payload -- the first
+// expectedFromPayload test pins that, so these literals cannot drift from the
+// real builder.
+const EXPECTED = {
+  tagName: "v0.301.0",
+  assetUrl:
+    "https://gitlab.example.com/group/aipm-cockpit/-/jobs/artifacts/v0.301.0/raw/desktop/release/aipm-cockpit-0.301.0-setup.exe?job=desktop-package-tag",
+};
+const OTHER_URL = "https://example.com/other-file.exe";
+const OUR_LINK = () => ({ url: EXPECTED.assetUrl });
+const withLinks = (...links) => ({ tag_name: EXPECTED.tagName, assets: { links } });
+const withOurLink = () => withLinks(OUR_LINK());
+
+// Every non-success message is a real sentence with a known prefix, never ""
+// -- a blank message reaches the job log as a bare "[release:publish] " line.
+const CANNOT_CONFIRM = /^CANNOT CONFIRM: \S/;
+const REFUSED = /^API refused: HTTP 4\d\d/;
+
+// Each row is an `expected` the classifiers must refuse, paired with the body
+// that would VACUOUSLY confirm it if they did not -- `undefined === undefined`
+// on both comparisons once made `C(201, {assets:{links:[{}]}}, {})` "created".
+const BAD_EXPECTED = [
+  ["undefined", undefined, { assets: { links: [{}] } }],
+  ["null", null, { assets: { links: [{}] } }],
+  ["{}", {}, { assets: { links: [{}] } }],
+  ["a string", "v0.301.0", { assets: { links: [{}] } }],
+  ["tagName only", { tagName: EXPECTED.tagName }, withLinks({})],
+  ["assetUrl only", { assetUrl: EXPECTED.assetUrl }, { assets: { links: [OUR_LINK()] } }],
+  ["whitespace values", { tagName: "  ", assetUrl: "  " }, { tag_name: "  ", assets: { links: [{ url: "  " }] } }],
+];
+
+describe("expectedFromPayload", () => {
+  it("reads the tag and the one asset URL out of the payload being sent", () => {
+    const p = buildReleasePayload(ENV, "0.301.0", "Arnason");
+    expect(expectedFromPayload(p)).toEqual(EXPECTED);
+    expect(EXPECTED.assetUrl).toBe(buildAssetUrl(ENV, "0.301.0"));
+  });
+
+  // The round trip the CLI makes: the server echoing our own payload back
+  // is the one body that must confirm.
+  it("confirms the payload's own echo as created", () => {
+    const p = buildReleasePayload(ENV, "0.301.0", "Arnason");
+    expect(classifyCreateResponse(201, p, expectedFromPayload(p))).toEqual({ kind: "created" });
+  });
+
+  it("refuses a payload with no usable tag_name", () => {
+    expect(() => expectedFromPayload({ assets: { links: [OUR_LINK()] } })).toThrow(/tag_name is missing/);
+    expect(() => expectedFromPayload({ tag_name: "  ", assets: { links: [OUR_LINK()] } })).toThrow(/tag_name/);
+  });
+
+  it("refuses a payload whose one link has no usable url", () => {
+    expect(() => expectedFromPayload(withLinks({}))).toThrow(/assets\.links\[0\]\.url is missing/);
+    expect(() => expectedFromPayload(withLinks(null))).toThrow(/assets\.links\[0\]\.url/);
+  });
+
+  // The classifiers confirm ONE url; taking the first of several would
+  // report a Release with some of its links missing as done.
+  it("refuses a payload with zero asset links, or more than one", () => {
+    expect(() => expectedFromPayload(withLinks())).toThrow(/exactly one asset link \(found 0\)/);
+    expect(() => expectedFromPayload(withLinks(OUR_LINK(), { url: OTHER_URL }))).toThrow(/exactly one asset link \(found 2\)/);
+    expect(() => expectedFromPayload({ tag_name: EXPECTED.tagName })).toThrow(/exactly one asset link \(found none\)/);
+    expect(() => expectedFromPayload(undefined)).toThrow(/exactly one asset link/);
+  });
+});
+
+describe("classifyCreateResponse", () => {
+  // ★★★ THE CRITICAL DEFECT THIS CLASSIFIER EXISTS TO CLOSE. The plan's
+  // original inline code accepted res.ok (any 2xx) as success; a fake-API
+  // sandbox run measured a 200 HTML proxy page AND a POST answered 302 that
+  // fetch silently re-followed as a GET (200 []) both exiting 0 "created".
+  it("confirms creation ONLY on 201 with a matching tag and our asset link", () => {
+    expect(classifyCreateResponse(201, withOurLink(), EXPECTED)).toEqual({ kind: "created" });
+  });
+
+  it("finds our link when it is not the first entry, past a null one", () => {
+    expect(classifyCreateResponse(201, withLinks(null, { url: OTHER_URL }, OUR_LINK()), EXPECTED)).toEqual({
+      kind: "created",
+    });
+  });
+
+  it.each([
+    ["another tag's body", { tag_name: "v0.999.0", assets: { links: [OUR_LINK()] } }],
+    ["no tag_name", { assets: { links: [OUR_LINK()] } }],
+    ["an empty link list", withLinks()],
+    ["only another link", withLinks({ url: OTHER_URL })],
+    ["a link with no url", withLinks({})],
+    ["a link list that is not an array", { tag_name: EXPECTED.tagName, assets: { links: OUR_LINK() } }],
+    ["no assets at all", { tag_name: EXPECTED.tagName }],
+    ["a null body (unparsed)", null],
+    ["an undefined body", undefined],
+    ["an array body", []],
+  ])("refuses to confirm a 201 with %s, code 2", (_label, json) => {
+    const r = classifyCreateResponse(201, json, EXPECTED);
+    expect(r.kind).toBe("fail");
+    expect(r.code).toBe(2);
+    expect(r.message).toMatch(CANNOT_CONFIRM);
+    expect(r.message).toMatch(/201 but the body lacks/);
+  });
+
+  // GitLab's Releases::CreateService answers 409 "Release already exists"
+  // both for a real prior release AND for a create that actually SUCCEEDED
+  // whose response was lost to a timeout/reset -- 409 must route to a
+  // check, never a plain refusal that a retry would then fail FOREVER.
+  it("routes a 409 to check-existing, never a plain refusal", () => {
+    expect(classifyCreateResponse(409, { message: "Release already exists" }, EXPECTED)).toEqual({
+      kind: "check-existing",
+    });
+  });
+
+  // Every row sends OUR body, so the STATUS is the only thing that can make
+  // it anything but "created" -- a mutant widening the 201 check to a range
+  // turns the neighbouring rows into "created" and fails here.
+  it.each([
+    [0, 2, /unexpected HTTP status 0$/],
+    [Number.NaN, 2, /unexpected HTTP status NaN$/],
+    [100, 2, /unexpected HTTP status 100$/],
+    [199, 2, /unexpected HTTP status 199$/],
+    [200, 2, /HTTP 200 is not 201 Created/],
+    [204, 2, /HTTP 204 is not 201 Created/],
+    [299, 2, /HTTP 299 is not 201 Created/],
+    [300, 2, /HTTP 300 redirect/],
+    [302, 2, /HTTP 302 redirect/],
+    [399, 2, /HTTP 399 redirect/],
+    [400, 1, /^API refused: HTTP 400$/],
+    [403, 1, /^API refused: HTTP 403 /],
+    [404, 1, /^API refused: HTTP 404$/],
+    [408, 2, /HTTP 408 is transient/],
+    [429, 2, /HTTP 429 is transient/],
+    [499, 1, /^API refused: HTTP 499$/],
+    [500, 2, /HTTP 500 — the API, or a proxy in front of it, is erroring/],
+    [502, 2, /HTTP 502 — the API/],
+    [599, 2, /HTTP 599 — the API/],
+    [600, 2, /unexpected HTTP status 600$/],
+  ])("classifies HTTP %s as fail, code %s", (status, code, message) => {
+    const r = classifyCreateResponse(status, withOurLink(), EXPECTED);
+    expect(r.kind).toBe("fail");
+    expect(r.code).toBe(code);
+    expect(r.message).toMatch(code === 1 ? REFUSED : CANNOT_CONFIRM);
+    expect(r.message).toMatch(message);
+  });
+
+  it("names the Developer+ and protected-tag requirement on a 403", () => {
+    const { message } = classifyCreateResponse(403, {}, EXPECTED);
+    expect(message).toMatch(/Developer\+/);
+    expect(message).toMatch(/protected tags/);
+  });
+
+  it("gives no 403 advice on any other 4xx", () => {
+    for (const status of [400, 401, 404, 422, 499]) {
+      expect(classifyCreateResponse(status, {}, EXPECTED).message).not.toMatch(/Developer/);
+    }
+  });
+
+  // ★★ DECIDED: 408 and 429 are TRANSIENT, not refusals. Retrying is safe
+  // because of the 409 branch -- a create that did land answers 409 next
+  // time, and classifyExistingRelease confirms it.
+  it("treats 408 and 429 as transient and retry-safe, never the refusal code", () => {
+    for (const status of [408, 429]) {
+      const r = classifyCreateResponse(status, null, EXPECTED);
+      expect(r.code).toBe(2);
+      expect(r.message).toMatch(/safe to retry/);
+    }
+  });
+
+  // fetch always reports a number, so a string is a caller bug. A string
+  // "201" once coerced through the range checks and read "HTTP 201 is not
+  // 201 Created".
+  it.each([["201"], [undefined], [null]])("refuses a non-numeric status (%s), code 2", (status) => {
+    const r = classifyCreateResponse(status, withOurLink(), EXPECTED);
+    expect(r).toEqual({ kind: "fail", code: 2, message: expect.stringMatching(/non-numeric HTTP status/) });
+    expect(r.message).not.toMatch(/201 Created/);
+  });
+
+  it.each(BAD_EXPECTED)("refuses to classify without a usable expected (%s), even a 201 or a 409", (_label, expected, json) => {
+    for (const status of [201, 409]) {
+      const r = classifyCreateResponse(status, json, expected);
+      expect(r.kind).toBe("fail");
+      expect(r.code).toBe(2);
+      expect(r.message).toMatch(/no expected tagName and assetUrl/);
+    }
+  });
+});
+
+describe("classifyExistingRelease", () => {
+  it("confirms an existing Release for our tag that already carries our link, code 0", () => {
+    expect(classifyExistingRelease(200, withOurLink(), EXPECTED)).toEqual({
+      code: 0,
+      message: "release for v0.301.0 already exists with this asset link",
+    });
+  });
+
+  it("finds our link when it is not the first entry, past a null one", () => {
+    expect(classifyExistingRelease(200, withLinks(null, { url: OTHER_URL }, OUR_LINK()), EXPECTED).code).toBe(0);
+  });
+
+  it.each([
+    ["only another link", withLinks({ url: OTHER_URL })],
+    ["an empty link list", withLinks()],
+  ])("flags a real conflict, code 1, when our tag's Release has %s", (_label, json) => {
+    const r = classifyExistingRelease(200, json, EXPECTED);
+    expect(r.code).toBe(1);
+    expect(r.message).toMatch(/^a Release for v0\.301\.0 exists WITHOUT /);
+    expect(r.message).toMatch(/Release links API/);
+    expect(r.message).toMatch(/delete that Release/);
+  });
+
+  // "delete that Release" is advice to destroy something -- it may only be
+  // given about a body that IS our tag's Release, with a link list we read.
+  it.each([
+    ["null (unparsed)", null],
+    ["undefined", undefined],
+    ["a string", "x"],
+    ["an array", []],
+    ["an array carrying our tag and link", Object.assign([], withOurLink())],
+    ["{}", {}],
+    ["another tag's Release carrying our link", { tag_name: "v0.999.0", assets: { links: [OUR_LINK()] } }],
+    ["no tag_name", { assets: { links: [OUR_LINK()] } }],
+    ["our tag with no assets", { tag_name: EXPECTED.tagName }],
+    ["our tag with a link list that is not an array", { tag_name: EXPECTED.tagName, assets: { links: OUR_LINK() } }],
+  ])("cannot confirm, code 2, a 200 whose body is %s", (_label, json) => {
+    const r = classifyExistingRelease(200, json, EXPECTED);
+    expect(r.code).toBe(2);
+    expect(r.message).toMatch(CANNOT_CONFIRM);
+    expect(r.message).toMatch(/HTTP 200, but the body is not a Release for v0\.301\.0/);
+  });
+
+  // Every row sends OUR Release, so the status check alone is what makes it
+  // code 2 -- a mutant widening `=== 200` to a range or to `<= 200` fails a row.
+  it.each([[100], [199], [201], [204], [301], [404], [503]])(
+    "cannot confirm, code 2, when reading the Release returns HTTP %s",
+    (status) => {
+      const r = classifyExistingRelease(status, withOurLink(), EXPECTED);
+      expect(r.code).toBe(2);
+      expect(r.message).toMatch(CANNOT_CONFIRM);
+      expect(r.message).toMatch(new RegExp(`returned HTTP ${status}, not 200`));
+    },
+  );
+
+  it.each([["200"], [undefined]])("refuses a non-numeric status (%s), code 2", (status) => {
+    const r = classifyExistingRelease(status, withOurLink(), EXPECTED);
+    expect(r.code).toBe(2);
+    expect(r.message).toMatch(/non-numeric HTTP status/);
+  });
+
+  it.each(BAD_EXPECTED)("refuses to classify without a usable expected (%s)", (_label, expected, json) => {
+    const r = classifyExistingRelease(200, json, expected);
+    expect(r.code).toBe(2);
+    expect(r.message).toMatch(/no expected tagName and assetUrl/);
+  });
+});
+```
+
+★ Every status row sends OUR body, and every existing-release status row OUR Release, so the STATUS is the only thing that can fail the row — a mutant widening `=== 201` or `=== 200` to a range turns a neighbouring row "created" or code 0. Each `BAD_EXPECTED` row pairs an `expected` with the body that would VACUOUSLY confirm it, so the refusal is what is under test, not the body.
+
+- [ ] **Step 2: Run it and watch it fail**
+
+```bash
+npx vitest run scripts/release-publish-lib.test.mjs > "$SP/b-t6a.log" 2>&1; echo "EXIT=$?"
+grep -E "Test Files|Tests " "$SP/b-t6a.log"
+```
+
+Expected: EXIT=1 — Task 5's lib exports neither classifier nor `expectedFromPayload`.
+
+- [ ] **Step 3: Add the classifiers to the library**
+
+In `scripts/release-publish-lib.mjs`, replace the header comment with:
+
+```js
+// Pure construction of the GitLab Release payload and its asset URL, and pure
+// classification of the Releases API's answers to that payload.
+//
+// ★ NO SHEBANG — imported by a vitest spec (see tag-version-lib.mjs).
+// ★ NO fetch and NO process.exit here. publish-release.mjs owns both, so every
+//   decision in this file is testable without a network or a token.
+// ★★ NO CLASSIFIER MESSAGE EVER INCLUDES THE RESPONSE BODY — only the status
+//   and the tag and asset URL this run built. So redacting CI_JOB_TOKEN out of
+//   an echoed body belongs to the CLI, the one place a body is ever printed.
+```
+
+Replace `required()` with one shared emptiness rule and a `required()` that also takes a nullable object and a label — `expectedFromPayload` and the classifiers' check on `expected` both use it, so there is exactly one definition of "empty":
+
+```js
+/**
+ * The ONE emptiness rule, shared by required() and the classifiers' check on
+ * `expected`: a string with something other than whitespace in it.
+ */
+function isNonEmptyString(v) {
+  return typeof v === "string" && v.trim() !== "";
+}
+
+/**
+ * `obj[key]`, or a throw naming `label` when it is not a non-empty string.
+ * ★ `obj` may be null/undefined (a missing asset link) — that reads as a
+ * missing value, not a TypeError.
+ */
+function required(obj, key, label = key) {
+  const v = obj?.[key];
+  if (!isNonEmptyString(v)) {
+    // ★ Name only the missing variable, never a blanket claim about WHY it is
+    // missing — CI_PROJECT_URL is set on every pipeline (branch, MR, tag),
+    // not only a tag one, and the old wording ("this script runs only in a
+    // tag pipeline") was wrong on that path.
+    throw new Error(`${label} is missing or empty`);
+  }
+  return v;
+}
+```
+
+Append after `buildReleasePayload`:
+
+```js
+/**
+ * The `{ tagName, assetUrl }` the two classifiers below confirm against,
+ * read out of the payload this run is about to send.
+ *
+ * ★★ The CLI takes `expected` from HERE and never assembles it by hand: the
+ * point of confirming a 201 is that the server echoed back what we SENT, so
+ * both values must come from the sent payload itself. Built via required(),
+ * so a payload missing either value throws here rather than handing the
+ * classifiers an `expected` they would refuse anyway.
+ *
+ * ★ Exactly ONE asset link, or it throws. The classifiers confirm one URL;
+ * confirming only the first of several would report a Release with some of
+ * its links missing as done.
+ */
+export function expectedFromPayload(payload) {
+  const links = payload?.assets?.links;
+  if (!Array.isArray(links) || links.length !== 1) {
+    throw new Error(`payload must carry exactly one asset link (found ${Array.isArray(links) ? links.length : "none"})`);
+  }
+  return {
+    tagName: required(payload, "tag_name"),
+    assetUrl: required(links[0], "url", "assets.links[0].url"),
+  };
+}
+
+/**
+ * Does `expected` name BOTH values? Without it there is nothing to confirm
+ * against: `expected = {}` once made a 201 whose link had no `url` read as
+ * "created", because `undefined === undefined` on both comparisons.
+ */
+function hasExpected(expected) {
+  return isNonEmptyString(expected?.tagName) && isNonEmptyString(expected?.assetUrl);
+}
+
+const NO_EXPECTED =
+  "CANNOT CONFIRM: no expected tagName and assetUrl to check the response against — a caller bug (build it with expectedFromPayload), not an answer from the API";
+
+/**
+ * ★ Names the status's TYPE, never its value: a non-number here is a caller
+ * bug (fetch always reports a number), and echoing an arbitrary value would
+ * break the no-body-in-a-message rule in this file's header.
+ */
+function nonNumericStatus(status) {
+  return `CANNOT CONFIRM: a non-numeric HTTP status (${typeof status}) — fetch always reports a number, so this is a caller bug`;
+}
+
+/** A JSON object — not null, not an array. */
+function isPlainObject(v) {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+/**
+ * Does a Release response body carry the exact asset link we expect?
+ *
+ * ★ Compares the FULL url string, never a substring or a name match — a
+ * link pointing at a stale job id or a differently-cased path is not "the
+ * same" link even if it looks close.
+ */
+function hasOurLink(json, expected) {
+  return Array.isArray(json?.assets?.links) && json.assets.links.some((l) => l && l.url === expected.assetUrl);
+}
+
+/**
+ * Classify the response to the CREATE `POST .../releases` call.
+ *
+ * `expected = { tagName, assetUrl }`, from expectedFromPayload() — the tag
+ * and asset link this run is SENDING, so the classifier confirms the server
+ * echoed back what we actually asked for, never merely that it returned *a*
+ * 201. An `expected` missing either value is refused (fail, code 2) before
+ * the status is even read.
+ *
+ * Returns:
+ *  - `{ kind: "created" }` — 201, and the body's tag_name and asset link
+ *    both match what we sent.
+ *  - `{ kind: "check-existing" }` — 409. GitLab's Releases::CreateService
+ *    answers 409 when a Release for this tag already exists
+ *    (app/services/releases/create_service.rb:
+ *    `error(_('Release already exists'), 409)`). That can mean a real prior
+ *    release, OR a create that actually SUCCEEDED whose response was lost to
+ *    a timeout/reset — the caller must GET the existing Release and pass it
+ *    to classifyExistingRelease() to tell those apart. Treating 409 as a
+ *    plain refusal makes every retry fail FOREVER once that happens, while
+ *    the asset URL this run built never gets attached to anything.
+ *  - `{ kind: "fail", code: 1, message }` — a 4xx refusal other than 408,
+ *    409 and 429: final, and a human has to act (a 403 says what on).
+ *  - `{ kind: "fail", code: 2, message }` — everything else, all of it safe
+ *    to retry: any other 2xx (a proxy or an unauthenticated endpoint
+ *    answering 200 with an unrelated body is NOT a created release), a
+ *    redirect (3xx — the caller must use `redirect: "manual"` so fetch never
+ *    follows one into a GET on our behalf), 408 and 429, a 5xx, an
+ *    unexpected status (0, NaN, 1xx, 600+), and a non-numeric one.
+ *
+ * ★★ 408 AND 429 ARE TRANSIENT, SO CODE 2, NOT THE REFUSAL CODE 1. A request
+ * timeout or a rate limit says nothing about whether this Release may be
+ * created, and a retry is safe BECAUSE of the 409 branch: if the timed-out
+ * create did land, the retry answers 409 and classifyExistingRelease()
+ * confirms it.
+ *
+ * ★★★ NOTHING BUT THE 201-AND-CONFIRMED BRANCH MAY RETURN "created". A
+ * classifier whose success path is "any 2xx" or a bare `res.ok` is the
+ * CRITICAL defect a pre-implementation review measured against the plan's
+ * original inline code, run verbatim in a sandbox against a fake API: a 200
+ * HTML proxy page exited 0 "created release", and a POST answered 302 was
+ * silently re-followed by fetch as a GET (200 []) and ALSO exited 0
+ * "created" — the fake server logged both requests.
+ */
+export function classifyCreateResponse(status, json, expected) {
+  if (!hasExpected(expected)) {
+    return { kind: "fail", code: 2, message: NO_EXPECTED };
+  }
+  // ★ Before ANY range comparison: a string "201" coerces through >= and <,
+  // and used to land in the 2xx branch reading "HTTP 201 is not 201 Created".
+  if (typeof status !== "number") {
+    return { kind: "fail", code: 2, message: nonNumericStatus(status) };
+  }
+  if (status === 201) {
+    if (json?.tag_name === expected.tagName && hasOurLink(json, expected)) {
+      return { kind: "created" };
+    }
+    return {
+      kind: "fail",
+      code: 2,
+      message: `CANNOT CONFIRM: 201 but the body lacks tag_name=${expected.tagName} and/or the asset link ${expected.assetUrl}`,
+    };
+  }
+  if (status >= 200 && status < 300) {
+    return {
+      kind: "fail",
+      code: 2,
+      message: `CANNOT CONFIRM: HTTP ${status} is not 201 Created — a 2xx from a proxy or an unrelated endpoint is not a created Release`,
+    };
+  }
+  if (status >= 300 && status < 400) {
+    return {
+      kind: "fail",
+      code: 2,
+      message: `CANNOT CONFIRM: HTTP ${status} redirect — CI_API_V4_URL is not canonical, and a followed redirect would turn the POST into a GET`,
+    };
+  }
+  if (status === 409) {
+    return { kind: "check-existing" };
+  }
+  if (status === 408 || status === 429) {
+    return {
+      kind: "fail",
+      code: 2,
+      message: `CANNOT CONFIRM: HTTP ${status} is transient (a request timeout or a rate limit) — safe to retry, since a create that did land answers 409 next time`,
+    };
+  }
+  if (status >= 400 && status < 500) {
+    return {
+      kind: "fail",
+      code: 1,
+      message: `API refused: HTTP ${status}${status === 403 ? " (the tag pusher needs Developer+, and the right to create protected tags)" : ""}`,
+    };
+  }
+  if (status >= 500 && status < 600) {
+    return {
+      kind: "fail",
+      code: 2,
+      message: `CANNOT CONFIRM: HTTP ${status} — the API, or a proxy in front of it, is erroring; safe to retry`,
+    };
+  }
+  // 0, NaN, 1xx, 600+ — never a refusal (code 1) and never a success.
+  return {
+    kind: "fail",
+    code: 2,
+    message: `CANNOT CONFIRM: unexpected HTTP status ${status}`,
+  };
+}
+
+/**
+ * Classify the GET on a Release that already exists, made after a 409 from
+ * the create POST.
+ *
+ * `expected = { tagName, assetUrl }`, from expectedFromPayload(), the same
+ * value classifyCreateResponse takes.
+ *
+ * Returns `{ code: 0 | 1 | 2, message }`:
+ *  - 0 — 200, the body is a Release for OUR tag, and it already carries our
+ *    asset link: the earlier create actually succeeded and only its response
+ *    was lost — safe to treat this run as done.
+ *  - 1 — 200 and a Release for our tag whose asset link list we could READ,
+ *    and our link is not in it: a real conflict a human must resolve (add
+ *    the link via the Release links API, or delete that Release and retry).
+ *  - 2 — anything else. Never guess which of the two outcomes above is true:
+ *    a missing `expected`, a non-200 or non-numeric status (404/5xx — the
+ *    existing Release could not even be read), or a 200 whose body is not a
+ *    JSON object naming our tag with an `assets.links` array (unparsed, an
+ *    array, `{}`, another tag's Release, no link list). A 200 `[]` once read
+ *    as code 1, "delete that Release" — advice to destroy something nobody
+ *    had identified.
+ */
+export function classifyExistingRelease(status, json, expected) {
+  if (!hasExpected(expected)) {
+    return { code: 2, message: NO_EXPECTED };
+  }
+  if (typeof status !== "number") {
+    return { code: 2, message: nonNumericStatus(status) };
+  }
+  if (status !== 200) {
+    return {
+      code: 2,
+      message: `CANNOT CONFIRM: reading the existing Release for ${expected.tagName} returned HTTP ${status}, not 200 — cannot tell whether it carries ${expected.assetUrl}`,
+    };
+  }
+  if (!isPlainObject(json) || json.tag_name !== expected.tagName || !Array.isArray(json.assets?.links)) {
+    return {
+      code: 2,
+      message: `CANNOT CONFIRM: HTTP 200, but the body is not a Release for ${expected.tagName} with a readable asset link list — cannot tell whether it carries ${expected.assetUrl}`,
+    };
+  }
+  if (hasOurLink(json, expected)) {
+    return { code: 0, message: `release for ${expected.tagName} already exists with this asset link` };
+  }
+  return {
+    code: 1,
+    message: `a Release for ${expected.tagName} exists WITHOUT ${expected.assetUrl} — add the link (Release links API) or delete that Release, then retry`,
+  };
+}
+```
+
+- [ ] **Step 4: Run it and watch it pass**
+
+```bash
+npx vitest run scripts/release-publish-lib.test.mjs > "$SP/b-t6b.log" 2>&1; echo "EXIT=$?"
+grep -E "Test Files|Tests " "$SP/b-t6b.log"
+npx vitest list scripts/release-publish-lib.test.mjs > "$SP/b-t6-list.log" 2>&1
+grep -c "^scripts/release-publish-lib.test.mjs >" "$SP/b-t6-list.log"
+```
+
+Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  97 passed (97)`, and the anchored `grep -c` prints `97`. ★★ **`grep -c "  it("` CANNOT DERIVE THIS COUNT ANY MORE** — it prints 29, because every `it.each` row is its own test at runtime. `vitest list` enumerates what actually runs; the `^` anchor is load-bearing, since npm echoes its own `npm notice run vitest list scripts/release-publish-lib.test.mjs` line into the log and the unanchored grep prints 98.
+
+- [ ] **Step 5: Mutation-test the classifiers**
+
+One mutant at a time, never two vitest processes at once: an anchored replace whose anchor AND replacement are each asserted unique, a run of ONLY this test file, the per-case failures recorded, then the inverse anchored replace and a hash check that the file is byte-identical to its pre-mutant state. Measured on the committed code — 65 mutants, 62 killed, 3 surviving, all 3 equivalent:
+
+| Mutants | Result |
+|---|---|
+| `hasExpected`: `&&` → OR, body → `true`; `isNonEmptyString` without `trim`, without `typeof` | KILLED by the `BAD_EXPECTED` rows (and `trim` also by Task 5's whitespace-tag test, which is the shared rule working) |
+| the non-numeric guard removed, in either classifier | KILLED by the non-numeric rows |
+| `status === 201` → any 2xx | KILLED by the 200 / 204 / 299 rows |
+| 201 body: the tag check dropped; the link check dropped | KILLED by the 201-refusal table |
+| every range edge — 2xx `>= 200` → `> 200` / `>= 199`, `< 300` → `<= 300`; 3xx `>= 300` → `> 300`, `< 400` → `< 399` / `<= 400`; 4xx `>= 400` → `> 400`, `< 500` → `< 499`; 5xx `>= 500` → `> 500`, `< 600` → `<= 600` | KILLED, each by exactly ONE boundary row (200, 199, 300, 300, 399, 400, 400, 499, 500, 600) |
+| the 409 branch removed; the 408/429 branch removed; 429 dropped from it | KILLED |
+| 4xx code 1 → 2; the 403 advice on every 4xx; the 403 advice removed | KILLED |
+| the unexpected-status fallback → `"created"` | KILLED by the 0 / NaN / 100 / 199 / 600 rows |
+| each of the ten messages → `""` | KILLED by the prefix and text regexes |
+| `hasOurLink`: `Array.isArray` → `true`; `l && l.url` → `l.url`; `some` → `every` | KILLED |
+| existing `!== 200` → any 2xx; → `> 200` | KILLED by the 201 / 204 and the 100 / 199 rows, each sending OUR Release |
+| `isPlainObject`: each conjunct → `true`; the call dropped | KILLED by the undefined / null / array-carrying-our-tag rows |
+| existing: tag check dropped; link-list check dropped; code 0 → 1; code 1 → 2; link check → `true` | KILLED |
+| `expectedFromPayload`: `!== 1` → `< 1`; `Array.isArray` dropped; tag or url read without `required()`; `obj?.[key]` → `obj[key]`; `label` → `key`; `"none"` → `0` | KILLED |
+| the missing-`expected` and non-numeric verdicts' codes changed | KILLED |
+| `json?.` → `json.` at the 201 check; `assets?.` → `assets.` in the existing check | KILLED |
+| **`status === 201` → `==`** | SURVIVED — EQUIVALENT. The non-numeric guard returns first, so `status` is a number here, and `==` between two numbers is `===`. |
+| **`status !== 200` → `!=`** | SURVIVED — EQUIVALENT, by the same guard in `classifyExistingRelease`. |
+| **`hasOurLink`'s `json?.` → `json.`** | SURVIVED — EQUIVALENT. Both callers establish a non-nullish `json` first: the create path only reaches it after `json?.tag_name === expected.tagName` holds for a non-empty `tagName`, and the existing path only after `isPlainObject(json)`. |
+
+★★ A surviving mutant is a QUESTION, not a verdict. Each of the three above was run, not assumed, and each is equivalent for a reason that names the guard that makes it so — delete that guard and the mutant stops being equivalent.
+
+- [ ] **Step 6: Write the CLI**
 
 Create `scripts/publish-release.mjs`:
 
@@ -1356,154 +1971,313 @@ Create `scripts/publish-release.mjs`:
 #!/usr/bin/env node
 // Create the GitLab Release for the current tag and attach the installer link.
 //
-// EXIT CODES:
-//   0  created (or --dry-run printed the payload)
-//   1  the API refused
-//   2  could not even try (missing env, or version.ts's shape moved)
+// EXIT CODES — 0 means a CONFIRMED Release, and nothing else does:
+//   0  a 201 whose body echoes this tag AND this asset link; or a 409 whose
+//      existing Release already carries this link (an earlier create landed
+//      and only its response was lost); or --dry-run printed the payload
+//   1  the API REFUSED: a 4xx other than 408, 409 and 429, or a 409 whose
+//      existing Release for this tag lacks this link. A human has to act; a
+//      retry fails the same way.
+//   2  everything else, all of it safe to retry: missing env, an unknown
+//      argument, a network failure, the 30 s timeout, a 5xx, a 408 or 429
+//      (transient, not a refusal), a redirect, a 2xx that does not confirm, a
+//      GET after a 409 that cannot be read, and any structural failure (a
+//      moved version.ts shape, a renamed lib export).
 //
-// ★ --dry-run makes every decision locally and prints the payload WITHOUT a
-//   network call or a token, so the shape can be reviewed before a real tag
-//   exists. Use it in Task 10; it is the only part of this job runnable locally.
+// ★★ A retry on 2 is safe BECAUSE of the 409 path: if a create landed and
+//   only its response was lost, the retry answers 409 and the GET confirms it.
+// ★★★ EVERY decision about a response is made by the pure classifiers in
+//   release-publish-lib.mjs, which are unit- and mutation-tested, against an
+//   `expected` taken from the payload by expectedFromPayload(). This file only
+//   fetches, redacts, prints, and maps a verdict to an exit code.
+// ★★ `redirect: "manual"` on BOTH requests. A followed redirect turns the POST
+//   into a GET, and that GET's 200 once read as "created".
+// ★★ No classifier message contains a response body. This file is the one
+//   place a body is printed, so it redacts CI_JOB_TOKEN out of every body
+//   excerpt — BEFORE truncating it, so a token straddling the cut cannot leak
+//   a prefix — and out of the caught error. It never prints its own headers.
+// ★ --dry-run validates CI_API_V4_URL and CI_PROJECT_ID exactly as a real run
+//   does, builds and prints the payload, and says only whether a token is
+//   PRESENT. It makes no network call, and it is the only part runnable
+//   locally. Any other argument exits 2: a typo'd `--dryrun` used to send a
+//   real POST.
+// ★ Both libraries are imported dynamically, inside the one try, so a renamed
+//   export or a moved version.ts shape exits 2 with a clean message instead
+//   of Node's default exit 1, which here is the REFUSAL code.
 import { readFileSync } from "node:fs";
-import { SOURCE_FILE, readSourceFrom } from "./version-sync-lib.mjs";
-import { buildReleasePayload } from "./release-publish-lib.mjs";
 
-const dryRun = process.argv.includes("--dry-run");
+const TIMEOUT_MS = 30_000;
+const BODY_EXCERPT_CHARS = 2000;
 
-let version;
-let milestone;
-try {
-  ({ version, milestone } = readSourceFrom(readFileSync(SOURCE_FILE, "utf8")));
-} catch (err) {
-  console.error(`[release:publish] cannot read ${SOURCE_FILE}: ${err.message}`);
-  process.exit(2);
-}
-
-let payload;
-try {
-  payload = buildReleasePayload(process.env, version, milestone);
-} catch (err) {
-  console.error(`[release:publish] CANNOT PUBLISH: ${err.message}`);
-  process.exit(2);
-}
-
-if (dryRun) {
-  console.log("[release:publish] --dry-run, nothing sent. Payload:");
-  console.log(JSON.stringify(payload, null, 2));
-  process.exit(0);
-}
-
-const api = process.env.CI_API_V4_URL;
-const projectId = process.env.CI_PROJECT_ID;
 const token = process.env.CI_JOB_TOKEN;
-if (!api || !projectId || !token) {
-  // ★ Name WHICH one is missing, never the value of any of them.
-  console.error(
-    `[release:publish] CANNOT PUBLISH: missing ${[
-      !api && "CI_API_V4_URL",
-      !projectId && "CI_PROJECT_ID",
-      !token && "CI_JOB_TOKEN",
-    ]
-      .filter(Boolean)
-      .join(", ")}`,
+// ★ An empty token is falsy on purpose: split("") would put the marker
+// between every character of the text.
+const redact = (s) => (token ? String(s).split(token).join("[REDACTED]") : String(s));
+const say = (msg) => console.log(`[release:publish] ${redact(msg)}`);
+const fail = (code, msg, body) => {
+  console.error(`[release:publish] ${redact(msg)}`);
+  if (body) console.error(redact(body).slice(0, BODY_EXCERPT_CHARS));
+  process.exit(code);
+};
+
+const args = process.argv.slice(2);
+const unknown = args.filter((a) => a !== "--dry-run");
+if (unknown.length > 0) {
+  fail(2, `CANNOT PUBLISH: unknown argument(s) ${unknown.join(" ")} — the only flag is --dry-run`);
+}
+const dryRun = args.includes("--dry-run");
+
+/** The body as JSON, or null — a proxy's HTML page is not an answer. */
+function parseJsonOrNull(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+try {
+  const { SOURCE_FILE, readSourceFrom } = await import("./version-sync-lib.mjs");
+  const { buildReleasePayload, expectedFromPayload, classifyCreateResponse, classifyExistingRelease } = await import(
+    "./release-publish-lib.mjs"
   );
-  process.exit(2);
+
+  const { version, milestone } = readSourceFrom(readFileSync(SOURCE_FILE, "utf8"));
+  const payload = buildReleasePayload(process.env, version, milestone);
+  const expected = expectedFromPayload(payload);
+
+  const api = process.env.CI_API_V4_URL;
+  const projectId = process.env.CI_PROJECT_ID;
+  // ★ Name WHICH one is missing, never the value of any of them.
+  const missing = [!api && "CI_API_V4_URL", !projectId && "CI_PROJECT_ID", !dryRun && !token && "CI_JOB_TOKEN"].filter(
+    Boolean,
+  );
+  if (missing.length > 0) fail(2, `CANNOT PUBLISH: missing ${missing.join(", ")}`);
+
+  // new URL() throws on a malformed CI_API_V4_URL, in --dry-run as well.
+  const endpoint = new URL(`${api}/projects/${encodeURIComponent(projectId)}/releases`).href;
+
+  if (dryRun) {
+    say(`--dry-run, nothing sent. Would POST ${endpoint} (JOB-TOKEN ${token ? "present" : "absent"}). Payload:`);
+    console.log(redact(JSON.stringify(payload, null, 2)));
+    process.exit(0);
+  }
+
+  const call = (url, init) =>
+    fetch(url, {
+      ...init,
+      redirect: "manual",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      headers: { "JOB-TOKEN": token, ...init.headers },
+    });
+
+  const res = await call(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.text();
+  const created = classifyCreateResponse(res.status, parseJsonOrNull(body), expected);
+
+  if (created.kind === "created") {
+    say(`created release for ${expected.tagName}`);
+    say(`asset: ${expected.assetUrl}`);
+    process.exit(0);
+  }
+
+  if (created.kind === "check-existing") {
+    say(`HTTP 409: a Release for ${expected.tagName} already exists — checking whether it carries this asset link`);
+    const got = await call(`${endpoint}/${encodeURIComponent(expected.tagName)}`, { method: "GET" });
+    const gotBody = await got.text();
+    const existing = classifyExistingRelease(got.status, parseJsonOrNull(gotBody), expected);
+    if (existing.code === 0) {
+      say(existing.message);
+      say(`asset: ${expected.assetUrl}`);
+      process.exit(0);
+    }
+    // ★ Clamp: only the classifier's explicit 1 leaves as 1; anything else is 2.
+    fail(existing.code === 1 ? 1 : 2, existing.message, gotBody);
+  }
+
+  // ★ Clamp: only an explicit fail/1 leaves as 1. Anything else — including a
+  // verdict shape this file does not know — is 2, and never 0.
+  fail(
+    created.kind === "fail" && created.code === 1 ? 1 : 2,
+    created.message ?? "CANNOT CONFIRM: the create classifier returned no verdict",
+    body,
+  );
+} catch (err) {
+  // ★ `err` need not be an Error (`throw null`), so never read .message off
+  // it directly. fetch's own message is only "fetch failed"; the reason is on
+  // `cause` — an errno code (ECONNREFUSED, ECONNRESET), or for a blocked port
+  // no code at all, only a message ("bad port"). An AbortSignal timeout
+  // arrives as a TimeoutError.
+  const cause = err?.cause?.code ?? err?.cause?.message;
+  const detail = err instanceof Error ? `${err.name}: ${err.message}${cause ? ` (${cause})` : ""}` : String(err);
+  fail(2, `CANNOT PUBLISH: ${detail}`);
 }
-
-const res = await fetch(`${api}/projects/${projectId}/releases`, {
-  method: "POST",
-  headers: {
-    "JOB-TOKEN": token,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify(payload),
-});
-
-// ★★ Read the body BEFORE branching on ok: GitLab's error message is the only
-// thing that distinguishes "tag already has a release" from a real failure, and
-// a bare status code sends the reader nowhere.
-const body = await res.text();
-
-if (!res.ok) {
-  console.error(`[release:publish] API refused: HTTP ${res.status}`);
-  console.error(body.slice(0, 2000));
-  process.exit(1);
-}
-
-console.log(`[release:publish] created release for ${payload.tag_name}`);
-console.log(`[release:publish] asset: ${payload.assets.links[0].url}`);
 ```
 
-- [ ] **Step 2: Prove the dry run works and prints the right URL**
+★ Read `buildReleasePayload`'s real signature — `(env, version, milestone)` after Task 5 — rather than any older sketch of it.
+
+- [ ] **Step 7: Prove the dry run validates the API half and prints the right URL**
 
 ```bash
 CI_PROJECT_URL=https://gitlab.example/g/p CI_COMMIT_TAG=v0.301.0 \
+CI_API_V4_URL=https://gitlab.example/api/v4 CI_PROJECT_ID=1 CI_JOB_TOKEN=canary-not-a-token \
   node scripts/publish-release.mjs --dry-run > "$SP/b-t6-dry.log" 2>&1; echo "DRY_EXIT=$?"
-grep -E "jobs/artifacts|tag_name|job=desktop-package-tag" "$SP/b-t6-dry.log"
+grep -E "Would POST|\"tag_name\"|job=desktop-package-tag" "$SP/b-t6-dry.log"
 ```
 
-Expected: `DRY_EXIT=0`, and a URL of the form
+Expected: `DRY_EXIT=0`; `Would POST https://gitlab.example/api/v4/projects/1/releases (JOB-TOKEN present)`; `"tag_name": "v0.301.0"`; and an asset URL of the form
 `https://gitlab.example/g/p/-/jobs/artifacts/v0.301.0/raw/desktop/release/aipm-cockpit-0.301.0-setup.exe?job=desktop-package-tag`.
+★ `CI_API_V4_URL` and `CI_PROJECT_ID` are REQUIRED even here — a dry run that passes without them proves nothing about the half that talks to the API. Only the token is optional, and only its presence is printed.
 
-- [ ] **Step 3: Prove it refuses rather than half-publishing**
+- [ ] **Step 8: Prove it refuses rather than half-publishing**
+
+Every call carries a CANARY token, so "prints no token" is a count rather than a hope. The non-dry calls run under `env -u CI_API_V4_URL -u CI_JOB_TOKEN`, which strips any real value inherited from your shell BEFORE the canary is set, so they cannot reach a network.
 
 ```bash
-CI_PROJECT_URL=https://gitlab.example/g/p CI_COMMIT_TAG= \
-  node scripts/publish-release.mjs --dry-run; echo "NOTAG_EXIT=$?"
-CI_PROJECT_URL= CI_COMMIT_TAG=v0.301.0 \
-  node scripts/publish-release.mjs; echo "NOURL_EXIT=$?"
+env -u CI_API_V4_URL CI_PROJECT_URL=https://gitlab.example/g/p CI_COMMIT_TAG= CI_PROJECT_ID=1 CI_JOB_TOKEN=canary-not-a-token \
+  node scripts/publish-release.mjs --dry-run > "$SP/b-t6-notag.log" 2>&1; echo "NOTAG_EXIT=$?"
+env -u CI_API_V4_URL -u CI_JOB_TOKEN CI_PROJECT_URL= CI_COMMIT_TAG=v0.301.0 CI_PROJECT_ID=1 CI_JOB_TOKEN=canary-not-a-token \
+  node scripts/publish-release.mjs > "$SP/b-t6-nourl.log" 2>&1; echo "NOURL_EXIT=$?"
+env -u CI_API_V4_URL -u CI_JOB_TOKEN CI_PROJECT_URL=https://gitlab.example/g/p CI_COMMIT_TAG=v0.301.0 CI_PROJECT_ID=1 CI_JOB_TOKEN=canary-not-a-token \
+  node scripts/publish-release.mjs > "$SP/b-t6-noapi.log" 2>&1; echo "NOAPI_EXIT=$?"
+env -u CI_API_V4_URL CI_PROJECT_URL=https://gitlab.example/g/p CI_COMMIT_TAG=v0.301.0 CI_PROJECT_ID=1 CI_JOB_TOKEN=canary-not-a-token \
+  node scripts/publish-release.mjs --dryrun > "$SP/b-t6-typo.log" 2>&1; echo "TYPO_EXIT=$?"
+cat "$SP/b-t6-notag.log" "$SP/b-t6-nourl.log" "$SP/b-t6-noapi.log" "$SP/b-t6-typo.log"
+grep -c canary "$SP/b-t6-dry.log" "$SP/b-t6-notag.log" "$SP/b-t6-nourl.log" "$SP/b-t6-noapi.log" "$SP/b-t6-typo.log"
 ```
 
-Expected: both `2`, each naming the missing variable. Neither may print a token or attempt a request.
+Expected: `NOTAG_EXIT=2`, `NOURL_EXIT=2`, `NOAPI_EXIT=2`, `TYPO_EXIT=2`, naming in turn `CI_COMMIT_TAG is missing or empty`, `CI_PROJECT_URL is missing or empty`, `missing CI_API_V4_URL`, and `unknown argument(s) --dryrun`; and `:0` for every log in the last line. ★ Read the COUNT, not `grep`'s exit status, which is 1 whenever the count is 0.
 
-- [ ] **Step 4: Add the npm script and its description**
+- [ ] **Step 9: Drive the real path against a local fake API**
 
-Edit `package.json` with the **Edit tool**. In `"scripts"`, after `"tag:check"`:
+A unit test cannot see `redirect: "manual"`, the timeout, or the redaction, so run the CLI against a throwaway local HTTP server — written to the scratchpad with the Write tool, never a heredoc — that answers each case below, logs every request it receives (method, path, and whether a `JOB-TOKEN` header was PRESENT, never its value), and is killed by the PID that started it. Every call sets `CI_JOB_TOKEN=canary-not-a-token`. Measured:
+
+| Case | Exit | What the server saw |
+|---|---|---|
+| 201, our tag and link | 0 | POST |
+| 201, another tag | 2 | POST |
+| 201, no link | 2 | POST |
+| 200 HTML page | 2 | POST |
+| 302 → a path answering `200 []` | 2 | POST only — the redirect was NOT followed |
+| 409, then GET 200 carrying our link | 0 | POST, GET `.../releases/v0.301.0` |
+| 409, then GET 200 without our link | 1 | POST, GET |
+| 409, then GET 404 | 2 | POST, GET |
+| 409, then GET `200 []` | 2 | POST, GET |
+| 403 | 1 | POST |
+| 429 | 2 | POST |
+| 500 | 2 | POST |
+| 400 whose body echoes the request's token | 1 | POST — the echo prints as `[REDACTED]` |
+| 400 whose echoed token straddles the 2000-char excerpt cut | 1 | POST |
+| `--dryrun` (typo) with a live server | 2 | nothing |
+| `--dry-run` with a live server | 0 | nothing |
+| connection refused (a closed ephemeral port) | 2 | — (`fetch failed (ECONNREFUSED)`) |
+| port 9 | 2 | — (`fetch failed (bad port)`: fetch's blocked-ports list, NOT a refused connection) |
+| a copy of the CLI with neither lib beside it | 2 | — (`Cannot find module`, never Node's default 1) |
+| a server that never answers | 2 | POST — `TimeoutError` after ~30.2 s |
+
+plus the six local env rows of Steps 7 and 8 (26 cases in all). `grep -c canary` over ALL captured CLI output: **0**.
+★★ Both zeros need a positive control or they prove nothing. The echo row's output contains `[REDACTED]` exactly once, so the token really did come back; and a scratchpad COPY of the CLI with truncate-then-redact instead of redact-then-truncate leaks a `canar` prefix on the straddle row where the committed order leaks none.
+★ The timeout path runs at the real 30 s. The design has no env hook to shorten it, deliberately — an override is one more input to a job that holds a token.
+
+- [ ] **Step 10: Add the npm script and its description**
+
+Edit `package.json` with the **Edit tool** (its working copy is CRLF — the Edit tool preserves that). In `"scripts"`, after `"tag:check"`:
 
 ```json
-    "release:publish": "node scripts/publish-release.mjs"
+    "release:publish": "node scripts/publish-release.mjs",
 ```
 
 In `"scriptsDescriptions"`, after its `"tag:check"` entry:
 
 ```json
-    "release:publish": "Create the GitLab Release for the current tag and attach an asset link to the installer built by desktop-package-tag. Runs only in a tag pipeline (needs CI_API_V4_URL, CI_PROJECT_ID, CI_PROJECT_URL, CI_COMMIT_TAG, CI_JOB_TOKEN). `--dry-run` builds and prints the payload with no network call and no token, which is the only part runnable locally. Uses node's fetch deliberately: no release-cli image, no curl."
+    "release:publish": "Create the GitLab Release for the current tag and attach an asset link to the installer built by desktop-package-tag. Needs CI_API_V4_URL, CI_PROJECT_ID, CI_PROJECT_URL, CI_COMMIT_TAG and CI_JOB_TOKEN. Exit 0 ONLY on a confirmed Release: a 201 echoing this tag and link, or a 409 whose existing Release already carries the link. Exit 1 is a 4xx refusal (a human must act), or a 409 whose Release lacks the link. Exit 2 is everything else, all safe to retry: missing env, an unknown argument, network, the 30 s timeout, 408/429, 5xx, a redirect, an unconfirmable 2xx. `--dry-run` validates the same env except the token, prints the payload and whether a token is present, and sends nothing. Uses node's fetch deliberately: no release-cli image, no curl.",
 ```
 
-- [ ] **Step 5: Regenerate and check**
+★ Both lines END IN A COMMA: `tag:check` is not the last entry in either object — `e2e:desktop` follows it in both — so a snippet without one is invalid JSON.
+
+- [ ] **Step 11: Regenerate and check**
 
 ```bash
 npm run docs:scripts > "$SP/b-t6-gen.log" 2>&1; echo "GEN_EXIT=$?"
 npm run docs:scripts:check > "$SP/b-t6-chk.log" 2>&1; echo "CHK_EXIT=$?"
-grep -E "unchanged|would-update|updated" "$SP/b-t6-gen.log" "$SP/b-t6-chk.log"
+grep -hE "unchanged|would-update|updated" "$SP/b-t6-gen.log" "$SP/b-t6-chk.log"
 ```
 
-Expected: both EXIT=0, `unchanged: CONTRIBUTING.md`.
+Expected: both EXIT=0; the GENERATE run prints `updated: CONTRIBUTING.md`, and only the CHECK run prints `unchanged: CONTRIBUTING.md`.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 12: Commit — two commits, each path-limited**
 
 ```bash
-git add scripts/publish-release.mjs package.json CONTRIBUTING.md
-git commit --only scripts/publish-release.mjs package.json CONTRIBUTING.md -F - <<'EOF'
-feat(ci): release:publish, via node fetch rather than release-cli
+git commit -F - -- scripts/release-publish-lib.mjs scripts/release-publish-lib.test.mjs <<'EOF'
+fix(ci): the release classifiers confirm the tag and refuse to guess
 
-The spec rejects the release: keyword because it requires the release-cli image
-and this pipeline already carries one unverified image dependency. Node 24 has
-global fetch and node:24-bookworm-slim is already the default image, so this
-adds no image and no curl.
+classifyExistingRelease read any JSON object on a 200 as the Release: a 200 []
+or {} returned code 1 with advice to delete a Release nobody had identified,
+and another tag's Release carrying our link returned code 0. It now needs a
+plain object naming our tag with a readable link list before it returns 0 or
+1; anything else is 2.
 
-Three exit codes, matching the repo's gate convention: 1 is the API refusing, 2
-is being unable to try at all. Missing-variable errors name WHICH variable, never
-a value, and the body is read before branching on res.ok -- GitLab's message is
-the only thing that separates "this tag already has a release" from a real
-failure.
+Neither classifier validated expected, so {} confirmed a 201 whose link had no
+url (undefined === undefined on both comparisons) and undefined threw. Both
+now refuse, as fail/2, an expected missing either value, through the same
+emptiness rule required() uses. expectedFromPayload builds it from the payload
+being sent, so the CLI never assembles it by hand.
 
---dry-run builds and prints the payload with no network and no token. It is the
-only part of this job that can be exercised before a real tag exists.
+408 and 429 are transient, so 2 rather than the refusal code: a retry is safe
+because a create that did land answers 409 and the 409 path confirms it. A
+non-numeric status is refused before any range check, so "201" no longer
+reads "HTTP 201 is not 201 Created", and 0/NaN/600 read "unexpected status"
+rather than "could not be reached".
+
+Mutation-tested one mutant at a time: 65 mutants, 62 killed, 3 equivalent.
+
+Claude-Session: https://[session link removed]
+EOF
+git add scripts/publish-release.mjs
+git commit -F - -- scripts/publish-release.mjs package.json CONTRIBUTING.md docs/superpowers/plans/2026-09-10-release-publishing.md <<'EOF'
+feat(ci): release:publish, which exits 0 only on a confirmed Release
+
+The plan's first cut was run verbatim against a local fake API before any of
+it landed, and its success path was the fall-through: res.ok took any 2xx, so
+a 200 HTML page exited 0 "created", and a POST answered 302 was followed as a
+GET whose 200 [] also exited 0. A 409 was a plain refusal, so a create whose
+response was lost made every retry fail forever.
+
+This version exits 0 only on a 201 echoing this tag and link, or on a 409
+whose existing Release already carries the link. Every verdict comes from the
+pure, mutation-tested classifiers in release-publish-lib.mjs, against an
+expected taken from the payload. Exit 1 is a 4xx refusal or a 409 Release
+without the link; 2 is everything else, all retry-safe: missing env, an
+unknown argument (a typo'd --dryrun used to POST), network, a 30 s timeout,
+408/429, 5xx, a redirect (redirect: "manual" on both requests), an
+unconfirmable 2xx, and any structural failure, since both libs are imported
+inside the one try.
+
+The token is redacted from every echoed body before it is truncated, and from
+the caught error. --dry-run now validates CI_API_V4_URL and CI_PROJECT_ID too
+and prints only whether a token is present.
+
+Driven through 26 cases against a local fake API with a canary token: every
+exit code as designed, the canary in 0 lines of output, and both zeros backed
+by a positive control.
+
+The plan's Task 6 is rewritten to the committed code, byte for byte, and its
+step defects fixed: the dry run passes the API variables, every refusal call
+carries a canary and cannot reach a network, the package.json snippets carry
+their trailing commas, and the generate run's expected output says "updated".
+Task 10 now expects 113 tests (16 + 97), derived with vitest list because
+grep -c cannot count it.each rows, and its dry run passes the API variables
+it now needs.
 
 Claude-Session: https://[session link removed]
 EOF
 ```
+
+★ `git add` the new CLI first — a pathspec naming an untracked file fails `git commit -- <path>`. ★★ Never `git add -A`: another agent may be mid-edit in the same tree, and `git commit -- <paths>` commits exactly those paths while leaving anything someone else staged untouched.
 
 ---
 
@@ -1776,7 +2550,7 @@ npx vitest run scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test
 grep -E "Test Files|Tests " "$SP/b-g-unit.log"
 ```
 
-Expected: EXIT=0, `Test Files 2 passed (2)`, `Tests 32 passed (32)` (16 + 16; derive it with `grep -c "  it(" scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs` rather than trusting this line — the release-publish-lib half grew from 8 to 16 in the Task 5 review round). ★★★ **Assert `Test Files 2` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
+Expected: EXIT=0, `Test Files  2 passed (2)`, `Tests  113 passed (113)` (16 + 97). Derive it rather than trusting this line — `npx vitest list scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs > "$SP/b-g-list.log" 2>&1; grep -cE "^scripts/(tag-version|release-publish)-lib\.test\.mjs >" "$SP/b-g-list.log"`. ★★ NOT `grep -c "  it("`, which this line used to prescribe: it prints 16 + 29, because every `it.each` row in Task 6's classifier tests is its own test at runtime. The release-publish-lib half grew from 8 to 16 in the Task 5 review round and to 97 in Task 6. ★★★ **Assert `Test Files 2` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
 
 - [ ] **Step 3: Docs, version and followup gates**
 
@@ -1802,11 +2576,12 @@ CI_COMMIT_TAG=v9.9.9 node scripts/check-tag-version.mjs; echo "DRIFT_EXIT=$?"
 CI_COMMIT_TAG= node scripts/check-tag-version.mjs; echo "UNSCANNABLE_EXIT=$?"
 VER=$(node -e "console.log(require('fs').readFileSync('src/app/version.ts','utf8').match(/APP_VERSION = \"([^\"]+)\"/)[1])")
 CI_COMMIT_TAG=v$VER node scripts/check-tag-version.mjs; echo "MATCH_EXIT=$?"
-CI_PROJECT_URL=https://gitlab.example/g/p CI_COMMIT_TAG=v$VER node scripts/publish-release.mjs --dry-run > "$SP/b-g-dry.log" 2>&1; echo "DRY_EXIT=$?"
+CI_PROJECT_URL=https://gitlab.example/g/p CI_COMMIT_TAG=v$VER CI_API_V4_URL=https://gitlab.example/api/v4 CI_PROJECT_ID=1 CI_JOB_TOKEN=canary-not-a-token node scripts/publish-release.mjs --dry-run > "$SP/b-g-dry.log" 2>&1; echo "DRY_EXIT=$?"
 grep -E "job=desktop-package-tag" "$SP/b-g-dry.log"
+grep -c canary "$SP/b-g-dry.log"
 ```
 
-Expected: `1`, `2`, `0`, `0`, and the asset URL naming the tag job.
+Expected: `1`, `2`, `0`, `0`, the asset URL naming the tag job, and a canary count of `0`. ★ The dry run needs `CI_API_V4_URL` and `CI_PROJECT_ID` since Task 6 — without them it exits 2 by design, because a dry run that skips the API half proves nothing about it.
 
 - [ ] **Step 5: Size and duplication ratchets**
 
