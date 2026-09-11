@@ -992,15 +992,46 @@ EOF
 
 Create `scripts/release-publish-lib.test.mjs`:
 
+★ THE BLOCK BELOW IS THE POST-REVIEW STATE, not the original TDD-red cut. A
+Task 5 review round found 7 surviving mutants (a bogus `link_type`, one pinned
+to the wrong-but-accepted member, a blank description, the version-emptiness
+guard removed, `required()`'s trim removed, and two secret-reading mutants —
+one base64-encoding `CI_JOB_TOKEN` into the body, one reading
+`CI_REGISTRY_PASSWORD`) and added the tests below that kill them, plus a
+`describe("installerName")` block for the semver-validation hardening in Step
+3. Run Step 2 against the ORIGINAL 8-test cut if reproducing the initial red
+step; this file is what ends up committed.
+
 ```js
 import { describe, expect, it } from "vitest";
-import { ARTIFACT_JOB, buildAssetUrl, buildReleasePayload } from "./release-publish-lib.mjs";
+import { ARTIFACT_JOB, buildAssetUrl, buildReleasePayload, installerName } from "./release-publish-lib.mjs";
 
 const ENV = {
   CI_PROJECT_URL: "https://gitlab.example.com/group/aipm-cockpit",
   CI_COMMIT_TAG: "v0.301.0",
   CI_JOB_TOKEN: "super-secret-token",
 };
+
+// Reads of any env key outside this set throw, so a test built on this proves
+// the lib never TOUCHES a secret -- not merely that it never stringifies one
+// verbatim into the payload. A mutant that base64-encodes CI_JOB_TOKEN into
+// the body, or reads CI_REGISTRY_PASSWORD into an unused field, survives a
+// plain "does the serialised payload contain the token" test but not this
+// one, because the read itself throws before the value can go anywhere.
+const READABLE_ENV_KEYS = new Set(["CI_PROJECT_URL", "CI_COMMIT_TAG"]);
+const envThatThrowsOnSecretReads = (env) =>
+  new Proxy(env, {
+    get(target, key) {
+      if (typeof key === "string" && !READABLE_ENV_KEYS.has(key)) {
+        throw new Error(`lib read env.${key}`);
+      }
+      return target[key];
+    },
+  });
+
+// The Releases API's link_type enum -- docs.gitlab.com/api/releases/ "Create
+// a release". "installer" is not a member; only these four are.
+const RELEASE_LINK_TYPES = ["other", "runbook", "image", "package"];
 
 describe("buildAssetUrl", () => {
   // ★★★ PER-TAG, NEVER PER-JOB-ID. A /-/jobs/<id>/artifacts/ URL dies the
@@ -1023,6 +1054,34 @@ describe("buildAssetUrl", () => {
   it("refuses when the project URL is missing", () => {
     expect(() => buildAssetUrl({ ...ENV, CI_PROJECT_URL: "" }, "0.301.0")).toThrow(/CI_PROJECT_URL/);
   });
+
+  // required()'s emptiness check trims before comparing -- a blank-but-not-
+  // literally-empty CI_COMMIT_TAG (e.g. a stray space from a malformed rules:
+  // match) must refuse exactly like a truly empty one.
+  it("refuses a whitespace-only tag", () => {
+    expect(() => buildAssetUrl({ ...ENV, CI_COMMIT_TAG: "  " }, "0.301.0")).toThrow(/CI_COMMIT_TAG/);
+  });
+
+  it("refuses an empty or whitespace version", () => {
+    expect(() => buildAssetUrl(ENV, "")).toThrow(/version/);
+    expect(() => buildAssetUrl(ENV, "   ")).toThrow(/version/);
+  });
+});
+
+describe("installerName", () => {
+  // ★★★ FAILS CLOSED on anything that is not a plain semver, rather than
+  // trying to URL-encode it. "#" is a legal character in a git ref and starts
+  // a URL FRAGMENT -- left unescaped it would silently truncate the asset URL
+  // instead of surfacing as an error.
+  it("refuses a version that is not a plain semver string", () => {
+    expect(() => installerName("0.301.0#x")).toThrow(/version/);
+    expect(() => installerName("")).toThrow(/version/);
+  });
+
+  it("accepts a plain semver version, with or without a pre-release tag", () => {
+    expect(installerName("0.301.0")).toBe("aipm-cockpit-0.301.0-setup.exe");
+    expect(installerName("0.301.0-rc.1")).toBe("aipm-cockpit-0.301.0-rc.1-setup.exe");
+  });
 });
 
 describe("buildReleasePayload", () => {
@@ -1039,12 +1098,44 @@ describe("buildReleasePayload", () => {
     expect(p.assets.links[0].name).toContain("aipm-cockpit-0.301.0-setup.exe");
   });
 
+  // The Releases API's link_type enum is other|runbook|image|package --
+  // "installer" is not a member, and pinning it to "package" (rather than any
+  // accepted-but-unintended member such as "other") keeps the semantics
+  // right, not merely the request valid.
+  it("uses link_type package, a value the Releases API accepts", () => {
+    const [link] = buildReleasePayload(ENV, "0.301.0", "Arnason").assets.links;
+    expect(RELEASE_LINK_TYPES).toContain(link.link_type);
+    expect(link.link_type).toBe("package");
+  });
+
+  it("gives the description real content", () => {
+    expect(buildReleasePayload(ENV, "0.301.0", "Arnason").description).toMatch(/SmartScreen/);
+  });
+
+  // ★ A real markdown link, not a code span naming the file -- the reader
+  // should be able to click through to the tag's CHANGELOG.md directly.
+  it("links CHANGELOG.md at the tag as a real markdown link, not a code span", () => {
+    const p = buildReleasePayload(ENV, "0.301.0", "Arnason");
+    expect(p.description).toContain(
+      "[CHANGELOG.md](https://gitlab.example.com/group/aipm-cockpit/-/blob/v0.301.0/CHANGELOG.md)",
+    );
+  });
+
   // ★★★ THE ONE ASSERTION THAT IS ABOUT SECRETS. The token authenticates the
   // request via a header; it must never reach the request BODY, which GitLab
   // renders publicly on the Releases page.
   it("never puts the job token in the payload", () => {
     const p = buildReleasePayload(ENV, "0.301.0", "Arnason");
     expect(JSON.stringify(p)).not.toContain(ENV.CI_JOB_TOKEN);
+  });
+
+  // ★★★ THE KEY ONE. Proves the lib never so much as READS CI_JOB_TOKEN,
+  // CI_REGISTRY_PASSWORD, or any other secret-shaped env var -- not merely
+  // that none of them end up verbatim in the serialised payload, which the
+  // test above this one already covers and a mutant that base64-encodes or
+  // otherwise transforms a secret before writing it would survive.
+  it("reads no env key but the two it needs", () => {
+    expect(() => buildReleasePayload(envThatThrowsOnSecretReads(ENV), "0.301.0", "Arnason")).not.toThrow();
   });
 
   it("refuses when the milestone is missing", () => {
@@ -1065,6 +1156,15 @@ Expected: EXIT=1, module not found.
 - [ ] **Step 3: Write the library**
 
 Create `scripts/release-publish-lib.mjs`:
+
+★ THE BLOCK BELOW IS ALSO THE POST-REVIEW STATE — see the note above Step 1's
+test block for what changed and why: `required()`'s message no longer claims
+every missing variable implies a tag pipeline (`CI_PROJECT_URL` is set on
+every pipeline kind), `installerName` fails closed on a non-semver version via
+`SEMVER_RE` instead of merely rejecting emptiness, `buildAssetUrl`'s docstring
+gained the `Projects::ArtifactsController` / release_fields / project-membership
+notes, and `buildReleasePayload` links `CHANGELOG.md` as a real markdown link
+(dropping the stale hard-coded "~93 MB").
 
 ```js
 // Pure construction of the GitLab Release payload and its asset URL.
@@ -1089,15 +1189,32 @@ export const INSTALLER_DIR = "desktop/release";
 function required(env, key) {
   const v = env[key];
   if (typeof v !== "string" || v.trim() === "") {
-    throw new Error(`${key} is empty — this script runs only in a tag pipeline`);
+    // ★ Name only the missing variable, never a blanket claim about WHY it is
+    // missing — CI_PROJECT_URL is set on every pipeline (branch, MR, tag),
+    // not only a tag one, and the old wording ("this script runs only in a
+    // tag pipeline") was wrong on that path.
+    throw new Error(`${key} is missing or empty`);
   }
   return v;
 }
 
-/** `aipm-cockpit-<version>-setup.exe`, matching desktop/electron-builder.yml's artifactName. */
+/** A plain dotted-triple semver, optionally with a `-pre.release` tag — nothing else. */
+const SEMVER_RE = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
+
+/**
+ * `aipm-cockpit-<version>-setup.exe`, matching desktop/electron-builder.yml's artifactName.
+ *
+ * ★★★ FAILS CLOSED on anything that is not a plain semver, rather than trying
+ * to URL-encode whatever came in. `#` is a legal character in a git ref and
+ * starts a URL FRAGMENT — left unescaped it silently truncates the asset URL
+ * at that point, handing out a link that looks valid and 404s (or worse,
+ * resolves to something else). `version` comes from src/app/version.ts's
+ * APP_VERSION, so this should never fire outside a corrupted build; if it
+ * does, the pipeline must stop rather than publish a link nobody can trust.
+ */
 export function installerName(version) {
-  if (typeof version !== "string" || version.trim() === "") {
-    throw new Error("version is empty");
+  if (typeof version !== "string" || !SEMVER_RE.test(version)) {
+    throw new Error(`version "${version}" is not a plain semver string (expected to match ${SEMVER_RE})`);
   }
   return `aipm-cockpit-${version}-setup.exe`;
 }
@@ -1111,9 +1228,28 @@ export function installerName(version) {
  * resolves to the latest successful run of that job at that ref, so the link
  * survives a re-run.
  *
- * ★★ The download still requires a signed-in GitLab user: an `internal`
- * project serves no unauthenticated artifacts. That is stated in
- * docs/desktop-rollout.md so a colleague is not surprised by a login page.
+ * ★ This exact web-form URL (`/-/jobs/artifacts/<ref>/raw/<path>?job=<name>`)
+ * is not documented in GitLab's current REST/GraphQL API reference — it is
+ * served by `Projects::ArtifactsController` (GitLab's own Rails source),
+ * which resolves `<ref>` against the LATEST SUCCESSFUL PIPELINE for that ref.
+ * That is why the link 404s until the whole tag pipeline succeeds, not merely
+ * until `desktop-package-tag` does — the same "no needs:" reasoning
+ * publish-release itself relies on (see .gitlab-ci.yml).
+ *
+ * ★ GitLab's own release_fields guidance advises AGAINST linking job
+ * artifacts from a Release because they are ephemeral — an artifact that
+ * later expires turns a page meant to stay valid indefinitely into a dead
+ * link. `desktop-package-tag` sets `expire_in: never` specifically to close
+ * that gap for this one link.
+ *
+ * ★★ Downloading needs PROJECT MEMBERSHIP, not merely a signed-in account:
+ * per GitLab's permissions docs ("Download artifacts",
+ * https://docs.gitlab.com/user/permissions/), an `internal` project serves
+ * artifacts only to a Guest with project-based pipeline visibility enabled,
+ * or to Reporter and up — a signed-in non-member gets nothing. Stated by
+ * those docs, NOT YET VERIFIED on this instance; Task 11 checks it with a
+ * non-member account. docs/desktop-rollout.md carries the same caveat so a
+ * colleague hits a clear permission error rather than being surprised by one.
  */
 export function buildAssetUrl(env, version) {
   const base = required(env, "CI_PROJECT_URL");
@@ -1124,18 +1260,20 @@ export function buildAssetUrl(env, version) {
 /**
  * The POST body for `POST /projects/:id/releases`.
  *
- * ★ `description` deliberately does NOT quote the CHANGELOG. Parsing a release
- * section out of it is real work with a real failure mode (a heading rename
- * silently empties the notes), and the file is one click away. Link, do not
- * restate — the same rule the doc set runs on.
+ * ★ `description` LINKS CHANGELOG.md rather than quoting it. Parsing a
+ * release section out of it is real work with a real failure mode (a heading
+ * rename silently empties the notes), and the file is one click away. Link,
+ * do not restate — the same rule the doc set runs on.
  */
 export function buildReleasePayload(env, version, milestone) {
   const tag = required(env, "CI_COMMIT_TAG");
+  const projectUrl = required(env, "CI_PROJECT_URL");
   if (typeof milestone !== "string" || milestone.trim() === "") {
     throw new Error("milestone is empty — src/app/version.ts's APP_MILESTONE shape moved");
   }
 
   const exe = installerName(version);
+  const changelogUrl = `${projectUrl}/-/blob/${encodeURIComponent(tag)}/CHANGELOG.md`;
 
   return {
     tag_name: tag,
@@ -1143,9 +1281,9 @@ export function buildReleasePayload(env, version, milestone) {
     description: [
       `Windows desktop installer for AI PM Cockpit ${version} "${milestone}".`,
       "",
-      `- Download: **${exe}** (asset link below, ~93 MB)`,
+      `- Download: **${exe}** (asset link below)`,
       "- First run, and what to do if it does not start: `docs/desktop-rollout.md`",
-      "- What changed: `CHANGELOG.md` at this tag",
+      `- What changed: [CHANGELOG.md](${changelogUrl})`,
       "",
       "The installer is not code-signed, so Windows shows a SmartScreen prompt on",
       "first run: **More info → Run anyway**. It installs for the current user and",
@@ -1171,7 +1309,7 @@ npx vitest run scripts/release-publish-lib.test.mjs > "$SP/b-t5b.log" 2>&1; echo
 grep -E "Test Files|Tests " "$SP/b-t5b.log"
 ```
 
-Expected: EXIT=0, `Test Files 1 passed (1)`, `Tests 8 passed (8)` — four `buildAssetUrl` cases and four `buildReleasePayload` cases. ★ Count the `it(` blocks in the file rather than trusting this number; a count in prose is the cheapest thing to check and the easiest to leave rotting.
+Expected: EXIT=0, `Test Files 1 passed (1)`, `Tests 16 passed (16)` — 6 `buildAssetUrl` cases, 2 `installerName` cases, 8 `buildReleasePayload` cases. ★★★ THAT COUNT IS POST-REVIEW, NOT THE INITIAL CUT — a Task 5 review round added a `describe("installerName")` block (fail-closed semver validation) plus five `buildReleasePayload`/`buildAssetUrl` cases (link_type pinned to `"package"`, real description content, a real CHANGELOG.md markdown link, a whitespace-only-tag case, and a Proxy-based test proving the lib never READS an env key outside `CI_PROJECT_URL`/`CI_COMMIT_TAG`, not merely that it never serialises one). The original cut was 8 (four `buildAssetUrl` + four `buildReleasePayload`). ★ Count the `it(` blocks in the file rather than trusting this number; a count in prose is the cheapest thing to check and the easiest to leave rotting.
 
 - [ ] **Step 5: Commit**
 
@@ -1638,7 +1776,7 @@ npx vitest run scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test
 grep -E "Test Files|Tests " "$SP/b-g-unit.log"
 ```
 
-Expected: EXIT=0, `Test Files 2 passed (2)`, `Tests 24 passed (24)` (16 + 8; derive it with `grep -c "  it(" scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs` rather than trusting this line). ★★★ **Assert `Test Files 2` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
+Expected: EXIT=0, `Test Files 2 passed (2)`, `Tests 32 passed (32)` (16 + 16; derive it with `grep -c "  it(" scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs` rather than trusting this line — the release-publish-lib half grew from 8 to 16 in the Task 5 review round). ★★★ **Assert `Test Files 2` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
 
 - [ ] **Step 3: Docs, version and followup gates**
 
