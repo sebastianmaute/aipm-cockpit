@@ -166,6 +166,9 @@ async function waitForPortRelease(): Promise<void> {
 // SUCCEED -- the port read as free -- while a connect to 127.0.0.1 succeeded
 // in all of those cases. Only a holder on 127.0.0.1 itself made the bind fail.
 // The bind stays as a second check, on the address the app's server binds.
+// Its reason to exist: a socket BOUND to 127.0.0.1:17300 but not listening
+// (e.g. an outgoing client with localPort 17300) refuses the connect yet
+// blocks the bind -- measured 2026-09-11, only this check caught it.
 const PORT_HELD_HINT =
   `is ${PRODUCT_NAME} (installed copy) or a dev server running? Close it and re-run.`;
 
