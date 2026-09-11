@@ -571,8 +571,8 @@ desktop-package-tag:
   rules:
     - if: $CI_COMMIT_TAG
   artifacts:
-    # ★★★ never, because README and docs/desktop-rollout.md tell people to
-    # download this. An expiring artifact is fine for a manual check and
+    # ★★★ never, because docs/desktop-rollout.md (linked from README) tells
+    # people to download this. An expiring artifact is fine for a manual check and
     # unacceptable behind a published Release asset link -- the link would go
     # dead silently, weeks later, with nothing failing.
     expire_in: never
@@ -617,8 +617,8 @@ desktop-package-tag:
 # `npm ci` either. `default:` carries no before_script today; if one is ever
 # added, this job inherits it, and wants `before_script: []`.
 # ★★ No allow_failure: a tag whose Release was never created looks published
-# and is not -- README and docs/desktop-rollout.md send people to a page with
-# no download on it.
+# and is not -- docs/desktop-rollout.md (linked from README) sends people to a
+# page with no download on it.
 # ★ Image inherited from `default:` (node:24-bookworm-slim). No release-cli,
 # no curl: the script uses node's global fetch.
 publish-release:

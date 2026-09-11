@@ -336,12 +336,16 @@ Then propagate the version everywhere else it is written down — run
 `version.ts`. **`npm run version:check` compares all of them to `APP_VERSION`,
 and the `version-sync-check` job is BLOCKING**, so drift now fails the pipeline
 instead of accumulating silently. Hand-edit only if the gate reports a shape it
-cannot anchor on — and fix the pattern in that case, never the file:
+cannot anchor on — and fix the pattern in that case, never the file. The table
+mirrors `SATELLITES` in `scripts/version-sync-lib.mjs`; where the two disagree the
+lib is right (`grep -n 'file: "' scripts/version-sync-lib.mjs` lists its files):
 
 | place | what to change |
 |---|---|
 | `package.json` | `version` |
+| `desktop/package.json` | `version` |
 | `package-lock.json` | `version` **twice** — the root one and the `packages[""]` one |
+| `desktop/package-lock.json` | `version` **twice** — the root one and the `packages[""]` one |
 | `README.md` | the shields badge — version **and** codename |
 | `docs/CODEMAPS/*.md` (5 files) | the `<!-- Generated: … \| App <version> "<codename>" … -->` header, including the regen date and any file counts that moved |
 

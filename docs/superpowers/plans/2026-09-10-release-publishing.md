@@ -870,8 +870,8 @@ desktop-package-tag:
   rules:
     - if: $CI_COMMIT_TAG
   artifacts:
-    # ★★★ never, because README and docs/desktop-rollout.md tell people to
-    # download this. An expiring artifact is fine for a manual check and
+    # ★★★ never, because docs/desktop-rollout.md (linked from README) tells
+    # people to download this. An expiring artifact is fine for a manual check and
     # unacceptable behind a published Release asset link -- the link would go
     # dead silently, weeks later, with nothing failing.
     expire_in: never
@@ -2725,8 +2725,8 @@ Append at the end of `.gitlab-ci.yml`:
 # `npm ci` either. `default:` carries no before_script today; if one is ever
 # added, this job inherits it, and wants `before_script: []`.
 # ★★ No allow_failure: a tag whose Release was never created looks published
-# and is not -- README and docs/desktop-rollout.md send people to a page with
-# no download on it.
+# and is not -- docs/desktop-rollout.md (linked from README) sends people to a
+# page with no download on it.
 # ★ Image inherited from `default:` (node:24-bookworm-slim). No release-cli,
 # no curl: the script uses node's global fetch.
 publish-release:
@@ -3128,6 +3128,85 @@ sentence, and tag-version-check to the quality-stage jobs with no bypass label.
 
 The plan's draft said a rename 404s every PAST Release; that half is not
 established and was dropped, and the plan now says why.
+
+Claude-Session: https://[session link removed]
+```
+
+- [ ] **Step 4: Name every file `version:sync` writes, where the version is documented — a SEPARATE commit**
+
+`SATELLITES` in `scripts/version-sync-lib.mjs` also writes `desktop/package.json` and `desktop/package-lock.json`; `grep -n 'file: "' scripts/version-sync-lib.mjs` prints six entries. Three prose sites omitted both, and each gets the smallest fix that stops it rotting again:
+
+1. `AGENTS.md`'s Releasing bullet said "FIVE MORE PLACES". The count and the enumeration are DROPPED rather than corrected — a count rots — and replaced by a pointer to the lib plus its reproduce grep:
+
+```text
+  strings). ★★ EVERY OTHER COPY OF THE VERSION IS GATED BY `npm run version:check`, and the list is
+  `SATELLITES` in `scripts/version-sync-lib.mjs` — not this line, which said "FIVE MORE PLACES" and
+  missed `desktop/package.json` + `desktop/package-lock.json`. Read it with
+  `grep -n 'file: "' scripts/version-sync-lib.mjs` (one line per file or glob; each lockfile carries
+  TWO occurrences); CONTRIBUTING.md's Versioning table says what changes in each.
+```
+
+and its "rather than editing six places by hand" becomes "rather than editing each by hand".
+
+2. `AGENTS.md`'s `version-sync-check` entry restated the same list. It now links rather than restates:
+
+```text
+  truth for the version and codename; every file the Releasing bullet below points at restates one or
+  both, and nothing compared them before this job. Propagate with `npm run version:sync` rather than
+  hand-editing them. ★★ TWO FAILURE
+```
+
+3. `CONTRIBUTING.md`'s Versioning table sits OUTSIDE the `<!-- AUTO-GENERATED from package.json scripts -->` pair (that block ends well above `### Versioning`), so it is hand-edited: two rows, and one sentence naming the lib as the tiebreak:
+
+```text
+cannot anchor on — and fix the pattern in that case, never the file. The table
+mirrors `SATELLITES` in `scripts/version-sync-lib.mjs`; where the two disagree the
+lib is right (`grep -n 'file: "' scripts/version-sync-lib.mjs` lists its files):
+```
+
+```text
+| `desktop/package.json` | `version` |
+```
+
+```text
+| `desktop/package-lock.json` | `version` **twice** — the root one and the `packages[""]` one |
+```
+
+★ NOT fixed, reported: the `version:check` row of CONTRIBUTING.md's GENERATED scripts table ("package.json, lockfile, README badge, codemap headers") omits the desktop files too. It is generated from `package.json`'s `scriptsDescriptions`, which this task does not touch.
+
+4. `.gitlab-ci.yml`, comments only. Two comments said "README and docs/desktop-rollout.md" tell people where to download; only `docs/desktop-rollout.md` names the location and README links to it. Both become "docs/desktop-rollout.md (linked from README)", and the Task 4 and Task 7 YAML blocks above change identically — both measured still byte-identical to `.gitlab-ci.yml` after CRLF→LF. Edit tool only; `git ls-files --eol .gitlab-ci.yml` stays `i/lf w/crlf` (631 CRLF, 0 bare LF), and a `js-yaml` parse hashes to the same sha256 before and after.
+
+Gates, measured 2026-09-11:
+
+```text
+SYMBOLS_EXIT=0
+CLAIMS_EXIT=0
+SCRIPTS_EXIT=0
+[sync-script-docs] unchanged: CONTRIBUTING.md
+```
+
+- [ ] **Step 5: Commit Step 4**
+
+```bash
+git commit -F "$SP/t9-msg-b.txt" -- AGENTS.md CONTRIBUTING.md .gitlab-ci.yml docs/superpowers/plans/2026-09-10-release-publishing.md
+```
+
+with `$SP/t9-msg-b.txt` holding exactly:
+
+```text
+docs: every file version:sync writes is named where the version is documented
+
+SATELLITES in scripts/version-sync-lib.mjs also writes desktop/package.json
+and desktop/package-lock.json, and three prose sites omitted both. AGENTS.md's
+Releasing bullet ("FIVE MORE PLACES") now points at the lib and its reproduce
+grep instead of carrying a count; its version-sync-check entry points at that
+bullet instead of restating the list; CONTRIBUTING.md's Versioning table, which
+sits outside the generated scripts block, gains the two rows and names the lib
+as the tiebreak.
+
+Also .gitlab-ci.yml, comments only: README does not name the download location,
+it links docs/desktop-rollout.md, which does. The parsed YAML is identical
+before and after, and the plan's Task 4 and Task 7 blocks change with it.
 
 Claude-Session: https://[session link removed]
 ```

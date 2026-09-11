@@ -768,9 +768,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   in Commands carries the bisect] · **agents-symbol-check** BLOCKING
   [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] ·
   **version-sync-check** BLOCKING [`npm run version:check` — `src/app/version.ts` is the source of
-  truth for the version and codename; `package.json`, BOTH `package-lock.json` entries, the README
-  badge and every `docs/CODEMAPS` header restate one or both, and nothing compared them before this
-  job. Propagate with `npm run version:sync` rather than hand-editing six places. ★★ TWO FAILURE
+  truth for the version and codename; every file the Releasing bullet below points at restates one or
+  both, and nothing compared them before this job. Propagate with `npm run version:sync` rather than
+  hand-editing them. ★★ TWO FAILURE
   MODES, TWO EXIT CODES: **1 is DRIFT** (a satellite disagrees with `version.ts` — fix with
   `version:sync`), **2 is the gate unable to do its job** (a missing file, a moved regex shape, an
   empty codemap glob — a gate that scans nothing passes everything). Both were 1 until 0.260.x, so a
@@ -889,14 +889,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   New CI gate → also update this line.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
   `CHANGELOG.md` entry, append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE
-  strings). ★★ FIVE MORE PLACES CARRY THE VERSION, AND `npm run version:check` NOW GATES THEM:
-  `package.json` `version`, `package-lock.json` (TWO occurrences — the root `version` and the
-  `packages[""]` one), the README shields badge (version **and** codename), and the
-  `<!-- Generated: … | App <version> "<codename>" … -->` header on all five `docs/CODEMAPS/*.md`.
+  strings). ★★ EVERY OTHER COPY OF THE VERSION IS GATED BY `npm run version:check`, and the list is
+  `SATELLITES` in `scripts/version-sync-lib.mjs` — not this line, which said "FIVE MORE PLACES" and
+  missed `desktop/package.json` + `desktop/package-lock.json`. Read it with
+  `grep -n 'file: "' scripts/version-sync-lib.mjs` (one line per file or glob; each lockfile carries
+  TWO occurrences); CONTRIBUTING.md's Versioning table says what changes in each.
   Verified 2026-07-30: `package.json` had been stuck at 0.203.0 for six releases, `package-lock.json`
   at 0.199.0 for eleven, and the README badge + codemap headers at 0.203.0 — while `version.ts` and
   `CHANGELOG.md` were correct.
-  Propagate them with `npm run version:sync` rather than editing six places by hand — the
+  Propagate them with `npm run version:sync` rather than editing each by hand — the
   `version-sync-check` CI job is BLOCKING, so drift now fails the pipeline instead of accumulating.
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend. `calendarEvents`
