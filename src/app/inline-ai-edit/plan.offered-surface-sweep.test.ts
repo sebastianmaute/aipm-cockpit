@@ -752,11 +752,13 @@ const EXPECTED_FINDINGS: Readonly<Partial<Record<`${InlineEntity}:${"create" | "
     { subject: "task.assigneeEmail", kind: "threw" },
   ],
   "resource:update": [
-    // The recorded decision in `SYNTHETIC_INPUTS` (offered-surface-axis.ts): a convenience input the writer splits.
+    // The recorded decision in `SYNTHETIC_INPUTS` (offered-surface-axis.ts): the dispatcher splits `name` into
+    // firstName/lastName and stores nothing under `name`, so `row.name` never moves. Blind to the split itself.
     { subject: "resource.name", kind: "unchanged" },
   ],
   "resource:create": [
-    // The recorded decision in `SYNTHETIC_INPUTS` (offered-surface-axis.ts): a convenience input the writer splits.
+    // The recorded decision in `SYNTHETIC_INPUTS` (offered-surface-axis.ts): ignored, not split — CREATE_BASE's
+    // firstName/lastName take precedence, and `sanitizeResource` splits `name` only when both are empty.
     { subject: "resource.name", kind: "dropped" },
   ],
   "absence:create": [
@@ -871,10 +873,12 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
   // ★★★ THE CREATE ARM HAS NO REJECTION BRANCH, AND WRITING IT AS THOUGH IT DID
   //  IS THE TRAP THIS COMMENT EXISTS FOR. The create branch of
   //  `describeEntityCalls` pushes link diffs and a `plan.creates` entry and
-  //  emits NO `rejected` entries whatever — `plan.rejected.push` appears five
-  //  times in `plan.ts` and not one of them is in it. So there is nothing for a
-  //  "or the card refused it" disjunct to fall through to, and this arm asserts
-  //  LANDING ONLY.
+  //  emits NO `rejected` entries whatever. A grep count cannot certify that
+  //  (§440): one `plan.rejected.push` sits in `pushLinkDiffs`, which the create
+  //  branch DOES call. It stays silent there only because that call passes
+  //  `target` `"create"` — the guard is looked up for `"row"` alone — and no
+  //  `toolName`. So there is nothing for a "or the card refused it" disjunct to
+  //  fall through to, and this arm asserts LANDING ONLY.
   //
   //  ★★ THAT MAKES THE PROBE'S VALIDITY LOAD-BEARING in a way the update arm's
   //   is not. With no refusal channel, a guard correctly rejecting a bad value

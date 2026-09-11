@@ -147,20 +147,44 @@ export function undeclaredColumns(entity: InlineEntity): readonly string[] {
  *  the tree as of 2026-09-08 — measured, not assumed.
  *
  *  ★★★ THIS IS FLOOR 3'S EXCEPTION LIST AND NOTHING ELSE READS IT. It is never
- *  subtracted from `declaredProperties`, so both relations still probe the TRUE
- *  offered surface; a synthetic input that stops being split, or lands somewhere
- *  it should not, stays visible to them. An exemption that reaches the relations
- *  is the shape that hid §438 inside §437's ratchet.
+ *  subtracted from `declaredProperties`, so both relations still derive their
+ *  axes from the TRUE offered surface and Relation B still probes
+ *  `resource.name` on both arms. An exemption that reaches the relations is the
+ *  shape that hid §438 inside §437's ratchet.
  *
- *  ★★★ SO RELATION B WILL FIRE ON `resource.name`, AND THAT IS THE DECISION, not
+ *  ★★★ THAT PROBE IS BLIND TO THE SPLIT. An earlier revision said a synthetic
+ *  input that stops being split "stays visible to them", and for `name` it
+ *  does not. Both arms compare `row.name` alone, which the writer never
+ *  stores, and the resource descriptor has no `name` entry in
+ *  `fieldSanitizers` — so the sweep's two ledger entries (`resource.name`
+ *  `unchanged` on update, `dropped` on create) hold whether the split works,
+ *  writes the wrong names or is deleted. (Only a `splitName` that empties
+ *  BOTH parts moves one: the update then throws, which the arm reads as a
+ *  refusal. Emptying both at the dispatcher's call site alone does not —
+ *  `name` stays in the merged patch, so `sanitizeResource`'s both-empty
+ *  fallback re-splits it and the rename lands.) On create the probe never
+ *  even reaches it:
+ *  `CREATE_BASE.resource` supplies both parts, and `sanitizeResource` splits
+ *  `name` only when `firstName` and `lastName` are both empty. What the sweep
+ *  DOES see is `name` starting to land under its own name: either arm then
+ *  stops producing its kind and the ledger turns red. The split itself is
+ *  pinned in `use-chat-dispatcher.test.tsx` — "createResource splits a full
+ *  name when first/last aren't given" and "updateResource splits a `name` into
+ *  first/last, the shape create already honoured" — and, preview and write
+ *  together, by "mononym rename clears the surname" in
+ *  `plan.write-path.test.ts`.
+ *
+ *  ★★★ BECAUSE NOTHING SUBTRACTS IT, RELATION B FIRES ON `resource.name`, AND
+ *  THAT IS THE DECISION, not
  *  an oversight to repair: it is a declared field that cannot land under its own
  *  name, so a relation asserting "a declared field lands or is visibly refused"
- *  reports it. Do NOT add a skip, an allowlist entry or a bespoke
- *  `firstName`/`lastName` assertion when the create base for `resource` is
- *  built — the relations carry no exemptions at all, which is the property that
- *  makes this detector worth more than the sweep it sits beside. The finding is
- *  held in the sweep's `EXPECTED_FINDINGS`, citing this decision, not fixed in
- *  the code. */
+ *  reports it. Do NOT add a skip, an allowlist entry or a
+ *  `firstName`/`lastName` special case INSIDE the relations — they carry no
+ *  exemptions at all, which is the property that makes this detector worth more
+ *  than the sweep it sits beside. That is the only reason: it was never that
+ *  the relations already cover the split. A split assertion belongs beside the
+ *  dispatcher tests named above, not in the sweep. The finding is held in the
+ *  sweep's `EXPECTED_FINDINGS`, citing this decision, not fixed in the code. */
 export const SYNTHETIC_INPUTS: Partial<Record<InlineEntity, readonly string[]>> = {
   resource: ["name"],
 };
