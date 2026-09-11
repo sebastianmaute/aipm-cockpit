@@ -111,6 +111,18 @@ describe("the offered-surface axis", () => {
     const stray = Object.keys(CREATE_BASE[entity]).filter((f) => !declared.includes(f));
     expect(stray, `${entity}: create base carries undeclared ${stray.join(", ")}`).toEqual([]);
   });
+
+  // ★ `EXPECTED_FINDINGS`, beside Relation B, is keyed `entity:arm`. A mistyped
+  //  key ledgers nothing, silently, in the direction where its finding has
+  //  already been fixed: the real key expects nothing and gets nothing, while
+  //  the stale entry is never compared. tsc rejects one; vitest does not.
+  it("every expected-findings ledger key names a real entity and arm", () => {
+    const stray = Object.keys(EXPECTED_FINDINGS).filter((key) => {
+      const [entity, arm, ...rest] = key.split(":");
+      return rest.length > 0 || !ENTITIES.some((e) => e === entity) || !(arm === "create" || arm === "update");
+    });
+    expect(stray, `ledger keys naming no real entity:arm pair: ${stray.join(", ")}`).toEqual([]);
+  });
 });
 
 type Row = Record<string, unknown>;
@@ -595,6 +607,66 @@ it("no Relation B probe drives calendarEvent.sendInvitations true", () => {
   ).toBeUndefined();
 });
 
+/**
+ * ★★★ AN EXPECTED-FINDINGS LEDGER, CHECKED IN BOTH DIRECTIONS — AND NOT AN
+ *  EXEMPTION LIST. Relation B compares the findings it computes against the
+ *  entries here instead of against the empty list.
+ *
+ * ★★ WHY IT EXISTS. This sweep reports every field it cannot measure, or has
+ *  recorded a decision about, as a FINDING rather than dropping it from the
+ *  axis. On main that made it permanently red — measured 2026-09-11 at
+ *  87566496: 73 tests, 5 failed, 6 finding lines, every one in Relation B and
+ *  none of them a write-path defect — and `unit-tests` is a blocking CI job.
+ *
+ * ★★★ BOTH DIRECTIONS TURN THE CASE RED.
+ *  - A finding NOT in the ledger. Treat it as a finding and take it to a
+ *    go/cut; never add it here to make a run green.
+ *  - A ledgered finding that STOPS firing. Delete its entry, and close or amend
+ *    the register row it cites.
+ *  So an entry has to keep firing VERBATIM to stay, which is what stops this
+ *  rotting into an exemption list: a fixed field cannot linger here unseen.
+ *
+ * ★★ WHAT IT DOES NOT CHANGE. Every field stays on the axis, is probed, and
+ *  has its finding computed exactly as before; only the VERDICT reads the
+ *  ledger. The exact `probed + dead` bound and floor 2 are untouched. Both
+ *  sides are sorted before comparing, so finding order is irrelevant.
+ *
+ * ★★ EVERY ENTRY CITES A REGISTER ROW OR A RECORDED DECISION BESIDE IT. An
+ *  entry with no citation is an exemption — delete it or give it one.
+ *
+ * ★ Keyed `entity:arm`, and `Partial` because most pairs expect nothing. The
+ *  key type makes a typo a tsc error, but vitest does not typecheck, so "the
+ *  offered-surface axis" repeats that check at runtime.
+ */
+const EXPECTED_FINDINGS: Readonly<Partial<Record<`${InlineEntity}:${"create" | "update"}`, readonly string[]>>> = {
+  "task:create": [
+    // §459 — the string probe suffixes the seed email, which is then invalid; create refuses it loudly.
+    "task.assigneeEmail: create THREW on a valid \"m.Jordan@example.com probed\" — assigneeEmail is invalid",
+  ],
+  "resource:update": [
+    // The recorded decision in `SYNTHETIC_INPUTS` (offered-surface-axis.ts): a convenience input the writer splits.
+    "resource.name: declared and offered, but a valid \"probed\" changed nothing and the card said nothing",
+  ],
+  "resource:create": [
+    // The recorded decision in `SYNTHETIC_INPUTS` (offered-surface-axis.ts): a convenience input the writer splits.
+    "resource.name: create was offered the field and dropped it — sent \"probed\", stored \"\"",
+  ],
+  "absence:create": [
+    // §459 — the create-arm probe is derived from the SEED start, later than CREATE_BASE's end, so sanitizeAbsence swaps the two.
+    "absence.startDate: create was offered the field and dropped it — sent \"2026-07-07\", stored \"2026-06-02\"",
+  ],
+  "calendarEvent:create": [
+    // §443 — unmeasured by policy: a strict true would stage a real invitation.
+    "calendarEvent.sendInvitations: the derived probe equals what the base create produces on its own — a landing here would prove nothing",
+    // §443 — dead by construction: the HH:MM probe equals CREATE_BASE's own startTime.
+    "calendarEvent.startTime: the derived probe equals what the base create produces on its own — a landing here would prove nothing",
+  ],
+};
+
+function expectedFindings(entity: InlineEntity, arm: "create" | "update"): readonly string[] {
+  return EXPECTED_FINDINGS[`${entity}:${arm}`] ?? [];
+}
+
 describe.each(ENTITIES)("Relation B — %s: a declared field must land or be visibly refused", (entity) => {
   // ★★★ THE DETECTOR §436 ASKED FOR, IN ITS OWN WORDS: "something that asserts
   //  each allow-list still ADMITS the fields the tool schema advertises".
@@ -656,7 +728,10 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
     //  whole entity green while proving nothing. This demands that some declared
     //  field, driven by some probe, actually moved.
     expect(landed, `${entity}: no declared field landed — the harness wrote nothing`).toBeGreaterThan(0);
-    expect(findings, `${findings.length} declared fields that do not work`).toEqual([]);
+    expect(
+      [...findings].sort(),
+      `${entity} update: findings differ from EXPECTED_FINDINGS — a new line is a finding (go/cut, never ledger it to go green); a missing one was fixed (delete its entry, close its register row)`,
+    ).toEqual([...expectedFindings(entity, "update")].sort());
   });
 
   // ★★★ THE CREATE ARM HAS NO REJECTION BRANCH, AND WRITING IT AS THOUGH IT DID
@@ -812,6 +887,9 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
     // that stores nothing, and `!row` would then be the only signal — which the
     // `CREATE_BASE` floor in Task 2 already rules out for a different reason.
     expect(landed, `${entity}: no declared field landed on a created row`).toBeGreaterThan(0);
-    expect(findings, `${findings.length} declared fields the create path drops`).toEqual([]);
+    expect(
+      [...findings].sort(),
+      `${entity} create: findings differ from EXPECTED_FINDINGS — a new line is a finding (go/cut, never ledger it to go green); a missing one was fixed (delete its entry, close its register row)`,
+    ).toEqual([...expectedFindings(entity, "create")].sort());
   });
 });
