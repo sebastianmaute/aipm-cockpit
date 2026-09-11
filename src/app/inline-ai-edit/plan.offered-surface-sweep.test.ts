@@ -447,13 +447,15 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
 // ★★★ THE ONE PROBE IN THIS FILE WITH A REAL-WORLD SIDE EFFECT.
 //  `calendarEvent.sendInvitations` is DECLARED, so Relation B would drive it,
 //  and a strict `true` trips `shouldStage` in `chat-proposal.ts`, which in
-//  production mails the attendees. Whether a unit-test replay can replay that
+//  production mails the attendees. Whether a unit-test replay can send that
 //  mail has NEVER BEEN ESTABLISHED, and is not worth finding out by accident.
 //
 //  ★★★ STATED OVER THE ONE DERIVATION, AT EVERY REFERENCE A ROW CAN HOLD.
-//   Both relations and both arms call `probeFor` and nothing else, so this
-//   covers every path a probe can take to the dispatcher — the hand-kept list
-//   of derivations §443 warned about no longer exists to fall out of date. The
+//   Only Relation B can reach a declared field — Relation A iterates
+//   `undeclaredColumns` alone — and both of Relation B's arms take their
+//   probe from `probeFor` and nothing else, so this covers every path a
+//   probe of this field can take to the dispatcher — the hand-kept list of
+//   derivations §443 warned about no longer exists to fall out of date. The
 //   three references are the three states the flag can be stored in:
 //   present-only-when-true means `undefined` is the create control's value.
 //

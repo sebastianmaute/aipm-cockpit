@@ -253,6 +253,8 @@ export function probeFor(args: {
       if (refusal === undefined) return { kind: "probe", value: member };
       firstRefusal ??= refusal;
     }
+    // `differing` is non-empty (checked above) and every iteration that did not
+    // already return recorded a refusal, so `firstRefusal` is always set here.
     return { kind: "unmeasured", reason: firstRefusal! };
   }
 
