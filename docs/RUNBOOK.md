@@ -182,12 +182,24 @@ warn users to re-import from an export.
    slow) and then, only once every earlier stage has passed, `publish-release`,
    which creates the Release and attaches the installer link.
 5. Check the Releases page: the asset link should download
-   `aipm-cockpit-<version>-setup.exe`. If `publish-release` failed with exit 2 —
-   safe to retry, and that includes a 201 whose body it could not confirm —
-   re-run the job: a create that did land answers 409 the second time, and the
-   job then exits 0 only after reading that Release and finding the link. Exit 1
-   needs a human: a 403 is step 3's access, and a 409 whose Release lacks the
-   link means adding the link or deleting that Release, then retrying.
+   `aipm-cockpit-<version>-setup.exe`.
+
+**If the tag pipeline is red.** `publish-release` has no `needs:` and runs only
+once every earlier stage has passed.
+
+- **Another job failed**, a flaky gate included: retry that job, and GitLab then
+  runs the skipped `publish-release`. Until the pipeline is green the asset link
+  may 404, because GitLab resolves a per-tag artifact URL only through a
+  successful pipeline. Both are GitLab behaviour, unverified here.
+- **`publish-release` exited 2** (a timeout, a 5xx, a 408/429, a 2xx it could not
+  confirm): retry it. A create that did land answers 409 the second time, and the
+  job exits 0 only if that existing Release carries the link. A redirect or a
+  missing variable also exits 2 and will not clear on a retry, so read the message.
+- **`publish-release` exited 1**: a human must act. Either the API refused with
+  a 4xx (for a 403 it prints
+  `API refused: HTTP 403 (the tag pusher needs Developer+, and the right to create protected tags)`,
+  which is step 3's access), or a Release exists without the link
+  (`a Release for <tag> exists WITHOUT <link> — add the link (Release links API) or delete that Release, then retry`).
 
 ★ Tag-build artifacts never expire, deliberately — a published download must not
 vanish. The manual `desktop-package` build on other pipelines still expires

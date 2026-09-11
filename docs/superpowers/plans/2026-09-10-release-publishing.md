@@ -2759,7 +2759,7 @@ Write a verifier to the scratchpad with the **Write tool** (not `node -e` — qu
 3. `release` is the LAST entry of `stages`, and `publish-release` is the only job in it;
 4. the job's EFFECTIVE values after `default:` — the job has no `extends`, so `default:` is the only merge source: image `node:24-bookworm-slim`, cache `[]`, no inherited `before_script`; and `default:` holds only `image` + `cache`;
 5. `workflow:rules` admits `$CI_COMMIT_TAG`, and `dast-zap`'s `when: manual` rule still carries `allow_failure: true`;
-6. `ARTIFACT_JOB` read out of `scripts/release-publish-lib.mjs` names a job that exists and runs on tags (Step 3 checks the same by grep).
+6. `ARTIFACT_JOB` read out of `scripts/release-publish-lib.mjs` names a job that exists and runs on tags — meaning the FIRST of its rules that matches a tag pipeline (`if: $CI_COMMIT_TAG`, or a rule with no `if`/`changes`/`exists`) exists and is not `when: never`, because GitLab's first matching rule decides. (Step 3's grep checks the name half only.)
 
 ```bash
 node "$SP/t7-pub-verify.cjs" > "$SP/t7-pub-verify.log" 2>&1; echo "EXIT=$?"
@@ -2779,7 +2779,9 @@ grep -n "ARTIFACT_JOB = " scripts/release-publish-lib.mjs
 grep -n "^desktop-package-tag:" .gitlab-ci.yml
 ```
 
-Expected: the exported constant and the YAML job name are the same string. Measured 2026-09-11: both print `desktop-package-tag`. ★★ **Nothing checks this automatically** — a rename on either side produces a 404 at download time, long after a green pipeline. (The Step 2 verifier's last two checks are the same comparison, but that script lives in a scratchpad and runs in no CI job.)
+Expected: the exported constant and the YAML job name are the same string. Measured 2026-09-11: both print `desktop-package-tag`. ★★ **Nothing checks this automatically** — a rename on either side produces a 404 at download time, long after a green pipeline. (The Step 2 verifier's last two checks cover this and one thing more, but that script lives in a scratchpad and runs in no CI job. The first is this same name comparison. The second asks whether that job RUNS on a tag pipeline, which the grep cannot see.)
+
+★★ **That second check was vacuous as first written.** `t7-pub-verify.cjs` passed it if ANY rule said `if: $CI_COMMIT_TAG` — which is true of `desktop-package` too, whose tag rule is `when: never`, so it would have passed with `ARTIFACT_JOB` naming a job that never runs on a tag. The corrected copy, `t8-pub-verify.cjs` (the original is left as it ran), requires the first tag-matching rule to exist and not be `when: never`. Proved against a scratchpad copy of `.gitlab-ci.yml` whose `desktop-package-tag` tag rule gained `when: never`: the corrected verifier exits 1, naming `{"if":"$CI_COMMIT_TAG","when":"never"}`; the original exits 0 on the same file; against the real `.gitlab-ci.yml` the corrected one exits 0 with every line PASS.
 
 - [ ] **Step 4: Commit**
 
@@ -2859,7 +2861,7 @@ with:
 
 ★ The link text is the asset link's NAME as `buildReleasePayload` in `scripts/release-publish-lib.mjs` builds it — the file name plus ` (Windows installer)` — not the bare file name an earlier revision of this block quoted.
 
-★★ **This text is deliberately NEUTRAL about WHO has access, because nobody has measured it.** GitLab's permissions docs make job-artifact access depend on the user's role AND on the project's pipeline-visibility setting; depending on that setting, a signed-in NON-member of an internal project may or may not be able to download. Two earlier revisions of this step each asserted a rule — "being signed in is enough", then "project membership is required" — and neither was verified. **Task 11 Step 6 settles it** by opening the asset link as a signed-in non-member. Once it has, tighten this paragraph to the measured rule, and `buildAssetUrl`'s docstring in `scripts/release-publish-lib.mjs` with it, which points at that step.
+★★ **This text makes one weak access claim and leaves the real rule open, because nobody has measured it.** What it CLAIMS: the reader must be signed in to GitLab (the project is `internal`, so an anonymous visitor gets nothing) and must have "access to the project's pipelines" — near-tautological for downloading a job artifact, but still a claim, and the only one. What it LEAVES OPEN: which role that takes, and whether a signed-in NON-member qualifies; the 404 sentence routes anyone it excludes to a maintainer without saying why. GitLab's permissions docs make job-artifact access depend on the user's role AND on the project's pipeline-visibility setting; depending on that setting, a signed-in NON-member of an internal project may or may not be able to download. Two earlier revisions of this step each asserted a rule — "being signed in is enough", then "project membership is required" — and neither was verified. **Task 11 Step 6 settles it** by opening the asset link as a signed-in non-member. Once it has, tighten this paragraph to the measured rule, and `buildAssetUrl`'s docstring in `scripts/release-publish-lib.mjs` with it, which points at that step.
 
 ★ No size is quoted in this user-facing text, as in the Release description (Task 5): a figure there goes stale on the next release and nothing checks it.
 
@@ -2889,12 +2891,24 @@ before this change, verified).
    slow) and then, only once every earlier stage has passed, `publish-release`,
    which creates the Release and attaches the installer link.
 5. Check the Releases page: the asset link should download
-   `aipm-cockpit-<version>-setup.exe`. If `publish-release` failed with exit 2 —
-   safe to retry, and that includes a 201 whose body it could not confirm —
-   re-run the job: a create that did land answers 409 the second time, and the
-   job then exits 0 only after reading that Release and finding the link. Exit 1
-   needs a human: a 403 is step 3's access, and a 409 whose Release lacks the
-   link means adding the link or deleting that Release, then retrying.
+   `aipm-cockpit-<version>-setup.exe`.
+
+**If the tag pipeline is red.** `publish-release` has no `needs:` and runs only
+once every earlier stage has passed.
+
+- **Another job failed**, a flaky gate included: retry that job, and GitLab then
+  runs the skipped `publish-release`. Until the pipeline is green the asset link
+  may 404, because GitLab resolves a per-tag artifact URL only through a
+  successful pipeline. Both are GitLab behaviour, unverified here.
+- **`publish-release` exited 2** (a timeout, a 5xx, a 408/429, a 2xx it could not
+  confirm): retry it. A create that did land answers 409 the second time, and the
+  job exits 0 only if that existing Release carries the link. A redirect or a
+  missing variable also exits 2 and will not clear on a retry, so read the message.
+- **`publish-release` exited 1**: a human must act. Either the API refused with
+  a 4xx (for a 403 it prints
+  `API refused: HTTP 403 (the tag pusher needs Developer+, and the right to create protected tags)`,
+  which is step 3's access), or a Release exists without the link
+  (`a Release for <tag> exists WITHOUT <link> — add the link (Release links API) or delete that Release, then retry`).
 
 ★ Tag-build artifacts never expire, deliberately — a published download must not
 vanish. The manual `desktop-package` build on other pipelines still expires
@@ -2923,7 +2937,11 @@ is not evidence the prompt is gone for colleagues.
 - The fallback said "uploaded to the Release by hand", but `desktop-package-tag` is blocking and `publish-release` runs on stage order with `when: on_success`, so when the wine build fails there is no Release to upload to. It now says to create one. It also needed `npm --prefix desktop ci`: `desktop/` has its own lockfile, and the CI job installs it before `npm run desktop:package`.
 - "A downloaded copy prompts SmartScreen" was stated as fact; it is reasoning from the Mark-of-the-Web measurement in the probe ("What this does NOT establish"), so it now says colleagues should expect the prompt.
 
-Two lines were ADDED, both checked against the code: step 3's access requirement matches the 403 message in `classifyCreateResponse`, and step 5's re-run advice matches `publish-release.mjs`'s exit contract — exit 2 covers a 201 whose body does not confirm, and a retry after a landed create gets a 409 that `classifyExistingRelease` resolves to 0 only when the existing Release carries the link (1 when it does not).
+Two things were ADDED, both checked against the code: step 3's access requirement matches the 403 message in `classifyCreateResponse`, and the "If the tag pipeline is red" block matches `publish-release.mjs`'s exit contract.
+- Exit 2 covers a timeout, a 5xx, a 408/429 and a 2xx that does not confirm — a 201 included — and ALSO a redirect and a missing variable, which is why the block says those will not clear on a retry: the CLI's header calls every exit 2 "safe to retry", which is not the same as "fixed by a retry".
+- A retry after a landed create gets a 409 that `classifyExistingRelease` resolves to 0 only when the existing Release carries the link, and to 1 when it does not.
+- The two exit-1 messages are quoted verbatim from `classifyCreateResponse` (the 403 suffix) and `classifyExistingRelease` (the WITHOUT message), with `<tag>` and `<link>` standing for the interpolated values.
+- The two GitLab claims — a retried job makes GitLab run the skipped `publish-release`, and a per-tag artifact URL resolves only through a successful pipeline — are GitLab's documented behaviour as read, not measured on this project, and the block says so. The plan's original block had no recovery path, and `d65a70c8`'s covered only `publish-release`'s own exits; a cold review of Task 7 asked for the rest, because no `needs:` means ANY red gate on the tag pipeline holds the Release back.
 
 - [ ] **Step 3: Check the docs gates**
 
@@ -2993,6 +3011,48 @@ Claims the plan's blocks carried that did not survive checking:
 The plan's Task 8 is synced: both blocks are byte-identical to the two docs,
 Step 3 carries the gate's real output and a falsifier that proves the RUNBOOK
 is in the gate's scope, and this block replaces the commit it prescribed.
+
+Claude-Session: https://[session link removed]
+```
+
+- [ ] **Step 5: The recovery round**
+
+A cold review of Task 7 found that the RUNBOOK said only what happens when the tag pipeline goes right. The recovery block now in Step 2's markdown landed as a second commit, together with the Task 7 verifier correction (Task 7 Step 3) and the reworded access note in Step 1. The gate was re-run and gave `CLAIMS_EXIT=0`, "none added". The block-sync check compares Step 1's blocks, Step 2's block and both commit blocks against the committed files.
+
+```bash
+git commit -F <msgfile> -- docs/RUNBOOK.md docs/superpowers/plans/2026-09-10-release-publishing.md
+```
+
+```
+docs: the release procedure says how to recover a red tag pipeline
+
+publish-release has no needs: and runs only once every earlier stage has
+passed, so any red job on the tag pipeline holds the Release back -- and the
+RUNBOOK said only what happens when things go right. It now has a short "If
+the tag pipeline is red" block:
+- another job failed, a flaky gate included: retry it, and GitLab runs the
+  skipped publish-release; until the pipeline is green the asset link may
+  404. Both are GitLab behaviour, marked unverified here.
+- publish-release exited 2: retry it. A create that landed answers 409, and
+  the job then exits 0 only if that Release carries the link. A redirect or
+  a missing variable also exits 2 and a retry will not clear it -- the CLI
+  calls every exit 2 safe to retry, which is not the same as fixed by one.
+- exited 1: a human must act; the 403 and WITHOUT messages are quoted
+  verbatim from release-publish-lib.mjs's two classifiers.
+Step 5 loses the exit-code sentences it had; the block owns them now.
+
+Plan, Task 7: the Step 2 verifier's "ARTIFACT_JOB job runs on tags" check
+passed if any rule said if: $CI_COMMIT_TAG -- true of desktop-package too,
+whose tag rule is when: never. A corrected copy requires the first
+tag-matching rule to exist and not be when: never. Against a scratchpad
+YAML whose desktop-package-tag rule gained when: never it exits 1 where the
+original exits 0, and against the real file it passes. Step 2 item 6 and the
+Step 3 parenthetical now say what the check proves.
+
+Plan, Task 8: the access note called the user text NEUTRAL about access, but
+that text still claims "access to the project's pipelines". The note now
+says what the text claims and what it leaves open. The RUNBOOK block is
+byte-identical to the doc again, and this message is recorded as Step 5.
 
 Claude-Session: https://[session link removed]
 ```
