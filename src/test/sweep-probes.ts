@@ -201,10 +201,10 @@ export function admitProbe(
  *  land outside that closed vocabulary and be refused for the wrong reason
  *  (an out-of-vocabulary value, not a same-vocabulary alternative). When the
  *  reference already equals every member, the field is correctly `dead` — a
- *  state that needs a single-member (or duplicate-member) enum and is
- *  unreachable through today's schema: the shortest declared enum anywhere is
- *  3 members (`stakeholder.influence`/`stakeholder.interest`), scanned across
- *  every entity and both arms (`sweep-probes.test.ts`).
+ *  state that needs a single-member (or all-duplicate-member) enum and is
+ *  unreachable today: `sweep-probes.test.ts`'s "has no declared enum with
+ *  fewer than two distinct members" asserts that of every declared enum,
+ *  across every entity and both arms.
  *
  *  Without a governing enum, the two remaining sources FALL THROUGH one to
  *  the next rather than excluding each other: the reference value changed in

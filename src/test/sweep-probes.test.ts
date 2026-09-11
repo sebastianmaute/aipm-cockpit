@@ -137,14 +137,35 @@ describe("probeFor", () => {
     else expect(outcome.kind).not.toBe("dead");
   });
 
+  // Pins the premise the `probeFor` docstring relies on: a declared enum
+  // short enough for every member to already equal the reference (1 distinct
+  // member, or all members duplicates of one another) would make the enum
+  // branch's "every member already equals the reference" dead case reachable
+  // — and that case would then need its own test, which this file does not
+  // have. A prose count rots; this recomputes it.
+  it("has no declared enum with fewer than two distinct members", () => {
+    const enums = ENTITIES.flatMap((entity) =>
+      (["create", "update"] as const).flatMap((op) =>
+        declaredProperties(entity, op)
+          .map((field) => schemaProperty(entity, op, field).enum)
+          .filter((e): e is readonly string[] => e !== undefined),
+      ),
+    );
+    expect(enums.length, "no declared enum was found at all — the scan itself is broken").toBeGreaterThan(0);
+    for (const e of enums) {
+      expect(
+        new Set(e).size,
+        `enum ${JSON.stringify(e)} has fewer than two distinct members — the "every member already equals the reference" dead case is now reachable and needs its own test`,
+      ).toBeGreaterThanOrEqual(2);
+    }
+  });
+
   // The enum source is EXCLUSIVE of the other two, even when one of them also
-  // carries a usable value — `task.priority` is a real 4-member enum (the
-  // shortest declared enum anywhere is 3 members, `stakeholder.influence`/
-  // `stakeholder.interest`; checked by scanning every entity and both arms via
-  // `declaredProperties`/`schemaProperty` — no declared field has a 1- or
-  // 2-member enum today, so the "every member already equals the reference"
-  // dead case cannot be exercised through the real schema and is not faked
-  // here).
+  // carries a usable value — `task.priority` is a real 4-member enum. No
+  // declared field has a 1-member (or all-duplicate) enum today — pinned by
+  // "has no declared enum with fewer than two distinct members" above — so
+  // the "every member already equals the reference" dead case cannot be
+  // exercised through the real schema and is not faked here.
   it("keeps the enum source exclusive of the seed, even when the seed carries a usable value", () => {
     const outcome = probeFor({
       entity: "task", arm: "create", field: "priority", declared: true,
