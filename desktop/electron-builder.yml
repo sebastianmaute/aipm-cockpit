@@ -64,12 +64,19 @@ win:
   # `signExecutable: false` skips signing ALONE and leaves resource editing
   # ON. What resource editing stamps (winPackager.js `signAndEditResources`):
   # the icon, FileDescription and ProductName (both = productName above),
-  # LegalCopyright, InternalName, and the file and product versions.
-  # ★★ NOT CompanyName: that is written only when package.json carries an
-  # `author`, and desktop/package.json has none, so the exe KEEPS Electron's
-  # own "GitHub, Inc." -- measured 2026-09-11 on a correctly packaged exe
-  # whose ProductName and icon were both ours. See the spec's
-  # Section 7 security note -- unsigned means SmartScreen prompts on
+  # CompanyName, LegalCopyright, InternalName, and the file and product
+  # versions.
+  # ★★ CompanyName and the default LegalCopyright both come from
+  # desktop/package.json `author`, not from this file (app-builder-lib
+  # appInfo.js: `companyName` returns `author.name`; `copyright` defaults to
+  # "Copyright © <year> <companyName || productName>"). CompanyName is written
+  # ONLY when an author exists: without one the exe kept Electron's own
+  # "GitHub, Inc." and the copyright named the product (both measured
+  # 2026-09-11), and the build only warned "author is missed in the
+  # package.json". A plain-string author is enough, because the package reader
+  # parses it into `{ name }` (normalizePackageData.js `parsePerson`).
+  #
+  # Unsigned, as above: see the spec's Section 7 security note -- unsigned means SmartScreen prompts on
   # install, and (once the updater lands) the share ACL is the only
   # integrity control on updates.
   signExecutable: false
