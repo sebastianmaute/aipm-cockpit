@@ -3,6 +3,10 @@ stages:
   - quality
   - build
   - e2e
+  # Tag pipelines only: publishes the Release that points at e2e's installer.
+  # A separate stage rather than a `needs:` inside e2e, so the ordering is
+  # visible in the pipeline graph and does not depend on same-stage needs.
+  - release
 
 default:
   image: node:24-bookworm-slim          # Debian/glibc (not alpine/musl); node 20 went EOL 2026-04-30
@@ -334,6 +338,20 @@ duplication-gate:
   script:
     - npm run dup:check
 
+# Tag pipelines only: refuse a tag that disagrees with src/app/version.ts.
+#
+# ★ needs: [] so it runs IMMEDIATELY and fails the pipeline before the
+# 20-minute wine build, not after it.
+# ★★ No allow_failure. Publishing an installer that misreports its own version
+# is the whole failure this prevents.
+tag-version-check:
+  stage: quality
+  needs: []
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - npm run tag:check
+
 build:
   stage: build
   needs: [install]
@@ -460,18 +478,20 @@ dast-zap:
 # never-rebuild rule does not hold: `build` produces a NON-standalone .next/,
 # so the artifact is the wrong SHAPE, not merely stale.
 #
-# ★★ allow_failure is indented under the `- when: manual` rule ONLY, mirroring
+# ★★ allow_failure was indented under the `- when: manual` rule ONLY, mirroring
 # dast-zap. A rules entry that omits it defaults to FALSE, so a second rule
 # added here without its own allow_failure would make this job BLOCKING on any
-# pipeline that matched it. There is exactly one rule today; re-read this before
-# adding another.
-desktop-package:
+# pipeline that matched it.
+#
+# ★★★ THAT SECOND RULE NOW EXISTS, AS ITS OWN JOB, AND ITS allow_failure IS
+# DELIBERATELY ABSENT. desktop-package-tag is BLOCKING: a release that silently
+# did not build is worse than a red pipeline. The two jobs also carry different
+# artifact retention, which `artifacts:expire_in` cannot express per-rule --
+# that is why this is a base plus two jobs rather than one job with two rules.
+.desktop-package:
   stage: e2e
   image: electronuserland/builder:wine
   needs: [install]
-  rules:
-    - when: manual
-      allow_failure: true
   script:
     - NEXT_STANDALONE=1 npm run build
     - npm run desktop:copy-static
@@ -479,5 +499,48 @@ desktop-package:
     - npm --prefix desktop run build
     - npm run desktop:package
   artifacts:
-    paths: [desktop/release/]
+    # ★★★ THE INSTALLER AND ITS BLOCKMAP, NEVER desktop/release/ WHOLE. This is
+    # a defect fix, not an optimisation: measured 2026-09-10, the directory is
+    # ~408 MB of which win-unpacked/ is 314 MB -- an expanded duplicate of the
+    # installer's own contents. Narrowed it is ~93 MB.
+    #
+    # ★ The globs are self-protecting against a stale pre-artifactName build:
+    # `*-setup.exe` does not match `aipm-cockpit Setup 0.301.0.exe`. CI starts
+    # clean anyway; a local tree may hold both.
+    #
+    # ★★ 92.8 MB sits against a documented 100 MB max_artifacts_size DEFAULT
+    # that is admin-only and unreadable from here. A rejection arrives AFTER a
+    # green 20-minute build. See the spike finding under specs/_probes/.
+    paths:
+      - desktop/release/*-setup.exe
+      - desktop/release/*-setup.exe.blockmap
+
+desktop-package:
+  extends: .desktop-package
+  rules:
+    # NOT on tags -- desktop-package-tag owns those, and two wine builds per
+    # pipeline would double the slowest job in it.
+    - if: $CI_COMMIT_TAG
+      when: never
+    - when: manual
+      allow_failure: true
+  artifacts:
+    paths:
+      - desktop/release/*-setup.exe
+      - desktop/release/*-setup.exe.blockmap
     expire_in: 1 week
+
+desktop-package-tag:
+  extends: .desktop-package
+  # ★★★ NO allow_failure, ON PURPOSE. See the comment above the base job.
+  rules:
+    - if: $CI_COMMIT_TAG
+  artifacts:
+    paths:
+      - desktop/release/*-setup.exe
+      - desktop/release/*-setup.exe.blockmap
+    # ★★★ never, because README and docs/desktop-rollout.md tell people to
+    # download this. An expiring artifact is fine for a manual check and
+    # unacceptable behind a published Release asset link -- the link would go
+    # dead silently, weeks later, with nothing failing.
+    expire_in: never
