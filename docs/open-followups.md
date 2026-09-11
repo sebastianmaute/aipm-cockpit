@@ -660,10 +660,17 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§433](#433-a-phantom-period-key-made-an-empty-allocation-read-as-populated--closed-2026-09-07) | A phantom period key made an empty allocation read as populated | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S — one read-side predicate; stored data deliberately untouched | **CLOSED** 2026-09-07 |
 | [§434](#434-adding-an-inlineentity-member-has-four-ripple-sites-one-a-hard-build-break-and-nothing-enumerates-them--closed-2026-09-08) | Adding an `InlineEntity` member has four ripple sites and nothing enumerates them | found 2026-09-07 reviewing the AI-calendar-writes plan for inline-edit write parity | S-M — one is a tsc break, three were silent, all four now pinned | closed 2026-09-08 |
 | [§435](#435-seven-model-writable-fields-have-no-descriptor-entry-so-the-card-cannot-disclose-what-the-write-does--closed-2026-09-08) | Seven model-writable fields have no descriptor entry, so the card cannot disclose the write | found 2026-09-08 by the inline-AI parity sweep's first discovery run | M — a per-field decision (declare vs guard), not one repair | **CLOSED** 2026-09-08 |
-| [§436](#436-the-parity-sweep-cannot-see-a-guard-table-narrowed-because-the-preview-reads-the-same-table--open) | The parity sweep cannot see a guard TABLE narrowed, because the preview reads the same table | found 2026-09-08 as the negative control for §418's acceptance mutants | M — needs a different detector, not a second spelling of the rule | open |
+| [§436](#436-the-parity-sweep-cannot-see-a-guard-table-narrowed-because-the-preview-reads-the-same-table--closed-2026-09-11) | The parity sweep cannot see a guard TABLE narrowed, because the preview reads the same table | found 2026-09-08 as the negative control for §418's acceptance mutants | M — needs a different detector, not a second spelling of the rule | **CLOSED** 2026-09-11 |
 | [§437](#437-stakeholder-resourceid-was-an-eighth-undisclosed-model-write-the-sweep-could-not-see--closed-2026-09-08) | Stakeholder resourceId was an eighth undisclosed model write the sweep could not see | found 2026-09-08 by a cold review extending the type-minus-axis subtraction past its brief | S — one guard, one seed, plus the ratchet that closes the class | **CLOSED** 2026-09-08 |
 | [§438](#438-every-create-tool-but-create_task-bypassed-its-merge-site-guard--closed-2026-09-08) | Every create tool but create_task bypassed its merge-site guard | found 2026-09-08 by cold review of cd71c77b; pre-existing, not a regression | M — six call sites, plus a pin; the create-path RELATION is §439 | **CLOSED** 2026-09-08 |
-| [§439](#439-the-parity-sweep-has-no-create-path-relation-so-a-create-card-is-compared-against-nothing--open) | The parity sweep has no create-path relation, so a create card is compared against nothing | found 2026-09-08 — the structural reason §438 was invisible | L — needs a relation stated over a row that did not exist before | open |
+| [§439](#439-the-parity-sweep-has-no-create-path-relation-so-a-create-card-is-compared-against-nothing--closed-2026-09-11) | The parity sweep has no create-path relation, so a create card is compared against nothing | found 2026-09-08 — the structural reason §438 was invisible | L — needs a relation stated over a row that did not exist before | **CLOSED** 2026-09-11 |
+| [§440](#440-a-create-card-discloses-a-title-and-links-only-and-has-no-channel-to-disclose-a-refusal--open) | A create card discloses a title and links only, and has no channel to disclose a refusal — OPEN | found 2026-09-08 while building §439's create-path relation | M — a product change: enumerate the create, give the card a refusal channel, and give the sweep a refused-a-valid-probe kind in the same change so §436 keeps a detector | open |
+| [§441](#441-relation-a-cannot-see-a-trespass-that-destroys-rather-than-stores-and-the-property-that-blinds-it-is-the-one-that-keeps-it-exemption-free--open) | Relation A cannot see a trespass that DESTROYS rather than STORES, and the property that blinds it is the one that keeps it exemption-free — OPEN | found 2026-09-08 by acceptance mutant 2 of the offered-surface slice, which SURVIVED | M-L — a design call: movement clause plus exemptions, or leave it to the write-path sweep; typed probes for the listed fields | open |
+| [§442](#442-changedecisiondate-is-offered-on-create-unconditionally-discarded-and-disclosed-nowhere--closed-2026-09-09) | `change.decisionDate` is offered on create, unconditionally discarded, and disclosed nowhere | found 2026-09-08 by the create arm of the offered-surface sweep's Relation B | S — closed by WITHDRAWING the field; the title's "unconditionally" was itself false, and the body says so | **CLOSED** 2026-09-09 |
+| [§443](#443-two-create-axis-fields-are-unmeasured-for-two-different-reasons-and-the-guard-that-reports-the-first-enumerates-probe-derivations-by-hand--open) | Two create-axis fields are unmeasured for two different reasons, and the guard that reports the first enumerates probe derivations by hand — OPEN | found 2026-09-08 while measuring the offered-surface sweep's create arm | S-M — one is a policy exclusion to keep, one is a probe that cannot move | open |
+| [§444](#444-npm-run-testshuffle-is-owed-for-featoffered-surface-sweep-landing--closed-2026-09-11) | `npm run test:shuffle` is owed for `feat/offered-surface-sweep-landing` | found 2026-09-08 — withheld on the original branch (a peer session held a full suite) and on the landing (no full suite locally) | XS — closed by CI's `unit-tests-shuffled` job 29515 on `6b23d75b` (MR !470), 1063 files green | **CLOSED** 2026-09-11 |
+| [§445](#445-propose_project-is-a-whole-model-write-surface-both-offered-surface-relations-are-structurally-unable-to-reach--open) | `propose_project` is a whole model-write surface both offered-surface relations are structurally unable to reach — OPEN | found 2026-09-09 while closing §442, on a branch that forked before `2645debb`, which fixed the write defect on main the same day | S — a decision: give `propose_project` a relation of its own, or affirm `SEED_OFFERED_KEYS` as the whole answer | open |
+| [§446](#446-changedecisionby-is-authored-freely-with-no-coupling-to-status-so-a-decider-can-be-named-on-an-undecided-change--open) | `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change — OPEN | found 2026-09-09 while closing §442; reported independently by two agents, fixed by neither | S-M — decide the invariant first; a guard on the model alone closes nothing while the modal accepts it | open |
 | [§447](#447-sanitize-recordsts-sits-at-exactly-the-1600-line-ratchet-limit-with-zero-headroom-and-it-is-not-baselined--open) | `sanitize-records.ts` is at the 1600-line ratchet LIMIT with zero headroom and no baseline entry | found 2026-09-09 by the prose pass on the AI create-path branch, which needed ~30 lines in a file that had 2 | S-M — extract the seven guard tables; do NOT `--update` the baseline or hand-write a row | **OPEN** |
 | [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, invisible to every detector for the class | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
 | [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s `testTimeout`, so it reds under load and the red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
@@ -674,6 +681,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§456](#456-twelve-headerless-dialogs-deliberately-carry-no-help-icon-and-only-the-call-site-comments-record-why--open) | Twelve headerless dialogs deliberately carry no help icon, and only the call-site comments record why | recorded 2026-09-10 finishing the §424 sweep — 13 sites, 1 wired, 12 refused | N/A — a RECORD of deliberate absences; re-measure the term counts before reusing one | **OPEN** |
 | [§457](#457-a-stale-reachability-claim-in-the-calendar-meetings-band-move-handler-and-the-one-gate-correction-is-itself-wrong--open) | A stale reachability claim in the calendar meetings-band move handler, and the one-gate correction is itself wrong | found 2026-09-10 while recording the §424 refusals | S — replace the sentence naming BOTH gates; a one-gate fix invites a false "drag is broken" diagnosis | **OPEN** |
 | [§458](#458-the-modal-header-help-popover-tab-test-fails-on-press-1-alone-under-ci-load-and-the-autofocus-diagnosis-was-wrong--open) | 458. The modal-header help-popover Tab test fails on press 1 alone under CI load, and the autoFocus diagnosis was wrong | found 2026-09-10 from two CI runs on `feat/modal-help-bespoke`; one attempted fix measured wrong and reverted the same day | M — CI-only, intermittent; needs a diagnostic run under real load before any fix, and the obvious fix has already been tried and reverted | **OPEN** |
+| [§459](#459-two-relation-b-create-arm-probes-are-invalid-by-construction-because-the-harness-mutates-the-seed-rows-value-without-regard-to-what-the-create-will-accept--open) | Two Relation B create-arm probes are invalid by construction, because the harness mutates the seed row's value without regard to what the create will accept — OPEN | first reported 2026-09-08 on the original branch (`1375f3c7`, local-only) and never filed there; analysed and filed 2026-09-11 from the sweep's first run on the landing branch | S — one probe derivation, two fields; both held in the sweep's ledger | open |
+| [§460](#460-a-create-card-can-preview-meeting-attendees-the-create-then-stores-none-of-because-the-previews-link-guard-runs-on-updates-only--open) | A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only — OPEN | found 2026-09-11 by cold review of the offered-surface landing: a `plan.ts` comment still described both allow-list creates as unguarded | S — lift the `target === "row"` gate on link guards, behind a test driving `[4, "4"]` through card and write | open |
+| [§461](#461-an-absence-stores-an-assignee-email-that-is-not-an-address-where-a-task-refuses-the-same-value-loudly--open) | An absence stores an assignee email that is not an address, where a task refuses the same value loudly — OPEN | found 2026-09-11 by cold review of the offered-surface landing, beside §459's task probe | S-M — decide per field whether an assignee email is format-checked, then guard the writer, not the card | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -32587,9 +32597,73 @@ red run IS the record of what is still open, and an exception list would turn th
 nobody can re-derive.
 
 
-## 436. The parity sweep cannot see a guard TABLE narrowed, because the preview reads the same table — OPEN
+## 436. The parity sweep cannot see a guard TABLE narrowed, because the preview reads the same table — CLOSED 2026-09-11
 
-**Status:** OPEN 2026-09-08 — measured, not reasoned, as the negative control for the six acceptance
+**Status:** CLOSED 2026-09-11 by the CREATE arm of Relation B in
+`src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`, which is this entry's own prescribed
+detector — "something that asserts each allow-list still ADMITS the fields the tool schema
+advertises". Its axis is read from `TOOL_DEFS`, which a guard-table edit cannot move, and a create
+card has no refusal channel (§440), so a narrowed allow-list row reads there as a field that was
+offered and did not land. That holds for every in-scope field the create arm drives with a probe
+that can land; it does NOT hold for the UPDATE arm, and three `calendarEvent` fields are outside it —
+two `dead`, and `recurrence`, whose probe the real guard already refuses (§441), though a narrowing of
+that one is still caught, through the control create — all recorded in the **Residual** below.
+
+★ The measurement stands and was re-run on main on 2026-09-11 as acceptance mutant 4 of the
+offered-surface slice: narrowing `ABSENCE_FIELD_GUARDS.note` to `() => false` turns the NEW detector
+RED on `absence.note`, on Relation B's CREATE arm (1 failed / 73 passed, the absence create case
+only), while `plan.write-path-sweep.test.ts` stays byte-identically green — 37 passed, and the md5 of
+its verbose test-name output (`2cff2178852afbef0ddd5fef7fbcdcd1`) identical to the unmutated baseline
+measured on main. The fingerprint pipeline is spelled in
+`docs/superpowers/plans/2026-09-11-offered-surface-sweep-landing.md`: Task 5 Step 3 takes the
+baseline with it, and Task 7's mutant 4 repeats it under the mutant. That was two serial runs, not
+one invocation, on trees that differ only by the mutant and by the new sweep's own file. Relation
+B's UPDATE arm stays green under the same mutant. For a field whose probe differs from the seed, that
+arm has three passing branches — a landing, a throw, or a refusal the card discloses — and the update
+merge keeps the stored note, so the refusal was loud rather than silent. By reading, it is the card:
+the update branch of `describeEntityCalls` consults `rawTypeGuards` for every `diffFields` member and
+pushes a `rejected` row, and `updateAbsence` drops the field without throwing; that was not
+separately measured. The branch's own plan PREDICTED the kill on the update arm — it is listed under
+"Expected" for mutant 4 in `docs/superpowers/plans/2026-09-08-offered-surface-sweep.md` — and nothing
+the branch recorded names the arm it actually landed on. That is this entry's own measurement
+reproduced, not a new one: the old sweep is still blind, and the point is that something else is no
+longer blind alongside it.
+
+**Residual (still open):**
+★★★ **THE CLOSURE RESTS ON THE CREATE ARM ALONE, AND TWO IN-SCOPE FIELDS ARE DEAD THERE.** The
+UPDATE arm is no detector for this entry. It reads the plan, the plan reads `rawTypeGuards`, and for
+`absence` and `calendarEvent` that is the same object as `ABSENCE_FIELD_GUARDS` /
+`CALENDAR_EVENT_FIELD_GUARDS` — so a narrowed row previews as a refusal the card discloses, and the
+arm counts a disclosed refusal as agreement. That is the self-certification this entry measured,
+reproduced inside the new file, and the sweep says so above its update arm. So a narrowing is caught
+reliably only where the create arm drives the field with a probe that can land, and two
+`calendarEvent` fields are `dead` on that arm, both held as §443's `EXPECTED_FINDINGS` entries:
+`sendInvitations` by the `MAIL_UNSAFE_BOOLEANS` mail policy, and `startTime` because the derived probe, `CREATE_BASE.calendarEvent.startTime` and
+`normalizeEventStartTime`'s default are all `"09:00"`. Measured 2026-09-11 on the landing branch at
+`70615677` ("test(ai): key the sweep's findings ledger by field and kind, and correct the comments a
+review disproved"), not reasoned: narrowing `CALENDAR_EVENT_FIELD_GUARDS.startTime` to `() => false`
+and running the offered-surface sweep and `plan.write-path-sweep.test.ts` in ONE invocation gave 0
+failed / 74 passed and 0 failed / 37 passed, each file's verbose test-name fingerprint identical to
+an unmutated control run the same way. The model loses the ability to set a meeting's start time, and
+neither file moves. Reproduce the two dead fields with
+`grep -n 'subject: "calendarEvent' src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`.
+The third field is `recurrence`, and it is not `dead` — it counts as LANDED having moved nothing.
+`validProbeFor` has no object branch, so it sends the string `"probed"`; the real
+`CALENDAR_EVENT_FIELD_GUARDS.recurrence` (`isPlainObject`) refuses it, and `recurrenceText` renders
+both that probe and the row's missing rule as `""` (§441). A narrowing of that row DOES turn the arm
+red, but only by accident: `CREATE_BASE.calendarEvent` carries a recurrence, so the control create
+loses it too, the probe then reads `dead` against the control, and that is a finding the ledger does
+not hold. Measured 2026-09-11 on the same tree: `CALENDAR_EVENT_FIELD_GUARDS.recurrence` set to
+`() => false` gave 1 failed / 73 passed, the failing case being Relation B's calendarEvent create
+case alone, whose findings were `[dead] calendarEvent.recurrence` beside the two the ledger holds.
+The UPDATE arm stayed green, as it does under every narrowing this entry records. So the landing on
+this field proves nothing, but a narrowing of it is still caught, through the control rather than
+through the probe.
+★★ Closing §440 as filed widens this to every field: a create card that can disclose a refusal lets
+the create arm count a narrowed row as agreement too, unless a "refused a valid probe" kind is added
+to the sweep's `FINDING_KINDS` in the same change. The sweep records that beside its create arm.
+
+**As filed:** OPEN 2026-09-08 — measured, not reasoned, as the negative control for the six acceptance
 mutants recorded in §418. Reproduce by narrowing one row of `ABSENCE_FIELD_GUARDS`
 (`src/app/sanitize-records.ts`) from `note: (v) => typeof v === "string",` to `note: () => false,`
 and running
@@ -32629,10 +32703,13 @@ schema advertises — not a second spelling of the rule.
 ★ Scope: `absence` and `calendarEvent` only. ★★ THE OTHER SIX ARE NOT SIX OF A KIND, and an earlier
 wording here said they were — it read "the other six entities' merge-site guards are denylist tables
 the preview does not read", which is FALSE for `task`: task has no merge-site guard table at all
-(`grep -rn "TASK_FIELD_GUARDS|dropUnacceptedTask" src` → 0 hits; the seven `dropUnaccepted*Fields`
-production call sites are raid, change, milestone, stakeholder, absence and calendarEvent in
-`use-register-tools.ts` plus resource in `use-chat-dispatcher.ts` — no task). So the reassurance that
-followed was VACUOUS for task: there is no table there to narrow. Corrected 2026-09-08 by cold review.
+(`grep -rnE "TASK_FIELD_GUARDS|dropUnacceptedTask" src` → 0 hits; the seven `dropUnaccepted*Fields`
+guards are raid, change, milestone, stakeholder, absence and calendarEvent in
+`use-register-tools.ts` plus resource in `use-chat-dispatcher.ts`, each called from a create and an
+update site — no task). So the reassurance that followed was VACUOUS for task: there is no table
+there to narrow. Corrected 2026-09-08 by cold review. ★ Until 2026-09-11 that reproduce read
+`grep -rn` without `-E`, which matches a literal `|` and returns 0 whatever the tree holds; with
+`-E` it still returns 0, while the same pattern over the raid pair returns hits.
 
 Read it as: FIVE entities (raid, change, milestone, stakeholder, resource) carry denylist tables the
 preview does not read, so a table narrowing there does show up as a divergence. `task` is outside the
@@ -32783,17 +32860,53 @@ ships with the same "guarded but unwatched" property that let §437 hide behind 
 ★ `plan.model-writable-surface.test.ts` does NOT cover this either, and cannot: it reasons about
 which fields are accounted for, not about which WRITER accepts them.
 
-## 439. The parity sweep has no create-path relation, so a create card is compared against nothing — OPEN
+## 439. The parity sweep has no create-path relation, so a create card is compared against nothing — CLOSED 2026-09-11
 
-**Status:** OPEN 2026-09-08 — never machine-verified; established by reading the sweep's plumbing, and
+**Status:** CLOSED 2026-09-11 by `src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`,
+which drives every entity's `create_*` tool as well as its `update_*` one, on an axis taken from
+`TOOL_DEFS` rather than from any registry the guard tables control. It was built on a branch where
+it stood RED by design when that branch closed this entry (`681c6c07`, 2026-09-08, "docs(followups):
+close 436 and 439, mint 440-444, correct 439's text and the plan's mutant 6", on the local-only
+`feat/offered-surface-sweep`) — 73 tests, 11 failing, 15 findings — and
+all fifteen are accounted for: 8 Relation A create findings (`localModifiedAt` / `outlookEventId`
+landing through five pass-through creates), fixed by the create strip (`29744af1`, 0.297.0); 1 on
+`change.decisionDate`, fixed by withdrawal (§442, 0.297.0); 2 on `resource.name`, the recorded
+`SYNTHETIC_INPUTS` decision; 2 on `calendarEvent`, filed as §443; and 2 never filed on the branch —
+`task.assigneeEmail` and `absence.startDate` — filed on the landing branch as §459. §440 and §441 are
+not findings it made: they record what the relation cannot see. Its first run on the landing branch,
+against main's product code, 2026-09-11, was 73 tests
+with 5 failing, none a write-path defect; those findings are held in a both-directions
+`EXPECTED_FINDINGS` ledger in the same file (§443 · §459 · the `resource.name` decision), and it
+landed at 74 tests, 0 failing.
+
+★★ **IT CLOSES ALTHOUGH ITS HEADING IS STILL LITERALLY TRUE, and the reason is worth keeping.**
+`plan.write-path-sweep.test.ts` still drives `update_*` only, and a create CARD is still compared
+against nothing — because it has nothing to compare: it discloses a title and links alone (§440). The
+new create arm does not compare the card. It compares what the model was OFFERED against what the
+create WROTE — Relation A for an undeclared field, Relation B for a declared one — and that is the
+gap this entry was filed for: a create-path divergence invisible to every detector, which is how §438
+happened. That gap is closed. The card half is §440's and stays open there.
+
+**As filed:** OPEN 2026-09-08 — never machine-verified; established by reading the sweep's plumbing, and
 corroborated by §438 having been invisible to every existing detector until a person traced it.
-Reproduce with `grep -n "updateTool" src/test/inline-sweep-fixtures.ts` and
+Reproduce with `grep -n "\.updateTool;" src/test/inline-sweep-fixtures.ts` and
 `grep -n "create_" src/app/inline-ai-edit/plan.write-path-sweep.test.ts` — the only `create_` string
 in the sweep is a comment about a disclosure-only LinkDiff.
 
 `plan.write-path-sweep.test.ts` drives `update_*` tools ONLY. `sweepPlumbing` reads
 `INLINE_DESCRIPTORS[entity].updateTool`; there is no `createTool` to read. So the preview⟺write
 parity relation the sweep exists to enforce covers exactly half the write surface.
+
+★★★ **THAT SENTENCE WAS WRONG ABOUT `createTool`, AND THE ERROR OVERSTATED THE WORK.** The first
+clause is true and the second is false: `createTool` is a declared member of
+`EntityDescriptor` and all eight entities carry one — `chat-proposal-describe.ts` indexes
+`toolEntity[d.createTool]` off exactly that. `sweepPlumbing` (`src/test/inline-sweep-fixtures.ts`)
+simply hardcodes `updateTool`. A reader who believed the entry budgeted for adding a descriptor
+member that had been there all along. The same sentence sat in the header of
+`plan.create-path-guards.test.ts` and is corrected there too. Left in place rather than deleted,
+because an entry that quietly loses its false premise teaches nobody why the estimate was wrong.
+Reproduce: `grep -c 'createTool: "create_' src/app/inline-ai-edit/entity-descriptor.ts` → **8**,
+against `grep -n "\.updateTool;" src/test/inline-sweep-fixtures.ts` → the single hardcoded read.
 
 ★★★ **THIS IS THE REASON §438 COULD HAPPEN AT ALL, and the reason it is worth a number of its own
 rather than a line in §438.** Guards were added at merge sites, mutation-proved, and watched by a
@@ -32815,6 +32928,406 @@ is the entire class the sweep exists for.
 ★ `plan.model-writable-surface.test.ts` does not close it either — it reasons about which fields are
 ACCOUNTED FOR, never about which WRITER accepts them, which is exactly how it came to carry an
 exemption (`calendarEvent.exceptions`) that was true of update and false of create.
+
+## 440. A create card discloses a title and links only, and has no channel to disclose a refusal — OPEN
+
+**Status:** OPEN 2026-09-08 — measured while building §439's detector, not by looking for it.
+Reproduce with `grep -n "plan.rejected.push" src/app/inline-ai-edit/plan.ts` (**5** hits, none of
+them inside the `CREATE_TOOLS` branch) and `grep -n "plan.creates.push" src/app/inline-ai-edit/plan.ts`.
+
+★ The count alone cannot certify "none inside", and it is one refactor from lying. One of the five
+sits in `pushLinkDiffs`, which the create branch DOES call; it stays silent there only because its
+guard is gated on `target === "row"` and the create call passes no `toolName`. Read `pushLinkDiffs`,
+not the grep. §460 records what that gate costs now that both allow-list creates enforce the guard.
+
+The create branch of `describeEntityCalls` pushes link diffs and a `plan.creates` entry carrying
+`{ entity, title, toolName, input }`. It emits no `FieldDiff` and no `Rejected`. So a user approving
+"Create RAID item: Payment timeout" is approving a row with a dozen fields set, and if the writer
+silently drops one of them the card had no way to say so.
+
+★★ TWO DEFECTS, ONE SURFACE, and they want deciding together: the card does not ENUMERATE what a
+create will write, and it cannot DISCLOSE a refusal. §439's Relation B works around the second by
+asserting landing only on its create arm — a narrower claim than its update arm makes, stated in the
+test's own comment.
+
+★ Deliberately NOT closed by §439. A literal preview⟺write relation for create would fire on nearly
+every field for a single designed reason, and closing that with an exemption list is the shape that
+hid §438 inside §437's ratchet. This is a product change with its own review surface.
+
+★ §442 WAS the first MEASURED instance of the second defect — a field the tool advertised, discarded
+by the writer, behind a card with no vocabulary for it. It was read as the worked example of what this
+entry costs, not as a separate class.
+
+★★ **THAT WORKED EXAMPLE IS GONE, AND THIS ENTRY IS NOT.** §442 was CLOSED 2026-09-09 by WITHDRAWING
+`decisionDate` from every surface that offered it, so there is no longer an advertised-then-discarded
+change field to point at. Two things follow, and only the first is comfortable. The refusal-channel
+defect stands exactly as filed — nothing about the card changed. But this entry now has NO measured
+instance, which is a weaker position than it had: a reader looking for one will find a closed entry
+whose own body says the discard was never unconditional. Re-measure before scoping work here; do not
+carry §442's numbers forward.
+
+★★★ **CLOSING THIS AS FILED WOULD DELETE §436'S ONLY DETECTOR.** The offered-surface sweep's create
+arm catches a narrowed allow-list row precisely BECAUSE a create card cannot disclose a refusal: the
+field reads `dropped`. Give the card a refusal channel and that narrowing becomes a disclosed refusal
+on the create arm too — the shape the update arm already counts as agreement — so the change that
+closes this entry must add a "refused a valid probe" finding kind to the sweep's `FINDING_KINDS` in
+the same commit, or §436 goes quietly green. The sweep says so beside its create arm
+(`grep -n "SO THE DETECTOR RESTS ON A MISSING FEATURE" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`).
+
+## 441. Relation A cannot see a trespass that DESTROYS rather than STORES, and the property that blinds it is the one that keeps it exemption-free — OPEN
+
+**Status:** OPEN 2026-09-08 — measured as acceptance mutant 2 of the offered-surface slice, which
+SURVIVED on the branch and again on main on 2026-09-11. On the branch five of that slice's six
+mutants were killed; on main four are, because mutant 3 survives the sweep there too — a third
+instance of this entry's probe-shape theme, recorded below. Reproduce by REPLACING
+`...dropUnacceptedResourceFields(patch),` with `...patch,` in `updateResource`'s merge in
+`src/app/use-chat-dispatcher.ts` — replacing, not deleting: deleting the spread outright drops the
+whole patch — and running the sweep: 0 failed / 74 passed, exactly as clean. Locate both calls with
+`grep -n "dropUnacceptedResourceFields(" src/app/use-chat-dispatcher.ts`.
+
+Relation A of `plan.offered-surface-sweep.test.ts` states that an UNDECLARED field must never land on
+the model's value, and it states it as `same(stored[field], probe)` — the model's LITERAL value
+arrived. That is precisely why the relation needs no exemption list: it does not care what the writer
+stamps of its own accord, only whether the model's value survived.
+
+★★★ **IT IS ALSO EXACTLY WHY THE RELATION IS BLIND HERE, AND THE TWO ARE THE SAME PROPERTY.** A
+trespass that COERCES or CLEARS never produces the probe value, so it satisfies the relation in the
+same way a working guard does. Mutant 2 is a real destructive trespass and it passed: `utilizationMode`
+coerced `"hours"` to `"percent"`; `utilization`, `absenceOverride` and `birthday` cleared outright;
+`active` moved `false` to `undefined`. Fourteen of §435's twenty violations were these five fields,
+so this is not a hypothetical shape — it is the shape that slice was about.
+
+★★ The distinguishing input is a BEFORE/AFTER MOVEMENT comparison over fields the writer does not
+unconditionally stamp, which is what `plan.write-path-sweep.test.ts` states, and why the class was
+visible to it at all. The two relations are complementary; neither subsumes the other, and a reader
+who reads the new sweep as a superset of the old one will delete the only detector for this class.
+
+★★★ **WHY IT IS A DESIGN QUESTION AND NOT A ONE-LINE FIX.** Adding a movement clause to Relation A
+means exempting the fields the writer stamps on every write — `localModifiedAt` and `outlookEventId`
+at minimum — and an exemption list on this axis is the shape that let §437's ratchet carry
+`calendarEvent.exceptions` and hide §438 inside it. Either the movement relation stays in the sweep
+that already owns it, or Relation A takes an exemption list and stops being the thing it was written
+to be. Decide that before writing either.
+
+★★★ **THE PROBE SHAPE BOUNDS WHAT RELATION A CAN SEE — a second measured instance of this entry's
+theme, found while closing §442.** `trespassProbeFor` (`plan.offered-surface-sweep.test.ts`) derives
+its probe from the seeded value and returns a trespass STRING for every string-typed field; it never
+returns a well-formed ISO date. So on a DATE field, a guard that already refuses non-dates is
+INDISTINGUISHABLE from `() => false` — both reject the probe, and the relation is satisfied either
+way. Measured on the offered-surface branch: reverting `CHANGE_FIELD_GUARDS.decisionDate`
+(`sanitize-records.ts`) to its accepting form left Relation A BYTE-IDENTICALLY GREEN. That mutant
+survived this detector entirely, and was killed only by the two detectors probing with a well-formed
+date and with `""`.
+
+★★★ **A THIRD INSTANCE, MEASURED ON MAIN ON 2026-09-11.** Acceptance mutant 3 — replacing
+`...dropUnacceptedCalendarEventFields(input)` with `...input` in `createCalendarEvent`
+(`use-register-tools.ts`), the handler `create_calendar_event` dispatches to — leaves the sweep at
+0 failed / 74 passed. The calendarEvent undeclared axis is `exceptions`, `localModifiedAt` and
+`outlookEventId`. The create strip (`createInputWithoutId` over `TOKEN_EXCLUDED`, `29744af1`) now
+removes the last two before the handler runs. On the branch `create_calendar_event` passed its input
+through raw and `sanitizeCalendarEvent` keeps both as text, so they are the only members of that axis
+the mutant could have let land there — read from the branch's code, because the branch recorded the
+kill but not its finding lines. No sweep fixture seeds `exceptions`, so `trespassProbeFor` sends it a
+trespass STRING, which `sanitizeExceptions` (`calendar-event.ts`) drops for not being an array
+whatever the guard does. On main this guard is pinned by `plan.create-path-guards.test.ts` instead:
+under the same mutant its `'create_calendar_event' refuses 'exceptions'` case goes red (1 failed /
+39 passed).
+
+★★ The tension is structural rather than an oversight, and the detector says so itself — see the
+`RELATION B NEEDS A VALID PROBE WHERE RELATION A NEEDS AN INVALID ONE` note in `validProbeFor`'s docstring
+(`grep -n "NEEDS A VALID PROBE" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`). One probe
+cannot serve both relations, so this is the same "fix it here and it stops being what it is" shape the
+bullet above records, arriving by a different route.
+
+★★★ THE CONSEQUENCE A READER NEEDS: **Relation A's green on a date field is not evidence**, and the
+same holds for any field whose accepted type the probe cannot inhabit. Do not cite it as coverage for
+such a field without a typed probe beside it.
+
+★★★ **THE THREE INSTANCES ARE A CLASS, AND THE SWEEP NOW NAMES ITS MEMBERS BESIDE ITS PROBES**
+(`trespassProbeFor`'s docstring, since the landing branch's `70615677`, "test(ai): key the sweep's
+findings ledger by field and kind, and correct the comments a review disproved"). A trespass probe
+is never a valid value, so for
+ANY undeclared field whose sanitizer rejects or reshapes an arbitrary value the probe can never be
+stored as sent, and Relation A passes over the field green whatever the guard does. At least:
+`knowledgeLinks`, `calendarEvent.exceptions`, `stakeholder.raci`, `resource.utilizationMode`,
+`resource.utilization`, `resource.absenceOverride`, `resource.birthday`, `resource.active` and
+`change.decisionDate` — traced from source, and "at least", not an enumeration of the axis. Relation
+B has a sibling hole: `validProbeFor` has no object branch, so `calendarEvent.recurrence` is sent the
+string `"probed"`, the create guard (`isPlainObject`) refuses it, and `recurrenceText` projects both
+the probe and the missing rule to `""` — the create arm reads a refused `recurrence` as LANDED.
+Reproduce with
+`grep -n "A TRESPASS PROBE IS NEVER A VALID VALUE" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`
+and `grep -n "THERE IS NO OBJECT BRANCH" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`.
+
+★★ **WHAT CATCHES THE CREATE GUARD CALLS INSTEAD, per `plan.create-path-guards.test.ts`'s own header
+— and one call is caught by neither file.**
+(`grep -n "IS TRUE OF ONE PIN ONLY" src/app/inline-ai-edit/plan.create-path-guards.test.ts`):
+- its pins are the ONLY detector for the `exceptions` and `resource.active` create guard CALLS —
+  measured 2026-09-11: removing `dropUnacceptedCalendarEventFields` or `dropUnacceptedResourceFields`
+  from its create call leaves the sweep at 0 failed / 74 and reds exactly that file's pin;
+- it is the only create-path detector for `knowledgeLinks` by reading, not by measurement;
+- `stakeholder.resourceId` is genuinely beside the sweep — removing the `create_stakeholder` guard
+  call reds both its pin and Relation A's stakeholder create case;
+- removing `dropUnacceptedAbsenceFields` from the `create_absence` call (`use-register-tools.ts`)
+  leaves the sweep AND that file green together — measured 2026-09-11, 0 failed / 114 over the two
+  files — because `sanitizeAbsence` builds its row from named fields and drops an unnamed key on its
+  own. Neither file detects that call's removal; no other detector was looked for.
+
+## 442. `change.decisionDate` is offered on create, unconditionally discarded, and disclosed nowhere — CLOSED 2026-09-09
+
+**Status:** CLOSED 2026-09-09 by WITHDRAWAL of the field from every surface that offered it,
+shipped in 0.297.0 "Gentle". `eca6312d` removed `decisionDate` from `changeFields`
+(`chat-tool-defs.ts`), so neither `create_change` nor `update_change` advertises it; turned the
+existing `CHANGE_FIELD_GUARDS` row (`sanitize-records.ts`) from `decisionDate: acceptsChangeDate` into
+the refusing `decisionDate: () => false`, reached from BOTH `dropUnacceptedChangeFields` calls in
+`use-register-tools.ts` — create and update; and withdrew
+it from `INLINE_DESCRIPTORS.change`'s `diffFields`/`dateFields`, so the review card no longer offers
+a clear the writer refuses. `8162aa91` swept the prose and types that outlived the change. Verify
+with `grep -n "decisionDate" src/app/chat-tool-defs.ts` (comments, plus the read-only
+`list_changes` description — no schema property),
+`grep -n -B 2 "decisionDate: () => false" src/app/sanitize-records.ts` and
+`grep -n "dropUnacceptedChangeFields(" src/app/use-register-tools.ts` (two calls). Corroborated
+by the detector that filed it: the create arm's remaining findings contain no `change` field at all,
+and on main the sweep's `EXPECTED_FINDINGS` ledger has no `change` key.
+
+**As filed:** OPEN 2026-09-08 — measured by the create arm of Relation B in
+`plan.offered-surface-sweep.test.ts`, which reports it as a field the tool declares and the row does
+not carry. Reproduce with `grep -n "decisionDate" src/app/chat-tool-defs.ts`,
+`grep -n "applyChangeStatus" src/app/use-register-tools.ts` and
+`grep -n -A 8 "export function applyChangeStatus" src/app/change-log.ts`.
+
+`create_change` advertises `decisionDate` — `changeFields` is the entire `properties` bag of BOTH the
+create and the update tool, so anything offered on one is offered on the other. `createChange`
+sanitizes the model's input and then finishes with `applyChangeStatus(sanitized, sanitized.status,
+today)`, whose pending branch does `delete next.decisionDate` outright. `sanitizeChangeItem` defaults
+an absent status to `"Proposed"`, which is in `PENDING`. So a create that supplies a decision date and
+no status loses the date every time.
+
+★★ A `status` ⟺ `decisionDate` COUPLING THE SCHEMA ADVERTISES NO TRACE OF. The field is offered
+unconditionally; whether it survives turns on another field the model was never told it had to set,
+and neither tool description mentions the dependency.
+
+★ The clearing itself is RIGHT, and the entry must not be read as asking for it to stop — a pending
+change carrying a decision date is an inconsistent row, and the same rule governs the update path.
+What is missing is the DISCLOSURE. That is §440: the create card has no channel to say "you asked for
+this and it will not happen".
+
+★ THE UPDATE PATH IS GENUINELY DIFFERENT, not merely unprobed. `applyModelChangeStatus` routes a
+model-supplied status through the same function, but its else branch — no status supplied — returns
+the row with the STORED status and leaves `decisionDate` alone. So the coupling bites on update only
+when the model actually names a pending status, which is why Relation B's update arm has no finding
+here.
+
+★★★ **"UNCONDITIONALLY DISCARDED" WAS WRONG — IT IS IN THE TITLE AND IN THE FIRST BODY LINE, AND THE
+ERROR OVERSTATED THE DEFECT.** `applyChangeStatus` (`change-log.ts`) discards the date on its PENDING
+branch alone; the other branch is `decisionDate: item.decisionDate ?? today`, which KEEPS a
+model-supplied date. So `create_change({status: "Approved", decisionDate: "2026-09-01"})` landed the
+date exactly as asked, every time. What was true is the narrower claim the body's own worked case
+makes — an absent status defaults to `"Proposed"`, which is pending, so a create supplying a date and
+NO status lost it. The false sentence is left standing rather than rewritten, because an entry that
+quietly loses its false premise teaches nobody why the reading was wrong. Reproduce:
+`grep -n -A 8 "export function applyChangeStatus" src/app/change-log.ts`.
+
+★★★ **THE SHARPER DEFECT THIS ENTRY NEVER NAMED, AND THE REAL REASON A WITHDRAWAL WAS THE RIGHT
+FIX RATHER THAN A DISCLOSURE.** The entry's last bullet reads the UPDATE path as the safer one — "the
+coupling bites on update only when the model actually names a pending status" — and treats Relation
+B's silence there as evidence. It is the opposite. `applyModelChangeStatus` (`change-log.ts`) returns
+`{ ...item, status: stored }` when the model supplies no valid status, and `item` is the ALREADY-MERGED
+row carrying the model's `decisionDate`. So a model could set a decision date on a change that stayed
+`Proposed` — breaking the very `status` ⟺ `decisionDate` invariant `applyChangeStatus` exists to hold
+— simply by OMITTING `status`. Relation B could not state it, because the field landed exactly as
+sent; its silence was a blind spot, not a clean bill. Reproduce:
+`grep -n -A 4 "export function applyModelChangeStatus" src/app/change-log.ts`.
+
+★★ THAT IS WHY §440 WOULD NOT HAVE CLOSED THIS. A refusal channel says "you asked for this and it
+will not happen". On the update path the write DID happen, and happened wrong — there was nothing to
+disclose and nothing a card could have said. Read the pair as: the create path wanted disclosure, the
+update path wanted the field gone, and only the second fix covers both.
+
+★ §446 is the same field family and is NOT closed by this: `decisionBy` is still authored freely with
+no coupling to `status`.
+
+## 443. Two create-axis fields are unmeasured for two different reasons, and the guard that reports the first enumerates probe derivations by hand — OPEN
+
+**Status:** OPEN 2026-09-08 — both are recorded by the offered-surface sweep's own finding output,
+which classifies them `dead` rather than dropping them from the axis. Since 2026-09-11 both findings
+are also held in that file's both-directions `EXPECTED_FINDINGS` ledger, so each is still computed
+on every run — only the verdict reads the ledger — and the case goes red if either stops firing.
+Reproduce with
+`grep -n "MAIL_UNSAFE_BOOLEANS" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts` and
+`grep -n "startTime" src/test/offered-surface-axis.ts src/test/inline-sweep-fixtures.ts`.
+
+`calendarEvent.sendInvitations` is unmeasured **BY POLICY**. It is declared, so Relation B drives it,
+and a strict `true` trips `shouldStage` in `chat-proposal.ts` — the one write in this app that leaves
+the building. Whether a unit-test replay can actually reach the mail path has never been established:
+it is traced-safe, not proven, and that difference is not worth settling by accident. It stays ON the
+axis and reports as UNMEASURED rather than being exempted off it, which is the observable difference
+between a safety exclusion and an exemption.
+
+`calendarEvent.startTime` is dead **BY CONSTRUCTION**, and this one is a probe defect rather than a
+policy call. `validProbeFor`'s HH:MM branch has exactly two outputs, `"09:00"` and `"10:00"`, chosen
+by whether the current value already reads `"09:00"`. The seed holds `"14:00"`, so the probe is
+always `"09:00"` — which is literally `CREATE_BASE.calendarEvent.startTime`, the value the base
+payload produces on its own. The field can never be shown to have landed, and no floor counts it:
+floor 1 measures the axis's SIZE, not whether each member was driven.
+
+★★★ **THE MAIL-SAFETY GUARD ENUMERATES PROBE DERIVATIONS BY HAND, AND THAT IS THE DURABLE PART.** It
+began as one assertion reading `validProbeFor` and was structurally blind to `probeAgainstControl`
+until a second assertion was added for it — the file says so in its own comment. A THIRD derivation
+would be blind again, silently, and the failure mode of this particular blindness is a real mail to
+real attendees. The guard wants stating over whatever derivation the arm actually calls, not over a
+hand-kept list of the ones someone remembered.
+
+★ Filed as one entry because the consequence is shared: `calendarEvent` reads as a covered entity
+while two of its declared properties have never been driven through `create_calendar_event`, and
+only the sweep's `EXPECTED_FINDINGS` ledger says so — a green run prints nothing.
+
+★★ It also leaves both fields outside §436's detector, which is the create arm: narrowing either
+field's `CALENDAR_EVENT_FIELD_GUARDS` row moves nothing. Measured for `startTime` in §436's Residual
+(0 failed in both sweeps); for `sendInvitations` it follows from the same `dead` classification and
+was not run.
+
+## 444. `npm run test:shuffle` is owed for `feat/offered-surface-sweep-landing` — CLOSED 2026-09-11
+
+**Status:** CLOSED 2026-09-11 by CI, not locally: the BLOCKING `unit-tests-shuffled` job 29515
+(https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/jobs/29515), in merge-request
+pipeline 6900 for !470, passed on `6b23d75b`, the landing branch after it merged `origin/main` at
+0.303.0. The job ran `vitest run --sequence.shuffle --sequence.seed=1 --reporter=dot`, the same
+command as `npm run test:shuffle`, and its log reports `Test Files  1063 passed (1063)`.
+★ Only a pipeline on `6b23d75b` or later could close this. The seed fixes the RNG, not the order,
+and the merge brought in nine test files from main (six under `desktop/`, three under `scripts/`;
+`git diff --name-only --diff-filter=A 33496bdb 6b23d75b -- "*.test.*"`), so an earlier pipeline
+shuffled a different suite.
+The run was never made locally: not on the original branch, `feat/offered-surface-sweep` (a peer
+session held a full suite), and not on the landing branch, which ran under a standing instruction
+to run no full suite locally.
+
+`test:shuffle` is the ONLY local reproduction of CI's BLOCKING `unit-tests-shuffled` job. A bare
+`--sequence.shuffle` shuffles test order WITHIN a file as well as file order, so it catches
+intra-file order dependence (§75) and not merely cross-file leakage — and `npm run test:run` shuffles
+nothing, so a green local suite says nothing about it.
+
+★★ `plan.offered-surface-sweep.test.ts` is the shape that breaks under reordering: it mints ids
+through `id-mint-session.ts`, whose `highWater` map is MODULE-SCOPED. Vitest isolates each test
+file by default (`isolate: true`, which `vitest.config.ts` does not override), so the map is shared
+by the tests of ONE file, not across files — and test order within a file is exactly what the
+shuffle permutes. The file carries the mitigation, a `beforeEach` calling `resetMintState()` with a
+comment naming this gate as the reason, so the expected answer was a PASS; job 29515 is the evidence.
+
+★ Owed for the BRANCH, not for the file: the gate runs the whole suite, so a green answer is a
+property of the branch and cannot be obtained by running the new file alone. CI's
+`unit-tests-shuffled` job is exactly that run on the merge request; read a red as deterministic —
+the seed is pinned.
+
+
+## 445. `propose_project` is a whole model-write surface both offered-surface relations are structurally unable to reach — OPEN
+
+**Status:** OPEN 2026-09-11 — the write defect is fixed on main by `SEED_OFFERED_KEYS` (`2645debb`,
+0.297.0) and pinned by `src/app/ai-project-proposal.test.ts` (mutation measured 2026-09-11: 2 failed /
+19 passed, clean 21); what stays open is the headline — no offered-surface relation drives
+`propose_project`. Verify with `grep -n "buildList(s.changes" src/app/ai-project-proposal.ts`.
+
+★ The mutation: making `proposalToSeed`'s changes `buildList` call admit every key
+(`SEED_OFFERED_KEYS.changes` replaced by a set whose `has` always answers true) turns "drops every
+property the seed schema never offered" and "keeps a seeded change's status/decisionDate pair
+consistent" red. The first case received `outlookEventId`, `localModifiedAt`, `decisionDate` and
+`requestedBy` on the seeded change. Locate the two cases with
+`grep -n "never offered\|status/decisionDate pair consistent" src/app/ai-project-proposal.test.ts`.
+
+**As filed:** OPEN 2026-09-09 — never machine-verified as a defect; the REACHABILITY gap was
+established by reading the axis and the write path by reading it, and no behaviour was changed. It
+was filed on the offered-surface branch, which forked before `2645debb` and never carried it. Its
+reproduce was `grep -n "TOOL_DEFS" src/test/offered-surface-axis.ts`,
+`grep -c "propose_project" src/app/chat-tool-defs.ts` and
+`grep -n "buildList(s.changes" src/app/ai-project-proposal.ts`. The middle one no longer answers the
+question it was cited for: on main `chat-tool-defs.ts` names `propose_project` once, in a comment.
+Ask `grep -rn '"propose_project"' src/app --include=*.ts` instead, which finds the quoted name in
+`ai-project-proposal.ts` (`PROPOSAL_TOOL`), in `use-project-proposal.ts`, and in
+`ai-project-proposal.test.ts`, which pins the tool's name — and nowhere in `chat-tool-defs.ts`.
+
+`plan.offered-surface-sweep.test.ts` derives its axis from `TOOL_DEFS`, and `propose_project` is not a
+member of it. So BOTH relations — Relation A's undeclared-field trespass and Relation B's
+declared-but-not-landed subtraction — are structurally unable to reach the project-proposal write
+path, whatever either reports.
+
+On the branch, `proposalToSeed` (`ai-project-proposal.ts`) built its change rows with
+`buildList(s.changes, sanitizeModelChangeItem)` and NO filter at all, while the proposal's own
+`changes` schema advertises `title` and `description` only, requiring `title`.
+`sanitizeModelChangeItem` repairs two numeric fields and hands the rest to `sanitizeChangeItem`,
+which reads `decisionDate` and `knowledgeLinks` straight off the raw object. So a model-authored
+proposal could land a field the proposal schema never offered — including both fields
+`CHANGE_FIELD_GUARDS` refuses outright on the register tools.
+
+★★ **PRE-EXISTING AND DELIBERATELY SCOPED OUT, not an oversight of the offered-surface slice.**
+`change-log.ts`'s header then stated the exemption and its reasoning: the seed and template-import
+paths rebuild a WHOLE REGISTER from an untrusted blob rather than transitioning a live row, so they
+ran through `sanitizeChangeItem` alone by design. A guard table written for a per-field PATCH is the
+wrong instrument for a whole-row REBUILD. On main that header names TEMPLATE IMPORT alone as still
+running that way, and records `SEED_OFFERED_KEYS` as the seed path's only guard.
+
+★ It is disclosed where a reader of the sweep will meet it — the scope paragraph in
+`src/test/offered-surface-axis.ts` names `propose_project`, says it is out of scope, and says why. On
+main that paragraph also names `SEED_OFFERED_KEYS` and says nothing in the sweep tests it.
+
+★★ WHAT THE ENTRY SAID WOULD CLOSE IT WAS A DECISION, NOT A CALL SITE: either the proposal's own
+schema becomes the axis for a relation of its own, so the seed path is measured against what the
+proposal advertises, or the exemption is affirmed and this entry is closed as accepted with the
+reasoning recorded. Do NOT "complete the pattern" by dropping `dropUnacceptedChangeFields` into
+`proposalToSeed` — that applies a patch-shaped guard to a rebuild, which is the exact mismatch the
+exemption exists to avoid.
+
+★ The gap was not specific to changes, and neither is the fix: `SEED_OFFERED_KEYS` filters all four
+`buildList` lists, while `tasks` and `resources` are assembled from named fields and were immune by
+construction. Changes are simply where it was measured, because that is the field family §442 was
+about.
+
+★★ **FIXED BY A THIRD OPTION — AND THE REACHABILITY GAP IN THE TITLE IS STILL TRUE, WHICH IS WHY
+THIS STAYS OPEN.** Main took neither branch of that decision as worded. `SEED_OFFERED_KEYS` is read
+off `PROPOSAL_TOOL`'s own seed schema, but as a FILTER at the seed boundary rather than as the axis of
+a sweep relation, and it is not a patch-shaped guard. That fixes the write defect this entry
+described. It does not touch the headline: no offered-surface relation drives `propose_project`
+today, so a green sweep still says nothing about it, and the filter is covered only by the dedicated
+test named in the Status line, which writes its forbidden keys out BY HAND so it cannot share the
+derivation it checks. The register closes an entry on its headline claim, and that claim stands.
+Closing it is still the decision above — give `propose_project` a relation of its own, or affirm the
+filter as the whole answer and record why — now taken with a working filter already in place.
+
+## 446. `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change — OPEN
+
+**Status:** OPEN 2026-09-09 — established by reading both ends of the path; reported independently by
+two agents before it was filed, and fixed by neither. Presence witnesses re-run 2026-09-11:
+`grep -n "decisionBy" src/app/chat-tool-defs.ts` (one schema property, on the bag both change tools
+share), `grep -n "decisionBy" src/app/sanitize-records.ts` (ONE line — the store, with no `status`
+term, and no `CHANGE_FIELD_GUARDS` row) and `grep -c "decisionBy" src/app/change-log.ts` (→ **0**, so
+no status transition owns it).
+
+`changeFields` offers `decisionBy` as a free-text "Decision maker", and because that bag is the entire
+`properties` of BOTH `create_change` and `update_change`, it is offered on each. `sanitizeChangeItem`
+stores it — `const decBy = sanitizeText(o.decisionBy, BUDGET_NAME_MAX); if (decBy) item.decisionBy =
+decBy;` — with no reference to `status` anywhere on the path. So a decider can be named on a change
+nobody decided, and nothing in the model will ever object.
+
+★★★ **IT IS NOT SIMPLY "§442 ONE FIELD OVER", AND FILING IT THAT WAY WOULD BE WRONG IN THE DIRECTION
+THAT MATTERS.** §442's `decisionDate` was offered, discarded and DISCLOSED NOWHERE. `decisionBy` IS
+disclosed: it is a member of `INLINE_DESCRIPTORS.change`'s `diffFields`
+(`grep -n "decisionBy" src/app/inline-ai-edit/entity-descriptor.ts`), so the review card shows the
+change before it lands, and it is STORED rather than discarded. Neither of §442's two halves applies.
+What is left is a DOMAIN-INVARIANT question, not a disclosure or trespass one.
+
+★★ **AND A USER CAN DO THE SAME THING** — `change-edit-modal.tsx` renders `decisionBy` as an editable
+input, where it renders `decisionDate` as a read-only `<span>`. So this is not a model-write defect at
+all in the way §442 was; the model is reaching a field the product already lets a person author
+inconsistently. Anyone scoping this should decide the INVARIANT first and only then decide whether the
+model needs a guard row, because a guard that refuses the model while the modal still accepts it
+closes nothing.
+
+★ NOT FIXED, DELIBERATELY — out of scope for the `decisionDate` work, and the right fix is genuinely
+unobvious. The date has a DERIVATION (a `status` transition stamps `today`), so withdrawing it from
+the authored surface cost nothing. A decider's NAME has no derivation, so the options are: a refusing
+guard row plus a modal change, a coupling that clears it on any pending status the way
+`applyChangeStatus` clears the date, or accepting the field as free annotation and saying so. Decide
+which before writing anything.
+
 ## 450. Keys in both dictionaries dodge plural agreement with a parenthetical plural, and every detector for this class is blind to them by construction — OPEN
 
 **Status:** 2026-09-08 — never probed beyond the dictionary scan below, which counts KEYS and checks
@@ -33438,3 +33951,152 @@ The header comment on `buildMoveOccurrenceHandler` says the meetings band "can't
 ★ **DO NOT "FIX" THIS BY ASSERTING WHERE FOCUS STARTS.** That has been tried once. It converted a rare red in `unit-tests-shuffled` into a reproducible red in `unit-tests` (which then SKIPS the shuffled job through its `needs:`), i.e. it made the branch strictly worse while reading as a targeted fix.
 
 ★ Reproducing it needs a starved worker, which is why it is CI-only: the machine used locally kills the fork pool outright rather than reordering it, so the load condition never arises in the shape CI produces. A diagnostic commit dumping `document.activeElement` and the dismissal-stack state either side of press 1 is the cheapest next step, and it will take more than one pipeline because the flake is intermittent.
+
+## 459. Two Relation B create-arm probes are invalid by construction, because the harness mutates the seed row's value without regard to what the create will accept — OPEN
+
+**Status:** OPEN 2026-09-11 — first reported on 2026-09-08 on the original branch, where `1375f3c7`
+("test(ai): give Relation B's create arm a control create per entity", on the local-only
+`feat/offered-surface-sweep`, never on main) named both findings in its commit message and nothing
+filed them; analysed and filed on 2026-09-11 from the sweep's first run on the landing branch,
+against main's product code (73 tests, 5 failing, all in Relation B, at `87566496`, "docs(ai): correct
+three axis docstrings that main's code has outrun"). Both findings are held in the sweep's
+`EXPECTED_FINDINGS` ledger, keyed by subject and kind since `70615677` ("test(ai): key the sweep's
+findings ledger by field and kind, and correct the comments a review disproved"). Reproduce with
+`grep -n 'subject: "task.assigneeEmail"\|subject: "absence.startDate"' src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`,
+then delete either entry and run that file: its create case goes red, and the failure prints each
+actual finding as `[kind] detail` (measured for the `absence.startDate` entry on 2026-09-11, on the
+re-keyed ledger: 1 failed / 73 passed, the absence create case only).
+
+Relation B asks whether a field the model WAS offered actually works, so it needs a VALID probe.
+`validProbeFor` (`plan.offered-surface-sweep.test.ts`) derives one from the SEED row's value — a date
++1 day, a non-empty string suffixed ` probed` — and the create arm sends it inside a `CREATE_BASE`
+payload, which is a different row. Two fields break, for two different reasons:
+
+- **`task.assigneeEmail`.** The seed holds `m.Jordan@example.com`, so the probe is
+  `"m.Jordan@example.com probed"`. That is not an email in ANY payload: the suffix keeps a string a
+  string but not an address, so the premise in `validProbeFor`'s docstring — "a valid date mutated
+  by a day is still valid" — does not carry over to this field. `createTask`
+  (`use-chat-dispatcher.ts`) refuses it loudly with `assigneeEmail is invalid`, so the field is
+  never shown to land. It is not shown to land through `update_task` either: that arm's green is a
+  REFUSAL, not a landing. `buildTaskCleanPatch` (`chat-task-patch.ts`) throws the same error, the
+  task descriptor's `emailFormatFields` check rejects the value on the card before that, and the
+  update arm counts either as a refusal (by reading; the two were not separated by a run). The
+  create arm has no refusal channel (§440), so it records the throw as a finding.
+- **`absence.startDate`.** The seed starts `2026-07-06`, so the probe is `2026-07-07` — later than
+  `CREATE_BASE.absence.endDate` (`2026-06-02`). `sanitizeAbsence` (`sanitize-entities.ts`) orders the
+  pair, so the probe is stored as `endDate` and `startDate` reads `2026-06-02`.
+
+Neither is a write-path defect: the first refusal is correct and loud, and the swap in the second
+is the sanitizer doing its job. What is missing is a MEASUREMENT — both create cases are green on the
+ledger while neither field has been shown to land through `create_*`, and `task.assigneeEmail` has
+not been shown to land through `update_task` either.
+
+★★ The fix is a probe the create would accept where it is sent, not a per-field override map:
+`validProbeFor`'s own docstring rejects such a map as "one rename away from becoming an exemption
+list". When either field is made to land, delete its ledger entry in the same commit — the ledger goes
+red otherwise, which is the point of checking it in both directions.
+
+★ Same family as §443's `calendarEvent.startTime`, which is dead for the mirror reason (its probe
+EQUALS what `CREATE_BASE` already supplies), and as §441's probe-shape instances on Relation A. §461
+is the same probe seen from the other side: sent to an `absence`, the non-address is STORED on both
+arms, and the sweep counts it as landed.
+
+## 460. A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only — OPEN
+
+**Status:** OPEN 2026-09-11 — suspected, NOT runtime-verified: no test observes both halves — the
+preview half is pinned, as intended behaviour, by the `plan.test.ts` case named below — and the
+divergence is established by reading every hop below. Presence witnesses re-run 2026-09-11:
+`grep -n 'target === "row" ? d.rawTypeGuards' src/app/inline-ai-edit/plan.ts` (the gate),
+`grep -n "dropUnacceptedCalendarEventFields(input)" src/app/use-register-tools.ts` (the create now
+runs the allow-list) and `grep -n "attendeeResourceIds: (v)" src/app/sanitize-records.ts` (the row
+that refuses any array holding a non-number).
+
+`pushLinkDiffs` (`plan.ts`) applies the descriptor's `rawTypeGuards` to a LINK field only when
+`target === "row"`, and the create branch of `describeEntityCalls` calls it with `"create"`. The gate
+was right when it was written (`93c9efe8`, 2026-09-07): both allow-list creates then handed their
+input straight to their sanitizer, so on a create the preview's link sanitizer — the writer's own —
+was exactly what the write stored. Since `68486cd4` (2026-09-08, shipped in 0.294.0),
+`create_absence` and `create_calendar_event` run `dropUnacceptedAbsenceFields` /
+`dropUnacceptedCalendarEventFields` first (`use-register-tools.ts`), so the create now enforces the
+allow-list row the preview skips.
+
+The live instance is `calendarEvent.attendeeResourceIds`. The card previews the link through
+`INLINE_DESCRIPTORS.calendarEvent`'s link `sanitize`, which is `sanitizeAttendees`
+(`calendar-event.ts`) — it coerces each element with `toNumber`, so
+`create_calendar_event({ …, attendeeResourceIds: [4, "4"] })` previews one attendee, resource 4. The
+write's `CALENDAR_EVENT_FIELD_GUARDS.attendeeResourceIds` requires EVERY element to be a number, so
+`dropUnacceptedCalendarEventFields` drops the whole array and `sanitizeCalendarEvent` stores no
+attendees. The user approves a meeting with an invitee the row does not carry, and the create card
+has no channel to say so (§440). Any array holding a non-number (so the row refuses it whole) and at
+least one element `toNumber` turns into a positive integer (so the card shows someone) does it —
+`["4"]` alone is both. A bare string does not, because `sanitizeAttendees` answers `undefined` for a
+non-array and the card shows nothing.
+
+★★ **NOT THE SAME SHAPE ON `absence.resourceId`, although the gate covers both link fields.** That
+link's own `sanitize` in `INLINE_DESCRIPTORS.absence` already carries the allow-list row's `typeof`
+leg — a non-number, non-null value yields no ids — so a string id previews as nothing and the create
+stores nothing: they agree. `attendeeResourceIds` is the only link field on the two allow-list
+entities whose preview sanitizer is looser than its row.
+
+★★ **WHY NO DETECTOR SEES BOTH HALVES.** The offered-surface sweep's create arm drives the seeded
+`[4]` — `validProbeFor`'s `[]` is dead against the control, so `probeAgainstControl` re-derives the
+full seeded array — every member already a number, so it never sends a numeric string.
+`plan.create-path-guards.test.ts` pins one refused field per create (`exceptions`
+for this one). And a create card's links are disclosure only (`LinkDiff.target` is `"create"`), so no
+relation compares a create card against a create write — §440's gap.
+
+★ THE LIKELY FIX, NOT MADE HERE: drop the `target === "row"` condition, so a refused link is omitted
+on a create exactly as the write omits it. The `if (toolName)` beside it already keeps a create from
+pushing a `rejected` row — the create call passes no `toolName` — so disclosing the refusal stays
+§440's. Pin it first with a test that drives `[4, "4"]` through both the card and the write.
+
+★★ **THAT FIX TURNS AN EXISTING TEST RED, BECAUSE THE PREVIEW HALF OF THIS DEFECT IS PINNED AS
+CORRECT.** `plan.test.ts`'s "does NOT apply the guard to a create, whose write never sees it" drives
+`create_calendar_event` with `attendeeResourceIds: [7, "9"]` and asserts no rejection and both
+attendees on the card. Its own comment says a create "never passes through"
+`dropUnacceptedCalendarEventFields`, and the `(C3)` header above its `describe` says both creates hand
+`input` straight to their sanitizer — the pre-`68486cd4` create path, in both places. Locate it with
+`grep -n "does NOT apply the guard to a create" src/app/inline-ai-edit/plan.test.ts`. The commit that
+lifts the gate must rewrite that case and both comments in the same change; this slice left all
+three untouched. The matching comment above the gate in `plan.ts` said the same until the commit that
+filed this entry, which corrected it and left the gate itself alone.
+
+## 461. An absence stores an assignee email that is not an address, where a task refuses the same value loudly — OPEN
+
+**Status:** OPEN 2026-09-11 — established by reading both writers, not by a dedicated run; the
+offered-surface sweep's clean run (0 failed / 74) is consistent with it, carrying no
+`absence.assigneeEmail` finding on either arm, but it was not built to show it. Presence witnesses
+re-run 2026-09-11: `grep -n "assigneeEmail: (v)" src/app/sanitize-records.ts` (absence's allow-list
+row, a bare string check), `grep -n -A 2 "export function sanitizeEmail" src/app/sanitize-core.ts`
+(a length cap, no format check) and
+`grep -rn 'throw new Error("assigneeEmail is invalid")' src/app --include=*.ts` (the two throws,
+both on the task path).
+
+`ABSENCE_FIELD_GUARDS.assigneeEmail` admits any string, and `sanitizeAbsence` stores it through
+`sanitizeEmail`, which is `sanitizeText` at the email length cap — nothing on the path checks the
+format. So `create_absence` / `update_absence` given `assigneeEmail: "m.Jordan@example.com probed"`
+store exactly that, and the offered-surface sweep's Relation B counts it LANDED on both arms: its
+probe is the seeded address suffixed ` probed` (`validProbeFor`), and the absence descriptor's
+`emailFormatFields` is empty, so the card previews the value as an ordinary change.
+
+The same value on a TASK is refused loudly: `createTask` (`use-chat-dispatcher.ts`) and
+`buildTaskCleanPatch` (`chat-task-patch.ts`) both throw `assigneeEmail is invalid` when `isValidEmail`
+fails, and the task descriptor's `emailFormatFields` rejects it on the card first. §459 records that
+refusal as the reason the task probe never lands. Two fields a reader would call "the assignee's
+email", one format-checked and one not.
+
+★★ **A GREEN SWEEP HERE IS NOT COVERAGE OF THE FORMAT.** Relation B asks whether a valid value
+lands; it has no notion of an invalid one being accepted, so it certifies the absence field with a
+value no mail client could use. That is §459's probe defect seen from the other side — the probe is
+not an address, and on this entity nothing notices.
+
+★ NOT A CARD DEFECT — the preview is honest about the write. The absence descriptor's own comment
+says its `emailFormatFields` is EMPTY on purpose, "like `raid.ownerEmail` and unlike
+`task.assigneeEmail`", because the apply path has no format guard to mirror
+(`grep -n "EMPTY, like" src/app/inline-ai-edit/entity-descriptor.ts`). What is in question is the
+WRITER's rule, so decide it before fixing, as §446 must for `decisionBy`. An `isValidEmail` check on
+the absence allow-list row would refuse the model and nothing else, and per-field format checking is
+already uneven: `sanitizeRaidItem` stores `ownerEmail` through the same `sanitizeEmail` with no format
+guard (`grep -n "ownerEmail = sanitizeEmail" src/app/sanitize-records.ts`). This may be one instance
+of a per-field choice rather than a slip; whichever it is, it wants writing down where both writers
+can be seen.

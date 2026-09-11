@@ -2,11 +2,18 @@
 //
 // ★★★ THE CREATE PATH IS NOT THE UPDATE PATH, and for one release it was the
 // half of the write surface nothing watched. `plan.write-path-sweep.test.ts`
-// drives `update_*` tools ONLY — its plumbing reads
-// `INLINE_DESCRIPTORS[entity].updateTool` and there is no create relation to
-// read — so every guard added at a merge site was, until §438, a guard on
-// editing alone. A field the model was refused when EDITING was accepted when
-// CREATING, silently, on six of the seven create tools.
+// drives `update_*` tools ONLY — its plumbing hardcodes
+// `INLINE_DESCRIPTORS[entity].updateTool` — so every guard added at a merge
+// site was, until §438, a guard on editing alone. A field the model was refused
+// when EDITING was accepted when CREATING, silently, on six of the seven create
+// tools.
+//
+// ★★ `createTool` WAS THERE THE WHOLE TIME, and saying otherwise overstates the
+// work. It is a declared member of `EntityDescriptor` and all eight
+// entities carry one (`grep -c 'createTool: "create_' entity-descriptor.ts` →
+// 8); `chat-proposal-describe.ts` indexes `toolEntity[d.createTool]` off it.
+// `sweepPlumbing` simply declines to read it. The same wrong sentence sat in
+// §439 and is corrected there too.
 //
 // ★★★ THAT IS NOT HYPOTHETICAL AND THIS FILE EXISTS BECAUSE IT WAS MEASURED.
 // `knowledgeLinks` was stored verbatim by create for raid, change and
@@ -19,17 +26,42 @@
 // shape, so the model had been told how to build a value it was never told it
 // could write.
 //
-// ★★ THIS IS A PIN, NOT A SWEEP. It asserts one refused field per entity
-// rather than enumerating an axis, so it cannot replace the mechanical sweep
-// and must not be read as create-path parity coverage. A real create relation —
-// comparing the create CARD against the created ROW — is still owed; see §438.
-// What this file buys is that the seven guards cannot be quietly removed from
-// the create sites again.
+// ★★ THIS IS A PIN, NOT A SWEEP. It asserts one refused field per entity rather
+// than enumerating an axis, so it cannot replace a mechanical sweep and must not
+// be read as create-path parity coverage. The axis-driven create relation it
+// was waiting for is `plan.offered-surface-sweep.test.ts` (§439); what this file
+// buys beside it is that the seven guards cannot be quietly removed from the
+// create sites again.
+//
+// ★★★ "BESIDE" IS TRUE OF ONE PIN ONLY — DO NOT DELETE ANY OF THEM AS COVERED
+// BY THAT SWEEP. Its Relation A never sends a VALID value, so it is blind to
+// any field whose sanitizer rejects or reshapes an arbitrary one (§441 carries
+// the detail and the fix). Each pin's status, per pin:
+//  - `knowledgeLinks` (raid, change, milestone) — the ONLY create-path
+//    detector for that field. Relation A's probe is `[{ trespass }]`, which
+//    `sanitizeKnowledgeLinks` empties (no name/url) whatever the guard does.
+//  - `exceptions` (calendarEvent) and `active` (resource) — the ONLY detector
+//    for the create site's guard CALL. Measured 2026-09-11 (product code = main
+//    at fe82d1db): removing `dropUnacceptedCalendarEventFields` or
+//    `dropUnacceptedResourceFields` from its create call leaves the sweep at 0
+//    failed / 74 and turns exactly this file's pin red. Relation A probes a
+//    string `exceptions`, which `sanitizeExceptions` drops, and `active: true`,
+//    which `sanitizeResource` never stores.
+//  - `resourceId` (stakeholder) — genuinely BESIDE. Relation A probes 1004 off
+//    the seeded 4 and would see it stored; measured the same day, removing the
+//    `create_stakeholder` guard call reds this pin AND Relation A's stakeholder
+//    create case.
+//  - `JUNK_KEY` (absence) — detects NEITHER. Measured the same day: removing
+//    `dropUnacceptedAbsenceFields` from the `create_absence` call leaves this
+//    file AND the sweep green, because `sanitizeAbsence` builds its row from
+//    named fields and drops an unnamed key on its own. It pins the OUTCOME's
+//    shape, which holds without the allowlist; see that case below.
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";
 import { JUNK_KEY, KNOWLEDGE_LINKS, snapshot, type WsKey } from "../../test/inline-sweep-fixtures";
+import { CREATE_BASE } from "../../test/offered-surface-axis";
 import { TOKEN_EXCLUDED, type TokenEntity } from "../ai-entity-token";
 import { TOOL_DEFS } from "../chat-tool-defs";
 import { runTool } from "../chat-tools";
@@ -56,6 +88,10 @@ type CreateCase = {
    *  value means the sanitizer's own default won instead of the model's. */
   expected: unknown;
   because: string;
+  /** A field the created row must have STORED for the probe to be able to land
+   *  at all. Asserted before the refusal, so a trimmed `valid` payload fails
+   *  loudly instead of leaving the pin green while it tests nothing. */
+  precondition?: { field: string; why: string };
 };
 
 const CASES: CreateCase[] = [
@@ -63,7 +99,7 @@ const CASES: CreateCase[] = [
     entity: "raid",
     tool: "create_raid_item",
     wsKey: "raid",
-    valid: { title: "A risk" },
+    valid: CREATE_BASE.raid,
     field: "knowledgeLinks",
     probe: KNOWLEDGE_LINKS,
     expected: undefined,
@@ -73,7 +109,7 @@ const CASES: CreateCase[] = [
     entity: "change",
     tool: "create_change",
     wsKey: "changes",
-    valid: { title: "A change" },
+    valid: CREATE_BASE.change,
     field: "knowledgeLinks",
     probe: KNOWLEDGE_LINKS,
     expected: undefined,
@@ -83,7 +119,7 @@ const CASES: CreateCase[] = [
     entity: "milestone",
     tool: "create_milestone",
     wsKey: "milestones",
-    valid: { name: "A milestone", date: "2026-06-01" },
+    valid: CREATE_BASE.milestone,
     field: "knowledgeLinks",
     probe: KNOWLEDGE_LINKS,
     expected: undefined,
@@ -93,7 +129,7 @@ const CASES: CreateCase[] = [
     entity: "stakeholder",
     tool: "create_stakeholder",
     wsKey: "stakeholders",
-    valid: { name: "Ada Lovelace" },
+    valid: CREATE_BASE.stakeholder,
     field: "resourceId",
     probe: 9,
     expected: undefined,
@@ -103,7 +139,7 @@ const CASES: CreateCase[] = [
     entity: "resource",
     tool: "create_resource",
     wsKey: "resources",
-    valid: { firstName: "Grace", lastName: "Hopper" },
+    valid: CREATE_BASE.resource,
     field: "active",
     probe: false,
     // ★★★ `undefined`, NOT `true`, and the first cut of this row asserted
@@ -123,7 +159,7 @@ const CASES: CreateCase[] = [
     entity: "absence",
     tool: "create_absence",
     wsKey: "absences",
-    valid: { assignee: "Ada Lovelace", startDate: "2026-06-01", endDate: "2026-06-02" },
+    valid: CREATE_BASE.absence,
     field: JUNK_KEY,
     probe: "should never land",
     expected: undefined,
@@ -132,26 +168,34 @@ const CASES: CreateCase[] = [
     //  with. A junk key is the honest probe for an allowlist: it asserts the
     //  shape itself — nothing unnamed survives — which is the property that
     //  makes the entry safe.
+    //  ★★ BUT THE PROPERTY HOLDS WITHOUT THE ALLOWLIST, so this pin cannot see
+    //   the allowlist go: `sanitizeAbsence` builds its row from named fields
+    //   and drops a junk key on its own. Measured 2026-09-11 — removing the
+    //   `create_absence` guard call leaves this case green (the header above
+    //   records it). Do not read a green run here as the guard being present.
     because: "allowlist shape: a field the table does not name must not survive",
   },
   {
     entity: "calendarEvent",
     tool: "create_calendar_event",
     wsKey: "calendarEvents",
-    valid: {
-      title: "Weekly sync",
-      startDate: "2026-06-01",
-      startTime: "09:00",
-      durationMinutes: 30,
-      // `sanitizeCalendarEvent` stores exceptions only when a recurrence is
-      // present, so without this the probe cannot land and the assertion would
-      // pass whatever the guard did.
-      recurrence: { freq: "weekly", interval: 1 },
-    },
+    // `sanitizeCalendarEvent` stores exceptions only when a recurrence is
+    // present, so without it the probe cannot land and the assertion would pass
+    // whatever the guard did. That is why `CREATE_BASE.calendarEvent` carries a
+    // recurrence rather than being the bare `required` set — see its docstring.
+    valid: CREATE_BASE.calendarEvent,
     field: "exceptions",
     probe: [{ date: "2026-06-08", kind: "skip" }],
     expected: undefined,
     because: "a live undisclosed write: in no write schema, while the read tool teaches the model its exact shape",
+    // ★★ That dependency was prose until this line. `calendar-event.ts` keeps
+    //  `exceptions: recurrence ? … : undefined`, so trimming the recurrence out
+    //  of `CREATE_BASE.calendarEvent` left this pin green while it tested
+    //  nothing — the positive control reads only `title`. Now it goes red.
+    precondition: {
+      field: "recurrence",
+      why: "exceptions are stored only when a recurrence is present, so without it this pin cannot see the guard",
+    },
   },
 ];
 
@@ -187,6 +231,9 @@ describe("every create tool applies its entity's merge-site guard", () => {
     //  before reading anything back off it.
     expect(row, `${c.tool} stored no row at all — its valid payload is not valid`).toBeDefined();
     expect(row?.id).toBeDefined();
+    if (c.precondition) {
+      expect(row?.[c.precondition.field], `${c.tool}: ${c.precondition.why}`).toBeDefined();
+    }
 
     expect(row?.[c.field]).toEqual(c.expected);
   });
