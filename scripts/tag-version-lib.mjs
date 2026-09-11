@@ -110,12 +110,18 @@ export function describeVerdict(result, source) {
   }
 
   if (result.verdict === "drift") {
-    // ★★ Only the missing-prefix branch loses the bump advice: both versions
-    // are EQUAL when the tag is merely un-prefixed, so bumping version.ts
-    // cannot fix it -- only re-tagging can.
-    const advice = result.tag.startsWith(TAG_PREFIX)
-      ? `Either tag ${result.expected} instead, or bump ${SOURCE_FILE} (and propagate with \`npm run version:sync\`) before tagging.`
-      : `Re-tag as ${result.expected} -- ${SOURCE_FILE} already says ${result.appVersion}.`;
+    // ★★★ Drop the bump advice ONLY when the version UNDERNEATH the tag
+    // already matches appVersion -- never merely because the tag lacks
+    // TAG_PREFIX. `tag.startsWith(TAG_PREFIX)` was the wrong predicate:
+    // "0.302.0" is ALSO un-prefixed, but it names a version that does not
+    // exist yet, so "Re-tag as v0.301.0" would send an operator who forgot
+    // to bump to re-tag an EXISTING release instead. The right question is
+    // whether stripping (at most) the bad leading character recovers
+    // appVersion -- i.e. whether the prefix really is the ONLY thing wrong.
+    const onlyPrefixWrong = result.tag === result.appVersion || result.tag.slice(1) === result.appVersion;
+    const advice = onlyPrefixWrong
+      ? `Re-tag as ${result.expected} — ${SOURCE_FILE} already says ${result.appVersion}.`
+      : `Either tag ${result.expected} instead, or bump ${SOURCE_FILE} (and propagate with \`npm run version:sync\`) before tagging.`;
     return {
       code: 1,
       stream: "stderr",

@@ -297,6 +297,59 @@ describe("describeVerdict", () => {
     expect(describeVerdict(result, "argv").message).toMatch(/argv/);
     expect(describeVerdict(result, "CI_COMMIT_TAG").message).toMatch(/CI_COMMIT_TAG/);
   });
+
+  // ★★★ (real logic error, cold-review finding B) "0.302.0" is missing the
+  // prefix -- but it ALSO names a version that does not exist yet. Deciding
+  // the advice off `tag.startsWith(TAG_PREFIX)` alone sent an operator who
+  // forgot to bump to "Re-tag as v0.301.0", i.e. re-tag an EXISTING release.
+  // Drop the bump advice ONLY when the version underneath the tag already
+  // matches appVersion -- the tag itself, or the tag with its leading
+  // character stripped -- so the ONLY thing wrong really is the prefix.
+  it("advises bumping only when the version underneath the tag is also wrong", () => {
+    const adviceFor = (tag) => describeVerdict(classifyTag(tag, "0.301.0"), "CI_COMMIT_TAG").message;
+    expect(adviceFor("0.301.0")).not.toMatch(/bump/i);
+    expect(adviceFor("V0.301.0")).not.toMatch(/bump/i);
+    expect(adviceFor("0.302.0")).toMatch(/bump/i);
+    expect(adviceFor("V0.302.0")).toMatch(/bump/i);
+  });
+
+  // ★ A fully-prefixed tag naming the wrong version was never wrong, but
+  // nothing pinned this branch directly before.
+  it("advises bumping when the tag is correctly prefixed but names the wrong version", () => {
+    const { message } = describeVerdict(classifyTag("v9.9.9", "0.301.0"), "CI_COMMIT_TAG");
+    expect(message).toMatch(/bump/i);
+  });
+
+  // ★★★ A verdict string that merely STARTS WITH the same letter as a real
+  // one ("mismatch" vs "match") must not be mistaken for it by a
+  // startsWith/prefix-style check -- only exact equality may resolve a
+  // verdict, and the default branch is what catches this.
+  it("treats a verdict that merely resembles a real one as unrecognised", () => {
+    const result = describeVerdict(
+      { verdict: "mismatch", tag: "v0.301.0", appVersion: "0.301.0", expected: "v0.301.0" },
+      "CI_COMMIT_TAG",
+    );
+    expect(result.code).toBe(2);
+  });
+
+  it("names the classifyTag reason inside the unscannable message", () => {
+    const result = classifyTag("", "0.301.0");
+    const { message } = describeVerdict(result, "CI_COMMIT_TAG");
+    expect(message).toMatch(/rules/);
+  });
+
+  it("names both the tag and the version in the match message", () => {
+    const result = classifyTag("v0.301.0", "0.301.0");
+    const { message } = describeVerdict(result, "CI_COMMIT_TAG");
+    expect(message).toContain("v0.301.0");
+    expect(message).toContain("0.301.0");
+  });
+
+  it("includes classifyTag's detail in the drift message", () => {
+    const result = classifyTag("v0.302.0", "0.301.0");
+    const { message } = describeVerdict(result, "CI_COMMIT_TAG");
+    expect(message).toContain(result.detail);
+  });
 });
 ```
 
@@ -426,12 +479,18 @@ export function describeVerdict(result, source) {
   }
 
   if (result.verdict === "drift") {
-    // ★★ Only the missing-prefix branch loses the bump advice: both versions
-    // are EQUAL when the tag is merely un-prefixed, so bumping version.ts
-    // cannot fix it -- only re-tagging can.
-    const advice = result.tag.startsWith(TAG_PREFIX)
-      ? `Either tag ${result.expected} instead, or bump ${SOURCE_FILE} (and propagate with \`npm run version:sync\`) before tagging.`
-      : `Re-tag as ${result.expected} -- ${SOURCE_FILE} already says ${result.appVersion}.`;
+    // ★★★ Drop the bump advice ONLY when the version UNDERNEATH the tag
+    // already matches appVersion -- never merely because the tag lacks
+    // TAG_PREFIX. `tag.startsWith(TAG_PREFIX)` was the wrong predicate:
+    // "0.302.0" is ALSO un-prefixed, but it names a version that does not
+    // exist yet, so "Re-tag as v0.301.0" would send an operator who forgot
+    // to bump to re-tag an EXISTING release instead. The right question is
+    // whether stripping (at most) the bad leading character recovers
+    // appVersion -- i.e. whether the prefix really is the ONLY thing wrong.
+    const onlyPrefixWrong = result.tag === result.appVersion || result.tag.slice(1) === result.appVersion;
+    const advice = onlyPrefixWrong
+      ? `Re-tag as ${result.expected} — ${SOURCE_FILE} already says ${result.appVersion}.`
+      : `Either tag ${result.expected} instead, or bump ${SOURCE_FILE} (and propagate with \`npm run version:sync\`) before tagging.`;
     return {
       code: 1,
       stream: "stderr",
@@ -464,7 +523,7 @@ npx vitest run scripts/tag-version-lib.test.mjs > "$SP/b-t2b.log" 2>&1; echo "EX
 grep -E "Test Files|Tests " "$SP/b-t2b.log"
 ```
 
-Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  10 passed (10)` (derive it with `grep -c "  it(" scripts/tag-version-lib.test.mjs` rather than trusting this line — the `classifyTag` describe block above accounts for 7, and a second `describeVerdict` describe block added in Task 3's review round accounts for the other 3). **Assert the count against `grep -c`** — a missing test path mixed with a real one is dropped silently at exit 0.
+Expected: EXIT=0, `Test Files  1 passed (1)`, `Tests  16 passed (16)` (derive it with `grep -c "  it(" scripts/tag-version-lib.test.mjs` rather than trusting this line — the `classifyTag` describe block above accounts for 7, and the `describeVerdict` describe block, grown over two review rounds, accounts for the other 9). **Assert the count against `grep -c`** — a missing test path mixed with a real one is dropped silently at exit 0.
 
 - [ ] **Step 5: Commit**
 
@@ -527,16 +586,27 @@ import { readFileSync } from "node:fs";
 // CI_COMMIT_TAG used to beat a real argv value under `??`, and the
 // unscannable message always named CI_COMMIT_TAG even when the tag came from
 // argv. Both are fixed by resolving them together, once.
+//
+// ★★ A blank/whitespace-only argv (`node check-tag-version.mjs "   "`) is
+// treated as ABSENT, not as a real tag -- without this, that call reported
+// "(source: argv): CI_COMMIT_TAG is empty", which both blames the wrong
+// variable and ignores a real CI_COMMIT_TAG sitting right there in env.
 const argvTag = process.argv[2];
-const tag = argvTag || process.env.CI_COMMIT_TAG || "";
-const source = argvTag ? "argv" : "CI_COMMIT_TAG";
+const hasArgvTag = typeof argvTag === "string" && argvTag.trim() !== "";
+const tag = hasArgvTag ? argvTag : process.env.CI_COMMIT_TAG || "";
+const source = hasArgvTag ? "argv" : "CI_COMMIT_TAG";
 
 try {
   const { SOURCE_FILE, readSourceFrom } = await import("./version-sync-lib.mjs");
   const { classifyTag, describeVerdict } = await import("./tag-version-lib.mjs");
 
   // readSourceFrom THROWS when the declaration shape moved, which lands in
-  // the catch below exactly like every other structural failure.
+  // the catch below exactly like every other structural failure. ★ It also
+  // requires APP_MILESTONE, so a MILESTONE-only shape change blocks this tag
+  // gate too (exit 2) even though this guard never reads the milestone
+  // itself -- deliberate: readSourceFrom is the ONE parser for version.ts's
+  // shape, and keeping a single parser means a moved shape can never pass
+  // here while version-sync-check already fails it on its own gate.
   const appVersion = readSourceFrom(readFileSync(SOURCE_FILE, "utf8")).version;
 
   const result = classifyTag(tag, appVersion);
@@ -545,7 +615,15 @@ try {
   if (stream === "stdout") console.log(message);
   else console.error(message);
 
-  process.exit(code);
+  // ★★★ (D) DO NOT TRUST describeVerdict's `code` BLINDLY, even though it is
+  // this file's own sibling module. Clamp to the only two codes that may ever
+  // leave this branch un-widened (0 and 1), and even 0 is accepted ONLY when
+  // the result's own verdict says "match" -- a describeVerdict bug (or a
+  // future verdict wired through with code 0 by mistake) still exits 2
+  // rather than silently passing a tag pipeline.
+  const verdictIsMatch = result && typeof result === "object" && result.verdict === "match";
+  const exitCode = code === 0 ? (verdictIsMatch ? 0 : 2) : code === 1 ? 1 : 2;
+  process.exit(exitCode);
 } catch (err) {
   // ★★ No path above may exit 0 or 1 from here down — a structural failure
   // (a missing file, a moved declaration shape, a renamed export resolving
@@ -554,7 +632,13 @@ try {
   // rewrite, only the readFileSync/readSourceFrom read was guarded, so a
   // throw from anything after it — or from this file's own logic — fell
   // through to Node's default exit 1, which is the DRIFT code.
-  console.error(`[tag:check] CANNOT SCAN: ${err.message}`);
+  //
+  // ★ (A) `err` is not guaranteed to be an Error -- `throw undefined` or
+  // `throw null` from a lib crashes a bare `err.message` read and exits 1
+  // (Node's default for an uncaught throw), which is the DRIFT code, not
+  // "the gate could not scan". Never read `.message` off `err` directly.
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`[tag:check] CANNOT SCAN: ${msg}`);
   process.exit(2);
 }
 ```
@@ -576,9 +660,10 @@ Expected: `MATCH_EXIT=0` and a line naming BOTH the tag and the version. If the 
 CI_COMMIT_TAG=v9.9.9 node scripts/check-tag-version.mjs; echo "DRIFT_EXIT=$?"
 CI_COMMIT_TAG=0.301.0 node scripts/check-tag-version.mjs; echo "NOPREFIX_EXIT=$?"
 CI_COMMIT_TAG= node scripts/check-tag-version.mjs; echo "UNSCANNABLE_EXIT=$?"
+CI_COMMIT_TAG= node scripts/check-tag-version.mjs v0.301.0; echo "ARGV_EXIT=$?"
 ```
 
-Expected: `DRIFT_EXIT=1`, `NOPREFIX_EXIT=1`, `UNSCANNABLE_EXIT=2`.
+Expected: `DRIFT_EXIT=1`, `NOPREFIX_EXIT=1`, `UNSCANNABLE_EXIT=2`, `ARGV_EXIT=0` (argv wins over an empty env var, and it is genuinely read — this is the only row in this step that isn't a red case).
 
 ★★★ **If the mismatched tag exits 0, the guard is vacuous and nothing else in this plan matters** — a green release pipeline would then be publishing an installer that lies about its version, which is the single failure this task exists to prevent.
 
@@ -1523,7 +1608,7 @@ npx vitest run scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test
 grep -E "Test Files|Tests " "$SP/b-g-unit.log"
 ```
 
-Expected: EXIT=0, `Test Files 2 passed (2)`, `Tests 18 passed (18)` (10 + 8; derive it with `grep -c "  it(" scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs` rather than trusting this line). ★★★ **Assert `Test Files 2` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
+Expected: EXIT=0, `Test Files 2 passed (2)`, `Tests 24 passed (24)` (16 + 8; derive it with `grep -c "  it(" scripts/tag-version-lib.test.mjs scripts/release-publish-lib.test.mjs` rather than trusting this line). ★★★ **Assert `Test Files 2` against your own list length.** A mistyped path mixed with a real one is dropped **silently at exit 0** — the tally alone cannot tell you a file never ran.
 
 - [ ] **Step 3: Docs, version and followup gates**
 

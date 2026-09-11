@@ -118,4 +118,57 @@ describe("describeVerdict", () => {
     expect(describeVerdict(result, "argv").message).toMatch(/argv/);
     expect(describeVerdict(result, "CI_COMMIT_TAG").message).toMatch(/CI_COMMIT_TAG/);
   });
+
+  // ★★★ (real logic error, cold-review finding B) "0.302.0" is missing the
+  // prefix -- but it ALSO names a version that does not exist yet. Deciding
+  // the advice off `tag.startsWith(TAG_PREFIX)` alone sent an operator who
+  // forgot to bump to "Re-tag as v0.301.0", i.e. re-tag an EXISTING release.
+  // Drop the bump advice ONLY when the version underneath the tag already
+  // matches appVersion -- the tag itself, or the tag with its leading
+  // character stripped -- so the ONLY thing wrong really is the prefix.
+  it("advises bumping only when the version underneath the tag is also wrong", () => {
+    const adviceFor = (tag) => describeVerdict(classifyTag(tag, "0.301.0"), "CI_COMMIT_TAG").message;
+    expect(adviceFor("0.301.0")).not.toMatch(/bump/i);
+    expect(adviceFor("V0.301.0")).not.toMatch(/bump/i);
+    expect(adviceFor("0.302.0")).toMatch(/bump/i);
+    expect(adviceFor("V0.302.0")).toMatch(/bump/i);
+  });
+
+  // ★ A fully-prefixed tag naming the wrong version was never wrong, but
+  // nothing pinned this branch directly before.
+  it("advises bumping when the tag is correctly prefixed but names the wrong version", () => {
+    const { message } = describeVerdict(classifyTag("v9.9.9", "0.301.0"), "CI_COMMIT_TAG");
+    expect(message).toMatch(/bump/i);
+  });
+
+  // ★★★ A verdict string that merely STARTS WITH the same letter as a real
+  // one ("mismatch" vs "match") must not be mistaken for it by a
+  // startsWith/prefix-style check -- only exact equality may resolve a
+  // verdict, and the default branch is what catches this.
+  it("treats a verdict that merely resembles a real one as unrecognised", () => {
+    const result = describeVerdict(
+      { verdict: "mismatch", tag: "v0.301.0", appVersion: "0.301.0", expected: "v0.301.0" },
+      "CI_COMMIT_TAG",
+    );
+    expect(result.code).toBe(2);
+  });
+
+  it("names the classifyTag reason inside the unscannable message", () => {
+    const result = classifyTag("", "0.301.0");
+    const { message } = describeVerdict(result, "CI_COMMIT_TAG");
+    expect(message).toMatch(/rules/);
+  });
+
+  it("names both the tag and the version in the match message", () => {
+    const result = classifyTag("v0.301.0", "0.301.0");
+    const { message } = describeVerdict(result, "CI_COMMIT_TAG");
+    expect(message).toContain("v0.301.0");
+    expect(message).toContain("0.301.0");
+  });
+
+  it("includes classifyTag's detail in the drift message", () => {
+    const result = classifyTag("v0.302.0", "0.301.0");
+    const { message } = describeVerdict(result, "CI_COMMIT_TAG");
+    expect(message).toContain(result.detail);
+  });
 });

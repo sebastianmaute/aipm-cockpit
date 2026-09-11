@@ -23,16 +23,27 @@ import { readFileSync } from "node:fs";
 // CI_COMMIT_TAG used to beat a real argv value under `??`, and the
 // unscannable message always named CI_COMMIT_TAG even when the tag came from
 // argv. Both are fixed by resolving them together, once.
+//
+// ★★ A blank/whitespace-only argv (`node check-tag-version.mjs "   "`) is
+// treated as ABSENT, not as a real tag -- without this, that call reported
+// "(source: argv): CI_COMMIT_TAG is empty", which both blames the wrong
+// variable and ignores a real CI_COMMIT_TAG sitting right there in env.
 const argvTag = process.argv[2];
-const tag = argvTag || process.env.CI_COMMIT_TAG || "";
-const source = argvTag ? "argv" : "CI_COMMIT_TAG";
+const hasArgvTag = typeof argvTag === "string" && argvTag.trim() !== "";
+const tag = hasArgvTag ? argvTag : process.env.CI_COMMIT_TAG || "";
+const source = hasArgvTag ? "argv" : "CI_COMMIT_TAG";
 
 try {
   const { SOURCE_FILE, readSourceFrom } = await import("./version-sync-lib.mjs");
   const { classifyTag, describeVerdict } = await import("./tag-version-lib.mjs");
 
   // readSourceFrom THROWS when the declaration shape moved, which lands in
-  // the catch below exactly like every other structural failure.
+  // the catch below exactly like every other structural failure. ★ It also
+  // requires APP_MILESTONE, so a MILESTONE-only shape change blocks this tag
+  // gate too (exit 2) even though this guard never reads the milestone
+  // itself -- deliberate: readSourceFrom is the ONE parser for version.ts's
+  // shape, and keeping a single parser means a moved shape can never pass
+  // here while version-sync-check already fails it on its own gate.
   const appVersion = readSourceFrom(readFileSync(SOURCE_FILE, "utf8")).version;
 
   const result = classifyTag(tag, appVersion);
@@ -41,7 +52,15 @@ try {
   if (stream === "stdout") console.log(message);
   else console.error(message);
 
-  process.exit(code);
+  // ★★★ (D) DO NOT TRUST describeVerdict's `code` BLINDLY, even though it is
+  // this file's own sibling module. Clamp to the only two codes that may ever
+  // leave this branch un-widened (0 and 1), and even 0 is accepted ONLY when
+  // the result's own verdict says "match" -- a describeVerdict bug (or a
+  // future verdict wired through with code 0 by mistake) still exits 2
+  // rather than silently passing a tag pipeline.
+  const verdictIsMatch = result && typeof result === "object" && result.verdict === "match";
+  const exitCode = code === 0 ? (verdictIsMatch ? 0 : 2) : code === 1 ? 1 : 2;
+  process.exit(exitCode);
 } catch (err) {
   // ★★ No path above may exit 0 or 1 from here down — a structural failure
   // (a missing file, a moved declaration shape, a renamed export resolving
@@ -50,6 +69,12 @@ try {
   // rewrite, only the readFileSync/readSourceFrom read was guarded, so a
   // throw from anything after it — or from this file's own logic — fell
   // through to Node's default exit 1, which is the DRIFT code.
-  console.error(`[tag:check] CANNOT SCAN: ${err.message}`);
+  //
+  // ★ (A) `err` is not guaranteed to be an Error -- `throw undefined` or
+  // `throw null` from a lib crashes a bare `err.message` read and exits 1
+  // (Node's default for an uncaught throw), which is the DRIFT code, not
+  // "the gate could not scan". Never read `.message` off `err` directly.
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`[tag:check] CANNOT SCAN: ${msg}`);
   process.exit(2);
 }
