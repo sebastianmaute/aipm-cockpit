@@ -409,8 +409,9 @@ function pushLinkDiffs(
    *   `""` anyway. */
   subject?: string,
   /** The tool this input came from, so a merge-site refusal below can be
-   *  DISCLOSED as a `rejected` row rather than silently omitted. Optional only
-   *  because the create branch has nothing to reject — see the guard. */
+   *  DISCLOSED as a `rejected` row rather than silently omitted. Optional
+   *  because the create branch passes none, so a create never pushes a
+   *  `rejected` row (§440); see the guard and §460. */
   toolName?: string,
 ): void {
   for (const [f, link] of Object.entries(d.linkFields)) {
@@ -429,15 +430,20 @@ function pushLinkDiffs(
     //  `plan.rejected` IS the way to spell "unchanged" that comment says
     //  `pushLinkDiffs` lacks.
     //
-    //  ★★★ `target === "row"` IS LOAD-BEARING AND THE BRIEF THAT SPECIFIED
-    //   THIS FIX OMITTED IT. `dropUnacceptedAbsenceFields` /
-    //   `dropUnacceptedCalendarEventFields` are called ONLY from `updateAbsence`
-    //   / `updateCalendarEvent` (`use-register-tools.ts`); both CREATES hand
-    //   `input` straight to their sanitizer. On a create, therefore, this
-    //   module's `link.sanitize` — the writer's own `sanitizeAttendees` — is
-    //   EXACTLY what the write stores, and applying the guard there would
-    //   invent a rejection for a value that lands. Same divergence, opposite
-    //   direction. Verified by reading both write paths, not inferred.
+    //  ★★★ `target === "row"` WAS RIGHT WHEN IT WAS WRITTEN (2026-09-07) AND
+    //   `68486cd4` (2026-09-08) MADE IT WRONG. Then, `dropUnacceptedAbsenceFields`
+    //   / `dropUnacceptedCalendarEventFields` ran only in `updateAbsence` /
+    //   `updateCalendarEvent`, and both CREATES handed `input` straight to their
+    //   sanitizer, so on a create this module's `link.sanitize` — the writer's
+    //   own `sanitizeAttendees` — was exactly what the write stored, and a guard
+    //   here would have invented a rejection. Since `68486cd4` both creates run
+    //   the allow-list first (`use-register-tools.ts`), so the create preview can
+    //   now SHOW a value the write DROPS: `[4, "4"]` previews attendee 4, while
+    //   `CALENDAR_EVENT_FIELD_GUARDS.attendeeResourceIds` refuses the whole array
+    //   and no attendee is stored. Filed as §460. The gate is left as it is
+    //   pending that fix — no behaviour change here — so do not read it as
+    //   correct. ★ `absence.resourceId` does not diverge: its `link.sanitize`
+    //   already carries the row's `typeof` leg.
     const guard = target === "row" ? d.rawTypeGuards?.[f] : undefined;
     if (guard && !guard(input[f])) {
       if (toolName) plan.rejected.push({ toolName, reason: "bad-input", detail: `${f}=${str(input[f])}` });
