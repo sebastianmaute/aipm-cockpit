@@ -813,13 +813,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   TWO-EXIT-CODE SPLIT: **1 is DRIFT** (the installer would misreport its own version), **2 is the gate
   unable to scan** (an empty tag — a rules bug — or `version.ts`'s shape moved). `desktop-package-tag`
   lists it in its own `needs:`, so the wine build waits for it rather than racing it (that a FAILED
-  guard then skips the build is GitLab's default, not measured here)] · **unit** [coverage floors: global lines 92/funcs 91/branch
+  guard then SKIPS the build is expected `needs:` behaviour, but no GitLab doc checked here states it
+  and no tag pipeline has shown it; `publish-release` is held back either way, by stage order)] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
   unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
   false}]` so it cannot run concurrently with **unit-tests** — two full vitest runs on one runner is the
   machine-saturation condition behind the load-sensitive flakes; guards against intra-file test-order
-  dependence, open-followups §75]) → build → e2e [**e2e** · **prod-smoke** BLOCKING
-  [`npm run e2e:smoke:prod` — `next start` + the smoke driver, consuming build's `.next/` artifact.
+  dependence, open-followups §75]) → build → e2e [**e2e** (MR and default-branch pipelines only — its
+  two `rules:` match nothing on a tag) · **prod-smoke** BLOCKING (the same two rules, so not on a tag
+  either) [`npm run e2e:smoke:prod` — `next start` + the smoke driver, consuming build's `.next/` artifact.
   ★★ THE ONLY GATE THAT SEES THE PROD CSP, and the reason is per-suite. Dev grants `'unsafe-inline'` on
   `style-src-elem` while prod is nonce-only (`src/proxy.ts`), so anything meeting the DEV policy is blind
   to this class. The unit suite never starts a server at all. **e2e** does, but `playwright.config.ts`

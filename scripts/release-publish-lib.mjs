@@ -13,7 +13,13 @@
  *
  * ★★★ THIS STRING IS PART OF EVERY PUBLISHED DOWNLOAD URL. Renaming the CI job
  * without changing it here — or changing it here without renaming the job —
- * silently 404s the download on every Release, past ones included. It is
+ * silently 404s the download of the NEXT Release, with every gate green.
+ * What happens to a PAST Release's link is not established: each one names
+ * the job inside its own tag's pipeline, which a later rename does not touch,
+ * but the per-tag URL (see buildAssetUrl) resolves only through the latest
+ * successful pipeline for that tag, and only while that pipeline's artifact
+ * still exists. desktop-package-tag sets `expire_in: never`, so expiry is not
+ * what would remove it; deleting the artifact or the pipeline would. It is
  * exported so the test pins it against one source rather than two literals.
  */
 export const ARTIFACT_JOB = "desktop-package-tag";

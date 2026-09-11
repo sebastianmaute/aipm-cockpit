@@ -174,10 +174,14 @@ warn users to re-import from an export.
 2. Merge to the default branch.
 3. Tag the merged commit: `git tag v<version> && git push origin v<version>`.
    The tag **must** match `APP_VERSION`; `tag-version-check` runs as soon as the
-   tag pipeline starts and fails otherwise, which skips the installer build (exit 1 is
-   drift, exit 2 means it could not scan at all). Whoever pushes the tag needs
-   Developer+ and the right to create protected tags — the pipeline's job token
-   acts with the pusher's access.
+   tag pipeline starts and fails otherwise (exit 1 is drift, exit 2 means it
+   could not scan at all). A failure holds back `publish-release`, which runs
+   only once every earlier stage has passed. It should also skip the installer
+   build, which lists the check in its `needs:`, but that half is GitLab
+   behaviour no tag pipeline has shown yet. Whoever pushes the tag needs
+   Developer+ and the right to create protected tags, because the pipeline's job
+   token acts with the pusher's access — GitLab behaviour as documented,
+   unverified here.
 4. The tag pipeline runs `desktop-package-tag` (blocking; a full wine build, so
    slow) and then, only once every earlier stage has passed, `publish-release`,
    which creates the Release and attaches the installer link.
@@ -187,18 +191,22 @@ warn users to re-import from an export.
 **If the tag pipeline is red.** `publish-release` has no `needs:` and runs only
 once every earlier stage has passed.
 
-- **Another job failed**, a flaky gate included: retry that job, and GitLab then
-  runs the skipped `publish-release`. Until the pipeline is green the asset link
-  may 404, because GitLab resolves a per-tag artifact URL only through a
-  successful pipeline. Both are GitLab behaviour, unverified here.
+- **Another job failed.** If the failure was flaky, retry that job, and GitLab
+  then runs the skipped `publish-release`. A deterministic failure — tag drift,
+  a real lint or test error — fails the same way on every retry: it needs a fix
+  and a new tag, because a tag's pipeline only ever builds the commit the tag
+  names. Until the pipeline is green the asset link may 404, because GitLab
+  resolves a per-tag artifact URL only through a successful pipeline. The retry
+  running `publish-release` and the 404 are GitLab behaviour, unverified here.
 - **`publish-release` exited 2** (a timeout, a 5xx, a 408/429, a 2xx it could not
   confirm): retry it. A create that did land answers 409 the second time, and the
   job exits 0 only if that existing Release carries the link. A redirect or a
   missing variable also exits 2 and will not clear on a retry, so read the message.
 - **`publish-release` exited 1**: a human must act. Either the API refused with
-  a 4xx (for a 403 it prints
+  a 4xx other than 408, 409 or 429 (for a 403 it prints
   `API refused: HTTP 403 (the tag pusher needs Developer+, and the right to create protected tags)`,
-  which is step 3's access), or a Release exists without the link
+  which is step 3's access), or it answered 409 and the Release that already
+  exists for the tag lacks the link
   (`a Release for <tag> exists WITHOUT <link> — add the link (Release links API) or delete that Release, then retry`).
 
 ★ Tag-build artifacts never expire, deliberately — a published download must not
@@ -210,14 +218,19 @@ local Windows build (`npm ci` and `npm --prefix desktop ci`, then
 `npm run desktop:build && npm run desktop:package`; the installer lands in
 `desktop/release/`), attached by hand to a Release you create yourself — a
 failed `desktop-package-tag` stops the pipeline before `publish-release` runs.
+If the image is unreachable for good and the `desktop-package` jobs are deleted,
+remove or disable `publish-release` in the same change: it has no `needs:`, so
+on its own it would go on running on every tag and publish a Release whose link
+names a job that no longer exists — a green pipeline over a download that 404s.
 See `docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md`
 for why that is the sanctioned fallback rather than a thing to debug in CI.
 
 ★★ The installer is unsigned. A copy downloaded through a browser carries the
 Mark-of-the-Web stream the browser writes on download, which is what SmartScreen
-checks, so colleagues should expect the prompt; a locally built copy never gets
-that stream, so it does not prompt. So "no prompt appeared" from a local build
-is not evidence the prompt is gone for colleagues.
+checks, so colleagues should expect the prompt. A locally built copy was
+measured to carry no such stream (`Get-Item -Stream *` lists `:$DATA` alone), so
+"no prompt appeared" from a local build is not evidence the prompt is gone for
+colleagues.
 
 ## Secrets
 

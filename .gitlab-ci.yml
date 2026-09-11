@@ -259,12 +259,14 @@ agents-symbol-check:
     - npm run docs:symbols:check
 
 # Version-sync gate — BLOCKING. src/app/version.ts is the source of truth for
-# the app version and codename; package.json, both package-lock.json entries,
-# the README shields badge and every docs/CODEMAPS header restate one or both,
-# and nothing compared them until this job. They have drifted silently before —
-# package.json six releases behind, package-lock.json eleven, while version.ts
-# and CHANGELOG.md were correct.
-# Propagate rather than hand-editing six places: npm run version:sync
+# the app version and codename; every file in SATELLITES in
+# scripts/version-sync-lib.mjs restates one or both, and nothing compared them
+# until this job. Read the list there (grep -n 'file: "' scripts/version-sync-lib.mjs),
+# not here: the enumeration this comment used to carry missed
+# desktop/package.json and desktop/package-lock.json. They have drifted
+# silently before — package.json six releases behind, package-lock.json
+# eleven, while version.ts and CHANGELOG.md were correct.
+# Propagate rather than hand-editing each one: npm run version:sync
 version-sync-check:
   stage: quality
   needs: []
@@ -345,8 +347,11 @@ duplication-gate:
 # ★ needs: [] so it runs IMMEDIATELY, without waiting for the rest of the
 # quality stage.
 # ★★ desktop-package-tag lists THIS job in its own needs: (see the comment on
-# that job), so a failing guard here SKIPS the wine build instead of letting
-# it run for 20 minutes and only then reddening the pipeline.
+# that job), so the wine build waits for this guard instead of racing it. That
+# a FAILED guard then SKIPS the build is expected needs: behaviour, but no
+# GitLab doc checked here states it and no tag pipeline has shown it.
+# publish-release is held back either way: it sits in a later stage with the
+# default when: on_success (see the comment on that job).
 # ★★★ No allow_failure. Publishing an installer that misreports its own version
 # is the whole failure this prevents.
 tag-version-check:
@@ -478,8 +483,12 @@ dast-zap:
 #
 # ★ The runners are Linux, so a Windows NSIS target needs wine — that is what
 # this image provides. If this image is ever unreachable from this GitLab
-# instance, DELETE this job rather than leaving it broken: local packaging on
-# Windows (npm run desktop:package) is the supported path either way.
+# instance, DELETE this base and both desktop-package jobs rather than leaving
+# them broken -- and remove or disable publish-release IN THE SAME CHANGE. It
+# has no needs:, so on its own it would go on running on every tag and publish
+# a Release whose asset link names a job that no longer exists: a green
+# pipeline over a download that 404s. Local packaging on Windows
+# (npm run desktop:package) is the supported path either way.
 #
 # ★★ This REBUILDS the app with NEXT_STANDALONE=1 rather than consuming the
 # build job's artifact. That is deliberate and is the one place the
@@ -557,12 +566,14 @@ desktop-package-tag:
   # `needs:` purely against the STATUS of what is listed (atomic_processing_
   # service.rb; docs: "Jobs start as soon as their dependencies finish without
   # waiting for pipeline stages to complete") -- with needs: [install] alone,
-  # a drifted tag still ran this 20-minute wine build to completion, and a
+  # a drifted tag would still run this wine build to completion, and a
   # publish job wired by needs: to this job would still have created a
   # Release whose per-tag asset URL then 404s, because that URL resolves only
   # through a pipeline GitLab calls SUCCESSFUL. Task 7's publish-release
   # therefore carries no needs: and is gated by stage order instead. Listing
-  # tag-version-check here makes a failing guard SKIP this job outright.
+  # tag-version-check here makes this job WAIT for the guard; that a FAILED
+  # guard then SKIPS it is expected needs: behaviour, but no GitLab doc
+  # checked here states it and no tag pipeline has shown it.
   # ★ Deliberately NOT on the .desktop-package BASE above -- a branch pipeline
   # has no tag-version-check job, and a base needs: naming a job that does not
   # exist on that pipeline fails pipeline CREATION ("needs ... not added").
