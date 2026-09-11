@@ -113,8 +113,12 @@ manual job once and reading its log.
 
 ## Procedure
 
-1. Push the branch. Open the pipeline.
-2. Run the `desktop-package` job manually.
+1. Push the branch and open a merge request — each only on the user's explicit
+   say-so. A push alone starts no pipeline: the `workflow:` rules in
+   `.gitlab-ci.yml` admit only merge-request events, the default branch, tags
+   and schedules, so the branch's pipeline is the MR pipeline. Open it.
+2. Run the `desktop-package` job manually (its `when: manual` rule matches any
+   pipeline that is not a tag's).
 3. Read the log for three things, in order:
    - **Image pull.** A failure here is question 1, answered NO.
    - **Build completion.** `electron-builder` printing a `.exe` path.
@@ -810,7 +814,10 @@ stages:
   script:
     - NEXT_STANDALONE=1 npm run build
     - npm run desktop:copy-static
-    - npm --prefix desktop ci || npm --prefix desktop install
+    # ★ `ci` ALONE, with no `|| npm install` fallback: desktop/package-lock.json
+    # is committed, and a fallback would resolve dependencies outside it --
+    # silently, for an installer that gets published.
+    - npm --prefix desktop ci
     - npm --prefix desktop run build
     - npm run desktop:package
     # ★★★ an empty glob match only makes the RUNNER log "No files to upload"
@@ -2914,13 +2921,21 @@ before this change, verified).
 **If the tag pipeline is red.** `publish-release` has no `needs:` and runs only
 once every earlier stage has passed.
 
-- **Another job failed.** If the failure was flaky, retry that job, and GitLab
-  then runs the skipped `publish-release`. A deterministic failure — tag drift,
-  a real lint or test error — fails the same way on every retry: it needs a fix
-  and a new tag, because a tag's pipeline only ever builds the commit the tag
-  names. Until the pipeline is green the asset link may 404, because GitLab
-  resolves a per-tag artifact URL only through a successful pipeline. The retry
-  running `publish-release` and the 404 are GitLab behaviour, unverified here.
+- **Another job failed.** If the failure was flaky and `install` finished less
+  than an hour ago, retry that job, and GitLab then runs the skipped
+  `publish-release`. Later than that, run a new pipeline for the tag instead
+  (Build → Pipelines → Run pipeline, choose the tag): every `needs: [install]`
+  job downloads `install`'s `node_modules/` artifact, which has `expire_in: 1h`,
+  so a late retry likely fails without it. The `workflow:` rule
+  `if: $CI_COMMIT_TAG` admits that pipeline, and its `publish-release` creates
+  the Release — or answers 409 and confirms, if an earlier run already created
+  it with this link. A deterministic failure — tag drift, a real lint or test
+  error — fails the same way every time: it needs a fix and a new tag, because
+  a tag's pipeline only ever builds the commit the tag names. Until the
+  pipeline is green the asset link may 404, because GitLab resolves a per-tag
+  artifact URL only through a successful pipeline. The retry running
+  `publish-release`, a late retry failing, the Run pipeline form taking a tag,
+  and the 404 are GitLab behaviour, unverified here.
 - **`publish-release` exited 2** (a timeout, a 5xx, a 408/429, a 2xx it could not
   confirm): retry it. A create that did land answers 409 the second time, and the
   job exits 0 only if that existing Release carries the link. A redirect or a
@@ -3395,9 +3410,9 @@ Expected: **empty**. Anything left is a probe from an earlier task that was not 
 
 ★★★ **STOP HERE unless the user has explicitly said to push.** The standing rule in this repo is no push, no MR and no merge without an explicit instruction, and no `--auto-merge` ever. Everything above is local and reversible; this task is not. **Tagging is separately irreversible** — a pushed tag with a wrong version publishes a Release, and deleting a published Release is not a clean undo.
 
-- [ ] **Step 1: Push the branch and open the pipeline**
+- [ ] **Step 1: Push the branch, open a merge request, and open its pipeline**
 
-Nothing here runs on a branch pipeline except the existing jobs — `tag-version-check`, `desktop-package-tag` and `publish-release` are all `if: $CI_COMMIT_TAG`. So a branch push proves the YAML parses and changes nothing else.
+A push alone starts no pipeline: `.gitlab-ci.yml`'s `workflow:` rules admit only merge-request events, the default branch, tags and schedules. So the branch's pipeline is the MR pipeline, and opening the MR needs the user's explicit say-so exactly as the push does. Nothing runs in it except the existing jobs — `tag-version-check`, `desktop-package-tag` and `publish-release` are all `if: $CI_COMMIT_TAG` — so it proves the YAML parses and changes nothing else.
 
 Confirm in the pipeline that the three tag-only jobs are **absent**. If any appears, its rule is wrong — that is the `unscannable` case the guard reports as exit 2, and it would fire on every branch.
 

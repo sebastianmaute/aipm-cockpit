@@ -18,8 +18,12 @@ manual job once and reading its log.
 
 ## Procedure
 
-1. Push the branch. Open the pipeline.
-2. Run the `desktop-package` job manually.
+1. Push the branch and open a merge request — each only on the user's explicit
+   say-so. A push alone starts no pipeline: the `workflow:` rules in
+   `.gitlab-ci.yml` admit only merge-request events, the default branch, tags
+   and schedules, so the branch's pipeline is the MR pipeline. Open it.
+2. Run the `desktop-package` job manually (its `when: manual` rule matches any
+   pipeline that is not a tag's).
 3. Read the log for three things, in order:
    - **Image pull.** A failure here is question 1, answered NO.
    - **Build completion.** `electron-builder` printing a `.exe` path.

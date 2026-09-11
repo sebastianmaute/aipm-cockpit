@@ -190,13 +190,21 @@ warn users to re-import from an export.
 **If the tag pipeline is red.** `publish-release` has no `needs:` and runs only
 once every earlier stage has passed.
 
-- **Another job failed.** If the failure was flaky, retry that job, and GitLab
-  then runs the skipped `publish-release`. A deterministic failure — tag drift,
-  a real lint or test error — fails the same way on every retry: it needs a fix
-  and a new tag, because a tag's pipeline only ever builds the commit the tag
-  names. Until the pipeline is green the asset link may 404, because GitLab
-  resolves a per-tag artifact URL only through a successful pipeline. The retry
-  running `publish-release` and the 404 are GitLab behaviour, unverified here.
+- **Another job failed.** If the failure was flaky and `install` finished less
+  than an hour ago, retry that job, and GitLab then runs the skipped
+  `publish-release`. Later than that, run a new pipeline for the tag instead
+  (Build → Pipelines → Run pipeline, choose the tag): every `needs: [install]`
+  job downloads `install`'s `node_modules/` artifact, which has `expire_in: 1h`,
+  so a late retry likely fails without it. The `workflow:` rule
+  `if: $CI_COMMIT_TAG` admits that pipeline, and its `publish-release` creates
+  the Release — or answers 409 and confirms, if an earlier run already created
+  it with this link. A deterministic failure — tag drift, a real lint or test
+  error — fails the same way every time: it needs a fix and a new tag, because
+  a tag's pipeline only ever builds the commit the tag names. Until the
+  pipeline is green the asset link may 404, because GitLab resolves a per-tag
+  artifact URL only through a successful pipeline. The retry running
+  `publish-release`, a late retry failing, the Run pipeline form taking a tag,
+  and the 404 are GitLab behaviour, unverified here.
 - **`publish-release` exited 2** (a timeout, a 5xx, a 408/429, a 2xx it could not
   confirm): retry it. A create that did land answers 409 the second time, and the
   job exits 0 only if that existing Release carries the link. A redirect or a

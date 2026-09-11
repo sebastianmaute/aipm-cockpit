@@ -516,7 +516,10 @@ dast-zap:
   script:
     - NEXT_STANDALONE=1 npm run build
     - npm run desktop:copy-static
-    - npm --prefix desktop ci || npm --prefix desktop install
+    # ★ `ci` ALONE, with no `|| npm install` fallback: desktop/package-lock.json
+    # is committed, and a fallback would resolve dependencies outside it --
+    # silently, for an installer that gets published.
+    - npm --prefix desktop ci
     - npm --prefix desktop run build
     - npm run desktop:package
     # ★★★ an empty glob match only makes the RUNNER log "No files to upload"
