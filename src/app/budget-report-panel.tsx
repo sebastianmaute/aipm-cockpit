@@ -66,8 +66,11 @@ export function BudgetReportPanel({
 }: Props) {
   // Hooks are called unconditionally before the empty-state early return (rules of hooks).
   const report = useMemo(
-    () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences),
-    [buckets, plan, roles, resources, workdayHours, holidaySet, absences],
+    // `tasks` is deliberately `[]` here — this panel has never fed the engine
+    // tasks (so no earned value from it), and the explicit empty array is now
+    // required because `fxRates` follows it.
+    () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences, [], fxRates),
+    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, fxRates],
   );
   const evm = useMemo(
     () => computeEvm(tasks, today, { blendedRate: projectBlendedInternalRate(roles) }),

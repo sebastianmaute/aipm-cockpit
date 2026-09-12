@@ -35,7 +35,7 @@ describe("computeBucketReport — fixed-price over-burn clamp", () => {
     startDate: "2026-01-01", endDate: "2026-01-31",
     allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 150 } }],
   });
-  const rep = computeBucketReport(b, oneMonth, roles, noResources, 8, noHolidays);
+  const rep = computeBucketReport(b, oneMonth, roles, noResources, 8, noHolidays, 0, 0, [], [], null);
 
   test("consumedValue is clamped to the fixed price (not 30000)", () => {
     expect(rep.consumedValue).toBe(20000);
@@ -62,7 +62,7 @@ describe("computeSpillover (via computeBudgetReport)", () => {
     const a = closed(1, 3, 100, 40); // winLoss 60h, value 15000-6000 = 9000
     const b = closed(2, 3, 50, 10); //  winLoss 40h, value 7500-1500 = 6000
     const c = bucket({ id: 3, name: "successor", status: "open" });
-    const report = computeBudgetReport([a, b, c], plan, roles, noResources, 8, noHolidays);
+    const report = computeBudgetReport([a, b, c], plan, roles, noResources, 8, noHolidays, [], [], null);
     const cRep = report.buckets.find((r) => r.bucketId === 3)!;
     expect(cRep.spilloverInHours).toBe(100); // 60 + 40
     expect(cRep.spilloverInValue).toBe(15000); // 9000 + 6000
@@ -74,13 +74,13 @@ describe("computeSpillover (via computeBudgetReport)", () => {
       allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 10 } }],
     });
     const succ = bucket({ id: 2, name: "successor" });
-    const report = computeBudgetReport([openPred, succ], plan, roles, noResources, 8, noHolidays);
+    const report = computeBudgetReport([openPred, succ], plan, roles, noResources, 8, noHolidays, [], [], null);
     expect(report.buckets.find((r) => r.bucketId === 2)!.spilloverInHours).toBe(0);
   });
 
   test("a closed bucket pointing at a missing successor id is ignored (no throw)", () => {
     const orphan = closed(1, 999, 100, 40);
-    const report = computeBudgetReport([orphan], plan, roles, noResources, 8, noHolidays);
+    const report = computeBudgetReport([orphan], plan, roles, noResources, 8, noHolidays, [], [], null);
     // Only the orphan exists; nothing receives spillover and the call succeeds.
     expect(report.buckets).toHaveLength(1);
     expect(report.buckets[0].spilloverInHours).toBe(0);
@@ -88,7 +88,7 @@ describe("computeSpillover (via computeBudgetReport)", () => {
 
   test("a closed bucket whose successor is itself is ignored", () => {
     const selfRef = closed(1, 1, 100, 40);
-    const report = computeBudgetReport([selfRef], plan, roles, noResources, 8, noHolidays);
+    const report = computeBudgetReport([selfRef], plan, roles, noResources, 8, noHolidays, [], [], null);
     expect(report.buckets[0].spilloverInHours).toBe(0);
   });
 });
@@ -110,7 +110,7 @@ describe("computeBudgetReport — project rollup null percents", () => {
     const b = bucket({
       allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 50 } }],
     });
-    const report = computeBudgetReport([b], plan, zeroExternal, noResources, 8, noHolidays);
+    const report = computeBudgetReport([b], plan, zeroExternal, noResources, 8, noHolidays, [], [], null);
     expect(report.project.revenue).toBe(0);
     expect(report.project.contributionMargin.percent).toBeNull();
     // budgetValue is also 0 here, so consumption percent is null too.

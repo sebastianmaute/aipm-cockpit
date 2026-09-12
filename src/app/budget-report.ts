@@ -2,9 +2,10 @@ import {
   absencesForResource, displayCapacityHours, generatePeriods, type Period,
 } from "./resource-capacity";
 import type {
-  Absence, BudgetBucket, PlanGranularity,
+  Absence, BudgetBucket, FxRates, PlanGranularity,
   Resource, ResourcePlan, Role, Task,
 } from "./types";
+import { currencyToEur } from "./fx";
 import {
   blendedDisciplineRate,
   disciplineHasUnpricedGrade,
@@ -133,7 +134,11 @@ export type BucketReport = {
   budgetHours: number;
   plannedHours: number;
   actualHours: number;
-  /** All amounts in EUR (converted to bucket currency only at display). */
+  /** All amounts in EUR. A fixed-price bucket's contract amount is converted
+   *  from the bucket currency by `computeBucketReport`; role-rate figures are
+   *  EUR already. Converted to the bucket currency only at display.
+   *  ★ "EUR" here assumes `plan.currency === "EUR"`, which is what role rates
+   *  are denominated in — see ResourcePlan.currency. */
   budgetValue: number;
   consumedValue: number;
   revenue: number;
@@ -228,9 +233,11 @@ export function bucketRateRows(bucket: BudgetBucket, roles: readonly Role[]): Ra
 }
 
 /**
- * Compute a single bucket's report. All money is in EUR (role rates are EUR).
+ * Compute a single bucket's report. All money is in EUR: role rates are EUR,
+ * and a fixed-price bucket's contract amount is converted from the bucket
+ * currency via `currencyToEur` at the one read below.
  * `spilloverInHours`/`spilloverInValue` are the remaining budget rolled in
- * from a closed predecessor; the caller supplies them.
+ * from a closed predecessor; the caller supplies them, already in EUR.
  */
 export function computeBucketReport(
   bucket: BudgetBucket,
@@ -243,6 +250,7 @@ export function computeBucketReport(
   spilloverInValue = 0,
   absences: readonly Absence[] = [],
   tasks: readonly Task[] = [],
+  fxRates: FxRates | null,
 ): BucketReport {
   const periods = bucketActivePeriods(bucket, plan);
   const keys = periods.map((p) => p.key);
@@ -346,7 +354,13 @@ export function computeBucketReport(
     : "unrated-hours";
 
   const isFixed = bucket.type === "fixed";
-  const fixedPrice = bucket.fixedPriceAmount ?? 0;
+  // The contract amount is stored in the BUCKET's currency (see
+  // BudgetBucket.fixedPriceAmount). Every other money term here is EUR by
+  // construction — role rates are EUR — so it is converted once, here, at the
+  // engine's only read of the field. Before this existed the fixed branch put a
+  // foreign number straight into revenue/budgetValue and the margin subtracted
+  // an EUR cost from it (open-followups §465).
+  const fixedPrice = currencyToEur(bucket.fixedPriceAmount ?? 0, bucket, fxRates);
 
   const revenue = isFixed ? fixedPrice : tmRevenue;
   // Spillover adds available budget to a T&M bucket; a fixed-price bucket's
@@ -468,6 +482,7 @@ function computeSpillover(
   resources: readonly Resource[],
   workdayHours: number,
   holidaySet: ReadonlySet<string>,
+  fxRates: FxRates | null,
 ): { hours: Map<number, number>; value: Map<number, number> } {
   const hours = new Map<number, number>();
   const value = new Map<number, number>();
@@ -475,7 +490,7 @@ function computeSpillover(
   for (const b of buckets) {
     if (b.status !== "closed" || b.successorId == null) continue;
     if (b.successorId === b.id || !ids.has(b.successorId)) continue;
-    const rep = computeBucketReport(b, plan, roles, resources, workdayHours, holidaySet);
+    const rep = computeBucketReport(b, plan, roles, resources, workdayHours, holidaySet, 0, 0, [], [], fxRates);
     hours.set(b.successorId, (hours.get(b.successorId) ?? 0) + rep.winLossHours);
     value.set(b.successorId, (value.get(b.successorId) ?? 0) + (rep.budgetValue - rep.consumedValue));
   }
@@ -511,15 +526,16 @@ export function computeBudgetReport(
   holidaySet: ReadonlySet<string>,
   absences: readonly Absence[] = [],
   tasks: readonly Task[] = [],
+  fxRates: FxRates | null,
 ): BudgetReport {
-  const spill = computeSpillover(buckets, plan, roles, resources, workdayHours, holidaySet);
+  const spill = computeSpillover(buckets, plan, roles, resources, workdayHours, holidaySet, fxRates);
   // Spillover is built from `successorId` links and keyed by bucket id, so it
   // is order-independent. Sorting a COPY only affects the produced report order.
   const ordered = [...buckets].sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
   const reports = ordered.map((b) =>
     computeBucketReport(
       b, plan, roles, resources, workdayHours, holidaySet,
-      spill.hours.get(b.id) ?? 0, spill.value.get(b.id) ?? 0, absences, tasks,
+      spill.hours.get(b.id) ?? 0, spill.value.get(b.id) ?? 0, absences, tasks, fxRates,
     ),
   );
 

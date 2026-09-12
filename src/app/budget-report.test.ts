@@ -55,7 +55,7 @@ describe("computeBudgetReport — budget follows plan", () => {
 
   test("ON — a resourced row's budget hours equal the planned hours, not the stored 0", () => {
     const report = computeBudgetReport(
-      [resourcedStaleBucket], { ...plan, budgetFollowsPlan: true }, roles, resources, 8, noHolidays,
+      [resourcedStaleBucket], { ...plan, budgetFollowsPlan: true }, roles, resources, 8, noHolidays, [], [], null,
     );
     const b = report.buckets[0];
     expect(b.budgetHours).toBeCloseTo(PLANNED_JAN, 5);
@@ -66,7 +66,7 @@ describe("computeBudgetReport — budget follows plan", () => {
 
   test("OFF — a resourced row uses the stored budget hours (unchanged behavior)", () => {
     const report = computeBudgetReport(
-      [resourcedStaleBucket], { ...plan, budgetFollowsPlan: false }, roles, resources, 8, noHolidays,
+      [resourcedStaleBucket], { ...plan, budgetFollowsPlan: false }, roles, resources, 8, noHolidays, [], [], null,
     );
     expect(report.buckets[0].budgetHours).toBe(0);
   });
@@ -77,21 +77,21 @@ describe("computeBudgetReport — budget follows plan", () => {
       allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
     };
     const report = computeBudgetReport(
-      [unresourced], { ...plan, budgetFollowsPlan: true }, roles, resources, 8, noHolidays,
+      [unresourced], { ...plan, budgetFollowsPlan: true }, roles, resources, 8, noHolidays, [], [], null,
     );
     expect(report.buckets[0].budgetHours).toBe(100);
   });
 
   test("reports budgetMirrorsPlan when follow-plan is on and every row is resourced", () => {
     const report = computeBudgetReport(
-      [resourcedStaleBucket], { ...plan, budgetFollowsPlan: true }, roles, resources, 8, noHolidays,
+      [resourcedStaleBucket], { ...plan, budgetFollowsPlan: true }, roles, resources, 8, noHolidays, [], [], null,
     );
     expect(report.buckets[0].budgetMirrorsPlan).toBe(true);
   });
 
   test("does NOT report budgetMirrorsPlan when follow-plan is off", () => {
     const report = computeBudgetReport(
-      [resourcedStaleBucket], { ...plan, budgetFollowsPlan: false }, roles, resources, 8, noHolidays,
+      [resourcedStaleBucket], { ...plan, budgetFollowsPlan: false }, roles, resources, 8, noHolidays, [], [], null,
     );
     expect(report.buckets[0].budgetMirrorsPlan).toBe(false);
   });
@@ -105,7 +105,7 @@ describe("computeBudgetReport — budget follows plan", () => {
       ],
     };
     const report = computeBudgetReport(
-      [mixed], { ...plan, budgetFollowsPlan: true }, roles, resources, 8, noHolidays,
+      [mixed], { ...plan, budgetFollowsPlan: true }, roles, resources, 8, noHolidays, [], [], null,
     );
     expect(report.buckets[0].budgetMirrorsPlan).toBe(false);
   });
@@ -133,7 +133,7 @@ describe("computeBudgetReport — budget follows plan", () => {
     const febResources = [res(7, 3, { "2026-02": 100 })];
     const report = computeBudgetReport(
       [predecessor, successorBucket], { ...plan, budgetFollowsPlan: true },
-      roles, febResources, 8, noHolidays,
+      roles, febResources, 8, noHolidays, [], [], null,
     );
     const successor = report.buckets.find((b) => b.bucketId === 10)!;
     // Guard the fixture itself: without real spillover this test proves nothing.
@@ -155,7 +155,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
 
   test("flags a bucket whose roles carry no internal rate", () => {
     const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 }];
-    const report = computeBudgetReport([bucketWithHours], plan, rateless, resources, 8, noHolidays);
+    const report = computeBudgetReport([bucketWithHours], plan, rateless, resources, 8, noHolidays, [], [], null);
     // cost === 0 here only because the rate card is empty — NOT because the work
     // was free. Surfaces must not read that as a 100% margin.
     expect(report.buckets[0].cost).toBe(0);
@@ -164,7 +164,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
 
   test("does not flag a bucket with a real internal rate", () => {
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
-    const report = computeBudgetReport([bucketWithHours], plan, rated, resources, 8, noHolidays);
+    const report = computeBudgetReport([bucketWithHours], plan, rated, resources, 8, noHolidays, [], [], null);
     expect(costIsKnowable(report.buckets[0])).toBe(true);
   });
 
@@ -177,7 +177,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
   // is wrong. The rollup now refuses rather than approximates.
   test("the project rollup refuses whenever any bucket carries uncosted work", () => {
     const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 }];
-    const allRateless = computeBudgetReport([bucketWithHours], plan, rateless, resources, 8, noHolidays);
+    const allRateless = computeBudgetReport([bucketWithHours], plan, rateless, resources, 8, noHolidays, [], [], null);
     expect(costIsKnowable(allRateless.project)).toBe(false);
 
     const mixedRoles: Role[] = [
@@ -188,7 +188,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       ...bucketWithHours, id: 2, name: "Rated",
       allocations: [{ roleId: 2, resourceIds: [5], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
     };
-    const mixed = computeBudgetReport([bucketWithHours, ratedBucket], plan, mixedRoles, resources, 8, noHolidays);
+    const mixed = computeBudgetReport([bucketWithHours, ratedBucket], plan, mixedRoles, resources, 8, noHolidays, [], [], null);
     // The rated bucket alone IS costable — the veto comes from its neighbour.
     expect(costIsKnowable(mixed.buckets[1])).toBe(true);
     expect(costIsKnowable(mixed.project)).toBe(false);
@@ -202,7 +202,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
   test("an allocation-less bucket does not claim its rate card is missing", () => {
     const empty: BudgetBucket = { ...bucketWithHours, allocations: [] };
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
-    const report = computeBudgetReport([empty], plan, rated, resources, 8, noHolidays);
+    const report = computeBudgetReport([empty], plan, rated, resources, 8, noHolidays, [], [], null);
     expect(ratesMissing(report.buckets[0])).toBe(false);
   });
 
@@ -213,7 +213,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
   test("an allocation-less bucket has NO basis for a cost figure", () => {
     const empty: BudgetBucket = { ...bucketWithHours, allocations: [] };
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
-    const report = computeBudgetReport([empty], plan, rated, resources, 8, noHolidays);
+    const report = computeBudgetReport([empty], plan, rated, resources, 8, noHolidays, [], [], null);
     expect(costIsKnowable(report.buckets[0])).toBe(false);
   });
 
@@ -230,7 +230,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       status: "open", allocations: [],
     };
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
-    const report = computeBudgetReport([emptyFixed], plan, rated, resources, 8, noHolidays);
+    const report = computeBudgetReport([emptyFixed], plan, rated, resources, 8, noHolidays, [], [], null);
     // The arithmetic still yields 100 — it is the DISPLAY that must not treat
     // it as a real reading, so the flag is what surfaces gate on.
     expect(costIsKnowable(report.buckets[0])).toBe(false);
@@ -255,7 +255,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
       { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
     ];
-    const report = computeBudgetReport([mixed], plan, roles, [], 8, noHolidays);
+    const report = computeBudgetReport([mixed], plan, roles, [], 8, noHolidays, [], [], null);
     expect(costIsKnowable(report.buckets[0])).toBe(false);
     // And the user must be TOLD — a rate really is missing here.
     expect(ratesMissing(report.buckets[0])).toBe(true);
@@ -277,7 +277,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
       { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
     ];
-    const report = computeBudgetReport([mixed], plan, roles, [], 8, noHolidays);
+    const report = computeBudgetReport([mixed], plan, roles, [], 8, noHolidays, [], [], null);
     expect(costIsKnowable(report.buckets[0])).toBe(true);
   });
 
@@ -299,7 +299,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       status: "open", allocations: [],
     };
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
-    const report = computeBudgetReport([ratedTm, unstaffedFixed], plan, rated, [], 8, noHolidays);
+    const report = computeBudgetReport([ratedTm, unstaffedFixed], plan, rated, [], 8, noHolidays, [], [], null);
     // Guard the fixture: the rated bucket really is costable on its own, so a
     // false negative here would prove nothing.
     expect(costIsKnowable(report.buckets[0])).toBe(true);
@@ -327,7 +327,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
       { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
     ];
-    const report = computeBudgetReport([ratedActive, unratedBudgetedOnly], plan, roles, [], 8, noHolidays);
+    const report = computeBudgetReport([ratedActive, unratedBudgetedOnly], plan, roles, [], 8, noHolidays, [], [], null);
     // Guard the fixture: it really does slip the revenue-based exemption.
     expect(report.buckets[1].revenue).toBe(0);
     expect(ratesMissing(report.buckets[1])).toBe(true);
@@ -351,7 +351,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
       { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
     ];
-    const p = computeBudgetReport([ratedActive, unrated], plan, roles, [], 8, noHolidays).project;
+    const p = computeBudgetReport([ratedActive, unrated], plan, roles, [], 8, noHolidays, [], [], null).project;
     expect(ratesMissing(p) && costIsKnowable(p)).toBe(false);
   });
 
@@ -369,7 +369,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       startDate: "2026-02-01", endDate: "2026-02-28", status: "open", allocations: [],
     };
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
-    const report = computeBudgetReport([ratedTm, emptyScratch], plan, rated, [], 8, noHolidays);
+    const report = computeBudgetReport([ratedTm, emptyScratch], plan, rated, [], 8, noHolidays, [], [], null);
     expect(report.buckets[1].revenue).toBe(0);
     expect(costIsKnowable(report.project)).toBe(true);
   });
@@ -396,14 +396,14 @@ describe("computeBudgetReport — spillover", () => {
     };
 
     // Sanity: with [A, B], B receives nonzero spillover from A.
-    const reportWithA = computeBudgetReport([bucketA, bucketB], plan, roles, resources, 8, noHolidays);
+    const reportWithA = computeBudgetReport([bucketA, bucketB], plan, roles, resources, 8, noHolidays, [], [], null);
     const bWithA = reportWithA.buckets.find((r) => r.bucketId === 2)!;
     expect(bWithA.spilloverInHours).toBeGreaterThan(0);
     expect(bWithA.spilloverInValue).toBeGreaterThan(0);
 
     // Simulate removal: A is gone; B's successorId link is nulled.
     const bucketBUnlinked: BudgetBucket = { ...bucketB, successorId: null };
-    const reportWithoutA = computeBudgetReport([bucketBUnlinked], plan, roles, resources, 8, noHolidays);
+    const reportWithoutA = computeBudgetReport([bucketBUnlinked], plan, roles, resources, 8, noHolidays, [], [], null);
     const bWithoutA = reportWithoutA.buckets.find((r) => r.bucketId === 2)!;
     expect(bWithoutA.spilloverInHours).toBe(0);
     expect(bWithoutA.spilloverInValue).toBe(0);
@@ -422,14 +422,14 @@ describe("computeBudgetReport — consumption amount", () => {
   test("consumption.amount is the consumed value, matching its own percent", () => {
     // The tile renders percent and amount together, so the amount must be what
     // was consumed (9,207), not what remains (24,553).
-    const report = computeBudgetReport([fixedBucket75of275], plan, roles, [], 8, noHolidays);
+    const report = computeBudgetReport([fixedBucket75of275], plan, roles, [], 8, noHolidays, [], [], null);
     const c = report.buckets[0].consumption;
     expect(c.percent).toBeCloseTo(27.27, 1);
     expect(c.amount).toBeCloseTo(9207.27, 1);
   });
 
   test("the project rollup carries the same consumed amount", () => {
-    const report = computeBudgetReport([fixedBucket75of275], plan, roles, [], 8, noHolidays);
+    const report = computeBudgetReport([fixedBucket75of275], plan, roles, [], 8, noHolidays, [], [], null);
     const c = report.project.consumption;
     expect(c.percent).toBeCloseTo(27.27, 1);
     expect(c.amount).toBeCloseTo(9207.27, 1);
@@ -453,7 +453,7 @@ describe("computeBudgetReport — order", () => {
     };
 
     // Array order is [A(order:1), B(order:0)] — report should be B then A.
-    const report = computeBudgetReport([bucketA, bucketB], plan, roles, resources, 8, noHolidays);
+    const report = computeBudgetReport([bucketA, bucketB], plan, roles, resources, 8, noHolidays, [], [], null);
     expect(report.buckets.map((r) => r.bucketId)).toEqual([20, 10]);
   });
 });
@@ -533,7 +533,7 @@ describe("computeBudgetReport — project cost-knowability invariant", () => {
   for (const combo of combos) {
     test(`invariant holds for [${combo.join(" + ")}]`, () => {
       const buckets = combo.map((n, i) => kinds[n](i + 1));
-      const report = computeBudgetReport(buckets, plan, roles, [], 8, noHolidays);
+      const report = computeBudgetReport(buckets, plan, roles, [], 8, noHolidays, [], [], null);
       if (costIsKnowable(report.project)) {
         const poisoned = report.buckets.filter((b) => !costIsKnowable(b) && b.revenue !== 0);
         expect(
@@ -559,7 +559,7 @@ describe("computeBudgetReport — project cost-knowability invariant", () => {
   // a genuinely costable project still reports a real figure.
   test("a wholly costable project still reports its margin", () => {
     const report = computeBudgetReport(
-      [kinds.ratedTm(1), kinds.ratedFixed(2)], plan, roles, [], 8, noHolidays,
+      [kinds.ratedTm(1), kinds.ratedFixed(2)], plan, roles, [], 8, noHolidays, [], [], null,
     );
     expect(costIsKnowable(report.project)).toBe(true);
     expect(report.project.contributionMargin.percent).not.toBeNull();
@@ -600,19 +600,19 @@ describe("computeBucketReport — costUnknownReason", () => {
   }
 
   test("a fully costable bucket has no reason", () => {
-    const rep = computeBucketReport(tmBucket(), plan, ratedRoles, [], 8, noHolidays);
+    const rep = computeBucketReport(tmBucket(), plan, ratedRoles, [], 8, noHolidays, 0, 0, [], [], null);
     expect(rep.costUnknownReason).toBeNull();
     expect(rep.unpricedDisciplineIds).toEqual([]);
   });
 
   test("an empty bucket is no-rows", () => {
-    const rep = computeBucketReport(tmBucket({ allocations: [] }), plan, ratedRoles, [], 8, noHolidays);
+    const rep = computeBucketReport(tmBucket({ allocations: [] }), plan, ratedRoles, [], 8, noHolidays, 0, 0, [], [], null);
     expect(rep.costUnknownReason).toBe("no-rows");
   });
 
   test("rows with no rate at all are no-rates", () => {
     const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 }];
-    const rep = computeBucketReport(tmBucket(), plan, rateless, [], 8, noHolidays);
+    const rep = computeBucketReport(tmBucket(), plan, rateless, [], 8, noHolidays, 0, 0, [], [], null);
     expect(rep.costUnknownReason).toBe("no-rates");
   });
 
@@ -627,19 +627,19 @@ describe("computeBucketReport — costUnknownReason", () => {
       { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
       { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
     ];
-    const rep = computeBucketReport(b, plan, roles, [], 8, noHolidays);
+    const rep = computeBucketReport(b, plan, roles, [], 8, noHolidays, 0, 0, [], [], null);
     expect(rep.costUnknownReason).toBe("unrated-hours");
   });
 
   test("a blended bucket on a partly priced discipline is unpriced-blend and names it", () => {
-    const rep = computeBucketReport(blendedBucket(), plan, partlyPricedRoles, [], 8, noHolidays);
+    const rep = computeBucketReport(blendedBucket(), plan, partlyPricedRoles, [], 8, noHolidays, 0, 0, [], [], null);
     expect(rep.costUnknownReason).toBe("unpriced-blend");
     expect(rep.unpricedDisciplineIds).toEqual([1]);
   });
 
   test("a bucket internal override beats the poison — the rate card behind it is irrelevant", () => {
     const rep = computeBucketReport(
-      blendedBucket({ rateOverrideInternal: 90 }), plan, partlyPricedRoles, [], 8, noHolidays,
+      blendedBucket({ rateOverrideInternal: 90 }), plan, partlyPricedRoles, [], 8, noHolidays, 0, 0, [], [], null,
     );
     expect(rep.costUnknownReason).toBeNull();
     expect(rep.unpricedDisciplineIds).toEqual([]);
@@ -653,7 +653,7 @@ describe("computeBucketReport — costUnknownReason", () => {
     // user to fix something that cannot change the outcome. The generic
     // unrated-hours message is the honest one here.
     const rep = computeBucketReport(
-      blendedBucket({ rateOverrideInternal: 0 }), plan, partlyPricedRoles, [], 8, noHolidays,
+      blendedBucket({ rateOverrideInternal: 0 }), plan, partlyPricedRoles, [], 8, noHolidays, 0, 0, [], [], null,
     );
     expect(rep.costUnknownReason).toBe("unrated-hours");
     expect(rep.unpricedDisciplineIds).toEqual([]);
@@ -676,14 +676,14 @@ describe("computeBucketReport — costUnknownReason", () => {
       ...partlyPricedRoles,
       { id: 3, disciplineId: 2, gradeId: 1, internalRate: 80, externalRate: 120 },
     ];
-    const rep = computeBucketReport(b, plan, roles, [], 8, noHolidays);
+    const rep = computeBucketReport(b, plan, roles, [], 8, noHolidays, 0, 0, [], [], null);
     expect(rep.costUnknownReason).toBeNull();
     expect(rep.unpricedDisciplineIds).toEqual([]);
   });
 
   test("the derived helpers agree with the reason", () => {
-    const ok = computeBucketReport(tmBucket(), plan, ratedRoles, [], 8, noHolidays);
-    const empty = computeBucketReport(tmBucket({ allocations: [] }), plan, ratedRoles, [], 8, noHolidays);
+    const ok = computeBucketReport(tmBucket(), plan, ratedRoles, [], 8, noHolidays, 0, 0, [], [], null);
+    const empty = computeBucketReport(tmBucket({ allocations: [] }), plan, ratedRoles, [], 8, noHolidays, 0, 0, [], [], null);
     expect(costIsKnowable(ok)).toBe(true);
     expect(ratesMissing(ok)).toBe(false);
     expect(costIsKnowable(empty)).toBe(false);
@@ -706,7 +706,7 @@ describe("computeBucketReport — costUnknownReason", () => {
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
     // The rate card is fully populated — pointing the user at it would be
     // instructing them to do something their own override overrules.
-    const rep = computeBucketReport(b, plan, rated, [], 8, noHolidays);
+    const rep = computeBucketReport(b, plan, rated, [], 8, noHolidays, 0, 0, [], [], null);
     expect(rep.costUnknownReason).toBe("unrated-hours");
   });
 
@@ -718,7 +718,7 @@ describe("computeBucketReport — costUnknownReason", () => {
       allocations: [{ roleId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
     };
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
-    const rep = computeBucketReport(b, plan, rated, [], 8, noHolidays);
+    const rep = computeBucketReport(b, plan, rated, [], 8, noHolidays, 0, 0, [], [], null);
     // revenue 100000, cost 0 — must NOT read as a 100% margin.
     expect(costIsKnowable(rep)).toBe(false);
     expect(rep.costUnknownReason).not.toBeNull();
@@ -759,7 +759,7 @@ describe("computeBucketReport — costUnknownReason", () => {
       { name: "0-override fixed no-hours", bucket: i1FixedNoHours, roles: ratedRoles, reason: "unrated-hours" },
     ];
     for (const c of cases) {
-      const rep = computeBucketReport(c.bucket, plan, c.roles, [], 8, noHolidays);
+      const rep = computeBucketReport(c.bucket, plan, c.roles, [], 8, noHolidays, 0, 0, [], [], null);
       // Literal oracle: the reason is pinned to a hardcoded value, and each helper
       // is checked against its OWN definition of that value — never against itself.
       expect(rep.costUnknownReason, `reason @ ${c.name}`).toBe(c.reason);
@@ -780,7 +780,7 @@ describe("computeBucketReport — costUnknownReason", () => {
         { disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 20 }, actualHours: { "2026-01": 20 } },
       ],
     };
-    const rep = computeBucketReport(b, plan, partlyPricedRoles, [], 8, noHolidays);
+    const rep = computeBucketReport(b, plan, partlyPricedRoles, [], 8, noHolidays, 0, 0, [], [], null);
     expect(rep.costUnknownReason).toBe("unpriced-blend");
     expect(rep.unpricedDisciplineIds).toEqual([1]);
   });
@@ -820,18 +820,18 @@ describe("computeBudgetReport — project costUnknownReason", () => {
   }
 
   test("a costable project has no reason", () => {
-    const rep = computeBudgetReport([bucket(1, 1)], plan, roles, [], 8, noHolidays);
+    const rep = computeBudgetReport([bucket(1, 1)], plan, roles, [], 8, noHolidays, [], [], null);
     expect(rep.project.costUnknownReason).toBeNull();
     expect(rep.project.unpricedDisciplineIds).toEqual([]);
   });
 
   test("a project with no buckets is no-rows", () => {
-    const rep = computeBudgetReport([], plan, roles, [], 8, noHolidays);
+    const rep = computeBudgetReport([], plan, roles, [], 8, noHolidays, [], [], null);
     expect(rep.project.costUnknownReason).toBe("no-rows");
   });
 
   test("the reason comes from the failing bucket, not the healthy one", () => {
-    const rep = computeBudgetReport([bucket(1, 1), mixedBucket(2)], plan, roles, [], 8, noHolidays);
+    const rep = computeBudgetReport([bucket(1, 1), mixedBucket(2)], plan, roles, [], 8, noHolidays, [], [], null);
     expect(rep.project.costUnknownReason).toBe("unrated-hours");
   });
 
@@ -842,7 +842,7 @@ describe("computeBudgetReport — project costUnknownReason", () => {
     // it with an unrated-hours bucket leaves only one reason and the test would
     // pass regardless of ordering (the vacuous version this replaces).
     const noRates = bucket(2, 2); // single rateless role + hours → no-rates, revenue != 0
-    const rep = computeBudgetReport([mixedBucket(1), noRates], plan, roles, [], 8, noHolidays);
+    const rep = computeBudgetReport([mixedBucket(1), noRates], plan, roles, [], 8, noHolidays, [], [], null);
     // Fixture guard: the two failing buckets really do carry DIFFERENT reasons,
     // so the reduce over REASON_RANK has a genuine choice to make. Without this a
     // fixture drift that collapsed them to one reason would silently re-vacuum
@@ -859,7 +859,7 @@ describe("computeBudgetReport — project costUnknownReason", () => {
     // zero-revenue empty one, so the blame set is empty and the reduce yields
     // null, which the `?? "no-rows"` default names.
     const empty = (id: number): BudgetBucket => ({ ...bucket(id, 1), allocations: [] });
-    const rep = computeBudgetReport([empty(1), empty(2)], plan, roles, [], 8, noHolidays);
+    const rep = computeBudgetReport([empty(1), empty(2)], plan, roles, [], 8, noHolidays, [], [], null);
     expect(rep.project.costUnknownReason).toBe("no-rows");
   });
 
@@ -882,7 +882,7 @@ describe("computeBudgetReport — project costUnknownReason", () => {
       { id: 3, disciplineId: 9, gradeId: 1, internalRate: 100, externalRate: 150 },
       { id: 4, disciplineId: 9, gradeId: 2, internalRate: 0, externalRate: 210 },
     ];
-    const rep = computeBudgetReport([mixedBucket(1), blend], plan, blendRoles, [], 8, noHolidays);
+    const rep = computeBudgetReport([mixedBucket(1), blend], plan, blendRoles, [], 8, noHolidays, [], [], null);
     // Fixture guard: the two failing buckets really carry the two reasons.
     expect(rep.buckets.map((b) => b.costUnknownReason).sort()).toEqual(["unpriced-blend", "unrated-hours"]);
     expect(rep.project.costUnknownReason).toBe("unrated-hours");
@@ -890,7 +890,7 @@ describe("computeBudgetReport — project costUnknownReason", () => {
   });
 
   test("costIsKnowable and the project reason never disagree", () => {
-    const rep = computeBudgetReport([bucket(1, 1), bucket(2, 2)], plan, roles, [], 8, noHolidays);
+    const rep = computeBudgetReport([bucket(1, 1), bucket(2, 2)], plan, roles, [], 8, noHolidays, [], [], null);
     // The project's verdict must follow from its BUCKETS' reasons, expressed
     // over costUnknownReason INDEPENDENTLY of the helper (asserting it against
     // the helper would be x === x). Per-fixture form of the combinatorial
@@ -906,12 +906,12 @@ describe("computeBudgetReport — project costUnknownReason", () => {
     // equivalent helpers did NOT move the verdict. The shipped some/every rule
     // and its exemption are preserved exactly.
     const oneCostableOneEmpty = computeBudgetReport(
-      [bucket(1, 1), { ...bucket(2, 1), allocations: [] }], plan, roles, [], 8, noHolidays,
+      [bucket(1, 1), { ...bucket(2, 1), allocations: [] }], plan, roles, [], 8, noHolidays, [], [], null,
     );
     // one costable bucket + one zero-revenue empty ⇒ still knowable (the exemption).
     expect(costIsKnowable(oneCostableOneEmpty.project)).toBe(true);
 
-    const nothingCostable = computeBudgetReport([bucket(1, 2)], plan, roles, [], 8, noHolidays);
+    const nothingCostable = computeBudgetReport([bucket(1, 2)], plan, roles, [], 8, noHolidays, [], [], null);
     expect(costIsKnowable(nothingCostable.project)).toBe(false);
   });
 
@@ -929,7 +929,7 @@ describe("computeBudgetReport — project costUnknownReason", () => {
       { id: 4, disciplineId: 9, gradeId: 2, internalRate: 0, externalRate: 210 },
     ];
     // Two buckets, same poisoned discipline 9 — the union must be [9], not [9, 9].
-    const rep = computeBudgetReport([blended(1), blended(2)], plan, blendRoles, [], 8, noHolidays);
+    const rep = computeBudgetReport([blended(1), blended(2)], plan, blendRoles, [], 8, noHolidays, [], [], null);
     expect(rep.project.costUnknownReason).toBe("unpriced-blend");
     expect(rep.project.unpricedDisciplineIds).toEqual([9]);
   });
@@ -961,7 +961,7 @@ describe("computeBudgetReport — cost performance index (EV/AC)", () => {
 
   test("CPI is earned value over actual cost", () => {
     // 1000 budgeted cost, 40% complete => EV 400; 500 spent => CPI 0.8.
-    const report = computeBudgetReport([bucket40pct()], plan, roles, resources, 8, noHolidays);
+    const report = computeBudgetReport([bucket40pct()], plan, roles, resources, 8, noHolidays, [], [], null);
     expect(report.buckets[0].earnedValue).toBeCloseTo(400, 5);
     expect(report.buckets[0].costPerformanceIndex).toBeCloseTo(0.8, 3);
   });
@@ -971,14 +971,14 @@ describe("computeBudgetReport — cost performance index (EV/AC)", () => {
     // 2 linked tasks, one finished => 50% => EV 500 => CPI 500/500 = 1.
     const linked = bucket40pct({ percentComplete: undefined, taskIds: [101, 102] });
     const tasks = [task({ id: 101, status: "Done" }), task({ id: 102, status: "To Do" })];
-    const report = computeBudgetReport([linked], plan, roles, resources, 8, noHolidays, [], tasks);
+    const report = computeBudgetReport([linked], plan, roles, resources, 8, noHolidays, [], tasks, null);
     expect(report.buckets[0].earnedValue).toBeCloseTo(500, 5);
     expect(report.buckets[0].costPerformanceIndex).toBeCloseTo(1, 3);
   });
 
   test("CPI is null when progress is unknown", () => {
     const bucketNoProgress = bucket40pct({ percentComplete: undefined, taskIds: undefined });
-    const report = computeBudgetReport([bucketNoProgress], plan, roles, resources, 8, noHolidays, [], []);
+    const report = computeBudgetReport([bucketNoProgress], plan, roles, resources, 8, noHolidays, [], [], null);
     expect(report.buckets[0].earnedValue).toBeNull();
     expect(report.buckets[0].costPerformanceIndex).toBeNull();
   });
@@ -986,7 +986,7 @@ describe("computeBudgetReport — cost performance index (EV/AC)", () => {
   test("CPI is null when cost is unknown", () => {
     // No internal rates => AC is 0 => the index is undefined, not infinite.
     const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 }];
-    const ratelessReport = computeBudgetReport([bucket40pct()], plan, rateless, resources, 8, noHolidays);
+    const ratelessReport = computeBudgetReport([bucket40pct()], plan, rateless, resources, 8, noHolidays, [], [], null);
     expect(ratelessReport.buckets[0].costPerformanceIndex).toBeNull();
   });
 
@@ -997,14 +997,14 @@ describe("computeBudgetReport — cost performance index (EV/AC)", () => {
     });
     // Bucket 1: budgetCost 1000, 40% => EV 400, AC 500.
     // Bucket 2: budgetCost 100, 100% => EV 100, AC 100.
-    const report = computeBudgetReport([bucket40pct(), second], plan, roles, resources, 8, noHolidays);
+    const report = computeBudgetReport([bucket40pct(), second], plan, roles, resources, 8, noHolidays, [], [], null);
     expect(report.project.earnedValue).toBeCloseTo(500, 5);
     expect(report.project.costPerformanceIndex).toBeCloseTo(500 / 600, 5);
   });
 
   test("project EV/CPI is null when any bucket's progress is unknown", () => {
     const unknownProgress = bucket40pct({ id: 2, name: "Unknown", percentComplete: undefined, taskIds: undefined });
-    const report = computeBudgetReport([bucket40pct(), unknownProgress], plan, roles, resources, 8, noHolidays);
+    const report = computeBudgetReport([bucket40pct(), unknownProgress], plan, roles, resources, 8, noHolidays, [], [], null);
     expect(report.project.earnedValue).toBeNull();
     expect(report.project.costPerformanceIndex).toBeNull();
   });

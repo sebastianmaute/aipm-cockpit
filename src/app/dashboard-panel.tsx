@@ -87,7 +87,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const density: DashboardDensity = props.density ?? "comfortable";
   const dc = densityClasses(density);
   const varianceRows = props.variance ?? [];
-  const { status, setStatus, insights, activityLog: activity } = useWorkspace();
+  const { status, setStatus, insights, activityLog: activity, fxRates } = useWorkspace();
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:dashboard-size");
 
   const locale = localeFor(lang);
@@ -105,6 +105,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             roles: props.roles,
             resources: props.resources,
             absences: props.absences,
+            fxRates,
             milestones: showMilestones ? props.milestones : [],
             changes: showChanges ? props.changes : [],
           },
@@ -123,7 +124,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
       props.workdayHours, props.holidaySet,
       props.milestones, props.changes,
       showRaid, showBudget, showMilestones, showChanges,
-      status, activity, today,
+      status, activity, today, fxRates,
     ],
   );
 

@@ -613,7 +613,7 @@ function TaskManagerInner() {
     buildContext: () => {
       const model = computeDashboard(
         buildDashboardInput(
-          { tasks, raid, budgets, plan, roles, resources, absences, milestones, changes },
+          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes },
           { workdayHours: settings.resources.workdayHours, holidaySet, status, activity: activityLog, today },
         ),
       );
@@ -851,11 +851,11 @@ function TaskManagerInner() {
     () =>
       computeDashboard(
         buildDashboardInput(
-          { tasks, raid, budgets, plan, roles, resources, absences, milestones, changes },
+          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes },
           { workdayHours: settings.resources.workdayHours, holidaySet, status, activity: activityLog, today },
         ),
       ),
-    [tasks, raid, budgets, plan, roles, resources, absences, settings.resources.workdayHours, holidaySet, status, activityLog, today, milestones, changes],
+    [tasks, raid, budgets, plan, roles, resources, absences, fxRates, settings.resources.workdayHours, holidaySet, status, activityLog, today, milestones, changes],
   );
 
   // --- Insights → Action Loop (#6B SP1) --------------------------------------
@@ -1929,6 +1929,7 @@ function TaskManagerInner() {
       holidaySet,
       absences,
       tasks,
+      fxRates,
     ).project;
   };
 

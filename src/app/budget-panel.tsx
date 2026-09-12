@@ -127,8 +127,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const confirm = useConfirm();
 
   const report = useMemo(
-    () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks),
-    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks],
+    () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates),
+    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates],
   );
 
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);

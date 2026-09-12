@@ -195,7 +195,7 @@ describe("computeDashboard", () => {
   function baseInput(over: Partial<DashboardInput> = {}): DashboardInput {
     return {
       tasks: [], raid: [], budgets: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
-      roles: [], resources: [], absences: [], workdayHours: 8,
+      roles: [], resources: [], absences: [], fxRates: null, workdayHours: 8,
       holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02",
       milestones: [], changes: [],
       ...over,
@@ -346,7 +346,7 @@ describe("dashboard scope signal from changes", () => {
   function baseInput(over: Partial<DashboardInput> = {}): DashboardInput {
     return {
       tasks: [], raid: [], budgets: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
-      roles: [], resources: [], absences: [], workdayHours: 8,
+      roles: [], resources: [], absences: [], fxRates: null, workdayHours: 8,
       holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02",
       milestones: [], changes: [],
       ...over,
@@ -388,7 +388,7 @@ describe("computeDashboard burndown", () => {
     return {
       tasks: [], raid: [], budgets: [],
       plan: { startDate: "2026-01-01", endDate: "2026-03-31", granularity: "month", currency: "EUR", rows: [] } as unknown as DashboardInput["plan"],
-      roles: [], resources: [], absences: [],
+      roles: [], resources: [], absences: [], fxRates: null,
       workdayHours: 8, holidaySet: holidays,
       status: {} as DashboardInput["status"], activity: [], today, milestones: [], changes: [],
       ...over,
