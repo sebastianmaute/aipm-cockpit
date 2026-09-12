@@ -152,27 +152,42 @@ export function undeclaredColumns(entity: InlineEntity): readonly string[] {
  *  `resource.name` on both arms. An exemption that reaches the relations is the
  *  shape that hid §438 inside §437's ratchet.
  *
- *  ★★★ THAT PROBE IS BLIND TO THE SPLIT. An earlier revision said a synthetic
- *  input that stops being split "stays visible to them", and for `name` it
- *  does not. Both arms compare `row.name` alone, which the writer never
- *  stores, and the resource descriptor has no `name` entry in
- *  `fieldSanitizers` — so the sweep's two ledger entries (`resource.name`
- *  `unchanged` on update, `dropped` on create) hold whether the split works,
- *  writes the wrong names or is deleted. (Only a `splitName` that empties
- *  BOTH parts moves one: the update then throws, which the arm reads as a
- *  refusal. Emptying both at the dispatcher's call site alone does not —
- *  `name` stays in the merged patch, so `sanitizeResource`'s both-empty
- *  fallback re-splits it and the rename lands.) On create the probe never
- *  even reaches it:
- *  `CREATE_BASE.resource` supplies both parts, and `sanitizeResource` splits
- *  `name` only when `firstName` and `lastName` are both empty. What the sweep
- *  DOES see is `name` starting to land under its own name: either arm then
- *  stops producing its kind and the ledger turns red. The split itself is
- *  pinned in `use-chat-dispatcher.test.tsx` — "createResource splits a full
- *  name when first/last aren't given" and "updateResource splits a `name` into
- *  first/last, the shape create already honoured" — and, preview and write
- *  together, by "mononym rename clears the surname" in
- *  `plan.write-path.test.ts`.
+ *  ★★★ THAT PROBE IS BLIND TO THE SPLIT, AND IT IS DECIDED BEFORE ANY WRITE.
+ *  `resource.name` is not a column: it is absent from `RESOURCES_CSV_COLUMNS`,
+ *  and `sanitizeResource` reads `input.name` only to feed `splitName`, never
+ *  writing a `name` key back. So NO row the sweep holds carries one — not the
+ *  create arm's control row (`CREATE_BASE.resource` supplies both parts
+ *  itself), not the update arm's reference (the seed loaded through that same
+ *  sanitizer). `probeFor` therefore derives nothing from either its reference
+ *  or its seed, and reports the field `dead` — which is the kind BOTH of the
+ *  sweep's `EXPECTED_FINDINGS` entries carry.
+ *
+ *  ★★★ SO NO CHANGE TO THE SPLIT CAN MOVE THOSE ENTRIES, and two earlier
+ *  revisions of this passage claimed otherwise. The first said a synthetic
+ *  input that stops being split "stays visible to them". The second replaced
+ *  that with "what the sweep DOES see is `name` starting to land under its own
+ *  name: either arm then stops producing its kind and the ledger turns red",
+ *  and named the entries `unchanged` on update and `dropped` on create — kinds
+ *  neither arm has emitted for this field since the typed-probe slice, and
+ *  kinds that require a PROBE the harness never derives. `dead` is settled at
+ *  derivation time, upstream of the dispatcher: the split can work, write the
+ *  wrong names, or be deleted outright, and both entries hold unchanged. The
+ *  one product change that WOULD move them is `sanitizeResource` beginning to
+ *  store a `name` column of its own — then a reference carries a value, a
+ *  probe exists, and Relation B judges it like any other declared field.
+ *
+ *  ★★ THE REAL DETECTORS FOR THE SPLIT ARE ELSEWHERE, and they are what to
+ *  edit when the split changes. `use-chat-dispatcher.test.tsx` pins both
+ *  directions on the parts themselves — "createResource splits a full name
+ *  when first/last aren't given" asserts `firstName`/`lastName` are "Grace"
+ *  and "Hopper" from a `name` alone, and "updateResource splits a `name` into
+ *  first/last, the shape create already honoured" asserts the same pair on the
+ *  updated row AND on the re-read row — with "updateResource lets explicit
+ *  firstName/lastName win over a `name`" pinning the precedence beside them.
+ *  Preview and write together are pinned by "mononym rename clears the
+ *  surname" in `plan.write-path.test.ts`. Verified 2026-09-12 by reading all
+ *  four; none of them is in this sweep, and a green run here says nothing
+ *  about any of them.
  *
  *  ★★★ BECAUSE NOTHING SUBTRACTS IT, RELATION B FIRES ON `resource.name`, AND
  *  THAT IS THE DECISION, not
@@ -205,15 +220,26 @@ export const SYNTHETIC_INPUTS: Partial<Record<InlineEntity, readonly string[]>> 
  *  undeclared one; the change's persisted column count did not move, which is
  *  why the two numbers trade one-for-one. Relation A now probes it on BOTH arms
  *  and asserts the model's value never lands.
- *  ★★★ THAT ASSERTION IS VACUOUS FOR THIS FIELD, AND THIS DOCSTRING USED TO
- *  CALL IT "a stronger guarantee than Relation B's finding". The trespass probe
- *  derived from a date seed is a non-date STRING (`trespassProbeFor` has no
- *  date branch), which `sanitizeIsoDate` rejects on its own — so the probe can
- *  never land, guard (`CHANGE_FIELD_GUARDS.decisionDate`) or no guard, and a
- *  green Relation A proves nothing about the guard. It is one instance of the
- *  general blind spot recorded at `trespassProbeFor` (§441). What still stands
- *  is the classification: the field is no longer offered, so Relation B no
- *  longer reports it as "offered and dropped". */
+ *  ★★★ THAT ASSERTION WAS VACUOUS FOR THIS FIELD UNTIL THE TYPED PROBES, and
+ *  this docstring once called it "a stronger guarantee than Relation B's
+ *  finding". History, kept as the record: the probe then came from
+ *  `trespassProbeFor` (REMOVED by the typed-probe slice), which had no date
+ *  branch, so a date seed yielded a non-date STRING that `sanitizeIsoDate`
+ *  rejects on its own — the probe could never land, guard
+ *  (`CHANGE_FIELD_GUARDS.decisionDate`) or no guard (§441).
+ *  ★★ NOW: Relation A's probe comes from `probeFor` (`src/test/sweep-probes.ts`),
+ *  admitted through the writer's own sanitizer before it is judged. Measured on
+ *  the 2026-09-11 run that seeded the sweep's blank columns: `decisionDate` is
+ *  PROBED on both arms — neither arm's `EXPECTED_UNDECLARED_FINDINGS` entry
+ *  names it — and lands on neither. The update arm sends the seeded
+ *  "2026-03-04" a day later, a date `sanitizeChangeItem` holds, so it does
+ *  measure the guard. ★ The create arm sends the seed's date as is, and read
+ *  from the code rather than measured by mutant, it still cannot see the
+ *  guard: the create base carries no `status`, so `createChange` runs the
+ *  "Proposed" transition through `applyChangeStatus`, which clears the date
+ *  whatever the guard did — the "destroys rather than stores" half of §441.
+ *  What also stands is the classification: the field is no longer offered, so
+ *  Relation B no longer reports it as "offered and dropped". */
 export const AXIS_BASELINE: Record<InlineEntity, { declared: number; undeclared: number }> = {
   task: { declared: 11, undeclared: 17 },
   raid: { declared: 16, undeclared: 6 },

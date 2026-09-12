@@ -6,6 +6,17 @@
 > re-measured against main. Everything below is the dated record of the branch as executed and is not
 > rewritten: branch SHAs cited below never reached main, and figures below are the branch's, not main's.
 
+> **Ledger note, 2026-09-12 — every `UNSWEPT_BY_DESIGN` passage below is now stale.** As of this date
+> `UNSWEPT_BY_DESIGN.task` is `["jiraKey"]` and `UNSWEPT_BY_DESIGN.calendarEvent` is `[]`. The twelve
+> names this document describes as unswept by design became genuinely SWEPT on branch
+> `feat/sweep-typed-probes`: `34488c85` re-measured the recorded axis (`AXIS_FIELDS`,
+> `src/test/inline-sweep-fixtures.ts`) against the seeds that branch widened, which put eleven `task`
+> columns and `calendarEvent.exceptions` on it, and `dbd90a43` then removed those twelve from the
+> ledger, whose strict `toEqual` had gone red over the record that had stopped being true. So the
+> `calendarEvent.exceptions` exemption discussed below is GONE rather than narrowed, and the field is
+> now probed by both sweeps instead of exempted. Read a removal from that list as a coverage GAIN,
+> not a write-off. The body below is preserved as written on 2026-09-08 and is not rewritten.
+
 **Date:** 2026-09-08
 **Branch:** `feat/offered-surface-sweep`, based on `origin/main` = `754e8129` (0.294.0 "Jimenez")
 **Closes:** `docs/open-followups.md` §439 (the sweep has no create-path relation) and §436 (the sweep
