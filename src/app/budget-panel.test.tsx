@@ -55,6 +55,21 @@ describe("BudgetPanel", () => {
     expect(money.every((s) => s.includes("€"))).toBe(true);
   });
 
+  test("the budget tile does not call its money ratio CPI", () => {
+    // Two different quantities were both labelled CPI a click apart: this money
+    // ratio (earnedValue ÷ cost) and the EVM hours ratio on the Dashboard and
+    // the Budget report. CPI is EVM's term of art, so it stays with EVM and the
+    // money ratio is renamed "Cost recovery" (docs/open-followups.md §464).
+    render(<BudgetPanel {...props} />);
+    expect(screen.queryAllByText(/CPI/)).toHaveLength(0);
+    // ★ THE POSITIVE CONTROL. `queryAllByText` returns [] just as happily when
+    // the panel fails to render at all, so the new name must be asserted
+    // PRESENT. An exact count, MEASURED over this one-bucket fixture: the tile
+    // renders twice, once in the project rollup and once for the bucket — a
+    // loose floor would let one of the two silently stop rendering.
+    expect(screen.getAllByText(/Cost recovery/)).toHaveLength(2);
+  });
+
   test("lists each bucket by name", () => {
     render(<BudgetPanel {...props} />);
     expect(screen.getByText("PAM")).toBeInTheDocument();
@@ -540,8 +555,8 @@ describe("Cci primary prop", () => {
   });
 });
 
-describe("BudgetPanel — CPI card (EV/AC)", () => {
-  const cpiLabel = t("en-US", "budgetCciCpi");
+describe("BudgetPanel — Cost recovery card (EV/AC)", () => {
+  const cpiLabel = t("en-US", "budgetCciRecovery");
   const cpiCardsIn = () =>
     Array.from(document.querySelectorAll(".rounded-lg.border.border-line.p-3"))
       .filter((c) => c.textContent?.includes(cpiLabel));
