@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { computeBudgetReport } from "./budget-report";
+import { resolveRate } from "./fx";
 import type { ResourcePlan, Role, BudgetBucket, FxRates } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
@@ -49,8 +50,8 @@ describe("computeBudgetReport", () => {
 describe("computeBudgetReport — currencies do not leak across buckets", () => {
   const fx: FxRates = { base: "EUR", date: "2026-05-26", fetchedAt: "x", rates: { EUR: 1, USD: 1.1, GBP: 0.85 } };
 
-  test("the fixture actually converts", () => {
-    expect(fx.rates.USD).toBe(1.1);
+  test("the fixture actually converts — a rate of 1 would make this whole describe vacuous", () => {
+    expect(resolveRate(bucket(9, { currency: "USD" }), fx)).toBe(1.1);
   });
 
   test("a closed USD fixed predecessor spills EUR into its T&M successor", () => {
