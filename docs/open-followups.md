@@ -34923,10 +34923,28 @@ so `-big` and `-huge` inherit the same EUR plan. Reproduce:
 → `EUR USD`.
 
 ★ RECOMMENDED END STATE, deferred rather than unknown: narrow `plan.currency` to the literal `"EUR"`
-so the type says what the engine actually supports, and relabel the seven display sites. That is
-deferred because it entails coercing a user's stored currency at load — silent data mutation on read,
-the same class §470 exists to interrogate, and deserving its own review round rather than a tack-on
-to a slice that is closing.
+so the type says what the engine actually supports, and relabel the seven display sites.
+
+★★ THE REASON FOR THE DEFERRAL WAS REWRITTEN 2026-09-12, because a cold review refuted the first
+one out of this branch's own code. It read: deferred "because it entails coercing a user's stored
+currency at load — silent data mutation on read, the same class §470 exists to interrogate". **That
+cost is already paid, on every load path.** `sanitizePlan` resolves any value outside the union to
+the fallback, `sanitizeBudgetBucket` does the same for a bucket, and the IndexedDB path coerces one
+in `browser-backend.ts`. Reproduce:
+`grep -c "isBudgetCurrency" src/app/sanitize-entities.ts src/app/browser-backend.ts` → 3 and 2, each
+count including the import line, so three coercions. A deferral resting on a cost the branch is
+already paying is not a deferral; it is an unexamined preference wearing one's clothes.
+
+The distinction that does survive is between coercing an ILLEGAL value and coercing a LEGAL one, and
+it is narrower than what it replaces. `"CHF"` was never a member of `BudgetCurrency`: mapping it to
+`"EUR"` narrows a value the type never admitted and no reader could have relied on — that is
+validation, and it is why the coercions above were uncontroversial. `"USD"` and `"GBP"` are legal
+today. A hand-authored workspace carrying either round-trips through every codec and is accepted
+everywhere, so coercing THOSE rewrites currently-valid stored data and changes what the product
+accepts. That is a behaviour change, and it owes its own slice: a decision on whether the user is
+told, and coverage across the six write paths rather than the one this branch touched. What is
+deferred is the behaviour change alone — not the type narrowing, which is one line and could land
+the moment that decision is made.
 
 ★ REJECTED, so it is not re-proposed: making the conversion conditional on `plan.currency` (convert
 only when the bucket currency differs from the plan currency). It would fix the arithmetic, but it
