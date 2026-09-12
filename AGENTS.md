@@ -675,11 +675,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `data-pressed-marker` check glyph (`aria-hidden`, since `aria-pressed` already tells AT) — a SEPARATE
   guarantee, and reading it as the CONTRAST fix is the trap §56 records. ★ It is still rendered in
   BOTH states, but its WIDTH is now conditional — off collapses to zero and animates, and
-  `reserveMarkerSpace` opts a consumer OUT and restores the old constant width (two consumers do).
+  `reserveMarkerSpace` opts a consumer OUT and restores the old constant width. ★★ NO CONSUMER COUNT
+  IS QUOTED HERE, and restoring one is a regression: this line said "two consumers do" while seven
+  files passed the prop (measured 2026-09-13). List them with
+  `git grep -lE "^\s*reserveMarkerSpace\s*$" -- src ':!*.test.*' ':!src/app/toggle-button.tsx'` —
+  the last exclusion is load-bearing, because the primitive's own comment has a line that is exactly
+  the prop name and would be counted as a consumer.
   The constant width used to be unconditional, because a resizing control moves its neighbouring
   controls under the pointer on every click (reasoned, not measured — jsdom has no layout, so
-  nothing here can test it); that reason is exactly why the opt-out exists. The mechanics and both
-  call sites are in [`docs/AGENTS/theming.md`](docs/AGENTS/theming.md).
+  nothing here can test it); that reason is exactly why the opt-out exists. The mechanics are in
+  [`docs/AGENTS/theming.md`](docs/AGENTS/theming.md), and each consumer's REASON for opting out is
+  enumerated in `toggle-button.tsx`'s comment beside the marker — the reasons differ, so do not
+  restate them as one rule.
   ★ `invisible` now appears ONLY on the opt-out path: on the animated path a zero width already
   clips the glyph, so `invisible` would leave nothing to animate. ★ `invisible` vs
   `opacity-0` is NOT load-bearing: the marker `CheckIcon` carries its own explicit `aria-hidden="true"`,
