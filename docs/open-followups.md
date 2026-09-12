@@ -33133,15 +33133,18 @@ this branch, where the resource one previously SURVIVED: mutant 2 (`...dropUnacc
 1 failed (1)` / `Tests 1 failed | 73 passed (74)`, new `[stored]` finding for `calendarEvent.exceptions`
 (full table: `tp7-results.md` in the typed-probes slice's scratch, mirrored in the spec's closing note).
 
-Of the eight instances `trespassProbeFor`'s docstring named (verbatim copy kept in the slice's scratch
+Of the nine instances `trespassProbeFor`'s docstring named (verbatim copy kept in the slice's scratch
 as `tp5-441-instances.txt`, since the docstring itself was deleted with the function): `knowledgeLinks`
 (raid, change, milestone, stakeholder), `calendarEvent.exceptions`, `resource.utilization` /
 `resource.absenceOverride`, `resource.birthday` and `change.decisionDate` are no longer in
 `EXPECTED_UNDECLARED_FINDINGS` at all — each is now properly probed rather than blind, corroborated for
 the three resource fields and `exceptions` by the mutant kills above. THREE remain `unmeasured` in the
 final ledger, for the SAME underlying reason (the derived probe is still not a value the field's closed
-shape can hold): `stakeholder.raci` (both arms — the derived probe mutates the seeded RACI code's own
-string leaf, which `coerceRaciMap` still reshapes to `{}`), `resource.utilizationMode` (both arms — the
+shape can hold): `stakeholder.raci` (UPDATE arm only — the derived probe mutates the seeded
+RACI code's own string leaf, which `coerceRaciMap` still reshapes to `{}`; on the CREATE arm the
+control row carries no `raci`, so `probeFor` falls back to the SEEDED map AS IS — a genuine RACI
+map `sanitizeStakeholder` holds unchanged — and the field is properly measured there, the same
+mechanism §467 records for `resource.active`), `resource.utilizationMode` (both arms — the
 derived probe is never `"hours"`, so `sanitizeUtilizationMode` still maps it to `"percent"`) and
 `resource.active` (UPDATE arm only — the seeded `false` derives a probe of `true`, which
 `sanitizeResource` never stores; the CREATE arm is not in the ledger, so it is no longer blind there).
