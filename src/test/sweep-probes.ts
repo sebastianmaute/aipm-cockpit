@@ -10,10 +10,16 @@
 // proves nothing to either relation — that was §441's whole probe-shape
 // blindness, and `trespassProbeFor`, the derivation this module replaced,
 // produced exactly such values. It is GONE: the sweep is repointed here, and
-// that name now survives only in this sentence and in one more in
-// `offered-surface-axis.ts`, both marking it as removed. Verified 2026-09-12
-// by `grep -rn trespassProbeFor src scripts e2e`, which returns those two
-// comment lines and no declaration, import or call.
+// every surviving mention of the name is a COMMENT marking it as removed.
+//
+// ★★ VERIFY THE CLAIM, NEVER A TALLY. `grep -rn trespassProbeFor src scripts e2e`
+// must return no declaration, no import and no call — that is the whole of what
+// is being asserted, and it holds however many comments mention the name. This
+// sentence used to pin the hit count at two, and this slice's own next test
+// commit added a third mention in `plan.offered-surface-sweep.test.ts`, leaving
+// a verified-2026-09-12 enumeration false the day after it was written. Any
+// comment that names the removed derivation re-breaks a count; none of them can
+// re-break the claim.
 //
 // A field whose probe the writer's sanitizer will not hold unchanged is
 // reported `unmeasured`, BY NAME, in the sweep's both-directions ledger. It is
