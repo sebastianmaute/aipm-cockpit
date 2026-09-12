@@ -17,6 +17,14 @@ describe("resolveRate", () => {
     expect(resolveRate(bucket({ currency: "GBP" }), null)).toBe(1);
     expect(resolveRate(bucket({ currency: "EUR" }), fx)).toBe(1);
   });
+  test("an EUR bucket is 1 even carrying a POSITIVE stale override — the short-circuit wins", () => {
+    // The rate is units of the bucket's currency per 1 EUR, so for EUR it is 1 by
+    // definition and an override on it is incoherent data, not a preference.
+    // The override must be POSITIVE: the `> 0` guard already rejects the 0 used
+    // by the divide-by-zero case below, so a 0 here would prove nothing.
+    expect(resolveRate(bucket({ currency: "EUR", fxRateOverride: 1.1 }), fx)).toBe(1);
+    expect(resolveRate(bucket({ currency: "EUR", fxRateOverride: 1.1 }), null)).toBe(1);
+  });
 });
 
 describe("conversion", () => {
@@ -25,6 +33,13 @@ describe("conversion", () => {
   });
   test("currencyToEur divides by the rate", () => {
     expect(currencyToEur(108, bucket(), fx)).toBeCloseTo(100, 5);
+  });
+  test("both conversions are the identity on an EUR bucket with a stale positive override", () => {
+    // `toBe`, not `toBeCloseTo` — identity is the claim, and a rate of 1.1 would
+    // land ~9% off rather than one ulp away.
+    const eur = bucket({ currency: "EUR", fxRateOverride: 1.1 });
+    expect(currencyToEur(80000, eur, fx)).toBe(80000);
+    expect(eurToCurrency(80000, eur, fx)).toBe(80000);
   });
   test("currencyToEur never divides by zero — a 0/negative override falls back to a safe rate", () => {
     // resolveRate ignores a non-positive override, so the rate is always > 0.

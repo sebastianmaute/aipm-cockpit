@@ -120,6 +120,18 @@ describe("computeBucketReport — a fixed-price bucket in a non-EUR currency", (
     expect(rep.revenue).toBe(10000);
   });
 
+  test("an EUR bucket carrying a stale override is unchanged too — the half the fixture above cannot reach", () => {
+    // `usd` has no override, so the test above exercises only resolveRate's EUR
+    // short-circuit. The modal's currency <select> never clears the override, so
+    // a bucket switched USD -> EUR keeps one; if it were honoured the contract
+    // amount would be divided here and the project rollup (EUR, unconverted)
+    // would print 9,090 for a 10,000 EUR contract.
+    const eur: BudgetBucket = { ...usd, currency: "EUR", fxRateOverride: 1.1 };
+    const rep = computeBucketReport(eur, plan, roles, resources, 8, noHolidays, 0, 0, [], [], fx);
+    expect(rep.revenue).toBe(10000);
+    expect(rep.budgetValue).toBe(10000);
+  });
+
   test("a T&M bucket is not converted — only the fixed branch reads the contract amount", () => {
     // The negative half of the claim: a T&M bucket's money comes from role rates,
     // which are EUR already, so the SAME bucket must produce identical figures
