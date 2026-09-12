@@ -7,10 +7,16 @@ const bucket = (extra: Partial<BudgetBucket> = {}): BudgetBucket =>
   ({ id: 1, name: "B", type: "tm", currency: "USD", startDate: "", endDate: "", status: "open", allocations: [], ...extra });
 
 describe("resolveRate", () => {
-  test("manual override wins when present", () => {
+  // ★★ BOTH NAMES CARRY "on a non-EUR bucket", and it is not padding. The EUR
+  // short-circuit runs BEFORE the override and before the cache lookup, so
+  // neither of these two claims holds unqualified — the third test below is the
+  // EUR case and asserts the exact contradiction. Each fixture here is USD only
+  // because `bucket()` defaults to it; an unqualified name reads as the whole
+  // precedence rule and the file would then state two mutually exclusive ones.
+  test("manual override wins when present on a non-EUR bucket", () => {
     expect(resolveRate(bucket({ fxRateOverride: 1.2 }), fx)).toBe(1.2);
   });
-  test("falls back to cached ECB rate when no override", () => {
+  test("falls back to cached ECB rate when no override on a non-EUR bucket", () => {
     expect(resolveRate(bucket(), fx)).toBe(1.08);
   });
   test("falls back to 1 when currency missing / no cache / EUR", () => {

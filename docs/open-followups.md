@@ -696,6 +696,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--open) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture — OPEN | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | open |
 | [§473](#473-nothing-decides-what-currency-role-rates-are-in-so-a-non-eur-plan-both-mislabels-resources-money-and-miscomputes-a-fixed-price-margin--open) | Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin — OPEN | found 2026-09-12 by the whole-branch review of `feat/budget-currency-boundary`, in the same pass that caught a false attribution in §465; filed as ONE entry because splitting the display and arithmetic faces would let one close while the other stood | M — the seven display sites and the type narrowing are small edits; coercing stored non-EUR plan currencies at load, and its tests, are the work | open |
 | [§474](#474-a-rateless-non-eur-bucket-is-summed-into-the-eur-rollup-at-par-and-reads-almost-like-a-rated-one--open) | A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one — OPEN | found 2026-09-12 by the documentation-correction pass over `feat/budget-currency-boundary`, from the default no-rate path neither the design spec nor the register had considered; NOT a regression — at rate 1 the conversion is the identity, so no figure moved | S-M — the arithmetic must not change, so the work is disclosure: whether the report marks a rateless non-EUR bucket and whether the EUR rollup flags a summand it could not convert, plus tests | open |
+| [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--open) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read — OPEN | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `68f70b9d` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -35031,7 +35032,83 @@ absence of a rate.
 figures, which are the half that is genuinely self-consistent; no test asserts what the rollup does
 with a rateless non-EUR bucket, and none asserts the `currencyLabel` suffix at all.
 
+★★★ **§475 IS THE OTHER HALF OF THIS ONE — read them together.** Same disclosure defect, one step
+apart on the same axis, and the step is how the bucket arrives at rate 1: here **by absence** (no
+rate was ever fetched, so a foreign contract is read at par), there **by decision** (an override IS
+stored on an EUR bucket and `resolveRate` declines to consult it). The `(×rate)` suffix is the tell
+in both, and is missing in both for the one structural reason — it renders only while
+`rate !== 1`, which is exactly the condition these two entries describe. The remedies diverge
+(disclose a figure here; stop offering the input there), which is why they are separate; the blind
+spot is the same one.
+
 Size S–M: the arithmetic must not change, so the work is disclosure and its tests — decide whether a
 rateless non-EUR bucket should be marked in the report's currency column, whether the EUR-labelled
 rollup should refuse or flag a summand it could not convert, and pin whichever is chosen. Deciding
-is most of it; the edit is small.
+is most of it; the edit is small. ★ Whatever is decided about the suffix here almost certainly
+settles §475's visibility question too — the two should be decided in one sitting, not
+independently.
+
+## 475. The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read — OPEN
+
+**Status:** OPEN 2026-09-12 — never machine-verified as a user-visible defect; the mechanism is
+established by reading the four sites end to end, and each of the presence witnesses below was run
+2026-09-12, but nothing here was reproduced on a screen and no test pins any of it.
+`grep -c 'id: "fxOverride", labelKey: "budgetFxOverride", tier: "advanced"' src/app/modal-fields.ts`
+→ 1 (the field's only gate is the tier),
+`grep -c "EUR" src/app/budget-bucket-modal.tsx` → **0** (no currency gate anywhere in the modal, so
+`isVisible("fxOverride")` is the whole condition),
+`grep -c "aria-invalid={!!notice.fxRateOverride || undefined}" src/app/budget-bucket-modal.tsx` → 1,
+`grep -c "bucket.fxRateOverride = fx" src/app/sanitize-entities.ts` → 1 (the persist),
+`grep -c 'rate !== 1 ?' src/app/budget-report-panel.tsx` → 1 and
+`grep -c "rate !== 1 ?" src/app/budget-panel.tsx` → 1 (the two rate suffixes).
+
+**The FX-rate override field is gated on the advanced field TIER, never on the bucket's currency.**
+So on an EUR bucket the input renders, accepts a number, validates it live — a non-positive value
+raises the field's `aria-invalid` notice — and `sanitizeBudgetBucket` writes the accepted value
+through all six write paths. Since `68f70b9d` reordered `resolveRate` to decide an EUR bucket BEFORE
+consulting the override, nothing will ever read it back.
+
+★★★ **READ THIS WITH §474 — THEY ARE ONE DISCLOSURE DEFECT ONE STEP APART ON THE SAME AXIS, and
+the step is which way the bucket arrives at rate 1.** §474: no rate was ever resolved, so a foreign
+contract is read at par — rate 1 **by absence**. Here: a rate IS stored and `resolveRate` now
+declines to consult it — rate 1 **by decision**. Both land on the same number from opposite causes,
+and in both the UI says nothing whatever about how it got there.
+
+★★ **The `(×rate)` suffix is the shared tell, and it is absent in both for the same structural
+reason: it renders only while `rate !== 1`.** So the one annotation that could disclose either case
+is switched off by precisely the condition that defines them. That is why these are two entries and
+not two halves of one — the remedies point in opposite directions (§474 wants MORE disclosure of a
+figure the app computed anyway; this wants the INPUT to stop being offered) — but a reader who
+finds either one has found the same blind spot and should read the other.
+
+★ **Do not re-derive §474's half here.** That rate 1 is the DEFAULT state rather than an edge case
+— `useFxRates` carries no effect and the only `refreshFx` references are a destructure and a
+user-pressed control, so the table is populated only when someone presses it — was established
+there and independently re-verified after filing. Cite §474; a second derivation is a second thing
+to keep true.
+
+★★★ **`68f70b9d` IS STILL THE RIGHT FIX AND THIS ENTRY MUST NOT BE READ AS AN ARGUMENT AGAINST IT.**
+The rate is units of the bucket's currency per 1 EUR, which for EUR is 1 by definition, so an
+override there is incoherent data rather than a preference; honouring it is what the reorder
+correctly stopped. The modal is where the incoherent data gets in, and that is the half still open.
+
+★ **The reorder also removed the only visible tell, which is why this is worth an entry rather than
+a shrug.** Both surfaces annotate a bucket's currency with a `(×rate)` suffix only while
+`rate !== 1`, so before the reorder an EUR bucket carrying a stale `1.1` at least rendered
+`EUR (×1.1)` somewhere a user could notice. It now resolves to 1, the suffix disappears, and the
+stored value is invisible on every surface while remaining in the file, the CSV, the Markdown, both
+Turso layouts and IndexedDB. A user who typed it has no way to discover it is inert, and no way to
+find it again to clear it.
+
+★ Reachability needs the advanced field tier, which is not the default, and a bucket whose currency
+is EUR — the default. The likelier route is not typing one deliberately but switching an existing
+USD bucket back to EUR: the currency `<select>` does not clear the override, which is the stale-data
+case `resolveRate`'s docstring already describes and repairs at read time.
+
+Size S: gate the field's visibility (or its enablement plus an explanation) on
+`draft.currency !== "EUR"` in `budget-bucket-modal.tsx`, and decide separately whether switching the
+currency to EUR should clear a stored override or leave it for the read-time repair to neutralise.
+Clearing it is a data write on an edit the user did not ask for, so it is a real decision and not
+obviously the right one. **UI decision — deliberately NOT taken on
+`feat/budget-currency-boundary`**, whose scope was the currency boundary in the engine and the
+display layer.

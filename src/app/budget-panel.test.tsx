@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { expectDestructiveButton, expectSecondaryButton } from "../test/button-variant";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { rowLabel } from "./row-tokens";
@@ -1465,5 +1465,81 @@ describe("BudgetPanel — row separators sit on the cells, and only the last row
       expect(tokens).not.toContain("border-t");
       expect(tokens).not.toContain("border-line");
     }
+  });
+});
+
+/**
+ * The three strings this branch rewrote or renamed, pinned WHERE THEY RENDER
+ * and IN GERMAN.
+ *
+ * ★★★ AN EN ASSERTION HERE WOULD BE VACUOUS AND WOULD LOOK EXACTLY LIKE THIS
+ * ONE. `expect(...).toHaveTextContent(t("en-US", key))` reads the same
+ * dictionary entry the panel just rendered, so it passes whatever that entry
+ * says and would have passed before the rewrite as readily as after. A literal
+ * German string cannot: `i18n.de.ts` is a SECOND file that has to agree with
+ * it, so the assertion fails if either the DE string or the call site moves.
+ *
+ * ★ `loadI18n("de")` first — the DE dictionary is lazy, and `t("de", …)` falls
+ * back to English until it resolves, which would make every literal below a
+ * test of the English dictionary under a German name.
+ *
+ * ★★★ A HINT REACHES THE DOM TWICE, THROUGH TWO SEPARATE `t()` CALLS, and
+ * asserting either one alone leaves the other unpinned. `InfoTooltip` takes
+ * `text` (the body, portalled only while the trigger is hovered or focused)
+ * and `label` (the `aria-label`, here `rowLabel(hint, bucketToken)` — the hint
+ * plus the bucket token after an EN DASH, U+2013). The call site passes the
+ * key twice. MEASURED, not reasoned: an earlier cut of these two tests read
+ * the `aria-label` alone and stayed GREEN with the call site's `text` prop
+ * swapped for the EUR twin `budgetReportColWinLossHint` — i.e. green while the
+ * visible tooltip told the user the wrong currency. So each hint test focuses
+ * its trigger and asserts the portalled body as well.
+ */
+describe("BudgetPanel — the German text of the three keys this branch changed", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  test("the win/loss hint splits fixed from T&M and names the BUCKET currency, not EUR", () => {
+    // ★★ THE LAST CLAUSE IS THE ENTIRE POINT OF THE SPLIT and the only thing
+    // separating this string from its twin. `budgetReportColWinLossHint`
+    // annotates an EUR report column and is otherwise word-for-word identical;
+    // this one annotates a panel tile that renders through `inCur` and really
+    // is in the bucket's currency. So the assertion is the WHOLE string: pin
+    // the leading clauses alone and it passes with the EUR twin pasted in,
+    // which is the confusion the split exists to prevent.
+    render(<BudgetPanel {...props} lang="de" />);
+    const hint = "Festpreis: Erlös minus Kosten. Time-and-Material: Budget minus Verbrauch, also das verbleibende Budget. In der Währung des Budgetpostens; negativ bedeutet, dass der Bucket mit Verlust läuft.";
+    const trigger = screen.getByLabelText(`${hint} – PAM`);
+    fireEvent.focus(trigger);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(hint);
+  });
+
+  test("the spillover hint names the VALUE the row renders beside the hours", () => {
+    // The row prints hours AND money; the string said hours alone. The fixture
+    // is not the obvious one: `computeSpillover` reads only a CLOSED
+    // predecessor pointing at this bucket, and the row is gated on
+    // `spilloverInHours !== 0`, so an open predecessor renders nothing and the
+    // assertion would be unreachable rather than red.
+    const withSpillover: BudgetBucket[] = [
+      { ...buckets[0], id: 2, name: "Vorgänger", status: "closed", closedDate: "2026-01-31", successorId: 1 },
+      ...buckets,
+    ];
+    render(<BudgetPanel {...props} lang="de" buckets={withSpillover} />);
+    const hint = "Aus einem anderen Bereich übertragene Stunden und deren Wert in der Währung des Budgetpostens.";
+    const trigger = screen.getByLabelText(`${hint} – PAM`);
+    // Anti-vacuity: the hint is only honest if its row really does print both
+    // figures. 100 budgeted − 80 actual = 20 unspent hours carried in.
+    expect(trigger.closest("div")!).toHaveTextContent(/20 h ·/);
+    fireEvent.focus(trigger);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(hint);
+  });
+
+  test("the renamed cost-recovery label renders at BOTH of its sites", () => {
+    // `budgetCciCpi` → `budgetCciRecovery`. The key is read twice — once by the
+    // project rollup, once per bucket — and a rename that reached only one call
+    // site is the failure this pins. An EXACT count, measured over the
+    // one-bucket fixture: a floor of 1 passes with either site dropped.
+    render(<BudgetPanel {...props} lang="de" />);
+    expect(screen.getAllByText("Kostendeckung")).toHaveLength(2);
   });
 });

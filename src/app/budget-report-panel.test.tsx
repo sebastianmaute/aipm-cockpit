@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { beforeAll, describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BudgetReportPanel } from "./budget-report-panel";
+import { loadI18n } from "./i18n";
 import type { BudgetBucket, FxRates, ResourcePlan, Role } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "EUR" };
@@ -325,5 +326,39 @@ describe("BudgetReportPanel burn-down chain warning", () => {
       ],
     });
     expect(screen.queryByText(/not linked into one chain/)).toBeNull();
+  });
+});
+
+/**
+ * The EUR HALF of the win/loss hint pair, pinned in German at its own site.
+ *
+ * ★★ THE PAIR ONLY WORKS IF BOTH HALVES ARE PINNED. This string and
+ * `budgetWinLossHint` are word-for-word identical but for one clause — "In
+ * EUR" here, "In der Währung des Budgetpostens" on the panel tile — because
+ * this column really is EUR and that tile really is converted. Pinning one
+ * half alone leaves the distinction resting on an unpinned string, and the
+ * twin's own test (`budget-panel.test.tsx`) argues from exactly this
+ * difference. The spec's testing policy asks for both.
+ *
+ * ★ `loadI18n("de")` first: the DE dictionary is lazy and `t("de", …)` serves
+ * English until it resolves. ★ `SortResizeTh` passes no `nameContext` here —
+ * one table in the view, nothing to disambiguate against — so `InfoTooltip`
+ * falls back to `aria-label={text}` and the accessible name is the bare hint,
+ * with no row token appended.
+ */
+describe("BudgetReportPanel — the German win/loss column hint", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("states both branches and names EUR, not the bucket currency", () => {
+    renderPanel({ lang: "de" });
+    const hint = "Festpreis: Erlös minus Kosten. Time-and-Material: Budget minus Verbrauch, also das verbleibende Budget. In EUR; negativ bedeutet, dass der Bucket mit Verlust läuft.";
+    // Both props, as in the twin's test: the `aria-label` locates the trigger,
+    // the portalled body is what the reader actually sees, and the call site
+    // passes the key to each separately.
+    const trigger = screen.getByLabelText(hint);
+    fireEvent.focus(trigger);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(hint);
   });
 });

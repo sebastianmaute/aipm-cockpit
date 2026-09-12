@@ -492,10 +492,25 @@ Expected: FAIL — the rollup currently renders `$` because `projCur` is `plan.c
 
 - [ ] **Step 3: Fix the label**
 
+★★ This wording is the one that SHIPPED, and it is not the one this step was first
+drafted with. The draft called `plan.currency` "free-text", which Task 4 below
+falsifies two tasks later by narrowing the field to `BudgetCurrency` — so applying
+the draft here writes a comment this same plan then makes stale. The reason the
+rollup hardcodes EUR survives the narrowing and has to be stated in terms that do:
+the union still admits `USD`/`GBP`, so the field names the plan's BASE currency and
+never the unit of an unconverted engine figure. `f7240d30` corrected five comments
+that had gone stale exactly this way; do not re-apply the draft.
+
 ```tsx
-  // The rollup sums the engine's EUR figures and converts NOTHING, so it is
-  // EUR regardless of what the plan's free-text currency says. Labelling it
-  // `plan.currency` printed EUR money under another currency's symbol (§465).
+  // ★★ The rollup sums the engine's EUR figures and converts NOTHING, so it is
+  // EUR regardless of what `plan.currency` says. Narrowing that field to the
+  // `BudgetCurrency` union did NOT make it safe to label with: the union still
+  // admits `USD`/`GBP`, so it states the plan's base currency, never the unit
+  // of an unconverted engine figure. Labelling it
+  // `plan.currency` printed EUR money under another currency's symbol
+  // (docs/open-followups.md §465). The per-bucket tiles below are the other
+  // case and stay as they are: they convert EUR→bucket currency (`inCur` /
+  // `cci`) BEFORE labelling, so there the bucket's own currency is correct.
   const projCur = "EUR";
 ```
 

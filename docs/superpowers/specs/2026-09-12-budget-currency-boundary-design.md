@@ -188,7 +188,7 @@ all one new comment about `tasks: []`, and no `-` line at all.
 its own list disagreeing in adjacent clauses. The count was right about the outcome by accident and
 wrong about the list; both halves are now stated.
 
-### 2. The rename and the two hints
+### 2. The rename and the three hints
 
 `budgetCciCpi` → `budgetCciRecovery`, `budgetCciCpiHint` → `budgetCciRecoveryHint`. EN "Cost
 recovery", DE "Kostendeckung". Two render sites, both in `budget-panel.tsx`. `evmCpi` and every other
@@ -198,8 +198,23 @@ CPI in the app keep their name.
 languages, pointing at the label being renamed; it is updated in the same edit, and reads better for
 it, since "see Cost recovery" no longer contains the acronym it is disclaiming.
 
-`budgetWinLossHint` becomes money in the bucket currency. `budgetReportColWinLossHint` states both
-branches explicitly instead of describing the fixed-price one as if it were universal.
+`budgetReportColWinLossHint` states both branches explicitly instead of describing the fixed-price
+one as if it were universal.
+
+`budgetWinLossHint` **mirrors that twin**, differing only in its last clause. ★ CORRECTED
+2026-09-12 — this section originally said only that it "becomes money in the bucket currency",
+which is what the first cut did and is not what shipped. The two hints annotate the SAME
+`winLossValue`, so leaving this one at a single undifferentiated branch left the fixed-price case
+described as a variance against plan when it is a margin, revenue minus cost. It now carries the
+same two branches; the last clause is the ONLY difference and is load-bearing in both directions —
+the panel tile renders through `inCur` and really is in the bucket currency, the report column is
+EUR. Pinned on both sides, each half mutation-proved against being swapped for the other.
+
+`budgetSpilloverInHint` said "Hours carried in from another bucket" over a row that renders hours
+AND their converted money value; it now names both. ★ ADDED 2026-09-12 — this string was fixed in
+`f7240d30`, two lines from the one §464 fixed and for the same reason, but appeared nowhere in this
+spec or in the plan. Recorded here so the section describes what shipped rather than what was
+foreseen.
 
 `agents-symbol-check` gates backticked mixed-case names in `AGENTS.md` and `docs/AGENTS/*.md`, and
 `docs/AGENTS/platform.md` names `budgetCciCpi` **and** recites its rename history — so it is swept in
@@ -239,9 +254,21 @@ Cases:
 | Budget panel, USD bucket | entering a $10,000 contract renders **$10,000** back |
 | Budget report panel, same bucket | the EUR-labelled figure is the converted one |
 
-i18n: the renamed key and both fixed hints get per-site assertions with `loadI18n("de")` in
+i18n: the renamed key and all three fixed hints get per-site assertions with `loadI18n("de")` in
 `beforeAll` — an EN-only assertion on a string whose DE twin is byte-identical is vacuous, and these
 are not identical. Key parity itself is tsc's job.
+
+★ DELIVERED 2026-09-12, and the count moved: this line said "both fixed hints" while §2 named two
+and a third (`budgetSpilloverInHint`) shipped without ever entering either document. The four
+assertions live in `budget-panel.test.tsx` (`budgetWinLossHint`, `budgetSpilloverInHint`,
+`budgetCciRecovery`) and `budget-report-panel.test.tsx` (`budgetReportColWinLossHint`).
+
+★★ A HINT REACHES THE DOM THROUGH TWO SEPARATE `t()` CALLS and a per-site assertion has to cover
+both, which "per-site" does not say on its own. `InfoTooltip` takes `text` (the portalled body, the
+thing a reader sees) and `label` (the `aria-label`); the call sites pass the key to each. MEASURED:
+a first cut of these tests read the `aria-label` alone and stayed GREEN with the call site's `text`
+swapped for the EUR twin — green while the visible tooltip named the wrong currency. Each test now
+focuses its trigger and asserts the portalled body too.
 
 No PER-ENGINE coverage glob covers `budget-report.ts`, `fx.ts` or `evm.ts`, and neither panel is
 coverage-gated. ★ CORRECTED 2026-09-12 — **the inference drawn from that was false.** An earlier
