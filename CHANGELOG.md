@@ -21,11 +21,15 @@ it keeps.
   renderer-initiated `window.print()` — the refusal is embedder-wide, so no
   amount of per-window configuration reaches it — which is why every Print
   button in the packaged app had silently done nothing. The menu route calls
-  `webContents.print()` from the main process instead, and it prints the
-  **focused** window, so a popout or an export tab prints itself rather than the
-  main view. On Windows the `{ role: "fileMenu" }` that used to sit there expands
-  to a lone Quit item; the hand-built File menu keeps Quit, so nothing a user had
-  is relabelled or lost.
+  `webContents.print()` from the main process instead, and it targets the
+  **focused** window, so a popout or an export tab should print itself rather
+  than the main view — the code supports that and no run has shown it, which is
+  why it appears in the owed list below rather than as a settled fact. The
+  `{ role: "fileMenu" }` that used to sit there expands, on the evidence of the
+  installed binary, to a lone Quit item on Windows; the branch records that the
+  platform branch itself is an inference from the surrounding menu rather than
+  something the probe printed. Either way the hand-built File menu keeps Quit, so
+  nothing a user had is relabelled or lost.
 - **`Help → "Check for updates…"`, and the same link in the Version dialog.**
   The app ships no auto-updater and performs no version check. The GitLab project
   is `internal`, so nothing unauthenticated could poll it, and giving the app a
@@ -43,9 +47,12 @@ it keeps.
   `navigator`. Hiding rather than disabling: a disabled Print button in every pane
   invites "why is printing broken?", where its absence plus a working File menu
   invites nothing. Consequence for anyone reading a toolbar assertion: in the
-  desktop shell every pane's trailing control group is one member shorter than the
-  documented Print · reset-columns · reset-layout · reset-size order, and that is
-  not drift. The web app is unaffected and keeps all of them.
+  desktop shell a pane's trailing control group is one member shorter than
+  whichever arity that pane documents — `Print · reset-columns · reset-pane-size`
+  is the rule, with the Dashboard and Reports variants beside it — and that is not
+  drift. It is not every pane: a pane that never had a Print button in the first
+  place (Budget among them) loses nothing. The web app is unaffected and keeps all
+  of them.
 
 ### Fixed
 
@@ -81,15 +88,22 @@ it keeps.
 
 ### Notes
 
-- Six behaviours here can only be confirmed against a packaged build and are
+- Seven behaviours here can only be confirmed against a packaged build and are
   owed: `Ctrl+P` in a focused popout, a cancelled dialog leaving no
   `print failed:` line, the File menu reading Print… / ─── / Quit, the
   first-paint flash as the server-rendered Print buttons drop on hydration, the
-  export tab's own `Ctrl+P`, and `Help → Help` with the main window closed and a
-  popout open.
+  export tab's own `Ctrl+P`, `Help → Help` with the main window closed and a
+  popout open, and the two Electron API lookups in `desktop/src/main.ts`. The last
+  of those was on the branch's own owed list and is kept here rather than dropped:
+  the popout and Help → Help checks exercise the window-resolution paths but not
+  those lookups, so nothing already listed covers it.
 - No MR job typechecks `desktop/src/main.ts` — the root `tsconfig.json` excludes
-  it, and only the manual `desktop-package` job compiles it. That job was
-  triggered and passed for the branch this release describes.
+  it by name, and only the manual `desktop-package` job compiles it (its script
+  runs `tsc -p desktop/tsconfig.json`, which is the sole thing that does). That
+  job was played on the merged branch and passed — job 29818, pipeline 6918, on
+  `63a66068` — so the cross-module move in that branch's last commit is compiled,
+  not merely greppable. The pure helpers extracted beside it *are*
+  in the unit gate, since `vitest.config.ts` includes `desktop/**`.
 
 ## [1.0.0] - 2026-09-11 "Pratchett"
 
