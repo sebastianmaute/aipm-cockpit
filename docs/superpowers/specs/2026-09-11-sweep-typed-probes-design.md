@@ -293,18 +293,25 @@ Read no exit code through a pipe.
   `sweep-probes.test.ts`. The run that covers all six, plus `plan.test.ts` for the acceptance-criterion-4
   pin it alone carries (the §460 create-path case): `Test Files 7 passed (7)` / `Tests 383 passed (383)`
   (measured 2026-09-12, `tp9-final7.log` in the slice's scratch).
-- Task 8's doc/size gates, each run unpiped and read from a redirected log:
-  `followups:index:check` — EXIT=0, "450 headings compared against 450 index rows... every entry has
+- Task 8's doc/size gates, each run unpiped and read from a redirected log. ★★ THE TWO FOLLOWUP
+  FIGURES BELOW WERE RE-RUN AND RESTAMPED 2026-09-12 AFTER THE REBASE, which brought in upstream's
+  §462–§466 and moved both by five — the pre-rebase run recorded 450/450 and 219 open. Both gates use
+  EXIT=1 for real drift and EXIT=2 for "the gate could not scan at all", so a 0 is the only reading
+  that means what it looks like:
+  `followups:index:check` — EXIT=0, "455 headings compared against 455 index rows... every entry has
   an index row, and every index row has an entry."
-  `followups:status:check` — EXIT=0, "219 open entries scanned... all open entries carry a conforming
+  `followups:status:check` — EXIT=0, "224 open entries scanned... all open entries carry a conforming
   Status line" (one violation surfaced and was fixed mid-task: §443's Status line used the bare word
   "CLOSED" while its heading stays OPEN, tripping the gate's `SAYS_CLOSED` check; reworded to "is now
   resolved").
-  `docs:claims:check` — EXIT=0, "490 line citations across 11 docs, none added" (one violation
+  `docs:claims:check` — EXIT=0, "490 line citations across 11 docs, none added" — re-run 2026-09-12
+  and unmoved by the rebase, since upstream's five entries added no `path:LINE` citation (one violation
   surfaced and was fixed: a new `src/app/use-chat-dispatcher.ts:311,684` citation in §467 was rejected
   by the ratchet and replaced with a `grep -n "localModifiedAt: new Date"` symbol-shaped reproduce).
   `docs:symbols:check` — EXIT=0, "13 doc(s): 1650 named symbols all resolve".
   `size:check` — EXIT=0, "file-size ratchet ok".
+  ★ THOSE LAST TWO ARE PRE-REBASE FIGURES, DELIBERATELY NOT RESTAMPED: only the three followup/claims
+  gates were re-run on 2026-09-12. Re-run them before citing either number.
   `sanitize-records.ts` line count: **1600** on this branch, **1600** on `origin/main` — equal, as the
   task required (not the plan's guessed "1601"; both counts happen to land at exactly 1600, which
   satisfies the equality check either way).
