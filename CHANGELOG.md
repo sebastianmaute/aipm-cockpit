@@ -8,6 +8,81 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.0.2] - 2026-09-12 "Pratchett"
+
+Money. Every figure the budget engine produces is now EUR, and the surfaces say
+so. Two defects are fixed, one of which had been quietly deflating contracts on
+three surfaces at once; a third case — a whole *plan* held in another currency —
+is registered rather than fixed, and is described below so nobody reads this
+release as covering it.
+
+### Fixed
+
+- **A fixed-price bucket held in another currency was compared against its cost
+  in EUR.** `BudgetBucket.fixedPriceAmount` is stored in the bucket's currency,
+  but `computeBucketReport` read it straight into `revenue`, `budgetValue` and
+  `consumedValue`, while `cost` is EUR by construction because role rates are.
+  `contributionMargin` therefore subtracted across units, and a non-EUR
+  fixed-price bucket reported healthier than it was. The engine now converts at
+  its single read. The Budget panel had been converting the figure outward again
+  and the Budget report printed it with a hardcoded € sign, which is why neither
+  surface looked wrong standing beside the other.
+- **An FX rate left on a EUR bucket was dividing the contract.** `resolveRate`
+  tested a stored `fxRateOverride` *before* the `currency === "EUR"`
+  short-circuit. That was harmless until the engine began dividing by the rate —
+  from then on an 80,000 EUR contract carrying a stale 1.1 printed 72,727 on the
+  project rollup and throughout the Budget report. Reachable without editing
+  storage: the bucket modal's currency select never clears the override, and the
+  FX field is gated on the advanced field tier rather than on the currency. The
+  rate means units of the bucket's currency per 1 EUR, which for a EUR bucket is
+  1 by definition, so the EUR case is now decided first. Deciding it at read time
+  also repairs buckets that already carry a stale override, which clearing the
+  field on switch could not have done.
+
+### Changed
+
+- **Four budget surfaces now say EUR** where they had shown the plan's symbol,
+  because that is what the engine now produces. Trends is fixed at the reader
+  instead, since snapshots already persisted carry a non-EUR currency and cannot
+  be relabelled retroactively.
+- **The money ratio on the Budget panel is no longer called CPI.** CPI is EVM's
+  term of art for a different number; the ratio is now named for what it is. Its
+  hint and two win/loss hints are corrected in both English and German — the
+  win/loss hints had described the fixed-price and time-and-material cases as if
+  they were one.
+- **`Plan.currency` is narrowed** from `string` to the `BudgetCurrency` union.
+  The IndexedDB load path — the one path that does not run `sanitizePlan` —
+  coerces a stored value outside the union.
+- **The sample workspace gains a USD contract with a rate override,** so the
+  currency path has a fixture at all; the golden serializer fixtures are
+  regenerated to match.
+
+### Notes
+
+- **A non-EUR *plan* is still not supported, and one case is now worse than
+  before this release.** Nothing decides what currency a role rate is in. When a
+  plan and a bucket share the same non-EUR currency, the contract amount and the
+  role rates are already in one unit, so the new conversion is unwarranted and
+  the margin is wrong where it used to be right. All three conjuncts are needed
+  and the first has no user-facing path — no UI control writes `plan.currency`,
+  so reaching it takes a hand-edited workspace or a directly written database
+  row. Registered as follow-up 473 and issue #79; the recommended end state is
+  narrowing that field to the literal `"EUR"`, deferred because `USD` and `GBP`
+  are legal today and coercing them changes what the product accepts.
+- **Two disclosure gaps, one shared cause.** A non-EUR bucket with no override
+  and no fetched ECB rate resolves to rate 1 and is summed into the EUR rollup at
+  par (follow-up 474, issue #80), and a EUR bucket's override is still editable
+  and persisted while now being ignored (follow-up 475, issue #81). No figure
+  moved in either case — at rate 1 the conversion is the identity — so both are
+  about what the screen says rather than what it computes. The `(×rate)` suffix
+  that would disclose either renders only while the rate is not 1, which is
+  exactly the condition both describe.
+- **This entry is written after the fact.** The currency work merged as
+  `e15c53f0` without a version bump or a changelog row, and no gate can see that:
+  `version-sync-check` compares `version.ts` against its satellites, so with no
+  bump there is no drift to report. Nothing checks that a user-visible change
+  earns an entry here.
+
 ## [1.0.1] - 2026-09-12 "Pratchett"
 
 Everything in this release is about the desktop app: two things a colleague
