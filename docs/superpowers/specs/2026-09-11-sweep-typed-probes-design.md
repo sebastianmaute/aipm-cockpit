@@ -184,7 +184,7 @@ objects, so the object branch reaches them.
 - **Relation A gets a ledger of the same shape, `EXPECTED_UNDECLARED_FINDINGS`, checked in both
   directions.** It asserts `findings` is empty today, and typed probes may now expose a real undeclared
   write.
-- **Citation.** Every new `unmeasured` or `dead` entry cites §463, the register entry Task 8 files for
+- **Citation.** Every new `unmeasured` or `dead` entry cites §467, the register entry Task 8 files for
   "fields the typed probes cannot measure" (reserved as 462+1: `origin/main` had already taken §462 for
   an unrelated entry — "There is no Linux installer…" — by the time Task 8 ran its register-max check).
   Reserve the number by re-running the register-max command against `origin/main` before writing any
@@ -276,10 +276,21 @@ Read no exit code through a pipe.
 
 - Sweep alone (`plan.offered-surface-sweep.test.ts`, `--maxWorkers=1`): `Test Files 1 passed (1)` /
   `Tests 74 passed (74)`.
-- Sweep plus `src/test/sweep-probes.test.ts` together: 119 passed.
-- The five fixture consumers (the sweep, `plan.test.ts`, `plan.create-path-guards.test.ts`,
-  `plan.write-path-sweep.test.ts` and `sweep-probes.test.ts`): `Test Files 5 passed (5)` /
-  `Tests 212 passed (212)`.
+- Sweep plus `src/test/sweep-probes.test.ts` together: 119 passed as of this note's original date.
+  Re-measured 2026-09-12 after the cold-review round below: `Test Files 2 passed (2)` /
+  `Tests 121 passed (121)` — the two extra tests are the ledger-kind guard and the enum-count floor
+  added in that round (see the addendum).
+- **Corrected 2026-09-12 — this bullet named the wrong five.** `plan.test.ts` does NOT import
+  `inline-sweep-fixtures` (`grep -c "inline-sweep-fixtures" src/app/inline-ai-edit/plan.test.ts` → 0),
+  and two real consumers were left off: `plan.model-writable-surface.test.ts` and
+  `plan.write-path.test.ts` — the latter the direct consumer of `seedResource`, whose `utilization`
+  Task 5b changed from 120 to 80. The real set, from
+  `grep -rl "inline-sweep-fixtures" src/app/inline-ai-edit src/test` (excluding the fixture module's
+  own file), is SIX: `plan.offered-surface-sweep.test.ts`, `plan.create-path-guards.test.ts`,
+  `plan.model-writable-surface.test.ts`, `plan.write-path-sweep.test.ts`, `plan.write-path.test.ts` and
+  `sweep-probes.test.ts`. The run that covers all six, plus `plan.test.ts` for the acceptance-criterion-4
+  pin it alone carries (the §460 create-path case): `Test Files 7 passed (7)` / `Tests 383 passed (383)`
+  (measured 2026-09-12, `tp9-final7.log` in the slice's scratch).
 - Task 8's doc/size gates, each run unpiped and read from a redirected log:
   `followups:index:check` — EXIT=0, "450 headings compared against 450 index rows... every entry has
   an index row, and every index row has an entry."
@@ -288,7 +299,7 @@ Read no exit code through a pipe.
   "CLOSED" while its heading stays OPEN, tripping the gate's `SAYS_CLOSED` check; reworded to "is now
   resolved").
   `docs:claims:check` — EXIT=0, "490 line citations across 11 docs, none added" (one violation
-  surfaced and was fixed: a new `src/app/use-chat-dispatcher.ts:311,684` citation in §463 was rejected
+  surfaced and was fixed: a new `src/app/use-chat-dispatcher.ts:311,684` citation in §467 was rejected
   by the ratchet and replaced with a `grep -n "localModifiedAt: new Date"` symbol-shaped reproduce).
   `docs:symbols:check` — EXIT=0, "13 doc(s): 1650 named symbols all resolve".
   `size:check` — EXIT=0, "file-size ratchet ok".
@@ -319,14 +330,14 @@ No mutant survived.
 
 **Task 6:** none found — Relation A recorded zero `stored` findings across every run, both before
 Task 5b's seeding (20/92 coverage) and after (80/92 coverage). No live undeclared write existed to
-fix; the register (§463) and the mutant table above are the record that the check itself fires.
+fix; the register (§467) and the mutant table above are the record that the check itself fires.
 
 **What the plan got wrong, corrected during execution:**
 
 1. **Step 1's expected register-max was wrong.** The plan expected `origin/main`'s max heading number
    to still be 461 by the time Task 8 ran. It had already advanced to 462 (an unrelated entry, "There
    is no Linux installer…"), so this task's new entry took 463 (max+1), and all 14 `§462` citations in
-   the sweep test file's two ledgers, plus the one in this spec, were repointed to `§463` in the same
+   the sweep test file's two ledgers, plus the one in this spec, were repointed to `§467` in the same
    commit, per the plan's own fallback instruction.
 2. **§460's plan-supplied CLOSED reproduce witness would have been stale on arrival.** The entry as
    filed cited `grep -n 'target === "row" ? d.rawTypeGuards' src/app/inline-ai-edit/plan.ts` as its
@@ -339,7 +350,7 @@ fix; the register (§463) and the mutant table above are the record that the che
    intent — see the gate-run note above. The gate reads any block containing the bare word `CLOSED`
    as a body claiming closure regardless of the heading, so "narrowed" entries that resolve one half
    while staying OPEN overall must avoid the word entirely in the Status paragraph.
-4. **A citation in §463's own text tripped `docs:claims:check`'s ratchet** — see the gate-run note
+4. **A citation in §467's own text tripped `docs:claims:check`'s ratchet** — see the gate-run note
    above. Corrected to a `grep`-shaped reproduce, per this repo's own standing rule to cite the symbol
    and a grep rather than a line number.
 5. **The `resource.active` bullet's initial claim ("Not present on the CREATE arm — the create control
@@ -347,5 +358,85 @@ fix; the register (§463) and the mutant table above are the record that the che
    Traced through `probeFor`'s actual branches before publishing: `CREATE_BASE.resource` carries no
    `active` key at all (only `firstName`/`lastName`), so the create arm's reference differs from the
    seed's `false` on its own and a real, admitted probe is derived — the update arm's reference already
-   IS that seeded `false`, leaving only the invalid `true` probe-shape violation. §463's final wording
+   IS that seeded `false`, leaving only the invalid `true` probe-shape violation. §467's final wording
    names the mechanism rather than asserting the conclusion alone.
+
+## Addendum (2026-09-12) — measurements this closing note was missing
+
+The 2026-09-11 closing note above stopped at Task 8. A further cold-review round (commit
+`e341a9b1`) added test-only fixes and measurements this note never recorded. None of it touched
+product code except the two mutants below, both applied and reverted, never committed.
+
+**Acceptance criterion 4 — measured for the first time (M1).** The Acceptance section's item 4 (the
+§460 pin) had never actually been run against a mutant; this closing note recorded no result for it.
+Restoring the gate §460 removed — `grep -n "const guard = d.rawTypeGuards" src/app/inline-ai-edit/plan.ts`
+→ 2 hits (the link-field one inside `pushLinkDiffs`, and an unrelated non-link `FieldDiff` guard;
+disambiguated by the preceding `link.sanitize` comment) — and restricting the first to
+`target === "row"` again, then running
+`npx vitest run --maxWorkers=1 src/app/inline-ai-edit/plan.create-path-guards.test.ts src/app/inline-ai-edit/plan.test.ts`
+gives `Test Files 2 failed (2)` / `Tests 2 failed | 164 passed (166)`: `plan.create-path-guards.test.ts
+> a create card previews only the attendees the create stores (§460) > previews no attendee from
+[4, "4"], because the create stores none` and `plan.test.ts > link fields honour the merge-site guard
+on the row and the create path > applies the guard to a create too, because the create write applies
+it`. KILLED — criterion 4 is genuinely pinned, one case in each suite.
+
+**The `createInputWithoutId` strip, re-measured under the enriched seeds (M2).** The strip's only prior
+measurement (Task 7, mutant 3 above) used the pre-`probeFor` derivation and the pre-Task-5b seeds.
+Reverting raid's strip alone —
+`grep -n "createInputWithoutId<RaidInput>" src/app/chat-tools.ts` → the create call, changed to
+`d.createRaid(input as RaidInput)` — and running the sweep alone gives `Test Files 1 failed (1)` /
+`Tests 1 failed | 74 passed (75)`: `Relation A — raid: an undeclared field must not land > create: the
+created row carries none of the model's undeclared values`, now carrying THREE `[stored]` findings
+where the pre-`probeFor` measurement recorded one — `raid.inquiriesSent: create stored the model's
+undeclared value 2`, `raid.localModifiedAt: create stored the model's undeclared value
+"2026-06-12T08:15:00.000Z"` and `raid.outlookEventId: create stored the model's undeclared value
+"AAMkADk0ZmVkLTE2NzUtNDU3Mi1iMDJlLTMwNzNiNDI3NTc5MgBGAAAAAAB"` — every column
+`TOKEN_EXCLUDED.raid` names bar `noteLog` (ledgered `dead`, unseeded). KILLED — no blind spot. `raid`
+is the entity worth measuring on: the strip is its ONLY protection for those three columns, since
+`dropUnacceptedRaidFields` is a deny-list and `RAID_FIELD_GUARDS` names none of them.
+
+**Relation B's update arm now asks arrival, not movement (commit `e341a9b1`).** It used to score a
+declared field as landed whenever the stored value differed from the value before the write; it now
+compares what the card would show against what was actually stored, exactly like the create arm
+already did — a field that MOVED to some value the model never sent is now `dropped`, not silently
+scored as landed. The discriminating mutant: a writer that SUBSTITUTES a third value neither the model
+nor the prior row held. Forcing `updateRaid`'s merge
+(`grep -n "withAiRichFields(dropUnacceptedRaidFields(patch, existing)" src/app/use-register-tools.ts`)
+to additionally store a hard-coded `severity: "Medium"` regardless of what the guarded patch carries,
+against a row seeded `"High"`, with the model's probe `"Low"`: under the OLD movement test this was
+GREEN, `Test Files 1 passed (1)` / `Tests 74 passed (74)` — the field genuinely moved (`"High"` →
+`"Medium"`), so movement alone certified it, even though the model's own value never arrived. Under
+the NEW arrival test the same mutant is `Test Files 1 failed (1)` / `Tests 1 failed | 73 passed (74)`,
+finding `[dropped] raid.severity: update was offered the field and stored something else — sent "Low",
+stored "Medium"`. KILLED, and the fix is load-bearing: 74/74 green before, red after, on the update arm
+alone. Against clean product code the fix surfaces no new finding at all — no ledger entry added,
+amended or removed.
+
+★★★ **A proposed repro for this same finding does NOT witness it, and a future reader must not
+"verify" the finding with it.** Narrowing `RAID_FIELD_GUARDS.severity`
+(`grep -n "severity: acceptsRaidSeverity" src/app/sanitize-records.ts`) to `() => false` was offered as
+a repro for the same blind spot. Measured against BOTH the old (movement) and the new (arrival) test,
+it reds identically either way — `Test Files 1 failed (1)` / `Tests 2 failed | 72 passed (74)`, the
+same two cases (`raid ... > update: every declared field moves, or the card says why not` and
+`raid ... > create: every declared field lands on the created row`) — because `updateRaid` merges
+`{...existing, ...guardedPatch}`: dropping the guard only removes the key from the PATCH, so the
+existing "High" survives untouched and the field never moves at all. Both the old and the new test
+correctly call that `unchanged`/`dropped` for reasons that have nothing to do with movement versus
+arrival, so this repro cannot discriminate the fix and disproves the very finding it was offered to
+demonstrate.
+
+**New ledger-kind guard.** `LEDGERABLE_KINDS`
+(`grep -n "LEDGERABLE_KINDS" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`) now forbids a
+`stored` entry in either ledger — a live undeclared write must be FIXED, never ledgered around.
+Mutation-proved: prepending a fake `{ subject: "raid.localModifiedAt", kind: "stored" }` entry to
+`EXPECTED_UNDECLARED_FINDINGS["raid:create"]` and running the sweep's own `-t "may not ledger"` case
+gives `Test Files 1 failed (1)` / `Tests 1 failed | 74 skipped (75)`, message "Relation A may ledger
+only: dead, unmeasured". KILLED; reverted immediately, and the committed ledger holds no such entry.
+
+**The enum-count floor is now the measured 24, not `> 0`.** A `> 0` floor cannot see a scan that
+collapsed from 24 declared enums to one — the loop would iterate the single survivor, pass, and
+certify a premise the test exists to hold. `ENUM_COUNT=24`
+(`grep -n "toBe(24)" src/test/sweep-probes.test.ts`), over `task.priority`(4)/`status`(6),
+`raid.category`(4)/`severity`(4)/`status`(11), `change.impact`(4)/`status`(6)/`type`(5),
+`stakeholder.category`(6)/`influence`(3)/`interest`(3) and `absence.type`(4) — twelve fields, each
+declared on both the create and the update tool.

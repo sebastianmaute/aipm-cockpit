@@ -671,12 +671,12 @@ type Ledger = Readonly<Partial<Record<LedgerKey, readonly LedgerEntry[]>>>;
 
 const EXPECTED_FINDINGS: Ledger = {
   "resource:update": [
-    // §463 — a synthetic input (`SYNTHETIC_INPUTS.resource`, offered-surface-axis.ts): `sanitizeResource`
+    // §467 — a synthetic input (`SYNTHETIC_INPUTS.resource`, offered-surface-axis.ts): `sanitizeResource`
     // (sanitize-entities.ts) stores it as firstName/lastName, so no loaded row carries a `name` to derive a probe from.
     { subject: "resource.name", kind: "dead" },
   ],
   "resource:create": [
-    // §463 — a synthetic input (`SYNTHETIC_INPUTS.resource`, offered-surface-axis.ts): `sanitizeResource`
+    // §467 — a synthetic input (`SYNTHETIC_INPUTS.resource`, offered-surface-axis.ts): `sanitizeResource`
     // (sanitize-entities.ts) stores it as firstName/lastName, so no loaded row carries a `name` to derive a probe from.
     { subject: "resource.name", kind: "dead" },
   ],
@@ -714,45 +714,45 @@ const EXPECTED_FINDINGS: Ledger = {
  *  `src/test/inline-sweep-fixtures.ts` says so. */
 const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
   "task:create": [
-    // §463 — not seeded: a `jiraKey` makes the seed task Jira-synced, and
+    // §467 — not seeded: a `jiraKey` makes the seed task Jira-synced, and
     // `assertJiraManagedUnchanged` (chat-task-patch.ts) then throws on every
     // `status`/`assignee` change Relation B probes. Blank on the control row too.
     { subject: "task.jiraKey", kind: "dead" },
-    // §463 — a harness limit, not the column: the task oracle's one-row
+    // §467 — a harness limit, not the column: the task oracle's one-row
     // `jsonToWorkspace` envelope (`taskAtRest`, sweep-probes.ts) carries no
     // resources, so `migrateWorkspaceV5` backfills one from the assignee and
     // restamps `resourceId` to its minted id (sent 4, held 1).
     { subject: "task.resourceId", kind: "unmeasured" },
   ],
   "task:update": [
-    // §463 — not seeded, for the create arm's reason above.
+    // §467 — not seeded, for the create arm's reason above.
     { subject: "task.jiraKey", kind: "dead" },
-    // §463 — the create arm's oracle-envelope restamp (sent 5, held 1).
+    // §467 — the create arm's oracle-envelope restamp (sent 5, held 1).
     { subject: "task.resourceId", kind: "unmeasured" },
   ],
   "raid:create": [
-    // §463 — not seeded, because no value is one the column can hold through
+    // §467 — not seeded, because no value is one the column can hold through
     // this oracle: `sanitizeRaidItem` stores no `noteLog` at all (the update
     // writer re-applies the stored log after it, §49). Seeding one would only
     // turn this `dead` into `unmeasured`. Blank on the control row too.
     { subject: "raid.noteLog", kind: "dead" },
   ],
   "raid:update": [
-    // §463 — not seeded, for the create arm's reason above.
+    // §467 — not seeded, for the create arm's reason above.
     { subject: "raid.noteLog", kind: "dead" },
   ],
   "change:create": [
-    // §463 — not seeded, for raid's reason: `sanitizeChangeItem` stores no
+    // §467 — not seeded, for raid's reason: `sanitizeChangeItem` stores no
     // `noteLog` (the update writer re-applies the stored log through
     // `withStoredNoteLog`). Blank on the control row too.
     { subject: "change.noteLog", kind: "dead" },
   ],
   "change:update": [
-    // §463 — not seeded, for the create arm's reason above.
+    // §467 — not seeded, for the create arm's reason above.
     { subject: "change.noteLog", kind: "dead" },
   ],
   "stakeholder:update": [
-    // §463 — a probe SHAPE, not a seed: the derived probe changes the seeded
+    // §467 — a probe SHAPE, not a seed: the derived probe changes the seeded
     // RACI code's own string leaf ("A" → "A probed"), which is not one of the
     // closed codes `coerceRaciMap` accepts, so `sanitizeStakeholder` reshapes
     // the map to `{}`. The enum branch of `probeFor` runs for a DECLARED
@@ -761,20 +761,20 @@ const EXPECTED_UNDECLARED_FINDINGS: Ledger = {
     { subject: "stakeholder.raci", kind: "unmeasured" },
   ],
   "resource:create": [
-    // §463 — a probe SHAPE, not a seed: the control row's `utilizationMode` is
+    // §467 — a probe SHAPE, not a seed: the control row's `utilizationMode` is
     // the "percent" default, so the derived probe is "percent probed", outside
     // the closed pair `sanitizeUtilizationMode` accepts; it maps anything but
     // "hours" to "percent". No schema enum exists to draw "hours" from.
     { subject: "resource.utilizationMode", kind: "unmeasured" },
   ],
   "resource:update": [
-    // §463 — a probe SHAPE, not a seed: the seeded `active` is `false`, the
+    // §467 — a probe SHAPE, not a seed: the seeded `active` is `false`, the
     // only value `sanitizeResource` stores (an absent key IS active), so the
     // one differing probe is `true`, which it never stores. Seeding `true`
     // instead is not a fix — it stores nothing, leaving the column blank and
     // the field `dead`.
     { subject: "resource.active", kind: "unmeasured" },
-    // §463 — a probe SHAPE: the seeded "hours" becomes "hours probed", which
+    // §467 — a probe SHAPE: the seeded "hours" becomes "hours probed", which
     // `sanitizeUtilizationMode` maps to "percent" (the create arm's reason).
     { subject: "resource.utilizationMode", kind: "unmeasured" },
   ],

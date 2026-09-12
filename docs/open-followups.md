@@ -689,7 +689,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§464](#464-cpi-means-two-different-numbers-and-two-winloss-hints-are-wrong--open) | "CPI" means two different numbers, and two win/loss hints are wrong — OPEN | found 2026-09-11 by the same read-only code check (issue #76) | S-M — the two hints are EN+DE string fixes; separating the two CPIs on the surfaces is the larger half | open |
 | [§465](#465-non-eur-fixed-price-buckets-every-money-figure-is-inflated-by-the-fx-rate-and-the-margin-is-wrong--open) | Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong — OPEN | found 2026-09-11 by the same read-only code check (issue #77, beside issue #42) | M — a decision about where the currency boundary sits, and stored amounts carry no marker saying which convention they were entered under | open |
 | [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--open) | Help promises a burn-down forecast that the chart does not draw — OPEN | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | open |
-| [§463](#463-fields-the-offered-surface-sweeps-typed-probes-cannot-measure--open) | Fields the offered-surface sweep's typed probes cannot measure — OPEN | found 2026-09-11 by the typed-probe slice's first measured run | S per field — a probe shape or a column decision each | open |
+| [§467](#467-fields-the-offered-surface-sweeps-typed-probes-cannot-measure--open) | Fields the offered-surface sweep's typed probes cannot measure — OPEN | found 2026-09-11 by the typed-probe slice's first measured run | S per field — a probe shape or a column decision each | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -32987,14 +32987,29 @@ the same commit, or §436 goes quietly green. The sweep says so beside its creat
 
 ## 441. Relation A cannot see a trespass that DESTROYS rather than STORES, and the property that blinds it is the one that keeps it exemption-free — OPEN
 
-**Status:** OPEN 2026-09-08 — measured as acceptance mutant 2 of the offered-surface slice, which
-SURVIVED on the branch and again on main on 2026-09-11. On the branch five of that slice's six
-mutants were killed; on main four are, because mutant 3 survives the sweep there too — a third
-instance of this entry's probe-shape theme, recorded below. Reproduce by REPLACING
-`...dropUnacceptedResourceFields(patch),` with `...patch,` in `updateResource`'s merge in
-`src/app/use-chat-dispatcher.ts` — replacing, not deleting: deleting the spread outright drops the
-whole patch — and running the sweep: 0 failed / 74 passed, exactly as clean. Locate both calls with
+**Status:** OPEN 2026-09-12 — restamped: the "SURVIVED" result that stood here through 2026-09-11 is
+now HISTORY, not current, and had come to contradict the measurement already recorded lower in this
+entry. Acceptance mutant 2 (REPLACING `...dropUnacceptedResourceFields(patch),` with `...patch,` in
+`updateResource`'s merge in `src/app/use-chat-dispatcher.ts` — replacing, not deleting: deleting the
+spread outright drops the whole patch) now KILLS the sweep:
+`npx vitest run --maxWorkers=1 src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts` gives
+`Test Files 1 failed (1)` / `Tests 1 failed | 73 passed (74)`, failing case `Relation A — resource: an
+undeclared field must not land > update: an undeclared field does not move`, with new `[stored]`
+findings for `resource.absenceOverride`, `resource.birthday` and `resource.utilization`. Measured
+2026-09-11 in the typed-probe slice's Task 7 (`tp7-results.md` mutant 1 in that slice's scratch, full
+anchor and revert proof there) and already recorded, together with mutant 3's matching kill, in the
+"★★★ NARROWED 2026-09-11" paragraph below — only this Status line had gone stale. Reverified today:
+`grep -n "dropUnacceptedResourceFields(patch)" src/app/use-chat-dispatcher.ts` → exactly 1 hit, line
+681, so the anchor still applies unchanged. Locate both calls with
 `grep -n "dropUnacceptedResourceFields(" src/app/use-chat-dispatcher.ts`.
+
+**As measured 2026-09-08, and again on `origin/main` on 2026-09-11 — kept as history, not current:**
+the same mutant SURVIVED (0 failed / 74 passed, exactly as clean) against `trespassProbeFor`'s probes
+and the pre-Task-5b seeds. At that time five of the slice's six mutants were killed on the branch and
+four on `origin/main`, because mutant 3 (the `createCalendarEvent` one — see the "★★★ A THIRD
+INSTANCE" paragraph below) also survived there. What changed the result between then and now is the
+typed-probe slice itself: `probeFor` (replacing `trespassProbeFor`) plus Task 5b's seeding of every
+blank undeclared column — see the "★★★ NARROWED 2026-09-11" paragraph below.
 
 Relation A of `plan.offered-surface-sweep.test.ts` states that an UNDECLARED field must never land on
 the model's value, and it states it as `same(stored[field], probe)` — the model's LITERAL value
@@ -33050,6 +33065,14 @@ under the same mutant its `'create_calendar_event' refuses 'exceptions'` case go
 cannot serve both relations, so this is the same "fix it here and it stops being what it is" shape the
 bullet above records, arriving by a different route.
 
+★ **STALE WITNESS, KEPT FOR THE RECORD.** `validProbeFor` and this docstring are GONE — replaced by the
+single `probeFor` derivation (`src/test/sweep-probes.ts`) both relations now share. Reverified
+2026-09-12: `grep -n "NEEDS A VALID PROBE" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts` →
+0 hits. The tension itself is RESOLVED, not merely relocated: `sweep-probes.ts`'s own opening comment
+states the replacement premise — "Both need the same kind of value: one the column can hold, which the
+writer would not produce on its own" — reproduce with
+`grep -n "Both need the same kind of value" src/test/sweep-probes.ts`.
+
 ★★★ THE CONSEQUENCE A READER NEEDS: **Relation A's green on a date field is not evidence**, and the
 same holds for any field whose accepted type the probe cannot inhabit. Do not cite it as coverage for
 such a field without a typed probe beside it.
@@ -33069,6 +33092,18 @@ the probe and the missing rule to `""` — the create arm reads a refused `recur
 Reproduce with
 `grep -n "A TRESPASS PROBE IS NEVER A VALID VALUE" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`
 and `grep -n "THERE IS NO OBJECT BRANCH" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`.
+
+★ **BOTH WITNESSES ARE STALE, KEPT FOR THE RECORD.** `trespassProbeFor` and `validProbeFor`, and both
+docstrings quoted above, were removed by the typed-probe slice. Reverified 2026-09-12: the first grep
+→ 0 hits; the second grep → 0 hits. The trespass-probe class is now named beside `probeFor` instead
+(see the "★★★ NARROWED 2026-09-11" paragraph in this entry for what closed and what remains
+`unmeasured`, and §467 for the field-by-field detail). The object-branch hole is separately CLOSED:
+`changedInKind` (`src/test/sweep-probes.ts`) now derives a probe from a structured value by mutating
+its lowest-ranked leaf — `grep -n 'if (v !== null && typeof v === "object")' src/test/sweep-probes.ts`
+→ 2 hits (`leafRank`'s ranking check and the branch itself) — and `calendarEvent.recurrence` is seeded
+as a real object rather than sent the bare string `"probed"` (`grep -n "recurrence: { freq:"
+src/test/offered-surface-axis.ts`). It carries no entry in either ledger today: genuinely measured,
+not blind.
 
 ★★ **WHAT CATCHES THE CREATE GUARD CALLS INSTEAD, per `plan.create-path-guards.test.ts`'s own header
 — and one call is caught by neither file.**
@@ -33110,7 +33145,7 @@ string leaf, which `coerceRaciMap` still reshapes to `{}`), `resource.utilizatio
 derived probe is never `"hours"`, so `sanitizeUtilizationMode` still maps it to `"percent"`) and
 `resource.active` (UPDATE arm only — the seeded `false` derives a probe of `true`, which
 `sanitizeResource` never stores; the CREATE arm is not in the ledger, so it is no longer blind there).
-§463 records the reason for each.
+§467 records the reason for each.
 
 The "destroys rather than stores" half — the movement comparison this entry's title names, which
 `Relation A`'s `same(stored[field], probe)` structurally cannot see because a trespass that COERCES or
@@ -34424,15 +34459,23 @@ chart. So the fix is to say what exists, in both languages, rather than to build
 ★ §453 (open) covers Help-content gaps and does not include this one.
 
 Size S: two strings, EN and DE together.
-## 463. Fields the offered-surface sweep's typed probes cannot measure — OPEN
+## 467. Fields the offered-surface sweep's typed probes cannot measure — OPEN
 
-**Status:** OPEN 2026-09-11 — measured by the offered-surface sweep's ledgers. Reproduce:
-`grep -n "§463" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts` (14 hits, across both
+**Status:** OPEN 2026-09-12 — renumbered from §463 to §467 (see the ★★ note below); the substance is
+unchanged and still measured by the offered-surface sweep's ledgers. Reproduce:
+`grep -n "§467" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts` (14 hits, across both
 ledgers' comments) and `grep -c "unmeasured\|dead" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`.
-★ Filed at 463, not 462: `origin/main` had already taken §462 for an unrelated entry ("There is no
-Linux installer…") by the time this branch ran the register-max check
+★ Filed at 463, not 462, on 2026-09-11: `origin/main` had already taken §462 for an unrelated entry
+("There is no Linux installer…") by the time this branch ran the register-max check
 (`git show origin/main:docs/open-followups.md | grep -oE "^## [0-9]+\." | grep -oE "[0-9]+" | sort -n | tail -1`
-→ 462, not the 461 the plan expected); this entry took max+1.
+→ 462, not the 461 the plan expected); this entry took max+1 (463) at that time.
+★★ RENUMBERED TO 467 ON 2026-09-12: by then `origin/main` (`6ee73a0a`) had advanced past 462 to 466,
+AND had independently filed its own, unrelated §463 ("Export silently drops enabled sections, and no
+path exports calendar events, knowledge items or insights"), colliding with this entry's number.
+`git fetch -q origin; git show origin/main:docs/open-followups.md | grep -oE "^## [0-9]+\." | grep -oE "[0-9]+" | sort -n | tail -1`
+→ 466, so this entry took max+1 (467), and every `§463` citation naming THIS entry — in this file, in
+`src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts` (14 hits) and in the typed-probe spec
+(6 hits) — was repointed to `§467` in the same commit.
 
 The typed-probe slice (`src/test/sweep-probes.ts`'s `probeFor`, replacing `trespassProbeFor`, plus
 Task 5b's seeding of every sweep fixture's blank undeclared columns) raised Relation A's undeclared
@@ -34525,7 +34568,7 @@ it does:**
   If a future seed or oracle change turned every remaining `unmeasured` entry above into `dead` or a
   real measurement, that mutant could become "not killable: no unmeasured entry left to remove" — this
   is a property of the CURRENT ledger contents, not a permanent guarantee, and needs re-checking after
-  any seed change touching those four fields (see `tp7-results.md`'s own note to this effect).
+  any seed change touching those four fields.
 
 No mutant from Task 7 Steps 3–4 survived — all four (two real-writer mutants, admit-everything,
 admit-nothing) were KILLED; see the spec's closing note for the full table. Every bullet above is a
