@@ -48,7 +48,25 @@ export type ProbeOutcome =
 
 /** ★★★ THE ONE FIELD NO PROBE MAY DRIVE, AND THE ONLY REASON IS MAIL.
  *  `calendarEvent.sendInvitations` true trips `shouldStage` in
- *  `chat-proposal.ts`, the one write in this app that leaves the building.
+ *  `chat-proposal.ts` — the staging rule for the one write that WOULD leave the
+ *  building the day the push slice lands.
+ *
+ *  ★★ PRESENT TENSE WOULD BE FALSE TODAY, and `sanitize-records.ts` records
+ *  beside `CALENDAR_EVENT_FIELD_GUARDS` that three comments across this slice
+ *  used it anyway. The flag is persisted and INERT: nothing outside the codecs,
+ *  that table, the tool schema and the review descriptor reads it, and the push
+ *  slice is unstarted. Reproduce with
+ *  `grep -rln sendInvitations src --include=*.ts --include=*.tsx | grep -v test`.
+ *
+ *  ★★ THE SWEEP COULD NOT MAIL ANYTHING EVEN ONCE THE PUSH IS ARMED, and that
+ *  is what makes this exclusion keepable rather than costly: `sendsInvitations`
+ *  (`chat-proposal.ts`) reads the CALL INPUT to decide staging, and this sweep
+ *  drives `runTool` and the dispatcher, never `shouldStage`. So the exclusion is
+ *  POLICY — it keeps a probe off a flag whose arming is one slice away — not a
+ *  live hazard being contained. Keep it for the same reason the staging rule
+ *  itself is kept: it is cheap, it is correct the day the push lands, and arming
+ *  it later is the edit most likely to be forgotten.
+ *
  *  A SAFETY EXCLUSION, not an exemption: the field stays on the axis and
  *  reports `dead`, so it is visibly unmeasured. Do NOT widen this set to make a
  *  red run green (§443). */

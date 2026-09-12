@@ -508,11 +508,21 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
   });
 });
 
-// ★★★ THE ONE PROBE IN THIS FILE WITH A REAL-WORLD SIDE EFFECT.
-//  `calendarEvent.sendInvitations` is DECLARED, so Relation B would drive it,
-//  and a strict `true` trips `shouldStage` in `chat-proposal.ts`, which in
-//  production mails the attendees. Whether a unit-test replay can send that
-//  mail has NEVER BEEN ESTABLISHED, and is not worth finding out by accident.
+// ★★★ THE ONE PROBE IN THIS FILE THE PUSH SLICE WOULD GIVE A REAL-WORLD SIDE
+//  EFFECT. `calendarEvent.sendInvitations` is DECLARED, so Relation B would
+//  drive it, and a strict `true` trips `shouldStage` in `chat-proposal.ts` — the
+//  staging rule for the mail that WOULD go to the attendees the day that slice
+//  lands.
+//
+//  ★★ PRESENT TENSE WOULD BE FALSE TODAY, and `sanitize-records.ts` records
+//   beside `CALENDAR_EVENT_FIELD_GUARDS` that comments across this slice kept
+//   using it: the flag is persisted and INERT, and the push slice is unstarted.
+//   `sendsInvitations` (`chat-proposal.ts`) reads the CALL INPUT to decide
+//   staging, and this sweep drives `runTool` and the dispatcher rather than
+//   `shouldStage`. So this exclusion is POLICY, held against the day the push
+//   arrives — not a live hazard being contained. That is what makes it worth
+//   keeping at the price of one ledgered `dead` field: it is correct the day
+//   the push lands, and arming it later is the edit most likely to be forgotten.
 //
 //  ★★★ STATED OVER THE ONE DERIVATION, AT EVERY REFERENCE A ROW CAN HOLD.
 //   Only Relation B can reach a declared field — Relation A iterates
@@ -544,7 +554,7 @@ it("no probe drives calendarEvent.sendInvitations true", () => {
       });
       expect(
         outcome.kind,
-        `a ${arm} probe at sendInvitations=${String(sendInvitations)} would reach the dispatcher — the one write in this file that leaves the building`,
+        `a ${arm} probe at sendInvitations=${String(sendInvitations)} would reach the dispatcher — the one field this file keeps off it by mail policy`,
       ).toBe("dead");
     }
   }
