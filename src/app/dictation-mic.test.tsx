@@ -81,13 +81,21 @@ describe("useDictationMic", () => {
 
     expect(btn()).toHaveAttribute("aria-pressed", "false");
     expect(marker()?.getAttribute("data-pressed-marker")).toBe("off");
-    // Rendered while off too, so the button keeps ONE width across a press.
-    expect(marker()?.getAttribute("class") ?? "").toContain("invisible");
+    // ★★★ THIS CONTROL IS THE ORIGINAL MOTIVATION FOR THE COLLAPSE: the dictate
+    //     button is meant to EXPAND to hold its checkmark when toggled on and
+    //     collapse again when off. So `w-0` here pins the INTENDED behaviour —
+    //     do NOT "restore" this to `invisible`. The glyph is still RENDERED in
+    //     both states (the assertion above), which is the WCAG 1.4.1 cue and is
+    //     the part that must never regress. A consumer that genuinely needs the
+    //     old constant width passes `reserveMarkerSpace`; this one must not.
+    expect(marker()?.getAttribute("class") ?? "").toContain("w-0");
+    expect(marker()?.getAttribute("class") ?? "").not.toContain("invisible");
 
     ptt.listening = true;
     rerender(<Mic />);
     expect(btn()).toHaveAttribute("aria-pressed", "true");
     expect(marker()?.getAttribute("data-pressed-marker")).toBe("on");
+    expect(marker()?.getAttribute("class") ?? "").toContain("w-3.5");
     expect(marker()?.getAttribute("class") ?? "").not.toContain("invisible");
   });
 

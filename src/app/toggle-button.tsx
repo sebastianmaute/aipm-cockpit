@@ -115,6 +115,17 @@ interface ToggleButtonProps {
    *  presses Space would otherwise re-fire whatever held focus before. Do not
    *  promote this to unconditional to save a prop at one call site. */
   preventFocusSteal?: boolean;
+  /** Reserve the pressed marker's width in BOTH states instead of collapsing it
+   *  when off — i.e. OPT OUT of the collapse animation.
+   *
+   *  ★★ The collapse is the DEFAULT, and it reverses what this primitive used to
+   *  guarantee: the marker was always rendered and merely `invisible`, so the
+   *  button kept one width and a repeatedly-clicked control never moved its
+   *  neighbours under the pointer. Pass `true` wherever that still matters —
+   *  a toggle inside a width-clamped table cell, or a dense menu whose items
+   *  must not reflow. `gantt-view-menu.tsx` and `budget-panel-people-rows.tsx`
+   *  do; see their call sites for the specific reason in each. */
+  reserveMarkerSpace?: boolean;
   /** ★★ Pointer/keyboard handlers for a PRESS-AND-HOLD consumer — dictation's
    *  push-to-talk mic, where the state is "held down", not "clicked on". Such
    *  a control has no click semantic at all (its keydown calls
@@ -152,6 +163,7 @@ export function ToggleButton({
   variant = "toggle",
   ariaControls,
   preventFocusSteal,
+  reserveMarkerSpace = false,
   pressHandlers,
 }: ToggleButtonProps) {
   // ★★ STATE IN THE TOOLTIP. The visible label is PINNED to what pressed=true
@@ -222,13 +234,22 @@ export function ToggleButton({
           Keep it; "redundant" is the wrong reading.
           Stated because a test asserting otherwise was written here, and could
           not fail.
-          ★★ It is rendered in BOTH states and merely `invisible` when off, so
-          the button keeps ONE width. Conditional rendering would make the
-          button ~20px narrower when off, and these sit in toolbar rows — a
-          repeatedly-clicked control that resizes moves its neighbours under
-          the pointer. (Reasoned, not measured: jsdom has no layout, so no test
-          here can see it either way.) The cost is that reserved slot on every
-          toggle, off included.
+          ★★ It is rendered in BOTH states — but its WIDTH is now CONDITIONAL:
+          by default it collapses to zero when off and animates open, and it
+          reserves its slot in both states ONLY under `reserveMarkerSpace`.
+          ★★ THAT IS A REVERSAL, not a gap being filled. The marker used to be
+          `w-3.5 invisible` when off in every case, so the button kept ONE
+          width: conditional rendering would make it ~20px narrower when off,
+          and these sit in toolbar rows — a repeatedly-clicked control that
+          resizes moves its neighbours under the pointer. The animated default
+          answers that only in PART, and the part it answers is positional: the
+          marker is LEFTMOST, so the pointer never rests on it and the growth
+          displaces rightward neighbours instead of the control under the
+          cursor. Where a neighbour must not move at all, the consumer passes
+          `reserveMarkerSpace` and gets the old constant width back.
+          (Reasoned, not measured, in BOTH directions: jsdom has no layout and
+          no motion, so no test here can see the width, the shift or the
+          animation — only the classes that ask for them.)
           ★ `invisible` is visibility:hidden; `opacity-0` would reserve the same
           space and is NOT a bug if someone swaps it. An earlier version of this
           comment defended the choice on a11y-tree grounds, which is inert —
@@ -237,7 +258,13 @@ export function ToggleButton({
       <CheckIcon
         aria-hidden="true"
         data-pressed-marker={pressed ? "on" : "off"}
-        className={`h-3.5 w-3.5 shrink-0${pressed ? "" : " invisible"}`}
+        className={`h-3.5 shrink-0 transition-[width,margin] duration-150 motion-reduce:transition-none ${
+          reserveMarkerSpace
+            ? `w-3.5${pressed ? "" : " invisible"}`
+            : pressed
+              ? "w-3.5"
+              : "w-0 -ml-1.5"
+        }`}
       />
     </button>
   );

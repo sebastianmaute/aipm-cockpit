@@ -43,19 +43,29 @@ describe("ToggleButton", () => {
   // ★★ The pressed state must not ride colour ALONE (WCAG 1.4.1). Asserted on
   //    the data attribute rather than a class, so a restyle of the marker does
   //    not fail this while dropping the cue itself would.
-  it("marks the pressed state with a non-colour glyph, hidden but space-reserving when off", () => {
+  // ★★ MIGRATED, NOT WEAKENED: the space-reserving half of this test's original
+  //    title moved behind the `reserveMarkerSpace` opt-out — the marker now
+  //    collapses to zero width when off by default. The WCAG 1.4.1 claim above
+  //    is untouched and is still what this test is FOR.
+  it("marks the pressed state with a non-colour glyph, present in both states, collapsed when off", () => {
     const { container, rerender } = render(
       <ToggleButton pressed onToggle={() => {}}>Compact view</ToggleButton>,
     );
     const marker = () => container.querySelector("[data-pressed-marker]") as SVGElement;
     expect(marker()).toHaveAttribute("data-pressed-marker", "on");
     expect(marker().getAttribute("class") ?? "").not.toContain("invisible");
+    expect(marker().getAttribute("class") ?? "").toContain("w-3.5");
+    expect(marker().getAttribute("class") ?? "").not.toContain("-ml-1.5");
 
     rerender(<ToggleButton pressed={false} onToggle={() => {}}>Compact view</ToggleButton>);
-    // Still in the DOM — removing it would change the button's width on every
-    // click and shift the neighbouring toolbar controls under the pointer.
+    // Still in the DOM when off, and that is the load-bearing assertion here:
+    // it is the non-colour cue, and five other test files query this attribute.
+    // Only its WIDTH is conditional now — zero plus a negative margin that
+    // cancels the button's gap, so it occupies no horizontal space.
     expect(marker()).toHaveAttribute("data-pressed-marker", "off");
-    expect(marker().getAttribute("class") ?? "").toContain("invisible");
+    expect(marker().getAttribute("class") ?? "").toContain("w-0");
+    expect(marker().getAttribute("class") ?? "").toContain("-ml-1.5");
+    expect(marker().getAttribute("class") ?? "").not.toContain("invisible");
   });
 
   // ★ There was a second test here asserting the marker stays out of the
@@ -324,5 +334,69 @@ describe("ToggleButton", () => {
 
     rerender(<ToggleButton pressed={false} onToggle={() => {}}>Card</ToggleButton>);
     expect(wrapper().className).not.toContain("w-full");
+  });
+
+  // ★★★ THE MARKER'S WIDTH IS NOW CONDITIONAL, REVERSING THIS PRIMITIVE'S OLD
+  //    GUARANTEE. It used to be `w-3.5 invisible` in BOTH states so the button
+  //    kept ONE width; it now collapses to zero width when off and animates
+  //    open. The animation answers the original objection only in part — the
+  //    marker is LEFTMOST, so the pointer never sits on it and the growth
+  //    displaces rightward neighbours — which is why the opt-out below exists.
+  // ★ The element stays RENDERED in both states for two independent reasons:
+  //    the `data-pressed-marker` queries above (and in five other test files),
+  //    and the WCAG 1.4.1 non-colour cue. Neither survives conditional
+  //    rendering, so no "simplification" may drop it.
+  it("collapses the pressed marker to zero width when off, by default", () => {
+    const { container } = render(
+      <ToggleButton pressed={false} onToggle={() => {}}>Grid</ToggleButton>,
+    );
+    const marker = container.querySelector("[data-pressed-marker='off']");
+    expect(marker).not.toBeNull();
+    // Zero width plus a negative margin that cancels the button's own gap-1.5,
+    // so an off marker occupies no horizontal space at all.
+    expect(marker?.getAttribute("class")).toContain("w-0");
+    expect(marker?.getAttribute("class")).toContain("-ml-1.5");
+    // `invisible` would hide the glyph outright and there would be nothing to
+    // animate; the zero width clips it instead (an <svg> root hides overflow).
+    expect(marker?.getAttribute("class")).not.toContain("invisible");
+  });
+
+  it("expands the pressed marker when on", () => {
+    const { container } = render(
+      <ToggleButton pressed onToggle={() => {}}>Grid</ToggleButton>,
+    );
+    const marker = container.querySelector("[data-pressed-marker='on']");
+    expect(marker?.getAttribute("class")).toContain("w-3.5");
+    expect(marker?.getAttribute("class")).not.toContain("-ml-1.5");
+  });
+
+  // ★★ The opt-out restores the OLD behaviour in BOTH states, so both are
+  //    asserted: a version that only stopped collapsing the off marker (and
+  //    left the glyph visible) would pass an on-state-only check.
+  it("reserveMarkerSpace restores the constant-width behaviour in both states", () => {
+    const { container, rerender } = render(
+      <ToggleButton pressed={false} reserveMarkerSpace onToggle={() => {}}>Grid</ToggleButton>,
+    );
+    const off = container.querySelector("[data-pressed-marker='off']");
+    expect(off?.getAttribute("class")).toContain("w-3.5");
+    expect(off?.getAttribute("class")).toContain("invisible");
+    expect(off?.getAttribute("class")).not.toContain("w-0");
+
+    rerender(
+      <ToggleButton pressed reserveMarkerSpace onToggle={() => {}}>Grid</ToggleButton>,
+    );
+    const on = container.querySelector("[data-pressed-marker='on']");
+    expect(on?.getAttribute("class")).toContain("w-3.5");
+    expect(on?.getAttribute("class")).not.toContain("invisible");
+  });
+
+  it("suppresses the transition under prefers-reduced-motion", () => {
+    const { container } = render(
+      <ToggleButton pressed={false} onToggle={() => {}}>Grid</ToggleButton>,
+    );
+    const marker = container.querySelector("[data-pressed-marker='off']");
+    // Presence, not motion, is the WCAG 1.4.1 cue -- so snapping is correct and
+    // loses nothing when the user has asked for less motion.
+    expect(marker?.getAttribute("class")).toContain("motion-reduce:transition-none");
   });
 });
