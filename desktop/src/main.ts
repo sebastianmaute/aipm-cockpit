@@ -6,10 +6,14 @@ import { APP_ORIGIN, APP_PORT, RELEASES_URL } from "./lib/constants";
 import { classifyPortOwner, type PortProbe } from "./lib/port-owner";
 import { shouldReportServerExit } from "./lib/exit-reporting";
 import {
+  FILE_MENU_ITEMS,
+  type FileMenuItemId,
   HELP_MENU_ITEMS,
   type HelpMenuItemId,
+  fileAction,
   helpAction,
   helpHashScript,
+  isPrintCancellation,
   versionDialogAction,
   versionDialogOptions,
 } from "./lib/menu-model";
@@ -48,6 +52,58 @@ function fail(title: string, message: string): void {
   log(`FAIL ${title}: ${message}`);
   dialog.showErrorBox(title, `${message}\n\nDetails: ${join(logDir, "launch.log")}`);
   app.quit();
+}
+
+// HOW each File menu action is carried out. Same split as helpMenuClick
+// below: `fileAction` in menu-model.ts decides WHAT, this decides HOW.
+//
+// ★★★ THIS IS THE ONLY WORKING PRINT ROUTE IN THE PACKAGED APP. A
+// renderer-initiated window.print() is refused by Electron (see the note on
+// FILE_MENU_ITEMS), so the main process has to do it.
+//
+// ★★ IT MUST NOT THROW, for the same reason helpMenuClick must not -- and
+// here the risk is real rather than theoretical, because printing on a
+// destroyed webContents throws SYNCHRONOUSLY inside a click handler. A menu
+// click is NOT covered by the startup .catch at the bottom of this file (that
+// catches rejections from start() only), and no unhandledRejection handler
+// exists, so this is one of the few places where a local try/catch is the
+// whole safety net.
+function fileMenuClick(id: FileMenuItemId): () => void {
+  const action = fileAction(id);
+  switch (action) {
+    case "print-window":
+      return () => {
+        // Same window-liveness idiom shouldReportServerExit already uses.
+        if (!win || win.isDestroyed()) {
+          log("print: no window to print");
+          return;
+        }
+        try {
+          // ★ `{}` rather than omitting options: the callback is the SECOND
+          // parameter, so there is no way to pass it without one. Empty means
+          // Chromium's own defaults, which is what we want -- the point is to
+          // show the user their normal print dialog, not to preconfigure it.
+          win.webContents.print({}, (success: boolean, failureReason: string) => {
+            if (success) return;
+            // ★★ A CANCELLED DIALOG LANDS HERE TOO, and it is not a failure.
+            // Logging it would put a scary line in launch.log every time
+            // somebody changed their mind.
+            if (isPrintCancellation(failureReason)) return;
+            log(`print failed: ${failureReason}`);
+          });
+        } catch (e: unknown) {
+          log(`print: ${String(e)}`);
+        }
+      };
+    default: {
+      // Log and degrade, never throw -- see helpMenuClick's default.
+      const unhandled: never = action;
+      log(`file menu: no handler for action ${String(unhandled)} (id ${id})`);
+      return () => {
+        log(`file menu: clicked ${id}, which has no handler`);
+      };
+    }
+  }
 }
 
 // ★★ THE ONLY shell.openExternal CALL SITE. Two routes reach it -- the Help
@@ -160,9 +216,32 @@ function buildMenu(): void {
     click: helpMenuClick(item.id, item.label),
   }));
 
+  // ★★★ File is now hand-built rather than `{ role: "fileMenu" }`, and
+  // `{ role: "quit" }` is what keeps a Windows user whole. MEASURED, not
+  // recalled: the role expands to `label:"File",submenu:[isMac ?
+  // {role:"close"} : {role:"quit"}]` -- read out of the installed binary with
+  //   grep -aoh 'label:"File".\{0,180\}' \
+  //     desktop/node_modules/electron/dist/electron.exe
+  // So on Windows it was exactly ONE item, Quit, and NOT Close. Substituting
+  // Close here would have quietly relabelled it.
+  //
+  // ★ Quit unconditionally, no isMac branch: this shell is packaged for
+  // Windows only (electron-builder runs `--win`, and killServer already
+  // hardcodes taskkill), so a darwin branch would be untested speculation
+  // about a platform we do not ship.
+  const file: MenuItemConstructorOptions[] = [
+    ...FILE_MENU_ITEMS.map((item) => ({
+      label: item.label,
+      accelerator: item.accelerator,
+      click: fileMenuClick(item.id),
+    })),
+    { type: "separator" },
+    { role: "quit" },
+  ];
+
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
-      { role: "fileMenu" },
+      { label: "File", submenu: file },
       { role: "editMenu" },
       { role: "viewMenu" },
       { role: "windowMenu" },

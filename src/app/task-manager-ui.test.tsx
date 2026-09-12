@@ -30,6 +30,55 @@ describe("PrintButton", () => {
       printSpy.mockRestore();
     }
   });
+
+  // Stub the UA by shadowing the prototype accessor, then restore exactly
+  // what was there. Replacing the whole `navigator` (vi.stubGlobal) would
+  // take RTL's and userEvent's own navigator APIs down with it.
+  function withUserAgent(userAgent: string, run: () => void): void {
+    const original = Object.getOwnPropertyDescriptor(navigator, "userAgent");
+    Object.defineProperty(navigator, "userAgent", { value: userAgent, configurable: true });
+    try {
+      run();
+    } finally {
+      if (original) Object.defineProperty(navigator, "userAgent", original);
+      else delete (navigator as unknown as Record<string, unknown>).userAgent;
+    }
+  }
+
+  const ELECTRON_UA =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+    "aipm-cockpit/1.0.0 Chrome/130.0.0.0 Electron/33.4.11 Safari/537.36";
+
+  it("renders nothing inside the desktop shell, where printing cannot work", () => {
+    // ★★★ THE POINT OF THE CHANGE. Electron refuses a renderer-initiated
+    // window.print(), so in the packaged app this button did nothing at all
+    // in all 24 panes. Printing there is File → Print… / Ctrl+P.
+    //
+    // Mutants this kills: deleting the `if (isDesktopShell) return null`
+    // early return; inverting it; and swapping the server snapshot in for
+    // the client one in the useSyncExternalStore call (the server snapshot is
+    // a constant `false`, so that mutant renders the button everywhere).
+    withUserAgent(ELECTRON_UA, () => {
+      const { container } = render(<PrintButton lang="en-US" />);
+      expect(screen.queryByRole("button", { name: /print/i })).toBeNull();
+      // Nothing at all, not merely an unnamed element: a hidden-but-present
+      // control would still occupy the toolbar's flex gap.
+      expect(container.innerHTML).toBe("");
+    });
+  });
+
+  it("still renders for a browser user agent", () => {
+    // The other half — without this, the test above passes just as happily
+    // against a PrintButton that returns null unconditionally.
+    withUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/130.0.0.0 Safari/537.36",
+      () => {
+        render(<PrintButton lang="en-US" />);
+        expect(screen.getByRole("button", { name: t("en-US", "printHint") })).toBeTruthy();
+      },
+    );
+  });
 });
 
 

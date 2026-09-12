@@ -8,10 +8,32 @@ import {
   ViewColumnsIcon,
 } from "./icons";
 import type React from "react";
+import { useSyncExternalStore } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { FOCUS_RING } from "./interaction-styles";
 import { IconButton } from "./icon-button";
 import { DragHandle } from "./drag-handle";
+import { isDesktopShellUserAgent } from "./desktop-shell";
+
+// --- Hydration-safe desktop-shell detection for PrintButton ---
+//
+// ★★ COPIED FROM global-search-box.tsx's platform detection ON PURPOSE, and
+// for the same reason: this tree IS server-rendered (page.tsx awaits
+// connection() and renders the client components), so a render body that
+// reads `navigator` directly disagrees with the server, which has no
+// `navigator` at all. The server snapshot is `false`, so SSR and hydration
+// both render the button and the shell removes it on the client.
+//
+// ★ Module-level so the snapshot identities are STABLE — an unstable
+// getSnapshot makes useSyncExternalStore loop.
+const subscribeNoop = () => () => {};
+function getIsDesktopShellClient(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return isDesktopShellUserAgent(navigator.userAgent || "");
+}
+function getIsDesktopShellServer(): boolean {
+  return false;
+}
 
 export function TabButton({
   active,
@@ -160,6 +182,26 @@ export function PrintButton({
   onClick?: () => void;
   lang: Lang;
 }) {
+  const isDesktopShell = useSyncExternalStore(
+    subscribeNoop,
+    getIsDesktopShellClient,
+    getIsDesktopShellServer,
+  );
+  // ★★★ RENDER NOTHING IN THE DESKTOP SHELL, because the button cannot work
+  // there. Electron refuses a renderer-initiated window.print() (its binary
+  // carries `Scripted print is not supported`), and no call site overrides
+  // the default onClick — all 24 of them are the bare `<PrintButton
+  // lang={lang} />`. So in the packaged app every pane was offering a control
+  // that did nothing at all. Printing there is File → Print… / Ctrl+P, which
+  // the shell routes through webContents.print() from the main process.
+  //
+  // ★★ HIDING, not disabling: a disabled Print button in every pane invites
+  // the question "why is printing broken?", where its absence plus a working
+  // File menu invites nothing. The trailing toolbar group (Print ·
+  // reset-columns · reset-pane-size) simply starts one control later, and
+  // `contiguous` order assertions elsewhere are unaffected because they run
+  // under jsdom, whose UA is not Electron's.
+  if (isDesktopShell) return null;
   return (
     <IconButton
       variant="bordered"

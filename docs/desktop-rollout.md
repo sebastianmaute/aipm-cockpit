@@ -31,6 +31,8 @@ If you use **Turso storage**, your projects appear as soon as the token is enter
 
 - Closing the window closes the app completely.
 - Opening it again while it is already running just brings the existing window to the front.
+- To print, press **Ctrl+P** or use **File → Print…**. It prints the view you are
+  looking at, so open the pane you want on paper first.
 
 ## If it does not start
 

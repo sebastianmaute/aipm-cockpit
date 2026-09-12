@@ -67,6 +67,76 @@ export function helpAction(id: HelpMenuItemId): HelpMenuAction {
   return HELP_ACTIONS[id];
 }
 
+// ---------------------------------------------------------------------------
+// The File menu.
+//
+// ★★ A SIBLING TYPE, not a widening of HelpMenuItemId, and that is forced
+// rather than stylistic: buildMenu maps HELP_MENU_ITEMS into the HELP
+// submenu, so a "print" member added there would render in the wrong menu
+// entirely. Same split as the Help side though -- the decision is pure and
+// lives in the blocking typecheck, the Electron call lives in main.ts.
+//
+// ★★★ WHY THIS MENU EXISTS AT ALL: in the packaged app the renderer cannot
+// print. Electron refuses a renderer-initiated `window.print()` -- its binary
+// carries the string `Scripted print is not supported`, verified with
+//   grep -aoh "Scripted print is not supported" \
+//     desktop/node_modules/electron/dist/electron.exe
+// -- so the 24 in-pane Print buttons were offering something that could never
+// happen. The main process CAN print, via webContents.print(), and this is the
+// route to it. The in-page buttons now hide themselves in the shell
+// (src/app/desktop-shell.ts) rather than lying.
+export type FileMenuItemId = "print";
+export type FileMenuAction = "print-window";
+
+export interface FileMenuItem {
+  id: FileMenuItemId;
+  label: string;
+  // Electron's own accelerator syntax: `CmdOrCtrl` resolves per platform. Kept
+  // beside the label because it is part of what the user is shown, and because
+  // Ctrl+P is the shortcut they will try before they find the menu.
+  accelerator?: string;
+}
+
+export const FILE_MENU_ITEMS: readonly FileMenuItem[] = [
+  { id: "print", label: "Print…", accelerator: "CmdOrCtrl+P" },
+];
+
+// Same Record-keyed-by-the-union shape as HELP_ACTIONS, for the same reason:
+// exhaustive in both directions, and no unreachable branch that would need a
+// throw. One member today; the shape is what keeps a second one honest.
+const FILE_ACTIONS: Record<FileMenuItemId, FileMenuAction> = {
+  print: "print-window",
+};
+
+export function fileAction(id: FileMenuItemId): FileMenuAction {
+  return FILE_ACTIONS[id];
+}
+
+// Is this print "failure" just the user closing the dialog?
+//
+// ★★★ webContents.print's callback is `(success: boolean, failureReason:
+// string)` (verified in desktop/node_modules/electron/electron.d.ts), and a
+// USER CANCELLATION arrives as success: false. So without this classifier the
+// ordinary act of dismissing the print dialog would write a failure line into
+// launch.log every time -- the log the rollout note asks users to send when
+// something is wrong.
+//
+// ★★ MATCHED ON THE STEM, CASE-INSENSITIVELY, and deliberately not by
+// equality. The string in the installed binary is `Print job canceled` (US
+// spelling, one L) -- measured, not assumed:
+//   grep -aoih "print job cancel[a-z]*" \
+//     desktop/node_modules/electron/dist/electron.exe
+// It is Chromium's wording, not part of Electron's API, so it can be reworded
+// or re-spelled by an upgrade with nothing to warn us. An `===` test would
+// then quietly reclassify every cancellation as an error. The cost of the
+// looser match is that a genuine failure whose reason happens to contain
+// "cancel" goes unlogged, which is the better of the two mistakes.
+export function isPrintCancellation(failureReason: string): boolean {
+  return /cancel/i.test(failureReason);
+}
+
+// ---------------------------------------------------------------------------
+
 // The app's own help lives at a hash-addressable view, so the menu can open it
 // by setting the fragment on the page that is ALREADY loaded.
 //

@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { RELEASES_URL } from "./constants";
 import {
+  FILE_MENU_ITEMS,
   HELP_MENU_ITEMS,
   HELP_VIEW_HASH,
   type HelpMenuAction,
@@ -9,9 +10,11 @@ import {
   VERSION_DIALOG_BUTTONS,
   VERSION_DIALOG_CANCEL_ID,
   VERSION_DIALOG_DEFAULT_ID,
+  fileAction,
   formatVersionDetail,
   helpAction,
   helpHashScript,
+  isPrintCancellation,
   versionDialogAction,
   versionDialogOptions,
 } from "./menu-model";
@@ -295,5 +298,65 @@ describe("versionDialogOptions", () => {
     // cannot corrupt the next dialog.
     expect(second.buttons).not.toBe(OPTS.buttons);
     expect(second.buttons).toEqual(OPTS.buttons);
+  });
+});
+
+describe("FILE_MENU_ITEMS", () => {
+  it("offers Print with the accelerator a Windows user will reach for", () => {
+    expect(FILE_MENU_ITEMS.map((i) => i.id)).toEqual(["print"]);
+    expect(FILE_MENU_ITEMS.map((i) => i.label)).toEqual(["Print\u2026"]);
+    expect(FILE_MENU_ITEMS[0].accelerator).toBe("CmdOrCtrl+P");
+  });
+
+  it("ends the Print label with a real ellipsis, not three periods", () => {
+    // Same Windows convention as the Help menu's updates item: a trailing
+    // U+2026 means "this opens something" -- here, the print dialog.
+    expect(FILE_MENU_ITEMS[0].label).toBe("Print\u2026");
+  });
+});
+
+describe("fileAction", () => {
+  it("maps print to the action main.ts switches on", () => {
+    // Hand-written, not derived from FILE_ACTIONS -- deriving it would
+    // restate the code and pass whatever the code said.
+    expect(fileAction("print")).toBe("print-window");
+  });
+
+  it("covers every entry the File menu offers", () => {
+    // Runtime companion to the Record's compile-time exhaustiveness: reds if
+    // an entry is added with no mapping reachable from here.
+    const actions = FILE_MENU_ITEMS.map((i) => fileAction(i.id));
+    expect(actions.filter((a) => !!a)).toHaveLength(FILE_MENU_ITEMS.length);
+    expect(new Set(actions).size).toBe(FILE_MENU_ITEMS.length);
+  });
+});
+
+describe("isPrintCancellation", () => {
+  it("recognises the string Chromium actually sends", () => {
+    // ★★★ MEASURED, NOT ASSUMED. `Print job canceled` (US spelling, one L)
+    // is a literal in the installed binary:
+    //   grep -aoih "print job cancel[a-z]*" \
+    //     desktop/node_modules/electron/dist/electron.exe
+    // webContents.print's callback reports a USER CANCELLATION as
+    // success: false, so without this the ordinary act of closing the print
+    // dialog would write a failure line into launch.log on every print.
+    expect(isPrintCancellation("Print job canceled")).toBe(true);
+  });
+
+  it("also recognises the British spelling, which past versions used", () => {
+    // Matched on the stem, case-insensitively, precisely so a Chromium
+    // rewording does not silently turn cancellations back into errors. This
+    // is the assertion that forbids a `=== "Print job canceled"` mutant.
+    expect(isPrintCancellation("Print job cancelled")).toBe(true);
+    expect(isPrintCancellation("cancelled by user")).toBe(true);
+    expect(isPrintCancellation("CANCELED")).toBe(true);
+  });
+
+  it("does NOT swallow a real failure", () => {
+    // The whole point of classifying rather than ignoring every failure: a
+    // printer that is not there has to reach the log.
+    expect(isPrintCancellation("Invalid printer settings")).toBe(false);
+    expect(isPrintCancellation("No printers found")).toBe(false);
+    expect(isPrintCancellation("")).toBe(false);
   });
 });
