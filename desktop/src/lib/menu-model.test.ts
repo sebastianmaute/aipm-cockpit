@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { RELEASES_URL } from "./constants";
 import {
+  DASHBOARD_VIEW_HASH,
   FILE_MENU_ITEMS,
   HELP_MENU_ITEMS,
   HELP_VIEW_HASH,
@@ -349,6 +350,20 @@ describe("fileAction", () => {
     // types already forbid this call, and the undefined it exposes is the same
     // one `versionDialogAction` guards against with `?? "dismiss"`.
     expect(fileAction("bogus" as unknown as Parameters<typeof fileAction>[0])).toBeUndefined();
+  });
+});
+
+describe("DASHBOARD_VIEW_HASH", () => {
+  it("builds a dashboard-navigation script from the shared hash helper", () => {
+    const script = helpHashScript(DASHBOARD_VIEW_HASH);
+    // Clearing first guarantees a hashchange even when the fragment already
+    // matches, so a relaunch while already on the Dashboard is not a no-op.
+    expect(script).toContain('window.location.hash = "";');
+    expect(script).toContain(JSON.stringify(DASHBOARD_VIEW_HASH));
+  });
+
+  it("points DASHBOARD_VIEW_HASH at the dashboard view", () => {
+    expect(DASHBOARD_VIEW_HASH).toBe("#dashboard");
   });
 });
 

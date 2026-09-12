@@ -139,11 +139,26 @@ export function fileAction(id: FileMenuItemId): FileMenuAction {
 // surface, which is the security posture the desktop shell is built around.
 export const HELP_VIEW_HASH = "#help";
 
+// The view a relaunch should land on. `helpHashScript` already takes an
+// arbitrary hash, so this needs no second script builder.
+export const DASHBOARD_VIEW_HASH = "#dashboard";
+
 export function helpHashScript(hash: string = HELP_VIEW_HASH): string {
   // Assigning an IDENTICAL hash fires no hashchange, so a second click while
   // already on Help would do nothing at all. Clearing first guarantees the
-  // event, and the app routes an empty fragment back to its default view only
-  // on load, not mid-session.
+  // event.
+  //
+  // ★★ THE CLEAR IS NOT INERT MID-SESSION, and this comment used to say it
+  // was ("the app routes an empty fragment back to its default view only on
+  // load, not mid-session"). `useHashView`'s `apply` decides `blank` from the
+  // fragment ALONE -- `raw === "" || raw === "#"` -- and routes a blank one to
+  // the dashboard (or open-points when that module is off) on EVERY call, not
+  // just the `apply(true)` at mount: the same function is the `hashchange` and
+  // `popstate` listener. Its `cold` parameter narrows only the VIEW-ONLY-hash
+  // branch, which `!blank` excludes. So clearing mid-session is itself a
+  // navigation to the default view; the explicit assignment that follows is
+  // what makes the target deliberate rather than incidental. Reproduce with
+  // `grep -n "const blank\|cold && !blank\|addEventListener" src/app/use-hash-view.ts`.
   return `window.location.hash = ""; window.location.hash = ${JSON.stringify(hash)};`;
 }
 
