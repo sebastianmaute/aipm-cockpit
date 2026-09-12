@@ -38,7 +38,6 @@ const base = {
   active: true,
   snapshots: [snap("2026-05-25T00:00:00.000Z", "2026-W22", { isBaseline: true }), snap("2026-06-10T00:00:00.000Z", "2026-W24")],
   baseline: snap("2026-05-25T00:00:00.000Z", "2026-W22", { isBaseline: true }),
-  latest: snap("2026-06-10T00:00:00.000Z", "2026-W24"),
   variance,
   gaps: ["2026-W23"],
   busy: false,
@@ -47,7 +46,7 @@ const base = {
 
 describe("TrendsPanel", () => {
   it("renders the gated empty state when not active", () => {
-    const { getByText, queryByText } = renderPanel(<TrendsPanel {...base} active={false} snapshots={[]} latest={null} baseline={null} variance={[]} gaps={[]} />);
+    const { getByText, queryByText } = renderPanel(<TrendsPanel {...base} active={false} snapshots={[]} baseline={null} variance={[]} gaps={[]} />);
     expect(getByText(/Turso/i)).toBeTruthy();
     expect(queryByText(/Baseline vs current/i)).toBeNull();
   });
@@ -151,7 +150,7 @@ describe("TrendsPanel", () => {
   ];
   function renderColliding(over: Partial<typeof base> = {}) {
     return renderPanel(
-      <TrendsPanel {...base} snapshots={colliding} baseline={null} latest={colliding[1]} {...over} />,
+      <TrendsPanel {...base} snapshots={colliding} baseline={null} {...over} />,
     );
   }
   // `rowLabel(verb, "")` is the verb plus the separator the shared helper emits,
@@ -214,12 +213,24 @@ describe("TrendsPanel", () => {
 // plan's free-text `currency` says (docs/open-followups.md §465).
 // ★ Fixed at the READER rather than at the writer on purpose: snapshots already
 // persisted carry a non-EUR `currency`, and only a fix here relabels those too.
+// ★★ THE ADVERSARIAL INPUT MOVED, and it is not the one the defect was found
+// on. The `latest` prop that carried the currency was dropped in the same
+// change (this was its only reader, and an unused interface member is
+// invisible to both tsc and eslint), so no fixture can reach the panel that
+// way any more. What remains is `snapshots`, whose records each still carry a
+// `currency` field — the one plausible way someone re-wires a per-snapshot
+// currency back in. Seeding THOSE with USD is what keeps this test able to
+// fail; the original pre-fix failure (`['$0','$2,500','$5,000']`) was measured
+// on the `latest` fixture, which no longer exists.
 describe("TrendsPanel currency labelling", () => {
-  it("labels the remaining-cost trend in EUR even when the snapshot names another currency", () => {
+  it("labels the remaining-cost trend in EUR even when the snapshots name another currency", () => {
     renderPanel(
       <TrendsPanel
         {...base}
-        latest={snap("2026-06-10T00:00:00.000Z", "2026-W24", { currency: "USD" })}
+        snapshots={[
+          snap("2026-05-25T00:00:00.000Z", "2026-W22", { isBaseline: true, currency: "USD" }),
+          snap("2026-06-10T00:00:00.000Z", "2026-W24", { currency: "USD" }),
+        ]}
       />,
     );
     // `TrendChart` renders `<div>{caption}</div><svg>`, so the caption's parent

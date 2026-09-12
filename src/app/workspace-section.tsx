@@ -886,7 +886,6 @@ export function WorkspaceSection({
               active={trends.active}
               snapshots={trends.snapshots}
               baseline={trends.baseline}
-              latest={trends.latest}
               variance={trends.variance}
               gaps={trends.gaps}
               busy={trends.busy}

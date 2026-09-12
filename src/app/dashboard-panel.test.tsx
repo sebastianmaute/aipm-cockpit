@@ -1366,12 +1366,23 @@ describe("DashboardPanel currency labelling", () => {
   it("labels the Budget tile in EUR even when the plan names another currency", () => {
     renderUsdDashboard();
     // Anchored on the hours tile, which is labelled "h" and is the one handle
-    // here already proven unique. TWO hops up, not one: `Tile` renders
-    // `<div class="relative h-full w-full"><div class="rounded-lg">`, so the
-    // first parent is still that single tile and only the second is the flex
-    // row holding the Budget tile beside it. One hop scopes to a subtree with
-    // no money in it at all, and `getAllByText` throws there rather than
-    // passing — which is the positive control doing its job.
+    // here already proven unique. TWO hops up, and the shape this walks is NOT
+    // a property of `Tile` — it holds only while BOTH of these are true of
+    // this fixture, and they pull in opposite directions:
+    //   · no `onNavigate` is passed, so `buildTileBodies` leaves `openBudget`
+    //     undefined (`dashboard-tile-bodies.tsx`) and the tile's `onActivate`
+    //     with it — so `Tile` takes its `Card` branch, a `div.rounded-lg`.
+    //     Pass `onNavigate` and the tile becomes a `<button class="…rounded-lg…">`
+    //     instead, and `closest("div.rounded-lg")` walks straight PAST both
+    //     tiles.
+    //   · a `hint` IS passed, and `Tile` returns the bare tile when there is
+    //     none (`if (!hint) return tile;`). The hint is what adds the
+    //     `relative h-full w-full` wrapper, which is the whole reason this is
+    //     two hops rather than one — drop the hint and the second hop
+    //     overshoots the flex row.
+    // Either way the failure is loud (`getAllByText` throws on zero matches)
+    // rather than a silent pass, so the test is not at risk — but do not read
+    // the hop count as something `Tile` guarantees.
     const burnRow = (screen.getByText("h").closest("div.rounded-lg") as HTMLElement)
       .parentElement!.parentElement as HTMLElement;
 
