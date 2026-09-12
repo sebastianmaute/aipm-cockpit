@@ -13,12 +13,12 @@ import {
   fileAction,
   helpAction,
   helpHashScript,
-  isPrintCancellation,
   versionDialogAction,
   versionDialogOptions,
 } from "./lib/menu-model";
 import { resolveLogDir } from "./lib/log-paths";
-import { pickPrintTarget } from "./lib/print-target";
+import { isPrintCancellation, pickPrintTarget } from "./lib/print-target";
+import { liveWindow } from "./lib/window-liveness";
 import { waitForReady } from "./lib/readiness";
 import { killServer, spawnServer } from "./server-child";
 
@@ -102,7 +102,9 @@ function fileMenuClick(id: FileMenuItemId): () => void {
         // application-menu accelerator needs one of our own windows focused,
         // and nothing registers a global shortcut -- verify with
         //   grep -rn "globalShortcut\|setWindowOpenHandler" desktop/src
-        // ★★ WHOSE ONLY HITS ARE THIS COMMENT BLOCK. Read an empty result as
+        // ★★ WHOSE ONLY HITS ARE THE TWO COMMENT BLOCKS IN THIS FUNCTION --
+        // this one and the window-open note above it, which cross-reference
+        // each other. Read an empty result as
         // impossible, not as failure: naming a symbol in the command that
         // looks for it makes the comment match itself. The first version of
         // this line claimed the command "returns nothing", which was false the
@@ -190,11 +192,34 @@ function helpMenuClick(id: HelpMenuItemId, label: string): () => void {
   switch (action) {
     case "open-help":
       return () => {
-        // Set the fragment on the page that is already loaded rather than
-        // navigating: a reload would discard unsaved work.
-        void win?.webContents.executeJavaScript(helpHashScript()).catch((e: unknown) => {
+        // ★★★ THE SAME LIVENESS DECISION THE PRINT BRANCH MAKES, and this
+        // branch went without it for a release. `win?.` is NOT a guard here:
+        // `win` is assigned once and never set back to null (`grep -n "win = "
+        // desktop/src/main.ts` is a single line), so the optional chain is
+        // always true after start() -- while the window it names can be
+        // DESTROYED. Reachable: a popout is open, the user closes the main
+        // window, `window-all-closed` therefore does not fire, the app lives on
+        // with its application menu, and Help → Help touches a dead `win`.
+        //
+        // ★★ AND `.catch` CANNOT COVER IT. Touching `webContents` on a
+        // destroyed window throws SYNCHRONOUSLY, so no promise is ever created
+        // to reject; a menu click is not covered by the startup `.catch`
+        // either. The try/catch is the whole safety net, exactly as it is in
+        // the print branch below.
+        const target = liveWindow(win);
+        if (target === null) {
+          log("help menu: no window to open help in");
+          return;
+        }
+        try {
+          // Set the fragment on the page that is already loaded rather than
+          // navigating: a reload would discard unsaved work.
+          void target.webContents.executeJavaScript(helpHashScript()).catch((e: unknown) => {
+            log(`help menu: ${String(e)}`);
+          });
+        } catch (e: unknown) {
           log(`help menu: ${String(e)}`);
-        });
+        }
       };
     case "show-version":
       return () => {

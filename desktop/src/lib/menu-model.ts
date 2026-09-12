@@ -81,26 +81,16 @@ export function helpAction(id: HelpMenuItemId): HelpMenuAction {
 // carries the string `Scripted print is not supported`, verified with
 //   grep -aoh "Scripted print is not supported" \
 //     desktop/node_modules/electron/dist/electron.exe
-// (it lives in Electron's own print_view_manager_electron.cc, also a string in
-// that binary, so the refusal is not per-window) -- so every in-pane Print
-// button was offering something that could never happen. The main process CAN
-// print, via webContents.print(), and this is the route to it. The in-page
-// buttons now hide themselves in the shell (src/app/desktop-shell.ts) rather
-// than lying.
+// (from Electron's own print_view_manager_electron.cc, so the refusal is not
+// per-window). The main process CAN print, via webContents.print(), and this
+// is the route to it; the in-page buttons hide themselves in the shell
+// (src/app/desktop-shell.ts) rather than lying.
 //
-// ★★★ THIS MENU IS NOT THE WHOLE FIX, AND AN EARLIER VERSION OF THIS COMMENT
-// IMPLIED IT WAS. Two OTHER renderer `window.print()` paths are still live and
-// still inert in the packaged app -- `buildPdfHtml` in `src/app/export.ts` and
-// `AUTO_PRINT_SCRIPT` in `src/app/document-download.ts`, both injected into a
-// `window.open`ed tab. They are WORSE than the button that was removed: the
-// popup opens, renders the whole document, and then silently never prints.
-// Reachable from the PDF choice in documents-toolbar, export-menu and
-// projects-panel. Unfixed, and deliberately out of scope here (it needs a
-// main-process route such as webContents.printToPDF): docs/open-followups.md
-// §468. Enumerate the live call sites -- the comments in this repo mention the
-// call, so match on the invocation and drop the matches inside comments:
-//   grep -rn "window\.print()" src --include=*.ts --include=*.tsx \
-//     | grep -v "\.test\." | grep -vE "^\S+: *(//|\*)"
+// ★★ IT IS NOT THE WHOLE FIX -- two renderer print paths remain inert in the
+// packaged app, unfixed and out of scope here (they need a main-process route
+// such as webContents.printToPDF). **docs/open-followups.md §468** owns that
+// story and the command that enumerates the survivors; an earlier version of
+// this comment restated all of it, which made a third full copy.
 export type FileMenuItemId = "print";
 export type FileMenuAction = "print-window";
 
@@ -135,52 +125,6 @@ const FILE_ACTIONS: Record<FileMenuItemId, FileMenuAction> = {
 
 export function fileAction(id: FileMenuItemId): FileMenuAction {
   return FILE_ACTIONS[id];
-}
-
-// Is this print "failure" just the user closing the dialog?
-//
-// ★★★ webContents.print's callback is `(success: boolean, failureReason:
-// string)` (verified in desktop/node_modules/electron/electron.d.ts), and a
-// USER CANCELLATION arrives as success: false. So without this classifier the
-// ordinary act of dismissing the print dialog would write a failure line into
-// launch.log every time -- the log the rollout note asks users to send when
-// something is wrong.
-//
-// ★★ MATCHED ON THE STEM, CASE-INSENSITIVELY, and deliberately not by
-// equality.
-//
-// ★★★ WHAT IS ACTUALLY MEASURED, stated exactly, because an earlier version of
-// this comment said "MEASURED, NOT ASSUMED" of something the command cannot
-// show. All the grep proves is that a string EXISTS IN THE BINARY:
-//   grep -aoih "print job cancel[a-z]*" \
-//     desktop/node_modules/electron/dist/electron.exe
-// returns one hit, `Print job canceled` (US spelling, one L). That it is the
-// `failureReason` delivered to this callback on a user cancellation is NOT
-// verified and cannot be from here -- the callback needs a real Electron
-// window. Treat it as the strongest available evidence, not as a measurement.
-//
-// ★★ THE ARGUMENT FOR THE LOOSE MATCH is a second pair of probes over the same
-// binary, and it beats "the string could be reworded": the reason vocabulary is
-// NOT what Electron's docs suggest. `Printing is already in progress` and `No
-// printers found` have ZERO occurrences, while `Invalid printer settings` has
-// one. So the wording cannot be guessed, and an `===` test against today's
-// string would quietly reclassify every cancellation as an error after an
-// upgrade.
-//
-// ★★★ THAT IS ALL THAT IS MEASURED. An earlier version of this comment added
-// "no reason-shaped string except the cancellation one contains `cancel`" and
-// presented it as part of the same measurement. It is not measurable:
-// "reason-shaped" has no definition, so nothing can falsify it -- and the
-// binary in fact holds hundreds of distinct `cancel`-containing strings,
-// sentence-shaped ones included (`Authentication canceled`, `Form submission
-// canceled`, `DNS query cancelled`). None of them is a print failureReason as
-// far as anyone here can tell, so the stem match is PROBABLY narrow in
-// practice -- but that is a judgement, not a probe, and the count itself moves
-// with whatever window width you grep. The residual cost -- a genuine print
-// failure whose reason contains "cancel" going unlogged -- is accepted as the
-// better of the two mistakes.
-export function isPrintCancellation(failureReason: string): boolean {
-  return /cancel/i.test(failureReason);
 }
 
 // ---------------------------------------------------------------------------

@@ -14,7 +14,6 @@ import {
   formatVersionDetail,
   helpAction,
   helpHashScript,
-  isPrintCancellation,
   versionDialogAction,
   versionDialogOptions,
 } from "./menu-model";
@@ -353,43 +352,3 @@ describe("fileAction", () => {
   });
 });
 
-describe("isPrintCancellation", () => {
-  it("recognises the cancellation string that exists in the Electron binary", () => {
-    // ★★★ THE TITLE USED TO SAY "the string Chromium actually sends" and the
-    // comment said "MEASURED, NOT ASSUMED". Neither was supportable by the
-    // command attached to it. What IS measured:
-    //   grep -aoih "print job cancel[a-z]*" \
-    //     desktop/node_modules/electron/dist/electron.exe
-    // returns one hit, `Print job canceled`. That proves the string is IN THE
-    // BINARY -- not that it is the `failureReason` this callback receives on a
-    // user cancellation. Nothing runnable here can prove that: the callback
-    // needs a real Electron window. STILL UNVERIFIED, and the reason the
-    // matcher below is deliberately loose.
-    expect(isPrintCancellation("Print job canceled")).toBe(true);
-  });
-
-  it("matches the stem, so a reworded reason cannot become an error", () => {
-    // ★★ This is the assertion that forbids a `=== "Print job canceled"`
-    // mutant, and the argument for it is measured over the same binary:
-    // `Printing is already in progress` and `No printers found` -- both
-    // plausible from Electron's docs -- have ZERO occurrences, so the reason
-    // vocabulary cannot be guessed and today's exact string is not a safe
-    // thing to pin. Narrow in practice: no reason-shaped string in the binary
-    // except the cancellation one contains "cancel".
-    expect(isPrintCancellation("Print job cancelled")).toBe(true);
-    expect(isPrintCancellation("cancelled by user")).toBe(true);
-    expect(isPrintCancellation("CANCELED")).toBe(true);
-  });
-
-  it("does NOT swallow a real failure", () => {
-    // The whole point of classifying rather than ignoring every failure: a
-    // printer that is not there has to reach the log.
-    // ★ `Invalid printer settings` IS in the binary (one hit). `No printers
-    // found` is NOT -- it is an illustrative fixture, kept because the
-    // matcher must reject unfamiliar wording too, not evidence of a real
-    // reason string.
-    expect(isPrintCancellation("Invalid printer settings")).toBe(false);
-    expect(isPrintCancellation("No printers found")).toBe(false);
-    expect(isPrintCancellation("")).toBe(false);
-  });
-});

@@ -52,7 +52,9 @@ describe("PrintButton", () => {
   it("renders nothing inside the desktop shell, where printing cannot work", () => {
     // ★★★ THE POINT OF THE CHANGE. Electron refuses a renderer-initiated
     // window.print(), so in the packaged app this button did nothing at all
-    // in all 24 panes. Printing there is File → Print… / Ctrl+P.
+    // at every call site. Printing there is File → Print… / Ctrl+P.
+    // (No count: the source file forbids one, because call sites are not
+    // rendered controls and neither number is derivable from the other.)
     //
     // Mutants this kills: deleting the `if (isDesktopShell) return null`
     // early return; inverting it; and swapping the server snapshot in for
