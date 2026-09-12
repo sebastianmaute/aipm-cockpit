@@ -698,6 +698,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§473](#473-nothing-decides-what-currency-role-rates-are-in-so-a-non-eur-plan-both-mislabels-resources-money-and-miscomputes-a-fixed-price-margin--open) | Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin — OPEN | found 2026-09-12 by the whole-branch review of `feat/budget-currency-boundary`, in the same pass that caught a false attribution in §465; filed as ONE entry because splitting the display and arithmetic faces would let one close while the other stood | M — the seven display sites and the type narrowing are small edits; coercing stored non-EUR plan currencies at load, and its tests, are the work | open |
 | [§474](#474-a-rateless-non-eur-bucket-is-summed-into-the-eur-rollup-at-par-and-reads-almost-like-a-rated-one--open) | A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one — OPEN | found 2026-09-12 by the documentation-correction pass over `feat/budget-currency-boundary`, from the default no-rate path neither the design spec nor the register had considered; NOT a regression — at rate 1 the conversion is the identity, so no figure moved | S-M — the arithmetic must not change, so the work is disclosure: whether the report marks a rateless non-EUR bucket and whether the EUR rollup flags a summand it could not convert, plus tests | open |
 | [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--open) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read — OPEN | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `68f70b9d` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | open |
+| [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
+| [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--open) | Only three currencies are supported, and INR is wanted — OPEN | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -35168,3 +35170,115 @@ Clearing it is a data write on an edit the user did not ask for, so it is a real
 obviously the right one. **UI decision — deliberately NOT taken on
 `feat/budget-currency-boundary`**, whose scope was the currency boundary in the engine and the
 display layer.
+
+## 476. The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN
+
+**Status:** OPEN 2026-09-12 — **never machine-verified, and there is nothing to verify: this is a
+requested capability, not an observed defect.** The presence witnesses below establish only what is
+hardcoded today, and each was run 2026-09-12:
+`grep -rn '"EUR"' src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | grep -v "^src/app/i18n" | wc -l`
+→ **19** (the sites a baseline would have to reach, of which the load-path coercions and the
+`SUPPORTED_CURRENCIES` / `DEFAULT_CURRENCY` declarations are legitimately EUR-shaped and the rest are
+assumptions), `grep -c "SUPPORTED_CURRENCIES" src/app/ecb.ts` → 3 (the ECB parser filters the live
+feed to the supported set and pins EUR = 1), `grep -c 'input.base !== "EUR"' src/app/sanitize-entities.ts`
+→ 1 (`sanitizeFxRates` REJECTS any table whose base is not EUR), `grep -c "Intl.NumberFormat" src/app/resource-cost.ts`
+→ 2 (`currencySymbol` derives the glyph, so no symbol map needs extending), and
+`grep -rn "asOfRate\|rateStamp\|bookedRate" src/app --include=*.ts --include=*.tsx | wc -l` → **0**
+(nothing anywhere records the rate in force when an amount was booked — the whole of the work below).
+
+**Requested 2026-09-12.** A project's baseline currency should be configurable: EUR by default at
+creation unless another is set explicitly, changeable afterwards in the project meta, with the engine
+adapting. Changing it on an in-flight project should re-denominate using ECB rates.
+
+**The chosen semantics is the third reading of that last sentence, and the most expensive — option C
+of three put to the requester, chosen deliberately.** Recording the two rejected ones matters, because
+either is what a reader will otherwise assume:
+
+- **A — rewrite the stored data.** Switching EUR→INR rewrites what the user typed: role internal and
+  external rates, every bucket's `fixedPriceAmount`, budget figures. REJECTED.
+- **B — re-derive at read time.** Stored values stay as typed and the engine converts on every read.
+  Cheap and reversible, but the rate editor goes on showing EUR while every other surface shows INR,
+  which is arguably worse than today. REJECTED.
+- **C — re-denominate going forward, pinning history. CHOSEN.** Figures already booked keep the rate
+  in force when they were booked; only new work is valued at the new baseline. It is what an
+  accountant expects of an in-flight project, and it is the only one of the three that does not make
+  a past month's reported cost move when someone edits a setting.
+
+★★★ **THE DEFAULT STATE OF A WORKSPACE IS "NO RATES", AND UNDER OPTION A THAT WOULD HAVE BEEN DATA
+LOSS BEHIND A GREEN PIPELINE.** `useFxRates` fetches `/api/ecb` on demand only — there is no
+mount-time call, so the table is populated only when a user presses the refresh control, and
+`resolveRate` falls back to 1 when it is empty. A user who has never pressed refresh and switches
+EUR→INR would convert every rate at 1:1 — 100 €/h written to disk as 100 ₹/h, across all six write
+paths. Option C does not make that go away, it moves it: the change must be BLOCKED until rates are
+fetched, the rate actually used must be pinned into the workspace as a record rather than looked up
+again later, and the switch needs a real confirmation. This is the same rate-1-by-absence shape §474
+registers as a disclosure gap; here it would be a write. It is the reason this is a migration with a
+settings UI on top, not a setting.
+
+★ **The rate table stays EUR-based and must.** The ECB publishes EUR reference rates, `FxRates.base`
+is the literal `"EUR"` and `sanitizeFxRates` rejects any other base. The baseline conversion is
+therefore DERIVED at read time from the same table — `rate(bucket per 1 base) = ecb[bucket] / ecb[base]`,
+keeping the EUR special case because EUR has no key of its own. One extra division, triangulated:
+fine for PM budgeting, not for treasury, and the field's help text should say so rather than leave a
+reader to assume otherwise.
+
+★ **`resolveRate`'s short-circuit becomes `bucket.currency === base`** instead of the literal `"EUR"`.
+That one line is the whole of the engine change; everything else is the field, the stamps and the
+display.
+
+★★ **This SUBSUMES §473 and inverts its recommended end state.** §473 records that nothing decides
+what currency role rates are in, and recommends narrowing `plan.currency` to the literal `"EUR"` so
+the type says what the engine supports. A configurable baseline answers the same question the other
+way: the baseline IS the currency role rates are denominated in, named and given a UI instead of
+deleted. The two are mutually exclusive in spirit and §473 must not be closed by narrowing while this
+is open. ★ It does NOT let role rates differ from one another — the baseline is a single global claim
+about the whole plan, which is what the code already assumes; a per-role currency is a different and
+larger question nobody has asked for.
+
+★ It does not fix §474 either, and arguably widens it: more buckets would differ from the baseline, so
+more of them can sit at rate 1 by absence and be summed at par. §474 should be decided before or with
+this, not after.
+
+★ **`plan.currency` already exists and is NOT this field.** It labels seven Resources display sites
+(`grep -c "plan.currency" src/app/resources-panel-rows.tsx src/app/resources-report.tsx` → 6 and 1) and
+no UI control writes it. Whether the baseline reuses that field or replaces it is the first design
+decision, and reusing a field that today means something vaguer is the kind of move §473 exists to
+warn about.
+
+Size L. The field itself is small and the engine change is one line; the work is the rate stamp on
+every money-bearing figure (nothing records one today), its propagation across all six write paths,
+the blocked-without-rates guard and its confirmation UI, and the display sweep. INR support is filed
+separately as §477 because it is independent of all of this and ships on its own.
+
+## 477. Only three currencies are supported, and INR is wanted — OPEN
+
+**Status:** OPEN 2026-09-12 — **never machine-verified**; nothing here has been run against the live
+ECB feed, which is the one thing that has to be checked. Presence witnesses run 2026-09-12:
+`grep -n "SUPPORTED_CURRENCIES = " src/app/types.ts` → one line, three members (`EUR`, `USD`, `GBP`),
+`grep -c "SUPPORTED_CURRENCIES" src/app/ecb.ts` → 3 (the parser filters the live feed to the supported
+set and pins EUR = 1, so a fourth member flows through the fetch, the sanitizer and the cache with no
+further edit), and `grep -c "Intl.NumberFormat" src/app/resource-cost.ts` → 2 (`currencySymbol`
+derives the glyph from the locale, so the rupee sign needs no symbol map entry).
+
+**Requested 2026-09-12**, alongside §476.
+
+★ **It is independent of §476 and should ship first.** An INR BUCKET under today's EUR baseline works
+with the machinery already in the tree: the bucket carries its own currency, `resolveRate` finds the
+ECB rate, `currencyToEur` divides. Nothing about a configurable baseline is needed for that, and
+waiting on §476 would hold an XS change behind an L one.
+
+★★ **THE ONE THING TO VERIFY IS WHETHER INR IS IN THE ECB DAILY FEED AT ALL, and no witness above
+answers it.** The repo's own ECB fixtures carry USD, GBP and JPY, which says what the parser handles,
+not what the endpoint publishes. Fetch the live document and count the INR cube element before
+writing any code — `eurofxref-daily.xml` on `www.ecb.europa.eu` under `/stats/eurofxref/`, grepped
+for a cube whose currency attribute is INR. If it is absent this entry is not an XS array edit but a
+second rate source, which is a different slice entirely. ★ Assume nothing from the fact that INR is a
+major currency — the feed's membership is a policy of the ECB's, not a property of the currency.
+
+★ A fourth member widens the blast radius of §475's shape rather than creating a new one: the FX
+override field is gated on the advanced field tier and not on the currency, so it will accept an
+override on an INR bucket exactly as it does on a USD one, which is correct, and on an EUR one, which
+is not.
+
+Size XS if the feed carries INR — one array member, plus a fixture covering it so the parser's filter
+is exercised on a fourth currency rather than assumed. Unknown, and much larger, if it does not.
