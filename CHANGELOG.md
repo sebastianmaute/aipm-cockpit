@@ -8,6 +8,103 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.0.1] - 2026-09-12 "Pratchett"
+
+Everything in this release is about the desktop app: two things a colleague
+running the packaged installer could not do, and one it was offering them that
+could never work. The web app is unchanged apart from the Print buttons, which
+it keeps.
+
+### Added
+
+- **Printing, from `File → Print…` and `CmdOrCtrl+P`.** Electron refuses a
+  renderer-initiated `window.print()` — the refusal is embedder-wide, so no
+  amount of per-window configuration reaches it — which is why every Print
+  button in the packaged app had silently done nothing. The menu route calls
+  `webContents.print()` from the main process instead, and it targets the
+  **focused** window, so a popout or an export tab should print itself rather
+  than the main view — the code supports that and no run has shown it, which is
+  why it appears in the owed list below rather than as a settled fact. The
+  `{ role: "fileMenu" }` that used to sit there expands, on the evidence of the
+  installed binary, to a lone Quit item on Windows; the branch records that the
+  platform branch itself is an inference from the surrounding menu rather than
+  something the probe printed. Either way the hand-built File menu keeps Quit, so
+  nothing a user had is relabelled or lost.
+- **`Help → "Check for updates…"`, and the same link in the Version dialog.**
+  The app ships no auto-updater and performs no version check. The GitLab project
+  is `internal`, so nothing unauthenticated could poll it, and giving the app a
+  credential would make that credential the only integrity control over code that
+  executes on every laptop — the installer is unsigned. A link the user clicks
+  keeps the authentication where it already is, in their browser, as themselves.
+  The Version dialog now says updates are manual and names the Releases page.
+
+### Changed
+
+- **The in-pane Print buttons no longer render in the desktop app.** `PrintButton`
+  returns nothing under an Electron user agent (`src/app/desktop-shell.ts`), read
+  through the `useSyncExternalStore` pattern the global search box already
+  established, because this tree is server-rendered and the server has no
+  `navigator`. Hiding rather than disabling: a disabled Print button in every pane
+  invites "why is printing broken?", where its absence plus a working File menu
+  invites nothing. Consequence for anyone reading a toolbar assertion: in the
+  desktop shell a pane's trailing control group is one member shorter than
+  whichever arity that pane documents — `Print · reset-columns · reset-pane-size`
+  is the rule, with the Dashboard and Reports variants beside it — and that is not
+  drift. It is not every pane: a pane that never had a Print button in the first
+  place (Budget among them) loses nothing. The web app is unaffected and keeps all
+  of them.
+
+### Fixed
+
+- **A cancelled print dialog is no longer recorded as a failure.** Cancelling
+  arrives at the callback as `success: false`, indistinguishable at that point
+  from a real error; the reason is now classified, and `launch.log` — the file
+  users are asked to send when something is wrong — no longer gains a
+  `print failed:` line for a deliberate cancel.
+- **`Help → Help` can no longer throw at a window the user has closed.** It
+  called `executeJavaScript` on a window reference that is assigned once and
+  never cleared, so the optional chain guarded only the pre-start window, and the
+  `.catch` beside it could not help either — a synchronous throw from a destroyed
+  `webContents` creates no promise to reject. Reachable with a popout open and
+  the main window closed, where the app lives on with its menu. One pure
+  liveness decision now serves that menu action and the print route both, rather
+  than each restating it.
+- **A failure during startup is logged and surfaced.** `app.whenReady().then(start)`
+  had no `.catch`, and nothing in the shell handles a rejected promise, so any
+  throw on the way up meant no window, no dialog and nothing in the log. It now
+  logs the cause and goes through the same failure path as every other startup
+  problem.
+
+### Known limitations
+
+- **PDF export is still inert in the packaged app.** The export menu, the
+  projects panel and Documents all reach code that opens a window and calls a
+  renderer `window.print()` inside it — the same refusal as above, so the window
+  opens, renders the whole document, and silently never prints. It fails worse
+  than the buttons this release removed. Filed as follow-up 468 with the repair
+  sketched (a main-process route, plus a decision about whether those surfaces
+  keep opening a tab at all); `docs/desktop-rollout.md` tells a user what to do
+  in the meantime. The web app is unaffected.
+
+### Notes
+
+- Seven behaviours here can only be confirmed against a packaged build and are
+  owed: `Ctrl+P` in a focused popout, a cancelled dialog leaving no
+  `print failed:` line, the File menu reading Print… / ─── / Quit, the
+  first-paint flash as the server-rendered Print buttons drop on hydration, the
+  export tab's own `Ctrl+P`, `Help → Help` with the main window closed and a
+  popout open, and the two Electron API lookups in `desktop/src/main.ts`. The last
+  of those was on the branch's own owed list and is kept here rather than dropped:
+  the popout and Help → Help checks exercise the window-resolution paths but not
+  those lookups, so nothing already listed covers it.
+- No MR job typechecks `desktop/src/main.ts` — the root `tsconfig.json` excludes
+  it by name, and only the manual `desktop-package` job compiles it (its script
+  runs `tsc -p desktop/tsconfig.json`, which is the sole thing that does). That
+  job was played on the merged branch and passed — job 29818, pipeline 6918, on
+  `63a66068` — so the cross-module move in that branch's last commit is compiled,
+  not merely greppable. The pure helpers extracted beside it *are*
+  in the unit gate, since `vitest.config.ts` includes `desktop/**`.
+
 ## [1.0.0] - 2026-09-11 "Pratchett"
 
 This release replaces `v0.303.0` below: that tag's Release and tag are being
