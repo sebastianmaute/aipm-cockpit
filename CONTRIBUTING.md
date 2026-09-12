@@ -1,12 +1,13 @@
 # Contributing
 
 Working notes for anyone editing this repo. Architecture reference lives in
-[CODEMAPS/](CODEMAPS/); this file covers process, conventions, and the moving
+[docs/CODEMAPS/](docs/CODEMAPS/); this file covers process, conventions, and the moving
 parts a contributor needs day-to-day.
 
 ## Prerequisites
 
-- **Node.js ≥ 20.9.0** (Next.js 16 requires it; the CI image is `node:20`).
+- **Node.js ≥ 24** (`engines.node` in `package.json`; the CI image is
+  `node:24-bookworm-slim` — `grep -n "image: node" .gitlab-ci.yml`).
 - **npm** (lockfile is `package-lock.json` — yarn / pnpm are not used here).
 - A Chromium-based browser (Chrome / Edge / Opera) for local testing. Several
   features (File System Access API for local file storage, `SpeechRecognition`
@@ -107,7 +108,7 @@ src/app/
 docs/CODEMAPS/            — per-layer architecture notes (regenerated, not hand-edited)
 ```
 
-See [CODEMAPS/architecture.md](CODEMAPS/architecture.md) for the data-flow
+See [docs/CODEMAPS/architecture.md](docs/CODEMAPS/architecture.md) for the data-flow
 diagram and service boundaries.
 
 ## Sample Workspace
@@ -130,8 +131,8 @@ APIs (routing, headers, server actions, etc.), check
 
 `AGENTS.md` holds what applies to any task — commands, hard constraints,
 architecture pointers. The per-subsystem deep reference lives in
-[`docs/AGENTS/`](docs/AGENTS/) (dashboard · ui-shell · theming · insights ·
-ai-assistant · integrations · platform · features): **open the file for the
+[`docs/AGENTS/`](docs/AGENTS/) (one file per subsystem; the table at the end of
+`AGENTS.md` lists them): **open the file for the
 subsystem you are editing.** Those files are not auto-loaded, so nothing will
 put their landmines in front of you — you have to go and read them.
 
@@ -179,7 +180,7 @@ external store (zustand / jotai / redux) is in the dep tree by design. New
 state should slot into existing context providers / `useState` hooks unless
 there's a strong reason to add a layer. Cross-cutting orchestration pulled out
 of `task-manager` goes into a **deps-object hook** — see
-[CODEMAPS/frontend.md](CODEMAPS/frontend.md).
+[docs/CODEMAPS/frontend.md](docs/CODEMAPS/frontend.md).
 
 ### Storage
 One logical document — `Workspace` — is saved **whole** through a facade
@@ -367,13 +368,13 @@ what a field serializes to, not only when the master changes.
 
 ## Testing
 
-Five layers, all gating in CI:
+Five layers, all gating in CI except where noted:
 
 | layer | runner | entry |
 |---|---|---|
 | unit + component | Vitest (jsdom) | `src/**/*.test.{ts,tsx}`, co-located |
-| property | Vitest + fast-check | 22 `*.property.test.ts` files |
-| e2e + a11y | Playwright | `e2e/{app,smoke,a11y,visual,print}.spec.ts` |
+| property | Vitest + fast-check | `*.property.test.ts` files (count: `git ls-files 'src/**/*.property.test.ts' \| wc -l`) |
+| e2e + a11y | Playwright | `e2e/**/*.spec.ts` — the visual-regression and desktop-smoke specs are excluded from the default `chromium` project (`testIgnore` in `playwright.config.ts`); visual snapshots are opt-in via `npm run e2e:visual` |
 | prod-CSP smoke | `scripts/e2e-smoke-prod.mjs` | `npm run e2e:smoke:prod` — no spec file |
 | gates | scripts | file-size ratchet · jscpd duplication · palette guards · Semgrep |
 
@@ -404,10 +405,8 @@ npm run test:run       # single run
 npm run test:coverage  # with v8 coverage; fails below the floors below
 ```
 
-The global coverage floors are **lines 92 · functions 91 · statements 89 ·
-branches 80**, plus tighter per-engine globs in `vitest.config.ts` (e.g.
-`next-actions/**` at lines 97 / branches 90, `sanitize*.ts` at 95 / 94). They
-are scoped to the business-logic / data layer — React components (`*.tsx`), route
+The coverage floors (listed in the bullet above; `vitest.config.ts` is the
+source of truth) are scoped to the business-logic / data layer — React components (`*.tsx`), route
 glue, the DE dictionary, and external-format serializers are excluded and
 covered by component / E2E tests instead (see the `exclude` list in
 `vitest.config.ts`). Storage tests run against an in-memory IndexedDB
@@ -500,8 +499,9 @@ Before opening a PR:
 - [ ] New user-facing strings have both EN and DE translations.
 - [ ] If you added a tab / popover / panel, the Help menu (`help-menu.tsx`)
       and Version highlights (`version.ts`) reference it where appropriate.
-- [ ] If you changed the storage shape, the migration in `storage.ts` still
-      reads legacy `localStorage` payloads correctly.
+- [ ] If you added a persisted `Workspace` field, it reaches all six write
+      paths (JSON / CSV / Markdown / Turso single / Turso tenant / IndexedDB —
+      see `AGENTS.md`, "Hard constraints").
 - [ ] `version.ts` is bumped if the change is user-visible.
 - [ ] CODEMAPS (`docs/CODEMAPS/*.md`) is regenerated if you added / removed
       a top-level module or route — `npm run` does not regenerate these; use

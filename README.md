@@ -112,7 +112,7 @@ a second inventory to keep in sync.
 
 - **Framework**: Next.js 16 (App Router, Turbopack)
 - **UI**: React 19, Tailwind CSS 4
-- **Language**: TypeScript 5
+- **Language**: TypeScript 6
 - **Testing**: Vitest 4 (unit/component, v8 coverage), Playwright (E2E)
 - **AI**: Anthropic Claude API (key entered client-side in Settings; encrypted at rest)
 - **Optional storage**: Turso (libSQL), Microsoft Graph / SharePoint

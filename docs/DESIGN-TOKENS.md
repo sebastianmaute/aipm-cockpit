@@ -69,18 +69,22 @@ the bright token still applies to fills, borders, and text on dark surfaces.
 
 ## Semantic surface tokens (light / dark)
 
-| Utility | Role | Light | Dark |
-|---|---|---|---|
-| `bg-background` | page bg | #FFFFFF | #0B0F12 |
-| `text-foreground` | primary text | #636362 | #E3E6E6 |
-| `bg-surface` | cards, panels, modals | #FFFFFF | #121619 |
-| `bg-surface-muted` | alt rows, chips, hovers, subtle zones | #E3E6E6 | #1B2024 |
-| `border-line` | borders, dividers | #E3E6E6 | #2B3137 |
-| `text-muted-foreground` | secondary text | #939598 | #939598 |
+Fallback is the `globals.css :root` value (Harbor light). There is no dark
+custom-property block in `globals.css`: light and dark values both come from the
+active scheme's maps in `builtin-schemes.ts` (or a user scheme), applied at
+runtime. Reproduce the fallbacks with
+`grep -n -E "^\s*--(background|foreground|surface|surface-muted|line|muted-foreground):" src/app/globals.css`.
 
-The four dark neutrals are the ONLY non-palette values; they exist solely in
-`globals.css` token definitions (the AIPM palette is light-oriented). Components
-never reference them directly.
+| Utility | Role | Fallback |
+|---|---|---|
+| `bg-background` | page bg | #f6f8fa |
+| `text-foreground` | primary text | #15212e |
+| `bg-surface` | cards, panels, modals | #ffffff |
+| `bg-surface-muted` | alt rows, chips, hovers, subtle zones | #eef2f6 |
+| `border-line` | borders, dividers | #dbe2ea |
+| `text-muted-foreground` | secondary text | #15212e |
+
+Components never reference a scheme's hex values directly — use the role.
 
 ## Rules
 
@@ -131,7 +135,7 @@ never reference them directly.
 
 ## RAID category & severity colors
 
-- **Categories (R/A/I/D)** — 4-state chips, all 4 palette hues: Risk=`ui-pink`, Action=`ui-blue`, Issue=`ui-purple`, Decision=`ui-green`. Chips render at `/15` alpha light, `/20` dark.
+- **Categories (R/A/I/D)** — 4-state chips, all 4 palette hues: Risk=`ui-pink`, Assumption=`ui-blue`, Issue=`ui-purple`, Dependency=`ui-green`. Chips render at `/15` alpha light, `/20` dark.
 - **Severity ramp (Low→Critical)** — 4-step cold→hot: Low=`ui-green`, Medium=`ui-blue`, High=`ui-purple`, Critical=`ui-pink`. Alpha escalates with severity (`/20` Low/Medium → `/25` High → `/30` Critical).
 - **RAG health dots (R/A/G)** — solid dots: R=`bg-ui-pink`, A=`bg-ui-purple`, G=`bg-ui-green` (same triple as the task-form-modal RAG indicator and the reports legend).
 

@@ -24,7 +24,7 @@ Sent naively, you pay for all of that on every single turn. The app instead lays
 | **Cache read** | **0.1** |
 | Output | 5 |
 
-That 0.1 is the whole point. A cached prefix is not skipped — it is still read, and still billed — but at a tenth of a fresh input token, which turns the largest term in a turn into something close to a rounding error. Writing the cache costs 1.25, so the arrangement pays for itself on the second turn. These ratios hold across the model tiers the app supports, and they are also what the advisory usage caps weight by (see the AI assistant row in [docs/features.md](docs/features.md)).
+That 0.1 is the whole point. A cached prefix is not skipped — it is still read, and still billed — but at a tenth of a fresh input token, which turns the largest term in a turn into something close to a rounding error. Writing the cache costs 1.25, so the arrangement pays for itself on the second turn. These ratios hold across the model tiers the app supports, and they are also what the advisory usage caps weight by (see the AI assistant row in [docs/features.md](features.md)).
 
 ## How the layout works
 

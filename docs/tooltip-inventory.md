@@ -1,5 +1,9 @@
 # Tooltip inventory
 
+> **Archived 2026-09-13.** Point-in-time inventory, kept as a record; not maintained. Remaining open
+> work lives in docs/open-followups.md (§109) and GitLab. The name defect it lists as open was fixed
+> on 2026-08-31 (§109).
+
 Snapshot taken 2026-08-07, on `176b823a` (branch `feat/ui-batch-slice-2`, Tasks 1–12 committed).
 
 ★★ An earlier revision cited `2d31abe5` here. **That object is NOT in the branch** — `git merge-base
