@@ -313,7 +313,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§84](#84-a-third-order-dependent-test-in-use-storage-backendtesttsx--different-mechanism-from-75--closed-false-same-mechanism-measured-on-a-partially-fixed-tree) | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED**, FALSE: same mechanism, measured on a partially-fixed tree |
 | [§85](#85-strictmode-does-not-double-invoke-effects-under-vitest--cause-unknown-so-every-strictmode-dependent-test-may-be-vacuous--closed-false-premise-it-does-double-invoke-here-whether-it-does-on-a-given-mount-depends-on-the-wrapper-shape-and-the-rule-is-pinned-by-a-meta-test) | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous~~ | pre-existing, found in the slice-3 review | M | **CLOSED**, FALSE PREMISE: it does double-invoke here; whether it does on a given mount depends on the wrapper shape, and the rule is pinned by a meta-test |
 | [§86](#86-ai-cannot-read-timelog-entries--deliberate-no-tool-exposes-them) | AI cannot read timelog entries — deliberate, no tool exposes them | view-scoped AI prompts, unreleased | — | open |
-| [§87](#87-ai-cannot-read-the-activity-log--corrected-2026-08-18-stale) | AI cannot read the activity log — CORRECTED 2026-08-18, stale | view-scoped AI prompts, unreleased | — | open |
+| [§87](#87-ai-cannot-read-the-activity-log--closed-2026-09-13) | AI cannot read the activity log | view-scoped AI prompts, unreleased | — | **CLOSED** 2026-09-13 |
 | [§88](#88-ai-sectiontsxs-own-sub-section-titles-are-not-real-headings--closed-2026-08-31) | `ai-section.tsx`'s own sub-section titles are not real headings | found during view-scoped AI prompts review, unreleased | S | **CLOSED** 2026-08-31 |
 | [§89](#89-ai-cannot-read-absences-and-the-resource-calendar-view-renders-them-beside-meetings) | AI cannot read absences, and the Resource-calendar view renders them beside meetings | view-scoped AI prompts, unreleased | S | open |
 | [§90](#90-oncreateresource-is-unguarded-in-a-popout-and-cannot-take-guardedit--open) | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open | undefined` | found in the help-coverage slice-3 review, unreleased | open |
@@ -648,7 +648,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§421](#421-the-registers-own-index-table-cannot-see-eight-of-its-entries--closed-2026-09-07) | The register's own index table cannot see eight of its entries | found 2026-09-06 after it caused the §407 number collision | S | **CLOSED** 2026-09-07 |
 | [§422](#422-a-comma-bearing-email-address-is-destroyed-when-an-inline-edit-names-emails-with-a-changed-value--open) | A comma-bearing email address is destroyed when an inline edit names emails with a changed value | found 2026-09-06 in cold review of the preview/apply-parity branch; trigger claim refuted by probe 2026-09-07 | S | open |
 | [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--closed-2026-09-07) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit; it had rotted FOUR times and was incomplete besides | S | **CLOSED** 2026-09-07 |
-| [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
+| [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--closed-2026-09-13) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | **CLOSED** 2026-09-13 |
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | **CLOSED** 2026-09-07 |
 | [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
 | [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--closed-2026-09-07) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | **CLOSED** 2026-09-07 |
@@ -701,6 +701,26 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
 | [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--open) | Only three currencies are supported, and INR is wanted — OPEN | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | open |
 | [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--open) | Switching back to the modern layout moves the user off their current view — OPEN | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | open |
+| [§479](#479-releases-101-and-102-were-never-tagged-so-no-published-installer-carries-them-and-their-owed-packaged-build-checks-were-never-run--open) | Releases 1.0.1 and 1.0.2 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — OPEN | found 2026-09-13 by the housekeeping audit, from the CHANGELOG owed list and the RUNBOOK's unverified release steps | S — one tag through the normal release flow, then a manual pass over the packaged installer | open |
+| [§480](#480-the-desktop-installer-has-no-auto-update-and-its-update-feed-question-is-undecided-although-gitlab-67-is-closed--open) | The desktop installer has no auto-update and its update-feed question is undecided, although GitLab #67 is closed — OPEN | found 2026-09-13 by the housekeeping audit; GitLab #67 was closed with this remainder written into its own body | M — the feed decision (UNC share or HTTPS) first, then the updater and its release wiring | open |
+| [§481](#481-the-task-row-n-changes-badge-is-a-static-label-with-no-way-to-jump-to-the-linked-changes--open) | The task-row "N changes" badge is a static label with no way to jump to the linked changes — OPEN | found 2026-09-13 by the housekeeping audit, from the change-log register design's deferred click-to-jump | S — a jump handler threaded the way the RAID badge's is | open |
+| [§482](#482-the-document-asset-library-table-shows-no-image-thumbnails--open) | The document asset library table shows no image thumbnails — OPEN | found 2026-09-13 by the housekeeping audit, from the asset-preview lightbox design's named follow-up | S — a thumbnail column reusing the existing blob-URL lifecycle | open |
+| [§483](#483-moving-the-view-scoped-ai-guide-block-onto-the-turn-tail-slice-g2-is-specced-but-tracked-nowhere-so-the-cost-harness-still-has-no-real-candidate-layout--open) | Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout — OPEN | found 2026-09-13 by the housekeeping audit; `docs/AGENTS/ai-assistant.md` hands a decision to G2, and G2 had no entry or issue | M — the G2 layout as the harness's first real candidate arm, plus the usage-meter measurement it depends on | open |
+| [§484](#484-four-landmine-heavy-subsystems-have-no-docsagents-reference-and-insightsmd-omits-the-timelog-guardrail-detector--open) | Four landmine-heavy subsystems have no docs/AGENTS reference, and insights.md omits the Timelog guardrail detector — OPEN | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — four new subsystem files plus the insights.md correction, each citing symbols rather than line numbers | open |
+| [§485](#485-nothing-keeps-docsfeaturesmd-in-sync-with-libapp-feature-guidemd-and-the-human-facing-copy-has-already-drifted--open) | Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted — OPEN | found 2026-09-13 by the housekeeping audit's general-docs pass, which counted five false claims in docs/features.md | S — generate features.md from the guide, or add a section-parity check | open |
+| [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--open) | Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync — OPEN | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13 | M — a per-item opt-out, which is a new persisted field (all six write paths), plus the reconcile change | open |
+| [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning — OPEN | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
+| [§488](#488-the-390-h-booked-vs-104-h-planned-gap-seen-in-the-demo-is-unexplained-and-a-fixed-price-contract-converted-to-end-to-end-responsibility-has-no-model--open) | The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model — OPEN | GitLab #42 (F-5, demo 2026-09-11); its currency lead became #77 / §465 (closed 2026-09-12), and its external-resources lead was refuted in the issue's own comments | M — reproduce the gap on the demo data first; modelling an end-to-end contract type is the open design question | open |
+| [§489](#489-the-floating-helpmenu-has-no-deep-link-input-and-nothing-calls-for-one-yet--open) | The floating HelpMenu has no deep-link input, and nothing calls for one yet — OPEN | split 2026-09-13 from §424 (gap 4), whose modal half shipped as a popover and so never needed this route | S–M once a caller exists — a request prop following the remount-swallow rule | open |
+| [§490](#490-six-write-path-persistence-is-mitigated-per-slice-only-and-the-unified-codec-and-schema-rewrite-stays-deferred--open) | Six-write-path persistence is mitigated per slice only, and the unified codec and schema rewrite stays deferred — OPEN | tech-debt-register TD-2 (Phase 3 T10), moved into the register 2026-09-13 | L if ever built — a unified codec/schema layer across JSON, CSV, Markdown, both Turso layouts and IndexedDB; the near-term work is the decision | open |
+| [§491](#491-task-managertsx-is-3162-lines-over-the-1600-size-limit-and-its-6040-line-ratchet-baseline-constrains-nothing--open) | task-manager.tsx is 3162 lines, over the 1600 size LIMIT, and its 6040-line ratchet baseline constrains nothing — OPEN | tech-debt-register TD-5 (Phase 3 T5), moved into the register 2026-09-13 | M — consolidate the top-level hooks and effects, not a render-tree slice; re-baseline only after a real reduction | open |
+| [§492](#492-tasks-sectiontsx-is-still-one-fat-pane-owning-the-tasks-filters-table-board-and-calendar-glue-and-its-split-stays-deferred--open) | tasks-section.tsx is still one fat pane owning the tasks filters, table, board and calendar glue, and its split stays deferred — OPEN | tech-debt-register TD-7 (inline-ai-edit SP1, 2026-07-03), moved into the register 2026-09-13 | M — a table / board / toolbar split on the gantt and reports precedent | open |
+| [§493](#493-eslint-config-next-is-exact-pinned-at-1626-while-next-is-at-1634-and-both-have-since-published-1635--open) | eslint-config-next is exact-pinned at 16.2.6 while next is at 16.3.4, and both have since published 16.3.5 — OPEN | tech-debt-register TD-1 notes and its exact-pinned list, moved into the register 2026-09-13 | S — a bump that keeps the `settings.react.version` pin, run through the browser gates | open |
+| [§494](#494-typescript-7-has-been-published-and-nothing-has-been-run-against-it--open) | TypeScript 7 has been published and nothing has been run against it — OPEN | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S to assess (a `npx tsc --noEmit` run on a branch); unknown to land until that run exists | open |
+| [§495](#495-jsdom-30-has-been-published-and-the-layout-stub-suites-have-not-been-checked-against-it--open) | jsdom 30 has been published and the layout-stub suites have not been checked against it — OPEN | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S–M — a bump plus re-verifying the jsdom-has-no-layout suites by name | open |
+| [§496](#496-testing-libraryjest-dom-7-has-been-published-and-is-unassessed--open) | @testing-library/jest-dom 7 has been published and is unassessed — OPEN | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S — test-only, the cheapest of the deferred majors to attempt | open |
+| [§497](#497-playwright-and-axe-core-have-moved-past-the-pinned-ci-image-and-they-must-be-bumped-together-with-it--open) | Playwright and axe-core have moved past the pinned CI image, and they must be bumped together with it — OPEN | tech-debt-register deferred dependency table (lockstep row) and its Resolved lockstep rule, moved into the register 2026-09-13 | S–M — client, e2e image and axe in one MR, then re-measure the axe claims AGENTS.md quotes against 4.12.1 | open |
+| [§498](#498-the-msal-sign-in-flow-has-never-been-smoke-tested-against-a-real-microsoft-365-tenant--open) | The MSAL sign-in flow has never been smoke-tested against a real Microsoft 365 tenant — OPEN | tech-debt-register dependency table (`@azure/msal-browser` caveat), moved into the register 2026-09-13 | S–M — a documented manual smoke per MSAL bump, or a gated e2e with tenant secrets if a CI tenant is ever provisioned | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1389,6 +1409,8 @@ trusting "four" would not know to verify five.)
 (accepted)") is single-process only. Its own verdict says "Register as TD if the app moves" to a
 multi-instance deploy. Single-instance today ⇒ nothing to do; the trigger is a deployment change,
 not a code change. Do not open a ticket for it now, and do not lose it if hosting changes.
+
+**Folded in 2026-09-13 (housekeeping):** the untracked audit item "`/api/stt` and `sttApiKey` were never security-reviewed" (from `docs/security/threat-model.md`) is the same scope gap this entry already names, so a re-audit that closes this entry must cover the STT proxy route and its sealed key.
 
 ---
 
@@ -6516,9 +6538,16 @@ chip there would be a dead prompt.
 
 ---
 
-## 87. AI cannot read the activity log — CORRECTED 2026-08-18, stale
+## 87. AI cannot read the activity log — CLOSED 2026-09-13
 
-**Status:** open — an AI capability gap, corrected once and stale since. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-09-13 by the housekeeping triage — residue carried by §233. The capability gap
+this entry records is gone: `grep -n "search_history" src/app/chat-tool-defs.ts` → the tool is declared,
+and `sed -n '/^  activity: {/,/^  },/p' src/app/view-ai-scope.ts | grep -c "readingRequiresTool"` → 1. What
+is left is one stale test rationale — `grep -n "read tools are deferred" src/app/ask-claude-prompts.test.ts`
+still titles the assertion that `ASK_CLAUDE_PROMPTS.activity` is undefined — and §233, split out of this
+entry per its own closing paragraph, already carries exactly that, so no new successor was filed.
+
+**As filed:** open — an AI capability gap, corrected once and stale since. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 ★★★ **STALE — a read tool now exists, and this entry's own reasoning is what the fix had to solve.**
 `chat-tool-defs.ts` declares a `search_history` tool, and `chat-tools.ts` exposes
@@ -7731,6 +7760,8 @@ exists somewhere in the tree, and skips every `SCREAMING_CASE` name outright; ax
 hand-rolled control that a primitive would have done better. Re-measure before quoting any count
 above.
 
+**Folded in 2026-09-13 (housekeeping):** two untracked audit items — the `ModalHeader` close button carries no focus-ring class (`grep -c "FOCUS_RING" src/app/modal-header.tsx` → 0; eye-verify first, since the browser's default outline may already suffice) and the leftovers of `docs/handrolled-ui-inventory.md` (four new `role=dialog` files unread, the 0.221.0 budget border not eye-verified, per-site rows stale) — belong to this ratchet rather than to entries of their own.
+
 ---
 
 ## 103. An over-cap load silently and permanently destroyed the excess documents — CLOSED
@@ -8457,6 +8488,8 @@ direction from the one that bug is documented to fail in.
 ★ Nothing here is gated either. axe has no rule for a missing `title`, and the one name defect above
 is a control axe passes. The counts are reproducible with the script embedded in the inventory; the
 A/B judgement is not automatable and the inventory records every borderline call it made.
+
+**Folded in 2026-09-13 (housekeeping):** the untracked leftovers of `docs/tooltip-inventory.md` — the saved-views-menu and version-info tests, 16 of 19 tooltip additions with no assertion, four unchecked scope gaps and 8 new Class A rows — are this entry's remaining inventory work, not a separate item.
 
 ---
 
@@ -19280,6 +19313,8 @@ flow that moves DATA.
 ★ Severity is not uniform across the four and should not be ranked as one item. OOXML export has
 heavy unit coverage of the builders plus an ordered part manifest (§216); Jira sync and the backend
 switch have neither an e2e nor any browser-level test of the round trip.
+
+**Folded in 2026-09-13 (housekeeping):** a fifth flow joins the four — AI chat tool calls have no e2e either (`grep -rlni "chat" e2e` → only `e2e/header-row-uniformity.spec.ts`, which drives no chat turn), and the tracker file the 2026-05-19 chat-dispatcher plan named never existed.
 
 ---
 
@@ -31503,9 +31538,16 @@ which ARE genuinely repo knowledge, and drop only the biographies, which are not
 **Not doing it here.** Cutting ~53 lines of prose other releases wrote is a refactor, and folding it
 into a release commit would ship it unreviewed — the precise failure this branch spent a whole round
 correcting.
-## 424. No window or modal offers a help icon, though the deep-link channel already exists — OPEN
+## 424. No window or modal offers a help icon, though the deep-link channel already exists — CLOSED 2026-09-13
 
-**Status:** STILL OPEN, but the `ModalHeader` half shipped 2026-09-09. Modals now carry a
+**Status:** CLOSED 2026-09-13 by the housekeeping triage — residue carried by §489. The blast-radius
+paragraph below records that nothing remains unexamined: all 20 `ModalHeader` sites carry a help id,
+all 13 headerless sites and both floating windows are decided, and the modal half shipped as a popover
+over the dialog rather than a deep link. Only gap 4 remained, and this entry itself downgraded it to a
+separate want with no caller: `grep -n "export function HelpMenu" src/app/help-menu.tsx` → the signature
+still takes `{ lang }` only. §489 carries that want.
+
+**As filed:** STILL OPEN, but the `ModalHeader` half shipped 2026-09-09. Modals now carry a
 question-mark icon that opens their own Help entry in a popover OVER the dialog — not a deep link,
 for the reason the design-fork paragraph below records. Verified 2026-09-09 by commands actually
 run:
@@ -31572,7 +31614,7 @@ disagree and an earlier revision of this paragraph mixed them** — it quoted th
 `edit-modal-chrome.tsx` "raw 3", and no single pattern yields both. Re-measured 2026-09-10 over
 the recursive non-test corpus:
 
-| file | raw `<Modal[s>]` | raw `<Modal` | stripped |
+| file | raw `<Modal[s>]` | raw `<Modal\b` | stripped |
 |---|---|---|---|
 | `absence-edit-modal.tsx` | 1 | 1 | 0 |
 | `edit-modal-chrome.tsx` | 2 | 3 | 1 |
@@ -35361,3 +35403,389 @@ layout switch, and (c) does not touch it.
 
 The decision owed is whether a layout switch is a NAVIGATION. (b) says yes and goes home; (c) says no.
 Size S–M.
+
+## 479. Releases 1.0.1 and 1.0.2 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — OPEN
+
+**Status:** OPEN 2026-09-13 — measured, not reasoned. `grep -n "APP_VERSION = " src/app/version.ts`
+→ `1.0.2`, while `git ls-remote --tags origin` lists `v1.0.0` alone. `grep -n "Seven behaviours" CHANGELOG.md`
+→ 1 hit, inside the 1.0.1 section, and `grep -n "unverified here" docs/RUNBOOK.md` → 2 hits.
+
+`CHANGELOG.md` records 1.0.1 and 1.0.2, both dated 2026-09-12, but the remote carries only the
+`v1.0.0` tag. The installer is built and published only by a tag pipeline (`desktop-package-tag`, then
+`publish-release`), so the installer testers download today contains neither release's fixes.
+
+Work, in order:
+- Tag `v1.0.2` through the normal release flow. `tag-version-check` asserts that the tag equals `APP_VERSION`.
+- Use that pipeline to confirm the two GitLab behaviours `docs/RUNBOOK.md` marks "unverified here".
+- Run the seven behaviours the 1.0.1 notes list as confirmable only against a packaged build, against
+  the resulting installer, and record the outcome.
+
+Size S. The tag is one command; the packaged checks are a manual pass.
+
+**Source:** `CHANGELOG.md` (1.0.1 section), `docs/RUNBOOK.md`, `docs/desktop-rollout.md`; audit candidate 1 in the 2026-09-13 housekeeping list
+
+## 480. The desktop installer has no auto-update and its update-feed question is undecided, although GitLab #67 is closed — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rn "electron-updater" desktop/src desktop/package.json desktop/electron-builder.yml`
+→ no hits; `grep -n "ships no auto-updater" CHANGELOG.md` → 1 hit; `glab issue view 67` → state closed.
+
+★★ **GitLab #67 is closed, but its own body says the work is not done.** Its 2026-09-11 update
+records that the installer shipped in 1.0.0 and that "What remains is **auto-update**". Nothing else
+tracks that remainder, so closing the issue dropped it. **#67 should be reopened**, or replaced by a
+successor issue, so that the remainder has an owner.
+
+Today the only update path is a manual Help → "Check for updates…" link-out. The open design
+question is the feed: can electron-updater's generic provider be served from a UNC share, or does it
+need HTTPS? The GitLab project is internal and serves no unauthenticated downloads, so a GitLab-backed
+feed would need a credential on every laptop. `desktop/electron-builder.yml` also notes that while
+builds are unsigned, the share's ACL is the only integrity control on updates. That ties this entry
+to §487.
+
+Size M.
+
+**Source:** `docs/superpowers/specs/2026-09-10-electron-app-bundling-design.md`, `docs/superpowers/specs/2026-09-10-readme-and-releases-design.md`, GitLab #67; audit candidate 2
+
+## 481. The task-row "N changes" badge is a static label with no way to jump to the linked changes — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n -A 3 "changeRefs && changeRefs.length > 0" src/app/task-row.tsx`
+→ a bare `<span>` with only `title`, `aria-label` and `className`, and no handler.
+`grep -rn "onJumpToChange" src/app --include=*.tsx` → no hits, while `grep -c "onJumpToRaid" src/app/task-row.tsx`
+→ 2 (the RAID badge beside it navigates).
+
+The change-log design deferred the jump in so many words: "The badge is display-only; a
+click-to-jump from" it was left for later. The RAID badge next to it already navigates through
+`onJumpToRaid`. The changes badge should get the same treatment: a button with a row-unique
+accessible name, and a jump that opens the Changes view filtered to the task's linked changes.
+
+★ Per AGENTS.md's Kanban note, anything a board card renders must take its handler as a prop, never
+from `useTaskRowContext()`. Do the same here if the badge is also shown on cards.
+
+Size S.
+
+**Source:** `docs/superpowers/specs/2026-06-03-change-log-register-design.md`; audit candidate 3
+
+## 482. The document asset library table shows no image thumbnails — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rli thumbnail src/app` → only `src/app/document-asset-upload.test.ts`,
+and `grep -n "No thumbnails in the library table" docs/superpowers/specs/2026-09-02-asset-preview-lightbox-design.md`
+→ 1 hit. Before this entry the register had no match for "thumbnail".
+
+The lightbox design lists library thumbnails as "a worthwhile follow-up and a different slice".
+Nothing has been built or filed since.
+
+★ Asset images are Turso-gated and render through blob URLs. Thumbnails must therefore reuse the
+existing blob-URL lifecycle, not fetch bytes per row. Read `docs/AGENTS/documents.md`'s "Asset images
+(S3c-1)" section before starting.
+
+Size S.
+
+**Source:** `docs/superpowers/specs/2026-09-02-asset-preview-lightbox-design.md`; audit candidate 4
+
+## 483. Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -c "slice G2" docs/AGENTS/ai-assistant.md` → 3, and
+`grep -n "deliberate alias" docs/ai-cost.md` → 1 ("candidate arm is at present a deliberate alias of the
+current layout"). Before this entry, `grep -c "G2" docs/open-followups.md` → 0.
+
+The guide-block cache-split design sized G2 (moving the view-scoped guides onto the turn tail) and
+deliberately left it out of scope. `docs/AGENTS/ai-assistant.md` then defers an open question to G2 and
+names the measurement that should settle it: cache-write volume against view-switch frequency, from
+the usage meter. Yet G2 had no register entry and no issue.
+
+The prompt-quality harness can only run A/A self-tests until a gated slice registers a real layout. G2
+is the natural first candidate arm. One piece of work should cover both: the measurement, then G2
+registered as a harness variant.
+
+Size M.
+
+**Source:** `docs/superpowers/specs/2026-09-08-ai-guide-block-cache-split-design.md`, `docs/superpowers/specs/2026-09-08-ai-cost-roadmap-design.md`, `docs/superpowers/specs/2026-09-09-ai-prompt-quality-harness-design.md`, `docs/ai-cost.md`; audit candidate 5
+
+## 484. Four landmine-heavy subsystems have no docs/AGENTS reference, and insights.md omits the Timelog guardrail detector — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -c "timelogGuardrailInsights" docs/AGENTS/insights.md` → 0, against
+`grep -c "timelogGuardrailInsights" src/app/insights/detect.ts` → 2. `ls docs/AGENTS` lists 12 files, and
+none covers the desktop shell, budget/FX, storage/recovery or the undo engine.
+
+No subsystem reference exists for four areas:
+- **The Electron desktop shell:** `desktop/`, the installer and the tag release.
+- **Budget/FX:** the 1.0.2 currency boundary.
+- **Storage:** the backends, Turso load/save and `recovery/`, currently scattered across AGENTS.md.
+- **The undo engine:** `undo/`, which has a single CODEMAP row.
+
+All four ship code with non-obvious rules.
+
+Separately, `docs/AGENTS/insights.md` still describes "the five original detectors" and never mentions
+`timelogGuardrailInsights`, which `detect.ts` both defines and runs.
+
+★ Adding a file to `docs/AGENTS/` also means updating AGENTS.md's two subsystem tables and its file
+count ("the twelve files below"). `docs:symbols:check` scans the new file as soon as it lands.
+
+Size M.
+
+**Source:** the 2026-09-13 housekeeping audit's docs/AGENTS findings (coverage gaps section)
+
+## 485. Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rln "docs/features.md" scripts .gitlab-ci.yml package.json` → no
+output, beside the positive control `grep -c "app-feature-guide.md" scripts/gen-operating-guide.mjs` → 1.
+So the guide has a reader and `docs/features.md` has none.
+
+`lib/app-feature-guide.md` is read by `scripts/gen-operating-guide.mjs`, which validates each section's
+view ids and fails on an unknown one. `docs/features.md` restates the same feature catalogue for human
+readers, and nothing checks it. The 2026-09-13 audit found five false claims in it: dead anchors, a
+wrong secret count, and an export claim.
+
+Pick one:
+- Generate `docs/features.md` from the guide.
+- Add a parity check beside `docs:claims:check` that fails when the two files' sections diverge.
+
+Either way, the drift that already exists must be corrected first.
+
+Size S.
+
+**Source:** `docs/features.md`, `lib/app-feature-guide.md`; audit candidate 8
+
+## 486. Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified in a browser. The limit is on record:
+`grep -n "pruned event" docs/superpowers/plans/2026-07-02-calendar-twoway-sp5-autopull.md` → 1 hit, SP5's
+"Known limitation (document, don't fix)". `grep -n "^| TD-3" docs/tech-debt-register.md` → the only other
+record. Before this entry, `grep -c "pruned event" docs/open-followups.md` → 0.
+
+With auto-push on (it shares the `.auto` flag with auto-pull), deleting the Outlook event for an entity
+that is still pushable does not stick: the next cycle re-creates it. SP5 documented this as a limit and
+left the fix, a permanent per-item opt-out, as future work. It lived only in the tech-debt register,
+which has no owner, even though it is a user-visible defect.
+
+★ An opt-out is a new persisted `Workspace` field, so AGENTS.md's six-write-path rule applies. The
+reconcile engine must also treat an opted-out item as neither pushable nor pull-creatable.
+
+Size M. This entry replaces tech-debt-register TD-3.
+
+**Source:** `docs/superpowers/plans/2026-07-02-calendar-twoway-sp5-autopull.md`, `docs/tech-debt-register.md` (TD-3); audit candidate 9
+
+## 487. The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n "No certificate is available" desktop/electron-builder.yml` → 1
+hit, `grep -n "signExecutable: false" desktop/electron-builder.yml` → 2 hits (the key itself and the comment
+explaining it), and
+`grep -n "Run anyway" docs/desktop-rollout.md` → 1 hit. The rollout guide tells every tester to click past
+"Windows protected your PC".
+
+No code-signing certificate is available, so the build turns signing off, and every Windows install
+shows the unknown-publisher SmartScreen warning.
+
+The work:
+- Obtain a certificate. This is an organisational decision, not code.
+- Store it as a protected CI variable.
+- Sign in the tag pipeline's `desktop-package-tag` job.
+
+★★ Keep resource editing on. The comment block above `signExecutable` in `desktop/electron-builder.yml`
+explains that setting `signAndEditExecutable: false` skips resource editing as well as signing. That is
+the step that stamps the icon and the VersionInfo strings into the exe. Enable signing without
+reintroducing that key.
+
+★ This also affects §480. Until builds are signed, an updater has no integrity control except the
+share's ACL.
+
+**Source:** `desktop/electron-builder.yml`, `docs/desktop-rollout.md`; audit candidate 10
+
+## 488. The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified against the demo dataset, which nobody has
+reproduced the gap on. `grep -n "BUDGET_TYPES = " src/app/types.ts` → `["tm", "fixed"]`, so no third
+contract type exists. `glab issue view 42` → state open.
+
+GitLab #42 reports three symptoms: 390 h booked against 104 h planned, a budget value that differs
+between the two sides, and unreliable remaining-effort figures. The root cause given on the call was
+an unmodelled case: a fixed-price project converted to end-to-end responsibility.
+
+The issue's code-check comments split it into two leads:
+- **The currency lead** was confirmed, filed as #77, recorded as §465, and fixed on 2026-09-12. It
+  explains only the "budget value differs" symptom, and only for non-EUR fixed-price buckets.
+- **The external-resources lead** was refuted: `pickMatchableResources` excludes external resources
+  from applied TimeLog actuals, just as planned hours do.
+
+Two things are still unexplained by any entry. The first is the 390 h vs 104 h gap itself. The second
+is the end-to-end contract type: `BUDGET_TYPES` has no member for it and no conversion path. §472 (the
+burndown values a fixed-price bucket as hours) may feed the remaining-effort symptom, but it is not the
+cause the issue names.
+
+Work: reproduce on the demo data, confirm or refute §472's part, then decide how an end-to-end contract
+is modelled.
+
+**Source:** GitLab #42 and its two code-check comments; the 2026-09-13 register triage
+
+## 489. The floating HelpMenu has no deep-link input, and nothing calls for one yet — OPEN
+
+**Status:** OPEN 2026-09-13 — a deferred want with no caller, not a defect. Reproduced by
+`grep -n "export function HelpMenu" src/app/help-menu.tsx` → the signature takes `{ lang }` only.
+
+`HelpMenu` owns its query locally, and `HelpContentPane`'s `scrollToSection` is private. So "open Help at
+entry X" is possible only through the in-pane Help view (`requestHelpConcept` → `pendingHelpConcept` →
+`HelpView`).
+
+§424's modal half shipped as a popover over the dialog rather than a deep link, so no current surface
+needs this. Revisit only if a surface appears that must open the floating menu at a specific entry. If
+one does, it inherits the remount-swallow rule AGENTS.md prescribes for request props: a sentinel seed,
+and a parent that clears the request.
+
+Size S–M, once a caller exists.
+
+**Source:** `docs/open-followups.md` §424 (gap 4); the 2026-09-13 register triage
+
+## 490. Six-write-path persistence is mitigated per slice only, and the unified codec and schema rewrite stays deferred — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified; this is a deferred design choice, not an observed
+defect. `grep -n "^| TD-2" docs/tech-debt-register.md` → the row, deferred since Phase 3 T10, and
+`grep -c "ENTITY_SPECS" src/app/turso-schema.ts` → 6, so the spec registry that carries part of the
+mitigation still exists.
+
+A new persisted `Workspace` field has to be written in six places, and a missed one silently drops data
+on that backend. `entity-persistence-registry.test.ts` mitigates this, but only per slice: AGENTS.md
+records that its meta-blob rows cover different subsets of the six, and that the Turso tenant path for
+`activityLog` was caught in review rather than by any gate.
+
+A unified codec and schema rewrite would remove this class of bug. It has been out of scope since Phase
+3. Decide whether it is ever wanted. If not, turn this entry into a decision record, so the six-path
+rule is read as a permanent constraint rather than as pending work.
+
+Size L if built.
+
+**Source:** `docs/tech-debt-register.md` (TD-2)
+
+## 491. task-manager.tsx is 3162 lines, over the 1600 size LIMIT, and its 6040-line ratchet baseline constrains nothing — OPEN
+
+**Status:** OPEN 2026-09-13 — measured on `b39517ec` with the gate's own metric (file text split on
+newlines, which is `wc -l` + 1) → **3162**. `grep -n "task-manager.tsx" docs/baselines/file-sizes.json`
+→ baseline **6040**, and `grep -n "^const LIMIT" scripts/check-file-sizes.mjs` → 1600.
+
+The root orchestrator is nearly twice the size LIMIT. Only its baseline entry governs it, and that
+entry was doubled to 6040 on 2026-09-03, leaving 2878 lines of headroom. In practice the file can grow
+almost without limit before any gate notices.
+
+TD-5's recorded judgement still stands. Five move-only extractions have already been done, and further
+slicing of the render tree would only produce pass-through modules. The higher-leverage move is to
+consolidate top-level hooks and effects.
+
+★★ Quote the measurement and the baseline as two separate figures, never the baseline alone. TD-5
+records how a single combined number went stale twice.
+
+Size M.
+
+**Source:** `docs/tech-debt-register.md` (TD-5)
+
+## 492. tasks-section.tsx is still one fat pane owning the tasks filters, table, board and calendar glue, and its split stays deferred — OPEN
+
+**Status:** OPEN 2026-09-13 — measured on `b39517ec` with the gate's own metric → **1084** lines.
+`grep -n "tasks-section.tsx" docs/baselines/file-sizes.json` → baseline **2162**, which is inert: the file
+is under the 1600 LIMIT, so only the LIMIT applies.
+
+The pane owns the tasks filters, table, Kanban board and calendar glue. AGENTS.md's panel-split
+convention (orchestrator + `*-rows` + `*-toolbar`) says to split a panel well before it reaches the
+ratchet. The file is past the ~700-line trigger that convention names. It has also drifted repeatedly:
+830, then 1081, 1050, 1073 and now 1084.
+
+Size M.
+
+**Source:** `docs/tech-debt-register.md` (TD-7)
+
+## 493. eslint-config-next is exact-pinned at 16.2.6 while next is at 16.3.4, and both have since published 16.3.5 — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n '"next"\|"eslint-config-next"' package.json` → `16.3.4` and `16.2.6`;
+`npm view next version` and `npm view eslint-config-next version` → both `16.3.5` on 2026-09-13; and
+`grep -n "reactVersion" eslint.config.mjs` → the derived React-version pin is in place.
+
+Lockstep between the two was never required. TD-1 records it was at 16.2.6 against 16.2.11 before the
+16.3 upgrade. But the gap now spans a minor version, and both packages have moved again.
+
+★★ A bump of `eslint-config-next` must keep the `settings.react.version` pin in `eslint.config.mjs`
+rather than reinstate "detect". That pin is what routes around `eslint-plugin-react`'s call to the
+removed `context.getFilename` under eslint 10.
+
+★ Moving `next` itself is a framework change. It needs the browser gates (e2e, axe, `e2e:smoke:prod`)
+and CONTRIBUTING.md's exact-pin rule.
+
+Size S.
+
+**Source:** `docs/tech-debt-register.md` (TD-1 notes, "Exact-pinned" list)
+
+## 494. TypeScript 7 has been published and nothing has been run against it — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n '"typescript"' package.json` → `^6.0.3`, and
+`npm view typescript version` → `7.0.2`. Never machine-verified: no typecheck has been run against 7.
+
+TypeScript 6.0.3 landed on 2026-07-03 with zero tsc errors, but no data exists for 7. Assess first, on
+a branch, before quoting a risk either way:
+- Run `npx tsc --noEmit`.
+- Check AGENTS.md's tsc-only traps: Tiptap commands typed by module augmentation, and the regex `/s`
+  flag under the project's target.
+
+Size S to assess.
+
+**Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", `typescript` row)
+
+## 495. jsdom 30 has been published and the layout-stub suites have not been checked against it — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n '"jsdom"' package.json` → `^29.1.1`, and `npm view jsdom version` →
+`30.0.1`. Never machine-verified against 30.
+
+jsdom 29 landed on 2026-07-03 with the note that the "layout-stub landmines hold". Those landmines are
+the risk surface: jsdom has no layout, and several suites here are written around that fact. After a
+bump, re-verify those suites by name, not only by the suite's exit code. A green run can also mean an
+assertion started matching a different layout stub.
+
+★ `jsonToWorkspace` needs a DOM on its load paths, so a jsdom change also reaches codec tests.
+
+Size S–M.
+
+**Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", `jsdom` row)
+
+## 496. @testing-library/jest-dom 7 has been published and is unassessed — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n '"@testing-library/jest-dom"' package.json` → `^6.6.3` (6.9.1
+installed), and `npm view @testing-library/jest-dom version` → `7.0.1`. Never machine-verified against 7.
+
+This is a test-only dependency and the cheapest of the deferred majors to try. A matcher that changed
+meaning can leave a suite green for the wrong reason. Run the full suite and `npx tsc --noEmit`, since
+the matcher types are only checked by tsc, never by vitest.
+
+Size S.
+
+**Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", `@testing-library/jest-dom` row)
+
+## 497. Playwright and axe-core have moved past the pinned CI image, and they must be bumped together with it — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n "playwright:v" .gitlab-ci.yml` → two sites on `v1.61.1-jammy`;
+`grep -n '"@playwright/test"\|"@axe-core/playwright"' package.json` → `^1.61.1` and `^4.12.1`. `npm view` on
+2026-09-13 → `1.63.0` and `4.13.0`.
+
+The client and the e2e image must move in one MR, or the e2e job runs a mismatched browser set. The
+tech-debt register's Resolved table records that rule from the last bump. `@axe-core/playwright` goes in
+the same MR, because it drives the a11y gate.
+
+★★ AGENTS.md quotes several measurements against axe-core 4.12.1: the rule count, no rule flagging
+duplicate control names, and `label-content-name-mismatch` being excluded as experimental. Re-run each
+of those reproduce commands after the bump, rather than assuming they still hold.
+
+Size S–M.
+
+**Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", Playwright + axe lockstep row)
+
+## 498. The MSAL sign-in flow has never been smoke-tested against a real Microsoft 365 tenant — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified against a tenant. `grep -rln "msal" e2e` → no output,
+and `grep -rln "msal-browser" src/app --include=*.test.tsx` → 2 files (`use-ms-auth.test.tsx`,
+`msal-redirect/page.test.tsx`). MSAL is exercised only in unit tests.
+
+`@azure/msal-browser` moved to 5.x on 2026-07-03 and went green, but no CI tenant exists. So the live
+Microsoft 365 token flow (the Outlook calendar integrations depend on it) has never been exercised by
+anything the pipeline runs. `npm view @azure/msal-browser version` → `5.21.0`, against the `^5.16.0`
+specifier, so the next bump will also land unexercised.
+
+Either document a manual real-tenant smoke in `docs/RUNBOOK.md` and run it on every MSAL bump, or
+provision a test tenant and add a gated e2e.
+
+Size S–M.
+
+**Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", `@azure/msal-browser` row)

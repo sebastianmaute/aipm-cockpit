@@ -1,5 +1,16 @@
 # Tech Debt Register
 
+> **ARCHIVED 2026-09-13 — this file is no longer maintained.** Its open rows moved to
+> `docs/open-followups.md` entries §486 and §490–§498 on 2026-09-13, and are being mirrored as GitLab
+> issues from there:
+> - TD-2 → §490
+> - TD-3 → §486
+> - TD-5 → §491
+> - TD-7 → §492
+> - the dependency rows → §493–§498
+>
+> Add nothing here; file new debt in the register or in GitLab. The body below is kept as a historical record.
+
 > Living doc. Every entry has an owner + review date. Review quarterly. Folklore dies here.
 > Supersedes `tech-debt-register-inputs.md` (migrated + deleted in Phase 4).
 
