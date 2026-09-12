@@ -398,6 +398,46 @@ describe("BudgetPanel", () => {
     expect(winLoss).toHaveTextContent("$10,000");
   });
 
+  // ★★★ AN EUR BUCKET CARRYING A STALE POSITIVE OVERRIDE — the exact shape
+  // `resolveRate`'s EUR-FIRST ordering exists to repair (the modal's currency
+  // <select> never clears the field). Check the override first and the rate is
+  // 2, at which the engine DEFLATES the contract through `currencyToEur` while
+  // `cost` — role rates, EUR by construction — is untouched. Both figures below
+  // are `revenue − cost`, so the two terms land in different units and the tile
+  // is wrong by (rate − 1) × cost.
+  // ★★ NON-ZERO COST IS THE WHOLE POINT: at zero cost the two orderings agree
+  // exactly, and every other fixture in this file has zero cost — including
+  // `usdFixedBucket` above, whose hours are budgeted but UNBOOKED. Cost is
+  // `actualHours × internalRate`, so the hours must be BOOKED.
+  const eurOverrideFixed: BudgetBucket[] = [{
+    ...buckets[0], type: "fixed", currency: "EUR", fxRateOverride: 2, fixedPriceAmount: 20000,
+    allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
+  }];
+
+  test("an EUR bucket's win/loss ignores a stale rate override", () => {
+    // cost = 80 h × €100 = €8,000 (a RATED row, so `costIsKnowable` holds and
+    // the tile is a figure, not the "—" the unstaffed fixture above renders).
+    // Win/loss = 20,000 − 8,000 = €12,000. Honour the override instead and the
+    // engine reads revenue as 20,000 / 2 = 10,000, subtracts the same
+    // unconverted 8,000, and the panel's `inCur` multiplies the difference back
+    // by 2 → €4,000, i.e. contract − 2 × cost. MEASURED, not derived.
+    render(<BudgetPanel {...props} buckets={eurOverrideFixed} />);
+    const winLoss = screen.getByText("Win / loss").parentElement!;
+    expect(winLoss).toHaveTextContent("€12,000");
+  });
+
+  test("an EUR bucket's contribution-margin percent ignores a stale rate override", () => {
+    // The half NO round trip can repair: `cci()` converts `.amount` and passes
+    // `.percent` through untouched, so a deflated revenue reaches the screen as
+    // rendered. 12,000 / 20,000 = 60.0%; honouring the override gives
+    // (10,000 − 8,000) / 10,000 = 20.0%. Index 1 is the BUCKET tile — the
+    // project rollup renders the same label first and does not call `cci()`.
+    render(<BudgetPanel {...props} buckets={eurOverrideFixed} />);
+    const tiles = screen.getAllByText("Contribution margin");
+    expect(tiles).toHaveLength(2); // positive control: rollup + bucket both rendered
+    expect(tiles[1].closest("div.rounded-lg")!).toHaveTextContent("60.0%");
+  });
+
   test("ArrowUp on the top bucket's handle is a no-op", () => {
     const onChangeBuckets = vi.fn();
     render(<BudgetPanel {...props} buckets={twoBuckets()} onChangeBuckets={onChangeBuckets} />);
