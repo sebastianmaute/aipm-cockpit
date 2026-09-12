@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   sanitizeBudgetBucket,
   sanitizeFxRates,
+  sanitizePlan,
   encodeAllocations,
   decodeAllocations,
   encodeDisciplineAllocations,
@@ -259,5 +260,19 @@ describe("sanitizeFxRates", () => {
   test("rejects non-EUR base / missing date", () => {
     expect(sanitizeFxRates({ base: "USD", date: "2026-05-26", fetchedAt: "x", rates: {} })).toBeNull();
     expect(sanitizeFxRates({ base: "EUR", date: "", fetchedAt: "x", rates: {} })).toBeNull();
+  });
+});
+
+describe("sanitizePlan — currency is the supported union, not a free string", () => {
+  test("a plan currency outside the supported union falls back to EUR", () => {
+    const plan = sanitizePlan({ startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "CHF" }, "2026-01-01");
+    // Role rates are denominated in the plan currency and the budget engine
+    // treats them as EUR, so an unsupported currency was a silent mislabel
+    // rather than a supported feature (§465).
+    expect(plan.currency).toBe("EUR");
+  });
+  test("a supported currency survives", () => {
+    const plan = sanitizePlan({ startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "USD" }, "2026-01-01");
+    expect(plan.currency).toBe("USD");
   });
 });

@@ -39,7 +39,7 @@ function wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" };
+const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const };
 
 describe("DashboardPanel", () => {
   it("renders an empty workspace without crashing", () => {

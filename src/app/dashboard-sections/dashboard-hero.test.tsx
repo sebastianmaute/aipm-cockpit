@@ -6,7 +6,7 @@ import type { ProjectStatus } from "../types";
 import { computeDashboard, buildDashboardInput } from "../dashboard";
 import { DashboardHero } from "./dashboard-hero";
 
-const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" };
+const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const };
 
 function model() {
   return computeDashboard(

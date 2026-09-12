@@ -565,7 +565,10 @@ export type ResourcePlan = {
   startDate: string; // "YYYY-MM-DD"
   endDate: string; // "YYYY-MM-DD"
   granularity: PlanGranularity; // canonical (editable) granularity
-  currency: string; // ISO 4217
+  /** Plan base currency. Role rates and per-bucket rate overrides are
+   *  denominated in it, and the budget engine treats those as EUR — so the
+   *  union is what keeps "all money is EUR" honest rather than aspirational. */
+  currency: BudgetCurrency;
   /** When true, budget-hours cells for allocations WITH assigned resources
    *  mirror planned capacity (read-only). Absent ⇒ false (manual entry). */
   budgetFollowsPlan?: boolean;

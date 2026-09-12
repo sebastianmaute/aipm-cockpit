@@ -5,7 +5,7 @@ import { emptyWorkspace } from "./workspace";
 
 function wsWith(budgetFollowsPlan: boolean) {
   const ws = emptyWorkspace();
-  return { ...ws, plan: { ...ws.plan, startDate: "2026-01-01", endDate: "2026-06-30", granularity: "month" as const, currency: "EUR", ...(budgetFollowsPlan ? { budgetFollowsPlan: true } : {}) } };
+  return { ...ws, plan: { ...ws.plan, startDate: "2026-01-01", endDate: "2026-06-30", granularity: "month" as const, currency: "EUR" as const, ...(budgetFollowsPlan ? { budgetFollowsPlan: true } : {}) } };
 }
 
 describe("plan codec round-trip: budgetFollowsPlan", () => {
