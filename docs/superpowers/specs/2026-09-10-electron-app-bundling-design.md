@@ -170,6 +170,27 @@ Consequences, stated plainly:
 
 **Cheap hedge, not taken by default:** a **self-signed** certificate does nothing for SmartScreen but restores the updater's publisher-match check, giving tamper-evidence on the update chain for near-zero cost. Worth adopting if the share's ACLs are not firmly owned.
 
+### As shipped, 2026-09-12: no auto-update yet
+
+Everything above in this section describes the *intended* update path. **None of it is built.** What ships is a manual check. Two separate reasons, and they are not the same strength — conflating them is how this subsection read on its first draft.
+
+**Auto-UPDATE is refused on the merits.** `electron-updater` needs a location it can `GET` without a human, and the GitLab project is `internal`: it serves nothing to an unauthenticated caller, so an app polling it on its own would never get a reply. The two ways to change that are both worse than the problem:
+
+- **A shared token baked into the app.** Every laptop then carries a credential that reads the project, and that token becomes the only thing standing between an attacker and the update channel.
+- **A writable network share.** Then the share's ACL is the only control — which the *Security: unsigned* note above already states plainly.
+
+Both land in the same place, and the unsigned decision is what makes it sharp: with `verifyUpdateCodeSignature: false` there is no publisher check behind the fetch, so whichever of those two you pick is the **sole** integrity control over code that is fetched *and executed* on every colleague's machine at next launch. A link the user clicks keeps the authentication where it already is — in their own browser, as themselves — and keeps the *decision* to install with the person, which an unsigned channel makes the honest arrangement anyway.
+
+**Decision, closed: no check.** What ships is the manual menu item alone — no polling, no version comparison, no automatic check of any kind. The reasoning above is why the manual route is the right one, not a staging post toward an automatic one; an earlier revision of this section argued the case FOR a version check at some length, which read as reopening a question the user had closed.
+
+**Rejected alternative: an in-app login.** A `BrowserWindow` pointed at GitLab's own sign-in would avoid a baked credential entirely. It is nonetheless worse: the app would then hold the user's whole GitLab session — every project they can reach, not a scoped read of this one — inside a shell whose renderer is deliberately kept at browser-tab trust with no preload. Strictly more exposure than the token it replaces.
+
+**What ships instead.** `RELEASES_URL` (`desktop/src/lib/constants.ts`) names the project's Releases page. `HELP_MENU_ITEMS` gains a third entry, **Help → Check for updates…**, last in the menu. The id→behaviour decision is the pure `helpAction` in `desktop/src/lib/menu-model.ts`, which returns a `HelpMenuAction`; `helpMenuClick` in `desktop/src/main.ts` switches on that and calls `shell.openExternal`. The split is not cosmetic: root `tsconfig.json` excludes `desktop/src/main.ts`, so a mapping written there is typechecked only by the desktop build (`allow_failure: true` on a merge request), while `menu-model.ts` is covered by the blocking `typecheck` job — and `helpMenuClick` runs eagerly during `start()`, where a throw rejects startup and takes the whole app down, so its default branch logs and returns a no-op instead. (`app.whenReady().then(start)` now has a `.catch` routing that rejection through `fail()`, so such a throw is at least visible — logged, with a dialog — rather than the silent non-start it used to be. It still leaves the user with no app, which is why the no-op branch stays.) `formatVersionDetail` now also states that updates are manual and repeats the URL, so the dialog a user already opens to answer "what version am I on" answers "and where is a newer one" in the same breath — silence there reads as *the app keeps itself current*, which would leave people on a stale build indefinitely.
+
+That dialog also carries a second button, **Open releases page**, beside OK. The URL stays in the message text as well, because a screenshot of the dialog is a common way this gets passed around and a button is not readable in one. `VERSION_DIALOG_BUTTONS` pairs each label with a `VersionDialogAction` in one row, so the response index cannot come to mean something other than its label; `defaultId` and `cancelId` both point at OK, so Enter and Escape dismiss rather than launching a browser. The *entire* options object comes from the pure `versionDialogOptions`, for the same typecheck-scope reason as `helpAction` — an option spelled in `main.ts` is reachable by no unit test and no blocking job, so `defaultId: 1` would have shipped green. Both this button and the menu item call the single `openReleasesPage` in `desktop/src/main.ts` — one `shell.openExternal` call site, not two copies.
+
+**Open question 1 stays open.** Choosing a manual route answers nothing about whether `electron-updater`'s generic provider works over UNC versus an internal HTTPS feed; that spike is still owed before an UPDATE FEED is committed to. ★ That is §9's pre-existing question about the updater, and it is not the version check closed above — do not read the two as one open topic.
+
 ---
 
 ## 8. Testing

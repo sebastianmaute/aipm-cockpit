@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { APP_HOST, APP_ORIGIN, APP_PORT } from "./constants";
+import { APP_HOST, APP_ORIGIN, APP_PORT, RELEASES_URL } from "./constants";
 
 describe("desktop origin", () => {
   // ★★★ These two values are HALF THE BROWSER ORIGIN. IndexedDB is scoped to
@@ -26,5 +26,24 @@ describe("desktop origin", () => {
   it("avoids every port the repo's own tooling owns", () => {
     // 3000 dev server, 3100 isolated axe runs, 3200 e2e:smoke:prod.
     expect([3000, 3100, 3200]).not.toContain(APP_PORT);
+  });
+});
+
+describe("releases page", () => {
+  it("points at this project's own releases page", () => {
+    // The Help menu hands this to shell.openExternal, so it is the address a
+    // user's browser is sent to, and a typo would present as a 404 with no
+    // other symptom.
+    //
+    // ★★ WHAT THIS TEST CANNOT DO is tell you the URL is right -- an exact
+    // string pinned against itself pins a typo just as happily. It only makes
+    // a LATER change loud. The value was cross-checked by hand when written,
+    // against `git remote -v` (git@gitlab.example.com:example-group/public-collab/
+    // aipm-cockpit.git) and the two README shields badges, which carry the
+    // same `example-group/public-collab/aipm-cockpit` path. Re-check it the same way
+    // if you ever change it; do not "update the test to match".
+    expect(RELEASES_URL).toBe(
+      "https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/releases",
+    );
   });
 });

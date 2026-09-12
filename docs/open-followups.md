@@ -690,6 +690,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§465](#465-non-eur-fixed-price-buckets-every-money-figure-is-inflated-by-the-fx-rate-and-the-margin-is-wrong--closed-2026-09-12) | Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong | found 2026-09-11 by the same read-only code check (issue #77, beside issue #42) | M — closed by the `feat/budget-currency-boundary` slice, which put the boundary at the ENGINE (`4d284c40` converts at `computeBucketReport`'s single read; four surfaces relabelled EUR; `ResourcePlan.currency` narrowed to a union) | **CLOSED** 2026-09-12 |
 | [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--open) | Help promises a burn-down forecast that the chart does not draw — OPEN | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | open |
 | [§467](#467-fields-the-offered-surface-sweeps-typed-probes-cannot-measure--open) | Fields the offered-surface sweep's typed probes cannot measure — OPEN | found 2026-09-11 by the typed-probe slice's first measured run | S per field — a probe shape or a column decision each | open |
+| [§468](#468-pdf-export-opens-a-window-that-never-prints-in-the-desktop-app--open) | PDF export opens a window that never prints in the desktop app — OPEN | found 2026-09-12 by cold review of the desktop print-route commit `252fbca7`, which fixed the in-pane Print button and overstated its scope | M — a main-process print route (`webContents.printToPDF` or a print handler on the opened window), then a decision about whether the three PDF surfaces still open a tab at all | open |
 | [§469](#469-snapshotrecordcurrency-is-written-on-every-capture-and-read-by-nothing--open) | `SnapshotRecord.currency` is written on every capture and read by nothing — OPEN | found 2026-09-12 by the currency-boundary slice's closing pass over §465, and independently by two of its reviewers | S-M — the work is the decision: delete the field (one Turso table's DDL, encode and decode — NOT the six workspace write paths) or normalise it to EUR at the writer | open |
 | [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--open) | The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN | found 2026-09-12 while closing §465, from `d4fa68c3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | open |
 | [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--open) | The FX-override field's advertised minimum rounds to zero and is then refused — OPEN | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | open |
@@ -34655,6 +34656,52 @@ No mutant from Task 7 Steps 3–4 survived — all four (two real-writer mutants
 admit-nothing) were KILLED; see the spec's closing note for the full table. Every bullet above is a
 probe-shape or product-decision question that this harness's typed probes cannot resolve by
 themselves, never a green result to cite as coverage.
+
+## 468. PDF export opens a window that never prints in the desktop app — OPEN
+
+**Status:** OPEN 2026-09-12 — never machine-verified in the packaged app. Two presence witnesses, both
+re-run 2026-09-12: `grep -rn "window\.print()" src --include=*.ts --include=*.tsx | grep -v "\.test\." |
+grep -vE "^\S+: *(//|\*)"` returns **THREE** call sites — the two this entry is about, plus
+`task-manager-ui.tsx`'s `PrintButton` fallback, which still exists in the source but is now unreachable
+in the shell because that button renders nothing there. Read the third as expected, not as a fourth
+defect. (The `grep -vE` drops comments that merely mention the call; without it the output is dominated
+by prose.) Second witness: `grep -aoh "Scripted print is not supported"
+desktop/node_modules/electron/dist/electron.exe` returns the refusal string. ★ That the popup then stays
+SILENT rather than erroring is REASONED from those two, not observed: confirming it takes a packaged
+build and a PDF export.
+
+★ §467 is absent from this register on purpose — it was minted on a peer session's branch (MR !473), not
+lost here.
+
+`src/app/export.ts` (`buildPdfHtml`) and `src/app/document-download.ts` (`AUTO_PRINT_SCRIPT`) both render
+a document into a `window.open`ed tab and inject a script whose whole job is to call `window.print()`.
+That call is renderer-initiated, which is exactly what Electron refuses — the string above lives in its
+own `print_view_manager_electron.cc`, so the refusal is a property of the embedder, not of one window.
+
+★★ IT FAILS WORSE THAN THE IN-PANE BUTTON DID, which is why it is filed rather than folded into the
+print-route change that found it. That button did nothing visible, so a user learned nothing false. Here
+the popup opens, renders the entire document correctly, and then simply never raises a print dialog —
+indistinguishable from "my printer is being slow" and impossible to attribute without reading the source.
+
+Reachable from three surfaces, all via the PDF choice: `documents-toolbar.tsx`, `export-menu.tsx` and
+`projects-panel.tsx` (`EXPORT_FORMATS`).
+
+★ The web app is UNAFFECTED — a browser honours `window.print()` in an opened tab, and that is what the
+`window.open`-plus-inline-script shape exists for (`export.ts` explains why a tab beats an iframe). This
+is a desktop-only regression in capability, introduced by shipping the Electron shell, not by any change
+to the export code.
+
+★★ A related promise is now also only half-true in the shell: `export.ts` offers the export tab's Ctrl+P
+as the user's fallback when auto-print does not fire. Since the desktop File menu's CmdOrCtrl+P prints
+the FOCUSED window, that fallback **should** work in the packaged app — but it is then the app's own
+print route doing it, not the page's script, and it prints whatever the focused window shows. ★ REASONED,
+NOT OBSERVED, like everything else under this Status line: it needs the export tab to be a real
+BrowserWindow that receives the application menu's accelerator, which the code supports and no run has
+confirmed. Do not restate it as fact — an earlier revision of this paragraph did.
+
+Unfixed, and deliberately so: the repair needs a main-process route (`webContents.printToPDF`, or a
+print handler installed on the opened window) plus a decision about whether the three surfaces keep
+producing an on-screen tab at all when a real PDF writer is available. Size M.
 
 ## 469. `SnapshotRecord.currency` is written on every capture and read by nothing — OPEN
 

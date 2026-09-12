@@ -8,10 +8,32 @@ import {
   ViewColumnsIcon,
 } from "./icons";
 import type React from "react";
+import { useSyncExternalStore } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { FOCUS_RING } from "./interaction-styles";
 import { IconButton } from "./icon-button";
 import { DragHandle } from "./drag-handle";
+import { isDesktopShellUserAgent } from "./desktop-shell";
+
+// --- Hydration-safe desktop-shell detection for PrintButton ---
+//
+// ★★ COPIED FROM global-search-box.tsx's platform detection ON PURPOSE, and
+// for the same reason: this tree IS server-rendered (page.tsx awaits
+// connection() and renders the client components), so a render body that
+// reads `navigator` directly disagrees with the server, which has no
+// `navigator` at all. The server snapshot is `false`, so SSR and hydration
+// both render the button and the shell removes it on the client.
+//
+// ★ Module-level so the snapshot identities are STABLE — an unstable
+// getSnapshot makes useSyncExternalStore loop.
+const subscribeNoop = () => () => {};
+function getIsDesktopShellClient(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return isDesktopShellUserAgent(navigator.userAgent || "");
+}
+function getIsDesktopShellServer(): boolean {
+  return false;
+}
 
 export function TabButton({
   active,
@@ -160,6 +182,42 @@ export function PrintButton({
   onClick?: () => void;
   lang: Lang;
 }) {
+  const isDesktopShell = useSyncExternalStore(
+    subscribeNoop,
+    getIsDesktopShellClient,
+    getIsDesktopShellServer,
+  );
+  // ★★★ RENDER NOTHING IN THE DESKTOP SHELL, because the button cannot work
+  // there. Electron refuses a renderer-initiated window.print() (its binary
+  // carries `Scripted print is not supported`), and no CALL SITE overrides the
+  // default onClick — every one passes `lang` alone. So in the packaged app
+  // each of them offered a control that did nothing at all. Printing there is
+  // File → Print… / Ctrl+P, which the shell routes through
+  // webContents.print() from the main process.
+  //
+  // ★★ CALL SITES ARE NOT RENDERED CONTROLS, and no tally is quoted here
+  // because both numbers rot. One site is inside `ReportCard`
+  // (report-table.tsx), which has seven consumers of its own, so a user sees
+  // more print controls than there are sites. Count sites with — and mind the
+  // exclusion, because THIS COMMENT matches the pattern and a naive grep
+  // counts itself:
+  //   grep -rn "<PrintButton" src --include=*.tsx | grep -v "\.test\.tsx:" \
+  //     | grep -v "^src/app/task-manager-ui.tsx"
+  //
+  // ★★ THE COST, which the first version of this comment omitted: the server
+  // snapshot is a constant `false`, so in the packaged app SSR emits every
+  // Print button and the first client render removes them — a visible flash on
+  // each pane's first paint. Accepted, because the alternatives are a
+  // hydration mismatch or threading the environment through every call site;
+  // but it is a real first-paint regression, not a free win.
+  //
+  // ★★ HIDING, not disabling: a disabled Print button in every pane invites
+  // the question "why is printing broken?", where its absence plus a working
+  // File menu invites nothing. The trailing toolbar group (Print ·
+  // reset-columns · reset-pane-size) simply starts one control later, and
+  // `contiguous` order assertions elsewhere are unaffected because they run
+  // under jsdom, whose UA is not Electron's.
+  if (isDesktopShell) return null;
   return (
     <IconButton
       variant="bordered"
