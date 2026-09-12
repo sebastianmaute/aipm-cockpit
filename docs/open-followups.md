@@ -34715,10 +34715,18 @@ close to a hundred hits, and nearly every one is about a DIFFERENT invariant —
 where free text is the PREMISE of a defect rather than a stale claim. The signal-to-noise is such
 that the honest instruction is "read the currency comments", not "run this".
 
-★ Two files matched the old pattern and must NEVER be swept with it, because each states something
-TRUE: `sanitize-budget.test.ts`'s `describe` title ("currency is the supported union, not a free
-string") describes the post-narrowing world correctly, and `task-filters.ts` is about the
-assignee/group/label filters and has nothing to do with currency. Both are untouched; keep them so.
+★★ Two files matched the old pattern and both are untouched — **but they are not the same kind of
+exception, and recording them as one overstates the exception list.** `sanitize-budget.test.ts` is
+a genuine one: its `describe` title ("currency is the supported union, not a free string") IS about
+currency, sits squarely in the candidate set, and says something TRUE about the post-narrowing
+world, so a sweep has to reach it and consciously leave it. `task-filters.ts` is NOT an exception
+at all — it is a false positive of the pattern this entry has already disavowed two paragraphs up.
+Its "free string" is the assignee/group/label filters, and under the candidate set prescribed
+there ("read the currency comments") it never appears: `grep -c "currency" src/app/task-filters.ts`
+→ **0**, so nothing about currency is in range to be stale. ★ The distinction is worth the words
+because a hand-listed exception reads as a near-miss a future sweep must skip deliberately, which
+invites someone to re-check it every time; a non-candidate needs no such attention. Keep both
+untouched, but for the two different reasons.
 
 Size S–M: the work is the decision — delete the field (one table's schema, its column list, encode
 and decode), or keep it and normalise it to EUR at the writer so a later reader cannot be misled.
@@ -35081,11 +35089,12 @@ not two halves of one — the remedies point in opposite directions (§474 wants
 figure the app computed anyway; this wants the INPUT to stop being offered) — but a reader who
 finds either one has found the same blind spot and should read the other.
 
-★ **Do not re-derive §474's half here.** That rate 1 is the DEFAULT state rather than an edge case
-— `useFxRates` carries no effect and the only `refreshFx` references are a destructure and a
-user-pressed control, so the table is populated only when someone presses it — was established
-there and independently re-verified after filing. Cite §474; a second derivation is a second thing
-to keep true.
+★★ **That rate 1 is §474's DEFAULT state rather than an edge case is established THERE, with its
+witnesses, and independently re-verified after filing. Do not restate the derivation here — cite
+§474.** A second copy of a mechanism is a second thing that has to stay true, and this register
+already carries several entries about exactly that failure. What this entry needs from §474 is the
+conclusion alone: a bucket sitting at rate 1 is the ordinary case, not a contrived one, so "the
+suffix is absent" describes normal operation on both sides.
 
 ★★★ **`68f70b9d` IS STILL THE RIGHT FIX AND THIS ENTRY MUST NOT BE READ AS AN ARGUMENT AGAINST IT.**
 The rate is units of the bucket's currency per 1 EUR, which for EUR is 1 by definition, so an
