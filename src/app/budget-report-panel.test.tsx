@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BudgetReportPanel } from "./budget-report-panel";
-import type { BudgetBucket, ResourcePlan, Role } from "./types";
+import type { BudgetBucket, FxRates, ResourcePlan, Role } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "EUR" };
 // Discipline 1 grades average to internal 120 / external 180.
@@ -106,8 +106,11 @@ describe("BudgetReportPanel", () => {
     // ★★ `computeBurndownSeries` builds every value as `budgetHours ×
     // role.rates.external` and converts NOTHING, and the engine's money unit is
     // EUR (`computeBucketReport`: a fixed-price contract amount is converted to
-    // EUR at its one read). So the series is EUR whatever the plan's free-text
-    // `currency` says — this file's own `money` helper already hardcodes
+    // EUR at its one read). So the series is EUR whatever the plan's
+    // `currency` says — narrowing that field to the `BudgetCurrency` union did
+    // NOT make it safe to label with, because the union still admits
+    // `USD`/`GBP`: it states the plan's base currency, never the unit of an
+    // unconverted engine figure. This file's own `money` helper already hardcodes
     // `formatCurrency(n, "EUR", …)` for the co-rendered cost/EVM tiles, which
     // are rate-derived in exactly the same way.
     renderPanel({ plan: { ...plan, currency: "USD" } });
@@ -249,6 +252,48 @@ describe("BudgetReportPanel — detail table sorting with an uncostable bucket",
     expect(names).toContain("Unstarted contract");
     // Gamma carries a real loss (-6000) and must lead a worst-first view.
     expect(names[0]).not.toBe("Unstarted contract");
+  });
+});
+
+// The mirror image of the budget panel's round-trip test. There the engine's
+// EUR figure is converted back OUT to the bucket currency before display; this
+// table converts NOTHING and heads its money columns "(EUR)", so the very same
+// engine figure must arrive here already converted. Both halves of the fixture
+// are load-bearing: a NON-EUR bucket and a rate != 1. `renderPanel` passes
+// `fxRates={null}`, at which `resolveRate` returns 1 and `currencyToEur` is
+// the identity function — so every other test in this file passes
+// byte-identically whether the engine's conversion exists or not.
+describe("BudgetReportPanel — a non-EUR fixed-price bucket", () => {
+  const usdRates: FxRates = {
+    base: "EUR", date: "2026-01-01", fetchedAt: "2026-01-01T00:00:00Z",
+    rates: { EUR: 1, USD: 1.1 },
+  };
+  const usdFixed: BudgetBucket = {
+    id: 9, name: "USD contract", type: "fixed", currency: "USD", fixedPriceAmount: 10000,
+    startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: {} }],
+  };
+
+  it("prints the CONVERTED contract in the EUR-labelled Budget column", () => {
+    // `money` hardcodes `formatCurrency(n, "EUR", …)` and the column is
+    // literally headed "Budget (EUR)", so whatever `budgetValue` holds is
+    // printed as euros with no conversion of its own. 10,000 USD at 1.1 is
+    // 9,090.91 EUR, rendered "€9,091" (`maximumFractionDigits: 0`). Without
+    // the engine's inward conversion the foreign 10,000 prints verbatim under
+    // a euro sign — "€10,000", a number that is simply not the contract's
+    // value in the unit its own column header claims.
+    renderPanel({ buckets: [usdFixed], fxRates: usdRates });
+    // Derived, not hardcoded: the leading status <th> makes the header and
+    // body indices line up 1:1, so a column inserted anywhere left of this one
+    // shifts both together and this test keeps testing the same column.
+    const headers = screen.getAllByRole("columnheader");
+    const col = headers.findIndex((h) => h.textContent?.includes("Budget (EUR)"));
+    // Scope guard, not a second claim: a renamed header would otherwise make
+    // `cells[-1]` throw a TypeError that names nothing.
+    expect(col).toBeGreaterThan(-1);
+
+    const cells = screen.getByText("USD contract").closest("tr")!.querySelectorAll("td");
+    expect(cells[col].textContent).toBe("€9,091");
   });
 });
 

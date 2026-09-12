@@ -8,7 +8,7 @@ import { t } from "./i18n";
 import { expectDestructiveButton, expectSecondaryButton } from "../test/button-variant";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { rowLabel } from "./row-tokens";
-import type { BudgetBucket, Resource, Role, ResourcePlan } from "./types";
+import type { BudgetBucket, FxRates, Resource, Role, ResourcePlan } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
 const roles: Role[] = [{ id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
@@ -33,9 +33,12 @@ describe("BudgetPanel", () => {
     // ★★ The rollup sums the ENGINE's figures and converts NOTHING, and every
     // figure `computeBudgetReport` returns is EUR (a fixed-price bucket's
     // contract amount is converted to EUR at the engine's one read). So the
-    // rollup is EUR whatever `plan.currency` — free text — happens to say;
-    // labelling it `plan.currency` printed EUR money under another currency's
-    // symbol (docs/open-followups.md §465).
+    // rollup is EUR whatever `plan.currency` says. Narrowing that field to the
+    // `BudgetCurrency` union did NOT make it safe to label with: the union
+    // still admits `USD`/`GBP`, so it states the plan's base currency, never
+    // the unit of an unconverted engine figure. Labelling it `plan.currency`
+    // printed EUR money under another currency's symbol
+    // (docs/open-followups.md §465).
     // ★ The per-bucket tiles further down are a DIFFERENT case and are correct:
     // they convert EUR→bucket currency (`inCur`/`cci`) before labelling.
     render(<BudgetPanel {...props} plan={{ ...plan, currency: "USD" }} />);
@@ -356,6 +359,43 @@ describe("BudgetPanel", () => {
     render(<BudgetPanel {...props} roles={ratelessRoles} buckets={fixedBuckets} />);
     const winLoss = screen.getByText("Win / loss").parentElement!;
     expect(winLoss).toHaveTextContent("—");
+  });
+
+  // ★★★ A NON-EUR BUCKET AND A RATE != 1 ARE BOTH LOAD-BEARING, and nothing
+  // else in this file supplies either. The shared `props` passes
+  // `fxRates: null`, at which `resolveRate` returns 1 and BOTH converters —
+  // the engine's inward `currencyToEur` and the panel's outward
+  // `eurToCurrency` — are the identity function, so every other test here
+  // passes byte-identically whether the conversion exists or not. The one
+  // existing `currency: "USD"` fixture sets the PLAN's currency, which no
+  // converter reads. Overridden per test rather than on `props`, so the other
+  // fixtures keep their rate-free arithmetic.
+  const usdRates: FxRates = {
+    base: "EUR", date: "2026-01-01", fetchedAt: "2026-01-01T00:00:00Z",
+    rates: { EUR: 1, USD: 1.1 },
+  };
+  // One RATED role line carrying budgeted but UNBOOKED hours. Two properties
+  // follow, both needed: cost is 0, so win/loss is the whole contract and the
+  // assertion is the contract amount itself; and a rated row exists, so
+  // `costIsKnowable` holds and the tile is NOT gated to "—" the way the
+  // unstaffed fixture further up is.
+  const usdFixedBucket: BudgetBucket[] = [{
+    ...buckets[0], type: "fixed", currency: "USD", fixedPriceAmount: 10000,
+    allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: {} }],
+  }];
+
+  test("a USD fixed-price bucket renders its contract back in USD, not the engine's EUR", () => {
+    // THE ROUND TRIP, end to end. The engine converts the $10,000 contract to
+    // EUR at its one read (10,000 / 1.1 = 9,090.91) and the bucket tile
+    // converts it back OUT through `inCur`/`eurToCurrency` before labelling it
+    // with the bucket's own currency. Only both conversions together give
+    // $10,000: drop the outward one and the tile prints the engine's EUR
+    // figure under a dollar sign ("$9,091"); convert twice and it prints
+    // "$11,000". MEASURED, not reasoned — `formatCurrency` passes
+    // `maximumFractionDigits: 0`, so this is "$10,000" and not "$10,000.00".
+    render(<BudgetPanel {...props} buckets={usdFixedBucket} fxRates={usdRates} />);
+    const winLoss = screen.getByText("Win / loss").parentElement!;
+    expect(winLoss).toHaveTextContent("$10,000");
   });
 
   test("ArrowUp on the top bucket's handle is a no-op", () => {
