@@ -664,6 +664,55 @@ describe("achieved toggle", () => {
     fireEvent.click(screen.getByRole("button", { name }));
     expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
   });
+
+  // ★★★ THIS ONE IS NOT ABOUT A ONE-OF-N GROUP — each row's toggle is
+  //    independent. It reserves because of the CELL it sits in, which is
+  //    `reserveMarkerSpace`'s own documented criterion ("a toggle inside a
+  //    width-clamped table cell") reached verbatim.
+  // ★★ The `achieved` column declares `width`/`minWidth` from
+  //    `MILESTONE_COL_WIDTHS.achieved`, but the table is `w-full` with
+  //    `table-layout: auto`, where a declared width is only a MINIMUM that
+  //    content may exceed — and the column is user-resizable down to 40px
+  //    (`use-column-resize.ts`). Narrow enough, the cell therefore tracks
+  //    its CONTENT, so a marker that collapses and expands swings the cell on
+  //    every click and the browser redistributes every column, for every row at
+  //    once. A per-row control that gets clicked repeatedly is the worst place
+  //    for that.
+  // ★★ ANTI-VACUITY: two rows, one achieved and one not, so there is a genuine
+  //    OFF marker (the only state that discriminates — a pressed marker is
+  //    `w-3.5` either way) AND a genuine ON one. The count is pinned so a
+  //    fixture that seeded nothing cannot satisfy an empty loop.
+  it("reserves the marker's width on the per-row Achieved toggle, so a click cannot resize the column", () => {
+    renderMilestones({
+      milestones: [
+        m("Kickoff", "2026-01-15"),
+        m("Go live", "2026-06-30", { achievedDate: "2026-06-28" }),
+      ],
+    });
+    const achieved = t("en-US", "milestoneAchieved");
+    const toggles = screen.getAllByRole("button", { name: new RegExp(`^${achieved} – `) });
+    // COUNT: one per seeded milestone.
+    expect(toggles).toHaveLength(2);
+
+    const off = screen.getByRole("button", { name: `${achieved} – Kickoff` });
+    expect(off).toHaveAttribute("aria-pressed", "false");
+    const offCls = off.querySelector("[data-pressed-marker]")?.getAttribute("class") ?? "";
+    expect(offCls).toContain("w-3.5");
+    expect(offCls).not.toContain("w-0");
+    // Only the collapsing path carries it, to cancel the gap a zero-width
+    // marker leaves — so its absence is the second discriminator.
+    expect(offCls).not.toContain("-ml-1.5");
+
+    // The reservation must hold across a click, since that is when the column
+    // would otherwise resize.
+    fireEvent.click(off);
+    const afterCls = screen
+      .getByRole("button", { name: `${achieved} – Kickoff` })
+      .querySelector("[data-pressed-marker]")
+      ?.getAttribute("class") ?? "";
+    expect(afterCls).toContain("w-3.5");
+    expect(afterCls).not.toContain("w-0");
+  });
 });
 
 // --- row-unique names (WCAG 2.4.6, §247/§248) ------------------------------

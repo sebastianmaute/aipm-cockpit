@@ -8,6 +8,64 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.0.3] - 2026-09-13 "Pratchett"
+
+Shell polish. The app now opens where you would expect it to, the Ask Claude
+button can be clicked at every window width, and toggles stop wasting room.
+
+### Added
+
+- **The app opens on the Dashboard.** A fresh start used to restore whatever view
+  the last session ended on, because the address kept a record of it. On a fresh
+  load, an address that names only a view is now treated as that leftover record
+  and the Dashboard opens instead; Open Points opens when the Dashboard module is
+  switched off. An address that points at a specific item, such as `#raid/123`,
+  is a real link and still opens that item. Back and forward navigation are
+  unaffected. The rule applies once per window, so a settings load, a module
+  change or a project switch mid-session does not send you back to the
+  Dashboard. Known cost: a shared link that names only a view, such as `#budget`,
+  now lands on the Dashboard too.
+- **Relaunching the desktop app brings its window back to the Dashboard.** Starting
+  the app again while it is already running focuses the open window and shows
+  the Dashboard.
+
+### Changed
+
+- **A toggle's check mark takes no room while the toggle is off.** The mark used
+  to reserve its width in both states. It now collapses when a toggle is switched
+  off and animates back in, which tightens toolbars. Seven places keep the old
+  constant width, because there a toggle that changed width would move a control
+  under the pointer on the very click that changed it: one-of-several choices
+  (task health, the knowledge source filter, the new-project template cards),
+  toggles in resizable table cells (milestones, budget people rows), the Gantt
+  View menu, and the communication-template compare chips. The segmented control
+  is unchanged.
+
+### Fixed
+
+- **The Ask Claude button sat behind the search field.** At around 900px wide, and
+  again from 1024px to about 1340px, the whole button rendered behind the opaque
+  search input in the top bar and could not be clicked. The top bar now shares
+  width between its two halves: the search field and the action cluster can
+  shrink, the project switcher truncates its name instead of pushing everything
+  aside, and the Ask Claude label appears from 1280px rather than 1024px. Between
+  1280 and about 1475px the page title and project name carry a mild ellipsis,
+  which is the accepted cost of keeping the label visible at common laptop
+  widths. Both the modern and the classic top bar are fixed.
+
+### Notes
+
+- **Switching from the classic layout back to the modern one also lands on the
+  Dashboard.** The modern layout treats that switch as a fresh start, so you are
+  moved off the view you were on. If you opened an item from search while in the
+  classic layout, that item can open again instead; this follows from the code
+  and has not been observed in a running app. Not opening anything on a layout
+  switch is the alternative, and it is recorded as follow-up 478 as a product
+  decision rather than fixed here.
+- **The desktop main process is not covered by the standard pipeline.** The
+  relaunch change is in `desktop/src/main.ts`, which only the manual
+  `desktop-package` job compiles.
+
 ## [1.0.2] - 2026-09-12 "Pratchett"
 
 Money. Every figure the budget engine produces is now EUR, and the surfaces say

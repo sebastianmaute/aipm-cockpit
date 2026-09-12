@@ -94,4 +94,51 @@ describe("GanttViewMenu", () => {
       expect(button.getAttribute("title") ?? "").toContain(hint);
     }
   });
+
+  // ★★ `ToggleButton` COLLAPSES its pressed marker to zero width when off by
+  //    default and animates it open, so a toggle in this dense vertical list
+  //    would reflow the menu under the pointer mid-click. Every item therefore
+  //    passes `reserveMarkerSpace`. The COUNT is hardcoded on purpose: it is the
+  //    only thing that catches a NEW toggle arriving without the prop.
+  // ★★★ EVERY TOGGLE MUST BE SEEDED **OFF**, and at `DEFAULT_PREFS` this test is
+  //     blind to six of the eight call sites. A PRESSED marker renders `w-3.5`
+  //     whether or not the prop is passed — only the OFF state distinguishes
+  //     `w-3.5` from `w-0 -ml-1.5`. `DEFAULT_PREFS` has just two toggles off
+  //     (`showGrid`, and `milestonePlacement: "below"`), so the other six
+  //     satisfied the loop for the wrong reason. Measured, not reasoned: with
+  //     `DEFAULT_PREFS` a mutant deleting `reserveMarkerSpace` from the holidays
+  //     toggle SURVIVED (8 passed); seeded off, the same mutant fails here. Do
+  //     not "simplify" this back to `{...props}`.
+  it("reserves the marker width on every view toggle so the menu never reflows", () => {
+    render(
+      <GanttViewMenu
+        {...props}
+        prefs={{
+          ...DEFAULT_PREFS,
+          showDependencies: false,
+          showHolidays: false,
+          showAbsences: false,
+          showGrid: false,
+          showCriticalPath: false,
+          showBaseline: false,
+          showMilestones: false,
+          milestonePlacement: "below",
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "ganttViewMenu") }));
+    const markers = Array.from(document.querySelectorAll("[data-pressed-marker]"));
+    // Anti-vacuity: a loop over an empty list passes trivially, which is how an
+    // "all of them" assertion silently covers nothing. `props` sets hasBaseline
+    // and hasMilestones true, and BOTH milestone toggles are gated on that PROP
+    // rather than on `prefs.showMilestones`, so all eight render even off.
+    expect(markers.length).toBe(8);
+    // Every marker must be in the OFF state, or the assertion below is back to
+    // proving nothing for that row.
+    for (const m of markers) {
+      expect(m.getAttribute("data-pressed-marker")).toBe("off");
+      expect(m.getAttribute("class")).toContain("w-3.5");
+      expect(m.getAttribute("class")).not.toContain("w-0");
+    }
+  });
 });

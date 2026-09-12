@@ -49,7 +49,7 @@ export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssista
         {projectSwitcher && <ProjectSwitcher {...projectSwitcher} />}
         {projectSwitcherTrailing}
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 items-center gap-1">
         {search}
         {onOpenAiAssistant && (
           <IconButton

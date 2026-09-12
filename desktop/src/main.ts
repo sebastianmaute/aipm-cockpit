@@ -6,6 +6,7 @@ import { APP_ORIGIN, APP_PORT, RELEASES_URL } from "./lib/constants";
 import { classifyPortOwner, type PortProbe } from "./lib/port-owner";
 import { shouldReportServerExit } from "./lib/exit-reporting";
 import {
+  DASHBOARD_VIEW_HASH,
   FILE_MENU_ITEMS,
   type FileMenuItemId,
   HELP_MENU_ITEMS,
@@ -396,9 +397,33 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on("second-instance", () => {
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.focus();
+    // ★★★ `if (win)` WAS NOT A GUARD, and keeping it would have made the
+    // try/catch below dead code on the very state it exists for. `win` is
+    // assigned once and never set back to null (see window-liveness.ts), so
+    // the truthiness check only covers the moments before start() runs -- and
+    // `isMinimized()`/`focus()` throw SYNCHRONOUSLY on a DESTROYED window just
+    // as `webContents` does, so the throw would leave this handler before
+    // reaching the navigation at all. Reachable: a popout is open, the user
+    // closes the main window, `window-all-closed` therefore does not fire, and
+    // the app lives on to receive a relaunch. One liveness idiom for the shell.
+    const target = liveWindow(win);
+    if (target === null) {
+      log("second-instance: no window to focus");
+      return;
+    }
+    if (target.isMinimized()) target.restore();
+    target.focus();
+    // A relaunch should land on the Dashboard. Set the fragment on the page
+    // that is already loaded rather than navigating: a reload would discard
+    // unsaved work (same reasoning as the Help menu item).
+    try {
+      void target.webContents
+        .executeJavaScript(helpHashScript(DASHBOARD_VIEW_HASH))
+        .catch((e: unknown) => {
+          log(`second-instance: ${String(e)}`);
+        });
+    } catch (e: unknown) {
+      log(`second-instance: ${String(e)}`);
     }
   });
 

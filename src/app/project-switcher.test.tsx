@@ -56,6 +56,24 @@ describe("ProjectSwitcher", () => {
     ).toBeInTheDocument();
   });
 
+  it("lets the switcher yield width so the top bar's left cluster can shrink", () => {
+    renderSwitcher();
+    // The inner span.truncate is unreachable without this chain: min-width:auto
+    // floors each ancestor at its own min-content, which pinned the switcher at
+    // 239px and starved the Ask Claude trigger into the search field at 1024px.
+    // The button needs w-full because a form control's width:auto is fit-content,
+    // not fill-available -- min-w-0 on the wrappers alone leaves it overflowing.
+    const trigger = screen.getByRole("button", { name: /Apollo/ });
+    const relative = trigger.parentElement;
+    const root = relative?.parentElement;
+    expect(root?.className).toContain("min-w-0");
+    expect(relative?.className).toContain("min-w-0");
+    expect(trigger.className).toContain("min-w-0");
+    expect(trigger.className).toContain("w-full");
+    // The truncation it exists to reach must still be there.
+    expect(trigger.querySelector("span")?.className).toContain("truncate");
+  });
+
   it("opens the dropdown listing the projects when the trigger is clicked", async () => {
     const user = userEvent.setup();
     renderSwitcher();
@@ -244,6 +262,22 @@ describe("ProjectSwitcher", () => {
 
       expect(screen.queryByRole("menu")).not.toBeInTheDocument();
       expect(onSwitch).not.toHaveBeenCalled();
+    });
+
+    it("lets the read-only indicator yield width too", () => {
+      renderSwitcher({ readOnly: true });
+      // This branch renders in the SAME TopBar left cluster as the interactive
+      // trigger, so it needs the same min-w-0. The tree choice is gated on
+      // settings.layout (classic vs modern), NEVER on isPopout, and askClaudeEl
+      // is gated only on isAiEnabled -- so a popout on the DEFAULT modern
+      // layout puts this indicator and the Ask trigger in one cluster and
+      // overlaps exactly as the trigger did at 1024-1200px.
+      // It needs NO w-full: this div is itself the cluster's flex child, so
+      // there is no intermediate wrapper for it to overflow.
+      const label = screen.getByText("Apollo");
+      expect(label.parentElement?.className).toContain("min-w-0");
+      // The truncation the chain exists to reach must still be there.
+      expect(label.className).toContain("truncate");
     });
 
     it("falls back to the no-project label when the name is null", () => {

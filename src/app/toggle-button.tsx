@@ -115,6 +115,16 @@ interface ToggleButtonProps {
    *  presses Space would otherwise re-fire whatever held focus before. Do not
    *  promote this to unconditional to save a prop at one call site. */
   preventFocusSteal?: boolean;
+  /** Reserve the pressed marker's width in BOTH states instead of collapsing it
+   *  when off — i.e. OPT OUT of the collapse animation.
+   *
+   *  ★★ The collapse is the DEFAULT, and it reverses what this primitive used to
+   *  guarantee: the marker was always rendered and merely `invisible`, so the
+   *  button kept one width and a repeatedly-clicked control never moved its
+   *  neighbours under the pointer. Pass `true` wherever that still matters —
+   *  a toggle inside a width-clamped table cell, or a dense menu whose items
+   *  must not reflow. See the call sites for the specific reason in each. */
+  reserveMarkerSpace?: boolean;
   /** ★★ Pointer/keyboard handlers for a PRESS-AND-HOLD consumer — dictation's
    *  push-to-talk mic, where the state is "held down", not "clicked on". Such
    *  a control has no click semantic at all (its keydown calls
@@ -152,6 +162,7 @@ export function ToggleButton({
   variant = "toggle",
   ariaControls,
   preventFocusSteal,
+  reserveMarkerSpace = false,
   pressHandlers,
 }: ToggleButtonProps) {
   // ★★ STATE IN THE TOOLTIP. The visible label is PINNED to what pressed=true
@@ -222,13 +233,51 @@ export function ToggleButton({
           Keep it; "redundant" is the wrong reading.
           Stated because a test asserting otherwise was written here, and could
           not fail.
-          ★★ It is rendered in BOTH states and merely `invisible` when off, so
-          the button keeps ONE width. Conditional rendering would make the
-          button ~20px narrower when off, and these sit in toolbar rows — a
-          repeatedly-clicked control that resizes moves its neighbours under
-          the pointer. (Reasoned, not measured: jsdom has no layout, so no test
-          here can see it either way.) The cost is that reserved slot on every
-          toggle, off included.
+          ★★ It is rendered in BOTH states — but its WIDTH is now CONDITIONAL:
+          by default it collapses to zero when off and animates open, and it
+          reserves its slot in both states ONLY under `reserveMarkerSpace`.
+          ★★ THAT IS A REVERSAL, not a gap being filled. The marker used to be
+          `w-3.5 invisible` when off in every case, so the button kept ONE
+          width: conditional rendering would make it ~20px narrower when off,
+          and these sit in toolbar rows — a repeatedly-clicked control that
+          resizes moves its neighbours under the pointer. The animated default
+          answers that only in PART, and the part it answers is positional: the
+          marker is the LAST child — rendered after `{icon}` and after the label
+          span, so it TRAILS both. That trailing position IS the reason only
+          rightward neighbours move: the growth is at the button's right edge,
+          which leaves the label and the left edge fixed, so the control under
+          the cursor stays put. A LEADING marker would have been the bad case,
+          pushing the label rightward under the pointer on every click. (The
+          `-ml-1.5` on a collapsed marker is the same fact from the other side:
+          it cancels the label→marker gap, which exists only because the marker
+          FOLLOWS the label.)
+          ★★★ THAT ARGUMENT IS ABOUT AN *INDEPENDENT* TOGGLE AND FAILS FOR A
+          MUTUALLY-EXCLUSIVE GROUP. In a one-of-N group a single click
+          COLLAPSES the old selection and EXPANDS the new one, so everything
+          after the old selection shifts LEFTWARD — including the chip the
+          pointer is on. That is the very failure the rightward-only reasoning
+          claims to avoid, arriving from the direction it does not model. The
+          one-of-N consumers therefore pass `reserveMarkerSpace`:
+          `task-form-fields.tsx` (the health chips), `knowledge-panel.tsx` (the
+          source filter) and `create-project-wizard.tsx` (the template cards).
+          ★★ ONE-OF-N IS NOT THE ONLY REASON TO OPT OUT, so do not read a
+          consumer's `reserveMarkerSpace` as a claim that it IS a group, and do
+          not strip one on the grounds that it is not. Enumerated on this
+          branch, the other opt-outs each have their own reason and are no less
+          load-bearing: `milestones-panel.tsx` and `budget-panel-people-rows.tsx`
+          sit in width-clamped, user-resizable table cells, and
+          `comm-templates-section.tsx`'s Compare is a capped MULTI-select whose
+          right-anchored row makes a growing chip extend LEFTWARD over its own
+          left edge. `gantt-view-menu.tsx` is a dense menu that must not reflow.
+          ★ AGENTS.md prescribes `SegmentedControl` for a one-of-N choice, and
+          that primitive's own `data-selected-marker` is still always-mounted
+          and space-reserving — which is why this asymmetry existed at all. It
+          was deliberately NOT touched here: do NOT "align" the two.
+          Where a neighbour must not move at all, the consumer passes
+          `reserveMarkerSpace` and gets the old constant width back.
+          (Reasoned, not measured, in BOTH directions: jsdom has no layout and
+          no motion, so no test here can see the width, the shift or the
+          animation — only the classes that ask for them.)
           ★ `invisible` is visibility:hidden; `opacity-0` would reserve the same
           space and is NOT a bug if someone swaps it. An earlier version of this
           comment defended the choice on a11y-tree grounds, which is inert —
@@ -237,7 +286,13 @@ export function ToggleButton({
       <CheckIcon
         aria-hidden="true"
         data-pressed-marker={pressed ? "on" : "off"}
-        className={`h-3.5 w-3.5 shrink-0${pressed ? "" : " invisible"}`}
+        className={`h-3.5 shrink-0 transition-[width,margin] duration-150 motion-reduce:transition-none ${
+          reserveMarkerSpace
+            ? `w-3.5${pressed ? "" : " invisible"}`
+            : pressed
+              ? "w-3.5"
+              : "w-0 -ml-1.5"
+        }`}
       />
     </button>
   );

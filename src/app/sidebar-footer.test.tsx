@@ -42,8 +42,11 @@ describe("SidebarFooter", () => {
     // ★ BOTH halves are asserted deliberately. The `data-` attribute alone
     // would pass a mutant that leaves the glyph `invisible` in both states
     // (colour-only again, silently); the visibility alone would pass one that
-    // renders the marker conditionally, which is the reflow `ToggleButton`'s
-    // always-rendered `data-pressed-marker` exists to avoid.
+    // renders the marker conditionally, which would let this line reflow as
+    // storage flips. That is the footer's OWN guarantee, not a borrowed one:
+    // `ToggleButton`'s marker no longer avoids reflow by default — it collapses
+    // to zero width when off, and only `reserveMarkerSpace` restores the
+    // constant width.
     const marker = (storageReady: boolean) => {
       const { container, unmount } = render(<SidebarFooter {...base} storageReady={storageReady} />);
       const el = container.querySelector("[data-storage-marker]") as HTMLElement | null;

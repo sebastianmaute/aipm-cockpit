@@ -126,12 +126,21 @@ export function ProjectSwitcher({
 
   // Read-only mode: a non-interactive current-project indicator for popout
   // windows. Folder icon + name, no chevron, no dropdown — not a button.
+  // ★★ It needs the same `min-w-0` as the interactive branch below, and for the
+  // same reason: this renders in the SAME TopBar left cluster. The tree choice
+  // is gated on `settings.layout` (classic vs modern) and NEVER on `isPopout`,
+  // and `askClaudeEl` is gated only on `isAiEnabled` — so a popout on the
+  // DEFAULT modern layout puts this indicator and the Ask trigger in one
+  // cluster, where min-width:auto floors this element at its own min-content
+  // and starves its neighbours exactly as the trigger did.
+  // ★ No `w-full` here, unlike the button: this div is itself the cluster's
+  // flex child, so there is no intermediate wrapper for it to overflow.
   if (readOnly) {
     return (
       <div
         data-tour-id={dataTourId}
         title={label}
-        className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey"
+        className="flex min-w-0 max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey"
       >
         <BriefcaseIcon aria-hidden="true" className="h-4 w-4 shrink-0 text-ui-green-strong" />
         <span className="truncate">{label}</span>
@@ -140,8 +149,15 @@ export function ProjectSwitcher({
   }
 
   return (
-    <div className="flex items-center gap-1">
-    <div ref={ref} data-tour-id={dataTourId} className="relative">
+    // The min-w-0 chain down to the trigger is load-bearing for the top bar's
+    // left cluster: min-width:auto floors every ancestor at its own min-content,
+    // which left the inner span.truncate unreachable and pinned this switcher at
+    // 239px — starving the Ask Claude pill into the opaque search field at
+    // 1024-1200. The button ALSO needs w-full: it is a form control, so its
+    // width:auto is fit-content, not fill-available, and min-w-0 on the wrappers
+    // alone leaves the button overflowing them (max-w-[16rem] still caps it).
+    <div className="flex min-w-0 items-center gap-1">
+    <div ref={ref} data-tour-id={dataTourId} className="relative min-w-0">
       <button
         ref={triggerRef}
         type="button"
@@ -149,7 +165,7 @@ export function ProjectSwitcher({
         aria-haspopup="menu"
         aria-expanded={open}
         title={t(lang, "projectCurrentLabel")}
-        className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-light-grey dark:hover:bg-surface"
+        className="flex w-full min-w-0 max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-light-grey dark:hover:bg-surface"
       >
         <BriefcaseIcon aria-hidden="true" className="h-4 w-4 shrink-0 text-ui-green-strong" />
         <span className="truncate">{label}</span>

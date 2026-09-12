@@ -69,9 +69,11 @@ describe("HEALTH_CHIP_ACTIVE_CLASS (manual health-override chip tint)", () => {
   // open-followups §55 (WCAG 1.4.1). The active RAG border measured 1.34-2.34
   // (amber) and 2.47-2.96 (green) against the inactive `--line` in the light
   // schemes, so the hue alone cannot carry the selected state. The marker is
-  // rendered in BOTH states (merely `invisible` when off) so the chip keeps one
-  // width — asserting only the ON state would pass against a conditional-render
-  // regression, which is the failure the mechanism exists to prevent.
+  // rendered in BOTH states — so asserting only the ON state would pass
+  // against a conditional-render regression, which is the failure the mechanism
+  // exists to prevent. (These chips also pass `reserveMarkerSpace`, so the off
+  // marker keeps its WIDTH as well as its place in the DOM; that is a separate
+  // guarantee, pinned by the next test rather than by this one.)
   // ★ The "Auto (currently: …)" chip in the same row is deliberately NOT
   //   covered: its selected border already measures 8.97-10.22 light /
   //   4.22-4.58 dark, so it has no defect to fix.
@@ -96,6 +98,60 @@ describe("HEALTH_CHIP_ACTIVE_CLASS (manual health-override chip tint)", () => {
     expect(markerState("Amber")).toBe("on");
     expect(markerState("Red")).toBe("off");
     expect(markerState("Green")).toBe("off");
+  });
+
+  // ★★★ THESE ARE A ONE-OF-N GROUP, so the marker must RESERVE its width.
+  //    The animated default is justified by the marker TRAILING the label:
+  //    growth lands on the button's RIGHT edge, so a lone toggle displaces only
+  //    neighbours to its right and never the control under the pointer. THAT
+  //    ARGUMENT DOES NOT SURVIVE A MUTUALLY-EXCLUSIVE GROUP — one click
+  //    COLLAPSES the old selection and EXPANDS the new one, so every chip after
+  //    the old selection shifts LEFTWARD, including the chip being clicked.
+  //    AGENTS.md prescribes `SegmentedControl` for a one-of-N choice and that
+  //    primitive kept its constant width, so these chips opt out to match.
+  // ★★★ ANTI-VACUITY, and this exact vacuity already shipped once on this
+  //    branch: a pressed marker renders `w-3.5` whether or not the prop is
+  //    passed, so a test inspecting the SELECTED chip passes for the wrong
+  //    reason (a loop over eight Gantt toggles was blind to six of them because
+  //    `DEFAULT_PREFS` left only two off). So this asserts the OFF state, and
+  //    pins the COUNT so an empty or short chip list cannot pass trivially.
+  it("reserves the marker's width on every health chip, so a pick cannot shift the row", async () => {
+    const user = userEvent.setup();
+    render(<Harness />, { wrapper: TestProviders });
+    const markerClass = (name: string) =>
+      screen
+        .getByRole("button", { name })
+        .querySelector("[data-pressed-marker]")
+        ?.getAttribute("class") ?? "";
+
+    // COUNT: the group renders exactly three `ToggleButton` chips. The sibling
+    // "Auto (currently: …)" chip is hand-rolled and carries NO marker, which is
+    // why it is not four — it is part of the same one-of-N set but has no
+    // marker width to reserve, so it cannot shift on a click either.
+    const group = screen.getByRole("button", { name: "Red" }).parentElement!;
+    expect(group.querySelectorAll("[data-pressed-marker]")).toHaveLength(3);
+
+    // No override is set, so all three are OFF — the only state that can tell
+    // the reserving path from the collapsing one.
+    const OFF = ["Red", "Amber", "Green"];
+    expect(
+      OFF.map((n) => screen.getByRole("button", { name: n }).getAttribute("aria-pressed")),
+    ).toEqual(["false", "false", "false"]);
+    for (const name of OFF) {
+      expect(markerClass(name)).toContain("w-3.5");
+      expect(markerClass(name)).not.toContain("w-0");
+      // The negative margin exists only to cancel the gap a COLLAPSED marker
+      // would otherwise leave, so its absence is the second discriminator.
+      expect(markerClass(name)).not.toContain("-ml-1.5");
+    }
+
+    // And the reservation survives a pick: the two now-DESELECTED chips keep
+    // their slot, which is the whole point in a mutually-exclusive group.
+    await user.click(screen.getByRole("button", { name: "Amber" }));
+    for (const name of ["Red", "Green"]) {
+      expect(markerClass(name)).toContain("w-3.5");
+      expect(markerClass(name)).not.toContain("w-0");
+    }
   });
 });
 

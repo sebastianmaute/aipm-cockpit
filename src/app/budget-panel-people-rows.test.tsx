@@ -354,6 +354,19 @@ describe("PeopleDisclosureLabel", () => {
     expect(triggers[1]).toHaveTextContent(LONG_ROLE);
     expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
+
+  // ★★ `ToggleButton` collapses its pressed marker to zero width when off by
+  //    default and animates it open. The surrounding `<td>` is truncating and
+  //    clamped to the LIVE role-column width, with the sticky leading columns
+  //    placed by arithmetic over that declared width — an animating child is
+  //    the one thing that arithmetic cannot absorb, so this call site opts out.
+  it("reserves the marker width on the people disclosure", () => {
+    renderLabel();
+    const marker = document.querySelector("[data-pressed-marker]");
+    expect(marker).not.toBeNull();
+    expect(marker?.getAttribute("class")).toContain("w-3.5");
+    expect(marker?.getAttribute("class")).not.toContain("w-0");
+  });
 });
 
 // ★★ The constant is only worth exporting if it stays TIED to the classes it

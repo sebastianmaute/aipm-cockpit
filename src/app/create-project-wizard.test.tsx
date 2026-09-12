@@ -206,10 +206,11 @@ describe("CreateProjectWizard", () => {
   // open-followups §55 (WCAG 1.4.1). The selected template was signalled by a
   // green border + tint ALONE, which measured 1.53-1.88:1 against the
   // unselected border in all four LIGHT schemes. The marker is the non-colour
-  // cue; it is rendered in BOTH states (merely `invisible` when off) so the
-  // card keeps one width. Asserting only the ON state would pass against a
-  // conditional-render regression, which is the failure the mechanism exists
-  // to prevent — so both states are pinned here.
+  // cue; it is rendered in BOTH states. Asserting only the ON state would pass
+  // against a conditional-render regression, which is the failure the mechanism
+  // exists to prevent — so both states are pinned here. The card's WIDTH
+  // behaviour is a separate guarantee (these cards pass `reserveMarkerSpace`)
+  // and is pinned by the next test, not this one.
   it("every template option carries the non-colour selected marker in both states", () => {
     setup();
     completeStep1();
@@ -230,6 +231,47 @@ describe("CreateProjectWizard", () => {
     fireEvent.click(screen.getByRole("button", { name: BLANK }));
     expect(markerOf(BLANK)).toBe("on");
     expect(markerOf(STANDARD)).toBe("off");
+  });
+
+  // ★★★ THE TEMPLATE CARDS ARE A ONE-OF-N GROUP (`chooseTemplate` REPLACES the
+  //    selection), so the marker must RESERVE its width. The animated default
+  //    is justified by the marker TRAILING the label — growth lands on the
+  //    right edge, so a lone toggle moves only its rightward neighbours, never
+  //    the control under the pointer. A MUTUALLY-EXCLUSIVE GROUP breaks that:
+  //    one click collapses the old selection and expands the new one.
+  // ★★ THE REFLOW HERE IS INTERNAL, NOT BETWEEN CARDS, and that is worth
+  //    stating because the obvious reading is wrong. `TEMPLATE_CARD_CLASS` is
+  //    `w-full` inside a `flex flex-col` fieldset, so a card's own box never
+  //    changes size and the cards do not move each other. What moves is INSIDE
+  //    the card: `size="card"` stretches the label wrapper, so collapsing the
+  //    marker widens that wrapper by ~20px — on the very card the pointer is
+  //    over. On the TEMPLATE cards that also drags the header row's
+  //    `justify-between` badges across; the Blank card carries no badge row.
+  // ★★ ANTI-VACUITY: only the OFF state discriminates, and the count is pinned
+  //    so a step that failed to advance (which renders NO cards at all — the
+  //    Step-1 form has no `aria-pressed` control) cannot pass an empty loop.
+  it("reserves the marker's width on every template card, so a pick cannot reflow the card", () => {
+    setup();
+    completeStep1();
+
+    const cards = Array.from(document.querySelectorAll<HTMLButtonElement>("button[aria-pressed]"));
+    // COUNT: the Blank card + the three built-in templates (Minimal ·
+    // Standard PM · Full delivery).
+    expect(cards).toHaveLength(4);
+
+    // Pick one explicitly rather than trusting the suggestion's preselect, so
+    // the OFF set below is three cards whichever template was suggested.
+    fireEvent.click(screen.getByRole("button", { name: /Standard PM/ }));
+    const off = cards.filter((c) => c.getAttribute("aria-pressed") === "false");
+    expect(off).toHaveLength(3);
+    for (const card of off) {
+      const cls = card.querySelector("[data-pressed-marker]")?.getAttribute("class") ?? "";
+      expect(cls).toContain("w-3.5");
+      expect(cls).not.toContain("w-0");
+      // Only the collapsing path carries it, to cancel the gap a zero-width
+      // marker leaves — so its absence is the second discriminator.
+      expect(cls).not.toContain("-ml-1.5");
+    }
   });
 
   it("Back returns from Step 2 to Step 1; Cancel on Step 1 calls onCancel", () => {

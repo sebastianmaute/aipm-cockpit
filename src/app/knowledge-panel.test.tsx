@@ -201,9 +201,11 @@ describe("KnowledgePanel", () => {
   // unselected --surface-muted in the three dark schemes — invisible to every
   // user, not only to users with a colour-vision deficiency. The non-colour cue
   // is ToggleButton's trailing marker. ★ Assert it in BOTH states: it is
-  // rendered always and merely `invisible` when off, so an ON-state-only
-  // assertion passes against a conditional-render regression that would resize
-  // the chip on every click.
+  // rendered always, so an ON-state-only assertion passes against a
+  // conditional-render regression that would drop the off-state marker from the
+  // DOM entirely. What is pinned HERE is that PRESENCE, not the width — the
+  // width is a separate guarantee (these chips pass `reserveMarkerSpace`) and
+  // belongs to the next test.
   it("gives the source filter chips a non-colour pressed marker in both states", () => {
     renderWithTasks([seededTask([LINK])]);
     const allChip = screen.getByRole("button", { name: new RegExp(t("en-US", "documentsFilterAll")) });
@@ -217,6 +219,39 @@ describe("KnowledgePanel", () => {
     expect(offChip!.querySelector("[data-pressed-marker]")?.getAttribute("data-pressed-marker")).toBe("off");
     // The trailing count span survives the migration.
     expect(allChip.textContent).toMatch(/\d/);
+  });
+
+  // ★★★ THE SOURCE FILTER IS ONE-OF-N (`setSourceFilter(k)` REPLACES the
+  //    selection), so the marker must RESERVE its width. The animated default
+  //    is justified by the marker TRAILING the label: growth lands on the right
+  //    edge, so a lone toggle moves only its rightward neighbours and never the
+  //    control under the pointer. IN A MUTUALLY-EXCLUSIVE GROUP THAT FAILS —
+  //    one click collapses the old chip and expands the new one, so everything
+  //    after the old selection shifts LEFTWARD, the clicked chip included.
+  //    AGENTS.md prescribes `SegmentedControl` for one-of-N and that primitive
+  //    kept its constant width; these chips opt out to match it.
+  // ★★ ANTI-VACUITY: a PRESSED marker is `w-3.5` either way, so only the OFF
+  //    state discriminates — and the counts are pinned because this fixture
+  //    yields exactly ONE off chip, which a silently-emptied list would
+  //    otherwise satisfy with a loop that never runs.
+  it("reserves the marker's width on the source-filter chips, so picking one cannot shift the row", () => {
+    renderWithTasks([seededTask([LINK])]);
+    const chips = Array.from(document.querySelectorAll<HTMLButtonElement>("button[aria-pressed]"));
+    // COUNT (measured for this fixture): "All" plus one chip per source that
+    // actually has a document — a single task-attached link, so two. Pins the
+    // loop below against an empty or single-chip render.
+    expect(chips).toHaveLength(2);
+    const off = chips.filter((c) => c.getAttribute("aria-pressed") === "false");
+    // The filter defaults to "All", so exactly the one source chip is OFF.
+    expect(off).toHaveLength(1);
+    for (const chip of off) {
+      const cls = chip.querySelector("[data-pressed-marker]")?.getAttribute("class") ?? "";
+      expect(cls).toContain("w-3.5");
+      expect(cls).not.toContain("w-0");
+      // Present only on the COLLAPSING path, to cancel the gap a zero-width
+      // marker would leave — so its absence is the second discriminator.
+      expect(cls).not.toContain("-ml-1.5");
+    }
   });
 
   it("narrows by the search box", () => {

@@ -101,9 +101,13 @@ export function GanttViewMenu({
           {t(lang, "ganttViewMenuHint")}
         </p>
         <div className="flex flex-col gap-1.5">
+          {/* ★ Every toggle in this popover reserves its marker width. The items
+              are a dense vertical list and an animating width reflows the menu
+              under the pointer mid-click. */}
           <ToggleButton
             lang={lang}
             pressed={prefs.showDependencies}
+            reserveMarkerSpace
             onToggle={toggleDependencies}
             title={t(lang, "ganttShowDependenciesHint")}
             className={ROW_CLASS}
@@ -114,6 +118,7 @@ export function GanttViewMenu({
           <ToggleButton
             lang={lang}
             pressed={prefs.showHolidays}
+            reserveMarkerSpace
             onToggle={toggleHolidays}
             title={t(lang, "ganttShowHolidaysHint")}
             className={ROW_CLASS}
@@ -124,6 +129,7 @@ export function GanttViewMenu({
           <ToggleButton
             lang={lang}
             pressed={prefs.showAbsences}
+            reserveMarkerSpace
             onToggle={toggleAbsences}
             title={t(lang, "ganttShowAbsencesHint")}
             className={ROW_CLASS}
@@ -134,6 +140,7 @@ export function GanttViewMenu({
           <ToggleButton
             lang={lang}
             pressed={prefs.showGrid}
+            reserveMarkerSpace
             onToggle={toggleGrid}
             title={t(lang, "ganttShowGridHint")}
             className={ROW_CLASS}
@@ -144,6 +151,7 @@ export function GanttViewMenu({
           <ToggleButton
             lang={lang}
             pressed={prefs.showCriticalPath}
+            reserveMarkerSpace
             onToggle={toggleCriticalPath}
             accent="pink"
             title={t(lang, "ganttCriticalPathHint")}
@@ -156,6 +164,7 @@ export function GanttViewMenu({
             <ToggleButton
               lang={lang}
               pressed={prefs.showBaseline}
+              reserveMarkerSpace
               onToggle={toggleBaseline}
               title={t(lang, "ganttBaselineHint")}
               className={ROW_CLASS}
@@ -169,6 +178,7 @@ export function GanttViewMenu({
               <ToggleButton
                 lang={lang}
                 pressed={prefs.showMilestones}
+                reserveMarkerSpace
                 onToggle={toggleMilestones}
                 title={t(lang, "ganttShowMilestonesHint")}
                 className={ROW_CLASS}
@@ -182,6 +192,7 @@ export function GanttViewMenu({
                 // toggle ENABLES ("Inline milestones") and aria-pressed tracks
                 // THAT state, so "Inline milestones, pressed" ⇒ inline is on.
                 pressed={prefs.milestonePlacement === "inline"}
+                reserveMarkerSpace
                 onToggle={toggleMilestonePlacement}
                 title={t(lang, "ganttMilestonesInlineHint")}
                 className={ROW_CLASS}

@@ -325,6 +325,16 @@ export function CreateProjectWizard({
                 size="card"
                 className={TEMPLATE_CARD_CLASS}
                 lang={lang}
+                // ★★ ONE-OF-N (`chooseTemplate` REPLACES the selection), so the
+                //    marker's width is RESERVED. ★★ THE REFLOW IS INTERNAL,
+                //    not between cards, and the obvious reading is wrong:
+                //    `TEMPLATE_CARD_CLASS` is `w-full` in a `flex flex-col`
+                //    fieldset, so a card's box never changes size and the cards
+                //    cannot move each other. What moves is INSIDE the card —
+                //    `size="card"` stretches the label wrapper, so collapsing
+                //    the marker widens it by ~20px, on the very card under the
+                //    pointer. Pinned by create-project-wizard.test.tsx.
+                reserveMarkerSpace
               >
                 <span className="font-medium text-foreground">
                   {t(lang, "wizardBlankTemplate")}
@@ -351,6 +361,11 @@ export function CreateProjectWizard({
                     size="card"
                     className={TEMPLATE_CARD_CLASS}
                     lang={lang}
+                    // ★★ Same one-of-N + internal-reflow reason as the Blank
+                    //    card above — see its note. These cards carry the badge
+                    //    row the collapse would drag, so the effect is visible
+                    //    here specifically.
+                    reserveMarkerSpace
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-foreground">{tpl.name}</span>

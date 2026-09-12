@@ -700,6 +700,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--open) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read — OPEN | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `68f70b9d` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | open |
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
 | [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--open) | Only three currencies are supported, and INR is wanted — OPEN | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | open |
+| [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--open) | Switching back to the modern layout moves the user off their current view — OPEN | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -35282,3 +35283,67 @@ is not.
 
 Size XS if the feed carries INR — one array member, plus a fixture covering it so the parser's filter
 is exercised on a fourth currency rather than assumed. Unknown, and much larger, if it does not.
+
+## 478. Switching back to the modern layout moves the user off their current view — OPEN
+
+**Status:** OPEN 2026-09-13 — the hook-level behaviour is pinned and was re-run that day:
+`npx vitest run src/app/use-hash-view.test.tsx -t "re-arms the cold rule" --maxWorkers=1` passes (1
+passed, 21 skipped), asserting that a hash parked on `#raid` resolves to the Dashboard once `enabled` goes
+false and back to true. Presence witness: `grep -n "coldDoneRef.current = false" src/app/use-hash-view.ts`
+returns the re-arm inside the hook's disabled branch. ★ Everything user-visible below is REASONED from
+that test and from the call sites; no browser run has watched a layout switch do it. (`--maxWorkers=1`
+is there because the same command beside a recursive grep printed `Test Files no tests` at exit 1 —
+worker-start contention, not a result.)
+
+`useHashView` (`src/app/use-hash-view.ts`) is enabled only in the modern layout —
+`useHashView(settings.layout === "modern", settings.features)` in `task-manager.tsx`. The first EXECUTED
+apply of each contiguous enabled window is COLD: a view-only hash is discarded as stale session residue
+and the user lands on the Dashboard (open-points when the dashboard module is off), while an item-bearing
+hash is honoured as a deep link. The disabled branch RE-ARMS that cold flag, so every classic → modern
+switch opens a fresh cold window. The layout itself is switched in `appearance-section.tsx`, which both
+`settings-view.tsx` and `settings-menu.tsx` mount.
+
+So a classic → modern switch moves the user one of two ways, and neither keeps the view they were on:
+
+- a view-only hash, the usual case → the Dashboard;
+- an item-bearing hash → that item's view, with the item RE-OPENED.
+
+★★ THE HASH IS NOT FROZEN DURING CLASSIC. Until they were corrected on this branch after filing, both the
+hook's own comment ("the hash freezes at whatever the last enabled window wrote") and the re-arm test's
+comment said it was. The hook's two effects are off, which is true. But `requestOpen`
+(`workspace-tab-context.tsx`) writes `#<view>/<id>` gated only on `!isPopout`, never on the layout, and
+global search calls it (`global-search-box.tsx`) among other callers — enumerate them with
+`git grep -n "requestOpen(" -- src/app ':!*.test.*'`. So an item opened from search while in classic leaves
+an item-bearing hash behind, the user navigates on, and the next switch to modern reopens that item from
+wherever they were. ★ REASONED from the call sites, not run. ★ Both comments now say this and cite this
+entry. Re-read them whichever option wins, because (c) changes what "cold" means.
+
+The three options the cold-rule fix (`2a1fe97a`) weighed:
+
+- **(a) latch the cold flag once for the hook's lifetime.** Rejected there: the second activation is then
+  WARM and honours the stale hash, which moves the user just the same — to wherever the hash points.
+- **(b) re-arm on every enabled window.** SHIPPED. Moves the user to the Dashboard, or into the stale item.
+- **(c) do not route on a layout re-entry at all.** Not built; this entry. Keep `activeTab`, and let the
+  URL be repaired from it. The only one of the three that leaves the user where they are.
+
+What (c) needs, and why it is not a one-line change:
+
+- It must still tell a genuine cold load (the first enabled window of THIS page load — a reload, a
+  restored session) from a re-entry. The first must keep discarding residue; the second must not route at
+  all. That is two pieces of state where the shipped fix has one, and the page-load half must NOT be
+  re-armed by the disabled branch.
+- ★ It cannot simply rely on the view→hash write effect to repair the URL. That effect writes only when
+  `current.view !== activeTab`, comparing the BASE view alone, so a stale `#raid/123` while `activeTab` is
+  already `raid` survives it. A re-entry should write the bare view itself.
+- Tests: the re-arm test ASSERTS (b) — `toBe("dashboard")` after `enabled` false → true — and must be
+  rewritten, not extended. "applies the cold rule on the first EXECUTED run, not the first render" starts
+  disabled and enables once, which under (c) is still the page's first enabled window and therefore still
+  cold, so it should SURVIVE unchanged. The two pieces of state have to agree on exactly that case, and it
+  is the one to mutation-test.
+
+★ Out of scope and deliberately different: the desktop app's second-instance relaunch routes to the
+Dashboard on purpose (`DASHBOARD_VIEW_HASH` in `desktop/src/lib/menu-model.ts`). That is a relaunch, not a
+layout switch, and (c) does not touch it.
+
+The decision owed is whether a layout switch is a NAVIGATION. (b) says yes and goes home; (c) says no.
+Size S–M.

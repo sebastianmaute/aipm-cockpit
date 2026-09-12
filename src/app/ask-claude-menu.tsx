@@ -68,7 +68,7 @@ export function AskClaudeMenu({
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative shrink-0">
       <Button
         variant="primary"
         size="sm"
@@ -80,7 +80,7 @@ export function AskClaudeMenu({
         className="inline-flex items-center gap-1.5"
       >
         <SparklesIcon aria-hidden="true" className="h-4 w-4" />
-        <span>{t(lang, "aiAskClaude")}</span>
+        <span className="hidden whitespace-nowrap xl:inline">{t(lang, "aiAskClaude")}</span>
       </Button>
 
       {open && (

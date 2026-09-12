@@ -596,6 +596,22 @@ function MilestonesPanelBody({
                         pressed={!!m.achievedDate}
                         onToggle={() => toggleAchieved(m)}
                         ariaLabel={rowLabel(t(lang, "milestoneAchieved"), token)}
+                        // ★★ RESERVED because of the CELL, not because of any
+                        //    group — each row's toggle is independent. This is
+                        //    `reserveMarkerSpace`'s own documented criterion
+                        //    ("a toggle inside a width-clamped table cell")
+                        //    reached verbatim: the `achieved` column declares
+                        //    width/minWidth from `MILESTONE_COL_WIDTHS`, but
+                        //    the table is `w-full` with `table-layout: auto`,
+                        //    where a declared width is only a MINIMUM content
+                        //    may exceed — and the column is user-resizable down
+                        //    to 40px (`use-column-resize.ts`). Narrow enough,
+                        //    the cell tracks its CONTENT, so a collapsing
+                        //    marker swings the cell on every click and the
+                        //    browser redistributes every column for every row.
+                        //    A per-row control clicked repeatedly is the worst
+                        //    place for that. Pinned by milestones-panel.test.tsx.
+                        reserveMarkerSpace
                       >
                         {t(lang, "milestoneAchieved")}
                       </ToggleButton>

@@ -353,6 +353,19 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
             onToggle={() => setSourceFilter(k)}
             className="rounded-full!"
             lang={lang}
+            // ★★ ONE-OF-N (`setSourceFilter` REPLACES the selection), so the
+            //    marker's width is RESERVED. The collapsing default is
+            //    justified by the marker TRAILING the label: a lone toggle
+            //    grows at its right edge and moves only its rightward
+            //    neighbours, never the control under the pointer. A
+            //    mutually-exclusive group breaks that — one click collapses
+            //    the old chip and expands the new one, so every chip after the
+            //    old selection shifts LEFTWARD, including the one clicked.
+            //    These chips wrap (`flex-wrap`), so a swing can also re-flow a
+            //    chip onto another line. AGENTS.md prescribes
+            //    `SegmentedControl` for one-of-N and it kept its constant
+            //    width; these match it. Pinned by knowledge-panel.test.tsx.
+            reserveMarkerSpace
           >
             {label} <span className="opacity-60">{counts[k]}</span>
           </ToggleButton>

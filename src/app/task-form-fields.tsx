@@ -471,6 +471,19 @@ export function TaskFormFields({
                     icon={<RagDot level={h} />}
                     className={form.healthOverride === h ? chipActive[h] : undefined}
                     lang={lang}
+                    // ★★ ONE-OF-N, so the marker's width is RESERVED. The
+                    //    collapsing default is justified by the marker
+                    //    TRAILING the label: a lone toggle's growth lands on
+                    //    its right edge and displaces only its rightward
+                    //    neighbours, never the control under the pointer. That
+                    //    does NOT hold for a mutually-exclusive group — one
+                    //    click COLLAPSES the old selection and EXPANDS the new
+                    //    one, so every chip after the old selection shifts
+                    //    LEFTWARD, the chip being clicked included. AGENTS.md
+                    //    prescribes `SegmentedControl` for a one-of-N choice
+                    //    and that primitive kept its constant width; these
+                    //    chips match it. Pinned by task-form-fields.test.tsx.
+                    reserveMarkerSpace
                   >
                     {healthColorName(h, lang)}
                   </ToggleButton>

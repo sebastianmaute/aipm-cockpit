@@ -292,7 +292,20 @@
   (§335, above); they do NOT close colour-as-sole-cue either way, which is a separate guarantee. `ToggleButton`
   renders a trailing `data-pressed-marker` check glyph and `SegmentedControl` a `data-selected-marker`
   one; both are `aria-hidden` (`aria-pressed`/`aria-checked` already tell AT) and both are ALWAYS
-  mounted, merely `invisible` when off, so the control keeps ONE width.
+  mounted. They now differ in WIDTH. `SegmentedControl`'s marker is `invisible` when off and keeps the
+  control at ONE width. `ToggleButton`'s COLLAPSES to zero and animates, with a negative margin
+  cancelling the primitive's own `gap-1.5`, so `invisible` appears there only under
+  `reserveMarkerSpace` — the opt-out that restores the constant width. ★★ Consumers opt out for
+  DIFFERENT reasons, and `toggle-button.tsx`'s comment beside the marker enumerates each one with its
+  reason — read the list there, not here. Two of them, as EXAMPLES only: `gantt-view-menu.tsx` passes
+  it at all eight of its toggles, because a dense popover must not reflow under the pointer mid-click,
+  and `budget-panel-people-rows.tsx` at its disclosure, because that `<td>` is `truncate` and clamped
+  to the LIVE role-column width the sticky-column arithmetic is derived from. ★ This paragraph named
+  only those two while seven files passed the prop (measured 2026-09-13), and read as the complete
+  list. Enumerate with
+  `git grep -lE "^\s*reserveMarkerSpace\s*$" -- src ':!*.test.*' ':!src/app/toggle-button.tsx'`.
+  ★★ Do NOT "align" the two primitives by collapsing `SegmentedControl`'s marker too — that one was
+  neither measured nor reversed here, and the constant width is still what its consumers rely on.
   ★★ `SegmentedControl`'s marker is measured against the SELECTED SEGMENT'S OWN FILL, NOT the track:
   the glyph is drawn ON the selected segment, so the track is the wrong reference. `--segment-active-fg`
   scores only 1.12 / 1.14 / 1.01 against the TRACK in harbor-light / meridian-light / umber-light — a
