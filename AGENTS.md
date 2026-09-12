@@ -97,7 +97,7 @@ long after the directory it named stopped existing.
 ## Commands
 
 ```bash
-npm run dev                 # next dev (public next, pinned EXACTLY at 16.2.11 — a caret here would let a
+npm run dev                 # next dev (public next, pinned EXACTLY; version in package.json — a caret here would let a
                             # lockfile merge resolved the wrong way move the framework silently. Framework-coupled
                             # packages are exact-pinned; the rule and its reasoning live in CONTRIBUTING.md
                             # under "Dependencies". Read node_modules/next/dist/docs for version behavior.)
@@ -252,8 +252,8 @@ npm run size:check          # file-size ratchet — fails on a NEW file over the
                             # ★ CONSEQUENCE: three of the four baseline entries are ALREADY INERT, because a file is
                             # only compared against its entry when it is over the LIMIT — chat-panel,
                             # tasks-section and workspace-section are governed by the LIMIT alone until they pass
-                            # 1600. Only `task-manager.tsx` is still consulted, and at a 6040 entry against 2975
-                            # actual lines it constrains nothing in practice either — read the four as recorded
+                            # 1600. Only `task-manager.tsx` is still consulted, and at a 6040 entry, far above the
+                            # file's real length (node one-liner below), it constrains nothing in practice either — read the four as recorded
                             # intent, not as live limits.
                             # ★★ IT COUNTS `wc -l` + 1. The script measures `readFileSync().split("\n").length`,
                             # which for a newline-terminated file is one MORE than `wc -l`. So a file at `wc -l`
@@ -371,7 +371,9 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
                             # not, in a plan that then prescribed that grep as the verification. An empty
                             # grep confirms whatever you already believed. Enumerate the participants
                             # instead, which is one command:
-                            #   grep -rn "AUTO-GENERATED from package.json scripts" --include=*.md .
+                            #   git grep -lE "<!-- END AUTO-GENERATED --[>]" -- "*.md"
+                            # (grep the END marker: the start marker alone also sits in this file and two
+                            # superpowers plans, which do not participate; `[>]` stops a self-match.)
                             # ★★ It returns CONTRIBUTING.md ALONE today, so this is a TWO-file change
                             # (package.json + CONTRIBUTING.md) — read that off the grep, never off this
                             # line. ★ README carried the pair from the initial commit until `be21ebf3`
@@ -1072,10 +1074,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      `isNew ?? !taken` — bulk edit and other non-modal callers deliberately omit it and keep the old
      id-existence behaviour, which is correct because they never precompute an id.
      ★ **Two entities are outside that helper, both correctly:** RESOURCES hand-rolls the identical
-     semantics inline (`use-resource-planner.ts:485`) *plus* an extra guard the others lack — editing a
+     semantics inline (resource save handler, `grep -n editVanished src/app/use-resource-directory.ts`) *plus* an extra guard the others lack — editing a
      row a concurrent writer already deleted would make the map-replace a silent no-op, so it calls
      `reportSilentFailure` instead of dropping the edit; TASKS are immune by construction, deciding on
-     `editingId !== null` (`use-task-submit.ts:126`) and never on id-existence.
+     `editingId !== null` (`grep -n "editingId !== null" src/app/use-task-submit.ts`) and never on id-existence.
      ★ TEST TRAP: the race only reproduces when the id is taken BETWEEN open and save. A test that saves
      against an untouched list passes whichever way the handler decides — seed the collision explicitly.
   4. **Shared SSRF core, per-route normalize.** A new external-API proxy REUSES `api/_shared/proxy-ssrf.ts`
@@ -1149,7 +1151,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   on purpose, so a name there is NOT a claim about what lucide calls that glyph.
   ★★★ A NAME MATCH IS NOT A GLYPH MATCH: lucide's `Bolt` is a hardware nut and its `ChartBar` is
   horizontal, so both were remapped — check `/icon-gallery` in dev, and note `icons.test.ts` pins
-  every row by `displayName`, which is alias-invariant. ★★ **Five of the 70 render no `<path>`**
+  every row by `displayName`, which is alias-invariant. ★★ **Five of the barrel's icons render no `<path>`**
   (`Bars2Icon` a `<line>`, both ellipsis icons `<circle>`, `Squares2X2Icon`/`StopIcon` `<rect>`), and
   lucide prepends its own `lucide lucide-<name>` classes — so an icon test must assert on
   `svg.children.length`, never `querySelector("path")`, and never on an exact `class` string. Three
@@ -1310,13 +1312,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   a SEPARATE `RowLookupContext`/`useTaskLookup`, consumed ONLY by `DependencyChipsImpl` — a context consumer
   re-renders on value change REGARDLESS of an ancestor `memo` bailout, so an edit re-renders one dep-chip
   cell, not all 4×N row cells (context-bypasses-memo). Don't fold `tasksById` back into `RowContextValue`.
-- **★★ `ResourcesPanel` is the ONLY `memo()`'d panel `workspace-section` renders** — so it is the one place
-  where adding a `useWorkspace()` call silently defeats a real optimization. A direct context consumer
+- **★★ Several panels `workspace-section` renders are `memo()`'d** — `ResourcesPanel`, `ChatPanel` and
+  `ActivityLogPanel` directly; RAID, Changes and Stakeholders through `RaidPanelMemo`/`ChangePanelMemo`/
+  `StakeholdersPanelMemo` (enumerate: `grep -rn "= memo(" src/app --include=*.tsx | grep -v test`). In any
+  of them, adding a `useWorkspace()` call silently defeats the optimization. A direct context consumer
   re-renders on ANY context-value change REGARDLESS of the parent's memo bailout (same rule as the
   `RowLookupContext` split above), and `WorkspaceProvider`'s value is one `useMemo` over ~30 slices, so a
   milestone/RAID/budget/insight edit — or a background Outlook-pull / insight-recommendation / scheduled-job
-  write — would re-render the whole planning table, workload rollups and absence calendar.
-  ★★ HONEST STATE: the memo does NOT currently bail, so the optimization this bullet defends is aspirational,
+  write — would re-render the whole panel (for Resources: the planning table, workload rollups and absence
+  calendar). ★★ HONEST STATE: `ResourcesPanel`'s memo does NOT currently bail, so the optimization this bullet defends is aspirational,
   not in effect. `workspace-section` passes it ~47 props and several are a FRESH IDENTITY every render —
   every `guardEdit(handler)` (`guardEdit` is `makeEditGuard(...)` called unmemoized during render in
   `task-manager.tsx`) plus the `absenceCalendar` bag. Verified twice in review. Do NOT cite this memo as the
@@ -1324,10 +1328,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   several. Either stabilise every handler prop (measure first) or delete the memo and this bullet; tracked in
   the R5 follow-ups doc. The guidance below still stands regardless, because it is what would make a bail
   possible at all. THREAD PROPS instead — workspace-section already holds
-  `disciplines`/`grades`/`setResources` and passes them to sibling panels. (Every other panel it renders —
-  tasks, milestones, dashboard, insights, knowledge, timelog — is un-memoized, so consuming context there
-  costs nothing.)
-- **Gantt module map:** `GanttPanel` (`gantt.tsx`, 715 lines) is orchestrator only (data derivation +
+  `disciplines`/`grades`/`setResources` and passes them to sibling panels. (The un-memoized panels it renders —
+  tasks, milestones, dashboard, insights, knowledge, timelog — lose nothing by consuming context.)
+- **Gantt module map:** `GanttPanel` (`gantt.tsx`) is orchestrator only (data derivation +
   layout); heavy
   parts extracted. Pure i18n-free ENGINES `gantt-engine.ts` (date math, prefs load/save, critical-path,
   derive-bar) and `gantt-status-buckets.ts` (`taskStatusBuckets`/`milestoneStatusBucket` — which
@@ -1356,7 +1359,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   everything" now yields an EMPTY chart. ★★ Consequently **any "is a filter active" test must compare
   `prefs.statuses.length < ALL_GANTT_STATUSES.length`, NEVER `> 0`** — a `> 0` test calls an untouched
   project filtered and hides its "add your first task" affordance (that exact mistake shipped a regression
-  in the 0.213.0 branch; `gantt.tsx:588` holds the correct form). ★ `resetFilters` restores all three
+  in the 0.213.0 branch; `grep -n "ALL_GANTT_STATUSES.length" src/app/gantt.tsx` shows the correct form). ★ `resetFilters` restores all three
   statuses, NOT `[]`; priorities and assignees keep empty-means-all and still clear to `[]`. ★
   `ALL_GANTT_STATUSES` is `Object.freeze`d and `loadPrefs` returns `DEFAULT_PREFS` BY REFERENCE on its
   SSR/no-blob/catch paths — spread it (`[...ALL_GANTT_STATUSES]`) wherever a mutable array is wanted.

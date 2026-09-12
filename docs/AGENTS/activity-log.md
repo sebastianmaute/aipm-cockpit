@@ -203,7 +203,7 @@ it has no table of its own, NOT because it sits outside the workspace.
   rather than trusting the number:
   `git grep -nE 'logActivity[A-Za-z]*\??\.?\(\s*"ai\.' 2e2c8c00 -- src/app | grep -v test` → **9**.
   `CHANGELOG.md` got the scope right — it scopes the gap to the assistant's ENTITY WRITERS, not to
-  every AI-made change (`sed -n '20p' CHANGELOG.md`). One claim in three places, one correct.
+  every AI-made change (`grep -n "Its entity writers previously logged" CHANGELOG.md`). One claim in three places, one correct.
   ★★ **The actor is stamped at the WIRING, not the leaf.** `useActivityLog` returns pre-stamped
   `logActivityUser`/`logActivityChangesUser`, because a leaf logging a generic kind cannot know whether
   a user, the assistant or a background pull reached it. **A call site's spelling is therefore NOT its
@@ -211,11 +211,12 @@ it has no table of its own, NOT because it sits outside the workspace.
   Integrations (Jira sync + the four calendar background auto-pulls) stamp `"integration"`.
   ★ **`completion-trend.ts`'s `COUNT_KINDS` set has FOUR members** — `task.created`, `task.completed`,
   `task.reopened`, `task.deleted` — and the dispatcher writes exactly TWO of them, `task.created` and
-  `task.deleted`. So tasks the AI creates or deletes now move that trend. Intended, but it is a change to
+  `task.deleted` (the register writers in `use-register-tools.ts` write no `task.*` kind). So tasks the AI
+  creates or deletes now move that trend. Intended, but it is a change to
   an EXISTING derived metric — the trend can shift with no user action behind it.
   `grep -n COUNT_KINDS src/app/completion-trend.ts` prints the set;
-  `grep -oE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts | sort -u` prints the 21
-  distinct kinds the dispatcher writes across its 23 sites, of which those two intersect the set.
+  `grep -ohE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts | sort | uniq -c`
+  prints the kinds the chat entity writers emit and how often, of which those two intersect the set.
   ★★ **An AI status change to Done still logs `task.updated`, and now logs a completion BESIDE it** —
   `update_task` stamps that one kind whichever fields it touches, exactly as the form save does
   (`use-task-submit.ts`, which routes the status through `logActivityChanges("task.updated", …)`), so the

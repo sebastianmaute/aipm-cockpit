@@ -27,7 +27,7 @@ Persistence is entirely client-side (see `data.md`).
 
 `isPrivateHost` (fail-closed: RFC1918, loopback, 169.254/16 metadata, IPv6 ULA/link-local, NAT64,
 mapped-IPv4) + `mappedIpv4ToDotted` + `isAllowedHostSuffix(host, apex)` (leading-dot suffix match, so
-`evil-atlassian.net` cannot pass). Imported by jira and timelog helpers; **provider-specific
+`evil-atlassian.net` cannot pass). Imported by the jira, timelog and stt helpers; **provider-specific
 normalize/auth/URL stays per-route by design** — do not parameterize divergent security guards into
 one factory.
 
@@ -53,7 +53,7 @@ never been security-audited — see `open-followups.md` §13.
 | `turso-backend` | libSQL HTTP `/v2/pipeline` | single-DB and multi-tenant (composite `(id, project_id)` PK) |
 
 ★ `turso-backend` is the only backend holding a cross-tab **Web Locks** save lock
-(`turso-backend.ts:177`). File/IDB have none — the two-tab clobber gap (`open-followups.md` §4).
+(`navigator.locks` in `turso-backend.ts`). File/IDB have none — the two-tab clobber gap (`open-followups.md` §4).
 ★ Its `load()` embeds `CREATE TABLE IF NOT EXISTS` DDL *outside* the write lock, so parallel loads
 contend (`SQLITE_BUSY`) — portfolio rollup must load sequentially.
 ★ `turso-migrate.ts` self-heals an older DB (PRAGMA-diff → `ALTER ADD COLUMN`) inside the write lock
@@ -61,7 +61,7 @@ before save, because save INSERTs named columns.
 
 ## Turso stores outside the workspace schema
 
-`TABLE_NAMES` = the 13 `ENTITY_SPECS` tables + `plan` + `fx_rates` + `meta`. Workspace save issues a
+`TABLE_NAMES` = the `ENTITY_SPECS` tables + `plan` + `fx_rates` + `meta`. Workspace save issues a
 per-table DELETE, so **any non-workspace table must stay out of that list** (guard test enforces):
 snapshots, version history, comm templates, committee/comm report versions, learning, operating
 guides, scheduled jobs, color schemes.

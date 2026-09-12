@@ -253,8 +253,8 @@ register's fix to another is how two of them broke. Read the note that names you
   ★★ EVERY BUTTON IN THE ROW SUPPRESSES THE MOUSEDOWN DEFAULT: a control that takes focus on mousedown
   blurs the contenteditable and destroys the selection the command applies to. `ToggleButton` carries an
   OPT-IN `preventFocusSteal` prop for its own call sites; the rich-text toolbar's separate
-  `ToolbarButton` (`rich-text-toolbar-button.tsx`) carries the identical opt-in prop for all twelve
-  toggles PLUS Link/Unlink now — one mechanism, not the two hand-rolled ones (`ToggleButton` prop vs a
+  `ToolbarButton` (`rich-text-toolbar-button.tsx`) carries the identical opt-in prop for every `CONTROLS`
+  toggle PLUS Link/Unlink now — one mechanism, not the two hand-rolled ones (`ToggleButton` prop vs a
   plain `Button`'s manual `onMouseDown`+`preventDefault`) this used to describe.
   ★★ OPT-IN IS LOAD-BEARING: every OTHER `<ToggleButton` call site relies on native focus-on-click, so
   an unconditional guard would change every toggle in the app. Both branches are

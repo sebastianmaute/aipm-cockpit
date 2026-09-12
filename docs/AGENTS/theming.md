@@ -55,7 +55,7 @@
   dots) MUST use the `--rag-*`/`--rag-*-text` tokens, never raw `text-ui-green`/`-pink-strong`, or it
   won't switch under Mockup (bit trend-arrow / reports-tables / StackedBar / budget / raid-report).
   ★★★ **A `dark:text-*` COMPANION DOES NOT SURVIVE `hover:` — a hover arm needs `dark:hover:text-*`.**
-  `globals.css:3` is `@custom-variant dark (&:where(.dark, .dark *))`, and `:where()` contributes ZERO
+  `globals.css` declares `@custom-variant dark (&:where(.dark, .dark *))` (`grep -n "@custom-variant dark" src/app/globals.css`), and `:where()` contributes ZERO
   specificity, so `dark:text-x` is (0,1,0) while `hover:text-y:hover` is (0,2,0) — the hover rule wins
   whatever the source order. ★ Reasoning from source order gives the WRONG answer: Tailwind emits the
   `dark:` rule LATER, which looks like it should win. This is why an element can carry
@@ -63,8 +63,8 @@
   mode the moment the pointer touches it. ★★ The DEFECT is specificity-decided and therefore
   order-immune; the FIX is NOT — `dark:hover:text-*` compiles to `:where(.dark,.dark *):hover` =
   (0,2,0), which TIES `hover:text-*` and wins on emission order alone. Stable in Tailwind today, but
-  the remedy is order-sensitive in a way the bug is not. 12 files already use `dark:hover:text-` correctly; 18 do not
-  (`docs/open-followups.md` §40). ★★ A companion must also be checked for its VALUE, not merely its
+  the remedy is order-sensitive in a way the bug is not. List today's correct users with
+  `grep -rl "dark:hover:text-" src/app | grep -v test` (`docs/open-followups.md` §40). ★★ A companion must also be checked for its VALUE, not merely its
   presence — `chat-prompt-chips.tsx:37` "has" a companion that re-asserts the identical broken colour.
   ★★ NO GATE CATCHES ANY OF THIS: axe scans the RESTING state only, so a hover-state contrast failure
   is structurally invisible to it, and there is no hover pass in `e2e/a11y.spec.ts`.
@@ -133,8 +133,7 @@
   builtIn? }` (user ids `"u-<n>"`); apply is INLINE `documentElement.style.setProperty` (the legal runtime
   mechanism — NEVER a Tailwind class, so palette-sweep is untouched). ★★ STRUCTURAL (NON-color) token group:
   `ColorScheme.structural?` = 7 tokens (the `--shadow-card/-control/-card-hover` family + `--gradient-kpi`,
-  `--delta-chip-pad`, `--rag-green-chip`, `--rag-red-chip`) defined in `scheme-tokens.ts`
-  (`STRUCTURAL_TOKENS`/`ICC_STRUCTURAL`/`MOCKUP_STRUCTURAL`), applied via `applySchemeStructural`
+  `--delta-chip-pad`, `--rag-green-chip`, `--rag-red-chip`) listed as `STRUCTURAL_TOKENS` in `scheme-apply.ts`, applied via `applySchemeStructural`
   (`scheme-apply.ts`); each raw value is gated by `isSafeRawCssValue` — a charset allowlist plus a denylist
   blocking `url(` / `expression` / `image-set` / `;` / braces / `@` / angle brackets / backtick. Mirrored to
   boot key `aipm-cockpit-active-scheme-structural` (NOT `aipm-cockpit:`-prefixed → boot reads it pre-paint like
@@ -224,21 +223,19 @@
   lingered). Schemes OWN slogan/footerSlogan (apply REPLACES via `mergeAppliedBranding`); logo/favicon stay
   GLOBAL. Derived `-strong`/`-text`/`muted-foreground` tokens are dropped on save (`cleanColors`). USER schemes
   are still light-only THIS PHASE (editor edits `.light`); built-ins carry both maps. Pure modules:
-  `scheme-tokens.ts` (registry + AIPM/MOCKUP seed+structural maps, `deriveAaVariants`, `resolveSchemeColors`),
+  `scheme-tokens.ts` (token registry, `deriveAaVariants`, `resolveSchemeColors`),
   `scheme-contrast.ts` (WCAG warn-only), `scheme-apply.ts` (colors + structural apply/read/write helpers),
   `color-schemes.ts` (per-device `aipm-cockpit:color-schemes`, hex-validated). Selection hook
   `use-color-schemes.ts` (coverage-excluded).
   ★★ FIVE Phase-2 landmines (do NOT reintroduce):
   (1) `resolveSchemeColors` is BASE-WINS — a built-in that must reproduce an exact hand-tuned value PINS it in
-  its light/dark map; derivation only fills gaps. Flipping back to derived-wins silently OVERWRITES AIPM/Mockup
+  its light/dark map; derivation only fills gaps. Flipping back to derived-wins silently OVERWRITES a built-in's
   pinned `-strong`/`-text`/`muted-foreground`.
-  (2) Mockup's `-strong` tokens were NOT overridden by the (now-removed) `:root[data-style=mockup]` CSS — they
-  cascaded from `:root` (AIPM). So `MOCKUP_LIGHT` MUST PIN `ui-green/pink/purple-strong` to
-  `#4d7000`/`#c41e5a`/`#7a2d72`, else `nudgeToAa` re-derives WRONG values (review-caught regression).
-  (3) AIPM scheme maps FLATTEN tokens that were `var(--surface)` in globals (e.g. `--segment-track-bg`) —
-  `ICC_SEED` hardcodes `#ffffff`; `ICC_DARK` MUST re-override `--segment-track-bg: #121619` (dark surface) or
-  the segmented control is white-on-near-white in dark (axe AA fail). Audit any seed-flattened chrome token
-  when adding a dark map.
+  (2) A built-in whose `-strong` values were hand-tuned must PIN them in its map, else `nudgeToAa` re-derives
+  different values (the AIPM/Mockup schemes this was learned on are deleted).
+  (3) A built-in map holds FLAT hex values for tokens that are `var(--surface)` in globals (e.g.
+  `--segment-track-bg`), so a DARK map must override each such chrome token with a dark value — every dark
+  map in `builtin-schemes.ts` does — or the control renders light-on-light in dark (axe AA fail).
   (4) e2e axe seed: seeding the boot keys is NOT enough — `syncScheme` re-resolves from `aipm-cockpit:color-schemes`
   on mount and OVERWRITES the boot paint. The axe seed MUST also set `aipm-cockpit:color-schemes` `activeId` to the
   scheme under test (empty `schemes:[]` is fine — `reconcileBuiltins` injects built-ins).

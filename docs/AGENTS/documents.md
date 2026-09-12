@@ -116,14 +116,14 @@ to a genuine deletion. No filter can separate them, because the two are the same
 filter narrows the failure from "any load asymmetry" to "a file that lies"; it does not
 eliminate it.
 
-★★★ **THE MARKER NO LONGER GATES ANYTHING IN `document-versions.ts` — but it is still live in
-two OTHER files, so do not delete it.** `deletedDocumentVersions` once carried a second filter
+★★★ **THE MARKER NO LONGER GATES `deletedDocumentVersions` OR `trimVersions` — but it is still
+live, so do not delete it.** `deletedDocumentVersions` once carried a second filter
 excluding `RESTORED_MARKER_OP`; that was **removed** because `op === "delete"` subsumes it (a
 marker's op is `"restored"`, which the new filter already rejects). `trimVersions` does not read
 the constant either — it delegates to `isTombstone`, which compares the string literal
-`"delete"`. Reproduce: `grep -n "RESTORED_MARKER_OP" src/app/document-versions.ts` → **6** lines,
-of which exactly **1 is code**, the `export const` declaration; the other five are prose in
-doc-comments. Its live readers are in files this paragraph used to omit — `document-mutations.ts`
+`"delete"`. In `document-versions.ts` its only code uses are the `export const` declaration and
+`orphanedDocumentVersions`'s filter; every other hit is doc-comment prose. Reproduce:
+`grep -n "RESTORED_MARKER_OP" src/app/document-versions.ts`. Its other live readers are `document-mutations.ts`
 (the restore-refuses-a-marker guard and the marker write) and `documents-history-modal.tsx`
 (filters markers out of the restorable list). Sweep for them with
 `grep -rn "RESTORED_MARKER_OP" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."`.
@@ -415,15 +415,12 @@ grep -E "Test Files|Tests |^\s+× " /tmp/t.log
 `documentVersions` is a top-level optional `Workspace` field carried by all six write paths.
 
 ★ **Do not try to enumerate them with a bare grep.**
-`grep -rln "documentVersions" src/app --include="*.ts" | grep -v "\.test\."` returns **12**
-files, not 6 — the CSV and Markdown *decode* halves are separate files; `id-mint-session.ts`,
+`grep -rln "documentVersions" src/app --include="*.ts" | grep -v "\.test\."` returns far more
+than 6 files — the CSV and Markdown *decode* halves are separate files; `id-mint-session.ts`,
 `use-storage-backend.ts` and `use-document-tools.ts` are consumers, not write paths; and
 `scale-workspace.ts` only *mentions* the field in comments, so it is neither. The table below is
-the authority; the grep is only a starting set to read through.
-★★ That number is VOLATILE and has already rotted once: it was a true **11** when written, and
-became 12 when a comment mentioning `documentVersions` was added to `scale-workspace.ts` — a
-file whose author never touched this doc. **Re-run the command before quoting the number**; do
-not assume the count still matches just because the write-path table does.
+the authority; the grep is only a starting set to read through. Its count is volatile (any new
+consumer or comment moves it), so never quote it.
 
 | path | file |
 |---|---|
@@ -1547,12 +1544,11 @@ not observed, and §219 items 6 and 7 carry both owed checks.
 
 ★★ `documentVersions` was implemented in the model and all six write paths **before** it was
 loaded or saved — it initialised to `[]` and stayed there, so every reload silently dropped
-every document's history. The wiring closes that at nine lines in `use-storage-backend.ts`:
-the `useWorkspace()` destructure, the load-apply, the autosave **deps array**, five
-workspace-assemble literals (autosave save, explicit save, migrate-to-target save, the
-dirty-check `outgoing`, and the workspace getter), and the broadcast registration. Reproduce:
-`grep -n "documentVersions" src/app/use-storage-backend.ts` → **9** lines (one of them carries
-two `useBroadcastSync` calls).
+every document's history. The wiring closes that in `use-storage-backend.ts`: the
+`useWorkspace()` destructure, the load-apply, the autosave's single `outgoing` literal (counted by
+the guard AND handed to `backend.save`), the autosave **deps array**, the broadcast registration
+(one line carrying two `useBroadcastSync` calls), and the `currentWorkspace()` getter literal.
+Reproduce: `grep -n "documentVersions" src/app/use-storage-backend.ts`.
 
 ★★★ **THERE ARE TWO LOAD FUNNELS AND THE SECOND IS EASY TO MISS.** `applyRestoredWorkspace` in
 `task-manager.tsx` fans a restored workspace into every setter **by hand** — a slice absent from
@@ -1572,25 +1568,15 @@ reverse) would compute a wrong deleted-documents list.
 ★ `useBroadcastSync` takes a **free string** `kind` over one shared `BroadcastChannel` — there is
 no key union, registry or allowlist, so a new channel needs no registration anywhere.
 
-★ The two channel registrations are deliberately **paired on one source line**, because
-`use-storage-backend.ts` is within a line or two of the 800-line cap and the gate counts
-`split("\n").length`, i.e. `wc -l` **+ 1** (see `AGENTS.md`'s `size:check` entry).
-★★ **CORRECTED: this said the file "sits exactly at" 800 and that splitting them "re-breaks the
-gate". Measured, it is 799** — so a split reaches 800, which the gate PASSES (`if (n <= LIMIT)
-continue`), and it takes TWO added lines to fail. Keep them paired anyway; the margin is one line
-and the next edit to this file spends it.
-★★ **SUPERSEDED 2026-09-03: the margin argument is void.** The ratchet LIMIT was doubled 800 → 1600,
-so at 799 lines this file has ~800 lines of room and the pairing buys nothing the gate cares about.
-The size cap was the ONLY recorded reason for it (verified: nothing else in this file gives another),
-so unpairing is now free on readability grounds. ★ One consequence to keep in mind either way, and it
-argues for UNpairing: a shared source line hides `setDocumentAssets` from the line-based setter greps
-in [`activity-log.md`](activity-log.md), which is a documented gotcha there. ★★ §220 used to carry the wider problem — that
+★ The two channel registrations share **one source line** for a historical size-cap reason that
+no longer applies (the ratchet `LIMIT` is 1600), so unpairing them is free. It argues for
+unpairing: a shared source line hides `setDocumentAssets` from the line-based setter greps in
+[`activity-log.md`](activity-log.md), which is a documented gotcha there. ★★ §220 used to carry the wider problem — that
 `documents-panel.tsx` and `document-block-editors.tsx` were both AT 800 — and **§220 is now CLOSED**:
 three modules were extracted and the two sit well under the cap (measure them with the command below;
 they were 733 and 657 on 2026-08-24). This sentence outlived that fix by pointing at an entry whose
 own close paragraph enumerates what it does not address and never mentions this back-reference — the
-ordinary way a cross-file pointer rots. What remains true is the `use-storage-backend.ts` margin above,
-which §229 now owns. Never quote a line count here — measure it:
+ordinary way a cross-file pointer rots. Never quote a line count here — measure it:
 `node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`.
 
 ## Test coverage — what is and is not pinned
