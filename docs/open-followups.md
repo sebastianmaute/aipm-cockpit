@@ -34691,36 +34691,46 @@ mislabel at a new site. The only thing preventing that today is the comment bloc
 independent reviewers of the currency-boundary slice recommended registering this rather than fixing
 it inside that slice.
 
-★ A smaller, related staleness to sweep whichever way this goes: source comments still describe the
-plan's `currency` as "free-text", which `f97bc82b` made false by narrowing `ResourcePlan.currency`
-to the `BudgetCurrency` union. ★★ WIDENED 2026-09-12 — **this bullet named `trends-panel.tsx` alone
-and the sweep is SIX sites across FIVE files**, two of them test files whose comments justify what
-the test asserts. Do not cite a filename here; cite the sweep, because the next comment to go stale
-will be in a file this list does not name:
-```
-grep -rn "free-text \`currency\`\|free string" src/app --include=*.ts --include=*.tsx
-```
-→ eight hits on 2026-09-12, of which six are this staleness (`budget-panel.tsx`,
-`dashboard-panel.tsx`, `dashboard-panel.test.tsx`, `trends-panel.test.tsx`, and `trends-panel.tsx`
-TWICE). ★ The other two are NOT this defect and must not be swept with it: `sanitize-budget.test.ts`
-matches on a `describe` title that states the NEW behaviour correctly ("currency is the supported
-union, not a free string"), and `task-filters.ts` is about the assignee/group/label filters and has
-nothing to do with currency. A sweep that edits on the grep alone breaks a true statement in each.
-★ The second pattern alternative is what makes the grep honest — searching the backticked
-"free-text" phrase alone finds six and reports a clean run, and the reader never learns that the
-phrase has a second form ("free string") that a future comment might reach for. Run the two-branch
-pattern above and triage the extras; do not narrow it to the branch that happens to match today.
+★ A smaller, related staleness, now SWEPT: source comments described the plan's `currency` as
+"free-text", which `f97bc82b` made false by narrowing `ResourcePlan.currency` to the
+`BudgetCurrency` union. `f7240d30` and `f7f7e4ea` corrected every site.
+
+★★★ THE INSTRUCTION THIS BULLET USED TO GIVE WAS WRONG, and the error is worth more than the sweep
+was. It said the population was **SIX sites across FIVE files**, told the reader "do not cite a
+filename here; cite the sweep", and supplied
+`grep -rn "free-text \`currency\`\|free string" src/app --include=*.ts --include=*.tsx` as that
+sweep. The real population was **EIGHT sites across SEVEN files**, and the prescribed pattern was
+structurally incapable of finding two of them. Reproduce against the state it was written for:
+`git show d1c1208d:src/app/budget-report-panel.test.tsx | grep -c 'free-text \`currency\`'` → **0**,
+because the phrase wrapped across a line break and a line grep cannot see a wrapped phrase; the same
+command against `budget-panel.test.tsx` → **0**, because it used a third spelling (`— free text —`).
+Both were found by hand by implementers who happened to be editing those files for another reason.
+
+★★ SO THE ADVICE INVERTS, and this is the part to carry to the next sweep of any comment class:
+**this one cannot be enumerated by grep at all, and handing the next reader a pattern is worse than
+handing them none** — a pattern returns a number, and a number reads as completeness. Measured
+2026-09-12: `grep -rniE "free[- ]text" src/app --include=*.ts --include=*.tsx | wc -l` returns
+close to a hundred hits, and nearly every one is about a DIFFERENT invariant — row-name uniqueness,
+where free text is the PREMISE of a defect rather than a stale claim. The signal-to-noise is such
+that the honest instruction is "read the currency comments", not "run this".
+
+★ Two files matched the old pattern and must NEVER be swept with it, because each states something
+TRUE: `sanitize-budget.test.ts`'s `describe` title ("currency is the supported union, not a free
+string") describes the post-narrowing world correctly, and `task-filters.ts` is about the
+assignee/group/label filters and has nothing to do with currency. Both are untouched; keep them so.
 
 Size S–M: the work is the decision — delete the field (one table's schema, its column list, encode
 and decode), or keep it and normalise it to EUR at the writer so a later reader cannot be misled.
-Either way the six comment sites above must be swept.
+Either way, the comment sweep above is already DONE and no comment work remains in this entry.
 
 ## 470. The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN
 
 **Status:** OPEN 2026-09-12 — established by reading the load path, not by a run. Presence witnesses
 run 2026-09-12: `grep -c "sanitizePlan(" src/app/browser-backend.ts` → **0** (no call; the two
-`sanitizePlan` mentions in that file are both inside the comment explaining why it is not called, so
-a bare name grep there returns 2 and answers the opposite question), against
+`sanitizePlan` mentions in that file are all inside the comment explaining why it is not called, so
+a bare name grep there answers the opposite question — and its COUNT is not quoted here, because
+this line quoted 2 and `f7240d30` made it 4 by expanding that very comment, eleven minutes later in
+the same round; the `(` is what makes the witness stable), against
 `grep -rln "sanitizePlan(" src/app --include=*.ts | grep -v test` → five files
 (`csv-codecs-decode.ts`, `markdown-codecs-decode.ts`, `sanitize-entities.ts`, `turso-schema.ts`,
 `workspace.ts`), i.e. every other load path.
@@ -34760,11 +34770,17 @@ skipped:
 So the current shape is deliberate and **half** defended. ★ The two missing fixtures are work owed
 by this entry, and they are cheap — one fixture each, in the pattern the file already uses (its own
 comment explains why each shape needs its own test: a test aborts at its first failing expect, so
-one fixture can only ever prove one of them). ★★ The same overclaim is repeated verbatim in the
-source comment in `browser-backend.ts` that this entry quotes — `grep -n "pins all four"
-src/app/browser-backend.ts` → 1 — and needs the identical narrowing. It is left for the task that
-owns `src/`; until then the register and the code assert the same wrong number, which is worse than
-either alone, because a reader who cross-checks one against the other finds agreement.
+one fixture can only ever prove one of them). ★★ The same overclaim was repeated verbatim in the
+source comment in `browser-backend.ts` that this entry quotes. `f7240d30` narrowed it, so both now
+say two — verify with `grep -c "pins all four" src/app/browser-backend.ts` → **0**, the phrase is
+gone. ★★★ THAT LINE IS KEPT BECAUSE ITS EARLIER FORM WAS FALSIFIED BY ITS OWN ROUND: it read "It is
+left for the task that owns `src/`; until then the register and the code assert the same wrong
+number", and the task that owned `src/` landed eleven minutes later. A register entry that hands
+work to a sibling task is stale the moment that task finishes, and nothing watches for it — so
+phrase such a hand-off as a condition a reader can TEST (the grep above), never as a state of the
+world. The hazard it named is still real and is why both halves had to move: a reader who
+cross-checks the code against the register and finds agreement stops looking, whichever number they
+agree on.
 ★ Note the shape of the error: the count came from the LIST OF REWRITES (four), not from the
 assertions (two). A "pins all N" claim is only ever verifiable by walking the assertions, and the
 two that failed are exactly the two whose fixtures happen to fall on the sanitizer's PRESERVING
