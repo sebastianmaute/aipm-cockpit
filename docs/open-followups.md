@@ -694,6 +694,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--open) | The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN | found 2026-09-12 while closing §465, from `d4fa68c3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | open |
 | [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--open) | The FX-override field's advertised minimum rounds to zero and is then refused — OPEN | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | open |
 | [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--open) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture — OPEN | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | open |
+| [§473](#473-budget-and-resources-now-disagree-about-what-currency-role-rate-money-is-in--open) | Budget and Resources now disagree about what currency role-rate money is in — OPEN | found 2026-09-12 by the whole-branch review of `feat/budget-currency-boundary`, in the same pass that caught a false attribution in §465 | M — the seven display sites are a small edit; deciding what currency a role rate is actually in, and migrating stored rates under that answer, is the work | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -34413,10 +34414,20 @@ last parameter to `computeBucketReport`, `computeSpillover` and `computeBudgetRe
 enumerates every call site rather than leaving one silently unconverted. `a537b8f7` and `e0dab070`
 relabel the four surfaces that render the engine's figures — the Budget panel's project rollup, the
 Budget report's burndown, the Dashboard's Budget tile and burndown, and the Trends remaining-cost
-label — as EUR, since they sum EUR and convert nothing. `f97bc82b` narrows `ResourcePlan.currency`
-from a free string to the `BudgetCurrency` union, which closes the UNVERIFIED NEIGHBOUR recorded
-below, and `d4fa68c3` coerces an out-of-union stored value on the IndexedDB load path. `ef21481a`
-gives the sample workspace a USD contract so the converting path has a fixture.
+label — as EUR, since they sum EUR and convert nothing. That relabelling is ALSO what closes the
+UNVERIFIED NEIGHBOUR recorded below (`a537b8f7`'s `const projCur = "EUR"` for the project rollup,
+`e0dab070` for the three sibling surfaces). `f97bc82b` narrows `ResourcePlan.currency` from a free
+string to the `BudgetCurrency` union and `d4fa68c3` coerces an out-of-union stored value on the
+IndexedDB load path. `ef21481a` gives the sample workspace a USD contract so the converting path has
+a fixture.
+
+★★ THE NARROWING DOES NOT CLOSE THE NEIGHBOUR, and an earlier revision of this Status line said it
+did — a false claim in this register is ungated forever, so it is corrected here rather than
+silently rewritten. `SUPPORTED_CURRENCIES` is `["EUR", "USD", "GBP"]`, so a plan can still be set to
+USD or GBP after the narrowing; the TYPE protects nothing here. Only the literal at the display site
+does. Reproduce: `grep -n "SUPPORTED_CURRENCIES = " src/app/types.ts` → one line, three members, and
+`grep -n "const projCur" src/app/budget-panel.tsx` → one line, the `"EUR"` literal. A reader who
+later reverts that `projCur` line would, on the old wording, believe the union still protected them.
 
 Reproduce, run 2026-09-12 — this entry's own as-filed witness, inverted:
 `grep -rn "currencyToEur(" src/app --include=*.ts | grep -v "\.test\." | grep -v "^src/app/fx.ts"`
@@ -34777,3 +34788,60 @@ Size S–M: rename the fixture and let the existing assertion run against a real
 — which will go red — then decide what the burndown should draw for a fixed-price bucket. "Value the
 contract amount over the bucket window" and "exclude fixed-price buckets from the value series and
 chart hours only" are both defensible, and that decision is the work, not the test.
+
+## 473. Budget and Resources now disagree about what currency role-rate money is in — OPEN
+
+**Status:** OPEN 2026-09-12 — established by reading the engine, the type and the display sites, and
+by diffing the branch base; NOT reproduced on a screen and pinned by no test. Presence witnesses run
+2026-09-12: `grep -c "role.internalRate\|role.externalRate" src/app/resource-cost.ts` → 2 (the two
+multiplications in `periodCost`; no currency appears anywhere in that module),
+`grep -c "plan.currency" src/app/resources-panel-rows.tsx src/app/resources-report.tsx` → 6 and 1
+(the seven display sites), `grep -n "currency" src/app/roles-editor.tsx` → 5 (the prop driving the
+rate-field symbol, fed `plan.currency || "EUR"` from `task-manager.tsx` — reproduce that feed with
+`grep -n 'currency={plan.currency || "EUR"}' src/app/task-manager.tsx` → 1) and
+`grep -n "projCur" src/app/budget-panel.tsx` → 5, the first being the literal `const projCur = "EUR"`.
+
+The same role rates produce money on two surfaces that now label it differently. `periodCost`
+(`resource-cost.ts`) computes `capacityHours × role.internalRate` / `× role.externalRate` and is
+currency-agnostic — it just multiplies. The budget engine treats those rates as EUR: the docstring on
+`BucketReport.budgetValue` in `budget-report.ts` says "role-rate figures are EUR already". The seven
+Resources display sites format the same kind of figure with `plan.currency`. So in one workspace with
+a USD plan, a rate-derived cost prints € on the budget report and $ on the resources report.
+
+★ THE BRANCH DID NOT CREATE THIS, and it is worth being exact about what it did, because the obvious
+summary is wrong in both directions. A brief for this entry said every surface AGREED on
+`plan.currency` before the branch; it did not. At the branch base (`065a9d02`),
+`budget-report-panel.tsx`'s `money()` formatter ALREADY hardcoded `"EUR"` while that same panel's
+burndown used `plan.currency` — so the budget surfaces disagreed with EACH OTHER, and one of them
+already disagreed with Resources. Reproduce:
+`git show 065a9d02:src/app/budget-report-panel.tsx | grep -n 'formatCurrency(n, "EUR"\|currency={plan.currency'`
+→ two hits, one of each. What `a537b8f7` and `e0dab070` did was make the budget side internally
+CONSISTENT at EUR, which turned a muddle into a clean contradiction between two areas of the app.
+
+★ No computed figure moved — those two commits changed only the currency string handed to a
+formatter, never an amount. For a EUR plan nothing is visibly different at all. For a non-EUR plan
+some budget-side labels changed from the plan symbol to €, which was the intended fix (§465), not a
+regression.
+
+The root is a genuine ambiguity the type carries in a single sentence. `ResourcePlan.currency`'s
+docstring (`types.ts`) says role rates and per-bucket rate overrides "are denominated in it, and the
+budget engine treats those as EUR" — both halves at once, reconciled only by the assumption that the
+plan currency IS EUR. The `BucketReport` docstring states the same assumption explicitly. The union
+narrowing (`f97bc82b`) does not settle it: `SUPPORTED_CURRENCIES` is `["EUR", "USD", "GBP"]`, so a
+plan can still be USD or GBP.
+
+★ DELIBERATELY NOT FIXED, and this is the same third currency notion §465's closure already records
+as out of scope for `rateOverrideInternal` / `rateOverrideExternal`. This entry is the rest of it:
+the BASE role rates and the seven display sites. Resolving it means deciding what currency a role
+rate is actually in — a design decision, not a relabel. The three candidate shapes each have a real
+cost: declare role rates EUR and relabel the seven sites (cheapest, but silently reinterprets every
+stored rate in a non-EUR plan); keep them in `plan.currency` and convert at the budget engine's
+boundary as `computeBucketReport` now does for contract amounts (consistent with §465's resolution,
+but adds a conversion to every cost path); or give rates their own currency field (most honest,
+largest migration).
+
+★ Related but NOT the same question: whether `plan.currency` should exist at all once every money
+surface is EUR. §469 records the neighbouring case of a stored currency field with no reader.
+
+Size M: the seven display sites are a small edit; the decision above, and migrating stored rates
+under whichever answer wins, is the work.
