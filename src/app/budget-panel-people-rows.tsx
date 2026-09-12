@@ -149,6 +149,13 @@ export function PeopleDisclosureLabel({
       //   span (the label) plus an `<svg>` marker, and `budget-panel-people-rows.test.tsx`
       //   pins both this class list and that structure.
       className="max-w-full [&>span]:min-w-0 [&>span]:truncate"
+      // ★★ The <td> around this is `truncate` and clamped to the LIVE
+      //    role-column width, and the sticky leading columns are placed by
+      //    arithmetic over that declared width. An animating child changes the
+      //    cell's content width mid-interaction, which that arithmetic cannot
+      //    absorb -- and open-followups §123 already records an ellipsis defect
+      //    in this exact cell.
+      reserveMarkerSpace
       // ★ The rows read "6 / 176" with no header saying which figure is which —
       //   position and the `/` are the only cue. This says it in words, in the
       //   accessible DESCRIPTION (the NAME must stay stable), and the disclosure
