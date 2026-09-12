@@ -35829,6 +35829,8 @@ that test and from the call sites; no browser run has watched a layout switch do
 is there because the same command beside a recursive grep printed `Test Files no tests` at exit 1 —
 worker-start contention, not a result.)
 
+**Work item:** #320
+
 `useHashView` (`src/app/use-hash-view.ts`) is enabled only in the modern layout —
 `useHashView(settings.layout === "modern", settings.features)` in `task-manager.tsx`. The first EXECUTED
 apply of each contiguous enabled window is COLD: a view-only hash is discarded as stale session residue
