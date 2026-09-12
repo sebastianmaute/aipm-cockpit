@@ -10,6 +10,7 @@ import {
   type Compare,
   isBlank,
   probeFor,
+  taskAtRest,
 } from "./sweep-probes";
 
 const sameAt: Compare = (a, b) => same(a, b);
@@ -75,6 +76,23 @@ describe("isBlank", () => {
 describe("ADMISSION_ORACLE", () => {
   it("names a writer sanitizer for every inline entity and both arms", () => {
     expect(Object.keys(ADMISSION_ORACLE).sort()).toEqual([...ENTITIES].sort());
+  });
+
+  // ★★★ WHICH ENTITIES REACH THE WEAK ORACLE, which the test above cannot see.
+  //  It asserts only that every entity HAS a key — a ninth entity pointed at
+  //  `taskAtRest` on "it has no row sanitizer either" reasoning satisfies it
+  //  exactly as well as a real sanitizer would, and every probe for that entity
+  //  would then be admitted by a store that admits nearly anything.
+  //  `taskAtRest` is weak DELIBERATELY and only for `task`, whose `create_task`
+  //  writer builds its row field by field and has no row sanitizer to ask.
+  //  ★★ BY REFERENCE, not by name: two oracles can share a spelling, and the
+  //  arrows beside it are fresh instances per entry, so identity is the only
+  //  comparison that answers the question.
+  it("reaches the deliberately weak at-rest oracle from task alone", () => {
+    const weak = ENTITIES.filter((entity) =>
+      (["create", "update"] as const).some((arm) => ADMISSION_ORACLE[entity][arm] === taskAtRest),
+    );
+    expect(weak, `${weak.join(", ")} share task's weak at-rest oracle`).toEqual(["task"]);
   });
 });
 

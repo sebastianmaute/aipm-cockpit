@@ -168,8 +168,13 @@ const asRow = (r: unknown): Row | null => (r === null || r === undefined ? null 
  *  throws in `jsonToWorkspace` guard `p.documents`/`p.documentVersions`, keys
  *  this envelope never sets — so the only strict throw this call can ever hit
  *  is the outer catch-all re-raising a REAL construction exception, which is
- *  exactly what should surface rather than be swallowed. */
-const taskAtRest = (row: Row): Row | null =>
+ *  exactly what should surface rather than be swallowed.
+ *
+ *  ★ EXPORTED ONLY so `sweep-probes.test.ts` can pin, by REFERENCE, that this
+ *  weak oracle is reached from `task` and nothing else. A name comparison
+ *  cannot do it, and a ninth entity pointed here on "it has no row sanitizer
+ *  either" reasoning is the drift that pin exists to catch. */
+export const taskAtRest = (row: Row): Row | null =>
   asRow(jsonToWorkspace(JSON.stringify({ tasks: [row], raid: [] }), { strict: true }).tasks[0]);
 
 /** The sanitizer each entity's WRITER runs on the given arm — the oracle for

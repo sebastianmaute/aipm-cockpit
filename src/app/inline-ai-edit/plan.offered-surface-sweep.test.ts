@@ -527,11 +527,19 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
 //  ★★★ STATED OVER THE ONE DERIVATION, AT EVERY REFERENCE A ROW CAN HOLD.
 //   Only Relation B can reach a declared field — Relation A iterates
 //   `undeclaredColumns` alone — and both of Relation B's arms take their
-//   probe from `probeFor` and nothing else, so this covers every path a
-//   probe of this field can take to the dispatcher — the hand-kept list of
+//   probe from `probeFor` and nothing else, so this covers every path a PROBE
+//   of this field can take to the dispatcher — the hand-kept list of
 //   derivations §443 warned about no longer exists to fall out of date. The
 //   three references are the three states the flag can be stored in:
 //   present-only-when-true means `undefined` is the create control's value.
+//
+//  ★★★ A PROBE IS NOT THE ONLY PATH, AND THE SENTENCE ABOVE ONCE CLAIMED IT
+//   WAS. `CREATE_BASE.calendarEvent` is sent verbatim on every create in this
+//   file, probe or no probe, and nothing above forbids it carrying
+//   `sendInvitations` — the "create base names only declared fields" floor
+//   PERMITS it, because the field IS declared. So the base gets its own
+//   assertion below. Widen this guard, never this comment, if a third path
+//   appears.
 //
 //  ★★ SITED OUTSIDE THE RELATION LOOPS, so it runs even when no loop reaches
 //   the field.
@@ -540,6 +548,10 @@ it("no probe drives calendarEvent.sendInvitations true", () => {
     declaredProperties("calendarEvent", "update"),
     "`sendInvitations` left the declared surface — either it is genuinely unwritable now, or the schema narrowed and this guard has gone vacuous",
   ).toContain("sendInvitations");
+  expect(
+    CREATE_BASE.calendarEvent,
+    "the create base would send sendInvitations on every create in this file, with no probe involved",
+  ).not.toHaveProperty("sendInvitations");
   const seedRow = loadedSeedRow("calendarEvent");
   for (const arm of ["create", "update"] as const) {
     for (const sendInvitations of [undefined, false, true]) {
