@@ -45,7 +45,7 @@ describe("BudgetPanel", () => {
     // as happily when the query is wrong, the scope is empty, or the panel
     // failed to render. `getAllByText` THROWS on zero matches, and the floor
     // proves the scope is populated. MEASURED over this fixture, not reasoned:
-    // 3, not 4 — the CPI tile has no earned-value baseline here, so it renders
+    // 3, not 4 — the Cost recovery tile has no earned-value baseline here, so it renders
     // `unknown` and both of its figures are "—". An exact count, because a
     // loose floor would let a tile silently stop rendering money at all.
     const money = within(rollup).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
@@ -428,10 +428,10 @@ test("budget: bucket search with no matches shows a no-match line", () => {
   expect(screen.getByText(t("en-US", "reportsNoMatches"))).toBeInTheDocument();
 });
 
-test("renders InfoTooltip for CPI metric label by accessible name", () => {
+test("renders InfoTooltip for the Cost burn metric label by accessible name", () => {
   render(<BudgetPanel {...props} />);
   const hint = t("en-US", "budgetCciBurnHint");
-  // CPI tooltip appears in both the project-total row and the per-bucket row
+  // The Cost burn tooltip appears in both the project-total row and the per-bucket row
   const tooltips = screen.getAllByRole("button", { name: hint });
   expect(tooltips.length).toBeGreaterThanOrEqual(1);
 });
@@ -501,7 +501,7 @@ describe("nextBucketId (session mint)", () => {
 describe("Cci primary prop", () => {
   // We test Cci by rendering BudgetPanel with a bucket that has known CCI values
   // and checking which number appears as the big figure vs the small figure.
-  // With primary="percent" on CPI and Consumption, the big figure is the percent string.
+  // With primary="percent" on Cost burn and Consumption, the big figure is the percent string.
   // With default (Margin), the big figure is the currency amount.
 
   const cciProps = {
@@ -513,17 +513,17 @@ describe("Cci primary prop", () => {
     }],
   };
 
-  test("CPI card shows percent as big figure and currency as small figure", () => {
+  test("Cost burn card shows percent as big figure and currency as small figure", () => {
     render(<BudgetPanel {...cciProps} />);
-    // There are two CPI cards (project-total + per-bucket). We look at all text-lg elements.
-    // The big figure for CPI with primary="percent" must contain a "%" string.
-    // CPI and Consumption big figures should contain "%"
-    const cpiLabel = t("en-US", "budgetCciBurn");
-    // Find a card whose label is CPI
+    // There are two Cost burn cards (project-total + per-bucket). We look at all text-lg elements.
+    // The big figure for Cost burn with primary="percent" must contain a "%" string.
+    // Cost burn and Consumption big figures should contain "%"
+    const burnLabel = t("en-US", "budgetCciBurn");
+    // Find a card whose label is Cost burn
     const cards = Array.from(document.querySelectorAll(".rounded-lg.border.border-line.p-3"));
-    const cpiCards = cards.filter((c) => c.textContent?.includes(cpiLabel));
-    expect(cpiCards.length).toBeGreaterThanOrEqual(1);
-    for (const card of cpiCards) {
+    const burnCards = cards.filter((c) => c.textContent?.includes(burnLabel));
+    expect(burnCards.length).toBeGreaterThanOrEqual(1);
+    for (const card of burnCards) {
       const big = card.querySelector(".text-lg.font-semibold");
       expect(big?.textContent).toMatch(/%/);
     }
@@ -556,15 +556,15 @@ describe("Cci primary prop", () => {
 });
 
 describe("BudgetPanel — Cost recovery card (EV/AC)", () => {
-  const cpiLabel = t("en-US", "budgetCciRecovery");
-  const cpiCardsIn = () =>
+  const recoveryLabel = t("en-US", "budgetCciRecovery");
+  const recoveryCardsIn = () =>
     Array.from(document.querySelectorAll(".rounded-lg.border.border-line.p-3"))
-      .filter((c) => c.textContent?.includes(cpiLabel));
+      .filter((c) => c.textContent?.includes(recoveryLabel));
 
   test("renders unknown (—) when no bucket has progress set", () => {
     // The default `buckets` fixture carries no percentComplete/taskIds.
     render(<BudgetPanel {...props} />);
-    const cards = cpiCardsIn();
+    const cards = recoveryCardsIn();
     expect(cards.length).toBeGreaterThanOrEqual(1);
     for (const card of cards) {
       const big = card.querySelector(".text-lg.font-semibold");
@@ -572,17 +572,17 @@ describe("BudgetPanel — Cost recovery card (EV/AC)", () => {
     }
   });
 
-  test("computes and renders a known CPI from a manual percent-complete", () => {
+  test("computes and renders a known cost recovery from a manual percent-complete", () => {
     // 100 budgeted hours × rate 100 = 10,000 budgeted cost; 40% complete => EV 4,000;
-    // 80 actual hours × rate 100 = 8,000 actual cost => CPI 4,000/8,000 = 50%.
-    const cpiBuckets: BudgetBucket[] = [{
+    // 80 actual hours × rate 100 = 8,000 actual cost => cost recovery 4,000/8,000 = 50%.
+    const recoveryBuckets: BudgetBucket[] = [{
       id: 1, name: "B1", type: "tm", currency: "EUR",
       startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
       percentComplete: 40,
       allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
     }];
-    render(<BudgetPanel {...props} buckets={cpiBuckets} />);
-    const cards = cpiCardsIn();
+    render(<BudgetPanel {...props} buckets={recoveryBuckets} />);
+    const cards = recoveryCardsIn();
     expect(cards.length).toBeGreaterThanOrEqual(1);
     const bucketCard = cards.find((c) => c.textContent?.includes("50.0%"));
     expect(bucketCard).toBeTruthy();
@@ -590,7 +590,7 @@ describe("BudgetPanel — Cost recovery card (EV/AC)", () => {
 
   test("resolves earned value from linked tasks via the tasks prop", () => {
     // Same budgeted/actual cost as above (10,000 / 8,000), but progress comes
-    // from one finished linked task out of two => 50% => EV 5,000 => CPI 62.5%.
+    // from one finished linked task out of two => 50% => EV 5,000 => cost recovery 62.5%.
     const linkedBuckets: BudgetBucket[] = [{
       id: 1, name: "B1", type: "tm", currency: "EUR",
       startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
@@ -602,7 +602,7 @@ describe("BudgetPanel — Cost recovery card (EV/AC)", () => {
       { id: 102, taskName: "T2", assignee: "A", assigneeEmail: "a@x.io", dueDate: "2026-02-01", lastUpdateDate: "2026-01-01", status: "To Do" as const, priority: "Medium" as const, blockers: "", description: "" },
     ];
     render(<BudgetPanel {...props} buckets={linkedBuckets} tasks={tasks} />);
-    const cards = cpiCardsIn();
+    const cards = recoveryCardsIn();
     const bucketCard = cards.find((c) => c.textContent?.includes("62.5%"));
     expect(bucketCard).toBeTruthy();
   });
