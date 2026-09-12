@@ -89,6 +89,18 @@ describe("computeBucketReport — a fixed-price bucket in a non-EUR currency", (
     expect(rep.revenue).toBeCloseTo(10000 / 1.1, 5);   // NOT 10000
   });
 
+  test("the other two fixed-branch terms convert too — budgetValue and consumedValue", () => {
+    // These three read ONE `const fixedPrice`, so they cannot drift today; pinned
+    // so that splitting it later cannot convert revenue alone. `consumedValue` is
+    // the one with arithmetic of its own (min(price, price * actual/budget)), so
+    // its figure is distinct from revenue's rather than a restatement of it.
+    // NOT consumption.percent: both its operands scale by 1/rate, so it is
+    // rate-invariant and could not tell a converted run from an unconverted one.
+    const rep = computeBucketReport(usd, plan, roles, resources, 8, noHolidays, 0, 0, [], [], fx);
+    expect(rep.budgetValue).toBeCloseTo(10000 / 1.1, 5);
+    expect(rep.consumedValue).toBeCloseTo((10000 / 1.1) * 0.5, 5);   // 50 of 100 budget hours
+  });
+
   test("margin is computed across one unit: EUR revenue minus EUR cost", () => {
     const rep = computeBucketReport(usd, plan, roles, resources, 8, noHolidays, 0, 0, [], [], fx);
     const revenueEur = 10000 / 1.1;
@@ -105,6 +117,26 @@ describe("computeBucketReport — a fixed-price bucket in a non-EUR currency", (
   test("an EUR bucket is unchanged — the conversion is identity at rate 1", () => {
     const eur: BudgetBucket = { ...usd, currency: "EUR" };
     const rep = computeBucketReport(eur, plan, roles, resources, 8, noHolidays, 0, 0, [], [], fx);
+    expect(rep.revenue).toBe(10000);
+  });
+
+  test("a T&M bucket is not converted — only the fixed branch reads the contract amount", () => {
+    // The negative half of the claim: a T&M bucket's money comes from role rates,
+    // which are EUR already, so the SAME bucket must produce identical figures
+    // with rates and without them. `toBe`, not `toBeCloseTo` — identity is the claim.
+    const tm: BudgetBucket = { ...usd, type: "tm" };
+    const withFx = computeBucketReport(tm, plan, roles, resources, 8, noHolidays, 0, 0, [], [], fx);
+    const withNull = computeBucketReport(tm, plan, roles, resources, 8, noHolidays, 0, 0, [], [], null);
+    expect(withFx.revenue).toBe(withNull.revenue);
+    expect(withFx.budgetValue).toBe(withNull.budgetValue);
+  });
+
+  test("no rates means no conversion — the honest degradation, not an oversight", () => {
+    // resolveRate falls back to 1 with no override and no cached ECB rate, so the
+    // amount is read as EUR. The display path multiplies by the same 1, so the
+    // figure is self-consistent end to end. Pinned so a future "default the rate"
+    // change cannot make this silently lossy.
+    const rep = computeBucketReport(usd, plan, roles, resources, 8, noHolidays, 0, 0, [], [], null);
     expect(rep.revenue).toBe(10000);
   });
 });
