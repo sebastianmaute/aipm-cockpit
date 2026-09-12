@@ -140,8 +140,15 @@ export function ProjectSwitcher({
   }
 
   return (
-    <div className="flex items-center gap-1">
-    <div ref={ref} data-tour-id={dataTourId} className="relative">
+    // The min-w-0 chain down to the trigger is load-bearing for the top bar's
+    // left cluster: min-width:auto floors every ancestor at its own min-content,
+    // which left the inner span.truncate unreachable and pinned this switcher at
+    // 239px — starving the Ask Claude pill into the opaque search field at
+    // 1024-1200. The button ALSO needs w-full: it is a form control, so its
+    // width:auto is fit-content, not fill-available, and min-w-0 on the wrappers
+    // alone leaves the button overflowing them (max-w-[16rem] still caps it).
+    <div className="flex min-w-0 items-center gap-1">
+    <div ref={ref} data-tour-id={dataTourId} className="relative min-w-0">
       <button
         ref={triggerRef}
         type="button"
@@ -149,7 +156,7 @@ export function ProjectSwitcher({
         aria-haspopup="menu"
         aria-expanded={open}
         title={t(lang, "projectCurrentLabel")}
-        className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-light-grey dark:hover:bg-surface"
+        className="flex w-full min-w-0 max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-light-grey dark:hover:bg-surface"
       >
         <BriefcaseIcon aria-hidden="true" className="h-4 w-4 shrink-0 text-ui-green-strong" />
         <span className="truncate">{label}</span>

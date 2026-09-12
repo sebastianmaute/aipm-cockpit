@@ -2716,7 +2716,7 @@ function TaskManagerInner() {
   // switcher under the title. BOTH sites must render it (dual-header rule) and BOTH gate on
   // isAiEnabled — aiAssistantOpener's check — so it cannot open a chat that has no answerer.
   const askClaudeEl = isAiEnabled(settings.ai) ? (
-    <span data-tour-id={TOUR_ANCHORS.askClaude}>
+    <span data-tour-id={TOUR_ANCHORS.askClaude} className="shrink-0">
       <AskClaudeMenu
         lang={lang}
         currentView={activeTab}

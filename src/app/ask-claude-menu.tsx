@@ -80,7 +80,7 @@ export function AskClaudeMenu({
         className="inline-flex items-center gap-1.5"
       >
         <SparklesIcon aria-hidden="true" className="h-4 w-4" />
-        <span className="hidden whitespace-nowrap lg:inline">{t(lang, "aiAskClaude")}</span>
+        <span className="hidden whitespace-nowrap xl:inline">{t(lang, "aiAskClaude")}</span>
       </Button>
 
       {open && (

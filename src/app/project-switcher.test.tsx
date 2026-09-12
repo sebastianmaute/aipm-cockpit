@@ -56,6 +56,24 @@ describe("ProjectSwitcher", () => {
     ).toBeInTheDocument();
   });
 
+  it("lets the switcher yield width so the top bar's left cluster can shrink", () => {
+    renderSwitcher();
+    // The inner span.truncate is unreachable without this chain: min-width:auto
+    // floors each ancestor at its own min-content, which pinned the switcher at
+    // 239px and starved the Ask Claude trigger into the search field at 1024px.
+    // The button needs w-full because a form control's width:auto is fit-content,
+    // not fill-available -- min-w-0 on the wrappers alone leaves it overflowing.
+    const trigger = screen.getByRole("button", { name: /Apollo/ });
+    const relative = trigger.parentElement;
+    const root = relative?.parentElement;
+    expect(root?.className).toContain("min-w-0");
+    expect(relative?.className).toContain("min-w-0");
+    expect(trigger.className).toContain("min-w-0");
+    expect(trigger.className).toContain("w-full");
+    // The truncation it exists to reach must still be there.
+    expect(trigger.querySelector("span")?.className).toContain("truncate");
+  });
+
   it("opens the dropdown listing the projects when the trigger is clicked", async () => {
     const user = userEvent.setup();
     renderSwitcher();
