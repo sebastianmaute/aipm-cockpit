@@ -341,7 +341,7 @@ fix; the register (§467) and the mutant table above are the record that the che
    commit, per the plan's own fallback instruction.
 2. **§460's plan-supplied CLOSED reproduce witness would have been stale on arrival.** The entry as
    filed cited `grep -n 'target === "row" ? d.rawTypeGuards' src/app/inline-ai-edit/plan.ts` as its
-   OPEN-state witness; by the time this task closed it, `047a60f5` had already lifted that exact
+   OPEN-state witness; by the time this task closed it, `140514bd` had already lifted that exact
    condition, so the string no longer exists in `plan.ts` at all. Closed with
    `grep -n 'const guard = d.rawTypeGuards' src/app/inline-ai-edit/plan.ts` instead, and the stale
    witness was kept, explicitly marked stale, under "As filed" rather than deleted — deleting it would
@@ -364,7 +364,7 @@ fix; the register (§467) and the mutant table above are the record that the che
 ## Addendum (2026-09-12) — measurements this closing note was missing
 
 The 2026-09-11 closing note above stopped at Task 8. A further cold-review round (commit
-`e341a9b1`) added test-only fixes and measurements this note never recorded. None of it touched
+`0e9dd9ca`) added test-only fixes and measurements this note never recorded. None of it touched
 product code except the two mutants below, both applied and reverted, never committed.
 
 **Acceptance criterion 4 — measured for the first time (M1).** The Acceptance section's item 4 (the
@@ -395,7 +395,7 @@ undeclared value 2`, `raid.localModifiedAt: create stored the model's undeclared
 is the entity worth measuring on: the strip is its ONLY protection for those three columns, since
 `dropUnacceptedRaidFields` is a deny-list and `RAID_FIELD_GUARDS` names none of them.
 
-**Relation B's update arm now asks arrival, not movement (commit `e341a9b1`).** It used to score a
+**Relation B's update arm now asks arrival, not movement (commit `0e9dd9ca`).** It used to score a
 declared field as landed whenever the stored value differed from the value before the write; it now
 compares what the card would show against what was actually stored, exactly like the create arm
 already did — a field that MOVED to some value the model never sent is now `dropped`, not silently

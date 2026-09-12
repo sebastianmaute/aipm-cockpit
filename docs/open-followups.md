@@ -682,7 +682,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§457](#457-a-stale-reachability-claim-in-the-calendar-meetings-band-move-handler-and-the-one-gate-correction-is-itself-wrong--open) | A stale reachability claim in the calendar meetings-band move handler, and the one-gate correction is itself wrong | found 2026-09-10 while recording the §424 refusals | S — replace the sentence naming BOTH gates; a one-gate fix invites a false "drag is broken" diagnosis | **OPEN** |
 | [§458](#458-the-modal-header-help-popover-tab-test-fails-on-press-1-alone-under-ci-load-and-the-autofocus-diagnosis-was-wrong--open) | 458. The modal-header help-popover Tab test fails on press 1 alone under CI load, and the autoFocus diagnosis was wrong | found 2026-09-10 from two CI runs on `feat/modal-help-bespoke`; one attempted fix measured wrong and reverted the same day | M — CI-only, intermittent; needs a diagnostic run under real load before any fix, and the obvious fix has already been tried and reverted | **OPEN** |
 | [§459](#459-two-relation-b-create-arm-probes-are-invalid-by-construction-because-the-harness-mutates-the-seed-rows-value-without-regard-to-what-the-create-will-accept--closed-2026-09-11) | Two Relation B create-arm probes are invalid by construction, because the harness mutates the seed row's value without regard to what the create will accept | first reported 2026-09-08 on the original branch (`1375f3c7`, local-only) and never filed there; analysed and filed 2026-09-11 from the sweep's first run on the landing branch | S — closed by the typed `probeFor` derivation (`src/test/sweep-probes.ts`) replacing the invalid mutated-seed probes; both fields dropped from the sweep's ledger | **CLOSED** 2026-09-11 |
-| [§460](#460-a-create-card-can-preview-meeting-attendees-the-create-then-stores-none-of-because-the-previews-link-guard-runs-on-updates-only--closed-2026-09-11) | A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only | found 2026-09-11 by cold review of the offered-surface landing: a `plan.ts` comment still described both allow-list creates as unguarded | S — closed by `047a60f5`, lifting the `target === "row"` gate on link guards, behind a test (`plan.create-path-guards.test.ts`) driving `[4, "4"]` through card and write; §440's refusal-disclosure half stays open | **CLOSED** 2026-09-11 |
+| [§460](#460-a-create-card-can-preview-meeting-attendees-the-create-then-stores-none-of-because-the-previews-link-guard-runs-on-updates-only--closed-2026-09-11) | A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only | found 2026-09-11 by cold review of the offered-surface landing: a `plan.ts` comment still described both allow-list creates as unguarded | S — closed by `140514bd`, lifting the `target === "row"` gate on link guards, behind a test (`plan.create-path-guards.test.ts`) driving `[4, "4"]` through card and write; §440's refusal-disclosure half stays open | **CLOSED** 2026-09-11 |
 | [§461](#461-an-absence-stores-an-assignee-email-that-is-not-an-address-where-a-task-refuses-the-same-value-loudly--open) | An absence stores an assignee email that is not an address, where a task refuses the same value loudly — OPEN | found 2026-09-11 by cold review of the offered-surface landing, beside §459's task probe | S-M — decide per field whether an assignee email is format-checked, then guard the writer, not the card | open |
 | [§462](#462-there-is-no-linux-installer-and-several-windows-only-assumptions-stand-in-the-way-of-one--open) | There is no Linux installer, and several Windows-only assumptions stand in the way of one — OPEN | found 2026-09-11 while explaining the CI installer's size gap (the sharp finding in the wine-runner spike) | S-M — a native Linux job with its own artifact and Release link, XDG log paths, a rollout section | open |
 | [§463](#463-export-silently-drops-enabled-sections-and-no-path-exports-calendar-events-knowledge-items-or-insights--open) | Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — OPEN | found 2026-09-11 by a read-only code check of `main` @ `1826cf64` while triaging the demo-backlog issues #38–#74 (issue #75) | S-M — two object literals, but deciding what each export path should contain (and whether they should be one function) is the work | open |
@@ -32945,7 +32945,7 @@ them inside the `CREATE_TOOLS` branch) and `grep -n "plan.creates.push" src/app/
 sits in `pushLinkDiffs`, which the create branch DOES call.
 
 ★★ **NARROWED 2026-09-11.** The gate this paragraph described — `pushLinkDiffs` silent on a create
-because its guard was gated on `target === "row"` — was LIFTED by `047a60f5` (§460, CLOSED): the guard
+because its guard was gated on `target === "row"` — was LIFTED by `140514bd` (§460, CLOSED): the guard
 now runs on both paths. Only the second half of the original sentence still stands: the create call
 passes no `toolName`, so `plan.rejected.push` at line 447 is skipped by its `if (toolName)` guard
 whether or not the field guard refuses the value, and a create still has no channel to disclose that
@@ -33124,7 +33124,7 @@ MOVEMENT HALF STANDS UNCHANGED.** `trespassProbeFor` was deleted and replaced by
 (`src/test/sweep-probes.ts`), which derives a probe against the create CONTROL row and is admitted or
 refused through each writer's own sanitizer before Relation A may judge it, then seeded every sweep
 fixture (`src/test/inline-sweep-fixtures.ts`) with a value its entity's sanitizer holds unchanged for
-each undeclared column (Task 5b, `5c177569`). Both acceptance mutants that measure the class KILLED on
+each undeclared column (Task 5b, `c0b227b2`). Both acceptance mutants that measure the class KILLED on
 this branch, where the resource one previously SURVIVED: mutant 2 (`...dropUnacceptedResourceFields(patch),`
 → `...patch,` in `updateResource`, `src/app/use-chat-dispatcher.ts`) — `Test Files 1 failed (1)` /
 `Tests 1 failed | 73 passed (74)`, new `[stored]` findings for `resource.absenceOverride`,
@@ -34095,7 +34095,7 @@ arms, and the sweep counts it as landed.
 
 ## 460. A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only — CLOSED 2026-09-11
 
-**Status:** CLOSED 2026-09-11 by `047a60f5` ("fix(ai): apply the link guard to a create card, as the
+**Status:** CLOSED 2026-09-11 by `140514bd` ("fix(ai): apply the link guard to a create card, as the
 create write does") — `pushLinkDiffs` applies the link guard on both paths now; the pin "a create card
 previews only the attendees the create stores (§460)" in `plan.create-path-guards.test.ts` drives
 `[4, "4"]` through card and write. Reproduce: `grep -n 'const guard = d.rawTypeGuards' src/app/inline-ai-edit/plan.ts`
@@ -34147,7 +34147,7 @@ full seeded array — every member already a number, so it never sends a numeric
 for this one). And a create card's links are disclosure only (`LinkDiff.target` is `"create"`), so no
 relation compares a create card against a create write — §440's gap.
 
-★ THE FIX, MADE 2026-09-11 IN `047a60f5`: dropped the `target === "row"` condition, so a refused link
+★ THE FIX, MADE 2026-09-11 IN `140514bd`: dropped the `target === "row"` condition, so a refused link
 is omitted on a create exactly as the write omits it. The `if (toolName)` beside it already keeps a
 create from pushing a `rejected` row — the create call passes no `toolName` — so disclosing the
 refusal stays §440's. Pinned first by the test that drives `[4, "4"]` through both the card and the
@@ -34159,7 +34159,7 @@ stores (§460)").
 `create_calendar_event` with `attendeeResourceIds: [7, "9"]` and asserted no rejection and both
 attendees on the card — is gone; `grep -n "does NOT apply the guard to a create" src/app/inline-ai-edit/plan.test.ts`
 now returns nothing. Its comment and the `(C3)` header above its `describe` (which both described the
-pre-`68486cd4` create path as unguarded) were rewritten with the fix, in `047a60f5`, exactly as this
+pre-`68486cd4` create path as unguarded) were rewritten with the fix, in `140514bd`, exactly as this
 entry as filed said the fix commit must.
 
 ## 461. An absence stores an assignee email that is not an address, where a task refuses the same value loudly — OPEN
