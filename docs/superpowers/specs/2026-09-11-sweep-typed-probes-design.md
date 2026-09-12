@@ -185,10 +185,12 @@ objects, so the object branch reaches them.
   directions.** It asserts `findings` is empty today, and typed probes may now expose a real undeclared
   write.
 - **Citation.** Every new `unmeasured` or `dead` entry cites §467, the register entry Task 8 files for
-  "fields the typed probes cannot measure" (reserved as 462+1: `origin/main` had already taken §462 for
-  an unrelated entry — "There is no Linux installer…" — by the time Task 8 ran its register-max check).
-  Reserve the number by re-running the register-max command against `origin/main` before writing any
-  citation.
+  "fields the typed probes cannot measure". ★ THAT IS THE SECOND NUMBER IT HAS HAD, and 462+1 is 463,
+  not 467: Task 8 RESERVED 463 (`origin/main` had already taken §462 for an unrelated entry — "There
+  is no Linux installer…" — by the time it ran its register-max check), and `250e48ae` renumbered the
+  entry to 467 once `origin/main` independently filed its own §463. Reserve the number by re-running
+  the register-max command against `origin/main` before writing any citation — and re-run it after a
+  fetch, which is what this entry's own renumber cost.
 
 ### 7. A real undeclared write that Relation A finds is FIXED in this slice
 
@@ -337,8 +339,14 @@ fix; the register (§467) and the mutant table above are the record that the che
 1. **Step 1's expected register-max was wrong.** The plan expected `origin/main`'s max heading number
    to still be 461 by the time Task 8 ran. It had already advanced to 462 (an unrelated entry, "There
    is no Linux installer…"), so this task's new entry took 463 (max+1), and all 14 `§462` citations in
-   the sweep test file's two ledgers, plus the one in this spec, were repointed to `§467` in the same
-   commit, per the plan's own fallback instruction.
+   the sweep test file's two ledgers, plus the one in this spec, were repointed to `§463` in the same
+   commit (`69569d05`), per the plan's own fallback instruction.
+   ★ **AND THE NUMBER MOVED ONCE MORE AFTERWARDS**, which is why nothing in the tree says 463 today:
+   `origin/main` had independently filed its own unrelated §463 ("Export silently drops enabled
+   sections…") by the time this branch re-fetched, so `250e48ae` repointed the same 14 citations plus
+   this spec from `§463` to `§467`. Read the 463 above as the historical step it was. A blind
+   §463→§467 replace over this paragraph is what put `§467` into a sentence about max+1 in the first
+   place — a past-tense narration keeps its own number.
 2. **§460's plan-supplied CLOSED reproduce witness would have been stale on arrival.** The entry as
    filed cited `grep -n 'target === "row" ? d.rawTypeGuards' src/app/inline-ai-edit/plan.ts` as its
    OPEN-state witness; by the time this task closed it, `140514bd` had already lifted that exact
