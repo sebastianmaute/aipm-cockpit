@@ -43,7 +43,7 @@ function sampleWorkspace() {
   ];
   return {
     ...emptyWorkspace(), resources, roles, disciplines, grades,
-    plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "USD" },
+    plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "USD" as const },
   };
 }
 
@@ -72,7 +72,7 @@ describe("Markdown round-trip (new entities)", () => {
 describe("resource address-book round-trip", () => {
   const ws = {
     tasks: [], raid: [], absences: [], shifts: [], roles: [], disciplines: [], grades: [],
-    plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" },
+    plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const },
     resources: [{
       id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com",
       title: "Architect", businessPhone: "+49 30 1", location: "Berlin",

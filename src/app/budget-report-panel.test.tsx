@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { beforeAll, describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BudgetReportPanel } from "./budget-report-panel";
-import type { BudgetBucket, ResourcePlan, Role } from "./types";
+import { loadI18n } from "./i18n";
+import type { BudgetBucket, FxRates, ResourcePlan, Role } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "EUR" };
 // Discipline 1 grades average to internal 120 / external 180.
@@ -100,6 +101,35 @@ describe("BudgetReportPanel", () => {
     const gammaRow = screen.getByText("Gamma").closest("tr")!;
     // Leading status (consumed > budget) + Actual (h) cell (actualHours > budgetHours) = ≥2 R badges.
     expect(within(gammaRow).getAllByText("R").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("labels the burn-down value axis in EUR even when the plan names another currency", () => {
+    // ★★ `computeBurndownSeries` builds every value as `budgetHours ×
+    // role.rates.external` and converts NOTHING, and the engine's money unit is
+    // EUR (`computeBucketReport`: a fixed-price contract amount is converted to
+    // EUR at its one read). So the series is EUR whatever the plan's
+    // `currency` says — narrowing that field to the `BudgetCurrency` union did
+    // NOT make it safe to label with, because the union still admits
+    // `USD`/`GBP`: it states the plan's base currency, never the unit of an
+    // unconverted engine figure. This file's own `money` helper already hardcodes
+    // `formatCurrency(n, "EUR", …)` for the co-rendered cost/EVM tiles, which
+    // are rate-derived in exactly the same way.
+    renderPanel({ plan: { ...plan, currency: "USD" } });
+    // Scoped to the CURRENCY chart: `Chart` renders `<div>{caption}</div><svg>`,
+    // so the caption's parent is that chart alone. The twin hours chart carries
+    // no money and would only dilute the count.
+    const valueChart = screen.getByText(/Budget remaining/i).parentElement!;
+
+    // ★★★ THE POSITIVE CONTROL. `queryByText(/\$/) === null` passes just as
+    // happily when the query is wrong, the scope is empty, or the chart failed
+    // to render. `getAllByText` THROWS on zero matches, and the exact count
+    // proves the axis is populated. MEASURED, not reasoned: 3 — `Chart` emits
+    // one `<text>` per y-tick and `yTicks` is `[0, max/2, max]` whenever
+    // `max > 0`.
+    const money = within(valueChart).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
+    expect(money).toHaveLength(3);
+    expect(money.filter((s) => s.includes("$"))).toEqual([]);
+    expect(money.every((s) => s.includes("€"))).toBe(true);
   });
 
   it("renders the burn-down caption beneath the chart", () => {
@@ -226,6 +256,48 @@ describe("BudgetReportPanel — detail table sorting with an uncostable bucket",
   });
 });
 
+// The mirror image of the budget panel's round-trip test. There the engine's
+// EUR figure is converted back OUT to the bucket currency before display; this
+// table converts NOTHING and heads its money columns "(EUR)", so the very same
+// engine figure must arrive here already converted. Both halves of the fixture
+// are load-bearing: a NON-EUR bucket and a rate != 1. `renderPanel` passes
+// `fxRates={null}`, at which `resolveRate` returns 1 and `currencyToEur` is
+// the identity function — so every other test in this file passes
+// byte-identically whether the engine's conversion exists or not.
+describe("BudgetReportPanel — a non-EUR fixed-price bucket", () => {
+  const usdRates: FxRates = {
+    base: "EUR", date: "2026-01-01", fetchedAt: "2026-01-01T00:00:00Z",
+    rates: { EUR: 1, USD: 1.1 },
+  };
+  const usdFixed: BudgetBucket = {
+    id: 9, name: "USD contract", type: "fixed", currency: "USD", fixedPriceAmount: 10000,
+    startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: {} }],
+  };
+
+  it("prints the CONVERTED contract in the EUR-labelled Budget column", () => {
+    // `money` hardcodes `formatCurrency(n, "EUR", …)` and the column is
+    // literally headed "Budget (EUR)", so whatever `budgetValue` holds is
+    // printed as euros with no conversion of its own. 10,000 USD at 1.1 is
+    // 9,090.91 EUR, rendered "€9,091" (`maximumFractionDigits: 0`). Without
+    // the engine's inward conversion the foreign 10,000 prints verbatim under
+    // a euro sign — "€10,000", a number that is simply not the contract's
+    // value in the unit its own column header claims.
+    renderPanel({ buckets: [usdFixed], fxRates: usdRates });
+    // Derived, not hardcoded: the leading status <th> makes the header and
+    // body indices line up 1:1, so a column inserted anywhere left of this one
+    // shifts both together and this test keeps testing the same column.
+    const headers = screen.getAllByRole("columnheader");
+    const col = headers.findIndex((h) => h.textContent?.includes("Budget (EUR)"));
+    // Scope guard, not a second claim: a renamed header would otherwise make
+    // `cells[-1]` throw a TypeError that names nothing.
+    expect(col).toBeGreaterThan(-1);
+
+    const cells = screen.getByText("USD contract").closest("tr")!.querySelectorAll("td");
+    expect(cells[col].textContent).toBe("€9,091");
+  });
+});
+
 describe("BudgetReportPanel burn-down chain warning", () => {
   it("stays silent when no bucket was ever chained", () => {
     // The default fixture links nothing — parallel buckets are the normal budget
@@ -254,5 +326,39 @@ describe("BudgetReportPanel burn-down chain warning", () => {
       ],
     });
     expect(screen.queryByText(/not linked into one chain/)).toBeNull();
+  });
+});
+
+/**
+ * The EUR HALF of the win/loss hint pair, pinned in German at its own site.
+ *
+ * ★★ THE PAIR ONLY WORKS IF BOTH HALVES ARE PINNED. This string and
+ * `budgetWinLossHint` are word-for-word identical but for one clause — "In
+ * EUR" here, "In der Währung des Budgetpostens" on the panel tile — because
+ * this column really is EUR and that tile really is converted. Pinning one
+ * half alone leaves the distinction resting on an unpinned string, and the
+ * twin's own test (`budget-panel.test.tsx`) argues from exactly this
+ * difference. The spec's testing policy asks for both.
+ *
+ * ★ `loadI18n("de")` first: the DE dictionary is lazy and `t("de", …)` serves
+ * English until it resolves. ★ `SortResizeTh` passes no `nameContext` here —
+ * one table in the view, nothing to disambiguate against — so `InfoTooltip`
+ * falls back to `aria-label={text}` and the accessible name is the bare hint,
+ * with no row token appended.
+ */
+describe("BudgetReportPanel — the German win/loss column hint", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("states both branches and names EUR, not the bucket currency", () => {
+    renderPanel({ lang: "de" });
+    const hint = "Festpreis: Erlös minus Kosten. Time-and-Material: Budget minus Verbrauch, also das verbleibende Budget. In EUR; negativ bedeutet, dass der Bucket mit Verlust läuft.";
+    // Both props, as in the twin's test: the `aria-label` locates the trigger,
+    // the portalled body is what the reader actually sees, and the call site
+    // passes the key to each separately.
+    const trigger = screen.getByLabelText(hint);
+    fireEvent.focus(trigger);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(hint);
   });
 });

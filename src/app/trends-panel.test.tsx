@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { TrendsPanel } from "./trends-panel";
 
 // Branded confirm dialog — mock the hook so tests control the resolved boolean.
@@ -38,7 +38,6 @@ const base = {
   active: true,
   snapshots: [snap("2026-05-25T00:00:00.000Z", "2026-W22", { isBaseline: true }), snap("2026-06-10T00:00:00.000Z", "2026-W24")],
   baseline: snap("2026-05-25T00:00:00.000Z", "2026-W22", { isBaseline: true }),
-  latest: snap("2026-06-10T00:00:00.000Z", "2026-W24"),
   variance,
   gaps: ["2026-W23"],
   busy: false,
@@ -47,7 +46,7 @@ const base = {
 
 describe("TrendsPanel", () => {
   it("renders the gated empty state when not active", () => {
-    const { getByText, queryByText } = renderPanel(<TrendsPanel {...base} active={false} snapshots={[]} latest={null} baseline={null} variance={[]} gaps={[]} />);
+    const { getByText, queryByText } = renderPanel(<TrendsPanel {...base} active={false} snapshots={[]} baseline={null} variance={[]} gaps={[]} />);
     expect(getByText(/Turso/i)).toBeTruthy();
     expect(queryByText(/Baseline vs current/i)).toBeNull();
   });
@@ -151,7 +150,7 @@ describe("TrendsPanel", () => {
   ];
   function renderColliding(over: Partial<typeof base> = {}) {
     return renderPanel(
-      <TrendsPanel {...base} snapshots={colliding} baseline={null} latest={colliding[1]} {...over} />,
+      <TrendsPanel {...base} snapshots={colliding} baseline={null} {...over} />,
     );
   }
   // `rowLabel(verb, "")` is the verb plus the separator the shared helper emits,
@@ -202,5 +201,55 @@ describe("TrendsPanel", () => {
     renderColliding({ deleteSnapshot });
     fireEvent.click(deleteButtons()[0]);
     await waitFor(() => expect(deleteSnapshot).toHaveBeenCalledWith("s-later"));
+  });
+});
+
+// ★★ `SnapshotRecord.currency` is the ONLY reader of the `currency` that
+// `task-manager.tsx` puts into the snapshot `buildContext` payload, and it is
+// set from `plan.currency`. What it labels here is `remainingCost`, which
+// `buildSnapshot` takes from `model.burndown.actualRemainingValue` — the budget
+// engine's series, built as `budgetHours × role.rates.external` and converted
+// NOWHERE. The engine's money unit is EUR, so the figure is EUR whatever
+// `plan.currency` says. Narrowing that field to the `BudgetCurrency` union did
+// NOT make it safe to label with: the union still admits `USD`/`GBP`, so it
+// states the plan's base currency, never the unit of an unconverted engine
+// figure (docs/open-followups.md §465).
+// ★ Fixed at the READER rather than at the writer on purpose: snapshots already
+// persisted carry a non-EUR `currency`, and only a fix here relabels those too.
+// ★★ THE ADVERSARIAL INPUT MOVED, and it is not the one the defect was found
+// on. The `latest` prop that carried the currency was dropped in the same
+// change (this was its only reader, and an unused interface member is
+// invisible to both tsc and eslint), so no fixture can reach the panel that
+// way any more. What remains is `snapshots`, whose records each still carry a
+// `currency` field — the one plausible way someone re-wires a per-snapshot
+// currency back in. Seeding THOSE with USD is what keeps this test able to
+// fail; the original pre-fix failure (`['$0','$2,500','$5,000']`) was measured
+// on the `latest` fixture, which no longer exists.
+describe("TrendsPanel currency labelling", () => {
+  it("labels the remaining-cost trend in EUR even when the snapshots name another currency", () => {
+    renderPanel(
+      <TrendsPanel
+        {...base}
+        snapshots={[
+          snap("2026-05-25T00:00:00.000Z", "2026-W22", { isBaseline: true, currency: "USD" }),
+          snap("2026-06-10T00:00:00.000Z", "2026-W24", { currency: "USD" }),
+        ]}
+      />,
+    );
+    // `TrendChart` renders `<div>{caption}</div><svg>`, so the caption's parent
+    // is that one chart. Scoping matters: the sibling hours/SPI/CPI charts are
+    // formatted without any currency and would only dilute the count.
+    const costChart = screen.getByText(/Remaining cost/i).parentElement!;
+
+    // ★★★ THE POSITIVE CONTROL. `queryByText(/\$/) === null` passes just as
+    // happily when the query is wrong, the scope is empty, or the chart failed
+    // to render. `getAllByText` THROWS on zero matches. MEASURED, not reasoned:
+    // 3 — `TrendChart` emits one `<text>` per y-tick, and `yTicks` is
+    // `[min, mid, max]` whenever `max > min`; `min` folds in a literal 0, so
+    // the fixture's flat 5000 series still spans a real range.
+    const money = within(costChart).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
+    expect(money).toHaveLength(3);
+    expect(money.filter((s) => s.includes("$"))).toEqual([]);
+    expect(money.every((s) => s.includes("€"))).toBe(true);
   });
 });

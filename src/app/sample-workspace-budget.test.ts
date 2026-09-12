@@ -84,10 +84,18 @@ describe("sample-workspace budgets", () => {
     expect(b.rateOverrideInternal).toBe(90);
     expect(b.rateOverrideExternal).toBe(200);
   });
-  test("bucket 4 is fixed-price", () => {
+  test("bucket 4 is fixed-price, in USD, with a pinned rate", () => {
     const b = ws.budgets!.find((x) => x.id === 4)!;
     expect(b.type).toBe("fixed");
     expect(b.fixedPriceAmount).toBe(80000);
+    // Non-EUR on purpose: the sample is the only fixture that exercises the
+    // currency boundary end to end, and a rate of 1 would make it vacuous.
+    // The rate is a bucket-level OVERRIDE rather than a workspace `fxRates`
+    // block because resolveRate takes the override ahead of any cached ECB
+    // rate — so the demo, the goldens and e2e convert identically with no
+    // network and no cache. 1.1 survives sanitizeAmount's 2dp rounding exactly.
+    expect(b.currency).toBe("USD");
+    expect(b.fxRateOverride).toBe(1.1);
   });
   test("bucket 5 is closed with a successor", () => {
     const b = ws.budgets!.find((x) => x.id === 5)!;
@@ -95,7 +103,7 @@ describe("sample-workspace budgets", () => {
     expect(b.successorId).toBe(1);
   });
   test("computeBudgetReport yields a realistic project rollup (cost from role rates, not zeroed)", () => {
-    const rep = computeBudgetReport(ws.budgets!, ws.plan, ws.roles, ws.resources, 8, new Set<string>(), ws.absences);
+    const rep = computeBudgetReport(ws.budgets!, ws.plan, ws.roles, ws.resources, 8, new Set<string>(), ws.absences, [], null);
     expect(rep.project.actualHours).toBeGreaterThan(1000);
     expect(rep.project.cost).toBeGreaterThan(80000);   // would be ~9000 if empty overrides zeroed the rates
     expect(rep.project.revenue).toBeGreaterThan(80000);

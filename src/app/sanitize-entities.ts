@@ -460,7 +460,10 @@ export function sanitizeGrade(input: unknown): Grade | null {
  *
  * Rules:
  *   - granularity: "week" passes through; anything else becomes "month".
- *   - currency: any non-empty trimmed string is preserved; missing → DEFAULT (EUR).
+ *   - currency: trimmed, then kept only when it is a SUPPORTED_CURRENCIES member;
+ *     anything else (missing, blank, "CHF") → DEFAULT (EUR). Role rates are
+ *     denominated in it and the budget engine treats them as EUR, so an
+ *     out-of-union code was a silent mislabel, never a supported feature.
  *   - startDate / endDate: if either is missing or malformed, the entire date
  *     window is replaced by the default window (today … +11 months) while
  *     granularity and currency are still honored.
@@ -472,7 +475,8 @@ export function sanitizePlan(input: unknown, today: string): ResourcePlan {
   const startDate = sanitizeIsoDate(raw.startDate);
   const endDate = sanitizeIsoDate(raw.endDate);
   const granularity: PlanGranularity = raw.granularity === "week" ? "week" : "month";
-  const currency = typeof raw.currency === "string" && raw.currency.trim() ? raw.currency.trim() : fallback.currency;
+  const trimmedCurrency = typeof raw.currency === "string" ? raw.currency.trim() : undefined;
+  const currency = isBudgetCurrency(trimmedCurrency) ? trimmedCurrency : fallback.currency;
   const budgetFollowsPlan = raw.budgetFollowsPlan === true || raw.budgetFollowsPlan === "true";
   if (!startDate || !endDate) {
     return { startDate: fallback.startDate, endDate: fallback.endDate, granularity, currency, ...(budgetFollowsPlan ? { budgetFollowsPlan: true } : {}) };

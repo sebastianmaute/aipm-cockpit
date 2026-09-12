@@ -48,7 +48,8 @@ export const ROLES_COL_WIDTHS = {
 
 export interface RolesEditorProps {
   lang: Lang;
-  /** Project base currency (ISO 4217, e.g. plan.currency) — drives the rate-field symbol. */
+  /** Project base currency — drives the rate-field symbol. Fed `plan.currency`,
+   *  i.e. a `BudgetCurrency` member, not arbitrary ISO 4217. */
   currency: string;
   /** Conversion factor (settings.resources.workdayHours) between day and hour rates. */
   workdayHours: number;

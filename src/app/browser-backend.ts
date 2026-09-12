@@ -23,6 +23,7 @@ import {
   sanitizeMilestoneRichFields,
 } from "./note-log";
 import {
+  isBudgetCurrency,
   type Absence,
   type BudgetBucket,
   type ChangeItem,
@@ -235,7 +236,27 @@ export class BrowserBackend implements StorageBackend {
       roles = idbRoles;
       disciplines = idbDisciplines;
       grades = idbGrades;
-      plan = idbPlan ?? plan;
+      // ★★ CURRENCY-ONLY coercion, and the "only" is load-bearing. This path
+      // reads the KV plan blob VERBATIM and casts it — unlike `jsonToWorkspace`
+      // and the CSV/MD/Turso decoders, it never runs `sanitizePlan`. Since
+      // `ResourcePlan.currency` became the `BudgetCurrency` union, a workspace
+      // stored before that narrowing can hold a value the type forbids ("CHF"),
+      // which would make the declaration a lie on this backend. Do NOT
+      // "complete the pattern" by calling `sanitizePlan` here: it would ALSO
+      // clamp `granularity` to "month", replace the entire date window whenever
+      // either date fails to parse, swap reversed dates, and DROP an explicit
+      // `budgetFollowsPlan: false` — four unrelated rewrites on every load.
+      // ★★ `storage-browser-kv.test.ts` pins TWO of those four, not all four:
+      // the reversed window (a fixture whose end precedes its start, asserted
+      // unswapped) and the dropped `budgetFollowsPlan: false`. The other two
+      // are NOT covered. The granularity fixture seeds `"week"`, which
+      // `sanitizePlan` PRESERVES (`raw.granularity === "week" ? "week" :
+      // "month"`), so that assertion passes identically with or without the
+      // call — only a granularity OUTSIDE the union would discriminate. And no
+      // fixture carries a malformed date, so the date-window replacement is
+      // unreachable there. Adding `sanitizePlan` here would still be wrong for
+      // all four reasons; the suite would only go red for two of them.
+      plan = idbPlan ? (isBudgetCurrency(idbPlan.currency) ? idbPlan : { ...idbPlan, currency: "EUR" }) : plan;
       budgets = idbBudgets;
       fxRates = idbFxRates ?? null;
       status = idbStatus ?? {};

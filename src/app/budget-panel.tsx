@@ -97,7 +97,9 @@ export interface BudgetPanelProps {
   onGoToTimelog?: () => void;
 }
 
-/** Builds the Cci-shaped value for the CPI tile: `costPerformanceIndex` is a
+/** Builds the Cci-shaped value for the cost-recovery tile (`budgetCciRecovery`;
+ *  it was the "CPI" tile before this branch renamed the key, and a test in this
+ *  panel now asserts the panel renders no `/CPI/` at all): `costPerformanceIndex` is a
  *  0-1 ratio (not the 0-100 percent every other CciValue.percent carries), so
  *  it is scaled ×100 here at the one render boundary rather than in the pure
  *  engine. `earnedValue` is EUR, like every other CciValue.amount — callers
@@ -127,12 +129,21 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const confirm = useConfirm();
 
   const report = useMemo(
-    () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks),
-    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks],
+    () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates),
+    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates],
   );
 
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
-  const projCur = plan.currency || "EUR"; // project rollup is in the plan base currency (EUR)
+  // ★★ The rollup sums the engine's EUR figures and converts NOTHING, so it is
+  // EUR regardless of what `plan.currency` says. Narrowing that field to the
+  // `BudgetCurrency` union did NOT make it safe to label with: the union still
+  // admits `USD`/`GBP`, so it states the plan's base currency, never the unit
+  // of an unconverted engine figure. Labelling it
+  // `plan.currency` printed EUR money under another currency's symbol
+  // (docs/open-followups.md §465). The per-bucket tiles below are the other
+  // case and stay as they are: they convert EUR→bucket currency (`inCur` /
+  // `cci`) BEFORE labelling, so there the bucket's own currency is correct.
+  const projCur = "EUR";
 
   // "Budget hours follow plan": when on, a resourced allocation's budget input
   // mirrors the live planned hours and becomes read-only. Scalars hoisted for
@@ -378,7 +389,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={report.project.contributionMargin} currency={projCur} locale={locale} lang={lang} rag={marginHealth(report.project.contributionMargin.percent)} unknown={!costIsKnowable(report.project)} />
           <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={report.project.costPerformance} currency={projCur} locale={locale} lang={lang} rag={costPerformanceHealth(report.project.costPerformance.percent)} primary="percent" unknown={!costIsKnowable(report.project)} />
-          <Cci label={t(lang, "budgetCciCpi")} hint={t(lang, "budgetCciCpiHint")} value={cpiCciValue(report.project.earnedValue, report.project.costPerformanceIndex)} currency={projCur} locale={locale} lang={lang} rag={costPerformanceIndexHealth(report.project.costPerformanceIndex)} primary="percent" unknown={report.project.costPerformanceIndex === null} />
+          <Cci label={t(lang, "budgetCciRecovery")} hint={t(lang, "budgetCciRecoveryHint")} value={cpiCciValue(report.project.earnedValue, report.project.costPerformanceIndex)} currency={projCur} locale={locale} lang={lang} rag={costPerformanceIndexHealth(report.project.costPerformanceIndex)} primary="percent" unknown={report.project.costPerformanceIndex === null} />
           <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={report.project.consumption} currency={projCur} locale={locale} lang={lang} rag={ratioHealth(report.project.consumedValue, report.project.budgetValue)} primary="percent" />
         </div>
         <CostUnknownNotice
@@ -518,7 +529,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     on top of the same internal-rate basis burn/margin need —
                     so it is gated on its OWN null-ness, not `costIsKnowable`
                     alone (a rated bucket with no progress set is still "—"). */}
-                <Cci label={t(lang, "budgetCciCpi")} hint={t(lang, "budgetCciCpiHint")} scopeName={bucketToken} value={cci(cpiCciValue(br.earnedValue, br.costPerformanceIndex))} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceIndexHealth(br.costPerformanceIndex)} primary="percent" unknown={br.costPerformanceIndex === null} />
+                <Cci label={t(lang, "budgetCciRecovery")} hint={t(lang, "budgetCciRecoveryHint")} scopeName={bucketToken} value={cci(cpiCciValue(br.earnedValue, br.costPerformanceIndex))} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceIndexHealth(br.costPerformanceIndex)} primary="percent" unknown={br.costPerformanceIndex === null} />
                 {/* Consumption is an EXTERNAL-rate ratio — knowable without a
                     rate card, so it is deliberately not gated. */}
                 <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} scopeName={bucketToken} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} primary="percent" />

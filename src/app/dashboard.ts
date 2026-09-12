@@ -12,7 +12,7 @@ import { resolveBucketChain, type BucketChain } from "./budget-bucket-chain";
 import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
 import { isTaskClosed, isTaskDelivered, isTaskOutOfScope } from "./task-closed";
 import type {
-  Absence, BudgetBucket, ChangeItem, Milestone, ProjectStatus, RaidItem, RaidSeverity,
+  Absence, BudgetBucket, ChangeItem, FxRates, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
 } from "./types";
 import type { ActivityEntry } from "./activity-log";
@@ -300,6 +300,10 @@ export interface DashboardEntities {
   roles: readonly Role[];
   resources: readonly Resource[];
   absences: readonly Absence[];
+  /** Cached ECB rates, or null. Forwarded to the budget engine so a non-EUR
+   *  fixed-price bucket's contract amount converts to EUR before the Budget
+   *  RAG reads consumedValue/budgetValue. */
+  fxRates: FxRates | null;
   milestones?: readonly Milestone[];
   changes?: readonly ChangeItem[];
 }
@@ -333,6 +337,7 @@ export function buildDashboardInput(e: DashboardEntities, ctx: DashboardContext)
     roles: e.roles,
     resources: e.resources,
     absences: e.absences,
+    fxRates: e.fxRates,
     milestones: e.milestones ?? [],
     changes: e.changes ?? [],
     workdayHours: ctx.workdayHours,
@@ -372,7 +377,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     worstHealth(taskSchedule, msContribution, evmIndexHealth(evm.spi)) ?? "G";
 
   const project: ProjectReport | null = input.budgets.length > 0
-    ? computeBudgetReport(input.budgets, input.plan, input.roles, input.resources, input.workdayHours, holidaySet, input.absences).project
+    ? computeBudgetReport(input.budgets, input.plan, input.roles, input.resources, input.workdayHours, holidaySet, input.absences, [], input.fxRates).project
     : null;
   // CPI feeds the Budget RAG (worst-of with the budget-bucket status); it can
   // surface a Budget RAG even when no buckets are configured.

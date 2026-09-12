@@ -62,7 +62,7 @@ const baseProps = {
   disciplines: [] as never[],
   grades: [] as never[],
   setResources: () => {},
-  plan: { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" },
+  plan: { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const },
   workdayHours: 8,
   onSetUtilization: () => {},
   overAllocatedPct: 100,
@@ -86,7 +86,7 @@ describe("ResourcesPanel", () => {
   test("planning view: editing a utilization cell calls onSetUtilization", () => {
     const onSetUtilization = vi.fn();
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
       workdayHours={8} onSetUtilization={onSetUtilization}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -103,7 +103,7 @@ describe("ResourcesPanel", () => {
 
     test("translates both cells' accessible names under German", () => {
       const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-      const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+      const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
       render(<ResourcesPanel {...baseProps} lang="de" view="planning" resources={resources} plan={plan}
         workdayHours={8} onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
       expect(
@@ -119,7 +119,7 @@ describe("ResourcesPanel", () => {
 
   test("planning: period date header is not right-aligned", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
       workdayHours={8} onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
     const th = screen.getByRole("columnheader", { name: /2026-02/ });
@@ -128,7 +128,7 @@ describe("ResourcesPanel", () => {
 
   test("planning: rollup period date header is also left-aligned", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan}
       workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "Show rollup" }));
@@ -139,7 +139,7 @@ describe("ResourcesPanel", () => {
 
   test("planning view: editable utilization input has an opaque bg so it stays visible on row hover", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
       workdayHours={8} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -154,7 +154,7 @@ describe("ResourcesPanel", () => {
 
   test("planning: utilization box shows % suffix in percent mode", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
       workdayHours={8} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -167,7 +167,7 @@ describe("ResourcesPanel", () => {
 
   test("planning: utilization box shows h suffix in hours mode", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "hours" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
       workdayHours={8} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -178,7 +178,7 @@ describe("ResourcesPanel", () => {
 
   test("planning: absence field aligns on the left with the planned-utilization field", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
       workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -200,7 +200,7 @@ describe("ResourcesPanel", () => {
 
   test("planning view: changing the From date calls onSetPlanWindow", () => {
     const onSetPlanWindow = vi.fn();
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={[]} plan={plan} workdayHours={8}
       onSetUtilization={() => {}} onSetAbsenceOverride={() => {}}
       onSetPlanWindow={onSetPlanWindow} />);
@@ -211,7 +211,7 @@ describe("ResourcesPanel", () => {
   test("planning view shows internal cost from the resource's role rate", () => {
     const roles = [{ id: 5, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 0 }];
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: 5, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" as const };
     render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} roles={roles} plan={plan}
       workdayHours={8} holidaySet={new Set()}
       onSetUtilization={() => {}} onSetAbsenceOverride={() => {}}
@@ -224,7 +224,7 @@ describe("ResourcesPanel", () => {
   test("planning view: editing a cell's absence override calls onSetAbsenceOverride", () => {
     const onSetAbsenceOverride = vi.fn();
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" as const };
     render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan} workdayHours={8}
       holidaySet={new Set()} onSetUtilization={() => {}}
       onSetAbsenceOverride={onSetAbsenceOverride} onSetPlanWindow={() => {}} />);
@@ -235,7 +235,7 @@ describe("ResourcesPanel", () => {
   test("planning view: clearing an absence override passes null", () => {
     const onSetAbsenceOverride = vi.fn();
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {}, absenceOverride: { "2026-02": 16 } }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" as const };
     render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan} workdayHours={8}
       holidaySet={new Set()} onSetUtilization={() => {}}
       onSetAbsenceOverride={onSetAbsenceOverride} onSetPlanWindow={() => {}} />);
@@ -246,7 +246,7 @@ describe("ResourcesPanel", () => {
   test("does not write utilization when viewing a finer (derived) granularity", () => {
     const onSetUtilization = vi.fn();
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 80 } }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" as const };
     render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan}
       workdayHours={8} holidaySet={new Set()} onSetUtilization={onSetUtilization}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -262,7 +262,7 @@ describe("ResourcesPanel", () => {
   test("planning view: percent/hours toggle is present and calls onSetAllUtilizationMode", () => {
     const onSetAllUtilizationMode = vi.fn();
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
       onSetUtilization={() => {}}
       onSetAllUtilizationMode={onSetAllUtilizationMode}
@@ -276,7 +276,7 @@ describe("ResourcesPanel", () => {
 
   test("planning view: rollup toggle reveals the non-canonical read-only table", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" as const };
     render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan} workdayHours={8}
       holidaySet={new Set()} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -287,7 +287,7 @@ describe("ResourcesPanel", () => {
   test("planning view: clicking a resource name calls onEditResource", () => {
     const onEditResource = vi.fn();
     const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
       onEditResource={onEditResource} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -298,7 +298,7 @@ describe("ResourcesPanel", () => {
   test("planning view: clicking the row (outside the name button) calls onEditResource", () => {
     const onEditResource = vi.fn();
     const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
       onEditResource={onEditResource} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -314,7 +314,7 @@ describe("ResourcesPanel", () => {
   test("planning view: clicking a utilization input does NOT fire onEditResource", () => {
     const onEditResource = vi.fn();
     const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
       onEditResource={onEditResource} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -326,7 +326,7 @@ describe("ResourcesPanel", () => {
   test("planning view: clicking an absence override input does NOT fire onEditResource", () => {
     const onEditResource = vi.fn();
     const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
       onEditResource={onEditResource} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -343,7 +343,7 @@ describe("ResourcesPanel", () => {
   });
 
   test("planning date inputs use the taller md control height (py-2 text-sm)", () => {
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" resources={[]} plan={plan} workdayHours={8}
       onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
     const from = screen.getByLabelText("From");
@@ -366,7 +366,7 @@ describe("ResourcesPanel", () => {
     // Resource with a role that has externalRate > 0 so margin renders
     const roles = [{ id: 7, disciplineId: 1, gradeId: 1, internalRate: 80, externalRate: 100 }];
     const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: 7, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} roles={roles} plan={plan}
       workdayHours={8} holidaySet={new Set()}
       onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -377,7 +377,7 @@ describe("ResourcesPanel", () => {
   test("T14: capacity-hours column renders a per-row total and a footer sum", () => {
     // Feb 2026 monthly = 20 workdays × 8h = 160h at 100% utilization.
     const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan}
       workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -393,7 +393,7 @@ describe("ResourcesPanel", () => {
       { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} },
       { id: 2, firstName: "Bob", lastName: "Ext", roleId: null, isExternal: true, utilizationMode: "percent" as const, utilization: {} },
     ];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan}
       workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -482,7 +482,7 @@ describe("ResourcesPanel", () => {
   test.each(["workload", "planning"] as const)(
     "renders exactly one 'Hide external' checkbox in the %s view",
     (view) => {
-      const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+      const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
       render(
         <ResourcesPanel {...baseProps} view={view} lang="en-US" plan={plan}
           workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
@@ -499,7 +499,7 @@ describe("ResourcesPanel", () => {
     expect(wl.querySelector("svg")).toBeTruthy();
     unmount();
 
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     render(
       <ResourcesPanel {...baseProps} view="planning" plan={plan}
         workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
@@ -515,7 +515,7 @@ describe("ResourcesPanel", () => {
   // covered separately: planning swaps in a different reset-columns handler and
   // calendar drops reset-columns entirely while adding the Outlook-import
   // button ahead of the group.
-  const PLAN = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+  const PLAN = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
   const calendarProps = {
     m365Configured: true, calendarEnabled: true,
     onToggleCalendar: () => {}, onPushCalendar: () => {},
@@ -644,7 +644,7 @@ describe("ResourcesPanel", () => {
 
   test("A2: absence override input uses text-sm (not text-[10px])", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" as const };
     render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan} workdayHours={8}
       holidaySet={new Set()} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
@@ -867,7 +867,7 @@ test("workload view root does NOT use the centered half-pane class", () => {
 });
 
 test("planning view: capacity-days column header has an InfoTooltip (no native title on th)", () => {
-  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
   render(<ResourcesPanel {...baseProps} view="planning" resources={[]} plan={plan} workdayHours={8}
     onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
   // InfoTooltip renders a focusable span with role=button whose accessible name is the hint text.
@@ -876,7 +876,7 @@ test("planning view: capacity-days column header has an InfoTooltip (no native t
 
 test("planning view: per-cell utilization input still has native title (intentionally left)", () => {
   const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
-  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
   render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan} workdayHours={8}
     onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
   const utilInput = screen.getByLabelText("Utilization for Sample in 2026-02");
@@ -888,7 +888,7 @@ test("puts Plan with AI ahead of the plan-window date fields", () => {
   // non-empty resource list (baseProps carries 2) — stub settings.ai on so the
   // button actually renders.
   stubSettings(AI_ON);
-  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
   render(<ResourcesPanel {...baseProps} view="planning" plan={plan} workdayHours={8}
     onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
   // The accessible name is the VISIBLE label (allocPlan). It was once the
@@ -954,7 +954,7 @@ describe("hide-external persistence", () => {
   // view would only re-prove the test above — it would still pass with two
   // separate keys, which is the failure this is here to catch.
   test("the flag stored from workload is the one planning reads", () => {
-    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
     const first = render(<ResourcesPanel {...baseProps} view="workload" resources={resources} />);
     fireEvent.click(screen.getByRole("button", { name: label }));
     first.unmount();
@@ -999,7 +999,7 @@ describe("hide-external persistence", () => {
 // against axe-core 4.12.1) — a unit test is the only detector that can exist.
 // ---------------------------------------------------------------------------
 describe("ResourcesPanel planning grid: row-unique accessible names", () => {
-  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" as const };
   // BYTE-IDENTICAL names. A fixture with two DIFFERENT names passes whether or
   // not the fix is present, which is the standard way this class of test ships
   // vacuous.

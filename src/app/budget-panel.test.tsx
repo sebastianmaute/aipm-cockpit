@@ -1,14 +1,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { expectDestructiveButton, expectSecondaryButton } from "../test/button-variant";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { rowLabel } from "./row-tokens";
-import type { BudgetBucket, Resource, Role, ResourcePlan } from "./types";
+import type { BudgetBucket, FxRates, Resource, Role, ResourcePlan } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
 const roles: Role[] = [{ id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
@@ -29,6 +29,50 @@ describe("BudgetPanel", () => {
     expect(screen.getByText(/Project total/i)).toBeInTheDocument();
     expect(screen.getAllByText(/4,000|4000/).length).toBeGreaterThan(0); // 80×150 − 80×100
   });
+  test("labels the project rollup in EUR even when the plan names another currency", () => {
+    // ★★ The rollup sums the ENGINE's figures and converts NOTHING, and every
+    // figure `computeBudgetReport` returns is EUR (a fixed-price bucket's
+    // contract amount is converted to EUR at the engine's one read). So the
+    // rollup is EUR whatever `plan.currency` says. Narrowing that field to the
+    // `BudgetCurrency` union did NOT make it safe to label with: the union
+    // still admits `USD`/`GBP`, so it states the plan's base currency, never
+    // the unit of an unconverted engine figure. Labelling it `plan.currency`
+    // printed EUR money under another currency's symbol
+    // (docs/open-followups.md §465).
+    // ★ The per-bucket tiles further down are a DIFFERENT case and are correct:
+    // they convert EUR→bucket currency (`inCur`/`cci`) before labelling.
+    render(<BudgetPanel {...props} plan={{ ...plan, currency: "USD" }} />);
+    const rollup = screen.getByText(/Project total/i).closest("section")!;
+
+    // ★★★ THE POSITIVE CONTROL. A bare `queryByText(/\$/) === null` passes just
+    // as happily when the query is wrong, the scope is empty, or the panel
+    // failed to render. `getAllByText` THROWS on zero matches, and the floor
+    // proves the scope is populated. MEASURED over this fixture, not reasoned:
+    // 3, not 4 — the Cost recovery tile has no earned-value baseline here, so it renders
+    // `unknown` and both of its figures are "—". An exact count, because a
+    // loose floor would let a tile silently stop rendering money at all.
+    const money = within(rollup).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
+    expect(money).toHaveLength(3);
+    // …and every one of those figures is EUR-labelled, none of them dollars.
+    expect(money.filter((s) => s.includes("$"))).toEqual([]);
+    expect(money.every((s) => s.includes("€"))).toBe(true);
+  });
+
+  test("the budget tile does not call its money ratio CPI", () => {
+    // Two different quantities were both labelled CPI a click apart: this money
+    // ratio (earnedValue ÷ cost) and the EVM hours ratio on the Dashboard and
+    // the Budget report. CPI is EVM's term of art, so it stays with EVM and the
+    // money ratio is renamed "Cost recovery" (docs/open-followups.md §464).
+    render(<BudgetPanel {...props} />);
+    expect(screen.queryAllByText(/CPI/)).toHaveLength(0);
+    // ★ THE POSITIVE CONTROL. `queryAllByText` returns [] just as happily when
+    // the panel fails to render at all, so the new name must be asserted
+    // PRESENT. An exact count, MEASURED over this one-bucket fixture: the tile
+    // renders twice, once in the project rollup and once for the bucket — a
+    // loose floor would let one of the two silently stop rendering.
+    expect(screen.getAllByText(/Cost recovery/)).toHaveLength(2);
+  });
+
   test("lists each bucket by name", () => {
     render(<BudgetPanel {...props} />);
     expect(screen.getByText("PAM")).toBeInTheDocument();
@@ -317,6 +361,83 @@ describe("BudgetPanel", () => {
     expect(winLoss).toHaveTextContent("—");
   });
 
+  // ★★★ A NON-EUR BUCKET AND A RATE != 1 ARE BOTH LOAD-BEARING, and nothing
+  // else in this file supplies either. The shared `props` passes
+  // `fxRates: null`, at which `resolveRate` returns 1 and BOTH converters —
+  // the engine's inward `currencyToEur` and the panel's outward
+  // `eurToCurrency` — are the identity function, so every other test here
+  // passes byte-identically whether the conversion exists or not. The one
+  // existing `currency: "USD"` fixture sets the PLAN's currency, which no
+  // converter reads. Overridden per test rather than on `props`, so the other
+  // fixtures keep their rate-free arithmetic.
+  const usdRates: FxRates = {
+    base: "EUR", date: "2026-01-01", fetchedAt: "2026-01-01T00:00:00Z",
+    rates: { EUR: 1, USD: 1.1 },
+  };
+  // One RATED role line carrying budgeted but UNBOOKED hours. Two properties
+  // follow, both needed: cost is 0, so win/loss is the whole contract and the
+  // assertion is the contract amount itself; and a rated row exists, so
+  // `costIsKnowable` holds and the tile is NOT gated to "—" the way the
+  // unstaffed fixture further up is.
+  const usdFixedBucket: BudgetBucket[] = [{
+    ...buckets[0], type: "fixed", currency: "USD", fixedPriceAmount: 10000,
+    allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: {} }],
+  }];
+
+  test("a USD fixed-price bucket renders its contract back in USD, not the engine's EUR", () => {
+    // THE ROUND TRIP, end to end. The engine converts the $10,000 contract to
+    // EUR at its one read (10,000 / 1.1 = 9,090.91) and the bucket tile
+    // converts it back OUT through `inCur`/`eurToCurrency` before labelling it
+    // with the bucket's own currency. Only both conversions together give
+    // $10,000: drop the outward one and the tile prints the engine's EUR
+    // figure under a dollar sign ("$9,091"); convert twice and it prints
+    // "$11,000". MEASURED, not reasoned — `formatCurrency` passes
+    // `maximumFractionDigits: 0`, so this is "$10,000" and not "$10,000.00".
+    render(<BudgetPanel {...props} buckets={usdFixedBucket} fxRates={usdRates} />);
+    const winLoss = screen.getByText("Win / loss").parentElement!;
+    expect(winLoss).toHaveTextContent("$10,000");
+  });
+
+  // ★★★ AN EUR BUCKET CARRYING A STALE POSITIVE OVERRIDE — the exact shape
+  // `resolveRate`'s EUR-FIRST ordering exists to repair (the modal's currency
+  // <select> never clears the field). Check the override first and the rate is
+  // 2, at which the engine DEFLATES the contract through `currencyToEur` while
+  // `cost` — role rates, EUR by construction — is untouched. Both figures below
+  // are `revenue − cost`, so the two terms land in different units and the tile
+  // is wrong by (rate − 1) × cost.
+  // ★★ NON-ZERO COST IS THE WHOLE POINT: at zero cost the two orderings agree
+  // exactly, and every other fixture in this file has zero cost — including
+  // `usdFixedBucket` above, whose hours are budgeted but UNBOOKED. Cost is
+  // `actualHours × internalRate`, so the hours must be BOOKED.
+  const eurOverrideFixed: BudgetBucket[] = [{
+    ...buckets[0], type: "fixed", currency: "EUR", fxRateOverride: 2, fixedPriceAmount: 20000,
+    allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
+  }];
+
+  test("an EUR bucket's win/loss ignores a stale rate override", () => {
+    // cost = 80 h × €100 = €8,000 (a RATED row, so `costIsKnowable` holds and
+    // the tile is a figure, not the "—" the unstaffed fixture above renders).
+    // Win/loss = 20,000 − 8,000 = €12,000. Honour the override instead and the
+    // engine reads revenue as 20,000 / 2 = 10,000, subtracts the same
+    // unconverted 8,000, and the panel's `inCur` multiplies the difference back
+    // by 2 → €4,000, i.e. contract − 2 × cost. MEASURED, not derived.
+    render(<BudgetPanel {...props} buckets={eurOverrideFixed} />);
+    const winLoss = screen.getByText("Win / loss").parentElement!;
+    expect(winLoss).toHaveTextContent("€12,000");
+  });
+
+  test("an EUR bucket's contribution-margin percent ignores a stale rate override", () => {
+    // The half NO round trip can repair: `cci()` converts `.amount` and passes
+    // `.percent` through untouched, so a deflated revenue reaches the screen as
+    // rendered. 12,000 / 20,000 = 60.0%; honouring the override gives
+    // (10,000 − 8,000) / 10,000 = 20.0%. Index 1 is the BUCKET tile — the
+    // project rollup renders the same label first and does not call `cci()`.
+    render(<BudgetPanel {...props} buckets={eurOverrideFixed} />);
+    const tiles = screen.getAllByText("Contribution margin");
+    expect(tiles).toHaveLength(2); // positive control: rollup + bucket both rendered
+    expect(tiles[1].closest("div.rounded-lg")!).toHaveTextContent("60.0%");
+  });
+
   test("ArrowUp on the top bucket's handle is a no-op", () => {
     const onChangeBuckets = vi.fn();
     render(<BudgetPanel {...props} buckets={twoBuckets()} onChangeBuckets={onChangeBuckets} />);
@@ -387,10 +508,10 @@ test("budget: bucket search with no matches shows a no-match line", () => {
   expect(screen.getByText(t("en-US", "reportsNoMatches"))).toBeInTheDocument();
 });
 
-test("renders InfoTooltip for CPI metric label by accessible name", () => {
+test("renders InfoTooltip for the Cost burn metric label by accessible name", () => {
   render(<BudgetPanel {...props} />);
   const hint = t("en-US", "budgetCciBurnHint");
-  // CPI tooltip appears in both the project-total row and the per-bucket row
+  // The Cost burn tooltip appears in both the project-total row and the per-bucket row
   const tooltips = screen.getAllByRole("button", { name: hint });
   expect(tooltips.length).toBeGreaterThanOrEqual(1);
 });
@@ -460,7 +581,7 @@ describe("nextBucketId (session mint)", () => {
 describe("Cci primary prop", () => {
   // We test Cci by rendering BudgetPanel with a bucket that has known CCI values
   // and checking which number appears as the big figure vs the small figure.
-  // With primary="percent" on CPI and Consumption, the big figure is the percent string.
+  // With primary="percent" on Cost burn and Consumption, the big figure is the percent string.
   // With default (Margin), the big figure is the currency amount.
 
   const cciProps = {
@@ -472,17 +593,17 @@ describe("Cci primary prop", () => {
     }],
   };
 
-  test("CPI card shows percent as big figure and currency as small figure", () => {
+  test("Cost burn card shows percent as big figure and currency as small figure", () => {
     render(<BudgetPanel {...cciProps} />);
-    // There are two CPI cards (project-total + per-bucket). We look at all text-lg elements.
-    // The big figure for CPI with primary="percent" must contain a "%" string.
-    // CPI and Consumption big figures should contain "%"
-    const cpiLabel = t("en-US", "budgetCciBurn");
-    // Find a card whose label is CPI
+    // There are two Cost burn cards (project-total + per-bucket). We look at all text-lg elements.
+    // The big figure for Cost burn with primary="percent" must contain a "%" string.
+    // Cost burn and Consumption big figures should contain "%"
+    const burnLabel = t("en-US", "budgetCciBurn");
+    // Find a card whose label is Cost burn
     const cards = Array.from(document.querySelectorAll(".rounded-lg.border.border-line.p-3"));
-    const cpiCards = cards.filter((c) => c.textContent?.includes(cpiLabel));
-    expect(cpiCards.length).toBeGreaterThanOrEqual(1);
-    for (const card of cpiCards) {
+    const burnCards = cards.filter((c) => c.textContent?.includes(burnLabel));
+    expect(burnCards.length).toBeGreaterThanOrEqual(1);
+    for (const card of burnCards) {
       const big = card.querySelector(".text-lg.font-semibold");
       expect(big?.textContent).toMatch(/%/);
     }
@@ -514,16 +635,16 @@ describe("Cci primary prop", () => {
   });
 });
 
-describe("BudgetPanel — CPI card (EV/AC)", () => {
-  const cpiLabel = t("en-US", "budgetCciCpi");
-  const cpiCardsIn = () =>
+describe("BudgetPanel — Cost recovery card (EV/AC)", () => {
+  const recoveryLabel = t("en-US", "budgetCciRecovery");
+  const recoveryCardsIn = () =>
     Array.from(document.querySelectorAll(".rounded-lg.border.border-line.p-3"))
-      .filter((c) => c.textContent?.includes(cpiLabel));
+      .filter((c) => c.textContent?.includes(recoveryLabel));
 
   test("renders unknown (—) when no bucket has progress set", () => {
     // The default `buckets` fixture carries no percentComplete/taskIds.
     render(<BudgetPanel {...props} />);
-    const cards = cpiCardsIn();
+    const cards = recoveryCardsIn();
     expect(cards.length).toBeGreaterThanOrEqual(1);
     for (const card of cards) {
       const big = card.querySelector(".text-lg.font-semibold");
@@ -531,17 +652,17 @@ describe("BudgetPanel — CPI card (EV/AC)", () => {
     }
   });
 
-  test("computes and renders a known CPI from a manual percent-complete", () => {
+  test("computes and renders a known cost recovery from a manual percent-complete", () => {
     // 100 budgeted hours × rate 100 = 10,000 budgeted cost; 40% complete => EV 4,000;
-    // 80 actual hours × rate 100 = 8,000 actual cost => CPI 4,000/8,000 = 50%.
-    const cpiBuckets: BudgetBucket[] = [{
+    // 80 actual hours × rate 100 = 8,000 actual cost => cost recovery 4,000/8,000 = 50%.
+    const recoveryBuckets: BudgetBucket[] = [{
       id: 1, name: "B1", type: "tm", currency: "EUR",
       startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
       percentComplete: 40,
       allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
     }];
-    render(<BudgetPanel {...props} buckets={cpiBuckets} />);
-    const cards = cpiCardsIn();
+    render(<BudgetPanel {...props} buckets={recoveryBuckets} />);
+    const cards = recoveryCardsIn();
     expect(cards.length).toBeGreaterThanOrEqual(1);
     const bucketCard = cards.find((c) => c.textContent?.includes("50.0%"));
     expect(bucketCard).toBeTruthy();
@@ -549,7 +670,7 @@ describe("BudgetPanel — CPI card (EV/AC)", () => {
 
   test("resolves earned value from linked tasks via the tasks prop", () => {
     // Same budgeted/actual cost as above (10,000 / 8,000), but progress comes
-    // from one finished linked task out of two => 50% => EV 5,000 => CPI 62.5%.
+    // from one finished linked task out of two => 50% => EV 5,000 => cost recovery 62.5%.
     const linkedBuckets: BudgetBucket[] = [{
       id: 1, name: "B1", type: "tm", currency: "EUR",
       startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
@@ -561,7 +682,7 @@ describe("BudgetPanel — CPI card (EV/AC)", () => {
       { id: 102, taskName: "T2", assignee: "A", assigneeEmail: "a@x.io", dueDate: "2026-02-01", lastUpdateDate: "2026-01-01", status: "To Do" as const, priority: "Medium" as const, blockers: "", description: "" },
     ];
     render(<BudgetPanel {...props} buckets={linkedBuckets} tasks={tasks} />);
-    const cards = cpiCardsIn();
+    const cards = recoveryCardsIn();
     const bucketCard = cards.find((c) => c.textContent?.includes("62.5%"));
     expect(bucketCard).toBeTruthy();
   });
@@ -1384,5 +1505,81 @@ describe("BudgetPanel — row separators sit on the cells, and only the last row
       expect(tokens).not.toContain("border-t");
       expect(tokens).not.toContain("border-line");
     }
+  });
+});
+
+/**
+ * The three strings this branch rewrote or renamed, pinned WHERE THEY RENDER
+ * and IN GERMAN.
+ *
+ * ★★★ AN EN ASSERTION HERE WOULD BE VACUOUS AND WOULD LOOK EXACTLY LIKE THIS
+ * ONE. `expect(...).toHaveTextContent(t("en-US", key))` reads the same
+ * dictionary entry the panel just rendered, so it passes whatever that entry
+ * says and would have passed before the rewrite as readily as after. A literal
+ * German string cannot: `i18n.de.ts` is a SECOND file that has to agree with
+ * it, so the assertion fails if either the DE string or the call site moves.
+ *
+ * ★ `loadI18n("de")` first — the DE dictionary is lazy, and `t("de", …)` falls
+ * back to English until it resolves, which would make every literal below a
+ * test of the English dictionary under a German name.
+ *
+ * ★★★ A HINT REACHES THE DOM TWICE, THROUGH TWO SEPARATE `t()` CALLS, and
+ * asserting either one alone leaves the other unpinned. `InfoTooltip` takes
+ * `text` (the body, portalled only while the trigger is hovered or focused)
+ * and `label` (the `aria-label`, here `rowLabel(hint, bucketToken)` — the hint
+ * plus the bucket token after an EN DASH, U+2013). The call site passes the
+ * key twice. MEASURED, not reasoned: an earlier cut of these two tests read
+ * the `aria-label` alone and stayed GREEN with the call site's `text` prop
+ * swapped for the EUR twin `budgetReportColWinLossHint` — i.e. green while the
+ * visible tooltip told the user the wrong currency. So each hint test focuses
+ * its trigger and asserts the portalled body as well.
+ */
+describe("BudgetPanel — the German text of the three keys this branch changed", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  test("the win/loss hint splits fixed from T&M and names the BUCKET currency, not EUR", () => {
+    // ★★ THE LAST CLAUSE IS THE ENTIRE POINT OF THE SPLIT and the only thing
+    // separating this string from its twin. `budgetReportColWinLossHint`
+    // annotates an EUR report column and is otherwise word-for-word identical;
+    // this one annotates a panel tile that renders through `inCur` and really
+    // is in the bucket's currency. So the assertion is the WHOLE string: pin
+    // the leading clauses alone and it passes with the EUR twin pasted in,
+    // which is the confusion the split exists to prevent.
+    render(<BudgetPanel {...props} lang="de" />);
+    const hint = "Festpreis: Erlös minus Kosten. Time-and-Material: Budget minus Verbrauch, also das verbleibende Budget. In der Währung des Budgetpostens; negativ bedeutet, dass der Bucket mit Verlust läuft.";
+    const trigger = screen.getByLabelText(`${hint} – PAM`);
+    fireEvent.focus(trigger);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(hint);
+  });
+
+  test("the spillover hint names the VALUE the row renders beside the hours", () => {
+    // The row prints hours AND money; the string said hours alone. The fixture
+    // is not the obvious one: `computeSpillover` reads only a CLOSED
+    // predecessor pointing at this bucket, and the row is gated on
+    // `spilloverInHours !== 0`, so an open predecessor renders nothing and the
+    // assertion would be unreachable rather than red.
+    const withSpillover: BudgetBucket[] = [
+      { ...buckets[0], id: 2, name: "Vorgänger", status: "closed", closedDate: "2026-01-31", successorId: 1 },
+      ...buckets,
+    ];
+    render(<BudgetPanel {...props} lang="de" buckets={withSpillover} />);
+    const hint = "Aus einem anderen Bereich übertragene Stunden und deren Wert in der Währung des Budgetpostens.";
+    const trigger = screen.getByLabelText(`${hint} – PAM`);
+    // Anti-vacuity: the hint is only honest if its row really does print both
+    // figures. 100 budgeted − 80 actual = 20 unspent hours carried in.
+    expect(trigger.closest("div")!).toHaveTextContent(/20 h ·/);
+    fireEvent.focus(trigger);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(hint);
+  });
+
+  test("the renamed cost-recovery label renders at BOTH of its sites", () => {
+    // `budgetCciCpi` → `budgetCciRecovery`. The key is read twice — once by the
+    // project rollup, once per bucket — and a rename that reached only one call
+    // site is the failure this pins. An EXACT count, measured over the
+    // one-bucket fixture: a floor of 1 passes with either site dropped.
+    render(<BudgetPanel {...props} lang="de" />);
+    expect(screen.getAllByText("Kostendeckung")).toHaveLength(2);
   });
 });

@@ -120,6 +120,7 @@ export function usePortfolioHealth(
                 roles: ws.roles,
                 resources: ws.resources,
                 absences: ws.absences,
+                fxRates: ws.fxRates ?? null,
                 milestones: ws.milestones,
                 changes: ws.changes,
               },

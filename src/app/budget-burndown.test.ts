@@ -99,7 +99,7 @@ describe("computeBurndownSeries — budget follows plan", () => {
   // spillover, so the report can legitimately diverge for those buckets.
   it("keeps the burndown budget total equal to the report budget total", () => {
     const s = computeBurndownSeries([fpBucket], fpPlan, fpRoles, fpResources, 8, new Set<string>(), [], "2026-02-15");
-    const rep = computeBudgetReport([fpBucket], fpPlan, fpRoles, fpResources, 8, new Set<string>(), []);
+    const rep = computeBudgetReport([fpBucket], fpPlan, fpRoles, fpResources, 8, new Set<string>(), [], [], null);
     expect(s.totalBudgetHours).toBeCloseTo(rep.project.budgetHours, 5);
     expect(s.totalBudgetValue).toBeCloseTo(rep.project.budgetValue, 5);
   });

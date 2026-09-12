@@ -6,12 +6,12 @@ import { computeMetricTrends } from "../dashboard-trends";
 import { DashboardKpiStrip } from "./dashboard-kpi-strip";
 import { t } from "../i18n";
 
-const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" };
+const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const };
 
 function modelFor(tasks: unknown) {
   return computeDashboard(
     buildDashboardInput(
-      { tasks: tasks as never, raid: [], budgets: [], plan, roles: [], resources: [], absences: [], milestones: [], changes: [] },
+      { tasks: tasks as never, raid: [], budgets: [], plan, roles: [], resources: [], absences: [], fxRates: null, milestones: [], changes: [] },
       { workdayHours: 8, holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02" },
     ),
   );

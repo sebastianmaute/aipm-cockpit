@@ -147,7 +147,11 @@ function budgetVarianceInsight(
   // roles/resources are forwarded so that when plan.budgetFollowsPlan is true the
   // engine derives real budget HOURS from planned capacity (empty resources would
   // collapse budgetHours to 0 and silently drop the overrun).
-  const report = computeBudgetReport(budgets, plan, roles, resources, BUDGET_WORKDAY_HOURS, holidaySet, []);
+  // Hours-only detector: it reads budgetHours/actualHours and no money term, so
+  // no FX is needed. Explicit null rather than a threaded rate — stated here so
+  // it is a visible decision, not a silent default. If this detector ever reads
+  // a money figure, thread fxRates through InsightInput first (§465).
+  const report = computeBudgetReport(budgets, plan, roles, resources, BUDGET_WORKDAY_HOURS, holidaySet, [], [], null);
   let worstName = "";
   let worstPct = 0;
   let breaching = 0;

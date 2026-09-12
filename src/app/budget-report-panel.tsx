@@ -66,8 +66,11 @@ export function BudgetReportPanel({
 }: Props) {
   // Hooks are called unconditionally before the empty-state early return (rules of hooks).
   const report = useMemo(
-    () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences),
-    [buckets, plan, roles, resources, workdayHours, holidaySet, absences],
+    // `tasks` is deliberately `[]` here — this panel has never fed the engine
+    // tasks (so no earned value from it), and the explicit empty array is now
+    // required because `fxRates` follows it.
+    () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences, [], fxRates),
+    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, fxRates],
   );
   const evm = useMemo(
     () => computeEvm(tasks, today, { blendedRate: projectBlendedInternalRate(roles) }),
@@ -158,7 +161,17 @@ export function BudgetReportPanel({
 
       <Section title={t(lang, "budgetBurndownTitle")}>
         <BurndownChainWarning lang={lang} chain={bucketChain} />
-        <BurndownCharts series={burndown} lang={lang} currency={plan.currency || "EUR"} />
+        {/* ★★ EUR, not `plan.currency`: `computeBurndownSeries` builds every
+            value as `budgetHours × role.rates.external` and converts NOTHING,
+            and the engine's money unit is EUR (a fixed-price bucket's contract
+            amount is converted to EUR at `computeBucketReport`'s one read). The
+            `money` helper above already hardcodes EUR for the cost/EVM tiles,
+            which are rate-derived in exactly the same way — this chart was the
+            one figure in the file still labelled otherwise (open-followups
+            §465). ★ Contrast `budget-panel.tsx`'s per-bucket tiles, which
+            convert EUR→bucket currency BEFORE labelling and so correctly use
+            the bucket's own currency. */}
+        <BurndownCharts series={burndown} lang={lang} currency="EUR" />
         <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
       </Section>
 
