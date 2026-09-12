@@ -142,6 +142,36 @@ describe("the offered-surface axis", () => {
     );
     expect(stray, `ledger entries naming no real entity:arm, subject or kind: ${stray.join(", ")}`).toEqual([]);
   });
+
+  // ★★★ NO LEDGER MAY HOLD A LIVE DEFECT. The check above proves a kind is a
+  //  MEMBER of `FINDING_KINDS`; this one proves it is a kind that relation is
+  //  allowed to RECORD. `stored` — the model's undeclared value landed — is
+  //  barred from both ledgers, and Relation A is narrower still. The rule was
+  //  written in both ledger docstrings from the start and enforced by nothing:
+  //  a `stored` entry pasted into `EXPECTED_UNDECLARED_FINDINGS` would have
+  //  turned a live undeclared write permanently green, passing the membership
+  //  check, the entity:arm check and the subject check on its way.
+  //
+  //  ★ The allowed sets and the reasoning behind each live on
+  //   `LEDGERABLE_KINDS`, beside `FINDING_KINDS` itself. Do not widen them here.
+  it("neither ledger records a kind that relation may not ledger", () => {
+    const unledgerable = (["A", "B"] as const).flatMap((relation) =>
+      Object.entries(LEDGERS[relation]).flatMap(([key, entries]) =>
+        (entries ?? [])
+          .filter((f) => !LEDGERABLE_KINDS[relation].some((k) => k === f.kind))
+          .map((f) => `${relation} ${key} → ${f.subject}:${f.kind}`),
+      ),
+    );
+    expect(
+      unledgerable,
+      [
+        `a ledger records a kind it may not: ${unledgerable.join(", ")}`,
+        `Relation A may ledger only: ${LEDGERABLE_KINDS.A.join(", ")}`,
+        `Relation B may ledger only: ${LEDGERABLE_KINDS.B.join(", ")}`,
+        "`stored` is barred from both — it is a live undeclared write, to FIX (go/cut), never to ledger.",
+      ].join("\n"),
+    ).toEqual([]);
+  });
 });
 
 const SEED_BY_ENTITY = new Map<InlineEntity, SweepEntity>(SWEEP.map((s) => [s.entity, s]));
@@ -182,22 +212,53 @@ function viaPreview(normalize: ((v: unknown, row: Record<string, unknown>) => st
  *   overwrites whatever came before it; the update arm's pass on it therefore
  *   cannot go red under ANY guard removal, and certifies nothing. No `create_*`
  *   writer stamps it, so on the create arm it is held off by the
- *   `createInputWithoutId` strip (`chat-tools-updates.ts`) on five entities,
- *   by the allow-list guards on absence and calendarEvent, and by `createTask`
- *   naming its fields — and that pass CAN go red.
+ *   `createInputWithoutId` strip (`chat-tools-updates.ts`) on ALL SEVEN
+ *   pass-through entities and by `createTask` naming its fields — and that
+ *   pass CAN go red, on the five that have only the strip.
+ *  ★★★ THE PROTECTIONS ARE NOT ALTERNATIVES, AND THIS LINE USED TO PARTITION
+ *   THEM AS IF THEY WERE ("on five entities, by the allow-list guards on
+ *   absence and calendarEvent"). `chat-tools.ts` wraps absence AND
+ *   calendarEvent in `createInputWithoutId` exactly like the other five, so
+ *   for those two the strip and the allow-list guard BOTH drop the field —
+ *   `TOKEN_EXCLUDED.absence` is `["localModifiedAt", "outlookEventId"]`, which
+ *   is precisely absence's two undeclared columns, and
+ *   `dropUnacceptedAbsenceFields` drops the same pair again.
+ *  ★★★ CONSEQUENCE, STATED PLAINLY: NEITHER RELATION A ARM FOR ABSENCE HAS A
+ *   SINGLE-POINT FALSIFIER. Remove either guard alone and the other still
+ *   stops the probe, so both arms stay green over either mutant — a green run
+ *   there is not evidence that absence is guarded, only that it is not
+ *   guarded ZERO times. Do not read those two cases as mutation-covered, and
+ *   do not "simplify" the redundancy away on the strength of a green sweep.
+ *   The strip half is pinned independently of this file by
+ *   `plan.create-path-guards.test.ts`, whose axis is derived from
+ *   `TOKEN_EXCLUDED` per entity and per excluded field; the guard half is the
+ *   write-path sweep's. Verified 2026-09-12 by reading `chat-tools.ts`'s seven
+ *   `createInputWithoutId` call sites, not inferred from this comment.
  *  ★★ `outlookEventId` is NOT stamped by any writer here (the Outlook push owns
  *   it). On raid, change and milestone it is never forwarded only because
  *   `patchWithoutId` / `createInputWithoutId` strip it, and their sanitizers
  *   keep whatever reaches them — so removing that strip turns Relation A red,
  *   on either arm. (Task never reaches either strip — `buildPatch` and
  *   `createTask` name their fields — and on absence and calendarEvent the
- *   allow-list guards drop it as well.) Measured on the create arm, with the
- *   trespass probes this file used before `probeFor`: the note above
- *   `createInputWithoutId` records that reverting the strip at any of its five
- *   deny-list call sites took this file to 1 failed, that entity's Relation A
- *   create case. ★ That names the CASE, not the field: on raid, change and
- *   milestone `localModifiedAt` lands through the same revert. The update arm
- *   is read from the code, not measured by mutant. */
+ *   allow-list guards drop it as well.) Measured on the create arm.
+ *  ★★ RE-MEASURED 2026-09-12 AGAINST THE TYPED PROBES AND THE ENRICHED SEEDS.
+ *   The figure that stood here was taken with the `trespassProbeFor` values
+ *   this file used BEFORE `probeFor`, and before the seeds carried a value for
+ *   every undeclared column — a strictly weaker probe set, so its result could
+ *   only UNDERSTATE what the mutant reveals. Reverting the raid create strip
+ *   alone (`chat-tools.ts`: `createInputWithoutId<RaidInput>` → a bare `input
+ *   as RaidInput`) takes this file to 1 failed / 75 — still the one Relation A
+ *   create case, but that case now carries THREE `stored` findings where the
+ *   old note recorded one: `localModifiedAt`, `outlookEventId` AND
+ *   `inquiriesSent`, which is every column `TOKEN_EXCLUDED.raid` names bar
+ *   `noteLog` (ledgered `dead`, unseeded for the reason its entry gives).
+ *   ★ raid is the entity this is worth measuring on: the strip is its ONLY
+ *    protection for those three, since `dropUnacceptedRaidFields` is a
+ *    DENY-list and `RAID_FIELD_GUARDS` names none of them. Contrast absence,
+ *    which is guarded twice and has no single-point falsifier at all — see the
+ *    ★★★ note further down this docstring.
+ *   ★ That still names the CASE, not the field. The update arm is read from
+ *    the code, not measured by mutant. */
 const sameAt: Compare = (a, b) => same(a, b);
 
 /** The `TokenEntity` kind for an entity's update tool, for `entityToken`. */
@@ -329,6 +390,30 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
     const findings: Finding[] = [];
     let probed = 0;
     let skipped = 0;
+    // ★★★ THIS ARM DISCARDS `control.threw` AND HAS NO POSITIVE OBSERVABLE OF
+    //  ITS OWN — BOTH ON PURPOSE, AND BOTH COVERED BY A SIBLING, NOT BY LUCK.
+    //  If the base payload throws or stores nothing, `reference` silently
+    //  becomes `CREATE_BASE[entity]` and every probe below is derived against a
+    //  payload rather than a stored row; and because `threw !== undefined` is
+    //  absorbed as agreement per probe (correctly — a loud refusal IS the
+    //  undeclared value not landing, which is exactly what this relation
+    //  asserts), an entity whose create throws on EVERYTHING would report no
+    //  finding at all and read as clean.
+    //  ★★ WHAT RULES THAT OUT, by name: Relation B's create arm runs the SAME
+    //   `createWith(entity, {})` control and REPORTS it — `control-threw` /
+    //   `control-no-row`, the only two kinds whose subject is the bare entity —
+    //   and neither ledger carries such an entry, so either turns that arm red
+    //   for this entity. Its floor 2 (`landed > 0`) then proves the create
+    //   harness actually writes for this entity. Both are per-entity, so
+    //   neither can be satisfied by some other entity's success.
+    //  ★ A `threw` TALLY WAS CONSIDERED HERE AND DELIBERATELY NOT ADDED. A bare
+    //   count means nothing without an expected value, so it would need a
+    //   baseline of its own — a second thing to re-record — to say anything a
+    //   reader could act on, and the two failure modes it would catch are each
+    //   already named, per entity, by the sibling assertions above. A duplicate
+    //   report that can drift out of step with the original is worth less than
+    //   this note. ★ This mirrors the comment on the update arm, which records
+    //   the same absence of a positive observable.
     const control = await createWith(entity, {});
     const reference: Row = control.row ?? CREATE_BASE[entity];
     const seedRow = loadedSeedRow(entity);
@@ -360,6 +445,17 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
       }
     }
 
+    // ★★ A RESTATEMENT OF FLOOR 1, NOT AN INDEPENDENT CHECK — and worth saying
+    //  so, because its wording ("ran over an empty undeclared axis") promises
+    //  more than it delivers. Every path through the loop increments exactly
+    //  one of `probed`/`skipped`, so the sum IS `undeclaredColumns(entity)`'s
+    //  length, and floor 1 already compares that same call against this same
+    //  baseline. It cannot fail unless floor 1 fails first. Kept because it
+    //  fails HERE, naming the arm, rather than leaving a reader to connect an
+    //  axis-floor failure to a silently hollow relation — and because the
+    //  counters would stop agreeing the moment someone adds a `continue` that
+    //  skips both. Only Relation B's UPDATE bound is load-bearing on its own;
+    //  the note there says why.
     expect(probed + skipped, `${entity}: Relation A ran over an empty undeclared axis`).toBe(
       AXIS_BASELINE[entity].undeclared,
     );
@@ -396,6 +492,9 @@ describe.each(ENTITIES)("Relation A — %s: an undeclared field must not land", 
       }
     }
 
+    // ★★ A restatement of floor 1, exactly as on the create arm above — same
+    //  axis call, same baseline, one counter per iteration. Not an independent
+    //  check; see the note there.
     expect(probed + skipped, `${entity}: Relation A ran over an empty undeclared axis`).toBe(
       AXIS_BASELINE[entity].undeclared,
     );
@@ -455,9 +554,12 @@ it("no probe drives calendarEvent.sendInvitations true", () => {
  *  distinguishable probe (nothing to derive from, it equals the reference, or
  *  mail safety). `unmeasured` — a probe was derived but the writer's sanitizer
  *  will not hold it unchanged, so neither relation may judge the field. Both
- *  are shared by every arm. Relation B's update arm adds `unchanged`; its
- *  create arm adds `threw`, `no-row` and `dropped` for a probed field and
- *  `control-threw` / `control-no-row` for the base create — the only two whose
+ *  are shared by every arm. `dropped` — the field was offered and the stored
+ *  value is not the one the model sent — is shared by BOTH Relation B arms
+ *  since both ask ARRIVAL. Its update arm alone adds `unchanged` (the column
+ *  did not move at all, which a create has no prior value to express); its
+ *  create arm alone adds `threw`, `no-row` and `control-threw` /
+ *  `control-no-row` for the base create — the last two the only kinds whose
  *  subject is the bare entity. Relation A adds `stored`: the model's
  *  undeclared value landed, which is a defect to FIX (plan Task 6), never to
  *  ledger.
@@ -477,6 +579,35 @@ const FINDING_KINDS = [
   "stored",
 ] as const;
 type FindingKind = (typeof FINDING_KINDS)[number];
+
+/** ★★★ WHAT EACH RELATION'S LEDGER MAY HOLD — THE "NEVER LEDGER A LIVE DEFECT"
+ *  RULE, ENFORCED. Both ledger docstrings state it in prose ("a `stored`
+ *  finding is a live undeclared write, and is fixed rather than ledgered"), but
+ *  `Ledger` is typed over the whole of `FINDING_KINDS` and the validity test
+ *  below only checked MEMBERSHIP — so the one kind that must never be ledgered
+ *  was accepted by every check in the file. Prose is not a gate.
+ *
+ *  ★★★ `stored` IS EXCLUDED FROM BOTH, and that is the whole rule: it is the
+ *  only kind that reports the model's value actually LANDING where it must not.
+ *  Ledgering one converts a live undeclared write into a permanent green.
+ *
+ *  ★★ RELATION A IS NARROWER THAN "EVERYTHING BUT `stored`", deliberately. Its
+ *  two arms can also emit `no-row` ("the create stored no row at all — the base
+ *  payload is not valid"), which is a broken harness or a broken create, not a
+ *  measurement limit — so it is not ledgerable either. What remains is the pair
+ *  that genuinely means "this field was never judged": `dead` (no
+ *  distinguishable probe could be derived) and `unmeasured` (one was, and the
+ *  writer's sanitizer will not hold it).
+ *
+ *  ★ Relation B's set is every OTHER member, because each of its kinds is a
+ *  recorded outcome a register row can legitimately carry — including
+ *  `control-threw` / `control-no-row`, which name the entity rather than a
+ *  field. Widening either set is how this becomes an exemption list; narrowing
+ *  Relation B's would be a decision to take at a go/cut, not here. */
+const LEDGERABLE_KINDS: Readonly<Record<"A" | "B", readonly FindingKind[]>> = {
+  A: ["dead", "unmeasured"],
+  B: FINDING_KINDS.filter((k) => k !== "stored"),
+};
 
 /** One Relation B finding. `subject` + `kind` is all the verdict compares;
  *  `detail` is the full line a red run prints, and nothing compares it. */
@@ -696,6 +827,7 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
     const reference = loadedSeedRow(entity);
 
     for (const field of declaredProperties(entity, "update")) {
+      const normalize = previewNormalizerFor(INLINE_DESCRIPTORS[entity], field);
       const subject = `${entity}.${field}`;
       const outcome = probeFor({
         entity,
@@ -704,7 +836,7 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
         declared: true,
         reference,
         seedRow: reference,
-        compare: viaPreview(previewNormalizerFor(INLINE_DESCRIPTORS[entity], field)),
+        compare: viaPreview(normalize),
       });
       if (outcome.kind !== "probe") {
         skipped += 1;
@@ -728,12 +860,37 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
       const refused = threw !== undefined || rejectedFields(plan).includes(field);
       if (refused) continue;
 
-      if (same(before[field], stored[field])) {
+      // ★★★ ARRIVAL, NOT MOVEMENT — AND THE DIFFERENCE IS A WHOLE DEFECT CLASS.
+      //  This asked `same(before[field], stored[field])` until 2026-09-12: did
+      //  the field MOVE. That scores a success for any write that moves the
+      //  column to a value the model never sent — a guard that drops a declared
+      //  field and lets the writer or the sanitizer substitute something else.
+      //  MEASURED, not reasoned: with the raid update writer forced to store
+      //  `severity: "Medium"` over the model's "Low", the movement form of this
+      //  test ran 74/74 GREEN. The create arm never had the hole (it compares
+      //  the probe against what was stored), so the two arms disagreed about
+      //  what "landed" means. They now ask the same question, through the same
+      //  `normalizedAs` projection the create arm uses.
+      //
+      //  ★★ TWO KINDS, BECAUSE THE TWO OUTCOMES WANT DIFFERENT READERS.
+      //   `unchanged` — the column did not move at all: the patch never reached
+      //   the writer, or a merge-site guard dropped the key and the merge
+      //   preserved the stored value (`{...existing, ...patch}`), which is what
+      //   narrowing a `RAID_FIELD_GUARDS` row actually produces. `dropped` — the
+      //   column MOVED, to something that is not what the model sent, which is
+      //   the case the movement test could not see at all. A reader chasing the
+      //   first looks at the guard table; the second, at the writer.
+      const shown = normalizedAs(probe, stored, normalize);
+      const actual = normalizedAs(stored[field], stored, normalize);
+      if (shown !== actual) {
+        const moved = !same(before[field], stored[field]);
         findings.push(
           finding(
             subject,
-            "unchanged",
-            `declared and offered, but a valid ${JSON.stringify(probe)} changed nothing and the card said nothing`,
+            moved ? "dropped" : "unchanged",
+            moved
+              ? `update was offered the field and stored something else — sent ${JSON.stringify(shown)}, stored ${JSON.stringify(actual)}`
+              : `declared and offered, but a valid ${JSON.stringify(probe)} changed nothing and the card said nothing`,
           ),
         );
         continue;
@@ -741,11 +898,23 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
       landed += 1;
     }
 
-    // ★ EXACT, not a `>=` slack bound: `probed + skipped` must account for every
-    //  declared field. A slack bound cannot tell "the axis shrank" from "two
-    //  probes came out dead", and those want opposite responses — the first is a
-    //  schema change to investigate, the second a probe shape to fix or a column
-    //  to decide.
+    // ★★★ THE ONE BOUND OF THE FOUR THAT CAN FAIL ON ITS OWN, AND THE ONLY
+    //  RUNTIME PIN ON CREATE/UPDATE FIELD-BAG PARITY. The loop above increments
+    //  exactly one of `probed`/`skipped` per iteration, so the sum is just the
+    //  length of the axis it walked — and this arm walks
+    //  `declaredProperties(entity, "update")` while `AXIS_BASELINE[].declared`
+    //  is recorded from `declaredProperties(entity, "create")` (floor 1 pins it
+    //  to the CREATE tool by name). So this asserts the two tools still declare
+    //  the SAME NUMBER of writable properties. `offered-surface-axis.ts` records
+    //  that they share one field bag per entity for all eight today and that the
+    //  `op` parameter exists so a future divergence is expressible; this is what
+    //  would notice that divergence arriving. Its three siblings are
+    //  restatements of floor 1 (see the note on either Relation A bound).
+    //
+    //  ★ EXACT, not a `>=` slack bound: a slack bound cannot tell "the axis
+    //   shrank" from "two probes came out dead", and those want opposite
+    //   responses — the first is a schema change to investigate, the second a
+    //   probe shape to fix or a column to decide.
     expect(probed + skipped, `${entity}: Relation B did not reach every declared field`).toBe(
       AXIS_BASELINE[entity].declared,
     );
@@ -893,11 +1062,17 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
       landed += 1;
     }
 
-    // ★ EXACT, not a `>=` slack bound, mirroring the update arm. `probed +
-    //  skipped` must account for every declared field: a slack bound cannot
-    //  tell "the axis shrank" from "two probes came out dead", and those want
-    //  opposite responses — the first is a schema change to investigate, the
-    //  second a probe shape to fix or a column to decide.
+    // ★★ A restatement of floor 1, unlike its UPDATE-arm counterpart. This arm
+    //  walks `declaredProperties(entity, "create")` — the very call floor 1
+    //  records the baseline from — so the two compare the same number against
+    //  itself. The update arm's identical-looking bound walks the UPDATE tool
+    //  against that create-derived baseline, which is what makes that one a
+    //  real parity check and this one a local restatement.
+    //
+    //  ★ EXACT, not a `>=` slack bound, mirroring the update arm: a slack bound
+    //   cannot tell "the axis shrank" from "two probes came out dead", and
+    //   those want opposite responses — the first is a schema change to
+    //   investigate, the second a probe shape to fix or a column to decide.
     expect(probed + skipped, `${entity}: Relation B's create arm did not reach every declared field`).toBe(
       AXIS_BASELINE[entity].declared,
     );

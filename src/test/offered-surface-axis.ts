@@ -152,27 +152,42 @@ export function undeclaredColumns(entity: InlineEntity): readonly string[] {
  *  `resource.name` on both arms. An exemption that reaches the relations is the
  *  shape that hid §438 inside §437's ratchet.
  *
- *  ★★★ THAT PROBE IS BLIND TO THE SPLIT. An earlier revision said a synthetic
- *  input that stops being split "stays visible to them", and for `name` it
- *  does not. Both arms compare `row.name` alone, which the writer never
- *  stores, and the resource descriptor has no `name` entry in
- *  `fieldSanitizers` — so the sweep's two ledger entries (`resource.name`
- *  `unchanged` on update, `dropped` on create) hold whether the split works,
- *  writes the wrong names or is deleted. (Only a `splitName` that empties
- *  BOTH parts moves one: the update then throws, which the arm reads as a
- *  refusal. Emptying both at the dispatcher's call site alone does not —
- *  `name` stays in the merged patch, so `sanitizeResource`'s both-empty
- *  fallback re-splits it and the rename lands.) On create the probe never
- *  even reaches it:
- *  `CREATE_BASE.resource` supplies both parts, and `sanitizeResource` splits
- *  `name` only when `firstName` and `lastName` are both empty. What the sweep
- *  DOES see is `name` starting to land under its own name: either arm then
- *  stops producing its kind and the ledger turns red. The split itself is
- *  pinned in `use-chat-dispatcher.test.tsx` — "createResource splits a full
- *  name when first/last aren't given" and "updateResource splits a `name` into
- *  first/last, the shape create already honoured" — and, preview and write
- *  together, by "mononym rename clears the surname" in
- *  `plan.write-path.test.ts`.
+ *  ★★★ THAT PROBE IS BLIND TO THE SPLIT, AND IT IS DECIDED BEFORE ANY WRITE.
+ *  `resource.name` is not a column: it is absent from `RESOURCES_CSV_COLUMNS`,
+ *  and `sanitizeResource` reads `input.name` only to feed `splitName`, never
+ *  writing a `name` key back. So NO row the sweep holds carries one — not the
+ *  create arm's control row (`CREATE_BASE.resource` supplies both parts
+ *  itself), not the update arm's reference (the seed loaded through that same
+ *  sanitizer). `probeFor` therefore derives nothing from either its reference
+ *  or its seed, and reports the field `dead` — which is the kind BOTH of the
+ *  sweep's `EXPECTED_FINDINGS` entries carry.
+ *
+ *  ★★★ SO NO CHANGE TO THE SPLIT CAN MOVE THOSE ENTRIES, and two earlier
+ *  revisions of this passage claimed otherwise. The first said a synthetic
+ *  input that stops being split "stays visible to them". The second replaced
+ *  that with "what the sweep DOES see is `name` starting to land under its own
+ *  name: either arm then stops producing its kind and the ledger turns red",
+ *  and named the entries `unchanged` on update and `dropped` on create — kinds
+ *  neither arm has emitted for this field since the typed-probe slice, and
+ *  kinds that require a PROBE the harness never derives. `dead` is settled at
+ *  derivation time, upstream of the dispatcher: the split can work, write the
+ *  wrong names, or be deleted outright, and both entries hold unchanged. The
+ *  one product change that WOULD move them is `sanitizeResource` beginning to
+ *  store a `name` column of its own — then a reference carries a value, a
+ *  probe exists, and Relation B judges it like any other declared field.
+ *
+ *  ★★ THE REAL DETECTORS FOR THE SPLIT ARE ELSEWHERE, and they are what to
+ *  edit when the split changes. `use-chat-dispatcher.test.tsx` pins both
+ *  directions on the parts themselves — "createResource splits a full name
+ *  when first/last aren't given" asserts `firstName`/`lastName` are "Grace"
+ *  and "Hopper" from a `name` alone, and "updateResource splits a `name` into
+ *  first/last, the shape create already honoured" asserts the same pair on the
+ *  updated row AND on the re-read row — with "updateResource lets explicit
+ *  firstName/lastName win over a `name`" pinning the precedence beside them.
+ *  Preview and write together are pinned by "mononym rename clears the
+ *  surname" in `plan.write-path.test.ts`. Verified 2026-09-12 by reading all
+ *  four; none of them is in this sweep, and a green run here says nothing
+ *  about any of them.
  *
  *  ★★★ BECAUSE NOTHING SUBTRACTS IT, RELATION B FIRES ON `resource.name`, AND
  *  THAT IS THE DECISION, not

@@ -91,9 +91,32 @@ describe("admitProbe", () => {
   });
 
   // §441's recurrence probe: `sanitizeRecurrence` drops a non-object.
-  it("refuses a string sent to a structured field", () => {
+  //
+  // ★★ MATCHED ON THE BRANCH, NOT MERELY `toBeDefined()`. `admitProbe` has two
+  //  refusal branches with different meanings — the sanitizer refused the WHOLE
+  //  ROW (it returned null), or it kept the row and RESHAPED this one value —
+  //  and a `toBeDefined()` here passed for either. Measured 2026-09-12: this
+  //  input takes the RESHAPE branch ("reshapes \"probed\" to undefined"), so a
+  //  drift to whole-row refusal is a real change in what the oracle reports and
+  //  should be seen.
+  it("refuses a string sent to a structured field, and says it was reshaped", () => {
     const meeting = { id: 2, title: "Sync", startDate: "2026-06-01", startTime: "09:00", durationMinutes: 30 };
-    expect(admitProbe("calendarEvent", "create", "recurrence", meeting, "probed", sameAt)).toBeDefined();
+    expect(admitProbe("calendarEvent", "create", "recurrence", meeting, "probed", sameAt)).toMatch(/reshapes/);
+  });
+
+  // ★★★ THE OTHER REFUSAL BRANCH, WHICH NOTHING PINNED. Every case above takes
+  //  the reshape path; until this test the "refuses the whole row" message
+  //  could have been deleted, misspelled or made unreachable with the file
+  //  green. It is not a cosmetic string: `probeFor` turns it into the
+  //  `unmeasured` REASON a reader acts on, and it is the one message that says
+  //  the probe was never judged because the row itself did not survive.
+  //  `sanitizeRaidItem` (sanitize-records.ts) returns null on a blank title —
+  //  `if (!title) return null` — so this reaches the branch through a real
+  //  sanitizer rule rather than a contrived shape.
+  it("reports the whole row refused when the sanitizer returns null", () => {
+    expect(admitProbe("raid", "create", "title", { id: 10, title: "A risk" }, "", sameAt)).toMatch(
+      /refuses the whole row/,
+    );
   });
 
   // ★★ THE ONE WEAK ORACLE, PINNED SO NOBODY READS IT AS STRONG. Task has no
@@ -151,7 +174,23 @@ describe("probeFor", () => {
           .filter((e): e is readonly string[] => e !== undefined),
       ),
     );
-    expect(enums.length, "no declared enum was found at all — the scan itself is broken").toBeGreaterThan(0);
+    // ★★★ THE MEASURED COUNT, NOT `> 0` — THE SAME ARGUMENT `AXIS_BASELINE`
+    //  MAKES. A `> 0` floor cannot see a scan that collapsed from 24 enums to
+    //  one: the loop below then iterates that single survivor, passes, and
+    //  certifies the whole premise this test exists to hold. Recorded
+    //  2026-09-12 over `declaredProperties` × both arms × all eight entities:
+    //  24 = task priority(4)+status(6), raid category(4)+severity(4)+status(11),
+    //  change impact(4)+status(6)+type(5), stakeholder category(6)+influence(3)
+    //  +interest(3) and absence type(4) — twelve fields, each declared on BOTH
+    //  the create and the update tool, which is why the total is even.
+    //  ★★ A CHANGE HERE IS A DECISION, NOT A RE-BASELINE. A schema that gains
+    //   or drops an enum legitimately moves it; re-record it deliberately,
+    //   never to quiet a red run. Reproduce the number by reading the failure
+    //   message — it prints the actual count.
+    expect(
+      enums.length,
+      "the declared-enum scan no longer finds the 24 enums measured 2026-09-12 — a schema changed (re-record deliberately) or the scan itself is broken",
+    ).toBe(24);
     for (const e of enums) {
       expect(
         new Set(e).size,

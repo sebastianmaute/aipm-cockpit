@@ -8,9 +8,12 @@
 // column can hold, which the writer would not produce on its own. An invalid
 // value is stopped by the sanitizer whether or not the guard runs, so it
 // proves nothing to either relation — that was §441's whole probe-shape
-// blindness, and `trespassProbeFor`, the derivation this module replaces,
-// produced exactly such values (it is REMOVED once the sweep is repointed
-// at this module).
+// blindness, and `trespassProbeFor`, the derivation this module replaced,
+// produced exactly such values. It is GONE: the sweep is repointed here, and
+// that name now survives only in this sentence and in one more in
+// `offered-surface-axis.ts`, both marking it as removed. Verified 2026-09-12
+// by `grep -rn trespassProbeFor src scripts e2e`, which returns those two
+// comment lines and no declaration, import or call.
 //
 // A field whose probe the writer's sanitizer will not hold unchanged is
 // reported `unmeasured`, BY NAME, in the sweep's both-directions ledger. It is
