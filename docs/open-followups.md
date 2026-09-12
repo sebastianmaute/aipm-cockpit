@@ -34536,7 +34536,11 @@ coverage is the mistake §441 and §450 both warn against for a different axis.
   `firstName`/`lastName`, so no loaded row ever carries a `name` to derive a probe from.
 - `calendarEvent:create` / `calendarEvent:update` — **`calendarEvent.sendInvitations`: dead.**
   Mail-safety policy (§443, narrowed 2026-09-11): a strict `true` trips `shouldStage`
-  (`chat-proposal.ts`), the one write in this app that leaves the building. It stays ON the axis and
+  (`chat-proposal.ts`), the staging rule for the one write that WOULD leave the building the day the
+  push slice lands. ★★ PRESENT TENSE WOULD BE FALSE TODAY — the flag is persisted and INERT and that
+  slice is unstarted, as `sanitize-records.ts` records beside `CALENDAR_EVENT_FIELD_GUARDS`; and the
+  sweep drives `runTool` and the dispatcher, never `shouldStage`, so this is POLICY held against the
+  day the push arrives rather than a live hazard. It stays ON the axis and
   reports `dead` rather than being exempted off it — a safety exclusion, not an exemption — by design,
   per `MAIL_UNSAFE_BOOLEANS` (`src/test/sweep-probes.ts`).
 
