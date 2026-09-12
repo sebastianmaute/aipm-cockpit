@@ -686,10 +686,14 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§461](#461-an-absence-stores-an-assignee-email-that-is-not-an-address-where-a-task-refuses-the-same-value-loudly--open) | An absence stores an assignee email that is not an address, where a task refuses the same value loudly — OPEN | found 2026-09-11 by cold review of the offered-surface landing, beside §459's task probe | S-M — decide per field whether an assignee email is format-checked, then guard the writer, not the card | open |
 | [§462](#462-there-is-no-linux-installer-and-several-windows-only-assumptions-stand-in-the-way-of-one--open) | There is no Linux installer, and several Windows-only assumptions stand in the way of one — OPEN | found 2026-09-11 while explaining the CI installer's size gap (the sharp finding in the wine-runner spike) | S-M — a native Linux job with its own artifact and Release link, XDG log paths, a rollout section | open |
 | [§463](#463-export-silently-drops-enabled-sections-and-no-path-exports-calendar-events-knowledge-items-or-insights--open) | Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — OPEN | found 2026-09-11 by a read-only code check of `main` @ `1826cf64` while triaging the demo-backlog issues #38–#74 (issue #75) | S-M — two object literals, but deciding what each export path should contain (and whether they should be one function) is the work | open |
-| [§464](#464-cpi-means-two-different-numbers-and-two-winloss-hints-are-wrong--open) | "CPI" means two different numbers, and two win/loss hints are wrong — OPEN | found 2026-09-11 by the same read-only code check (issue #76) | S-M — the two hints are EN+DE string fixes; separating the two CPIs on the surfaces is the larger half | open |
-| [§465](#465-non-eur-fixed-price-buckets-every-money-figure-is-inflated-by-the-fx-rate-and-the-margin-is-wrong--open) | Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong — OPEN | found 2026-09-11 by the same read-only code check (issue #77, beside issue #42) | M — a decision about where the currency boundary sits, and stored amounts carry no marker saying which convention they were entered under | open |
+| [§464](#464-cpi-means-two-different-numbers-and-two-winloss-hints-are-wrong--closed-2026-09-12) | "CPI" means two different numbers, and two win/loss hints are wrong | found 2026-09-11 by the same read-only code check (issue #76) | S-M — closed by `fe174c2d`: the money ratio is renamed `budgetCciRecovery` ("Cost recovery"), so CPI names the EVM hours ratio alone, and both wrong hints were rewritten EN+DE; `winLossHours` is still rendered nowhere | **CLOSED** 2026-09-12 |
+| [§465](#465-non-eur-fixed-price-buckets-every-money-figure-is-inflated-by-the-fx-rate-and-the-margin-is-wrong--closed-2026-09-12) | Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong | found 2026-09-11 by the same read-only code check (issue #77, beside issue #42) | M — closed by the `feat/budget-currency-boundary` slice, which put the boundary at the ENGINE (`4d284c40` converts at `computeBucketReport`'s single read; four surfaces relabelled EUR; `ResourcePlan.currency` narrowed to a union) | **CLOSED** 2026-09-12 |
 | [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--open) | Help promises a burn-down forecast that the chart does not draw — OPEN | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | open |
 | [§467](#467-fields-the-offered-surface-sweeps-typed-probes-cannot-measure--open) | Fields the offered-surface sweep's typed probes cannot measure — OPEN | found 2026-09-11 by the typed-probe slice's first measured run | S per field — a probe shape or a column decision each | open |
+| [§469](#469-snapshotrecordcurrency-is-written-on-every-capture-and-read-by-nothing--open) | `SnapshotRecord.currency` is written on every capture and read by nothing — OPEN | found 2026-09-12 by the currency-boundary slice's closing pass over §465, and independently by two of its reviewers | S-M — the work is the decision: delete the field (one Turso table's DDL, encode and decode — NOT the six workspace write paths) or normalise it to EUR at the writer | open |
+| [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--open) | The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN | found 2026-09-12 while closing §465, from `d4fa68c3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | open |
+| [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--open) | The FX-override field's advertised minimum rounds to zero and is then refused — OPEN | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | open |
+| [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--open) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture — OPEN | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -34330,9 +34334,30 @@ section LOOKS like; this entry is about a section not being there.
 Size S–M: the call sites are two object literals, but deciding what the Projects-panel export and the
 header export should each contain — and whether they should be one function — is the real work.
 
-## 464. "CPI" means two different numbers, and two win/loss hints are wrong — OPEN
+## 464. "CPI" means two different numbers, and two win/loss hints are wrong — CLOSED 2026-09-12
 
-**Status:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
+**Status:** CLOSED 2026-09-12 by `fe174c2d` ("fix(budget): give the money ratio its own name, and
+correct two hints"). The Budget panel's money ratio is renamed `budgetCciRecovery` / "Cost recovery"
+(EN + DE, with its `…Hint`), so CPI now names ONE quantity — the EVM hours ratio `evmCpi` — and the
+two surfaces a click apart no longer wear the same label. Both wrong hints were rewritten:
+`budgetWinLossHint` now says money in the bucket currency, and `budgetReportColWinLossHint` now splits
+the fixed-price branch (revenue minus cost) from the T&M branch (remaining budget).
+`docs/AGENTS/platform.md` was swept in the same commit. Reproduce, run 2026-09-12:
+`grep -rn "budgetCciCpi" src | wc -l` → **0** — the dead key is gone from the code (the surviving
+`docs/` matches are this entry's as-filed record below, an explicitly un-backticked absence note in
+`docs/AGENTS/platform.md`, and historical plan documents), and
+`grep -c "budgetCciRecovery\|budgetWinLossHint\|budgetReportColWinLossHint" src/app/i18n.ts src/app/i18n.de.ts`
+→ 4 and 4, the same four keys in both languages. Pinned by
+`describe("BudgetPanel — Cost recovery card (EV/AC)")` in `src/app/budget-panel.test.tsx`, which
+renders the renamed label; EN/DE key parity is enforced by `npx tsc --noEmit`, which is what a
+half-done rename breaks.
+
+★ NOT fixed, recorded so the next reader is not misled: `winLossHours` is still rendered nowhere in
+`src/app` — the hint that wrongly described it was corrected rather than the figure surfaced, so the
+asymmetry noted below stands. The ★ note below about `computeBudgetReport` being called WITHOUT
+`tasks` from the report panel and from `dashboard.ts` is also unchanged and still deliberate.
+
+**As filed:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
 while triaging the demo-backlog issues #38–#74; filed as
 https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/76. Established by reading the
 two engines and the three surfaces, not by a run. Presence witnesses re-run 2026-09-11:
@@ -34379,9 +34404,42 @@ Two hints are wrong about the figure they annotate:
 Size S–M: the two hints are string fixes (EN + DE together). Deciding what to do about the two CPIs is
 the larger half — rename one, or make the Dashboard tile deep-link to the figure it actually shows.
 
-## 465. Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong — OPEN
+## 465. Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong — CLOSED 2026-09-12
 
-**Status:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
+**Status:** CLOSED 2026-09-12 by the `feat/budget-currency-boundary` slice, which put the boundary at
+the ENGINE. `4d284c40` makes `computeBucketReport` convert a fixed-price bucket's `fixedPriceAmount`
+to EUR through `currencyToEur` at its single read, and adds `fxRates: FxRates | null` as a REQUIRED
+last parameter to `computeBucketReport`, `computeSpillover` and `computeBudgetReport` so tsc
+enumerates every call site rather than leaving one silently unconverted. `a537b8f7` and `e0dab070`
+relabel the four surfaces that render the engine's figures — the Budget panel's project rollup, the
+Budget report's burndown, the Dashboard's Budget tile and burndown, and the Trends remaining-cost
+label — as EUR, since they sum EUR and convert nothing. `f97bc82b` narrows `ResourcePlan.currency`
+from a free string to the `BudgetCurrency` union, which closes the UNVERIFIED NEIGHBOUR recorded
+below, and `d4fa68c3` coerces an out-of-union stored value on the IndexedDB load path. `ef21481a`
+gives the sample workspace a USD contract so the converting path has a fixture.
+
+Reproduce, run 2026-09-12 — this entry's own as-filed witness, inverted:
+`grep -rn "currencyToEur(" src/app --include=*.ts | grep -v "\.test\." | grep -v "^src/app/fx.ts"`
+→ **one hit, in `src/app/budget-report.ts`**, where the as-filed grep found none and the entry's
+central claim was that the function had no production caller. Pinned by
+`describe("computeBucketReport — a fixed-price bucket in a non-EUR currency")` in
+`src/app/budget-report-bucket.test.ts` — revenue, `budgetValue` and `consumedValue` all convert, an
+EUR bucket is identity at rate 1, a T&M bucket is NOT converted, and an anti-vacuity case (rewritten
+by `c1f9b374` to exercise `resolveRate` rather than assert a literal) fails if the fixture's rate
+were 1 — and by `describe("computeBudgetReport — currencies do not leak across buckets")` in
+`src/app/budget-report-project.test.ts`, where a closed USD fixed predecessor spills EUR into its T&M
+successor and a project mixing USD fixed, GBP fixed and T&M sums in one unit.
+
+★ NOT fixed, recorded so the next reader is not misled:
+- `insights/detect.ts` passes an explicit, documented literal `null` for `fxRates`. That is correct,
+  not an omission: the detector reads hours only and has no money figure to convert.
+- `rateOverrideInternal` / `rateOverrideExternal` remain documented as being in the PLAN currency — a
+  third currency notion this slice did not unify with the bucket currency or with EUR.
+- `winLossHours` is still rendered nowhere (§464's other half).
+- The Trends fix is at the READER, not the writer, so `SnapshotRecord.currency` is still written on
+  every capture and now read by nothing — filed as §469.
+
+**As filed:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
 while triaging the demo-backlog issues #38–#74; filed as
 https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/77. The worked example below is
 REASONED from the code, never run — no bucket was created and no figure was read off a screen.
@@ -34581,3 +34639,141 @@ No mutant from Task 7 Steps 3–4 survived — all four (two real-writer mutants
 admit-nothing) were KILLED; see the spec's closing note for the full table. Every bullet above is a
 probe-shape or product-decision question that this harness's typed probes cannot resolve by
 themselves, never a green result to cite as coverage.
+
+## 469. `SnapshotRecord.currency` is written on every capture and read by nothing — OPEN
+
+**Status:** OPEN 2026-09-12 — established by reading the chain end to end, not by a run. Presence
+witnesses run 2026-09-12: `grep -c "currency: plan.currency" src/app/task-manager.tsx` → 1 (the sole
+writer), `grep -n "currency" src/app/snapshot.ts` → 4 (the field on `SnapshotRecord`, the builder's
+destructure, its write into the record, and the input type),
+`grep -n "currency" src/app/snapshot-schema.ts` → 3 (the DDL column, the encode, and the
+`r.currency || "EUR"` decode) and `grep -c 'const currency = "EUR"' src/app/trends-panel.tsx` → 1
+(the reader, now a literal).
+
+The Trends remaining-cost mislabel (§465) was fixed at the READER rather than the writer, and
+deliberately so: snapshots already persisted in a Turso project carry a non-EUR `currency`, and only
+a reader-side fix relabels those. `89ee78a7` then dropped the `latest` prop from `TrendsPanelProps`,
+which had become dead. The consequence is that the whole chain from the writer through the persisted
+column and its decode is still live, and **nothing reads the decoded value**. The `currency` passed
+to `BurndownCharts` from `dashboard-tile-bodies.tsx` is not this field — it is the dashboard args'
+own relabelled `"EUR"` literal.
+
+Deferred rather than folded into the currency-boundary slice because removing the field is a schema
+change: the `snapshot` table's DDL, its column list, the encode and the decode. ★ That is ONE table,
+not the six workspace write paths — `snapshot` is deliberately out of `TABLE_NAMES` (it is not
+workspace data), so the usual six-path rule does not apply here. A brief for this entry claimed six;
+it is wrong, and the wrong version would have scoped the fix several times too large.
+
+Risk: a stored-and-never-read field is exactly what a future reader re-wires, reintroducing the
+mislabel at a new site. The only thing preventing that today is the comment block in
+`trends-panel.tsx`, and prose in this repo decays ungated — no gate can see a claim go stale. Two
+independent reviewers of the currency-boundary slice recommended registering this rather than fixing
+it inside that slice.
+
+★ A smaller, related staleness to sweep whichever way this goes: the `trends-panel.tsx` comment still
+describes the plan's `currency` as "free-text", which `f97bc82b` made false by narrowing
+`ResourcePlan.currency` to the `BudgetCurrency` union.
+
+Size S–M: the work is the decision — delete the field (one table's schema plus encode/decode), or
+keep it and normalise it to EUR at the writer so a later reader cannot be misled. Either way the
+`trends-panel.tsx` comment block must be swept.
+
+## 470. The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN
+
+**Status:** OPEN 2026-09-12 — established by reading the load path, not by a run. Presence witnesses
+run 2026-09-12: `grep -c "sanitizePlan(" src/app/browser-backend.ts` → **0** (no call; the two
+`sanitizePlan` mentions in that file are both inside the comment explaining why it is not called, so
+a bare name grep there returns 2 and answers the opposite question), against
+`grep -rln "sanitizePlan(" src/app --include=*.ts | grep -v test` → five files
+(`csv-codecs-decode.ts`, `markdown-codecs-decode.ts`, `sanitize-entities.ts`, `turso-schema.ts`,
+`workspace.ts`), i.e. every other load path.
+
+`browser-backend.ts` reads the KV plan blob verbatim and casts it. `d4fa68c3` added a coercion for
+the CURRENCY only — `isBudgetCurrency(idbPlan.currency) ? idbPlan : { ...idbPlan, currency: "EUR" }`
+— because `f97bc82b` had just narrowed `ResourcePlan.currency` to a union a stored blob can violate,
+which would make the type declaration a lie on this one backend. Every other plan field is still
+unsanitized there: `granularity`, the `startDate`/`endDate` window, the reversed-date swap, and
+`budgetFollowsPlan`.
+
+Not an oversight, and the commit says so in a comment: a full `sanitizePlan` on this path would ALSO
+clamp `granularity` to `"month"`, replace the entire date window whenever either date fails to parse,
+swap reversed dates, and drop an explicit `budgetFollowsPlan: false` — four unrelated rewrites on
+every load, a real behaviour change owing its own tests. `storage-browser-kv.test.ts` pins all four
+against exactly that change, so the current shape is deliberate and defended.
+
+What is registered here is the asymmetry itself, not a proposed fix: this backend's plan slice is
+normalised differently from every other backend's, and the divergence lives only in a source comment.
+★ The same file's later comment discloses the identical situation for changes and milestones ("cast
+verbatim HERE, unlike `jsonToWorkspace`, which runs their entity sanitizers") and does not mention
+the plan slice, which is in the same boat — so a reader auditing that comment for the list of
+unsanitized slices gets an incomplete one.
+
+Size M: not the edit but the decision, per field, about whether an IndexedDB load should repair a
+malformed stored plan or preserve it, plus tests for whichever four behaviours change.
+
+## 471. The FX-override field's advertised minimum rounds to zero and is then refused — OPEN
+
+**Status:** OPEN 2026-09-12 — read off the three sites and traced by hand through `describeClamp`;
+NOT reproduced in a browser and not pinned by any test. Presence witnesses run 2026-09-12:
+`grep -n 'min="0.0001"' src/app/budget-bucket-modal.tsx` → 1 (with `step="0.0001"` on the next line),
+`grep -n "fxRateOverride: r.value" src/app/budget-bucket-modal.tsx` → 1 (the blur commit, whose
+`describeClamp` call on the line above passes `{ min: 0, max: AMOUNT_MAX, round: 2 }`),
+`grep -n "budgetFxOverrideInvalid" src/app/budget-bucket-modal.tsx` → 1 (the save guard, rejecting
+`<= 0`) and `grep -n "opts.round != null" src/app/sanitize-report.ts` → 1 (the rounding helper).
+
+The bucket editor's FX-override input advertises a minimum and a step of `0.0001`, but its blur
+handler clamps with `round: 2`. Typing the field's own advertised minimum therefore yields
+`Math.round(0.0001 * 100) / 100 = 0`, and the save guard then refuses the value as non-positive.
+
+★ The rounding is SILENT, which is the part that makes it a usability defect rather than a cosmetic
+mismatch. `describeClamp` reports an `adjustment` only on a min/max CLAMP; `0.0001` is inside
+`[0, AMOUNT_MAX]`, so it takes the final `return { value: round(num), adjustment: null }` branch. The
+field shows `0` with no notice, and the error the user eventually sees arrives later, at save, naming
+an invalid override rather than a rounded one.
+
+★ Pre-existing, and it cannot affect FX correctness: `resolveRate` (`fx.ts`) guards
+`bucket.fxRateOverride != null && bucket.fxRateOverride > 0` and its cached-rate fallback is guarded
+`> 0` as well, so a zero can never reach a division. The save guard also means `0` is never stored.
+The defect is that a documented input range is unreachable, not that a bad rate gets used.
+
+★ The same `round: 2` is applied to four other numeric fields in this modal (percent complete, the
+fixed-price amount, and the two rate overrides), where two decimals is the right precision — so the
+fix is to the FX field's clamp options, not to `describeClamp`.
+
+Size XS–S: align the two — either `round: 4` with `min: 0.0001` on the FX field's `describeClamp`, or
+lower the input's advertised `min`/`step` to `0.01`. Deciding which precision an FX override should
+carry is the only real question; a unit test driving `0.0001` through the blur handler is what would
+pin it.
+
+## 472. Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture — OPEN
+
+**Status:** OPEN 2026-09-12 — established by reading both engines and the test fixture, not by a run.
+Presence witnesses run 2026-09-12: `grep -c 'type === "fixed"' src/app/budget-burndown.ts` → **0** (no
+fixed-price branch anywhere in that engine), `grep -n "rates.external" src/app/budget-burndown.ts` → 2
+(the only valuation, applied to budget and actual hours alike) and
+`grep -c 'name: "FP", type: "tm"' src/app/budget-burndown.test.ts` → 1 — the fixture named `fpBucket`
+is declared `type: "tm"`.
+
+`computeBurndownSeries` values every bucket as `hours * rates.external`. `computeBucketReport` values
+a `type: "fixed"` bucket from its contract amount instead. So for a fixed-price bucket the burndown's
+`totalBudgetValue` and the report's `budgetValue` are different quantities, and they diverge in ANY
+currency — including EUR, at rate 1.
+
+`budget-burndown.test.ts` does assert the two are close
+(`expect(s.totalBudgetValue).toBeCloseTo(rep.project.budgetValue, 5)`), which is the assertion that
+would catch this. It never exercises the fixed path: its `fpBucket` fixture is T&M despite the name,
+so the pairing is only ever checked on the branch where the two engines agree by construction. The
+name makes the gap look covered, which is why it survived.
+
+★ An earlier reading blamed this on currency, and that was investigated and REFUTED — recorded here
+so nobody re-derives the wrong reason. The divergence is between an hours-valued engine and a
+contract-valued one; the FX boundary (§465) does not touch `budget-burndown.ts` at all, and the
+figures differ at rate 1 exactly as they do at any other rate.
+
+★ Pre-existing and not moved by the currency-boundary slice, which changed neither engine's treatment
+of hours.
+
+Size S–M: rename the fixture and let the existing assertion run against a real `type: "fixed"` bucket
+— which will go red — then decide what the burndown should draw for a fixed-price bucket. "Value the
+contract amount over the bucket window" and "exclude fixed-price buckets from the value series and
+chart hours only" are both defensible, and that decision is the work, not the test.
