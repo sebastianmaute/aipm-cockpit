@@ -251,9 +251,12 @@ describe("CommTemplatesSection", () => {
   // the `--ui-dark-blue` fill ALONE, which against `--surface` measures
   // 1.10-1.31:1 in the three dark schemes — nobody can see which of the two
   // versions is armed. `ToggleButton` supplies the trailing non-colour marker.
-  // ★ Assert it in BOTH states on the SAME button: it is rendered always and
-  //   merely `invisible` when off, so an ON-state-only assertion would pass
-  //   against a conditional-render regression.
+  // ★ Assert it in BOTH states on the SAME button: it is RENDERED in both
+  //   states, so an ON-state-only assertion would pass against a
+  //   conditional-render regression. Only its WIDTH is stateful — off collapses
+  //   to zero and animates, and the opt-in `reserveMarkerSpace` (which this
+  //   section does not pass) restores the constant width. The assertions below
+  //   read the attribute, so they hold either way.
   // ★★ The row-unique `versionRowTokens` label is threaded through the
   //   primitive's `ariaLabel` UNCHANGED. NO GATE CAN SEE A REGRESSION HERE —
   //   axe 4.12.1 has no rule that flags two controls sharing an accessible

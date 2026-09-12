@@ -98,10 +98,14 @@ export function SidebarFooter({
         // `storageReady` here is `storageOk && !loadWasIncomplete &&
         // destructiveRefusal === null` (`task-manager.tsx`), so the grey dot now
         // also stands for a withheld mass deletion.
-        // ★ The trailing marker is the non-colour channel, built the way
-        // `ToggleButton`'s `data-pressed-marker` is: ALWAYS rendered and merely
-        // `invisible` in the quiet state, so the line keeps ONE width and the
-        // description cannot reflow as storage flips.
+        // ★ The trailing marker is the non-colour channel: ALWAYS rendered and
+        // merely `invisible` in the quiet state, so the line keeps ONE width and
+        // the description cannot reflow as storage flips. That no-reflow reason
+        // is the whole justification — do NOT restate it as copying
+        // `ToggleButton`, which no longer works this way: its
+        // `data-pressed-marker` is still rendered in both states but its WIDTH
+        // collapses to zero when off, and only its opt-in `reserveMarkerSpace`
+        // restores a constant width. The two are no longer the same shape.
         // ★ a second colour would be the very channel this comment says is not
         // sufficient on its own.
         // ★★ THE ASSISTIVE-TECH HALF IS CLOSED by the sr-only readiness text
