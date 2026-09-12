@@ -1,11 +1,18 @@
-import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from "electron";
+import { app, BrowserWindow, dialog, Menu, shell, type MenuItemConstructorOptions } from "electron";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { ChildProcess } from "node:child_process";
-import { APP_ORIGIN, APP_PORT } from "./lib/constants";
+import { APP_ORIGIN, APP_PORT, RELEASES_URL } from "./lib/constants";
 import { classifyPortOwner, type PortProbe } from "./lib/port-owner";
 import { shouldReportServerExit } from "./lib/exit-reporting";
-import { HELP_MENU_ITEMS, formatVersionDetail, helpHashScript } from "./lib/menu-model";
+import {
+  HELP_MENU_ITEMS,
+  type HelpMenuItemId,
+  helpAction,
+  helpHashScript,
+  versionDialogAction,
+  versionDialogOptions,
+} from "./lib/menu-model";
 import { resolveLogDir } from "./lib/log-paths";
 import { waitForReady } from "./lib/readiness";
 import { killServer, spawnServer } from "./server-child";
@@ -43,6 +50,97 @@ function fail(title: string, message: string): void {
   app.quit();
 }
 
+// ★★ THE ONLY shell.openExternal CALL SITE. Two routes reach it -- the Help
+// menu's "Check for updates…" item and the Version dialog's second button --
+// and they share this function rather than a copy each, so the URL, the
+// error handling and the log line cannot drift between them.
+//
+// ★ Hand the page to the user's OWN browser, where they are already signed in
+// to an `internal` GitLab. There is no updater and no feed to poll -- see
+// RELEASES_URL for why the app must not hold a credential of its own.
+function openReleasesPage(): void {
+  void shell.openExternal(RELEASES_URL).catch((e: unknown) => {
+    log(`open releases page: ${String(e)}`);
+  });
+}
+
+// HOW each Help menu action is carried out. WHICH action an id means is
+// decided by the pure `helpAction` in menu-model.ts, where it is
+// unit-testable and covered by the blocking root typecheck; this file owns
+// only the Electron calls.
+//
+// ★★★ EXHAUSTIVE BY ACTION, never a two-way ternary. This was `item.id ===
+// "help" ? openHelp : showVersion`, which silently treated EVERY other id as
+// the Version dialog -- so adding a third entry gave it the wrong handler
+// with nothing red anywhere.
+//
+// ★★★ AND IT MUST NOT THROW. This function runs EAGERLY inside buildMenu()'s
+// `.map`, which start() awaits -- so a throw during menu construction rejects
+// start() and takes the WHOLE APP down: fail() shows "did not start" and
+// quits. The user gets no app at all, where the default branch below costs
+// them one inert menu item. That trade is what decides this.
+//
+// ★★ PREMISE UPDATED, conclusion unchanged. This used to say the throw meant
+// "no window, no fail() dialog and nothing in launch.log", which was true
+// while `app.whenReady().then(start)` had no `.catch`. It has one now (see
+// the startup block at the bottom of this file), so such a throw is VISIBLE
+// -- logged, with a dialog. It still leaves the user with no app, which is
+// why the default branch still logs and returns a no-op rather than throwing.
+function helpMenuClick(id: HelpMenuItemId, label: string): () => void {
+  const action = helpAction(id);
+  switch (action) {
+    case "open-help":
+      return () => {
+        // Set the fragment on the page that is already loaded rather than
+        // navigating: a reload would discard unsaved work.
+        void win?.webContents.executeJavaScript(helpHashScript()).catch((e: unknown) => {
+          log(`help menu: ${String(e)}`);
+        });
+      };
+    case "show-version":
+      return () => {
+        // ★★★ EVERY OPTION COMES FROM menu-model.ts, none is spelled here.
+        // Buttons, defaultId, cancelId and noLink are load-bearing (Enter and
+        // Escape must not open a browser), and this file is the one desktop
+        // file the blocking typecheck skips and no unit test can import -- so
+        // an option written here would be pinned by nothing. Only the `.then`
+        // below is eye-verified.
+        void dialog
+          .showMessageBox(
+            versionDialogOptions({
+              title: label,
+              version: app.getVersion(),
+              logPath: join(logDir, "launch.log"),
+              releasesUrl: RELEASES_URL,
+            }),
+          )
+          .then(({ response }) => {
+            // The dialog answers with an INDEX; menu-model.ts owns what each
+            // index means, so this file never compares a raw number.
+            if (versionDialogAction(response) === "open-releases") openReleasesPage();
+          })
+          .catch((e: unknown) => {
+            log(`version dialog: ${String(e)}`);
+          });
+      };
+    case "open-releases":
+      return openReleasesPage;
+    default: {
+      // ★★★ LOG AND DEGRADE, NEVER THROW -- see the note above this function.
+      // The `never` assignment is the compile-time half: a new HelpMenuAction
+      // with no case here fails `tsc -p desktop/tsconfig.json` (the desktop
+      // build). That job is BLOCKING only on a tag, so this runtime branch is
+      // the half that has to hold on a merge request, and it costs the user
+      // one inert menu item rather than an app that will not open.
+      const unhandled: never = action;
+      log(`help menu: no handler for action ${String(unhandled)} (id ${id})`);
+      return () => {
+        log(`help menu: clicked ${id}, which has no handler`);
+      };
+    }
+  }
+}
+
 // Populate the Help menu, which Electron's default menu leaves empty here.
 //
 // ★ The other submenus stay ROLE-BASED (Electron's own File/Edit/View/Window),
@@ -57,30 +155,10 @@ function fail(title: string, message: string): void {
 // shell deliberately does not expose. Recorded as a known limitation, not an
 // oversight.
 function buildMenu(): void {
-  const help: MenuItemConstructorOptions[] = HELP_MENU_ITEMS.map((item) =>
-    item.id === "help"
-      ? {
-          label: item.label,
-          click: () => {
-            // Set the fragment on the page that is already loaded rather than
-            // navigating: a reload would discard unsaved work.
-            void win?.webContents.executeJavaScript(helpHashScript()).catch((e: unknown) => {
-              log(`help menu: ${String(e)}`);
-            });
-          },
-        }
-      : {
-          label: item.label,
-          click: () => {
-            dialog.showMessageBox({
-              type: "info",
-              title: item.label,
-              message: formatVersionDetail(app.getVersion(), join(logDir, "launch.log")),
-              buttons: ["OK"],
-            });
-          },
-        },
-  );
+  const help: MenuItemConstructorOptions[] = HELP_MENU_ITEMS.map((item) => ({
+    label: item.label,
+    click: helpMenuClick(item.id, item.label),
+  }));
 
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
@@ -174,7 +252,31 @@ if (!app.requestSingleInstanceLock()) {
     }
   });
 
-  app.whenReady().then(start);
+  // ★★★ THE .catch IS LOAD-BEARING. Without it, a throw anywhere in start()
+  // -- menu construction, the BrowserWindow, the splash load -- was an
+  // UNHANDLED REJECTION: no window, no dialog, nothing in launch.log, and an
+  // app that simply never appeared. It now surfaces through the same fail()
+  // dialog as every other startup failure, so the user is told and the reason
+  // is on disk.
+  //
+  // ★★ SCOPE, so nobody reads this as more than it is: it catches rejections
+  // FROM start() and nothing else. No unhandledRejection or
+  // uncaughtException handler is installed, so a throw from a later async
+  // path -- a menu click, the server child's exit handler -- is still
+  // uncaught. Deliberately not built here.
+  app
+    .whenReady()
+    .then(start)
+    .catch((e: unknown) => {
+      // ★★ THE REASON GOES IN THE LOG, NOT THE DIALOG. fail() logs only the
+      // sentence it is handed, and shows that same sentence to the user, so a
+      // raw error string cannot live in it. Without this line the dialog
+      // would name a failure whose cause appears nowhere -- and the rollout
+      // note tells users to send launch.log. fail() then does the logging of
+      // the verdict, the dialog and the quit; none of that is repeated here.
+      log(`start rejected: ${String(e)}`);
+      fail("AI PM Cockpit did not start", "The application could not finish starting.");
+    });
 
   // Closing the window quits: the window IS the app. No tray icon.
   app.on("window-all-closed", () => app.quit());
