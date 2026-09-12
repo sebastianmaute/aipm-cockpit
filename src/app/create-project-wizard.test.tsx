@@ -206,10 +206,11 @@ describe("CreateProjectWizard", () => {
   // open-followups §55 (WCAG 1.4.1). The selected template was signalled by a
   // green border + tint ALONE, which measured 1.53-1.88:1 against the
   // unselected border in all four LIGHT schemes. The marker is the non-colour
-  // cue; it is rendered in BOTH states (merely `invisible` when off) so the
-  // card keeps one width. Asserting only the ON state would pass against a
-  // conditional-render regression, which is the failure the mechanism exists
-  // to prevent — so both states are pinned here.
+  // cue; it is rendered in BOTH states, though off now collapses to zero width
+  // and animates (`reserveMarkerSpace` is the opt-out restoring the old constant
+  // width; these cards do not pass it). Asserting only the ON state would pass
+  // against a conditional-render regression, which is the failure the mechanism
+  // exists to prevent — so both states are pinned here.
   it("every template option carries the non-colour selected marker in both states", () => {
     setup();
     completeStep1();

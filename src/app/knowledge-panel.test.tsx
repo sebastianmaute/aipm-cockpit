@@ -201,9 +201,11 @@ describe("KnowledgePanel", () => {
   // unselected --surface-muted in the three dark schemes — invisible to every
   // user, not only to users with a colour-vision deficiency. The non-colour cue
   // is ToggleButton's trailing marker. ★ Assert it in BOTH states: it is
-  // rendered always and merely `invisible` when off, so an ON-state-only
-  // assertion passes against a conditional-render regression that would resize
-  // the chip on every click.
+  // rendered always, so an ON-state-only assertion passes against a
+  // conditional-render regression that would drop the off-state marker from the
+  // DOM entirely. What is pinned here is that PRESENCE, not a fixed width: off
+  // now collapses to zero and animates, so the chip resizes on click BY DESIGN
+  // (`reserveMarkerSpace` is the opt-out; this chip does not pass it).
   it("gives the source filter chips a non-colour pressed marker in both states", () => {
     renderWithTasks([seededTask([LINK])]);
     const allChip = screen.getByRole("button", { name: new RegExp(t("en-US", "documentsFilterAll")) });

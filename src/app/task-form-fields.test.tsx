@@ -69,9 +69,11 @@ describe("HEALTH_CHIP_ACTIVE_CLASS (manual health-override chip tint)", () => {
   // open-followups §55 (WCAG 1.4.1). The active RAG border measured 1.34-2.34
   // (amber) and 2.47-2.96 (green) against the inactive `--line` in the light
   // schemes, so the hue alone cannot carry the selected state. The marker is
-  // rendered in BOTH states (merely `invisible` when off) so the chip keeps one
-  // width — asserting only the ON state would pass against a conditional-render
-  // regression, which is the failure the mechanism exists to prevent.
+  // rendered in BOTH states — off now collapses to zero width and animates
+  // (`reserveMarkerSpace` is the opt-out that restores the old constant width,
+  // and this chip does not pass it) — so asserting only the ON state would pass
+  // against a conditional-render regression, which is the failure the mechanism
+  // exists to prevent.
   // ★ The "Auto (currently: …)" chip in the same row is deliberately NOT
   //   covered: its selected border already measures 8.97-10.22 light /
   //   4.22-4.58 dark, so it has no defect to fix.
