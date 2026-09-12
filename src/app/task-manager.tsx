@@ -622,7 +622,7 @@ function TaskManagerInner() {
         tasks,
         milestones,
         planEndDate: plan.endDate,
-        currency: plan.currency || "EUR",
+        currency: plan.currency,
       };
     },
     onError: (err) => {
@@ -2332,7 +2332,7 @@ function TaskManagerInner() {
     manageRolesView: (
       <RolesPanel
         lang={lang}
-        currency={plan.currency || "EUR"}
+        currency={plan.currency}
         workdayHours={settings.resources.workdayHours}
         roles={roles}
         disciplines={disciplines}
