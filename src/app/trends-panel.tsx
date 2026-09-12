@@ -117,7 +117,21 @@ export function TrendsPanel(props: TrendsPanelProps) {
 
   const gapSet = new Set(gaps);
   const locale = localeFor(lang);
-  const currency = props.latest?.currency || "EUR";
+  // ★★ EUR, not the snapshot's own `currency`. The only figure this labels is
+  // `remainingCost`, which `buildSnapshot` takes from
+  // `model.burndown.actualRemainingValue` — the budget engine's series, built
+  // as `budgetHours × role.rates.external` and converted NOWHERE. Every figure
+  // the engine returns is EUR (a fixed-price bucket's contract amount is
+  // converted to EUR at `computeBucketReport`'s one read), so this is EUR
+  // whatever `SnapshotRecord.currency` holds — it is written from the plan's
+  // free-text `currency` in `task-manager.tsx`'s snapshot `buildContext`, and
+  // reading it here printed EUR money under another currency's symbol
+  // (docs/open-followups.md §465).
+  // ★ Fixed HERE rather than at that writer on purpose: snapshots already
+  // persisted carry a non-EUR `currency`, and only a fix at the reader
+  // relabels those too. That leaves `SnapshotRecord.currency` stored but no
+  // longer read — deliberate, not an oversight.
+  const currency = "EUR";
   const gapLabel = gaps.length > 0 ? tPlural(lang, "trendsGap", gaps.length, gaps.length) : undefined;
 
   const captureButton = (

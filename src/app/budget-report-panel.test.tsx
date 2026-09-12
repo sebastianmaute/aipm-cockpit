@@ -102,6 +102,32 @@ describe("BudgetReportPanel", () => {
     expect(within(gammaRow).getAllByText("R").length).toBeGreaterThanOrEqual(2);
   });
 
+  it("labels the burn-down value axis in EUR even when the plan names another currency", () => {
+    // ★★ `computeBurndownSeries` builds every value as `budgetHours ×
+    // role.rates.external` and converts NOTHING, and the engine's money unit is
+    // EUR (`computeBucketReport`: a fixed-price contract amount is converted to
+    // EUR at its one read). So the series is EUR whatever the plan's free-text
+    // `currency` says — this file's own `money` helper already hardcodes
+    // `formatCurrency(n, "EUR", …)` for the co-rendered cost/EVM tiles, which
+    // are rate-derived in exactly the same way.
+    renderPanel({ plan: { ...plan, currency: "USD" } });
+    // Scoped to the CURRENCY chart: `Chart` renders `<div>{caption}</div><svg>`,
+    // so the caption's parent is that chart alone. The twin hours chart carries
+    // no money and would only dilute the count.
+    const valueChart = screen.getByText(/Budget remaining/i).parentElement!;
+
+    // ★★★ THE POSITIVE CONTROL. `queryByText(/\$/) === null` passes just as
+    // happily when the query is wrong, the scope is empty, or the chart failed
+    // to render. `getAllByText` THROWS on zero matches, and the exact count
+    // proves the axis is populated. MEASURED, not reasoned: 3 — `Chart` emits
+    // one `<text>` per y-tick and `yTicks` is `[0, max/2, max]` whenever
+    // `max > 0`.
+    const money = within(valueChart).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
+    expect(money).toHaveLength(3);
+    expect(money.filter((s) => s.includes("$"))).toEqual([]);
+    expect(money.every((s) => s.includes("€"))).toBe(true);
+  });
+
   it("renders the burn-down caption beneath the chart", () => {
     renderPanel();
     expect(screen.getByText(/burn-down shows remaining budget/i)).toBeTruthy();

@@ -91,7 +91,21 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:dashboard-size");
 
   const locale = localeFor(lang);
-  const money = (n: number) => formatCurrency(n, props.plan.currency || "EUR", locale);
+  // ★★ Both money surfaces on this panel render figures that came straight out
+  // of the budget engine and convert NOTHING: `money` prints
+  // `model.burn.consumedValue`/`budgetValue`, which `dashboard.ts` copies off
+  // `computeBudgetReport(...).project`, and `currency` below labels
+  // `model.burndown`, whose values are `budgetHours × role.rates.external`.
+  // Every figure the engine returns is EUR — a fixed-price bucket's contract
+  // amount is converted to EUR at the engine's one read — so these are EUR
+  // whatever the plan's free-text `currency` says. Labelling them
+  // `plan.currency` printed EUR money under another currency's symbol on the
+  // LANDING view (docs/open-followups.md §465).
+  // ★ Contrast the per-bucket tiles in `budget-panel.tsx`: those convert
+  // EUR→bucket currency (`inCur`/`cci`) BEFORE labelling, so there the
+  // bucket's own currency is the right label. The discriminator is whether the
+  // figure was converted, never where it is rendered.
+  const money = (n: number) => formatCurrency(n, "EUR", locale);
 
   const model = useMemo(
     () =>
@@ -279,7 +293,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
     lang, dc, model,
     trends,
     money,
-    currency: props.plan.currency || "EUR",
+    // EUR for the same reason as `money` above — this labels the engine's
+    // burn-down series, which converts nothing.
+    currency: "EUR",
     noActiveScope,
     completionSeries,
     milestoneBuckets,

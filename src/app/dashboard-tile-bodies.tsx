@@ -98,8 +98,11 @@ export interface TileBodyArgs {
   dc: DensityClasses;
   model: DashboardModel;
   trends: Record<MetricKey, MetricTrend>;
-  /** Formats a number in the plan's currency + the panel's locale. */
+  /** Formats a number in EUR + the panel's locale. Both money surfaces here
+   *  render budget-engine figures, which are EUR and are converted nowhere —
+   *  see the comment on `money` in `dashboard-panel.tsx`. */
   money: (n: number) => string;
+  /** Currency label for the burn-down axis. EUR for the same reason. */
   currency: string;
   /** `hasNoActiveScope(model.progress)` — shared with the KPI card. */
   noActiveScope: boolean;

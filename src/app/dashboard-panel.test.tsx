@@ -1320,3 +1320,85 @@ describe("DashboardPanel activity log source (activity-log-workspace-data, task 
     expect(ctxArg.activity.some((e) => e.args.includes("OLD"))).toBe(false);
   });
 });
+
+// ★★ The dashboard is the LANDING view, and both of its money surfaces render
+// figures that came out of the budget engine and convert NOTHING:
+//   · the Budget tile prints `model.burn.consumedValue / budgetValue`, which
+//     `dashboard.ts` copies straight off `computeBudgetReport(...).project`;
+//   · the burn-down chart prints `model.burndown`, whose values are
+//     `budgetHours × role.rates.external`.
+// The engine's money unit is EUR (`computeBucketReport` converts a fixed-price
+// contract amount to EUR at its one read), so both are EUR whatever the plan's
+// free-text `currency` says. Labelling them `plan.currency` printed EUR money
+// under another currency's symbol (docs/open-followups.md §465).
+describe("DashboardPanel currency labelling", () => {
+  // Rated roles + budgeted AND actual hours are both required: with no rate
+  // card every value is 0, the burn-down renders its "no budget" line instead
+  // of an axis, and the assertions below would have nothing to read.
+  const ratedRoles = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+  const ratedBudget = [
+    {
+      id: 1, name: "PO", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-12-31", status: "open",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
+    },
+  ] as unknown as BudgetBucket[];
+
+  function renderUsdDashboard() {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[]}
+        raid={[]}
+        budgets={ratedBudget}
+        plan={{ ...plan, currency: "USD" }}
+        roles={ratedRoles}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+  }
+
+  it("labels the Budget tile in EUR even when the plan names another currency", () => {
+    renderUsdDashboard();
+    // Anchored on the hours tile, which is labelled "h" and is the one handle
+    // here already proven unique. TWO hops up, not one: `Tile` renders
+    // `<div class="relative h-full w-full"><div class="rounded-lg">`, so the
+    // first parent is still that single tile and only the second is the flex
+    // row holding the Budget tile beside it. One hop scopes to a subtree with
+    // no money in it at all, and `getAllByText` throws there rather than
+    // passing — which is the positive control doing its job.
+    const burnRow = (screen.getByText("h").closest("div.rounded-lg") as HTMLElement)
+      .parentElement!.parentElement as HTMLElement;
+
+    // ★★★ THE POSITIVE CONTROL. `queryByText(/\$/) === null` passes just as
+    // happily when the query is wrong, the scope is empty, or the tile failed
+    // to render. `getAllByText` THROWS on zero matches. MEASURED, not reasoned:
+    // 1 — the tile prints consumed and budget as ONE string ("€6,000 /
+    // €15,000"), so the pair is a single text node, and the neighbouring hours
+    // tile carries no currency at all.
+    const money = within(burnRow).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
+    expect(money).toHaveLength(1);
+    expect(money.filter((s) => s.includes("$"))).toEqual([]);
+    expect(money.every((s) => s.includes("€"))).toBe(true);
+  });
+
+  it("labels the burn-down value axis in EUR even when the plan names another currency", () => {
+    renderUsdDashboard();
+    // Scoped to the CURRENCY chart: `Chart` renders `<div>{caption}</div><svg>`,
+    // so the caption's parent is that chart alone. The twin hours chart carries
+    // no money and would only dilute the count.
+    const valueChart = screen.getByText(/Budget remaining/i).parentElement!;
+
+    // MEASURED, not reasoned: 3 — `Chart` emits one `<text>` per y-tick and
+    // `yTicks` is `[0, max/2, max]` whenever `max > 0`.
+    const money = within(valueChart).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
+    expect(money).toHaveLength(3);
+    expect(money.filter((s) => s.includes("$"))).toEqual([]);
+    expect(money.every((s) => s.includes("€"))).toBe(true);
+  });
+});
