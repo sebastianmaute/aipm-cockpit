@@ -122,9 +122,11 @@ export function TrendsPanel(props: TrendsPanelProps) {
   // as `budgetHours × role.rates.external` and converted NOWHERE. Every figure
   // the engine returns is EUR (a fixed-price bucket's contract amount is
   // converted to EUR at `computeBucketReport`'s one read), so this is EUR
-  // whatever `SnapshotRecord.currency` holds — it is written from the plan's
-  // free-text `currency` in `task-manager.tsx`'s snapshot `buildContext`, and
-  // reading it here printed EUR money under another currency's symbol
+  // whatever `SnapshotRecord.currency` holds — it is written from
+  // `plan.currency` in `task-manager.tsx`'s snapshot `buildContext`, whose
+  // `BudgetCurrency` union still admits `USD`/`GBP`, so it states the plan's
+  // base currency and never the unit of an unconverted engine figure. Reading
+  // it here printed EUR money under another currency's symbol
   // (docs/open-followups.md §465).
   // ★ Fixed HERE rather than at that writer on purpose: snapshots already
   // persisted carry a non-EUR `currency`, and only a fix at the reader
@@ -136,8 +138,8 @@ export function TrendsPanel(props: TrendsPanelProps) {
   // The records in `snapshots` still each carry a `currency` field, so that is
   // the one remaining way to re-wire this by hand — `trends-panel.test.tsx`
   // seeds those with a non-EUR value precisely to catch that.
-  // ★ Consequence: `SnapshotRecord.currency` is now written (from the plan's
-  // free-text `currency`, in `task-manager.tsx`'s snapshot `buildContext`) and
+  // ★ Consequence: `SnapshotRecord.currency` is now written (from
+  // `plan.currency`, in `task-manager.tsx`'s snapshot `buildContext`) and
   // read by nobody. Deliberate here, but the field and its writer want
   // removing together — a schema change, not a labelling fix.
   const currency = "EUR";

@@ -209,8 +209,11 @@ describe("TrendsPanel", () => {
 // set from `plan.currency`. What it labels here is `remainingCost`, which
 // `buildSnapshot` takes from `model.burndown.actualRemainingValue` — the budget
 // engine's series, built as `budgetHours × role.rates.external` and converted
-// NOWHERE. The engine's money unit is EUR, so the figure is EUR whatever the
-// plan's free-text `currency` says (docs/open-followups.md §465).
+// NOWHERE. The engine's money unit is EUR, so the figure is EUR whatever
+// `plan.currency` says. Narrowing that field to the `BudgetCurrency` union did
+// NOT make it safe to label with: the union still admits `USD`/`GBP`, so it
+// states the plan's base currency, never the unit of an unconverted engine
+// figure (docs/open-followups.md §465).
 // ★ Fixed at the READER rather than at the writer on purpose: snapshots already
 // persisted carry a non-EUR `currency`, and only a fix here relabels those too.
 // ★★ THE ADVERSARIAL INPUT MOVED, and it is not the one the defect was found

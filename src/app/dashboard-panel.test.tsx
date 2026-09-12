@@ -1328,8 +1328,11 @@ describe("DashboardPanel activity log source (activity-log-workspace-data, task 
 //   · the burn-down chart prints `model.burndown`, whose values are
 //     `budgetHours × role.rates.external`.
 // The engine's money unit is EUR (`computeBucketReport` converts a fixed-price
-// contract amount to EUR at its one read), so both are EUR whatever the plan's
-// free-text `currency` says. Labelling them `plan.currency` printed EUR money
+// contract amount to EUR at its one read), so both are EUR whatever
+// `plan.currency` says. Narrowing that field to the `BudgetCurrency` union did
+// NOT make it safe to label with: the union still admits `USD`/`GBP`, so it
+// states the plan's base currency, never the unit of an unconverted engine
+// figure. Labelling them `plan.currency` printed EUR money
 // under another currency's symbol (docs/open-followups.md §465).
 describe("DashboardPanel currency labelling", () => {
   // Rated roles + budgeted AND actual hours are both required: with no rate

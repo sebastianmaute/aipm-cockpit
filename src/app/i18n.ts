@@ -3475,8 +3475,8 @@ const enUS = {
     "Of the bookings that could not be placed, {0}h carry no usable booking date. That is a fault in the fetched data rather than in a link — fetching again returns the same bookings, so the dates have to be corrected in TimeLog first.",
   budgetUnappliedActualsGo: "Open Time bookings",
   budgetReportColWinLossHint: "Fixed-price: revenue minus cost. Time-and-material: budget minus consumed, i.e. remaining budget. In EUR; negative means the bucket runs at a loss.",
-  budgetWinLossHint: "Money won or lost versus plan, in the bucket currency.",
-  budgetSpilloverInHint: "Hours carried in from another bucket.",
+  budgetWinLossHint: "Fixed-price: revenue minus cost. Time-and-material: budget minus consumed, i.e. remaining budget. In the bucket currency; negative means the bucket runs at a loss.",
+  budgetSpilloverInHint: "Hours carried in from another bucket, and their value in the bucket currency.",
   // Edit Change tooltips
   changeFieldTitleHint: "Short name of the change request.",
   changeFieldTypeHint: "Type of change (scope, schedule, cost, …).",

@@ -97,7 +97,9 @@ export interface BudgetPanelProps {
   onGoToTimelog?: () => void;
 }
 
-/** Builds the Cci-shaped value for the CPI tile: `costPerformanceIndex` is a
+/** Builds the Cci-shaped value for the cost-recovery tile (`budgetCciRecovery`;
+ *  it was the "CPI" tile before this branch renamed the key, and a test in this
+ *  panel now asserts the panel renders no `/CPI/` at all): `costPerformanceIndex` is a
  *  0-1 ratio (not the 0-100 percent every other CciValue.percent carries), so
  *  it is scaled ×100 here at the one render boundary rather than in the pure
  *  engine. `earnedValue` is EUR, like every other CciValue.amount — callers
@@ -133,7 +135,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
 
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
   // ★★ The rollup sums the engine's EUR figures and converts NOTHING, so it is
-  // EUR regardless of what the plan's free-text `currency` says. Labelling it
+  // EUR regardless of what `plan.currency` says. Narrowing that field to the
+  // `BudgetCurrency` union did NOT make it safe to label with: the union still
+  // admits `USD`/`GBP`, so it states the plan's base currency, never the unit
+  // of an unconverted engine figure. Labelling it
   // `plan.currency` printed EUR money under another currency's symbol
   // (docs/open-followups.md §465). The per-bucket tiles below are the other
   // case and stay as they are: they convert EUR→bucket currency (`inCur` /

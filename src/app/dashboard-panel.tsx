@@ -98,7 +98,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // `model.burndown`, whose values are `budgetHours × role.rates.external`.
   // Every figure the engine returns is EUR — a fixed-price bucket's contract
   // amount is converted to EUR at the engine's one read — so these are EUR
-  // whatever the plan's free-text `currency` says. Labelling them
+  // whatever `plan.currency` says. Narrowing that field to the `BudgetCurrency`
+  // union did NOT make it safe to label with: the union still admits
+  // `USD`/`GBP`, so it states the plan's base currency, never the unit of an
+  // unconverted engine figure. Labelling them
   // `plan.currency` printed EUR money under another currency's symbol on the
   // LANDING view (docs/open-followups.md §465).
   // ★ Contrast the per-bucket tiles in `budget-panel.tsx`: those convert

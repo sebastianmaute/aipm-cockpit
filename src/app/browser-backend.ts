@@ -246,7 +246,16 @@ export class BrowserBackend implements StorageBackend {
       // clamp `granularity` to "month", replace the entire date window whenever
       // either date fails to parse, swap reversed dates, and DROP an explicit
       // `budgetFollowsPlan: false` — four unrelated rewrites on every load.
-      // `storage-browser-kv.test.ts` pins all four against exactly that change.
+      // ★★ `storage-browser-kv.test.ts` pins TWO of those four, not all four:
+      // the reversed window (a fixture whose end precedes its start, asserted
+      // unswapped) and the dropped `budgetFollowsPlan: false`. The other two
+      // are NOT covered. The granularity fixture seeds `"week"`, which
+      // `sanitizePlan` PRESERVES (`raw.granularity === "week" ? "week" :
+      // "month"`), so that assertion passes identically with or without the
+      // call — only a granularity OUTSIDE the union would discriminate. And no
+      // fixture carries a malformed date, so the date-window replacement is
+      // unreachable there. Adding `sanitizePlan` here would still be wrong for
+      // all four reasons; the suite would only go red for two of them.
       plan = idbPlan ? (isBudgetCurrency(idbPlan.currency) ? idbPlan : { ...idbPlan, currency: "EUR" }) : plan;
       budgets = idbBudgets;
       fxRates = idbFxRates ?? null;
