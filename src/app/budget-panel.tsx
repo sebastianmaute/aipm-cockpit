@@ -132,7 +132,13 @@ export function BudgetPanel(props: BudgetPanelProps) {
   );
 
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
-  const projCur = plan.currency || "EUR"; // project rollup is in the plan base currency (EUR)
+  // ★★ The rollup sums the engine's EUR figures and converts NOTHING, so it is
+  // EUR regardless of what the plan's free-text `currency` says. Labelling it
+  // `plan.currency` printed EUR money under another currency's symbol
+  // (docs/open-followups.md §465). The per-bucket tiles below are the other
+  // case and stay as they are: they convert EUR→bucket currency (`inCur` /
+  // `cci`) BEFORE labelling, so there the bucket's own currency is correct.
+  const projCur = "EUR";
 
   // "Budget hours follow plan": when on, a resourced allocation's budget input
   // mirrors the live planned hours and becomes read-only. Scalars hoisted for

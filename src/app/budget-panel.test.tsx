@@ -29,6 +29,32 @@ describe("BudgetPanel", () => {
     expect(screen.getByText(/Project total/i)).toBeInTheDocument();
     expect(screen.getAllByText(/4,000|4000/).length).toBeGreaterThan(0); // 80×150 − 80×100
   });
+  test("labels the project rollup in EUR even when the plan names another currency", () => {
+    // ★★ The rollup sums the ENGINE's figures and converts NOTHING, and every
+    // figure `computeBudgetReport` returns is EUR (a fixed-price bucket's
+    // contract amount is converted to EUR at the engine's one read). So the
+    // rollup is EUR whatever `plan.currency` — free text — happens to say;
+    // labelling it `plan.currency` printed EUR money under another currency's
+    // symbol (docs/open-followups.md §465).
+    // ★ The per-bucket tiles further down are a DIFFERENT case and are correct:
+    // they convert EUR→bucket currency (`inCur`/`cci`) before labelling.
+    render(<BudgetPanel {...props} plan={{ ...plan, currency: "USD" }} />);
+    const rollup = screen.getByText(/Project total/i).closest("section")!;
+
+    // ★★★ THE POSITIVE CONTROL. A bare `queryByText(/\$/) === null` passes just
+    // as happily when the query is wrong, the scope is empty, or the panel
+    // failed to render. `getAllByText` THROWS on zero matches, and the floor
+    // proves the scope is populated. MEASURED over this fixture, not reasoned:
+    // 3, not 4 — the CPI tile has no earned-value baseline here, so it renders
+    // `unknown` and both of its figures are "—". An exact count, because a
+    // loose floor would let a tile silently stop rendering money at all.
+    const money = within(rollup).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
+    expect(money).toHaveLength(3);
+    // …and every one of those figures is EUR-labelled, none of them dollars.
+    expect(money.filter((s) => s.includes("$"))).toEqual([]);
+    expect(money.every((s) => s.includes("€"))).toBe(true);
+  });
+
   test("lists each bucket by name", () => {
     render(<BudgetPanel {...props} />);
     expect(screen.getByText("PAM")).toBeInTheDocument();
