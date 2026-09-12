@@ -243,9 +243,38 @@ export function ToggleButton({
           and these sit in toolbar rows — a repeatedly-clicked control that
           resizes moves its neighbours under the pointer. The animated default
           answers that only in PART, and the part it answers is positional: the
-          marker is LEFTMOST, so the pointer never rests on it and the growth
-          displaces rightward neighbours instead of the control under the
-          cursor. Where a neighbour must not move at all, the consumer passes
+          marker is the LAST child — rendered after `{icon}` and after the label
+          span, so it TRAILS both. That trailing position IS the reason only
+          rightward neighbours move: the growth is at the button's right edge,
+          which leaves the label and the left edge fixed, so the control under
+          the cursor stays put. A LEADING marker would have been the bad case,
+          pushing the label rightward under the pointer on every click. (The
+          `-ml-1.5` on a collapsed marker is the same fact from the other side:
+          it cancels the label→marker gap, which exists only because the marker
+          FOLLOWS the label.)
+          ★★★ THAT ARGUMENT IS ABOUT AN *INDEPENDENT* TOGGLE AND FAILS FOR A
+          MUTUALLY-EXCLUSIVE GROUP. In a one-of-N group a single click
+          COLLAPSES the old selection and EXPANDS the new one, so everything
+          after the old selection shifts LEFTWARD — including the chip the
+          pointer is on. That is the very failure the rightward-only reasoning
+          claims to avoid, arriving from the direction it does not model. The
+          one-of-N consumers therefore pass `reserveMarkerSpace`:
+          `task-form-fields.tsx` (the health chips), `knowledge-panel.tsx` (the
+          source filter) and `create-project-wizard.tsx` (the template cards).
+          ★★ ONE-OF-N IS NOT THE ONLY REASON TO OPT OUT, so do not read a
+          consumer's `reserveMarkerSpace` as a claim that it IS a group, and do
+          not strip one on the grounds that it is not. Enumerated on this
+          branch, the other opt-outs each have their own reason and are no less
+          load-bearing: `milestones-panel.tsx` and `budget-panel-people-rows.tsx`
+          sit in width-clamped, user-resizable table cells, and
+          `comm-templates-section.tsx`'s Compare is a capped MULTI-select whose
+          right-anchored row makes a growing chip extend LEFTWARD over its own
+          left edge. `gantt-view-menu.tsx` is a dense menu that must not reflow.
+          ★ AGENTS.md prescribes `SegmentedControl` for a one-of-N choice, and
+          that primitive's own `data-selected-marker` is still always-mounted
+          and space-reserving — which is why this asymmetry existed at all. It
+          was deliberately NOT touched here: do NOT "align" the two.
+          Where a neighbour must not move at all, the consumer passes
           `reserveMarkerSpace` and gets the old constant width back.
           (Reasoned, not measured, in BOTH directions: jsdom has no layout and
           no motion, so no test here can see the width, the shift or the

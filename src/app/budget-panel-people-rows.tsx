@@ -153,8 +153,13 @@ export function PeopleDisclosureLabel({
       //    role-column width, and the sticky leading columns are placed by
       //    arithmetic over that declared width. An animating child changes the
       //    cell's content width mid-interaction, which that arithmetic cannot
-      //    absorb -- and open-followups §123 already records an ellipsis defect
-      //    in this exact cell.
+      //    absorb. That reason stands on its own.
+      // ★ open-followups §123 is the CLOSED record (2026-08-08) of an ellipsis
+      //    defect in this exact cell — context, NOT a live defect. It is still
+      //    worth naming, because its analysis argues from the marker rendering
+      //    "in BOTH states so the button keeps one width": the
+      //    `reserveMarkerSpace` below is what keeps that closed reasoning true,
+      //    so dropping the opt-out here would silently falsify a closed entry.
       reserveMarkerSpace
       // ★ The rows read "6 / 176" with no header saying which figure is which —
       //   position and the `/` are the only cue. This says it in words, in the

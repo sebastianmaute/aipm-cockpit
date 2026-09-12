@@ -253,10 +253,9 @@ describe("CommTemplatesSection", () => {
   // versions is armed. `ToggleButton` supplies the trailing non-colour marker.
   // ★ Assert it in BOTH states on the SAME button: it is RENDERED in both
   //   states, so an ON-state-only assertion would pass against a
-  //   conditional-render regression. Only its WIDTH is stateful — off collapses
-  //   to zero and animates, and the opt-in `reserveMarkerSpace` (which this
-  //   section does not pass) restores the constant width. The assertions below
-  //   read the attribute, so they hold either way.
+  //   conditional-render regression. The assertions below read the ATTRIBUTE,
+  //   so they pin presence only; the WIDTH is a separate guarantee (this
+  //   section passes `reserveMarkerSpace`) and belongs to the next test.
   // ★★ The row-unique `versionRowTokens` label is threaded through the
   //   primitive's `ariaLabel` UNCHANGED. NO GATE CAN SEE A REGRESSION HERE —
   //   axe 4.12.1 has no rule that flags two controls sharing an accessible
@@ -284,6 +283,40 @@ describe("CommTemplatesSection", () => {
     expect(chip.querySelector("[data-pressed-marker]")?.getAttribute("data-pressed-marker")).toBe("on");
     // The row-unique name survives the state change.
     expect(nameOf(chip)).toBe(`${compare}: draft (1)`);
+  });
+
+  // ★★★ COMPARE IS *NOT* A ONE-OF-N GROUP, and the reason to reserve here is a
+  //    DIFFERENT and stronger one — do not restate this as the one-of-N rule
+  //    the health chips and the source filter follow. `toggleCompare` keeps a
+  //    set capped at two (`prev.length >= 2 ? [prev[1], id] : [...prev, id]`),
+  //    so it is a multi-select that merely EVICTS the oldest at the cap.
+  // ★★ What forces the opt-out is the ROW: each `<li>` is
+  //    `flex items-center justify-between` with the label span `flex-1`, so the
+  //    label absorbs the free space and the trailing controls are pinned to the
+  //    right edge. A chip that grows therefore extends LEFTWARD — its own left
+  //    edge moves ~20px under the pointer on its OWN click, and the Restore
+  //    button beside it stays put. That is worse than the one-of-N case: it
+  //    needs no sibling and no cap, just a single click on a single chip.
+  // ★★ ANTI-VACUITY: only the OFF state discriminates (a pressed marker is
+  //    `w-3.5` either way), and the count is pinned so a version list that
+  //    failed to render could not satisfy an empty loop.
+  it("reserves the marker's width on every Compare chip, so arming one cannot shift its row", async () => {
+    mockVersions = [version({ id: "v-a", name: "draft a" }), version({ id: "v-b", name: "draft b" })];
+    await openVersionList();
+    const compare = t("en-US", "commTplCompare");
+    const chips = screen.getAllByRole("button", { name: new RegExp(`^${compare}: `) });
+    // COUNT: the Current pseudo-row + the two seeded version rows.
+    expect(chips).toHaveLength(3);
+    // Nothing is armed yet, so all three are OFF.
+    expect(chips.map((c) => c.getAttribute("aria-pressed"))).toEqual(["false", "false", "false"]);
+    for (const chip of chips) {
+      const cls = chip.querySelector("[data-pressed-marker]")?.getAttribute("class") ?? "";
+      expect(cls).toContain("w-3.5");
+      expect(cls).not.toContain("w-0");
+      // Only the collapsing path carries it, to cancel the gap a zero-width
+      // marker leaves — so its absence is the second discriminator.
+      expect(cls).not.toContain("-ml-1.5");
+    }
   });
 
   it("numbers the Current pseudo-row too when a saved version is named after it", async () => {

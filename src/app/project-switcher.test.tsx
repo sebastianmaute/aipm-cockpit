@@ -264,6 +264,22 @@ describe("ProjectSwitcher", () => {
       expect(onSwitch).not.toHaveBeenCalled();
     });
 
+    it("lets the read-only indicator yield width too", () => {
+      renderSwitcher({ readOnly: true });
+      // This branch renders in the SAME TopBar left cluster as the interactive
+      // trigger, so it needs the same min-w-0. The tree choice is gated on
+      // settings.layout (classic vs modern), NEVER on isPopout, and askClaudeEl
+      // is gated only on isAiEnabled -- so a popout on the DEFAULT modern
+      // layout puts this indicator, the search box and the Ask trigger in one
+      // cluster and overlaps exactly as the trigger did at 1024-1200px.
+      // It needs NO w-full: a <div> is not a form control, so the fit-content
+      // problem that forced w-full onto the <button> does not apply here.
+      const label = screen.getByText("Apollo");
+      expect(label.parentElement?.className).toContain("min-w-0");
+      // The truncation the chain exists to reach must still be there.
+      expect(label.className).toContain("truncate");
+    });
+
     it("falls back to the no-project label when the name is null", () => {
       renderSwitcher({ readOnly: true, currentProjectName: null });
       expect(

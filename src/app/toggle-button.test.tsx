@@ -340,8 +340,25 @@ describe("ToggleButton", () => {
   //    GUARANTEE. It used to be `w-3.5 invisible` in BOTH states so the button
   //    kept ONE width; it now collapses to zero width when off and animates
   //    open. The animation answers the original objection only in part — the
-  //    marker is LEFTMOST, so the pointer never sits on it and the growth
-  //    displaces rightward neighbours — which is why the opt-out below exists.
+  //    marker is the LAST child, rendered after the optional icon and after the
+  //    label span, so it TRAILS both. That trailing position IS the reason only
+  //    rightward neighbours move: the growth is at the right edge, leaving the
+  //    label and the left edge fixed, so the control under the pointer stays
+  //    put. A LEADING marker would have pushed the label rightward under the
+  //    cursor — the bad case. Which is why the opt-out below exists.
+  // ★★★ AND WHY IT IS NOT OPTIONAL FOR A MUTUALLY-EXCLUSIVE GROUP: the
+  //    rightward-only argument holds for an INDEPENDENT toggle only. In a
+  //    one-of-N group one click collapses the old selection and expands the new
+  //    one, so everything after the old selection shifts LEFTWARD, the clicked
+  //    chip included — the exact failure that argument claims to rule out. The
+  //    one-of-N consumers therefore pass `reserveMarkerSpace`; their own test
+  //    files pin it, since NOTHING IN THIS FILE CAN SEE A CONSUMER'S PROP —
+  //    every test here renders the primitive directly, so a consumer losing its
+  //    opt-out is invisible to a green run of this file, in either direction.
+  // ★★ One-of-N is not the only reason to opt out (clamped resizable table
+  //    cells and a right-anchored row are the others on this branch), so do not
+  //    strip a consumer's opt-out on the grounds that it is not a group — the
+  //    `toggle-button.tsx` comment enumerates which is which.
   // ★ The element stays RENDERED in both states for two independent reasons:
   //    the `data-pressed-marker` queries above (and in five other test files),
   //    and the WCAG 1.4.1 non-colour cue. Neither survives conditional

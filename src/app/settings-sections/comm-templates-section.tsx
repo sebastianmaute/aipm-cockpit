@@ -378,6 +378,19 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                   ariaLabel={`${t(lang, "commTplCompare")}: ${versionRowTokens.get(CURRENT_ID) ?? t(lang, "commTplCurrent")}`}
                   className="shrink-0"
                   lang={lang}
+                  // ★★★ RESERVED, and NOT for the one-of-N reason the health
+                  //    chips and source filter carry — Compare is a capped-at-2
+                  //    MULTI-select (`toggleCompare` merely evicts the oldest
+                  //    at the cap), so do not restate this as that rule. The
+                  //    reason is this ROW: it is `justify-between` with the
+                  //    label span `flex-1`, so the label absorbs the free space
+                  //    and the trailing controls sit against the right edge. A
+                  //    chip that grows therefore extends LEFTWARD — its own
+                  //    left edge moves ~20px under the pointer on its OWN
+                  //    click, while Restore beside it stays put. That needs no
+                  //    sibling and no cap, just one click on one chip.
+                  //    Pinned by comm-templates-section.test.tsx.
+                  reserveMarkerSpace
                 >
                   {t(lang, "commTplCompare")}
                 </ToggleButton>
@@ -406,6 +419,11 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                     ariaLabel={`${t(lang, "commTplCompare")}: ${vToken}`}
                     className="shrink-0"
                     lang={lang}
+                    // ★★ Same right-anchored-row reason as the Current
+                    //    pseudo-row above — see its note for why this is NOT
+                    //    the one-of-N rule. This row additionally has Restore
+                    //    after the chip, so the chip is the element that moves.
+                    reserveMarkerSpace
                   >
                     {t(lang, "commTplCompare")}
                   </ToggleButton>
