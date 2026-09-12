@@ -123,8 +123,7 @@ interface ToggleButtonProps {
    *  button kept one width and a repeatedly-clicked control never moved its
    *  neighbours under the pointer. Pass `true` wherever that still matters —
    *  a toggle inside a width-clamped table cell, or a dense menu whose items
-   *  must not reflow. `gantt-view-menu.tsx` and `budget-panel-people-rows.tsx`
-   *  do; see their call sites for the specific reason in each. */
+   *  must not reflow. See the call sites for the specific reason in each. */
   reserveMarkerSpace?: boolean;
   /** ★★ Pointer/keyboard handlers for a PRESS-AND-HOLD consumer — dictation's
    *  push-to-talk mic, where the state is "held down", not "clicked on". Such

@@ -291,12 +291,11 @@ describe("CommTemplatesSection", () => {
   //    set capped at two (`prev.length >= 2 ? [prev[1], id] : [...prev, id]`),
   //    so it is a multi-select that merely EVICTS the oldest at the cap.
   // ★★ What forces the opt-out is the ROW: each `<li>` is
-  //    `flex items-center justify-between` with the label span `flex-1`, so the
-  //    label absorbs the free space and the trailing controls are pinned to the
-  //    right edge. A chip that grows therefore extends LEFTWARD — its own left
-  //    edge moves ~20px under the pointer on its OWN click, and the Restore
-  //    button beside it stays put. That is worse than the one-of-N case: it
-  //    needs no sibling and no cap, just a single click on a single chip.
+  //    `flex items-center justify-between`, so the trailing controls are pinned
+  //    to the right edge. A chip that grows therefore extends LEFTWARD — its
+  //    own left edge moves ~20px under the pointer on its OWN click. That is
+  //    worse than the one-of-N case: it needs no sibling and no cap, just a
+  //    single click on a single chip.
   // ★★ ANTI-VACUITY: only the OFF state discriminates (a pressed marker is
   //    `w-3.5` either way), and the count is pinned so a version list that
   //    failed to render could not satisfy an empty loop.

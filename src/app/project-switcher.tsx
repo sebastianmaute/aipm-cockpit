@@ -130,11 +130,11 @@ export function ProjectSwitcher({
   // same reason: this renders in the SAME TopBar left cluster. The tree choice
   // is gated on `settings.layout` (classic vs modern) and NEVER on `isPopout`,
   // and `askClaudeEl` is gated only on `isAiEnabled` — so a popout on the
-  // DEFAULT modern layout puts this indicator, the search box and the Ask
-  // trigger in one cluster, where min-width:auto floors this element at its own
-  // min-content and starves its neighbours exactly as the trigger did.
-  // ★ No `w-full` here, unlike the button: a <div>'s width:auto already fills
-  // its container, so the fit-content problem that forced it there is absent.
+  // DEFAULT modern layout puts this indicator and the Ask trigger in one
+  // cluster, where min-width:auto floors this element at its own min-content
+  // and starves its neighbours exactly as the trigger did.
+  // ★ No `w-full` here, unlike the button: this div is itself the cluster's
+  // flex child, so there is no intermediate wrapper for it to overflow.
   if (readOnly) {
     return (
       <div

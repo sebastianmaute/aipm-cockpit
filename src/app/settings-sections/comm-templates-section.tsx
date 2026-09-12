@@ -382,13 +382,12 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                   //    chips and source filter carry — Compare is a capped-at-2
                   //    MULTI-select (`toggleCompare` merely evicts the oldest
                   //    at the cap), so do not restate this as that rule. The
-                  //    reason is this ROW: it is `justify-between` with the
-                  //    label span `flex-1`, so the label absorbs the free space
-                  //    and the trailing controls sit against the right edge. A
-                  //    chip that grows therefore extends LEFTWARD — its own
-                  //    left edge moves ~20px under the pointer on its OWN
-                  //    click, while Restore beside it stays put. That needs no
-                  //    sibling and no cap, just one click on one chip.
+                  //    reason is this ROW: it is `justify-between`, so the
+                  //    trailing controls sit against the right edge. A chip
+                  //    that grows therefore extends LEFTWARD — its own left
+                  //    edge moves ~20px under the pointer on its OWN click.
+                  //    That needs no sibling and no cap, just one click on
+                  //    one chip.
                   //    Pinned by comm-templates-section.test.tsx.
                   reserveMarkerSpace
                 >

@@ -673,7 +673,7 @@ describe("achieved toggle", () => {
   //    `MILESTONE_COL_WIDTHS.achieved`, but the table is `w-full` with
   //    `table-layout: auto`, where a declared width is only a MINIMUM that
   //    content may exceed — and the column is user-resizable down to 40px
-  //    (`use-column-resize.ts`). Below roughly 116px the cell therefore tracks
+  //    (`use-column-resize.ts`). Narrow enough, the cell therefore tracks
   //    its CONTENT, so a marker that collapses and expands swings the cell on
   //    every click and the browser redistributes every column, for every row at
   //    once. A per-row control that gets clicked repeatedly is the worst place

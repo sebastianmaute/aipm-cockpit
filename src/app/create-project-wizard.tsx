@@ -332,9 +332,8 @@ export function CreateProjectWizard({
                 //    fieldset, so a card's box never changes size and the cards
                 //    cannot move each other. What moves is INSIDE the card —
                 //    `size="card"` stretches the label wrapper, so collapsing
-                //    the marker widens it by ~20px and drags the header row's
-                //    `justify-between` badges across with it, on the very card
-                //    under the pointer. Pinned by create-project-wizard.test.tsx.
+                //    the marker widens it by ~20px, on the very card under the
+                //    pointer. Pinned by create-project-wizard.test.tsx.
                 reserveMarkerSpace
               >
                 <span className="font-medium text-foreground">

@@ -244,9 +244,9 @@ describe("CreateProjectWizard", () => {
   //    `w-full` inside a `flex flex-col` fieldset, so a card's own box never
   //    changes size and the cards do not move each other. What moves is INSIDE
   //    the card: `size="card"` stretches the label wrapper, so collapsing the
-  //    marker widens that wrapper by ~20px and drags the header row's
-  //    `justify-between` badges (the "Suggested" and mode pills) across with
-  //    it — on the very card the pointer is over.
+  //    marker widens that wrapper by ~20px — on the very card the pointer is
+  //    over. On the TEMPLATE cards that also drags the header row's
+  //    `justify-between` badges across; the Blank card carries no badge row.
   // ★★ ANTI-VACUITY: only the OFF state discriminates, and the count is pinned
   //    so a step that failed to advance (which renders NO cards at all — the
   //    Step-1 form has no `aria-pressed` control) cannot pass an empty loop.
