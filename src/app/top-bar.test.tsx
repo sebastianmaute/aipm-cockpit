@@ -117,4 +117,13 @@ describe("TopBar", () => {
     expect(alertIdx).toBeGreaterThanOrEqual(0);
     expect(aiIdx).toBeLessThan(alertIdx);
   });
+
+  it("lets the action cluster yield width so the search box cannot overlap its neighbour", () => {
+    render(<TopBar {...base} search={<div data-testid="search" />} />);
+    const cluster = screen.getByTestId("search").parentElement;
+    // Without min-w-0 this cluster refuses to shrink (flex items default to
+    // min-width:auto), so every pixel of pressure lands on the left cluster --
+    // which is where the Ask Claude trigger lives.
+    expect(cluster?.className).toContain("min-w-0");
+  });
 });

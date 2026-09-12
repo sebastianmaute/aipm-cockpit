@@ -2983,7 +2983,7 @@ function TaskManagerInner() {
         onShowAlerts={() => setActiveTab("actions")}
         onOpenAiAssistant={aiAssistantOpener(settings.ai, () => openPopoutWindow("chat", settings.popout.reuseWindow))}
         search={
-          <div className="w-44 max-w-[55vw] sm:w-72 lg:w-96">
+          <div className="min-w-0 w-44 max-w-[55vw] sm:w-72 lg:w-96">
             <GlobalSearchConnected lang={lang} />
           </div>
         }
