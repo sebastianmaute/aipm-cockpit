@@ -4251,7 +4251,7 @@ a single click on an imported settings blob.
 
 ## 58. The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN
 
-**Status:** open — PARTLY FIXED, the per-checkout token half is still open. Reproduced 2026-08-28 by `grep -n "data-app-version" src/app/layout.tsx`.
+**Status:** open — PARTLY FIXED, the per-checkout token half is still open. Reproduced 2026-08-28 by `grep -n "data-app-version" src/app/layout.tsx`. Re-verified 2026-09-13 on `b39517ec`: `grep -c "process.cwd" e2e/a11y.spec.ts` → 0, so no per-checkout token exists yet; the version guard alone stands.
 
 **Cited from:** `layout.tsx`, `e2e/a11y.spec.ts` — this entry cannot be deleted.
 
@@ -4634,7 +4634,7 @@ currently over the limit.
 
 ## 64. Other surfaces still read "0% complete" for an all-cancelled project — HALF FIXED post-0.216.0
 
-**Status:** open — PARTLY FIXED, the two persisted completion figures are still ungated. Reproduced 2026-08-28 by `grep -n "pctComplete" src/app/snapshot.ts`.
+**Status:** open — PARTLY FIXED, the two persisted completion figures are still ungated. Reproduced 2026-08-28 by `grep -n "pctComplete" src/app/snapshot.ts`. Re-verified 2026-09-13 on `b39517ec`: `grep -n "pctComplete: model.progress.percent" src/app/snapshot.ts` → 1 hit, still a non-nullable persisted figure.
 
 ★ **HALF CLOSED post-0.216.0.** Every surface that reads the figure DIRECTLY is done; both PERSISTED
 figures are deliberately untouched.
@@ -4793,7 +4793,7 @@ this warning exists to record — and reported the entry's correct cite as a def
 
 ## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — HALF FIXED post-0.216.0
 
-**Status:** open — PARTLY FIXED, the naming half is still open. Reproduced 2026-08-28 by `grep -n "dashboardAllCancelled" src/app/i18n.ts`.
+**Status:** open — PARTLY FIXED, the naming half is still open. Reproduced 2026-08-28 by `grep -n "dashboardAllCancelled" src/app/i18n.ts`. Re-verified 2026-09-13 on `b39517ec`: `grep -n "dashboardAllCancelled:" src/app/i18n.ts` → 1 hit, still "All cancelled ({0})".
 
 ★ **HALF CLOSED post-0.216.0.** `computeTaskHealth`'s finished-task driver is now three-way —
 `cancelled` (by status) / `completed` (by `isTaskDelivered`) / `closed` (neither) — so this pair
@@ -6083,7 +6083,7 @@ reachable on inspection.
 
 ## 78. A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — HALF FIXED post-0.226.0, partial-KPI half OPEN
 
-**Status:** open — PARTLY FIXED, the partial-KPI half is still open. Reproduced 2026-08-28 by `grep -n "hasCapturableContent" src/app/snapshot.ts`.
+**Status:** open — PARTLY FIXED, the partial-KPI half is still open. Reproduced 2026-08-28 by `grep -n "hasCapturableContent" src/app/snapshot.ts`. Re-verified 2026-09-13 on `b39517ec`: `grep -n -A 8 "export function hasCapturableContent" src/app/snapshot.ts` → still the tasks/milestones/burndown disjunction, so the partial-KPI decision is still unmade.
 
 `use-storage-turso-ops.ts` `createTursoProject` calls `applyWorkspace(ws)` with a fresh empty
 workspace and `setTursoProjectId(id)` in the same batch. `workspaceReady` (§77) is legitimately
@@ -7323,7 +7323,7 @@ about than either end state.
 
 ## 99. The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY FIXED 2026-08-08
 
-**Status:** open — PARTLY FIXED, seven optional slices are still unseeded. Reproduced 2026-08-28 by `grep -n "const KV_" src/app/browser-backend.ts`.
+**Status:** open — PARTLY FIXED, seven optional slices are still unseeded. Reproduced 2026-08-28 by `grep -n "const KV_" src/app/browser-backend.ts`. Re-verified 2026-09-13 on `b39517ec`: the KV-intersection node command in the body now reports `entries 12` (was 11), seeded `documents,documentVersions,insights,timelogLinks`, and the same six slices dropped; `grep -c "^const KV_" src/app/browser-backend.ts` → 12.
 
 `e2e/seed.ts` writes the sample workspace into IndexedDB from TWO HARDCODED lists: an entity-store
 list and a kv-key map. Anything named in neither is dropped without a word. `BrowserBackend`
@@ -8504,7 +8504,7 @@ thirteen-file list.
 
 ## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN
 
-**Status:** open — PARTLY FIXED — the `documents-list.tsx` half is fixed, the `#docId` sub-section is not. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** open — PARTLY FIXED — the `documents-list.tsx` half is fixed, the `#docId` sub-section is not. Last asserted 2026-08-25; never machine-verified by a committed probe. Re-verified 2026-09-13 on `b39517ec`: `grep -n 'nameQualifier' src/app/chat-tool-block.tsx` → the qualifier is now ` – title · #docId`, which still repeats for two cards on one document.
 
 ★★★ **DO NOT READ THIS SECTION AS DONE.** It carries TWO defects and the slice that closed it
 addressed ONE. The `documents-list.tsx` six-control body below is CLOSED; the `### Same family,
@@ -8639,6 +8639,8 @@ width before the branch renders, so there is no group to reflow.
 ## 113. The documents roadmap — block editor, entity attachment, images, OOXML media — ALL SIX SLICES SHIPPED; kept as the decision record
 
 **Status:** open — a decision record kept deliberately after its slices shipped, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** none — decision record
 
 ★★★ **CORRECTED 2026-08-21 — this entry's own title used to say "designed, UNIMPLEMENTED" and
 that had rotted into the dangerous direction.** S3a, S4 and S3b (0.222.0–0.249.0) and a structural
@@ -9154,7 +9156,7 @@ reading; if it and this entry ever disagree, neither is a measurement — re-run
 
 ## 117. Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) still open
 
-**Status:** open — PARTLY FIXED, (a) and (b) are fixed and (c) is still open. Reproduced 2026-08-28 by `grep -n "DOCUMENT_ALLOWED_ATTR" src/app/sanitize-html.ts`.
+**Status:** open — PARTLY FIXED, (a) and (b) are fixed and (c) is still open. Reproduced 2026-08-28 by `grep -n "DOCUMENT_ALLOWED_ATTR" src/app/sanitize-html.ts`. Re-verified 2026-09-13 on `b39517ec`: `grep -n "DOCUMENT_ALLOWED_ATTR =" src/app/sanitize-html.ts` → `data-asset-id` and `alt` only, no `src`, so (c) is still an inert prerequisite.
 
 ★ ONE entry rather than three because all three share a trigger: they become live the
 moment S3c wires the asset store, and whoever implements it needs the whole checklist.
@@ -26295,7 +26297,7 @@ owed before anyone attempts it.
 which widened into every control the Next-actions row and hero render. The controls named below were
 deliberately NOT given a row token, and the justification was reasoned from the dismissal contract
 rather than measured. Nothing drives two of these panels open at once in any test, so the premise
-has never been exercised.
+has never been exercised. Re-verified 2026-09-13 on `b39517ec`: `grep -rn "§328" src --include=*.tsx` → the one `ActionOverflowMenu` comment, and `action-cta-controls.test.tsx` still does not exist, so the two-menus measurement is still owed.
 
 §324's fix threads an occurrence-qualified `rowToken` into every control that renders **once per
 row**: the score tooltip, the Open button (primary and ghost), the direct verbs, the assign trigger,
@@ -26359,6 +26361,8 @@ reader does not have to rediscover that the coupling is by convention rather tha
 the comment stating the constraint, and NO hyperlink emitter. Filed so a later reader does not read
 the inline form as an unfinished job.
 
+**Work item:** none — decision record
+
 `.xlsx` CAN carry real cell hyperlinks — a worksheet holds a `hyperlinks` element whose entries each
 name a cell reference and a relationship id — and that is precisely the shape which cannot represent
 this data. **The unit is the CELL, not the run.** A shared string holds no hyperlink of its own, so a
@@ -26393,6 +26397,8 @@ this one about a format's data model.
 `grep -n "cellTextWithLinks\|createLinkSink" src/app/doc-render-pptx.ts src/app/export-pptx.ts`
 and by `npx vitest run src/app/export-ooxml.test.ts src/app/doc-render-pptx-slides.test.ts src/app/export-sections.test.ts src/app/doc-render-pptx.test.ts src/app/export-sections.rich.property.test.ts --maxWorkers=1`
 (224 passed).
+
+**Work item:** none — decision record
 
 ★★★ **2026-09-01, COLD REVIEW — §336 WAS REPRODUCED IN THE PPTX ROW TITLE BY CONSTRUCTION, AND IS
 NOW FIXED.** The wiring left a linked run naming no fill on purpose, so PowerPoint would paint it
@@ -30333,6 +30339,8 @@ can test "a keyboard user cannot reach a `title`", and the two halves that ARE t
 have owners (`task-raid-badge.test.tsx` pins the accessible name's containment property;
 `grep -n "title=" src/app/task-raid-badge.tsx` shows the one attribute this entry is about).
 
+**Work item:** none — decision record
+
 `178b2aa9` moved the per-category R/A/I/D split off the badge's visible text — which now carries a
 total — and onto `title`. `title` is the accessible DESCRIPTION, so a screen-reader user still gets
 the split, announced after the name. A sighted user does not: `title` surfaces on MOUSE HOVER
@@ -32030,6 +32038,8 @@ the next person who reads `loadArrangement`.
 `npx playwright test e2e/reports-arrangement-focus.spec.ts --project=chromium --workers=1`
 in Chromium against a live dev server, one mutant at a time:
 
+**Work item:** none — decision record
+
 ```
 clean tree                                    -> 1 passed
 delete setFocusAfterMove({ id })              -> 1 passed   <- SURVIVES
@@ -33676,6 +33686,8 @@ original. No fact was deleted. There is no second round of that available; the f
 published cache ratios and the prefix size the guide-block cache-split slice measured; no run has been
 instrumented to confirm a payback point, and nothing here has been reproduced against live usage.
 
+**Work item:** none — decision record
+
 A history budget — trim the oldest turns once the transcript passes some size — was on the roadmap as
 slice C1. Its economics inverted when the guide-block cache split landed, and this entry records the
 argument for NOT building it rather than leaving the roadmap item to be picked up on its original
@@ -34003,6 +34015,8 @@ serialises, since the census is written into the artifact.
 
 **Status:** open as a RECORD rather than as a defect — the twelve refusals are correct as of 2026-09-10, and each is written at its own call site so a later reader meets the reason where the icon would have gone. Verified that day by `grep -rn "NO help icon" src/app --include=*.tsx | grep -v "\.test\." | wc -l` returning **13** — the twelve refusals plus `help-menu.tsx`, which is excluded for a different reason (below). Whether any individual refusal is still RIGHT is a judgement about Help CONTENT that no command can answer, so on that axis: never machine-verified.
 
+**Work item:** none — decision record
+
 §424 wired the dialogs that render a `ModalHeader`. Thirteen headerless `<Modal>` sites remained; exactly ONE was wired (`raci-suggest-modal.tsx`). The other twelve are refusals, in two classes. They are collected here so the shape is visible in one place, while the per-site evidence stays beside the code — a reader tempted to "complete the pattern" meets it at the call site, which is the only place that stops them.
 
 **Five are REFUSE-STRUCTURAL** — not help candidates by their nature, not for want of content. `actions-panel.tsx`, `step0-import-panel.tsx` and `timelog-panel.tsx` are transient progress dialogs, gone before a reader could open one. `integration-disclaimer.tsx` is an acknowledgement gate: the dialog IS the explanation, so a second one behind an icon would only repeat it. `version-info.tsx` is already information. A dialog that declares nothing is the DESIGNED answer for progress, confirmations and gates — not an omission.
@@ -34223,7 +34237,7 @@ run on purpose. Presence witnesses re-run 2026-09-11: `grep -n "^artifactName:" 
 (the one installer name), `grep -n -A 1 "^win:" desktop/electron-builder.yml` (`target: nsis`, the only
 target), `grep -n '"desktop:package": "npm' package.json` (`--win`),
 `grep -nF '\\logs' desktop/src/lib/log-paths.ts` (the hard-coded backslash separator) and
-`grep -n "links.length !== 1" scripts/release-publish-lib.mjs` (exactly one Release asset link).
+`grep -n "links.length !== 1" scripts/release-publish-lib.mjs` (exactly one Release asset link). Re-verified 2026-09-13 on `b39517ec`: `grep -n "^linux:" desktop/electron-builder.yml` → nothing, and `grep -nF '\\logs' desktop/src/lib/log-paths.ts` → the backslash join is unchanged.
 
 The desktop app ships for Windows only, and that was a scoping decision rather than an oversight. The
 Electron design's non-goals read: "Cross-platform builds. Windows first; macOS/Linux are not in scope and
