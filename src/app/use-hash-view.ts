@@ -69,14 +69,18 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
   // Mount + back/forward: hash drives the view (and any deep-linked item).
   useLayoutEffect(() => {
     if (!enabled || isPopout) {
-      // ★★ RE-ARM, don't just bail. While disabled this hook maintains nothing,
-      //    so the hash freezes at whatever the last enabled window wrote and is
-      //    unmaintained residue by the time we come back — i.e. the NEXT
-      //    activation is a fresh cold load. Latching the ref once for the
-      //    hook's lifetime reintroduced the very defect it fixes by another
-      //    route (modern → classic → modern honoured the frozen hash and
-      //    yanked the user off their current view). "Cold" therefore means the
-      //    first apply of each CONTIGUOUS enabled window.
+      // ★★ RE-ARM, don't just bail. While disabled this hook maintains nothing —
+      //    neither of its effects writes the hash — so by the time we come back
+      //    the hash is residue this hook did not keep, i.e. the NEXT activation
+      //    is a fresh cold load. ★ It is NOT frozen meanwhile: `requestOpen`
+      //    (workspace-tab-context.tsx) writes `#<view>/<id>` in any non-popout
+      //    layout, so an item opened from global search during classic leaves
+      //    an item-bearing hash that the cold rule HONOURS on return
+      //    (docs/open-followups.md §478). Latching the ref once for the hook's
+      //    lifetime reintroduced the very defect it fixes by another route
+      //    (modern → classic → modern honoured the stale hash and yanked the
+      //    user off their current view). "Cold" therefore means the first apply
+      //    of each CONTIGUOUS enabled window.
       coldDoneRef.current = false;
       return;
     }

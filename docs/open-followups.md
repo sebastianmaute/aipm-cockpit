@@ -700,7 +700,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--open) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read — OPEN | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `68f70b9d` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | open |
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
 | [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--open) | Only three currencies are supported, and INR is wanted — OPEN | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | open |
-| [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--open) | Switching back to the modern layout moves the user off their current view — OPEN | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, rewrite the re-arm test, and correct two comments that call the hash frozen | open |
+| [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--open) | Switching back to the modern layout moves the user off their current view — OPEN | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -35308,14 +35308,15 @@ So a classic → modern switch moves the user one of two ways, and neither keeps
 - a view-only hash, the usual case → the Dashboard;
 - an item-bearing hash → that item's view, with the item RE-OPENED.
 
-★★ THE HASH IS NOT FROZEN DURING CLASSIC, and both the hook's own comment ("the hash freezes at whatever
-the last enabled window wrote") and the re-arm test's comment say it is. The hook's two effects are off,
-which is true. But `requestOpen` (`workspace-tab-context.tsx`) writes `#<view>/<id>` gated only on
-`!isPopout`, never on the layout, and global search calls it (`global-search-box.tsx`) among other
-callers — enumerate them with `git grep -n "requestOpen(" -- src/app ':!*.test.*'`. So an item opened from
-search while in classic leaves an item-bearing hash behind, the user navigates on, and the next switch to
-modern reopens that item from wherever they were. ★ REASONED from the call sites, not run. Correct both
-comments when this is decided, whichever option wins — they are wrong under all three.
+★★ THE HASH IS NOT FROZEN DURING CLASSIC. Until they were corrected on this branch after filing, both the
+hook's own comment ("the hash freezes at whatever the last enabled window wrote") and the re-arm test's
+comment said it was. The hook's two effects are off, which is true. But `requestOpen`
+(`workspace-tab-context.tsx`) writes `#<view>/<id>` gated only on `!isPopout`, never on the layout, and
+global search calls it (`global-search-box.tsx`) among other callers — enumerate them with
+`git grep -n "requestOpen(" -- src/app ':!*.test.*'`. So an item opened from search while in classic leaves
+an item-bearing hash behind, the user navigates on, and the next switch to modern reopens that item from
+wherever they were. ★ REASONED from the call sites, not run. ★ Both comments now say this and cite this
+entry. Re-read them whichever option wins, because (c) changes what "cold" means.
 
 The three options the cold-rule fix (`2a1fe97a`) weighed:
 

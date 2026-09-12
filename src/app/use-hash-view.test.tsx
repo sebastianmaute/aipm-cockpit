@@ -334,10 +334,13 @@ describe("useHashView", () => {
 
   it("re-arms the cold rule when the hook is disabled and re-enabled (classic round trip)", () => {
     // A ref that latched once for the hook's LIFETIME reintroduced the defect by
-    // another route: modern → classic → modern. Both effects are off during the
-    // classic interlude, so the hash freezes at whatever modern last wrote and
-    // is unmaintained residue by re-activation — which makes it a COLD load.
-    // Latching once would instead honour that frozen hash on the second
+    // another route: modern → classic → modern. Both of this hook's effects are
+    // off during the classic interlude, so nothing HERE maintains the hash and
+    // it is residue by re-activation — which makes it a COLD load. It is not
+    // frozen, though: `requestOpen` still writes item hashes during classic
+    // (docs/open-followups.md §478). This test parks a VIEW-ONLY hash, so it
+    // covers the Dashboard branch of re-entry and not the item-bearing one.
+    // Latching once would instead honour that stale hash on the second
     // activation and yank the user off their current view.
     window.location.hash = "";
     // ★★ Hoisted, not inline — see the note on the first-EXECUTED-run test: an
