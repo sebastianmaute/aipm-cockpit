@@ -3,7 +3,7 @@ import { useLayoutEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { isAuthResponseHash, useHashView } from "./use-hash-view";
-import { ALL_MODULE_IDS } from "./feature-modules";
+import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 
 function wrapper({ children }: { children: ReactNode }) {
   return <WorkspaceTabProvider>{children}</WorkspaceTabProvider>;
@@ -49,8 +49,13 @@ describe("useHashView", () => {
 
   it("does NOT route or clobber an MSAL auth-response fragment (popup can close)", () => {
     window.location.hash = "#code=abc&state=xyz";
+    // ★★ Same non-colliding `features` list as the cold-load sibling below, and
+    //    for the same reason: with the default (all modules) this test ALSO
+    //    passed with `isAuthResponseHash`'s early return deleted, because
+    //    "dashboard" is both the provider default and `blankView`.
+    const features = ALL_MODULE_IDS.filter((m) => m !== "dashboard");
     const { result } = renderHook(
-      () => { useHashView(); return useWorkspaceTab(); },
+      () => { useHashView(true, features); return useWorkspaceTab(); },
       { wrapper },
     );
     // Stays on the default view (no routing) and leaves the fragment intact so
@@ -270,12 +275,117 @@ describe("useHashView", () => {
   });
 
   it("leaves an MSAL auth-response fragment untouched on a cold load", () => {
+    // ★★ THE `features` LIST IS WHAT MAKES THIS TEST NON-VACUOUS. With the
+    //    default (all modules) it passed with `isAuthResponseHash`'s early
+    //    return DELETED from `apply`, because the expected value collided with
+    //    `blankView`: "dashboard" is both the provider's default AND where the
+    //    cold rule routes an unrecognised hash, so the assertion could not tell
+    //    "the MSAL guard returned" from "the cold rule routed home". Dropping
+    //    `dashboard` moves `blankView` to "open-points", so the two paths now
+    //    have different observable values and only the guard yields "dashboard".
     window.location.hash = "#code=abc&state=xyz";
+    const features = ALL_MODULE_IDS.filter((m) => m !== "dashboard");
     const { result } = renderHook(
-      () => { useHashView(); return useWorkspaceTab(); },
+      () => { useHashView(true, features); return useWorkspaceTab(); },
       { wrapper },
     );
     expect(result.current.activeTab).toBe("dashboard");
     expect(window.location.hash).toBe("#code=abc&state=xyz");
+  });
+
+  it("does not re-apply the cold rule when the effect re-runs on a new features identity", () => {
+    // The mount effect's deps include `features`, and the async settings load
+    // commits a FRESH array for any user with a module disabled — so the effect
+    // re-runs while the user is mid-session. `apply` is no longer idempotent
+    // (a cold run discards a view-only hash), so without the cold-once ref that
+    // re-run snaps the user off the view they had navigated to.
+    window.location.hash = "";
+    const { result, rerender } = renderHook(
+      ({ features }: { features: readonly FeatureModuleId[] }) => {
+        useHashView(true, features);
+        return useWorkspaceTab();
+      },
+      { wrapper, initialProps: { features: [...ALL_MODULE_IDS] as readonly FeatureModuleId[] } },
+    );
+    expect(result.current.activeTab).toBe("dashboard");
+
+    // The user navigates. A later hashchange is authoritative, view-only or not.
+    // ★ Park on a NON-dashboard view: if the parked view were the cold target,
+    //   the final assertion could not tell a warm re-apply from a cold one.
+    act(() => {
+      window.location.hash = "#raid";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(result.current.activeTab).toBe("raid");
+
+    // Settings land with a genuinely DIFFERENT set, so the effect re-runs and
+    // the user must STAY on raid.
+    // ★ A new array of the SAME members would also re-run the effect, but
+    //   `sameFeatureSet` (use-features-sync.ts) reuses the old array in that
+    //   case, so the real app cannot produce it.
+    // ★★ The dropped module is `knowledge`, deliberately NOT raid's: dropping
+    //    the PARKED view's module would make `isViewEnabled` short-circuit
+    //    `apply` before the cold flag is ever read, so the test would pass via
+    //    that early return and survive the `apply(true)` mutant.
+    const withoutKnowledge = ALL_MODULE_IDS.filter((m) => m !== "knowledge");
+    rerender({ features: withoutKnowledge });
+    expect(result.current.activeTab).toBe("raid");
+  });
+
+  it("re-arms the cold rule when the hook is disabled and re-enabled (classic round trip)", () => {
+    // A ref that latched once for the hook's LIFETIME reintroduced the defect by
+    // another route: modern → classic → modern. Both effects are off during the
+    // classic interlude, so the hash freezes at whatever modern last wrote and
+    // is unmaintained residue by re-activation — which makes it a COLD load.
+    // Latching once would instead honour that frozen hash on the second
+    // activation and yank the user off their current view.
+    window.location.hash = "";
+    // ★★ Hoisted, not inline — see the note on the first-EXECUTED-run test: an
+    //    inline `features` array re-runs the effect every render and loops.
+    const features = [...ALL_MODULE_IDS] as readonly FeatureModuleId[];
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => {
+        useHashView(enabled, features);
+        return useWorkspaceTab();
+      },
+      { wrapper, initialProps: { enabled: true } },
+    );
+    expect(result.current.activeTab).toBe("dashboard");
+
+    act(() => {
+      window.location.hash = "#raid";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(result.current.activeTab).toBe("raid");
+
+    rerender({ enabled: false }); // classic: both effects go quiet
+    rerender({ enabled: true }); // back to modern — a fresh cold window
+    expect(result.current.activeTab).toBe("dashboard");
+  });
+
+  it("applies the cold rule on the first EXECUTED run, not the first render", () => {
+    // The effect returns early while disabled, so a Classic→Modern switch makes
+    // the first EXECUTED run the cold load for that window. The ref must
+    // therefore be set INSIDE the effect after apply, never during render.
+    window.location.hash = "#raid";
+    // ★★ HOIST `features` — do NOT build it inside the callback. It is an
+    //    effect DEP, so an inline array is a new identity every render, which
+    //    re-runs the effect on every render; once a cold apply actually CHANGES
+    //    activeTab that becomes a render loop (measured: "Maximum update depth
+    //    exceeded" from `apply`). The real call site passes `settings.features`,
+    //    a stable reference between settings commits.
+    const features = [...ALL_MODULE_IDS] as readonly FeatureModuleId[];
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => {
+        useHashView(enabled, features);
+        return useWorkspaceTab();
+      },
+      { wrapper, initialProps: { enabled: false } },
+    );
+    expect(result.current.activeTab).toBe("dashboard");
+
+    rerender({ enabled: true });
+    // Cold: the view-only "#raid" is stale session residue, so we land home.
+    expect(result.current.activeTab).toBe("dashboard");
   });
 });
