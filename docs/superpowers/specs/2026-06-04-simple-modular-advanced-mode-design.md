@@ -1,5 +1,7 @@
 # Simple / Modular / Advanced Mode — Design (v0.54.0 "Herbert")
 
+> **Status (2026-09-13 audit):** PARTIAL — shipped as a single boolean `expertMode` toggle (`settings-types.ts`), not the three-tier simple/modular/advanced design this spec proposed; the tri-state mode itself was never built, untracked, see housekeeping list. Kept as a historical record; do not execute as written.
+
 **Date:** 2026-06-04
 **Status:** Approved (pending written-spec review)
 **Release:** v0.54.0 "Herbert" (continues Le Guin → Sanderson → Pratchett → Scalzi → Asimov)

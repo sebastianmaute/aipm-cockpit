@@ -1,5 +1,7 @@
 # Dashboard density toggle — design
 
+> **Status (2026-09-13 audit):** SUPERSEDED by the density control's move to Settings → Appearance — the dashboard-local toggle this spec designed shipped, then was removed (AGENTS.md's ToggleButton section: "density moved to Settings → Appearance"). Kept as a historical record; do not execute as written.
+
 **Date:** 2026-06-21
 **Slice:** Landing-cockpit Tier-2 #8
 **Version target:** 0.123.0

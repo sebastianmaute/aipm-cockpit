@@ -1,5 +1,7 @@
 # Module 0 — Separation Boundary Foundation Implementation Plan
 
+> **Status (2026-09-13 audit):** NOT STARTED — this plan's 8 tasks (`actor.ts`, `deployment.ts`, `use-current-actor.ts`, boundary-config rules) have zero code, zero git history and zero register/tech-debt/CHANGELOG trace; untracked, see housekeeping list. Kept as a historical record; do not execute as written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Establish the one-directional "core never imports a pack" boundary (with a CI gate), plus the actor + deployment-capability abstractions and a pack-registration seam — all while the app stays 100% local-first with zero user-visible behavior change.

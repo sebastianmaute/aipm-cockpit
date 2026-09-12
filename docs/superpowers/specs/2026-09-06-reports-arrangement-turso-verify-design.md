@@ -1,5 +1,7 @@
 # Reports arrangement + a confirmed-connection gate on Move-to-Turso — design
 
+> **Status (2026-09-13 audit):** PARTIAL — code shipped (merged twice); the slice's own owed eye-verify checks remain open, tracked in §426. The deferred per-window/per-modal help icon is tracked in §424; the `focusAfterMove`/`triggerRefs` detector gap is tracked in §428 (recorded as a decision, not a defect). Kept as a historical record; do not execute as written.
+
 **Date:** 2026-09-06
 **Base:** `origin/main` at `3aef0e01` (0.288.0 "Duchamp")
 **Branch:** `feat/reports-arrangement-turso-verify`

@@ -1,5 +1,7 @@
 # Modern Sidebar Layout — Phase 4 (Shell Polish) Implementation Plan
 
+> **Status (2026-09-13 audit):** PARTIAL — Workstream A (shell a11y + responsive collapse) shipped; Workstreams B (full Settings view), C (menu-cluster DRY + banner parity) and D (divergent-table sweep) were deferred to follow-on plans and never executed under this plan, untracked, see housekeeping list. Kept as a historical record; do not execute as written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the modern sidebar genuinely responsive and accessible — a working collapsible icon rail (auto-collapsing on narrow screens), a top-bar menu button, skip-link + landmarks, and a fuller sidebar footer (theme toggle, storage status, account/sign-out) — shipping as v0.32.0.

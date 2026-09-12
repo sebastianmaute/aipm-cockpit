@@ -1,5 +1,7 @@
 # Modern Sidebar Layout — Phase 2 (Full-Page Edit View) Implementation Plan
 
+> **Status (2026-09-13 audit):** SUPERSEDED by the unified floating `TaskFormModal` — the full-page edit view (`TaskEditView`/`useEditView`) this plan built was later retired app-wide (AGENTS.md: "Task editor is ONE floating surface now"). Kept as a historical record; do not execute as written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** In the modern layout, host the task editor as a full-viewport `edit` view (styled per `docs/patterns/edit.png`) instead of the overlay modal; Classic mode and all popouts keep the existing modal — both surfaces reuse the same form fields, state, and validation.

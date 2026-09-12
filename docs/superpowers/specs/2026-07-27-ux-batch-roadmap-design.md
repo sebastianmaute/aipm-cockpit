@@ -1,5 +1,7 @@
 # UX batch + owed calendar sync — 8-slice roadmap
 
+> **Status (2026-09-13 audit):** PARTIAL — 6 of the 8 roadmap slices (C/D/F/A/E/B) shipped; S6 (Outlook push for calendar events) was designed and planned but not one step executed, and S7 was never designed; both tracked in §44. Kept as a historical record; do not execute as written.
+
 _Opened 2026-07-27, against 0.203.0 "Czerneda". Decomposition of an 18-item UX request plus the two
 Outlook-sync slices owed from the R5 calendar release._
 

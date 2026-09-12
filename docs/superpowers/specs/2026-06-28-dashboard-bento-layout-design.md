@@ -1,5 +1,7 @@
 # Dashboard Bento Layout Redesign — Design
 
+> **Status (2026-09-13 audit):** SUPERSEDED by the masonry layout — bento and masonry were two competing same-day dashboard-layout proposals; masonry shipped, this design's bento layout did not (no `bento` string exists anywhere in `src`). Kept as a historical record; do not execute as written.
+
 **Goal:** Re-lay-out the Dashboard cockpit from a flat 12-section vertical stack into a 3-tier
 bento layout that cuts scroll, uses horizontal space on wide screens, encodes importance by
 position/size, and declutters via disclosure — without changing what data is shown or the panel's

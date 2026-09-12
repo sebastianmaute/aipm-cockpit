@@ -1,5 +1,7 @@
 # ESLint 9 → 10 Upgrade Implementation Plan
 
+> **Status (2026-09-13 audit):** SUPERSEDED by a later, different design (`2026-09-10-eslint-10-upgrade-design.md`) — this is the abandoned first attempt (`eslint-plugin-react`'s removed `context.getFilename()`); register §53, closed. Kept as a historical record; do not execute as written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Move the repo from `eslint@^9` to `eslint@^10` without weakening the blocking CI lint gate.

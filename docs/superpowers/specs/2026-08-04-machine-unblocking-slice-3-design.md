@@ -1,5 +1,7 @@
 # Machine-unblocking slice 3 — test isolation, guard symmetry, and a doc landmine — design
 
+> **Status (2026-09-13 audit):** SHIPPED, but this file's own opening claim is false — it says it is gitignored (`docs/superpowers/` — `.gitignore:76`) and exists only on this machine; `.gitignore:76` is actually `/docs/patterns/`, unrelated, and this file is tracked on `origin/main`. Kept as a historical record; do not execute as written.
+
 _Written 2026-08-04, against `fix/mountedref-strictmode-siblings` `fb33f755` (main `4a81420a` +
 the §76 fix). Continues [`2026-08-03-machine-unblocking-design.md`](2026-08-03-machine-unblocking-design.md)._
 

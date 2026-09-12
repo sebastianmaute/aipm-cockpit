@@ -1,5 +1,7 @@
 # Module 0 — Separation Boundary Foundation (design)
 
+> **Status (2026-09-13 audit):** NOT STARTED — the entire Module 0 foundation (Actor type, DeploymentTier/Capabilities, `useCurrentActor`, boundary-config rules) has zero code, zero git history and zero register/tech-debt/CHANGELOG trace; untracked, see housekeeping list. Kept as a historical record; do not execute as written.
+
 Date: 2026-07-12
 Status: Approved (design); pending implementation plan
 Author: brainstorming session

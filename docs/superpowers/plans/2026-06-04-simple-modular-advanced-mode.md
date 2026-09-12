@@ -1,5 +1,7 @@
 # Simple / Modular / Advanced Mode — Implementation Plan
 
+> **Status (2026-09-13 audit):** PARTIAL — shipped as a single boolean `expertMode` toggle (`settings-types.ts`), not the three-tier simple/modular/advanced design this plan proposed; the tri-state mode itself was never built, untracked, see housekeeping list. Kept as a historical record; do not execute as written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a Simple mode (core only: Tasks, Chat, Reports, Activity, Settings), let the user re-enable individual feature-modules to reach Modular mode, and auto-return to Advanced (all on) when every module is enabled — disabling a module retains its data, records no new data, and pauses cross-module automation.

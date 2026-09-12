@@ -1,5 +1,7 @@
 # Modern Sidebar Layout + Classic Mode — Design
 
+> **Status (2026-09-13 audit):** PARTIAL — phase 1 (chrome) and phase 3 (table restyle) shipped; phase 2 (full-page edit view) was later superseded by the floating `TaskFormModal`; phase 4's workstreams B (full Settings view), C (menu-cluster DRY + banner parity) and D (divergent-table sweep) were deferred and never executed under this design, untracked, see housekeeping list. Kept as a historical record; do not execute as written.
+
 **Date:** 2026-05-29
 **Status:** Approved (brainstorming) — pending implementation plan
 **Baseline version:** 0.28.1

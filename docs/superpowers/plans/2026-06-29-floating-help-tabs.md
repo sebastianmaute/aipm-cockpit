@@ -1,5 +1,7 @@
 # Floating Help Tabs Implementation Plan
 
+> **Status (2026-09-13 audit):** PARTIAL — the tabbed floating Help panel shipped, then its floating-panel mechanism was reverted in favor of an in-pane tabbed Help view; the tours/connects/flows tabs concept survives under a different container, untracked, see housekeeping list. Kept as a historical record; do not execute as written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Rework the floating top-bar Help panel into a tabbed surface — remove the intro slogan; put Help · Guided tours · How it connects · Information flows tabs in the header beside the search box; swap the body per tab; let the relations map + info-flows diagram fill the larger body.

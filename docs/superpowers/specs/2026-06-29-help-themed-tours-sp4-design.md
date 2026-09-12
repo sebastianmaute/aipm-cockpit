@@ -1,5 +1,7 @@
 # Help Expansion SP4 — Themed Guided Tours
 
+> **Status (2026-09-13 audit):** PARTIAL — the underlying tour catalog (`tour-catalog.tsx`) shipped and is wired into Help; the spec's specific "themed" grouping is unconfirmed in the code (no `theme` string in that file) and may not have shipped as designed, untracked, see housekeeping list. Kept as a historical record; do not execute as written.
+
 **Date:** 2026-06-29
 **Part of:** the 4-part "expand Help for PM novices" roadmap (SP1 backbone+Help-view · SP2 contextual per-view callouts · SP3 interactive relations map · **SP4 themed guided tours**). SP4 is the final sub-project; it builds on the existing single-tour engine (`app-tour.ts` / `use-tour.ts` / `tour-overlay.tsx`, shipped earlier as "SP-F").
 
