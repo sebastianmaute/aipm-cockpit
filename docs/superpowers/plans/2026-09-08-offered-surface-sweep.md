@@ -6,6 +6,16 @@
 > re-measured against main. Everything below is the dated record of the branch as executed and is not
 > rewritten: branch SHAs cited below never reached main, and figures below are the branch's, not main's.
 
+> **Ledger note, 2026-09-12 — every `UNSWEPT_BY_DESIGN` passage below is now stale.** As of this date
+> `UNSWEPT_BY_DESIGN.task` is `["jiraKey"]` and `UNSWEPT_BY_DESIGN.calendarEvent` is `[]`. The twelve
+> names this document describes as unswept by design became genuinely SWEPT on branch
+> `feat/sweep-typed-probes`: `34488c85` re-measured the recorded axis (`AXIS_FIELDS`,
+> `src/test/inline-sweep-fixtures.ts`) against the seeds that branch widened, which put eleven `task`
+> columns and `calendarEvent.exceptions` on it, and `dbd90a43` then removed those twelve from the
+> ledger, whose strict `toEqual` had gone red over the record that had stopped being true. Read a
+> removal from that list as a coverage GAIN, not a write-off. The body below is preserved as written
+> on 2026-09-08 and is not rewritten.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give the AI write path a detector that can see what the existing parity sweep structurally cannot — an undeclared field landing on either the create or the update path, and a declared field silently failing to land — closing `docs/open-followups.md` §439 and §436.

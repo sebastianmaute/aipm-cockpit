@@ -1411,19 +1411,20 @@ describe("every descriptor's create/delete tool is describable (§434)", () => {
   });
 });
 
-// (C3) THE MERGE-SITE GUARD ON LINK FIELDS, AND THE `target` SPLIT THAT MAKES
-//  IT CORRECT. `rawTypeGuards` models an ALLOW-LIST merge site, and the update
-//  branch consults it for every `diffFields` member — but a LINK field is not
-//  in `diffFields`, so `attendeeResourceIds` and `absence.resourceId` bypassed
-//  it entirely.
+// (C3) THE MERGE-SITE GUARD ON LINK FIELDS, ON BOTH PATHS. `rawTypeGuards`
+//  models an ALLOW-LIST merge site, and the update branch consults it for every
+//  `diffFields` member — but a LINK field is not in `diffFields`, so
+//  `attendeeResourceIds` and `absence.resourceId` bypassed it entirely.
 //
-//  THE CREATE CONTROL IS THE HALF AN UNCONDITIONAL FIX MISSES, and without it
-//   every other case here passes with the gate deleted. `dropUnaccepted*Fields`
-//   is called ONLY from `updateAbsence`/`updateCalendarEvent`
-//   (`use-register-tools.ts`); both CREATES hand `input` straight to their
-//   sanitizer, so on a create `sanitizeAttendees` IS what lands and a rejection
-//   would be the preview inventing a rule the write does not have.
-describe("link fields honour the merge-site guard on the ROW path only", () => {
+//  ★★ THE CREATE PATH WAS ONCE THE EXCEPTION, AND THIS HEADER SAID SO. Until
+//   `68486cd4` both allow-list CREATES handed `input` straight to their
+//   sanitizer, so the guard ran on the row path only and a create previewed
+//   `sanitizeAttendees` verbatim. Since then `createAbsence` /
+//   `createCalendarEvent` (`use-register-tools.ts`) run `dropUnaccepted*Fields`
+//   first, so a create refuses what an update refuses, and the card must too
+//   (§460). A create passes no `toolName`, so its refusal is an OMITTED link,
+//   never a `rejected` row — disclosing it is §440's.
+describe("link fields honour the merge-site guard on the row and the create path", () => {
   const people = [
     { id: 7, firstName: "Ada", lastName: "Lovelace" },
     { id: 9, firstName: "Grace", lastName: "Hopper" },
@@ -1494,14 +1495,22 @@ describe("link fields honour the merge-site guard on the ROW path only", () => {
     expect(plan.rejected).toEqual([]);
   });
 
-  // THE `target` GATE. A CREATE never passes through
-  //  `dropUnacceptedCalendarEventFields`, so `sanitizeAttendees([7, "9"])` is
-  //  exactly what the write stores and the card must DISCLOSE it. Delete the
-  //  `target === "row"` condition and this goes red while every case above
-  //  stays green — which is the whole reason it is here.
-  it("does NOT apply the guard to a create, whose write never sees it", () => {
+  // THE CREATE PATH. `createCalendarEvent` runs
+  //  `dropUnacceptedCalendarEventFields` before `sanitizeCalendarEvent`, so
+  //  `[7, "9"]` is dropped WHOLE and no attendee is stored; the card must show
+  //  none. `rejected` stays empty because a create passes no `toolName` — that
+  //  is §440's missing channel, not agreement. Restore a `target === "row"`
+  //  condition in `pushLinkDiffs` and this goes red while every case above
+  //  stays green.
+  it("applies the guard to a create too, because the create write applies it", () => {
     const plan = planFor("create_calendar_event", { title: "Kickoff", attendeeResourceIds: [7, "9"] }, "calendarEvent");
     expect(plan.rejected).toEqual([]);
+    expect(plan.links).toEqual([]);
+  });
+
+  // ANTI-VACUITY for the case above: an all-numeric list still previews on a create.
+  it("still previews a create's attendee list the write accepts", () => {
+    const plan = planFor("create_calendar_event", { title: "Kickoff", attendeeResourceIds: [7, 9] }, "calendarEvent");
     expect(plan.links).toEqual([
       { entity: "calendarEvent", target: "create", subject: "Kickoff", field: "attendeeResourceIds", before: "", after: "Ada Lovelace, Grace Hopper", rawIds: [7, 9] },
     ]);

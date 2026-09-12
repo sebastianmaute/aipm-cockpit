@@ -43,10 +43,13 @@ import { RICH_FIELDS } from "./plan";
  *  dispatcher mount per field. Deleting either leaves a hole the other does not
  *  cover.
  *
- *  ★ `UNSWEPT_BY_DESIGN.task` stays long here because `update_task` uses a
- *  genuine whitelist (`buildPatch`), reasoning the schema axis does not
- *  reproduce — so this file's axis is deliberately NOT re-based on
- *  `declaredProperties`. */
+ *  ★ This file's axis is deliberately NOT re-based on `declaredProperties`,
+ *  because `update_task` uses a genuine whitelist (`buildPatch`) — reasoning
+ *  the schema axis does not reproduce. ★★ That whitelist is why
+ *  `UNSWEPT_BY_DESIGN.task` was ever long; it is one name now, and NOT because
+ *  the reasoning changed — the 2026-09-12 `AXIS_FIELDS` re-measurement put
+ *  eleven of those columns on the sweep's own axis. Do not read the short list
+ *  as the whitelist having been retired. */
 
 /** Persisted fields the sweep deliberately does NOT cover, with the reason.
  *
@@ -55,71 +58,95 @@ import { RICH_FIELDS } from "./plan";
  *  name to this list to make a red run green — without checking the reason
  *  applies to THAT field — reintroduces exactly the defect this file exists to
  *  catch. The honest alternatives are: seed it (so the sweep covers it), guard
- *  it (`dropUnaccepted*Fields`), or token-exclude it. */
+ *  it (`dropUnaccepted*Fields`), or token-exclude it.
+ *
+ *  ★★ A REMOVAL FROM THIS LIST CAN BE A COVERAGE GAIN, AND ON 2026-09-12 TWELVE
+ *  OF THEM WERE — which is the only shape a removal is allowed to have. This
+ *  branch widened the sweep seeds, `AXIS_FIELDS`
+ *  (`src/test/inline-sweep-fixtures.ts`) was re-measured against them, and
+ *  eleven `task` columns plus `calendarEvent.exceptions` joined the real sweep
+ *  axis: the FIRST of the three alternatives above, taken. The red run that
+ *  followed was this ledger reporting a record that had stopped being true.
+ *  ★★★ The inverse move — deleting a name because the assertion is
+ *  inconvenient, or because the field merely stopped appearing — is the defect
+ *  this file exists to catch, seen from the other side. Before removing a name,
+ *  confirm it is now on `AXIS_FIELDS`, in `TOKEN_EXCLUDED` or in `RICH_FIELDS`;
+ *  if it left `PERSISTED_COLUMNS` instead, the column was dropped and that is a
+ *  different commit. */
 const UNSWEPT_BY_DESIGN: Record<InlineEntity, readonly string[]> = {
-  /** ★★ TASK IS THE ONE ENTITY WITH A REAL WHITELIST, and that is the whole
-   *  reason this list is long rather than alarming. `update_task` does NOT go
-   *  through `patchWithoutId`; it goes through `buildPatch`
-   *  (`chat-tools-updates.ts`), which names each field it copies and drops
-   *  everything else. ★ If `buildPatch` is ever replaced by a `patchWithoutId`
-   *  call, almost every name below becomes live in one commit — this comment is
-   *  the tripwire for that, since no test can see the swap.
+  /** ★★ `jiraKey` IS EXEMPT ON TWO COUNTS AND BOTH MUST KEEP HOLDING — one
+   *  explains why the sweep does not reach it, the other why that is safe.
    *
-   *  ★★★ `dependencies` IS MODEL-WRITABLE AND IS THE EXCEPTION TO THE PARAGRAPH
-   *  ABOVE. An earlier version of this comment said "so none of these is
-   *  model-writable", which was false, and the commit message that shipped it
-   *  repeated the error. `set_task_dependencies` (`chat-tools.ts`) takes the
-   *  model's array and hands it straight to the writer with no `buildPatch`,
-   *  reachable from chat, inline AI edit and insight-recommendation replay.
-   *  It is exempt for a DIFFERENT reason: it is a separate tool with its own
-   *  describer (`describeDependencyCall`, `chat-proposal-describe.ts`), so the
-   *  write IS disclosed — it is simply outside this axis, which is built from
-   *  the `update_*` tools alone. No data hole; a false justification.
-   *  ★★ Refuted by cold review with a command. Do not restore the flat claim:
-   *  a reader who believes "no task field can be model-writable without
-   *  appearing in `buildPatch`" will miss the next tool of this shape. */
-  task: [
-    "completedDate",
-    "createdDate",
-    "dependencies",
-    "healthOverride",
-    "jiraIssueType",
-    "jiraKey",
-    "knowledgeLinks",
-    "originalEstimateMinutes",
-    "remainingEstimateMinutes",
-    "resourceId",
-    "startDate",
-    "timeSpentMinutes",
-  ],
+   *  OFF THE AXIS: `seedGuardedTask` (`src/test/inline-sweep-fixtures.ts`)
+   *  leaves it BLANK deliberately, so no seed key puts it on `AXIS_FIELDS`. A
+   *  `jiraKey` makes the row Jira-synced and `assertJiraManagedUnchanged`
+   *  (`chat-task-patch.ts`) then throws on every `status`/`assignee` change,
+   *  which would turn the sweeps' probes on both into refusals — so seeding it
+   *  to buy coverage here would cost coverage there (§467, where
+   *  `plan.offered-surface-sweep.test.ts` ledgers it `dead` on both arms).
+   *
+   *  NOT MODEL-WRITABLE: `update_task` does NOT go through `patchWithoutId`; it
+   *  goes through `buildPatch` (`chat-tools-updates.ts`), which names each field
+   *  it copies and drops everything else, and `jiraKey` is not among them.
+   *  ★ If `buildPatch` is ever replaced by a `patchWithoutId` call this name
+   *  becomes live in one commit — this comment is the tripwire, since no test
+   *  can see the swap.
+   *
+   *  ★★★ DO NOT GENERALISE THE WHITELIST INTO "no task field is model-writable
+   *  without appearing in `buildPatch`". An earlier revision of this comment
+   *  made that flat claim about the whole list and it was false, refuted by a
+   *  cold review with a command; the commit message that shipped it repeated the
+   *  error. `set_task_dependencies` (`chat-tools.ts`) takes the model's array
+   *  and hands it straight to the writer with no `buildPatch`, reachable from
+   *  chat, inline AI edit and insight-recommendation replay. ★★ `dependencies`
+   *  is no longer listed here — the 2026-09-12 axis re-measurement swept it —
+   *  but the warning stays: a reader who believes the flat claim will miss the
+   *  next tool of this shape. */
+  task: ["jiraKey"],
   raid: [],
   change: [],
   milestone: [],
   stakeholder: [],
   resource: [],
   absence: [],
-  /** ★★ `exceptions` is safe by SHAPE, not by omission. Calendar events use the
-   *  ALLOWLIST guard (`dropUnacceptedCalendarEventFields` builds a fresh object
-   *  and copies only fields its table names), so a field with no table entry is
-   *  dropped by construction rather than by anybody remembering it. That is the
-   *  opposite of the five denylist entities, where an unnamed field passes
-   *  straight through — which is why their lists above must stay empty.
+  /** ★★ EMPTY BECAUSE `exceptions` IS NOW SWEPT, not because it stopped
+   *  mattering — it was the one entry here, exempted by SHAPE (calendar events
+   *  use the ALLOWLIST guard `dropUnacceptedCalendarEventFields`, which builds a
+   *  fresh object and copies only fields its table names, so a field with no
+   *  table entry is dropped by construction rather than by anybody remembering
+   *  it). That reasoning still describes the guard; it is simply no longer the
+   *  thing standing between the model and this field. ★★ It is also the OPPOSITE
+   *  of the five denylist entities above, where an unnamed field passes straight
+   *  through — which is why their lists must stay empty on their own merits and
+   *  not by borrowing this one's argument.
    *
-   *  ★★★ THAT SENTENCE WAS FALSE WHEN THIS EXEMPTION WAS FIRST WRITTEN, and it
-   *  is only true now because §438 made it true. The allowlist reached the
-   *  UPDATE path alone; `create_calendar_event` spread raw input, so
-   *  model-supplied `exceptions` — a field no write schema advertises, whose
-   *  exact shape the READ tool's description teaches — reached storage with
-   *  nothing to refuse it. This entry was therefore a suppression hiding a live
-   *  undisclosed write, in the file whose stated purpose is to stop
-   *  suppressions, three lines under a preamble warning against exactly that.
-   *  Caught by cold review, with the stored value measured.
-   *  ★★ It stays exempt because the shape claim now holds at BOTH call sites —
-   *  `plan.create-path-guards.test.ts` pins the create half — and NOT because
-   *  the field is unimportant. If either guard is removed this entry becomes a
-   *  lie again, and the honest move then is to delete it and let this test go
-   *  red. */
-  calendarEvent: ["exceptions"],
+   *  ★★★ AND IT WAS THE RIGHT ENTRY TO LOSE, because as originally written it
+   *  was FALSE. The allowlist reached the UPDATE path alone;
+   *  `create_calendar_event` spread raw input, so model-supplied
+   *  `exceptions` — a field no write
+   *  schema advertises, whose exact shape the READ tool's description teaches —
+   *  reached storage with nothing to refuse it (§438). The exemption was a
+   *  suppression hiding a live undisclosed write, in the file whose stated
+   *  purpose is to stop suppressions, three lines under a preamble warning
+   *  against exactly that. Caught by cold review, with the stored value
+   *  measured.
+   *
+   *  ★★ WHAT REPLACES IT IS STRICTLY STRONGER, and that is the only reason this
+   *  list may be empty: `seedGuardedCalendarEvent` now carries two `exceptions`
+   *  entries, so the field is on `AXIS_FIELDS` and
+   *  `plan.write-path-sweep.test.ts` probes it directly, while
+   *  `plan.offered-surface-sweep.test.ts` carries NO `calendarEvent` row in
+   *  `EXPECTED_UNDECLARED_FINDINGS` — i.e. Relation A probes this undeclared
+   *  column on both arms and ledgers it neither `dead` nor `unmeasured`, which
+   *  is the measurement that it lands nowhere.
+   *  ★★ READ THE RIGHT LEDGER: `EXPECTED_FINDINGS` above it DOES carry two
+   *  `calendarEvent` rows, and they are Relation B's on `sendInvitations`
+   *  (§443, mail-safety) — nothing to do with this field. A grep for
+   *  `"calendarEvent:` finds them and refutes the sentence above if you stop
+   *  there. `plan.create-path-guards.test.ts` still pins the create half.
+   *  Un-seeding the field would take all of that away in silence; restoring an
+   *  entry here is not the repair for that. */
+  calendarEvent: [],
 };
 
 const ENTITIES = Object.keys(PERSISTED_COLUMNS) as InlineEntity[];

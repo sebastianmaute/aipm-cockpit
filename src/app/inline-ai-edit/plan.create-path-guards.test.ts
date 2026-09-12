@@ -56,11 +56,19 @@
 //    file AND the sweep green, because `sanitizeAbsence` builds its row from
 //    named fields and drops an unnamed key on its own. It pins the OUTCOME's
 //    shape, which holds without the allowlist; see that case below.
+//
+// ★★ ONE MORE THING LIVES HERE THAT IS NOT A GUARD PIN. The "§460" describe
+// below is a card-vs-write DIFFERENTIAL on `attendeeResourceIds`, not a
+// refused-field pin, and it is not covered by the "per pin" list above. It
+// sits in this file rather than its own because this file already carries the
+// dispatcher/`runTool` create harness a differential needs, and
+// `plan.write-path.test.ts` — which runs that same differential shape — drives
+// `update_*` tools only (verified: no `create_*` tool name appears in it).
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";
-import { JUNK_KEY, KNOWLEDGE_LINKS, snapshot, type WsKey } from "../../test/inline-sweep-fixtures";
+import { JUNK_KEY, KNOWLEDGE_LINKS, seedResource, snapshot, type WsKey } from "../../test/inline-sweep-fixtures";
 import { CREATE_BASE } from "../../test/offered-surface-axis";
 import { TOKEN_EXCLUDED, type TokenEntity } from "../ai-entity-token";
 import { TOOL_DEFS } from "../chat-tool-defs";
@@ -69,6 +77,8 @@ import { createInputWithoutId, patchWithoutId } from "../chat-tools-updates";
 import { resetMintState } from "../id-mint-session";
 import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
+import { INLINE_DESCRIPTORS } from "./entity-descriptor";
+import { describeEntityCalls } from "./plan";
 
 type CreateCase = {
   /** ★ `TokenEntity`, not `string`, so the `TOKEN_EXCLUDED` derivation below
@@ -453,6 +463,53 @@ describe("the update and create strip helpers agree on exactly one key set", () 
   it("runs against every TokenEntity, and every one of them excludes something", () => {
     expect(KINDS.length).toBeGreaterThan(0);
     expect(KINDS.filter((k) => TOKEN_EXCLUDED[k].length === 0)).toEqual([]);
+  });
+});
+
+// ★★★ §460 — THE CARD AND THE WRITE, DRIVEN BY ONE INPUT. `pushLinkDiffs`
+//  once applied the link guard on the ROW path only, which was right while both
+//  allow-list creates handed `input` straight to their sanitizer. Since
+//  `68486cd4` `createCalendarEvent` runs `dropUnacceptedCalendarEventFields`
+//  first, and `CALENDAR_EVENT_FIELD_GUARDS.attendeeResourceIds` refuses the
+//  WHOLE array when any member is not a number — so `[4, "4"]` stored no
+//  attendee while the card, coercing each element with `toNumber`, previewed
+//  attendee 4. No other detector sees both halves: a create card's links are
+//  disclosure only, and the offered-surface sweep drives the seeded all-numeric
+//  `[4]`.
+//
+//  ★★ THE FIRST CASE IS THE ANTI-VACUITY HALF. Without it, a card that
+//   dropped every link and a create that stored nothing would pass the second.
+describe("a create card previews only the attendees the create stores (§460)", () => {
+  async function cardAndWrite(attendeeResourceIds: unknown[]) {
+    const { result } = renderHook(
+      () => ({ d: useChatDispatcher(makeDispatcherArgs()), ws: useWorkspace() }),
+      { wrapper: dispatcherWrapperWith({ resources: [seedResource()] }) },
+    );
+    const input = { ...CREATE_BASE.calendarEvent, attendeeResourceIds };
+    const card = describeEntityCalls([{ type: "tool_use", name: "create_calendar_event", input }], {
+      descriptor: INLINE_DESCRIPTORS.calendarEvent,
+      // No item on a create: `describeEntityCalls` reads `item.id` only on the update branch.
+      item: undefined as unknown as { id: number },
+      ws: snapshot(result.current.ws),
+    });
+    await act(async () => {
+      await runTool(result.current.d, "create_calendar_event", input);
+    });
+    return { card, rows: snapshot(result.current.ws).calendarEvents ?? [] };
+  }
+
+  it("previews and stores attendee 4 from an all-numeric list", async () => {
+    const { card, rows } = await cardAndWrite([4]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].attendeeResourceIds).toEqual([4]);
+    expect(card.links.map((l) => l.rawIds)).toEqual([[4]]);
+  });
+
+  it('previews no attendee from [4, "4"], because the create stores none', async () => {
+    const { card, rows } = await cardAndWrite([4, "4"]);
+    expect(rows, "the create stored no row, so this pin would pass for the wrong reason").toHaveLength(1);
+    expect(rows[0].attendeeResourceIds ?? []).toEqual([]);
+    expect(card.links).toEqual([]);
   });
 });
 
