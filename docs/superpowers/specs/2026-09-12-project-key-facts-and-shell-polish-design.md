@@ -10,19 +10,19 @@
 
 Let a project be created from a name alone, then replace the mandatory-field gate that
 disappears with two softer mechanisms — actionable nudges in the Next actions engine and a
-completeness indicator in the Projects list. Two unrelated shell items ride along: the
-`ToggleButton` pressed-marker animation, and a startup rule that lands the app on the
-Dashboard.
+completeness indicator in the Projects list. Three unrelated shell items ride along: a fix for
+the top-bar search box clipping the "Ask Claude" button, the `ToggleButton` pressed-marker
+animation, and a startup rule that lands the app on the Dashboard.
 
 ## 2. Scope
 
-Five slices across three merge requests:
+Six slices across three merge requests. **Ship order is C → A → B** (see §9).
 
 | MR | Slices | Why grouped |
 |---|---|---|
-| **A** | O-1 optionality | Must land first — every other slice presumes incomplete projects can exist. Carries the only data-loss risk, so it gets its own review and its own pipeline. |
+| **C** | Search-box clipping fix; `ToggleButton` marker animation; startup view rule | Independent of A and B and of each other; all small. Ships **first** because the clipping fix is a visible defect in window chrome and nothing blocks it. |
+| **A** | O-1 optionality | Must land before B — B presumes incomplete projects can exist. Carries the only data-loss risk, so it gets its own review and its own pipeline. |
 | **B** | Key-fact model + Next-actions provider; Projects list indicator | Share one pure model and are meaningless apart (a provider with no indicator, or an indicator with no nudges). |
-| **C** | `ToggleButton` marker animation; startup view rule | Independent of A and B and of each other; both small. |
 
 ### Non-goals
 
@@ -323,7 +323,12 @@ back/forward are untouched, and the MSAL auth-fragment guard stays first in the 
 new write path is needed: the existing view→hash effect rewrites `#raid` to `#dashboard` itself.
 
 Desktop change: the `second-instance` handler sets the fragment on the already-loaded page via
-a `dashboardHashScript()` beside the existing `helpHashScript()`. Assigning `location.hash` is
+the **existing** `helpHashScript(hash)` in `desktop/src/lib/menu-model.ts`, which already takes an
+optional hash parameter — so this adds a `DASHBOARD_VIEW_HASH` constant beside `HELP_VIEW_HASH` and
+no new function. (An earlier draft of this section called for a `dashboardHashScript()`; that would
+have duplicated a helper that is already general.) Note the helper clears the fragment before
+setting it, so the clear alone already lands on the Dashboard via the blank branch, and the
+subsequent set is idempotent. Assigning `location.hash` is
 deliberate — unlike the app's own `replaceState` writes it *does* fire `hashchange`, which is
 the navigation. No reload, so unsaved work survives; no preload and no IPC channel, so the Node
 surface that shell deliberately does not expose stays closed.
@@ -342,17 +347,59 @@ Testing: cold `#raid` → Dashboard; cold `#raid/123` → RAID with the item; po
 `hashchange` to `#raid` → RAID; MSAL fragment untouched; dashboard module disabled →
 `open-points`. The desktop handler is main-process and not unit-testable here (§7).
 
+### 6.3 Top-bar search box clipping the "Ask Claude" button
+
+**Observed** (screenshot, packaged Electron window ≈1420 CSS px wide, sidebar expanded): the
+"Ask Claude" trigger's label wraps to two lines and the word `Claude` is clipped mid-word by
+the left edge of the global search field, which paints over it.
+
+**Candidate cause — to be confirmed by measuring in Chromium at the failing width before any
+fix is written.** jsdom has no layout, so nothing in the unit suite can see this, and the
+repo's standing rule is to measure rather than reason about geometry. The candidate:
+
+- `TopBar` (`top-bar.tsx`) is a two-cluster flex row. The **left** cluster carries `min-w-0`,
+  so it may shrink below its content. The **right** cluster does not, and it holds the search
+  wrapper at `w-44 max-w-[55vw] sm:w-72 lg:w-96` — a fixed 384px at `lg`, which never yields.
+- All space pressure therefore lands on the left cluster, which holds `AskClaudeMenu`
+  (`ask-claude-menu.tsx`). Its trigger sits in a bare `<div className="relative">` with no
+  `shrink-0`, and the label `<span>` has no `whitespace-nowrap`.
+- Squeezed, the label wraps; `Claude` still exceeds the box and overflows into the adjacent
+  opaque search field.
+
+**Fix shape** (final form decided by the measurement):
+
+- Make the search wrapper shrinkable — `min-w-0` with a maximum rather than a fixed width — so
+  it yields before the left cluster overflows.
+- Pin the `AskClaudeMenu` trigger with `shrink-0` and `whitespace-nowrap` so it can never wrap
+  or be compressed below its label.
+- Below a breakpoint, render the Ask Claude trigger icon-only, keeping its accessible name on
+  the button so the label's disappearance costs nothing to assistive tech.
+
+**Both top bars must change.** `shell-chrome.tsx` (classic `AppHeader`) and `task-manager.tsx`
+(modern `ModernShell` `search` slot) wrap the search in the *identical* class string, so fixing
+one leaves the other broken — the dual-top-bar trap AGENTS.md records. A new top-bar control
+that lands in only one of them is invisible in the other layout.
+
+**Testing.** Unit tests can pin the class strings in both mounts and the icon-only branch's
+accessible name, and nothing more — the geometry is eye-verify (§7). Because the fix is
+class-only, a test asserting the classes is the only thing that can detect a regression, so
+both mounts get one.
+
 ## 7. Owed by eye-verify
 
 Nothing in CI can reach these. They are owed, not done, and must not be reported as verified:
 
-1. The marker animation itself — motion, timing, and that no toolbar jumps unpleasantly.
-2. The budget people-rows `<td>` still ellipsises correctly with the opt-out in place.
-3. The Gantt View menu is visually unchanged.
-4. The Projects list indicator's contrast in all seven scheme combinations (Projects is not
+1. The clipping defect reproduced at ≈1420px with the sidebar expanded **before** the fix, then
+   confirmed gone after — in **both** the modern and the classic top bar, and swept across
+   widths from ~900px up, since the fix moves where the space pressure lands rather than
+   removing it.
+2. The marker animation itself — motion, timing, and that no toolbar jumps unpleasantly.
+3. The budget people-rows `<td>` still ellipsises correctly with the opt-out in place.
+4. The Gantt View menu is visually unchanged.
+5. The Projects list indicator's contrast in all seven scheme combinations (Projects is not
    axe-scanned).
-5. Desktop relaunch while running lands on the Dashboard without losing unsaved work.
-6. A never-opened project renders the unknown state rather than `0 of 11`.
+6. Desktop relaunch while running lands on the Dashboard without losing unsaved work.
+7. A never-opened project renders the unknown state rather than `0 of 11`.
 
 ## 8. Cross-cutting constraints the plan must respect
 
