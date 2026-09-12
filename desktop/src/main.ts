@@ -73,8 +73,32 @@ function fileMenuClick(id: FileMenuItemId): () => void {
   switch (action) {
     case "print-window":
       return () => {
+        // ★★★ THE FOCUSED WINDOW, NOT `win`. This shipped printing `win`
+        // unconditionally, which is wrong the moment a SECOND window exists --
+        // and the app makes real ones: `openPopoutWindow` (src/app/
+        // broadcast-sync.ts, called from document-editor, shell-chrome,
+        // task-manager and workspace-section-chrome) does a `window.open`, and
+        // with no setWindowOpenHandler registered Electron's default handler
+        // turns each into a genuine BrowserWindow. Menu.setApplicationMenu
+        // installs CmdOrCtrl+P for all of them, so the accelerator pressed in a
+        // popout printed the MAIN view instead -- and it silently broke an
+        // existing documented promise: src/app/export.ts offers the export
+        // tab's Ctrl+P as the fallback when auto-print does not fire, which
+        // would have printed a different document entirely.
+        //
+        // ★★ WHEN NOTHING IS FOCUSED, this falls back to the main window. That
+        // path should be unreachable from the accelerator: an application-menu
+        // accelerator needs one of our own windows focused, and no
+        // globalShortcut is registered (`grep -rn globalShortcut desktop/src`
+        // returns nothing), so with the app in the background the OS routes
+        // Ctrl+P to whatever is actually focused. It is a DECISION rather than
+        // an accident: if some path does reach the item with no focus, printing
+        // the main view serves the user better than doing nothing. ★ The
+        // unreachability is reasoned, not measured -- confirming it needs a
+        // packaged run.
+        const target = BrowserWindow.getFocusedWindow() ?? win;
         // Same window-liveness idiom shouldReportServerExit already uses.
-        if (!win || win.isDestroyed()) {
+        if (!target || target.isDestroyed()) {
           log("print: no window to print");
           return;
         }
@@ -83,7 +107,7 @@ function fileMenuClick(id: FileMenuItemId): () => void {
           // parameter, so there is no way to pass it without one. Empty means
           // Chromium's own defaults, which is what we want -- the point is to
           // show the user their normal print dialog, not to preconfigure it.
-          win.webContents.print({}, (success: boolean, failureReason: string) => {
+          target.webContents.print({}, (success: boolean, failureReason: string) => {
             if (success) return;
             // ★★ A CANCELLED DIALOG LANDS HERE TOO, and it is not a failure.
             // Logging it would put a scary line in launch.log every time
@@ -218,12 +242,15 @@ function buildMenu(): void {
 
   // ★★★ File is now hand-built rather than `{ role: "fileMenu" }`, and
   // `{ role: "quit" }` is what keeps a Windows user whole. MEASURED, not
-  // recalled: the role expands to `label:"File",submenu:[isMac ?
-  // {role:"close"} : {role:"quit"}]` -- read out of the installed binary with
-  //   grep -aoh 'label:"File".\{0,180\}' \
+  // recalled --
+  //   grep -aoh 'label:"File".\{0,60\}' \
   //     desktop/node_modules/electron/dist/electron.exe
-  // So on Windows it was exactly ONE item, Quit, and NOT Close. Substituting
-  // Close here would have quietly relabelled it.
+  // prints, verbatim and minified:
+  //   label:"File",submenu:[n?{role:"close"}:{role:"quit"}]},editmenu:{label:"
+  // ★ `n` is the INFERENCE, not the output: the `editmenu` immediately after
+  // it gates the mac-only paste roles on the same `n`, so `n` is isMac. On
+  // Windows the File menu was therefore exactly ONE item, Quit, and NOT
+  // Close -- substituting Close here would have quietly relabelled it.
   //
   // ★ Quit unconditionally, no isMac branch: this shell is packaged for
   // Windows only (electron-builder runs `--win`, and killServer already

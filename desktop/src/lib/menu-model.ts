@@ -81,10 +81,26 @@ export function helpAction(id: HelpMenuItemId): HelpMenuAction {
 // carries the string `Scripted print is not supported`, verified with
 //   grep -aoh "Scripted print is not supported" \
 //     desktop/node_modules/electron/dist/electron.exe
-// -- so the 24 in-pane Print buttons were offering something that could never
-// happen. The main process CAN print, via webContents.print(), and this is the
-// route to it. The in-page buttons now hide themselves in the shell
-// (src/app/desktop-shell.ts) rather than lying.
+// (it lives in Electron's own print_view_manager_electron.cc, also a string in
+// that binary, so the refusal is not per-window) -- so every in-pane Print
+// button was offering something that could never happen. The main process CAN
+// print, via webContents.print(), and this is the route to it. The in-page
+// buttons now hide themselves in the shell (src/app/desktop-shell.ts) rather
+// than lying.
+//
+// ★★★ THIS MENU IS NOT THE WHOLE FIX, AND AN EARLIER VERSION OF THIS COMMENT
+// IMPLIED IT WAS. Two OTHER renderer `window.print()` paths are still live and
+// still inert in the packaged app -- `buildPdfHtml` in `src/app/export.ts` and
+// `AUTO_PRINT_SCRIPT` in `src/app/document-download.ts`, both injected into a
+// `window.open`ed tab. They are WORSE than the button that was removed: the
+// popup opens, renders the whole document, and then silently never prints.
+// Reachable from the PDF choice in documents-toolbar, export-menu and
+// projects-panel. Unfixed, and deliberately out of scope here (it needs a
+// main-process route such as webContents.printToPDF): docs/open-followups.md
+// §468. Enumerate the live call sites -- the comments in this repo mention the
+// call, so match on the invocation and drop the matches inside comments:
+//   grep -rn "window\.print()" src --include=*.ts --include=*.tsx \
+//     | grep -v "\.test\." | grep -vE "^\S+: *(//|\*)"
 export type FileMenuItemId = "print";
 export type FileMenuAction = "print-window";
 
@@ -97,6 +113,15 @@ export interface FileMenuItem {
   accelerator?: string;
 }
 
+// ★★ ENGLISH ONLY, and this one is a real (small) loss rather than a neutral
+// limitation. The control it replaces was translated -- the in-pane button's
+// name came from `t(lang, "printHint")`, EN and DE -- so a German user trades a
+// German print affordance for an English-only one. It is consistent with
+// HELP_MENU_ITEMS (and with the same cause: the language lives in renderer
+// settings and the main process has no reader for it without an IPC channel
+// and a preload, which is the Node surface this shell deliberately does not
+// expose), so it is not a convention break. Recorded here, next to the
+// hardcoded string, because that is where someone able to fix it will look.
 export const FILE_MENU_ITEMS: readonly FileMenuItem[] = [
   { id: "print", label: "Print…", accelerator: "CmdOrCtrl+P" },
 ];
@@ -122,15 +147,30 @@ export function fileAction(id: FileMenuItemId): FileMenuAction {
 // something is wrong.
 //
 // ★★ MATCHED ON THE STEM, CASE-INSENSITIVELY, and deliberately not by
-// equality. The string in the installed binary is `Print job canceled` (US
-// spelling, one L) -- measured, not assumed:
+// equality.
+//
+// ★★★ WHAT IS ACTUALLY MEASURED, stated exactly, because an earlier version of
+// this comment said "MEASURED, NOT ASSUMED" of something the command cannot
+// show. All the grep proves is that a string EXISTS IN THE BINARY:
 //   grep -aoih "print job cancel[a-z]*" \
 //     desktop/node_modules/electron/dist/electron.exe
-// It is Chromium's wording, not part of Electron's API, so it can be reworded
-// or re-spelled by an upgrade with nothing to warn us. An `===` test would
-// then quietly reclassify every cancellation as an error. The cost of the
-// looser match is that a genuine failure whose reason happens to contain
-// "cancel" goes unlogged, which is the better of the two mistakes.
+// returns one hit, `Print job canceled` (US spelling, one L). That it is the
+// `failureReason` delivered to this callback on a user cancellation is NOT
+// verified and cannot be from here -- the callback needs a real Electron
+// window. Treat it as the strongest available evidence, not as a measurement.
+//
+// ★★ THE ARGUMENT FOR THE LOOSE MATCH is a second pair of probes over the same
+// binary, and it is better than "the string could be reworded": the reason
+// vocabulary is NOT what Electron's docs suggest. `Printing is already in
+// progress` and `No printers found` have ZERO occurrences, while `Invalid
+// printer settings` has one -- so guessing the wording is hopeless, and an
+// `===` test against today's string would quietly reclassify every
+// cancellation as an error after any upgrade. Meanwhile NO reason-shaped
+// string in the binary except the cancellation one contains "cancel" (the
+// neighbours are `CancelJob` and ` because job was canceled`), so the stem
+// match is narrow in practice. The residual cost -- a genuine failure whose
+// reason happens to contain "cancel" going unlogged -- is the better of the
+// two mistakes.
 export function isPrintCancellation(failureReason: string): boolean {
   return /cancel/i.test(failureReason);
 }

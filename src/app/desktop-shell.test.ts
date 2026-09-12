@@ -41,15 +41,25 @@ describe("isDesktopShellUserAgent", () => {
   });
 
   it("reads THIS test environment as a browser", () => {
-    // ★★★ THE ASSERTION THAT PROTECTS TEN OTHER TEST FILES. Every toolbar
-    // test that asserts the trailing Print · reset-columns · reset-size group
-    // (dashboard-panel, gantt, reports, resources-panel, timelog-panel,
-    // activity-log-panel, tasks-section, documents-toolbar, raci-panel,
-    // task-time-tracking-modal) depends on PrintButton still rendering under
-    // jsdom. That depends entirely on jsdom's UA not containing "Electron".
-    // Stated here as a positive observable rather than left as an assumption,
-    // so if a jsdom upgrade ever changed it, ONE test would name the reason
-    // instead of ten failing mysteriously.
+    // ★★★ THE ASSERTION THAT PROTECTS EVERY OTHER TEST OF A PRINT BUTTON.
+    // They all depend on PrintButton still rendering under jsdom, which
+    // depends entirely on jsdom's UA not containing "Electron". Stated here as
+    // a positive observable rather than left as an assumption, so a jsdom
+    // upgrade that changed the UA reds ONE test that names the reason instead
+    // of a dozen failing mysteriously.
+    //
+    // ★★★ DERIVE THE DEPENDANTS, DO NOT TRUST A LIST. An earlier version of
+    // this comment named ten files and was wrong in BOTH directions: it
+    // included `task-time-tracking-modal.test.tsx`, which has no print button
+    // at all (it was in the list only for using expectButtonOrder, a different
+    // property), and omitted four real dependants -- help-view,
+    // knowledge-panel, report-table and steering-committee-panel -- whose
+    // `getByRole` calls THROW if PrintButton returns null, and one of which
+    // asserts an exact ordered array beginning with the print name. No tally
+    // is quoted here on purpose; it rots. Read today's set with:
+    //   grep -rln printHint src --include=*.test.tsx
+    // (this file is not among them -- it asserts the predicate, not the
+    // button.)
     expect(isDesktopShellUserAgent(navigator.userAgent)).toBe(false);
   });
 });

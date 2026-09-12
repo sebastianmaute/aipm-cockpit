@@ -323,8 +323,22 @@ describe("fileAction", () => {
   });
 
   it("covers every entry the File menu offers", () => {
-    // Runtime companion to the Record's compile-time exhaustiveness: reds if
-    // an entry is added with no mapping reachable from here.
+    // ★★★ WHAT THIS DOES NOT CATCH, corrected -- the earlier comment claimed
+    // it "reds if an entry is added with no mapping", which is false: a second
+    // FileMenuItemId member with no FILE_ACTIONS key is a COMPILE error (the
+    // Record is keyed by the union), so this never gets to run. What is left
+    // for it is the cast case -- a row widened past the union -- where the
+    // lookup returns undefined.
+    //
+    // ★★★ AND A SURVIVING MUTANT, NAMED RATHER THAN HIDDEN: replacing
+    // `return FILE_ACTIONS[id]` with `return "print-window"` passes every test
+    // in this file. With a ONE-MEMBER union no runtime assertion can tell a
+    // table lookup from a constant -- the two are observationally identical,
+    // so it is an equivalent mutant today, not a test gap. It becomes
+    // detectable the moment a second member exists, and at that point the
+    // Record's compile-time exhaustiveness is what forces the mapping. The
+    // alternative -- inventing a second File menu item so a mutant could die
+    // -- would be test-driven feature creep, so it was not done.
     const actions = FILE_MENU_ITEMS.map((i) => fileAction(i.id));
     expect(actions.filter((a) => !!a)).toHaveLength(FILE_MENU_ITEMS.length);
     expect(new Set(actions).size).toBe(FILE_MENU_ITEMS.length);
@@ -332,21 +346,28 @@ describe("fileAction", () => {
 });
 
 describe("isPrintCancellation", () => {
-  it("recognises the string Chromium actually sends", () => {
-    // ★★★ MEASURED, NOT ASSUMED. `Print job canceled` (US spelling, one L)
-    // is a literal in the installed binary:
+  it("recognises the cancellation string that exists in the Electron binary", () => {
+    // ★★★ THE TITLE USED TO SAY "the string Chromium actually sends" and the
+    // comment said "MEASURED, NOT ASSUMED". Neither was supportable by the
+    // command attached to it. What IS measured:
     //   grep -aoih "print job cancel[a-z]*" \
     //     desktop/node_modules/electron/dist/electron.exe
-    // webContents.print's callback reports a USER CANCELLATION as
-    // success: false, so without this the ordinary act of closing the print
-    // dialog would write a failure line into launch.log on every print.
+    // returns one hit, `Print job canceled`. That proves the string is IN THE
+    // BINARY -- not that it is the `failureReason` this callback receives on a
+    // user cancellation. Nothing runnable here can prove that: the callback
+    // needs a real Electron window. STILL UNVERIFIED, and the reason the
+    // matcher below is deliberately loose.
     expect(isPrintCancellation("Print job canceled")).toBe(true);
   });
 
-  it("also recognises the British spelling, which past versions used", () => {
-    // Matched on the stem, case-insensitively, precisely so a Chromium
-    // rewording does not silently turn cancellations back into errors. This
-    // is the assertion that forbids a `=== "Print job canceled"` mutant.
+  it("matches the stem, so a reworded reason cannot become an error", () => {
+    // ★★ This is the assertion that forbids a `=== "Print job canceled"`
+    // mutant, and the argument for it is measured over the same binary:
+    // `Printing is already in progress` and `No printers found` -- both
+    // plausible from Electron's docs -- have ZERO occurrences, so the reason
+    // vocabulary cannot be guessed and today's exact string is not a safe
+    // thing to pin. Narrow in practice: no reason-shaped string in the binary
+    // except the cancellation one contains "cancel".
     expect(isPrintCancellation("Print job cancelled")).toBe(true);
     expect(isPrintCancellation("cancelled by user")).toBe(true);
     expect(isPrintCancellation("CANCELED")).toBe(true);
@@ -355,6 +376,10 @@ describe("isPrintCancellation", () => {
   it("does NOT swallow a real failure", () => {
     // The whole point of classifying rather than ignoring every failure: a
     // printer that is not there has to reach the log.
+    // ★ `Invalid printer settings` IS in the binary (one hit). `No printers
+    // found` is NOT -- it is an illustrative fixture, kept because the
+    // matcher must reject unfamiliar wording too, not evidence of a real
+    // reason string.
     expect(isPrintCancellation("Invalid printer settings")).toBe(false);
     expect(isPrintCancellation("No printers found")).toBe(false);
     expect(isPrintCancellation("")).toBe(false);

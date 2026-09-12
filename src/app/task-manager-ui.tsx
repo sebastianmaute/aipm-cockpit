@@ -189,11 +189,27 @@ export function PrintButton({
   );
   // ★★★ RENDER NOTHING IN THE DESKTOP SHELL, because the button cannot work
   // there. Electron refuses a renderer-initiated window.print() (its binary
-  // carries `Scripted print is not supported`), and no call site overrides
-  // the default onClick — all 24 of them are the bare `<PrintButton
-  // lang={lang} />`. So in the packaged app every pane was offering a control
-  // that did nothing at all. Printing there is File → Print… / Ctrl+P, which
-  // the shell routes through webContents.print() from the main process.
+  // carries `Scripted print is not supported`), and no CALL SITE overrides the
+  // default onClick — every one passes `lang` alone. So in the packaged app
+  // each of them offered a control that did nothing at all. Printing there is
+  // File → Print… / Ctrl+P, which the shell routes through
+  // webContents.print() from the main process.
+  //
+  // ★★ CALL SITES ARE NOT RENDERED CONTROLS, and no tally is quoted here
+  // because both numbers rot. One site is inside `ReportCard`
+  // (report-table.tsx), which has seven consumers of its own, so a user sees
+  // more print controls than there are sites. Count sites with — and mind the
+  // exclusion, because THIS COMMENT matches the pattern and a naive grep
+  // counts itself:
+  //   grep -rn "<PrintButton" src --include=*.tsx | grep -v "\.test\.tsx:" \
+  //     | grep -v "^src/app/task-manager-ui.tsx"
+  //
+  // ★★ THE COST, which the first version of this comment omitted: the server
+  // snapshot is a constant `false`, so in the packaged app SSR emits every
+  // Print button and the first client render removes them — a visible flash on
+  // each pane's first paint. Accepted, because the alternatives are a
+  // hydration mismatch or threading the environment through every call site;
+  // but it is a real first-paint regression, not a free win.
   //
   // ★★ HIDING, not disabling: a disabled Print button in every pane invites
   // the question "why is printing broken?", where its absence plus a working

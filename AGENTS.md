@@ -1520,6 +1520,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   pane's own toolbar before assuming compliance):** every pane's toolbar ends with the contiguous trailing group
   **Print · reset-columns · reset-pane-size**, in that order. Destructive/bulk actions (Activity's "Clear log")
   and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members.
+  ★★ IN THE ELECTRON DESKTOP SHELL THE FIRST MEMBER IS ABSENT ENTIRELY — `PrintButton` renders `null`
+  there (`isDesktopShellUserAgent`, `src/app/desktop-shell.ts`), because Electron refuses a
+  renderer-initiated `window.print()`; printing is File → Print… / Ctrl+P instead. So a group that reads
+  as two members is not drift. Every unit assertion still sees three: jsdom's UA is not Electron's.
   ★★ THE DASHBOARD'S GROUP IS VERTICAL AND ITS MIDDLE MEMBER IS **reset-LAYOUT**, not reset-columns —
   `ResetLayoutButton`, restoring the tile arrangement to `DEFAULT_LAYOUT`. That pane has no columns to reset, and
   arrangement is the reset-columns ANALOGUE (it restores CONTENT arrangement, where reset-pane-size restores the

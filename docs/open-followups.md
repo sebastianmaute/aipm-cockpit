@@ -689,6 +689,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§464](#464-cpi-means-two-different-numbers-and-two-winloss-hints-are-wrong--open) | "CPI" means two different numbers, and two win/loss hints are wrong — OPEN | found 2026-09-11 by the same read-only code check (issue #76) | S-M — the two hints are EN+DE string fixes; separating the two CPIs on the surfaces is the larger half | open |
 | [§465](#465-non-eur-fixed-price-buckets-every-money-figure-is-inflated-by-the-fx-rate-and-the-margin-is-wrong--open) | Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong — OPEN | found 2026-09-11 by the same read-only code check (issue #77, beside issue #42) | M — a decision about where the currency boundary sits, and stored amounts carry no marker saying which convention they were entered under | open |
 | [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--open) | Help promises a burn-down forecast that the chart does not draw — OPEN | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | open |
+| [§468](#468-pdf-export-opens-a-window-that-never-prints-in-the-desktop-app--open) | PDF export opens a window that never prints in the desktop app — OPEN | found 2026-09-12 by cold review of the desktop print-route commit `252fbca7`, which fixed the in-pane Print button and overstated its scope | M — a main-process print route (`webContents.printToPDF` or a print handler on the opened window), then a decision about whether the three PDF surfaces still open a tab at all | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -34363,3 +34364,40 @@ chart. So the fix is to say what exists, in both languages, rather than to build
 ★ §453 (open) covers Help-content gaps and does not include this one.
 
 Size S: two strings, EN and DE together.
+
+## 468. PDF export opens a window that never prints in the desktop app — OPEN
+
+**Status:** OPEN 2026-09-12 — never machine-verified in the packaged app. Two presence witnesses, both
+re-run 2026-09-12: `grep -rn "window\.print()" src --include=*.ts --include=*.tsx | grep -v "\.test\." |
+grep -vE "^\S+: *(//|\*)"` returns the surviving renderer call sites (the `grep -vE` drops the many
+comments that merely mention the call — without it the output is dominated by prose), and `grep -aoh
+"Scripted print is not supported" desktop/node_modules/electron/dist/electron.exe` returns the refusal
+string. ★ That the popup then stays SILENT rather than erroring is REASONED from those two, not observed:
+confirming it takes a packaged build and a PDF export.
+
+`src/app/export.ts` (`buildPdfHtml`) and `src/app/document-download.ts` (`AUTO_PRINT_SCRIPT`) both render
+a document into a `window.open`ed tab and inject a script whose whole job is to call `window.print()`.
+That call is renderer-initiated, which is exactly what Electron refuses — the string above lives in its
+own `print_view_manager_electron.cc`, so the refusal is a property of the embedder, not of one window.
+
+★★ IT FAILS WORSE THAN THE IN-PANE BUTTON DID, which is why it is filed rather than folded into the
+print-route change that found it. That button did nothing visible, so a user learned nothing false. Here
+the popup opens, renders the entire document correctly, and then simply never raises a print dialog —
+indistinguishable from "my printer is being slow" and impossible to attribute without reading the source.
+
+Reachable from three surfaces, all via the PDF choice: `documents-toolbar.tsx`, `export-menu.tsx` and
+`projects-panel.tsx` (`EXPORT_FORMATS`).
+
+★ The web app is UNAFFECTED — a browser honours `window.print()` in an opened tab, and that is what the
+`window.open`-plus-inline-script shape exists for (`export.ts` explains why a tab beats an iframe). This
+is a desktop-only regression in capability, introduced by shipping the Electron shell, not by any change
+to the export code.
+
+★★ A related promise is now also only half-true in the shell: `export.ts` offers the export tab's Ctrl+P
+as the user's fallback when auto-print does not fire. Since the desktop File menu's CmdOrCtrl+P prints
+the FOCUSED window, that fallback does work in the packaged app — but it is the app's own print route
+doing it, not the page's script, and it prints whatever the focused window shows.
+
+Unfixed, and deliberately so: the repair needs a main-process route (`webContents.printToPDF`, or a
+print handler installed on the opened window) plus a decision about whether the three surfaces keep
+producing an on-screen tab at all when a real PDF writer is available. Size M.
