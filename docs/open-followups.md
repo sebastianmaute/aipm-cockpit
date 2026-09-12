@@ -695,6 +695,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--open) | The FX-override field's advertised minimum rounds to zero and is then refused — OPEN | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | open |
 | [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--open) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture — OPEN | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | open |
 | [§473](#473-nothing-decides-what-currency-role-rates-are-in-so-a-non-eur-plan-both-mislabels-resources-money-and-miscomputes-a-fixed-price-margin--open) | Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin — OPEN | found 2026-09-12 by the whole-branch review of `feat/budget-currency-boundary`, in the same pass that caught a false attribution in §465; filed as ONE entry because splitting the display and arithmetic faces would let one close while the other stood | M — the seven display sites and the type narrowing are small edits; coercing stored non-EUR plan currencies at load, and its tests, are the work | open |
+| [§474](#474-a-rateless-non-eur-bucket-is-summed-into-the-eur-rollup-at-par-and-reads-almost-like-a-rated-one--open) | A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one — OPEN | found 2026-09-12 by the documentation-correction pass over `feat/budget-currency-boundary`, from the default no-rate path neither the design spec nor the register had considered; NOT a regression — at rate 1 the conversion is the identity, so no figure moved | S-M — the arithmetic must not change, so the work is disclosure: whether the report marks a rateless non-EUR bucket and whether the EUR rollup flags a summand it could not convert, plus tests | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -34660,9 +34661,15 @@ themselves, never a green result to cite as coverage.
 witnesses run 2026-09-12: `grep -c "currency: plan.currency" src/app/task-manager.tsx` → 1 (the sole
 writer), `grep -n "currency" src/app/snapshot.ts` → 4 (the field on `SnapshotRecord`, the builder's
 destructure, its write into the record, and the input type),
-`grep -n "currency" src/app/snapshot-schema.ts` → 3 (the DDL column, the encode, and the
-`r.currency || "EUR"` decode) and `grep -c 'const currency = "EUR"' src/app/trends-panel.tsx` → 1
-(the reader, now a literal).
+`grep -n "currency" src/app/snapshot-schema.ts` → **4**, not 3 (the DDL column, the ordered COLUMN
+LIST, the encode, and the `r.currency || "EUR"` decode) and
+`grep -c 'const currency = "EUR"' src/app/trends-panel.tsx` → 1 (the reader, now a literal).
+★ COUNT CORRECTED 2026-09-12 (re-run, returns 4): the original said 3 and named only the DDL, the
+encode and the decode. The missed hit is the column list, and it is not a harmless omission — it is
+one of the four places the removal scoped at the bottom of this entry would have to change, so an
+undercounted witness understated the entry's own work by exactly the site most easily forgotten.
+Insert and DDL derive their column order from that list; edit one without the other and the encode
+writes a value into the wrong column with no error.
 
 The Trends remaining-cost mislabel (§465) was fixed at the READER rather than the writer, and
 deliberately so: snapshots already persisted in a Turso project carry a non-EUR `currency`, and only
@@ -34684,13 +34691,29 @@ mislabel at a new site. The only thing preventing that today is the comment bloc
 independent reviewers of the currency-boundary slice recommended registering this rather than fixing
 it inside that slice.
 
-★ A smaller, related staleness to sweep whichever way this goes: the `trends-panel.tsx` comment still
-describes the plan's `currency` as "free-text", which `f97bc82b` made false by narrowing
-`ResourcePlan.currency` to the `BudgetCurrency` union.
+★ A smaller, related staleness to sweep whichever way this goes: source comments still describe the
+plan's `currency` as "free-text", which `f97bc82b` made false by narrowing `ResourcePlan.currency`
+to the `BudgetCurrency` union. ★★ WIDENED 2026-09-12 — **this bullet named `trends-panel.tsx` alone
+and the sweep is SIX sites across FIVE files**, two of them test files whose comments justify what
+the test asserts. Do not cite a filename here; cite the sweep, because the next comment to go stale
+will be in a file this list does not name:
+```
+grep -rn "free-text \`currency\`\|free string" src/app --include=*.ts --include=*.tsx
+```
+→ eight hits on 2026-09-12, of which six are this staleness (`budget-panel.tsx`,
+`dashboard-panel.tsx`, `dashboard-panel.test.tsx`, `trends-panel.test.tsx`, and `trends-panel.tsx`
+TWICE). ★ The other two are NOT this defect and must not be swept with it: `sanitize-budget.test.ts`
+matches on a `describe` title that states the NEW behaviour correctly ("currency is the supported
+union, not a free string"), and `task-filters.ts` is about the assignee/group/label filters and has
+nothing to do with currency. A sweep that edits on the grep alone breaks a true statement in each.
+★ The second pattern alternative is what makes the grep honest — searching the backticked
+"free-text" phrase alone finds six and reports a clean run, and the reader never learns that the
+phrase has a second form ("free string") that a future comment might reach for. Run the two-branch
+pattern above and triage the extras; do not narrow it to the branch that happens to match today.
 
-Size S–M: the work is the decision — delete the field (one table's schema plus encode/decode), or
-keep it and normalise it to EUR at the writer so a later reader cannot be misled. Either way the
-`trends-panel.tsx` comment block must be swept.
+Size S–M: the work is the decision — delete the field (one table's schema, its column list, encode
+and decode), or keep it and normalise it to EUR at the writer so a later reader cannot be misled.
+Either way the six comment sites above must be swept.
 
 ## 470. The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN
 
@@ -34712,8 +34735,40 @@ unsanitized there: `granularity`, the `startDate`/`endDate` window, the reversed
 Not an oversight, and the commit says so in a comment: a full `sanitizePlan` on this path would ALSO
 clamp `granularity` to `"month"`, replace the entire date window whenever either date fails to parse,
 swap reversed dates, and drop an explicit `budgetFollowsPlan: false` — four unrelated rewrites on
-every load, a real behaviour change owing its own tests. `storage-browser-kv.test.ts` pins all four
-against exactly that change, so the current shape is deliberate and defended.
+every load, a real behaviour change owing its own tests.
+
+★★★ NARROWED 2026-09-12 — this paragraph ended "`storage-browser-kv.test.ts` pins all four against
+exactly that change". **It pins TWO.** Checked assertion by assertion against `sanitizePlan`
+(`sanitize-entities.ts`) rather than against the list of rewrites, which is the check the original
+skipped:
+
+- **Reversed window — PINNED.** The fixture stores `startDate` after `endDate` and the test asserts
+  both come back in stored order. `sanitizePlan` swaps them, so the assertion genuinely separates
+  the two worlds.
+- **`budgetFollowsPlan: false` — PINNED.** `sanitizePlan` spreads the key only when the value is
+  `true`, dropping an explicit `false`; the test asserts it survives as `false`.
+- **`granularity` — NOT PINNED, and vacuously green.** The fixture seeds `"week"`, and `sanitizePlan`
+  PRESERVES `"week"` (`raw.granularity === "week" ? "week" : "month"`) — it clamps only what is
+  neither. So that assertion passes identically with and without the call, which is the definition of
+  proving nothing. Pinning it needs a fixture seeding a granularity that is neither (`"quarter"`, or
+  a non-string).
+- **Malformed date → whole-window replacement — NOT PINNED, and unreachable.** No fixture in the file
+  carries a date that fails to parse, so the branch that replaces the window with
+  `defaultResourcePlan`'s never runs. Pinning it needs a fixture with an unparseable `startDate` or
+  `endDate`.
+
+So the current shape is deliberate and **half** defended. ★ The two missing fixtures are work owed
+by this entry, and they are cheap — one fixture each, in the pattern the file already uses (its own
+comment explains why each shape needs its own test: a test aborts at its first failing expect, so
+one fixture can only ever prove one of them). ★★ The same overclaim is repeated verbatim in the
+source comment in `browser-backend.ts` that this entry quotes — `grep -n "pins all four"
+src/app/browser-backend.ts` → 1 — and needs the identical narrowing. It is left for the task that
+owns `src/`; until then the register and the code assert the same wrong number, which is worse than
+either alone, because a reader who cross-checks one against the other finds agreement.
+★ Note the shape of the error: the count came from the LIST OF REWRITES (four), not from the
+assertions (two). A "pins all N" claim is only ever verifiable by walking the assertions, and the
+two that failed are exactly the two whose fixtures happen to fall on the sanitizer's PRESERVING
+branch — which is also why no mutation of the source could have caught them.
 
 What is registered here is the asymmetry itself, not a proposed fix: this backend's plan slice is
 normalised differently from every other backend's, and the divergence lives only in a source comment.
@@ -34802,7 +34857,14 @@ multiplications in `periodCost`; no currency appears anywhere in that module),
 `grep -c "plan.currency" src/app/resources-panel-rows.tsx src/app/resources-report.tsx` → 6 and 1
 (the seven display sites), `grep -n "currency" src/app/roles-editor.tsx` → 5 (the prop driving the
 rate-field symbol, fed from `task-manager.tsx` — reproduce that feed with
-`grep -c 'currency={plan.currency || "EUR"}' src/app/task-manager.tsx` → 1),
+`grep -c 'currency={plan.currency}' src/app/task-manager.tsx` → 1),
+★ WITNESS CORRECTED 2026-09-12 (re-run, returns 1): this line cited
+`currency={plan.currency || "EUR"}`, which `d1c1208d` made return **0** by dropping the `|| "EUR"`
+fallback the `BudgetCurrency` union had rendered unreachable — seven minutes after `cf8e6a8a` wrote
+the witness. Same branch, same afternoon, and no gate can see a witness go stale: `docs:claims:check`
+checks `path:LINE` ranges, never whether a quoted command still returns its quoted number. A witness
+that quotes a code fragment is a hostage to the next refactor of that fragment, which is the
+argument for quoting the SYMBOL and letting the reader grep.
 `grep -n "const fixedPrice\|const revenue\|const winLossValue\|contributionMargin: {" src/app/budget-report.ts`
 → **6**, not the 4 a reader expects: the converted contract amount, the revenue it feeds, and the two
 figures built from `revenue - cost` — plus a SECOND `const revenue` and a second
@@ -34877,3 +34939,65 @@ neighbouring case of a stored currency field with no reader.
 
 Size M: the seven display sites are a small edit and the type narrowing is one line; the load-time
 coercion of stored non-EUR plan currencies, and its tests, are the work.
+
+## 474. A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one — OPEN
+
+**Status:** OPEN 2026-09-12 — the mechanism is established by reading the three modules end to end
+and by the presence witnesses below; the visible figure is REASONED from the code, NOT reproduced on
+a screen, and nothing pins it. Witnesses run 2026-09-12:
+`grep -c "cached != null && cached > 0 ? cached : 1" src/app/fx.ts` → 1 (`resolveRate`'s final
+fallback — the rate-1 return),
+`grep -c 'fetch("/api/ecb")' src/app/use-fx-rates.ts` → 1 (the only fetch),
+`grep -c "refreshFx" src/app/task-manager.tsx` → 2 against
+`grep -c "useEffect.*refreshFx" src/app/task-manager.tsx` → **0** (the hook's destructure and one
+handler prop; no effect, no mount-time call, so the table is populated only when a user presses the
+control),
+`grep -c 'const projCur = "EUR"' src/app/budget-panel.tsx` → 1 (the rollup's hardcoded label) and
+`grep -c 'rate !== 1 ?' src/app/budget-report-panel.tsx` → 1 (the rate-suffix ternary).
+
+**`resolveRate` returns 1 for a non-EUR bucket that has neither an `fxRateOverride` nor a cached ECB
+rate**, and that is the DEFAULT state: `useFxRates` fetches on demand only. So such a bucket's
+contract amount passes through `currencyToEur` unchanged and is read as EUR by the engine.
+
+★★ **THIS IS NOT A REGRESSION, and the entry would be wrong if it implied one.** At rate 1
+`currencyToEur` is the identity, so every figure is byte-for-byte what it was before
+`feat/budget-currency-boundary`. What the branch changed is not the number but the CONFIDENCE
+expressed about it — which is why this is filed as a documentation-and-disclosure defect rather than
+an arithmetic one, and why it must not be "fixed" by defaulting the rate to something other than 1
+(that WOULD move stored figures, silently).
+
+**It falsifies two claims the branch makes, and they fail differently.**
+
+1. The design spec's "the project rollup sums one unit". `budget-panel.tsx` labels the rollup with a
+   hardcoded `"EUR"` and converts nothing — correct for every bucket the engine really did convert,
+   and false for a rateless non-EUR one, whose foreign amount is summed at par under a € sign. The
+   spec's bullet is now narrowed in place and links here.
+2. Commit `0207d740`'s "self-consistent end to end because display multiplies by the same 1".
+   ★ **That holds for the bucket TILE and not for the rollup**, and the distinction is the whole
+   point: the tile converts EUR→bucket currency with the SAME rate 1 before labelling, so the round
+   trip really is self-consistent and the user sees their own number under their own symbol. The
+   rollup performs no matching multiplication — it has no single bucket currency to multiply by — so
+   the symmetry the commit message relies on does not exist one level up. A claim of end-to-end
+   consistency is only as wide as the widest surface it was checked on.
+
+★ **The disclosure is nearly absent, which is what makes it worth registering rather than merely
+noting.** `budget-report-panel.tsx` renders a bucket's currency as `USD (×1.1)` when a rate resolved
+and a bare `USD` when none did. The difference between "converted at 1.1" and "not converted at all"
+is therefore the ABSENCE of a parenthetical — no warning, no styling, nothing a reader scanning a
+column would register, and indistinguishable at a glance from a currency that simply has no
+interesting rate. A user with a USD bucket and no rates sees a plausible € rollup built from dollars.
+
+★ Reachability is much wider than §473's, and deliberately so — the two entries are neighbours but
+not duplicates. §473 needs a hand-edited non-EUR `plan.currency` (no UI control writes it); this
+needs only a non-EUR BUCKET currency, which the bucket modal does expose, plus the default state of
+never having fetched rates. §473 is about role rates and the plan; this is about the rollup and the
+absence of a rate.
+
+★ Not pinned by anything. `0207d740` added an identity-on-no-rates test, but it asserts the BUCKET
+figures, which are the half that is genuinely self-consistent; no test asserts what the rollup does
+with a rateless non-EUR bucket, and none asserts the `currencyLabel` suffix at all.
+
+Size S–M: the arithmetic must not change, so the work is disclosure and its tests — decide whether a
+rateless non-EUR bucket should be marked in the report's currency column, whether the EUR-labelled
+rollup should refuse or flag a summand it could not convert, and pin whichever is chosen. Deciding
+is most of it; the edit is small.

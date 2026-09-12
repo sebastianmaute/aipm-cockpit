@@ -134,7 +134,13 @@ This gives `currencyToEur` its first production caller and makes `revenue`, `bud
 `consumedValue` genuinely EUR. Consequently:
 
 - `contributionMargin` stops subtracting an EUR cost from a foreign numerator — the margin defect;
-- the project rollup sums one unit;
+- the project rollup sums one unit — ★ NARROWED 2026-09-12: **only when every non-EUR bucket has an
+  effective rate.** `resolveRate` returns 1 for a non-EUR bucket with no `fxRateOverride` and no
+  cached ECB table, so its contract amount enters the rollup unconverted and is summed as EUR. The
+  rollup is EUR-labelled and converts nothing, so that bucket's foreign amount is silently counted
+  at par. Not a regression — at rate 1 `currencyToEur` is the identity, so the number is exactly
+  what it was before this branch — but the unqualified claim above is false on the default
+  no-rate path, which is the state most users are in. `docs/open-followups.md` §474 carries it;
 - `computeSpillover`'s carry is EUR before it ever reaches a successor, so the ★ contamination above
   is fixed by construction rather than by a second patch;
 - `budget-report-panel.tsx`'s hardcoded "EUR" label becomes true.
@@ -151,16 +157,36 @@ four that work.
 
 **The precondition gets named.** The engine's "all money is EUR" holds only if role rates are EUR,
 i.e. `plan.currency === "EUR"`. `ResourcePlan.currency` narrows from free `string` to the
-`BudgetCurrency` union, and `sanitizeResourcePlan` coerces anything unrecognised to `"EUR"`. A stored
+`BudgetCurrency` union, and `sanitizePlan` coerces anything unrecognised to `"EUR"`. A stored
 plan carrying e.g. `"CHF"` therefore becomes `"EUR"` on load — a silent value change on existing
 data, acceptable only because those figures were EUR all along and merely mislabelled. This adds no
 column and needs no golden regeneration, but it is a persisted-field shape change and rides
 `sanitize.ts` plus the storage round-trip tests.
 
-**Five docstrings become false and move in the same commit:** `budget-report.ts` (the `BucketReport`
-comment and `computeBucketReport`'s), `budget-panel.tsx` (the `cci` comment and the project-rollup
-comment), `budget-report-panel.tsx` (the "not used to convert" comment), and `types.ts` on the field
-itself.
+★ CORRECTED 2026-09-12: this paragraph and the test table below both named `sanitizeResourcePlan`,
+which has never existed anywhere in the repo. The real function is `sanitizePlan(input, today)` in
+`sanitize-entities.ts`. Reproduce the absence with
+`grep -rn "sanitizeResourcePlan" src scripts e2e` → no hits (exit 1), against
+`grep -n "export function sanitizePlan" src/app/sanitize-entities.ts` → 1 hit.
+★★ **Nothing would ever have caught this, and that is a property of this directory rather than of
+the mistake.** `docs:symbols:check` reads `AGENTS.md` and `docs/AGENTS/*.md` and nothing else, and
+`docs:claims:check` explicitly excludes `docs/superpowers/` — so an invented backticked identifier in
+a spec or plan is ungated forever, in both gates, by construction. Treat every symbol named in this
+directory as unverified until grepped.
+
+**Six docstrings were identified; FIVE became false and moved in the same commit,** and the sixth is
+deliberately unchanged. Moved: `budget-report.ts` (the `BucketReport` comment and
+`computeBucketReport`'s), `budget-panel.tsx` (the `cci` comment and the project-rollup comment), and
+`types.ts` on the field itself. ★ NOT moved, on purpose: `budget-report-panel.tsx`'s "the FX rate is
+shown for context only, not used to convert" comment. The conversion landed in the ENGINE, at
+`computeBucketReport`'s single read, so by the time that panel receives a figure it really is EUR and
+the rate it renders really is context-only — **the fix made that comment more true, not false**, and
+rewriting it would have introduced an error. Reproduce that it was left alone:
+`git diff 065a9d02..HEAD -- src/app/budget-report-panel.tsx | grep -E "^[-+].*//"` → three `+` lines,
+all one new comment about `tasks: []`, and no `-` line at all.
+★ An earlier revision of this heading said "Five docstrings" and then listed six items — a count and
+its own list disagreeing in adjacent clauses. The count was right about the outcome by accident and
+wrong about the list; both halves are now stated.
 
 ### 2. The rename and the two hints
 
@@ -209,7 +235,7 @@ Cases:
 | Same bucket, win/loss | €6,590.91, not the inflated figure |
 | Closed USD fixed → **T&M** successor | the successor's own `budgetValue` and win/loss carry no foreign amount |
 | USD fixed + GBP fixed + T&M in one project | the rollup sums a single unit |
-| `sanitizeResourcePlan` with `"CHF"` | coerced to `"EUR"` |
+| `sanitizePlan` with `"CHF"` | coerced to `"EUR"` |
 | Budget panel, USD bucket | entering a $10,000 contract renders **$10,000** back |
 | Budget report panel, same bucket | the EUR-labelled figure is the converted one |
 
@@ -217,8 +243,20 @@ i18n: the renamed key and both fixed hints get per-site assertions with `loadI18
 `beforeAll` — an EN-only assertion on a string whose DE twin is byte-identical is vacuous, and these
 are not identical. Key parity itself is tsc's job.
 
-No coverage glob covers `budget-report.ts`, `fx.ts` or `evm.ts`, and neither panel is coverage-gated,
-so the gate will not force any of this. The mutation proofs are the only real evidence.
+No PER-ENGINE coverage glob covers `budget-report.ts`, `fx.ts` or `evm.ts`, and neither panel is
+coverage-gated. ★ CORRECTED 2026-09-12 — **the inference drawn from that was false.** An earlier
+revision continued "so the gate will not force any of this", which reads the absence of a glob as
+the absence of a floor. `coverage.include` is `src/**/*.{ts,tsx}` and none of the three engines is
+in `coverage.exclude`, so all three sit under the GLOBAL floor (lines 92 / funcs 91 / branches 80 /
+stmts 89) — a per-engine glob would only OVERRIDE that floor, never create it. The panels genuinely
+are ungated, but by the blanket `src/app/**/*.tsx` exclusion, which is a different mechanism.
+Reproduce, against `vitest.config.ts`: `grep -c '"src/app/budget-report\.ts"' vitest.config.ts` → 0,
+and the same for `fx.ts` and `evm.ts` → 0 each (no exclusion), while
+`grep -n "thresholds" -A 12 vitest.config.ts` shows the four global numbers above and
+`grep -n 'include: \["src/\*\*' vitest.config.ts` shows the blanket include.
+So the gate DOES exert pressure on the three engines — just aggregate, project-wide pressure that a
+handful of new lines can hide inside. The mutation proofs remain the only evidence that any
+particular assertion here is doing work; that half of the original claim stands.
 
 ### 4. Sample data and fixtures
 
