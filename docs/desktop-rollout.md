@@ -33,8 +33,10 @@ If you use **Turso storage**, your projects appear as soon as the token is enter
 - Opening it again while it is already running just brings the existing window to the front.
 - To print, press **Ctrl+P** or use **File → Print…**. It prints the view you are
   looking at, so open the pane you want on paper first.
-- Exporting a PDF opens the document in a new window. If that window does not bring
-  up the print dialog by itself, press **Ctrl+P** in it.
+- Exporting a PDF opens the document in a new window, and in the desktop app that
+  window does **not** start printing on its own — press **Ctrl+P** in it. (In a web
+  browser it does start by itself; this is a desktop-only difference we have not
+  finished fixing.)
 
 ## If it does not start
 

@@ -160,17 +160,25 @@ export function fileAction(id: FileMenuItemId): FileMenuAction {
 // window. Treat it as the strongest available evidence, not as a measurement.
 //
 // ★★ THE ARGUMENT FOR THE LOOSE MATCH is a second pair of probes over the same
-// binary, and it is better than "the string could be reworded": the reason
-// vocabulary is NOT what Electron's docs suggest. `Printing is already in
-// progress` and `No printers found` have ZERO occurrences, while `Invalid
-// printer settings` has one -- so guessing the wording is hopeless, and an
-// `===` test against today's string would quietly reclassify every
-// cancellation as an error after any upgrade. Meanwhile NO reason-shaped
-// string in the binary except the cancellation one contains "cancel" (the
-// neighbours are `CancelJob` and ` because job was canceled`), so the stem
-// match is narrow in practice. The residual cost -- a genuine failure whose
-// reason happens to contain "cancel" going unlogged -- is the better of the
-// two mistakes.
+// binary, and it beats "the string could be reworded": the reason vocabulary is
+// NOT what Electron's docs suggest. `Printing is already in progress` and `No
+// printers found` have ZERO occurrences, while `Invalid printer settings` has
+// one. So the wording cannot be guessed, and an `===` test against today's
+// string would quietly reclassify every cancellation as an error after an
+// upgrade.
+//
+// ★★★ THAT IS ALL THAT IS MEASURED. An earlier version of this comment added
+// "no reason-shaped string except the cancellation one contains `cancel`" and
+// presented it as part of the same measurement. It is not measurable:
+// "reason-shaped" has no definition, so nothing can falsify it -- and the
+// binary in fact holds hundreds of distinct `cancel`-containing strings,
+// sentence-shaped ones included (`Authentication canceled`, `Form submission
+// canceled`, `DNS query cancelled`). None of them is a print failureReason as
+// far as anyone here can tell, so the stem match is PROBABLY narrow in
+// practice -- but that is a judgement, not a probe, and the count itself moves
+// with whatever window width you grep. The residual cost -- a genuine print
+// failure whose reason contains "cancel" going unlogged -- is accepted as the
+// better of the two mistakes.
 export function isPrintCancellation(failureReason: string): boolean {
   return /cancel/i.test(failureReason);
 }

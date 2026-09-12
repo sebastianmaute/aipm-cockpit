@@ -323,25 +323,33 @@ describe("fileAction", () => {
   });
 
   it("covers every entry the File menu offers", () => {
-    // ★★★ WHAT THIS DOES NOT CATCH, corrected -- the earlier comment claimed
-    // it "reds if an entry is added with no mapping", which is false: a second
+    // ★★★ WHAT THIS DOES NOT CATCH: the earlier comment claimed it "reds if an
+    // entry is added with no mapping", which is false -- a second
     // FileMenuItemId member with no FILE_ACTIONS key is a COMPILE error (the
     // Record is keyed by the union), so this never gets to run. What is left
-    // for it is the cast case -- a row widened past the union -- where the
-    // lookup returns undefined.
-    //
-    // ★★★ AND A SURVIVING MUTANT, NAMED RATHER THAN HIDDEN: replacing
-    // `return FILE_ACTIONS[id]` with `return "print-window"` passes every test
-    // in this file. With a ONE-MEMBER union no runtime assertion can tell a
-    // table lookup from a constant -- the two are observationally identical,
-    // so it is an equivalent mutant today, not a test gap. It becomes
-    // detectable the moment a second member exists, and at that point the
-    // Record's compile-time exhaustiveness is what forces the mapping. The
-    // alternative -- inventing a second File menu item so a mutant could die
-    // -- would be test-driven feature creep, so it was not done.
+    // for it is the cast case below.
     const actions = FILE_MENU_ITEMS.map((i) => fileAction(i.id));
     expect(actions.filter((a) => !!a)).toHaveLength(FILE_MENU_ITEMS.length);
     expect(new Set(actions).size).toBe(FILE_MENU_ITEMS.length);
+  });
+
+  it("reads the table rather than returning a constant", () => {
+    // ★★★ THIS WAS A MISSING TEST, NOT AN EQUIVALENT MUTANT, and the previous
+    // comment here asserted the opposite: "with a ONE-MEMBER union no runtime
+    // assertion can tell a table lookup from a constant". One can, and the
+    // same comment named the input two paragraphs earlier without noticing --
+    // an id cast past the union, where a real lookup misses and yields
+    // undefined while a constant return cannot. MEASURED both ways this round:
+    // 32/32 pass against the real code; with `return FILE_ACTIONS[id]`
+    // replaced by `return "print-window"` it is 1 failed / 31 passed, and this
+    // is the assertion that fails. No second menu item was needed, so the
+    // "test-driven feature creep" objection was a false dichotomy too.
+    //
+    // ★★ WHAT IT PINS, so it is not read as type-safety theatre: only that the
+    // function DISPATCHES on its argument. The cast is the vehicle -- the
+    // types already forbid this call, and the undefined it exposes is the same
+    // one `versionDialogAction` guards against with `?? "dismiss"`.
+    expect(fileAction("bogus" as unknown as Parameters<typeof fileAction>[0])).toBeUndefined();
   });
 });
 

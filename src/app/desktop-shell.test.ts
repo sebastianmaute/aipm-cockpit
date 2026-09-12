@@ -58,8 +58,12 @@ describe("isDesktopShellUserAgent", () => {
     // asserts an exact ordered array beginning with the print name. No tally
     // is quoted here on purpose; it rots. Read today's set with:
     //   grep -rln printHint src --include=*.test.tsx
-    // (this file is not among them -- it asserts the predicate, not the
-    // button.)
+    // ★ This file is excluded by its EXTENSION -- it is `.test.ts`, not
+    // `.test.tsx`, so the glob never reaches it. NOT because it avoids the
+    // word: the comment you are reading introduced `printHint` here, so a
+    // glob-less `grep -rln printHint src` does list this file (along with
+    // `i18n.ts`, `i18n.de.ts` and `task-manager-ui.tsx`). An earlier version
+    // of this note gave the wrong reason.
     expect(isDesktopShellUserAgent(navigator.userAgent)).toBe(false);
   });
 });

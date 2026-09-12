@@ -34369,11 +34369,17 @@ Size S: two strings, EN and DE together.
 
 **Status:** OPEN 2026-09-12 — never machine-verified in the packaged app. Two presence witnesses, both
 re-run 2026-09-12: `grep -rn "window\.print()" src --include=*.ts --include=*.tsx | grep -v "\.test\." |
-grep -vE "^\S+: *(//|\*)"` returns the surviving renderer call sites (the `grep -vE` drops the many
-comments that merely mention the call — without it the output is dominated by prose), and `grep -aoh
-"Scripted print is not supported" desktop/node_modules/electron/dist/electron.exe` returns the refusal
-string. ★ That the popup then stays SILENT rather than erroring is REASONED from those two, not observed:
-confirming it takes a packaged build and a PDF export.
+grep -vE "^\S+: *(//|\*)"` returns **THREE** call sites — the two this entry is about, plus
+`task-manager-ui.tsx`'s `PrintButton` fallback, which still exists in the source but is now unreachable
+in the shell because that button renders nothing there. Read the third as expected, not as a fourth
+defect. (The `grep -vE` drops comments that merely mention the call; without it the output is dominated
+by prose.) Second witness: `grep -aoh "Scripted print is not supported"
+desktop/node_modules/electron/dist/electron.exe` returns the refusal string. ★ That the popup then stays
+SILENT rather than erroring is REASONED from those two, not observed: confirming it takes a packaged
+build and a PDF export.
+
+★ §467 is absent from this register on purpose — it was minted on a peer session's branch (MR !473), not
+lost here.
 
 `src/app/export.ts` (`buildPdfHtml`) and `src/app/document-download.ts` (`AUTO_PRINT_SCRIPT`) both render
 a document into a `window.open`ed tab and inject a script whose whole job is to call `window.print()`.
@@ -34395,8 +34401,11 @@ to the export code.
 
 ★★ A related promise is now also only half-true in the shell: `export.ts` offers the export tab's Ctrl+P
 as the user's fallback when auto-print does not fire. Since the desktop File menu's CmdOrCtrl+P prints
-the FOCUSED window, that fallback does work in the packaged app — but it is the app's own print route
-doing it, not the page's script, and it prints whatever the focused window shows.
+the FOCUSED window, that fallback **should** work in the packaged app — but it is then the app's own
+print route doing it, not the page's script, and it prints whatever the focused window shows. ★ REASONED,
+NOT OBSERVED, like everything else under this Status line: it needs the export tab to be a real
+BrowserWindow that receives the application menu's accelerator, which the code supports and no run has
+confirmed. Do not restate it as fact — an earlier revision of this paragraph did.
 
 Unfixed, and deliberately so: the repair needs a main-process route (`webContents.printToPDF`, or a
 print handler installed on the opened window) plus a decision about whether the three surfaces keep

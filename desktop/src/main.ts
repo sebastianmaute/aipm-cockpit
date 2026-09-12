@@ -18,6 +18,7 @@ import {
   versionDialogOptions,
 } from "./lib/menu-model";
 import { resolveLogDir } from "./lib/log-paths";
+import { pickPrintTarget } from "./lib/print-target";
 import { waitForReady } from "./lib/readiness";
 import { killServer, spawnServer } from "./server-child";
 
@@ -75,30 +76,48 @@ function fileMenuClick(id: FileMenuItemId): () => void {
       return () => {
         // ★★★ THE FOCUSED WINDOW, NOT `win`. This shipped printing `win`
         // unconditionally, which is wrong the moment a SECOND window exists --
-        // and the app makes real ones: `openPopoutWindow` (src/app/
-        // broadcast-sync.ts, called from document-editor, shell-chrome,
-        // task-manager and workspace-section-chrome) does a `window.open`, and
-        // with no setWindowOpenHandler registered Electron's default handler
-        // turns each into a genuine BrowserWindow. Menu.setApplicationMenu
-        // installs CmdOrCtrl+P for all of them, so the accelerator pressed in a
-        // popout printed the MAIN view instead -- and it silently broke an
-        // existing documented promise: src/app/export.ts offers the export
-        // tab's Ctrl+P as the fallback when auto-print does not fire, which
-        // would have printed a different document entirely.
+        // and the app makes real ones: `openPopoutWindow`
+        // (src/app/broadcast-sync.ts) does a `window.open`, which Electron's
+        // DEFAULT handler turns into a genuine BrowserWindow because this shell
+        // overrides nothing (no setWindowOpenHandler -- and see the grep caveat
+        // below, which applies to that symbol too). Its callers,
+        // matched as CALLS rather than by name (a bare-name grep here listed
+        // `document-editor.tsx`, whose only occurrence is a COMMENT):
+        //   grep -rn "openPopoutWindow(" src --include=*.tsx \
+        //     | grep -v "\.test\." | grep -vE "^\S+: *(//|\*)"
+        // -- today shell-chrome, task-manager and workspace-section-chrome.
         //
-        // ★★ WHEN NOTHING IS FOCUSED, this falls back to the main window. That
-        // path should be unreachable from the accelerator: an application-menu
-        // accelerator needs one of our own windows focused, and no
-        // globalShortcut is registered (`grep -rn globalShortcut desktop/src`
-        // returns nothing), so with the app in the background the OS routes
-        // Ctrl+P to whatever is actually focused. It is a DECISION rather than
-        // an accident: if some path does reach the item with no focus, printing
-        // the main view serves the user better than doing nothing. ★ The
-        // unreachability is reasoned, not measured -- confirming it needs a
-        // packaged run.
-        const target = BrowserWindow.getFocusedWindow() ?? win;
-        // Same window-liveness idiom shouldReportServerExit already uses.
-        if (!target || target.isDestroyed()) {
+        // ★★ THE MECHANISM IS REASONED, NOT MEASURED, and an earlier version of
+        // this comment stated it as fact while labelling the weaker inference
+        // below: `Menu.setApplicationMenu` installs one menu for the whole app,
+        // so CmdOrCtrl+P is expected to be live in every window and therefore
+        // to have printed the MAIN view from a popout. The code supports it; no
+        // run has shown it. Same standing as the consequence -- src/app/
+        // export.ts offers the export tab's Ctrl+P as the user's fallback when
+        // auto-print does not fire, which on that reading printed a different
+        // document entirely.
+        //
+        // ★★ WHEN NOTHING IS FOCUSED, pickPrintTarget falls back to the main
+        // window. That path should be unreachable from the accelerator: an
+        // application-menu accelerator needs one of our own windows focused,
+        // and nothing registers a global shortcut -- verify with
+        //   grep -rn "globalShortcut\|setWindowOpenHandler" desktop/src
+        // ★★ WHOSE ONLY HITS ARE THIS COMMENT BLOCK. Read an empty result as
+        // impossible, not as failure: naming a symbol in the command that
+        // looks for it makes the comment match itself. The first version of
+        // this line claimed the command "returns nothing", which was false the
+        // moment it was written -- the same trap this commit fixes in
+        // task-manager-ui.tsx, applied there and missed here. So with
+        // the app backgrounded the OS routes Ctrl+P elsewhere. Reasoned, not
+        // measured, like the mechanism above. It is still a DECISION: if some
+        // path does reach the item unfocused, printing the main view serves the
+        // user better than silence.
+        //
+        // ★ The choice itself is pure and TESTED in lib/print-target.ts --
+        // including that a destroyed focused window prints nothing rather than
+        // falling back. Only the two Electron lookups below are eye-verified.
+        const target = pickPrintTarget(BrowserWindow.getFocusedWindow(), win);
+        if (target === null) {
           log("print: no window to print");
           return;
         }
