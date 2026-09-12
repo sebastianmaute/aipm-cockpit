@@ -60,7 +60,7 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
   // Mount + back/forward: hash drives the view (and any deep-linked item).
   useLayoutEffect(() => {
     if (!enabled || isPopout) return;
-    const apply = () => {
+    const apply = (cold: boolean) => {
       const raw = currentHash();
       // Leave an MSAL auth-response fragment intact for handleRedirectPromise —
       // routing it away would strand the sign-in popup open (see isAuthResponseHash).
@@ -70,17 +70,32 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
       // dashboard module is disabled, so the user is never stranded.
       const blank = raw === "" || raw === "#";
       const blankView: AppView = features && !isViewEnabled("dashboard", features) ? "open-points" : "dashboard";
-      const { view, itemId } = blank ? { view: blankView, itemId: null } : parseHash(raw);
+      const parsed = blank ? { view: blankView, itemId: null } : parseHash(raw);
+      // ★★ A COLD load treats a VIEW-ONLY hash as stale session residue: the
+      //    view→hash effect below writes `#<view>` on every navigation, so the
+      //    URL a browser restores (or a reload keeps) merely records where the
+      //    last session ended. An ITEM-bearing hash is a real deep link and is
+      //    honoured in full. Every LATER hashchange/popstate keeps the hash
+      //    authoritative, so genuine back/forward navigation is untouched.
+      //    KNOWN COST: a shared view-only link such as `#budget` now lands on
+      //    the Dashboard. Item-bearing links — what people actually share to
+      //    point at a thing — still work.
+      const { view, itemId } =
+        cold && !blank && parsed.itemId == null ? { view: blankView, itemId: null } : parsed;
       if (features && !isViewEnabled(view, features)) return; // disabled target: ignore the hash
       setActiveTab(view);
       if (itemId != null) requestOpen(view, itemId);
     };
-    apply();
-    window.addEventListener("hashchange", apply);
-    window.addEventListener("popstate", apply);
+    apply(true);
+    // MUST be this named wrapper, added and removed as the same reference:
+    // passing `apply` directly hands the EVENT OBJECT in as `cold` (truthy),
+    // making every later navigation a cold load.
+    const onEvent = () => apply(false);
+    window.addEventListener("hashchange", onEvent);
+    window.addEventListener("popstate", onEvent);
     return () => {
-      window.removeEventListener("hashchange", apply);
-      window.removeEventListener("popstate", apply);
+      window.removeEventListener("hashchange", onEvent);
+      window.removeEventListener("popstate", onEvent);
     };
   }, [enabled, isPopout, features, setActiveTab, requestOpen]);
 

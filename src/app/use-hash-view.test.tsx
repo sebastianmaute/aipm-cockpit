@@ -3,6 +3,7 @@ import { useLayoutEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { isAuthResponseHash, useHashView } from "./use-hash-view";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 function wrapper({ children }: { children: ReactNode }) {
   return <WorkspaceTabProvider>{children}</WorkspaceTabProvider>;
@@ -22,8 +23,12 @@ describe("useHashView", () => {
     expect(result.current.activeTab).toBe("dashboard");
   });
 
-  it("selects the view named by the initial hash", () => {
-    window.location.hash = "#gantt";
+  // MIGRATED: this asserted that a bare "#gantt" selects Gantt on mount, which
+  // a cold load now treats as stale session residue. The surviving claim — an
+  // ITEM-bearing initial hash selects its view — is pinned here at a second
+  // slug, and for the Dashboard-vs-deep-link split see the cold-load tests below.
+  it("selects the view named by an item-bearing initial hash", () => {
+    window.location.hash = "#gantt/7";
     const { result } = renderHook(
       () => { useHashView(); return useWorkspaceTab(); },
       { wrapper },
@@ -54,12 +59,23 @@ describe("useHashView", () => {
     expect(window.location.hash).toBe("#code=abc&state=xyz");
   });
 
-  it("falls back to open-points on an unknown hash", () => {
+  // MIGRATED: the claim (an unknown hash never strands the user on a dead view)
+  // is intact; WHICH view it lands on was the stale detail. A cold load stops at
+  // the stale-residue gate before slugToView's fallback matters, so it goes to
+  // the Dashboard; slugToView's open-points fallback is still what a LATER
+  // navigation to an unknown slug resolves to, and both are pinned here.
+  it("falls back to a valid view on an unknown hash", () => {
     window.location.hash = "#nope";
     const { result } = renderHook(
       () => { useHashView(); return useWorkspaceTab(); },
       { wrapper },
     );
+    expect(result.current.activeTab).toBe("dashboard");
+
+    act(() => {
+      window.location.hash = "#nope-either";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
     expect(result.current.activeTab).toBe("open-points");
   });
 
@@ -135,7 +151,10 @@ describe("useHashView", () => {
     // modern shell then rendered a stale/blank branch until F5. Handling
     // popstate re-runs the same idempotent apply() that hashchange already
     // uses, re-deriving the view from the current location.hash.
-    window.location.hash = "#gantt";
+    // MIGRATED: the starting hash is item-bearing so the cold load still honours
+    // it (a bare "#gantt" is now treated as stale residue and lands on the
+    // Dashboard). The popstate claim this test exists for is unchanged.
+    window.location.hash = "#gantt/7";
     const { result } = renderHook(
       () => { useHashView(); return useWorkspaceTab(); },
       { wrapper },
@@ -200,5 +219,63 @@ describe("useHashView", () => {
     render(<WorkspaceTabProvider><Probe /></WorkspaceTabProvider>);
     expect(screen.getByTestId("tab2")).toHaveTextContent("raid");
     expect(seen.at(-1)).toEqual({ view: "raid", id: 123 });
+  });
+
+  it("treats a view-only hash as stale on a cold load and lands on the Dashboard", () => {
+    window.location.hash = "#raid";
+    const { result } = renderHook(
+      () => { useHashView(); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).toBe("dashboard");
+    expect(result.current.pendingOpen).toBeNull();
+  });
+
+  it("honours an item-bearing deep link on a cold load", () => {
+    window.location.hash = "#raid/123";
+    const { result } = renderHook(
+      () => { useHashView(); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).toBe("raid");
+    expect(result.current.pendingOpen).toEqual({ view: "raid", id: 123 });
+  });
+
+  it("keeps the hash authoritative after mount, so back/forward still work", () => {
+    window.location.hash = "";
+    const { result } = renderHook(
+      () => { useHashView(); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).toBe("dashboard");
+    // A LATER navigation is not a cold load: the hash wins, view-only or not.
+    act(() => {
+      window.location.hash = "#raid";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(result.current.activeTab).toBe("raid");
+  });
+
+  it("lands on open-points on a cold load when the dashboard module is disabled", () => {
+    // Exercises the COLD branch's blankView fallback, which is unreachable
+    // today: a non-blank hash never consults blankView, so this asserts NEW
+    // behaviour and fails pre-fix. It is not a pre-existing regression guard.
+    window.location.hash = "#raid";
+    const features = ALL_MODULE_IDS.filter((m) => m !== "dashboard");
+    const { result } = renderHook(
+      () => { useHashView(true, features); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).toBe("open-points");
+  });
+
+  it("leaves an MSAL auth-response fragment untouched on a cold load", () => {
+    window.location.hash = "#code=abc&state=xyz";
+    const { result } = renderHook(
+      () => { useHashView(); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).toBe("dashboard");
+    expect(window.location.hash).toBe("#code=abc&state=xyz");
   });
 });
