@@ -782,8 +782,21 @@ export function sweptFields(entity: InlineEntity, before: Record<string, unknown
   return [...new Set([...declared, ...stored])];
 }
 
-/** Each entity's swept field axis AS MEASURED on 2026-09-08, and the SET it must
+/** Each entity's swept field axis AS MEASURED on 2026-09-12, and the SET it must
  *  keep covering from now on.
+ *
+ *  ★★★ RE-MEASURED 2026-09-12 BECAUSE THE RECORD HAD FALLEN BEHIND THE SEEDS,
+ *  WHICH IS THE ONE DRIFT THIS TABLE'S SUBSET CHECK CANNOT REPORT. The typed-probe
+ *  slice seeded `localModifiedAt` on all eight registers and `outlookEventId` on
+ *  six, plus sixteen further columns on `seedGuardedTask` and `exceptions` on the
+ *  calendar-event seed — and `sweptFields` unions the seed row's own keys, so all
+ *  of it joined the real axis while this table still named the 2026-09-08 sets.
+ *  Every one of those fields was swept by `plan.write-path-sweep.test.ts` and
+ *  recorded by nothing, so removing the seed key again would have been silent.
+ *  ★★ GROWTH BEING FREE is what makes that possible and is still worth keeping:
+ *  the assertion is a subset check so ordinary work never reds, but the price is
+ *  that only a human re-measurement closes the gap. Re-measure this table in the
+ *  same commit that widens a seed, the way this one does.
  *
  *  ★★★ A SET, NOT A COUNT, AND THE DIFFERENCE IS A SUBSTITUTION. This was
  *  `Record<InlineEntity, number>` holding the eight measured widths, and a count
@@ -853,14 +866,14 @@ export function sweptFields(entity: InlineEntity, before: Record<string, unknown
  *  green. A withdrawal from `diffFields` only shrinks this axis for a field the
  *  seed does NOT carry — check the seed before assuming an entry must go. */
 export const AXIS_FIELDS: Record<InlineEntity, readonly string[]> = {
-  task: ["assignee", "assigneeEmail", "blockers", "dueDate", "group", "labels", "lastUpdateDate", "priority", "status", "taskName"],
-  raid: ["category", "causedByRaidIds", "closedDate", "impact", "knowledgeLinks", "linkedTaskIds", "owner", "ownerEmail", "ownerResourceId", "probability", "raisedDate", "severity", "stakeholderIds", "status", "targetDate", "title"],
-  change: ["costImpact", "decisionBy", "decisionDate", "impact", "knowledgeLinks", "linkedRaidIds", "linkedTaskIds", "raisedDate", "requestedBy", "scheduleImpactDays", "stakeholderIds", "status", "title", "type"],
-  milestone: ["achievedDate", "date", "knowledgeLinks", "linkedTaskIds", "name"],
-  stakeholder: ["category", "email", "influence", "interest", "knowledgeLinks", "name", "notes", "organization", "raci", "resourceId", "title"],
-  resource: ["absenceOverride", "active", "birthday", "businessPhone", "company", "department", "email", "emails", "firstName", "isExternal", "lastName", "location", "notes", "roleId", "title", "utilization", "utilizationMode"],
-  absence: ["assignee", "assigneeEmail", "endDate", "note", "resourceId", "startDate", "type"],
-  calendarEvent: ["attendeeResourceIds", "durationMinutes", "location", "notes", "recurrence", "sendInvitations", "startDate", "startTime", "title"],
+  task: ["assignee", "assigneeEmail", "blockers", "completedDate", "createdDate", "dependencies", "dueDate", "group", "healthOverride", "inquiriesSent", "jiraIssueType", "knowledgeLinks", "labels", "lastSyncedAt", "lastUpdateDate", "localModifiedAt", "noteLog", "originalEstimateMinutes", "outlookEventId", "priority", "remainingEstimateMinutes", "resourceId", "startDate", "status", "taskName", "timeSpentMinutes"],
+  raid: ["category", "causedByRaidIds", "closedDate", "impact", "inquiriesSent", "knowledgeLinks", "linkedTaskIds", "localModifiedAt", "outlookEventId", "owner", "ownerEmail", "ownerResourceId", "probability", "raisedDate", "severity", "stakeholderIds", "status", "targetDate", "title"],
+  change: ["costImpact", "decisionBy", "decisionDate", "impact", "knowledgeLinks", "linkedRaidIds", "linkedTaskIds", "localModifiedAt", "outlookEventId", "raisedDate", "requestedBy", "scheduleImpactDays", "stakeholderIds", "status", "title", "type"],
+  milestone: ["achievedDate", "date", "knowledgeLinks", "linkedTaskIds", "localModifiedAt", "name", "outlookEventId"],
+  stakeholder: ["category", "email", "influence", "interest", "knowledgeLinks", "localModifiedAt", "name", "notes", "organization", "raci", "resourceId", "title"],
+  resource: ["absenceOverride", "active", "birthday", "businessPhone", "company", "department", "email", "emails", "firstName", "isExternal", "lastName", "localModifiedAt", "location", "notes", "roleId", "title", "utilization", "utilizationMode"],
+  absence: ["assignee", "assigneeEmail", "endDate", "localModifiedAt", "note", "outlookEventId", "resourceId", "startDate", "type"],
+  calendarEvent: ["attendeeResourceIds", "durationMinutes", "exceptions", "localModifiedAt", "location", "notes", "outlookEventId", "recurrence", "sendInvitations", "startDate", "startTime", "title"],
 };
 
 /** Every field name a `Rejected` entry blames.
