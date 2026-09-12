@@ -114,6 +114,20 @@ empty string. Two known sites:
 
 The plan must sweep every `??` and `||` on the nine widened fields, not just these two.
 
+**The safe idiom is not `??`.** Widening a field to `""` inverts the usual advice: the empty
+string is falsy but not nullish, so `??` passes a blank straight through while `||` catches it.
+An audit that mechanically rewrites `||` to `??` would therefore make this slice **worse**, not
+safer. Over the nine widened fields use a truthiness test or an explicit `.trim() === ""` check,
+and treat every surviving `??` on one of them as a defect until shown otherwise.
+
+**Grep discriminator for the sweep.** `report.project.*` is the budget engine's `ProjectReport`
+(revenue, cost, margin — `budget-report.ts`), a different entity from the `ProjectMeta` this
+slice widens, and as of 2026-09-12 the unmerged `feat/budget-currency-boundary` branch adds many
+call sites of it. A bare `grep -rn "project\." src` will therefore drown the audit in matches
+that cannot carry an empty-string hazard. Discriminate on the binding, not the word:
+`ws.project` / `workspace.project` is in scope; a `.project` read off a
+`computeBudgetReport(...)` result is not.
+
 ### 4.5 Form and strings
 
 - `validateProjectMeta` retains `name` required, `endDate >= startDate`, and the four URL
