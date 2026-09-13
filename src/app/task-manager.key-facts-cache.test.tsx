@@ -103,6 +103,13 @@ async function waitForWorkspaceReady() {
   await waitFor(() => expect(seenReady).toContain(true), { timeout: 40000 });
 }
 
+/** Flush pending effects, then let a short real-timer tick pass, so an absence
+ *  assertion runs only after a write WOULD already have landed. */
+async function settleEffects() {
+  await act(async () => {});
+  await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+}
+
 beforeEach(() => {
   __resetMintStateForTests();
   window.localStorage.clear();
@@ -135,12 +142,15 @@ describe("task-manager — key-facts cache write effect", () => {
 
     render(<TaskManager />);
     await waitForWorkspaceReady();
+    // Positive observable: a post-load render committed with the current id
+    // set and NO meta — exactly the state the `!project` guard must refuse.
+    await waitFor(() => expect(captured.props?.currentProjectId).toBe("p1"));
+    expect(captured.props!.currentProject).toBeUndefined();
+    await settleEffects();
 
     expect(loadKeyFactsSnapshot("p1")).toBeNull();
   }, 45000);
 
-  // ★★★ Mutation-checked: temporarily deleting the `isPopout ||` guard in
-  // task-manager's key-facts cache-write effect turns this red.
   it("writes nothing from a popout render, even once the same meta loads", async () => {
     seedRegistry([{ id: "p1", name: "Seed", code: "SEED" }], "p1");
     await idbSet(KV_PROJECT_KEY, META);
@@ -148,6 +158,10 @@ describe("task-manager — key-facts cache write effect", () => {
 
     render(<TaskManager />);
     await waitForWorkspaceReady();
+    // Positive observable: the loaded meta reached a committed popout render,
+    // so the write effect has had its inputs — only `isPopout` stops it.
+    await waitFor(() => expect(captured.props?.currentProject).toEqual(META));
+    await settleEffects();
 
     expect(loadKeyFactsSnapshot("p1")).toBeNull();
   }, 45000);
