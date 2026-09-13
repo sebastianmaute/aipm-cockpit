@@ -38,6 +38,11 @@ function isSnapshot(v: unknown): v is KeyFactsSnapshot {
   if (filled < 0 || filled > KEY_FACT_IDS.length) return false;
   if (!Array.isArray(s.missing)) return false;
   if (!s.missing.every((id) => typeof id === "string" && FACT_ID_SET.has(id))) return false;
+  // ★ Reject a duplicate id in `missing` — without this, a corrupt/crafted
+  // entry could repeat one id enough times to satisfy the count-adds-up check
+  // below while omitting a real missing fact (e.g. ["code","code","code"] for
+  // filled=8 on an 11-fact model), rendering the meter on a fabricated split.
+  if (new Set(s.missing).size !== s.missing.length) return false;
   return filled + s.missing.length === KEY_FACT_IDS.length;
 }
 
@@ -56,8 +61,16 @@ export function keyFactsSnapshot(meta: ProjectMeta, at: string): KeyFactsSnapsho
   return { filled, missing, customer: meta.customer, at };
 }
 
+// ★ G1: one parse-and-validate pass of the whole device map, for a caller
+// (the Projects-list memo) that needs every row's snapshot in one render —
+// calling `loadKeyFactsSnapshot` per row parsed and validated the WHOLE
+// stored map once per row.
+export function loadKeyFactsSnapshots(): Record<string, KeyFactsSnapshot> {
+  return readMap();
+}
+
 export function loadKeyFactsSnapshot(projectId: string): KeyFactsSnapshot | null {
-  return readMap()[projectId] ?? null;
+  return loadKeyFactsSnapshots()[projectId] ?? null;
 }
 
 export function saveKeyFactsSnapshot(projectId: string, snap: KeyFactsSnapshot): void {
@@ -67,6 +80,25 @@ export function saveKeyFactsSnapshot(projectId: string, snap: KeyFactsSnapshot):
   if (entries.length > KEY_FACTS_CACHE_MAX_PROJECTS) {
     entries.sort((a, b) => b[1].at.localeCompare(a[1].at));
     writeDeviceJson(KEY_FACTS_CACHE_KEY, Object.fromEntries(entries.slice(0, KEY_FACTS_CACHE_MAX_PROJECTS)));
+    return;
+  }
+  writeDeviceJson(KEY_FACTS_CACHE_KEY, map);
+}
+
+// ★ G2: drop one project's entry when it is deleted/de-registered, so a
+// removed project doesn't keep occupying one of the 50 cached slots forever.
+// Mirrors `clearKeyFactsCache`'s use of `removeDeviceKey` for the
+// whole-map-empty case: writing back an empty object would leave a live
+// (if empty) key behind, which `readDeviceJson`'s callers, `app-reset`'s
+// `aipm-cockpit:*` sweep, and this module's own `clearKeyFactsCache` all
+// still handle fine either way, but leaving no key at all is the more
+// honest "nothing cached" state and mirrors the whole-cache-clear path.
+export function removeKeyFactsSnapshot(projectId: string): void {
+  const map = readMap();
+  if (!(projectId in map)) return;
+  delete map[projectId];
+  if (Object.keys(map).length === 0) {
+    removeDeviceKey(KEY_FACTS_CACHE_KEY);
     return;
   }
   writeDeviceJson(KEY_FACTS_CACHE_KEY, map);

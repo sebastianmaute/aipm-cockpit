@@ -4,6 +4,8 @@ import {
   clearKeyFactsCache,
   keyFactsSnapshot,
   loadKeyFactsSnapshot,
+  loadKeyFactsSnapshots,
+  removeKeyFactsSnapshot,
   saveKeyFactsSnapshot,
   type KeyFactsSnapshot,
 } from "./project-key-facts-cache";
@@ -66,9 +68,27 @@ describe("project-key-facts-cache", () => {
     ["a non-string customer", { ...SNAP, customer: 3 }],
     ["a non-string at", { ...SNAP, at: null }],
     ["a non-array missing", { ...SNAP, missing: "code" }],
+    // G5: the untested defensive disjuncts.
+    ["a null entry", null],
+    ["an array-valued entry", ["code", "regulatory"]],
+    // G5: a duplicate id in `missing` — without the dedupe check this would
+    // wrongly pass (filled=9 + 2 entries === 11) despite repeating one fact
+    // and omitting another.
+    ["a missing array with a duplicate id", { ...SNAP, filled: 9, missing: ["code", "code"] }],
   ])("reads %s as unknown", (_label, entry) => {
     window.localStorage.setItem(KEY, JSON.stringify({ p1: entry }));
     expect(loadKeyFactsSnapshot("p1")).toBeNull();
+  });
+
+  // G5: a bare (non-object, non-array) top-level stored value — the existing
+  // "non-object stored value" test only covers the array case.
+  it.each([
+    ["a bare string", JSON.stringify("nope")],
+    ["a bare number", JSON.stringify(11)],
+  ])("reads %s as the top-level stored value, as an empty map", (_label, raw) => {
+    window.localStorage.setItem(KEY, raw);
+    expect(loadKeyFactsSnapshot("p1")).toBeNull();
+    expect(loadKeyFactsSnapshots()).toEqual({});
   });
 
   it("clears every snapshot", () => {
@@ -87,5 +107,57 @@ describe("project-key-facts-cache", () => {
     expect(keyFactsSnapshot(meta, "2026-09-13T10:00:00.000Z")).toEqual({
       filled: 9, missing: ["code", "regulatory"], customer: "ACME Corp", at: "2026-09-13T10:00:00.000Z",
     });
+  });
+});
+
+// G1: one parse-and-validate pass over the whole map, so a caller needing
+// every row (the Projects-list memo) doesn't re-parse the stored blob once
+// per row.
+describe("loadKeyFactsSnapshots", () => {
+  it("reads every stored snapshot in one call", () => {
+    saveKeyFactsSnapshot("p1", SNAP);
+    saveKeyFactsSnapshot("p2", { ...SNAP, filled: 11, missing: [], customer: "Globex" });
+    expect(loadKeyFactsSnapshots()).toEqual({
+      p1: SNAP,
+      p2: { ...SNAP, filled: 11, missing: [], customer: "Globex" },
+    });
+  });
+
+  it("returns an empty map when nothing is cached", () => {
+    expect(loadKeyFactsSnapshots()).toEqual({});
+  });
+
+  // Same validation as loadKeyFactsSnapshot — a corrupt entry is dropped,
+  // not merely hidden from a single-id lookup.
+  it("drops a corrupt entry, keeping the valid ones", () => {
+    saveKeyFactsSnapshot("p1", SNAP);
+    const map = JSON.parse(window.localStorage.getItem(KEY)!);
+    map.p2 = { ...SNAP, filled: "9" }; // non-integer filled
+    window.localStorage.setItem(KEY, JSON.stringify(map));
+    expect(loadKeyFactsSnapshots()).toEqual({ p1: SNAP });
+  });
+});
+
+// G2: drop a project's entry when it is deleted/de-registered — mirrors
+// clearKeyFactsCache's use of removeDeviceKey for the whole-map-empty case.
+describe("removeKeyFactsSnapshot", () => {
+  it("removes one project's entry, leaving the others", () => {
+    saveKeyFactsSnapshot("p1", SNAP);
+    saveKeyFactsSnapshot("p2", { ...SNAP, filled: 11, missing: [], customer: "Globex" });
+    removeKeyFactsSnapshot("p1");
+    expect(loadKeyFactsSnapshot("p1")).toBeNull();
+    expect(loadKeyFactsSnapshot("p2")?.customer).toBe("Globex");
+  });
+
+  it("is a no-op for an unknown id", () => {
+    saveKeyFactsSnapshot("p1", SNAP);
+    removeKeyFactsSnapshot("never-opened");
+    expect(loadKeyFactsSnapshot("p1")).toEqual(SNAP);
+  });
+
+  it("removes the key entirely once the map becomes empty", () => {
+    saveKeyFactsSnapshot("p1", SNAP);
+    removeKeyFactsSnapshot("p1");
+    expect(window.localStorage.getItem(KEY)).toBeNull();
   });
 });
