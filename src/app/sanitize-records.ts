@@ -1401,53 +1401,40 @@ export function sanitizeTimezone(raw: unknown): string | undefined {
   return typeof raw === "string" && isValidTimeZone(raw) ? raw : undefined;
 }
 
-export function sanitizeProjectMeta(
-  input: unknown,
-  opts: { lenientRequiredArrays?: boolean } = {},
-): ProjectMeta | null {
+export function sanitizeProjectMeta(input: unknown): ProjectMeta | null {
   if (!isPlainObject(input)) return null;
   const o = input;
 
-  // Required short-text fields — empty string means invalid.
+  // ★★ Only `name` is required (O-1). Every other key fact may be blank, and ""
+  // means "not set". Returning null here discards the WHOLE project, not the
+  // field — so a guard on anything but `name` makes a legitimately incomplete
+  // project vanish on its next load from any backend.
   const name = sanitizeText(o.name, BUDGET_NAME_MAX);
   if (!name) return null;
   const code = sanitizeText(o.code, BUDGET_NAME_MAX);
-  if (!code) return null;
   const projectManager = sanitizeText(o.projectManager, BUDGET_NAME_MAX);
-  if (!projectManager) return null;
   const customer = sanitizeText(o.customer, BUDGET_NAME_MAX);
-  if (!customer) return null;
   const products = sanitizeText(o.products, BUDGET_NAME_MAX);
-  if (!products) return null;
   const profitCenter = sanitizeText(o.profitCenter, BUDGET_NAME_MAX);
-  if (!profitCenter) return null;
 
-  // Required enum fields.
-  const naceSectionRaw = sanitizeText(o.naceSection, 4);
-  if (!NACE_SECTION_SET.has(naceSectionRaw)) return null;
-  const naceSection = naceSectionRaw;
+  // Enum fields: blank is "not set" and is kept. A NON-blank value outside the
+  // set is garbage, and still rejects the record — the one guard O-1 keeps.
+  const naceSection = sanitizeText(o.naceSection, 4);
+  if (naceSection && !NACE_SECTION_SET.has(naceSection)) return null;
 
   const deploymentRaw = sanitizeText(o.deployment, BUDGET_NAME_MAX);
-  if (!DEPLOYMENT_SET.has(deploymentRaw)) return null;
-  const deployment = deploymentRaw as Deployment;
+  if (deploymentRaw && !DEPLOYMENT_SET.has(deploymentRaw)) return null;
+  const deployment = deploymentRaw as Deployment | "";
 
-  // startDate is required; endDate is OPTIONAL (since 0.74) — keep a valid ISO
-  // date, otherwise "" (no end date). Rejecting a blank endDate here would make
-  // a complete form silently unsubmittable, since validateProjectMeta (which
-  // gates the Save/Next button) treats endDate as optional.
+  // Both dates are optional; an unparseable value reads as "" (not set).
   const startDate = sanitizeIsoDate(o.startDate);
-  if (!startDate) return null;
-  const endDate = sanitizeIsoDate(o.endDate) ?? "";
+  const endDate = sanitizeIsoDate(o.endDate);
 
-  // Key stakeholders (internal / external) are OPTIONAL — accept any sanitized
-  // array, including empty. Contacts are the mandatory people field now, but
-  // that is enforced at the form layer (validateProjectMeta) only: sanitize must
-  // stay lenient here so existing projects saved without contacts still decode
-  // (decode call sites use strict mode).
+  // Key stakeholders (internal / external): any sanitized array, including empty.
   const keyStakeholdersInternal = sanitizeStringArray(o.keyStakeholdersInternal, BUDGET_NAME_MAX);
   const keyStakeholdersExternal = sanitizeStringArray(o.keyStakeholdersExternal, BUDGET_NAME_MAX);
 
-  // Required array: regulatory — filter to known set, de-dupe, collapse "Not applicable".
+  // regulatory — filter to the known set, de-dupe, collapse "Not applicable". Empty is kept.
   const rawRegArr: unknown[] = Array.isArray(o.regulatory) ? o.regulatory : [];
   const regulatoryFiltered: RegulatoryRequirement[] = [];
   const regulatorySeen = new Set<string>();
@@ -1457,7 +1444,6 @@ export function sanitizeProjectMeta(
     regulatorySeen.add(item);
     regulatoryFiltered.push(item as RegulatoryRequirement);
   }
-  if (!opts.lenientRequiredArrays && regulatoryFiltered.length === 0) return null;
   const regulatory: RegulatoryRequirement[] = regulatoryFiltered.includes(REGULATORY_NOT_APPLICABLE)
     ? [REGULATORY_NOT_APPLICABLE]
     : regulatoryFiltered;
@@ -1479,7 +1465,7 @@ export function sanitizeProjectMeta(
     .map(sanitizeContactPerson)
     .filter((cp): cp is ContactPerson => cp !== null);
 
-  // Build required-fields-first object (sanitizeStakeholder style).
+  // Build the always-present fields first (sanitizeStakeholder style).
   const meta: ProjectMeta = {
     name,
     code,

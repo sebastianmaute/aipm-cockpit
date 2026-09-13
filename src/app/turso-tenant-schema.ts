@@ -20,7 +20,7 @@ import {
 } from "./turso-schema";
 import { hasAnyOverride } from "./settings-overrides";
 import {
-  PROJECT_CSV_COLUMNS, projectFieldToString, buildProjectFromObjLenient,
+  PROJECT_CSV_COLUMNS, projectFieldToString, buildProjectFromObj,
 } from "./csv-codecs";
 import type { Workspace } from "./workspace";
 import type { ProjectMeta } from "./types";
@@ -229,7 +229,7 @@ export function rowsToProjectList(res: PipelineResultLike | undefined): ProjectL
     .map((o): ProjectListEntry | null => {
       const id = o.id ?? "";
       if (!id) return null;
-      const meta = buildProjectFromObjLenient(o);
+      const meta = buildProjectFromObj(o);
       if (!meta) return null;
       return { id, meta, archived: o.archived === "1" };
     })

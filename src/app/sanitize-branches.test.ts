@@ -392,18 +392,14 @@ describe("sanitizeProjectMeta — remaining required + array arms", () => {
     contactPersons: [{ name: "Dee", email: "dee@acme.test", synced: true }],
     regulatory: ["NIS2"],
   };
-  it("returns null when code / projectManager / products / profitCenter is blank", () => {
-    expect(sanitizeProjectMeta({ ...valid, code: "" })).toBeNull();
-    expect(sanitizeProjectMeta({ ...valid, projectManager: "" })).toBeNull();
-    expect(sanitizeProjectMeta({ ...valid, products: "" })).toBeNull();
-    expect(sanitizeProjectMeta({ ...valid, profitCenter: "" })).toBeNull();
+  it("keeps blank code / projectManager / products / profitCenter as ''", () => {
+    const m = sanitizeProjectMeta({ ...valid, code: "", projectManager: "", products: "", profitCenter: "" });
+    expect(m).toMatchObject({ code: "", projectManager: "", products: "", profitCenter: "" });
   });
   it("treats a missing/blank endDate as '' and tolerates non-array regulatory/identity/contacts", () => {
     expect(sanitizeProjectMeta({ ...valid, endDate: "bad" })?.endDate).toBe("");
-    // regulatory not an array → empty → null (required unless lenient)
-    expect(sanitizeProjectMeta({ ...valid, regulatory: "NIS2" })).toBeNull();
-    // lenient mode keeps an empty regulatory array
-    expect(sanitizeProjectMeta({ ...valid, regulatory: [] }, { lenientRequiredArrays: true })?.regulatory).toEqual([]);
+    // regulatory not an array → [] (kept; O-1 made it optional)
+    expect(sanitizeProjectMeta({ ...valid, regulatory: "NIS2" })?.regulatory).toEqual([]);
     // non-string + duplicate regulatory members are skipped
     expect(sanitizeProjectMeta({ ...valid, regulatory: [5, "NIS2", "NIS2"] })?.regulatory).toEqual(["NIS2"]);
     // non-array identityTypes / contactPersons → []

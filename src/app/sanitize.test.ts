@@ -431,8 +431,8 @@ describe("sanitizeProjectMeta – jiraUrl", () => {
     const r = sanitizeProjectMeta({ ...base, endDate: "" });
     expect(r).not.toBeNull();
     expect(r?.endDate).toBe("");
-    // startDate stays required.
-    expect(sanitizeProjectMeta({ ...base, startDate: "" })).toBeNull();
+    // startDate is optional too since O-1 — a blank one is kept as "".
+    expect(sanitizeProjectMeta({ ...base, startDate: "" })?.startDate).toBe("");
   });
 });
 

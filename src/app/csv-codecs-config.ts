@@ -548,8 +548,8 @@ export function projectFieldToString(p: ProjectMeta, col: keyof ProjectMeta): st
 
 /** Decode a `field -> raw string` map (as produced by the CSV/MD parsers, or a
  *  Turso `projects` row) into the loose pre-sanitize ProjectMeta-shaped object.
- *  Shared by the strict `buildProjectFromObj` and the lenient
- *  `buildProjectFromObjLenient` so the per-field decode logic lives once. */
+ *  Consumed only by `buildProjectFromObj`, which serves the CSV and Markdown
+ *  parsers and the Turso `projects` row decoder alike. */
 function decodeProjectObj(obj: Record<string, string>): Record<string, unknown> {
   const scalar = (key: string): string | undefined =>
     obj[key] !== undefined ? decodeProjectScalar(obj[key]) : undefined;
@@ -594,19 +594,6 @@ function decodeProjectObj(obj: Record<string, string>): Record<string, unknown> 
  *  into a sanitized ProjectMeta. Returns null when the data is invalid. */
 export function buildProjectFromObj(obj: Record<string, string>): ProjectMeta | null {
   return sanitizeProjectMeta(decodeProjectObj(obj));
-}
-
-/** Lenient decode for an ALREADY-PERSISTED project row (e.g. a Turso `projects`
- *  table row, the multi-tenant source of truth). Decodes the raw column map via
- *  `decodeProjectObj`, then runs the SAME `sanitizeProjectMeta` as the strict
- *  path but with `lenientRequiredArrays: true`. That flag skips ONLY the three
- *  empty-required-array rejections (keyStakeholdersInternal, keyStakeholdersExternal,
- *  regulatory) while still enforcing all required scalars (name, code, etc.),
- *  required enums (naceSection, deployment), required dates, and all per-field
- *  sanitization. Why lenient? A project already stored in the DB must never be
- *  silently dropped on read solely because, e.g., it has no external stakeholders. */
-export function buildProjectFromObjLenient(obj: Record<string, string>): ProjectMeta | null {
-  return sanitizeProjectMeta(decodeProjectObj(obj), { lenientRequiredArrays: true });
 }
 
 /** Serializes ProjectMeta as a `field,value` CSV block (mirrors statusToCsv).

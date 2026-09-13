@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { sanitizeProjectMeta } from "./sanitize";
+import { csvToProject } from "./csv-codecs-config";
+import { markdownToProject } from "./markdown-codecs-core";
 
 const valid = {
   name: "Apollo", code: "APL-1", projectManager: "Jane",
@@ -18,11 +20,31 @@ describe("sanitizeProjectMeta", () => {
     expect(m?.identityTypes).toEqual(["B2B", "NHI"]);
     expect(m?.contactPersons[0].synced).toBe(true);
   });
-  it("returns null when a required field is missing", () => {
+  it("rejects only a blank name, and garbage in the two enum fields", () => {
     expect(sanitizeProjectMeta({ ...valid, name: "" })).toBeNull();
-    expect(sanitizeProjectMeta({ ...valid, customer: "" })).toBeNull();
     expect(sanitizeProjectMeta({ ...valid, naceSection: "ZZ" })).toBeNull();
     expect(sanitizeProjectMeta({ ...valid, deployment: "Quantum" })).toBeNull();
+  });
+  it("keeps a project whose only non-blank field is its name (O-1 data-loss pin)", () => {
+    const m = sanitizeProjectMeta({ name: "Solo" });
+    expect(m).not.toBeNull();
+    expect(m).toMatchObject({
+      name: "Solo", code: "", projectManager: "", customer: "", products: "",
+      profitCenter: "", naceSection: "", deployment: "", startDate: "", endDate: "",
+      keyStakeholdersInternal: [], keyStakeholdersExternal: [], identityTypes: [],
+      contactPersons: [], regulatory: [],
+    });
+  });
+  it("keeps every key fact blank when they arrive as empty strings", () => {
+    const m = sanitizeProjectMeta({
+      ...valid, code: "", projectManager: "", customer: "", products: "", profitCenter: "",
+      naceSection: "", deployment: "", startDate: "", regulatory: [], contactPersons: [],
+    });
+    expect(m?.name).toBe("Apollo");
+    expect(m?.naceSection).toBe("");
+    expect(m?.deployment).toBe("");
+    expect(m?.startDate).toBe("");
+    expect(m?.regulatory).toEqual([]);
   });
   it("drops unknown enum members and de-dupes identity types", () => {
     const m = sanitizeProjectMeta({ ...valid, identityTypes: ["B2B", "B2B", "junk"] });
@@ -57,5 +79,18 @@ describe("sanitizeProjectMeta", () => {
     expect(m?.contactPersons[0].resourceId).toBe(7);
     expect(m?.contactPersons[1].resourceId).toBeUndefined();
     expect(m?.contactPersons[2].resourceId).toBeUndefined();
+  });
+});
+
+describe("project text decoders keep a name-only project (O-1)", () => {
+  it("CSV", () => {
+    const m = csvToProject("field,value\nname,Solo\n");
+    expect(m?.name).toBe("Solo");
+    expect(m?.code).toBe("");
+  });
+  it("Markdown", () => {
+    const m = markdownToProject("- name: Solo\n");
+    expect(m?.name).toBe("Solo");
+    expect(m?.deployment).toBe("");
   });
 });

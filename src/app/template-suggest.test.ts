@@ -31,6 +31,7 @@ describe("complexityScore", () => {
     expect(complexityScore(meta({ deployment: "Hybrid" })).score).toBe(2);
     expect(complexityScore(meta({ deployment: "On-premise" })).score).toBe(1);
     expect(complexityScore(meta({ deployment: "Cloud" })).score).toBe(0);
+    expect(complexityScore(meta({ deployment: "" })).score).toBe(0);
   });
   it("duration >12mo +2, 3-12mo +1, <3mo +0", () => {
     expect(complexityScore(meta({ startDate: "2026-01-01", endDate: "2027-06-01" })).score).toBe(2);

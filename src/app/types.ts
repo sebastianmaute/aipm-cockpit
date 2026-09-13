@@ -712,7 +712,8 @@ export type ProjectMeta = {
   stakeholderCount?: number;       // 0.74: replaces internal/external key-stakeholder lists in the form
   products: string;
   platform?: string;
-  deployment: Deployment;
+  /** "" = not set (O-1: every key fact but `name` may be blank). */
+  deployment: Deployment | "";
   startDate: string;              // ISO YYYY-MM-DD
   endDate: string;                // ISO YYYY-MM-DD
   profitCenter: string;

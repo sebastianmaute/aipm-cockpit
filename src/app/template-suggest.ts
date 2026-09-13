@@ -7,7 +7,7 @@ export type SuggestTier = AppMode;
 export interface SuggestReason { key: TranslationKey; args?: (string | number)[]; }
 export interface TemplateSuggestion { templateId: string; tier: SuggestTier; reasons: SuggestReason[]; }
 
-const DEPLOYMENT_POINTS: Record<ProjectMeta["deployment"], number> = { Cloud: 0, "On-premise": 1, Hybrid: 2 };
+const DEPLOYMENT_POINTS: Record<ProjectMeta["deployment"], number> = { "": 0, Cloud: 0, "On-premise": 1, Hybrid: 2 };
 const TEAM_MID = 3, TEAM_LARGE = 8;
 const DURATION_MID_MONTHS = 3, DURATION_LARGE_MONTHS = 12;
 const SCALE_MID = 1000, SCALE_LARGE = 50000, SCALE_HUGE = 5000000;
