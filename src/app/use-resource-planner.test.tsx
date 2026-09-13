@@ -1707,3 +1707,44 @@ describe("handleSaveRaidItem — stored escalations (§515)", () => {
     expect(saved.escalations).toEqual([raise, notify]);
   });
 });
+
+describe("handleSaveRaidItem — returns the committed id (§515)", () => {
+  beforeEach(() => {
+    __resetMintStateForTests();
+  });
+  const draft = (over: Partial<RaidItem> = {}): RaidItem => ({
+    id: 1, category: "R", title: "New risk", status: "Open", linkedTaskIds: [],
+    causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-06-20", ...over,
+  });
+
+  it("returns the id of a plain create", () => {
+    const { result } = renderPlanner();
+    let id: number | undefined;
+    act(() => { id = result.current.planner.handleSaveRaidItem(draft(), true); });
+    expect(id).toBe((result.current.workspace.raid[0] as RaidItem).id);
+  });
+
+  it("returns the RE-MINTED id when the open-time id was taken before Save", () => {
+    const { result } = renderPlanner();
+    // The draft was opened with id 1 against an empty register; a concurrent
+    // writer then committed its own row under that same id before Save.
+    act(() => { result.current.workspace.setRaid([draft({ title: "Concurrent" })]); });
+    let id: number | undefined;
+    act(() => { id = result.current.planner.handleSaveRaidItem(draft(), true); });
+    const rows = result.current.workspace.raid as RaidItem[];
+    expect(rows.map((r) => r.title)).toEqual(["Concurrent", "New risk"]);
+    expect(id).not.toBe(1);
+    expect(id).toBe(rows.find((r) => r.title === "New risk")?.id);
+  });
+
+  // REGRESSION PIN — passes before this task too (a bare `return;` is already undefined).
+  // The red-before-fix tests are the two above: a create returns nothing today.
+  it("returns undefined when an edited row vanished (positive control: the write is refused)", () => {
+    const { result, showToast } = renderPlanner();
+    let id: number | undefined = -1;
+    act(() => { id = result.current.planner.handleSaveRaidItem(draft({ id: 99 }), false); });
+    expect(id).toBeUndefined();
+    expect(result.current.workspace.raid).toHaveLength(0);
+    expect(showToast).toHaveBeenCalled();
+  });
+});

@@ -3180,6 +3180,7 @@ const enUS = {
   aiInsightRecIntervalHint: "How often to look for new recommendations while the app is open. Each check can make billed API calls. Minimum 15, maximum 1440.",
   actionDraftMessage: "Draft message",
   actionCreateTask: "Create task",
+  actionLogAsRaid: "Log as RAID",
   actionEscalate: "Escalate",
   actionEscalateTitle: "Escalate RAID item",
   actionEscalateRaiseSeverity: "Raise severity: {0} → {1}",

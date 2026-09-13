@@ -199,6 +199,7 @@ export function WorkspaceSection({
   reschedule,
   onMarkDone,
   onClearBlocker,
+  onLogAsRaid,
   learningEnabled,
   expertMode,
   onOpenLearningSettings,
@@ -942,7 +943,7 @@ export function WorkspaceSection({
 
         {activeTab === "actions" && (
           <div id="panel-actions" role="tabpanel" className={panelClass}>
-            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} onDraftMessage={onDraftMessage} assignOwner={assignOwner} escalate={escalate} rebaseline={rebaseline} reschedule={reschedule} onMarkDone={onMarkDone} onClearBlocker={onClearBlocker} learningEnabled={learningEnabled} expertMode={expertMode} onOpenLearningSettings={onOpenLearningSettings} aiAnalysis={aiAnalysis} />
+            <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} onDraftMessage={onDraftMessage} assignOwner={assignOwner} escalate={escalate} rebaseline={rebaseline} reschedule={reschedule} onMarkDone={onMarkDone} onClearBlocker={onClearBlocker} onLogAsRaid={onLogAsRaid} learningEnabled={learningEnabled} expertMode={expertMode} onOpenLearningSettings={onOpenLearningSettings} aiAnalysis={aiAnalysis} />
           </div>
         )}
 

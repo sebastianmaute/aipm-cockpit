@@ -115,6 +115,7 @@ import { resolveEffectiveSettings } from "./settings-effective";
 import { TaskDeleteButton, TaskEditorActions, TaskEditorExtras } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
 import { makeEditGuard } from "./read-only-guard";
+import { RaidCreateHost, useRaidCreate } from "./raid-create-host";
 import { SettingsView } from "./settings-view";
 import { LearningInsights } from "./learning-insights";
 import { useActionLearning } from "./use-action-learning";
@@ -1807,6 +1808,11 @@ function TaskManagerInner() {
     logActivity: logActivityUser,
   });
 
+  // "Log as RAID" (§515): one floating RAID editor over the current view. Called
+  // after useResourcePlanner (handleSaveRaidItem) and the learning hook
+  // (recordLearning); openers are undefined in popouts.
+  const raidCreate = useRaidCreate({ isPopout, lang, today, raid, handleSaveRaidItem, recordLearning });
+
   // Keep the forwarding ref current after every commit (it's only ever read
   // from event handlers, never during render).
   useEffect(() => {
@@ -2530,6 +2536,7 @@ function TaskManagerInner() {
     reschedule: rescheduleBundle,
     onMarkDone: isPopout ? undefined : handleMarkDoneFromAction,
     onClearBlocker: isPopout ? undefined : handleClearBlockerFromAction,
+    onLogAsRaid: raidCreate.openFromAction,
     learningEnabled: settings.nextActionsLearning?.enabled ?? false,
     expertMode: settings.expertMode === true,
     onOpenLearningSettings,
@@ -2990,6 +2997,20 @@ function TaskManagerInner() {
         />
       )}
       {!isPopout && <NotesWindow {...notesWindowProps} />}
+      {!isPopout && (
+        <RaidCreateHost
+          create={raidCreate}
+          lang={lang}
+          tasks={tasks}
+          raid={raid}
+          stakeholdersEnabled={stakeholdersEnabled}
+          stakeholders={stakeholders}
+          resources={resources}
+          contacts={contactsList}
+          onCreateResource={handleCreateResource}
+          onJumpToRaid={(id) => requestOpen("raid", id)}
+        />
+      )}
     </>
   );
 

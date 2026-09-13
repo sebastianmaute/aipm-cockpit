@@ -148,7 +148,8 @@ export interface WorkspaceSectionProps {
   handleClearRaidTaskFilter: () => void;
   // isNew carries the modal's create/edit intent (id-mint race fix — see
   // entity-id-mint.ts); non-modal callers (bulk edit) omit it.
-  handleSaveRaidItem: (item: RaidItem, isNew?: boolean) => void;
+  /** Returns the committed id (re-minted on an id collision), or undefined when refused. */
+  handleSaveRaidItem: (item: RaidItem, isNew?: boolean) => number | undefined;
   handleDeleteRaidItem: (id: number) => void;
   /** Send a status-inquiry email to a RAID item's owner (mirrors task
    *  `onSendInquiry`). Absent in popouts. */
@@ -329,6 +330,8 @@ export interface WorkspaceSectionProps {
   reschedule?: RescheduleBundle;
   onMarkDone?: (action: SuggestedAction) => void;
   onClearBlocker?: (action: SuggestedAction) => void;
+  /** "Log as RAID" (§515): opens the floating RAID editor seeded from the action. Undefined in popouts. */
+  onLogAsRaid?: (action: SuggestedAction) => void;
   learningEnabled?: boolean;
   expertMode?: boolean;
   onOpenLearningSettings?: () => void;

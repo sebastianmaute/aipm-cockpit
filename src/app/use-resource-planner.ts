@@ -160,7 +160,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   // an update and clobber a row committed since the modal opened (id-mint race).
   // Non-modal callers (bulk edit) omit it → id-existence fallback (unchanged).
   const handleSaveRaidItem = useCallback(
-    (item: RaidItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => {
+    (item: RaidItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }): number | undefined => {
       const stamp = new Date().toISOString();
       const { create, id } = resolveEntitySave(raid, item.id, isNew, () => nextRaidId(raid));
       // Only a genuine UPDATE of an existing Risk can auto-raise an Issue; a create
@@ -193,7 +193,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       // would silently no-op. Surface it instead of dropping the edit in silence.
       if (!create && !previous) {
         reportSilentFailure(showToastRef.current, langRef.current, "raid.editVanished", "concurrent delete during edit", "guardEditVanished");
-        return;
+        return undefined;
       }
 
       const triggersAutoIssue =
@@ -260,6 +260,9 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       if (autoIssueId !== null) {
         logActivityRef.current("raid.autoIssue", id, autoIssueId);
       }
+      // The COMMITTED id — re-minted by `resolveEntitySave` when the open-time id
+      // was taken. "Log as RAID" links the insight to THIS, never to draft.id (§515).
+      return id;
     },
     [raid, setRaid, today, logUpdate],
   );

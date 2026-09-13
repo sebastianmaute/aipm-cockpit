@@ -435,3 +435,38 @@ describe("ActionRow extra reasons", () => {
     expect(onSnooze).toHaveBeenCalled();
   });
 });
+
+describe("ActionRow — Log as RAID (§515)", () => {
+  const taskAction: SuggestedAction = {
+    id: "task-attention:3:unassigned", source: "task-attention",
+    title: { key: "actionRaidTitle", params: [3, "Unowned work"] },
+    why: { key: "actionTaskWhyUnassigned" },
+    score: 20, tier: "soon", cta: { kind: "open", view: "open-points", id: 3 },
+  };
+
+  it("offers Log as RAID in the overflow and fires the handler with the action", () => {
+    const onLogAsRaid = vi.fn();
+    const { getByRole } = render(<ActionRow rowToken="Row" lang="en-US" action={taskAction} onOpen={() => {}} onLogAsRaid={onLogAsRaid} />);
+    fireEvent.click(getByRole("button", { name: /^More actions – Row$/ }));
+    fireEvent.click(getByRole("button", { name: "Log as RAID" }));
+    expect(onLogAsRaid).toHaveBeenCalledWith(taskAction);
+  });
+
+  it("does not offer it for a RAID-sourced action (positive control: snooze is in the same menu)", () => {
+    const { getByRole, queryByRole } = render(
+      <ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} onSnooze={() => {}} onLogAsRaid={vi.fn()} />,
+    );
+    fireEvent.click(getByRole("button", { name: /^More actions – Row$/ }));
+    expect(getByRole("button", { name: "1 hour" })).toBeTruthy();
+    expect(queryByRole("button", { name: "Log as RAID" })).toBeNull();
+  });
+
+  it("does not offer it when no handler is wired, as in a popout (positive control: snooze)", () => {
+    const { getByRole, queryByRole } = render(
+      <ActionRow rowToken="Row" lang="en-US" action={taskAction} onOpen={() => {}} onSnooze={() => {}} />,
+    );
+    fireEvent.click(getByRole("button", { name: /^More actions – Row$/ }));
+    expect(getByRole("button", { name: "1 hour" })).toBeTruthy();
+    expect(queryByRole("button", { name: "Log as RAID" })).toBeNull();
+  });
+});

@@ -2953,6 +2953,7 @@ export const de: Record<TranslationKey, string> = {
   aiInsightRecommendationsDesc: "Claude schlägt im Hintergrund Lösungen für erkannte Insights vor. Opt-in — verursacht kostenpflichtige API-Aufrufe.",
   actionDraftMessage: "Nachricht verfassen",
   actionCreateTask: "Aufgabe erstellen",
+  actionLogAsRaid: "Als RAID erfassen",
   actionEscalate: "Eskalieren",
   actionEscalateTitle: "RAID-Eintrag eskalieren",
   actionEscalateRaiseSeverity: "Schweregrad erhöhen: {0} → {1}",

@@ -20,6 +20,17 @@ describe("ActionHeroCard", () => {
     expect(screen.getByText(/Vendor API delay/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open – Row" })).toBeInTheDocument();
   });
+  it("offers Log as RAID in the hero's overflow for a non-RAID signal (§515)", () => {
+    const slip = {
+      ...noOwner, id: "milestone:4:atrisk", source: "milestone",
+      why: { key: "actionMilestoneWhyAtRisk" }, cta: { kind: "open", view: "milestones", id: 4 },
+    } as never as SuggestedAction;
+    const onLogAsRaid = vi.fn();
+    render(<ActionHeroCard rowToken="Row" lang="en-US" group={group(slip)} onOpen={() => {}} onLogAsRaid={onLogAsRaid} />);
+    fireEvent.click(screen.getByRole("button", { name: /^More actions – Row$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Log as RAID" }));
+    expect(onLogAsRaid).toHaveBeenCalledWith(slip);
+  });
   it("promotes the assign verb when the bundle is wired", () => {
     render(
       <ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner)} onOpen={() => {}}
