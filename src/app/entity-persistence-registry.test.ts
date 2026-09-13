@@ -38,6 +38,7 @@ import {
   EVENTS_CSV_COLUMNS,
 } from "./csv-codecs-core";
 import { DOCUMENT_ASSETS_CSV_COLUMNS } from "./csv-codecs";
+import { sanitizeRaidEscalations } from "./raid-escalation";
 import { ENTITY_SPECS, SCHEMA_DDL } from "./turso-schema";
 import { tenantSchemaDdl } from "./turso-tenant-schema";
 import type { Workspace } from "./workspace";
@@ -546,5 +547,14 @@ describe("entity persistence registry — RaidItem.escalations", () => {
   });
   it("survives the JSON round-trip", () => {
     expect(jsonToWorkspace(workspaceToJson(seed())).raid[0]?.escalations).toEqual(ESC);
+  });
+  // mdUnescape turns a literal `<br>` inside the JSON cell into a real newline,
+  // JSON.parse throws, and the decoder returns [] — the WHOLE history was lost.
+  it("keeps every entry over Markdown when a recipient name carried a literal <br>", () => {
+    const withBreak = sanitizeRaidEscalations([ESC[1], { ...ESC[0], toName: "Jane<br>Doe" }]);
+    const ws: Workspace = { ...seed(), raid: [{ ...seed().raid[0], escalations: withBreak }] };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws)).raid[0]?.escalations;
+    expect(back).toHaveLength(2);
+    expect(back?.[1]?.toName).toBe("Jane Doe");
   });
 });

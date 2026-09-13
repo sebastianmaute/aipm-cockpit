@@ -45,7 +45,26 @@ export function requireEscalationRecipient(input: Record<string, unknown>): { em
   if (name.length > NAME_MAX) {
     throw new Error(`toName must be at most ${NAME_MAX} characters`);
   }
+  // A literal `<br>` would wipe the item's whole escalation history on a
+  // Markdown save (see `stripBreakTags`); a name has no use for either bracket.
+  if (/[<>]/.test(name)) {
+    throw new Error('toName must not contain "<" or ">"');
+  }
   return { email, name };
+}
+
+const BREAK_TAG = /\s*<br\b[^>]*>\s*/gi;
+
+/** A recipient name with every `<br…>` tag replaced by one space, trimmed (§515).
+ *  ★★ `mdUnescape` turns a literal `<br>` inside a Markdown cell into a real
+ *   newline. In this JSON-in-cell column that newline lands inside a JSON
+ *   string, `JSON.parse` throws and `decodeRaidEscalations` returns [] — the
+ *   WHOLE history is lost, not just the one name. The human Escalate path
+ *   (`buildEscalationEntry`) and this sanitizer both call it.
+ *  ★ One pass is enough: the greedy `[^>]*` runs to the first `>`, and every
+ *   join inserts a space, so no `<br>` can re-form across a replacement. */
+export function stripBreakTags(name: string): string {
+  return name.replace(BREAK_TAG, " ").trim();
 }
 
 function severityOrUndefined(v: unknown): RaidSeverity | undefined {
@@ -58,7 +77,7 @@ function sanitizeEntry(raw: unknown): RaidEscalation | null {
   const at = typeof o.at === "string" && !Number.isNaN(Date.parse(o.at)) ? o.at.slice(0, AT_MAX) : "";
   const toEmail = typeof o.toEmail === "string" ? o.toEmail.trim().slice(0, EMAIL_MAX) : "";
   if (!at || !toEmail.includes("@")) return null;
-  const toName = typeof o.toName === "string" ? o.toName.trim().slice(0, NAME_MAX) : "";
+  const toName = typeof o.toName === "string" ? stripBreakTags(o.toName).slice(0, NAME_MAX) : "";
   const toResourceId =
     typeof o.toResourceId === "number" && Number.isInteger(o.toResourceId) && o.toResourceId > 0
       ? o.toResourceId

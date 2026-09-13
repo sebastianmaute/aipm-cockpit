@@ -32,6 +32,15 @@ describe("sanitizeRaidEscalations", () => {
   it("drops a non-positive or fractional resource id", () => {
     expect(sanitizeRaidEscalations([{ ...NOTIFY, toResourceId: 0 }, { ...NOTIFY, toResourceId: 1.5 }])).toEqual([NOTIFY, NOTIFY]);
   });
+  it("strips a <br> tag from the recipient name, whatever its case, slash or attributes", () => {
+    const names = ["Jane<br>Doe", "Jane<BR/>Doe", "Jane<br >Doe", "Jane <br class=\"x\"/> Doe", "Jane<br<br>>Doe"];
+    const out = sanitizeRaidEscalations(names.map((toName) => ({ ...NOTIFY, toName })));
+    expect(out.slice(0, 4).map((e) => e.toName)).toEqual(["Jane Doe", "Jane Doe", "Jane Doe", "Jane Doe"]);
+    // A nested tag leaves stray brackets, but nothing `mdUnescape` would turn into a newline.
+    expect(out[4].toName).not.toMatch(/<br\s*\/?>/i);
+    // Positive control: a name with no tag is kept verbatim, and a name that was ONLY a tag is dropped.
+    expect(sanitizeRaidEscalations([RAISED, { ...NOTIFY, toName: "<br>" }])).toEqual([RAISED, NOTIFY]);
+  });
   it("keeps only the newest RAID_ESCALATIONS_MAX entries", () => {
     const many = Array.from({ length: RAID_ESCALATIONS_MAX + 5 }, (_, i) => ({ ...NOTIFY, toEmail: `p${i}@example.com` }));
     const out = sanitizeRaidEscalations(many);

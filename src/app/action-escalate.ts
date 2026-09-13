@@ -9,6 +9,7 @@ import { addNote } from "./note-log";
 import { plainToHtml } from "./sanitize-html";
 import { severityLabel } from "./raid-labels";
 import { resourceDisplayName } from "./resource-foundation";
+import { stripBreakTags } from "./raid-escalation";
 
 export type EscalationPlan = {
   raisesSeverity: boolean;
@@ -75,7 +76,8 @@ export function buildEscalationEntry(
   recipient: EscalationRecipient,
   at: string,
 ): RaidEscalation {
-  const name = recipient.name.trim();
+  // `stripBreakTags` also cleans the note echo, which `describeEscalation` builds from this entry.
+  const name = stripBreakTags(recipient.name);
   return {
     at,
     ...(name ? { toName: name } : {}),

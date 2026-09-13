@@ -117,6 +117,12 @@ describe("buildEscalationEntry", () => {
     expect(buildEscalationEntry({ raisesSeverity: false, reason: "risk" }, { name: "  ", email: "ops@example.com", resourceId: null }, AT))
       .toEqual({ at: AT, toEmail: "ops@example.com" });
   });
+  it("strips a <br> tag from a free-text name, so the record and the note echo cannot carry it (§515)", () => {
+    const entry = buildEscalationEntry({ raisesSeverity: false, reason: "risk" }, { name: "Jane<BR/>Doe", email: "jane@example.com", resourceId: null }, AT);
+    expect(entry.toName).toBe("Jane Doe");
+    expect(describeEscalation("en-US", entry)).not.toMatch(/<br/i);
+    expect(describeEscalation("en-US", entry)).toContain("Jane Doe <jane@example.com>"); // positive control
+  });
 });
 
 describe("describeEscalation", () => {
