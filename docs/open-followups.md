@@ -753,6 +753,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§528](#528-roadmap-specs-and-follow-ups-still-live-in-markdown-rather-than-gitlab-issues-with-no-issue-templates-or-prioritisation-rules--open) | Roadmap, specs and follow-ups still live in markdown rather than GitLab issues, with no issue templates or prioritisation rules — OPEN | AI PM Cockpit demo 2026-09-11 (P-6), GitLab #72; mirrored into the register 2026-09-13 | M — pilot the move, then templates and labels, prioritisation rules, and repointed AGENTS.md and CONTRIBUTING | open |
 | [§529](#529-api-key-funding-is-unresolved-and-every-user-must-bring-and-pay-for-their-own-anthropic-key--open) | API key funding is unresolved, and every user must bring and pay for their own Anthropic key — OPEN | AI PM Cockpit demo 2026-09-11 (P-7), GitLab #73; mirrored into the register 2026-09-13 | unestimated (decision) — a shared key would need a new server-side proxy | open |
 | [§530](#530-there-is-no-microsoft-teams-integration-the-remaining-microsoft-365-gap--open) | There is no Microsoft Teams integration, the remaining Microsoft 365 gap — OPEN | AI PM Cockpit demo 2026-09-11 (P-8), GitLab #74; mirrored into the register 2026-09-13 | L — new Graph scopes, likely admin consent, then channel posts, online meetings and chat links | open |
+| [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--open) | Nothing checks that the register and GitLab issues stay one-to-one — OPEN | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -36966,3 +36967,47 @@ Size L — new Graph scopes, likely admin consent, then channel posts, online me
 **Source:** GitLab #74 (P-8, source::demo-2026-09-11)
 
 **Work item:** #74
+
+## 531. Nothing checks that the register and GitLab issues stay one-to-one — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rn "Work item" scripts .gitlab-ci.yml` → no output, so no script and no
+CI job reads the `**Work item:**` lines.
+
+**Work item:** #321
+
+The 2026-09-13 housekeeping linked the register to GitLab one-to-one. Every open entry carries one
+`**Work item:** #NN` line (a decision record carries `**Work item:** none — decision record`, a closed
+entry carries none), and every open issue in  (GitLab) is titled `§NNN: <heading>`, labelled
+`source::register`, and opens with a link to the entry. On that day 283 open entries matched 276 open
+issues plus 7 decision records.
+
+Nothing keeps it that way. `followups:index:check` and `followups:status:check` read only the register,
+and no job talks to GitLab. So a new entry with no issue passes. So does an entry closed while its issue
+stays open, or an issue closed in the GitLab UI while its entry stays open. The drift already happened
+once, on the day the link was built: §478 reached main from another branch with no issue, and was
+linked to #320 by hand.
+
+The check splits into two halves, and they fail differently:
+
+- **Register-only, blocking.** Every open entry has exactly one `**Work item:**` line, holding either
+  `#NN` or `none — decision record`. No closed entry has one, and no `#NN` appears on two entries.
+  It needs no network, so it can sit beside `followups-status-check` with the same exit split
+  (1 = drift, 2 = could not scan, 50-entry floor). `parseEntries` and `isClosed` in
+  `scripts/followup-claims-lib.mjs` already give it the open/closed split.
+- **GitLab comparison, warn-only.** Fetch the open issues and compare their `§NNN:` titles, both ways,
+  against the open entries and their `#NN`. This is the only half that sees an issue closed in the UI.
+  It needs an API token in CI, and a network or permission failure must not block a merge. It should
+  run on main (scheduled, or after merge) rather than on MR pipelines, because under "whoever merges
+  second rebases" a branch legitimately holds issues whose entries are not on main yet.
+
+The two-way check used during the housekeeping was a throwaway script and was not committed. Rebuild it
+from the rules above; don't go looking for it.
+
+Accepted and not part of this: closing an entry changes its heading suffix, so the anchor link in the
+issue body goes stale. The `§NNN` title still finds the issue.
+
+Related: §528 (moving follow-ups into GitLab issues). If that lands, this check is inverted or retired.
+
+Size S–M.
+
+**Source:** housekeeping audit 2026-09-13 (register ⇄ GitLab sync)
