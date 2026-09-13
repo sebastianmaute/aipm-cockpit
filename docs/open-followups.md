@@ -2310,7 +2310,8 @@ it through → DOMPurify unwraps the unknown element to bare text → pass 3 no 
 ★ Needs a hyphenated/namespaced element whose name STARTS with one of p/br/strong/em/ul/ol/li/a, in
 leading position, plus an entity in the body. A model would have to emit that unprompted.
 ★ Same root cause as §32 (`HTML_START` classification), so fixing that likely closes this too — worth
-handling together rather than special-casing the third pass.
+handling together rather than special-casing the third pass. _(Superseded 2026-09-13: §32 closed and
+§35 still reproduces — see the note in §32's closure block.)_
 
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry names `HTML_START`, a constant §114 deleted. The mechanism is unchanged because the rich sink derives from `RICH_ALLOWED_TAGS`, which contains `a`, and the word boundary still matches before the hyphen — but the identifier to read is `isHtmlStart` with the rich sink. Reproduced by `grep -n "htmlStartRe" src/app/html-start.ts`.
 
