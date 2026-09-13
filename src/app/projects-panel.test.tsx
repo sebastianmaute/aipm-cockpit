@@ -248,6 +248,27 @@ describe("ProjectsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Move to Turso" }));
     expect(onMigrateToTurso).toHaveBeenCalledTimes(1);
   });
+
+  it("renders a blank project code as — in the active list", () => {
+    setup({
+      projects: [
+        ...PROJECTS,
+        { id: "p3", name: "Codeless", code: "", storageConfig: { kind: "local-json" } as never },
+      ],
+    });
+    expect(within(screen.getByText("Codeless").parentElement!).getByText("—")).toBeInTheDocument();
+    // Control: a real code still renders as itself.
+    expect(within(screen.getByText("Gemini").parentElement!).getByText("GEM-2")).toBeInTheDocument();
+  });
+
+  it("renders a blank project code as — in the archived list", () => {
+    setup({
+      mode: "turso",
+      archivedProjects: [{ id: "p9", name: "Codeless archived", code: "", storageConfig: { kind: "turso" } as never }],
+    });
+    fireEvent.click(screen.getByRole("button", { name: /show archived/i }));
+    expect(within(screen.getByText("Codeless archived").parentElement!).getByText("—")).toBeInTheDocument();
+  });
 });
 
 describe("ProjectsPanel file mode", () => {
