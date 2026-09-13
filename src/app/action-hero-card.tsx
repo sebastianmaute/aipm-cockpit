@@ -63,7 +63,9 @@ export function ActionHeroCard(props: ActionHeroCardProps) {
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <ActionPrimaryCta lang={lang} action={action} caps={caps} handlers={props} rowToken={rowToken} prominent />
-        <ActionOverflowMenu lang={lang} action={action} caps={caps} handlers={props} rowToken={rowToken} />
+        {/* F1: `group.extra` are the group's other signals — snoozing the hero
+            must snooze every id in the group, not just the promoted primary. */}
+        <ActionOverflowMenu lang={lang} action={action} caps={caps} handlers={props} rowToken={rowToken} extraIds={group.extra.map((a) => a.id)} />
       </div>
     </section>
   );

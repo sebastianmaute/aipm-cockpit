@@ -14,11 +14,27 @@ vi.mock("./confirm-dialog", () => ({
 vi.mock("./turso-portfolio", () => ({
   listProjects: vi.fn().mockResolvedValue([]),
 }));
+// Spy on the ONE-read-per-render entry point while keeping every other
+// export (including `loadKeyFactsSnapshot`, `saveKeyFactsSnapshot`,
+// `clearKeyFactsCache` used directly below) real, so the rest of this suite's
+// cache behaviour is unaffected.
+const { loadSnapshotsSpy } = vi.hoisted(() => ({ loadSnapshotsSpy: vi.fn() }));
+vi.mock("./project-key-facts-cache", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./project-key-facts-cache")>();
+  return {
+    ...actual,
+    loadKeyFactsSnapshots: (...args: Parameters<typeof actual.loadKeyFactsSnapshots>) => {
+      loadSnapshotsSpy(...args);
+      return actual.loadKeyFactsSnapshots(...args);
+    },
+  };
+});
 import { type Contact } from "./contacts";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { defaultSettings } from "./settings-types";
 import { type ProjectMeta } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { clearKeyFactsCache, saveKeyFactsSnapshot } from "./project-key-facts-cache";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
@@ -537,5 +553,121 @@ describe("ProjectsPanel — Load from Turso", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Load from Turso" }));
     expect(screen.getByRole("dialog", { name: "Load a Turso project" })).toBeInTheDocument();
+  });
+});
+
+describe("ProjectsPanel — key-fact indicator", () => {
+  afterEach(() => clearKeyFactsCache());
+
+  // The memo must read the device cache ONCE per render, not once per
+  // non-current row — each read parses and validates the whole stored map.
+  it("reads the device cache once per render, regardless of row count", () => {
+    loadSnapshotsSpy.mockClear();
+    setup({
+      projects: [
+        ...PROJECTS,
+        { id: "p3", name: "Mercury", code: "MER-3", storageConfig: { kind: "local-json" } as never },
+      ],
+    });
+    expect(loadSnapshotsSpy).toHaveBeenCalledTimes(1);
+  });
+
+  function row(name: string): HTMLElement {
+    const li = screen.getByText(name).closest("li");
+    if (!li) throw new Error(`no row for ${name}`);
+    return li;
+  }
+
+  it("renders the current project live at 11 of 11 with a success banner", () => {
+    setup();
+    const r = within(row("Apollo"));
+    expect(r.getByText("Key facts complete")).toBeInTheDocument();
+    expect(r.getByText("11 of 11")).toBeInTheDocument();
+    expect(r.getByRole("status")).toHaveTextContent("All key facts are set.");
+  });
+
+  it("renders a partial current project with a warn banner whose action opens the editor", () => {
+    setup({ currentProject: { ...CURRENT_META, code: "", customer: "" } });
+    const r = within(row("Apollo"));
+    expect(r.getByText("2 key facts missing")).toBeInTheDocument();
+    expect(r.getByText("9 of 11")).toBeInTheDocument();
+    expect(r.getByRole("status")).toHaveTextContent("Missing key facts: Project code, Customer");
+    fireEvent.click(r.getByRole("button", { name: "Complete them" }));
+    // Prove the EDIT modal opened, not create — either check alone rules
+    // out create mode (blank form titled "New project"): the dialog's
+    // accessible name is the edit title, AND the name field is prefilled
+    // with the current project's name.
+    const dialog = screen.getByRole("dialog", { name: "Edit project" });
+    const nameInput = within(dialog).getByLabelText("Project name", { exact: false }) as HTMLInputElement;
+    expect(nameInput.value).toBe("Apollo");
+  });
+
+  // ★ Spec §5.3: the current project never reads the cache.
+  it("ignores a cached snapshot for the current project", () => {
+    saveKeyFactsSnapshot("p1", { filled: 1, missing: ["code", "projectManager", "customer", "products", "profitCenter", "naceSection", "deployment", "contactPersons", "regulatory", "startDate"], customer: "Stale Co", at: "2026-01-01T00:00:00.000Z" });
+    setup();
+    const r = within(row("Apollo"));
+    expect(r.getByText("11 of 11")).toBeInTheDocument();
+    expect(r.queryByText("Stale Co")).toBeNull();
+  });
+
+  // ★★ Spec §5.3: a never-opened project is UNKNOWN, never "0 of 11".
+  it("renders a never-cached non-current project as unknown with no banner", () => {
+    setup();
+    const r = within(row("Gemini"));
+    expect(r.getByText("Key facts not measured here")).toBeInTheDocument();
+    expect(r.getByText("— of 11")).toBeInTheDocument();
+    expect(r.queryByText("0 of 11")).toBeNull();
+    expect(r.queryByRole("status")).toBeNull();
+  });
+
+  it("renders a cached non-current project from its snapshot, with its customer and no banner", () => {
+    saveKeyFactsSnapshot("p2", { filled: 4, missing: ["code", "projectManager", "products", "profitCenter", "naceSection", "contactPersons", "regulatory"], customer: "Globex", at: "2026-09-13T10:00:00.000Z" });
+    setup();
+    const r = within(row("Gemini"));
+    expect(r.getByText("7 key facts missing")).toBeInTheDocument();
+    expect(r.getByText("4 of 11")).toBeInTheDocument();
+    expect(r.getByText("Globex")).toBeInTheDocument();
+    expect(r.queryByRole("status")).toBeNull();
+  });
+
+  // Turso mode: the shared project list carries live meta, so a non-current
+  // row is measured without any device snapshot.
+  it("measures a non-current row from live meta when there is no snapshot", () => {
+    setup({ liveMetaById: new Map([["p2", { ...CURRENT_META, name: "Gemini", code: "", customer: "Initech" }]]) });
+    const r = within(row("Gemini"));
+    expect(r.getByText("10 of 11")).toBeInTheDocument();
+    expect(r.getByText("Initech")).toBeInTheDocument();
+    expect(r.queryByText("— of 11")).toBeNull();
+    expect(r.queryByText("Key facts not measured here")).toBeNull();
+  });
+
+  it("prefers live meta over a conflicting stale snapshot for a non-current row", () => {
+    saveKeyFactsSnapshot("p2", { filled: 4, missing: ["code", "projectManager", "products", "profitCenter", "naceSection", "contactPersons", "regulatory"], customer: "Globex", at: "2026-09-13T10:00:00.000Z" });
+    setup({ liveMetaById: new Map([["p2", { ...CURRENT_META, name: "Gemini", customer: "Initech" }]]) });
+    const r = within(row("Gemini"));
+    expect(r.getByText("11 of 11")).toBeInTheDocument();
+    expect(r.getByText("Initech")).toBeInTheDocument();
+    expect(r.queryByText("4 of 11")).toBeNull();
+    expect(r.queryByText("Globex")).toBeNull();
+  });
+
+  it("renders the banner action once across the list", () => {
+    saveKeyFactsSnapshot("p2", { filled: 4, missing: ["code", "projectManager", "products", "profitCenter", "naceSection", "contactPersons", "regulatory"], customer: "Globex", at: "2026-09-13T10:00:00.000Z" });
+    setup({ currentProject: { ...CURRENT_META, code: "" } });
+    expect(screen.getAllByRole("button", { name: "Complete them" })).toHaveLength(1);
+  });
+
+  // Rendering "Key facts not measured here" here would wrongly imply a
+  // per-device gap — the meta simply hasn't loaded yet, and the current row
+  // never reads the cache either way. Ruling: render NO meter and no banner.
+  it("renders no meter and no banner on the current row before its metadata loads", () => {
+    setup({ currentProject: undefined });
+    const rowEl = row("Apollo");
+    const r = within(rowEl);
+    expect(r.queryByText("Key facts not measured here")).toBeNull();
+    expect(r.queryByText(/of 11/)).toBeNull();
+    expect(rowEl.querySelector("[data-key-facts]")).toBeNull();
+    expect(r.queryByRole("status")).toBeNull();
   });
 });

@@ -67,7 +67,9 @@ export function ActionRow(props: ActionRowProps) {
       </span>
       <div className="flex shrink-0 items-center gap-2">
         <ActionPrimaryCta lang={lang} action={action} caps={caps} handlers={props} rowToken={rowToken} />
-        <ActionOverflowMenu lang={lang} action={action} caps={caps} handlers={props} rowToken={rowToken} />
+        {/* F1: `extraReasons` is this row's ActionGroup.extra — snoozing must
+            snooze every id in the group, not just the promoted primary. */}
+        <ActionOverflowMenu lang={lang} action={action} caps={caps} handlers={props} rowToken={rowToken} extraIds={extraReasons?.map((a) => a.id)} />
       </div>
     </div>
   );

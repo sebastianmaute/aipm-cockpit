@@ -15,6 +15,7 @@
 import { useCallback } from "react";
 import { t, type Lang } from "./i18n";
 import { getTursoConfig } from "./turso-config";
+import { removeKeyFactsSnapshot } from "./project-key-facts-cache";
 import { listProjects, updateProjectMeta as tursoUpdateMeta } from "./turso-portfolio";
 import { savePortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import type { ProjectListEntry } from "./turso-tenant-schema";
@@ -172,6 +173,11 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
       void (async () => {
         try {
           await archiveTursoProject(id);
+          // Archive is the Turso-mode "destructive per-row action
+          // (soft-delete)" — a de-register from the active list — so drop
+          // its per-device key-facts cache entry the same way a file-mode
+          // delete does.
+          removeKeyFactsSnapshot(id);
           const refreshed = await refreshTursoProjects();
           repointAfterRemoval(id, refreshed);
         } catch (err) {
@@ -201,6 +207,9 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
       void (async () => {
         try {
           await hardDeleteTursoProject(id);
+          // Permanent delete — drop the cache entry (a no-op if archiving
+          // already dropped it; harmless either way).
+          removeKeyFactsSnapshot(id);
           const refreshed = await refreshTursoProjects();
           repointAfterRemoval(id, refreshed);
         } catch (err) {

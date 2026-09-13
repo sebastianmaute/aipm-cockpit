@@ -17,6 +17,15 @@ describe("executeActionCta", () => {
     expect(d.resetFilterValues).not.toHaveBeenCalled();
   });
 
+  // Ruling 4: a string id (a project id) cannot be a numeric deep-link —
+  // Number("p1") is NaN and would push #projects/NaN.
+  it("navigates without a deep-link when the open CTA carries a string id", () => {
+    const d = deps();
+    executeActionCta({ kind: "open", view: "projects", id: "p1" }, d);
+    expect(d.setActiveTab).toHaveBeenCalledWith("projects");
+    expect(d.requestOpen).not.toHaveBeenCalled();
+  });
+
   it("resets the filters BEFORE applying the person filter", () => {
     const d = deps();
     executeActionCta({ kind: "open-tasks-for", resourceId: 7, resourceName: "Alice Anders" }, d);

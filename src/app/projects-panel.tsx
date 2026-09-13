@@ -48,6 +48,9 @@ import { EmptyState } from "./empty-state";
 import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { type ProjectMeta, type Resource } from "./types";
+import { KEY_FACT_IDS, keyFactCompleteness } from "./project-key-facts";
+import { loadKeyFactsSnapshots } from "./project-key-facts-cache";
+import { KeyFactsBanner, KeyFactsMeter, type KeyFactsRowState } from "./project-key-facts-meter";
 
 /** File formats a brand-new project's workspace can be created in.
  *  The create flow is delegated to CreateProjectForm which owns this list. */
@@ -102,12 +105,33 @@ export interface ProjectsPanelProps {
   onArchive?: (id: string) => void;
   onRestore?: (id: string) => void;
   onHardDelete?: (id: string) => void;
+  /** Turso-mode only: each listed project's LIVE metadata, keyed by project id.
+   *  The shared DB's project list already carries full meta, so a non-current
+   *  row found here is measured from it instead of from the per-device
+   *  key-facts cache. Absent (file mode) → non-current rows read the cache. */
+  liveMetaById?: ReadonlyMap<string, ProjectMeta>;
 }
 
 type ModalState =
   | { mode: "closed" }
   | { mode: "create" }
   | { mode: "edit" };
+
+// The customer `<dt>`/`<dd>` pair is shared between the current-row and
+// non-current-row `<dl>` blocks, one reading `currentProject.customer` live
+// and the other reading the cached `keyFacts.customer` — same markup, two
+// call sites. One small component picks the value; the caller decides which
+// source it is (live meta vs. cached snapshot) and gates on blankness
+// exactly as each did before, so there is no visual change.
+function CustomerFact({ lang, customer }: { lang: Lang; customer: string }) {
+  if (!customer) return null;
+  return (
+    <div className="flex gap-1">
+      <dt className="font-medium">{t(lang, "projectCustomer")}:</dt>
+      <dd>{customer}</dd>
+    </div>
+  );
+}
 
 export function ProjectsPanel({
   projects,
@@ -131,8 +155,49 @@ export function ProjectsPanel({
   onArchive,
   onRestore,
   onHardDelete,
+  liveMetaById,
 }: ProjectsPanelProps) {
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
+
+  // Per-row key-fact state (spec §5.3/§5.4). The CURRENT project is measured live
+  // from memory and never reads the cache. A non-current row is measured live
+  // too when `liveMetaById` carries its meta (Turso mode — the shared project
+  // list holds every project's meta); otherwise (file mode) it reads its
+  // per-device snapshot, and a missing snapshot is UNKNOWN — never "0 of 11".
+  // ★ read the whole device cache ONCE per render (`loadKeyFactsSnapshots`)
+  // rather than once per non-current row — each read parses and validates the
+  // entire stored map, so a per-row call re-did that work N times.
+  // ★ while the CURRENT row's meta hasn't loaded yet, it is simply left out
+  // of the map (no "unknown" entry) — rendering "Key facts not measured here"
+  // there would misleadingly imply a per-device gap; it is really just not
+  // loaded YET, and the current row never reads the cache either way.
+  const keyFactsByRow = useMemo(() => {
+    const snapshots = loadKeyFactsSnapshots();
+    const byId = new Map<string, { state: KeyFactsRowState; customer: string }>();
+    for (const p of projects) {
+      if (p.id === currentProjectId) {
+        if (currentProject) {
+          const c = keyFactCompleteness(currentProject);
+          byId.set(p.id, { state: { kind: "measured", ...c }, customer: currentProject.customer });
+        }
+        continue;
+      }
+      const live = liveMetaById?.get(p.id);
+      if (live) {
+        const c = keyFactCompleteness(live);
+        byId.set(p.id, { state: { kind: "measured", ...c }, customer: live.customer });
+        continue;
+      }
+      const snap = snapshots[p.id];
+      byId.set(
+        p.id,
+        snap
+          ? { state: { kind: "measured", filled: snap.filled, total: KEY_FACT_IDS.length, missing: snap.missing }, customer: snap.customer }
+          : { state: { kind: "unknown", total: KEY_FACT_IDS.length }, customer: "" },
+      );
+    }
+    return byId;
+  }, [projects, currentProjectId, currentProject, liveMetaById]);
   const confirm = useConfirm();
   const tursoConfigured = !!getTursoConfig(
     settings.integrations?.turso?.databaseUrl,
@@ -326,6 +391,7 @@ export function ProjectsPanel({
           <ul className="flex flex-col gap-2">
             {projects.map((p) => {
               const isCurrent = p.id === currentProjectId;
+              const keyFacts = keyFactsByRow.get(p.id);
               return (
                 <li
                   key={p.id}
@@ -348,14 +414,14 @@ export function ProjectsPanel({
                           </span>
                         )}
                       </div>
+                      {!isCurrent && keyFacts?.customer && (
+                        <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                          <CustomerFact lang={lang} customer={keyFacts.customer} />
+                        </dl>
+                      )}
                       {isCurrent && currentProject && (
                         <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                          {currentProject.customer && (
-                            <div className="flex gap-1">
-                              <dt className="font-medium">{t(lang, "projectCustomer")}:</dt>
-                              <dd>{currentProject.customer}</dd>
-                            </div>
-                          )}
+                          <CustomerFact lang={lang} customer={currentProject.customer} />
                           {currentProject.startDate && currentProject.endDate && (
                             <div className="flex gap-1">
                               <dd>
@@ -451,6 +517,14 @@ export function ProjectsPanel({
                       )}
                     </div>
                   </div>
+                  {keyFacts && <KeyFactsMeter lang={lang} state={keyFacts.state} />}
+                  {isCurrent && keyFacts?.state.kind === "measured" && (
+                    <KeyFactsBanner
+                      lang={lang}
+                      missing={keyFacts.state.missing}
+                      onComplete={() => setModal({ mode: "edit" })}
+                    />
+                  )}
                 </li>
               );
             })}

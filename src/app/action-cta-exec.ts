@@ -40,7 +40,14 @@ export interface ActionCtaExecDeps {
 export function executeActionCta(cta: ActionCta, deps: ActionCtaExecDeps): void {
   switch (cta.kind) {
     case "open":
-      deps.requestOpen(cta.view, Number(cta.id));
+      // A string id (the project-meta provider's project id) has no numeric
+      // deep-link — Number("p1") is NaN and would push `#<view>/NaN`. Navigate
+      // to the view alone. Every numeric-id provider is unaffected.
+      if (typeof cta.id === "string") {
+        deps.setActiveTab(cta.view);
+        return;
+      }
+      deps.requestOpen(cta.view, cta.id);
       return;
     case "open-tasks-for": {
       // Match the STORED option, not the CTA's display name: the filter compares

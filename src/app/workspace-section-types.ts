@@ -291,6 +291,9 @@ export interface WorkspaceSectionProps {
   projects: ProjectRegistryEntry[];
   currentProjectId: string | null;
   currentProject?: ProjectMeta;
+  /** Turso mode only: live meta of every listed project, so the Projects view
+   *  measures non-current rows' key facts without the per-device cache. */
+  projectLiveMetaById?: ReadonlyMap<string, ProjectMeta>;
   archivedProjects?: ProjectRegistryEntry[];
   projectStakeholderNames: string[];
   projectAddressBook: Contact[];
@@ -317,7 +320,7 @@ export interface WorkspaceSectionProps {
   insightGeneratingId?: number | null;
   /** Aborts the in-flight recommendation generate. Undefined in popouts. */
   onCancelInsightRecommendation?: () => void;
-  onSnooze?: (a: SuggestedAction, ms: number) => void;
+  onSnooze?: (a: SuggestedAction, ms: number, extraIds?: readonly string[]) => void;
   onCreateTask?: (a: SuggestedAction) => void;
   onDraftMessage?: (a: SuggestedAction) => void;
   assignOwner?: AssignOwnerBundle;

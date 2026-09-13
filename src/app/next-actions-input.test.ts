@@ -58,3 +58,33 @@ describe("confidence field passthrough", () => {
     expect(input.clarityBonus).toBeUndefined();
   });
 });
+
+describe("project key-fact passthrough", () => {
+  const base = {
+    tasks: [], raid: [], changes: [], milestones: [], stakeholders: [],
+    dashboard: {} as never, commsReminders: [], features: [], projectName: "P",
+    today: "2026-09-13", now: new Date("2026-09-13T00:00:00Z"),
+    reminderLeadDays: 0, dueSoonWorkdays: 3, raidReviewIntervalDays: 30,
+  };
+
+  it("passes projectId and projectMeta through", () => {
+    const meta = { name: "P" } as never;
+    const input = buildActionInput({ ...base, projectId: "p1", projectMeta: meta });
+    expect(input.projectId).toBe("p1");
+    expect(input.projectMeta).toBe(meta);
+  });
+
+  // `input.projectId` reads `undefined` from a plain object whether or not
+  // `buildActionInput` ever assigns the key, so a falsy check alone would
+  // pass even without the passthrough. Assert the OWN PROPERTY exists (set
+  // to `undefined`) rather than merely reading as falsy, so deleting the
+  // passthrough lines — which removes the key entirely rather than setting
+  // it undefined — actually turns this red.
+  it("keeps projectId/projectMeta as explicit own properties (undefined) when omitted", () => {
+    const input = buildActionInput(base);
+    expect(Object.prototype.hasOwnProperty.call(input, "projectId")).toBe(true);
+    expect(input.projectId).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(input, "projectMeta")).toBe(true);
+    expect(input.projectMeta).toBeUndefined();
+  });
+});

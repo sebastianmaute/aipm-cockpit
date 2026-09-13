@@ -50,6 +50,26 @@ describe("ActionRow snooze", () => {
     const { queryByRole } = render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} />);
     expect(queryByRole("button", { name: /Snooze/i })).toBeNull();
   });
+  // F1: a grouped row (primary + extras from the same ActionGroup) must snooze
+  // every id in the group, not just the promoted primary — otherwise the row
+  // reappears immediately with the next signal promoted. Mutation-checked:
+  // reverting ActionOverflowMenu's snooze click to `handlers.onSnooze!(action, ms)`
+  // (dropping extraIds) turns this red.
+  it("snoozing a grouped row (F1) snoozes every id in the group, not just the primary", () => {
+    const onSnooze = vi.fn();
+    const extra: SuggestedAction = {
+      id: "raid:1:overdue", source: "raid", moduleId: "raid",
+      title: { key: "actionRaidTitle", params: [1, "Server down"] },
+      why: { key: "actionRaidWhySeverity", params: ["High"] },
+      score: 20, tier: "soon", cta: { kind: "open", view: "raid", id: 1 },
+    };
+    const { getByRole } = render(
+      <ActionRow rowToken="Row" lang="en-US" action={action} extraReasons={[extra]} onOpen={() => {}} onSnooze={onSnooze} />,
+    );
+    fireEvent.click(getByRole("button", { name: /^More actions – Row$/ }));
+    fireEvent.click(getByRole("button", { name: "1 hour" }));
+    expect(onSnooze).toHaveBeenCalledWith(action, SNOOZE_1H, [extra.id]);
+  });
 });
 
 describe("ActionRow create task", () => {

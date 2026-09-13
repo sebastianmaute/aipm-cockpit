@@ -44,6 +44,20 @@ export function clearActionSnooze(actionId: string): void {
   }
 }
 
+/** Snooze a grouped row: the primary AND every other id in its ActionGroup.
+ *  Snoozing the primary alone would let the row reappear at once with the next
+ *  signal promoted. `snooze` is the caller's store writer (e.g. the
+ *  `useActionSnooze` hook's), so this stays free of storage and React. */
+export function snoozeGroupIds(
+  snooze: (id: string, ms: number) => void,
+  primaryId: string,
+  ms: number,
+  extraIds?: readonly string[],
+): void {
+  snooze(primaryId, ms);
+  extraIds?.forEach((id) => snooze(id, ms));
+}
+
 /** The next upcoming expiry > now, or null. Used to schedule a re-render. */
 export function nextSnoozeExpiry(now: number): number | null {
   const future = Object.values(read()).filter((v) => typeof v === "number" && v > now);

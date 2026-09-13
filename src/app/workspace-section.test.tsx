@@ -17,6 +17,7 @@ import type { ActivityEntry } from "./activity-log";
 import type { Absence, Shift } from "./types";
 import { saveActualsCache } from "./timelog-actuals-store";
 import type { FeatureModuleId } from "./feature-modules";
+import type { SuggestedAction } from "./next-actions/types";
 
 vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
@@ -73,6 +74,20 @@ vi.mock("./timelog-panel", () => ({
     return <div data-testid="timelog-panel" />;
   },
 }));
+// Same capture for DashboardPanel, but passing through to the REAL panel so any
+// test reading dashboard DOM is unaffected — the Top actions test below needs
+// the exact list the section handed it.
+const dashboardPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./dashboard-panel", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./dashboard-panel")>();
+  return {
+    ...actual,
+    DashboardPanel: (p: Parameters<typeof actual.DashboardPanel>[0]) => {
+      dashboardPanelMock.props.push(p as unknown as Record<string, unknown>);
+      return <actual.DashboardPanel {...p} />;
+    },
+  };
+});
 const budgetPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
 vi.mock("./budget-panel", () => ({
   BudgetPanel: (p: Record<string, unknown>) => {
@@ -773,5 +788,41 @@ describe("WorkspaceSection — staged-proposal wiring into ChatPanel", () => {
     for (const key of ["tasks", "raid", "changes", "milestones", "stakeholders", "resources"]) {
       expect(Array.isArray(ws?.[key])).toBe(true);
     }
+  });
+});
+
+describe("WorkspaceSection — dashboard Top actions", () => {
+  beforeEach(() => {
+    dashboardPanelMock.props.length = 0;
+  });
+
+  // One project with several missing key facts yields one action per fact, all
+  // opening the same project. The tile must show that project ONCE — a flat
+  // slice of the list would fill every slot with it.
+  it("hands the dashboard one action per group, not the flat list's head", () => {
+    const fact = (id: string, score: number): SuggestedAction => ({
+      id: `project-meta:p1:${id}`,
+      source: "project-meta",
+      title: { key: "actionRaidTitle", params: [1, "Ledger"] },
+      why: { key: "actionRaidWhySeverity", params: ["High"] },
+      score,
+      tier: "soon",
+      cta: { kind: "open", view: "projects", id: "p1" },
+    });
+    const other: SuggestedAction = {
+      id: "raid:7:severity",
+      source: "raid",
+      title: { key: "actionRaidTitle", params: [7, "Vendor"] },
+      why: { key: "actionRaidWhySeverity", params: ["High"] },
+      score: 10,
+      tier: "monitor",
+      cta: { kind: "open", view: "raid", id: 7 },
+    };
+    const nextActions = [fact("code", 36), fact("projectManager", 35), fact("customer", 34), fact("startDate", 31), fact("products", 20), other];
+
+    render(<WorkspaceSection {...makeProps({ nextActions })} />, { wrapper: Wrapper });
+
+    const topActions = dashboardPanelMock.props.at(-1)!.topActions as SuggestedAction[];
+    expect(topActions.map((a) => a.id)).toEqual(["project-meta:p1:code", "raid:7:severity"]);
   });
 });

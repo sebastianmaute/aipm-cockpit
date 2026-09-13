@@ -85,6 +85,7 @@ import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
 import { useActionSnooze } from "./use-action-snooze";
+import { snoozeGroupIds } from "./action-snooze";
 import { useActionNotifications } from "./use-action-notifications";
 import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
 import { ModernShell } from "./modern-shell";
@@ -100,6 +101,7 @@ import { CORE_INSIGHT_TYPES, detectInsights, type InsightInput } from "./insight
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
 import type { Insight, InsightType } from "./insights/insight";
 import { loadLandingState } from "./landing-state";
+import { keyFactsSnapshot, removeKeyFactsSnapshot, saveKeyFactsSnapshot } from "./project-key-facts-cache";
 import { loadActualsCache } from "./timelog-actuals-store";
 import { evaluateTimelogPolicy } from "./timelog-policy";
 import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
@@ -1121,6 +1123,11 @@ function TaskManagerInner() {
   // rejects an `obj.member` dep like `learning.bias` / `learning.record`).
   const learnedBias = learning.bias;
   const recordLearning = learning.record;
+  // The single declaration for "the current project id under whichever
+  // portfolio backend is active" — `portfolioMode`, `tursoProjectId` and
+  // `currentProjectId` are all already in scope by this point (each declared
+  // earlier in the component), so there is no TDZ hazard hoisting it here.
+  const portfolioCurrentId = portfolioMode === "turso" ? tursoProjectId : currentProjectId;
   // Suggested next-actions engine. Reuses comms.items (already computed above)
   // so we don't run getStakeholderCommsItems a second time.
   const nextActions = useMemo(
@@ -1137,6 +1144,8 @@ function TaskManagerInner() {
           commsReminders: comms.items,
           features: settings.features,
           projectName: project?.name ?? "",
+          projectId: portfolioCurrentId ?? undefined,
+          projectMeta: project,
           today,
           now: new Date(),
           reminderLeadDays: effectiveNotifications.reminderLeadDays,
@@ -1159,7 +1168,7 @@ function TaskManagerInner() {
           learnedBias,
         }),
       ),
-    [tasks, raid, changes, milestones, stakeholders, steeringCommittee, dashboardModel, comms.items, settings.features, effectiveNotifications, effectiveNextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
+    [tasks, raid, changes, milestones, stakeholders, steeringCommittee, dashboardModel, comms.items, settings.features, effectiveNotifications, effectiveNextActions, project, portfolioCurrentId, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   // Stakeholder ids with a pending stakeholder-comms next-action. Feeds the
@@ -1249,8 +1258,17 @@ function TaskManagerInner() {
     openActionCenter,
   });
 
+  // `extraIds` are the OTHER ids in the row's ActionGroup (action-row.tsx /
+  // action-hero-card.tsx thread them from `ActionGroup.extra`). Snoozing a
+  // grouped row must snooze every signal in the group — else the row
+  // reappears immediately with the next signal promoted to primary. Learned
+  // bias stays keyed on the primary's kind only: extras are snoozed directly
+  // against the store (`snoozeGroupIds`), bypassing recordLearning.
   const snoozeAction = useCallback(
-    (a: SuggestedAction, ms: number) => { void recordLearning(a, "snoozed"); actionSnooze.snooze(a.id, ms); },
+    (a: SuggestedAction, ms: number, extraIds?: readonly string[]) => {
+      void recordLearning(a, "snoozed");
+      snoozeGroupIds(actionSnooze.snooze, a.id, ms, extraIds);
+    },
     [actionSnooze, recordLearning],
   );
 
@@ -2056,6 +2074,9 @@ function TaskManagerInner() {
       const next = removeProject(registry, id);
       if (next === registry) return; // unknown id — nothing changed
       void deleteHandle(id);
+      // Drop the deleted project's per-device key-facts cache entry so it
+      // doesn't keep occupying one of the 50 cached slots forever.
+      removeKeyFactsSnapshot(id);
       // removeProject re-points currentProjectId to the first survivor. When the
       // CURRENT project was deleted and a survivor exists, load that survivor's
       // data. switchToProject early-returns if currentProjectId already equals
@@ -2097,6 +2118,14 @@ function TaskManagerInner() {
           storageConfig: { kind: "turso" as const },
         }))
       : registry.projects;
+  // Turso's project list already carries every project's full meta, so the
+  // Projects view measures non-current rows' key facts from it rather than from
+  // the per-device cache. Kept OFF ProjectRegistryEntry: that shape is persisted
+  // in the localStorage registry. File mode has no live meta → undefined.
+  const portfolioLiveMetaById = useMemo(
+    () => (portfolioMode === "turso" ? new Map(tursoProjects.map((e) => [e.id, e.meta])) : undefined),
+    [portfolioMode, tursoProjects],
+  );
   const portfolioArchived: ProjectRegistryEntry[] =
     portfolioMode === "turso"
       ? tursoArchived.map((e) => ({
@@ -2106,8 +2135,36 @@ function TaskManagerInner() {
           storageConfig: { kind: "turso" as const },
         }))
       : [];
-  const portfolioCurrentId =
-    portfolioMode === "turso" ? tursoProjectId : currentProjectId;
+  // `portfolioCurrentId` is declared once, above, beside the next-actions
+  // memo that needs it before this point in the component.
+
+  // Per-device key-fact snapshot for the Projects list's NON-current rows
+  // (spec §5.3). Side-effect-only localStorage write (no setState); `new Date()`
+  // lives in the effect, never the render body; popouts are read-only and must
+  // not mutate device state (mirrors use-landing-delta).
+  // ★★ This relies on React batching `project` and the id into ONE render.
+  // The call order is NOT uniform across paths: switchToProject and the two
+  // Turso paths — switchToTursoProject and createTursoProject
+  // (use-storage-turso-ops.ts) — both call applyWorkspace(...) BEFORE
+  // setTursoProjectId(...). createProject and
+  // loadProjectFromFile (use-storage-file-ops.ts) and createDemoProject's
+  // non-Turso-portfolio branch (same file — its Turso-portfolio branch reloads
+  // the page instead and never reaches this effect) all call commitRegistry(...)
+  // BEFORE applyWorkspace(...) — the OPPOSITE order. The real invariant, the one
+  // this effect actually depends on, does not care which comes first: on every
+  // one of these paths both calls land in the SAME synchronous continuation
+  // after the last `await`, so React batches them into one render and this
+  // effect never observes the new project's meta filed under the old id (or
+  // vice versa). If an `await` is ever inserted between the two calls on ANY of
+  // them, one render will hold a mismatched pair and this effect will file the
+  // snapshot under the wrong id (bounded: reopening that project overwrites
+  // it). A registry name/code guard is NOT a fix: renameProject has no caller,
+  // so the registry name does not follow meta edits and such a guard would
+  // block every write after a rename.
+  useEffect(() => {
+    if (isPopout || !project || !portfolioCurrentId) return;
+    saveKeyFactsSnapshot(portfolioCurrentId, keyFactsSnapshot(project, new Date().toISOString()));
+  }, [isPopout, project, portfolioCurrentId]);
 
   // Switch — same navigation target ("New project" → projects view) in both
   // modes; the switch itself routes to the active backend's handler.
@@ -2433,6 +2490,7 @@ function TaskManagerInner() {
     projects: portfolioProjects,
     currentProjectId: portfolioCurrentId,
     currentProject: project,
+    projectLiveMetaById: portfolioLiveMetaById,
     archivedProjects: portfolioArchived,
     projectStakeholderNames: stakeholders.map((s) => s.name),
     projectAddressBook: contactsList,

@@ -8,6 +8,45 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.2.0] - 2026-09-13 "Hodgell"
+
+Every project row in the Projects list now shows how many of its eleven key
+facts are set, the current project's missing facts surface in Next actions as
+a single grouped row, and snoozing a grouped Next-actions row now snoozes the
+whole group.
+
+### Added
+
+- **A project row shows key-fact completeness.** A meter and "N of 11" text
+  appear on every row in the Projects list. The current project is measured
+  live. With a shared Turso project list, every other row is measured live
+  from that list too. With file-based projects, every other row reads a
+  per-device snapshot cached while that project was open, so a row for a
+  project never opened on this device reads "— of 11" ("— von 11" in German)
+  instead of 0 of 11. Non-current rows also show their customer.
+- **A banner on the current project names its missing key facts**, with a
+  "Complete them" button that opens the project's edit form. A project with
+  every key fact set shows a success banner instead.
+- **Next actions groups the current project's missing key facts into one
+  row**, opening the Projects view when acted on. It is always ranked below
+  the Now tier. The dashboard's Top actions tile groups the same way, so the
+  project takes one slot there rather than up to five.
+
+### Fixed
+
+- **Snoozing a grouped Next-actions row now snoozes every signal folded into
+  it**, not only the row's primary one. This applies to every grouped row, not
+  only the key-facts row — before this fix, a snoozed row could reappear
+  immediately with its next-highest signal promoted to the top.
+- **A Next-actions "open" action with a non-numeric id no longer writes
+  `#<view>/NaN` into the address bar.** This affects any action whose id is
+  not a number, such as the project id the key-facts row's CTA carries.
+
+### Internal
+
+- **A `.mimir` project marker file was added**, giving this project a stable
+  id for Mimir memory replication across machines. Sync stays off for now.
+
 ## [1.1.0] - 2026-09-13 "Doyle"
 
 A project needs only a name. Every other key fact can be filled in later, and

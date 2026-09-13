@@ -281,7 +281,10 @@ surface, which is exhaustive with no branch to fill and therefore needs no `neve
 - One `SuggestedAction` per missing fact, `id: "project-meta:<projectId>:<factId>"`, matching
   the established `${source}:${entityId}:${reason}` convention.
 - `cta: { kind: "open", view: "projects", id: projectId }`. A string id is permitted by
-  `ActionCta`.
+  `ActionCta`'s TYPE — ★ but not by its executor as written: `executeActionCta` calls
+  `requestOpen(view, Number(cta.id))`, which turns `"p1"` into `NaN` and pushes `#projects/NaN`.
+  (Corrected 2026-09-13 while planning; this line said only "permitted".) The `open` arm must
+  navigate with `setActiveTab(view)` alone when the id is a string.
 - `ActionInput` gains the project meta and project id **additively**; the provider returns `[]`
   when they are absent, so no caller is forced to supply them at once.
 - `moduleId` stays undefined — Projects is core, always-on.
@@ -293,17 +296,29 @@ properties are not, and are pinned by test:
 
 - No `project-meta` action may ever reach tier `now`. A blank profit centre must not outrank an
   overdue milestone.
-- No task verb may attach. `next-actions/types.ts` warns that consumers do `Number(cta.id)` for
-  `open-points` targets; our view is `projects`, so `onPoints()` must stay false.
+- No TASK-SPECIFIC verb (mark-done, clear-blocker, reschedule, draft) may attach — all four gate
+  on `onPoints()`/`task-due`/`stakeholder-comms` in `action-cta.ts`, and our view is `projects`, so
+  `onPoints()` must stay false. Create task is NOT excluded: it gates only on
+  `a.source !== "task-due"`, which a project-meta action always satisfies, so it remains available
+  in the overflow when the caller has the capability — filling in a missing fact is a legitimate
+  task.
 
 ### 5.3 Per-device cache — `project-key-facts-cache.ts`
 
 `ProjectRegistryEntry` holds only `{id, name, code, storageConfig}`; the eleven facts and the
 customer live inside each project's own backend. Non-current rows therefore need a cache,
 modelled directly on `landing-state.ts`: one `device-store` key, shape
-`Record<projectId, { filled, missing, customer, at }>`, bounded at 50 entries, written when a
-project's workspace loads or saves, never exported, never in Turso, swept by `app-reset`'s
-`aipm-cockpit:*` pass.
+`Record<projectId, { filled, missing, customer, at }>`, bounded at 50 entries, never exported,
+never in Turso, swept by `app-reset`'s `aipm-cockpit:*` pass.
+
+It is written whenever the CURRENT project's in-memory meta changes (an effect in
+`task-manager.tsx`, skipped in popouts), not only on load or save. The bounded consequence: an
+edit whose save then fails is still cached, so that project's row may show the unsaved facts on
+this device until the project is reopened and the cache is overwritten from what loads.
+
+The cache is consulted only for non-current rows WITHOUT live meta — in practice file mode. In
+Turso mode the shared project list already carries every listed project's meta, so those rows
+are measured from it and the cache is not read for them.
 
 Two contract points, both load-bearing:
 
@@ -319,22 +334,22 @@ all. Staleness is bounded by reopening the project.
 
 ### 5.4 Indicator — `projects-panel.tsx`
 
-Per row, in order: the customer meta line (live for the current project, cached for others,
-omitted when unknown), then the meter, then — current project only — the banner.
+Per row, in order: the customer meta line (live for the current project and, in Turso mode, for
+others; cached for others in file mode; omitted when unknown), then the meter, then — current project only — the banner.
 
 Both use existing primitives, per the no-hand-rolling rule:
 
 - `ProgressTrack` (`progress-track.tsx`) supplies the rail. The fill is the caller's by design;
   ours is RAG-thresholded, with `UsageBar` as the documented sibling for that pattern. The
   *unknown* state renders the bare muted track with **no fill child** — distinguished by its
-  `— / 11` text and `?` glyph, never by a hatch or pattern, because the palette constraint
+  `— of 11` text and `?` glyph, never by a hatch or pattern, because the palette constraint
   bans gradients outright.
 - `Banner` (`banner.tsx`) with `severity="warn"` naming the missing facts and a "Complete them"
   action, switching to `severity="success"` at 11/11. Non-error banners default to
   `role="status"`, which is wanted here: filling the last fact announces the change.
 
 Label pair per row: a sentence (`"3 key facts missing"` / `"Key facts complete"` /
-`"Key facts not measured here"`) on the left, the count (`8 of 11`, `— / 11`) on the right.
+`"Key facts not measured here"`) on the left, the count (`8 of 11`, `— of 11`) on the right.
 
 ### 5.5 Accessibility — no safety net on this surface
 
@@ -350,9 +365,13 @@ is checked by hand and unit tests are the only coverage. Consequences:
 ### 5.6 Testing
 
 - **Model:** completeness at empty / partial / full; and a mirror test asserting the model and
-  `validateProjectMeta` agree on what "set" means.
+  `sanitizeProjectMeta` agree on what "blank" means (a whitespace string, a blank-named contact
+  person and an unknown regulatory entry all normalise to blank and read as missing). ★ This said
+  `validateProjectMeta` until 2026-09-13. After MR A that function checks only `name`, so the
+  comparison would have been vacuous for ten of the eleven facts.
 - **Provider:** one action per missing fact; N facts collapse to one group with N−1 extras;
-  never tier `now`; no task verbs attach; absent input yields `[]`.
+  never tier `now`; no task-specific verb attaches (Create task remains available); absent input
+  yields `[]`.
 - **Cache:** absence reads unknown rather than zero; eviction at the cap; the current project
   bypasses it.
 - **Panel:** all four row states render; the banner appears on the current project only.
