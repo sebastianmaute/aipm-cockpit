@@ -332,7 +332,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§103](#103-an-over-cap-load-silently-and-permanently-destroyed-the-excess-documents--closed) | An over-cap load silently and permanently destroyed the excess documents | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** |
 | [§104](#104-the-aidocumentwrite-deep-link-is-still-dead--activityviewof-has-no-production-caller--open) | The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open |
 | [§105](#105-csv-section-markers-are-matched-on-raw-lines-so-a-newline-inside-a-quoted-cell-can-switch-the-parsers-section-mid-row--closed-2026-08-16) | CSV section markers are matched on RAW LINES, so a newline inside a quoted cell can switch the parser's section mid-row | property-based coverage (`!360`, no bump), found by `codec-roundtrip.property.test.ts` | M — silent data loss | **CLOSED** 2026-08-16 |
-| [§106](#106-the-markdown-codec-is-not-a-fixed-point-when-bare-crs-precede-a-newline--open-minor-progressive) | The Markdown codec is not a fixed point when bare CRs precede a newline — open, minor, progressive | property-based coverage (`!360`, no bump) | XS | open |
+| [§106](#106-the-markdown-codec-is-not-a-fixed-point-when-bare-crs-precede-a-newline--closed-2026-09-13) | The Markdown codec is not a fixed point when bare CRs precede a newline | property-based coverage (`!360`, no bump) | XS | **CLOSED** 2026-09-13 |
 | [§107](#107-html_start-and-sanitizetemplatehtml-disagree-about-u--h1--h2-so-a-model-description-leading-with-a-heading-is-stored-as-escaped-literal-markup--closed-2026-08-10) | `HTML_START` and `sanitizeTemplateHtml` disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup | property-based coverage (`!360`, no bump) | M | **CLOSED** 2026-08-10 |
 | [§108](#108-the-meeting-report-html-is-truncated-by-a-raw-slice-so-it-can-cut-mid-tag-and-split-a-surrogate-pair--open) | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — open | split out of §22 rather than folded in — same shape, strictly larger problem | S | open |
 | [§109](#109-icon-only-controls-with-no-hover-tooltip-and-one-control-named-only-by-its-title--the-one-name-defect-fixed-2026-08-31-tooltip-inventory-still-open-ratchet) | Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open |
@@ -8293,13 +8293,14 @@ unrelated Markdown fixed-point one. Said explicitly because a reader who greps t
 finds one and can reasonably read this entry as regressed. Re-checked 2026-08-25 with
 `grep -n "describe.skip" src/app/codec-roundtrip.property.test.ts` — one hit, the Markdown one.
 
+★ **Updated 2026-09-13:** §106 is closed and its block runs unskipped, so that grep now returns NO
+`describe.skip` at all — zero is the current correct answer, not a regression.
+
 ---
 
-## 106. The Markdown codec is not a fixed point when bare CRs precede a newline — open, minor, progressive
+## 106. The Markdown codec is not a fixed point when bare CRs precede a newline — CLOSED 2026-09-13
 
-**Status:** open — an asymmetric Markdown escape pair that drops a CR per round-trip. Reproduced 2026-08-28 by `grep -n "mdEscape" src/app/markdown-codecs-core.ts`.
-
-**Work item:** #139
+**Status:** CLOSED 2026-09-13 — `mdEscape`'s newline rule is `/\r*\n/`, so a CR run before an LF collapses on the first encode. Pinned by `npx vitest run src/app/codec-roundtrip.property.test.ts -t "does not erode a CR run"`; the formerly skipped block runs live.
 
 **Where:** `markdown-codecs-core.ts` `mdEscape` / `mdUnescape`.
 
@@ -8320,6 +8321,14 @@ property therefore excludes bare CR explicitly, and the skipped block carries bo
 property and a deterministic companion. ★ The skipped PROPERTY is itself seed-dependent at low run
 counts — on the run where it was unskipped, the deterministic companion failed while the property
 passed. **The deterministic case is the reliable reproduction**; reach for that one, not the property.
+
+**CLOSED 2026-09-13.** `mdEscape` now rewrites `/\r*\n/` to `<br>`, so the whole CR run collapses into the
+break on the first encode and the first cycle is a fixed point (`"a\r\r\r\nb"` → `"a\nb"` → `"a\nb"`).
+A bare CR NOT followed by an LF is unchanged. The block that carried both the unrestricted property and
+the deterministic companion is unskipped. Before unskipping, the unrestricted property was probed
+against the fixed codec at 1500 runs through the identity
+`newRound(x) === oldRound(x.replace(/\r+\n/g, "\n"))`, and it held. No narrowing was needed.
+`golden-workspace.test.ts` is unchanged: no sample workspace contains a CR run before an LF.
 
 ---
 

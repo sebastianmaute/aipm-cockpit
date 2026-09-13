@@ -7,8 +7,8 @@
 // therefore says nothing about the input SPACE — a value carrying the codec's
 // own delimiters is simply not in the fixture. `decode(encode(ws)) === ws` is
 // the property a golden structurally cannot express. Two real defects fell out
-// of writing it; both are at the bottom of this file, kept as the properties
-// they should satisfy and skipped rather than softened into passing.
+// of writing it; both are at the bottom of this file and both are FIXED — each
+// block runs unskipped as the property its fix satisfies (§105, §106).
 //
 // Scope, deliberately narrow (depth over breadth): TASKS only, and within a
 // task only the five fields whose CSV/MD decode is the IDENTITY on the parsed
@@ -544,7 +544,7 @@ describe("CSV workspace codec — task round-trip", () => {
 /** Markdown is exact only on strings that avoid its two remaining lossy
  *  transforms (each pinned individually below). Excluded here so the exact
  *  property stays a real assertion rather than a restatement of `mdEscape`:
- *    - any `\r` at all (bare CR is trimmed at a cell edge; CRLF collapses),
+ *    - any `\r` at all (bare CR is trimmed at a cell edge; a CR run before an LF collapses),
  *    - a leading or trailing space/tab (`splitMdRow` trims every cell).
  *  A literal `<br…>` used to be a THIRD lossy transform (indistinguishable
  *  from an encoded newline) — fixed at the root in `mdEscape`/`mdUnescape`
@@ -580,8 +580,10 @@ const mdSafeString = anyString
   );
 
 /** The two transforms above are each idempotent on their own, so one pass is
- *  a fixed point as long as no bare CR is present. A CR is the exception, and
- *  it is a defect — see the second skipped block at the bottom. */
+ *  a fixed point. CR used to be the exception (open-followups §106, FIXED
+ *  2026-09-13); the unrestricted claim now runs live in the FIXED DEFECT 2
+ *  block at the bottom. This narrower property stays because it is the one
+ *  that was green while that block was skipped. */
 const mdNoCrString = anyString.map((s) => s.replace(/\r/g, ""));
 
 describe("Markdown workspace codec — task round-trip", () => {
@@ -613,8 +615,8 @@ describe("Markdown workspace codec — task round-trip", () => {
     // transforms must each be IDEMPOTENT. A non-idempotent one (a backslash
     // that doubled on every save, say) would corrupt a file progressively
     // across ordinary open/save cycles while every single round-trip still
-    // looked fine on its own. That is exactly what a bare CR does — hence the
-    // exclusion, and the skipped property that states the unrestricted claim.
+    // looked fine on its own. That is exactly what a CR run before an LF used to
+    // do (§106); the unrestricted property at the bottom pins that it no longer does.
     fc.assert(
       fc.property(tasksArb(mdNoCrString), (tasks) => {
         const once = mdRound(tasks);
@@ -636,10 +638,12 @@ describe("Markdown codec — the two documented lossy transforms", () => {
   });
 
   it("collapses CRLF, and trims a bare CR only at a cell edge", () => {
-    // mdEscape rewrites /\r?\n/ to "<br>", so CRLF returns as LF. A BARE CR is
+    // mdEscape rewrites /\r*\n/ to "<br>", so CRLF — and a whole run of CRs
+    // before an LF (§106) — returns as LF. A BARE CR is
     // not matched at all: it survives inside a cell, and disappears at an edge
     // through the trim above (CR is whitespace), not through any newline rule.
     expect(oneBlockers("a\r\nb")).toBe("a\nb");
+    expect(oneBlockers("a\r\r\r\nb")).toBe("a\nb");
     expect(oneBlockers("a\rb")).toBe("a\rb");
     expect(oneBlockers("\ra")).toBe("a");
   });
@@ -707,37 +711,31 @@ describe("CSV codec — section markers must not be matched inside a quoted cell
   });
 });
 
-// --- DEFECT 2 --------------------------------------------------------------
+// --- FIXED DEFECT 2 (open-followups §106) -----------------------------------
 
 /**
- * ★★ PROGRESSIVE CORRUPTION — the Markdown codec is NOT a fixed point when a
- * run of bare CRs precedes a newline. It erodes exactly one CR per save/load
- * cycle, so the stored value keeps changing across cycles that make no edit.
+ * ★★ PROGRESSIVE CORRUPTION, FIXED 2026-09-13 — the Markdown codec was NOT a
+ * fixed point when a run of bare CRs preceded a newline. It eroded exactly one
+ * CR per save/load cycle, so the stored value kept changing across cycles that
+ * made no edit.
  *
- * Mechanism: `mdEscape` rewrites /\r?\n/ — which consumes the ONE CR nearest
- * the LF — to "<br>", and `mdUnescape` turns that back into a bare LF. The CRs
- * further left are untouched this pass, and the fresh LF hands the next pass
- * another /\r\n/ to eat.
- *
- * MEASURED chain, one arrow per full workspaceToMarkdown → markdownToWorkspace:
+ * Mechanism (before): `mdEscape` rewrote /\r?\n/ — which consumed only the ONE
+ * CR nearest the LF — to "<br>", and `mdUnescape` turned that back into a bare
+ * LF, handing the next pass another /\r\n/ to eat. MEASURED chain, one arrow per
+ * full workspaceToMarkdown → markdownToWorkspace:
  *   "a\r\r\r\nb" -> "a\r\r\nb" -> "a\r\nb" -> "a\nb" -> "a\nb"
  *
- * Severity is well below defect 1: it converges, it only ever loses CR
- * characters, and CRLF→LF on the FIRST pass is accepted behaviour (this repo's
- * markdown format is LF). What is not acceptable is the value still moving on
- * passes 2 and 3. Found by the fixed-point property at numRuns 1500, from the
- * counterexample `description: "😀\r<br>"` (pre-fix-all-1; no longer
- * reproduces — that literal `<br>` no longer collides with the newline
- * marker, so this exact string is now a fixed point after one pass; use
- * `"a\r\r\r\nb"` instead, still reproduced below); 20 runs did not reach it —
- * which is why the live property above excludes bare CR rather than
- * pretending the case does not exist.
+ * Fix: the newline rule is /\r*\n/, so the whole CR run collapses into the
+ * break on the FIRST encode (CRLF→LF on the first pass was already accepted —
+ * this repo's markdown format is LF). A bare CR not followed by an LF is still
+ * left alone. Found by the fixed-point property at numRuns 1500; 20 runs did not
+ * reach it, which is why the deterministic case below is the reliable pin.
  */
-describe.skip("Markdown codec — one pass must be a fixed point on any string", () => {
-  // ★ The property below is SEED-DEPENDENT at numRuns 20 — measured: unskipping
-  // this block reproduces the defect through the deterministic `it` every time,
-  // while the property itself passed on that run. The deterministic case is the
-  // reliable reproduction; the property is what should hold once fixed.
+describe("Markdown codec — one pass must be a fixed point on any string", () => {
+  // ★ The property is SEED-DEPENDENT at numRuns 20 — when this block was first
+  // unskipped against the unfixed codec, the deterministic `it` failed while the
+  // property passed. Both run live now: the property states the claim, the
+  // deterministic case is what reliably fails if the fix is reverted.
   it("is a fixed point after one pass, on the full hostile alphabet", () => {
     fc.assert(
       fc.property(tasksArb(anyString), (tasks) => {
@@ -750,6 +748,7 @@ describe.skip("Markdown codec — one pass must be a fixed point on any string",
 
   it("does not erode a CR run on each successive save", () => {
     const first = oneBlockers("a\r\r\r\nb");
+    expect(first).toBe("a\nb");
     expect(oneBlockers(first)).toBe(first);
   });
 });
