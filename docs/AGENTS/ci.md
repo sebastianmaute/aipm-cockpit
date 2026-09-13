@@ -76,6 +76,15 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   the 50-open-entry floor). ★★ It reads the REGISTER ONLY, so an issue closed in GitLab while its entry
   stays open passes it. ★ DO NOT satisfy a red run with `none — decision record` on an entry that has
   real work — create the issue] ·
+  **followups-gitlab-sync** WARN-ONLY [`npm run followups:gitlab:check` — compares every open entry's
+  Work item line with the OPEN GitLab issues both ways (`scripts/check-followup-gitlab.mjs` over
+  `compareWithGitLab` in `scripts/followup-workitem-lib.mjs`): an issue closed in GitLab, one titled for
+  another entry, one with no open entry, a `§NNN:` issue without `source::register` or the reverse.
+  ★★ Skips with exit 0 until a masked, protected `REGISTER_SYNC_TOKEN` (a project access token
+  with the read-API scope) exists. **1 is DRIFT**, **2 is could-not-compare** (network, token, redirect, or under a
+  50-open-issue floor — a wrong-project token answers `[]`). ★★ Default-branch pushes and schedules
+  ONLY: on an MR, whoever merges second rebases, so a branch can hold issues whose entries are not on
+  main yet. `allow_failure: true` sits at job level AND on each rule — the YAML comment says why] ·
   **tag-version-check** BLOCKING [tag pipelines only, `needs: []` — `npm run tag:check` asserts the tag
   is `v` + `APP_VERSION` (`scripts/check-tag-version.mjs` over `scripts/tag-version-lib.mjs`). ★★ SAME
   TWO-EXIT-CODE SPLIT: **1 is DRIFT** (the installer would misreport its own version), **2 is the gate
@@ -125,7 +134,7 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
   in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
   `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `version-sync-check`,
-  `doc-claims-check`, `followups-status-check`, `followups-index-check`, `followups-workitems-check`, `tag-version-check`, `unit-tests`,
+  `doc-claims-check`, `followups-status-check`, `followups-index-check`, `followups-workitems-check`, `followups-gitlab-sync`, `tag-version-check`, `unit-tests`,
   `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
   `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
   sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a
@@ -155,7 +164,8 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   scripts/` returns no loader), and its threshold is the literal `1.75` in `package.json dup:check`.
   A weekly `schedule` pipeline also runs
   `dependency-audit-full` + **unit-tests-shuffled-random** (same suite, seed `$CI_PIPELINE_ID` echoed with
-  its reproduce command, warn-only `allow_failure: true`) + a **dast-zap** ZAP baseline (dind-based, manual
+  its reproduce command, warn-only `allow_failure: true`) + **followups-gitlab-sync** (warn-only, also on
+  default-branch pushes) + a **dast-zap** ZAP baseline (dind-based, manual
   otherwise). (Phases 1-4 of the
   tech-debt roadmap are complete — gates flipped to blocking in Phase 4, MR !174.)
   New CI gate → also update this line.

@@ -9,7 +9,13 @@ import os from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
-import { parseWorkItem, workItemLines, workItemViolations } from "./followup-workitem-lib.mjs";
+import {
+  compareWithGitLab,
+  GITLAB_PROBLEM_HELP,
+  parseWorkItem,
+  workItemLines,
+  workItemViolations,
+} from "./followup-workitem-lib.mjs";
 import { parseEntries, isClosed } from "./followup-claims-lib.mjs";
 
 const entry = (n, title, ...body) => ({ n, title, startLine: 1, body });
@@ -115,6 +121,87 @@ describe("workItemViolations", () => {
       .filter((e) => !isClosed(e.title))
       .filter((e) => workItemLines(e).some((l) => parseWorkItem(l)?.kind === "issue"));
     expect(withIssue.length).toBeGreaterThan(200);
+  });
+});
+
+describe("compareWithGitLab", () => {
+  const linked = (n, iid) => open(n, "", `**Work item:** #${iid}`, "");
+  const decision = (n) => open(n, "", "**Work item:** none — decision record", "");
+  const issue = (iid, n, labels = ["source::register"]) => ({ iid, title: `§${n}: entry ${n}`, labels });
+  const found = (entries, issues) => compareWithGitLab(entries, issues).problems.map((p) => p.code);
+
+  it("reports nothing when every link and every issue agree", () => {
+    expect(found([linked(1, 10), linked(2, 20)], [issue(10, 1), issue(20, 2)])).toEqual([]);
+  });
+
+  it("ISSUE_NOT_OPEN when the linked issue is not among the open issues", () => {
+    const { problems } = compareWithGitLab([linked(1, 10)], []);
+    expect(problems).toEqual([{ code: "ISSUE_NOT_OPEN", detail: "§1 → #10, which is not an open issue" }]);
+  });
+
+  it("ISSUE_SECTION_MISMATCH when the linked issue is titled for another entry", () => {
+    expect(found([linked(1, 10)], [issue(10, 7)])).toEqual(["ISSUE_SECTION_MISMATCH", "ISSUE_WITHOUT_ENTRY"]);
+  });
+
+  it("ISSUE_WITHOUT_ENTRY when an issue names a closed entry", () => {
+    expect(found([entry(4, "x CLOSED", "")], [issue(40, 4)])).toEqual(["ISSUE_WITHOUT_ENTRY"]);
+  });
+
+  it("ISSUE_UNLINKED when the entry is a decision record", () => {
+    expect(found([decision(3)], [issue(30, 3)])).toEqual(["ISSUE_UNLINKED"]);
+  });
+
+  it("ISSUE_UNLINKED when the entry links a different issue", () => {
+    expect(found([linked(3, 31)], [issue(31, 3), issue(30, 3)])).toEqual(
+      expect.arrayContaining(["ISSUE_UNLINKED", "SECTION_ON_TWO_ISSUES"]),
+    );
+  });
+
+  it("does NOT also report ISSUE_UNLINKED for an issue already reported as a mismatch", () => {
+    // §5 → #20 but #20 is titled §6; §6 is a decision record. One wrong link, one line.
+    expect(found([linked(5, 20), decision(6)], [issue(20, 6)])).toEqual(["ISSUE_SECTION_MISMATCH"]);
+  });
+
+  it("SECTION_ON_TWO_ISSUES when two open issues share a §number", () => {
+    expect(found([linked(2, 20)], [issue(20, 2), issue(21, 2)])).toEqual(["ISSUE_UNLINKED", "SECTION_ON_TWO_ISSUES"]);
+  });
+
+  it("ISSUE_UNTITLED for a register-labelled issue with no §NNN: prefix", () => {
+    expect(found([], [{ iid: 9, title: "stray", labels: ["source::register"] }])).toEqual(["ISSUE_UNTITLED"]);
+  });
+
+  it("ISSUE_UNLABELLED for a §NNN: issue without the label", () => {
+    expect(found([linked(1, 10)], [issue(10, 1, ["bug"])])).toEqual(["ISSUE_UNLABELLED"]);
+  });
+
+  it("ignores an open issue with neither the prefix nor the label", () => {
+    expect(found([linked(1, 10)], [issue(10, 1), { iid: 99, title: "unrelated", labels: ["bug"] }])).toEqual([]);
+  });
+
+  it("skips entries whose Work item line is missing or malformed — the blocking gate's job", () => {
+    expect(found([open(1, "prose"), open(2, "**Work item:** see GitLab")], [issue(10, 1), issue(20, 2)])).toEqual([]);
+  });
+
+  it("counts open entries, links, decision records and issues", () => {
+    const { counts } = compareWithGitLab(
+      [linked(1, 10), decision(2), entry(3, "x CLOSED", "")],
+      [issue(10, 1), { iid: 99, title: "unrelated", labels: [] }],
+    );
+    expect(counts).toEqual({ openEntries: 2, linked: 1, decisionRecords: 1, openIssues: 2 });
+  });
+
+  it("has help for every code it can emit", () => {
+    expect(Object.keys(GITLAB_PROBLEM_HELP).sort()).toEqual(
+      [
+        "ISSUE_NOT_OPEN",
+        "ISSUE_SECTION_MISMATCH",
+        "ISSUE_UNLABELLED",
+        "ISSUE_UNLINKED",
+        "ISSUE_UNTITLED",
+        "ISSUE_WITHOUT_ENTRY",
+        "SECTION_ON_TWO_ISSUES",
+      ].sort(),
+    );
   });
 });
 

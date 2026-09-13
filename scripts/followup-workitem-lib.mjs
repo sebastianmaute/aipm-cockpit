@@ -94,6 +94,134 @@ export function workItemViolations(entries) {
   return [...out, ...reusedIssues(scanned.filter(({ entry }) => !isClosed(entry.title)))];
 }
 
+export const REGISTER_LABEL = "source::register";
+
+const SECTION_TITLE_RE = /^§(\d+):/;
+
+/** The §number an issue title claims, or null when it carries no `§NNN:` prefix. */
+export function issueSection(title) {
+  const m = SECTION_TITLE_RE.exec(String(title));
+  return m ? Number(m[1]) : null;
+}
+
+/** Open entries whose ONE Work item line parses. ★ An entry with no line, two
+ *  lines or a malformed one is the BLOCKING gate's finding and is skipped here —
+ *  reporting it twice, once per gate, would only add noise. */
+function linkedEntries(entries) {
+  const out = [];
+  for (const entry of entries) {
+    if (isClosed(entry.title)) continue;
+    const lines = workItemLines(entry);
+    const work = lines.length === 1 ? parseWorkItem(lines[0]) : null;
+    out.push({ n: entry.n, work });
+  }
+  return out;
+}
+
+function entrySideProblems(links, issueByIid, add) {
+  const mismatched = new Set();
+  for (const { n, work } of links) {
+    if (work?.kind !== "issue") continue;
+    const issue = issueByIid.get(work.iid);
+    if (!issue) {
+      add("ISSUE_NOT_OPEN", `§${n} → #${work.iid}, which is not an open issue`);
+      continue;
+    }
+    const section = issueSection(issue.title);
+    if (section !== n) {
+      const titled = section === null ? "has no §NNN: title" : `is titled §${section}`;
+      add("ISSUE_SECTION_MISMATCH", `§${n} → #${work.iid}, which ${titled}`);
+      mismatched.add(work.iid);
+    }
+  }
+  return mismatched;
+}
+
+function sectionCollisions(registerIssues, add) {
+  const bySection = new Map();
+  for (const issue of registerIssues) {
+    const s = issueSection(issue.title);
+    if (s === null) continue;
+    if (!bySection.has(s)) bySection.set(s, []);
+    bySection.get(s).push(issue.iid);
+  }
+  for (const [s, iids] of bySection) {
+    if (iids.length > 1) add("SECTION_ON_TWO_ISSUES", `§${s} on ${iids.map((i) => `#${i}`).join(", ")}`);
+  }
+}
+
+/** Compare the register's Work item lines with the OPEN GitLab issues, in both
+ *  directions. `entries` is `parseEntries` output (closed ones are filtered
+ *  here); `issues` is `[{iid, title, labels}]`, every open issue fetched.
+ *
+ *  ★ An open issue with NEITHER a `§NNN:` title NOR the register label is not
+ *  register work and is ignored. Either one alone makes it register work.
+ *
+ *  ★★ NO DOUBLE REPORT: an issue already reported as ISSUE_SECTION_MISMATCH is
+ *  never ALSO reported as ISSUE_UNLINKED. Both findings would describe the SAME
+ *  issue from its two ends: some entry links it (so it is linked, just to the
+ *  wrong §), and the mismatch detail already names the § the title claims, so the
+ *  reader sees both sides from one line. Reporting it twice made one wrong link
+ *  read as two defects. */
+export function compareWithGitLab(entries, issues) {
+  const problems = [];
+  const add = (code, detail) => problems.push({ code, detail });
+  const links = linkedEntries(entries);
+  const issueByIid = new Map(issues.map((i) => [i.iid, i]));
+  const linkedIidByN = new Map();
+  for (const { n, work } of links) {
+    if (work?.kind === "issue") linkedIidByN.set(n, work.iid);
+  }
+  const openNumbers = new Set(links.map((l) => l.n));
+  // null = no, several or a malformed Work item line: the blocking gate's finding.
+  const workByN = new Map(links.map((l) => [l.n, l.work]));
+
+  const mismatched = entrySideProblems(links, issueByIid, add);
+
+  const registerIssues = issues.filter(
+    (i) => issueSection(i.title) !== null || (i.labels ?? []).includes(REGISTER_LABEL),
+  );
+  for (const issue of registerIssues) {
+    const section = issueSection(issue.title);
+    const labelled = (issue.labels ?? []).includes(REGISTER_LABEL);
+    if (section === null) {
+      add("ISSUE_UNTITLED", `#${issue.iid} is labelled ${REGISTER_LABEL} but its title has no §NNN: prefix`);
+      continue;
+    }
+    if (!labelled) add("ISSUE_UNLABELLED", `#${issue.iid} (§${section}) lacks ${REGISTER_LABEL}`);
+    if (!openNumbers.has(section)) {
+      add("ISSUE_WITHOUT_ENTRY", `#${issue.iid} is titled §${section}, which is not an open entry`);
+    } else if (
+      workByN.get(section) !== null &&
+      linkedIidByN.get(section) !== issue.iid &&
+      !mismatched.has(issue.iid)
+    ) {
+      const has = linkedIidByN.has(section) ? `#${linkedIidByN.get(section)}` : "no issue";
+      add("ISSUE_UNLINKED", `#${issue.iid} is titled §${section}, but §${section}'s Work item line names ${has}`);
+    }
+  }
+  sectionCollisions(registerIssues, add);
+
+  const counts = {
+    openEntries: links.length,
+    linked: links.filter((l) => l.work?.kind === "issue").length,
+    decisionRecords: links.filter((l) => l.work?.kind === "decision").length,
+    openIssues: issues.length,
+  };
+  return { problems, counts };
+}
+
+export const GITLAB_PROBLEM_HELP = {
+  ISSUE_NOT_OPEN:
+    "the issue was closed in GitLab or the number is wrong: reopen it, or close the entry, or fix the number",
+  ISSUE_SECTION_MISMATCH: "the Work item line points at another entry's issue: fix the number or the issue title",
+  ISSUE_WITHOUT_ENTRY: "the entry is closed or does not exist: close the issue, or fix its §number",
+  ISSUE_UNLINKED: "the entry's Work item line names something else: link this issue, or close the duplicate",
+  SECTION_ON_TWO_ISSUES: "one issue per open entry: close the duplicate issue",
+  ISSUE_UNTITLED: `retitle it \`§NNN: <entry heading>\`, or remove ${REGISTER_LABEL} if it is not register work`,
+  ISSUE_UNLABELLED: `add the ${REGISTER_LABEL} label`,
+};
+
 export const VIOLATION_HELP = {
   MISSING:
     "add `**Work item:** #NN` after the Status block, creating the GitLab issue in the same change, or `**Work item:** none — decision record`",
