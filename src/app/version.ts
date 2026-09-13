@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "1.0.3";
-export const APP_BUILD_DATE = "2026-09-13"; // 1.0.3: the app opens on the Dashboard instead of wherever the last session ended — a view-only address left over from the previous session is ignored on a fresh start while a link to a specific item still opens it, and relaunching the desktop app brings its window back to the Dashboard; the Ask Claude button no longer sits unclickable behind the search field at common laptop widths; and a toggle's check mark takes no room while the toggle is off, except in the seven places where that would move a control under the pointer — switching from the classic layout back to the modern one also lands on the Dashboard for now, filed as follow-up 478 (Pratchett)
+export const APP_VERSION = "1.1.0";
+export const APP_BUILD_DATE = "2026-09-13"; // 1.1.0: a project can be created and saved with nothing but a name — code, project manager, customer, products, profit center, NACE section, deployment, start date, contacts and regulatory classification may all stay blank, on every storage backend, where before a blank key fact made the loader discard the whole project; a blank code shows as a dash in the project lists and the Turso picker, and a TimeLog fetch for a project with no start date falls back to its 90-day window; the follow-up register is now checked against GitLab by a blocking gate on each open entry's Work item line and a warn-only comparison with the open issues — do not roll back past this release once a name-only project exists, because an older build drops it on load, and two projects without a code give the TimeLog picker the same switch signal, filed as follow-up 532 (Doyle)
+// 1.0.3:the app opens on the Dashboard instead of wherever the last session ended — a view-only address left over from the previous session is ignored on a fresh start while a link to a specific item still opens it, and relaunching the desktop app brings its window back to the Dashboard; the Ask Claude button no longer sits unclickable behind the search field at common laptop widths; and a toggle's check mark takes no room while the toggle is off, except in the seven places where that would move a control under the pointer — switching from the classic layout back to the modern one also lands on the Dashboard for now, filed as follow-up 478 (Pratchett)
 // 1.0.2: every money figure the budget engine produces is EUR and the surfaces say so — a fixed-price bucket held in another currency is converted before it is compared against its cost, where before the contract amount was read as if it were EUR and the bucket reported a healthier margin than it had; an FX rate stored against a EUR bucket is now ignored rather than divided by, which repairs buckets that kept a stale rate after their currency was switched back and had been shrinking an 80,000 EUR contract to 72,727 on the project rollup and throughout the Budget report; four budget surfaces now say EUR instead of the plan's symbol, the money ratio is no longer called CPI (which is EVM's term for a different number), and three hints are corrected in English and German — a non-EUR PLAN stays unsupported and its margin is now wrong where it used to be right, filed as follow-up 473 (Pratchett)
 // 1.0.1: the desktop app can print and can check for a newer version — File → Print… (Ctrl+P) prints the window you are actually looking at, driven from the main process because Electron refuses a page's own print call, which is the same reason the in-pane Print buttons no longer appear in the desktop app instead of doing nothing when clicked; Help → "Check for updates…" and the Version dialog both open the Releases page, the app shipping no auto-updater on purpose; cancelling the print dialog no longer writes a failure line into launch.log; Help → Help and the print route now share one liveness decision, so neither can throw at a window the user has closed; and a failure during startup is logged and shown in a dialog rather than leaving no window and no trace — PDF export from Documents and the export menu stays inert in the packaged app, filed as follow-up 468 (Pratchett)
 // 1.0.0: AI PM Cockpit's first release published as an installer package — it replaces the 0.303.0 GitLab Release, which is being withdrawn along with its tag; the Windows installer no longer carries sharp's Linux binaries that a Linux CI runner had been installing into the bundled server though the app never loads them, measured about 6.1 MiB smaller (103,565,559 B → 97,186,650 B) against v0.303.0's installer, with the desktop-package CI jobs now failing if a sharp package reappears; and a spike write-up records what the first CI builds and the first GitLab Release actually measured — image pull times, artifact sizes and contents, and that a signed-in non-member can download the installer — leaving a new open follow-up for a Linux installer (Pratchett)
@@ -32,7 +33,17 @@ export const APP_BUILD_DATE = "2026-09-13"; // 1.0.3: the app opens on the Dashb
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (an author's surname). The
- *  1.0.x line is "Pratchett" (Terry Pratchett, British author of the Discworld
+ *  1.1.x line is "Doyle" (Arthur Conan Doyle, Scottish author of the Sherlock
+ *  Holmes stories, beginning with "A Study in Scarlet", 1887), taken by the
+ *  SELECTION procedure below as the first name in the candidate list. Swept
+ *  BEFORE the 1.1.0 header was written, in one run with its controls: `doyle`
+ *  0 anywhere in CHANGELOG.md and 0 in the named headers, with the bracketed
+ *  `\[[0-9]+\.` pattern and the bracketless `## 0.124.0` shape both read;
+ *  positives `pratchett` 6 (four 1.0.x headers, 0.51.0 and the bracketless
+ *  0.124.0) and `cadigan` 2; negative `zzznotaname` 0. It is also absent
+ *  from every commit subject in the history, so it is unused anywhere, not
+ *  merely legal for its minor line.
+ *  The 1.0.x line was "Pratchett" (Terry Pratchett, British author of the Discworld
  *  novels, beginning with "The Colour of Magic", 1983) — the user's explicit
  *  choice for the 1.0 release, deliberately REUSING a name already spent
  *  twice before (0.51.0 and 0.124.0, both also "Pratchett"). That is legal:
@@ -293,7 +304,7 @@ export const APP_BUILD_DATE = "2026-09-13"; // 1.0.3: the app opens on the Dashb
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Pratchett";
+export const APP_MILESTONE = "Doyle";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
