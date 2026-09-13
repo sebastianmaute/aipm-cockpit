@@ -334,7 +334,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§105](#105-csv-section-markers-are-matched-on-raw-lines-so-a-newline-inside-a-quoted-cell-can-switch-the-parsers-section-mid-row--closed-2026-08-16) | CSV section markers are matched on RAW LINES, so a newline inside a quoted cell can switch the parser's section mid-row | property-based coverage (`!360`, no bump), found by `codec-roundtrip.property.test.ts` | M — silent data loss | **CLOSED** 2026-08-16 |
 | [§106](#106-the-markdown-codec-is-not-a-fixed-point-when-bare-crs-precede-a-newline--closed-2026-09-13) | The Markdown codec is not a fixed point when bare CRs precede a newline | property-based coverage (`!360`, no bump) | XS | **CLOSED** 2026-09-13 |
 | [§107](#107-html_start-and-sanitizetemplatehtml-disagree-about-u--h1--h2-so-a-model-description-leading-with-a-heading-is-stored-as-escaped-literal-markup--closed-2026-08-10) | `HTML_START` and `sanitizeTemplateHtml` disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup | property-based coverage (`!360`, no bump) | M | **CLOSED** 2026-08-10 |
-| [§108](#108-the-meeting-report-html-is-truncated-by-a-raw-slice-so-it-can-cut-mid-tag-and-split-a-surrogate-pair--open) | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — open | split out of §22 rather than folded in — same shape, strictly larger problem | S | open |
+| [§108](#108-the-meeting-report-html-is-truncated-by-a-raw-slice-so-it-can-cut-mid-tag-and-split-a-surrogate-pair--closed-2026-09-13) | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair | split out of §22 rather than folded in — same shape, strictly larger problem | S | **CLOSED** 2026-09-13 |
 | [§109](#109-icon-only-controls-with-no-hover-tooltip-and-one-control-named-only-by-its-title--the-one-name-defect-fixed-2026-08-31-tooltip-inventory-still-open-ratchet) | Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open |
 | [§110](#110-iconbutton-cannot-express-a-non-rounded-md--non-p-1-control--open) | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — open | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open |
 | [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--the-documents-listtsx-half-fixed-2026-08-25-the-docid-sub-section-below-still-open) | Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN | found 2026-08-08 by a merge review, in main's document-authoring code | M | open |
@@ -8496,11 +8496,9 @@ index and never folded into the entry is a correction with a half-life — the e
 
 ---
 
-## 108. The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — open
+## 108. The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — CLOSED 2026-09-13
 
-**Status:** open — a raw slice that can cut mid-tag. Reproduced 2026-08-28 by `grep -rn "REPORT_HTML_MAX" src/app`.
-
-**Work item:** #140
+**Status:** CLOSED 2026-09-13 — an over-cap report goes through `sanitizeRichText`; an under-cap one is returned byte-identical. Pinned by `npx vitest run src/app/sanitize-records.test.ts -t "per-meeting report"`.
 
 **Where:** `sanitize-records.ts`, the `MeetingReport` guard — `rr.html.slice(0, REPORT_HTML_MAX)`.
 
@@ -8520,6 +8518,17 @@ the two states, because the next reader sees a sanitizer call and stops looking.
 
 ★ Reachability is narrow: it needs a meeting report whose HTML exceeds `REPORT_HTML_MAX`, which no
 sample fixture does. Unmeasured in the wild — the mechanism is read from the code, not observed.
+
+**CLOSED 2026-09-13.** `sanitizeMeetingReport` returns a body within `REPORT_HTML_MAX` raw characters
+byte-identical, and routes a longer one through `sanitizeRichText(html, REPORT_HTML_MAX, RICH_SINK)`
+(DOM-free, so the load path stays SSR-safe). Over the cap that bounds VISIBLE text at 100,000, keeps
+formatting while the raw size stays under the shared ceiling, and past either limit degrades through
+`degradeToPlain`, which cannot re-emit severed markup or a lone surrogate. A visually empty result
+drops the report, matching the existing empty-html rule. ★★ The length gate is load-bearing:
+`sanitizeRichText` on an UNDER-cap body measurably trims a trailing newline, turns a tab into a
+space, and escapes a body that does not open with a rich tag, so calling it unconditionally would
+rewrite stored bytes on every load. The under-cap control test pins that. Semantic change, approved
+in the batch design: the cap bounds visible text, not raw units, for over-cap bodies.
 
 ---
 ## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet

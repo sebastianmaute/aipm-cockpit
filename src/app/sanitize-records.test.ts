@@ -86,21 +86,84 @@ describe("sanitizeSteeringCommittee — per-meeting report", () => {
     expect(out.meetings[0].report).toBeUndefined();
   });
 
-  it("caps an oversized report body to 100_000 chars", () => {
-    const out = sanitizeSteeringCommittee({
+  const reportOf = (html: string) =>
+    sanitizeSteeringCommittee({
       name: "Board",
       memberResourceIds: [],
       meetings: [
-        {
-          id: 1,
-          date: "2026-07-11",
-          title: "Kickoff",
-          report: { html: "x".repeat(200_000), updatedAt: "2026-07-11T10:00:00.000Z" },
-        },
+        { id: 1, date: "2026-07-11", title: "Kickoff", report: { html, updatedAt: "2026-07-11T10:00:00.000Z" } },
       ],
       infoSchedules: [],
-    })!;
-    expect(out.meetings[0].report?.html).toHaveLength(100_000);
+    })!.meetings[0].report?.html;
+
+  /** A `<` with no `>` after it — what a raw slice leaves when it cuts mid-tag. */
+  const endsInsideTag = (s: string): boolean => {
+    const lt = s.lastIndexOf("<");
+    return lt !== -1 && s.indexOf(">", lt) === -1;
+  };
+
+  /** A high surrogate not followed by a low one, or a low one not preceded by a
+   *  high one. A loop, not a lookbehind regex, so tsc's target cannot object. */
+  const hasLoneSurrogate = (s: string): boolean => {
+    for (let i = 0; i < s.length; i += 1) {
+      const c = s.charCodeAt(i);
+      if (c >= 0xd800 && c <= 0xdbff) {
+        const next = s.charCodeAt(i + 1);
+        if (next >= 0xdc00 && next <= 0xdfff) { i += 1; continue; }
+        return true;
+      }
+      if (c >= 0xdc00 && c <= 0xdfff) return true;
+    }
+    return false;
+  };
+
+  // ★★ §108. The cap used to be `rr.html.slice(0, 100_000)` over raw UTF-16
+  // units, so an over-cap report could end inside a tag or on half a surrogate
+  // pair. Over the cap it now goes through sanitizeRichText, which bounds VISIBLE
+  // text and degrades to plain text past it.
+  it("does not end an over-cap report inside a tag (§108)", () => {
+    // The raw slice at 100_000 lands on "<s" of "<strong>". Visible text is
+    // 99_999, within the cap, so the whole report survives untouched.
+    const html = `<p>${"a".repeat(99_995)}<strong>bold</strong></p>`;
+    const out = reportOf(html);
+    expect(out).toBeDefined();
+    expect(endsInsideTag(out!)).toBe(false);
+    expect(out).toBe(html);
+  });
+
+  it("does not split a surrogate pair at the cap (§108)", () => {
+    // The raw slice at 100_000 ends on the emoji's HIGH surrogate. Visible text
+    // is 100_008, over the cap, so the report degrades to plain text cut at
+    // 100_000 visible characters — after the pair, not inside it.
+    const html = `<p>${"a".repeat(99_996)}\u{1F600}${"b".repeat(10)}</p>`;
+    const out = reportOf(html)!;
+    expect(hasLoneSurrogate(out)).toBe(false);
+    expect(endsInsideTag(out)).toBe(false);
+    expect(out).toBe(`<p>${"a".repeat(99_996)}\u{1F600}bb</p>`);
+  });
+
+  it("caps an oversized report body to 100_000 VISIBLE characters", () => {
+    expect(reportOf("x".repeat(200_000))).toBe(`<p>${"x".repeat(100_000)}</p>`);
+  });
+
+  it("drops an over-cap report with no visible text, matching the empty-html rule", () => {
+    expect(reportOf(`<p>${"<br>".repeat(30_000)}</p>`)).toBeUndefined();
+  });
+
+  it("returns an under-cap report BYTE-IDENTICAL, including shapes sanitizeRichText would rewrite", () => {
+    // ★★★ THE CONTROL FOR THE LENGTH GATE. sanitizeRichText trims, turns a tab
+    // into a space, and escapes a value that does not OPEN with a rich tag —
+    // measured. Stored reports are sanitized at write time, so an under-cap one
+    // must come back exactly as stored.
+    for (const html of [
+      "<p>Status is green.</p>",
+      "<h2>Summary</h2>\n<p>ok</p>\n",
+      "Here is the report:\n<h2>Summary</h2><p>ok</p>",
+      "<p>a\tb</p>",
+      "x".repeat(100_000),
+    ]) {
+      expect(reportOf(html)).toBe(html);
+    }
   });
 });
 

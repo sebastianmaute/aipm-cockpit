@@ -1518,14 +1518,20 @@ export function sanitizeProjectMeta(input: unknown): ProjectMeta | null {
 const REPORT_HTML_MAX = 100_000;
 
 /** Defensive decode for a per-meeting status report. Returns undefined unless a
- *  non-empty `html` string and a string `updatedAt` are present. Pure/SSR-safe:
- *  it does NOT sanitize the HTML (that happens at write time), only caps size. */
+ *  non-empty `html` string and a string `updatedAt` are present. Pure/SSR-safe.
+ *  ★★ Within REPORT_HTML_MAX raw characters the body is returned BYTE-IDENTICAL
+ *  (it was sanitized at write time; sanitizeRichText would trim and re-classify
+ *  it). Over it, sanitizeRichText bounds VISIBLE text at the cap and degrades to
+ *  plain text past it, so the result can never end mid-tag or on a lone
+ *  surrogate the way the old raw `.slice` could (open-followups §108). */
 function sanitizeMeetingReport(raw: unknown): MeetingReport | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const rr = raw as Record<string, unknown>;
   if (typeof rr.html !== "string" || rr.html.length === 0) return undefined;
   if (typeof rr.updatedAt !== "string") return undefined;
-  const out: MeetingReport = { html: rr.html.slice(0, REPORT_HTML_MAX), updatedAt: rr.updatedAt };
+  const html = rr.html.length <= REPORT_HTML_MAX ? rr.html : sanitizeRichText(rr.html, REPORT_HTML_MAX, RICH_SINK);
+  if (!html) return undefined;
+  const out: MeetingReport = { html, updatedAt: rr.updatedAt };
   if (typeof rr.sentAt === "string") out.sentAt = rr.sentAt;
   return out;
 }
