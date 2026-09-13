@@ -5,10 +5,17 @@
 // in task-manager.tsx) plus the link — the SAME `metricAtActionPatch` spread,
 // so the first transition to `acted` captures the outcome baseline and a later
 // one never overwrites it.
-import type { Insight } from "./insight";
+import type { Insight, InsightStatus } from "./insight";
 import { metricAtActionPatch } from "./outcome";
 
+/** The statuses Act moves to `acted` — the same gate the Log-as-RAID button uses. */
+const ACTABLE: ReadonlySet<InsightStatus> = new Set<InsightStatus>(["active", "acknowledged"]);
+
+/** ★★ The status is read at SAVE, not when the editor opened: an insight that was
+ *  resolved, dismissed or acted meanwhile only gains the link, so a late save
+ *  can never re-open it as `acted` or overwrite its timestamps (§515). */
 export function markInsightLoggedAsRaid(insight: Insight, raidId: number, today: string): Insight {
+  if (!ACTABLE.has(insight.status)) return { ...insight, loggedRaidId: raidId };
   return {
     ...insight,
     status: "acted",

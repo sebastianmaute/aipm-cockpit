@@ -21,6 +21,20 @@ describe("markInsightLoggedAsRaid", () => {
     const acted: Insight = { ...base, status: "acknowledged", metricAtAction: { daysOverdue: 2 } };
     expect(markInsightLoggedAsRaid(acted, 12, "2026-06-20").metricAtAction).toEqual({ daysOverdue: 2 });
   });
+  it("only links a resolved insight — status and every timestamp stay untouched", () => {
+    const resolved: Insight = { ...base, status: "resolved", resolvedAt: "2026-06-15" };
+    const out = markInsightLoggedAsRaid(resolved, 12, "2026-06-20");
+    expect(out).toEqual({ ...resolved, loggedRaidId: 12 });
+    expect(out).not.toHaveProperty("actedAt");
+    expect(out).not.toHaveProperty("metricAtAction");
+  });
+  it.each([
+    ["dismissed", { status: "dismissed", dismissedAt: "2026-06-14", dismissReason: "noise" }],
+    ["acted", { status: "acted", actedAt: "2026-06-01", metricAtAction: { daysOverdue: 2 } }],
+  ] as const)("only links an insight that is already %s", (_label, over) => {
+    const stored: Insight = { ...base, ...over };
+    expect(markInsightLoggedAsRaid(stored, 12, "2026-06-20")).toEqual({ ...stored, loggedRaidId: 12 });
+  });
 });
 
 describe("applyInsightLoggedAsRaid", () => {

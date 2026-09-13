@@ -22,7 +22,7 @@ workflow, ranked second after financials. Two gaps remain:
 | Escalation record | BOTH a structured field (source of truth) and a note-log echo |
 | Sources | Insights (dashboard tile + Insights view) AND next actions |
 | Editor | Existing `RaidEditModal`, floated over the current view (no view switch) |
-| Effect on the insight | On Save: `status: "acted"` + `loggedRaidId` link; Cancel changes nothing |
+| Effect on the insight | On Save: `status: "acted"` + `loggedRaidId` link (link only when no longer active/acknowledged); Cancel changes nothing |
 
 Rejected: jumping to the RAID view with a create nonce (loses the signal context; the RAID panel is
 always mounted, so the request needs explicit consume/clear); creating directly with a toast
@@ -78,6 +78,9 @@ ignore the return. The pane contract type in `workspace-section-types.ts` widens
 - **Insight origin:** set `status: "acted"`, `actedAt: today`, `loggedRaidId: id` through the same
   writer as the existing Act action (`task-manager.tsx`). The first transition to `acted` then captures
   `metricAtAction`, exactly as Act does.
+  - Note (2026-09-13, final review): that transition applies only when the insight is still `active`
+    or `acknowledged` at Save. An insight that became `resolved`, `dismissed` or `acted` while the
+    editor was open gains `loggedRaidId` ONLY — its status and every timestamp stay untouched.
 - **Action origin:** `recordLearning(action, "acted")`.
 
 ### `Insight.loggedRaidId?: number`
