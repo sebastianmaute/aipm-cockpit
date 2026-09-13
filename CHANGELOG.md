@@ -8,6 +8,43 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.3.0] - 2026-09-13 "Chandler"
+
+A signal in Insights or Next actions can be logged as a RAID item, and an
+escalation now leaves a record on the RAID item itself, whether it came from
+the Escalate button or from the AI assistant. Closes follow-up 515.
+
+### Added
+
+- **Log as RAID from Insights and Next actions.** It opens the RAID editor,
+  prefilled, over the current view. Saving from an insight marks it acted and
+  links the two ("Logged as RAID #N", with an Open button). If the insight was
+  resolved or dismissed while the editor was open, saving only adds the link.
+  It is not offered on RAID-sourced actions or on project key-facts nudges.
+- **Escalate records the escalation on the RAID item.** It stores who was
+  escalated to and when, and the severity change, adds a note naming the
+  recipient and writes an activity entry. The record is saved on every storage
+  backend and left out of document exports and project templates.
+- **A "Last escalated" column** in the RAID table, hidden by default and
+  sortable, and a read-only list of escalations in the RAID editor.
+- **The AI assistant can record an escalation.** It works like Escalate
+  without sending mail: it adds the record, a note authored "AI created", the
+  activity entry and the severity raise. It can only add to the history, never
+  edit or delete it. A single escalation applies at once and can be undone —
+  undo removes its record, its note and the severity raise — while two or more
+  writes in one turn go to the review card.
+
+### Fixed
+
+- **Markdown storage no longer wipes a note log or escalation history.** A
+  literal `<br>` in a cell was read back as a line break, which broke the
+  stored list and dropped it entirely. It is now escaped, and files saved by
+  earlier builds read back unchanged. A file saved by this build shows a
+  backslash before such a `<br>` when an older build opens it.
+- **A RAID editor opened before an escalation no longer undoes the severity
+  raise when saved.**
+- **An escalation recipient email containing `<` or `>` is rejected.**
+
 ## [1.2.0] - 2026-09-13 "Hodgell"
 
 Every project row in the Projects list now shows how many of its eleven key
