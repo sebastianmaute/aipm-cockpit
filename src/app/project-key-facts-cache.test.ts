@@ -68,10 +68,10 @@ describe("project-key-facts-cache", () => {
     ["a non-string customer", { ...SNAP, customer: 3 }],
     ["a non-string at", { ...SNAP, at: null }],
     ["a non-array missing", { ...SNAP, missing: "code" }],
-    // G5: the untested defensive disjuncts.
+    // The untested defensive disjuncts.
     ["a null entry", null],
     ["an array-valued entry", ["code", "regulatory"]],
-    // G5: a duplicate id in `missing` — without the dedupe check this would
+    // A duplicate id in `missing` — without the dedupe check this would
     // wrongly pass (filled=9 + 2 entries === 11) despite repeating one fact
     // and omitting another.
     ["a missing array with a duplicate id", { ...SNAP, filled: 9, missing: ["code", "code"] }],
@@ -80,7 +80,7 @@ describe("project-key-facts-cache", () => {
     expect(loadKeyFactsSnapshot("p1")).toBeNull();
   });
 
-  // G5: a bare (non-object, non-array) top-level stored value — the existing
+  // A bare (non-object, non-array) top-level stored value — the existing
   // "non-object stored value" test only covers the array case.
   it.each([
     ["a bare string", JSON.stringify("nope")],
@@ -110,9 +110,9 @@ describe("project-key-facts-cache", () => {
   });
 });
 
-// G1: one parse-and-validate pass over the whole map, so a caller needing
-// every row (the Projects-list memo) doesn't re-parse the stored blob once
-// per row.
+// One parse-and-validate pass over the whole map, so a caller needing every
+// row (the Projects-list memo) doesn't re-parse the stored blob once per
+// row.
 describe("loadKeyFactsSnapshots", () => {
   it("reads every stored snapshot in one call", () => {
     saveKeyFactsSnapshot("p1", SNAP);
@@ -138,7 +138,7 @@ describe("loadKeyFactsSnapshots", () => {
   });
 });
 
-// G2: drop a project's entry when it is deleted/de-registered — mirrors
+// Drop a project's entry when it is deleted/de-registered — mirrors
 // clearKeyFactsCache's use of removeDeviceKey for the whole-map-empty case.
 describe("removeKeyFactsSnapshot", () => {
   it("removes one project's entry, leaving the others", () => {

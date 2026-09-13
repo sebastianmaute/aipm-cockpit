@@ -14,7 +14,7 @@ vi.mock("./confirm-dialog", () => ({
 vi.mock("./turso-portfolio", () => ({
   listProjects: vi.fn().mockResolvedValue([]),
 }));
-// G1: spy on the ONE-read-per-render entry point while keeping every other
+// Spy on the ONE-read-per-render entry point while keeping every other
 // export (including `loadKeyFactsSnapshot`, `saveKeyFactsSnapshot`,
 // `clearKeyFactsCache` used directly below) real, so the rest of this suite's
 // cache behaviour is unaffected.
@@ -559,7 +559,7 @@ describe("ProjectsPanel — Load from Turso", () => {
 describe("ProjectsPanel — key-fact indicator", () => {
   afterEach(() => clearKeyFactsCache());
 
-  // G1: the memo must read the device cache ONCE per render, not once per
+  // The memo must read the device cache ONCE per render, not once per
   // non-current row — each read parses and validates the whole stored map.
   it("reads the device cache once per render, regardless of row count", () => {
     loadSnapshotsSpy.mockClear();
@@ -593,7 +593,7 @@ describe("ProjectsPanel — key-fact indicator", () => {
     expect(r.getByText("9 of 11")).toBeInTheDocument();
     expect(r.getByRole("status")).toHaveTextContent("Missing key facts: Project code, Customer");
     fireEvent.click(r.getByRole("button", { name: "Complete them" }));
-    // F3: prove the EDIT modal opened, not create — either check alone rules
+    // Prove the EDIT modal opened, not create — either check alone rules
     // out create mode (blank form titled "New project"): the dialog's
     // accessible name is the edit title, AND the name field is prefilled
     // with the current project's name.
@@ -637,7 +637,7 @@ describe("ProjectsPanel — key-fact indicator", () => {
     expect(screen.getAllByRole("button", { name: "Complete them" })).toHaveLength(1);
   });
 
-  // G3: rendering "Key facts not measured here" here would wrongly imply a
+  // Rendering "Key facts not measured here" here would wrongly imply a
   // per-device gap — the meta simply hasn't loaded yet, and the current row
   // never reads the cache either way. Ruling: render NO meter and no banner.
   it("renders no meter and no banner on the current row before its metadata loads", () => {

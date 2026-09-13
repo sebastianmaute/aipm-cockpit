@@ -55,9 +55,9 @@ describe("KeyFactsMeter", () => {
   });
 });
 
-// G10: prove the singular/plural DE sentences and the DE unknown-count
-// format actually render — `loadI18n("de")` first, since the DE dictionary
-// is lazy and `t("de", …)` serves English until it resolves.
+// Prove the singular/plural DE sentences and the DE unknown-count format
+// actually render — `loadI18n("de")` first, since the DE dictionary is lazy
+// and `t("de", …)` serves English until it resolves.
 describe("KeyFactsMeter — German", () => {
   beforeAll(async () => {
     await loadI18n("de");

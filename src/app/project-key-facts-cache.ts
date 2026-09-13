@@ -61,7 +61,7 @@ export function keyFactsSnapshot(meta: ProjectMeta, at: string): KeyFactsSnapsho
   return { filled, missing, customer: meta.customer, at };
 }
 
-// ★ G1: one parse-and-validate pass of the whole device map, for a caller
+// ★ one parse-and-validate pass of the whole device map, for a caller
 // (the Projects-list memo) that needs every row's snapshot in one render —
 // calling `loadKeyFactsSnapshot` per row parsed and validated the WHOLE
 // stored map once per row.
@@ -85,7 +85,7 @@ export function saveKeyFactsSnapshot(projectId: string, snap: KeyFactsSnapshot):
   writeDeviceJson(KEY_FACTS_CACHE_KEY, map);
 }
 
-// ★ G2: drop one project's entry when it is deleted/de-registered, so a
+// ★ drop one project's entry when it is deleted/de-registered, so a
 // removed project doesn't keep occupying one of the 50 cached slots forever.
 // Mirrors `clearKeyFactsCache`'s use of `removeDeviceKey` for the
 // whole-map-empty case: writing back an empty object would leave a live

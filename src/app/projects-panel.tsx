@@ -112,11 +112,11 @@ type ModalState =
   | { mode: "create" }
   | { mode: "edit" };
 
-// G9: the customer `<dt>`/`<dd>` pair was duplicated between the current-row
-// and non-current-row `<dl>` blocks, one reading `currentProject.customer`
-// live and the other reading the cached `keyFacts.customer` — same markup,
-// two call sites. One small component picks the value; the caller decides
-// which source it is (live meta vs. cached snapshot) and gates on blankness
+// The customer `<dt>`/`<dd>` pair is shared between the current-row and
+// non-current-row `<dl>` blocks, one reading `currentProject.customer` live
+// and the other reading the cached `keyFacts.customer` — same markup, two
+// call sites. One small component picks the value; the caller decides which
+// source it is (live meta vs. cached snapshot) and gates on blankness
 // exactly as each did before, so there is no visual change.
 function CustomerFact({ lang, customer }: { lang: Lang; customer: string }) {
   if (!customer) return null;
@@ -156,10 +156,10 @@ export function ProjectsPanel({
   // Per-row key-fact state (spec §5.3/§5.4). The CURRENT project is measured live
   // from memory and never reads the cache; every other row reads its per-device
   // snapshot, and a missing snapshot is UNKNOWN — never "0 of 11".
-  // ★ G1: read the whole device cache ONCE per render (`loadKeyFactsSnapshots`)
+  // ★ read the whole device cache ONCE per render (`loadKeyFactsSnapshots`)
   // rather than once per non-current row — each read parses and validates the
   // entire stored map, so a per-row call re-did that work N times.
-  // ★ G3: while the CURRENT row's meta hasn't loaded yet, it is simply left out
+  // ★ while the CURRENT row's meta hasn't loaded yet, it is simply left out
   // of the map (no "unknown" entry) — rendering "Key facts not measured here"
   // there would misleadingly imply a per-device gap; it is really just not
   // loaded YET, and the current row never reads the cache either way.

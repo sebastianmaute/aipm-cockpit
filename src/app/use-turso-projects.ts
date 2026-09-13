@@ -173,10 +173,10 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
       void (async () => {
         try {
           await archiveTursoProject(id);
-          // G2: this panel's own comment calls Archive the Turso-mode
-          // "destructive per-row action (soft-delete)" — a de-register from
-          // the active list — so drop its per-device key-facts cache entry
-          // the same way a file-mode delete does.
+          // Archive is the Turso-mode "destructive per-row action
+          // (soft-delete)" — a de-register from the active list — so drop
+          // its per-device key-facts cache entry the same way a file-mode
+          // delete does.
           removeKeyFactsSnapshot(id);
           const refreshed = await refreshTursoProjects();
           repointAfterRemoval(id, refreshed);
@@ -207,7 +207,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
       void (async () => {
         try {
           await hardDeleteTursoProject(id);
-          // G2: permanent delete — drop the cache entry (a no-op if archiving
+          // Permanent delete — drop the cache entry (a no-op if archiving
           // already dropped it; harmless either way).
           removeKeyFactsSnapshot(id);
           const refreshed = await refreshTursoProjects();

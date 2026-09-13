@@ -166,7 +166,7 @@ describe("useTursoProjects — archive / restore / hard-delete", () => {
     // The refresh already fetched the list — repoint must NOT fetch it again.
     expect(vi.mocked(listProjects)).not.toHaveBeenCalled();
     expect(args.showToast).not.toHaveBeenCalled();
-    // G2: the archived project's per-device key-facts cache entry is dropped.
+    // The archived project's per-device key-facts cache entry is dropped.
     expect(removeKeyFactsSnapshot).toHaveBeenCalledWith("p-1");
   });
 
@@ -258,7 +258,7 @@ describe("useTursoProjects — archive / restore / hard-delete", () => {
     expect(args.hardDeleteTursoProject).toHaveBeenCalledWith("p-1");
     expect(vi.mocked(listProjects)).not.toHaveBeenCalled();
     expect(args.showToast).not.toHaveBeenCalled();
-    // G2: permanently deleting a project drops its per-device cache entry.
+    // Permanently deleting a project drops its per-device cache entry.
     expect(removeKeyFactsSnapshot).toHaveBeenCalledWith("p-1");
   });
 });

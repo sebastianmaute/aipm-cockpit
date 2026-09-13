@@ -1,5 +1,5 @@
 // Pins the per-device key-facts cache write effect (task-manager.tsx, spec
-// §5.3) and G2's delete-eviction call, at the lowest layer that can observe
+// §5.3) and its delete-eviction call, at the lowest layer that can observe
 // each: a real (fake-indexeddb-backed) TaskManager mount for the write
 // effect — `project` only becomes truthy once the browser backend actually
 // loads a project meta, so a lighter unit can't see the guard fire — and the
@@ -117,7 +117,7 @@ afterEach(() => {
   clearKeyFactsCache();
 });
 
-describe("task-manager — key-facts cache write effect (G6)", () => {
+describe("task-manager — key-facts cache write effect", () => {
   it("writes a snapshot under the current project id once its meta loads", async () => {
     seedRegistry([{ id: "p1", name: "Seed", code: "SEED" }], "p1");
     await idbSet(KV_PROJECT_KEY, META);
@@ -153,7 +153,7 @@ describe("task-manager — key-facts cache write effect (G6)", () => {
   }, 45000);
 });
 
-describe("task-manager — delete-project cache eviction (G2)", () => {
+describe("task-manager — delete-project cache eviction", () => {
   it("drops the deleted project's key-facts cache entry", async () => {
     seedRegistry(
       [

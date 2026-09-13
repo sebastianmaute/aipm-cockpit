@@ -1122,14 +1122,10 @@ function TaskManagerInner() {
   // rejects an `obj.member` dep like `learning.bias` / `learning.record`).
   const learnedBias = learning.bias;
   const recordLearning = learning.record;
-  // G7: the single declaration for "the current project id under whichever
+  // The single declaration for "the current project id under whichever
   // portfolio backend is active" — `portfolioMode`, `tursoProjectId` and
-  // `currentProjectId` are all already in scope by this point (declared at
-  // ~462, ~474 and 681 respectively), so there is no TDZ hazard hoisting it
-  // here. This used to be duplicated as `actionProjectId` immediately below
-  // and declared a second time, identically, much later in the component —
-  // both fed by the same three inputs, so the two could never actually
-  // disagree, only rot into looking like they might.
+  // `currentProjectId` are all already in scope by this point (each declared
+  // earlier in the component), so there is no TDZ hazard hoisting it here.
   const portfolioCurrentId = portfolioMode === "turso" ? tursoProjectId : currentProjectId;
   // Suggested next-actions engine. Reuses comms.items (already computed above)
   // so we don't run getStakeholderCommsItems a second time.
@@ -1261,7 +1257,7 @@ function TaskManagerInner() {
     openActionCenter,
   });
 
-  // F1: `extraIds` are the OTHER ids in the row's ActionGroup (action-row.tsx /
+  // `extraIds` are the OTHER ids in the row's ActionGroup (action-row.tsx /
   // action-hero-card.tsx thread them from `ActionGroup.extra`). Snoozing a
   // grouped row must snooze every signal in the group — else the row
   // reappears immediately with the next signal promoted to primary. Learned
@@ -2078,7 +2074,7 @@ function TaskManagerInner() {
       const next = removeProject(registry, id);
       if (next === registry) return; // unknown id — nothing changed
       void deleteHandle(id);
-      // G2: drop the deleted project's per-device key-facts cache entry so it
+      // Drop the deleted project's per-device key-facts cache entry so it
       // doesn't keep occupying one of the 50 cached slots forever.
       removeKeyFactsSnapshot(id);
       // removeProject re-points currentProjectId to the first survivor. When the
@@ -2131,19 +2127,18 @@ function TaskManagerInner() {
           storageConfig: { kind: "turso" as const },
         }))
       : [];
-  // G7: `portfolioCurrentId` is declared once, above (~1130), beside the
-  // next-actions memo that needs it before this point in the component.
+  // `portfolioCurrentId` is declared once, above, beside the next-actions
+  // memo that needs it before this point in the component.
 
   // Per-device key-fact snapshot for the Projects list's NON-current rows
   // (spec §5.3). Side-effect-only localStorage write (no setState); `new Date()`
   // lives in the effect, never the render body; popouts are read-only and must
   // not mutate device state (mirrors use-landing-delta).
-  // ★★ This relies on React batching `project` and the id into ONE render, and
-  // G11 corrects an order claim this comment used to make: it said EVERY path
-  // below calls applyWorkspace(...) THEN the id-pointing call, in that order.
-  // That is true only of switchToProject and the two Turso paths —
-  // switchToTursoProject and createTursoProject (use-storage-turso-ops.ts) both
-  // call applyWorkspace(...) BEFORE setTursoProjectId(...). createProject and
+  // ★★ This relies on React batching `project` and the id into ONE render.
+  // The call order is NOT uniform across paths: switchToProject and the two
+  // Turso paths — switchToTursoProject and createTursoProject
+  // (use-storage-turso-ops.ts) — both call applyWorkspace(...) BEFORE
+  // setTursoProjectId(...). createProject and
   // loadProjectFromFile (use-storage-file-ops.ts) and createDemoProject's
   // non-Turso-portfolio branch (same file — its Turso-portfolio branch reloads
   // the page instead and never reaches this effect) all call commitRegistry(...)
