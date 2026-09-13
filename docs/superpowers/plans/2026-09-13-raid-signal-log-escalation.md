@@ -2683,6 +2683,7 @@ Known limits (already in the code comments above; no action):
 - Deviation 15 applies to the AI writer too: a same-tick concurrent SEVERITY write is overwritten by the planned step. If the row is deleted between the ref read and the updater, the updater writes nothing while the log row and undo entry are still emitted — the same exposure as `handleEscalate`.
 - A staged `escalate_raid_item` row shows the tool name as its title and no diff (`proposalRowTitle` falls back to `call.name`), as `send_inquiry` does.
 - Deviation 20: undo reverts the escalation entry and the severity, but the note echo stays (`noteLog` is write-through across undo, §50). Pinned in both halves by the undo site.
+  - Note (2026-09-13, fix-all 2): superseded. `escalateRaid` now captures a field patch (`captureFieldPart`) over `escalations`, `noteLog` and, when raised, `severity`, so undo removes the note too; a human note added meanwhile survives undo and redo.
 - An "AI created" note has no `authorResourceId`, so `canEditNote` lets anyone edit it and `editNote` claims it for the editor, replacing the label with the editor's name when they have a directory resource. An editor with a `selfResourceId` whose resource was deleted claims it but keeps the "AI created" label.
 
 - [ ] **Step 7: Commit** — stage the new file with `git add -- src/app/use-chat-dispatcher.escalate.test.tsx`, then write `$S/msg-task3b.txt`:

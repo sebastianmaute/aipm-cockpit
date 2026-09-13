@@ -7,6 +7,7 @@ import {
 } from "../test/chat-dispatcher-fixture";
 import { type ToolDispatcher } from "./chat-tools";
 import { __resetMintStateForTests } from "./id-mint-session";
+import { addNote } from "./note-log";
 import { type TestSeed } from "./test-providers";
 import {
   DEFAULT_TASK_STATUS,
@@ -392,18 +393,21 @@ const SITES: SiteRow[] = [
     verify: (d) => {
       expect(d.getRaidRow(2)?.escalations).toHaveLength(1);
       expect(d.getRaidRow(2)?.severity).toBe("Critical");
-    },
-    // ★ Row 2 is seeded an Issue at High, with no `escalations` and no `noteLog`.
-    // ★★ KNOWN LIMIT, PINNED IN BOTH HALVES (plan deviation 20): undo reverts the
-    //   escalation entry and the severity, but the "AI created" note STAYS —
-    //   `noteLog` is a WRITE_THROUGH field, so the live log wins over the
-    //   before-image on every whole-row undo (open-followups §50). A future
-    //   per-capture opt-out must change this assertion visibly.
-    restored: (d) => {
-      expect(d.getRaidRow(2)?.escalations).toBeUndefined();
-      expect(d.getRaidRow(2)?.severity).toBe("High");
+      // Positive control for the note assertion in `restored`: the echo landed.
       expect(d.getRaidRow(2)?.noteLog).toHaveLength(1);
       expect(d.getRaidRow(2)?.noteLog?.[0]?.authorName).toBe("AI created");
+    },
+    // ★ Row 2 is seeded an Issue at High, with no `escalations` and no `noteLog`.
+    // ★★ Undo reverts ALL THREE written fields, the note included: the capture
+    //   is a FIELD PATCH (`captureFieldPart`), not a whole-row image, so the
+    //   write-through rule for `noteLog` (open-followups §50) does not apply.
+    //   The empty arrays are the patch's `before` ends — an absent array is
+    //   captured as `[]` so a concurrent human note can survive the merge (see
+    //   the dedicated round trips below).
+    restored: (d) => {
+      expect(d.getRaidRow(2)?.escalations).toEqual([]);
+      expect(d.getRaidRow(2)?.severity).toBe("High");
+      expect(d.getRaidRow(2)?.noteLog).toEqual([]);
       expect(ids(d.listRaid())).toEqual([1, 2, 3]);
     },
     kind: "raid.escalated", entityKey: "raid", primaryCount: 1,
@@ -723,8 +727,10 @@ function renderRealUndo(seed: TestSeed) {
       //   the bottom, which has to build the capture production deliberately
       //   refuses to build, and cannot do that without the real setter. Every
       //   other test here ignores it.
-      const { setTasks } = useWorkspace();
-      return { undo, dispatcher, setTasks };
+      // ★ `setRaid` is the same kind of handle, used only by the escalation
+      //   race below to add a HUMAN note between the AI write and its undo.
+      const { setTasks, setRaid } = useWorkspace();
+      return { undo, dispatcher, setTasks, setRaid };
     },
     { wrapper: dispatcherWrapperWith(seed) },
   );
@@ -832,6 +838,55 @@ describe("AI writes round-trip through the real undo stack", () => {
     expect(result.current.dispatcher.getTask(2)).toBeNull();
     expect(result.current.undo.stack).toHaveLength(1);
     expect(result.current.undo.redoStack).toHaveLength(0);
+  });
+
+  test("undoing an AI escalation removes its note, and redo re-applies entry, note and severity", () => {
+    const { result } = renderRealUndo(SEED);
+    act(() => { result.current.dispatcher.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); });
+    const written = result.current.dispatcher.getRaidRow(2);
+    expect(written?.noteLog).toHaveLength(1);
+    expect(written?.escalations).toHaveLength(1);
+    expect(written?.severity).toBe("Critical");
+
+    act(() => { result.current.undo.undo(); });
+    expect(result.current.dispatcher.getRaidRow(2)?.noteLog).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.escalations).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.severity).toBe("High");
+
+    act(() => { result.current.undo.redo(); });
+    const redone = result.current.dispatcher.getRaidRow(2);
+    expect(redone?.noteLog).toEqual(written?.noteLog);
+    expect(redone?.escalations).toEqual(written?.escalations);
+    expect(redone?.severity).toBe("Critical");
+    expect(result.current.undo.stack).toHaveLength(1);
+    expect(result.current.undo.redoStack).toHaveLength(0);
+  });
+
+  test("a HUMAN note added after an AI escalation survives its undo and its redo", () => {
+    const { result } = renderRealUndo(SEED);
+    act(() => { result.current.dispatcher.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); });
+    const aiNote = result.current.dispatcher.getRaidRow(2)?.noteLog?.[0];
+    expect(aiNote?.authorName).toBe("AI created");
+
+    // The human writes a note AFTER the escalation, through the same setter.
+    act(() => {
+      result.current.setRaid((prev) => prev.map((r) => (r.id === 2
+        ? { ...r, noteLog: addNote(r.noteLog ?? [], { html: "<p>Vendor called</p>", text: "Vendor called", timestamp: "2026-09-13T09:00:00.000Z", self: 1 }) }
+        : r)));
+    });
+    const humanNote = result.current.dispatcher.getRaidRow(2)?.noteLog?.[1];
+    expect(humanNote?.text).toBe("Vendor called");
+
+    act(() => { result.current.undo.undo(); });
+    // ★★ Only the ONE entry the escalation added is removed — the human note stays.
+    expect(result.current.dispatcher.getRaidRow(2)?.noteLog).toEqual([humanNote]);
+    expect(result.current.dispatcher.getRaidRow(2)?.escalations).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.severity).toBe("High");
+
+    act(() => { result.current.undo.redo(); });
+    expect(result.current.dispatcher.getRaidRow(2)?.noteLog).toEqual([aiNote, humanNote]);
+    expect(result.current.dispatcher.getRaidRow(2)?.escalations).toHaveLength(1);
+    expect(result.current.dispatcher.getRaidRow(2)?.severity).toBe("Critical");
   });
 });
 

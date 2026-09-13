@@ -81,7 +81,7 @@ import {
 import type { Settings } from "./settings-types";
 import type { ProjectClock } from "./timezone";
 import type { RaidItem, Resource } from "./types";
-import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
+import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
 
 /** The register slice of `ToolDispatcher` — derived from it with `Pick` rather
@@ -362,10 +362,19 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       //  `settings.selfResourceId` — the user did not write it.
       //  ★ KNOWN LIMIT (Task 3's, deviation 15): a same-tick SEVERITY write is
       //  overwritten by the planned step. No mail; no address in the activity row.
-      //  ★★ KNOWN LIMIT (plan deviation 20): undo reverts the entry and the
-      //  severity but NOT the note echo — `noteLog` is a WRITE_THROUGH field, so
-      //  the live log survives a whole-row undo (open-followups §50). An undone
-      //  AI escalation therefore leaves its "Escalated to …" note behind.
+      //  ★★ UNDO IS A FIELD PATCH (`captureFieldPart`), NOT A WHOLE-ROW IMAGE.
+      //  A whole-row undo keeps `noteLog` live (WRITE_THROUGH_FIELDS, §50), so it
+      //  left the "Escalated to …" note behind. The patch covers exactly what
+      //  the op writes — `escalations`, `noteLog`, and `severity` only when the
+      //  plan raises it — and re-stamps `localModifiedAt` via `stampField`, as
+      //  `use-bulk-operations.ts` does. Undo and redo three-way merge each array
+      //  (`mergeFieldValue`): with no race the value reverts exactly; when a
+      //  human added a note meanwhile, only the ONE entry this op added is
+      //  dropped (and re-inserted on redo) and the human note survives.
+      //  ★★★ An absent array is captured as `[]`, never `undefined` — the merge
+      //  handles arrays member-wise only when BOTH ends are arrays; an
+      //  `undefined` before-end reverts wholesale and would delete that note.
+      //  ★ `severity` is a scalar: a concurrent severity edit is reverted by undo.
       //  ★ KNOWN LIMIT (concurrent delete): if the row vanishes between the ref
       //  read above and the updater, `prev.map(apply)` writes nothing, yet this
       //  still returns success, logs `raid.escalated` and captures an undo entry
@@ -383,15 +392,26 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const author = aiEscalationNoteAuthor(lang);
         const apply = (r: RaidItem): RaidItem =>
           r.id === id ? buildEscalationRecord(r, plan, recipient, at, noteText, author) : r;
-        // STORED row + PRE-op array, exactly as `updateRaid` captures.
+        // `before` from the STORED row, read before the write; `after` is the
+        // record the planned write produces from that same row.
+        const next = buildEscalationRecord(existing, plan, recipient, at, noteText, author);
+        const severityEnds = (r: RaidItem): Partial<RaidItem> =>
+          plan.raisesSeverity ? { severity: r.severity } : {};
         undoRef.current?.captureComposite({
           kind: "raid.escalated",
           primaryCount: 1,
-          parts: [capturePart({
+          parts: [captureFieldPart<RaidItem>({
             setter: setRaid,
-            edited: [existing],
-            fromArray: raidRef.current,
-            isPrimary: true,
+            edits: [{
+              id,
+              before: {
+                escalations: Array.isArray(existing.escalations) ? existing.escalations : [],
+                noteLog: existing.noteLog ?? [],
+                ...severityEnds(existing),
+              },
+              after: { escalations: next.escalations, noteLog: next.noteLog, ...severityEnds(next) },
+            }],
+            stampField: "localModifiedAt",
           })],
           name: existing.title,
           entityKey: "raid",
