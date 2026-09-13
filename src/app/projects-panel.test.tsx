@@ -565,7 +565,13 @@ describe("ProjectsPanel — key-fact indicator", () => {
     expect(r.getByText("9 of 11")).toBeInTheDocument();
     expect(r.getByRole("status")).toHaveTextContent("Missing key facts: Project code, Customer");
     fireEvent.click(r.getByRole("button", { name: "Complete them" }));
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // F3: prove the EDIT modal opened, not create — either check alone rules
+    // out create mode (blank form titled "New project"): the dialog's
+    // accessible name is the edit title, AND the name field is prefilled
+    // with the current project's name.
+    const dialog = screen.getByRole("dialog", { name: "Edit project" });
+    const nameInput = within(dialog).getByLabelText("Project name", { exact: false }) as HTMLInputElement;
+    expect(nameInput.value).toBe("Apollo");
   });
 
   // ★ Spec §5.3: the current project never reads the cache.

@@ -317,7 +317,7 @@ export interface WorkspaceSectionProps {
   insightGeneratingId?: number | null;
   /** Aborts the in-flight recommendation generate. Undefined in popouts. */
   onCancelInsightRecommendation?: () => void;
-  onSnooze?: (a: SuggestedAction, ms: number) => void;
+  onSnooze?: (a: SuggestedAction, ms: number, extraIds?: readonly string[]) => void;
   onCreateTask?: (a: SuggestedAction) => void;
   onDraftMessage?: (a: SuggestedAction) => void;
   assignOwner?: AssignOwnerBundle;

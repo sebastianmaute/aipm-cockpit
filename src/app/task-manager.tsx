@@ -1256,8 +1256,18 @@ function TaskManagerInner() {
     openActionCenter,
   });
 
+  // F1: `extraIds` are the OTHER ids in the row's ActionGroup (action-row.tsx /
+  // action-hero-card.tsx thread them from `ActionGroup.extra`). Snoozing a
+  // grouped row must snooze every signal in the group — else the row
+  // reappears immediately with the next signal promoted to primary. Learned
+  // bias stays keyed on the primary's kind only: extras are snoozed directly
+  // against the store, bypassing recordLearning.
   const snoozeAction = useCallback(
-    (a: SuggestedAction, ms: number) => { void recordLearning(a, "snoozed"); actionSnooze.snooze(a.id, ms); },
+    (a: SuggestedAction, ms: number, extraIds?: readonly string[]) => {
+      void recordLearning(a, "snoozed");
+      actionSnooze.snooze(a.id, ms);
+      extraIds?.forEach((id) => actionSnooze.snooze(id, ms));
+    },
     [actionSnooze, recordLearning],
   );
 
@@ -2121,14 +2131,20 @@ function TaskManagerInner() {
   // lives in the effect, never the render body; popouts are read-only and must
   // not mutate device state (mirrors use-landing-delta).
   // ★★ This relies on React batching `project` and the id into ONE render.
-  // Both switch paths — switchToProject (use-storage-file-ops.ts) and the Turso
-  // switch (use-storage-turso-ops.ts) — call applyWorkspace and then set the new
-  // id in the same synchronous continuation after their last `await`. If an
-  // `await` is ever inserted between those two calls, one render will hold the
-  // NEW project's meta under the OLD id and this effect will file it there
-  // (bounded: reopening that project overwrites it). A registry name/code guard
-  // is NOT a fix: renameProject has no caller, so the registry name does not
-  // follow meta edits and such a guard would block every write after a rename.
+  // EVERY path that calls applyWorkspace and then sets the new project id relies
+  // on the same synchronous continuation after its last `await` — not just the
+  // two switch paths: switchToProject, createProject and loadProjectFromFile
+  // (use-storage-file-ops.ts, each applyWorkspace(...) then commitRegistry(...)),
+  // createDemoProject (same file, its non-Turso-portfolio branch — the
+  // Turso-portfolio branch reloads the page instead and never reaches this
+  // effect), and switchToTursoProject / createTursoProject
+  // (use-storage-turso-ops.ts, each applyWorkspace(...) then
+  // setTursoProjectId(...)). If an `await` is ever inserted between those two
+  // calls on ANY of them, one render will hold the NEW project's meta under the
+  // OLD id and this effect will file it there (bounded: reopening that project
+  // overwrites it). A registry name/code guard is NOT a fix: renameProject has
+  // no caller, so the registry name does not follow meta edits and such a guard
+  // would block every write after a rename.
   useEffect(() => {
     if (isPopout || !project || !portfolioCurrentId) return;
     saveKeyFactsSnapshot(portfolioCurrentId, keyFactsSnapshot(project, new Date().toISOString()));

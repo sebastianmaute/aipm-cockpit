@@ -145,11 +145,22 @@ describe("projectMetaProvider — ranking", () => {
     for (const a of ranked) expect(a.score).toBeLessThan(TIER_NOW);
   });
 
-  it("attaches no task verbs: the primary is open, and the overflow holds no mark-done or draft", () => {
+  // F2: project-meta actions carry no TASK-SPECIFIC verb (mark-done,
+  // clear-blocker, reschedule, draft — all gated on `onPoints`/`task-due`/
+  // `stakeholder-comms` in action-cta.ts, none of which a project-meta
+  // action ever satisfies). Create task is NOT excluded: `canCreateTask`
+  // gates only on `a.source !== "task-due"`, so it remains available in the
+  // overflow whenever the caller has the capability — filling in a missing
+  // fact is a legitimate task.
+  it("carries no task-specific verb (mark-done/clear-blocker/reschedule/draft), but Create task remains available", () => {
     for (const a of acts) {
-      expect(pickPrimaryCta(a, ALL_CAPS)).toBe("open");
-      expect(overflowCtas(a, ALL_CAPS)).not.toContain("markDone");
-      expect(overflowCtas(a, ALL_CAPS)).not.toContain("draft");
+      const primary = pickPrimaryCta(a, ALL_CAPS);
+      expect(["markDone", "clearBlocker", "reschedule", "draft"]).not.toContain(primary);
+      expect(primary).toBe("open");
+      const overflow = overflowCtas(a, ALL_CAPS);
+      expect(overflow).not.toContain("markDone");
+      expect(overflow).not.toContain("draft");
+      expect(overflow).toContain("createTask");
     }
   });
 });

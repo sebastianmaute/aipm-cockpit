@@ -23,7 +23,12 @@ export interface AssignOwnerBundle {
 /** Every optional handler/bundle the surface may thread down. Shared by row + hero. */
 export interface ActionHandlers {
   onOpen: (action: SuggestedAction) => void;
-  onSnooze?: (action: SuggestedAction, durationMs: number) => void;
+  /** `extraIds`, when given, are the OTHER ids in the row's `ActionGroup` (F1 —
+   *  snoozing a grouped row must snooze every signal in the group, not just the
+   *  promoted primary, or the row reappears immediately with the next one
+   *  promoted). The caller snoozes each of them too, without re-recording
+   *  learned bias for them — only the primary's kind is learned. */
+  onSnooze?: (action: SuggestedAction, durationMs: number, extraIds?: readonly string[]) => void;
   onCreateTask?: (action: SuggestedAction) => void;
   assignOwner?: AssignOwnerBundle;
   onDraftMessage?: (action: SuggestedAction) => void;
@@ -74,6 +79,9 @@ interface CtaProps {
   rowToken: string;
   /** Hero = larger filled treatment for direct verbs (bigger padding + text). */
   prominent?: boolean;
+  /** The other ids in this row's `ActionGroup` (F1), so `ActionOverflowMenu`'s
+   *  Snooze items can snooze the whole group. Unused by `ActionPrimaryCta`. */
+  extraIds?: readonly string[];
 }
 
 /** Renders the single primary control (popover verbs reuse their existing popover;
@@ -160,13 +168,20 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
 }
 
 /** The ⋮ overflow holding the menu-able secondaries minus the primary. */
-export function ActionOverflowMenu({ lang, action, caps, handlers, rowToken }: CtaProps) {
+export function ActionOverflowMenu({ lang, action, caps, handlers, rowToken, extraIds }: CtaProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setMenuOpen(false), []);
   const items = overflowCtas(action, caps);
   if (items.length === 0) return null;
   const stop = (e: React.MouseEvent) => e.stopPropagation();
+  // F1: pass extraIds only when the row is actually grouped (non-empty) — an
+  // ungrouped row's snooze call stays a plain 2-arg call, byte-identical to
+  // before this fix.
+  const fireSnooze = (ms: number) => {
+    if (extraIds && extraIds.length > 0) handlers.onSnooze!(action, ms, extraIds);
+    else handlers.onSnooze!(action, ms);
+  };
   // ★★ The menu ITEMS below are deliberately NOT qualified, on the premise that
   //    they render only inside this row's `PopoverPanel`, which dismisses on
   //    outside click — so two menus are never in the tree at once and an item's
@@ -196,8 +211,8 @@ export function ActionOverflowMenu({ lang, action, caps, handlers, rowToken }: C
             if (k === "createTask" && handlers.onCreateTask) return item(t(lang, "actionCreateTask"), () => handlers.onCreateTask!(action));
             if (k === "snooze" && handlers.onSnooze) return (
               <span key="snooze" className="contents">
-                {item(t(lang, "actionSnooze1h"), () => handlers.onSnooze!(action, SNOOZE_1H))}
-                {item(t(lang, "actionSnooze1d"), () => handlers.onSnooze!(action, SNOOZE_1D))}
+                {item(t(lang, "actionSnooze1h"), () => fireSnooze(SNOOZE_1H))}
+                {item(t(lang, "actionSnooze1d"), () => fireSnooze(SNOOZE_1D))}
               </span>
             );
             return null;

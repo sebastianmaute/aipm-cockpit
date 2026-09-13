@@ -45,7 +45,12 @@ const WHY_KEY: Readonly<Record<NudgedFact, TranslationKey>> = {
  *  rejects the record), so the only blank name is a transient in-memory one.
  *  ★ The CTA id is the project id STRING; action-cta-exec navigates without a
  *  deep-link for string ids, and `onPoints` stays false because the view is
- *  `projects`, so no task verb attaches. */
+ *  `projects`, so it carries no TASK-SPECIFIC verb (mark-done, clear-blocker,
+ *  reschedule, draft — all gated on `onPoints`/`task-due`/`stakeholder-comms`
+ *  in `action-cta.ts`). `canCreateTask` gates only on `a.source !== "task-due"`,
+ *  which a project-meta action always satisfies, so Create task REMAINS
+ *  available in the overflow when the caller has the `onCreateTask` capability
+ *  — filling in a missing fact is a legitimate task. */
 export const projectMetaProvider: ActionProvider = {
   provide(input: ActionInput): SuggestedAction[] {
     const { projectId, projectMeta } = input;

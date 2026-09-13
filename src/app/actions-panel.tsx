@@ -51,7 +51,7 @@ interface ActionsPanelProps {
   lang: Lang;
   actions: readonly SuggestedAction[];
   onOpen: (action: SuggestedAction) => void;
-  onSnooze?: (action: SuggestedAction, durationMs: number) => void;
+  onSnooze?: (action: SuggestedAction, durationMs: number, extraIds?: readonly string[]) => void;
   onCreateTask?: (action: SuggestedAction) => void;
   assignOwner?: AssignOwnerBundle;
   onDraftMessage?: (action: SuggestedAction) => void;

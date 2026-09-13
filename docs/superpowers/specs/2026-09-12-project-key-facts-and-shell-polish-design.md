@@ -296,8 +296,12 @@ properties are not, and are pinned by test:
 
 - No `project-meta` action may ever reach tier `now`. A blank profit centre must not outrank an
   overdue milestone.
-- No task verb may attach. `next-actions/types.ts` warns that consumers do `Number(cta.id)` for
-  `open-points` targets; our view is `projects`, so `onPoints()` must stay false.
+- No TASK-SPECIFIC verb (mark-done, clear-blocker, reschedule, draft) may attach — all four gate
+  on `onPoints()`/`task-due`/`stakeholder-comms` in `action-cta.ts`, and our view is `projects`, so
+  `onPoints()` must stay false. Create task is NOT excluded: it gates only on
+  `a.source !== "task-due"`, which a project-meta action always satisfies, so it remains available
+  in the overflow when the caller has the capability — filling in a missing fact is a legitimate
+  task.
 
 ### 5.3 Per-device cache — `project-key-facts-cache.ts`
 
@@ -358,7 +362,8 @@ is checked by hand and unit tests are the only coverage. Consequences:
   `validateProjectMeta` until 2026-09-13. After MR A that function checks only `name`, so the
   comparison would have been vacuous for ten of the eleven facts.
 - **Provider:** one action per missing fact; N facts collapse to one group with N−1 extras;
-  never tier `now`; no task verbs attach; absent input yields `[]`.
+  never tier `now`; no task-specific verb attaches (Create task remains available); absent input
+  yields `[]`.
 - **Cache:** absence reads unknown rather than zero; eviction at the cap; the current project
   bypasses it.
 - **Panel:** all four row states render; the banner appears on the current project only.
