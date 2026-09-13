@@ -743,7 +743,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§518](#518-there-is-no-single-action-focus-mode-that-steps-through-the-next-actions-one-at-a-time--open) | There is no single-action focus mode that steps through the next actions one at a time — OPEN | AI PM Cockpit demo 2026-09-11 (U-2), GitLab #59; mirrored into the register 2026-09-13 | M — a one-at-a-time mode with position dots and complete-to-advance for every action type | open |
 | [§519](#519-unrecognised-voice-commands-are-not-routed-to-the-ai-assistant-so-interaction-stays-form-and-button-first--open) | Unrecognised voice commands are not routed to the AI assistant, so interaction stays form-and-button first — OPEN | AI PM Cockpit demo 2026-09-11 (U-5), GitLab #62; mirrored into the register 2026-09-13 | S–M for routing unknown voice commands; the wider intent-driven principle is unestimated | open |
 | [§520](#520-the-screen-reader-claim-has-never-been-tested-by-hand-and-several-surfaces-sit-outside-the-axe-scan--open) | The screen-reader claim has never been tested by hand, and several surfaces sit outside the axe scan — OPEN | AI PM Cockpit demo 2026-09-11 (U-6), GitLab #63; mirrored into the register 2026-09-13 | M — a written NVDA/VoiceOver audit of the main flows, then axe on the unscanned surfaces | open |
-| [§521](#521-a-project-cannot-be-created-from-a-name-alone-and-relaxing-the-eleven-required-fields-needs-the-sanitizer-as-well-as-the-form--open) | A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form — OPEN | AI PM Cockpit demo 2026-09-11 (O-1), GitLab #64; mirrored into the register 2026-09-13 | M–L — five layers: type, sanitizer, validation, blank-value consumers and i18n | open |
+| [§521](#521-a-project-cannot-be-created-from-a-name-alone-and-relaxing-the-eleven-required-fields-needs-the-sanitizer-as-well-as-the-form--closed-2026-09-13) | A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form — CLOSED 2026-09-13 | AI PM Cockpit demo 2026-09-11 (O-1), GitLab #64; mirrored into the register 2026-09-13 | M–L — five layers: type, sanitizer, validation, blank-value consumers and i18n | **CLOSED** 2026-09-13 |
 | [§522](#522-missing-project-data-is-not-flagged-where-a-feature-needs-it-because-project-creation-gates-on-it-instead--open) | Missing project data is not flagged where a feature needs it, because project creation gates on it instead — OPEN | AI PM Cockpit demo 2026-09-11 (O-2), GitLab #65; mirrored into the register 2026-09-13 | M — a next-actions provider plus a Projects-list completeness indicator backed by a per-device cache | open |
 | [§523](#523-ai-assisted-project-creation-is-undiscoverable-when-ai-is-off-and-its-proposal-still-hits-the-eleven-field-gate--open) | AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate — OPEN | AI PM Cockpit demo 2026-09-11 (O-3), GitLab #66; mirrored into the register 2026-09-13 | S–M — discoverability when AI is off; removing the gate after a proposal comes with §521 | open |
 | [§524](#524-the-beta-programme-with-uk-testers-and-its-feedback-route-into-the-backlog-are-not-set-up--open) | The beta programme with UK testers and its feedback route into the backlog are not set up — OPEN | AI PM Cockpit demo 2026-09-11 (P-2), GitLab #68; mirrored into the register 2026-09-13 | unestimated (process item); an optional "Send feedback" link that pre-fills a GitLab issue would be S | open |
@@ -36782,11 +36782,17 @@ Size M — a written NVDA/VoiceOver audit of the main flows, then axe on the uns
 
 **Work item:** #63
 
-## 521. A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form — OPEN
+## 521. A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form — CLOSED 2026-09-13
 
-**Status:** OPEN 2026-09-13 — `grep -rn "export function validateProjectMeta" src/app` → `project-validation.ts`. The design spec lives
-on the unpushed branch `docs/project-key-facts-spec` and is not in this checkout; nothing is implemented,
-never machine-verified beyond that.
+**Status:** CLOSED 2026-09-13 — implemented by the MR carrying this closure (Tasks 1–4: `ecc71392` `6e7c8139` `1327d032` `65c4a977`).
+`grep -n "lenientRequiredArrays" src/app/sanitize-records.ts` prints nothing, and
+`npx vitest run src/app/sanitize.project.test.ts --maxWorkers=1` passes the name-only decode pin. GitLab #64 is
+closed when that MR merges, not before, so main never shows an open entry without its issue.
+★★ Two claims below were disproved on 2026-09-13 and are corrected here rather than rewritten: the TimeLog
+panel's project-code `??` fallback is not a blank-value defect — that value is only the picker's local
+project-switch signal, and the collapse two code-less projects cause there is filed as §532; the blank-value
+defect that did exist was `fetchWindow`'s `startDate ??`, fixed. Ten of the eleven fields were relaxed; the
+name stays required. The paragraph saying the MR A plan is not written is superseded.
 
 Kai Mindermann asked to remove mandatory fields at project creation and default or defer them. The project key
 comes from TimeLog as a PMO artefact and often does not exist yet, so it must be optional. It was accepted
@@ -36806,11 +36812,9 @@ Size M–L — five layers: type, sanitizer, validation, blank-value consumers a
 
 **Source:** GitLab #64 (O-1, source::demo-2026-09-11)
 
-**Work item:** #64
-
 ## 522. Missing project data is not flagged where a feature needs it, because project creation gates on it instead — OPEN
 
-**Status:** OPEN 2026-09-13 — never machine-verified; designed on 2026-09-12, nothing implemented, and blocked on §521.
+**Status:** OPEN 2026-09-13 — never machine-verified; designed on 2026-09-12, nothing implemented; §521, which blocked it, closed 2026-09-13.
 
 Kai Mindermann asked that missing data be flagged only where a function cannot execute, not used to gate
 project creation. It was accepted.
