@@ -1454,7 +1454,9 @@ describe("useActionCenterHandlers — Escalate records on the item (§515)", () 
     ]);
     expect(next[0].noteLog).toHaveLength(1);
     expect(next[1]).toBe(concurrent[1]);
-    expect(hrefValue.startsWith("mailto:jane@example.com")).toBe(true);
+    // buildMailtoUrl percent-encodes the address (mailto.ts) — controller
+    // ruling P1: assert the encoded form, not the raw address.
+    expect(hrefValue.startsWith(`mailto:${encodeURIComponent("jane@example.com")}?`)).toBe(true);
   });
 
   it("logs raid.escalated with the severity step only — never the address — and the log agrees with the record", () => {

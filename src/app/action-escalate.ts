@@ -3,8 +3,11 @@
 // Severity raise applies only to Issue/Assumption/Dependency; Risk severity is
 // matrix-derived (prob×impact) so Risks are notify-only, as are already-Critical
 // items.
-import { RAID_SEVERITIES, type RaidItem, type RaidSeverity } from "./types";
+import { RAID_SEVERITIES, type RaidEscalation, type RaidItem, type RaidSeverity } from "./types";
 import { t, type Lang } from "./i18n";
+import { addNote } from "./note-log";
+import { plainToHtml } from "./sanitize-html";
+import { severityLabel } from "./raid-labels";
 
 export type EscalationPlan = {
   raisesSeverity: boolean;
@@ -56,4 +59,74 @@ export function buildEscalationMail(
   lines.push(t(lang, "escalateMailProject", projectName));
   lines.push(t(lang, "escalateMailClosing"));
   return { subject, body: lines.join("\n\n") };
+}
+
+/** The person an escalation mails — the Escalate popover's ResourcePicker value. */
+export type EscalationRecipient = { name: string; email: string; resourceId: number | null };
+
+/** Who the note-log echo is attributed to (see `addNote`). */
+export type EscalationNoteAuthor = { self: number | null | undefined; authorName?: string };
+
+/** Pure: the structured record of one escalation. The severity step is kept
+ *  only when the plan actually raises it; absent = notify-only. */
+export function buildEscalationEntry(
+  plan: EscalationPlan,
+  recipient: EscalationRecipient,
+  at: string,
+): RaidEscalation {
+  const name = recipient.name.trim();
+  return {
+    at,
+    ...(name ? { toName: name } : {}),
+    toEmail: recipient.email,
+    ...(recipient.resourceId != null ? { toResourceId: recipient.resourceId } : {}),
+    ...(plan.raisesSeverity && plan.from && plan.to ? { fromSeverity: plan.from, toSeverity: plan.to } : {}),
+  };
+}
+
+/** Pure (uses `t`): one-line human text for an escalation — the note-log echo
+ *  and the edit modal's Escalations list use the same sentence. */
+export function describeEscalation(lang: Lang, e: RaidEscalation): string {
+  const who = e.toName ? `${e.toName} <${e.toEmail}>` : e.toEmail;
+  return e.fromSeverity && e.toSeverity
+    ? t(lang, "raidEscalationNoteRaised", who, severityLabel(e.fromSeverity, lang), severityLabel(e.toSeverity, lang))
+    : t(lang, "raidEscalationNoteNotifyOnly", who);
+}
+
+/** Immutable: the next RAID item after an escalation — severity raised when the
+ *  plan says so, the record appended, a note appended to the running log, and
+ *  `localModifiedAt` stamped. `noteText` is translated ONCE by the caller. */
+export function buildEscalationRecord(
+  item: RaidItem,
+  plan: EscalationPlan,
+  recipient: EscalationRecipient,
+  at: string,
+  noteText: string,
+  author: EscalationNoteAuthor,
+): RaidItem {
+  const prior = Array.isArray(item.escalations) ? item.escalations : [];
+  return {
+    ...item,
+    ...(plan.raisesSeverity && plan.to ? { severity: plan.to } : {}),
+    escalations: [...prior, buildEscalationEntry(plan, recipient, at)],
+    noteLog: addNote(item.noteLog ?? [], {
+      html: plainToHtml(noteText),
+      text: noteText,
+      timestamp: at,
+      self: author.self,
+      authorName: author.authorName,
+    }),
+    localModifiedAt: at,
+  };
+}
+
+/** The `raid.escalated` activity arguments after the id: the severity step, or
+ *  the current severity (or "—") on BOTH sides for a notify-only escalation.
+ *  Shared by the Escalate CTA and the AI `escalate_raid_item` tool so the two
+ *  log identically (§515). Never carries the recipient. */
+export function escalationActivityArgs(
+  item: Pick<RaidItem, "severity">,
+  plan: EscalationPlan,
+): [string, string] {
+  return [plan.from ?? item.severity ?? "—", plan.to ?? item.severity ?? "—"];
 }

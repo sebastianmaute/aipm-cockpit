@@ -5,7 +5,8 @@
 // from task-manager as a hook factory. Follows the use-storage-file-ops
 // pattern: called unconditionally with the live closure values via a typed
 // `deps` object; the inline `useCallback`/`useMemo` below preserve the exact
-// memoization the handlers had inline. Move-only — the bodies are verbatim.
+// memoization the handlers had inline. Move-only at extraction; `handleEscalate`
+// has since changed to record the escalation on the item (§515).
 //
 // Ordering note: `handleDraftMessageFromAction` reads `onSendInquiry` (produced
 // by `useTaskRowHandlers`), so this hook is called AFTER that one in
@@ -31,7 +32,15 @@ import { isValidEmail } from "./sanitize";
 import { renderTemplateForSend, buildStakeholderUpdateVars, type CommTemplateCategory } from "./comm-templates";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { plainTextToHtml } from "./comm-send";
-import { planEscalation, applyEscalation, buildEscalationMail } from "./action-escalate";
+import {
+  planEscalation,
+  buildEscalationMail,
+  buildEscalationEntry,
+  buildEscalationRecord,
+  describeEscalation,
+  escalationActivityArgs,
+} from "./action-escalate";
+import { resourceDisplayName } from "./resource-foundation";
 import { applyMilestoneRebaseline, isValidIsoDate } from "./action-rebaseline";
 
 /** Live render-scope values the Action-Center handlers read each render. */
@@ -65,6 +74,9 @@ export interface ActionCenterHandlerDeps {
    *  get no audit trail, which is the exact defect (open-followups §235) this
    *  thread exists to close. `task-manager.tsx` must pass `logActivityUser`. */
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** The user's own resource id — authors the Escalate note-log echo (§515),
+   *  the same attribution the notes window uses. */
+  selfResourceId: number | null | undefined;
 }
 
 export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
@@ -94,6 +106,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
     recordLearning,
     showToast,
     logActivity,
+    selfResourceId,
   } = deps;
 
   const assignOwnerBundle = useMemo<AssignOwnerBundle | undefined>(
@@ -215,15 +228,30 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
       if (!item) return; // deleted-source safe
       if (!isValidEmail(recipient.email)) { showToast("error", t(lang, "errorInvalidEmail")); return; }
       const plan = planEscalation(item);
-      if (plan.to) {
-        const next = applyEscalation(raid, id, plan.to);
-        if (next !== raid) setRaid(next as RaidItem[]);
-      }
+      const at = new Date().toISOString();
+      const selfResource = resources.find((r) => r.id === selfResourceId);
+      const author = { self: selfResourceId ?? null, authorName: selfResource ? resourceDisplayName(selfResource) : undefined };
+      const noteText = describeEscalation(lang, buildEscalationEntry(plan, recipient, at));
+      // ★★ ONE plan feeds the record, the log AND the mail, and ONE functional write
+      //   applies it to the row the updater is handed, so a same-tick concurrent write
+      //   to other fields or rows survives (the old closure write lost it) (§515).
+      // ★ KNOWN LIMIT: the plan is read from the render-scope row. This hook has no
+      //   live RAID ref (task-manager's `raidRef` syncs in an effect, so it is no
+      //   fresher), so a same-tick concurrent SEVERITY write is overwritten by the
+      //   planned step. Record, log and mail still agree with each other.
+      setRaid((prev) =>
+        prev.map((r) => {
+          if (r.id !== id) return r;
+          return buildEscalationRecord(r, plan, recipient, at, noteText, author);
+        }),
+      );
+      // Severity step only — the recipient's address never enters the log.
+      logActivity("raid.escalated", id, ...escalationActivityArgs(item, plan));
       const { subject, body } = buildEscalationMail(lang, item, plan, project?.name ?? "");
       window.location.href = buildMailtoUrl(recipient.email, subject, body);
       void recordLearning(action, "acted");
     },
-    [raid, setRaid, lang, project, recordLearning, showToast],
+    [raid, setRaid, lang, project, recordLearning, showToast, logActivity, resources, selfResourceId],
   );
 
   const escalateBundle = useMemo<EscalateBundle | undefined>(

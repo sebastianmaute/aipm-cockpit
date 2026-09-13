@@ -1800,6 +1800,7 @@ function TaskManagerInner() {
     pendingLinkRaidIdRef,
     recordLearning,
     showToast,
+    selfResourceId: settings.selfResourceId,
     // ★★★ logActivityUser, NEVER the raw logActivity — see the USER-ACTOR
     // WIRING rule at the top of this component. Mark-done from a Next-actions
     // CTA is a user gesture, so its completion entry must carry the user actor.

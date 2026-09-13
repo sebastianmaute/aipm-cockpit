@@ -1,6 +1,16 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { nextSeverity, planEscalation, applyEscalation, buildEscalationMail } from "./action-escalate";
-import { loadI18n } from "./i18n";
+import {
+  nextSeverity,
+  planEscalation,
+  applyEscalation,
+  buildEscalationMail,
+  buildEscalationEntry,
+  buildEscalationRecord,
+  describeEscalation,
+  escalationActivityArgs,
+} from "./action-escalate";
+import { loadI18n, t } from "./i18n";
+import { severityLabel } from "./raid-labels";
 import type { RaidItem } from "./types";
 
 function raid(partial: Partial<RaidItem>): RaidItem {
@@ -88,5 +98,78 @@ describe("buildEscalationMail", () => {
     const { subject, body } = buildEscalationMail("de", item, plan, "Apollo");
     expect(subject).toBe("Eskalation: RAID #7 — Vendor slip");
     expect(body).toContain("Schweregrad von High auf Critical erhöht.");
+  });
+});
+
+const JANE = { name: "Jane Doe", email: "jane@example.com", resourceId: 4 };
+const AT = "2026-09-13T08:00:00.000Z";
+const AUTHOR = { self: 7, authorName: "Pat Lee" };
+
+describe("buildEscalationEntry", () => {
+  it("records recipient and the severity step when the plan raises", () => {
+    expect(buildEscalationEntry({ raisesSeverity: true, from: "High", to: "Critical" }, JANE, AT)).toEqual({
+      at: AT, toName: "Jane Doe", toEmail: "jane@example.com", toResourceId: 4, fromSeverity: "High", toSeverity: "Critical",
+    });
+  });
+  it("is notify-only for a Risk and drops a blank name and a null resource", () => {
+    expect(buildEscalationEntry({ raisesSeverity: false, reason: "risk" }, { name: "  ", email: "ops@example.com", resourceId: null }, AT))
+      .toEqual({ at: AT, toEmail: "ops@example.com" });
+  });
+});
+
+describe("describeEscalation", () => {
+  it("names the recipient and the translated severity step", () => {
+    expect(describeEscalation("en-US", { at: AT, toName: "Jane Doe", toEmail: "jane@example.com", fromSeverity: "High", toSeverity: "Critical" }))
+      .toBe(t("en-US", "raidEscalationNoteRaised", "Jane Doe <jane@example.com>", severityLabel("High", "en-US"), severityLabel("Critical", "en-US")));
+  });
+  it("falls back to the bare address and says notify only", () => {
+    expect(describeEscalation("en-US", { at: AT, toEmail: "ops@example.com" })).toBe("Escalated to ops@example.com (notify only)");
+  });
+  it("renders in German", async () => {
+    await loadI18n("de");
+    expect(describeEscalation("de", { at: AT, toEmail: "ops@example.com" })).toBe("Eskaliert an ops@example.com (nur Benachrichtigung)");
+  });
+});
+
+describe("buildEscalationRecord", () => {
+  it("raises severity, appends the record and a note, and stamps localModifiedAt", () => {
+    const item = raid({ id: 3, category: "I", severity: "High" });
+    const plan = planEscalation(item);
+    const text = describeEscalation("en-US", buildEscalationEntry(plan, JANE, AT));
+    const next = buildEscalationRecord(item, plan, JANE, AT, text, AUTHOR);
+    expect(next.severity).toBe("Critical");
+    expect(next.escalations).toEqual([buildEscalationEntry(plan, JANE, AT)]);
+    expect(next.noteLog).toHaveLength(1);
+    expect(next.noteLog?.[0]).toMatchObject({ timestamp: AT, text, authorResourceId: 7, authorName: "Pat Lee" });
+    expect(next.localModifiedAt).toBe(AT);
+    expect(item.escalations).toBeUndefined(); // input not mutated
+  });
+  it("leaves severity alone for a notify-only escalation", () => {
+    const item = raid({ category: "R", severity: "High" });
+    const plan = planEscalation(item);
+    const next = buildEscalationRecord(item, plan, JANE, AT, "x", AUTHOR);
+    expect(next.severity).toBe("High");
+    expect(next.escalations?.[0]?.toSeverity).toBeUndefined();
+  });
+  it("appends to an existing record and PRESERVES the existing note log", () => {
+    const earlier = { at: "2026-09-01T00:00:00.000Z", toEmail: "ops@example.com" };
+    const older = { id: 1, timestamp: "2026-08-01T00:00:00.000Z", html: "<p>older</p>", text: "older" };
+    const item = raid({ category: "I", severity: "Medium", escalations: [earlier], noteLog: [older] });
+    const next = buildEscalationRecord(item, planEscalation(item), JANE, AT, "escalated", AUTHOR);
+    expect(next.escalations).toEqual([earlier, expect.objectContaining({ fromSeverity: "Medium", toSeverity: "High" })]);
+    expect(next.noteLog?.map((n) => n.text)).toEqual(["older", "escalated"]);
+    expect(next.noteLog?.[1]?.id).toBe(2);
+  });
+});
+
+describe("escalationActivityArgs", () => {
+  it("is the severity step when the plan raises", () => {
+    expect(escalationActivityArgs({ severity: "High" }, { raisesSeverity: true, from: "High", to: "Critical" }))
+      .toEqual(["High", "Critical"]);
+  });
+  it("repeats the current severity, or an em dash, when notify-only", () => {
+    expect(escalationActivityArgs({ severity: "Critical" }, { raisesSeverity: false, reason: "max" }))
+      .toEqual(["Critical", "Critical"]);
+    expect(escalationActivityArgs({}, { raisesSeverity: false, reason: "risk" })).toEqual(["—", "—"]);
   });
 });
