@@ -93,7 +93,8 @@ describe("sample-workspace budgets", () => {
     // The rate is a bucket-level OVERRIDE rather than a workspace `fxRates`
     // block because resolveRate takes the override ahead of any cached ECB
     // rate — so the demo, the goldens and e2e convert identically with no
-    // network and no cache. 1.1 survives sanitizeAmount's 2dp rounding exactly.
+    // network and no cache. 1.1 survives sanitizeAmount's 4dp rounding for the
+    // FX rate override exactly.
     expect(b.currency).toBe("USD");
     expect(b.fxRateOverride).toBe(1.1);
   });
