@@ -32729,6 +32729,10 @@ not a verification — the gate reads for an INVOCATION. That distinction is wha
 
 **Status:** CLOSED 2026-09-13 — `saveActualsCache` gained a stage 5 that sheds the SAVED entry's own `users`/`projectRefs` whole when it alone is over budget, keeping `aggregates`, `partial`, `fetchedAt` and the roll. Measured, not reasoned: `npx vitest run src/app/timelog-actuals-store.test.ts -t "sheds the saved entry's own users"`.
 
+★ _(As filed 2026-09-07 — superseded 2026-09-13: `saveActualsCache` now has a fifth stage, and the
+"lost silently" outcome below no longer holds for this shape. See the closure block for what happens
+now; the paragraph is left otherwise as filed.)_
+
 `MAX_ACTUALS_TOTAL_CHARS` (2 MiB) bounds the serialised cache map, but all four of
 `saveActualsCache`'s shedding stages `keep`-exclude the entry being saved. That exclusion is
 deliberate and right: shedding the entry the caller just fetched discards the network round trip
@@ -32766,7 +32770,10 @@ returned nothing" — which is what this paragraph first said, and it is false: 
 bare number, and `change-edit-modal.test.tsx` carries two `"q".repeat(4300)` hits. Grep the `§`.
 The citations were added in the review round that caught it. Verify rather than
 trusting this sentence — the same grep is the check either way:
-`grep -n "§430" src/app/timelog-actuals-store.ts` → two hits, one per docstring. ★★ The failure
+`grep -n "§430" src/app/timelog-actuals-store.ts` — as of the stage-5 fix (2026-09-13) the hits land
+on the `MAX_DAILY_ROLL_CHARS` and `MAX_ACTUALS_TOTAL_CHARS` docstrings once each, plus
+`saveActualsCache`'s own docstring twice (its stage list and its stage-5 rationale paragraph); re-run
+it rather than trusting any count quoted here — it has already rotted once. ★★ The failure
 inverts the audit it was meant to support: a reader checking the code for a §430 pointer, finding
 none, concludes the REGISTER is the stale copy. A cross-reference is a claim about ANOTHER file, so
 it is only ever verified by opening that file.
