@@ -448,3 +448,64 @@ describe("the document/projection sink pair is equivalent BY CONSTRUCTION (§143
     expect(p.flags).toBe(d.flags);
   });
 });
+
+describe("valued-attribute grammar (open-followups §32)", () => {
+  // ★★★ A tag counts only when every attribute after its name carries a value.
+  // Before this, the tail after the name was `\b[^>]*>`, so each row below was
+  // classified as HTML and the sink then dropped the bracketed words — `note`,
+  // `about` and `pricing` are syntactically legal VALUELESS attribute names.
+  const ALL_SINKS = [RICH_SINK, DOCUMENT_SINK, PROJECTION_SINK, RENDER_SINK] as const;
+
+  it.each([
+    "<a note about pricing> is attached",
+    "<em dash> means something",
+    "<li 2 items> to review",
+    "<p 3 open> and counting",
+    "<a href> tags are banned",
+  ])("classifies %j as prose on every sink", (value) => {
+    for (const sink of ALL_SINKS) expect(isHtmlStart(value, sink), sink).toBe(false);
+  });
+
+  it.each([
+    "<p>x</p>",
+    '<a href="https://x.test" target="_blank" rel="noopener">x</a>',
+    '<p data-align="center">x</p>',
+    '<ul data-type="taskList"><li data-checked="true">x</li></ul>',
+    "<p class=MsoNormal>x</p>",
+    "<p class='lead'>x</p>",
+    "<hr/>",
+    "<br />",
+    "<STRONG>x</STRONG>",
+  ])("still classifies %j as HTML on every sink", (value) => {
+    for (const sink of ALL_SINKS) expect(isHtmlStart(value, sink), sink).toBe(true);
+  });
+
+  it("still classifies a valued <img> on the document and render sinks", () => {
+    for (const value of ['<img src="x" alt="y">', '<img data-asset-id="7" alt="x">']) {
+      expect(isHtmlStart(value, DOCUMENT_SINK)).toBe(true);
+      expect(isHtmlStart(value, RENDER_SINK)).toBe(true);
+    }
+  });
+
+  it("keeps every older guard under the new grammar", () => {
+    // The whitespace-`/`-`>` rule after the name replaces `\b`: an unlisted tag
+    // sharing a listed prefix must still not match a derived sink.
+    for (const value of ["<script>x</script>", "<section>x</section>", "<strongish>x</strongish>"]) {
+      for (const sink of [RICH_SINK, DOCUMENT_SINK, PROJECTION_SINK] as const) {
+        expect(isHtmlStart(value, sink), `${sink} ${value}`).toBe(false);
+      }
+    }
+    for (const value of ["</p> means close", "<li 3 items", "<3 open", "cost < 5k"]) {
+      for (const sink of ALL_SINKS) expect(isHtmlStart(value, sink), `${sink} ${value}`).toBe(false);
+    }
+    expect(isHtmlStart("Intro <strong>bold</strong> tail", RENDER_SINK)).toBe(true);
+    expect(isHtmlStart("Intro <STRONG>bold</STRONG> tail", RENDER_SINK)).toBe(true);
+    // The pre-§32 worst case at render: a LIVE anchor wrapping the paragraph.
+    expect(isHtmlStart("we banned <a href> tags", RENDER_SINK)).toBe(false);
+  });
+
+  it("does NOT close the attribute-free residue — a bare tag opening prose is byte-identical to markup", () => {
+    // Pinned so the closure's residue claim cannot silently become false.
+    expect(isHtmlStart("<mark> means highlight in this project", PROJECTION_SINK)).toBe(true);
+  });
+});

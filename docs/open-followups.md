@@ -258,7 +258,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§29](#29-formnotelog-is-dead-state-in-the-task-form--closed-in-02111) | ~~`form.noteLog` is dead state in the task form~~ | 0.209.0, promoted 0.210.0 | S | **CLOSED** in 0.211.1 |
 | [§30](#30-a-link-in-a-task-description-loses-its-address-in-document-exports--closed-2026-09-01) | ~~A link in a task description loses its address in document exports~~ | 0.210.0 (Larbalestier) | M | **CLOSED** 2026-09-01 (the decision: real links where the sink allows one, `text (url)` where it does not — non-goals at §329 · §330) |
 | [§31](#31-sanitizerichtext-caps-visible-text-so-markup-bytes-are-unbounded--affects-all-four-rich-entities--closed-2026-08-28) | `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — affects all four rich entities | 0.210.0, pre-existing for 3 of 4 | M | **CLOSED** 2026-08-28 |
-| [§32](#32-html_start-misclassifies-eight-plain-text-prefixes-and-the-text-is-then-deleted--open-small) | `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED — open, small | pre-existing, reach widened 0.210.0 | S | open |
+| [§32](#32-html_start-misclassifies-eight-plain-text-prefixes-and-the-text-is-then-deleted--closed-2026-09-13) | `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED | pre-existing, reach widened 0.210.0 | S | **CLOSED** 2026-09-13 |
 | [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--open-cosmetic) | A multi-paragraph description can overflow its PPTX box — open, cosmetic | 0.210.0 (Larbalestier) | S | open |
 | [§34](#34-the-dom-free-guards-filter-is-a-name-list-where-the-real-set-is-an-import-graph--closed-in-02100) | ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ | 0.210.0 (Larbalestier) | S | **CLOSED** in 0.210.0 |
 | [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--open-suspicion) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion | 0.210.0 (Larbalestier) | S | open |
@@ -2153,17 +2153,15 @@ once — but it can TRUNCATE ALREADY-STORED values on their next load, so it nee
 
 ---
 
-## 32. `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED — open, small
+## 32. `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED — CLOSED 2026-09-13
 
-**Status:** open — a classifier that reads a plain sentence as HTML. Reproduced 2026-08-28 by `grep -n "htmlStartRe" src/app/html-start.ts`.
-
-**Work item:** #97
+**Status:** CLOSED 2026-09-13 — a tag now counts only when every attribute after its name carries a value (`TAG_TAIL`, shared by `htmlStartRe` and `CONTAINS_TAG` in `html-start.ts`). Pinned by `npx vitest run src/app/html-start.test.ts -t "valued-attribute grammar"`, which also pins the attribute-free residue below.
 
 Pre-existing (`narrative-html.ts`, where `HTML_START` then lived), found by a cold review of 0.210.0.
 Not introduced by it, but 0.210.0 extended the reach to the AI write boundaries, so a model-supplied
 value now hits it too.
 
-★★ **STILL OPEN, but the name below is RETIRED — do not go hunting for it.** §107 replaced the one
+★★ **(Open until 2026-09-13 — see the closure block at the end of this entry.) The name below is RETIRED — do not go hunting for it.** §107 replaced the one
 shared `HTML_START` with a per-sink classifier built by `htmlStartRe` (`html-start.ts`) on
 2026-08-10. That factory assembles the SAME shape — `\b[^>]*>` after the alternation — so this
 defect is unchanged in kind and now exists once per sink rather than once globally. The line number
@@ -2205,10 +2203,30 @@ gone with no reader able to recover it.
 
 ★ `rich-text-plain.test.ts` pins the NEVER-CLOSES cases (`"<li 3 items"`), which correctly do NOT match.
 The closes-with-a-space case is what is untested.
-★★ The fix is NOT just tightening the regex: `HTML_START` is shared with the dashboard narrative and it
+★★ _(Superseded 2026-09-13 — see the closure block.)_ The fix is NOT just tightening the regex: `HTML_START` is shared with the dashboard narrative and it
 decides the classification for every rich field on every READ, so a change moves what existing stored
 values mean. Requiring `[\s>/]` after the tag name plus a well-formedness check is the shape; it needs
 its own slice and probably a golden check.
+
+**CLOSED 2026-09-13.** `htmlStartRe` and `CONTAINS_TAG` now share one tail, `TAG_TAIL`: after the tag
+name, zero or more attributes that EACH carry a value (double-quoted, single-quoted or unquoted), then
+optional whitespace, an optional `/`, and `>`. All four rows of the second table above (`<a note about
+pricing> is attached`, `<em dash> means something`, `<li 2 items> to review`, `<p 3 open> and
+counting`) and the old `htmlStartRe` RESIDUE case `<a href> tags are banned` classify as prose on all
+four sinks. The first character after the name must be whitespace, `/` or `>`, which is what `\b`
+used to guarantee, so `<script>` / `<strongish>` stay unrecognised on the derived sinks.
+Byte-stability: over every string holding a `<` in the three sample workspaces (682), no string
+changed classification on any sink, and `golden-workspace.test.ts` is green with no fixture change.
+
+★★★ **RESIDUE, ACCEPTED — the first table above still reproduces.** `<mark> means highlight in this
+project` and its three siblings open with an ATTRIBUTE-FREE tag, which is byte-identical to real
+markup that opens an element. They still classify as HTML and lose the literal tag token. No words
+inside the brackets are lost in that shape, which is the difference from the rows this closes.
+`html-start.test.ts` pins the residue so it cannot drift silently.
+
+★ §35's mechanism (`<a-b>` matching `a` at a word boundary) no longer reproduces under `TAG_TAIL` —
+`-` is not whitespace, `/` or `>`. §35 is NOT closed by this batch; re-verify it on its own before
+closing it.
 
 ---
 
@@ -9127,6 +9145,9 @@ instruction-only.
 ★ The §32 comparison above is UNTOUCHED by this fix. §32 is the classifier failing the other way —
 plain prose taken FOR markup, words DELETED — and its mechanism is the `TAG` pass, not this one. Do
 not read this closure as covering it.
+
+★ **Updated 2026-09-13:** §32 itself is now CLOSED (valued-attribute grammar, `TAG_TAIL`); the
+comparisons above describe it as it stood before that.
 
 ★ A THIRD sink was needed on top of these two, at the RENDER boundary, and no allow-list could
 express it — that is §118.

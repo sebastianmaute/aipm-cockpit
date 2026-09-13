@@ -40,13 +40,15 @@ describe("descriptionText", () => {
     expect(descriptionText("<em dash - not markup")).toBe("<em dash - not markup");
   });
 
-  // ★ PINNED RESIDUE, not an aspiration: this one is genuinely tag-shaped AND
-  // terminated, so the opening-tag heuristic cannot tell it from real markup and
-  // the sink eats the "<a href>". html-start.ts records it as deliberate residue;
-  // asserted here so that a future change to the classifier has to confront it
-  // rather than shift it by accident.
-  it("still loses a leading token that is tag-shaped AND closed", () => {
-    expect(descriptionText("<a href> tags are banned")).toBe("tags are banned");
+  // ★ FORMER RESIDUE, CLOSED (open-followups §32). This used to pin the loss:
+  // "<a href> tags are banned" projected to "tags are banned". A tag now counts
+  // only when every attribute carries a value (`TAG_TAIL` in html-start.ts), so
+  // a valueless "attribute" makes the value prose and nothing is eaten. The
+  // attribute-free case ("<mark> means…") is still residue — html-start.test.ts
+  // pins that half.
+  it("keeps a leading tag-shaped token whose attributes carry no value", () => {
+    expect(descriptionText("<a href> tags are banned")).toBe("<a href> tags are banned");
+    expect(descriptionText("<a note about pricing> is attached")).toBe("<a note about pricing> is attached");
   });
 
   it("sanitizes, it does not merely strip tags", () => {

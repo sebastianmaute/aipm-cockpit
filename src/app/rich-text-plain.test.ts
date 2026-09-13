@@ -27,6 +27,17 @@ describe("descriptionHtml", () => {
     );
   });
 
+  it("escapes prose that opens with a bracketed phrase instead of dropping its words (§32)", () => {
+    // Before the valued-attribute grammar this passed through raw and every
+    // downstream strip ate "note about pricing" along with the brackets.
+    expect(descriptionHtml("<a note about pricing> is attached", "rich")).toBe(
+      "<p>&lt;a note about pricing&gt; is attached</p>",
+    );
+    expect(sanitizeRichText("<a note about pricing> is attached", 5000, "rich")).toBe(
+      "<p>&lt;a note about pricing&gt; is attached</p>",
+    );
+  });
+
   it("keeps a plain value whose stray < is not a tag", () => {
     expect(descriptionHtml("5 < 10 items", "rich")).toBe("<p>5 &lt; 10 items</p>");
     expect(descriptionHtml("<3 open", "rich")).toBe("<p>&lt;3 open</p>");

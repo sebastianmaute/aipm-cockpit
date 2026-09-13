@@ -62,9 +62,11 @@ import { TEXTAREA_MAX } from "./sanitize";
  *  the same list layer 2 keeps, so `<h1>T</h1><p>b</p>` survives as markup
  *  (open-followups.md §107, CLOSED 2026-08-10). A leading `<div>`, `<h5>` or
  *  `<!--comment-->` is not on that list and is still escaped whole.
- *  ★★ The OPPOSITE direction of the same question is a DIFFERENT and STILL-OPEN
- *  defect — open-followups.md §32, plain prose that merely looks tag-shaped taken
- *  for HTML. Do not read §107's closure as closing it. */
+ *  ★★ The OPPOSITE direction of the same question is a DIFFERENT defect —
+ *  open-followups.md §32, plain prose that merely looks tag-shaped taken for
+ *  HTML — closed separately on 2026-09-13 by requiring every attribute to carry
+ *  a value (`TAG_TAIL` in html-start.ts); an attribute-free "<mark> means…" is
+ *  accepted residue. Do not read §107's closure as having closed it. */
 export function sanitizeAiRichText(raw: unknown): string {
   const upgraded = sanitizeRichText(raw, TEXTAREA_MAX, RICH_SINK);
   if (!upgraded) return "";
@@ -137,7 +139,8 @@ export function sanitizeAiRichText(raw: unknown): string {
  *  `KEEP_CONTENT: false` and DELETES an unrecognised tag's text instead of
  *  unwrapping it, so one list cannot serve both. `html-start.ts` states that rule
  *  and its reasoning — read it there rather than re-deriving it here.
- *  ★★ Cite §32 CAREFULLY — same question, OPPOSITE direction, and STILL OPEN.
+ *  ★★ Cite §32 CAREFULLY — same question, OPPOSITE direction, CLOSED 2026-09-13
+ *  by a different mechanism (`TAG_TAIL` in html-start.ts).
  *  §32 is the FALSE POSITIVE (plain prose like "<a note about pricing> is
  *  attached" is taken for HTML and the pseudo-tag's words are then deleted); what
  *  §114 closed was the FALSE NEGATIVE (real HTML taken for prose and escaped).
