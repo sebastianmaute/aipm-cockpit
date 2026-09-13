@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Let a user turn an insight or a next action into a RAID item through the existing RAID editor, floated over the current view. Record every Escalate on the RAID item itself, as a structured `escalations` field with a note-log echo and a `raid.escalated` activity entry.
+**Goal:** Let a user turn an insight or a next action into a RAID item through the existing RAID editor, floated over the current view. Record every Escalate on the RAID item itself, as a structured `escalations` field with a note-log echo and a `raid.escalated` activity entry. Let the AI assistant append an escalation too (append-only, no e-mail), with the same effects as the Escalate button.
 
 **Architecture:**
 - Pure builders move into `raid-draft.ts` (draft and seed) and `action-escalate.ts` (escalation entry and record).
@@ -10,6 +10,7 @@
 - A `useRaidCreate` hook and a `RaidCreateHost` component (`raid-create-host.tsx`) own the create draft, mounted once in `task-manager.tsx`.
 - Openers reach next actions through the existing `ActionHandlers` chain, and reach insights through the `InsightActions` bag.
 - Saving calls `handleSaveRaidItem(item, true)`, which now returns the committed (possibly re-minted) id. The insight writer stores that id as `Insight.loggedRaidId`.
+- A dedicated, token-guarded `escalate_raid_item` tool (Task 3b) appends ONE escalation through the same pure builders `handleEscalate` uses (`planEscalation` → `buildEscalationRecord`, `escalationActivityArgs`), as one functional `setRaid` with undo capture and a `raid.escalated` row (actor `ai`). Its note is authored "AI created". `RAID_FIELD_GUARDS.escalations` still refuses the raw field on create/update.
 
 **Tech Stack:** Next.js (pinned), React 19, TypeScript, Vitest + Testing Library, fast-check, GitLab CI.
 
@@ -46,6 +47,7 @@ Each deviation below was found in the code while planning. The plan follows the 
 7. **`raid.escalated` cannot carry a `changes` object.**
    - The deps logger is `logActivity(kind, ...args)`.
    - The entry is `logActivity("raid.escalated", id, fromSeverity, toSeverity)` with message `"RAID #{0} escalated: {1} → {2}"`. A notify-only escalation passes the current severity (or `—`) on both sides. No e-mail address is ever an argument.
+   - The AI `escalate_raid_item` tool logs the same kind with the same two args through `escalationActivityArgs`, actor `ai` (Task 3b).
 8. **`InsightsCard` only lists `active`/`acknowledged` insights.**
    - A freshly logged insight is `acted`, so it leaves the card, just as Act does.
    - "Logged as RAID #N" + Open still renders on BOTH surfaces. On the card it becomes visible when reconcile re-fires the insight back to `active` (the re-fire branch now carries `loggedRaidId`).
@@ -71,6 +73,16 @@ Each deviation below was found in the code while planning. The plan follows the 
 16. **Activity entries show raw severity enums.**
     - `activityMessage` passes `args` untouched to `t` (verify: `grep -n "return t(lang, key, ...args)" src/app/activity-message.ts`). `raid.statusChanged` already renders raw `RaidStatus` values the same way.
     - `raid.escalated` therefore shows `High → Critical` in German too. This is a known limit, not fixed here.
+17. **USER DECISION 2026-09-13 — overrides the spec's "escalations is model-read-only".** The AI can record an escalation, APPEND-ONLY, through a dedicated `escalate_raid_item` tool (Task 3b), never through `update_raid_item`.
+    - Effects = the human Escalate minus the mail: the entry, the note-log echo, a `raid.escalated` row (actor `ai`) and the severity step from the same `planEscalation`, as ONE functional write with undo capture.
+    - Raw `escalations` writes through `create_raid_item` / `update_raid_item` stay blocked: `RAID_FIELD_GUARDS` is unchanged and stays the single raw-field guard (deviation 10 holds). The committed Task 2 names `dropUnacceptedRaidFields — escalations is model-read-only (§515)` and the `RaidEscalation` docstring predate this decision; the describe title is kept (M3 greps it) and means "through create/update", while Task 3b corrects the docstring.
+    - Why a separate tool: a new input on the pass-through update tool would move `AXIS_BASELINE.raid`, the inline-preview coverage gate and the inline popover's offered surface; a separate tool moves none of them.
+    - Review flow (user decision): ONE AI escalation applies immediately and is undoable; two or more in one turn stage on the existing review card (`shouldStage`'s existing entity-write count — the tool joins `ENTITY_WRITE_TOOLS` as non-destructive).
+18. **The tool is token-guarded and the recipient links by e-mail.** `escalations` and `severity` are both token-covered, so the token is required, and it also refuses a second escalation made from the same read. No `toResourceId` input: `LINK_FIELDS` remaps id ARRAYS only, so a scalar id minted earlier in a staged turn would be stored dangling. New registry rows: `TOKEN_ROW_SOURCE`, `UPDATE_TARGET` (the recommend-tokens drift test pins the unstampable list exactly), `ENTITY_WRITE_TOOLS`, `TARGET_MINTED_BY`. `ALLOWED_REC_TOOLS` is deliberately unchanged.
+19. **USER DECISION 2026-09-13 — an AI escalation note is authored "AI created".**
+    - Stored as a literal `authorName` (EN "AI created", DE "Von KI erstellt", i18n key `raidNoteAuthorAi`) translated once at write time in `settings.language`, with NO `authorResourceId` — never `settings.selfResourceId`, which would credit the user with a line they did not write.
+    - `addNote` today DROPS `authorName` unless `self != null`, so Task 3b widens it to keep an explicit `authorName` on its own. Behaviour-neutral for its only other caller: `use-notes-window.ts` derives `notesAuthorName` from the resource whose id is `notesSelf`, so it is undefined whenever `notesSelf` is null.
+    - Consequence (existing rule, unchanged): `canEditNote` treats a note without `authorResourceId` as editable by anyone, and `editNote` claims it for the editor.
 
 ## Global Constraints
 
@@ -1261,6 +1273,7 @@ git show --stat HEAD | tail -25
   - `buildEscalationEntry(plan: EscalationPlan, recipient: EscalationRecipient, at: string): RaidEscalation`
   - `describeEscalation(lang: Lang, e: RaidEscalation): string`
   - `buildEscalationRecord(item: RaidItem, plan: EscalationPlan, recipient: EscalationRecipient, at: string, noteText: string, author: EscalationNoteAuthor): RaidItem`
+  - `escalationActivityArgs(item: Pick<RaidItem, "severity">, plan: EscalationPlan): [string, string]` (shared with Task 3b's AI writer)
   - `ActivityKind` gains `"raid.escalated"`
   - `ActionCenterHandlerDeps.selfResourceId: number | null | undefined`
 
@@ -1309,7 +1322,7 @@ Expected:
 
 - [ ] **Step 2: Write the failing tests**
 
-(a) Append to `src/app/action-escalate.test.ts`. Change its first-party import to `import { nextSeverity, planEscalation, applyEscalation, buildEscalationMail, buildEscalationEntry, buildEscalationRecord, describeEscalation } from "./action-escalate";`, add `import { t } from "./i18n";` beside the existing `loadI18n` import (merge into that line: `import { loadI18n, t } from "./i18n";`) and `import { severityLabel } from "./raid-labels";`, then append:
+(a) Append to `src/app/action-escalate.test.ts`. Change its first-party import to `import { nextSeverity, planEscalation, applyEscalation, buildEscalationMail, buildEscalationEntry, buildEscalationRecord, describeEscalation, escalationActivityArgs } from "./action-escalate";`, add `import { t } from "./i18n";` beside the existing `loadI18n` import (merge into that line: `import { loadI18n, t } from "./i18n";`) and `import { severityLabel } from "./raid-labels";`, then append:
 
 ```ts
 const JANE = { name: "Jane Doe", email: "jane@example.com", resourceId: 4 };
@@ -1370,6 +1383,18 @@ describe("buildEscalationRecord", () => {
     expect(next.escalations).toEqual([earlier, expect.objectContaining({ fromSeverity: "Medium", toSeverity: "High" })]);
     expect(next.noteLog?.map((n) => n.text)).toEqual(["older", "escalated"]);
     expect(next.noteLog?.[1]?.id).toBe(2);
+  });
+});
+
+describe("escalationActivityArgs", () => {
+  it("is the severity step when the plan raises", () => {
+    expect(escalationActivityArgs({ severity: "High" }, { raisesSeverity: true, from: "High", to: "Critical" }))
+      .toEqual(["High", "Critical"]);
+  });
+  it("repeats the current severity, or an em dash, when notify-only", () => {
+    expect(escalationActivityArgs({ severity: "Critical" }, { raisesSeverity: false, reason: "max" }))
+      .toEqual(["Critical", "Critical"]);
+    expect(escalationActivityArgs({}, { raisesSeverity: false, reason: "risk" })).toEqual(["—", "—"]);
   });
 });
 ```
@@ -1556,6 +1581,17 @@ export function buildEscalationRecord(
     localModifiedAt: at,
   };
 }
+
+/** The `raid.escalated` activity arguments after the id: the severity step, or
+ *  the current severity (or "—") on BOTH sides for a notify-only escalation.
+ *  Shared by the Escalate CTA and the AI `escalate_raid_item` tool so the two
+ *  log identically (§515). Never carries the recipient. */
+export function escalationActivityArgs(
+  item: Pick<RaidItem, "severity">,
+  plan: EscalationPlan,
+): [string, string] {
+  return [plan.from ?? item.severity ?? "—", plan.to ?? item.severity ?? "—"];
+}
 ```
 
 `src/app/use-action-center-handlers.ts`, in five edits:
@@ -1568,6 +1604,7 @@ import {
   buildEscalationEntry,
   buildEscalationRecord,
   describeEscalation,
+  escalationActivityArgs,
 } from "./action-escalate";
 import { resourceDisplayName } from "./resource-foundation";
 ```
@@ -1615,7 +1652,7 @@ import { resourceDisplayName } from "./resource-foundation";
         }),
       );
       // Severity step only — the recipient's address never enters the log.
-      logActivity("raid.escalated", id, plan.from ?? item.severity ?? "—", plan.to ?? item.severity ?? "—");
+      logActivity("raid.escalated", id, ...escalationActivityArgs(item, plan));
       const { subject, body } = buildEscalationMail(lang, item, plan, project?.name ?? "");
       window.location.href = buildMailtoUrl(recipient.email, subject, body);
       void recordLearning(action, "acted");
@@ -1678,6 +1715,949 @@ Claude-Session: https://[session link removed]
 ```bash
 git commit --only -F "$S/msg-task3.txt" -- src/app/action-escalate.ts src/app/action-escalate.test.ts src/app/use-action-center-handlers.ts src/app/use-action-center-handlers.test.ts src/app/activity-log.ts src/app/activity-log.test.ts src/app/task-manager.tsx src/app/i18n.ts src/app/i18n.de.ts
 git show --stat HEAD | tail -12
+```
+
+---
+
+## Task 3b: AI can append an escalation
+
+User decisions 2026-09-13 (deviations 17–19): the AI records an escalation APPEND-ONLY through a dedicated `escalate_raid_item { id, expectedToken, toEmail, toName? }` tool; effects = the human Escalate minus the mail (entry + note echo + `raid.escalated` actor `ai` + the same severity plan, one functional write); the note is authored "AI created"; one call applies immediately and is undoable, two or more in a turn stage on the review card. Raw `escalations` through create/update stays refused by `RAID_FIELD_GUARDS` (unchanged).
+
+Depends on Task 2 (committed) and Task 3 (`buildEscalationEntry`, `describeEscalation`, `buildEscalationRecord`, `escalationActivityArgs`, `raid.escalated`, the note/activity i18n keys). Touches no file Tasks 4–6 touch.
+
+**Files:**
+- Modify:
+  - `src/app/action-escalate.ts` (`aiEscalationNoteAuthor`, `resolveEscalationRecipient`)
+  - `src/app/note-log.ts` (`addNote` keeps an explicit `authorName` without `self`)
+  - `src/app/i18n.ts`, `src/app/i18n.de.ts` (`raidNoteAuthorAi`)
+  - `src/app/types.ts` (`RaidEscalation` docstring)
+  - `src/app/raid-escalation.ts` (export the two caps)
+  - `src/app/chat-tools-updates.ts` (`requireEscalationRecipient`)
+  - `src/app/chat-tool-defs.ts` (`escalate_raid_item`)
+  - `src/app/chat-tools.ts` (`EscalateRaidResult`, `ToolDispatcher.escalateRaid`, `runTool` case)
+  - `src/app/use-register-tools.ts` (`escalateRaid`, `RegisterToolsDeps.resourcesRef`)
+  - `src/app/use-chat-dispatcher.ts` (pass `resourcesRef`)
+  - `src/app/chat-proposal.ts` (`ENTITY_WRITE_TOOLS`, `TARGET_MINTED_BY`)
+  - `src/app/chat-proposal-apply.ts` (`TOKEN_ROW_SOURCE`)
+  - `src/app/insights/recommend-tokens.ts` (`UPDATE_TARGET`)
+  - `lib/app-feature-guide.md`, `src/app/operating-guide-builtin.generated.ts` (regenerated)
+  - `docs/AGENTS/ai-assistant.md`
+- Test:
+  - `src/app/action-escalate.test.ts`
+  - `src/app/note-log.test.ts`
+  - `src/app/chat-tools.test.ts`
+  - `src/app/ai-entity-token.test.ts`
+  - `src/app/chat-proposal.test.ts`
+  - `src/app/chat-proposal-describe.test.ts`
+  - `src/app/chat-proposal-apply.test.tsx`
+  - `src/app/use-chat-dispatcher.undo.test.tsx`
+  - `src/app/use-chat-dispatcher.escalate.test.tsx` (NEW)
+
+**Registry ledger** (`git grep -n -E 'update_raid_item|create_raid_item|send_inquiry|sendInquiry' -- src e2e scripts` plus every `TOOL_DEFS` importer; `e2e/` has zero hits). ADD: `TOOL_DEFS`, `ToolDispatcher` + `runTool`, `requireEscalationRecipient`, the raid-escalation caps, `RegisterToolDispatcher` + writer + `resourcesRef`, the `useRegisterTools` call, `ENTITY_WRITE_TOOLS` ("every live tool is classified exactly once"), `TARGET_MINTED_BY` (the derived "addresses a row by id" test), `TOKEN_ROW_SOURCE` ("covers every token-guarded tool"), `UPDATE_TARGET` (`recommend-tokens.test.ts` pins the unstampable list exactly), the feature guide (`operating-guide-builtin.test.ts` pins the generated file), `ai-assistant.md`. NO-CHANGE, each deliberate: `LINK_FIELDS` / `DESTRUCTIVE_TOOLS` / `CREATE_MINT_KIND` / `sendsInvitations` (no id list, removes nothing, not a create, sends nothing); `ALLOWED_REC_TOOLS` (a persisted recommendation must not pick whom to escalate to; `recommend.test.ts` pins enum == set); `TOOL_ENTITY` / `chat-proposal-block.tsx` (no descriptor → the `send_inquiry`-style empty plan; the row title is the tool name); `inline-ai-edit` descriptors (`describeEntityCalls` matches only a descriptor's update/create/delete names); `chat-api.ts` `toolsFor` (derived); `voice.ts`; `buildUndoLabel` (`raid.escalated` → "Edited RAID item …"); scheduled jobs (no tool dispatch); `AXIS_BASELINE.raid` stays `{ declared: 16, undeclared: 7 }`.
+
+**Interfaces:**
+- Consumes:
+  - Task 3: `EscalationRecipient`, `EscalationNoteAuthor`, `buildEscalationEntry`, `describeEscalation`, `buildEscalationRecord`, `escalationActivityArgs`, `ActivityKind` `"raid.escalated"`
+  - `planEscalation`, `EscalationPlan` (`./action-escalate`)
+  - `requireToken`, `ConcurrencyTokenError` (`./chat-tools-updates`); `entityToken` (`./ai-entity-token`)
+  - `isValidEmail` (`./sanitize`); `resourceDisplayName` (`./resource-foundation`)
+  - `addNote`, `canEditNote`, `sanitizeNoteLog` (`./note-log`); `authorLabel` (`./note-log-panel`)
+  - `capturePart`, `undoRef.current.captureComposite` (`./undo/use-undo-stack`)
+  - `shouldStage` (`./chat-proposal`), unchanged: an entity write counts once, and more than one stages
+  - `RAID_FIELD_GUARDS.escalations` (unchanged; still the only raw-field guard)
+- Produces:
+  - `aiEscalationNoteAuthor(lang: Lang): EscalationNoteAuthor` → `{ self: null, authorName: t(lang, "raidNoteAuthorAi") }`
+  - i18n key `raidNoteAuthorAi` (EN `"AI created"`, DE `"Von KI erstellt"`)
+  - `addNote` keeps `authorName` when `self` is null (signature unchanged)
+  - `resolveEscalationRecipient(email: string, name: string, resources: readonly Pick<Resource, "id" | "firstName" | "lastName" | "email" | "emails">[]): EscalationRecipient`
+  - `const RAID_ESCALATION_NAME_MAX = 200`, `const RAID_ESCALATION_EMAIL_MAX = 320`
+  - `requireEscalationRecipient(input: Record<string, unknown>): { email: string; name: string }`
+  - `type EscalateRaidResult = { id: number; severity?: string; severityRaised: boolean; escalation: RaidEscalation; emailSent: false }`
+  - `ToolDispatcher.escalateRaid(id: number, recipient: { email: string; name: string }): EscalateRaidResult | null`
+  - `RegisterToolsDeps.resourcesRef: RefObject<readonly Resource[]>`
+  - tool `escalate_raid_item` (`required: ["id", "expectedToken", "toEmail"]`)
+
+**Note author — why a stored literal:** the label is stored as a literal `authorName` translated once at write time in `settings.language`, because that is exactly how the note log already stores authorship (a name snapshot beside an optional `authorResourceId`, shown first by `authorLabel` and by the export's `entry.authorName || noteLogNoAuthor`) and how the escalation note text itself is stored; a render-time marker would need a new persisted `NoteLogEntry` field through `note-log-policy.ts`, the panel and the export. It carries NO `authorResourceId`, so it is never attributed to `settings.selfResourceId`.
+
+Line endings: every `src/app/*.ts(x)` file here is CRLF in the working tree → Edit tool only; `i18n.de.ts` via the node patch script only. `lib/app-feature-guide.md`, `docs/AGENTS/ai-assistant.md` and `src/app/operating-guide-builtin.generated.ts` are LF. The new test file is created with Write.
+
+- [ ] **Step 0: Preconditions (read-only guard)**
+
+```bash
+S=C:/Users/SEBAST~1.MAU/AppData/Local/Temp/claude/C--Projects-aipm-wt-a/42ea2b8b-c65b-4e7e-ad1b-58c814f2bb82/scratchpad
+git grep -n -E "export function (buildEscalationRecord|buildEscalationEntry|describeEscalation|escalationActivityArgs)" -- src/app/action-escalate.ts
+git grep -n '"raid.escalated"' -- src/app/activity-log.ts
+git grep -n -E "raidEscalationNoteRaised|raidEscalationNoteNotifyOnly" -- src/app/i18n.ts src/app/i18n.de.ts
+git grep -n "self != null && authorName" -- src/app/note-log.ts
+git grep -n 'from "./types"' -- src/app/use-register-tools.ts
+git grep -n -E "emails\?: string\[\]|  email\?: string;" -- src/app/types.ts
+for f in src/app/chat-tools.ts src/app/use-register-tools.ts src/app/chat-tool-defs.ts src/app/chat-proposal.ts src/app/action-escalate.ts src/app/note-log.ts; do node -e "console.log(require('fs').readFileSync('$f','utf8').split('\n').length, '$f')"; done
+```
+
+Expected:
+- All four builder exports are present (Task 3 now produces `escalationActivityArgs` itself). If any is missing, STOP and report NEEDS_CONTEXT — Task 3 owns them; do not add them here.
+- `raid.escalated` is present; both note keys are present in BOTH i18n files (the DE anchor in Step 1 needs `raidEscalationNoteNotifyOnly`).
+- The `addNote` line `self != null && authorName` is present exactly once.
+- `use-register-tools.ts` has NO `./types` import (so Step 4 adds one).
+- `Resource` has `email?: string;` and `emails?: string[]`.
+- Every size is far below 1600 (measured before Task 3: chat-tools 928, use-register-tools 932, chat-tool-defs 910, chat-proposal 724).
+
+- [ ] **Step 1: i18n key (EN via the Edit tool, DE via the node script)**
+
+`src/app/i18n.ts`: replace `  raidEscalationNoteNotifyOnly: "Escalated to {0} (notify only)",` with:
+
+```ts
+  raidEscalationNoteNotifyOnly: "Escalated to {0} (notify only)",
+  raidNoteAuthorAi: "AI created",
+```
+
+Write `$S/de-task3b.json` with the Write tool (reusing `$S/patch-de.mjs` from Task 3):
+
+```json
+[
+  { "after": "  raidEscalationNoteNotifyOnly: ", "lines": [
+    "  raidNoteAuthorAi: \"Von KI erstellt\","
+  ] }
+]
+```
+
+```bash
+node "$S/patch-de.mjs" "$S/de-task3b.json"; echo "EXIT=$?"
+node -e "const s=require('fs').readFileSync('src/app/i18n.de.ts','utf8');const m=s.match(/\r\n  raidNoteAuthorAi: \"([^\"]*)\"/);console.log(m ? m[1] : 'MISSING')"
+```
+
+Expected: `patched; LF-only line ends: 0`, `EXIT=0`, then `Von KI erstellt`.
+
+- [ ] **Step 2: Write the failing tests**
+
+(a) `src/app/action-escalate.test.ts`: add `resolveEscalationRecipient, aiEscalationNoteAuthor` to the `./action-escalate` import, then append (it reuses Task 3's `raid`, `JANE`, `AT`, `AUTHOR` and the `loadI18n` import):
+
+```ts
+describe("resolveEscalationRecipient (§515 AI path)", () => {
+  const ADA = { id: 7, firstName: "Ada", lastName: "Lovelace", email: "ada@example.com", emails: ["a.l@example.com"] };
+  const GRACE = { id: 8, firstName: "Grace", lastName: "Hopper", email: "grace@example.com" };
+
+  it("links the one resource whose primary address matches, case-insensitively, and borrows its name", () => {
+    expect(resolveEscalationRecipient(" ADA@example.com ", "", [ADA, GRACE]))
+      .toEqual({ name: "Ada Lovelace", email: "ADA@example.com", resourceId: 7 });
+  });
+  it("matches an additional address too, and a model-chosen name wins", () => {
+    expect(resolveEscalationRecipient("a.l@example.com", " The Countess ", [ADA, GRACE]))
+      .toEqual({ name: "The Countess", email: "a.l@example.com", resourceId: 7 });
+  });
+  it("links nobody when no resource, or more than one, matches", () => {
+    expect(resolveEscalationRecipient("ops@example.com", "", [ADA, GRACE]))
+      .toEqual({ name: "", email: "ops@example.com", resourceId: null });
+    expect(resolveEscalationRecipient("grace@example.com", "", [GRACE, { ...GRACE, id: 9 }]))
+      .toEqual({ name: "", email: "grace@example.com", resourceId: null });
+  });
+});
+
+describe("aiEscalationNoteAuthor (§515, user decision: \"AI created\")", () => {
+  it("labels the note \"AI created\" and attributes it to no resource (positive control: a self id DOES attribute)", () => {
+    const item = raid({ id: 3, category: "I", severity: "High" });
+    const plan = planEscalation(item);
+    const ai = buildEscalationRecord(item, plan, JANE, AT, "x", aiEscalationNoteAuthor("en-US"));
+    const human = buildEscalationRecord(item, plan, JANE, AT, "x", AUTHOR);
+    expect(ai.noteLog?.[0]?.authorName).toBe("AI created");
+    expect(ai.noteLog?.[0]?.authorResourceId).toBeUndefined();
+    expect(human.noteLog?.[0]?.authorResourceId).toBe(7);
+  });
+  it("is translated in German", async () => {
+    await loadI18n("de");
+    expect(aiEscalationNoteAuthor("de")).toEqual({ self: null, authorName: "Von KI erstellt" });
+  });
+});
+```
+
+(b) `src/app/note-log.test.ts`: replace
+
+```ts
+    const out = addNote([], { html: "<p>x</p>", text: "x", timestamp: "2026-02-02T00:00:00.000Z", self: null });
+    expect(out[0].authorResourceId).toBeUndefined();
+  });
+```
+
+with
+
+```ts
+    const out = addNote([], { html: "<p>x</p>", text: "x", timestamp: "2026-02-02T00:00:00.000Z", self: null });
+    expect(out[0].authorResourceId).toBeUndefined();
+  });
+  it("keeps an explicit authorName without a self id — the AI escalation label (§515)", () => {
+    const out = addNote([], { html: "<p>x</p>", text: "x", timestamp: "2026-02-02T00:00:00.000Z", self: null, authorName: "AI created" });
+    expect(out[0].authorName).toBe("AI created");
+    expect(out[0].authorResourceId).toBeUndefined();
+    // The label survives the load-boundary validator every codec decodes through.
+    expect(sanitizeNoteLog(out)[0]?.authorName).toBe("AI created");
+    // Existing rule, unchanged: no authorResourceId → anyone may edit it.
+    expect(canEditNote(out[0], 8)).toBe(true);
+  });
+```
+
+(c) `src/app/chat-tools.test.ts`, in three edits:
+1. In `makeDispatcher`, replace `    deleteRaid: vi.fn((id: number) => id === 10),` with:
+
+```ts
+    deleteRaid: vi.fn((id: number) => id === 10),
+    escalateRaid: vi.fn((id: number, recipient: { email: string; name: string }) =>
+      id === 10
+        ? {
+            id: 10, severity: "High", severityRaised: false, emailSent: false as const,
+            escalation: { at: "2026-06-02T00:00:00.000Z", toEmail: recipient.email },
+          }
+        : null,
+    ),
+```
+
+2. In `expectedRequired`, replace `    update_raid_item: ["id", "expectedToken"],` with:
+
+```ts
+    update_raid_item: ["id", "expectedToken"],
+    escalate_raid_item: ["id", "expectedToken", "toEmail"],
+```
+
+3. Replace `describe("runTool — send_inquiry", () => {` with the block below followed by that same line:
+
+```ts
+describe("runTool — escalate_raid_item (§515, append-only)", () => {
+  it("forwards ONLY the validated recipient — no raw escalations, severity, note log or resource id rides along", async () => {
+    const d = makeDispatcher();
+    const result = await runTool(d, "escalate_raid_item", {
+      id: 10, expectedToken: FRESH_RAID_TOKEN, toEmail: "  jane@example.com ", toName: " Jane Doe ",
+      escalations: [], severity: "Low", noteLog: [], toResourceId: 99,
+    });
+    expect(d.escalateRaid).toHaveBeenCalledTimes(1);
+    expect(d.escalateRaid).toHaveBeenCalledWith(10, { email: "jane@example.com", name: "Jane Doe" });
+    expect(d.updateRaid).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ id: 10, emailSent: false });
+  });
+
+  it("refuses an escalation that supplies no token", async () => {
+    const d = makeDispatcher();
+    await expect(runTool(d, "escalate_raid_item", { id: 10, toEmail: "jane@example.com" }))
+      .rejects.toThrow(/expectedToken is required/);
+    expect(d.escalateRaid).not.toHaveBeenCalled();
+  });
+
+  it("refuses a stale token", async () => {
+    const d = makeDispatcher();
+    const stale = entityToken("raid", makeRaidItem({ severity: "Low" }));
+    await expect(runTool(d, "escalate_raid_item", { id: 10, expectedToken: stale, toEmail: "jane@example.com" }))
+      .rejects.toThrow(/changed since you read it/);
+    expect(d.escalateRaid).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ toEmail: "not-an-address" }, /toEmail must be a valid email/],
+    [{}, /toEmail must be a valid email/],
+    [{ toEmail: 42 }, /toEmail must be a valid email/],
+    [{ toEmail: `${"a".repeat(315)}@x.com` }, /toEmail must be a valid email/],
+    [{ toEmail: "jane@example.com", toName: 7 }, /toName must be a string/],
+    [{ toEmail: "jane@example.com", toName: "n".repeat(201) }, /toName must be at most 200/],
+  ])("rejects the invalid recipient %o with a model-facing error and writes nothing", async (recipient, message) => {
+    const d = makeDispatcher();
+    await expect(runTool(d, "escalate_raid_item", { id: 10, expectedToken: FRESH_RAID_TOKEN, ...recipient }))
+      .rejects.toThrow(message);
+    expect(d.escalateRaid).not.toHaveBeenCalled();
+  });
+
+  it("reports a missing item as not found, before the token", async () => {
+    const d = makeDispatcher();
+    await expect(runTool(d, "escalate_raid_item", { id: 99, toEmail: "jane@example.com" }))
+      .rejects.toThrow("RAID item #99 not found");
+    expect(d.escalateRaid).not.toHaveBeenCalled();
+  });
+});
+```
+
+(d) `src/app/ai-entity-token.test.ts`: replace `  const GUARDED_NON_UPDATE = ["set_task_dependencies"];` with `  const GUARDED_NON_UPDATE = ["set_task_dependencies", "escalate_raid_item"];`.
+
+(e) `src/app/chat-proposal.test.ts` — this pins the REVIEW FLOW (user decision 4) at the rule that decides it. Two edits:
+1. Replace `  "create_raid_item", "update_raid_item",` (the `NON_DESTRUCTIVE_WRITE_NAMES` line) with `  "create_raid_item", "update_raid_item", "escalate_raid_item",`.
+2. In the `shouldStage` table, replace `    ["two send_inquiry",               [call("send_inquiry", { id: 1 }), call("send_inquiry", { id: 2 })], true],` with:
+
+```ts
+    ["two send_inquiry",               [call("send_inquiry", { id: 1 }), call("send_inquiry", { id: 2 })], true],
+    // §515 review flow: ONE AI escalation applies immediately (undoable, pinned by
+    // the `escalateRaid` undo site); two or more in a turn go to the review card.
+    ["one escalate_raid_item",         [call("escalate_raid_item", { id: 1 })],              false],
+    ["two escalate_raid_item",         [call("escalate_raid_item", { id: 1 }), call("escalate_raid_item", { id: 2 })], true],
+    ["escalate + update_raid_item",    [call("update_raid_item", { id: 1 }), call("escalate_raid_item", { id: 1 })], true],
+```
+
+(f) `src/app/chat-proposal-describe.test.ts`: replace
+
+```ts
+      "delete_all_tasks", "send_inquiry", "set_task_dependencies",
+    ];
+```
+
+with
+
+```ts
+      "delete_all_tasks", "send_inquiry", "set_task_dependencies",
+      "escalate_raid_item",
+    ];
+```
+
+and insert, directly after the closing `  });` of `test("omits exactly the stageable write tools the descriptor engine cannot diff", …)` (same `describe`, so `ws` and `call` are in scope):
+
+```ts
+  test("stamps escalate_raid_item with the live RAID row's token and describes no diff (§515)", () => {
+    const raid7 = {
+      id: 7, category: "I", title: "Vendor down", status: "Open", severity: "High",
+      linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-05-01",
+    };
+    const withRaid = { ...ws, raid: [raid7] } as unknown as Workspace;
+    const [described] = describeProposal([call("escalate_raid_item", { id: 7, toEmail: "jane@example.com" })], withRaid);
+    expect(described.stamped.input.expectedToken).toBe(entityToken("raid", raid7));
+    expect(described.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+  });
+```
+
+(g) `src/app/chat-proposal-apply.test.tsx`, two edits:
+1. Replace `    expect(TOKEN_REQUIRED_TOOLS.size).toBe(9);` with `    expect(TOKEN_REQUIRED_TOOLS.size).toBe(10);`, and `    expect(advertised).toHaveLength(9);` with `    expect(advertised).toHaveLength(10);`.
+2. Replace `  test("it names the eight update tools and set_task_dependencies", () => {` with `  test("it names the eight update tools, set_task_dependencies and escalate_raid_item", () => {`, and in that test's literal replace `    expect([...TOKEN_REQUIRED_TOOLS].sort()).toEqual([\n      "set_task_dependencies",` with `    expect([...TOKEN_REQUIRED_TOOLS].sort()).toEqual([\n      "escalate_raid_item",\n      "set_task_dependencies",`. ★ Keep BOTH lines in the anchor: the first line alone also matches the `toEqual([...advertised].sort())` assertion just above, so a one-line anchor is not unique. `"escalate_raid_item"` sorts before `"set_task_dependencies"`, so the literal stays sorted.
+
+(h) `src/app/use-chat-dispatcher.undo.test.tsx` — pins "applies immediately and is undoable". Replace
+
+```ts
+    kind: "raid.updated", entityKey: "raid", primaryCount: 1,
+  },
+  {
+    site: "deleteRaid",
+```
+
+with
+
+```ts
+    kind: "raid.updated", entityKey: "raid", primaryCount: 1,
+  },
+  {
+    site: "escalateRaid",
+    act: (d) => { d.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); },
+    verify: (d) => { expect(d.getRaidRow(2)?.escalations).toHaveLength(1); },
+    // ★ `seedRaid` carries no `escalations` and no `noteLog`, so a correct revert
+    //   leaves both undefined; a merged-row capture would put the entry back.
+    restored: (d) => {
+      expect(d.getRaidRow(2)?.escalations).toBeUndefined();
+      expect(d.getRaidRow(2)?.noteLog).toBeUndefined();
+      expect(ids(d.listRaid())).toEqual([1, 2, 3]);
+    },
+    kind: "raid.escalated", entityKey: "raid", primaryCount: 1,
+  },
+  {
+    site: "deleteRaid",
+```
+
+(i) NEW `src/app/use-chat-dispatcher.escalate.test.tsx` (Write tool):
+
+```tsx
+import { act, renderHook } from "@testing-library/react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
+import { describeEscalation } from "./action-escalate";
+import { entityToken } from "./ai-entity-token";
+import { runTool } from "./chat-tools";
+import { loadI18n } from "./i18n";
+import { authorLabel } from "./note-log-panel";
+import { defaultSettings } from "./settings-types";
+import type { RaidItem, Resource } from "./types";
+import { useChatDispatcher, type ChatDispatcherArgs } from "./use-chat-dispatcher";
+import { useWorkspace } from "./workspace-context";
+
+// §515 — the AI appends ONE escalation through the real dispatcher. Every
+// assertion reads the STORED row (the tool returns a summary), and every
+// refusal carries a positive control in the same test.
+
+function issue(over: Partial<RaidItem> = {}): RaidItem {
+  return {
+    id: 5, category: "I", title: "Vendor down", status: "Open", severity: "High",
+    linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-05-01",
+    ...over,
+  };
+}
+const EARLIER = { at: "2026-05-01T09:00:00.000Z", toEmail: "ops@example.com" };
+const JANE = {
+  id: 4, firstName: "Jane", lastName: "Doe", email: "jane@example.com",
+  roleId: null, utilizationMode: "percent", utilization: {},
+} as unknown as Resource;
+// The user IS Jane: a note wrongly attributed to `selfResourceId` would carry id 4.
+const EN_AS_JANE = { ...defaultSettings, language: "en-US" as const, selfResourceId: 4 };
+
+function probe(raid: RaidItem[], over: Partial<ChatDispatcherArgs> = {}) {
+  const logActivityAs = vi.fn();
+  const hook = renderHook(
+    () => ({ d: useChatDispatcher(makeDispatcherArgs({ logActivityAs, ...over })), ws: useWorkspace() }),
+    { wrapper: dispatcherWrapperWith({ raid, resources: [JANE] }) },
+  );
+  return { ...hook, logActivityAs };
+}
+const stored = (ws: { raid: readonly RaidItem[] }, id = 5) => ws.raid.find((r) => r.id === id)!;
+const tokenOf = (row: RaidItem | null) => entityToken("raid", row!);
+
+describe("escalate_raid_item — the AI appends one escalation (§515)", () => {
+  it("appends the entry, an \"AI created\" note, the severity step and one raid.escalated row", async () => {
+    const { result, logActivityAs } = probe([issue({ escalations: [EARLIER] })], { settings: EN_AS_JANE });
+    let out: unknown;
+    await act(async () => {
+      out = await runTool(result.current.d, "escalate_raid_item", {
+        id: 5, expectedToken: tokenOf(result.current.d.getRaidRow(5)), toEmail: "jane@example.com",
+      });
+    });
+    const row = stored(result.current.ws);
+    expect(row.severity).toBe("Critical");
+    expect(row.escalations).toEqual([
+      EARLIER,
+      { at: expect.any(String), toName: "Jane Doe", toEmail: "jane@example.com", toResourceId: 4, fromSeverity: "High", toSeverity: "Critical" },
+    ]);
+    expect(row.noteLog).toHaveLength(1);
+    expect(row.noteLog?.[0]?.text).toBe(describeEscalation("en-US", row.escalations![1]));
+    // Author: the literal label, NOT the user's own resource (selfResourceId 4 is set above).
+    expect(row.noteLog?.[0]?.authorName).toBe("AI created");
+    expect(row.noteLog?.[0]?.authorResourceId).toBeUndefined();
+    expect(authorLabel(row.noteLog![0], [JANE])).toBe("AI created");
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "raid.escalated", 5, "High", "Critical");
+    // Positive control above (the row was logged); the address never is.
+    expect(JSON.stringify(logActivityAs.mock.calls)).not.toContain("jane@example.com");
+    expect(out).toMatchObject({ id: 5, severity: "Critical", severityRaised: true, emailSent: false });
+  });
+
+  it.each([
+    ["an Issue already at Critical", issue({ severity: "Critical" }), "Critical"],
+    ["a Risk, whose severity the matrix owns", issue({ category: "R", severity: "High" }), "High"],
+  ])("records %s as notify-only and leaves severity alone", async (_label, seed, severity) => {
+    const { result, logActivityAs } = probe([seed]);
+    await act(async () => {
+      await runTool(result.current.d, "escalate_raid_item", {
+        id: 5, expectedToken: tokenOf(result.current.d.getRaidRow(5)), toEmail: "ops@example.com",
+      });
+    });
+    const row = stored(result.current.ws);
+    expect(row.severity).toBe(severity);
+    expect(row.escalations).toEqual([{ at: expect.any(String), toEmail: "ops@example.com" }]);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "raid.escalated", 5, severity, severity);
+  });
+
+  it.each([
+    ["clear", []],
+    ["rewrite", [{ ...EARLIER, toEmail: "evil@example.com" }]],
+  ])("update_raid_item cannot %s the history (positive control: the title DOES change)", async (_verb, escalations) => {
+    const { result } = probe([issue({ escalations: [EARLIER] })]);
+    await act(async () => {
+      await runTool(result.current.d, "update_raid_item", {
+        id: 5, expectedToken: tokenOf(result.current.d.getRaidRow(5)), title: "Vendor down (renamed)", escalations,
+      });
+    });
+    const row = stored(result.current.ws);
+    expect(row.title).toBe("Vendor down (renamed)");
+    expect(row.escalations).toEqual([EARLIER]);
+  });
+
+  it("refuses a second escalation made from the same read, so a retried call cannot double-record", async () => {
+    const { result } = probe([issue()]);
+    const token = tokenOf(result.current.d.getRaidRow(5));
+    await act(async () => {
+      await runTool(result.current.d, "escalate_raid_item", { id: 5, expectedToken: token, toEmail: "jane@example.com" });
+    });
+    await act(async () => {
+      await expect(
+        runTool(result.current.d, "escalate_raid_item", { id: 5, expectedToken: token, toEmail: "jane@example.com" }),
+      ).rejects.toThrow(/changed since you read it/);
+    });
+    expect(stored(result.current.ws).escalations).toHaveLength(1); // the first one DID land
+  });
+
+  it("composes with a same-tick human edit to another field (ONE functional write)", () => {
+    const { result } = probe([issue()]);
+    act(() => {
+      result.current.ws.setRaid((prev) => prev.map((r) => (r.id === 5 ? { ...r, title: "Renamed by a human" } : r)));
+      result.current.d.escalateRaid(5, { email: "jane@example.com", name: "" });
+    });
+    const row = stored(result.current.ws);
+    expect(row.title).toBe("Renamed by a human");
+    expect(row.escalations).toHaveLength(1);
+    expect(row.severity).toBe("Critical");
+  });
+
+  it("refuses in a read-only popout and records nothing (positive control: the refusal fires)", () => {
+    const { result, logActivityAs } = probe([issue()], { isReadOnly: true });
+    expect(() => result.current.d.escalateRaid(5, { email: "jane@example.com", name: "" })).toThrow(/pop-?out/i);
+    expect(stored(result.current.ws).escalations).toBeUndefined();
+    expect(logActivityAs).not.toHaveBeenCalled();
+  });
+
+  describe("in German", () => {
+    beforeAll(async () => {
+      await loadI18n("de");
+    });
+    it("writes the note AND its author label in the project language", async () => {
+      const { result } = probe([issue()], { settings: { ...EN_AS_JANE, language: "de" } });
+      await act(async () => {
+        await runTool(result.current.d, "escalate_raid_item", {
+          id: 5, expectedToken: tokenOf(result.current.d.getRaidRow(5)), toEmail: "ops@example.com",
+        });
+      });
+      const row = stored(result.current.ws);
+      expect(row.noteLog?.[0]?.text).toBe(describeEscalation("de", row.escalations![0]));
+      expect(row.noteLog?.[0]?.text.startsWith("Eskaliert an ops@example.com")).toBe(true);
+      expect(row.noteLog?.[0]?.authorName).toBe("Von KI erstellt");
+      expect(row.noteLog?.[0]?.authorResourceId).toBeUndefined();
+    });
+  });
+});
+```
+
+- [ ] **Step 3: Run them and watch them fail**
+
+```bash
+npx vitest run src/app/action-escalate.test.ts src/app/note-log.test.ts src/app/chat-tools.test.ts src/app/ai-entity-token.test.ts src/app/chat-proposal.test.ts src/app/chat-proposal-describe.test.ts src/app/chat-proposal-apply.test.tsx src/app/use-chat-dispatcher.undo.test.tsx src/app/use-chat-dispatcher.escalate.test.tsx --maxWorkers=1 --reporter=dot > "$S/t3b-red.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |FAIL" "$S/t3b-red.log" | head -30
+```
+
+Expected: `EXIT=1`, with all 9 files failing or close to it. The expected reasons:
+- `resolveEscalationRecipient` / `aiEscalationNoteAuthor` is not a function.
+- `addNote … keeps an explicit authorName without a self id` sees `authorName` undefined (the `self != null` gate).
+- `runTool` throws its unknown-tool error for `escalate_raid_item`, and the `expectedRequired` lookup is undefined.
+- The advertising and classification sets lack the tool (`ai-entity-token`; `chat-proposal` "classified exactly once" — the LITERAL now has a name the live defs lack; the `one escalate_raid_item` row is `false` either way, but the `two` row reads `false` while the tool is unclassified).
+- `TOKEN_REQUIRED_TOOLS.size` is 9.
+- `d.escalateRaid is not a function` in both dispatcher files.
+
+- [ ] **Step 4: Implement**
+
+`src/app/note-log.ts`, two edits:
+1. Replace
+
+```ts
+/** Append a new stamped entry, minting its id and attributing it to `self`
+ *  when present (an authorless entry when the user has no linked resource). */
+```
+
+with
+
+```ts
+/** Append a new stamped entry, minting its id and attributing it to `self`
+ *  when present (an authorless entry when the user has no linked resource).
+ *  An explicit `authorName` is kept even without `self` — the AI escalation
+ *  note's "AI created" label (§515). The notes window derives its name from
+ *  the `self` resource, so it never passes one without a self id. */
+```
+
+2. Replace `    ...(self != null && authorName ? { authorName } : {}),` with `    ...(authorName ? { authorName } : {}),`.
+
+`src/app/types.ts`: replace ` *  App-written by the Next-actions Escalate CTA; model-read-only. */` with:
+
+```ts
+ *  App-written by the Next-actions Escalate CTA and, APPEND-ONLY, by the AI
+ *  `escalate_raid_item` tool; never model-writable through create/update. */
+```
+
+`src/app/raid-escalation.ts`: replace
+
+```ts
+const NAME_MAX = 200;
+const EMAIL_MAX = 320;
+```
+
+with
+
+```ts
+/** Caps shared with the AI `escalate_raid_item` boundary check (§515), so a
+ *  recipient the tool accepts is one this sanitizer keeps verbatim. */
+export const RAID_ESCALATION_NAME_MAX = 200;
+export const RAID_ESCALATION_EMAIL_MAX = 320;
+const NAME_MAX = RAID_ESCALATION_NAME_MAX;
+const EMAIL_MAX = RAID_ESCALATION_EMAIL_MAX;
+```
+
+`src/app/action-escalate.ts`, two edits:
+1. Replace `import { RAID_SEVERITIES, type RaidEscalation, type RaidItem, type RaidSeverity } from "./types";` with `import { RAID_SEVERITIES, type RaidEscalation, type RaidItem, type RaidSeverity, type Resource } from "./types";`, and replace `import { severityLabel } from "./raid-labels";` with:
+
+```ts
+import { severityLabel } from "./raid-labels";
+import { resourceDisplayName } from "./resource-foundation";
+```
+
+2. Append at the end of the file:
+
+```ts
+/** The note author for an escalation the AI assistant records (§515, user
+ *  decision 2026-09-13): the literal label "AI created", translated ONCE at
+ *  write time like the note text itself, and NO `self` — attributing it to
+ *  `settings.selfResourceId` would credit the user with a line they did not
+ *  write. `authorLabel` shows `authorName` first, so no render-time marker is
+ *  needed; the activity row's `ai` actor records who acted. */
+export function aiEscalationNoteAuthor(lang: Lang): EscalationNoteAuthor {
+  return { self: null, authorName: t(lang, "raidNoteAuthorAi") };
+}
+
+/** The recipient of an AI escalation chosen by e-mail. Links the ONE directory
+ *  resource whose primary or additional address matches (case-insensitive);
+ *  zero or several matches link nobody. A model-chosen name wins, else the
+ *  linked resource's display name fills it.
+ *  ★★ E-mail, never a resource id: a staged plan can remap id ARRAYS only
+ *  (`LINK_FIELDS`), so a scalar id minted earlier in the same turn would be
+ *  stored dangling — or against a live stranger with the same number. */
+export function resolveEscalationRecipient(
+  email: string,
+  name: string,
+  resources: readonly Pick<Resource, "id" | "firstName" | "lastName" | "email" | "emails">[],
+): EscalationRecipient {
+  const wanted = email.trim().toLowerCase();
+  const matches = resources.filter((r) =>
+    [r.email, ...(r.emails ?? [])].some((e) => typeof e === "string" && e.trim().toLowerCase() === wanted),
+  );
+  const linked = matches.length === 1 ? matches[0] : undefined;
+  const chosen = name.trim();
+  return {
+    name: chosen || (linked ? resourceDisplayName(linked) : ""),
+    email: email.trim(),
+    resourceId: linked ? linked.id : null,
+  };
+}
+```
+
+`src/app/chat-tools-updates.ts`, two edits:
+1. Replace `import { sanitizeGroup, sanitizeLabels } from "./sanitize";` with:
+
+```ts
+import { isValidEmail, sanitizeGroup, sanitizeLabels } from "./sanitize";
+import { RAID_ESCALATION_EMAIL_MAX, RAID_ESCALATION_NAME_MAX } from "./raid-escalation";
+```
+
+2. Append at the end of the file:
+
+```ts
+/** The recipient of an `escalate_raid_item` call, validated at the TOOL
+ *  BOUNDARY (§515). Throws a model-facing message for any value the escalation
+ *  record could not store verbatim. It returns ONLY these two fields, which is
+ *  what keeps the tool append-only: no other model key (a raw `escalations`,
+ *  a `severity`, a `toResourceId`) can reach the writer.
+ *  ★ Unlocalized on purpose, like every other `throw` in `runTool`. */
+export function requireEscalationRecipient(input: Record<string, unknown>): { email: string; name: string } {
+  const email = typeof input.toEmail === "string" ? input.toEmail.trim() : "";
+  if (!email || !isValidEmail(email) || email.length > RAID_ESCALATION_EMAIL_MAX) {
+    throw new Error(`toEmail must be a valid email address of at most ${RAID_ESCALATION_EMAIL_MAX} characters`);
+  }
+  const rawName = input.toName;
+  if (rawName !== undefined && rawName !== null && typeof rawName !== "string") {
+    throw new Error("toName must be a string when given");
+  }
+  const name = typeof rawName === "string" ? rawName.trim() : "";
+  if (name.length > RAID_ESCALATION_NAME_MAX) {
+    throw new Error(`toName must be at most ${RAID_ESCALATION_NAME_MAX} characters`);
+  }
+  return { email, name };
+}
+```
+
+`src/app/chat-tool-defs.ts`: replace
+
+```ts
+    description: "Update fields on an existing RAID item. Only the fields you pass change.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" }, ...expectedTokenField, ...raidFields },
+      required: ["id", "expectedToken"],
+    },
+  },
+```
+
+with
+
+```ts
+    description: "Update fields on an existing RAID item. Only the fields you pass change.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" }, ...expectedTokenField, ...raidFields },
+      required: ["id", "expectedToken"],
+    },
+  },
+  {
+    name: "escalate_raid_item",
+    // ★★ APPEND-ONLY, AND A SEPARATE TOOL ON PURPOSE (§515). `update_raid_item`
+    //  refuses `escalations` outright (`RAID_FIELD_GUARDS`); this tool can only
+    //  ADD one entry, planned by the same `planEscalation` the Escalate CTA uses.
+    //  Token-guarded because `escalations` and `severity` are both token-covered,
+    //  which is also what refuses a second escalation made from the same read.
+    description:
+      "Record that a RAID item was escalated to a person. Appends ONE entry to the item's escalation history, adds a dated note labelled 'AI created', and — for an Issue, Assumption or Dependency below Critical — raises its severity one step (a Risk, or an item already Critical or without a severity, is recorded as notify-only). It sends NO email and contacts no one: tell the user to reach the recipient themselves. Existing history entries can never be edited or removed. Pass the expectedToken from list_raid; escalating the same item again needs a fresh read.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "number" },
+        ...expectedTokenField,
+        toEmail: {
+          type: "string",
+          description: "Recipient's email address. A directory resource with this address is linked automatically.",
+        },
+        toName: { type: "string", description: "Recipient's display name. Omit to use the linked resource's name." },
+      },
+      required: ["id", "expectedToken", "toEmail"],
+    },
+  },
+```
+
+`src/app/chat-tools.ts`, five edits:
+1. Replace `  requireTaskWriteToken,\n  requireToken,\n} from "./chat-tools-updates";` with `  requireEscalationRecipient,\n  requireTaskWriteToken,\n  requireToken,\n} from "./chat-tools-updates";`.
+2. Replace `  type Priority,\n  type RaidItem,` with `  type Priority,\n  type RaidEscalation,\n  type RaidItem,`.
+3. Replace `export type RaidSummary = {` with the block below followed by `export type RaidSummary = {`:
+
+```ts
+/** What `escalate_raid_item` reports back (§515). `emailSent` is always false —
+ *  it is there so the model cannot read the result as a sent message. */
+export type EscalateRaidResult = {
+  id: number;
+  severity?: string;
+  severityRaised: boolean;
+  escalation: RaidEscalation;
+  emailSent: false;
+};
+
+```
+
+4. Replace `  deleteRaid(id: number): boolean;` with:
+
+```ts
+  deleteRaid(id: number): boolean;
+  /** Append ONE escalation to RAID item `id` (§515): the record, its "AI
+   *  created" note echo, the planned severity step and a `raid.escalated` row,
+   *  as one write. Null when the item does not exist. Never sends mail. */
+  escalateRaid(id: number, recipient: { email: string; name: string }): EscalateRaidResult | null;
+```
+
+5. Replace `    case "delete_raid_item": {` with:
+
+```ts
+    case "escalate_raid_item": {
+      const id = requireId(input);
+      // The `update_raid_item` order — not-found, then the token — and only
+      // then the recipient, so a stale read reports "changed" before "bad input".
+      const current = d.getRaidRow(id);
+      if (!current) throw new Error(`RAID item #${id} not found`);
+      requireToken("raid", current, input, `RAID item #${id}`);
+      const recipient = requireEscalationRecipient(input);
+      const result = d.escalateRaid(id, recipient);
+      if (!result) throw new Error(`RAID item #${id} not found`);
+      return result;
+    }
+
+    case "delete_raid_item": {
+```
+
+`src/app/use-register-tools.ts`, seven edits:
+1. Replace `import { AI_RICH_FIELDS, withAiRichFields } from "./ai-rich-text";` with:
+
+```ts
+import {
+  aiEscalationNoteAuthor,
+  buildEscalationEntry,
+  buildEscalationRecord,
+  describeEscalation,
+  escalationActivityArgs,
+  planEscalation,
+  resolveEscalationRecipient,
+} from "./action-escalate";
+import { AI_RICH_FIELDS, withAiRichFields } from "./ai-rich-text";
+```
+
+2. Replace `import type { ProjectClock } from "./timezone";` with:
+
+```ts
+import type { ProjectClock } from "./timezone";
+import type { RaidItem, Resource } from "./types";
+```
+
+3. Replace `  | "deleteRaid"\n  | "listChanges"` with `  | "deleteRaid"\n  | "escalateRaid"\n  | "listChanges"`.
+4. Replace `  undoRef: RefObject<Pick<UndoStackApi, "captureComposite"> | undefined>;\n}` with:
+
+```ts
+  undoRef: RefObject<Pick<UndoStackApi, "captureComposite"> | undefined>;
+  /** Owned by use-chat-dispatcher, which also owns the resource WRITERS, so an
+   *  escalation in the same turn as a `create_resource` sees the new row. Read
+   *  only to link an escalation recipient by e-mail (§515). */
+  resourcesRef: RefObject<readonly Resource[]>;
+}
+```
+
+5. Replace `  const { isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave, undoRef } = deps;` with `  const { isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave, undoRef, resourcesRef } = deps;`.
+6. Replace `      // ★★ These four registers count toward the save-time data-loss guards,` with:
+
+```ts
+      // ★★★ APPEND-ONLY (§515) — the one AI path that writes `escalations`. It
+      //  ADDS one entry through the SAME pure builders the Escalate CTA uses, so
+      //  the human and AI records cannot drift; `update_raid_item` still refuses
+      //  the raw field (`RAID_FIELD_GUARDS`).
+      //  ★★ ONE FUNCTIONAL `setRaid`, unlike the writers around it: the plan is
+      //  read ONCE from the ref row (which `runTool` just token-checked) and
+      //  APPLIED to the row the updater is handed, so a same-tick human edit to
+      //  another field survives. The ref advances too, so a later call in the
+      //  same turn reads this write — and finds its token moved.
+      //  ★★ The note is authored "AI created" (`aiEscalationNoteAuthor`), never
+      //  `settings.selfResourceId` — the user did not write it.
+      //  ★ KNOWN LIMIT (Task 3's, deviation 15): a same-tick SEVERITY write is
+      //  overwritten by the planned step. No mail; no address in the activity row.
+      escalateRaid: (id, { email, name }) => {
+        if (isReadOnly) throw readOnlyError();
+        const existing = raidRef.current.find((r) => r.id === id);
+        if (!existing) return null;
+        const at = new Date().toISOString();
+        const lang = settingsRef.current.language;
+        const recipient = resolveEscalationRecipient(email, name, resourcesRef.current);
+        const plan = planEscalation(existing);
+        const entry = buildEscalationEntry(plan, recipient, at);
+        const noteText = describeEscalation(lang, entry);
+        const author = aiEscalationNoteAuthor(lang);
+        const apply = (r: RaidItem): RaidItem =>
+          r.id === id ? buildEscalationRecord(r, plan, recipient, at, noteText, author) : r;
+        // STORED row + PRE-op array, exactly as `updateRaid` captures.
+        undoRef.current?.captureComposite({
+          kind: "raid.escalated",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setRaid,
+            edited: [existing],
+            fromArray: raidRef.current,
+            isPrimary: true,
+          })],
+          name: existing.title,
+          entityKey: "raid",
+        });
+        raidRef.current = raidRef.current.map(apply);
+        setRaid((prev) => prev.map(apply));
+        logActivityAs?.("ai", "raid.escalated", id, ...escalationActivityArgs(existing, plan));
+        return {
+          id,
+          severity: plan.raisesSeverity && plan.to ? plan.to : existing.severity,
+          severityRaised: plan.raisesSeverity,
+          escalation: entry,
+          emailSent: false,
+        };
+      },
+      // ★★ These four registers count toward the save-time data-loss guards,
+```
+
+7. In the `useMemo` dep array, replace `      undoRef,\n      setRaid,` with:
+
+```ts
+      undoRef,
+      // ★ A ref from `deps`, listed for the same reason as `clockRef`/`undoRef`.
+      resourcesRef,
+      setRaid,
+```
+
+`src/app/use-chat-dispatcher.ts`: in the `useRegisterTools({ … })` call, replace `    undoRef,\n  });` with `    undoRef,\n    resourcesRef,\n  });`. (`resourcesRef` already exists there; the resource writers assign `resourcesRef.current = next` synchronously.)
+
+`src/app/chat-proposal.ts`, three edits:
+1. Replace `  "create_raid_item", "update_raid_item",` with `  "create_raid_item", "update_raid_item", "escalate_raid_item",`.
+2. Replace ` *   this name-level membership, not a reason to leave the name out of it. */` with:
+
+```ts
+ *   this name-level membership, not a reason to leave the name out of it.
+ *
+ *  ★★ `escalate_raid_item` (§515) is an ordinary single-row RAID write: it sends
+ *   no mail (unlike `send_inquiry`, whose handler opens a mail client) and it is
+ *   undo-captured, so one call applies and two stage (user decision 2026-09-13). */
+```
+
+3. Replace `  delete_raid_item: "create_raid_item",` with `  delete_raid_item: "create_raid_item",\n  escalate_raid_item: "create_raid_item",`.
+
+`src/app/chat-proposal-apply.ts`: replace `  update_raid_item: { kind: "raid", getRow: (d, id) => d.getRaidRow(id) },` with `  update_raid_item: { kind: "raid", getRow: (d, id) => d.getRaidRow(id) },\n  escalate_raid_item: { kind: "raid", getRow: (d, id) => d.getRaidRow(id) },`.
+
+`src/app/insights/recommend-tokens.ts`: replace `  update_raid_item: { kind: "raid", key: "raid" },` with:
+
+```ts
+  update_raid_item: { kind: "raid", key: "raid" },
+  // Not an `update_*` tool either (§515): it writes `escalations` and `severity`,
+  // both raid-token-covered. Not in `ALLOWED_REC_TOOLS`, so this row serves
+  // `chat-proposal-describe.ts`'s staged-row stamping only.
+  escalate_raid_item: { kind: "raid", key: "raid" },
+```
+
+- [ ] **Step 5: Model-facing guide + agent docs**
+
+`lib/app-feature-guide.md` (LF), three edits:
+1. Replace `You cannot write a note on anything, and you cannot read notes on RAID items or change items at all` with `You cannot write a note on anything (recording a RAID escalation adds its own dated note, labelled "AI created"), and you cannot read notes on RAID items or change items at all`.
+2. Replace `send an inquiry about a task, and read everything else.` with `send an inquiry about a task, record a RAID escalation (no email is sent), and read everything else.`
+3. ★ The sentence `It CANNOT read or write the note log — there is no tool for notes.` occurs TWICE (the RAID bullet and the change-control bullet), so anchor on the RAID bullet's unique preceding clause: replace `a field it does not mention is left untouched rather than blanked. It CANNOT read or write the note log — there is no tool for notes.` (RAID; the change bullet reads `blanked).`) with `a field it does not mention is left untouched rather than blanked. It CANNOT read or write the note log directly — there is no tool for notes. It CAN record an escalation (escalate_raid_item): one new history entry, a dated note labelled "AI created", and the same one-step severity raise as the Escalate button (a Risk or an already-Critical item is notify-only). It sends no email — tell the user to contact the recipient — and it can never edit or remove earlier escalations. One escalation applies at once and can be undone; two or more in a turn go to the review card.`
+
+```bash
+node scripts/gen-operating-guide.mjs > "$S/gen3b.log" 2>&1; echo "EXIT=$?"
+git diff --stat -- src/app/operating-guide-builtin.generated.ts lib/app-feature-guide.md
+git ls-files --eol src/app/operating-guide-builtin.generated.ts lib/app-feature-guide.md
+```
+
+Expected: `EXIT=0`; both files are changed; both still `i/lf w/lf`.
+
+`docs/AGENTS/ai-assistant.md` (LF), two edits:
+1. Replace
+
+```
+- **Optimistic concurrency on SEVEN write tools:** the six entity updates — `update_task` ·
+  `update_raid_item` · `update_change` · `update_milestone` · `update_stakeholder` · `update_resource` —
+  plus `set_task_dependencies`, each REQUIRING an `expectedToken` input beside `id`.
+```
+
+with
+
+```
+- **Optimistic concurrency on the token-guarded write tools:** every entity `update_*` tool except
+  `update_settings` and `update_document`, plus `set_task_dependencies` and `escalate_raid_item`, each REQUIRING an
+  `expectedToken` input beside `id`. Enumerate them rather than trusting a count — `TOKEN_REQUIRED_TOOLS`
+  (`chat-proposal-apply.ts`) is derived from the schemas.
+  ★★ `escalate_raid_item` (§515) is the APPEND-ONLY escalation write. `update_raid_item` refuses `escalations`
+  (`RAID_FIELD_GUARDS`); this tool adds exactly one entry through the SAME `planEscalation` → `buildEscalationRecord`
+  pair the Next-actions Escalate CTA uses, as one functional `setRaid` with undo capture and a `raid.escalated` row
+  (`escalateRaid`, `use-register-tools.ts`). Its note is authored "AI created" (`aiEscalationNoteAuthor`, a stored
+  `authorName` with no `authorResourceId`). It sends no mail and takes no resource id (the recipient links by
+  e-mail, `resolveEscalationRecipient`). Its token is what refuses a second escalation from the same read.
+```
+
+2. Replace `See the seven-tool note above.` with `See the guarded-tools note above.`
+
+- [ ] **Step 6: Run the tests and the gates**
+
+```bash
+npx vitest run src/app/action-escalate.test.ts src/app/note-log.test.ts src/app/note-log-panel.test.tsx src/app/use-notes-window.test.tsx src/app/chat-tools.test.ts src/app/ai-entity-token.test.ts src/app/chat-proposal.test.ts src/app/chat-proposal-describe.test.ts src/app/chat-proposal-apply.test.tsx src/app/use-chat-dispatcher.undo.test.tsx src/app/use-chat-dispatcher.escalate.test.tsx src/app/use-chat-dispatcher.test.tsx src/app/insights/recommend-tokens.test.ts src/app/insights/recommend.test.ts src/app/raid-escalation.test.ts src/app/operating-guide-builtin.test.ts src/app/chat-api.system-prompt.test.ts src/app/inline-ai-edit/tool-input-coverage.test.ts src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts src/app/destructive-save-arming.test.ts src/app/i18n-encoding.test.ts src/app/i18n.test.ts --maxWorkers=1 --reporter=dot > "$S/t3b.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$S/t3b.log"
+npx tsc --noEmit > "$S/tsc3b.log" 2>&1; echo "EXIT=$?"; grep -c "error TS" "$S/tsc3b.log"
+npx eslint --max-warnings=0 src/app/action-escalate.ts src/app/action-escalate.test.ts src/app/note-log.ts src/app/note-log.test.ts src/app/types.ts src/app/i18n.ts src/app/raid-escalation.ts src/app/chat-tools-updates.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts src/app/chat-tools.test.ts src/app/use-register-tools.ts src/app/use-chat-dispatcher.ts src/app/use-chat-dispatcher.escalate.test.tsx src/app/use-chat-dispatcher.undo.test.tsx src/app/chat-proposal.ts src/app/chat-proposal.test.ts src/app/chat-proposal-describe.test.ts src/app/chat-proposal-apply.ts src/app/chat-proposal-apply.test.tsx src/app/ai-entity-token.test.ts src/app/insights/recommend-tokens.ts > "$S/lint3b.log" 2>&1; echo "EXIT=$?"
+npm run docs:symbols:check > "$S/sym3b.log" 2>&1; echo "EXIT=$?"
+for f in src/app/chat-tools.ts src/app/use-register-tools.ts src/app/chat-tool-defs.ts src/app/chat-proposal.ts src/app/action-escalate.ts src/app/chat-tools-updates.ts src/app/note-log.ts; do node -e "console.log(require('fs').readFileSync('$f','utf8').split('\n').length, '$f')"; done
+```
+
+Expected:
+- `EXIT=0` for all four commands, with `Test Files  22 passed (22)` — a lower count means a path was dropped.
+- `0` tsc errors.
+- Every measured size is under 1600.
+- `note-log-panel.test.tsx` and `use-notes-window.test.tsx` stay green: the `addNote` widening is behaviour-neutral for the notes window.
+- `plan.offered-surface-sweep.test.ts` stays green with `AXIS_BASELINE.raid` unchanged — the proof that the update tool's offered surface did not move.
+
+Known limits (already in the code comments above; no action):
+- Deviation 15 applies to the AI writer too: a same-tick concurrent SEVERITY write is overwritten by the planned step. If the row is deleted between the ref read and the updater, the updater writes nothing while the log row and undo entry are still emitted — the same exposure as `handleEscalate`.
+- A staged `escalate_raid_item` row shows the tool name as its title and no diff (`proposalRowTitle` falls back to `call.name`), as `send_inquiry` does.
+- An "AI created" note has no `authorResourceId`, so `canEditNote` lets anyone edit it and `editNote` claims it for the editor, replacing the label with the editor's name when they have a directory resource. An editor with a `selfResourceId` whose resource was deleted claims it but keeps the "AI created" label.
+
+- [ ] **Step 7: Commit** — stage the new file with `git add -- src/app/use-chat-dispatcher.escalate.test.tsx`, then write `$S/msg-task3b.txt`:
+
+```
+feat: let the AI assistant append a RAID escalation
+
+New escalate_raid_item tool (id, expectedToken, toEmail, toName?) appends
+exactly one RaidEscalation through the same planEscalation and
+buildEscalationRecord the Escalate CTA uses: a note echo authored "AI
+created" (never the user's own resource), a one-step severity raise, a
+raid.escalated row (actor ai, no address), one functional setRaid with
+undo capture. No email is sent. One call applies; two or more in a turn
+stage. update_raid_item still refuses the raw escalations field; the
+required token refuses a second escalation from the same read (§515).
+
+Claude-Session: https://[session link removed]
+```
+
+```bash
+git commit --only -F "$S/msg-task3b.txt" -- src/app/action-escalate.ts src/app/action-escalate.test.ts src/app/note-log.ts src/app/note-log.test.ts src/app/i18n.ts src/app/i18n.de.ts src/app/types.ts src/app/raid-escalation.ts src/app/chat-tools-updates.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts src/app/chat-tools.test.ts src/app/use-register-tools.ts src/app/use-chat-dispatcher.ts src/app/use-chat-dispatcher.escalate.test.tsx src/app/use-chat-dispatcher.undo.test.tsx src/app/chat-proposal.ts src/app/chat-proposal.test.ts src/app/chat-proposal-describe.test.ts src/app/chat-proposal-apply.ts src/app/chat-proposal-apply.test.tsx src/app/ai-entity-token.test.ts src/app/insights/recommend-tokens.ts lib/app-feature-guide.md src/app/operating-guide-builtin.generated.ts docs/AGENTS/ai-assistant.md
+git show --stat HEAD | tail -30
 ```
 
 ---
@@ -3597,9 +4577,11 @@ with
 
 ```
   instead builds `withStamp` with `noteLog` taken from the STORED row (`previous`), never the payload.
-  ★★ `escalations` rides the SAME carry (§515): the Next-actions Escalate CTA (`handleEscalate`) is a SECOND
-  write-through RAID writer — one functional `setRaid` appending a `RaidEscalation` AND a note via
-  `buildEscalationRecord` — and the always-mounted RAID editor's draft would otherwise erase both on Save.
+  ★★ `escalations` rides the SAME carry (§515): the Next-actions Escalate CTA (`handleEscalate`) and the AI
+  `escalate_raid_item` tool (`escalateRaid`) are write-through RAID writers — each one functional `setRaid`
+  appending a `RaidEscalation` AND a note via `buildEscalationRecord` — and the always-mounted RAID editor's
+  draft would otherwise erase both on Save. The AI's note carries the literal `authorName` "AI created" and no
+  `authorResourceId` (`aiEscalationNoteAuthor`), the one note `addNote` writes with a name but no self id.
 ```
 
 - [ ] **Step 3: `AGENTS.md`**
@@ -3621,7 +4603,7 @@ Four edits:
 2. Status: replace `**Status:** OPEN 2026-09-13 — never machine-verified beyond the issue's 2026-09-11 code check.` with:
 
 ```
-**Status:** CLOSED 2026-09-13 on `feat/raid-signal-log-escalation`. An insight (dashboard card and Insights view) or a next action can be logged as a RAID item through the floating RAID editor; saving marks the insight acted and links `loggedRaidId`. Escalate now records a `RaidItem.escalations` entry, a note-log echo and a `raid.escalated` activity entry. GitLab #55 closes at merge. Guardrail gaps §360 and §362 stay open.
+**Status:** CLOSED 2026-09-13 on `feat/raid-signal-log-escalation`. An insight (dashboard card and Insights view) or a next action can be logged as a RAID item through the floating RAID editor; saving marks the insight acted and links `loggedRaidId`. Escalate now records a `RaidItem.escalations` entry, a note-log echo and a `raid.escalated` activity entry. The AI assistant can append one through `escalate_raid_item` (no e-mail; history is append-only; the note is authored "AI created"). GitLab #55 closes at merge. Guardrail gaps §360 and §362 stay open.
 ```
 
 3. Work item: replace `**Source:** GitLab #55 (R-1, source::demo-2026-09-11)\n\n**Work item:** #55\n\n## 516.` with `**Source:** GitLab #55 (R-1, source::demo-2026-09-11)\n\n## 516.`.
@@ -3698,12 +4680,12 @@ Expected:
 - [ ] **Step 2: Every touched test file, in one serial run**
 
 ```bash
-npx vitest run src/app/raid-draft.test.ts src/app/raid-panel.test.tsx src/app/raid-escalation.test.ts src/app/entity-persistence-registry.test.ts src/app/heavy-fields-persistence.test.ts src/app/golden-workspace.test.ts src/app/codec-roundtrip.property.test.ts src/app/sanitize-records.test.ts src/app/template-apply.test.ts src/app/export-sections.test.ts src/app/use-resource-planner.test.tsx src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts src/app/inline-ai-edit/plan.write-path-sweep.test.ts src/app/action-escalate.test.ts src/app/use-action-center-handlers.test.ts src/app/activity-log.test.ts src/app/raid.test.ts src/app/raid-edit-modal.test.tsx src/app/next-actions/action-cta.test.ts src/app/action-row.test.tsx src/app/action-hero-card.test.tsx src/app/raid-create-host.test.tsx src/app/raid-create-host.jump.test.tsx src/app/task-manager.characterization.test.tsx src/app/insights/log-as-raid.test.ts src/app/insights/sanitize-insights.test.ts src/app/insights/reconcile.test.ts src/app/dashboard-sections/insights-card.test.tsx src/app/insights-panel.test.tsx src/app/i18n-encoding.test.ts --maxWorkers=1 --reporter=dot > "$S/g-tests.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$S/g-tests.log"
+npx vitest run src/app/raid-draft.test.ts src/app/raid-panel.test.tsx src/app/raid-escalation.test.ts src/app/entity-persistence-registry.test.ts src/app/heavy-fields-persistence.test.ts src/app/golden-workspace.test.ts src/app/codec-roundtrip.property.test.ts src/app/sanitize-records.test.ts src/app/template-apply.test.ts src/app/export-sections.test.ts src/app/use-resource-planner.test.tsx src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts src/app/inline-ai-edit/plan.write-path-sweep.test.ts src/app/action-escalate.test.ts src/app/use-action-center-handlers.test.ts src/app/activity-log.test.ts src/app/raid.test.ts src/app/raid-edit-modal.test.tsx src/app/next-actions/action-cta.test.ts src/app/action-row.test.tsx src/app/action-hero-card.test.tsx src/app/raid-create-host.test.tsx src/app/raid-create-host.jump.test.tsx src/app/task-manager.characterization.test.tsx src/app/insights/log-as-raid.test.ts src/app/insights/sanitize-insights.test.ts src/app/insights/reconcile.test.ts src/app/dashboard-sections/insights-card.test.tsx src/app/insights-panel.test.tsx src/app/i18n-encoding.test.ts src/app/note-log.test.ts src/app/chat-tools.test.ts src/app/ai-entity-token.test.ts src/app/chat-proposal.test.ts src/app/chat-proposal-describe.test.ts src/app/chat-proposal-apply.test.tsx src/app/use-chat-dispatcher.undo.test.tsx src/app/use-chat-dispatcher.escalate.test.tsx src/app/insights/recommend-tokens.test.ts src/app/operating-guide-builtin.test.ts src/app/chat-api.system-prompt.test.ts --maxWorkers=1 --reporter=dot > "$S/g-tests.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$S/g-tests.log"
 ```
 
-Expected: `EXIT=0` and `Test Files  30 passed (30)`. A lower file count means a path was dropped silently: find and fix it before trusting the result.
+Expected: `EXIT=0` and `Test Files  41 passed (41)`. A lower file count means a path was dropped silently: find and fix it before trusting the result.
 
-- [ ] **Step 3: Mutation proof — five guards, each named, run alone, then reverted**
+- [ ] **Step 3: Mutation proof — nine guards, each named, run alone, then reverted**
 
 For each mutant:
 1. Apply the Edit.
@@ -3742,10 +4724,10 @@ npx vitest run src/app/use-action-center-handlers.test.ts --maxWorkers=1 --repor
 
 ```bash
 grep -c "MUTANT M3" src/app/sanitize-records.ts
-npx vitest run src/app/sanitize-records.test.ts src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts --maxWorkers=1 --reporter=dot > "$S/m3.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |drops a model-supplied escalations|raid" "$S/m3.log" | head
+npx vitest run src/app/sanitize-records.test.ts src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts src/app/use-chat-dispatcher.escalate.test.tsx --maxWorkers=1 --reporter=dot > "$S/m3.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |drops a model-supplied escalations|cannot clear the history|cannot rewrite the history|raid" "$S/m3.log" | head -20
 ```
 
-- Expected: `1`, then `EXIT=1`. `dropUnacceptedRaidFields — escalations is model-read-only (§515) > drops a model-supplied escalations key…` fails in `sanitize-records.test.ts`.
+- Expected: `1`, then `EXIT=1`. `dropUnacceptedRaidFields — escalations is model-read-only (§515) > drops a model-supplied escalations key…` fails in `sanitize-records.test.ts`. In `use-chat-dispatcher.escalate.test.tsx`, `update_raid_item cannot clear the history …` and `… cannot rewrite the history …` fail (`escalations` becomes `[]` or the rewritten entry), while their title positive control lands.
 - Record separately whether the offered-surface sweep ALSO went red on a `raid.escalations` Relation A finding. Report both tallies (failed / passed per file); a sweep that stays green is a finding to report, not to hide.
 - Revert: replace `  // MUTANT M3` with `  escalations: () => false,`.
 
@@ -3771,14 +4753,71 @@ npx vitest run src/app/use-resource-planner.test.tsx --maxWorkers=1 --reporter=d
 - Expected: `1`, then `EXIT=1` with `handleSaveRaidItem — stored escalations (§515) > keeps the STORED escalation record over a stale editor snapshot` failing on `severity` (`High`, expected `Critical`). The two fix-round tests `keeps the raise across TWO unseen raises` and `keeps the raise when a notify-only escalation followed it` fail the same way. `keeps a DELIBERATE severity change` and `an editor opened AFTER the escalation keeps a deliberate return to its fromSeverity` stay green under this mutant, which is expected: they pin the other side of the rule (the carry applies only to the FIRST unseen escalation's `fromSeverity`, and only when the draft has not seen it).
 - Revert: replace `        // MUTANT M5` with `        ...(keepEscalatedSeverity ? { severity: previous?.severity } : {}),`.
 
-After all five:
+**M6 — append-only record.**
+- Mutant: in `src/app/action-escalate.ts`, replace `    escalations: [...prior, buildEscalationEntry(plan, recipient, at)],` with `    escalations: [buildEscalationEntry(plan, recipient, at)], // MUTANT M6`.
+
+```bash
+grep -c "MUTANT M6" src/app/action-escalate.ts
+npx vitest run src/app/action-escalate.test.ts src/app/use-chat-dispatcher.escalate.test.tsx --maxWorkers=1 --reporter=dot > "$S/m6.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |PRESERVES the existing note log|one raid.escalated row" "$S/m6.log"
+```
+
+- Expected: `1`, then `EXIT=1`. `buildEscalationRecord > appends to an existing record and PRESERVES the existing note log` fails, and so does `escalate_raid_item … > appends the entry, an "AI created" note, the severity step and one raid.escalated row` (the `EARLIER` entry is gone).
+- Revert: replace `    escalations: [buildEscalationEntry(plan, recipient, at)], // MUTANT M6` with `    escalations: [...prior, buildEscalationEntry(plan, recipient, at)],`.
+
+**M7 — shared severity plan (AI path).**
+- Mutant: in `src/app/use-register-tools.ts`, replace `        const plan = planEscalation(existing);` with `        const plan = { raisesSeverity: false as const, reason: "max" as const }; // MUTANT M7`.
+
+```bash
+grep -c "MUTANT M7" src/app/use-register-tools.ts
+npx vitest run src/app/use-chat-dispatcher.escalate.test.tsx --maxWorkers=1 --reporter=dot > "$S/m7.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |one raid.escalated row|ONE functional write" "$S/m7.log"
+```
+
+- Expected: `1`, then `EXIT=1`. `appends the entry, an "AI created" note, the severity step and one raid.escalated row` fails (severity `High`, expected `Critical`). `composes with a same-tick human edit …` fails the same way.
+- Both notify-only cases stay green, which is expected: they pin the other branch of the plan.
+- Revert: replace `        const plan = { raisesSeverity: false as const, reason: "max" as const }; // MUTANT M7` with `        const plan = planEscalation(existing);`.
+
+**M8 — escalation token.**
+- Mutant: in `src/app/chat-tools.ts`, replace
+
+```
+      requireToken("raid", current, input, `RAID item #${id}`);
+      const recipient = requireEscalationRecipient(input);
+```
+
+  with
+
+```
+      // MUTANT M8
+      const recipient = requireEscalationRecipient(input);
+```
+
+```bash
+grep -c "MUTANT M8" src/app/chat-tools.ts
+npx vitest run src/app/chat-tools.test.ts src/app/use-chat-dispatcher.escalate.test.tsx --maxWorkers=1 --reporter=dot > "$S/m8.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |supplies no token|stale token|same read" "$S/m8.log"
+```
+
+- Expected: `1`, then `EXIT=1`. `runTool — escalate_raid_item (§515, append-only) > refuses an escalation that supplies no token` and `> refuses a stale token` fail in `chat-tools.test.ts`, and `refuses a second escalation made from the same read …` fails in the escalate file.
+- Revert: the exact inverse replacement (the two-line `// MUTANT M8` block back to the two lines above). The anchor `requireToken("raid", current, input, \`RAID item #${id}\`);` also appears in the `update_raid_item` case, so anchor the revert on `      // MUTANT M8\n      const recipient = requireEscalationRecipient(input);`, which is unique.
+
+**M9 — AI functional write.**
+- Mutant: in `src/app/use-register-tools.ts`, replace `        setRaid((prev) => prev.map(apply));` with `        setRaid(raidRef.current); // MUTANT M9`.
+
+```bash
+grep -c "MUTANT M9" src/app/use-register-tools.ts
+npx vitest run src/app/use-chat-dispatcher.escalate.test.tsx --maxWorkers=1 --reporter=dot > "$S/m9.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |ONE functional write" "$S/m9.log"
+```
+
+- Expected: `1`, then `EXIT=1` with `composes with a same-tick human edit to another field (ONE functional write)` failing (title `Vendor down`).
+- Revert: replace `        setRaid(raidRef.current); // MUTANT M9` with `        setRaid((prev) => prev.map(apply));`.
+
+After all nine:
 
 ```bash
 git diff --stat
 grep -rn "MUTANT M" src || echo "no mutants left"
 ```
 
-Expected: `git diff --stat` prints nothing, then `no mutants left`. Report the mutation count as `5/5 killed` only if every mutant above went red. Otherwise name the survivor and the file tally.
+Expected: `git diff --stat` prints nothing, then `no mutants left`. Report the mutation count as `9/9 killed` only if every mutant above went red. Otherwise name the survivor and the file tally.
 
 - [ ] **Step 4: User-gated checks (NOT executed by the implementer)**
 
@@ -3789,5 +4828,6 @@ List these in the hand-off report; run them only on the user's say:
   - Log an insight, then confirm "Logged as RAID #N" and Open in the Insights view.
   - Escalate an Issue, then check the Escalations list, the note, the activity entry, and the "Last escalated" column.
   - With a RAID editor open on the same item before escalating, confirm Save keeps the record.
+  - Ask the assistant to escalate an Issue to a directory person. Confirm that no mail client opens, the change applies without a review card, the Escalations list shows the entry linked to the resource, the note's author reads "AI created" (and "Von KI erstellt" in German), the activity row reads `RAID #N escalated: High → Critical` with the AI actor, and Undo reverts all three. Then ask for two escalations in one message and confirm they go to the review card.
 - **Full unit suite** (`npm run test:run`, `npm run test:shuffle`) and `npm run test:coverage`.
 

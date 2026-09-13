@@ -133,14 +133,39 @@ copies its codec, sanitizer and column handling. The plan confirms each site by 
 
 ### AI boundary
 
-`escalations` is model-read-only: `RAID_FIELD_GUARDS` / `dropUnacceptedRaidFields`
-(`sanitize-records.ts`) drop it from `create_raid_item` / `update_raid_item` input.
+> **Amended 2026-09-13 (user decision).** This section originally made `escalations` model-read-only.
+> The user decided the assistant may record an escalation, append-only. The raw field stays
+> model-unwritable; the plan records this as deviations 17–19 and implements it as Task 3b.
+
+- The raw field stays model-unwritable: `RAID_FIELD_GUARDS.escalations` (`sanitize-records.ts`) drops
+  `escalations` from `create_raid_item` / `update_raid_item` input, so the model can never edit or delete
+  an existing entry.
+- The model CAN append: a dedicated `escalate_raid_item` tool (`id`, `expectedToken`, `toEmail`, `toName?`)
+  records exactly one escalation with the same effects as the Escalate button minus the e-mail:
+  - the `RaidEscalation` entry, the note-log echo in the project language, the severity step from the same
+    `planEscalation`, and a `raid.escalated` activity entry (actor `ai`, severity step only);
+  - one functional RAID write through the same pure builders as `handleEscalate`, with undo capture;
+  - no mail is sent and no address enters the activity entry; the tool result says `emailSent: false`.
+- **Note author: "AI created".** The note stores the literal `authorName` "AI created" (DE "Von KI erstellt",
+  i18n `raidNoteAuthorAi`), translated once at write time, and NO `authorResourceId` — it is never attributed
+  to `settings.selfResourceId`. `addNote` keeps an explicit `authorName` without a self id for this.
+- The recipient is validated at the tool boundary (valid e-mail, stored-record length caps). A directory
+  resource is linked by a unique e-mail match; the tool takes no resource id.
+- The concurrency token is required (both written fields are token-covered). It also refuses a second
+  escalation made from the same read.
+- **Review flow:** one AI escalation applies immediately and is undoable; two or more in one turn go to the
+  existing review card (the existing bulk-write rule).
+- Insight recommendations cannot propose it (`ALLOWED_REC_TOOLS` unchanged).
 
 ### Out of scope
 
 - An Escalate control inside the RAID modal or table.
 - Escalations in DOCX, PPTX or XLSX exports, or in reports.
 - Guardrail-insight gaps §360 and §362.
+- The AI sending or drafting the escalation e-mail, or editing/removing escalation entries.
+- Insight recommendations proposing an escalation.
+- A before/after diff for `escalate_raid_item` on the staged review card (the row shows the tool name, like
+  `send_inquiry`).
 
 ## Part 3 — Persistence, testing, delivery
 
@@ -173,10 +198,18 @@ name, together with the test that pins each one.
   - **id-mint race seeded explicitly:** the open-time id is taken before Save, and `loggedRaidId`
     must equal the re-minted id.
   - Escalate is safe with a concurrent same-tick write.
-  - The model cannot write `escalations`.
+  - The model cannot write, clear or rewrite `escalations` through create/update (positive control: the
+    same call's title change lands).
+  - `escalate_raid_item` appends entry + note + activity + severity step; notify-only for Critical and Risk;
+    an invalid recipient is refused with a model-facing error; no token / a stale token / a second call from
+    the same read is refused; a same-tick human edit survives; the activity args never carry the address.
+  - The AI note's author is "AI created" (EN) and "Von KI erstellt" (DE, after `loadI18n("de")`), rendered
+    by `authorLabel`, with no `authorResourceId` even when `settings.selfResourceId` is set.
+  - Review flow: one `escalate_raid_item` does not stage and is undo-captured; two stage.
   - "Log as RAID" is absent for `raidAging`, absent in popouts, and has row-unique names.
-- **Mutation proof, count reported:** the reconcile carry, the functional setter, the AI guard drop,
-  and the `raidAging` hide.
+- **Mutation proof, count reported:** the reconcile carry, the functional setter (human and AI), the AI
+  guard drop, the append-only record, the shared severity plan, the escalation token, and the `raidAging`
+  hide.
 - **Gates, end of branch only:**
   - `npx tsc --noEmit`
   - `npx eslint --max-warnings=0 src`
