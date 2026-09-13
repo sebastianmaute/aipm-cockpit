@@ -52,3 +52,11 @@ export function groupNextActions(actions: readonly SuggestedAction[]): ActionGro
   }
   return groups.sort((x, y) => y.score - x.score || x.key.localeCompare(y.key));
 }
+
+/** The primaries of the top `n` groups, in group rank order. For a compact
+ *  surface that renders one row per action (the dashboard's Top actions tile):
+ *  slicing the FLAT list first would let several signals on one entity — e.g.
+ *  one per missing project key fact — fill every slot with the same row. */
+export function topGroupPrimaries(actions: readonly SuggestedAction[], n: number): SuggestedAction[] {
+  return groupNextActions(actions).slice(0, n).map((g) => g.primary);
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupNextActions } from "./group";
+import { groupNextActions, topGroupPrimaries } from "./group";
 import type { SuggestedAction } from "./types";
 
 const mk = (
@@ -82,5 +82,19 @@ describe("groupNextActions", () => {
     const groups = groupNextActions([mk("z", 50, 1), mk("a", 50, 1), mk("m", 90, 1)]);
     expect(groups[0].primary.id).toBe("m");
     expect(groups[0].extra.map((e) => e.id)).toEqual(["a", "z"]); // equal score → id asc
+  });
+});
+
+describe("topGroupPrimaries", () => {
+  it("returns one primary per group, in rank order", () => {
+    // Five signals on entity 1 outrank the lone signal on entity 2 — a flat
+    // slice(0, 5) would return five entity-1 rows.
+    const actions = [mk("e1a", 50, 1), mk("e1b", 49, 1), mk("e1c", 48, 1), mk("e1d", 47, 1), mk("e1e", 46, 1), mk("e2", 30, 2)];
+    expect(topGroupPrimaries(actions, 5).map((a) => a.id)).toEqual(["e1a", "e2"]);
+  });
+
+  it("caps the result at n groups", () => {
+    const actions = [mk("a", 90, 1), mk("b", 80, 2), mk("c", 70, 3), mk("c2", 10, 3)];
+    expect(topGroupPrimaries(actions, 2).map((a) => a.id)).toEqual(["a", "b"]);
   });
 });

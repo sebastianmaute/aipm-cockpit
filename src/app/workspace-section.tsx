@@ -49,6 +49,7 @@ import {
 import {
   DashboardPanel,
 } from "./dashboard-panel";
+import { topGroupPrimaries } from "./next-actions/group";
 import {
   MilestonesPanel,
 } from "./milestones-panel";
@@ -857,7 +858,7 @@ export function WorkspaceSection({
               variance={trends.variance}
               snapshots={trends.snapshots}
               tursoActive={trends.active}
-              topActions={nextActions.slice(0, 5)}
+              topActions={topGroupPrimaries(nextActions, 5)}
               onOpenAction={onOpenAction}
               projectId={currentProjectId ?? "default"}
               isPopout={isPopout}
