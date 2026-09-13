@@ -31,6 +31,9 @@ describe("bucketCurrencyLabel", () => {
     expect(label).not.toBe("EUR");
     expect(label).toContain("USD");
     expect(label).toMatch(/1:1/);
+    // Direction-neutral: the Budget panel card shows EUR figures in the
+    // bucket's currency at 1:1, so the marker must not claim "as EUR".
+    expect(label).not.toMatch(/as EUR/);
   });
 
   test("renders in German too — the marker text is a real i18n key, not hardcoded English", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { type Lang, t } from "./i18n";
+import { type Lang, tPlural } from "./i18n";
 import { countUnresolvedBuckets } from "./fx";
 import type { BudgetBucket, FxRates } from "./types";
 
@@ -28,5 +28,5 @@ export function BudgetFxRollupNotice({
 }) {
   const count = countUnresolvedBuckets(buckets, fxRates);
   if (count === 0) return null;
-  return <p className="mt-2 text-xs text-muted-foreground">{t(lang, "budgetFxRollupUnresolved", String(count))}</p>;
+  return <p className="mt-2 text-xs text-muted-foreground">{tPlural(lang, "budgetFxRollupUnresolved", count, String(count))}</p>;
 }

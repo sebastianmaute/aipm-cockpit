@@ -258,6 +258,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
         ) : (
           <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
         )}
+        {/* The count covers every bucket in the EUR rollup, not only those inside the burn chart's window. */}
         {model.burn ? <BudgetFxRollupNotice lang={lang} buckets={a.buckets} fxRates={a.fxRates} /> : null}
         {model.evm.coverage.withEstimate > 0 ? (
           <div className="mt-2 flex flex-wrap gap-2">

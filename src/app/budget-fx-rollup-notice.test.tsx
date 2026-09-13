@@ -39,6 +39,11 @@ describe("BudgetFxRollupNotice", () => {
     expect(screen.getByText(t("en-US", "budgetFxRollupUnresolved", "2"))).toBeInTheDocument();
   });
 
+  test("uses the singular form for exactly one unresolved bucket", () => {
+    render(<BudgetFxRollupNotice lang="en-US" buckets={[bucket({ type: "fixed", currency: "USD" })]} fxRates={null} />);
+    expect(screen.getByText("Includes 1 bucket counted 1:1 without an FX rate")).toBeInTheDocument();
+  });
+
   test("a resolved (cached or overridden) bucket is not counted", () => {
     const fxRates: FxRates = { base: "EUR", date: "2026-01-01", fetchedAt: "x", rates: { EUR: 1, USD: 1.1 } };
     const buckets = [bucket({ id: 1, currency: "USD" }), bucket({ id: 2, currency: "GBP", fxRateOverride: 1.3 })];
@@ -57,6 +62,6 @@ describe("BudgetFxRollupNotice", () => {
   test("renders in German too", async () => {
     await loadI18n("de");
     render(<BudgetFxRollupNotice lang="de" buckets={[bucket({ type: "fixed", currency: "USD" })]} fxRates={null} />);
-    expect(screen.getByText(t("de", "budgetFxRollupUnresolved", "1"))).toBeInTheDocument();
+    expect(screen.getByText(t("de", "budgetFxRollupUnresolvedOne"))).toBeInTheDocument();
   });
 });

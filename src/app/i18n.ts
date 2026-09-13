@@ -628,16 +628,20 @@ const enUS = {
   budgetFxOverride: "Manual FX rate",
   budgetFxOverrideHint: "Manual EUR→currency rate; leave blank to use the cached ECB rate.",
   // §474: a non-EUR bucket with neither a manual override nor a cached ECB
-  // rate is summed into the EUR rollup at par (rate 1) — this marks that
-  // state on the currency label, distinct from a bucket whose resolved rate
-  // genuinely is 1. Kept short: it renders inside a `(...)` suffix next to
-  // the currency code, e.g. "USD (no FX rate — counted 1:1 as EUR)".
-  budgetFxRateUnresolved: "no FX rate — counted 1:1 as EUR",
+  // rate is converted at rate 1 — this marks that state on the currency
+  // label, distinct from a bucket whose resolved rate genuinely is 1. Worded
+  // for BOTH directions it is shown in: the Budget panel card displays a
+  // bucket's EUR figures in its own currency at 1:1, and the report's EUR
+  // table counts a fixed-price contract into EUR at 1:1. Kept short: it
+  // renders inside a `(...)` suffix next to the currency code, e.g.
+  // "USD (no FX rate — converted at 1:1)".
+  budgetFxRateUnresolved: "no FX rate — converted at 1:1",
   // §474 (rollup half): the EUR-labelled project rollup sums every bucket's
   // figure regardless of whether a rate ever resolved for it — this names
   // how many of the summands were read at par by default, right below the
   // rollup. Renders only when the count is > 0 (see `BudgetFxRollupNotice`).
-  budgetFxRollupUnresolved: "Includes {0} bucket(s) counted 1:1 without an FX rate",
+  budgetFxRollupUnresolved: "Includes {0} buckets counted 1:1 without an FX rate",
+  budgetFxRollupUnresolvedOne: "Includes 1 bucket counted 1:1 without an FX rate",
   budgetAllocations: "Role allocations",
   budgetAddRole: "Add role",
   budgetRemoveRole: "Remove role",

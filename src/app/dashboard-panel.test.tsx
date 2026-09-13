@@ -1451,7 +1451,7 @@ describe("DashboardPanel budget tile — unresolved-rate FX rollup notice (§474
     // Fixed-price: only a contract amount is converted, so only it is summed at par.
     renderDashboard([budgetBucket({ currency: "USD", type: "fixed", fixedPriceAmount: 10000 })]);
     const tile = screen.getByTestId("tile-burn");
-    expect(within(tile).getByText(t("en-US", "budgetFxRollupUnresolved", "1"))).toBeInTheDocument();
+    expect(within(tile).getByText(t("en-US", "budgetFxRollupUnresolvedOne"))).toBeInTheDocument();
   });
 
   it("renders no notice when the only rateless non-EUR bucket is T&M", () => {

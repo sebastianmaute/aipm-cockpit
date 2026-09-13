@@ -260,7 +260,7 @@ export function BucketDetailTable({
           // `bucketCurrencyLabel` would render anyway at this row's rate (1).
           // ★ A T&M row is ALSO rendered bare when its rate is unresolved:
           // this table's figures are EUR and a T&M row's (hours × EUR role
-          // rates) were never converted, so "counted 1:1 as EUR" would claim
+          // rates) were never converted, so "converted at 1:1" would claim
           // a conversion that did not happen. Only a fixed-price row's
           // contract amount went through `currencyToEur` at par — the same
           // rule `countUnresolvedBuckets` applies to the rollup notice.

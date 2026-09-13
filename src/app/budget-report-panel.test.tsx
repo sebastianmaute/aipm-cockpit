@@ -369,7 +369,7 @@ describe("BudgetReportPanel — §474 the currency column discloses an unresolve
   });
 
   // This table's money columns are EUR and a T&M row's figures (hours × EUR
-  // role rates) were never converted, so "counted 1:1 as EUR" would claim a
+  // role rates) were never converted, so "converted at 1:1" would claim a
   // conversion that did not happen. Only the fixed-price row's contract
   // amount went through `currencyToEur` at par. Both rows in ONE render so
   // the pair differs by `type` alone.
