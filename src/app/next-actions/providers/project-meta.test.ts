@@ -55,7 +55,7 @@ function input(over: Partial<ActionInput> = {}): ActionInput {
 
 const ALL_CAPS: ActionCaps = {
   assign: true, draft: true, escalate: true, rebaseline: true, snapshotActive: true,
-  reschedule: true, markDone: true, clearBlocker: true, snooze: true, createTask: true,
+  reschedule: true, markDone: true, clearBlocker: true, snooze: true, createTask: true, logAsRaid: true,
 };
 
 describe("projectMetaProvider — absent input", () => {
