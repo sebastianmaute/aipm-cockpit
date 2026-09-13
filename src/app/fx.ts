@@ -26,9 +26,10 @@ interface RateResolution {
  * The EUR short-circuit runs FIRST because the rate is defined as units of the
  * bucket's currency per 1 EUR, which for an EUR bucket is 1 by definition — an
  * override on an EUR bucket is incoherent data, not a user preference to
- * honour. The modal's currency <select> never clears the override, so buckets
- * switched back to EUR already carry a stale one; deciding it here repairs
- * those too, which clearing the field on switch could not.
+ * honour. The modal's currency <select> now drops the override on save when a
+ * bucket is switched to EUR, but a bucket saved before that fix — or one
+ * imported from elsewhere — can still carry a stale override; deciding it
+ * here at read time repairs those too, which the write-time fix alone cannot.
  */
 function resolveRateInfo(bucket: Pick<BudgetBucket, "currency" | "fxRateOverride">, fxRates: FxRates | null): RateResolution {
   if (bucket.currency === "EUR") return { source: "eur", rate: 1 };
