@@ -74,9 +74,18 @@ describe("project key-fact passthrough", () => {
     expect(input.projectMeta).toBe(meta);
   });
 
-  it("leaves both undefined when omitted", () => {
+  // G8: the previous version of this test ("leaves both undefined when
+  // omitted") passed on pre-change code too — `input.projectId` reads
+  // `undefined` from a plain object whether or not `buildActionInput` ever
+  // assigns the key. Assert the OWN PROPERTY exists (set to `undefined`)
+  // rather than merely reading as falsy, so deleting the passthrough lines
+  // — which removes the key entirely rather than setting it undefined —
+  // actually turns this red.
+  it("keeps projectId/projectMeta as explicit own properties (undefined) when omitted", () => {
     const input = buildActionInput(base);
+    expect(Object.prototype.hasOwnProperty.call(input, "projectId")).toBe(true);
     expect(input.projectId).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(input, "projectMeta")).toBe(true);
     expect(input.projectMeta).toBeUndefined();
   });
 });
