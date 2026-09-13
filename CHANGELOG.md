@@ -8,6 +8,44 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.3.1] - 2026-09-13 "Chandler"
+
+Budget and exchange-rate fixes, a burn-down that values fixed-price buckets
+correctly, and a new default logo. Closes follow-ups 466, 471, 472, 474 and
+475.
+
+### Fixed
+
+- **The burn-down values a fixed-price bucket from its contract amount.** It
+  used hours × rate, so a fixed-price bucket's planned and remaining lines did
+  not match the budget report. They now use the same basis as the report, and
+  an overrun shows in the period it happens rather than being spread over
+  later ones.
+- **A bucket with no exchange rate is disclosed instead of silently counted
+  1:1.** A non-EUR bucket whose rate could not be resolved still converts at
+  1:1, but its currency now reads "no FX rate — converted at 1:1". The
+  project total on the Budget panel, the budget report and the Dashboard budget
+  tile says how many fixed-price contract amounts it includes that way;
+  time-and-materials figures are already in EUR and are not affected.
+- **The FX override accepts its own advertised minimum.** A small rate such as
+  0.0001 was rounded to 0 and refused, and one that got through was rounded to
+  0 again the next time the workspace loaded. Both now keep four decimals.
+- **The bucket editor no longer offers an FX override on an EUR bucket.** The
+  field is hidden for EUR, and switching a bucket to EUR no longer saves a
+  leftover override that nothing would read.
+- **Help no longer promises a burn-down forecast.** The chart compares planned
+  remaining budget with actual remaining budget to date; the Help text now
+  says so, in English and German.
+
+### Changed
+
+- **The sidebar and the classic top bar show the AI PM Cockpit banner by
+  default.** A custom logo set under Branding still takes precedence, and the
+  start window keeps its Harbor banner. The retired default logo files — the
+  old app mark and the Acme logos — were removed.
+- **The README's "See it in a minute" starts from the desktop installer** on
+  the Releases page, which "Install the desktop app" now links too.
+
 ## [1.3.0] - 2026-09-13 "Chandler"
 
 A signal in Insights or Next actions can be logged as a RAID item, and an
