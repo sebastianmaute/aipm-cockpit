@@ -7,20 +7,37 @@
 //      local run without a token never fails), or the register and GitLab agree
 //   1  DRIFT: at least one problem from compareWithGitLab — fix the Work item
 //      line or the issue
-//   2  COULD NOT COMPARE: an unknown argument, missing CI_API_V4_URL or
-//      CI_PROJECT_ID, an unreadable register, fewer than 50 open entries, a
-//      network failure, the 30 s timeout, a non-2xx, a redirect, a body that is
-//      not a JSON array of issues, more than 50 pages, fewer than 50 open issues,
-//      or any structural failure (a renamed lib export)
+//   2  COULD NOT COMPARE: a token containing whitespace or a control character,
+//      an unknown argument, missing CI_API_V4_URL or CI_PROJECT_ID, an unreadable
+//      register, fewer than 50 open entries, a network failure, the timeout, a
+//      non-2xx, a redirect, a body that is not a JSON array of issues, more than
+//      50 pages, an issue served twice while paging, fewer than 50 REGISTER
+//      issues, or any structural failure (a renamed lib export)
+//
+// ENVIRONMENT:
+//   REGISTER_SYNC_TOKEN        the read_api token; unset or empty skips
+//   CI_API_V4_URL, CI_PROJECT_ID  set by GitLab CI
+//   REGISTER_SYNC_TIMEOUT_MS   optional per-request timeout, default 30000. It
+//                              exists so the integration test can pin the timeout
+//                              path in milliseconds; CI does not set it.
 //
 // ★★ The blocking followups-workitems-check reads the register ONLY. This is the
 //   half it cannot do: an issue closed in the GitLab UI, an issue with the wrong
 //   title, an issue with no entry. Every decision is made by the pure
 //   compareWithGitLab in followup-workitem-lib.mjs; this file fetches, redacts,
 //   prints, and maps a verdict to an exit code.
-// ★★★ 50 open ISSUES, NOT 0 — a token scoped to the wrong project answers `[]`
-//   with a 200, and every entry would then read ISSUE_NOT_OPEN. That is a scan
-//   that could not see GitLab, not drift, so it is 2.
+// ★★★ 50 REGISTER ISSUES, NOT 50 open issues and NOT 0 — the floor counts open
+//   issues carrying a `§NNN:` title or the source::register label. A fetch that
+//   returns no or few register issues (a token that cannot see confidential
+//   issues, or register issues that lost both their title prefix and their label)
+//   would make every entry read ISSUE_NOT_OPEN. That is a scan that could not see
+//   the register's issues, not drift, so it is 2 — however many unrelated issues
+//   came back beside them.
+// ★★ Offset pagination is not a snapshot: an issue opened or closed mid-fetch
+//   shifts the pages, so one issue can be served twice or skipped. A repeat is
+//   detected (exit 2, re-run); a skip cannot be, and surfaces as a transient
+//   ISSUE_NOT_OPEN that clears on the next run — tolerable because the job is
+//   warn-only.
 // ★★ `redirect: "manual"`, as in publish-release.mjs: a followed redirect reads
 //   an answer from a URL nobody asked.
 // ★★ The token is redacted out of every printed line and every body excerpt —
@@ -31,17 +48,27 @@
 import { readFileSync } from "node:fs";
 
 const REGISTER = "docs/open-followups.md";
-const TIMEOUT_MS = 30_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 const BODY_EXCERPT_CHARS = 2000;
 const PER_PAGE = 100;
 const MAX_PAGES = 50;
 const MIN_OPEN_ENTRIES = 50;
-const MIN_OPEN_ISSUES = 50;
+const MIN_REGISTER_ISSUES = 50;
 
 const token = process.env.REGISTER_SYNC_TOKEN;
 if (!token) {
   console.log("skipped: REGISTER_SYNC_TOKEN is not set, so the register was not compared with GitLab.");
   process.exit(0);
+}
+// ★★★ Before ANY use of the value. fetch's header validation TRIMS the value
+// before quoting it in its error, so a padded token with an embedded newline
+// escaped `split(token)` and leaked verbatim. No real token has whitespace or a
+// control character, so refuse it here — and never print it.
+if (/[\s\p{Cc}]/u.test(token)) {
+  console.error(
+    "CANNOT COMPARE: REGISTER_SYNC_TOKEN contains whitespace or a control character; re-enter the variable without it (the value is not printed).",
+  );
+  process.exit(2);
 }
 
 const redact = (s) => String(s).split(token).join("[REDACTED]");
@@ -85,14 +112,22 @@ function toIssue(raw) {
   return { iid: raw.iid, title: raw.title, labels: raw.labels.map(String) };
 }
 
-async function fetchPage(endpoint, page) {
+function timeoutMs() {
+  const raw = process.env.REGISTER_SYNC_TIMEOUT_MS;
+  if (raw === undefined || raw === "") return DEFAULT_TIMEOUT_MS;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) throw new CannotCompare("REGISTER_SYNC_TIMEOUT_MS is not a positive integer");
+  return n;
+}
+
+async function fetchPage(endpoint, page, timeout) {
   const url = new URL(endpoint);
   url.searchParams.set("state", "opened");
   url.searchParams.set("per_page", String(PER_PAGE));
   url.searchParams.set("page", String(page));
   const res = await fetch(url, {
     redirect: "manual",
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeout),
     headers: { "PRIVATE-TOKEN": token },
   });
   const body = await res.text();
@@ -110,14 +145,23 @@ async function fetchPage(endpoint, page) {
   return { issues: json, next: res.headers.get("x-next-page") };
 }
 
-async function fetchOpenIssues(endpoint) {
+async function fetchOpenIssues(endpoint, timeout) {
   const issues = [];
+  const seen = new Set();
   let page = 1;
   for (;;) {
     if (page > MAX_PAGES) throw new CannotCompare(`more than ${MAX_PAGES} pages of open issues`);
-    const { issues: batch, next } = await fetchPage(endpoint, page);
+    const { issues: batch, next } = await fetchPage(endpoint, page, timeout);
     if (batch.length === 0) break;
-    issues.push(...batch.map(toIssue));
+    for (const issue of batch.map(toIssue)) {
+      // ★★ A repeat means the pages shifted under us (see the header); comparing
+      // anyway would report a phantom SECTION_ON_TWO_ISSUES `§N on #X, #X`.
+      if (seen.has(issue.iid)) {
+        throw new CannotCompare(`issue #${issue.iid} was served twice — issues changed while paging; re-run`);
+      }
+      seen.add(issue.iid);
+      issues.push(issue);
+    }
     // ★ x-next-page when GitLab sends it; an empty one is the last page. Absent
     // (GitLab omits it past 10,000 results), step on until an empty page.
     if (next === null) {
@@ -145,19 +189,22 @@ async function main() {
   const missing = [!api && "CI_API_V4_URL", !projectId && "CI_PROJECT_ID"].filter(Boolean);
   if (missing.length > 0) throw new CannotCompare(`missing ${missing.join(", ")}`);
 
+  const timeout = timeoutMs();
   const entries = readOpenEntries(parseEntries, isClosed);
   const endpoint = new URL(`${api}/projects/${encodeURIComponent(projectId)}/issues`).href;
-  const issues = await fetchOpenIssues(endpoint);
-  if (issues.length < MIN_OPEN_ISSUES) {
-    throw new CannotCompare(
-      `fetched only ${issues.length} open issues (floor is ${MIN_OPEN_ISSUES}) — is the token scoped to this project?`,
-    );
-  }
+  const issues = await fetchOpenIssues(endpoint, timeout);
 
   const { problems, counts } = compareWithGitLab(entries, issues);
+  if (counts.registerIssues < MIN_REGISTER_ISSUES) {
+    throw new CannotCompare(
+      `fetched only ${counts.registerIssues} register issues among ${counts.openIssues} open issues ` +
+        `(floor is ${MIN_REGISTER_ISSUES} register issues) — can the token see them?`,
+    );
+  }
   say(
     `Register vs GitLab — ${counts.openEntries} open entries (${counts.linked} linked, ` +
-      `${counts.decisionRecords} decision records), ${counts.openIssues} open issues`,
+      `${counts.decisionRecords} decision records), ${counts.openIssues} open issues ` +
+      `(${counts.registerIssues} register issues)`,
   );
   if (problems.length === 0) {
     say("Register and GitLab agree.");

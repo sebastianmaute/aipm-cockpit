@@ -347,7 +347,9 @@ followups-workitems-check:
 # issue titled for another entry, an issue with no open entry, a `source::register`
 # issue with no `§NNN:` title. This is what followups-workitems-check cannot see.
 # 1 is DRIFT; 2 means it could not compare (network, token, redirect, or fewer
-# than 50 open issues fetched — a token scoped to the wrong project answers []).
+# than 50 REGISTER issues fetched — a `§NNN:` title or the source::register label —
+# which catches a fetch that returns no or few of them, e.g. a token that cannot
+# see confidential issues, however many unrelated issues came back).
 # ★★ WARN-ONLY because it depends on the network and on a token: a GitLab outage
 # or an expired token must never block main.
 # ★★ NOT on merge-request pipelines: whoever merges second rebases, so a branch
@@ -355,6 +357,9 @@ followups-workitems-check:
 # and the comparison would be red for work that is correct.
 # ★ Needs a masked, protected CI/CD variable REGISTER_SYNC_TOKEN (a project access
 # token with read_api scope). Until one exists the job prints "skipped" and exits 0.
+# ★★ A protected variable only reaches pipelines on protected refs, so `main` must
+# be a protected branch and the schedule must target `main`; otherwise the job
+# silently prints "skipped" forever.
 # ★★ allow_failure is set at JOB level AND on EACH rule, on purpose. GitLab's docs
 # say a rule-level value "overrides the job-level allow_failure, and only applies
 # when the specific rule triggers the job" — which implies the job level governs

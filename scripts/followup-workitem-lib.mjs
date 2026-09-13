@@ -210,6 +210,9 @@ export function compareWithGitLab(entries, issues) {
     linked: links.filter((l) => l.work?.kind === "issue").length,
     decisionRecords: links.filter((l) => l.work?.kind === "decision").length,
     openIssues: issues.length,
+    // ★★ The CLI's floor reads THIS, not openIssues: a fetch full of unrelated
+    // issues and empty of register ones is a blind scan, not 200+ findings.
+    registerIssues: registerIssues.length,
   };
   return { problems, counts };
 }

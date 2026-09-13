@@ -81,8 +81,11 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   `compareWithGitLab` in `scripts/followup-workitem-lib.mjs`): an issue closed in GitLab, one titled for
   another entry, one with no open entry, a `§NNN:` issue without `source::register` or the reverse.
   ★★ Skips with exit 0 until a masked, protected `REGISTER_SYNC_TOKEN` (a project access token
-  with the read-API scope) exists. **1 is DRIFT**, **2 is could-not-compare** (network, token, redirect, or under a
-  50-open-issue floor — a wrong-project token answers `[]`). ★★ Default-branch pushes and schedules
+  with the read-API scope) exists. ★★ A protected variable only reaches pipelines on protected refs, so
+  `main` must be protected and the schedule must target `main`; otherwise the job just prints "skipped".
+  **1 is DRIFT**, **2 is could-not-compare** (network, token, redirect, or under a 50-REGISTER-issue
+  floor — open issues with a `§NNN:` title or the label, NOT all open issues — which catches a fetch that
+  returns no or few register issues, e.g. a token that cannot see confidential issues). ★★ Default-branch pushes and schedules
   ONLY: on an MR, whoever merges second rebases, so a branch can hold issues whose entries are not on
   main yet. `allow_failure: true` sits at job level AND on each rule — the YAML comment says why] ·
   **tag-version-check** BLOCKING [tag pipelines only, `needs: []` — `npm run tag:check` asserts the tag

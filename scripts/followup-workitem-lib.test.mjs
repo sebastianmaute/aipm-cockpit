@@ -15,6 +15,7 @@ import {
   issueSection,
   parseWorkItem,
   workItemLines,
+  VIOLATION_HELP,
   workItemViolations,
 } from "./followup-workitem-lib.mjs";
 import { parseEntries, isClosed } from "./followup-claims-lib.mjs";
@@ -41,10 +42,10 @@ describe("parseWorkItem", () => {
     expect(parseWorkItem("**Work item:** #7, #8")).toBeNull();
   });
 
-  it("rejects #0, a leading zero and an iid past ten digits", () => {
-    expect(parseWorkItem("**Work item:** #0")).toBeNull();
-    expect(parseWorkItem("**Work item:** #012")).toBeNull();
-    expect(parseWorkItem("**Work item:** #12345678901")).toBeNull();
+  // ★ One row per input: a single `it` stops at its first failing expect, so a
+  // mutant could only ever be proved against the first input.
+  it.each(["#0", "#012", "#12345678901"])("rejects %s", (iid) => {
+    expect(parseWorkItem(`**Work item:** ${iid}`)).toBeNull();
   });
 
   it("accepts one to ten digits", () => {
@@ -59,10 +60,8 @@ describe("issueSection", () => {
     expect(issueSection("§531: x")).toBe(531);
   });
 
-  it("rejects §0, a leading zero and a number past ten digits", () => {
-    expect(issueSection("§0: x")).toBeNull();
-    expect(issueSection("§012: x")).toBeNull();
-    expect(issueSection("§12345678901: x")).toBeNull();
+  it.each(["§0: x", "§012: x", "§12345678901: x"])("rejects %s", (title) => {
+    expect(issueSection(title)).toBeNull();
   });
 });
 
@@ -217,7 +216,20 @@ describe("compareWithGitLab", () => {
       [linked(1, 10), decision(2), entry(3, "x CLOSED", "")],
       [issue(10, 1), { iid: 99, title: "unrelated", labels: [] }],
     );
-    expect(counts).toEqual({ openEntries: 2, linked: 1, decisionRecords: 1, openIssues: 2 });
+    expect(counts).toEqual({ openEntries: 2, linked: 1, decisionRecords: 1, openIssues: 2, registerIssues: 1 });
+  });
+
+  it("counts an issue as register work by its §NNN: title OR its label", () => {
+    const { counts } = compareWithGitLab(
+      [],
+      [
+        { iid: 1, title: "§1: titled only", labels: [] },
+        { iid: 2, title: "labelled only", labels: ["source::register"] },
+        { iid: 3, title: "neither", labels: ["bug"] },
+      ],
+    );
+    expect(counts.registerIssues).toBe(2);
+    expect(counts.openIssues).toBe(3);
   });
 
   it("has help for every code it can emit", () => {
@@ -232,6 +244,25 @@ describe("compareWithGitLab", () => {
         "SECTION_ON_TWO_ISSUES",
       ].sort(),
     );
+  });
+});
+
+describe("VIOLATION_HELP", () => {
+  it("has help for every code workItemViolations can emit, and no extra keys", () => {
+    const emitted = new Set(
+      codes([
+        open(1),
+        open(2, "**Work item:** #5", "**Work item:** #6"),
+        open(3, "**Work item:** see GitLab"),
+        entry(4, "closed CLOSED", "**Work item:** #7"),
+        open(5, "**Work item:** #9"),
+        open(6, "**Work item:** #9"),
+      ]),
+    );
+    const expected = ["DUPLICATE_LINE", "ISSUE_REUSED", "MALFORMED", "MISSING", "ON_CLOSED"];
+    // The fixture really emits every code, so the key list below is not a guess.
+    expect([...emitted].sort()).toEqual(expected);
+    expect(Object.keys(VIOLATION_HELP).sort()).toEqual(expected);
   });
 });
 

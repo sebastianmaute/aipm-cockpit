@@ -14,8 +14,9 @@
 // ★ Every CI_* variable and any real REGISTER_SYNC_TOKEN are stripped from the
 // child's environment, so the canary is the only token the child can see.
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import http from "node:http";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -82,8 +83,27 @@ async function startApi(respond) {
   return { server, requests, tokens, url: `http://127.0.0.1:${server.address().port}/api/v4` };
 }
 
+/** A loopback URL on a port that was just released, so a connect is refused. */
+async function closedPortUrl() {
+  const s = http.createServer();
+  await new Promise((resolve) => s.listen(0, "127.0.0.1", resolve));
+  const { port } = s.address();
+  await new Promise((resolve) => s.close(resolve));
+  return `http://127.0.0.1:${port}/api/v4`;
+}
+
+/** A temp cwd whose register holds only `count` open entries. */
+function smallRegisterDir(count) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "followup-gitlab-"));
+  mkdirSync(path.join(dir, "docs"));
+  let md = "# register\n\n";
+  for (let i = 1; i <= count; i++) md += `## ${i}. entry ${i} — OPEN\n\n**Work item:** #${i}\n\n`;
+  writeFileSync(path.join(dir, "docs", "open-followups.md"), md, "utf8");
+  return dir;
+}
+
 /** ★ An `overrides` value of `undefined` DELETES that variable from the child's env. */
-function runCli(apiUrl, overrides = {}) {
+function runCli(apiUrl, overrides = {}, { args = [], cwd = REPO } = {}) {
   const env = Object.fromEntries(
     Object.entries(process.env).filter(([k]) => !k.startsWith("CI_") && k !== "REGISTER_SYNC_TOKEN"),
   );
@@ -93,7 +113,7 @@ function runCli(apiUrl, overrides = {}) {
     else env[k] = v;
   }
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [CLI], { cwd: REPO, env });
+    const child = spawn(process.execPath, [CLI, ...args], { cwd, env });
     let out = "";
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (out += d));
@@ -170,11 +190,30 @@ const ROWS = [
     outHas: ["CANNOT COMPARE: missing CI_PROJECT_ID"],
   },
   {
-    name: "fewer than 50 open issues exits 2 — a wrong-project token, not drift",
+    name: "fewer than 50 register issues exits 2 — a blind fetch, not drift",
     respond: paged(REAL.slice(0, 10)),
     code: 2,
     requests: [pageReq(1)],
-    outHas: ["fetched only 10 open issues (floor is 50)"],
+    outHas: ["fetched only 10 register issues among 10 open issues (floor is 50 register issues)"],
+  },
+  {
+    // ★★ The floor counts REGISTER issues: counted over all open issues, these 60
+    // would pass it and every entry would read ISSUE_NOT_OPEN — exit 1, 200+ findings.
+    name: "60 unrelated open issues and no register issue exits 2, not drift",
+    respond: paged(Array.from({ length: 60 }, (_, i) => ({ iid: 5000 + i, title: `bug ${i}`, labels: ["bug"] }))),
+    code: 2,
+    requests: [pageReq(1)],
+    outHas: ["fetched only 0 register issues among 60 open issues"],
+  },
+  {
+    name: "an issue served twice across pages exits 2 — the pages shifted, re-run",
+    respond: ({ res, url }) =>
+      url.searchParams.get("page") === "1"
+        ? send(res, 200, REAL.slice(0, 100), { "x-next-page": "2" })
+        : send(res, 200, REAL.slice(99), { "x-next-page": "" }),
+    code: 2,
+    requests: [pageReq(1), pageReq(2)],
+    outHas: [`issue #${REAL[99].iid} was served twice — issues changed while paging; re-run`],
   },
   {
     name: "a body that is not an array exits 2",
@@ -183,15 +222,104 @@ const ROWS = [
     requests: [pageReq(1)],
     outHas: ["page 1 is not a JSON array"],
   },
+  {
+    // ★★★ fetch TRIMS a header value before quoting it in its error, so the old
+    // `split(token)` redaction missed a padded token and leaked it verbatim.
+    name: "a padded token with an embedded newline exits 2, sends nothing, and never prints it",
+    env: { REGISTER_SYNC_TOKEN: "  canary-pad-head\ncanary-pad-tail  " },
+    respond: paged(REAL),
+    code: 2,
+    requests: [],
+    outHas: ["REGISTER_SYNC_TOKEN contains whitespace or a control character"],
+    outLacks: [
+      "  canary-pad-head\ncanary-pad-tail  ",
+      "canary-pad-head\ncanary-pad-tail",
+      "  canary-pad-head",
+      "canary-pad-tail  ",
+      "canary-pad-head",
+      "canary-pad-tail",
+    ],
+  },
+  {
+    name: "a network error (connection refused) exits 2",
+    apiUrl: closedPortUrl,
+    respond: paged(REAL),
+    code: 2,
+    requests: [],
+    outHas: ["CANNOT COMPARE: TypeError: fetch failed"],
+  },
+  {
+    name: "a server that never answers exits 2 on the timeout",
+    env: { REGISTER_SYNC_TIMEOUT_MS: "300" },
+    respond: () => {},
+    code: 2,
+    requests: [pageReq(1)],
+    outHas: ["CANNOT COMPARE: TimeoutError"],
+  },
+  {
+    name: "more than 50 pages exits 2",
+    respond: ({ res, url }) => {
+      const page = Number(url.searchParams.get("page"));
+      send(res, 200, [{ iid: page, title: `§${page}: x`, labels: ["source::register"] }], {
+        "x-next-page": String(page + 1),
+      });
+    },
+    code: 2,
+    requests: Array.from({ length: 50 }, (_, i) => pageReq(i + 1)),
+    outHas: ["more than 50 pages of open issues"],
+  },
+  {
+    name: "an x-next-page that does not advance exits 2",
+    respond: ({ res }) => send(res, 200, REAL.slice(0, 100), { "x-next-page": "1" }),
+    code: 2,
+    requests: [pageReq(1)],
+    outHas: ['x-next-page "1" does not advance'],
+  },
+  {
+    name: "an unknown argument with a token exits 2 and sends nothing",
+    args: ["--fix"],
+    respond: paged(REAL),
+    code: 2,
+    requests: [],
+    outHas: ["unknown argument(s) --fix"],
+  },
+  {
+    name: "CI_API_V4_URL unset with a token exits 2 and sends nothing",
+    env: { CI_API_V4_URL: undefined },
+    respond: paged(REAL),
+    code: 2,
+    requests: [],
+    outHas: ["CANNOT COMPARE: missing CI_API_V4_URL"],
+  },
+  {
+    name: "fewer than 50 open entries exits 2 and sends nothing",
+    cwd: () => smallRegisterDir(10),
+    respond: paged(REAL),
+    code: 2,
+    requests: [],
+    outHas: ["parsed only 10 open entries from docs/open-followups.md (floor is 50)"],
+  },
+  {
+    // ★★ The canary starts 10 chars before the 2000-char excerpt cut. Redacted
+    // AFTER truncation, its first 10 chars would survive and not match the token.
+    name: "a long 401 body with the token straddling the excerpt cut leaks no prefix of it",
+    respond: ({ res }) => send(res, 401, `${"x".repeat(1990)}${TOKEN}${"y".repeat(100)}`),
+    code: 2,
+    requests: [pageReq(1)],
+    outHas: ["CANNOT COMPARE: page 1 answered HTTP 401", "[REDACTED"],
+    outLacks: Array.from({ length: TOKEN.length - 7 }, (_, i) => TOKEN.slice(0, i + 8)),
+  },
 ];
 
 describe("check-followup-gitlab.mjs against a fake Issues API", () => {
-  it.each(ROWS)("$name", async ({ respond, env = {}, code, requests, outHas }) => {
+  it.each(ROWS)("$name", async ({ respond, env = {}, args, cwd, apiUrl, code, requests, outHas, outLacks = [] }) => {
     api = await startApi(respond);
-    const r = await runCli(api.url, env);
+    const url = apiUrl ? await apiUrl() : api.url;
+    const r = await runCli(url, env, { args, cwd: cwd ? cwd() : REPO });
     if (requests) expect(api.requests).toEqual(requests);
     expect(r.code, r.out).toBe(code);
     for (const text of outHas) expect(r.out).toContain(text);
+    for (const text of outLacks) expect(r.out).not.toContain(text);
     // The token header was the canary on every request that was sent.
     for (const t of api.tokens) expect(t).toBe(TOKEN);
     expect(r.out).not.toContain(TOKEN);
