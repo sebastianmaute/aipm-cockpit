@@ -48,11 +48,13 @@ export function Sidebar({
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={brandLogo || "/app-logo.svg"}
+              src={brandLogo || "/ai-pm-cockpit-banner.svg"}
               alt={brandLogo ? (brandSlogan ?? t(lang, "appTitle")) : t(lang, "appTitle")}
-              // Custom logos render as-is (capped to the sidebar width); only the
-              // mono Acme default gets the brightness-0 invert to go white.
-              className={brandLogo ? "max-h-8 max-w-full w-auto object-contain" : "h-5 w-auto brightness-0 invert"}
+              // Both a custom logo and the default AI PM Cockpit banner render
+              // as-is (capped to the sidebar width) -- the banner is full-colour
+              // with its own dark ground, so it must not carry the old
+              // brightness-0 invert that used to turn a mono glyph white.
+              className="max-h-8 max-w-full w-auto object-contain"
             />
             <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-ui-green">
               {brandSlogan || t(lang, "sidebarBrandSubtitle")}

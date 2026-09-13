@@ -375,15 +375,17 @@
 - **Branding (per-device `settings.branding {logo?, slogan?, footerSlogan?, favicon?, startLogo?}`):** rides the
   `writeSettings` spread (no allowlist edit); validated by `sanitizeBranding` — logo/favicon/startLogo must be a
   size-capped RASTER `data:image` URL (SVG EXCLUDED — XSS surface), slogan/footerSlogan trimmed+capped. Edited
-  in Settings → Appearance. `logo` overrides the sidebar logo — ★ a custom logo renders WITHOUT
-  `brightness-0 invert` (that filter only whitens the mono AIPM default); `slogan` = sidebar app-name subtitle;
+  in Settings → Appearance. `logo` overrides the sidebar logo; `slogan` = sidebar app-name subtitle;
   `footerSlogan` = bottom footer tagline (default `DEFAULT_FOOTER_SLOGAN`, seeded into
   `defaultSettings.branding`). `favicon` drives the document `<link rel=icon>` via `useApplyFavicon`/
   `applyFavicon` (`use-favicon.ts`) — captures the build-time default ONCE so a remove restores it. Sidebar +
   classic `AppHeader` + `app-modals` footer read branding via `useSettings()`. CSP already allows `data:` in
-  `img-src`. Default sidebar logo is `/app-logo.svg` (mono mark, whitened by `brightness-0 invert`); the classic
-  `AppHeader` renders `/AIPM-logo.svg` un-inverted (light header) — ★ the two default assets are DIFFERENT files,
-  which an earlier "classic header uses it" wording hid.
+  `img-src`. ★ Sidebar and classic `AppHeader` share the SAME default asset, `/ai-pm-cockpit-banner.svg` —
+  a full-colour banner with its own dark ground, so NEITHER default branch carries `brightness-0 invert` any
+  more (that filter used to whiten the retired mono AIPM mark). A custom `branding.logo` renders through the
+  identical size-capping classes as the default, so the default and custom branches collapse to one
+  className each. `project-empty-state.tsx`'s start window is a SEPARATE surface (see `startLogo` below) and
+  was deliberately left on its own default.
   ★★ `startLogo` is a FIFTH, SEPARATE field driving ONLY the start window (`project-empty-state.tsx`, the
   `view === "choices"` branch); unset ⇒ the shipped `/ai-pm-cockpit-banner-harbor.svg`, NOT `logo` and NOT the
   AIPM mark. It is deliberately not shared with the sidebar `logo` — one wants a small mark, the other a wide

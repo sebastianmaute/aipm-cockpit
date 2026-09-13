@@ -123,4 +123,22 @@ describe("AppHeader", () => {
     fireEvent.click(screen.getByRole("button", { name: /show due-date notifications/i }));
     expect(onShowAlerts).toHaveBeenCalledOnce();
   });
+
+  describe("logo", () => {
+    it("uses the AI PM Cockpit banner as the default", () => {
+      render(<AppHeader {...makeProps()} />, { wrapper: Wrapper });
+      const img = screen.getByRole("img", { name: t("en-US", "appTitle") });
+      expect(img).toHaveAttribute("src", "/ai-pm-cockpit-banner.svg");
+    });
+
+    it("uses the custom branding logo when one is set", () => {
+      const settings = {
+        ...defaultSettings,
+        branding: { ...defaultSettings.branding, logo: "data:image/png;base64,custom" },
+      };
+      render(<AppHeader {...makeProps({ settings })} />, { wrapper: Wrapper });
+      const img = screen.getByRole("img");
+      expect(img).toHaveAttribute("src", "data:image/png;base64,custom");
+    });
+  });
 });
