@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
   compareWithGitLab,
   GITLAB_PROBLEM_HELP,
+  issueSection,
   parseWorkItem,
   workItemLines,
   workItemViolations,
@@ -38,6 +39,30 @@ describe("parseWorkItem", () => {
     expect(parseWorkItem("**Work item:** #7.")).toBeNull();
     expect(parseWorkItem("**Work item:** none - decision record")).toBeNull();
     expect(parseWorkItem("**Work item:** #7, #8")).toBeNull();
+  });
+
+  it("rejects #0, a leading zero and an iid past ten digits", () => {
+    expect(parseWorkItem("**Work item:** #0")).toBeNull();
+    expect(parseWorkItem("**Work item:** #012")).toBeNull();
+    expect(parseWorkItem("**Work item:** #12345678901")).toBeNull();
+  });
+
+  it("accepts one to ten digits", () => {
+    expect(parseWorkItem("**Work item:** #1")).toEqual({ kind: "issue", iid: 1 });
+    expect(parseWorkItem("**Work item:** #1234567890")).toEqual({ kind: "issue", iid: 1234567890 });
+  });
+});
+
+describe("issueSection", () => {
+  it("reads a §NNN: prefix", () => {
+    expect(issueSection("§1: x")).toBe(1);
+    expect(issueSection("§531: x")).toBe(531);
+  });
+
+  it("rejects §0, a leading zero and a number past ten digits", () => {
+    expect(issueSection("§0: x")).toBeNull();
+    expect(issueSection("§012: x")).toBeNull();
+    expect(issueSection("§12345678901: x")).toBeNull();
   });
 });
 
@@ -71,6 +96,11 @@ describe("workItemViolations", () => {
 
   it("reports MISSING when the only mention is fenced", () => {
     expect(codes([open(1, "", "```", "**Work item:** #5", "```")])).toEqual(["MISSING"]);
+  });
+
+  it("reports MISSING when the only line is indented or blockquoted", () => {
+    expect(codes([open(1, "", "  **Work item:** #4", "")])).toEqual(["MISSING"]);
+    expect(codes([open(1, "", "> **Work item:** #4", "")])).toEqual(["MISSING"]);
   });
 
   it("reports DUPLICATE_LINE on an open entry with two lines", () => {

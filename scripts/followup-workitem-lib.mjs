@@ -27,7 +27,9 @@ export function workItemLines(entry) {
   return stripped.filter((l) => l.startsWith(WORK_ITEM_PREFIX));
 }
 
-const ISSUE_RE = /^\*\*Work item:\*\* #(\d+)\s*$/;
+// ★ `[1-9]\d{0,9}`: `#0`, a leading zero (`#012` would read as 12) and an iid
+// past ten digits (`Number` loses precision) are malformed, not normalised.
+const ISSUE_RE = /^\*\*Work item:\*\* #([1-9]\d{0,9})\s*$/;
 const DECISION_RE = /^\*\*Work item:\*\* none — decision record\s*$/;
 
 /** `{kind:"issue", iid}` | `{kind:"decision"}` | `null` (malformed).
@@ -96,7 +98,8 @@ export function workItemViolations(entries) {
 
 export const REGISTER_LABEL = "source::register";
 
-const SECTION_TITLE_RE = /^§(\d+):/;
+// ★ Same number rule as ISSUE_RE: `§012:` would otherwise read as §12.
+const SECTION_TITLE_RE = /^§([1-9]\d{0,9}):/;
 
 /** The §number an issue title claims, or null when it carries no `§NNN:` prefix. */
 export function issueSection(title) {
