@@ -19,10 +19,14 @@ vi.mock("./turso-config", () => ({
 vi.mock("./portfolio-mode", () => ({
   savePortfolioMode: vi.fn(),
 }));
+vi.mock("./project-key-facts-cache", () => ({
+  removeKeyFactsSnapshot: vi.fn(),
+}));
 
 import { listProjects, updateProjectMeta } from "./turso-portfolio";
 import { getTursoConfig } from "./turso-config";
 import { savePortfolioMode } from "./portfolio-mode";
+import { removeKeyFactsSnapshot } from "./project-key-facts-cache";
 
 // Stub window.location.reload so a cross-mode create does not actually reload jsdom.
 const reloadSpy = vi.fn();
@@ -59,6 +63,7 @@ beforeEach(() => {
   vi.mocked(listProjects).mockReset().mockResolvedValue([]);
   vi.mocked(updateProjectMeta).mockReset().mockResolvedValue(undefined);
   vi.mocked(getTursoConfig).mockClear();
+  vi.mocked(removeKeyFactsSnapshot).mockClear();
 });
 
 describe("useTursoProjects — create", () => {
@@ -161,6 +166,8 @@ describe("useTursoProjects — archive / restore / hard-delete", () => {
     // The refresh already fetched the list — repoint must NOT fetch it again.
     expect(vi.mocked(listProjects)).not.toHaveBeenCalled();
     expect(args.showToast).not.toHaveBeenCalled();
+    // G2: the archived project's per-device key-facts cache entry is dropped.
+    expect(removeKeyFactsSnapshot).toHaveBeenCalledWith("p-1");
   });
 
   it("archive: falls back to its own listProjects fetch when the refresh returned null", async () => {
@@ -192,6 +199,9 @@ describe("useTursoProjects — archive / restore / hard-delete", () => {
     await waitFor(() =>
       expect(args.showToast).toHaveBeenCalledWith("error", "Couldn't archive the project: down"),
     );
+    // A failed archive must NOT evict the cache entry for a project that is
+    // in fact still active.
+    expect(removeKeyFactsSnapshot).not.toHaveBeenCalled();
   });
 
   it("repoint: a rejected project-list read toasts instead of vanishing", async () => {
@@ -232,6 +242,7 @@ describe("useTursoProjects — archive / restore / hard-delete", () => {
         "Couldn't delete the project: gone wrong",
       ),
     );
+    expect(removeKeyFactsSnapshot).not.toHaveBeenCalled();
   });
 
   it("hard delete: success path archives nothing, refreshes, repoints from the refreshed list", async () => {
@@ -247,5 +258,7 @@ describe("useTursoProjects — archive / restore / hard-delete", () => {
     expect(args.hardDeleteTursoProject).toHaveBeenCalledWith("p-1");
     expect(vi.mocked(listProjects)).not.toHaveBeenCalled();
     expect(args.showToast).not.toHaveBeenCalled();
+    // G2: permanently deleting a project drops its per-device cache entry.
+    expect(removeKeyFactsSnapshot).toHaveBeenCalledWith("p-1");
   });
 });
