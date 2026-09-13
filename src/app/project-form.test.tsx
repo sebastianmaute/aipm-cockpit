@@ -69,7 +69,7 @@ function setText(label: string, value: string) {
   });
 }
 
-/** Fill every required field so the form becomes valid. */
+/** Fill every key fact (only the project name is actually required). */
 function fillRequired() {
   setText("Project name", "Apollo");
   setText("Project code", "APL-1");
@@ -87,7 +87,8 @@ function fillRequired() {
   setText("Profit center", "PC-9");
   // Regulatory: tick the first non-"Not applicable" requirement.
   fireEvent.click(screen.getByLabelText("GDPR / data protection regulation"));
-  // Contacts are now mandatory (≥1): add one manual contact.
+  // Contacts are optional since O-1; add one manual contact anyway so this
+  // helper still exercises the contacts key fact.
   fireEvent.change(screen.getByPlaceholderText("Add manually"), {
     target: { value: "Pat Contact" },
   });

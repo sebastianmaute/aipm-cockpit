@@ -19,7 +19,7 @@ describe("validateProjectMeta", () => {
     const e = validateProjectMeta({
       ...ok, name: "", code: "", projectManager: "", customer: "", naceSection: "",
       products: "", deployment: "", startDate: "", endDate: "", profitCenter: "",
-      contactPersons: [], regulatory: [],
+      contactPersons: [], regulatory: [], keyStakeholdersInternal: [], keyStakeholdersExternal: [],
     });
     expect(e).toEqual({ name: "errorProjectNameRequired" });
   });

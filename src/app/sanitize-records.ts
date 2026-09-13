@@ -1391,16 +1391,17 @@ function sanitizeStringArray(input: unknown, cap: number): string[] {
   return out;
 }
 
-/**
- * Full-record sanitizer for inbound ProjectMeta data (file imports, chat
- * tools, form round-trips). Returns null when any required field is absent
- * or invalid.
- */
 /** Keep a valid IANA timezone string; drop empty/junk/non-string. */
 export function sanitizeTimezone(raw: unknown): string | undefined {
   return typeof raw === "string" && isValidTimeZone(raw) ? raw : undefined;
 }
 
+/**
+ * Full-record sanitizer for inbound ProjectMeta data (file imports, chat
+ * tools, form round-trips). Returns null only for a non-object input, a
+ * blank `name`, or a non-blank `naceSection`/`deployment` outside its known
+ * set — every other key fact may be blank (`""` / `[]`) since O-1.
+ */
 export function sanitizeProjectMeta(input: unknown): ProjectMeta | null {
   if (!isPlainObject(input)) return null;
   const o = input;

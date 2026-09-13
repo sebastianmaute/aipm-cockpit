@@ -4214,7 +4214,7 @@ const enUS = {
   contactAddManual: "Add manually",
   infoMore: "More information",
   contactPersonsTip:
-    "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list. At least one contact is required.",
+    "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list.",
   // UX batch "Aldiss" (0.177.0)
   dashboardKpiCompleteHint: "Share of tasks with a completion date, out of every task still counted as scope. Trending up is good; a flat line signals stalled delivery.",
   dashboardKpiOverdueHint: "Tasks past their due date and not yet done. Drive this toward zero.",
