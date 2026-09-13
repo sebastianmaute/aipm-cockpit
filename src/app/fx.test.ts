@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { resolveRate, eurToCurrency, currencyToEur } from "./fx";
+import { resolveRate, resolveRateSource, eurToCurrency, currencyToEur } from "./fx";
 import type { FxRates, BudgetBucket } from "./types";
 
 const fx: FxRates = { base: "EUR", date: "2026-05-26", fetchedAt: "x", rates: { EUR: 1, USD: 1.08, GBP: 0.85 } };
@@ -30,6 +30,44 @@ describe("resolveRate", () => {
     // by the divide-by-zero case below, so a 0 here would prove nothing.
     expect(resolveRate(bucket({ currency: "EUR", fxRateOverride: 1.1 }), fx)).toBe(1);
     expect(resolveRate(bucket({ currency: "EUR", fxRateOverride: 1.1 }), null)).toBe(1);
+  });
+});
+
+// §474: `resolveRate` collapses "genuinely resolved to 1" and "no override,
+// no cached rate — read at par" into the SAME return value (1), so a caller
+// deciding whether to disclose the fallback cannot ask `resolveRate(...) ===
+// 1` — that conflates the two. `resolveRateSource` is the only way to tell
+// them apart, and MUST agree with `resolveRate` on every branch.
+describe("resolveRateSource", () => {
+  test("is \"eur\" for an EUR bucket, even carrying a stale positive override", () => {
+    expect(resolveRateSource(bucket({ currency: "EUR" }), fx)).toBe("eur");
+    expect(resolveRateSource(bucket({ currency: "EUR", fxRateOverride: 1.1 }), fx)).toBe("eur");
+  });
+  test("is \"override\" when a positive override is present on a non-EUR bucket", () => {
+    expect(resolveRateSource(bucket({ fxRateOverride: 1.2 }), fx)).toBe("override");
+  });
+  test("is \"cached\" when no override but a cached ECB rate exists", () => {
+    expect(resolveRateSource(bucket(), fx)).toBe("cached");
+  });
+  // The case §474 exists for: a "cached" resolution can itself land on 1 (a
+  // currency genuinely trading at par with EUR), and that must read as
+  // RESOLVED, not as the unresolved fallback below — both return `1` from
+  // `resolveRate`, so only the source tells them apart.
+  test("is \"cached\", not \"unresolved\", when the cached rate genuinely is 1", () => {
+    const parFx: FxRates = { ...fx, rates: { ...fx.rates, USD: 1 } };
+    expect(resolveRateSource(bucket({ currency: "USD" }), parFx)).toBe("cached");
+    expect(resolveRate(bucket({ currency: "USD" }), parFx)).toBe(1);
+  });
+  test("is \"unresolved\" when a non-EUR bucket has neither an override nor a cached rate", () => {
+    expect(resolveRateSource(bucket({ currency: "GBP" }), null)).toBe("unresolved");
+    // fxRates itself resolved (a fetch happened), but this currency's rate
+    // never came back — still unresolved, not merely the null-fxRates case.
+    const partialFx: FxRates = { base: "EUR", date: "2026-05-26", fetchedAt: "x", rates: { EUR: 1 } };
+    expect(resolveRateSource(bucket({ currency: "GBP" }), partialFx)).toBe("unresolved");
+  });
+  test("a non-positive override does not resolve the rate — falls through to cached or unresolved", () => {
+    expect(resolveRateSource(bucket({ fxRateOverride: 0 }), fx)).toBe("cached");
+    expect(resolveRateSource(bucket({ fxRateOverride: -5, currency: "GBP" }), null)).toBe("unresolved");
   });
 });
 

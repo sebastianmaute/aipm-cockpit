@@ -627,6 +627,12 @@ const enUS = {
   budgetFixedPriceAmount: "Fixed-price amount",
   budgetFxOverride: "Manual FX rate",
   budgetFxOverrideHint: "Manual EUR→currency rate; leave blank to use the cached ECB rate.",
+  // §474: a non-EUR bucket with neither a manual override nor a cached ECB
+  // rate is summed into the EUR rollup at par (rate 1) — this marks that
+  // state on the currency label, distinct from a bucket whose resolved rate
+  // genuinely is 1. Kept short: it renders inside a `(...)` suffix next to
+  // the currency code, e.g. "USD (no rate — 1:1)".
+  budgetFxRateUnresolved: "no rate — 1:1",
   budgetAllocations: "Role allocations",
   budgetAddRole: "Add role",
   budgetRemoveRole: "Remove role",
