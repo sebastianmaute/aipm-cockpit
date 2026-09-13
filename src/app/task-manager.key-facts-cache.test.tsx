@@ -14,10 +14,10 @@
 // second real mount.
 // ★★ The "load has settled" signal is `useSnapshots`' `workspaceReady` arg
 // (mirrors task-manager.snapshot-gate.test.tsx), NOT a rendered project name
-// — a popout mounts via task-manager's OWN early `if (isPopout) return (...)`
-// branch (task-manager.tsx ~3095), which renders `legacyTree` only and never
-// reaches the project-switcher header at all, so there is no popout-visible
-// text this suite could wait on instead.
+// — a popout mounts via task-manager's early `if (isPopout) return (...)`,
+// which renders `legacyTree` only and never reaches the project-switcher
+// header at all, so there is no popout-visible text this suite could wait on
+// instead.
 import "fake-indexeddb/auto";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { IDBFactory } from "fake-indexeddb";
@@ -139,8 +139,8 @@ describe("task-manager — key-facts cache write effect", () => {
     expect(loadKeyFactsSnapshot("p1")).toBeNull();
   }, 45000);
 
-  // ★★★ Mutation-checked: temporarily deleting the `isPopout ||` guard in the
-  // effect (task-manager.tsx ~2162) turns this red — see the wave-2 report.
+  // ★★★ Mutation-checked: temporarily deleting the `isPopout ||` guard in
+  // task-manager's key-facts cache-write effect turns this red.
   it("writes nothing from a popout render, even once the same meta loads", async () => {
     seedRegistry([{ id: "p1", name: "Seed", code: "SEED" }], "p1");
     await idbSet(KV_PROJECT_KEY, META);
