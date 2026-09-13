@@ -169,6 +169,10 @@ describe("computeBurndownSeries — fixed-price buckets (§472)", () => {
     expect(s.totalBudgetHours).toBe(0);
     expect(s.totalBudgetValue).toBeCloseTo(9000, 5);
     expect(s.actualRemainingValue).toEqual([9000, 9000, null]);
+    // Budget-hours basis is 0, so the even-split fallback spreads the 9000
+    // contract equally over the 3 in-window periods (3000 each): cumulative
+    // 3000/6000/9000 -> remaining 6000/3000/0.
+    expect(s.plannedRemainingValue).toEqual([6000, 3000, 0]);
   });
 
   it("converts the contract amount through the same FX helper as the report", () => {
@@ -184,6 +188,82 @@ describe("computeBurndownSeries — fixed-price buckets (§472)", () => {
     // 20000 USD at 2 USD/EUR (override) = 10000 EUR, fully consumed (100/100 hours).
     expect(s.totalBudgetValue).toBeCloseTo(10000, 5);
     expect(s.actualRemainingValue[0]).toBeCloseTo(0, 5);
+  });
+
+  // Review follow-up (§472 fixed-price burndown cap, register): pins the
+  // `Math.min(fixedPriceEur, ...)` cap explicitly — every case above that
+  // exercises `consumedEur` keeps actual hours at or below budgeted hours, so
+  // none of them can distinguish a capped ratio from an uncapped one deleting
+  // the cap would still leave those green. Delete the `Math.min` (leave the
+  // ratio multiply) and this test goes red for the right reason: consumed
+  // would read 30000 (20000 * 150/100) instead of capping at the 20000
+  // contract; restore it to go green again.
+  it("caps consumed at the contract amount when actual hours exceed budgeted hours", () => {
+    // Budget hours only in Jan (100); actual hours 100 (Jan) + 50 (Feb) = 150,
+    // i.e. 150% of the 100-hour budget basis -> ratio 1.5, which must be
+    // clamped to 1.0 (the full contract), not paid out at 1.5x.
+    const overBudget = bucket({
+      type: "fixed",
+      fixedPriceAmount: 20000,
+      allocations: [{
+        roleId: 1, resourceIds: [],
+        budgetHours: { "2026-01": 100 },
+        actualHours: { "2026-01": 100, "2026-02": 50 },
+      }],
+    });
+    const s = computeBurndownSeries([overBudget], plan, roles, [], 8, new Set<string>(), [], "2026-03-31", null);
+    expect(s.totalBudgetHours).toBe(100);
+    expect(s.totalBudgetValue).toBeCloseTo(20000, 5);
+    // consumedEur = min(20000, 20000 * 150/100) = min(20000, 30000) = 20000,
+    // split back across the 150 actual hours: Jan 20000*100/150 = 13333.33,
+    // Feb 20000*50/150 = 6666.67, Mar 0. Cumulative 13333.33 / 20000 / 20000
+    // -> remaining 6666.67 / 0 / 0. Every period is in the past (today = plan
+    // end), so the LAST remaining is 0 — the cap, not a 1.5x overshoot.
+    expect(s.actualRemainingValue[0]).toBeCloseTo(6666.666666666667, 5);
+    expect(s.actualRemainingValue[1]).toBeCloseTo(0, 5);
+    expect(s.actualRemainingValue[2]).toBeCloseTo(0, 5);
+  });
+
+  it("treats a missing fixedPriceAmount as 0 — every value is 0, never NaN", () => {
+    const noAmount = bucket({ type: "fixed" }); // fixedPriceAmount deliberately omitted
+    const s = computeBurndownSeries([noAmount], plan, roles, [], 8, new Set<string>(), [], "2026-02-15", null);
+    expect(s.totalBudgetHours).toBe(300); // hours still summed regardless of valuation basis
+    expect(s.totalBudgetValue).toBe(0);
+    expect(s.plannedRemainingValue).toEqual([0, 0, 0]);
+    expect(s.actualRemainingValue).toEqual([0, 0, null]);
+  });
+
+  it("values an unresolved-rate foreign-currency contract at par (§474), like an EUR one", () => {
+    // USD, no fxRateOverride, fxRates: null -> resolveRateSource is
+    // "unresolved" (fx.ts) and resolveRate falls back to 1, so the contract
+    // amount converts to EUR unchanged — same totals as the EUR fixedBucket
+    // above at the same fixedPriceAmount-shape (300 budgeted / 210 actual).
+    const unresolvedUsd = bucket({ type: "fixed", currency: "USD", fixedPriceAmount: 15000 });
+    const s = computeBurndownSeries([unresolvedUsd], plan, roles, [], 8, new Set<string>(), [], "2026-02-15", null);
+    expect(s.totalBudgetValue).toBeCloseTo(15000, 5);
+    expect(s.plannedRemainingValue).toEqual([10000, 5000, 0]);
+    expect(s.todayIndex).toBe(1);
+    // consumedEur = 15000 * 210/300 = 10500, split 120/210 and 90/210:
+    // Jan 10500*120/210 = 6000, Feb 10500*90/210 = 4500.
+    expect(s.actualRemainingValue).toEqual([9000, 4500, null]);
+  });
+
+  it("reconciles a mixed fixed-price + T&M project against computeBudgetReport's totals", () => {
+    const tmBucket = bucket(); // id 1, T&M, role 1 @ external 200: 300 budgeted / 210 actual hours
+    const fixed = bucket({ id: 2, type: "fixed", fixedPriceAmount: 30000 }); // same hours shape
+    const s = computeBurndownSeries([tmBucket, fixed], plan, roles, [], 8, new Set<string>(), [], "2026-02-15", null);
+    const rep = computeBudgetReport([tmBucket, fixed], plan, roles, [], 8, new Set<string>(), [], [], null);
+    // Hours: 300+300 = 600. Budget value: 60000 (T&M, 300h * 200) + 30000
+    // (fixed contract) = 90000 — both bases summed by the SAME project total
+    // computeBudgetReport reports.
+    expect(s.totalBudgetHours).toBeCloseTo(rep.project.budgetHours, 5);
+    expect(s.totalBudgetValue).toBeCloseTo(rep.project.budgetValue, 5);
+    // Consumed: T&M has no cap (210h * 200 = 42000); fixed caps at
+    // 30000*210/300 = 21000. Combined 63000, once every period is in the past.
+    const full = computeBurndownSeries([tmBucket, fixed], plan, roles, [], 8, new Set<string>(), [], "2026-03-31", null);
+    const lastRemaining = full.actualRemainingValue[full.actualRemainingValue.length - 1] ?? 0;
+    const totalConsumed = full.totalBudgetValue - lastRemaining;
+    expect(totalConsumed).toBeCloseTo(rep.project.consumedValue, 5);
   });
 });
 

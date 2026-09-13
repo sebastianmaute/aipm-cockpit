@@ -101,6 +101,17 @@ export function computeBurndownSeries(
       const inWindow: { i: number; bh: number; ah: number }[] = [];
       let bucketBudgetHours = 0;
       let bucketActualHours = 0;
+      // `indexByKey` only knows periods inside the CURRENT chart window (see
+      // `periods`/`span` above) — a period from `active` outside it is
+      // skipped by the `continue` below, so `bucketBudgetHours`/
+      // `bucketActualHours` (and therefore `consumedEur`'s ratio) are built
+      // from IN-WINDOW hours only. `computeBucketReport` has no such window
+      // and always sums every active period, so the two can legitimately
+      // diverge whenever a chart span clips a fixed-price bucket: the whole
+      // contract amount is still spread over just the in-window periods here,
+      // and if the window excludes ALL of the bucket's active periods, the
+      // contract drops out of this chart entirely (contributes 0 to every
+      // series) even though the report still counts it in full.
       for (const p of active) {
         const i = indexByKey.get(p.key);
         if (i === undefined) continue;
