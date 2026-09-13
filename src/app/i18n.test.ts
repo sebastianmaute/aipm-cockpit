@@ -64,3 +64,27 @@ describe("brand name", () => {
     }
   });
 });
+
+// §466: the "Health ratings & forecasts" Help entry used to promise a
+// burn-down FORECAST ("along with a burn-down forecast" / "sowie eine
+// Burn-down-Prognose") that `burndown-chart.tsx` never draws -- it renders a
+// planned line, an actual line and a today marker only, per
+// `computeBurndownSeries` in budget-burndown.ts. Pin the absence of that
+// promise, in both languages, and a positive observable (the corrected
+// wording) so this cannot pass on an emptied string.
+describe("help — burn-down health entry (§466)", () => {
+  it("EN body no longer promises a burn-down forecast", () => {
+    const body = t("en-US", "helpAutomatedHealthBody");
+    expect(body).not.toMatch(/burn-down forecast/i);
+    expect(body).toContain("burn-down chart");
+  });
+
+  it("DE body no longer promises a Burn-down-Prognose", () => {
+    // Read the DE dict directly -- `t("de", ...)` silently falls back to
+    // en-US unless `loadI18n("de")` has resolved first, which would let a
+    // reverted/untranslated DE string pass by reading the English body.
+    const body = de["helpAutomatedHealthBody"];
+    expect(body).not.toMatch(/Burn-down-Prognose/i);
+    expect(body).toContain("Burn-down-Diagramm");
+  });
+});
