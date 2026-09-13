@@ -281,7 +281,10 @@ surface, which is exhaustive with no branch to fill and therefore needs no `neve
 - One `SuggestedAction` per missing fact, `id: "project-meta:<projectId>:<factId>"`, matching
   the established `${source}:${entityId}:${reason}` convention.
 - `cta: { kind: "open", view: "projects", id: projectId }`. A string id is permitted by
-  `ActionCta`.
+  `ActionCta`'s TYPE — ★ but not by its executor as written: `executeActionCta` calls
+  `requestOpen(view, Number(cta.id))`, which turns `"p1"` into `NaN` and pushes `#projects/NaN`.
+  (Corrected 2026-09-13 while planning; this line said only "permitted".) The `open` arm must
+  navigate with `setActiveTab(view)` alone when the id is a string.
 - `ActionInput` gains the project meta and project id **additively**; the provider returns `[]`
   when they are absent, so no caller is forced to supply them at once.
 - `moduleId` stays undefined — Projects is core, always-on.
@@ -350,7 +353,10 @@ is checked by hand and unit tests are the only coverage. Consequences:
 ### 5.6 Testing
 
 - **Model:** completeness at empty / partial / full; and a mirror test asserting the model and
-  `validateProjectMeta` agree on what "set" means.
+  `sanitizeProjectMeta` agree on what "blank" means (a whitespace string, a blank-named contact
+  person and an unknown regulatory entry all normalise to blank and read as missing). ★ This said
+  `validateProjectMeta` until 2026-09-13. After MR A that function checks only `name`, so the
+  comparison would have been vacuous for ten of the eleven facts.
 - **Provider:** one action per missing fact; N facts collapse to one group with N−1 extras;
   never tier `now`; no task verbs attach; absent input yields `[]`.
 - **Cache:** absence reads unknown rather than zero; eviction at the cap; the current project
