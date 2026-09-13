@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { loadI18n } from "./i18n";
 import { KEY_FACTS_AMBER_MIN, KeyFactsBanner, KeyFactsMeter } from "./project-key-facts-meter";
 
 function fill(container: HTMLElement) {
@@ -41,7 +42,7 @@ describe("KeyFactsMeter", () => {
   it("renders unknown as a bare track with no fill, a dash count and a question glyph", () => {
     const { container } = render(<KeyFactsMeter lang="en-US" state={{ kind: "unknown", total: 11 }} />);
     expect(screen.getByText("Key facts not measured here")).toBeInTheDocument();
-    expect(screen.getByText("— / 11")).toBeInTheDocument();
+    expect(screen.getByText("— of 11")).toBeInTheDocument();
     expect(fill(container)).toBeNull();
     expect(container.querySelector("[data-key-facts-unknown-glyph]")).not.toBeNull();
   });
@@ -51,6 +52,33 @@ describe("KeyFactsMeter", () => {
       <KeyFactsMeter lang="en-US" state={{ kind: "measured", filled: 5, total: 11, missing: ["code", "customer", "products", "profitCenter", "naceSection", "deployment"] }} />,
     );
     expect(container.querySelector("[data-key-facts-track]")?.getAttribute("aria-hidden")).toBe("true");
+  });
+});
+
+// G10: prove the singular/plural DE sentences and the DE unknown-count
+// format actually render — `loadI18n("de")` first, since the DE dictionary
+// is lazy and `t("de", …)` serves English until it resolves.
+describe("KeyFactsMeter — German", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("renders the singular/plural missing sentences and the unknown count in German", () => {
+    render(
+      <KeyFactsMeter lang="de" state={{ kind: "measured", filled: 10, total: 11, missing: ["code"] }} />,
+    );
+    expect(screen.getByText("1 Kernangabe fehlt")).toBeInTheDocument();
+
+    render(
+      <KeyFactsMeter
+        lang="de"
+        state={{ kind: "measured", filled: 8, total: 11, missing: ["code", "customer", "regulatory"] }}
+      />,
+    );
+    expect(screen.getByText("3 Kernangaben fehlen")).toBeInTheDocument();
+
+    render(<KeyFactsMeter lang="de" state={{ kind: "unknown", total: 11 }} />);
+    expect(screen.getByText("— von 11")).toBeInTheDocument();
   });
 });
 

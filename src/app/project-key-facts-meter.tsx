@@ -6,7 +6,7 @@
 // ★★ Projects is NOT in axe A11Y_VIEWS (spec §5.5), so unit tests are the only
 // coverage. The bar is aria-hidden decoration and the visible count text carries
 // the state, so colour is never the sole cue. The *unknown* state is the bare
-// muted track with NO fill child — told apart by its "— / 11" text and the
+// muted track with NO fill child — told apart by its "— of 11" text and the
 // question glyph, never by a hatch or pattern (the palette bans gradients).
 // ★ Fill tokens are written as three concrete class strings on purpose — never
 // one arbitrary-value bracket with a pipe or wildcard (Tailwind v4 scans every
