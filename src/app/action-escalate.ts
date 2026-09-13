@@ -88,9 +88,12 @@ export function buildEscalationEntry(
 }
 
 /** Pure (uses `t`): one-line human text for an escalation — the note-log echo
- *  and the edit modal's Escalations list use the same sentence. */
+ *  and the edit modal's Escalations list use the same sentence.
+ *  ★ It names the person, never their address when a name is known: the
+ *  address stays in the structured record, which exports and templates omit,
+ *  and is not duplicated into free-text notes. Bare address only as fallback. */
 export function describeEscalation(lang: Lang, e: RaidEscalation): string {
-  const who = e.toName ? `${e.toName} <${e.toEmail}>` : e.toEmail;
+  const who = e.toName || e.toEmail;
   return e.fromSeverity && e.toSeverity
     ? t(lang, "raidEscalationNoteRaised", who, severityLabel(e.fromSeverity, lang), severityLabel(e.toSeverity, lang))
     : t(lang, "raidEscalationNoteNotifyOnly", who);

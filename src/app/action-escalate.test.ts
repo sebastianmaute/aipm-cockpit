@@ -121,14 +121,22 @@ describe("buildEscalationEntry", () => {
     const entry = buildEscalationEntry({ raisesSeverity: false, reason: "risk" }, { name: "Jane<BR/>Doe", email: "jane@example.com", resourceId: null }, AT);
     expect(entry.toName).toBe("Jane Doe");
     expect(describeEscalation("en-US", entry)).not.toMatch(/<br/i);
-    expect(describeEscalation("en-US", entry)).toContain("Jane Doe <jane@example.com>"); // positive control
+    expect(describeEscalation("en-US", entry)).toContain("Jane Doe"); // positive control
   });
 });
 
 describe("describeEscalation", () => {
-  it("names the recipient and the translated severity step", () => {
-    expect(describeEscalation("en-US", { at: AT, toName: "Jane Doe", toEmail: "jane@example.com", fromSeverity: "High", toSeverity: "Critical" }))
-      .toBe(t("en-US", "raidEscalationNoteRaised", "Jane Doe <jane@example.com>", severityLabel("High", "en-US"), severityLabel("Critical", "en-US")));
+  it("names the recipient WITHOUT their address, and the translated severity step", () => {
+    const text = describeEscalation("en-US", { at: AT, toName: "Jane Doe", toEmail: "jane@example.com", fromSeverity: "High", toSeverity: "Critical" });
+    expect(text).toBe(t("en-US", "raidEscalationNoteRaised", "Jane Doe", severityLabel("High", "en-US"), severityLabel("Critical", "en-US")));
+    // The address stays in the structured record only; the human-readable echo never carries it.
+    expect(text).not.toContain("@");
+    expect(text).toContain("Jane Doe"); // positive control
+  });
+  it("names a notify-only recipient without their address too", () => {
+    const text = describeEscalation("en-US", { at: AT, toName: "Jane Doe", toEmail: "jane@example.com" });
+    expect(text).toBe("Escalated to Jane Doe (notify only)");
+    expect(text).not.toContain("@");
   });
   it("falls back to the bare address and says notify only", () => {
     expect(describeEscalation("en-US", { at: AT, toEmail: "ops@example.com" })).toBe("Escalated to ops@example.com (notify only)");

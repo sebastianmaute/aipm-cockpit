@@ -120,6 +120,9 @@ copies its codec, sanitizer and column handling. The plan confirms each site by 
   - stamps `localModifiedAt`.
 - The note text is translated by the caller, once, in the writer's language. For example:
   `Escalated to Jane Doe <jane@example.com>: severity High → Critical`, or `… (notify only)`.
+  - Note (2026-09-13, fix-all 2): the echo now names the recipient without the address
+    (`Escalated to Jane Doe: severity High → Critical`); the address appears only when no name is
+    known. The address stays in the structured `escalations` record.
 - `handleEscalate` applies the record with ONE functional `setRaid(prev => prev.map(…))`. That also
   fixes today's closure read of `raid`, which loses a same-tick concurrent write.
 - Log the activity as `raid.escalated`. Its changes carry severity from/to only, never the email.

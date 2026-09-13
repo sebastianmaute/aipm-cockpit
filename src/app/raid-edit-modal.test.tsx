@@ -631,7 +631,7 @@ describe("RaidEditModal — Escalations list (§515)", () => {
     const items = screen.getAllByRole("listitem").map((li) => li.textContent ?? "");
     const mine = items.filter((s) => s.startsWith("2026-05-2"));
     expect(mine).toEqual([
-      `2026-05-20 · ${t("en-US", "raidEscalationNoteRaised", "Sam Placeholder <Fictional.Jordan@example.com>", "Medium", "High")}`,
+      `2026-05-20 · ${t("en-US", "raidEscalationNoteRaised", "Sam Placeholder", "Medium", "High")}`,
       "2026-05-22 · Escalated to ops@example.com (notify only)",
     ]);
   });

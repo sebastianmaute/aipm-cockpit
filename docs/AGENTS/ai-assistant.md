@@ -160,6 +160,7 @@
   exactly the fields the op writes, so the whole-row `WRITE_THROUGH_FIELDS` rule (open-followups §50) does not keep the
   note. Arrays three-way merge (`mergeFieldValue`), so a human note added after the escalation survives its undo — which
   holds only because an absent array is captured as `[]`; an `undefined` before-end reverts wholesale and deletes it.
+  The note echo names the recipient (`describeEscalation`); the address appears only when no name is known.
   ★★★ **ENUMERATE THE GUARDED SET BY WHAT A SCHEMA ADVERTISES, NEVER BY THE `update_*` NAME.** The seventh
   is why: `set_task_dependencies` is a WHOLE-LIST REPLACE of `dependencies` — a field that IS in
   `CSV_COLUMNS`, is NOT in `TOKEN_EXCLUDED.task`, and comes straight from model input — whose own schema

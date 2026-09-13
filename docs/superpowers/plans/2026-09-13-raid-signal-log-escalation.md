@@ -55,6 +55,7 @@ Each deviation below was found in the code while planning. The plan follows the 
    - `export-sections.ts` builds the RAID export table from `RAID_CSV_COLUMNS`, so a new column would appear as raw JSON with recipient e-mail addresses in DOCX/PPTX/XLSX.
    - To honour "Out of scope: escalations in exports", Task 2 filters the column out through a new exported `RAID_EXPORT_COLUMNS`.
    - Note (2026-09-13, final review): this omits only the STRUCTURED column. It does not keep recipients out of an export or a template: every escalation also writes a note-log echo ("Escalated to Jane Doe <jane@example.com>: …"), `noteLog` is exported through `projectNoteLog`, and templates carry it (§168).
+   - Note (2026-09-13, fix-all 2): the echo no longer carries the address when a name is known (`describeEscalation` → "Escalated to Jane Doe: …"); it still names the recipient, so the export and template caveat above still holds for names.
 10. **The offered-surface sweep derives its Relation A axis from `RAID_CSV_COLUMNS`.**
     - Source: `src/test/offered-surface-axis.ts`, `PERSISTED_COLUMNS`. The new column therefore enters the model-write sweep.
     - `probeFor` never invents a value, so Task 2 seeds `escalations` in `seedGuardedRaid` and adds it to `AXIS_FIELDS.raid`.
