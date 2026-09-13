@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   decodeRaidEscalations,
   encodeRaidEscalations,
+  isEscalationEmail,
   lastEscalation,
   RAID_ESCALATIONS_MAX,
+  requireEscalationRecipient,
   sanitizeRaidEscalations,
 } from "./raid-escalation";
 import type { RaidEscalation } from "./types";
@@ -60,6 +62,34 @@ describe("escalations cell codec", () => {
   it("tolerates an empty or malformed cell", () => {
     expect(decodeRaidEscalations("")).toEqual([]);
     expect(decodeRaidEscalations("{not json")).toEqual([]);
+  });
+});
+
+describe("isEscalationEmail", () => {
+  it("accepts a well-formed address with no brackets", () => {
+    expect(isEscalationEmail("jane@example.com")).toBe(true);
+  });
+  it("rejects a malformed address (delegates to isValidEmail)", () => {
+    expect(isEscalationEmail("nobody")).toBe(false);
+    expect(isEscalationEmail("")).toBe(false);
+  });
+  it("rejects an otherwise-valid-looking address carrying \"<\" or \">\"", () => {
+    expect(isEscalationEmail("a<br>@b.co")).toBe(false);
+    expect(isEscalationEmail("a@b.co>")).toBe(false);
+    expect(isEscalationEmail("<a@b.co")).toBe(false);
+  });
+});
+
+describe("requireEscalationRecipient — toEmail rejects \"<\"/\">\" too (fix-all-1)", () => {
+  it("throws for a <br>-bearing address that would otherwise pass isValidEmail", () => {
+    expect(() => requireEscalationRecipient({ toEmail: "a<br>@b.co" })).toThrow(/toEmail must be a valid email/);
+  });
+});
+
+describe("sanitizeRaidEscalations — drops an entry whose toEmail carries \"<\"/\">\" (fix-all-1)", () => {
+  it("drops the entry rather than storing a bracket-bearing address verbatim", () => {
+    const withBadEmail: RaidEscalation = { ...NOTIFY, toEmail: "a<br>@b.co" };
+    expect(sanitizeRaidEscalations([withBadEmail, NOTIFY])).toEqual([NOTIFY]);
   });
 });
 

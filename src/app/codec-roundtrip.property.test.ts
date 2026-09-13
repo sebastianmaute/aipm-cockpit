@@ -65,8 +65,13 @@ import { quoteStep, splitCsvLines } from "./csv-line-scan";
  * Beyond the field level, each codec applies normalisation to a cell's TEXT,
  * and those are asserted rather than excluded:
  *   CSV      — a bare LF becomes CRLF (see `csvNewlines`).
- *   Markdown — cell trimming, CRLF collapse and literal `<br>` absorption
- *              (each pinned individually in its own describe block below).
+ *   Markdown — cell trimming and CRLF collapse (each pinned individually in
+ *              its own describe block below). A literal `<br…>` used to be a
+ *              THIRD lossy transform (indistinguishable from an encoded
+ *              newline, so it decoded to one) — fixed at the root in
+ *              `mdEscape`/`mdUnescape` (markdown-codecs-core.ts), which now
+ *              escapes the `<` so a literal tag round-trips verbatim. Pinned
+ *              below as a preserving case, not an exclusion.
  */
 
 // --- hostile string alphabet ----------------------------------------------
@@ -536,12 +541,20 @@ describe("CSV workspace codec — task round-trip", () => {
 
 // --- Markdown --------------------------------------------------------------
 
-/** Markdown is exact only on strings that avoid its three lossy transforms
- *  (each pinned individually below). Excluded here so the exact property stays
- *  a real assertion rather than a restatement of `mdEscape`:
+/** Markdown is exact only on strings that avoid its two remaining lossy
+ *  transforms (each pinned individually below). Excluded here so the exact
+ *  property stays a real assertion rather than a restatement of `mdEscape`:
  *    - any `\r` at all (bare CR is trimmed at a cell edge; CRLF collapses),
- *    - a leading or trailing space/tab (`splitMdRow` trims every cell),
- *    - a literal `<br…>` (indistinguishable from an encoded newline).
+ *    - a leading or trailing space/tab (`splitMdRow` trims every cell).
+ *  A literal `<br…>` used to be a THIRD lossy transform (indistinguishable
+ *  from an encoded newline) — fixed at the root in `mdEscape`/`mdUnescape`
+ *  (markdown-codecs-core.ts), which now escapes the `<` so a literal tag
+ *  round-trips verbatim (see the "no longer collides" describe block in
+ *  markdown-codecs.test.ts). The filter below still rejects `<br` out of
+ *  caution — folding it back in would change this alphabet's accepted set and
+ *  this file's own rule is to re-measure the calibrated hazard-probability
+ *  floors below whenever either alphabet changes (see HAZARD_FLOOR), which is
+ *  out of scope for this fix. Safe to lift in a follow-up that re-measures.
  *  Everything genuinely interesting to the format is still in: `|`, `\`, `\|`,
  *  interior `\n`, quotes, commas, markdown syntax leaders, astral pairs. */
 /** ★ CR is STRIPPED by a `map`, not rejected by a `filter`. Rejecting threw
@@ -561,7 +574,7 @@ const mdSafeString = anyString
       s === s.replace(/^[ \t]+/, "").replace(/[ \t]+$/, ""),
   );
 
-/** The three transforms above are each idempotent on their own, so one pass is
+/** The two transforms above are each idempotent on their own, so one pass is
  *  a fixed point as long as no bare CR is present. A CR is the exception, and
  *  it is a defect — see the second skipped block at the bottom. */
 const mdNoCrString = anyString.map((s) => s.replace(/\r/g, ""));
@@ -591,7 +604,7 @@ describe("Markdown workspace codec — task round-trip", () => {
   });
 
   it("is a fixed point after one pass when no bare CR is present", () => {
-    // What this buys beyond the exact property above: the three lossy
+    // What this buys beyond the exact property above: the two lossy
     // transforms must each be IDEMPOTENT. A non-idempotent one (a backslash
     // that doubled on every save, say) would corrupt a file progressively
     // across ordinary open/save cycles while every single round-trip still
@@ -609,7 +622,7 @@ describe("Markdown workspace codec — task round-trip", () => {
 
 // --- the Markdown normalisations, pinned rather than merely described ------
 
-describe("Markdown codec — the three documented lossy transforms", () => {
+describe("Markdown codec — the two documented lossy transforms", () => {
   it("trims leading/trailing whitespace from every cell", () => {
     // `splitMdRow` trims each cell because the encoder pads with " | ", and the
     // padding is indistinguishable from the value's own edge whitespace.
@@ -626,15 +639,19 @@ describe("Markdown codec — the three documented lossy transforms", () => {
     expect(oneBlockers("\ra")).toBe("a");
   });
 
-  it("absorbs a literal <br> into a newline", () => {
-    // mdEscape does not escape "<br>", and mdUnescape cannot tell an authored
-    // one from the newline it emits. One-way, but idempotent.
-    expect(oneBlockers("a<br>b")).toBe("a\nb");
-    expect(oneBlockers("a<BR />b")).toBe("a\nb");
+  // FIXED DEFECT: `mdEscape` used to leave a literal "<br>" unescaped, so
+  // `mdUnescape` could not tell an authored one from the newline it emits, and
+  // absorbed it into one — one-way, but idempotent. Inside a JSON-in-cell
+  // column (noteLog, escalations) that extra newline broke `JSON.parse` and
+  // wiped the whole column. `mdEscape` now escapes the `<` so a literal tag
+  // round-trips verbatim instead of collapsing.
+  it("preserves a literal <br> instead of absorbing it into a newline", () => {
+    expect(oneBlockers("a<br>b")).toBe("a<br>b");
+    expect(oneBlockers("a<BR />b")).toBe("a<BR />b");
   });
 
   it("preserves an interior newline, pipe and backslash exactly", () => {
-    // The positive control for the three tests above: without it they would all
+    // The positive control for the tests above: without it they would all
     // still pass against a codec that simply threw every cell away.
     expect(oneBlockers("a\nb")).toBe("a\nb");
     expect(oneBlockers("a|b")).toBe("a|b");

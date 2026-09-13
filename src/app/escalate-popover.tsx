@@ -4,7 +4,7 @@ import { type Lang, t } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import type { RaidItem, Resource } from "./types";
 import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
-import { isValidEmail } from "./sanitize";
+import { isEscalationEmail } from "./raid-escalation";
 import { planEscalation } from "./action-escalate";
 import { POPOVER_CONFIRM_BTN } from "./action-cta-styles";
 import { ActionPopoverTrigger } from "./action-popover-trigger";
@@ -46,7 +46,9 @@ export function EscalatePopover({ lang, action, bundle, rowToken, prominent }: E
 
   // Email comes from ResourcePicker selection (if it carries an email) or the standalone email input.
   const resolvedEmail = recipient.email || emailInput;
-  const canConfirm = isValidEmail(resolvedEmail);
+  // isEscalationEmail, not isValidEmail: also rejects "<"/">" (§515 defence in
+  // depth — see raid-escalation.ts).
+  const canConfirm = isEscalationEmail(resolvedEmail);
 
   const toggleOpen = () => {
     if (!open) { setRecipient(EMPTY_RECIPIENT); setEmailInput(""); }

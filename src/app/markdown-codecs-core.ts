@@ -381,18 +381,32 @@ export function markdownToProject(md: string): ProjectMeta | null {
 
 // Exported so document-asset-markdown.ts (split out to stay under the
 // file-size ratchet) can reuse it rather than duplicating the escaping rules.
+//
+// ★★★ The `<` before a literal `br…>` is escaped too, not just backslash/pipe.
+// Without it, a literal `<br>` already present in a value is indistinguishable
+// from the `<br>` this function inserts for a real newline, so `mdUnescape`
+// turns it back into one on decode. For a JSON-in-cell column (RAID/Task/
+// Change `noteLog`, RAID `escalations`, `knowledgeLinks`) that extra newline
+// lands inside a JSON string literal, `JSON.parse` throws, and the WHOLE
+// column decodes to nothing — an item's entire note log or escalation history
+// silently wiped by a Markdown save+load. Order matters: backslashes are
+// doubled FIRST, then the `<` escape runs BEFORE newlines become `<br>` so the
+// `<br>` this function inserts is never itself escaped. Decode is ONE
+// left-to-right pass so a decoded-then-reencoded value (`\<br>` = escaped
+// backslash + real newline vs `\\<br>` = escaped backslash + literal `<br>`)
+// resolves unambiguously. Backward compatible: a file written by the OLD
+// mdEscape never contains a bare `\<` (every backslash it emitted was doubled).
 export function mdEscape(value: string): string {
   return value
     .replace(/\\/g, "\\\\")
     .replace(/\|/g, "\\|")
+    .replace(/<(?=br\s*\/?>)/gi, "\\<")
     .replace(/\r?\n/g, "<br>");
 }
 
 export function mdUnescape(value: string): string {
-  return value
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/\\\|/g, "|")
-    .replace(/\\\\/g, "\\");
+  return value.replace(/\\\\|\\\||\\<|<br\s*\/?>/gi, (m) =>
+    m === "\\\\" ? "\\" : m === "\\|" ? "|" : m === "\\<" ? "<" : "\n");
 }
 
 function tasksToMarkdown(tasks: readonly Task[]): string {

@@ -9,6 +9,12 @@
 // ★ JSON and IndexedDB load RAID rows WITHOUT `sanitizeRaidItem`, so readers
 //   must not trust the stored value — go through `lastEscalation` or
 //   `sanitizeRaidEscalations`.
+// ★ The Markdown `<br>` wipe this file used to guard against (see
+//   `stripBreakTags` below) is now fixed at the ROOT in `mdEscape`/`mdUnescape`
+//   (markdown-codecs-core.ts), which escapes a literal `<br…>` so it round-trips
+//   verbatim instead of decoding into a real newline. `isEscalationEmail` and
+//   `stripBreakTags` stay as defence in depth: an address or name holding
+//   `<`/`>` has no legitimate use here, whatever the codec layer now tolerates.
 import { isValidEmail } from "./sanitize-core";
 import { RAID_SEVERITIES, type RaidEscalation, type RaidItem, type RaidSeverity } from "./types";
 
@@ -23,6 +29,16 @@ const EMAIL_MAX = RAID_ESCALATION_EMAIL_MAX;
 const AT_MAX = 40;
 const SEVERITY_SET: ReadonlySet<string> = new Set(RAID_SEVERITIES);
 
+/** A valid e-mail address (`isValidEmail`) that also carries no `<`/`>` (§515,
+ *  defence in depth). Mirrors the `toName` bracket rejection just below —
+ *  neither field has any legitimate use for either character, and rejecting
+ *  them here means an escalation record never NEEDS the Markdown `<br>` fix
+ *  in the first place. Do NOT change `isValidEmail` itself: it has many
+ *  unrelated callers this stricter rule must not affect. */
+export function isEscalationEmail(s: string): boolean {
+  return isValidEmail(s) && !/[<>]/.test(s);
+}
+
 /** The recipient of an `escalate_raid_item` call, validated at the TOOL
  *  BOUNDARY (§515). Throws a model-facing message for any value the escalation
  *  record could not store verbatim. It returns ONLY these two fields, which is
@@ -34,7 +50,7 @@ const SEVERITY_SET: ReadonlySet<string> = new Set(RAID_SEVERITIES);
  *   so `toEmail`/`toName` there would be misreported as update_task inputs. */
 export function requireEscalationRecipient(input: Record<string, unknown>): { email: string; name: string } {
   const email = typeof input.toEmail === "string" ? input.toEmail.trim() : "";
-  if (!email || !isValidEmail(email) || email.length > EMAIL_MAX) {
+  if (!email || !isEscalationEmail(email) || email.length > EMAIL_MAX) {
     throw new Error(`toEmail must be a valid email address of at most ${EMAIL_MAX} characters`);
   }
   const rawName = input.toName;
@@ -45,8 +61,9 @@ export function requireEscalationRecipient(input: Record<string, unknown>): { em
   if (name.length > NAME_MAX) {
     throw new Error(`toName must be at most ${NAME_MAX} characters`);
   }
-  // A literal `<br>` would wipe the item's whole escalation history on a
-  // Markdown save (see `stripBreakTags`); a name has no use for either bracket.
+  // A name has no use for either bracket (defence in depth — see
+  // `isEscalationEmail`'s docstring for why the Markdown round trip no longer
+  // depends on this).
   if (/[<>]/.test(name)) {
     throw new Error('toName must not contain "<" or ">"');
   }
@@ -56,10 +73,14 @@ export function requireEscalationRecipient(input: Record<string, unknown>): { em
 const BREAK_TAG = /\s*<br\b[^>]*>\s*/gi;
 
 /** A recipient name with every `<br…>` tag replaced by one space, trimmed (§515).
- *  ★★ `mdUnescape` turns a literal `<br>` inside a Markdown cell into a real
- *   newline. In this JSON-in-cell column that newline lands inside a JSON
- *   string, `JSON.parse` throws and `decodeRaidEscalations` returns [] — the
- *   WHOLE history is lost, not just the one name. The human Escalate path
+ *  ★★ Originally written because `mdUnescape` turned a literal `<br>` inside a
+ *   Markdown cell into a real newline, which landed inside this JSON-in-cell
+ *   column's JSON string, threw `JSON.parse`, and lost the WHOLE escalation
+ *   history — not just the one name. That root cause is now fixed in
+ *   `mdEscape`/`mdUnescape` (markdown-codecs-core.ts): a literal `<br…>` is
+ *   escaped and round-trips verbatim instead of decoding into a newline. This
+ *   function is kept as defence in depth and for display hygiene — a `<br>` in
+ *   a recipient name has no legitimate use either way. The human Escalate path
  *   (`buildEscalationEntry`) and this sanitizer both call it.
  *  ★ One pass is enough: the greedy `[^>]*` runs to the first `>`, and every
  *   join inserts a space, so no `<br>` can re-form across a replacement. */
@@ -76,7 +97,10 @@ function sanitizeEntry(raw: unknown): RaidEscalation | null {
   const o = raw as Record<string, unknown>;
   const at = typeof o.at === "string" && !Number.isNaN(Date.parse(o.at)) ? o.at.slice(0, AT_MAX) : "";
   const toEmail = typeof o.toEmail === "string" ? o.toEmail.trim().slice(0, EMAIL_MAX) : "";
-  if (!at || !toEmail.includes("@")) return null;
+  // isEscalationEmail, not a bare "@" check: rejects a malformed address AND
+  // one holding "<"/">" (§515 defence in depth — mirrors the `toName` bracket
+  // rejection in `requireEscalationRecipient` above).
+  if (!at || !isEscalationEmail(toEmail)) return null;
   const toName = typeof o.toName === "string" ? stripBreakTags(o.toName).slice(0, NAME_MAX) : "";
   const toResourceId =
     typeof o.toResourceId === "number" && Number.isInteger(o.toResourceId) && o.toResourceId > 0

@@ -29,6 +29,7 @@ import { buildTaskSeedFromAction } from "./action-task-seed";
 import { emptyForm } from "./task-form-context";
 import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
 import { isValidEmail } from "./sanitize";
+import { isEscalationEmail } from "./raid-escalation";
 import { renderTemplateForSend, buildStakeholderUpdateVars, type CommTemplateCategory } from "./comm-templates";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { plainTextToHtml } from "./comm-send";
@@ -226,7 +227,9 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
       const id = Number(action.cta.id);
       const item = raid.find((r) => r.id === id);
       if (!item) return; // deleted-source safe
-      if (!isValidEmail(recipient.email)) { showToast("error", t(lang, "errorInvalidEmail")); return; }
+      // isEscalationEmail, not isValidEmail: also rejects "<"/">" (§515 defence
+      // in depth — see raid-escalation.ts).
+      if (!isEscalationEmail(recipient.email)) { showToast("error", t(lang, "errorInvalidEmail")); return; }
       const plan = planEscalation(item);
       const at = new Date().toISOString();
       const selfResource = resources.find((r) => r.id === selfResourceId);

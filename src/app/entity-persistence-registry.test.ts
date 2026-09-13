@@ -558,3 +558,101 @@ describe("entity persistence registry — RaidItem.escalations", () => {
     expect(back?.[1]?.toName).toBe("Jane Doe");
   });
 });
+
+// fix-all-1 — root cause: `mdEscape` left a literal `<br>` unescaped, so
+// `mdUnescape` could not tell it from the "<br>" it inserts for a real
+// newline and decoded it into one. Inside a JSON-in-cell column (noteLog,
+// escalations) that extra newline landed inside a JSON string, `JSON.parse`
+// threw, and `decode*` returned [] — the WHOLE column silently wiped, not
+// just the value carrying the `<br>`. Fixed at the root in `mdEscape`/
+// `mdUnescape` (markdown-codecs-core.ts). These pin the previously-wiped
+// paths that are NOT already covered by the escalation `toName` test above
+// (that one round-tripped clean even before this fix, because
+// `sanitizeRaidEscalations` already stripped `<br>` from `toName` — §515).
+describe("Markdown <br> wipe — root cause fix (fix-all-1)", () => {
+  // `sanitizeNoteLogWith` (note-log-policy.ts) RE-DERIVES `text` from `html`
+  // via `htmlToText` whenever `html` projects to something non-empty — a real
+  // `<br>` tag inside the html is a genuine line break and htmlToText turns it
+  // into "\n" in the derived text, which is correct rich-text behaviour and
+  // NOT what this fix is about. So the assertion here is on SURVIVAL (the
+  // entry is not dropped, and the JSON-in-cell round trip did not corrupt the
+  // html's own `<br>` tag), not on `.text` holding a literal "<br>".
+  const note = (htmlBody: string) =>
+    [{ id: 1, authorName: "Ann", timestamp: "2026-07-16T10:00:00.000Z", html: `<p>${htmlBody}</p>`, text: htmlBody }];
+
+  it("keeps a task's whole noteLog when an entry's html holds a literal <br>", () => {
+    const ws: Workspace = {
+      ...emptyWorkspace(),
+      tasks: [{
+        id: 1, taskName: "T", assignee: "A", assigneeEmail: "a@x.com",
+        dueDate: "2026-02-01", lastUpdateDate: "2026-01-10", priority: "Medium", status: "To Do",
+        blockers: "", description: "",
+        noteLog: note("line one<br>line two"),
+      }],
+    };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws)).tasks[0]?.noteLog;
+    expect(back).toHaveLength(1);
+    expect(back?.[0]?.html).toMatch(/<br\s*\/?>/i);
+    expect(back?.[0]?.html).toContain("line one");
+    expect(back?.[0]?.html).toContain("line two");
+  });
+
+  it("keeps a RAID item's whole noteLog when an entry's html holds a literal <br>", () => {
+    const ws: Workspace = {
+      ...emptyWorkspace(),
+      raid: [{
+        id: 1, category: "R", title: "Risk", status: "Open", linkedTaskIds: [],
+        causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01",
+        noteLog: note("line one<br>line two"),
+      }],
+    };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws)).raid[0]?.noteLog;
+    expect(back).toHaveLength(1);
+    expect(back?.[0]?.html).toMatch(/<br\s*\/?>/i);
+    expect(back?.[0]?.html).toContain("line one");
+    expect(back?.[0]?.html).toContain("line two");
+  });
+
+  it("keeps a Change's whole noteLog when an entry's html holds a literal <br>", () => {
+    const ws: Workspace = {
+      ...emptyWorkspace(),
+      changes: [{
+        id: 1, title: "C", description: "", type: "Scope", status: "Proposed",
+        raisedDate: "2026-01-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
+        noteLog: note("line one<br>line two"),
+      }],
+    };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws)).changes?.[0]?.noteLog;
+    expect(back).toHaveLength(1);
+    expect(back?.[0]?.html).toMatch(/<br\s*\/?>/i);
+    expect(back?.[0]?.html).toContain("line one");
+    expect(back?.[0]?.html).toContain("line two");
+  });
+
+  // A RAID item carrying BOTH a noteLog with a literal <br> AND an escalation
+  // history in the SAME row: neither JSON-in-cell column may clobber the
+  // other's survival. `at` deliberately does NOT carry a "<br>" here — the
+  // sanitizer's `Date.parse` guard drops an entry whose `at` fails to parse,
+  // so a "<br>2026-06-20T00:00:00.000Z"-style value is dropped before it ever
+  // reaches the codec, and does not exercise this fix. `description` is a
+  // PLAIN passthrough field on this codec path (no rich-text re-derivation),
+  // so it is asserted byte-exact.
+  it("keeps noteLog AND escalations together when the noteLog html holds a literal <br>", () => {
+    const escalations: RaidEscalation[] = [{ at: "2026-05-20T09:30:00.000Z", toEmail: "ops@example.com" }];
+    const ws: Workspace = {
+      ...emptyWorkspace(),
+      raid: [{
+        id: 1, category: "R", title: "Risk", status: "Open", linkedTaskIds: [],
+        causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01",
+        description: "Impact spans two lines:<br>see attachment",
+        noteLog: note("line one<br>line two"),
+        escalations,
+      }],
+    };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws)).raid[0];
+    expect(back?.noteLog).toHaveLength(1);
+    expect(back?.noteLog?.[0]?.html).toMatch(/<br\s*\/?>/i);
+    expect(back?.escalations).toEqual(escalations);
+    expect(back?.description).toBe("Impact spans two lines:<br>see attachment");
+  });
+});
