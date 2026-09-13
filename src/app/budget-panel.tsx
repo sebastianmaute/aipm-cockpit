@@ -463,6 +463,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           return (
             <div
               key={br.bucketId}
+              data-bucket-card={br.bucketId}
               {...bucketOrder.itemProps(br.bucketId)}
               className={`rounded-xl border p-4 ${
                 bucketOrder.isDragging && bucketOrder.dragId !== br.bucketId

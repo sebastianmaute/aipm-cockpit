@@ -406,7 +406,11 @@ describe("BudgetPanel", () => {
   // Three fixtures, one field changed each, scoped to the bucket's own card
   // via its name so the assertion cannot pick up money elsewhere on the pane.
   describe("§474 — the currency label discloses an unresolved FX rate", () => {
-    const cardFor = (name: string) => screen.getByText(name).closest(".rounded-xl") as HTMLElement;
+    // A stable hook, not the `.rounded-xl` Tailwind class — the class is a
+    // styling detail shared by unrelated elements on the pane and drifts the
+    // moment the card's own styling changes, while `data-bucket-card` names
+    // exactly what the lookup means.
+    const cardFor = (name: string) => screen.getByText(name).closest("[data-bucket-card]") as HTMLElement;
 
     test("a non-EUR bucket with no override and no cached rate carries the marker", () => {
       const rateless: BudgetBucket[] = [{ ...buckets[0], id: 2, name: "Rateless bucket", currency: "USD" }];
