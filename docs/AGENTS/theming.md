@@ -93,7 +93,7 @@
   tokens are `ui-{dark-blue,green,green-strong,pink,pink-strong,purple,purple-strong,blue,white,dark-grey,
   light-grey,medium-grey}`. The var NAMES + `@theme` MECHANISM are otherwise unchanged (only the prefix);
   Phase-2 text below that says `--AIPM-*` now means `--ui-*`. PRESERVED (NOT renamed): `AIPM` (company /
-  theme display name), `Acme`/`AIPM-consult` (host/email), `AIPM-logo`/`AIPM-icon` (asset classes),
+  theme display name), `Acme`/`AIPM-consult` (host/email), `AIPM-logo`/`AIPM-icon` (asset classes — since retired: the `public/AIPM-logo.svg` and `public/AIPM-icon.svg` assets were deleted),
   and the legacy `CiStyle` union members `"AIPM"`/`"mockup"` (`style-ci.ts` — vestigial: `data-style` is
   the constant `"custom"` now, and NO live scheme carries either id). NO key migration — a stored/
   exported scheme with legacy `--AIPM-*` color keys drops to the default-scheme fallback (Beacon) (no active users).

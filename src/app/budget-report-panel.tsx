@@ -220,11 +220,15 @@ type DetailResizable = ReturnType<typeof useColumnResize<DetailCol>>;
  * rendering is unchanged, since this row's `rate` is hardcoded to 1 and
  * `bucketCurrencyLabel` never appends a suffix at rate 1 regardless of
  * source.
+ *
+ * Exported for tests only — its one production caller is `BucketDetailTable`
+ * below.
  */
 export function detailRowRateSource(b: BudgetBucket | undefined, fxRates: FxRates | null): RateSource | null {
   return b ? resolveRateSource(b, fxRates) : null;
 }
 
+/** Exported for tests only — its one production caller is `BudgetReportPanel` above. */
 export function BucketDetailTable({
   lang, rows, bucketById, fxRates, colResize, money,
 }: {
