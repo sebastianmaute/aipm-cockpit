@@ -105,6 +105,9 @@ describe("canLogAsRaid (§515)", () => {
   it("needs the capability (popout: handler absent)", () => {
     expect(canLogAsRaid(a("task-due", "actionTaskWhyOverdue"), NONE)).toBe(false);
   });
+  it("is never offered for a project key-facts nudge — a missing fact is a task, not a risk", () => {
+    expect(canLogAsRaid(a("project-meta", "actionProjectMetaWhyCode", "projects"), ALL)).toBe(false);
+  });
   it("sits in the overflow after createTask and before snooze", () => {
     expect(overflowCtas(a("milestone", "actionMilestoneWhyAtRisk", "milestones"), { ...NONE, createTask: true, logAsRaid: true, snooze: true }))
       .toEqual(["createTask", "logAsRaid", "snooze"]);

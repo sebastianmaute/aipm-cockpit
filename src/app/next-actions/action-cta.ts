@@ -68,9 +68,10 @@ export function canMarkDone(a: SuggestedAction, c: ActionCaps): boolean {
 export function canCreateTask(a: SuggestedAction, c: ActionCaps): boolean {
   return c.createTask && a.source !== "task-due";
 }
-/** §515 — any signal EXCEPT a RAID-sourced one, which already is a RAID item. */
+/** §515 — any signal except a RAID-sourced one (it already is a RAID item) or a
+ *  project key-facts nudge (a missing key fact is a task, not a risk). */
 export function canLogAsRaid(a: SuggestedAction, c: ActionCaps): boolean {
-  return c.logAsRaid && a.source !== "raid";
+  return c.logAsRaid && a.source !== "raid" && a.source !== "project-meta";
 }
 
 /** Highest-priority applicable verb; "open" is the always-available fallback. */

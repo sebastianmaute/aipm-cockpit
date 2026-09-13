@@ -3072,6 +3072,8 @@ git show --stat HEAD | tail -12
 - Produces:
   - `handleSaveRaidItem(item: RaidItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }): number | undefined`
   - `canLogAsRaid(a: SuggestedAction, c: ActionCaps): boolean` = `c.logAsRaid && a.source !== "raid"`
+    (Note, 2026-09-13, key-facts fix: also `&& a.source !== "project-meta"` — a missing key fact is
+    a task, not a risk or issue.)
   - `ActionHandlers.onLogAsRaid?: (action: SuggestedAction) => void`
   - `type RaidCreateOrigin = { kind: "action"; action: SuggestedAction }` (Task 6 widens this to a union)
   - `interface RaidCreateRequest { draft: RaidItem; origin: RaidCreateOrigin }`

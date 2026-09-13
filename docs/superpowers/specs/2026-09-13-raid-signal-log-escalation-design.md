@@ -72,6 +72,9 @@ ignore the return. The pane contract type in `workspace-section-types.ts` widens
 - **Next actions:** `next-actions/action-cta.ts:canLogAsRaid(action, caps)` =
   `caps.logAsRaid && action.source !== "raid"`. It is an overflow item in `ActionOverflowMenu`
   (`action-cta-controls.tsx`), shown on both the row and the hero. `useActionCaps` gains `logAsRaid`.
+  - Note (2026-09-13, key-facts fix): `canLogAsRaid` also excludes `action.source === "project-meta"`
+    — a missing project key fact (e.g. "Project name missing") is a task, not a risk or issue, so
+    "Log as RAID" no longer appears on those nudges.
 
 ### On-saved effects
 
