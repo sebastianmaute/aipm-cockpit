@@ -100,7 +100,7 @@ import { CORE_INSIGHT_TYPES, detectInsights, type InsightInput } from "./insight
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
 import type { Insight, InsightType } from "./insights/insight";
 import { loadLandingState } from "./landing-state";
-import { keyFactsSnapshot, saveKeyFactsSnapshot } from "./project-key-facts-cache";
+import { keyFactsSnapshot, removeKeyFactsSnapshot, saveKeyFactsSnapshot } from "./project-key-facts-cache";
 import { loadActualsCache } from "./timelog-actuals-store";
 import { evaluateTimelogPolicy } from "./timelog-policy";
 import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
@@ -1122,10 +1122,15 @@ function TaskManagerInner() {
   // rejects an `obj.member` dep like `learning.bias` / `learning.record`).
   const learnedBias = learning.bias;
   const recordLearning = learning.record;
-  // Same expression as `portfolioCurrentId` below — duplicated here because that
-  // const is declared later in this component, and reading it from this memo
-  // would be a temporal-dead-zone ReferenceError on the first render.
-  const actionProjectId = portfolioMode === "turso" ? tursoProjectId : currentProjectId;
+  // G7: the single declaration for "the current project id under whichever
+  // portfolio backend is active" — `portfolioMode`, `tursoProjectId` and
+  // `currentProjectId` are all already in scope by this point (declared at
+  // ~462, ~474 and 681 respectively), so there is no TDZ hazard hoisting it
+  // here. This used to be duplicated as `actionProjectId` immediately below
+  // and declared a second time, identically, much later in the component —
+  // both fed by the same three inputs, so the two could never actually
+  // disagree, only rot into looking like they might.
+  const portfolioCurrentId = portfolioMode === "turso" ? tursoProjectId : currentProjectId;
   // Suggested next-actions engine. Reuses comms.items (already computed above)
   // so we don't run getStakeholderCommsItems a second time.
   const nextActions = useMemo(
@@ -1142,8 +1147,8 @@ function TaskManagerInner() {
           commsReminders: comms.items,
           features: settings.features,
           projectName: project?.name ?? "",
-          projectId: actionProjectId ?? undefined,
-          projectMeta: project ?? undefined,
+          projectId: portfolioCurrentId ?? undefined,
+          projectMeta: project,
           today,
           now: new Date(),
           reminderLeadDays: effectiveNotifications.reminderLeadDays,
@@ -1166,7 +1171,7 @@ function TaskManagerInner() {
           learnedBias,
         }),
       ),
-    [tasks, raid, changes, milestones, stakeholders, steeringCommittee, dashboardModel, comms.items, settings.features, effectiveNotifications, effectiveNextActions, project, actionProjectId, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
+    [tasks, raid, changes, milestones, stakeholders, steeringCommittee, dashboardModel, comms.items, settings.features, effectiveNotifications, effectiveNextActions, project, portfolioCurrentId, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   // Stakeholder ids with a pending stakeholder-comms next-action. Feeds the
@@ -2073,6 +2078,9 @@ function TaskManagerInner() {
       const next = removeProject(registry, id);
       if (next === registry) return; // unknown id — nothing changed
       void deleteHandle(id);
+      // G2: drop the deleted project's per-device key-facts cache entry so it
+      // doesn't keep occupying one of the 50 cached slots forever.
+      removeKeyFactsSnapshot(id);
       // removeProject re-points currentProjectId to the first survivor. When the
       // CURRENT project was deleted and a survivor exists, load that survivor's
       // data. switchToProject early-returns if currentProjectId already equals
@@ -2123,28 +2131,33 @@ function TaskManagerInner() {
           storageConfig: { kind: "turso" as const },
         }))
       : [];
-  const portfolioCurrentId =
-    portfolioMode === "turso" ? tursoProjectId : currentProjectId;
+  // G7: `portfolioCurrentId` is declared once, above (~1130), beside the
+  // next-actions memo that needs it before this point in the component.
 
   // Per-device key-fact snapshot for the Projects list's NON-current rows
   // (spec §5.3). Side-effect-only localStorage write (no setState); `new Date()`
   // lives in the effect, never the render body; popouts are read-only and must
   // not mutate device state (mirrors use-landing-delta).
-  // ★★ This relies on React batching `project` and the id into ONE render.
-  // EVERY path that calls applyWorkspace and then sets the new project id relies
-  // on the same synchronous continuation after its last `await` — not just the
-  // two switch paths: switchToProject, createProject and loadProjectFromFile
-  // (use-storage-file-ops.ts, each applyWorkspace(...) then commitRegistry(...)),
-  // createDemoProject (same file, its non-Turso-portfolio branch — the
-  // Turso-portfolio branch reloads the page instead and never reaches this
-  // effect), and switchToTursoProject / createTursoProject
-  // (use-storage-turso-ops.ts, each applyWorkspace(...) then
-  // setTursoProjectId(...)). If an `await` is ever inserted between those two
-  // calls on ANY of them, one render will hold the NEW project's meta under the
-  // OLD id and this effect will file it there (bounded: reopening that project
-  // overwrites it). A registry name/code guard is NOT a fix: renameProject has
-  // no caller, so the registry name does not follow meta edits and such a guard
-  // would block every write after a rename.
+  // ★★ This relies on React batching `project` and the id into ONE render, and
+  // G11 corrects an order claim this comment used to make: it said EVERY path
+  // below calls applyWorkspace(...) THEN the id-pointing call, in that order.
+  // That is true only of switchToProject and the two Turso paths —
+  // switchToTursoProject and createTursoProject (use-storage-turso-ops.ts) both
+  // call applyWorkspace(...) BEFORE setTursoProjectId(...). createProject and
+  // loadProjectFromFile (use-storage-file-ops.ts) and createDemoProject's
+  // non-Turso-portfolio branch (same file — its Turso-portfolio branch reloads
+  // the page instead and never reaches this effect) all call commitRegistry(...)
+  // BEFORE applyWorkspace(...) — the OPPOSITE order. The real invariant, the one
+  // this effect actually depends on, does not care which comes first: on every
+  // one of these paths both calls land in the SAME synchronous continuation
+  // after the last `await`, so React batches them into one render and this
+  // effect never observes the new project's meta filed under the old id (or
+  // vice versa). If an `await` is ever inserted between the two calls on ANY of
+  // them, one render will hold a mismatched pair and this effect will file the
+  // snapshot under the wrong id (bounded: reopening that project overwrites
+  // it). A registry name/code guard is NOT a fix: renameProject has no caller,
+  // so the registry name does not follow meta edits and such a guard would
+  // block every write after a rename.
   useEffect(() => {
     if (isPopout || !project || !portfolioCurrentId) return;
     saveKeyFactsSnapshot(portfolioCurrentId, keyFactsSnapshot(project, new Date().toISOString()));
