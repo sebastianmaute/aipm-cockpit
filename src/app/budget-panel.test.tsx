@@ -23,6 +23,28 @@ const props = {
   onChangeBuckets: vi.fn(), onRefreshFx: vi.fn(),
 };
 
+// §474 (rollup half): the EUR-labelled project rollup sums every bucket's
+// figure regardless of whether a rate ever resolved for it — this pins the
+// disclosure notice that names how many summands were counted that way.
+describe("BudgetPanel — the project rollup discloses unresolved-rate summands", () => {
+  test("names the count for a mixed project", () => {
+    const mixed: BudgetBucket[] = [
+      buckets[0], // EUR — resolved
+      { ...buckets[0], id: 2, name: "B2", currency: "USD" }, // unresolved (fxRates null)
+      { ...buckets[0], id: 3, name: "B3", currency: "GBP" }, // unresolved
+    ];
+    render(<BudgetPanel {...props} buckets={mixed} fxRates={null} />);
+    const rollup = screen.getByText(/Project total/i).closest("section") as HTMLElement;
+    expect(within(rollup).getByText(t("en-US", "budgetFxRollupUnresolved", "2"))).toBeInTheDocument();
+  });
+
+  test("renders nothing when every bucket resolves", () => {
+    render(<BudgetPanel {...props} />); // default fixture: one EUR bucket only
+    const rollup = screen.getByText(/Project total/i).closest("section") as HTMLElement;
+    expect(within(rollup).queryByText(/without an FX rate/i)).toBeNull();
+  });
+});
+
 describe("BudgetPanel", () => {
   test("renders the project total contribution margin", () => {
     render(<BudgetPanel {...props} />);

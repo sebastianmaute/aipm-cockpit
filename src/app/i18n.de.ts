@@ -586,6 +586,7 @@ export const de: Record<TranslationKey, string> = {
   budgetFxOverride: "Manueller Wechselkurs",
   budgetFxOverrideHint: "Manueller EUR→Währung-Kurs; leer lassen, um den zwischengespeicherten EZB-Kurs zu verwenden.",
   budgetFxRateUnresolved: "kein Wechselkurs – 1:1 als EUR gezählt",
+  budgetFxRollupUnresolved: "Enthält {0} Budgetposten ohne Wechselkurs, 1:1 gezählt",
   budgetAllocations: "Rollen-Zuordnungen",
   budgetAddRole: "Rolle hinzufügen",
   budgetRemoveRole: "Rolle entfernen",

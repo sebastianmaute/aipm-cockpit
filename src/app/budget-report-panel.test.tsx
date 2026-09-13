@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BudgetReportPanel, BucketDetailTable, detailRowRateSource } from "./budget-report-panel";
-import { loadI18n } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import type { BucketReport, CciValue } from "./budget-report";
 import type { BudgetBucket, FxRates, ResourcePlan, Role } from "./types";
 
@@ -42,6 +42,28 @@ function renderPanel(over: Partial<React.ComponentProps<typeof BudgetReportPanel
     />,
   );
 }
+
+// §474 (rollup half): the same disclosure `BudgetFxRollupNotice` renders on
+// budget-panel.tsx's rollup must also appear on this panel's project-total
+// tiles — both sum every bucket's EUR-reported figure the same way.
+describe("BudgetReportPanel — the project rollup discloses unresolved-rate summands", () => {
+  it("names the count for a mixed project", () => {
+    const mixed: BudgetBucket[] = [
+      buckets[0], // EUR — resolved
+      { ...buckets[1], id: 4, name: "Delta", currency: "USD" }, // unresolved (fxRates null)
+      { ...buckets[2], id: 5, name: "Epsilon", currency: "GBP" }, // unresolved
+    ];
+    renderPanel({ buckets: mixed, fxRates: null });
+    const rollup = screen.getByText(/project total/i).closest("div") as HTMLElement;
+    expect(within(rollup).getByText(t("en-US", "budgetFxRollupUnresolved", "2"))).toBeInTheDocument();
+  });
+
+  it("renders nothing when every bucket resolves", () => {
+    renderPanel(); // default fixture: three EUR buckets only
+    const rollup = screen.getByText(/project total/i).closest("div") as HTMLElement;
+    expect(within(rollup).queryByText(/without an FX rate/i)).toBeNull();
+  });
+});
 
 describe("BudgetReportPanel", () => {
   it("shows the project rollup (revenue + cost in EUR)", () => {

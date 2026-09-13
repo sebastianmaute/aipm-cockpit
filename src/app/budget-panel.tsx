@@ -18,6 +18,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
 import { eurToCurrency, resolveRate, resolveRateSource } from "./fx";
 import { bucketCurrencyLabel } from "./budget-currency-label";
+import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role, Task } from "./types";
 import { BudgetBucketModal } from "./budget-bucket-modal";
 import type { BucketCommitMeta } from "./use-budget-buckets";
@@ -398,6 +399,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           reason={report.project.costUnknownReason}
           disciplineNames={disciplineNamesFor(report.project.unpricedDisciplineIds)}
         />
+        <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} />
       </section>
 
       <section className="flex flex-col gap-3">

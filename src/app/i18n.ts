@@ -633,6 +633,11 @@ const enUS = {
   // genuinely is 1. Kept short: it renders inside a `(...)` suffix next to
   // the currency code, e.g. "USD (no FX rate — counted 1:1 as EUR)".
   budgetFxRateUnresolved: "no FX rate — counted 1:1 as EUR",
+  // §474 (rollup half): the EUR-labelled project rollup sums every bucket's
+  // figure regardless of whether a rate ever resolved for it — this names
+  // how many of the summands were read at par by default, right below the
+  // rollup. Renders only when the count is > 0 (see `BudgetFxRollupNotice`).
+  budgetFxRollupUnresolved: "Includes {0} bucket(s) counted 1:1 without an FX rate",
   budgetAllocations: "Role allocations",
   budgetAddRole: "Add role",
   budgetRemoveRole: "Remove role",

@@ -21,6 +21,7 @@ import { computeEvm, projectBlendedInternalRate } from "./evm";
 import { formatCurrency } from "./resource-cost";
 import { resolveRate, resolveRateSource, type RateSource } from "./fx";
 import { bucketCurrencyLabel } from "./budget-currency-label";
+import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
 import type { Absence, BudgetBucket, Discipline, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
 import { RagBadge } from "./rag-badge";
 import { InfoTooltip } from "./info-tooltip";
@@ -139,6 +140,7 @@ export function BudgetReportPanel({
             .map((id) => disciplines.find((d) => d.id === id)?.name)
             .filter((n): n is string => !!n)}
         />
+        <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} />
       </Section>
 
       <Section title={t(lang, "evmTitle")}>
