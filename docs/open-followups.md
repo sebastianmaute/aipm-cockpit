@@ -376,7 +376,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§147](#147-read-only-task-item-checked-state-is-a-character-name-to-at-not-checked--open-a11y-known-limit) | Read-only task-item checked state is a character name to AT, not "checked" — open, a11y, known limit | — | — | open |
 | [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--closed-2026-08-31) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread | — | — | **CLOSED** 2026-08-31 |
 | [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | open |
-| [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--open-undecidable-measured-the-detectable-half-fixed-2026-08-29) | A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured; the DETECTABLE half FIXED 2026-08-29 | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | open |
+| [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--closed-2026-09-13-as-an-accepted-limit) | A balanced pair of stray quotes mislabels rows across a CSV section boundary | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | **CLOSED** 2026-09-13 as an accepted limit |
 | [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-several-source-headers-and-still-asserted-as-a-live-rationale-elsewhere--open-needs-a-probe) | "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open |
 | [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--closed-2026-08-29) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | **CLOSED** 2026-08-29 |
 | [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--open-measured) | PPTX export is one slide per row and drops most rich fields before they can be rendered — open, measured | — | — | open |
@@ -12726,11 +12726,9 @@ internally, like `rebaseline-popover.tsx`'s `TODAY_ISO`), and freeze the clock i
 the suite under a faked future date would enumerate them in one pass, but vitest fakes the clock
 per-test-file, so this needs a harness-level option rather than a one-off command.
 
-## 150. A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured; the DETECTABLE half FIXED 2026-08-29
+## 150. A balanced pair of stray quotes mislabels rows across a CSV section boundary — CLOSED 2026-09-13 as an accepted limit
 
-**Status:** open — the mislabelling is unchanged and the undecidable residue stands, but the MALFORMED subset (this entry's own fixture included) is now detected and pauses saving. Reproduced 2026-08-29 by `npx vitest run src/app/csv-section-split.test.ts -t "swallows a section marker"`, which pins both halves: the same mislabelled parse, and `malformedQuotes: 2` over it.
-
-**Work item:** #160
+**Status:** CLOSED 2026-09-13 as an accepted limit — no code change. The undecidable residue is accepted: a balanced, well-positioned stray quote pair is byte-identical to a legitimate quoted cell (this entry's own proof), the app's encoder can never produce one, and the detectable malformed subset already pauses saving. Witness: `npx vitest run src/app/csv-section-split.test.ts -t "swallows a section marker"`, which pins both the unchanged mislabelled parse and `malformedQuotes: 2` over it.
 
 Opened 2026-08-16 out of the cold review of the branch that closes §105.
 
@@ -12825,7 +12823,7 @@ diag {"droppedRows":0,"unterminatedQuote":false,"malformedQuotes":2}
 The mislabelling row-for-row is identical to the AFTER block above — three tasks, no milestones — so
 nothing about the parse changed. Only the diagnostic did.
 
-★★★ **AND THE RESIDUE IS REAL, SO DO NOT CLOSE THIS.** A stray pair that is BOTH balanced AND
+★★★ **AND THE RESIDUE IS REAL.** _(This said "SO DO NOT CLOSE THIS" until 2026-09-13; it is now closed as an ACCEPTED limit — the residue is unchanged and still undecidable, see the closure block.)_ A stray pair that is BOTH balanced AND
 well-positioned — opening at a field start, closing before a delimiter — swallows a marker while
 counting zero violations, because at that point the file is byte-identically a legitimate quoted
 cell. That case stays silent, stays mislabelled, and stays undecidable. The detector narrows the
@@ -12871,6 +12869,18 @@ a fact is worse than the silence it replaces.
 
 ★ Read with §105 (the mid-row section switch this branch closes) — this is the residue of that fix,
 not an independent defect.
+
+**CLOSED 2026-09-13 as an accepted limit.** Nothing about the parse changed and nothing is claimed
+fixed. The class splits in two and both halves are now settled. The MALFORMED subset (this entry's
+own fixture) is detected by `splitCsvLines`, raises the banner and pauses saving (2026-08-29). The
+residue — a balanced, WELL-POSITIONED stray pair — is byte-identical to a legitimate quoted cell, so
+no parser, detector or heuristic can separate it, and every one proposed above mis-fires on the
+correct §105 case. Its reachability is a hand-edited or foreign file only: `csvEscape` wraps and
+doubles, so the app's own encoder cannot write one (stated as a law by the `codec-roundtrip`
+property "never fires malformedQuotes on output our own encoder wrote"). Keeping an entry open on a
+provably undecidable residue only invites the heuristics this entry already refutes. The `src/`
+comments that cite §150 (`splitCsvLines`, `ImportDiag.malformedQuotes`, `useLoadTruncation`, their
+tests) cite it for the undecidability argument, which stands unchanged; none calls it open.
 
 ## 151. "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe
 
