@@ -2202,7 +2202,7 @@ Under the old plain-text-only AI boundary this survived as `&lt;a note…&gt;`. 
 gone with no reader able to recover it.
 
 ★ `rich-text-plain.test.ts` pins the NEVER-CLOSES cases (`"<li 3 items"`), which correctly do NOT match.
-The closes-with-a-space case is what is untested.
+The closes-with-a-space case is what is untested. _(Tested since 2026-09-13 — see the closure block.)_
 ★★ _(Superseded 2026-09-13 — see the closure block.)_ The fix is NOT just tightening the regex: `HTML_START` is shared with the dashboard narrative and it
 decides the classification for every rich field on every READ, so a change moves what existing stored
 values mean. Requiring `[\s>/]` after the tag name plus a well-formedness check is the shape; it needs
@@ -2224,9 +2224,15 @@ markup that opens an element. They still classify as HTML and lose the literal t
 inside the brackets are lost in that shape, which is the difference from the rows this closes.
 `html-start.test.ts` pins the residue so it cannot drift silently.
 
-★ §35's mechanism (`<a-b>` matching `a` at a word boundary) no longer reproduces under `TAG_TAIL` —
-`-` is not whitespace, `/` or `>`. §35 is NOT closed by this batch; re-verify it on its own before
-closing it.
+★ §35's CLASSIFIER mechanism (`<a-b>` matching `a` at a word boundary) no longer reproduces under
+`TAG_TAIL` — `-` is not whitespace, `/` or `>`, so pass 1 no longer treats `<a-b>...</a-b>` as
+already-HTML. That does NOT close §35's user-visible symptom: the value is now escaped WHOLE on pass
+1 instead, so the literal angle brackets AND the stray entity both survive as escaped text. Measured:
+`sanitizeAiRichText("<a-b>cost &lt; 5k</a-b>")` → `"<p>&lt;a-b&gt;cost &amp;lt; 5k&lt;/a-b&gt;</p>"`,
+which renders as the literal text `<a-b>cost &lt; 5k</a-b>` — a double-escape of the entity, the same
+class of symptom §35 opened on, by a different route. §35's own body sentence ("fixing that likely
+closes this too") is therefore NOT borne out. §35 is NOT closed by this batch; re-verify it on its own
+before closing it.
 
 ---
 

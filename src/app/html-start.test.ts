@@ -487,6 +487,16 @@ describe("valued-attribute grammar (open-followups §32)", () => {
     }
   });
 
+  it("ACCEPTED COST: a bare boolean attribute makes foreign HTML prose too", () => {
+    // No app-written value ever carries a valueless attribute — DOMPurify always
+    // serialises one quoted (`hidden=""`) — but a hand-edited or foreign-imported
+    // value that uses the bare HTML boolean-attribute spelling now fails the
+    // grammar and is escaped whole on its next sanitize, where it used to be
+    // recognised. Pinned so the trade is deliberate rather than incidental.
+    expect(isHtmlStart('<p class="x" hidden>x</p>', RICH_SINK)).toBe(false);
+    expect(isHtmlStart("<hr noshade>", RENDER_SINK)).toBe(false);
+  });
+
   it("keeps every older guard under the new grammar", () => {
     // The whitespace-`/`-`>` rule after the name replaces `\b`: an unlisted tag
     // sharing a listed prefix must still not match a derived sink.

@@ -61,11 +61,19 @@ import { DOCUMENT_ALLOWED_TAGS, RICH_ALLOWED_TAGS } from "./sanitize-html";
 const TAG_NAME = /^[a-z][a-z0-9]*$/;
 
 /** Never matches anything. Returned when no valid tag name survives the filter —
- *  an empty alternation would compile to `<()\b[^>]*>`, which matches "<" followed
- *  by any word character (e.g. "<b>", "<div>") and turns every such stray angle
- *  bracket into "this is HTML". Measured: it does NOT match a bare "<>" — `\b`
- *  needs a word character on at least one side, and there is none between "<"
- *  and ">".
+ *  an empty alternation would now compile to `^\s*<()` + `TAG_TAIL`, and that
+ *  DOES match a bare "<>" or "< />". Measured, not reasoned: build that exact
+ *  string (`new RegExp("^\\s*<()" + TAG_TAIL, "i")`, `TAG_TAIL` copied verbatim
+ *  from below) and `.test()` it — `<>` and `< />` both print `true`, `<b>` and
+ *  `<div>` both print `false`, because the character right after the empty
+ *  capture group must be whitespace, `/` or `>`, and `b`/`d` are neither. So
+ *  this guard matters MORE now than it used to: an empty tag list would turn
+ *  every stray "<>" or "< />" into "this is HTML". ★ Before §32 the degenerate
+ *  pattern was `<()\b[^>]*>`, which matched "<" followed by any WORD character
+ *  ("<b>", "<div>") and — measured at the time — did NOT match a bare "<>",
+ *  since `\b` needs a word character on at least one side and there was none
+ *  between "<" and ">". `TAG_TAIL` inverted which bare form the guard has to
+ *  stop.
  *
  *  ★★ UNREACHABLE FROM ANY CURRENT SINK, for the same reason as TAG_NAME above:
  *  with `#text` gone every `SINK_TAGS` member passes the filter, so no live list
@@ -101,7 +109,17 @@ const NEVER = /(?!)/;
  *  tag opening prose ("<mark> means highlight in this project") is
  *  byte-identical to real markup that opens an element, so it still classifies
  *  as HTML and the literal "<mark>" token is dropped. Only the words INSIDE the
- *  brackets were ever recoverable, and those are what this closes. */
+ *  brackets were ever recoverable, and those are what this closes.
+ *
+ *  ★★ ACCEPTED COST: real, FOREIGN HTML that uses a bare BOOLEAN attribute —
+ *  `<hr noshade>`, `<p class="x" hidden>`, `<ol reversed>`, `<td nowrap>` — now
+ *  fails this grammar too and is escaped whole on its next sanitize, where it
+ *  used to be recognised and kept. No app-written value is affected (this app
+ *  never emits a boolean attribute; DOMPurify always serialises one quoted,
+ *  `hidden=""`), so nothing this app itself stores changes classification, but
+ *  a hand-edited or foreign-imported value that used one does. Deliberate: the
+ *  alternative is re-admitting `note`/`about`/`pricing`-shaped valueless
+ *  "attributes", which is the defect this closes. */
 const TAG_TAIL = "(?:\\s+[^\\s\"'<>/=]+\\s*=\\s*(?:\"[^\"]*\"|'[^']*'|[^\\s\"'=<>`]+))*\\s*/?>";
 
 /** Matches a well-formed opening tag ANYWHERE in the value — the classifier for
