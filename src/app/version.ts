@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "1.1.0";
-export const APP_BUILD_DATE = "2026-09-13"; // 1.1.0: a project can be created and saved with nothing but a name — code, project manager, customer, products, profit center, NACE section, deployment, start date, contacts and regulatory classification may all stay blank, on every storage backend, where before a blank key fact made the loader discard the whole project; a blank code shows as a dash in the project lists and the Turso picker, and a TimeLog fetch for a project with no start date falls back to its 90-day window; the follow-up register is now checked by a blocking register-only gate on each open entry's Work item line and a warn-only comparison against the open GitLab issues — do not roll back past this release once a name-only project exists, because an older build drops it on load, and two projects without a code give the TimeLog picker the same switch signal, filed as follow-up 532 (Doyle)
+export const APP_VERSION = "1.2.0";
+export const APP_BUILD_DATE = "2026-09-13"; // 1.2.0: every project row in the Projects list now shows how many of its eleven key facts are set — a meter plus "N of 11" text — with a row for a project not yet opened on this device reading as not measured rather than as 0 of 11; the current project also carries a banner naming its missing facts with a "Complete them" button that opens the edit form, and non-current rows show their cached customer; Next actions groups the current project's missing key facts into one row, always ranked below the Now tier, that opens the Projects view; snoozing any grouped Next-actions row now snoozes every signal folded into it instead of only the top one, so the row no longer reappears immediately with the next reason promoted; and a Next-actions "open" action whose id is not a number no longer writes #<view>/NaN into the address bar (Hodgell)
+// 1.1.0: a project can be created and saved with nothing but a name — code, project manager, customer, products, profit center, NACE section, deployment, start date, contacts and regulatory classification may all stay blank, on every storage backend, where before a blank key fact made the loader discard the whole project; a blank code shows as a dash in the project lists and the Turso picker, and a TimeLog fetch for a project with no start date falls back to its 90-day window; the follow-up register is now checked by a blocking register-only gate on each open entry's Work item line and a warn-only comparison against the open GitLab issues — do not roll back past this release once a name-only project exists, because an older build drops it on load, and two projects without a code give the TimeLog picker the same switch signal, filed as follow-up 532 (Doyle)
 // 1.0.3: the app opens on the Dashboard instead of wherever the last session ended — a view-only address left over from the previous session is ignored on a fresh start while a link to a specific item still opens it, and relaunching the desktop app brings its window back to the Dashboard; the Ask Claude button no longer sits unclickable behind the search field at common laptop widths; and a toggle's check mark takes no room while the toggle is off, except in the seven places where that would move a control under the pointer — switching from the classic layout back to the modern one also lands on the Dashboard for now, filed as follow-up 478 (Pratchett)
 // 1.0.2: every money figure the budget engine produces is EUR and the surfaces say so — a fixed-price bucket held in another currency is converted before it is compared against its cost, where before the contract amount was read as if it were EUR and the bucket reported a healthier margin than it had; an FX rate stored against a EUR bucket is now ignored rather than divided by, which repairs buckets that kept a stale rate after their currency was switched back and had been shrinking an 80,000 EUR contract to 72,727 on the project rollup and throughout the Budget report; four budget surfaces now say EUR instead of the plan's symbol, the money ratio is no longer called CPI (which is EVM's term for a different number), and three hints are corrected in English and German — a non-EUR PLAN stays unsupported and its margin is now wrong where it used to be right, filed as follow-up 473 (Pratchett)
 // 1.0.1: the desktop app can print and can check for a newer version — File → Print… (Ctrl+P) prints the window you are actually looking at, driven from the main process because Electron refuses a page's own print call, which is the same reason the in-pane Print buttons no longer appear in the desktop app instead of doing nothing when clicked; Help → "Check for updates…" and the Version dialog both open the Releases page, the app shipping no auto-updater on purpose; cancelling the print dialog no longer writes a failure line into launch.log; Help → Help and the print route now share one liveness decision, so neither can throw at a window the user has closed; and a failure during startup is logged and shown in a dialog rather than leaving no window and no trace — PDF export from Documents and the export menu stays inert in the packaged app, filed as follow-up 468 (Pratchett)
@@ -33,7 +34,18 @@ export const APP_BUILD_DATE = "2026-09-13"; // 1.1.0: a project can be created a
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (an author's surname). The
- *  1.1.x line is "Doyle" (Arthur Conan Doyle, Scottish author of the Sherlock
+ *  1.2.x line is "Hodgell" (P.C. Hodgell, American fantasy author of the
+ *  Kencyrath series, beginning with "God Stalk", 1982) — provided directly
+ *  rather than drawn from the SELECTION procedure's candidate list: it is
+ *  absent from BOTH sections of `docs/release-codenames.md` (the "Already
+ *  Used" list and the "Candidate Names Not Yet Used" list), so this is an
+ *  explicit pick outside the usual procedure, the same shape as "Pratchett"
+ *  for the 1.0.x line further down. Swept BEFORE the 1.2.0 header was
+ *  written: `hodgell` 0 hits anywhere in CHANGELOG.md, 0 against the
+ *  bracketed header pattern, 0 against the bracketless one, and 0 in every
+ *  commit subject in the history; positive control `cadigan` 2, negative
+ *  control `zzznotaname` 0.
+ *  The 1.1.x line was "Doyle" (Arthur Conan Doyle, Scottish author of the Sherlock
  *  Holmes stories, beginning with "A Study in Scarlet", 1887), taken by the
  *  SELECTION procedure below as the first name in the candidate list. Swept
  *  BEFORE the 1.1.0 header was written, in one run with its controls: `doyle`
@@ -304,7 +316,7 @@ export const APP_BUILD_DATE = "2026-09-13"; // 1.1.0: a project can be created a
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Doyle";
+export const APP_MILESTONE = "Hodgell";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
