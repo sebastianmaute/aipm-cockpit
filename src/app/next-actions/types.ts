@@ -2,7 +2,7 @@
 import type { Lang, TranslationKey } from "../i18n";
 import type { AppView } from "../nav-config";
 import type { FeatureModuleId } from "../feature-modules";
-import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder, SteeringCommittee } from "../types";
+import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder, SteeringCommittee, ProjectMeta } from "../types";
 import type { DashboardModel } from "../dashboard";
 import type { StakeholderCommsReminder } from "../stakeholder-comms";
 import type { WorkloadAlert } from "../next-actions-workload";
@@ -11,7 +11,7 @@ import type { ActionTrends } from "./trends";
 export type ActionTier = "now" | "soon" | "monitor";
 export type ActionSource =
   | "task-due" | "raid" | "change-pending" | "milestone" | "budget" | "stakeholder-comms"
-  | "schedule" | "workload" | "committee" | "task-attention";
+  | "schedule" | "workload" | "committee" | "task-attention" | "project-meta";
 
 /** Translated by the surface (SP2); the engine stays i18n-free. */
 export interface I18nText {
@@ -78,6 +78,10 @@ export interface ActionInput {
   /** Learned per-kind bias (`${source}:${why.key}` -> points). Off when undefined. */
   learnedBias?: Record<string, number>;
   dismissed: ReadonlySet<string>;     // snoozed/dismissed action ids (injected; SP3 wires the store)
+  /** Current project's id + metadata, feeding the `project-meta` provider.
+   *  Additive (spec §5.2): absent → that provider returns []. */
+  projectId?: string;
+  projectMeta?: ProjectMeta;
 }
 
 export interface ActionProvider {
