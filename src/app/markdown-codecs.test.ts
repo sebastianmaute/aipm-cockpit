@@ -58,6 +58,25 @@ describe("mdEscape / mdUnescape — literal <br> no longer collides with the new
   });
 });
 
+// fix-all-1 review Minor 4: the encoder only ever writes `\<` immediately
+// before a break tag, so the decoder's `\<` alternative is narrowed with the
+// same `(?=br\s*\/?>)` lookahead the encoder uses — it must not unescape a
+// `\<` anywhere else. These test `mdUnescape` DIRECTLY on hand-authored text
+// the app's own `mdEscape` would never produce, since a round trip through
+// `mdEscape` first cannot show this (the encoder never emits a bare `\<`).
+describe("mdUnescape — narrows \\< to immediately before a break tag", () => {
+  it("unescapes \\< immediately before a break tag", () => {
+    expect(mdUnescape("a\\<br>b")).toBe("a<br>b");
+    expect(mdUnescape("a\\<BR/>b")).toBe("a<BR/>b");
+  });
+
+  it("leaves a hand-authored \\< alone everywhere else, keeping its backslash", () => {
+    expect(mdUnescape("C:\\<dir>")).toBe("C:\\<dir>");
+    expect(mdUnescape("a\\<b")).toBe("a\\<b");
+    expect(mdUnescape("a\\<x>b")).toBe("a\\<x>b");
+  });
+});
+
 describe("markdown fieldVisibility section", () => {
   it("emits nothing when undefined", () => {
     expect(workspaceToMarkdown(emptyWorkspace())).not.toContain("## Field Visibility");

@@ -557,6 +557,21 @@ describe("entity persistence registry — RaidItem.escalations", () => {
     expect(back).toHaveLength(2);
     expect(back?.[1]?.toName).toBe("Jane Doe");
   });
+  // fix-all-1 review Minor 1: `toName` is stripped and `toEmail` rejects "<"/
+  // ">", but `at` has no bracket guard — only a `Date.parse` check. V8's
+  // legacy parser is lenient about a leading tag-like prefix in front of a
+  // bare "YYYY-MM-DD" date (no time suffix): `Date.parse("<br/>2026-06-20")`
+  // is a valid timestamp, not NaN, so this is the ONE remaining way a literal
+  // break tag reaches the escalations JSON cell. Pinned directly, not just
+  // via the noteLog test below, which would stay green even if THIS column's
+  // own `<` escaping regressed independently.
+  it("keeps every entry over Markdown when an entry's at carries a literal <br/>", () => {
+    const withBreak = sanitizeRaidEscalations([ESC[1], { ...ESC[0], at: "<br/>2026-06-20" }]);
+    const ws: Workspace = { ...seed(), raid: [{ ...seed().raid[0], escalations: withBreak }] };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws)).raid[0]?.escalations;
+    expect(back).toHaveLength(2);
+    expect(back?.[1]?.at).toBe("<br/>2026-06-20");
+  });
 });
 
 // fix-all-1 — root cause: `mdEscape` left a literal `<br>` unescaped, so
@@ -631,12 +646,16 @@ describe("Markdown <br> wipe — root cause fix (fix-all-1)", () => {
 
   // A RAID item carrying BOTH a noteLog with a literal <br> AND an escalation
   // history in the SAME row: neither JSON-in-cell column may clobber the
-  // other's survival. `at` deliberately does NOT carry a "<br>" here — the
-  // sanitizer's `Date.parse` guard drops an entry whose `at` fails to parse,
-  // so a "<br>2026-06-20T00:00:00.000Z"-style value is dropped before it ever
-  // reaches the codec, and does not exercise this fix. `description` is a
-  // PLAIN passthrough field on this codec path (no rich-text re-derivation),
-  // so it is asserted byte-exact.
+  // other's survival. `at` deliberately does NOT carry a "<br>" here — that is
+  // pinned separately above ("keeps every entry over Markdown when an entry's
+  // at carries a literal <br/>"). CORRECTION (fix-all-1 review Minor 1): a
+  // WITHOUT-slash `"<br>2026-06-20T00:00:00.000Z"` IS dropped by the
+  // sanitizer's `Date.parse` guard (NaN), but that is not the whole story —
+  // `Date.parse("<br/>2026-06-20")` (self-closing, no time suffix) parses to a
+  // valid timestamp under V8's lenient legacy parser, so a break tag CAN reach
+  // the escalations JSON cell via `at`; see the dedicated test above.
+  // `description` is a PLAIN passthrough field on this codec path (no
+  // rich-text re-derivation), so it is asserted byte-exact.
   it("keeps noteLog AND escalations together when the noteLog html holds a literal <br>", () => {
     const escalations: RaidEscalation[] = [{ at: "2026-05-20T09:30:00.000Z", toEmail: "ops@example.com" }];
     const ws: Workspace = {

@@ -405,7 +405,12 @@ export function mdEscape(value: string): string {
 }
 
 export function mdUnescape(value: string): string {
-  return value.replace(/\\\\|\\\||\\<|<br\s*\/?>/gi, (m) =>
+  // `\\<` only unescapes IMMEDIATELY BEFORE a break tag (the lookahead mirrors
+  // the encoder's own `<(?=br\s*\/?>)`), not every `\<` — the encoder never
+  // writes `\<` anywhere else, so a hand-authored `\<` elsewhere (e.g. a
+  // Windows path like `C:\<dir>`) is left alone rather than losing its
+  // backslash (fix-all-1 review Minor 4).
+  return value.replace(/\\\\|\\\||\\<(?=br\s*\/?>)|<br\s*\/?>/gi, (m) =>
     m === "\\\\" ? "\\" : m === "\\|" ? "|" : m === "\\<" ? "<" : "\n");
 }
 

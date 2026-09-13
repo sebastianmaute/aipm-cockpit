@@ -550,11 +550,16 @@ describe("CSV workspace codec — task round-trip", () => {
  *  from an encoded newline) — fixed at the root in `mdEscape`/`mdUnescape`
  *  (markdown-codecs-core.ts), which now escapes the `<` so a literal tag
  *  round-trips verbatim (see the "no longer collides" describe block in
- *  markdown-codecs.test.ts). The filter below still rejects `<br` out of
- *  caution — folding it back in would change this alphabet's accepted set and
- *  this file's own rule is to re-measure the calibrated hazard-probability
- *  floors below whenever either alphabet changes (see HAZARD_FLOOR), which is
- *  out of scope for this fix. Safe to lift in a follow-up that re-measures.
+ *  markdown-codecs.test.ts). The filter below still rejects `<br`, NOT out of
+ *  caution — to keep the measured accept rates valid: the `HAZARD_FLOOR`
+ *  comment's 0.75/0.98/0.84 accept rates and the `hazardLoaded` per-class-rate
+ *  claim were both measured with this filter in place, and folding `<br` back
+ *  in changes this alphabet's accepted set, which this file's own rule says
+ *  must be re-measured with `scripts/measure-property-floor.mjs` before the
+ *  filter changes. That re-measurement has not been done, so the exact
+ *  property below does not exercise the hazard class this fix made exact —
+ *  only the deterministic tests do (`markdown-codecs.test.ts` and the
+ *  "preserves a literal <br>" test below).
  *  Everything genuinely interesting to the format is still in: `|`, `\`, `\|`,
  *  interior `\n`, quotes, commas, markdown syntax leaders, astral pairs. */
 /** ★ CR is STRIPPED by a `map`, not rejected by a `filter`. Rejecting threw
@@ -721,9 +726,12 @@ describe("CSV codec — section markers must not be matched inside a quoted cell
  * characters, and CRLF→LF on the FIRST pass is accepted behaviour (this repo's
  * markdown format is LF). What is not acceptable is the value still moving on
  * passes 2 and 3. Found by the fixed-point property at numRuns 1500, from the
- * counterexample `description: "😀\r<br>"`; 20 runs did not reach it — which is
- * why the live property above excludes bare CR rather than pretending the case
- * does not exist.
+ * counterexample `description: "😀\r<br>"` (pre-fix-all-1; no longer
+ * reproduces — that literal `<br>` no longer collides with the newline
+ * marker, so this exact string is now a fixed point after one pass; use
+ * `"a\r\r\r\nb"` instead, still reproduced below); 20 runs did not reach it —
+ * which is why the live property above excludes bare CR rather than
+ * pretending the case does not exist.
  */
 describe.skip("Markdown codec — one pass must be a fixed point on any string", () => {
   // ★ The property below is SEED-DEPENDENT at numRuns 20 — measured: unskipping

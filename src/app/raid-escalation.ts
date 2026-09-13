@@ -99,7 +99,13 @@ function sanitizeEntry(raw: unknown): RaidEscalation | null {
   const toEmail = typeof o.toEmail === "string" ? o.toEmail.trim().slice(0, EMAIL_MAX) : "";
   // isEscalationEmail, not a bare "@" check: rejects a malformed address AND
   // one holding "<"/">" (§515 defence in depth — mirrors the `toName` bracket
-  // rejection in `requireEscalationRecipient` above).
+  // rejection in `requireEscalationRecipient` above). Deliberate: every writer
+  // of an escalation record — the human Escalate handler and the AI tool,
+  // both before and after this check existed — already requires a valid
+  // e-mail address, so this can only drop a hand-edited or externally
+  // imported entry that never came from this app (a malformed address such as
+  // "ops@localhost", or a bracket address written by this branch's own
+  // earlier, unreleased commits). It never drops a record this app produced.
   if (!at || !isEscalationEmail(toEmail)) return null;
   const toName = typeof o.toName === "string" ? stripBreakTags(o.toName).slice(0, NAME_MAX) : "";
   const toResourceId =
