@@ -105,12 +105,11 @@ export function computeBurndownSeries(
       const fixedPriceEur = currencyToEur(b.fixedPriceAmount ?? 0, b, fxRates);
       const inWindow: { i: number; bh: number; ah: number }[] = [];
       let bucketBudgetHours = 0;
-      let bucketActualHours = 0;
       // `indexByKey` only knows periods inside the CURRENT chart window (see
       // `periods`/`span` above) — a period from `active` outside it is
-      // skipped by the `continue` below, so `bucketBudgetHours`/
-      // `bucketActualHours` (and therefore every cumulative consumed ratio
-      // below) are built from IN-WINDOW hours only. `computeBucketReport` has no such window
+      // skipped by the `continue` below, so `bucketBudgetHours` and the
+      // cumulative actual hours (and therefore every consumed ratio below)
+      // are built from IN-WINDOW hours only. `computeBucketReport` has no such window
       // and always sums every active period, so the two can legitimately
       // diverge whenever a chart span clips a fixed-price bucket: the whole
       // contract amount is still spread over just the in-window periods here,
@@ -131,7 +130,6 @@ export function computeBurndownSeries(
         budgetH[i] += bh;
         actualH[i] += ah;
         bucketBudgetHours += bh;
-        bucketActualHours += ah;
         inWindow.push({ i, bh, ah });
       }
       const consumedAt = (cumActualHours: number) => bucketBudgetHours > 0
