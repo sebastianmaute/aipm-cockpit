@@ -754,6 +754,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§529](#529-api-key-funding-is-unresolved-and-every-user-must-bring-and-pay-for-their-own-anthropic-key--open) | API key funding is unresolved, and every user must bring and pay for their own Anthropic key — OPEN | AI PM Cockpit demo 2026-09-11 (P-7), GitLab #73; mirrored into the register 2026-09-13 | unestimated (decision) — a shared key would need a new server-side proxy | open |
 | [§530](#530-there-is-no-microsoft-teams-integration-the-remaining-microsoft-365-gap--open) | There is no Microsoft Teams integration, the remaining Microsoft 365 gap — OPEN | AI PM Cockpit demo 2026-09-11 (P-8), GitLab #74; mirrored into the register 2026-09-13 | L — new Graph scopes, likely admin consent, then channel posts, online meetings and chat links | open |
 | [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--closed-2026-09-13) | Nothing checks that the register and GitLab issues stay one-to-one — CLOSED 2026-09-13 | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | **CLOSED** 2026-09-13 |
+| [§532](#532-two-projects-without-a-code-look-like-the-same-project-to-the-timelog-picker--open) | Two projects without a code look like the same project to the TimeLog picker — OPEN | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -37018,3 +37019,32 @@ Related: §528 (moving follow-ups into GitLab issues). If that lands, this check
 Size S–M.
 
 **Source:** housekeeping audit 2026-09-13 (register ⇄ GitLab sync)
+
+## 532. Two projects without a code look like the same project to the TimeLog picker — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified. Reasoned from the call site, which is presence-checked
+with `grep -n "projectId: projectCode" src/app/timelog-panel.tsx` and
+`grep -n "seenProjectId !== projectId" src/app/use-timelog-picker-scope.ts`; no test or browser run has
+switched between two code-less projects.
+
+**Work item:** #322
+
+`timelog-panel.tsx` passes `ws.project?.code ?? "default"` to `useTimelogPickerScope` as `projectId`. The
+hook does not send it anywhere: it compares it against the last value it saw, and a change resets its
+one-shot picker seeding on an in-place project switch. The actuals cache is keyed on `projectKey`, not on
+this value.
+
+Since O-1 (project creation from a name alone) a project's `code` may be blank. Two code-less projects
+therefore both produce `""`, and an in-place switch from one to the other is not seen as a switch: the
+picker keeps the first project's customer and project selection.
+
+★ Rewriting the fallback to `||` does NOT fix this — both projects would then produce `"default"` instead.
+★ It is not new with O-1: two projects that share a code already collapsed the same way. O-1 only makes
+it likely, because a blank code is now the normal state of a new project.
+
+The fix is a signal that is unique per project (the registry or Turso project id), which is what the hook
+actually needs to detect a switch. Not done in O-1's MR because it changes the hook's contract and its
+tests, which that MR does not otherwise touch.
+
+Related: §521 (project creation from a name alone — closed by the same MR, which is what makes a blank code
+the normal state).
