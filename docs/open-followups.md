@@ -8304,9 +8304,9 @@ finds one and can reasonably read this entry as regressed. Re-checked 2026-08-25
 
 **Where:** `markdown-codecs-core.ts` `mdEscape` / `mdUnescape`.
 
-`mdEscape`'s `/\r?\n/` consumes the ONE carriage return nearest the LF; `mdUnescape` emits a bare LF;
-the next pass then has a fresh `\r\n` to eat. So a run of bare CRs loses one per save/load cycle
-**with no edit in between**:
+**Pre-fix mechanism:** `mdEscape`'s `/\r?\n/` consumed the ONE carriage return nearest the LF;
+`mdUnescape` emitted a bare LF; the next pass then had a fresh `\r\n` to eat. So a run of bare CRs
+lost one per save/load cycle **with no edit in between**:
 
 ```
 "a\r\r\r\nb" → "a\r\r\nb" → "a\r\nb" → "a\nb" → "a\nb"     (one arrow = one full round-trip)
@@ -8317,8 +8317,9 @@ repo's markdown format is LF) — so this sits well below §105. Recorded becaus
 changes on a load that made no edit" is the kind of thing that later reads as corruption.
 
 ★★ **Found only at `numRuns: 1500`; twenty runs missed it on the first seed.** The live fixed-point
-property therefore excludes bare CR explicitly, and the skipped block carries both the unrestricted
-property and a deterministic companion. ★ The skipped PROPERTY is itself seed-dependent at low run
+property therefore excludes bare CR explicitly, and the block that carried both the unrestricted
+property and a deterministic companion was skipped until the fix (now unskipped and live — see the
+CLOSED paragraph below). ★ That property was itself seed-dependent at low run
 counts — on the run where it was unskipped, the deterministic companion failed while the property
 passed. **The deterministic case is the reliable reproduction**; reach for that one, not the property.
 
