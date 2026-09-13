@@ -4183,7 +4183,7 @@ const enUS = {
   projectKeyFactsComplete: "Key facts complete",
   projectKeyFactsUnknown: "Key facts not measured here",
   projectKeyFactsCount: "{0} of {1}",
-  projectKeyFactsCountUnknown: "— / {0}",
+  projectKeyFactsCountUnknown: "— of {0}",
   projectKeyFactsBannerMissing: "Missing key facts: {0}",
   projectKeyFactsBannerComplete: "All key facts are set.",
   projectKeyFactsCompleteAction: "Complete them",

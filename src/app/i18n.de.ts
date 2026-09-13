@@ -3974,7 +3974,7 @@ export const de: Record<TranslationKey, string> = {
   projectKeyFactsComplete: "Kernangaben vollständig",
   projectKeyFactsUnknown: "Kernangaben auf diesem Gerät nicht erfasst",
   projectKeyFactsCount: "{0} von {1}",
-  projectKeyFactsCountUnknown: "— / {0}",
+  projectKeyFactsCountUnknown: "— von {0}",
   projectKeyFactsBannerMissing: "Fehlende Kernangaben: {0}",
   projectKeyFactsBannerComplete: "Alle Kernangaben sind gesetzt.",
   projectKeyFactsCompleteAction: "Jetzt ergänzen",
