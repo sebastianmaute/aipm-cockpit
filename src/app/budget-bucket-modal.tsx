@@ -255,8 +255,16 @@ export function BudgetBucketModal({
         (!Number.isFinite(draft.fixedPriceAmount) || draft.fixedPriceAmount < 0)) {
       return setError(t(lang, "budgetAmountInvalid"));
     }
-    if (draft.fxRateOverride != null &&
-        (!Number.isFinite(draft.fxRateOverride) || draft.fxRateOverride <= 0)) {
+    // §475: an EUR bucket's rate is 1 by definition and `resolveRate` never
+    // consults an override on one — so the field is hidden above, and any
+    // value the draft still carries (typed before a currency switch, or
+    // inherited from a bucket that already had a stale one) is dropped here
+    // rather than validated or persisted. Existing stored overrides on
+    // buckets nobody re-saves are left alone; `resolveRate` already repairs
+    // those at read time (see its docstring).
+    const fxRateOverride = draft.currency === "EUR" ? undefined : draft.fxRateOverride;
+    if (fxRateOverride != null &&
+        (!Number.isFinite(fxRateOverride) || fxRateOverride <= 0)) {
       return setError(t(lang, "budgetFxOverrideInvalid"));
     }
     const badOverride = (v: number | undefined) => v != null && (!Number.isFinite(v) || v < 0);
@@ -269,7 +277,7 @@ export function BudgetBucketModal({
       ? adj.track(describeTextCap(draft.poNumber, PO_NUMBER_MAX)).trim() || undefined
       : undefined;
     if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
-    onSave({ ...draft, name: savedName, poNumber: savedPoNumber, localModifiedAt: new Date().toISOString() });
+    onSave({ ...draft, fxRateOverride, name: savedName, poNumber: savedPoNumber, localModifiedAt: new Date().toISOString() });
   };
 
   const applyPercentComplete = (raw: string) => {
@@ -486,8 +494,13 @@ export function BudgetBucketModal({
           </label>
           )}
 
-          {/* Manual FX rate */}
-          {isVisible("fxOverride") && (
+          {/* Manual FX rate — hidden on an EUR bucket (§475): the rate is units of
+              the bucket's currency per 1 EUR, which for EUR is 1 by definition, so
+              an override there is incoherent data rather than a preference, and
+              `resolveRate` (fx.ts) already declines to consult one on an EUR
+              bucket. Offering the field anyway let a user set a value nothing
+              would ever read. */}
+          {isVisible("fxOverride") && draft.currency !== "EUR" && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="flex items-center gap-1">{t(lang, "budgetFxOverride")}<InfoTooltip text={t(lang, "budgetFxOverrideHint")} /></span>
             <input

@@ -162,7 +162,9 @@ describe("BudgetBucketModal", () => {
   });
 
   test("zero/negative FX override blocks save", () => {
-    const { onSave } = setup();
+    // Currency USD, not the baseBucket default of EUR — the field is gated off on
+    // an EUR bucket (§475); this test is about the zero/negative validation, not that gate.
+    const { onSave } = setup({ bucket: { ...baseBucket, currency: "USD" } });
     const fx = screen.getByLabelText(/manual fx rate/i);
     fireEvent.change(fx, { target: { value: "0" } });
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
@@ -404,10 +406,13 @@ describe("BudgetBucketModal", () => {
 
   test("tier switch hides advanced/full fields but keeps required ones", () => {
     // Render at the Advanced default (no Seed) and assert against modal-BODY labels.
+    // Currency USD, not the baseBucket default of EUR: the FX-override field this
+    // test asserts on is also gated on non-EUR currency (§475), and that gate is
+    // covered separately below — keep this test about the TIER axis alone.
     render(
       <BudgetBucketModal
         lang="en-US"
-        bucket={baseBucket}
+        bucket={{ ...baseBucket, currency: "USD" }}
         allBuckets={[baseBucket]}
         roles={roles}
         disciplines={[]}
@@ -549,7 +554,9 @@ describe("BudgetBucketModal", () => {
   // but its blur handler used to clamp with `round: 2` — `Math.round(0.0001*100)/100`
   // is 0, so the field's own advertised minimum silently became 0 with no notice.
   test("blurring the FX field's own advertised minimum keeps it, not 0", () => {
-    const { onSave } = setup();
+    // Currency USD, not the baseBucket default of EUR — the field is gated off on
+    // an EUR bucket (§475); this test is about the blur-clamp precision, not that gate.
+    const { onSave } = setup({ bucket: { ...baseBucket, currency: "USD" } });
     const fx = screen.getByLabelText(t("en-US", "budgetFxOverride"));
     fireEvent.change(fx, { target: { value: "0.0001" } });
     fireEvent.blur(fx);
@@ -567,6 +574,41 @@ describe("BudgetBucketModal", () => {
     expect(panel.className).toContain("h-[640px]");
     expect(panel.className).toContain("min-h-[400px]");
     expect(panel.className).toContain("max-h-[95vh]");
+  });
+});
+
+// §475: the FX-override field's only gate used to be the field TIER, never the
+// bucket's currency, so an EUR bucket could accept and persist a rate override
+// that `resolveRate` (fx.ts) already declines to consult — the rate is units of
+// the bucket's currency per 1 EUR, which for EUR is 1 by definition. The fix
+// hides the field on an EUR bucket and drops a stale value from the save
+// payload rather than persisting it; existing stored overrides on buckets
+// nobody re-saves are deliberately left alone — `resolveRate` already repairs
+// those at read time (see its docstring in fx.ts).
+describe("BudgetBucketModal — FX override currency gate (§475)", () => {
+  test("hides the FX-override field on an EUR bucket", () => {
+    setup({ bucket: { ...baseBucket, currency: "EUR" } });
+    expect(screen.queryByLabelText(t("en-US", "budgetFxOverride"))).not.toBeInTheDocument();
+  });
+
+  test("switching an existing override back to EUR clears it from the save payload", () => {
+    const { onSave } = setup({ bucket: { ...baseBucket, currency: "USD", fxRateOverride: 1.1 } });
+    const currency = screen.getByLabelText(t("en-US", "budgetCurrency"));
+    fireEvent.change(currency, { target: { value: "EUR" } });
+    // The field itself is gone once currency is EUR — nothing left to clear by hand.
+    expect(screen.queryByLabelText(t("en-US", "budgetFxOverride"))).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as BudgetBucket).fxRateOverride).toBeUndefined();
+  });
+
+  test("a non-EUR bucket still saves its FX override", () => {
+    const { onSave } = setup({ bucket: { ...baseBucket, currency: "USD" } });
+    const fx = screen.getByLabelText(t("en-US", "budgetFxOverride"));
+    fireEvent.change(fx, { target: { value: "1.2345" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as BudgetBucket).fxRateOverride).toBe(1.2345);
   });
 });
 
