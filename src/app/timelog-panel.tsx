@@ -358,8 +358,10 @@ export function TimelogPanel({
   function fetchWindow(): { start: string; end: string } {
     const now = new Date();
     const end = now.toISOString().slice(0, 10);
+    // `||`, not `??`: since O-1 a project's startDate may be "" (not set), which
+    // is not nullish and would be sent to TimeLog as an empty start.
     const start =
-      ws.project?.startDate ??
+      ws.project?.startDate ||
       new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     return { start, end };
   }
