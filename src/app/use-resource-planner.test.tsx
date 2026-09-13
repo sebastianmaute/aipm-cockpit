@@ -1644,4 +1644,66 @@ describe("handleSaveRaidItem — stored escalations (§515)", () => {
     act(() => { result.current.planner.handleSaveRaidItem({ ...snapshot }, false); });
     expect((result.current.workspace.raid[0] as RaidItem).severity).toBe("High");
   });
+
+  it("keeps the raise across TWO unseen raises (compares the FIRST unseen fromSeverity)", () => {
+    const { result } = renderPlanner();
+    const first = { at: "2026-06-19T10:00:00.000Z", toEmail: "jane@example.com", fromSeverity: "Medium" as const, toSeverity: "High" as const };
+    const second = { at: "2026-06-20T10:00:00.000Z", toEmail: "ops@example.com", fromSeverity: "High" as const, toSeverity: "Critical" as const };
+    const snapshot: RaidItem = {
+      id: 1, category: "I", title: "Vendor down", status: "Open", severity: "Medium", linkedTaskIds: [],
+      causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-06-01",
+    };
+    act(() => { result.current.workspace.setRaid([{ ...snapshot, severity: "Critical", escalations: [first, second] }]); });
+    act(() => { result.current.planner.handleSaveRaidItem({ ...snapshot }, false); });
+    const saved = result.current.workspace.raid[0] as RaidItem;
+    expect(saved.severity).toBe("Critical");
+    expect(saved.escalations).toEqual([first, second]);
+  });
+
+  it("keeps the raise when a notify-only escalation followed it", () => {
+    const { result } = renderPlanner();
+    const raise = { at: "2026-06-19T10:00:00.000Z", toEmail: "jane@example.com", fromSeverity: "High" as const, toSeverity: "Critical" as const };
+    const notify = { at: "2026-06-20T10:00:00.000Z", toEmail: "ops@example.com" };
+    const snapshot: RaidItem = {
+      id: 1, category: "I", title: "Vendor down", status: "Open", severity: "High", linkedTaskIds: [],
+      causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-06-01",
+    };
+    act(() => { result.current.workspace.setRaid([{ ...snapshot, severity: "Critical", escalations: [raise, notify] }]); });
+    act(() => { result.current.planner.handleSaveRaidItem({ ...snapshot }, false); });
+    const saved = result.current.workspace.raid[0] as RaidItem;
+    expect(saved.severity).toBe("Critical");
+    expect(saved.escalations).toEqual([raise, notify]);
+  });
+
+  it("an editor opened AFTER the escalation keeps a deliberate return to its fromSeverity", () => {
+    const { result } = renderPlanner();
+    const esc = { at: "2026-06-19T10:00:00.000Z", toEmail: "jane@example.com", fromSeverity: "High" as const, toSeverity: "Critical" as const };
+    const stored: RaidItem = {
+      id: 1, category: "I", title: "Vendor down", status: "Open", severity: "Critical", linkedTaskIds: [],
+      causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-06-01", escalations: [esc],
+    };
+    act(() => { result.current.workspace.setRaid([stored]); });
+    // The draft already carries the stored escalation: the user saw it and lowered the severity on purpose.
+    act(() => { result.current.planner.handleSaveRaidItem({ ...stored, severity: "High" }, false); });
+    const saved = result.current.workspace.raid[0] as RaidItem;
+    expect(saved.severity).toBe("High");
+    expect(saved.escalations).toEqual([esc]);
+  });
+
+  it("only UNSEEN escalations count: a seen raise plus an unseen notify-only keeps a deliberate lowering", () => {
+    // ★ Pins the `slice(draftEscCount)` offset on its own. The length conjunct is true here
+    //   (2 stored > 1 seen), so without the offset the SEEN raise's fromSeverity would match.
+    const { result } = renderPlanner();
+    const raise = { at: "2026-06-19T10:00:00.000Z", toEmail: "jane@example.com", fromSeverity: "High" as const, toSeverity: "Critical" as const };
+    const notify = { at: "2026-06-20T10:00:00.000Z", toEmail: "ops@example.com" };
+    const base: RaidItem = {
+      id: 1, category: "I", title: "Vendor down", status: "Open", severity: "Critical", linkedTaskIds: [],
+      causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-06-01",
+    };
+    act(() => { result.current.workspace.setRaid([{ ...base, escalations: [raise, notify] }]); });
+    act(() => { result.current.planner.handleSaveRaidItem({ ...base, escalations: [raise], severity: "High" }, false); });
+    const saved = result.current.workspace.raid[0] as RaidItem;
+    expect(saved.severity).toBe("High");
+    expect(saved.escalations).toEqual([raise, notify]);
+  });
 });

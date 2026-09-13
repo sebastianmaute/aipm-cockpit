@@ -10,7 +10,7 @@ import { useCalendarEvents } from "./use-calendar-events";
 import { useReferenceData } from "./use-reference-data";
 import { plainSeed, useResourceDirectory } from "./use-resource-directory";
 import { generatePeriods, convertUtilization } from "./resource-capacity";
-import { DEFAULT_WEEK_HOURS, type Absence, type AbsenceType, type RaidItem, type Shift, type Task } from "./types";
+import { DEFAULT_WEEK_HOURS, type Absence, type AbsenceType, type RaidEscalation, type RaidItem, type Shift, type Task } from "./types";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
 import { isValidEmail } from "./sanitize";
@@ -171,12 +171,19 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       // RAID editor's snapshot goes stale. Read open-followups §48 before editing.
       // ★★ Severity too, but ONLY when the stale draft still holds the value an escalation
       //   raised FROM — a deliberate change to any other severity in the editor wins.
-      const storedEsc = previous?.escalations ?? [];
-      const draftEscCount = Array.isArray(item.escalations) ? item.escalations.length : 0;
-      const lastStoredEsc = storedEsc[storedEsc.length - 1];
+      //   The comparison is against the FIRST escalation the draft has not seen that carries
+      //   a `fromSeverity` — i.e. the severity the draft snapshotted — never the LAST one: a
+      //   second raise (from the already-raised value) or a later notify-only entry would
+      //   otherwise let the stale draft undo the raise. Both reads tolerate a non-array
+      //   (JSON and IndexedDB load RAID rows unvalidated).
+      const storedEscRaw: unknown = previous?.escalations;
+      const storedEsc: readonly Partial<RaidEscalation>[] = Array.isArray(storedEscRaw) ? storedEscRaw : [];
+      const draftEscRaw: unknown = item.escalations;
+      const draftEscCount = Array.isArray(draftEscRaw) ? draftEscRaw.length : 0;
+      const firstUnseenFrom = storedEsc.slice(draftEscCount).find((e) => e?.fromSeverity !== undefined)?.fromSeverity;
       const keepEscalatedSeverity =
         !create && previous !== undefined && storedEsc.length > draftEscCount &&
-        lastStoredEsc?.fromSeverity !== undefined && item.severity === lastStoredEsc.fromSeverity;
+        firstUnseenFrom !== undefined && item.severity === firstUnseenFrom;
       const withStamp: RaidItem = {
         ...item, id, localModifiedAt: stamp,
         ...(create ? {} : { noteLog: previous?.noteLog, escalations: previous?.escalations }),

@@ -35,7 +35,8 @@ Each deviation below was found in the code while planning. The plan follows the 
    - Without the carry, this sequence silently wipes the record: open a RAID editor → switch to Next actions → Escalate that item → return → Save.
    - This is the same defect class as §48. The spec does not mention it.
    - **Severity must be carried too, conditionally.** The same stale draft carries the pre-escalation `severity`, so keeping only the record would still silently put an escalated High → Critical back to High.
-   - Rule (Task 2): when the stored row has MORE escalations than the draft AND `draft.severity === lastStoredEscalation.fromSeverity`, save `previous.severity`. A deliberate user change to any other severity still wins.
+   - Rule (Task 2): when the stored row has MORE escalations than the draft AND `draft.severity` equals the `fromSeverity` of the FIRST escalation the draft has not seen that carries one (`storedEsc.slice(draftEscCount).find(e => e.fromSeverity !== undefined)?.fromSeverity`), save `previous.severity`. A deliberate user change to any other severity still wins.
+   - ★ Corrected in Task 2's fix round: the first draft compared against the LAST stored escalation. Two raises (Medium → High → Critical) or a raise followed by a notify-only entry then let a stale Medium/High draft silently undo the raise.
 5. **`buildNewRaidDraft` and `applyStatus` need `today`.**
    - `openNew` reads `today` for `raisedDate`, and `applyStatus` reads it for `closedDate`.
    - The signatures are therefore `buildNewRaidDraft(raid, category, today)` and `applyStatus(draft, status, today)`.
@@ -1049,12 +1050,19 @@ with
       // RAID editor's snapshot goes stale. Read open-followups §48 before editing.
       // ★★ Severity too, but ONLY when the stale draft still holds the value an escalation
       //   raised FROM — a deliberate change to any other severity in the editor wins.
-      const storedEsc = previous?.escalations ?? [];
-      const draftEscCount = Array.isArray(item.escalations) ? item.escalations.length : 0;
-      const lastStoredEsc = storedEsc[storedEsc.length - 1];
+      //   The comparison is against the FIRST escalation the draft has not seen that carries
+      //   a `fromSeverity` — i.e. the severity the draft snapshotted — never the LAST one: a
+      //   second raise (from the already-raised value) or a later notify-only entry would
+      //   otherwise let the stale draft undo the raise. Both reads tolerate a non-array
+      //   (JSON and IndexedDB load RAID rows unvalidated).
+      const storedEscRaw: unknown = previous?.escalations;
+      const storedEsc: readonly Partial<RaidEscalation>[] = Array.isArray(storedEscRaw) ? storedEscRaw : [];
+      const draftEscRaw: unknown = item.escalations;
+      const draftEscCount = Array.isArray(draftEscRaw) ? draftEscRaw.length : 0;
+      const firstUnseenFrom = storedEsc.slice(draftEscCount).find((e) => e?.fromSeverity !== undefined)?.fromSeverity;
       const keepEscalatedSeverity =
         !create && previous !== undefined && storedEsc.length > draftEscCount &&
-        lastStoredEsc?.fromSeverity !== undefined && item.severity === lastStoredEsc.fromSeverity;
+        firstUnseenFrom !== undefined && item.severity === firstUnseenFrom;
       const withStamp: RaidItem = {
         ...item, id, localModifiedAt: stamp,
         ...(create ? {} : { noteLog: previous?.noteLog, escalations: previous?.escalations }),
@@ -1062,7 +1070,14 @@ with
       };
 ```
 
-`use-resource-planner.ts` is 629 lines; this adds 12, well under the LIMIT.
+`use-resource-planner.ts` is 629 lines; this adds 19 (plus a `RaidEscalation` type import), well under the LIMIT.
+
+★ Task 2's fix round added four planner tests to the `handleSaveRaidItem — stored escalations (§515)` describe:
+- "keeps the raise across TWO unseen raises" and "keeps the raise when a notify-only escalation followed it". Both were RED against the LAST-escalation rule.
+- "an editor opened AFTER the escalation keeps a deliberate return to its fromSeverity".
+- "only UNSEEN escalations count: a seen raise plus an unseen notify-only keeps a deliberate lowering".
+
+★★ The `storedEsc.length > draftEscCount` conjunct is an EQUIVALENT mutant, measured, not reasoned. `slice(draftEscCount)` is already empty whenever the conjunct is false, so deleting the conjunct alone leaves every test green, and no input can separate the two. The "opened AFTER" test fails only when the conjunct AND the offset are both removed. The offset alone (`slice(0)`) is pinned by the "only UNSEEN" test. The conjunct is kept, per the controller ruling, as an explicit statement of the precondition.
 
 `src/test/inline-sweep-fixtures.ts`, in two edits:
 1. In `seedGuardedRaid`, replace `    inquiriesSent: 2,\n    localModifiedAt: "2026-06-12T08:15:00.000Z",` with:
@@ -3753,7 +3768,7 @@ grep -c "MUTANT M5" src/app/use-resource-planner.ts
 npx vitest run src/app/use-resource-planner.test.tsx --maxWorkers=1 --reporter=dot > "$S/m5.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |keeps the STORED escalation record" "$S/m5.log"
 ```
 
-- Expected: `1`, then `EXIT=1` with `handleSaveRaidItem — stored escalations (§515) > keeps the STORED escalation record over a stale editor snapshot` failing on `severity` (`High`, expected `Critical`). `keeps a DELIBERATE severity change` stays green under this mutant, which is expected: it pins the other side of the rule.
+- Expected: `1`, then `EXIT=1` with `handleSaveRaidItem — stored escalations (§515) > keeps the STORED escalation record over a stale editor snapshot` failing on `severity` (`High`, expected `Critical`). The two fix-round tests `keeps the raise across TWO unseen raises` and `keeps the raise when a notify-only escalation followed it` fail the same way. `keeps a DELIBERATE severity change` and `an editor opened AFTER the escalation keeps a deliberate return to its fromSeverity` stay green under this mutant, which is expected: they pin the other side of the rule (the carry applies only to the FIRST unseen escalation's `fromSeverity`, and only when the draft has not seen it).
 - Revert: replace `        // MUTANT M5` with `        ...(keepEscalatedSeverity ? { severity: previous?.severity } : {}),`.
 
 After all five:
