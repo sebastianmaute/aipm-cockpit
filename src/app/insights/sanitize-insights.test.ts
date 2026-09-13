@@ -264,3 +264,20 @@ describe("sanitizeInsights", () => {
     });
   });
 });
+
+describe("sanitizeInsights — loggedRaidId (§515)", () => {
+  const rec = (loggedRaidId: unknown) => ({
+    id: 1, key: "k", type: "overdueTrend", severity: "low", status: "acted", data: {},
+    firstSeenAt: "2026-01-01", lastSeenAt: "2026-01-01", occurrences: 1, loggedRaidId,
+  });
+  test("keeps a positive integer", () => {
+    expect(sanitizeInsights([rec(9)])[0]?.loggedRaidId).toBe(9);
+  });
+  test("drops anything else, and omits the key (byte-stability)", () => {
+    for (const v of [0, -1, 2.5, "9", null, undefined, Infinity, NaN]) {
+      const [one] = sanitizeInsights([rec(v)]);
+      expect(one).toBeDefined(); // the record itself survives
+      expect("loggedRaidId" in one).toBe(false);
+    }
+  });
+});

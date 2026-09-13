@@ -171,6 +171,10 @@ export function sanitizeInsights(input: unknown): Insight[] {
     const ref = sanitizeRef(o.entityRef);
     const ackAt = str(o.acknowledgedAt, 40);
     const actAt = str(o.actedAt, 40);
+    const loggedRaidId =
+      typeof o.loggedRaidId === "number" && Number.isInteger(o.loggedRaidId) && o.loggedRaidId > 0
+        ? o.loggedRaidId
+        : undefined;
     const disAt = str(o.dismissedAt, 40);
     const resAt = str(o.resolvedAt, 40);
     const reason = str(o.dismissReason, INSIGHT_DISMISS_REASON_MAX);
@@ -186,6 +190,7 @@ export function sanitizeInsights(input: unknown): Insight[] {
       ...(ref ? { entityRef: ref } : {}),
       ...(ackAt ? { acknowledgedAt: ackAt } : {}),
       ...(actAt ? { actedAt: actAt } : {}),
+      ...(loggedRaidId !== undefined ? { loggedRaidId } : {}),
       ...(disAt ? { dismissedAt: disAt } : {}),
       ...(resAt ? { resolvedAt: resAt } : {}),
       ...(reason ? { dismissReason: reason } : {}),

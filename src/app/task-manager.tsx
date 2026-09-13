@@ -106,6 +106,7 @@ import { loadActualsCache } from "./timelog-actuals-store";
 import { evaluateTimelogPolicy } from "./timelog-policy";
 import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
 import { metricAtActionPatch } from "./insights/outcome";
+import { applyInsightLoggedAsRaid } from "./insights/log-as-raid";
 import { useInsightRecommendations } from "./use-insight-recommendations";
 import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
 import { executeActionCta } from "./action-cta-exec";
@@ -1089,6 +1090,16 @@ function TaskManagerInner() {
     },
     [isPopout, insights, setInsights, today, requestOpen],
   );
+  // "Log as RAID" on-saved writer (§515): the Act transition plus the link to the
+  // RAID item, via the functional setter (first act wins). `raidId` is the id the
+  // save COMMITTED — `useRaidCreate` never passes the draft's open-time id.
+  const onInsightLoggedAsRaid = useCallback(
+    (insightId: number, raidId: number) => {
+      if (isPopout) return;
+      setInsights((prev) => applyInsightLoggedAsRaid(prev, insightId, raidId, today));
+    },
+    [isPopout, setInsights, today],
+  );
   const onDismissInsight = useCallback(
     (id: number, reason?: string) => {
       if (isPopout) return;
@@ -1811,7 +1822,10 @@ function TaskManagerInner() {
   // "Log as RAID" (§515): one floating RAID editor over the current view. Called
   // after useResourcePlanner (handleSaveRaidItem) and the learning hook
   // (recordLearning); openers are undefined in popouts.
-  const raidCreate = useRaidCreate({ isPopout, lang, today, raid, handleSaveRaidItem, recordLearning });
+  const raidCreate = useRaidCreate({
+    isPopout, lang, today, raid, handleSaveRaidItem, recordLearning,
+    onInsightLogged: onInsightLoggedAsRaid,
+  });
 
   // Keep the forwarding ref current after every commit (it's only ever read
   // from event handlers, never during render).
@@ -2014,6 +2028,7 @@ function TaskManagerInner() {
     resourcesById, insights, setInsights, dispatcher,
     showToast, logActivityAs,
     onAcknowledgeInsight, onActInsight, onDismissInsight,
+    onLogAsRaid: raidCreate.openFromInsight,
   });
 
   const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);

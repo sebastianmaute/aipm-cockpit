@@ -16,11 +16,15 @@ import { RaidEditModal } from "./raid-edit-modal";
 import { applyMatrix, applyStatus, buildNewRaidDraft, buildRaidSeedFromSignal } from "./raid-draft";
 import { ACTION_SOURCE_LABEL } from "./action-source-label";
 import type { SuggestedAction } from "./next-actions";
+import type { Insight } from "./insights/insight";
+import { insightDetail, insightTitle } from "./insights/insight-text";
 import type { OutcomeType } from "./action-learning";
 import type { RaidItem, RaidStatus, Resource, RiskScale, Stakeholder, Task } from "./types";
 import type { Contact } from "./contacts";
 
-export type RaidCreateOrigin = { kind: "action"; action: SuggestedAction };
+export type RaidCreateOrigin =
+  | { kind: "insight"; insightId: number }
+  | { kind: "action"; action: SuggestedAction };
 
 export interface RaidCreateRequest {
   draft: RaidItem;
@@ -34,12 +38,15 @@ export interface RaidCreateDeps {
   raid: readonly RaidItem[];
   handleSaveRaidItem: (item: RaidItem, isNew?: boolean) => number | undefined;
   recordLearning: (action: SuggestedAction, type: OutcomeType) => Promise<void>;
+  /** Insight on-saved writer: acted + actedAt + loggedRaidId (task-manager). */
+  onInsightLogged: (insightId: number, raidId: number) => void;
 }
 
 export interface RaidCreateController {
   request: RaidCreateRequest | null;
   /** Undefined in popouts — every action CTA is. */
   openFromAction: ((action: SuggestedAction) => void) | undefined;
+  openFromInsight: ((insight: Insight) => void) | undefined;
   setDraft: (next: RaidItem) => void;
   applyDraftStatus: (status: RaidStatus) => void;
   applyDraftMatrix: (probability: RiskScale, impact: RiskScale) => void;
@@ -48,7 +55,7 @@ export interface RaidCreateController {
 }
 
 export function useRaidCreate(deps: RaidCreateDeps): RaidCreateController {
-  const { isPopout, lang, today, raid, handleSaveRaidItem, recordLearning } = deps;
+  const { isPopout, lang, today, raid, handleSaveRaidItem, recordLearning, onInsightLogged } = deps;
   const [request, setRequest] = useState<RaidCreateRequest | null>(null);
 
   const open = useCallback(
@@ -77,6 +84,19 @@ export function useRaidCreate(deps: RaidCreateDeps): RaidCreateController {
     [open, lang],
   );
 
+  const openFromInsight = useCallback(
+    (insight: Insight) => {
+      open(
+        buildRaidSeedFromSignal({
+          title: insightTitle(insight, lang),
+          note: t(lang, "actionCreatedFromNote", t(lang, "insightsCardTitle"), insightDetail(insight, lang)),
+        }),
+        { kind: "insight", insightId: insight.id },
+      );
+    },
+    [open, lang],
+  );
+
   const setDraft = useCallback((next: RaidItem) => {
     setRequest((r) => (r ? { ...r, draft: next } : r));
   }, []);
@@ -99,15 +119,19 @@ export function useRaidCreate(deps: RaidCreateDeps): RaidCreateController {
       // never returns undefined (the editVanished refusal needs !create). Read-only
       // protection is structural — popouts never mount the host and get no openers.
       if (id === undefined) return;
-      void recordLearning(request.origin.action, "acted");
+      // ★★ `id` is the COMMITTED id — never `request.draft.id`, which is stale
+      //   whenever the save re-minted (the id-mint race).
+      if (request.origin.kind === "insight") onInsightLogged(request.origin.insightId, id);
+      else void recordLearning(request.origin.action, "acted");
       setRequest(null);
     },
-    [request, handleSaveRaidItem, recordLearning],
+    [request, handleSaveRaidItem, recordLearning, onInsightLogged],
   );
 
   return {
     request,
     openFromAction: isPopout ? undefined : openFromAction,
+    openFromInsight: isPopout ? undefined : openFromInsight,
     setDraft,
     applyDraftStatus,
     applyDraftMatrix,

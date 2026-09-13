@@ -438,3 +438,73 @@ describe("InsightsCard", () => {
     });
   });
 });
+
+describe("InsightsCard — Log as RAID (§515)", () => {
+  const baseActions = () => ({
+    onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+    onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+  });
+  const actionsWith = (onLogAsRaid = vi.fn()) => ({ ...baseActions(), onLogAsRaid });
+
+  it("offers Log as RAID beside Act and hands the insight to the handler", async () => {
+    const user = userEvent.setup();
+    const onLogAsRaid = vi.fn();
+    const insight = makeInsight({ id: 7 });
+    const title = insightTitle(insight, "en-US");
+    render(<InsightsCard insights={[insight]} lang="en-US" dc={dc} actions={actionsWith(onLogAsRaid)} />);
+    const button = screen.getByRole("button", { name: `Log as RAID – ${title}` });
+    expectSecondaryButton(button);
+    await user.click(button);
+    expect(onLogAsRaid).toHaveBeenCalledWith(insight);
+  });
+
+  it("hides it for raidAging (positive control: Act is on the same row)", () => {
+    const insight = makeInsight({ id: 8, type: "raidAging", entityRef: { view: "raid", id: 55 }, data: { name: "R-1", daysSinceUpdate: 20, targetDate: "2026-05-01" } });
+    const title = insightTitle(insight, "en-US");
+    render(<InsightsCard insights={[insight]} lang="en-US" dc={dc} actions={actionsWith()} />);
+    expect(screen.getByRole("button", { name: `Act – ${title}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: `Log as RAID – ${title}` })).toBeNull();
+  });
+
+  it("shows the link instead once logged, and Open deep-links to that RAID item", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const insight = makeInsight({ id: 9, loggedRaidId: 31 });
+    const title = insightTitle(insight, "en-US");
+    render(<InsightsCard insights={[insight]} lang="en-US" dc={dc} onOpen={onOpen} actions={actionsWith()} />);
+    expect(screen.getByText("Logged as RAID #31")).toBeTruthy();
+    expect(screen.getByRole("button", { name: `Act – ${title}` })).toBeTruthy(); // positive control
+    expect(screen.queryByRole("button", { name: `Log as RAID – ${title}` })).toBeNull();
+    await user.click(screen.getByRole("button", { name: `Open RAID #31 – ${title}` }));
+    expect(onOpen).toHaveBeenCalledWith({ view: "raid", id: 31 });
+  });
+
+  it("gives two same-type rows distinct Log as RAID names", () => {
+    render(
+      <InsightsCard
+        insights={[makeInsight({ id: 1, key: "k1" }), makeInsight({ id: 2, key: "k2" })]}
+        lang="en-US" dc={dc} actions={actionsWith()}
+      />,
+    );
+    const names = screen.getAllByRole("button", { name: /^Log as RAID – / }).map((b) => b.getAttribute("aria-label"));
+    expect(names).toHaveLength(2);
+    expect(new Set(names).size).toBe(2);
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+  });
+
+  it("offers nothing when the handler is absent (popout bag) — positive control: Act", () => {
+    const insight = makeInsight({ id: 7 });
+    const title = insightTitle(insight, "en-US");
+    render(<InsightsCard insights={[insight]} lang="en-US" dc={dc} actions={baseActions()} />);
+    expect(screen.getByRole("button", { name: `Act – ${title}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: `Log as RAID – ${title}` })).toBeNull();
+  });
+
+  it("offers nothing in a popout even with a handler — positive control: Open", () => {
+    const insight = makeInsight({ id: 7 });
+    const title = insightTitle(insight, "en-US");
+    render(<InsightsCard insights={[insight]} lang="en-US" dc={dc} onOpen={vi.fn()} actions={actionsWith()} isPopout />);
+    expect(screen.getByRole("button", { name: `Open – ${title}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: `Log as RAID – ${title}` })).toBeNull();
+  });
+});

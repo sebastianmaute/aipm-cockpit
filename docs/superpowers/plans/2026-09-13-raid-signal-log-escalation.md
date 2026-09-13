@@ -3847,7 +3847,9 @@ git show --stat HEAD | tail -20
 ## Task 6: Log an insight as RAID — `Insight.loggedRaidId`, both surfaces, the on-saved writer
 
 **Files:**
-- Create: `src/app/insights/log-as-raid.ts`, `src/app/insights/log-as-raid.test.ts`
+- Create:
+  - `src/app/insights/log-as-raid.ts`, `src/app/insights/log-as-raid.test.ts`
+  - `src/app/insights/insight-logged-raid.tsx`, `src/app/insights/insight-logged-raid.test.tsx`
 - Modify:
   - `src/app/insights/insight.ts` (`Insight.loggedRaidId`, `InsightActions.onLogAsRaid`)
   - `src/app/insights/sanitize-insights.ts`
@@ -3865,7 +3867,9 @@ git show --stat HEAD | tail -20
   - `src/app/insights-panel.test.tsx`
   - `src/app/raid-create-host.test.tsx`
 
-`InsightsCard` and `InsightsPanel` do NOT share a row component. Each renders its own `<li>` with inline `Button`s (the `insights-card.tsx` docstring says so), so both get the same edit. Both reuse `Button variant="secondary" size="xs"` and the `` `${verb} – ${nameToken}` `` naming from `insightRowTitles`, exactly as Act does.
+`InsightsCard` and `InsightsPanel` do NOT share a row component. Each renders its own `<li>` with inline `Button`s (the `insights-card.tsx` docstring says so), so both get the "Log as RAID" button edit. Both reuse `Button variant="secondary" size="xs"` and the `` `${verb} – ${nameToken}` `` naming from `insightRowTitles`, exactly as Act does.
+
+The "Logged as RAID #N" text + Open button is NOT duplicated into the two rows (controller ruling P5): it is ONE small presentational component, `InsightLoggedRaid` (`src/app/insights/insight-logged-raid.tsx`), built from `Button`, rendered by both surfaces and tested on its own.
 
 **Interfaces:**
 - Consumes:
@@ -3877,6 +3881,8 @@ git show --stat HEAD | tail -20
   - `Insight.loggedRaidId?: number`
   - `InsightActions.onLogAsRaid?: (insight: Insight) => void`
   - `markInsightLoggedAsRaid(insight: Insight, raidId: number, today: string): Insight`
+  - `applyInsightLoggedAsRaid(prev: readonly Insight[] | undefined, insightId: number, raidId: number, today: string): Insight[]` — the functional-setter body of task-manager's writer, exported so the id-collision test composes the SAME code (ruling P2)
+  - `InsightLoggedRaid({ raidId, nameToken, lang, onOpen? })`
   - `RaidCreateOrigin` widens to `{ kind: "insight"; insightId: number } | { kind: "action"; action: SuggestedAction }`
   - `RaidCreateDeps.onInsightLogged: (insightId: number, raidId: number) => void`
   - `RaidCreateController.openFromInsight: ((insight: Insight) => void) | undefined`
@@ -3919,7 +3925,7 @@ Expected: `patched; LF-only line ends: 0`, `EXIT=0`, then `true true`.
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { markInsightLoggedAsRaid } from "./log-as-raid";
+import { applyInsightLoggedAsRaid, markInsightLoggedAsRaid } from "./log-as-raid";
 import { metricAtActionPatch } from "./outcome";
 import type { Insight } from "./insight";
 
@@ -3942,6 +3948,51 @@ describe("markInsightLoggedAsRaid", () => {
     expect(markInsightLoggedAsRaid(acted, 12, "2026-06-20").metricAtAction).toEqual({ daysOverdue: 2 });
   });
 });
+
+describe("applyInsightLoggedAsRaid", () => {
+  it("marks only the matching insight and leaves the others untouched", () => {
+    const other: Insight = { ...base, id: 8, key: "milestoneSlip:43" };
+    const out = applyInsightLoggedAsRaid([base, other], 7, 12, "2026-06-20");
+    expect(out[0]).toMatchObject({ id: 7, status: "acted", loggedRaidId: 12 });
+    expect(out[1]).toBe(other); // positive control above; the non-target is the same reference
+  });
+  it("treats an unloaded list as empty and ignores an unknown id", () => {
+    expect(applyInsightLoggedAsRaid(undefined, 7, 12, "2026-06-20")).toEqual([]);
+    const out = applyInsightLoggedAsRaid([base], 99, 12, "2026-06-20");
+    expect(out).toEqual([base]);
+  });
+});
+```
+
+(a2) Create `src/app/insights/insight-logged-raid.test.tsx`:
+
+```tsx
+import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { InsightLoggedRaid } from "./insight-logged-raid";
+import { expectSecondaryButton } from "../../test/button-variant";
+
+describe("InsightLoggedRaid (§515)", () => {
+  it("names the linked RAID item and deep-links to it with a row-qualified name", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    render(<InsightLoggedRaid raidId={31} nameToken="Milestone at risk" lang="en-US" onOpen={onOpen} />);
+    expect(screen.getByText("Logged as RAID #31")).toBeTruthy();
+    const open = screen.getByRole("button", { name: "Open RAID #31 – Milestone at risk" });
+    expectSecondaryButton(open);
+    // Label-in-name (WCAG 2.5.3): the accessible name starts with the visible text.
+    expect(open.textContent).toBe("Open RAID #31");
+    await user.click(open);
+    expect(onOpen).toHaveBeenCalledWith({ view: "raid", id: 31 });
+  });
+
+  it("shows the link text but no Open button without a deep-link handler", () => {
+    render(<InsightLoggedRaid raidId={31} nameToken="Milestone at risk" lang="en-US" />);
+    expect(screen.getByText("Logged as RAID #31")).toBeTruthy(); // positive control
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+});
 ```
 
 (b) Append to `src/app/insights/sanitize-insights.test.ts`:
@@ -3955,11 +4006,11 @@ describe("sanitizeInsights — loggedRaidId (§515)", () => {
   test("keeps a positive integer", () => {
     expect(sanitizeInsights([rec(9)])[0]?.loggedRaidId).toBe(9);
   });
-  test("drops anything else", () => {
-    for (const v of [0, -1, 2.5, "9", null, undefined]) {
+  test("drops anything else, and omits the key (byte-stability)", () => {
+    for (const v of [0, -1, 2.5, "9", null, undefined, Infinity, NaN]) {
       const [one] = sanitizeInsights([rec(v)]);
       expect(one).toBeDefined(); // the record itself survives
-      expect(one?.loggedRaidId).toBeUndefined();
+      expect("loggedRaidId" in one).toBe(false);
     }
   });
 });
@@ -3993,15 +4044,15 @@ describe("loggedRaidId (§515)", () => {
 });
 ```
 
-(d) Append to `src/app/dashboard-sections/insights-card.test.tsx`:
+(d) Append to `src/app/dashboard-sections/insights-card.test.tsx`. The handler-absent bag is built WITHOUT the key (ruling P8), never by destructuring it away:
 
 ```tsx
 describe("InsightsCard — Log as RAID (§515)", () => {
-  const actionsWith = (onLogAsRaid = vi.fn()) => ({
+  const baseActions = () => ({
     onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
     onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
-    onLogAsRaid,
   });
+  const actionsWith = (onLogAsRaid = vi.fn()) => ({ ...baseActions(), onLogAsRaid });
 
   it("offers Log as RAID beside Act and hands the insight to the handler", async () => {
     const user = userEvent.setup();
@@ -4009,7 +4060,9 @@ describe("InsightsCard — Log as RAID (§515)", () => {
     const insight = makeInsight({ id: 7 });
     const title = insightTitle(insight, "en-US");
     render(<InsightsCard insights={[insight]} lang="en-US" dc={dc} actions={actionsWith(onLogAsRaid)} />);
-    await user.click(screen.getByRole("button", { name: `Log as RAID – ${title}` }));
+    const button = screen.getByRole("button", { name: `Log as RAID – ${title}` });
+    expectSecondaryButton(button);
+    await user.click(button);
     expect(onLogAsRaid).toHaveBeenCalledWith(insight);
   });
 
@@ -4044,36 +4097,45 @@ describe("InsightsCard — Log as RAID (§515)", () => {
     const names = screen.getAllByRole("button", { name: /^Log as RAID – / }).map((b) => b.getAttribute("aria-label"));
     expect(names).toHaveLength(2);
     expect(new Set(names).size).toBe(2);
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 
   it("offers nothing when the handler is absent (popout bag) — positive control: Act", () => {
     const insight = makeInsight({ id: 7 });
     const title = insightTitle(insight, "en-US");
-    const { onLogAsRaid: _unused, ...rest } = actionsWith();
-    void _unused;
-    render(<InsightsCard insights={[insight]} lang="en-US" dc={dc} actions={rest} />);
+    render(<InsightsCard insights={[insight]} lang="en-US" dc={dc} actions={baseActions()} />);
     expect(screen.getByRole("button", { name: `Act – ${title}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: `Log as RAID – ${title}` })).toBeNull();
+  });
+
+  it("offers nothing in a popout even with a handler — positive control: Open", () => {
+    const insight = makeInsight({ id: 7 });
+    const title = insightTitle(insight, "en-US");
+    render(<InsightsCard insights={[insight]} lang="en-US" dc={dc} onOpen={vi.fn()} actions={actionsWith()} isPopout />);
+    expect(screen.getByRole("button", { name: `Open – ${title}` })).toBeTruthy();
     expect(screen.queryByRole("button", { name: `Log as RAID – ${title}` })).toBeNull();
   });
 });
 ```
 
-(e) Append to `src/app/insights-panel.test.tsx`:
+(e) Append to `src/app/insights-panel.test.tsx`. It carries the row-unique names test for "Log as RAID" (ruling P9), mirroring the card's:
 
 ```tsx
 describe("InsightsPanel — Log as RAID (§515)", () => {
-  const actionsWith = (onLogAsRaid = vi.fn()) => ({
+  const baseActions = () => ({
     onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
     onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
-    onLogAsRaid,
   });
+  const actionsWith = (onLogAsRaid = vi.fn()) => ({ ...baseActions(), onLogAsRaid });
 
   it("offers Log as RAID on an active row and hands the insight over", async () => {
     const user = userEvent.setup();
     const onLogAsRaid = vi.fn();
     const insight = makeInsight({ id: 7, type: "milestoneSlip", status: "active" });
     render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} actions={actionsWith(onLogAsRaid)} />);
-    await user.click(screen.getByRole("button", { name: `Log as RAID – ${titleOf("milestoneSlip")}` }));
+    const button = screen.getByRole("button", { name: `Log as RAID – ${titleOf("milestoneSlip")}` });
+    expectSecondaryButton(button);
+    await user.click(button);
     expect(onLogAsRaid).toHaveBeenCalledWith(insight);
   });
 
@@ -4082,6 +4144,13 @@ describe("InsightsPanel — Log as RAID (§515)", () => {
     render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} actions={actionsWith()} />);
     expect(screen.getByRole("button", { name: `Act – ${titleOf("raidAging")}` })).toBeTruthy();
     expect(screen.queryByRole("button", { name: `Log as RAID – ${titleOf("raidAging")}` })).toBeNull();
+  });
+
+  it("gates it like Act: absent on an acted row (positive control: Dismiss)", () => {
+    const insight = makeInsight({ id: 3, type: "stalledWork", status: "acted", entityRef: undefined, data: { count: 3 } });
+    render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} actions={actionsWith()} />);
+    expect(screen.getByRole("button", { name: `Dismiss – ${titleOf("stalledWork")}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: `Log as RAID – ${titleOf("stalledWork")}` })).toBeNull();
   });
 
   it("shows 'Logged as RAID #N' with Open on an acted, logged row", async () => {
@@ -4094,10 +4163,58 @@ describe("InsightsPanel — Log as RAID (§515)", () => {
     await user.click(screen.getByRole("button", { name: `Open RAID #31 – ${titleOf("stalledWork")}` }));
     expect(onOpen).toHaveBeenCalledWith({ view: "raid", id: 31 });
   });
+
+  it("hides it once logged on a still-active row (positive control: Act)", () => {
+    const insight = makeInsight({ id: 7, type: "milestoneSlip", status: "active", loggedRaidId: 31 });
+    render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} actions={actionsWith()} />);
+    expect(screen.getByRole("button", { name: `Act – ${titleOf("milestoneSlip")}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: `Log as RAID – ${titleOf("milestoneSlip")}` })).toBeNull();
+  });
+
+  it("gives two insights of the SAME type distinct Log as RAID names", () => {
+    render(
+      <InsightsPanel
+        insights={[
+          makeInsight({ id: 7, key: "k7", type: "milestoneSlip" }),
+          makeInsight({ id: 8, key: "k8", type: "milestoneSlip" }),
+        ]}
+        lang="en-US" today={TODAY}
+        actions={actionsWith()}
+      />,
+    );
+    const names = screen.getAllByRole("button", { name: /^Log as RAID – / }).map((b) => b.getAttribute("aria-label"));
+    expect(names).toHaveLength(2);
+    expect(new Set(names).size).toBe(2);
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+  });
+
+  it("offers nothing without the handler, or in a popout — positive controls: Act, Open", () => {
+    const insight = makeInsight({ id: 7, type: "milestoneSlip", status: "active" });
+    const { unmount } = render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} actions={baseActions()} />);
+    expect(screen.getByRole("button", { name: `Act – ${titleOf("milestoneSlip")}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Log as RAID – / })).toBeNull();
+    unmount();
+    render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} onOpen={vi.fn()} actions={actionsWith()} isPopout />);
+    expect(screen.getByRole("button", { name: `Open – ${titleOf("milestoneSlip")}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Log as RAID – / })).toBeNull();
+  });
 });
 ```
 
-(f) Append to `src/app/raid-create-host.test.tsx`. Add `import type { Insight } from "./insights/insight";` and `import { insightTitle } from "./insights/insight-text";` to the imports, and in `deps()` add `onInsightLogged: vi.fn(),` directly above `...over,`. Then append:
+(f) `src/app/raid-create-host.test.tsx`:
+1. Replace `import { WorkspaceProvider } from "./workspace-context";` with `import { WorkspaceProvider, useWorkspace } from "./workspace-context";`.
+2. Directly below `import type { RaidItem } from "./types";` add:
+
+```tsx
+import type { Insight } from "./insights/insight";
+import { insightTitle } from "./insights/insight-text";
+import { applyInsightLoggedAsRaid } from "./insights/log-as-raid";
+import { useResourcePlanner } from "./use-resource-planner";
+import { __resetMintStateForTests } from "./id-mint-session";
+```
+
+3. In `deps()` add `onInsightLogged: vi.fn(),` directly above `...over,`.
+4. Append the block below. The last describe is ruling P2: it composes the REAL `handleSaveRaidItem` (`useResourcePlanner`) with the REAL writer body (`applyInsightLoggedAsRaid`) and seeds the collision, so the save really re-mints — no mocked save return:
 
 ```tsx
 const insight: Insight = {
@@ -4111,12 +4228,13 @@ describe("useRaidCreate — insight origin (§515)", () => {
     const { result } = renderHook(() => useRaidCreate(deps()));
     act(() => result.current.openFromInsight!(insight));
     const d = result.current.request!.draft;
+    expect(d.category).toBe("R");
     expect(d.title).toBe(insightTitle(insight, "en-US"));
     expect(d.description).toContain(`From: ${t("en-US", "insightsCardTitle")}`);
   });
 
-  it("links the insight to the RE-MINTED id the save returns, never to draft.id", () => {
-    // The draft opened with id 1; a concurrent writer took it, so the save re-minted 12.
+  it("links the insight to the id the save returns, never to draft.id, and records no learning", () => {
+    // The draft opened with id 1; the (mocked) save reports a re-mint to 12.
     const handleSaveRaidItem = vi.fn(() => 12);
     const onInsightLogged = vi.fn();
     const recordLearning = vi.fn(async () => {});
@@ -4134,22 +4252,84 @@ describe("useRaidCreate — insight origin (§515)", () => {
     const onInsightLogged = vi.fn();
     const { result } = renderHook(() => useRaidCreate(deps({ onInsightLogged })));
     act(() => result.current.openFromInsight!(insight));
+    expect(result.current.request).not.toBeNull(); // positive control
     act(() => result.current.cancel());
+    expect(result.current.request).toBeNull();
     expect(onInsightLogged).not.toHaveBeenCalled();
   });
 
   it("never touches the insight when the save is refused", () => {
     const onInsightLogged = vi.fn();
-    const { result } = renderHook(() => useRaidCreate(deps({ onInsightLogged, handleSaveRaidItem: vi.fn(() => undefined) })));
+    const handleSaveRaidItem = vi.fn(() => undefined);
+    const { result } = renderHook(() => useRaidCreate(deps({ onInsightLogged, handleSaveRaidItem })));
     act(() => result.current.openFromInsight!(insight));
     act(() => result.current.commit({ ...result.current.request!.draft, title: "x" }));
+    expect(handleSaveRaidItem).toHaveBeenCalledTimes(1); // positive control: the save really ran
     expect(onInsightLogged).not.toHaveBeenCalled();
     expect(result.current.request).not.toBeNull();
   });
 
-  it("exposes no insight opener in a popout", () => {
+  it("exposes no insight opener in a popout (positive control: not in the main window)", () => {
+    expect(renderHook(() => useRaidCreate(deps())).result.current.openFromInsight).toBeTypeOf("function");
     const { result } = renderHook(() => useRaidCreate(deps({ isPopout: true })));
     expect(result.current.openFromInsight).toBeUndefined();
+  });
+});
+
+// ★★ END-TO-END over the id-mint race: the REAL `handleSaveRaidItem` composed with the
+//   REAL insight writer (`applyInsightLoggedAsRaid`, which task-manager's
+//   `onInsightLoggedAsRaid` feeds to `setInsights`). No mocked save return — the
+//   collision is seeded, so the re-mint happens for real.
+describe("Log as RAID — insight link under an id collision (§515)", () => {
+  function renderComposed() {
+    __resetMintStateForTests();
+    return renderHook(
+      () => {
+        const ws = useWorkspace();
+        const planner = useResourcePlanner({
+          lang: "en-US", today: "2026-06-20", logActivity: vi.fn(), showToast: vi.fn(),
+          workdayHours: 8, holidaySet: new Set<string>(), captureFieldRows: vi.fn(),
+        });
+        const create = useRaidCreate({
+          isPopout: false, lang: "en-US", today: "2026-06-20", raid: ws.raid,
+          handleSaveRaidItem: planner.handleSaveRaidItem,
+          recordLearning: vi.fn(async () => {}),
+          onInsightLogged: (insightId, raidId) =>
+            ws.setInsights((prev) => applyInsightLoggedAsRaid(prev, insightId, raidId, "2026-06-20")),
+        });
+        return { ws, planner, create };
+      },
+      { wrapper },
+    );
+  }
+
+  it("links the insight to the RE-MINTED id when a concurrent writer took the draft's id", () => {
+    const { result } = renderComposed();
+    act(() => result.current.ws.setInsights([insight]));
+    act(() => result.current.create.openFromInsight!(insight));
+    const draft = result.current.create.request!.draft;
+    // A concurrent writer commits a row under the open-time id before Save.
+    act(() => { result.current.planner.handleSaveRaidItem({ ...draft, title: "Concurrent" }); });
+    act(() => result.current.create.commit({ ...result.current.create.request!.draft, title: "Kickoff slip" }));
+
+    const raid = result.current.ws.raid;
+    expect(raid.find((r) => r.id === draft.id)?.title).toBe("Concurrent"); // not clobbered
+    const logged = raid.find((r) => r.title === "Kickoff slip");
+    expect(logged).toBeDefined();
+    expect(logged!.id).not.toBe(draft.id); // positive control: the save really re-minted
+    const linked = result.current.ws.insights!.find((i) => i.id === insight.id)!;
+    expect(linked.loggedRaidId).toBe(logged!.id);
+    expect(linked).toMatchObject({ status: "acted", actedAt: "2026-06-20" });
+  });
+
+  it("Cancel leaves the stored insight byte-identical", () => {
+    const { result } = renderComposed();
+    act(() => result.current.ws.setInsights([insight]));
+    act(() => result.current.create.openFromInsight!(insight));
+    expect(result.current.create.request).not.toBeNull(); // positive control
+    act(() => result.current.create.cancel());
+    expect(result.current.ws.insights).toEqual([insight]);
+    expect(result.current.ws.raid).toEqual([]);
   });
 });
 ```
@@ -4157,15 +4337,14 @@ describe("useRaidCreate — insight origin (§515)", () => {
 - [ ] **Step 3: Run them and watch them fail**
 
 ```bash
-npx vitest run src/app/insights/log-as-raid.test.ts src/app/insights/sanitize-insights.test.ts src/app/insights/reconcile.test.ts src/app/dashboard-sections/insights-card.test.tsx src/app/insights-panel.test.tsx src/app/raid-create-host.test.tsx --maxWorkers=1 --reporter=dot > "$S/t6a.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |FAIL" "$S/t6a.log" | head -12
+npx vitest run src/app/insights/log-as-raid.test.ts src/app/insights/insight-logged-raid.test.tsx src/app/insights/sanitize-insights.test.ts src/app/insights/reconcile.test.ts src/app/dashboard-sections/insights-card.test.tsx src/app/insights-panel.test.tsx src/app/raid-create-host.test.tsx --maxWorkers=1 --reporter=dot > "$S/t6a.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |FAIL" "$S/t6a.log" | head -40
 ```
 
-Expected: `EXIT=1`.
-- `./log-as-raid` is unresolvable.
+Expected: `EXIT=1`, `Test Files  7 failed (7)`.
+- `./log-as-raid` and `./insight-logged-raid` are unresolvable (whole files fail, `raid-create-host.test.tsx` included).
 - `loggedRaidId` is dropped by the sanitizer and by the re-fire.
 - The equality check reports `true` for a changed link.
-- No "Log as RAID" button is found.
-- `openFromInsight` is undefined.
+- No "Log as RAID" button and no "Logged as RAID #N" text is found.
 
 - [ ] **Step 4: Implement the model**
 
@@ -4241,12 +4420,66 @@ export function markInsightLoggedAsRaid(insight: Insight, raidId: number, today:
     ...metricAtActionPatch(insight),
   };
 }
+
+/** The functional-setter body task-manager's on-saved writer hands to `setInsights`.
+ *  ★★ `raidId` must be the id the save COMMITTED — re-minted on an id collision —
+ *  never the draft's open-time id. Reads each insight from `prev` (first act wins). */
+export function applyInsightLoggedAsRaid(
+  prev: readonly Insight[] | undefined,
+  insightId: number,
+  raidId: number,
+  today: string,
+): Insight[] {
+  return (prev ?? []).map((i) => (i.id === insightId ? markInsightLoggedAsRaid(i, raidId, today) : i));
+}
 ```
 
 - [ ] **Step 5: Implement the surfaces**
 
-`src/app/dashboard-sections/insights-card.tsx`, in two edits:
-1. Replace
+Create `src/app/insights/insight-logged-raid.tsx` (ruling P5 — the one shared "Logged as RAID #N" + Open block):
+
+```tsx
+"use client";
+// "Logged as RAID #N" + Open (§515). Props-only and shared by BOTH insight
+// surfaces (dashboard card, Insights view), which otherwise render their own rows.
+// ★ `nameToken` is the ROW-UNIQUE token from `insightRowTitles`, never the visible
+//   title — two same-type rows would otherwise share the Open name (WCAG 2.4.6).
+//   The accessible name starts with the visible text (label-in-name, WCAG 2.5.3).
+import { t, type Lang } from "../i18n";
+import { Button } from "../button";
+import type { InsightEntityRef } from "./insight";
+
+export interface InsightLoggedRaidProps {
+  raidId: number;
+  nameToken: string;
+  lang: Lang;
+  /** Deep-link channel; without it only the link text renders. */
+  onOpen?: (ref: InsightEntityRef) => void;
+}
+
+export function InsightLoggedRaid({ raidId, nameToken, lang, onOpen }: InsightLoggedRaidProps) {
+  const openLabel = t(lang, "insightOpenLoggedRaid", raidId);
+  return (
+    <>
+      <span className="text-xs text-muted-foreground">{t(lang, "insightLoggedAsRaid", raidId)}</span>
+      {onOpen ? (
+        <Button
+          variant="secondary"
+          size="xs"
+          aria-label={`${openLabel} – ${nameToken}`}
+          onClick={() => onOpen({ view: "raid", id: raidId })}
+        >
+          {openLabel}
+        </Button>
+      ) : null}
+    </>
+  );
+}
+```
+
+`src/app/dashboard-sections/insights-card.tsx`, in three edits:
+1. Replace `import { InsightRecommendationControls } from "../insight-recommendation-controls";` with that line followed by `import { InsightLoggedRaid } from "../insights/insight-logged-raid";`.
+2. Replace
 
 ```tsx
                     {t(lang, "insightOpen")}
@@ -4262,26 +4495,12 @@ export function markInsightLoggedAsRaid(insight: Insight, raidId: number, today:
                   </Button>
                 ) : null}
                 {insight.loggedRaidId !== undefined ? (
-                  <>
-                    <span className="text-xs text-muted-foreground">
-                      {t(lang, "insightLoggedAsRaid", insight.loggedRaidId)}
-                    </span>
-                    {onOpen ? (
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        aria-label={`${t(lang, "insightOpenLoggedRaid", insight.loggedRaidId)} – ${nameToken}`}
-                        onClick={() => onOpen({ view: "raid", id: insight.loggedRaidId! })}
-                      >
-                        {t(lang, "insightOpenLoggedRaid", insight.loggedRaidId)}
-                      </Button>
-                    ) : null}
-                  </>
+                  <InsightLoggedRaid raidId={insight.loggedRaidId} nameToken={nameToken} lang={lang} onOpen={onOpen} />
                 ) : null}
                 {!isPopout && actions ? (
 ```
 
-2. Replace
+3. Replace
 
 ```tsx
                       {t(lang, "insightAct")}
@@ -4309,8 +4528,9 @@ export function markInsightLoggedAsRaid(insight: Insight, raidId: number, today:
                     <Button
 ```
 
-`src/app/insights-panel.tsx`, in three edits:
-1. Replace `              const showDismiss = !TERMINAL.has(insight.status);` with:
+`src/app/insights-panel.tsx`, in four edits:
+1. Replace `import { InsightRecommendationControls } from "./insight-recommendation-controls";` with that line followed by `import { InsightLoggedRaid } from "./insights/insight-logged-raid";`.
+2. Replace `              const showDismiss = !TERMINAL.has(insight.status);` with:
 
 ```tsx
               const showDismiss = !TERMINAL.has(insight.status);
@@ -4319,7 +4539,7 @@ export function markInsightLoggedAsRaid(insight: Insight, raidId: number, today:
                 showAct && insight.type !== "raidAging" && insight.loggedRaidId === undefined && !!actions?.onLogAsRaid;
 ```
 
-2. Replace
+3. Replace
 
 ```tsx
                           {t(lang, "insightOpen")}
@@ -4335,26 +4555,12 @@ export function markInsightLoggedAsRaid(insight: Insight, raidId: number, today:
                         </Button>
                       ) : null}
                       {insight.loggedRaidId !== undefined ? (
-                        <>
-                          <span className="text-xs text-muted-foreground">
-                            {t(lang, "insightLoggedAsRaid", insight.loggedRaidId)}
-                          </span>
-                          {onOpen ? (
-                            <Button
-                              variant="secondary"
-                              size="xs"
-                              aria-label={`${t(lang, "insightOpenLoggedRaid", insight.loggedRaidId)} – ${nameToken}`}
-                              onClick={() => onOpen({ view: "raid", id: insight.loggedRaidId! })}
-                            >
-                              {t(lang, "insightOpenLoggedRaid", insight.loggedRaidId)}
-                            </Button>
-                          ) : null}
-                        </>
+                        <InsightLoggedRaid raidId={insight.loggedRaidId} nameToken={nameToken} lang={lang} onOpen={onOpen} />
                       ) : null}
                       {canWrite ? (
 ```
 
-3. Replace
+4. Replace
 
 ```tsx
                               {t(lang, "insightAct")}
@@ -4508,7 +4714,7 @@ export type RaidCreateOrigin =
 
 ```ts
 import { metricAtActionPatch } from "./insights/outcome";
-import { markInsightLoggedAsRaid } from "./insights/log-as-raid";
+import { applyInsightLoggedAsRaid } from "./insights/log-as-raid";
 ```
 
 2. Directly after `onActInsight`'s closing, replace `    [isPopout, insights, setInsights, today, requestOpen],\n  );` with:
@@ -4517,13 +4723,12 @@ import { markInsightLoggedAsRaid } from "./insights/log-as-raid";
     [isPopout, insights, setInsights, today, requestOpen],
   );
   // "Log as RAID" on-saved writer (§515): the Act transition plus the link to the
-  // RAID item. Read `i` from the functional setter's `prev` (first act wins).
+  // RAID item, via the functional setter (first act wins). `raidId` is the id the
+  // save COMMITTED — `useRaidCreate` never passes the draft's open-time id.
   const onInsightLoggedAsRaid = useCallback(
     (insightId: number, raidId: number) => {
       if (isPopout) return;
-      setInsights((prev) =>
-        (prev ?? []).map((i) => (i.id === insightId ? markInsightLoggedAsRaid(i, raidId, today) : i)),
-      );
+      setInsights((prev) => applyInsightLoggedAsRaid(prev, insightId, raidId, today));
     },
     [isPopout, setInsights, today],
   );
@@ -4549,12 +4754,18 @@ import { markInsightLoggedAsRaid } from "./insights/log-as-raid";
 - [ ] **Step 6: Run tests and gates**
 
 ```bash
-npx vitest run src/app/insights/log-as-raid.test.ts src/app/insights/sanitize-insights.test.ts src/app/insights/reconcile.test.ts src/app/dashboard-sections/insights-card.test.tsx src/app/insights-panel.test.tsx src/app/raid-create-host.test.tsx src/app/task-manager.characterization.test.tsx src/app/i18n-encoding.test.ts --maxWorkers=1 --reporter=dot > "$S/t6b.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |FAIL" "$S/t6b.log" | head
-npx tsc --noEmit > "$S/tsc6.log" 2>&1; echo "EXIT=$?"; grep -c "error TS" "$S/tsc6.log"
-npx eslint --max-warnings=0 src/app/insights/insight.ts src/app/insights/sanitize-insights.ts src/app/insights/reconcile.ts src/app/insights/log-as-raid.ts src/app/insights/log-as-raid.test.ts src/app/dashboard-sections/insights-card.tsx src/app/insights-panel.tsx src/app/use-insight-recommendations.ts src/app/raid-create-host.tsx src/app/raid-create-host.test.tsx src/app/task-manager.tsx src/app/dashboard-sections/insights-card.test.tsx src/app/insights-panel.test.tsx src/app/insights/reconcile.test.ts src/app/insights/sanitize-insights.test.ts src/app/i18n.ts > "$S/lint6.log" 2>&1; echo "EXIT=$?"
+npx vitest run src/app/insights/log-as-raid.test.ts src/app/insights/insight-logged-raid.test.tsx src/app/insights/sanitize-insights.test.ts src/app/insights/reconcile.test.ts src/app/dashboard-sections/insights-card.test.tsx src/app/insights-panel.test.tsx src/app/raid-create-host.test.tsx src/app/task-manager.characterization.test.tsx src/app/i18n-encoding.test.ts src/app/use-insight-recommendations.test.tsx --maxWorkers=1 --reporter=dot > "$S/t6b.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |FAIL" "$S/t6b.log" | head
+npx tsc --noEmit > "$S/tsc6.log" 2>&1; echo "EXIT=$?"; grep -c "^src.*error TS" "$S/tsc6.log"
+npx eslint --max-warnings=0 src/app/insights/insight.ts src/app/insights/sanitize-insights.ts src/app/insights/reconcile.ts src/app/insights/log-as-raid.ts src/app/insights/log-as-raid.test.ts src/app/insights/insight-logged-raid.tsx src/app/insights/insight-logged-raid.test.tsx src/app/dashboard-sections/insights-card.tsx src/app/insights-panel.tsx src/app/use-insight-recommendations.ts src/app/raid-create-host.tsx src/app/raid-create-host.test.tsx src/app/task-manager.tsx src/app/dashboard-sections/insights-card.test.tsx src/app/insights-panel.test.tsx src/app/insights/reconcile.test.ts src/app/insights/sanitize-insights.test.ts src/app/i18n.ts src/app/i18n.de.ts > "$S/t6-lint.log" 2>&1; echo "EXIT=$?"
 ```
 
-Expected: `EXIT=0` for all three; `Test Files  8 passed (8)`; `0` tsc errors.
+Expected: `EXIT=0` for all three; `Test Files  10 passed (10)`; `0` tsc errors in `src`.
+
+Mutation proof (sequential, one vitest at a time; restore each file byte-for-byte and confirm `git diff --stat` is unchanged afterwards). Each mutant must turn its test file red:
+- `sanitize-insights.ts`: drop the `loggedRaidId` spread; accept any number (`Number.isInteger(...) && ... > 0` → `true`).
+- `reconcile.ts`: drop the re-fire carry; drop `x.loggedRaidId !== y.loggedRaidId ||`.
+- `raid-create-host.tsx`: link `request.draft.id` instead of the committed `id` (the id-collision describe must fail).
+- `insights-panel.tsx`: drop the `raidAging` exclusion. `insights-card.tsx`: drop the `loggedRaidId` exclusion.
 
 - [ ] **Step 7: Commit** — write `$S/msg-task6.txt`:
 
@@ -4573,9 +4784,9 @@ Claude-Session: https://[session link removed]
 ```
 
 ```bash
-git add -- src/app/insights/log-as-raid.ts src/app/insights/log-as-raid.test.ts
-git commit --only -F "$S/msg-task6.txt" -- src/app/insights/log-as-raid.ts src/app/insights/log-as-raid.test.ts src/app/insights/insight.ts src/app/insights/sanitize-insights.ts src/app/insights/reconcile.ts src/app/dashboard-sections/insights-card.tsx src/app/insights-panel.tsx src/app/use-insight-recommendations.ts src/app/raid-create-host.tsx src/app/task-manager.tsx src/app/i18n.ts src/app/i18n.de.ts src/app/insights/sanitize-insights.test.ts src/app/insights/reconcile.test.ts src/app/dashboard-sections/insights-card.test.tsx src/app/insights-panel.test.tsx src/app/raid-create-host.test.tsx
-git show --stat HEAD | tail -20
+git add -- src/app/insights/log-as-raid.ts src/app/insights/log-as-raid.test.ts src/app/insights/insight-logged-raid.tsx src/app/insights/insight-logged-raid.test.tsx
+git commit --only -F "$S/msg-task6.txt" -- src/app/insights/log-as-raid.ts src/app/insights/log-as-raid.test.ts src/app/insights/insight-logged-raid.tsx src/app/insights/insight-logged-raid.test.tsx src/app/insights/insight.ts src/app/insights/sanitize-insights.ts src/app/insights/reconcile.ts src/app/dashboard-sections/insights-card.tsx src/app/insights-panel.tsx src/app/use-insight-recommendations.ts src/app/raid-create-host.tsx src/app/task-manager.tsx src/app/i18n.ts src/app/i18n.de.ts src/app/insights/sanitize-insights.test.ts src/app/insights/reconcile.test.ts src/app/dashboard-sections/insights-card.test.tsx src/app/insights-panel.test.tsx src/app/raid-create-host.test.tsx docs/superpowers/plans/2026-09-13-raid-signal-log-escalation.md
+git show --stat HEAD | tail -24
 ```
 
 ---
