@@ -227,7 +227,11 @@ const SEED: TestSeed = {
     },
   ],
   resources: [seedResource(1, "Ada"), seedResource(2, "Grace"), seedResource(3, "Alan")],
-  raid: [seedRaid(1, "R1"), seedRaid(2, "R2"), seedRaid(3, "R3")],
+  // ★★ Row 2 is an Issue at High, not `seedRaid`'s severity-less Risk: the
+  //   `escalateRaid` site RAISES it to Critical, so its restored-severity
+  //   assertion can see an undo that leaves the raise behind. Against a Risk
+  //   the escalation is notify-only and severity is undefined on both sides.
+  raid: [seedRaid(1, "R1"), { ...seedRaid(2, "R2"), category: "I", severity: "High" }, seedRaid(3, "R3")],
   changes: [seedChange(1, "C1"), seedChange(2, "C2"), seedChange(3, "C3")],
   milestones: [seedMilestone(1, "M1"), seedMilestone(2, "M2"), seedMilestone(3, "M3")],
   stakeholders: [seedStakeholder(1, "S1"), seedStakeholder(2, "S2"), seedStakeholder(3, "S3")],
@@ -385,8 +389,11 @@ const SITES: SiteRow[] = [
   {
     site: "escalateRaid",
     act: (d) => { d.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); },
-    verify: (d) => { expect(d.getRaidRow(2)?.escalations).toHaveLength(1); },
-    // ★ `seedRaid` carries no `escalations`, no `severity` and no `noteLog`.
+    verify: (d) => {
+      expect(d.getRaidRow(2)?.escalations).toHaveLength(1);
+      expect(d.getRaidRow(2)?.severity).toBe("Critical");
+    },
+    // ★ Row 2 is seeded an Issue at High, with no `escalations` and no `noteLog`.
     // ★★ KNOWN LIMIT, PINNED IN BOTH HALVES (plan deviation 20): undo reverts the
     //   escalation entry and the severity, but the "AI created" note STAYS —
     //   `noteLog` is a WRITE_THROUGH field, so the live log wins over the
@@ -394,7 +401,7 @@ const SITES: SiteRow[] = [
     //   per-capture opt-out must change this assertion visibly.
     restored: (d) => {
       expect(d.getRaidRow(2)?.escalations).toBeUndefined();
-      expect(d.getRaidRow(2)?.severity).toBeUndefined();
+      expect(d.getRaidRow(2)?.severity).toBe("High");
       expect(d.getRaidRow(2)?.noteLog).toHaveLength(1);
       expect(d.getRaidRow(2)?.noteLog?.[0]?.authorName).toBe("AI created");
       expect(ids(d.listRaid())).toEqual([1, 2, 3]);

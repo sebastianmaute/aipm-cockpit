@@ -365,6 +365,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       //  severity but NOT the note echo — `noteLog` is a WRITE_THROUGH field, so
       //  the live log survives a whole-row undo (open-followups §50). An undone
       //  AI escalation therefore leaves its "Escalated to …" note behind.
+      //  ★ KNOWN LIMIT (concurrent delete): if the row vanishes between the ref
+      //  read above and the updater, `prev.map(apply)` writes nothing, yet this
+      //  still returns success, logs `raid.escalated` and captures an undo entry
+      //  for a write that did not happen — the same exposure as `handleEscalate`.
       escalateRaid: (id, { email, name }) => {
         if (isReadOnly) throw readOnlyError();
         const existing = raidRef.current.find((r) => r.id === id);

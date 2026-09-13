@@ -86,11 +86,16 @@ Each deviation below was found in the code while planning. The plan follows the 
 20. **CONTROLLER RULING 2026-09-13 — undoing an AI escalation keeps its note.**
     - Why: `noteLog` is a write-through field (`WRITE_THROUGH_FIELDS`, `src/app/undo/write-through-fields.ts`), so `capturePart`'s restore lets the LIVE log win over the before-image on every whole-row undo (open-followups §50). There is no per-capture override, and the shared undo engine is deliberately NOT changed.
     - Cost: undo reverts the escalation entry and the severity step, but an undone AI escalation leaves its "Escalated to …" note (authored "AI created") behind.
-    - Pinned in both halves by the `escalateRaid` site in `use-chat-dispatcher.undo.test.tsx`, so a future opt-out is a visible test change; named at the writer and in `docs/AGENTS/ai-assistant.md`.
+    - Pinned in both halves by the `escalateRaid` site in `use-chat-dispatcher.undo.test.tsx`, so a future opt-out is a visible test change; named at the writer and in `docs/AGENTS/ai-assistant.md`. That site's row 2 is seeded an Issue at High, so severity is Critical after the write and High after undo; a severity-less Risk would make the severity half vacuous (fix round 1).
+    - Second known limit at the same writer (concurrent delete, as `handleEscalate`): if the row vanishes between the ref read and the updater, the updater writes nothing, yet the tool still returns success, logs `raid.escalated` and captures an undo entry.
 21. **Task 3b implementation corrections (the plan text below is already corrected).**
     - `requireEscalationRecipient` lives in `raid-escalation.ts`, not `chat-tools-updates.ts`: `inline-ai-edit/tool-input-coverage.test.ts` scans EVERY `input.<name>` read in `chat-tools-updates.ts` against `update_task`'s schema, so `toEmail`/`toName` there failed it, and allowlisting them would be a false coverage claim. `chat-tools-updates.ts` is unchanged.
     - `settingsRef` joins the `useRegisterTools` `useMemo` deps: the escalation writer is the first body there to read it directly, and `react-hooks/exhaustive-deps` is fatal.
     - `chat-proposal-apply.test.tsx`'s generalised TOKEN_ROW_SOURCE loop passes `toEmail`: `escalate_raid_item` checks the recipient AFTER the token, so without it the loop reports a recipient error against a valid token.
+    - Fix round 1 additions:
+      - `chat-tools.test.ts` gains boundary POSITIVE controls: a 320-character email and a 200-character name are accepted, so a `>`→`>=` slip in `requireEscalationRecipient` goes red.
+      - In `raid-escalation.ts` the function sits below ALL the constants (after `AT_MAX` / `SEVERITY_SET`), and the module header names it.
+      - The undo test's SEED row 2 becomes `{ ...seedRaid(2, "R2"), category: "I", severity: "High" }`.
 
 ## Global Constraints
 
@@ -2054,8 +2059,11 @@ with
   {
     site: "escalateRaid",
     act: (d) => { d.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); },
-    verify: (d) => { expect(d.getRaidRow(2)?.escalations).toHaveLength(1); },
-    // ★ `seedRaid` carries no `escalations`, no `severity` and no `noteLog`.
+    verify: (d) => {
+      expect(d.getRaidRow(2)?.escalations).toHaveLength(1);
+      expect(d.getRaidRow(2)?.severity).toBe("Critical");
+    },
+    // ★ Row 2 is seeded an Issue at High, with no `escalations` and no `noteLog`.
     // ★★ KNOWN LIMIT, PINNED IN BOTH HALVES (plan deviation 20): undo reverts the
     //   escalation entry and the severity, but the "AI created" note STAYS —
     //   `noteLog` is a WRITE_THROUGH field, so the live log wins over the
@@ -2063,7 +2071,7 @@ with
     //   per-capture opt-out must change this assertion visibly.
     restored: (d) => {
       expect(d.getRaidRow(2)?.escalations).toBeUndefined();
-      expect(d.getRaidRow(2)?.severity).toBeUndefined();
+      expect(d.getRaidRow(2)?.severity).toBe("High");
       expect(d.getRaidRow(2)?.noteLog).toHaveLength(1);
       expect(d.getRaidRow(2)?.noteLog?.[0]?.authorName).toBe("AI created");
       expect(ids(d.listRaid())).toEqual([1, 2, 3]);
@@ -2351,7 +2359,7 @@ import { RAID_SEVERITIES, type RaidEscalation, type RaidItem, type RaidSeverity 
 
 (`sanitize-core.ts` imports only `./types`, so no cycle through the `sanitize.ts` barrel.)
 
-2. Insert directly after `const EMAIL_MAX = RAID_ESCALATION_EMAIL_MAX;`:
+2. Insert directly after `const SEVERITY_SET: ReadonlySet<string> = new Set(RAID_SEVERITIES);` (below all the constants), and add to the module header: `Also holds requireEscalationRecipient, the AI escalate_raid_item tool's boundary check, because it must share this sanitizer's recipient caps.`:
 
 ```ts
 

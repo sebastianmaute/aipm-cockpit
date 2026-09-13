@@ -4,6 +4,8 @@
 // Lives outside sanitize-records.ts because that file sits AT the size-ratchet
 // LIMIT. The cell codec mirrors `encodeNoteLog` / `decodeNoteLog`: JSON in one
 // cell, and "" when empty so legacy rows stay byte-identical.
+// Also holds `requireEscalationRecipient`, the AI `escalate_raid_item` tool's
+// boundary check, because it must share this sanitizer's recipient caps.
 // ★ JSON and IndexedDB load RAID rows WITHOUT `sanitizeRaidItem`, so readers
 //   must not trust the stored value — go through `lastEscalation` or
 //   `sanitizeRaidEscalations`.
@@ -18,6 +20,8 @@ export const RAID_ESCALATION_NAME_MAX = 200;
 export const RAID_ESCALATION_EMAIL_MAX = 320;
 const NAME_MAX = RAID_ESCALATION_NAME_MAX;
 const EMAIL_MAX = RAID_ESCALATION_EMAIL_MAX;
+const AT_MAX = 40;
+const SEVERITY_SET: ReadonlySet<string> = new Set(RAID_SEVERITIES);
 
 /** The recipient of an `escalate_raid_item` call, validated at the TOOL
  *  BOUNDARY (§515). Throws a model-facing message for any value the escalation
@@ -43,8 +47,6 @@ export function requireEscalationRecipient(input: Record<string, unknown>): { em
   }
   return { email, name };
 }
-const AT_MAX = 40;
-const SEVERITY_SET: ReadonlySet<string> = new Set(RAID_SEVERITIES);
 
 function severityOrUndefined(v: unknown): RaidSeverity | undefined {
   return typeof v === "string" && SEVERITY_SET.has(v) ? (v as RaidSeverity) : undefined;

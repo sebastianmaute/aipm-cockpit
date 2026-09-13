@@ -1134,6 +1134,16 @@ describe("runTool — escalate_raid_item (§515, append-only)", () => {
     expect(d.escalateRaid).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["a 320-character email", { toEmail: `${"a".repeat(314)}@x.com` }, { email: `${"a".repeat(314)}@x.com`, name: "" }],
+    ["a 200-character name", { toEmail: "jane@example.com", toName: "n".repeat(200) }, { email: "jane@example.com", name: "n".repeat(200) }],
+  ])("accepts %s — the cap is inclusive (boundary positive control)", async (_label, recipient, forwarded) => {
+    expect(forwarded.email.length <= 320 && forwarded.name.length <= 200).toBe(true);
+    const d = makeDispatcher();
+    await runTool(d, "escalate_raid_item", { id: 10, expectedToken: FRESH_RAID_TOKEN, ...recipient });
+    expect(d.escalateRaid).toHaveBeenCalledWith(10, forwarded);
+  });
+
   it("reports a missing item as not found, before the token", async () => {
     const d = makeDispatcher();
     await expect(runTool(d, "escalate_raid_item", { id: 99, toEmail: "jane@example.com" }))
