@@ -36975,8 +36975,11 @@ Size L — new Graph scopes, likely admin consent, then channel posts, online me
 and `npm run followups:gitlab:check` is the warn-only comparison with the open GitLab issues (CI job
 `followups-gitlab-sync`, main pushes and the schedule only). `docs/AGENTS/ci.md` documents both. The
 GitLab half skips until a masked, protected `REGISTER_SYNC_TOKEN` variable exists; run locally with a
-read-API token on 2026-09-13 it reported "Register and GitLab agree." GitLab #321 is closed when the
-change carrying this closure merges, not before, so main never shows an open entry without its issue.
+read-API token on 2026-09-13, before this closure, it reported "Register and GitLab agree." GitLab #321
+is closed when the change carrying this closure merges, not before, so main never shows an open entry
+without its issue. Until #321 is closed, the same run exits 1 with the one expected problem
+`ISSUE_WITHOUT_ENTRY` for #321, and the first `followups-gitlab-sync` run on main after the merge may
+warn about it once.
 The paragraph below saying the two-way check was never committed is superseded by the two scripts.
 
 The 2026-09-13 housekeeping linked the register to GitLab one-to-one. Every open entry carries one
