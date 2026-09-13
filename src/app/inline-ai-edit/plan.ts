@@ -5,7 +5,7 @@
 // side effects.
 import { type Task } from "../types";
 import { type Workspace } from "../workspace";
-import { isValidEmail, sanitizeIsoDate, toNumber } from "../sanitize";
+import { findDelimiterUnsafeEmail, isValidEmail, sanitizeIsoDate, toNumber } from "../sanitize";
 import { descriptionText } from "../rich-text-projection";
 import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor, type InlineEntity } from "./entity-descriptor";
 import { splitName } from "../resource-foundation";
@@ -586,6 +586,18 @@ export function describeEntityCalls(
         const after = normalize ? normalize(input[f], merged) : str(input[f]);
         if (before === after) continue;
         const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
+        // ★★★ §422 — an extra address holding "," or ";" cannot cross this
+        //  transport: `raw` is the list JOINED with ", " (the `emails` entry in
+        //  entity-descriptor.ts) and the writer's `sanitizeEmailList` re-splits it
+        //  on `[;,]`, so one address would land as two. The dispatcher refuses the
+        //  same array outright; refusing the FIELD here keeps it out of the patch
+        //  and lets every other field apply — the `emailFormatFields` shape below.
+        //  ★ Keyed on the INCOMING array, not the stored list: a stored comma
+        //  address is only torn when the call carries it back, and a list that
+        //  drops it shows that removal on the card instead. A STRING value is the
+        //  exception: it cannot be inspected per address, so it is refused
+        //  whenever the stored list already holds an unsafe one.
+        if (d.entity === "resource" && f === "emails" && (findDelimiterUnsafeEmail(input[f]) !== undefined || (typeof input[f] === "string" && findDelimiterUnsafeEmail(item.emails) !== undefined))) { bad(`${f}=${after}`); continue; }
         // ★★★ A JOINT REQUIREMENT IS JUDGED ON THE MERGED ROW, NEVER ON THIS
         // FIELD ALONE, and the group takes PRECEDENCE over `requiredNonEmpty`
         // so the descriptor's "a member of a group is exempt" holds by

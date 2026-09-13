@@ -37,6 +37,7 @@ import {
   sanitizeTaskName,
   sanitizeResource,
   dropUnacceptedResourceFields,
+  findDelimiterUnsafeEmail,
 } from "./sanitize";
 import { sanitizeAiRichText } from "./ai-rich-text";
 import { emptyForm, useTaskForm } from "./task-form-context";
@@ -599,6 +600,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       listResources: () => resourcesRef.current.map(toResourceSummary),
       createResource: (input: ResourceInput) => {
         if (args.isReadOnly) throw readOnlyError();
+        // ★★ §422 — refused BEFORE the id is minted: an extra address holding
+        //  "," or ";" is torn in two by any transport that joins the list, so the
+        //  call fails naming the field and nothing is written.
+        const unsafeEmail = findDelimiterUnsafeEmail(input.emails);
+        if (unsafeEmail !== undefined) throw new Error(`invalid resource: emails must not contain "," or ";" (${JSON.stringify(unsafeEmail)})`);
         const id = mintId("resource", resourcesRef.current);
         // sanitizeResource fills roleId/utilization defaults; returns null with
         // no first/last name (or splittable full name).
@@ -636,6 +642,16 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (args.isReadOnly) throw readOnlyError();
         const existing = resourcesRef.current.find((r) => r.id === id);
         if (!existing) return null;
+        // ★★ §422 — same refusal as `createResource`; the whole call fails and the
+        //  stored row is untouched. `describeEntityCalls` refuses the same array as
+        //  a FIELD so an inline edit's other fields still apply.
+        //  A STRING `emails` cannot be inspected per address, so it is refused
+        //  whenever the stored list already holds an unsafe one (the re-split
+        //  would tear it).
+        const unsafeEmail =
+          findDelimiterUnsafeEmail(patch.emails) ??
+          (typeof patch.emails === "string" ? findDelimiterUnsafeEmail(existing.emails) : undefined);
+        if (unsafeEmail !== undefined) throw new Error(`invalid resource update: emails must not contain "," or ";" (${JSON.stringify(unsafeEmail)})`);
         // ★★★ `name` HAS TO BE SPLIT HERE OR IT IS A SILENT NO-OP ON UPDATE, and
         // it was one. `ResourceInput.name` is documented as "split into
         // first/last when the parts aren't given", and `sanitizeResource`

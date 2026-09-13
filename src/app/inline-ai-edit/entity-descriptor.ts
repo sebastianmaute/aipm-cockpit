@@ -653,6 +653,9 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  `arrayFields` would instead split it in `coerce` on "," alone: a SECOND
     //  parser for a format the writer already owns, i.e. the restatement the
     //  `fieldSanitizers` docstring forbids.
+    //  ★★ The joined transport cannot carry an address holding "," or ";" — it
+    //  would re-split into two. `describeEntityCalls` refuses such a list as a
+    //  field and the dispatcher refuses the call (open-followups §422).
     diffFields: ["firstName", "lastName", "title", "email", "department", "company", "location", "businessPhone", "isExternal", "notes", "emails"],
     // ★★★ THE ONLY GROUP ACROSS THESE SIX DESCRIPTORS today (grep
     // `requiredNonEmptyGroups: [` — every other entry is `[]`), and the reason

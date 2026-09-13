@@ -646,7 +646,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§419](#419-a-legacy-over-cap-costimpact-is-silently-clamped-to-amount_max-on-load--closed-2026-09-06) | A legacy over-cap `costImpact` is silently clamped to `AMOUNT_MAX` on LOAD | found 2026-09-06 by the preview/apply-parity round-2 register sweep | S | **CLOSED** 2026-09-06 |
 | [§420](#420-a-creates-link-line-rendered-with-a-bare-field-label-indistinguishable-from-the-open-rows--closed-2026-09-06) | A create's link line rendered with a bare field label, indistinguishable from the open row's | found 2026-09-06 in cold review of the preview/apply-parity branch | S | **CLOSED** 2026-09-06 |
 | [§421](#421-the-registers-own-index-table-cannot-see-eight-of-its-entries--closed-2026-09-07) | The register's own index table cannot see eight of its entries | found 2026-09-06 after it caused the §407 number collision | S | **CLOSED** 2026-09-07 |
-| [§422](#422-a-comma-bearing-email-address-is-destroyed-when-an-inline-edit-names-emails-with-a-changed-value--open) | A comma-bearing email address is destroyed when an inline edit names emails with a changed value | found 2026-09-06 in cold review of the preview/apply-parity branch; trigger claim refuted by probe 2026-09-07 | S | open |
+| [§422](#422-a-comma-bearing-email-address-is-destroyed-when-an-inline-edit-names-emails-with-a-changed-value--closed-2026-09-13) | A comma-bearing email address is destroyed when an inline edit names emails with a changed value | found 2026-09-06 in cold review of the preview/apply-parity branch; trigger claim refuted by probe 2026-09-07 | S | **CLOSED** 2026-09-13 |
 | [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--closed-2026-09-07) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit; it had rotted FOUR times and was incomplete besides | S | **CLOSED** 2026-09-07 |
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--closed-2026-09-13) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | **CLOSED** 2026-09-13 |
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | **CLOSED** 2026-09-07 |
@@ -31823,18 +31823,9 @@ rewrites every row and fills `— | —` for the eight, whose summary and proven
 written. That is a real edit to entries other slices own, so it wants its own commit and its own
 review, not a drive-by during someone else's release. Deliberately NOT done here.
 
-## 422. A comma-bearing email address is destroyed when an inline edit names emails with a changed value — OPEN
+## 422. A comma-bearing email address is destroyed when an inline edit names emails with a changed value — CLOSED 2026-09-13
 
-**Status:** OPEN. Filed 2026-09-06; its trigger claim was measured and refuted 2026-09-07, and the
-entry was retitled and rewritten to the narrower claim that survives. Last executed verification
-2026-09-07 — the retained probe `src/app/inline-ai-edit/emails-roundtrip.probe.test.ts` (committed as
-66235c60), run with `npx vitest run src/app/inline-ai-edit/emails-roundtrip.probe.test.ts` →
-`Test Files 1 passed (1)` / `Tests 4 passed (4)`. The source claims below were re-checked the same day
-with `grep -n "f in input" src/app/inline-ai-edit/plan.ts`,
-`grep -n -A4 "function coerce" src/app/use-inline-entity-edit.ts` and
-`grep -rn "sanitizeEmail(" src --include=*.ts`.
-
-**Work item:** #276
+**Status:** CLOSED 2026-09-13 — stopped at WRITE, never on load: the resource editor, `createResource` / `updateResource` and the inline-edit plan all refuse an extra address holding `,` or `;` (`isDelimiterSafeEmail` / `findDelimiterUnsafeEmail` in `sanitize-core.ts`). Pinned by `npx vitest run src/app/inline-ai-edit/emails-roundtrip.test.ts` (the retained probe, renamed and converted).
 
 `resource.emails` round-trips through a joined string: the descriptor projects the stored list as a
 `", "`-joined string for the preview, `coerce` (`use-inline-entity-edit.ts`) passes a
@@ -31875,7 +31866,7 @@ very character at issue, it would destroy the comma just as surely as `sanitizeE
 that comment (`grep -n -B10 "diffFields: \[\"firstName\"" src/app/inline-ai-edit/entity-descriptor.ts`)
 before proposing it again.
 
-★ **What remains unfixed, and what closing it would cost.** The delimited string is the writer's OWN
+★ _(Superseded 2026-09-13 — see the closure block at the end of this entry.)_ **What remains unfixed, and what closing it would cost.** The delimited string is the writer's OWN
 storage format — `sanitizeEmailList`'s docstring calls it "a JSON array or a delimited CSV/MD string"
 — so representing a comma inside an address needs either format validation at `sanitizeEmail`'s call
 sites or a transport for `emails` that never joins. `sanitizeEmail` is `sanitizeText(s, EMAIL_MAX)`
@@ -31918,6 +31909,22 @@ and does NO format validation, so nothing rejects a comma-bearing address at wri
 Whether the fix is validation at the boundary, or an array-preserving transport for `emails` that
 never joins, is the open decision — they are different fixes with different blast radii, and picking
 one is not obvious enough to prescribe here.
+
+**CLOSED 2026-09-13 — stop at write.** `resource.emails` keeps its joined transport and
+`sanitizeEmailList` and every load/decode path are unchanged. Instead, no write boundary accepts an
+address the transport would tear: `isDelimiterSafeEmail` (`sanitize-core.ts`) refuses a trimmed value
+holding `,` or `;`, with no format validation beyond that. The resource editor blocks save with
+`resourceErrorEmailDelimiter`. `createResource` / `updateResource` in `use-chat-dispatcher.ts` throw
+a tool error naming `emails`, and nothing is written. `describeEntityCalls` refuses the `emails`
+FIELD when the incoming array carries such an address, so the patch never holds it and the call's
+other fields apply — the `emailFormatFields` shape. ★★ The plan guard is keyed on the INCOMING array,
+not the stored list, deliberately: a stored comma address is only torn when the call carries it back,
+and a proposed list that drops it shows the removal on the card instead. A STRING `emails` cannot
+be inspected per address, so the plan guard and `updateResource` refuse it whenever the stored list
+already holds an unsafe address. External ingest
+(`jira-api.ts`, `outlook-contacts.ts`) writes no `resource.emails` and is untouched. Primary-email
+format validation remains out of scope. The probe `emails-roundtrip.probe.test.ts` is now
+`emails-roundtrip.test.ts`.
 
 ## 423. The codename ledger in `version.ts` is duplicated data that has rotted three times — CLOSED 2026-09-07
 

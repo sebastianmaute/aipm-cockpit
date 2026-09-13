@@ -147,6 +147,17 @@ describe("ResourceEditModal", () => {
     expect(onSave.mock.calls[0][0]).toMatchObject({ emails: ["alt@x.com"] });
   });
 
+  it("refuses to save an additional email that contains a comma or semicolon (§422)", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave });
+    fireEvent.click(screen.getByRole("button", { name: /add email/i }));
+    const [extra] = screen.getAllByRole("textbox", { name: /additional emails/i });
+    fireEvent.change(extra, { target: { value: "a,b@x.com" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorEmailDelimiter"));
+  });
+
   it("removes an additional email row via its per-row remove button", () => {
     // ★ Behavioural pin for the converted per-row remove: the row must actually
     // disappear. The variant assertion above proves it still LOOKS destructive;

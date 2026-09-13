@@ -17,7 +17,7 @@ import { useDraggable } from "./use-draggable";
 import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
-import { ASSIGNEE_MAX, EMAIL_MAX } from "./sanitize";
+import { ASSIGNEE_MAX, EMAIL_MAX, findDelimiterUnsafeEmail } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -95,6 +95,12 @@ export function ResourceEditModal({
     const emails = (draft.emails ?? [])
       .map((e) => e.trim())
       .filter((e) => e.length > 0);
+    // §422 — an address holding "," or ";" is torn in two by any transport that
+    // joins the list, so it is refused here rather than stored.
+    if (findDelimiterUnsafeEmail(emails) !== undefined) {
+      setError(t(lang, "resourceErrorEmailDelimiter"));
+      return;
+    }
     const clean: Resource = {
       ...draft,
       firstName,

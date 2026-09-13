@@ -28,6 +28,24 @@ export function isValidEmail(s: string): boolean {
   return /^\S+@\S+\.\S+$/.test(s.trim());
 }
 
+/** True when `s`, trimmed, holds neither `,` nor `;` — the two delimiters
+ *  `sanitizeEmailList` splits a delimited string on. An address carrying one
+ *  cannot survive a transport that joins the list (the inline AI edit joins
+ *  with ", " and the writer re-splits), so the WRITE boundaries refuse it
+ *  (open-followups §422). No format validation beyond that, and deliberately
+ *  never called on a load or decode path. */
+export function isDelimiterSafeEmail(s: string): boolean {
+  return !/[,;]/.test(s.trim());
+}
+
+/** The first string member of an ARRAY that `isDelimiterSafeEmail` refuses,
+ *  or undefined. A non-array returns undefined: a string `emails` IS a
+ *  delimited list, and `sanitizeEmailList` splitting it is the design. */
+export function findDelimiterUnsafeEmail(list: unknown): string | undefined {
+  if (!Array.isArray(list)) return undefined;
+  return list.find((e): e is string => typeof e === "string" && !isDelimiterSafeEmail(e));
+}
+
 // --- Generic helpers -------------------------------------------------------
 
 /**
