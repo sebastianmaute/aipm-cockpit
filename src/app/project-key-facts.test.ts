@@ -79,6 +79,16 @@ describe("keyFactCompleteness", () => {
   it("treats a blank name as missing (an in-memory draft can hold one)", () => {
     expect(keyFactCompleteness({ ...FULL, name: "" }).missing).toEqual(["name"]);
   });
+
+  it("reads a field absent from an unsanitized record as missing instead of throwing", () => {
+    // The shape a version restore can hand over: only the keys its payload carried.
+    const partial = { name: "Seed", code: "SEED" } as unknown as ProjectMeta;
+    expect(keyFactCompleteness(partial)).toEqual({
+      filled: 2,
+      total: 11,
+      missing: KEY_FACT_IDS.filter((id) => id !== "name" && id !== "code"),
+    });
+  });
 });
 
 // Ruling 1: the model mirrors what the SANITIZER normalises to blank. A model
@@ -92,6 +102,13 @@ describe("keyFactCompleteness mirrors sanitizeProjectMeta's blank rules", () => 
     const sanitized = sanitizeProjectMeta({ ...FULL, [id]: "   " });
     expect(sanitized).not.toBeNull();
     expect(keyFactCompleteness(sanitized!).missing).toEqual([id]);
+  });
+
+  it("an absent field reads the same before and after sanitising", () => {
+    const partial = { name: "Seed", code: "SEED" };
+    const sanitized = sanitizeProjectMeta(partial);
+    expect(sanitized).not.toBeNull();
+    expect(keyFactCompleteness(partial as unknown as ProjectMeta)).toEqual(keyFactCompleteness(sanitized!));
   });
 
   it("a contact person with a blank name is dropped by the sanitizer and reads missing", () => {
