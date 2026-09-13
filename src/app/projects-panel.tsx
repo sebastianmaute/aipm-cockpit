@@ -48,6 +48,9 @@ import { EmptyState } from "./empty-state";
 import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { type ProjectMeta, type Resource } from "./types";
+import { KEY_FACT_IDS, keyFactCompleteness } from "./project-key-facts";
+import { loadKeyFactsSnapshot } from "./project-key-facts-cache";
+import { KeyFactsBanner, KeyFactsMeter, type KeyFactsRowState } from "./project-key-facts-meter";
 
 /** File formats a brand-new project's workspace can be created in.
  *  The create flow is delegated to CreateProjectForm which owns this list. */
@@ -133,6 +136,32 @@ export function ProjectsPanel({
   onHardDelete,
 }: ProjectsPanelProps) {
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
+
+  // Per-row key-fact state (spec §5.3/§5.4). The CURRENT project is measured live
+  // from memory and never reads the cache; every other row reads its per-device
+  // snapshot, and a missing snapshot is UNKNOWN — never "0 of 11".
+  const keyFactsByRow = useMemo(() => {
+    const byId = new Map<string, { state: KeyFactsRowState; customer: string }>();
+    for (const p of projects) {
+      if (p.id === currentProjectId) {
+        if (currentProject) {
+          const c = keyFactCompleteness(currentProject);
+          byId.set(p.id, { state: { kind: "measured", ...c }, customer: currentProject.customer });
+        } else {
+          byId.set(p.id, { state: { kind: "unknown", total: KEY_FACT_IDS.length }, customer: "" });
+        }
+        continue;
+      }
+      const snap = loadKeyFactsSnapshot(p.id);
+      byId.set(
+        p.id,
+        snap
+          ? { state: { kind: "measured", filled: snap.filled, total: KEY_FACT_IDS.length, missing: snap.missing }, customer: snap.customer }
+          : { state: { kind: "unknown", total: KEY_FACT_IDS.length }, customer: "" },
+      );
+    }
+    return byId;
+  }, [projects, currentProjectId, currentProject]);
   const confirm = useConfirm();
   const tursoConfigured = !!getTursoConfig(
     settings.integrations?.turso?.databaseUrl,
@@ -326,6 +355,7 @@ export function ProjectsPanel({
           <ul className="flex flex-col gap-2">
             {projects.map((p) => {
               const isCurrent = p.id === currentProjectId;
+              const keyFacts = keyFactsByRow.get(p.id);
               return (
                 <li
                   key={p.id}
@@ -348,6 +378,14 @@ export function ProjectsPanel({
                           </span>
                         )}
                       </div>
+                      {!isCurrent && keyFacts?.customer && (
+                        <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                          <div className="flex gap-1">
+                            <dt className="font-medium">{t(lang, "projectCustomer")}:</dt>
+                            <dd>{keyFacts.customer}</dd>
+                          </div>
+                        </dl>
+                      )}
                       {isCurrent && currentProject && (
                         <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
                           {currentProject.customer && (
@@ -451,6 +489,14 @@ export function ProjectsPanel({
                       )}
                     </div>
                   </div>
+                  {keyFacts && <KeyFactsMeter lang={lang} state={keyFacts.state} />}
+                  {isCurrent && keyFacts?.state.kind === "measured" && (
+                    <KeyFactsBanner
+                      lang={lang}
+                      missing={keyFacts.state.missing}
+                      onComplete={() => setModal({ mode: "edit" })}
+                    />
+                  )}
                 </li>
               );
             })}

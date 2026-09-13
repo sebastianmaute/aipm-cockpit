@@ -19,6 +19,7 @@ import { type ProjectRegistryEntry } from "./projects-registry";
 import { defaultSettings } from "./settings-types";
 import { type ProjectMeta } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { clearKeyFactsCache, saveKeyFactsSnapshot } from "./project-key-facts-cache";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
@@ -537,5 +538,75 @@ describe("ProjectsPanel — Load from Turso", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Load from Turso" }));
     expect(screen.getByRole("dialog", { name: "Load a Turso project" })).toBeInTheDocument();
+  });
+});
+
+describe("ProjectsPanel — key-fact indicator", () => {
+  afterEach(() => clearKeyFactsCache());
+
+  function row(name: string): HTMLElement {
+    const li = screen.getByText(name).closest("li");
+    if (!li) throw new Error(`no row for ${name}`);
+    return li;
+  }
+
+  it("renders the current project live at 11 of 11 with a success banner", () => {
+    setup();
+    const r = within(row("Apollo"));
+    expect(r.getByText("Key facts complete")).toBeInTheDocument();
+    expect(r.getByText("11 of 11")).toBeInTheDocument();
+    expect(r.getByRole("status")).toHaveTextContent("All key facts are set.");
+  });
+
+  it("renders a partial current project with a warn banner whose action opens the editor", () => {
+    setup({ currentProject: { ...CURRENT_META, code: "", customer: "" } });
+    const r = within(row("Apollo"));
+    expect(r.getByText("2 key facts missing")).toBeInTheDocument();
+    expect(r.getByText("9 of 11")).toBeInTheDocument();
+    expect(r.getByRole("status")).toHaveTextContent("Missing key facts: Project code, Customer");
+    fireEvent.click(r.getByRole("button", { name: "Complete them" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  // ★ Spec §5.3: the current project never reads the cache.
+  it("ignores a cached snapshot for the current project", () => {
+    saveKeyFactsSnapshot("p1", { filled: 1, missing: ["code", "projectManager", "customer", "products", "profitCenter", "naceSection", "deployment", "contactPersons", "regulatory", "startDate"], customer: "Stale Co", at: "2026-01-01T00:00:00.000Z" });
+    setup();
+    const r = within(row("Apollo"));
+    expect(r.getByText("11 of 11")).toBeInTheDocument();
+    expect(r.queryByText("Stale Co")).toBeNull();
+  });
+
+  // ★★ Spec §5.3: a never-opened project is UNKNOWN, never "0 of 11".
+  it("renders a never-cached non-current project as unknown with no banner", () => {
+    setup();
+    const r = within(row("Gemini"));
+    expect(r.getByText("Key facts not measured here")).toBeInTheDocument();
+    expect(r.getByText("— / 11")).toBeInTheDocument();
+    expect(r.queryByText("0 of 11")).toBeNull();
+    expect(r.queryByRole("status")).toBeNull();
+  });
+
+  it("renders a cached non-current project from its snapshot, with its customer and no banner", () => {
+    saveKeyFactsSnapshot("p2", { filled: 4, missing: ["code", "projectManager", "products", "profitCenter", "naceSection", "contactPersons", "regulatory"], customer: "Globex", at: "2026-09-13T10:00:00.000Z" });
+    setup();
+    const r = within(row("Gemini"));
+    expect(r.getByText("7 key facts missing")).toBeInTheDocument();
+    expect(r.getByText("4 of 11")).toBeInTheDocument();
+    expect(r.getByText("Globex")).toBeInTheDocument();
+    expect(r.queryByRole("status")).toBeNull();
+  });
+
+  it("renders the banner action once across the list", () => {
+    saveKeyFactsSnapshot("p2", { filled: 4, missing: ["code", "projectManager", "products", "profitCenter", "naceSection", "contactPersons", "regulatory"], customer: "Globex", at: "2026-09-13T10:00:00.000Z" });
+    setup({ currentProject: { ...CURRENT_META, code: "" } });
+    expect(screen.getAllByRole("button", { name: "Complete them" })).toHaveLength(1);
+  });
+
+  it("renders the current row as unknown when its metadata is not loaded", () => {
+    setup({ currentProject: undefined });
+    const r = within(row("Apollo"));
+    expect(r.getByText("Key facts not measured here")).toBeInTheDocument();
+    expect(r.queryByRole("status")).toBeNull();
   });
 });
