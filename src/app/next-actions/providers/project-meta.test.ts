@@ -55,7 +55,7 @@ function input(over: Partial<ActionInput> = {}): ActionInput {
 
 const ALL_CAPS: ActionCaps = {
   assign: true, draft: true, escalate: true, rebaseline: true, snapshotActive: true,
-  reschedule: true, markDone: true, clearBlocker: true, snooze: true, createTask: true,
+  reschedule: true, markDone: true, clearBlocker: true, snooze: true, createTask: true, logAsRaid: true,
 };
 
 describe("projectMetaProvider — absent input", () => {
@@ -152,7 +152,7 @@ describe("projectMetaProvider — ranking", () => {
   // gates only on `a.source !== "task-due"`, so it remains available in the
   // overflow whenever the caller has the capability — filling in a missing
   // fact is a legitimate task.
-  it("carries no task-specific verb (mark-done/clear-blocker/reschedule/draft), but Create task remains available", () => {
+  it("carries no task-specific verb (mark-done/clear-blocker/reschedule/draft) and no Log as RAID, but Create task remains available", () => {
     for (const a of acts) {
       const primary = pickPrimaryCta(a, ALL_CAPS);
       expect(["markDone", "clearBlocker", "reschedule", "draft"]).not.toContain(primary);
@@ -160,6 +160,7 @@ describe("projectMetaProvider — ranking", () => {
       const overflow = overflowCtas(a, ALL_CAPS);
       expect(overflow).not.toContain("markDone");
       expect(overflow).not.toContain("draft");
+      expect(overflow).not.toContain("logAsRaid");
       expect(overflow).toContain("createTask");
     }
   });

@@ -24,6 +24,7 @@ import { rowLabel } from "./row-tokens";
 import { useRowTokens } from "./use-row-tokens";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
+import { lastEscalation } from "./raid-escalation";
 import type { PanelSort } from "./panel-views";
 import type { useRowSelection } from "./use-row-selection";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
@@ -176,6 +177,9 @@ export function RaidTable({
             <ColumnResizeHandle col="notesLog" onMouseDown={startResize} />
           </th>
           )}
+          {!hiddenSet.has("lastEscalated") && (
+            <SortResizeTh {...th} label={t(lang, "raidColLastEscalated")} sortCol="lastEscalated" width={colWidths.lastEscalated} />
+          )}
         </tr>
       </>} tbodyClassName="divide-y divide-line">
         {visible.length === 0 && (
@@ -189,6 +193,7 @@ export function RaidTable({
           const rowTitleToken = titleTokens.get(item.id) ?? item.title;
           const rag = severityRag(item.severity);
           const terminal = isTerminalStatus(item.status, item.category);
+          const rowLastEscalation = lastEscalation(item);
           return (
             <tr
               key={item.id}
@@ -364,6 +369,13 @@ export function RaidTable({
                   lang={lang}
                   onClick={() => onOpenNotes(item.id)}
                 />
+              </td>
+              )}
+              {!hiddenSet.has("lastEscalated") && (
+              <td className="px-3 py-2 text-xs text-muted-foreground">
+                {rowLastEscalation
+                  ? `${rowLastEscalation.at.slice(0, 10)} · ${rowLastEscalation.toName ?? rowLastEscalation.toEmail}`
+                  : ""}
               </td>
               )}
             </tr>

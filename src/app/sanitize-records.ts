@@ -43,16 +43,11 @@ import {
   REGULATORY_SET,
   REGULATORY_NOT_APPLICABLE,
 } from "./project-options";
-import {
-  NACE_SECTION_SET,
-} from "./nace-sections";
+import { NACE_SECTION_SET } from "./nace-sections";
 
-import {
-  sanitizeKnowledgeLinks,
-} from "./document-link";
-import {
-  isValidTimeZone,
-} from "./timezone";
+import { sanitizeKnowledgeLinks } from "./document-link";
+import { isValidTimeZone } from "./timezone";
+import { sanitizeRaidEscalations } from "./raid-escalation";
 import {
   TASK_NAME_MAX,
   TEXTAREA_MAX,
@@ -804,6 +799,7 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
   // zero/negative/absent -> undefined so legacy items stay byte-identical.
   const inq = toNumber(o.inquiriesSent);
   if (Number.isFinite(inq) && inq > 0) item.inquiriesSent = Math.floor(inq);
+  const esc = sanitizeRaidEscalations(o.escalations); if (esc.length) item.escalations = esc; // sparse (§515)
 
   return item;
 }
@@ -912,6 +908,8 @@ const RAID_FIELD_GUARDS: Readonly<Record<string, RaidFieldGuard>> = {
   //  still an owner reassignment the card cannot show. Nothing may reach this
   //  field from a model patch until the descriptor can disclose it.
   ownerResourceId: () => false,
+  // ★★ NOT MODEL-WRITABLE (§515): app-written by Escalate. The ONLY model-write guard — deliberately absent from TOKEN_EXCLUDED.raid.
+  escalations: () => false,
   category: acceptsRaidCategory,
   status: acceptsRaidStatus,
   severity: acceptsRaidSeverity,

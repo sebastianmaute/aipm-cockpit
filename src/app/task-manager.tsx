@@ -106,6 +106,7 @@ import { loadActualsCache } from "./timelog-actuals-store";
 import { evaluateTimelogPolicy } from "./timelog-policy";
 import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
 import { metricAtActionPatch } from "./insights/outcome";
+import { applyInsightLoggedAsRaid } from "./insights/log-as-raid";
 import { useInsightRecommendations } from "./use-insight-recommendations";
 import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
 import { executeActionCta } from "./action-cta-exec";
@@ -115,6 +116,7 @@ import { resolveEffectiveSettings } from "./settings-effective";
 import { TaskDeleteButton, TaskEditorActions, TaskEditorExtras } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
 import { makeEditGuard } from "./read-only-guard";
+import { RaidCreateHost, useRaidCreate } from "./raid-create-host";
 import { SettingsView } from "./settings-view";
 import { LearningInsights } from "./learning-insights";
 import { useActionLearning } from "./use-action-learning";
@@ -1088,6 +1090,16 @@ function TaskManagerInner() {
     },
     [isPopout, insights, setInsights, today, requestOpen],
   );
+  // "Log as RAID" on-saved writer (§515): the Act transition plus the link to the
+  // RAID item, via the functional setter (first act wins). `raidId` is the id the
+  // save COMMITTED — `useRaidCreate` never passes the draft's open-time id.
+  const onInsightLoggedAsRaid = useCallback(
+    (insightId: number, raidId: number) => {
+      if (isPopout) return;
+      setInsights((prev) => applyInsightLoggedAsRaid(prev, insightId, raidId, today));
+    },
+    [isPopout, setInsights, today],
+  );
   const onDismissInsight = useCallback(
     (id: number, reason?: string) => {
       if (isPopout) return;
@@ -1800,10 +1812,19 @@ function TaskManagerInner() {
     pendingLinkRaidIdRef,
     recordLearning,
     showToast,
+    selfResourceId: settings.selfResourceId,
     // ★★★ logActivityUser, NEVER the raw logActivity — see the USER-ACTOR
     // WIRING rule at the top of this component. Mark-done from a Next-actions
     // CTA is a user gesture, so its completion entry must carry the user actor.
     logActivity: logActivityUser,
+  });
+
+  // "Log as RAID" (§515): one floating RAID editor over the current view. Called
+  // after useResourcePlanner (handleSaveRaidItem) and the learning hook
+  // (recordLearning); openers are undefined in popouts.
+  const raidCreate = useRaidCreate({
+    isPopout, lang, today, raid, handleSaveRaidItem, recordLearning,
+    onInsightLogged: onInsightLoggedAsRaid,
   });
 
   // Keep the forwarding ref current after every commit (it's only ever read
@@ -2007,6 +2028,7 @@ function TaskManagerInner() {
     resourcesById, insights, setInsights, dispatcher,
     showToast, logActivityAs,
     onAcknowledgeInsight, onActInsight, onDismissInsight,
+    onLogAsRaid: raidCreate.openFromInsight,
   });
 
   const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
@@ -2529,6 +2551,7 @@ function TaskManagerInner() {
     reschedule: rescheduleBundle,
     onMarkDone: isPopout ? undefined : handleMarkDoneFromAction,
     onClearBlocker: isPopout ? undefined : handleClearBlockerFromAction,
+    onLogAsRaid: raidCreate.openFromAction,
     learningEnabled: settings.nextActionsLearning?.enabled ?? false,
     expertMode: settings.expertMode === true,
     onOpenLearningSettings,
@@ -2989,6 +3012,20 @@ function TaskManagerInner() {
         />
       )}
       {!isPopout && <NotesWindow {...notesWindowProps} />}
+      {!isPopout && (
+        <RaidCreateHost
+          create={raidCreate}
+          lang={lang}
+          tasks={tasks}
+          raid={raid}
+          stakeholdersEnabled={stakeholdersEnabled}
+          stakeholders={stakeholders}
+          resources={resources}
+          contacts={contactsList}
+          onCreateResource={handleCreateResource}
+          onJumpToRaid={(id) => requestOpen("raid", id)}
+        />
+      )}
     </>
   );
 

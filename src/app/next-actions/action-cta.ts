@@ -14,7 +14,7 @@ export type PrimaryCtaKind =
 // NOTE: clearBlocker is intentionally absent — it is priority-2 and mutually
 // exclusive (by source/why) with the only higher verb (assign), so it is ALWAYS
 // the primary when applicable and can never land in the overflow.
-export type SecondaryCtaKind = "markDone" | "draft" | "createTask" | "snooze";
+export type SecondaryCtaKind = "markDone" | "draft" | "createTask" | "logAsRaid" | "snooze";
 
 /** Which optional handler bundles/flags are wired in for this surface — presence
  *  === capability. Assembled from the props ActionRow/ActionHeroCard already hold. */
@@ -29,6 +29,7 @@ export interface ActionCaps {
   clearBlocker: boolean;  // onClearBlocker present
   snooze: boolean;        // onSnooze present
   createTask: boolean;    // onCreateTask present
+  logAsRaid: boolean;     // onLogAsRaid present (§515)
 }
 
 const isOpen = (a: SuggestedAction): boolean => a.cta.kind === "open";
@@ -67,6 +68,11 @@ export function canMarkDone(a: SuggestedAction, c: ActionCaps): boolean {
 export function canCreateTask(a: SuggestedAction, c: ActionCaps): boolean {
   return c.createTask && a.source !== "task-due";
 }
+/** §515 — any signal except a RAID-sourced one (it already is a RAID item) or a
+ *  project key-facts nudge (a missing key fact is a task, not a risk). */
+export function canLogAsRaid(a: SuggestedAction, c: ActionCaps): boolean {
+  return c.logAsRaid && a.source !== "raid" && a.source !== "project-meta";
+}
 
 /** Highest-priority applicable verb; "open" is the always-available fallback. */
 export function pickPrimaryCta(a: SuggestedAction, c: ActionCaps): PrimaryCtaKind {
@@ -88,6 +94,7 @@ export function overflowCtas(a: SuggestedAction, c: ActionCaps): SecondaryCtaKin
   if (canMarkDone(a, c) && primary !== "markDone") out.push("markDone");
   if (canDraft(a, c) && primary !== "draft") out.push("draft");
   if (canCreateTask(a, c)) out.push("createTask");
+  if (canLogAsRaid(a, c)) out.push("logAsRaid");
   if (c.snooze) out.push("snooze");
   return out;
 }

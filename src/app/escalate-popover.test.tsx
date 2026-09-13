@@ -61,6 +61,24 @@ describe("EscalatePopover", () => {
     expect(within(dialog).getByRole("button", { name: "Escalate now" })).toHaveProperty("disabled", true);
   });
 
+  // fix-all-1: isEscalationEmail rejects "<"/">" too — an address that would
+  // otherwise pass isValidEmail must still leave confirm disabled. Positive
+  // control in the SAME render (fix-all-1 review Minor 5): a valid address
+  // first enables confirm, so the later disabled assertion is not vacuous
+  // against, say, a confirm button that never enables at all.
+  it("keeps confirm disabled for a <br>-bearing address that would otherwise pass isValidEmail", () => {
+    render(<EscalatePopover rowToken="Row" lang="en-US" action={action(1)} bundle={bundle([issue()])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Escalate – Row" }));
+    const dialog = screen.getByRole("dialog");
+    const email = within(dialog).getByPlaceholderText(/email/i);
+
+    fireEvent.change(email, { target: { value: "boss@example.com" } });
+    expect(within(dialog).getByRole("button", { name: "Escalate now" })).toHaveProperty("disabled", false);
+
+    fireEvent.change(email, { target: { value: "a<br>@b.co" } });
+    expect(within(dialog).getByRole("button", { name: "Escalate now" })).toHaveProperty("disabled", true);
+  });
+
   it("fires onEscalate with the chosen recipient and closes", () => {
     const onEscalate = vi.fn();
     render(<EscalatePopover rowToken="Row" lang="en-US" action={action(1)} bundle={bundle([issue()], onEscalate)} />);

@@ -10,7 +10,7 @@ import { useCalendarEvents } from "./use-calendar-events";
 import { useReferenceData } from "./use-reference-data";
 import { plainSeed, useResourceDirectory } from "./use-resource-directory";
 import { generatePeriods, convertUtilization } from "./resource-capacity";
-import { DEFAULT_WEEK_HOURS, type Absence, type AbsenceType, type RaidItem, type Shift, type Task } from "./types";
+import { DEFAULT_WEEK_HOURS, type Absence, type AbsenceType, type RaidEscalation, type RaidItem, type Shift, type Task } from "./types";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
 import { isValidEmail } from "./sanitize";
@@ -160,20 +160,40 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   // an update and clobber a row committed since the modal opened (id-mint race).
   // Non-modal callers (bulk edit) omit it → id-existence fallback (unchanged).
   const handleSaveRaidItem = useCallback(
-    (item: RaidItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => {
+    (item: RaidItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }): number | undefined => {
       const stamp = new Date().toISOString();
       const { create, id } = resolveEntitySave(raid, item.id, isNew, () => nextRaidId(raid));
       // Only a genuine UPDATE of an existing Risk can auto-raise an Issue; a create
       // (re-minted id) has no meaningful `previous`.
       const previous = create ? undefined : raid.find((r) => r.id === id);
-      // ★★★ `noteLog` from the STORED row, never the payload — it is write-through
-      // and the editor's snapshot goes stale. Read open-followups §48 before editing.
-      const withStamp: RaidItem = { ...item, id, localModifiedAt: stamp, ...(create ? {} : { noteLog: previous?.noteLog }) };
+      // ★★★ `noteLog` AND `escalations` from the STORED row, never the payload — both
+      // are write-through (notes window; Escalate CTA, §515) while the always-mounted
+      // RAID editor's snapshot goes stale. Read open-followups §48 before editing.
+      // ★★ Severity too, but ONLY when the stale draft still holds the value an escalation
+      //   raised FROM — a deliberate change to any other severity in the editor wins.
+      //   The comparison is against the FIRST escalation the draft has not seen that carries
+      //   a `fromSeverity` — i.e. the severity the draft snapshotted — never the LAST one: a
+      //   second raise (from the already-raised value) or a later notify-only entry would
+      //   otherwise let the stale draft undo the raise. Both reads tolerate a non-array
+      //   (JSON and IndexedDB load RAID rows unvalidated).
+      const storedEscRaw: unknown = previous?.escalations;
+      const storedEsc: readonly Partial<RaidEscalation>[] = Array.isArray(storedEscRaw) ? storedEscRaw : [];
+      const draftEscRaw: unknown = item.escalations;
+      const draftEscCount = Array.isArray(draftEscRaw) ? draftEscRaw.length : 0;
+      const firstUnseenFrom = storedEsc.slice(draftEscCount).find((e) => e?.fromSeverity !== undefined)?.fromSeverity;
+      const keepEscalatedSeverity =
+        !create && previous !== undefined && storedEsc.length > draftEscCount &&
+        firstUnseenFrom !== undefined && item.severity === firstUnseenFrom;
+      const withStamp: RaidItem = {
+        ...item, id, localModifiedAt: stamp,
+        ...(create ? {} : { noteLog: previous?.noteLog, escalations: previous?.escalations }),
+        ...(keepEscalatedSeverity ? { severity: previous?.severity } : {}),
+      };
       // Editing a row a concurrent writer already deleted: the map-replace below
       // would silently no-op. Surface it instead of dropping the edit in silence.
       if (!create && !previous) {
         reportSilentFailure(showToastRef.current, langRef.current, "raid.editVanished", "concurrent delete during edit", "guardEditVanished");
-        return;
+        return undefined;
       }
 
       const triggersAutoIssue =
@@ -240,6 +260,9 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       if (autoIssueId !== null) {
         logActivityRef.current("raid.autoIssue", id, autoIssueId);
       }
+      // The COMMITTED id — re-minted by `resolveEntitySave` when the open-time id
+      // was taken. "Log as RAID" links the insight to THIS, never to draft.id (§515).
+      return id;
     },
     [raid, setRaid, today, logUpdate],
   );

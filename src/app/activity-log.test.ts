@@ -122,7 +122,7 @@ describe("isDeleteKind", () => {
     const ALL_KINDS = Object.keys(ACTIVITY_KIND_TO_KEY) as ActivityKind[];
 
     test("classifies every member exactly as declared", () => {
-      expect(ALL_KINDS).toHaveLength(56); // tripwire — see the note above
+      expect(ALL_KINDS).toHaveLength(57); // tripwire — see the note above; raid.escalated added (§515)
       expect(ALL_KINDS.filter(isDeleteKind).sort()).toEqual([...DELETE_KINDS].sort());
     });
 
@@ -241,6 +241,7 @@ describe("ACTIVITY_KIND_TO_KEY — new kinds have non-empty labels in both local
     "calendar.autoPulled",
     "ai.documentWrite",
     "bulk.delete",
+    "raid.escalated",
   ];
 
   test.each(NEW_KINDS)("%s has a non-empty en-US label", (kind) => {

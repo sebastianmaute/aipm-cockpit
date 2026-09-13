@@ -58,6 +58,9 @@ export interface Insight {
   readonly recommendation?: InsightRecommendation;
   /** Measured outcome vs `metricAtAction` (SP3). Derived — reconcile owns it. */
   readonly outcome?: InsightOutcome;
+  /** RAID item created from this insight through "Log as RAID" (§515). Carried
+   *  by reconcile on every branch; positive integer or absent. */
+  readonly loggedRaidId?: number;
 }
 
 /** A tool call the AI proposed as part of a recommendation. Mirrors the shape
@@ -146,6 +149,8 @@ export interface InsightActions {
   readonly onGenerateRecommendation: (id: number) => void;
   readonly onApplyRecommendation: (id: number) => void;
   readonly onRejectRecommendation: (id: number) => void;
+  /** Opens the floating RAID editor seeded from the insight (§515). Absent in popouts. */
+  readonly onLogAsRaid?: (insight: Insight) => void;
 }
 
 /** A fresh detection (no lifecycle/timestamps — reconcile owns those). */

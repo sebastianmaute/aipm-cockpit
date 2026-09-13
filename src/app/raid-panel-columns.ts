@@ -17,6 +17,7 @@ export const RAID_COL_WIDTHS = {
   linkedTasks: 140,
   causedBy: 140,
   notesLog: 80,
+  lastEscalated: 170,
 } as const;
 export type RaidCol = keyof typeof RAID_COL_WIDTHS;
 
@@ -33,4 +34,6 @@ export const RAID_CONFIG_COLS: readonly ColumnConfigCol[] = [
   { key: "linkedTasks", labelKey: "raidLinkedTasks" },
   { key: "causedBy", labelKey: "raidCausedBy" },
   { key: "notesLog", labelKey: "noteLogTitle" },
+  // §515 — hidden by default (RAID_FILTER_DEFAULTS in raid-panel.tsx).
+  { key: "lastEscalated", labelKey: "raidColLastEscalated" },
 ];

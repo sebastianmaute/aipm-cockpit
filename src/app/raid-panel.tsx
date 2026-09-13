@@ -22,20 +22,16 @@ import { rowLabel } from "./row-tokens";
 import {
   buildRaidCausesIndex,
   compareRaid,
-  defaultStatusForCategory,
   isTerminalStatus,
-  nextRaidId,
-  riskSeverityFromMatrix,
   type RaidSortKey,
 } from "./raid";
+import { applyMatrix, applyStatus, buildNewRaidDraft } from "./raid-draft";
 import {
   RAID_SEVERITIES,
   type RaidCategory,
   type RaidItem,
   type RaidSeverity,
-  type RaidStatus,
   type Resource,
-  type RiskScale,
   type Stakeholder,
   type Task,
 } from "./types";
@@ -58,7 +54,7 @@ const RAID_FILTER_DEFAULTS: PanelFiltersState = {
   search: "",
   filters: { category: "All", severity: "All", status: "All", owner: "" },
   sort: null,
-  hiddenCols: [],
+  hiddenCols: ["lastEscalated"],
 };
 
 // --- Props ---------------------------------------------------------------
@@ -345,25 +341,7 @@ function RaidPanelBody({
     categoryFilter === "All" ? "R" : (categoryFilter as RaidCategory);
 
   function openNew(category: RaidCategory = "R") {
-    const probability: RiskScale = 3;
-    const impact: RiskScale = 3;
-    setDraft({
-      id: nextRaidId(raid),
-      category,
-      title: "",
-      severity:
-        category === "R"
-          ? riskSeverityFromMatrix(probability, impact)
-          : "Medium",
-      probability: category === "R" ? probability : undefined,
-      impact: category === "R" ? impact : undefined,
-      status: defaultStatusForCategory(category),
-      linkedTaskIds: [],
-      causedByRaidIds: [],
-      stakeholderIds: [],
-      knowledgeLinks: [],
-      raisedDate: today,
-    });
+    setDraft(buildNewRaidDraft(raid, category, today));
     setIsNew(true);
   }
 
@@ -396,30 +374,6 @@ function RaidPanelBody({
   function closeModal() {
     setDraft(null);
     setIsNew(false);
-  }
-
-  /** When the user transitions a draft into a terminal status, auto-fill
-   *  `closedDate` to today (matches what the user almost always wants). */
-  function applyStatus(d: RaidItem, status: RaidStatus): RaidItem {
-    const terminal = isTerminalStatus(status, d.category);
-    return {
-      ...d,
-      status,
-      closedDate: terminal ? d.closedDate ?? today : undefined,
-    };
-  }
-
-  function applyMatrix(
-    d: RaidItem,
-    probability: RiskScale,
-    impact: RiskScale,
-  ): RaidItem {
-    return {
-      ...d,
-      probability,
-      impact,
-      severity: riskSeverityFromMatrix(probability, impact),
-    };
   }
 
   /** `item` is the modal's capped draft — save THAT, not our own `draft` state,
@@ -545,7 +499,7 @@ function RaidPanelBody({
             draft={draft}
             isNew={isNew}
             onChange={setDraft}
-            onApplyStatus={(s) => setDraft((d) => (d ? applyStatus(d, s) : d))}
+            onApplyStatus={(s) => setDraft((d) => (d ? applyStatus(d, s, today) : d))}
             onApplyMatrix={(p, i) => setDraft((d) => (d ? applyMatrix(d, p, i) : d))}
             onSave={commitDraft}
             onCancel={closeModal}

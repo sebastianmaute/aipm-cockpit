@@ -556,3 +556,82 @@ describe("InsightsPanel", () => {
     });
   });
 });
+
+describe("InsightsPanel — Log as RAID (§515)", () => {
+  const baseActions = () => ({
+    onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+    onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+  });
+  const actionsWith = (onLogAsRaid = vi.fn()) => ({ ...baseActions(), onLogAsRaid });
+
+  it("offers Log as RAID on an active row and hands the insight over", async () => {
+    const user = userEvent.setup();
+    const onLogAsRaid = vi.fn();
+    const insight = makeInsight({ id: 7, type: "milestoneSlip", status: "active" });
+    render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} actions={actionsWith(onLogAsRaid)} />);
+    const button = screen.getByRole("button", { name: `Log as RAID – ${titleOf("milestoneSlip")}` });
+    expectSecondaryButton(button);
+    await user.click(button);
+    expect(onLogAsRaid).toHaveBeenCalledWith(insight);
+  });
+
+  it("hides it for raidAging (positive control: Act)", () => {
+    const insight = makeInsight({ id: 5, type: "raidAging", status: "active", entityRef: { view: "raid", id: 55 }, data: { name: "R-1", daysSinceUpdate: 20, targetDate: "2026-05-01" } });
+    render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} actions={actionsWith()} />);
+    expect(screen.getByRole("button", { name: `Act – ${titleOf("raidAging")}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: `Log as RAID – ${titleOf("raidAging")}` })).toBeNull();
+  });
+
+  it("gates it like Act: absent on an acted row (positive control: Dismiss)", () => {
+    const insight = makeInsight({ id: 3, type: "stalledWork", status: "acted", entityRef: undefined, data: { count: 3 } });
+    render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} actions={actionsWith()} />);
+    expect(screen.getByRole("button", { name: `Dismiss – ${titleOf("stalledWork")}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: `Log as RAID – ${titleOf("stalledWork")}` })).toBeNull();
+  });
+
+  it("shows 'Logged as RAID #N' with Open on an acted, logged row", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const insight = makeInsight({ id: 3, type: "stalledWork", status: "acted", entityRef: undefined, data: { count: 3 }, loggedRaidId: 31 });
+    render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} onOpen={onOpen} actions={actionsWith()} />);
+    expect(screen.getByText("Logged as RAID #31")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Log as RAID – / })).toBeNull();
+    await user.click(screen.getByRole("button", { name: `Open RAID #31 – ${titleOf("stalledWork")}` }));
+    expect(onOpen).toHaveBeenCalledWith({ view: "raid", id: 31 });
+  });
+
+  it("hides it once logged on a still-active row (positive control: Act)", () => {
+    const insight = makeInsight({ id: 7, type: "milestoneSlip", status: "active", loggedRaidId: 31 });
+    render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} actions={actionsWith()} />);
+    expect(screen.getByRole("button", { name: `Act – ${titleOf("milestoneSlip")}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: `Log as RAID – ${titleOf("milestoneSlip")}` })).toBeNull();
+  });
+
+  it("gives two insights of the SAME type distinct Log as RAID names", () => {
+    render(
+      <InsightsPanel
+        insights={[
+          makeInsight({ id: 7, key: "k7", type: "milestoneSlip" }),
+          makeInsight({ id: 8, key: "k8", type: "milestoneSlip" }),
+        ]}
+        lang="en-US" today={TODAY}
+        actions={actionsWith()}
+      />,
+    );
+    const names = screen.getAllByRole("button", { name: /^Log as RAID – / }).map((b) => b.getAttribute("aria-label"));
+    expect(names).toHaveLength(2);
+    expect(new Set(names).size).toBe(2);
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+  });
+
+  it("offers nothing without the handler, or in a popout — positive controls: Act, Open", () => {
+    const insight = makeInsight({ id: 7, type: "milestoneSlip", status: "active" });
+    const { unmount } = render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} actions={baseActions()} />);
+    expect(screen.getByRole("button", { name: `Act – ${titleOf("milestoneSlip")}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Log as RAID – / })).toBeNull();
+    unmount();
+    render(<InsightsPanel insights={[insight]} lang="en-US" today={TODAY} onOpen={vi.fn()} actions={actionsWith()} isPopout />);
+    expect(screen.getByRole("button", { name: `Open – ${titleOf("milestoneSlip")}` })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Log as RAID – / })).toBeNull();
+  });
+});

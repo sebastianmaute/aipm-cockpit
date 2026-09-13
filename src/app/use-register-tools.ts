@@ -40,6 +40,15 @@
 // would still be unrecoverable in that window.
 import { useCallback, useEffect, useMemo, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { LogActivityAsFn } from "./activity-log-context";
+import {
+  aiEscalationNoteAuthor,
+  buildEscalationEntry,
+  buildEscalationRecord,
+  describeEscalation,
+  escalationActivityArgs,
+  planEscalation,
+  resolveEscalationRecipient,
+} from "./action-escalate";
 import { AI_RICH_FIELDS, withAiRichFields } from "./ai-rich-text";
 import { sanitizeCalendarEvent, type CalendarEvent } from "./calendar-event";
 import { applyChangeStatus, applyModelChangeStatus, withStoredNoteLog } from "./change-log";
@@ -71,7 +80,9 @@ import {
 } from "./sanitize";
 import type { Settings } from "./settings-types";
 import type { ProjectClock } from "./timezone";
-import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
+import type { RaidItem, Resource } from "./types";
+import { appendPatch } from "./undo/append-patch";
+import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
 
 /** The register slice of `ToolDispatcher` — derived from it with `Pick` rather
@@ -87,6 +98,7 @@ export type RegisterToolDispatcher = Pick<
   | "createRaid"
   | "updateRaid"
   | "deleteRaid"
+  | "escalateRaid"
   | "listChanges"
   | "createChange"
   | "updateChange"
@@ -141,10 +153,15 @@ export interface RegisterToolsDeps {
    *  any site below; the `?.` is defence this widened type still makes
    *  mandatory. */
   undoRef: RefObject<Pick<UndoStackApi, "captureComposite"> | undefined>;
+  /** Owned by use-chat-dispatcher. Read only to link an escalation recipient
+   *  by e-mail (§515), from whatever `.current` holds when the tool runs.
+   *  ★ That owner's `create_resource` writer assigns `.current` synchronously,
+   *   so a same-turn create should be visible here — but no test pins it. */
+  resourcesRef: RefObject<readonly Resource[]>;
 }
 
 export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatcher {
-  const { isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave, undoRef } = deps;
+  const { isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave, undoRef, resourcesRef } = deps;
   const {
     raid,
     setRaid,
@@ -332,6 +349,98 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         setRaid(next);
         logActivityAs?.("ai", "raid.updated", merged.id, merged.category, merged.title);
         return toRaidSummary(merged);
+      },
+      // ★★★ APPEND-ONLY (§515) — the one AI path that writes `escalations`. It
+      //  ADDS one entry through the SAME pure builders the Escalate CTA uses, so
+      //  the human and AI records cannot drift; `update_raid_item` still refuses
+      //  the raw field (`RAID_FIELD_GUARDS`).
+      //  ★★ ONE FUNCTIONAL `setRaid`, unlike the writers around it: the plan is
+      //  read ONCE from the ref row (which `runTool` just token-checked) and
+      //  APPLIED to the row the updater is handed, so a same-tick human edit to
+      //  another field survives. The ref advances too, so a later call in the
+      //  same turn reads this write — and finds its token moved.
+      //  ★★ The note is authored "AI created" (`aiEscalationNoteAuthor`), never
+      //  `settings.selfResourceId` — the user did not write it.
+      //  ★ KNOWN LIMIT (Task 3's, deviation 15): a same-tick SEVERITY write is
+      //  overwritten by the planned step. No mail; no address in the activity row.
+      //  ★★ UNDO IS A FIELD PATCH (`captureFieldPart`), NOT A WHOLE-ROW IMAGE.
+      //  A whole-row undo keeps `noteLog` live (WRITE_THROUGH_FIELDS, §50), so it
+      //  left the "Escalated to …" note behind. The patch covers exactly what
+      //  the op writes — `escalations`, `noteLog`, and `severity` only when the
+      //  plan raises it — and re-stamps `localModifiedAt` via `stampField`, as
+      //  `use-bulk-operations.ts` does. Undo and redo three-way merge each array
+      //  (`mergeFieldValue`), so only the ONE entry this op added is dropped (and
+      //  re-inserted on redo); every other entry, a human note added meanwhile
+      //  included, survives.
+      //  ★★★ THE ARRAY ENDS ARE AN APPEND WINDOW (`appendPatch`), NOT THE WHOLE
+      //  STORED ARRAY. `mergeArray` reverts WHOLESALE when either end holds two
+      //  deep-equal entries, and a stored log can (legacy/imported notes) — whole-
+      //  log ends then deleted a later human note on undo (fix-all 2 review M1).
+      //  The window is at most the last prior entry plus the appended one, and
+      //  both ends are always arrays (an `undefined` end reverts wholesale too).
+      //  ★ `[]` WHERE THE FIELD WAS ABSENT: undo leaves `noteLog`/`escalations` as
+      //  `[]` on a row that never had them (a patch end must be an array, so
+      //  `undefined` cannot be restored without the wholesale revert). CSV,
+      //  Markdown and Turso encode it as `""` like an absent field; JSON and
+      //  IndexedDB store the literal `[]`. Harmless: every reader guards with
+      //  `Array.isArray`/`?? []`.
+      //  ★ `severity` is a scalar: a concurrent severity edit is reverted by undo.
+      //  ★ KNOWN LIMIT (same-tick ref lag, the deviation-15 window): the ends are
+      //  built from the REF row, but the updater applies the record to the row it
+      //  is handed. If a human note lands in state before the ref catches up, the
+      //  written AI note gets a different id than the captured one, no longer
+      //  matches `after`, and SURVIVES undo while `escalations` and `severity`
+      //  revert. Nothing is lost; the undo is just incomplete.
+      //  ★ KNOWN LIMIT (concurrent delete): if the row vanishes between the ref
+      //  read above and the updater, `prev.map(apply)` writes nothing, yet this
+      //  still returns success, logs `raid.escalated` and captures an undo entry
+      //  for a write that did not happen — the same exposure as `handleEscalate`.
+      escalateRaid: (id, { email, name }) => {
+        if (isReadOnly) throw readOnlyError();
+        const existing = raidRef.current.find((r) => r.id === id);
+        if (!existing) return null;
+        const at = new Date().toISOString();
+        const lang = settingsRef.current.language;
+        const recipient = resolveEscalationRecipient(email, name, resourcesRef.current);
+        const plan = planEscalation(existing);
+        const entry = buildEscalationEntry(plan, recipient, at);
+        const noteText = describeEscalation(lang, entry);
+        const author = aiEscalationNoteAuthor(lang);
+        const apply = (r: RaidItem): RaidItem =>
+          r.id === id ? buildEscalationRecord(r, plan, recipient, at, noteText, author) : r;
+        // `before` from the STORED row, read before the write; `after` is the
+        // record the planned write produces from that same row.
+        const next = buildEscalationRecord(existing, plan, recipient, at, noteText, author);
+        const severityEnds = (r: RaidItem): Partial<RaidItem> =>
+          plan.raisesSeverity ? { severity: r.severity } : {};
+        const nextNotes = next.noteLog ?? [];
+        const escalationEnds = appendPatch(Array.isArray(existing.escalations) ? existing.escalations : [], entry);
+        const noteEnds = appendPatch(existing.noteLog ?? [], nextNotes[nextNotes.length - 1]);
+        undoRef.current?.captureComposite({
+          kind: "raid.escalated",
+          primaryCount: 1,
+          parts: [captureFieldPart<RaidItem>({
+            setter: setRaid,
+            edits: [{
+              id,
+              before: { escalations: escalationEnds.before, noteLog: noteEnds.before, ...severityEnds(existing) },
+              after: { escalations: escalationEnds.after, noteLog: noteEnds.after, ...severityEnds(next) },
+            }],
+            stampField: "localModifiedAt",
+          })],
+          name: existing.title,
+          entityKey: "raid",
+        });
+        raidRef.current = raidRef.current.map(apply);
+        setRaid((prev) => prev.map(apply));
+        logActivityAs?.("ai", "raid.escalated", id, ...escalationActivityArgs(existing, plan));
+        return {
+          id,
+          severity: plan.raisesSeverity && plan.to ? plan.to : existing.severity,
+          severityRaised: plan.raisesSeverity,
+          escalation: entry,
+          emailSent: false,
+        };
       },
       // ★★ These four registers count toward the save-time data-loss guards,
       //    so a delete that empties one — or several deletes inside one save
@@ -915,6 +1024,11 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       // moves, so it recomputes nothing; it is here to keep the "no escape
       // hatch" property above true.
       undoRef,
+      // ★ Refs from `deps`, listed for the same reason as `clockRef`/`undoRef`.
+      //  `settingsRef` was already read (by `readOnlyError`, itself a dep); the
+      //  escalation writer is the first body in this memo to read it directly.
+      settingsRef,
+      resourcesRef,
       setRaid,
       setChanges,
       setMilestones,

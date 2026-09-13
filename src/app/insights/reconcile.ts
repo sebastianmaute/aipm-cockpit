@@ -62,6 +62,9 @@ function upsert(prev: Insight, det: DetectedInsight, today: string): Insight {
     occurrences: next.occurrences,
     ...(next.acknowledgedAt !== undefined ? { acknowledgedAt: next.acknowledgedAt } : {}),
     ...(next.actedAt !== undefined ? { actedAt: next.actedAt } : {}),
+    // §515 — the link to the RAID item logged from this insight outlives a re-fire,
+    // like `actedAt`: the item still exists whether or not the condition recurred.
+    ...(next.loggedRaidId !== undefined ? { loggedRaidId: next.loggedRaidId } : {}),
     // ★★ `outcome` is DROPPED for BOTH branches — a stale measurement describes the
     // previous state either way. `metricAtAction` is dropped ONLY on a genuine
     // RESOLVED→detected re-fire: the condition actually cleared and came back, so
@@ -365,6 +368,7 @@ export function insightsMateriallyEqual(
       x.firstSeenAt !== y.firstSeenAt ||
       x.acknowledgedAt !== y.acknowledgedAt ||
       x.actedAt !== y.actedAt ||
+      x.loggedRaidId !== y.loggedRaidId ||
       x.dismissedAt !== y.dismissedAt ||
       x.resolvedAt !== y.resolvedAt ||
       x.dismissReason !== y.dismissReason ||

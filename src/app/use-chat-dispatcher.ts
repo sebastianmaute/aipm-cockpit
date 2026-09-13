@@ -233,6 +233,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // identity moves. A ref object's identity never moves, so this costs
     // nothing and reads the current value at call time.
     undoRef,
+    resourcesRef,
   });
 
   // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`

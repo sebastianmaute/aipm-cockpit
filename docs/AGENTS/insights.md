@@ -105,7 +105,8 @@
   current < baseline and `delta = baseline − current` — there is deliberately NO per-type direction table;
   a new detector whose metric is higher-is-better would break that assumption and needs one. ★ `delta` is
   NEGATIVE when worsened — the UI must render `Math.abs(delta)`. ★★ CAPTURE is at EVERY acted transition
-  (manual `onActInsight` AND `confirmInsightRecommendation`), both spreading the SAME `metricAtActionPatch(i)`
+  (manual `onActInsight`, `confirmInsightRecommendation`, AND "Log as RAID" through `markInsightLoggedAsRaid`,
+  which also stores `loggedRaidId` — the id `handleSaveRaidItem` RETURNS, never the draft's), all spreading the SAME `metricAtActionPatch(i)`
   — read `i` from the functional setter's `prev`, NEVER a closure-captured insight, and the FIRST act wins
   (a re-act must not overwrite the baseline). ★★ MEASUREMENT lives in `reconcile`: `upsert` re-measures an
   `acted`+still-detected record from the fresh `det.data`; `clear` labels the (pre-existing SP1) acted→resolved

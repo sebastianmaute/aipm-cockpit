@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   sanitizeSteeringCommittee,
   sanitizeRaidItem,
+  dropUnacceptedRaidFields,
   sanitizeMilestone,
   sanitizeMilestoneTaskIds,
   sanitizeChangeItem,
@@ -472,5 +473,28 @@ describe("change amount precision follows each field's own form control", () => 
   it("refuses a boolean on both, for the same reason as the risk scale", () => {
     expect(acceptsScheduleDays(true)).toBe(false);
     expect(acceptsCostAmount(true)).toBe(false);
+  });
+});
+
+describe("sanitizeRaidItem — escalations", () => {
+  const ESC = { at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", fromSeverity: "Medium", toSeverity: "High" };
+  it("keeps a valid escalation record", () => {
+    expect(sanitizeRaidItem({ ...baseRaid, escalations: [ESC] })?.escalations).toEqual([ESC]);
+  });
+  it("is sparse: absent, empty or wholly invalid -> undefined", () => {
+    expect(sanitizeRaidItem({ ...baseRaid })?.escalations).toBeUndefined();
+    expect(sanitizeRaidItem({ ...baseRaid, escalations: [] })?.escalations).toBeUndefined();
+    expect(sanitizeRaidItem({ ...baseRaid, escalations: [{ at: "nope" }] })?.escalations).toBeUndefined();
+  });
+});
+
+describe("dropUnacceptedRaidFields — escalations is model-read-only (§515)", () => {
+  const ESC = { at: "2026-05-20T09:30:00.000Z", toEmail: "forged@example.com", toSeverity: "Critical" };
+  it("drops a model-supplied escalations key and keeps the rest of the patch", () => {
+    expect(dropUnacceptedRaidFields({ title: "Renamed", escalations: [ESC] }, { category: "I" })).toEqual({ title: "Renamed" });
+  });
+  it("positive control: a patch without escalations is returned untouched", () => {
+    const patch = { title: "Renamed" };
+    expect(dropUnacceptedRaidFields(patch, { category: "I" })).toBe(patch);
   });
 });

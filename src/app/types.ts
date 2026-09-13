@@ -190,6 +190,21 @@ export const DEPENDENCY_STATUSES: RaidStatus[] = [
   "Blocked",
 ];
 
+/** One escalation of a RAID item (§515): who was mailed, when, and the
+ *  severity step it applied. `toSeverity` ABSENT = notify-only (a Risk, whose
+ *  severity the matrix owns, or an item already Critical / with no severity).
+ *  App-written by the Next-actions Escalate CTA and, APPEND-ONLY, by the AI
+ *  `escalate_raid_item` tool; never model-writable through create/update. */
+export type RaidEscalation = {
+  /** ISO timestamp. */
+  at: string;
+  toName?: string;
+  toEmail: string;
+  toResourceId?: number;
+  fromSeverity?: RaidSeverity;
+  toSeverity?: RaidSeverity;
+};
+
 export type RaidItem = {
   id: number;
   category: RaidCategory;
@@ -239,6 +254,9 @@ export type RaidItem = {
   /** Running note log — dated rich notes. Optional + sparse; absent on legacy
    *  data. Persisted as a JSON-in-cell array across the text backends. */
   noteLog?: NoteLogEntry[];
+  /** Escalation record (§515), oldest first. Optional + sparse; absent on
+   *  legacy data. Persisted as a JSON-in-cell array like `noteLog`. */
+  escalations?: RaidEscalation[];
 };
 
 /** A zero-duration key date, distinct from a task. `achievedDate` is a manual

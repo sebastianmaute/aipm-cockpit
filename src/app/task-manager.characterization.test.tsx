@@ -101,6 +101,7 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
       "onClearBlocker",
       "onCreateTask",
       "onDraftMessage",
+      "onLogAsRaid",
     ]) {
       expect(p, `missing threaded action-center prop: ${key}`).toHaveProperty(key);
     }

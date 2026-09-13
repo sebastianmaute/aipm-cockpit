@@ -1,9 +1,81 @@
 // src/app/markdown-codecs.test.ts
 import { describe, it, expect } from "vitest";
-import { workspaceToMarkdown, markdownToWorkspace, statusToMarkdown, markdownToStatus, EVENTS_MD_COLUMNS } from "./markdown-codecs";
+import { workspaceToMarkdown, markdownToWorkspace, statusToMarkdown, markdownToStatus, mdEscape, mdUnescape, EVENTS_MD_COLUMNS } from "./markdown-codecs";
 import { EVENTS_CSV_COLUMNS } from "./csv-codecs-core";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { defaultExportConfig } from "./settings-types";
+
+// A literal `<br…>` used to be indistinguishable from the `<br>` mdEscape
+// inserts for a real newline, so mdUnescape turned an AUTHORED one back into a
+// newline on decode — inside a JSON-in-cell column (noteLog, escalations) that
+// silently wiped the whole column (§ fix-all-1). mdEscape now escapes the `<`
+// so a literal tag round-trips verbatim instead.
+describe("mdEscape / mdUnescape — literal <br> no longer collides with the newline marker", () => {
+  it.each([
+    ["<br>"],
+    ["<BR/>"],
+    ["<br />"],
+    ["<br/>"],
+  ])("round-trips a literal %s verbatim", (input) => {
+    expect(mdUnescape(mdEscape(input))).toBe(input);
+  });
+
+  it("round-trips a literal <br> sitting beside a real newline", () => {
+    const value = "a<br>b\nc<BR/>d";
+    expect(mdUnescape(mdEscape(value))).toBe(value);
+    // The real newline still becomes <br>, the literal ones stay escaped.
+    expect(mdEscape(value)).toBe("a\\<br>b<br>c\\<BR/>d");
+  });
+
+  it("round-trips a backslash immediately followed by a real newline", () => {
+    const value = "a\\\nb";
+    expect(mdUnescape(mdEscape(value))).toBe(value);
+  });
+
+  it("round-trips a backslash immediately followed by a literal <br>", () => {
+    const value = "a\\<br>b";
+    expect(mdUnescape(mdEscape(value))).toBe(value);
+    // Backslash doubled, then the literal tag's `<` escaped — decode must not
+    // conflate "escaped backslash + newline marker" with "escaped backslash +
+    // escaped <".
+    expect(mdEscape(value)).toBe("a\\\\\\<br>b");
+  });
+
+  it("round-trips pipes and escaped pipes", () => {
+    expect(mdUnescape(mdEscape("a|b"))).toBe("a|b");
+    expect(mdUnescape(mdEscape("a\\|b"))).toBe("a\\|b");
+  });
+
+  it("leaves a value with none of the hazard characters byte-unchanged", () => {
+    const value = "plain text, no hazards here";
+    expect(mdEscape(value)).toBe(value);
+  });
+
+  it("does not escape a bare < that is not followed by br…>", () => {
+    const value = "a < b and a<x>b";
+    expect(mdEscape(value)).toBe(value);
+    expect(mdUnescape(mdEscape(value))).toBe(value);
+  });
+});
+
+// fix-all-1 review Minor 4: the encoder only ever writes `\<` immediately
+// before a break tag, so the decoder's `\<` alternative is narrowed with the
+// same `(?=br\s*\/?>)` lookahead the encoder uses — it must not unescape a
+// `\<` anywhere else. These test `mdUnescape` DIRECTLY on hand-authored text
+// the app's own `mdEscape` would never produce, since a round trip through
+// `mdEscape` first cannot show this (the encoder never emits a bare `\<`).
+describe("mdUnescape — narrows \\< to immediately before a break tag", () => {
+  it("unescapes \\< immediately before a break tag", () => {
+    expect(mdUnescape("a\\<br>b")).toBe("a<br>b");
+    expect(mdUnescape("a\\<BR/>b")).toBe("a<BR/>b");
+  });
+
+  it("leaves a hand-authored \\< alone everywhere else, keeping its backslash", () => {
+    expect(mdUnescape("C:\\<dir>")).toBe("C:\\<dir>");
+    expect(mdUnescape("a\\<b")).toBe("a\\<b");
+    expect(mdUnescape("a\\<x>b")).toBe("a\\<x>b");
+  });
+});
 
 describe("markdown fieldVisibility section", () => {
   it("emits nothing when undefined", () => {

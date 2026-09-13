@@ -8,6 +8,7 @@ import {
   isRichCell,
   TASK_RICH_COLUMNS,
   RAID_RICH_COLUMNS,
+  RAID_EXPORT_COLUMNS,
   MILESTONE_RICH_COLUMNS,
   CHANGE_RICH_COLUMNS,
 } from "./export-sections";
@@ -251,9 +252,13 @@ describe("buildExportSections", () => {
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const raidSec = sections.find((s) => s.key === "raid")!;
 
-    expect(raidSec.columns).toEqual(RAID_CSV_COLUMNS);
+    // §515: the structured escalations column is out of scope for document exports
+    // (the note-log echo, which names the recipient, is still exported).
+    expect(raidSec.columns).toEqual(RAID_EXPORT_COLUMNS);
+    expect(raidSec.columns).not.toContain("escalations");
+    expect(RAID_EXPORT_COLUMNS).toHaveLength(RAID_CSV_COLUMNS.length - 1);
     raidItems.forEach((r, idx) => {
-      const expectedRow = RAID_CSV_COLUMNS.map((c) => raidFieldToString(r, c));
+      const expectedRow = RAID_EXPORT_COLUMNS.map((c) => raidFieldToString(r, c));
       expect(raidSec.rows[idx].map(flatCell)).toEqual(expectedRow);
     });
   });

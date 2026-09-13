@@ -71,10 +71,14 @@ const DESTRUCTIVE_TOOLS: ReadonlySet<string> = new Set([
  *   calendar events, same as every other register here) and count the same way.
  *   The calendar-event pair carries an ADDITIONAL escalation of its own — see
  *   `sendsInvitations` below — but that is a payload check layered on top of
- *   this name-level membership, not a reason to leave the name out of it. */
+ *   this name-level membership, not a reason to leave the name out of it.
+ *
+ *  ★★ `escalate_raid_item` (§515) is an ordinary single-row RAID write: it sends
+ *   no mail (unlike `send_inquiry`, whose handler opens a mail client) and it is
+ *   undo-captured, so one call applies and two stage (user decision 2026-09-13). */
 const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_task", "update_task", "set_task_dependencies", "send_inquiry",
-  "create_raid_item", "update_raid_item",
+  "create_raid_item", "update_raid_item", "escalate_raid_item",
   "create_change", "update_change",
   "create_milestone", "update_milestone",
   "create_stakeholder", "update_stakeholder",
@@ -185,6 +189,7 @@ export const TARGET_MINTED_BY: Readonly<Record<string, string>> = {
   get_task: "create_task",
   update_raid_item: "create_raid_item",
   delete_raid_item: "create_raid_item",
+  escalate_raid_item: "create_raid_item",
   update_change: "create_change",
   delete_change: "create_change",
   update_milestone: "create_milestone",

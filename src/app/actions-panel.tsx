@@ -60,13 +60,14 @@ interface ActionsPanelProps {
   reschedule?: RescheduleBundle;
   onMarkDone?: (action: SuggestedAction) => void;
   onClearBlocker?: (action: SuggestedAction) => void;
+  onLogAsRaid?: (action: SuggestedAction) => void;
   learningEnabled?: boolean;
   expertMode?: boolean;
   onOpenLearningSettings?: () => void;
   aiAnalysis?: AiAnalysisBundle;
 }
 
-export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker, learningEnabled, expertMode, onOpenLearningSettings, aiAnalysis }: ActionsPanelProps) {
+export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker, onLogAsRaid, learningEnabled, expertMode, onOpenLearningSettings, aiAnalysis }: ActionsPanelProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
   const { ref, reset } = useResizable("aipm-cockpit:actions-size");
   const groups = useMemo(() => groupNextActions(actions), [actions]);
@@ -138,7 +139,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
   //    ordering makes the guard structural instead of merely advisory.
   const rowProps = {
     lang, expertMode, onOpen, onSnooze, onCreateTask, assignOwner,
-    onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker,
+    onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker, onLogAsRaid,
   };
   // ★ `?? ""` cannot actually fire: the map is keyed by `g.key` over the same
   //   `groups` array every render site draws from.

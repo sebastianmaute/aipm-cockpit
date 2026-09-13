@@ -80,6 +80,15 @@ describe("addNote", () => {
     const out = addNote([], { html: "<p>x</p>", text: "x", timestamp: "2026-02-02T00:00:00.000Z", self: null });
     expect(out[0].authorResourceId).toBeUndefined();
   });
+  it("keeps an explicit authorName without a self id — the AI escalation label (§515)", () => {
+    const out = addNote([], { html: "<p>x</p>", text: "x", timestamp: "2026-02-02T00:00:00.000Z", self: null, authorName: "AI created" });
+    expect(out[0].authorName).toBe("AI created");
+    expect(out[0].authorResourceId).toBeUndefined();
+    // The label survives the load-boundary validator every codec decodes through.
+    expect(sanitizeNoteLog(out)[0]?.authorName).toBe("AI created");
+    // Existing rule, unchanged: no authorResourceId → anyone may edit it.
+    expect(canEditNote(out[0], 8)).toBe(true);
+  });
 });
 
 describe("canEditNote", () => {

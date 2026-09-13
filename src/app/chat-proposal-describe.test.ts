@@ -545,6 +545,7 @@ describe("TOOL_ENTITY", () => {
     const undescribable = [
       "create_document", "update_document", "delete_document",
       "delete_all_tasks", "send_inquiry", "set_task_dependencies",
+      "escalate_raid_item",
     ];
     // ★★★ THE DIRECTION IS THE WHOLE POINT. Iterating that literal and asserting
     // each member is a write absent from TOOL_ENTITY checks the LITERAL against
@@ -584,6 +585,17 @@ describe("TOOL_ENTITY", () => {
     expect(deps.plan.links).toEqual([
       { entity: "task", target: "row", field: "dependencies", subject: "A", before: "", after: "B (FS)", rawIds: [2] },
     ]);
+  });
+
+  test("stamps escalate_raid_item with the live RAID row's token and describes no diff (§515)", () => {
+    const raid7 = {
+      id: 7, category: "I", title: "Vendor down", status: "Open", severity: "High",
+      linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-05-01",
+    };
+    const withRaid = { ...ws, raid: [raid7] } as unknown as Workspace;
+    const [described] = describeProposal([call("escalate_raid_item", { id: 7, toEmail: "jane@example.com" })], withRaid);
+    expect(described.stamped.input.expectedToken).toBe(entityToken("raid", raid7));
+    expect(described.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
   });
 });
 

@@ -71,6 +71,8 @@ export interface InsightRecommendationDeps {
   onAcknowledgeInsight: (id: number) => void;
   onActInsight: (id: number) => void;
   onDismissInsight: (id: number) => void;
+  /** "Log as RAID" opener (§515); undefined in popouts. */
+  onLogAsRaid?: (insight: Insight) => void;
 }
 
 export function useInsightRecommendations(deps: InsightRecommendationDeps) {
@@ -94,6 +96,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     onAcknowledgeInsight,
     onActInsight,
     onDismissInsight,
+    onLogAsRaid,
   } = deps;
 
   // --- Insights → Action Loop (#6B SP2) ---------------------------------
@@ -248,9 +251,10 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       onGenerateRecommendation: onGenerateRecommendationInsight,
       onApplyRecommendation: onApplyRecommendationInsight,
       onRejectRecommendation: onRejectRecommendationInsight,
+      ...(onLogAsRaid ? { onLogAsRaid } : {}),
     }),
     [onAcknowledgeInsight, onActInsight, onDismissInsight, onGenerateRecommendationInsight,
-      onApplyRecommendationInsight, onRejectRecommendationInsight],
+      onApplyRecommendationInsight, onRejectRecommendationInsight, onLogAsRaid],
   );
 
   // The insight currently under review + a live preview of its recommendation's

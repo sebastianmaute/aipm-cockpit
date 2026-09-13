@@ -16,10 +16,10 @@
 //   the hook takes a fully explicit deps bag, so it drives from a plain object
 //   of spies with no React tree beyond `renderHook`.
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useActionCenterHandlers, type ActionCenterHandlerDeps } from "./use-action-center-handlers";
 import type { SuggestedAction } from "./next-actions";
-import type { Task } from "./types";
+import type { RaidItem, Task } from "./types";
 
 const TODAY = "2026-08-30";
 
@@ -82,6 +82,7 @@ function makeDeps(overrides: Partial<ActionCenterHandlerDeps> = {}): ActionCente
     recordLearning: vi.fn(async () => {}),
     showToast: vi.fn(),
     logActivity: vi.fn(),
+    selfResourceId: null,
     ...overrides,
   } as ActionCenterHandlerDeps;
 }
@@ -199,5 +200,118 @@ describe("useActionCenterHandlers — an empty default template never drafts an 
     act(() => result.current.handleDraftMessageFromAction(draftAction(1)));
     const req = send.mock.calls[0][0] as { plain: string };
     expect(req.plain).toBe("Update for Dana");
+  });
+});
+
+describe("useActionCenterHandlers — Escalate records on the item (§515)", () => {
+  const item: RaidItem = {
+    id: 5, category: "I", title: "Vendor down", status: "Open", severity: "High",
+    linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-08-01",
+  };
+  const escalateAction: SuggestedAction = {
+    id: "raid:5:severity",
+    source: "raid",
+    title: { key: "actionRaidTitle", params: [5, "Vendor down"] },
+    why: { key: "actionRaidWhySeverity", params: ["High"] },
+    score: 30,
+    tier: "now",
+    cta: { kind: "open", view: "raid", id: 5 },
+  };
+  const recipient = { name: "Jane Doe", email: "jane@example.com", resourceId: 4 };
+
+  let hrefValue = "";
+  let originalLocation: Location;
+  beforeEach(() => {
+    hrefValue = "";
+    originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, set href(v: string) { hrefValue = v; }, get href() { return hrefValue; } },
+    });
+  });
+  afterEach(() => {
+    Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+  });
+
+  it("writes through ONE functional updater that composes with a same-tick concurrent write", () => {
+    const setRaid = vi.fn();
+    const { result } = renderHook(() => useActionCenterHandlers(makeDeps({ raid: [item], setRaid })));
+    act(() => { result.current.escalateBundle!.onEscalate(escalateAction, recipient); });
+    expect(setRaid).toHaveBeenCalledTimes(1);
+    const updater = setRaid.mock.calls[0][0] as unknown;
+    expect(typeof updater).toBe("function");
+    // A concurrent writer renamed the item and added a row after this render.
+    const concurrent: RaidItem[] = [{ ...item, title: "Vendor down (renamed)" }, { ...item, id: 6, title: "Other" }];
+    const next = (updater as (prev: readonly RaidItem[]) => readonly RaidItem[])(concurrent);
+    expect(next).toHaveLength(2);
+    expect(next[0].title).toBe("Vendor down (renamed)");
+    expect(next[0].severity).toBe("Critical");
+    expect(next[0].escalations).toEqual([
+      { at: expect.any(String), toName: "Jane Doe", toEmail: "jane@example.com", toResourceId: 4, fromSeverity: "High", toSeverity: "Critical" },
+    ]);
+    expect(next[0].noteLog).toHaveLength(1);
+    expect(next[1]).toBe(concurrent[1]);
+    // buildMailtoUrl percent-encodes the address (mailto.ts) — controller
+    // ruling P1: assert the encoded form, not the raw address.
+    expect(hrefValue.startsWith(`mailto:${encodeURIComponent("jane@example.com")}?`)).toBe(true);
+  });
+
+  it("logs raid.escalated with the severity step only — never the address — and the log agrees with the record", () => {
+    const logActivity = vi.fn();
+    const setRaid = vi.fn();
+    const { result } = renderHook(() => useActionCenterHandlers(makeDeps({ raid: [item], logActivity, setRaid })));
+    act(() => { result.current.escalateBundle!.onEscalate(escalateAction, recipient); });
+    expect(logActivity).toHaveBeenCalledWith("raid.escalated", 5, "High", "Critical");
+    expect(JSON.stringify(logActivity.mock.calls)).not.toContain("jane@example.com");
+    // ONE plan feeds record, log and mail — even when the updater sees a concurrent
+    // severity write (deviation 15: that write is overwritten, but nothing disagrees).
+    const updater = setRaid.mock.calls[0][0] as (prev: readonly RaidItem[]) => readonly RaidItem[];
+    const [recorded] = updater([{ ...item, severity: "Medium" }]);
+    const entry = recorded.escalations?.[0];
+    expect([entry?.fromSeverity, entry?.toSeverity]).toEqual([logActivity.mock.calls[0][2], logActivity.mock.calls[0][3]]);
+    expect(recorded.severity).toBe(entry?.toSeverity);
+  });
+
+  it("attributes the note echo to the user's own resource from selfResourceId", () => {
+    const pat = { id: 3, firstName: "Pat", lastName: "Lee", email: "pat@example.com", roleId: null, utilizationMode: "percent", utilization: {} } as never;
+    const noteOf = (selfResourceId: number | null) => {
+      const setRaid = vi.fn();
+      const { result } = renderHook(() => useActionCenterHandlers(makeDeps({ raid: [item], setRaid, resources: [pat], selfResourceId })));
+      act(() => { result.current.escalateBundle!.onEscalate(escalateAction, recipient); });
+      const updater = setRaid.mock.calls[0][0] as (prev: readonly RaidItem[]) => readonly RaidItem[];
+      return updater([item])[0].noteLog?.[0];
+    };
+    expect(noteOf(3)).toMatchObject({ authorResourceId: 3, authorName: "Pat Lee" });
+    // Positive control: without a self id the same escalation writes a note with NO author.
+    const anonymous = noteOf(null);
+    expect(anonymous?.text).toContain("Jane Doe");
+    expect(anonymous).not.toHaveProperty("authorResourceId");
+    expect(anonymous).not.toHaveProperty("authorName");
+  });
+
+  // REGRESSION PIN — passes before this task's change too (the address guard predates §515);
+  // kept so the rewrite cannot move the write ahead of the check.
+  it("writes nothing for an invalid address (positive control: the toast fires)", () => {
+    const setRaid = vi.fn();
+    const showToast = vi.fn();
+    const logActivity = vi.fn();
+    const { result } = renderHook(() => useActionCenterHandlers(makeDeps({ raid: [item], setRaid, showToast, logActivity })));
+    act(() => { result.current.escalateBundle!.onEscalate(escalateAction, { ...recipient, email: "nope" }); });
+    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+    expect(setRaid).not.toHaveBeenCalled();
+    expect(logActivity).not.toHaveBeenCalled();
+  });
+
+  // fix-all-1: isEscalationEmail rejects "<"/">" too — an address that would
+  // otherwise pass isValidEmail must still be refused here.
+  it("writes nothing for a <br>-bearing address that would otherwise pass isValidEmail", () => {
+    const setRaid = vi.fn();
+    const showToast = vi.fn();
+    const logActivity = vi.fn();
+    const { result } = renderHook(() => useActionCenterHandlers(makeDeps({ raid: [item], setRaid, showToast, logActivity })));
+    act(() => { result.current.escalateBundle!.onEscalate(escalateAction, { ...recipient, email: "a<br>@b.co" }); });
+    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+    expect(setRaid).not.toHaveBeenCalled();
+    expect(logActivity).not.toHaveBeenCalled();
   });
 });

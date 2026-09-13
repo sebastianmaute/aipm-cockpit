@@ -100,6 +100,11 @@ register's fix to another is how two of them broke. Read the note that names you
   ★★ The task fix (OMIT the field from the payload) would be WORSE here: because the RAID save
   REPLACES the row, a payload without `noteLog` erases the log outright. `use-resource-planner.ts`
   instead builds `withStamp` with `noteLog` taken from the STORED row (`previous`), never the payload.
+  ★★ `escalations` rides the SAME carry (§515): the Next-actions Escalate CTA (`handleEscalate`) and the AI
+  `escalate_raid_item` tool (`escalateRaid`) are write-through RAID writers — each one functional `setRaid`
+  appending a `RaidEscalation` AND a note via `buildEscalationRecord` — and the always-mounted RAID editor's
+  draft would otherwise erase both on Save. The AI's note carries the literal `authorName` "AI created" and no
+  `authorResourceId` (`aiEscalationNoteAuthor`), the one note `addNote` writes with a name but no self id.
   ★★ It must land on `withStamp` and not only inside `setRaid` — `RAID_UNDO_GROUPS` is `[]`, so
   `changedFieldGroups` emits ONE capture PER changed key and a stale `noteLog` becomes undoable/
   redoable state. `NEVER_CAPTURE` is only `{id, localModifiedAt}`, so nothing else suppresses it.

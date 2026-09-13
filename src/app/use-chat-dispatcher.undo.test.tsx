@@ -7,6 +7,7 @@ import {
 } from "../test/chat-dispatcher-fixture";
 import { type ToolDispatcher } from "./chat-tools";
 import { __resetMintStateForTests } from "./id-mint-session";
+import { addNote } from "./note-log";
 import { type TestSeed } from "./test-providers";
 import {
   DEFAULT_TASK_STATUS,
@@ -227,7 +228,11 @@ const SEED: TestSeed = {
     },
   ],
   resources: [seedResource(1, "Ada"), seedResource(2, "Grace"), seedResource(3, "Alan")],
-  raid: [seedRaid(1, "R1"), seedRaid(2, "R2"), seedRaid(3, "R3")],
+  // ★★ Row 2 is an Issue at High, not `seedRaid`'s severity-less Risk: the
+  //   `escalateRaid` site RAISES it to Critical, so its restored-severity
+  //   assertion can see an undo that leaves the raise behind. Against a Risk
+  //   the escalation is notify-only and severity is undefined on both sides.
+  raid: [seedRaid(1, "R1"), { ...seedRaid(2, "R2"), category: "I", severity: "High" }, seedRaid(3, "R3")],
   changes: [seedChange(1, "C1"), seedChange(2, "C2"), seedChange(3, "C3")],
   milestones: [seedMilestone(1, "M1"), seedMilestone(2, "M2"), seedMilestone(3, "M3")],
   stakeholders: [seedStakeholder(1, "S1"), seedStakeholder(2, "S2"), seedStakeholder(3, "S3")],
@@ -381,6 +386,31 @@ const SITES: SiteRow[] = [
       expect(ids(d.listRaid())).toEqual([1, 2, 3]);
     },
     kind: "raid.updated", entityKey: "raid", primaryCount: 1,
+  },
+  {
+    site: "escalateRaid",
+    act: (d) => { d.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); },
+    verify: (d) => {
+      expect(d.getRaidRow(2)?.escalations).toHaveLength(1);
+      expect(d.getRaidRow(2)?.severity).toBe("Critical");
+      // Positive control for the note assertion in `restored`: the echo landed.
+      expect(d.getRaidRow(2)?.noteLog).toHaveLength(1);
+      expect(d.getRaidRow(2)?.noteLog?.[0]?.authorName).toBe("AI created");
+    },
+    // ★ Row 2 is seeded an Issue at High, with no `escalations` and no `noteLog`.
+    // ★★ Undo reverts ALL THREE written fields, the note included: the capture
+    //   is a FIELD PATCH (`captureFieldPart`), not a whole-row image, so the
+    //   write-through rule for `noteLog` (open-followups §50) does not apply.
+    //   The empty arrays are the patch's `before` ends — an absent array is
+    //   captured as `[]` so a concurrent human note can survive the merge (see
+    //   the dedicated round trips below).
+    restored: (d) => {
+      expect(d.getRaidRow(2)?.escalations).toEqual([]);
+      expect(d.getRaidRow(2)?.severity).toBe("High");
+      expect(d.getRaidRow(2)?.noteLog).toEqual([]);
+      expect(ids(d.listRaid())).toEqual([1, 2, 3]);
+    },
+    kind: "raid.escalated", entityKey: "raid", primaryCount: 1,
   },
   {
     site: "deleteRaid",
@@ -697,8 +727,10 @@ function renderRealUndo(seed: TestSeed) {
       //   the bottom, which has to build the capture production deliberately
       //   refuses to build, and cannot do that without the real setter. Every
       //   other test here ignores it.
-      const { setTasks } = useWorkspace();
-      return { undo, dispatcher, setTasks };
+      // ★ `setRaid` is the same kind of handle, used only by the escalation
+      //   race below to add a HUMAN note between the AI write and its undo.
+      const { setTasks, setRaid } = useWorkspace();
+      return { undo, dispatcher, setTasks, setRaid };
     },
     { wrapper: dispatcherWrapperWith(seed) },
   );
@@ -806,6 +838,95 @@ describe("AI writes round-trip through the real undo stack", () => {
     expect(result.current.dispatcher.getTask(2)).toBeNull();
     expect(result.current.undo.stack).toHaveLength(1);
     expect(result.current.undo.redoStack).toHaveLength(0);
+  });
+
+  test("undoing an AI escalation removes its note, and redo re-applies entry, note and severity", () => {
+    const { result } = renderRealUndo(SEED);
+    act(() => { result.current.dispatcher.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); });
+    const written = result.current.dispatcher.getRaidRow(2);
+    expect(written?.noteLog).toHaveLength(1);
+    expect(written?.escalations).toHaveLength(1);
+    expect(written?.severity).toBe("Critical");
+
+    act(() => { result.current.undo.undo(); });
+    expect(result.current.dispatcher.getRaidRow(2)?.noteLog).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.escalations).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.severity).toBe("High");
+
+    act(() => { result.current.undo.redo(); });
+    const redone = result.current.dispatcher.getRaidRow(2);
+    expect(redone?.noteLog).toEqual(written?.noteLog);
+    expect(redone?.escalations).toEqual(written?.escalations);
+    expect(redone?.severity).toBe("Critical");
+    expect(result.current.undo.stack).toHaveLength(1);
+    expect(result.current.undo.redoStack).toHaveLength(0);
+  });
+
+  test("a HUMAN note added after an AI escalation survives its undo and its redo", () => {
+    const { result } = renderRealUndo(SEED);
+    act(() => { result.current.dispatcher.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); });
+    const aiNote = result.current.dispatcher.getRaidRow(2)?.noteLog?.[0];
+    expect(aiNote?.authorName).toBe("AI created");
+
+    // The human writes a note AFTER the escalation, through the same setter.
+    act(() => {
+      result.current.setRaid((prev) => prev.map((r) => (r.id === 2
+        ? { ...r, noteLog: addNote(r.noteLog ?? [], { html: "<p>Vendor called</p>", text: "Vendor called", timestamp: "2026-09-13T09:00:00.000Z", self: 1 }) }
+        : r)));
+    });
+    const humanNote = result.current.dispatcher.getRaidRow(2)?.noteLog?.[1];
+    expect(humanNote?.text).toBe("Vendor called");
+
+    act(() => { result.current.undo.undo(); });
+    // ★★ Only the ONE entry the escalation added is removed — the human note stays.
+    expect(result.current.dispatcher.getRaidRow(2)?.noteLog).toEqual([humanNote]);
+    expect(result.current.dispatcher.getRaidRow(2)?.escalations).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.severity).toBe("High");
+
+    act(() => { result.current.undo.redo(); });
+    expect(result.current.dispatcher.getRaidRow(2)?.noteLog).toEqual([aiNote, humanNote]);
+    expect(result.current.dispatcher.getRaidRow(2)?.escalations).toHaveLength(1);
+    expect(result.current.dispatcher.getRaidRow(2)?.severity).toBe("Critical");
+  });
+
+  test("a stored log with DUPLICATE entries still keeps a later human note across undo and redo", () => {
+    // ★★ Two deep-equal legacy entries. `mergeArray` reverts WHOLESALE when either
+    //   patch end holds duplicates, so a patch carrying the whole stored log as its
+    //   `before` end deleted the human note here (fix-all 2 review M1).
+    const dup = { id: 1, timestamp: "2026-05-01T08:00:00.000Z", html: "<p>Legacy</p>", text: "Legacy" };
+    const seed: TestSeed = {
+      ...SEED,
+      raid: [seedRaid(1, "R1"), { ...seedRaid(2, "R2"), category: "I", severity: "High", noteLog: [dup, dup] }, seedRaid(3, "R3")],
+    };
+    const { result } = renderRealUndo(seed);
+    expect(result.current.dispatcher.getRaidRow(2)?.noteLog).toEqual([dup, dup]); // the seed landed as-is
+    act(() => { result.current.dispatcher.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); });
+    const aiNote = result.current.dispatcher.getRaidRow(2)?.noteLog?.[2];
+    expect(aiNote?.authorName).toBe("AI created");
+    act(() => {
+      result.current.setRaid((prev) => prev.map((r) => (r.id === 2
+        ? { ...r, noteLog: addNote(r.noteLog ?? [], { html: "<p>Vendor called</p>", text: "Vendor called", timestamp: "2026-09-13T09:00:00.000Z", self: 1 }) }
+        : r)));
+    });
+    const humanNote = result.current.dispatcher.getRaidRow(2)?.noteLog?.[3];
+    expect(humanNote?.text).toBe("Vendor called");
+
+    act(() => { result.current.undo.undo(); });
+    expect(result.current.dispatcher.getRaidRow(2)?.noteLog).toEqual([dup, dup, humanNote]);
+    expect(result.current.dispatcher.getRaidRow(2)?.escalations).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.severity).toBe("High");
+
+    act(() => { result.current.undo.redo(); });
+    // ★ Every member is back and nothing is lost. With duplicates the anchor is
+    //   ambiguous, so the re-inserted AI note may sit between the two copies —
+    //   membership, not position, is the contract here (order is pinned for a
+    //   duplicate-free log in `undo/append-patch.test.ts`).
+    const redone = result.current.dispatcher.getRaidRow(2)?.noteLog ?? [];
+    expect(redone).toHaveLength(4);
+    expect(redone.filter((n) => n.id === 1)).toEqual([dup, dup]);
+    expect(redone).toContainEqual(aiNote);
+    expect(redone).toContainEqual(humanNote);
+    expect(result.current.dispatcher.getRaidRow(2)?.severity).toBe("Critical");
   });
 });
 

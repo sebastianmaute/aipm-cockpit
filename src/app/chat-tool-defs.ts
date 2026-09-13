@@ -697,6 +697,29 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: "escalate_raid_item",
+    // ★★ APPEND-ONLY, AND A SEPARATE TOOL ON PURPOSE (§515). `update_raid_item`
+    //  refuses `escalations` outright (`RAID_FIELD_GUARDS`); this tool can only
+    //  ADD one entry, planned by the same `planEscalation` the Escalate CTA uses.
+    //  Token-guarded because `escalations` and `severity` are both token-covered,
+    //  which is also what refuses a second escalation made from the same read.
+    description:
+      "Record that a RAID item was escalated to a person. Appends ONE entry to the item's escalation history, adds a dated note labelled 'AI created', and — for an Issue, Assumption or Dependency below Critical — raises its severity one step (a Risk, or an item already Critical or without a severity, is recorded as notify-only). It sends NO email and contacts no one: tell the user to reach the recipient themselves. Existing history entries can never be edited or removed. Pass the expectedToken from list_raid; escalating the same item again needs a fresh read.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "number" },
+        ...expectedTokenField,
+        toEmail: {
+          type: "string",
+          description: "Recipient's email address. A directory resource with this address is linked automatically.",
+        },
+        toName: { type: "string", description: "Recipient's display name. Omit to use the linked resource's name." },
+      },
+      required: ["id", "expectedToken", "toEmail"],
+    },
+  },
+  {
     name: "delete_raid_item",
     description: "Delete a RAID item by ID.",
     input_schema: {

@@ -148,7 +148,10 @@ export function canEditNote(note: NoteLogEntry, self: number | null | undefined)
 }
 
 /** Append a new stamped entry, minting its id and attributing it to `self`
- *  when present (an authorless entry when the user has no linked resource). */
+ *  when present (an authorless entry when the user has no linked resource).
+ *  An explicit `authorName` is kept even without `self` — the AI escalation
+ *  note's "AI created" label (§515). The notes window derives its name from
+ *  the `self` resource, so it never passes one without a self id. */
 export function addNote(
   log: readonly NoteLogEntry[],
   { html, text, timestamp, self, authorName }:
@@ -160,7 +163,7 @@ export function addNote(
     html: sanitizeRichHtml(html),
     text,
     ...(self != null ? { authorResourceId: self } : {}),
-    ...(self != null && authorName ? { authorName } : {}),
+    ...(authorName ? { authorName } : {}),
   };
   return [...log, entry];
 }

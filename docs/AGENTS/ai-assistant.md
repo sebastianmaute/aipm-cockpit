@@ -146,9 +146,22 @@
   (`chat-tools.ts` throws, mirroring `requireId`), not in the pure resolver — a non-array must never be treated
   as "clear all". ★ TEST TRAP: `expect(getX(id)?.field ?? []).toEqual([])` against a fixture that never had the
   field passes whether the code preserves or erases. Seed a real prior value and watch the test FAIL first.
-- **Optimistic concurrency on SEVEN write tools:** the six entity updates — `update_task` ·
-  `update_raid_item` · `update_change` · `update_milestone` · `update_stakeholder` · `update_resource` —
-  plus `set_task_dependencies`, each REQUIRING an `expectedToken` input beside `id`.
+- **Optimistic concurrency on the token-guarded write tools:** every entity `update_*` tool except
+  `update_settings` and `update_document`, plus `set_task_dependencies` and `escalate_raid_item`, each REQUIRING an
+  `expectedToken` input beside `id`. Enumerate them rather than trusting a count — `TOKEN_REQUIRED_TOOLS`
+  (`chat-proposal-apply.ts`) is derived from the schemas.
+  ★★ `escalate_raid_item` (§515) is the APPEND-ONLY escalation write. `update_raid_item` refuses `escalations`
+  (`RAID_FIELD_GUARDS`); this tool adds exactly one entry through the SAME `planEscalation` → `buildEscalationRecord`
+  pair the Next-actions Escalate CTA uses, as one functional `setRaid` with undo capture and a `raid.escalated` row
+  (`escalateRaid`, `use-register-tools.ts`). Its note is authored "AI created" (`aiEscalationNoteAuthor`, a stored
+  `authorName` with no `authorResourceId`). It sends no mail and takes no resource id (the recipient links by
+  e-mail, `resolveEscalationRecipient`). Its token is what refuses a second escalation from the same read.
+  ★★ Undo reverts the entry, the note AND the severity step: the capture is a FIELD PATCH (`captureFieldPart`) over
+  exactly the fields the op writes, so the whole-row `WRITE_THROUGH_FIELDS` rule (open-followups §50) does not keep the
+  note. Arrays three-way merge (`mergeFieldValue`), so a human note added after the escalation survives its undo — which
+  holds only because each array end is an APPEND WINDOW (`appendPatch`): never `undefined`, and never the whole stored
+  log, because `mergeArray` reverts wholesale when an end is `undefined` or holds duplicate entries, deleting that note.
+  The note echo names the recipient (`describeEscalation`); the address appears only when no name is known.
   ★★★ **ENUMERATE THE GUARDED SET BY WHAT A SCHEMA ADVERTISES, NEVER BY THE `update_*` NAME.** The seventh
   is why: `set_task_dependencies` is a WHOLE-LIST REPLACE of `dependencies` — a field that IS in
   `CSV_COLUMNS`, is NOT in `TOKEN_EXCLUDED.task`, and comes straight from model input — whose own schema
@@ -183,7 +196,7 @@
   timestamp, never a field of content.
   ★★★ THAT IS A STATEMENT ABOUT THE FIELD, NOT ABOUT THE TOOL, and reading it as a clearance for
   `set_task_dependencies` is precisely what left that tool unguarded for a release — it also writes
-  `dependencies`, which is token-COVERED and model-supplied. See the seven-tool note above.
+  `dependencies`, which is token-COVERED and model-supplied. See the guarded-tools note above.
   `ai-entity-token.test.ts` asserts the exclusion set is disjoint from what the tools ACCEPT, driving the
   real dispatch path rather than the advertised schema.
   ★★ NOT-FOUND IS RESOLVED BEFORE THE TOKEN, structurally rather than as a preference: the token can only be

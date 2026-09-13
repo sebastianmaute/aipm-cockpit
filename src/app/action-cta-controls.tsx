@@ -30,6 +30,8 @@ export interface ActionHandlers {
    *  learned bias for them — only the primary's kind is learned. */
   onSnooze?: (action: SuggestedAction, durationMs: number, extraIds?: readonly string[]) => void;
   onCreateTask?: (action: SuggestedAction) => void;
+  /** "Log as RAID" (§515) — overflow item; absent in popouts. */
+  onLogAsRaid?: (action: SuggestedAction) => void;
   assignOwner?: AssignOwnerBundle;
   onDraftMessage?: (action: SuggestedAction) => void;
   escalate?: EscalateBundle;
@@ -52,6 +54,7 @@ export function useActionCaps(h: ActionHandlers): ActionCaps {
     clearBlocker: h.onClearBlocker != null,
     snooze: h.onSnooze != null,
     createTask: h.onCreateTask != null,
+    logAsRaid: h.onLogAsRaid != null,
   };
 }
 
@@ -209,6 +212,7 @@ export function ActionOverflowMenu({ lang, action, caps, handlers, rowToken, ext
             if (k === "markDone" && handlers.onMarkDone) return item(t(lang, "actionMarkDone"), () => handlers.onMarkDone!(action));
             if (k === "draft" && handlers.onDraftMessage) return item(t(lang, "actionDraftMessage"), () => handlers.onDraftMessage!(action));
             if (k === "createTask" && handlers.onCreateTask) return item(t(lang, "actionCreateTask"), () => handlers.onCreateTask!(action));
+            if (k === "logAsRaid" && handlers.onLogAsRaid) return item(t(lang, "actionLogAsRaid"), () => handlers.onLogAsRaid!(action));
             if (k === "snooze" && handlers.onSnooze) return (
               <span key="snooze" className="contents">
                 {item(t(lang, "actionSnooze1h"), () => fireSnooze(SNOOZE_1H))}

@@ -300,3 +300,21 @@ describe("appendSeed", () => {
     expect(next.milestones?.at(-1)?.name).toBe("Kickoff");
   });
 });
+
+describe("applyTemplate — RAID escalations (§515)", () => {
+  beforeEach(() => {
+    __resetMintStateForTests();
+  });
+
+  it("never carries a captured escalation record into the applied workspace", () => {
+    const captured: RaidItem = {
+      id: 1, category: "I", title: "Vendor down", status: "Open", severity: "High", linkedTaskIds: [],
+      causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01",
+      escalations: [{ at: "2026-01-05T08:00:00.000Z", toEmail: "jane@example.com", fromSeverity: "Medium", toSeverity: "High" }],
+    };
+    const ws = applyTemplate(emptyWorkspace(), tpl({ raid: [captured] }), { includeSeed: true });
+    expect(ws.raid).toHaveLength(1);
+    expect(ws.raid[0].title).toBe("Vendor down");
+    expect(ws.raid[0].escalations).toBeUndefined();
+  });
+});

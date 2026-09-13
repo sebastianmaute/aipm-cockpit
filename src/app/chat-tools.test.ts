@@ -222,6 +222,14 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       id === 10 ? { id: 10, category: "R", title: "T", status: "Open", stakeholderIds: [] } : null,
     ),
     deleteRaid: vi.fn((id: number) => id === 10),
+    escalateRaid: vi.fn((id: number, recipient: { email: string; name: string }) =>
+      id === 10
+        ? {
+            id: 10, severity: "High", severityRaised: false, emailSent: false as const,
+            escalation: { at: "2026-06-02T00:00:00.000Z", toEmail: recipient.email },
+          }
+        : null,
+    ),
     createChange: vi.fn((input) => ({
       id: 21, title: "C", status: "Proposed", stakeholderIds: [], ...(input as object),
     })),
@@ -1084,6 +1092,73 @@ describe("runTool — delete_task / delete_all_tasks", () => {
   });
 });
 
+describe("runTool — escalate_raid_item (§515, append-only)", () => {
+  it("forwards ONLY the validated recipient — no raw escalations, severity, note log or resource id rides along", async () => {
+    const d = makeDispatcher();
+    const result = await runTool(d, "escalate_raid_item", {
+      id: 10, expectedToken: FRESH_RAID_TOKEN, toEmail: "  jane@example.com ", toName: " Jane Doe ",
+      escalations: [], severity: "Low", noteLog: [], toResourceId: 99,
+    });
+    expect(d.escalateRaid).toHaveBeenCalledTimes(1);
+    expect(d.escalateRaid).toHaveBeenCalledWith(10, { email: "jane@example.com", name: "Jane Doe" });
+    expect(d.updateRaid).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ id: 10, emailSent: false });
+  });
+
+  it("refuses an escalation that supplies no token", async () => {
+    const d = makeDispatcher();
+    await expect(runTool(d, "escalate_raid_item", { id: 10, toEmail: "jane@example.com" }))
+      .rejects.toThrow(/expectedToken is required/);
+    expect(d.escalateRaid).not.toHaveBeenCalled();
+  });
+
+  it("refuses a stale token", async () => {
+    const d = makeDispatcher();
+    const stale = entityToken("raid", makeRaidItem({ severity: "Low" }));
+    await expect(runTool(d, "escalate_raid_item", { id: 10, expectedToken: stale, toEmail: "jane@example.com" }))
+      .rejects.toThrow(/changed since you read it/);
+    expect(d.escalateRaid).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ toEmail: "not-an-address" }, /toEmail must be a valid email/],
+    [{}, /toEmail must be a valid email/],
+    [{ toEmail: 42 }, /toEmail must be a valid email/],
+    [{ toEmail: `${"a".repeat(315)}@x.com` }, /toEmail must be a valid email/],
+    [{ toEmail: "jane@example.com", toName: 7 }, /toName must be a string/],
+    [{ toEmail: "jane@example.com", toName: "n".repeat(201) }, /toName must be at most 200/],
+    // §515: a `<br>` in the name wiped the item's whole escalation history over Markdown.
+    [{ toEmail: "jane@example.com", toName: "Jane<br>Doe" }, /toName must not contain "<" or ">"/],
+    [{ toEmail: "jane@example.com", toName: "Jane > Doe" }, /toName must not contain "<" or ">"/],
+    // fix-all-1: isEscalationEmail rejects "<"/">" in the address too, defence
+    // in depth alongside the root Markdown escaping fix.
+    [{ toEmail: "a<br>@b.co" }, /toEmail must be a valid email/],
+    [{ toEmail: "a@b.co>" }, /toEmail must be a valid email/],
+  ])("rejects the invalid recipient %o with a model-facing error and writes nothing", async (recipient, message) => {
+    const d = makeDispatcher();
+    await expect(runTool(d, "escalate_raid_item", { id: 10, expectedToken: FRESH_RAID_TOKEN, ...recipient }))
+      .rejects.toThrow(message);
+    expect(d.escalateRaid).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a 320-character email", { toEmail: `${"a".repeat(314)}@x.com` }, { email: `${"a".repeat(314)}@x.com`, name: "" }],
+    ["a 200-character name", { toEmail: "jane@example.com", toName: "n".repeat(200) }, { email: "jane@example.com", name: "n".repeat(200) }],
+  ])("accepts %s — the cap is inclusive (boundary positive control)", async (_label, recipient, forwarded) => {
+    expect(forwarded.email.length <= 320 && forwarded.name.length <= 200).toBe(true);
+    const d = makeDispatcher();
+    await runTool(d, "escalate_raid_item", { id: 10, expectedToken: FRESH_RAID_TOKEN, ...recipient });
+    expect(d.escalateRaid).toHaveBeenCalledWith(10, forwarded);
+  });
+
+  it("reports a missing item as not found, before the token", async () => {
+    const d = makeDispatcher();
+    await expect(runTool(d, "escalate_raid_item", { id: 99, toEmail: "jane@example.com" }))
+      .rejects.toThrow("RAID item #99 not found");
+    expect(d.escalateRaid).not.toHaveBeenCalled();
+  });
+});
+
 describe("runTool — send_inquiry", () => {
   it("forwards the result from the dispatcher", async () => {
     const d = makeDispatcher({ sendInquiry: vi.fn(() => ({ sent: false, reason: "no-email" })) });
@@ -1360,6 +1435,7 @@ describe("TOOL_DEFS — write tools are registered with required fields", () => 
   const expectedRequired: Record<string, string[]> = {
     create_raid_item: ["title"],
     update_raid_item: ["id", "expectedToken"],
+    escalate_raid_item: ["id", "expectedToken", "toEmail"],
     delete_raid_item: ["id"],
     create_change: ["title"],
     update_change: ["id", "expectedToken"],

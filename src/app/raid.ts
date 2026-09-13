@@ -19,6 +19,7 @@ import {
   type RaidStatus,
   type RiskScale,
 } from "./types";
+import { lastEscalation } from "./raid-escalation";
 
 /**
  * Maps a 5×5 risk-matrix score to the 4-level severity used everywhere else.
@@ -190,7 +191,8 @@ export type RaidSortKey =
   | "severity"
   | "status"
   | "owner"
-  | "targetDate";
+  | "targetDate"
+  | "lastEscalated";
 
 const SEVERITY_RANK: Record<RaidSeverity, number> = {
   Low: 1,
@@ -220,11 +222,13 @@ function raidSortValue(
       return effectivePersonName(item.owner ?? "", item.ownerResourceId, resourcesById).toLowerCase();
     case "targetDate":
       return item.targetDate ?? "";
+    case "lastEscalated":
+      return lastEscalation(item)?.at ?? "";
   }
 }
 
 /**
- * Compare two RAID items by a column. Missing `targetDate` always sorts LAST,
+ * Compare two RAID items by a column. Missing `targetDate` / never-escalated items always sort LAST,
  * regardless of direction; other missing values use their natural low/empty order.
  */
 export function compareRaid(
@@ -234,9 +238,9 @@ export function compareRaid(
   dir: "asc" | "desc",
   resourcesById: ReadonlyMap<number, Resource> = new Map(),
 ): number {
-  if (key === "targetDate") {
-    const av = a.targetDate ?? "";
-    const bv = b.targetDate ?? "";
+  if (key === "targetDate" || key === "lastEscalated") {
+    const av = String(raidSortValue(a, key, resourcesById));
+    const bv = String(raidSortValue(b, key, resourcesById));
     if (av === "" || bv === "") {
       if (av === bv) return 0;
       return av === "" ? 1 : -1;

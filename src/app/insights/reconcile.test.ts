@@ -847,3 +847,27 @@ describe("reconcileInsights — reserved non-guardrail capacity", () => {
     expect(out.filter((i) => i.type === "raidAging")).toHaveLength(RESERVED_NON_GUARDRAIL - 1);
   });
 });
+
+describe("loggedRaidId (§515)", () => {
+  it("survives a RESOLVED → detected re-fire", () => {
+    const existing = stored("a", { status: "resolved", resolvedAt: "2026-01-25", actedAt: "2026-01-10", loggedRaidId: 9 });
+    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_EVALUATED);
+    const rec = out.find((i) => i.key === "a")!;
+    expect(rec.status).toBe("active"); // positive control: this really took the re-fire branch
+    expect(rec.resolvedAt).toBeUndefined();
+    expect(rec.loggedRaidId).toBe(9);
+  });
+  // REGRESSION PIN — passes before this task too: the non-re-fire branch already spreads
+  // `prev`. The red-before-fix cases are the re-fire test above and the equality test below.
+  it("survives an upsert of a still-detected acted record", () => {
+    const existing = stored("a", { status: "acted", actedAt: "2026-01-10", loggedRaidId: 9 });
+    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_EVALUATED);
+    expect(out.find((i) => i.key === "a")?.loggedRaidId).toBe(9);
+  });
+  it("counts a changed link as a material change", () => {
+    const a = stored("a", { loggedRaidId: 9 });
+    expect(insightsMateriallyEqual([a], [{ ...a }])).toBe(true);
+    expect(insightsMateriallyEqual([a], [{ ...a, loggedRaidId: 10 }])).toBe(false);
+    expect(insightsMateriallyEqual([a], [{ ...a, loggedRaidId: undefined }])).toBe(false);
+  });
+});

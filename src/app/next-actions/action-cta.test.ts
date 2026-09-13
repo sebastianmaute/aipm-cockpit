@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { pickPrimaryCta, overflowCtas, type ActionCaps } from "./action-cta";
+import { canLogAsRaid, pickPrimaryCta, overflowCtas, type ActionCaps } from "./action-cta";
 import type { SuggestedAction } from "./types";
 
 const ALL: ActionCaps = {
   assign: true, draft: true, escalate: true, rebaseline: true, snapshotActive: true,
-  reschedule: true, markDone: true, clearBlocker: true, snooze: true, createTask: true,
+  reschedule: true, markDone: true, clearBlocker: true, snooze: true, createTask: true, logAsRaid: true,
 };
 const NONE: ActionCaps = {
   assign: false, draft: false, escalate: false, rebaseline: false, snapshotActive: false,
-  reschedule: false, markDone: false, clearBlocker: false, snooze: false, createTask: false,
+  reschedule: false, markDone: false, clearBlocker: false, snooze: false, createTask: false, logAsRaid: false,
 };
 function a(source: string, whyKey: string, view = "open-points"): SuggestedAction {
   return {
@@ -58,7 +58,7 @@ describe("overflowCtas", () => {
     // task-due overdue, all caps: primary=reschedule; markDone+createTask gated, snooze present.
     // createTask is hidden for task-due; draft is applicable but task-due+draft → draft NOT primary (reschedule is) so it appears.
     const o = overflowCtas(a("task-due", "actionTaskWhyOverdue"), ALL);
-    expect(o).toEqual(["markDone", "draft", "snooze"]);
+    expect(o).toEqual(["markDone", "draft", "logAsRaid", "snooze"]);
   });
   it("snooze only when wired", () => {
     expect(overflowCtas(a("raid", "actionRaidWhySeverity", "raid"), { ...NONE, snooze: true })).toEqual(["snooze"]);
@@ -89,8 +89,27 @@ describe("open-tasks-for CTA", () => {
   // createTask IS offered — canCreateTask has no isOpen guard, and that is fine
   // (handleCreateTaskFromAction guards its only cta.id read), but the menu's real
   // shape belongs in the diff if it ever changes.
-  it("offers only createTask + snooze - the task verbs need a task id", () => {
-    expect(overflowCtas(tasksFor, ALL)).toEqual(["createTask", "snooze"]);
+  it("offers only createTask + logAsRaid + snooze - the task verbs need a task id", () => {
+    expect(overflowCtas(tasksFor, ALL)).toEqual(["createTask", "logAsRaid", "snooze"]);
     expect(overflowCtas(tasksFor, NONE)).toEqual([]);
+  });
+});
+
+describe("canLogAsRaid (§515)", () => {
+  it("is offered for a non-RAID signal when the handler is wired", () => {
+    expect(canLogAsRaid(a("task-due", "actionTaskWhyOverdue"), { ...NONE, logAsRaid: true })).toBe(true);
+  });
+  it("is never offered for a RAID-sourced action — it already is one", () => {
+    expect(canLogAsRaid(a("raid", "actionRaidWhySeverity", "raid"), ALL)).toBe(false);
+  });
+  it("needs the capability (popout: handler absent)", () => {
+    expect(canLogAsRaid(a("task-due", "actionTaskWhyOverdue"), NONE)).toBe(false);
+  });
+  it("is never offered for a project key-facts nudge — a missing fact is a task, not a risk", () => {
+    expect(canLogAsRaid(a("project-meta", "actionProjectMetaWhyCode", "projects"), ALL)).toBe(false);
+  });
+  it("sits in the overflow after createTask and before snooze", () => {
+    expect(overflowCtas(a("milestone", "actionMilestoneWhyAtRisk", "milestones"), { ...NONE, createTask: true, logAsRaid: true, snooze: true }))
+      .toEqual(["createTask", "logAsRaid", "snooze"]);
   });
 });

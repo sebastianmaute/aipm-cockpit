@@ -35,6 +35,7 @@ import {
   type InsightType,
 } from "./insights/insight";
 import { InsightRecommendationControls } from "./insight-recommendation-controls";
+import { InsightLoggedRaid } from "./insights/insight-logged-raid";
 import type { Health } from "./health";
 
 // Severity rides the DOT (non-text, AA-exempt) — never tinted small text.
@@ -213,6 +214,9 @@ export function InsightsPanel({
               const showAck = insight.status === "active";
               const showAct = insight.status === "active" || insight.status === "acknowledged";
               const showDismiss = !TERMINAL.has(insight.status);
+              // §515 — gated like Act, plus: not for raidAging, not once logged.
+              const showLogAsRaid =
+                showAct && insight.type !== "raidAging" && insight.loggedRaidId === undefined && !!actions?.onLogAsRaid;
               return (
                 <li
                   key={insight.id}
@@ -251,6 +255,9 @@ export function InsightsPanel({
                           {t(lang, "insightOpen")}
                         </Button>
                       ) : null}
+                      {insight.loggedRaidId !== undefined ? (
+                        <InsightLoggedRaid raidId={insight.loggedRaidId} nameToken={nameToken} lang={lang} onOpen={onOpen} />
+                      ) : null}
                       {canWrite ? (
                         <>
                           {showAck ? (
@@ -273,6 +280,17 @@ export function InsightsPanel({
                               onClick={() => actions!.onAct(insight.id)}
                             >
                               {t(lang, "insightAct")}
+                            </Button>
+                          ) : null}
+                          {showLogAsRaid ? (
+                            <Button
+                              variant="secondary"
+                              size="xs"
+                              aria-label={`${t(lang, "insightLogAsRaid")} – ${nameToken}`}
+                              title={t(lang, "insightLogAsRaidHint")}
+                              onClick={() => actions!.onLogAsRaid!(insight)}
+                            >
+                              {t(lang, "insightLogAsRaid")}
                             </Button>
                           ) : null}
                           {showDismiss ? (

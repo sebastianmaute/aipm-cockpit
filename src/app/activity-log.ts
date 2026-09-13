@@ -27,6 +27,7 @@ export type ActivityKind =
   | "raid.deleted"
   | "raid.statusChanged"
   | "raid.autoIssue"
+  | "raid.escalated"
   | "bulk.edit"
   // ★★ SEPARATE FROM `bulk.edit` ON PURPOSE. A mass delete is irreversible on
   // the chat path (tool writes take no undo capture), so the log is the ONLY
@@ -298,6 +299,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "raid.deleted": "activityRaidDeleted",
   "raid.statusChanged": "activityRaidStatusChanged",
   "raid.autoIssue": "activityRaidAutoIssue",
+  "raid.escalated": "activityRaidEscalated",
   "bulk.edit": "activityBulkEdit",
   "bulk.delete": "activityBulkDelete",
   "bulk.inquiries": "activityBulkInquiries",

@@ -12,6 +12,7 @@ import {
   type InsightSeverity,
 } from "../insights/insight";
 import { InsightRecommendationControls } from "../insight-recommendation-controls";
+import { InsightLoggedRaid } from "../insights/insight-logged-raid";
 import type { Health } from "../health";
 import type { DensityClasses } from "../dashboard-density";
 
@@ -120,6 +121,9 @@ export function InsightsCard({
                     {t(lang, "insightOpen")}
                   </Button>
                 ) : null}
+                {insight.loggedRaidId !== undefined ? (
+                  <InsightLoggedRaid raidId={insight.loggedRaidId} nameToken={nameToken} lang={lang} onOpen={onOpen} />
+                ) : null}
                 {!isPopout && actions ? (
                   <>
                     {insight.status === "active" ? (
@@ -142,6 +146,18 @@ export function InsightsCard({
                     >
                       {t(lang, "insightAct")}
                     </Button>
+                    {/* §515 — not for raidAging (already about a RAID item), not once logged. */}
+                    {actions.onLogAsRaid && insight.type !== "raidAging" && insight.loggedRaidId === undefined ? (
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        aria-label={`${t(lang, "insightLogAsRaid")} – ${nameToken}`}
+                        title={t(lang, "insightLogAsRaidHint")}
+                        onClick={() => actions.onLogAsRaid!(insight)}
+                      >
+                        {t(lang, "insightLogAsRaid")}
+                      </Button>
+                    ) : null}
                     <Button
                       variant="secondary"
                       size="xs"

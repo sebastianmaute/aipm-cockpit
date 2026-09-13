@@ -256,6 +256,10 @@ export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
   if (seed.raid) {
     out.raid = seed.raid.map((r) => ({
       ...r,
+      // §515: the structured escalations column is never cloned into a new project.
+      // ★ The note-log echo of each escalation still names its recipient (the address
+      //   only when no name is known) and IS carried (§168).
+      escalations: undefined,
       id: raidMap.get(r.id)!,
       linkedTaskIds: remapIds(r.linkedTaskIds, taskMap),
       causedByRaidIds: remapIds(r.causedByRaidIds, raidMap),

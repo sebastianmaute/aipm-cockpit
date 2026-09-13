@@ -737,7 +737,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§512](#512-the-word-export-is-unpolished-squeezing-every-storage-column-to-equal-width-under-raw-key-headers-with-no-branded-header-or-footer--open) | The Word export is unpolished, squeezing every storage column to equal width under raw key headers with no branded header or footer — OPEN | AI PM Cockpit demo 2026-09-11 (D-2), GitLab #52; mirrored into the register 2026-09-13 | M — curated columns and labels, content-aware widths, a logo header and footer | open |
 | [§513](#513-existing-sharepoint-documents-cannot-be-updated-from-app-data--open) | Existing SharePoint documents cannot be updated from app data — OPEN | AI PM Cockpit demo 2026-09-11 (D-3), GitLab #53; mirrored into the register 2026-09-13 | unestimated (product backlog) — build it, or close it in favour of the Claude Desktop or Word plugin route | open |
 | [§514](#514-there-is-no-confluence-write-back-for-project-or-portfolio-pages--open) | There is no Confluence write-back for project or portfolio pages — OPEN | AI PM Cockpit demo 2026-09-11 (D-4), GitLab #54; mirrored into the register 2026-09-13 | M — a write proxy, a page template or mapping, and a manual or change-triggered push | open |
-| [§515](#515-a-risk-signal-cannot-be-turned-into-a-raid-item-directly-and-an-escalation-leaves-no-record-on-the-item--open) | A risk signal cannot be turned into a RAID item directly, and an escalation leaves no record on the item — OPEN | AI PM Cockpit demo 2026-09-11 (R-1), GitLab #55; mirrored into the register 2026-09-13 | M — a one-click log-as-risk/issue from a signal, plus escalation state on the item | open |
+| [§515](#515-a-risk-signal-cannot-be-turned-into-a-raid-item-directly-and-an-escalation-leaves-no-record-on-the-item--closed-2026-09-13) | A risk signal cannot be turned into a RAID item directly, and an escalation leaves no record on the item — CLOSED 2026-09-13 | AI PM Cockpit demo 2026-09-11 (R-1), GitLab #55; mirrored into the register 2026-09-13 | M — a one-click log-as-risk/issue from a signal, plus escalation state on the item | **CLOSED** 2026-09-13 |
 | [§516](#516-stakeholder-management-lacks-a-decision-log-and-engagement-or-contact-tracking--open) | Stakeholder management lacks a decision log and engagement or contact tracking — OPEN | AI PM Cockpit demo 2026-09-11 (R-3), GitLab #57; mirrored into the register 2026-09-13 | M — a decision register (or a Decision category beside RAID) and contact tracking on stakeholders | open |
 | [§517](#517-the-simple-view-principle-is-not-applied-app-wide-and-no-chromeless-view-shows-only-the-top-one-to-three-next-actions--open) | The simple-view principle is not applied app-wide, and no chromeless view shows only the top one to three next actions — OPEN | AI PM Cockpit demo 2026-09-11 (U-1), GitLab #58; mirrored into the register 2026-09-13 | M–L — the chromeless next-actions view first, then the principle across overviews | open |
 | [§518](#518-there-is-no-single-action-focus-mode-that-steps-through-the-next-actions-one-at-a-time--open) | There is no single-action focus mode that steps through the next actions one at a time — OPEN | AI PM Cockpit demo 2026-09-11 (U-2), GitLab #59; mirrored into the register 2026-09-13 | M — a one-at-a-time mode with position dots and complete-to-advance for every action type | open |
@@ -36660,9 +36660,9 @@ Size M — a write proxy, a page template or mapping, and a manual or change-tri
 
 **Work item:** #54
 
-## 515. A risk signal cannot be turned into a RAID item directly, and an escalation leaves no record on the item — OPEN
+## 515. A risk signal cannot be turned into a RAID item directly, and an escalation leaves no record on the item — CLOSED 2026-09-13
 
-**Status:** OPEN 2026-09-13 — never machine-verified beyond the issue's 2026-09-11 code check.
+**Status:** CLOSED 2026-09-13 on `feat/raid-signal-log-escalation`. An insight (dashboard card and Insights view) or a next action can be logged as a RAID item through the floating RAID editor; saving marks the insight acted and links `loggedRaidId`. Escalate now records a `RaidItem.escalations` entry, a note-log echo and a `raid.escalated` activity entry. The AI assistant can append one through `escalate_raid_item` (no e-mail; history is append-only; the note is authored "AI created"). GitLab #55 closes at merge. Guardrail gaps §360 and §362 stay open.
 
 Michael Leather and Kai Mindermann asked that risks and issues surface early, through insights or an explicit
 RAID workflow. It was named a joint priority area for a dedicated review session; Michael ranked it second after
@@ -36678,8 +36678,6 @@ Related: §360 and §362 (guardrail insight gaps).
 Size M — a one-click log-as-risk/issue from a signal, plus escalation state on the item.
 
 **Source:** GitLab #55 (R-1, source::demo-2026-09-11)
-
-**Work item:** #55
 
 ## 516. Stakeholder management lacks a decision log and engagement or contact tracking — OPEN
 
