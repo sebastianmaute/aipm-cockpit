@@ -50,8 +50,9 @@ describe("BudgetReportPanel — the project rollup discloses unresolved-rate sum
   it("names the count for a mixed project", () => {
     const mixed: BudgetBucket[] = [
       buckets[0], // EUR — resolved
-      { ...buckets[1], id: 4, name: "Delta", currency: "USD" }, // unresolved (fxRates null)
-      { ...buckets[2], id: 5, name: "Epsilon", currency: "GBP" }, // unresolved
+      // Fixed-price: only a contract amount is converted, so only these are summed at par.
+      { ...buckets[1], id: 4, name: "Delta", type: "fixed", fixedPriceAmount: 10000, currency: "USD" }, // unresolved (fxRates null)
+      { ...buckets[2], id: 5, name: "Epsilon", type: "fixed", fixedPriceAmount: 10000, currency: "GBP" }, // unresolved
     ];
     renderPanel({ buckets: mixed, fxRates: null });
     const rollup = screen.getByText(/project total/i).closest("div") as HTMLElement;
@@ -365,6 +366,23 @@ describe("BudgetReportPanel — §474 the currency column discloses an unresolve
   it("does not mark an EUR bucket", () => {
     renderPanel(); // default `buckets` (Alpha/Beta/Gamma) are all EUR
     expect(currencyCellFor("Alpha")).not.toHaveTextContent(/1:1/);
+  });
+
+  // This table's money columns are EUR and a T&M row's figures (hours × EUR
+  // role rates) were never converted, so "counted 1:1 as EUR" would claim a
+  // conversion that did not happen. Only the fixed-price row's contract
+  // amount went through `currencyToEur` at par. Both rows in ONE render so
+  // the pair differs by `type` alone.
+  it("marks the rateless fixed-price row but not the rateless T&M row", () => {
+    const ratelessTm: BudgetBucket = {
+      id: 10, name: "Rateless T&M", type: "tm", currency: "USD",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open", allocations: [],
+    };
+    renderPanel({ buckets: [rateless, ratelessTm], fxRates: null });
+    expect(currencyCellFor("Rateless contract")).toHaveTextContent(/USD.*1:1/);
+    const tmCell = currencyCellFor("Rateless T&M");
+    expect(tmCell).not.toHaveTextContent(/1:1/);
+    expect(tmCell.textContent).toBe("USD");
   });
 });
 

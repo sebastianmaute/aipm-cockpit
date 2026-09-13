@@ -50,17 +50,25 @@ export function resolveRateSource(bucket: Pick<BudgetBucket, "currency" | "fxRat
 }
 
 /**
- * How many of `buckets` are "unresolved" (§474, `RateSource`) — summed into a
- * EUR-labelled rollup at par because no rate was ever confirmed for them.
- * Reads `resolveRateSource` directly so the rollup's disclosure notice can
- * never disagree with the per-bucket currency-label marker about which
- * buckets qualify.
+ * How many of `buckets` put money into a EUR-labelled rollup AT PAR because
+ * no rate was ever confirmed for them (§474, `RateSource` "unresolved").
+ * ★ Only a FIXED-PRICE bucket qualifies: its contract amount is the one
+ * figure that passes through `currencyToEur` (`computeBucketReport`,
+ * `computeBurndownSeries`), so it alone is summed 1:1 when the rate is
+ * unresolved. A T&M bucket's money is hours × EUR role rates and is converted
+ * nowhere, so its missing rate changes none of the figures it contributes —
+ * counting it would disclose a par conversion that never happened.
+ * Reads `resolveRateSource` directly so the source test cannot disagree with
+ * the per-bucket currency-label marker.
  */
 export function countUnresolvedBuckets(
-  buckets: readonly Pick<BudgetBucket, "currency" | "fxRateOverride">[],
+  buckets: readonly Pick<BudgetBucket, "type" | "currency" | "fxRateOverride">[],
   fxRates: FxRates | null,
 ): number {
-  return buckets.reduce((count, bucket) => count + (resolveRateSource(bucket, fxRates) === "unresolved" ? 1 : 0), 0);
+  return buckets.reduce(
+    (count, bucket) => count + (bucket.type === "fixed" && resolveRateSource(bucket, fxRates) === "unresolved" ? 1 : 0),
+    0,
+  );
 }
 
 /** EUR amount -> bucket currency. */

@@ -111,7 +111,7 @@ export interface TileBodyArgs {
    *  already carry. Passed through unconverted — the component recomputes the
    *  count itself via `countUnresolvedBuckets`, exactly like the other two call
    *  sites, rather than a count threaded off a dashboard-engine field. */
-  buckets: readonly Pick<BudgetBucket, "currency" | "fxRateOverride">[];
+  buckets: readonly Pick<BudgetBucket, "type" | "currency" | "fxRateOverride">[];
   fxRates: FxRates | null;
   /** `hasNoActiveScope(model.progress)` — shared with the KPI card. */
   noActiveScope: boolean;

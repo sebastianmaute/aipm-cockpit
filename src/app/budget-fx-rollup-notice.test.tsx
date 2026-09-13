@@ -27,11 +27,13 @@ describe("BudgetFxRollupNotice", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  // Counted fixtures are fixed-price: only a contract amount is converted
+  // (and so read at par without a rate); `bucket()` defaults to T&M.
   test("names the exact count of unresolved buckets", () => {
     const mixed = [
-      bucket({ id: 1, currency: "EUR" }), // resolved ("eur")
-      bucket({ id: 2, currency: "USD" }), // unresolved — no override, no cache
-      bucket({ id: 3, currency: "GBP" }), // unresolved — no override, no cache
+      bucket({ id: 1, type: "fixed", currency: "EUR" }), // resolved ("eur")
+      bucket({ id: 2, type: "fixed", currency: "USD" }), // unresolved — no override, no cache
+      bucket({ id: 3, type: "fixed", currency: "GBP" }), // unresolved — no override, no cache
     ];
     render(<BudgetFxRollupNotice lang="en-US" buckets={mixed} fxRates={null} />);
     expect(screen.getByText(t("en-US", "budgetFxRollupUnresolved", "2"))).toBeInTheDocument();
@@ -44,9 +46,17 @@ describe("BudgetFxRollupNotice", () => {
     expect(screen.queryByText(/without an FX rate/i)).toBeNull();
   });
 
+  test("renders nothing when the only rateless non-EUR bucket is T&M", () => {
+    // T&M money is hours × EUR role rates, converted nowhere — nothing was summed at par.
+    const { container } = render(
+      <BudgetFxRollupNotice lang="en-US" buckets={[bucket({ type: "tm", currency: "USD" })]} fxRates={null} />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
   test("renders in German too", async () => {
     await loadI18n("de");
-    render(<BudgetFxRollupNotice lang="de" buckets={[bucket({ currency: "USD" })]} fxRates={null} />);
+    render(<BudgetFxRollupNotice lang="de" buckets={[bucket({ type: "fixed", currency: "USD" })]} fxRates={null} />);
     expect(screen.getByText(t("de", "budgetFxRollupUnresolved", "1"))).toBeInTheDocument();
   });
 });

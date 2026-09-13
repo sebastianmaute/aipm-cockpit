@@ -254,7 +254,16 @@ export function BucketDetailTable({
           // `rateSource === null` only when `b` is missing (see
           // `detailRowRateSource`) — the bare currency code is what
           // `bucketCurrencyLabel` would render anyway at this row's rate (1).
-          currencyLabel: rateSource === null ? r.currency : bucketCurrencyLabel(lang, r.currency, rate, rateSource),
+          // ★ A T&M row is ALSO rendered bare when its rate is unresolved:
+          // this table's figures are EUR and a T&M row's (hours × EUR role
+          // rates) were never converted, so "counted 1:1 as EUR" would claim
+          // a conversion that did not happen. Only a fixed-price row's
+          // contract amount went through `currencyToEur` at par — the same
+          // rule `countUnresolvedBuckets` applies to the rollup notice.
+          currencyLabel:
+            rateSource === null || (rateSource === "unresolved" && r.type !== "fixed")
+              ? r.currency
+              : bucketCurrencyLabel(lang, r.currency, rate, rateSource),
           // null when cost has no basis, NOT the raw percent. `contributionMargin`
           // is computed regardless of `costIsKnowable` — the flag is the caller's
           // job — and an unstaffed fixed-price bucket yields revenue − 0 = a

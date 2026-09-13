@@ -1448,9 +1448,17 @@ describe("DashboardPanel budget tile — unresolved-rate FX rollup notice (§474
   it("names the unresolved count when a non-EUR bucket has no confirmed rate (fxRates null)", () => {
     // USD with no fxRateOverride and no cached rate (fxRates defaults to null
     // in WorkspaceProvider) -> resolveRateSource is "unresolved" (fx.ts).
-    renderDashboard([budgetBucket({ currency: "USD" })]);
+    // Fixed-price: only a contract amount is converted, so only it is summed at par.
+    renderDashboard([budgetBucket({ currency: "USD", type: "fixed", fixedPriceAmount: 10000 })]);
     const tile = screen.getByTestId("tile-burn");
     expect(within(tile).getByText(t("en-US", "budgetFxRollupUnresolved", "1"))).toBeInTheDocument();
+  });
+
+  it("renders no notice when the only rateless non-EUR bucket is T&M", () => {
+    // T&M money is hours × EUR role rates, converted nowhere.
+    renderDashboard([budgetBucket({ currency: "USD" })]);
+    const tile = screen.getByTestId("tile-burn");
+    expect(within(tile).queryByText(/without an FX rate/i)).toBeNull();
   });
 
   it("renders no notice when every bucket resolves (EUR)", () => {

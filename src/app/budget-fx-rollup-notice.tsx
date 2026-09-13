@@ -14,6 +14,8 @@ import type { BudgetBucket, FxRates } from "./types";
  * is that disclosure. Arithmetic is unchanged; this only names how many
  * summands were counted that way, via the same pure `countUnresolvedBuckets`
  * both surfaces would otherwise have to reimplement (and could disagree on).
+ * That count takes fixed-price buckets only — a T&M bucket's money is never
+ * converted, so it cannot have been summed at par (see the helper).
  * Renders nothing when the count is 0, same "muted line, no icon, no
  * colour" shape as `CostUnknownNotice` — a text disclosure, not a warning.
  */
@@ -21,7 +23,7 @@ export function BudgetFxRollupNotice({
   lang, buckets, fxRates,
 }: {
   lang: Lang;
-  buckets: readonly Pick<BudgetBucket, "currency" | "fxRateOverride">[];
+  buckets: readonly Pick<BudgetBucket, "type" | "currency" | "fxRateOverride">[];
   fxRates: FxRates | null;
 }) {
   const count = countUnresolvedBuckets(buckets, fxRates);

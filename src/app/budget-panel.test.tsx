@@ -30,12 +30,22 @@ describe("BudgetPanel — the project rollup discloses unresolved-rate summands"
   test("names the count for a mixed project", () => {
     const mixed: BudgetBucket[] = [
       buckets[0], // EUR — resolved
-      { ...buckets[0], id: 2, name: "B2", currency: "USD" }, // unresolved (fxRates null)
-      { ...buckets[0], id: 3, name: "B3", currency: "GBP" }, // unresolved
+      // Fixed-price: only a contract amount is converted, so only these are summed at par.
+      { ...buckets[0], id: 2, name: "B2", type: "fixed", fixedPriceAmount: 10000, currency: "USD" }, // unresolved (fxRates null)
+      { ...buckets[0], id: 3, name: "B3", type: "fixed", fixedPriceAmount: 10000, currency: "GBP" }, // unresolved
     ];
     render(<BudgetPanel {...props} buckets={mixed} fxRates={null} />);
     const rollup = screen.getByText(/Project total/i).closest("section") as HTMLElement;
     expect(within(rollup).getByText(t("en-US", "budgetFxRollupUnresolved", "2"))).toBeInTheDocument();
+  });
+
+  test("renders nothing when the only rateless non-EUR bucket is T&M", () => {
+    // A T&M bucket's money is hours × EUR role rates and is converted nowhere,
+    // so its missing rate put nothing into the rollup at par.
+    const tmOnly: BudgetBucket[] = [{ ...buckets[0], id: 2, name: "USD T&M", currency: "USD" }];
+    render(<BudgetPanel {...props} buckets={tmOnly} fxRates={null} />);
+    const rollup = screen.getByText(/Project total/i).closest("section") as HTMLElement;
+    expect(within(rollup).queryByText(/without an FX rate/i)).toBeNull();
   });
 
   test("renders nothing when every bucket resolves", () => {

@@ -87,19 +87,34 @@ describe("countUnresolvedBuckets", () => {
     expect(countUnresolvedBuckets([], fx)).toBe(0);
   });
 
+  // Every fixture that is expected to COUNT is fixed-price: only a contract
+  // amount passes through `currencyToEur`, so only a fixed-price bucket is
+  // ever summed at par. `bucket()` defaults to T&M, hence the explicit type.
   test("counts only the unresolved buckets in a mixed list", () => {
     const mixed = [
-      bucket({ currency: "EUR" }), // "eur" — not unresolved
-      bucket({ currency: "USD" }), // "cached" via partialFx — not unresolved
-      bucket({ currency: "GBP" }), // no cached rate, no override — unresolved
-      bucket({ currency: "GBP", fxRateOverride: 1.3 }), // "override" — not unresolved
+      bucket({ type: "fixed", currency: "EUR" }), // "eur" — not unresolved
+      bucket({ type: "fixed", currency: "USD" }), // "cached" via partialFx — not unresolved
+      bucket({ type: "fixed", currency: "GBP" }), // no cached rate, no override — unresolved
+      bucket({ type: "fixed", currency: "GBP", fxRateOverride: 1.3 }), // "override" — not unresolved
     ];
     expect(countUnresolvedBuckets(mixed, partialFx)).toBe(1);
   });
 
-  test("counts every bucket when fxRates is null and none carries an override", () => {
-    const allRateless = [bucket({ currency: "USD" }), bucket({ currency: "GBP" })];
+  test("counts every fixed-price bucket when fxRates is null and none carries an override", () => {
+    const allRateless = [bucket({ type: "fixed", currency: "USD" }), bucket({ type: "fixed", currency: "GBP" })];
     expect(countUnresolvedBuckets(allRateless, null)).toBe(2);
+  });
+
+  // ★ A T&M bucket's money is hours × EUR role rates and is converted nowhere,
+  // so an unresolved rate changes none of its figures — counting it would
+  // tell the reader a sum was taken at par when nothing was.
+  test("does not count a rateless non-EUR T&M bucket — its money is never converted", () => {
+    expect(countUnresolvedBuckets([bucket({ type: "tm", currency: "USD" })], null)).toBe(0);
+  });
+
+  test("counts only the fixed-price bucket when T&M and fixed-price are both rateless", () => {
+    const both = [bucket({ type: "tm", currency: "USD" }), bucket({ type: "fixed", currency: "GBP" })];
+    expect(countUnresolvedBuckets(both, null)).toBe(1);
   });
 });
 

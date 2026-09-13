@@ -442,6 +442,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           const bucketToken = bucketTokens.get(br.bucketId) ?? br.name;
           const isBlended = bucket.planningMode === "blended";
           const rate = resolveRate(bucket, fxRates);
+          // The card keeps the "counted 1:1" marker for a T&M bucket too (unlike the report's EUR detail table): its figures display through `eurToCurrency` at this same rate, 1 when unresolved, so the label is accurate here.
           const rateSource = resolveRateSource(bucket, fxRates);
           const periods = bucketActivePeriods(bucket, plan);
           const inCur = (eur: number) => formatCurrency(eurToCurrency(eur, bucket, fxRates), bucket.currency, locale);
