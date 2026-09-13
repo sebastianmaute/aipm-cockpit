@@ -545,6 +545,20 @@ describe("BudgetBucketModal", () => {
     expect((onSave.mock.calls[0][0] as BudgetBucket).percentComplete).toBe(0);
   });
 
+  // Register §471: the FX-override input advertises min="0.0001"/step="0.0001",
+  // but its blur handler used to clamp with `round: 2` — `Math.round(0.0001*100)/100`
+  // is 0, so the field's own advertised minimum silently became 0 with no notice.
+  test("blurring the FX field's own advertised minimum keeps it, not 0", () => {
+    const { onSave } = setup();
+    const fx = screen.getByLabelText(t("en-US", "budgetFxOverride"));
+    fireEvent.change(fx, { target: { value: "0.0001" } });
+    fireEvent.blur(fx);
+    expect(fx).toHaveValue(0.0001);
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as BudgetBucket).fxRateOverride).toBe(0.0001);
+  });
+
   test("the panel carries a default height and min-height, not just a max", () => {
     // Headline claim FIRST: useResizable needs a class-based default height or a
     // dragged height is dead space (same defect as the shared edit-modal shell).

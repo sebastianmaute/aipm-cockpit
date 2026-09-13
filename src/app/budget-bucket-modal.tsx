@@ -509,7 +509,11 @@ export function BudgetBucketModal({
                 }))
               }
               onBlur={(e) => {
-                const r = describeClamp(e.target.value, { min: 0, max: AMOUNT_MAX, round: 2 });
+                // ★ round:4 mirrors the field's own advertised min="0.0001"/step="0.0001"
+                // (register §471) — round:2 (used by the other numeric fields in this
+                // modal) silently rounds that minimum to 0, which the save guard then
+                // refuses with no notice ever shown for why.
+                const r = describeClamp(e.target.value, { min: 0, max: AMOUNT_MAX, round: 4 });
                 setDraft((d) => ({ ...d, fxRateOverride: r.value }));
                 const clamped = r.adjustment?.kind === "clamped" ? r.adjustment : null;
                 setNotice((n) => ({

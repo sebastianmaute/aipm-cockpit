@@ -200,6 +200,13 @@ describe("sanitizeBudgetBucket fxRateOverride >0 asymmetry", () => {
   test("a zero fxRateOverride is dropped", () => {
     expect(sanitizeBudgetBucket({ ...base, fxRateOverride: 0 })!.fxRateOverride).toBeUndefined();
   });
+  // Register §471: the FX field advertises a 0.0001 minimum in the modal, but the
+  // shared `sanitizeAmount` helper this sanitizer used rounds to 2 decimals — every
+  // CSV/Turso/JSON round-trip would silently re-round 0.0001 to 0 and then drop it
+  // via this same >0 gate, even after the modal's own clamp was fixed.
+  test("a 4-decimal fxRateOverride survives the sanitizer round-trip", () => {
+    expect(sanitizeBudgetBucket({ ...base, fxRateOverride: 0.0001 })!.fxRateOverride).toBe(0.0001);
+  });
 });
 
 describe("encode/decode disciplineAllocations round-trip", () => {
