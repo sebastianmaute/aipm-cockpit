@@ -92,11 +92,16 @@ export function computeBurndownSeries(
       // The report's `budgetValue` is the full converted contract amount
       // regardless of hours; `consumedValue` is that amount scaled by the
       // actual/budget hours ratio and capped at the contract (0 when there are
-      // no budgeted hours at all). Both totals are reproduced here exactly and
-      // then spread across this bucket's in-window periods so the chart still
-      // draws a glide path: proportional to each period's share of the
-      // bucket's hours, or — when a total is 0 (no budgeted/no actual hours) —
-      // spread evenly (budget) or not at all (actual, matching the report's 0).
+      // no budgeted hours at all). Both totals are reproduced here exactly.
+      // Budget is spread across this bucket's in-window periods by each
+      // period's share of the budgeted hours (evenly when there are none).
+      // Consumed is capped CUMULATIVELY: each period adds
+      // min(contract, contract × cumulative actual / budget hours) minus the
+      // same figure one period earlier. So an overrun shows in the period the
+      // cap is reached, and later periods add 0 — capping the grand total once
+      // and spreading it by actual hours would smear the overrun backwards and
+      // show budget left in a period that had already exhausted it. The deltas
+      // telescope, so the series still sums to the report's `consumedValue`.
       const fixedPriceEur = currencyToEur(b.fixedPriceAmount ?? 0, b, fxRates);
       const inWindow: { i: number; bh: number; ah: number }[] = [];
       let bucketBudgetHours = 0;
@@ -104,8 +109,8 @@ export function computeBurndownSeries(
       // `indexByKey` only knows periods inside the CURRENT chart window (see
       // `periods`/`span` above) — a period from `active` outside it is
       // skipped by the `continue` below, so `bucketBudgetHours`/
-      // `bucketActualHours` (and therefore `consumedEur`'s ratio) are built
-      // from IN-WINDOW hours only. `computeBucketReport` has no such window
+      // `bucketActualHours` (and therefore every cumulative consumed ratio
+      // below) are built from IN-WINDOW hours only. `computeBucketReport` has no such window
       // and always sums every active period, so the two can legitimately
       // diverge whenever a chart span clips a fixed-price bucket: the whole
       // contract amount is still spread over just the in-window periods here,
@@ -129,14 +134,21 @@ export function computeBurndownSeries(
         bucketActualHours += ah;
         inWindow.push({ i, bh, ah });
       }
-      const consumedEur = bucketBudgetHours > 0
-        ? Math.min(fixedPriceEur, fixedPriceEur * (bucketActualHours / bucketBudgetHours))
+      const consumedAt = (cumActualHours: number) => bucketBudgetHours > 0
+        ? Math.min(fixedPriceEur, fixedPriceEur * (cumActualHours / bucketBudgetHours))
         : 0;
       const evenShare = inWindow.length > 0 ? 1 / inWindow.length : 0;
-      for (const { i, bh, ah } of inWindow) {
+      // Chronological order is what makes "cumulative" mean anything.
+      const ordered = [...inWindow].sort((x, y) => x.i - y.i);
+      let cumActualHours = 0;
+      let cumConsumedEur = 0;
+      for (const { i, bh, ah } of ordered) {
         const budgetShare = bucketBudgetHours > 0 ? bh / bucketBudgetHours : evenShare;
         budgetV[i] += fixedPriceEur * budgetShare;
-        if (bucketActualHours > 0) actualV[i] += consumedEur * (ah / bucketActualHours);
+        cumActualHours += ah;
+        const nextConsumedEur = consumedAt(cumActualHours);
+        actualV[i] += nextConsumedEur - cumConsumedEur;
+        cumConsumedEur = nextConsumedEur;
       }
       continue;
     }

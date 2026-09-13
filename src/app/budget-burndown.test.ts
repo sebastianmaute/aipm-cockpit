@@ -214,14 +214,42 @@ describe("computeBurndownSeries — fixed-price buckets (§472)", () => {
     const s = computeBurndownSeries([overBudget], plan, roles, [], 8, new Set<string>(), [], "2026-03-31", null);
     expect(s.totalBudgetHours).toBe(100);
     expect(s.totalBudgetValue).toBeCloseTo(20000, 5);
-    // consumedEur = min(20000, 20000 * 150/100) = min(20000, 30000) = 20000,
-    // split back across the 150 actual hours: Jan 20000*100/150 = 13333.33,
-    // Feb 20000*50/150 = 6666.67, Mar 0. Cumulative 13333.33 / 20000 / 20000
-    // -> remaining 6666.67 / 0 / 0. Every period is in the past (today = plan
-    // end), so the LAST remaining is 0 — the cap, not a 1.5x overshoot.
-    expect(s.actualRemainingValue[0]).toBeCloseTo(6666.666666666667, 5);
+    // Consumed is capped CUMULATIVELY, period by period:
+    //   Jan cum 100h -> min(20000, 20000*100/100) = 20000  (delta 20000)
+    //   Feb cum 150h -> min(20000, 20000*150/100) = 20000  (delta 0)
+    //   Mar cum 150h -> 20000                              (delta 0)
+    // -> remaining 0 / 0 / 0. Jan already reads 0: the budget was fully burned
+    // in Jan, and the overrun must show there, not be smeared into Feb (a
+    // single cap spread by actual hours read 6666.67 for Jan).
+    expect(s.actualRemainingValue[0]).toBeCloseTo(0, 5);
     expect(s.actualRemainingValue[1]).toBeCloseTo(0, 5);
     expect(s.actualRemainingValue[2]).toBeCloseTo(0, 5);
+  });
+
+  it("shows the contract exhausted in the period the cap is reached, not spread across the series", () => {
+    // Budget 100h (all in Jan), contract 10000; actuals 60 / 60 / 60.
+    //   Jan cum  60h -> min(10000, 10000* 60/100) =  6000  (delta 6000)
+    //   Feb cum 120h -> min(10000, 10000*120/100) = 10000  (delta 4000)
+    //   Mar cum 180h -> min(10000, 10000*180/100) = 10000  (delta 0)
+    // -> remaining 4000 / 0 / 0. (A single cap of 10000 spread by actual
+    // hours would read 6666.67 / 3333.33 / 0 — the overrun hidden until Mar.)
+    const midCap = bucket({
+      type: "fixed",
+      fixedPriceAmount: 10000,
+      allocations: [{
+        roleId: 1, resourceIds: [],
+        budgetHours: { "2026-01": 100 },
+        actualHours: { "2026-01": 60, "2026-02": 60, "2026-03": 60 },
+      }],
+    });
+    const s = computeBurndownSeries([midCap], plan, roles, [], 8, new Set<string>(), [], "2026-03-31", null);
+    expect(s.totalBudgetValue).toBeCloseTo(10000, 5);
+    expect(s.actualRemainingValue[0]).toBeCloseTo(4000, 5);
+    expect(s.actualRemainingValue[1]).toBeCloseTo(0, 5);
+    expect(s.actualRemainingValue[2]).toBeCloseTo(0, 5);
+    // End total still equals the report's capped consumed value.
+    const rep = computeBudgetReport([midCap], plan, roles, [], 8, new Set<string>(), [], [], null);
+    expect(s.totalBudgetValue - (s.actualRemainingValue[2] ?? NaN)).toBeCloseTo(rep.project.consumedValue, 5);
   });
 
   it("treats a missing fixedPriceAmount as 0 — every value is 0, never NaN", () => {
