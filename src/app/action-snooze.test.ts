@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { snoozeAction, getSnoozedActionIds, clearActionSnooze, ACTION_SNOOZE_KEY } from "./action-snooze";
+import { snoozeAction, getSnoozedActionIds, clearActionSnooze, ACTION_SNOOZE_KEY, snoozeGroupIds } from "./action-snooze";
 
 describe("action-snooze", () => {
   beforeEach(() => window.localStorage.clear());
@@ -25,5 +25,23 @@ describe("action-snooze", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disabled"); });
     expect(() => snoozeAction("c", 1000, 0)).not.toThrow();
     expect(getSnoozedActionIds(0)).toEqual(new Set());
+  });
+});
+
+describe("snoozeGroupIds", () => {
+  it("snoozes the primary and every extra id for the same duration", () => {
+    const snooze = vi.fn();
+    snoozeGroupIds(snooze, "project-meta:p1:code", 3600_000, ["project-meta:p1:customer", "project-meta:p1:startDate"]);
+    expect(snooze.mock.calls).toEqual([
+      ["project-meta:p1:code", 3600_000],
+      ["project-meta:p1:customer", 3600_000],
+      ["project-meta:p1:startDate", 3600_000],
+    ]);
+  });
+
+  it("snoozes only the primary when there are no extras", () => {
+    const snooze = vi.fn();
+    snoozeGroupIds(snooze, "raid:1:severity", 1000);
+    expect(snooze.mock.calls).toEqual([["raid:1:severity", 1000]]);
   });
 });

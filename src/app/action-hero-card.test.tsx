@@ -35,6 +35,19 @@ describe("ActionHeroCard", () => {
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
   });
+  it("snoozes the hero with every other id in its group", () => {
+    const extra = [
+      { ...noOwner, id: "raid:12:severity" },
+      { ...noOwner, id: "raid:12:stale" },
+    ] as never;
+    const onSnooze = vi.fn();
+    render(<ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner, extra)} onOpen={() => {}} onSnooze={onSnooze} />);
+    fireEvent.click(screen.getByRole("button", { name: "More actions – Row" }));
+    fireEvent.click(screen.getByRole("button", { name: "1 hour" }));
+    expect(onSnooze).toHaveBeenCalledTimes(1);
+    expect(onSnooze.mock.calls[0][0]).toBe(noOwner);
+    expect(onSnooze.mock.calls[0][2]).toEqual(["raid:12:severity", "raid:12:stale"]);
+  });
   it("carries the tier RAG stripe (now → red) and a labelled section", () => {
     const { container } = render(<ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner)} onOpen={() => {}} />);
     expect(container.querySelector(".border-l-\\[var\\(--rag-red\\)\\]")).toBeTruthy();

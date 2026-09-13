@@ -85,6 +85,7 @@ import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
 import { useActionSnooze } from "./use-action-snooze";
+import { snoozeGroupIds } from "./action-snooze";
 import { useActionNotifications } from "./use-action-notifications";
 import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
 import { ModernShell } from "./modern-shell";
@@ -1262,12 +1263,11 @@ function TaskManagerInner() {
   // grouped row must snooze every signal in the group — else the row
   // reappears immediately with the next signal promoted to primary. Learned
   // bias stays keyed on the primary's kind only: extras are snoozed directly
-  // against the store, bypassing recordLearning.
+  // against the store (`snoozeGroupIds`), bypassing recordLearning.
   const snoozeAction = useCallback(
     (a: SuggestedAction, ms: number, extraIds?: readonly string[]) => {
       void recordLearning(a, "snoozed");
-      actionSnooze.snooze(a.id, ms);
-      extraIds?.forEach((id) => actionSnooze.snooze(id, ms));
+      snoozeGroupIds(actionSnooze.snooze, a.id, ms, extraIds);
     },
     [actionSnooze, recordLearning],
   );
