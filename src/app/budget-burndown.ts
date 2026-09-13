@@ -101,7 +101,7 @@ export function computeBurndownSeries(
       // cap is reached, and later periods add 0 — capping the grand total once
       // and spreading it by actual hours would smear the overrun backwards and
       // show budget left in a period that had already exhausted it. The deltas
-      // telescope, so the series still sums to the report's `consumedValue`.
+      // telescope, so an unclipped series still sums to the report's `consumedValue`.
       const fixedPriceEur = currencyToEur(b.fixedPriceAmount ?? 0, b, fxRates);
       const inWindow: { i: number; bh: number; ah: number }[] = [];
       let bucketBudgetHours = 0;

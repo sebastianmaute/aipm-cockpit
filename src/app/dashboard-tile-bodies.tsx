@@ -107,7 +107,7 @@ export interface TileBodyArgs {
   currency: string;
   /** §474 (third surface): the same raw inputs `BudgetFxRollupNotice` reads on
    *  budget-panel.tsx / budget-report-panel.tsx, so the tile's EUR burn figures
-   *  get the same "N bucket(s) counted at par" disclosure those two surfaces
+   *  get the same "Includes N bucket(s) counted 1:1 without an FX rate" disclosure those two surfaces
    *  already carry. Passed through unconverted — the component recomputes the
    *  count itself via `countUnresolvedBuckets`, exactly like the other two call
    *  sites, rather than a count threaded off a dashboard-engine field. */
