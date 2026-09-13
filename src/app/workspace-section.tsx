@@ -168,6 +168,7 @@ export function WorkspaceSection({
   projects,
   currentProjectId,
   currentProject,
+  projectLiveMetaById,
   archivedProjects,
   projectStakeholderNames,
   projectAddressBook,
@@ -984,6 +985,7 @@ export function WorkspaceSection({
               projects={projects}
               currentProjectId={currentProjectId}
               currentProject={currentProject}
+              liveMetaById={projectLiveMetaById}
               archivedProjects={archivedProjects}
               stakeholderNames={projectStakeholderNames}
               addressBook={projectAddressBook}

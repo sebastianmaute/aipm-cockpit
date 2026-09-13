@@ -631,6 +631,27 @@ describe("ProjectsPanel — key-fact indicator", () => {
     expect(r.queryByRole("status")).toBeNull();
   });
 
+  // Turso mode: the shared project list carries live meta, so a non-current
+  // row is measured without any device snapshot.
+  it("measures a non-current row from live meta when there is no snapshot", () => {
+    setup({ liveMetaById: new Map([["p2", { ...CURRENT_META, name: "Gemini", code: "", customer: "Initech" }]]) });
+    const r = within(row("Gemini"));
+    expect(r.getByText("10 of 11")).toBeInTheDocument();
+    expect(r.getByText("Initech")).toBeInTheDocument();
+    expect(r.queryByText("— of 11")).toBeNull();
+    expect(r.queryByText("Key facts not measured here")).toBeNull();
+  });
+
+  it("prefers live meta over a conflicting stale snapshot for a non-current row", () => {
+    saveKeyFactsSnapshot("p2", { filled: 4, missing: ["code", "projectManager", "products", "profitCenter", "naceSection", "contactPersons", "regulatory"], customer: "Globex", at: "2026-09-13T10:00:00.000Z" });
+    setup({ liveMetaById: new Map([["p2", { ...CURRENT_META, name: "Gemini", customer: "Initech" }]]) });
+    const r = within(row("Gemini"));
+    expect(r.getByText("11 of 11")).toBeInTheDocument();
+    expect(r.getByText("Initech")).toBeInTheDocument();
+    expect(r.queryByText("4 of 11")).toBeNull();
+    expect(r.queryByText("Globex")).toBeNull();
+  });
+
   it("renders the banner action once across the list", () => {
     saveKeyFactsSnapshot("p2", { filled: 4, missing: ["code", "projectManager", "products", "profitCenter", "naceSection", "contactPersons", "regulatory"], customer: "Globex", at: "2026-09-13T10:00:00.000Z" });
     setup({ currentProject: { ...CURRENT_META, code: "" } });

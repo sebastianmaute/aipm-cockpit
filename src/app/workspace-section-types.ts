@@ -291,6 +291,9 @@ export interface WorkspaceSectionProps {
   projects: ProjectRegistryEntry[];
   currentProjectId: string | null;
   currentProject?: ProjectMeta;
+  /** Turso mode only: live meta of every listed project, so the Projects view
+   *  measures non-current rows' key facts without the per-device cache. */
+  projectLiveMetaById?: ReadonlyMap<string, ProjectMeta>;
   archivedProjects?: ProjectRegistryEntry[];
   projectStakeholderNames: string[];
   projectAddressBook: Contact[];

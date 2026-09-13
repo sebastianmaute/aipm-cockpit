@@ -105,6 +105,11 @@ export interface ProjectsPanelProps {
   onArchive?: (id: string) => void;
   onRestore?: (id: string) => void;
   onHardDelete?: (id: string) => void;
+  /** Turso-mode only: each listed project's LIVE metadata, keyed by project id.
+   *  The shared DB's project list already carries full meta, so a non-current
+   *  row found here is measured from it instead of from the per-device
+   *  key-facts cache. Absent (file mode) → non-current rows read the cache. */
+  liveMetaById?: ReadonlyMap<string, ProjectMeta>;
 }
 
 type ModalState =
@@ -150,12 +155,15 @@ export function ProjectsPanel({
   onArchive,
   onRestore,
   onHardDelete,
+  liveMetaById,
 }: ProjectsPanelProps) {
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
 
   // Per-row key-fact state (spec §5.3/§5.4). The CURRENT project is measured live
-  // from memory and never reads the cache; every other row reads its per-device
-  // snapshot, and a missing snapshot is UNKNOWN — never "0 of 11".
+  // from memory and never reads the cache. A non-current row is measured live
+  // too when `liveMetaById` carries its meta (Turso mode — the shared project
+  // list holds every project's meta); otherwise (file mode) it reads its
+  // per-device snapshot, and a missing snapshot is UNKNOWN — never "0 of 11".
   // ★ read the whole device cache ONCE per render (`loadKeyFactsSnapshots`)
   // rather than once per non-current row — each read parses and validates the
   // entire stored map, so a per-row call re-did that work N times.
@@ -174,6 +182,12 @@ export function ProjectsPanel({
         }
         continue;
       }
+      const live = liveMetaById?.get(p.id);
+      if (live) {
+        const c = keyFactCompleteness(live);
+        byId.set(p.id, { state: { kind: "measured", ...c }, customer: live.customer });
+        continue;
+      }
       const snap = snapshots[p.id];
       byId.set(
         p.id,
@@ -183,7 +197,7 @@ export function ProjectsPanel({
       );
     }
     return byId;
-  }, [projects, currentProjectId, currentProject]);
+  }, [projects, currentProjectId, currentProject, liveMetaById]);
   const confirm = useConfirm();
   const tursoConfigured = !!getTursoConfig(
     settings.integrations?.turso?.databaseUrl,

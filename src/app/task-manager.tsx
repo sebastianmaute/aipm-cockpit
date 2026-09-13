@@ -2118,6 +2118,14 @@ function TaskManagerInner() {
           storageConfig: { kind: "turso" as const },
         }))
       : registry.projects;
+  // Turso's project list already carries every project's full meta, so the
+  // Projects view measures non-current rows' key facts from it rather than from
+  // the per-device cache. Kept OFF ProjectRegistryEntry: that shape is persisted
+  // in the localStorage registry. File mode has no live meta → undefined.
+  const portfolioLiveMetaById = useMemo(
+    () => (portfolioMode === "turso" ? new Map(tursoProjects.map((e) => [e.id, e.meta])) : undefined),
+    [portfolioMode, tursoProjects],
+  );
   const portfolioArchived: ProjectRegistryEntry[] =
     portfolioMode === "turso"
       ? tursoArchived.map((e) => ({
@@ -2482,6 +2490,7 @@ function TaskManagerInner() {
     projects: portfolioProjects,
     currentProjectId: portfolioCurrentId,
     currentProject: project,
+    projectLiveMetaById: portfolioLiveMetaById,
     archivedProjects: portfolioArchived,
     projectStakeholderNames: stakeholders.map((s) => s.name),
     projectAddressBook: contactsList,
