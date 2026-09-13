@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import fc from "fast-check";
-import { resolveRate, eurToCurrency, currencyToEur } from "./fx";
+import { resolveRate, resolveRateSource, eurToCurrency, currencyToEur } from "./fx";
 import type { BudgetCurrency, FxRates } from "./types";
 
 const currencyArb = fc.constantFrom<BudgetCurrency>("EUR", "USD", "GBP");
@@ -52,6 +52,24 @@ describe("fx — properties", () => {
         // Relative tolerance: rate multiply-then-divide re-introduces tiny float
         // error that scales with magnitude, so an absolute epsilon is wrong here.
         expect(Math.abs(back - amount)).toBeLessThanOrEqual(1e-6 * Math.max(1, Math.abs(amount)));
+      }),
+    );
+  });
+
+  // §474: `resolveRateSource` is the only thing that can tell a genuinely
+  // resolved rate of 1 apart from a rateless bucket read at par — both
+  // collapse to `resolveRate(...) === 1`. This pins the two directions of
+  // that relationship across arbitrary inputs, not just the handful of fixed
+  // fixtures in fx.test.ts.
+  test("\"unresolved\" and \"eur\" both imply rate === 1; \"eur\" iff currency === EUR", () => {
+    fc.assert(
+      fc.property(bucketArb, fxRatesArb, (bucket, fxRates) => {
+        const source = resolveRateSource(bucket, fxRates);
+        const rate = resolveRate(bucket, fxRates);
+        if (source === "unresolved" || source === "eur") {
+          expect(rate).toBe(1);
+        }
+        expect(source === "eur").toBe(bucket.currency === "EUR");
       }),
     );
   });

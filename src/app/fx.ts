@@ -49,6 +49,20 @@ export function resolveRateSource(bucket: Pick<BudgetBucket, "currency" | "fxRat
   return resolveRateInfo(bucket, fxRates).source;
 }
 
+/**
+ * How many of `buckets` are "unresolved" (§474, `RateSource`) — summed into a
+ * EUR-labelled rollup at par because no rate was ever confirmed for them.
+ * Reads `resolveRateSource` directly so the rollup's disclosure notice can
+ * never disagree with the per-bucket currency-label marker about which
+ * buckets qualify.
+ */
+export function countUnresolvedBuckets(
+  buckets: readonly Pick<BudgetBucket, "currency" | "fxRateOverride">[],
+  fxRates: FxRates | null,
+): number {
+  return buckets.reduce((count, bucket) => count + (resolveRateSource(bucket, fxRates) === "unresolved" ? 1 : 0), 0);
+}
+
 /** EUR amount -> bucket currency. */
 export function eurToCurrency(amountEur: number, bucket: Pick<BudgetBucket, "currency" | "fxRateOverride">, fxRates: FxRates | null): number {
   return amountEur * resolveRate(bucket, fxRates);

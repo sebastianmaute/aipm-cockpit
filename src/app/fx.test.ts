@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { resolveRate, resolveRateSource, eurToCurrency, currencyToEur } from "./fx";
+import { resolveRate, resolveRateSource, eurToCurrency, currencyToEur, countUnresolvedBuckets } from "./fx";
 import type { FxRates, BudgetBucket } from "./types";
 
 const fx: FxRates = { base: "EUR", date: "2026-05-26", fetchedAt: "x", rates: { EUR: 1, USD: 1.08, GBP: 0.85 } };
@@ -68,6 +68,38 @@ describe("resolveRateSource", () => {
   test("a non-positive override does not resolve the rate — falls through to cached or unresolved", () => {
     expect(resolveRateSource(bucket({ fxRateOverride: 0 }), fx)).toBe("cached");
     expect(resolveRateSource(bucket({ fxRateOverride: -5, currency: "GBP" }), null)).toBe("unresolved");
+  });
+});
+
+// §474 (rollup half): the project rollup sums every bucket's EUR-reported
+// figure regardless of whether a rate was ever confirmed for it, so its
+// disclosure notice needs to know how many summands were "unresolved"
+// (fx.ts's `RateSource`). This is that count, read straight off
+// `resolveRateSource` so it cannot disagree with the per-bucket marker about
+// which buckets qualify.
+describe("countUnresolvedBuckets", () => {
+  // Missing GBP (unlike the module-level `fx`, which caches all three
+  // supported currencies) — the union is EUR/USD/GBP only, so this is the
+  // one table that can produce "cached" AND "unresolved" side by side.
+  const partialFx: FxRates = { base: "EUR", date: "2026-05-26", fetchedAt: "x", rates: { EUR: 1, USD: 1.08 } };
+
+  test("is 0 for an empty bucket list", () => {
+    expect(countUnresolvedBuckets([], fx)).toBe(0);
+  });
+
+  test("counts only the unresolved buckets in a mixed list", () => {
+    const mixed = [
+      bucket({ currency: "EUR" }), // "eur" — not unresolved
+      bucket({ currency: "USD" }), // "cached" via partialFx — not unresolved
+      bucket({ currency: "GBP" }), // no cached rate, no override — unresolved
+      bucket({ currency: "GBP", fxRateOverride: 1.3 }), // "override" — not unresolved
+    ];
+    expect(countUnresolvedBuckets(mixed, partialFx)).toBe(1);
+  });
+
+  test("counts every bucket when fxRates is null and none carries an override", () => {
+    const allRateless = [bucket({ currency: "USD" }), bucket({ currency: "GBP" })];
+    expect(countUnresolvedBuckets(allRateless, null)).toBe(2);
   });
 });
 
