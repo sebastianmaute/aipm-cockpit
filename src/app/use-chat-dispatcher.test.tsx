@@ -1537,6 +1537,36 @@ describe("useChatDispatcher – resource directory", () => {
     expect(result.current.getResource(1)?.title).toBeUndefined();
   });
 
+  it("updateResource does not refuse an ARRAY that only echoes an already-stored unsafe address (§422 fix round 1)", () => {
+    // Controller ruling: an array is stored VERBATIM (never split), so
+    // re-sending an address the row already holds cannot tear anything —
+    // only a genuinely NEW unsafe member should be refused.
+    const seeded: Resource = {
+      id: 1, firstName: "Ada", lastName: "Lovelace",
+      roleId: null, utilizationMode: "percent", utilization: {},
+      emails: ["a,b@x.com"],
+    };
+    const { result } = renderDispatcher(seedTasks(), false, "open-points", undefined, undefined, undefined, [seeded]);
+    let updated: unknown;
+    expect(() => {
+      updated = result.current.updateResource(1, { title: "Lead", emails: ["a,b@x.com"] });
+    }).not.toThrow();
+    expect(updated).toMatchObject({ title: "Lead", emails: ["a,b@x.com"] });
+    expect(result.current.getResource(1)).toMatchObject({ title: "Lead", emails: ["a,b@x.com"] });
+  });
+
+  it("updateResource still refuses an ARRAY carrying a genuinely NEW unsafe address (§422 fix round 1)", () => {
+    const seeded: Resource = {
+      id: 1, firstName: "Ada", lastName: "Lovelace",
+      roleId: null, utilizationMode: "percent", utilization: {},
+      emails: ["a,b@x.com"],
+    };
+    const { result } = renderDispatcher(seedTasks(), false, "open-points", undefined, undefined, undefined, [seeded]);
+    expect(() => result.current.updateResource(1, { title: "Lead", emails: ["a,b@x.com", "new;x@y.com"] })).toThrow(/emails/);
+    expect(result.current.getResource(1)).toMatchObject({ emails: ["a,b@x.com"] });
+    expect(result.current.getResource(1)?.title).toBeUndefined();
+  });
+
   it("getResource fetches a created resource and returns null for a missing id", () => {
     const { result } = renderDispatcher();
     const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });

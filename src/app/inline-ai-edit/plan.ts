@@ -597,7 +597,11 @@ export function describeEntityCalls(
         //  drops it shows that removal on the card instead. A STRING value is the
         //  exception: it cannot be inspected per address, so it is refused
         //  whenever the stored list already holds an unsafe one.
-        if (d.entity === "resource" && f === "emails" && (findDelimiterUnsafeEmail(input[f]) !== undefined || (typeof input[f] === "string" && findDelimiterUnsafeEmail(item.emails) !== undefined))) { bad(`${f}=${after}`); continue; }
+        //  ★ The detail uses the RAW incoming value (`str(input[f])`), never
+        //  `after`: `after` has already been through `fieldSanitizers.emails`,
+        //  which re-splits a STRING on `[;,]` and rejoins it — so the card
+        //  would show an address that was never what the model actually sent.
+        if (d.entity === "resource" && f === "emails" && (findDelimiterUnsafeEmail(input[f]) !== undefined || (typeof input[f] === "string" && findDelimiterUnsafeEmail(item.emails) !== undefined))) { bad(`${f}=${str(input[f])}`); continue; }
         // ★★★ A JOINT REQUIREMENT IS JUDGED ON THE MERGED ROW, NEVER ON THIS
         // FIELD ALONE, and the group takes PRECEDENCE over `requiredNonEmpty`
         // so the descriptor's "a member of a group is exempt" holds by

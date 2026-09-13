@@ -642,14 +642,30 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (args.isReadOnly) throw readOnlyError();
         const existing = resourcesRef.current.find((r) => r.id === id);
         if (!existing) return null;
-        // ★★ §422 — same refusal as `createResource`; the whole call fails and the
-        //  stored row is untouched. `describeEntityCalls` refuses the same array as
-        //  a FIELD so an inline edit's other fields still apply.
-        //  A STRING `emails` cannot be inspected per address, so it is refused
-        //  whenever the stored list already holds an unsafe one (the re-split
-        //  would tear it).
+        // ★★ §422 (fix round 1 controller ruling) — an ARRAY `emails` is refused
+        //  only for a member that is BOTH delimiter-unsafe AND not already
+        //  present, trimmed, in the stored `existing.emails`. An array is
+        //  stored VERBATIM here — never split — so re-sending an address the
+        //  row already holds is harmless; only a genuinely NEW unsafe member
+        //  can tear anything. Without this exclusion, a resource that already
+        //  carries a legacy comma address (loaded from JSON/IDB, unaffected by
+        //  this fix) could never be updated by a caller that echoes the whole
+        //  `emails` list back unchanged alongside another field — the call
+        //  would fail even though nothing would have been torn.
+        //  `createResource` has no such exclusion: there is no stored row, so
+        //  every member is new.
+        //  The STRING branch is UNCHANGED: a string cannot be inspected per
+        //  address, so it is refused whenever the stored list already holds an
+        //  unsafe one (the re-split would tear it) — including a string that
+        //  DROPS that address or CLEARS the list entirely, since a string is
+        //  refused wholesale rather than diffed. Fixing such a legacy row
+        //  needs an array-typed call.
+        const existingEmailsTrimmed = new Set((existing.emails ?? []).map((e) => e.trim()));
+        const newUnsafeArrayEmails = Array.isArray(patch.emails)
+          ? patch.emails.filter((e) => typeof e !== "string" || !existingEmailsTrimmed.has(e.trim()))
+          : undefined;
         const unsafeEmail =
-          findDelimiterUnsafeEmail(patch.emails) ??
+          findDelimiterUnsafeEmail(newUnsafeArrayEmails) ??
           (typeof patch.emails === "string" ? findDelimiterUnsafeEmail(existing.emails) : undefined);
         if (unsafeEmail !== undefined) throw new Error(`invalid resource update: emails must not contain "," or ";" (${JSON.stringify(unsafeEmail)})`);
         // ★★★ `name` HAS TO BE SPLIT HERE OR IT IS A SILENT NO-OP ON UPDATE, and

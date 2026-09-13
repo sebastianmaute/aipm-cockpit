@@ -78,13 +78,11 @@ describe("§422: a comma-bearing address cannot be torn in two by an inline edit
   it("refuses a changed emails STRING while the stored list holds a comma-bearing address (controller ruling)", () => {
     const plan = planFor({ id: 1, firstName: "Grace", emails: "a,b@x.com, c@y.com" });
     expect(plan.updates.map((u) => u.field)).toEqual(["firstName"]);
-    // ★ `detail` is built from the NORMALISED `after`, and `fieldSanitizers.emails`
-    // always applies the writer's own split-then-", "-join round-trip to a STRING
-    // input regardless of whether the field is ultimately accepted or refused —
-    // so the rejected string shows "a, b@x.com" (already re-split), not the raw
-    // "a,b@x.com" the model sent. That round-trip IS the defect §422 refuses to
-    // let reach storage; seeing it in the rejection detail is expected, not a bug.
-    expect(plan.rejected.map((r) => r.detail)).toEqual(["emails=a, b@x.com, c@y.com"]);
+    // ★ `detail` is built from the RAW incoming value (`str(input[f])`), never
+    // the normalised `after` — `after` has already been through
+    // `fieldSanitizers.emails`, which re-splits a STRING on `[;,]` and rejoins
+    // it, so using it here would show the model an address it never sent.
+    expect(plan.rejected.map((r) => r.detail)).toEqual(["emails=a,b@x.com, c@y.com"]);
   });
 
   it("does not refuse a changed emails STRING when the stored list is delimiter-safe (control)", () => {

@@ -31826,7 +31826,17 @@ review, not a drive-by during someone else's release. Deliberately NOT done here
 
 ## 422. A comma-bearing email address is destroyed when an inline edit names emails with a changed value — CLOSED 2026-09-13
 
-**Status:** CLOSED 2026-09-13 — stopped at WRITE, never on load: the resource editor, `createResource` / `updateResource` and the inline-edit plan all refuse an extra address holding `,` or `;` (`isDelimiterSafeEmail` / `findDelimiterUnsafeEmail` in `sanitize-core.ts`). Pinned by `npx vitest run src/app/inline-ai-edit/emails-roundtrip.test.ts` (the retained probe, renamed and converted).
+**Status:** CLOSED 2026-09-13 — stopped at WRITE, never on load. The resource editor refuses any
+additional address holding `,` or `;`; `createResource` refuses an `emails` ARRAY holding one (there is
+no stored row yet, so every member is new); `updateResource` refuses an ARRAY only for a member that is
+BOTH unsafe AND not already present, trimmed, in the stored list (an array is never split, so re-sending
+an address the row already holds is harmless), and refuses a STRING `emails` whenever the stored list
+already holds an unsafe address; the inline-edit plan refuses the `emails` FIELD when a CHANGED incoming
+array carries such an address, or when a changed STRING is sent while the stored list holds one
+(`isDelimiterSafeEmail` / `findDelimiterUnsafeEmail` in `sanitize-core.ts`). A STRING `emails` on create,
+or on update of a row whose stored list is safe, is split by design and not refused — a string is a
+delimited list. Pinned by
+`npx vitest run src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/resource-edit-modal.test.tsx src/app/use-chat-dispatcher.test.tsx`.
 
 `resource.emails` round-trips through a joined string: the descriptor projects the stored list as a
 `", "`-joined string for the preview, `coerce` (`use-inline-entity-edit.ts`) passes a
@@ -31880,9 +31890,10 @@ UNFILTERED command would refute it — the first draft of this paragraph did exa
 are external INGEST paths that today accept whatever the remote sends — `jira-api.ts` and
 `outlook-contacts.ts` — so validation is not a single-boundary change. Either fix is its own slice.
 
-_Original finding, as written 2026-09-06. Superseded by everything above: the "ANY unrelated edit"
-trigger is refuted, and the original Status line's `**No test pins this**` is no longer true — the
-probe named above pins it. Preserved unedited as the dated record of what was believed._
+_Original finding, as written 2026-09-06. Superseded by everything above, and by the CLOSED 2026-09-13
+block at the end of this entry: the "ANY unrelated edit" trigger is refuted, and the original Status
+line's `**No test pins this**` is no longer true — the probe named above pins it. Preserved unedited as
+the dated record of what was believed._
 
 **Status:** OPEN. Filed 2026-09-06 from a cold-review finding that was MEASURED and partly refuted —
 the parity half is fine and only the round-trip half survives. Last executed verification 2026-09-06 —
@@ -31915,17 +31926,29 @@ one is not obvious enough to prescribe here.
 `sanitizeEmailList` and every load/decode path are unchanged. Instead, no write boundary accepts an
 address the transport would tear: `isDelimiterSafeEmail` (`sanitize-core.ts`) refuses a trimmed value
 holding `,` or `;`, with no format validation beyond that. The resource editor blocks save with
-`resourceErrorEmailDelimiter`. `createResource` / `updateResource` in `use-chat-dispatcher.ts` throw
-a tool error naming `emails`, and nothing is written. `describeEntityCalls` refuses the `emails`
-FIELD when the incoming array carries such an address, so the patch never holds it and the call's
-other fields apply — the `emailFormatFields` shape. ★★ The plan guard is keyed on the INCOMING array,
-not the stored list, deliberately: a stored comma address is only torn when the call carries it back,
-and a proposed list that drops it shows the removal on the card instead. A STRING `emails` cannot
-be inspected per address, so the plan guard and `updateResource` refuse it whenever the stored list
-already holds an unsafe address. External ingest
-(`jira-api.ts`, `outlook-contacts.ts`) writes no `resource.emails` and is untouched. Primary-email
-format validation remains out of scope. The probe `emails-roundtrip.probe.test.ts` is now
-`emails-roundtrip.test.ts`.
+`resourceErrorEmailDelimiter`. `createResource` in `use-chat-dispatcher.ts` throws a tool error naming
+`emails` when any array member is unsafe — there is no stored row yet, so every member counts as new.
+**Fix round 1 controller ruling:** `updateResource` throws the same error for an ARRAY only when the
+unsafe member is NOT already present, trimmed, in the stored list — an array is stored VERBATIM, never
+split, so re-sending an address the row already holds is harmless, and only a genuinely new unsafe
+member can tear anything; without this exclusion a resource already carrying a legacy comma address
+(loaded from JSON/IDB, unaffected by this fix) could never be updated by a caller that echoes the whole
+list back alongside another field. `updateResource` also throws for a STRING `emails` whenever the
+stored list already holds an unsafe address, because a string cannot be inspected per address and is
+refused wholesale rather than diffed — this includes a string that DROPS that address or CLEARS the
+list entirely (e.g. `""`); fixing such a legacy row needs an array-typed call. `describeEntityCalls`
+refuses the `emails` FIELD when a CHANGED incoming array carries such an address, so the patch never
+holds it and the call's other fields apply — the `emailFormatFields` shape — and, by the same
+controller ruling, refuses a CHANGED STRING while the stored list already holds an unsafe address. ★★
+The plan guard is keyed on the INCOMING value, not the stored list, deliberately: a stored comma
+address is only torn when the call carries it back, and a proposed list that drops it shows the removal
+on the card instead — the existing `before === after` skip already handles an unchanged echo, so the
+plan guard (unlike `updateResource`) needs no separate already-present exclusion, since the inline
+transport joins the WHOLE list and a genuinely CHANGED list re-splits it regardless of which member
+moved. External ingest (`jira-api.ts`, `outlook-contacts.ts`) writes no `resource.emails` and is
+untouched. A STRING `emails` on create, or on update of a row whose stored list is safe, is split by
+design and not refused — a string is a delimited list. Primary-email format validation remains out of
+scope. The probe `emails-roundtrip.probe.test.ts` is now `emails-roundtrip.test.ts`.
 
 ## 423. The codename ledger in `version.ts` is duplicated data that has rotted three times — CLOSED 2026-09-07
 
