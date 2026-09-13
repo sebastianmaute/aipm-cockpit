@@ -68,6 +68,26 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   built on is structurally BLIND to: paste one index row and both differences come back empty while
   the two counts disagree. ★ DO NOT satisfy a red run by renumbering an entry — a follow-up number
   is a permanent handle other docs cite] ·
+  **followups-workitems-check** BLOCKING [`npm run followups:workitems:check` — every OPEN entry in
+  `docs/open-followups.md` carries exactly one line STARTING `**Work item:**` whose remainder is `#NN`
+  or exactly `none — decision record`, no closed entry carries one, and no issue is claimed by two open
+  entries (`scripts/check-followup-workitems.mjs` over `scripts/followup-workitem-lib.mjs`). ★★ SAME
+  TWO-EXIT-CODE SPLIT: **1 is DRIFT**, **2 is the gate unable to scan** (unreadable register, or under
+  the 50-open-entry floor). ★★ It reads the REGISTER ONLY, so an issue closed in GitLab while its entry
+  stays open passes it. ★ DO NOT satisfy a red run with `none — decision record` on an entry that has
+  real work — create the issue] ·
+  **followups-gitlab-sync** WARN-ONLY [`npm run followups:gitlab:check` — compares every open entry's
+  Work item line with the OPEN GitLab issues both ways (`scripts/check-followup-gitlab.mjs` over
+  `compareWithGitLab` in `scripts/followup-workitem-lib.mjs`): an issue closed in GitLab, one titled for
+  another entry, one with no open entry, a `§NNN:` issue without `source::register` or the reverse.
+  ★★ Skips with exit 0 until a masked, protected `REGISTER_SYNC_TOKEN` (a project access token
+  with the read-API scope) exists. ★★ A protected variable only reaches pipelines on protected refs, so
+  `main` must be protected and the schedule must target `main`; otherwise the job just prints "skipped".
+  **1 is DRIFT**, **2 is could-not-compare** (network, token, redirect, or under a 50-REGISTER-issue
+  floor — open issues with a `§NNN:` title or the label, NOT all open issues — which catches a fetch that
+  returns no or few register issues, e.g. a token that cannot see confidential issues). ★★ Default-branch pushes and schedules
+  ONLY: on an MR, whoever merges second rebases, so a branch can hold issues whose entries are not on
+  main yet. `allow_failure: true` sits at job level AND on each rule — the YAML comment says why] ·
   **tag-version-check** BLOCKING [tag pipelines only, `needs: []` — `npm run tag:check` asserts the tag
   is `v` + `APP_VERSION` (`scripts/check-tag-version.mjs` over `scripts/tag-version-lib.mjs`). ★★ SAME
   TWO-EXIT-CODE SPLIT: **1 is DRIFT** (the installer would misreport its own version), **2 is the gate
@@ -117,7 +137,7 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
   in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
   `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `version-sync-check`,
-  `doc-claims-check`, `followups-status-check`, `followups-index-check`, `tag-version-check`, `unit-tests`,
+  `doc-claims-check`, `followups-status-check`, `followups-index-check`, `followups-workitems-check`, `followups-gitlab-sync`, `tag-version-check`, `unit-tests`,
   `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
   `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
   sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a
@@ -147,7 +167,8 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   scripts/` returns no loader), and its threshold is the literal `1.75` in `package.json dup:check`.
   A weekly `schedule` pipeline also runs
   `dependency-audit-full` + **unit-tests-shuffled-random** (same suite, seed `$CI_PIPELINE_ID` echoed with
-  its reproduce command, warn-only `allow_failure: true`) + a **dast-zap** ZAP baseline (dind-based, manual
+  its reproduce command, warn-only `allow_failure: true`) + **followups-gitlab-sync** (warn-only, also on
+  default-branch pushes) + a **dast-zap** ZAP baseline (dind-based, manual
   otherwise). (Phases 1-4 of the
   tech-debt roadmap are complete — gates flipped to blocking in Phase 4, MR !174.)
   New CI gate → also update this line.

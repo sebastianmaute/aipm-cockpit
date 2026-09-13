@@ -327,6 +327,58 @@ followups-index-check:
   script:
     - npm run followups:index:check
 
+# Work item contract — BLOCKING. Every OPEN entry in docs/open-followups.md must
+# carry exactly one line starting `**Work item:**` whose remainder is `#NN` or
+# exactly `none — decision record`; a closed entry carries none, and no GitLab
+# issue may be claimed by two open entries. It reads the register ONLY, so it
+# cannot see an issue closed in GitLab.
+# TWO FAILURE MODES, TWO EXIT CODES: 1 is DRIFT (fix the line); 2 means the gate
+# could not scan at all — an unreadable register, or fewer than 50 open entries
+# parsed. 2 is the load-bearing one. Do NOT satisfy a red run with
+# `none — decision record` on an entry that has real work; create the issue.
+followups-workitems-check:
+  stage: quality
+  needs: []
+  script:
+    - npm run followups:workitems:check
+
+# Register vs GitLab — WARN-ONLY. Compares every open entry's Work item line with
+# the OPEN issues in  (GitLab), both ways: an issue closed in the GitLab UI, an
+# issue titled for another entry, an issue with no open entry, a `source::register`
+# issue with no `§NNN:` title. This is what followups-workitems-check cannot see.
+# 1 is DRIFT; 2 means it could not compare (network, token, redirect, or fewer
+# than 50 REGISTER issues fetched — a `§NNN:` title or the source::register label —
+# which catches a fetch that returns no or few of them, e.g. a token that cannot
+# see confidential issues, however many unrelated issues came back).
+# ★★ WARN-ONLY because it depends on the network and on a token: a GitLab outage
+# or an expired token must never block main.
+# ★★ NOT on merge-request pipelines: whoever merges second rebases, so a branch
+# can legitimately hold issues whose entries are not on main yet (or the reverse),
+# and the comparison would be red for work that is correct.
+# ★ Needs a masked, protected CI/CD variable REGISTER_SYNC_TOKEN (a project access
+# token with read_api scope). Until one exists the job prints "skipped" and exits 0.
+# ★★ A protected variable only reaches pipelines on protected refs, so `main` must
+# be a protected branch and the schedule must target `main`; otherwise the job
+# silently prints "skipped" forever.
+# ★★ allow_failure is set at JOB level AND on EACH rule, on purpose. GitLab's docs
+# say a rule-level value "overrides the job-level allow_failure, and only applies
+# when the specific rule triggers the job" — which implies the job level governs
+# a rule that omits it — but the same section says rules:allow_failure "Defaults to
+# false if not defined", and this file already documents a rule without the key
+# running BLOCKING (dast-zap's schedule rule, which has no job-level value either).
+# Spelling it out everywhere removes the question; do not "tidy" either copy away.
+followups-gitlab-sync:
+  stage: quality
+  needs: []
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      allow_failure: true
+  allow_failure: true
+  script:
+    - npm run followups:gitlab:check
+
 # Duplication gate — BLOCKING as of Phase 4 (ratchet, not absolute). jscpd exits
 # non-zero if any format's duplication % exceeds the `--threshold` set in the
 # `dup:check` script (post-TD-6 exit level: tsx 1.69% / typescript 1.71% [binding]

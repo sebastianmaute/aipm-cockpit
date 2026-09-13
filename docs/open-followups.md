@@ -753,7 +753,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§528](#528-roadmap-specs-and-follow-ups-still-live-in-markdown-rather-than-gitlab-issues-with-no-issue-templates-or-prioritisation-rules--open) | Roadmap, specs and follow-ups still live in markdown rather than GitLab issues, with no issue templates or prioritisation rules — OPEN | AI PM Cockpit demo 2026-09-11 (P-6), GitLab #72; mirrored into the register 2026-09-13 | M — pilot the move, then templates and labels, prioritisation rules, and repointed AGENTS.md and CONTRIBUTING | open |
 | [§529](#529-api-key-funding-is-unresolved-and-every-user-must-bring-and-pay-for-their-own-anthropic-key--open) | API key funding is unresolved, and every user must bring and pay for their own Anthropic key — OPEN | AI PM Cockpit demo 2026-09-11 (P-7), GitLab #73; mirrored into the register 2026-09-13 | unestimated (decision) — a shared key would need a new server-side proxy | open |
 | [§530](#530-there-is-no-microsoft-teams-integration-the-remaining-microsoft-365-gap--open) | There is no Microsoft Teams integration, the remaining Microsoft 365 gap — OPEN | AI PM Cockpit demo 2026-09-11 (P-8), GitLab #74; mirrored into the register 2026-09-13 | L — new Graph scopes, likely admin consent, then channel posts, online meetings and chat links | open |
-| [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--open) | Nothing checks that the register and GitLab issues stay one-to-one — OPEN | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | open |
+| [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--closed-2026-09-13) | Nothing checks that the register and GitLab issues stay one-to-one — CLOSED 2026-09-13 | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | **CLOSED** 2026-09-13 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -36968,12 +36968,19 @@ Size L — new Graph scopes, likely admin consent, then channel posts, online me
 
 **Work item:** #74
 
-## 531. Nothing checks that the register and GitLab issues stay one-to-one — OPEN
+## 531. Nothing checks that the register and GitLab issues stay one-to-one — CLOSED 2026-09-13
 
-**Status:** OPEN 2026-09-13 — `grep -rn "Work item" scripts .gitlab-ci.yml` → no output, so no script and no
-CI job reads the `**Work item:**` lines.
-
-**Work item:** #321
+**Status:** CLOSED 2026-09-13 — both halves are built, as the two jobs this entry proposed.
+`npm run followups:workitems:check` is the blocking register-only check (CI job `followups-workitems-check`),
+and `npm run followups:gitlab:check` is the warn-only comparison with the open GitLab issues (CI job
+`followups-gitlab-sync`, main pushes and the schedule only). `docs/AGENTS/ci.md` documents both. The
+GitLab half skips until a masked, protected `REGISTER_SYNC_TOKEN` variable exists; run locally with a
+read-API token on 2026-09-13, before this closure, it reported "Register and GitLab agree." GitLab #321
+is closed when the change carrying this closure merges, not before, so main never shows an open entry
+without its issue. Until #321 is closed, the same run exits 1 with the one expected problem
+`ISSUE_WITHOUT_ENTRY` for #321, and the first `followups-gitlab-sync` run on main after the merge may
+warn about it once.
+The paragraph below saying the two-way check was never committed is superseded by the two scripts.
 
 The 2026-09-13 housekeeping linked the register to GitLab one-to-one. Every open entry carries one
 `**Work item:** #NN` line (a decision record carries `**Work item:** none — decision record`, a closed
