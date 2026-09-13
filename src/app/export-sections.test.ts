@@ -252,7 +252,8 @@ describe("buildExportSections", () => {
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const raidSec = sections.find((s) => s.key === "raid")!;
 
-    // §515: escalations (recipient e-mail addresses) are out of scope for document exports.
+    // §515: the structured escalations column is out of scope for document exports
+    // (the note-log echo, which names the recipient, is still exported).
     expect(raidSec.columns).toEqual(RAID_EXPORT_COLUMNS);
     expect(raidSec.columns).not.toContain("escalations");
     expect(RAID_EXPORT_COLUMNS).toHaveLength(RAID_CSV_COLUMNS.length - 1);

@@ -272,6 +272,23 @@ describe("useActionCenterHandlers — Escalate records on the item (§515)", () 
     expect(recorded.severity).toBe(entry?.toSeverity);
   });
 
+  it("attributes the note echo to the user's own resource from selfResourceId", () => {
+    const pat = { id: 3, firstName: "Pat", lastName: "Lee", email: "pat@example.com", roleId: null, utilizationMode: "percent", utilization: {} } as never;
+    const noteOf = (selfResourceId: number | null) => {
+      const setRaid = vi.fn();
+      const { result } = renderHook(() => useActionCenterHandlers(makeDeps({ raid: [item], setRaid, resources: [pat], selfResourceId })));
+      act(() => { result.current.escalateBundle!.onEscalate(escalateAction, recipient); });
+      const updater = setRaid.mock.calls[0][0] as (prev: readonly RaidItem[]) => readonly RaidItem[];
+      return updater([item])[0].noteLog?.[0];
+    };
+    expect(noteOf(3)).toMatchObject({ authorResourceId: 3, authorName: "Pat Lee" });
+    // Positive control: without a self id the same escalation writes a note with NO author.
+    const anonymous = noteOf(null);
+    expect(anonymous?.text).toContain("Jane Doe");
+    expect(anonymous).not.toHaveProperty("authorResourceId");
+    expect(anonymous).not.toHaveProperty("authorName");
+  });
+
   // REGRESSION PIN — passes before this task's change too (the address guard predates §515);
   // kept so the rewrite cannot move the write ahead of the check.
   it("writes nothing for an invalid address (positive control: the toast fires)", () => {

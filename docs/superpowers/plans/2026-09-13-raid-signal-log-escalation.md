@@ -54,6 +54,7 @@ Each deviation below was found in the code while planning. The plan follows the 
 9. **Document exports would leak escalations.**
    - `export-sections.ts` builds the RAID export table from `RAID_CSV_COLUMNS`, so a new column would appear as raw JSON with recipient e-mail addresses in DOCX/PPTX/XLSX.
    - To honour "Out of scope: escalations in exports", Task 2 filters the column out through a new exported `RAID_EXPORT_COLUMNS`.
+   - Note (2026-09-13, final review): this omits only the STRUCTURED column. It does not keep recipients out of an export or a template: every escalation also writes a note-log echo ("Escalated to Jane Doe <jane@example.com>: …"), `noteLog` is exported through `projectNoteLog`, and templates carry it (§168).
 10. **The offered-surface sweep derives its Relation A axis from `RAID_CSV_COLUMNS`.**
     - Source: `src/test/offered-surface-axis.ts`, `PERSISTED_COLUMNS`. The new column therefore enters the model-write sweep.
     - `probeFor` never invents a value, so Task 2 seeds `escalations` in `seedGuardedRaid` and adds it to `AXIS_FIELDS.raid`.
@@ -722,7 +723,8 @@ describe("applyTemplate — RAID escalations (§515)", () => {
   with
 
 ```ts
-    // §515: escalations (recipient e-mail addresses) are out of scope for document exports.
+    // §515: the structured escalations column is out of scope for document exports
+    // (the note-log echo, which names the recipient, is still exported).
     expect(raidSec.columns).toEqual(RAID_EXPORT_COLUMNS);
     expect(raidSec.columns).not.toContain("escalations");
     expect(RAID_EXPORT_COLUMNS).toHaveLength(RAID_CSV_COLUMNS.length - 1);
@@ -1030,9 +1032,11 @@ function raidSection(raid: readonly RaidItem[], lang: Lang): ExportSection {
 with
 
 ```ts
-/** RAID columns in document exports — every persisted column except
- *  `escalations`, whose recipient e-mail addresses are out of scope for
- *  exports (§515). */
+/** RAID columns in document exports — every persisted column except the
+ *  structured `escalations` column, which is out of scope for exports (§515).
+ *  ★ This does NOT keep recipients out of an export: each escalation also
+ *   appends a note-log echo ("Escalated to Jane Doe <jane@example.com>: …"),
+ *   and `noteLog` IS exported through `projectNoteLog`. */
 export const RAID_EXPORT_COLUMNS = RAID_CSV_COLUMNS.filter((c) => c !== "escalations");
 
 function raidSection(raid: readonly RaidItem[], lang: Lang): ExportSection {
@@ -3881,6 +3885,7 @@ The "Logged as RAID #N" text + Open button is NOT duplicated into the two rows (
   - `Insight.loggedRaidId?: number`
   - `InsightActions.onLogAsRaid?: (insight: Insight) => void`
   - `markInsightLoggedAsRaid(insight: Insight, raidId: number, today: string): Insight`
+    - Note (2026-09-13, final review): the Act transition applies only to an `active`/`acknowledged` insight; any other status gains `loggedRaidId` only, with status and timestamps untouched.
   - `applyInsightLoggedAsRaid(prev: readonly Insight[] | undefined, insightId: number, raidId: number, today: string): Insight[]` — the functional-setter body of task-manager's writer, exported so the id-collision test composes the SAME code (ruling P2)
   - `InsightLoggedRaid({ raidId, nameToken, lang, onOpen? })`
   - `RaidCreateOrigin` widens to `{ kind: "insight"; insightId: number } | { kind: "action"; action: SuggestedAction }`

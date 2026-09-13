@@ -363,9 +363,11 @@ function projectNoteLog(log: readonly NoteLogEntry[] | undefined, lang: Lang): s
     .join("\n");
 }
 
-/** RAID columns in document exports — every persisted column except
- *  `escalations`, whose recipient e-mail addresses are out of scope for
- *  exports (§515). */
+/** RAID columns in document exports — every persisted column except the
+ *  structured `escalations` column, which is out of scope for exports (§515).
+ *  ★ This does NOT keep recipients out of an export: each escalation also
+ *   appends a note-log echo ("Escalated to Jane Doe <jane@example.com>: …"),
+ *   and `noteLog` IS exported through `projectNoteLog`. */
 export const RAID_EXPORT_COLUMNS = RAID_CSV_COLUMNS.filter((c) => c !== "escalations");
 
 function raidSection(raid: readonly RaidItem[], lang: Lang): ExportSection {

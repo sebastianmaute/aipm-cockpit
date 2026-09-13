@@ -98,11 +98,22 @@ describe("useRaidCreate — action origin (§515)", () => {
     expect(result.current.request).not.toBeNull();
   });
 
-  it("applies status and matrix edits to the draft", () => {
+  it("applies matrix edits to the draft", () => {
     const { result } = renderHook(() => useRaidCreate(deps()));
     act(() => result.current.openFromAction!(slip));
     act(() => result.current.applyDraftMatrix(5, 5));
     expect(result.current.request!.draft).toMatchObject({ probability: 5, impact: 5 });
+  });
+
+  it("applies a status edit with today, stamping closedDate for a terminal status and clearing it on reopen", () => {
+    const { result } = renderHook(() => useRaidCreate(deps({ today: "2026-06-20" })));
+    act(() => result.current.openFromAction!(slip));
+    expect(result.current.request!.draft.closedDate).toBeUndefined(); // positive control: open draft
+    act(() => result.current.applyDraftStatus("Closed"));
+    expect(result.current.request!.draft).toMatchObject({ status: "Closed", closedDate: "2026-06-20" });
+    act(() => result.current.applyDraftStatus("Open"));
+    expect(result.current.request!.draft.status).toBe("Open");
+    expect(result.current.request!.draft.closedDate).toBeUndefined();
   });
 
   it("exposes no opener in a popout", () => {

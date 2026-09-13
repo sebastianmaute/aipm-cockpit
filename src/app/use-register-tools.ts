@@ -152,9 +152,10 @@ export interface RegisterToolsDeps {
    *  any site below; the `?.` is defence this widened type still makes
    *  mandatory. */
   undoRef: RefObject<Pick<UndoStackApi, "captureComposite"> | undefined>;
-  /** Owned by use-chat-dispatcher, which also owns the resource WRITERS, so an
-   *  escalation in the same turn as a `create_resource` sees the new row. Read
-   *  only to link an escalation recipient by e-mail (§515). */
+  /** Owned by use-chat-dispatcher. Read only to link an escalation recipient
+   *  by e-mail (§515), from whatever `.current` holds when the tool runs.
+   *  ★ That owner's `create_resource` writer assigns `.current` synchronously,
+   *   so a same-turn create should be visible here — but no test pins it. */
   resourcesRef: RefObject<readonly Resource[]>;
 }
 
