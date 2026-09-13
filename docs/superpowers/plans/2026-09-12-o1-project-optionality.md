@@ -4,15 +4,16 @@
 
 **Goal:** Let a project be created and persisted with only a name, without any backend's decoder discarding the record, and without any consumer mis-handling the blank values that become legal.
 
-**Architecture:** One gate is removed in four layers that must move together: the sanitizer (which today discards the whole project on any blank key fact), the `ProjectMeta` type, the form validator with its error keys and strings, and the form's required markers. Around that core, the one consumer that mishandles a blank (`fetchWindow`) is fixed, three code render sites gain an explicit `—`, and the one consequence this MR does not fix is filed as a follow-up.
+**Architecture:** One gate is removed in four layers that must move together: the sanitizer (which today discards the whole project on any blank key fact), the `ProjectMeta` type, the form validator with its error keys and strings, and the form's required markers. Around that core, the one consumer that mishandles a blank (`fetchWindow`) is fixed, three code render sites gain an explicit `—`, and the one consequence this MR does not fix is filed as a follow-up with its GitLab issue. The register entry this MR implements, §521 (GitLab #64), is closed in the same change.
 
 **Tech Stack:** Next.js 16.2.11 (exact-pinned), React, TypeScript, vitest + @testing-library/react.
 
-**Spec:** `docs/superpowers/specs/2026-09-12-project-key-facts-and-shell-polish-design.md` — section 4 (as corrected in `14ff588f`), plus §8's cross-cutting constraints. Read it alongside this plan; the plan argues from it.
+**Spec:** `docs/superpowers/specs/2026-09-12-project-key-facts-and-shell-polish-design.md` — section 4 (as corrected in `bb8fa552`, rebased from `14ff588f`), plus §8's cross-cutting constraints. Read it alongside this plan; the plan argues from it.
 
 ## Global Constraints
 
-- **Gates are CI-only. The push is the first check.** Do NOT run `npm run lint`, `npx tsc --noEmit`, `npm run test:run`, `npm run test:coverage`, or any `docs:*` / `followups:*` gate. The targeted single-file `npx vitest run <file> --maxWorkers=1` calls below are the TDD loop, not a gate.
+- **Gates are CI-only. The push is the first check.** Do NOT run `npm run lint`, `npx tsc --noEmit`, `npm run test:run`, `npm run test:coverage`, or any `docs:*` / `followups:*` gate. The targeted single-file `npx vitest run <file> --maxWorkers=1` calls below are the TDD loop, not a gate. **One exception, by the user's instruction (2026-09-13):** Tasks 5 and 6 each run `npm run followups:workitems:check` and `npm run followups:index:check` once, after their register edit — both are single node scripts over one file, and `followups-workitems-check` is BLOCKING on every pipeline since `origin/main` `c731d36b`.
+- **Creating or closing a GitLab issue is user-gated and is never done by an implementer.** Task 5 stops and asks the controller for the issue number; closing GitLab #64 happens when the MR carrying Task 6 merges, not before.
 - **Never run two vitest processes at once.** Finish one targeted run before starting another.
 - **Never read an exit code through a pipe.** Redirect to a log in your scratchpad, `echo "EXIT=$?"` unpiped, then read the log. A run printing `Test Files no tests` is worker contention, not a result — re-run it alone.
 - `src/app/*.ts(x)` is CRLF in the working tree over LF blobs. Use the **Edit tool** for every source change. Never `sed -i`.
@@ -47,7 +48,8 @@
 | `src/app/timelog-panel.test.tsx` | blank-start and set-start pins | 3 |
 | `src/app/projects-panel.tsx`, `src/app/turso-project-picker.tsx` | blank code renders `—` | 4 |
 | `src/app/projects-panel.test.tsx`, `src/app/turso-project-picker.test.tsx` | `—` pins with controls | 4 |
-| `docs/open-followups.md` | follow-up for code-less projects sharing one TimeLog switch signal | 5 |
+| `docs/open-followups.md` | follow-up for code-less projects sharing one TimeLog switch signal, with its `**Work item:**` line | 5 |
+| `docs/open-followups.md` | §521 closed (heading, Status, Work item line dropped, index row); §522's "blocked on §521" clause updated | 6 |
 
 Task order is load-bearing: Task 2's name-only Save test submits through the sanitizer, so it is red until Task 1 lands.
 
@@ -897,10 +899,14 @@ Two code-less projects now produce the same `projectId` signal for `useTimelogPi
 **Files:**
 - Modify: `docs/open-followups.md` (LF file — Edit tool)
 
+**Interfaces:**
+- Consumes: a GitLab issue number `#NN`, supplied by the controller in Step 3. You never create it.
+- Produces: register entry §N, which Task 6's §521 closure names.
+
 - [ ] **Step 1: Take the next free number from `origin/main`, not from this plan**
 
 Run: `git fetch origin main && git show origin/main:docs/open-followups.md | grep -oE "^## [0-9]+\." | grep -oE "[0-9]+" | sort -n | tail -1`
-The entry's number is that value plus one. Call it `N` below. (It was 478 on 2026-09-13; do not assume it still is.) Also check the local branch does not already use `N`: `grep -n "^## N\." docs/open-followups.md` must print nothing.
+The entry's number is that value plus one. Call it `N` below. (It was 531 on 2026-09-13, after `c731d36b`; do not assume it still is — "whoever merges second rebases".) Also check the local branch does not already use `N`: `grep -n "^## N\." docs/open-followups.md` must print nothing.
 
 - [ ] **Step 2: Derive the anchor**
 
@@ -910,11 +916,23 @@ The heading is `## N. Two projects without a code look like the same project to 
 node -e 'const h=process.argv[1];console.log("#"+h.toLowerCase().replace(/[^\p{L}\p{N} _-]/gu,"").replace(/ /g,"-"))' "N. Two projects without a code look like the same project to the TimeLog picker — OPEN"
 ```
 
-(substituting the real number). Control it against a real anchor: the same command on `478. Switching back to the modern layout moves the user off their current view — OPEN` must print exactly the `§478` row's link target.
+(substituting the real number). Control it against a real anchor: the same command on `530. There is no Microsoft Teams integration, the remaining Microsoft 365 gap — OPEN` must print exactly `#530-there-is-no-microsoft-teams-integration-the-remaining-microsoft-365-gap--open`, the `§530` row's link target.
 
-- [ ] **Step 3: Add the entry**
+- [ ] **Step 3: STOP — get the GitLab issue number from the controller**
 
-Append the section after the last `## ` entry, before any trailing matter, using this text (substitute `N`):
+Since `origin/main` `c731d36b`, a new OPEN entry needs its GitLab issue in the same change: `followups-workitems-check` (BLOCKING, every pipeline) fails an open entry without exactly one `**Work item:** #NN` line, and the warn-only `followups-gitlab-sync` on main flags an issue whose title or label does not match. Creating an issue is outward-facing and user-gated, so **you do not create it.** Report `NEEDS_CONTEXT` with exactly:
+
+- Title: `§N: Two projects without a code look like the same project to the TimeLog picker` (the heading minus ` — OPEN`; `issueSection` in `scripts/followup-workitem-lib.mjs` reads the `§N:` prefix)
+- Label: `source::register` (required — `REGISTER_LABEL` in the same file)
+- Description: one line linking the entry, `docs/open-followups.md` `<anchor from Step 2>`
+
+Resume only when the controller hands you `#NN`.
+
+*Controller:* create the issue only after the user's explicit say for this issue, e.g. `glab issue create --title "<title>" --label "source::register" --description "<description>"`, confirm it with `glab issue view <NN>`, then pass `#NN` back.
+
+- [ ] **Step 4: Add the entry**
+
+Append the section after the last `## ` entry, before any trailing matter, using this text (substitute `N` and `NN`):
 
 ```markdown
 ## N. Two projects without a code look like the same project to the TimeLog picker — OPEN
@@ -923,6 +941,8 @@ Append the section after the last `## ` entry, before any trailing matter, using
 with `grep -n "projectId: projectCode" src/app/timelog-panel.tsx` and
 `grep -n "seenProjectId !== projectId" src/app/use-timelog-picker-scope.ts`; no test or browser run has
 switched between two code-less projects.
+
+**Work item:** #NN
 
 `timelog-panel.tsx` passes `ws.project?.code ?? "default"` to `useTimelogPickerScope` as `projectId`. The
 hook does not send it anywhere: it compares it against the last value it saw, and a change resets its
@@ -940,9 +960,14 @@ it likely, because a blank code is now the normal state of a new project.
 The fix is a signal that is unique per project (the registry or Turso project id), which is what the hook
 actually needs to detect a switch. Not done in O-1's MR because it changes the hook's contract and its
 tests, which that MR does not otherwise touch.
+
+Related: §521 (project creation from a name alone — closed by the same MR, which is what makes a blank code
+the normal state).
 ```
 
-- [ ] **Step 4: Add the index row**
+The `**Work item:**` line sits directly after the Status block, as on every other open entry.
+
+- [ ] **Step 5: Add the index row**
 
 Inside the index table between the whole-line `<!-- INDEX:BEGIN -->` and `<!-- INDEX:END -->` markers (the real ones, not the copies inside the fenced sample near the top), directly after the row for the previous highest number, add:
 
@@ -950,7 +975,7 @@ Inside the index table between the whole-line `<!-- INDEX:BEGIN -->` and `<!-- I
 | [§N](<anchor from Step 2>) | Two projects without a code look like the same project to the TimeLog picker — OPEN | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | open |
 ```
 
-- [ ] **Step 5: Check the entry the way the two gates will read it**
+- [ ] **Step 6: Check the entry the way the gates will read it**
 
 These are the gates' own parsers, used as a probe, not the gates:
 
@@ -969,9 +994,18 @@ console.log("closed:", isClosed(e.title), "violations:", JSON.stringify(statusVi
 
 Expected: `closed: false violations: []`. If the import names differ, read `scripts/check-followup-status.mjs` for the gate's actual call shape and match it exactly — do not guess.
 
-Then: `grep -c "^| \[§N\]" docs/open-followups.md` prints `1` and `grep -c "^## N\." docs/open-followups.md` prints `1`.
+Then: `grep -c "^| \[§N\]" docs/open-followups.md` prints `1`, `grep -c "^## N\." docs/open-followups.md` prints `1`, and `grep -c "^\*\*Work item:\*\* #NN$" docs/open-followups.md` prints `1`.
 
-- [ ] **Step 6: Commit**
+Then run the two register gates this task is allowed (see Global Constraints), each unpiped:
+
+```bash
+npm run followups:workitems:check > <scratchpad>/wi5.log 2>&1; echo "EXIT=$?"
+npm run followups:index:check > <scratchpad>/ix5.log 2>&1; echo "EXIT=$?"
+```
+
+Expected: both `EXIT=0`; `wi5.log` ends with "All open entries carry exactly one conforming Work item line, and no closed entry carries one." Exit 1 is drift in your edit; exit 2 means the gate could not scan — the opposite response, so read the log before touching the entry.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git commit -F <scratchpad>/c5.txt -- docs/open-followups.md
@@ -981,9 +1015,106 @@ Subject: `docs(followups): file §N — code-less projects share one TimeLog swi
 
 ---
 
+### Task 6: Close §521, the entry this MR implements
+
+§521 (GitLab #64) is O-1 itself. Tasks 1–4 implement it, so the same MR closes it. Two of its claims were also disproved while correcting the spec, and a closure is where they get corrected: the TimeLog project-code `??` it cites is not a blank-value defect (that value is only the picker's local switch signal — now §N), and the one real blank-value defect was `fetchWindow`'s `startDate ??` (Task 3). §522's Status says it is "blocked on §521", which stops being true.
+
+★★ `isClosed` reads the heading TITLE only (`scripts/followup-claims-lib.mjs`). A closure that edits only the Status line is still OPEN to every gate, and the heading edit changes the anchor, so the index row must change with it.
+
+**Files:**
+- Modify: `docs/open-followups.md` (LF file — Edit tool)
+
+**Interfaces:**
+- Consumes: the commit SHAs of Tasks 1–4, and `N` from Task 5.
+- Produces: nothing later tasks use.
+
+- [ ] **Step 1: Confirm the entry is still where and what this task expects**
+
+Run: `grep -n "^## 521\." docs/open-followups.md` — exactly one line, ending ` — OPEN`; and `grep -n "^\*\*Work item:\*\* #64$" docs/open-followups.md` — exactly one line. If either differs, stop and report: the register moved under you.
+
+- [ ] **Step 2: Retitle the heading and derive its new anchor**
+
+Change only the suffix, never the title text (other entries cite §521 by number, and GitLab #64's title mirrors it). `D` below is today's date, `date +%F`.
+
+```markdown
+## 521. A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form — CLOSED D
+```
+
+Derive the anchor with the same `node -e` command as Task 5 Step 2 on `521. A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form — CLOSED D`. It must end `--closed-` followed by the date with its hyphens kept.
+
+- [ ] **Step 3: Replace the Status block, and supersede the stale paragraph**
+
+Replace the three-line `**Status:** OPEN 2026-09-13 — …never machine-verified beyond that.` block with (substitute `D`, the four SHAs and `N`):
+
+```markdown
+**Status:** CLOSED D — implemented by the MR carrying this closure (Tasks 1–4: `<sha1>` `<sha2>` `<sha3>` `<sha4>`).
+`grep -n "lenientRequiredArrays" src/app/sanitize-records.ts` prints nothing, and
+`npx vitest run src/app/sanitize.project.test.ts --maxWorkers=1` passes the name-only decode pin. GitLab #64 is
+closed when that MR merges, not before, so main never shows an open entry without its issue.
+★★ Two claims below were disproved on 2026-09-13 and are corrected here rather than rewritten: the TimeLog
+panel's project-code `??` fallback is not a blank-value defect — that value is only the picker's local
+project-switch signal, and the collapse two code-less projects cause there is filed as §N; the blank-value
+defect that did exist was `fetchWindow`'s `startDate ??`, fixed. Ten of the eleven fields were relaxed; the
+name stays required. The paragraph saying the MR A plan is not written is superseded.
+```
+
+Leave every other paragraph of the entry as it is — a dated record is corrected by a banner, not rewritten.
+
+- [ ] **Step 4: Delete the Work item line**
+
+Delete `**Work item:** #64` and the blank line before it. A closed entry carries none (`ON_CLOSED` in `scripts/followup-workitem-lib.mjs`).
+
+- [ ] **Step 5: Update the index row**
+
+In the `§521` row between the whole-line `<!-- INDEX:BEGIN -->` / `<!-- INDEX:END -->` markers: replace the link target with the Step 2 anchor, the title suffix ` — OPEN` with ` — CLOSED D`, and the last cell `open` with `**CLOSED** D` (the form §531's row uses). Leave the source and size cells.
+
+Then: `grep -rn "521-a-project-cannot-be-created-from-a-name-alone-and-relaxing-the-eleven-required-fields-needs-the-sanitizer-as-well-as-the-form--open" --include=*.md --exclude-dir=node_modules --exclude-dir=.worktrees .` must print nothing — the old anchor has no remaining citation.
+
+- [ ] **Step 6: Update §522's stale clause**
+
+In §522's Status line, replace `nothing implemented, and blocked on §521.` with `nothing implemented; §521, which blocked it, closed D.` Nothing else in §522 changes. §523's "removing the gate after a proposal comes with §521" stays true and is left alone.
+
+- [ ] **Step 7: Check the closure the way the gates will read it**
+
+```bash
+node --input-type=module -e '
+import { readFileSync } from "fs";
+import { parseEntries, isClosed } from "./scripts/followup-claims-lib.mjs";
+import { statusViolations } from "./scripts/followup-status-lib.mjs";
+import { workItemViolations } from "./scripts/followup-workitem-lib.mjs";
+const entries = parseEntries(readFileSync("docs/open-followups.md", "utf8"));
+for (const n of [521, 522]) {
+  const e = entries.find((x) => x.n === n);
+  if (!e) { console.log(n, "NOT PARSED"); process.exit(1); }
+  console.log(n, "closed:", isClosed(e.title), "status:", JSON.stringify(statusViolations(e)), "workitem:", JSON.stringify(workItemViolations([e])));
+}
+'
+```
+
+Expected: `521 closed: true status: ["SAYS_CLOSED"] workitem: []` and `522 closed: false status: [] workitem: []`. ★ `SAYS_CLOSED` on §521 is expected and harmless: `check-followup-status.mjs` filters to `!isClosed(e.title)` before calling `statusViolations`, so the status gate never reads a closed entry, and §531's closed Status line says CLOSED the same way. On §522 it would be a real failure. (Measured 2026-09-13 against a simulated closure of the real register, not reasoned.) A mutation check proves the first line is not vacuous: temporarily restore `**Work item:** #64` under §521, re-run, and see `workitem:` report `ON_CLOSED`; then delete it again and confirm `git diff --stat -- docs/open-followups.md` shows only this task's intended change.
+
+Then the two register gates, unpiped:
+
+```bash
+npm run followups:workitems:check > <scratchpad>/wi6.log 2>&1; echo "EXIT=$?"
+npm run followups:index:check > <scratchpad>/ix6.log 2>&1; echo "EXIT=$?"
+```
+
+Expected: both `EXIT=0`.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git commit -F <scratchpad>/c6.txt -- docs/open-followups.md
+```
+
+Subject: `docs(followups): close §521 — a project can be created from a name alone`. Trailer.
+
+---
+
 ## After the last task
 
-Do not push. Report to the controller: the five commit SHAs, every mutation outcome, the Task 3 Step 5 consumer read, and the follow-up number used. The MR description, CHANGELOG entry and version bump are separate user-gated steps. Nothing in CI can see these, so list them in the MR description as owed:
+Do not push. Report to the controller: the six commit SHAs, every mutation outcome, the Task 3 Step 5 consumer read, the follow-up number `N` and its issue `#NN`. Closing GitLab #64 is owed at merge and user-gated. The MR description, CHANGELOG entry and version bump are separate user-gated steps. Nothing in CI can see these, so list them in the MR description as owed:
 
 1. Create a project with only a name in the running app, reload, and confirm it is still there — once per backend you can reach (local JSON file, IndexedDB, Turso).
 2. Open that project's Projects row and the Turso picker, and confirm the `—` reads acceptably in light and dark schemes (Projects is not axe-scanned).
