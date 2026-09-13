@@ -308,9 +308,17 @@ properties are not, and are pinned by test:
 `ProjectRegistryEntry` holds only `{id, name, code, storageConfig}`; the eleven facts and the
 customer live inside each project's own backend. Non-current rows therefore need a cache,
 modelled directly on `landing-state.ts`: one `device-store` key, shape
-`Record<projectId, { filled, missing, customer, at }>`, bounded at 50 entries, written when a
-project's workspace loads or saves, never exported, never in Turso, swept by `app-reset`'s
-`aipm-cockpit:*` pass.
+`Record<projectId, { filled, missing, customer, at }>`, bounded at 50 entries, never exported,
+never in Turso, swept by `app-reset`'s `aipm-cockpit:*` pass.
+
+It is written whenever the CURRENT project's in-memory meta changes (an effect in
+`task-manager.tsx`, skipped in popouts), not only on load or save. The bounded consequence: an
+edit whose save then fails is still cached, so that project's row may show the unsaved facts on
+this device until the project is reopened and the cache is overwritten from what loads.
+
+The cache is consulted only for non-current rows WITHOUT live meta — in practice file mode. In
+Turso mode the shared project list already carries every listed project's meta, so those rows
+are measured from it and the cache is not read for them.
 
 Two contract points, both load-bearing:
 
@@ -326,22 +334,22 @@ all. Staleness is bounded by reopening the project.
 
 ### 5.4 Indicator — `projects-panel.tsx`
 
-Per row, in order: the customer meta line (live for the current project, cached for others,
-omitted when unknown), then the meter, then — current project only — the banner.
+Per row, in order: the customer meta line (live for the current project and, in Turso mode, for
+others; cached for others in file mode; omitted when unknown), then the meter, then — current project only — the banner.
 
 Both use existing primitives, per the no-hand-rolling rule:
 
 - `ProgressTrack` (`progress-track.tsx`) supplies the rail. The fill is the caller's by design;
   ours is RAG-thresholded, with `UsageBar` as the documented sibling for that pattern. The
   *unknown* state renders the bare muted track with **no fill child** — distinguished by its
-  `— / 11` text and `?` glyph, never by a hatch or pattern, because the palette constraint
+  `— of 11` text and `?` glyph, never by a hatch or pattern, because the palette constraint
   bans gradients outright.
 - `Banner` (`banner.tsx`) with `severity="warn"` naming the missing facts and a "Complete them"
   action, switching to `severity="success"` at 11/11. Non-error banners default to
   `role="status"`, which is wanted here: filling the last fact announces the change.
 
 Label pair per row: a sentence (`"3 key facts missing"` / `"Key facts complete"` /
-`"Key facts not measured here"`) on the left, the count (`8 of 11`, `— / 11`) on the right.
+`"Key facts not measured here"`) on the left, the count (`8 of 11`, `— of 11`) on the right.
 
 ### 5.5 Accessibility — no safety net on this surface
 

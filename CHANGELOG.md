@@ -19,16 +19,18 @@ whole group.
 
 - **A project row shows key-fact completeness.** A meter and "N of 11" text
   appear on every row in the Projects list. The current project is measured
-  live; every other row reads a per-device snapshot cached the last time that
-  project was open, so a row for a project never opened on this device reads
-  "— of 11" ("— von 11" in German) instead of 0 of 11. Non-current rows also
-  show their cached customer.
+  live. With a shared Turso project list, every other row is measured live
+  from that list too. With file-based projects, every other row reads a
+  per-device snapshot cached while that project was open, so a row for a
+  project never opened on this device reads "— of 11" ("— von 11" in German)
+  instead of 0 of 11. Non-current rows also show their customer.
 - **A banner on the current project names its missing key facts**, with a
   "Complete them" button that opens the project's edit form. A project with
   every key fact set shows a success banner instead.
 - **Next actions groups the current project's missing key facts into one
   row**, opening the Projects view when acted on. It is always ranked below
-  the Now tier.
+  the Now tier. The dashboard's Top actions tile groups the same way, so the
+  project takes one slot there rather than up to five.
 
 ### Fixed
 
