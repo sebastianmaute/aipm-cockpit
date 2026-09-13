@@ -1297,6 +1297,8 @@ const enUS = {
   raidCreateMitigationTask: "Create mitigation task",
   raidCreateMitigationTaskHint: "Spawns a new task pre-filled from this item and links it back.",
   raidNewItem: "New RAID item",
+  raidColLastEscalated: "Last escalated",
+  raidEscalationsTitle: "Escalations",
   raidEditItem: "Editing RAID #{0}",
   raidDelete: "Delete",
   raidConfirmDelete: "Delete this RAID item? This can't be undone.",

@@ -54,7 +54,7 @@ const RAID_FILTER_DEFAULTS: PanelFiltersState = {
   search: "",
   filters: { category: "All", severity: "All", status: "All", owner: "" },
   sort: null,
-  hiddenCols: [],
+  hiddenCols: ["lastEscalated"],
 };
 
 // --- Props ---------------------------------------------------------------

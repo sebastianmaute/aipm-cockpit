@@ -2816,7 +2816,9 @@ describe("RaidPanel — Last escalated column (§515)", () => {
     expect(screen.queryByText("2026-05-20 · Sam Placeholder")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
-    const toggle = screen.getByRole("checkbox", { name: t("en-US", "raidColLastEscalated") });
+    const toggle = screen.getByRole("checkbox", {
+      name: t("en-US", "colConfigToggleColumn", t("en-US", "raidColLastEscalated")),
+    });
     expect(toggle).not.toBeChecked();
     fireEvent.click(toggle);
 

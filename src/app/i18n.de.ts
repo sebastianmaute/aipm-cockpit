@@ -1238,6 +1238,8 @@ export const de: Record<TranslationKey, string> = {
   raidCreateMitigationTask: "Maßnahmenaufgabe anlegen",
   raidCreateMitigationTaskHint: "Erstellt eine neue Aufgabe, vorausgefüllt aus diesem Eintrag, und verknüpft sie.",
   raidNewItem: "Neuer RAID-Eintrag",
+  raidColLastEscalated: "Zuletzt eskaliert",
+  raidEscalationsTitle: "Eskalationen",
   raidEditItem: "Bearbeite RAID #{0}",
   raidDelete: "Löschen",
   raidConfirmDelete: "Diesen RAID-Eintrag löschen? Das kann nicht rückgängig gemacht werden.",

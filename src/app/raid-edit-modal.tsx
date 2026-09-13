@@ -21,6 +21,8 @@ import {
   wouldCreateCycle,
 } from "./raid";
 import { isRaidActiveForReview } from "./raid-review";
+import { describeEscalation } from "./action-escalate";
+import { sanitizeRaidEscalations } from "./raid-escalation";
 import {
   RAID_CATEGORIES,
   RAID_SEVERITIES,
@@ -180,6 +182,13 @@ export function RaidEditModal({
         .map((id) => raid.find((r) => r.id === id))
         .filter((r): r is RaidItem => !!r),
     [draft.causedByRaidIds, raid],
+  );
+
+  // §515 — re-validated: JSON/IndexedDB rows skip the sanitizer. Hoisted so
+  // the render below reads it once rather than sanitizing twice.
+  const draftEscalations = useMemo(
+    () => sanitizeRaidEscalations(draft.escalations),
+    [draft.escalations],
   );
 
   function handleSubmit(e: React.FormEvent) {
@@ -496,6 +505,19 @@ export function RaidEditModal({
               {t(lang, "noteLogTitle")} ({draft.noteLog?.length ?? 0})
             </Button>
           </div>
+
+          {/* §515 — read-only escalation record, written by the Next-actions
+              Escalate CTA. Re-validated: JSON/IndexedDB rows skip the sanitizer. */}
+          {draftEscalations.length > 0 && (
+            <div className="sm:col-span-2">
+              <p className="text-sm font-medium text-foreground">{t(lang, "raidEscalationsTitle")}</p>
+              <ul className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground">
+                {draftEscalations.map((e, i) => (
+                  <li key={`${e.at}-${i}`}>{`${e.at.slice(0, 10)} · ${describeEscalation(lang, e)}`}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Risk scoring: for Risk items this is the matrix (full-only field
               `riskMatrix`); for non-Risk items it's the severity control

@@ -614,3 +614,32 @@ describe("RaidEditModal caused-by picker — the query clear is load-bearing", (
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 });
+
+describe("RaidEditModal — Escalations list (§515)", () => {
+  it("lists each escalation, oldest first, when the item has any", () => {
+    render(
+      modalEl({
+        category: "I",
+        escalations: [
+          { at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", fromSeverity: "Medium", toSeverity: "High" },
+          { at: "2026-05-22T14:00:00.000Z", toEmail: "ops@example.com" },
+        ],
+      }),
+      { wrapper },
+    );
+    expect(screen.getByText(t("en-US", "raidEscalationsTitle"))).toBeTruthy();
+    const items = screen.getAllByRole("listitem").map((li) => li.textContent ?? "");
+    const mine = items.filter((s) => s.startsWith("2026-05-2"));
+    expect(mine).toEqual([
+      `2026-05-20 · ${t("en-US", "raidEscalationNoteRaised", "Sam Placeholder <Fictional.Jordan@example.com>", "Medium", "High")}`,
+      "2026-05-22 · Escalated to ops@example.com (notify only)",
+    ]);
+  });
+
+  it("renders no Escalations section for an item never escalated", () => {
+    render(modalEl({}), { wrapper });
+    // Positive control: the modal body rendered (the Notes log button is always there).
+    expect(screen.getByRole("button", { name: /^Notes log/ })).toBeTruthy();
+    expect(screen.queryByText(t("en-US", "raidEscalationsTitle"))).toBeNull();
+  });
+});

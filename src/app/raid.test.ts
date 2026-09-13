@@ -580,3 +580,24 @@ describe("compareRaid", () => {
     expect(sortBy(items, "targetDate", "desc").map((i) => i.id)).toEqual([2, 3, 1]);
   });
 });
+
+describe("compareRaid — lastEscalated (§515)", () => {
+  const mk = (id: number, ...ats: string[]): import("./types").RaidItem => ({
+    id, category: "I", title: `I${id}`, status: "Open", linkedTaskIds: [], causedByRaidIds: [],
+    stakeholderIds: [], raisedDate: "2026-01-01",
+    ...(ats.length ? { escalations: ats.map((at) => ({ at, toEmail: "x@example.com" })) } : {}),
+  });
+
+  it("sorts by the LATEST escalation and puts never-escalated items last in both directions", () => {
+    const items = [mk(1), mk(2, "2026-03-01T00:00:00.000Z"), mk(3, "2026-01-01T00:00:00.000Z")];
+    const ids = (dir: "asc" | "desc") => [...items].sort((a, b) => compareRaid(a, b, "lastEscalated", dir)).map((r) => r.id);
+    expect(ids("asc")).toEqual([3, 2, 1]);
+    expect(ids("desc")).toEqual([2, 3, 1]);
+  });
+
+  it("reads the newest entry, not the first", () => {
+    const early = mk(1, "2026-01-01T00:00:00.000Z", "2026-06-01T00:00:00.000Z");
+    const mid = mk(2, "2026-03-01T00:00:00.000Z");
+    expect(compareRaid(early, mid, "lastEscalated", "asc")).toBeGreaterThan(0);
+  });
+});

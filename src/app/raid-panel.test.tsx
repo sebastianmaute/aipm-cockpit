@@ -1236,11 +1236,12 @@ describe("RaidPanel — toolbar filters vs. column headers (§261)", () => {
     expectRowUniqueNames({
       // MEASURED against this fixture WITH THE POPOVER OPEN, not guessed and not
       // scaled from the closed-popover figure: 5 comboboxes + 17 buttons +
-      // 12 checkboxes. The 10 extra checkboxes are RAID_CONFIG_COLS' toggles.
+      // 13 checkboxes. The 11 extra checkboxes are RAID_CONFIG_COLS' toggles
+      // (11 since §515 added "Last escalated").
       // `minControls` only proves the scope is non-empty, so it is pinned to the
       // exact count — a loose floor would silently re-admit a narrowed `roles`
       // list, or a popover that stopped opening.
-      minControls: 34,
+      minControls: 35,
       roles: ["combobox", "button", "checkbox"],
     });
 
@@ -1297,4 +1298,29 @@ describe("RaidPanel — toolbar filters vs. column headers (§261)", () => {
   // instead of its translation gives distinct, non-empty names, so the scan
   // passes and the test fails on the lookups instead. Only the second mutant
   // proves the §261-specific half; keep both in mind before trusting a red here.
+});
+
+describe("RaidPanel — Last escalated column (§515)", () => {
+  const escalated = makeRaidItem({
+    id: 9, title: "Rate limit", severity: "High",
+    escalations: [{ at: "2026-05-20T09:30:00.000Z", toName: "Sam Placeholder", toEmail: "Fictional.Jordan@example.com", fromSeverity: "Medium", toSeverity: "High" }],
+  });
+
+  it("is hidden by default and can be switched on from the column config", () => {
+    renderPanel(makeProps({ raid: [escalated] }));
+    // Positive control: the table header row is rendered.
+    expect(screen.getByRole("button", { name: /^Severity( [▲▼])?$/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Last escalated( [▲▼])?$/ })).toBeNull();
+    expect(screen.queryByText("2026-05-20 · Sam Placeholder")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
+    const toggle = screen.getByRole("checkbox", {
+      name: t("en-US", "colConfigToggleColumn", t("en-US", "raidColLastEscalated")),
+    });
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+
+    expect(screen.getByRole("button", { name: /^Last escalated( [▲▼])?$/ })).toBeTruthy();
+    expect(screen.getByText("2026-05-20 · Sam Placeholder")).toBeTruthy();
+  });
 });
