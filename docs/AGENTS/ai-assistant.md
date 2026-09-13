@@ -159,7 +159,8 @@
   ★★ Undo reverts the entry, the note AND the severity step: the capture is a FIELD PATCH (`captureFieldPart`) over
   exactly the fields the op writes, so the whole-row `WRITE_THROUGH_FIELDS` rule (open-followups §50) does not keep the
   note. Arrays three-way merge (`mergeFieldValue`), so a human note added after the escalation survives its undo — which
-  holds only because an absent array is captured as `[]`; an `undefined` before-end reverts wholesale and deletes it.
+  holds only because each array end is an APPEND WINDOW (`appendPatch`): never `undefined`, and never the whole stored
+  log, because `mergeArray` reverts wholesale when an end is `undefined` or holds duplicate entries, deleting that note.
   The note echo names the recipient (`describeEscalation`); the address appears only when no name is known.
   ★★★ **ENUMERATE THE GUARDED SET BY WHAT A SCHEMA ADVERTISES, NEVER BY THE `update_*` NAME.** The seventh
   is why: `set_task_dependencies` is a WHOLE-LIST REPLACE of `dependencies` — a field that IS in

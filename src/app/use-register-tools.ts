@@ -81,6 +81,7 @@ import {
 import type { Settings } from "./settings-types";
 import type { ProjectClock } from "./timezone";
 import type { RaidItem, Resource } from "./types";
+import { appendPatch } from "./undo/append-patch";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
 
@@ -368,13 +369,28 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       //  the op writes — `escalations`, `noteLog`, and `severity` only when the
       //  plan raises it — and re-stamps `localModifiedAt` via `stampField`, as
       //  `use-bulk-operations.ts` does. Undo and redo three-way merge each array
-      //  (`mergeFieldValue`): with no race the value reverts exactly; when a
-      //  human added a note meanwhile, only the ONE entry this op added is
-      //  dropped (and re-inserted on redo) and the human note survives.
-      //  ★★★ An absent array is captured as `[]`, never `undefined` — the merge
-      //  handles arrays member-wise only when BOTH ends are arrays; an
-      //  `undefined` before-end reverts wholesale and would delete that note.
+      //  (`mergeFieldValue`), so only the ONE entry this op added is dropped (and
+      //  re-inserted on redo); every other entry, a human note added meanwhile
+      //  included, survives.
+      //  ★★★ THE ARRAY ENDS ARE AN APPEND WINDOW (`appendPatch`), NOT THE WHOLE
+      //  STORED ARRAY. `mergeArray` reverts WHOLESALE when either end holds two
+      //  deep-equal entries, and a stored log can (legacy/imported notes) — whole-
+      //  log ends then deleted a later human note on undo (fix-all 2 review M1).
+      //  The window is at most the last prior entry plus the appended one, and
+      //  both ends are always arrays (an `undefined` end reverts wholesale too).
+      //  ★ `[]` WHERE THE FIELD WAS ABSENT: undo leaves `noteLog`/`escalations` as
+      //  `[]` on a row that never had them (a patch end must be an array, so
+      //  `undefined` cannot be restored without the wholesale revert). CSV,
+      //  Markdown and Turso encode it as `""` like an absent field; JSON and
+      //  IndexedDB store the literal `[]`. Harmless: every reader guards with
+      //  `Array.isArray`/`?? []`.
       //  ★ `severity` is a scalar: a concurrent severity edit is reverted by undo.
+      //  ★ KNOWN LIMIT (same-tick ref lag, the deviation-15 window): the ends are
+      //  built from the REF row, but the updater applies the record to the row it
+      //  is handed. If a human note lands in state before the ref catches up, the
+      //  written AI note gets a different id than the captured one, no longer
+      //  matches `after`, and SURVIVES undo while `escalations` and `severity`
+      //  revert. Nothing is lost; the undo is just incomplete.
       //  ★ KNOWN LIMIT (concurrent delete): if the row vanishes between the ref
       //  read above and the updater, `prev.map(apply)` writes nothing, yet this
       //  still returns success, logs `raid.escalated` and captures an undo entry
@@ -397,6 +413,9 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const next = buildEscalationRecord(existing, plan, recipient, at, noteText, author);
         const severityEnds = (r: RaidItem): Partial<RaidItem> =>
           plan.raisesSeverity ? { severity: r.severity } : {};
+        const nextNotes = next.noteLog ?? [];
+        const escalationEnds = appendPatch(Array.isArray(existing.escalations) ? existing.escalations : [], entry);
+        const noteEnds = appendPatch(existing.noteLog ?? [], nextNotes[nextNotes.length - 1]);
         undoRef.current?.captureComposite({
           kind: "raid.escalated",
           primaryCount: 1,
@@ -404,12 +423,8 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
             setter: setRaid,
             edits: [{
               id,
-              before: {
-                escalations: Array.isArray(existing.escalations) ? existing.escalations : [],
-                noteLog: existing.noteLog ?? [],
-                ...severityEnds(existing),
-              },
-              after: { escalations: next.escalations, noteLog: next.noteLog, ...severityEnds(next) },
+              before: { escalations: escalationEnds.before, noteLog: noteEnds.before, ...severityEnds(existing) },
+              after: { escalations: escalationEnds.after, noteLog: noteEnds.after, ...severityEnds(next) },
             }],
             stampField: "localModifiedAt",
           })],

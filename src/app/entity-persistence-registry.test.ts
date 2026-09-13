@@ -648,12 +648,14 @@ describe("Markdown <br> wipe — root cause fix (fix-all-1)", () => {
   // history in the SAME row: neither JSON-in-cell column may clobber the
   // other's survival. `at` deliberately does NOT carry a "<br>" here — that is
   // pinned separately above ("keeps every entry over Markdown when an entry's
-  // at carries a literal <br/>"). CORRECTION (fix-all-1 review Minor 1): a
-  // WITHOUT-slash `"<br>2026-06-20T00:00:00.000Z"` IS dropped by the
-  // sanitizer's `Date.parse` guard (NaN), but that is not the whole story —
-  // `Date.parse("<br/>2026-06-20")` (self-closing, no time suffix) parses to a
-  // valid timestamp under V8's lenient legacy parser, so a break tag CAN reach
-  // the escalations JSON cell via `at`; see the dedicated test above.
+  // at carries a literal <br/>"). CORRECTION (fix-all-1 review Minor 1, and
+  // its re-review): whether `Date.parse` drops a tag-prefixed `at` turns on the
+  // TIME SUFFIX, not on the slash. With a full ISO time-of-day it is NaN and the
+  // sanitizer drops the entry (`"<br>2026-06-20T00:00:00.000Z"` and
+  // `"<br/>2026-06-20T00:00:00.000Z"` alike); a bare date parses under V8's
+  // lenient legacy parser (`"<br>2026-06-20"` and `"<br/>2026-06-20"` alike), so
+  // a break tag CAN reach the escalations JSON cell via `at`; see the dedicated
+  // test above.
   // `description` is a PLAIN passthrough field on this codec path (no
   // rich-text re-derivation), so it is asserted byte-exact.
   it("keeps noteLog AND escalations together when the noteLog html holds a literal <br>", () => {

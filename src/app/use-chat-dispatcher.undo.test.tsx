@@ -888,6 +888,46 @@ describe("AI writes round-trip through the real undo stack", () => {
     expect(result.current.dispatcher.getRaidRow(2)?.escalations).toHaveLength(1);
     expect(result.current.dispatcher.getRaidRow(2)?.severity).toBe("Critical");
   });
+
+  test("a stored log with DUPLICATE entries still keeps a later human note across undo and redo", () => {
+    // ★★ Two deep-equal legacy entries. `mergeArray` reverts WHOLESALE when either
+    //   patch end holds duplicates, so a patch carrying the whole stored log as its
+    //   `before` end deleted the human note here (fix-all 2 review M1).
+    const dup = { id: 1, timestamp: "2026-05-01T08:00:00.000Z", html: "<p>Legacy</p>", text: "Legacy" };
+    const seed: TestSeed = {
+      ...SEED,
+      raid: [seedRaid(1, "R1"), { ...seedRaid(2, "R2"), category: "I", severity: "High", noteLog: [dup, dup] }, seedRaid(3, "R3")],
+    };
+    const { result } = renderRealUndo(seed);
+    expect(result.current.dispatcher.getRaidRow(2)?.noteLog).toEqual([dup, dup]); // the seed landed as-is
+    act(() => { result.current.dispatcher.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); });
+    const aiNote = result.current.dispatcher.getRaidRow(2)?.noteLog?.[2];
+    expect(aiNote?.authorName).toBe("AI created");
+    act(() => {
+      result.current.setRaid((prev) => prev.map((r) => (r.id === 2
+        ? { ...r, noteLog: addNote(r.noteLog ?? [], { html: "<p>Vendor called</p>", text: "Vendor called", timestamp: "2026-09-13T09:00:00.000Z", self: 1 }) }
+        : r)));
+    });
+    const humanNote = result.current.dispatcher.getRaidRow(2)?.noteLog?.[3];
+    expect(humanNote?.text).toBe("Vendor called");
+
+    act(() => { result.current.undo.undo(); });
+    expect(result.current.dispatcher.getRaidRow(2)?.noteLog).toEqual([dup, dup, humanNote]);
+    expect(result.current.dispatcher.getRaidRow(2)?.escalations).toEqual([]);
+    expect(result.current.dispatcher.getRaidRow(2)?.severity).toBe("High");
+
+    act(() => { result.current.undo.redo(); });
+    // ★ Every member is back and nothing is lost. With duplicates the anchor is
+    //   ambiguous, so the re-inserted AI note may sit between the two copies —
+    //   membership, not position, is the contract here (order is pinned for a
+    //   duplicate-free log in `undo/append-patch.test.ts`).
+    const redone = result.current.dispatcher.getRaidRow(2)?.noteLog ?? [];
+    expect(redone).toHaveLength(4);
+    expect(redone.filter((n) => n.id === 1)).toEqual([dup, dup]);
+    expect(redone).toContainEqual(aiNote);
+    expect(redone).toContainEqual(humanNote);
+    expect(result.current.dispatcher.getRaidRow(2)?.severity).toBe("Critical");
+  });
 });
 
 /* ────────────────────────────────────────────────────────────────────────────
