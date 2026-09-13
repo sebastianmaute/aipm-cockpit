@@ -208,8 +208,8 @@ calendar actually shows; always derive it via `expandOccurrences`, never read th
 - ★★ Every CSV/MD cell for an unset column decodes to a real `""`, never `undefined`, so
   `sanitizeText(...) || undefined` is the RULE for any optional string arm — a bare
   `typeof === "string"` check keeps the empty string as a value and it round-trips as one.
-  `sanitizeCalendarEvent` needed it for `localModifiedAt`; `sanitizeAbsence` (`sanitize-entities.ts:100`)
-  and `sanitizeShift` (`:185`) had the bare-check bug and were FIXED the same way in 0.202.1 — both now read
+  `sanitizeCalendarEvent` needed it for `localModifiedAt`; `sanitizeAbsence`
+  and `sanitizeShift` (`grep -n "localModifiedAt: sanitizeText" src/app/sanitize-entities.ts`) had the bare-check bug and were FIXED the same way in 0.202.1 — both now read
   `sanitizeText(raw.localModifiedAt, 1024) || undefined`. (Earlier revisions of this bullet said the bug was
   "still live" in those two; that text outlived the fix.) The `sanitizeResource`/`sanitizeRole`/
   `sanitizeNamedRef`/budget-bucket arms use the different `if (typeof x === "string" && x)` shape, which is
@@ -221,8 +221,7 @@ calendar actually shows; always derive it via `expandOccurrences`, never read th
   meaning the same thing in both formats.
 - **Meeting CRUD logs + undoes like every other entity.** `use-calendar-events.ts` takes the same four
   OPTIONAL callbacks `useChangeLog` does (`logActivity`/`logActivityChanges`/`capture`/`captureFieldEdit`),
-  threaded from `use-resource-planner.ts` in ONE line — that file sits at its size-ratchet baseline, so
-  keep it one line. Kinds: `calendarEvent.created`/`.updated`/`.deleted`.
+  threaded from `use-resource-planner.ts` in ONE line. Kinds: `calendarEvent.created`/`.updated`/`.deleted`.
   ★★ `CALENDAR_EVENT_UNDO_GROUPS` binds **startDate + recurrence + exceptions as ONE unit** and must stay
   that way: `sanitizeCalendarEvent` clears `exceptions` whenever `recurrence` is absent, and
   `sanitizeRecurrence` cross-validates `until >= startDate`. Split into separate entries, an undo can

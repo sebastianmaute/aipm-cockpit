@@ -1,5 +1,7 @@
 # S6 — Outlook push for calendar events
 
+> **Status (2026-09-13 audit):** NOT STARTED — tracked in §44. Not one of the plan's 17 tasks / 109 steps has been executed; every named symbol (`graph-recurrence.ts`, `calendar-event-attendees.ts`, `eventToGraphEvent`, `exceptionPlan`, `replayExceptions`) is absent from `src`. Kept as a historical record; do not execute as written.
+
 _Opened 2026-07-29 against 0.208.0 "Yolen". Slice S6 of the 8-slice UX batch roadmap
 (`2026-07-27-ux-batch-roadmap-design.md`); order C→D→F→A→E→**S6**→S7→B. Target release
 **0.209.0 "Bodard"** (spare codename: Samatar — both verified absent from `CHANGELOG.md`)._

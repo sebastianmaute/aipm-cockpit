@@ -18,9 +18,10 @@ this file covers what to do when the app needs to ship or starts misbehaving.
   `localStorage` for settings). Losing the server tier loses nothing about the
   users; losing the browser profile loses the user's data.
 - **Credentials are NOT in `localStorage` in the clear.** The five secrets
-  (Anthropic key, Turso auth token, Jira, Timelog and STT tokens) are
-  AES-256-GCM sealed in their own IndexedDB database under a non-extractable
-  device key; `writeSettings` is the only writer of the settings key and blanks
+  (Anthropic key, Turso auth token, Jira, Timelog and STT tokens) are stored
+  only as AES-256-GCM ciphertext (`localStorage["aipm-cockpit:secrets"]`),
+  wrapped by a non-extractable device key held in the IndexedDB database
+  `aipm-cockpit-secrets`; `writeSettings` is the only writer of the settings key and blanks
   those fields before it writes. What stays in `localStorage` unencrypted is the
   identifying half — Jira site URL and email, Timelog host, tenant and email —
   which is identifying rather than secret.
@@ -38,7 +39,7 @@ this file covers what to do when the app needs to ship or starts misbehaving.
   "manual"` and a size cap — and `/api/ecb` reaches one hard-coded ECB URL with
   no user input and no secret, which is why it is the only route that needs no
   SSRF guard. All go out only with credentials forwarded from the request
-  body. The browser calls `api.anthropic.com` (Claude), `api.turso.io` (Turso),
+  body. The browser calls `api.anthropic.com` (Claude), `*.turso.io` (Turso),
   `graph.microsoft.com` (M365 Graph), and `login.microsoftonline.com` (MSAL)
   directly (no server proxy).
 
@@ -85,8 +86,9 @@ npm run e2e               # Playwright headless against a fresh dev server
 Notes:
 
 - `npm run test:coverage` enforces the v8 coverage floors set in
-  `vitest.config.ts` (global lines 92 / funcs 91 / branch 80 / stmts 89, plus
-  per-engine globs) and will exit non-zero if any floor slips. These are the
+  `vitest.config.ts` (values listed in
+  [CONTRIBUTING.md → Testing](../CONTRIBUTING.md#testing)) and will exit
+  non-zero if any floor slips. These are the
   same floors CI's blocking unit gate applies — treat a drop as a real
   regression to fix, not a threshold to lower.
 - `npm run e2e` boots `npm run dev` on port 3000. If you already have a dev
@@ -113,11 +115,15 @@ extracts that nonce from the request header and attaches it to framework
 scripts and SSR `<style>` blocks. Production CSP is nonce-strict for
 `script-src` and `style-src-elem` (no `'unsafe-inline'`); `style-src-attr`
 keeps `'unsafe-inline'` because React renders `style={{...}}` props as the
-`style` HTML attribute (Gantt/table use dynamic px math). The app never
-renders untrusted HTML — no `dangerouslySetInnerHTML` anywhere — so the
-attribute allowance is low-risk. `connect-src` allows the browser-called
-origins (`api.anthropic.com`, `api.turso.io`, `graph.microsoft.com`,
-`login.microsoftonline.com`); `worker-src 'self'` is set for the installable
+`style` HTML attribute (Gantt/table use dynamic px math). The app does use
+`dangerouslySetInnerHTML` (list the sites with
+`git grep -l dangerouslySetInnerHTML -- src ':!*.test.*'`), but only for HTML
+that has been sanitized (`sanitize-html.ts` / DOMPurify) or is an app-authored
+constant, and script execution stays nonce-strict — which is why the
+attribute allowance is treated as low-risk. `connect-src` allows the browser-called
+origins (`api.anthropic.com`, `*.turso.io`, `graph.microsoft.com`,
+`login.microsoftonline.com`, plus `http://localhost:*` and `http://127.0.0.1:*`
+for a local/self-hosted Turso); `worker-src 'self'` is set for the installable
 PWA's service worker (0.106.0+). The recent feature batch (timezones, guided
 tour, steering committee, Kanban, scheduled jobs, Confluence import) added
 **no new outbound host**: committee Outlook push uses the already-allowlisted
@@ -157,13 +163,12 @@ Because the server tier is stateless and user data lives in the browser:
 2. `npm ci && npm run build`
 3. Redeploy.
 
-Users keep their data — there is no DB migration to reverse. The only
-client-side gotcha is the **storage migration** in `storage.ts` (legacy
-`localStorage` → `IndexedDB`). Rolling back across that migration boundary
-on a browser that has already migrated means the older code reads from
-`localStorage` and sees an empty list. Mitigation: don't roll back across
-the migration boundary in environments with real user data. If you have to,
-warn users to re-import from an export.
+Users keep their data — there is no DB migration to reverse, and no
+client-side storage migration either (the one-time `lop-app` →
+`aipm-cockpit` storage migration was removed in 0.190.41). The remaining
+risk is forward compatibility: data saved by a newer build can carry
+fields or a schema version the older build does not know. In environments
+with real user data, have users take an export before rolling back.
 
 ## Publishing a desktop release
 
@@ -245,20 +250,24 @@ The repo contains **no production secrets**. Multiple credential paths, all brow
 
 | Credential | Stored | Sent to | Rotation path |
 |---|---|---|---|
-| Anthropic API key | Browser `localStorage` (per-user) | `api.anthropic.com` (direct from browser) | User edits Settings → AI |
-| Jira site URL + email + API token | Browser `localStorage` (per-user) | Forwarded to Atlassian via `/api/jira/*` route handlers; **never persisted server-side** | User edits Settings → Jira |
+| Anthropic API key | Browser, encrypted (AES-256-GCM ciphertext in `localStorage["aipm-cockpit:secrets"]`, device key in IndexedDB; optional passphrase) | `api.anthropic.com` (direct from browser) | User edits Settings → AI |
+| Jira site URL + email + API token | Site URL + email: browser `localStorage`, unencrypted. Token: encrypted like the Anthropic key (device key only) | Forwarded to Atlassian via `/api/jira/*` route handlers; **never persisted server-side** | User edits Settings → Jira |
+| Timelog host + tenant + email + API token | Host, tenant, email: browser `localStorage`, unencrypted. Token: encrypted (device key only) | Forwarded to the user's `*.timelog.com` host via `/api/timelog`; never persisted server-side | User edits Settings → Integrations → Timelog |
+| Dictation (STT) base URL + API key | Base URL: browser `localStorage` (settings). Key: encrypted (device key only) | Forwarded to the user-configured endpoint via `/api/stt`; never persisted server-side | User edits Settings → Dictation engine |
 | **Microsoft Entra (M365)** Client ID + Tenant ID | Browser `localStorage` or `NEXT_PUBLIC_*` env vars | `login.microsoftonline.com` via MSAL (browser) for OAuth consent; issued token sent to `graph.microsoft.com` | Stored in Settings → Integrations or env vars; token is short-lived (refresh token managed by MSAL) |
-| **Turso** Database URL + Auth Token | Browser `localStorage` or `NEXT_PUBLIC_*` env vars | `api.turso.io` (direct from browser) | Stored in Settings → Integrations or env vars; **recommend scoped token with minimal permissions** |
+| **Turso** Database URL + Auth Token | URL: browser `localStorage` or `NEXT_PUBLIC_*` env vars. Token: encrypted like the Anthropic key (optional passphrase), or a `NEXT_PUBLIC_*` env var | Your Turso database host (`*.turso.io`, or a local libSQL on loopback), direct from browser | Stored in Settings → Integrations or env vars; **recommend scoped token with minimal permissions** |
 
 **Important:** The `NEXT_PUBLIC_*` env vars are **build-time public** — they are inlined into the JavaScript bundle and visible in the browser. Use them only for non-secret client-side config (e.g., Entra Client ID). The Turso auth token should **not** be exposed as a build-time env var in public deployments — use Settings inputs instead, or a scoped token if env var is unavoidable.
 
 The recent feature batch (timezones, guided tour, steering committee, Kanban,
 scheduled jobs, Confluence import) introduced **no new credential**: Confluence
 reuses the existing Atlassian (Jira) token, scheduled jobs reuse the Anthropic
-key, and committee Outlook push reuses the M365 Graph token. The Anthropic key
-and Turso auth token remain encrypted at rest (see `secrets.ts` —
-AES-256-GCM, non-extractable device key by default, optional per-secret
-passphrase).
+key, and committee Outlook push reuses the M365 Graph token. All five
+secrets (Anthropic key, Turso auth token, Jira, Timelog and STT tokens) remain
+encrypted at rest (see `secrets.ts` — AES-256-GCM, non-extractable device key by
+default; only the Anthropic key and Turso token offer a passphrase). What is
+stored where, and the build-time env vars, are owned by
+[security.md](security.md#security-model).
 
 If a deployment-host compromise is suspected, **no server-side secret needs
 rotation** because the server holds none. Users may want to rotate their own
@@ -270,19 +279,10 @@ Integration config (storage backend, AI, Jira, Timelog, M365) can be done via th
 
 ### Environment variables (build-time, optional)
 
-Set these at build time to pre-configure integrations (all can be overridden in-app via Settings → Integrations):
-
-```bash
-# Microsoft Entra (for M365 features)
-NEXT_PUBLIC_MSAL_CLIENT_ID=<your-app-client-id>
-NEXT_PUBLIC_MSAL_TENANT_ID=<your-tenant-id>
-
-# Turso (libSQL database backend)
-NEXT_PUBLIC_TURSO_DATABASE_URL=<libsql://...>
-NEXT_PUBLIC_TURSO_AUTH_TOKEN=<your-scoped-token>
-```
-
-**Note:** `NEXT_PUBLIC_*` variables are embedded in the bundle. Use them only for public config like Entra Client ID. For Turso, prefer the in-app Settings inputs over env vars.
+The optional `NEXT_PUBLIC_*` build-time variables (Microsoft Entra client/tenant
+ID, Turso database URL and auth token) and their caveats are documented in
+[security.md → Environment variables](security.md#environment-variables), which
+owns that list.
 
 ### Microsoft 365 integration setup
 
@@ -291,8 +291,8 @@ To enable Outlook contacts/calendar import and SharePoint storage:
 1. Register an app in [Microsoft Entra admin center](https://entra.microsoft.com/).
 2. Create a Single-Page Application (SPA) with:
    - Redirect URI: `http://localhost:3000` (dev) or your production URL
-   - API permissions: `Contacts.Read`, `Calendars.Read`, `Sites.ReadWrite.All`
-3. Copy **Client ID** and **Tenant ID** into Settings → Integrations, or set env vars above.
+   - API permissions (delegated): `User.Read`, `Contacts.Read`, `Calendars.Read`, `Calendars.ReadWrite` (calendar write-back), `Files.ReadWrite.All` (SharePoint storage and document links), `Sites.Read.All` (SharePoint picker). The authoritative list is [integrations.md](integrations.md).
+3. Copy **Client ID** and **Tenant ID** into Settings → Integrations, or set the build-time env vars in [security.md](security.md#environment-variables).
 4. The app authenticates via MSAL in the browser using PKCE (no backend token exchange).
 
 ### Turso integration setup
@@ -301,7 +301,7 @@ To enable Turso as a storage backend:
 
 1. Create a database at [Turso console](https://console.turso.io/).
 2. Generate an **auth token** with minimal permissions (scoped to the database if possible).
-3. Enter the **Database URL** and **Auth token** in Settings → Integrations, or set env vars above.
+3. Enter the **Database URL** and **Auth token** in Settings → Integrations, or set the build-time env vars in [security.md](security.md#environment-variables).
 4. The app calls Turso's HTTP `/v2/pipeline` API directly from the browser.
 
 ## Common issues
@@ -324,7 +324,7 @@ a generic sync error. There is no monitoring of this — only the user
 reporting it.
 
 ### "Claude chat returns 401 / 403"
-The Anthropic key in `localStorage` is invalid, expired, revoked, or
+The Anthropic key the user saved in Settings → AI (held encrypted in the browser) is invalid, expired, revoked, or
 rate-limited. Users must regenerate at
 <https://console.anthropic.com/settings/keys>. The server does not see this
 traffic, so server-side logs will be silent.
@@ -337,7 +337,7 @@ Fix: Open Settings → Integrations, enable the M365 master toggle, enter valid 
 Cause: The write-back toggle is OFF, no push has been triggered, or `Calendars.ReadWrite` consent was denied.
 Fix: Enable it in Settings → Integrations → Microsoft 365 → "Push milestones to my Outlook calendar", then click "Push to Outlook" on the Milestones view. If access was denied, re-grant the `Calendars.ReadWrite` scope (the consent dialog re-appears on the next push). Events are tagged `AIPM:<projectId>` — a re-push reconciles existing events and removes orphans.
 
-### "SharePoint storage shows 'not ready' or 'coming soon'"
+### "SharePoint storage shows 'not ready'"
 Cause: M365 toggle is OFF or integration is not set up.
 Fix: Same as Outlook import — enable M365 in Settings → Integrations and configure Entra app credentials.
 
@@ -429,7 +429,7 @@ is open (on load, on tab re-focus, and on a light interval), catch up missed
 runs on next open, are **advisory only** (they never write to the workspace),
 and **never run in popouts**. State persists in a global `scheduled_jobs` store
 (Turso, kept out of `TABLE_NAMES`, with a localStorage fallback) — to wipe it,
-clear the `scheduled_jobs` localStorage key or `DELETE FROM scheduled_jobs` on
+clear the `aipm-cockpit:scheduled-jobs` localStorage key (`LOCAL_KEY` in `scheduled-jobs-store.ts`) or `DELETE FROM scheduled_jobs` on
 Turso. There is no server cron and no Periodic Background Sync, so jobs cannot
 fire while every tab is closed.
 

@@ -214,9 +214,9 @@
   `expectHash` on `replace`/`delete`/`move`, refused on absence or blankness at the tool boundary
   (`requirePayload`) in the same spirit as `requireToken`; `get_document` hands out a
   parallel `blockTokens` array to satisfy it.
-  ★★ NOT "exactly as `requireToken` refuses the six entity tools", which this line said and which is
-  wrong twice. `requireToken` covers SEVEN tools — the six `update_*` plus `set_task_dependencies`
-  through `requireTaskWriteToken`; enumerate them rather than trusting a count with
+  ★★ NOT "exactly as `requireToken` refuses the entity tools". `requireToken` covers every entity
+  `update_*` tool (all but `update_settings`) plus `set_task_dependencies` through
+  `requireTaskWriteToken`; enumerate them rather than trusting a count with
   `awk '/case "/{c=$0} /requireToken\("|requireTaskWriteToken\(/{print c}' src/app/chat-tools.ts`.
   And `requirePayload` is STRICTLY STRONGER, not a mirror: `requireToken` tests
   `typeof sent !== "string" || sent.length === 0`, so `"   "` is ACCEPTED and then fails a layer down
@@ -252,7 +252,8 @@
   permanently broken write path, unrecoverable because the token is a 16-hex hash of an internal projection
   no model can compute. The "the read path hands out a token the write path accepts" block in
   `chat-tools.test.ts` reads through each of the eight tools, takes the token OUT OF THE RESPONSE and spends
-  it on the matching update, for all six entities. ★ Its `toBe(FRESH_*_TOKEN)` lines are not redundant with
+  it on the matching update, for every guarded entity (list them with
+  `grep -oE 'FRESH_[A-Z_]+_TOKEN' src/app/chat-tools.test.ts | sort -u`). ★ Its `toBe(FRESH_*_TOKEN)` lines are not redundant with
   the write succeeding: a bug deriving BOTH halves from the summary would round-trip perfectly.
   ★ RESPONSE COST, measured over the 14 tasks of `sample-workspace-small.json`: `list_tasks` is **10673**
   bytes with tokens against **10183** without and **12153** before the envelope/slimming projection — so the
@@ -508,11 +509,12 @@
   mutates state and logs NOTHING. Reproduce with `grep -n "logActivity" src/app/use-chat-dispatcher.ts` —
   **one** hit." That command now returns **28**, so the doc carried the command that disproves it — which is
   the gate working in the only way an ungated doc can be gated, and only if somebody runs it. Every chat
-  entity writer now ends its SUCCESS path with `logActivityAs?.("ai", …)`: **23 call sites** spanning **21
-  distinct kinds** (tasks · raid · change · milestone · stakeholder · resource, plus `settings.updated`,
-  `bulk.inquiries` and the NEW `bulk.delete`). Re-derive both numbers rather than trusting them:
-  `grep -cE 'logActivityAs\?\.\("ai"' src/app/use-chat-dispatcher.ts` → 23, and
-  `grep -oE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts | sort -u | wc -l` → 21.
+  entity writer now ends its SUCCESS path with `logActivityAs?.("ai", …)` (tasks · raid · change · milestone
+  · stakeholder · resource · absence · calendarEvent, plus `settings.updated`, `bulk.inquiries` and `bulk.delete`). The
+  writers are split across `use-chat-dispatcher.ts` (tasks, resources, settings, bulk) and `use-register-tools.ts`
+  (raid, change, milestone, stakeholder, absence, calendarEvent), with `ai.documentWrite` in `use-document-tools.ts`; derive the sites and kinds over all
+  three rather than quoting a number:
+  `grep -ohE 'logActivityAs\?\.\("ai", "[A-Za-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts src/app/use-document-tools.ts | sort | uniq -c`.
   ★★ The coverage caveat therefore came OUT of the tool description in the same release, exactly as the
   ★★ below required. RETENTION (b) is unchanged and stays in.
   ★★ **`ai.inlineEdit` NO LONGER FIRES FROM ANYWHERE, and the kind is deliberately still in the union.**
@@ -739,7 +741,7 @@
   enforcement exists for.
   ★★★ **`ToolFlags` IS ONE OBJECT BECAUSE TWO ADJACENT BOOLEANS ARE THE §159 SHAPE.** `historySearch` and
   `chatSearch` are both `boolean | undefined`, so a positional pair typechecks TRANSPOSED — the §159 defect
-  passed 337 tests plus tsc. `toolsFor`/`toolNamesFor`/`callClaude`/`buildSystemPrompt` all take the
+  passed the unit suite plus tsc. `toolsFor`/`toolNamesFor`/`callClaude`/`buildSystemPrompt` all take the
   `Pick<AiConfig, "historySearch" | "chatSearch">` object and read the flags by NAME, which removes the
   hazard rather than guarding it. ★★ The old pair of frozen constants became a MEMO — `TOOL_VARIANTS` keyed
   by `variantKey`'s two bits, i.e. four variants, seeded with `CACHED_TOOLS` at key 0 — because the rule was
@@ -897,10 +899,11 @@
   carries a SECOND scan that reads the task write path's SOURCE for `input.<name>`, so an input
   `buildPatch` accepts that no schema advertises — `update_task`'s legacy `notes` — is caught as
   well. That scan reads ONE file, and `update_task` is the only update tool whose accepted surface is
-  enumerable from source at all, because it alone is built by a whitelist; the other five go through
-  `patchWithoutId`, which forwards whatever the model emits minus `id`, `expectedToken` and the
-  token-excluded fields. So a green run means "every declared input is covered, and every input the
-  TASK write path reads" — never "every accepted input on all six tools is covered".
+  enumerable from source at all, because it alone is built by a whitelist; the other entity update tools go
+  through `patchWithoutId` (`grep -n 'patchWithoutId(' src/app/chat-tools.ts`), which forwards whatever the
+  model emits minus `id`, `expectedToken` and the token-excluded fields. So a green run means "every
+  declared input is covered, and every input the TASK write path reads" — never "every accepted input on
+  every update tool is covered".
   ★★ `plan.sanitizer-parity.test.ts` compares the preview against the SANITIZER;
   `plan.write-path.test.ts` replays through the REAL dispatcher. The second exists because the first
   structurally cannot see a dispatcher-level derivation — and because a reader built on a raw

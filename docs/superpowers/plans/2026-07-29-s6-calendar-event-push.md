@@ -1,5 +1,7 @@
 # S6 — Outlook push for calendar events — Implementation Plan
 
+> **Status (2026-09-13 audit):** NOT STARTED — tracked in §44. Not one of this plan's 17 tasks / 109 steps has been executed; every named symbol (`graph-recurrence.ts`, `calendar-event-attendees.ts`, `eventToGraphEvent`, `exceptionPlan`, `replayExceptions`) is absent from `src`. Kept as a historical record; do not execute as written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Push each `CalendarEvent` series to Outlook as one recurring seriesMaster — including its local move/skip exceptions and, on explicit opt-in, its attendees as real invitations.

@@ -1,5 +1,7 @@
 # ESLint 9 → 10 upgrade
 
+> **Status (2026-09-13 audit):** SUPERSEDED by a later, different design (`2026-09-10-eslint-10-upgrade-design.md`) — this is the abandoned first attempt (`eslint-plugin-react`'s removed `context.getFilename()`); register §53, closed. Kept as a historical record; do not execute as written.
+
 Date: 2026-08-02
 Status: approved (design)
 Scope: tooling. No product behaviour change. Ships as its own MR, separate from the UX slice.

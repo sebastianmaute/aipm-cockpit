@@ -16,7 +16,7 @@ No environment variables are **required** — all integrations work via in-app S
 | `NEXT_PUBLIC_TURSO_DATABASE_URL` | Turso database URL (overrides Settings → Integrations input) |
 | `NEXT_PUBLIC_TURSO_AUTH_TOKEN` | Turso auth token (overrides Settings → Integrations input); **recommend a scoped token** |
 
-> ⚠️ **Security:** When entered in Settings, the Anthropic API key and Turso auth token are **encrypted at rest** (AES-256-GCM; see [Security Model](#security-model)). A Turso token supplied via `NEXT_PUBLIC_TURSO_AUTH_TOKEN` is different — `NEXT_PUBLIC_*` env vars are **inlined into the build at compile time and are not secret**, so prefer a database/operation-scoped token there and rotate it if it may have been exposed. The Jira and Timelog API tokens are likewise **encrypted at rest**; their identifying fields (Jira site URL & email; Timelog host, tenant & email) are stored in `localStorage` unencrypted (identifying, not secret).
+> ⚠️ **Security:** When entered in Settings, the Anthropic API key and Turso auth token are **encrypted at rest** (AES-256-GCM; see [Security Model](#security-model)). A Turso token supplied via `NEXT_PUBLIC_TURSO_AUTH_TOKEN` is different — `NEXT_PUBLIC_*` env vars are **inlined into the build at compile time and are not secret**, so prefer a database/operation-scoped token there and rotate it if it may have been exposed. The Jira and Timelog API tokens and the dictation (STT) API key are likewise **encrypted at rest**; their identifying fields (Jira site URL & email; Timelog host, tenant & email) are stored in `localStorage` unencrypted (identifying, not secret).
 
 ## Security model
 
@@ -26,7 +26,7 @@ This is a **local-first, bring-your-own-key** application. There is no applicati
 
 | Data | Location |
 |------|----------|
-| **Anthropic API key, Turso auth token, Jira & Timelog API tokens** | **Encrypted at rest** — AES-256-GCM ciphertext in `localStorage["aipm-cockpit:secrets"]`; these fields are blanked from the settings blob before it is written. The wrapping key is a non-extractable WebCrypto **device key** in IndexedDB by default. The Anthropic key and Turso token additionally support a **per-secret passphrase** (PBKDF2, 600k iterations) that keeps the value sealed until you unlock it; the Jira and Timelog tokens are device-wrapped only |
+| **Anthropic API key, Turso auth token, Jira & Timelog API tokens, dictation (STT) API key** | **Encrypted at rest** — AES-256-GCM ciphertext in `localStorage["aipm-cockpit:secrets"]`; these fields are blanked from the settings blob before it is written. The wrapping key is a non-extractable WebCrypto **device key** in IndexedDB by default. The Anthropic key and Turso token additionally support a **per-secret passphrase** (PBKDF2, 600k iterations) that keeps the value sealed until you unlock it; the Jira and Timelog tokens are device-wrapped only |
 | Jira site URL + email, Turso database URL, all other settings | `localStorage["aipm-cockpit:settings"]`, **unencrypted** (the Jira site URL and email are identifying, not secret) |
 | Device key (wraps the secrets above) | IndexedDB DB `aipm-cockpit-secrets`, non-extractable |
 | Workspace data (tasks, RAID, changes, milestones, stakeholders, …) | `IndexedDB` on the default Browser backend, or whichever storage backend you configure |
@@ -39,6 +39,10 @@ If WebCrypto / IndexedDB is unavailable the app degrades to holding the secrets 
 - **Jira** — credentials and issue data go to the same-origin `/api/jira/*` proxy, which forwards them only to `*.atlassian.net` (SSRF allowlist) and persists nothing server-side.
 - **Turso** — workspace data and the auth token go to your own Turso/libSQL database over HTTPS.
 - **Microsoft 365** — Graph calls authenticate with MSAL-issued tokens; the app never handles your Microsoft password.
+- **Confluence** — page imports go through the same-origin `/api/confluence/page` proxy, which reuses the Jira proxy helpers (the same `*.atlassian.net` allowlist and your Atlassian credentials).
+- **Timelog** — credentials and booking queries go to the same-origin `/api/timelog` proxy, which forwards them only to your `*.timelog.com` host. See [integrations.md](integrations.md#timelog).
+- **Dictation (STT)** — recorded audio and the STT API key go to the same-origin `/api/stt` proxy, which forwards them to the OpenAI-compatible endpoint you configure. There is no fixed vendor host to allowlist, so the proxy requires `https`, blocks private and loopback addresses, and refuses redirects.
+- **ECB exchange rates** — the same-origin `/api/ecb` route fetches the European Central Bank's daily reference-rate file; no credential or user input is sent.
 
 ### Recommendations
 

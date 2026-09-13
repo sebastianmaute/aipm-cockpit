@@ -173,7 +173,7 @@ in anyone else's checkout.
 multi-surface roadmap (R1–R5 all shipped, there is no R6; its only unshipped line is §4.3b
 `optimize_wbs` = item 3 below — its spec is `docs/superpowers/specs/2026-07-24-multi-surface-feature-roadmap-design.md`,
 which the 0.253.0 corpus commit made tracked, so that link resolves for everyone) ·
-`docs/RUNBOOK.md` · `docs/DESIGN-TOKENS.md` · `docs/architecture/*.md` ·
+`docs/RUNBOOK.md` · `docs/DESIGN-TOKENS.md` · `docs/architecture/*.md` (deleted 2026-09-13) ·
 `docs/security/threat-model.md` (every residual carries an acceptance, no live action).
 
 ★★ `docs/CODEMAPS/*` carry their OWN provenance — each file's first line is a
@@ -313,7 +313,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§84](#84-a-third-order-dependent-test-in-use-storage-backendtesttsx--different-mechanism-from-75--closed-false-same-mechanism-measured-on-a-partially-fixed-tree) | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED**, FALSE: same mechanism, measured on a partially-fixed tree |
 | [§85](#85-strictmode-does-not-double-invoke-effects-under-vitest--cause-unknown-so-every-strictmode-dependent-test-may-be-vacuous--closed-false-premise-it-does-double-invoke-here-whether-it-does-on-a-given-mount-depends-on-the-wrapper-shape-and-the-rule-is-pinned-by-a-meta-test) | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous~~ | pre-existing, found in the slice-3 review | M | **CLOSED**, FALSE PREMISE: it does double-invoke here; whether it does on a given mount depends on the wrapper shape, and the rule is pinned by a meta-test |
 | [§86](#86-ai-cannot-read-timelog-entries--deliberate-no-tool-exposes-them) | AI cannot read timelog entries — deliberate, no tool exposes them | view-scoped AI prompts, unreleased | — | open |
-| [§87](#87-ai-cannot-read-the-activity-log--corrected-2026-08-18-stale) | AI cannot read the activity log — CORRECTED 2026-08-18, stale | view-scoped AI prompts, unreleased | — | open |
+| [§87](#87-ai-cannot-read-the-activity-log--closed-2026-09-13) | AI cannot read the activity log | view-scoped AI prompts, unreleased | — | **CLOSED** 2026-09-13 |
 | [§88](#88-ai-sectiontsxs-own-sub-section-titles-are-not-real-headings--closed-2026-08-31) | `ai-section.tsx`'s own sub-section titles are not real headings | found during view-scoped AI prompts review, unreleased | S | **CLOSED** 2026-08-31 |
 | [§89](#89-ai-cannot-read-absences-and-the-resource-calendar-view-renders-them-beside-meetings) | AI cannot read absences, and the Resource-calendar view renders them beside meetings | view-scoped AI prompts, unreleased | S | open |
 | [§90](#90-oncreateresource-is-unguarded-in-a-popout-and-cannot-take-guardedit--open) | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open | undefined` | found in the help-coverage slice-3 review, unreleased | open |
@@ -648,7 +648,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§421](#421-the-registers-own-index-table-cannot-see-eight-of-its-entries--closed-2026-09-07) | The register's own index table cannot see eight of its entries | found 2026-09-06 after it caused the §407 number collision | S | **CLOSED** 2026-09-07 |
 | [§422](#422-a-comma-bearing-email-address-is-destroyed-when-an-inline-edit-names-emails-with-a-changed-value--open) | A comma-bearing email address is destroyed when an inline edit names emails with a changed value | found 2026-09-06 in cold review of the preview/apply-parity branch; trigger claim refuted by probe 2026-09-07 | S | open |
 | [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--closed-2026-09-07) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit; it had rotted FOUR times and was incomplete besides | S | **CLOSED** 2026-09-07 |
-| [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
+| [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--closed-2026-09-13) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | **CLOSED** 2026-09-13 |
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | **CLOSED** 2026-09-07 |
 | [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
 | [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--closed-2026-09-07) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | **CLOSED** 2026-09-07 |
@@ -701,6 +701,59 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
 | [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--open) | Only three currencies are supported, and INR is wanted — OPEN | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | open |
 | [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--open) | Switching back to the modern layout moves the user off their current view — OPEN | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | open |
+| [§479](#479-releases-101-102-and-103-were-never-tagged-so-no-published-installer-carries-them-and-their-owed-packaged-build-checks-were-never-run--open) | Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — OPEN | found 2026-09-13 by the housekeeping audit, from the CHANGELOG owed list and the RUNBOOK's unverified release steps | S — a tag per release, each at its own release merge, then a manual pass over the packaged installer | open |
+| [§480](#480-the-desktop-installer-has-no-auto-update-and-its-update-feed-question-is-undecided--open) | The desktop installer has no auto-update and its update-feed question is undecided — OPEN | found 2026-09-13 by the housekeeping audit; GitLab #67 had been closed with this remainder written into its own body, and was reopened 2026-09-13 | M — the feed decision (UNC share or HTTPS) first, then the updater and its release wiring | open |
+| [§481](#481-the-task-row-n-changes-badge-is-a-static-label-with-no-way-to-jump-to-the-linked-changes--open) | The task-row "N changes" badge is a static label with no way to jump to the linked changes — OPEN | found 2026-09-13 by the housekeeping audit, from the change-log register design's deferred click-to-jump | S — a jump handler threaded the way the RAID badge's is | open |
+| [§482](#482-the-document-asset-library-table-shows-no-image-thumbnails--open) | The document asset library table shows no image thumbnails — OPEN | found 2026-09-13 by the housekeeping audit, from the asset-preview lightbox design's named follow-up | S — a thumbnail column reusing the existing blob-URL lifecycle | open |
+| [§483](#483-moving-the-view-scoped-ai-guide-block-onto-the-turn-tail-slice-g2-is-specced-but-tracked-nowhere-so-the-cost-harness-still-has-no-real-candidate-layout--open) | Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout — OPEN | found 2026-09-13 by the housekeeping audit; `docs/AGENTS/ai-assistant.md` hands a decision to G2, and G2 had no entry or issue | M — the G2 layout as the harness's first real candidate arm, plus the usage-meter measurement it depends on | open |
+| [§484](#484-four-landmine-heavy-subsystems-have-no-docsagents-reference-and-insightsmd-omits-the-timelog-guardrail-detector--open) | Four landmine-heavy subsystems have no docs/AGENTS reference, and insights.md omits the Timelog guardrail detector — OPEN | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — four new subsystem files plus the insights.md correction, each citing symbols rather than line numbers | open |
+| [§485](#485-nothing-keeps-docsfeaturesmd-in-sync-with-libapp-feature-guidemd-and-the-human-facing-copy-has-already-drifted--open) | Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted — OPEN | found 2026-09-13 by the housekeeping audit's general-docs pass, which counted five false claims in docs/features.md | S — generate features.md from the guide, or add a section-parity check | open |
+| [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--open) | Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync — OPEN | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13 | M — a per-item opt-out, which is a new persisted field (all six write paths), plus the reconcile change | open |
+| [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning — OPEN | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
+| [§488](#488-the-390-h-booked-vs-104-h-planned-gap-seen-in-the-demo-is-unexplained-and-a-fixed-price-contract-converted-to-end-to-end-responsibility-has-no-model--open) | The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model — OPEN | GitLab #42 (F-5, demo 2026-09-11); its currency lead became #77 / §465 (closed 2026-09-12), and its external-resources lead was refuted in the issue's own comments | M — reproduce the gap on the demo data first; modelling an end-to-end contract type is the open design question | open |
+| [§489](#489-the-floating-helpmenu-has-no-deep-link-input-and-nothing-calls-for-one-yet--open) | The floating HelpMenu has no deep-link input, and nothing calls for one yet — OPEN | split 2026-09-13 from §424 (gap 4), whose modal half shipped as a popover and so never needed this route | S–M once a caller exists — a request prop following the remount-swallow rule | open |
+| [§490](#490-six-write-path-persistence-is-mitigated-per-slice-only-and-the-unified-codec-and-schema-rewrite-stays-deferred--open) | Six-write-path persistence is mitigated per slice only, and the unified codec and schema rewrite stays deferred — OPEN | tech-debt-register TD-2 (Phase 3 T10), moved into the register 2026-09-13 | L if ever built — a unified codec/schema layer across JSON, CSV, Markdown, both Turso layouts and IndexedDB; the near-term work is the decision | open |
+| [§491](#491-task-managertsx-is-3162-lines-over-the-1600-size-limit-and-its-6040-line-ratchet-baseline-constrains-nothing--open) | task-manager.tsx is 3162 lines, over the 1600 size LIMIT, and its 6040-line ratchet baseline constrains nothing — OPEN | tech-debt-register TD-5 (Phase 3 T5), moved into the register 2026-09-13 | M — consolidate the top-level hooks and effects, not a render-tree slice; re-baseline only after a real reduction | open |
+| [§492](#492-tasks-sectiontsx-is-still-one-fat-pane-owning-the-tasks-filters-table-board-and-calendar-glue-and-its-split-stays-deferred--open) | tasks-section.tsx is still one fat pane owning the tasks filters, table, board and calendar glue, and its split stays deferred — OPEN | tech-debt-register TD-7 (inline-ai-edit SP1, 2026-07-03), moved into the register 2026-09-13 | M — a table / board / toolbar split on the gantt and reports precedent | open |
+| [§493](#493-eslint-config-next-is-exact-pinned-at-1626-while-next-is-at-1634-and-both-have-since-published-1635--open) | eslint-config-next is exact-pinned at 16.2.6 while next is at 16.3.4, and both have since published 16.3.5 — OPEN | tech-debt-register TD-1 notes and its exact-pinned list, moved into the register 2026-09-13 | S — a bump that keeps the `settings.react.version` pin, run through the browser gates | open |
+| [§494](#494-typescript-7-has-been-published-and-nothing-has-been-run-against-it--open) | TypeScript 7 has been published and nothing has been run against it — OPEN | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S to assess (a `npx tsc --noEmit` run on a branch); unknown to land until that run exists | open |
+| [§495](#495-jsdom-30-has-been-published-and-the-layout-stub-suites-have-not-been-checked-against-it--open) | jsdom 30 has been published and the layout-stub suites have not been checked against it — OPEN | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S–M — a bump plus re-verifying the jsdom-has-no-layout suites by name | open |
+| [§496](#496-testing-libraryjest-dom-7-has-been-published-and-is-unassessed--open) | @testing-library/jest-dom 7 has been published and is unassessed — OPEN | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S — test-only, the cheapest of the deferred majors to attempt | open |
+| [§497](#497-playwright-and-axe-core-have-moved-past-the-pinned-ci-image-and-they-must-be-bumped-together-with-it--open) | Playwright and axe-core have moved past the pinned CI image, and they must be bumped together with it — OPEN | tech-debt-register deferred dependency table (lockstep row) and its Resolved lockstep rule, moved into the register 2026-09-13 | S–M — client, e2e image and axe in one MR, then re-measure the axe claims AGENTS.md quotes against 4.12.1 | open |
+| [§498](#498-the-msal-sign-in-flow-has-never-been-smoke-tested-against-a-real-microsoft-365-tenant--open) | The MSAL sign-in flow has never been smoke-tested against a real Microsoft 365 tenant — OPEN | tech-debt-register dependency table (`@azure/msal-browser` caveat), moved into the register 2026-09-13 | S–M — a documented manual smoke per MSAL bump, or a gated e2e with tenant secrets if a CI tenant is ever provisioned | open |
+| [§499](#499-the-four-executive-budget-figures-are-not-all-surfaced-because-etc-eac-and-vac-are-computed-nowhere--open) | The four executive budget figures are not all surfaced, because ETC, EAC and VAC are computed nowhere — OPEN | AI PM Cockpit demo 2026-09-11 (F-1), GitLab #38; mirrored into the register 2026-09-13 | M — one agreed formula, then the Budget panel, Budget report and Dashboard | open |
+| [§500](#500-budget-forecast-hours-cannot-be-imported-from-a-spreadsheet-and-must-be-re-entered-by-hand--open) | Budget forecast hours cannot be imported from a spreadsheet and must be re-entered by hand — OPEN | AI PM Cockpit demo 2026-09-11 (F-2), GitLab #39; mirrored into the register 2026-09-13 | M — an importer for resource × month × hours × rate that writes bucket allocations | open |
+| [§501](#501-evm-terminology-is-incomplete-across-the-app-with-no-bac-eac-or-etc-labels-and-no-time-phased-s-curve--open) | EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve — OPEN | AI PM Cockpit demo 2026-09-11 (F-3), GitLab #40; mirrored into the register 2026-09-13 | M — terminology and hints first, the S-curve chart as a second slice | open |
+| [§502](#502-there-is-no-probabilistic-monte-carlo-forecast-with-scenarios-and-confidence-levels--open) | There is no probabilistic Monte Carlo forecast with scenarios and confidence levels — OPEN | AI PM Cockpit demo 2026-09-11 (F-4), GitLab #41; mirrored into the register 2026-09-13 | L — a simulation engine, scenario inputs and P50/P80-style output on the forecast surfaces | open |
+| [§503](#503-task-effort-and-over-budget-handling-misbehaved-during-the-demo-and-no-reproduction-was-recorded--open) | Task effort and over-budget handling misbehaved during the demo, and no reproduction was recorded — OPEN | AI PM Cockpit demo 2026-09-11 (F-6), GitLab #43; mirrored into the register 2026-09-13 | unestimated (product backlog) — nothing can be sized until the live misbehaviour is reproduced | open |
+| [§504](#504-the-burn-down-draws-no-forecast-line-and-is-not-aligned-with-the-internal-AIPM-project-burndown-standard--open) | The burn-down draws no forecast line and is not aligned with the internal AIPM Project Burndown standard — OPEN | AI PM Cockpit demo 2026-09-11 (F-7), GitLab #44; mirrored into the register 2026-09-13 | M — once the full article has been read | open |
+| [§505](#505-there-is-no-project-governance-module-that-weights-health-by-engagement-type--open) | There is no project governance module that weights health by engagement type — OPEN | AI PM Cockpit demo 2026-09-11 (G-1), GitLab #45; mirrored into the register 2026-09-13 | L — engagement type on the project, a weight profile and a weighted health engine | open |
+| [§506](#506-a-delivery-project-cannot-represent-the-clients-own-governance-structure-beside-AIPM-governance--open) | A delivery project cannot represent the client's own governance structure beside AIPM governance — OPEN | AI PM Cockpit demo 2026-09-11 (G-2), GitLab #46; mirrored into the register 2026-09-13 | unestimated (product backlog) — likely scoped together with §505 | open |
+| [§507](#507-multi-tenancy-is-not-built-at-the-app-layer-no-identity-no-hosted-deployment-and-no-pm-dimension-in-the-portfolio-view--open) | Multi-tenancy is not built at the app layer: no identity, no hosted deployment and no PM dimension in the portfolio view — OPEN | AI PM Cockpit demo 2026-09-11 (M-1), GitLab #47; mirrored into the register 2026-09-13 | L — identity and login, ownership, access control, hosting, then the portfolio dimension | open |
+| [§508](#508-no-admin-role-can-lock-a-tenant-level-policy-of-mandatory-and-suppressed-fields--open) | No admin role can lock a tenant-level policy of mandatory and suppressed fields — OPEN | AI PM Cockpit demo 2026-09-11 (M-2), GitLab #48; mirrored into the register 2026-09-13 | L — depends on the identity work in §507 | open |
+| [§509](#509-there-is-no-central-target-for-exporting-project-data-to-consolidate-by-hand-and-export-filenames-carry-no-project-code--open) | There is no central target for exporting project data to consolidate by hand, and export filenames carry no project code — OPEN | AI PM Cockpit demo 2026-09-11 (M-3), GitLab #49; mirrored into the register 2026-09-13 | M — a SharePoint folder upload over the existing Graph code, plus project codes in filenames | open |
+| [§510](#510-the-per-project-activity-log-cannot-be-extracted-centrally-in-the-app-keeps-only-500-entries-and-names-no-pm--open) | The per-project activity log cannot be extracted centrally in the app, keeps only 500 entries and names no PM — OPEN | AI PM Cockpit demo 2026-09-11 (M-4), GitLab #50; mirrored into the register 2026-09-13 | S–M — a decision first; close if raw Turso SQL access is accepted as the answer | open |
+| [§511](#511-documents-cannot-be-generated-through-AIPM-word-or-powerpoint-templates-picked-from-a-drive-folder--open) | Documents cannot be generated through AIPM Word or PowerPoint templates picked from a drive folder — OPEN | AI PM Cockpit demo 2026-09-11 (D-1), GitLab #51; mirrored into the register 2026-09-13 | L — template reading for both renderers, plus a picker over SharePoint, OneDrive or a folder | open |
+| [§512](#512-the-word-export-is-unpolished-squeezing-every-storage-column-to-equal-width-under-raw-key-headers-with-no-branded-header-or-footer--open) | The Word export is unpolished, squeezing every storage column to equal width under raw key headers with no branded header or footer — OPEN | AI PM Cockpit demo 2026-09-11 (D-2), GitLab #52; mirrored into the register 2026-09-13 | M — curated columns and labels, content-aware widths, a logo header and footer | open |
+| [§513](#513-existing-sharepoint-documents-cannot-be-updated-from-app-data--open) | Existing SharePoint documents cannot be updated from app data — OPEN | AI PM Cockpit demo 2026-09-11 (D-3), GitLab #53; mirrored into the register 2026-09-13 | unestimated (product backlog) — build it, or close it in favour of the Claude Desktop or Word plugin route | open |
+| [§514](#514-there-is-no-confluence-write-back-for-project-or-portfolio-pages--open) | There is no Confluence write-back for project or portfolio pages — OPEN | AI PM Cockpit demo 2026-09-11 (D-4), GitLab #54; mirrored into the register 2026-09-13 | M — a write proxy, a page template or mapping, and a manual or change-triggered push | open |
+| [§515](#515-a-risk-signal-cannot-be-turned-into-a-raid-item-directly-and-an-escalation-leaves-no-record-on-the-item--open) | A risk signal cannot be turned into a RAID item directly, and an escalation leaves no record on the item — OPEN | AI PM Cockpit demo 2026-09-11 (R-1), GitLab #55; mirrored into the register 2026-09-13 | M — a one-click log-as-risk/issue from a signal, plus escalation state on the item | open |
+| [§516](#516-stakeholder-management-lacks-a-decision-log-and-engagement-or-contact-tracking--open) | Stakeholder management lacks a decision log and engagement or contact tracking — OPEN | AI PM Cockpit demo 2026-09-11 (R-3), GitLab #57; mirrored into the register 2026-09-13 | M — a decision register (or a Decision category beside RAID) and contact tracking on stakeholders | open |
+| [§517](#517-the-simple-view-principle-is-not-applied-app-wide-and-no-chromeless-view-shows-only-the-top-one-to-three-next-actions--open) | The simple-view principle is not applied app-wide, and no chromeless view shows only the top one to three next actions — OPEN | AI PM Cockpit demo 2026-09-11 (U-1), GitLab #58; mirrored into the register 2026-09-13 | M–L — the chromeless next-actions view first, then the principle across overviews | open |
+| [§518](#518-there-is-no-single-action-focus-mode-that-steps-through-the-next-actions-one-at-a-time--open) | There is no single-action focus mode that steps through the next actions one at a time — OPEN | AI PM Cockpit demo 2026-09-11 (U-2), GitLab #59; mirrored into the register 2026-09-13 | M — a one-at-a-time mode with position dots and complete-to-advance for every action type | open |
+| [§519](#519-unrecognised-voice-commands-are-not-routed-to-the-ai-assistant-so-interaction-stays-form-and-button-first--open) | Unrecognised voice commands are not routed to the AI assistant, so interaction stays form-and-button first — OPEN | AI PM Cockpit demo 2026-09-11 (U-5), GitLab #62; mirrored into the register 2026-09-13 | S–M for routing unknown voice commands; the wider intent-driven principle is unestimated | open |
+| [§520](#520-the-screen-reader-claim-has-never-been-tested-by-hand-and-several-surfaces-sit-outside-the-axe-scan--open) | The screen-reader claim has never been tested by hand, and several surfaces sit outside the axe scan — OPEN | AI PM Cockpit demo 2026-09-11 (U-6), GitLab #63; mirrored into the register 2026-09-13 | M — a written NVDA/VoiceOver audit of the main flows, then axe on the unscanned surfaces | open |
+| [§521](#521-a-project-cannot-be-created-from-a-name-alone-and-relaxing-the-eleven-required-fields-needs-the-sanitizer-as-well-as-the-form--open) | A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form — OPEN | AI PM Cockpit demo 2026-09-11 (O-1), GitLab #64; mirrored into the register 2026-09-13 | M–L — five layers: type, sanitizer, validation, blank-value consumers and i18n | open |
+| [§522](#522-missing-project-data-is-not-flagged-where-a-feature-needs-it-because-project-creation-gates-on-it-instead--open) | Missing project data is not flagged where a feature needs it, because project creation gates on it instead — OPEN | AI PM Cockpit demo 2026-09-11 (O-2), GitLab #65; mirrored into the register 2026-09-13 | M — a next-actions provider plus a Projects-list completeness indicator backed by a per-device cache | open |
+| [§523](#523-ai-assisted-project-creation-is-undiscoverable-when-ai-is-off-and-its-proposal-still-hits-the-eleven-field-gate--open) | AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate — OPEN | AI PM Cockpit demo 2026-09-11 (O-3), GitLab #66; mirrored into the register 2026-09-13 | S–M — discoverability when AI is off; removing the gate after a proposal comes with §521 | open |
+| [§524](#524-the-beta-programme-with-uk-testers-and-its-feedback-route-into-the-backlog-are-not-set-up--open) | The beta programme with UK testers and its feedback route into the backlog are not set up — OPEN | AI PM Cockpit demo 2026-09-11 (P-2), GitLab #68; mirrored into the register 2026-09-13 | unestimated (process item); an optional "Send feedback" link that pre-fills a GitLab issue would be S | open |
+| [§525](#525-a-recurring-two-weekly-follow-up-with-the-demo-stakeholders-is-not-yet-scheduled--open) | A recurring two-weekly follow-up with the demo stakeholders is not yet scheduled — OPEN | AI PM Cockpit demo 2026-09-11 (P-3), GitLab #69; mirrored into the register 2026-09-13 | unestimated (process item) — a calendar series | open |
+| [§526](#526-the-initiative-board-entry-and-the-demo-day-presentation-are-not-yet-scheduled--open) | The initiative-board entry and the Demo Day presentation are not yet scheduled — OPEN | AI PM Cockpit demo 2026-09-11 (P-4), GitLab #70; mirrored into the register 2026-09-13 | unestimated (process item) — organisational only | open |
+| [§527](#527-there-are-no-weekly-user-facing-release-notes-and-nothing-makes-a-user-visible-change-carry-a-changelog-entry--open) | There are no weekly user-facing release notes, and nothing makes a user-visible change carry a CHANGELOG entry — OPEN | AI PM Cockpit demo 2026-09-11 (P-5), GitLab #71; mirrored into the register 2026-09-13 | S–M — a release-notes cadence, optionally the changelog excerpt in the GitLab Release description | open |
+| [§528](#528-roadmap-specs-and-follow-ups-still-live-in-markdown-rather-than-gitlab-issues-with-no-issue-templates-or-prioritisation-rules--open) | Roadmap, specs and follow-ups still live in markdown rather than GitLab issues, with no issue templates or prioritisation rules — OPEN | AI PM Cockpit demo 2026-09-11 (P-6), GitLab #72; mirrored into the register 2026-09-13 | M — pilot the move, then templates and labels, prioritisation rules, and repointed AGENTS.md and CONTRIBUTING | open |
+| [§529](#529-api-key-funding-is-unresolved-and-every-user-must-bring-and-pay-for-their-own-anthropic-key--open) | API key funding is unresolved, and every user must bring and pay for their own Anthropic key — OPEN | AI PM Cockpit demo 2026-09-11 (P-7), GitLab #73; mirrored into the register 2026-09-13 | unestimated (decision) — a shared key would need a new server-side proxy | open |
+| [§530](#530-there-is-no-microsoft-teams-integration-the-remaining-microsoft-365-gap--open) | There is no Microsoft Teams integration, the remaining Microsoft 365 gap — OPEN | AI PM Cockpit demo 2026-09-11 (P-8), GitLab #74; mirrored into the register 2026-09-13 | L — new Graph scopes, likely admin consent, then channel posts, online meetings and chat links | open |
+| [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--open) | Nothing checks that the register and GitLab issues stay one-to-one — OPEN | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -765,6 +818,8 @@ to this register.
 ## 1. Two dead `memo()`s in the Resources subtree — **fork open**
 
 **Status:** open — a memo that cannot bail while unstable handler props are threaded. Reproduced 2026-08-28 by `grep -n "export const ResourcesPanel = memo" src/app/resources-panel.tsx`.
+
+**Work item:** #84
 
 Originally filed as R5 §3, "`ResourcesPanel`'s memo never bails". Re-opened and re-derived
 2026-07-27; the original write-up was right about the symptom and wrong about the cause, and it
@@ -934,6 +989,8 @@ point was 553, better than estimated because the two clusters had grown since th
 
 **Status:** open — a feature owed from R4 and never built. Reproduced 2026-08-28 by `grep -rn "optimize_wbs" src scripts e2e`.
 
+**Work item:** #85
+
 Roadmap 4.3b. The user explicitly asked to be reminded, and it has now survived two releases.
 
 Open question preserved in R4's spec §5: **is it a tool at all**, or a prompt affordance over the
@@ -947,6 +1004,8 @@ See [[release-4-ai-planning-powers]].
 ## 4. Two-tab last-writer clobber on file/IDB (audit #39) — parked, own design
 
 **Status:** open — a cross-tab save lock present only on the Turso backend. Reproduced 2026-08-28 by `grep -rn "navigator.locks" src --include=*.ts`.
+
+**Work item:** #86
 
 Two browser tabs on the same **file or IndexedDB** project can last-writer-clobber each other's
 saves. `BroadcastChannel` syncs some state but there is no save lock.
@@ -966,6 +1025,8 @@ data-loss guard in the save path (`allowDestructiveSave`) is adjacent prior art 
 
 **Status:** open — no list virtualization anywhere, parked deliberately. Reproduced 2026-08-28 by `grep -rn "react-window" src/app`.
 
+**Work item:** #87
+
 **Where:** task table, Kanban board, Gantt (including the SVG arrow layer), activity log. No
 virtualization dependency is installed (`package.json` has no `react-window` / `@tanstack/virtual`).
 
@@ -983,6 +1044,8 @@ row that must exist), column resize, and the axe scan. Own batch, carefully.
 ## 6. Undo residuals (audit #11) — optional, unscheduled
 
 **Status:** open — a set of optional, unscheduled undo residuals. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #88
 
 #11's large part shipped (0.173.0 "Jordan" + 0.174.0 "Egan"): a backend-agnostic in-memory
 undo stack covering all 11 single-entity deletes, bulk edit, clear-all, bulk delete and cascade
@@ -1012,6 +1075,8 @@ forward from the campaign doc, which still listed it.
 ## 7. Surviving dedup seams from the 2026-06 refactor review
 
 **Status:** open — four dedup seams still standing. Reproduced 2026-08-28 by `grep -rn "resetAllCols" src/app --include=*.tsx`.
+
+**Work item:** #89
 
 That review was dated **2026-06-19 against v0.104.0** — ~100 releases stale. Re-verified item by item
 on 2026-07-27; **four of nine survive**, and they are reproduced in full below, so nothing here
@@ -1205,6 +1270,8 @@ Do not re-litigate it as a pure win.
 
 **Status:** open — an armed keyboard move that renders no preview. Reproduced 2026-08-28 by `grep -rn "onMoveModeChange" src/app/resource-calendar-band.tsx`.
 
+**Work item:** #90
+
 **Where:** `resource-calendar-band.tsx` (chips) and `resource-calendar.tsx` (the day-cell grid).
 
 Alt+Left/Right ARMS a move and accumulates a day delta in state; Enter commits it as one
@@ -1322,6 +1389,8 @@ request and is not the same condition.
 
 **Status:** open — an AI tool that dumps the grid instead of scoping a query. Reproduced 2026-08-28 by `grep -n "list_allocations" src/app/chat-tool-defs.ts`.
 
+**Work item:** #91
+
 The tool takes **no arguments at all** — `input_schema: { type: "object", properties: {} }`
 (`chat-tool-defs.ts:368-372`) — and returns the whole planning grid: plan window, granularity, every
 valid period key, and every non-zero cell for every resource.
@@ -1349,6 +1418,8 @@ parameters does not change either property; do not add a guard while in there.
 ## 13. Security audit is scope-stale — open
 
 **Status:** open — a scope-stale audit, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #92
 
 `docs/security/findings-2026-07.md` is dated **2026-07-02, scope "v0.164 Cixin"**. The app is
 **0.259.0** (re-read 2026-08-25 at that release — `grep -n APP_VERSION src/app/version.ts`; this
@@ -1389,6 +1460,8 @@ trusting "four" would not know to verify five.)
 (accepted)") is single-process only. Its own verdict says "Register as TD if the app moves" to a
 multi-instance deploy. Single-instance today ⇒ nothing to do; the trigger is a deployment change,
 not a code change. Do not open a ticket for it now, and do not lose it if hosting changes.
+
+**Folded in 2026-09-13 (housekeeping):** the untracked audit item "`/api/stt` and `sttApiKey` were never security-reviewed" (from `docs/security/threat-model.md`) is the same scope gap this entry already names, so a re-audit that closes this entry must cover the STT proxy route and its sealed key.
 
 ---
 
@@ -1481,6 +1554,8 @@ browser, which is why both sites use `sr-only`.
 
 **Status:** open — a design gap in dictation, with no design chosen yet. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
+**Work item:** #93
+
 `appendDictationToHtml` round-trips the field through plain text before appending, because Web
 Speech fires `onFinal` **multiple times per hold** and each segment must join onto the previous one
 rather than replace it (the landmine already recorded in AGENTS.md's dictation bullet). The
@@ -1514,6 +1589,8 @@ worse (it loses dictated words, not formatting).
 ## 21. Eye verification owed on two editors and four detail cases — open, slice B (0.209.0)
 
 **Status:** open — an eye-verification debt owed on two editors and four detail cases. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #94
 
 Verified by screenshot against seeded data: the **RAID editor** and the **task editor's inline note
 log**. Not verified:
@@ -1668,6 +1745,8 @@ A counter tuned against a single run is itself a flake source, because fast-chec
 
 **Status:** open — an entity-decoding gap that over-counts named references. Reproduced 2026-08-28 by `grep -n "NBSP" src/app/rich-text-plain.ts`.
 
+**Work item:** #95
+
 **Narrowed by 0.210.0 "Larbalestier" (`ec271c25`, `d4d16341`), not closed.** The numeric half is
 done; the named tail below is the whole of what remains, and its illustration is unchanged.
 
@@ -1724,6 +1803,8 @@ produces numeric forms — so this is genuinely small and genuinely optional.
 ## 28. CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary
 
 **Status:** open — a missing sanitiser boundary on three load paths. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #96
 
 `9e284c68` closed the two **whole-object cast** load paths: `jsonToWorkspace` (file-JSON, SharePoint,
 local-file) and the IndexedDB read now route all six rich fields through the escape-then-sanitize
@@ -2075,6 +2156,8 @@ once — but it can TRUNCATE ALREADY-STORED values on their next load, so it nee
 
 **Status:** open — a classifier that reads a plain sentence as HTML. Reproduced 2026-08-28 by `grep -n "htmlStartRe" src/app/html-start.ts`.
 
+**Work item:** #97
+
 Pre-existing (`narrative-html.ts`, where `HTML_START` then lived), found by a cold review of 0.210.0.
 Not introduced by it, but 0.210.0 extended the reach to the AI write boundaries, so a model-supplied
 value now hits it too.
@@ -2132,6 +2215,8 @@ its own slice and probably a golden check.
 
 **Status:** open — a PPTX text box with no shrink-to-fit and a fixed height. Reproduced 2026-08-28 by `grep -n "a:bodyPr" src/app/ooxml-pptx-primitives.ts`.
 
+**Work item:** #98
+
 0.210.0 made a block boundary cost a whole `<a:p>` in PPTX instead of collapsing to whitespace.
 `pptxTextBox`'s `cyEmu` is FIXED (`2800000` on the row-fields box, sized for ~6 wrapped lines) and
 `pptxTextBox` (`ooxml-pptx-primitives.ts` — grep `a:bodyPr`) sets `<a:bodyPr wrap="square" …>` with **no** `normAutofit`/`spAutoFit` — verified,
@@ -2184,6 +2269,8 @@ derivable, derive it.
 ## 35. `sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion
 
 **Status:** open — a double-escape shape that survives, reachability never established. Reproduced 2026-08-28 by `grep -n "sanitizeAiRichText" src/app/ai-rich-text.ts`.
+
+**Work item:** #99
 
 Recorded from a round-5 audit; **real-world reachability is a suspicion, not established.**
 
@@ -2330,6 +2417,8 @@ is untouched — that round trip stays the `encodeNoteLog` JSON blob, which is c
 
 **Status:** open — a missing storage-side length cap, pre-existing. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
+**Work item:** #100
+
 Produced by a round-6 review exchange in 0.210.0: a reviewer asserted the modal cap merely duplicated a
 sanitizer one, I showed the sanitizer is not on the save path, and tracing it properly turned up something
 neither of us had. **`sanitizeRaidItem` looks like the storage boundary for RAID and is on no save or load
@@ -2384,6 +2473,8 @@ about. Trace the path.
 
 **Status:** open — a URI regexp that strips the target and rel it allows. Reproduced 2026-08-28 by `grep -n "SAFE_URI_REGEXP" src/app/sanitize-html.ts`.
 
+**Work item:** #101
+
 Found on 2026-07-30 while adding rich descriptions to the sample master: the link I wrote as
 `<a href="…" target="_blank" rel="noopener noreferrer">` came back out of the golden fixtures as a bare
 `<a href="…">`. Both `target` and `rel` are listed in `ALLOWED_ATTR`, and
@@ -2432,6 +2523,8 @@ reflects what is actually storable rather than implying an attribute that cannot
 ## 39. The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed
 
 **Status:** open — a fix that landed over a mechanism still only a CANDIDATE — the precondition is proved, the causation unreproduced. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #102
 
 `timelog-panel.test.tsx` → "surfaces a partial-failure toast when Refresh drops some projects". Eight CI
 failures, always this one assertion, always with the other ~767 files green and the full suite passing
@@ -2531,6 +2624,8 @@ frequency data lived only in a code comment and a memory file.
 ## 40. `text-ui-dark-blue` without a mode-appropriate companion — open, needs its own slice
 
 **Status:** open — a theming gap needing its own slice. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #103
 
 `--ui-dark-blue` is a near-black navy in all three dark scheme maps, so as TEXT on `--surface` it
 measures roughly **1.10:1 (harbor) / 1.17:1 (meridian) / 1.31:1 (umber)** — not "low contrast",
@@ -2785,6 +2880,8 @@ in a browser — nobody has rendered them.
 
 **Status:** open — an eye-verification debt on surfaces no scan reaches. Reproduced 2026-08-28 by `grep -n "m365Configured" src/app/calendar-sync-controls.tsx`.
 
+**Work item:** #104
+
 Three checks nobody in the session could make. Distinct from §21, which is slice B (0.209.0).
 
 - **Task editor**: create-RAID and new-linked-task sit on one row collapsed, and the linked-task
@@ -2813,6 +2910,8 @@ is ever seen, and "not scanned" has at least two distinct causes that need diffe
 ## 42. `CalendarSyncControls` push/pull buttons carry unqualified accessible names — open, pre-existing
 
 **Status:** open — two per-entity buttons with unqualified accessible names. Reproduced 2026-08-28 by `grep -n "aria-label" src/app/calendar-sync-controls.tsx`.
+
+**Work item:** #105
 
 The enable **checkbox** is qualified per entity (`"… – Tasks (due dates)"`); the Push and Pull
 **buttons** beside it are the bare `calendarPush` / `calendarPull` ("Push to Outlook" / "Pull from
@@ -2843,6 +2942,8 @@ without knowing the plan existed, because that plan is gitignored — the same i
 
 **Status:** open — a stream judgement that refuses a handover inside one proposal. Reproduced 2026-08-28 by `grep -n "groundRaciCells" src/app/raci-suggest/raci-suggest.ts`.
 
+**Work item:** #106
+
 **(a) An Accountable HANDOVER inside one proposal is silently refused.** If the model demotes the
 current A to R and promotes someone else on the same milestone, `groundRaciCells`
 (`raci-suggest/raci-suggest.ts`) still holds the old id in `accountableHolder` when the second cell is
@@ -2864,6 +2965,8 @@ assignment was refused") *was* false there and was fixed. Closing it is one prop
 ## 44. The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned
 
 **Status:** open — two UX-roadmap slices — S6 designed and planned but unexecuted, S7 undesigned. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #107
 
 ★★★ **Recorded here because it was invisible to every tracked document — until `0.253.0 "Schroeder"`
 (2026-08-21).** The 8-slice roadmap and S6's own spec and plan live under `docs/superpowers/`, which
@@ -3056,6 +3159,8 @@ Measured rule drift was **ZERO** — `eslint:recommended` is not layered into th
 
 **Status:** open — a PATTERN reminder, not a state. 2026-08-28: never machine-verified — no command can settle a prescription; retiring it is a decision, not a probe.
 
+**Work item:** #108
+
 Found while grounding §15, and not in that entry. `color-scheme-editor.tsx` and
 `branding-image-input.tsx` both put a `focus:ring-2` on a `<label>` that wrapped an `sr-only`
 `<input type="file">` — via `INTERACTIVE` in the first and `FOCUS_RING` in the second (an earlier
@@ -3091,6 +3196,8 @@ whether the element carrying it can receive focus. Check the element type, not t
 ## 47. `chat-panel` clicks a `display:none` file input — open, pre-existing
 
 **Status:** open — an attachment input hidden from the a11y tree. Reproduced 2026-08-28 by `grep -n "fileInputRef" src/app/chat-panel.tsx`.
+
+**Work item:** #109
 
 `chat-panel.tsx` gives its attachment input `className="hidden"` (Tailwind `display:none`) and opens it
 via `fileInputRef.current?.click()`. That is exactly what §15 warns against — both theme pickers used
@@ -3327,6 +3434,8 @@ write-through field list — is recorded separately as §177, not folded in here
 
 **Status:** open — a load-sensitive test whose recorded symptom cannot recur and whose mechanism is unreproduced. Last asserted 2026-08-20; never machine-verified by a committed probe.
 
+**Work item:** #110
+
 `use-tasks-dedup.test.tsx` → "on confirm, removes the duplicate and records ONE undo entry" failed on
 the post-merge main pipeline **#5418** (2026-08-02, MR !338), in the same `unit-tests` job where §39
 failed for the 8th time. It left main red.
@@ -3479,6 +3588,8 @@ and neither did `timelog-panel.test.tsx`.** Record what that is and is not worth
 ## 52. `useColumnResize`'s v1→v2 migration pins defaults for existing users — open, deliberate
 
 **Status:** open — a deliberate migration trade-off, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #111
 
 0.212.0 changed the hook to persist `{v:2, widths}` holding ONLY columns the user actually dragged,
 so that a later change to a `*_COL_WIDTHS` default reaches people who had dragged some unrelated
@@ -4236,6 +4347,8 @@ zero times and report green.
 
 **Status:** open — four toggle guards no fixture exercises. Reproduced 2026-08-28 by `grep -rn "auto: enabled" src/app --include=*.tsx`.
 
+**Work item:** #112
+
 `tasks-section.tsx` and the raid/change/absence writers in `use-calendar-integrations.ts` each read
 the RAW stored `auto` when switching a row on (`auto: enabled ? (s.outlookCalendar?.X?.auto ?? false)
 : false`). Every fixture stubs `auto: false`, so the guard is never exercised with a true value:
@@ -4251,7 +4364,9 @@ a single click on an imported settings blob.
 
 ## 58. The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN
 
-**Status:** open — PARTLY FIXED, the per-checkout token half is still open. Reproduced 2026-08-28 by `grep -n "data-app-version" src/app/layout.tsx`.
+**Status:** open — PARTLY FIXED, the per-checkout token half is still open. Reproduced 2026-08-28 by `grep -n "data-app-version" src/app/layout.tsx`. Re-verified 2026-09-13 on `b39517ec`: `grep -c "process.cwd" e2e/a11y.spec.ts` → 0, so no per-checkout token exists yet; the version guard alone stands.
+
+**Work item:** #113
 
 **Cited from:** `layout.tsx`, `e2e/a11y.spec.ts` — this entry cannot be deleted.
 
@@ -4342,6 +4457,8 @@ because "is this attribute client-authoritative?" is the first question anyone w
 ## 59. Eye verification owed on 0.212.0 — and on the two releases before it — open
 
 **Status:** open — an eye-verification debt no command can discharge. Reproduced 2026-08-28 by `grep -n "ToggleButton" src/app/settings-sections/integrations-section.tsx`.
+
+**Work item:** #114
 
 Settings → Integrations changed shape in 0.212.0: the calendar rows became **two stacked
 `ToggleButton`s**, and `ToggleButton`'s `disabled` styling (`disabled:cursor-not-allowed
@@ -4448,6 +4565,8 @@ is a slice of its own rather than a tweak. There is no pressure to do either now
 
 **Status:** open — three small residuals from the resource-planner split, plus one pointer. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
+**Work item:** #115
+
 Left deliberately by §2's move-only extractions. None blocks anything; grouped as one entry because
 they share a cause and would be fixed in one pass.
 
@@ -4516,6 +4635,8 @@ grep -c use-resource-planner docs/baselines/file-sizes.json
 ## 62. Two reference-data handlers have no production consumer — open, pre-existing
 
 **Status:** open — two reference-data handlers with no production consumer, pre-existing. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #116
 
 `handleAssignResourceRole` and `handleClearResourceRole` (`use-reference-data.ts`)
 are reachable only from `use-resource-planner.test.tsx`. Nothing
@@ -4634,7 +4755,9 @@ currently over the limit.
 
 ## 64. Other surfaces still read "0% complete" for an all-cancelled project — HALF FIXED post-0.216.0
 
-**Status:** open — PARTLY FIXED, the two persisted completion figures are still ungated. Reproduced 2026-08-28 by `grep -n "pctComplete" src/app/snapshot.ts`.
+**Status:** open — PARTLY FIXED, the two persisted completion figures are still ungated. Reproduced 2026-08-28 by `grep -n "pctComplete" src/app/snapshot.ts`. Re-verified 2026-09-13 on `b39517ec`: `grep -n "pctComplete: model.progress.percent" src/app/snapshot.ts` → 1 hit, still a non-nullable persisted figure.
+
+**Work item:** #117
 
 ★ **HALF CLOSED post-0.216.0.** Every surface that reads the figure DIRECTLY is done; both PERSISTED
 figures are deliberately untouched.
@@ -4793,7 +4916,9 @@ this warning exists to record — and reported the entry's correct cite as a def
 
 ## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — HALF FIXED post-0.216.0
 
-**Status:** open — PARTLY FIXED, the naming half is still open. Reproduced 2026-08-28 by `grep -n "dashboardAllCancelled" src/app/i18n.ts`.
+**Status:** open — PARTLY FIXED, the naming half is still open. Reproduced 2026-08-28 by `grep -n "dashboardAllCancelled" src/app/i18n.ts`. Re-verified 2026-09-13 on `b39517ec`: `grep -n "dashboardAllCancelled:" src/app/i18n.ts` → 1 hit, still "All cancelled ({0})".
+
+**Work item:** #118
 
 ★ **HALF CLOSED post-0.216.0.** `computeTaskHealth`'s finished-task driver is now three-way —
 `cancelled` (by status) / `completed` (by `isTaskDelivered`) / `closed` (neither) — so this pair
@@ -5129,6 +5254,8 @@ which one is wanted before touching it. ★ If it IS wanted, the mechanism alrea
 ## 69. `BrandingConfig`'s "is this blob empty?" question is answered in TWO places — open
 
 **Status:** open — two hand-maintained field lists with no shared helper. Reproduced 2026-08-28 by `grep -rn "footerSlogan" src/app --include=*.ts`.
+
+**Work item:** #119
 
 Adding a branding field means extending **two independent field lists**, and missing either is a
 silent data-loss path rather than an error:
@@ -6083,7 +6210,9 @@ reachable on inspection.
 
 ## 78. A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — HALF FIXED post-0.226.0, partial-KPI half OPEN
 
-**Status:** open — PARTLY FIXED, the partial-KPI half is still open. Reproduced 2026-08-28 by `grep -n "hasCapturableContent" src/app/snapshot.ts`.
+**Status:** open — PARTLY FIXED, the partial-KPI half is still open. Reproduced 2026-08-28 by `grep -n "hasCapturableContent" src/app/snapshot.ts`. Re-verified 2026-09-13 on `b39517ec`: `grep -n -A 8 "export function hasCapturableContent" src/app/snapshot.ts` → still the tasks/milestones/burndown disjunction, so the partial-KPI decision is still unmade.
+
+**Work item:** #120
 
 `use-storage-turso-ops.ts` `createTursoProject` calls `applyWorkspace(ws)` with a fresh empty
 workspace and `setTursoProjectId(id)` in the same batch. `workspaceReady` (§77) is legitimately
@@ -6155,6 +6284,8 @@ absolute wording is inherited from the original entry; it overstates by one step
 ## 79. The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — open
 
 **Status:** open — an asymmetry, the lane engine has no email path. Reproduced 2026-08-28 by `grep -n "laneResourceIdOf" src/app/task-kanban.ts`.
+
+**Work item:** #121
 
 `task-kanban.ts` `laneResourceIdOf` resolves an FK-less task to a resource by **name** only.
 `backfillTaskResourceFks` (`resource-foundation.ts`) prefers **email**, then falls back to name. So a
@@ -6237,6 +6368,8 @@ two are controls that pass under both old and new code, and none exercised the a
 
 **Status:** open — a migration-ordering gap — the task-FK backfill sits outside the numbered chain. Last asserted 2026-08-21; never machine-verified by a committed probe.
 
+**Work item:** #122
+
 `backfillTaskResourceFks` runs from `applyWorkspace` (`use-storage-backend.ts`) and
 `applyRestoredWorkspace` (`task-manager.tsx`), not from `migrateWorkspaceV*`. That placement is
 correct for *reach* — the chain misses CSV, Markdown and the Turso relational tables entirely, and no
@@ -6272,6 +6405,8 @@ either way.
 ## 83. Email/name disagreement in the FK backfill resolves silently to email — open
 
 **Status:** open — an email-versus-name disagreement resolved silently. Reproduced 2026-08-28 by `grep -n "viaEmail" src/app/resource-foundation.ts`.
+
+**Work item:** #123
 
 `backfillTaskResourceFks` poisons an *ambiguous* key (one owned by two resources) to `null` in both
 its email and name indexes, so it refuses to guess between namesakes. It does not treat a
@@ -6496,6 +6631,8 @@ in the wrapper argument, one line away from the thing being measured.
 
 **Status:** open — an AI capability gap, no timelog read tool. Reproduced 2026-08-28 by `grep -n "timelog" src/app/ask-claude-prompts.ts`.
 
+**Work item:** #124
+
 `Workspace` holds only `timelogLinks?: Readonly<TimelogLinks>` (`workspace.ts`) — user→resource and
 project→bucket LINK mappings, additive and optional. The real booked-time entries never enter
 `Workspace`; they are fetched live over the `/api/timelog` proxy (`api/timelog/route.ts` +
@@ -6516,9 +6653,16 @@ chip there would be a dead prompt.
 
 ---
 
-## 87. AI cannot read the activity log — CORRECTED 2026-08-18, stale
+## 87. AI cannot read the activity log — CLOSED 2026-09-13
 
-**Status:** open — an AI capability gap, corrected once and stale since. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-09-13 by the housekeeping triage — residue carried by §233. The capability gap
+this entry records is gone: `grep -n "search_history" src/app/chat-tool-defs.ts` → the tool is declared,
+and `sed -n '/^  activity: {/,/^  },/p' src/app/view-ai-scope.ts | grep -c "readingRequiresTool"` → 1. What
+is left is one stale test rationale — `grep -n "read tools are deferred" src/app/ask-claude-prompts.test.ts`
+still titles the assertion that `ASK_CLAUDE_PROMPTS.activity` is undefined — and §233, split out of this
+entry per its own closing paragraph, already carries exactly that, so no new successor was filed.
+
+**As filed:** open — an AI capability gap, corrected once and stale since. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 ★★★ **STALE — a read tool now exists, and this entry's own reasoning is what the fix had to solve.**
 `chat-tool-defs.ts` declares a `search_history` tool, and `chat-tools.ts` exposes
@@ -6645,6 +6789,8 @@ this file records elsewhere.
 
 **Status:** open — an AI capability gap, no absence read tool. Reproduced 2026-08-28 by `grep -n "absence" src/app/view-ai-scope.ts`.
 
+**Work item:** #126
+
 `list_calendar_events` returns `CalendarEvent` series only. Absences are a separate entity and no tool
 exposes them (`grep -n "absence" src/app/chat-tool-defs.ts src/app/chat-tools.ts` returns nothing), yet
 the `calendar` view draws both on one grid — so a clash or availability question answered from meetings
@@ -6673,6 +6819,8 @@ in §86, which are live external calls) — it was simply out of scope for this 
 ## 90. `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open
 
 **Status:** open — an unguarded popout handler. Last asserted 2026-08-21; never machine-verified by a committed probe.
+
+**Work item:** #127
 
 Every mutating handler `task-manager` threads to `WorkspaceSection` is either wrapped in
 `guardEdit` (`makeEditGuard(isPopout, …)`) or self-guards; `onChangeBudgets` was the exception and was
@@ -6707,6 +6855,8 @@ picker on `isPopout`.
 ## 91. A popout can record an undo entry and persist an activity line — open
 
 **Status:** open — an unguarded undo hotkey in a popout. Reproduced 2026-08-28 by `grep -n "isPopout" src/app/use-undo-hotkey.ts`.
+
+**Work item:** #128
 
 Two unguarded paths compose into a write that outlives the window.
 
@@ -6746,6 +6896,8 @@ edit, and is the reason this is filed as one item rather than two.
 ## 92. The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot — open
 
 **Status:** open — a three-edge value-import cycle. Reproduced 2026-08-28 by `grep -n "EXPORT_SECTION_KEYS" src/app/document-model.ts`.
+
+**Work item:** #129
 
 **This is a TRAP, not a defect.** The one instance that bit is fixed and regression-pinned. The
 CYCLE it exploited is still there, and the next module-eval snapshot taken anywhere in that graph
@@ -6873,6 +7025,8 @@ the rule as a manual check and the table as a worked example of applying it.
 
 **Status:** open — a hardcoded English frame around a localized title. Reproduced 2026-08-28 by `grep -rn "Showing the first" src/app --include=*.ts`.
 
+**Work item:** #130
+
 Both PPTX paths build the same sentence from a hardcoded English frame and a section title that the
 registry has ALREADY translated, so a German deck gets a mixed-language sentence:
 
@@ -6914,6 +7068,8 @@ problem for free. Prefer that trick wherever a marker can carry no prose.
 ## 94. PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed)
 
 **Status:** open — a pagination defect with an eye-verify owed. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #131
 
 **Half of this is already fixed — do not re-open the fixed half.** `BODY_LINES_PER_SLIDE` is derived
 from the body box and font size, and each slide's lines are chunked through `paginateLines`, so
@@ -6957,6 +7113,8 @@ from the box width and an average glyph width, which is still an estimate but a 
 ## 95. No test in CI exercises a real Turso database — open, NARROWED 2026-08-25
 
 **Status:** open — a CI coverage gap — no job exercises a real Turso database. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #132
 
 Framing matters here: this is **not** a `documents` gap. It is a known limit of the whole meta-blob
 class and of the Turso layer generally, and `documents` merely inherits it.
@@ -7029,6 +7187,8 @@ is minutes.
 
 **Status:** open — a static registry import on every document preview. Reproduced 2026-08-28 by `grep -n "buildExportSections" src/app/doc-data-section.ts`.
 
+**Work item:** #133
+
 `doc-render-html.ts` backs the in-app document PREVIEW and the print-to-PDF path, so its module graph
 loads whenever a user opens a document — not only when they click Download. Extracting
 `doc-data-section.ts` removed the OOXML builders and the ZIP writer from that graph (that part is
@@ -7069,6 +7229,8 @@ there is evidence of a user-visible problem. Measure before scheduling it, and c
 ## 97. The DOM constraint INVERTED for the document load paths — open (TRAP, safe today)
 
 **Status:** open — a load path that requires a DOM and swallows the failure. Reproduced 2026-08-28 by `grep -n "import DOMPurify" src/app/sanitize-html.ts`.
+
+**Work item:** #134
 
 **Nothing here is broken. The danger is that the rule everyone has memorised is now BACKWARDS for
 four specific call sites**, and the failure it produces is silent.
@@ -7185,6 +7347,8 @@ moved a live save-REFUSAL threshold that nothing has exercised against a real pr
 re-measured 2026-08-29 by `grep -cE "ws[.](documents|knowledgeItems|documentAssets)" src/app/workspace-metrics.ts`
 (→ 7, across `isWorkspaceEmpty` and both counters). The threshold change's effect on a real
 project is never machine-verified.
+
+**Work item:** #135
 
 ★★★ **CORRECTED 2026-08-29: "no known live path" WAS FALSE, and the path does not start here.** A
 malformed Turso meta blob is discarded in silence at load and then written over as an intentional
@@ -7323,7 +7487,9 @@ about than either end state.
 
 ## 99. The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY FIXED 2026-08-08
 
-**Status:** open — PARTLY FIXED, seven optional slices are still unseeded. Reproduced 2026-08-28 by `grep -n "const KV_" src/app/browser-backend.ts`.
+**Status:** open — PARTLY FIXED, seven optional slices are still unseeded. Reproduced 2026-08-28 by `grep -n "const KV_" src/app/browser-backend.ts`. Re-verified 2026-09-13 on `b39517ec`: the KV-intersection node command in the body now reports `entries 12` (was 11), seeded `documents,documentVersions,insights,timelogLinks`, and the same six slices dropped; `grep -c "^const KV_" src/app/browser-backend.ts` → 12.
+
+**Work item:** #136
 
 `e2e/seed.ts` writes the sample workspace into IndexedDB from TWO HARDCODED lists: an entity-store
 list and a kv-key map. Anything named in neither is dropped without a word. `BrowserBackend`
@@ -7588,6 +7754,8 @@ as a live observation about the code, not as history.
 
 **Status:** open — a hand-rolled-UI ratchet. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
+**Work item:** #137
+
 The full audit is [`docs/handrolled-ui-inventory.md`](handrolled-ui-inventory.md), taken 2026-08-07 on
 `63e4d768`. It is the work-list for **both** parts; this entry exists so the register points at it.
 
@@ -7730,6 +7898,8 @@ imported in 13 files already, so converging them adds no dependency — and sinc
 exists somewhere in the tree, and skips every `SCREAMING_CASE` name outright; axe has no rule for a
 hand-rolled control that a primitive would have done better. Re-measure before quoting any count
 above.
+
+**Folded in 2026-09-13 (housekeeping):** two untracked audit items — the `ModalHeader` close button carries no focus-ring class (`grep -c "FOCUS_RING" src/app/modal-header.tsx` → 0; eye-verify first, since the browser's default outline may already suffice) and the leftovers of `docs/handrolled-ui-inventory.md` (four new `role=dialog` files unread, the 0.221.0 budget border not eye-verified, per-site rows stale) — belong to this ratchet rather than to entries of their own.
 
 ---
 
@@ -7963,6 +8133,8 @@ the cap never refused.
 
 **Status:** open — a dead deep-link — `activityViewOf` has no production caller. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
+**Work item:** #138
+
 `d7f1e0b9` wired the emitter: `use-document-tools.ts` now writes an `ai.documentWrite` row on every
 AI create / update / delete that actually CHANGED something. Before it, the kind was registered in
 four places and emitted from none.
@@ -8100,6 +8272,8 @@ finds one and can reasonably read this entry as regressed. Re-checked 2026-08-25
 ## 106. The Markdown codec is not a fixed point when bare CRs precede a newline — open, minor, progressive
 
 **Status:** open — an asymmetric Markdown escape pair that drops a CR per round-trip. Reproduced 2026-08-28 by `grep -n "mdEscape" src/app/markdown-codecs-core.ts`.
+
+**Work item:** #139
 
 **Where:** `markdown-codecs-core.ts` `mdEscape` / `mdUnescape`.
 
@@ -8291,6 +8465,8 @@ index and never folded into the entry is a correction with a half-life — the e
 
 **Status:** open — a raw slice that can cut mid-tag. Reproduced 2026-08-28 by `grep -rn "REPORT_HTML_MAX" src/app`.
 
+**Work item:** #140
+
 **Where:** `sanitize-records.ts`, the `MeetingReport` guard — `rr.html.slice(0, REPORT_HTML_MAX)`.
 
 Split out of §22 rather than folded into it, because it is the same shape but a strictly larger
@@ -8321,6 +8497,8 @@ judgement calls rather than defects, and the ratchet itself. The one name defect
 `npx vitest run src/app/workspace-section-chrome.test.tsx`. The **blocked-on-i18n row is FIXED**
 (`32433366`) and **eleven of the fifteen** hardcoded-English names are gone (`32433366`, `82d9bb0c`) —
 both were held open by name here until 2026-09-01.
+
+**Work item:** #141
 
 ★ **Filed as §103** on `feat/ui-batch-slice-2`, renumbered to §105 when that branch first merged
 (main had already taken 103 for the over-cap document load), then renumbered AGAIN to §109 when
@@ -8458,11 +8636,15 @@ direction from the one that bug is documented to fail in.
 is a control axe passes. The counts are reproducible with the script embedded in the inventory; the
 A/B judgement is not automatable and the inventory records every borderline call it made.
 
+**Folded in 2026-09-13 (housekeeping):** the untracked leftovers of `docs/tooltip-inventory.md` — the saved-views-menu and version-info tests, 16 of 19 tooltip additions with no assertion, four unchecked scope gaps and 8 new Class A rows — are this entry's remaining inventory work, not a separate item.
+
 ---
 
 ## 110. `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — open
 
 **Status:** open — a primitive with no shape opt-out, so one chip stays hand-rolled. Reproduced 2026-08-28 by `grep -n "SIZE_CLASS" src/app/icon-button.tsx`.
+
+**Work item:** #142
 
 ★ **Filed as §104** — see the renumbering note at the head of §109.
 
@@ -8504,7 +8686,9 @@ thirteen-file list.
 
 ## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN
 
-**Status:** open — PARTLY FIXED — the `documents-list.tsx` half is fixed, the `#docId` sub-section is not. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** open — PARTLY FIXED — the `documents-list.tsx` half is fixed, the `#docId` sub-section is not. Last asserted 2026-08-25; never machine-verified by a committed probe. Re-verified 2026-09-13 on `b39517ec`: `grep -n 'nameQualifier' src/app/chat-tool-block.tsx` → the qualifier is now ` – title · #docId`, which still repeats for two cards on one document.
+
+**Work item:** #143
 
 ★★★ **DO NOT READ THIS SECTION AS DONE.** It carries TWO defects and the slice that closed it
 addressed ONE. The `documents-list.tsx` six-control body below is CLOSED; the `### Same family,
@@ -8639,6 +8823,8 @@ width before the branch renders, so there is no group to reflow.
 ## 113. The documents roadmap — block editor, entity attachment, images, OOXML media — ALL SIX SLICES SHIPPED; kept as the decision record
 
 **Status:** open — a decision record kept deliberately after its slices shipped, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** none — decision record
 
 ★★★ **CORRECTED 2026-08-21 — this entry's own title used to say "designed, UNIMPLEMENTED" and
 that had rotted into the dangerous direction.** S3a, S4 and S3b (0.222.0–0.249.0) and a structural
@@ -9092,6 +9278,8 @@ Recorded so a reader who remembers "two lines" does not go looking for a change 
 
 **Status:** open — an accepted decision about what the duplication gate measures. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
+**Work item:** #144
+
 ★★ **This entry shipped with its central claim inverted, and the inversion was INHERITED rather than
 invented.** The first revision said the gate reads the per-format TOKEN percentage, put tsx at 1.70%
 "0.05pp from blocking", and warned the reader off the two figures nearer the truth. `AGENTS.md` said
@@ -9154,7 +9342,9 @@ reading; if it and this entry ever disagree, neither is a measurement — re-run
 
 ## 117. Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) still open
 
-**Status:** open — PARTLY FIXED, (a) and (b) are fixed and (c) is still open. Reproduced 2026-08-28 by `grep -n "DOCUMENT_ALLOWED_ATTR" src/app/sanitize-html.ts`.
+**Status:** open — PARTLY FIXED, (a) and (b) are fixed and (c) is still open. Reproduced 2026-08-28 by `grep -n "DOCUMENT_ALLOWED_ATTR" src/app/sanitize-html.ts`. Re-verified 2026-09-13 on `b39517ec`: `grep -n "DOCUMENT_ALLOWED_ATTR =" src/app/sanitize-html.ts` → `data-asset-id` and `alt` only, no `src`, so (c) is still an inert prerequisite.
+
+**Work item:** #145
 
 ★ ONE entry rather than three because all three share a trigger: they become live the
 moment S3c wires the asset store, and whoever implements it needs the whole checklist.
@@ -9963,6 +10153,8 @@ grep -n "close-on-scroll\|addEventListener(\"scroll\"" src/app/popover-panel.tsx
 
 **Status:** open — billed calls with no reachable cancel. Reproduced 2026-08-28 by `grep -n "AbortController" src/app/use-meeting-report-actions.ts`.
 
+**Work item:** #146
+
 Filed 2026-08-08 while fact-checking the 0.224.0 "Emshwiller" CHANGELOG. Slice 3 gave six trigger
 sites a Stop affordance (`AiTriggerButton`) and the entry read "a Stop affordance on all six AI
 trigger sites", which invites the reading that the app HAS six AI triggers and every one of them now
@@ -10353,6 +10545,8 @@ its own slice rather than a rider.
 
 **Status:** open — a port guard that probes localhost while the killer matches any address. Reproduced 2026-08-28 by `grep -n "isPortAlreadyInUse" scripts/e2e-smoke-prod.mjs`.
 
+**Work item:** #147
+
 **Where:** `scripts/e2e-smoke-prod.mjs` `isPortAlreadyInUse()`; the kill side is `scripts/stop-dev.mjs`.
 
 **The guard exists** to stop the destructive sequence: something else holds port 3200 → `next start`
@@ -10395,6 +10589,8 @@ follow is worse than no guard: the comment is what the next reader checks.
 ## 131. The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured
 
 **Status:** open — accepted, measured debt in the doc-claims ratchet. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #148
 
 **Where:** `scripts/check-doc-claims.mjs`, `docs/baselines/doc-line-cites.json`, CI job `doc-claims-check`.
 
@@ -10669,6 +10865,8 @@ regex or the resolver has nothing catching a regression — re-run that mutation
 
 **Status:** open — a multi-target undo label that falls through to the generic string. Reproduced 2026-08-28 by `grep -n "entityKey" src/app/undo/use-undo-stack.ts`.
 
+**Work item:** #149
+
 `recordSuccessorEdits` (`use-task-submit.ts`) passes `name` only when it wrote exactly ONE target, so a
 fan-out onto several tasks reaches `buildUndoLabel` with no name, resolves entity `task`, and falls to the
 generic `undoToastEdit` — "Edited 3 item(s)". The single-target case still reads `Edit task "…"`.
@@ -10699,6 +10897,8 @@ unnamed multi-row edit capture in the app, which is a far wider blast radius tha
 ## 133. A redo-created dangling dependency is repaired on two of six backends — open, measured
 
 **Status:** open — a repair that reaches two of the six backends. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #150
 
 Undo of a successor fan-out restores the target arrays from images resolved at capture time. Create task 5
 with successor 2 → undo → delete 5 → redo merges `{taskId:5}` back onto task 2, pointing at a task that no
@@ -10737,6 +10937,8 @@ the next load, which is false exactly where most users are.
 ## 134. ONE `captureComposite` caller flags no primary and rides the positional fallback — open, latent, measured
 
 **Status:** open — a latent, measured positional-fallback dependency. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #151
 
 `compositeUndoRunner` picks the remap source with `Math.max(0, findIndex(isPrimary))`, so an unflagged
 composite silently nominates fragment 0. Of the SEVEN call sites, **six** flag one; only
@@ -10780,6 +10982,8 @@ composite has no cascade to remap.
 ## 135. A mixed-type dependency pair arriving from OUTSIDE the modal is invisible there and not individually removable — open, UI
 
 **Status:** open — a UI gap — a mixed-type dependency pair is invisible there and not individually removable. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #152
 
 ★★★ **REWRITTEN 2026-08-25 — THE ORIGINAL PREMISE WAS KILLED BY A REDESIGN THAT RECORDED THE
 OPPOSITE DECISION IN SOURCE, AND THE OLD FIX INSTRUCTION WOULD HAVE UNDONE IT.** This entry used to
@@ -10829,6 +11033,8 @@ this rewrite is not a triage pass.
 ## 136. The `dependencies` branch of `sanitizeInlinePatch` has no caller — open, dead code
 
 **Status:** open — an unreachable patch branch left in place deliberately. Reproduced 2026-08-28 by `grep -n "sanitizeDependencies" src/app/task-inline-patch.ts`.
+
+**Work item:** #153
 
 Removing the Open Points inline relations pencil (0.228.0) left the `dependencies` branch of
 `sanitizeInlinePatch`, and its `sanitizeDependencies` call, unreachable: no `onInlinePatch` call site passes
@@ -11119,6 +11325,8 @@ a reader trusts.
 
 **Status:** open — a deferred consolidation — P2 to P4 unstarted, scope measured. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
+**Work item:** #154
+
 The 2026-08-10 slice that produced `scripts/check-followup-claims.mjs` (npm `followups:check`) was
 phase P0+P1 of a five-phase consolidation. **P2–P4 are not started.** The spec and plan that defined
 them are under `docs/superpowers/`, which was un-ignored in `0.253.0 "Schroeder"` (2026-08-21) and the
@@ -11283,6 +11491,8 @@ tooling gets no static help at all, so it needs the same behavioural probe as an
 ## 139. The entity-side attach door was designed and deliberately NOT built — documents S4 shipped one door of two
 
 **Status:** open — the entity-side attach door is not built. Reproduced 2026-08-28 by `grep -rn "linkedEntities" src/app --include=*.tsx`.
+
+**Work item:** #155
 
 Documents S4 (`linkedEntities`) shipped the DOCUMENT-side door: the Documents pane has a picker
 (`DocumentLinksField`) that attaches tasks, milestones, RAID items and changes to the open document.
@@ -11492,6 +11702,8 @@ flat exports. DOCX and PPTX are the STATED gap — see §141(b), extended below,
 ## 141. Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open
 
 **Status:** open — PARTLY FIXED, (a) is open and (c) fell with the closure of its premise. Reproduced 2026-08-28 by `grep -n "richByteCeiling" src/app/rich-text-plain.ts`.
+
+**Work item:** #156
 
 Opened 2026-08-11 out of §137's closure, which was scoped stop-the-bleed: it fixed what happens to
 values written from now on and repaired nothing already stored.
@@ -11752,6 +11964,8 @@ mistake "required" for "collision-proof".
 ## 143. The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — CONVERSION COMPLETE 2026-08-16; the TYPE-level guard is still open
 
 **Status:** open — PARTLY FIXED, the type-level guard is open and every call site is converted. Reproduced 2026-08-28 by `grep -rn "RichTextSink" src/app --include=*.ts`.
+
+**Work item:** #157
 
 Opened 2026-08-11 out of a cold review of `unify-rich-text-s1`. `isHtmlStart(value, sink)` is that
 slice's design centre: one classifier per sink, each DERIVED from the allow-list its sink sanitizes
@@ -12295,6 +12509,8 @@ broken listener as correct behaviour.
 
 **Status:** open — an a11y gap, checked state as a bare glyph with no alt text. Reproduced 2026-08-28 by `grep -rn "data-checked" src/app/rich-text-editor.tsx`.
 
+**Work item:** #158
+
 Opened 2026-08-13 out of §140's closure. `TaskItem.renderHTML` (`rich-text-editor.tsx`) stores task
 items as `<li data-type="taskItem" data-checked="…">` with no `<input>` — the editor's Tiptap nodeView
 supplies the real, labelled checkbox, and every READ-ONLY surface (`RichTextView`, standalone
@@ -12425,6 +12641,8 @@ And the `abortRef` read assumes `submitPrompt` is single-flight, which it is onl
 **Status:** two instances FIXED (`rebaseline-popover.test.tsx`, 0.240.0). The CLASS is open — nothing
 sweeps for the rest, and the only detector is a red pipeline on the morning it happens. Status recorded 2026-08-28; never machine-verified by a committed probe.
 
+**Work item:** #159
+
 `rebaseline-popover.test.tsx` asserted the literal `"2026-08-15"` against a fixture task whose
 `dueDate` was that same date. `milestoneRebaselineDate` FLOORS its result at today
 (`forecast > today ? forecast : today`), so the assertion held only while the fixture date was still
@@ -12463,6 +12681,8 @@ per-test-file, so this needs a harness-level option rather than a one-off comman
 ## 150. A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured; the DETECTABLE half FIXED 2026-08-29
 
 **Status:** open — the mislabelling is unchanged and the undecidable residue stands, but the MALFORMED subset (this entry's own fixture included) is now detected and pauses saving. Reproduced 2026-08-29 by `npx vitest run src/app/csv-section-split.test.ts -t "swallows a section marker"`, which pins both halves: the same mislabelled parse, and `malformedQuotes: 2` over it.
+
+**Work item:** #160
 
 Opened 2026-08-16 out of the cold review of the branch that closes §105.
 
@@ -12607,6 +12827,8 @@ not an independent defect.
 ## 151. "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe
 
 **Status:** open — a retracted rationale still asserted in several places; three sites retracted 2026-08-28, the rest untouched. Both legs disproved 2026-08-28 by `grep -nE "JSDOM|await import" scripts/generate-sample-workspace.ts` plus the graph resolver below.
+
+**Work item:** #161
 
 Opened 2026-08-16, out of the same cold review as §150. **No fix is applied here and none should be
 applied casually** — this entry exists to stop a FIFTH retraction being derived from scratch.
@@ -12928,6 +13150,8 @@ ordering change is how an ordering change acquires a behavioural regression.
 
 **Status:** open — a measured export-fidelity gap in PPTX. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
+**Work item:** #162
+
 Opened 2026-08-16 out of §141(b), which gave DOCX and the HTML/PDF path full structural fidelity for
 the seven rich entity fields and deliberately left both PPTX paths on the flat `.text` projection.
 ★ SCOPE, 2026-09-01: that clause is now false for `export-pptx.ts`, whose row slides read `.html`
@@ -12997,6 +13221,8 @@ is the one (2) unblocks.
 
 **Status:** open — DOCX list markers as literal runs, with no numbering part. Reproduced 2026-08-28 by `grep -n "bulletMarker" src/app/ooxml-docx-primitives.ts`.
 
+**Work item:** #163
+
 Opened 2026-08-16 out of §141(b). DOCX list items render their marker as **literal text in its own
 `<w:r>`** rather than as Word numbering — `ooxml-docx-primitives.ts` says so at `bulletMarker`, which
 is deliberately the ONE place that decides the marker so DOCX and PPTX cannot spell it differently.
@@ -13035,6 +13261,8 @@ string assertions will read as coverage.
 
 **Status:** open — a table style referenced but never declared. Reproduced 2026-08-28 by `grep -n "tblStyle" src/app/ooxml-docx-primitives.ts`.
 
+**Work item:** #164
+
 Opened 2026-08-16 out of §141(b)'s styles work, which fixed the PARAGRAPH styles
 (`Heading1`-`Heading4`, `ListParagraph`, `Quote`, `CodeBlock` are now declared) and left this one.
 
@@ -13068,6 +13296,8 @@ deletion) in a part that already exists.
 ## 156. A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — open, deliberate
 
 **Status:** open — a deliberate limitation in list-item indent. Last asserted 2026-08-21; never machine-verified by a committed probe.
+
+**Work item:** #165
 
 Opened 2026-08-17 alongside the continuation fix (`continuation: true` on `RichLine`), which gave a
 wrapped list item’s later lines the item’s geometry. That fix covers exactly the content that
@@ -13105,6 +13335,8 @@ starts under the MARKER rather than under the item’s text. Fixing that properl
 ## 157. An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker — open
 
 **Status:** open — an ordinal-and-marker defect in list rendering. Last asserted 2026-08-21; never machine-verified by a committed probe.
+
+**Work item:** #166
 
 Opened 2026-08-17 by the fix that closes the larger half of this. `promoteItemHead`
 (`rich-text-runs.ts`) makes the FIRST `li` line an item put into the output its HEAD, so an item
@@ -13154,6 +13386,8 @@ the unbuilt second axis, not lost names.
 ## 158. A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only — open
 
 **Status:** open — a dropped alignment attribute on imported or AI HTML only. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #167
 
 Opened 2026-08-17 by the round that softened an overclaiming test comment. `htmlToRichLines`
 (`rich-text-runs.ts`) carries a block's alignment down to a line a `<br>` re-opens, and
@@ -13450,6 +13684,8 @@ banners carried was measured, and every one of them was wrong by the time it was
 ## 161. `latestAt` picks the "latest" activity entry by raw lexicographic string compare
 
 **Status:** open — a latest-wins compare done lexicographically on unnormalised stamps. Reproduced 2026-08-28 by `grep -n "latestAt" src/app/history-search.ts`.
+
+**Work item:** #168
 
 Opened 2026-08-16 out of the AI Recall B2b slice. **Pre-existing class, not introduced here** — B2b
 made it MODEL-VISIBLE by putting `latestAt` into the ambient recap sentence the assistant reads every
@@ -14107,6 +14343,8 @@ rich HTML reaching a new sink. Both landed in the same slice; see §36(a).
 
 **Status:** open — period keys frozen at fetch time. Reproduced 2026-08-28 by `grep -rn "aggregateActuals" src/app --include=*.ts`.
 
+**Work item:** #169
+
 `aggregateActuals` takes `granularity` as a required argument and buckets each booking with
 `periodKeyForDate(it.date, granularity)`; `use-timelog-sync.ts` calls it during the fetch and
 persists the resulting aggregate. Changing the plan granularity between the fetch and the apply
@@ -14161,6 +14399,8 @@ choice between "stabilise every handler prop" and "delete the memo" is still ope
 ## 171. The axe gate now scans the Time bookings EMPTY STATE, not the table — open, knowingly accepted
 
 **Status:** open — an axe-scanned view that renders its not-configured gate. Reproduced 2026-08-28 by `grep -n "TimelogNotConfigured" src/app/timelog-panel.tsx`.
+
+**Work item:** #170
 
 `e2e/seed.ts` seeds file mode and never enables the Timelog integration, and 0.245.0 gated the page
 on `cfg.enabled`, returning `TimelogNotConfigured` when it is off. "Time bookings" is in
@@ -14335,6 +14575,8 @@ recorded because nothing anywhere else says it.
 
 **Status:** open — an ambient pointer built from a list the failure branch leaves populated. Reproduced 2026-08-28 by `grep -c "threads" src/app/use-chat-search-bindings.ts`.
 
+**Work item:** #171
+
 Found by a cold review of the fix round on 2026-08-18 (`feat/ai-recall-b2c`), not by any gate.
 
 `useChatThreads`' load effect has a `catch` branch for a MID-FLIGHT THREAD ADOPTION — the active
@@ -14397,6 +14639,8 @@ adoption branch — a rejected fetch says nothing about the rows this client alr
 ## 174. The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight — open, pre-existing
 
 **Status:** open — an availability flag published true while the load is in flight. Reproduced 2026-08-28 by `grep -n "loadFailed" src/app/use-chat-threads.ts`.
+
+**Work item:** #172
 
 Same review, same day. NOT a regression — it predates the `available` work.
 ★★ **THE PREMISE THIS ENTRY WAS FILED ON IS NO LONGER TRUE, AND THAT CHANGES WHAT IT IS.** It read
@@ -14493,6 +14737,8 @@ by reversing the order.
 ## 177. Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope
 
 **Status:** open — the 177b whole-row capture sweep only. The 177a duplicated field list is done (2026-08-29) but this entry stays open for 177b, so the heading is deliberately not struck. Verified 2026-08-29 by `grep -rn "WRITE_THROUGH_FIELDS\|WRITE_THROUGH_KEYS" src/app --include=*.ts`, which now shows one authoring site (`src/app/undo/write-through-fields.ts`) and imports everywhere else.
+
+**Work item:** #173
 
 ★ **177a is DONE (2026-08-29, commit `4694344e`); this entry stays open for 177b alone.**
 The hand-duplicated field list is gone — `WRITE_THROUGH_FIELDS` (what a whole-row undo PRESERVES)
@@ -15099,6 +15345,8 @@ scan here says nothing about that class, and no configuration of this gate ever 
 visible characters). **Introduced:** pre-existing in `capHtmlText`; made VISIBLE
 rather than silent by the S3b normalise-at-commit change. Reproduced 2026-08-28 by `grep -n "capHtmlText" src/app/document-model.ts`.
 
+**Work item:** #174
+
 `document-model.ts` caps a paragraph at `MAX_HTML_TEXT_CHARS` (20 000 visible
 characters) via `capHtmlText`, whose truncation branch returns
 `plainToHtml(text.slice(0, cut))` — so on overflow the paragraph loses **every
@@ -15154,6 +15402,8 @@ never call DOMPurify.
 **Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round. Reproduced 2026-08-28 by `grep -rn "was changed by another writer" src/app --include=*.ts`.
 
+**Work item:** #175
+
 `applyOps` rejects a guarded `replace` with the engine string
 `op {i}: replace index {n} was changed by another writer`, and
 `documents-panel.tsx` surfaces `restoreRejected` by joining those reasons into
@@ -15181,6 +15431,8 @@ the engine string as the diagnostic detail. Do NOT translate inside the engine �
 
 **Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round; the guard was added in the same round. Status recorded 2026-08-28; never machine-verified by a committed probe.
+
+**Work item:** #176
 
 ★ Correction 2026-08-21: `document_ops` never existed — `grep -rn "document_ops" src scripts e2e` finds
 nothing outside this entry. Earlier text here used that name as shorthand for the per-op item schema.
@@ -15219,6 +15471,8 @@ second half is what stops a future "just drop expect everywhere" simplification.
 **Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round. **Deliberately not fixed.** Status recorded 2026-08-28; never machine-verified by a committed probe.
 
+**Work item:** #177
+
 `useBlockDraft`'s `refusal` state is written only inside `tryCommit`, so the
 pink "Not saved" line clears on the next COMMIT attempt and not before.
 `commit()` early-returns while the draft is undirty, so blurring the field again
@@ -15249,6 +15503,8 @@ this is, it is not the size cap.
 (no defect — a tooling decision plus its migration cost). **Decided:**
 2026-08-19. **Deferred the same day**, to be done as its own slice rather than
 riding on an unrelated branch. Never machine-verified by a committed probe.
+
+**Work item:** #178
 
 ★★★ **THE SIZE-CAP HALF IS SUPERSEDED — 2026-09-03. DO NOT IMPLEMENT IT AS
 WRITTEN: it would move the cap BACKWARDS.** `LIMIT` in
@@ -15415,6 +15671,8 @@ then config + reformat + cap + baseline in one reviewable change set.
 surface that already shows the reason visually). **Found by:** cold code review
 of the S3b fix round, 2026-08-19. Never machine-verified by a committed probe.
 
+**Work item:** #179
+
 `BlockRefusalNotice` (`document-block-notices.tsx`) renders
 `<p role="status" className="text-xs text-ui-pink">`, and every call site spells it
 `{refusal && <BlockRefusalNotice … />}`. So the live region and its content enter the DOM in the
@@ -15541,6 +15799,8 @@ belongs in the docstring rather than in a test.
 **Status:** open. **Severity:** medium (a false affordance plus a silent
 refusal; no data reaches storage wrongly). **Found by:** the pre-release cold
 review of the S3b branch, 2026-08-19. Never machine-verified by a committed probe.
+
+**Work item:** #180
 
 `normalizeBlockForStorage` clamps a block to `MAX_TABLE_COLUMNS` (30),
 `MAX_TABLE_ROWS` (500), `MAX_BULLET_ITEMS` (200), `MAX_TEXT_CHARS` (5 000) and
@@ -15818,6 +16078,8 @@ and cannot rot into the vacuous shape if that mount timing ever changes.
 
 **Status:** open — a permanent test gap, not a defect. The code is correct today. Reproduced 2026-08-28 by `grep -n "everFocused" src/app/rich-text-editor.tsx`.
 
+**Work item:** #181
+
 §192's fix reads `everFocused` into a local and only THEN builds the Tiptap chain.
 That order is load-bearing. createChain in @tiptap/core 3.x runs each command's body
 at CALL time and defers only the dispatch, and the focus command calls the DOM focus
@@ -15844,6 +16106,8 @@ the guard, and do not delete it as redundant with the code.
 ## 196. The two-routes-agree property §192 exists to establish has NO fixture
 
 **Status:** open — a test gap, not a defect. The behaviour is correct today. Reproduced 2026-08-28 by `grep -c "it(" src/app/rich-text-editor-lazy.queue.test.tsx`.
+
+**Work item:** #182
 
 §192's whole point is that a dictated line lands in the SAME place whether it reached the editor
 through the lazy wrapper's QUEUE (appended before the chunk resolved, replayed at attach) or LIVE
@@ -15885,6 +16149,8 @@ class in this repo, which is the thing this branch has now demonstrated twice.
 **Status:** open — NOT reachable today, NOT a regression, and NOT to be "fixed" by changing the code.
 Filed so the comment is not read as stronger than it is. Reproduced 2026-08-28 by `grep -n "the only other command is" src/app/rich-text-editor.tsx`.
 
+**Work item:** #183
+
 `appendText` in `rich-text-editor.tsx` returns the chain's own verdict rather than an unconditional
 `true`, and the comment beside that return justifies reading a `false` as "nothing landed" on the
 grounds that "the only other command is `focus` and nothing else touches the transaction". `focus`
@@ -15909,6 +16175,8 @@ MEANING of a return.
 **Status:** open. **Severity:** low (needs a concurrent write inside a narrow
 window). **Found by:** cold review of the S3c structural-blocks round.
 **Deliberately not fixed — it is a component-contract change, not a one-liner.** Reproduced 2026-08-28 by `grep -n "onDelete" src/app/document-block-gutter.tsx`.
+
+**Work item:** #184
 
 In `document-editor.tsx`'s `deleteBlock`, `const block = doc.blocks[index]` runs
 when the menu ITEM IS CLICKED, from whichever render is current at that moment —
@@ -16037,6 +16305,8 @@ the surface is unexercised by the seed even though it is reachable from it.
 mirror are both private, so nothing here is exposed. It becomes a hard blocker the moment that
 GitHub repo is flipped public, which is the stated intent. Reproduced 2026-08-28 by `grep -rn "Acme" README.md`.
 
+**Work item:** #185
+
 `main` is push-mirrored from GitLab to a private GitHub repo. The mirror carries FULL HISTORY, so
 sanitising the working tree is necessary but NOT sufficient — a value deleted in commit N stays
 readable in commit N-1 forever. Settle the history question (rewrite, or a squashed orphan root)
@@ -16103,6 +16373,8 @@ identifiers, never for the word "internal".
 
 **Status:** open — nothing was fixed. Two corrections below downgrade the original claim; neither
 closes the entry. Status recorded 2026-08-28; never machine-verified by a committed probe.
+
+**Work item:** #186
 
 ★ Correction 2026-08-21: `buildJiraCacheKey` never existed — `git log --oneline --all
 -S'buildJiraCacheKey' -- src` returns zero commits, ever. The array branch described below belongs to
@@ -16198,6 +16470,8 @@ section for what S3c-1 did ship.
 
 **Status:** open — by construction, not an oversight to close. Reproduced 2026-08-28 by `grep -rn "asset" e2e/a11y.spec.ts`.
 
+**Work item:** #187
+
 `AssetLibrary`'s surface is Turso-gated (`tursoConfig !== null`) and `e2e/a11y.spec.ts`'s
 `A11Y_VIEWS` scan runs against `e2e/seed.ts`'s FILE-mode seed, so the axe gate never renders this
 surface at all — the same blind spot documented in `AGENTS.md`'s hard-constraints section for
@@ -16217,6 +16491,8 @@ the seed is widened, as covering this.
 confirmed defect" and asked the reader to run the probe. The probe is run; it is a defect. Its fix
 is an explicit NON-GOAL of the slice that settled it, so the entry stays open — but nobody needs to
 re-derive the answer. Never machine-verified by a committed probe.
+
+**Work item:** #188
 
 S3c-1 made `hardDeleteProject` (`turso-portfolio.ts`) explicitly call
 `deleteAllAssetDataForProject` for the new `document_asset_data` side table, non-fatally (via
@@ -16277,6 +16553,8 @@ NOT "fix" it by deleting the citation. ★★★ THE MECHANISM IS DELIBERATELY N
 attempt blamed `SWEEP_DIRS`, which drives only the IDENTIFIER sweep and not path resolution, so
 editing it would not move the verdict — a wrong cause filed inside the entry that exists to record a
 wrong cause. Whoever fixes it should trace the resolver rather than trust a name from this line.
+
+**Work item:** #189
 
 A dangling image reference (asset deleted, byte row missing) renders via a CSS trick. **The
 declaration is in `globals.css`, not in `document-asset-images.ts` as this entry's heading implies —
@@ -16404,6 +16682,8 @@ into the history modal's render path.
 
 **Status:** open — a known asymmetry with a mitigation, deliberately not patched in the S3c-1 fix
 round. Reproduced 2026-08-28 by `grep -n "loadPortfolioMode" src/app/workspace-panels.tsx`.
+
+**Work item:** #190
 
 The two halves of a document image are partitioned by different things and nothing reconciles them.
 METADATA (`DocumentAsset`) rides `ENTITY_SPECS`, so in the SINGLE-TENANT Turso layout its table
@@ -16814,6 +17094,8 @@ be downgraded on reachability grounds.
 **Status:** open — inert unless a real SINGLE-TENANT Turso database was written by a build older
 than `f43c41a8`. Status recorded 2026-08-28; never machine-verified by a committed probe.
 
+**Work item:** #191
+
 ★★★ **SINGLE-TENANT ONLY, and an earlier revision of this entry said "a Turso DB" flatly.** The
 MULTI-TENANT builder never emitted a rowid alias: `tenantColDdl` emits a bare `id INTEGER` and the
 table carries a composite `PRIMARY KEY (id, project_id)`, which gives that column INTEGER AFFINITY
@@ -17182,6 +17464,8 @@ and two places in this file) were corrected in that release; `CONTRIBUTING.md` h
 
 **Status:** open — the tests exist, pass locally against a real database, and SKIP in every CI pipeline. Reproduced 2026-08-28 by `grep -n "resource_group" .gitlab-ci.yml`.
 
+**Work item:** #192
+
 **What is unverified in CI.** `e2e/documents-images-interactive.spec.ts` gates both its describes on
 `test.skip(!LIVE, …)`, where `LIVE` comes from `readEnvLocal()` — `process.env` first, then a parse
 of `.env.local`. CI has neither, so all twelve skip and the `e2e` job is green while proving nothing
@@ -17420,6 +17704,8 @@ never that a reader accepts it.
 ## 217. Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice
 
 **Status:** open — deliberate in 0.256.0; a size cost, never a correctness one. Status recorded 2026-08-28; never machine-verified by a committed probe.
+
+**Work item:** #193
 
 An `<img data-asset-id>` appearing twice in one document mints TWO media parts holding IDENTICAL
 bytes, in both renderers. DOCX: `createMediaMinter`'s own docstring says so. PPTX:
@@ -17673,6 +17959,8 @@ crafted `alt` keeps a genuinely drawn image out of the drawn count, which over-r
 
 **Status:** open, NARROWED — OWED manual verification, not automatable in this repo. Never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. 2026-09-02: the ACCEPTANCE half of items **1** and **2** is DISCHARGED in every reader those items name — the `.docx` in **Word** and in **LibreOffice Writer**, the `.pptx` in **PowerPoint** and corroborated in **LibreOffice Impress**. ★★ Read the Word half narrowly: that report named the APPLICATIONS and no per-file observation, so it answers acceptance and nothing else — the ★★★ blocks below record how this entry twice INVENTED a reader nobody had named, which is why the wording of a discharge matters here. What remains: items **3-7** (unexercised entirely), and the FIDELITY half of items 1-2, which no pass has looked at. Re-verify with a human, never from this file: `sed -n '/^## 219\./,/^## 220\./p' docs/open-followups.md`
 
+**Work item:** #194
+
 ★★ **2026-09-01 — THE ACCEPTANCE HALF IS DISCHARGED, AND IT IS THE HALF THIS ENTRY SINGLES OUT AS
 THE ONE THAT HISTORICALLY FAILS.** During the `fix/export-link-fidelity` manual pass a human opened
 all four artifacts emitted by `npx jiti scripts/sample-link-exports.ts <dir>` — `document-renderer`
@@ -17903,6 +18191,8 @@ that entry was opened to prevent. The near-cap sweep this entry prescribes (walk
 
 **Status:** open — DISCLOSED, deliberately not fixed. Decision recorded below. Reproduced 2026-08-28 by `grep -n "ASSET_MIME_ALLOWED" src/app/document-asset-upload.ts`.
 
+**Work item:** #195
+
 `ASSET_MIME_ALLOWED` admits `image/webp` alongside png and jpeg, and every layer downstream
 carries it through to the package unchanged. The chain, verified in code:
 
@@ -17953,6 +18243,8 @@ matter; it is a slice, not a patch. Revisit when §219 item 6 has an answer.
 ## 222. One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck
 
 **Status:** open — a layout/UX consequence of the pagination arithmetic, not a defect in it. Reproduced 2026-08-28 by `grep -n "BODY_LINES_PER_SLIDE" src/app/doc-render-pptx-slides.ts`.
+
+**Work item:** #196
 
 `paginateLines` charges an image line `lineCost = ceil(cyEmu / BODY_LINE_EMU)` against a budget of
 `BODY_LINES_PER_SLIDE`. Both numbers are derived, and they cross:
@@ -18186,6 +18478,8 @@ missing extent is itself a rejection at the OOXML sinks.
 
 **Status:** open — a feature request, not a defect. Nothing misbehaves today. Reproduced 2026-08-28 by `grep -n "TICK_INTERVAL_MS" src/app/use-scheduled-job-runner.ts`.
 
+**Work item:** #197
+
 **What is wanted.** A configurable-interval job that pulls Timelog bookings while the app is
 open, catches up a run missed while it was closed the next time the user opens it, and tells the
 user WHAT CHANGED since the previous pull rather than silently refreshing a cache.
@@ -18261,6 +18555,8 @@ the ONE definition of "this STORED mime is refused", imported by `document-asset
 declines the render) and `asset-library.tsx` (which discloses it on the row) so the two cannot drift
 — see §230. Reproduced 2026-08-31 by
 `grep -rn "isBlockedAssetMime" src/app --include=*.ts --include=*.tsx`.
+
+**Work item:** #198
 
 `attachAssetImages` (`document-asset-images.ts`) resolves every `<img data-asset-id>` in a rendered
 document by loading its bytes and minting a blob URL. Its mime lookup (`mimeFor`) is optional and can
@@ -18435,6 +18731,8 @@ an existing one is propagated into storage. The second-order Jira-write conseque
 originally carried is now fixed at both transition sites — see below — so what remains is a
 stored-data staleness, not a live write against the wrong Jira status). Never machine-verified by a committed probe.
 
+**Work item:** #199
+
 §183 made `handleResolveConflicts` (`use-jira-sync.ts`) write `status` beside `completedDate`, both
 from the side the user picked. That closed the case where the two halves came from DIFFERENT sides.
 It did not make the merge a normaliser, and the shape of the code says why: `merged` is seeded
@@ -18527,6 +18825,8 @@ counted them" premise they were deferred against has moved.
 five seed slices still bypass the sanitiser on the in-session path. **Severity:** low (the window is
 one session, a reload closes it, and nothing in `src` should be producing an invalid row to launder
 in the first place). Never machine-verified by a committed probe.
+
+**Work item:** #200
 
 ★★ **THE NEXT FOUR PARAGRAPHS AND THEIR COMMAND BLOCK ARE THE FINDING AS ORIGINALLY REPORTED, AND
 DESCRIBE THE TREE BEFORE THE NARROWING FIX — deliberately not rewritten.** EVERY number in the block
@@ -19220,6 +19520,8 @@ written without that wait fails against the FIXED code, which reads like a live 
 **Status:** open — a stale RATIONALE, not stale behaviour. Split out of §87 rather than re-opening
 it, per that entry's own closing paragraph. **Severity:** low; nothing renders wrong. Reproduced 2026-08-28 by `grep -n "ASK_CLAUDE_PROMPTS" src/app/ask-claude-prompts.ts`.
 
+**Work item:** #201
+
 `ask-claude-prompts.test.ts` asserts two absences under one title:
 
 ```bash
@@ -19255,6 +19557,8 @@ question lands.
 because the register carries e2e gaps (§99, §171, §215), so a reader who checks it concludes the
 coverage picture is mapped. Reproduced 2026-08-28 by `grep -rn "dictation" e2e`.
 
+**Work item:** #202
+
 `CONTRIBUTING.md`'s manual-QA section ends with the only record there is:
 
 ```bash
@@ -19278,6 +19582,8 @@ flow that moves DATA.
 ★ Severity is not uniform across the four and should not be ranked as one item. OOXML export has
 heavy unit coverage of the builders plus an ordered part manifest (§216); Jira sync and the backend
 switch have neither an e2e nor any browser-level test of the round trip.
+
+**Folded in 2026-09-13 (housekeeping):** a fifth flow joins the four — AI chat tool calls have no e2e either (`grep -rlni "chat" e2e` → only `e2e/header-row-uniformity.spec.ts`, which drives no chat turn), and the tracker file the 2026-05-19 chat-dispatcher plan named never existed.
 
 ---
 
@@ -19488,6 +19794,8 @@ failure mode this register keeps recording.
 **Status:** open — both look DELIBERATE, neither is recorded. Joins the §86/§87/§89 family.
 **Severity:** low. The model is not wrong, it is blind; for the second gap it is told so. Reproduced 2026-08-28 by `grep -c "raci" src/app/raci-suggest/raci-suggest.ts`.
 
+**Work item:** #203
+
 **RACI.** `Stakeholder.raci` is a required field on the entity, and neither summary the chat read
 tools return carries it:
 
@@ -19524,6 +19832,8 @@ about it" and "a portfolio question can be answered" get conflated, and only the
 **Status:** open — a HAZARD. Both are in sync with the master today (all three last moved in one
 commit), and nothing would say so if they were not. Reproduced 2026-08-28 by `grep -rn "sample-workspace-big" src scripts e2e`.
 
+**Work item:** #204
+
 ★★ **THE REGENERATION TRIGGER IS WIDER THAN "THE MASTER CHANGED", and that is the part that gets
 missed.** `scripts/generate-sample-workspace.ts` does not copy the master — it decodes it with the
 real `jsonToWorkspace` and re-encodes with `workspaceToJson`:
@@ -19557,6 +19867,8 @@ does not state.
 
 **Status:** open — an ACCEPTED escape hatch whose cost is written down only in a source comment.
 **Severity:** low, and self-inflicted: it takes a hand-authored scheme file. Reproduced 2026-08-28 by `grep -n "resolveSchemeColors" src/app/scheme-tokens.ts`.
+
+**Work item:** #205
 
 `deriveAaVariants` nudges `--ui-green-strong`, `--ui-pink-strong`, `--ui-purple-strong` and the three
 `--rag-*-text` tokens to a 4.5:1 ratio. `resolveSchemeColors` then spreads the scheme's OWN colours
@@ -19661,6 +19973,8 @@ consequences (2) and (3) below are closed for every one of them and (1) is close
 `documents` and `documentVersions` carry `restorable: false` and stay un-restorable BY DECISION,
 which is why this is not a full close. What would have to change to revisit that decision is in the
 closing ★. Never machine-verified by a committed probe.
+
+**Work item:** #206
 
 `COLLECTION_SPECS` (`version-diff.ts`) is the registry BOTH `diffWorkspaces` and `applyRestore`
 walk. When this was filed, of the six slices `getVersionPayload` captures only `settingsOverrides`
@@ -19768,6 +20082,8 @@ of the two histories wins when they disagree; it is not a matter of flipping a f
 Found 2026-08-25 alongside §241; a SEPARATE function with a separate fix, which is why it is a
 separate number — closing §241 did not touch this. It stays open because the two remaining slices
 are UNCOUNTED BY DECISION and nothing but this entry records the decision. Never machine-verified by a committed probe.
+
+**Work item:** #207
 
 `writeVersion` runs two guards before capturing. §241 is about the second; this is the FIRST:
 
@@ -20128,6 +20444,8 @@ zero is not a bound.
 ## 245. The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface
 
 **Status:** open — a bounded sweep — test names miss surface a property-based scan finds. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
+**Work item:** #208
 
 Filed 2026-08-25, at the close of the row-unique-accessible-names slice. Not a defect — a scope
 record for the sweep's own boundary, so the gap is documented rather than quietly dropped.
@@ -20527,6 +20845,8 @@ question above is the same SC, decided rather than fixed.)
 decision §218 records is still the right one. What is in doubt is the EXAMPLE that decision is
 argued from, everywhere it is argued. Status recorded 2026-08-28; never machine-verified by a committed probe.
 
+**Work item:** #209
+
 **What was measured.** 2026-08-25, through the real two-pass load composition
 (`sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`) rather than either pass alone:
 
@@ -20870,6 +21190,8 @@ shares an input class with it.
 
 **Status:** OPEN — pre-existing, found 2026-08-25 by the differential suite added in the same
 commit, not by review. Small, and deliberately not fixed; see below. Never machine-verified by a committed probe.
+
+**Work item:** #210
 
 **The divergence.** `/` ends an attribute value only when that value was QUOTED. After an UNQUOTED
 value it is an ordinary value character. All four patterns accept it as a separator either way, so:
@@ -21640,6 +21962,8 @@ node -e "console.log(require('fs').readFileSync('src/app/budget-panel.tsx','utf8
 **Status:** open — deliberately excluded, not forgotten. Found 2026-08-27 while re-grounding §248
 during closure; recorded so a future sweep does not "complete the pattern" here. Never machine-verified by a committed probe.
 
+**Work item:** #211
+
 `` `budget-${ariaPrefix}` `` and `` `actual-${ariaPrefix}` `` (`budget-panel-totals.tsx`) are
 untranslated, structured strings — and they are QUERY HANDLES that existing tests select by
 (`budget-panel.test.tsx`'s `getByLabelText(\`actual-1-3-${periodKey}\`)`). Retranslating them changes
@@ -21652,6 +21976,8 @@ reason; record it here so it is not silently "completed" by a future pass that g
 
 **Status:** open. Found 2026-08-26 during the Task-15 i18n sweep, re-verified 2026-08-27 for this
 closure round. Never machine-verified by a committed probe.
+
+**Work item:** #212
 
 The sweep's greps match `attr="literal"` and `` attr={`template`} ``. Neither can see a literal sitting
 inside a ternary's branches: `stakeholder-recipient-input.tsx` carries
@@ -21684,6 +22010,8 @@ it; the method found it and a reader walked past it.
 
 **Status:** open — a decision, not a fix, is owed. Found 2026-08-25 during the row-unique-names slice
 (round 1), re-verified 2026-08-27 for this closure round. Never machine-verified by a committed probe.
+
+**Work item:** #213
 
 ```bash
 grep -rn "StakeholderRecipientInput" src e2e --include=*.ts --include=*.tsx
@@ -22238,6 +22566,8 @@ space — so buying a line by deleting one trades a permanent loss of context fo
 [§267](#267-gantt-task-and-milestone-name-buttons-take-their-accessible-name-from-content--closed-2026-08-28), filed
 2026-08-28 rather than left inside a closed entry. Small, and deliberately not fixed. Never machine-verified by a committed probe.
 
+**Work item:** #214
+
 `gantt.tsx` builds ONE row-token map over the interleaved `rows` list, which is correct — it is the
 order the user navigates. `gantt-chart.tsx` then drops any task whose derived bar is null
 (`if (!bar) return null`), and the token map does not know that. So a task numbered `"(2)"` can
@@ -22272,6 +22602,8 @@ copy here, not the primary one.
 [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique--closed-2026-08-28), whose headroom objection was
 retired by `74761580` (`budget-panel-cards.tsx`) without touching the largest block in the file. Never machine-verified by a committed probe.
 
+**Work item:** #215
+
 AGENTS.md's Phase-3 "Panel split (gantt pattern)" convention says a panel crossing ~700 lines splits
 into orchestrator + `*-rows` + `*-toolbar` (+ a `*-columns` leaf), rows and toolbar PURE
 presentational, BEFORE it crosses the 800-line ratchet. `budget-panel.tsx` is over that 700-line
@@ -22304,6 +22636,8 @@ adding to it extracts rather than trims — the same disposition §272 asked for
 
 **Status:** open. Filed 2026-08-28. `f3f49ab6`'s commit message says a follow-up "is filed
 separately"; this entry is what makes that sentence true. Never machine-verified by a committed probe.
+
+**Work item:** #216
 
 `f3f49ab6` extracted the insight-recommendation handlers out of `task-manager.tsx` (closing §272) and
 added the new file to `vitest.config.ts` `coverage.exclude`, inside a block whose comment says its
@@ -22699,6 +23033,8 @@ strong-marker `COVERED` on a collision-free fixture certifies nothing.
 asking whether that entry's filter/header pairing was the only pair sharing a key in the panels it
 touched. It is not, and this half was never in anyone's brief. Never machine-verified by a committed probe.
 
+**Work item:** #217
+
 Each panel's `bulkFields` list labels its fields with the SAME i18n keys its `SortResizeTh` columns
 use. `bulk-edit-panel.tsx` then spends each label TWICE — on the field's enable checkbox (via a
 `<label htmlFor>` pointing at the `-enable` id) and on the field control itself (via
@@ -22756,6 +23092,8 @@ how `colConfigToggleColumn` closed §261's third leg in five consumers at once.
 **Status:** open — a TEST-COVERAGE gap, not a defect. Nothing is broken. Filed 2026-08-28 at the
 close of [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28). Never machine-verified by a committed probe.
 
+**Work item:** #218
+
 `615cf7e0` closed §261's third leg inside `ColumnConfigPopover` itself, so all five consumers were
 fixed by one edit. Three of them — the panels that round's tasks touched — gained a panel-level
 assertion; `milestones-panel.tsx` and `tasks-section.tsx` gained none.
@@ -22787,6 +23125,8 @@ vacuous shape a "we added the missing panel test" commit produces.
 
 **Status:** open — a TOOLING hazard in the shared test helper, filed 2026-08-28. It shaped three
 tests on the round-3 slice and will shape the next one. Never machine-verified by a committed probe.
+
+**Work item:** #219
 
 `controlNames` (`src/test/toolbar-order.ts`), which `expectRowUniqueNames` is built on, computes each
 control's name as `el.getAttribute("aria-label") || el.textContent || ""`. That is a deliberate
@@ -22820,6 +23160,8 @@ about names.
 ## 280. `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag`
 
 **Status:** open. Filed 2026-08-28, out of the fix round that produced `5aa07575`. Never machine-verified by a committed probe.
+
+**Work item:** #220
 
 `scripts/rowname-surfaces-lib.mjs`'s `matchDelimiters` walks forward from an opening `(`/`{`/`[`
 counting depth until it balances. It does not skip STRING literals or COMMENTS, so a bracket
@@ -22858,6 +23200,8 @@ holds the report this function feeds, and the three defects `5aa07575` fixed.
 
 **Status:** open. Filed 2026-08-28. Measured, and **nothing is mis-credited today** — this is a
 latent-correctness entry, recorded so a future file name does not quietly turn a GAP into a COVERED. Never machine-verified by a committed probe.
+
+**Work item:** #221
 
 `scripts/rowname-surfaces-lib.mjs`'s `moduleKey` reduces a path to its BASENAME with the extension
 stripped, and the coverage attribution is keyed on that alone: a test's relative imports become a set
@@ -22902,6 +23246,8 @@ which costs nothing today (there are none) and turns the latent case into a loud
 
 **Status:** open. Filed 2026-08-28. The stale citation itself is already gone — this entry exists
 because what replaced it is an acknowledged HOLE, and a hole nobody has filed is a hole nobody fills. Never machine-verified by a committed probe.
+
+**Work item:** #222
 
 `src/test/row-unique-names.ts`'s SCOPE CHOICE rule says: default to whole-container scope, and narrow
 to a sub-tree only when a specific, named collision with unrelated chrome has been CONFIRMED in that
@@ -23942,6 +24288,8 @@ for; the separate hoisting reasoning above it is a different claim and survives 
 
 **Status:** open — never machine-verified as a defect; it is a tidiness item, found 2026-08-29 while exporting `differs` for §178. Reproduce with `sed -n '/^export function valuesDiffer/,/^}/p' src/app/undo/field-groups.ts`, whose whole body is `return differs(a, b);`.
 
+**Work item:** #223
+
 `valuesDiffer` was the public alias while `differs` was module-private. §178's merge module needed
 the predicate directly, so `differs` is now exported too and the file has two exported names for one
 function. Consumers today: `valuesDiffer` has exactly one (`tasks-section.tsx`, at its import and one
@@ -23960,6 +24308,8 @@ the §178 slice: renaming a public export is unrelated to that fix and would hav
 ## 291. `mergeRecord` rebuilds in `live`'s key order, not `target`'s — open
 
 **Status:** open — never machine-verified as user-visible; the ORDERING behaviour itself is pinned by a test as of 2026-08-29. Reproduce with `npx vitest run src/app/undo/merge-field-value.test.ts -t "reordered record"`.
+
+**Work item:** #224
 
 `mergeRecord` seeds `out` from `{ ...live }` and then writes the keys the op touched, so a key
 present only in `target` lands at the END of the key order rather than at its original position.
@@ -23980,6 +24330,8 @@ detectability are the same fact seen twice. See §292.
 ## 292. The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage — open
 
 **Status:** open — measured 2026-08-29 by applying the mutant and running three times (2, 3 and 3 failures; the property test did not fire on the first). Reproduce by deleting `if (!differs(live, other)) return target;` from `src/app/undo/merge-field-value.ts` and running `npx vitest run src/app/undo/merge-field-value.test.ts` repeatedly.
+
+**Work item:** #225
 
 The "returns the target verbatim whenever nothing raced" property counts a run as non-trivial when
 `JSON.stringify(target) !== JSON.stringify(other)` and asserts that fraction exceeds 0.5. That
@@ -24010,6 +24362,8 @@ instead of a save outage whose only advice was to reload.
 Never machine-verified: no test enumerates UI delete routes, which is the entry's whole point.
 (Filed 2026-08-29 while closing §285, by reading `destructive-save-arming.test.ts`'s own
 enumeration source rather than by any gate.)
+
+**Work item:** #226
 
 §285 asked for something that would catch a counted slice's removal route missing its
 `allowDestructiveSave` call. `fix/destructive-save-arming` armed every route the census in §285 named
@@ -24456,6 +24810,8 @@ and `grep -n "export const TEXTAREA_MAX" src/app/sanitize-core.ts`), and the inj
 No committed test drives a note past either trigger through `sanitizeSeedNoteLog`, so nothing has
 EXECUTED the divergence — the reading is of the call path, not of a run.
 
+**Work item:** #227
+
 Residue of [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30),
 which closed on the strength of a shared core (`sanitizeNoteLogWith`, `note-log-policy.ts`) that both
 validators now call. FIVE of the six divergences it enumerated really are gone. The html-cap row is
@@ -24532,6 +24888,8 @@ of the call path, taken from the source on 2026-08-30 with these three commands:
 match, exit 1) and `grep -c 'logActivity("undo"\|logActivity("redo"' src/app/undo/use-undo-stack.ts`
 (prints 4 — the four log sites, all of which write `undo`/`redo` and nothing else). No committed test
 drives a mark-done through undo and asserts on what was logged.
+
+**Work item:** #228
 
 Carved out of
 [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record--closed-2026-08-30)
@@ -24805,6 +25163,8 @@ contract, which is why it was left rather than bodged during a fix round.
 
 **Status:** open — never machine-verified by a committed probe. Found 2026-08-31 while fixing §36(b).
 
+**Work item:** #229
+
 `ExportSection.columns` (`export-sections.ts`) is commented `string[]; // header row (display
 labels)`, and NOT ONE builder puts a translated label there. So a PDF, DOCX, XLSX or PPTX export table
 renders untranslated raw strings as its column headers, in EN and DE alike.
@@ -24925,6 +25285,8 @@ reader's reading wearing the authority of a measurement.
 Never machine-verified: nothing asserts that any of them WOULD go vacuous, and by construction
 nothing can — a vacuous negative passes, which is the entire defect.
 
+**Work item:** #230
+
 A negative assertion — `expect(screen.queryByText("…")).toBeNull()` — that matches a quoted UI
 string stops matching anything the moment that string is reworded, and then passes for the wrong
 reason. The positive form is not affected: `getByRole` / `findByText` THROW when they match nothing,
@@ -25032,6 +25394,8 @@ DID reach the banner, in the same paragraph as the thesis that contradicts it.
 
 **Status:** open — never machine-verified by a committed probe. Found 2026-08-30 during this slice's
 own row-unique-names work.
+
+**Work item:** #231
 
 `controlNames` (`src/test/toolbar-order.ts`), the shared primitive behind both `expectRowUniqueNames`
 (`src/test/row-unique-names.ts`) and the toolbar-order assertions, reads:
@@ -25208,6 +25572,8 @@ is the thing the next reader can rely on without reading both lists.
 
 **Status:** open — dev-only, no shipped-user impact, and deliberately left unfixed for the reasons
 below. Found 2026-08-31 reviewing `aee18311`; never machine-verified.
+
+**Work item:** #232
 
 `aee18311` closed
 [§120](#120-the-background-insight-recommendation-runner-has-no-abortcontroller-at-all--closed-2026-08-31)
@@ -25567,6 +25933,8 @@ not "restore a difference to match" elsewhere.
 defect list, and nothing has read it end to end. Size it with `npm run rownames:check` and read the
 `by leg` line.
 
+**Work item:** #233
+
 `check-rowname-surfaces.mjs` sorts every per-row control into five legs.
 [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) built the scanner and adjudicated the `FIXED` leg by hand. Nobody has read `DATA`.
 
@@ -25749,6 +26117,8 @@ describes always counts itself.
 (`npm run followups:status:check`, `npm run docs:claims:check`, `npm run docs:symbols:check`) are
 all green over a stripped cell, which is half of why this is worth an entry.
 
+**Work item:** #234
+
 The recipe derives each row's `State` cell from the HEADING ALONE —
 `const state = i < 0 ? "open" : "**CLOSED**" + t.slice(i + 9);` — and the only cells it HARVESTS
 from the table it replaces are `Origin` and `Size` (`keep.set(+m[1], [c[1], c[2]])`). So any
@@ -25791,6 +26161,8 @@ which of those two properties is worth more before writing code.
 PREVIEW is still wrong in HTML and PDF, by two independent routes. Disclosure only: no data is lost,
 and nothing renders that the upload policy forbids. Reproduced 2026-08-31 by
 `grep -nE "^\s+(omitted|missing)\.add" src/app/document-export-assets.ts`.
+
+**Work item:** #235
 
 ★★★ **THIS ENTRY WAS FILED AS "EVERY EXPORT SINK" AND THAT WAS WRONG — corrected 2026-08-31 by cold
 review, in the same round that filed it.** DOCX and PPTX do NOT say the data is gone:
@@ -25861,6 +26233,8 @@ when that closed. The read is reproducible:
 closure, and `grep -n "abortRef.current === controller" src/app/chat-panel.tsx` shows the clear that
 made the CONSEQUENCE go away.
 
+**Work item:** #236
+
 §312 closed by making `retryLoad`'s guard correct whether or not `submitPrompt` is single-flight: the
 `finally` now clears `abortRef` only when the settling send still OWNS the slot. That removed the
 consequence. The PROPERTY is untouched — the bail reads `busy` from the render closure, so two
@@ -25888,6 +26262,8 @@ exposed rather than caused. Never machine-verified as a user-visible failure; th
 off `asset-library.tsx`, where the Insert button is rendered under `onInsert &&` with no
 `isBlocked` guard. Reproduce with
 `grep -n "onInsert &&" src/app/asset-library.tsx`.
+
+**Work item:** #237
 
 ★ **Number:** 321 was held by a concurrent branch at filing time, so this entry took 322. A number
 is only reserved once it is on `origin/main`; if 321 never lands, the gap stays.
@@ -25930,6 +26306,8 @@ is the point — MISSES the voice consumer entirely, since it calls `handlersRef
 rather than forwarding a prop. Run 2026-09-01 it prints **9** lines: three comment mentions, the
 destructure of the handler, the hand-off into `useBulkOperations`, that bag's type declaration, and
 the three consumer sites enumerated below.
+
+**Work item:** #238
 
 ★ **Number:** 324 is held by a concurrent branch at filing time, so this batch took 323, 325 and 326
 and left 324 alone. A number is only reserved once it is on `origin/main`; if 324 never lands, the
@@ -26295,7 +26673,9 @@ owed before anyone attempts it.
 which widened into every control the Next-actions row and hero render. The controls named below were
 deliberately NOT given a row token, and the justification was reasoned from the dismissal contract
 rather than measured. Nothing drives two of these panels open at once in any test, so the premise
-has never been exercised.
+has never been exercised. Re-verified 2026-09-13 on `b39517ec`: `grep -rn "§328" src --include=*.tsx` → the one `ActionOverflowMenu` comment, and `action-cta-controls.test.tsx` still does not exist, so the two-menus measurement is still owed.
+
+**Work item:** #239
 
 §324's fix threads an occurrence-qualified `rowToken` into every control that renders **once per
 row**: the score tooltip, the Open button (primary and ghost), the direct verbs, the assign trigger,
@@ -26359,6 +26739,8 @@ reader does not have to rediscover that the coupling is by convention rather tha
 the comment stating the constraint, and NO hyperlink emitter. Filed so a later reader does not read
 the inline form as an unfinished job.
 
+**Work item:** none — decision record
+
 `.xlsx` CAN carry real cell hyperlinks — a worksheet holds a `hyperlinks` element whose entries each
 name a cell reference and a relationship id — and that is precisely the shape which cannot represent
 this data. **The unit is the CELL, not the run.** A shared string holds no hyperlink of its own, so a
@@ -26393,6 +26775,8 @@ this one about a format's data model.
 `grep -n "cellTextWithLinks\|createLinkSink" src/app/doc-render-pptx.ts src/app/export-pptx.ts`
 and by `npx vitest run src/app/export-ooxml.test.ts src/app/doc-render-pptx-slides.test.ts src/app/export-sections.test.ts src/app/doc-render-pptx.test.ts src/app/export-sections.rich.property.test.ts --maxWorkers=1`
 (224 passed).
+
+**Work item:** none — decision record
 
 ★★★ **2026-09-01, COLD REVIEW — §336 WAS REPRODUCED IN THE PPTX ROW TITLE BY CONSTRUCTION, AND IS
 NOW FIXED.** The wiring left a linked run naming no fill on purpose, so PowerPoint would paint it
@@ -26505,6 +26889,8 @@ hand-rolled residue with
 — the two that migrated to `ToggleButton` do NOT appear there, because the primitive owns the
 attribute; find those with `grep -n "<ToggleButton" src/app/create-project-wizard.tsx src/app/knowledge-panel.tsx`.
 
+**Work item:** #240
+
 **What happens.** SC 4.1.2 is about role, name and STATE being programmatically determinable.
 `aria-pressed` says "this button is a toggle and it is currently on" — a claim about ONE control,
 independent of its siblings. Six surfaces use it for a single-select group, where exactly one member is
@@ -26562,6 +26948,8 @@ preference. Filed 2026-09-01 in the commit that added the rule. Reproduce the co
 `grep -n -A 8 "prefers-reduced-motion" src/app/globals.css` and the animating call sites with
 `grep -rn "animate-" src/app --include=*.tsx | grep -v "\.test\."` (which also returns comment lines
 that are not call sites).
+
+**Work item:** #241
 
 **What landed.** The app had NO reduced-motion handling of any kind before 2026-09-01. `68dd1c48` added
 a single `@media (prefers-reduced-motion: reduce)` block to `globals.css`, covering the two utilities
@@ -26797,6 +27185,8 @@ figures below were recomputed 2026-09-01 straight from `builtin-schemes.ts` and 
 jsdom applies no stylesheet, so nothing in the unit suite can observe which border wins the cascade.
 Enumerate the call sites with `grep -n "border-\[var(--rag" src/app/task-health-chip-style.ts`.
 
+**Work item:** #242
+
 **What happens.** `ToggleButton`'s own three accents ride derived `--control-state-border*` tokens,
 each nudged to clear 3:1 against `--line` (§56). `className` is APPENDED to the primitive's classes,
 so a consumer can override that border, and `task-health-chip-style.ts` deliberately does:
@@ -26981,6 +27371,8 @@ the two predicates below are three lines apart in different files. Re-check with
 `grep -n "envTursoUrlSet|envTursoTokenSet" src/app/settings-sections/integrations-section.tsx`
 against `sed -n '/^export function getTursoConfig/,/^}/p' src/app/turso-config.ts`.
 
+**Work item:** #243
+
 ★★★ **TWO PREDICATES THAT MUST AGREE AND DO NOT, AND EACH IS CORRECT ON ITS OWN.**
 `integrations-section.tsx` hides the Turso URL and token fields on **presence** —
 `!!process.env.NEXT_PUBLIC_TURSO_DATABASE_URL`, any non-empty string. `getTursoConfig` resolves on
@@ -27023,6 +27415,8 @@ asset preview lightbox, and confirmed against source, not by a failing run. Re-c
 `grep -n "}, \[storageKey, axis\]" src/app/use-resizable.ts` against
 `grep -n "wasOpen" src/app/use-draggable.ts`.
 
+**Work item:** #244
+
 `useResizable`'s single effect has deps `[storageKey, axis]`, both constant for the life of a
 component, so it runs exactly ONCE — at mount. Modals that stay mounted while closed (the pattern
 `asset-preview-modal.tsx` and `task-form-modal.tsx` both use, so that their own `useState` survives
@@ -27048,6 +27442,8 @@ source; no test exercises the rename x broken-image combination. Re-check by rea
 `src/app/document-preview.tsx` against the `alt` written at insert time in
 `src/app/documents-asset-section.tsx`.
 
+**Work item:** #245
+
 The `alt` attribute is baked into the persisted block HTML AT INSERT TIME and never rewritten.
 `imageName()` deliberately prefers the LIVE metadata name, because after a rename the current name
 is the better answer. Those two diverge permanently after any rename.
@@ -27066,6 +27462,8 @@ default tagExclude drops it, and this surface is Turso-gated so the a11y gate ne
 **Status:** open — **never machine-verified** (2026-09-02). Both were reported by a cold
 test-validity reviewer WITH a named minimal mutation; neither mutation has been RUN. Run them
 before acting: each is one token, and a surviving mutant is a question, not a verdict.
+
+**Work item:** #246
 
 (a) `asset-library.test.tsx` "returns focus to the row control that opened the preview" cannot
 distinguish a restore from focus never having left. `Modal` moves focus into the dialog inside a
@@ -27113,6 +27511,8 @@ owed but not filed — file one before relying on it.
 
 **Status:** open — **never machine-verified** (2026-09-02). Reasoned from the ARIA role
 model, not measured with a screen reader; measuring it is the work this entry asks for.
+
+**Work item:** #247
 
 `document-preview.tsx` stamps `role="button"` onto each inserted `<img>` so it can be activated.
 An explicit role REPLACES the implicit one, so the element is no longer exposed as an image: a
@@ -27174,6 +27574,8 @@ Enumerate the mechanism with `grep -n "openPopoutWindow" src/app/broadcast-sync.
 surviving literal ids with
 `grep -rn "id=\"[a-z-]*\"" src/app --include=*.tsx | grep -v test`.
 
+**Work item:** #248
+
 **What this entry is for.** §326 fixed the two ids that had a REACHABLE collision. The class it
 belongs to is larger and is entirely undocumented: `project-form-fields.tsx` (`name-error`,
 `code-error`), `bulk-edit-modal.tsx` (~10) and `documents-toolbar.tsx`
@@ -27209,6 +27611,8 @@ structural hazard, not an observed failure. Filed 2026-09-02 in the
 closure round, from the cold review of that fix. Reproduce the surface with
 `grep -n "^import" src/app/document-block-selection.ts`.
 
+**Work item:** #249
+
 **What happens.** The module header states "NO React, NO DOM, NO i18n — index arithmetic and nothing
 else, so it is unit-testable without a jsdom environment". §199 gave the module its **first-ever
 import** — a `import type` of the block-kind union, which is erased at compile time and so keeps the
@@ -27234,6 +27638,8 @@ not carry it, and adding untasked guards to a fix commit is how a slice stops be
 `grep -rli "modelcontextprotocol\|mcp-server" src package.json` (no hits) and `ls src/app/api`
 (`_shared confluence ecb jira stt timelog` — every route is an OUTBOUND proxy; nothing inbound).
 
+**Work item:** #250
+
 Filed after benchmarking OpenProject 17.8 (2026-09-02), which extended its MCP server so external
 assistants can create and update work packages, write comments and manage relations. Cockpit's AI
 surface is larger than theirs — 33 tools spanning create/update/delete over tasks, RAID, changes,
@@ -27254,6 +27660,8 @@ server-side surface at all.
 ## 347. No global guardrails on time entries — roadmap, after the AI-write-safety slice — open
 
 **Status:** open — probed and DESIGNED 2026-09-03, not built. The premise needed correcting: reproduce with `grep -rnE 'method: "(POST|PUT|PATCH|DELETE)"' src/app/api/timelog src/app/timelog-api.ts`.
+
+**Work item:** #251
 
 OpenProject 17.8 added instance-wide time-entry validations: a cap per entry, a cap per user per
 day, restriction to a user's defined working hours, a block on non-working days, and a block on
@@ -27335,6 +27743,8 @@ Worth its own entry when someone takes it.
 ## 348. A meeting's activity is invisible from the work it concerns — roadmap, after §347 — open
 
 **Status:** open — **never machine-verified** (2026-09-03); sequenced, not yet designed.
+
+**Work item:** #252
 
 OpenProject 17.8 surfaces meeting activity directly in a work package. Cockpit has calendar events
 and the steering committee, but a task's own history says nothing about the meetings that discussed
@@ -27446,6 +27856,8 @@ the `recommend-tokens.ts` header rather than an observed failure, and no probe h
 against an in-flight call. Read the disclosure with
 `grep -n "does NOT" src/app/insights/recommend-tokens.ts`.
 
+**Work item:** #253
+
 **What is covered.** `applyInsightRecommendation` is the single choke point for storing a generated
 recommendation — both the on-demand `useInsightRecommend` and the background
 `useInsightRecommendRunner` write through it — and it calls `stampRecommendationTokens`, which stamps
@@ -27487,6 +27899,8 @@ the slice's own early-return. **Never machine-verified:** no test drives a mixed
 through `confirmInsightRecommendation` on a pre-slice recommendation, and the effect has not been
 reproduced against a real stored insight. The code path it describes is verified to EXIST by reading
 it; what is unverified is the user-visible outcome. Reproduce the shape (not the effect):
+
+**Work item:** #254
 
 ```
 grep -n "committed === 0 && failed === 0 && stale > 0" src/app/use-insight-recommendations.ts
@@ -27956,6 +28370,8 @@ shipped code forbidding it), plus
 `grep -c "this is the gap the real fixture in Task 16 closes" docs/superpowers/plans/2026-09-03-ingest-breadth.md`
 for the DIFAT claim.
 
+**Work item:** #255
+
 ★★★ **The four that would cost a day**, because a reader copying them reintroduces a fixed bug:
 - The Task 10 reference recursion **clones the budget per child**. `attachment-ingest.ts` now
   forbids exactly that in a `★★★` comment — cloning breaks "shared", so a tree-wide cap would bound
@@ -27984,6 +28400,8 @@ code first and the plan only for intent.**
 **Never machine-verified:** no probe has driven a multi-file import to the ceiling. The disclosure
 is in the module: `grep -n "A whole-batch ceiling" src/app/attachment-ingest.ts`.
 
+**Work item:** #256
+
 `newBudget()` is per-`ingestBytes` call, so `MAX_TREE_EXTRACT_CHARS` (400,000) bounds one dropped
 file's tree and nothing bounds a batch. `attachment-ingest.ts` says so deliberately — a whole-batch
 ceiling belongs to the caller and is unimplemented.
@@ -28009,6 +28427,8 @@ returns three lines — the declaration, the call and a dep-array entry — none
 arm. It answered a different question than the claim it was attached to, which is the failure shape
 this register's own Status rule exists to prevent: a command that runs and returns something
 plausible reads as verification.
+
+**Work item:** #257
 
 `detect.ts` attaches `entityRef: {view: "resources", id}` when a violation's `resourceId` resolves to
 a live `Resource` (a dangling id deliberately yields no ref). The digest card already honours that —
@@ -28084,6 +28504,8 @@ which is a different defect with a different cause, not a re-opening of this one
 `grep -rhn 'pendingOpen?.view !== "\|pendingOpen?.view === "' src/app --include=*.tsx | grep -oE '"[a-z-]+"' | sort -u`
 returns changes · documents · milestones · open-points · raid · stakeholders — `resources` is absent.
 
+**Work item:** #258
+
 Opening a guardrail insight calls `requestOpen("resources", id)`, which sets `pendingOpen`. No
 resources surface reads it, so the view opens and the person is never selected or scrolled to. Every
 existing consumer view-guards, so the stale entry is harmless — it is a dead half of an affordance,
@@ -28099,6 +28521,8 @@ review round. Verified by reading, 2026-09-04: `grep -n "MAX_INSIGHTS" src/app/i
 command, 2026-09-07: `grep -n "RESERVED_NON_GUARDRAIL\|GUARDRAIL_INSIGHT_TYPES"
 src/app/insights/insight.ts src/app/insights/reconcile.ts` returns the two constants and the
 two-pass admission that replaced that slice. The remaining residue is `never machine-verified`.
+
+**Work item:** #259
 
 An insight the caller declined to certify is carried through byte-for-byte, but it still competes for
 the 200-row cap and can be dropped by that slice — after which it is absent from `stored` on the next
@@ -28148,6 +28572,8 @@ size, not a guarantee. Below the guardrail budget the reservation does nothing a
 **Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by reading, 2026-09-04:
 `grep -n "INSIGHT_TYPES.includes" src/app/insights/sanitize-insights.ts`.
 
+**Work item:** #260
+
 `sanitizeInsights` drops any insight whose type is not in that build's `INSIGHT_TYPES`. Insights are
 shared workspace data and exported, so a device on a pre-§347 build that loads this workspace prunes
 every guardrail insight and can persist the pruned list — silent cross-version data loss in a slice
@@ -28163,6 +28589,8 @@ either build.
 reading, 2026-09-04: `grep -n "min={1}" src/app/timelog-settings.tsx` against `parseCap` in the same
 file, `isCap` in `src/app/timelog-policy.ts`, and `sanitizeTimelogPolicy` in
 `src/app/timelog-sanitize.ts`.
+
+**Work item:** #261
 
 All three now enforce `> 0 && <= MAX_HOURS_PER_DAY`, which admits `0.5`. The field's `min={1}` is
 pre-existing, decorative (it blocks nothing) and narrower than the real window.
@@ -28180,6 +28608,8 @@ attribute says one thing and every enforcement point says another.
 single `finish(...)` call in `fetchBookingsForProjects`, whose covered-people argument is the empty
 array; and `grep -n "rollUsers.includes(who)" src/app/task-manager.tsx` returns the membership check
 that therefore fails for every person under that scope.
+
+**Work item:** #262
 
 `fetchBookingsForProjects` fetches the selected PROJECTS, not whole days. A person's remaining hours
 can sit on a project nobody ticked, so their day total, their worst single entry and their holiday
@@ -28572,6 +29002,8 @@ and §381, filed alongside this entry as outcomes to watch for while performing 
 later the same day (`b8c78fe3`, `5a146245`) — so the eye-verify should now see a create-then-update
 plan apply BOTH rows, and any refused row labelled by its actual kind, rather than either of the two
 failure shapes the paragraph below still describes for the record.
+
+**Work item:** #263
 
 ★★ **THE WIRING LANDED (§377), SO THIS IS NOW A PLAIN OWED ACT.** Two earlier wordings of this entry
 each named a different thing as the gap — the SUITES first, then the wiring. Both are retired, and
@@ -28977,6 +29409,8 @@ rebuild recipe was extracted verbatim from the fenced block above the index and 
 SCRATCH COPY of this file (never the tracked one), then the two index blocks were compared with
 `grep -c "^<" <(diff <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md) <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' COPY))`
 
+**Work item:** #264
+
 ★★ **NO COUNT IS QUOTED AS THE FINDING, deliberately.** It was 67 before this slice closed two
 entries, 69 after, and 70 once this entry's own row existed — the number counts CLOSED rows, so it
 rises every time anyone closes anything, including while you are reading it. The durable claim is
@@ -29160,6 +29594,8 @@ paired-fields check instead of two independent per-field ones, mirrored from `sa
 
 **Status:** OPEN 2026-09-05, never machine-verified beyond the two greps below.
 
+**Work item:** #265
+
 `scripts/check-src-symbols.mjs` ends every non-empty run by telling the reader to "say near it
 that the symbol is deliberately absent (the gate's `ABSENCE_MARKERS` suppress it)". They do not
 suppress it here. The report never imports `markedNear`, and `ABSENCE_MARKERS` occurs in that
@@ -29196,6 +29632,8 @@ on the task form while the same query anchored with a prefix regex passes. The m
 structural — `grep -n "hint && (" -A 5 src/app/task-form-layout.tsx` shows the `InfoTooltip`
 rendered INSIDE `caption`, and the default (non-`group`) branch wraps that same `caption` in the
 `<label>`.
+
+**Work item:** #266
 
 A `<label>`'s accessible name is its text CONTENT, so the tooltip trigger's visible glyph is
 concatenated onto the caption: the Group control computes `"Groupi"`, not `"Group"`.
@@ -29248,6 +29686,8 @@ there is nothing to verify, because the claim is that NO test covers the case; t
 correct today. Read it with
 `grep -n "isVisible(\"dependencies\") || isVisible(\"blockers\")" src/app/task-form-fields.tsx`.
 
+**Work item:** #267
+
 This slice moved Budget bucket out of Relationships into Effort and narrowed that section's render
 guard to the two fields it still holds, dropping a `budgetBucket` disjunct. With the disjunct left
 in place, a user who hides dependencies AND blockers while showing budget bucket renders an EMPTY
@@ -29268,6 +29708,8 @@ state. It has to drive the per-field checklist — `grep -n "toggleField" src/ap
 the scan's own predicate: `grep -n "standsFirst(b.body, re) && !hasGroupProp(b.attrs)" src/app/label-binding.guard.test.ts`
 returns the `<Field>` check, and `grep -n "captionAction={titleMic}" src/app/task-form-fields.tsx`
 returns the mic's new position.
+
+**Work item:** #268
 
 `label-binding.guard.test.ts` scans SOURCE rather than a rendered tree because the dictation mic
 renders `null` under jsdom — `getCtor()` reads `window.SpeechRecognition`, which does not exist
@@ -29297,6 +29739,8 @@ LOCALLY for one dialog. Verified 2026-09-05 by reading the default and counting 
 `grep -rn "closeLabel=" src/app --include=*.tsx | grep -v "\.test\."` returns exactly ONE call site.
 ★ Use that direct grep, not a `grep -A N` window after `<ModalHeader` — the prop sits ~28 lines
 below the tag behind a long comment, so a short window reports ZERO and reads as "nobody uses it".
+
+**Work item:** #269
 
 `ModalHeader` defaults its ✕ to `t(lang, "alertModalClose")`, so every modal in the app names that
 button with the same string. Two modals open at once present two controls with one accessible name,
@@ -29364,6 +29808,8 @@ the call site.
 **Status:** OPEN as a RECORD, not as a defect to fix. Filed 2026-09-06. Last executed verification
 2026-09-06 — `grep -n "emptyPlan()" src/app/chat-proposal-describe.ts` → FIVE lines: the declaration
 plus FOUR uses; read of each and of its surrounding comments.
+
+**Work item:** #270
 
 ★★ THE FILING SAID THAT COMMAND "returns 4 — the factory plus its three call sites", AND IT RETURNED
 5 THEN TOO — `git show 9699f0a5:src/app/chat-proposal-describe.ts | grep -c "emptyPlan()"` → 5, so
@@ -30047,6 +30493,8 @@ unanchored `ls src/app | grep -i turso` returns 26, because it also picks up
 `learning-store-turso.ts`, `use-storage-turso-ops.ts`, `use-turso-projects.ts` and their tests —
 files that are Turso-related but are not the `turso-*` module family this sentence is about.
 
+**Work item:** #271
+
 Jira and Timelog both ship a real test-connection round trip: `jira-settings.tsx` calls
 `testConnection(creds)` (the function itself, `jira-api.ts`, hits the real API and returns the
 authenticated user — reproduce with
@@ -30091,6 +30539,8 @@ it, so treat every number below as a dated observation, not as something a comma
 Re-measuring needs a new probe. The measurement CONTRADICTED the fix attempted for this entry — read
 "What the browser actually showed" before acting on any part of it. The original text is kept as
 written, because it is the claim that was falsified.
+
+**Work item:** #272
 
 ★★★ **WHAT THE BROWSER ACTUALLY SHOWED (2026-09-06), AND IT REFUTES TWO CLAIMS MADE WHILE
 "FIXING" THIS.** A change on `feat/control-defects-follow-through` replaced the conditional render
@@ -30156,6 +30606,8 @@ The open question is a product one, not a correctness one: should a gesture pres
 ## 410. `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line — OPEN
 
 **Status:** OPEN. Re-measured 2026-09-06 by running the reproduce below (not read): comment- and blank-stripped, the region from `const listId` to `return (` is the SAME length in both files and differs only in the commit call and the armed-highlight identity accessor; the search-box block diffs clean (exit 0). ★ No line tallies are quoted here on purpose — the first cut of this entry gave two, and `f68afc9c` (the very next commit) falsified both by adding armed-identity state to both files. Spot-check with `grep -n "cur + 1 >= options.length" src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx` (one hit in each file); full reproduce below.
+
+**Work item:** #273
 
 `src/app/single-entity-picker.tsx` is the single-select sibling of `src/app/entity-link-picker.tsx`.
 The `prevQuery` render-time reconcile, the `active` clamp, the whole of `move()` and the whole of
@@ -30333,6 +30785,8 @@ can test "a keyboard user cannot reach a `title`", and the two halves that ARE t
 have owners (`task-raid-badge.test.tsx` pins the accessible name's containment property;
 `grep -n "title=" src/app/task-raid-badge.tsx` shows the one attribute this entry is about).
 
+**Work item:** none — decision record
+
 `178b2aa9` moved the per-category R/A/I/D split off the badge's visible text — which now carries a
 total — and onto `title`. `title` is the accessible DESCRIPTION, so a screen-reader user still gets
 the split, announced after the name. A sighted user does not: `title` surfaces on MOUSE HOVER
@@ -30368,6 +30822,8 @@ three costs above are properties of the extra control, not of the tooltip primit
 ## 414. The browser eye-verify owed by the control-defects batch — OPEN
 
 **Status:** OPEN, work owed (a deferral recorded, not a defect). 2026-09-06, never machine-verified — every item below is a layout, hover or native-tooltip observation, and nothing in this repo can observe one.
+
+**Work item:** #274
 
 ★★ **MEASURED 2026-09-06 for four of the six** — `e2e/control-defects-eye-verify.spec.ts`
 (`npx playwright test e2e/control-defects-eye-verify.spec.ts --project=chromium --workers=1`)
@@ -30502,6 +30958,8 @@ TIER 1** — named in full below. An earlier, independent pass reported 46 (45 o
 subtracted for a fair comparison); that figure is recorded here as an UNRECONCILED earlier count, not
 averaged with, split against, or quietly preferred over the 31. Reproduce commands are inlined per
 claim below; none of them was run with `--update` or otherwise made to agree with a prior number.
+
+**Work item:** #275
 
 ### What this branch converted — and what "converted" does not cover (2026-09-07)
 
@@ -31329,6 +31787,8 @@ with `grep -n "f in input" src/app/inline-ai-edit/plan.ts`,
 `grep -n -A4 "function coerce" src/app/use-inline-entity-edit.ts` and
 `grep -rn "sanitizeEmail(" src --include=*.ts`.
 
+**Work item:** #276
+
 `resource.emails` round-trips through a joined string: the descriptor projects the stored list as a
 `", "`-joined string for the preview, `coerce` (`use-inline-entity-edit.ts`) passes a
 non-`arrayFields` value through untouched, and the writer's `sanitizeEmailList` re-splits it on
@@ -31495,9 +31955,16 @@ which ARE genuinely repo knowledge, and drop only the biographies, which are not
 **Not doing it here.** Cutting ~53 lines of prose other releases wrote is a refactor, and folding it
 into a release commit would ship it unreviewed — the precise failure this branch spent a whole round
 correcting.
-## 424. No window or modal offers a help icon, though the deep-link channel already exists — OPEN
+## 424. No window or modal offers a help icon, though the deep-link channel already exists — CLOSED 2026-09-13
 
-**Status:** STILL OPEN, but the `ModalHeader` half shipped 2026-09-09. Modals now carry a
+**Status:** CLOSED 2026-09-13 by the housekeeping triage — residue carried by §489. The blast-radius
+paragraph below records that nothing remains unexamined: all 20 `ModalHeader` sites carry a help id,
+all 13 headerless sites and both floating windows are decided, and the modal half shipped as a popover
+over the dialog rather than a deep link. Only gap 4 remained, and this entry itself downgraded it to a
+separate want with no caller: `grep -n "export function HelpMenu" src/app/help-menu.tsx` → the signature
+still takes `{ lang }` only. §489 carries that want.
+
+**As filed:** STILL OPEN, but the `ModalHeader` half shipped 2026-09-09. Modals now carry a
 question-mark icon that opens their own Help entry in a popover OVER the dialog — not a deep link,
 for the reason the design-fork paragraph below records. Verified 2026-09-09 by commands actually
 run:
@@ -31564,7 +32031,7 @@ disagree and an earlier revision of this paragraph mixed them** — it quoted th
 `edit-modal-chrome.tsx` "raw 3", and no single pattern yields both. Re-measured 2026-09-10 over
 the recursive non-test corpus:
 
-| file | raw `<Modal[s>]` | raw `<Modal` | stripped |
+| file | raw `<Modal[s>]` | raw `<Modal\b` | stripped |
 |---|---|---|---|
 | `absence-edit-modal.tsx` | 1 | 1 | 0 |
 | `edit-modal-chrome.tsx` | 2 | 3 | 1 |
@@ -31909,6 +32376,8 @@ items below are visual judgements about a rendered browser layout, jsdom has no 
 the axe gate answers a different question. Do not replace this line with a command until someone has
 actually looked.
 
+**Work item:** #278
+
 **Why none of these is coverable by a gate.** jsdom computes no geometry whatsoever, so the entire
 unit suite is blind to width, height, wrapping and overflow — the tests that exist here pin the
 CLASS STRINGS and the arithmetic behind them, never the pixels. axe checks contrast and
@@ -32030,6 +32499,8 @@ the next person who reads `loadArrangement`.
 `npx playwright test e2e/reports-arrangement-focus.spec.ts --project=chromium --workers=1`
 in Chromium against a live dev server, one mutant at a time:
 
+**Work item:** none — decision record
+
 ```
 clean tree                                    -> 1 passed
 delete setFocusAfterMove({ id })              -> 1 passed   <- SURVIVES
@@ -32099,6 +32570,8 @@ state a check was made against, never the command's output alone.
 ## 429. A closed entry's `**Status:**` line is the least-gated line in the register, and closing is when a fabricated verification is most tempting — OPEN
 
 **Status:** OPEN 2026-09-07 — measured, not reasoned. Reproduce with `node scripts/check-followup-status.mjs` (exit 0 today, "203 open entries scanned" — it never looks at the 211 closed ones), and read the filter itself with `grep -n "filter((e) => !isClosed" scripts/check-followup-status.mjs`. The 67/210 figure below came from applying the gate's own `statusViolations()` to the closed set.
+
+**Work item:** #279
 
 **The gate's universe excludes exactly the entries most likely to lie.** `check-followup-status.mjs`
 opens with `parseEntries(src).filter((e) => !isClosed(e.title))`. Every OPEN entry must carry a
@@ -32179,6 +32652,8 @@ not a verification — the gate reads for an INVOCATION. That distinction is wha
 **Status:** OPEN 2026-09-07 — `never machine-verified`. A save large enough to trigger this has not
 been constructed, so the entry is reasoned from the source and from `ebca2553`'s own docstrings, not
 from a probe. Nothing below should be read as measured.
+
+**Work item:** #280
 
 `MAX_ACTUALS_TOTAL_CHARS` (2 MiB) bounds the serialised cache map, but all four of
 `saveActualsCache`'s shedding stages `keep`-exclude the entry being saved. That exclusion is
@@ -32952,6 +33427,8 @@ exemption (`calendarEvent.exceptions`) that was true of update and false of crea
 Reproduce with `grep -n "plan.rejected.push" src/app/inline-ai-edit/plan.ts` (**5** hits, none of
 them inside the `CREATE_TOOLS` branch) and `grep -n "plan.creates.push" src/app/inline-ai-edit/plan.ts`.
 
+**Work item:** #281
+
 ★ The count alone cannot certify "none inside", and it is one refactor from lying. One of the five
 sits in `pushLinkDiffs`, which the create branch DOES call.
 
@@ -33013,6 +33490,8 @@ anchor and revert proof there) and already recorded, together with mutant 3's ma
 `grep -n "dropUnacceptedResourceFields(patch)" src/app/use-chat-dispatcher.ts` → exactly 1 hit, line
 681, so the anchor still applies unchanged. Locate both calls with
 `grep -n "dropUnacceptedResourceFields(" src/app/use-chat-dispatcher.ts`.
+
+**Work item:** #282
 
 **As measured 2026-09-08, and again on `origin/main` on 2026-09-11 — kept as history, not current:**
 the same mutant SURVIVED (0 failed / 74 passed, exactly as clean) against `trespassProbeFor`'s probes
@@ -33251,6 +33730,8 @@ red if it stops firing. Reproduce with
 `grep -n "no probe drives calendarEvent.sendInvitations true" src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`
 and `grep -n "MAIL_UNSAFE_BOOLEANS" src/test/sweep-probes.ts`.
 
+**Work item:** #283
+
 `calendarEvent.sendInvitations` is unmeasured **BY POLICY**. It is declared, so Relation B drives it,
 and a strict `true` trips `shouldStage` in `chat-proposal.ts` — the one write in this app that leaves
 the building. Whether a unit-test replay can actually reach the mail path has never been established:
@@ -33332,6 +33813,8 @@ the seed is pinned.
 19 passed, clean 21); what stays open is the headline — no offered-surface relation drives
 `propose_project`. Verify with `grep -n "buildList(s.changes" src/app/ai-project-proposal.ts`.
 
+**Work item:** #284
+
 ★ The mutation: making `proposalToSeed`'s changes `buildList` call admit every key
 (`SEED_OFFERED_KEYS.changes` replaced by a set whose `has` always answers true) turns "drops every
 property the seed schema never offered" and "keeps a seeded change's status/decisionDate pair
@@ -33406,6 +33889,8 @@ share), `grep -n "decisionBy" src/app/sanitize-records.ts` (ONE line — the sto
 term, and no `CHANGE_FIELD_GUARDS` row) and `grep -c "decisionBy" src/app/change-log.ts` (→ **0**, so
 no status transition owns it).
 
+**Work item:** #285
+
 `changeFields` offers `decisionBy` as a free-text "Decision maker", and because that bag is the entire
 `properties` of BOTH `create_change` and `update_change`, it is offered on each. `sanitizeChangeItem`
 stores it — `const decBy = sanitizeText(o.decisionBy, BUDGET_NAME_MAX); if (decBy) item.decisionBy =
@@ -33439,6 +33924,8 @@ which before writing anything.
 no rendering. Verified with the wrapped-aware parse in the code block below (**72** EN, **62** DE),
 `grep -cE '^  activity[A-Za-z0-9_]+: ".*\([sne]+\)' src/app/i18n.ts` (**9**, all single-line), and
 `npm run followups:index:check` (exit 0).
+
+**Work item:** #286
 
 Found 2026-09-08 while measuring §415's disputed count, not by looking for it. The dictionary carries
 a third way of handling a count, alongside the paired `…One` keys and §415's four engine ternaries:
@@ -33575,6 +34062,8 @@ FAILS with `Test timed out in 20000ms`; the same command with `--testTimeout=180
 `Duration 29.51s (… tests 24.77s)`. Both runs were on an otherwise-idle worktree at one worker, so this
 is not the contention shape.
 
+**Work item:** #287
+
 Found 2026-09-08 during the pre-merge gate run for the §415 exception B fix. `i18n-plural.test.ts`'s
 "routes every paired base key through tPlural, outside a documented exception" walks `src/app`
 (non-test, both dictionaries excluded) and regex-matches every paired base key against every file it finds. On this machine that takes
@@ -33616,6 +34105,8 @@ class, which is what §415 and §450 are both about.
 prints **1600**, and `node scripts/check-file-sizes.mjs` exits 0 — today. The same command against
 `origin/main` before this branch prints 1568, and `grep -c sanitize-records docs/baselines/file-sizes.json`
 is **0**.
+
+**Work item:** #288
 
 Found 2026-09-09 by the prose-correction pass on the AI create-path branch, which needed ~30 lines of
 corrections in a file that had 2 lines of headroom.
@@ -33675,6 +34166,8 @@ original. No fact was deleted. There is no second round of that available; the f
 **Status:** 2026-09-09 — never machine-verified. Every figure below is MODELLED from Anthropic's
 published cache ratios and the prefix size the guide-block cache-split slice measured; no run has been
 instrumented to confirm a payback point, and nothing here has been reproduced against live usage.
+
+**Work item:** none — decision record
 
 A history budget — trim the oldest turns once the transcript passes some size — was on the roadmap as
 slice C1. Its economics inverted when the guide-block cache split landed, and this entry records the
@@ -33747,6 +34240,8 @@ BESIDE FINDINGS COUNTED THE OTHER WAY, AND THAT MIXTURE IS THE DEFECT CORRECTED 
 2026-09-10.** Those four are OCCURRENCE counts; every gap below reports BODIES ("appears in 3 of the
 66 bodies"). Both conventions, re-measured that day by a rebuilt probe that asserted 66/66 before
 reading anything, titles and primers excluded, case-insensitive:
+
+**Work item:** #289
 
 | term | occurrences | bodies (of 66) |
 |---|---|---|
@@ -33902,6 +34397,8 @@ behave. That prompt has never been sent to any model, by anyone. The resolution 
 arithmetic and needs no run; the aggregate form's reliability is a guess and this entry does not
 pretend otherwise.
 
+**Work item:** #290
+
 **The proposal.** One request per rep instead of five, asking for all five planted codes at once:
 
 > "Several labelled reference codes appear in your context. Reply with the calendar code, the view
@@ -33969,6 +34466,8 @@ guarded-then-unguarded inconsistency behind (1) is visible directly:
 (3) sit in those sections. A differential over 20,178 inputs found all three IDENTICAL on both sides
 of `f590f57b`, so none is a regression; they fell out of a review asking a different question.
 
+**Work item:** #291
+
 **1. A `null` entry in `content` throws.** The census loop guards with `b?.type`; the two `.filter()`
 calls immediately after it use `b.type` unguarded, so a null or undefined block raises a TypeError.
 The optional chaining two lines above sets an expectation of null-tolerance that the filters do not
@@ -34003,6 +34502,8 @@ serialises, since the census is written into the artifact.
 
 **Status:** open as a RECORD rather than as a defect — the twelve refusals are correct as of 2026-09-10, and each is written at its own call site so a later reader meets the reason where the icon would have gone. Verified that day by `grep -rn "NO help icon" src/app --include=*.tsx | grep -v "\.test\." | wc -l` returning **13** — the twelve refusals plus `help-menu.tsx`, which is excluded for a different reason (below). Whether any individual refusal is still RIGHT is a judgement about Help CONTENT that no command can answer, so on that axis: never machine-verified.
 
+**Work item:** none — decision record
+
 §424 wired the dialogs that render a `ModalHeader`. Thirteen headerless `<Modal>` sites remained; exactly ONE was wired (`raci-suggest-modal.tsx`). The other twelve are refusals, in two classes. They are collected here so the shape is visible in one place, while the per-site evidence stays beside the code — a reader tempted to "complete the pattern" meets it at the call site, which is the only place that stops them.
 
 **Five are REFUSE-STRUCTURAL** — not help candidates by their nature, not for want of content. `actions-panel.tsx`, `step0-import-panel.tsx` and `timelog-panel.tsx` are transient progress dialogs, gone before a reader could open one. `integration-disclaimer.tsx` is an acknowledgement gate: the dialog IS the explanation, so a second one behind an icon would only repeat it. `version-info.tsx` is already information. A dialog that declares nothing is the DESIGNED answer for progress, confirmations and gates — not an omission.
@@ -34031,6 +34532,8 @@ serialises, since the census is written into the artifact.
 
 **Status:** open — found 2026-09-10 while recording the §424 refusals, and deliberately NOT fixed in that commit. Verified that day by `grep -n "exercised end to end" src/app/calendar-event-move-handler.ts` (the stale sentence), `grep -n "onEditEvent=\|onMoveOccurrence=" src/app/resources-panel.tsx` (both gates), and `grep -n "onEditEvent ?" src/app/resource-calendar.tsx` (the mount condition).
 
+**Work item:** #292
+
 The header comment on `buildMoveOccurrenceHandler` says the meetings band "can't be exercised end to end yet, since `resource-calendar.tsx` only mounts it when `onEditEvent` is ALSO present, and that prop lands separately with the series editor modal". That is **stale as to reachability**: `resources-panel.tsx` now wires `onEditEvent`, and `resource-calendar.tsx` mounts `CalendarBand` under a check on it, so the band mounts and the drag path IS reachable.
 
 ★★★ **STATE BOTH GATES — the shorter correction is itself a defect, and it is the one a reader will write.** `onEditEvent` is gated on `!isPopout` alone. `onMoveOccurrence` carries a SECOND precondition: it is undefined when `isPopout` OR when no save handler is supplied. So the band mounts whenever a non-popout panel supplies an edit handler, but the MOVE is inert without a save handler. A test written from the tempting one-line correction — "both are wired, gated on `!isPopout`" — can mount the band, drag, observe nothing, and wrongly conclude the drag path is BROKEN when it is merely **unarmed**. That misdiagnosis is more expensive than the stale sentence it replaces.
@@ -34042,6 +34545,8 @@ The header comment on `buildMoveOccurrenceHandler` says the meetings band "can't
 ## 458. The modal-header help-popover Tab test fails on press 1 alone under CI load, and the autoFocus diagnosis was wrong — OPEN
 
 **Status:** open — found 2026-09-10 from two CI runs on `feat/modal-help-bespoke`; one attempted fix was made, measured wrong and reverted (`518db55a`) the same day. Never reproduced locally: eight shuffled seeds plus an unshuffled control ran 18/18 green on the file alone, so every local run to date says nothing about it. Re-read the evidence with `glab api example-group/aipm-cockpit/jobs/29004/trace` (the original) and `glab api example-group/aipm-cockpit/jobs/29033/trace` (the attempted fix), and re-check the trap with `grep -n "panel.contains(active)" src/app/popover-panel.tsx`.
+
+**Work item:** #293
 
 `modal-header.test.tsx`'s "keeps Tab inside the dialog while the help popover is open" drives six `userEvent.tab()` presses with the help popover open and expects all six to land on the panel's close button. Under CI load it reds. The file is NOT touched by the branch that surfaced it.
 
@@ -34187,6 +34692,8 @@ row, a bare string check), `grep -n -A 2 "export function sanitizeEmail" src/app
 `grep -rn 'throw new Error("assigneeEmail is invalid")' src/app --include=*.ts` (the two throws,
 both on the task path).
 
+**Work item:** #294
+
 `ABSENCE_FIELD_GUARDS.assigneeEmail` admits any string, and `sanitizeAbsence` stores it through
 `sanitizeEmail`, which is `sanitizeText` at the email length cap — nothing on the path checks the
 format. So `create_absence` / `update_absence` given `assigneeEmail: "m.Jordan@example.com probed"`
@@ -34223,7 +34730,9 @@ run on purpose. Presence witnesses re-run 2026-09-11: `grep -n "^artifactName:" 
 (the one installer name), `grep -n -A 1 "^win:" desktop/electron-builder.yml` (`target: nsis`, the only
 target), `grep -n '"desktop:package": "npm' package.json` (`--win`),
 `grep -nF '\\logs' desktop/src/lib/log-paths.ts` (the hard-coded backslash separator) and
-`grep -n "links.length !== 1" scripts/release-publish-lib.mjs` (exactly one Release asset link).
+`grep -n "links.length !== 1" scripts/release-publish-lib.mjs` (exactly one Release asset link). Re-verified 2026-09-13 on `b39517ec`: `grep -n "^linux:" desktop/electron-builder.yml` → nothing, and `grep -nF '\\logs' desktop/src/lib/log-paths.ts` → the backslash join is unchanged.
+
+**Work item:** #295
 
 The desktop app ships for Windows only, and that was a scoping decision rather than an oversight. The
 Electron design's non-goals read: "Cross-platform builds. Windows first; macOS/Linux are not in scope and
@@ -34301,6 +34810,8 @@ two call sites and the builders, never by running an export. Presence witnesses 
 `grep -n -A5 "const handleExportCurrentProject" src/app/task-manager.tsx` (sixteen slices),
 `grep -n "config === undefined && ws.project" src/app/csv-codecs-config.ts src/app/markdown-codecs-core.ts`
 (one line each) and `grep -n "aipm-cockpit-tasks" src/app/export.ts` (the filename template).
+
+**Work item:** #75
 
 The header export menu builds the workspace it exports INLINE, from the slices `action-menus.tsx`
 destructures out of `useWorkspace()` and threads into `ExportMenu`: tasks, RAID, absences, shifts,
@@ -34524,6 +35035,8 @@ strings and the entry that renders them) and
 `grep -niE "forecast|projection" src/app/burndown-chart.tsx src/app/budget-burndown.ts` (prints NOTHING
 — the absence IS the finding, so re-run it rather than trusting this line).
 
+**Work item:** #78
+
 The Help entry `automated-health` says, in EN, that earned-value indicators "along with a burn-down
 forecast, update automatically as work progresses"; the DE string carries the same promise as "sowie
 eine Burn-down-Prognose". No such forecast is drawn. `computeBurndownSeries` (`budget-burndown.ts`)
@@ -34557,6 +35070,8 @@ path exports calendar events, knowledge items or insights"), colliding with this
 → 466, so this entry took max+1 (467), and every `§463` citation naming THIS entry — in this file, in
 `src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts` (14 hits) and in the typed-probe spec
 (6 hits) — was repointed to `§467` in the same commit.
+
+**Work item:** #296
 
 The typed-probe slice (`src/test/sweep-probes.ts`'s `probeFor`, replacing `trespassProbeFor`, plus
 Task 5b's seeding of every sweep fixture's blank undeclared columns) raised Relation A's undeclared
@@ -34673,6 +35188,8 @@ desktop/node_modules/electron/dist/electron.exe` returns the refusal string. ★
 SILENT rather than erroring is REASONED from those two, not observed: confirming it takes a packaged
 build and a PDF export.
 
+**Work item:** #297
+
 ★ §467 is absent from this register on purpose — it was minted on a peer session's branch (MR !473), not
 lost here.
 
@@ -34721,6 +35238,8 @@ one of the four places the removal scoped at the bottom of this entry would have
 undercounted witness understated the entry's own work by exactly the site most easily forgotten.
 Insert and DDL derive their column order from that list; edit one without the other and the encode
 writes a value into the wrong column with no error.
+
+**Work item:** #298
 
 The Trends remaining-cost mislabel (§465) was fixed at the READER rather than the writer, and
 deliberately so: snapshots already persisted in a Turso project carry a non-EUR `currency`, and only
@@ -34794,6 +35313,8 @@ the same round; the `(` is what makes the witness stable), against
 (`csv-codecs-decode.ts`, `markdown-codecs-decode.ts`, `sanitize-entities.ts`, `turso-schema.ts`,
 `workspace.ts`), i.e. every other load path.
 
+**Work item:** #299
+
 `browser-backend.ts` reads the KV plan blob verbatim and casts it. `d4fa68c3` added a coercion for
 the CURRENCY only — `isBudgetCurrency(idbPlan.currency) ? idbPlan : { ...idbPlan, currency: "EUR" }`
 — because `f97bc82b` had just narrowed `ResourcePlan.currency` to a union a stored blob can violate,
@@ -34865,6 +35386,8 @@ NOT reproduced in a browser and not pinned by any test. Presence witnesses run 2
 `grep -n "budgetFxOverrideInvalid" src/app/budget-bucket-modal.tsx` → 1 (the save guard, rejecting
 `<= 0`) and `grep -n "opts.round != null" src/app/sanitize-report.ts` → 1 (the rounding helper).
 
+**Work item:** #300
+
 The bucket editor's FX-override input advertises a minimum and a step of `0.0001`, but its blur
 handler clamps with `round: 2`. Typing the field's own advertised minimum therefore yields
 `Math.round(0.0001 * 100) / 100 = 0`, and the save guard then refuses the value as non-positive.
@@ -34897,6 +35420,8 @@ fixed-price branch anywhere in that engine), `grep -n "rates.external" src/app/b
 (the only valuation, applied to budget and actual hours alike) and
 `grep -c 'name: "FP", type: "tm"' src/app/budget-burndown.test.ts` → 1 — the fixture named `fpBucket`
 is declared `type: "tm"`.
+
+**Work item:** #301
 
 `computeBurndownSeries` values every bucket as `hours * rates.external`. `computeBucketReport` values
 a `type: "fixed"` bucket from its contract amount instead. So for a fixed-price bucket the burndown's
@@ -34946,6 +35471,8 @@ figures built from `revenue - cost` — plus a SECOND `const revenue` and a seco
 `contributionMargin: {` for the project rollup, which repeats the bucket arithmetic over summed
 rows. Count six, or the extra pair reads as a broken witness. And
 `grep -n "SUPPORTED_CURRENCIES = " src/app/types.ts` → one line, three members.
+
+**Work item:** #79
 
 **Nothing in the system decides what currency a role rate is in**, and the two faces below are that
 one gap seen from two directions. They are filed together deliberately: split apart, one could be
@@ -35048,6 +35575,8 @@ control),
 `grep -c 'const projCur = "EUR"' src/app/budget-panel.tsx` → 1 (the rollup's hardcoded label) and
 `grep -c 'rate !== 1 ?' src/app/budget-report-panel.tsx` → 1 (the rate-suffix ternary).
 
+**Work item:** #80
+
 **`resolveRate` returns 1 for a non-EUR bucket that has neither an `fxRateOverride` nor a cached ECB
 rate**, and that is the DEFAULT state: `useFxRates` fetches on demand only. So such a bucket's
 contract amount passes through `currencyToEur` unchanged and is read as EUR by the engine.
@@ -35120,6 +35649,8 @@ established by reading the four sites end to end, and each of the presence witne
 `grep -c 'rate !== 1 ?' src/app/budget-report-panel.tsx` → 1 and
 `grep -c "rate !== 1 ?" src/app/budget-panel.tsx` → 1 (the two rate suffixes).
 
+**Work item:** #81
+
 **The FX-rate override field is gated on the advanced field TIER, never on the bucket's currency.**
 So on an EUR bucket the input renders, accepts a number, validates it live — a non-positive value
 raises the field's `aria-invalid` notice — and `sanitizeBudgetBucket` writes the accepted value
@@ -35186,6 +35717,8 @@ feed to the supported set and pins EUR = 1), `grep -c 'input.base !== "EUR"' src
 → 2 (`currencySymbol` derives the glyph, so no symbol map needs extending), and
 `grep -rn "asOfRate\|rateStamp\|bookedRate" src/app --include=*.ts --include=*.tsx | wc -l` → **0**
 (nothing anywhere records the rate in force when an amount was booked — the whole of the work below).
+
+**Work item:** #82
 
 **Requested 2026-09-12.** A project's baseline currency should be configurable: EUR by default at
 creation unless another is set explicitly, changeable afterwards in the project meta, with the engine
@@ -35261,6 +35794,8 @@ set and pins EUR = 1, so a fourth member flows through the fetch, the sanitizer 
 further edit), and `grep -c "Intl.NumberFormat" src/app/resource-cost.ts` → 2 (`currencySymbol`
 derives the glyph from the locale, so the rupee sign needs no symbol map entry).
 
+**Work item:** #83
+
 **Requested 2026-09-12**, alongside §476.
 
 ★ **It is independent of §476 and should ship first.** An INR BUCKET under today's EUR baseline works
@@ -35294,6 +35829,8 @@ returns the re-arm inside the hook's disabled branch. ★ Everything user-visibl
 that test and from the call sites; no browser run has watched a layout switch do it. (`--maxWorkers=1`
 is there because the same command beside a recursive grep printed `Test Files no tests` at exit 1 —
 worker-start contention, not a result.)
+
+**Work item:** #320
 
 `useHashView` (`src/app/use-hash-view.ts`) is enabled only in the modern layout —
 `useHashView(settings.layout === "modern", settings.features)` in `task-manager.tsx`. The first EXECUTED
@@ -35347,3 +35884,1130 @@ layout switch, and (c) does not touch it.
 
 The decision owed is whether a layout switch is a NAVIGATION. (b) says yes and goes home; (c) says no.
 Size S–M.
+
+## 479. Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — OPEN
+
+**Status:** OPEN 2026-09-13 — measured, not reasoned. `grep -n "APP_VERSION = " src/app/version.ts`
+→ `1.0.3`, while `git ls-remote --tags origin 'v1*'` lists `v1.0.0` alone. `grep -n "Seven behaviours" CHANGELOG.md`
+→ 1 hit, inside the 1.0.1 section, and `grep -n "unverified here" docs/RUNBOOK.md` → 2 hits. Corrected the same
+day: this entry first read `APP_VERSION` as 1.0.2 and prescribed tagging `v1.0.2`, and 1.0.3 landed after that.
+
+**Work item:** #302
+
+`CHANGELOG.md` records 1.0.1 and 1.0.2 (both 2026-09-12) and 1.0.3 (2026-09-13), but the remote carries only
+the `v1.0.0` tag. All three are untagged. The installer is built and published only by a tag pipeline
+(`desktop-package-tag`, then `publish-release`), so the installer testers download today contains none of
+the three releases' changes.
+
+★★ **Tagging the tip does not tag the older releases.** `tag-version-check` (`classifyTag` in
+`scripts/tag-version-lib.mjs`) fails unless the tag is `v` + the `APP_VERSION` of the TAGGED commit. So an
+older version can only be tagged at a commit whose `version.ts` still carries it: its own release merge on
+`main`.
+
+| Version | Release commit | Merged to `main` by |
+|---|---|---|
+| 1.0.1 | `014a675f` | `c29bbedb` |
+| 1.0.2 | `0637bc07` | `60139f5b` |
+| 1.0.3 | `509c147c` | `c3598637` |
+
+Reproduce: `git log origin/main --oneline --grep "chore(release): 1.0.1"` (then 1.0.2, 1.0.3) names the
+release commit; the earliest line of `git log origin/main --merges --oneline --ancestry-path <release>..origin/main`
+names its merge; `git show <merge>:src/app/version.ts` confirms the version there.
+
+Work, in order:
+- Decide whether 1.0.1 and 1.0.2 get tags of their own, each at its merge above, or whether only `v1.0.3` is
+  published. Each tag runs a full tag pipeline and publishes a Release of its own.
+- Tag `v1.0.3` at `c3598637` (or a later release) through the normal release flow.
+- Use that pipeline to confirm the two GitLab behaviours `docs/RUNBOOK.md` marks "unverified here".
+- Run the seven behaviours the 1.0.1 notes list as confirmable only against a packaged build, against
+  the resulting installer, and record the outcome.
+
+Size S. Each tag is one command; the packaged checks are a manual pass.
+
+**Source:** `CHANGELOG.md` (1.0.1 section), `docs/RUNBOOK.md`, `docs/desktop-rollout.md`; audit candidate 1 in the 2026-09-13 housekeeping list
+
+## 480. The desktop installer has no auto-update and its update-feed question is undecided — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rn "electron-updater" desktop/src desktop/package.json desktop/electron-builder.yml`
+→ no hits; `grep -n "ships no auto-updater" CHANGELOG.md` → 1 hit; `glab issue view 67` → state open. #67 was reopened 2026-09-12T23:37Z (2026-09-13 local), after this line
+first read "state closed".
+
+**Work item:** #67
+
+★ **GitLab #67 was closed while its own body said the work was not done.** Its 2026-09-11 update
+records that the installer shipped in 1.0.0 and that "What remains is **auto-update**", and nothing else
+tracked that remainder. #67 was reopened (2026-09-12T23:37Z, 2026-09-13 local) so the remainder has an
+owner, and it is this entry's work item.
+
+Today the only update path is a manual Help → "Check for updates…" link-out. The open design
+question is the feed: can electron-updater's generic provider be served from a UNC share, or does it
+need HTTPS? The GitLab project is internal and serves no unauthenticated downloads, so a GitLab-backed
+feed would need a credential on every laptop. `desktop/electron-builder.yml` also notes that while
+builds are unsigned, the share's ACL is the only integrity control on updates. That ties this entry
+to §487.
+
+Size M.
+
+**Source:** `docs/superpowers/specs/2026-09-10-electron-app-bundling-design.md`, `docs/superpowers/specs/2026-09-10-readme-and-releases-design.md`, GitLab #67; audit candidate 2
+
+## 481. The task-row "N changes" badge is a static label with no way to jump to the linked changes — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n -A 3 "changeRefs && changeRefs.length > 0" src/app/task-row.tsx`
+→ a bare `<span>` with only `title`, `aria-label` and `className`, and no handler.
+`grep -rn "onJumpToChange" src/app --include=*.tsx` → no hits, while `grep -c "onJumpToRaid" src/app/task-row.tsx`
+→ 2 (the RAID badge beside it navigates).
+
+**Work item:** #303
+
+The change-log design deferred the jump in so many words: "The badge is display-only; a
+click-to-jump from" it was left for later. The RAID badge next to it already navigates through
+`onJumpToRaid`. The changes badge should get the same treatment: a button with a row-unique
+accessible name, and a jump that opens the Changes view filtered to the task's linked changes.
+
+★ Per AGENTS.md's Kanban note, anything a board card renders must take its handler as a prop, never
+from `useTaskRowContext()`. Do the same here if the badge is also shown on cards.
+
+Size S.
+
+**Source:** `docs/superpowers/specs/2026-06-03-change-log-register-design.md`; audit candidate 3
+
+## 482. The document asset library table shows no image thumbnails — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rli thumbnail src/app` → only `src/app/document-asset-upload.test.ts`,
+and `grep -n "No thumbnails in the library table" docs/superpowers/specs/2026-09-02-asset-preview-lightbox-design.md`
+→ 1 hit. Before this entry the register had no match for "thumbnail".
+
+**Work item:** #304
+
+The lightbox design lists library thumbnails as "a worthwhile follow-up and a different slice".
+Nothing has been built or filed since.
+
+★ Asset images are Turso-gated and render through blob URLs. Thumbnails must therefore reuse the
+existing blob-URL lifecycle, not fetch bytes per row. Read `docs/AGENTS/documents.md`'s "Asset images
+(S3c-1)" section before starting.
+
+Size S.
+
+**Source:** `docs/superpowers/specs/2026-09-02-asset-preview-lightbox-design.md`; audit candidate 4
+
+## 483. Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -c "slice G2" docs/AGENTS/ai-assistant.md` → 3, and
+`grep -n "deliberate alias" docs/ai-cost.md` → 1 ("candidate arm is at present a deliberate alias of the
+current layout"). Before this entry, `grep -c "G2" docs/open-followups.md` → 0.
+
+**Work item:** #305
+
+The guide-block cache-split design sized G2 (moving the view-scoped guides onto the turn tail) and
+deliberately left it out of scope. `docs/AGENTS/ai-assistant.md` then defers an open question to G2 and
+names the measurement that should settle it: cache-write volume against view-switch frequency, from
+the usage meter. Yet G2 had no register entry and no issue.
+
+The prompt-quality harness can only run A/A self-tests until a gated slice registers a real layout. G2
+is the natural first candidate arm. One piece of work should cover both: the measurement, then G2
+registered as a harness variant.
+
+Size M.
+
+**Source:** `docs/superpowers/specs/2026-09-08-ai-guide-block-cache-split-design.md`, `docs/superpowers/specs/2026-09-08-ai-cost-roadmap-design.md`, `docs/superpowers/specs/2026-09-09-ai-prompt-quality-harness-design.md`, `docs/ai-cost.md`; audit candidate 5
+
+## 484. Four landmine-heavy subsystems have no docs/AGENTS reference, and insights.md omits the Timelog guardrail detector — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -c "timelogGuardrailInsights" docs/AGENTS/insights.md` → 0, against
+`grep -c "timelogGuardrailInsights" src/app/insights/detect.ts` → 2. `ls docs/AGENTS` lists 12 files, and
+none covers the desktop shell, budget/FX, storage/recovery or the undo engine.
+
+**Work item:** #306
+
+No subsystem reference exists for four areas:
+- **The Electron desktop shell:** `desktop/`, the installer and the tag release.
+- **Budget/FX:** the 1.0.2 currency boundary.
+- **Storage:** the backends, Turso load/save and `recovery/`, currently scattered across AGENTS.md.
+- **The undo engine:** `undo/`, which has a single CODEMAP row.
+
+All four ship code with non-obvious rules.
+
+Separately, `docs/AGENTS/insights.md` still describes "the five original detectors" and never mentions
+`timelogGuardrailInsights`, which `detect.ts` both defines and runs.
+
+★ Adding a file to `docs/AGENTS/` also means updating AGENTS.md's two subsystem tables and its file
+count ("the twelve files below"). `docs:symbols:check` scans the new file as soon as it lands.
+
+Size M.
+
+**Source:** the 2026-09-13 housekeeping audit's docs/AGENTS findings (coverage gaps section)
+
+## 485. Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rln "docs/features.md" scripts .gitlab-ci.yml package.json` → no
+output, beside the positive control `grep -c "app-feature-guide.md" scripts/gen-operating-guide.mjs` → 1.
+So the guide has a reader and `docs/features.md` has none.
+
+**Work item:** #307
+
+`lib/app-feature-guide.md` is read by `scripts/gen-operating-guide.mjs`, which validates each section's
+view ids and fails on an unknown one. `docs/features.md` restates the same feature catalogue for human
+readers, and nothing checks it. The 2026-09-13 audit found five false claims in it: dead anchors, a
+wrong secret count, and an export claim.
+
+Pick one:
+- Generate `docs/features.md` from the guide.
+- Add a parity check beside `docs:claims:check` that fails when the two files' sections diverge.
+
+Either way, the drift that already exists must be corrected first.
+
+Size S.
+
+**Source:** `docs/features.md`, `lib/app-feature-guide.md`; audit candidate 8
+
+## 486. Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified in a browser. The limit is on record:
+`grep -n "pruned event" docs/superpowers/plans/2026-07-02-calendar-twoway-sp5-autopull.md` → 1 hit, SP5's
+"Known limitation (document, don't fix)". `grep -n "^| TD-3" docs/tech-debt-register.md` → the only other
+record. Before this entry, `grep -c "pruned event" docs/open-followups.md` → 0.
+
+**Work item:** #308
+
+With auto-push on (it shares the `.auto` flag with auto-pull), deleting the Outlook event for an entity
+that is still pushable does not stick: the next cycle re-creates it. SP5 documented this as a limit and
+left the fix, a permanent per-item opt-out, as future work. It lived only in the tech-debt register,
+which has no owner, even though it is a user-visible defect.
+
+★ An opt-out is a new persisted `Workspace` field, so AGENTS.md's six-write-path rule applies. The
+reconcile engine must also treat an opted-out item as neither pushable nor pull-creatable.
+
+Size M. This entry replaces tech-debt-register TD-3.
+
+**Source:** `docs/superpowers/plans/2026-07-02-calendar-twoway-sp5-autopull.md`, `docs/tech-debt-register.md` (TD-3); audit candidate 9
+
+## 487. The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n "No certificate is available" desktop/electron-builder.yml` → 1
+hit, `grep -n "signExecutable: false" desktop/electron-builder.yml` → 2 hits (the key itself and the comment
+explaining it), and
+`grep -n "Run anyway" docs/desktop-rollout.md` → 1 hit. The rollout guide tells every tester to click past
+"Windows protected your PC".
+
+**Work item:** #309
+
+No code-signing certificate is available, so the build turns signing off, and every Windows install
+shows the unknown-publisher SmartScreen warning.
+
+The work:
+- Obtain a certificate. This is an organisational decision, not code.
+- Store it as a protected CI variable.
+- Sign in the tag pipeline's `desktop-package-tag` job.
+
+★★ Keep resource editing on. The comment block above `signExecutable` in `desktop/electron-builder.yml`
+explains that setting `signAndEditExecutable: false` skips resource editing as well as signing. That is
+the step that stamps the icon and the VersionInfo strings into the exe. Enable signing without
+reintroducing that key.
+
+★ This also affects §480. Until builds are signed, an updater has no integrity control except the
+share's ACL.
+
+**Source:** `desktop/electron-builder.yml`, `docs/desktop-rollout.md`; audit candidate 10
+
+## 488. The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified against the demo dataset, which nobody has
+reproduced the gap on. `grep -n "BUDGET_TYPES = " src/app/types.ts` → `["tm", "fixed"]`, so no third
+contract type exists. `glab issue view 42` → state open.
+
+**Work item:** #42
+
+GitLab #42 reports three symptoms: 390 h booked against 104 h planned, a budget value that differs
+between the two sides, and unreliable remaining-effort figures. The root cause given on the call was
+an unmodelled case: a fixed-price project converted to end-to-end responsibility.
+
+The issue's code-check comments split it into two leads:
+- **The currency lead** was confirmed, filed as #77, recorded as §465, and fixed on 2026-09-12. It
+  explains only the "budget value differs" symptom, and only for non-EUR fixed-price buckets.
+- **The external-resources lead** was refuted: `pickMatchableResources` excludes external resources
+  from applied TimeLog actuals, just as planned hours do.
+
+Two things are still unexplained by any entry. The first is the 390 h vs 104 h gap itself. The second
+is the end-to-end contract type: `BUDGET_TYPES` has no member for it and no conversion path. §472 (the
+burndown values a fixed-price bucket as hours) may feed the remaining-effort symptom, but it is not the
+cause the issue names.
+
+Work: reproduce on the demo data, confirm or refute §472's part, then decide how an end-to-end contract
+is modelled.
+
+**Source:** GitLab #42 and its two code-check comments; the 2026-09-13 register triage
+
+## 489. The floating HelpMenu has no deep-link input, and nothing calls for one yet — OPEN
+
+**Status:** OPEN 2026-09-13 — a deferred want with no caller, not a defect. Reproduced by
+`grep -n "export function HelpMenu" src/app/help-menu.tsx` → the signature takes `{ lang }` only.
+
+**Work item:** #310
+
+`HelpMenu` owns its query locally, and `HelpContentPane`'s `scrollToSection` is private. So "open Help at
+entry X" is possible only through the in-pane Help view (`requestHelpConcept` → `pendingHelpConcept` →
+`HelpView`).
+
+§424's modal half shipped as a popover over the dialog rather than a deep link, so no current surface
+needs this. Revisit only if a surface appears that must open the floating menu at a specific entry. If
+one does, it inherits the remount-swallow rule AGENTS.md prescribes for request props: a sentinel seed,
+and a parent that clears the request.
+
+Size S–M, once a caller exists.
+
+**Source:** `docs/open-followups.md` §424 (gap 4); the 2026-09-13 register triage
+
+## 490. Six-write-path persistence is mitigated per slice only, and the unified codec and schema rewrite stays deferred — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified; this is a deferred design choice, not an observed
+defect. `grep -n "^| TD-2" docs/tech-debt-register.md` → the row, deferred since Phase 3 T10, and
+`grep -c "ENTITY_SPECS" src/app/turso-schema.ts` → 6, so the spec registry that carries part of the
+mitigation still exists.
+
+**Work item:** #311
+
+A new persisted `Workspace` field has to be written in six places, and a missed one silently drops data
+on that backend. `entity-persistence-registry.test.ts` mitigates this, but only per slice: AGENTS.md
+records that its meta-blob rows cover different subsets of the six, and that the Turso tenant path for
+`activityLog` was caught in review rather than by any gate.
+
+A unified codec and schema rewrite would remove this class of bug. It has been out of scope since Phase
+3. Decide whether it is ever wanted. If not, turn this entry into a decision record, so the six-path
+rule is read as a permanent constraint rather than as pending work.
+
+Size L if built.
+
+**Source:** `docs/tech-debt-register.md` (TD-2)
+
+## 491. task-manager.tsx is 3162 lines, over the 1600 size LIMIT, and its 6040-line ratchet baseline constrains nothing — OPEN
+
+**Status:** OPEN 2026-09-13 — measured on `b39517ec` with the gate's own metric (file text split on
+newlines, which is `wc -l` + 1) → **3162**. `grep -n "task-manager.tsx" docs/baselines/file-sizes.json`
+→ baseline **6040**, and `grep -n "^const LIMIT" scripts/check-file-sizes.mjs` → 1600.
+
+**Work item:** #312
+
+The root orchestrator is nearly twice the size LIMIT. Only its baseline entry governs it, and that
+entry was doubled to 6040 on 2026-09-03, leaving 2878 lines of headroom. In practice the file can grow
+almost without limit before any gate notices.
+
+TD-5's recorded judgement still stands. Five move-only extractions have already been done, and further
+slicing of the render tree would only produce pass-through modules. The higher-leverage move is to
+consolidate top-level hooks and effects.
+
+★★ Quote the measurement and the baseline as two separate figures, never the baseline alone. TD-5
+records how a single combined number went stale twice.
+
+Size M.
+
+**Source:** `docs/tech-debt-register.md` (TD-5)
+
+## 492. tasks-section.tsx is still one fat pane owning the tasks filters, table, board and calendar glue, and its split stays deferred — OPEN
+
+**Status:** OPEN 2026-09-13 — measured on `b39517ec` with the gate's own metric → **1084** lines.
+`grep -n "tasks-section.tsx" docs/baselines/file-sizes.json` → baseline **2162**, which is inert: the file
+is under the 1600 LIMIT, so only the LIMIT applies.
+
+**Work item:** #313
+
+The pane owns the tasks filters, table, Kanban board and calendar glue. AGENTS.md's panel-split
+convention (orchestrator + `*-rows` + `*-toolbar`) says to split a panel well before it reaches the
+ratchet. The file is past the ~700-line trigger that convention names. It has also drifted repeatedly:
+830, then 1081, 1050, 1073 and now 1084.
+
+Size M.
+
+**Source:** `docs/tech-debt-register.md` (TD-7)
+
+## 493. eslint-config-next is exact-pinned at 16.2.6 while next is at 16.3.4, and both have since published 16.3.5 — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n '"next"\|"eslint-config-next"' package.json` → `16.3.4` and `16.2.6`;
+`npm view next version` and `npm view eslint-config-next version` → both `16.3.5` on 2026-09-13; and
+`grep -n "reactVersion" eslint.config.mjs` → the derived React-version pin is in place.
+
+**Work item:** #314
+
+Lockstep between the two was never required. TD-1 records it was at 16.2.6 against 16.2.11 before the
+16.3 upgrade. But the gap now spans a minor version, and both packages have moved again.
+
+★★ A bump of `eslint-config-next` must keep the `settings.react.version` pin in `eslint.config.mjs`
+rather than reinstate "detect". That pin is what routes around `eslint-plugin-react`'s call to the
+removed `context.getFilename` under eslint 10.
+
+★ Moving `next` itself is a framework change. It needs the browser gates (e2e, axe, `e2e:smoke:prod`)
+and CONTRIBUTING.md's exact-pin rule.
+
+Size S.
+
+**Source:** `docs/tech-debt-register.md` (TD-1 notes, "Exact-pinned" list)
+
+## 494. TypeScript 7 has been published and nothing has been run against it — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n '"typescript"' package.json` → `^6.0.3`, and
+`npm view typescript version` → `7.0.2`. Never machine-verified: no typecheck has been run against 7.
+
+**Work item:** #315
+
+TypeScript 6.0.3 landed on 2026-07-03 with zero tsc errors, but no data exists for 7. Assess first, on
+a branch, before quoting a risk either way:
+- Run `npx tsc --noEmit`.
+- Check AGENTS.md's tsc-only traps: Tiptap commands typed by module augmentation, and the regex `/s`
+  flag under the project's target.
+
+Size S to assess.
+
+**Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", `typescript` row)
+
+## 495. jsdom 30 has been published and the layout-stub suites have not been checked against it — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n '"jsdom"' package.json` → `^29.1.1`, and `npm view jsdom version` →
+`30.0.1`. Never machine-verified against 30.
+
+**Work item:** #316
+
+jsdom 29 landed on 2026-07-03 with the note that the "layout-stub landmines hold". Those landmines are
+the risk surface: jsdom has no layout, and several suites here are written around that fact. After a
+bump, re-verify those suites by name, not only by the suite's exit code. A green run can also mean an
+assertion started matching a different layout stub.
+
+★ `jsonToWorkspace` needs a DOM on its load paths, so a jsdom change also reaches codec tests.
+
+Size S–M.
+
+**Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", `jsdom` row)
+
+## 496. @testing-library/jest-dom 7 has been published and is unassessed — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n '"@testing-library/jest-dom"' package.json` → `^6.6.3` (6.9.1
+installed), and `npm view @testing-library/jest-dom version` → `7.0.1`. Never machine-verified against 7.
+
+**Work item:** #317
+
+This is a test-only dependency and the cheapest of the deferred majors to try. A matcher that changed
+meaning can leave a suite green for the wrong reason. Run the full suite and `npx tsc --noEmit`, since
+the matcher types are only checked by tsc, never by vitest.
+
+Size S.
+
+**Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", `@testing-library/jest-dom` row)
+
+## 497. Playwright and axe-core have moved past the pinned CI image, and they must be bumped together with it — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n "playwright:v" .gitlab-ci.yml` → two sites on `v1.61.1-jammy`;
+`grep -n '"@playwright/test"\|"@axe-core/playwright"' package.json` → `^1.61.1` and `^4.12.1`. `npm view` on
+2026-09-13 → `1.63.0` and `4.13.0`.
+
+**Work item:** #318
+
+The client and the e2e image must move in one MR, or the e2e job runs a mismatched browser set. The
+tech-debt register's Resolved table records that rule from the last bump. `@axe-core/playwright` goes in
+the same MR, because it drives the a11y gate.
+
+★★ AGENTS.md quotes several measurements against axe-core 4.12.1: the rule count, no rule flagging
+duplicate control names, and `label-content-name-mismatch` being excluded as experimental. Re-run each
+of those reproduce commands after the bump, rather than assuming they still hold.
+
+Size S–M.
+
+**Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", Playwright + axe lockstep row)
+
+## 498. The MSAL sign-in flow has never been smoke-tested against a real Microsoft 365 tenant — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified against a tenant. `grep -rln "msal" e2e` → no output,
+and `grep -rln "msal-browser" src/app --include=*.test.tsx` → 2 files (`use-ms-auth.test.tsx`,
+`msal-redirect/page.test.tsx`). MSAL is exercised only in unit tests.
+
+**Work item:** #319
+
+`@azure/msal-browser` moved to 5.x on 2026-07-03 and went green, but no CI tenant exists. So the live
+Microsoft 365 token flow (the Outlook calendar integrations depend on it) has never been exercised by
+anything the pipeline runs. `npm view @azure/msal-browser version` → `5.21.0`, against the `^5.16.0`
+specifier, so the next bump will also land unexercised.
+
+Either document a manual real-tenant smoke in `docs/RUNBOOK.md` and run it on every MSAL bump, or
+provision a test tenant and add a gated e2e.
+
+Size S–M.
+
+**Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", `@azure/msal-browser` row)
+
+## 499. The four executive budget figures are not all surfaced, because ETC, EAC and VAC are computed nowhere — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rlnE "estimateAtCompletion|\bEAC\b|\bETC\b" src/app --include=*.ts --include=*.tsx` →
+only `operating-guide-builtin.generated.ts` (generated guide text), so no engine computes either figure.
+
+Michael Leather asked for the executive figures to be shown explicitly: budget (the PMO maximum), actuals
+spent, forecast to complete, estimate at completion and variance against budget. He named financials as his
+first priority.
+
+The issue's 2026-09-11 code check found budget, actuals and variance already surfaced through
+`computeBudgetReport` on the Budget panel, the Budget report and the dashboard tile. ETC, EAC and VAC are
+missing, although their inputs exist (earned value, CPI, the task remaining estimates). There is no separate
+"PMO maximum" field either: the budget is the sum of the buckets.
+
+Related: §501 (EVM terminology), §488 (the demo's budget-report gap), §466 (the burn-down forecast help text).
+
+Size M — one agreed formula, then the Budget panel, Budget report and Dashboard.
+
+**Source:** GitLab #38 (F-1, source::demo-2026-09-11)
+
+**Work item:** #38
+
+## 500. Budget forecast hours cannot be imported from a spreadsheet and must be re-entered by hand — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified. The issue's 2026-09-11 code check searched the budget panel, the bucket
+modal and `src/app` for an importer by hand and found none.
+
+Michael Leather asked to import a forecast (resources × monthly hours × cost) from a spreadsheet instead of
+re-entering it. It was confirmed possible on the call but is not built.
+
+Forecast hours are entered by hand today, or derived from resource capacity when "budget follows plan" is on
+(`effectiveBudgetHours`). The spreadsheet extractor only turns a chat attachment into text, and the AI tools
+can list budget buckets but not write them.
+
+Size M — an importer for resource × month × hours × rate that writes bucket allocations.
+
+**Source:** GitLab #39 (F-2, source::demo-2026-09-11)
+
+**Work item:** #39
+
+## 501. EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -nE "cpi|spi" src/app/evm.ts` → `computeEvm` returns pv, ev, ac, spi, cpi, sv and cv; the
+EAC/ETC grep in §499 finds only generated guide text.
+
+Kai Mindermann asked for Earned Value Management terminology throughout the app, explicitly including the
+charts and graphs, not only the labels. The underlying data was said to exist already.
+
+The core EVM set exists (`computeEvm`, shown in the Budget report and as SPI/CPI dashboard tiles). The
+code check's "CPI means two different numbers" defect was filed separately as §464 (closed 2026-09-12). The
+remaining work is consistent EVM naming, BAC/EAC/ETC wording (the figures themselves belong to §499), and
+charts that follow it.
+
+The 2026-09-13 housekeeping audit folded in the missing time-phased EVM S-curve (planned, earned and actual
+over time) from `docs/superpowers/specs/2026-06-02-earned-value-design.md`.
+
+Size M — terminology and hints first, the S-curve chart as a second slice.
+
+**Source:** GitLab #40 (F-3, source::demo-2026-09-11)
+
+**Work item:** #40
+
+## 502. There is no probabilistic Monte Carlo forecast with scenarios and confidence levels — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rlniE "monte.?carlo|percentile|quantile" src/app --include=*.ts --include=*.tsx` → no output.
+
+Kai Mindermann asked for Monte Carlo forecasting with scenarios and confidence levels, because project reality
+is neither linear nor exponential. He called it his strongest functional ask and made it three times (twice on
+the call, once in writing). The issue cites ActionableAgile's "Monte Carlo: How Many" page.
+
+The code check corrected the premise: there is no linear extrapolation to replace. The app's forecast end
+date (`forecastEndDate`, in `snapshot.ts`) is the latest due date of open tasks and milestones, and the
+burn-down's actual line stops at today. No trace of the earlier investigation mentioned on the call exists in
+the repo.
+
+Related: §504 (align with the internal burndown standard), §466 (help promises a forecast line).
+
+Size L — a simulation engine, scenario inputs and P50/P80-style output on the forecast surfaces.
+
+**Source:** GitLab #41 (F-4, source::demo-2026-09-11)
+
+**Work item:** #41
+
+## 503. Task effort and over-budget handling misbehaved during the demo, and no reproduction was recorded — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified. The issue's code check could not judge it from code, and it has no steps
+to reproduce.
+
+Something in task effort or over-budget handling misbehaved live at about 37:00 in the demo, and it was
+acknowledged on the call. What exactly went wrong was not captured.
+
+Current behaviour, per the code check: `effortProgress` sets an over flag, the effort bar turns pink, and the
+time-tracking modal shows the derived remaining effort with an optional pinned value. Fixes landed on
+2026-09-05, before the demo. No action or insight flags an overrunning task, and the EVM engine ignores
+remaining estimates. The next step is a reproduction, not a fix.
+
+Size unestimated (product backlog) — nothing can be sized until the live misbehaviour is reproduced.
+
+**Source:** GitLab #43 (F-6, source::demo-2026-09-11)
+
+**Work item:** #43
+
+## 504. The burn-down draws no forecast line and is not aligned with the internal AIPM Project Burndown standard — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rln "computeBurndownSeries" src/app` → `budget-burndown.ts`, `budget-report-panel.tsx` and
+`dashboard.ts` plus tests. Alignment with the article is never machine-verified; nobody has read it in full.
+
+Kai Mindermann asked in writing that the forecasting approach align with the Acme Confluence blog
+article "The Project Burndown". It was not discussed on the call. The URL was supplied truncated, so the full
+title and slug must be confirmed before the article is fetched.
+
+A burn-down exists (`computeBurndownSeries`, drawn in the Budget report and on the dashboard), but it draws
+no forecast or projection line, and nothing references the internal standard.
+
+Related: §466 (Help promises the missing forecast line), §472 (fixed-price buckets valued as hours), §502
+(Monte Carlo forecasting).
+
+Size M — once the full article has been read.
+
+**Source:** GitLab #44 (F-7, source::demo-2026-09-11)
+
+**Work item:** #44
+
+## 505. There is no project governance module that weights health by engagement type — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n "BUDGET_TYPES = " src/app/types.ts` → `["tm", "fixed"]`, a per-bucket revenue switch;
+nothing sets an engagement type on the project.
+
+Michael Leather asked for a governance module with weighted governance factors per engagement. A fixed-price
+contract with service credits or penalties must weigh processes differently from T&M, without contradicting
+group-level principles. On the call it was described as the intended next step anyway.
+
+The code check found no contract or engagement type on the project. Overall health is the group health plus
+a manual RAG override, unweighted, and every "weight" or "penalty" hit in code belongs to next-actions
+scoring. The acronym transcribed as "PPN" is unresolved and must be confirmed with Michael before any build.
+
+Related: §506 (a second governance lens, possibly a child of this), §488 (an end-to-end contract type has no
+model).
+
+Size L — engagement type on the project, a weight profile and a weighted health engine.
+
+**Source:** GitLab #45 (G-1, source::demo-2026-09-11)
+
+**Work item:** #45
+
+## 506. A delivery project cannot represent the client's own governance structure beside AIPM governance — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n "interface SteeringCommittee" src/app/types.ts` → one interface; the workspace holds a single
+steering committee.
+
+Michael Leather said delivery projects must plug into the customer's governance alongside AIPM's. It was
+acknowledged on the call, with no commitment.
+
+The workspace carries one steering committee with internal members only. A stakeholder can be categorised as
+Customer, but that is not tied to any governance body. The issue notes this may become a child of §505.
+
+Size unestimated (product backlog) — likely scoped together with §505.
+
+**Source:** GitLab #46 (G-2, source::demo-2026-09-11)
+
+**Work item:** #46
+
+## 507. Multi-tenancy is not built at the app layer: no identity, no hosted deployment and no PM dimension in the portfolio view — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rl "aggregatePortfolio" src/app --include=*.ts` → `portfolio-rollup.ts` and
+`use-portfolio-health.ts` (plus a test), so a Turso-only cross-project view exists. The missing identity layer is never
+machine-verified beyond the issue's 2026-09-11 code check.
+
+Michael Leather asked for a hosted, multi-tenant deployment with a consolidated portfolio view across PMs (UK
+and UKNE), instead of isolated per-PM local instances. On the call the database backend was described as
+multi-tenant capable, and the app layer as deliberately deprioritised.
+
+Multi-project Turso storage and a Portfolio health view exist. But "tenant" means project: there is no user,
+owner or organisation column, one Turso URL and token per device, no login, and no PM dimension in the
+portfolio rows. Server routes are only the integration proxies.
+
+The 2026-09-13 housekeeping audit folded three items into the issue: the RUNBOOK's missing monitoring and
+alerting for a deployed instance (`docs/RUNBOOK.md`, "Monitoring & alerting"), the unbuilt cross-project
+roll-up and weekly digest (`docs/superpowers/specs/2026-06-09-multi-project-portfolio-phase1-design.md`), and
+the approved but unbuilt Module 0 separation boundary
+(`docs/superpowers/specs/2026-07-12-module0-separation-boundary-design.md`), its candidate foundation.
+
+Related: §508 (admin role, depends on this), §509 (interim export path), §498 (MSAL never smoke-tested).
+
+Size L — identity and login, ownership, access control, hosting, then the portfolio dimension.
+
+**Source:** GitLab #47 (M-1, source::demo-2026-09-11)
+
+**Work item:** #47
+
+## 508. No admin role can lock a tenant-level policy of mandatory and suppressed fields — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rlnE "isAdmin|rbac" src/app --include=*.ts --include=*.tsx` → no output.
+
+Michael Leather asked that a portfolio or programme manager define which data fields are mandatory and which
+are suppressed, per tenant. On the call it was described as architecturally supported but not implemented.
+
+Per-project field hiding exists (simple, advanced and full tiers, per-form field sets, template presets and
+module switches), but any user can change it. The `required` flags on modal fields mean "cannot be hidden",
+not "must be filled". There is no role concept anywhere.
+
+Related: §507 (identity, a prerequisite), §521 (project creation from a name alone, which pulls the opposite
+way on must-fill fields).
+
+Size L — depends on the identity work in §507.
+
+**Source:** GitLab #48 (M-2, source::demo-2026-09-11)
+
+**Work item:** #48
+
+## 509. There is no central target for exporting project data to consolidate by hand, and export filenames carry no project code — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rn "EXPORT_SECTION_KEYS = " src/app` → `settings-types.ts`, the section switches. The browser-download-only
+behaviour is never machine-verified beyond the issue's code check.
+
+Michael Leather asked for an interim consolidation path until §507 lands: export local project data to a
+central location for manual aggregation. Raw export in several formats with configurable scope already exists,
+but no central target is defined.
+
+Export output is a browser download only. Filenames carry no project code, so files from different PMs
+collide. The SharePoint storage backend could serve as an interim shared location.
+
+Related: §463 (export drops enabled sections, which the issue's code check found), §468 (PDF export never
+prints in the desktop app).
+
+Size M — a SharePoint folder upload over the existing Graph code, plus project codes in filenames.
+
+**Source:** GitLab #49 (M-3, source::demo-2026-09-11)
+
+**Work item:** #49
+
+## 510. The per-project activity log cannot be extracted centrally in the app, keeps only 500 entries and names no PM — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rn "ACTIVITY_MAX_ENTRIES = " src/app` → `activity-log.ts`, 500.
+
+Michael Leather asked to confirm that each PM's activity and audit log can be retrieved centrally. On the call
+that was confirmed as available and extractable.
+
+The code check qualified it. The log is stored per project (a Turso `meta` row, JSON files, device-only
+IndexedDB), and a shared Turso database can be queried with SQL across projects. But the app offers no
+extraction (the Activity panel has Print and Clear only), keeps the last 500 entries, records the actor only as
+user, AI or integration, and lets the PM clear it.
+
+★★ The missing export key is deliberate: `docs/AGENTS/activity-log.md` records the log as storage-only on every
+path, because an entry's changes carry old and new values that must never reach a client-facing document. A
+central extraction must be an admin path, not an ordinary export section.
+
+Size S–M — a decision first; close if raw Turso SQL access is accepted as the answer.
+
+**Source:** GitLab #50 (M-4, source::demo-2026-09-11)
+
+**Work item:** #50
+
+## 511. Documents cannot be generated through AIPM Word or PowerPoint templates picked from a drive folder — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rlnE "\.dotx|\.potx" src/app` → no output.
+
+Michael Leather asked that document generation be forced through AIPM templates from a drive folder. On the
+call it was described as prepared but deprioritised; the AIPM branding skill and templates are already used
+outside the app.
+
+Both renderers build styles and packages from scratch and never read a template file. "Prepared" means building
+blocks only: the SharePoint picker and file-content fetch, used today only by project import.
+
+Related: §512 (Word export polish), §219 (OOXML fidelity never checked).
+
+Size L — template reading for both renderers, plus a picker over SharePoint, OneDrive or a folder.
+
+**Source:** GitLab #51 (D-1, source::demo-2026-09-11)
+
+**Work item:** #51
+
+## 512. The Word export is unpolished, squeezing every storage column to equal width under raw key headers with no branded header or footer — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rln "buildDocxTable" src/app` → `ooxml-docx-primitives.ts`, `export-docx.ts`,
+`doc-render-docx.ts` and others; the layout itself is never machine-verified in Word.
+
+Observed in the demo: the Word export needs branding, fewer columns (content compresses until unreadable) and a
+fixed page layout. It was acknowledged as not polished.
+
+Per the code check, the tasks table exports every storage column at equal width through `buildDocxTable`,
+headed with raw storage keys. The export configuration switches only whole sections, and document data-section
+blocks reuse the same table. Branding is fixed AIPM colours and a literal app title; the user's logo is used only
+inside the app, and there are no header or footer parts.
+
+Related: §304 (untranslated section headers), §155 (an undeclared table style), §219 (fidelity never
+checked), §511 (AIPM templates).
+
+Size M — curated columns and labels, content-aware widths, a logo header and footer.
+
+**Source:** GitLab #52 (D-2, source::demo-2026-09-11)
+
+**Work item:** #52
+
+## 513. Existing SharePoint documents cannot be updated from app data — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified beyond the issue's code check, which found the SharePoint storage save as the
+only Graph file write.
+
+Michael Leather asked to update existing SharePoint documents from app data. On the call the only route named
+was an export plus Claude Desktop or a Word plugin.
+
+Documents only download today, and the repo holds no Office add-in. Either the app finds and updates an
+existing .docx or .pptx, or the item is closed as won't-do in favour of the external route.
+
+Size unestimated (product backlog) — build it, or close it in favour of the Claude Desktop or Word plugin route.
+
+**Source:** GitLab #53 (D-3, source::demo-2026-09-11)
+
+**Work item:** #53
+
+## 514. There is no Confluence write-back for project or portfolio pages — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n "^export" src/app/confluence-api.ts` → a credentials interface and `fetchConfluencePage`
+only, so the client can read a page and write none.
+
+Sebastian offered on the call to push project and portfolio page updates to Confluence when tasks, staffing
+or milestones change. It is possible but not built.
+
+The Jira update proxy under `src/app/api/jira/update-issue` is a pattern to copy. Any new proxy must reuse the
+shared SSRF core, per the extraction conventions in AGENTS.md.
+
+Size M — a write proxy, a page template or mapping, and a manual or change-triggered push.
+
+**Source:** GitLab #54 (D-4, source::demo-2026-09-11)
+
+**Work item:** #54
+
+## 515. A risk signal cannot be turned into a RAID item directly, and an escalation leaves no record on the item — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified beyond the issue's 2026-09-11 code check.
+
+Michael Leather and Kai Mindermann asked that risks and issues surface early, through insights or an explicit
+RAID workflow. It was named a joint priority area for a dedicated review session; Michael ranked it second after
+financials.
+
+Much exists already: milestone-slip, overdue-trend, stalled-work, budget-variance and RAID-ageing insights;
+RAID next actions for severity, missing owners and overdue reviews; Escalate, the owner inquiry, the 5×5 matrix
+and the RAID report. The gaps are a direct signal-to-RAID path (today only via an AI recommendation) and a
+record of escalation on the item.
+
+Related: §360 and §362 (guardrail insight gaps).
+
+Size M — a one-click log-as-risk/issue from a signal, plus escalation state on the item.
+
+**Source:** GitLab #55 (R-1, source::demo-2026-09-11)
+
+**Work item:** #55
+
+## 516. Stakeholder management lacks a decision log and engagement or contact tracking — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rlniE "decisionLog|decision.?log" src/app --include=*.ts --include=*.tsx` → no output.
+
+Kai Mindermann asked for stakeholder management as a first-class capability: relationship building and
+proactive communication, distinct from status reporting, and a decision log alongside risks and issues. The
+influence/interest matrix was singled out positively.
+
+The matrix (`quadrantFor`), RACI per milestone, per-quadrant communication policy and the stakeholder update
+template exist. There is no decision log (RAID's D is Dependency; decisions exist only as change-request
+fields) and no engagement or contact tracking.
+
+Related: §446 (`change.decisionBy` is uncoupled from status), §237 (the AI cannot read stakeholder RACI).
+
+Size M — a decision register (or a Decision category beside RAID) and contact tracking on stakeholders.
+
+**Source:** GitLab #57 (R-3, source::demo-2026-09-11)
+
+**Work item:** #57
+
+## 517. The simple-view principle is not applied app-wide, and no chromeless view shows only the top one to three next actions — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rn "MAX_VISIBLE_PER_TIER = " src/app` → `actions-panel.tsx`, 5 per tier, with no overall cap.
+
+Kai Mindermann endorsed the existing simple view (fewer fields) and asked for the same data-visualisation
+principle across the app, especially overviews and actions. The concrete target: no left nav, no top bar, only
+the top one to three next actions, and a toggle to expert view. It was the first point in his written notes;
+the next-actions view listed 73 items in the demo.
+
+Simple view exists as field tiers; expert mode only reveals advanced settings. Next actions show a hero card
+plus up to five rows per tier. No layout hides both the nav and the top bar; the sidebar only collapses to a
+rail. The issue cites three Smashing Magazine data-visualisation articles.
+
+The 2026-09-13 housekeeping audit folded in the never-built three-tier simple/modular/advanced mode
+(`docs/superpowers/specs/2026-06-04-simple-modular-advanced-mode-design.md`). Related: §518 (single-action
+focus mode).
+
+Size M–L — the chromeless next-actions view first, then the principle across overviews.
+
+**Source:** GitLab #58 (U-1, source::demo-2026-09-11)
+
+**Work item:** #58
+
+## 518. There is no single-action focus mode that steps through the next actions one at a time — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rln "ActionHeroCard" src/app` → `action-hero-card.tsx` and `actions-panel.tsx` (plus a test
+and `action-cta.ts`); no stepper exists. Never machine-verified beyond that.
+
+Kai Mindermann proposed showing one action at a time, with dots for what follows and "mark complete" to
+advance. It was proposed on the call as an experiment with a real project lead.
+
+The hero card shows one top action, but always above the full lists, and mark-done exists only for task
+actions (`canMarkDone`). Related: §517 (the simple-view principle).
+
+Size M — a one-at-a-time mode with position dots and complete-to-advance for every action type.
+
+**Source:** GitLab #59 (U-2, source::demo-2026-09-11)
+
+**Work item:** #59
+
+## 519. Unrecognised voice commands are not routed to the AI assistant, so interaction stays form-and-button first — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rn "export function parseCommand" src/app` → `voice.ts`, a fixed grammar. The unknown-command
+toast is never machine-verified beyond the issue's code check.
+
+Kai Mindermann asked that users express intent rather than operate forms and buttons, citing Smashing
+Magazine's "death of the button" article. It was brainstorming input, not prioritised; voice interaction was
+noted as already present.
+
+The AI assistant is the intent path (create, update and delete tools for most registers), but it sits behind
+the AI master switch, which is off by default. Voice commands are a fixed task-scoped grammar, and an unknown
+command shows an error toast instead of reaching the assistant.
+
+Size S–M for routing unknown voice commands; the wider intent-driven principle is unestimated.
+
+**Source:** GitLab #62 (U-5, source::demo-2026-09-11)
+
+**Work item:** #62
+
+## 520. The screen-reader claim has never been tested by hand, and several surfaces sit outside the axe scan — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -n "screen-reader-friendly" docs/features.md` → 1 hit, the untested claim;
+`grep -n "const A11Y_VIEWS" e2e/a11y.spec.ts` → 17 views. No manual screen-reader record exists; never
+machine-verified.
+
+Observed on the call: the WCAG and screen-reader claim was asserted but never tested.
+
+The axe gate is automated and is not a screen-reader test. Projects, Knowledge, Resources → Calendar, the create
+wizard and the task editor are not scanned. The 2026-09-13 housekeeping audit folded in that nobody has checked
+what a screen reader announces for the rich-text toolbar's role
+(`docs/superpowers/specs/2026-08-12-toolbar-roving-tabindex-design.md` leaves it out of scope).
+
+Related: §99 (unseeded slices scan empty states), §171, §203 (asset library outside axe), §58, §497 (the axe
+bump).
+
+Size M — a written NVDA/VoiceOver audit of the main flows, then axe on the unscanned surfaces.
+
+**Source:** GitLab #63 (U-6, source::demo-2026-09-11)
+
+**Work item:** #63
+
+## 521. A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rn "export function validateProjectMeta" src/app` → `project-validation.ts`. The design spec lives
+on the unpushed branch `docs/project-key-facts-spec` and is not in this checkout; nothing is implemented,
+never machine-verified beyond that.
+
+Kai Mindermann asked to remove mandatory fields at project creation and default or defer them. The project key
+comes from TimeLog as a PMO artefact and often does not exist yet, so it must be optional. It was accepted
+without reservation.
+
+`validateProjectMeta` requires eleven fields and the form disables Save until they pass. ★★ The 2026-09-12
+design found this is not a form change: `sanitizeProjectMeta` discards the whole project record when any of nine
+of those fields is blank, so relaxing only validation would lose a name-only project on its next strict decode
+from a text backend. Blank-value consumers must be audited too, because `??` does not catch an empty string
+(the TimeLog panel's project-code fallback is one).
+
+The spec is `docs/superpowers/specs/2026-09-12-project-key-facts-and-shell-polish-design.md`, section 4 (MR A),
+on that branch. Ship order across its three MRs is C → A → B, and the MR A plan is not written. Related: §522
+(flag missing data, depends on this), §523 (AI-assisted creation).
+
+Size M–L — five layers: type, sanitizer, validation, blank-value consumers and i18n.
+
+**Source:** GitLab #64 (O-1, source::demo-2026-09-11)
+
+**Work item:** #64
+
+## 522. Missing project data is not flagged where a feature needs it, because project creation gates on it instead — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified; designed on 2026-09-12, nothing implemented, and blocked on §521.
+
+Kai Mindermann asked that missing data be flagged only where a function cannot execute, not used to gate
+project creation. It was accepted.
+
+Just-in-time prompts already exist for some features (TimeLog and Turso not-configured messages, the chat's
+configure-AI button). The 2026-09-12 design (section 5, MR B, same spec as §521) routes the nudges through a new
+next-actions provider, not an insight type, and adds a Projects-list completeness meter. Its unknown state must
+read as unknown, never as zero, because other projects' key facts are unreadable from this device.
+
+The Projects view is not in `A11Y_VIEWS`, so unit tests and hand contrast checks are its only coverage.
+
+Size M — a next-actions provider plus a Projects-list completeness indicator backed by a per-device cache.
+
+**Source:** GitLab #65 (O-2, source::demo-2026-09-11)
+
+**Work item:** #65
+
+## 523. AI-assisted project creation is undiscoverable when AI is off, and its proposal still hits the eleven-field gate — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rln "Step0ImportPanel" src/app` → `create-project-wizard.tsx` and `step0-import-panel.tsx`
+(plus a test), so the feature exists.
+
+Kai Mindermann and Sebastian discussed creating a project from an uploaded file or free text. On the call it
+was said to exist but require enabling.
+
+The wizard's import step (describe, file, SharePoint, Confluence) produces a proposal that becomes a draft. It
+needs the AI master switch (default off) plus an API key, and with AI off the wizard never mentions the option.
+The proposal fills only some fields, so the user still hits the gate in §521.
+
+Related: §445 (`propose_project` model-write surface), §391.
+
+Size S–M — discoverability when AI is off; removing the gate after a proposal comes with §521.
+
+**Source:** GitLab #66 (O-3, source::demo-2026-09-11)
+
+**Work item:** #66
+
+## 524. The beta programme with UK testers and its feedback route into the backlog are not set up — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified; a process item with no code component.
+
+Michael Leather proposed a beta with Richard Priestley and Vinay running the app alongside live projects (Rene
+already uses it), with feedback routed into a backlog. It was accepted.
+
+There is no in-app feedback feature; the diagnostics panel's bundle is the nearest thing a tester can attach by
+hand. The issue's first code-check note called `APP_REPO_URL` a defect and a later comment corrected that: its
+value is deliberate, and only its name misleads, which §200 already records.
+
+Size unestimated (process item); an optional "Send feedback" link that pre-fills a GitLab issue would be S.
+
+**Source:** GitLab #68 (P-2, source::demo-2026-09-11)
+
+**Work item:** #68
+
+## 525. A recurring two-weekly follow-up with the demo stakeholders is not yet scheduled — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified; a process item with nothing in the repo.
+
+Michael Leather and Kai Mindermann asked for a follow-up every two weeks, and it was agreed on the call.
+Nothing in the repo relates to it.
+
+Size unestimated (process item) — a calendar series.
+
+**Source:** GitLab #69 (P-3, source::demo-2026-09-11)
+
+**Work item:** #69
+
+## 526. The initiative-board entry and the Demo Day presentation are not yet scheduled — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified; a process item with nothing in the repo.
+
+Kai Mindermann asked for an initiative-board entry and a Demo Day presentation. His requested cadence is
+biweekly, Tuesday to Thursday; Sebastian proposed Monday. It was agreed in principle, with scheduling
+unresolved.
+
+Size unestimated (process item) — organisational only.
+
+**Source:** GitLab #70 (P-4, source::demo-2026-09-11)
+
+**Work item:** #70
+
+## 527. There are no weekly user-facing release notes, and nothing makes a user-visible change carry a CHANGELOG entry — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rn "export function buildReleasePayload" scripts/release-publish-lib.mjs` → one hit; the Release
+only links to `CHANGELOG.md` at the tag. The absence of a CHANGELOG check in CI is never machine-verified.
+
+Kai Mindermann asked, in writing and as an imperative, for a changelog plus weekly release notes as a regular
+channel for improvements. It was agreed.
+
+`CHANGELOG.md` has one section per version, and the in-app highlights are one cumulative list
+(`APP_HIGHLIGHT_KEYS`), not per version. Nothing generates weekly notes. The 2026-09-13 housekeeping audit folded
+in that no check makes a user-visible change carry a CHANGELOG entry; `CONTRIBUTING.md` asks for one and
+`.gitlab-ci.yml` mentions the changelog only in a comment.
+
+Related: §479 (releases 1.0.1 and 1.0.2 were never tagged).
+
+Size S–M — a release-notes cadence, optionally the changelog excerpt in the GitLab Release description.
+
+**Source:** GitLab #71 (P-5, source::demo-2026-09-11)
+
+**Work item:** #71
+
+## 528. Roadmap, specs and follow-ups still live in markdown rather than GitLab issues, with no issue templates or prioritisation rules — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified. The register is about 2.7 MB; demo items #38–#74 and the §-titled register
+mirrors are already GitLab issues.
+
+Kai Mindermann asked to move the roadmap and specs from markdown to GitLab issues, so others can take up work in
+branches with their own Claude Teams licences, and to add prioritisation governance. The repo was already in
+GitLab; issue tracking was still one markdown file over 2 MB.
+
+The code check marked it started. Still open are whether the follow-up register moves wholesale (a pilot
+first), issue templates and labels, written prioritisation rules, and repointing AGENTS.md and CONTRIBUTING at
+the tracker.
+
+Related: §382 (the index rebuild is lossy), §429 (closed-entry Status lines are weakly gated).
+
+Size M — pilot the move, then templates and labels, prioritisation rules, and repointed AGENTS.md and CONTRIBUTING.
+
+**Source:** GitLab #72 (P-6, source::demo-2026-09-11)
+
+**Work item:** #72
+
+## 529. API key funding is unresolved, and every user must bring and pay for their own Anthropic key — OPEN
+
+**Status:** OPEN 2026-09-13 — never machine-verified beyond the issue's code check, which found no shared key and no Anthropic proxy
+route.
+
+Kai Mindermann raised API key funding: the Claude Teams subscription excludes API tokens, internal or dev keys
+with budget caps may be obtainable, and sponsorship depends on demonstrated user need. The app is currently
+privately financed, and Sebastian will not fund it beyond the current subscription term.
+
+Each user seals their own key in settings, and the browser calls the API directly. A funding decision comes
+first; open a code item for a server-side proxy only if a shared key is chosen. Related: §125 (billed calls
+with no way to stop them).
+
+Size unestimated (decision) — a shared key would need a new server-side proxy.
+
+**Source:** GitLab #73 (P-7, source::demo-2026-09-11)
+
+**Work item:** #73
+
+## 530. There is no Microsoft Teams integration, the remaining Microsoft 365 gap — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rlnE "joinedTeams|onlineMeeting|/chats|ChannelMessage" src/app` → no output.
+
+Sebastian named Teams on the call as the remaining Microsoft 365 gap, coming later. SharePoint, Outlook,
+calendar and mail are already integrated.
+
+Graph calendar read and write, contacts, outbound mail and SharePoint storage are real. There are no Teams
+calls and no Teams scopes. Related: §498 (the MSAL flow has never been smoke-tested against a real tenant).
+
+Size L — new Graph scopes, likely admin consent, then channel posts, online meetings and chat links.
+
+**Source:** GitLab #74 (P-8, source::demo-2026-09-11)
+
+**Work item:** #74
+
+## 531. Nothing checks that the register and GitLab issues stay one-to-one — OPEN
+
+**Status:** OPEN 2026-09-13 — `grep -rn "Work item" scripts .gitlab-ci.yml` → no output, so no script and no
+CI job reads the `**Work item:**` lines.
+
+**Work item:** #321
+
+The 2026-09-13 housekeeping linked the register to GitLab one-to-one. Every open entry carries one
+`**Work item:** #NN` line (a decision record carries `**Work item:** none — decision record`, a closed
+entry carries none), and every open issue in  (GitLab) is titled `§NNN: <heading>`, labelled
+`source::register`, and opens with a link to the entry. On that day 283 open entries matched 276 open
+issues plus 7 decision records.
+
+Nothing keeps it that way. `followups:index:check` and `followups:status:check` read only the register,
+and no job talks to GitLab. So a new entry with no issue passes. So does an entry closed while its issue
+stays open, or an issue closed in the GitLab UI while its entry stays open. The drift already happened
+once, on the day the link was built: §478 reached main from another branch with no issue, and was
+linked to #320 by hand.
+
+The check splits into two halves, and they fail differently:
+
+- **Register-only, blocking.** Every open entry has exactly one `**Work item:**` line, holding either
+  `#NN` or `none — decision record`. No closed entry has one, and no `#NN` appears on two entries.
+  It needs no network, so it can sit beside `followups-status-check` with the same exit split
+  (1 = drift, 2 = could not scan, 50-entry floor). `parseEntries` and `isClosed` in
+  `scripts/followup-claims-lib.mjs` already give it the open/closed split.
+- **GitLab comparison, warn-only.** Fetch the open issues and compare their `§NNN:` titles, both ways,
+  against the open entries and their `#NN`. This is the only half that sees an issue closed in the UI.
+  It needs an API token in CI, and a network or permission failure must not block a merge. It should
+  run on main (scheduled, or after merge) rather than on MR pipelines, because under "whoever merges
+  second rebases" a branch legitimately holds issues whose entries are not on main yet.
+
+The two-way check used during the housekeeping was a throwaway script and was not committed. Rebuild it
+from the rules above; don't go looking for it.
+
+Accepted and not part of this: closing an entry changes its heading suffix, so the anchor link in the
+issue body goes stale. The `§NNN` title still finds the issue.
+
+Related: §528 (moving follow-ups into GitLab issues). If that lands, this check is inverted or retired.
+
+Size S–M.
+
+**Source:** housekeeping audit 2026-09-13 (register ⇄ GitLab sync)

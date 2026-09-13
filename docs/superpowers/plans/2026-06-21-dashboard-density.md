@@ -1,5 +1,7 @@
 # Dashboard density toggle — implementation plan
 
+> **Status (2026-09-13 audit):** SUPERSEDED by the density control's move to Settings → Appearance — the dashboard-local toggle this plan built shipped, then was removed (AGENTS.md's ToggleButton section). Kept as a historical record; do not execute as written.
+
 > Inline TDD execution. Files share `i18n.ts` + `settings-types.ts` → coupled, run sequentially.
 
 **Goal:** Per-device Comfortable/Compact dashboard density (spacing only).

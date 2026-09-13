@@ -1,5 +1,7 @@
 # Modern Sidebar Layout — Phase 3: Table Restyle Implementation Plan
 
+> **Status (2026-09-13 audit):** PARTIAL — the table restyle itself shipped; the Phase 4 divergent-table sweep this plan deferred (reports.tsx, budget-panel.tsx, jira-conflicts-modal.tsx, roles-modal.tsx, resource-calendar.tsx) was never executed under this plan; no § tracks it, and the 2026-09-13 audit did not carry it into its candidate list (`grep -n -i "divergent" docs/open-followups.md` → no hits). Kept as a historical record; do not execute as written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give every primary data table the `table.png` treatment — a Dark-Blue header row with white text — sourced from one shared class constant, plus Light-Grey zebra striping on the LOP table.

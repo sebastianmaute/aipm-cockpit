@@ -2,7 +2,7 @@
 
 # Architecture
 
-Single Next.js app (public `next` pinned exactly at 16.2.11, React 19.2.4), **no server database and no backend of
+Single Next.js app (public `next` pinned exactly — read the version from `package.json` — React 19.2.4), **no server database and no backend of
 its own**. All project data lives client-side; the only server code is a set of thin same-origin
 proxies that exist to add auth + SSRF guards to third-party calls the browser cannot make directly,
 plus request-time middleware issuing a per-request CSP nonce.
@@ -56,7 +56,7 @@ plus request-time middleware issuing a per-request CSP nonce.
 | Next actions | `next-actions/` | pure ranking engine + providers → Action Center |
 | Insights loop | `insights/` | detect → reconcile → recommend → measure outcome |
 | Undo/redo | `undo/` | `UNDO_CAP` = 25 entries, in-memory, backend-agnostic |
-| Calendar sync | `use-entity-calendar-push` / `-pull` | two-way Outlook for task · RAID · change · absence; milestone push-only |
+| Calendar sync | `use-entity-calendar-push` / `-pull` | two-way Outlook for task · RAID · change · absence · milestone (`use-milestone-calendar-pull.ts`), wired in `use-calendar-integrations.ts` |
 | Diagnostics | `diagnostics.ts` | capped per-device ring, two-layer secret redaction |
 
 ## Layouts
@@ -67,9 +67,9 @@ strip), **popout** (read-only mirror, no header). A new top-bar control must be 
 
 ## CI gates (GitLab,  (GitLab))
 
-`install → quality → build → e2e`. Quality is blocking: lint (`eslint --max-warnings=0` — a warning fails
-the job exactly as an error does), `tsc --noEmit`,
-Semgrep SAST, dependency audit, file-size ratchet, jscpd duplication gate, vitest coverage floors.
+`install → quality → build → e2e → release` (the release stage runs on tag pipelines only). Quality is
+blocking; the jobs are listed in `docs/AGENTS/ci.md` and enumerated from the source with
+`grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml` (lint fails on any warning, `--max-warnings=0`).
 E2E includes an axe pass over the 17 `A11Y_VIEWS` × 7 scheme combos plus a Kanban scan per combo, one
 notes-window toolbar scan and one Documents block-editor scan, and the print spec. ★ That last kind
 was missing from this sentence. ★ MEASURE the scan count, do not derive it — the spec

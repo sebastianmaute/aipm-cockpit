@@ -1,5 +1,10 @@
 # Hand-rolled UI inventory
 
+> **Archived 2026-09-13.** Point-in-time inventory, kept as a record; not maintained. Remaining open
+> work lives in docs/open-followups.md (§102, with §109 for the modal-header miss) and GitLab. The
+> sort-header family is converted (§9, closed 2026-08-23), and heroicons were removed in 0.255.0 —
+> glyph targets now come from `src/app/icons.ts`.
+
 Snapshot taken 2026-08-07, on `63e4d768` (branch `feat/ui-batch-slice-1`, release 0.221.0).
 **Audit only — nothing here is scheduled.** Producing the list and acting on it are separate jobs.
 

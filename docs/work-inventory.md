@@ -1,5 +1,9 @@
 # Work inventory — open, planned and sketched
 
+> **Archived 2026-09-13.** Point-in-time inventory, kept as a record; not maintained. Remaining open
+> work lives in docs/open-followups.md (§44 S6/S7, §3 `optimize_wbs`, §219 DOCX/PPTX fidelity) and
+> GitLab. Its ESLint 10 "blocked" row is closed (§53, landed 2026-09-10).
+
 > Compiled 2026-08-21 against `main` at 0.252.0 "Brust"; sections 4, 5 and 7 re-measured later the
 > same day against `6c4e4162` (0.253.0 "Schroeder"). **Every number here rots.** Each claim carries
 > the command that reproduces it — run the command, never quote the number.

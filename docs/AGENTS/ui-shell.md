@@ -7,7 +7,7 @@
      Every claim here was true when written and some have outlived their code —
      grep before relying on one, and correct what you disprove in the same commit. -->
 
-# UI shell — Help · navigation · focus/keyboard · surfaces · dismissal
+# UI shell — Help · navigation · focus/keyboard · surfaces · tables · dismissal
 
 [← AGENTS.md](../../AGENTS.md) · [doc set](../../AGENTS.md#the-doc-set--what-lives-where)
 
@@ -307,38 +307,22 @@
   **Firefox never begins the drag at all**. The reports handle drove its reorder purely off React state
   and called no `setData`, so reorder was inert there — and jsdom dispatches the whole sequence happily,
   so no test could see it. Any new `draggable` calls `e.dataTransfer?.setData(...)` even when the payload
-  is unused. ★★ THE SWEEP IS NOW COMPLETE FOR THE REORDER FAMILY, and an earlier revision of this line
-  named three live offenders that no longer exist — the `budget-panel.tsx` bucket handle and both
-  `roles-editor.tsx` sites. All FIVE reorder surfaces (the Reports cards, the budget buckets, the rate
-  card plus the reference lists in `roles-editor.tsx`, and the Dashboard tile grid) take their drag
-  props from `useListReorderDnd`, and the HOOK owns the `setData` call. That is the point of the
-  extraction: remembering it stopped being a per-site decision, so a sixth call site cannot get it
-  wrong. ★ The Dashboard was the first ADOPTER rather than one of the four the extraction lifted, and
-  it is why the hook grew `onMove` (a pair, not a resulting list) and `endDrag`.
-  ★★ RE-DERIVE RATHER THAN TRUST THIS PARAGRAPH — AND KNOW WHAT THE COMMANDS CANNOT SEE:
+  is unused. ★★ Every REORDER surface takes its drag props from `useListReorderDnd`, and the HOOK owns the
+  `setData` call, so a new call site cannot forget it. ★ The Dashboard was the first ADOPTER rather
+  than one of the surfaces the extraction lifted, and it is why the hook grew `onMove` (a pair, not a
+  resulting list) and `endDrag`.
+  ★★ RE-DERIVE, AND KNOW WHAT THE COMMANDS CANNOT SEE. The hook's call sites are all `.tsx`:
+  `grep -rn "useListReorderDnd<" src/app --include=*.tsx | grep -v '\.test\.'` (it also matches
+  comments); at `--include=*.ts` the same grep returns only the hook's own definition in
+  `use-list-reorder-dnd.ts`. The INLINE handlers:
   `grep -rn "onDragStart" src/app --include=*.tsx | grep -v '\.test\.'` against
-  `grep -rn "setData" src/app --include=*.tsx`.
-  The first returns 15 lines (measured 2026-08-15 — this said 13, from before the Dashboard adopted the
-  hook) and NOT ONE of the five hook-driven surfaces is among them: the hook is a `.ts` file, which
-  `--include=*.tsx` never reaches, and its consumers spread `handleProps(id)` instead of writing a
-  handler. So a surface's ABSENCE from that grep now carries two opposite meanings the greps cannot
-  separate — routed through the hook (correct), or carrying no drag at all. What it still enumerates is
-  the INLINE handlers — EIGHT of the 15 — and each of those does pair with a `setData` in the second
-  grep. ★★ THAT SECOND GREP NEEDS THE TEST FILTER THIS LINE USED TO OMIT — as quoted above it returns
-  **35**; with `| grep -v '\.test\.'` appended it returns eight (measured 2026-08-15). The enumeration
-  was right and the command was not, which is the worse way round: a reader runs it, gets 35, and
-  distrusts a correct list. Eight non-test hits: gantt rows (1), the resource-calendar band (1) and
-  its rows (3), the stakeholder map (1), and both kanban surfaces (1 each). The remaining SEVEN hits are
-  not handlers at all: FOUR are a component merely FORWARDING an `onDragStart` prop on behalf of its
-  callers (`drag-handle.tsx`'s type, destructure and JSX, plus `dashboard-tile.tsx`'s `TileHandleProps`
-  type), and THREE are comments — one in each gantt file and one in `dashboard-tile.tsx`.
-  ★ ALL FIVE CALL SITES ARE `.tsx`, and an earlier revision of this line said the opposite — "add
-  `--include=*.ts` before concluding anything about the hook itself: that is where its five call sites
-  live", refuted by the command in its own parenthetical.
-  `grep -rn "useListReorderDnd<" src/app --include=*.tsx | grep -v '\.test\.'` returns all five
-  (`budget-panel.tsx`, `reports.tsx`, `roles-editor.tsx` twice, `dashboard-panel.tsx`); the same grep at
-  `--include=*.ts` returns ONE line, the hook's own `export function` in `use-list-reorder-dnd.ts`. So
-  `--include=*.ts` is what you add to reach the DEFINITION — never the call sites (measured 2026-08-15).
+  `grep -rn "\.setData(" src/app --include=*.tsx | grep -v '\.test\.'` (a bare `setData` pattern also
+  matches `loadAssetData`). Hook-driven surfaces never appear in the first — the hook is a `.ts` file
+  and its consumers spread `handleProps(id)` — so a surface's ABSENCE from it means EITHER routed
+  through the hook OR no drag at all. Its other hits are not handlers: components declaring or
+  FORWARDING an `onDragStart` prop (`drag-handle.tsx`, `arrangement-tile.tsx`,
+  `document-block-gutter.tsx`) and comments. Every inline handler it returns must pair with a
+  `.setData(` line from the second grep.
   ★★ A per-row drag handle needs a row-UNIQUE accessible name. Reports gave every handle the same
   `reorderHandle` string; axe cannot see that at any seed size, in a view it scans. The unit test
   asserting the names are DISTINCT is the only detector — and note every other test in that file finds its
@@ -493,6 +477,104 @@ commits that merely added comments above it; its `onChange` is
   SOURCE scan over every `.tsx` — a named-widget list, so a NEW button-first component is invisible to it
   until added there) plus per-suite render guards using `src/test/label-binding.ts`
   (`expectNoLabelBoundToButton`, which asks the browser's own `HTMLLabelElement.control`).
+
+### UI shell — tables: `SortResizeTh` and `TableFilter`
+
+★ Moved VERBATIM out of `AGENTS.md`'s "Architecture pointers" section on 2026-09-13 — only link targets changed. Positional words inside the moved text ("this file", "above", "below", "in Commands") still
+describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short pointer bullet.
+
+- **Shared sortable/resizable header cell (`SortResizeTh<K>` in `report-table.tsx`):** the
+  `<th className="relative px-3 py-2[ text-right] font-medium"> + SortHeaderButton + ColumnResizeHandle`
+  trio every report panel repeated per column (top cross-file jscpd clones, TD-6) is now ONE generic
+  component beside `SortHeaderButton`. `K` is fixed by the `sortKey` prop (the table's typed sort union),
+  so `sortCol` must be a valid key and `onSort={click}` typechecks with no cast. ★ `resizeCol` (defaults to
+  `sortCol`) + `width` are SEPARATE from `sortCol` — they diverge on the name/label column (sort key `name`,
+  width/resize key `label`). `align="right"` picks the `text-right` variant; `hint` forwards to the
+  `InfoTooltip`. DOM is byte-equivalent to the hand-rolled trio it replaced ONLY while `nameContext`
+  is absent. ★★ `nameContext` appends ` – <context>` to the header button's accessible name AND to
+  its hint tooltip's, so a caller that passes it is no longer byte-equivalent (Reports is
+  axe-scanned, and its headers now carry an `aria-label` they did not). Pass it when ONE VIEW
+  EMBEDS TWO TABLES THAT SHARE A COLUMN LABEL — that collision is what it exists for, and the two
+  tables need not be the same SHAPE (Reports, the motivating case, collides `AssigneeTable` against
+  `GroupOrLabelTable`). A single table needs nothing, and qualifying it adds noise to every screen
+  reader. Building the name from `label` inside the primitive rather than taking a finished string
+  is deliberate: containment for WCAG 2.5.3 then holds BY CONSTRUCTION, at every call site, with no
+  call site able to defeat it.
+  ★★★ **NO CONSUMER TALLY IS QUOTED HERE, AND RESTORING ONE IS A REGRESSION.** This spot carried a
+  per-file breakdown plus a total, and it rotted TWICE: an early revision said "raid-report (34)" and
+  omitted `resources-report` outright, and its correction ("TEN non-test files, 77 invocations",
+  measured 2026-08-04) was already wrong fifteen days later — `documents-list.tsx` had adopted the
+  component and nothing updated the list. Every sortable header in the app flows through here, so ANY
+  new sortable table moves the number; the list is stale the moment it is written. Read today's with
+  `grep -ro "<SortResizeTh" src/app --include="*.tsx" | grep -v "\.test\.tsx:" | wc -l` (drop the
+  `grep -v` and the total rises by `report-table.test.tsx`'s own invocations), and pipe it through
+  `sed 's/:.*//' | sort | uniq -c` for the per-file split. ★ `reports-tables`
+  and `budget-report` were once "left as-is" over local sort-var naming and have since adopted it, so
+  every sortable header in the app now flows through here (which is why the `aria-sort` below lifts them
+  all at once). NON-sortable text-only header cells (no `SortHeaderButton`) keep their raw `<th>` +
+  `ColumnResizeHandle`.
+  ★ `onResize` is OPTIONAL — omit it for a table that sorts but stores no column widths (the calendar series
+  list) and NO handle renders. Never pass a no-op instead: that draws a grip which looks draggable and does
+  nothing, the exact false affordance this component exists to avoid.
+  ★★ **`stickyLeft` DOES TWO THINGS, and the second one is the surprise.** It pins the column
+  (`position: sticky` at that px offset) AND it silently changes what `width` MEANS: at every OTHER
+  invocation (it is passed exactly once today, and the tally of the rest is deliberately not quoted —
+  see the ★★★ no-consumer-tally rule above; derive both with
+  `grep -ro "stickyLeft=" src/app --include="*.tsx" | grep -v "\.test\.tsx:" | wc -l`
+  and the `<SortResizeTh` count beside it) `width` is a MINIMUM (`table-layout: auto` lets content grow the column past it), but
+  passing `stickyLeft` adds `max-width` + `overflow-hidden` + `whitespace-nowrap` so the declared width
+  becomes the RENDERED one. That coupling is deliberate — anything pinned to the RIGHT is placed by
+  arithmetic over this column's DECLARED width, so a wider render puts the neighbour on top of this
+  column's own content — but a caller reaching for "pin this" gets a clamp it did not ask for. ★ `0` is a
+  REAL offset (the leading fixed column), so both the class branch and the style branch check
+  `stickyLeft === undefined`, never truthiness; `report-table.test.tsx` pins the offset-0 case in BOTH
+  branches precisely because a `!stickyLeft` "simplification" ships green otherwise.
+  ★★★ `position` MUST stay in the CLASS, never the inline style. An inline declaration outranks every
+  author rule in every media, so an inline `position: sticky` leaves the `print:static` beside it
+  permanently inert — and the print stylesheet strips the scroll container these cells are positioned
+  against, so a pinned cell with no scroller offsets against the PAGE. Measured in Chromium under
+  emulated print media: inline sticky + class static computes `sticky`; class sticky + class static
+  computes `static`. Only `left`/`width` are inline (per-instance values).
+  ★★ The pinned header clips with `overflow-hidden whitespace-nowrap` while the matching BODY cell in
+  `budget-panel-totals.tsx` uses `truncate` (the same two properties PLUS `text-overflow: ellipsis`), so
+  a narrowed role column cuts the header label mid-glyph while the row labels beneath it get "…".
+  **Do NOT "fix" that by swapping in `truncate` — measured in Chromium, the two render IDENTICALLY.**
+  The header's content is an inline-flex `SortHeaderButton`, an atomic inline, and `text-overflow` does
+  not apply to one; the body cell ellipsizes only because its content is raw text. The asymmetry is
+  inherent to the header holding a button, not to the class choice, and jsdom cannot see either.
+  ★★ The `<th>` carries **`aria-sort`** (`ascending`/`descending`/`none`), derived from the SAME `active` value
+  the arrow is, so the announced and drawn states cannot drift; `active` gates on BOTH `sortKey === sortCol`
+  AND `sortDir !== "off"` ("off" is a real member of the asc→desc→off cycle, so naming the column is not
+  enough). The `↑`/`↓` is `aria-hidden` — it stays VISIBLE and in `textContent` (existing glyph assertions in
+  `report-table.test.tsx` + `calendar-series-list.test.tsx` read textContent, so they are unaffected) but out
+  of the accessible NAME, since aria-sort already says it. axe has NO rule for a missing aria-sort, so the
+  gate is silent on regressions here — the unit tests are the only coverage.
+  ★★ **ALL FOUR ARE NOW IN STEP — corrected 2026-08-25, and the sentence this replaces was the
+  falsifiable half.** It read: the raw-`<th>` tables "are NOT in step", `change-panel.tsx` +
+  `raid-panel-rows.tsx` + `stakeholders-panel.tsx` "set aria-sort AND keep a ▲/▼ inside the button's
+  name", `activity-log-panel.tsx` "has the glyph with NO aria-sort at all", and folding them in was
+  "a follow-up, not a claim about today". Every one of those four tables has since adopted
+  `SortResizeTh`, so each sortable header takes its `aria-sort` and its `aria-hidden` glyph from the
+  one component and the double announcement is gone from all of them. Measure, do not trust this
+  sentence: `for f in change-panel raid-panel-rows stakeholders-panel activity-log-panel; do echo "$f $(grep -c SortResizeTh src/app/$f.tsx) $(grep -c aria-sort src/app/$f.tsx)"; done`
+  → adoptions 8 / 8 / 6 / 6 (each includes the import line) against aria-sort 0 / 0 / 0 / **1**.
+  ★★★ THAT LONE 1 IS A COMMENT, NOT MARKUP — `activity-log-panel.tsx` explains there why a fourth
+  hand-rolled sort button was never written — so the obvious grep tally counts PROSE as code and
+  would report the file as still hand-rolling its own. The raw `<th>` left in the other three are
+  the NON-sortable text-only cells the rule above already permits, not sort headers.
+  ★ `SortHeaderButton` is used ONLY by `SortResizeTh`, so hiding the glyph cannot strand a raw `<th>`
+  that lacks aria-sort.
+  ★★ KNOWN LOSS: VoiceOver/Safari does not announce `aria-sort`, so a VO user goes from hearing
+  "Title ↑" to "Title". Standard-correct (the glyph was never a state) but a real regression for that
+  one AT — do not re-litigate it as a pure win.
+- **★ `TableFilter` (`report-table.tsx`) has exactly ONE clear ✕, overlaid INSIDE the field.** The input is
+  `type="search"`, so Chrome/Safari draw their own ✕ inside it; a sibling clear button therefore read as TWO
+  clears on those browsers while Firefox — which draws none — showed only ours. The fix suppresses the native
+  one (`[&::-webkit-search-cancel-button]:appearance-none`) and absolutely-positions our button over the field
+  (`pr-8` reserves the room). ★ Do NOT "simplify" this back to a sibling button, and do NOT drop our button in
+  favour of the native one — the native ✕ does not exist in Firefox and is not keyboard-reachable. Shared by
+  7 panels (budget · budget-report · change-report · raid-report · reports-tables · resources-panel ·
+  resources-report), several axe-scanned.
 
 ### UI shell — dismissal: Escape & Tab ownership
 

@@ -1,5 +1,7 @@
 # Reports arrangement + Turso confirm-gate — Implementation Plan
 
+> **Status (2026-09-13 audit):** PARTIAL — code shipped (merged twice); the slice's own owed eye-verify checks remain open, tracked in §426. Kept as a historical record; do not execute as written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Gate Settings' Move-to-Turso on a confirmed connection test, and give the Reports view full Dashboard-parity arrangement (drag-reorder, hide/restore, per-block resize, reset) by extracting a neutral arrangement core that both surfaces adapt.

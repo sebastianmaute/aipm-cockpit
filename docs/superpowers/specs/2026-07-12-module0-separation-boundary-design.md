@@ -1,5 +1,7 @@
 # Module 0 — Separation Boundary Foundation (design)
 
+> **Status (2026-09-13 audit):** NOT STARTED — candidate foundation for multi-tenancy, tracked in GitLab #47. Kept as a historical record; do not execute as written.
+
 Date: 2026-07-12
 Status: Approved (design); pending implementation plan
 Author: brainstorming session

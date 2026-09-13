@@ -13,7 +13,7 @@ backend is configured. Storage namespace is `aipm-cockpit`.
 **Optional/additive** (each defaults on load; absent ⇒ byte-identical output): `budgets` · `fxRates` ·
 `status` · `milestones` · `changes` · `stakeholders` · `project` · `fieldVisibility` · `features` ·
 `steeringCommittee` · `timelogLinks` · `knowledgeItems` · `insights` · `activityLog` · `documents` ·
-`documentVersions` · `settingsOverrides` · `calendarEvents`
+`documentVersions` · `settingsOverrides` · `calendarEvents` · `documentAssets`
 
 ★ Do not quote that list from here — read it off the `Workspace` type, which is the only place it
 cannot rot. Four of these were added after this file was first written and three went unrecorded.
@@ -35,7 +35,7 @@ backend:
 | 5 | Turso tenant | same, composite `(id, project_id)` PK |
 | 6 | IndexedDB | `browser-backend.ts` — object store or KV slot |
 
-An `ENTITY_SPECS` row (`turso-schema.ts`, 13 rows) buys paths 2·4·5 at once. A field must also join
+An `ENTITY_SPECS` row (`turso-schema.ts`; count with `grep -c 'table: "' src/app/turso-schema.ts`) buys paths 2·4·5 at once. A field must also join
 `isWorkspaceEmpty`, `nonEmptyCollectionCount` and `workspaceRecordCount` — miss those and an
 entity-only project reads as EMPTY (arming the data-loss guard against a legitimate save) or a mass
 deletion goes undetected.
@@ -47,8 +47,9 @@ deletion goes undetected.
 
 ## Turso schema
 
-`TABLE_NAMES` = 13 entity tables (`tasks` `raid` `absences` `shifts` `resources` `roles`
-`disciplines` `grades` `budget_buckets` `milestones` `changes` `stakeholders` `calendar_events`) +
+`TABLE_NAMES` = the `ENTITY_SPECS` tables (`tasks` `raid` `absences` `shifts` `resources` `roles`
+`disciplines` `grades` `budget_buckets` `milestones` `changes` `stakeholders` `calendar_events`
+`document_assets`) +
 `plan` + `fx_rates` + `meta`.
 
 ★ Workspace save issues a **per-table DELETE**, so any non-workspace table must stay OUT of
@@ -84,7 +85,7 @@ escaped markup or fused text.
 |---|---|---|
 | `rich-text-plain.ts` | **NO — never calls DOMPurify** | `descriptionHtml` (upgrade) · `htmlPlainProjection` · `htmlTextLength` · `capHtmlText` · `sanitizeRichText` |
 | `rich-text-projection.ts` | yes, browser-only | `descriptionText` (search / AI / previews) · `descriptionTextWithBreaks` (the FLAT export paths only — XLSX and `doc-render-pptx`'s TABLE CELLS; the workspace exporter's row slides left this set on 2026-09-01, see below; DOCX and HTML/PDF render markup) · `appendDictationToHtml` |
-| `rich-text-runs.ts` | yes, browser-only (DOMParser) | `htmlToRichLines` — HTML → styled runs; the SHARED parse behind the DOCX and PPTX renderers, so the two OOXML renderers cannot drift. ★★ Its production callers are `ooxml-docx-primitives.ts`, `doc-render-pptx.ts` and — since §330 gave the workspace row slides a link sink — `export-sections.ts` — **NOT `doc-render-docx.ts`**, which this row named until the DOCX call moved during §141(b). ★★ The third was missing here until 2026-09-02, and the row's OWN reproduce command returned it: a list that its attached command refutes is worse than no list. Enumerate rather than trust: `grep -rn 'htmlToRichLines(' src/app --include=*.ts \| grep -v '\.test\.'`. `RichLine` carries `kind: "heading"` + `level`, `kind: "li"` + `ordered`/`depth`/`index`/`task`, and `align`; a wrapped item continues as further `li` lines carrying `continuation: true`, which a renderer indents like the item but must NOT re-mark |
+| `rich-text-runs.ts` | yes, browser-only (DOMParser) | `htmlToRichLines` — HTML → styled runs; the SHARED parse behind the DOCX and PPTX renderers, so the two OOXML renderers cannot drift. ★★ Its production callers are `ooxml-docx-primitives.ts`, `doc-render-pptx.ts` and — since §330 gave the workspace row slides a link sink — `export-sections.ts` — **NOT `doc-render-docx.ts`**, which this row named until the DOCX call moved during §141(b). ★★ The third was missing here until 2026-09-02, and the row's OWN reproduce command returned it: a list that its attached command refutes is worse than no list. Enumerate rather than trust: `grep -rn 'htmlToRichLines(' src/app --include=*.ts \| grep -v '\.test\.'` (it also returns comment lines, e.g. in `export-docx.ts`). `RichLine` carries `kind: "heading"` + `level`, `kind: "li"` + `ordered`/`depth`/`index`/`task`, and `align`; a wrapped item continues as further `li` lines carrying `continuation: true`, which a renderer indents like the item but must NOT re-mark |
 | `ai-rich-text.ts` | yes, browser-only | `sanitizeAiRichText` / `withAiRichFields` (`sanitizeRichHtml` / `RICH_ALLOWED_TAGS` — guards the seven rich entity fields: `Task.description` plus the six in `AI_RICH_FIELDS`) · `sanitizeAiDocumentRichText` (`sanitizeDocumentHtml` — model-authored document `paragraph.html` only). ★★ Still not interchangeable, but the delta is now **one tag**: `DOCUMENT_ALLOWED_TAGS` is `[...RICH_ALLOWED_TAGS, "img"]`. The BEHAVIOUR delta USED to be three things with exactly ONE widening — §140 (2026-08-13) CLOSED the widening one: `sanitizeRichHtml` now also sets `ALLOW_DATA_ATTR: false` under the same `ATTR_VALUES` value allow-list `sanitizeDocumentHtml` already used, so an unlisted `data-*` is dropped identically by both (measured: `rich('<p data-foo="1">a</p>')` → `<p>a</p>`, `doc(...)` → `<p>a</p>` — the row did not narrow, it is GONE). **TWO differences survive and NEITHER widens** — wiring a document boundary to the rich one (a) drops `img`, NARROWING (VOID, so it vanishes rather than unwrapping — measured: `rich('<p>a</p><img src="x.png"><p>b</p>')` → `"<p>a</p><p>b</p>"`, doc keeps the element); and (b) cuts the cap 20 000 → 5 000, NARROWING DESTRUCTIVELY, because `capHtmlText`'s truncation branch FLATTENS marks to escaped plain text (measured on 6 001 visible chars carrying a `<mark>`: rich → 5 007 chars, mark GONE; doc → 6 021 chars, mark intact). ★ A third, NARROWER `data-*` difference remains and is not a revival of the closed one: `sanitizeDocumentHtml` additionally admits `data-asset-id` (§117b, a future images slice) under its own charset/length predicate; `sanitizeRichHtml` does not carry that name at all (measured: `rich('<p data-asset-id="a1-B2">x</p>')` → `<p>x</p>`, `doc(...)` → keeps it) — one bounded, value-guarded name, not the unconstrained pass-through the closed row described. ★★★ This cell said "drops IMAGES and nothing else", and its first correction then said "two of them WIDEN" — wrong in BOTH directions at once, and self-refuting, since the same sentence enumerated a dropped tag and a cut cap as two of the three. It also claimed "DROPS all nine of `s`/`code`/`pre`/`blockquote`/`hr`/`mark`/`sub`/`sup`/`img`" against the RETIRED `sanitizeTemplateHtml`; re-measured 2026-08-11 on dompurify 3.4.13, eight of those nine are in `RICH_ALLOWED_TAGS` and the old worked example `"<p>a</p><hr><p>b</p>"` is now byte-identical through both sanitizers |
 
 ★★★ The DOM-free rule on `rich-text-plain.ts` is load-bearing for **data integrity, not style**: it

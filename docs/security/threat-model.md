@@ -1,5 +1,11 @@
 # aipm-cockpit Threat Model (STRIDE)
 
+> **Scope banner, added 2026-09-13.** This STRIDE pass was done against v0.164 "Cixin" (2026-07-02);
+> the pass has not been re-run since. The fifth `SecretId`, `sttApiKey`, and the
+> `/api/stt` proxy route (browser → same-origin `/api/stt` → a user-configured OpenAI-compatible host)
+> were added after it and are **unreviewed** here — the review-cadence trigger below has fired for both.
+> Line-number citations and counts below are as of the date on each, not current.
+
 **Date:** 2026-07-02 · **Scope:** v0.164 "Cixin" · **Author role:** Senior software architect
 **Review cadence:** re-run this STRIDE pass on every new trust boundary — a new external host in the CSP `connect-src`/`frame-src` allowlist (`src/proxy.ts`), a new `SecretId` (`src/app/secrets.ts:8`), or a new `/api/*` route. Owner: security-lead; enforced in MR review via the CSP + SecretId lockstep lists.
 
@@ -18,7 +24,7 @@
 | Workspace / project data | file (JSON/CSV/MD) · IndexedDB `aipm-cockpit` · Turso | per backend | not a secret; user's own data |
 | M365 tokens | MSAL-owned cache (NOT app-managed) | browser → `graph.microsoft.com` / `login.microsoftonline.com` | app stores only public clientId/tenantId |
 
-**Optional passphrase wrap:** any `SecretId` may be PBKDF2-wrapped (`secrets.ts:170-187`) — **600,000 iterations, SHA-256** (`secrets.ts:46`), meets OWASP ASVS 2023 (≥ 600k for PBKDF2-HMAC-SHA256). Device wrap is the default; passphrase-wrapped secrets stay `""` in memory until unlock.
+**Optional passphrase wrap:** the `secrets.ts` API accepts a PBKDF2 passphrase wrap for any `SecretId`, but only `anthropicApiKey` and `tursoAuthToken` have a passphrase UI (`git grep -n "setSecretPassphrase(" -- src ':!*.test.*'`); the Jira, Timelog and STT tokens are device-wrapped only (corrected 2026-09-13: this line said "any `SecretId` may be PBKDF2-wrapped") — **600,000 iterations, SHA-256** (`PBKDF2_ITERS`: `grep -n "const PBKDF2_ITERS" src/app/secrets.ts`), meets OWASP ASVS 2023 (≥ 600k for PBKDF2-HMAC-SHA256). Device wrap is the default; passphrase-wrapped secrets stay `""` in memory until unlock.
 
 ---
 
@@ -53,7 +59,7 @@ The strongest surface — this is where the server makes outbound calls on the u
 | STRIDE | Threat | Existing mitigation (verified) | Residual | Action |
 |---|---|---|---|---|
 | I/E | **SSRF to internal host** | **Host allowlist**: jira `=== "atlassian.net" \|\| endsWith(".atlassian.net")` (`jira/_helpers.ts:115-121`); timelog `=== "timelog.com" \|\| endsWith(".timelog.com")` (`timelog/_helpers.ts:81-84`). Leading-dot rejects `evil-atlassian.net` / `atlassian.net.attacker.com`. | DNS-rebind to an allowed name resolving internal is blocked by the allowlist sidestepping resolution entirely (documented `jira/_helpers.ts:109-114`) | none |
-| I/E | SSRF via IP literal / metadata endpoint | `isPrivateHost` fail-closed: loopback, RFC1918, 169.254/16 (cloud metadata), IPv6 ULA/link-local, NAT64 `64:ff9b::/96`, IPv4-mapped IPv6 recovered + re-checked (`jira/_helpers.ts:69-107`, mirrored timelog) | — | none |
+| I/E | SSRF via IP literal / metadata endpoint | `isPrivateHost` fail-closed: loopback, RFC1918, 169.254/16 (cloud metadata), IPv6 ULA/link-local, NAT64 `64:ff9b::/96`, IPv4-mapped IPv6 recovered + re-checked (`isPrivateHost` in `api/_shared/proxy-ssrf.ts`, shared by the proxies; corrected 2026-09-13 — it was cited in `jira/_helpers.ts`, "mirrored timelog") | — | none |
 | T | Credential-injection / port smuggling in host | timelog rejects `@` and `:` in host up front (`timelog/_helpers.ts:90`); jira normalizes via `new URL` + origin-only (`jira/_helpers.ts:123-138`) | — | none |
 | T | **Path traversal / request smuggling** | timelog rejects `..`, `\r`, `\n`, `#` and enforces `^/v1/` prefix (`timelog/_helpers.ts:135-145`); confluence validates `pageId` `^\d+$` server-side (`confluence/page/route.ts:12-15`); tenant `encodeURIComponent`'d (`timelog/_helpers.ts:168`) | — | none |
 | T | Field injection on Jira write | `sanitizeIssueFields` allowlists summary/priority/labels/description/duedate, strips all else (`jira/_helpers.ts:200-267`) | — | none |
@@ -75,7 +81,7 @@ The strongest surface — this is where the server makes outbound calls on the u
 ## Existing mitigations inventory (verified)
 
 - **Secrets at rest:** `secrets.ts` — AES-256-GCM, non-extractable device key (`generateKey(..., false, ...)` at `:113-116`), PBKDF2 600k iters (`:46`), singleton device-key promise prevents concurrent-tab key overwrite (`:99-125`).
-- **SSRF:** `jira/_helpers.ts` + `timelog/_helpers.ts` — host allowlist (leading-dot), `isPrivateHost` fail-closed (RFC1918/loopback/metadata/IPv6-ULA/NAT64/mapped-IPv4), https-only, `@`/`:`/`..`/CRLF/`#` rejection, path prefix allowlist, `encodeURIComponent` tenant.
+- **SSRF:** `jira/_helpers.ts` + `timelog/_helpers.ts` — host allowlist (leading-dot), `isPrivateHost` (now shared from `api/_shared/proxy-ssrf.ts`) fail-closed (RFC1918/loopback/metadata/IPv6-ULA/NAT64/mapped-IPv4), https-only, `@`/`:`/`..`/CRLF/`#` rejection, path prefix allowlist, `encodeURIComponent` tenant.
 - **CSP:** `proxy.ts` — per-request nonce, `script-src 'nonce' 'strict-dynamic'` (no `unsafe-inline`), `worker-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, tight `connect-src` allowlist.
 - **Rate limiting:** `jira/_rate-limit.ts` — 60/min/IP sliding window, per-route scope, amortized eviction.
 - **Input validation:** `sanitize.ts` barrel at every entity boundary; `sanitizeIssueFields` server-side field allowlist for Jira writes.

@@ -1,5 +1,7 @@
 # Electron Desktop Bundling Implementation Plan
 
+> **Status (2026-09-13 audit):** PARTIAL — a manual "check for updates" link shipped; true auto-update (silent background download/install via electron-updater) is out of scope, and Spike 1 (UNC vs HTTPS update feed) stays open in the paired design's Open Questions; both are tracked in §480. Kept as a historical record; do not execute as written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Produce an installable Windows desktop app that a non-technical colleague can double-click to run — no terminal, no Node install, no `npm` on their laptop.

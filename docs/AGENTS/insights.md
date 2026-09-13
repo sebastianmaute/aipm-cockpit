@@ -13,14 +13,13 @@
 
 ### Insights → action loop
 
-- **Pure `insights/` engines (i18n-free):** `detect.ts` `detectInsights(input, today)` runs FIVE
-  deterministic detectors (milestone slip · stalled/no-progress work · budget aging · RAID aging ·
-  overdue-trend) → `DetectedInsight[]`; `reconcile.ts` `reconcileInsights(stored, detected, today)` merges
+- **Pure `insights/` engines (i18n-free):** `detect.ts` `detectInsights(input, today)` runs the
+  deterministic detectors (milestone slip · stalled/no-progress work · budget variance · RAID aging ·
+  overdue-trend · the four TimeLog guardrails, below) → `DetectedInsight[]`; `reconcile.ts` `reconcileInsights(stored, detected, today)` merges
   detected signals into the stored record, DEDUPES by a stable key, and PRESERVES each insight's lifecycle
   (`active` → `acknowledged`/`acted`/`dismissed` → `resolved`). `sanitize-insights.ts` = the single validator
   (never throws), `insight-text.ts` = i18n-free label/summary helpers, `insight-prompt.ts`
-  `buildInsightsPromptBlock(insights)` = the AI context block. ★ `overdueTrend` is INERT in SP1 — it needs a
-  prior-overdue count threaded in (SP2); do NOT treat its empty output as a bug.
+  `buildInsightsPromptBlock(insights)` = the AI context block.
 - **Persistence + export:** `Workspace.insights` is a JSON blob persisted across ALL SIX write paths
   (JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB) and is EXPORTABLE via a new `insights` `ExportSectionKey`
   (default OFF, like `knowledgeItems`). ★★ An EMPTY record is BYTE-STABLE (no golden regen); mirrors the
@@ -48,7 +47,7 @@
   `outcome` is only ever written against a `metricAtAction` baseline that reconcile captures at the first
   transition to `acted`. That is what licenses the "→ acted" wording on a row whose status now reads
   `resolved`.
-  ★ `outcome.current`/`outcome.delta` are ABSENT when an insight simply stopped firing (four of the five
+  ★ `outcome.current`/`outcome.delta` are ABSENT when an insight simply stopped firing (most
   detectors are threshold-gated, so "cleared" means below-threshold, not zero) — `outcomeLine` then prints the
   direction with no magnitude rather than implying a measured move.
   ★★★ **`delta` is `baseline − current`, so POSITIVE means BETTER** (every insight metric is
@@ -101,7 +100,7 @@
   (`{direction: improved|unchanged|worsened, baseline, current, delta, measuredAt}`). Both ride the SAME
   insights blob (no new backend path, byte-stable when absent). Pure i18n-free `insights/outcome.ts` owns
   `METRIC_FIELD` (milestoneSlip→`daysOverdue` · overdueTrend→`current` · stalledWork→`count` ·
-  budgetVariance→`variancePct` · raidAging→`daysSinceUpdate`), `insightMetricValue`/`insightMetricSnapshot`/
+  budgetVariance→`variancePct` · raidAging→`daysSinceUpdate` · each of the four TimeLog guardrail types→`count`), `insightMetricValue`/`insightMetricSnapshot`/
   `metricAtActionPatch`/`baselineOf`/`computeOutcome`. ★★ ALL metrics are LOWER-IS-BETTER, so `improved` ⇔
   current < baseline and `delta = baseline − current` — there is deliberately NO per-type direction table;
   a new detector whose metric is higher-is-better would break that assumption and needs one. ★ `delta` is
@@ -111,7 +110,7 @@
   (a re-act must not overwrite the baseline). ★★ MEASUREMENT lives in `reconcile`: `upsert` re-measures an
   `acted`+still-detected record from the fresh `det.data`; `clear` labels the (pre-existing SP1) acted→resolved
   auto-resolve as `improved` via `computeClearedOutcome` — ★★ DIRECTION-ONLY (no `current`/`delta`): four of
-  the five detectors are THRESHOLD-gated (`stalledWork count<3`, `budgetVariance pct<10`, `raidAging days<7`,
+  the five original detectors are THRESHOLD-gated (`stalledWork count<3`, `budgetVariance pct<10`, `raidAging days<7`,
   `overdueTrend current<=prior`), so "cleared" is BELOW THRESHOLD not zero, and reconcile has no detection left
   to read the true value from — emitting `current: 0` OVERSTATES the delta (review-caught: "improved by 10" for
   a real move of 8). `InsightOutcome.current`/`delta` are therefore OPTIONAL and the badge renders
@@ -130,8 +129,8 @@
   This mirrors every other non-Health dot in the app (`TIER_RAG` in `actions-panel`/`action-chips`, the
   resource-picker linked marker, tour step dots); `RagDot` stays reserved for genuine RAG health. Don't
   "fix" it to RagDot. ★ SP2 fold-ins landed here too:
-  the recommendation context now includes a bounded linked-entity digest (milestones + raid only — the only
-  detectors with an `entityRef`; RAID owner via `effectivePersonName`, incl. the `mitigation` plan so the model
+  the recommendation context now includes a bounded linked-entity digest (milestones + raid only — `use-insight-recommendations.ts` has no
+  resolver for the guardrails' `resources` ref; RAID owner via `effectivePersonName`, incl. the `mitigation` plan so the model
   stops re-proposing an existing fix), a `rejected` recommendation re-offers the Generate CTA (shared
   `GenerateRecommendationCta`, NOT duplicated JSX — the dup gate is blocking), `runInsightRecommendation` lost a
   dead `| null`, and the background runner lost an unused `now` arg. ★ the apply preview re-derives against LIVE
@@ -171,4 +170,13 @@
   tick spends an EXTRA BILLED ROUND on every settings edit. The tick body lives in a `useRef` initializer
   (NOT an assignment during render — that trips the react-hooks purity rule); freezing the first closure is
   safe ONLY because the body reads nothing but refs — keep it that way.
+- **TimeLog guardrail insights:** `detectInsights` also turns TimeLog guardrail violations into
+  insights, one per rule × TimeLog user (key `timelog:<rule>:<timelogUserId>`), typed
+  `timelogCapPerEntry` · `timelogCapPerDay` · `timelogNonWorkingDay` · `timelogWorkingHours`, all
+  `medium` severity, with an `entityRef` to the resource only when the user link resolves. The rules
+  run in pure `timelog-policy.ts` `evaluateTimelogPolicy`, which the task-manager runner feeds from the
+  per-device actuals cache; with no daily roll or no policy it returns nothing. ★★ The policy's
+  `evaluated` set, not its violations, decides whether a stored guardrail insight may resolve: a rule
+  that could not run produced nothing because it was not evaluated, not because nothing was violated
+  (see the `timelog-policy.ts` header). ★ All four measure `count` (violating days), never `worstHours`.
 

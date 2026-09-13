@@ -1,5 +1,7 @@
 # Release 4 — AI planning & structure tools
 
+> **Status (2026-09-13 audit):** PARTIAL — three of the four planning tools shipped; the fourth, `optimize_wbs`, was deferred by this design's own §5 and remains open, tracked in §3. Kept as a historical record; do not execute as written.
+
 Date: 2026-07-25
 Target version: **0.201.0** (codename TBD at release time — verify unused via `CHANGELOG.md` grep)
 Predecessor: R3 Dashboard, 0.200.0 "Kadrey" (MR !320)

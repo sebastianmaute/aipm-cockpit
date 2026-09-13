@@ -28,7 +28,7 @@ src/app/layout.tsx        root layout, security headers, globals.css,
 `help` · `learning-insights` · `steering-committee` · `timelog` · `portfolio-health`
 
 ★ Adding a member forces four exhaustive-`Record` edits or tsc/runtime breaks: `CORE_VIEWS`
-(`feature-modules.ts`), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `ICON_PATHS`
+(`feature-modules.ts`), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `NAV_ICON`
 (`nav-icons.tsx`), plus the i18n key. Turso-only views also go in `TURSO_ONLY_VIEWS` **and**
 `subTabsFor`.
 
@@ -44,8 +44,9 @@ src/app/layout.tsx        root layout, security headers, globals.css,
 | Display timezone | `display-timezone-context` — ephemeral, never persisted |
 
 ★ A context consumer re-renders on value change **regardless of an ancestor `memo` bailout**. That is
-why `tasksById` was split out, and why `ResourcesPanel` (the only `memo()`'d panel) must take props
-rather than call `useWorkspace()`.
+why `tasksById` was split out, and why a `memo()`'d panel must take props rather than call `useWorkspace()`. Several are
+memo'd (`ResourcesPanel`, `ResourceDirectory`, `ChatPanel`, `ActivityLogPanel`, and the RAID, Change and Stakeholders
+bodies) — list them with `grep -rn "= memo(" src/app --include=*.tsx | grep -v test | grep -i "panel\|ResourceDirectory"`.
 
 ## Panel decomposition pattern
 
@@ -104,8 +105,8 @@ off-palette colors, gradients or shadows except via `--shadow-*` / `--gradient-k
 
 ## a11y
 
-The 17 views of `A11Y_VIEWS` × 7 scheme combos, plus one Kanban scan per combo and one notes-window
-toolbar scan. The combos are harbor, meridian and umber in BOTH light and dark, plus beacon light —
+The 17 views of `A11Y_VIEWS` × 7 scheme combos, plus one Kanban scan per combo, one notes-window
+toolbar scan and one Documents block-editor scan. The combos are harbor, meridian and umber in BOTH light and dark, plus beacon light —
 beacon is light-only by design, so there is no dark combo of it to add. Umber dark was missing from
 the matrix while everything around it read as covered, and is now scanned like its
 siblings. ★ Read the totals off

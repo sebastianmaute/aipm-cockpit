@@ -31,7 +31,8 @@ If you use **Turso storage**, your projects appear as soon as the token is enter
 
 - Closing the window closes the app completely.
 - Opening it again while it is already running just brings the existing window to the front.
-- To print, press **Ctrl+P** or use **File → Print…**. It prints the view you are
+- From version 1.0.1, to print, press **Ctrl+P** or use **File → Print…** (the
+  1.0.0 installer has neither). It prints the view you are
   looking at, so open the pane you want on paper first.
 - Exporting a PDF opens the document in a new window, and in the desktop app that
   window does **not** start printing on its own — press **Ctrl+P** in it. (In a web

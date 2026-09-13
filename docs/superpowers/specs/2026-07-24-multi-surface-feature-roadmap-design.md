@@ -1,5 +1,7 @@
 # Multi-surface feature roadmap — design
 
+> **Status (2026-09-13 audit):** SUPERSEDED by five separate Release 1–5 plans/specs, each independently planned and shipped; the one item that outlived the split, `optimize_wbs`, is tracked in §3. Kept as a historical record; do not execute as written.
+
 **Date:** 2026-07-24
 **Status:** Approved (design), pending implementation plans
 **Scope:** 18 feature requests across AI Assistant, Calendar, Time bookings, Knowledge, Open Points, Dashboard, Kanban, Landing page — sliced into 6 themed releases.

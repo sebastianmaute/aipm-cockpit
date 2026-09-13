@@ -5,8 +5,7 @@ rich entity fields, the DOM-free/browser-only module split, every write boundary
 can reach, the per-sink `isHtmlStart` classifier, and how a rich column reaches each
 exporter.
 
-Does NOT own the documents feature (`docs/AGENTS/documents.md` + `AGENTS.md`'s "Documents"
-bullet) or the AI wire layer (`docs/AGENTS/ai-assistant.md`). One fact, one doc.
+Does NOT own the documents feature (`docs/AGENTS/documents.md`) or the AI wire layer (`docs/AGENTS/ai-assistant.md`). One fact, one doc.
 
 ★★★ **THE LANDMINES BELOW ARE NOT UNIFORM ACROSS THE THREE REGISTERS.** The same defect is
 closed by a DIFFERENT mechanism in each — omit-the-field in tasks, carry-from-stored-row in
@@ -223,7 +222,7 @@ register's fix to another is how two of them broke. Read the note that names you
   ★ A control that renders `disabled` joins NEITHER order, since the engine has no skip-disabled
   logic (nothing in this row is ever disabled today, and a test pins that so adding one forces the
   decision).
-  ★★ NO GATE CAN SEE THE COLLISION THIS FIXES, at any seed size — the a11y hard-constraint bullet above
+  ★★ NO GATE CAN SEE THE COLLISION THIS FIXES, at any seed size — the a11y hard-constraint bullet in `accessibility.md`
   carries the measurement (axe 4.12.1: 105 rules, 69 under the four tags `e2e/a11y.spec.ts` requests,
   not one flagging two CONTROLS that share an accessible name — ★★ two requested-tag rules ARE
   adjacent, `duplicate-id-aria` and `frame-title-unique`, but they examine ids and iframes rather
@@ -253,8 +252,8 @@ register's fix to another is how two of them broke. Read the note that names you
   ★★ EVERY BUTTON IN THE ROW SUPPRESSES THE MOUSEDOWN DEFAULT: a control that takes focus on mousedown
   blurs the contenteditable and destroys the selection the command applies to. `ToggleButton` carries an
   OPT-IN `preventFocusSteal` prop for its own call sites; the rich-text toolbar's separate
-  `ToolbarButton` (`rich-text-toolbar-button.tsx`) carries the identical opt-in prop for all twelve
-  toggles PLUS Link/Unlink now — one mechanism, not the two hand-rolled ones (`ToggleButton` prop vs a
+  `ToolbarButton` (`rich-text-toolbar-button.tsx`) carries the identical opt-in prop for every `CONTROLS`
+  toggle PLUS Link/Unlink now — one mechanism, not the two hand-rolled ones (`ToggleButton` prop vs a
   plain `Button`'s manual `onMouseDown`+`preventDefault`) this used to describe.
   ★★ OPT-IN IS LOAD-BEARING: every OTHER `<ToggleButton` call site relies on native focus-on-click, so
   an unconditional guard would change every toggle in the app. Both branches are
@@ -272,7 +271,7 @@ register's fix to another is how two of them broke. Read the note that names you
   regardless of where DOM focus sits.
   THREE `rich-text-*` modules, split by ONE axis — whether the code may touch a DOM.
   (★ `ai-rich-text.ts` is a FOURTH rich-text module obeying the same axis, which is why
-  [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) tabulates four; it is a model-write BOUNDARY
+  [`docs/CODEMAPS/data.md`](../CODEMAPS/data.md) tabulates four; it is a model-write BOUNDARY
   rather than a projection, and is covered further down this bullet.)
   ★★ `html-start.ts` obeys the SAME axis and is **DOM-FREE** for the same reason — it is imported by
   `rich-text-plain.ts`, so it reaches the entity sanitizers and runs under bare node in the sample
@@ -548,14 +547,14 @@ register's fix to another is how two of them broke. Read the note that names you
   because two of the three differences WIDEN" — wrong in BOTH directions at once, and self-refuting,
   since it enumerated its own counter-examples in the next clause: cutting a cap is not a widening in any
   reading, and neither is dropping a tag. ★ The "nothing else" claim lived in exactly TWO
-  places — this line and the `ai-rich-text.ts` row of [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) —
+  places — this line and the `ai-rich-text.ts` row of [`docs/CODEMAPS/data.md`](../CODEMAPS/data.md) —
   and `811c952c` rewrote both in one change set. Reproduce:
   `git show f83f860f:docs/CODEMAPS/data.md | grep -c "drops IMAGES and nothing else"` → **1**, and the
   same grep over `git show f83f860f:AGENTS.md` → **1**.
   ★ `RICH_ALLOWED_TAGS` still guards the SEVEN rich entity fields (`Task.description` plus the six in
   `AI_RICH_FIELDS`) — but "keep it narrow" is no longer the reason to leave it alone. Widening it now
   widens DOCUMENTS in the same edit, retroactively, including how already-stored HTML renders. Details
-  in [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md).
+  in [`docs/AGENTS/ai-assistant.md`](ai-assistant.md).
   ★★ A model may send EITHER shape — never assume plain text just because the tool schema says "text".
   ★★ TEST AT THE WRITE, NOT THE TOOL CALL: the inline-AI tests spy on `runTool` and assert what reaches
   it, which is one hop short of this defect, and `descriptor-drift.test.ts` covers only the four

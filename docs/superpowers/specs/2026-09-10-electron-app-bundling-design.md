@@ -1,5 +1,7 @@
 # Desktop app bundling — design
 
+> **Status (2026-09-13 audit):** PARTIAL — a manual "check for updates" link shipped; true auto-update (silent background download/install via electron-updater) is out of scope, and Spike 1 (UNC vs HTTPS update feed) stays open in this design's own Open Questions; both are tracked in §480. Kept as a historical record; do not execute as written.
+
 **Date:** 2026-09-10
 **Status:** design approved section-by-section; two spikes open (see "Open questions")
 **Goal:** a non-technical colleague installs the app on their own laptop, double-clicks an icon, and uses it. No terminal, no Node install, no `npm` anything.
