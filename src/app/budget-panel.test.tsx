@@ -398,6 +398,40 @@ describe("BudgetPanel", () => {
     expect(winLoss).toHaveTextContent("$10,000");
   });
 
+  // §474: a non-EUR bucket with neither a manual override nor a cached ECB
+  // rate is summed into the EUR rollup at par (rate 1), and until this fix
+  // its currency label was indistinguishable from a bucket whose resolved
+  // rate genuinely is 1 — both render the bare currency code with no
+  // `(×rate)` suffix, since `rate !== 1` was the only thing that gated it.
+  // Three fixtures, one field changed each, scoped to the bucket's own card
+  // via its name so the assertion cannot pick up money elsewhere on the pane.
+  describe("§474 — the currency label discloses an unresolved FX rate", () => {
+    const cardFor = (name: string) => screen.getByText(name).closest(".rounded-xl") as HTMLElement;
+
+    test("a non-EUR bucket with no override and no cached rate carries the marker", () => {
+      const rateless: BudgetBucket[] = [{ ...buckets[0], id: 2, name: "Rateless bucket", currency: "USD" }];
+      render(<BudgetPanel {...props} buckets={rateless} fxRates={null} />);
+      expect(cardFor("Rateless bucket")).toHaveTextContent(/USD.*1:1/);
+    });
+
+    test("an EUR bucket never carries the marker", () => {
+      render(<BudgetPanel {...props} />);
+      expect(cardFor(buckets[0].name)).not.toHaveTextContent(/1:1/);
+    });
+
+    test("a non-EUR bucket whose CACHED rate genuinely resolves to 1 does not carry the marker", () => {
+      // The mutant this guards against: a helper that reads `rate !== 1`
+      // alone would treat this identically to the unresolved case above —
+      // both are rate === 1 — so this must render the bare currency code.
+      const parRates: FxRates = { base: "EUR", date: "2026-01-01", fetchedAt: "2026-01-01T00:00:00Z", rates: { EUR: 1, USD: 1 } };
+      const resolvedAtOne: BudgetBucket[] = [{ ...buckets[0], id: 2, name: "Par bucket", currency: "USD" }];
+      render(<BudgetPanel {...props} buckets={resolvedAtOne} fxRates={parRates} />);
+      const card = cardFor("Par bucket");
+      expect(card).not.toHaveTextContent(/1:1/);
+      expect(card).toHaveTextContent("USD");
+    });
+  });
+
   // ★★★ AN EUR BUCKET CARRYING A STALE POSITIVE OVERRIDE — the exact shape
   // `resolveRate`'s EUR-FIRST ordering exists to repair (the modal's currency
   // <select> never clears the field). Check the override first and the rate is

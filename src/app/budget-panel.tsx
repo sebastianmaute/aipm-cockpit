@@ -16,7 +16,8 @@ import {
 import type { ActualsByBucket } from "./timelog-actuals";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
-import { eurToCurrency, resolveRate } from "./fx";
+import { eurToCurrency, resolveRate, resolveRateSource } from "./fx";
+import { bucketCurrencyLabel } from "./budget-currency-label";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role, Task } from "./types";
 import { BudgetBucketModal } from "./budget-bucket-modal";
 import type { BucketCommitMeta } from "./use-budget-buckets";
@@ -439,6 +440,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           const bucketToken = bucketTokens.get(br.bucketId) ?? br.name;
           const isBlended = bucket.planningMode === "blended";
           const rate = resolveRate(bucket, fxRates);
+          const rateSource = resolveRateSource(bucket, fxRates);
           const periods = bucketActivePeriods(bucket, plan);
           const inCur = (eur: number) => formatCurrency(eurToCurrency(eur, bucket, fxRates), bucket.currency, locale);
           // CCI amounts are EUR from the engine — convert to the bucket currency for display.
@@ -485,8 +487,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {t(lang, br.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm")} · {bucket.currency}
-                  {rate !== 1 ? ` (×${rate})` : ""}
+                  {t(lang, br.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm")} · {bucketCurrencyLabel(lang, bucket.currency, rate, rateSource)}
                   {" · "}{t(lang, isBlended ? "budgetModeBlended" : "budgetModeDetailed")}
                   <ManualPercentCell
                     lang={lang}

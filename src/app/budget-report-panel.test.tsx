@@ -298,6 +298,50 @@ describe("BudgetReportPanel — a non-EUR fixed-price bucket", () => {
   });
 });
 
+// §474: a non-EUR bucket with neither a manual override nor a cached ECB
+// rate is summed into the EUR rollup at par (rate 1), and its Currency
+// column cell used to be indistinguishable from a bucket whose resolved
+// rate genuinely is 1 — both render the bare currency code, since
+// `rate !== 1` was the only thing that gated the `(×rate)` suffix.
+describe("BudgetReportPanel — §474 the currency column discloses an unresolved FX rate", () => {
+  const parRates: FxRates = {
+    base: "EUR", date: "2026-01-01", fetchedAt: "2026-01-01T00:00:00Z",
+    rates: { EUR: 1, USD: 1 },
+  };
+  const rateless: BudgetBucket = {
+    id: 9, name: "Rateless contract", type: "fixed", currency: "USD", fixedPriceAmount: 10000,
+    startDate: "2026-01-01", endDate: "2026-01-31", status: "open", allocations: [],
+  };
+
+  function currencyCellFor(name: string): HTMLElement {
+    const headers = screen.getAllByRole("columnheader");
+    const col = headers.findIndex((h) => h.textContent?.includes("Currency"));
+    // Scope guard — see the round-trip test above for why this matters.
+    expect(col).toBeGreaterThan(-1);
+    const cells = screen.getByText(name).closest("tr")!.querySelectorAll("td");
+    return cells[col] as HTMLElement;
+  }
+
+  it("marks a bucket with no override and no cached rate", () => {
+    renderPanel({ buckets: [rateless], fxRates: null });
+    expect(currencyCellFor("Rateless contract")).toHaveTextContent(/USD.*1:1/);
+  });
+
+  it("does not mark a bucket whose CACHED rate genuinely resolves to 1", () => {
+    // The mutant this guards against: a helper reading `rate !== 1` alone
+    // would treat this identically to the unresolved case above.
+    renderPanel({ buckets: [rateless], fxRates: parRates });
+    const cell = currencyCellFor("Rateless contract");
+    expect(cell).not.toHaveTextContent(/1:1/);
+    expect(cell.textContent).toBe("USD");
+  });
+
+  it("does not mark an EUR bucket", () => {
+    renderPanel(); // default `buckets` (Alpha/Beta/Gamma) are all EUR
+    expect(currencyCellFor("Alpha")).not.toHaveTextContent(/1:1/);
+  });
+});
+
 describe("BudgetReportPanel burn-down chain warning", () => {
   it("stays silent when no bucket was ever chained", () => {
     // The default fixture links nothing — parallel buckets are the normal budget

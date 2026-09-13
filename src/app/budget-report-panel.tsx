@@ -19,7 +19,8 @@ import { computeBudgetReport, costIsKnowable, type BucketReport, type CciValue }
 import { CostUnknownNotice } from "./budget-cost-notice";
 import { computeEvm, projectBlendedInternalRate } from "./evm";
 import { formatCurrency } from "./resource-cost";
-import { resolveRate } from "./fx";
+import { resolveRate, resolveRateSource } from "./fx";
+import { bucketCurrencyLabel } from "./budget-currency-label";
 import type { Absence, BudgetBucket, Discipline, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
 import { RagBadge } from "./rag-badge";
 import { InfoTooltip } from "./info-tooltip";
@@ -226,12 +227,17 @@ function BucketDetailTable({
         const blended = b?.planningMode === "blended";
         // Amounts are already EUR (the engine's base); the FX rate is shown for context only, not used to convert.
         const rate = b ? resolveRate(b, fxRates) : 1;
+        // §474: a bucket missing from `bucketById` (should not happen in
+        // practice) has no resolver reading at all — treat it as resolved
+        // rather than flagging a marker for a condition that isn't the one
+        // this disclosure is about.
+        const rateSource = b ? resolveRateSource(b, fxRates) : "eur";
         return {
           ...r,
           modeLabel: t(lang, blended ? "budgetModeBlended" : "budgetModeDetailed"),
           typeLabel: t(lang, r.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm"),
           statusLabel: t(lang, r.status === "closed" ? "budgetReportStatusClosed" : "budgetReportStatusOpen"),
-          currencyLabel: rate !== 1 ? `${r.currency} (×${rate})` : r.currency,
+          currencyLabel: bucketCurrencyLabel(lang, r.currency, rate, rateSource),
           // null when cost has no basis, NOT the raw percent. `contributionMargin`
           // is computed regardless of `costIsKnowable` — the flag is the caller's
           // job — and an unstaffed fixed-price bucket yields revenue − 0 = a
