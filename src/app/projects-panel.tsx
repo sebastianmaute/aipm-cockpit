@@ -49,7 +49,7 @@ import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { type ProjectMeta, type Resource } from "./types";
 import { KEY_FACT_IDS, keyFactCompleteness } from "./project-key-facts";
-import { loadKeyFactsSnapshot } from "./project-key-facts-cache";
+import { loadKeyFactsSnapshots } from "./project-key-facts-cache";
 import { KeyFactsBanner, KeyFactsMeter, type KeyFactsRowState } from "./project-key-facts-meter";
 
 /** File formats a brand-new project's workspace can be created in.
@@ -112,6 +112,22 @@ type ModalState =
   | { mode: "create" }
   | { mode: "edit" };
 
+// G9: the customer `<dt>`/`<dd>` pair was duplicated between the current-row
+// and non-current-row `<dl>` blocks, one reading `currentProject.customer`
+// live and the other reading the cached `keyFacts.customer` — same markup,
+// two call sites. One small component picks the value; the caller decides
+// which source it is (live meta vs. cached snapshot) and gates on blankness
+// exactly as each did before, so there is no visual change.
+function CustomerFact({ lang, customer }: { lang: Lang; customer: string }) {
+  if (!customer) return null;
+  return (
+    <div className="flex gap-1">
+      <dt className="font-medium">{t(lang, "projectCustomer")}:</dt>
+      <dd>{customer}</dd>
+    </div>
+  );
+}
+
 export function ProjectsPanel({
   projects,
   currentProjectId,
@@ -140,19 +156,25 @@ export function ProjectsPanel({
   // Per-row key-fact state (spec §5.3/§5.4). The CURRENT project is measured live
   // from memory and never reads the cache; every other row reads its per-device
   // snapshot, and a missing snapshot is UNKNOWN — never "0 of 11".
+  // ★ G1: read the whole device cache ONCE per render (`loadKeyFactsSnapshots`)
+  // rather than once per non-current row — each read parses and validates the
+  // entire stored map, so a per-row call re-did that work N times.
+  // ★ G3: while the CURRENT row's meta hasn't loaded yet, it is simply left out
+  // of the map (no "unknown" entry) — rendering "Key facts not measured here"
+  // there would misleadingly imply a per-device gap; it is really just not
+  // loaded YET, and the current row never reads the cache either way.
   const keyFactsByRow = useMemo(() => {
+    const snapshots = loadKeyFactsSnapshots();
     const byId = new Map<string, { state: KeyFactsRowState; customer: string }>();
     for (const p of projects) {
       if (p.id === currentProjectId) {
         if (currentProject) {
           const c = keyFactCompleteness(currentProject);
           byId.set(p.id, { state: { kind: "measured", ...c }, customer: currentProject.customer });
-        } else {
-          byId.set(p.id, { state: { kind: "unknown", total: KEY_FACT_IDS.length }, customer: "" });
         }
         continue;
       }
-      const snap = loadKeyFactsSnapshot(p.id);
+      const snap = snapshots[p.id];
       byId.set(
         p.id,
         snap
@@ -380,20 +402,12 @@ export function ProjectsPanel({
                       </div>
                       {!isCurrent && keyFacts?.customer && (
                         <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                          <div className="flex gap-1">
-                            <dt className="font-medium">{t(lang, "projectCustomer")}:</dt>
-                            <dd>{keyFacts.customer}</dd>
-                          </div>
+                          <CustomerFact lang={lang} customer={keyFacts.customer} />
                         </dl>
                       )}
                       {isCurrent && currentProject && (
                         <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                          {currentProject.customer && (
-                            <div className="flex gap-1">
-                              <dt className="font-medium">{t(lang, "projectCustomer")}:</dt>
-                              <dd>{currentProject.customer}</dd>
-                            </div>
-                          )}
+                          <CustomerFact lang={lang} customer={currentProject.customer} />
                           {currentProject.startDate && currentProject.endDate && (
                             <div className="flex gap-1">
                               <dd>

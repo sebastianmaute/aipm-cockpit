@@ -14,6 +14,21 @@ vi.mock("./confirm-dialog", () => ({
 vi.mock("./turso-portfolio", () => ({
   listProjects: vi.fn().mockResolvedValue([]),
 }));
+// G1: spy on the ONE-read-per-render entry point while keeping every other
+// export (including `loadKeyFactsSnapshot`, `saveKeyFactsSnapshot`,
+// `clearKeyFactsCache` used directly below) real, so the rest of this suite's
+// cache behaviour is unaffected.
+const { loadSnapshotsSpy } = vi.hoisted(() => ({ loadSnapshotsSpy: vi.fn() }));
+vi.mock("./project-key-facts-cache", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./project-key-facts-cache")>();
+  return {
+    ...actual,
+    loadKeyFactsSnapshots: (...args: Parameters<typeof actual.loadKeyFactsSnapshots>) => {
+      loadSnapshotsSpy(...args);
+      return actual.loadKeyFactsSnapshots(...args);
+    },
+  };
+});
 import { type Contact } from "./contacts";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { defaultSettings } from "./settings-types";
@@ -544,6 +559,19 @@ describe("ProjectsPanel — Load from Turso", () => {
 describe("ProjectsPanel — key-fact indicator", () => {
   afterEach(() => clearKeyFactsCache());
 
+  // G1: the memo must read the device cache ONCE per render, not once per
+  // non-current row — each read parses and validates the whole stored map.
+  it("reads the device cache once per render, regardless of row count", () => {
+    loadSnapshotsSpy.mockClear();
+    setup({
+      projects: [
+        ...PROJECTS,
+        { id: "p3", name: "Mercury", code: "MER-3", storageConfig: { kind: "local-json" } as never },
+      ],
+    });
+    expect(loadSnapshotsSpy).toHaveBeenCalledTimes(1);
+  });
+
   function row(name: string): HTMLElement {
     const li = screen.getByText(name).closest("li");
     if (!li) throw new Error(`no row for ${name}`);
@@ -588,7 +616,7 @@ describe("ProjectsPanel — key-fact indicator", () => {
     setup();
     const r = within(row("Gemini"));
     expect(r.getByText("Key facts not measured here")).toBeInTheDocument();
-    expect(r.getByText("— / 11")).toBeInTheDocument();
+    expect(r.getByText("— of 11")).toBeInTheDocument();
     expect(r.queryByText("0 of 11")).toBeNull();
     expect(r.queryByRole("status")).toBeNull();
   });
@@ -609,10 +637,16 @@ describe("ProjectsPanel — key-fact indicator", () => {
     expect(screen.getAllByRole("button", { name: "Complete them" })).toHaveLength(1);
   });
 
-  it("renders the current row as unknown when its metadata is not loaded", () => {
+  // G3: rendering "Key facts not measured here" here would wrongly imply a
+  // per-device gap — the meta simply hasn't loaded yet, and the current row
+  // never reads the cache either way. Ruling: render NO meter and no banner.
+  it("renders no meter and no banner on the current row before its metadata loads", () => {
     setup({ currentProject: undefined });
-    const r = within(row("Apollo"));
-    expect(r.getByText("Key facts not measured here")).toBeInTheDocument();
+    const rowEl = row("Apollo");
+    const r = within(rowEl);
+    expect(r.queryByText("Key facts not measured here")).toBeNull();
+    expect(r.queryByText(/of 11/)).toBeNull();
+    expect(rowEl.querySelector("[data-key-facts]")).toBeNull();
     expect(r.queryByRole("status")).toBeNull();
   });
 });
