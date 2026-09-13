@@ -69,6 +69,15 @@ the form would let a name-only project save once and then lose its whole record 
 strict decode from any text backend. This slice is therefore form **and** validation **and**
 sanitizer **and** type **and** the consumers that fall back on a blank value.
 
+The sanitizer is reached from five production paths, and every one of them becomes more
+permissive with this slice: `buildProjectFromObj` (the CSV and Markdown project decoders,
+`csv-codecs-config.ts` / `markdown-codecs-core.ts`), `buildProjectFromObjLenient` (the Turso
+tenant project list, `rowsToProjectList` in `turso-tenant-schema.ts`), the JSON workspace load in
+`workspace.ts`, the IndexedDB load in `browser-backend.ts`, and the form submit in
+`project-form.tsx`. Reproduce with
+`git grep -n "sanitizeProjectMeta(\|buildProjectFromObj" -- src ':!*.test.*'` and read past the
+definitions and the import lines.
+
 ### 4.2 Type shape
 
 Widen in place; do not make fields optional.
@@ -88,6 +97,13 @@ which only `template-suggest.ts` consumes it semantically, and it already handle
 correctly (`DEPLOYMENT_POINTS[meta.deployment] ?? 0`, guarded by `dep > 0` before a reason is
 pushed).
 
+★ **That file still needs a type edit, which the paragraph above used to hide.**
+`DEPLOYMENT_POINTS` is declared `Record<ProjectMeta["deployment"], number>`, so widening the field
+adds `""` to the record's KEY set and the three-key literal stops satisfying it — a `tsc` error,
+not a runtime one. Give the literal a `"": 0` member; that keeps the key type derived from
+`ProjectMeta` rather than hard-coding `Deployment` a second time. (Corrected 2026-09-13 against
+`origin/main` `c3598637`.)
+
 ### 4.3 Sanitizer
 
 `sanitizeProjectMeta` keeps exactly two rejections: input is not a plain object, and `name` is
@@ -102,17 +118,51 @@ if (raw && !SET.has(raw)) return null;   // blank accepted; a typo'd value still
 so the garbage guard survives for `naceSection` and `deployment`. `lenientRequiredArrays`
 becomes redundant for `regulatory` and is folded in rather than left as a dead option.
 
+★ **Folding it in makes a whole builder dead, not just an option.** The option has ONE production
+caller, `buildProjectFromObjLenient` (`csv-codecs-config.ts`), whose body differs from
+`buildProjectFromObj` by that option alone. Once the option is gone the two are identical, so the
+lenient builder is deleted and `rowsToProjectList` calls `buildProjectFromObj`. Its docstring was
+already wrong before this slice — it says the flag skips "the three empty-required-array
+rejections" including both key-stakeholder arrays, while the sanitizer rejects an empty
+`regulatory` alone — so nothing true is lost with it.
+
+★★ **A comment in `e2e/` states the old rule as fact and must be rewritten in the same MR.** The
+docstring on `PROJECT_ROW` in `e2e/version-history-documents.spec.ts` says a Turso row decodes to
+null unless code, project manager, customer, products and profit center are non-empty and
+`startDate` parses. After this slice only `name` is load-bearing; the row itself can stay a full
+one. No gate reads e2e comments.
+
 ### 4.4 Blank-value consumers
 
 Widening to `""` is only safe if every fallback is audited, because `??` does not catch the
-empty string. Two known sites:
+empty string. ★★ **The two sites this section first named were BOTH mis-described** (corrected
+2026-09-13 against `origin/main` `c3598637`, by reading the call sites rather than the fallback):
 
-- `timelog-panel.tsx` — `ws.project?.code ?? "default"` would pass a blank code to TimeLog as
-  `projectId: ""`. Needs a trim-aware fallback.
-- The Outlook event-category id falls back to `project.code`
-  (`use-calendar-integrations.ts`, `tasks-section.tsx`). Same treatment.
+- `timelog-panel.tsx` — `ws.project?.code ?? "default"` does **not** reach TimeLog. The value is
+  passed as `projectId` to `useTimelogPickerScope`, which only compares it against the last value
+  it saw to reset its one-shots on an in-place project switch; the actuals cache is keyed on
+  `projectKey`, as the comment beside it says. So a blank code sends nothing wrong anywhere. What
+  O-1 does change is that two code-less projects now produce the SAME signal, so an in-place
+  switch between them does not reset the picker. A `||` fallback does **not** fix that — both
+  would collapse to `"default"` instead of `""` — and two projects sharing a code already had the
+  same flaw before O-1. It is out of MR A's scope and is filed as a follow-up rather than
+  patched with an idiom that only looks like a fix.
+- The Outlook event-category id (`use-calendar-integrations.ts`) is already
+  `portfolioCurrentId || project?.code || "default"`. `||` catches the blank, so it needs no change.
+  The `tasks-section.tsx` mentions are comments only.
 
-The plan must sweep every `??` and `||` on the nine widened fields, not just these two.
+The sweep over the widened fields returns exactly three `??`/`||` fallbacks today — the two above
+and one this section missed, which **is** a real O-1 defect:
+
+- `timelog-panel.tsx` `fetchWindow` — `ws.project?.startDate ?? <90 days ago>`. Before O-1 a loaded
+  project always had a start date; after it, a blank one yields `start: ""`, which is passed
+  straight to `fetchBookingsForProjects`. Needs `||`.
+
+Reproduce the sweep with
+`git grep -n -E '(project|meta|p\.meta|p)\??\.(code|projectManager|customer|products|profitCenter|naceSection|startDate|deployment)\s*(\?\?|\|\|)' -- src ':!*.test.*'`.
+It matches property reads followed directly by a fallback operator, so the plan must also read
+every non-test consumer of the widened fields for a non-operator blank hazard (a `.length`, an
+equality against a known value, a string template); the grep bounds the operator class only.
 
 **The safe idiom is not `??`.** Widening a field to `""` inverts the usual advice: the empty
 string is falsy but not nullish, so `??` passes a blank straight through while `||` catches it.
@@ -144,14 +194,26 @@ that cannot carry an empty-string hazard. Discriminate on the binding, not the w
   `docs/superpowers/plans/2026-06-09-multi-project-portfolio-phase1.md`, which is a dated
   record and is **left alone** (it is outside both `agents-symbol-check`'s universe and
   `doc-claims-check`'s scan, so no gate is affected).
-- The eight `required` props come off the corresponding `<Field>`s in
-  `project-form-fields.tsx`.
+- The `required` markers come off every de-mandated field in `project-form-fields.tsx`. That is
+  **ten**, not the eight this line said: nine `<Field ... required>` (code, project manager,
+  customer, NACE section, products, deployment, start date, profit center, regulatory) plus the
+  `required` prop on `ContactPersonsControl`, which draws its own asterisk. Project name keeps
+  its asterisk. Reproduce with `grep -n "required" src/app/project-form-fields.tsx`.
+- Two comments state the old rule and are corrected in the same MR: the header docstring in
+  `ai-project-proposal.ts` ("remaining required fields (code, NACE, deployment, …)") and the
+  `proposalToDraftPatch` docstring ("its own validation forces the user to complete required
+  fields"), plus the "Required …" comments inside `sanitizeProjectMeta` itself.
 - `project-form.tsx` needs no logic change: `saveDisabled` already derives from the validator.
 
 ### 4.6 Display
 
 A blank `code` currently renders as empty text in the Projects list and in
-`turso-project-picker.tsx`. Both render an explicit `—` instead.
+`turso-project-picker.tsx`. There are **three** such sites, not two: two in `projects-panel.tsx`
+(the active project list and the archived list beneath it) and one in `turso-project-picker.tsx`.
+All three render an explicit `—` instead. A fourth site, the header's `project-switcher.tsx`,
+already wraps its code line in `{p.code && (…)}` and simply omits it when blank — that is right for
+a secondary line in a menu item and is left alone. Reproduce with
+`git grep -n "{p.code}\|{p.meta.code}" -- src ':!*.test.*'`, which returns all four.
 
 ### 4.7 Testing
 
@@ -168,6 +230,24 @@ Invalidations — and these are the ones a plan normally omits, because `tsc` wi
 them: every existing case in `project-validation.test.ts` and the sanitize project tests whose
 *subject* is "rejects when `<field>` is missing" must be labelled **DELETE** or **MIGRATE**
 explicitly, per task, found by repo-wide grep rather than by running the suite.
+
+Enumerated 2026-09-13 against `origin/main` `c3598637` — the files this section named are not the
+only ones, and two of the invalidated cases live elsewhere:
+
+| File | Test | Label |
+|---|---|---|
+| `project-validation.test.ts` | "flags every missing required field" | MIGRATE — only `name` still errors |
+| `project-validation.test.ts` | "requires at least one contact person" | DELETE — replaced by its opposite |
+| `sanitize.project.test.ts` | "returns null when a required field is missing" | MIGRATE — keep blank name, `"ZZ"` NACE and `"Quantum"` deployment; the blank-customer line inverts |
+| `sanitize-branches.test.ts` | "returns null when code / projectManager / products / profitCenter is blank" | DELETE — replaced by an accepts-blank case |
+| `sanitize-branches.test.ts` | "treats a missing/blank endDate as '' and tolerates non-array …" | MIGRATE — non-array `regulatory` now yields `[]`, and the `lenientRequiredArrays` line goes with the option |
+| `sanitize.test.ts` | "accepts a blank end date (optional since 0.74) → endDate ''" | MIGRATE — its trailing `startDate: ""` → null assertion inverts |
+| `turso-tenant-schema.test.ts` | "rowsToProjectList keeps a project with empty required arrays that the STRICT decoder would reject" | MIGRATE — the strict decoder no longer rejects, and the lenient one is deleted |
+
+Reproduce: `git grep -n -E "sanitizeProjectMeta|buildProjectFromObj|validateProjectMeta" -- 'src/**/*.test.*'`,
+then read each hit's assertion. `project-form.test.tsx` and `create-project-wizard.test.tsx` both
+fill every field through a `fillRequired` helper and stay valid; they need an addition, not a
+migration.
 
 Golden fixtures must **not** move: the sample workspace keeps full values. If a fixture diff
 appears, that is a real format change to investigate, never something to regenerate.
@@ -432,6 +512,8 @@ Nothing in CI can reach these. They are owed, not done, and must not be reported
 
 ## 9. Sequencing
 
-A → B → C, with C able to overtake B if convenient (it shares no files with either). B must not
-start before A is merged: its model, its provider and its indicator all assume a project can
-legitimately be incomplete, and against pre-A code every fixture would have to fake that state.
+C → A → B, as §2 states. ★ This section said A → B → C while §2 said C → A → B; §2 was the
+decision and C has shipped (merged 2026-09-13 as 1.0.3, `c3598637`), so the contradiction is
+resolved in §2's favour. B must not start before A is merged: its model, its provider and its
+indicator all assume a project can legitimately be incomplete, and against pre-A code every
+fixture would have to fake that state.
