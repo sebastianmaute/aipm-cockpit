@@ -12,8 +12,8 @@ import { sanitizeIsoDate } from "./sanitize";
 // Form draft type
 // ---------------------------------------------------------------------------
 
-/** In-progress form shape for project-meta editing. Required string fields
- *  may be blank while the user is typing; array fields are always arrays. */
+/** In-progress form shape for project-meta editing. Only `name` is required
+ *  (O-1); every other string may stay blank and every array may stay empty. */
 export type ProjectDraft = {
   // Identity
   name: string;
@@ -51,18 +51,6 @@ export type ProjectDraft = {
 /** The project-meta form fields that can carry a validation error. */
 export type ProjectErrorField =
   | "name"
-  | "code"
-  | "projectManager"
-  | "customer"
-  | "products"
-  | "profitCenter"
-  | "naceSection"
-  | "deployment"
-  | "keyStakeholdersInternal"
-  | "keyStakeholdersExternal"
-  | "contactPersons"
-  | "regulatory"
-  | "startDate"
   | "endDate"
   | "salesforceUrl"
   | "sharepointUrl"
@@ -72,19 +60,6 @@ export type ProjectErrorField =
 /** i18n message keys used for inline project-meta form errors. */
 export type ProjectErrorKey =
   | "errorProjectNameRequired"
-  | "errorProjectCodeRequired"
-  | "errorProjectManagerRequired"
-  | "errorCustomerRequired"
-  | "errorProductsRequired"
-  | "errorProfitCenterRequired"
-  | "errorNaceRequired"
-  | "errorDeploymentRequired"
-  | "errorStakeholdersInternalRequired"
-  | "errorStakeholdersExternalRequired"
-  | "errorContactsRequired"
-  | "errorRegulatoryRequired"
-  | "errorStartDateRequired"
-  | "errorEndDateRequired"
   | "errorEndBeforeStart"
   | "errorInvalidUrl";
 
@@ -115,30 +90,13 @@ function isLikelyUrl(v: string): boolean {
 export function validateProjectMeta(draft: ProjectDraft): ProjectFieldErrors {
   const errors: ProjectFieldErrors = {};
 
-  // Required non-empty (trimmed) string fields.
+  // Only the name is required (O-1). Every other key fact may stay blank.
   if (!draft.name.trim()) errors.name = "errorProjectNameRequired";
-  if (!draft.code.trim()) errors.code = "errorProjectCodeRequired";
-  if (!draft.projectManager.trim()) errors.projectManager = "errorProjectManagerRequired";
-  if (!draft.customer.trim()) errors.customer = "errorCustomerRequired";
-  if (!draft.products.trim()) errors.products = "errorProductsRequired";
-  if (!draft.profitCenter.trim()) errors.profitCenter = "errorProfitCenterRequired";
-  if (!draft.naceSection.trim()) errors.naceSection = "errorNaceRequired";
-  if (!draft.deployment.trim()) errors.deployment = "errorDeploymentRequired";
 
-  // Required non-empty arrays. Key stakeholders (internal/external) are now
-  // OPTIONAL; at least one contact person is mandatory instead.
-  if (draft.contactPersons.length === 0)
-    errors.contactPersons = "errorContactsRequired";
-  if (draft.regulatory.length === 0)
-    errors.regulatory = "errorRegulatoryRequired";
-
-  // Date validation.
+  // Date validation — both optional.
   const startDate = sanitizeIsoDate(draft.startDate);
   const endDate = sanitizeIsoDate(draft.endDate);
 
-  if (!startDate) {
-    errors.startDate = "errorStartDateRequired";
-  }
   // End date is optional; when present it must not precede the start date.
   if (endDate && startDate && endDate < startDate) {
     errors.endDate = "errorEndBeforeStart";

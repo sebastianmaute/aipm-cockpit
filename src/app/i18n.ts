@@ -4085,19 +4085,6 @@ const enUS = {
 
   // Validation messages
   errorProjectNameRequired: "Project name is required.",
-  errorProjectCodeRequired: "Project code is required.",
-  errorProjectManagerRequired: "Project manager is required.",
-  errorStakeholdersInternalRequired: "At least one internal stakeholder is required.",
-  errorStakeholdersExternalRequired: "At least one external stakeholder is required.",
-  errorContactsRequired: "At least one contact is required.",
-  errorCustomerRequired: "Customer is required.",
-  errorNaceRequired: "NACE section is required.",
-  errorProductsRequired: "At least one product is required.",
-  errorDeploymentRequired: "Deployment is required.",
-  errorStartDateRequired: "Start date is required.",
-  errorEndDateRequired: "End date is required.",
-  errorProfitCenterRequired: "Profit center is required.",
-  errorRegulatoryRequired: "Regulatory classification is required.",
   errorEndBeforeStart: "End date must be after start date.",
   errorInvalidUrl: "Please enter a valid URL.",
 

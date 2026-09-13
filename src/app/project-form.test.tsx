@@ -106,6 +106,28 @@ describe("ProjectForm", () => {
     expect(saveButton()).toBeEnabled();
   });
 
+  it("enables Save and submits with only the project name filled (O-1)", () => {
+    const { onSubmit } = setup();
+    setText("Project name", "Solo");
+    expect(saveButton()).toBeEnabled();
+    fireEvent.click(saveButton());
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const meta = onSubmit.mock.calls[0][0];
+    expect(meta.name).toBe("Solo");
+    expect(meta.code).toBe("");
+    expect(meta.deployment).toBe("");
+    expect(meta.startDate).toBe("");
+    expect(meta.regulatory).toEqual([]);
+    expect(meta.contactPersons).toEqual([]);
+  });
+
+  it("marks only the project name as required", () => {
+    setup();
+    // One asterisk per required field, rendered by `Field` and by
+    // `ContactPersonsControl`. Ten came off with O-1; name keeps its own.
+    expect(screen.getAllByText("*")).toHaveLength(1);
+  });
+
   it("submits a sanitized ProjectMeta matching the entered values", () => {
     const { onSubmit } = setup();
     fillRequired();

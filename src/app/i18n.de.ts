@@ -3889,19 +3889,6 @@ export const de: Record<TranslationKey, string> = {
 
   // Validation messages
   errorProjectNameRequired: "Projektname ist erforderlich.",
-  errorProjectCodeRequired: "Projektkürzel ist erforderlich.",
-  errorProjectManagerRequired: "Projektleiter ist erforderlich.",
-  errorStakeholdersInternalRequired: "Mindestens ein interner Stakeholder ist erforderlich.",
-  errorStakeholdersExternalRequired: "Mindestens ein externer Stakeholder ist erforderlich.",
-  errorContactsRequired: "Mindestens ein Kontakt ist erforderlich.",
-  errorCustomerRequired: "Kunde ist erforderlich.",
-  errorNaceRequired: "NACE-Abschnitt ist erforderlich.",
-  errorProductsRequired: "Mindestens ein Produkt ist erforderlich.",
-  errorDeploymentRequired: "Deployment ist erforderlich.",
-  errorStartDateRequired: "Startdatum ist erforderlich.",
-  errorEndDateRequired: "Enddatum ist erforderlich.",
-  errorProfitCenterRequired: "Profit-Center ist erforderlich.",
-  errorRegulatoryRequired: "Regulatorische Einstufung ist erforderlich.",
   errorEndBeforeStart: "Das Enddatum muss nach dem Startdatum liegen.",
   errorInvalidUrl: "Bitte eine gültige URL eingeben.",
 
