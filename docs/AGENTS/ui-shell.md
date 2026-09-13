@@ -7,7 +7,7 @@
      Every claim here was true when written and some have outlived their code —
      grep before relying on one, and correct what you disprove in the same commit. -->
 
-# UI shell — Help · navigation · focus/keyboard · surfaces · dismissal
+# UI shell — Help · navigation · focus/keyboard · surfaces · tables · dismissal
 
 [← AGENTS.md](../../AGENTS.md) · [doc set](../../AGENTS.md#the-doc-set--what-lives-where)
 
@@ -477,6 +477,104 @@ commits that merely added comments above it; its `onChange` is
   SOURCE scan over every `.tsx` — a named-widget list, so a NEW button-first component is invisible to it
   until added there) plus per-suite render guards using `src/test/label-binding.ts`
   (`expectNoLabelBoundToButton`, which asks the browser's own `HTMLLabelElement.control`).
+
+### UI shell — tables: `SortResizeTh` and `TableFilter`
+
+★ Moved VERBATIM out of `AGENTS.md`'s "Architecture pointers" section on 2026-09-13 — only link targets changed. Positional words inside the moved text ("this file", "above", "below", "in Commands") still
+describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short pointer bullet.
+
+- **Shared sortable/resizable header cell (`SortResizeTh<K>` in `report-table.tsx`):** the
+  `<th className="relative px-3 py-2[ text-right] font-medium"> + SortHeaderButton + ColumnResizeHandle`
+  trio every report panel repeated per column (top cross-file jscpd clones, TD-6) is now ONE generic
+  component beside `SortHeaderButton`. `K` is fixed by the `sortKey` prop (the table's typed sort union),
+  so `sortCol` must be a valid key and `onSort={click}` typechecks with no cast. ★ `resizeCol` (defaults to
+  `sortCol`) + `width` are SEPARATE from `sortCol` — they diverge on the name/label column (sort key `name`,
+  width/resize key `label`). `align="right"` picks the `text-right` variant; `hint` forwards to the
+  `InfoTooltip`. DOM is byte-equivalent to the hand-rolled trio it replaced ONLY while `nameContext`
+  is absent. ★★ `nameContext` appends ` – <context>` to the header button's accessible name AND to
+  its hint tooltip's, so a caller that passes it is no longer byte-equivalent (Reports is
+  axe-scanned, and its headers now carry an `aria-label` they did not). Pass it when ONE VIEW
+  EMBEDS TWO TABLES THAT SHARE A COLUMN LABEL — that collision is what it exists for, and the two
+  tables need not be the same SHAPE (Reports, the motivating case, collides `AssigneeTable` against
+  `GroupOrLabelTable`). A single table needs nothing, and qualifying it adds noise to every screen
+  reader. Building the name from `label` inside the primitive rather than taking a finished string
+  is deliberate: containment for WCAG 2.5.3 then holds BY CONSTRUCTION, at every call site, with no
+  call site able to defeat it.
+  ★★★ **NO CONSUMER TALLY IS QUOTED HERE, AND RESTORING ONE IS A REGRESSION.** This spot carried a
+  per-file breakdown plus a total, and it rotted TWICE: an early revision said "raid-report (34)" and
+  omitted `resources-report` outright, and its correction ("TEN non-test files, 77 invocations",
+  measured 2026-08-04) was already wrong fifteen days later — `documents-list.tsx` had adopted the
+  component and nothing updated the list. Every sortable header in the app flows through here, so ANY
+  new sortable table moves the number; the list is stale the moment it is written. Read today's with
+  `grep -ro "<SortResizeTh" src/app --include="*.tsx" | grep -v "\.test\.tsx:" | wc -l` (drop the
+  `grep -v` and the total rises by `report-table.test.tsx`'s own invocations), and pipe it through
+  `sed 's/:.*//' | sort | uniq -c` for the per-file split. ★ `reports-tables`
+  and `budget-report` were once "left as-is" over local sort-var naming and have since adopted it, so
+  every sortable header in the app now flows through here (which is why the `aria-sort` below lifts them
+  all at once). NON-sortable text-only header cells (no `SortHeaderButton`) keep their raw `<th>` +
+  `ColumnResizeHandle`.
+  ★ `onResize` is OPTIONAL — omit it for a table that sorts but stores no column widths (the calendar series
+  list) and NO handle renders. Never pass a no-op instead: that draws a grip which looks draggable and does
+  nothing, the exact false affordance this component exists to avoid.
+  ★★ **`stickyLeft` DOES TWO THINGS, and the second one is the surprise.** It pins the column
+  (`position: sticky` at that px offset) AND it silently changes what `width` MEANS: at every OTHER
+  invocation (it is passed exactly once today, and the tally of the rest is deliberately not quoted —
+  see the ★★★ no-consumer-tally rule above; derive both with
+  `grep -ro "stickyLeft=" src/app --include="*.tsx" | grep -v "\.test\.tsx:" | wc -l`
+  and the `<SortResizeTh` count beside it) `width` is a MINIMUM (`table-layout: auto` lets content grow the column past it), but
+  passing `stickyLeft` adds `max-width` + `overflow-hidden` + `whitespace-nowrap` so the declared width
+  becomes the RENDERED one. That coupling is deliberate — anything pinned to the RIGHT is placed by
+  arithmetic over this column's DECLARED width, so a wider render puts the neighbour on top of this
+  column's own content — but a caller reaching for "pin this" gets a clamp it did not ask for. ★ `0` is a
+  REAL offset (the leading fixed column), so both the class branch and the style branch check
+  `stickyLeft === undefined`, never truthiness; `report-table.test.tsx` pins the offset-0 case in BOTH
+  branches precisely because a `!stickyLeft` "simplification" ships green otherwise.
+  ★★★ `position` MUST stay in the CLASS, never the inline style. An inline declaration outranks every
+  author rule in every media, so an inline `position: sticky` leaves the `print:static` beside it
+  permanently inert — and the print stylesheet strips the scroll container these cells are positioned
+  against, so a pinned cell with no scroller offsets against the PAGE. Measured in Chromium under
+  emulated print media: inline sticky + class static computes `sticky`; class sticky + class static
+  computes `static`. Only `left`/`width` are inline (per-instance values).
+  ★★ The pinned header clips with `overflow-hidden whitespace-nowrap` while the matching BODY cell in
+  `budget-panel-totals.tsx` uses `truncate` (the same two properties PLUS `text-overflow: ellipsis`), so
+  a narrowed role column cuts the header label mid-glyph while the row labels beneath it get "…".
+  **Do NOT "fix" that by swapping in `truncate` — measured in Chromium, the two render IDENTICALLY.**
+  The header's content is an inline-flex `SortHeaderButton`, an atomic inline, and `text-overflow` does
+  not apply to one; the body cell ellipsizes only because its content is raw text. The asymmetry is
+  inherent to the header holding a button, not to the class choice, and jsdom cannot see either.
+  ★★ The `<th>` carries **`aria-sort`** (`ascending`/`descending`/`none`), derived from the SAME `active` value
+  the arrow is, so the announced and drawn states cannot drift; `active` gates on BOTH `sortKey === sortCol`
+  AND `sortDir !== "off"` ("off" is a real member of the asc→desc→off cycle, so naming the column is not
+  enough). The `↑`/`↓` is `aria-hidden` — it stays VISIBLE and in `textContent` (existing glyph assertions in
+  `report-table.test.tsx` + `calendar-series-list.test.tsx` read textContent, so they are unaffected) but out
+  of the accessible NAME, since aria-sort already says it. axe has NO rule for a missing aria-sort, so the
+  gate is silent on regressions here — the unit tests are the only coverage.
+  ★★ **ALL FOUR ARE NOW IN STEP — corrected 2026-08-25, and the sentence this replaces was the
+  falsifiable half.** It read: the raw-`<th>` tables "are NOT in step", `change-panel.tsx` +
+  `raid-panel-rows.tsx` + `stakeholders-panel.tsx` "set aria-sort AND keep a ▲/▼ inside the button's
+  name", `activity-log-panel.tsx` "has the glyph with NO aria-sort at all", and folding them in was
+  "a follow-up, not a claim about today". Every one of those four tables has since adopted
+  `SortResizeTh`, so each sortable header takes its `aria-sort` and its `aria-hidden` glyph from the
+  one component and the double announcement is gone from all of them. Measure, do not trust this
+  sentence: `for f in change-panel raid-panel-rows stakeholders-panel activity-log-panel; do echo "$f $(grep -c SortResizeTh src/app/$f.tsx) $(grep -c aria-sort src/app/$f.tsx)"; done`
+  → adoptions 8 / 8 / 6 / 6 (each includes the import line) against aria-sort 0 / 0 / 0 / **1**.
+  ★★★ THAT LONE 1 IS A COMMENT, NOT MARKUP — `activity-log-panel.tsx` explains there why a fourth
+  hand-rolled sort button was never written — so the obvious grep tally counts PROSE as code and
+  would report the file as still hand-rolling its own. The raw `<th>` left in the other three are
+  the NON-sortable text-only cells the rule above already permits, not sort headers.
+  ★ `SortHeaderButton` is used ONLY by `SortResizeTh`, so hiding the glyph cannot strand a raw `<th>`
+  that lacks aria-sort.
+  ★★ KNOWN LOSS: VoiceOver/Safari does not announce `aria-sort`, so a VO user goes from hearing
+  "Title ↑" to "Title". Standard-correct (the glyph was never a state) but a real regression for that
+  one AT — do not re-litigate it as a pure win.
+- **★ `TableFilter` (`report-table.tsx`) has exactly ONE clear ✕, overlaid INSIDE the field.** The input is
+  `type="search"`, so Chrome/Safari draw their own ✕ inside it; a sibling clear button therefore read as TWO
+  clears on those browsers while Firefox — which draws none — showed only ours. The fix suppresses the native
+  one (`[&::-webkit-search-cancel-button]:appearance-none`) and absolutely-positions our button over the field
+  (`pr-8` reserves the room). ★ Do NOT "simplify" this back to a sibling button, and do NOT drop our button in
+  favour of the native one — the native ✕ does not exist in Firefox and is not keyboard-reachable. Shared by
+  7 panels (budget · budget-report · change-report · raid-report · reports-tables · resources-panel ·
+  resources-report), several axe-scanned.
 
 ### UI shell — dismissal: Escape & Tab ownership
 

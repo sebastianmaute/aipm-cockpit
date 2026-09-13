@@ -21,21 +21,23 @@ before your first edit — the rest is reference, reachable from here.
 | [Commands](#commands) | every script + the CI gotcha that bites for each |
 | [Hard constraints](#hard-constraints-ci-enforced--these-gate-merges) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
 | [Architecture pointers](#architecture-pointers) | orientation, module maps, extraction conventions, panel splits, toolbar order |
-| [Subsystem reference](#subsystem-reference--deeper-detail-loaded-on-demand) | the twelve files below, and why they are not loaded |
+| [Subsystem reference](#subsystem-reference--deeper-detail-loaded-on-demand) | every file in `docs/AGENTS/`, and why they are not loaded |
 
 **In `docs/AGENTS/`** (NOT loaded — open the one you need):
 
 | | |
 |---|---|
 | [dashboard](docs/AGENTS/dashboard.md) | delta strip · KPI trends · arrangeable tile grid · coaching · density · digest |
-| [ui-shell](docs/AGENTS/ui-shell.md) | Help · nav · focus/keyboard · surfaces · ★ **dismissal owns the Escape/Tab protocol — read it before touching any modal, popover or panel** |
+| [accessibility](docs/AGENTS/accessibility.md) | the axe gate · accessible + row-unique names · label-in-name · toggle state · what axe cannot see |
+| [ci](docs/AGENTS/ci.md) | the GitLab pipeline job by job · exit-code splits · `quality-gate-bypass` · release stage |
+| [ui-shell](docs/AGENTS/ui-shell.md) | Help · nav · focus/keyboard · surfaces · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal owns the Escape/Tab protocol — read it before touching any modal, popover or panel** |
 | [theming](docs/AGENTS/theming.md) | colour schemes · `--ui-*` tokens · AA derivation · branding · print · DS primitives |
 | [insights](docs/AGENTS/insights.md) | detect · reconcile · recommend · outcome · digest |
 | [ai-assistant](docs/AGENTS/ai-assistant.md) | wire layer · tools · write-concurrency tokens · inline edit · dedup · scheduled jobs |
 | [integrations](docs/AGENTS/integrations.md) | steering committee · calendar write-back + two-way pull · Timelog |
 | [platform](docs/AGENTS/platform.md) | diagnostics · guard transparency · dictation · AI master switch |
 | [features](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
-| [documents](docs/AGENTS/documents.md) | version before-images · retention + tombstones · the single mutation path · `documentVersions` across the six write paths |
+| [documents](docs/AGENTS/documents.md) | version before-images · retention + tombstones · the single mutation path · `documentVersions` across the six write paths · surfaces + the block editor |
 | [rich-text](docs/AGENTS/rich-text.md) | note logs · the seven rich fields · DOM-free vs browser-only · sanitizers + model-write boundaries · export fidelity · the toolbar |
 | [activity-log](docs/AGENTS/activity-log.md) | meta-blob persistence · `logMode` · actors · forward-compat sanitising · the three completion-trend delta shapes |
 | [task-status](docs/AGENTS/task-status.md) | the `status` ⟺ `completedDate` pair · the five writers · load does NOT repair a split pair · `isTaskClosed` vs `isTaskDelivered` |
@@ -49,7 +51,7 @@ live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`. That is all it does: it proves a NAME
 is real, never that a CLAIM about it is true. "`sanitizeX` guards this path" passes the gate whether
 or not that path calls it. ★★★ NARROWER STILL — **it only checks MIXED-CASE names, so every
-backticked `SCREAMING_CASE` constant in all thirteen files is completely ungated.** The scan requires
+backticked `SCREAMING_CASE` constant in AGENTS.md and every file in `docs/AGENTS/` is completely ungated.** The scan requires
 both a lowercase and an upper/underscore character (`check-agents-symbols.mjs`, the "mixed case only"
 guard), so `HELP_ENTRIES`, `TABLE_NAMES`, `CONFIG_KEYS`, `A11Y_VIEWS` and every peer are skipped
 outright — a deleted one goes on being documented as current forever. Verified 2026-08-05 by probe,
@@ -84,7 +86,7 @@ disprove, in the same commit.
 | File | Owns |
 |---|---|
 | **AGENTS.md** (this file) | ALWAYS LOADED. Landmines and hard constraints that apply to any task, plus the architecture pointers and module maps. |
-| [`docs/AGENTS/`](docs/AGENTS/) (12 files) | NOT loaded. The per-subsystem deep reference this file used to carry inline — same conventions, same gate. Open the one you are working in. |
+| [`docs/AGENTS/`](docs/AGENTS/) | NOT loaded. The per-subsystem deep reference this file used to carry inline — same conventions, same gate. Open the one you are working in. |
 | [`docs/CODEMAPS/`](docs/CODEMAPS/) (5 files) | layered overview — architecture · frontend · backend · data · dependencies. Read these FIRST for shape; AGENTS.md + `docs/AGENTS/` for detail. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | process + conventions: setup, scripts, testing layers, release checklist. |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | operations: build, deploy, rollback, secrets, and a symptom-indexed "common issues" list. |
@@ -510,401 +512,21 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   tracked file; Tailwind emits it as invalid CSS and `globals.css` fails to compile → app 500s.
   Use a real token name in examples (e.g. `shadow-[var(--shadow-card)]`); write token FAMILIES as bare
   `--foo-*` globs outside any Tailwind bracket.
-- **a11y (axe gate):** every new interactive control (button/checkbox/input/drag handle) needs
-  accessible name + keyboard operability — unlabeled form control is axe-critical FAIL.
-  `placeholder` is NOT an accessible name — input needs `aria-label`/`<label>` (placeholder-only
-  input fails axe gate even though looks labeled).
-  In LIST of rows, per-row controls need row-UNIQUE accessible name (e.g.
-  `aria-label={`${t(lang,"edit")} – ${row.name}`}`) — N identical "Edit"/"Enabled" labels is
-  WCAG 2.4.6 fail. ★★★ **THE AXE GATE CANNOT CATCH THIS AT ALL — not "only when one row is seeded".**
-  Measured 2026-08-08 against the installed axe-core 4.12.1, not reasoned: of its 105
-  rules, **69** carry one of the four tags `e2e/a11y.spec.ts` requests (`wcag2a wcag2aa wcag21a
-  wcag21aa`), and NOT ONE of them flags two controls sharing an accessible name. ★★ THAT SENTENCE IS
-  THE CLAIM — "two CONTROLS" is load-bearing, and every weaker paraphrase of it here has been false.
-  The command below returns TEN rules, and TWO of the ten DO carry a requested tag:
-  `duplicate-id-aria` and `frame-title-unique` (both `wcag2a`, and the latter is literally two
-  iframes sharing an accessible name). What keeps the conclusion true is that neither of those two
-  examines two CONTROLS' names. The two nearest by WORDING are not requested at all: `identical-links-same-purpose` ("links
-  with the same accessible name serve a similar purpose" — links ONLY, `wcag2aaa`) and
-  `table-duplicate-name` (a `<caption>` repeating the `summary` attribute — `best-practice`), which
-  is even less adjacent than its id suggests. READ THE OUTPUT, do not read any sentence above it.
-  Reproduce:
-  `node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" ["+r.tags.join(",")+"]").join("\n"))'`
-  So a green axe run is silent on duplicate names in EVERY view, at EVERY seed size, forever. Qualify
-  the label at write time and pin it with a UNIT test rendering ≥2 rows — a test you write is the ONLY
-  thing that can catch this, in either layer. ★ Two different tests are meant here and they are not
-  interchangeable: a UNIT test rendering two same-type rows is the PREVENTION you write alongside a new
-  per-row control, and it is what this bullet asks for. The e2e assertions in `e2e/seed-content.spec.ts`
-  are the other, and they are no longer a CHARACTERIZATION: they used to pin the DEFECT
-  (`toHaveCount(2)` on the bare colliding name, red-on-fix by design) and were FLIPPED when
-  `docs/open-followups.md` §126 was fixed, so they now pin the FIXED shape — `toHaveCount(0)` on the
-  bare `"Dismiss – Milestone at risk"` plus `toHaveCount(1)` on each of `"… (1)"` / `"… (2)"` (EN DASH
-  U+2013). ★★ Read that as a NARROWER guarantee, not a stronger one: those three are pinned to the
-  exact disambiguation FORMAT, so changing the suffix turns them red without anything colliding — go
-  to the spec's own comment before touching the numbers. ★ Reproduce with
-  `grep -n "toHaveCount" e2e/seed-content.spec.ts`, and do not conflate the trio with the
-  `toHaveCount(4)` a few lines above it in the SAME test: that one counts every `Dismiss – ` button and
-  asserts the SEED reached the app, which is a different claim and was true either way. Both call
-  themselves "the only detector" in their own scope; neither is a gate. (Worked example, and the seed
-  that renders the collision at all: §126 — CLOSED 2026-08-25, so read it as the record of what was
-  fixed, not as a live defect.)
-  ★★ ASSERT THIS WITH THE SHARED `src/test/row-unique-names.ts`, never a
-  hand-rolled enumeration — but read which of its two guards buys what, because the
-  first shipped promising the second’s job. `minControls` THROWS when the scope
-  renders fewer controls than that, which proves only that the scope is NON-EMPTY:
-  it counts CONTROLS of the requested `roles`, NOT rows, over the WHOLE DOCUMENT
-  unless `scope` is passed — so a panel’s toolbar alone satisfies any plausible floor.
-  ★★★ IT DOES NOT MAKE THE VACUOUS ONE-ROW FIXTURE UNREACHABLE, and this bullet
-  claimed for a release that it did. Measured by mutation, not reasoned:
-  `documents-panel.test.tsx`’s “keeps every per-row control distinct when two documents
-  share a title” (floor 2) still PASSED with its fixture cut to ONE document, and still
-  PASSED cut to ZERO — one row renders six buttons and the panel toolbar five.
-  `requireCollisionSeed: true` is the guard that closes it — its exact predicate and its
-  limitation live in the docstring in `src/test/row-unique-names.ts`, never in a
-  paraphrase. Turn it ON for any test claiming to cover a collision; leave it OFF for a
-  distinct-name regression pin, a legitimate but different assertion. ★ It cannot certify
-  a surface disambiguating some OTHER way — `documents-deleted-section.tsx` appends
-  ` · #id` — so those stay opted out. ★★ NO
-  SURFACE COUNT IS QUOTED HERE, and restoring one is a regression: this line
-  said "four surfaces", which counts neither the registered sections (§111 ·
-  §126 · §243 — and §126 alone covers TWO surfaces) nor the files that needed
-  naming. Further surfaces were fixed with no § at all, among them the RAID
-  case this very bullet uses as its worked example.
-  Name the row with `buildRowTokens`/`rowLabel` (`src/app/row-tokens.ts`):
-  a name unique in the list is used BARE, colliding rows get a 1-based occurrence
-  index, and ALL colliding rows are numbered including the first. NOT the id
-  (uuids read as character-salad aloud); NOT a whole-list ordinal (shifts under
-  sorting).
-  ★ Two things this cost us that the rule above does not say. First, WCAG 2.4.6 permits two controls
-  with the SAME purpose to carry the same name — the detector flags any repeat regardless, so a red
-  is a question ("do these two rows actually differ?"), not an automatic fix. RAID's toolbar Add and
-  its trailing row Add collided; the fix was justified only because `openNew()` (always a Risk) and
-  `openNew(effectiveCategory)` (the filtered category) genuinely differ, so the name now carries the
-  category — scope the assertion with a comment instead when they don't. Second, a per-item component
-  cannot disambiguate itself — it has no sibling visibility, so the token map must be built by whoever
-  renders the LIST and threaded down as a prop. That is why `raid-panel-rows` was fixable in place;
-  `TaskStatusSelect`/`TaskActionsImpl` needed the same token threaded in from THEIR list owners
-  (`task-row.tsx`/`task-kanban-card.tsx`) instead, which is the same rule, not an exception to it.
-  ★★ **The discriminator is "can this value repeat in one rendered list," never the call FORM.**
-  Interpolating a per-row field through a positional `t(lang, key, item.field)` argument proves the
-  name DIFFERS when the field differs; it proves nothing when the field REPEATS, and a repeating
-  field is the entire premise of this defect class (`docs/open-followups.md` §111, §126, §247, §248
-  are all the same shape). A value that cannot repeat in the list (a React list `key`, a numeric id)
-  needs only a plain qualifier; free text — a name, a title — always needs a token, regardless of
-  whether the call site passes it positionally or via a template literal.
-  ★★★ **Enumerate with three legs, not one grep — a field-name grep alone has repeatedly missed real
-  collisions.** (1) Widen it: allow whitespace around `=` and the camelCase `ariaLabel=` spelling, not
-  only `aria-label="`. (2) A control with **NO `aria-label` at all** falls back to its rendered
-  CONTENT as its accessible name, and a raw-content name collides exactly like a repeated attribute
-  would — and invisible to any attribute-matching grep by construction, because there is no attribute
-  to match. ★★ NO SURFACE COUNT AND NO FILE LIST IS QUOTED HERE, deliberately, and restoring one is a
-  regression: this line carried five file names and a tally, which the row-unique-names branch had
-  just STRIPPED out of `src/app/use-row-tokens.ts` and replaced with a reproduce grep — re-inserting
-  it into the ALWAYS-LOADED file puts it where nothing can ever see it rot. Read today's set instead:
-  `grep -rln "aria-label={rowToken}\|aria-label={token}" src/app --include=*.tsx | grep -v test`
-  ★★ And do NOT paraphrase that set as "all routed through the shared `useRowTokens` hook" — the two
-  Tasks surfaces CANNOT call it, because a per-item component has no sibling visibility (the general
-  cannot-disambiguate-itself rule), so they take the token as a PROP from whoever renders the list. A
-  `grep -rln "useRowTokens" src/app --include=*.tsx` therefore does NOT enumerate this fix and returns
-  a different set of files; `docs/open-followups.md` §247 carries the split. (3) A shared per-row component handed the WHOLE
-  ENTITY, not a pre-built token, can compose a name from a raw field INSIDE ITS OWN FILE, where no
-  grep over the panel that renders it will ever see the string.
-  ★ **A collision test's `roles` list is load-bearing, and nothing else checks it.**
-  `requireCollisionSeed` (`src/test/row-unique-names.ts`) is satisfied by ANY two controls' names
-  colliding, not necessarily the one under test — an unrelated real collision can mask a silently
-  narrowed `roles` array. The only automatic guard is `minControls`, and only when kept at its exact
-  MEASURED value for that scope; a loose floor lets the same narrowing back in unnoticed.
-  ★★★ THE GATE IS SILENT ON WCAG 2.5.3 (label-in-name) IN EVERY VIEW TOO — and here, unlike the case
-  above, THE RULE DOES EXIST, which is what makes it dangerous. axe 4.12.1 ships
-  `label-content-name-mismatch` and it DOES carry `wcag21a`, one of the four tags the spec requests, so
-  a rule listing reads as coverage. It is ALSO tagged `experimental`, and axe's default tagExclude is
-  `experimental,deprecated` — a tag-only runOnly never RUNS it, and `e2e/a11y.spec.ts` enables no rule
-  explicitly. Measured 2026-08-09 under the gate's exact four tags, not reasoned: the rule lands in NO
-  result bucket — not violations, passes, incomplete OR inapplicable — and appears only once
-  `{"label-content-name-mismatch": {enabled: true}}` is passed as an explicit rule override. Reproduce:
-  `node -e "const a=require('axe-core');const r=a.getRules(['wcag21a']).find(x=>x.ruleId==='label-content-name-mismatch');console.log(!!r, a._audit.tagExclude.join(','), r.tags.join(','))"`
-  → `true experimental,deprecated cat.semantics,wcag21a,…`. ★★ So "does `getRules(tags)` list it?" is
-  the WRONG question — ask whether it survives tagExclude. That mistake was made and corrected on
-  2026-08-09: a listing probe was read as proof the gate ran the rule. A control whose VISIBLE label is
-  not CONTAINED in its `aria-label` (2.5.3 is case-INSENSITIVE — Understanding SC 2.5.3, "Punctuation
-  and capitalization") therefore needs a UNIT test, in every view, scanned or not.
-  ★★★ CONTAINMENT, NOT PREFIX — an earlier revision of this bullet said "prefix-preserving substring"
-  and that is a STRICTER rule than the SC, so applying it literally flags conformant code: axe ends in
-  `curatedCompareWith.includes(curatedCompare)` (position-independent, punctuation- and unicode-
-  stripped), and this repo's own dependency type select passes while failing a prefix test — visible
-  "Type for next link" inside accessible "Predecessor type for next link". ★★ Front-position IS a real
-  best practice and WCAG says so — but in a NOTE attached to the SC ("A best practice is to have the
-  text of the label at the start of the name"), not in its normative text, so enforcing it as THE rule
-  flags conformant code. An earlier revision of this very paragraph cited that best practice to G208 /
-  G211 "for speech input, not 2.5.3", which is backwards twice over: those two ARE 2.5.3's own
-  sufficient techniques, and neither one mentions ordering. 2.5.3 IS the speech-input criterion.
-  ★★★ AND THE RULE CANNOT SEE A `<select>` AT ALL, so enabling it explicitly is not the fix it looks
-  like. Its `matches` admits only roles supporting name-from-content; a `<select>` without `multiple`
-  and size null-or-1 maps to `combobox`, which is not among them. Measured 2026-08-09, not reasoned:
-  `node -e 'const s=require("axe-core").commons.standards.getAriaRolesSupportingNameFromContent();console.log(s.length, "combobox:", s.includes("combobox"), "button:", s.includes("button"))'`
-  → `32 combobox: false button: true`. So for every `<select>` in the app the unit test is not merely
-  the best detector, it is the ONLY possible one, at any gate configuration.
-  ★★ TOGGLE-BUTTON name/state coherence: a `<button aria-pressed>` whose VISIBLE LABEL flips to the
-  OPPOSITE action (e.g. "Comfortable view" while compact is active) announces "Comfortable view,
-  pressed" — implying the WRONG mode is on (WCAG 4.1.2). axe PASSES it (a name exists). Fix: PIN the
-  label to what the toggle ENABLES ("Compact view") and let `aria-pressed` track THAT state, so
-  "Compact view, pressed" ⇒ compact is on. (The dashboard's own density + Trends toggles followed this
-  before they were REMOVED — density moved to Settings → Appearance, Trends is now Turso-gated.) The
-  pin-the-enabled-label + `aria-pressed` pattern remains the RULE for any new toggle button.
-  ★★ THAT PIN CREATED A WCAG 1.4.1 PROBLEM IN THE DARK SCHEMES AND `ToggleButton` NOW CLOSES IT ON
-  TWO SEPARATE CHANNELS. Because the label may not say which state is active, the ON state rode the
-  accent border+tint alone.
-  ★★★ SCOPE THE HISTORY CORRECTLY — an earlier revision here said "colour as the sole visual channel"
-  flatly and that is FALSE for the three LIGHT schemes: Understanding 1.4.1 counts a lightness difference
-  of ≥3:1 as the required additional distinction, and pressed-vs-unpressed border measured
-  harbor-light 8.97:1 · meridian-light 7.71:1 · umber-light 9.30:1 (computed from `builtin-schemes.ts`).
-  Those were already conformant. The DARK maps measured 1.22 / 1.16 / 1.03:1 — that was the real
-  failure, and not merely a colour-perception one. ★★ READ THOSE FIGURES AS THE RECORD OF WHAT §56
-  MEASURED, NOT A LIVE DEFECT: §55 · §56 · §101 · §325 are all CLOSED. The CONTRAST half (SC 1.4.11) is
-  STRUCTURAL FOR THE PRIMITIVE'S OWN THREE ACCENTS — each rides a derived state-border token nudged to
-  clear 3:1 against `--line`, which covers a user's imported scheme for free where editing the built-in
-  maps would not. ★★★ THAT IS A PROPERTY OF THE ACCENTS, NOT OF EVERY `ToggleButton`: `className` is
-  APPENDED to the primitive's own classes, so a consumer may deliberately override the border with a
-  trailing `!` and some do — `task-health-chip-style.ts` pins the RAG hue on the health chips, because
-  there the hue IS which health was picked. Where a consumer overrides, the derived floor does not
-  apply and the non-colour marker below is what carries the state (§335 records the measurement).
-  ★★★ A `dark:border-*` variant on this primitive OR on a consumer SILENTLY UNDOES
-  THAT: `scheme-apply.ts` already sets the property per active scheme AND mode, so a `dark:` override
-  re-pins the raw accent in exactly the schemes that failed. The derivations, the per-accent
-  measurements, the three accents, the `card` size and the `pressHandlers` bag are all in
-  [`docs/AGENTS/theming.md`](docs/AGENTS/theming.md) — open it before touching either.
-  The NON-COLOUR half (SC 1.4.1) is a trailing
-  `data-pressed-marker` check glyph (`aria-hidden`, since `aria-pressed` already tells AT) — a SEPARATE
-  guarantee, and reading it as the CONTRAST fix is the trap §56 records. ★ It is still rendered in
-  BOTH states, but its WIDTH is now conditional — off collapses to zero and animates, and
-  `reserveMarkerSpace` opts a consumer OUT and restores the old constant width. ★★ NO CONSUMER COUNT
-  IS QUOTED HERE, and restoring one is a regression: this line said "two consumers do" while seven
-  files passed the prop (measured 2026-09-13). List them with
-  `git grep -lE "^\s*reserveMarkerSpace\s*$" -- src ':!*.test.*' ':!src/app/toggle-button.tsx'` —
-  the last exclusion is load-bearing, because the primitive's own comment has a line that is exactly
-  the prop name and would be counted as a consumer.
-  The constant width used to be unconditional, because a resizing control moves its neighbouring
-  controls under the pointer on every click (reasoned, not measured — jsdom has no layout, so
-  nothing here can test it); that reason is exactly why the opt-out exists. The mechanics are in
-  [`docs/AGENTS/theming.md`](docs/AGENTS/theming.md), and each consumer's REASON for opting out is
-  enumerated in `toggle-button.tsx`'s comment beside the marker — the reasons differ, so do not
-  restate them as one rule.
-  ★ `invisible` now appears ONLY on the opt-out path: on the animated path a zero width already
-  clips the glyph, so `invisible` would leave nothing to animate. ★ `invisible` vs
-  `opacity-0` is NOT load-bearing: the marker `CheckIcon` carries its own explicit `aria-hidden="true"`,
-  so the glyph is out of the a11y tree either way. ★★ Do NOT restore the old reason ("heroicons defaults
-  `aria-hidden`") — lucide sets it only when the icon has no children AND the caller passed no a11y
-  prop (`node_modules/lucide-react/dist/esm/Icon.mjs`: `...!children && !hasA11yProp(rest) && {
-  "aria-hidden": "true" }`), so a NEW glyph relying on the library default would be exposed.
-  ★★ **`preventFocusSteal` is OPT-IN, and that is load-bearing.** It suppresses the `mousedown`
-  default so the click cannot pull focus off whatever the toggle acts ON — needed by the rich-text
-  toolbar, where stealing focus from the editor collapses the selection the command is about to
-  apply. It is a prop rather than the primitive's behaviour because every OTHER toggle in the app
-  relies on native focus-on-click, so making it unconditional would change all of them at once. Both
-  branches are pinned by `toggle-button.test.tsx`; a new toggle that drives ANOTHER element's
-  selection wants it, and a self-contained one must not have it.
-  ★★ `disabled` was declared on this primitive from the start but styled NOTHING until 0.212.0 — no
-  call site ever passed it, so an inoperable toggle was pixel-identical to a live one. It now carries
-  `disabled:cursor-not-allowed disabled:opacity-60`. ★★ THE JUSTIFICATION IS THE MEASURED FLOOR, not
-  the exemption: at 60% the disabled label lands at 4.16:1 worst case (umber-light; harbor-light 4.34,
-  meridian-light 4.51, all three dark 5.7+), so it stays readable. WCAG 1.4.3's inactive-component
-  exemption is the conformance BACKSTOP, not the reason — quoting it alone would license `opacity-30`
-  on some other disabled control, which is formally conformant and unreadable. Do not read this as
-  licence for the enabled-state alpha traps recorded elsewhere in this file. ★ The disabled BORDER
-  drops to ~1.15:1 and effectively vanishes; the control reads as a control via its text, which is
-  why the floor above is the number that matters. ★ Keep it a real `disabled` attribute — an
-  `aria-disabled` lookalike still fires `onClick`, which for the Settings auto-sync row would arm
-  background sync from a row the user had switched off (pinned by a test).
-  ★★ axe 4.12.1's ONLY `wcag141` rule is `link-in-text-block` (links vs surrounding text) — nothing
-  in axe evaluates whether a CONTROL's state is colour-only, so the gate is silent on this for every
-  toggle in the app and the primitives' own unit tests are the only coverage — `toggle-button.test.tsx`,
-  `segmented-control.test.tsx` for its `data-selected-marker`, and `scheme-state-contrast.test.ts` for
-  the 3:1 floor across every built-in combo. (An earlier revision said
-  "axe has NO rule for colour-as-sole-cue"; a contributor grepping the tag list finds one and stops
-  trusting the bullet.) A hand-rolled `aria-pressed` button gets neither the cue nor the test — use
-  `ToggleButton`, or `SegmentedControl` for a one-of-N choice.
-  Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
-  folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
-  `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
-  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **17** named views — Dashboard · Open Points · Gantt ·
-  Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
-  Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 7 scheme
-  COMBOS (harbor/meridian/umber L+D, Beacon light-only) × 17 + 7 Kanban-board variants (one per combo)
-  + 1 notes-window rich-text-toolbar scan + 1 Documents block-editor scan (both harbor-light only and
-  hardcoded, so neither scales with the combo count) = **128** axe scans, plus ONE non-scan guard test
-  (asserts the served app's `data-app-version` matches this checkout, open-followups §58) — **129**
-  tests total in the spec file. ★ Don't derive these numbers, MEASURE them, in the same
-  commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
-  browsers needed, and it also proves `e2e/seed.ts`'s module-level sample read still resolves), and
-  `grep -c "a11y:"` over that output splits scans from the guard.
-  ★★ A VIEW IN THE LIST IS NOT THE SAME AS A VIEW BEING COVERED — the scan only sees what the e2e seed
-  put in IndexedDB, and `e2e/seed.ts` seeds from two HARDCODED lists. A slice absent from them renders
-  its EMPTY STATE at scan time, so the run is green over a panel with no rows, no per-row controls and
-  nothing to collide. Seeding `documents` for the first time immediately turned up a real serious
-  violation the empty state had been hiding. Most of BrowserBackend's optional kv slices are still
-  unseeded — Insights is in this list and affected today (`docs/open-followups.md`).
-  It does NOT include Projects, Knowledge, or the
-  Resources → **Calendar** sub-tab (Resources defaults to the directory), so controls only on those
-  surfaces aren't scanned; anything in the always-present top bar IS (scanned via every view).
-  ★★ Calendar being unscanned has already cost real bugs: 0.202.0 shipped an AA contrast failure
-  there (`text-ui-pink` on `bg-surface-muted`, under the 4.5:1 AA threshold) that a fully green axe run said nothing
-  about (the count at the time was lower than today's, which is why this sentence no longer quotes one). Check contrast BY HAND for anything styled on that surface.
-  Verify IA/UI/contrast changes with
-  `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
-  BEFORE pushing — unit suite (`test:run` = vitest) never runs playwright, so axe regressions slip
-  local gate and fail ONLY in CI.
-  ★★★ ADD `--workers=1` WHENEVER YOU MATCH MORE THAN ONE VIEW. `playwright.config.ts` sets
-  `workers: process.env.CI ? 1 : undefined`, so **CI runs axe SERIALLY and local runs it at CPU-count**
-  — a local-only contention mode the gate itself can never exhibit. Over-subscribed, tests die on
-  `Test timeout of 60000ms exceeded` inside `page.evaluate`, which prints as a FAILURE with a
-  screenshot and zero violation text. Measured 2026-08-08: a 3-view × 5-scheme selection went
-  **10 failed / 5 passed** in parallel and **15 passed** at `--workers=1`, same commit, same warm
-  server, no code change between runs. ★★ Read the failure BODY, never the summary line: a real
-  violation names a rule id and an impact; this names neither, and the only `axe-core` string in the
-  log is the spec's own `.withTags(...)` source echoed into the error context. Recording a green
-  branch as red is the expensive direction here.
-  ★ The 60s per-test timeout also covers the FIRST navigation's one-time Turbopack compile (the
-  config says so at its `timeout`), so a COLD server can blow it under load even at one worker. Warm
-  the route first (`curl -o /dev/null http://localhost:3000/` until it returns in well under a second)
-  and let `reuseExistingServer` attach to that.
-  ★★ After ANY `globals.css` `@theme` edit or large class/token rename, run axe on a FRESH ISOLATED
-  server (`PORT=3100 npm run dev`, stop with `PORT=3100 npm run stop`) — NEVER the reused long-running
-  dev server. Playwright's `reuseExistingServer:!CI` will attach to a stale `:3000` whose Tailwind
-  hasn't regenerated the new `bg-ui-*` utilities → phantom transparent-fill axe FAILS that a prod build
-  + a fresh port both pass (cost ~5 debug cycles once). Also re-run after killing a `PORT=3100` axe
-  server if `.next/dev/types/*` got corrupted (phantom tsc errors in GENERATED files → `Remove-Item
-  -Recurse -Force .next`, not source).
-- **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
-  BLOCKING [two-scan: a full-severity `--gitlab-sast` report for the widget + a separate `--severity ERROR
-  --error` gate] · **dependency-audit** blocking · **file-size-ratchet** BLOCKING · **duplication-gate**
-  BLOCKING [jscpd `--threshold` per package.json `dup:check` — ★★ it compares the TOTAL
-  duplicated-LINE percentage across all formats, NOT per-format and NOT tokens; the `dup:check` line
-  in Commands carries the bisect] · **agents-symbol-check** BLOCKING
-  [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] ·
-  **version-sync-check** BLOCKING [`npm run version:check` — `src/app/version.ts` is the source of
-  truth for the version and codename; every file the Releasing bullet below points at restates one or
-  both, and nothing compared them before this job. Propagate with `npm run version:sync` rather than
-  hand-editing them. ★★ TWO FAILURE
-  MODES, TWO EXIT CODES: **1 is DRIFT** (a satellite disagrees with `version.ts` — fix with
-  `version:sync`), **2 is the gate unable to do its job** (a missing file, a moved regex shape, an
-  empty codemap glob — a gate that scans nothing passes everything). Both were 1 until 0.260.x, so a
-  red pipeline could not be read without opening the log, and the two demand opposite responses.
-  ★ Its ONE structural blind spot is a format the reader and writer agree on and are both wrong
-  about: the README badge is a URL inside a markdown link, so a codename with a SPACE has to be
-  encoded — un-encoded, `--update` wrote a badge whose link truncates mid-codename and the gate then
-  reported IN SYNC over it. Fixed by `encode`/`decode` hooks on that one pattern; a new satellite
-  whose file format cannot hold a raw value needs the same, and no amount of reader/writer symmetry
-  substitutes] ·
-  **doc-claims-check** BLOCKING [`npm run docs:claims:check` — a RATCHET over `path:LINE` citations in
-  every tracked PROSE doc — all of `docs/**` bar `docs/superpowers/`, plus the seven root/lib docs in
-  `ROOT_DOCS` (the byte-pinned `golden-workspace.md` fixture is deliberately excluded). ★★ It said
-  "every tracked doc" while `CHANGELOG.md`, `CLAUDE.md` and the two `lib/*.md` guides were NOT
-  scanned; a cold review caught it and the scope was widened to match the claim rather than the claim
-  narrowed. Proves only that a cited line COULD exist, never that it
-  is right — the Commands entry carries the measurement] ·
-  **followups-status-check** BLOCKING [`npm run followups:status:check` — every OPEN entry in
-  `docs/open-followups.md` must carry a `**Status:**` line with an ISO date that either cites a
-  command or says `never machine-verified`. ★★ TWO EXIT CODES, opposite responses, the same split
-  `version-sync-check` documents: **1 is DRIFT** (write the Status line), **2 is the gate unable to
-  scan at all** — an unreadable register, or zero entries parsed. The vacuity guard is the
-  load-bearing half, because a scan that reads nothing passes everything. ★★★ DO NOT satisfy a red
-  run by inventing a verification — `never machine-verified` is a CONFORMING answer and is the
-  honest one for an entry nobody has probed. ★ The check is command-SHAPED, not merely backticked:
-  a backticked filename is not a verification, and accepting one was measured to admit 10 entries
-  that named none] ·
-  **followups-index-check** BLOCKING [`npm run followups:index:check` — every `## <n>.` heading in
-  `docs/open-followups.md` must carry a row in the index table between `<!-- INDEX:BEGIN -->` and
-  `<!-- INDEX:END -->`, and every row must point at a heading that exists. Nothing compared the two
-  sets before it, and they disagreed on the day it landed. ★★ SAME TWO-EXIT-CODE SPLIT as its two
-  siblings above: **1 is DRIFT** (write the missing rows, delete the orphaned ones, or renumber a
-  duplicate), **2 is the gate unable to scan** — markers missing, markers DUPLICATED, or either set
-  empty. ★★★ It also reports a §number used TWICE on either axis, which the set difference it is
-  built on is structurally BLIND to: paste one index row and both differences come back empty while
-  the two counts disagree. ★ DO NOT satisfy a red run by renumbering an entry — a follow-up number
-  is a permanent handle other docs cite] ·
-  **tag-version-check** BLOCKING [tag pipelines only, `needs: []` — `npm run tag:check` asserts the tag
-  is `v` + `APP_VERSION` (`scripts/check-tag-version.mjs` over `scripts/tag-version-lib.mjs`). ★★ SAME
-  TWO-EXIT-CODE SPLIT: **1 is DRIFT** (the installer would misreport its own version), **2 is the gate
-  unable to scan** (an empty tag — a rules bug — or `version.ts`'s shape moved). `desktop-package-tag`
-  lists it in its own `needs:`, so the wine build waits for it rather than racing it (that a FAILED
-  guard then SKIPS the build is expected `needs:` behaviour, but no GitLab doc checked here states it
-  and no tag pipeline has shown it; `publish-release` is held back either way, by stage order)] · **unit** [coverage floors: global lines 92/funcs 91/branch
-  80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
-  unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
-  false}]` so it cannot run concurrently with **unit-tests** — two full vitest runs on one runner is the
-  machine-saturation condition behind the load-sensitive flakes; guards against intra-file test-order
-  dependence, open-followups §75]) → build → e2e [**e2e** (MR and default-branch pipelines only — its
-  two `rules:` match nothing on a tag) · **prod-smoke** BLOCKING (the same two rules, so not on a tag
-  either) [`npm run e2e:smoke:prod` — `next start` + the smoke driver, consuming build's `.next/` artifact.
-  ★★ THE ONLY GATE THAT SEES THE PROD CSP, and the reason is per-suite. Dev grants `'unsafe-inline'` on
-  `style-src-elem` while prod is nonce-only (`src/proxy.ts`), so anything meeting the DEV policy is blind
-  to this class. The unit suite never starts a server at all. **e2e** does, but `playwright.config.ts`
-  `webServer.command` is `npm run dev` — so it meets the permissive policy too. And `e2e:smoke` starts no
-  server, so it only ever gets pointed at one somebody already had running, which in practice is dev.
-  ★ Note **e2e** does NOT invoke `e2e:smoke` — they are separate entry points that happen to share the
-  same blind spot, so fixing one would not have covered the other. That is how §54 stayed invisible for
-  months. ★ **dast-zap** DOES serve a prod build (`Dockerfile.dast` ends `CMD ["npm","run","start"]`), so
-  it is the one other suite that meets this policy — but it does not gate MR or default-branch pipelines,
-  where its rule is `when: manual` WITH `allow_failure: true` — tag pipelines match that rule too, and
-  without the key a blocking manual job holds every later stage, so `publish-release` would never run.
-  ★★ It is NOT unconditionally non-blocking,
-  and an earlier revision of this bullet said it "cannot fail a pipeline", which is false in the very mode
-  the line names: `allow_failure: true` is indented under the `- when: manual` rule ONLY, there is no
-  job-level one, and a `rules:` entry that omits it defaults to FALSE — so on a `schedule`
-  pipeline the first rule matches and dast-zap runs BLOCKING. Its ZAP findings still cannot fail it
-  (`zap-baseline.py … -I … || true`), but the unguarded `docker build` / `docker network create dastnet`
-  / `docker run` steps can, and `network create` fails outright on a re-run where the network survives.
-  Reproduce with `sed -n '/^dast-zap:/,/^  image:/p' .gitlab-ci.yml`] · **desktop-package** (manual,
-  non-tag, `allow_failure: true`, artifact 1 week) · **desktop-package-tag** (tag pipelines, **BLOCKING**,
-  artifact `expire_in: never`) · **dast-zap** weekly/manual] → release [**publish-release** BLOCKING, tag
-  pipelines only — `npm run release:publish` (`scripts/publish-release.mjs` over
-  `scripts/release-publish-lib.mjs`) creates the GitLab Release with a PER-TAG artifact link. ★★ NO
-  `needs:`, on purpose — stage order is what holds it behind every earlier gate; the YAML comment says
-  why. ★★★ That URL embeds the producing job's name (`ARTIFACT_JOB`) and the installer's path, so
-  renaming `desktop-package-tag` or changing electron-builder's `artifactName` alone would 404 the next
-  Release's download while the build stays green. `release-publish-lib.test.mjs` reads `.gitlab-ci.yml`
-  and `desktop/electron-builder.yml` as text and fails on either drift, and on the job's artifact
-  `paths:` no longer covering the installer].
-  All quality gates are ratchets. ★★ The
-  `quality-gate-bypass` escape hatch is NOT uniform — reproduce with
-  `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and
-  **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
-  in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
-  `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `version-sync-check`,
-  `doc-claims-check`, `followups-status-check`, `followups-index-check`, `tag-version-check`, `unit-tests`,
-  `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
-  `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
-  sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a
-  bypass block on whichever gate is actually red. One of them ATTACHED the reproduce command above
-  without running it, and the command refutes the sentence it was attached to. **Attach the command and
-  run it.** ★★★ THAT WORDING IS NOT ENOUGH, measured 2026-08-08: a review round corrected at least
-  EIGHT false claims in these docs and introduced SIX MORE errors across two correction passes — every
-  one of them prose, and in every case the author HAD run a command, just not against the sentence they
-  ended up writing. So: **a correction is a NEW claim and inherits none of the verification of the
-  thing it corrects — run a command against the REPLACEMENT text, not only against the error you
-  found.** Two replacement recipes in that round were themselves wrong (one returned five files where
-  the sentence said two; its successor returned one, because a consumer imported `../x` while the
-  pattern matched only `./x`). ★ The two counts are NOT a matching pair — they are tallied by different
-  criteria (corrections made vs. items a reviewer flagged), and one of the six was a broken sentence
-  rather than an untrue statement. Read them as magnitudes, not as a symmetry.
-  ★★★ COROLLARY — an edit that INSERTS lines invalidates every `file:line` citation below it, including
-  ones written moments earlier in the same commit, so a correction round must re-check the citations it
-  did not touch: `ALLOW_DATA_ATTR: false` moved 114→130 when a comment block landed, then 130→131 when
-  a one-line edit followed. Cite the SYMBOL and a grep instead. ★★ Three stars because
-  [`docs/open-followups.md`](docs/open-followups.md) already records this class repeatedly — one entry
-  there calls itself "the third recorded instance", so those two hops are the fourth and fifth. The
-  detail lives there, not here. ★ "Ratchets" is loose too: only **file-size-ratchet** (`docs/baselines/file-sizes.json`,
-  read by name at `check-file-sizes.mjs:6`) and **unit-tests**' coverage floors (`vitest.config.ts`)
-  hold a baseline; every other quality gate — **duplication-gate** INCLUDED — is plain pass/fail
-  against a hardcoded number. ★★ duplication-gate was listed here as baselined and is not: nothing
-  reads `docs/baselines/jscpd-2026-07.json` (`grep -rn "baselines/jscpd" package.json .gitlab-ci.yml
-  scripts/` returns no loader), and its threshold is the literal `1.75` in `package.json dup:check`.
-  A weekly `schedule` pipeline also runs
-  `dependency-audit-full` + **unit-tests-shuffled-random** (same suite, seed `$CI_PIPELINE_ID` echoed with
-  its reproduce command, warn-only `allow_failure: true`) + a **dast-zap** ZAP baseline (dind-based, manual
-  otherwise). (Phases 1-4 of the
-  tech-debt roadmap are complete — gates flipped to blocking in Phase 4, MR !174.)
-  New CI gate → also update this line.
+- **a11y (axe gate) → [`docs/AGENTS/accessibility.md`](docs/AGENTS/accessibility.md).** Every new
+  interactive control (button/checkbox/input/drag handle) needs an accessible name + keyboard
+  operability; `placeholder` is NOT an accessible name, and an unlabeled form control is axe-critical
+  FAIL. Per-row controls in a list need a row-UNIQUE name (`buildRowTokens`/`rowLabel`).
+  ★★★ A green axe run is SILENT on duplicate accessible names, on WCAG 2.5.3 label-in-name and on
+  colour-only toggle state, in every view at every seed size — only a UNIT test catches those. Use
+  `ToggleButton`/`SegmentedControl`, never a hand-rolled `aria-pressed` button. Open that file before
+  adding a control, a view or a toggle: what `A11Y_VIEWS` does NOT scan, and running it locally, are there.
+- **CI is GitLab** (not GitHub),  (GitLab) → [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md). Pipeline:
+  install → quality → build → e2e → release. ★★★ The quality gates are BLOCKING (lint · typecheck ·
+  semgrep · dependency-audit · file-size-ratchet · duplication-gate · the docs/version/followups/tag
+  checks · unit + coverage floors · unit-tests-shuffled), and **prod-smoke** is the ONLY gate that sees
+  the prod CSP. ★★ Several gates split exit **1 = DRIFT** from exit **2 = could not scan**, and the two
+  demand opposite responses. The per-job detail, the uneven `quality-gate-bypass` hatch and the release
+  stage live in that file. New CI gate → also update it.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
   `CHANGELOG.md` entry, append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE
   strings). ★★ EVERY OTHER COPY OF THE VERSION IS GATED BY `npm run version:check`, and the list is
@@ -1427,98 +1049,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   and twice in `HoursCell` (the editable inputs the PERIOD columns align against). A first cut covered
   `TotalsTd` only and claimed "change `w-14` and it goes red", which was false for the more important
   half — changing `HoursCell`'s `w-14` broke every person period figure with the suite green.
-- **Shared sortable/resizable header cell (`SortResizeTh<K>` in `report-table.tsx`):** the
-  `<th className="relative px-3 py-2[ text-right] font-medium"> + SortHeaderButton + ColumnResizeHandle`
-  trio every report panel repeated per column (top cross-file jscpd clones, TD-6) is now ONE generic
-  component beside `SortHeaderButton`. `K` is fixed by the `sortKey` prop (the table's typed sort union),
-  so `sortCol` must be a valid key and `onSort={click}` typechecks with no cast. ★ `resizeCol` (defaults to
-  `sortCol`) + `width` are SEPARATE from `sortCol` — they diverge on the name/label column (sort key `name`,
-  width/resize key `label`). `align="right"` picks the `text-right` variant; `hint` forwards to the
-  `InfoTooltip`. DOM is byte-equivalent to the hand-rolled trio it replaced ONLY while `nameContext`
-  is absent. ★★ `nameContext` appends ` – <context>` to the header button's accessible name AND to
-  its hint tooltip's, so a caller that passes it is no longer byte-equivalent (Reports is
-  axe-scanned, and its headers now carry an `aria-label` they did not). Pass it when ONE VIEW
-  EMBEDS TWO TABLES THAT SHARE A COLUMN LABEL — that collision is what it exists for, and the two
-  tables need not be the same SHAPE (Reports, the motivating case, collides `AssigneeTable` against
-  `GroupOrLabelTable`). A single table needs nothing, and qualifying it adds noise to every screen
-  reader. Building the name from `label` inside the primitive rather than taking a finished string
-  is deliberate: containment for WCAG 2.5.3 then holds BY CONSTRUCTION, at every call site, with no
-  call site able to defeat it.
-  ★★★ **NO CONSUMER TALLY IS QUOTED HERE, AND RESTORING ONE IS A REGRESSION.** This spot carried a
-  per-file breakdown plus a total, and it rotted TWICE: an early revision said "raid-report (34)" and
-  omitted `resources-report` outright, and its correction ("TEN non-test files, 77 invocations",
-  measured 2026-08-04) was already wrong fifteen days later — `documents-list.tsx` had adopted the
-  component and nothing updated the list. Every sortable header in the app flows through here, so ANY
-  new sortable table moves the number; the list is stale the moment it is written. Read today's with
-  `grep -ro "<SortResizeTh" src/app --include="*.tsx" | grep -v "\.test\.tsx:" | wc -l` (drop the
-  `grep -v` and the total rises by `report-table.test.tsx`'s own invocations), and pipe it through
-  `sed 's/:.*//' | sort | uniq -c` for the per-file split. ★ `reports-tables`
-  and `budget-report` were once "left as-is" over local sort-var naming and have since adopted it, so
-  every sortable header in the app now flows through here (which is why the `aria-sort` below lifts them
-  all at once). NON-sortable text-only header cells (no `SortHeaderButton`) keep their raw `<th>` +
-  `ColumnResizeHandle`.
-  ★ `onResize` is OPTIONAL — omit it for a table that sorts but stores no column widths (the calendar series
-  list) and NO handle renders. Never pass a no-op instead: that draws a grip which looks draggable and does
-  nothing, the exact false affordance this component exists to avoid.
-  ★★ **`stickyLeft` DOES TWO THINGS, and the second one is the surprise.** It pins the column
-  (`position: sticky` at that px offset) AND it silently changes what `width` MEANS: at every OTHER
-  invocation (it is passed exactly once today, and the tally of the rest is deliberately not quoted —
-  see the ★★★ no-consumer-tally rule above; derive both with
-  `grep -ro "stickyLeft=" src/app --include="*.tsx" | grep -v "\.test\.tsx:" | wc -l`
-  and the `<SortResizeTh` count beside it) `width` is a MINIMUM (`table-layout: auto` lets content grow the column past it), but
-  passing `stickyLeft` adds `max-width` + `overflow-hidden` + `whitespace-nowrap` so the declared width
-  becomes the RENDERED one. That coupling is deliberate — anything pinned to the RIGHT is placed by
-  arithmetic over this column's DECLARED width, so a wider render puts the neighbour on top of this
-  column's own content — but a caller reaching for "pin this" gets a clamp it did not ask for. ★ `0` is a
-  REAL offset (the leading fixed column), so both the class branch and the style branch check
-  `stickyLeft === undefined`, never truthiness; `report-table.test.tsx` pins the offset-0 case in BOTH
-  branches precisely because a `!stickyLeft` "simplification" ships green otherwise.
-  ★★★ `position` MUST stay in the CLASS, never the inline style. An inline declaration outranks every
-  author rule in every media, so an inline `position: sticky` leaves the `print:static` beside it
-  permanently inert — and the print stylesheet strips the scroll container these cells are positioned
-  against, so a pinned cell with no scroller offsets against the PAGE. Measured in Chromium under
-  emulated print media: inline sticky + class static computes `sticky`; class sticky + class static
-  computes `static`. Only `left`/`width` are inline (per-instance values).
-  ★★ The pinned header clips with `overflow-hidden whitespace-nowrap` while the matching BODY cell in
-  `budget-panel-totals.tsx` uses `truncate` (the same two properties PLUS `text-overflow: ellipsis`), so
-  a narrowed role column cuts the header label mid-glyph while the row labels beneath it get "…".
-  **Do NOT "fix" that by swapping in `truncate` — measured in Chromium, the two render IDENTICALLY.**
-  The header's content is an inline-flex `SortHeaderButton`, an atomic inline, and `text-overflow` does
-  not apply to one; the body cell ellipsizes only because its content is raw text. The asymmetry is
-  inherent to the header holding a button, not to the class choice, and jsdom cannot see either.
-  ★★ The `<th>` carries **`aria-sort`** (`ascending`/`descending`/`none`), derived from the SAME `active` value
-  the arrow is, so the announced and drawn states cannot drift; `active` gates on BOTH `sortKey === sortCol`
-  AND `sortDir !== "off"` ("off" is a real member of the asc→desc→off cycle, so naming the column is not
-  enough). The `↑`/`↓` is `aria-hidden` — it stays VISIBLE and in `textContent` (existing glyph assertions in
-  `report-table.test.tsx` + `calendar-series-list.test.tsx` read textContent, so they are unaffected) but out
-  of the accessible NAME, since aria-sort already says it. axe has NO rule for a missing aria-sort, so the
-  gate is silent on regressions here — the unit tests are the only coverage.
-  ★★ **ALL FOUR ARE NOW IN STEP — corrected 2026-08-25, and the sentence this replaces was the
-  falsifiable half.** It read: the raw-`<th>` tables "are NOT in step", `change-panel.tsx` +
-  `raid-panel-rows.tsx` + `stakeholders-panel.tsx` "set aria-sort AND keep a ▲/▼ inside the button's
-  name", `activity-log-panel.tsx` "has the glyph with NO aria-sort at all", and folding them in was
-  "a follow-up, not a claim about today". Every one of those four tables has since adopted
-  `SortResizeTh`, so each sortable header takes its `aria-sort` and its `aria-hidden` glyph from the
-  one component and the double announcement is gone from all of them. Measure, do not trust this
-  sentence: `for f in change-panel raid-panel-rows stakeholders-panel activity-log-panel; do echo "$f $(grep -c SortResizeTh src/app/$f.tsx) $(grep -c aria-sort src/app/$f.tsx)"; done`
-  → adoptions 8 / 8 / 6 / 6 (each includes the import line) against aria-sort 0 / 0 / 0 / **1**.
-  ★★★ THAT LONE 1 IS A COMMENT, NOT MARKUP — `activity-log-panel.tsx` explains there why a fourth
-  hand-rolled sort button was never written — so the obvious grep tally counts PROSE as code and
-  would report the file as still hand-rolling its own. The raw `<th>` left in the other three are
-  the NON-sortable text-only cells the rule above already permits, not sort headers.
-  ★ `SortHeaderButton` is used ONLY by `SortResizeTh`, so hiding the glyph cannot strand a raw `<th>`
-  that lacks aria-sort.
-  ★★ KNOWN LOSS: VoiceOver/Safari does not announce `aria-sort`, so a VO user goes from hearing
-  "Title ↑" to "Title". Standard-correct (the glyph was never a state) but a real regression for that
-  one AT — do not re-litigate it as a pure win.
-- **★ `TableFilter` (`report-table.tsx`) has exactly ONE clear ✕, overlaid INSIDE the field.** The input is
-  `type="search"`, so Chrome/Safari draw their own ✕ inside it; a sibling clear button therefore read as TWO
-  clears on those browsers while Firefox — which draws none — showed only ours. The fix suppresses the native
-  one (`[&::-webkit-search-cancel-button]:appearance-none`) and absolutely-positions our button over the field
-  (`pr-8` reserves the room). ★ Do NOT "simplify" this back to a sibling button, and do NOT drop our button in
-  favour of the native one — the native ✕ does not exist in Firefox and is not keyboard-reachable. Shared by
-  7 panels (budget · budget-report · change-report · raid-report · reports-tables · resources-panel ·
-  resources-report), several axe-scanned.
+- **Tables — `SortResizeTh<K>` + `TableFilter` (`report-table.tsx`) → [`docs/AGENTS/ui-shell.md`](docs/AGENTS/ui-shell.md)
+  "tables" section.** Every sortable header in the app flows through `SortResizeTh`, which owns
+  `aria-sort` and the `aria-hidden` sort glyph — never hand-roll a sort header. ★★ `stickyLeft` turns
+  `width` from a minimum into a clamp, and `position` must stay in the class, never inline. `TableFilter`
+  owns the field's only clear ✕. Open that section before touching a table header, filter or pinned column.
 - **★★ `buildResourceWorkload` (`resource-workload-rows.ts`) MUST receive the COMPLETE resource list.** It
   builds its `managed` id-map and `nameToId` map from the `resources` ARGUMENT ALONE, and `resolve()` falls
   through to `ensureUnlinked` on a miss. So filtering that argument does NOT hide anyone — the withheld
@@ -1584,159 +1119,13 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★ Gantt's **View** menu (`GanttViewMenu`, 0.213.0) sits AFTER the reset-filters button and BEFORE the
   trailing Print · reset-columns · reset-size group (`gantt-chrome.tsx`) — it collects display toggles, so
   it is neither a primary action nor a member of the trailing group.
-- **Documents (AI document authoring):** a `ProjectDocument` is `{id, title, blocks, createdAt, updatedAt}`
-  over a typed `DocBlock` union — **JSON at rest; bytes are rendered ON DEMAND and never stored**, so no blob
-  lives anywhere in the workspace. Three renderers: `doc-render-html.ts` (canonical), `doc-render-docx.ts`,
-  `doc-render-pptx.ts`. ★ **PDF is not a fourth renderer** — it is the HTML renderer's `standalone` mode
-  driven through the browser print dialog, so there is no PDF writer and no PDF dependency; keep it that way.
-  Surfaces are `documents-panel.tsx` (orchestrator) over `documents-list.tsx` / `document-preview.tsx` /
-  `documents-toolbar.tsx` / `document-edit-mode.tsx` (the edit toggle + narrow-pane wiring) /
-  `document-editor.tsx` (the hand block editor) / `document-block-editors.tsx` (the per-kind editors) /
-  `document-block-gutter.tsx` (each row's kind chip, reorder grip and actions menu) /
-  `documents-deleted-section.tsx` (the tombstone list + its implausibility guard) /
-  `documents-rename-modal.tsx` (owns `RENAME_TITLE_ID`) / `bullets-block-editor.tsx`.
-  ★★ The last three were extracted to buy ratchet headroom, and the first two are reached ONLY from
-  `documents-panel.tsx` — an extraction moves a surface out of the orchestrator without giving it a
-  second consumer, so do not read their presence here as an invitation to mount them elsewhere.
-  ★★ `bullets-block-editor.tsx` is imported DIRECTLY by its consumers and is deliberately not
-  re-exported from `document-block-editors.tsx`; its sibling `document-table-editor.tsx` IS
-  re-exported and therefore forms a live import cycle with that module. Copy the bullets shape, not
-  the table one — the file's own header carries the measurement and the reason.
-  ★★★ **Blocks are hand-editable too, not just AI-authored** (S3b). An "Edit blocks" toggle
-  (`useDocumentEditMode` in `document-edit-mode.tsx`) swaps the read-only preview for `document-editor.tsx`,
-  one row per block. Each row's draft lives in `useBlockDraft` (`document-block-editors.tsx`), whose
-  three-rule contract — flush a dirty draft on unmount, ABANDON (never clobber) a commit whose `storedBlock`
-  moved since the draft's baseline froze (a restore, an AI write, a second tab), and adopt an external write
-  while the draft is undirty — is the FIRST of two layers (the ★★★ below is the second).
-  Read the hook's own docstring before touching it, not this summary.
-  ★★★ **THE BLOCK SET IS HAND-EDITABLE TOO, not only each block's CONTENT** — everything above is about
-  the per-row DRAFTS. Each gutter carries a `DragHandle` grip plus an actions menu that inserts
-  above/below and deletes, all routed through ONE REQUIRED `BlockStructuralOps` bag; deleting anything
-  but a page break or an untouched seed is confirm-gated. ★★ The grip's ArrowUp/ArrowDown path is the
-  ONLY reorder a keyboard or touch user has (HTML5 drag never fires on touch) and it MUST move focus
-  with the block: the rows are index-keyed, so React reconciles them IN PLACE, and a grip that keeps its
-  original row makes the arrow keys TOGGLE a pair instead of moving anything. ★★ `move` coalesces its
-  before-image while `insert`/`remove` deliberately do not — the split, and what a per-press mint cost,
-  is in [`docs/AGENTS/documents.md`](docs/AGENTS/documents.md).
-  ★★★ TWO THINGS THE HOOK'S OWN CONTRACT DOES NOT COVER, both in
-  [`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)'s "What the commit path stores, and the second
-  guard": the commit NORMALISES through the loader's own rule (`normalizeBlockForStorage`) rather than
-  merely validating, and the ENGINE carries a second concurrent-write guard (a `replace` op's `expect`)
-  because the in-component one is structurally blind on the type-change path. Read that section before
-  touching either — the component guard alone is not the defense it looks like. ★ Selecting a different document while its editor is open cannot leak text into the
-  wrong one: each row's key carries `doc.id` (`` `${doc.id}-${index}` ``), forcing a full remount of the
-  block-editor subtree on any switch. ★★ At a narrow PANE (not viewport — `use-narrow-element.ts`, the
-  repo's first `ResizeObserver`, measured against `NARROW_PANE_PX` on `document-editor.tsx`), every
-  paragraph but the SELECTED one collapses read-only with an **"Edit this block"** button
-  (`documentsBlockSelect` — ★ this line said "select this block" for four releases; read the value, do
-  not paraphrase the key), and the selected
-  block's toolbar docks once above the list via an opt-in `toolbarContainer` prop on `RichTextEditor` —
-  replacing an earlier cut that collapsed the first paragraph unconditionally with no way back in.
-  ★★★ **"SELECTED" DOES NOT IMPLY "TYPABLE", so never restate this as "the selected block is the
-  editable one".** `ParagraphBlockEditor` returns `BlockReadOnlyNotice` for ANY image-bearing paragraph
-  at ANY pane width (`documentsBlockImageReadOnly`) — measured 2026-09-02 in Chromium on a seeded
-  3-paragraph document where two carried `<img data-asset-id>`: at 1400px, ONE of the three had a
-  `contenteditable`. The collapse rule above is about the PANE; this one is about the CONTENT, and they
-  compose. ★★ A NEWLY INSERTED paragraph is never image-bearing, so §199's "an inserted paragraph
-  becomes the selection" is unaffected — do not merge the two rules into one invariant.
-  ★★★ **THE SEEDED KICKOFF DOCUMENT DOES EXERCISE THE COLLAPSE, and this line said it could not.**
-  The sample master has ONE paragraph so nothing collapses there — but `e2e/seed.ts`'s Kickoff
-  document has THREE paragraphs of which only TWO carry `data-asset-id`, and the collapse has no
-  content term whatever: `collapseParagraph={narrow && index !== selected}` turns on width and
-  selection ALONE. So its plain paragraph collapses at a narrow pane and is fully editable when
-  selected. The image-bearing read-only rule above is TRUE and unaffected; it was the CONCLUSION
-  drawn from it that was wrong. Reproduce: `grep -n 'type: "paragraph"' e2e/seed.ts` (index 1 is
-  plain) and `grep -n "collapseParagraph={" src/app/document-editor.tsx`. ★ A probe is still better
-  off seeding its own plain-paragraph document — for the fixture's clarity, not because the seeded
-  ones are incapable. ★★ A
-  zero-block document explains itself and offers a control labelled "Add a block" (`documentsAddBlock` —
-  REWORDED from "Add a paragraph" when the kind picker landed) that opens a `BlockKindMenu` over the
-  SAME `BlockKindList` the per-row gutter renders, covering every member of `ADDABLE_BLOCK_TYPES`
-  (the gutter renders the list DIRECTLY; the menu is the trigger-plus-popover wrapper around it, and
-  outside its own test file is rendered only by `document-editor.tsx`, here and by the trailing add
-  control — verify with `grep -rn "<BlockKindMenu\|<BlockKindList" src`). ★★ It INSERTS at index 0 through
-  `structural.insert`; the hand-editor's `appendBlock` path was REMOVED, so nothing on this surface
-  appends any more — the `{op:"append"}` ENGINE op stays live and is still what the AI document tools
-  emit, and flattening those two together is the easy mistake. ★ Do not quote a kind COUNT here; derive it
-  with `grep -n -A 2 "ADDABLE_BLOCK_TYPES = " src/app/document-block-seeds.ts` — the members sit on the
-  line AFTER the declaration, so a bare grep for that anchor returns nothing derivable. Read the
-  behaviour off the "offers every addable kind from the empty state" test in `document-editor.test.tsx`.
-  ★★ The identity-anchored coalescing decision that governs whether a hand edit reuses the session's
-  before-image or mints a new one lives beside the version model, not here — see
-  `docs/AGENTS/documents.md`'s "Coalescing before-images for hand edits" section.
-  ★★★ This surface WAS entirely outside axe `A11Y_VIEWS` coverage and no longer is —
-  `docs/open-followups.md` §184 is CLOSED. `e2e/a11y.spec.ts` drives Documents into edit mode (a DOM
-  click, so the auto-launched guided tour cannot intercept it) and asserts `[data-block-row]` count > 1
-  so a broken toggle cannot silently re-scan the PREVIEW and read as covered. ★★★ A green scan there is
-  still SILENT on duplicate accessible names, in every view at every seed size — the measurement is in the
-  a11y hard-constraint bullet above — so the gutter's row-unique naming is pinned by UNIT TESTS and by
-  nothing else. ★★ TWO of them, not one, and they do not cover the same controls: this line said
-  "`document-block-gutter.test.tsx` ALONE", but that file's "gives every control a row-unique accessible
-  name" (two rows) is the only cover for the ACTIONS trigger, while the GRIP is pinned twice — there and
-  by `document-editor.test.tsx`'s "gives every row a block-unique reorder handle" (three rows, plus an
-  explicit set-size check). Deleting either leaves a hole no gate reports.
-  ★★ It persists via the **meta-blob** pattern (one JSON row in `meta`, exactly like `insights`), NOT via
-  `ENTITY_SPECS`. So it is deliberately absent from `TABLE_NAMES` **because it has no table of its own — NOT
-  because it is non-workspace data. It IS workspace data**, and reading the absence the other way is how a
-  future slice talks itself into adding it to the per-table DELETE set. The dirty check is reference
-  equality (`prev.documents !== next.documents`), so an in-place mutation silently skips the save.
-  ★★ `document-model.ts` is DOM-FREE BY CONTRACT (a comment-stripped source scan in its test enforces it, so
-  comments may name DOMPurify and code may not) — but the CSV/MD/JSON/Turso LOAD paths are the OPPOSITE and
-  REQUIRE a DOM. Do not generalise either direction: `docs/open-followups.md` §97 holds the measurement and
-  the blast radius, and §92 the `settings-types` ⇄ `workspace` ⇄ `document-model` import cycle.
-  ★ `dataSection` blocks resolve through `doc-data-section.ts` `resolveDataSection`, which calls the REAL
-  `buildExportSections` — so a document's embedded data cannot drift from what the workspace exporter emits.
-  ★★ `documentVersions` is a SECOND meta-blob slice beside `documents`, on the same six write paths and
-  subject to everything above. The version model (before-images, retention, tombstones, the single
-  `applyDocMutation` path) lives in **[`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)** — open it
-  before touching version history, deleted documents, or any "add a field to the six write paths" task,
-  which it records a landmine for.
-  ★★ **Document images (S3c-1, Turso-gated)** — the metadata slice (an `ENTITY_SPECS` row, so its
-  table IS in `TABLE_NAMES`) versus the byte side table (deliberately OUT of it — both halves
-  matter, and each is a data defect the other way round), the Safe Mode refusal, the single
-  functional-update write path, upload caps, blob-URL rendering and why insertion bypasses the live
-  rich-text editor all live in `docs/AGENTS/documents.md`'s "Asset images (S3c-1)" section — open it
-  before touching anything under `document-asset*`. ★★★ Open it EVEN FOR A SMALL CHANGE: this slice
-  shipped its first cut non-functional on its only backend behind a fully green gate suite (lint,
-  tsc, unit + coverage floors, axe, prod-smoke), and that section is the list of what not to
-  reintroduce.
-  ★★ **Image BYTES in every export format (S3c-2)** — the three-bucket
-  `loadExportAssets` contract (★★★ **NOT "policy vs data" — that is what this line said for six
-  releases, and the `omitted` half is FALSE outright while the `missing` half is merely
-  INCOMPLETE.** (An earlier revision said "BOTH HALVES ARE FALSE", which is stronger than its own
-  next clause: `missing` genuinely does hold data problems — what is false is that it holds ONLY
-  them.) `omitted` is BUDGET overflow ALONE, and a POLICY refusal lands in `missing` alongside the
-  genuine data losses, so the split a reader reaches for here does not exist in the code. Measured
-  2026-08-31, not reasoned — reproduce with
-  `grep -nE "^\s+(omitted|missing)\.add" src/app/document-export-assets.ts`, which returns ONE
-  `omitted.add` (the budget branch) against TWO `missing.add` (a null row, and an `isRenderable`
-  decline — the mime allowlist for HTML/PDF). ★★ The `^\s+` anchor is load-bearing: the obvious
-  `grep -n "omitted.add\|missing.add"` also matches a COMMENT mentioning
-  `NO_EXPORT_ASSETS.omitted.add("x")`, so `grep -c` reports a symmetric 2-vs-2 that refutes the
-  sentence it is attached to. Caught by cold review, not by any gate. §320 carries the consequence: an exported document
-  discloses a policy-refused image as "the bytes are gone". ★★ The longer statement in
-  `documents.md` is substantively RIGHT — it explains the budget correctly and names `isRenderable`
-  under `missing`; only its "POLICY" label is wrong. This copy lost the explanation and kept the
-  label, which is exactly the restate-instead-of-link failure the doc-set rule at the top of this
-  file warns about), the additive `media` parameter on both package builders, the forced DOCX
-  paragraph split, cost-based PPTX pagination, and the 25 MB inline budget that applies to HTML/PDF
-  ONLY, live in the same file's "Image bytes in every export format (S3c-2)" section.
-  ★★★ **THREE THINGS THERE HAVE ALREADY COST REAL WORK AND ARE NOT DERIVABLE FROM THE CODE
-  YOU ARE LOOKING AT:** page geometry is TWIPS and drawing geometry is EMU a few lines apart (factor
-  635, `EMU_PER_TWIP` — passing twips through clamps every image to a hundredth of an inch, valid
-  XML and green tests); PPTX media part PATHS are unique deck-wide while relationship ids are
-  PER-SLIDE restarting at `rId2` (reversing them puts the wrong image on a slide, with no schema
-  error); and splitting rich HTML re-enters the per-sink `isHtmlStart` landmine, because
-  `CONTAINS_TAG` needs `<` plus a LETTER so a fragment carrying only a CLOSING tag is classified as
-  plain text and escaped into the reader's document. ★★ **NOTHING HERE CAN OPEN A `.docx` OR A
-  `.pptx`** — verification is unzip-and-byte-compare and the manual pass is owed
-  (`docs/open-followups.md` §219). ★★ §216 is CLOSED as of 2026-08-24 and this line used to end at
-  its complaint: the `export-ooxml` golden suite still does NOT pin these package bytes (both this
-  slice's spec and its plan claimed it did), but the MEDIA-FREE `.docx` and `.pptx` are now gated
-  against an ordered part manifest in `docs/baselines/ooxml-parts.json`, moved only by
-  `npm run ooxml:manifest` and never by a `vitest -u`. ★★ Read that scope literally — a
-  media-BEARING package is outside it, and so is the zip container (`zip.test.ts` owns that
-  separately); a green manifest run says nothing about either.
+- **Documents (AI document authoring) → [`docs/AGENTS/documents.md`](docs/AGENTS/documents.md).** A
+  `ProjectDocument` is JSON at rest over a typed `DocBlock` union; bytes are rendered ON DEMAND and
+  never stored, and PDF is the HTML renderer printed, not a fourth renderer. ★★ `documents` and
+  `documentVersions` are **meta-blob** slices — absent from `TABLE_NAMES` because they have no table of
+  their own, NOT because they are non-workspace data — and ride all six write paths. Blocks are
+  hand-editable too. That file owns both halves: the data model, and the panes + block editor in its
+  "Surfaces and editor" section. Open it before touching anything `document*`.
 - **Activity log (`Workspace.activityLog`) → [`docs/AGENTS/activity-log.md`](docs/AGENTS/activity-log.md).**
   Per-project audit trail persisted as a **meta-blob** (one JSON row in `meta`, like `insights` and
   `documents`), NOT via `ENTITY_SPECS` — so it is correctly absent from `TABLE_NAMES` **because it has
@@ -1776,8 +1165,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   END of the round, not at the moment you wrote it.
   ★★ "AI Assistant" IS in axe `A11Y_VIEWS`, but `e2e/seed.ts` seeds FILE mode, so the gate never renders
   this sidebar — same blind spot class as the other Turso-gated views and the Resources → Calendar
-  sub-tab above. Compounding it, axe has no rule that flags two controls sharing an accessible name
-  (measured elsewhere in this file) — so even a scanned run could not catch a row-label collision here.
+  sub-tab (see `docs/AGENTS/accessibility.md`). Compounding it, axe has no rule that flags two controls sharing an accessible name
+  (measured in `docs/AGENTS/accessibility.md`) — so even a scanned run could not catch a row-label collision here.
   `chat-thread-list.test.tsx` / `chat-thread-sidebar.test.tsx` are therefore the ONLY coverage this
   surface will ever have; do not read a green axe run as covering it, and eye-verify against a real
   Turso project before shipping any change to this surface.
@@ -1813,8 +1202,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 ## Subsystem reference — deeper detail, loaded on demand
 
 ★★★ **Only THIS file reaches every session.** `CLAUDE.md` is `@AGENTS.md`, so
-everything above is loaded before you type anything; the twelve files below are
-not. That is the whole point of the split — this file had grown to 324 KB
+everything above is loaded before you type anything; the files in the table below
+are not. That is the whole point of the split — this file had grown to 324 KB
 (~81k tokens) of which ~73% was subsystem reference that most tasks never touch.
 **Open the matching file before editing that subsystem's code.** The landmines
 did not get weaker by moving, and a landmine nobody loads is a landmine nobody
@@ -1835,14 +1224,16 @@ without a single red pipeline. **A bullet that grows past ~60 lines of subsystem
 in `docs/AGENTS/`, and moving it is a NET WIN even when every line of it is true** — which is
 why it regrows: nothing here is wrong, it is merely not worth every session's context.
 
-★★ `npm run docs:symbols:check` gates all thirteen files, not just this one — `docs/AGENTS/`
+★★ `npm run docs:symbols:check` gates every file in `docs/AGENTS/`, not just this one — `docs/AGENTS/`
 is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lands. It still
 proves only that a backticked NAME is real, never that a CLAIM about it is true.
 
 | File | Owns |
 |---|---|
 | [dashboard.md](docs/AGENTS/dashboard.md) | the landing cockpit — the arrangeable tile grid · delta strip · KPI trends · sparkline · coaching · density · digest |
-| [ui-shell.md](docs/AGENTS/ui-shell.md) | Help system · navigation & landing · focus/keyboard · surfaces & controls · ★ **dismissal (the Escape/Tab protocol — read before touching any modal, popover or panel)** |
+| [accessibility.md](docs/AGENTS/accessibility.md) | the a11y hard constraint — accessible names · row-unique per-row names (`buildRowTokens`) · WCAG 2.5.3 label-in-name · `ToggleButton` state + the pressed marker · what the axe gate scans and is silent on |
+| [ci.md](docs/AGENTS/ci.md) | the GitLab pipeline ( (GitLab)) — every quality gate and its exit codes · e2e + prod-smoke · desktop packaging · the release stage · where `quality-gate-bypass` exists |
+| [ui-shell.md](docs/AGENTS/ui-shell.md) | Help system · navigation & landing · focus/keyboard · surfaces & controls · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal (the Escape/Tab protocol — read before touching any modal, popover or panel)** |
 | [theming.md](docs/AGENTS/theming.md) | colour schemes · the `--ui-*` token families · AA derivation · the dark-mode hover trap · branding · print · design-system primitives |
 | [insights.md](docs/AGENTS/insights.md) | detect → reconcile → recommend → outcome → digest |
 | [ai-assistant.md](docs/AGENTS/ai-assistant.md) | wire layer · tools · write-concurrency tokens on the six `update_*` tools · inline edit · dedup · scheduled jobs · allocation & RACI planning |
@@ -1851,5 +1242,5 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 | [features.md](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
 | [rich-text.md](docs/AGENTS/rich-text.md) | ALL rich HTML — the three note-log registers (each closing the SAME defect by a DIFFERENT mechanism) · the seven rich entity fields · the DOM-free vs browser-only module split · `sanitizeRichText` / `sanitizeAiRichText` / `AI_RICH_FIELDS` write boundaries · the per-sink `isHtmlStart` rule · `RichCell` export fidelity · the `role="toolbar"` keyboard contract |
 | [activity-log.md](docs/AGENTS/activity-log.md) | `Workspace.activityLog` — meta-blob persistence · storage-only on every path · `logMode` REPLACE-by-default · entry ids and actors · forward-compat sanitising · the THREE incompatible completion-trend delta shapes |
-| [documents.md](docs/AGENTS/documents.md) | the DATA half of documents — `DocVersion` before-images · retention + tombstones + the `"restored"` marker · `applyDocMutation` (the single mutation path) · `documentVersions` across all six write paths and both load funnels |
+| [documents.md](docs/AGENTS/documents.md) | documents — the DATA half: `DocVersion` before-images · retention + tombstones + the `"restored"` marker · `applyDocMutation` (the single mutation path) · `documentVersions` across all six write paths and both load funnels · AND the UI half: renderers, pane split, the hand block editor |
 | [task-status.md](docs/AGENTS/task-status.md) | the task completion model — the `status` ⟺ `completedDate` invariant · the FIVE paths that write the pair and the mechanism each holds it by · why `migrateTask` does NOT repair a split pair · the `isTaskClosed` / `isTaskDelivered` split |

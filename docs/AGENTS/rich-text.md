@@ -5,8 +5,7 @@ rich entity fields, the DOM-free/browser-only module split, every write boundary
 can reach, the per-sink `isHtmlStart` classifier, and how a rich column reaches each
 exporter.
 
-Does NOT own the documents feature (`docs/AGENTS/documents.md` + `AGENTS.md`'s "Documents"
-bullet) or the AI wire layer (`docs/AGENTS/ai-assistant.md`). One fact, one doc.
+Does NOT own the documents feature (`docs/AGENTS/documents.md`) or the AI wire layer (`docs/AGENTS/ai-assistant.md`). One fact, one doc.
 
 ★★★ **THE LANDMINES BELOW ARE NOT UNIFORM ACROSS THE THREE REGISTERS.** The same defect is
 closed by a DIFFERENT mechanism in each — omit-the-field in tasks, carry-from-stored-row in
@@ -223,7 +222,7 @@ register's fix to another is how two of them broke. Read the note that names you
   ★ A control that renders `disabled` joins NEITHER order, since the engine has no skip-disabled
   logic (nothing in this row is ever disabled today, and a test pins that so adding one forces the
   decision).
-  ★★ NO GATE CAN SEE THE COLLISION THIS FIXES, at any seed size — the a11y hard-constraint bullet above
+  ★★ NO GATE CAN SEE THE COLLISION THIS FIXES, at any seed size — the a11y hard-constraint bullet in `accessibility.md`
   carries the measurement (axe 4.12.1: 105 rules, 69 under the four tags `e2e/a11y.spec.ts` requests,
   not one flagging two CONTROLS that share an accessible name — ★★ two requested-tag rules ARE
   adjacent, `duplicate-id-aria` and `frame-title-unique`, but they examine ids and iframes rather

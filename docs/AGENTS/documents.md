@@ -4,15 +4,15 @@ Owns the **data half** of the documents feature: what a version is, how retentio
 tombstones work, the single mutation path, and how `documentVersions` reaches all six
 write paths and back into React state.
 
-Does NOT own the renderers, the `DocBlock` union, the PDF-is-not-a-renderer rule, or the
-pane file split — those stay in `AGENTS.md`'s "Documents (AI document authoring)" bullet.
-One fact, one doc: this file links there rather than restating it.
+The **UI half** — the renderers, the `DocBlock` union, the PDF-is-not-a-renderer rule, the
+pane file split and the hand block editor — is the final [Surfaces and editor](#surfaces-and-editor)
+section, moved out of `AGENTS.md`'s "Documents (AI document authoring)" bullet on 2026-09-13.
 
 ★ The **surfaces** for version history and deleted-documents ARE built and live in this slice:
 a per-row "History" button (`documents-list.tsx`) opens `DocumentsHistoryModal`, and the
 deleted-documents section with its Restore button sits behind the toolbar's show-deleted toggle
 (`documents-panel.tsx`). Everything below still describes only the model and the storage — the
-panes are `AGENTS.md`'s Documents bullet. An earlier revision of this paragraph said those
+panes are the Surfaces and editor section. An earlier revision of this paragraph said those
 surfaces did not exist; they landed later in the same branch and the paragraph was not updated.
 
 ## The version model (`document-versions.ts`)
@@ -273,8 +273,8 @@ sub-window edits can still cross the window measured from wherever the session's
 ★ The property this whole mechanism preserves: the FIRST before-image of a session holds the state before
 the session started — the thing a user actually reverts to. The commit-side half of the contract
 (unmount flush, the concurrent-write abandon guard, undirty adoption of an external write) lives in
-`useBlockDraft` (`document-block-editors.tsx`) and is summarized in `AGENTS.md`'s "Documents (AI document
-authoring)" bullet, which also owns the narrow-pane docked-toolbar and zero-block-empty-state surfaces —
+`useBlockDraft` (`document-block-editors.tsx`) and is summarized in the Surfaces and editor section
+below, which also owns the narrow-pane docked-toolbar and zero-block-empty-state surfaces —
 this file stops at the version-model decision, per the header note above.
 
 ★★★ **TWO OF THE THREE STRUCTURAL WRITES OMIT `coalesce`, AND THE THIRD MUST NOT — it is a
@@ -471,7 +471,7 @@ therefore indistinguishable from absent at rest — which is fine, because both 
 
 ★★ **Meta-blob, not `ENTITY_SPECS`.** Neither `documents` nor `documentVersions` is an
 `ENTITY_SPECS` row; both ride the `meta` table as one JSON row each, exactly like `insights`.
-See `AGENTS.md`'s Documents bullet for why the absence from `TABLE_NAMES` means "has no table of
+See the Surfaces and editor section for why the absence from `TABLE_NAMES` means "has no table of
 its own", NOT "is not workspace data" — that reading is how a future change talks itself into
 adding it to the per-table DELETE set.
 ★ Note the consequence the bullet does not spell out: the `meta` table **IS** in `TABLE_NAMES`
@@ -987,7 +987,7 @@ existing allowance, not a change to it.
 ★ **The asset library surface is outside axe coverage, structurally, not by omission.** Turso-gated
 + `e2e/seed.ts` seeds FILE mode → the a11y gate never renders it, the same blind spot as every
 other Turso-gated view. And axe-core 4.12.1 has no rule that flags two controls sharing an
-accessible name at any seed size (measured against the installed version — see `AGENTS.md`'s a11y
+accessible name at any seed size (measured against the installed version — see `accessibility.md`'s a11y
 hard-constraint bullet), so even a hypothetical future scan could not catch a row-label collision
 here. `asset-library.test.tsx`'s ≥2-row unique-name test is the only detector this surface will
 ever have (§203).
@@ -1587,3 +1587,167 @@ JSON** round-trips — **three** backends, not six. Reproduce:
 ★ Grepping the bare phrase instead returns 4 — the `describe` header matches it too.
 The two Turso paths and IndexedDB are covered by their own suites, not by that registry block;
 do not read a green registry run as proof all six carry the slice.
+
+## Surfaces and editor
+
+★ Moved VERBATIM out of `AGENTS.md`'s "Architecture pointers" section on 2026-09-13 — only link targets changed. Positional words inside the moved text ("this file", "above", "below", "in Commands") still
+describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short pointer bullet.
+
+★ One fact, one doc: the moved text's `documentVersions` paragraph and its S3c-1 / S3c-2
+paragraphs are SUMMARIES of this file's version-model, "Asset images (S3c-1)" and "Image bytes in
+every export format (S3c-2)" sections above. Those sections are the canonical copy; the summaries
+were not trimmed, so the move stays reviewable as a move.
+
+- **Documents (AI document authoring):** a `ProjectDocument` is `{id, title, blocks, createdAt, updatedAt}`
+  over a typed `DocBlock` union — **JSON at rest; bytes are rendered ON DEMAND and never stored**, so no blob
+  lives anywhere in the workspace. Three renderers: `doc-render-html.ts` (canonical), `doc-render-docx.ts`,
+  `doc-render-pptx.ts`. ★ **PDF is not a fourth renderer** — it is the HTML renderer's `standalone` mode
+  driven through the browser print dialog, so there is no PDF writer and no PDF dependency; keep it that way.
+  Surfaces are `documents-panel.tsx` (orchestrator) over `documents-list.tsx` / `document-preview.tsx` /
+  `documents-toolbar.tsx` / `document-edit-mode.tsx` (the edit toggle + narrow-pane wiring) /
+  `document-editor.tsx` (the hand block editor) / `document-block-editors.tsx` (the per-kind editors) /
+  `document-block-gutter.tsx` (each row's kind chip, reorder grip and actions menu) /
+  `documents-deleted-section.tsx` (the tombstone list + its implausibility guard) /
+  `documents-rename-modal.tsx` (owns `RENAME_TITLE_ID`) / `bullets-block-editor.tsx`.
+  ★★ The last three were extracted to buy ratchet headroom, and the first two are reached ONLY from
+  `documents-panel.tsx` — an extraction moves a surface out of the orchestrator without giving it a
+  second consumer, so do not read their presence here as an invitation to mount them elsewhere.
+  ★★ `bullets-block-editor.tsx` is imported DIRECTLY by its consumers and is deliberately not
+  re-exported from `document-block-editors.tsx`; its sibling `document-table-editor.tsx` IS
+  re-exported and therefore forms a live import cycle with that module. Copy the bullets shape, not
+  the table one — the file's own header carries the measurement and the reason.
+  ★★★ **Blocks are hand-editable too, not just AI-authored** (S3b). An "Edit blocks" toggle
+  (`useDocumentEditMode` in `document-edit-mode.tsx`) swaps the read-only preview for `document-editor.tsx`,
+  one row per block. Each row's draft lives in `useBlockDraft` (`document-block-editors.tsx`), whose
+  three-rule contract — flush a dirty draft on unmount, ABANDON (never clobber) a commit whose `storedBlock`
+  moved since the draft's baseline froze (a restore, an AI write, a second tab), and adopt an external write
+  while the draft is undirty — is the FIRST of two layers (the ★★★ below is the second).
+  Read the hook's own docstring before touching it, not this summary.
+  ★★★ **THE BLOCK SET IS HAND-EDITABLE TOO, not only each block's CONTENT** — everything above is about
+  the per-row DRAFTS. Each gutter carries a `DragHandle` grip plus an actions menu that inserts
+  above/below and deletes, all routed through ONE REQUIRED `BlockStructuralOps` bag; deleting anything
+  but a page break or an untouched seed is confirm-gated. ★★ The grip's ArrowUp/ArrowDown path is the
+  ONLY reorder a keyboard or touch user has (HTML5 drag never fires on touch) and it MUST move focus
+  with the block: the rows are index-keyed, so React reconciles them IN PLACE, and a grip that keeps its
+  original row makes the arrow keys TOGGLE a pair instead of moving anything. ★★ `move` coalesces its
+  before-image while `insert`/`remove` deliberately do not — the split, and what a per-press mint cost,
+  is in [`docs/AGENTS/documents.md`](documents.md).
+  ★★★ TWO THINGS THE HOOK'S OWN CONTRACT DOES NOT COVER, both in
+  [`docs/AGENTS/documents.md`](documents.md)'s "What the commit path stores, and the second
+  guard": the commit NORMALISES through the loader's own rule (`normalizeBlockForStorage`) rather than
+  merely validating, and the ENGINE carries a second concurrent-write guard (a `replace` op's `expect`)
+  because the in-component one is structurally blind on the type-change path. Read that section before
+  touching either — the component guard alone is not the defense it looks like. ★ Selecting a different document while its editor is open cannot leak text into the
+  wrong one: each row's key carries `doc.id` (`` `${doc.id}-${index}` ``), forcing a full remount of the
+  block-editor subtree on any switch. ★★ At a narrow PANE (not viewport — `use-narrow-element.ts`, the
+  repo's first `ResizeObserver`, measured against `NARROW_PANE_PX` on `document-editor.tsx`), every
+  paragraph but the SELECTED one collapses read-only with an **"Edit this block"** button
+  (`documentsBlockSelect` — ★ this line said "select this block" for four releases; read the value, do
+  not paraphrase the key), and the selected
+  block's toolbar docks once above the list via an opt-in `toolbarContainer` prop on `RichTextEditor` —
+  replacing an earlier cut that collapsed the first paragraph unconditionally with no way back in.
+  ★★★ **"SELECTED" DOES NOT IMPLY "TYPABLE", so never restate this as "the selected block is the
+  editable one".** `ParagraphBlockEditor` returns `BlockReadOnlyNotice` for ANY image-bearing paragraph
+  at ANY pane width (`documentsBlockImageReadOnly`) — measured 2026-09-02 in Chromium on a seeded
+  3-paragraph document where two carried `<img data-asset-id>`: at 1400px, ONE of the three had a
+  `contenteditable`. The collapse rule above is about the PANE; this one is about the CONTENT, and they
+  compose. ★★ A NEWLY INSERTED paragraph is never image-bearing, so §199's "an inserted paragraph
+  becomes the selection" is unaffected — do not merge the two rules into one invariant.
+  ★★★ **THE SEEDED KICKOFF DOCUMENT DOES EXERCISE THE COLLAPSE, and this line said it could not.**
+  The sample master has ONE paragraph so nothing collapses there — but `e2e/seed.ts`'s Kickoff
+  document has THREE paragraphs of which only TWO carry `data-asset-id`, and the collapse has no
+  content term whatever: `collapseParagraph={narrow && index !== selected}` turns on width and
+  selection ALONE. So its plain paragraph collapses at a narrow pane and is fully editable when
+  selected. The image-bearing read-only rule above is TRUE and unaffected; it was the CONCLUSION
+  drawn from it that was wrong. Reproduce: `grep -n 'type: "paragraph"' e2e/seed.ts` (index 1 is
+  plain) and `grep -n "collapseParagraph={" src/app/document-editor.tsx`. ★ A probe is still better
+  off seeding its own plain-paragraph document — for the fixture's clarity, not because the seeded
+  ones are incapable. ★★ A
+  zero-block document explains itself and offers a control labelled "Add a block" (`documentsAddBlock` —
+  REWORDED from "Add a paragraph" when the kind picker landed) that opens a `BlockKindMenu` over the
+  SAME `BlockKindList` the per-row gutter renders, covering every member of `ADDABLE_BLOCK_TYPES`
+  (the gutter renders the list DIRECTLY; the menu is the trigger-plus-popover wrapper around it, and
+  outside its own test file is rendered only by `document-editor.tsx`, here and by the trailing add
+  control — verify with `grep -rn "<BlockKindMenu\|<BlockKindList" src`). ★★ It INSERTS at index 0 through
+  `structural.insert`; the hand-editor's `appendBlock` path was REMOVED, so nothing on this surface
+  appends any more — the `{op:"append"}` ENGINE op stays live and is still what the AI document tools
+  emit, and flattening those two together is the easy mistake. ★ Do not quote a kind COUNT here; derive it
+  with `grep -n -A 2 "ADDABLE_BLOCK_TYPES = " src/app/document-block-seeds.ts` — the members sit on the
+  line AFTER the declaration, so a bare grep for that anchor returns nothing derivable. Read the
+  behaviour off the "offers every addable kind from the empty state" test in `document-editor.test.tsx`.
+  ★★ The identity-anchored coalescing decision that governs whether a hand edit reuses the session's
+  before-image or mints a new one lives beside the version model, not here — see
+  `docs/AGENTS/documents.md`'s "Coalescing before-images for hand edits" section.
+  ★★★ This surface WAS entirely outside axe `A11Y_VIEWS` coverage and no longer is —
+  `docs/open-followups.md` §184 is CLOSED. `e2e/a11y.spec.ts` drives Documents into edit mode (a DOM
+  click, so the auto-launched guided tour cannot intercept it) and asserts `[data-block-row]` count > 1
+  so a broken toggle cannot silently re-scan the PREVIEW and read as covered. ★★★ A green scan there is
+  still SILENT on duplicate accessible names, in every view at every seed size — the measurement is in the
+  a11y hard-constraint bullet above — so the gutter's row-unique naming is pinned by UNIT TESTS and by
+  nothing else. ★★ TWO of them, not one, and they do not cover the same controls: this line said
+  "`document-block-gutter.test.tsx` ALONE", but that file's "gives every control a row-unique accessible
+  name" (two rows) is the only cover for the ACTIONS trigger, while the GRIP is pinned twice — there and
+  by `document-editor.test.tsx`'s "gives every row a block-unique reorder handle" (three rows, plus an
+  explicit set-size check). Deleting either leaves a hole no gate reports.
+  ★★ It persists via the **meta-blob** pattern (one JSON row in `meta`, exactly like `insights`), NOT via
+  `ENTITY_SPECS`. So it is deliberately absent from `TABLE_NAMES` **because it has no table of its own — NOT
+  because it is non-workspace data. It IS workspace data**, and reading the absence the other way is how a
+  future slice talks itself into adding it to the per-table DELETE set. The dirty check is reference
+  equality (`prev.documents !== next.documents`), so an in-place mutation silently skips the save.
+  ★★ `document-model.ts` is DOM-FREE BY CONTRACT (a comment-stripped source scan in its test enforces it, so
+  comments may name DOMPurify and code may not) — but the CSV/MD/JSON/Turso LOAD paths are the OPPOSITE and
+  REQUIRE a DOM. Do not generalise either direction: `docs/open-followups.md` §97 holds the measurement and
+  the blast radius, and §92 the `settings-types` ⇄ `workspace` ⇄ `document-model` import cycle.
+  ★ `dataSection` blocks resolve through `doc-data-section.ts` `resolveDataSection`, which calls the REAL
+  `buildExportSections` — so a document's embedded data cannot drift from what the workspace exporter emits.
+  ★★ `documentVersions` is a SECOND meta-blob slice beside `documents`, on the same six write paths and
+  subject to everything above. The version model (before-images, retention, tombstones, the single
+  `applyDocMutation` path) lives in **[`docs/AGENTS/documents.md`](documents.md)** — open it
+  before touching version history, deleted documents, or any "add a field to the six write paths" task,
+  which it records a landmine for.
+  ★★ **Document images (S3c-1, Turso-gated)** — the metadata slice (an `ENTITY_SPECS` row, so its
+  table IS in `TABLE_NAMES`) versus the byte side table (deliberately OUT of it — both halves
+  matter, and each is a data defect the other way round), the Safe Mode refusal, the single
+  functional-update write path, upload caps, blob-URL rendering and why insertion bypasses the live
+  rich-text editor all live in `docs/AGENTS/documents.md`'s "Asset images (S3c-1)" section — open it
+  before touching anything under `document-asset*`. ★★★ Open it EVEN FOR A SMALL CHANGE: this slice
+  shipped its first cut non-functional on its only backend behind a fully green gate suite (lint,
+  tsc, unit + coverage floors, axe, prod-smoke), and that section is the list of what not to
+  reintroduce.
+  ★★ **Image BYTES in every export format (S3c-2)** — the three-bucket
+  `loadExportAssets` contract (★★★ **NOT "policy vs data" — that is what this line said for six
+  releases, and the `omitted` half is FALSE outright while the `missing` half is merely
+  INCOMPLETE.** (An earlier revision said "BOTH HALVES ARE FALSE", which is stronger than its own
+  next clause: `missing` genuinely does hold data problems — what is false is that it holds ONLY
+  them.) `omitted` is BUDGET overflow ALONE, and a POLICY refusal lands in `missing` alongside the
+  genuine data losses, so the split a reader reaches for here does not exist in the code. Measured
+  2026-08-31, not reasoned — reproduce with
+  `grep -nE "^\s+(omitted|missing)\.add" src/app/document-export-assets.ts`, which returns ONE
+  `omitted.add` (the budget branch) against TWO `missing.add` (a null row, and an `isRenderable`
+  decline — the mime allowlist for HTML/PDF). ★★ The `^\s+` anchor is load-bearing: the obvious
+  `grep -n "omitted.add\|missing.add"` also matches a COMMENT mentioning
+  `NO_EXPORT_ASSETS.omitted.add("x")`, so `grep -c` reports a symmetric 2-vs-2 that refutes the
+  sentence it is attached to. Caught by cold review, not by any gate. §320 carries the consequence: an exported document
+  discloses a policy-refused image as "the bytes are gone". ★★ The longer statement in
+  `documents.md` is substantively RIGHT — it explains the budget correctly and names `isRenderable`
+  under `missing`; only its "POLICY" label is wrong. This copy lost the explanation and kept the
+  label, which is exactly the restate-instead-of-link failure the doc-set rule at the top of this
+  file warns about), the additive `media` parameter on both package builders, the forced DOCX
+  paragraph split, cost-based PPTX pagination, and the 25 MB inline budget that applies to HTML/PDF
+  ONLY, live in the same file's "Image bytes in every export format (S3c-2)" section.
+  ★★★ **THREE THINGS THERE HAVE ALREADY COST REAL WORK AND ARE NOT DERIVABLE FROM THE CODE
+  YOU ARE LOOKING AT:** page geometry is TWIPS and drawing geometry is EMU a few lines apart (factor
+  635, `EMU_PER_TWIP` — passing twips through clamps every image to a hundredth of an inch, valid
+  XML and green tests); PPTX media part PATHS are unique deck-wide while relationship ids are
+  PER-SLIDE restarting at `rId2` (reversing them puts the wrong image on a slide, with no schema
+  error); and splitting rich HTML re-enters the per-sink `isHtmlStart` landmine, because
+  `CONTAINS_TAG` needs `<` plus a LETTER so a fragment carrying only a CLOSING tag is classified as
+  plain text and escaped into the reader's document. ★★ **NOTHING HERE CAN OPEN A `.docx` OR A
+  `.pptx`** — verification is unzip-and-byte-compare and the manual pass is owed
+  (`docs/open-followups.md` §219). ★★ §216 is CLOSED as of 2026-08-24 and this line used to end at
+  its complaint: the `export-ooxml` golden suite still does NOT pin these package bytes (both this
+  slice's spec and its plan claimed it did), but the MEDIA-FREE `.docx` and `.pptx` are now gated
+  against an ordered part manifest in `docs/baselines/ooxml-parts.json`, moved only by
+  `npm run ooxml:manifest` and never by a `vitest -u`. ★★ Read that scope literally — a
+  media-BEARING package is outside it, and so is the zip container (`zip.test.ts` owns that
+  separately); a green manifest run says nothing about either.
