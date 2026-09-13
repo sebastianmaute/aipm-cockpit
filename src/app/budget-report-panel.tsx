@@ -19,7 +19,7 @@ import { computeBudgetReport, costIsKnowable, type BucketReport, type CciValue }
 import { CostUnknownNotice } from "./budget-cost-notice";
 import { computeEvm, projectBlendedInternalRate } from "./evm";
 import { formatCurrency } from "./resource-cost";
-import { resolveRate, resolveRateSource } from "./fx";
+import { resolveRate, resolveRateSource, type RateSource } from "./fx";
 import { bucketCurrencyLabel } from "./budget-currency-label";
 import type { Absence, BudgetBucket, Discipline, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
 import { RagBadge } from "./rag-badge";
@@ -207,7 +207,23 @@ export function BudgetReportPanel({
 
 type DetailResizable = ReturnType<typeof useColumnResize<DetailCol>>;
 
-function BucketDetailTable({
+/**
+ * The rate SOURCE for a detail-table row's currency label. `b` is `undefined`
+ * only when a report row's `bucketId` is missing from `bucketById` — should
+ * not happen in practice, but the fallback this replaced (`"eur"`) claimed
+ * the state was a CONFIRMED EUR reading, which nothing here established:
+ * that is the exact false claim §474 exists to remove, one row up. `null`
+ * tells the caller to render the bare currency code directly instead of
+ * asking `bucketCurrencyLabel` to vouch for a source it never resolved —
+ * rendering is unchanged, since this row's `rate` is hardcoded to 1 and
+ * `bucketCurrencyLabel` never appends a suffix at rate 1 regardless of
+ * source.
+ */
+export function detailRowRateSource(b: BudgetBucket | undefined, fxRates: FxRates | null): RateSource | null {
+  return b ? resolveRateSource(b, fxRates) : null;
+}
+
+export function BucketDetailTable({
   lang, rows, bucketById, fxRates, colResize, money,
 }: {
   lang: Lang;
@@ -227,17 +243,16 @@ function BucketDetailTable({
         const blended = b?.planningMode === "blended";
         // Amounts are already EUR (the engine's base); the FX rate is shown for context only, not used to convert.
         const rate = b ? resolveRate(b, fxRates) : 1;
-        // §474: a bucket missing from `bucketById` (should not happen in
-        // practice) has no resolver reading at all — treat it as resolved
-        // rather than flagging a marker for a condition that isn't the one
-        // this disclosure is about.
-        const rateSource = b ? resolveRateSource(b, fxRates) : "eur";
+        const rateSource = detailRowRateSource(b, fxRates);
         return {
           ...r,
           modeLabel: t(lang, blended ? "budgetModeBlended" : "budgetModeDetailed"),
           typeLabel: t(lang, r.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm"),
           statusLabel: t(lang, r.status === "closed" ? "budgetReportStatusClosed" : "budgetReportStatusOpen"),
-          currencyLabel: bucketCurrencyLabel(lang, r.currency, rate, rateSource),
+          // `rateSource === null` only when `b` is missing (see
+          // `detailRowRateSource`) — the bare currency code is what
+          // `bucketCurrencyLabel` would render anyway at this row's rate (1).
+          currencyLabel: rateSource === null ? r.currency : bucketCurrencyLabel(lang, r.currency, rate, rateSource),
           // null when cost has no basis, NOT the raw percent. `contributionMargin`
           // is computed regardless of `costIsKnowable` — the flag is the caller's
           // job — and an unstaffed fixed-price bucket yields revenue − 0 = a

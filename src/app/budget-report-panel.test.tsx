@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { BudgetReportPanel } from "./budget-report-panel";
+import { BudgetReportPanel, BucketDetailTable, detailRowRateSource } from "./budget-report-panel";
 import { loadI18n } from "./i18n";
+import type { BucketReport, CciValue } from "./budget-report";
 import type { BudgetBucket, FxRates, ResourcePlan, Role } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "EUR" };
@@ -407,5 +408,64 @@ describe("BudgetReportPanel — the German win/loss column hint", () => {
     const trigger = screen.getByLabelText(hint);
     fireEvent.focus(trigger);
     expect(screen.getByRole("tooltip")).toHaveTextContent(hint);
+  });
+});
+
+// §474 (rollup follow-up): `BucketDetailTable`'s row-mapping fell back to a
+// literal `"eur"` rate source for a bucket missing from `bucketById` — a
+// state that "should not happen in practice" (the file's own comment), but
+// labelling an UNKNOWN state as a CONFIRMED EUR reading was itself the false
+// claim §474 exists to remove, one row up. Fixed by resolving to `null`
+// instead, which the row-mapper reads as "render the bare currency code",
+// matching what "eur" always rendered anyway (this row's `rate` is hardcoded
+// to 1, and `bucketCurrencyLabel` never appends a suffix at rate 1).
+describe("§474 — the missing-bucket fallback does not claim EUR", () => {
+  const detailColWidths = {
+    bucket: 160, mode: 90, type: 80, status: 80, currency: 110,
+    budgetH: 80, planH: 80, actualH: 80, budgetEur: 110, consumedEur: 120, margin: 90, winLoss: 110,
+  };
+  const emptyCci: CciValue = { amount: 0, percent: null };
+  const ghostRow: BucketReport = {
+    bucketId: 999, name: "Ghost", currency: "USD", type: "tm", status: "open",
+    budgetHours: 0, plannedHours: 0, actualHours: 0,
+    budgetValue: 0, consumedValue: 0, revenue: 0, cost: 0, budgetCost: 0,
+    winLossHours: 0, winLossValue: 0, spilloverInHours: 0, spilloverInValue: 0,
+    contributionMargin: emptyCci, costPerformance: emptyCci, consumption: emptyCci,
+    earnedValue: null, costPerformanceIndex: null, budgetMirrorsPlan: false,
+    costUnknownReason: "no-rows", unpricedDisciplineIds: [],
+  };
+
+  it("resolves to null for a missing bucket record, never the \"eur\" source", () => {
+    expect(detailRowRateSource(undefined, null)).toBeNull();
+  });
+
+  it("resolves normally through resolveRateSource for a present bucket", () => {
+    const b: BudgetBucket = {
+      id: 1, name: "B", type: "tm", currency: "USD", startDate: "", endDate: "", status: "open", allocations: [],
+    };
+    expect(detailRowRateSource(b, null)).toBe("unresolved");
+  });
+
+  it("renders the same bare currency code as before for a row whose bucket is missing", () => {
+    render(
+      <BucketDetailTable
+        lang="en-US"
+        rows={[ghostRow]}
+        bucketById={new Map()}
+        fxRates={null}
+        colResize={{
+          colWidths: detailColWidths,
+          sizedWidths: {},
+          startColResize: () => {},
+          resetColWidths: () => {},
+        }}
+        money={(n) => `€${n}`}
+      />,
+    );
+    const row = screen.getByText("Ghost").closest("tr") as HTMLElement;
+    expect(row).toHaveTextContent("USD");
+    // Rendering is unchanged: no suffix, no "1:1" marker, nothing claiming EUR.
+    expect(row).not.toHaveTextContent(/1:1/);
+    expect(row).not.toHaveTextContent(/EUR/);
   });
 });
