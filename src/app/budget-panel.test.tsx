@@ -23,6 +23,38 @@ const props = {
   onChangeBuckets: vi.fn(), onRefreshFx: vi.fn(),
 };
 
+// §474 (rollup half): the EUR-labelled project rollup sums every bucket's
+// figure regardless of whether a rate ever resolved for it — this pins the
+// disclosure notice that names how many summands were counted that way.
+describe("BudgetPanel — the project rollup discloses unresolved-rate summands", () => {
+  test("names the count for a mixed project", () => {
+    const mixed: BudgetBucket[] = [
+      buckets[0], // EUR — resolved
+      // Fixed-price: only a contract amount is converted, so only these are summed at par.
+      { ...buckets[0], id: 2, name: "B2", type: "fixed", fixedPriceAmount: 10000, currency: "USD" }, // unresolved (fxRates null)
+      { ...buckets[0], id: 3, name: "B3", type: "fixed", fixedPriceAmount: 10000, currency: "GBP" }, // unresolved
+    ];
+    render(<BudgetPanel {...props} buckets={mixed} fxRates={null} />);
+    const rollup = screen.getByText(/Project total/i).closest("section") as HTMLElement;
+    expect(within(rollup).getByText(t("en-US", "budgetFxRollupUnresolved", "2"))).toBeInTheDocument();
+  });
+
+  test("renders nothing when the only rateless non-EUR bucket is T&M", () => {
+    // A T&M bucket's money is hours × EUR role rates and is converted nowhere,
+    // so its missing rate put nothing into the rollup at par.
+    const tmOnly: BudgetBucket[] = [{ ...buckets[0], id: 2, name: "USD T&M", currency: "USD" }];
+    render(<BudgetPanel {...props} buckets={tmOnly} fxRates={null} />);
+    const rollup = screen.getByText(/Project total/i).closest("section") as HTMLElement;
+    expect(within(rollup).queryByText(/without an FX rate/i)).toBeNull();
+  });
+
+  test("renders nothing when every bucket resolves", () => {
+    render(<BudgetPanel {...props} />); // default fixture: one EUR bucket only
+    const rollup = screen.getByText(/Project total/i).closest("section") as HTMLElement;
+    expect(within(rollup).queryByText(/without an FX rate/i)).toBeNull();
+  });
+});
+
 describe("BudgetPanel", () => {
   test("renders the project total contribution margin", () => {
     render(<BudgetPanel {...props} />);
@@ -396,6 +428,44 @@ describe("BudgetPanel", () => {
     render(<BudgetPanel {...props} buckets={usdFixedBucket} fxRates={usdRates} />);
     const winLoss = screen.getByText("Win / loss").parentElement!;
     expect(winLoss).toHaveTextContent("$10,000");
+  });
+
+  // §474: a non-EUR bucket with neither a manual override nor a cached ECB
+  // rate is summed into the EUR rollup at par (rate 1), and until this fix
+  // its currency label was indistinguishable from a bucket whose resolved
+  // rate genuinely is 1 — both render the bare currency code with no
+  // `(×rate)` suffix, since `rate !== 1` was the only thing that gated it.
+  // Three fixtures, one field changed each, scoped to the bucket's own card
+  // via its name so the assertion cannot pick up money elsewhere on the pane.
+  describe("§474 — the currency label discloses an unresolved FX rate", () => {
+    // A stable hook, not the `.rounded-xl` Tailwind class — the class is a
+    // styling detail shared by unrelated elements on the pane and drifts the
+    // moment the card's own styling changes, while `data-bucket-card` names
+    // exactly what the lookup means.
+    const cardFor = (name: string) => screen.getByText(name).closest("[data-bucket-card]") as HTMLElement;
+
+    test("a non-EUR bucket with no override and no cached rate carries the marker", () => {
+      const rateless: BudgetBucket[] = [{ ...buckets[0], id: 2, name: "Rateless bucket", currency: "USD" }];
+      render(<BudgetPanel {...props} buckets={rateless} fxRates={null} />);
+      expect(cardFor("Rateless bucket")).toHaveTextContent(/USD.*1:1/);
+    });
+
+    test("an EUR bucket never carries the marker", () => {
+      render(<BudgetPanel {...props} />);
+      expect(cardFor(buckets[0].name)).not.toHaveTextContent(/1:1/);
+    });
+
+    test("a non-EUR bucket whose CACHED rate genuinely resolves to 1 does not carry the marker", () => {
+      // The mutant this guards against: a helper that reads `rate !== 1`
+      // alone would treat this identically to the unresolved case above —
+      // both are rate === 1 — so this must render the bare currency code.
+      const parRates: FxRates = { base: "EUR", date: "2026-01-01", fetchedAt: "2026-01-01T00:00:00Z", rates: { EUR: 1, USD: 1 } };
+      const resolvedAtOne: BudgetBucket[] = [{ ...buckets[0], id: 2, name: "Par bucket", currency: "USD" }];
+      render(<BudgetPanel {...props} buckets={resolvedAtOne} fxRates={parRates} />);
+      const card = cardFor("Par bucket");
+      expect(card).not.toHaveTextContent(/1:1/);
+      expect(card).toHaveTextContent("USD");
+    });
   });
 
   // ★★★ AN EUR BUCKET CARRYING A STALE POSITIVE OVERRIDE — the exact shape

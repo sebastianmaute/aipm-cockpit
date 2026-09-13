@@ -688,16 +688,16 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§463](#463-export-silently-drops-enabled-sections-and-no-path-exports-calendar-events-knowledge-items-or-insights--open) | Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — OPEN | found 2026-09-11 by a read-only code check of `main` @ `1826cf64` while triaging the demo-backlog issues #38–#74 (issue #75) | S-M — two object literals, but deciding what each export path should contain (and whether they should be one function) is the work | open |
 | [§464](#464-cpi-means-two-different-numbers-and-two-winloss-hints-are-wrong--closed-2026-09-12) | "CPI" means two different numbers, and two win/loss hints are wrong | found 2026-09-11 by the same read-only code check (issue #76) | S-M — closed by `fe174c2d`: the money ratio is renamed `budgetCciRecovery` ("Cost recovery"), so CPI names the EVM hours ratio alone, and both wrong hints were rewritten EN+DE; `winLossHours` is still rendered nowhere | **CLOSED** 2026-09-12 |
 | [§465](#465-non-eur-fixed-price-buckets-every-money-figure-is-inflated-by-the-fx-rate-and-the-margin-is-wrong--closed-2026-09-12) | Non-EUR fixed-price buckets: every money figure is inflated by the FX rate, and the margin is wrong | found 2026-09-11 by the same read-only code check (issue #77, beside issue #42) | M — closed by the `feat/budget-currency-boundary` slice, which put the boundary at the ENGINE (`4d284c40` converts at `computeBucketReport`'s single read; four surfaces relabelled EUR; `ResourcePlan.currency` narrowed to a union) | **CLOSED** 2026-09-12 |
-| [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--open) | Help promises a burn-down forecast that the chart does not draw — OPEN | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | open |
+| [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--closed-2026-09-13) | Help promises a burn-down forecast that the chart does not draw — CLOSED 2026-09-13 | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | **CLOSED** 2026-09-13 |
 | [§467](#467-fields-the-offered-surface-sweeps-typed-probes-cannot-measure--open) | Fields the offered-surface sweep's typed probes cannot measure — OPEN | found 2026-09-11 by the typed-probe slice's first measured run | S per field — a probe shape or a column decision each | open |
 | [§468](#468-pdf-export-opens-a-window-that-never-prints-in-the-desktop-app--open) | PDF export opens a window that never prints in the desktop app — OPEN | found 2026-09-12 by cold review of the desktop print-route commit `252fbca7`, which fixed the in-pane Print button and overstated its scope | M — a main-process print route (`webContents.printToPDF` or a print handler on the opened window), then a decision about whether the three PDF surfaces still open a tab at all | open |
 | [§469](#469-snapshotrecordcurrency-is-written-on-every-capture-and-read-by-nothing--open) | `SnapshotRecord.currency` is written on every capture and read by nothing — OPEN | found 2026-09-12 by the currency-boundary slice's closing pass over §465, and independently by two of its reviewers | S-M — the work is the decision: delete the field (one Turso table's DDL, encode and decode — NOT the six workspace write paths) or normalise it to EUR at the writer | open |
 | [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--open) | The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN | found 2026-09-12 while closing §465, from `d4fa68c3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | open |
-| [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--open) | The FX-override field's advertised minimum rounds to zero and is then refused — OPEN | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | open |
-| [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--open) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture — OPEN | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | open |
+| [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--closed-2026-09-13) | The FX-override field's advertised minimum rounds to zero and is then refused — CLOSED 2026-09-13 | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | **CLOSED** 2026-09-13 |
+| [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--closed-2026-09-13) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture — CLOSED 2026-09-13 | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | **CLOSED** 2026-09-13 |
 | [§473](#473-nothing-decides-what-currency-role-rates-are-in-so-a-non-eur-plan-both-mislabels-resources-money-and-miscomputes-a-fixed-price-margin--open) | Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin — OPEN | found 2026-09-12 by the whole-branch review of `feat/budget-currency-boundary`, in the same pass that caught a false attribution in §465; filed as ONE entry because splitting the display and arithmetic faces would let one close while the other stood | M — the seven display sites and the type narrowing are small edits; coercing stored non-EUR plan currencies at load, and its tests, are the work | open |
-| [§474](#474-a-rateless-non-eur-bucket-is-summed-into-the-eur-rollup-at-par-and-reads-almost-like-a-rated-one--open) | A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one — OPEN | found 2026-09-12 by the documentation-correction pass over `feat/budget-currency-boundary`, from the default no-rate path neither the design spec nor the register had considered; NOT a regression — at rate 1 the conversion is the identity, so no figure moved | S-M — the arithmetic must not change, so the work is disclosure: whether the report marks a rateless non-EUR bucket and whether the EUR rollup flags a summand it could not convert, plus tests | open |
-| [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--open) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read — OPEN | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `68f70b9d` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | open |
+| [§474](#474-a-rateless-non-eur-bucket-is-summed-into-the-eur-rollup-at-par-and-reads-almost-like-a-rated-one--closed-2026-09-13) | A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one — CLOSED 2026-09-13 | found 2026-09-12 by the documentation-correction pass over `feat/budget-currency-boundary`, from the default no-rate path neither the design spec nor the register had considered; NOT a regression — at rate 1 the conversion is the identity, so no figure moved | S-M — the arithmetic must not change, so the work is disclosure: whether the report marks a rateless non-EUR bucket and whether the EUR rollup flags a summand it could not convert, plus tests | **CLOSED** 2026-09-13 |
+| [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--closed-2026-09-13) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read — CLOSED 2026-09-13 | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `68f70b9d` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | **CLOSED** 2026-09-13 |
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
 | [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--open) | Only three currencies are supported, and INR is wanted — OPEN | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | open |
 | [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--open) | Switching back to the modern layout moves the user off their current view — OPEN | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | open |
@@ -35025,18 +35025,10 @@ Size M: the fix is a decision about where the boundary sits — convert at the w
 boundary, or keep the field in bucket currency and convert on every read — and whichever is chosen,
 existing stored amounts carry no marker saying which convention they were entered under.
 
-## 466. Help promises a burn-down forecast that the chart does not draw — OPEN
+## 466. Help promises a burn-down forecast that the chart does not draw — CLOSED 2026-09-13
 
-**Status:** OPEN 2026-09-11 — found by a read-only code check against `main` @ `1826cf64` (v1.0.0)
-while triaging the demo-backlog issues #38–#74; filed as
-https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/issues/78. Established by reading the
-string and the chart, not by a run. Presence witnesses re-run 2026-09-11:
-`grep -n "helpAutomatedHealthBody" src/app/i18n.ts src/app/i18n.de.ts src/app/help-content.ts` (the two
-strings and the entry that renders them) and
-`grep -niE "forecast|projection" src/app/burndown-chart.tsx src/app/budget-burndown.ts` (prints NOTHING
-— the absence IS the finding, so re-run it rather than trusting this line).
+**Status:** CLOSED 2026-09-13 on `fix/budget-fx-batch`. `helpAutomatedHealthBody` no longer promises a burn-down forecast in EN or DE: it now says the Budget burn-down compares the planned remaining budget with the actual remaining budget to date, which is what `computeBurndownSeries` emits. `helpAutomatedHealthTitle` is unchanged (the Trends `forecastEndDate` satisfies it). Pinned by `src/app/i18n.test.ts` "help — burn-down health entry (§466)", mutation-checked by restoring the old wording (red). Verified 2026-09-13: `npx vitest run src/app/i18n.test.ts src/app/budget-bucket-modal.test.tsx src/app/sanitize-budget.test.ts src/app/budget-burndown.test.ts src/app/budget-report-panel.test.tsx src/app/fx.test.ts src/app/fx.property.test.ts src/app/budget-currency-label.test.ts src/app/budget-fx-rollup-notice.test.tsx src/app/budget-panel.test.tsx src/app/dashboard-panel.test.tsx src/app/sample-workspace-budget.test.ts` → 12 files, 349 tests passed. The OPEN-era witnesses below are kept as the record of what was found; this Status supersedes any of them the branch made false.
 
-**Work item:** #78
 
 The Help entry `automated-health` says, in EN, that earned-value indicators "along with a burn-down
 forecast, update automatically as work progresses"; the DE string carries the same promise as "sowie
@@ -35377,17 +35369,10 @@ unsanitized slices gets an incomplete one.
 Size M: not the edit but the decision, per field, about whether an IndexedDB load should repair a
 malformed stored plan or preserve it, plus tests for whichever four behaviours change.
 
-## 471. The FX-override field's advertised minimum rounds to zero and is then refused — OPEN
+## 471. The FX-override field's advertised minimum rounds to zero and is then refused — CLOSED 2026-09-13
 
-**Status:** OPEN 2026-09-12 — read off the three sites and traced by hand through `describeClamp`;
-NOT reproduced in a browser and not pinned by any test. Presence witnesses run 2026-09-12:
-`grep -n 'min="0.0001"' src/app/budget-bucket-modal.tsx` → 1 (with `step="0.0001"` on the next line),
-`grep -n "fxRateOverride: r.value" src/app/budget-bucket-modal.tsx` → 1 (the blur commit, whose
-`describeClamp` call on the line above passes `{ min: 0, max: AMOUNT_MAX, round: 2 }`),
-`grep -n "budgetFxOverrideInvalid" src/app/budget-bucket-modal.tsx` → 1 (the save guard, rejecting
-`<= 0`) and `grep -n "opts.round != null" src/app/sanitize-report.ts` → 1 (the rounding helper).
+**Status:** CLOSED 2026-09-13 on `fix/budget-fx-batch`. The FX-override field's blur clamp now rounds to 4 decimals, matching its `min`/`step` of 0.0001, and a second copy of the defect on the load path was fixed too: `sanitizeBudgetBucket` passes 4 decimals to `sanitizeAmount` for `fxRateOverride` (every other amount keeps 2), so a small rate no longer rounds to 0 on the next JSON/CSV/Turso load. Accepted edge, approved: a value typed below 0.0001 still rounds to 0 on blur and is refused by `budgetFxOverrideInvalid`. Pinned by `src/app/budget-bucket-modal.test.tsx`, `src/app/sanitize-budget.test.ts` and `src/app/sample-workspace-budget.test.ts`. Verified 2026-09-13: `npx vitest run src/app/i18n.test.ts src/app/budget-bucket-modal.test.tsx src/app/sanitize-budget.test.ts src/app/budget-burndown.test.ts src/app/budget-report-panel.test.tsx src/app/fx.test.ts src/app/fx.property.test.ts src/app/budget-currency-label.test.ts src/app/budget-fx-rollup-notice.test.tsx src/app/budget-panel.test.tsx src/app/dashboard-panel.test.tsx src/app/sample-workspace-budget.test.ts` → 12 files, 349 tests passed. The OPEN-era witnesses below are kept as the record of what was found; this Status supersedes any of them the branch made false. (`grep -n "round: 4" src/app/budget-bucket-modal.tsx` → 1 now.)
 
-**Work item:** #300
 
 The bucket editor's FX-override input advertises a minimum and a step of `0.0001`, but its blur
 handler clamps with `round: 2`. Typing the field's own advertised minimum therefore yields
@@ -35413,16 +35398,10 @@ lower the input's advertised `min`/`step` to `0.01`. Deciding which precision an
 carry is the only real question; a unit test driving `0.0001` through the blur handler is what would
 pin it.
 
-## 472. Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture — OPEN
+## 472. Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture — CLOSED 2026-09-13
 
-**Status:** OPEN 2026-09-12 — established by reading both engines and the test fixture, not by a run.
-Presence witnesses run 2026-09-12: `grep -c 'type === "fixed"' src/app/budget-burndown.ts` → **0** (no
-fixed-price branch anywhere in that engine), `grep -n "rates.external" src/app/budget-burndown.ts` → 2
-(the only valuation, applied to budget and actual hours alike) and
-`grep -c 'name: "FP", type: "tm"' src/app/budget-burndown.test.ts` → 1 — the fixture named `fpBucket`
-is declared `type: "tm"`.
+**Status:** CLOSED 2026-09-13 on `fix/budget-fx-batch`. `computeBurndownSeries` has a `type === "fixed"` branch that values the bucket from `currencyToEur(fixedPriceAmount)`, the basis `computeBucketReport` uses, and takes `fxRates` to do it. The contract is spread over in-window periods by budgeted-hours share (evenly when budgeted hours are 0); consumption is cumulative, capped at the contract, so an overrun shows in the period the cap is reached. Approved deviation: its ratios are built from IN-WINDOW hours only, which can diverge from the unwindowed report — documented in a code comment in that branch, behaviour not changed. The misnamed `fpBucket` fixture was renamed to `followPlanBucket` and stays `type: "tm"` on purpose — it covers the follow-plan T&M path, not fixed price (`grep -c 'name: "FP", type: "tm"' src/app/budget-burndown.test.ts` → 0 because of the rename). Fixed-price coverage lives in its own describe block. The in-window-only clipping of a fixed-price bucket is documented in a code comment and NOT pinned by a test. Pinned by `src/app/budget-burndown.test.ts` "computeBurndownSeries — fixed-price buckets (§472)", which reconciles end totals against `computeBudgetReport`; mutation-checked (the cap, the `fixedPriceAmount` fallback and the cumulative consumption each turned their test red). Verified 2026-09-13: `npx vitest run src/app/i18n.test.ts src/app/budget-bucket-modal.test.tsx src/app/sanitize-budget.test.ts src/app/budget-burndown.test.ts src/app/budget-report-panel.test.tsx src/app/fx.test.ts src/app/fx.property.test.ts src/app/budget-currency-label.test.ts src/app/budget-fx-rollup-notice.test.tsx src/app/budget-panel.test.tsx src/app/dashboard-panel.test.tsx src/app/sample-workspace-budget.test.ts` → 12 files, 349 tests passed. The OPEN-era witnesses below are kept as the record of what was found; this Status supersedes any of them the branch made false.
 
-**Work item:** #301
 
 `computeBurndownSeries` values every bucket as `hours * rates.external`. `computeBucketReport` values
 a `type: "fixed"` bucket from its contract amount instead. So for a fixed-price bucket the burndown's
@@ -35561,22 +35540,10 @@ neighbouring case of a stored currency field with no reader.
 Size M: the seven display sites are a small edit and the type narrowing is one line; the load-time
 coercion of stored non-EUR plan currencies, and its tests, are the work.
 
-## 474. A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one — OPEN
+## 474. A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one — CLOSED 2026-09-13
 
-**Status:** OPEN 2026-09-12 — the mechanism is established by reading the three modules end to end
-and by the presence witnesses below; the visible figure is REASONED from the code, NOT reproduced on
-a screen, and nothing pins it. Witnesses run 2026-09-12:
-`grep -c "cached != null && cached > 0 ? cached : 1" src/app/fx.ts` → 1 (`resolveRate`'s final
-fallback — the rate-1 return),
-`grep -c 'fetch("/api/ecb")' src/app/use-fx-rates.ts` → 1 (the only fetch),
-`grep -c "refreshFx" src/app/task-manager.tsx` → 2 against
-`grep -c "useEffect.*refreshFx" src/app/task-manager.tsx` → **0** (the hook's destructure and one
-handler prop; no effect, no mount-time call, so the table is populated only when a user presses the
-control),
-`grep -c 'const projCur = "EUR"' src/app/budget-panel.tsx` → 1 (the rollup's hardcoded label) and
-`grep -c 'rate !== 1 ?' src/app/budget-report-panel.tsx` → 1 (the rate-suffix ternary).
+**Status:** CLOSED 2026-09-13 on `fix/budget-fx-batch`, by disclosure — the arithmetic is unchanged. Approved deviation: an unresolved non-EUR bucket's rate stays 1. `resolveRateSource` (sharing one precedence walk with `resolveRate`) reports `"unresolved"`; `bucketCurrencyLabel` then marks the currency with `budgetFxRateUnresolved` on the Budget panel bucket card and the budget report's fixed-price rows, in place of the old `rate !== 1 ?` suffix (`grep -c 'rate !== 1 ?' src/app/budget-report-panel.tsx src/app/budget-panel.tsx` → 0 and 0). The three EUR rollups — Budget panel project total, budget report project total, Dashboard budget tile — render `BudgetFxRollupNotice`, whose `countUnresolvedBuckets` counts only fixed-price contract amounts, since time-and-materials money is already EUR. Pinned by `src/app/fx.test.ts`, `src/app/fx.property.test.ts`, `src/app/budget-currency-label.test.ts`, `src/app/budget-fx-rollup-notice.test.tsx`, `src/app/budget-panel.test.tsx`, `src/app/budget-report-panel.test.tsx` and `src/app/dashboard-panel.test.tsx`. Verified 2026-09-13: `npx vitest run src/app/i18n.test.ts src/app/budget-bucket-modal.test.tsx src/app/sanitize-budget.test.ts src/app/budget-burndown.test.ts src/app/budget-report-panel.test.tsx src/app/fx.test.ts src/app/fx.property.test.ts src/app/budget-currency-label.test.ts src/app/budget-fx-rollup-notice.test.tsx src/app/budget-panel.test.tsx src/app/dashboard-panel.test.tsx src/app/sample-workspace-budget.test.ts` → 12 files, 349 tests passed. The OPEN-era witnesses below are kept as the record of what was found; this Status supersedes any of them the branch made false.
 
-**Work item:** #80
 
 **`resolveRate` returns 1 for a non-EUR bucket that has neither an `fxRateOverride` nor a cached ECB
 rate**, and that is the DEFAULT state: `useFxRates` fetches on demand only. So such a bucket's
@@ -35636,21 +35603,10 @@ is most of it; the edit is small. ★ Whatever is decided about the suffix here 
 settles §475's visibility question too — the two should be decided in one sitting, not
 independently.
 
-## 475. The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read — OPEN
+## 475. The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read — CLOSED 2026-09-13
 
-**Status:** OPEN 2026-09-12 — never machine-verified as a user-visible defect; the mechanism is
-established by reading the four sites end to end, and each of the presence witnesses below was run
-2026-09-12, but nothing here was reproduced on a screen and no test pins any of it.
-`grep -c 'id: "fxOverride", labelKey: "budgetFxOverride", tier: "advanced"' src/app/modal-fields.ts`
-→ 1 (the field's only gate is the tier),
-`grep -c "EUR" src/app/budget-bucket-modal.tsx` → **0** (no currency gate anywhere in the modal, so
-`isVisible("fxOverride")` is the whole condition),
-`grep -c "aria-invalid={!!notice.fxRateOverride || undefined}" src/app/budget-bucket-modal.tsx` → 1,
-`grep -c "bucket.fxRateOverride = fx" src/app/sanitize-entities.ts` → 1 (the persist),
-`grep -c 'rate !== 1 ?' src/app/budget-report-panel.tsx` → 1 and
-`grep -c "rate !== 1 ?" src/app/budget-panel.tsx` → 1 (the two rate suffixes).
+**Status:** CLOSED 2026-09-13 on `fix/budget-fx-batch`. The bucket modal renders the FX-override field only when `draft.currency !== "EUR"`, and `save()` drops `fxRateOverride` for an EUR bucket, so switching a bucket to EUR no longer persists a leftover override. Approved deviation: an EUR override already stored, or arriving by import, is not scrubbed on load — it is left to read-time repair, since `resolveRate` decides an EUR bucket before its override. Pinned by `src/app/budget-bucket-modal.test.tsx` "BudgetBucketModal — FX override currency gate (§475)". Verified 2026-09-13: `npx vitest run src/app/i18n.test.ts src/app/budget-bucket-modal.test.tsx src/app/sanitize-budget.test.ts src/app/budget-burndown.test.ts src/app/budget-report-panel.test.tsx src/app/fx.test.ts src/app/fx.property.test.ts src/app/budget-currency-label.test.ts src/app/budget-fx-rollup-notice.test.tsx src/app/budget-panel.test.tsx src/app/dashboard-panel.test.tsx src/app/sample-workspace-budget.test.ts` → 12 files, 349 tests passed. The OPEN-era witnesses below are kept as the record of what was found; this Status supersedes any of them the branch made false. (`grep -c "EUR" src/app/budget-bucket-modal.tsx` is no longer 0.)
 
-**Work item:** #81
 
 **The FX-rate override field is gated on the advanced field TIER, never on the bucket's currency.**
 So on an EUR bucket the input renders, accepts a number, validates it live — a non-positive value

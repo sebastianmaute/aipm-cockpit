@@ -95,11 +95,12 @@ export function AppHeader({
       <div className="flex flex-col items-end gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={settings.branding?.logo || "/AIPM-logo.svg"}
+          src={settings.branding?.logo || "/ai-pm-cockpit-banner.svg"}
           alt={settings.branding?.logo ? (settings.branding.slogan ?? t(lang, "appTitle")) : t(lang, "appTitle")}
-          // Custom logos render as-is (light header → no invert), capped so a
-          // large upload can't blow out the header.
-          className={settings.branding?.logo ? "max-h-10 w-auto max-w-[200px] object-contain" : "h-7 w-auto"}
+          // Both a custom logo and the default AI PM Cockpit banner render
+          // as-is, capped so a large upload (or the wide banner) can't blow
+          // out the header.
+          className="max-h-10 w-auto max-w-[200px] object-contain"
         />
         <div className="flex items-center gap-1">
           {onOpenAiAssistant && (

@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { BudgetReportPanel } from "./budget-report-panel";
-import { loadI18n } from "./i18n";
+import { BudgetReportPanel, BucketDetailTable, detailRowRateSource } from "./budget-report-panel";
+import { loadI18n, t } from "./i18n";
+import type { BucketReport, CciValue } from "./budget-report";
 import type { BudgetBucket, FxRates, ResourcePlan, Role } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "EUR" };
@@ -41,6 +42,29 @@ function renderPanel(over: Partial<React.ComponentProps<typeof BudgetReportPanel
     />,
   );
 }
+
+// §474 (rollup half): the same disclosure `BudgetFxRollupNotice` renders on
+// budget-panel.tsx's rollup must also appear on this panel's project-total
+// tiles — both sum every bucket's EUR-reported figure the same way.
+describe("BudgetReportPanel — the project rollup discloses unresolved-rate summands", () => {
+  it("names the count for a mixed project", () => {
+    const mixed: BudgetBucket[] = [
+      buckets[0], // EUR — resolved
+      // Fixed-price: only a contract amount is converted, so only these are summed at par.
+      { ...buckets[1], id: 4, name: "Delta", type: "fixed", fixedPriceAmount: 10000, currency: "USD" }, // unresolved (fxRates null)
+      { ...buckets[2], id: 5, name: "Epsilon", type: "fixed", fixedPriceAmount: 10000, currency: "GBP" }, // unresolved
+    ];
+    renderPanel({ buckets: mixed, fxRates: null });
+    const rollup = screen.getByText(/project total/i).closest("div") as HTMLElement;
+    expect(within(rollup).getByText(t("en-US", "budgetFxRollupUnresolved", "2"))).toBeInTheDocument();
+  });
+
+  it("renders nothing when every bucket resolves", () => {
+    renderPanel(); // default fixture: three EUR buckets only
+    const rollup = screen.getByText(/project total/i).closest("div") as HTMLElement;
+    expect(within(rollup).queryByText(/without an FX rate/i)).toBeNull();
+  });
+});
 
 describe("BudgetReportPanel", () => {
   it("shows the project rollup (revenue + cost in EUR)", () => {
@@ -104,16 +128,19 @@ describe("BudgetReportPanel", () => {
   });
 
   it("labels the burn-down value axis in EUR even when the plan names another currency", () => {
-    // ★★ `computeBurndownSeries` builds every value as `budgetHours ×
-    // role.rates.external` and converts NOTHING, and the engine's money unit is
-    // EUR (`computeBucketReport`: a fixed-price contract amount is converted to
-    // EUR at its one read). So the series is EUR whatever the plan's
-    // `currency` says — narrowing that field to the `BudgetCurrency` union did
-    // NOT make it safe to label with, because the union still admits
-    // `USD`/`GBP`: it states the plan's base currency, never the unit of an
-    // unconverted engine figure. This file's own `money` helper already hardcodes
-    // `formatCurrency(n, "EUR", …)` for the co-rendered cost/EVM tiles, which
-    // are rate-derived in exactly the same way.
+    // ★★ `computeBurndownSeries` builds every T&M bucket's value as
+    // `budgetHours × role.rates.external`, and a fixed-price bucket's from its
+    // contract amount via `currencyToEur` (§472) — either way nothing it
+    // produces is converted a second time, and the engine's money unit is EUR.
+    // So the series is EUR whatever the plan's `currency` says — narrowing
+    // that field to the `BudgetCurrency` union did NOT make it safe to label
+    // with, because the union still admits `USD`/`GBP`: it states the plan's
+    // base currency, never the unit of an unconverted engine figure. This
+    // file's own top-level `buckets` fixture is all `type: "tm"`, so this test
+    // exercises the rate-derived half only; §472's fixed-price contract basis
+    // is pinned separately in `budget-burndown.test.ts`. This file's `money`
+    // helper already hardcodes `formatCurrency(n, "EUR", …)` for the
+    // co-rendered cost/EVM tiles, which are rate-derived in exactly the same way.
     renderPanel({ plan: { ...plan, currency: "USD" } });
     // Scoped to the CURRENCY chart: `Chart` renders `<div>{caption}</div><svg>`,
     // so the caption's parent is that chart alone. The twin hours chart carries
@@ -298,6 +325,67 @@ describe("BudgetReportPanel — a non-EUR fixed-price bucket", () => {
   });
 });
 
+// §474: a non-EUR bucket with neither a manual override nor a cached ECB
+// rate is summed into the EUR rollup at par (rate 1), and its Currency
+// column cell used to be indistinguishable from a bucket whose resolved
+// rate genuinely is 1 — both render the bare currency code, since
+// `rate !== 1` was the only thing that gated the `(×rate)` suffix.
+describe("BudgetReportPanel — §474 the currency column discloses an unresolved FX rate", () => {
+  const parRates: FxRates = {
+    base: "EUR", date: "2026-01-01", fetchedAt: "2026-01-01T00:00:00Z",
+    rates: { EUR: 1, USD: 1 },
+  };
+  const rateless: BudgetBucket = {
+    id: 9, name: "Rateless contract", type: "fixed", currency: "USD", fixedPriceAmount: 10000,
+    startDate: "2026-01-01", endDate: "2026-01-31", status: "open", allocations: [],
+  };
+
+  function currencyCellFor(name: string): HTMLElement {
+    const headers = screen.getAllByRole("columnheader");
+    const col = headers.findIndex((h) => h.textContent?.includes("Currency"));
+    // Scope guard — see the round-trip test above for why this matters.
+    expect(col).toBeGreaterThan(-1);
+    const cells = screen.getByText(name).closest("tr")!.querySelectorAll("td");
+    return cells[col] as HTMLElement;
+  }
+
+  it("marks a bucket with no override and no cached rate", () => {
+    renderPanel({ buckets: [rateless], fxRates: null });
+    expect(currencyCellFor("Rateless contract")).toHaveTextContent(/USD.*1:1/);
+  });
+
+  it("does not mark a bucket whose CACHED rate genuinely resolves to 1", () => {
+    // The mutant this guards against: a helper reading `rate !== 1` alone
+    // would treat this identically to the unresolved case above.
+    renderPanel({ buckets: [rateless], fxRates: parRates });
+    const cell = currencyCellFor("Rateless contract");
+    expect(cell).not.toHaveTextContent(/1:1/);
+    expect(cell.textContent).toBe("USD");
+  });
+
+  it("does not mark an EUR bucket", () => {
+    renderPanel(); // default `buckets` (Alpha/Beta/Gamma) are all EUR
+    expect(currencyCellFor("Alpha")).not.toHaveTextContent(/1:1/);
+  });
+
+  // This table's money columns are EUR and a T&M row's figures (hours × EUR
+  // role rates) were never converted, so "converted at 1:1" would claim a
+  // conversion that did not happen. Only the fixed-price row's contract
+  // amount went through `currencyToEur` at par. Both rows in ONE render so
+  // the pair differs by `type` alone.
+  it("marks the rateless fixed-price row but not the rateless T&M row", () => {
+    const ratelessTm: BudgetBucket = {
+      id: 10, name: "Rateless T&M", type: "tm", currency: "USD",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open", allocations: [],
+    };
+    renderPanel({ buckets: [rateless, ratelessTm], fxRates: null });
+    expect(currencyCellFor("Rateless contract")).toHaveTextContent(/USD.*1:1/);
+    const tmCell = currencyCellFor("Rateless T&M");
+    expect(tmCell).not.toHaveTextContent(/1:1/);
+    expect(tmCell.textContent).toBe("USD");
+  });
+});
+
 describe("BudgetReportPanel burn-down chain warning", () => {
   it("stays silent when no bucket was ever chained", () => {
     // The default fixture links nothing — parallel buckets are the normal budget
@@ -360,5 +448,64 @@ describe("BudgetReportPanel — the German win/loss column hint", () => {
     const trigger = screen.getByLabelText(hint);
     fireEvent.focus(trigger);
     expect(screen.getByRole("tooltip")).toHaveTextContent(hint);
+  });
+});
+
+// §474 (rollup follow-up): `BucketDetailTable`'s row-mapping fell back to a
+// literal `"eur"` rate source for a bucket missing from `bucketById` — a
+// state that "should not happen in practice" (the file's own comment), but
+// labelling an UNKNOWN state as a CONFIRMED EUR reading was itself the false
+// claim §474 exists to remove, one row up. Fixed by resolving to `null`
+// instead, which the row-mapper reads as "render the bare currency code",
+// matching what "eur" always rendered anyway (this row's `rate` is hardcoded
+// to 1, and `bucketCurrencyLabel` never appends a suffix at rate 1).
+describe("§474 — the missing-bucket fallback does not claim EUR", () => {
+  const detailColWidths = {
+    bucket: 160, mode: 90, type: 80, status: 80, currency: 110,
+    budgetH: 80, planH: 80, actualH: 80, budgetEur: 110, consumedEur: 120, margin: 90, winLoss: 110,
+  };
+  const emptyCci: CciValue = { amount: 0, percent: null };
+  const ghostRow: BucketReport = {
+    bucketId: 999, name: "Ghost", currency: "USD", type: "tm", status: "open",
+    budgetHours: 0, plannedHours: 0, actualHours: 0,
+    budgetValue: 0, consumedValue: 0, revenue: 0, cost: 0, budgetCost: 0,
+    winLossHours: 0, winLossValue: 0, spilloverInHours: 0, spilloverInValue: 0,
+    contributionMargin: emptyCci, costPerformance: emptyCci, consumption: emptyCci,
+    earnedValue: null, costPerformanceIndex: null, budgetMirrorsPlan: false,
+    costUnknownReason: "no-rows", unpricedDisciplineIds: [],
+  };
+
+  it("resolves to null for a missing bucket record, never the \"eur\" source", () => {
+    expect(detailRowRateSource(undefined, null)).toBeNull();
+  });
+
+  it("resolves normally through resolveRateSource for a present bucket", () => {
+    const b: BudgetBucket = {
+      id: 1, name: "B", type: "tm", currency: "USD", startDate: "", endDate: "", status: "open", allocations: [],
+    };
+    expect(detailRowRateSource(b, null)).toBe("unresolved");
+  });
+
+  it("renders the same bare currency code as before for a row whose bucket is missing", () => {
+    render(
+      <BucketDetailTable
+        lang="en-US"
+        rows={[ghostRow]}
+        bucketById={new Map()}
+        fxRates={null}
+        colResize={{
+          colWidths: detailColWidths,
+          sizedWidths: {},
+          startColResize: () => {},
+          resetColWidths: () => {},
+        }}
+        money={(n) => `€${n}`}
+      />,
+    );
+    const row = screen.getByText("Ghost").closest("tr") as HTMLElement;
+    expect(row).toHaveTextContent("USD");
+    // Rendering is unchanged: no suffix, no "1:1" marker, nothing claiming EUR.
+    expect(row).not.toHaveTextContent(/1:1/);
+    expect(row).not.toHaveTextContent(/EUR/);
   });
 });

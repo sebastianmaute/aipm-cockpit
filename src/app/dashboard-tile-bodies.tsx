@@ -39,6 +39,7 @@ import { ratioHealth } from "./budget-health";
 import { changeImpactRag } from "./change-log";
 import { BurndownCharts } from "./burndown-chart";
 import { BurndownChainWarning } from "./budget-chain-warning";
+import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
 import { VarianceSummary } from "./variance-summary";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { Sparkline } from "./sparkline";
@@ -59,7 +60,7 @@ import type { VarianceRow } from "./snapshot";
 import type { SuggestedAction } from "./next-actions/types";
 import type { Insight, InsightActions, InsightEntityRef } from "./insights/insight";
 import type { AppView } from "./nav-config";
-import type { ChangeStatus } from "./types";
+import type { BudgetBucket, ChangeStatus, FxRates } from "./types";
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
   Proposed: "changeStatusProposed",
@@ -104,6 +105,14 @@ export interface TileBodyArgs {
   money: (n: number) => string;
   /** Currency label for the burn-down axis. EUR for the same reason. */
   currency: string;
+  /** §474 (third surface): the same raw inputs `BudgetFxRollupNotice` reads on
+   *  budget-panel.tsx / budget-report-panel.tsx, so the tile's EUR burn figures
+   *  get the same "Includes N bucket(s) counted 1:1 without an FX rate" disclosure those two surfaces
+   *  already carry. Passed through unconverted — the component recomputes the
+   *  count itself via `countUnresolvedBuckets`, exactly like the other two call
+   *  sites, rather than a count threaded off a dashboard-engine field. */
+  buckets: readonly Pick<BudgetBucket, "type" | "currency" | "fxRateOverride">[];
+  fxRates: FxRates | null;
   /** `hasNoActiveScope(model.progress)` — shared with the KPI card. */
   noActiveScope: boolean;
   completionSeries: readonly CompletionPoint[];
@@ -249,6 +258,8 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
         ) : (
           <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
         )}
+        {/* The count covers every bucket in the EUR rollup, not only those inside the burn chart's window. */}
+        {model.burn ? <BudgetFxRollupNotice lang={lang} buckets={a.buckets} fxRates={a.fxRates} /> : null}
         {model.evm.coverage.withEstimate > 0 ? (
           <div className="mt-2 flex flex-wrap gap-2">
             <Tile

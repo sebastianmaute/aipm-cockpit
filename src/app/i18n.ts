@@ -627,6 +627,21 @@ const enUS = {
   budgetFixedPriceAmount: "Fixed-price amount",
   budgetFxOverride: "Manual FX rate",
   budgetFxOverrideHint: "Manual EUR→currency rate; leave blank to use the cached ECB rate.",
+  // §474: a non-EUR bucket with neither a manual override nor a cached ECB
+  // rate is converted at rate 1 — this marks that state on the currency
+  // label, distinct from a bucket whose resolved rate genuinely is 1. Worded
+  // for BOTH directions it is shown in: the Budget panel card displays a
+  // bucket's EUR figures in its own currency at 1:1, and the report's EUR
+  // table counts a fixed-price contract into EUR at 1:1. Kept short: it
+  // renders inside a `(...)` suffix next to the currency code, e.g.
+  // "USD (no FX rate — converted at 1:1)".
+  budgetFxRateUnresolved: "no FX rate — converted at 1:1",
+  // §474 (rollup half): the EUR-labelled project rollup sums every bucket's
+  // figure regardless of whether a rate ever resolved for it — this names
+  // how many of the summands were read at par by default, right below the
+  // rollup. Renders only when the count is > 0 (see `BudgetFxRollupNotice`).
+  budgetFxRollupUnresolved: "Includes {0} buckets counted 1:1 without an FX rate",
+  budgetFxRollupUnresolvedOne: "Includes 1 bucket counted 1:1 without an FX rate",
   budgetAllocations: "Role allocations",
   budgetAddRole: "Add role",
   budgetRemoveRole: "Remove role",
@@ -3748,7 +3763,7 @@ const enUS = {
   helpAutomatedTrackingTitle: "Tracking happens on its own",
   helpAutomatedTrackingBody: "The app watches every task's due date and automatically flags work that is overdue or coming up soon, so nothing slips through the cracks. When you mark a task as Done, the completion date is recorded for you — and cleared again if you ever reopen it. The built-in next-actions engine ranks the work that needs your attention most, giving you a prioritised starting point without any manual sorting. Every change made to your project is captured in a running activity log automatically.",
   helpAutomatedHealthTitle: "Health ratings & forecasts are calculated for you",
-  helpAutomatedHealthBody: "The app derives your project's Overall, Schedule, Budget, and Scope health ratings — red, amber, or green — directly from your tasks, milestones, budget, and change data, so you never have to fill in a status field by hand. Earned-value indicators like the Schedule Performance Index and Cost Performance Index, along with a burn-down forecast, update automatically as work progresses. On a Turso database backend the app also takes periodic progress snapshots that feed the Trends view, letting you see how your project has been tracking over time.",
+  helpAutomatedHealthBody: "The app derives your project's Overall, Schedule, Budget, and Scope health ratings — red, amber, or green — directly from your tasks, milestones, budget, and change data, so you never have to fill in a status field by hand. Earned-value indicators like the Schedule Performance Index and Cost Performance Index update automatically as work progresses, and the Budget burn-down chart compares the planned remaining budget against the actual remaining budget to date. On a Turso database backend the app also takes periodic progress snapshots that feed the Trends view, letting you see how your project has been tracking over time.",
   helpSecProjectsTitle: "Projects",
   helpSecProjectsBody: "Every project you have registered is listed here, with the current one marked. Switching to another project from its row loads that project's workspace and its own enabled functions without a page reload. The current project's row offers Edit and Export; the other rows offer Switch and, beside it, the destructive action — Delete on a file backend, Archive on Turso. That split is deliberate: you cannot remove the project you are working in, so switch away first. Deleting on a file backend only de-registers the project and leaves the file itself alone; permanently deleting an archived Turso project does erase its data. Adding a project opens a three-step wizard — details, template, functions — preceded by an optional describe-it screen when AI is switched on and a key is set; on a file backend you also pick JSON, CSV or Markdown.",
   helpSecPortfolioHealthTitle: "Portfolio health",

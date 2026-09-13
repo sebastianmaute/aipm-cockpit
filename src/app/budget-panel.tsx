@@ -16,7 +16,9 @@ import {
 import type { ActualsByBucket } from "./timelog-actuals";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
-import { eurToCurrency, resolveRate } from "./fx";
+import { eurToCurrency, resolveRate, resolveRateSource } from "./fx";
+import { bucketCurrencyLabel } from "./budget-currency-label";
+import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role, Task } from "./types";
 import { BudgetBucketModal } from "./budget-bucket-modal";
 import type { BucketCommitMeta } from "./use-budget-buckets";
@@ -397,6 +399,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           reason={report.project.costUnknownReason}
           disciplineNames={disciplineNamesFor(report.project.unpricedDisciplineIds)}
         />
+        <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} />
       </section>
 
       <section className="flex flex-col gap-3">
@@ -439,6 +442,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
           const bucketToken = bucketTokens.get(br.bucketId) ?? br.name;
           const isBlended = bucket.planningMode === "blended";
           const rate = resolveRate(bucket, fxRates);
+          // The card keeps the "no FX rate — converted at 1:1" marker for a T&M bucket too (unlike the report's EUR detail table): its figures display through `eurToCurrency` at this same rate, 1 when unresolved, so the label is accurate here.
+          const rateSource = resolveRateSource(bucket, fxRates);
           const periods = bucketActivePeriods(bucket, plan);
           const inCur = (eur: number) => formatCurrency(eurToCurrency(eur, bucket, fxRates), bucket.currency, locale);
           // CCI amounts are EUR from the engine — convert to the bucket currency for display.
@@ -461,6 +466,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           return (
             <div
               key={br.bucketId}
+              data-bucket-card={br.bucketId}
               {...bucketOrder.itemProps(br.bucketId)}
               className={`rounded-xl border p-4 ${
                 bucketOrder.isDragging && bucketOrder.dragId !== br.bucketId
@@ -485,8 +491,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {t(lang, br.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm")} · {bucket.currency}
-                  {rate !== 1 ? ` (×${rate})` : ""}
+                  {t(lang, br.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm")} · {bucketCurrencyLabel(lang, bucket.currency, rate, rateSource)}
                   {" · "}{t(lang, isBlended ? "budgetModeBlended" : "budgetModeDetailed")}
                   <ManualPercentCell
                     lang={lang}

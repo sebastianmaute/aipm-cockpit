@@ -492,11 +492,16 @@ export const PO_NUMBER_MAX = 64;
 export const AMOUNT_MAX = 1_000_000_000;
 const BUDGET_TYPE_SET: ReadonlySet<BudgetType> = new Set(BUDGET_TYPES);
 
-function sanitizeAmount(n: unknown): number | undefined {
+// `decimals` defaults to 2 (amounts, hour-rate overrides). The FX-override field alone
+// passes 4 — it advertises a 0.0001 minimum (register §471), and rounding it to 2
+// decimals here would silently zero it out again on every CSV/Turso/JSON
+// round-trip, even after the modal's own clamp already preserves 4 decimals.
+function sanitizeAmount(n: unknown, decimals = 2): number | undefined {
   if (typeof n === "string" && n.trim() === "") return undefined; // empty CSV/MD cell = absent, not 0
   const num = toNumber(n);
   if (!Number.isFinite(num) || num < 0) return undefined;
-  return Math.min(AMOUNT_MAX, Math.round(num * 100) / 100);
+  const factor = 10 ** decimals;
+  return Math.min(AMOUNT_MAX, Math.round(num * factor) / factor);
 }
 
 function sanitizePercentComplete(n: unknown): number | undefined {
@@ -653,7 +658,7 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
     const cd = sanitizeIsoDate(input.closedDate);
     if (cd) bucket.closedDate = cd;
   }
-  const fx = sanitizeAmount(input.fxRateOverride);
+  const fx = sanitizeAmount(input.fxRateOverride, 4);
   if (fx !== undefined && fx > 0) bucket.fxRateOverride = fx;
   if (input.order !== undefined && input.order !== null && input.order !== "") {
     const orderNum = toNumber(input.order);

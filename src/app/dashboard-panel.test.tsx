@@ -1416,3 +1416,54 @@ describe("DashboardPanel currency labelling", () => {
     expect(money.every((s) => s.includes("€"))).toBe(true);
   });
 });
+
+// §474 (third surface): budget-panel.tsx and budget-report-panel.tsx already
+// disclose how many of their EUR-rollup summands were counted at par because
+// no FX rate was ever confirmed for them (`BudgetFxRollupNotice`, fx.ts's
+// `countUnresolvedBuckets`). The Dashboard budget tile sums the SAME
+// `computeBudgetReport(...).project` figures and had the same blind spot —
+// this pins the notice reused verbatim on that tile.
+describe("DashboardPanel budget tile — unresolved-rate FX rollup notice (§474)", () => {
+  const ratedRoles = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+
+  function budgetBucket(over: Partial<BudgetBucket> = {}): BudgetBucket {
+    return {
+      id: 1, name: "PO", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-12-31", status: "open",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
+      ...over,
+    } as unknown as BudgetBucket;
+  }
+
+  function renderDashboard(budgets: BudgetBucket[]) {
+    render(
+      <DashboardPanel
+        lang="en-US" tasks={[]} raid={[]} budgets={budgets} plan={plan} roles={ratedRoles}
+        resources={[]} absences={[]} holidaySet={new Set<string>()} workdayHours={8} today="2026-06-02"
+      />,
+      { wrapper },
+    );
+  }
+
+  it("names the unresolved count when a non-EUR bucket has no confirmed rate (fxRates null)", () => {
+    // USD with no fxRateOverride and no cached rate (fxRates defaults to null
+    // in WorkspaceProvider) -> resolveRateSource is "unresolved" (fx.ts).
+    // Fixed-price: only a contract amount is converted, so only it is summed at par.
+    renderDashboard([budgetBucket({ currency: "USD", type: "fixed", fixedPriceAmount: 10000 })]);
+    const tile = screen.getByTestId("tile-burn");
+    expect(within(tile).getByText(t("en-US", "budgetFxRollupUnresolvedOne"))).toBeInTheDocument();
+  });
+
+  it("renders no notice when the only rateless non-EUR bucket is T&M", () => {
+    // T&M money is hours × EUR role rates, converted nowhere.
+    renderDashboard([budgetBucket({ currency: "USD" })]);
+    const tile = screen.getByTestId("tile-burn");
+    expect(within(tile).queryByText(/without an FX rate/i)).toBeNull();
+  });
+
+  it("renders no notice when every bucket resolves (EUR)", () => {
+    renderDashboard([budgetBucket()]);
+    const tile = screen.getByTestId("tile-burn");
+    expect(within(tile).queryByText(/without an FX rate/i)).toBeNull();
+  });
+});

@@ -299,6 +299,12 @@ export function DashboardPanel(props: DashboardPanelProps) {
     // EUR for the same reason as `money` above — this labels the engine's
     // burn-down series, which converts nothing.
     currency: "EUR",
+    // §474 (third surface): same raw buckets/fxRates budget-panel.tsx and
+    // budget-report-panel.tsx already pass to `BudgetFxRollupNotice` — the
+    // "burn" tile body only renders it alongside `model.burn`, so it never
+    // shows for a tile built with budgets gated off (showBudget=false).
+    buckets: props.budgets,
+    fxRates,
     noActiveScope,
     completionSeries,
     milestoneBuckets,

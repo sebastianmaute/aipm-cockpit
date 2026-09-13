@@ -2,7 +2,7 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
-[![version](https://img.shields.io/badge/version-v1.3.0_%22Chandler%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v1.3.1_%22Chandler%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
 > **The AI project-management cockpit that knows *your* project.**
@@ -45,7 +45,7 @@ Not a prototype, and not shelfware: the cockpit is **already in active friendly-
 
 ### See it in a minute
 
-1. `npm install && npm run dev`, open [http://localhost:3000](http://localhost:3000), and click **Explore a demo project** to load a realistic workspace.
+1. Install the desktop app from the [Releases page](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/releases), open it, and click **Explore a demo project** to load a realistic workspace.
 2. Add or import tasks; view them as a table, a Kanban board, or a Gantt chart.
 3. Open the Dashboard for health, ranked top actions, and trends — then ask the copilot "What's next?".
 4. Wire up Jira / Microsoft 365 / Timelog in Settings when you want it plugged into your stack.
@@ -57,7 +57,8 @@ Not a prototype, and not shelfware: the cockpit is **already in active friendly-
 ### Install the desktop app
 
 Most people should use the desktop build: it installs per-user, needs no
-admin rights, and requires neither Node.js nor a terminal.
+admin rights, and requires neither Node.js nor a terminal. Download the
+installer from the [Releases page](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/releases).
 
 Two things surprise people on a first run, and both are expected:
 

@@ -64,3 +64,45 @@ describe("brand name", () => {
     }
   });
 });
+
+// §466: the "Health ratings & forecasts" Help entry used to promise a
+// burn-down FORECAST ("along with a burn-down forecast" / "sowie eine
+// Burn-down-Prognose") that `burndown-chart.tsx` never draws -- it renders a
+// planned line, an actual line and a today marker only, per
+// `computeBurndownSeries` in budget-burndown.ts. Pin the absence of that
+// promise, in both languages, and a positive observable (the corrected
+// wording) so this cannot pass on an emptied string.
+//
+// Review follow-up on d1eab4aa: the reworded body then claimed the chart
+// "tracks planned spend against actual spend to date", but
+// `computeBurndownSeries` plots plannedRemaining/actualRemaining -- REMAINING
+// budget, not cumulative spend. Pin the absence of that spend framing too,
+// and a positive observable for the remaining-budget wording.
+describe("help — burn-down health entry (§466)", () => {
+  it("EN body no longer promises a burn-down forecast", () => {
+    const body = t("en-US", "helpAutomatedHealthBody");
+    expect(body).not.toMatch(/burn-down forecast/i);
+    expect(body).toContain("burn-down chart");
+  });
+
+  it("EN body describes the burn-down as remaining budget, not spend", () => {
+    const body = t("en-US", "helpAutomatedHealthBody");
+    expect(body).not.toMatch(/tracks planned spend against actual spend/i);
+    expect(body).toMatch(/remaining budget/i);
+  });
+
+  it("DE body no longer promises a Burn-down-Prognose", () => {
+    // Read the DE dict directly -- `t("de", ...)` silently falls back to
+    // en-US unless `loadI18n("de")` has resolved first, which would let a
+    // reverted/untranslated DE string pass by reading the English body.
+    const body = de["helpAutomatedHealthBody"];
+    expect(body).not.toMatch(/Burn-down-Prognose/i);
+    expect(body).toContain("Burn-down-Diagramm");
+  });
+
+  it("DE body describes the burn-down as remaining budget, not spend", () => {
+    const body = de["helpAutomatedHealthBody"];
+    expect(body).not.toMatch(/geplanten Verbrauch dem bisherigen Ist-Verbrauch/i);
+    expect(body).toMatch(/Restbudget/i);
+  });
+});

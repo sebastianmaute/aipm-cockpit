@@ -1,12 +1,15 @@
 // Pure per-period burn-down series for the dashboard + budget report charts.
-// Reads budgeted vs actual hours (and € on the external-rate basis) across all
-// buckets, returns "remaining" arrays that descend over the plan periods —
-// optionally sliced to a narrower x-axis span (see `span` below).
+// Reads budgeted vs actual hours across all buckets, and € on the
+// external-rate basis for T&M buckets / the contract-amount basis for
+// fixed-price ones (§472 — see the `type === "fixed"` branch below), returns
+// "remaining" arrays that descend over the plan periods — optionally sliced
+// to a narrower x-axis span (see `span` below).
 // No React, no I/O.
 
 import { generatePeriods } from "./resource-capacity";
 import { bucketRateRows, bucketActivePeriods, effectiveBudgetHours } from "./budget-report";
-import type { Absence, BudgetBucket, Resource, ResourcePlan, Role } from "./types";
+import { currencyToEur } from "./fx";
+import type { Absence, BudgetBucket, FxRates, Resource, ResourcePlan, Role } from "./types";
 
 export type BurndownSeries = {
   periods: readonly string[];
@@ -41,6 +44,10 @@ export function computeBurndownSeries(
   holidaySet: ReadonlySet<string>,
   absences: readonly Absence[],
   today: string,
+  /** Same cache `computeBucketReport` reads through `currencyToEur` for a
+   *  fixed-price bucket's contract amount (§472/§474/§475) — never re-derive
+   *  a rate here. */
+  fxRates: FxRates | null,
   /** Optional x-axis window. The plan periods are SLICED to it — never
    *  re-generated from these dates, because every bucket contribution is looked
    *  up by the plan-derived period key (bucketActivePeriods). Re-generating
@@ -73,6 +80,77 @@ export function computeBurndownSeries(
     // Scope to the bucket's active periods and pass them as canonicalPeriods —
     // mirrors computeBucketReport so the burndown totals equal the report totals.
     const active = bucketActivePeriods(b, plan);
+
+    if (b.type === "fixed") {
+      // §472: a fixed-price bucket is valued from its CONTRACT AMOUNT, never
+      // hours × rate — mirrors computeBucketReport's `fixedPrice`/`consumedValue`
+      // (budget-report.ts), through the SAME `currencyToEur` helper (§474/§475
+      // unresolved-rate handling applies here unchanged). Hours are still summed
+      // for the hours series (the chart's other axis), just not used to price
+      // this bucket's €.
+      //
+      // The report's `budgetValue` is the full converted contract amount
+      // regardless of hours; `consumedValue` is that amount scaled by the
+      // actual/budget hours ratio and capped at the contract (0 when there are
+      // no budgeted hours at all). Both totals are reproduced here exactly.
+      // Budget is spread across this bucket's in-window periods by each
+      // period's share of the budgeted hours (evenly when there are none).
+      // Consumed is capped CUMULATIVELY: each period adds
+      // min(contract, contract × cumulative actual / budget hours) minus the
+      // same figure one period earlier. So an overrun shows in the period the
+      // cap is reached, and later periods add 0 — capping the grand total once
+      // and spreading it by actual hours would smear the overrun backwards and
+      // show budget left in a period that had already exhausted it. The deltas
+      // telescope, so an unclipped series still sums to the report's `consumedValue`.
+      const fixedPriceEur = currencyToEur(b.fixedPriceAmount ?? 0, b, fxRates);
+      const inWindow: { i: number; bh: number; ah: number }[] = [];
+      let bucketBudgetHours = 0;
+      // `indexByKey` only knows periods inside the CURRENT chart window (see
+      // `periods`/`span` above) — a period from `active` outside it is
+      // skipped by the `continue` below, so `bucketBudgetHours` and the
+      // cumulative actual hours (and therefore every consumed ratio below)
+      // are built from IN-WINDOW hours only. `computeBucketReport` has no such window
+      // and always sums every active period, so the two can legitimately
+      // diverge whenever a chart span clips a fixed-price bucket: the whole
+      // contract amount is still spread over just the in-window periods here,
+      // and if the window excludes ALL of the bucket's active periods, the
+      // contract drops out of this chart entirely (contributes 0 to every
+      // series) even though the report still counts it in full.
+      for (const p of active) {
+        const i = indexByKey.get(p.key);
+        if (i === undefined) continue;
+        let bh = 0;
+        let ah = 0;
+        for (const row of rows) {
+          bh += effectiveBudgetHours(
+            row, p, active, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan, resourcesById,
+          );
+          ah += row.actualHours[p.key] ?? 0;
+        }
+        budgetH[i] += bh;
+        actualH[i] += ah;
+        bucketBudgetHours += bh;
+        inWindow.push({ i, bh, ah });
+      }
+      const consumedAt = (cumActualHours: number) => bucketBudgetHours > 0
+        ? Math.min(fixedPriceEur, fixedPriceEur * (cumActualHours / bucketBudgetHours))
+        : 0;
+      const evenShare = inWindow.length > 0 ? 1 / inWindow.length : 0;
+      // Chronological order is what makes "cumulative" mean anything.
+      const ordered = [...inWindow].sort((x, y) => x.i - y.i);
+      let cumActualHours = 0;
+      let cumConsumedEur = 0;
+      for (const { i, bh, ah } of ordered) {
+        const budgetShare = bucketBudgetHours > 0 ? bh / bucketBudgetHours : evenShare;
+        budgetV[i] += fixedPriceEur * budgetShare;
+        cumActualHours += ah;
+        const nextConsumedEur = consumedAt(cumActualHours);
+        actualV[i] += nextConsumedEur - cumConsumedEur;
+        cumConsumedEur = nextConsumedEur;
+      }
+      continue;
+    }
+
     for (const p of active) {
       const i = indexByKey.get(p.key);
       if (i === undefined) continue;
