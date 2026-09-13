@@ -510,9 +510,9 @@
   **one** hit." That command now returns **28**, so the doc carried the command that disproves it — which is
   the gate working in the only way an ungated doc can be gated, and only if somebody runs it. Every chat
   entity writer now ends its SUCCESS path with `logActivityAs?.("ai", …)` (tasks · raid · change · milestone
-  · stakeholder · resource · absence, plus `settings.updated`, `bulk.inquiries` and `bulk.delete`). The
-  writers are split across `use-chat-dispatcher.ts` (tasks, settings, bulk) and `use-register-tools.ts`
-  (the registers), with `ai.documentWrite` in `use-document-tools.ts`; derive the sites and kinds over all
+  · stakeholder · resource · absence · calendarEvent, plus `settings.updated`, `bulk.inquiries` and `bulk.delete`). The
+  writers are split across `use-chat-dispatcher.ts` (tasks, resources, settings, bulk) and `use-register-tools.ts`
+  (raid, change, milestone, stakeholder, absence, calendarEvent), with `ai.documentWrite` in `use-document-tools.ts`; derive the sites and kinds over all
   three rather than quoting a number:
   `grep -ohE 'logActivityAs\?\.\("ai", "[A-Za-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts src/app/use-document-tools.ts | sort | uniq -c`.
   ★★ The coverage caveat therefore came OUT of the tool description in the same release, exactly as the

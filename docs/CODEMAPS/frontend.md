@@ -45,8 +45,8 @@ src/app/layout.tsx        root layout, security headers, globals.css,
 
 ★ A context consumer re-renders on value change **regardless of an ancestor `memo` bailout**. That is
 why `tasksById` was split out, and why a `memo()`'d panel must take props rather than call `useWorkspace()`. Several are
-memo'd (`ResourcesPanel`, `ChatPanel`, `ActivityLogPanel`, and the RAID, Change and Stakeholders
-bodies) — list them with `grep -rn "= memo(" src/app --include=*.tsx | grep -v test | grep -i panel`.
+memo'd (`ResourcesPanel`, `ResourceDirectory`, `ChatPanel`, `ActivityLogPanel`, and the RAID, Change and Stakeholders
+bodies) — list them with `grep -rn "= memo(" src/app --include=*.tsx | grep -v test | grep -i "panel\|ResourceDirectory"`.
 
 ## Panel decomposition pattern
 

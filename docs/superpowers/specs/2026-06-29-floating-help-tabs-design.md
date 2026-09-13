@@ -1,6 +1,6 @@
 # Floating Help — Tabbed Layout (Design)
 
-> **Status (2026-09-13 audit):** PARTIAL — the tabbed floating Help panel shipped, then its floating-panel mechanism was reverted in favor of an in-pane tabbed Help view; the tours/connects/flows tabs concept survives under a different container, untracked, see housekeeping list. Kept as a historical record; do not execute as written.
+> **Status (2026-09-13 audit):** PARTIAL — the tabbed floating Help panel shipped, then its floating-panel mechanism was reverted in favor of an in-pane tabbed Help view; the tours/connects/flows tabs concept survives under a different container (`grep -n "type HelpTab" src/app/help-view.tsx`), so no residue is owed and none was filed. Kept as a historical record; do not execute as written.
 
 **Date:** 2026-06-29
 **Scope:** Floating top-bar Help panel only (`src/app/help-menu.tsx`). The in-pane Help view (`help-view.tsx`) and its `HelpCollapsibleRegion` accordion are **unchanged**.

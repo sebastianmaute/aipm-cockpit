@@ -474,7 +474,7 @@ therefore indistinguishable from absent at rest — which is fine, because both 
 See the Surfaces and editor section for why the absence from `TABLE_NAMES` means "has no table of
 its own", NOT "is not workspace data" — that reading is how a future change talks itself into
 adding it to the per-table DELETE set.
-★ Note the consequence the bullet does not spell out: the `meta` table **IS** in `TABLE_NAMES`
+★ Note the consequence that section does not spell out: the `meta` table **IS** in `TABLE_NAMES`
 and IS `DELETE`d and rewritten whenever it is dirty. That is safe only because the dirty block
 re-emits **every** meta key in the same pass — adding a new meta key without adding it to that
 block would silently drop it on the next save of any other meta slice.
@@ -1593,10 +1593,10 @@ do not read a green registry run as proof all six carry the slice.
 ★ Moved VERBATIM out of `AGENTS.md`'s "Architecture pointers" section on 2026-09-13 — only link targets changed. Positional words inside the moved text ("this file", "above", "below", "in Commands") still
 describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short pointer bullet.
 
-★ One fact, one doc: the moved text's `documentVersions` paragraph and its S3c-1 / S3c-2
-paragraphs are SUMMARIES of this file's version-model, "Asset images (S3c-1)" and "Image bytes in
-every export format (S3c-2)" sections above. Those sections are the canonical copy; the summaries
-were not trimmed, so the move stays reviewable as a move.
+★ One fact, one doc: the moved text's `documentVersions`, S3c-1 and S3c-2 paragraphs were cut to
+one-line pointers on 2026-09-13, because the S3c-2 one had become an older copy that contradicted its
+canonical section. The canonical copies are this file's version-model, "Asset images (S3c-1)" and
+"Image bytes in every export format (S3c-2)" sections above.
 
 - **Documents (AI document authoring):** a `ProjectDocument` is `{id, title, blocks, createdAt, updatedAt}`
   over a typed `DocBlock` union — **JSON at rest; bytes are rendered ON DEMAND and never stored**, so no blob
@@ -1683,7 +1683,7 @@ were not trimmed, so the move stays reviewable as a move.
   click, so the auto-launched guided tour cannot intercept it) and asserts `[data-block-row]` count > 1
   so a broken toggle cannot silently re-scan the PREVIEW and read as covered. ★★★ A green scan there is
   still SILENT on duplicate accessible names, in every view at every seed size — the measurement is in the
-  a11y hard-constraint bullet above — so the gutter's row-unique naming is pinned by UNIT TESTS and by
+  a11y hard constraint in [`accessibility.md`](accessibility.md) — so the gutter's row-unique naming is pinned by UNIT TESTS and by
   nothing else. ★★ TWO of them, not one, and they do not cover the same controls: this line said
   "`document-block-gutter.test.tsx` ALONE", but that file's "gives every control a row-unique accessible
   name" (two rows) is the only cover for the ACTIONS trigger, while the GRIP is pinned twice — there and
@@ -1700,54 +1700,6 @@ were not trimmed, so the move stays reviewable as a move.
   the blast radius, and §92 the `settings-types` ⇄ `workspace` ⇄ `document-model` import cycle.
   ★ `dataSection` blocks resolve through `doc-data-section.ts` `resolveDataSection`, which calls the REAL
   `buildExportSections` — so a document's embedded data cannot drift from what the workspace exporter emits.
-  ★★ `documentVersions` is a SECOND meta-blob slice beside `documents`, on the same six write paths and
-  subject to everything above. The version model (before-images, retention, tombstones, the single
-  `applyDocMutation` path) lives in **[`docs/AGENTS/documents.md`](documents.md)** — open it
-  before touching version history, deleted documents, or any "add a field to the six write paths" task,
-  which it records a landmine for.
-  ★★ **Document images (S3c-1, Turso-gated)** — the metadata slice (an `ENTITY_SPECS` row, so its
-  table IS in `TABLE_NAMES`) versus the byte side table (deliberately OUT of it — both halves
-  matter, and each is a data defect the other way round), the Safe Mode refusal, the single
-  functional-update write path, upload caps, blob-URL rendering and why insertion bypasses the live
-  rich-text editor all live in `docs/AGENTS/documents.md`'s "Asset images (S3c-1)" section — open it
-  before touching anything under `document-asset*`. ★★★ Open it EVEN FOR A SMALL CHANGE: this slice
-  shipped its first cut non-functional on its only backend behind a fully green gate suite (lint,
-  tsc, unit + coverage floors, axe, prod-smoke), and that section is the list of what not to
-  reintroduce.
-  ★★ **Image BYTES in every export format (S3c-2)** — the three-bucket
-  `loadExportAssets` contract (★★★ **NOT "policy vs data" — that is what this line said for six
-  releases, and the `omitted` half is FALSE outright while the `missing` half is merely
-  INCOMPLETE.** (An earlier revision said "BOTH HALVES ARE FALSE", which is stronger than its own
-  next clause: `missing` genuinely does hold data problems — what is false is that it holds ONLY
-  them.) `omitted` is BUDGET overflow ALONE, and a POLICY refusal lands in `missing` alongside the
-  genuine data losses, so the split a reader reaches for here does not exist in the code. Measured
-  2026-08-31, not reasoned — reproduce with
-  `grep -nE "^\s+(omitted|missing)\.add" src/app/document-export-assets.ts`, which returns ONE
-  `omitted.add` (the budget branch) against TWO `missing.add` (a null row, and an `isRenderable`
-  decline — the mime allowlist for HTML/PDF). ★★ The `^\s+` anchor is load-bearing: the obvious
-  `grep -n "omitted.add\|missing.add"` also matches a COMMENT mentioning
-  `NO_EXPORT_ASSETS.omitted.add("x")`, so `grep -c` reports a symmetric 2-vs-2 that refutes the
-  sentence it is attached to. Caught by cold review, not by any gate. §320 carries the consequence: an exported document
-  discloses a policy-refused image as "the bytes are gone". ★★ The longer statement in
-  `documents.md` is substantively RIGHT — it explains the budget correctly and names `isRenderable`
-  under `missing`; only its "POLICY" label is wrong. This copy lost the explanation and kept the
-  label, which is exactly the restate-instead-of-link failure the doc-set rule at the top of this
-  file warns about), the additive `media` parameter on both package builders, the forced DOCX
-  paragraph split, cost-based PPTX pagination, and the 25 MB inline budget that applies to HTML/PDF
-  ONLY, live in the same file's "Image bytes in every export format (S3c-2)" section.
-  ★★★ **THREE THINGS THERE HAVE ALREADY COST REAL WORK AND ARE NOT DERIVABLE FROM THE CODE
-  YOU ARE LOOKING AT:** page geometry is TWIPS and drawing geometry is EMU a few lines apart (factor
-  635, `EMU_PER_TWIP` — passing twips through clamps every image to a hundredth of an inch, valid
-  XML and green tests); PPTX media part PATHS are unique deck-wide while relationship ids are
-  PER-SLIDE restarting at `rId2` (reversing them puts the wrong image on a slide, with no schema
-  error); and splitting rich HTML re-enters the per-sink `isHtmlStart` landmine, because
-  `CONTAINS_TAG` needs `<` plus a LETTER so a fragment carrying only a CLOSING tag is classified as
-  plain text and escaped into the reader's document. ★★ **NOTHING HERE CAN OPEN A `.docx` OR A
-  `.pptx`** — verification is unzip-and-byte-compare and the manual pass is owed
-  (`docs/open-followups.md` §219). ★★ §216 is CLOSED as of 2026-08-24 and this line used to end at
-  its complaint: the `export-ooxml` golden suite still does NOT pin these package bytes (both this
-  slice's spec and its plan claimed it did), but the MEDIA-FREE `.docx` and `.pptx` are now gated
-  against an ordered part manifest in `docs/baselines/ooxml-parts.json`, moved only by
-  `npm run ooxml:manifest` and never by a `vitest -u`. ★★ Read that scope literally — a
-  media-BEARING package is outside it, and so is the zip container (`zip.test.ts` owns that
-  separately); a green manifest run says nothing about either.
+  ★★ `documentVersions` is a SECOND meta-blob slice beside `documents`: see [the version model](#the-version-model-document-versionsts) and [the six write paths](#persistence--six-write-paths) above.
+  ★★ **Document images (S3c-1, Turso-gated)**: see [Asset images (S3c-1)](#asset-images-s3c-1) above, and open it before touching anything under `document-asset*`.
+  ★★ **Image BYTES in every export format (S3c-2)**: see [Image bytes in every export format (S3c-2)](#image-bytes-in-every-export-format-s3c-2) above.

@@ -520,6 +520,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   colour-only toggle state, in every view at every seed size — only a UNIT test catches those. Use
   `ToggleButton`/`SegmentedControl`, never a hand-rolled `aria-pressed` button. Open that file before
   adding a control, a view or a toggle: what `A11Y_VIEWS` does NOT scan, and running it locally, are there.
+  Before pushing an IA/UI/contrast change, run `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"`: the unit suite never runs axe, so otherwise it fails only in CI.
+  Add `--workers=1` when `-g` matches more than one view: CI runs axe serially, and local contention fails tests as timeouts, not violations.
+  After a `globals.css` `@theme` edit, run axe on a FRESH isolated dev server (`PORT=3100 npm run dev`), never a reused one.
 - **CI is GitLab** (not GitHub),  (GitLab) → [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md). Pipeline:
   install → quality → build → e2e → release. ★★★ The quality gates are BLOCKING (lint · typecheck ·
   semgrep · dependency-audit · file-size-ratchet · duplication-gate · the docs/version/followups/tag
@@ -696,8 +699,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      `isNew ?? !taken` — bulk edit and other non-modal callers deliberately omit it and keep the old
      id-existence behaviour, which is correct because they never precompute an id.
      ★ **Two entities are outside that helper, both correctly:** RESOURCES hand-rolls the identical
-     semantics inline (resource save handler, `grep -n editVanished src/app/use-resource-directory.ts`) *plus* an extra guard the others lack — editing a
-     row a concurrent writer already deleted would make the map-replace a silent no-op, so it calls
+     semantics inline (resource save handler, `grep -n editVanished src/app/use-resource-directory.ts`) *plus* the concurrent-delete guard that RAID, changes, stakeholders and milestones also carry beside their
+     `resolveEntitySave` call (`grep -rn "editVanished" src/app --include=*.ts --include=*.tsx | grep -v test`) — editing a
+     row a concurrent writer already deleted would make the map-replace a silent no-op, so each calls
      `reportSilentFailure` instead of dropping the edit; TASKS are immune by construction, deciding on
      `editingId !== null` (`grep -n "editingId !== null" src/app/use-task-submit.ts`) and never on id-existence.
      ★ TEST TRAP: the race only reproduces when the id is taken BETWEEN open and save. A test that saves
@@ -934,7 +938,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   a SEPARATE `RowLookupContext`/`useTaskLookup`, consumed ONLY by `DependencyChipsImpl` — a context consumer
   re-renders on value change REGARDLESS of an ancestor `memo` bailout, so an edit re-renders one dep-chip
   cell, not all 4×N row cells (context-bypasses-memo). Don't fold `tasksById` back into `RowContextValue`.
-- **★★ Several panels `workspace-section` renders are `memo()`'d** — `ResourcesPanel`, `ChatPanel` and
+- **★★ Several panels `workspace-section` renders are `memo()`'d** — `ResourcesPanel`, `ResourceDirectory`, `ChatPanel` and
   `ActivityLogPanel` directly; RAID, Changes and Stakeholders through `RaidPanelMemo`/`ChangePanelMemo`/
   `StakeholdersPanelMemo` (enumerate: `grep -rn "= memo(" src/app --include=*.tsx | grep -v test`). In any
   of them, adding a `useWorkspace()` call silently defeats the optimization. A direct context consumer

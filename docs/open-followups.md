@@ -173,7 +173,7 @@ in anyone else's checkout.
 multi-surface roadmap (R1–R5 all shipped, there is no R6; its only unshipped line is §4.3b
 `optimize_wbs` = item 3 below — its spec is `docs/superpowers/specs/2026-07-24-multi-surface-feature-roadmap-design.md`,
 which the 0.253.0 corpus commit made tracked, so that link resolves for everyone) ·
-`docs/RUNBOOK.md` · `docs/DESIGN-TOKENS.md` · `docs/architecture/*.md` ·
+`docs/RUNBOOK.md` · `docs/DESIGN-TOKENS.md` · `docs/architecture/*.md` (deleted 2026-09-13) ·
 `docs/security/threat-model.md` (every residual carries an acceptance, no live action).
 
 ★★ `docs/CODEMAPS/*` carry their OWN provenance — each file's first line is a
@@ -701,8 +701,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
 | [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--open) | Only three currencies are supported, and INR is wanted — OPEN | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | open |
 | [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--open) | Switching back to the modern layout moves the user off their current view — OPEN | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | open |
-| [§479](#479-releases-101-and-102-were-never-tagged-so-no-published-installer-carries-them-and-their-owed-packaged-build-checks-were-never-run--open) | Releases 1.0.1 and 1.0.2 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — OPEN | found 2026-09-13 by the housekeeping audit, from the CHANGELOG owed list and the RUNBOOK's unverified release steps | S — one tag through the normal release flow, then a manual pass over the packaged installer | open |
-| [§480](#480-the-desktop-installer-has-no-auto-update-and-its-update-feed-question-is-undecided--open) | The desktop installer has no auto-update and its update-feed question is undecided — OPEN | found 2026-09-13 by the housekeeping audit; GitLab #67 was closed with this remainder written into its own body | M — the feed decision (UNC share or HTTPS) first, then the updater and its release wiring | open |
+| [§479](#479-releases-101-102-and-103-were-never-tagged-so-no-published-installer-carries-them-and-their-owed-packaged-build-checks-were-never-run--open) | Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — OPEN | found 2026-09-13 by the housekeeping audit, from the CHANGELOG owed list and the RUNBOOK's unverified release steps | S — a tag per release, each at its own release merge, then a manual pass over the packaged installer | open |
+| [§480](#480-the-desktop-installer-has-no-auto-update-and-its-update-feed-question-is-undecided--open) | The desktop installer has no auto-update and its update-feed question is undecided — OPEN | found 2026-09-13 by the housekeeping audit; GitLab #67 had been closed with this remainder written into its own body, and was reopened 2026-09-13 | M — the feed decision (UNC share or HTTPS) first, then the updater and its release wiring | open |
 | [§481](#481-the-task-row-n-changes-badge-is-a-static-label-with-no-way-to-jump-to-the-linked-changes--open) | The task-row "N changes" badge is a static label with no way to jump to the linked changes — OPEN | found 2026-09-13 by the housekeeping audit, from the change-log register design's deferred click-to-jump | S — a jump handler threaded the way the RAID badge's is | open |
 | [§482](#482-the-document-asset-library-table-shows-no-image-thumbnails--open) | The document asset library table shows no image thumbnails — OPEN | found 2026-09-13 by the housekeeping audit, from the asset-preview lightbox design's named follow-up | S — a thumbnail column reusing the existing blob-URL lifecycle | open |
 | [§483](#483-moving-the-view-scoped-ai-guide-block-onto-the-turn-tail-slice-g2-is-specced-but-tracked-nowhere-so-the-cost-harness-still-has-no-real-candidate-layout--open) | Moving the view-scoped AI guide block onto the turn tail (slice G2) is specced but tracked nowhere, so the cost harness still has no real candidate layout — OPEN | found 2026-09-13 by the housekeeping audit; `docs/AGENTS/ai-assistant.md` hands a decision to G2, and G2 had no entry or issue | M — the G2 layout as the harness's first real candidate arm, plus the usage-meter measurement it depends on | open |
@@ -35884,41 +35884,59 @@ layout switch, and (c) does not touch it.
 The decision owed is whether a layout switch is a NAVIGATION. (b) says yes and goes home; (c) says no.
 Size S–M.
 
-## 479. Releases 1.0.1 and 1.0.2 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — OPEN
+## 479. Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — OPEN
 
 **Status:** OPEN 2026-09-13 — measured, not reasoned. `grep -n "APP_VERSION = " src/app/version.ts`
-→ `1.0.2`, while `git ls-remote --tags origin` lists `v1.0.0` alone. `grep -n "Seven behaviours" CHANGELOG.md`
-→ 1 hit, inside the 1.0.1 section, and `grep -n "unverified here" docs/RUNBOOK.md` → 2 hits.
+→ `1.0.3`, while `git ls-remote --tags origin 'v1*'` lists `v1.0.0` alone. `grep -n "Seven behaviours" CHANGELOG.md`
+→ 1 hit, inside the 1.0.1 section, and `grep -n "unverified here" docs/RUNBOOK.md` → 2 hits. Corrected the same
+day: this entry first read `APP_VERSION` as 1.0.2 and prescribed tagging `v1.0.2`, and 1.0.3 landed after that.
 
 **Work item:** #302
 
-`CHANGELOG.md` records 1.0.1 and 1.0.2, both dated 2026-09-12, but the remote carries only the
-`v1.0.0` tag. The installer is built and published only by a tag pipeline (`desktop-package-tag`, then
-`publish-release`), so the installer testers download today contains neither release's fixes.
+`CHANGELOG.md` records 1.0.1 and 1.0.2 (both 2026-09-12) and 1.0.3 (2026-09-13), but the remote carries only
+the `v1.0.0` tag. All three are untagged. The installer is built and published only by a tag pipeline
+(`desktop-package-tag`, then `publish-release`), so the installer testers download today contains none of
+the three releases' changes.
+
+★★ **Tagging the tip does not tag the older releases.** `tag-version-check` (`classifyTag` in
+`scripts/tag-version-lib.mjs`) fails unless the tag is `v` + the `APP_VERSION` of the TAGGED commit. So an
+older version can only be tagged at a commit whose `version.ts` still carries it: its own release merge on
+`main`.
+
+| Version | Release commit | Merged to `main` by |
+|---|---|---|
+| 1.0.1 | `014a675f` | `c29bbedb` |
+| 1.0.2 | `0637bc07` | `60139f5b` |
+| 1.0.3 | `509c147c` | `c3598637` |
+
+Reproduce: `git log origin/main --oneline --grep "chore(release): 1.0.1"` (then 1.0.2, 1.0.3) names the
+release commit; the earliest line of `git log origin/main --merges --oneline --ancestry-path <release>..origin/main`
+names its merge; `git show <merge>:src/app/version.ts` confirms the version there.
 
 Work, in order:
-- Tag `v1.0.2` through the normal release flow. `tag-version-check` asserts that the tag equals `APP_VERSION`.
+- Decide whether 1.0.1 and 1.0.2 get tags of their own, each at its merge above, or whether only `v1.0.3` is
+  published. Each tag runs a full tag pipeline and publishes a Release of its own.
+- Tag `v1.0.3` at `c3598637` (or a later release) through the normal release flow.
 - Use that pipeline to confirm the two GitLab behaviours `docs/RUNBOOK.md` marks "unverified here".
 - Run the seven behaviours the 1.0.1 notes list as confirmable only against a packaged build, against
   the resulting installer, and record the outcome.
 
-Size S. The tag is one command; the packaged checks are a manual pass.
+Size S. Each tag is one command; the packaged checks are a manual pass.
 
 **Source:** `CHANGELOG.md` (1.0.1 section), `docs/RUNBOOK.md`, `docs/desktop-rollout.md`; audit candidate 1 in the 2026-09-13 housekeeping list
 
 ## 480. The desktop installer has no auto-update and its update-feed question is undecided — OPEN
 
 **Status:** OPEN 2026-09-13 — `grep -rn "electron-updater" desktop/src desktop/package.json desktop/electron-builder.yml`
-→ no hits; `grep -n "ships no auto-updater" CHANGELOG.md` → 1 hit; `glab issue view 67` → state closed.
+→ no hits; `grep -n "ships no auto-updater" CHANGELOG.md` → 1 hit; `glab issue view 67` → state open. #67 was reopened 2026-09-12T23:37Z (2026-09-13 local), after this line
+first read "state closed".
 
 **Work item:** #67
 
-★★ **GitLab #67 is closed, but its own body says the work is not done.** Its 2026-09-11 update
-records that the installer shipped in 1.0.0 and that "What remains is **auto-update**". Nothing else
-tracks that remainder, so closing the issue dropped it. **#67 should be reopened**, or replaced by a
-successor issue, so that the remainder has an owner.
-
-★ **2026-09-13:** GitLab #67 was reopened on 2026-09-13 and is this entry's work item.
+★ **GitLab #67 was closed while its own body said the work was not done.** Its 2026-09-11 update
+records that the installer shipped in 1.0.0 and that "What remains is **auto-update**", and nothing else
+tracked that remainder. #67 was reopened (2026-09-12T23:37Z, 2026-09-13 local) so the remainder has an
+owner, and it is this entry's work item.
 
 Today the only update path is a manual Help → "Check for updates…" link-out. The open design
 question is the feed: can electron-updater's generic provider be served from a UNC share, or does it

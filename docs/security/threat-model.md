@@ -1,7 +1,7 @@
 # aipm-cockpit Threat Model (STRIDE)
 
 > **Scope banner, added 2026-09-13.** This STRIDE pass was done against v0.164 "Cixin" (2026-07-02);
-> the app is now at 1.0.2 and the pass has not been re-run. The fifth `SecretId`, `sttApiKey`, and the
+> the pass has not been re-run since. The fifth `SecretId`, `sttApiKey`, and the
 > `/api/stt` proxy route (browser → same-origin `/api/stt` → a user-configured OpenAI-compatible host)
 > were added after it and are **unreviewed** here — the review-cadence trigger below has fired for both.
 > Line-number citations and counts below are as of the date on each, not current.
@@ -24,7 +24,7 @@
 | Workspace / project data | file (JSON/CSV/MD) · IndexedDB `aipm-cockpit` · Turso | per backend | not a secret; user's own data |
 | M365 tokens | MSAL-owned cache (NOT app-managed) | browser → `graph.microsoft.com` / `login.microsoftonline.com` | app stores only public clientId/tenantId |
 
-**Optional passphrase wrap:** the `secrets.ts` API accepts a PBKDF2 passphrase wrap for any `SecretId`, but only `anthropicApiKey` and `tursoAuthToken` have a passphrase UI (`git grep -n "setSecretPassphrase(" -- src ':!*.test.*'`); the Jira, Timelog and STT tokens are device-wrapped only (corrected 2026-09-13: this line said "any `SecretId` may be PBKDF2-wrapped") — **600,000 iterations, SHA-256** (`secrets.ts:46`), meets OWASP ASVS 2023 (≥ 600k for PBKDF2-HMAC-SHA256). Device wrap is the default; passphrase-wrapped secrets stay `""` in memory until unlock.
+**Optional passphrase wrap:** the `secrets.ts` API accepts a PBKDF2 passphrase wrap for any `SecretId`, but only `anthropicApiKey` and `tursoAuthToken` have a passphrase UI (`git grep -n "setSecretPassphrase(" -- src ':!*.test.*'`); the Jira, Timelog and STT tokens are device-wrapped only (corrected 2026-09-13: this line said "any `SecretId` may be PBKDF2-wrapped") — **600,000 iterations, SHA-256** (`PBKDF2_ITERS`: `grep -n "const PBKDF2_ITERS" src/app/secrets.ts`), meets OWASP ASVS 2023 (≥ 600k for PBKDF2-HMAC-SHA256). Device wrap is the default; passphrase-wrapped secrets stay `""` in memory until unlock.
 
 ---
 

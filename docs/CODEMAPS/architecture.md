@@ -68,7 +68,7 @@ strip), **popout** (read-only mirror, no header). A new top-bar control must be 
 ## CI gates (GitLab,  (GitLab))
 
 `install → quality → build → e2e → release` (the release stage runs on tag pipelines only). Quality is
-blocking; the jobs are listed in AGENTS.md's CI bullet and enumerated from the source with
+blocking; the jobs are listed in `docs/AGENTS/ci.md` and enumerated from the source with
 `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml` (lint fails on any warning, `--max-warnings=0`).
 E2E includes an axe pass over the 17 `A11Y_VIEWS` × 7 scheme combos plus a Kanban scan per combo, one
 notes-window toolbar scan and one Documents block-editor scan, and the print spec. ★ That last kind

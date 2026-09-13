@@ -1,6 +1,6 @@
 # Help SP4 — Themed Guided Tours Implementation Plan
 
-> **Status (2026-09-13 audit):** PARTIAL — the underlying tour catalog (`tour-catalog.tsx`) shipped and is wired into Help; the plan's specific "themed" grouping is unconfirmed in the code and may not have shipped as designed, untracked, see housekeeping list. Kept as a historical record; do not execute as written.
+> **Status (2026-09-13 audit):** PARTIAL — the underlying tour catalog (`tour-catalog.tsx`) shipped and is wired into Help; the 2026-09-13 audit found the "themed" grouping in `app-tour.ts` (`grep -n "themed tour" src/app/app-tour.ts`) and DROPPED the residue as done. Kept as a historical record; do not execute as written.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

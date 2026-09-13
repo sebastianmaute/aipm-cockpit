@@ -172,7 +172,7 @@ function requirePayload(op: unknown, i: number): void {
   }
   // ★★★ REFUSE ON ABSENCE, in the same spirit as `requireToken` — but NOT as a
   // mirror of it, and this comment claimed to be one. Two corrections:
-  // ★★ `requireToken` guards SEVEN tools, not six: the six `update_*` plus
+  // ★★ `requireToken` guards NINE tools, not six: the eight `update_*` plus
   // `set_task_dependencies`, which reaches it through `requireTaskWriteToken`.
   // Enumerate rather than trusting the number, which rots on the next tool:
   //   awk '/case "/{c=$0} /requireToken\("|requireTaskWriteToken\(/{print c}' src/app/chat-tools.ts

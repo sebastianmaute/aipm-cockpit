@@ -1,6 +1,6 @@
 # Dashboard Bento Layout — Implementation Plan
 
-> **Status (2026-09-13 audit):** SUPERSEDED by the masonry layout — bento and masonry were two competing same-day dashboard-layout proposals; masonry shipped, this plan's bento layout did not (no `bento` string exists anywhere in `src`). Kept as a historical record; do not execute as written.
+> **Status (2026-09-13 audit):** SUPERSEDED by the masonry layout — bento and masonry were two competing same-day dashboard-layout proposals; masonry shipped, this plan's bento layout did not (no `bento` string exists in production code under `src`; only a test mentions it). Kept as a historical record; do not execute as written.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

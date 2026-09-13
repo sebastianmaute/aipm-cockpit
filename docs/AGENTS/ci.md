@@ -15,7 +15,7 @@ Owns the per-job detail of the GitLab pipeline ( (GitLab)): every quality gate 
 codes, the e2e and prod-smoke jobs, desktop packaging, the release stage, and where the
 `quality-gate-bypass` escape hatch does and does not exist.
 
-★ Moved VERBATIM out of `AGENTS.md`'s "Hard constraints" section on 2026-09-13 — only link targets changed. Positional words inside the moved text ("this file", "above", "below", "in Commands") still
+★ Moved VERBATIM out of `AGENTS.md`'s "Hard constraints" section on 2026-09-13 — only link targets changed, plus one line citation converted to a symbol and a grep. Positional words inside the moved text ("this file", "above", "below", "in Commands") still
 describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short pointer bullet.
 
 ## The "CI is GitLab" hard constraint

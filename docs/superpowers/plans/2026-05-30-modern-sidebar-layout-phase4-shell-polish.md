@@ -1,6 +1,6 @@
 # Modern Sidebar Layout — Phase 4 (Shell Polish) Implementation Plan
 
-> **Status (2026-09-13 audit):** PARTIAL — Workstream A (shell a11y + responsive collapse) shipped; Workstreams B (full Settings view), C (menu-cluster DRY + banner parity) and D (divergent-table sweep) were deferred to follow-on plans and never executed under this plan, untracked, see housekeeping list. Kept as a historical record; do not execute as written.
+> **Status (2026-09-13 audit):** PARTIAL — Workstream A (shell a11y + responsive collapse) shipped; Workstreams B (full Settings view), C (menu-cluster DRY + banner parity) and D (divergent-table sweep) were deferred to follow-on plans and never executed under this plan. B later shipped as the Settings view (`grep -n '"settings"' src/app/nav-config.ts`); C and D have no §, and the 2026-09-13 audit did not carry them into its candidate list (`grep -n -i "divergent\|menu.cluster" docs/open-followups.md` → no hits). Kept as a historical record; do not execute as written.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
