@@ -654,7 +654,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--closed-2026-09-07) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | **CLOSED** 2026-09-07 |
 | [§428](#428-focusaftermove--triggerrefs-has-no-detector-at-any-layer-and-the-playwright-probe-that-was-owed-refuted-its-own-premise--open) | `focusAfterMove` / `triggerRefs` has no detector at any layer | found 2026-09-07 writing the probe the reports-arrangement slice owed | NONE — a decision, not a defect; do not re-owe the probe | open |
 | [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--open) | A CLOSED entry's `**Status:**` line is ungated — `followups-status-check` filters closed entries OUT | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | open |
-| [§430](#430-a-single-cache-entry-over-the-map-budget-is-still-written-over-it-because-every-shedding-stage-skips-the-entry-being-saved--open) | A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved | found 2026-09-07 in review of `ebca2553`, documented rather than fixed | S-M — bound `users` at write time; do NOT shed the saved entry | open |
+| [§430](#430-a-single-cache-entry-over-the-map-budget-is-still-written-over-it-because-every-shedding-stage-skips-the-entry-being-saved--closed-2026-09-13) | A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved | found 2026-09-07 in review of `ebca2553`, documented rather than fixed | S-M — shed the saved entry's `users`/`projectRefs` whole (stage 5), never its aggregates | **CLOSED** 2026-09-13 |
 | [§431](#431-one-malformed-api-date-reached-the-budget-aggregates-as-a-phantom-period-key--closed-2026-09-07) | One malformed API date reached the budget aggregates as a phantom period key | found 2026-09-07 in cold review of the guardrail-bounds branch; the first-party path §367 said had not been probed | S-M — one row rule at ONE consumer; the roll deliberately keeps its unparseable key | **CLOSED** 2026-09-07 |
 | [§432](#432-two-surfaces-tell-the-user-to-re-fetch-hours-that-a-re-fetch-cannot-repair--closed-2026-09-07) | Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S-M — an `undated` subset of `unattributed`, plus one string each | **CLOSED** 2026-09-07 |
 | [§433](#433-a-phantom-period-key-made-an-empty-allocation-read-as-populated--closed-2026-09-07) | A phantom period key made an empty allocation read as populated | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S — one read-side predicate; stored data deliberately untouched | **CLOSED** 2026-09-07 |
@@ -28543,7 +28543,7 @@ fabricates an `"improved"` outcome. The shedder removes the three fields outrigh
 alone; it never rewrites the window's bounds.
 
 ★ WHAT THIS CLOSED IS THE MANY-ENTRIES CASE. A SINGLE entry whose own `users` list exceeds the
-budget is still written over it, because every stage skips the entry being saved — tracked as §430,
+budget was still written over it, because every stage skipped the entry being saved — tracked as §430 (CLOSED 2026-09-13),
 which is a different defect with a different cause, not a re-opening of this one.
 
 ## 362. A guardrail insight's deep link arms `pendingOpen` with no consumer — OPEN
@@ -32702,13 +32702,9 @@ new title, before you commit it.
 `e2e/…spec.ts` FILENAME was rejected with "names no executed verification". A backticked filename is
 not a verification — the gate reads for an INVOCATION. That distinction is what prompted this audit.
 
-## 430. A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved — OPEN
+## 430. A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved — CLOSED 2026-09-13
 
-**Status:** OPEN 2026-09-07 — `never machine-verified`. A save large enough to trigger this has not
-been constructed, so the entry is reasoned from the source and from `ebca2553`'s own docstrings, not
-from a probe. Nothing below should be read as measured.
-
-**Work item:** #280
+**Status:** CLOSED 2026-09-13 — `saveActualsCache` gained a stage 5 that sheds the SAVED entry's own `users`/`projectRefs` whole when it alone is over budget, keeping `aggregates`, `partial`, `fetchedAt` and the roll. Measured, not reasoned: `npx vitest run src/app/timelog-actuals-store.test.ts -t "sheds the saved entry's own users"`.
 
 `MAX_ACTUALS_TOTAL_CHARS` (2 MiB) bounds the serialised cache map, but all four of
 `saveActualsCache`'s shedding stages `keep`-exclude the entry being saved. That exclusion is
@@ -32727,7 +32723,7 @@ an entry carrying little or no roll — the same shape that motivated stage 3.
 measuring them — is genuinely closed, and the many-entries case with it. This is a different defect
 with a different cause, which is why it is tracked here rather than by reviving a closed entry.
 
-★★★ DELIBERATELY NOT FIXED, and this is the paragraph to read before "completing the pattern".
+★★★ _(Superseded 2026-09-13 — see the closure block.)_ DELIBERATELY NOT FIXED AS FILED, and this is the paragraph to read before "completing the pattern".
 Closing it means shedding fields off the entry the caller just fetched, which is the one thing every
 stage is built to avoid — doing that reintroduces the silent-discard bug `saveActualsCache` exists to
 prevent. Do NOT close this by adding the saved entry to `shedOrder`. Bounding `users` at write time
@@ -32751,6 +32747,17 @@ trusting this sentence — the same grep is the check either way:
 inverts the audit it was meant to support: a reader checking the code for a §430 pointer, finding
 none, concludes the REGISTER is the stale copy. A cross-reference is a claim about ANOTHER file, so
 it is only ever verified by opening that file.
+
+**CLOSED 2026-09-13 — shed whole, never trim.** Stage 5 runs after stage 4, only while the map is
+still over budget, and sheds the saved entry's `users` + `projectRefs` together on a copy. It does
+NOT add the saved entry to `shedOrder` — the prohibition above stands for `aggregates` and the roll,
+which stage 5 never touches — and it does not bound `users` at write time, because a bound would
+TRIM a list, which the store's shed-whole rule forbids. Stage 3's argument carries over unchanged:
+both fields are read only as lazy initial state with `?? []`, so the cost is an empty
+People/Projects table until the next fetch. The per-entry roll is already capped at
+`MAX_DAILY_ROLL_CHARS`, so a real entry fits after stage 5. An entry over budget on `aggregates`
+alone is still written as-is; that shape is unmeasured and not claimed. The two docstrings the
+paragraphs above discuss were rewritten in the same commit.
 
 ## 431. One malformed API date reached the budget aggregates as a phantom period key — CLOSED 2026-09-07
 
@@ -32833,7 +32840,7 @@ rows reach the consumers from `mapTimeItem` (v1) via `listTimeItemsSelf` / `list
 which has no clamp. And `TimelogTimeItem[]` has FIVE consumers, not two; the third — the `covered`
 derivation — is what makes the freeze chain above bite.
 
-★ Related: §367 bound the PARSE (closed) · §430 the single-oversized-entry store residual (open) ·
+★ Related: §367 bound the PARSE (closed) · §430 the single-oversized-entry store residual (CLOSED 2026-09-13) ·
 §432 the remedy text `unattributed` now carries (CLOSED 2026-09-07) · §433 the phantom key's only
 live consequence (CLOSED 2026-09-07; the stored keys themselves are deliberately left inert).
 
