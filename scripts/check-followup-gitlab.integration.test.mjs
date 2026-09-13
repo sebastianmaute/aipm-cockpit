@@ -14,8 +14,9 @@
 // ★ Every CI_* variable and any real REGISTER_SYNC_TOKEN are stripped from the
 // child's environment, so the canary is the only token the child can see.
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,7 +63,15 @@ function paged(list, { nextHeader = true } = {}) {
 }
 
 let api;
+let resetServer;
+const tempDirs = [];
 afterEach(async () => {
+  while (tempDirs.length > 0) rmSync(tempDirs.pop(), { recursive: true, force: true });
+  if (resetServer) {
+    const s = resetServer;
+    resetServer = undefined;
+    await new Promise((resolve) => s.close(resolve));
+  }
   if (!api) return;
   api.server.closeAllConnections();
   await new Promise((resolve) => api.server.close(resolve));
@@ -83,18 +92,23 @@ async function startApi(respond) {
   return { server, requests, tokens, url: `http://127.0.0.1:${server.address().port}/api/v4` };
 }
 
-/** A loopback URL on a port that was just released, so a connect is refused. */
-async function closedPortUrl() {
-  const s = http.createServer();
+/**
+ * A loopback URL whose server accepts the TCP connection and destroys it at
+ * once, so the CLI sees a network error deterministically. ★ Not a bound-then-
+ * closed port: another process can take that port before the child connects.
+ * Kept open for the test and closed in afterEach.
+ */
+async function resetOnConnectUrl() {
+  const s = net.createServer((socket) => socket.destroy());
   await new Promise((resolve) => s.listen(0, "127.0.0.1", resolve));
-  const { port } = s.address();
-  await new Promise((resolve) => s.close(resolve));
-  return `http://127.0.0.1:${port}/api/v4`;
+  resetServer = s;
+  return `http://127.0.0.1:${s.address().port}/api/v4`;
 }
 
-/** A temp cwd whose register holds only `count` open entries. */
+/** A temp cwd whose register holds only `count` open entries; removed in afterEach. */
 function smallRegisterDir(count) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "followup-gitlab-"));
+  tempDirs.push(dir);
   mkdirSync(path.join(dir, "docs"));
   let md = "# register\n\n";
   for (let i = 1; i <= count; i++) md += `## ${i}. entry ${i} — OPEN\n\n**Work item:** #${i}\n\n`;
@@ -241,12 +255,24 @@ const ROWS = [
     ],
   },
   {
-    name: "a network error (connection refused) exits 2",
-    apiUrl: closedPortUrl,
+    // `requests: []` is the fake API's log: zero successful responses.
+    name: "a network error (connection reset on connect) exits 2",
+    apiUrl: resetOnConnectUrl,
     respond: paged(REAL),
     code: 2,
     requests: [],
     outHas: ["CANNOT COMPARE: TypeError: fetch failed"],
+  },
+  {
+    // ★★ Node clamps 3000000000 ms to 1 ms, so without the upper bound every
+    // request "times out" and the message blames the network.
+    name: "a REGISTER_SYNC_TIMEOUT_MS above 2^31-1 exits 2 on the value and sends nothing",
+    env: { REGISTER_SYNC_TIMEOUT_MS: "3000000000" },
+    respond: paged(REAL),
+    code: 2,
+    requests: [],
+    outHas: ["REGISTER_SYNC_TIMEOUT_MS must be an integer from 1 to 2147483647"],
+    outLacks: ["TimeoutError", "fetch failed"],
   },
   {
     name: "a server that never answers exits 2 on the timeout",

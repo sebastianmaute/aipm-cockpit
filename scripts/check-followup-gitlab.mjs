@@ -8,7 +8,8 @@
 //   1  DRIFT: at least one problem from compareWithGitLab — fix the Work item
 //      line or the issue
 //   2  COULD NOT COMPARE: a token containing whitespace or a control character,
-//      an unknown argument, missing CI_API_V4_URL or CI_PROJECT_ID, an unreadable
+//      an unknown argument, missing CI_API_V4_URL or CI_PROJECT_ID, an invalid
+//      REGISTER_SYNC_TIMEOUT_MS (not an integer from 1 to 2^31-1), an unreadable
 //      register, fewer than 50 open entries, a network failure, the timeout, a
 //      non-2xx, a redirect, a body that is not a JSON array of issues, more than
 //      50 pages, an issue served twice while paging, fewer than 50 REGISTER
@@ -49,6 +50,7 @@ import { readFileSync } from "node:fs";
 
 const REGISTER = "docs/open-followups.md";
 const DEFAULT_TIMEOUT_MS = 30_000;
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 const BODY_EXCERPT_CHARS = 2000;
 const PER_PAGE = 100;
 const MAX_PAGES = 50;
@@ -116,7 +118,11 @@ function timeoutMs() {
   const raw = process.env.REGISTER_SYNC_TIMEOUT_MS;
   if (raw === undefined || raw === "") return DEFAULT_TIMEOUT_MS;
   const n = Number(raw);
-  if (!Number.isInteger(n) || n <= 0) throw new CannotCompare("REGISTER_SYNC_TIMEOUT_MS is not a positive integer");
+  // ★★ Node clamps a timer above 2^31-1 ms to 1 ms (TimeoutOverflowWarning), so
+  // every request would "time out" and the message would blame the network.
+  if (!Number.isInteger(n) || n <= 0 || n > MAX_TIMEOUT_MS) {
+    throw new CannotCompare(`REGISTER_SYNC_TIMEOUT_MS must be an integer from 1 to ${MAX_TIMEOUT_MS}`);
+  }
   return n;
 }
 
