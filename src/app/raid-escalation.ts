@@ -7,12 +7,42 @@
 // ★ JSON and IndexedDB load RAID rows WITHOUT `sanitizeRaidItem`, so readers
 //   must not trust the stored value — go through `lastEscalation` or
 //   `sanitizeRaidEscalations`.
+import { isValidEmail } from "./sanitize-core";
 import { RAID_SEVERITIES, type RaidEscalation, type RaidItem, type RaidSeverity } from "./types";
 
 /** Newest entries win when a hand-edited file carries more than this. */
 export const RAID_ESCALATIONS_MAX = 100;
-const NAME_MAX = 200;
-const EMAIL_MAX = 320;
+/** Caps shared with the AI `escalate_raid_item` boundary check (§515), so a
+ *  recipient the tool accepts is one this sanitizer keeps verbatim. */
+export const RAID_ESCALATION_NAME_MAX = 200;
+export const RAID_ESCALATION_EMAIL_MAX = 320;
+const NAME_MAX = RAID_ESCALATION_NAME_MAX;
+const EMAIL_MAX = RAID_ESCALATION_EMAIL_MAX;
+
+/** The recipient of an `escalate_raid_item` call, validated at the TOOL
+ *  BOUNDARY (§515). Throws a model-facing message for any value the escalation
+ *  record could not store verbatim. It returns ONLY these two fields, which is
+ *  what keeps the tool append-only: no other model key (a raw `escalations`,
+ *  a `severity`, a `toResourceId`) can reach the writer.
+ *  ★ Unlocalized on purpose, like every other `throw` in `runTool`.
+ *  ★★ Deliberately NOT in `chat-tools-updates.ts`: `tool-input-coverage.test.ts`
+ *   scans that file's every `input.<name>` read against `update_task`'s schema,
+ *   so `toEmail`/`toName` there would be misreported as update_task inputs. */
+export function requireEscalationRecipient(input: Record<string, unknown>): { email: string; name: string } {
+  const email = typeof input.toEmail === "string" ? input.toEmail.trim() : "";
+  if (!email || !isValidEmail(email) || email.length > EMAIL_MAX) {
+    throw new Error(`toEmail must be a valid email address of at most ${EMAIL_MAX} characters`);
+  }
+  const rawName = input.toName;
+  if (rawName !== undefined && rawName !== null && typeof rawName !== "string") {
+    throw new Error("toName must be a string when given");
+  }
+  const name = typeof rawName === "string" ? rawName.trim() : "";
+  if (name.length > NAME_MAX) {
+    throw new Error(`toName must be at most ${NAME_MAX} characters`);
+  }
+  return { email, name };
+}
 const AT_MAX = 40;
 const SEVERITY_SET: ReadonlySet<string> = new Set(RAID_SEVERITIES);
 

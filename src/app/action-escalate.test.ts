@@ -8,6 +8,8 @@ import {
   buildEscalationRecord,
   describeEscalation,
   escalationActivityArgs,
+  resolveEscalationRecipient,
+  aiEscalationNoteAuthor,
 } from "./action-escalate";
 import { loadI18n, t } from "./i18n";
 import { severityLabel } from "./raid-labels";
@@ -171,5 +173,41 @@ describe("escalationActivityArgs", () => {
     expect(escalationActivityArgs({ severity: "Critical" }, { raisesSeverity: false, reason: "max" }))
       .toEqual(["Critical", "Critical"]);
     expect(escalationActivityArgs({}, { raisesSeverity: false, reason: "risk" })).toEqual(["—", "—"]);
+  });
+});
+
+describe("resolveEscalationRecipient (§515 AI path)", () => {
+  const ADA = { id: 7, firstName: "Ada", lastName: "Lovelace", email: "ada@example.com", emails: ["a.l@example.com"] };
+  const GRACE = { id: 8, firstName: "Grace", lastName: "Hopper", email: "grace@example.com" };
+
+  it("links the one resource whose primary address matches, case-insensitively, and borrows its name", () => {
+    expect(resolveEscalationRecipient(" ADA@example.com ", "", [ADA, GRACE]))
+      .toEqual({ name: "Ada Lovelace", email: "ADA@example.com", resourceId: 7 });
+  });
+  it("matches an additional address too, and a model-chosen name wins", () => {
+    expect(resolveEscalationRecipient("a.l@example.com", " The Countess ", [ADA, GRACE]))
+      .toEqual({ name: "The Countess", email: "a.l@example.com", resourceId: 7 });
+  });
+  it("links nobody when no resource, or more than one, matches", () => {
+    expect(resolveEscalationRecipient("ops@example.com", "", [ADA, GRACE]))
+      .toEqual({ name: "", email: "ops@example.com", resourceId: null });
+    expect(resolveEscalationRecipient("grace@example.com", "", [GRACE, { ...GRACE, id: 9 }]))
+      .toEqual({ name: "", email: "grace@example.com", resourceId: null });
+  });
+});
+
+describe("aiEscalationNoteAuthor (§515, user decision: \"AI created\")", () => {
+  it("labels the note \"AI created\" and attributes it to no resource (positive control: a self id DOES attribute)", () => {
+    const item = raid({ id: 3, category: "I", severity: "High" });
+    const plan = planEscalation(item);
+    const ai = buildEscalationRecord(item, plan, JANE, AT, "x", aiEscalationNoteAuthor("en-US"));
+    const human = buildEscalationRecord(item, plan, JANE, AT, "x", AUTHOR);
+    expect(ai.noteLog?.[0]?.authorName).toBe("AI created");
+    expect(ai.noteLog?.[0]?.authorResourceId).toBeUndefined();
+    expect(human.noteLog?.[0]?.authorResourceId).toBe(7);
+  });
+  it("is translated in German", async () => {
+    await loadI18n("de");
+    expect(aiEscalationNoteAuthor("de")).toEqual({ self: null, authorName: "Von KI erstellt" });
   });
 });

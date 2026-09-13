@@ -89,7 +89,7 @@ describe("the exclusion set is disjoint from what the AI can write", () => {
   });
 
   /** Token-guarded tools whose NAME sits outside the `update_*` convention. */
-  const GUARDED_NON_UPDATE = ["set_task_dependencies"];
+  const GUARDED_NON_UPDATE = ["set_task_dependencies", "escalate_raid_item"];
 
   // ★★★ THE `update_*` NAME IS NOT THE GUARDED SET, AND THE CASE ABOVE CANNOT
   //   SEE THAT. It filters `TOOL_DEFS` on `startsWith("update_")`, so a

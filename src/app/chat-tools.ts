@@ -10,11 +10,13 @@ import {
   requireTaskWriteToken,
   requireToken,
 } from "./chat-tools-updates";
+import { requireEscalationRecipient } from "./raid-escalation";
 import {
   type Absence,
   type ChangeItem,
   type Milestone,
   type Priority,
+  type RaidEscalation,
   type RaidItem,
   type Resource,
   type Stakeholder,
@@ -66,6 +68,16 @@ export type Filters = {
   assignee?: string;
   group?: string;
   label?: string;
+};
+
+/** What `escalate_raid_item` reports back (§515). `emailSent` is always false —
+ *  it is there so the model cannot read the result as a sent message. */
+export type EscalateRaidResult = {
+  id: number;
+  severity?: string;
+  severityRaised: boolean;
+  escalation: RaidEscalation;
+  emailSent: false;
 };
 
 export type RaidSummary = {
@@ -380,6 +392,10 @@ export type ToolDispatcher = {
   createRaid(input: RaidInput): RaidSummary;
   updateRaid(id: number, patch: Partial<RaidInput>): RaidSummary | null;
   deleteRaid(id: number): boolean;
+  /** Append ONE escalation to RAID item `id` (§515): the record, its "AI
+   *  created" note echo, the planned severity step and a `raid.escalated` row,
+   *  as one write. Null when the item does not exist. Never sends mail. */
+  escalateRaid(id: number, recipient: { email: string; name: string }): EscalateRaidResult | null;
   createChange(input: ChangeInput): ChangeSummary;
   updateChange(id: number, patch: Partial<ChangeInput>): ChangeSummary | null;
   deleteChange(id: number): boolean;
@@ -768,6 +784,19 @@ export async function runTool(
       const updated = d.updateRaid(id, patchWithoutId(input, "raid"));
       if (!updated) throw new Error(`RAID item #${id} not found`);
       return updated;
+    }
+
+    case "escalate_raid_item": {
+      const id = requireId(input);
+      // The `update_raid_item` order — not-found, then the token — and only
+      // then the recipient, so a stale read reports "changed" before "bad input".
+      const current = d.getRaidRow(id);
+      if (!current) throw new Error(`RAID item #${id} not found`);
+      requireToken("raid", current, input, `RAID item #${id}`);
+      const recipient = requireEscalationRecipient(input);
+      const result = d.escalateRaid(id, recipient);
+      if (!result) throw new Error(`RAID item #${id} not found`);
+      return result;
     }
 
     case "delete_raid_item": {

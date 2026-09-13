@@ -193,7 +193,8 @@ export const DEPENDENCY_STATUSES: RaidStatus[] = [
 /** One escalation of a RAID item (§515): who was mailed, when, and the
  *  severity step it applied. `toSeverity` ABSENT = notify-only (a Risk, whose
  *  severity the matrix owns, or an item already Critical / with no severity).
- *  App-written by the Next-actions Escalate CTA; model-read-only. */
+ *  App-written by the Next-actions Escalate CTA and, APPEND-ONLY, by the AI
+ *  `escalate_raid_item` tool; never model-writable through create/update. */
 export type RaidEscalation = {
   /** ISO timestamp. */
   at: string;

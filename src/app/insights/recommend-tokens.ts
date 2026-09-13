@@ -112,6 +112,10 @@ export const UPDATE_TARGET: Readonly<
   // genuinely covers what this tool writes.
   set_task_dependencies: { kind: "task", key: "tasks" },
   update_raid_item: { kind: "raid", key: "raid" },
+  // Not an `update_*` tool either (§515): it writes `escalations` and `severity`,
+  // both raid-token-covered. Not in `ALLOWED_REC_TOOLS`, so this row serves
+  // `chat-proposal-describe.ts`'s staged-row stamping only.
+  escalate_raid_item: { kind: "raid", key: "raid" },
   update_milestone: { kind: "milestone", key: "milestones" },
   update_change: { kind: "change", key: "changes" },
   update_stakeholder: { kind: "stakeholder", key: "stakeholders" },

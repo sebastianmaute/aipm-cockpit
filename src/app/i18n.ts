@@ -3200,6 +3200,7 @@ const enUS = {
   escalateMailClosing: "Please advise on next steps.",
   raidEscalationNoteRaised: "Escalated to {0}: severity {1} → {2}",
   raidEscalationNoteNotifyOnly: "Escalated to {0} (notify only)",
+  raidNoteAuthorAi: "AI created",
   actionTierNow: "Now",
   actionTierSoon: "Soon",
   actionTierMonitor: "Monitor",

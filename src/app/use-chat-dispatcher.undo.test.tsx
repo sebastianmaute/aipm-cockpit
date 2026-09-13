@@ -383,6 +383,25 @@ const SITES: SiteRow[] = [
     kind: "raid.updated", entityKey: "raid", primaryCount: 1,
   },
   {
+    site: "escalateRaid",
+    act: (d) => { d.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); },
+    verify: (d) => { expect(d.getRaidRow(2)?.escalations).toHaveLength(1); },
+    // ★ `seedRaid` carries no `escalations`, no `severity` and no `noteLog`.
+    // ★★ KNOWN LIMIT, PINNED IN BOTH HALVES (plan deviation 20): undo reverts the
+    //   escalation entry and the severity, but the "AI created" note STAYS —
+    //   `noteLog` is a WRITE_THROUGH field, so the live log wins over the
+    //   before-image on every whole-row undo (open-followups §50). A future
+    //   per-capture opt-out must change this assertion visibly.
+    restored: (d) => {
+      expect(d.getRaidRow(2)?.escalations).toBeUndefined();
+      expect(d.getRaidRow(2)?.severity).toBeUndefined();
+      expect(d.getRaidRow(2)?.noteLog).toHaveLength(1);
+      expect(d.getRaidRow(2)?.noteLog?.[0]?.authorName).toBe("AI created");
+      expect(ids(d.listRaid())).toEqual([1, 2, 3]);
+    },
+    kind: "raid.escalated", entityKey: "raid", primaryCount: 1,
+  },
+  {
     site: "deleteRaid",
     act: (d) => { d.deleteRaid(2); },
     verify: (d) => { expect(d.getRaidRow(2)).toBeNull(); },

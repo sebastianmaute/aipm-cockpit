@@ -3,11 +3,12 @@
 // Severity raise applies only to Issue/Assumption/Dependency; Risk severity is
 // matrix-derived (prob×impact) so Risks are notify-only, as are already-Critical
 // items.
-import { RAID_SEVERITIES, type RaidEscalation, type RaidItem, type RaidSeverity } from "./types";
+import { RAID_SEVERITIES, type RaidEscalation, type RaidItem, type RaidSeverity, type Resource } from "./types";
 import { t, type Lang } from "./i18n";
 import { addNote } from "./note-log";
 import { plainToHtml } from "./sanitize-html";
 import { severityLabel } from "./raid-labels";
+import { resourceDisplayName } from "./resource-foundation";
 
 export type EscalationPlan = {
   raisesSeverity: boolean;
@@ -129,4 +130,39 @@ export function escalationActivityArgs(
   plan: EscalationPlan,
 ): [string, string] {
   return [plan.from ?? item.severity ?? "—", plan.to ?? item.severity ?? "—"];
+}
+
+/** The note author for an escalation the AI assistant records (§515, user
+ *  decision 2026-09-13): the literal label "AI created", translated ONCE at
+ *  write time like the note text itself, and NO `self` — attributing it to
+ *  `settings.selfResourceId` would credit the user with a line they did not
+ *  write. `authorLabel` shows `authorName` first, so no render-time marker is
+ *  needed; the activity row's `ai` actor records who acted. */
+export function aiEscalationNoteAuthor(lang: Lang): EscalationNoteAuthor {
+  return { self: null, authorName: t(lang, "raidNoteAuthorAi") };
+}
+
+/** The recipient of an AI escalation chosen by e-mail. Links the ONE directory
+ *  resource whose primary or additional address matches (case-insensitive);
+ *  zero or several matches link nobody. A model-chosen name wins, else the
+ *  linked resource's display name fills it.
+ *  ★★ E-mail, never a resource id: a staged plan can remap id ARRAYS only
+ *  (`LINK_FIELDS`), so a scalar id minted earlier in the same turn would be
+ *  stored dangling — or against a live stranger with the same number. */
+export function resolveEscalationRecipient(
+  email: string,
+  name: string,
+  resources: readonly Pick<Resource, "id" | "firstName" | "lastName" | "email" | "emails">[],
+): EscalationRecipient {
+  const wanted = email.trim().toLowerCase();
+  const matches = resources.filter((r) =>
+    [r.email, ...(r.emails ?? [])].some((e) => typeof e === "string" && e.trim().toLowerCase() === wanted),
+  );
+  const linked = matches.length === 1 ? matches[0] : undefined;
+  const chosen = name.trim();
+  return {
+    name: chosen || (linked ? resourceDisplayName(linked) : ""),
+    email: email.trim(),
+    resourceId: linked ? linked.id : null,
+  };
 }

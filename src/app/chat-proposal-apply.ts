@@ -212,6 +212,7 @@ export const TOKEN_ROW_SOURCE: Readonly<
   update_task: { kind: "task", getRow: (d, id) => d.getTask(id) },
   set_task_dependencies: { kind: "task", getRow: (d, id) => d.getTask(id) },
   update_raid_item: { kind: "raid", getRow: (d, id) => d.getRaidRow(id) },
+  escalate_raid_item: { kind: "raid", getRow: (d, id) => d.getRaidRow(id) },
   update_change: { kind: "change", getRow: (d, id) => d.getChangeRow(id) },
   update_milestone: { kind: "milestone", getRow: (d, id) => d.getMilestoneRow(id) },
   update_resource: { kind: "resource", getRow: (d, id) => d.getResourceRow(id) },

@@ -773,17 +773,18 @@ describe("TOKEN_REQUIRED_TOOLS", () => {
     //   "0 mismatches" pass over nothing at all. The size is asserted EXACTLY:
     //   a legitimately added token-guarded tool turns this red, which is the
     //   point. Read a red here as "go look", not as "the guard broke".
-    expect(TOKEN_REQUIRED_TOOLS.size).toBe(9);
-    expect(advertised).toHaveLength(9);
+    expect(TOKEN_REQUIRED_TOOLS.size).toBe(10);
+    expect(advertised).toHaveLength(10);
     expect([...TOKEN_REQUIRED_TOOLS].sort()).toEqual([...advertised].sort());
   });
 
-  test("it names the eight update tools and set_task_dependencies", () => {
+  test("it names the eight update tools, set_task_dependencies and escalate_raid_item", () => {
     // The membership itself, so a diff that changed BOTH derivations in step
     // still has to face a human-written list. `update_resource` is spelled out
     // because it is the member `UPDATE_TARGET` omits — the trap this constant
     // exists to avoid.
     expect([...TOKEN_REQUIRED_TOOLS].sort()).toEqual([
+      "escalate_raid_item",
       "set_task_dependencies",
       "update_absence",
       "update_calendar_event",
@@ -890,6 +891,10 @@ describe("TOKEN_ROW_SOURCE", () => {
             // `set_task_dependencies` refuses a non-array BEFORE reaching the
             // token check; the other six ignore or strip the key.
             dependencies: [],
+            // `escalate_raid_item` refuses a missing recipient AFTER the token
+            // check (§515); the others ignore the key. Without it the token
+            // would pass and the recipient error would read as a token failure.
+            toEmail: "row@example.com",
           });
         } catch (e) {
           thrown = e;

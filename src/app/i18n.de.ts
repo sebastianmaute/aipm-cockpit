@@ -3045,6 +3045,7 @@ export const de: Record<TranslationKey, string> = {
   escalateMailClosing: "Bitte um Rückmeldung zu den nächsten Schritten.",
   raidEscalationNoteRaised: "Eskaliert an {0}: Schweregrad {1} → {2}",
   raidEscalationNoteNotifyOnly: "Eskaliert an {0} (nur Benachrichtigung)",
+  raidNoteAuthorAi: "Von KI erstellt",
   actionTierNow: "Jetzt",
   actionTierSoon: "Bald",
   actionTierMonitor: "Beobachten",

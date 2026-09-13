@@ -83,6 +83,14 @@ Each deviation below was found in the code while planning. The plan follows the 
     - Stored as a literal `authorName` (EN "AI created", DE "Von KI erstellt", i18n key `raidNoteAuthorAi`) translated once at write time in `settings.language`, with NO `authorResourceId` — never `settings.selfResourceId`, which would credit the user with a line they did not write.
     - `addNote` today DROPS `authorName` unless `self != null`, so Task 3b widens it to keep an explicit `authorName` on its own. Behaviour-neutral for its only other caller: `use-notes-window.ts` derives `notesAuthorName` from the resource whose id is `notesSelf`, so it is undefined whenever `notesSelf` is null.
     - Consequence (existing rule, unchanged): `canEditNote` treats a note without `authorResourceId` as editable by anyone, and `editNote` claims it for the editor.
+20. **CONTROLLER RULING 2026-09-13 — undoing an AI escalation keeps its note.**
+    - Why: `noteLog` is a write-through field (`WRITE_THROUGH_FIELDS`, `src/app/undo/write-through-fields.ts`), so `capturePart`'s restore lets the LIVE log win over the before-image on every whole-row undo (open-followups §50). There is no per-capture override, and the shared undo engine is deliberately NOT changed.
+    - Cost: undo reverts the escalation entry and the severity step, but an undone AI escalation leaves its "Escalated to …" note (authored "AI created") behind.
+    - Pinned in both halves by the `escalateRaid` site in `use-chat-dispatcher.undo.test.tsx`, so a future opt-out is a visible test change; named at the writer and in `docs/AGENTS/ai-assistant.md`.
+21. **Task 3b implementation corrections (the plan text below is already corrected).**
+    - `requireEscalationRecipient` lives in `raid-escalation.ts`, not `chat-tools-updates.ts`: `inline-ai-edit/tool-input-coverage.test.ts` scans EVERY `input.<name>` read in `chat-tools-updates.ts` against `update_task`'s schema, so `toEmail`/`toName` there failed it, and allowlisting them would be a false coverage claim. `chat-tools-updates.ts` is unchanged.
+    - `settingsRef` joins the `useRegisterTools` `useMemo` deps: the escalation writer is the first body there to read it directly, and `react-hooks/exhaustive-deps` is fatal.
+    - `chat-proposal-apply.test.tsx`'s generalised TOKEN_ROW_SOURCE loop passes `toEmail`: `escalate_raid_item` checks the recipient AFTER the token, so without it the loop reports a recipient error against a valid token.
 
 ## Global Constraints
 
@@ -1733,8 +1741,7 @@ Depends on Task 2 (committed) and Task 3 (`buildEscalationEntry`, `describeEscal
   - `src/app/note-log.ts` (`addNote` keeps an explicit `authorName` without `self`)
   - `src/app/i18n.ts`, `src/app/i18n.de.ts` (`raidNoteAuthorAi`)
   - `src/app/types.ts` (`RaidEscalation` docstring)
-  - `src/app/raid-escalation.ts` (export the two caps)
-  - `src/app/chat-tools-updates.ts` (`requireEscalationRecipient`)
+  - `src/app/raid-escalation.ts` (export the two caps; `requireEscalationRecipient` — deviation 21)
   - `src/app/chat-tool-defs.ts` (`escalate_raid_item`)
   - `src/app/chat-tools.ts` (`EscalateRaidResult`, `ToolDispatcher.escalateRaid`, `runTool` case)
   - `src/app/use-register-tools.ts` (`escalateRaid`, `RegisterToolsDeps.resourcesRef`)
@@ -2021,6 +2028,14 @@ and insert, directly after the closing `  });` of `test("omits exactly the stage
 (g) `src/app/chat-proposal-apply.test.tsx`, two edits:
 1. Replace `    expect(TOKEN_REQUIRED_TOOLS.size).toBe(9);` with `    expect(TOKEN_REQUIRED_TOOLS.size).toBe(10);`, and `    expect(advertised).toHaveLength(9);` with `    expect(advertised).toHaveLength(10);`.
 2. Replace `  test("it names the eight update tools and set_task_dependencies", () => {` with `  test("it names the eight update tools, set_task_dependencies and escalate_raid_item", () => {`, and in that test's literal replace `    expect([...TOKEN_REQUIRED_TOOLS].sort()).toEqual([\n      "set_task_dependencies",` with `    expect([...TOKEN_REQUIRED_TOOLS].sort()).toEqual([\n      "escalate_raid_item",\n      "set_task_dependencies",`. ★ Keep BOTH lines in the anchor: the first line alone also matches the `toEqual([...advertised].sort())` assertion just above, so a one-line anchor is not unique. `"escalate_raid_item"` sorts before `"set_task_dependencies"`, so the literal stays sorted.
+3. (deviation 21) In `its \`kind\` stamps a token that tool's own requireToken accepts`, after the loop input's `            dependencies: [],` add:
+
+```ts
+            // `escalate_raid_item` refuses a missing recipient AFTER the token
+            // check (§515); the others ignore the key. Without it the token
+            // would pass and the recipient error would read as a token failure.
+            toEmail: "row@example.com",
+```
 
 (h) `src/app/use-chat-dispatcher.undo.test.tsx` — pins "applies immediately and is undoable". Replace
 
@@ -2040,11 +2055,17 @@ with
     site: "escalateRaid",
     act: (d) => { d.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); },
     verify: (d) => { expect(d.getRaidRow(2)?.escalations).toHaveLength(1); },
-    // ★ `seedRaid` carries no `escalations` and no `noteLog`, so a correct revert
-    //   leaves both undefined; a merged-row capture would put the entry back.
+    // ★ `seedRaid` carries no `escalations`, no `severity` and no `noteLog`.
+    // ★★ KNOWN LIMIT, PINNED IN BOTH HALVES (plan deviation 20): undo reverts the
+    //   escalation entry and the severity, but the "AI created" note STAYS —
+    //   `noteLog` is a WRITE_THROUGH field, so the live log wins over the
+    //   before-image on every whole-row undo (open-followups §50). A future
+    //   per-capture opt-out must change this assertion visibly.
     restored: (d) => {
       expect(d.getRaidRow(2)?.escalations).toBeUndefined();
-      expect(d.getRaidRow(2)?.noteLog).toBeUndefined();
+      expect(d.getRaidRow(2)?.severity).toBeUndefined();
+      expect(d.getRaidRow(2)?.noteLog).toHaveLength(1);
+      expect(d.getRaidRow(2)?.noteLog?.[0]?.authorName).toBe("AI created");
       expect(ids(d.listRaid())).toEqual([1, 2, 3]);
     },
     kind: "raid.escalated", entityKey: "raid", primaryCount: 1,
@@ -2320,35 +2341,41 @@ export function resolveEscalationRecipient(
 }
 ```
 
-`src/app/chat-tools-updates.ts`, two edits:
-1. Replace `import { sanitizeGroup, sanitizeLabels } from "./sanitize";` with:
+`src/app/raid-escalation.ts`, two more edits (deviation 21 — NOT `chat-tools-updates.ts`, whose every `input.<name>` read `tool-input-coverage.test.ts` checks against `update_task`):
+1. Replace `import { RAID_SEVERITIES, type RaidEscalation, type RaidItem, type RaidSeverity } from "./types";` with:
 
 ```ts
-import { isValidEmail, sanitizeGroup, sanitizeLabels } from "./sanitize";
-import { RAID_ESCALATION_EMAIL_MAX, RAID_ESCALATION_NAME_MAX } from "./raid-escalation";
+import { isValidEmail } from "./sanitize-core";
+import { RAID_SEVERITIES, type RaidEscalation, type RaidItem, type RaidSeverity } from "./types";
 ```
 
-2. Append at the end of the file:
+(`sanitize-core.ts` imports only `./types`, so no cycle through the `sanitize.ts` barrel.)
+
+2. Insert directly after `const EMAIL_MAX = RAID_ESCALATION_EMAIL_MAX;`:
 
 ```ts
+
 /** The recipient of an `escalate_raid_item` call, validated at the TOOL
  *  BOUNDARY (§515). Throws a model-facing message for any value the escalation
  *  record could not store verbatim. It returns ONLY these two fields, which is
  *  what keeps the tool append-only: no other model key (a raw `escalations`,
  *  a `severity`, a `toResourceId`) can reach the writer.
- *  ★ Unlocalized on purpose, like every other `throw` in `runTool`. */
+ *  ★ Unlocalized on purpose, like every other `throw` in `runTool`.
+ *  ★★ Deliberately NOT in `chat-tools-updates.ts`: `tool-input-coverage.test.ts`
+ *   scans that file's every `input.<name>` read against `update_task`'s schema,
+ *   so `toEmail`/`toName` there would be misreported as update_task inputs. */
 export function requireEscalationRecipient(input: Record<string, unknown>): { email: string; name: string } {
   const email = typeof input.toEmail === "string" ? input.toEmail.trim() : "";
-  if (!email || !isValidEmail(email) || email.length > RAID_ESCALATION_EMAIL_MAX) {
-    throw new Error(`toEmail must be a valid email address of at most ${RAID_ESCALATION_EMAIL_MAX} characters`);
+  if (!email || !isValidEmail(email) || email.length > EMAIL_MAX) {
+    throw new Error(`toEmail must be a valid email address of at most ${EMAIL_MAX} characters`);
   }
   const rawName = input.toName;
   if (rawName !== undefined && rawName !== null && typeof rawName !== "string") {
     throw new Error("toName must be a string when given");
   }
   const name = typeof rawName === "string" ? rawName.trim() : "";
-  if (name.length > RAID_ESCALATION_NAME_MAX) {
-    throw new Error(`toName must be at most ${RAID_ESCALATION_NAME_MAX} characters`);
+  if (name.length > NAME_MAX) {
+    throw new Error(`toName must be at most ${NAME_MAX} characters`);
   }
   return { email, name };
 }
@@ -2402,7 +2429,7 @@ with
 ```
 
 `src/app/chat-tools.ts`, five edits:
-1. Replace `  requireTaskWriteToken,\n  requireToken,\n} from "./chat-tools-updates";` with `  requireEscalationRecipient,\n  requireTaskWriteToken,\n  requireToken,\n} from "./chat-tools-updates";`.
+1. Replace `  requireTaskWriteToken,\n  requireToken,\n} from "./chat-tools-updates";` with `  requireTaskWriteToken,\n  requireToken,\n} from "./chat-tools-updates";\nimport { requireEscalationRecipient } from "./raid-escalation";` (deviation 21).
 2. Replace `  type Priority,\n  type RaidItem,` with `  type Priority,\n  type RaidEscalation,\n  type RaidItem,`.
 3. Replace `export type RaidSummary = {` with the block below followed by `export type RaidSummary = {`:
 
@@ -2544,10 +2571,15 @@ import type { RaidItem, Resource } from "./types";
 
 ```ts
       undoRef,
-      // ★ A ref from `deps`, listed for the same reason as `clockRef`/`undoRef`.
+      // ★ Refs from `deps`, listed for the same reason as `clockRef`/`undoRef`.
+      //  `settingsRef` was already read (by `readOnlyError`, itself a dep); the
+      //  escalation writer is the first body in this memo to read it directly.
+      settingsRef,
       resourcesRef,
       setRaid,
 ```
+
+(deviation 21: without `settingsRef`, `react-hooks/exhaustive-deps` fails lint.)
 
 `src/app/use-chat-dispatcher.ts`: in the `useRegisterTools({ … })` call, replace `    undoRef,\n  });` with `    undoRef,\n    resourcesRef,\n  });`. (`resourcesRef` already exists there; the resource writers assign `resourcesRef.current = next` synchronously.)
 
@@ -2623,9 +2655,9 @@ with
 ```bash
 npx vitest run src/app/action-escalate.test.ts src/app/note-log.test.ts src/app/note-log-panel.test.tsx src/app/use-notes-window.test.tsx src/app/chat-tools.test.ts src/app/ai-entity-token.test.ts src/app/chat-proposal.test.ts src/app/chat-proposal-describe.test.ts src/app/chat-proposal-apply.test.tsx src/app/use-chat-dispatcher.undo.test.tsx src/app/use-chat-dispatcher.escalate.test.tsx src/app/use-chat-dispatcher.test.tsx src/app/insights/recommend-tokens.test.ts src/app/insights/recommend.test.ts src/app/raid-escalation.test.ts src/app/operating-guide-builtin.test.ts src/app/chat-api.system-prompt.test.ts src/app/inline-ai-edit/tool-input-coverage.test.ts src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts src/app/destructive-save-arming.test.ts src/app/i18n-encoding.test.ts src/app/i18n.test.ts --maxWorkers=1 --reporter=dot > "$S/t3b.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$S/t3b.log"
 npx tsc --noEmit > "$S/tsc3b.log" 2>&1; echo "EXIT=$?"; grep -c "error TS" "$S/tsc3b.log"
-npx eslint --max-warnings=0 src/app/action-escalate.ts src/app/action-escalate.test.ts src/app/note-log.ts src/app/note-log.test.ts src/app/types.ts src/app/i18n.ts src/app/raid-escalation.ts src/app/chat-tools-updates.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts src/app/chat-tools.test.ts src/app/use-register-tools.ts src/app/use-chat-dispatcher.ts src/app/use-chat-dispatcher.escalate.test.tsx src/app/use-chat-dispatcher.undo.test.tsx src/app/chat-proposal.ts src/app/chat-proposal.test.ts src/app/chat-proposal-describe.test.ts src/app/chat-proposal-apply.ts src/app/chat-proposal-apply.test.tsx src/app/ai-entity-token.test.ts src/app/insights/recommend-tokens.ts > "$S/lint3b.log" 2>&1; echo "EXIT=$?"
+npx eslint --max-warnings=0 src/app/action-escalate.ts src/app/action-escalate.test.ts src/app/note-log.ts src/app/note-log.test.ts src/app/types.ts src/app/i18n.ts src/app/raid-escalation.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts src/app/chat-tools.test.ts src/app/use-register-tools.ts src/app/use-chat-dispatcher.ts src/app/use-chat-dispatcher.escalate.test.tsx src/app/use-chat-dispatcher.undo.test.tsx src/app/chat-proposal.ts src/app/chat-proposal.test.ts src/app/chat-proposal-describe.test.ts src/app/chat-proposal-apply.ts src/app/chat-proposal-apply.test.tsx src/app/ai-entity-token.test.ts src/app/insights/recommend-tokens.ts > "$S/lint3b.log" 2>&1; echo "EXIT=$?"
 npm run docs:symbols:check > "$S/sym3b.log" 2>&1; echo "EXIT=$?"
-for f in src/app/chat-tools.ts src/app/use-register-tools.ts src/app/chat-tool-defs.ts src/app/chat-proposal.ts src/app/action-escalate.ts src/app/chat-tools-updates.ts src/app/note-log.ts; do node -e "console.log(require('fs').readFileSync('$f','utf8').split('\n').length, '$f')"; done
+for f in src/app/chat-tools.ts src/app/use-register-tools.ts src/app/chat-tool-defs.ts src/app/chat-proposal.ts src/app/action-escalate.ts src/app/raid-escalation.ts src/app/note-log.ts; do node -e "console.log(require('fs').readFileSync('$f','utf8').split('\n').length, '$f')"; done
 ```
 
 Expected:
@@ -2638,6 +2670,7 @@ Expected:
 Known limits (already in the code comments above; no action):
 - Deviation 15 applies to the AI writer too: a same-tick concurrent SEVERITY write is overwritten by the planned step. If the row is deleted between the ref read and the updater, the updater writes nothing while the log row and undo entry are still emitted — the same exposure as `handleEscalate`.
 - A staged `escalate_raid_item` row shows the tool name as its title and no diff (`proposalRowTitle` falls back to `call.name`), as `send_inquiry` does.
+- Deviation 20: undo reverts the escalation entry and the severity, but the note echo stays (`noteLog` is write-through across undo, §50). Pinned in both halves by the undo site.
 - An "AI created" note has no `authorResourceId`, so `canEditNote` lets anyone edit it and `editNote` claims it for the editor, replacing the label with the editor's name when they have a directory resource. An editor with a `selfResourceId` whose resource was deleted claims it but keeps the "AI created" label.
 
 - [ ] **Step 7: Commit** — stage the new file with `git add -- src/app/use-chat-dispatcher.escalate.test.tsx`, then write `$S/msg-task3b.txt`:
@@ -2658,7 +2691,7 @@ Claude-Session: https://[session link removed]
 ```
 
 ```bash
-git commit --only -F "$S/msg-task3b.txt" -- src/app/action-escalate.ts src/app/action-escalate.test.ts src/app/note-log.ts src/app/note-log.test.ts src/app/i18n.ts src/app/i18n.de.ts src/app/types.ts src/app/raid-escalation.ts src/app/chat-tools-updates.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts src/app/chat-tools.test.ts src/app/use-register-tools.ts src/app/use-chat-dispatcher.ts src/app/use-chat-dispatcher.escalate.test.tsx src/app/use-chat-dispatcher.undo.test.tsx src/app/chat-proposal.ts src/app/chat-proposal.test.ts src/app/chat-proposal-describe.test.ts src/app/chat-proposal-apply.ts src/app/chat-proposal-apply.test.tsx src/app/ai-entity-token.test.ts src/app/insights/recommend-tokens.ts lib/app-feature-guide.md src/app/operating-guide-builtin.generated.ts docs/AGENTS/ai-assistant.md
+git commit --only -F "$S/msg-task3b.txt" -- src/app/action-escalate.ts src/app/action-escalate.test.ts src/app/note-log.ts src/app/note-log.test.ts src/app/i18n.ts src/app/i18n.de.ts src/app/types.ts src/app/raid-escalation.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts src/app/chat-tools.test.ts src/app/use-register-tools.ts src/app/use-chat-dispatcher.ts src/app/use-chat-dispatcher.escalate.test.tsx src/app/use-chat-dispatcher.undo.test.tsx src/app/chat-proposal.ts src/app/chat-proposal.test.ts src/app/chat-proposal-describe.test.ts src/app/chat-proposal-apply.ts src/app/chat-proposal-apply.test.tsx src/app/ai-entity-token.test.ts src/app/insights/recommend-tokens.ts lib/app-feature-guide.md src/app/operating-guide-builtin.generated.ts docs/AGENTS/ai-assistant.md docs/superpowers/plans/2026-09-13-raid-signal-log-escalation.md
 git show --stat HEAD | tail -30
 ```
 

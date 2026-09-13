@@ -34,6 +34,11 @@ describe("shouldStage", () => {
     ["update_settings is not an entity write", [call("update_settings"), call("set_language")], false],
     ["one send_inquiry",               [call("send_inquiry", { id: 1 })],                    false],
     ["two send_inquiry",               [call("send_inquiry", { id: 1 }), call("send_inquiry", { id: 2 })], true],
+    // §515 review flow: ONE AI escalation applies immediately (undoable, pinned by
+    // the `escalateRaid` undo site); two or more in a turn go to the review card.
+    ["one escalate_raid_item",         [call("escalate_raid_item", { id: 1 })],              false],
+    ["two escalate_raid_item",         [call("escalate_raid_item", { id: 1 }), call("escalate_raid_item", { id: 2 })], true],
+    ["escalate + update_raid_item",    [call("update_raid_item", { id: 1 }), call("escalate_raid_item", { id: 1 })], true],
     ["one create_document",            [call("create_document")],                            false],
     ["one update_document",            [call("update_document", { id: 1 })],                 false],
     ["two document writes",            [call("create_document"), call("update_document", { id: 1 })], true],
@@ -62,7 +67,7 @@ const DESTRUCTIVE_NAMES = [
 const NON_DESTRUCTIVE_WRITE_NAMES = [
   "create_task", "update_task", "set_task_dependencies", "send_inquiry",
   "create_resource", "update_resource",
-  "create_raid_item", "update_raid_item",
+  "create_raid_item", "update_raid_item", "escalate_raid_item",
   "create_change", "update_change",
   "create_milestone", "update_milestone",
   "create_stakeholder", "update_stakeholder",
