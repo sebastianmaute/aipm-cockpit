@@ -26,8 +26,9 @@ export const SEED_CAP_PER_ENTITY = 8;
 const MODULE_ID_SET = new Set<string>(ALL_MODULE_IDS);
 
 /** The metadata fields Claude can reasonably infer from a free-text brief.
- *  Everything here maps onto a ProjectFormDraft patch — the user completes the
- *  remaining required fields (code, NACE, deployment, …) in the Step-1 form. */
+ *  Everything here maps onto a ProjectFormDraft patch — the user may complete
+ *  the remaining key facts (code, NACE, deployment, …) in the Step-1 form, or
+ *  leave them blank: only `name` is required (O-1). */
 export interface ProposalMeta {
   name: string;
   customer?: string;
@@ -357,8 +358,8 @@ export function parseProposal(input: unknown): ProjectProposal | null {
 }
 
 /** Map the proposal's meta onto the Step-1 form draft. Only sets fields the
- *  model supplied; the form keeps its blank defaults for the rest and its own
- *  validation forces the user to complete required fields. */
+ *  model supplied; the form keeps its blank defaults for the rest, all of
+ *  which may be submitted blank except `name` (O-1). */
 export function proposalToDraftPatch(p: ProjectProposal): Partial<ProjectFormDraft> {
   const m = p.meta;
   const patch: Partial<ProjectFormDraft> = {};

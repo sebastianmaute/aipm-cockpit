@@ -3889,19 +3889,6 @@ export const de: Record<TranslationKey, string> = {
 
   // Validation messages
   errorProjectNameRequired: "Projektname ist erforderlich.",
-  errorProjectCodeRequired: "Projektkürzel ist erforderlich.",
-  errorProjectManagerRequired: "Projektleiter ist erforderlich.",
-  errorStakeholdersInternalRequired: "Mindestens ein interner Stakeholder ist erforderlich.",
-  errorStakeholdersExternalRequired: "Mindestens ein externer Stakeholder ist erforderlich.",
-  errorContactsRequired: "Mindestens ein Kontakt ist erforderlich.",
-  errorCustomerRequired: "Kunde ist erforderlich.",
-  errorNaceRequired: "NACE-Abschnitt ist erforderlich.",
-  errorProductsRequired: "Mindestens ein Produkt ist erforderlich.",
-  errorDeploymentRequired: "Deployment ist erforderlich.",
-  errorStartDateRequired: "Startdatum ist erforderlich.",
-  errorEndDateRequired: "Enddatum ist erforderlich.",
-  errorProfitCenterRequired: "Profit-Center ist erforderlich.",
-  errorRegulatoryRequired: "Regulatorische Einstufung ist erforderlich.",
   errorEndBeforeStart: "Das Enddatum muss nach dem Startdatum liegen.",
   errorInvalidUrl: "Bitte eine gültige URL eingeben.",
 
@@ -4018,7 +4005,7 @@ export const de: Record<TranslationKey, string> = {
   contactAddManual: "Manuell hinzufügen",
   infoMore: "Weitere Informationen",
   contactPersonsTip:
-    "Kontakt hinzufügen: unter „Manuell hinzufügen“ ein Teammitglied oder einen gespeicherten Kontakt wählen, um ihn zu verknüpfen, oder einen neuen Namen für eine Person außerhalb Ihres Verzeichnisses eingeben; im E-Mail-Feld eine Adresse für einen manuell eingegebenen (externen) Kontakt hinterlegen; mit Hinzufügen zur Liste hinzufügen. Mindestens ein Kontakt ist erforderlich.",
+    "Kontakt hinzufügen: unter „Manuell hinzufügen“ ein Teammitglied oder einen gespeicherten Kontakt wählen, um ihn zu verknüpfen, oder einen neuen Namen für eine Person außerhalb Ihres Verzeichnisses eingeben; im E-Mail-Feld eine Adresse für einen manuell eingegebenen (externen) Kontakt hinterlegen; mit Hinzufügen zur Liste hinzufügen.",
   // UX batch "Aldiss" (0.177.0)
   dashboardKpiCompleteHint: "Anteil der Aufgaben mit Abschlussdatum an allen Aufgaben, die noch zum Umfang zählen. Steigend ist gut; eine flache Linie deutet auf stockende Lieferung hin.",
   dashboardKpiOverdueHint: "Aufgaben, die überfällig und noch nicht erledigt sind. Möglichst auf null senken.",

@@ -152,6 +152,16 @@ function SeedProjectCustomer({ customer }: { customer: string }) {
   return null;
 }
 
+/** Seed a project with a given start date — "" is legal since O-1. */
+function SeedProjectStart({ startDate }: { startDate: string }) {
+  const ws = useWorkspace();
+  useEffect(() => {
+    ws.setProject({ name: "Solo", code: "", startDate } as unknown as Parameters<typeof ws.setProject>[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
+
 /** Read-only probe for asserting timelogLinks mutations. */
 function LinksProbe({ testId }: { testId: string }) {
   const { timelogLinks } = useWorkspace();
@@ -681,6 +691,54 @@ describe("TimelogPanel", () => {
       // picker — so the exact id list must be forwarded to the fetch.
       await waitFor(() =>
         expect(fetchBookingsForProjects).toHaveBeenCalledWith([9], expect.any(String), expect.any(String)),
+      );
+    });
+
+    it("falls back to a real date when the project's start date is blank (O-1)", async () => {
+      enableTimelog();
+      const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 0, projectCount: 1 });
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
+          <SeedProjectStart startDate="" />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const btn = await screen.findByRole("button", { name: t("en-US", "timelogRefresh") });
+      await waitFor(() => expect(btn).toBeEnabled()); // §39: wait for ENABLED, not present
+      fireEvent.click(btn);
+      await waitFor(() =>
+        expect(fetchBookingsForProjects).toHaveBeenCalledWith(
+          [9], expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), expect.any(String),
+        ),
+      );
+    });
+
+    it("uses the project's start date when it is set (control)", async () => {
+      enableTimelog();
+      const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 0, projectCount: 1 });
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
+          <SeedProjectStart startDate="2026-01-01" />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const btn = await screen.findByRole("button", { name: t("en-US", "timelogRefresh") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      fireEvent.click(btn);
+      await waitFor(() =>
+        expect(fetchBookingsForProjects).toHaveBeenCalledWith([9], "2026-01-01", expect.any(String)),
       );
     });
 

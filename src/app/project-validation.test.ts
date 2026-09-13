@@ -15,23 +15,24 @@ describe("validateProjectMeta", () => {
   it("passes a valid draft", () => {
     expect(hasProjectErrors(validateProjectMeta(ok))).toBe(false);
   });
-  it("flags every missing required field", () => {
-    const e = validateProjectMeta({ ...ok, name: "", customer: "", products: "",
-      profitCenter: "", projectManager: "", code: "", naceSection: "",
-      contactPersons: [], regulatory: [] });
-    expect(e.name).toBe("errorProjectNameRequired");
-    expect(e.code).toBe("errorProjectCodeRequired");
-    expect(e.regulatory).toBe("errorRegulatoryRequired");
-    expect(e.contactPersons).toBe("errorContactsRequired");
+  it("flags a blank name and nothing else when every key fact is blank (O-1)", () => {
+    const e = validateProjectMeta({
+      ...ok, name: "", code: "", projectManager: "", customer: "", naceSection: "",
+      products: "", deployment: "", startDate: "", endDate: "", profitCenter: "",
+      contactPersons: [], regulatory: [], keyStakeholdersInternal: [], keyStakeholdersExternal: [],
+    });
+    expect(e).toEqual({ name: "errorProjectNameRequired" });
   });
-  it("requires at least one contact person", () => {
-    expect(validateProjectMeta({ ...ok, contactPersons: [] }).contactPersons)
-      .toBe("errorContactsRequired");
+  it("accepts a draft carrying a name alone (O-1)", () => {
+    const e = validateProjectMeta({
+      ...ok, name: "Solo", code: "", projectManager: "", customer: "", naceSection: "",
+      products: "", deployment: "", startDate: "", endDate: "", profitCenter: "",
+      contactPersons: [], regulatory: [],
+    });
+    expect(hasProjectErrors(e)).toBe(false);
   });
-  it("treats key stakeholders (internal/external) as optional", () => {
-    const e = validateProjectMeta({ ...ok, keyStakeholdersInternal: [], keyStakeholdersExternal: [] });
-    expect(e.keyStakeholdersInternal).toBeUndefined();
-    expect(e.keyStakeholdersExternal).toBeUndefined();
+  it("does not flag end-before-start while the start date is blank", () => {
+    expect(validateProjectMeta({ ...ok, startDate: "", endDate: "2025-01-01" }).endDate).toBeUndefined();
   });
   it("flags endDate before startDate", () => {
     expect(validateProjectMeta({ ...ok, endDate: "2025-01-01" }).endDate).toBe("errorEndBeforeStart");

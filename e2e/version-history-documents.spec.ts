@@ -253,20 +253,15 @@ async function cleanPartition(): Promise<void> {
   await pipeline(partitionCleanupStatements());
 }
 
-/** The `projects` columns a row must carry to survive decoding, and NOT ONE
- *  MORE. ★★★ "A partial row is fine because `rowsToProjectList` is LENIENT" is
- *  FALSE and cost a run: `buildProjectFromObjLenient`'s `lenientRequiredArrays`
- *  relaxes the ARRAY fields only. `sanitizeProjectMeta` still returns null
- *  unless name · code · projectManager · customer · products · profitCenter are
- *  non-empty, `naceSection` is in `NACE_SECTION_SET`, `deployment` is in
- *  `DEPLOYMENT_SET`, and `startDate` parses as ISO. A row missing any of them
- *  decodes to null, `tursoProjects` comes back EMPTY, and task-manager renders
- *  the "No projects yet" dialog INSTEAD of the app — no `<main>`, no shell, and
- *  a failure that points at the wait rather than at the row. Measured: a
- *  four-column row did exactly that.
+/** A deliberately FULL `projects` row. ★★ Since O-1 only `name` is load-bearing
+ *  for decoding: `sanitizeProjectMeta` returns null for a blank name, or for a
+ *  NON-blank `naceSection` / `deployment` outside its set, and for nothing else.
+ *  This docstring used to list six required scalars, a required start date and a
+ *  lenient array-only decoder — all true before O-1, none true after. The row
+ *  stays full because the probe is about version history, not about decoding,
+ *  and a sparse row would couple it to a rule it does not test.
  *  ★ Still a deliberate subset of `PROJECT_CSV_COLUMNS` — restating that whole
- *  list here would rot the moment a column is added, and the optional ones are
- *  genuinely optional. */
+ *  list here would rot the moment a column is added. */
 const PROJECT_ROW: Record<string, string> = {
   name: "S242 probe",
   code: "S242",

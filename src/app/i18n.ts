@@ -4085,19 +4085,6 @@ const enUS = {
 
   // Validation messages
   errorProjectNameRequired: "Project name is required.",
-  errorProjectCodeRequired: "Project code is required.",
-  errorProjectManagerRequired: "Project manager is required.",
-  errorStakeholdersInternalRequired: "At least one internal stakeholder is required.",
-  errorStakeholdersExternalRequired: "At least one external stakeholder is required.",
-  errorContactsRequired: "At least one contact is required.",
-  errorCustomerRequired: "Customer is required.",
-  errorNaceRequired: "NACE section is required.",
-  errorProductsRequired: "At least one product is required.",
-  errorDeploymentRequired: "Deployment is required.",
-  errorStartDateRequired: "Start date is required.",
-  errorEndDateRequired: "End date is required.",
-  errorProfitCenterRequired: "Profit center is required.",
-  errorRegulatoryRequired: "Regulatory classification is required.",
   errorEndBeforeStart: "End date must be after start date.",
   errorInvalidUrl: "Please enter a valid URL.",
 
@@ -4227,7 +4214,7 @@ const enUS = {
   contactAddManual: "Add manually",
   infoMore: "More information",
   contactPersonsTip:
-    "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list. At least one contact is required.",
+    "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list.",
   // UX batch "Aldiss" (0.177.0)
   dashboardKpiCompleteHint: "Share of tasks with a completion date, out of every task still counted as scope. Trending up is good; a flat line signals stalled delivery.",
   dashboardKpiOverdueHint: "Tasks past their due date and not yet done. Drive this toward zero.",

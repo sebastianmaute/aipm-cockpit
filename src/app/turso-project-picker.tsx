@@ -118,7 +118,7 @@ export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPick
                 >
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className="font-medium text-foreground">{p.meta.name}</span>
-                    <span className="font-mono text-xs text-muted-foreground">{p.meta.code}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{p.meta.code || "—"}</span>
                   </div>
                   <Button
                     variant="secondary"

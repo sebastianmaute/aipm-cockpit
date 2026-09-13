@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { TursoProjectPicker } from "./turso-project-picker";
 import { defaultSettings } from "./settings-types";
 
@@ -71,5 +71,16 @@ describe("TursoProjectPicker", () => {
     await screen.findByText("No projects found in this Turso database.");
     fireEvent.click(screen.getByRole("button", { name: /close/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders a blank project code as —", async () => {
+    vi.mocked(listProjects).mockResolvedValueOnce([
+      { id: "p1", meta: { name: "Codeless", code: "" }, archived: false } as never,
+      { id: "p2", meta: { name: "Gemini", code: "GEM-2" }, archived: false } as never,
+    ]);
+    setup();
+    const row = (await screen.findByText("Codeless")).parentElement!;
+    expect(within(row).getByText("—")).toBeInTheDocument();
+    expect(within(screen.getByText("Gemini").parentElement!).getByText("GEM-2")).toBeInTheDocument();
   });
 });

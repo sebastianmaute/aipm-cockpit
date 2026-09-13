@@ -222,33 +222,25 @@ export function IdentityPeopleFields({
         <FieldError id="name-error">{errorFor("name")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectCode")} required tooltip={t(lang, "tipProjectCode")}>
+      <Field lang={lang} label={t(lang,"projectCode")} tooltip={t(lang, "tipProjectCode")}>
         <input
           type="text"
           value={draft.code}
           onChange={(e) => setDraft((p) => ({ ...p, code: e.target.value }))}
-          onBlur={() => markTouched("code")}
-          aria-invalid={errorFor("code") ? true : undefined}
-          aria-describedby={errorFor("code") ? "code-error" : undefined}
           className={inputClass}
         />
-        <FieldError id="code-error">{errorFor("code")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectManager")} required tooltip={t(lang, "tipProjectManager")}>
+      <Field lang={lang} label={t(lang,"projectManager")} tooltip={t(lang, "tipProjectManager")}>
         <input
           type="text"
           value={draft.projectManager}
           onChange={(e) => setDraft((p) => ({ ...p, projectManager: e.target.value }))}
-          onBlur={() => markTouched("projectManager")}
-          aria-invalid={errorFor("projectManager") ? true : undefined}
-          aria-describedby={errorFor("projectManager") ? "projectManager-error" : undefined}
           className={inputClass}
         />
-        <FieldError id="projectManager-error">{errorFor("projectManager")}</FieldError>
       </Field>
 
-      {/* Contacts are MANDATORY (≥1). Consumes registry resources + the address
+      {/* Contacts are optional (O-1). Consumes registry resources + the address
           book via the link-only ResourcePicker. */}
       <div className="sm:col-span-2">
         <ContactPersonsControl
@@ -256,11 +248,8 @@ export function IdentityPeopleFields({
           contactPersons={draft.contactPersons}
           addressBook={addressBook}
           resources={resources}
-          required
-          error={errorFor("contactPersons")}
           onChange={(next) => {
             setDraft((p) => ({ ...p, contactPersons: next }));
-            markTouched("contactPersons");
           }}
         />
       </div>
@@ -275,15 +264,12 @@ export function IdentityPeopleFields({
 export function CustomerFields({
   draft,
   setDraft,
-  errorFor,
-  markTouched,
   lang,
 }: ProjectFieldsProps) {
   // Regulatory checkbox group with an EXCLUSIVE "Not applicable":
   //  - selecting "Not applicable" clears everything else,
   //  - selecting any other requirement clears "Not applicable".
   const toggleRegulatory = (req: RegulatoryRequirement) => {
-    markTouched("regulatory");
     setDraft((p) => {
       const has = p.regulatory.includes(req);
       if (req === REGULATORY_NOT_APPLICABLE) {
@@ -299,26 +285,19 @@ export function CustomerFields({
 
   return (
     <FormSection title={t(lang, "projectFormCustomer")}>
-      <Field lang={lang} label={t(lang,"projectCustomer")} required tooltip={t(lang, "tipCustomer")}>
+      <Field lang={lang} label={t(lang,"projectCustomer")} tooltip={t(lang, "tipCustomer")}>
         <input
           type="text"
           value={draft.customer}
           onChange={(e) => setDraft((p) => ({ ...p, customer: e.target.value }))}
-          onBlur={() => markTouched("customer")}
-          aria-invalid={errorFor("customer") ? true : undefined}
-          aria-describedby={errorFor("customer") ? "customer-error" : undefined}
           className={inputClass}
         />
-        <FieldError id="customer-error">{errorFor("customer")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectNaceSection")} required tooltip={t(lang, "tipNace")}>
+      <Field lang={lang} label={t(lang,"projectNaceSection")} tooltip={t(lang, "tipNace")}>
         <select
           value={draft.naceSection}
           onChange={(e) => setDraft((p) => ({ ...p, naceSection: e.target.value }))}
-          onBlur={() => markTouched("naceSection")}
-          aria-invalid={errorFor("naceSection") ? true : undefined}
-          aria-describedby={errorFor("naceSection") ? "naceSection-error" : undefined}
           className={inputClass}
         >
           <option value="">—</option>
@@ -328,29 +307,21 @@ export function CustomerFields({
             </option>
           ))}
         </select>
-        <FieldError id="naceSection-error">{errorFor("naceSection")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectProducts")} required tooltip={t(lang, "tipProducts")}>
+      <Field lang={lang} label={t(lang,"projectProducts")} tooltip={t(lang, "tipProducts")}>
         <input
           type="text"
           value={draft.products}
           onChange={(e) => setDraft((p) => ({ ...p, products: e.target.value }))}
-          onBlur={() => markTouched("products")}
-          aria-invalid={errorFor("products") ? true : undefined}
-          aria-describedby={errorFor("products") ? "products-error" : undefined}
           className={inputClass}
         />
-        <FieldError id="products-error">{errorFor("products")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectDeployment")} required tooltip={t(lang, "tipDeployment")}>
+      <Field lang={lang} label={t(lang,"projectDeployment")} tooltip={t(lang, "tipDeployment")}>
         <select
           value={draft.deployment}
           onChange={(e) => setDraft((p) => ({ ...p, deployment: e.target.value as Deployment | "" }))}
-          onBlur={() => markTouched("deployment")}
-          aria-invalid={errorFor("deployment") ? true : undefined}
-          aria-describedby={errorFor("deployment") ? "deployment-error" : undefined}
           className={inputClass}
         >
           <option value="">—</option>
@@ -360,39 +331,30 @@ export function CustomerFields({
             </option>
           ))}
         </select>
-        <FieldError id="deployment-error">{errorFor("deployment")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectStartDate")} required tooltip={t(lang, "tipStartDate")}>
+      <Field lang={lang} label={t(lang,"projectStartDate")} tooltip={t(lang, "tipStartDate")}>
         <input
           type="date"
           value={draft.startDate}
           onChange={(e) => setDraft((p) => ({ ...p, startDate: e.target.value }))}
-          onBlur={() => markTouched("startDate")}
-          aria-invalid={errorFor("startDate") ? true : undefined}
-          aria-describedby={errorFor("startDate") ? "startDate-error" : undefined}
           className={inputClass}
         />
-        <FieldError id="startDate-error">{errorFor("startDate")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectProfitCenter")} required tooltip={t(lang, "tipProfitCenter")}>
+      <Field lang={lang} label={t(lang,"projectProfitCenter")} tooltip={t(lang, "tipProfitCenter")}>
         <input
           type="text"
           value={draft.profitCenter}
           onChange={(e) => setDraft((p) => ({ ...p, profitCenter: e.target.value }))}
-          onBlur={() => markTouched("profitCenter")}
-          aria-invalid={errorFor("profitCenter") ? true : undefined}
-          aria-describedby={errorFor("profitCenter") ? "profitCenter-error" : undefined}
           className={inputClass}
         />
-        <FieldError id="profitCenter-error">{errorFor("profitCenter")}</FieldError>
       </Field>
 
       {/* `group`: a grid of checkboxes, each in its own `<label>`. A plain
           caption would adopt the FIRST checkbox — clicking "Regulatory
           requirements" ticked it — and would nest a label inside a label. */}
-      <Field lang={lang} label={t(lang,"projectRegulatory")} required className="sm:col-span-2" tooltip={t(lang, "tipRegulatory")} group>
+      <Field lang={lang} label={t(lang,"projectRegulatory")} className="sm:col-span-2" tooltip={t(lang, "tipRegulatory")} group>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {REGULATORY_REQUIREMENTS.map((req) => (
             <label key={req} className="flex items-center gap-1.5 text-sm text-foreground">
@@ -406,7 +368,6 @@ export function CustomerFields({
             </label>
           ))}
         </div>
-        <FieldError id="regulatory-error">{errorFor("regulatory")}</FieldError>
       </Field>
     </FormSection>
   );
@@ -639,16 +600,12 @@ function ContactPersonsControl({
   addressBook,
   resources,
   onChange,
-  required,
-  error,
 }: {
   lang: Lang;
   contactPersons: ContactPerson[];
   addressBook: Contact[];
   resources: readonly Resource[];
   onChange: (next: ContactPerson[]) => void;
-  required?: boolean;
-  error?: string | null;
 }) {
   const [draft, setDraft] = useState<{ name: string; email: string; resourceId: number | null }>(
     { name: "", email: "", resourceId: null },
@@ -723,7 +680,6 @@ function ContactPersonsControl({
     <div>
       <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {t(lang, "projectContactPersons")}
-        {required && <span className="text-ui-pink-strong">*</span>}
         <InfoTooltip text={t(lang, "contactPersonsTip")} />
       </span>
 
@@ -791,8 +747,6 @@ function ContactPersonsControl({
           {t(lang, "add")}
         </button>
       </div>
-
-      <FieldError id="contactPersons-error">{error}</FieldError>
     </div>
   );
 }

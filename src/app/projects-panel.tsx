@@ -340,7 +340,7 @@ export function ProjectsPanel({
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-foreground">{p.name}</span>
                         <span className="font-mono text-xs text-muted-foreground">
-                          {p.code}
+                          {p.code || "—"}
                         </span>
                         {isCurrent && (
                           <span className="rounded bg-ui-dark-blue px-2 py-0.5 text-xs font-medium text-white">
@@ -475,7 +475,7 @@ export function ProjectsPanel({
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <span className="font-medium text-foreground">{p.name}</span>
                       <span className="font-mono text-xs text-muted-foreground">
-                        {p.code}
+                        {p.code || "—"}
                       </span>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">

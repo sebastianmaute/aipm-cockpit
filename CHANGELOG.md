@@ -8,6 +8,86 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.1.0] - 2026-09-13 "Doyle"
+
+A project needs only a name. Every other key fact can be filled in later, and
+the app keeps a name-only project on every storage backend. This entry also
+records two contributor-facing changes that merged after 1.0.3 without an entry
+of their own: a documentation clean-up, and new checks that keep the follow-up
+register in step with GitLab.
+
+### Added
+
+- **A project can be created and saved with only a name.** Code, project
+  manager, customer, products, profit center, NACE section, deployment, start
+  date, contacts and regulatory classification may all stay blank. Before this
+  release, the loader discarded the whole project when any of these was blank:
+  code, project manager, customer, products, profit center, NACE section,
+  deployment, start date or regulatory classification. The form required all of
+  them, and contacts too. Now the project is kept on every load
+  path: JSON file, CSV, Markdown, IndexedDB and the Turso project list. A NACE
+  section or deployment that is filled in must still be a known value.
+
+### Changed
+
+- **The project form requires only the name.** The required markers and their
+  error messages are gone from the other fields. The end-before-start check and
+  the four link checks stay. The contacts hint no longer says a contact is
+  required, in English or German.
+- **A project without a code shows a dash** in the projects list, the archived
+  list and the Turso project picker. The project switcher already hid a blank
+  code.
+
+### Fixed
+
+- **A TimeLog fetch for a project with no start date uses the 90-day default.**
+  A blank start date used to be passed on as an empty date instead of falling
+  back. This could not happen while the start date was required.
+
+### Notes
+
+- **⚠️ Do not roll back past this release once a name-only project exists.** An
+  older build rejects a project with a blank code or start date. With a JSON
+  workspace or IndexedDB, the project is dropped on load, and the next save
+  writes the workspace without its project data. With CSV or Markdown, the
+  project fails to decode. With a Turso tenant, the project disappears from the
+  picker, but its row stays in the database.
+- **Two projects without a code look like the same project to the TimeLog
+  picker.** Both give it the same switch signal, so switching from one to the
+  other in place keeps the first project's TimeLog customer and project
+  selection. This follows from the code and has not been observed in a running
+  app. Two projects sharing a code already behaved this way; a blank code just
+  makes it likely. It is recorded as follow-up 532 rather than fixed here.
+
+### Internal
+
+- **The follow-up register and GitLab are one-to-one** (merged as !480). Every
+  open register entry carries exactly one `**Work item:**` line naming its
+  GitLab issue, or reads `none — decision record`. The 2026-09-11 demo backlog
+  is mirrored as entries 499–530. Entries 479–498 are filed from a housekeeping
+  audit, and 87 and 424 are closed with their remainders carried by other
+  entries. `docs/tech-debt-register.md` is archived, and its open rows moved to
+  entries 486 and 490–498.
+- **Documentation housekeeping** (same merge). 28 superpowers plans and specs
+  that did not ship as written now carry a dated status banner. Four over-long
+  AGENTS.md sections moved into `docs/AGENTS/`: accessibility to
+  `accessibility.md`, CI to `ci.md`, the Documents UI to `documents.md`
+  ("Surfaces and editor") and the table primitives to `ui-shell.md` ("Tables").
+  Twelve unreferenced files are deleted: three architecture notes, five starter
+  SVGs, two one-off probe scripts and two stray plan attachments. Stale claims
+  in AGENTS.md, `docs/AGENTS/` and the codemaps are corrected.
+- **Two new register checks** (merged as !481, closing follow-up 531).
+  `followups-workitems-check` (`npm run followups:workitems:check`) is BLOCKING.
+  It fails when an open entry lacks exactly one conforming Work item line, when
+  a closed entry still has one, or when two open entries claim one issue.
+  `followups-gitlab-sync` (`npm run followups:gitlab:check`) is WARN-ONLY and
+  runs on default-branch pushes and scheduled pipelines. It compares the Work
+  item lines with the open GitLab issues in both directions, and skips when
+  `REGISTER_SYNC_TOKEN` is unset. Both exit 1 on drift and 2 when they cannot
+  scan.
+- **This entry covers !480 and !481 after the fact.** Both merged after 1.0.3
+  without a version bump or a changelog row.
+
 ## [1.0.3] - 2026-09-13 "Pratchett"
 
 Shell polish. The app now opens where you would expect it to, the Ask Claude
