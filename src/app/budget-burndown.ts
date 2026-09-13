@@ -1,12 +1,15 @@
 // Pure per-period burn-down series for the dashboard + budget report charts.
-// Reads budgeted vs actual hours (and € on the external-rate basis) across all
-// buckets, returns "remaining" arrays that descend over the plan periods —
-// optionally sliced to a narrower x-axis span (see `span` below).
+// Reads budgeted vs actual hours across all buckets, and € on the
+// external-rate basis for T&M buckets / the contract-amount basis for
+// fixed-price ones (§472 — see the `type === "fixed"` branch below), returns
+// "remaining" arrays that descend over the plan periods — optionally sliced
+// to a narrower x-axis span (see `span` below).
 // No React, no I/O.
 
 import { generatePeriods } from "./resource-capacity";
 import { bucketRateRows, bucketActivePeriods, effectiveBudgetHours } from "./budget-report";
-import type { Absence, BudgetBucket, Resource, ResourcePlan, Role } from "./types";
+import { currencyToEur } from "./fx";
+import type { Absence, BudgetBucket, FxRates, Resource, ResourcePlan, Role } from "./types";
 
 export type BurndownSeries = {
   periods: readonly string[];
@@ -41,6 +44,10 @@ export function computeBurndownSeries(
   holidaySet: ReadonlySet<string>,
   absences: readonly Absence[],
   today: string,
+  /** Same cache `computeBucketReport` reads through `currencyToEur` for a
+   *  fixed-price bucket's contract amount (§472/§474/§475) — never re-derive
+   *  a rate here. */
+  fxRates: FxRates | null,
   /** Optional x-axis window. The plan periods are SLICED to it — never
    *  re-generated from these dates, because every bucket contribution is looked
    *  up by the plan-derived period key (bucketActivePeriods). Re-generating
@@ -73,6 +80,56 @@ export function computeBurndownSeries(
     // Scope to the bucket's active periods and pass them as canonicalPeriods —
     // mirrors computeBucketReport so the burndown totals equal the report totals.
     const active = bucketActivePeriods(b, plan);
+
+    if (b.type === "fixed") {
+      // §472: a fixed-price bucket is valued from its CONTRACT AMOUNT, never
+      // hours × rate — mirrors computeBucketReport's `fixedPrice`/`consumedValue`
+      // (budget-report.ts), through the SAME `currencyToEur` helper (§474/§475
+      // unresolved-rate handling applies here unchanged). Hours are still summed
+      // for the hours series (the chart's other axis), just not used to price
+      // this bucket's €.
+      //
+      // The report's `budgetValue` is the full converted contract amount
+      // regardless of hours; `consumedValue` is that amount scaled by the
+      // actual/budget hours ratio and capped at the contract (0 when there are
+      // no budgeted hours at all). Both totals are reproduced here exactly and
+      // then spread across this bucket's in-window periods so the chart still
+      // draws a glide path: proportional to each period's share of the
+      // bucket's hours, or — when a total is 0 (no budgeted/no actual hours) —
+      // spread evenly (budget) or not at all (actual, matching the report's 0).
+      const fixedPriceEur = currencyToEur(b.fixedPriceAmount ?? 0, b, fxRates);
+      const inWindow: { i: number; bh: number; ah: number }[] = [];
+      let bucketBudgetHours = 0;
+      let bucketActualHours = 0;
+      for (const p of active) {
+        const i = indexByKey.get(p.key);
+        if (i === undefined) continue;
+        let bh = 0;
+        let ah = 0;
+        for (const row of rows) {
+          bh += effectiveBudgetHours(
+            row, p, active, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan, resourcesById,
+          );
+          ah += row.actualHours[p.key] ?? 0;
+        }
+        budgetH[i] += bh;
+        actualH[i] += ah;
+        bucketBudgetHours += bh;
+        bucketActualHours += ah;
+        inWindow.push({ i, bh, ah });
+      }
+      const consumedEur = bucketBudgetHours > 0
+        ? Math.min(fixedPriceEur, fixedPriceEur * (bucketActualHours / bucketBudgetHours))
+        : 0;
+      const evenShare = inWindow.length > 0 ? 1 / inWindow.length : 0;
+      for (const { i, bh, ah } of inWindow) {
+        const budgetShare = bucketBudgetHours > 0 ? bh / bucketBudgetHours : evenShare;
+        budgetV[i] += fixedPriceEur * budgetShare;
+        if (bucketActualHours > 0) actualV[i] += consumedEur * (ah / bucketActualHours);
+      }
+      continue;
+    }
+
     for (const p of active) {
       const i = indexByKey.get(p.key);
       if (i === undefined) continue;

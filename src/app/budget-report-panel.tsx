@@ -86,10 +86,10 @@ export function BudgetReportPanel({
   );
   const burndown = useMemo(
     () => computeBurndownSeries(
-      buckets, plan, roles, resources, workdayHours, holidaySet, absences, today,
+      buckets, plan, roles, resources, workdayHours, holidaySet, absences, today, fxRates,
       bucketChain.kind === "chain" ? { start: bucketChain.start, end: bucketChain.end } : undefined,
     ),
-    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, today, bucketChain],
+    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, today, fxRates, bucketChain],
   );
   const { ref, reset } = useResizable("aipm-cockpit:budget-report-size");
   const detail = useColumnResize<DetailCol>("budgetReportDetail", DETAIL_COL_WIDTHS);

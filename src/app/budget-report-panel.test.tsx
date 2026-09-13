@@ -104,16 +104,19 @@ describe("BudgetReportPanel", () => {
   });
 
   it("labels the burn-down value axis in EUR even when the plan names another currency", () => {
-    // ★★ `computeBurndownSeries` builds every value as `budgetHours ×
-    // role.rates.external` and converts NOTHING, and the engine's money unit is
-    // EUR (`computeBucketReport`: a fixed-price contract amount is converted to
-    // EUR at its one read). So the series is EUR whatever the plan's
-    // `currency` says — narrowing that field to the `BudgetCurrency` union did
-    // NOT make it safe to label with, because the union still admits
-    // `USD`/`GBP`: it states the plan's base currency, never the unit of an
-    // unconverted engine figure. This file's own `money` helper already hardcodes
-    // `formatCurrency(n, "EUR", …)` for the co-rendered cost/EVM tiles, which
-    // are rate-derived in exactly the same way.
+    // ★★ `computeBurndownSeries` builds every T&M bucket's value as
+    // `budgetHours × role.rates.external`, and a fixed-price bucket's from its
+    // contract amount via `currencyToEur` (§472) — either way nothing it
+    // produces is converted a second time, and the engine's money unit is EUR.
+    // So the series is EUR whatever the plan's `currency` says — narrowing
+    // that field to the `BudgetCurrency` union did NOT make it safe to label
+    // with, because the union still admits `USD`/`GBP`: it states the plan's
+    // base currency, never the unit of an unconverted engine figure. This
+    // file's own top-level `buckets` fixture is all `type: "tm"`, so this test
+    // exercises the rate-derived half only; §472's fixed-price contract basis
+    // is pinned separately in `budget-burndown.test.ts`. This file's `money`
+    // helper already hardcodes `formatCurrency(n, "EUR", …)` for the
+    // co-rendered cost/EVM tiles, which are rate-derived in exactly the same way.
     renderPanel({ plan: { ...plan, currency: "USD" } });
     // Scoped to the CURRENCY chart: `Chart` renders `<div>{caption}</div><svg>`,
     // so the caption's parent is that chart alone. The twin hours chart carries

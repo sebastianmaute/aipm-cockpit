@@ -397,7 +397,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     input.budgets.length > 0
       ? computeBurndownSeries(
           input.budgets, input.plan, input.roles, input.resources,
-          input.workdayHours, holidaySet, input.absences, today,
+          input.workdayHours, holidaySet, input.absences, today, input.fxRates,
           bucketChain?.kind === "chain" ? { start: bucketChain.start, end: bucketChain.end } : undefined,
         )
       : null;
