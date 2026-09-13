@@ -80,6 +80,7 @@ export const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
   { key: "outlookEventId", label: "OutlookEventId" },
   { key: "inquiriesSent", label: "Inquiries" },
   { key: "noteLog", label: "NoteLog" },
+  { key: "escalations", label: "Escalations" },
 ];
 
 export const ABSENCES_MD_COLUMNS: Array<{ key: keyof Absence; label: string }> = [

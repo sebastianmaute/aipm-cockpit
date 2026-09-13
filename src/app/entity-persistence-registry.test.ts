@@ -41,6 +41,7 @@ import { DOCUMENT_ASSETS_CSV_COLUMNS } from "./csv-codecs";
 import { ENTITY_SPECS, SCHEMA_DDL } from "./turso-schema";
 import { tenantSchemaDdl } from "./turso-tenant-schema";
 import type { Workspace } from "./workspace";
+import type { RaidEscalation } from "./types";
 import type { DocumentAsset } from "./document-asset";
 
 const EVT = "evt-registry-123";
@@ -515,4 +516,35 @@ describe("entity persistence registry — documentAssets across all six write pa
 
   // 6. IndexedDB — proved in browser-backend.test.ts, describe "documentAssets
   // over IndexedDB" > "round-trips documentAssets through save and load".
+});
+
+// §515 — RaidItem.escalations is a JSON-in-cell array like noteLog. CSV column
+// presence covers Turso single + tenant (their DDL/INSERT derive from
+// RAID_CSV_COLUMNS); the round-trips cover CSV, Markdown and JSON. IndexedDB is
+// a whole-object pass-through and is NOT asserted here.
+describe("entity persistence registry — RaidItem.escalations", () => {
+  const ESC: RaidEscalation[] = [
+    { at: "2026-05-20T09:30:00.000Z", toName: "Jane Doe", toEmail: "jane@example.com", toResourceId: 4, fromSeverity: "High", toSeverity: "Critical" },
+    { at: "2026-05-21T10:00:00.000Z", toEmail: "ops@example.com" },
+  ];
+  const seed = (): Workspace => ({
+    ...emptyWorkspace(),
+    raid: [{
+      id: 1, category: "I", title: "Vendor down", status: "Open", severity: "Critical", linkedTaskIds: [],
+      causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01", escalations: ESC,
+    }],
+  });
+
+  it("is in the RAID CSV column registry (drives CSV + Turso single/tenant)", () => {
+    expect(RAID_CSV_COLUMNS as readonly string[]).toContain("escalations");
+  });
+  it("survives the CSV round-trip", () => {
+    expect(csvToWorkspace(workspaceToCsv(seed())).raid[0]?.escalations).toEqual(ESC);
+  });
+  it("survives the Markdown round-trip", () => {
+    expect(markdownToWorkspace(workspaceToMarkdown(seed())).raid[0]?.escalations).toEqual(ESC);
+  });
+  it("survives the JSON round-trip", () => {
+    expect(jsonToWorkspace(workspaceToJson(seed())).raid[0]?.escalations).toEqual(ESC);
+  });
 });

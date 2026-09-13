@@ -157,9 +157,10 @@ export const TOKEN_EXCLUDED: Readonly<Record<TokenEntity, readonly string[]>> = 
  *  a switch: both are short `if` chains ending in generic property access
  *  (`String(t[c] ?? "")`), so a mispaired renderer reads the field anyway and
  *  mostly AGREES. Measured over a fully-populated item: swapping the two
- *  changes 3 of RAID_CSV_COLUMNS' 23 columns (the `|`-joined id lists
- *  linkedTaskIds/causedByRaidIds/stakeholderIds, which degrade to `,`-joined)
- *  and 1 of CSV_COLUMNS' 28 (`labels`, the same way). That makes the defect
+ *  changes 4 of RAID_CSV_COLUMNS' 24 columns (the `|`-joined id lists
+ *  linkedTaskIds/causedByRaidIds/stakeholderIds, which degrade to `,`-joined,
+ *  plus §515's JSON-in-cell `escalations`, which degrades to "[object Object]";
+ *  re-measured 2026-09-13) and 1 of CSV_COLUMNS' 28 (`labels`, the same way). That makes the defect
  *  SUBTLER than the old comment implied, not milder: a token that still moves
  *  for most fields is harder to notice than one that never moves. */
 type Projector<T> = {
@@ -203,7 +204,8 @@ const PROJECTORS: Readonly<Record<TokenEntity, ErasedProjector>> = {
  *
  *  Verified 2026-09-03 by diffing the declared fields of all six types against
  *  their column lists: exact match, both membership and count (task 28, raid
- *  23, milestone 9, change 21, stakeholder 13, resource 19). The check below is
+ *  23 — 24 since §515 added `escalations` — milestone 9, change 21,
+ *  stakeholder 13, resource 19). The check below is
  *  what keeps it that way; the counts are a snapshot and will move, the
  *  property will not.
  *

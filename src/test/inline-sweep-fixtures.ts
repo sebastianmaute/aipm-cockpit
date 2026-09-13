@@ -219,6 +219,11 @@ export function seedRaid(over: Partial<RaidItem> = {}): RaidItem {
  *  seed leaves blank (`probeFor` never invents a value). All three are
  *  `TOKEN_EXCLUDED.raid`, so no model patch can move them, and
  *  `sanitizeRaidItem` keeps each as seeded (`inquiriesSent` only when > 0).
+ *  ★ `escalations` (§515) is seeded for Relation A too, but it is NOT
+ *   `TOKEN_EXCLUDED.raid`: `RAID_FIELD_GUARDS` refuses it on both arms.
+ *   TWO entries, in `sanitizeRaidEscalations`' own key order: the array probe
+ *   drops one element, and one seeded entry would leave `[]`, which the
+ *   sanitizer stores as undefined, so the update arm would read `unmeasured`.
  *  ★ `noteLog` is the undeclared column deliberately NOT seeded:
  *   `sanitizeRaidItem` stores no note log at all (the writer re-applies the
  *   stored one, §49), so no value is one the admission oracle holds. */
@@ -240,6 +245,10 @@ export function seedGuardedRaid(): RaidItem {
     owner: "K. Fischer",
     ownerEmail: "k.fischer@example.com",
     inquiriesSent: 2,
+    escalations: [
+      { at: "2026-06-11T07:45:00.000Z", toName: "M. Jordan", toEmail: "m.Jordan@example.com", toResourceId: 2, fromSeverity: "Medium", toSeverity: "High" },
+      { at: "2026-06-12T07:00:00.000Z", toEmail: "ops@example.com" },
+    ],
     localModifiedAt: "2026-06-12T08:15:00.000Z",
     outlookEventId: "AAMkADk0ZmVkLTE2NzUtNDU3Mi1iMDJlLTMwNzNiNDI3NTc5MgBGAAAAAAB",
   });
@@ -867,7 +876,7 @@ export function sweptFields(entity: InlineEntity, before: Record<string, unknown
  *  seed does NOT carry — check the seed before assuming an entry must go. */
 export const AXIS_FIELDS: Record<InlineEntity, readonly string[]> = {
   task: ["assignee", "assigneeEmail", "blockers", "completedDate", "createdDate", "dependencies", "dueDate", "group", "healthOverride", "inquiriesSent", "jiraIssueType", "knowledgeLinks", "labels", "lastSyncedAt", "lastUpdateDate", "localModifiedAt", "noteLog", "originalEstimateMinutes", "outlookEventId", "priority", "remainingEstimateMinutes", "resourceId", "startDate", "status", "taskName", "timeSpentMinutes"],
-  raid: ["category", "causedByRaidIds", "closedDate", "impact", "inquiriesSent", "knowledgeLinks", "linkedTaskIds", "localModifiedAt", "outlookEventId", "owner", "ownerEmail", "ownerResourceId", "probability", "raisedDate", "severity", "stakeholderIds", "status", "targetDate", "title"],
+  raid: ["category", "causedByRaidIds", "closedDate", "escalations", "impact", "inquiriesSent", "knowledgeLinks", "linkedTaskIds", "localModifiedAt", "outlookEventId", "owner", "ownerEmail", "ownerResourceId", "probability", "raisedDate", "severity", "stakeholderIds", "status", "targetDate", "title"],
   change: ["costImpact", "decisionBy", "decisionDate", "impact", "knowledgeLinks", "linkedRaidIds", "linkedTaskIds", "localModifiedAt", "outlookEventId", "raisedDate", "requestedBy", "scheduleImpactDays", "stakeholderIds", "status", "title", "type"],
   milestone: ["achievedDate", "date", "knowledgeLinks", "linkedTaskIds", "localModifiedAt", "name", "outlookEventId"],
   stakeholder: ["category", "email", "influence", "interest", "knowledgeLinks", "localModifiedAt", "name", "notes", "organization", "raci", "resourceId", "title"],

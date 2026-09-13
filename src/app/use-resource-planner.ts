@@ -166,9 +166,22 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       // Only a genuine UPDATE of an existing Risk can auto-raise an Issue; a create
       // (re-minted id) has no meaningful `previous`.
       const previous = create ? undefined : raid.find((r) => r.id === id);
-      // ★★★ `noteLog` from the STORED row, never the payload — it is write-through
-      // and the editor's snapshot goes stale. Read open-followups §48 before editing.
-      const withStamp: RaidItem = { ...item, id, localModifiedAt: stamp, ...(create ? {} : { noteLog: previous?.noteLog }) };
+      // ★★★ `noteLog` AND `escalations` from the STORED row, never the payload — both
+      // are write-through (notes window; Escalate CTA, §515) while the always-mounted
+      // RAID editor's snapshot goes stale. Read open-followups §48 before editing.
+      // ★★ Severity too, but ONLY when the stale draft still holds the value an escalation
+      //   raised FROM — a deliberate change to any other severity in the editor wins.
+      const storedEsc = previous?.escalations ?? [];
+      const draftEscCount = Array.isArray(item.escalations) ? item.escalations.length : 0;
+      const lastStoredEsc = storedEsc[storedEsc.length - 1];
+      const keepEscalatedSeverity =
+        !create && previous !== undefined && storedEsc.length > draftEscCount &&
+        lastStoredEsc?.fromSeverity !== undefined && item.severity === lastStoredEsc.fromSeverity;
+      const withStamp: RaidItem = {
+        ...item, id, localModifiedAt: stamp,
+        ...(create ? {} : { noteLog: previous?.noteLog, escalations: previous?.escalations }),
+        ...(keepEscalatedSeverity ? { severity: previous?.severity } : {}),
+      };
       // Editing a row a concurrent writer already deleted: the map-replace below
       // would silently no-op. Surface it instead of dropping the edit in silence.
       if (!create && !previous) {

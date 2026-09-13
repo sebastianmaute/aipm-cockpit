@@ -1597,3 +1597,51 @@ describe("useResourcePlanner", () => {
     });
   });
 });
+
+describe("handleSaveRaidItem — stored escalations (§515)", () => {
+  beforeEach(() => {
+    __resetMintStateForTests();
+  });
+
+  it("keeps the STORED escalation record over a stale editor snapshot", () => {
+    const { result } = renderPlanner();
+    const esc = { at: "2026-06-19T10:00:00.000Z", toEmail: "jane@example.com", fromSeverity: "High" as const, toSeverity: "Critical" as const };
+    const snapshot: RaidItem = {
+      id: 1, category: "I", title: "Vendor down", status: "Open", severity: "High", linkedTaskIds: [],
+      causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-06-01",
+    };
+    // The editor snapshotted `snapshot`; Escalate then wrote its record to the STORED row.
+    act(() => { result.current.workspace.setRaid([{ ...snapshot, severity: "Critical", escalations: [esc] }]); });
+    act(() => { result.current.planner.handleSaveRaidItem({ ...snapshot, title: "Vendor down (edited)" }, false); });
+    const saved = result.current.workspace.raid[0] as RaidItem;
+    expect(saved.title).toBe("Vendor down (edited)");
+    expect(saved.escalations).toEqual([esc]);
+    // The draft still says High (= the escalation's fromSeverity): the raise must survive.
+    expect(saved.severity).toBe("Critical");
+  });
+
+  it("keeps a DELIBERATE severity change made in the stale editor", () => {
+    const { result } = renderPlanner();
+    const esc = { at: "2026-06-19T10:00:00.000Z", toEmail: "jane@example.com", fromSeverity: "High" as const, toSeverity: "Critical" as const };
+    const snapshot: RaidItem = {
+      id: 1, category: "I", title: "Vendor down", status: "Open", severity: "High", linkedTaskIds: [],
+      causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-06-01",
+    };
+    act(() => { result.current.workspace.setRaid([{ ...snapshot, severity: "Critical", escalations: [esc] }]); });
+    act(() => { result.current.planner.handleSaveRaidItem({ ...snapshot, severity: "Low" }, false); });
+    const saved = result.current.workspace.raid[0] as RaidItem;
+    expect(saved.severity).toBe("Low");
+    expect(saved.escalations).toEqual([esc]);
+  });
+
+  it("regression pin: with no newer stored escalation, the draft's severity wins as before", () => {
+    const { result } = renderPlanner();
+    const snapshot: RaidItem = {
+      id: 1, category: "I", title: "Vendor down", status: "Open", severity: "High", linkedTaskIds: [],
+      causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-06-01",
+    };
+    act(() => { result.current.workspace.setRaid([{ ...snapshot, severity: "Critical" }]); });
+    act(() => { result.current.planner.handleSaveRaidItem({ ...snapshot }, false); });
+    expect((result.current.workspace.raid[0] as RaidItem).severity).toBe("High");
+  });
+});

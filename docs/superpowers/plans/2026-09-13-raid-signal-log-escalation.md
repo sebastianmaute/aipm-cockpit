@@ -1069,9 +1069,14 @@ with
 
 ```ts
     inquiriesSent: 2,
-    escalations: [{ at: "2026-06-11T07:45:00.000Z", toName: "M. Jordan", toEmail: "m.Jordan@example.com", toResourceId: 2, fromSeverity: "Medium", toSeverity: "High" }],
+    escalations: [
+      { at: "2026-06-11T07:45:00.000Z", toName: "M. Jordan", toEmail: "m.Jordan@example.com", toResourceId: 2, fromSeverity: "Medium", toSeverity: "High" },
+      { at: "2026-06-12T07:00:00.000Z", toEmail: "ops@example.com" },
+    ],
     localModifiedAt: "2026-06-12T08:15:00.000Z",
 ```
+
+   ★ Corrected during Task 2: the first draft seeded ONE entry, and the sweep's array probe (drop one element) then left `[]`, which `sanitizeRaidItem` stores as undefined, so Relation A's raid update arm reported `raid.escalations:unmeasured`. Two entries keep the probe non-empty, the same rule the task seed's `noteLog` docstring states.
 
    In its docstring, replace ` *  `sanitizeRaidItem` keeps each as seeded (`inquiriesSent` only when > 0).` with:
 
@@ -1079,6 +1084,9 @@ with
  *  `sanitizeRaidItem` keeps each as seeded (`inquiriesSent` only when > 0).
  *  ★ `escalations` (§515) is seeded for Relation A too, but it is NOT
  *   `TOKEN_EXCLUDED.raid`: `RAID_FIELD_GUARDS` refuses it on both arms.
+ *   TWO entries, in `sanitizeRaidEscalations`' own key order: the array probe
+ *   drops one element, and one seeded entry would leave `[]`, which the
+ *   sanitizer stores as undefined, so the update arm would read `unmeasured`.
 ```
 
 2. In `AXIS_FIELDS`, replace `  raid: ["category", "causedByRaidIds", "closedDate", "impact",` with `  raid: ["category", "causedByRaidIds", "closedDate", "escalations", "impact",`.

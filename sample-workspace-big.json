@@ -1818,7 +1818,17 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "knowledgeLinks": []
+      "knowledgeLinks": [],
+      "escalations": [
+        {
+          "at": "2026-05-20T09:30:00.000Z",
+          "toName": "Sam Placeholder",
+          "toEmail": "Fictional.Jordan@example.com",
+          "toResourceId": 2,
+          "fromSeverity": "Medium",
+          "toSeverity": "High"
+        }
+      ]
     },
     {
       "id": 10,
@@ -2114,7 +2124,17 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "knowledgeLinks": []
+      "knowledgeLinks": [],
+      "escalations": [
+        {
+          "at": "2026-05-20T09:30:00.000Z",
+          "toName": "Sam Placeholder",
+          "toEmail": "Fictional.Jordan@example.com",
+          "toResourceId": 2,
+          "fromSeverity": "Medium",
+          "toSeverity": "High"
+        }
+      ]
     },
     {
       "id": 100010,
@@ -2410,7 +2430,17 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "knowledgeLinks": []
+      "knowledgeLinks": [],
+      "escalations": [
+        {
+          "at": "2026-05-20T09:30:00.000Z",
+          "toName": "Sam Placeholder",
+          "toEmail": "Fictional.Jordan@example.com",
+          "toResourceId": 2,
+          "fromSeverity": "Medium",
+          "toSeverity": "High"
+        }
+      ]
     },
     {
       "id": 200010,

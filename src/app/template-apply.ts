@@ -256,6 +256,8 @@ export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
   if (seed.raid) {
     out.raid = seed.raid.map((r) => ({
       ...r,
+      // §515: a captured escalation names past recipients — never cloned into a new project.
+      escalations: undefined,
       id: raidMap.get(r.id)!,
       linkedTaskIds: remapIds(r.linkedTaskIds, taskMap),
       causedByRaidIds: remapIds(r.causedByRaidIds, raidMap),

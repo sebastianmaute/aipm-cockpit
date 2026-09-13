@@ -242,7 +242,8 @@ export const SYNTHETIC_INPUTS: Partial<Record<InlineEntity, readonly string[]>> 
  *  Relation B no longer reports it as "offered and dropped". */
 export const AXIS_BASELINE: Record<InlineEntity, { declared: number; undeclared: number }> = {
   task: { declared: 11, undeclared: 17 },
-  raid: { declared: 16, undeclared: 6 },
+  // §515 — `escalations` joined RAID_CSV_COLUMNS undeclared by any tool schema (6 → 7).
+  raid: { declared: 16, undeclared: 7 },
   change: { declared: 15, undeclared: 5 },
   milestone: { declared: 5, undeclared: 3 },
   stakeholder: { declared: 8, undeclared: 4 },

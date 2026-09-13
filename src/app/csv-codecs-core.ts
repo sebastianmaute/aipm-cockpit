@@ -21,6 +21,7 @@ import { quoteStep } from "./csv-line-scan";
 export * from "./csv-codecs-sections";
 import { encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
 import { encodeNoteLog, decodeNoteLog } from "./note-log";
+import { decodeRaidEscalations, encodeRaidEscalations } from "./raid-escalation";
 import {
   type CalendarEvent,
   sanitizeCalendarEvent,
@@ -129,6 +130,7 @@ export const RAID_CSV_COLUMNS = [
   "outlookEventId",
   "inquiriesSent",
   "noteLog",
+  "escalations",
 ] as const satisfies readonly (keyof RaidItem)[];
 
 // Columns persisted for Absence items in CSV and Markdown. Order matches
@@ -300,6 +302,7 @@ export function raidFieldToString(r: RaidItem, c: keyof RaidItem): string {
     return Array.isArray(r.stakeholderIds) ? r.stakeholderIds.join("|") : "";
   if (c === "knowledgeLinks") return encodeKnowledgeLinks(r.knowledgeLinks);
   if (c === "noteLog") return encodeNoteLog(r.noteLog);
+  if (c === "escalations") return encodeRaidEscalations(r.escalations);
   return String(r[c] ?? "");
 }
 
@@ -382,6 +385,10 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
     noteLog: (() => {
       const nl = decodeNoteLog(obj.noteLog);
       return nl.length ? nl : undefined;
+    })(),
+    escalations: (() => {
+      const es = decodeRaidEscalations(obj.escalations);
+      return es.length ? es : undefined;
     })(),
   };
 }
