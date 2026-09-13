@@ -100,6 +100,7 @@ import { CORE_INSIGHT_TYPES, detectInsights, type InsightInput } from "./insight
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
 import type { Insight, InsightType } from "./insights/insight";
 import { loadLandingState } from "./landing-state";
+import { keyFactsSnapshot, saveKeyFactsSnapshot } from "./project-key-facts-cache";
 import { loadActualsCache } from "./timelog-actuals-store";
 import { evaluateTimelogPolicy } from "./timelog-policy";
 import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
@@ -1121,6 +1122,10 @@ function TaskManagerInner() {
   // rejects an `obj.member` dep like `learning.bias` / `learning.record`).
   const learnedBias = learning.bias;
   const recordLearning = learning.record;
+  // Same expression as `portfolioCurrentId` below — duplicated here because that
+  // const is declared later in this component, and reading it from this memo
+  // would be a temporal-dead-zone ReferenceError on the first render.
+  const actionProjectId = portfolioMode === "turso" ? tursoProjectId : currentProjectId;
   // Suggested next-actions engine. Reuses comms.items (already computed above)
   // so we don't run getStakeholderCommsItems a second time.
   const nextActions = useMemo(
@@ -1137,6 +1142,8 @@ function TaskManagerInner() {
           commsReminders: comms.items,
           features: settings.features,
           projectName: project?.name ?? "",
+          projectId: actionProjectId ?? undefined,
+          projectMeta: project ?? undefined,
           today,
           now: new Date(),
           reminderLeadDays: effectiveNotifications.reminderLeadDays,
@@ -1159,7 +1166,7 @@ function TaskManagerInner() {
           learnedBias,
         }),
       ),
-    [tasks, raid, changes, milestones, stakeholders, steeringCommittee, dashboardModel, comms.items, settings.features, effectiveNotifications, effectiveNextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
+    [tasks, raid, changes, milestones, stakeholders, steeringCommittee, dashboardModel, comms.items, settings.features, effectiveNotifications, effectiveNextActions, project, actionProjectId, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   // Stakeholder ids with a pending stakeholder-comms next-action. Feeds the
@@ -2108,6 +2115,24 @@ function TaskManagerInner() {
       : [];
   const portfolioCurrentId =
     portfolioMode === "turso" ? tursoProjectId : currentProjectId;
+
+  // Per-device key-fact snapshot for the Projects list's NON-current rows
+  // (spec §5.3). Side-effect-only localStorage write (no setState); `new Date()`
+  // lives in the effect, never the render body; popouts are read-only and must
+  // not mutate device state (mirrors use-landing-delta).
+  // ★★ This relies on React batching `project` and the id into ONE render.
+  // Both switch paths — switchToProject (use-storage-file-ops.ts) and the Turso
+  // switch (use-storage-turso-ops.ts) — call applyWorkspace and then set the new
+  // id in the same synchronous continuation after their last `await`. If an
+  // `await` is ever inserted between those two calls, one render will hold the
+  // NEW project's meta under the OLD id and this effect will file it there
+  // (bounded: reopening that project overwrites it). A registry name/code guard
+  // is NOT a fix: renameProject has no caller, so the registry name does not
+  // follow meta edits and such a guard would block every write after a rename.
+  useEffect(() => {
+    if (isPopout || !project || !portfolioCurrentId) return;
+    saveKeyFactsSnapshot(portfolioCurrentId, keyFactsSnapshot(project, new Date().toISOString()));
+  }, [isPopout, project, portfolioCurrentId]);
 
   // Switch — same navigation target ("New project" → projects view) in both
   // modes; the switch itself routes to the active backend's handler.

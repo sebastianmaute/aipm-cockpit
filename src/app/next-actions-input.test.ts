@@ -58,3 +58,25 @@ describe("confidence field passthrough", () => {
     expect(input.clarityBonus).toBeUndefined();
   });
 });
+
+describe("project key-fact passthrough", () => {
+  const base = {
+    tasks: [], raid: [], changes: [], milestones: [], stakeholders: [],
+    dashboard: {} as never, commsReminders: [], features: [], projectName: "P",
+    today: "2026-09-13", now: new Date("2026-09-13T00:00:00Z"),
+    reminderLeadDays: 0, dueSoonWorkdays: 3, raidReviewIntervalDays: 30,
+  };
+
+  it("passes projectId and projectMeta through", () => {
+    const meta = { name: "P" } as never;
+    const input = buildActionInput({ ...base, projectId: "p1", projectMeta: meta });
+    expect(input.projectId).toBe("p1");
+    expect(input.projectMeta).toBe(meta);
+  });
+
+  it("leaves both undefined when omitted", () => {
+    const input = buildActionInput(base);
+    expect(input.projectId).toBeUndefined();
+    expect(input.projectMeta).toBeUndefined();
+  });
+});

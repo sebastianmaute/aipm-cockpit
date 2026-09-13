@@ -8,7 +8,7 @@ import type { DashboardModel } from "./dashboard";
 import type { StakeholderCommsReminder } from "./stakeholder-comms";
 import type { FeatureModuleId } from "./feature-modules";
 import type { WorkloadAlert } from "./next-actions-workload";
-import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder, SteeringCommittee } from "./types";
+import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder, SteeringCommittee, ProjectMeta } from "./types";
 
 export interface BuildActionInputArgs {
   tasks: readonly Task[];
@@ -41,6 +41,9 @@ export interface BuildActionInputArgs {
   dismissed?: ReadonlySet<string>;
   /** Learned per-kind bias (`${source}:${why.key}` -> points). Off when undefined/empty. */
   learnedBias?: Record<string, number>;
+  /** Current project's id + metadata for the `project-meta` provider. */
+  projectId?: string;
+  projectMeta?: ProjectMeta;
 }
 
 export function buildActionInput(a: BuildActionInputArgs): ActionInput {
@@ -74,5 +77,7 @@ export function buildActionInput(a: BuildActionInputArgs): ActionInput {
     staticPenalty: a.staticPenalty,
     dismissed: a.dismissed ?? new Set<string>(),
     learnedBias: a.learnedBias,
+    projectId: a.projectId,
+    projectMeta: a.projectMeta,
   };
 }
