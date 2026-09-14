@@ -143,6 +143,23 @@ describe("BrowserBackend parallel IDB save/load", () => {
     expect(loaded.milestones?.[0].description).toBe("<p>gate &lt;b&gt;2&lt;/b&gt;</p>");
   });
 
+  // Spec Part 2: this backend casts its record arrays without a sanitizer, so
+  // the Name <addr> normaliser runs here explicitly.
+  it("unwraps a stored Name <addr> email on load, and leaves a plain one alone", async () => {
+    const ws = {
+      ...emptyWorkspace(),
+      raid: [
+        { ...raidItem, ownerEmail: "Ann <ann@x.com>" } as unknown as RaidItem,
+        { ...raidItem, id: 8, ownerEmail: "bob@x.com" } as unknown as RaidItem,
+      ],
+    };
+    await new BrowserBackend().save(ws);
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.raid.find((r) => r.id === 7)?.ownerEmail).toBe("ann@x.com");
+    expect(loaded.raid.find((r) => r.id === 8)?.ownerEmail).toBe("bob@x.com");
+  });
+
   it("strips live markup from already-rich stored rich fields on load", async () => {
     const ws = {
       ...emptyWorkspace(),

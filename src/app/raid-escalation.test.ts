@@ -113,6 +113,15 @@ describe("sanitizeRaidEscalations — drops an entry whose toEmail carries \"<\"
   });
 });
 
+describe("sanitizeRaidEscalations — unwraps Name <addr> before judging it (spec Part 2, Ruling Q5)", () => {
+  it("keeps the entry carrying the bare address", () => {
+    expect(sanitizeRaidEscalations([{ ...NOTIFY, toEmail: "Ops Team <ops@example.com>" }])).toEqual([NOTIFY]);
+  });
+  it("still drops a Name <addr> whose inner address is not write-safe", () => {
+    expect(sanitizeRaidEscalations([{ ...NOTIFY, toEmail: "Ops <nope>" }, NOTIFY])).toEqual([NOTIFY]);
+  });
+});
+
 describe("lastEscalation", () => {
   it("returns the newest (last) entry", () => {
     expect(lastEscalation({ escalations: [RAISED, NOTIFY] })).toEqual(NOTIFY);

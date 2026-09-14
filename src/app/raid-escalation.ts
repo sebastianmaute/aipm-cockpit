@@ -16,7 +16,7 @@
 //   `stripBreakTags` stay as defence in depth: an address or name holding
 //   `<`/`>` has no legitimate use here, whatever the codec layer now tolerates.
 // ★ `isEscalationEmail` is the LOAD predicate; writers use `isEscalationWriteEmail`.
-import { isValidEmail, isWriteSafeEmail } from "./sanitize-core";
+import { isValidEmail, isWriteSafeEmail, normalizeEmailShape } from "./sanitize-core";
 import { RAID_SEVERITIES, type RaidEscalation, type RaidItem, type RaidSeverity } from "./types";
 
 /** Newest entries win when a hand-edited file carries more than this. */
@@ -107,7 +107,8 @@ function sanitizeEntry(raw: unknown): RaidEscalation | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const o = raw as Record<string, unknown>;
   const at = typeof o.at === "string" && !Number.isNaN(Date.parse(o.at)) ? o.at.slice(0, AT_MAX) : "";
-  const toEmail = typeof o.toEmail === "string" ? o.toEmail.trim().slice(0, EMAIL_MAX) : "";
+  // Ruling Q5: Name <addr> is unwrapped BEFORE isEscalationEmail judges it.
+  const toEmail = typeof o.toEmail === "string" ? normalizeEmailShape(o.toEmail.trim()).slice(0, EMAIL_MAX) : "";
   // isEscalationEmail, not a bare "@" check: rejects a malformed address AND
   // one holding "<"/">" (§515 defence in depth — mirrors the `toName` bracket
   // rejection in `requireEscalationRecipient` above). Deliberate: every writer

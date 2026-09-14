@@ -28,6 +28,7 @@ import {
   hardDeleteProject as portfolioHardDelete,
 } from "./turso-portfolio";
 import { writeSettings } from "./use-settings";
+import { summarizeUnsafeEmailRecords } from "./sanitize";
 import { logDiag } from "./diagnostics";
 import type { TruncationOps } from "./use-load-truncation";
 
@@ -133,6 +134,8 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       deps.setTursoProjectId(id);
       saveCurrentTursoProjectId(id);
       deps.showToast("info", t(deps.langRef.current, "projectCreatedToast", meta.name));
+      const seededEmails = opts.template || opts.aiSeed ? summarizeUnsafeEmailRecords(ws) : null; // template or AI import seed only
+      if (seededEmails) deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
     } catch (err) {
       // Create aborted before applyWorkspace reseeded — roll the minter back so
       // the still-active old project doesn't lose its high-water marks (which

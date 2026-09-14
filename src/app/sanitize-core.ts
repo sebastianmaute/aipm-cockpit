@@ -107,6 +107,55 @@ export function findTornEmail(
   return undefined;
 }
 
+// --- Email load clean-up (spec Part 2) --------------------------------------
+
+const NAME_ADDRESS_RE = /^[^<>]*<([^<>]+)>$/;
+
+/** ★ LOAD-SIDE ONLY, and only a provably equivalent shape: a scalar
+ *  `Name <addr>` whose inner `addr` is `isWriteSafeEmail` becomes `addr`.
+ *  Anything else — including `Name <a,b@x.com>` — is returned UNCHANGED, so a
+ *  load never refuses, drops or rewrites a value it cannot prove equal. */
+export function normalizeEmailShape(value: string): string {
+  const match = NAME_ADDRESS_RE.exec(value.trim());
+  if (!match) return value;
+  const inner = match[1].trim();
+  return isWriteSafeEmail(inner) ? inner : value;
+}
+
+/** The list form, for `Resource.emails`: each member is unwrapped as above,
+ *  and a member holding several addresses splits into separate members only
+ *  when EVERY part is write-safe. */
+export function normalizeEmailListShape(list: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const member of list) {
+    const scalar = normalizeEmailShape(member);
+    if (scalar !== member) { out.push(scalar); continue; }
+    const parts = member.split(/[;,]/).map((p) => normalizeEmailShape(p.trim())).filter((p) => p !== "");
+    if (parts.length > 1 && parts.every(isWriteSafeEmail)) out.push(...parts);
+    else out.push(member);
+  }
+  return out;
+}
+
+/** Row helper for load paths that cast rows instead of sanitizing them
+ *  (IndexedDB, the JSON RAID map). Same reference when nothing changes. */
+export function withNormalizedEmailField<T extends object>(row: T, field: keyof T & string): T {
+  const value = (row as Record<string, unknown>)[field];
+  if (typeof value !== "string") return row;
+  const next = normalizeEmailShape(value);
+  return next === value ? row : { ...row, [field]: next };
+}
+
+/** `withNormalizedEmailField` for a resource's `email` + `emails` pair. */
+export function withNormalizedResourceEmails<T extends { email?: string; emails?: string[] }>(row: T): T {
+  const email = typeof row.email === "string" ? normalizeEmailShape(row.email) : row.email;
+  const emails = Array.isArray(row.emails) ? normalizeEmailListShape(row.emails) : row.emails;
+  const emailsSame = emails === row.emails || (Array.isArray(emails) && Array.isArray(row.emails)
+    && emails.length === row.emails.length && emails.every((e, i) => e === row.emails![i]));
+  if (email === row.email && emailsSame) return row;
+  return { ...row, email, emails };
+}
+
 // --- Generic helpers -------------------------------------------------------
 
 /**

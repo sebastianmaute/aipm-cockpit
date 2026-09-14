@@ -1045,6 +1045,7 @@ const enUS = {
   templateApplyReplacesFv: "Applying replaces this project's field-visibility and functions.",
   templateApplyAction: "Apply",
   templateApplied: "Template applied",
+  importUnsafeEmailsNotice: "Imported records with an invalid email address ({0}): {1}",
   templateSaved: "Template saved",
   templateSuggested: "Suggested",
   suggestSignalTeam: "{0} people",

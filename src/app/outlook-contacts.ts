@@ -7,7 +7,8 @@
 
 import type { Resource } from "./types";
 import { mintId } from "./id-mint-session";
-import { sanitizeEmail } from "./sanitize";
+import { isWriteSafeEmail, normalizeEmailShape, sanitizeEmail } from "./sanitize";
+import { logDiag } from "./diagnostics";
 
 /** Raw Graph /me/contacts item — the subset we $select. */
 export interface GraphContact {
@@ -66,7 +67,11 @@ export function mapGraphContact(
   raw: GraphContact,
   index: number,
 ): OutlookContact | null {
-  const email = normEmail(sanitizeEmail(raw.emailAddresses?.[0]?.address ?? ""));
+  // Spec Part 2: an address that is not write-safe after normalising is dropped;
+  // the contact is kept and the diagnostic names its source id, never the address.
+  const synced = normEmail(normalizeEmailShape(sanitizeEmail(raw.emailAddresses?.[0]?.address ?? "")));
+  const email = synced === "" || isWriteSafeEmail(synced) ? synced : "";
+  if (email !== synced) logDiag("warn", "outlook.contactEmailDropped", { sourceId: clean(raw.id) ?? `graph-${index}`, field: "email" });
   let firstName = clean(raw.givenName) ?? "";
   let lastName = clean(raw.surname) ?? "";
   const displayRaw = clean(raw.displayName);

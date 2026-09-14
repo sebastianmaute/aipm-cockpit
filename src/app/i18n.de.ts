@@ -980,6 +980,7 @@ export const de: Record<TranslationKey, string> = {
   templateApplyReplacesFv: "Das Anwenden ersetzt die Feldsichtbarkeit und Funktionen dieses Projekts.",
   templateApplyAction: "Anwenden",
   templateApplied: "Vorlage angewendet",
+  importUnsafeEmailsNotice: "Importierte Einträge mit ungültiger E-Mail-Adresse ({0}): {1}",
   templateSaved: "Vorlage gespeichert",
   templateSuggested: "Empfohlen",
   suggestSignalTeam: "{0} Personen",

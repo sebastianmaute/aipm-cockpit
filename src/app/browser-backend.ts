@@ -5,7 +5,7 @@
 // storage.ts (which re-exports everything).
 
 import { defaultResourcePlan } from "./resource-foundation";
-import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
+import { sanitizeProjectMeta, sanitizeSteeringCommittee, withNormalizedEmailField, withNormalizedResourceEmails } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
@@ -372,6 +372,14 @@ export class BrowserBackend implements StorageBackend {
     raid = raid.map(sanitizeRaidRichFields);
     changes = changes.map(sanitizeChangeRichFields);
     milestones = milestones.map(sanitizeMilestoneRichFields);
+    // Spec Part 2: this backend casts these arrays WITHOUT a record sanitizer,
+    // so the email-shape normaliser the other five paths get from their
+    // sanitizers runs here explicitly. It only unwraps `Name <addr>`.
+    absences = absences.map((a) => withNormalizedEmailField(a, "assigneeEmail"));
+    shifts = shifts.map((s) => withNormalizedEmailField(s, "assigneeEmail"));
+    raid = raid.map((r) => withNormalizedEmailField(r, "ownerEmail"));
+    stakeholders = stakeholders.map((s) => withNormalizedEmailField(s, "email"));
+    resources = resources.map((r) => withNormalizedResourceEmails(r));
     const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders };
     if (project) raw.project = project;
     if (fieldVisibility) raw.fieldVisibility = fieldVisibility;

@@ -42,6 +42,7 @@ import {
   decodeRaciMap,
   serializeDependencies,
   fkIdOrUndefined,
+  normalizeEmailShape,
 } from "./sanitize";
 import {
   type Absence,
@@ -365,7 +366,7 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
     impact,
     status,
     owner: obj.owner || undefined,
-    ownerEmail: obj.ownerEmail || undefined,
+    ownerEmail: normalizeEmailShape(obj.ownerEmail ?? "") || undefined,
     ownerResourceId: fkIdOrUndefined(obj.ownerResourceId),
     mitigation: obj.mitigation || undefined,
     linkedTaskIds: parseLinkedTaskIds(obj.linkedTaskIds),

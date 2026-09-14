@@ -42,6 +42,8 @@ import {
   sanitizeMultiline,
   sanitizeAssignee,
   sanitizeEmail,
+  normalizeEmailShape,
+  normalizeEmailListShape,
   sanitizeNotes,
   sanitizeIsoDate,
   fkIdOrUndefined,
@@ -92,7 +94,7 @@ export function sanitizeAbsence(input: unknown): Absence | null {
     assignee,
     assigneeEmail:
       typeof raw.assigneeEmail === "string"
-        ? sanitizeEmail(raw.assigneeEmail) || undefined
+        ? normalizeEmailShape(sanitizeEmail(raw.assigneeEmail)) || undefined
         : undefined,
     startDate: start,
     endDate: end,
@@ -180,7 +182,7 @@ export function sanitizeShift(input: unknown): Shift | null {
     assignee,
     assigneeEmail:
       typeof raw.assigneeEmail === "string"
-        ? sanitizeEmail(raw.assigneeEmail) || undefined
+        ? normalizeEmailShape(sanitizeEmail(raw.assigneeEmail)) || undefined
         : undefined,
     hoursPerWeekday,
     note: sanitizeNotes(raw.note) || undefined,
@@ -374,9 +376,11 @@ export function sanitizeResource(input: unknown): Resource | null {
     utilizationMode: mode,
     utilization,
   };
-  const email = typeof input.email === "string" ? sanitizeEmail(input.email) || undefined : undefined;
+  const email = typeof input.email === "string" ? normalizeEmailShape(sanitizeEmail(input.email)) || undefined : undefined;
   if (email) resource.email = email;
-  const emails = sanitizeEmailList(input.emails, email);
+  // The second pass dedupes and caps what the normaliser split (spec Part 2);
+  // `sanitizeEmailList` itself is unchanged.
+  const emails = sanitizeEmailList(normalizeEmailListShape(sanitizeEmailList(input.emails, email)), email);
   if (emails.length > 0) resource.emails = emails;
   const title = optText(input.title); if (title) resource.title = title;
   const phone = optText(input.businessPhone); if (phone) resource.businessPhone = phone;
