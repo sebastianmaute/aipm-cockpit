@@ -755,6 +755,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§530](#530-there-is-no-microsoft-teams-integration-the-remaining-microsoft-365-gap--open) | There is no Microsoft Teams integration, the remaining Microsoft 365 gap — OPEN | AI PM Cockpit demo 2026-09-11 (P-8), GitLab #74; mirrored into the register 2026-09-13 | L — new Graph scopes, likely admin consent, then channel posts, online meetings and chat links | open |
 | [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--closed-2026-09-13) | Nothing checks that the register and GitLab issues stay one-to-one — CLOSED 2026-09-13 | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | **CLOSED** 2026-09-13 |
 | [§532](#532-two-projects-without-a-code-look-like-the-same-project-to-the-timelog-picker--open) | Two projects without a code look like the same project to the TimeLog picker — OPEN | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | open |
+| [§533](#533-csv-markdown-and-turso-split-a-stored-email-address-containing-a-comma-or-semicolon-on-save--open) | CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — OPEN | found 2026-09-14 in the cold review of the data-loss batch, measured by a codec round-trip probe; GitLab #323 | S–M — a quote-aware join for the `emails` cell, or a one-time migration | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -37175,3 +37176,28 @@ tests, which that MR does not otherwise touch.
 
 Related: §521 (project creation from a name alone — closed by the same MR, which is what makes a blank code
 the normal state).
+
+## 533. CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — OPEN
+
+**Status:** open 2026-09-14 — measured by a vite-node round trip over the real codecs (a scratchpad probe,
+not committed). JSON and IndexedDB keep a stored `["a,b@x.com"]` as is, while CSV, Markdown and Turso return
+`["a","b@x.com"]`. The same holds for `";"`: `["a;b@x.com"]` comes back as `["a","b@x.com"]` from the three
+text backends. The two halves of the cause were re-checked the same day with
+`grep -n "input.split(/\[;,\]/)" src/app/sanitize-entities.ts` (the split) and
+`grep -n 'case "emails"' src/app/csv-codecs-core.ts` (the `"; "` join).
+
+**Work item:** #323
+
+**Cause.** The three text backends store `resource.emails` as one cell. `resourceFieldToString` joins the list
+with `"; "`, and on the way back `sanitizeResource` hands that cell to `sanitizeEmailList`, which splits any
+string on `[;,]`. An address that itself holds `,` or `;` therefore comes back as two addresses. JSON keeps the
+array, and IndexedDB stores the object by structured clone without a decode step, so neither splits.
+
+**Relation to §422.** §422 stops NEW such addresses at every write boundary through one rule, `findTornEmail`.
+It cannot repair an address that is already stored: a row loaded from JSON or IndexedDB can still carry one,
+and the first save to CSV, Markdown or Turso tears it with no edit involved.
+
+**Options, deliberately left open.**
+- A quote-aware join and split for the `emails` cell, so a delimiter inside an address survives. The decoder
+  must still read every cell written before the change.
+- A one-time migration that finds stored addresses holding `,` or `;` and asks the user to correct them.
