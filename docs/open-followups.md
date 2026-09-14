@@ -499,7 +499,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§270](#270-two-contacts-sharing-a-name-give-two-identically-named-remove-buttons--a-question-not-a-defect--closed-2026-08-28) | Two contacts sharing a name give two identically-named remove buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-08-28 |
 | [§271](#271-collectionspecnamefield-is-an-unchecked-string-so-a-spec-can-still-name-a-field-no-record-carries--the-last-known-instance-fixed-2026-08-31--closed-2026-08-31) | `CollectionSpec.nameField` is an unchecked string, so a spec can still name a field no record carries — the last known instance FIXED 2026-08-31 | pre-existing, found 2026-08-26 | M | **CLOSED** 2026-08-31 |
 | [§272](#272-task-managertsx-sits-exactly-at-its-file-size-baseline-so-the-next-line-added-to-it-fails-ci--closed-2026-08-28) | `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI | found 2026-08-26 | S | **CLOSED** 2026-08-28 |
-| [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual) | Gantt numbers rows the chart may not render — the `!bar` residual | found 2026-08-28 | S | open |
+| [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual--closed-2026-09-14) | Gantt numbers rows the chart may not render — the `!bar` residual — CLOSED 2026-09-14 | found 2026-08-28 | S | **CLOSED** 2026-09-14 |
 | [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | open |
 | [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | open |
 | [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 | scan 2026-08-28 | L | **CLOSED** 2026-08-31 |
@@ -22317,8 +22317,10 @@ map — `grep -n "aria-label" src/app/gantt-rows.tsx` now returns five lines, ev
 
 ★★ **DISCLOSED RESIDUAL, deliberately not claimed closed:** `gantt-chart.tsx` drops any task whose
 bar is null, so a row numbered "(2)" can render while the "(1)" it is numbered against is off screen.
-It has its own number — see [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual)
+It has its own number — see [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual--closed-2026-09-14)
 — and the comment at the token `useMemo` in `gantt.tsx` says the same thing at the call site.
+★ 2026-09-14: §273 is closed, and that comment is gone. The task-row skip named above never fired
+from `GanttPanel`; the live case was a milestone whose date does not parse. See §273's closure.
 
 ```bash
 grep -n "aria-label" src/app/gantt-rows.tsx
@@ -22724,13 +22726,54 @@ it is pure UI glue added to `coverage.exclude`), and it is not a claim this regi
 are load-bearing — the pointer §254 leans on lives in exactly the block that was almost cut for
 space — so buying a line by deleting one trades a permanent loss of context for a temporary line.
 
-## 273. Gantt numbers rows the chart may not render — the `!bar` residual
+## 273. Gantt numbers rows the chart may not render — the `!bar` residual — CLOSED 2026-09-14
 
-**Status:** open — a disclosed RESIDUAL of
-[§267](#267-gantt-task-and-milestone-name-buttons-take-their-accessible-name-from-content--closed-2026-08-28), filed
-2026-08-28 rather than left inside a closed entry. Small, and deliberately not fixed. Never machine-verified by a committed probe.
+**Status:** CLOSED 2026-09-14 on `fix/ui-residuals-batch`. The rendered row set is now decided ONCE
+and fed to both the row-token map and the chart, which is the fix this entry prescribed. Each
+`GanttRow` carries the geometry it is drawn with (`PlacedTask` = a task and its bar,
+`PlacedMilestone` = a milestone and its parsed date, both in `gantt-engine.ts`), and
+`buildGanttRows` takes those pairs, so a row that cannot be drawn cannot be built. The two decisions
+live in `gantt.tsx`: the `visible` memo leaves out a task with no bar (its existing
+`if (!bar) continue`), and the new `placedMilestones` memo leaves out a milestone whose date does not
+parse. `gantt-chart.tsx` no longer looks a bar up or skips a task row, and `GanttMilestoneRow` takes
+the carried `date` instead of re-parsing `m.date` and returning null. The `KNOWN RESIDUAL` comment at
+the token `useMemo` is replaced by a pointer to the two memos.
 
-**Work item:** #214
+★★ **What the fix found, and it corrects this entry.** The `if (!bar) return null` this entry names
+could never fire from `GanttPanel`: `visible` already dropped every bar-less task against the same
+`allBars` map the chart read, and that `continue` dates from the initial commit
+(`git log -S"if (!bar) continue;" -- src/app/gantt.tsx`). The LIVE instance was in the milestone
+row, which the entry did not mention: `GanttMilestoneRow` returned null when `parseISO(m.date)`
+failed, while `buildGanttRows` still made that milestone a row and the token map numbered it. That
+is reachable from stored data: `sanitizeIsoDate` checks only the `YYYY-MM-DD` shape and the year, so
+"2026-13-01" survives load and then fails `parseISO`. The entry's "a row has no bar when its dates
+do not resolve into the visible window" was also wrong: bars are not clipped to the window, and a
+task has no bar when its `dueDate` does not parse (`deriveBar`).
+
+Pinned by `gantt.test.tsx` "GanttPanel row-unique accessible names": "§273: does not number a
+milestone against a same-named milestone the chart cannot draw", "§273: does not number a task
+against a same-named milestone the chart cannot draw", "§273: does not number a task against a
+same-named task that has no bar" and "§273: numbers the drawn twins from (1) when a bar-less twin
+precedes them"; and by `gantt-chart.test.tsx` "GanttChart row set (§273)", which hands the chart an
+empty `bars` map and a milestone whose own `date` string does not parse, with valid geometry on each
+row, so a chart or row that decides again from its own source drops the row. Against the unfixed code
+the two milestone tests and the chart test failed (`Tests 3 failed | 52 passed (55)`; the base
+rendered "M1 (1)" and "Sync (1)"), and the two task-twin tests passed, as the finding above predicts.
+Mutation-checked, each restored after: building the token map over the unfiltered `tasks` and
+`sortedMilestones` turned all four panel tests red (`Tests 4 failed | 50 passed (54)`); restoring the
+chart's `bars.get` lookup and skip turned the chart test red and left every panel test green
+(`Tests 1 failed | 54 passed (55)`), which is why the chart test exists; restoring the milestone
+row's `parseISO(m.date)` null return turned the chart test red (`Tests 1 failed | 60 passed (61)`);
+and keeping an unparseable-date milestone in `placedMilestones` (with a stand-in date) turned the two
+milestone panel tests red (`Tests 2 failed | 53 passed (55)`).
+
+★ Residuals, stated honestly. `GanttDependencyLayer` (`gantt-chrome.tsx`) still parses `m.date` and
+skips a milestone connector when it fails. It is fed `visibleMilestones`, now derived from
+`placedMilestones`, so that branch no longer fires, and it draws connectors, not named controls, so it
+cannot misnumber anything. Leaving an undrawable milestone out of `rows` also means it no longer
+takes a row index or counts toward `totalRowsCount`, which it used to do while drawing nothing. That
+is reasoned from the code, not measured by a test. The axe e2e run was not repeated locally (CI only),
+and by `docs/AGENTS/accessibility.md` it cannot see duplicate names anyway.
 
 `gantt.tsx` builds ONE row-token map over the interleaved `rows` list, which is correct — it is the
 order the user navigates. `gantt-chart.tsx` then drops any task whose derived bar is null
