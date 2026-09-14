@@ -668,11 +668,11 @@ export function describeEntityCalls(
         //  so seven of the eight descriptors want the default and must keep it.
         //  `sanitizeCalendarEvent` calls `isoDateOrUndefined` instead (regex +
         //  `Date.parse`, NO year bound, against the default's regex + calendar
-        //  check + 1900–2100). Before §539 the two disagreed in BOTH directions
-        //  (`startDate: "2026-01-32"` previewed as accepted, then threw in
-        //  `updateCalendarEvent` and cost the WHOLE patch); since §539 both
-        //  refuse an impossible day, and only `"1899-12-31"` still differs: it
-        //  previews as REJECTED and lands. See `EntityDescriptor.acceptsDate`.
+        //  check + 1900–2100). §539 closed the field-range overflow direction
+        //  (`"2026-01-32"`, which used to preview as accepted then throw in
+        //  `updateCalendarEvent`). Two directions still differ: the year bound
+        //  (`"1899-12-31"` still lands), and a month-specific overflow
+        //  (`"2026-02-30"`) this rule refuses but the writer still accepts.
         if (d.dateFields.has(f) && after !== "" && !(d.acceptsDate ?? defaultAcceptsDate)(after)) { bad(`${f}=${after}`); continue; }
         // ★★ A THROW ON APPLY COSTS THE WHOLE PATCH, not just this field. Every
         // email field's writer now throws through `refuseEmailWrite` (changed-

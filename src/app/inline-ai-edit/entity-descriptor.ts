@@ -225,8 +225,12 @@ export interface EntityDescriptor {
    *   ways: `startDate: "2026-01-32"` previewed as an accepted change and then
    *   made the sanitizer return null, which `updateCalendarEvent` throws on —
    *   costing the whole patch, every other field in the edit with it; and
-   *   `"1899-12-31"` previewed as REJECTED and landed. ★ Since §539 both rules
-   *   refuse an impossible day, so only the year-bound direction still differs.
+   *   `"1899-12-31"` previewed as REJECTED and landed. ★ §539 closed the
+   *   field-range overflow direction (day > 31 / month > 12, e.g.
+   *   `"2026-01-32"`) — both rules now refuse it. Two directions still differ:
+   *   the year bound, and a month-specific overflow (`"2026-02-30"`) that
+   *   `sanitizeIsoDate` refuses but `isoDateOrUndefined` still accepts and
+   *   rolls over (`Date.parse` succeeds on it).
    *
    *  ★★ THE WRITER'S OWN PREDICATE, IMPORTED, never a re-spelling (§405) — same
    *   contract as `numericFields`' `acceptsEventDuration` beside it, and the
@@ -869,7 +873,9 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // See `acceptsDate`. ★★ THE ONE ENTITY THAT NEEDS IT: this sanitizer calls
     // `isoDateOrUndefined` (regex + `Date.parse`, no year bound), NOT the
     // `sanitizeIsoDate` (regex + calendar check + 1900–2100) the preview
-    // defaults to — and the two disagree on the year bound.
+    // defaults to — and the two still disagree on the year bound, and on a
+    // month-specific overflow ("2026-02-30") this rule refuses but the
+    // writer still accepts.
     acceptsDate: acceptsEventDate,
     // ★★ AN ACCEPTANCE PREDICATE OVER THE RAW VALUE, and the reason it is not
     //  merely a range: the writer CLAMPS rather than refuses — `intInRange`

@@ -3990,21 +3990,21 @@ Rerun Step 1's command; Expected EXIT=0, `Test Files 4 passed (4)`.
 
 - [ ] **Step 3: Sweep the docstrings the fix falsifies**
 
-Each currently says `sanitizeIsoDate` is "regex + a 1900–2100 year bound and nothing else" / "no calendar check". After §539 the two date rules still diverge in ONE direction only (`isoDateOrUndefined` has no year bound); the calendar check now exists on both.
-- `entity-descriptor.ts` `acceptsDate` docstring: replace "The default is `sanitizeIsoDate(v) === v` — regex + a 1900–2100 year bound and nothing else — which is exactly what `sanitizeAbsence` calls" with "The default is `sanitizeIsoDate(v) === v` — regex, a real calendar date (§539) and a 1900–2100 year bound — which is exactly what `sanitizeAbsence` calls", and after "and `\"1899-12-31\"` previewed as REJECTED and landed." add "★ Since §539 both rules refuse an impossible day, so only the year-bound direction still differs."
-- `entity-descriptor.ts` calendarEvent comment: `\`sanitizeIsoDate\` (regex + 1900–2100, no calendar check)` → `\`sanitizeIsoDate\` (regex + calendar check + 1900–2100)`, and "the two disagree in BOTH directions" → "the two disagree on the year bound".
-- `calendar-event.ts` `acceptsEventDate` docstring: "`sanitizeIsoDate` (sanitize-core.ts) is regex + a 1900–2100 year bound and nothing else" → "`sanitizeIsoDate` (sanitize-core.ts) is regex + a calendar check (§539) + a 1900–2100 year bound", and add after the `"1899-12-31"` sentence: "★ The `\"2026-01-32\"` direction was closed at the source by §539; the year-bound direction is why this override remains."
+Each currently says `sanitizeIsoDate` is "regex + a 1900–2100 year bound and nothing else" / "no calendar check". §539 gives `sanitizeIsoDate` a real `Date.UTC` calendar check, but that check only closes the FIELD-RANGE overflow direction (day > 31 / month > 12, e.g. `"2026-01-32"`) — `isoDateOrUndefined` (`Date.parse`) already refused those too. Two directions still differ: the year bound (`isoDateOrUndefined` has none), and a MONTH-SPECIFIC overflow such as `"2026-02-30"` or `"2026-04-31"`, which `sanitizeIsoDate` now refuses but `Date.parse` still silently rolls over (accepts) — so `isoDateOrUndefined` still accepts it. ★ Do not write "only the year-bound direction still differs" — that overclaims; a first pass at this correction did, in two source files, and was caught in review.
+- `entity-descriptor.ts` `acceptsDate` docstring: replace "The default is `sanitizeIsoDate(v) === v` — regex + a 1900–2100 year bound and nothing else — which is exactly what `sanitizeAbsence` calls" with "The default is `sanitizeIsoDate(v) === v` — regex, a real calendar date (§539) and a 1900–2100 year bound — which is exactly what `sanitizeAbsence` calls", and after "and `\"1899-12-31\"` previewed as REJECTED and landed." add "★ §539 closed the field-range overflow direction (day > 31 / month > 12, e.g. `\"2026-01-32\"`) — both rules now refuse it. Two directions still differ: the year bound, and a month-specific overflow (`\"2026-02-30\"`) that `sanitizeIsoDate` refuses but `isoDateOrUndefined` still accepts and rolls over (`Date.parse` succeeds on it)."
+- `entity-descriptor.ts` calendarEvent comment: `\`sanitizeIsoDate\` (regex + 1900–2100, no calendar check)` → `\`sanitizeIsoDate\` (regex + calendar check + 1900–2100)`, and "the two disagree in BOTH directions" → "the two still disagree on the year bound, and on a month-specific overflow (\"2026-02-30\") this rule refuses but the writer still accepts".
+- `calendar-event.ts` `acceptsEventDate` docstring: "`sanitizeIsoDate` (sanitize-core.ts) is regex + a 1900–2100 year bound and nothing else" → "`sanitizeIsoDate` (sanitize-core.ts) is regex + a calendar check (§539) + a 1900–2100 year bound", and add after the `"1899-12-31"` sentence: "★ The `\"2026-01-32\"` direction was closed at the source by §539; the year-bound direction is why this override remains." This wording is already precise — it names the year bound as A reason the override remains, never claims it is the ONLY one — so it needs no further correction.
 - `plan.ts`: "Match the sanitizer EXACTLY — sanitizeIsoDate is format + year-range (1900-2100)" → "Match the sanitizer EXACTLY — sanitizeIsoDate is format + real calendar date + year-range (1900-2100)".
 - `plan.ts`, the same comment block (pre-flight M6): the seven lines from `//  \`sanitizeCalendarEvent\` calls \`isoDateOrUndefined\` instead (regex +` through `//  REJECTED and landed. See \`EntityDescriptor.acceptsDate\`.` still say the default rule is "regex + 1900–2100 and nothing else" and that the two rules "disagree in BOTH directions". Replace them with these seven lines (same 8-space indent, so the file stays line-neutral):
 
 ```ts
         //  `sanitizeCalendarEvent` calls `isoDateOrUndefined` instead (regex +
         //  `Date.parse`, NO year bound, against the default's regex + calendar
-        //  check + 1900–2100). Before §539 the two disagreed in BOTH directions
-        //  (`startDate: "2026-01-32"` previewed as accepted, then threw in
-        //  `updateCalendarEvent` and cost the WHOLE patch); since §539 both
-        //  refuse an impossible day, and only `"1899-12-31"` still differs: it
-        //  previews as REJECTED and lands. See `EntityDescriptor.acceptsDate`.
+        //  check + 1900–2100). §539 closed the field-range overflow direction
+        //  (`"2026-01-32"`, which used to preview as accepted then throw in
+        //  `updateCalendarEvent`). Two directions still differ: the year bound
+        //  (`"1899-12-31"` still lands), and a month-specific overflow
+        //  (`"2026-02-30"`) this rule refuses but the writer still accepts.
 ```
 
 Then `npm run src:symbols:check > "$LOG/srcsym.log" 2>&1; echo "EXIT=$?"` (report only) and confirm no new finding names these files.
