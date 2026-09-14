@@ -49,13 +49,10 @@
 // way, with `AppModals` refusing to render `ResourceEditModal` in a popout at
 // all (open-followups §90, every route pinned below).
 //
-// ★★ A THIRD unguarded path, same class, also still open: `onCaptureRaidBulk` /
-// `onCaptureUndo` / `onCaptureFieldEdit` are unwrapped and `useUndoHotkey` is
-// mounted unconditionally, while only the visible undo BUTTON is popout-gated.
-// So a RAID popout can bulk-apply (capturing a real undo entry while every
-// per-row save is guarded away), then Ctrl+Z restores it — an unguarded write
-// reachable through an affordance that is invisible. Same popout-local blast
-// radius as the above. Not fixed here; a gate on the hotkey is the likely fix.
+// ★★ The undo stack itself is now read-only in a popout (§91): `useUndoStack`
+// takes `isReadOnly`, so a popout capture pushes nothing and shows no Undo toast,
+// and Ctrl+Z / undoThrough / redoThrough run nothing. Pinned below. (An earlier
+// revision called the affordance invisible; the Undo toast was visible.)
 //
 // ★ This rationale lives HERE and not at the call site because
 // `task-manager.tsx` is on the file-size ratchet (baselined at 2972 lines);
@@ -65,9 +62,10 @@
 // "The current testing environment is not configured to support act(...)" to
 // stderr on every call, which is exactly the noise that teaches people to stop
 // reading stderr.
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
+import { t } from "./i18n";
 
 const { commitSpy } = vi.hoisted(() => ({ commitSpy: vi.fn() }));
 
@@ -206,5 +204,34 @@ describe("popout read-only guard — resource creation (open-followups §90)", (
     const onEditResource = captured.props!.onEditResource as (r: unknown) => void;
     act(() => onEditResource(ADA));
     expect(capturedModals.props!.editingResource ?? null).toBeNull();
+  }, 45000);
+});
+
+describe("popout read-only guard — undo capture (open-followups §91)", () => {
+  const capture = () => (captured.props!.onCaptureUndo as (o: unknown) => void)({
+    setter: vi.fn(), kind: "task.deleted", removed: [{ id: 1 }], fromArray: [{ id: 1 }],
+  });
+  // ★★ Assert on the TOAST, never on a bare "Undo" button: the main window also
+  //  renders the header undo control (`undoControlEl`), so a page-wide
+  //  `getByRole("button", { name: "Undo" })` could pass with no toast at all.
+  //  The toast is the REAL one — `app-modals.tsx` renders `{toast && <div
+  //  role="status">…}` with the action button, and Task 7's AppModals capture
+  //  renders through (pre-flight C2). `task.deleted` is a delete kind, so the
+  //  text is `undoToastDelete`.
+  const toastText = () => t("en-US", "undoToastDelete", 1);
+
+  it("main window: a capture shows the Undo toast (positive control)", async () => {
+    await mountAt("/");
+    act(() => capture());
+    const text = await screen.findByText(toastText());
+    const region = text.closest('[role="status"]') as HTMLElement | null;
+    expect(region).not.toBeNull();
+    expect(within(region!).getByRole("button", { name: /undo/i })).toBeInTheDocument();
+  }, 45000);
+
+  it("popout: a capture records nothing and shows no Undo toast", async () => {
+    await mountAt("/?popout=raid");
+    act(() => capture());
+    expect(screen.queryByText(toastText())).toBeNull();
   }, 45000);
 });

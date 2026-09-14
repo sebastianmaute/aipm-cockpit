@@ -211,9 +211,9 @@ function TaskManagerInner() {
   // `use-document-assets.ts` use for the same one. Moving the `useUndoStack` call
   // down instead would also move `useUndoHotkey`'s listener registration relative
   // to the other hotkey hooks.
-  const allowDestructiveSaveRef = useRef<(() => void) | undefined>(undefined);
-  const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
-  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo });
+  const allowDestructiveSaveRef = useRef<(() => void) | undefined>(undefined); const isPopoutRef = useRef(false);
+  const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []); const readOnlyForUndo = useCallback(() => isPopoutRef.current, []);
+  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo, isReadOnly: readOnlyForUndo });
   useUndoHotkey(undoApi.undo, undoApi.redo);
   // ★★★ ONE INSTANCE, TWO CONSUMERS, AND THEY MUST BE THE SAME ONE. `.undo`
   // goes in as the chat dispatcher's `undo` prop (below) so the fourteen AI
@@ -479,7 +479,7 @@ function TaskManagerInner() {
 
   // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
   // that re-removes rows can arm the one-shot destructive-save bypass (§295).
-  useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; }, [allowDestructiveSave]);
+  useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; isPopoutRef.current = isPopout; }, [allowDestructiveSave, isPopout]);
 
   // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW
   // incomplete load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).
