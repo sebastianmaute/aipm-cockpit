@@ -145,6 +145,39 @@ describe("contactPersonsFragment", () => {
     expect(redone?.contactPersons.map((c) => c.email)).toEqual(["new@x.com", "new@x.com"]);
   });
 
+  // Final fix round 4, S3. Pairing is by NAME, IN ORDER, one before-image per
+  // row (`consumed`). Two same-named rows retargeted together therefore get
+  // their own strings back exactly while their order is unchanged. Without
+  // `consumed` both would take the FIRST before-image.
+  it("two same-named rows retargeted together each get their own spelling back, in order", () => {
+    const s = setters();
+    const spaced: ContactPerson = { ...ada, email: " Old@X.com " };
+    const shouty: ContactPerson = { ...ada, email: "OLD@X.COM", synced: false };
+    const input = empty({ contactPersons: [spaced, shouty] });
+    const parts = commitEmailPropagation({ change, input, result: propagateResourceEmail(change, input), setters: s });
+    const committed = apply<ProjectMeta | undefined>({ name: "P", contactPersons: [spaced, shouty] } as ProjectMeta, setProjectCall(s, 0));
+    parts[5]!.restore({ current: new Map() }, false, vi.fn());
+    const undone = apply<ProjectMeta | undefined>(committed, setProjectCall(s, 1));
+    expect(undone?.contactPersons).toEqual([spaced, shouty]);
+  });
+
+  // ★ The documented residual (§537), pinned honestly rather than fixed: rows
+  // have no id, so a same-named linked row inserted AHEAD after the correction
+  // takes the first before-image, the originals shift down one, and the last
+  // row falls back to `change.from`. Every value is still fold-equal to the old
+  // primary; only the per-row spelling moves.
+  it("a same-named row inserted ahead after the correction shifts the pairing by one", () => {
+    const s = setters();
+    const spaced: ContactPerson = { ...ada, email: " Old@X.com " };
+    const shouty: ContactPerson = { ...ada, email: "OLD@X.COM", synced: false };
+    const fragment = contactPersonsFragment(s.setProject, change, [spaced, shouty]);
+    fragment.restore({ current: new Map() }, false, vi.fn());
+    const inserted: ContactPerson = { ...ada, email: "new@x.com", synced: false, title: "added later" } as ContactPerson;
+    const live = { name: "P", contactPersons: [inserted, { ...spaced, email: "new@x.com" }, { ...shouty, email: "new@x.com" }] } as ProjectMeta;
+    const undone = apply<ProjectMeta | undefined>(live, setProjectCall(s, 0));
+    expect(undone?.contactPersons.map((c) => c.email)).toEqual([" Old@X.com ", "OLD@X.COM", "old@x.com"]);
+  });
+
   it("a linked row with no before-image of its name still falls back to the old primary on undo", () => {
     const s = setters();
     const addedLater: ContactPerson = { name: "Dora", email: "new@x.com", synced: false, resourceId: 7 };
