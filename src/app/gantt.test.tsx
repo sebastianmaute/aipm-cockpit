@@ -9,7 +9,7 @@ import { t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { rowLabel } from "./row-tokens";
-import { DEFAULT_PREFS, type GanttPrefs, savePrefs } from "./gantt-engine";
+import { DEFAULT_PREFS, ROW_HEIGHT_PX, type GanttPrefs, savePrefs } from "./gantt-engine";
 import type { Milestone, Task } from "./types";
 
 // useResizable reads/writes localStorage — mock it so tests run in JSDOM.
@@ -872,6 +872,25 @@ describe("GanttPanel v2 status filter", () => {
     expect(container.querySelector("path[data-milestone-connector]")).toBeNull();
   });
 
+  it("§273: offers the add-task empty state when every milestone is undrawable and there are no tasks", () => {
+    // Undrawable milestones are left out of `rows`, so they must also count as
+    // absent for the panel-level empty state. Otherwise the chart body shows
+    // its bare empty text and the add affordance a milestone-less project gets
+    // is lost.
+    const onAddTask = vi.fn();
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[]}
+        milestones={[{ id: 1, name: "Bad", date: "2026-13-01", linkedTaskIds: [] } as unknown as Milestone]}
+        onAddTask={onAddTask}
+      />,
+    );
+    const add = screen.getByRole("button", { name: new RegExp(`${t("en-US", "addTaskButton")}…`) });
+    fireEvent.click(add);
+    expect(onAddTask).toHaveBeenCalledTimes(1);
+  });
+
   it("reads an empty project as 'no tasks yet', not 'filtered out', under default prefs", () => {
     // Default v2 prefs tick every status, so a `statuses.length > 0` test for
     // "a filter is active" would mislabel an untouched, empty project.
@@ -1223,5 +1242,33 @@ describe("GanttPanel row-unique accessible names", () => {
     expect(screen.getByRole("button", { name: "Alpha (1)" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Alpha (2)" })).toBeInTheDocument();
     expect(screen.queryAllByRole("button", { name: "Alpha (3)" })).toHaveLength(0);
+  });
+
+  it("§273: an undrawable milestone takes no row index and no overlay height ('below' placement)", () => {
+    // ★ "2026-00-10" sorts BEFORE every valid 2026 date (`sortMilestones`
+    // compares the strings), so if it still took a row it would sit between the
+    // task and "Gate" and push Gate's connector, and the overlay, down one row.
+    // Rows here are exactly: task (index 0), Gate (index 1).
+    expect(DEFAULT_PREFS.milestonePlacement).toBe("below");
+    const { container } = render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mk({ id: 1, taskName: "Build" })]}
+        milestones={[
+          mkDatedMilestone(9, "Bad", "2026-00-10"),
+          { ...mkDatedMilestone(2, "Gate", dayPlus(20)), linkedTaskIds: [1] } as Milestone,
+        ]}
+        onEditTask={() => {}}
+        onEditMilestone={() => {}}
+      />,
+    );
+
+    const connector = container.querySelector("path[data-milestone-connector]");
+    expect(connector).not.toBeNull();
+    const ys = [...(connector?.getAttribute("d") ?? "").matchAll(/-?\d+(?:\.\d+)?/g)].map((mm) => Number(mm[0]));
+    // Path ends `… milestoneX milestoneYMid`: Gate is row 1.
+    expect(ys[ys.length - 1]).toBe(1 * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2);
+    // The dependency overlay spans the two drawn rows, not three.
+    expect(connector?.closest("svg")?.getAttribute("height")).toBe(String(2 * ROW_HEIGHT_PX));
   });
 });

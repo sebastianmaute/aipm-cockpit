@@ -206,6 +206,12 @@ export function GanttPanel({
     () => sortMilestones(milestones),
     [milestones],
   );
+  // Whether ANY milestone could be drawn, before filters. Read by the
+  // whole-panel empty state; see the comment there.
+  const hasDrawableMilestone = useMemo(
+    () => sortedMilestones.some((m) => parseISO(m.date) !== null),
+    [sortedMilestones],
+  );
 
   // --- bar derivation (unchanged): two passes over the full task list ---
   // We always compute bars for ALL tasks (not just the visible ones) so
@@ -699,7 +705,13 @@ export function GanttPanel({
     />
   );
 
-  if (rowsCount === 0 && sortedMilestones.length === 0) {
+  // ★ An UNDRAWABLE milestone (§273: its date does not parse) counts as absent
+  // here, exactly as it is absent from `rows`. Counting it sent a project with
+  // no tasks and only such milestones past this branch into a chart body with
+  // no rows, which shows bare empty text and drops this branch's add-task box.
+  // Filters are not applied, so a project whose DRAWABLE milestones are merely
+  // filtered out still reaches the chart body as before.
+  if (rowsCount === 0 && !hasDrawableMilestone) {
     return (
       <div ref={ganttRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
         {toolbar}
