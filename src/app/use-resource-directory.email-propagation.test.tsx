@@ -74,4 +74,31 @@ describe("handleSaveResource propagates a corrected email (spec Part 7)", () => 
     expect(showToastAction).toHaveBeenLastCalledWith("info", t("en-US", "undoToastEdit", 1), expect.anything());
     expect(result.current.ws.tasks[0].assigneeEmail).toBe("old@x.com");
   });
+
+  it("a CLEARED email propagates nothing: linked copies keep the old address, plain edit toast", () => {
+    const { result, showToastAction } = renderDirectory();
+    act(() => { result.current.directory.handleEditResource(ada); });
+    act(() => { result.current.directory.handleSaveResource({ ...ada, email: "" }); });
+    expect(result.current.ws.resources[0].email ?? "").toBe("");
+    expect(result.current.ws.tasks.map((r) => r.assigneeEmail)).toEqual(["old@x.com", "own@x.com"]);
+    expect(result.current.ws.raid[0].ownerEmail).toBe("old@x.com");
+    expect(result.current.ws.project?.contactPersons[0].email).toBe("old@x.com");
+    expect(showToastAction).toHaveBeenLastCalledWith("info", t("en-US", "undoToastEdit", 1), expect.anything());
+  });
+
+  it("undo and redo of a correction keep a contact person added after it", () => {
+    const { result } = renderDirectory();
+    const carol = { name: "Carol", email: "carol@x.com", synced: false };
+    act(() => { result.current.directory.handleEditResource(ada); });
+    act(() => { result.current.directory.handleSaveResource({ ...ada, email: "new@x.com" }); });
+    act(() => {
+      result.current.ws.setProject((prev) => (prev ? { ...prev, contactPersons: [...prev.contactPersons, carol] } : prev));
+    });
+
+    act(() => { result.current.undo.undo(); });
+    expect(result.current.ws.project?.contactPersons.map((c) => [c.name, c.email])).toEqual([["Ada L", "old@x.com"], ["Carol", "carol@x.com"]]);
+
+    act(() => { result.current.undo.redo(); });
+    expect(result.current.ws.project?.contactPersons.map((c) => [c.name, c.email])).toEqual([["Ada L", "new@x.com"], ["Carol", "carol@x.com"]]);
+  });
 });

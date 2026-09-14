@@ -23,6 +23,13 @@ describe("resourceEmailChange", () => {
     expect(resourceEmailChange(ada, { ...ada, email: " old@x.com " })).toBeNull();
     expect(resourceEmailChange({ ...ada, email: "" }, { ...ada, email: "new@x.com" })).toBeNull();
   });
+  it("is null when the new email is blank — a clear never propagates", () => {
+    expect(resourceEmailChange(ada, { ...ada, email: "" })).toBeNull();
+    expect(resourceEmailChange(ada, { ...ada, email: "   " })).toBeNull();
+    expect(resourceEmailChange(ada, { ...ada, email: undefined })).toBeNull();
+    // Positive control: a real correction still yields a change.
+    expect(resourceEmailChange(ada, { ...ada, email: "new@x.com" })).not.toBeNull();
+  });
   it("describes any other change, a case-only change included", () => {
     expect(resourceEmailChange(ada, { ...ada, email: "new@x.com" })).toEqual({ resourceId: 7, from: "old@x.com", to: "new@x.com" });
     expect(resourceEmailChange(ada, { ...ada, email: "Old@x.com" })).toEqual({ resourceId: 7, from: "old@x.com", to: "Old@x.com" });

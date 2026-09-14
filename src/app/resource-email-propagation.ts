@@ -42,11 +42,13 @@ const fold = (s: string | undefined): string => (s ?? "").trim().toLowerCase();
 
 /** The primary-email change a save makes, or null. ANY trimmed change counts
  *  (a case-only correction included); a blank old email propagates nothing,
- *  because a blank cache must never be filled by this. */
+ *  because a blank cache must never be filled by this, and a blank NEW email
+ *  propagates nothing either — clearing a person's address is not a
+ *  correction, and must never blank the copies linked rows hold. */
 export function resourceEmailChange(before: Resource, after: Resource): ResourceEmailChange | null {
   const from = (before.email ?? "").trim();
   const to = (after.email ?? "").trim();
-  if (from === "" || from === to) return null;
+  if (from === "" || to === "" || from === to) return null;
   return { resourceId: after.id, from, to };
 }
 

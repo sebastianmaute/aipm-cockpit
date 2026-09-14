@@ -14,7 +14,7 @@
 //  inside the setter's `prev` is not possible — React runs the updater later,
 //  after `captureComposite` has already pushed the entry.
 import type { useWorkspace } from "./workspace-context";
-import type { ContactPerson, Resource } from "./types";
+import type { Resource } from "./types";
 import { type Lang, t } from "./i18n";
 import { capturePart, type CompositeFragment } from "./undo/use-undo-stack";
 import {
@@ -26,19 +26,25 @@ import {
 
 export type PropagationSetters = Pick<ReturnType<typeof useWorkspace>, "setTasks" | "setRaid" | "setAbsences" | "setShifts" | "setStakeholders" | "setProject">;
 
-/** ★ A WHOLE-ARRAY before/after fragment, because `ContactPerson` has no id
- *  and `capturePart` requires one (controller ruling). Unarmed: a plain edit
- *  removes no rows, exactly like `captureFieldPart`. */
+/** ★ `ContactPerson` has no id, so `capturePart` cannot hold it. Instead the
+ *  fragment re-runs the retarget over the LIVE `prev` in the opposite
+ *  direction: undo moves the linked rows holding the propagated address back
+ *  to the old one, redo moves the linked rows holding the old address forward
+ *  again. A whole-array restore would drop every contact person added (or
+ *  edited) after the correction — only the rows this correction retargeted
+ *  are touched. Unarmed: a plain edit removes no rows. */
 export function contactPersonsFragment(
   setProject: PropagationSetters["setProject"],
-  before: readonly ContactPerson[],
-  after: readonly ContactPerson[],
+  change: ResourceEmailChange,
 ): CompositeFragment {
+  const reverse: ResourceEmailChange = { resourceId: change.resourceId, from: change.to, to: change.from };
+  const apply = (direction: ResourceEmailChange) =>
+    setProject((prev) => (prev ? { ...prev, contactPersons: [...retargetContactPersonEmails(prev.contactPersons, direction).next] } : prev));
   return {
     isPrimary: false,
     restore: () => {
-      setProject((prev) => (prev ? { ...prev, contactPersons: [...before] } : prev));
-      return () => setProject((prev) => (prev ? { ...prev, contactPersons: [...after] } : prev));
+      apply(reverse);
+      return () => apply(change);
     },
   };
 }
@@ -64,7 +70,7 @@ export function commitEmailPropagation(args: {
     capturePart({ setter: setters.setAbsences, edited: result.absences.edited, fromArray: input.absences }),
     capturePart({ setter: setters.setShifts, edited: result.shifts.edited, fromArray: input.shifts }),
     capturePart({ setter: setters.setStakeholders, edited: result.stakeholders.edited, fromArray: input.stakeholders }),
-    result.contactPersons.changed > 0 ? contactPersonsFragment(setters.setProject, input.contactPersons, result.contactPersons.next) : null,
+    result.contactPersons.changed > 0 ? contactPersonsFragment(setters.setProject, change) : null,
   ];
 }
 

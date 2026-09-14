@@ -67,6 +67,15 @@ describe("commitResourceEmailCorrection", () => {
     expect(s.setTasks).not.toHaveBeenCalled();
   });
 
+  it("is null, and writes nothing, when the primary email was CLEARED — linked copies keep the old address", () => {
+    const s = setters();
+    const input = empty({ tasks: [linked], contactPersons: [ada] });
+    expect(commitResourceEmailCorrection({ previous: person, next: { ...person, email: "" }, input, setters: s, lang: "en-US" })).toBeNull();
+    for (const setter of Object.values(s)) expect(setter).not.toHaveBeenCalled();
+    expect(input.tasks[0].assigneeEmail).toBe("old@x.com");
+    expect(input.contactPersons[0].email).toBe("old@x.com");
+  });
+
   it("commits, and returns the result, the cascade and the count-bearing toast", () => {
     const s = setters();
     const out = commitResourceEmailCorrection({ previous: person, next: { ...person, email: "new@x.com" }, input: empty({ tasks: [linked], contactPersons: [ada] }), setters: s, lang: "en-US" });
@@ -80,11 +89,11 @@ describe("commitResourceEmailCorrection", () => {
 });
 
 describe("contactPersonsFragment", () => {
-  it("restores the before array on undo and the after array on redo, and never arms", () => {
+  it("moves the retargeted rows back on undo and forward on redo, and never arms", () => {
     const s = setters();
     const after = [{ ...ada, email: "new@x.com" }];
     const arm = vi.fn();
-    const fragment = contactPersonsFragment(s.setProject, [ada], after);
+    const fragment = contactPersonsFragment(s.setProject, change);
     expect(fragment.isPrimary).toBe(false);
     const project = { name: "P", contactPersons: after } as ProjectMeta;
     const redo = fragment.restore({ current: new Map() }, false, arm);
@@ -96,5 +105,19 @@ describe("contactPersonsFragment", () => {
     expect(redone?.contactPersons).toEqual(after);
     expect(apply<ProjectMeta | undefined>(undefined, vi.mocked(s.setProject).mock.calls[1][0] as SetStateAction<ProjectMeta | undefined>)).toBeUndefined();
     expect(arm).not.toHaveBeenCalled();
+  });
+
+  it("keeps contact persons added after the correction, and leaves unlinked rows alone, on undo and redo", () => {
+    const s = setters();
+    const carol: ContactPerson = { name: "Carol", email: "carol@x.com", synced: false };
+    const namesake: ContactPerson = { name: "Other Ada", email: "new@x.com", synced: false, resourceId: 8 };
+    const fragment = contactPersonsFragment(s.setProject, change);
+    const live = { name: "P", contactPersons: [{ ...ada, email: "new@x.com" }, namesake, carol] } as ProjectMeta;
+    const redo = fragment.restore({ current: new Map() }, false, vi.fn());
+    const undone = apply<ProjectMeta | undefined>(live, vi.mocked(s.setProject).mock.calls[0][0] as SetStateAction<ProjectMeta | undefined>);
+    expect(undone?.contactPersons).toEqual([ada, namesake, carol]);
+    redo();
+    const redone = apply<ProjectMeta | undefined>(undone, vi.mocked(s.setProject).mock.calls[1][0] as SetStateAction<ProjectMeta | undefined>);
+    expect(redone?.contactPersons).toEqual([{ ...ada, email: "new@x.com" }, namesake, carol]);
   });
 });
