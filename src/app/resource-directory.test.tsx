@@ -521,24 +521,6 @@ describe("ResourceDirectory deep-link open", () => {
     expect(screen.getByTestId("pending-open")).toHaveTextContent("null");
   });
 
-  // M1 (fix round 1): mirrors stakeholders'/raid's skip-if-already-open guard
-  // (`draft?.id !== item.id`) — here tracked as "the id this mount already
-  // deep-linked to", since ResourceDirectory does not own the modal's draft.
-  it("does not reopen the editor for a re-fired request for the resource whose editor is already open", () => {
-    const onEdit = vi.fn();
-    rtlRender(
-      <WorkspaceTabProvider>
-        <DeepLinkTrigger id={1} />
-        <ResourceDirectory {...common} resources={rs} onEditResource={onEdit} />
-      </WorkspaceTabProvider>,
-    );
-
-    fireEvent.click(screen.getByText("go")); // opens id 1
-    fireEvent.click(screen.getByText("go")); // re-fired request for the same id (e.g. a back/forward replay)
-
-    expect(onEdit).toHaveBeenCalledTimes(1);
-  });
-
   it("honours a pending request already armed before this component mounted (remount-swallow guard)", () => {
     const onEdit = vi.fn();
     function Trigger() {
@@ -635,5 +617,35 @@ describe("§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirecto
 
     expect(onEdit).toHaveBeenCalledWith(rs[0]);
     expect(screen.getByTestId("pending-open")).toHaveTextContent("null");
+  });
+
+  // Fix round 2 / known residual (§362): a fix-round-1 skip-if-already-open
+  // guard in ResourceDirectory was found DEAD once wired into the real app —
+  // every producer of this deep link tags the request "resources", so
+  // `requestOpen` flips `activeTab` through "resources" first and back to
+  // "directory", forcing ResourceDirectory through an unmount/remount before
+  // any per-mount guard could see a repeat. The guard was removed rather than
+  // kept as false reassurance. This test goes through that SAME real hop
+  // (ActiveTabHarness, not a statically-mounted ResourceDirectory) to prove
+  // the residual is real, not hypothetical: firing the identical resource id
+  // twice re-invokes the edit handler both times. A working fix needs the
+  // "already open" state to live where the edit modal's own state
+  // (`editingResource`) already does — task-manager.tsx / app-modals.tsx —
+  // which is out of scope here (another branch is editing those files).
+  it("KNOWN RESIDUAL: re-fires the edit handler for a repeated deep-link to the resource whose editor is already open", () => {
+    const onEdit = vi.fn();
+    rtlRender(
+      <WorkspaceTabProvider>
+        <DeepLinkTrigger id={1} />
+        <ActiveTabHarness onEdit={onEdit} />
+      </WorkspaceTabProvider>,
+    );
+
+    fireEvent.click(screen.getByText("go")); // opens id 1 (through the real resources -> directory hop)
+    fireEvent.click(screen.getByText("go")); // re-fired request for the same id (e.g. a back/forward replay)
+
+    // Today's behaviour: called AGAIN, not skipped — the residual this round
+    // discloses rather than papering over with a guard that cannot fire.
+    expect(onEdit).toHaveBeenCalledTimes(2);
   });
 });

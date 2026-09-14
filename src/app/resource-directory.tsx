@@ -4,7 +4,7 @@
 // Each row shows a resource's contact details and inline discipline/grade
 // selects. Clicking the name cell opens the edit modal.
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { ArrowDownTrayIcon, EyeSlashIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { birthdayMonthDay } from "./birthdays";
@@ -179,33 +179,38 @@ function ResourceDirectoryInner({
   // Deep-link (§362): a guardrail insight for a resource routes here via the
   // "resources" pendingOpen view (resources-report.tsx redirects the Resources
   // report tab to this Directory sub-tab for that same view). Open the edit
-  // modal via the existing onEditResource prop — mirrors how stakeholders/raid
-  // open their edit modal — and clear the pending signal once acted on. An id
-  // matching no resource (deleted, stale link) is still consumed so the
-  // request cannot get stuck.
+  // modal via the existing onEditResource prop and clear the pending signal
+  // once acted on. An id matching no resource (deleted, stale link) is still
+  // consumed so the request cannot get stuck.
   //
-  // Skip-if-already-open guard: stakeholders/raid compare against their OWN
-  // local `draft` (`draft?.id !== item.id`) to avoid clobbering an
-  // in-progress edit when a self-induced hashchange re-fires the same
-  // request. This panel does not own the edit modal's state (it lives in
-  // `use-resource-directory.ts`, reached only through the onEditResource
-  // prop), so there is no draft to compare against here — instead track the
-  // id THIS panel most recently opened via a deep-link, for the life of this
-  // mount, and skip re-opening it. A real back/forward through browser
-  // history re-arming the identical `#resources/<id>` hash is the only
-  // reachable repeat (low; both `requestOpen` and the hash write use
-  // `replaceState`). Leaving/returning to the Directory tab remounts this
-  // panel and clears the guard, so an intentional reopen still works.
+  // ★ KNOWN RESIDUAL, not a guard: unlike stakeholders/raid, this does NOT
+  // skip re-opening when the same resource's editor is already open. A
+  // skip-if-already-open guard was tried here (fix round 1) and found DEAD in
+  // the wired app on re-review — every producer of this deep link
+  // (insights/detect.ts, global-search.ts, use-hash-view.ts) tags the request
+  // "resources", `requestOpen` unconditionally flips `activeTab` through
+  // "resources" first, and `workspace-section.tsx` renders this panel only
+  // while `activeTab === "directory"` — so ANY repeat request, including a
+  // real back/forward to the identical `#resources/<id>` hash, unmounts and
+  // remounts a fresh `ResourceDirectoryInner` before its consumer effect ever
+  // runs. Any per-mount ref/state here is reset before it could see a repeat,
+  // so it cannot provide real protection. The edit modal's state
+  // (`editingResource`) lives in `task-manager.tsx`, ABOVE this remount, so
+  // it survives it — a second deep-link click on the same resource while its
+  // editor is still open (unsaved edits included) silently re-opens the
+  // editor from the stored row, discarding those edits. Pinned as known,
+  // current behaviour by "re-fires the edit handler for a repeated deep-link
+  // to the resource whose editor is already open (known residual — see
+  // §362)" in resource-directory.test.tsx, rather than guarded, because a
+  // real fix needs the "already open" state to live where `editingResource`
+  // already does (task-manager.tsx/app-modals.tsx), which is out of scope
+  // here (another branch is editing those files).
   const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
   const { flashId, containerRef } = useDeepLinkRowFlash("resources");
-  const lastDeepLinkedIdRef = useRef<number | null>(null);
   useEffect(() => {
     if (pendingOpen?.view !== "resources") return;
     const item = resources.find((r) => r.id === pendingOpen.id);
-    if (item && lastDeepLinkedIdRef.current !== item.id) {
-      onEditResource(item);
-      lastDeepLinkedIdRef.current = item.id;
-    }
+    if (item) onEditResource(item);
     clearPendingOpen();
   }, [pendingOpen, resources, onEditResource, clearPendingOpen]);
 
