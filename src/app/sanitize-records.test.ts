@@ -150,6 +150,24 @@ describe("sanitizeSteeringCommittee — per-meeting report", () => {
     expect(reportOf(`<p>${"<br>".repeat(30_000)}</p>`)).toBeUndefined();
   });
 
+  // ★★★ §108 r1: the anchored RICH_SINK "starts with a rich tag?" test answers
+  // NO for a body that opens with plain text before its first real tag —
+  // write-time DOMPurify output keeps a leading sentence like this — so
+  // descriptionHtml escaped the WHOLE body into literal `&lt;h2&gt;`/`&lt;p&gt;`
+  // text, which the next save then persisted. The fix classifies on RENDER_SINK
+  // (unanchored "contains a tag anywhere?") instead.
+  it("does not escape an over-cap report that opens with plain text before real markup (§108 r1)", () => {
+    const html = "Here is the report:\n<h2>Summary</h2><p>" + "x".repeat(100_050) + "</p>";
+    expect(html.length).toBeGreaterThan(100_000);
+    const out = reportOf(html);
+    expect(out).toBeDefined();
+    expect(out).not.toContain("&lt;h2&gt;");
+    expect(out).not.toContain("&lt;p&gt;");
+    expect(out).toContain("Summary");
+    expect(hasLoneSurrogate(out!)).toBe(false);
+    expect(endsInsideTag(out!)).toBe(false);
+  });
+
   it("returns an under-cap report BYTE-IDENTICAL, including shapes sanitizeRichText would rewrite", () => {
     // ★★★ THE CONTROL FOR THE LENGTH GATE. sanitizeRichText trims, turns a tab
     // into a space, and escapes a value that does not OPEN with a rich tag —

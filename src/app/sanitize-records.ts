@@ -64,7 +64,7 @@ import {
   sanitizeIdList,
 } from "./sanitize-entities";
 import { sanitizeRichText } from "./rich-text-plain";
-import { RICH_SINK } from "./html-start";
+import { RENDER_SINK, RICH_SINK } from "./html-start";
 // ★ Type-only would not do: `acceptsEventDuration` is consulted at runtime by
 //  `CALENDAR_EVENT_FIELD_GUARDS`. It composes `calendar-event.ts`'s own
 //  `intInRange` over that module's private bounds, which is why the range has
@@ -1523,13 +1523,19 @@ const REPORT_HTML_MAX = 100_000;
  *  (it was sanitized at write time; sanitizeRichText would trim and re-classify
  *  it). Over it, sanitizeRichText bounds VISIBLE text at the cap and degrades to
  *  plain text past it, so the result can never end mid-tag or on a lone
- *  surrogate the way the old raw `.slice` could (open-followups §108). */
+ *  surrogate the way the old raw `.slice` could (open-followups §108).
+ *  ★★★ THE OVER-CAP CALL CLASSIFIES ON RENDER_SINK (unanchored "contains a tag
+ *  anywhere?"), NOT THE ANCHORED RICH_SINK "starts with a rich tag?" test. A
+ *  report can legitimately OPEN with plain text before its first real tag —
+ *  write-time DOMPurify output keeps a leading sentence — and the anchored test
+ *  answered NO for that shape, so descriptionHtml escaped the WHOLE body into
+ *  literal `&lt;h2&gt;`/`&lt;p&gt;` text that the next save then persisted (§108 r1). */
 function sanitizeMeetingReport(raw: unknown): MeetingReport | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const rr = raw as Record<string, unknown>;
   if (typeof rr.html !== "string" || rr.html.length === 0) return undefined;
   if (typeof rr.updatedAt !== "string") return undefined;
-  const html = rr.html.length <= REPORT_HTML_MAX ? rr.html : sanitizeRichText(rr.html, REPORT_HTML_MAX, RICH_SINK);
+  const html = rr.html.length <= REPORT_HTML_MAX ? rr.html : sanitizeRichText(rr.html, REPORT_HTML_MAX, RENDER_SINK);
   if (!html) return undefined;
   const out: MeetingReport = { html, updatedAt: rr.updatedAt };
   if (typeof rr.sentAt === "string") out.sentAt = rr.sentAt;

@@ -8503,7 +8503,7 @@ index and never folded into the entry is a correction with a half-life — the e
 
 ## 108. The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — CLOSED 2026-09-13
 
-**Status:** CLOSED 2026-09-13 — an over-cap report goes through `sanitizeRichText`; an under-cap one is returned byte-identical. Pinned by `npx vitest run src/app/sanitize-records.test.ts -t "per-meeting report"`.
+**Status:** CLOSED 2026-09-13 — an over-cap report goes through `sanitizeRichText` classified on `RENDER_SINK`; an under-cap one is returned byte-identical. Pinned by `npx vitest run src/app/sanitize-records.test.ts -t "per-meeting report"`.
 
 **Where:** `sanitize-records.ts`, the `MeetingReport` guard — `rr.html.slice(0, REPORT_HTML_MAX)`.
 
@@ -8525,15 +8525,28 @@ the two states, because the next reader sees a sanitizer call and stops looking.
 sample fixture does. Unmeasured in the wild — the mechanism is read from the code, not observed.
 
 **CLOSED 2026-09-13.** `sanitizeMeetingReport` returns a body within `REPORT_HTML_MAX` raw characters
-byte-identical, and routes a longer one through `sanitizeRichText(html, REPORT_HTML_MAX, RICH_SINK)`
+byte-identical, and routes a longer one through `sanitizeRichText(html, REPORT_HTML_MAX, RENDER_SINK)`
 (DOM-free, so the load path stays SSR-safe). Over the cap that bounds VISIBLE text at 100,000, keeps
 formatting while the raw size stays under the shared ceiling, and past either limit degrades through
 `degradeToPlain`, which cannot re-emit severed markup or a lone surrogate. A visually empty result
 drops the report, matching the existing empty-html rule. ★★ The length gate is load-bearing:
 `sanitizeRichText` on an UNDER-cap body measurably trims a trailing newline, turns a tab into a
-space, and escapes a body that does not open with a rich tag, so calling it unconditionally would
-rewrite stored bytes on every load. The under-cap control test pins that. Semantic change, approved
-in the batch design: the cap bounds visible text, not raw units, for over-cap bodies.
+space, and — for a body carrying no tag at all — escapes the whole value, so calling it
+unconditionally would rewrite stored bytes on every load. The under-cap control test pins that.
+Semantic change, approved in the batch design: the cap bounds visible text, not raw units, for
+over-cap bodies.
+
+★★★ R1 REGRESSION, FOUND BY A COLD REVIEW AND FIXED THE SAME DAY: the first cut classified the
+over-cap call on the ANCHORED `RICH_SINK` ("starts with a rich tag?"), not `RENDER_SINK`. A report
+can legitimately OPEN with plain text before its first real tag — the write path stores
+`sanitizeRichHtml` (DOMPurify) output, which keeps a leading sentence — and the anchored test answers
+NO for that shape. `descriptionHtml` then escaped the WHOLE body into literal `&lt;h2&gt;`/`&lt;p&gt;`
+text, which the next save persisted permanently; the old raw `.slice` this entry replaced only ever
+lost the tail. `RENDER_SINK`'s unanchored "contains a tag anywhere?" test is the right question for
+this call site, because the body was already sanitized at write time — a plain-text lead in front of
+real markup is real HTML, not prose. Pinned by
+`npx vitest run src/app/sanitize-records.test.ts -t "§108 r1"`; the mutant (reverting to `RICH_SINK`)
+fails that test.
 
 ---
 ## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet
