@@ -572,6 +572,7 @@ export const de: Record<TranslationKey, string> = {
   budgetFollowsPlanHint: "Wenn aktiv, spiegeln die Budgetstunden von Zeilen mit zugewiesenen Ressourcen die geplante Kapazität wider und sind schreibgeschützt.",
   budgetCellBudget: "Budget",
   budgetCellActual: "Ist",
+  budgetActualFromTimelog: "Aus TimeLog. Zum Ändern erneut übernehmen.",
   budgetTotal: "Gesamt",
   budgetTotalFiltered: "Gesamt (gefiltert)",
   budgetPeopleSource: "TimeLog-Buchungen, abgerufen am {0}. Nicht die übernommene Summe oben — zum Übernehmen Zeitbuchungen öffnen.",

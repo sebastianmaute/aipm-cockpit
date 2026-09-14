@@ -8,7 +8,7 @@
  *  file is named for the totals because that is what it was extracted FOR;
  *  `HoursCell`/`HoursTd` moved here afterwards, unchanged, so the orchestrator
  *  would fit — and they belong beside `TotalsTd`, whose layout mirrors theirs. */
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { t, type Lang } from "./i18n";
 import { RagBadge } from "./rag-badge";
 import { ratioHealth, cellHealth } from "./budget-health";
@@ -85,7 +85,7 @@ export function displayHours(v: number | undefined, readOnly: boolean | undefine
 
 function HoursCell({
   ariaPrefix, budget, actual, onBudget, onActual, lang, readOnly,
-  periodEnd, today,
+  periodEnd, today, actualReadOnlyReason,
 }: {
   ariaPrefix: string;
   budget: number | undefined;
@@ -102,6 +102,11 @@ function HoursCell({
   // editable (the 'budget hours follow plan' toggle). The actual input is
   // always editable regardless.
   readOnly?: boolean;
+  // When set, the ACTUAL input is read-only: its period holds TimeLog day hours,
+  // which only a re-apply may change. The reason becomes the input's title and
+  // accessible description. Independent of `readOnly`, which drives the budget
+  // input only.
+  actualReadOnlyReason?: string;
 }) {
   // Draft-then-commit: these cells write into workspace state, where each write
   // is captured for undo and logged. Committing per keystroke would make typing
@@ -109,6 +114,8 @@ function HoursCell({
   // unconditionally — only the handler wiring below is conditional.
   const budgetDraft = useCommitDraft(String(displayHours(budget, readOnly)), (raw) => onBudget(Number(raw) || 0));
   const actualDraft = useCommitDraft(actual === undefined ? "" : String(actual), (raw) => onActual(Number(raw) || 0));
+  const actualReasonId = useId();
+  const actualReadOnly = actualReadOnlyReason !== undefined;
   // Both label spans share ONE width so the inputs beside them stay aligned —
   // change them together or the Budget and Actual rows drift apart. `w-14` is
   // inherited from when each label also carried an InfoTooltip that had to fit
@@ -160,13 +167,17 @@ function HoursCell({
         <input
           aria-label={`actual-${ariaPrefix}`}
           type="number"
-          value={actualDraft.value}
-          onChange={(e) => actualDraft.onChange(e.target.value)}
-          onFocus={actualDraft.onFocus}
-          onBlur={actualDraft.onBlur}
-          onKeyDown={actualDraft.onKeyDown}
-          className={`w-16 rounded border border-line bg-surface-muted px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
+          value={actualReadOnly ? displayHours(actual, true) : actualDraft.value}
+          readOnly={actualReadOnly}
+          title={actualReadOnlyReason}
+          aria-describedby={actualReadOnly ? actualReasonId : undefined}
+          onChange={actualReadOnly ? undefined : (e) => actualDraft.onChange(e.target.value)}
+          onFocus={actualReadOnly ? undefined : actualDraft.onFocus}
+          onBlur={actualReadOnly ? undefined : actualDraft.onBlur}
+          onKeyDown={actualReadOnly ? undefined : actualDraft.onKeyDown}
+          className={`w-16 rounded border border-line bg-surface-muted px-1 py-0.5 text-right tabular-nums ${actualReadOnly ? "text-muted-foreground" : ""} ${FOCUS_RING} ${TRANSITION}`}
         />
+        {actualReadOnly && <span id={actualReasonId} className="sr-only">{actualReadOnlyReason}</span>}
         <RagBadge value={cellHealth(actual ?? 0, budget ?? 0, periodEnd, today)} lang={lang} />
       </div>
     </div>
@@ -176,7 +187,7 @@ function HoursCell({
 // A period `<td>` wrapping a HoursCell — shared by the role rows and the
 // discipline (blended) rows, which differ only in ariaPrefix + the setter.
 export function HoursTd({
-  ariaPrefix, budget, actual, onBudget, onActual, lang, readOnly, periodEnd, today,
+  ariaPrefix, budget, actual, onBudget, onActual, lang, readOnly, periodEnd, today, actualReadOnlyReason,
 }: {
   ariaPrefix: string;
   budget: number | undefined;
@@ -187,6 +198,7 @@ export function HoursTd({
   readOnly?: boolean;
   periodEnd: string;
   today: string;
+  actualReadOnlyReason?: string;
 }) {
   return (
     <td className="px-3 py-2">
@@ -200,6 +212,7 @@ export function HoursTd({
         readOnly={readOnly}
         periodEnd={periodEnd}
         today={today}
+        actualReadOnlyReason={actualReadOnlyReason}
       />
     </td>
   );

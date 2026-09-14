@@ -626,6 +626,7 @@ const enUS = {
   budgetFollowsPlanHint: "When on, budget hours for lines with assigned resources mirror planned capacity and become read-only.",
   budgetCellBudget: "Budget",
   budgetCellActual: "Actual",
+  budgetActualFromTimelog: "From TimeLog. Re-apply to change.",
   budgetTotal: "Total",
   budgetTotalFiltered: "Total (filtered)",
   budgetPeopleSource: "TimeLog bookings, fetched {0}. Not the applied total above — apply in Time bookings to move that.",
