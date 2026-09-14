@@ -614,6 +614,43 @@ describe("dated apply", () => {
     expect(actualHoursIn(hours, "2026-W24")).toBe(4);
     expect(actualHoursIn(hours, "2026-06")).toBe(4);
   });
+
+  // Fix round 1, Important: `next` is rounded (routeBucket accumulates via
+  // round2), but `current` read stored day keys through `actualHoursIn` with
+  // NO rounding — so two decimal bookings that sum to a binary-float artifact
+  // (0.1 + 0.2 = 0.30000000000000004) never equal the rounded `next` (0.3),
+  // and the diff's exact `current !== next` comparison keeps emitting a
+  // no-op row forever after the first Apply. Build the overlay through a REAL
+  // aggregate, same as the granularity test above, so the day-level floats are
+  // genuine TimeLog decimals rather than a hand-typed round number.
+  it("keeps re-apply a no-op for decimal day hours", () => {
+    const agg = aggregateActuals(
+      [tItem(1, 9, "2026-06-10", 0.1), tItem(2, 9, "2026-06-11", 0.2)],
+      links,
+    );
+    const decOverlay = bucketOverlay(agg, "month");
+    const applied = applyActualsToBuckets([bucketWith({})], decOverlay, resources, roles);
+    expect(planApply(applied, decOverlay, resources, roles)).toEqual([]);
+  });
+
+  // Fix round 1, minor 3: a routed period is owned WHOLE — every allocation
+  // line in the bucket, not just the one that received bookings. Role 2 has no
+  // resource in the module-level `resources`/`roles` fixtures (only resource 10,
+  // role 1), so this line is reachable by ownership but never by routing —
+  // exactly the "second line, no bookings" shape the period-ownership rule
+  // exists for. It carries both a hand-typed period key and a stale day key
+  // inside the same covered period, plus a key outside it.
+  it("owns every line of a routed period, including one no booking reached", () => {
+    const b: BudgetBucket = {
+      ...bucketWith({}),
+      allocations: [
+        { roleId: 1, resourceIds: [], budgetHours: {}, actualHours: {} },
+        { roleId: 2, resourceIds: [], budgetHours: {}, actualHours: { "2026-06": 7, "2026-06-03": 1, "2026-05": 9 } },
+      ],
+    } as BudgetBucket;
+    const after = applyActualsToBuckets([b], datedOverlay, resources, roles);
+    expect(after[0].allocations[1].actualHours).toEqual({ "2026-05": 9 });
+  });
 });
 
 describe("bucketsMissingAllocations", () => {

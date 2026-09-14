@@ -209,7 +209,13 @@ export function buildApplyPlan(
     unmatchedHours += routed.unmatchedHours;
     targetAllocations(b).forEach((a, i) => {
       for (const period of routed.periods) {
-        const current = actualHoursIn(a.actualHours, period);
+        // round2, matching the ACCUMULATION point in routeBucket: `next` is a
+        // running sum of TimeLog decimals rounded there, so an unrounded
+        // `current` (actualHoursIn sums stored day keys with plain addition)
+        // can land one float ULP off it forever — 0.1 + 0.2 stored as day keys
+        // reads back as 0.30000000000000004, never equal to the rounded 0.3,
+        // so the diff would keep emitting a no-op row after every Apply.
+        const current = round2(actualHoursIn(a.actualHours, period));
         const next = routed.perAlloc.get(i)?.[period] ?? 0;
         // Only real changes: the confirm modal shows this list's LENGTH, so
         // unchanged lines would inflate the count and the Apply button would
@@ -278,11 +284,13 @@ export function planApply(
 
 /**
  * Apply OWNS every target line for the periods it covers: the period key and
- * every day key inside the period are replaced; a dated period writes day keys,
- * and a line with no bookings in it ends with none. Skipping a line would leave a
- * stale total (e.g. one written by the old allocations[0] behaviour) sitting
- * alongside the new per-role numbers and DOUBLE-COUNT the bucket. Periods outside
- * the overlay are untouched.
+ * every day key inside the period are replaced. A dated period writes each
+ * line's routed day keys, and a line with NO bookings in it ends with none of
+ * them; an undated period (a legacy cached cell with no `byDay`) writes the
+ * period key as before, and a line with no bookings in it is written to 0, not
+ * skipped. Skipping a line would leave a stale total (e.g. one written by the
+ * old allocations[0] behaviour) sitting alongside the new per-role numbers and
+ * DOUBLE-COUNT the bucket. Periods outside the overlay are untouched.
  */
 function writeAllocations<T extends { actualHours: Record<string, number> }>(
   list: readonly T[],
