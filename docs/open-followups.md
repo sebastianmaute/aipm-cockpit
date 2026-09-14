@@ -387,7 +387,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§158](#158-a-blockquotes-own-data-align-is-dropped--importedai-html-only--open) | A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only — open | — | — | open |
 | [§159](#159-today-and-tz-are-two-adjacent-string-parameters-on-the-recap-path-so-a-transposition-typechecks--closed-2026-08-17-by-projectclock) | `today` and `tz` are two adjacent `string` parameters on the recap path, so a transposition typechecks | — | — | **CLOSED** 2026-08-17 by `ProjectClock` |
 | [§160](#160-an-ai-update_settings-writes-two-activity-rows-and-the-second-one-cannot-be-taught-who-caused-it--closed-2026-08-17) | An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it | — | — | **CLOSED** 2026-08-17 |
-| [§161](#161-latestat-picks-the-latest-activity-entry-by-raw-lexicographic-string-compare) | `latestAt` picks the "latest" activity entry by raw lexicographic string compare | — | — | open |
+| [§161](#161-latestat-picks-the-latest-activity-entry-by-raw-lexicographic-string-compare--closed-2026-09-14) | `latestAt` picks the "latest" activity entry by raw lexicographic string compare — CLOSED 2026-09-14 | — | — | **CLOSED** 2026-09-14 |
 | [§162](#162-the-historysearch-kill-switch-is-advertisement-scoped-not-enforced-at-the-executor--closed-2026-08-17-enforcement-added) | The `historySearch` kill switch is advertisement-scoped, not enforced at the executor | — | — | **CLOSED** 2026-08-17 (enforcement added) |
 | [§163](#163-completion-trend-reconstruction-under-counts-the-historical-denominator-after-a-mass-delete-and-its-numerator-never-moves--denominator-fixed-2026-08-17-numerator-fixed-2026-08-30--closed-2026-08-30) | Completion-trend reconstruction under-counts the historical denominator after a mass delete, and its numerator never moves — denominator FIXED 2026-08-17, numerator FIXED 2026-08-30 | — | — | **CLOSED** 2026-08-30 |
 | [§164](#164-renderactivityentry-lacks-the-args-element-guard-the-activity-panel-has-and-it-runs-inside-the-ai-tool-loop--closed-2026-08-17) | `renderActivityEntry` lacks the `args`-element guard the Activity panel has, and it runs inside the AI tool loop | — | — | **CLOSED** 2026-08-17 |
@@ -13900,11 +13900,47 @@ two citations into one hit. Use
 breakdown. ★★★ **RUN IT — no count is quoted here, deliberately.** Every figure the two previous
 banners carried was measured, and every one of them was wrong by the time it was read.
 
-## 161. `latestAt` picks the "latest" activity entry by raw lexicographic string compare
+## 161. `latestAt` picks the "latest" activity entry by raw lexicographic string compare — CLOSED 2026-09-14
 
-**Status:** open — a latest-wins compare done lexicographically on unnormalised stamps. Reproduced 2026-08-28 by `grep -n "latestAt" src/app/history-search.ts`.
+**Status:** CLOSED 2026-09-14 on `fix/export-activity-alt-batch`. `sanitizeActivityEntry`
+(`activity-log.ts`) now NORMALISES `timestamp` at the load boundary via a new pure
+`normalizeActivityTimestamp` helper: an ISO 8601 shape (`YYYY-MM-DD`, optionally `THH:MM[:SS][.sss]`,
+optionally `Z` or `±HH:MM`) is re-stamped to canonical `toISOString()` shape — a zoneless date-time is
+treated as UTC (deterministic across devices, not `Date.parse`'s device-dependent local-time reading), a
+date-only value is UTC midnight — and anything else (non-ISO-8601 junk, or an ISO-8601 shape that yields a
+non-finite date, e.g. month "13") is dropped, the same as a non-string timestamp already was. No
+comparator changed: `mergeActivityLogs`'s sort-then-cap, `summarizeRecentActivity`'s `latestAt`, the
+activity panel's sort and `dashboard-delta.ts` all now see only canonical stamps, because every load
+funnel (JSON, IDB, CSV, Markdown, Turso) converges on `sanitizeActivityLog` → `sanitizeActivityEntry`.
+Pinned by `activity-log.test.ts`'s "sanitizeActivityEntry — timestamp normalisation (§161)" block (offset
+→ UTC instant, zoneless → UTC, date-only → UTC midnight, canonical → byte-identical, junk/invalid →
+dropped), `activity-log-merge.test.ts`'s "an offset stamp that is actually newest survives the cap after
+sanitize (§161)", and `history-search.test.ts`'s "§161: after sanitize, latestAt follows the real instant
+across an offset" — the last two sanitize their fixtures before calling the consumer, so they prove the
+fix reaches the consumer rather than merely existing in the sanitizer (a canonical-only fixture cannot
+tell a fixed implementation from a broken one). Mutation-checked: reverting
+`normalizeActivityTimestamp` to return its input unchanged (the pre-fix `typeof === "string"`-only
+behaviour) turns all 8 of those tests red (`Test Files 3 failed (3)`, `Tests 8 failed | 126 passed
+(134)`); reapplying the fix returns to `Test Files 3 passed (3)`, `Tests 134 passed (134)`. Verified
+2026-09-14: `npx vitest run src/app/activity-log.test.ts src/app/activity-log-merge.test.ts
+src/app/history-search.test.ts` → `Test Files 3 passed (3)`, `Tests 134 passed (134)`, exit 0; the
+broader `golden-workspace.test.ts` / `entity-persistence-registry.test.ts` / `workspace.test.ts` /
+`dashboard-delta.test.ts` / `dashboard-delta.property.test.ts` / `activity-log-panel.test.tsx` /
+`use-activity-log.test.tsx` / `completion-trend.test.ts` run → `Test Files 8 passed (8)`, `Tests 206
+passed (206)`, exit 0 (the byte-stable golden fixtures did NOT change — every timestamp in
+`sample-workspace-small.json` was already canonical); `npx tsc --noEmit` exit 0; `npx eslint
+--max-warnings=0` on every touched file exit 0. Residual: none known in the four consumers named above —
+each reads `activityLog` only from workspace state populated either by `applyWorkspace` (fed from a
+`sanitizeActivityLog` output on every one of the five load-funnel call sites:
+`browser-backend.ts`/IDB, `csv-codecs-config.ts`/CSV, `markdown-codecs-core.ts`/Markdown,
+`turso-schema.ts`/Turso, `workspace.ts`/JSON) or by `appendActivityEntry`/`useActivityLog` (which always
+mint `new Date().toISOString()`, already canonical) — no call site was found that hands any of the four
+consumers a raw, unsanitized log.
 
-**Work item:** #168
+★ EVERYTHING BELOW DESCRIBES THE PRE-FIX TREE and is kept as the diagnosis, not as a current reading —
+same convention as §162 and §165. Where it says "nothing enforces that" or that `sanitizeActivityEntry`
+"never normalises", read the opposite: normalisation is exactly what the closure above added, at the same
+function. The "Fixing it" section below is what was implemented, verbatim.
 
 Opened 2026-08-16 out of the AI Recall B2b slice. **Pre-existing class, not introduced here** — B2b
 made it MODEL-VISIBLE by putting `latestAt` into the ambient recap sentence the assistant reads every
