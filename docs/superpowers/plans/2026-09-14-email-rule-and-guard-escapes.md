@@ -3138,48 +3138,30 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
 
 Run; Expected EXIT=1 (AI path does not propagate yet).
 
+★★ **Corrected in Task 6 fix round 1: the AI writer SHARES the register writers' refs.** The original text of this step added a second, effect-refreshed `linkedRef` for raid/absences/stakeholders beside `use-register-tools.ts`' own `raidRef`/`stakeholdersRef`/`absencesRef`. That broke the rule in that file's header (a slice's reader and its writers share ONE ref). Within one model turn, a later `update_raid_item` token-checked against the stale row and reverted the propagated copy, a RAID row written earlier in the turn was missing from the input, and its before-image was pre-write. What was built instead:
+
 Code in `src/app/use-chat-dispatcher.ts`:
-- imports: `propagateResourceEmail, resourceEmailChange` and `commitEmailPropagation`.
+- import `commitResourceEmailCorrection` from `./resource-email-propagation-commit` (the ONE builder both writers call — it runs `resourceEmailChange` → `propagateResourceEmail` → `commitEmailPropagation` and returns `{ result, cascade, toastText }`, or null when nothing propagates; `handleSaveResource` calls the same builder).
 - `useWorkspace()` destructure gains `raid, setRaid, absences, setAbsences, shifts, setShifts, stakeholders, setStakeholders, project, setProject`.
-- beside the other refs:
+- The dispatcher MINTS `raidRef`, `stakeholdersRef`, `absencesRef` (each `useRef(slice)` plus its refreshing effect) and PASSES them into `useRegisterTools({ …, raidRef, stakeholdersRef, absencesRef })`. `RegisterToolsDeps` gains the three `RefObject`s, and `use-register-tools.ts` drops its own three `useRef`s and effects and lists the refs in its memo deps, like `clockRef`/`resourcesRef`.
+- Shifts and contact persons have no AI writer in either hook, so one effect-refreshed `unwrittenLinkedRef = useRef({ shifts, project })` is their only reader.
+- In `updateResource`, before the capture:
 ```ts
-  // Spec Part 7 — the linked slices `updateResource` propagates into, read at
-  // call time so the dispatcher's identity does not move on every register edit.
-  const linkedRef = useRef({ raid, absences, shifts, stakeholders, project });
-  useEffect(() => { linkedRef.current = { raid, absences, shifts, stakeholders, project }; }, [raid, absences, shifts, stakeholders, project]);
-```
-(If the file syncs its other refs without an effect, e.g. assigning during render, follow that file's existing pattern instead — read how `tasksRef` is kept current.)
-- in `updateResource`, replace the `undoRef.current?.captureComposite({ … });` call with:
-```ts
-        // Spec Part 7 — after the popout throw and the token check in
-        // `chat-tools.ts`, a corrected primary email reaches FK-linked copies,
-        // through the same helpers `handleSaveResource` uses.
-        // ★ KNOWN LIMIT: `use-register-tools.ts` keeps its own RAID/stakeholder/
-        //  absence refs, refreshed by effect; a register write later in the SAME
-        //  model turn reads the pre-propagation row and can overwrite the copy.
-        const emailChange = resourceEmailChange(existing, merged);
-        const linked = linkedRef.current;
-        const propagationInput = { tasks: tasksRef.current, raid: linked.raid, absences: linked.absences, shifts: linked.shifts, stakeholders: linked.stakeholders, contactPersons: linked.project?.contactPersons ?? [] };
-        const propagation = emailChange ? propagateResourceEmail(emailChange, propagationInput) : null;
-        const cascade = emailChange && propagation && propagation.count > 0
-          ? commitEmailPropagation({ change: emailChange, input: propagationInput, result: propagation, setters: { setTasks, setRaid, setAbsences, setShifts, setStakeholders, setProject } })
-          : [];
-        if (propagation && propagation.count > 0) tasksRef.current = propagation.tasks.next as Task[];
-        undoRef.current?.captureComposite({
-          kind: "resource.updated",
-          primaryCount: 1,
-          parts: [capturePart({
-            setter: setResources,
-            edited: [existing],
-            fromArray: resourcesRef.current,
-            isPrimary: true,
-          }), ...cascade],
-          name: resourceLogName(existing),
-          entityKey: "resource",
-          toastText: propagation && propagation.count > 0 ? t(settingsRef.current.language, "undoToastResourceEmailPropagated", propagation.count) : undefined,
+        const unwritten = unwrittenLinkedRef.current;
+        const corrected = commitResourceEmailCorrection({
+          previous: existing, next: merged, lang: settingsRef.current.language,
+          input: { tasks: tasksRef.current, raid: raidRef.current, absences: absencesRef.current, shifts: unwritten.shifts, stakeholders: stakeholdersRef.current, contactPersons: unwritten.project?.contactPersons ?? [] },
+          setters: { setTasks, setRaid, setAbsences, setShifts, setStakeholders, setProject },
         });
+        if (corrected) {
+          tasksRef.current = corrected.result.tasks.next as typeof tasksRef.current;
+          raidRef.current = corrected.result.raid.next as typeof raidRef.current;
+          stakeholdersRef.current = corrected.result.stakeholders.next as typeof stakeholdersRef.current;
+          absencesRef.current = corrected.result.absences.next as typeof absencesRef.current;
+        }
 ```
-(`tasksRef.current` type: match its declared element type instead of `Task[]` if tsc disagrees.) Add the new setters to the dispatcher `useMemo` dependency array.
+  and the existing `captureComposite` gains `...(corrected?.cascade ?? [])` after the resource part and `toastText: corrected?.toastText`. Add the new setters to the dispatcher `useMemo` dependency array.
+- Same-turn tests (one `act`, no re-render between calls) in the parity file: (a) `update_raid_item` with a pre-propagation token is refused as stale and `ownerEmail` stays the new address; (b) a RAID row created earlier in the turn survives the ref advance (★ `ownerResourceId` is not model-writable, so a created row is never FK-linked and never reached); (c) undoing the resource edit keeps an earlier same-turn `update_raid_item` edit.
 
 Rerun the parity file, `use-chat-dispatcher.test.tsx`, `use-chat-dispatcher.undo.test.tsx`, `chat-tools.test.ts`; Expected EXIT=0, `Test Files 4 passed (4)`.
 
@@ -4196,6 +4178,6 @@ Searched for "TBD", "TODO", "implement later", "similar to Task", "add appropria
 - `UseTaskSubmitArgs.resources?: readonly Resource[]`, `AssigneeField` props `emailInvalid?` / `emailDescribedBy?` — Task 3.
 - `normalizeEmailShape`, `normalizeEmailListShape`, `withNormalizedEmailField`, `withNormalizedResourceEmails`, `summarizeUnsafeEmailRecords`, `UnsafeEmailScope`, `templateSeedEmailScope(before, after)` — Task 5.
 - `onAddAssigneeToAddressBook?: (name: string, email: string) => void` on `AppModalsProps`, `TaskFormModal` and `TaskFormFields` props — Task 7.
-- `ResourceEmailChange`, `ArrayPropagation<T>`, `EmailPropagationInput`, `EmailPropagationResult`, `propagateResourceEmail(change, input)`, `retarget*Emails`, `PropagationSetters`, `contactPersonsFragment`, `commitEmailPropagation({ change, input, result, setters })`, `CaptureCompositeOpts.toastText` — Task 6.
+- `ResourceEmailChange`, `ArrayPropagation<T>`, `EmailPropagationInput`, `EmailPropagationResult`, `propagateResourceEmail(change, input)`, `retarget*Emails`, `PropagationSetters`, `contactPersonsFragment`, `commitEmailPropagation({ change, input, result, setters })`, `commitResourceEmailCorrection({ previous, next, input, setters, lang })`, `RegisterToolsDeps.raidRef`/`stakeholdersRef`/`absencesRef`, `CaptureCompositeOpts.toastText` — Task 6.
 - `UseUndoStackDeps.isReadOnly` — Task 8. `PROJECT_SCOPED_SIDE_TABLES`, `projectSideTableSweepStatements`, `SCHEDULED_JOBS_DDL`, `COLOR_SCHEMES_DDL` — Task 9.
 - `sanitizeIsoDate` signature unchanged — Task 10.

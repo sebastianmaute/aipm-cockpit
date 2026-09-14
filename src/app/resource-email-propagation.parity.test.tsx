@@ -9,6 +9,7 @@ import { useResourceDirectory } from "./use-resource-directory";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
 import { entityToken } from "./ai-entity-token";
+import { runTool } from "./chat-tools";
 import { t } from "./i18n";
 import type { Resource, Task } from "./types";
 
@@ -101,6 +102,59 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
     act(() => { ai.result.current.d.updateResource(7, { title: "Lead" }); });
     expect(showToastAction).toHaveBeenLastCalledWith("info", t("en-US", "undoToastEdit", 1), expect.anything());
     expect(ai.result.current.ws.tasks[0].assigneeEmail).toBe("OLD@x.com ");
+  });
+
+  // ★★ Fix round 1 — the AI path and the register writers share ONE ref per
+  //  slice. Every case below runs several tool calls inside ONE act, so no
+  //  re-render (and no ref-refreshing effect) happens between them: that is a
+  //  model turn, and only a shared, advanced ref can make the calls agree.
+  it("(a) a same-turn update_raid_item holding a pre-propagation token is refused, and the propagated owner email survives", async () => {
+    const { ai } = renderAi();
+    await act(async () => {
+      const d = ai.result.current.d;
+      const staleToken = entityToken("raid", d.getRaidRow(1)!);
+      d.updateResource(7, { email: "new@x.com" });
+      await expect(runTool(d, "update_raid_item", { id: 1, expectedToken: staleToken, title: "Overwrite" }))
+        .rejects.toThrow(/changed since you read it/);
+      expect(d.getRaidRow(1)?.ownerEmail).toBe("new@x.com");
+    });
+    expect(ai.result.current.ws.raid[0].ownerEmail).toBe("new@x.com");
+    expect(ai.result.current.ws.raid[0].title).toBe("Risk");
+  });
+
+  it("(b) a RAID row created earlier in the turn survives the propagation's ref advance (and a linked row is still retargeted)", async () => {
+    // ★ Not the brief's literal (b): `ownerResourceId` is NOT model-writable
+    //  (`dropUnacceptedRaidFields` refuses it), so `create_raid_item` can never
+    //  make an FK-linked row, and by the FK-only ruling such a row is not reached.
+    //  What a stale second ref WOULD break in that turn is the created row
+    //  itself: advancing the shared ref from a pre-create copy would drop it.
+    const { ai, showToastAction } = renderAi();
+    let createdId = 0;
+    await act(async () => {
+      const d = ai.result.current.d;
+      const created = await runTool(d, "create_raid_item", { title: "Created this turn", owner: "Ada L", ownerEmail: "old@x.com" }) as { id: number };
+      createdId = created.id;
+      d.updateResource(7, { email: "new@x.com" });
+      expect(d.getRaidRow(createdId)?.title).toBe("Created this turn");
+      expect(d.listRaid().map((r) => r.id)).toEqual([1, createdId]);
+    });
+    const raid = ai.result.current.ws.raid;
+    expect(raid.map((r) => [r.id, r.ownerEmail])).toEqual([[1, "new@x.com"], [createdId, "old@x.com"]]);
+    expect(showToastAction).toHaveBeenLastCalledWith("info", t("en-US", "undoToastResourceEmailPropagated", 6), expect.anything());
+  });
+
+  it("(c) undoing the resource edit keeps an AI RAID edit made earlier in the same turn", async () => {
+    const { ai } = renderAi();
+    await act(async () => {
+      const d = ai.result.current.d;
+      const token = entityToken("raid", d.getRaidRow(1)!);
+      await runTool(d, "update_raid_item", { id: 1, expectedToken: token, title: "Renamed this turn" });
+      d.updateResource(7, { email: "new@x.com" });
+    });
+    expect(ai.result.current.ws.raid[0]).toMatchObject({ title: "Renamed this turn", ownerEmail: "new@x.com" });
+    act(() => { ai.result.current.undo.undo(); });
+    expect(ai.result.current.ws.resources[0].email).toBe("old@x.com");
+    expect(ai.result.current.ws.raid[0]).toMatchObject({ title: "Renamed this turn", ownerEmail: "old@x.com" });
   });
 
   it("invalidates an outstanding update token on every touched TokenEntity row", () => {

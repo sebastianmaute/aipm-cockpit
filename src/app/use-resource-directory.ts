@@ -39,9 +39,8 @@
 // import.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type Lang, t } from "./i18n";
-import { propagateResourceEmail, resourceEmailChange } from "./resource-email-propagation";
-import { commitEmailPropagation } from "./resource-email-propagation-commit";
+import { type Lang } from "./i18n";
+import { commitResourceEmailCorrection } from "./resource-email-propagation-commit";
 import { reportSilentFailure } from "./guard-feedback";
 import { resourceDisplayName } from "./resource-foundation";
 import { mintId } from "./id-mint-session";
@@ -203,15 +202,16 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
         setEditingResource(null);
         // Spec Part 7 — a corrected primary email reaches its FK-linked copies,
         // as ONE undo entry with the resource. Otherwise the capture is unchanged.
-        const emailChange = resourceEmailChange(previous, withStamp);
-        const propagationInput = { tasks, raid, absences, shifts, stakeholders, contactPersons: project?.contactPersons ?? [] };
-        const propagation = emailChange ? propagateResourceEmail(emailChange, propagationInput) : null;
-        if (emailChange && propagation && propagation.count > 0) {
-          const cascade = commitEmailPropagation({ change: emailChange, input: propagationInput, result: propagation, setters: { setTasks, setRaid, setAbsences, setShifts, setStakeholders, setProject } });
+        const corrected = commitResourceEmailCorrection({
+          previous, next: withStamp, lang: langRef.current,
+          input: { tasks, raid, absences, shifts, stakeholders, contactPersons: project?.contactPersons ?? [] },
+          setters: { setTasks, setRaid, setAbsences, setShifts, setStakeholders, setProject },
+        });
+        if (corrected) {
           captureCompositeRef.current?.({
             kind: "resource.updated", primaryCount: 1, name, entityKey: "resource",
-            toastText: t(langRef.current, "undoToastResourceEmailPropagated", propagation.count),
-            parts: [capturePart({ setter: setResources, edited: [previous], fromArray: resources, isPrimary: true }), ...cascade],
+            toastText: corrected.toastText,
+            parts: [capturePart({ setter: setResources, edited: [previous], fromArray: resources, isPrimary: true }), ...corrected.cascade],
           });
         } else {
           captureFieldChanges(captureFieldEditRef.current, {

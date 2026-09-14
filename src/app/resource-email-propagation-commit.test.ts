@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SetStateAction } from "react";
-import { commitEmailPropagation, contactPersonsFragment, type PropagationSetters } from "./resource-email-propagation-commit";
+import { commitEmailPropagation, commitResourceEmailCorrection, contactPersonsFragment, type PropagationSetters } from "./resource-email-propagation-commit";
 import { propagateResourceEmail, type EmailPropagationInput } from "./resource-email-propagation";
-import type { ContactPerson, ProjectMeta, Task } from "./types";
+import { t } from "./i18n";
+import type { ContactPerson, ProjectMeta, Resource, Task } from "./types";
 
 const change = { resourceId: 7, from: "old@x.com", to: "new@x.com" };
 const linked = { id: 1, taskName: "T", assignee: "Ada", assigneeEmail: "old@x.com", resourceId: 7, dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", status: "To Do" } as Task;
@@ -47,6 +48,34 @@ describe("commitEmailPropagation", () => {
     commitEmailPropagation({ change, input, result: propagateResourceEmail(change, input), setters: s });
     const updater = vi.mocked(s.setProject).mock.calls[0][0] as SetStateAction<ProjectMeta | undefined>;
     expect(apply<ProjectMeta | undefined>(undefined, updater)).toBeUndefined();
+  });
+});
+
+describe("commitResourceEmailCorrection", () => {
+  const person: Resource = { id: 7, firstName: "Ada", lastName: "L", email: "old@x.com", roleId: null, utilizationMode: "percent", utilization: {} };
+
+  it("is null, and writes nothing, when the primary email did not change", () => {
+    const s = setters();
+    expect(commitResourceEmailCorrection({ previous: person, next: { ...person, title: "Lead" }, input: empty({ tasks: [linked] }), setters: s, lang: "en-US" })).toBeNull();
+    expect(s.setTasks).not.toHaveBeenCalled();
+  });
+
+  it("is null, and writes nothing, when the email changed but no linked row matches", () => {
+    const s = setters();
+    const unlinked = { ...linked, resourceId: 8 } as Task;
+    expect(commitResourceEmailCorrection({ previous: person, next: { ...person, email: "new@x.com" }, input: empty({ tasks: [unlinked] }), setters: s, lang: "en-US" })).toBeNull();
+    expect(s.setTasks).not.toHaveBeenCalled();
+  });
+
+  it("commits, and returns the result, the cascade and the count-bearing toast", () => {
+    const s = setters();
+    const out = commitResourceEmailCorrection({ previous: person, next: { ...person, email: "new@x.com" }, input: empty({ tasks: [linked], contactPersons: [ada] }), setters: s, lang: "en-US" });
+    expect(out?.result.count).toBe(2);
+    expect(out?.result.tasks.next[0].assigneeEmail).toBe("new@x.com");
+    expect(out?.cascade.filter((p) => p !== null)).toHaveLength(2);
+    expect(out?.toastText).toBe(t("en-US", "undoToastResourceEmailPropagated", 2));
+    expect(s.setTasks).toHaveBeenCalledTimes(1);
+    expect(s.setProject).toHaveBeenCalledTimes(1);
   });
 });
 

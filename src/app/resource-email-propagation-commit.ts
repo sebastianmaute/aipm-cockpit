@@ -14,9 +14,11 @@
 //  inside the setter's `prev` is not possible — React runs the updater later,
 //  after `captureComposite` has already pushed the entry.
 import type { useWorkspace } from "./workspace-context";
-import type { ContactPerson } from "./types";
+import type { ContactPerson, Resource } from "./types";
+import { type Lang, t } from "./i18n";
 import { capturePart, type CompositeFragment } from "./undo/use-undo-stack";
 import {
+  propagateResourceEmail, resourceEmailChange,
   retargetAbsenceEmails, retargetContactPersonEmails, retargetRaidEmails, retargetShiftEmails,
   retargetStakeholderEmails, retargetTaskEmails,
   type EmailPropagationInput, type EmailPropagationResult, type ResourceEmailChange,
@@ -64,4 +66,33 @@ export function commitEmailPropagation(args: {
     capturePart({ setter: setters.setStakeholders, edited: result.stakeholders.edited, fromArray: input.stakeholders }),
     result.contactPersons.changed > 0 ? contactPersonsFragment(setters.setProject, input.contactPersons, result.contactPersons.next) : null,
   ];
+}
+
+export interface EmailCorrectionOutcome {
+  /** The computed propagation — a caller holding its own refs advances them from `result.*.next`. */
+  result: EmailPropagationResult;
+  /** Undo fragments to spread after the resource's own primary part. */
+  cascade: (CompositeFragment | null)[];
+  /** The count-bearing Undo toast text for the composite (`CaptureCompositeOpts.toastText`). */
+  toastText: string;
+}
+
+/** The ONE entry both resource writers call (`handleSaveResource` and AI
+ *  `updateResource`): detect the primary-email change, propagate it over
+ *  `input`, commit it through `setters`, and hand back the undo cascade and
+ *  toast. Null when the email did not change or nothing linked matched — the
+ *  caller then keeps its ordinary capture and toast. */
+export function commitResourceEmailCorrection(args: {
+  previous: Resource;
+  next: Resource;
+  input: EmailPropagationInput;
+  setters: PropagationSetters;
+  lang: Lang;
+}): EmailCorrectionOutcome | null {
+  const change = resourceEmailChange(args.previous, args.next);
+  if (!change) return null;
+  const result = propagateResourceEmail(change, args.input);
+  if (result.count === 0) return null;
+  const cascade = commitEmailPropagation({ change, input: args.input, result, setters: args.setters });
+  return { result, cascade, toastText: t(args.lang, "undoToastResourceEmailPropagated", result.count) };
 }

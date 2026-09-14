@@ -29,8 +29,12 @@
 // ★★★ THE CLOCK AND SETTINGS REFS ARE PASSED IN, NOT RE-MINTED HERE. A second
 // `useRef(args.clock)` in this file would be a second copy of the §159 clock
 // bag refreshed by a second effect, and the entire value of that bag is that
-// there is exactly ONE place to read the project's day from. The four register
-// refs below have no reader outside this file, so those DO move.
+// there is exactly ONE place to read the project's day from. The CHANGES and
+// MILESTONES refs below have no reader outside this file, so those DO move.
+// ★★★ RAID, STAKEHOLDERS AND ABSENCES ARE PASSED IN TOO (spec Part 7): AI
+// `updateResource` in use-chat-dispatcher.ts propagates a corrected email into
+// those three slices, so it reads and advances the SAME refs these writers use.
+// A private copy here would let a same-turn update revert the propagated copy.
 //
 // ★★ Every write refuses in a read-only popout, exactly as before. ★ The reason
 // that used to be given here — "chat tool writes take no undo capture, so a
@@ -83,7 +87,7 @@ import {
 } from "./sanitize";
 import type { Settings } from "./settings-types";
 import type { ProjectClock } from "./timezone";
-import type { RaidItem, Resource } from "./types";
+import type { Absence, RaidItem, Resource, Stakeholder } from "./types";
 import { appendPatch } from "./undo/append-patch";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
@@ -161,20 +165,22 @@ export interface RegisterToolsDeps {
    *  ★ That owner's `create_resource` writer assigns `.current` synchronously,
    *   so a same-turn create should be visible here — but no test pins it. */
   resourcesRef: RefObject<readonly Resource[]>;
+  /** Owned by use-chat-dispatcher and SHARED with `updateResource`'s email
+   *  propagation — see the ★★★ note at the top of this file. */
+  raidRef: RefObject<readonly RaidItem[]>;
+  stakeholdersRef: RefObject<readonly Stakeholder[]>;
+  absencesRef: RefObject<readonly Absence[]>;
 }
 
 export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatcher {
-  const { isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave, undoRef, resourcesRef } = deps;
+  const { isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave, undoRef, resourcesRef, raidRef, stakeholdersRef, absencesRef } = deps;
   const {
-    raid,
     setRaid,
     changes,
     setChanges,
     milestones,
     setMilestones,
-    stakeholders,
     setStakeholders,
-    absences,
     setAbsences,
     calendarEvents,
     setCalendarEvents,
@@ -183,11 +189,9 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
   // Refs, so this object's identity stays stable across register edits and so
   // back-to-back tool calls in one turn read each other's writes — the same
   // pattern use-chat-dispatcher keeps for every other slice.
-  const raidRef = useRef(raid);
+  // (`raidRef`, `stakeholdersRef` and `absencesRef` come from `deps`.)
   const changesRef = useRef(changes);
   const milestonesRef = useRef(milestones);
-  const stakeholdersRef = useRef(stakeholders);
-  const absencesRef = useRef(absences);
   // ★★ `calendarEvents` is `readonly CalendarEvent[] | undefined` and the ref
   // keeps that EXACTLY — `undefined` means "the slice is absent", which is not
   // the same claim as "the project has no meetings", and every backend
@@ -196,20 +200,11 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
   // slice from absent to `[item]`, which is the only correct transition.
   const calendarEventsRef = useRef(calendarEvents);
   useEffect(() => {
-    raidRef.current = raid;
-  }, [raid]);
-  useEffect(() => {
     changesRef.current = changes;
   }, [changes]);
   useEffect(() => {
     milestonesRef.current = milestones;
   }, [milestones]);
-  useEffect(() => {
-    stakeholdersRef.current = stakeholders;
-  }, [stakeholders]);
-  useEffect(() => {
-    absencesRef.current = absences;
-  }, [absences]);
   useEffect(() => {
     calendarEventsRef.current = calendarEvents;
   }, [calendarEvents]);
@@ -1043,6 +1038,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       //  escalation writer is the first body in this memo to read it directly.
       settingsRef,
       resourcesRef,
+      // ★ The three shared register refs, from `deps` — same reason as above.
+      raidRef,
+      stakeholdersRef,
+      absencesRef,
       setRaid,
       setChanges,
       setMilestones,

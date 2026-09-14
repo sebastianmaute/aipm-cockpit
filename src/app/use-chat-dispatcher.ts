@@ -45,8 +45,7 @@ import { sanitizeAiRichText } from "./ai-rich-text";
 import { emptyForm, useTaskForm } from "./task-form-context";
 import { applyStatusChange, isTaskStatus, statusActivityKind } from "./task-status";
 import { capturePart } from "./undo/use-undo-stack";
-import { propagateResourceEmail, resourceEmailChange } from "./resource-email-propagation";
-import { commitEmailPropagation } from "./resource-email-propagation-commit";
+import { commitResourceEmailCorrection } from "./resource-email-propagation-commit";
 import { DEFAULT_TASK_STATUS, type Task } from "./types";
 import { useWorkspace } from "./workspace-context";
 import { useDocumentTools } from "./use-document-tools";
@@ -119,12 +118,30 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
   const undoRef = useRef(args.undo);
-  // Spec Part 7 — the linked slices `updateResource` propagates into, read at
-  // call time so the dispatcher's identity does not move on every register edit.
-  const linkedRef = useRef({ raid, absences, shifts, stakeholders, project });
+  // ★★★ ONE ref per register slice, SHARED with use-register-tools.ts (passed in
+  // below). Its RAID/stakeholder/absence WRITERS and `updateResource`'s email
+  // propagation (spec Part 7) must read and advance the SAME `.current`: with a
+  // second ref, a same-turn register write is invisible to the propagation and
+  // a later register write reverts the propagated copies. Minted here because
+  // both consumers sit under this hook; do not add another ref for these slices.
+  const raidRef = useRef(raid);
+  const stakeholdersRef = useRef(stakeholders);
+  const absencesRef = useRef(absences);
   useEffect(() => {
-    linkedRef.current = { raid, absences, shifts, stakeholders, project };
-  }, [raid, absences, shifts, stakeholders, project]);
+    raidRef.current = raid;
+  }, [raid]);
+  useEffect(() => {
+    stakeholdersRef.current = stakeholders;
+  }, [stakeholders]);
+  useEffect(() => {
+    absencesRef.current = absences;
+  }, [absences]);
+  // Shifts and contact persons have NO AI writer (no tool writes either slice),
+  // so the propagation is this ref's only reader.
+  const unwrittenLinkedRef = useRef({ shifts, project });
+  useEffect(() => {
+    unwrittenLinkedRef.current = { shifts, project };
+  }, [shifts, project]);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
@@ -261,6 +278,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // nothing and reads the current value at call time.
     undoRef,
     resourcesRef,
+    raidRef,
+    stakeholdersRef,
+    absencesRef,
   });
 
   // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`
@@ -742,18 +762,23 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // Spec Part 7 — after the popout throw and the token check in
         // `chat-tools.ts`, a corrected primary email reaches FK-linked copies,
         // through the same helpers `handleSaveResource` uses.
-        // ★ KNOWN LIMIT: `use-register-tools.ts` keeps its own RAID/stakeholder/
-        //  absence refs, refreshed by effect; a register write later in the SAME
-        //  model turn reads the pre-propagation row and can overwrite the copy.
-        const emailChange = resourceEmailChange(existing, merged);
-        const linked = linkedRef.current;
-        const propagationInput = { tasks: tasksRef.current, raid: linked.raid, absences: linked.absences, shifts: linked.shifts, stakeholders: linked.stakeholders, contactPersons: linked.project?.contactPersons ?? [] };
-        const propagation = emailChange ? propagateResourceEmail(emailChange, propagationInput) : null;
-        const propagates = emailChange !== null && propagation !== null && propagation.count > 0;
-        const cascade = propagates
-          ? commitEmailPropagation({ change: emailChange, input: propagationInput, result: propagation, setters: { setTasks, setRaid, setAbsences, setShifts, setStakeholders, setProject } })
-          : [];
-        if (propagates) tasksRef.current = propagation.tasks.next as Task[];
+        // ★★ The input is read from the refs the register WRITERS share, and every
+        //  ref the propagation wrote is advanced, exactly as `tasksRef` is — so a
+        //  RAID/stakeholder/absence write earlier in the turn is propagated over
+        //  (and captured with its post-write before-image), and one later in the
+        //  turn token-checks against, and maps over, the retargeted row.
+        const unwritten = unwrittenLinkedRef.current;
+        const corrected = commitResourceEmailCorrection({
+          previous: existing, next: merged, lang: settingsRef.current.language,
+          input: { tasks: tasksRef.current, raid: raidRef.current, absences: absencesRef.current, shifts: unwritten.shifts, stakeholders: stakeholdersRef.current, contactPersons: unwritten.project?.contactPersons ?? [] },
+          setters: { setTasks, setRaid, setAbsences, setShifts, setStakeholders, setProject },
+        });
+        if (corrected) {
+          tasksRef.current = corrected.result.tasks.next as typeof tasksRef.current;
+          raidRef.current = corrected.result.raid.next as typeof raidRef.current;
+          stakeholdersRef.current = corrected.result.stakeholders.next as typeof stakeholdersRef.current;
+          absencesRef.current = corrected.result.absences.next as typeof absencesRef.current;
+        }
         undoRef.current?.captureComposite({
           kind: "resource.updated",
           primaryCount: 1,
@@ -762,10 +787,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
             edited: [existing],
             fromArray: resourcesRef.current,
             isPrimary: true,
-          }), ...cascade],
+          }), ...(corrected?.cascade ?? [])],
           name: resourceLogName(existing),
           entityKey: "resource",
-          toastText: propagates ? t(settingsRef.current.language, "undoToastResourceEmailPropagated", propagation.count) : undefined,
+          toastText: corrected?.toastText,
         });
         resourcesRef.current = next;
         setResources(next);
