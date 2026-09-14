@@ -623,7 +623,9 @@ export function isBudgetCurrency(v: unknown): v is BudgetCurrency {
 export type BucketStatus = "open" | "closed";
 
 /** One role line within a bucket. `resourceIds` feed the PLAN (their capacity);
- *  `budgetHours`/`actualHours` are periodKey → hours maps (aligned to the plan). */
+ *  `budgetHours` is a periodKey → hours map (aligned to the plan). `actualHours`
+ *  holds period keys (hand edits) AND day keys "YYYY-MM-DD" (TimeLog Apply);
+ *  read it through `actualHoursIn` / `actualHoursAt` in `actual-hours.ts`. */
 export type BucketAllocation = {
   roleId: number;
   resourceIds: number[];
@@ -637,8 +639,10 @@ export const PLANNING_MODES = ["detailed", "blended"] as const;
 export type PlanningMode = (typeof PLANNING_MODES)[number];
 
 /** One discipline line within a blended-mode bucket. `resourceIds` feed the PLAN
- *  (their capacity), exactly like BucketAllocation; budget/actual hours are
- *  periodKey → hours maps aligned to the plan. */
+ *  (their capacity), exactly like BucketAllocation. `budgetHours` is a periodKey →
+ *  hours map (aligned to the plan). `actualHours` holds period keys (hand edits)
+ *  AND day keys "YYYY-MM-DD" (TimeLog Apply); read it through `actualHoursIn` /
+ *  `actualHoursAt` in `actual-hours.ts`. */
 export type DisciplineAllocation = {
   disciplineId: number;
   resourceIds: number[];
