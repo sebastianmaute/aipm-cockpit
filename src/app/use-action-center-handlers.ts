@@ -28,8 +28,9 @@ import type { ActivityKind } from "./activity-log";
 import { buildTaskSeedFromAction } from "./action-task-seed";
 import { emptyForm } from "./task-form-context";
 import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
-import { isValidEmail } from "./sanitize";
-import { isEscalationEmail } from "./raid-escalation";
+import { isValidEmail, emailWriteRefusal } from "./sanitize";
+import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { isEscalationWriteEmail } from "./raid-escalation";
 import { renderTemplateForSend, buildStakeholderUpdateVars, type CommTemplateCategory } from "./comm-templates";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { plainTextToHtml } from "./comm-send";
@@ -227,9 +228,9 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
       const id = Number(action.cta.id);
       const item = raid.find((r) => r.id === id);
       if (!item) return; // deleted-source safe
-      // isEscalationEmail, not isValidEmail: also rejects "<"/">" (§515 defence
-      // in depth — see raid-escalation.ts).
-      if (!isEscalationEmail(recipient.email)) { showToast("error", t(lang, "errorInvalidEmail")); return; }
+      // isEscalationWriteEmail, not isValidEmail: also rejects "<"/">" (§515
+      // defence in depth) and "," / ";" (the write rule — see raid-escalation.ts).
+      if (!isEscalationWriteEmail(recipient.email)) { showToast("error", t(lang, EMAIL_REFUSAL_KEY[emailWriteRefusal(recipient.email, undefined) ?? "invalid"])); return; }
       const plan = planEscalation(item);
       const at = new Date().toISOString();
       const selfResource = resources.find((r) => r.id === selfResourceId);

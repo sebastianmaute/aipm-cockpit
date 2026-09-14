@@ -70,6 +70,7 @@ import {
   dropUnacceptedMilestoneFields,
   dropUnacceptedRaidFields,
   dropUnacceptedStakeholderFields,
+  refuseEmailWrite,
   refuseInvalidAbsenceEmail,
   sanitizeAbsence,
   sanitizeIsoDate,
@@ -264,6 +265,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       // use-chat-dispatcher.ts. Every update and delete here DOES capture.
       createRaid: (input) => {
         if (isReadOnly) throw readOnlyError();
+        refuseEmailWrite("ownerEmail", (input as { ownerEmail?: unknown }).ownerEmail, undefined);
         const id = mintId("raid", raidRef.current);
         const sanitized = sanitizeRaidItem({
           // ★★★ THE SAME GUARD THE UPDATE PATH USES, and it belongs here for
@@ -305,6 +307,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = raidRef.current.find((r) => r.id === id);
         if (!existing) return null;
+        refuseEmailWrite("ownerEmail", (patch as { ownerEmail?: unknown }).ownerEmail, existing.ownerEmail);
         // ★★★ `dropUnacceptedRaidFields` FIRST — `sanitizeRaidItem` rebuilds a
         // whole record, so a value it refuses CLEARS the merged field rather
         // than leaving the stored one alone (or resets it to a hardcoded
@@ -717,6 +720,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
 
       createStakeholder: (input) => {
         if (isReadOnly) throw readOnlyError();
+        refuseEmailWrite("email", (input as { email?: unknown }).email, undefined);
         const id = mintId("stakeholder", stakeholdersRef.current);
         // ★★★ `resourceId` is the reason this line changed. `9c230204` guarded
         //  it on UPDATE and left it writable here — a half-fix, and exactly the
@@ -738,6 +742,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = stakeholdersRef.current.find((s) => s.id === id);
         if (!existing) return null;
+        refuseEmailWrite("email", (patch as { email?: unknown }).email, existing.email);
         // ★★ Guarded like the other three registers: `sanitizeStakeholder`
         // RESETS an unrecognised category/influence/interest to a hardcoded
         // fallback, so a refused value silently demotes a "Sponsor" to "Other"
@@ -848,7 +853,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const existing = absencesRef.current.find((a) => a.id === id);
         if (!existing) return null;
         const accepted = dropUnacceptedAbsenceFields(patch);
-        refuseInvalidAbsenceEmail(accepted);
+        refuseInvalidAbsenceEmail(accepted, existing.assigneeEmail);
         const merged = sanitizeAbsence({
           ...existing,
           ...accepted,

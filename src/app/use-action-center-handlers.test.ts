@@ -18,6 +18,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useActionCenterHandlers, type ActionCenterHandlerDeps } from "./use-action-center-handlers";
+import { t } from "./i18n";
 import type { SuggestedAction } from "./next-actions";
 import type { RaidItem, Task } from "./types";
 
@@ -302,8 +303,8 @@ describe("useActionCenterHandlers — Escalate records on the item (§515)", () 
     expect(logActivity).not.toHaveBeenCalled();
   });
 
-  // fix-all-1: isEscalationEmail rejects "<"/">" too — an address that would
-  // otherwise pass isValidEmail must still be refused here.
+  // fix-all-1: isEscalationWriteEmail rejects "<"/">" too — an address that
+  // would otherwise pass isValidEmail must still be refused here.
   it("writes nothing for a <br>-bearing address that would otherwise pass isValidEmail", () => {
     const setRaid = vi.fn();
     const showToast = vi.fn();
@@ -311,6 +312,17 @@ describe("useActionCenterHandlers — Escalate records on the item (§515)", () 
     const { result } = renderHook(() => useActionCenterHandlers(makeDeps({ raid: [item], setRaid, showToast, logActivity })));
     act(() => { result.current.escalateBundle!.onEscalate(escalateAction, { ...recipient, email: "a<br>@b.co" }); });
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+    expect(setRaid).not.toHaveBeenCalled();
+    expect(logActivity).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing for a delimiter-bearing address and shows the delimiter message", () => {
+    const setRaid = vi.fn();
+    const showToast = vi.fn();
+    const logActivity = vi.fn();
+    const { result } = renderHook(() => useActionCenterHandlers(makeDeps({ raid: [item], setRaid, showToast, logActivity })));
+    act(() => { result.current.escalateBundle!.onEscalate(escalateAction, { ...recipient, email: "a,b@x.com" }); });
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "errorEmailDelimiter"));
     expect(setRaid).not.toHaveBeenCalled();
     expect(logActivity).not.toHaveBeenCalled();
   });

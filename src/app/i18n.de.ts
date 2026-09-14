@@ -123,6 +123,7 @@ export const de: Record<TranslationKey, string> = {
   errorDueDateRequired: "Fälligkeitsdatum ist erforderlich.",
   errorPastDate: "Fälligkeitsdatum muss heute oder später sein.",
   errorInvalidEmail: "Das sieht nicht nach einer gültigen E-Mail-Adresse aus.",
+  errorEmailDelimiter: "Eine E-Mail-Adresse darf weder ein Komma noch ein Semikolon enthalten.",
 
   priorityLow: "Niedrig",
   priorityMedium: "Mittel",

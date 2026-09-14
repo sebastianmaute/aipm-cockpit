@@ -8,7 +8,7 @@
 //   Error as the tool result the model reads.
 
 import {
-  isValidEmail,
+  refuseEmailWrite,
   sanitizeAssignee,
   sanitizeBlockers,
   sanitizeEmail,
@@ -87,7 +87,7 @@ export function buildTaskCleanPatch(
     cleanPatch.assignee = sanitizeAssignee(patch.assignee);
   if (patch.assigneeEmail !== undefined) {
     const e = sanitizeEmail(patch.assigneeEmail);
-    if (e && !isValidEmail(e)) throw new Error("assigneeEmail is invalid");
+    refuseEmailWrite("assigneeEmail", e, existing.assigneeEmail);
     cleanPatch.assigneeEmail = e;
   }
   if (patch.dueDate !== undefined) {

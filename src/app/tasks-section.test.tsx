@@ -2,6 +2,7 @@ import React from "react";
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { t, loadI18n } from "./i18n";
+import { ToastProvider } from "./toast-context";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
 import { expectButtonOrder } from "../test/toolbar-order";
 
@@ -1280,6 +1281,44 @@ describe("TasksSection", () => {
     });
 
     expect(captureFieldEdit).not.toHaveBeenCalled();
+  });
+
+  it("reverts a refused inline assignee email, applies the other keys, and toasts once (decision 3)", () => {
+    const task = { id: 1, taskName: "T1", assignee: "Ada", assigneeEmail: "old@x.com" };
+    let currentTasks: unknown[] = [task];
+    const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
+      currentTasks = updater(currentTasks);
+    });
+    mockUseWorkspace.mockReturnValue({
+      tasks: currentTasks,
+      setTasks,
+      filteredSortedTasks: currentTasks,
+      uniqueAssignees: [],
+      uniqueGroups: [],
+      uniqueLabels: [],
+      effectiveFilters: { assignee: "All", group: "All", label: "All" },
+      tasksById: new Map(),
+      taskSearchIndex: new Map(),
+      resources: [],
+      raid: [], setRaid: vi.fn(),
+      absences: [], setAbsences: vi.fn(),
+      shifts: [], setShifts: vi.fn(),
+    });
+    const showToast = vi.fn();
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <TasksSection {...makeProps()} />
+      </ToastProvider>,
+    );
+    const ctx = capturedRowContext.current as {
+      onInlinePatch: (id: number, patch: Record<string, unknown>) => void;
+    };
+    act(() => {
+      ctx.onInlinePatch(1, { assignee: "Bob", assigneeEmail: "a,b@x.com" });
+    });
+    expect(currentTasks[0]).toMatchObject({ assignee: "Bob", assigneeEmail: "old@x.com" });
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "errorEmailDelimiter"));
   });
 
   // Geometry, not pixels: jsdom has no layout engine, so assert what we EMIT.

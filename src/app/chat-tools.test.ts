@@ -1134,6 +1134,7 @@ describe("runTool — escalate_raid_item (§515, append-only)", () => {
     // in depth alongside the root Markdown escaping fix.
     [{ toEmail: "a<br>@b.co" }, /toEmail must be a valid email/],
     [{ toEmail: "a@b.co>" }, /toEmail must be a valid email/],
+    [{ toEmail: "a,b@x.com" }, /toEmail must be a valid email/],
   ])("rejects the invalid recipient %o with a model-facing error and writes nothing", async (recipient, message) => {
     const d = makeDispatcher();
     await expect(runTool(d, "escalate_raid_item", { id: 10, expectedToken: FRESH_RAID_TOKEN, ...recipient }))

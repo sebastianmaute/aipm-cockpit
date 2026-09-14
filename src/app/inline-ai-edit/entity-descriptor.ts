@@ -442,8 +442,8 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     numericFields: {},
     stringOnlyFields: new Set(),
     enumFields: { status: constSet(TASK_STATUSES), priority: constSet(PRIORITIES) },
-    // ★ The ONLY member across all six entities: `buildTaskCleanPatch` throws
-    //   on a malformed address, and the throw fails the whole patch.
+    // ★ Every email field's writer throws through `refuseEmailWrite`, and a throw
+    //   fails the whole patch, so the card refuses the field first.
     emailFormatFields: new Set(["assigneeEmail"]),
     arrayFields: new Set(["labels"]),
     numberFields: new Set(),
@@ -478,7 +478,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     stringOnlyFields: new Set(),
     enumFields: { category: constSet(RAID_CATEGORIES), severity: constSet(RAID_SEVERITIES), status: raidStatusResolver },
     enumDefaultFor: (field, item) => (field === "status" ? raidStatusDefault(raidCategoryOf(item)) : undefined),
-    emailFormatFields: new Set(),
+    emailFormatFields: new Set(["ownerEmail"]),
     arrayFields: new Set(),
     numberFields: new Set(["probability", "impact"]),
     // Mirrors `sanitizeRaidItem` (sanitize-records.ts). ★ `title` is capped at
@@ -610,7 +610,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     numericFields: {},
     stringOnlyFields: new Set(),
     enumFields: { category: constSet(STAKEHOLDER_CATEGORIES), influence: constSet(INFLUENCE_INTEREST_LEVELS), interest: constSet(INFLUENCE_INTEREST_LEVELS) },
-    emailFormatFields: new Set(),
+    emailFormatFields: new Set(["email"]),
     arrayFields: new Set(),
     numberFields: new Set(),
     // Mirrors `sanitizeStakeholder` (sanitize-records.ts). ★★ `notes` is
@@ -678,7 +678,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     numericFields: {},
     stringOnlyFields: new Set(),
     enumFields: {},
-    emailFormatFields: new Set(),
+    emailFormatFields: new Set(["email"]),
     arrayFields: new Set(),
     numberFields: new Set(),
     // Mirrors `sanitizeResource` (sanitize-entities.ts), which uses FIVE
@@ -786,8 +786,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  invalid" for a non-blank address `isValidEmail` rejects, so the preview
     //  rejects it first and the rest of the patch can still apply. The
     //  load-path `sanitizeAbsence` still has no format guard and must not
-    //  gain one — that would drop stored data. ★★ `raid.ownerEmail` is still
-    //  UNCHECKED on both sides, so its set stays empty.
+    //  gain one — that would drop stored data.
     emailFormatFields: new Set(["assigneeEmail"]),
     arrayFields: new Set(),
     numberFields: new Set(),

@@ -3942,3 +3942,38 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
     expect(result.current.d.getSnapshot().activitySummary).toBeUndefined();
   });
 });
+
+describe("the email write rule on AI writers (spec Part 1)", () => {
+  it("createTask refuses a delimiter-bearing assigneeEmail", () => {
+    const { result } = renderDispatcher();
+    expect(() => result.current.createTask({ taskName: "T", assignee: "Ada", dueDate: "2026-06-01", assigneeEmail: "a,b@x.com" })).toThrow('assigneeEmail must not contain "," or ";"');
+  });
+
+  it("updateTask keeps a stored unsafe assigneeEmail when it is echoed unchanged", () => {
+    const seeded = seedTasks().map((row, i) => (i === 0 ? { ...row, assigneeEmail: "a,b@x.com" } : row));
+    const { result } = renderDispatcher(seeded);
+    const id = seeded[0].id;
+    act(() => { result.current.updateTask(id, { assigneeEmail: "a,b@x.com", taskName: "Renamed" }); });
+    expect(result.current.getTask(id)).toMatchObject({ taskName: "Renamed", assigneeEmail: "a,b@x.com" });
+  });
+
+  it("createResource refuses a malformed primary email and writes nothing", () => {
+    const { result } = renderDispatcher();
+    expect(() => result.current.createResource({ firstName: "Ada", email: "nope" })).toThrow("email is invalid");
+    expect(result.current.listResources()).toHaveLength(0);
+  });
+
+  it("updateResource refuses a CHANGED delimiter-bearing primary email", () => {
+    const { result } = renderDispatcher();
+    let id = 0;
+    act(() => { id = result.current.createResource({ firstName: "Ada", lastName: "L", email: "ada@x.com" }).id; });
+    expect(() => result.current.updateResource(id, { email: "a;b@x.com" })).toThrow('email must not contain "," or ";"');
+    expect(result.current.getResourceRow(id)?.email).toBe("ada@x.com");
+  });
+
+  it("createRaid refuses a malformed ownerEmail; createStakeholder refuses a delimiter-bearing email", () => {
+    const { result } = renderDispatcher();
+    expect(() => result.current.createRaid({ category: "R", title: "Risk", ownerEmail: "nope" })).toThrow("ownerEmail is invalid");
+    expect(() => result.current.createStakeholder({ name: "Sam", email: "a,b@x.com" })).toThrow('email must not contain "," or ";"');
+  });
+});

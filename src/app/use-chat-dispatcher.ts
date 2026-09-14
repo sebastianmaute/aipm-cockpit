@@ -26,7 +26,6 @@ import { resolveDependencyWrite } from "./task-dependency-write";
 import { useFilters } from "./filters-context";
 import { t } from "./i18n";
 import {
-  isValidEmail,
   sanitizeAssignee,
   sanitizeBlockers,
   sanitizeEmail,
@@ -39,6 +38,8 @@ import {
   dropUnacceptedResourceFields,
   emailWriteRefusal,
   findTornEmail,
+  isWriteSafeEmail,
+  refuseEmailWrite,
 } from "./sanitize";
 import { sanitizeAiRichText } from "./ai-rich-text";
 import { emptyForm, useTaskForm } from "./task-form-context";
@@ -167,7 +168,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       // stale after a rename/re-link.
       const resById = new Map(resourcesRef.current.map((r) => [r.id, r]));
       let email = effectivePersonEmail(task.assigneeEmail ?? "", task.resourceId, resById).trim();
-      if (!email && isValidEmail(task.assignee)) email = task.assignee.trim();
+      if (!email && isWriteSafeEmail(task.assignee)) email = task.assignee.trim();
       if (!email) return { sent: false, reason: "no-email-on-file" };
 
       const greeting = greetingName(task.assignee) || task.assignee;
@@ -265,8 +266,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!assignee) throw new Error("assignee is required");
         if (!dueDate) throw new Error("dueDate must be YYYY-MM-DD");
         const email = sanitizeEmail(input.assigneeEmail);
-        if (email && !isValidEmail(email))
-          throw new Error("assigneeEmail is invalid");
+        refuseEmailWrite("assigneeEmail", email, undefined);
         const baseTask: Task = {
           id,
           taskName,
@@ -613,6 +613,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //  is written; a STRING is a delimited list and is split by design.
         const unsafeEmail = findTornEmail(input.emails, undefined);
         if (unsafeEmail !== undefined) throw new Error(`invalid resource: ${emailsRefusalText(unsafeEmail)}`);
+        refuseEmailWrite("email", input.email, undefined);
         const id = mintId("resource", resourcesRef.current);
         // sanitizeResource fills roleId/utilization defaults; returns null with
         // no first/last name (or splittable full name).
@@ -665,6 +666,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //   keeps a refused `emails` out of its patch on the plan side.
         const unsafeEmail = findTornEmail(patch.emails, existing.emails);
         if (unsafeEmail !== undefined) throw new Error(`invalid resource update: ${emailsRefusalText(unsafeEmail)}`);
+        refuseEmailWrite("email", patch.email, existing.email);
         // ★★★ `name` HAS TO BE SPLIT HERE OR IT IS A SILENT NO-OP ON UPDATE, and
         // it was one. `ResourceInput.name` is documented as "split into
         // first/last when the parts aren't given", and `sanitizeResource`

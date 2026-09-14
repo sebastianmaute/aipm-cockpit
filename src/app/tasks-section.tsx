@@ -33,7 +33,9 @@ import { isTaskFinished } from "./task-status";
 import { filterTasksByHealth, type HealthFilter } from "./health";
 import { visibleTaskRows } from "./visible-task-rows";
 import { useRowTokens } from "./use-row-tokens";
-import { sanitizeInlinePatch } from "./task-inline-patch";
+import { inlineAssigneeEmailRefusal, sanitizeInlinePatch } from "./task-inline-patch";
+import { useToastContext } from "./toast-context";
+import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 import { valuesDiffer } from "./undo/field-groups";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
@@ -274,6 +276,7 @@ export function TasksSection({
   );
 
   const { editingId, bulkEditOpen, setBulkEditOpen } = useTaskForm();
+  const showToast = useToastContext();
 
   const { settings, setSettings } = useSettings();
   // ONE holidaySet, threaded from task-manager, which feeds the SAME value to
@@ -461,11 +464,17 @@ export function TasksSection({
       // Jira-synced rows are read-only — no edit, no capture.
       if (!beforeRow || beforeRow.jiraKey) return;
       const knownTaskIds = new Set(tasks.map((tk) => tk.id));
-      const clean = sanitizeInlinePatch(patch, {
-        hasResource: (id) => resourcesById.has(id),
+      const patchCtx = {
+        hasResource: (id: number) => resourcesById.has(id),
         knownTaskIds,
         ownTaskId: taskId,
-      });
+        storedAssigneeEmail: beforeRow.assigneeEmail,
+        // Only the resource THIS patch picked (spec decision 2, pre-flight M10).
+        copySourceEmails: typeof patch.resourceId === "number" ? [resourcesById.get(patch.resourceId)?.email ?? ""] : [],
+      };
+      const emailRefusal = inlineAssigneeEmailRefusal(patch, patchCtx);
+      if (emailRefusal !== null) showToast("error", t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
+      const clean = sanitizeInlinePatch(patch, patchCtx);
       setTasks((prev) =>
         prev.map((row) =>
           row.id === taskId && !row.jiraKey
@@ -490,7 +499,7 @@ export function TasksSection({
         });
       }
     },
-    [tasks, setTasks, resourcesById, captureFieldEdit],
+    [tasks, setTasks, resourcesById, captureFieldEdit, showToast, lang],
   );
 
   const rowContextValue = useMemo<RowContextValue>(

@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect, useRef, useState } from "react";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
+import { t } from "./i18n";
 import { loadJiraApi } from "./use-jira-sync";
 import { useUndoStack } from "./undo/use-undo-stack";
 import type { Task, Resource } from "./types";
@@ -363,6 +364,17 @@ describe("useTaskRowHandlers — onSendInquiry", () => {
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
     act(() => result.current.onSendInquiry(task));
     expect(alertSpy).toHaveBeenCalled();
+    expect(setTasks).not.toHaveBeenCalled();
+  });
+
+  it("alerts with the delimiter message and aborts on a delimiter-bearing prompted email", () => {
+    vi.spyOn(window, "prompt").mockReturnValue("a,b@x.com");
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const setTasks = vi.fn();
+    const task = makeTask({ id: 1, assigneeEmail: "", assignee: "No Email Person" });
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
+    act(() => result.current.onSendInquiry(task));
+    expect(alertSpy).toHaveBeenCalledWith(t("en-US", "errorEmailDelimiter"));
     expect(setTasks).not.toHaveBeenCalled();
   });
 

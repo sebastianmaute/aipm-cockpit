@@ -7,7 +7,7 @@ import type { Absence, Discipline, Grade, RaidItem, Resource, Role, Shift } from
 import type { CalendarEvent } from "./calendar-event";
 import { buildMoveOccurrenceHandler } from "./calendar-event-move-handler";
 import type { Occurrence } from "./recurrence";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { FiltersProvider } from "./filters-context";
 import {
@@ -1410,6 +1410,19 @@ describe("useResourcePlanner", () => {
       const { result } = renderPlanner();
       act(() => { result.current.workspace.setRaid([owned({ owner: "No Email", ownerEmail: undefined })]); });
       act(() => { result.current.planner.handleSendRaidInquiry(owned({ owner: "No Email", ownerEmail: undefined })); });
+      expect(hrefValue).toBe("");
+      expect((result.current.workspace.raid[0] as RaidItem).inquiriesSent ?? 0).toBe(0);
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+      vi.restoreAllMocks();
+    });
+
+    it("alerts with the delimiter message and does nothing for a delimiter-bearing prompted email", () => {
+      vi.spyOn(window, "prompt").mockReturnValue("a,b@x.com");
+      const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+      const { result } = renderPlanner();
+      act(() => { result.current.workspace.setRaid([owned({ owner: "No Email", ownerEmail: undefined })]); });
+      act(() => { result.current.planner.handleSendRaidInquiry(owned({ owner: "No Email", ownerEmail: undefined })); });
+      expect(alertSpy).toHaveBeenCalledWith(t("en-US", "errorEmailDelimiter"));
       expect(hrefValue).toBe("");
       expect((result.current.workspace.raid[0] as RaidItem).inquiriesSent ?? 0).toBe(0);
       Object.defineProperty(window, "location", { configurable: true, value: originalLocation });

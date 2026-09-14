@@ -12,6 +12,7 @@ import {
   dropUnacceptedResourceFields,
   dropUnacceptedStakeholderFields,
   findTornEmail,
+  refuseEmailWrite,
   refuseInvalidAbsenceEmail,
   sanitizeAbsence,
   sanitizeChangeItem,
@@ -350,6 +351,11 @@ const taskReader: StoredReader = (field, value) => {
  *  a non-default row, which is where such a fixture belongs. */
 const stakeholderReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedStakeholderFields({ [field]: value });
+  try {
+    refuseEmailWrite("email", (patch as { email?: unknown }).email, STK_BASE.email);
+  } catch {
+    return null; // updateStakeholder surfaces the throw as a failed tool call
+  }
   const out = sanitizeStakeholder({ ...STK_BASE, ...patch });
   return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
 };
@@ -365,6 +371,11 @@ const raidReader: StoredReader = (field, value) => {
     { [field]: value },
     RAID_BASE as unknown as Pick<RaidItem, "category">,
   );
+  try {
+    refuseEmailWrite("ownerEmail", (patch as { ownerEmail?: unknown }).ownerEmail, RAID_BASE.ownerEmail);
+  } catch {
+    return null; // updateRaid surfaces the throw as a failed tool call
+  }
   const out = sanitizeRaidItem({ ...RAID_BASE, ...patch });
   return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
 };
@@ -457,7 +468,13 @@ const changeReader: StoredReader = (field, value) => {
  *  same "no stored list" `findTornEmail` sees from `createResource`. */
 const resourceReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedResourceFields({ [field]: value });
+  // Task 1's LIST-field guard, kept — do not remove this line in Task 2.
   if (findTornEmail(patch.emails, undefined) !== undefined) return null;
+  try {
+    refuseEmailWrite("email", (patch as { email?: unknown }).email, RES_BASE.email);
+  } catch {
+    return null; // updateResource surfaces the throw as a failed tool call
+  }
   const out = sanitizeResource({ ...RES_BASE, ...patch });
   return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
 };
@@ -476,7 +493,7 @@ const resourceReader: StoredReader = (field, value) => {
 const absenceReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedAbsenceFields({ [field]: value });
   try {
-    refuseInvalidAbsenceEmail(patch);
+    refuseInvalidAbsenceEmail(patch, ABS_BASE.assigneeEmail);
   } catch {
     return null; // the dispatcher surfaces the throw as a failed tool call
   }

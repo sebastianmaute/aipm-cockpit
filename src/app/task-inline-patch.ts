@@ -6,6 +6,7 @@
 // it is unit-testable without rendering the tasks pane (the React handler in
 // tasks-section just supplies the live resource/task id sets).
 import {
+  emailWriteRefusal,
   sanitizeAssignee,
   sanitizeBlockers,
   sanitizeDependencies,
@@ -14,6 +15,7 @@ import {
   sanitizePriority,
   sanitizeTaskName,
 } from "./sanitize";
+import type { EmailRefusal } from "./sanitize-core";
 import { sanitizeRichHtml } from "./sanitize-html";
 import type { Task } from "./types";
 
@@ -24,6 +26,22 @@ export interface InlinePatchContext {
   knownTaskIds: ReadonlySet<number>;
   /** The task being edited (self-dependency guard). */
   ownTaskId: number;
+  /** The row's STORED assignee email — an unchanged value is never refused. */
+  storedAssigneeEmail?: string;
+  /** The stored email of the person THIS patch picked (the resource named by
+   *  `patch.resourceId`; the cell's picker is given no address book). A copy of
+   *  it is never refused (spec Part 1, decision 2). Only the picked source is
+   *  exempt — never every resource's email (pre-flight M10). */
+  copySourceEmails?: readonly string[];
+}
+
+/** Why the patch's `assigneeEmail` is refused, or null. ★ Reachable only
+ *  through a caller other than the picker: the cell sends the stored value or a
+ *  picked resource's stored email, both exempt. Kept so the pane's toast and
+ *  this sanitizer judge ONE value with ONE rule. */
+export function inlineAssigneeEmailRefusal(patch: Partial<Task>, ctx: InlinePatchContext): EmailRefusal | null {
+  if (!("assigneeEmail" in patch)) return null;
+  return emailWriteRefusal(sanitizeEmail(patch.assigneeEmail), ctx.storedAssigneeEmail, ctx.copySourceEmails ?? []);
 }
 
 /**
@@ -40,7 +58,9 @@ export function sanitizeInlinePatch(patch: Partial<Task>, ctx: InlinePatchContex
     if (name) clean.taskName = name; // never blank out the task's identity
   }
   if ("assignee" in patch) clean.assignee = sanitizeAssignee(patch.assignee);
-  if ("assigneeEmail" in patch) clean.assigneeEmail = sanitizeEmail(patch.assigneeEmail);
+  if ("assigneeEmail" in patch && inlineAssigneeEmailRefusal(patch, ctx) === null) {
+    clean.assigneeEmail = sanitizeEmail(patch.assigneeEmail); // a refused value keeps the stored one
+  }
   if ("resourceId" in patch) {
     const rid = patch.resourceId;
     clean.resourceId = typeof rid === "number" && ctx.hasResource(rid) ? rid : undefined;

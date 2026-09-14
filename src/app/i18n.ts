@@ -119,6 +119,7 @@ const enUS = {
   errorDueDateRequired: "Due date is required.",
   errorPastDate: "Due date must be today or later.",
   errorInvalidEmail: "That doesn't look like a valid email address.",
+  errorEmailDelimiter: "An email address cannot contain a comma or a semicolon.",
   errorInvalidDate: "Enter a valid date (YYYY-MM-DD).",
 
   priorityLow: "Low",

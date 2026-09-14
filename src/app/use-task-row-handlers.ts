@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import { t, type Lang } from "./i18n";
-import { isValidEmail } from "./sanitize";
+import { emailWriteRefusal, isWriteSafeEmail } from "./sanitize";
+import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
 import { buildMailtoUrl } from "./mailto";
 import { renderTemplateForSend, buildStatusInquiryVars } from "./comm-templates";
 import { sanitizeRichHtml } from "./sanitize-html";
@@ -101,7 +102,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       // Prefer the linked resource's CURRENT email; the cached assigneeEmail
       // can be stale after a rename/re-link. Unlinked → the cached email.
       let email = effectivePersonEmail(task.assigneeEmail ?? "", task.resourceId, resourcesById).trim();
-      if (!email && isValidEmail(task.assignee)) {
+      if (!email && isWriteSafeEmail(task.assignee)) {
         email = task.assignee.trim();
       }
       if (!email) {
@@ -111,8 +112,8 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         );
         if (provided === null) return;
         const trimmed = provided.trim();
-        if (!isValidEmail(trimmed)) {
-          window.alert(t(lang, "errorInvalidEmail"));
+        if (!isWriteSafeEmail(trimmed)) {
+          window.alert(t(lang, EMAIL_REFUSAL_KEY[emailWriteRefusal(trimmed, undefined) ?? "invalid"]));
           return;
         }
         email = trimmed;

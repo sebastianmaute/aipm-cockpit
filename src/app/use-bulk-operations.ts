@@ -12,10 +12,12 @@ import { useWorkspace } from "./workspace-context";
 import { useFilters } from "./filters-context";
 import { useTaskForm, emptyBulkEdit, emptyForm } from "./task-form-context";
 import {
-  isValidEmail,
+  emailWriteRefusal,
+  isWriteSafeEmail,
   sanitizeTaskName,
   sanitizeVoiceTranscript,
 } from "./sanitize";
+import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
 import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
 import { applyStatusChange, statusActivityKind } from "./task-status";
 import { todayInZone, resolveTimezone } from "./timezone";
@@ -212,7 +214,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     if (!built.ok) {
       showToastRef.current(
         "error",
-        t(lang, built.error === "pastDate" ? "errorPastDate" : "errorInvalidEmail"),
+        t(lang, built.error === "pastDate" ? "errorPastDate" : built.error === "emailDelimiter" ? "errorEmailDelimiter" : "errorInvalidEmail"),
       );
       return;
     }
@@ -439,13 +441,13 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
 
     for (const task of selected) {
       let email = effectivePersonEmail(task.assigneeEmail ?? "", task.resourceId, resourcesById).trim();
-      if (!email && isValidEmail(task.assignee)) email = task.assignee.trim();
+      if (!email && isWriteSafeEmail(task.assignee)) email = task.assignee.trim();
       if (!email) {
         const provided = window.prompt(t(lang, "promptEmail", task.assignee), "");
         if (provided === null) continue;
         const trimmed = provided.trim();
-        if (!isValidEmail(trimmed)) {
-          showToastRef.current("error", t(lang, "errorInvalidEmail"));
+        if (!isWriteSafeEmail(trimmed)) {
+          showToastRef.current("error", t(lang, EMAIL_REFUSAL_KEY[emailWriteRefusal(trimmed, undefined) ?? "invalid"]));
           continue;
         }
         email = trimmed;
