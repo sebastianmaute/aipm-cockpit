@@ -11,7 +11,7 @@
 // module needs no validation logic of its own. AIPM palette only — no shadows or
 // gradients.
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type React from "react";
 import { FieldError } from "./field-feedback";
 import { FieldGroup, HintedLabel, fieldClass } from "./form-controls";
@@ -29,8 +29,7 @@ import {
 } from "./project-options";
 import { NACE_SECTIONS } from "./nace-sections";
 import { type ProjectDraft, type ProjectErrorField } from "./project-validation";
-import { emailWriteRefusal } from "./sanitize";
-import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { emailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
 import { ResourcePicker } from "./resource-picker";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { type Contact } from "./contacts";
@@ -641,6 +640,7 @@ function ContactPersonsControl({
     { name: "", email: "", resourceId: null },
   );
   const [emailError, setEmailError] = useState<string | null>(null);
+  const emailErrorId = useId();
 
   const hasName = (name: string) =>
     contactPersons.some((c) => c.name.trim().toLowerCase() === name.trim().toLowerCase());
@@ -700,12 +700,12 @@ function ContactPersonsControl({
     // A TYPED unsafe email refuses the add; a copy of the picked person's
     // stored email is exempt (spec Part 1, decision 1 + Part 7 ruling).
     const copySources = [
-      draft.resourceId != null ? resources.find((r) => r.id === draft.resourceId)?.email : undefined,
+      linkedResourceEmail(resources, draft.resourceId),
       addressBook.find((c) => c.name === name)?.email,
     ];
-    const refusal = emailWriteRefusal(draft.email, undefined, copySources);
+    const refusal = emailRefusalMessage(lang, draft.email, undefined, copySources);
     if (refusal) {
-      setEmailError(t(lang, EMAIL_REFUSAL_KEY[refusal]));
+      setEmailError(refusal);
       return;
     }
     setEmailError(null);
@@ -767,7 +767,10 @@ function ContactPersonsControl({
             value={draft}
             resources={resources}
             contacts={addressBook}
-            onChange={(next) => setDraft({ name: next.name, email: next.email, resourceId: next.resourceId })}
+            onChange={(next) => {
+              setDraft({ name: next.name, email: next.email, resourceId: next.resourceId });
+              setEmailError(null);
+            }}
             placeholder={t(lang, "contactAddManual")}
             aria-label={t(lang, "contactAddManual")}
           />
@@ -783,10 +786,10 @@ function ContactPersonsControl({
               setEmailError(null);
             }}
             aria-invalid={emailError ? true : undefined}
-            aria-describedby={emailError ? "contact-email-error" : undefined}
+            aria-describedby={emailError ? emailErrorId : undefined}
             className={inputClass}
           />
-          <FieldError id="contact-email-error">{emailError}</FieldError>
+          <FieldError id={emailErrorId}>{emailError}</FieldError>
         </div>
         <button
           type="button"

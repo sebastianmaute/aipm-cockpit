@@ -117,9 +117,11 @@ describe("stakeholder email follows the changed-only write rule", () => {
   function Host({
     initial,
     onSave,
+    resources = [],
   }: {
     initial: Stakeholder;
     onSave: () => void;
+    resources?: Resource[];
   }) {
     const [d, setD] = useState(initial);
     return (
@@ -130,7 +132,7 @@ describe("stakeholder email follows the changed-only write rule", () => {
           draft={d}
           isNew={true}
           milestones={milestones}
-          resources={[]}
+          resources={resources}
           onChange={setD}
           onSave={onSave}
           onCancel={vi.fn()}
@@ -166,6 +168,81 @@ describe("stakeholder email follows the changed-only write rule", () => {
     );
     fireEvent.submit(screen.getByDisplayValue("Sam").closest("form")!);
     expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  // Fix round 1, IMPORTANT 3 — the copy-source exemption was unpinned: every
+  // host passed `resources={[]}`, so a real linked resource's unsafe email was
+  // never actually exercised as a copy source.
+  it("exempts a copy of the linked resource's stored email", () => {
+    const onSave = vi.fn();
+    const linked: Resource = {
+      id: 9, firstName: "Ada", lastName: "L", email: "a,b@x.com",
+      roleId: null, utilizationMode: "percent", utilization: {},
+    };
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com", resourceId: 9 }}
+        onSave={onSave}
+        resources={[linked]}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "a,b@x.com" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  // Positive control: the SAME unsafe value with no resource link is refused.
+  it("positive control: the identical value with no link is refused", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "a,b@x.com" } });
+    fireEvent.submit(screen.getByDisplayValue("Sam").closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  // Fix round 1, IMPORTANT 2 — the value that would be STORED must be judged,
+  // not the raw typed one: `sanitizeStakeholder` caps email at BUDGET_NAME_MAX
+  // (200). Capping at 200 removes the trailing delimiter, leaving a SAFE
+  // 200-char address.
+  it("saves a >200-char email that is safe once capped at BUDGET_NAME_MAX", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), {
+      target: { value: "a".repeat(195) + "@x.co,zz" },
+    });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  // The other side of the same probe: capping at 200 truncates mid-domain,
+  // leaving an INVALID 200-char address — still refused.
+  it("refuses a >200-char email that is invalid once capped at BUDGET_NAME_MAX", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), {
+      target: { value: "a".repeat(199) + "@x.com" },
+    });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
   });
 });
 

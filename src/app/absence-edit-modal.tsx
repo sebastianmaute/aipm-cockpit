@@ -23,9 +23,9 @@ import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
 import { useDraftState } from "./use-draft-state";
-import { emailWriteRefusal, sanitizeEmail } from "./sanitize-core";
-import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { sanitizeEmail } from "./sanitize-core";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
+import { emailFlagDescribedBy, emailFlagVisible, emailRefusalMessage } from "./editor-email-rule";
 
 interface Props {
   lang: Lang;
@@ -81,25 +81,27 @@ export function AbsenceEditModal({
       setError(t(lang, "absenceErrorEndBeforeStart"));
       return;
     }
-    const cleanedEmail = draft.assigneeEmail?.trim() || undefined;
     // The rule is the shared `emailWriteRefusal` (format + delimiter,
     // changed-only): a blank address is legal, a non-blank CHANGED one must be
-    // write-safe. The AI writers refuse the same (§461).
+    // write-safe. The AI writers refuse the same (§461). Judged (and stored,
+    // below) as `cappedAssigneeEmail` — the value the write path actually
+    // applies: `sanitizeEmail` (EMAIL_MAX) is what `sanitizeAbsence`'s decode
+    // path already gives `assigneeEmail`.
     // ★★ ONLY WHEN THE VALUE CHANGED from the one the modal opened with. The
     //  Email field is Full-tier only, so a stale malformed address stored
     //  before §461 would otherwise block saving any OTHER field at a tier
     //  where the user cannot even see it. Anything typed is still refused.
     const openedEmail = absence?.assigneeEmail?.trim() || undefined;
-    const emailRefusal = emailWriteRefusal(sanitizeEmail(cleanedEmail ?? ""), openedEmail);
+    const emailRefusal = emailRefusalMessage(lang, cappedAssigneeEmail ?? "", openedEmail);
     if (emailRefusal) {
-      setError(t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
+      setError(emailRefusal);
       return;
     }
     const cleanedNote = draft.note?.trim() || undefined;
     onSave({
       ...draft,
       assignee,
-      assigneeEmail: cleanedEmail,
+      assigneeEmail: cappedAssigneeEmail,
       startDate,
       endDate,
       note: cleanedNote,
@@ -119,6 +121,11 @@ export function AbsenceEditModal({
   );
 
   if (!draft) return null;
+
+  // Judge (and flag) the value the write path applies: `sanitizeEmail`
+  // (EMAIL_MAX) is what `sanitizeAbsence`'s decode path already gives
+  // `assigneeEmail`. Mirrors the cap `handleSubmit` applies before storing.
+  const cappedAssigneeEmail = sanitizeEmail(draft.assigneeEmail ?? "") || undefined;
 
   const title = isNew
     ? t(lang, "absenceNewItem")
@@ -155,15 +162,16 @@ export function AbsenceEditModal({
             assigneePlaceholder={t(lang, "absencePlaceholderAssignee")}
             showEmail={isVisible("email")}
             tooltip={t(lang, "absenceAssigneeHint")}
-            emailInvalid={emailFieldInvalid(draft.assigneeEmail)}
-            emailDescribedBy={emailFieldInvalid(draft.assigneeEmail) ? "absence-email-error" : undefined}
+            emailInvalid={emailFieldInvalid(cappedAssigneeEmail)}
+            emailDescribedBy={emailFlagDescribedBy("absence-email-error", lang, cappedAssigneeEmail, error)}
           />
-          {/* Steps aside while `error` (the blocking banner below) is showing —
-              a refused save already names the same reason, so this would
-              otherwise duplicate it as a second `role="alert"`. */}
-          {!error && isVisible("email") && emailFieldInvalid(draft.assigneeEmail) && (
+          {/* Steps aside ONLY while `error` (the blocking banner below) shows
+              this SAME refusal message — an unrelated banner error (a blank
+              assignee, end before start) must never hide it (IMPORTANT 1,
+              fix round 1). */}
+          {isVisible("email") && emailFlagVisible(lang, cappedAssigneeEmail, error) && (
             <div className="sm:col-span-2">
-              <EmailFieldError id="absence-email-error" lang={lang} value={draft.assigneeEmail} />
+              <EmailFieldError id="absence-email-error" lang={lang} value={cappedAssigneeEmail} />
             </div>
           )}
 

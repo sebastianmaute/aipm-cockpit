@@ -25,9 +25,9 @@ import { ResourcePicker } from "./resource-picker";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { describeTextCap } from "./sanitize-report";
-import { BUDGET_NAME_MAX, TEXTAREA_MAX, emailWriteRefusal } from "./sanitize";
-import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
+import { emailFlagDescribedBy, emailFlagVisible, emailRefusalMessage, joinDescribedBy, linkedResourceEmail } from "./editor-email-rule";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -95,6 +95,11 @@ export function StakeholderEditModal({
   // captured per record by render-time reconcile on `draft.id`.
   const [opened, setOpened] = useState({ id: draft.id, email: draft.email });
   if (opened.id !== draft.id) setOpened({ id: draft.id, email: draft.email });
+  // ★ Judge (and flag) the value that would be STORED, not the raw typed one:
+  // `sanitizeStakeholder` caps `email` at `BUDGET_NAME_MAX` (200), same as
+  // `name`/`organization`/`title` here — and the field's own `onBlur` cap
+  // does not cover an Enter-submit. Fix round 1, IMPORTANT 2.
+  const cappedEmail = describeTextCap(draft.email ?? "", BUDGET_NAME_MAX).value;
   const showToast = useToastContext();
   const adj = useAdjustmentTracker();
   const { isVisible } = useModalVisibility("stakeholder");
@@ -154,10 +159,10 @@ export function StakeholderEditModal({
       setError(t(lang, "raidErrorTitleRequired"));
       return;
     }
-    const linked = draft.resourceId != null ? resources.find((r) => r.id === draft.resourceId)?.email : undefined;
-    const emailRefusal = emailWriteRefusal(draft.email ?? "", opened.email, [linked]);
+    const linked = linkedResourceEmail(resources, draft.resourceId);
+    const emailRefusal = emailRefusalMessage(lang, cappedEmail, opened.email, [linked]);
     if (emailRefusal) {
-      setError(t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
+      setError(emailRefusal);
       return;
     }
     setError(null);
@@ -304,14 +309,19 @@ export function StakeholderEditModal({
                     const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
                     update("email", trimmed || undefined);
                   }}
-                  aria-invalid={emailFieldInvalid(draft.email) || undefined}
-                  aria-describedby="stakeholder-email-counter stakeholder-email-error"
+                  aria-invalid={emailFieldInvalid(cappedEmail) || undefined}
+                  aria-describedby={joinDescribedBy(
+                    "stakeholder-email-counter",
+                    emailFlagDescribedBy("stakeholder-email-error", lang, cappedEmail, error),
+                  )}
                 />
                 <CharCounter value={draft.email ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-email-counter" lang={lang} />
-                {/* Steps aside while `error` (the banner below) is showing —
-                    a refused save already names the same reason, so this
-                    would otherwise duplicate it as a second `role="alert"`. */}
-                {!error && <EmailFieldError id="stakeholder-email-error" lang={lang} value={draft.email} />}
+                {/* Steps aside ONLY while `error` (the banner below) shows
+                    this SAME refusal message — an unrelated banner error (a
+                    blank name) must never hide it (IMPORTANT 1, fix round 1). */}
+                {emailFlagVisible(lang, cappedEmail, error) && (
+                  <EmailFieldError id="stakeholder-email-error" lang={lang} value={cappedEmail} />
+                )}
               </HintedLabel>
             </>
           )}

@@ -17,9 +17,9 @@ import { useDraggable } from "./use-draggable";
 import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
-import { ASSIGNEE_MAX, EMAIL_MAX, emailWriteRefusal, findTornEmail } from "./sanitize";
-import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { ASSIGNEE_MAX, EMAIL_MAX, findTornEmail } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
+import { emailFlagDescribedBy, emailFlagVisible, emailRefusalMessage, joinDescribedBy } from "./editor-email-rule";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -94,9 +94,9 @@ export function ResourceEditModal({
       return;
     }
     const email = adj.track(describeTextCap((draft.email ?? "").trim(), EMAIL_MAX)) || undefined;
-    const emailRefusal = emailWriteRefusal(email ?? "", resource?.email);
+    const emailRefusal = emailRefusalMessage(lang, email ?? "", resource?.email);
     if (emailRefusal) {
-      setError(t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
+      setError(emailRefusal);
       return;
     }
     const emails = (draft.emails ?? [])
@@ -110,7 +110,7 @@ export function ResourceEditModal({
     // unsafe member is refused.
     const tornEmail = findTornEmail(emails, resource?.emails);
     if (tornEmail !== undefined) {
-      setError(t(lang, EMAIL_REFUSAL_KEY[emailWriteRefusal(tornEmail, undefined) ?? "delimiter"]));
+      setError(emailRefusalMessage(lang, tornEmail, undefined) ?? t(lang, "errorEmailDelimiter"));
       return;
     }
     const clean: Resource = {
@@ -305,13 +305,18 @@ export function ResourceEditModal({
                   update("email", trimmed || undefined);
                 }}
                 aria-invalid={emailFieldInvalid(draft.email) || undefined}
-                aria-describedby="resource-email-counter resource-email-error"
+                aria-describedby={joinDescribedBy(
+                  "resource-email-counter",
+                  emailFlagDescribedBy("resource-email-error", lang, draft.email, error),
+                )}
               />
               <CharCounter value={draft.email ?? ""} max={EMAIL_MAX} id="resource-email-counter" lang={lang} />
-              {/* Steps aside while `error` (the banner below) is showing — a
-                  refused save already names the same reason, so this would
-                  otherwise duplicate it as a second `role="alert"`. */}
-              {!error && <EmailFieldError id="resource-email-error" lang={lang} value={draft.email} />}
+              {/* Steps aside ONLY while `error` (the banner below) shows this
+                  SAME refusal message — an unrelated banner error (a blank
+                  name) must never hide it (IMPORTANT 1, fix round 1). */}
+              {emailFlagVisible(lang, draft.email, error) && (
+                <EmailFieldError id="resource-email-error" lang={lang} value={draft.email} />
+              )}
             </HintedLabel>
           )}
 

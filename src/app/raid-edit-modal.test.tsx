@@ -11,7 +11,7 @@ import { selectFieldTier } from "../test/field-tier";
 import { ASSIGNEE_MAX, TASK_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
 import { ToastProvider } from "./toast-context";
-import type { RaidItem } from "./types";
+import type { RaidItem, Resource } from "./types";
 import { expectNoLabelBoundToButton } from "../test/label-binding";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
 
@@ -98,7 +98,15 @@ const TITLE_HINT = t("en-US", "raidFieldTitleHint");
 describe("RAID owner email follows the changed-only write rule", () => {
   // ★ RaidEditModal is controlled (the parent owns `draft`), so a typed change
   //  must be reflected back through a stateful host, mirroring `modalEl`.
-  function StatefulModal({ initial, onSave }: { initial: RaidItem; onSave: (item: RaidItem) => void }) {
+  function StatefulModal({
+    initial,
+    onSave,
+    resources = [],
+  }: {
+    initial: RaidItem;
+    onSave: (item: RaidItem) => void;
+    resources?: readonly Resource[];
+  }) {
     const [d, setD] = useState(initial);
     return (
       <RaidEditModal
@@ -107,7 +115,7 @@ describe("RAID owner email follows the changed-only write rule", () => {
         raid={[]}
         stakeholdersEnabled
         stakeholders={[]}
-        resources={[]}
+        resources={resources}
         contacts={[]}
         onCreateResource={vi.fn(() => 1)}
         draft={d}
@@ -130,7 +138,10 @@ describe("RAID owner email follows the changed-only write rule", () => {
     fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "a,b@x.com" } });
     fireEvent.submit(screen.getByDisplayValue("a,b@x.com").closest("form")!);
     expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorEmailDelimiter"));
+    // Fix round 1, IMPORTANT 1 — the banner shows this SAME refusal, so the
+    // flag steps aside: exactly one alert, not a duplicated identical one.
+    const alerts = screen.getAllByRole("alert");
+    expect(alerts.map((a) => a.textContent)).toEqual([t("en-US", "errorEmailDelimiter")]);
   });
 
   it("saves while an unchanged stored owner email is unsafe", () => {
@@ -138,6 +149,51 @@ describe("RAID owner email follows the changed-only write rule", () => {
     render(<StatefulModal initial={makeDraft({ ownerEmail: "a,b@x.com" })} onSave={onSave} />, { wrapper });
     fireEvent.submit(screen.getByDisplayValue("a,b@x.com").closest("form")!);
     expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  // Fix round 1, IMPORTANT 1 — an UNRELATED banner error (blank title) must
+  // never hide the flag: the stored owner email is untouched and still unsafe.
+  it("keeps the flag visible while an unrelated banner error is showing", () => {
+    const onSave = vi.fn();
+    render(<StatefulModal initial={makeDraft({ title: "", ownerEmail: "a,b@x.com" })} onSave={onSave} />, { wrapper });
+    fireEvent.submit(screen.getByDisplayValue("a,b@x.com").closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    const alerts = screen.getAllByRole("alert").map((a) => a.textContent);
+    expect(alerts).toContain(t("en-US", "raidErrorTitleRequired"));
+    // The flag is a SECOND alert, distinct from the unrelated banner.
+    expect(alerts).toContain(t("en-US", "errorEmailDelimiter"));
+    expect(alerts).toHaveLength(2);
+  });
+
+  // Fix round 1, IMPORTANT 3 — the copy-source exemption was unpinned: every
+  // host passed `resources={[]}`, so a real linked resource's unsafe email was
+  // never actually exercised as a copy source.
+  it("exempts a copy of the linked resource's stored email", () => {
+    const onSave = vi.fn();
+    const linked: Resource = {
+      id: 9, firstName: "Ada", lastName: "L", email: "a,b@x.com",
+      roleId: null, utilizationMode: "percent", utilization: {},
+    };
+    render(
+      <StatefulModal
+        initial={makeDraft({ ownerEmail: "old@x.com", ownerResourceId: 9 })}
+        onSave={onSave}
+        resources={[linked]}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "a,b@x.com" } });
+    fireEvent.submit(screen.getByRole("button", { name: t("en-US", "raidSave") }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  // Positive control: the SAME unsafe value with no resource link is refused.
+  it("positive control: the identical value with no link is refused", () => {
+    const onSave = vi.fn();
+    render(<StatefulModal initial={makeDraft({ ownerEmail: "old@x.com" })} onSave={onSave} />, { wrapper });
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "a,b@x.com" } });
+    fireEvent.submit(screen.getByRole("button", { name: t("en-US", "raidSave") }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
   });
 });
 

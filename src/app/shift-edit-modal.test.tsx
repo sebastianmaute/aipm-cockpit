@@ -78,6 +78,40 @@ describe("shift assignee email follows the changed-only write rule", () => {
     fireEvent.submit(screen.getByDisplayValue("a,b@x.com").closest("form")!);
     expect(onSave).toHaveBeenCalledTimes(1);
   });
+
+  // Fix round 1, IMPORTANT 3 — the copy-source exemption was unpinned: the
+  // fixture's linked resource always carried a SAFE email, so a real unsafe
+  // one was never actually exercised as a copy source.
+  it("exempts a copy of the linked resource's stored email", () => {
+    const onSave = vi.fn();
+    const linked: Resource = {
+      id: 2, firstName: "Bo", lastName: "X", email: "a,b@x.com",
+      roleId: null, utilizationMode: "percent", utilization: {},
+    };
+    setup({
+      onSave,
+      isNew: false,
+      resources: [linked],
+      shift: { id: 1, assignee: "Bo", assigneeEmail: "old@x.com", resourceId: 2, hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0] } as Shift,
+    });
+    fireEvent.change(screen.getByLabelText(t("en-US", "shiftAssigneeEmail")), { target: { value: "a,b@x.com" } });
+    fireEvent.submit(screen.getByDisplayValue("a,b@x.com").closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  // Positive control: the SAME unsafe value with no resource link is refused.
+  it("positive control: the identical value with no link is refused", () => {
+    const onSave = vi.fn();
+    setup({
+      onSave,
+      isNew: false,
+      resources: [],
+      shift: { id: 1, assignee: "Bo", assigneeEmail: "old@x.com", hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0] } as Shift,
+    });
+    fireEvent.change(screen.getByLabelText(t("en-US", "shiftAssigneeEmail")), { target: { value: "a,b@x.com" } });
+    fireEvent.submit(screen.getByDisplayValue("a,b@x.com").closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+  });
 });
 
 describe("ShiftEditModal — panel sizing", () => {

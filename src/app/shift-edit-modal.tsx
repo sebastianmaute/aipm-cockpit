@@ -27,9 +27,9 @@ import type { Contact } from "./contacts";
 import { FieldNotice } from "./field-feedback";
 import { describeClamp } from "./sanitize-report";
 import { useConfirm } from "./confirm-dialog";
-import { emailWriteRefusal } from "./sanitize";
-import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { sanitizeEmail } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
+import { emailFlagDescribedBy, emailFlagVisible, emailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
 
 interface Props {
   lang: Lang;
@@ -106,6 +106,11 @@ export function ShiftEditModal({
 
   if (!draft) return null;
 
+  // Judge (and, on save, store) the value the write path actually applies:
+  // `sanitizeEmail` (EMAIL_MAX) is what `sanitizeShift`'s decode path already
+  // gives `assigneeEmail`. Fix round 1, IMPORTANT 2.
+  const cappedAssigneeEmail = sanitizeEmail(draft.assigneeEmail ?? "") || undefined;
+
   function update<K extends keyof Shift>(key: K, value: Shift[K]) {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
     setError(null);
@@ -139,16 +144,16 @@ export function ShiftEditModal({
         return;
       }
     }
-    const linked = draft.resourceId != null ? resources.find((r) => r.id === draft.resourceId)?.email : undefined;
-    const emailRefusal = emailWriteRefusal(draft.assigneeEmail ?? "", shift?.assigneeEmail, [linked]);
+    const linked = linkedResourceEmail(resources, draft.resourceId);
+    const emailRefusal = emailRefusalMessage(lang, cappedAssigneeEmail ?? "", shift?.assigneeEmail, [linked]);
     if (emailRefusal) {
-      setError(t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
+      setError(emailRefusal);
       return;
     }
     onSave({
       ...draft,
       assignee,
-      assigneeEmail: draft.assigneeEmail?.trim() || undefined,
+      assigneeEmail: cappedAssigneeEmail,
       note: draft.note?.trim() || undefined,
     });
   }
@@ -217,14 +222,17 @@ export function ShiftEditModal({
               type="email"
               value={draft.assigneeEmail ?? ""}
               onChange={(e) => update("assigneeEmail", e.target.value || undefined)}
-              aria-invalid={emailFieldInvalid(draft.assigneeEmail) || undefined}
-              aria-describedby="shift-email-error"
+              aria-invalid={emailFieldInvalid(cappedAssigneeEmail) || undefined}
+              aria-describedby={emailFlagDescribedBy("shift-email-error", lang, cappedAssigneeEmail, error)}
             />
           </label>
-          {/* Steps aside while `error` (the banner below) is showing — a
-              refused save already names the same reason, so this would
-              otherwise duplicate it as a second `role="alert"`. */}
-          {!error && <EmailFieldError id="shift-email-error" lang={lang} value={draft.assigneeEmail} />}
+          {/* Steps aside ONLY while `error` (the banner below) shows this
+              SAME refusal message — an unrelated banner error (a blank
+              assignee, an hour out of range, a duplicate) must never hide it
+              (IMPORTANT 1, fix round 1). */}
+          {emailFlagVisible(lang, cappedAssigneeEmail, error) && (
+            <EmailFieldError id="shift-email-error" lang={lang} value={cappedAssigneeEmail} />
+          )}
 
           <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">

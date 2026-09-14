@@ -42,9 +42,9 @@ import { RaidCausedByField, RaidLinkedTasksField } from "./raid-edit-fields";
 import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
-import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX, emailWriteRefusal } from "./sanitize";
-import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX, sanitizeEmail } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
+import { emailFlagDescribedBy, emailFlagVisible, emailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
 import { filterPickerOptions } from "./picker-filter";
 import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
@@ -141,11 +141,6 @@ export function RaidEditModal({
       onChange({ ...draftRef.current, title: describeTextCap(appendDictation(draftRef.current.title ?? "", txt), TASK_NAME_MAX).value }),
   });
   const [error, setError] = useState<string | null>(null);
-  // The owner email the modal OPENED with — the stored value the changed-only
-  // rule judges against. Controlled modal (the panel owns `draft`), so it is
-  // captured per record by render-time reconcile on `draft.id`.
-  const [opened, setOpened] = useState({ id: draft.id, email: draft.ownerEmail });
-  if (opened.id !== draft.id) setOpened({ id: draft.id, email: draft.ownerEmail });
   const [causePickerQuery, setCausePickerQuery] = useState("");
   const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:raid-edit");
   // Category is locked after creation by default (changing it can lose
@@ -153,10 +148,23 @@ export function RaidEditModal({
   // affordance. Re-locks whenever the user navigates to a different item.
   const [categoryUnlocked, setCategoryUnlocked] = useState(false);
   const [prevDraftId, setPrevDraftId] = useState(draft.id);
+  // The owner email the modal OPENED with — the stored value the changed-only
+  // rule judges against. Controlled modal (the panel owns `draft`), so it is
+  // captured per record by render-time reconcile on `draft.id` — folded into
+  // the SAME reconcile `categoryUnlocked` already uses, rather than a second
+  // one (fix round 1).
+  const [openedOwnerEmail, setOpenedOwnerEmail] = useState(draft.ownerEmail);
   if (prevDraftId !== draft.id) {
     setPrevDraftId(draft.id);
     setCategoryUnlocked(false);
+    setOpenedOwnerEmail(draft.ownerEmail);
   }
+  // ★ Judge (and, on save, store) the value the write path actually applies:
+  // `sanitizeEmail` (EMAIL_MAX) is the SAME treatment the AI writer's
+  // `ownerEmail: sanitizeEmail` field descriptor and every decode path give
+  // this field, matching the cap `handleSubmit` already applies to
+  // `title`/`owner` on the saved object. Fix round 1, IMPORTANT 2.
+  const cappedOwnerEmail = sanitizeEmail(draft.ownerEmail ?? "") || undefined;
 
   const statusOpts = statusOptionsFor(draft.category);
 
@@ -204,10 +212,10 @@ export function RaidEditModal({
       setError(t(lang, "raidErrorTitleRequired"));
       return;
     }
-    const linkedOwner = draft.ownerResourceId != null ? resources.find((r) => r.id === draft.ownerResourceId)?.email : undefined;
-    const ownerEmailRefusal = emailWriteRefusal(draft.ownerEmail ?? "", opened.email, [linkedOwner]);
+    const linkedOwner = linkedResourceEmail(resources, draft.ownerResourceId);
+    const ownerEmailRefusal = emailRefusalMessage(lang, cappedOwnerEmail ?? "", openedOwnerEmail, [linkedOwner]);
     if (ownerEmailRefusal) {
-      setError(t(lang, EMAIL_REFUSAL_KEY[ownerEmailRefusal]));
+      setError(ownerEmailRefusal);
       return;
     }
     setError(null);
@@ -235,6 +243,7 @@ export function RaidEditModal({
       ...draft,
       title: cappedTitle.value.trim(),
       owner: cappedOwner.value.trim() || undefined,
+      ownerEmail: cappedOwnerEmail,
       description: capRich(draft.description) || undefined,
       mitigation: capRich(draft.mitigation) || undefined,
     };
@@ -619,13 +628,16 @@ export function RaidEditModal({
               onChange={(e) =>
                 onChange({ ...draft, ownerEmail: e.target.value || undefined })
               }
-              aria-invalid={emailFieldInvalid(draft.ownerEmail) || undefined}
-              aria-describedby="raid-owner-email-error"
+              aria-invalid={emailFieldInvalid(cappedOwnerEmail) || undefined}
+              aria-describedby={emailFlagDescribedBy("raid-owner-email-error", lang, cappedOwnerEmail, error)}
             />
-            {/* Steps aside while `error` (the banner below) is showing — a
-                refused save already names the same reason, so this would
-                otherwise duplicate it as a second `role="alert"`. */}
-            {!error && <EmailFieldError id="raid-owner-email-error" lang={lang} value={draft.ownerEmail} />}
+            {/* Steps aside ONLY while `error` (the banner below) shows this
+                SAME refusal message — an unrelated banner error (a blank
+                title, a cause cycle) must never hide it (IMPORTANT 1, fix
+                round 1). */}
+            {emailFlagVisible(lang, cappedOwnerEmail, error) && (
+              <EmailFieldError id="raid-owner-email-error" lang={lang} value={cappedOwnerEmail} />
+            )}
           </HintedLabel>
           )}
 

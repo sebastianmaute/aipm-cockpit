@@ -1532,6 +1532,68 @@ added the identical `!error &&` guard to all of them for consistency, even
 though their existing tests use `getAllByRole("alert")` (plural) and would
 not have caught the duplication on their own.
 
+★★★ IMPLEMENTATION CORRECTION, FIX ROUND 1 — `!error &&` was ITSELF WRONG, and
+review caught it against a real run: it hides the flag under ANY banner
+error, not just the matching one. `RaidEditModal`'s banner clears only on a
+SUCCESSFUL submit, so one "title required" attempt with a stored unsafe owner
+email left UNTOUCHED made the flag disappear until save — even though the
+field is, in fact, still unsafe — and `aria-invalid` stayed `true` while its
+`aria-describedby` target no longer rendered (a dangling reference).
+`EmailFieldError`'s own contract is "never hidden"; hiding it is a
+CALLER-SIDE decision that must be scoped to the ONE case that needs it: the
+banner is showing this SAME refusal message. The corrected rule, extracted
+into `src/app/editor-email-rule.ts` (`emailFlagVisible`/`emailFlagDescribedBy`,
+plus `linkedResourceEmail` and `emailRefusalMessage` — the refusal-check
+logic itself was hand-copied and drifting across five to seven editors, so
+fix round 1 also consolidated it there with its own unit test,
+`editor-email-rule.test.ts`):
+```ts
+export function emailFlagVisible(lang, value, bannerError) {
+  const refusal = emailWriteRefusal(value ?? "", undefined);
+  if (refusal === null) return false;
+  return bannerError !== t(lang, EMAIL_REFUSAL_KEY[refusal]);
+}
+```
+Every editor's flag-render condition changed from `!error && …` to
+`emailFlagVisible(lang, value, error) && …`, and every `aria-describedby`
+that referenced the flag's id unconditionally now uses
+`emailFlagDescribedBy`/`joinDescribedBy` so the id is present ONLY while the
+flag will actually render (the MINOR "dangling describedby" fix, folded into
+the same pass for RAID/shift/resource/stakeholder). `aria-invalid` stays
+unconditional (`emailFieldInvalid(value)`) — the field genuinely IS invalid
+regardless of which message the banner happens to be showing.
+
+★★ ALSO WRONG IN THIS PLAN, caught in the same round — IMPORTANT 2: the
+stakeholder/RAID/shift snippets above judge the RAW typed value, never the
+value that would actually be STORED. `StakeholderEditModal`'s `onBlur` cap
+does not run on an Enter-submit, and `sanitizeStakeholder` caps `email` at
+`BUDGET_NAME_MAX` (200) — so a >200-char address must be judged AFTER that
+cap (`describeTextCap(draft.email ?? "", BUDGET_NAME_MAX).value`), not
+before. `RaidEditModal` and `ShiftEditModal` never capped `ownerEmail` /
+`assigneeEmail` at all before this fix, while `sanitizeEmail` (EMAIL_MAX) is
+the SAME treatment their own decode paths and (for RAID) the AI writer's
+`ownerEmail: sanitizeEmail` field descriptor already give the field, and
+`RaidEditModal`'s `handleSubmit` ALREADY caps `title`/`owner` on the saved
+object with an identical comment explaining why — ownerEmail was simply
+missing from that existing pattern. Both now cap-then-judge AND cap-then-STORE
+(`cappedOwnerEmail`/`cappedAssigneeEmail` flow into the object handed to
+`onSave`), computed once per render so the flag and the submit check can
+never disagree. `AbsenceEditModal` already did this correctly at Task 3 time
+(its `handleSubmit` already wrapped the judged value in `sanitizeEmail`) —
+fix round 1 additionally makes it STORE the capped value too, and reuses it
+for the flag, for the same reason.
+
+★ IMPORTANT 3 (copy-source exemption unpinned): every stakeholder/RAID/shift
+test host in this plan's own snippets passed `resources={[]}`, so a real
+linked resource's unsafe email was never actually exercised as the copy
+source it is meant to exempt — only the address-book copy source got a real
+test, for contact persons. Fix round 1 added, per editor (stakeholder, RAID,
+shift, contact persons): a test with a genuinely linked resource whose stored
+email is unsafe, copied into the field, verifying the save goes through: plus
+a positive control asserting the IDENTICAL value with no link is refused.
+Mutation-verified on the RAID case (`[linkedOwner]` → `[]`): exactly that one
+test goes red, nothing else; reverted, diff clean.
+
 Rerun the four editor test files; Expected EXIT=0, `Test Files 4 passed (4)`.
 
 - [ ] **Step 6: Contact persons — failing test, then code**

@@ -284,4 +284,20 @@ describe("contact person add follows the email write rule", () => {
     await user.click(screen.getByRole("button", { name: t("en-US", "add") }));
     expect(setDraft).toHaveBeenCalledTimes(1);
   });
+
+  // Fix round 1, IMPORTANT 3 — the copy-source exemption was unpinned for the
+  // REGISTRY-resource source specifically (only the address book was tested).
+  it("adds with a copied unsafe email picked from a registry resource", async () => {
+    const user = userEvent.setup();
+    const setDraft = vi.fn();
+    const linked = {
+      id: 5, firstName: "Bob", lastName: "Jones", email: "a,b@x.com",
+      roleId: null, utilizationMode: "percent" as const, utilization: {},
+    };
+    render(<IdentityPeopleFields {...props} setDraft={setDraft} resources={[linked]} />);
+    await user.type(screen.getByRole("combobox", { name: t("en-US", "contactAddManual") }), "Bob");
+    await user.click(await screen.findByText("Bob Jones"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "add") }));
+    expect(setDraft).toHaveBeenCalledTimes(1);
+  });
 });
