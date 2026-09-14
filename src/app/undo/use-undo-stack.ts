@@ -538,6 +538,10 @@ export interface CaptureCompositeOpts {
    *  kind's prefix, `"bulk"` is not in `ENTITY_KEY_SET`, and without this the
    *  label degrades to the generic "Edited N item(s)". */
   entityKey?: UndoEntityKey;
+  /** Replaces the generic "Edited N item(s)" Undo toast text for THIS entry
+   *  (spec Part 7: a resource save that also corrected linked copies names the
+   *  count). The label and the activity log are unaffected. */
+  toastText?: string;
 }
 
 /** A single-array bulk field edit: N rows, each reverted by MERGING a field
@@ -718,6 +722,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     primaryCount: number,
     run: Runner,
     labelOpts?: { name?: string; entityKey?: UndoEntityKey },
+    toastText?: string,
   ) => {
     const id = (idRef.current += 1);
     const label = buildUndoLabel(depsRef.current.lang, kind, primaryCount, labelOpts);
@@ -729,7 +734,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // entry's label describe ONE action, and fixing only the label leaves this
     // saying "Edited" over a mass deletion.
     const isDelete = isDeleteKind(kind);
-    const text = t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", primaryCount);
+    const text = toastText ?? t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", primaryCount);
     showToastAction("info", text, { labelKey: "undo", run: () => undoById(id) });
   }, [undoById]);
 
@@ -766,7 +771,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   const captureComposite = useCallback((opts: CaptureCompositeOpts) => {
     const fragments = opts.parts.filter((f): f is CompositeFragment => f !== null);
     if (fragments.length === 0) return;
-    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments, armDestructive), { name: opts.name, entityKey: opts.entityKey });
+    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments, armDestructive), { name: opts.name, entityKey: opts.entityKey }, opts.toastText);
   }, [pushEntry, armDestructive]);
 
   const captureFieldRows = useCallback(<T extends { id: number }>(opts: CaptureFieldRowsOpts<T>) => {

@@ -19,6 +19,18 @@ function makeDeps(overrides: Partial<Parameters<typeof useUndoStack>[0]> = {}) {
 }
 
 describe("useUndoStack", () => {
+  it("captureComposite uses toastText in place of the generic edit text when given", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    act(() => {
+      result.current.captureComposite({
+        kind: "resource.updated", primaryCount: 1, toastText: "Edited 1 item and updated 3 linked record(s)",
+        parts: [capturePart({ setter: vi.fn(), edited: [{ id: 1, name: "a" }], fromArray: [{ id: 1, name: "a" }], isPrimary: true })],
+      });
+    });
+    expect(deps.showToastAction).toHaveBeenCalledWith("info", "Edited 1 item and updated 3 linked record(s)", expect.objectContaining({ labelKey: "undo" }));
+  });
+
   it("capture pushes an entry, fires an action toast, and sets canUndo", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useUndoStack(deps));

@@ -2115,6 +2115,7 @@ export const de: Record<TranslationKey, string> = {
   undoRestored: "{0} Element(e) wiederhergestellt",
   undoToastDelete: "{0} Element(e) gelöscht",
   undoToastEdit: "{0} Element(e) bearbeitet",
+  undoToastResourceEmailPropagated: "1 Element bearbeitet und {0} verknüpfte Einträge aktualisiert",
   activityRedo: "Wiederholen: {0} Element(e) erneut angewendet",
   activityUnknownKind: "Unbekannte Aktivität ({0})",
   redo: "Wiederholen",

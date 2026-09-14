@@ -45,6 +45,8 @@ import { sanitizeAiRichText } from "./ai-rich-text";
 import { emptyForm, useTaskForm } from "./task-form-context";
 import { applyStatusChange, isTaskStatus, statusActivityKind } from "./task-status";
 import { capturePart } from "./undo/use-undo-stack";
+import { propagateResourceEmail, resourceEmailChange } from "./resource-email-propagation";
+import { commitEmailPropagation } from "./resource-email-propagation-commit";
 import { DEFAULT_TASK_STATUS, type Task } from "./types";
 import { useWorkspace } from "./workspace-context";
 import { useDocumentTools } from "./use-document-tools";
@@ -65,6 +67,16 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     milestones,
     resources,
     setResources,
+    raid,
+    setRaid,
+    absences,
+    setAbsences,
+    shifts,
+    setShifts,
+    stakeholders,
+    setStakeholders,
+    project,
+    setProject,
     insights,
     knowledgeItems,
     budgets,
@@ -107,6 +119,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
   const undoRef = useRef(args.undo);
+  // Spec Part 7 — the linked slices `updateResource` propagates into, read at
+  // call time so the dispatcher's identity does not move on every register edit.
+  const linkedRef = useRef({ raid, absences, shifts, stakeholders, project });
+  useEffect(() => {
+    linkedRef.current = { raid, absences, shifts, stakeholders, project };
+  }, [raid, absences, shifts, stakeholders, project]);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
@@ -721,6 +739,21 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // is still the PRE-op array — the reassignment is below. Capturing
         // `merged` would store the new values as the "before" image and undo
         // would be a silent no-op.
+        // Spec Part 7 — after the popout throw and the token check in
+        // `chat-tools.ts`, a corrected primary email reaches FK-linked copies,
+        // through the same helpers `handleSaveResource` uses.
+        // ★ KNOWN LIMIT: `use-register-tools.ts` keeps its own RAID/stakeholder/
+        //  absence refs, refreshed by effect; a register write later in the SAME
+        //  model turn reads the pre-propagation row and can overwrite the copy.
+        const emailChange = resourceEmailChange(existing, merged);
+        const linked = linkedRef.current;
+        const propagationInput = { tasks: tasksRef.current, raid: linked.raid, absences: linked.absences, shifts: linked.shifts, stakeholders: linked.stakeholders, contactPersons: linked.project?.contactPersons ?? [] };
+        const propagation = emailChange ? propagateResourceEmail(emailChange, propagationInput) : null;
+        const propagates = emailChange !== null && propagation !== null && propagation.count > 0;
+        const cascade = propagates
+          ? commitEmailPropagation({ change: emailChange, input: propagationInput, result: propagation, setters: { setTasks, setRaid, setAbsences, setShifts, setStakeholders, setProject } })
+          : [];
+        if (propagates) tasksRef.current = propagation.tasks.next as Task[];
         undoRef.current?.captureComposite({
           kind: "resource.updated",
           primaryCount: 1,
@@ -729,9 +762,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
             edited: [existing],
             fromArray: resourcesRef.current,
             isPrimary: true,
-          })],
+          }), ...cascade],
           name: resourceLogName(existing),
           entityKey: "resource",
+          toastText: propagates ? t(settingsRef.current.language, "undoToastResourceEmailPropagated", propagation.count) : undefined,
         });
         resourcesRef.current = next;
         setResources(next);
@@ -862,7 +896,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // hook's dep array, not of this one: the day that array gains a dep this one
     // lacks, the omission becomes the documentTools bug above, silently.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly, documentTools, registerTools],
+    [args.isReadOnly, documentTools, registerTools, setRaid, setAbsences, setShifts, setStakeholders, setProject],
   );
 
   return dispatcher;

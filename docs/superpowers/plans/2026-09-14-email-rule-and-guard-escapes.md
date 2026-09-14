@@ -2594,7 +2594,8 @@ git add $T5_PATHS && git commit --only $T5_PATHS -F "$LOG/msg-t5.txt"; echo "EXI
 - Modify: `src/app/use-chat-dispatcher.ts` (`updateResource`)
 - Modify: `src/app/test-providers.tsx` (`TestSeed.shifts`, `TestSeed.project`)
 - Modify: `src/app/i18n.ts`, `src/app/i18n.de.ts` (`undoToastResourceEmailPropagated`)
-- Create: `src/app/resource-email-propagation.test.ts`, `src/app/use-resource-directory.email-propagation.test.tsx`, `src/app/resource-email-propagation.parity.test.tsx`
+- Create: `src/app/resource-email-propagation.test.ts`, `src/app/resource-email-propagation-commit.test.ts`, `src/app/use-resource-directory.email-propagation.test.tsx`, `src/app/resource-email-propagation.parity.test.tsx`
+  (★ implementer correction: the commit helper is a new coverage-gated `.ts` and gets its own unit test; the stakeholder retarget skips a value longer than `BUDGET_NAME_MAX` — controller ruling, see Step 2)
 - Test (ADD): `src/app/undo/use-undo-stack.test.tsx`
 
 **Interfaces:**
@@ -2732,6 +2733,7 @@ Create `src/app/resource-email-propagation.ts`:
 //  `resource-foundation.ts` and `purgeCalendarFor`); Jira-synced tasks skipped;
 //  escalations NEVER reached (they record who was actually mailed).
 import type { Absence, ContactPerson, RaidItem, Resource, Shift, Stakeholder, Task } from "./types";
+import { BUDGET_NAME_MAX } from "./sanitize-entities";
 
 export interface ResourceEmailChange { resourceId: number; from: string; to: string }
 export interface ArrayPropagation<T> { next: readonly T[]; edited: T[] }
@@ -2799,8 +2801,12 @@ export function retargetShiftEmails(rows: readonly Shift[], change: ResourceEmai
   return retarget(rows, change, (r) => r.resourceId === change.resourceId, (r) => r.assigneeEmail, (r, v) => ({ ...r, assigneeEmail: v }));
 }
 
+// ★ Controller ruling: a stakeholder email is capped at BUDGET_NAME_MAX (200), below
+//  the resource's EMAIL_MAX (320). A longer value is not written (the load path
+//  would cut it into a torn address); the row keeps its copy and is not counted.
 export function retargetStakeholderEmails(rows: readonly Stakeholder[], change: ResourceEmailChange): ArrayPropagation<Stakeholder> {
-  return retarget(rows, change, (r) => r.resourceId === change.resourceId, (r) => r.email, (r, v) => ({ ...r, email: v }));
+  const fits = change.to.length <= BUDGET_NAME_MAX;
+  return retarget(rows, change, (r) => fits && r.resourceId === change.resourceId, (r) => r.email, (r, v) => ({ ...r, email: v }));
 }
 
 export function retargetContactPersonEmails(rows: readonly ContactPerson[], change: ResourceEmailChange): { next: readonly ContactPerson[]; changed: number } {
@@ -3190,7 +3196,7 @@ Subject `feat: carry a corrected person email to its linked copies`.
 The paths, enumerated from the Files block (pre-flight M12):
 
 ```bash
-T6_PATHS="src/app/resource-email-propagation.ts src/app/resource-email-propagation-commit.ts src/app/undo/use-undo-stack.ts src/app/use-resource-directory.ts src/app/use-chat-dispatcher.ts src/app/test-providers.tsx src/app/i18n.ts src/app/i18n.de.ts src/app/resource-email-propagation.test.ts src/app/use-resource-directory.email-propagation.test.tsx src/app/resource-email-propagation.parity.test.tsx src/app/undo/use-undo-stack.test.tsx"
+T6_PATHS="src/app/resource-email-propagation.ts src/app/resource-email-propagation-commit.ts src/app/undo/use-undo-stack.ts src/app/use-resource-directory.ts src/app/use-chat-dispatcher.ts src/app/test-providers.tsx src/app/i18n.ts src/app/i18n.de.ts src/app/resource-email-propagation.test.ts src/app/resource-email-propagation-commit.test.ts src/app/use-resource-directory.email-propagation.test.tsx src/app/resource-email-propagation.parity.test.tsx src/app/undo/use-undo-stack.test.tsx"
 git status --porcelain=v1 --untracked-files=all
 ```
 

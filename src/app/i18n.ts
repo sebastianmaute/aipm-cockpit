@@ -2218,6 +2218,7 @@ const enUS = {
   undoRestored: "Restored {0} item(s)",
   undoToastDelete: "Deleted {0} item(s)",
   undoToastEdit: "Edited {0} item(s)",
+  undoToastResourceEmailPropagated: "Edited 1 item and updated {0} linked record(s)",
   redo: "Redo",
   redoTooltip: "Redo last change",
   redoRestored: "Redid {0} item(s)",

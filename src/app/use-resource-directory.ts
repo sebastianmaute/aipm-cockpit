@@ -39,7 +39,9 @@
 // import.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type Lang } from "./i18n";
+import { type Lang, t } from "./i18n";
+import { propagateResourceEmail, resourceEmailChange } from "./resource-email-propagation";
+import { commitEmailPropagation } from "./resource-email-propagation-commit";
 import { reportSilentFailure } from "./guard-feedback";
 import { resourceDisplayName } from "./resource-foundation";
 import { mintId } from "./id-mint-session";
@@ -117,8 +119,10 @@ export interface UseResourceDirectoryArgs {
 }
 
 export function useResourceDirectory(args: UseResourceDirectoryArgs) {
-  const { resources, setResources, absences, setAbsences, shifts, setShifts } =
-    useWorkspace();
+  const {
+    resources, setResources, absences, setAbsences, shifts, setShifts,
+    tasks, setTasks, raid, setRaid, stakeholders, setStakeholders, project, setProject,
+  } = useWorkspace();
   const { logUpdate } = args;
 
   const langRef = useRef(args.lang);
@@ -197,15 +201,29 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
         const withStamp: Resource = { ...next, localModifiedAt: stamp };
         setResources((prev) => prev.map((r) => (r.id === next.id ? withStamp : r)));
         setEditingResource(null);
-        captureFieldChanges(captureFieldEditRef.current, {
-          setter: setResources, kind: "resource.updated", id: next.id,
-          prev: previous, next: withStamp, groups: RESOURCE_UNDO_GROUPS,
-          stampField: "localModifiedAt", name,
-        });
+        // Spec Part 7 — a corrected primary email reaches its FK-linked copies,
+        // as ONE undo entry with the resource. Otherwise the capture is unchanged.
+        const emailChange = resourceEmailChange(previous, withStamp);
+        const propagationInput = { tasks, raid, absences, shifts, stakeholders, contactPersons: project?.contactPersons ?? [] };
+        const propagation = emailChange ? propagateResourceEmail(emailChange, propagationInput) : null;
+        if (emailChange && propagation && propagation.count > 0) {
+          const cascade = commitEmailPropagation({ change: emailChange, input: propagationInput, result: propagation, setters: { setTasks, setRaid, setAbsences, setShifts, setStakeholders, setProject } });
+          captureCompositeRef.current?.({
+            kind: "resource.updated", primaryCount: 1, name, entityKey: "resource",
+            toastText: t(langRef.current, "undoToastResourceEmailPropagated", propagation.count),
+            parts: [capturePart({ setter: setResources, edited: [previous], fromArray: resources, isPrimary: true }), ...cascade],
+          });
+        } else {
+          captureFieldChanges(captureFieldEditRef.current, {
+            setter: setResources, kind: "resource.updated", id: next.id,
+            prev: previous, next: withStamp, groups: RESOURCE_UNDO_GROUPS,
+            stampField: "localModifiedAt", name,
+          });
+        }
         logUpdate("resource.updated", previous, withStamp, next.id, name);
       }
     },
-    [resources, setResources, logUpdate, editingResource],
+    [resources, setResources, logUpdate, editingResource, tasks, raid, absences, shifts, stakeholders, project, setTasks, setRaid, setAbsences, setShifts, setStakeholders, setProject],
   );
 
   // Cascade a resource removal to its calendar entries: drop every absence and
