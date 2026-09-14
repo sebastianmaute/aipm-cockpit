@@ -512,6 +512,54 @@ describe("sanitizeActivityEntry — timestamp normalisation (§161)", () => {
       expect(sanitizeActivityEntry({ ...base, timestamp })).toBeNull();
     },
   );
+
+  // ★★★ CALENDAR-RANGE VALIDATION (fix round 1). `Number.isFinite(ms)` alone
+  //   is NOT a validity check: V8's `Date.parse` ROLLS OVER an out-of-range
+  //   day-of-month instead of returning NaN — `"2026-02-30"` silently becomes
+  //   2026-03-02 — unlike month overflow, which DOES parse to NaN. Every
+  //   numeric field is now range-checked against the INPUT's own digits
+  //   before parsing, so a calendar-invalid date is dropped rather than
+  //   silently corrupted into a different, wrong instant.
+  test("drops Feb 30 rather than rolling it over to March", () => {
+    expect(sanitizeActivityEntry({ ...base, timestamp: "2026-02-30" })).toBeNull();
+    expect(sanitizeActivityEntry({ ...base, timestamp: "2026-02-30T00:00:00Z" })).toBeNull();
+  });
+
+  test("drops Feb 29 in a non-leap year (2026)", () => {
+    expect(sanitizeActivityEntry({ ...base, timestamp: "2026-02-29" })).toBeNull();
+  });
+
+  // ★ The century exception (divisible by 100 but not 400) is also a
+  //   non-leap year, distinct from the plain divisible-by-4 case above.
+  test("drops Feb 29 in a century non-leap year (2100)", () => {
+    expect(sanitizeActivityEntry({ ...base, timestamp: "2100-02-29" })).toBeNull();
+  });
+
+  test("keeps and normalises Feb 29 in an ordinary leap year (2024)", () => {
+    const out = sanitizeActivityEntry({ ...base, timestamp: "2024-02-29" });
+    expect(out?.timestamp).toBe("2024-02-29T00:00:00.000Z");
+  });
+
+  // ★ The divisible-by-400 exception to the century rule — 2000 IS leap.
+  test("keeps and normalises Feb 29 in a divisible-by-400 year (2000)", () => {
+    const out = sanitizeActivityEntry({ ...base, timestamp: "2000-02-29" });
+    expect(out?.timestamp).toBe("2000-02-29T00:00:00.000Z");
+  });
+
+  // ★ 24:00 is a real ISO 8601 notation for midnight-at-end-of-day, but JS
+  //   rolls it to 00:00 the NEXT day — silently shifting the instant by a
+  //   full day rather than rejecting it.
+  test("drops T24:00 rather than letting JS roll it to the next day", () => {
+    expect(sanitizeActivityEntry({ ...base, timestamp: "2026-08-17T24:00:00Z" })).toBeNull();
+  });
+
+  test("drops minute 60", () => {
+    expect(sanitizeActivityEntry({ ...base, timestamp: "2026-08-17T13:60:00Z" })).toBeNull();
+  });
+
+  test("drops an offset beyond +14:00", () => {
+    expect(sanitizeActivityEntry({ ...base, timestamp: "2026-08-17T13:59:00+15:00" })).toBeNull();
+  });
 });
 
 describe("sanitizeActivityEntry — args elements (§164)", () => {

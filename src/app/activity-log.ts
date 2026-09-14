@@ -440,11 +440,27 @@ export function sanitizeActivityLog(v: unknown): ActivityEntry[] {
  * Matches an ISO 8601 shape ONLY — `YYYY-MM-DD`, optionally `THH:MM`, an
  * optional `:SS`, an optional fraction, and an optional zone (`Z` or
  * `±HH:MM`) — never `Date.parse`'s full grammar, which also accepts non-ISO
- * junk ("Aug 16 2026") and is a DIFFERENT shape test from validity: month
- * "13" matches this regex and is rejected later, in `normalizeActivityTimestamp`,
- * by the finite-date check.
+ * junk ("Aug 16 2026"). Captures the numeric fields (year/month/day/hour/
+ * minute/second/zone-literal/offset-sign/offset-hour/offset-minute) so
+ * `normalizeActivityTimestamp` can range-check each against the INPUT's own
+ * digits — a shape match alone is not a validity check: month "13" and a
+ * calendar-invalid day (e.g. Feb 30) both match this regex and are rejected
+ * by the checks below, not by this regex.
  */
-const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/;
+const ISO_TIMESTAMP_RE =
+  /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(?:(Z)|([+-])(\d{2}):(\d{2}))?)?$/;
+
+const DAYS_IN_MONTH: readonly number[] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/** Gregorian leap-year rule: divisible by 4, except centuries, except those
+ *  divisible by 400 (so 2024 and 2000 are leap, 2026 and 2100 are not). */
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+function daysInMonth(year: number, month: number): number {
+  return month === 2 && isLeapYear(year) ? 29 : DAYS_IN_MONTH[month - 1];
+}
 
 /**
  * Normalises a raw `timestamp` string to canonical `toISOString()` shape, or
@@ -454,11 +470,44 @@ const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-
  * result is deterministic across devices; a date-only value is UTC midnight,
  * which `new Date` already does without help. Canonical input passes through
  * to a byte-identical result.
+ *
+ * ★★ Every captured numeric field is range-checked against the INPUT's OWN
+ * digits BEFORE parsing — `Date.parse`/`Date` construction is not a validity
+ * check on its own: V8 ROLLS OVER an out-of-range day-of-month rather than
+ * rejecting it (`"2026-02-30"` silently becomes 2026-03-02), so a
+ * finite-date-only check would accept a calendar-invalid date and silently
+ * corrupt it into a different, wrong instant instead of dropping the entry.
+ * Month overflow, by contrast, DOES parse to `NaN` — the two failure shapes
+ * look identical from the regex alone and are NOT identical once parsed, which
+ * is why every field gets its own explicit range check rather than relying on
+ * `Number.isFinite(ms)` to catch all of them. A UTC round-trip (re-format the
+ * parsed `Date` and compare) would work too, but breaks the moment an offset
+ * is involved — the offset SHIFTS the calendar day in UTC by design, so the
+ * round-tripped date legitimately differs from the input's digits even for a
+ * valid stamp; checking the input's digits directly avoids that trap entirely.
  */
 function normalizeActivityTimestamp(raw: string): string | null {
-  if (!ISO_TIMESTAMP_RE.test(raw)) return null;
-  const hasZone = /(Z|[+-]\d{2}:\d{2})$/.test(raw);
-  const hasTime = raw.includes("T");
+  const m = ISO_TIMESTAMP_RE.exec(raw);
+  if (!m) return null;
+  const [, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr, zLiteral, offsetSign, offsetHourStr, offsetMinuteStr] = m;
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > daysInMonth(year, month)) return null;
+  // hourStr is defined exactly when the optional `T…` group matched.
+  if (hourStr !== undefined) {
+    if (Number(hourStr) > 23) return null; // reject 24:00 — JS would roll it to the next day
+    if (Number(minuteStr) > 59) return null;
+    if (secondStr !== undefined && Number(secondStr) > 59) return null;
+  }
+  if (offsetHourStr !== undefined) {
+    if (Number(offsetHourStr) > 14) return null;
+    if (Number(offsetMinuteStr) > 59) return null;
+  }
+
+  const hasZone = zLiteral !== undefined || offsetSign !== undefined;
+  const hasTime = hourStr !== undefined;
   const ms = Date.parse(hasTime && !hasZone ? `${raw}Z` : raw);
   if (!Number.isFinite(ms)) return null;
   return new Date(ms).toISOString();
