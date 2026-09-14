@@ -14,7 +14,7 @@
 
 - `src/app/i18n.de.ts` is NEVER edited with Edit/Write. Patch it with a node utf8 script (written with the Write tool into your scratchpad as a `.cjs` file), `\u` escapes for umlauts, `\r\n` anchors, and an anchor-count check that exits 1 unless the anchor occurs exactly once. Re-verify bytes afterwards (command in each task). Real umlauts only.
 - `src/app/*.ts(x)` are CRLF in the working tree (`i/lf w/crlf`): Edit tool only, never `sed -i`, never Write over an existing source file. Docs, plans, specs and `docs/open-followups.md` are LF.
-- Size ratchet LIMIT 1600, measured as `node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`. `src/app/sanitize-records.ts` measures 1600 at HEAD — every change there is line-neutral; new logic lives elsewhere. `src/app/task-manager.tsx` (3257) gets no new lines and no comments.
+- Size ratchet LIMIT 1600, measured as `node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`. `src/app/sanitize-records.ts` measures 1600 at HEAD — every change there is line-neutral; new logic lives elsewhere. `src/app/task-manager.tsx` measures 3257 against its `docs/baselines/file-sizes.json` entry of 6040: a baselined file fails only when it grows past its entry, so the ratchet ALLOWS new lines here (pre-flight I4). Additions stay minimal all the same — prefer a line-neutral fold, add no comments, and state the before/after count in the commit body.
 - No hand-rolled UI controls. Reuse `FieldError` (`field-feedback.tsx`), `ModalFieldError` (`edit-modal-chrome.tsx`), `window.alert` in the prompt flows, and the ambient toast. If an editor has no error surface, STOP and ask the user.
 - `npx eslint --max-warnings=0 <touched files>` per task; `npx tsc --noEmit` after any source or test edit (read the error count: `grep -c "error TS" "$LOG/tsc.log"`).
 - Never read a gate's exit code through a pipe. Pattern: `<cmd> > "$LOG/x.log" 2>&1; echo "EXIT=$?"`, then grep the log. `$LOG` = your session scratchpad directory.
@@ -46,8 +46,8 @@
 4. **The AI import panel (`step0-import-panel.tsx`) writes nothing.** Its proposal becomes an `aiSeed` that lands through `buildNewProjectWorkspace` inside `createProject` (`use-storage-file-ops.ts`) or `createTursoProject` (`use-storage-turso-ops.ts`) — the same place "new project from template" lands. The notice sits there.
 5. **The explicit file "open/switch" actions are three functions** in `use-storage-file-ops.ts`: `onOpenStorageFile` (applies tasks + RAID, reports via `reportImportFor`), `loadProjectFromFile` and `switchToProject` (both report via `reportFor`). All three get the notice between their confirmation toast and their report call.
 6. **The inline assignee cell's picker is passed `EMPTY_CONTACTS`** (`task-row.tsx`), and typing a name keeps the previous email (`resource-picker.tsx`). So the cell only ever sends the stored value or a resource's stored email — the refusal is unreachable from the UI. Per the controller ruling, Task 2 pins the copy exemption through the cell and pins the refusal only at the pure (`inlineAssigneeEmailRefusal`) and hook (`onInlinePatch` via the captured row context) seams.
-7. **Popout reachability (Ruling Q8), verified:** `setTaskModalOpen` is passed unguarded and `"raid"` is in `POPOUT_TABS`, so `TaskFormModal` and `RaidEditModal` are reachable in a popout; `handleOpenShiftEditor` and `handleEditResource` are passed through `guardEdit`, so `ShiftEditModal` and the resource editor are not.
-8. **`use-task-submit.ts` has no `resources`**; Task 3 reads them with `useWorkspace()` inside the hook (no `task-manager.tsx` change).
+7. **Popout reachability (Ruling Q8), verified — and corrected by pre-flight C1:** `setTaskModalOpen` is passed unguarded and `"raid"` is in `POPOUT_TABS`, so `TaskFormModal` and `RaidEditModal` are reachable in a popout; `handleOpenShiftEditor` is passed through `guardEdit`, so `ShiftEditModal` is not. **The resource editor IS reachable in a popout**, through a second route: `TaskFormModal` → the "+" add-to-address-book button (`TaskFormFields`) → `onAddAssigneeToAddressBook={handleAddAssigneeToAddressBook}` (passed to `<AppModals` unguarded) → `handleOpenAddResource` → `AppModals` renders `ResourceEditModal` under `editingResource` with no popout gate → `onSaveResource={handleSaveResourceFromAnywhere}` → `handleSaveResource` creates. The Resources-view openers (`onEditResource`, `onAddResource`) are `guardEdit`-wrapped. Every resource-creation UI route found at HEAD (`git grep -n "handleOpenAddResource\|handleCreateResource\|onAddAssigneeToAddressBook\|setEditingResource" -- src ':!*.test.*'`): (a) the `ResourcePicker` "+ Add" row via `onCreateResource` (bag + `AppModals`; `RaidCreateHost` mounts under `!isPopout`; `use-action-center-handlers.ts` checks `isPopout`); (b) the address-book button via `onAddAssigneeToAddressBook`; (c) the Resources view via `guardEdit(handleOpenAddResource)` (already guarded); (d) Outlook contacts import via `canImportOutlookContacts({ isPopout, … })` (already guarded); (e) the AI dispatcher's `createResource` (self-guards with `isReadOnly` throws). Task 7 closes (a) and (b) and gates the `ResourceEditModal` render on `!isPopout`.
+8. **`use-task-submit.ts` has no `resources`**; Task 3 passes them in through a new optional `UseTaskSubmitArgs.resources` (pre-flight I1). Calling `useWorkspace()` inside the hook would throw in `use-task-submit.test.ts`, which renders the hook with no `WorkspaceProvider`.
 9. **`StakeholderEditModal` and `RaidEditModal` are controlled** (`draft` prop, parent-owned); neither holds the stored row. Task 3 captures the email the modal opened with by render-time reconcile keyed on `draft.id`.
 10. **`deleteAllAssetDataForProject` and `assetDataDeleteAllForProject` have no other non-test caller** after Task 9, so both are deleted; `document-assets-store.test.ts` loses its test and two `vi.mock` factories drop the key.
 11. **The store-local DDL is `SCHEDULED_JOBS_DDL` (named, unexported) and an unnamed `DDL` in `color-schemes-store.ts`.** Task 9 exports them as `SCHEDULED_JOBS_DDL` and `COLOR_SCHEMES_DDL`. The Task 9 execute test inserts rows with a PRAGMA-driven generic `INSERT` rather than each store's builder: the builders' names and argument shapes differ per store and the test's subject is the sweep, not the insert.
@@ -58,7 +58,7 @@
 16. **Bulk edit has no stored value** (one typed value for N rows); it is judged as a create. `BulkEditBuild` gains the error `"emailDelimiter"`.
 17. **Outlook re-push:** no absence/shift Outlook push reads `assigneeEmail` (`grep -rn "assigneeEmail" src/app/use-calendar-integrations.ts` prints nothing), and propagation writes through the workspace setters, not the save handlers that push. Nothing re-pushes; Task 6 re-runs that grep.
 18. **The §90 index row's third cell is corrupt** (`undefined\``); Task 11 repairs it.
-19. **Template apply notice test:** `handleApplyTemplate` lives in `task-manager.tsx` (no new lines allowed) and no test renders it with templates. Task 5 wires it on one existing line and pins `summarizeUnsafeEmailRecords` by unit test; the one-line wiring is verified by an explicit mutation check in the task, not by a behavioural test. This is the one spec test requirement not met as written (reported).
+19. **Template apply notice (pre-flight I4):** `handleApplyTemplate` computes `next = applyTemplate(buildCurrentWorkspace(), tpl, opts)`, so `next` holds the CURRENT project's rows plus the appended seed — summarising `next` would announce existing records as "Imported". Task 5 adds a pure `templateSeedEmailScope(before, after)` that keeps only the rows `appendSeed` added to the three slices `handleApplyTemplate` applies (`tasks`, `raid`, `stakeholders`), unit-tests it over a real `applyTemplate` call, and pins the `task-manager.tsx` wiring with a behavioural test (`task-manager.template-notice.test.tsx`) that drives the real `handleApplyTemplate` and reads the rendered toast.
 
 ## File map
 
@@ -72,7 +72,7 @@
 | `src/app/resource-email-propagation.ts` (new) | pure propagation | 6 |
 | `src/app/resource-email-propagation-commit.ts` (new) | setters + undo fragments for a propagation | 6 |
 | `src/app/project-side-tables.ts` (new) | §204 registry + sweep builder | 9 |
-| `src/app/project-side-tables.ts` (new) | §204 registry + sweep builder | 9 |
+| `src/app/task-manager.template-notice.test.tsx` (new) | template-apply notice wiring (behavioural) | 5 |
 | `src/app/turso-side-tables.guard.test.ts` (new) | §204 discovery guard | 9 |
 | `src/app/turso-portfolio.execute.test.ts` (new) | §204 `node:sqlite` execute test | 9 |
 | `src/app/sanitize-core.iso-date.test.ts` (new) | §539 calendar-date unit tests | 10 |
@@ -442,7 +442,7 @@ git grep -n "ownerEmail\|stakeholder.*email\|email:" -- "src/app/use-chat-dispat
 const fs = require("fs");
 const P = "src/app/i18n.de.ts";
 const s = fs.readFileSync(P, "utf8");
-const anchor = "  errorInvalidEmail: \"Das sieht nicht nach einer gültigen E-Mail-Adresse aus.\",\r\n";
+const anchor = "  errorInvalidEmail: \"Das sieht nicht nach einer g\u00fcltigen E-Mail-Adresse aus.\",\r\n";
 const count = s.split(anchor).length - 1;
 if (count !== 1) { console.error("anchor count " + count); process.exit(1); }
 const add = "  errorEmailDelimiter: \"Eine E-Mail-Adresse darf weder ein Komma noch ein Semikolon enthalten.\",\r\n";
@@ -450,12 +450,27 @@ fs.writeFileSync(P, s.replace(anchor, anchor + add), "utf8");
 console.log("ok");
 ```
 
-Run `node "$LOG/de-t2.cjs"; echo "EXIT=$?"`, then verify:
+★ Every DE script in this plan spells a non-ASCII character as a `\u` escape (`\u00e4` for ä, `\u00f6` for ö, `\u00fc` for ü, `\u00df` for ß), so the `.cjs` file itself is pure ASCII and the Write tool cannot corrupt it. The escapes become real umlauts when node evaluates the string literal.
 
-```bash
-node -e "const s=require('fs').readFileSync('src/app/i18n.de.ts','utf8');const i=s.indexOf('errorEmailDelimiter');console.log(JSON.stringify(s.slice(i-80,i+90)));console.log('bareLF',(s.match(/(?<!\r)\n/g)||[]).length)"
+Run `node "$LOG/de-t2.cjs"; echo "EXIT=$?"`. Then write `$LOG/de-check-t2.cjs` with the Write tool. It re-reads the bytes and exits 1 on any mismatch:
+
+```js
+const fs = require("fs");
+const s = fs.readFileSync("src/app/i18n.de.ts", "utf8");
+// The anchor and the added line, adjacent, CRLF, real umlauts, exactly once.
+const expected = "  errorInvalidEmail: \"Das sieht nicht nach einer g\u00fcltigen E-Mail-Adresse aus.\",\r\n"
+  + "  errorEmailDelimiter: \"Eine E-Mail-Adresse darf weder ein Komma noch ein Semikolon enthalten.\",\r\n";
+const problems = [];
+const bareLf = (s.match(/(?<!\r)\n/g) || []).length;
+if (bareLf !== 0) problems.push("bareLF " + bareLf);
+if (s.includes("\ufffd")) problems.push("U+FFFD replacement character present");
+const hits = s.split(expected).length - 1;
+if (hits !== 1) problems.push("expected bytes found " + hits + " time(s)");
+if (problems.length) { console.error(problems.join("\n")); process.exit(1); }
+console.log("ok");
 ```
-Expected: the key follows `gültigen` rendered as `gültigen`, `bareLF 0`.
+
+Run `node "$LOG/de-check-t2.cjs"; echo "EXIT=$?"` — Expected `ok`, `EXIT=0`. Any other result is a STOP: do not patch by hand.
 
 Create `src/app/email-refusal-i18n.ts`:
 
@@ -697,7 +712,10 @@ with
 ```
 and rewrite the comment block above it: the writer's guard is now `refuseEmailWrite` (changed-only, format + delimiter), the card asks the same `emailWriteRefusal` against the stored `item[f]`, and blank stays legal.
 
-`src/app/inline-ai-edit/entity-descriptor.ts`: raid `emailFormatFields: new Set(["ownerEmail"])`, stakeholder `emailFormatFields: new Set(["email"])`, resource `emailFormatFields: new Set(["email"])`. Replace the task comment `// ★ The ONLY member across all six entities: \`buildTaskCleanPatch\` throws` / `//   on a malformed address, and the throw fails the whole patch.` with `// ★ Every email field's writer throws through \`refuseEmailWrite\`, and a throw` / `//   fails the whole patch, so the card refuses the field first.`; delete the sentence `★★ \`raid.ownerEmail\` is still UNCHECKED on both sides, so its set stays empty.` in the absence comment.
+`src/app/inline-ai-edit/entity-descriptor.ts`: raid `emailFormatFields: new Set(["ownerEmail"])`, stakeholder `emailFormatFields: new Set(["email"])`, resource `emailFormatFields: new Set(["email"])`. Replace the task comment `// ★ The ONLY member across all six entities: \`buildTaskCleanPatch\` throws` / `//   on a malformed address, and the throw fails the whole patch.` with `// ★ Every email field's writer throws through \`refuseEmailWrite\`, and a throw` / `//   fails the whole patch, so the card refuses the field first.`; in the absence comment, delete the sentence that starts at the end of one comment line and ends on the next. At HEAD the two lines read exactly (the first line keeps its leading text, which is shown here as `…`):
+`    //  gain one — that would drop stored data. ★★ \`raid.ownerEmail\` is still`
+`    //  UNCHECKED on both sides, so its set stays empty.`
+Replace that two-line pair with the single line `    //  gain one — that would drop stored data.` (the Edit tool's `old_string` spans both lines, CRLF). Confirm with `grep -n "UNCHECKED" src/app/inline-ai-edit/entity-descriptor.ts`, which must print nothing.
 
 `src/app/inline-ai-edit/plan.sanitizer-parity.test.ts`: add `refuseEmailWrite` to the `../sanitize` import and compose it in three readers (and pass stored in the fourth):
 
@@ -932,9 +950,10 @@ export interface InlinePatchContext {
   ownTaskId: number;
   /** The row's STORED assignee email — an unchanged value is never refused. */
   storedAssigneeEmail?: string;
-  /** Stored emails of the people the cell's picker can copy from (the live
-   *  resources — the cell's picker is given no address book). A copy of one is
-   *  never refused (spec Part 1, decision 2). */
+  /** The stored email of the person THIS patch picked (the resource named by
+   *  `patch.resourceId`; the cell's picker is given no address book). A copy of
+   *  it is never refused (spec Part 1, decision 2). Only the picked source is
+   *  exempt — never every resource's email (pre-flight M10). */
   copySourceEmails?: readonly string[];
 }
 
@@ -964,7 +983,8 @@ and in `sanitizeInlinePatch` replace the `assigneeEmail` line with
         knownTaskIds,
         ownTaskId: taskId,
         storedAssigneeEmail: beforeRow.assigneeEmail,
-        copySourceEmails: [...resourcesById.values()].map((r) => r.email ?? ""),
+        // Only the resource THIS patch picked (spec decision 2, pre-flight M10).
+        copySourceEmails: typeof patch.resourceId === "number" ? [resourcesById.get(patch.resourceId)?.email ?? ""] : [],
       };
       const emailRefusal = inlineAssigneeEmailRefusal(patch, patchCtx);
       if (emailRefusal !== null) showToast("error", t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
@@ -988,9 +1008,17 @@ Then run every test file touched in Steps 2–8 in ONE vitest invocation and ass
 
 Subject `feat: apply the email write rule at every non-editor write boundary`. Body: the dual-use split, the per-boundary stored value, the inline-cell reachability finding (spec correction 6), and one line per RECOMPUTE.
 
+The paths, enumerated (pre-flight M12; every test path below exists at HEAD):
+
 ```bash
-git add <every file listed in this task's Files block and every test file edited>
-git commit --only <the same paths> -F "$LOG/msg-t2.txt"; echo "EXIT=$?"
+T2_PATHS="src/app/raid-escalation.ts src/app/escalate-popover.tsx src/app/use-action-center-handlers.ts src/app/record-email-guards.ts src/app/sanitize.ts src/app/absence-email.ts src/app/use-register-tools.ts src/app/use-chat-dispatcher.ts src/app/chat-task-patch.ts src/app/bulk-operations-helpers.ts src/app/use-bulk-operations.ts src/app/use-task-row-handlers.ts src/app/use-resource-planner.ts src/app/inline-ai-edit/plan.ts src/app/inline-ai-edit/entity-descriptor.ts src/app/task-inline-patch.ts src/app/tasks-section.tsx src/app/email-refusal-i18n.ts src/app/i18n.ts src/app/i18n.de.ts src/app/raid-escalation.test.ts src/app/escalate-popover.test.tsx src/app/use-action-center-handlers.test.ts src/app/chat-tools.test.ts src/app/chat-task-patch.test.ts src/app/bulk-operations-helpers.test.ts src/app/task-inline-patch.test.ts src/app/tasks-section.test.tsx src/app/use-chat-dispatcher.test.tsx src/app/inline-ai-edit/plan.sanitizer-parity.test.ts src/app/inline-ai-edit/plan.test.ts src/app/use-task-row-handlers.test.ts src/app/use-bulk-operations.test.tsx src/app/use-resource-planner.test.tsx"
+git status --porcelain=v1 --untracked-files=all
+```
+
+Compare the status output with `$T2_PATHS`. A census RECOMPUTE file you actually edited is appended by name, and only from this list: `src/app/inline-ai-edit/descriptor-drift.test.ts`, `src/app/inline-ai-edit/plan.offered-surface-sweep.test.ts`, `src/app/inline-ai-edit/plan.write-path-sweep.test.ts`, `src/app/inline-ai-edit/plan.model-writable-surface.test.ts`, `src/app/inline-ai-edit/plan.create-path-guards.test.ts`. Any other modified or untracked path is a STOP.
+
+```bash
+git add $T2_PATHS && git commit --only $T2_PATHS -F "$LOG/msg-t2.txt"; echo "EXIT=$?"
 ```
 
 ---
@@ -999,27 +1027,29 @@ git commit --only <the same paths> -F "$LOG/msg-t2.txt"; echo "EXIT=$?"
 
 **Files:**
 - Create: `src/app/email-field-error.tsx`
-- Modify: `src/app/task-validation.ts`, `src/app/use-task-submit.ts`
-- Modify: `src/app/resource-edit-modal.tsx`, `src/app/stakeholder-edit-modal.tsx`, `src/app/raid-edit-modal.tsx`, `src/app/shift-edit-modal.tsx`, `src/app/absence-edit-modal.tsx`, `src/app/project-form-fields.tsx` (`ContactPersonsControl`)
+- Modify: `src/app/task-validation.ts`, `src/app/use-task-submit.ts` (`UseTaskSubmitArgs.resources`), `src/app/task-manager.tsx` (one line-neutral fold in the `useTaskSubmit({…})` call), `src/app/task-form-fields.tsx` (stored/copied-unsafe flag)
+- Modify: `src/app/resource-edit-modal.tsx`, `src/app/stakeholder-edit-modal.tsx`, `src/app/raid-edit-modal.tsx`, `src/app/shift-edit-modal.tsx`, `src/app/absence-edit-modal.tsx`, `src/app/modal-edit-fields.tsx` (`AssigneeField` gains `emailInvalid` / `emailDescribedBy`), `src/app/project-form-fields.tsx` (`ContactPersonsControl`)
 - Modify: `src/app/i18n.ts` (remove `resourceErrorEmailDelimiter`), `src/app/i18n.de.ts` (node script removal)
-- Tests: `src/app/task-validation.test.ts`, `src/app/resource-edit-modal.test.tsx`, `src/app/stakeholder-edit-modal.test.tsx`, `src/app/raid-edit-modal.test.tsx`, `src/app/shift-edit-modal.test.tsx`, `src/app/absence-edit-modal.test.tsx`, `src/app/project-form-fields.test.tsx`
+- Tests: `src/app/task-validation.test.ts`, `src/app/use-task-submit.test.ts`, `src/app/task-form-modal.test.tsx`, `src/app/resource-edit-modal.test.tsx`, `src/app/stakeholder-edit-modal.test.tsx`, `src/app/raid-edit-modal.test.tsx`, `src/app/shift-edit-modal.test.tsx`, `src/app/absence-edit-modal.test.tsx`, `src/app/project-form-fields.test.tsx`
 
 **Interfaces:**
 - Consumes: `emailWriteRefusal`, `EmailRefusal` (Task 1); `EMAIL_REFUSAL_KEY`, i18n `errorEmailDelimiter` (Task 2).
 - Produces:
   - `EmailFieldError(props: { id: string; lang: Lang; value: string | undefined }): JSX.Element | null` — non-blocking flag for a present value that is not write-safe (judged with `emailWriteRefusal(value, undefined)`).
   - `validateTaskForm(form: TaskFormDraft, today: string, isNew: boolean, email?: { stored?: string; copySources?: readonly (string | undefined)[] }): TaskFieldErrors`; `TaskErrorKey` gains `"errorEmailDelimiter"`.
+  - `UseTaskSubmitArgs.resources?: readonly Resource[]` (absent = no copy source).
+  - `AssigneeField` props `emailInvalid?: boolean` and `emailDescribedBy?: string` (both optional; its only non-test mount is `absence-edit-modal.tsx`).
 
 **The rule per editor (stored value and copy sources, verified at HEAD):**
 
 | Editor | stored | copy sources | refusal surface |
 |---|---|---|---|
-| task form (`use-task-submit.ts`) | the edited task's `assigneeEmail` (`tasks.find(editingId)`) | the linked resource's email (`form.resourceId`, from `useWorkspace().resources`) | `FieldError id="assigneeEmail-error"` (existing) |
+| task form (`use-task-submit.ts`) | the edited task's `assigneeEmail` (`tasks.find(editingId)`) | the linked resource's email (`form.resourceId`, looked up in the new `args.resources`) | `FieldError id="assigneeEmail-error"` (existing, the refusal) + `EmailFieldError id="assigneeEmail-flag"` (the non-blocking flag for a stored or copied unsafe value) |
 | `ResourceEditModal` | `resource?.email` | none (no picker) | `ModalFieldError` via `setError` |
 | `StakeholderEditModal` | email the modal opened with (render-time reconcile on `draft.id`) | `resources.find(draft.resourceId)?.email` | `ModalFieldError` via `setError` |
 | `RaidEditModal` | email the modal opened with (reconcile on `draft.id`) | `resources.find(draft.ownerResourceId)?.email` | `ModalFieldError` via `setError` |
 | `ShiftEditModal` | `shift?.assigneeEmail` | `resources.find(draft.resourceId)?.email` | `ModalFieldError` via `setError` |
-| `AbsenceEditModal` | `absence?.assigneeEmail` (existing `openedEmail`) | none new | `ModalFieldError` via `setError` |
+| `AbsenceEditModal` | `absence?.assigneeEmail` (existing `openedEmail`) | none new | `ModalFieldError` via `setError` + `EmailFieldError id="absence-email-error"` (the flag) |
 | `ContactPersonsControl` add | undefined (an add is a create) | `resources.find(draft.resourceId)?.email`, `addressBook.find(c.name === draft.name)?.email` | `FieldError` under the email input |
 
 Before editing each modal, confirm its `resources` prop name with `grep -n "resources" src/app/<file>.tsx`; if a modal has no resources in scope, pass `[]` as copy sources and record it in the commit body (the copy then shows the non-blocking flag and is refused only if the user saves it changed — that is a STOP-and-ask case, not a silent downgrade).
@@ -1035,7 +1065,10 @@ git grep -n "email" -- src/app/shift-edit-modal.test.tsx src/app/stakeholder-edi
 - DELETE the key `resourceErrorEmailDelimiter` from EN and DE (its only non-i18n consumer is the resource editor).
 - MIGRATE `absence-edit-modal.test.tsx` "blocks save on an invalid assignee email": unchanged text; ADD a delimiter sibling.
 - ADD `task-validation.test.ts`, and one editor case per row of the table above (refused when changed, accepted unchanged-but-unsafe, copy exempt where a picker exists).
-- RECOMPUTE any `task-form-feedback.test.tsx` / `task-form-fields.test.tsx` assertion that enumerates `TaskErrorKey` values.
+- No RECOMPUTE in `task-form-feedback.test.tsx` / `task-form-fields.test.tsx`: neither enumerates `TaskErrorKey` (`grep -n "TaskErrorKey" src/app/task-form-feedback.test.tsx src/app/task-form-fields.test.tsx` prints nothing at HEAD).
+- ADD `use-task-submit.test.ts`: the copy exemption comes from `args.resources`, with a positive control (pre-flight I1). Every existing `makeArgs()` call stays valid because `resources` is optional — no MIGRATE.
+- ADD `task-form-modal.test.tsx` and `absence-edit-modal.test.tsx`: a stored unsafe email shows the non-blocking flag and does not block an unchanged save; a clean one shows no flag (pre-flight I7).
+- Unaffected by the two optional `AssigneeField` props: its only non-test mount is `absence-edit-modal.tsx` (`git grep -n "<AssigneeField" -- src/app ':!*.test.*'`).
 - The second grep lists existing email fixtures in editor tests; one holding an unsafe value that a test SAVES as a change is MIGRATE; a stored value saved unchanged needs no change.
 
 - [ ] **Step 1: The flag component**
@@ -1066,21 +1099,66 @@ export function emailFieldInvalid(value: string | undefined): boolean {
 
 - [ ] **Step 2: Task form — failing test, then code**
 
-Add to `src/app/task-validation.test.ts` (reuses its `base` and `TODAY`):
+Add to `src/app/task-validation.test.ts`. It uses the file's top-level `draft()` helper and `TODAY` constant; `base` is local to one `it` there and must not be used (pre-flight M2):
 
 ```ts
 describe("assigneeEmail follows the changed-only write rule", () => {
+  const unsafe = () => draft({ taskName: "X", assignee: "Y", dueDate: TODAY, assigneeEmail: "a,b@x.com" });
   it("refuses a changed delimiter-bearing address with the delimiter key", () => {
-    expect(validateTaskForm({ ...base, assigneeEmail: "a,b@x.com" }, TODAY, false, { stored: "old@x.com" }).assigneeEmail).toBe("errorEmailDelimiter");
+    expect(validateTaskForm(unsafe(), TODAY, false, { stored: "old@x.com" }).assigneeEmail).toBe("errorEmailDelimiter");
   });
   it("keeps an unchanged stored unsafe address valid", () => {
-    expect(validateTaskForm({ ...base, assigneeEmail: "a,b@x.com" }, TODAY, false, { stored: "a,b@x.com" }).assigneeEmail).toBeUndefined();
+    expect(validateTaskForm(unsafe(), TODAY, false, { stored: "a,b@x.com" }).assigneeEmail).toBeUndefined();
   });
   it("exempts a copy of the linked resource's stored email", () => {
-    expect(validateTaskForm({ ...base, assigneeEmail: "a,b@x.com" }, TODAY, false, { stored: "old@x.com", copySources: ["a,b@x.com"] }).assigneeEmail).toBeUndefined();
+    expect(validateTaskForm(unsafe(), TODAY, false, { stored: "old@x.com", copySources: ["a,b@x.com"] }).assigneeEmail).toBeUndefined();
   });
 });
 ```
+
+Add to `src/app/use-task-submit.test.ts` (uses its `makeArgs` and `validForm`; `validForm()` is a create with `resourceId: undefined`):
+
+```ts
+describe("useTaskSubmit — the email copy source comes from args.resources (pre-flight I1)", () => {
+  const linked = { id: 7, firstName: "Ada", lastName: "L", email: "a,b@x.com", roleId: null, utilizationMode: "percent" as const, utilization: {} };
+
+  it("positive control: the same unsafe value with no resources is refused", () => {
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ form: { ...validForm(), resourceId: 7, assigneeEmail: "a,b@x.com" } })),
+    );
+    expect(result.current.fieldErrors.assigneeEmail).toBe("errorEmailDelimiter");
+  });
+
+  it("exempts a copy of the linked resource's stored email", () => {
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ form: { ...validForm(), resourceId: 7, assigneeEmail: "a,b@x.com" }, resources: [linked] })),
+    );
+    expect(result.current.fieldErrors.assigneeEmail).toBeUndefined();
+  });
+});
+```
+
+Add to `src/app/task-form-modal.test.tsx` (uses its `stubTaskForm`, `defaultProps`, `Providers`, `EN`; spec decision 2, pre-flight I7):
+
+```tsx
+describe("TaskFormModal — a stored or copied unsafe email is flagged, not blocked (pre-flight I7)", () => {
+  it("shows the non-blocking flag for an unsafe value", () => {
+    stubTaskForm({ assigneeEmail: "a,b@x.com" });
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    expect(screen.getByText(t(EN, "errorEmailDelimiter"))).toBeInTheDocument();
+    expect(screen.getByDisplayValue("a,b@x.com")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("positive control: no flag for a clean value", () => {
+    stubTaskForm({ assigneeEmail: "nora@x.com" });
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    expect(screen.getByDisplayValue("nora@x.com")).not.toHaveAttribute("aria-invalid");
+    expect(screen.queryByText(t(EN, "errorEmailDelimiter"))).toBeNull();
+  });
+});
+```
+
+(If `getByDisplayValue` finds no email input, the email field is hidden at this file's default tier. Raise the tier to Full inside each `it` exactly as the file's existing `fieldTierTrigger(EN)` test does, then assert. Do not weaken either assertion.)
 
 Run it; Expected EXIT=1.
 
@@ -1100,18 +1178,44 @@ export function validateTaskForm(
   if (refusal) errors.assigneeEmail = EMAIL_REFUSAL_KEY[refusal];
 ```
 
-`src/app/use-task-submit.ts`: add `import { useWorkspace } from "./workspace-context";`, then inside the hook before `fieldErrors`:
+`src/app/use-task-submit.ts` — pre-flight I1: NO `useWorkspace()` here. `use-task-submit.test.ts` renders this hook with no `WorkspaceProvider`, and `useWorkspace` throws outside one.
+- Change `import { type Task, type RaidItem } from "./types";` to `import { type Task, type RaidItem, type Resource } from "./types";`.
+- In `UseTaskSubmitArgs`, directly after `  tasks: readonly Task[];`, add:
 
 ```ts
-  const { resources } = useWorkspace();
+  /** Live directory resources. The linked resource's stored email is a copy
+   *  source the changed-only rule exempts (spec Part 1, decision 2). Optional:
+   *  absent means no copy source. */
+  resources?: readonly Resource[];
+```
+
+- In the hook's `const { … } = args;` destructure, directly after `    tasks,`, add `    resources = [],`.
+- Directly after `  const isNewTask = editingId === null;`, add:
+
+```ts
   const storedEmail = editingId !== null ? tasks.find((row) => row.id === editingId)?.assigneeEmail : undefined;
   const linkedEmail = form.resourceId != null ? resources.find((r) => r.id === form.resourceId)?.email : undefined;
   const emailContext = useMemo(() => ({ stored: storedEmail, copySources: [linkedEmail] }), [storedEmail, linkedEmail]);
 ```
 
-and pass `emailContext` as the fourth argument in both `validateTaskForm(form, today, isNewTask)` calls (the `useMemo` gains `emailContext` in its deps; the submit callback's deps gain it too). If `form.resourceId` is typed `number | null | undefined`, the `!= null` check covers both. If a caller of `useTaskSubmit` renders outside a `WorkspaceProvider` (grep `useTaskSubmit(` and each test that renders it), STOP and ask rather than guarding the hook.
+- Pass `emailContext` as the fourth argument in both `validateTaskForm(form, today, isNewTask)` calls (the `fieldErrors` `useMemo` and the `hasTaskErrors(…)` guard in the submit callback), and add `emailContext` to both dependency arrays. `form.resourceId` is typed `number | null | undefined` (`task-form-context.tsx`), so `!= null` covers both.
 
-Run `task-validation.test.ts`, `task-form-feedback.test.tsx`, `task-form-fields.test.tsx`, `task-manager.characterization.test.tsx`; Expected EXIT=0, `Test Files 4 passed (4)`.
+`src/app/task-manager.tsx` — line-neutral, 3257 before and after. In the `useTaskSubmit({` call, replace the Edit-tool `old_string` `    setTaskModalOpen,\r\n    tasks,\r\n    today,` with `    setTaskModalOpen,\r\n    tasks, resources,\r\n    today,`. That three-line anchor occurs exactly once at HEAD; confirm it before editing:
+
+```bash
+node -e "const s=require('fs').readFileSync('src/app/task-manager.tsx','utf8');console.log(s.split('    setTaskModalOpen,\r\n    tasks,\r\n    today,\r\n').length-1)"
+```
+Expected `1`. `resources` is already in scope there: `TaskManager` destructures it from `useWorkspace()` and `handleCreateResource` reads it.
+
+`src/app/task-form-fields.tsx` — the flag (spec decision 2, pre-flight I7). Add `import { EmailFieldError, emailFieldInvalid } from "./email-field-error";`. On the email `Input`:
+- `invalid={errorFor("assigneeEmail") ? true : undefined}` → `invalid={errorFor("assigneeEmail") || emailFieldInvalid(form.assigneeEmail) ? true : undefined}`
+- `aria-describedby={describedBy("assigneeEmail", "email-counter")}` → `aria-describedby={describedBy("assigneeEmail", !errorFor("assigneeEmail") && emailFieldInvalid(form.assigneeEmail) ? "email-counter assigneeEmail-flag" : "email-counter")}`
+
+Directly after `<FieldError id="assigneeEmail-error">{errorFor("assigneeEmail")}</FieldError>`, add
+`{!errorFor("assigneeEmail") && <EmailFieldError id="assigneeEmail-flag" lang={lang} value={form.assigneeEmail} />}`.
+When the refusal is showing, it names the same reason, so the flag steps aside and never renders a second identical alert.
+
+Run `task-validation.test.ts`, `use-task-submit.test.ts`, `task-form-modal.test.tsx`, `task-form-feedback.test.tsx`, `task-form-fields.test.tsx`, `task-manager.characterization.test.tsx`; Expected EXIT=0, `Test Files 6 passed (6)`.
 
 - [ ] **Step 3: Resource editor — primary email, migrated key, flag**
 
@@ -1158,14 +1262,29 @@ and change the Task 1 `emails` branch to `setError(t(lang, EMAIL_REFUSAL_KEY[ema
 const fs = require("fs");
 const P = "src/app/i18n.de.ts";
 const s = fs.readFileSync(P, "utf8");
-const line = "  resourceErrorEmailDelimiter: \"Eine zusätzliche E-Mail-Adresse darf weder ein Komma noch ein Semikolon enthalten.\",\r\n";
+const line = "  resourceErrorEmailDelimiter: \"Eine zus\u00e4tzliche E-Mail-Adresse darf weder ein Komma noch ein Semikolon enthalten.\",\r\n";
 const count = s.split(line).length - 1;
 if (count !== 1) { console.error("anchor count " + count); process.exit(1); }
 fs.writeFileSync(P, s.replace(line, ""), "utf8");
 console.log("ok");
 ```
 
-Run `node "$LOG/de-t3.cjs"; echo "EXIT=$?"` and `node -e "const s=require('fs').readFileSync('src/app/i18n.de.ts','utf8');console.log(s.includes('resourceErrorEmailDelimiter'),(s.match(/(?<!\r)\n/g)||[]).length)"` → `false 0`.
+Run `node "$LOG/de-t3.cjs"; echo "EXIT=$?"`. Then write `$LOG/de-check-t3.cjs` with the Write tool and run `node "$LOG/de-check-t3.cjs"; echo "EXIT=$?"` — Expected `ok`, `EXIT=0`:
+
+```js
+const fs = require("fs");
+const s = fs.readFileSync("src/app/i18n.de.ts", "utf8");
+const problems = [];
+const bareLf = (s.match(/(?<!\r)\n/g) || []).length;
+if (bareLf !== 0) problems.push("bareLF " + bareLf);
+if (s.includes("\ufffd")) problems.push("U+FFFD replacement character present");
+if (s.includes("resourceErrorEmailDelimiter")) problems.push("resourceErrorEmailDelimiter still present");
+// Task 2's added line must survive this removal byte-for-byte.
+const t2 = "  errorEmailDelimiter: \"Eine E-Mail-Adresse darf weder ein Komma noch ein Semikolon enthalten.\",\r\n";
+if (s.split(t2).length - 1 !== 1) problems.push("errorEmailDelimiter line not found exactly once");
+if (problems.length) { console.error(problems.join("\n")); process.exit(1); }
+console.log("ok");
+```
 
 Rerun the resource editor tests; Expected EXIT=0.
 
@@ -1252,13 +1371,30 @@ describe("shift assignee email follows the changed-only write rule", () => {
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorEmailDelimiter"));
   });
+
+  it("flags a stored unsafe assignee email without blocking an unchanged save (pre-flight I7)", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave, absence: { ...base, assigneeEmail: "a,b@x.com" } });
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
+    expect(screen.getByLabelText(t("en-US", "absenceAssigneeEmail"))).toHaveAttribute("aria-invalid", "true");
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("positive control: a clean stored assignee email shows no flag", () => {
+    setupFull();
+    expect(screen.getByLabelText(t("en-US", "absenceAssigneeEmail"))).not.toHaveAttribute("aria-invalid");
+    expect(screen.queryByText(t("en-US", "errorEmailDelimiter"))).toBeNull();
+  });
 ```
 
-Run the four files; Expected EXIT=1.
+Run the four files; Expected EXIT=1 (the absence flag case fails too until Step 5 adds the flag).
 
 - [ ] **Step 5: Stakeholder, RAID, shift, absence editors — code**
 
-Each file imports `emailWriteRefusal` (from `./sanitize`), `EMAIL_REFUSAL_KEY` (`./email-refusal-i18n`), `EmailFieldError, emailFieldInvalid` (`./email-field-error`).
+Imports (pre-flight I7 — every name imported below is used below, so lint stays clean):
+- `stakeholder-edit-modal.tsx`, `raid-edit-modal.tsx`, `shift-edit-modal.tsx`: import `emailWriteRefusal` from `./sanitize`, `EMAIL_REFUSAL_KEY` from `./email-refusal-i18n`, and `EmailFieldError, emailFieldInvalid` from `./email-field-error`.
+- `absence-edit-modal.tsx`: its existing `./sanitize-core` import changes as shown below (`emailWriteRefusal` replaces `isValidEmail`); add `EMAIL_REFUSAL_KEY` from `./email-refusal-i18n` and `EmailFieldError, emailFieldInvalid` from `./email-field-error` (both used by the flag below). It does NOT import from `./sanitize`.
 
 `src/app/stakeholder-edit-modal.tsx` — near the other state, the render-time reconcile (AGENTS.md: never an effect):
 
@@ -1326,6 +1462,31 @@ with
     }
 ```
 and change its import to `import { emailWriteRefusal, sanitizeEmail } from "./sanitize-core";`. Update the comment above: the rule is now the shared `emailWriteRefusal` (format + delimiter, changed-only).
+
+The absence flag (spec decision 2, pre-flight I7). The email input lives inside the shared `AssigneeField` (`modal-edit-fields.tsx`), so that component gains two optional props:
+- in its props type, directly after `  tooltip?: string;`, add
+
+```ts
+  /** Marks the email input invalid: a stored or copied unsafe value the caller flags. */
+  emailInvalid?: boolean;
+  /** Id of the caller's flag element, for the email input's aria-describedby. */
+  emailDescribedBy?: string;
+```
+
+- add `  emailInvalid,` and `  emailDescribedBy,` to the destructure directly after `  tooltip,`;
+- on the email `<Input type="email" …>` add `invalid={emailInvalid || undefined}` and `aria-describedby={emailDescribedBy}` (`Input` in `form-controls.tsx` sets `aria-invalid` from `invalid`).
+
+`src/app/absence-edit-modal.tsx`: on the `<AssigneeField` mount add `emailInvalid={emailFieldInvalid(draft.assigneeEmail)}` and `emailDescribedBy={emailFieldInvalid(draft.assigneeEmail) ? "absence-email-error" : undefined}`, and directly after that mount's closing `/>` add:
+
+```tsx
+          {isVisible("email") && emailFieldInvalid(draft.assigneeEmail) && (
+            <div className="sm:col-span-2">
+              <EmailFieldError id="absence-email-error" lang={lang} value={draft.assigneeEmail} />
+            </div>
+          )}
+```
+
+(The form is a two-column grid. The wrapper spans both columns like `AssigneeField`'s own labels, and it renders only while flagging, so a clean value adds no empty grid row.)
 
 Rerun the four editor test files; Expected EXIT=0, `Test Files 4 passed (4)`.
 
@@ -1396,9 +1557,17 @@ Run all Task 3 test files in one invocation (assert the file count), then `npx t
 
 Subject `feat: email write rule and field errors in every workspace editor`.
 
+The paths, enumerated (pre-flight M12):
+
 ```bash
-git add <Files block paths + edited tests>
-git commit --only <the same paths> -F "$LOG/msg-t3.txt"; echo "EXIT=$?"
+T3_PATHS="src/app/email-field-error.tsx src/app/task-validation.ts src/app/use-task-submit.ts src/app/task-manager.tsx src/app/task-form-fields.tsx src/app/resource-edit-modal.tsx src/app/stakeholder-edit-modal.tsx src/app/raid-edit-modal.tsx src/app/shift-edit-modal.tsx src/app/absence-edit-modal.tsx src/app/modal-edit-fields.tsx src/app/project-form-fields.tsx src/app/i18n.ts src/app/i18n.de.ts src/app/task-validation.test.ts src/app/use-task-submit.test.ts src/app/task-form-modal.test.tsx src/app/resource-edit-modal.test.tsx src/app/stakeholder-edit-modal.test.tsx src/app/raid-edit-modal.test.tsx src/app/shift-edit-modal.test.tsx src/app/absence-edit-modal.test.tsx src/app/project-form-fields.test.tsx"
+git status --porcelain=v1 --untracked-files=all
+```
+
+Every modified or untracked path in the status output must be in `$T3_PATHS`; any other is a STOP.
+
+```bash
+git add $T3_PATHS && git commit --only $T3_PATHS -F "$LOG/msg-t3.txt"; echo "EXIT=$?"
 ```
 
 ---
@@ -1469,6 +1638,14 @@ describe("TimelogSettings — email draft persists only a valid value", () => {
     expect(onChange).not.toHaveBeenCalled();
     fireEvent.change(input, { target: { value: "grace@x.com" } });
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ email: "grace@x.com" }));
+  });
+
+  it("persists a clear (pre-flight M9)", () => {
+    const onChange = vi.fn();
+    render(<TimelogSettings lang="en-US" config={{ ...defaultTimelogConfig, enabled: true, email: "ada@x.com" }} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText(t("en-US", "timelogEmail")), { target: { value: "" } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ email: "" }));
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
 ```
@@ -1560,7 +1737,7 @@ git commit --only src/app/jira-settings.tsx src/app/timelog-settings.tsx src/app
 - Modify (load funnels): `src/app/task-status.ts` (`migrateTask`), `src/app/sanitize-entities.ts` (`sanitizeAbsence`, `sanitizeShift`, `sanitizeResource`), `src/app/sanitize-records.ts` (`sanitizeStakeholder`, `sanitizeContactPerson` — line-neutral), `src/app/workspace.ts` (`jsonToWorkspace` raid map), `src/app/csv-codecs-core.ts` (`buildRaidItemFromObj`), `src/app/templates.ts` (`sanitizeSeedRaidItem`), `src/app/browser-backend.ts` (IndexedDB map), `src/app/raid-escalation.ts` (`sanitizeEntry`)
 - Modify (notice): `src/app/record-email-guards.ts` (`summarizeUnsafeEmailRecords`), `src/app/use-storage-file-ops.ts` (`switchToProject`, `createProject`, `loadProjectFromFile`, `onOpenStorageFile`), `src/app/use-storage-turso-ops.ts` (`createTursoProject`), `src/app/task-manager.tsx` (`handleApplyTemplate`, line-neutral), `src/app/i18n.ts`, `src/app/i18n.de.ts`
 - Modify (sync): `src/app/jira-api.ts` (`issueToTaskFields`), `src/app/outlook-contacts.ts` (`mapGraphContact`)
-- Tests: `src/app/sanitize-core.email-rule.test.ts`, `src/app/raid-escalation.test.ts`, `src/app/email-normalize.load.test.ts` (new), `src/app/jira-api.test.ts`, `src/app/outlook-contacts.test.ts`, `src/app/use-storage-backend.test.tsx`, `src/app/use-storage-turso-ops.test.ts`
+- Tests: `src/app/sanitize-core.email-rule.test.ts`, `src/app/raid-escalation.test.ts`, `src/app/email-normalize.load.test.ts` (new), `src/app/browser-backend.test.ts` (IndexedDB load case), `src/app/jira-api.test.ts`, `src/app/outlook-contacts.test.ts`, `src/app/use-storage-backend.test.tsx`, `src/app/use-storage-turso-ops.test.ts`, `src/app/task-manager.template-notice.test.tsx` (new)
 
 **Interfaces:**
 - Consumes: `isWriteSafeEmail` (Task 1).
@@ -1570,6 +1747,7 @@ git commit --only src/app/jira-settings.tsx src/app/timelog-settings.tsx src/app
   - `withNormalizedEmailField<T extends object>(row: T, field: keyof T & string): T` (same reference when unchanged)
   - `withNormalizedResourceEmails<T extends { email?: string; emails?: string[] }>(row: T): T` (same reference when unchanged)
   - `summarizeUnsafeEmailRecords(ws: UnsafeEmailScope): { count: number; names: string } | null`, with `type UnsafeEmailScope = { tasks?: readonly Task[]; raid?: readonly RaidItem[]; absences?: readonly Absence[]; shifts?: readonly Shift[]; resources?: readonly Resource[]; stakeholders?: readonly Stakeholder[]; project?: ProjectMeta }`
+  - `templateSeedEmailScope(before: Pick<Workspace, "tasks" | "raid" | "stakeholders">, after: Pick<Workspace, "tasks" | "raid" | "stakeholders">): UnsafeEmailScope` — only the rows `appendSeed` added (pre-flight I4)
   - i18n key `importUnsafeEmailsNotice` (`{0}` = count, `{1}` = names)
 
 **Six load paths per field (the normaliser's call site; verified at HEAD):**
@@ -1594,7 +1772,7 @@ git grep -nE "<[^>]*@[^>]*>" -- "src/**/*.test.*" "src/app/__fixtures__" | grep 
 git grep -n "assigneeEmail\|emailAddress" -- src/app/jira-api.test.ts src/app/use-jira-sync.test.tsx src/app/outlook-contacts.test.ts
 ```
 
-- ADD normaliser unit tests (sanitize-core file), escalation load tests, `email-normalize.load.test.ts` (one round trip per codec), Jira + Outlook drop-plus-diagnostic, one notice test per explicit action and a no-notice reload test.
+- ADD normaliser unit tests (sanitize-core file), escalation load tests, `email-normalize.load.test.ts` (one round trip per codec), Jira + Outlook drop-plus-diagnostic, one notice test per explicit action (`onOpenStorageFile`, `switchToProject`, `loadProjectFromFile`; file-mode `createProject` with a template AND with an AI-import seed; `createTursoProject` with a template AND with an AI-import seed; template apply through `handleApplyTemplate`), the notice-before-diagnostic ordering tests for `onOpenStorageFile` and `loadProjectFromFile` (pre-flight I5, I9), `templateSeedEmailScope` over a real `applyTemplate` call (pre-flight I4), and a no-notice reload test.
 - RECOMPUTE `codec-roundtrip.property.test.ts`: check its email generators (`assigneeEmail: str` etc.). If `str` can generate a string of the form `Name <x@y.z>` whose inner part is write-safe, the round trip now normalises it on load. Narrow the generator to exclude `<`/`>` in email fields, with a comment naming this task.
 - `task-status.test.ts` / `task-status.property.test.ts`: `migrateTask` still returns the SAME reference for a row needing no change; any test asserting `toBe(task)` stays green. RECOMPUTE only if a fixture's `assigneeEmail` has the `Name <addr>` shape.
 - `use-jira-sync.test.tsx`: MIGRATE only a case whose `emailAddress` is not write-safe (it now arrives as `""`).
@@ -1718,7 +1896,7 @@ function seeded(): Workspace {
     tasks: [{ id: 1, taskName: "T", assignee: "Ada", assigneeEmail: "Ada <ada@x.com>", dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", status: "To Do", createdDate: "2026-06-01" } as never],
     raid: [{ id: 1, category: "R", title: "Risk", ownerEmail: "Ann <ann@x.com>", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-06-01", status: "Open", severity: "Medium" } as never],
     absences: [{ id: 1, assignee: "Ada", assigneeEmail: "Ada <ada@x.com>", startDate: "2026-06-01", endDate: "2026-06-02", type: "vacation" } as never],
-    resources: [{ id: 1, firstName: "Ada", lastName: "L", email: "Ada <ada@x.com>", emails: ["b@y.com; c@z.com"], roleId: null, utilizationMode: "percent", utilization: {} } as never],
+    resources: [{ id: 1, firstName: "Ada", lastName: "L", email: "Ada <ada@x.com>", emails: ["b@y.com; c@z.com", "Ann <d@w.com>"], roleId: null, utilizationMode: "percent", utilization: {} } as never],
     stakeholders: [{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "Sam <sam@x.com>" } as never],
   };
 }
@@ -1728,7 +1906,10 @@ function expectNormalised(ws: Workspace): void {
   expect(ws.raid[0].ownerEmail).toBe("ann@x.com");
   expect(ws.absences[0].assigneeEmail).toBe("ada@x.com");
   expect(ws.resources[0].email).toBe("ada@x.com");
-  expect(ws.resources[0].emails).toEqual(["b@y.com", "c@z.com"]);
+  // ★ "b@y.com; c@z.com" alone is vacuous for CSV and Markdown: those codecs
+  //  already split on ";" today (§533). "Ann <d@w.com>" becomes "d@w.com" only
+  //  through normalizeEmailListShape, on every codec (pre-flight M3).
+  expect(ws.resources[0].emails).toEqual(["b@y.com", "c@z.com", "d@w.com"]);
   expect(ws.stakeholders?.[0].email).toBe("sam@x.com");
 }
 
@@ -1749,7 +1930,7 @@ describe("the Name <addr> normaliser on every load funnel", () => {
 });
 ```
 
-Turso (single + tenant) decodes through the same `build*FromObj` / `sanitizeX` functions as CSV (`ENTITY_SPECS`), and IndexedDB is covered by adding one case to the existing IndexedDB load test: find it with `git grep -ln "BrowserBackend\|browser-backend" -- "src/**/*.test.*"` and add a seeded `Ann <ann@x.com>` RAID row asserting it loads as `ann@x.com`, copying that file's seeding pattern.
+Turso (single + tenant) decodes through the same `build*FromObj` / `sanitizeX` functions as CSV (`ENTITY_SPECS`). ★ No Turso round trip is run in this task: that shared decode path is the ONLY Turso coverage, and it is stated here rather than tested (pre-flight M3). IndexedDB is covered by adding one case to `src/app/browser-backend.test.ts`: add a seeded `Ann <ann@x.com>` RAID row asserting it loads as `ann@x.com`, copying that file's seeding pattern.
 
 Run the new file; Expected EXIT=1.
 
@@ -1920,6 +2101,54 @@ describe("summarizeUnsafeEmailRecords", () => {
 });
 ```
 
+Also append to `src/app/record-email-guards.ts` (pre-flight I4 — the template-apply notice must name only what the template brought in):
+
+```ts
+import type { Workspace } from "./workspace";
+
+/** The rows `handleApplyTemplate` (task-manager.tsx) actually brings in: the
+ *  rows `appendSeed` ADDED to the three slices that handler applies (`tasks`,
+ *  `raid`, `stakeholders`) — ids present in `after` but not in `before`. Never
+ *  the current project's existing rows. Exact because `remapSeed` gives every
+ *  seed row a fresh id. `resources` is left out: `handleApplyTemplate` does not
+ *  apply the seed's resources. */
+export function templateSeedEmailScope(
+  before: Pick<Workspace, "tasks" | "raid" | "stakeholders">,
+  after: Pick<Workspace, "tasks" | "raid" | "stakeholders">,
+): UnsafeEmailScope {
+  const added = <T extends { id: number }>(prev: readonly T[] | undefined, next: readonly T[] | undefined): T[] => {
+    const known = new Set((prev ?? []).map((row) => row.id));
+    return (next ?? []).filter((row) => !known.has(row.id));
+  };
+  return {
+    tasks: added(before.tasks, after.tasks),
+    raid: added(before.raid, after.raid),
+    stakeholders: added(before.stakeholders, after.stakeholders),
+  };
+}
+```
+(merge the `import type` into the file's import block.)
+
+Unit test in `src/app/sanitize-core.email-rule.test.ts` (import `templateSeedEmailScope` from `./sanitize`, `applyTemplate` from `./template-apply`, `emptyWorkspace` from `./workspace`). It runs the REAL `applyTemplate`, so the scope is judged against what `appendSeed` actually produces:
+
+```ts
+describe("templateSeedEmailScope — the template-apply notice counts only the seed (pre-flight I4)", () => {
+  const row = (id: number, taskName: string, assigneeEmail: string) => ({
+    id, taskName, assignee: "A", assigneeEmail, dueDate: "2026-06-01", lastUpdateDate: "2026-06-01",
+    priority: "Medium", status: "To Do", createdDate: "2026-06-01",
+  });
+
+  it("names the seed's unsafe row and never the current project's", () => {
+    const current = { ...emptyWorkspace(), tasks: [row(1, "Existing", "old,bad@x.com")] as never };
+    const tpl = { id: "tpl-unsafe", name: "T", features: [], fieldVisibility: {}, seed: { tasks: [row(1, "Seeded", "a,b@x.com")] } } as never;
+    const next = applyTemplate(current, tpl, { includeSeed: true });
+    expect(next.tasks).toHaveLength(2); // control: the seed really landed beside the existing row
+    expect(summarizeUnsafeEmailRecords(next)).toEqual({ count: 2, names: "Existing, Seeded" }); // what summarising `next` would announce
+    expect(summarizeUnsafeEmailRecords(templateSeedEmailScope(current, next))).toEqual({ count: 1, names: "Seeded" });
+  });
+});
+```
+
 i18n — `src/app/i18n.ts` after `  templateApplied: "Template applied",` add `  importUnsafeEmailsNotice: "Imported records with an invalid email address ({0}): {1}",`. DE via `$LOG/de-t5.cjs`:
 
 ```js
@@ -1929,11 +2158,26 @@ const s = fs.readFileSync(P, "utf8");
 const anchor = "  templateApplied: \"Vorlage angewendet\",\r\n";
 const count = s.split(anchor).length - 1;
 if (count !== 1) { console.error("anchor count " + count); process.exit(1); }
-const add = "  importUnsafeEmailsNotice: \"Importierte Einträge mit ungültiger E-Mail-Adresse ({0}): {1}\",\r\n";
+const add = "  importUnsafeEmailsNotice: \"Importierte Eintr\u00e4ge mit ung\u00fcltiger E-Mail-Adresse ({0}): {1}\",\r\n";
 fs.writeFileSync(P, s.replace(anchor, anchor + add), "utf8");
 console.log("ok");
 ```
-Verify with the `indexOf('importUnsafeEmailsNotice')` + `bareLF` command from Task 2.
+Run `node "$LOG/de-t5.cjs"; echo "EXIT=$?"`. Then write `$LOG/de-check-t5.cjs` with the Write tool and run `node "$LOG/de-check-t5.cjs"; echo "EXIT=$?"` — Expected `ok`, `EXIT=0`; anything else is a STOP:
+
+```js
+const fs = require("fs");
+const s = fs.readFileSync("src/app/i18n.de.ts", "utf8");
+const expected = "  templateApplied: \"Vorlage angewendet\",\r\n"
+  + "  importUnsafeEmailsNotice: \"Importierte Eintr\u00e4ge mit ung\u00fcltiger E-Mail-Adresse ({0}): {1}\",\r\n";
+const problems = [];
+const bareLf = (s.match(/(?<!\r)\n/g) || []).length;
+if (bareLf !== 0) problems.push("bareLF " + bareLf);
+if (s.includes("\ufffd")) problems.push("U+FFFD replacement character present");
+const hits = s.split(expected).length - 1;
+if (hits !== 1) problems.push("expected bytes found " + hits + " time(s)");
+if (problems.length) { console.error(problems.join("\n")); process.exit(1); }
+console.log("ok");
+```
 
 - [ ] **Step 6: Notice — the explicit import sites**
 
@@ -1959,9 +2203,12 @@ Every site renders `t(lang, "importUnsafeEmailsNotice", s.count, s.names)` AFTER
 
 `use-storage-turso-ops.ts` `createTursoProject`: the same two `seededEmails` lines after its `projectCreatedToast`.
 
-`task-manager.tsx` (NO new lines): change `import { sanitizeRaidItem } from "./sanitize";` to `import { sanitizeRaidItem, summarizeUnsafeEmailRecords } from "./sanitize";` and the line `      showToast("info", t(lang, "templateApplied"));` to
-`      showToast("info", t(lang, "templateApplied")); const seededEmails = opts.includeSeed ? summarizeUnsafeEmailRecords(next) : null; if (seededEmails) showToast("info", t(lang, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));`
-Measure `task-manager.tsx` before and after: both 3257.
+`task-manager.tsx` — line-neutral, three single-line edits (each anchor occurs exactly once at HEAD):
+- `import { sanitizeRaidItem } from "./sanitize";` → `import { sanitizeRaidItem, summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";`
+- `      const next = applyTemplate(buildCurrentWorkspace(), tpl, opts);` → `      const current = buildCurrentWorkspace(); const next = applyTemplate(current, tpl, opts);`
+- `      showToast("info", t(lang, "templateApplied"));` → `      showToast("info", t(lang, "templateApplied")); const seededEmails = opts.includeSeed ? summarizeUnsafeEmailRecords(templateSeedEmailScope(current, next)) : null; if (seededEmails) showToast("info", t(lang, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));`
+
+★ Summarise `templateSeedEmailScope(current, next)`, NEVER `next`: `next` is the current workspace plus the seed, so it would announce existing records as "Imported" (pre-flight I4). The `useCallback` dependency array needs no change (`buildCurrentWorkspace`, `showToast` and `lang` are already in it). Measure `task-manager.tsx` before and after: both 3257.
 
 Tests — `src/app/use-storage-backend.test.tsx`, after "onOpenStorageFile loads workspace on confirm":
 
@@ -1993,21 +2240,221 @@ Tests — `src/app/use-storage-backend.test.tsx`, after "onOpenStorageFile loads
   });
 ```
 
-(`renderBackend`'s language must be `en-US`; if `emitToast` routes to a different spy, read `renderBackend`/`makeArgs` and assert on that spy.) Add the equivalent ordering case for `switchToProject` beside the existing "switchToProject saves the outgoing project…" test, seeding the target load with one unsafe task, and for `createTursoProject` in `use-storage-turso-ops.test.ts` beside "createTursoProject CLEARS the flag", passing `{ template: <that file's template fixture or a minimal `{ id: "t", tasks: [...] }` cast> }` and asserting the notice follows `projectCreatedToast`.
+(`renderBackend`'s language is `en-US`, and `emitToast` calls `args.showToast`, so both paths reach the file's `showToast` spy.) Add the equivalent ordering case for `switchToProject` beside the existing "switchToProject saves the outgoing project…" test, seeding the target load with one unsafe task.
 
-Template apply (spec correction 19): no behavioural test. Mutation check instead: delete `const seededEmails …;` through the end of that line's added statements, run `npx tsc --noEmit` (expect no new error — proves nothing type-level depends on it), restore, and confirm `git diff --stat` for `task-manager.tsx` shows exactly one changed line pair. Record in the commit body that this wiring is pinned by review, not by a test.
+File-mode `createProject` (pre-flight I5) — in `src/app/use-storage-backend.test.tsx`, beside "createProject applies the new empty workspace + registers/selects it" (same `createBackendMock`, `mockBackend`, `setStorageConfig`):
+
+```ts
+  const SEED_TASK = { id: 1, taskName: "From seed", assignee: "B", assigneeEmail: "a,b@x.com", dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", status: "To Do", createdDate: "2026-06-01" };
+
+  it.each([
+    ["a template", { includeSeed: true, template: { id: "t", name: "T", features: [], fieldVisibility: {}, seed: { tasks: [SEED_TASK] } } }],
+    ["an AI-import seed", { includeSeed: true, aiSeed: { tasks: [SEED_TASK] } }],
+  ])("createProject with %s shows the unsafe-email notice after projectCreatedToast (spec Part 2, pre-flight I5)", async (_label, opts) => {
+    const targetBackend = {
+      kind: "local-json",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("new.json"),
+    };
+    createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValue(targetBackend);
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    showToast.mockClear();
+    await act(async () => {
+      await result.current.createProject({ name: "New Proj", code: "NP" } as never, "json", opts as never);
+    });
+    const texts = showToast.mock.calls.map((c) => c[1]);
+    const created = texts.indexOf(t("en-US", "projectCreatedToast", "New Proj"));
+    expect(created).toBeGreaterThanOrEqual(0);
+    expect(texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "From seed"))).toBeGreaterThan(created);
+  });
+```
+
+The AI-seed row kills the mutant that deletes `|| opts.aiSeed`; the template row kills the one that deletes `opts.template ||`.
+
+`createTursoProject` (pre-flight I5) — in `src/app/use-storage-turso-ops.test.ts`, beside "createTursoProject CLEARS the flag" (its `renderWithRealGuard` returns the `showToast` spy, and `makeDeps`' `langRef` is `en-US`; add `import { t } from "./i18n";` if missing):
+
+```ts
+  const SEED_TASK = { id: 1, taskName: "From seed", assignee: "B", assigneeEmail: "a,b@x.com", dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", status: "To Do", createdDate: "2026-06-01" };
+
+  it.each([
+    ["a template", { includeSeed: true, template: { id: "t", name: "T", features: [], fieldVisibility: {}, seed: { tasks: [SEED_TASK] } } }],
+    ["an AI-import seed", { includeSeed: true, aiSeed: { tasks: [SEED_TASK] } }],
+  ])("createTursoProject with %s shows the unsafe-email notice after projectCreatedToast (pre-flight I5)", async (_label, opts) => {
+    const { result } = renderWithRealGuard(async () => {});
+    await act(async () => {
+      await result.current.ops.createTursoProject({ id: "n-2", name: "New", code: "N" } as never, opts as never);
+    });
+    const texts = result.current.showToast.mock.calls.map((c) => c[1]);
+    const created = texts.indexOf(t("en-US", "projectCreatedToast", "New"));
+    expect(created).toBeGreaterThanOrEqual(0);
+    expect(texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "From seed"))).toBeGreaterThan(created);
+  });
+```
+
+`loadProjectFromFile` and `onOpenStorageFile` — the ordering landmine (pre-flight I5, I9). The spec requires the notice to fire BEFORE the report, so a data-loss diagnostic wins the single toast slot. Add both cases inside `describe("useStorageBackend — import diagnostics reach every load path", …)`, which owns `makeImportBackend`, `importToasts` and `survivingToast`. Put them directly after "loadProjectFromFile still reports — the path the inline block was moved OFF":
+
+```ts
+  it("loadProjectFromFile: the unsafe-email notice fires BEFORE the import diagnostic, which survives (spec Part 2, pre-flight I5 + I9)", async () => {
+    const main = makeImportBackend();
+    const opened = makeImportBackend();
+    opened.load.mockImplementation(async () => {
+      opened.lastImportDroppedRows = 9;
+      return { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "Loaded", assigneeEmail: "a,b@x.com" } as unknown as Task] };
+    });
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(opened);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.loadProjectFromFile("json"); });
+
+    const texts = showToast.mock.calls.map((c) => String(c[1]));
+    const notice = texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "Loaded"));
+    const diagnostic = texts.findIndex((s) => s.includes("9 invalid row(s)"));
+    expect(notice).toBeGreaterThanOrEqual(0); // control: the notice fired at all
+    expect(diagnostic).toBeGreaterThan(notice);
+    expect(survivingToast()).toContain("9 invalid row(s)"); // the data-loss diagnostic keeps the slot
+  });
+
+  it("onOpenStorageFile: the notice fires AFTER storageOpenedToast and BEFORE the import diagnostic, which survives (pre-flight I9)", async () => {
+    const b = makeImportBackend();
+    createBackendMock.mockReturnValue(b);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    b.load.mockImplementationOnce(async () => {
+      b.lastImportDroppedRows = 7;
+      return { ...emptyWorkspace(), tasks: [{ id: 99, taskName: "Loaded", assigneeEmail: "a,b@x.com" } as unknown as Task] };
+    });
+
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    const texts = showToast.mock.calls.map((c) => String(c[1]));
+    const opened = texts.indexOf(t("en-US", "storageOpenedToast", 1));
+    const notice = texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "Loaded"));
+    const diagnostic = texts.findIndex((s) => s.includes("7 invalid row(s)"));
+    expect(opened).toBeGreaterThanOrEqual(0);
+    expect(notice).toBeGreaterThan(opened);
+    expect(diagnostic).toBeGreaterThan(notice);
+    expect(survivingToast()).toContain("7 invalid row(s)");
+  });
+```
+
+(`onOpenStorageFile` asks `window.confirm` only when the current project has tasks, so the spy is harmless when it does not. Restore the spy the way this file's other `window.confirm` spies are restored.) Mutation for each: move that site's two notice lines below its `reportFor` / `reportImportFor` call. Its ordering test must turn red. Revert, then confirm `git diff --stat` is unchanged.
+
+Template apply (pre-flight I4) — behavioural test of the real `handleApplyTemplate`. Create `src/app/task-manager.template-notice.test.tsx`:
+
+```tsx
+// Pins the template-apply notice WIRING in task-manager.tsx (spec Part 2,
+// pre-flight I4). The REAL handleApplyTemplate runs, captured from the deps
+// task-manager hands buildShellChrome, and the assertions read the toast the
+// real AppModals renders. Which rows count is ALSO pinned purely by the
+// templateSeedEmailScope test; this file pins that the handler uses it.
+import { act, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { __resetMintStateForTests } from "./id-mint-session";
+import { t } from "./i18n";
+
+const chrome = vi.hoisted(() => ({ apply: null as null | ((id: string, opts: { includeSeed: boolean }) => void) }));
+
+vi.mock("./shell-chrome", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./shell-chrome")>();
+  return {
+    ...actual,
+    buildShellChrome: (deps: Parameters<typeof actual.buildShellChrome>[0]) => {
+      chrome.apply = deps.handleApplyTemplate;
+      return actual.buildShellChrome(deps);
+    },
+  };
+});
+
+vi.mock("./workspace-section", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./workspace-section")>();
+  const { useWorkspace } = await import("./workspace-context");
+  return {
+    ...actual,
+    WorkspaceSection: () => {
+      const { tasks } = useWorkspace();
+      return <div data-testid="ws-section-mock" data-task-count={tasks.length} />;
+    },
+  };
+});
+
+import TaskManager from "./task-manager";
+
+const SEEDED_TASK = { id: 1, taskName: "Seeded", assignee: "B", assigneeEmail: "a,b@x.com", dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", status: "To Do", createdDate: "2026-06-01" };
+const TEMPLATE = { id: "tpl-unsafe-email", name: "Unsafe email", features: [], fieldVisibility: {}, seed: { tasks: [SEEDED_TASK] } };
+
+async function mount() {
+  window.localStorage.clear();
+  chrome.apply = null;
+  window.localStorage.setItem("aipm-cockpit:projects", JSON.stringify({
+    projects: [{ id: "p1", name: "Seed", code: "SEED", storageConfig: { kind: "browser" } }],
+    currentProjectId: "p1",
+  }));
+  window.localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ templates: [TEMPLATE] }));
+  window.history.replaceState(null, "", "/");
+  render(<TaskManager />);
+  await screen.findByTestId("ws-section-mock");
+}
+
+const taskCount = () => screen.getByTestId("ws-section-mock").getAttribute("data-task-count");
+
+beforeEach(() => { __resetMintStateForTests(); });
+afterEach(() => { window.history.replaceState(null, "", "/"); });
+
+describe("handleApplyTemplate — the unsafe-email notice (spec Part 2, pre-flight I4)", () => {
+  it("positive control: applying WITHOUT the seed shows the applied toast and no notice", async () => {
+    await mount();
+    act(() => chrome.apply!("tpl-unsafe-email", { includeSeed: false }));
+    expect(await screen.findByText(t("en-US", "templateApplied"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "importUnsafeEmailsNotice", 1, "Seeded"))).toBeNull();
+    expect(taskCount()).toBe("0");
+  }, 45000);
+
+  it("names only the rows the template brought in: a second apply announces ONE record, not two", async () => {
+    await mount();
+    act(() => chrome.apply!("tpl-unsafe-email", { includeSeed: true }));
+    await waitFor(() => expect(taskCount()).toBe("1"));
+    expect(await screen.findByText(t("en-US", "importUnsafeEmailsNotice", 1, "Seeded"))).toBeInTheDocument();
+
+    act(() => chrome.apply!("tpl-unsafe-email", { includeSeed: true }));
+    await waitFor(() => expect(taskCount()).toBe("2")); // control: the second seed landed beside the first
+    expect(screen.getByText(t("en-US", "importUnsafeEmailsNotice", 1, "Seeded"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "importUnsafeEmailsNotice", 2, "Seeded, Seeded"))).toBeNull();
+  }, 45000);
+});
+```
+
+Mutation: in `task-manager.tsx` replace `templateSeedEmailScope(current, next)` with `next`. The second test must turn red, because the second apply then announces `2` and `Seeded, Seeded`. Revert, then confirm `git diff --stat` shows `task-manager.tsx` with exactly three changed lines. STOP instead of weakening an assertion in any of these cases: the first test's toast never appears (the settings template did not load — read `useTemplates` / the settings loader for the blob shape it expects, and report); the task count does not reach `1` or `2` (a load replaced the applied tasks); or `buildShellChrome` is not called with `handleApplyTemplate`.
 
 - [ ] **Step 7: Gates**
 
-Run every Task 5 test file in one invocation (file count asserted), `golden-workspace.test.ts` included; then tsc, eslint over touched files, size:check, and `node -e` size readings for `sanitize-records.ts` (1600) and `task-manager.tsx` (3257).
+Run every Task 5 test file in one invocation and assert `Test Files 15 passed (15)`:
+
+```bash
+npx vitest run src/app/sanitize-core.email-rule.test.ts src/app/raid-escalation.test.ts src/app/email-normalize.load.test.ts src/app/browser-backend.test.ts src/app/jira-api.test.ts src/app/outlook-contacts.test.ts src/app/use-jira-sync.test.tsx src/app/use-storage-backend.test.tsx src/app/use-storage-turso-ops.test.ts src/app/task-manager.template-notice.test.tsx src/app/golden-workspace.test.ts src/app/codec-roundtrip.property.test.ts src/app/task-status.test.ts src/app/task-status.property.test.ts src/app/templates.test.ts --maxWorkers=1 --reporter=dot > "$LOG/t5.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$LOG/t5.log"
+```
+
+Then tsc, eslint over touched files, size:check, and `node -e` size readings for `sanitize-records.ts` (1600) and `task-manager.tsx` (3257).
 
 - [ ] **Step 8: Commit**
 
-Subject `feat: load normaliser, explicit-import email notice and sync drop`.
+Subject `feat: load normaliser, explicit-import email notice and sync drop`. The paths, enumerated (pre-flight M12):
 
 ```bash
-git add <Files block paths + edited tests>
-git commit --only <the same paths> -F "$LOG/msg-t5.txt"; echo "EXIT=$?"
+T5_PATHS="src/app/sanitize-core.ts src/app/task-status.ts src/app/sanitize-entities.ts src/app/sanitize-records.ts src/app/workspace.ts src/app/csv-codecs-core.ts src/app/templates.ts src/app/browser-backend.ts src/app/raid-escalation.ts src/app/record-email-guards.ts src/app/use-storage-file-ops.ts src/app/use-storage-turso-ops.ts src/app/task-manager.tsx src/app/i18n.ts src/app/i18n.de.ts src/app/jira-api.ts src/app/outlook-contacts.ts src/app/sanitize-core.email-rule.test.ts src/app/raid-escalation.test.ts src/app/email-normalize.load.test.ts src/app/browser-backend.test.ts src/app/jira-api.test.ts src/app/outlook-contacts.test.ts src/app/use-storage-backend.test.tsx src/app/use-storage-turso-ops.test.ts src/app/task-manager.template-notice.test.tsx"
+git status --porcelain=v1 --untracked-files=all
+```
+
+A census RECOMPUTE or MIGRATE file you actually edited is appended by name, and only from this list: `src/app/codec-roundtrip.property.test.ts`, `src/app/use-jira-sync.test.tsx`, `src/app/task-status.test.ts`, `src/app/task-status.property.test.ts`. Any other modified or untracked path is a STOP.
+
+```bash
+git add $T5_PATHS && git commit --only $T5_PATHS -F "$LOG/msg-t5.txt"; echo "EXIT=$?"
 ```
 
 ---
@@ -2292,11 +2739,26 @@ const s = fs.readFileSync(P, "utf8");
 const anchor = "  undoToastEdit: \"{0} Element(e) bearbeitet\",\r\n";
 const count = s.split(anchor).length - 1;
 if (count !== 1) { console.error("anchor count " + count); process.exit(1); }
-const add = "  undoToastResourceEmailPropagated: \"1 Element bearbeitet und {0} verknüpfte Einträge aktualisiert\",\r\n";
+const add = "  undoToastResourceEmailPropagated: \"1 Element bearbeitet und {0} verkn\u00fcpfte Eintr\u00e4ge aktualisiert\",\r\n";
 fs.writeFileSync(P, s.replace(anchor, anchor + add), "utf8");
 console.log("ok");
 ```
-Verify with the `indexOf` + `bareLF` command (expect `verknüpfte`, `Einträge`, `bareLF 0`).
+Run `node "$LOG/de-t6.cjs"; echo "EXIT=$?"`. Then write `$LOG/de-check-t6.cjs` with the Write tool and run `node "$LOG/de-check-t6.cjs"; echo "EXIT=$?"` — Expected `ok`, `EXIT=0`; anything else is a STOP:
+
+```js
+const fs = require("fs");
+const s = fs.readFileSync("src/app/i18n.de.ts", "utf8");
+const expected = "  undoToastEdit: \"{0} Element(e) bearbeitet\",\r\n"
+  + "  undoToastResourceEmailPropagated: \"1 Element bearbeitet und {0} verkn\u00fcpfte Eintr\u00e4ge aktualisiert\",\r\n";
+const problems = [];
+const bareLf = (s.match(/(?<!\r)\n/g) || []).length;
+if (bareLf !== 0) problems.push("bareLF " + bareLf);
+if (s.includes("\ufffd")) problems.push("U+FFFD replacement character present");
+const hits = s.split(expected).length - 1;
+if (hits !== 1) problems.push("expected bytes found " + hits + " time(s)");
+if (problems.length) { console.error(problems.join("\n")); process.exit(1); }
+console.log("ok");
+```
 
 - [ ] **Step 5: Commit helper**
 
@@ -2600,9 +3062,17 @@ Run all Task 6 test files in one invocation (count asserted), `npx tsc --noEmit`
 
 Subject `feat: carry a corrected person email to its linked copies`.
 
+The paths, enumerated from the Files block (pre-flight M12):
+
 ```bash
-git add <Files block paths + edited tests>
-git commit --only <the same paths> -F "$LOG/msg-t6.txt"; echo "EXIT=$?"
+T6_PATHS="src/app/resource-email-propagation.ts src/app/resource-email-propagation-commit.ts src/app/undo/use-undo-stack.ts src/app/use-resource-directory.ts src/app/use-chat-dispatcher.ts src/app/test-providers.tsx src/app/i18n.ts src/app/i18n.de.ts src/app/resource-email-propagation.test.ts src/app/use-resource-directory.email-propagation.test.tsx src/app/resource-email-propagation.parity.test.tsx src/app/undo/use-undo-stack.test.tsx"
+git status --porcelain=v1 --untracked-files=all
+```
+
+Every modified or untracked path in the status output must be in `$T6_PATHS`; any other is a STOP.
+
+```bash
+git add $T6_PATHS && git commit --only $T6_PATHS -F "$LOG/msg-t6.txt"; echo "EXIT=$?"
 ```
 
 ---
@@ -2611,90 +3081,168 @@ git commit --only <the same paths> -F "$LOG/msg-t6.txt"; echo "EXIT=$?"
 
 **Files:**
 - Modify: `src/app/workspace-section-types.ts`, `src/app/raid-panel.tsx`, `src/app/raid-edit-modal.tsx`, `src/app/app-modals.tsx`, `src/app/task-form-modal.tsx`, `src/app/task-form-fields.tsx`, `src/app/shift-edit-modal.tsx` (`onCreateResource` becomes optional)
-- Modify: `src/app/task-manager.tsx` (two single-token edits, no new lines)
-- Test: `src/app/task-manager.popout-guard.test.tsx`
+- Modify: `src/app/app-modals.tsx`, `src/app/task-form-modal.tsx`, `src/app/task-form-fields.tsx` (`onAddAssigneeToAddressBook` becomes optional; `TaskFormFields` does not render the "+" button when it is absent — an omission of an existing control, not a new one); `src/app/app-modals.tsx` (`ResourceEditModal` renders only when `!isPopout`)
+- Modify: `src/app/task-manager.tsx` (three single-token edits, no new lines)
+- Test: `src/app/task-manager.popout-guard.test.tsx`, `src/app/app-modals.test.tsx`, `src/app/task-form-fields.test.tsx`
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `onCreateResource?: (name: string, email: string) => number` on the seven prop types above. `raid-create-host.tsx`, `escalate-popover.tsx` and `action-cta-controls.tsx` stay REQUIRED (main-window only; fed from `use-action-center-handlers.ts` / the `!isPopout` mount, not from the bag).
+- Produces: `onCreateResource?: (name: string, email: string) => number` on the seven prop types above. `raid-create-host.tsx`, `escalate-popover.tsx` and `action-cta-controls.tsx` stay REQUIRED (main-window only; fed from `use-action-center-handlers.ts` / the `!isPopout` mount, not from the bag). `onAddAssigneeToAddressBook?: (name: string, email: string) => void` on `AppModalsProps`, `TaskFormModal`'s props and `TaskFormFields`' props.
 
-**Reachability (Ruling Q8, verified):** `TaskFormModal` (via unguarded `setTaskModalOpen`) and `RaidEditModal` (`"raid"` in `POPOUT_TABS`) are reachable in a popout; `ShiftEditModal` (`guardEdit(handleOpenShiftEditor)`) and the resource editor (`guardEdit(handleEditResource)`) are not. The test pins both the bag and the `AppModals` prop, plus the Part 7 pin that the resource editor cannot open in a popout.
+**Reachability (Ruling Q8, corrected by pre-flight C1 — spec correction 7):** `TaskFormModal` (via unguarded `setTaskModalOpen`) and `RaidEditModal` (`"raid"` in `POPOUT_TABS`) are reachable in a popout; `ShiftEditModal` (`guardEdit(handleOpenShiftEditor)`) is not. The resource editor IS reachable: the task form's "+" add-to-address-book button calls `onAddAssigneeToAddressBook` → `handleAddAssigneeToAddressBook` → `handleOpenAddResource`, and `AppModals` then renders `ResourceEditModal`, whose save (`handleSaveResourceFromAnywhere` → `handleSaveResource`) creates the resource. Every resource-creation UI route and what closes it in a popout:
+
+| Route | Popout state after this task |
+|---|---|
+| `ResourcePicker` "+ Add" row → `onCreateResource` (bag, `AppModals` → `TaskFormModal` / `ShiftEditModal`) | closed here: `isPopout ? undefined : handleCreateResource` at both mounts; the picker hides the row |
+| task form "+" button → `onAddAssigneeToAddressBook` → `handleOpenAddResource` → `ResourceEditModal` | closed here: `isPopout ? undefined : handleAddAssigneeToAddressBook`; the button is not rendered |
+| any future opener of `editingResource` | closed here: `AppModals` renders `ResourceEditModal` only when `!isPopout` |
+| Resources view → `onAddResource` / `onEditResource` | already `guardEdit`-wrapped in the bag |
+| `RaidCreateHost` → `onCreateResource` | mounted under `!isPopout` |
+| Action Center assign / escalate → `onCreateResource` | `use-action-center-handlers.ts` checks `isPopout`; the Action Center is not in `POPOUT_TABS` |
+| Outlook contacts import → `onImportOutlook` | `canImportOutlookContacts({ isPopout, … })` plus `guardEdit` |
+| AI chat `createResource` | the dispatcher's own `isReadOnly` throw (not a UI route) |
+
+Re-derive the table before editing: `git grep -n "handleOpenAddResource\|handleCreateResource\|onAddAssigneeToAddressBook\|setEditingResource\|onImportOutlook" -- src ':!*.test.*'`. A route not in the table is a STOP.
 
 **Test census (run first; label every hit):**
 
 ```bash
-git grep -n "onCreateResource" -- src e2e scripts
+git grep -n "onCreateResource\|onAddAssigneeToAddressBook\|taskAddAssigneeToAddressBook\|editingResource" -- src e2e scripts
 ```
 
-- ADD popout cases to `task-manager.popout-guard.test.tsx`; MIGRATE its header paragraph that calls `onCreateResource` "still unguarded".
-- Unaffected (optional is a superset): `action-hero-card.test.tsx`, `action-row.test.tsx`, `app-modals.test.tsx`, `escalate-popover.test.tsx`, `raid-create-host*.test.tsx`, `raid-edit-modal.test.tsx`, `raid-panel.test.tsx`, `resource-picker.test.tsx` (already pins "omits the + Add row entirely when onCreateResource is not provided"), `shift-edit-*.test.tsx`, `task-form-*.test.tsx`, `workspace-section*.test.tsx`.
+- ADD popout and main-window cases to `task-manager.popout-guard.test.tsx`; MIGRATE its header paragraph that calls `onCreateResource` "still unguarded".
+- MIGRATE `task-manager.popout-guard.test.tsx`'s mock shape (pre-flight C2): the new `AppModals` capture RENDERS THROUGH to the real component, so the toast region (`{toast && <div role="status">` inside `app-modals.tsx`) stays real for Task 8. The file's existing budget cases assert on captured `WorkspaceSection` props and `commitSpy`, which a render-through mock does not change.
+- ADD `app-modals.test.tsx`: `ResourceEditModal` renders in the main window and not in a popout.
+- ADD `task-form-fields.test.tsx`: the "+" button renders when `onAddAssigneeToAddressBook` is passed (positive control) and not when it is absent. Its `Harness` gains a `withAddressBook?: boolean` option.
+- Unaffected (optional is a superset; each passes a function, so the button still renders): `action-hero-card.test.tsx`, `action-row.test.tsx`, `escalate-popover.test.tsx`, `raid-create-host*.test.tsx`, `raid-edit-modal.test.tsx`, `raid-panel.test.tsx`, `resource-picker.test.tsx` (already pins "omits the + Add row entirely when onCreateResource is not provided"), `shift-edit-*.test.tsx`, `task-form-feedback.test.tsx`, `task-form-fields.dictation.test.tsx`, `task-form-fields.resource-picker.test.tsx`, `task-form-modal.test.tsx` (its "fires onAddAssigneeToAddressBook with the current assignee + email" case passes a spy), `workspace-section*.test.tsx`.
 - For every NON-test hit in `workspace-section.tsx`, confirm the value flows only into one of the seven now-optional types. If any flows into a REQUIRED `onCreateResource` (`escalate-popover.tsx`, `action-cta-controls.tsx`, `raid-create-host.tsx`), STOP and ask — do not widen those.
 
 - [ ] **Step 1: Failing test**
 
-In `src/app/task-manager.popout-guard.test.tsx`, below the `WorkspaceSection` mock, add a capture of `AppModals` (a named export, `export function AppModals`):
+In `src/app/task-manager.popout-guard.test.tsx`, below the `WorkspaceSection` mock, add a capture of `AppModals` (a named export, `export function AppModals`). ★ It RENDERS THROUGH to the real component (pre-flight C2): the toast region with the Undo action lives inside `AppModals`, and Task 8's seam test must observe the real one. A mock returning `null` would make Task 8's positive control unreachable.
 
 ```tsx
 const capturedModals: { props: Record<string, unknown> | null } = { props: null };
-vi.mock("./app-modals", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./app-modals")>()),
-  AppModals: (props: Record<string, unknown>) => {
-    capturedModals.props = props;
-    return null;
-  },
-}));
+vi.mock("./app-modals", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./app-modals")>();
+  const RealAppModals = actual.AppModals;
+  return {
+    ...actual,
+    AppModals: (props: Parameters<typeof RealAppModals>[0]) => {
+      capturedModals.props = props as unknown as Record<string, unknown>;
+      return <RealAppModals {...props} />;
+    },
+  };
+});
 ```
 
 In `mountAt`, add `capturedModals.props = null;`. Append:
 
 ```tsx
+const ADA = { id: 1, firstName: "Ada", lastName: "L", roleId: null, utilizationMode: "percent", utilization: {} };
+
 describe("popout read-only guard — resource creation (open-followups §90)", () => {
-  // Positive control first: the main window still offers creation.
-  it("passes onCreateResource in the main window", async () => {
+  // ★ Positive controls first: every route below is proven LIVE in the main
+  //  window by the same call on the same mount path, so each popout absence
+  //  assertion is not vacuous.
+  it("main window: passes onCreateResource and onAddAssigneeToAddressBook", async () => {
     await mountAt("/");
     expect(typeof captured.props!.onCreateResource).toBe("function");
     expect(typeof capturedModals.props!.onCreateResource).toBe("function");
+    expect(typeof capturedModals.props!.onAddAssigneeToAddressBook).toBe("function");
   }, 45000);
 
-  it("passes NO onCreateResource to WorkspaceSection or AppModals in a popout", async () => {
+  it("popout: passes NO onCreateResource and NO onAddAssigneeToAddressBook", async () => {
     await mountAt("/?popout=raid");
-    // ★ Unlike onChangeBudgets, the prop DISAPPEARS: `makeEditGuard` would
-    // widen `number` to `number | undefined`, and ResourcePicker already hides
-    // its "+ Add" row when the callback is absent.
+    // ★ Unlike onChangeBudgets, the props DISAPPEAR: `makeEditGuard` would
+    // widen `number` to `number | undefined`, ResourcePicker already hides its
+    // "+ Add" row when the callback is absent, and TaskFormFields now hides the
+    // "+" address-book button the same way.
     expect(captured.props!.onCreateResource).toBeUndefined();
     expect(capturedModals.props!.onCreateResource).toBeUndefined();
+    expect(capturedModals.props!.onAddAssigneeToAddressBook).toBeUndefined();
   }, 45000);
 
-  it("cannot open the resource editor from a popout (spec Part 7 popout pin)", async () => {
+  it("main window: the address-book route opens a NEW-resource editor (positive control for route b)", async () => {
+    await mountAt("/");
+    const addToBook = capturedModals.props!.onAddAssigneeToAddressBook as (name: string, email: string) => void;
+    act(() => addToBook("Ada Lovelace", "ada@x.com"));
+    expect(capturedModals.props!.editingResource).toMatchObject({ isNew: true });
+  }, 45000);
+
+  it("main window: onEditResource opens the resource editor (positive control for the Part 7 pin)", async () => {
+    await mountAt("/");
+    const onEditResource = captured.props!.onEditResource as (r: unknown) => void;
+    act(() => onEditResource(ADA));
+    expect(capturedModals.props!.editingResource).toMatchObject({ isNew: false });
+  }, 45000);
+
+  it("popout: onEditResource opens no resource editor (spec Part 7 popout pin)", async () => {
     await mountAt("/?popout=resources");
     const onEditResource = captured.props!.onEditResource as (r: unknown) => void;
-    act(() => onEditResource({ id: 1, firstName: "Ada", lastName: "L", roleId: null, utilizationMode: "percent", utilization: {} }));
+    act(() => onEditResource(ADA));
     expect(capturedModals.props!.editingResource ?? null).toBeNull();
   }, 45000);
 });
 ```
 
-Run: `npx vitest run src/app/task-manager.popout-guard.test.tsx --maxWorkers=1 --reporter=dot > "$LOG/t7.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$LOG/t7.log"` — Expected EXIT=1 (the popout case fails; the other two pass — the third is a pin of existing behaviour, confirmed green before any code change).
+Add to `src/app/app-modals.test.tsx`, inside `describe("AppModals", …)` (its `ResourceEditModal` is already mocked to `data-testid="resource-edit-modal"`):
+
+```tsx
+  it("renders ResourceEditModal in the main window and never in a popout (open-followups §90)", () => {
+    stubTaskForm();
+    const editing = { resource: { id: 1, firstName: "Ada", lastName: "L", roleId: null, utilizationMode: "percent", utilization: {} } as never, isNew: true };
+    const { rerender } = render(<AppModals {...makeProps()} isPopout={false} editingResource={editing} />);
+    expect(screen.getByTestId("resource-edit-modal")).toBeInTheDocument(); // positive control
+    rerender(<AppModals {...makeProps()} isPopout={true} editingResource={editing} />);
+    expect(screen.queryByTestId("resource-edit-modal")).toBeNull();
+  });
+```
+
+In `src/app/task-form-fields.test.tsx`, widen `Harness`'s `over` type with `withAddressBook?: boolean` and change its `onAddAssigneeToAddressBook={vi.fn()}` line to `onAddAssigneeToAddressBook={over.withAddressBook === false ? undefined : vi.fn()}`. Append:
+
+```tsx
+describe("TaskFormFields — add-to-address-book button (open-followups §90)", () => {
+  it("renders the button when onAddAssigneeToAddressBook is passed (positive control)", () => {
+    render(<Harness />, { wrapper: TestProviders });
+    expect(screen.getByRole("button", { name: t("en-US", "taskAddAssigneeToAddressBook") })).toBeInTheDocument();
+  });
+
+  it("renders no button when it is absent (a popout)", () => {
+    render(<Harness withAddressBook={false} />, { wrapper: TestProviders });
+    expect(screen.queryByRole("button", { name: t("en-US", "taskAddAssigneeToAddressBook") })).toBeNull();
+  });
+});
+```
+
+Run: `npx vitest run src/app/task-manager.popout-guard.test.tsx src/app/app-modals.test.tsx src/app/task-form-fields.test.tsx --maxWorkers=1 --reporter=dot > "$LOG/t7.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$LOG/t7.log"` — Expected EXIT=1. The three positive controls (both main-window route cases and the `onEditResource` main-window case), the Part 7 popout pin (existing behaviour, green before any code change) and the task-form-fields positive control pass. The popout-props case, the `app-modals` popout gate and the "renders no button" case fail. If a positive control fails, STOP — the absence assertions beside it prove nothing.
 
 - [ ] **Step 2: Code**
 
 In each of the seven files change `onCreateResource: (name: string, email: string) => number;` to `onCreateResource?: (name: string, email: string) => number;`. Where a file CALLS it directly rather than forwarding to `ResourcePicker` (tsc reports "possibly undefined"), forward it untouched to the picker; if a direct call exists, STOP and ask.
 
+`src/app/app-modals.tsx`, `src/app/task-form-modal.tsx`, `src/app/task-form-fields.tsx`: change `onAddAssigneeToAddressBook: (name: string, email: string) => void;` to `onAddAssigneeToAddressBook?: (name: string, email: string) => void;` (one prop-type line in each file; `AppModals` and `TaskFormModal` only forward it).
+
+`src/app/task-form-fields.tsx`: wrap the existing address-book `<button type="button" onClick={() => onAddAssigneeToAddressBook(form.assignee, form.assigneeEmail)} … >+</button>` in `{onAddAssigneeToAddressBook && ( … )}`, leaving the button's markup unchanged. This omits an existing control, exactly as `ResourcePicker` omits its "+ Add" row; it adds no new UI.
+
+`src/app/app-modals.tsx`: `{editingResource && (` (the `ResourceEditModal` mount) → `{editingResource && !isPopout && (`. `isPopout` is already a required `AppModalsProps` field that this component destructures for its footer.
+
 `src/app/task-manager.tsx` (measure 3257 before and after):
 - `    onCreateResource: handleCreateResource,` → `    onCreateResource: isPopout ? undefined : handleCreateResource,`
-- `        onCreateResource={handleCreateResource}` inside `<AppModals` → `        onCreateResource={isPopout ? undefined : handleCreateResource}`. The `<RaidCreateHost` mount's prop stays unchanged (mounted under `!isPopout`).
+- `        onCreateResource={handleCreateResource}` inside `<AppModals` (8-space indent) → `        onCreateResource={isPopout ? undefined : handleCreateResource}`. The `<RaidCreateHost` mount's prop (10-space indent) stays unchanged (mounted under `!isPopout`).
+- `        onAddAssigneeToAddressBook={handleAddAssigneeToAddressBook}` → `        onAddAssigneeToAddressBook={isPopout ? undefined : handleAddAssigneeToAddressBook}`. Exactly one occurrence at HEAD: `node -e "const s=require('fs').readFileSync('src/app/task-manager.tsx','utf8');console.log(s.split('        onAddAssigneeToAddressBook={handleAddAssigneeToAddressBook}\r\n').length-1)"` prints `1`.
 
-Replace the header paragraph that begins `// ★★★ \`onChangeBudgets\` IS SAFE TO WRAP ONLY BECAUSE` so its last three sentences read: `// That is why it is NOT wrapped: task-manager passes \`isPopout ? undefined :\` // handleCreateResource\` instead, and \`ResourcePicker\` hides its "+ Add" row // when the callback is absent (open-followups §90, pinned below).`
+Replace the header paragraph that begins `// ★★★ \`onChangeBudgets\` IS SAFE TO WRAP ONLY BECAUSE` so its last three sentences read: `// That is why it is NOT wrapped: task-manager passes \`isPopout ? undefined :\` // handleCreateResource\` instead, and \`ResourcePicker\` hides its "+ Add" row // when the callback is absent. A SECOND route reached the resource editor from // a popout — the task form's "+" address-book button — and is closed the same // way, with \`AppModals\` refusing to render \`ResourceEditModal\` in a popout at // all (open-followups §90, every route pinned below).`
 
 - [ ] **Step 3: Run, gates, commit**
 
-Rerun the file (EXIT=0), then `npx tsc --noEmit`, eslint over the eight source files and the test, `node -e` size of `task-manager.tsx` (3257).
+Rerun the three test files plus `task-form-modal.test.tsx` in one invocation (EXIT=0, `Test Files 4 passed (4)`), then `npx tsc --noEmit`, eslint over the eight source files and the three edited tests, `node -e` size of `task-manager.tsx` (3257).
 
 Subject `fix: a popout can no longer create a resource (§90)`.
 
 ```bash
-git add src/app/workspace-section-types.ts src/app/raid-panel.tsx src/app/raid-edit-modal.tsx src/app/app-modals.tsx src/app/task-form-modal.tsx src/app/task-form-fields.tsx src/app/shift-edit-modal.tsx src/app/task-manager.tsx src/app/task-manager.popout-guard.test.tsx
-git commit --only src/app/workspace-section-types.ts src/app/raid-panel.tsx src/app/raid-edit-modal.tsx src/app/app-modals.tsx src/app/task-form-modal.tsx src/app/task-form-fields.tsx src/app/shift-edit-modal.tsx src/app/task-manager.tsx src/app/task-manager.popout-guard.test.tsx -F "$LOG/msg-t7.txt"; echo "EXIT=$?"
+T7_PATHS="src/app/workspace-section-types.ts src/app/raid-panel.tsx src/app/raid-edit-modal.tsx src/app/app-modals.tsx src/app/task-form-modal.tsx src/app/task-form-fields.tsx src/app/shift-edit-modal.tsx src/app/task-manager.tsx src/app/task-manager.popout-guard.test.tsx src/app/app-modals.test.tsx src/app/task-form-fields.test.tsx"
+git add $T7_PATHS && git commit --only $T7_PATHS -F "$LOG/msg-t7.txt"; echo "EXIT=$?"
 ```
 
 ---
@@ -2813,27 +3361,40 @@ Add as the FIRST statement of `undoById`, `undo`, `undoThrough`, `redoThrough`, 
 
 Append to `src/app/task-manager.popout-guard.test.tsx`:
 
+Add `within` to the file's `@testing-library/react` import and `import { t } from "./i18n";` (if missing), then append:
+
 ```tsx
 describe("popout read-only guard — undo capture (open-followups §91)", () => {
   const capture = () => (captured.props!.onCaptureUndo as (o: unknown) => void)({
     setter: vi.fn(), kind: "task.deleted", removed: [{ id: 1 }], fromArray: [{ id: 1 }],
   });
+  // ★★ Assert on the TOAST, never on a bare "Undo" button: the main window also
+  //  renders the header undo control (`undoControlEl`), so a page-wide
+  //  `getByRole("button", { name: "Undo" })` could pass with no toast at all.
+  //  The toast is the REAL one — `app-modals.tsx` renders `{toast && <div
+  //  role="status">…}` with the action button, and Task 7's AppModals capture
+  //  renders through (pre-flight C2). `task.deleted` is a delete kind, so the
+  //  text is `undoToastDelete`.
+  const toastText = () => t("en-US", "undoToastDelete", 1);
 
   it("main window: a capture shows the Undo toast (positive control)", async () => {
     await mountAt("/");
     act(() => capture());
-    expect(await screen.findByRole("button", { name: "Undo" })).toBeInTheDocument();
+    const text = await screen.findByText(toastText());
+    const region = text.closest('[role="status"]') as HTMLElement | null;
+    expect(region).not.toBeNull();
+    expect(within(region!).getByRole("button", { name: /undo/i })).toBeInTheDocument();
   }, 45000);
 
   it("popout: a capture records nothing and shows no Undo toast", async () => {
     await mountAt("/?popout=raid");
     act(() => capture());
-    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    expect(screen.queryByText(toastText())).toBeNull();
   }, 45000);
 });
 ```
 
-If the positive control cannot find the button (the toast renders outside this tree), STOP and ask for the observable rather than asserting the popout case alone — a lone absence assertion is vacuous.
+Before running, confirm the render-through mock is in place: `grep -n "return <RealAppModals" src/app/task-manager.popout-guard.test.tsx` must print one line. If it prints nothing, or the positive control still fails, STOP and report — never assert the popout case alone, because a lone absence assertion is vacuous.
 
 Rewrite the "★★ A THIRD unguarded path" header paragraph: `// ★★ The undo stack itself is now read-only in a popout (§91): \`useUndoStack\` // takes \`isReadOnly\`, so a popout capture pushes nothing and shows no Undo toast, // and Ctrl+Z / undoThrough / redoThrough run nothing. Pinned below. (An earlier // revision called the affordance invisible; the Undo toast was visible.)`
 
@@ -2889,8 +3450,11 @@ Create `src/app/turso-side-tables.guard.test.ts`:
 // with a `project_id` column that is neither a TABLE_NAMES member (swept by the
 // tenant transaction) nor in PROJECT_SCOPED_SIDE_TABLES (swept after it).
 // DISCOVERED, not hardcoded: every `export const <NAME>_DDL` in src/app is
-// imported, and a file mentioning CREATE TABLE without exporting one must be
-// on the allowlist below with a reason.
+// imported, and a file whose CODE holds a quoted CREATE TABLE literal without
+// exporting one must be on the allowlist below with a reason. ★ Comments are
+// stripped before that check (pre-flight I2): seven files mention CREATE TABLE
+// only in comments, and allowlisting them would hide a real table added to one
+// of them later.
 import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -2901,14 +3465,18 @@ import { tenantSchemaDdl } from "./turso-tenant-schema";
 import { PROJECT_SCOPED_SIDE_TABLES } from "./project-side-tables";
 
 const APP = resolve(__dirname);
+// Real DDL only, each with a reason. Never add a comment-only file here.
 const NO_EXPORTED_DDL_ALLOWLIST: Record<string, string> = {
   "turso-tenant-schema.ts": "DDL is the tenantSchemaDdl() function, executed explicitly below",
   "turso-backend.ts": "OLD_BLOB_DDL: the legacy single-row `workspace` blob table, no project_id",
-  "snapshot-store.ts": "mentions CREATE TABLE in a comment; executes SNAPSHOT_DDL",
-  "version-store.ts": "mentions CREATE TABLE in a comment; executes VERSION_DDL",
-  "document-assets-store.ts": "mentions CREATE TABLE in a comment; executes DOCUMENT_ASSET_DATA_DDL",
 };
 const EXPORT_RE = /export const ([A-Z0-9_]+_DDL)\b/g;
+export const DDL_LITERAL_RE = /[`"']\s*CREATE TABLE/;
+/** Drops block comments and line comments (a `//` at line start or after
+ *  whitespace; a `://` inside a URL is kept). */
+export function stripComments(text: string): string {
+  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+}
 
 async function discoverDdl(): Promise<{ statements: string[]; sources: string[] }> {
   const statements = [...tenantSchemaDdl()];
@@ -2917,7 +3485,7 @@ async function discoverDdl(): Promise<{ statements: string[]; sources: string[] 
     const text = readFileSync(join(APP, file), "utf8");
     const names = [...text.matchAll(EXPORT_RE)].map((m) => m[1]);
     if (names.length === 0) {
-      if (text.includes("CREATE TABLE")) expect(NO_EXPORTED_DDL_ALLOWLIST[file], `${file} creates a table without an exported *_DDL`).toBeDefined();
+      if (DDL_LITERAL_RE.test(stripComments(text))) expect(NO_EXPORTED_DDL_ALLOWLIST[file], `${file} creates a table without an exported *_DDL`).toBeDefined();
       continue;
     }
     const mod = (await import(pathToFileURL(join(APP, file)).href)) as Record<string, unknown>;
@@ -2930,6 +3498,11 @@ async function discoverDdl(): Promise<{ statements: string[]; sources: string[] 
 }
 
 describe("project-scoped side tables (open-followups §204)", () => {
+  it("the discovery ignores comment mentions and sees a quoted DDL literal", () => {
+    expect(DDL_LITERAL_RE.test(stripComments("// SCHEMA_DDL uses `CREATE TABLE IF NOT EXISTS`\n/* CREATE TABLE x */\n"))).toBe(false);
+    expect(DDL_LITERAL_RE.test(stripComments('const X = ["CREATE TABLE IF NOT EXISTS t (id TEXT)"];\n'))).toBe(true);
+  });
+
   it("every table with a project_id column is swept by a project hard delete", async () => {
     const { statements, sources } = await discoverDdl();
     const db = new DatabaseSync(":memory:");
@@ -2947,7 +3520,7 @@ describe("project-scoped side tables (open-followups §204)", () => {
 });
 ```
 
-(Count the exported `*_DDL` constants first with `git grep -c "export const [A-Z0-9_]*_DDL" -- "src/app/*.ts"` after Step 3's two exports — the floor must be ≤ that number and is quoted with that command in the commit body. `node:sqlite` import handling: copy whatever `turso-schema.execute.test.ts` does around its `DatabaseSync` import, e.g. an experimental-warning note.)
+(Allowlist census, measured at plan-fix time by stripping comments exactly as `stripComments` does: `comm-templates-store.ts`, `document-assets-store.ts`, `learning-store-turso.ts`, `snapshot-store.ts`, `turso-migrate.ts`, `use-portfolio-health.ts` and `version-store.ts` mention CREATE TABLE only in comments, so none needs an entry. `color-schemes-store.ts` and `scheduled-jobs-store.ts` hold real DDL and export it from Step 3 on. Before Step 3 those two fail the guard for the right reason. Count the exported `*_DDL` constants first with `git grep -c "export const [A-Z0-9_]*_DDL" -- "src/app/*.ts"` after Step 3's two exports — the floor must be ≤ that number and is quoted with that command in the commit body. `node:sqlite` import handling: copy whatever `turso-schema.execute.test.ts` does around its `DatabaseSync` import, e.g. an experimental-warning note.)
 
 Create `src/app/turso-portfolio.execute.test.ts`:
 
@@ -3098,7 +3671,23 @@ Delete `deleteAllAssetDataForProject` (and its docstring) from `document-assets-
 
 `Consequence: nothing cleans it automatically on ordinary project use, so \`hardDeleteProject\` (\`turso-portfolio.ts\`) sweeps it — together with every other project-keyed side table (\`chat_threads\`, \`committee_report_versions\`, \`snapshot\`, \`snapshot_series\`, \`project_versions\`) — through \`PROJECT_SCOPED_SIDE_TABLES\` (\`project-side-tables.ts\`) in one separate pipeline, **non-fatally**, via \`logDiag\`, because leaked rows are recoverable and a half-deleted project is not. \`turso-side-tables.guard.test.ts\` fails on a new project-keyed table missing from that registry (§204).`
 
-Also replace `the \`hardDeleteProject\` cleanup above` later in the file only if it still reads true (it does — leave it). Then:
+Also replace `the \`hardDeleteProject\` cleanup above` later in the file only if it still reads true (it does — leave it).
+
+`docs/AGENTS/documents.md` names the helper a SECOND time (pre-flight I3), in the Safe Mode paragraph that begins `★★★ **THE ASSET LIBRARY REFUSES TO OPERATE IN SAFE MODE RATHER THAN RE-PARTITIONING BYTES.**`. At HEAD the sentence wraps across two LF lines:
+
+```
+`deleteAllAssetDataForProject` is keyed the same way, so those orphans then survived project
+deletion too.
+```
+
+Replace those two lines with:
+
+```
+The project hard-delete sweep (`projectSideTableSweepStatements`) is keyed the same way, so those
+orphans then survived project deletion too.
+```
+
+(The claim stays true: bytes written under a Safe Mode key are orphans the sweep cannot reach by the project's own id.) Then:
 
 ```bash
 git grep -n "deleteAllAssetDataForProject" -- src docs/AGENTS AGENTS.md e2e scripts
@@ -3293,6 +3882,17 @@ Each currently says `sanitizeIsoDate` is "regex + a 1900–2100 year bound and n
 - `entity-descriptor.ts` calendarEvent comment: `\`sanitizeIsoDate\` (regex + 1900–2100, no calendar check)` → `\`sanitizeIsoDate\` (regex + calendar check + 1900–2100)`, and "the two disagree in BOTH directions" → "the two disagree on the year bound".
 - `calendar-event.ts` `acceptsEventDate` docstring: "`sanitizeIsoDate` (sanitize-core.ts) is regex + a 1900–2100 year bound and nothing else" → "`sanitizeIsoDate` (sanitize-core.ts) is regex + a calendar check (§539) + a 1900–2100 year bound", and add after the `"1899-12-31"` sentence: "★ The `\"2026-01-32\"` direction was closed at the source by §539; the year-bound direction is why this override remains."
 - `plan.ts`: "Match the sanitizer EXACTLY — sanitizeIsoDate is format + year-range (1900-2100)" → "Match the sanitizer EXACTLY — sanitizeIsoDate is format + real calendar date + year-range (1900-2100)".
+- `plan.ts`, the same comment block (pre-flight M6): the seven lines from `//  \`sanitizeCalendarEvent\` calls \`isoDateOrUndefined\` instead (regex +` through `//  REJECTED and landed. See \`EntityDescriptor.acceptsDate\`.` still say the default rule is "regex + 1900–2100 and nothing else" and that the two rules "disagree in BOTH directions". Replace them with these seven lines (same 8-space indent, so the file stays line-neutral):
+
+```ts
+        //  `sanitizeCalendarEvent` calls `isoDateOrUndefined` instead (regex +
+        //  `Date.parse`, NO year bound, against the default's regex + calendar
+        //  check + 1900–2100). Before §539 the two disagreed in BOTH directions
+        //  (`startDate: "2026-01-32"` previewed as accepted, then threw in
+        //  `updateCalendarEvent` and cost the WHOLE patch); since §539 both
+        //  refuse an impossible day, and only `"1899-12-31"` still differs: it
+        //  previews as REJECTED and lands. See `EntityDescriptor.acceptsDate`.
+```
 
 Then `npm run src:symbols:check > "$LOG/srcsym.log" 2>&1; echo "EXIT=$?"` (report only) and confirm no new finding names these files.
 
@@ -3353,14 +3953,14 @@ In `src/app/use-task-row-handlers.ts`, directly above `const onDelete = useCallb
 For EACH of §90, §91, §204, §323, §533, §539, in `docs/open-followups.md` (LF; Edit tool):
 1. Heading: replace the trailing ` — open` / ` — OPEN` (or append, for §204 and §323 whose headings carry no suffix) with ` — CLOSED 2026-09-14` (§533: ` — CLOSED 2026-09-14 as an accepted limit`).
 2. `**Status:**` block: replace with a CLOSED witness naming the commit subject and the pinning test:
-   - §90: `CLOSED 2026-09-14 — task-manager passes \`isPopout ? undefined : handleCreateResource\` to WorkspaceSection and AppModals, so the picker offers no "+ Add" row in a popout; pinned by "passes NO onCreateResource to WorkspaceSection or AppModals in a popout" (\`task-manager.popout-guard.test.tsx\`).`
+   - §90: `CLOSED 2026-09-14 — every resource-creation route is closed in a popout. task-manager passes \`isPopout ? undefined :\` for \`handleCreateResource\` (WorkspaceSection and AppModals, so the picker offers no "+ Add" row) and for \`handleAddAssigneeToAddressBook\` (so the task form shows no "+" address-book button), and \`AppModals\` never renders \`ResourceEditModal\` in a popout; the Resources-view openers were already \`guardEdit\`-wrapped. Pinned by "popout: passes NO onCreateResource and NO onAddAssigneeToAddressBook" and "popout: onEditResource opens no resource editor" (\`task-manager.popout-guard.test.tsx\`, each beside a main-window positive control), "renders ResourceEditModal in the main window and never in a popout" (\`app-modals.test.tsx\`) and "renders no button when it is absent" (\`task-form-fields.test.tsx\`).` Correct the body with a dated `★ Closed 2026-09-14:` note: it named the resource picker as the only route, but the task form's address-book button also reached the resource editor (pre-flight C1).
    - §91: `CLOSED 2026-09-14 — \`useUndoStack\` takes \`isReadOnly\`; in a popout every capture pushes nothing and shows no toast, and \`undo\`/\`redo\`/\`undoById\`/\`undoThrough\`/\`redoThrough\` run nothing. Pinned by "useUndoStack — read-only" (\`undo/use-undo-stack.test.tsx\`) and the popout undo seam case.` Correct the body: the affordance was NOT invisible — every capture showed a clickable Undo toast.
    - §204: `CLOSED 2026-09-14 — \`hardDeleteProject\` sweeps \`PROJECT_SCOPED_SIDE_TABLES\` (six tables, not the two this heading named: chat_threads, committee_report_versions, document_asset_data, snapshot, snapshot_series, project_versions) in one non-fatal pipeline; \`turso-side-tables.guard.test.ts\` fails on an unregistered project-keyed table and \`turso-portfolio.execute.test.ts\` runs the sweep on node:sqlite.` Mark the body's "Do NOT build it from this entry" paragraph as superseded by this closure (banner it, do not delete the dated record).
    - §323: `CLOSED 2026-09-14 by design — \`onDelete\` does not arm, and a comment there now says why; "can never flag a single-row delete" (\`is-workspace-empty.test.ts\`) pins the unreachability.`
    - §533: `CLOSED 2026-09-14 as an accepted limit — "," and ";" are legal only inside a quoted local part (RFC 5321/5322), which this app has no use for, and every email write boundary now refuses a changed value holding either (\`emailWriteRefusal\` / \`findTornEmail\`, \`sanitize-core.email-rule.test.ts\`). An address already torn by a past CSV, Markdown or Turso save cannot be rebuilt.` Replace "Options, deliberately left open." with "Options (not taken):".
    - §539: `CLOSED 2026-09-14 — \`sanitizeIsoDate\` rejects a non-calendar date on every path by returning ""; pinned by \`sanitize-core.iso-date.test.ts\` and the strengthened property in \`sanitize.property.test.ts\`.` Keep the rationale paragraph (input-type-date blanking, V8 day rollover, month NaN, Gantt `parseISO`).
 3. DELETE the entry's `**Work item:** #NN` line (#127, #128, #188, #238, #323, #329) — a closed entry carries none.
-4. Index row: hand-edit the anchor (derive it from the NEW heading: lowercase, drop backticks and punctuation, spaces → `-`; the ` — ` becomes `--`, as the existing `…--closed-2026-09-14` rows show), the title cell, and the status cell → `**CLOSED** 2026-09-14` (§533: `**CLOSED** 2026-09-14 as an accepted limit`). §90's row also repairs its corrupt third cell `undefined\`` → `found in the help-coverage slice-3 review, unreleased` and its fourth cell to `S`.
+4. Index row: hand-edit the anchor (derive it from the NEW heading: lowercase, drop backticks and punctuation, spaces → `-`; the ` — ` becomes `--`, as the existing `…--closed-2026-09-14` rows show), the title cell, and the status cell → `**CLOSED** 2026-09-14` (§533: `**CLOSED** 2026-09-14 as an accepted limit`). §90's row is also repaired. At HEAD the pipe inside `number | undefined` split its title, so the cells read: Item `` `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open ``, Origin `` undefined` ``, Size `found in the help-coverage slice-3 review, unreleased`, State `open`. Rebuild the row with five cells: Item (the new title), Origin `found in the help-coverage slice-3 review, unreleased`, Size `—`, State `**CLOSED** 2026-09-14`. `—` is the register's value for an unsized entry (the §86 and §87 rows use it), and the §90 body records no size, so no size is invented (pre-flight M12).
 5. Sweep falsified body sentences: grep the entry body for the changed symbols and old wording — `onCreateResource: handleCreateResource`, `useUndoHotkey`, `invisible`, `deleteAllAssetDataForProject`, `Neither gets the equivalent call`, `OPEN`, `left open`, `no calendar check`, `shape + year only` — and correct each in place with a dated `★ Closed 2026-09-14:` note rather than rewriting the record.
 
 Gates:
@@ -3433,28 +4033,28 @@ Closes #329
 | Matrix: `ContactPerson.email` — add refusal + FieldError | 3 |
 | Matrix: Jira / Timelog settings — draft + FieldError | 4 |
 | Prompt flows move to `isWriteSafeEmail` (incl. AI `sendInquiry`) | 2 |
-| Copied stored emails exempt; editors flag stored-unsafe values | 1 (`copySources`), 2 (inline cell), 3 (editors, contact add) |
+| Copied stored emails exempt; editors flag stored-unsafe values | 1 (`copySources`), 2 (inline cell — only the picked resource's email is exempt, pre-flight M10), 3 (every editor that shows the field flags it, the task form and absence editor included, pre-flight I7; contact add) |
 | Task inline cell: revert + ambient toast, reachability verified | 2 (spec correction 6) |
 | Preview ⇔ write parity per newly guarded field | 2 (`plan.sanitizer-parity.test.ts` readers + `plan.test.ts`) |
 | Part 2 normaliser (scalar, list, unchanged otherwise) | 5 |
 | Part 2 applied on every load funnel, named per path | 5 (six-path table; spec corrections 1–3) |
 | Part 2 escalation load unwraps before judging (Ruling Q5) | 5 |
 | Part 2 Jira/Timelog settings not normalised (Q7) | 5 (stated; no code) |
-| Part 2 notice on file open/switch, template apply, new project from template, AI import panel; ordering before the report | 5 (spec corrections 4, 5, 19) |
-| Part 2 Outlook contacts import: diagnostic only, no notice | 5 |
+| Part 2 notice on file open/switch, template apply, new project from template, AI import panel; ordering before the report | 5 (spec corrections 4, 5, 19): one test per action, including file-mode `createProject` and `createTursoProject` each with a template AND an AI seed (pre-flight I5); template apply through the pure `templateSeedEmailScope` test plus the behavioural `task-manager.template-notice.test.tsx` (I4); notice-before-diagnostic ordering for `onOpenStorageFile` and `loadProjectFromFile`, asserted on the surviving toast (I9) |
+| Part 2 Outlook contacts import: diagnostic only, no notice | 5 (the diagnostic is tested; "no notice" holds by construction because `handleImportResources` is unchanged, and has no test — pre-flight M4, deferred) |
 | Part 2 synced records drop the bad address + `logDiag` without the address | 5 |
-| Part 3 §90 optional `onCreateResource`, popout passes undefined, seam test, header migrated | 7 |
-| Part 4 §91 `isReadOnly` on `pushEntry` + five restore entry points, task-manager ref, tests, header migrated | 8 |
-| Part 5 §204 registry, one non-fatal sweep, `deleteAllAssetDataForProject` removed, guard test (Q6), execute test, test migrations, doc sweep | 9 |
+| Part 3 §90 optional `onCreateResource`, popout passes undefined, seam test, header migrated — plus the second route (the task form's address-book button, `onAddAssigneeToAddressBook`) and the `ResourceEditModal` popout render gate, every route pinned beside a main-window positive control (pre-flight C1, I8; spec correction 7) | 7 |
+| Part 4 §91 `isReadOnly` on `pushEntry` + five restore entry points, task-manager ref, tests, header migrated; the seam test reads the REAL toast through Task 7's render-through `AppModals` capture (pre-flight C2) | 8 |
+| Part 5 §204 registry, one non-fatal sweep, `deleteAllAssetDataForProject` removed, guard test (Q6) that strips comments before matching DDL (pre-flight I2), execute test, test migrations, doc sweep of both `documents.md` mentions (I3) | 9 |
 | Part 6 §323 comment + test; closures for §90/§91/§204/§323/§533 with body corrections | 11 |
-| Part 7 pure helper, both writers, FK + old-value match, jiraKey skip, escalations never, one composite with contact-person whole-array fragment, toast count key, parity test, token invalidation, one activity entry, popout pin, Outlook re-push check | 6 (popout pin in 7) |
+| Part 7 pure helper, both writers, FK + old-value match, jiraKey skip, escalations never, one composite with contact-person whole-array fragment, toast count key, parity test, token invalidation, one activity entry, popout pin, Outlook re-push check | 6 (popout pin in 7, covering both resource-editor routes) |
 | Scope addition §539 `sanitizeIsoDate` calendar check, tests, census, closure | 10, 11 |
 
-Unmet as written: the template-apply notice has no behavioural test (spec correction 19) — verified by a mutation check and review instead.
+Unmet as written: none. The template-apply notice now has a behavioural test (pre-flight I4). Known test gaps deferred from the pre-flight to the final review (reasons in `.superpowers/sdd/2026-09-14-email-rule-and-guard-escapes/preflight.md`, "Resolution"): M4 (no Outlook contacts-import no-notice test), M7 (the Task 2 census lists `updateRaid` / `updateStakeholder` / `updateAbsence` changed-only dispatcher tests without test code; Part 7 tokens are checked by value, not by an `update_*` refusal; no one-activity-entry check on the AI path), M8 (the copy sites exempt by construction carry no per-site pin), M11 (the refusal-key and linked-email lookups stay copied, not extracted).
 
 ### Placeholder scan
 
-Searched for "TBD", "TODO", "implement later", "similar to Task", "add appropriate". None. Steps that depend on a helper not read at plan time (a test file's local fixture name, a picker's ARIA role) state exactly what to read and what to substitute, and give the full test body.
+Searched for "TBD", "TODO", "implement later", "similar to Task", "add appropriate". None. Steps that depend on a helper not read at plan time (a test file's local fixture name, a picker's ARIA role) state exactly what to read and what to substitute, and give the full test body. Every commit step names its paths (pre-flight M12): no `<…>` path template remains, and a status check turns any unlisted modified path into a STOP.
 
 ### Type consistency
 
@@ -3462,7 +4062,9 @@ Searched for "TBD", "TODO", "implement later", "similar to Task", "add appropria
 - `refuseEmailWrite(field, incoming, stored)` / `emailRefusalMessage` — Task 2, reused by `refuseInvalidAbsenceEmail`.
 - `EMAIL_REFUSAL_KEY` values `"errorInvalidEmail" | "errorEmailDelimiter"` — Task 2; `TaskErrorKey` gains `"errorEmailDelimiter"` in Task 3 so the map's values assign.
 - `InlinePatchContext.storedAssigneeEmail` / `copySourceEmails`, `inlineAssigneeEmailRefusal` — Task 2 only.
-- `normalizeEmailShape`, `normalizeEmailListShape`, `withNormalizedEmailField`, `withNormalizedResourceEmails`, `summarizeUnsafeEmailRecords`, `UnsafeEmailScope` — Task 5.
+- `UseTaskSubmitArgs.resources?: readonly Resource[]`, `AssigneeField` props `emailInvalid?` / `emailDescribedBy?` — Task 3.
+- `normalizeEmailShape`, `normalizeEmailListShape`, `withNormalizedEmailField`, `withNormalizedResourceEmails`, `summarizeUnsafeEmailRecords`, `UnsafeEmailScope`, `templateSeedEmailScope(before, after)` — Task 5.
+- `onAddAssigneeToAddressBook?: (name: string, email: string) => void` on `AppModalsProps`, `TaskFormModal` and `TaskFormFields` props — Task 7.
 - `ResourceEmailChange`, `ArrayPropagation<T>`, `EmailPropagationInput`, `EmailPropagationResult`, `propagateResourceEmail(change, input)`, `retarget*Emails`, `PropagationSetters`, `contactPersonsFragment`, `commitEmailPropagation({ change, input, result, setters })`, `CaptureCompositeOpts.toastText` — Task 6.
 - `UseUndoStackDeps.isReadOnly` — Task 8. `PROJECT_SCOPED_SIDE_TABLES`, `projectSideTableSweepStatements`, `SCHEDULED_JOBS_DDL`, `COLOR_SCHEMES_DDL` — Task 9.
 - `sanitizeIsoDate` signature unchanged — Task 10.
