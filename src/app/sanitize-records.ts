@@ -54,7 +54,7 @@ import {
   toNumber,
   sanitizeText,
   sanitizeEmail, sanitizeLoadedEmail,
-  sanitizeIsoDate,
+  sanitizeIsoDate, type RequiredDateReader,
   fkIdOrUndefined,
   isPlainObject,
 } from "./sanitize-core";
@@ -265,14 +265,14 @@ export function dropUnacceptedMilestoneFields<T extends object>(patch: T): T {
   return (out ?? patch) as T;
 }
 
-export function sanitizeMilestone(input: unknown): Milestone | null {
+export function sanitizeMilestone(input: unknown, readDate: RequiredDateReader = sanitizeIsoDate): Milestone | null {
   if (!isPlainObject(input)) return null;
   const o = input;
   const id = toNumber(o.id);
   if (!Number.isFinite(id) || id <= 0) return null;
   const name = sanitizeText(o.name, BUDGET_NAME_MAX);
   if (!name) return null;
-  const date = sanitizeIsoDate(o.date);
+  const date = readDate(o.date, "milestone", o.id, "date");
   if (!date) return null;
   const m: Milestone = {
     id: Math.floor(id),

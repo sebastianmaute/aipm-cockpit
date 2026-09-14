@@ -25,7 +25,7 @@ import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures } from "./feature-modules";
 import {
   sanitizeResource, sanitizeRole, sanitizeBudgetBucket, sanitizeDiscipline,
-  sanitizeGrade, sanitizeAbsence, sanitizeShift, sanitizeFxRates, sanitizePlan,
+  sanitizeGrade, sanitizeLoadedAbsence, sanitizeShift, sanitizeFxRates, sanitizePlan,
   sanitizeSteeringCommittee,
 } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
@@ -36,6 +36,7 @@ import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions } from "./document-versions";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { logDiag } from "./diagnostics";
+import { requiredIsoDateOnLoad } from "./sanitize-load-date";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
@@ -97,7 +98,7 @@ const anyToRow = (r: unknown, c: string) =>
 export const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<Task>({ table: "tasks", wsKey: "tasks", columns: CSV_COLUMNS, get: (w) => w.tasks, toRow: fieldToString as unknown as (e: Task, col: string) => string, fromObj: buildTaskFromObj }),
   spec<RaidItem>({ table: "raid", wsKey: "raid", columns: RAID_CSV_COLUMNS, get: (w) => w.raid, toRow: raidFieldToString as unknown as (e: RaidItem, col: string) => string, fromObj: buildRaidItemFromObj }),
-  spec<Absence>({ table: "absences", wsKey: "absences", columns: ABSENCES_CSV_COLUMNS, get: (w) => w.absences, toRow: absenceFieldToString as unknown as (e: Absence, col: string) => string, fromObj: sanitizeAbsence }),
+  spec<Absence>({ table: "absences", wsKey: "absences", columns: ABSENCES_CSV_COLUMNS, get: (w) => w.absences, toRow: absenceFieldToString as unknown as (e: Absence, col: string) => string, fromObj: sanitizeLoadedAbsence }),
   spec<Shift>({ table: "shifts", wsKey: "shifts", columns: SHIFTS_CSV_COLUMNS, get: (w) => w.shifts, toRow: shiftFieldToString as unknown as (e: Shift, col: string) => string, fromObj: sanitizeShift }),
   spec<Resource>({ table: "resources", wsKey: "resources", columns: RESOURCES_CSV_COLUMNS, get: (w) => w.resources, toRow: resourceFieldToString, fromObj: sanitizeResource }),
   spec<Role>({ table: "roles", wsKey: "roles", columns: ROLES_CSV_COLUMNS, get: (w) => w.roles, toRow: anyToRow as (e: Role, col: string) => string, fromObj: sanitizeRole }),
@@ -182,7 +183,7 @@ export function rowsToWorkspace(
   if (planRow) ws.plan = sanitizePlan(planRow, new Date().toISOString().slice(0, 10));
   const fxRow = rowObjects(byTable.get("fx_rates"))[0];
   if (fxRow) {
-    ws.fxRates = sanitizeFxRates({ base: fxRow.base, date: fxRow.date, fetchedAt: fxRow.fetchedAt, rates: decodeRatesMap(fxRow.rates ?? "") });
+    ws.fxRates = sanitizeFxRates({ base: fxRow.base, date: fxRow.date, fetchedAt: fxRow.fetchedAt, rates: decodeRatesMap(fxRow.rates ?? "") }, requiredIsoDateOnLoad);
   }
   // ★★ NOT silent, and NOT a rethrow. The diagnostics ring is the channel for
   //    this loss, exactly as `jsonToWorkspace` does for the same class of

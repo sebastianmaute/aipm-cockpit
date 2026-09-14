@@ -38048,7 +38048,21 @@ grep -rn "project?\.name\|project?\.code\|project?\.customer\|project?\.startDat
 
 ## 539. sanitizeIsoDate accepts dates that are not real calendar dates — CLOSED 2026-09-14
 
-**Status:** CLOSED 2026-09-14 — `sanitizeIsoDate` rejects a non-calendar date on every path by returning `""`; pinned by `sanitize-core.iso-date.test.ts` and the strengthened property in `sanitize.property.test.ts`.
+**Status:** CLOSED 2026-09-14 — `sanitizeIsoDate` rejects a non-calendar date by returning `""`: write paths refuse it and load paths blank an optional date field with it, while a required date is kept raw on load (see the corrected ★ note below); pinned by `sanitize-core.iso-date.test.ts`, the strengthened property in `sanitize.property.test.ts` and `sanitize-load-date.test.ts`.
+
+★ Corrected 2026-09-14 (final fix round) — the "Planned fix" below says dropping such a value on load
+"loses nothing usable". That is FALSE for a REQUIRED date: blanking it made the entity sanitizer return
+`null` and the load funnel drop the whole record (an absence or milestone dated `2026-02-30` vanished on a
+JSON load while IndexedDB kept it). What the code does now: OPTIONAL date fields still blank on load.
+REQUIRED dates are kept as their raw string on load, with a `storage.nonCalendarDateKept` diagnostic
+naming only the entity kind, id and field, through `requiredIsoDateOnLoad` — absence `startDate` /
+`endDate` (`sanitizeLoadedAbsence` on the JSON, CSV, Markdown and Turso funnels), milestone `date` (JSON,
+via `sanitizeMilestone` with the load reader), the fx-rates `date` (`sanitizeFxRates` on all four
+funnels) and the resource plan's `startDate` / `endDate` (`sanitizePlan`, where one such value used to
+reset both dates to the defaults). CSV, Markdown and Turso milestones (`buildMilestoneFromObj`) and
+IndexedDB never validated these dates, so they keep them raw without a diagnostic. Writes still refuse
+them: the AI absence and milestone writers call the strict `sanitizeAbsence` / `sanitizeMilestone`, and
+the inline-AI preview judges with `sanitizeIsoDate`.
 
 ★ Closed 2026-09-14 — scope: this closes `sanitizeIsoDate` only. `calendarEvent`'s own date check,
 `isoDateOrUndefined` (`calendar-event.ts`), is a SEPARATE regex + `Date.parse` implementation that

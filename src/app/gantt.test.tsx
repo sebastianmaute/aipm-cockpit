@@ -1174,11 +1174,10 @@ describe("GanttPanel row-unique accessible names", () => {
   //
   // ★ "2026-13-01" is a realistic bad date shape, not a contrived one, and
   // `mkDatedMilestone` below builds the prop directly rather than through the
-  // sanitizer to reach it: since §539 the load sanitizer (`sanitizeIsoDate`)
-  // rejects it too (blanking it to ""), so this exercises the chart's own
-  // defence against an undrawable date reaching it by some OTHER route (e.g.
-  // an import bypassing the sanitizer), not a value a fresh load can produce
-  // anymore. It still fails `parseISO`, which is the property under test.
+  // sanitizer to reach it. A milestone `date` is REQUIRED, so a load keeps
+  // such a shape-valid non-calendar value RAW (with a diagnostic) rather than
+  // dropping the record — every backend can still hand it to the chart, and
+  // writes refuse it. It fails `parseISO`, which is the property under test.
   const mkDatedMilestone = (id: number, name: string, date: string): Milestone =>
     ({ id, name, date, linkedTaskIds: [] }) as unknown as Milestone;
 

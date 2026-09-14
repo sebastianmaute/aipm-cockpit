@@ -246,9 +246,12 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  *  verbatim; otherwise "". ★ §539: the shape and year alone let "2026-13-01",
  *  "2026-00-10" and "2026-02-30" through. The `Date.UTC` round trip rejects a
  *  month outside 1..12 and a day past the month's real length (leap years
- *  included). It runs on LOAD paths too, deliberately: such a value is already
- *  unusable — `<input type="date">` blanks it, and date math either rolls a day
- *  overflow silently into the next month or turns a month overflow into NaN. */
+ *  included). Such a value is unusable — `<input type="date">` blanks it, and
+ *  date math either rolls a day overflow silently into the next month or turns
+ *  a month overflow into NaN — so write paths refuse it and load paths blank an
+ *  OPTIONAL date field with it. ★ A REQUIRED date on a load path is read with
+ *  `requiredIsoDateOnLoad` (sanitize-load-date.ts) instead, which keeps the raw
+ *  value with a diagnostic: blanking it would drop the whole record. */
 export function sanitizeIsoDate(s: unknown): string {
   if (typeof s !== "string" || !ISO_DATE_RE.test(s)) return "";
   const y = Number(s.slice(0, 4));
@@ -259,6 +262,11 @@ export function sanitizeIsoDate(s: unknown): string {
   if (utc.getUTCFullYear() !== y || utc.getUTCMonth() !== m - 1 || utc.getUTCDate() !== d) return "";
   return s;
 }
+
+/** How an entity sanitizer reads a REQUIRED date field: `sanitizeIsoDate` on
+ *  write paths (the extra arguments are ignored), `requiredIsoDateOnLoad`
+ *  (sanitize-load-date.ts) on load paths. */
+export type RequiredDateReader = (value: unknown, entity: string, id: unknown, field: string) => string;
 
 const PRIORITIES_SET = new Set<Priority>(["Low", "Medium", "High", "Urgent"]);
 

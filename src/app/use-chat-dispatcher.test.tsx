@@ -1299,6 +1299,21 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     expect(result.current.listAbsences()).toHaveLength(1);
   });
 
+  // §539 follow-up: LOAD keeps a non-calendar required date raw, but a WRITE
+  // still refuses one — the AI writer runs the strict `sanitizeAbsence`.
+  it("updateAbsence and createAbsence still refuse a non-calendar date", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-02-01", endDate: "2026-02-05", type: "vacation",
+    });
+    expect(() => result.current.updateAbsence(created.id, { endDate: "2026-02-30" })).toThrow("invalid absence update");
+    expect(result.current.listAbsences()[0].endDate).toBe("2026-02-05");
+    expect(() => result.current.createAbsence({
+      assignee: "Bob", startDate: "2026-02-01", endDate: "2026-02-30", type: "vacation",
+    })).toThrow(/invalid absence/);
+    expect(result.current.listAbsences()).toHaveLength(1);
+  });
+
   // ★★★ THE MERGE-SITE GUARD AT ITS REAL CALL SITE, which nothing pinned before.
   //  `sanitize-absence-patch.test.ts` exercises `dropUnacceptedAbsenceFields`
   //  DIRECTLY, so it proves the helper's rule and says nothing about whether

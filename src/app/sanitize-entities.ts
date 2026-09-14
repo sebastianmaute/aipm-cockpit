@@ -46,13 +46,22 @@ import {
   normalizeEmailListShape,
   sanitizeNotes,
   sanitizeIsoDate,
+  type RequiredDateReader,
   fkIdOrUndefined,
   isPlainObject,
 } from "./sanitize-core";
+import { requiredIsoDateOnLoad } from "./sanitize-load-date";
 
 // --- Absence sanitizers ----------------------------------------------------
 
 const ABSENCE_TYPE_SET: ReadonlySet<AbsenceType> = new Set(ABSENCE_TYPES);
+
+/** The LOAD-funnel form of `sanitizeAbsence` (JSON, CSV, Markdown, Turso): a
+ *  required date that is shape-valid but not a real calendar date is kept raw
+ *  (with a diagnostic) rather than dropping the whole absence. */
+export function sanitizeLoadedAbsence(input: unknown): Absence | null {
+  return sanitizeAbsence(input, requiredIsoDateOnLoad);
+}
 
 /** Returns the input if it is a valid AbsenceType; otherwise falls back to
  *  "other" so hand-edited files and chat tools can't break the union. */
@@ -74,17 +83,19 @@ export function sanitizeAbsenceNote(s: unknown): string {
 /**
  * Full-record sanitizer for inbound Absence data (file imports, chat tool
  * calls). Drops obviously bad input and clamps fields. Returns null when
- * the record is unrecoverable (missing id, assignee, or dates).
+ * the record is unrecoverable (missing id, assignee, or dates). `readDate`
+ * defaults to the strict `sanitizeIsoDate` (write paths); load funnels call
+ * `sanitizeLoadedAbsence`, which keeps a non-calendar date raw instead.
  */
-export function sanitizeAbsence(input: unknown): Absence | null {
+export function sanitizeAbsence(input: unknown, readDate: RequiredDateReader = sanitizeIsoDate): Absence | null {
   if (!input || typeof input !== "object") return null;
   const raw = input as Partial<Record<keyof Absence, unknown>>;
   const id = toNumber(raw.id);
   if (!Number.isFinite(id) || id <= 0) return null;
   const assignee = sanitizeAssignee(raw.assignee);
   if (!assignee) return null;
-  const startDate = sanitizeIsoDate(raw.startDate);
-  const endDate = sanitizeIsoDate(raw.endDate);
+  const startDate = readDate(raw.startDate, "absence", raw.id, "startDate");
+  const endDate = readDate(raw.endDate, "absence", raw.id, "endDate");
   if (!startDate || !endDate) return null;
   // Defensive: swap if reversed rather than rejecting.
   const [start, end] =
@@ -544,8 +555,10 @@ export function sanitizeGrade(input: unknown): Grade | null {
 export function sanitizePlan(input: unknown, today: string): ResourcePlan {
   const fallback = defaultResourcePlan(today);
   const raw = isPlainObject(input) ? input : {};
-  const startDate = sanitizeIsoDate(raw.startDate);
-  const endDate = sanitizeIsoDate(raw.endDate);
+  // Load-only (every caller is a load funnel): a non-calendar date is kept raw
+  // rather than resetting BOTH dates to the defaults.
+  const startDate = requiredIsoDateOnLoad(raw.startDate, "plan", undefined, "startDate");
+  const endDate = requiredIsoDateOnLoad(raw.endDate, "plan", undefined, "endDate");
   const granularity: PlanGranularity = raw.granularity === "week" ? "week" : "month";
   const trimmedCurrency = typeof raw.currency === "string" ? raw.currency.trim() : undefined;
   const currency = isBudgetCurrency(trimmedCurrency) ? trimmedCurrency : fallback.currency;
@@ -750,10 +763,12 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
   return bucket;
 }
 
-export function sanitizeFxRates(input: unknown): FxRates | null {
+/** `readDate` defaults to the strict `sanitizeIsoDate` (the rates fetch); the
+ *  load funnels pass `requiredIsoDateOnLoad` so a stored snapshot is not lost. */
+export function sanitizeFxRates(input: unknown, readDate: RequiredDateReader = sanitizeIsoDate): FxRates | null {
   if (!isPlainObject(input)) return null;
   if (input.base !== "EUR") return null;
-  const date = sanitizeIsoDate(input.date);
+  const date = readDate(input.date, "fxRates", undefined, "date");
   if (!date) return null;
   const fetchedAt = typeof input.fetchedAt === "string" && input.fetchedAt ? input.fetchedAt : "";
   if (!fetchedAt) return null;
