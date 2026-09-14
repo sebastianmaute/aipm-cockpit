@@ -26,6 +26,7 @@ import {
 import { saveSecretValue } from "./use-secrets";
 import { emailWriteRefusal } from "./sanitize";
 import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { useEmailDraft } from "./use-email-draft";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
 import { FOCUS_RING } from "./interaction-styles";
 import { Button } from "./button";
@@ -67,17 +68,14 @@ export function JiraSettingsSection({
   const [userResults, setUserResults] = useState<JiraUser[]>([]);
   const userSearchTimer = useRef<number | null>(null);
 
-  // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1):
-  //  typing is never blocked, and the stored config keeps the last valid value.
-  //  Render-time reconcile adopts an external change (never an effect).
-  const emailErrorId = useId();
-  const [emailDraft, setEmailDraft] = useState(config.email);
-  const [seenEmail, setSeenEmail] = useState(config.email);
-  if (config.email !== seenEmail) {
-    setSeenEmail(config.email);
-    setEmailDraft(config.email);
-  }
-  const emailRefusal = emailWriteRefusal(emailDraft, config.email);
+  // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1) —
+  //  shared with timelog-settings.tsx via `useEmailDraft` (fix round 1).
+  const {
+    value: emailDraft,
+    setValue: setEmailDraft,
+    refusal: emailRefusal,
+    errorId: emailErrorId,
+  } = useEmailDraft(config.email);
 
   const creds = {
     siteUrl: config.siteUrl,

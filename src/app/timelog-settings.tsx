@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { t, tPlural, type Lang } from "./i18n";
 import { FieldError, FieldNotice } from "./field-feedback";
 import { Banner } from "./banner";
@@ -20,6 +20,7 @@ import { useIntegrationDisclaimer } from "./integration-disclaimer";
 import { Input, Select } from "./form-controls";
 import { emailWriteRefusal } from "./sanitize";
 import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { useEmailDraft } from "./use-email-draft";
 
 interface Props {
   lang: Lang;
@@ -44,17 +45,14 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
   const [testing, setTesting] = useState(false);
   const set = (patch: Partial<TimelogConfig>) => onChange({ ...config, ...patch });
 
-  // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1):
-  //  typing is never blocked, and the stored config keeps the last valid value.
-  //  Render-time reconcile adopts an external change (never an effect).
-  const emailErrorId = useId();
-  const [emailDraft, setEmailDraft] = useState(config.email);
-  const [seenEmail, setSeenEmail] = useState(config.email);
-  if (config.email !== seenEmail) {
-    setSeenEmail(config.email);
-    setEmailDraft(config.email);
-  }
-  const emailRefusal = emailWriteRefusal(emailDraft, config.email);
+  // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1) —
+  //  shared with jira-settings.tsx via `useEmailDraft` (fix round 1).
+  const {
+    value: emailDraft,
+    setValue: setEmailDraft,
+    refusal: emailRefusal,
+    errorId: emailErrorId,
+  } = useEmailDraft(config.email);
 
   function handleToken(value: string) {
     set({ apiToken: value, tokenInvalidAt: undefined });

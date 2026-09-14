@@ -1680,13 +1680,26 @@ git add $T3_PATHS && git commit --only $T3_PATHS -F "$LOG/msg-t3.txt"; echo "EXI
 
 ### Task 4: Jira and Timelog settings email — local draft, persist only valid
 
+★ Fix round 1 (post-review): the draft/reconcile block below shipped
+byte-identical in both settings files — the same drift class Task 3
+extracted into `editor-email-rule.ts`. It is extracted into a shared hook,
+`src/app/use-email-draft.ts` (`useEmailDraft(stored: string)`, returning
+`{ value, setValue, refusal, errorId }`), used by both files; the render-time
+reconcile lives inside the hook, unchanged in behaviour. Each settings file
+keeps its own persist call as before — Jira trims on write
+(`update("email", next.trim())`), Timelog does not (`set({ email: next })`)
+— the hook does not persist anything itself. Being a new `.ts` module it is
+coverage-gated, so it carries its own `renderHook` unit test,
+`src/app/use-email-draft.test.ts`.
+
 **Files:**
 - Modify: `src/app/jira-settings.tsx`, `src/app/timelog-settings.tsx`
-- Test: `src/app/jira-settings.test.tsx`, `src/app/timelog-settings.test.tsx`
+- Add: `src/app/use-email-draft.ts`
+- Test: `src/app/jira-settings.test.tsx`, `src/app/timelog-settings.test.tsx`, `src/app/use-email-draft.test.ts`
 
 **Interfaces:**
 - Consumes: `emailWriteRefusal` (Task 1), `EMAIL_REFUSAL_KEY` (Task 2), `FieldError`.
-- Produces: none exported.
+- Produces: `useEmailDraft(stored: string): { value: string; setValue: (next: string) => void; refusal: EmailRefusal | null; errorId: string }` (fix round 1; `src/app/use-email-draft.ts`).
 
 **Test census:**
 
@@ -1760,20 +1773,17 @@ Run both; Expected EXIT=1.
 
 - [ ] **Step 2: Jira code**
 
-`src/app/jira-settings.tsx`: change `import { FieldNotice } from "./field-feedback";` to `import { FieldError, FieldNotice } from "./field-feedback";`; import `emailWriteRefusal` (`./sanitize`) and `EMAIL_REFUSAL_KEY`. Near the other state:
+`src/app/jira-settings.tsx`: change `import { FieldNotice } from "./field-feedback";` to `import { FieldError, FieldNotice } from "./field-feedback";`; import `emailWriteRefusal` (`./sanitize`), `EMAIL_REFUSAL_KEY`, and `useEmailDraft` (`./use-email-draft`, fix round 1). Near the other state:
 
 ```tsx
-  // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1):
-  //  typing is never blocked, and the stored config keeps the last valid value.
-  //  Render-time reconcile adopts an external change (never an effect).
-  const emailErrorId = useId();
-  const [emailDraft, setEmailDraft] = useState(config.email);
-  const [seenEmail, setSeenEmail] = useState(config.email);
-  if (config.email !== seenEmail) {
-    setSeenEmail(config.email);
-    setEmailDraft(config.email);
-  }
-  const emailRefusal = emailWriteRefusal(emailDraft, config.email);
+  // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1) —
+  //  shared with timelog-settings.tsx via `useEmailDraft` (fix round 1).
+  const {
+    value: emailDraft,
+    setValue: setEmailDraft,
+    refusal: emailRefusal,
+    errorId: emailErrorId,
+  } = useEmailDraft(config.email);
 ```
 
 Replace the email `<input>`:
@@ -1799,7 +1809,7 @@ Replace the email `<input>`:
 
 - [ ] **Step 3: Timelog code**
 
-`src/app/timelog-settings.tsx`: `import { useId, useState } from "react";`, `import { FieldError, FieldNotice } from "./field-feedback";`, plus `emailWriteRefusal` and `EMAIL_REFUSAL_KEY`. In `TimelogSettings` add the same draft/reconcile block (with `const emailErrorId = useId();`), and replace the email label:
+`src/app/timelog-settings.tsx`: `import { FieldError, FieldNotice } from "./field-feedback";`, plus `emailWriteRefusal`, `EMAIL_REFUSAL_KEY`, and `useEmailDraft` (`./use-email-draft`, fix round 1) — `useId` drops out of the `react` import once the draft/reconcile block moves into the hook, since nothing else in this file calls it. In `TimelogSettings` add the same `useEmailDraft(config.email)` destructure as Jira's (above), and replace the email label:
 
 ```tsx
           <label className="block text-xs">
@@ -1832,6 +1842,15 @@ Subject `feat: settings email inputs persist only a write-safe value`.
 ```bash
 git add src/app/jira-settings.tsx src/app/timelog-settings.tsx src/app/jira-settings.test.tsx src/app/timelog-settings.test.tsx
 git commit --only src/app/jira-settings.tsx src/app/timelog-settings.tsx src/app/jira-settings.test.tsx src/app/timelog-settings.test.tsx -F "$LOG/msg-t4.txt"; echo "EXIT=$?"
+```
+
+**Fix round 1 (post-review): run + commit for the `useEmailDraft` extraction**
+
+Run `src/app/use-email-draft.test.ts` plus both settings test files plus `settings-view.test.tsx` in one invocation (`Test Files 4 passed (4)`), then tsc, eslint over the touched files (`jira-settings.tsx`, `timelog-settings.tsx`, `use-email-draft.ts`, `use-email-draft.test.ts`), size:check. Mutation-check the hook's render-time reconcile guard (e.g. drop the `if (stored !== seen)` so it reconciles every render) → the "keeps an in-progress invalid draft across a re-render at the same stored value" case goes red; revert, prove `git diff --stat` clean for `use-email-draft.ts` (new/untracked, so also confirm via a diff against the reverted content or a fresh test run).
+
+```bash
+git add src/app/jira-settings.tsx src/app/timelog-settings.tsx src/app/use-email-draft.ts src/app/use-email-draft.test.ts
+git commit --only src/app/jira-settings.tsx src/app/timelog-settings.tsx src/app/use-email-draft.ts src/app/use-email-draft.test.ts -F "$LOG/msg-t4-fr1.txt"; echo "EXIT=$?"
 ```
 
 ---
