@@ -11,6 +11,8 @@ const base = {
   nameColWidth: 240,
   tasksById: new Map(),
   todayISO: "2026-06-10",
+  // The parsed form of `m.date`, as GanttPanel carries it on the row (§273).
+  date: new Date(Date.UTC(2026, 5, 20)),
   // The row-unique display token (WCAG 2.4.6). GanttPanel builds it over the
   // whole row list and threads it down — a single row cannot disambiguate
   // itself — so an isolated render just passes the bare name, which is what

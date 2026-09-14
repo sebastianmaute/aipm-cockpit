@@ -442,10 +442,23 @@ export function naturalCompare(
 
 // ---------- row assembly (task + milestone interleaving) ------------------
 
-/** One rendered Gantt row: either a task bar row or a milestone diamond row. */
+/** A task that has a bar, paired with that bar. */
+export type PlacedTask = { task: Task; bar: { start: Date; end: Date } };
+
+/** A milestone whose date parses, paired with the parsed date. */
+export type PlacedMilestone = { milestone: Milestone; date: Date };
+
+/**
+ * One rendered Gantt row: either a task bar row or a milestone diamond row.
+ *
+ * ★★ Each row CARRIES the geometry it is drawn with (§273). GanttPanel numbers
+ * same-named rows over this list, so the list has to be exactly what the chart
+ * draws: a row that cannot be drawn cannot be built, and the chart and the row
+ * components read the carried value rather than deciding a second time.
+ */
 export type GanttRow =
-  | { kind: "task"; task: Task }
-  | { kind: "milestone"; milestone: Milestone };
+  | ({ kind: "task" } & PlacedTask)
+  | ({ kind: "milestone" } & PlacedMilestone);
 
 /**
  * Assemble the ordered Gantt row list from the (already filtered + sorted)
@@ -455,63 +468,54 @@ export type GanttRow =
  *   historical layout, byte-for-byte the previous ordering.
  * - "inline": each NON-achieved milestone is spliced into the task sequence at
  *   its chronological position — before the first task whose bar end falls
- *   on/after the milestone's date. Achieved milestones (and any milestone with
- *   an unparseable date) fall to the end, matching the below layout so we never
- *   place a diamond at a bad position or crash.
+ *   on/after the milestone's date. Achieved milestones fall to the end, matching
+ *   the below layout.
  *
- * Pure: `bars` supplies each task's end date; `sortedMilestones` must already be
- * date-ascending (the caller sorts once). No React, DOM, or `new Date()` of now.
+ * Pure: each task's end date comes from the bar it carries, and each milestone's
+ * from the date it carries. The caller pairs them — which is where a task with no
+ * bar or a milestone whose date does not parse is left out, once, for both this
+ * list and the row-token map built over it — and passes `sortedMilestones`
+ * already date-ascending. No React, DOM, or `new Date()` of now.
  */
 export function buildGanttRows(
-  tasks: readonly Task[],
-  sortedMilestones: readonly Milestone[],
+  tasks: readonly PlacedTask[],
+  sortedMilestones: readonly PlacedMilestone[],
   placement: MilestonePlacement,
-  bars: ReadonlyMap<number, { start: Date; end: Date }>,
 ): GanttRow[] {
-  const taskRows: GanttRow[] = tasks.map((task) => ({ kind: "task", task }));
+  const taskRows: GanttRow[] = tasks.map((p) => ({ kind: "task", ...p }));
   if (placement !== "inline") {
     return [
       ...taskRows,
-      ...sortedMilestones.map(
-        (milestone): GanttRow => ({ kind: "milestone", milestone }),
-      ),
+      ...sortedMilestones.map((p): GanttRow => ({ kind: "milestone", ...p })),
     ];
   }
 
-  // Split into date-inlinable (non-achieved, parseable date) and trailing
-  // (achieved, or unparseable date). Both keep sortedMilestones' order, which
-  // is date-ascending for the inlinable set.
-  const inlineMs: Array<{ milestone: Milestone; end: number }> = [];
-  const trailingMs: Milestone[] = [];
-  for (const m of sortedMilestones) {
-    const d = m.achievedDate ? null : parseISO(m.date);
-    if (d) inlineMs.push({ milestone: m, end: d.getTime() });
-    else trailingMs.push(m);
+  // Split into date-inlinable (non-achieved) and trailing (achieved). Both keep
+  // sortedMilestones' order, which is date-ascending for the inlinable set.
+  const inlineMs: PlacedMilestone[] = [];
+  const trailingMs: PlacedMilestone[] = [];
+  for (const p of sortedMilestones) {
+    if (p.milestone.achievedDate) trailingMs.push(p);
+    else inlineMs.push(p);
   }
 
   const rows: GanttRow[] = [];
   let i = 0;
-  for (const task of tasks) {
-    const bar = bars.get(task.id);
-    const taskEnd = bar ? bar.end.getTime() : null;
-    // Flush every pending milestone due on/before this task's end. Skipped when
-    // the task has no bar (taskEnd null) so those milestones flow further down.
-    while (
-      i < inlineMs.length &&
-      taskEnd !== null &&
-      inlineMs[i].end <= taskEnd
-    ) {
-      rows.push({ kind: "milestone", milestone: inlineMs[i].milestone });
+  for (const p of tasks) {
+    const taskEnd = p.bar.end.getTime();
+    // Flush every pending milestone due on/before this task's end.
+    while (i < inlineMs.length && inlineMs[i].date.getTime() <= taskEnd) {
+      rows.push({ kind: "milestone", ...inlineMs[i] });
       i++;
     }
-    rows.push({ kind: "task", task });
+    rows.push({ kind: "task", ...p });
   }
-  // Milestones later than every task (or anchored by a bar-less task).
+  // Milestones later than every task.
   for (; i < inlineMs.length; i++) {
-    rows.push({ kind: "milestone", milestone: inlineMs[i].milestone });
+    rows.push({ kind: "milestone", ...inlineMs[i] });
   }
-  // Achieved / unparseable-date milestones stay at the very end.
-  for (const m of trailingMs) rows.push({ kind: "milestone", milestone: m });
+  // Achieved milestones stay at the very end.
+  for (const p of trailingMs) rows.push({ kind: "milestone", ...p });
   return rows;
 }
 

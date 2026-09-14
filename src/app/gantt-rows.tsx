@@ -415,6 +415,7 @@ export function GanttTaskRow({
 
 export function GanttMilestoneRow({
   m,
+  date: md,
   rowToken,
   lang,
   range,
@@ -433,6 +434,13 @@ export function GanttMilestoneRow({
    * the same view. With no collision this IS `m.name`.
    */
   rowToken: string;
+  /**
+   * The milestone's parsed date, carried on its `GanttRow` (§273). GanttPanel
+   * leaves out any milestone whose date does not parse before it builds rows, so
+   * this component always has a date to draw at and never renders nothing — a
+   * row that rendered nothing would still have been numbered against its twins.
+   */
+  date: Date;
   lang: Lang;
   range: { min: Date };
   timelineWidthPx: number;
@@ -443,8 +451,6 @@ export function GanttMilestoneRow({
   baselineDate?: string;
   showBaseline?: boolean;
 }) {
-  const md = parseISO(m.date);
-  if (!md) return null;
   const mx = diffDays(range.min, md) * DAY_WIDTH_PX;
   // Baseline ghost: a hollow diamond at the committed baseline date, a dotted
   // connector to the live diamond, and a signed slip label. Only when enabled,

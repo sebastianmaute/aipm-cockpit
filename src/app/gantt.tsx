@@ -58,6 +58,8 @@ import {
   LEFT_GUTTER_PX,
   naturalCompare,
   parseISO,
+  type PlacedMilestone,
+  type PlacedTask,
   todayUTC,
   toISODay,
 } from "./gantt-engine";
@@ -278,9 +280,11 @@ export function GanttPanel({
   // --- filter + sort pipeline -----------------------------------------
   const visible = useMemo(() => {
     const q = prefs.search.trim().toLowerCase();
-    const placeable: Task[] = [];
+    const placed: PlacedTask[] = [];
     for (const task of tasks) {
       const bar = allBars.get(task.id);
+      // ★★ The ONE place a task with no bar is left out (§273). It is paired
+      // with its bar below, so every task row carries what it is drawn with.
       if (!bar) continue;
 
       // Status filter — a task shows when it lands in ANY ticked bucket. An
@@ -311,7 +315,7 @@ export function GanttPanel({
         if (!hay.includes(q)) continue;
       }
 
-      placeable.push(task);
+      placed.push({ task, bar });
     }
 
     // Sort.
@@ -320,7 +324,7 @@ export function GanttPanel({
       // back to natural (start-date) order and get appended at the end.
       const indexOf = new Map<number, number>();
       prefs.customOrder.forEach((id, idx) => indexOf.set(id, idx));
-      placeable.sort((a, b) => {
+      placed.sort(({ task: a }, { task: b }) => {
         const ia = indexOf.has(a.id) ? (indexOf.get(a.id) as number) : Infinity;
         const ib = indexOf.has(b.id) ? (indexOf.get(b.id) as number) : Infinity;
         if (ia !== ib) return ia - ib;
@@ -328,14 +332,14 @@ export function GanttPanel({
         return naturalCompare(a, b, allBars);
       });
     } else if (prefs.sort === "due") {
-      placeable.sort((a, b) => {
+      placed.sort(({ task: a }, { task: b }) => {
         const ba = allBars.get(a.id) as { start: Date; end: Date };
         const bb = allBars.get(b.id) as { start: Date; end: Date };
         const d = ba.end.getTime() - bb.end.getTime();
         return d !== 0 ? d : a.id - b.id;
       });
     } else if (prefs.sort === "name") {
-      placeable.sort((a, b) =>
+      placed.sort(({ task: a }, { task: b }) =>
         a.taskName.localeCompare(b.taskName, undefined, { sensitivity: "base" }),
       );
     } else if (prefs.sort === "priority") {
@@ -346,21 +350,25 @@ export function GanttPanel({
         Medium: 2,
         Low: 3,
       };
-      placeable.sort((a, b) => {
+      placed.sort(({ task: a }, { task: b }) => {
         const d = rank[a.priority] - rank[b.priority];
         return d !== 0 ? d : a.id - b.id;
       });
     } else {
       // "auto" — original natural sort by start, due, id.
-      placeable.sort((a, b) => naturalCompare(a, b, allBars));
+      placed.sort(({ task: a }, { task: b }) => naturalCompare(a, b, allBars));
     }
 
-    return placeable;
+    return placed;
   }, [tasks, allBars, prefs, today, haystacks, resourcesById]);
+
+  // The visible tasks without their bars, for the consumers that read tasks
+  // rather than rows: the dependency overlay, the row count, the reorder seed.
+  const visibleTasks = useMemo(() => visible.map((p) => p.task), [visible]);
 
   // Compatibility alias so the existing chart code keeps reading from
   // `layout.placeable` / `layout.bars`.
-  const layout = { placeable: visible, bars: allBars };
+  const layout = { placeable: visibleTasks, bars: allBars };
 
   // The ordered row list (tasks + milestones). In "below" mode this is every
   // task row then every milestone row (the historical layout); in "inline" mode
@@ -378,17 +386,31 @@ export function GanttPanel({
   // identity every render, and exhaustive-deps rejects an `obj.member` dep.
   const statusesKey = prefs.statuses.join(",");
   const showMilestones = prefs.showMilestones;
-  const visibleMilestones = useMemo(() => {
+  //
+  // ★★ It is also the ONE place a milestone whose date does not parse is left
+  // out (§273), the milestone twin of the `if (!bar) continue` in `visible`.
+  // Such a milestone cannot be drawn, so it must not become a row: the row-token
+  // map below numbers `rows`, and a row the chart never draws would give its
+  // drawn same-named twin a "(n)" suffix that points at nothing on screen.
+  const placedMilestones = useMemo<PlacedMilestone[]>(() => {
     if (!showMilestones) return [];
     const ticked = new Set(statusesKey ? statusesKey.split(",") : []);
-    return sortedMilestones.filter((m) =>
-      ticked.has(milestoneStatusBucket(m, todayISO)),
-    );
+    const placed: PlacedMilestone[] = [];
+    for (const milestone of sortedMilestones) {
+      if (!ticked.has(milestoneStatusBucket(milestone, todayISO))) continue;
+      const date = parseISO(milestone.date);
+      if (date) placed.push({ milestone, date });
+    }
+    return placed;
   }, [showMilestones, statusesKey, sortedMilestones, todayISO]);
+  const visibleMilestones = useMemo(
+    () => placedMilestones.map((p) => p.milestone),
+    [placedMilestones],
+  );
 
   const rows = useMemo(
-    () => buildGanttRows(visible, visibleMilestones, milestonePlacement, allBars),
-    [visible, visibleMilestones, milestonePlacement, allBars],
+    () => buildGanttRows(visible, placedMilestones, milestonePlacement),
+    [visible, placedMilestones, milestonePlacement],
   );
 
   // Row-unique display tokens for the two name buttons and the three bar-drag
@@ -412,12 +434,11 @@ export function GanttPanel({
   // visibility — so the map is built here, where the list is, and threaded down
   // through `GanttChart` as a prop.
   //
-  // ★★ KNOWN RESIDUAL, deliberately NOT claimed closed: `gantt-chart.tsx` skips
-  // any task whose bar is null (`if (!bar) return null`), so a task numbered
-  // "(2)" here can render while the "(1)" it is numbered against is NOT on
-  // screen — the suffix then tells the user about a row they cannot find.
-  // Filed rather than fixed: numbering around it would have to duplicate the
-  // chart's own render condition here, and the two would drift.
+  // ★★ `rows` is exactly the set the chart draws (§273). A task with no bar and
+  // a milestone whose date does not parse are left out BEFORE `buildGanttRows`
+  // (in `visible` and `placedMilestones`), and each row carries the geometry it
+  // is drawn with, so `gantt-chart.tsx` draws every row and skips none. Do not
+  // add a render condition there: it would number rows the screen does not show.
   const rowTokens = useMemo(
     () =>
       buildRowTokens(
@@ -474,7 +495,7 @@ export function GanttPanel({
       const seed =
         prev.customOrder.length > 0
           ? prev.customOrder
-          : visible.map((t) => t.id);
+          : visibleTasks.map((t) => t.id);
       const stripped = seed.filter((id) => id !== fromId);
       const insertAt = stripped.indexOf(toId);
       if (insertAt < 0) {

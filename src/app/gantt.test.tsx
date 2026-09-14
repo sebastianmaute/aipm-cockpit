@@ -1144,4 +1144,84 @@ describe("GanttPanel row-unique accessible names", () => {
     expect(screen.getByRole("button", { name: "Sync (1)" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sync (2)" })).toBeInTheDocument();
   });
+
+  // ---------- §273: number only the rows the chart draws --------------------
+  //
+  // ★★ The token map and the chart must agree on WHICH rows exist, or a drawn
+  // row is numbered against a twin that never reaches the screen. Both read
+  // `rows`, and `buildGanttRows` only accepts rows that already carry the
+  // geometry they are drawn with, so neither the chart nor a row component
+  // decides again. `gantt-chart.test.tsx` pins the chart half of that.
+  //
+  // ★ "2026-13-01" is the realistic bad date, not a contrived one: it passes the
+  // load sanitizer (`sanitizeIsoDate` checks the shape and the year only) and
+  // fails `parseISO`, so a stored milestone can carry it.
+  const mkDatedMilestone = (id: number, name: string, date: string): Milestone =>
+    ({ id, name, date, linkedTaskIds: [] }) as unknown as Milestone;
+
+  it("§273: does not number a milestone against a same-named milestone the chart cannot draw", () => {
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mk({ id: 1, taskName: "Build" })]}
+        milestones={[
+          mkDatedMilestone(1, "M1", "2026-13-01"),
+          mkDatedMilestone(2, "M1", dayPlus(20)),
+        ]}
+        onEditTask={() => {}}
+        onEditMilestone={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "M1" })).toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: /^M1 \(\d+\)$/ })).toHaveLength(0);
+  });
+
+  it("§273: does not number a task against a same-named milestone the chart cannot draw", () => {
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mk({ id: 1, taskName: "Sync" })]}
+        milestones={[mkDatedMilestone(1, "Sync", "2026-13-01")]}
+        onEditTask={() => {}}
+        onEditMilestone={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Sync" })).toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: /^Sync \(\d+\)$/ })).toHaveLength(0);
+  });
+
+  it("§273: does not number a task against a same-named task that has no bar", () => {
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mk({ id: 1, taskName: "Alpha", dueDate: "" }), mk({ id: 2, taskName: "Alpha" })]}
+        onEditTask={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Alpha" })).toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: /^Alpha \(\d+\)$/ })).toHaveLength(0);
+  });
+
+  it("§273: numbers the drawn twins from (1) when a bar-less twin precedes them", () => {
+    // ★ The bar-less task is FIRST in the input, so a map built over the
+    // unfiltered list would hand the two drawn rows "(2)" and "(3)".
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[
+          mk({ id: 1, taskName: "Alpha", dueDate: "" }),
+          mk({ id: 2, taskName: "Alpha" }),
+          mk({ id: 3, taskName: "Alpha" }),
+        ]}
+        onEditTask={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Alpha (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Alpha (2)" })).toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: "Alpha (3)" })).toHaveLength(0);
+  });
 });

@@ -12,6 +12,8 @@ import {
   LEFT_GUTTER_PX,
   loadPrefs,
   milestoneSlipDays,
+  type PlacedMilestone,
+  type PlacedTask,
   savePrefs,
 } from "./gantt-engine";
 import type { Milestone, Task } from "./types";
@@ -99,24 +101,26 @@ describe("milestoneSlipDays", () => {
 });
 
 describe("buildGanttRows milestone placement", () => {
-  const task = (id: number): Task => ({ id, taskName: `T${id}` }) as unknown as Task;
-  const milestone = (id: number, date: string, achievedDate?: string): Milestone =>
-    ({ id, name: `M${id}`, date, achievedDate, linkedTaskIds: [] }) as Milestone;
-  const bar = (iso: string) => ({ start: new Date(iso), end: new Date(iso) });
+  // Rows are built from PAIRS — a task with its bar, a milestone with its parsed
+  // date — because the caller leaves out anything the chart cannot draw (§273).
+  const task = (id: number, endIso: string): PlacedTask => ({
+    task: { id, taskName: `T${id}` } as unknown as Task,
+    bar: { start: new Date(endIso), end: new Date(endIso) },
+  });
+  const milestone = (id: number, date: string, achievedDate?: string): PlacedMilestone => ({
+    milestone: { id, name: `M${id}`, date, achievedDate, linkedTaskIds: [] } as Milestone,
+    date: new Date(date),
+  });
   // Serialize a row list to compact keys for readable assertions.
   const keys = (rows: ReturnType<typeof buildGanttRows>): string[] =>
     rows.map((r) => (r.kind === "task" ? `t${r.task.id}` : `m${r.milestone.id}`));
 
   // Two tasks ending 2026-01-10 and 2026-02-10.
-  const tasks = [task(1), task(2)];
-  const bars = new Map([
-    [1, bar("2026-01-10")],
-    [2, bar("2026-02-10")],
-  ]);
+  const tasks = [task(1, "2026-01-10"), task(2, "2026-02-10")];
 
   it("'below' places every task first, then all milestones in date order", () => {
     const ms = [milestone(10, "2026-01-20"), milestone(11, "2026-03-01")];
-    expect(keys(buildGanttRows(tasks, ms, "below", bars))).toEqual([
+    expect(keys(buildGanttRows(tasks, ms, "below"))).toEqual([
       "t1",
       "t2",
       "m10",
@@ -128,7 +132,7 @@ describe("buildGanttRows milestone placement", () => {
     // m10 (01-20) sits after t1 (01-10) but before t2 (02-10); m11 (03-01) is
     // after every task so it lands at the end.
     const ms = [milestone(10, "2026-01-20"), milestone(11, "2026-03-01")];
-    expect(keys(buildGanttRows(tasks, ms, "inline", bars))).toEqual([
+    expect(keys(buildGanttRows(tasks, ms, "inline"))).toEqual([
       "t1",
       "m10",
       "t2",
@@ -136,12 +140,15 @@ describe("buildGanttRows milestone placement", () => {
     ]);
   });
 
-  it("'inline' keeps achieved and unparseable-date milestones at the end", () => {
+  it("'inline' keeps achieved milestones at the end", () => {
+    // ★ A milestone whose date does not parse is no longer representable here:
+    // GanttPanel leaves it out before pairing (§273), and `gantt.test.tsx` pins
+    // that. Both milestones below would inline by date if they were not achieved.
     const ms = [
-      milestone(20, "2026-01-05", "2026-01-06"), // achieved → below
-      milestone(21, "not-a-date"), // unparseable → end
+      milestone(20, "2026-01-05", "2026-01-06"), // achieved → end
+      milestone(21, "2026-01-07", "2026-01-08"), // achieved → end
     ];
-    expect(keys(buildGanttRows(tasks, ms, "inline", bars))).toEqual([
+    expect(keys(buildGanttRows(tasks, ms, "inline"))).toEqual([
       "t1",
       "t2",
       "m20",
