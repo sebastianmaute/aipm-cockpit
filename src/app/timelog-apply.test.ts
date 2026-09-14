@@ -3,6 +3,7 @@ import { planApply, applyActualsToBuckets, bucketsMissingAllocations, bucketsWit
 import type { BudgetBucket, Discipline, Grade, Resource, Role } from "./types";
 import { aggregateActuals, bucketOverlay, type ActualsByBucket } from "./timelog-actuals";
 import type { TimelogLinks, TimelogTimeItem } from "./timelog-types";
+import { actualHoursIn } from "./actual-hours";
 
 /** Minimal booking row for the aggregate→apply integration test. */
 const tItem = (id: number, userId: number, date: string, hours: number): TimelogTimeItem => ({
@@ -521,9 +522,11 @@ describe("buildApplyPlan", () => {
     const after = applyActualsToBuckets([twoRoleBucket()], overlay, dirResources, dirRoles);
 
     // Each person landed on their OWN role line — the whole point of the
-    // breakdown surviving the aggregate→apply boundary.
-    expect(after[0].allocations[0].actualHours["2026-06"]).toBe(4);
-    expect(after[0].allocations[1].actualHours["2026-06"]).toBe(6);
+    // breakdown surviving the aggregate→apply boundary. A dated aggregate
+    // writes day keys (Task 6), so read the period total through
+    // `actualHoursIn` rather than the period key directly.
+    expect(actualHoursIn(after[0].allocations[0].actualHours, "2026-06")).toBe(4);
+    expect(actualHoursIn(after[0].allocations[1].actualHours, "2026-06")).toBe(6);
     expect(buildApplyPlan([twoRoleBucket()], overlay, dirResources, dirRoles).unmatchedBuckets)
       .toEqual([]);
   });
@@ -562,6 +565,54 @@ describe("buildApplyPlan", () => {
   it("is empty for an empty overlay", () => {
     const plan = buildApplyPlan([twoRoleBucket()], {}, dirResources, dirRoles);
     expect(plan).toEqual({ rows: [], unmatchedBuckets: [], unmatchedHours: 0 });
+  });
+});
+
+describe("dated apply", () => {
+  // `bucket(7, actual)` already IS "the bucket-7 fixture with actualHours
+  // replaced" — named here to match the brief's shape and to make each test's
+  // intent (which actualHours the line starts with) read at the call site.
+  const bucketWith = (actual: Record<string, number>) => bucket(7, actual);
+  // resource 10 is in role 1 (the module-level `resources`/`roles`); timelogUserId
+  // 9 is this describe's own booker, linked to resource 10 and project 9 → bucket 7.
+  const links: TimelogLinks = {
+    userLinks: [{ timelogUserId: 9, resourceId: 10, manual: false }],
+    projectLinks: [{ timelogProjectId: 9, bucketId: 7, manual: false }],
+  };
+
+  const datedOverlay: ActualsByBucket = {
+    7: { "2026-06": { hours: 5, billableHours: 5, byResource: { 10: { hours: 5, billableHours: 5, byDay: { "2026-06-10": 2, "2026-06-11": 3 } } } } },
+  };
+
+  it("writes day keys and removes the hand-typed period key", () => {
+    const before = [bucketWith({ "2026-06": 40, "2026-07": 8 })];
+    const after = applyActualsToBuckets(before, datedOverlay, resources, roles);
+    expect(after[0].allocations[0].actualHours).toEqual({ "2026-06-10": 2, "2026-06-11": 3, "2026-07": 8 });
+  });
+
+  it("replaces stale day keys inside a covered period", () => {
+    const before = [bucketWith({ "2026-06-09": 7, "2026-06-10": 1 })];
+    const after = applyActualsToBuckets(before, datedOverlay, resources, roles);
+    expect(after[0].allocations[0].actualHours).toEqual({ "2026-06-10": 2, "2026-06-11": 3 });
+  });
+
+  it("reports current as the period total including day keys", () => {
+    const rows = planApply([bucketWith({ "2026-06": 1, "2026-06-20": 2 })], datedOverlay, resources, roles);
+    expect(rows).toEqual([{ bucketId: 7, allocIndex: 0, period: "2026-06", current: 3, next: 5 }]);
+  });
+
+  it("writes a period key, as before, when a routed booking has no byDay", () => {
+    const legacy: ActualsByBucket = { 7: { "2026-06": { hours: 5, billableHours: 5, byResource: { 10: { hours: 5, billableHours: 5 } } } } };
+    const after = applyActualsToBuckets([bucketWith({ "2026-06-10": 9 })], legacy, resources, roles);
+    expect(after[0].allocations[0].actualHours).toEqual({ "2026-06": 5 });
+  });
+
+  it("keeps hours counted when the plan switches granularity after apply (§169)", () => {
+    const agg = aggregateActuals([tItem(1, 9, "2026-06-10", 4)], links);
+    const after = applyActualsToBuckets([bucketWith({})], bucketOverlay(agg, "week"), resources, roles);
+    const hours = after[0].allocations[0].actualHours;
+    expect(actualHoursIn(hours, "2026-W24")).toBe(4);
+    expect(actualHoursIn(hours, "2026-06")).toBe(4);
   });
 });
 
