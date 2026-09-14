@@ -37,41 +37,72 @@ export function isDelimiterSafeEmail(s: string): boolean {
   return !/[,;]/.test(s.trim());
 }
 
-/** ★★★ THE ONE §422 RULE — the address an incoming `resource.emails` value
- *  would tear, or undefined. Every write boundary asks THIS and nothing else:
- *  `createResource` (stored = undefined), `updateResource` (stored = the
- *  row's `emails`), the resource editor's save (stored = the resource as of
- *  when the modal opened) and `describeEntityCalls` (stored = the item's
- *  `emails`, judged on the RAW incoming value), so the card and the write
- *  cannot disagree.
- *  - ARRAY: the first string member that fails `isDelimiterSafeEmail` AND is
- *    not already present, trimmed, in `stored`. An array is written VERBATIM,
- *    never split, so re-sending an address the row already holds tears
- *    nothing; only a NEW unsafe member is refused.
- *  - STRING: the first unsafe address in `stored` whose trimmed form occurs
- *    inside the string — `sanitizeEmailList` would re-split it. A string that
- *    omits every stored unsafe address is allowed: splitting a delimited
- *    string is the writer's design, and an omitted address is simply removed,
- *    which the card shows.
+/** The two reasons a write boundary refuses an email value. */
+export type EmailRefusal = "invalid" | "delimiter";
+
+/** ★ THE WRITE PREDICATE: a loose-format address (`isValidEmail`) that is also
+ *  delimiter-safe (`isDelimiterSafeEmail`). Neither component changes, and no
+ *  load or decode path calls this. */
+export function isWriteSafeEmail(s: string): boolean {
+  return isValidEmail(s) && isDelimiterSafeEmail(s);
+}
+
+/** ★★★ THE ONE SCALAR WRITE RULE for every email field, refusing a value only
+ *  when it CHANGES:
+ *  1. a blank `incoming` is never refused — clearing is always legal;
+ *  2. an `incoming` equal, trimmed, to `stored` is never refused, even when the
+ *     stored value is itself unsafe (a create passes `stored = undefined`);
+ *  3. an `incoming` equal, trimmed, to one of `copySources` is never refused —
+ *     a copy of a person's STORED email made by a picker or a reassign;
+ *  4. otherwise `"invalid"` when `isValidEmail` fails, `"delimiter"` when
+ *     `isDelimiterSafeEmail` fails, else null. `"a,b@x.com"` passes
+ *     `isValidEmail`, so it yields `"delimiter"`. */
+export function emailWriteRefusal(
+  incoming: string,
+  stored: string | undefined,
+  copySources: readonly (string | undefined)[] = [],
+): EmailRefusal | null {
+  const next = incoming.trim();
+  if (next === "") return null;
+  if (stored !== undefined && next === stored.trim()) return null;
+  if (copySources.some((source) => source !== undefined && source.trim() === next)) return null;
+  if (!isValidEmail(next)) return "invalid";
+  if (!isDelimiterSafeEmail(next)) return "delimiter";
+  return null;
+}
+
+/** ★★★ THE LIST FORM OF `emailWriteRefusal`, for `resource.emails` — the address
+ *  an incoming value would store unsafely, or undefined. Every `emails` write
+ *  boundary asks THIS with the same arguments: `createResource` (stored =
+ *  undefined), `updateResource` (stored = the row's `emails`), the resource
+ *  editor's save (stored = the resource as of when the modal opened) and
+ *  `describeEntityCalls` (stored = the item's `emails`, judged on the RAW
+ *  incoming value), so the card and the write cannot disagree.
+ *  - ARRAY: the first string member that is non-blank, NOT already present
+ *    (trimmed) in `stored`, and not `isWriteSafeEmail`. An array is written
+ *    verbatim, so re-sending a stored member changes nothing and is allowed.
+ *  - STRING: first, a stored delimiter-unsafe address the string contains
+ *    (`sanitizeEmailList` would re-split it); then the first member the
+ *    `[;,]` split produces that is new and not `isWriteSafeEmail`.
  *  - Anything else: undefined.
- *  ★ With no stored list (a new row) an array refuses every unsafe member
- *   and a string refuses nothing.
- *  ★★ It stops NEW torn addresses only. An address already stored still
- *   splits on a CSV, Markdown or Turso save (open-followups §533). */
+ *  ★ It stops NEW unsafe addresses only; stored ones keep loading. An address
+ *   already torn by a past CSV, Markdown or Turso save cannot be rebuilt — the
+ *   accepted limit recorded in open-followups §533. */
 export function findTornEmail(
   incoming: unknown,
   stored: readonly string[] | undefined,
 ): string | undefined {
   const storedList = (stored ?? []).filter((e): e is string => typeof e === "string");
+  const storedTrimmed = new Set(storedList.map((e) => e.trim()));
+  const isNewUnsafe = (e: string): boolean =>
+    e.trim() !== "" && !storedTrimmed.has(e.trim()) && !isWriteSafeEmail(e);
   if (Array.isArray(incoming)) {
-    const storedTrimmed = new Set(storedList.map((e) => e.trim()));
-    return incoming.find(
-      (e): e is string =>
-        typeof e === "string" && !isDelimiterSafeEmail(e) && !storedTrimmed.has(e.trim()),
-    );
+    return incoming.find((e): e is string => typeof e === "string" && isNewUnsafe(e));
   }
   if (typeof incoming === "string") {
-    return storedList.find((e) => !isDelimiterSafeEmail(e) && incoming.includes(e.trim()));
+    const torn = storedList.find((e) => !isDelimiterSafeEmail(e) && incoming.includes(e.trim()));
+    if (torn !== undefined) return torn;
+    return incoming.split(/[;,]/).map((e) => e.trim()).find(isNewUnsafe);
   }
   return undefined;
 }

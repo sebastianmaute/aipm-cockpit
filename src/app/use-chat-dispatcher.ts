@@ -37,6 +37,7 @@ import {
   sanitizeTaskName,
   sanitizeResource,
   dropUnacceptedResourceFields,
+  emailWriteRefusal,
   findTornEmail,
 } from "./sanitize";
 import { sanitizeAiRichText } from "./ai-rich-text";
@@ -49,6 +50,12 @@ import { useDocumentTools } from "./use-document-tools";
 import { useRegisterTools } from "./use-register-tools";
 import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
 export type { ChatDispatcherArgs };
+
+/** The §422 `emails` refusal text, naming WHICH rule the address broke. */
+function emailsRefusalText(address: string): string {
+  const reason = emailWriteRefusal(address, undefined) === "invalid" ? "emails is invalid" : 'emails must not contain "," or ";"';
+  return `${reason} (${JSON.stringify(address)})`;
+}
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const {
@@ -605,7 +612,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //  holding an address with "," or ";" fails naming the field and nothing
         //  is written; a STRING is a delimited list and is split by design.
         const unsafeEmail = findTornEmail(input.emails, undefined);
-        if (unsafeEmail !== undefined) throw new Error(`invalid resource: emails must not contain "," or ";" (${JSON.stringify(unsafeEmail)})`);
+        if (unsafeEmail !== undefined) throw new Error(`invalid resource: ${emailsRefusalText(unsafeEmail)}`);
         const id = mintId("resource", resourcesRef.current);
         // sanitizeResource fills roleId/utilization defaults; returns null with
         // no first/last name (or splittable full name).
@@ -657,7 +664,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //  ★ The whole call is refused, never just the field: the inline edit
         //   keeps a refused `emails` out of its patch on the plan side.
         const unsafeEmail = findTornEmail(patch.emails, existing.emails);
-        if (unsafeEmail !== undefined) throw new Error(`invalid resource update: emails must not contain "," or ";" (${JSON.stringify(unsafeEmail)})`);
+        if (unsafeEmail !== undefined) throw new Error(`invalid resource update: ${emailsRefusalText(unsafeEmail)}`);
         // ★★★ `name` HAS TO BE SPLIT HERE OR IT IS A SILENT NO-OP ON UPDATE, and
         // it was one. `ResourceInput.name` is documented as "split into
         // first/last when the parts aren't given", and `sanitizeResource`

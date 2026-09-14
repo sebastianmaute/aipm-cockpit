@@ -17,7 +17,7 @@ import { useDraggable } from "./use-draggable";
 import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
-import { ASSIGNEE_MAX, EMAIL_MAX, findTornEmail } from "./sanitize";
+import { ASSIGNEE_MAX, EMAIL_MAX, emailWriteRefusal, findTornEmail } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -101,8 +101,9 @@ export function ResourceEditModal({
     // trimmed, in `resource` (the row as of when the modal opened, never live
     // workspace state) is refused; a new resource has no stored list, so any
     // unsafe member is refused.
-    if (findTornEmail(emails, resource?.emails) !== undefined) {
-      setError(t(lang, "resourceErrorEmailDelimiter"));
+    const tornEmail = findTornEmail(emails, resource?.emails);
+    if (tornEmail !== undefined) {
+      setError(t(lang, emailWriteRefusal(tornEmail, undefined) === "invalid" ? "errorInvalidEmail" : "resourceErrorEmailDelimiter"));
       return;
     }
     const clean: Resource = {

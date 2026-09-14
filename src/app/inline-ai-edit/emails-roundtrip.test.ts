@@ -41,14 +41,15 @@ describe("findTornEmail — the one §422 rule", () => {
     expect(findTornEmail(["a,b@x.com"], [])).toBe("a,b@x.com");
   });
 
-  it("STRING: returns a stored unsafe address the string contains, else undefined", () => {
+  it("STRING: returns a stored unsafe address the string contains, or a new split member that is not write-safe, else undefined", () => {
     expect(findTornEmail("a,b@x.com, c@y.com", ["a,b@x.com"])).toBe("a,b@x.com");
     expect(findTornEmail("c@y.com", [" a,b@x.com "])).toBeUndefined();
     expect(findTornEmail("", ["a,b@x.com"])).toBeUndefined();
-    // A new comma inside a string IS a delimited list — splitting it is the writer's design.
-    expect(findTornEmail("x,y@z.com", ["a,b@x.com"])).toBeUndefined();
+    // A new comma inside a string IS a delimited list — splitting it is the writer's
+    // design, but a new split member must now be write-safe too: "x" is not an address.
+    expect(findTornEmail("x,y@z.com", ["a,b@x.com"])).toBe("x");
     expect(findTornEmail("a@x.com, b@y.com", ["a@x.com"])).toBeUndefined();
-    expect(findTornEmail("a,b@x.com", undefined)).toBeUndefined();
+    expect(findTornEmail("a,b@x.com", undefined)).toBe("a");
   });
 
   it("anything else returns undefined", () => {
