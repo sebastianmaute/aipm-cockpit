@@ -9,7 +9,7 @@
 
 ![The AI PM Cockpit dashboard: overall project health, top actions, progress and open RAID](docs/assets/dashboard.png)
 
-<sub>The landing dashboard, loaded from the bundled demo project.</sub>
+<sub>The landing dashboard.</sub>
 
 ![A guided tour of AI PM Cockpit: dashboard, next actions, Gantt, budget and the Claude assistant](public/demos/demo-aipm-cockpit.webm)
 
