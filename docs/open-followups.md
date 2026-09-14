@@ -37876,7 +37876,9 @@ Related: §478 (closed on the same branch), §535.
 
 **Status:** open 2026-09-14 — filed while specifying the email-guard batch (spec
 `docs/superpowers/specs/2026-09-14-email-rule-and-guard-escapes-design.md`, Part 7); user decision was
-to stay id-less for that batch and file a follow-up. Verified 2026-09-14 by reading `ContactPerson`
+to stay id-less for that batch and file a follow-up. Counted 2026-09-14 with
+`grep -rln "contactPersons\|ContactPerson" src --include=*.ts --include=*.tsx | wc -l` (47 files, 18 outside
+`*.test.*`, on the email-guard branch after its Tasks 3–6). Verified 2026-09-14 by reading `ContactPerson`
 (`src/app/types.ts`), `encodeContactPersons`/`decodeContactPersons` (`src/app/csv-codecs-config.ts`),
 `dirtyWorkspaceTables`/`workspaceToStatements` (`src/app/turso-schema.ts`), `upsertProjectStatement`
 (`src/app/turso-tenant-schema.ts`), `turso-portfolio.ts`, `workspaceToJson` (`src/app/workspace.ts`),
@@ -37920,7 +37922,8 @@ the same array.
   answers the persistence question this entry asks, not as something this entry proposes to fix.
 
 **Cost of adding ids** — reproduce command below counted 36 files referencing `contactPersons` /
-`ContactPerson` under `src/`, 13 of them outside `*.test.*`. Adding an `id` means: a storage-format
+`ContactPerson` under `src/`, 13 of them outside `*.test.*`. ★ Recounted 2026-09-14: 47 files, 18 outside
+`*.test.*`, once the email-guard batch's editor, normaliser and propagation work landed. Adding an `id` means: a storage-format
 change to the `contactPersons` cell (a 5th delimited field, or a different encoding) across CSV,
 Markdown and the Turso-tenant upsert; the decoder must keep accepting cells written before the change
 (mint an id on decode, as other id-less-on-disk migrations do on load); regenerating
@@ -37938,7 +37941,7 @@ grep -n "resourceId" src/app/csv-codecs-config.ts                 # encodeContac
 grep -n "DELIBERATELY excluded" src/app/turso-schema.ts           # ws.project dropped from save()
 grep -n "upsertProjectStatement" src/app/turso-tenant-schema.ts src/app/turso-portfolio.ts
 grep -n "contactPersons.filter((_, i)" src/app/project-form-fields.tsx   # index-based remove, no edit
-grep -rln "contactPersons\|ContactPerson" src --include=*.ts --include=*.tsx | wc -l   # 36 (13 non-test)
+grep -rln "contactPersons\|ContactPerson" src --include=*.ts --include=*.tsx | wc -l   # 47 (18 non-test) on 2026-09-14; was 36 (13) when filed
 ```
 
 Related: §533 (delimiter-unsafe splitting on the sibling id-less-cell class, `resource.emails`); the
