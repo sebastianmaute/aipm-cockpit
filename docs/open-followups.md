@@ -38042,9 +38042,13 @@ files under `src/` reference it).
   the stored string.
 - A month overflow is an Invalid Date. `new Date("2026-13-01")` and `new Date("2026-00-10")` are
   `NaN`, so date math on them yields `NaN`.
-- Reported by the peer: a Gantt milestone with such a date got a row and a number while
-  `GanttMilestoneRow` rendered nothing. The §273 fix on that branch drops undrawable milestones from
-  the row list; other date consumers were not checked.
+- The Gantt shows both failures. Its own `parseISO` (`src/app/gantt-engine.ts`, not date-fns, which
+  is not a dependency) wraps `new Date`. A month overflow therefore parses to `null`: the peer
+  observed such a milestone getting a row and a number while `GanttMilestoneRow` rendered nothing,
+  and the §273 fix on that branch drops undrawable milestones from the row list. A day overflow
+  parses to the next month, so the bar or milestone is drawn on the wrong date with no error. Other
+  consumers of stored dates were not enumerated; `git grep -n sanitizeIsoDate -- src` is the
+  starting list.
 
 **Planned fix.** Reject non-calendar dates everywhere the function is used, load paths included, by
 returning `""` (the function's existing invalid result). Check month 1..12, and check the day against
