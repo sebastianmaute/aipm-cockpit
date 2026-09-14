@@ -39,4 +39,12 @@ describe("device-store", () => {
     expect(() => writeDeviceJson(KEY, { x: 1 })).not.toThrow();
     expect(spy).toHaveBeenCalled();
   });
+
+  it("reports whether the write reached storage", () => {
+    expect(writeDeviceJson(KEY, { x: 1 })).toBe(true);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    expect(writeDeviceJson(KEY, { x: 2 })).toBe(false);
+  });
 });

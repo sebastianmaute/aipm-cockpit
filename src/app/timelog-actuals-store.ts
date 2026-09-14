@@ -4,6 +4,7 @@
 // app-reset's `aipm-cockpit:*` sweep.
 import { readDeviceJson, writeDeviceJson } from "./device-store";
 import type { ActualsAggregate } from "./timelog-actuals";
+import { fromStoredAggregate, isPackedBucketDays, toStoredAggregate, type StoredAggregate } from "./timelog-actuals-codec";
 import type { TimelogProjectRef } from "./timelog-match";
 import { isDailyCell, parseDailyKey, type TimelogDailyRoll, type TimelogUser } from "./timelog-types";
 
@@ -82,13 +83,26 @@ export type ActualsCacheEntry = {
 /** The inclusive ISO `YYYY-MM-DD` date range a `daily` roll was fetched over. */
 export type TimelogRollWindow = { from: string; to: string };
 
-type CacheMap = Record<string, ActualsCacheEntry>;
+/** An entry as it sits in localStorage: `ActualsCacheEntry` with its
+ *  aggregate's day cells PACKED (`dayCells`, see `timelog-actuals-codec.ts`).
+ *  ★ Every shedding stage in `saveActualsCache` reads only fields the two shapes
+ *  share, so the stages run on stored entries unchanged. Only
+ *  `loadActualsCache` unpacks, and only the one entry it returns. */
+type StoredEntry = Omit<ActualsCacheEntry, "aggregates"> & { aggregates?: StoredAggregate };
 
-function isEntry(v: unknown): v is ActualsCacheEntry {
+type CacheMap = Record<string, StoredEntry>;
+
+function isEntry(v: unknown): v is StoredEntry {
   if (!v || typeof v !== "object" || Array.isArray(v)) return false;
-  const e = v as ActualsCacheEntry;
+  const e = v as StoredEntry;
   if (typeof e.fetchedAt !== "string") return false;
   if (e.aggregates !== undefined && (typeof e.aggregates !== "object" || e.aggregates === null || Array.isArray(e.aggregates))) return false;
+  // ★★ Packed day cells are the aggregate's CORE payload, not an optional side
+  // field, so a malformed payload drops the entry — the rule the `aggregates`
+  // type check above already applies — rather than being stripped: KPIs that
+  // survive while their day cells vanish would show booked hours the Budget
+  // view can never place.
+  if (e.aggregates?.dayCells !== undefined && !isPackedBucketDays(e.aggregates.dayCells)) return false;
   if (e.users !== undefined && !Array.isArray(e.users)) return false;
   if (e.projectRefs !== undefined && !Array.isArray(e.projectRefs)) return false;
   // ★★★ `daily` is DELIBERATELY NOT CHECKED HERE. The obvious branch —
@@ -130,7 +144,7 @@ export { isDailyCell };
  *  two drift apart.
  *  ★ A clean roll is returned BY IDENTITY — the rebuild runs only when a cell
  *  was actually dropped, so the common path allocates nothing. */
-function withCheckedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
+function withCheckedDaily(e: StoredEntry): StoredEntry {
   const d: unknown = e.daily;
   if (d === undefined) return e;
   if (typeof d !== "object" || d === null || Array.isArray(d)) {
@@ -164,7 +178,7 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  *  ★ SHAPE, not sense — the regex admits `9999-99-99`. It exists to keep the
  *  `<`/`>` comparisons downstream lexicographically meaningful, not to certify
  *  that a date exists. */
-function withCheckedDailyWindow(e: ActualsCacheEntry): ActualsCacheEntry {
+function withCheckedDailyWindow(e: StoredEntry): StoredEntry {
   const w: unknown = e.dailyWindow;
   if (w === undefined) return e;
   if (typeof w === "object" && w !== null && !Array.isArray(w)) {
@@ -192,7 +206,7 @@ function withCheckedDailyWindow(e: ActualsCacheEntry): ActualsCacheEntry {
  *  ★ Positive, mirroring `buildDailyRoll`'s `userId <= 0` skip: `mapV2TimeItem`
  *  falls back to `0` for an unidentified booker, so 0 is a sentinel here too and
  *  must never be admitted as a covered person. */
-function withCheckedDailyUsers(e: ActualsCacheEntry): ActualsCacheEntry {
+function withCheckedDailyUsers(e: StoredEntry): StoredEntry {
   const u: unknown = e.dailyUsers;
   if (u === undefined) return e;
   if (Array.isArray(u) && u.every((n) => typeof n === "number" && Number.isInteger(n) && n > 0)) {
@@ -201,6 +215,20 @@ function withCheckedDailyUsers(e: ActualsCacheEntry): ActualsCacheEntry {
   const copy = { ...e };
   delete copy.dailyUsers;
   return copy;
+}
+
+/** Pack for storage. Identity when there is nothing to pack. */
+function toStoredEntry(e: StoredEntry): StoredEntry {
+  if (e.aggregates === undefined) return e;
+  const aggregates = toStoredAggregate(e.aggregates);
+  return aggregates === e.aggregates ? e : { ...e, aggregates };
+}
+
+/** Unpack for a reader. Identity when there is nothing to unpack. */
+function fromStoredEntry(e: StoredEntry): ActualsCacheEntry {
+  if (e.aggregates === undefined) return e;
+  const aggregates = fromStoredAggregate(e.aggregates);
+  return aggregates === e.aggregates ? e : { ...e, aggregates };
 }
 
 function readMap(): CacheMap {
@@ -214,7 +242,8 @@ function readMap(): CacheMap {
 }
 
 export function loadActualsCache(projectId: string): ActualsCacheEntry | undefined {
-  return readMap()[projectId];
+  const stored = readMap()[projectId];
+  return stored === undefined ? undefined : fromStoredEntry(stored);
 }
 
 export function clearActualsCache(projectId: string): void {
@@ -268,8 +297,11 @@ export const MAX_DAILY_ROLL_CHARS = 512 * 1024;
  *  `saveActualsCache` enforce it across entries (§361). A SINGLE entry whose own
  *  `users` exceed it is handled by stage 5, which sheds that entry's
  *  `users`/`projectRefs` whole and keeps its aggregates (§430, closed). An entry
- *  over budget on `aggregates` alone is still written as-is — nothing sheds
- *  aggregates off the entry being saved.
+ *  STILL over budget sheds its own roll trio (stage 6) and is then written
+ *  as-is — nothing sheds aggregates off the entry being saved. Since the day
+ *  cells are stored packed (`timelog-actuals-codec.ts`) that takes an extreme
+ *  aggregate; when the browser then refuses the write, `saveActualsCache`
+ *  removes the entry's stale predecessor and returns `false`.
  *  ★★★ WHY A SECOND BOUND EXISTS. `MAX_DAILY_ROLL_CHARS` is per-entry, so 50
  *  entries (`MAX_PROJECTS`) each sitting just under it is ~25 MB against a
  *  localStorage origin quota of roughly 5 MB shared with every other
@@ -360,7 +392,7 @@ function shedOrder(map: CacheMap, keep: string): string[] {
  *  half — the `^const` anchor keeps this docstring out of its own output:
  *  `grep -rn "^const .*_DATE_RE" src/app/timelog-types.ts
  *  src/app/timelog-actuals-store.ts`. */
-function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
+function withBoundedDaily(e: StoredEntry): StoredEntry {
   const d: unknown = e.daily;
   // Anything that is not a plain object is left for the read path to strip.
   if (typeof d !== "object" || d === null || Array.isArray(d)) return e;
@@ -438,7 +470,7 @@ function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
   return copy;
 }
 
-/** ★★★ FIVE STAGES, IN INCREASING ORDER OF WHAT THEY COST THE USER.
+/** ★★★ SIX STAGES, IN INCREASING ORDER OF WHAT THEY COST THE USER.
  *  1. Count eviction (`MAX_PROJECTS`), newest `fetchedAt` first.
  *  2. Shed `daily` + `dailyWindow` + `dailyUsers` TOGETHER from the oldest
  *     entries.
@@ -446,6 +478,14 @@ function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
  *  4. Drop whole entries, oldest first — the only stage that costs `aggregates`.
  *  5. Shed the SAVED entry's own `users` + `projectRefs` — reached only when
  *     that entry alone is over budget (open-followups §430).
+ *  6. Shed the SAVED entry's own `daily` + `dailyWindow` + `dailyUsers`
+ *     together — reached only when stage 5 was not enough.
+ *  ★★★ RETURNS WHETHER THE MAP REACHED STORAGE. `writeDeviceJson` never throws,
+ *  so without this a refused write (quota, disabled storage) is silent and the
+ *  next reload reads a stale entry as the current fetch. On a refused write the
+ *  saving project's PREVIOUS entry is removed (a second, smaller write) so the
+ *  stale data cannot be read, and `false` is returned for the caller to
+ *  surface (`use-timelog-sync.ts` → the TimeLog panel's warning).
  *  ★★★ THE ORDER IS THE DESIGN, AND `aggregates` IS WHAT IT PROTECTS.
  *  `withBoundedDaily`'s docstring states the rule: losing the roll must never
  *  cost the `aggregates` beside it, because the aggregates are what the network
@@ -484,9 +524,13 @@ function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
  *  runs synchronously on the post-fetch write path, so re-measuring per
  *  CANDIDATE rather than per MUTATION cost ~150 serialisations (~1.9 s) on a
  *  full map whose stages mostly `continue`. */
-export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): void {
-  const map = readMap();
-  map[projectId] = withBoundedDaily(entry);
+export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): boolean {
+  // Pack EVERY entry, not only this one: a verbose `byBucketDay` entry an
+  // earlier build left for another project is repacked by the next save of any
+  // project. `toStoredEntry` is identity for an entry already packed.
+  const map: CacheMap = {};
+  for (const [k, v] of Object.entries(readMap())) map[k] = toStoredEntry(v);
+  map[projectId] = withBoundedDaily(toStoredEntry(entry));
 
   // Stage 1 — count eviction, newest first.
   let out: CacheMap = map;
@@ -559,8 +603,7 @@ export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): v
   // Stage 5 — the SAVED entry's own matching-UI inputs, shed whole, aggregates
   // kept. Reached only when the saved entry ALONE is over budget: stages 2–4
   // have removed everything else they may. A COPY, never a mutation of the
-  // caller's entry. Nothing further is shed — the roll is already capped by
-  // `withBoundedDaily`, so a real entry fits after this.
+  // caller's entry.
   if (size > MAX_ACTUALS_TOTAL_CHARS) {
     const e = out[projectId];
     if (e.users !== undefined || e.projectRefs !== undefined) {
@@ -568,8 +611,36 @@ export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): v
       delete shed.users;
       delete shed.projectRefs;
       out = { ...out, [projectId]: shed };
+      size = mapSize(out);
     }
   }
 
-  writeDeviceJson(TIMELOG_ACTUALS_KEY, out);
+  // Stage 6 — the SAVED entry's own roll trio, shed TOGETHER by stage 2's rule
+  // (a window or scope claim must never outlive its roll). Reached only when
+  // the entry is still over budget without its users, i.e. its packed
+  // aggregates alone approach the budget. The cost is the recoverable one: with
+  // no window the insights reconcile FREEZES until the next fetch.
+  if (size > MAX_ACTUALS_TOTAL_CHARS) {
+    const e = out[projectId];
+    if (e.daily !== undefined || e.dailyWindow !== undefined || e.dailyUsers !== undefined) {
+      const shed = { ...e };
+      delete shed.daily;
+      delete shed.dailyWindow;
+      delete shed.dailyUsers;
+      out = { ...out, [projectId]: shed };
+    }
+  }
+
+  if (writeDeviceJson(TIMELOG_ACTUALS_KEY, out)) return true;
+  // ★★★ THE BROWSER REFUSED THE WRITE. Storage still holds this project's
+  // PREVIOUS entry, which a reload would read as the current fetch — in the
+  // Budget overlay and the unapplied notice — while the workspace may already
+  // carry what the new fetch applied. Remove it: an absent entry reads as "not
+  // fetched", the recoverable direction every stage above sheds towards. This
+  // second write is no larger than what storage already holds minus that
+  // entry, so it normally lands; if it does not, there is nothing left to try.
+  const withoutStale: CacheMap = { ...out };
+  delete withoutStale[projectId];
+  writeDeviceJson(TIMELOG_ACTUALS_KEY, withoutStale);
+  return false;
 }
