@@ -763,6 +763,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§538](#538-single-db-turso-never-persists-project-meta--open) | Single-DB Turso never persists project meta — OPEN | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant project meta row/table (or reuse of the tenant `projects` table), `dirtyWorkspaceTables` taught about project-only edits, and a `turso-migrate.ts` self-heal entry | open |
 | [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--closed-2026-09-14) | `sanitizeIsoDate` accepts dates that are not real calendar dates — CLOSED 2026-09-14 | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | **CLOSED** 2026-09-14 |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--open) | A repeated resource deep link re-runs the open while that resource's editor is open — OPEN | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | open |
+| [§541](#541-the-stakeholder-editor-saves-its-text-fields-uncapped-when-submitted-with-enter--open) | The stakeholder editor saves its text fields uncapped when submitted with Enter — OPEN | found 2026-09-14 by the email-guard batch's Task 3 review; user approved filing; GitLab #331 | S — cap each field in `handleSubmit` before `onSave`, or sanitise in `handleSaveStakeholder` | open |
+| [§542](#542-the-calendar-event-writer-accepts-a-day-past-its-months-end-and-rolls-it-over--open) | The calendar event writer accepts a day past its month's end and rolls it over — OPEN | found 2026-09-14 by the whole-branch and cold reviews of `fix/email-and-guard-batch`; user approved filing; GitLab #332 | S — replace the `Date.parse` leg with a calendar round trip (as `sanitizeIsoDate` does since §539) | open |
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--open) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | open |
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
 | [§545](#545-the-ai-dashboard-snapshot-and-every-export-carry-none-of-the-budget-forecast-figures--open) | The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN | deferred 2026-09-15 by the budget forecast union spec §9 | M — add the forecast figures to the snapshot and exports once MR 2 ships them | open |
@@ -38138,6 +38140,57 @@ Fix shape: skip the open when the open editor already belongs to the requested i
 statically mounted directory. The residual test named above must then be inverted.
 
 Related: §362.
+
+## 541. The stakeholder editor saves its text fields uncapped when submitted with Enter — OPEN
+
+**Status:** OPEN 2026-09-14 — read from the code, not watched in a browser. Checked with
+`grep -n "adj.track\|onSave()" src/app/stakeholder-edit-modal.tsx` (the caps are tracked, then `onSave()` runs)
+and `grep -n "sanitizeStakeholder\|describeTextCap" src/app/use-stakeholders.ts` (no hits).
+
+**Work item:** #331
+
+`StakeholderEditModal` caps `name`, `organization` and `title` at `BUDGET_NAME_MAX` (200) only in each field's
+`onBlur`. `handleSubmit` runs `describeTextCap` on name, organization, title, email and notes (`TEXTAREA_MAX`),
+but only to COUNT adjustments for the "fields adjusted" toast, then calls `onSave()` with the uncapped draft.
+`handleSaveStakeholder` (`use-stakeholders.ts`) stores the row as given, without `sanitizeStakeholder`.
+
+Consequence: a 250-character title submitted with Enter, without leaving the field, is saved with all 250
+characters while the toast says the fields were adjusted. It is cut to 200 only on the next load, through
+`sanitizeStakeholder`, so the live session and exports see the uncapped value. Stakeholder email is judged on
+its capped value since the email-guard batch; whether the stored email is capped at save should be checked
+with the rest.
+
+Fix shape: cap each field in `handleSubmit` and save the capped draft (the RAID, shift and absence editors
+save the capped value they judge), or sanitise in `handleSaveStakeholder`. Pin with an Enter-submit test that
+asserts the saved row, not the toast.
+
+Related: §533, §539 (the email-guard batch that found it).
+
+## 542. The calendar event writer accepts a day past its month's end and rolls it over — OPEN
+
+**Status:** OPEN 2026-09-14 — located with
+`grep -n "isoDateOrUndefined\|acceptsEventDate\|Date.parse" src/app/calendar-event.ts` and measured with
+`node -e 'for (const d of ["2026-02-30","2026-04-31","2026-13-01"]) console.log(d, Date.parse(d+"T00:00:00Z"))'`
+(the first two parse to 2026-03-02 and 2026-05-01; the third is NaN).
+
+**Work item:** #332
+
+`isoDateOrUndefined` (`src/app/calendar-event.ts`), also exposed as `acceptsEventDate`, is a regex plus
+`Date.parse`. That rejects a day or month outside its field range (`2026-01-32`, `2026-13-01`) but not a day
+past its own month's end, which V8 rolls over. A calendar event's `date`, `toDate`, `startDate` or recurrence
+`until` can therefore be stored with an impossible date and rendered on a different day.
+
+Since §539, `sanitizeIsoDate` refuses these dates everywhere else, so the inline-AI card for calendar events
+(`entity-descriptor.ts` uses `acceptsEventDate`) and the rest of the app disagree on them. The gap was
+documented as stated-not-fixed in `calendar-event.ts`'s header and in the date comments in
+`entity-descriptor.ts` and `plan.ts`, with no register entry until now.
+
+Fix shape: give `isoDateOrUndefined` the same `Date.UTC` round trip `sanitizeIsoDate` uses (keeping its own
+choice about a year bound), then update the three comments that name the gap. Check what the change does to
+stored events that already hold such a date: blanking an optional event date on load is consistent with §539,
+but a required one must not drop the record (see §539's load note).
+
+Related: §539.
 
 ## 543. A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN
 
