@@ -885,7 +885,11 @@ describe("RaidPanel — Outlook calendar toggle (SP2)", () => {
         </WorkspaceProvider>
       </FiltersProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "calendarPush") }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "calendarPush")} – ${t("en-US", "calendarSyncEntityRaid")}`,
+      }),
+    );
     expect(onPushCalendar).toHaveBeenCalledTimes(1);
   });
 
@@ -893,7 +897,9 @@ describe("RaidPanel — Outlook calendar toggle (SP2)", () => {
     renderPanel(
       makeProps({ m365Configured: true, onToggleCalendar: vi.fn(), calendarEnabled: true, onPushCalendar: vi.fn() }),
     );
-    const push = screen.getByRole("button", { name: t("en-US", "calendarPush") });
+    const push = screen.getByRole("button", {
+      name: `${t("en-US", "calendarPush")} – ${t("en-US", "calendarSyncEntityRaid")}`,
+    });
     expect(push.className).toContain("border-line");
     expect(push.className).toContain("text-foreground");
     expect(push.className).not.toContain("border-ui-dark-blue");
@@ -920,7 +926,11 @@ describe("RaidPanel — Outlook calendar toggle (SP2)", () => {
         </WorkspaceProvider>
       </FiltersProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "calendarPull") }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "calendarPull")} – ${t("en-US", "calendarSyncEntityRaid")}`,
+      }),
+    );
     expect(onPullCalendar).toHaveBeenCalledTimes(1);
   });
 });

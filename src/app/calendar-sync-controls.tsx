@@ -42,6 +42,14 @@ export function CalendarSyncControls({
   calendarPullBusy,
 }: CalendarSyncControlsProps) {
   if (!(m365Configured && !isPopout && onToggleCalendar)) return null;
+  // The VISIBLE text on the Push/Pull buttons stays the short verb; only the
+  // accessible name is entity-qualified, mirroring the enable toggle above —
+  // a pane rendering two instances of this component (e.g. the Calendar
+  // sub-tab's absences + meeting series) would otherwise give screen-reader
+  // users two indistinguishable "Push to Outlook" buttons (WCAG 2.4.6). axe
+  // cannot see a duplicate name, only a missing one, so this is the only
+  // thing standing between us and that collision (§42).
+  const entity = t(lang, entityLabelKey);
   return (
     <>
       {/* ★★ A ToggleButton, not a checkbox: the label is PINNED to what pressed=true
@@ -67,7 +75,7 @@ export function CalendarSyncControls({
           onClick={onPushCalendar}
           disabled={calendarPushBusy}
           aria-busy={calendarPushBusy}
-          aria-label={t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
+          aria-label={`${t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")} – ${entity}`}
           title={t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
           className="inline-flex items-center gap-1"
         >
@@ -82,7 +90,7 @@ export function CalendarSyncControls({
           onClick={onPullCalendar}
           disabled={calendarPullBusy}
           aria-busy={calendarPullBusy}
-          aria-label={t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
+          aria-label={`${t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")} – ${entity}`}
           title={t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
           className="inline-flex items-center gap-1"
         >

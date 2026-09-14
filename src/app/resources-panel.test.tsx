@@ -694,7 +694,11 @@ describe("ResourcesPanel — Outlook calendar toggle (SP4)", () => {
     rerender(
       <ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={vi.fn()} calendarEnabled onPushCalendar={onPushCalendar} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "calendarPush") }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "calendarPush")} – ${t("en-US", "calendarSyncEntityAbsence")}`,
+      }),
+    );
     expect(onPushCalendar).toHaveBeenCalledTimes(1);
   });
 
@@ -708,7 +712,11 @@ describe("ResourcesPanel — Outlook calendar toggle (SP4)", () => {
     rerender(
       <ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={vi.fn()} calendarEnabled onPullCalendar={onPullCalendar} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "calendarPull") }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "calendarPull")} – ${t("en-US", "calendarSyncEntityAbsence")}`,
+      }),
+    );
     expect(onPullCalendar).toHaveBeenCalledTimes(1);
   });
 });
