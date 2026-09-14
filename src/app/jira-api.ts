@@ -8,9 +8,8 @@ import { jiraCategoryToStatus, statusToJiraCategory } from "./jira-status-map";
 import { jiraProjectKeys } from "./jira-projects";
 import {
   isWriteSafeEmail,
-  normalizeEmailShape,
   sanitizeAssignee,
-  sanitizeEmail,
+  sanitizeLoadedEmail,
   sanitizeIsoDate,
   sanitizeLabels,
   sanitizeTaskName,
@@ -220,7 +219,7 @@ export function issueToTaskFields(
   const isDone = statusKey === "done";
   // Spec Part 2: a synced record keeps everything but an address that is not
   // write-safe after normalising; the diagnostic names the issue, never the address.
-  const syncedEmail = normalizeEmailShape(sanitizeEmail(f.assignee?.emailAddress ?? ""));
+  const syncedEmail = sanitizeLoadedEmail(f.assignee?.emailAddress ?? "");
   const assigneeEmail = syncedEmail === "" || isWriteSafeEmail(syncedEmail) ? syncedEmail : "";
   if (assigneeEmail !== syncedEmail) logDiag("warn", "jira.assigneeEmailDropped", { issueKey: issue.key, field: "assigneeEmail" });
 

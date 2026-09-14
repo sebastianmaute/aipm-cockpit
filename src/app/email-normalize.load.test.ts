@@ -18,6 +18,8 @@ function seeded(): Workspace {
     absences: [{ id: 1, assignee: "Ada", assigneeEmail: "Ada <ada@x.com>", startDate: "2026-06-01", endDate: "2026-06-02", type: "vacation" } as never],
     resources: [{ id: 1, firstName: "Ada", lastName: "L", email: "Ada <ada@x.com>", emails: ["b@y.com; c@z.com", "Ann <d@w.com>"], roleId: null, utilizationMode: "percent", utilization: {} } as never],
     stakeholders: [{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "Sam <sam@x.com>" } as never],
+    shifts: [{ id: 1, assignee: "Shay", assigneeEmail: "Shay <shay@x.com>", hoursPerWeekday: { sun: 0, mon: 8, tue: 8, wed: 8, thu: 8, fri: 8, sat: 0 } } as never],
+    project: { name: "P", code: "P", contactPersons: [{ name: "Cleo", email: "Cleo <cleo@x.com>", synced: false }] } as never,
   };
 }
 
@@ -31,7 +33,38 @@ function expectNormalised(ws: Workspace): void {
   //  through normalizeEmailListShape, on every codec (pre-flight M3).
   expect(ws.resources[0].emails).toEqual(["b@y.com", "c@z.com", "d@w.com"]);
   expect(ws.stakeholders?.[0].email).toBe("sam@x.com");
+  expect(ws.shifts[0]?.assigneeEmail).toBe("shay@x.com");
+  expect(ws.project?.contactPersons?.[0]?.email).toBe("cleo@x.com");
 }
+
+type RoundTrip = (ws: Workspace) => Workspace;
+const CODECS: [string, RoundTrip][] = [
+  ["JSON", (ws) => jsonToWorkspace(workspaceToJson(ws))],
+  ["CSV", (ws) => csvToWorkspace(workspaceToCsv(ws))],
+  ["Markdown", (ws) => markdownToWorkspace(workspaceToMarkdown(ws))],
+];
+
+// Fix round 1: the normaliser runs BEFORE the cap. Capping first cut the `>`
+// off a `Name <addr>` longer than the cap, storing it torn instead of unwrapped.
+describe("a Name <addr> longer than its field's cap still unwraps", () => {
+  const longStakeholder = `Ann ${"x".repeat(196)} <a@x.com>`; // BUDGET_NAME_MAX (200) site
+  const longAbsence = `Ada ${"x".repeat(310)} <ada@x.com>`; // EMAIL_MAX (320) site
+  const overCap = (): Workspace => {
+    const base = seeded();
+    return {
+      ...base,
+      stakeholders: [{ ...base.stakeholders![0], email: longStakeholder }],
+      absences: [{ ...base.absences[0], assigneeEmail: longAbsence }],
+    };
+  };
+  it.each(CODECS)("%s", (_label, roundTrip) => {
+    expect(longStakeholder.length).toBeGreaterThan(200); // control: really over the cap
+    expect(longAbsence.length).toBeGreaterThan(320);
+    const out = roundTrip(overCap());
+    expect(out.stakeholders?.[0].email).toBe("a@x.com");
+    expect(out.absences[0].assigneeEmail).toBe("ada@x.com");
+  });
+});
 
 describe("the Name <addr> normaliser on every load funnel", () => {
   it("JSON", () => expectNormalised(jsonToWorkspace(workspaceToJson(seeded()))));

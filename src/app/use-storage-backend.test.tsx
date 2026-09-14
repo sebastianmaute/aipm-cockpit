@@ -1880,31 +1880,6 @@ describe("useStorageBackend — project flows", () => {
     expect(setStorageConfig).toHaveBeenCalledWith(targetConfig);
   });
 
-  it("switchToProject shows the unsafe-email notice AFTER the switched toast (spec Part 2)", async () => {
-    const targetId = "target-unsafe";
-    saveRegistry(
-      addProject(loadRegistry(), { id: targetId, name: "Target", code: "T", storageConfig: { kind: "browser" } }, false),
-    );
-    const targetBackend = {
-      kind: "browser",
-      load: vi.fn().mockResolvedValue({ ...emptyWorkspace(), tasks: [{ id: 555, taskName: "FromTarget", assigneeEmail: "a,b@x.com" }] }),
-      save: vi.fn().mockResolvedValue(undefined),
-      isReady: vi.fn().mockResolvedValue(true),
-      describe: vi.fn().mockResolvedValue("target"),
-    };
-    createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValue(targetBackend);
-    const { result } = renderBackend(makeArgs({ setStorageConfig }));
-    await act(async () => { await Promise.resolve(); });
-    showToast.mockClear();
-
-    await act(async () => { await result.current.switchToProject(targetId); });
-
-    const texts = showToast.mock.calls.map((c) => c[1]);
-    const switched = texts.indexOf(t("en-US", "projectSwitchedToast", "Target"));
-    expect(switched).toBeGreaterThanOrEqual(0);
-    expect(texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "FromTarget"))).toBeGreaterThan(switched);
-  });
-
   it("switchToProject REPLACES activityLog with the target's — project A's entries never reach project B", async () => {
     // ★★★ CROSS-PROJECT CONTAMINATION. `applyWorkspace` merges the loaded log
     // into `prev`, which on a SWITCH is the OUTGOING project's log — so project
@@ -4068,6 +4043,30 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     const seen = survivingToast();
     expect(seen).toContain("4 invalid row(s)");
     expect(seen).toContain("unclosed quotation mark");
+  });
+
+  it("switchToProject: the unsafe-email notice fires AFTER projectSwitchedToast and BEFORE the import diagnostic, which survives (spec Part 2)", async () => {
+    const main = makeImportBackend();
+    const target = makeImportBackend();
+    target.load.mockImplementation(async () => {
+      target.lastImportDroppedRows = 4;
+      return { ...emptyWorkspace(), tasks: [{ id: 555, taskName: "FromTarget", assigneeEmail: "a,b@x.com" } as unknown as Task] } as never;
+    });
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    registerTarget("imp-email");
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.switchToProject("imp-email"); });
+
+    const texts = showToast.mock.calls.map((c) => String(c[1]));
+    const switched = texts.indexOf(t("en-US", "projectSwitchedToast", "Target"));
+    const notice = texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "FromTarget"));
+    const diagnostic = texts.findIndex((s) => s.includes("4 invalid row(s)"));
+    expect(switched).toBeGreaterThanOrEqual(0);
+    expect(notice).toBeGreaterThan(switched);
+    expect(diagnostic).toBeGreaterThan(notice);
+    expect(survivingToast()).toContain("4 invalid row(s)"); // the data-loss diagnostic keeps the slot
   });
 
   it("loadProjectFromFile still reports — the path the inline block was moved OFF", async () => {

@@ -22,7 +22,7 @@ import {
   sanitizeStakeholder,
   sanitizeTaskName,
   TEXTAREA_MAX,
-  normalizeEmailShape,
+  sanitizeLoadedEmail,
 } from "./sanitize";
 import { htmlPlainProjection, sanitizeRichText } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
@@ -303,7 +303,7 @@ function sanitizeSeedRaidItem(raw: unknown): RaidItem | null {
   if (description) item.description = description;
   const owner = nonEmptyStr(raw.owner);
   if (owner) item.owner = owner;
-  const ownerEmail = normalizeEmailShape(sanitizeEmail(raw.ownerEmail));
+  const ownerEmail = sanitizeLoadedEmail(raw.ownerEmail);
   if (ownerEmail) item.ownerEmail = ownerEmail;
   const ownerResourceId = fkIdOrUndefined(raw.ownerResourceId);
   if (ownerResourceId !== undefined) item.ownerResourceId = ownerResourceId;

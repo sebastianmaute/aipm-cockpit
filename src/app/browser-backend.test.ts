@@ -42,7 +42,7 @@ vi.mock("./idb", async (importOriginal) => {
 import { BrowserBackend } from "./browser-backend";
 import type { FeatureModuleId } from "./feature-modules";
 import { IDB_RAID_STORE, IDB_TASKS_STORE, idbGet, idbSet } from "./idb";
-import { emptyWorkspace } from "./workspace";
+import { emptyWorkspace, jsonToWorkspace, workspaceToJson } from "./workspace";
 
 const task = {
   id: 1,
@@ -145,19 +145,53 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   // Spec Part 2: this backend casts its record arrays without a sanitizer, so
   // the Name <addr> normaliser runs here explicitly.
-  it("unwraps a stored Name <addr> email on load, and leaves a plain one alone", async () => {
+  it("unwraps a stored Name <addr> email on every explicit map, and leaves a plain one alone", async () => {
     const ws = {
       ...emptyWorkspace(),
       raid: [
         { ...raidItem, ownerEmail: "Ann <ann@x.com>" } as unknown as RaidItem,
         { ...raidItem, id: 8, ownerEmail: "bob@x.com" } as unknown as RaidItem,
       ],
+      absences: [{ id: 3, assignee: "Ada", assigneeEmail: "Ada <ada@x.com>", startDate: "2026-06-01", endDate: "2026-06-02", type: "vacation" }] as never,
+      shifts: [{ id: 4, assignee: "Shay", assigneeEmail: "Shay <shay@x.com>", hoursPerWeekday: { sun: 0, mon: 8, tue: 8, wed: 8, thu: 8, fri: 8, sat: 0 } }] as never,
+      stakeholders: [{ id: 5, name: "Stan", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "Stan <stan@x.com>" }] as never,
+      resources: [{ id: 6, firstName: "Res", lastName: "One", email: "Res <res@x.com>", emails: ["Two <two@x.com>"], roleId: null, utilizationMode: "percent", utilization: {} }] as never,
     };
     await new BrowserBackend().save(ws);
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.raid.find((r) => r.id === 7)?.ownerEmail).toBe("ann@x.com");
     expect(loaded.raid.find((r) => r.id === 8)?.ownerEmail).toBe("bob@x.com");
+    expect(loaded.absences[0]?.assigneeEmail).toBe("ada@x.com");
+    expect(loaded.shifts[0]?.assigneeEmail).toBe("shay@x.com");
+    expect(loaded.stakeholders?.[0]?.email).toBe("stan@x.com");
+    expect(loaded.resources[0]?.email).toBe("res@x.com");
+    expect(loaded.resources[0]?.emails).toEqual(["two@x.com"]);
+  });
+
+  // Fix round 1: IndexedDB casts resources, so its email pair must come out
+  // exactly as sanitizeResource (JSON/CSV/MD/Turso) stores it — primary
+  // excluded from the list, and no `emails` key invented.
+  it("loads a resource's email pair exactly as the JSON path does", async () => {
+    const ws = {
+      ...emptyWorkspace(),
+      resources: [
+        { id: 6, firstName: "Res", lastName: "One", email: "Ann <a@x.com>", emails: ["a@x.com"], roleId: null, utilizationMode: "percent", utilization: {} },
+        { id: 7, firstName: "Res", lastName: "Two", email: "Bo <b@x.com>", roleId: null, utilizationMode: "percent", utilization: {} },
+      ] as never,
+    };
+    await new BrowserBackend().save(ws);
+
+    const idb = await new BrowserBackend().load();
+    const json = jsonToWorkspace(workspaceToJson(ws));
+    const pick = (rows: readonly { id: number; email?: string; emails?: string[] }[], id: number) => {
+      const r = rows.find((row) => row.id === id)!;
+      return { email: r.email, emails: r.emails, hasEmailsKey: Object.prototype.hasOwnProperty.call(r, "emails") };
+    };
+    expect(pick(idb.resources, 6)).toEqual({ email: "a@x.com", emails: undefined, hasEmailsKey: false }); // control: primary excluded
+    expect(pick(idb.resources, 6)).toEqual(pick(json.resources, 6));
+    expect(pick(idb.resources, 7)).toEqual({ email: "b@x.com", emails: undefined, hasEmailsKey: false });
+    expect(pick(idb.resources, 7)).toEqual(pick(json.resources, 7));
   });
 
   it("strips live markup from already-rich stored rich fields on load", async () => {

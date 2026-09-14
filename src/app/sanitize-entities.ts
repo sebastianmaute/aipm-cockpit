@@ -42,7 +42,7 @@ import {
   sanitizeMultiline,
   sanitizeAssignee,
   sanitizeEmail,
-  normalizeEmailShape,
+  sanitizeLoadedEmail,
   normalizeEmailListShape,
   sanitizeNotes,
   sanitizeIsoDate,
@@ -94,7 +94,7 @@ export function sanitizeAbsence(input: unknown): Absence | null {
     assignee,
     assigneeEmail:
       typeof raw.assigneeEmail === "string"
-        ? normalizeEmailShape(sanitizeEmail(raw.assigneeEmail)) || undefined
+        ? sanitizeLoadedEmail(raw.assigneeEmail) || undefined
         : undefined,
     startDate: start,
     endDate: end,
@@ -182,7 +182,7 @@ export function sanitizeShift(input: unknown): Shift | null {
     assignee,
     assigneeEmail:
       typeof raw.assigneeEmail === "string"
-        ? normalizeEmailShape(sanitizeEmail(raw.assigneeEmail)) || undefined
+        ? sanitizeLoadedEmail(raw.assigneeEmail) || undefined
         : undefined,
     hoursPerWeekday,
     note: sanitizeNotes(raw.note) || undefined,
@@ -376,12 +376,9 @@ export function sanitizeResource(input: unknown): Resource | null {
     utilizationMode: mode,
     utilization,
   };
-  const email = typeof input.email === "string" ? normalizeEmailShape(sanitizeEmail(input.email)) || undefined : undefined;
-  if (email) resource.email = email;
-  // The second pass dedupes and caps what the normaliser split (spec Part 2);
-  // `sanitizeEmailList` itself is unchanged.
-  const emails = sanitizeEmailList(normalizeEmailListShape(sanitizeEmailList(input.emails, email)), email);
-  if (emails.length > 0) resource.emails = emails;
+  const pair = sanitizeLoadedResourceEmails(input.email, input.emails);
+  if (pair.email) resource.email = pair.email;
+  if (pair.emails.length > 0) resource.emails = pair.emails;
   const title = optText(input.title); if (title) resource.title = title;
   const phone = optText(input.businessPhone); if (phone) resource.businessPhone = phone;
   const location = optText(input.location); if (location) resource.location = location;
@@ -436,6 +433,34 @@ export function sanitizeEmailList(input: unknown, primary: string | undefined): 
     if (out.length >= RESOURCE_EMAILS_MAX) break;
   }
   return out;
+}
+
+/** A loaded resource's `email` + `emails` pair, exactly as `sanitizeResource`
+ *  stores it (spec Part 2): `Name <addr>` unwrapped and write-safe multi-address
+ *  members split BEFORE the cap, then `sanitizeEmailList` dedupes, caps and
+ *  drops the primary. The ONE definition every load path shares. */
+export function sanitizeLoadedResourceEmails(email: unknown, emails: unknown): { email: string | undefined; emails: string[] } {
+  const primary = sanitizeLoadedEmail(email) || undefined;
+  const list = Array.isArray(emails)
+    ? emails.filter((e): e is string => typeof e === "string")
+    : typeof emails === "string" ? emails.split(/[;,]/) : [];
+  return { email: primary, emails: sanitizeEmailList(normalizeEmailListShape(list), primary) };
+}
+
+/** `sanitizeLoadedResourceEmails` for a row a backend CASTS instead of
+ *  sanitizing (IndexedDB). Same reference when nothing changes; an absent key
+ *  stays absent, and an empty result removes the key — as `sanitizeResource`. */
+export function withNormalizedResourceEmails<T extends { email?: string; emails?: string[] }>(row: T): T {
+  const pair = sanitizeLoadedResourceEmails(row.email, row.emails);
+  const stored = row.emails;
+  const sameEmails = pair.emails.length === 0
+    ? stored === undefined
+    : stored !== undefined && stored.length === pair.emails.length && stored.every((e, i) => e === pair.emails[i]);
+  if (pair.email === row.email && sameEmails) return row;
+  const next: { email?: string; emails?: string[] } = { ...row };
+  if (pair.email) next.email = pair.email; else delete next.email;
+  if (pair.emails.length > 0) next.emails = pair.emails; else delete next.emails;
+  return next as T;
 }
 
 function sanitizeRate(n: unknown): number {

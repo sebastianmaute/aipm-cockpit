@@ -53,7 +53,7 @@ import {
   TEXTAREA_MAX,
   toNumber,
   sanitizeText,
-  sanitizeEmail, normalizeEmailShape,
+  sanitizeEmail, sanitizeLoadedEmail,
   sanitizeIsoDate,
   fkIdOrUndefined,
   isPlainObject,
@@ -1352,7 +1352,7 @@ export function sanitizeStakeholder(input: unknown): Stakeholder | null {
   };
   const org = sanitizeText(o.organization, BUDGET_NAME_MAX); if (org) item.organization = org;
   const title = sanitizeText(o.title, BUDGET_NAME_MAX); if (title) item.title = title;
-  const email = normalizeEmailShape(sanitizeText(o.email, BUDGET_NAME_MAX)); if (email) item.email = email;
+  const email = sanitizeLoadedEmail(o.email, BUDGET_NAME_MAX); if (email) item.email = email;
   const notes = sanitizeText(o.notes, TEXTAREA_MAX); if (notes) item.notes = notes;
   const rid = toNumber(o.resourceId);
   if (Number.isFinite(rid) && rid > 0) item.resourceId = Math.floor(rid);
@@ -1368,7 +1368,7 @@ function sanitizeContactPerson(input: unknown): ContactPerson | null {
   if (!isPlainObject(input)) return null;
   const name = sanitizeText(input.name, BUDGET_NAME_MAX);
   if (!name) return null;
-  const email = normalizeEmailShape(sanitizeEmail(input.email));
+  const email = sanitizeLoadedEmail(input.email);
   const synced = typeof input.synced === "boolean" ? input.synced : false;
   const resourceId = fkIdOrUndefined(input.resourceId);
   return resourceId === undefined ? { name, email, synced } : { name, email, synced, resourceId };

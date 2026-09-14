@@ -5,6 +5,7 @@ import {
   isWriteSafeEmail,
   normalizeEmailListShape,
   normalizeEmailShape,
+  sanitizeLoadedEmail,
   summarizeUnsafeEmailRecords,
   templateSeedEmailScope,
   withNormalizedEmailField,
@@ -116,6 +117,27 @@ describe("withNormalizedEmailField / withNormalizedResourceEmails", () => {
   it("return a new row carrying the normalised value", () => {
     expect(withNormalizedEmailField({ id: 1, ownerEmail: "Ann <a@x.com>" }, "ownerEmail")).toEqual({ id: 1, ownerEmail: "a@x.com" });
     expect(withNormalizedResourceEmails({ id: 1, email: "Ann <a@x.com>", emails: ["b@y.com; c@z.com"] })).toEqual({ id: 1, email: "a@x.com", emails: ["b@y.com", "c@z.com"] });
+  });
+  it("matches sanitizeResource: drops the primary from the list and never invents an emails key (fix round 1)", () => {
+    const deduped = withNormalizedResourceEmails({ id: 1, email: "Ann <a@x.com>", emails: ["a@x.com"] });
+    expect(deduped).toEqual({ id: 1, email: "a@x.com" });
+    expect(Object.prototype.hasOwnProperty.call(deduped, "emails")).toBe(false);
+    const noList = withNormalizedResourceEmails({ id: 1, email: "Ann <a@x.com>" });
+    expect(noList).toEqual({ id: 1, email: "a@x.com" });
+    expect(Object.prototype.hasOwnProperty.call(noList, "emails")).toBe(false);
+  });
+});
+
+describe("sanitizeLoadedEmail — normalise, THEN cap (fix round 1)", () => {
+  it("unwraps a Name <addr> longer than the cap instead of storing it torn", () => {
+    const long = `Ann ${"x".repeat(196)} <a@x.com>`;
+    expect(long.length).toBeGreaterThan(200);
+    expect(sanitizeLoadedEmail(long, 200)).toBe("a@x.com");
+  });
+  it("still trims and caps a plain value, and blanks a non-string", () => {
+    expect(sanitizeLoadedEmail("  a@x.com  ")).toBe("a@x.com");
+    expect(sanitizeLoadedEmail("x".repeat(400))).toHaveLength(320);
+    expect(sanitizeLoadedEmail(42)).toBe("");
   });
 });
 

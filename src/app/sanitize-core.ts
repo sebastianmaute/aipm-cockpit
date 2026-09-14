@@ -146,14 +146,11 @@ export function withNormalizedEmailField<T extends object>(row: T, field: keyof 
   return next === value ? row : { ...row, [field]: next };
 }
 
-/** `withNormalizedEmailField` for a resource's `email` + `emails` pair. */
-export function withNormalizedResourceEmails<T extends { email?: string; emails?: string[] }>(row: T): T {
-  const email = typeof row.email === "string" ? normalizeEmailShape(row.email) : row.email;
-  const emails = Array.isArray(row.emails) ? normalizeEmailListShape(row.emails) : row.emails;
-  const emailsSame = emails === row.emails || (Array.isArray(emails) && Array.isArray(row.emails)
-    && emails.length === row.emails.length && emails.every((e, i) => e === row.emails![i]));
-  if (email === row.email && emailsSame) return row;
-  return { ...row, email, emails };
+/** A loaded scalar email: unwrap `Name <addr>` FIRST, then trim + cap. The
+ *  order is load-bearing — capping first can cut the closing `>` off a long
+ *  `Name <addr>`, which would then be stored torn instead of unwrapped. */
+export function sanitizeLoadedEmail(s: unknown, max: number = EMAIL_MAX): string {
+  return typeof s === "string" ? sanitizeText(normalizeEmailShape(s), max) : "";
 }
 
 // --- Generic helpers -------------------------------------------------------
