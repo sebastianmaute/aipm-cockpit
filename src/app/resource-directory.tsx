@@ -184,27 +184,27 @@ function ResourceDirectoryInner({
   // consumed so the request cannot get stuck.
   //
   // ★ KNOWN RESIDUAL, not a guard: unlike stakeholders/raid, this does NOT
-  // skip re-opening when the same resource's editor is already open. A
-  // skip-if-already-open guard was tried here (fix round 1) and found DEAD in
-  // the wired app on re-review — every producer of this deep link
+  // skip calling `onEditResource` when that resource's editor is already open.
+  // A per-mount skip guard cannot work here: every producer of this deep link
   // (insights/detect.ts, global-search.ts, use-hash-view.ts) tags the request
-  // "resources", `requestOpen` unconditionally flips `activeTab` through
-  // "resources" first, and `workspace-section.tsx` renders this panel only
-  // while `activeTab === "directory"` — so ANY repeat request, including a
-  // real back/forward to the identical `#resources/<id>` hash, unmounts and
-  // remounts a fresh `ResourceDirectoryInner` before its consumer effect ever
-  // runs. Any per-mount ref/state here is reset before it could see a repeat,
-  // so it cannot provide real protection. The edit modal's state
-  // (`editingResource`) lives in `task-manager.tsx`, ABOVE this remount, so
-  // it survives it — a second deep-link click on the same resource while its
-  // editor is still open (unsaved edits included) silently re-opens the
-  // editor from the stored row, discarding those edits. Pinned as known,
-  // current behaviour by "re-fires the edit handler for a repeated deep-link
-  // to the resource whose editor is already open (known residual — see
-  // §362)" in resource-directory.test.tsx, rather than guarded, because a
-  // real fix needs the "already open" state to live where `editingResource`
-  // already does (task-manager.tsx/app-modals.tsx), which is out of scope
-  // here (another branch is editing those files).
+  // "resources", `requestOpen` flips `activeTab` through "resources" first,
+  // and `workspace-section.tsx` renders this panel only while
+  // `activeTab === "directory"`, so a repeat request unmounts and remounts a
+  // fresh `ResourceDirectoryInner` before its consumer effect runs.
+  //
+  // What a repeat does (reasoned from the code, not measured): the edit handler
+  // fires again with the row from `resources`, and the editor stays open on the
+  // same resource. `ResourceEditModal` resets its draft only when its `resource`
+  // prop changes identity (the `prevResource` reconcile), so unsaved edits are
+  // KEPT when that row is the same reference the editor already holds. They are
+  // lost only if the stored row was replaced while the editor was open (e.g. a
+  // concurrent write), because the handler then passes the new reference.
+  //
+  // Pinned as current behaviour by "KNOWN RESIDUAL: re-fires the edit handler
+  // for a repeated deep-link to the resource whose editor is already open" in
+  // resource-directory.test.tsx. A working guard needs the editor state
+  // (`editingResource`, owned by `useResourceDirectory` in `task-manager.tsx`
+  // and rendered by `app-modals.tsx`), which sits above this remount.
   const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
   const { flashId, containerRef } = useDeepLinkRowFlash("resources");
   useEffect(() => {

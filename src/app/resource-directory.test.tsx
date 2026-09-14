@@ -619,19 +619,18 @@ describe("§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirecto
     expect(screen.getByTestId("pending-open")).toHaveTextContent("null");
   });
 
-  // Fix round 2 / known residual (§362): a fix-round-1 skip-if-already-open
-  // guard in ResourceDirectory was found DEAD once wired into the real app —
-  // every producer of this deep link tags the request "resources", so
-  // `requestOpen` flips `activeTab` through "resources" first and back to
-  // "directory", forcing ResourceDirectory through an unmount/remount before
-  // any per-mount guard could see a repeat. The guard was removed rather than
-  // kept as false reassurance. This test goes through that SAME real hop
-  // (ActiveTabHarness, not a statically-mounted ResourceDirectory) to prove
-  // the residual is real, not hypothetical: firing the identical resource id
-  // twice re-invokes the edit handler both times. A working fix needs the
-  // "already open" state to live where the edit modal's own state
-  // (`editingResource`) already does — task-manager.tsx / app-modals.tsx —
-  // which is out of scope here (another branch is editing those files).
+  // Known residual (§362): every producer of this deep link tags the request
+  // "resources", so `requestOpen` flips `activeTab` through "resources" first
+  // and back to "directory", forcing ResourceDirectory through an
+  // unmount/remount before any per-mount skip guard could see a repeat. This
+  // test goes through that SAME real hop (ActiveTabHarness, not a
+  // statically-mounted ResourceDirectory): firing the identical resource id
+  // twice re-invokes the edit handler both times.
+  // ★ It observes the HANDLER only, not the editor. Whether unsaved edits
+  // survive is decided in `ResourceEditModal`, which resets its draft only when
+  // its `resource` prop changes identity, so a repeat with the same stored row
+  // keeps the draft (reasoned, not measured here). A working guard needs the
+  // editor state (`editingResource`), which sits above this remount.
   it("KNOWN RESIDUAL: re-fires the edit handler for a repeated deep-link to the resource whose editor is already open", () => {
     const onEdit = vi.fn();
     rtlRender(
@@ -642,7 +641,7 @@ describe("§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirecto
     );
 
     fireEvent.click(screen.getByText("go")); // opens id 1 (through the real resources -> directory hop)
-    fireEvent.click(screen.getByText("go")); // re-fired request for the same id (e.g. a back/forward replay)
+    fireEvent.click(screen.getByText("go")); // a second request for the same id
 
     // Today's behaviour: called AGAIN, not skipped — the residual this round
     // discloses rather than papering over with a guard that cannot fire.
