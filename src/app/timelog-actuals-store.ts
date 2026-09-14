@@ -403,7 +403,8 @@ function withBoundedDaily(e: StoredEntry): StoredEntry {
 
   // ★ Cost of one `"key":cell` pair PLUS the comma joining it to the next, so
   // the running total over-counts by exactly one comma — conservative, which
-  // is the side to err on when the penalty is a silently swallowed write.
+  // is the side to err on: under-counting risks a refused write that drops
+  // this project's cache entry and shows the TimeLog panel's warning.
   const dated: { key: string; date: string; cost: number }[] = [];
   for (const [key, cell] of Object.entries(roll)) {
     const parsed = parseDailyKey(key);
