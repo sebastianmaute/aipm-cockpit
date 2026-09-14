@@ -13902,36 +13902,61 @@ banners carried was measured, and every one of them was wrong by the time it was
 
 ## 161. `latestAt` picks the "latest" activity entry by raw lexicographic string compare — CLOSED 2026-09-14
 
-**Status:** CLOSED 2026-09-14 on `fix/export-activity-alt-batch`. `sanitizeActivityEntry`
-(`activity-log.ts`) now NORMALISES `timestamp` at the load boundary via a new pure
-`normalizeActivityTimestamp` helper: an ISO 8601 shape (`YYYY-MM-DD`, optionally `THH:MM[:SS][.sss]`,
-optionally `Z` or `±HH:MM`) is re-stamped to canonical `toISOString()` shape — a zoneless date-time is
-treated as UTC (deterministic across devices, not `Date.parse`'s device-dependent local-time reading), a
-date-only value is UTC midnight — and anything else (non-ISO-8601 junk, or an ISO-8601 shape that yields a
-non-finite date, e.g. month "13") is dropped, the same as a non-string timestamp already was. No
-comparator changed: `mergeActivityLogs`'s sort-then-cap, `summarizeRecentActivity`'s `latestAt`, the
-activity panel's sort and `dashboard-delta.ts` all now see only canonical stamps, because every load
+**Status:** CLOSED 2026-09-14 on `fix/export-activity-alt-batch` (fix round 1: 2026-09-14, calendar-range
+validation added after review). `sanitizeActivityEntry` (`activity-log.ts`) now NORMALISES `timestamp` at
+the load boundary via a new pure `normalizeActivityTimestamp` helper: an ISO 8601 shape (`YYYY-MM-DD`,
+optionally `THH:MM[:SS][.sss]`, optionally `Z` or `±HH:MM`) is re-stamped to canonical `toISOString()`
+shape — a zoneless date-time is treated as UTC (deterministic across devices, not `Date.parse`'s
+device-dependent local-time reading), a date-only value is UTC midnight — and anything else is dropped,
+the same as a non-string timestamp already was: non-ISO-8601 junk, an ISO-8601 shape whose parse is
+non-finite (e.g. month "13"), AND (round 1) an ISO-8601 shape that is CALENDAR-INVALID even though it
+parses to a finite date. The last case is load-bearing on its own: V8's `Date.parse` silently ROLLS OVER
+an out-of-range day-of-month rather than rejecting it (`"2026-02-30"` → `2026-03-02`), so a
+finite-date-only check would have accepted a corrupt date and silently rewritten it to a different, wrong
+instant instead of dropping the entry. Every captured field is therefore range-checked against the
+INPUT's own digits before parsing: month 01–12; day 1..daysInMonth(year, month) with the full Gregorian
+leap-year rule (divisible by 4, except centuries, except those divisible by 400 — so 2024-02-29 and
+2000-02-29 are kept, 2026-02-29 and 2100-02-29 are dropped); hour 00–23 (24:00 is rejected rather than
+letting JS roll it to the next day); minute and second 00–59; offset hours 00–14 and offset minutes
+00–59. No comparator changed: `mergeActivityLogs`'s sort-then-cap, `summarizeRecentActivity`'s `latestAt`,
+the activity panel's sort and `dashboard-delta.ts` all now see only canonical stamps, because every load
 funnel (JSON, IDB, CSV, Markdown, Turso) converges on `sanitizeActivityLog` → `sanitizeActivityEntry`.
-Pinned by `activity-log.test.ts`'s "sanitizeActivityEntry — timestamp normalisation (§161)" block (offset
-→ UTC instant, zoneless → UTC, date-only → UTC midnight, canonical → byte-identical, junk/invalid →
-dropped), `activity-log-merge.test.ts`'s "an offset stamp that is actually newest survives the cap after
-sanitize (§161)", and `history-search.test.ts`'s "§161: after sanitize, latestAt follows the real instant
-across an offset" — the last two sanitize their fixtures before calling the consumer, so they prove the
-fix reaches the consumer rather than merely existing in the sanitizer (a canonical-only fixture cannot
-tell a fixed implementation from a broken one). Mutation-checked: reverting
-`normalizeActivityTimestamp` to return its input unchanged (the pre-fix `typeof === "string"`-only
-behaviour) turns all 8 of those tests red (`Test Files 3 failed (3)`, `Tests 8 failed | 126 passed
-(134)`); reapplying the fix returns to `Test Files 3 passed (3)`, `Tests 134 passed (134)`. Verified
+
+Pinned by 18 new tests total: `activity-log.test.ts`'s "sanitizeActivityEntry — timestamp normalisation
+(§161)" block carries 16 (offset → UTC instant; zoneless → UTC; date-only → UTC midnight; 2 canonical →
+byte-identical cases; 3 junk/invalid-shape → dropped cases; and, from round 1, Feb 30 dropped, Feb 29
+dropped in 2026, Feb 29 dropped in 2100, Feb 29 kept in 2024, Feb 29 kept in 2000, `T24:00` dropped,
+minute 60 dropped, offset `+15:00` dropped), `activity-log-merge.test.ts` carries 1 ("an offset stamp
+that is actually newest survives the cap after sanitize (§161)"), and `history-search.test.ts` carries 1
+("§161: after sanitize, latestAt follows the real instant across an offset") — the last two sanitize
+their fixtures before calling the consumer, so they prove the fix reaches the consumer rather than merely
+existing in the sanitizer (a canonical-only fixture cannot tell a fixed implementation from a broken
+one). Mutation-checked TWICE, once per round:
+- Round 0: reverting `normalizeActivityTimestamp` to return its input unchanged (the pre-fix
+  `typeof === "string"`-only behaviour) → `Tests 8 failed | 126 passed (134)`. The other 2 of the 10
+  tests that existed at that point stayed green under this mutant — the canonical-passthrough cases,
+  where the raw string already equals its own canonical form, so "return raw" and "normalise" agree.
+- Round 1 (this round, after adding calendar-range validation): reverting `normalizeActivityTimestamp` to
+  the round-0 shape/finite-check-only version (no range checks) → `Tests 5 failed | 137 passed (142)`.
+  Of the 8 new round-1 tests, 5 are sensitive to this mutant (Feb 30, Feb 29/2026, Feb 29/2100, `T24:00`,
+  offset `+15:00` — all cases where V8 rolls the value over to a DIFFERENT finite instant rather than
+  producing `NaN`) and 3 stay green even under it: the two "kept" leap-year cases (2024-02-29,
+  2000-02-29) are genuinely valid dates that both the mutant and the fix parse identically, and "drops
+  minute 60" stays green because V8's `Date.parse` already returns `NaN` for an out-of-range MINUTE
+  (unlike an out-of-range DAY/HOUR/OFFSET, which it silently rolls over) — the pre-existing
+  `Number.isFinite(ms)` check alone already caught that one input, so the new explicit check is
+  correct-but-redundant for it specifically, while still load-bearing for the other 5.
+Reapplying the fix returns to `Test Files 3 passed (3)`, `Tests 142 passed (142)` both times. Verified
 2026-09-14: `npx vitest run src/app/activity-log.test.ts src/app/activity-log-merge.test.ts
-src/app/history-search.test.ts` → `Test Files 3 passed (3)`, `Tests 134 passed (134)`, exit 0; the
-broader `golden-workspace.test.ts` / `entity-persistence-registry.test.ts` / `workspace.test.ts` /
-`dashboard-delta.test.ts` / `dashboard-delta.property.test.ts` / `activity-log-panel.test.tsx` /
-`use-activity-log.test.tsx` / `completion-trend.test.ts` run → `Test Files 8 passed (8)`, `Tests 206
-passed (206)`, exit 0 (the byte-stable golden fixtures did NOT change — every timestamp in
-`sample-workspace-small.json` was already canonical); `npx tsc --noEmit` exit 0; `npx eslint
---max-warnings=0` on every touched file exit 0. Residual: none known in the four consumers named above —
-each reads `activityLog` only from workspace state populated either by `applyWorkspace` (fed from a
-`sanitizeActivityLog` output on every one of the five load-funnel call sites:
+src/app/history-search.test.ts` → `Test Files 3 passed (3)`, `Tests 142 passed (142)`, exit 0 (18 of
+those matching `-t "161"`); the broader `golden-workspace.test.ts` / `entity-persistence-registry.test.ts`
+/ `workspace.test.ts` / `dashboard-delta.test.ts` / `dashboard-delta.property.test.ts` /
+`activity-log-panel.test.tsx` / `use-activity-log.test.tsx` / `completion-trend.test.ts` run →
+`Test Files 8 passed (8)`, `Tests 206 passed (206)`, exit 0 (the byte-stable golden fixtures did NOT
+change — every timestamp in `sample-workspace-small.json` was already canonical); `npx tsc --noEmit` exit
+0; `npx eslint --max-warnings=0` on every touched file exit 0. Residual: none known in the four consumers
+named above — each reads `activityLog` only from workspace state populated either by `applyWorkspace`
+(fed from a `sanitizeActivityLog` output on every one of the five load-funnel call sites:
 `browser-backend.ts`/IDB, `csv-codecs-config.ts`/CSV, `markdown-codecs-core.ts`/Markdown,
 `turso-schema.ts`/Turso, `workspace.ts`/JSON) or by `appendActivityEntry`/`useActivityLog` (which always
 mint `new Date().toISOString()`, already canonical) — no call site was found that hands any of the four
