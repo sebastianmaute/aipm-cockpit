@@ -395,7 +395,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§166](#166-an-undone-bulkdelete-corrupted-the-completion-trend-permanently--closed) | An UNDONE `bulk.delete` corrupted the completion trend permanently | — | — | **CLOSED** |
 | [§167](#167-bulk-edit-on-the-changes-register-bypassed-applychangestatus--closed-2026-08-18) | Bulk edit on the changes register bypassed `applyChangeStatus` | — | — | **CLOSED** 2026-08-18 |
 | [§168](#168-template-import-drops-every-registers-note-log--closed-2026-08-28) | Template import drops every register's note log | — | — | **CLOSED** 2026-08-28 |
-| [§169](#169-timelog-period-keys-are-derived-at-fetch-time-from-the-granularity-then-cached--open) | TimeLog period keys are derived at FETCH time from the granularity, then cached — open | — | — | open |
+| [§169](#169-timelog-period-keys-are-derived-at-fetch-time-from-the-granularity-then-cached--closed-2026-09-14) | TimeLog period keys are derived at FETCH time from the granularity, then cached — CLOSED 2026-09-14 | — | — | **CLOSED** 2026-09-14 |
 | [§170](#170-the-changepanelmemo-docblock-claims-a-usecallback-the-parent-does-not-do--closed-2026-08-20) | The `ChangePanelMemo` docblock claims a `useCallback` the parent does not do | — | — | **CLOSED** 2026-08-20 |
 | [§171](#171-the-axe-gate-now-scans-the-time-bookings-empty-state-not-the-table--open-knowingly-accepted) | The axe gate now scans the Time bookings EMPTY STATE, not the table — open, knowingly accepted | — | — | open |
 | [§172](#172-a-partial-timelog-fetch-overwrote-the-cached-aggregate-and-the-manual-apply-path-would-write-it--closed-2026-08-18) | A partial TimeLog fetch overwrote the cached aggregate, and the manual Apply path would write it | — | — | **CLOSED** 2026-08-18 |
@@ -14620,9 +14620,9 @@ fails exactly the change test and nothing else.
 ★★ Carrying the log made the §36(a) allow-list gap WIDER before it closed it — a captured note log is
 rich HTML reaching a new sink. Both landed in the same slice; see §36(a).
 
-## 169. TimeLog period keys are derived at FETCH time from the granularity, then cached — open
+## 169. TimeLog period keys are derived at FETCH time from the granularity, then cached — CLOSED 2026-09-14
 
-**Status:** open — period keys frozen at fetch time. Reproduced 2026-08-28 by `grep -rn "aggregateActuals" src/app --include=*.ts`.
+**Status:** CLOSED 2026-09-14 on `feat/budget-forecast-union`. `aggregateActuals` no longer takes a granularity: it stores day-keyed cells (`byBucketDay`), and every consumer derives periods at read time with the live plan granularity through `bucketOverlay`. A pre-change cached entry keeps only the cells whose key shape matches the live granularity. Pinned by `timelog-actuals.test.ts` "rolls the same aggregate into ISO weeks when the plan is weekly (§169)" and "keeps a legacy period-keyed entry only where its keys match the live granularity", and `timelog-apply.test.ts` "keeps hours counted when the plan switches granularity after apply (§169)", each mutation-checked. The OPEN-era text below is kept as the record of what was found.
 
 **Work item:** #169
 
