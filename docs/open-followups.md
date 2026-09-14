@@ -28667,21 +28667,42 @@ which is a different defect with a different cause, not a re-opening of this one
 **Status:** CLOSED 2026-09-14 on `fix/ui-residuals-batch`. `resources-report.tsx` (the panel that
 mounts for the "resources" `pendingOpen` view) now redirects to the Directory sub-tab — the one that
 actually lists resources — via `setActiveTab("directory")`, skipped in `embedded` mode (the Reports
-pane's read-only preview). `resource-directory.tsx` now consumes the same `pendingOpen` (still tagged
-"resources", since only Directory clears it) via `useWorkspaceTab`/`useDeepLinkRowFlash`, opening the
-matched resource through the existing `onEditResource` prop (mirrors how stakeholders/raid open their
-edit modal) and scrolling/flashing its row; an id matching no resource is still consumed so the
-request cannot get stuck. Pinned by `ResourceDirectory deep-link open` (`resource-directory.test.tsx`,
-3 cases: opens + clears on a match, honours a request armed before mount, consumes an unknown id
-silently) and `ResourcesReportPanel deep-link redirect` (`resources-report.test.tsx`, 2 cases:
-redirects to Directory, stays put when `embedded`). Mutation-checked: disabling the Directory consumer
-and the report's redirect turned 4 of the 5 new cases red (`Tests 4 failed | 36 passed (40)`);
-restoring both returns to green. Verified 2026-09-14: `npx vitest run src/app/resource-directory.test.tsx
-src/app/resources-report.test.tsx` → `Test Files 2 passed (2)`, `Tests 40 passed (40)`, exit 0;
-`npx tsc --noEmit` exit 0. Re-running the filing command now returns `resources` too:
-`grep -rhn 'pendingOpen?.view !== "\|pendingOpen?.view === "' src/app --include=*.tsx | grep -oE
-'"[a-z-]+"' | sort -u` → changes · documents · milestones · open-points · raid · resources ·
-stakeholders.
+pane's read-only preview). `resource-directory.tsx` now consumes the same `pendingOpen`; the request
+stays tagged "resources" throughout because that is the literal every PRODUCER of it writes
+(`insights/detect.ts`'s guardrail insight, `global-search.ts`'s resource search rows, and
+`use-hash-view.ts`'s handling of an item-bearing `#resources/<id>` hash all call
+`requestOpen("resources", id)`) and nothing ever retags an in-flight request to "directory" — who
+clears it (only Directory, via `clearPendingOpen`) is a separate fact and does not explain the tag.
+Consuming it opens the matched resource through the existing `onEditResource` prop (mirrors how
+stakeholders/raid open their edit modal, including a skip-if-already-open guard — tracked as the id
+this mount last deep-linked to, since this panel does not own the modal's draft state to compare
+against directly) and scrolls/flashes its row; an id matching no resource is still consumed so the
+request cannot get stuck. Because the redirect and the consumer are the SAME mechanism the report's
+own comment says they are, the same three producers — the guardrail insight, global-search's resource
+hits and Recents (`global-search-box.tsx`'s `onSelect`), and an item-bearing `#resources/<id>`
+hash/back-forward — now all land on Directory with the row opened, where before they opened only the
+Resources report tab.
+
+Pinned by `ResourceDirectory deep-link open` (`resource-directory.test.tsx`: opens + clears on a
+match, skips reopening a re-fired request for the resource whose editor is already open, honours a
+request armed before mount, consumes an unknown id silently), `ResourcesReportPanel deep-link
+redirect` (`resources-report.test.tsx`: redirects to Directory, stays put when `embedded`), and — the
+fix-round-1 addition — `§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirectory
+consumer` (`resource-directory.test.tsx`), which mounts BOTH panels behind the same `activeTab` gate
+`workspace-section.tsx` uses and asserts the editor opens end to end, so the redirect and the consumer
+are pinned together and not just each in isolation. Mutation-checked, each restored after: disabling
+the Directory consumer and the report's redirect together turned 4 of the then-5 new cases red
+(`Tests 4 failed | 36 passed (40)`); adding a `clearPendingOpen()` call to the redirect (so it also
+consumes the request instead of only handing it off) turns the end-to-end seam test red alone
+(`Tests 1 failed | 30 passed (31)` on `resource-directory.test.tsx`); removing the skip-if-already-open
+guard turns the re-fired-request case red alone (`Tests 1 failed | 30 passed (31)`); removing the
+`embedded ||` guard turns "does not redirect in embedded mode" red alone
+(`Tests 1 failed | 10 passed (11)` on `resources-report.test.tsx`). Verified 2026-09-14:
+`npx vitest run src/app/resource-directory.test.tsx src/app/resources-report.test.tsx` →
+`Test Files 2 passed (2)`, `Tests 42 passed (42)`, exit 0; `npx tsc --noEmit` exit 0. Re-running the
+filing command now returns `resources` too: `grep -rhn 'pendingOpen?.view !== "\|pendingOpen?.view
+=== "' src/app --include=*.tsx | grep -oE '"[a-z-]+"' | sort -u` → changes · documents · milestones ·
+open-points · raid · resources · stakeholders.
 
 Opening a guardrail insight calls `requestOpen("resources", id)`, which sets `pendingOpen`. No
 resources surface reads it, so the view opens and the person is never selected or scrolled to. Every
