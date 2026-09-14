@@ -613,7 +613,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§386](#386-fields-hint-pollutes-its-controls-accessible-name--closed-2026-09-14) | `Field`'s `hint` pollutes its control's accessible name — CLOSED 2026-09-14 | found 2026-09-05 in the edit-task modal rework | S — closed in both `Field` implementations (task form `hint`, project form `tooltip`) by rendering the tooltip as a sibling of a `display: contents` label via shared `HintedLabel`; the hint reaches a screen reader via the adjacent tooltip button, not `aria-describedby`; eye-verify in Firefox/Safari + a real screen reader still owed | **CLOSED** 2026-09-14 |
 | [§387](#387-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
-| [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--open) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide | found 2026-09-05 in the edit-task modal rework | M | open |
+| [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--closed-2026-09-14) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide | found 2026-09-05 in the edit-task modal rework | M | CLOSED 2026-09-14 |
 | [§390](#390-the-inline-create-path-writes-link-fields-with-no-preview-at-all--closed-2026-09-06) | The inline CREATE path writes link fields with no preview at all | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§391](#391-chat-proposal-describetss-emptyplan-is-safe-at-two-of-its-three-call-sites-and-the-reason-is-per-site--open) | `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§392](#392-a-rejection-only-inline-plan-never-reaches-the-preview-so-the-user-is-told-no-changes--closed-2026-09-06) | A rejection-only inline plan never reaches the preview, so the user is told "no changes" | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
@@ -29848,16 +29848,34 @@ did NOT force `group` is exactly the mis-binding the scan is for.
 force `group`. Nothing detects that today from either direction — the source scan cannot see the
 attribute, and the layout tests only cover the primitive as it currently behaves.
 
-## 389. `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide — OPEN
+## 389. `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide — CLOSED 2026-09-14
 
-**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework, where this defect was fixed
-LOCALLY for one dialog. Verified 2026-09-05 by reading the default and counting consumers:
-`grep -n "closeName = closeLabel" src/app/modal-header.tsx` returns the fallback, and
-`grep -rn "closeLabel=" src/app --include=*.tsx | grep -v "\.test\."` returns exactly ONE call site.
-★ Use that direct grep, not a `grep -A N` window after `<ModalHeader` — the prop sits ~28 lines
-below the tag behind a long comment, so a short window reports ZERO and reads as "nobody uses it".
-
-**Work item:** #269
+**Status:** CLOSED 2026-09-14 — enumerated every pair that can actually be open at once (per the
+2026-09-05 filing's own "tractable next step") and qualified the INNER dialog's ✕ in each, reusing
+the shared `rowLabel` en-dash composer (`row-tokens.ts`) rather than a new separator — the same
+convention `task-time-tracking-modal.tsx`'s local `qualifyWithTitle` already used for the one pair
+fixed locally. The OUTER modal in every pair keeps its bare ✕ (unchanged `<ModalHeader>` calls in
+`task-form-modal.tsx`, `asset-library-modal.tsx`, `edit-modal-chrome.tsx`), since qualifying the
+inner one alone already makes the pair distinct. Five `closeLabel` additions:
+`task-linked-task-modal.tsx` (over the task editor), `jira-conflicts-modal.tsx` (over the task
+editor's "Sync with Jira"), `asset-preview-modal.tsx` (over `AssetLibraryModal`'s contents, reusing
+its own `assetPreviewTitle` expression), `confirm-dialog.tsx` (the shared `useConfirm()` surface,
+which stacks over an edit modal's delete button via `edit-modal-chrome.tsx`; qualified with the same
+`pending.title ?? confirmTitle` the header already renders), `type-to-confirm-dialog.tsx` (the
+voice-triggered "clear all" path can open while the task editor is still mounted, since its mic
+lives in `ModalHeader` independent of the active tab; qualified with its own `title` prop).
+RULED on the sweep's open questions: `ConfirmDialog` and `TypeToConfirmDialog` DO render a ✕ with
+the bare `alertModalClose` name (both via `ModalHeader`, confirmed by reading) — qualified, as
+above; `DisclaimerModal` (`integration-disclaimer.tsx`) renders NO `ModalHeader` and no ✕ at all —
+nothing to qualify, left as-is. Out of scope, per the approved scope: the hand-rolled headers in
+`version-info.tsx` and `calendar-pull-summary-modal.tsx` that reuse the `alertModalClose` string
+(grep each for it) are not stackable and were not touched. Each qualified pair is pinned by a two-layer unit test (a bare stand-in `ModalHeader` for
+the always-bare outer, mounted alongside the real inner component) asserting the two close buttons
+have distinct accessible names — a one-modal fixture cannot fail this, since
+`expectRowUniqueNames`'s `minControls` throws below the floor. Mutation-proved: removing any of the
+five `closeLabel` props turns its pair's test red (and `asset-preview-modal.test.tsx`'s own close
+assertion red too), restored after confirming. Pinned by
+`npx vitest run src/app/stacked-modal-close-names.test.tsx`.
 
 `ModalHeader` defaults its ✕ to `t(lang, "alertModalClose")`, so every modal in the app names that
 button with the same string. Two modals open at once present two controls with one accessible name,

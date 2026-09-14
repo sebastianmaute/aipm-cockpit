@@ -7,6 +7,7 @@ import { Input, Select } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { MODAL_HELP } from "./help-content";
+import { rowLabel } from "./row-tokens";
 import { PRIORITIES, type Priority } from "./types";
 
 export type LinkDirection = "predecessor" | "successor";
@@ -67,6 +68,11 @@ export function TaskLinkedTaskModal({ lang, today, onCreate, onClose }: TaskLink
           title={t(lang, "taskEditorNewLinkedTask")}
           helpConceptId={MODAL_HELP.taskLinkedTask}
           onClose={onClose}
+          // §389: this dialog is layered over the task editor, whose own ✕
+          // stays bare — qualify only the topmost one so the pair's two close
+          // buttons don't collide (speech input resolves "click Close" against
+          // any matching control; aria-modal does not scope that channel).
+          closeLabel={rowLabel(t(lang, "alertModalClose"), t(lang, "taskEditorNewLinkedTask"))}
         />
         <div className="space-y-3 p-5">
           <label className={labelClass}>

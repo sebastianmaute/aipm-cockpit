@@ -12,6 +12,7 @@ import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { DataTable } from "./data-table";
 import { Button } from "./button";
+import { rowLabel } from "./row-tokens";
 import { statusLabelKey } from "./task-status-ui";
 import type { TaskStatus } from "./types";
 
@@ -191,6 +192,10 @@ export function JiraConflictsModal({
             dragReset();
             sizeReset();
           }}
+          // §389: opened from the task editor's "Sync with Jira" footer action
+          // while the editor stays mounted underneath (its own ✕ stays bare) —
+          // qualify this one so the pair doesn't collide.
+          closeLabel={rowLabel(t(lang, "alertModalClose"), t(lang, "jiraConflictTitle"))}
         />
         <p className="bg-surface px-6 pb-2 text-xs text-foreground dark:text-muted-foreground">
           {t(lang, "jiraConflictSubtitle", conflicts.length)}
