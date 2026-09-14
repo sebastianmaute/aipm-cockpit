@@ -700,7 +700,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--closed-2026-09-13) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read — CLOSED 2026-09-13 | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `68f70b9d` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | **CLOSED** 2026-09-13 |
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
 | [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--open) | Only three currencies are supported, and INR is wanted — OPEN | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | open |
-| [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--open) | Switching back to the modern layout moves the user off their current view — OPEN | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | open |
+| [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--closed-2026-09-14) | Switching back to the modern layout moves the user off their current view — CLOSED 2026-09-14 | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | **CLOSED** 2026-09-14 |
 | [§479](#479-releases-101-102-and-103-were-never-tagged-so-no-published-installer-carries-them-and-their-owed-packaged-build-checks-were-never-run--open) | Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — OPEN | found 2026-09-13 by the housekeeping audit, from the CHANGELOG owed list and the RUNBOOK's unverified release steps | S — a tag per release, each at its own release merge, then a manual pass over the packaged installer | open |
 | [§480](#480-the-desktop-installer-has-no-auto-update-and-its-update-feed-question-is-undecided--open) | The desktop installer has no auto-update and its update-feed question is undecided — OPEN | found 2026-09-13 by the housekeeping audit; GitLab #67 had been closed with this remainder written into its own body, and was reopened 2026-09-13 | M — the feed decision (UNC share or HTTPS) first, then the updater and its release wiring | open |
 | [§481](#481-the-task-row-n-changes-badge-is-a-static-label-with-no-way-to-jump-to-the-linked-changes--open) | The task-row "N changes" badge is a static label with no way to jump to the linked changes — OPEN | found 2026-09-13 by the housekeeping audit, from the change-log register design's deferred click-to-jump | S — a jump handler threaded the way the RAID badge's is | open |
@@ -36064,18 +36064,33 @@ is not.
 Size XS if the feed carries INR — one array member, plus a fixture covering it so the parser's filter
 is exercised on a fourth currency rather than assumed. Unknown, and much larger, if it does not.
 
-## 478. Switching back to the modern layout moves the user off their current view — OPEN
+## 478. Switching back to the modern layout moves the user off their current view — CLOSED 2026-09-14
 
-**Status:** OPEN 2026-09-13 — the hook-level behaviour is pinned and was re-run that day:
-`npx vitest run src/app/use-hash-view.test.tsx -t "re-arms the cold rule" --maxWorkers=1` passes (1
-passed, 21 skipped), asserting that a hash parked on `#raid` resolves to the Dashboard once `enabled` goes
-false and back to true. Presence witness: `grep -n "coldDoneRef.current = false" src/app/use-hash-view.ts`
-returns the re-arm inside the hook's disabled branch. ★ Everything user-visible below is REASONED from
-that test and from the call sites; no browser run has watched a layout switch do it. (`--maxWorkers=1`
-is there because the same command beside a recursive grep printed `Test Files no tests` at exit 1 —
-worker-start contention, not a result.)
-
-**Work item:** #320
+**Status:** CLOSED 2026-09-14 on `fix/ui-a11y-batch` — option (c) was taken: a layout switch is NOT a
+navigation. `useHashView` (`src/app/use-hash-view.ts`) now keeps TWO pieces of state where it had one:
+`pageColdDoneRef` (the page load's first enabled window has run — set once, never reset) and
+`windowActiveRef` (inside a contiguous enabled window — cleared ONLY by the disabled branch, never by an
+effect cleanup). The first enabled run of the page load is still cold (view-only hash → Dashboard,
+item-bearing hash → deep link). An enabled false → true after that is a RE-ENTRY: it neither routes nor
+calls `requestOpen`, and sets `reentryRepairRef`, which the view→hash effect consumes to write the BARE
+`buildHash(activeTab)` via `history.replaceState` — unconditionally, so a stale `#raid/123` is removed even
+when `activeTab` is already `raid`. A re-run inside one window (the async settings load's new `features`)
+stays a warm apply, as before; back/forward, the MSAL fragment guard and popouts are unchanged. ★ Because
+the cleanup never touches either ref, StrictMode's mount → unmount → mount stays inside the first window
+and is never read as a re-entry. Pinned by `npx vitest run src/app/use-hash-view.test.tsx -t "layout
+re-entry"` (the rewritten former "re-arms the cold rule" test, the new back/forward-after-re-entry test
+and the StrictMode test) and `npx vitest run src/app/use-hash-view.test.tsx -t "requestOpen during
+classic"`; "applies the cold rule on the first EXECUTED run" survives unchanged. Mutation-checked
+2026-09-14: resetting `pageColdDoneRef` in the disabled branch turns the two re-entry tests red; setting
+it there turns "is cold on the first enabled window even when the page loaded disabled…" red (the
+unchanged first-EXECUTED test cannot see that mutant — its cold target is the default tab); resetting
+`windowActiveRef` in the cleanup turns the StrictMode test red; dropping the bare re-entry write turns the
+`requestOpen during classic` test red. ★ Still REASONED for the browser — no layout switch was watched
+live. ★ Found while fixing, NOT fixed and pre-existing (identical in the pre-fix hook, measured): under
+StrictMode an item-bearing cold deep link to a NON-default view (`#raid/123`) ends on the Dashboard,
+because the first passive view→hash write still sees the old tab and replaces the hash with `#dashboard`
+before the remount's warm apply reads it; outside StrictMode the tab is right but the URL loses `/123`.
+The body below is the pre-fix record and is left as written.
 
 `useHashView` (`src/app/use-hash-view.ts`) is enabled only in the modern layout —
 `useHashView(settings.layout === "modern", settings.features)` in `task-manager.tsx`. The first EXECUTED
