@@ -151,6 +151,22 @@ describe("computeBurndownSeries — fixed-price buckets (§472)", () => {
     expect(s.actualRemainingValue).toEqual([18000, 9000, null]);
   });
 
+  it("counts January day keys the same as the period key in fixed-price actual consumption", () => {
+    // Same fixture, but the January actual hours are split into day keys that sum
+    // to the original figure. Every total the report derives must be identical.
+    const dayKeyedFixed = bucket({
+      type: "fixed", fixedPriceAmount: 30000,
+      allocations: [{
+        roleId: 1, resourceIds: [],
+        budgetHours: { "2026-01": 100, "2026-02": 100, "2026-03": 100 },
+        actualHours: { "2026-01-05": 60, "2026-01-20": 60, "2026-02": 90 },
+      }],
+    });
+    const s = computeBurndownSeries([dayKeyedFixed], plan, roles, [], 8, new Set<string>(), [], "2026-02-15", null);
+    expect(s.todayIndex).toBe(1);
+    expect(s.actualRemainingValue).toEqual([18000, 9000, null]);
+  });
+
   it("matches computeBudgetReport's budget and consumed totals for the same bucket", () => {
     const s = computeBurndownSeries([fixedBucket], plan, roles, [], 8, new Set<string>(), [], "2026-02-15", null);
     const rep = computeBudgetReport([fixedBucket], plan, roles, [], 8, new Set<string>(), [], [], null);
