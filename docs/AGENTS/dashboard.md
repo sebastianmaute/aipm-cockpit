@@ -620,7 +620,7 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   field/date/email/label/dependency sanitizers), `sanitize-entities.ts`
   (Absence/Shift/Resource/Role/Discipline/Grade/Plan/Budget/allocations/FxRates), `sanitize-records.ts`
   (Milestone/Change/RAID/Stakeholder/ProjectMeta/SteeringCommittee/timezone — imports only
-  `BUDGET_NAME_MAX`+`sanitizeIdList` from entities; it holds the five DENYLIST merge-site guard tables).
+  `BUDGET_NAME_MAX`+`AMOUNT_MAX`+`sanitizeIdList` from entities; it holds the five DENYLIST merge-site guard tables).
   `sanitize-allowlist-guards.ts` holds the two ALLOWLIST merge-site guards (`ABSENCE_FIELD_GUARDS`,
   `CALENDAR_EVENT_FIELD_GUARDS` and their `dropUnaccepted*Fields`), moved out of records for size headroom
   (§447). The barrel also re-exports `absence-email.ts` and `record-email-guards.ts` — read the barrel

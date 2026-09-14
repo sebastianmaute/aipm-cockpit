@@ -671,7 +671,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§444](#444-npm-run-testshuffle-is-owed-for-featoffered-surface-sweep-landing--closed-2026-09-11) | `npm run test:shuffle` is owed for `feat/offered-surface-sweep-landing` | found 2026-09-08 — withheld on the original branch (a peer session held a full suite) and on the landing (no full suite locally) | XS — closed by CI's `unit-tests-shuffled` job 29515 on `6b23d75b` (MR !470), 1063 files green | **CLOSED** 2026-09-11 |
 | [§445](#445-propose_project-is-a-whole-model-write-surface-both-offered-surface-relations-are-structurally-unable-to-reach--open) | `propose_project` is a whole model-write surface both offered-surface relations are structurally unable to reach — OPEN | found 2026-09-09 while closing §442, on a branch that forked before `2645debb`, which fixed the write defect on main the same day | S — a decision: give `propose_project` a relation of its own, or affirm `SEED_OFFERED_KEYS` as the whole answer | open |
 | [§446](#446-changedecisionby-is-authored-freely-with-no-coupling-to-status-so-a-decider-can-be-named-on-an-undecided-change--open) | `change.decisionBy` is authored freely with no coupling to `status`, so a decider can be named on an undecided change — OPEN | found 2026-09-09 while closing §442; reported independently by two agents, fixed by neither | S-M — decide the invariant first; a guard on the model alone closes nothing while the modal accepts it | open |
-| [§447](#447-sanitize-recordsts-sits-at-exactly-the-1600-line-ratchet-limit-with-zero-headroom-and-it-is-not-baselined--open) | `sanitize-records.ts` is at the 1600-line ratchet LIMIT with zero headroom and no baseline entry | found 2026-09-09 by the prose pass on the AI create-path branch, which needed ~30 lines in a file that had 2 | S-M — extract the seven guard tables; do NOT `--update` the baseline or hand-write a row | **OPEN** |
+| [§447](#447-sanitize-recordsts-sits-at-exactly-the-1600-line-ratchet-limit-with-zero-headroom-and-it-is-not-baselined--closed-2026-09-14) | `sanitize-records.ts` is at the 1600-line ratchet LIMIT with zero headroom and no baseline entry — CLOSED 2026-09-14 | found 2026-09-09 by the prose pass on the AI create-path branch, which needed ~30 lines in a file that had 2 | S-M — extract the seven guard tables; do NOT `--update` the baseline or hand-write a row | **CLOSED** 2026-09-14 |
 | [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, invisible to every detector for the class | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
 | [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s `testTimeout`, so it reds under load and the red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
 | [§452](#452-the-c1-chat-history-budget-is-deliberately-not-built-a-trim-saves-tokens-at-01x-and-pays-a-125x-rewrite-so-payback-needs-tens-of-further-turns--open) | The C1 chat-history budget is deliberately not built: a trim saves tokens at 0.1x and pays a 1.25x rewrite, so payback needs tens of further turns | decided 2026-09-09 while moving the caps onto a cost basis — the economics inverted when the guide-block cache split landed | N/A — a decision NOT to build; revisit only if the bursty-use case below becomes the common one | **OPEN** |
@@ -34780,15 +34780,24 @@ already 20s precisely to catch load-starved property suites, and raising it to a
 blinds every other test in the repo. ★ Do NOT delete or narrow the scan: it is the only detector for its
 class, which is what §415 and §450 are both about.
 
-## 447. sanitize-records.ts sits at exactly the 1600-line ratchet LIMIT with zero headroom, and it is not baselined — OPEN
+## 447. sanitize-records.ts sits at exactly the 1600-line ratchet LIMIT with zero headroom, and it is not baselined — CLOSED 2026-09-14
 
-**Status:** OPEN. Filed 2026-09-09. Measured, not inferred:
+**Status:** CLOSED 2026-09-14 on `fix/email-and-guard-batch`, by the split this entry names (commit
+`d64b40d6`). The two exported ALLOWLIST tables and their `dropUnaccepted*Fields` helpers moved to
+`sanitize-allowlist-guards.ts` — the tier that moves a published symbol — and `entity-descriptor.ts` plus
+`docs/AGENTS/dashboard.md` moved with them. No LIMIT change, no baseline row, no `--update`. Measured:
+`grep -nE "^(export )?const [A-Z_]+_FIELD_GUARDS" src/app/sanitize-records.ts` now prints FIVE rows, all
+bare `const`; the same grep against `src/app/sanitize-allowlist-guards.ts` prints the two `export const`
+rows; `grep -c "" src/app/sanitize-records.ts` prints 1454 (the ratchet's `split` count is one more,
+1455, so 145 lines of headroom); `npm run size:check` exits 0 with "file-size ratchet ok". The five
+private denylist tables stay in records — the cheap tier below remains available if headroom runs out
+again. The original record follows unchanged.
+
+**Status at filing:** OPEN. Filed 2026-09-09. Measured, not inferred:
 `node -e "console.log(require('fs').readFileSync('src/app/sanitize-records.ts','utf8').split('\n').length)"`
 prints **1600**, and `node scripts/check-file-sizes.mjs` exits 0 — today. The same command against
 `origin/main` before this branch prints 1568, and `grep -c sanitize-records docs/baselines/file-sizes.json`
 is **0**.
-
-**Work item:** #288
 
 Found 2026-09-09 by the prose-correction pass on the AI create-path branch, which needed ~30 lines of
 corrections in a file that had 2 lines of headroom.
