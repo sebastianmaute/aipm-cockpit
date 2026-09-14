@@ -1830,7 +1830,6 @@ export const de: Record<TranslationKey, string> = {
   resourceConfirmDelete: "Diese Ressource löschen?",
   resourceDeleteCascadeNote: "Die Kalendereinträge der Person (Abwesenheiten und Schichten) werden ebenfalls entfernt.",
   resourceErrorName: "Bitte Vor- oder Nachnamen angeben.",
-  resourceErrorEmailDelimiter: "Eine zusätzliche E-Mail-Adresse darf weder ein Komma noch ein Semikolon enthalten.",
 
   resourcesUnlinked: "Nicht zugeordnet",
   resourcesUnlinkedHint: "Nicht im Verzeichnis",

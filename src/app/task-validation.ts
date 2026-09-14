@@ -8,12 +8,13 @@
 
 import { type TaskFormDraft } from "./task-form-context";
 import {
-  isValidEmail,
+  emailWriteRefusal,
   sanitizeAssignee,
   sanitizeEmail,
   sanitizeIsoDate,
   sanitizeTaskName,
 } from "./sanitize";
+import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
 
 /** The task-form fields that can carry a validation error. */
 export type TaskErrorField = "taskName" | "assignee" | "dueDate" | "assigneeEmail";
@@ -24,7 +25,8 @@ export type TaskErrorKey =
   | "errorAssigneeRequired"
   | "errorDueDateRequired"
   | "errorPastDate"
-  | "errorInvalidEmail";
+  | "errorInvalidEmail"
+  | "errorEmailDelimiter";
 
 export type TaskFieldErrors = Partial<Record<TaskErrorField, TaskErrorKey>>;
 
@@ -42,6 +44,7 @@ export function validateTaskForm(
   form: TaskFormDraft,
   today: string,
   isNew: boolean,
+  email: { stored?: string; copySources?: readonly (string | undefined)[] } = {},
 ): TaskFieldErrors {
   const errors: TaskFieldErrors = {};
 
@@ -52,9 +55,9 @@ export function validateTaskForm(
   if (!dueDate) errors.dueDate = "errorDueDateRequired";
   else if (isNew && dueDate < today) errors.dueDate = "errorPastDate";
 
-  // A blank email is allowed (the field is optional); a non-empty one must parse.
-  const email = sanitizeEmail(form.assigneeEmail);
-  if (email && !isValidEmail(email)) errors.assigneeEmail = "errorInvalidEmail";
+  // A blank email is allowed; a CHANGED one must be write-safe (spec Part 1).
+  const refusal = emailWriteRefusal(sanitizeEmail(form.assigneeEmail), email.stored, email.copySources ?? []);
+  if (refusal) errors.assigneeEmail = EMAIL_REFUSAL_KEY[refusal];
 
   return errors;
 }

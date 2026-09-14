@@ -260,3 +260,28 @@ describe("contact persons", () => {
     expect(new Set(heard).size).toBe(heard.length);
   });
 });
+
+describe("contact person add follows the email write rule", () => {
+  it("refuses an add with a typed unsafe email, keeps the draft and shows the error", async () => {
+    const user = userEvent.setup();
+    const setDraft = vi.fn();
+    render(<IdentityPeopleFields {...props} setDraft={setDraft} />);
+    await user.type(screen.getByRole("combobox", { name: t("en-US", "contactAddManual") }), "Bob Jones");
+    const email = screen.getByRole("textbox", { name: `${t("en-US", "contactAddManual")} — ${t("en-US", "email")}` });
+    await user.type(email, "a,b@x.com");
+    await user.click(screen.getByRole("button", { name: t("en-US", "add") }));
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
+    expect(email).toHaveValue("a,b@x.com");
+  });
+
+  it("adds with a copied unsafe email picked from the address book", async () => {
+    const user = userEvent.setup();
+    const setDraft = vi.fn();
+    render(<IdentityPeopleFields {...props} setDraft={setDraft} addressBook={[{ name: "Bob Jones", email: "a,b@x.com" }] as never} />);
+    await user.type(screen.getByRole("combobox", { name: t("en-US", "contactAddManual") }), "Bob");
+    await user.click(await screen.findByText("Bob Jones"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "add") }));
+    expect(setDraft).toHaveBeenCalledTimes(1);
+  });
+});

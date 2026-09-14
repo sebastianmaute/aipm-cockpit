@@ -1904,7 +1904,6 @@ const enUS = {
   resourceConfirmDelete: "Delete this resource?",
   resourceDeleteCascadeNote: "The person's calendar entries (absences and shifts) will also be removed.",
   resourceErrorName: "Enter a first or last name.",
-  resourceErrorEmailDelimiter: "An additional email address cannot contain a comma or a semicolon.",
 
   resourcesUnlinked: "Unlinked",
   resourcesUnlinkedHint: "Not in the address book",

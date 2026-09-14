@@ -23,7 +23,9 @@ import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
 import { useDraftState } from "./use-draft-state";
-import { isValidEmail, sanitizeEmail } from "./sanitize-core";
+import { emailWriteRefusal, sanitizeEmail } from "./sanitize-core";
+import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 
 interface Props {
   lang: Lang;
@@ -80,15 +82,17 @@ export function AbsenceEditModal({
       return;
     }
     const cleanedEmail = draft.assigneeEmail?.trim() || undefined;
-    // The task form's rule (`validateTaskForm`): a blank address is legal, a
-    // non-blank one must be an address. The AI writers refuse the same (§461).
+    // The rule is the shared `emailWriteRefusal` (format + delimiter,
+    // changed-only): a blank address is legal, a non-blank CHANGED one must be
+    // write-safe. The AI writers refuse the same (§461).
     // ★★ ONLY WHEN THE VALUE CHANGED from the one the modal opened with. The
     //  Email field is Full-tier only, so a stale malformed address stored
     //  before §461 would otherwise block saving any OTHER field at a tier
     //  where the user cannot even see it. Anything typed is still refused.
     const openedEmail = absence?.assigneeEmail?.trim() || undefined;
-    if (cleanedEmail && cleanedEmail !== openedEmail && !isValidEmail(sanitizeEmail(cleanedEmail))) {
-      setError(t(lang, "errorInvalidEmail"));
+    const emailRefusal = emailWriteRefusal(sanitizeEmail(cleanedEmail ?? ""), openedEmail);
+    if (emailRefusal) {
+      setError(t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
       return;
     }
     const cleanedNote = draft.note?.trim() || undefined;
@@ -151,7 +155,17 @@ export function AbsenceEditModal({
             assigneePlaceholder={t(lang, "absencePlaceholderAssignee")}
             showEmail={isVisible("email")}
             tooltip={t(lang, "absenceAssigneeHint")}
+            emailInvalid={emailFieldInvalid(draft.assigneeEmail)}
+            emailDescribedBy={emailFieldInvalid(draft.assigneeEmail) ? "absence-email-error" : undefined}
           />
+          {/* Steps aside while `error` (the blocking banner below) is showing —
+              a refused save already names the same reason, so this would
+              otherwise duplicate it as a second `role="alert"`. */}
+          {!error && isVisible("email") && emailFieldInvalid(draft.assigneeEmail) && (
+            <div className="sm:col-span-2">
+              <EmailFieldError id="absence-email-error" lang={lang} value={draft.assigneeEmail} />
+            </div>
+          )}
 
           {/* Start + end dates (grouped under the `dates` id). */}
           {isVisible("dates") && (

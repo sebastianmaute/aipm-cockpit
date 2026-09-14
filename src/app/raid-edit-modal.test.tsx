@@ -95,6 +95,52 @@ const MITIGATION_LABEL = t("en-US", "raidMitigation");
 const RISK_MATRIX_LABEL = t("en-US", "raidRiskMatrix");
 const TITLE_HINT = t("en-US", "raidFieldTitleHint");
 
+describe("RAID owner email follows the changed-only write rule", () => {
+  // ★ RaidEditModal is controlled (the parent owns `draft`), so a typed change
+  //  must be reflected back through a stateful host, mirroring `modalEl`.
+  function StatefulModal({ initial, onSave }: { initial: RaidItem; onSave: (item: RaidItem) => void }) {
+    const [d, setD] = useState(initial);
+    return (
+      <RaidEditModal
+        lang="en-US"
+        tasks={[]}
+        raid={[]}
+        stakeholdersEnabled
+        stakeholders={[]}
+        resources={[]}
+        contacts={[]}
+        onCreateResource={vi.fn(() => 1)}
+        draft={d}
+        isNew={false}
+        onChange={setD}
+        onApplyStatus={vi.fn()}
+        onApplyMatrix={vi.fn()}
+        onSave={onSave}
+        onCancel={vi.fn()}
+        onDelete={vi.fn()}
+        onCreateMitigationTask={vi.fn()}
+        onJumpToRaid={vi.fn()}
+      />
+    );
+  }
+
+  it("refuses a CHANGED delimiter-bearing owner email on save", () => {
+    const onSave = vi.fn();
+    render(<StatefulModal initial={makeDraft({ ownerEmail: "old@x.com" })} onSave={onSave} />, { wrapper });
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "a,b@x.com" } });
+    fireEvent.submit(screen.getByDisplayValue("a,b@x.com").closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorEmailDelimiter"));
+  });
+
+  it("saves while an unchanged stored owner email is unsafe", () => {
+    const onSave = vi.fn();
+    render(<StatefulModal initial={makeDraft({ ownerEmail: "a,b@x.com" })} onSave={onSave} />, { wrapper });
+    fireEvent.submit(screen.getByDisplayValue("a,b@x.com").closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("RaidEditModal InfoTooltip hints", () => {
   it("renders the Title field InfoTooltip reachable by accessible name", () => {
     render(modalEl(), { wrapper });

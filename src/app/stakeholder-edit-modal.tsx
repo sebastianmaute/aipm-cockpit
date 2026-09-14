@@ -25,7 +25,9 @@ import { ResourcePicker } from "./resource-picker";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { describeTextCap } from "./sanitize-report";
-import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
+import { BUDGET_NAME_MAX, TEXTAREA_MAX, emailWriteRefusal } from "./sanitize";
+import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -88,6 +90,11 @@ export function StakeholderEditModal({
   onJumpToComms,
 }: StakeholderEditModalProps) {
   const [error, setError] = useState<string | null>(null);
+  // The email the modal OPENED with — the stored value the changed-only rule
+  // judges against. Controlled modal (the parent owns `draft`), so it is
+  // captured per record by render-time reconcile on `draft.id`.
+  const [opened, setOpened] = useState({ id: draft.id, email: draft.email });
+  if (opened.id !== draft.id) setOpened({ id: draft.id, email: draft.email });
   const showToast = useToastContext();
   const adj = useAdjustmentTracker();
   const { isVisible } = useModalVisibility("stakeholder");
@@ -145,6 +152,12 @@ export function StakeholderEditModal({
     e.preventDefault();
     if (!draft.name.trim()) {
       setError(t(lang, "raidErrorTitleRequired"));
+      return;
+    }
+    const linked = draft.resourceId != null ? resources.find((r) => r.id === draft.resourceId)?.email : undefined;
+    const emailRefusal = emailWriteRefusal(draft.email ?? "", opened.email, [linked]);
+    if (emailRefusal) {
+      setError(t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
       return;
     }
     setError(null);
@@ -291,9 +304,14 @@ export function StakeholderEditModal({
                     const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
                     update("email", trimmed || undefined);
                   }}
-                  aria-describedby="stakeholder-email-counter"
+                  aria-invalid={emailFieldInvalid(draft.email) || undefined}
+                  aria-describedby="stakeholder-email-counter stakeholder-email-error"
                 />
                 <CharCounter value={draft.email ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-email-counter" lang={lang} />
+                {/* Steps aside while `error` (the banner below) is showing —
+                    a refused save already names the same reason, so this
+                    would otherwise duplicate it as a second `role="alert"`. */}
+                {!error && <EmailFieldError id="stakeholder-email-error" lang={lang} value={draft.email} />}
               </HintedLabel>
             </>
           )}

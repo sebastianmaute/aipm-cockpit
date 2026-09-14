@@ -66,6 +66,19 @@ describe("validateTaskForm", () => {
   });
 });
 
+describe("assigneeEmail follows the changed-only write rule", () => {
+  const unsafe = () => draft({ taskName: "X", assignee: "Y", dueDate: TODAY, assigneeEmail: "a,b@x.com" });
+  it("refuses a changed delimiter-bearing address with the delimiter key", () => {
+    expect(validateTaskForm(unsafe(), TODAY, false, { stored: "old@x.com" }).assigneeEmail).toBe("errorEmailDelimiter");
+  });
+  it("keeps an unchanged stored unsafe address valid", () => {
+    expect(validateTaskForm(unsafe(), TODAY, false, { stored: "a,b@x.com" }).assigneeEmail).toBeUndefined();
+  });
+  it("exempts a copy of the linked resource's stored email", () => {
+    expect(validateTaskForm(unsafe(), TODAY, false, { stored: "old@x.com", copySources: ["a,b@x.com"] }).assigneeEmail).toBeUndefined();
+  });
+});
+
 describe("validateTaskForm past-date rule", () => {
   const base = draft({
     taskName: "Ship the thing",

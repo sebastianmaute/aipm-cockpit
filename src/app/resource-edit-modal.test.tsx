@@ -177,7 +177,25 @@ describe("ResourceEditModal", () => {
     fireEvent.change(extra, { target: { value: "a,b@x.com" } });
     fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
     expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorEmailDelimiter"));
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
+  });
+
+  it("refuses a CHANGED primary email that is not write-safe", () => {
+    const onSave = vi.fn();
+    setupFull({ resource: { ...base, email: "old@x.com" }, onSave });
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "a;b@x.com" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorEmailDelimiter"));
+  });
+
+  it("saves an unrelated field while an unchanged stored primary email is unsafe, flagging it", () => {
+    const onSave = vi.fn();
+    setupFull({ resource: { ...base, email: "a,b@x.com" }, onSave });
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
+    fireEvent.change(screen.getByDisplayValue("Sample"), { target: { value: "Ada" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
   });
 
   // §422 fix round 2 (final-review finding 1) — mirrors updateResource's
@@ -203,7 +221,7 @@ describe("ResourceEditModal", () => {
     fireEvent.change(emailInputs[1], { target: { value: "c;d@x.com" } });
     fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
     expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorEmailDelimiter"));
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
   });
 
   // §422 cold-review round — the shared `findTornEmail` rule lets a save DROP a

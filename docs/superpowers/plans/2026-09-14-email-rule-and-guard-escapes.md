@@ -1508,7 +1508,7 @@ The absence flag (spec decision 2, pre-flight I7). The email input lives inside 
 `src/app/absence-edit-modal.tsx`: on the `<AssigneeField` mount add `emailInvalid={emailFieldInvalid(draft.assigneeEmail)}` and `emailDescribedBy={emailFieldInvalid(draft.assigneeEmail) ? "absence-email-error" : undefined}`, and directly after that mount's closing `/>` add:
 
 ```tsx
-          {isVisible("email") && emailFieldInvalid(draft.assigneeEmail) && (
+          {!error && isVisible("email") && emailFieldInvalid(draft.assigneeEmail) && (
             <div className="sm:col-span-2">
               <EmailFieldError id="absence-email-error" lang={lang} value={draft.assigneeEmail} />
             </div>
@@ -1516,6 +1516,21 @@ The absence flag (spec decision 2, pre-flight I7). The email input lives inside 
 ```
 
 (The form is a two-column grid. The wrapper spans both columns like `AssigneeField`'s own labels, and it renders only while flagging, so a clean value adds no empty grid row.)
+
+★ IMPLEMENTATION CORRECTION (Task 3, verified against a real run): the snippet
+above originally omitted `!error &&`. Without it, a refused submit (the
+existing "blocks save on an invalid assignee email" test) leaves
+`draft.assigneeEmail` at its invalid value, so BOTH the `ModalFieldError`
+banner and this flag render simultaneously, carrying the identical message —
+two `role="alert"` elements where the pre-existing test expects exactly one
+(`screen.getByRole("alert")`). Measured: `screen.getByRole("alert")` throws
+"Found multiple elements with the role alert" without the guard. The same
+duplicate-alert risk applies to every other editor's flag (resource,
+stakeholder, RAID owner, shift assignee) whenever that editor's single
+`error` banner and the field flag can show the same reason at once; Task 3
+added the identical `!error &&` guard to all of them for consistency, even
+though their existing tests use `getAllByRole("alert")` (plural) and would
+not have caught the duplication on their own.
 
 Rerun the four editor test files; Expected EXIT=0, `Test Files 4 passed (4)`.
 

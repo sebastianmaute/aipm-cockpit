@@ -9,6 +9,7 @@ import { ResourcePicker } from "./resource-picker";
 import type { listContacts } from "./contacts";
 import { DependencyLinkGroup } from "./dependencies-editor";
 import { CharCounter, FieldError } from "./field-feedback";
+import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 import { Field, TaskFormSection } from "./task-form-layout";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
@@ -300,12 +301,13 @@ export function TaskFormFields({
               markTouched("assigneeEmail");
             }}
             placeholder={t(lang, "placeholderEmail")}
-            invalid={errorFor("assigneeEmail") ? true : undefined}
-            aria-describedby={describedBy("assigneeEmail", "email-counter")}
+            invalid={errorFor("assigneeEmail") || emailFieldInvalid(form.assigneeEmail) ? true : undefined}
+            aria-describedby={describedBy("assigneeEmail", !errorFor("assigneeEmail") && emailFieldInvalid(form.assigneeEmail) ? "email-counter assigneeEmail-flag" : "email-counter")}
             className="w-full"
           />
           <CharCounter value={form.assigneeEmail} max={EMAIL_MAX} id="email-counter" lang={lang} />
           <FieldError id="assigneeEmail-error">{errorFor("assigneeEmail")}</FieldError>
+          {!errorFor("assigneeEmail") && <EmailFieldError id="assigneeEmail-flag" lang={lang} value={form.assigneeEmail} />}
         </Field>
         )}
       </TaskFormSection>

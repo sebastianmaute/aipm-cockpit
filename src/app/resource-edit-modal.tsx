@@ -18,6 +18,8 @@ import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
 import { ASSIGNEE_MAX, EMAIL_MAX, emailWriteRefusal, findTornEmail } from "./sanitize";
+import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -92,6 +94,11 @@ export function ResourceEditModal({
       return;
     }
     const email = adj.track(describeTextCap((draft.email ?? "").trim(), EMAIL_MAX)) || undefined;
+    const emailRefusal = emailWriteRefusal(email ?? "", resource?.email);
+    if (emailRefusal) {
+      setError(t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
+      return;
+    }
     const emails = (draft.emails ?? [])
       .map((e) => e.trim())
       .filter((e) => e.length > 0);
@@ -103,7 +110,7 @@ export function ResourceEditModal({
     // unsafe member is refused.
     const tornEmail = findTornEmail(emails, resource?.emails);
     if (tornEmail !== undefined) {
-      setError(t(lang, emailWriteRefusal(tornEmail, undefined) === "invalid" ? "errorInvalidEmail" : "resourceErrorEmailDelimiter"));
+      setError(t(lang, EMAIL_REFUSAL_KEY[emailWriteRefusal(tornEmail, undefined) ?? "delimiter"]));
       return;
     }
     const clean: Resource = {
@@ -297,9 +304,14 @@ export function ResourceEditModal({
                   const trimmed = describeTextCap(e.target.value, EMAIL_MAX).value.trim();
                   update("email", trimmed || undefined);
                 }}
-                aria-describedby="resource-email-counter"
+                aria-invalid={emailFieldInvalid(draft.email) || undefined}
+                aria-describedby="resource-email-counter resource-email-error"
               />
               <CharCounter value={draft.email ?? ""} max={EMAIL_MAX} id="resource-email-counter" lang={lang} />
+              {/* Steps aside while `error` (the banner below) is showing — a
+                  refused save already names the same reason, so this would
+                  otherwise duplicate it as a second `role="alert"`. */}
+              {!error && <EmailFieldError id="resource-email-error" lang={lang} value={draft.email} />}
             </HintedLabel>
           )}
 

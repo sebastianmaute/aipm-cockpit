@@ -250,6 +250,24 @@ describe("useTaskSubmit — validation guards", () => {
   });
 });
 
+describe("useTaskSubmit — the email copy source comes from args.resources (pre-flight I1)", () => {
+  const linked = { id: 7, firstName: "Ada", lastName: "L", email: "a,b@x.com", roleId: null, utilizationMode: "percent" as const, utilization: {} };
+
+  it("positive control: the same unsafe value with no resources is refused", () => {
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ form: { ...validForm(), resourceId: 7, assigneeEmail: "a,b@x.com" } })),
+    );
+    expect(result.current.fieldErrors.assigneeEmail).toBe("errorEmailDelimiter");
+  });
+
+  it("exempts a copy of the linked resource's stored email", () => {
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ form: { ...validForm(), resourceId: 7, assigneeEmail: "a,b@x.com" }, resources: [linked] })),
+    );
+    expect(result.current.fieldErrors.assigneeEmail).toBeUndefined();
+  });
+});
+
 describe("useTaskSubmit — edit branch", () => {
   it("patches the edited row, stamps localModifiedAt, clears editing, logs task.updated", () => {
     const setTasks = vi.fn();

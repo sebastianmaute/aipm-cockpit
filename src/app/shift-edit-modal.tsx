@@ -27,6 +27,9 @@ import type { Contact } from "./contacts";
 import { FieldNotice } from "./field-feedback";
 import { describeClamp } from "./sanitize-report";
 import { useConfirm } from "./confirm-dialog";
+import { emailWriteRefusal } from "./sanitize";
+import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 
 interface Props {
   lang: Lang;
@@ -136,6 +139,12 @@ export function ShiftEditModal({
         return;
       }
     }
+    const linked = draft.resourceId != null ? resources.find((r) => r.id === draft.resourceId)?.email : undefined;
+    const emailRefusal = emailWriteRefusal(draft.assigneeEmail ?? "", shift?.assigneeEmail, [linked]);
+    if (emailRefusal) {
+      setError(t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));
+      return;
+    }
     onSave({
       ...draft,
       assignee,
@@ -208,8 +217,14 @@ export function ShiftEditModal({
               type="email"
               value={draft.assigneeEmail ?? ""}
               onChange={(e) => update("assigneeEmail", e.target.value || undefined)}
+              aria-invalid={emailFieldInvalid(draft.assigneeEmail) || undefined}
+              aria-describedby="shift-email-error"
             />
           </label>
+          {/* Steps aside while `error` (the banner below) is showing — a
+              refused save already names the same reason, so this would
+              otherwise duplicate it as a second `role="alert"`. */}
+          {!error && <EmailFieldError id="shift-email-error" lang={lang} value={draft.assigneeEmail} />}
 
           <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">

@@ -6,7 +6,7 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
 import { TaskFormModal } from "./task-form-modal";
-import { fieldTierTrigger } from "../test/field-tier";
+import { fieldTierTrigger, selectFieldTier } from "../test/field-tier";
 import { t, loadI18n } from "./i18n";
 import type { NoteLogPanelProps } from "./note-log-panel";
 import type { BudgetBucket, NoteLogEntry } from "./types";
@@ -179,6 +179,24 @@ describe("TaskFormModal", () => {
     const trigger = fieldTierTrigger(EN);
     // PLACEMENT, not presence — see edit-modal-chrome.test.tsx.
     expect(trigger.closest("header")).not.toBeNull();
+  });
+});
+
+describe("TaskFormModal — a stored or copied unsafe email is flagged, not blocked (pre-flight I7)", () => {
+  it("shows the non-blocking flag for an unsafe value", () => {
+    stubTaskForm({ assigneeEmail: "a,b@x.com" });
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    selectFieldTier("fieldViewFull", EN);
+    expect(screen.getByText(t(EN, "errorEmailDelimiter"))).toBeInTheDocument();
+    expect(screen.getByDisplayValue("a,b@x.com")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("positive control: no flag for a clean value", () => {
+    stubTaskForm({ assigneeEmail: "nora@x.com" });
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    selectFieldTier("fieldViewFull", EN);
+    expect(screen.getByDisplayValue("nora@x.com")).not.toHaveAttribute("aria-invalid");
+    expect(screen.queryByText(t(EN, "errorEmailDelimiter"))).toBeNull();
   });
 });
 

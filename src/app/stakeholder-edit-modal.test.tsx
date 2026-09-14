@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { StakeholderEditModal } from "./stakeholder-edit-modal";
@@ -107,6 +107,65 @@ describe("StakeholderEditModal", () => {
     const p = setup({ draft: { ...draft, influence: "Low", interest: "Low" } });
     fireEvent.click(screen.getByRole("button", { name: /influence high.*interest high/i }));
     expect(p.onChange).toHaveBeenCalledWith(expect.objectContaining({ influence: "High", interest: "High" }));
+  });
+});
+
+describe("stakeholder email follows the changed-only write rule", () => {
+  // ★ StakeholderEditModal is controlled (the parent owns `draft`), so a typed
+  //  change must be reflected back through a stateful host or the value never
+  //  reaches the modal's own handleSubmit.
+  function Host({
+    initial,
+    onSave,
+  }: {
+    initial: Stakeholder;
+    onSave: () => void;
+  }) {
+    const [d, setD] = useState(initial);
+    return (
+      <>
+        <Seed tier="full" />
+        <StakeholderEditModal
+          lang="en-US"
+          draft={d}
+          isNew={true}
+          milestones={milestones}
+          resources={[]}
+          onChange={setD}
+          onSave={onSave}
+          onCancel={vi.fn()}
+          onDelete={vi.fn()}
+        />
+      </>
+    );
+  }
+
+  it("refuses a CHANGED malformed email on save", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "nope" } });
+    fireEvent.submit(screen.getByDisplayValue("Sam").closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorInvalidEmail"));
+  });
+
+  it("saves while an unchanged stored email is unsafe", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "a,b@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.submit(screen.getByDisplayValue("Sam").closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
   });
 });
 

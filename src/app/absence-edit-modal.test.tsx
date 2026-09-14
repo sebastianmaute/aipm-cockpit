@@ -223,6 +223,30 @@ describe("AbsenceEditModal", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorInvalidEmail"));
   });
 
+  it("blocks save on a changed delimiter-bearing assignee email with the delimiter message", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave });
+    fireEvent.change(screen.getByLabelText(t("en-US", "absenceAssigneeEmail")), { target: { value: "a,b@x.com" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorEmailDelimiter"));
+  });
+
+  it("flags a stored unsafe assignee email without blocking an unchanged save (pre-flight I7)", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave, absence: { ...base, assigneeEmail: "a,b@x.com" } });
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
+    expect(screen.getByLabelText(t("en-US", "absenceAssigneeEmail"))).toHaveAttribute("aria-invalid", "true");
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("positive control: a clean stored assignee email shows no flag", () => {
+    setupFull();
+    expect(screen.getByLabelText(t("en-US", "absenceAssigneeEmail"))).not.toHaveAttribute("aria-invalid");
+    expect(screen.queryByText(t("en-US", "errorEmailDelimiter"))).toBeNull();
+  });
+
   // ★★ The rule only applies to a CHANGED value. A malformed address stored
   //  before §461 must not block saving another field — here at the Advanced
   //  default, where the Full-only Email field is hidden and cannot be fixed.

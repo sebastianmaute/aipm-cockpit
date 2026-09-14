@@ -1674,7 +1674,7 @@ function TaskManagerInner() {
     editingId,
     setEditingId,
     setTaskModalOpen,
-    tasks,
+    tasks, resources,
     today,
     lang,
     settings,

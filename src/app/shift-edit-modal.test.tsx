@@ -62,6 +62,24 @@ describe("ShiftEditModal — assignee ResourcePicker", () => {
   });
 });
 
+describe("shift assignee email follows the changed-only write rule", () => {
+  it("refuses a CHANGED malformed email", () => {
+    const onSave = vi.fn();
+    setup({ onSave, isNew: false, shift: { id: 1, assignee: "Ada", assigneeEmail: "old@x.com", hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0] } as Shift });
+    fireEvent.change(screen.getByLabelText(t("en-US", "shiftAssigneeEmail")), { target: { value: "nope" } });
+    fireEvent.submit(screen.getByDisplayValue("nope").closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorInvalidEmail"));
+  });
+
+  it("saves while an unchanged stored email is unsafe", () => {
+    const onSave = vi.fn();
+    setup({ onSave, isNew: false, shift: { id: 1, assignee: "Ada", assigneeEmail: "a,b@x.com", hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0] } as Shift });
+    fireEvent.submit(screen.getByDisplayValue("a,b@x.com").closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("ShiftEditModal — panel sizing", () => {
   it("the panel carries a default height and min-height, not just a max, and the form can shrink to scroll", () => {
     // Same class of defect as the shared edit-modal shell and the budget
