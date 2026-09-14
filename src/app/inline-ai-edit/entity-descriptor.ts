@@ -645,14 +645,18 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //   • `birthday` — stored, but absent from `ResourceInput`: the tool cannot
     //     write it, so a diff here could never be applied.
     // ★★★ `emails` IS THE ONE ARRAY-VALUED MEMBER HERE, and it is deliberately
-    //  NOT in `arrayFields`. Its entry below renders the list as the joined
-    //  string `FieldDiff.raw` carries, and `coerce` (use-inline-entity-edit.ts)
-    //  passes a non-`arrayFields` value through UNTOUCHED — so the string
-    //  reaches `sanitizeEmailList`'s OWN delimited-string branch (it splits on
-    //  `[;,]`), which is the writer parsing its own format. Adding it to
-    //  `arrayFields` would instead split it in `coerce` on "," alone: a SECOND
-    //  parser for a format the writer already owns, i.e. the restatement the
-    //  `fieldSanitizers` docstring forbids.
+    //  NOT in `arrayFields`. Its entry below renders the list as a joined
+    //  string for the card only (`FieldDiff.before`/`after`/`raw`). The inline
+    //  WRITE replays the model's ORIGINAL value instead, carried as
+    //  `FieldDiff.rawInput` (open-followups §422), so an array reaches the
+    //  writer as an array and a string as the string the model sent — the same
+    //  value chat Apply replays. Adding `emails` to `arrayFields` would split
+    //  the joined string in `coerce` on "," alone: a SECOND parser for a format
+    //  the writer already owns, i.e. the restatement the `fieldSanitizers`
+    //  docstring forbids, and it would tear the very address at issue.
+    //  ★★ Which values are refused is ONE rule, `findTornEmail`
+    //  (`sanitize-core.ts`): `describeEntityCalls` refuses the FIELD and the
+    //  dispatcher refuses the call for exactly the same inputs.
     diffFields: ["firstName", "lastName", "title", "email", "department", "company", "location", "businessPhone", "isExternal", "notes", "emails"],
     // ★★★ THE ONLY GROUP ACROSS THESE SIX DESCRIPTORS today (grep
     // `requiredNonEmptyGroups: [` — every other entry is `[]`), and the reason

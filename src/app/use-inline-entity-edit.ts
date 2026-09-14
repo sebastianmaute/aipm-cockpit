@@ -17,7 +17,7 @@ import { type OperatingGuide } from "./operating-guide";
 import { callInlineEdit } from "./inline-ai-edit-call";
 import { type ApiUsage } from "./chat-api";
 import { AiHttpError, classifyAiError } from "./ai-errors";
-import { describeEntityCalls, isEmptyPlan, type EditPlan, type LinkDiff } from "./inline-ai-edit/plan";
+import { describeEntityCalls, isEmptyPlan, type EditPlan, type FieldDiff, type LinkDiff } from "./inline-ai-edit/plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 
 export type InlinePhase = "idle" | "thinking" | "preview" | "clarify" | "rejected" | "applying" | "error";
@@ -272,7 +272,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         // ★ The `?? diff.after` fallback is load-bearing: a sanitizer-INDUCED
         // enum reset carries no `raw`, because its `after` is a default enum
         // value that was never projected in the first place.
-        for (const diff of plan.updates) patch[diff.field] = coerce(d, diff.field, diff.raw ?? diff.after);
+        for (const diff of plan.updates) patch[diff.field] = inlinePatchValue(d, diff);
         // ★★★ `rawIds`, NEVER `after`. `after` is a RENDERED TITLE STRING, and
         // a title arriving at `sanitizeIdList` is the exact wipe this feature
         // exists to prevent: it splits on `[.;]`, finds no integers and stores
@@ -389,7 +389,22 @@ function linkPatchValue(
   return l.rawIds.length > 0 ? l.rawIds[0] : null;
 }
 
-function coerce(d: { arrayFields: ReadonlySet<string>; numberFields: ReadonlySet<string> }, field: string, value: string): unknown {
+type CoerceDescriptor = { arrayFields: ReadonlySet<string>; numberFields: ReadonlySet<string> };
+
+/** The value one `FieldDiff` puts into the inline write patch.
+ *  ★★★ `rawInput` FIRST, VERBATIM, when the diff carries the key: that is the
+ *   model's original `resource.emails` value, and replaying the joined `raw`
+ *   string instead re-splits an address holding "," or ";" and makes the
+ *   inline write judge a different value than the card and chat Apply
+ *   (open-followups §422). `in`, not `??`, so a carried `undefined` is still
+ *   the model's value.
+ *  ★ Otherwise `raw ?? after`, for the reasons at the call site. */
+export function inlinePatchValue(d: CoerceDescriptor, diff: FieldDiff): unknown {
+  if ("rawInput" in diff) return diff.rawInput;
+  return coerce(d, diff.field, diff.raw ?? diff.after);
+}
+
+function coerce(d: CoerceDescriptor, field: string, value: string): unknown {
   if (d.arrayFields.has(field)) return value ? value.split(",").map((s) => s.trim()).filter(Boolean) : [];
   if (d.numberFields.has(field)) return Number(value);
   return value;

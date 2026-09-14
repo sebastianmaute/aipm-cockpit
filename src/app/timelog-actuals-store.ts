@@ -248,10 +248,9 @@ export function clearActualsCache(projectId: string): void {
  *  one level up by `MAX_ACTUALS_TOTAL_CHARS`, which measures the whole
  *  serialised map on every save; this bound alone never did, and the map-level
  *  bound it left behind was `MAX_PROJECTS` eviction ALONE, which counts entries
- *  and never measures them. ★★ "Closed" covers the MANY-ENTRIES case only — a
- *  single entry whose own `users` list blows the budget is still written over
- *  it, for the reason stated on `MAX_ACTUALS_TOTAL_CHARS`. See open-followups
- *  §361 for the case this closed and §430 for the single-entry one it did not.
+ *  and never measures them. ★★ That closes the MANY-ENTRIES case (§361); a
+ *  single entry whose own `users` list blows the budget is handled by
+ *  `saveActualsCache`'s stage 5 (§430) — see `MAX_ACTUALS_TOTAL_CHARS`.
  *  ★ Per-entry was chosen over a whole-map budget because a whole-map trim
  *  would have to shrink some OTHER project's roll during a save for THIS one,
  *  and every trim rewrites a `dailyWindow` — a coverage CLAIM the insights
@@ -265,13 +264,12 @@ export function clearActualsCache(projectId: string): void {
 export const MAX_DAILY_ROLL_CHARS = 512 * 1024;
 
 /** Budget for the serialised cache map as a whole, rather than for one entry.
- *  ★★★ READ "AS A WHOLE" AS "ACROSS ENTRIES", NOT AS A GUARANTEE. What this
- *  closes is the MANY-ENTRIES case. It does NOT bound a SINGLE entry: `users`
- *  is unbounded, every shedding stage skips the entry being saved, and shedding
- *  that one is the silent-discard bug `saveActualsCache` exists to prevent — so
- *  one oversized entry is still written over budget and may still be lost to the
- *  quota error `writeDeviceJson` swallows. Bounding `users` would close it.
- *  That residual is open-followups §430 — NOT §361, which this bound closed.
+ *  ★★★ READ "AS A WHOLE" AS "ACROSS ENTRIES" FIRST. Stages 2–4 of
+ *  `saveActualsCache` enforce it across entries (§361). A SINGLE entry whose own
+ *  `users` exceed it is handled by stage 5, which sheds that entry's
+ *  `users`/`projectRefs` whole and keeps its aggregates (§430, closed). An entry
+ *  over budget on `aggregates` alone is still written as-is — nothing sheds
+ *  aggregates off the entry being saved.
  *  ★★★ WHY A SECOND BOUND EXISTS. `MAX_DAILY_ROLL_CHARS` is per-entry, so 50
  *  entries (`MAX_PROJECTS`) each sitting just under it is ~25 MB against a
  *  localStorage origin quota of roughly 5 MB shared with every other
@@ -440,12 +438,14 @@ function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
   return copy;
 }
 
-/** ★★★ FOUR STAGES, IN INCREASING ORDER OF WHAT THEY COST THE USER.
+/** ★★★ FIVE STAGES, IN INCREASING ORDER OF WHAT THEY COST THE USER.
  *  1. Count eviction (`MAX_PROJECTS`), newest `fetchedAt` first.
  *  2. Shed `daily` + `dailyWindow` + `dailyUsers` TOGETHER from the oldest
  *     entries.
  *  3. Shed `users` + `projectRefs` from the oldest entries.
  *  4. Drop whole entries, oldest first — the only stage that costs `aggregates`.
+ *  5. Shed the SAVED entry's own `users` + `projectRefs` — reached only when
+ *     that entry alone is over budget (open-followups §430).
  *  ★★★ THE ORDER IS THE DESIGN, AND `aggregates` IS WHAT IT PROTECTS.
  *  `withBoundedDaily`'s docstring states the rule: losing the roll must never
  *  cost the `aggregates` beside it, because the aggregates are what the network
@@ -469,13 +469,15 @@ function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
  *  return false FOR A GUARDRAIL INSIGHT (`overdueTrend`, `budgetVariance` and
  *  the `CORE_INSIGHT_TYPES` members return earlier and are not roll-derived),
  *  so it FREEZES — the recoverable direction. Shed whole or leave alone.
- *  ★★★ WHAT IS STILL NOT CLOSED: a SINGLE entry that alone exceeds the budget.
- *  `users` is unbounded and stages 2-4 all skip `projectId`, so such a save is
- *  written over budget and may still be lost to the quota error
- *  `writeDeviceJson` swallows. That is deliberate and cannot be fixed here — the
- *  only remaining candidate is the entry the caller just fetched, and shedding
- *  it is the silent-discard bug this function exists to prevent. What §361
- *  closed is the MANY-ENTRIES case. Bounding `users` would close the rest.
+ *  ★★★ STAGE 5 CLOSES THE SINGLE-ENTRY CASE (§430) WITHOUT CROSSING THE LINE
+ *  stages 2–4 draw. Those stages skip `projectId` because dropping the entry the
+ *  caller just fetched discards the network round trip. Stage 5 still never
+ *  drops it and never touches `aggregates`, `partial`, `fetchedAt` or the roll:
+ *  it sheds only the two display-only fields, whole, by stage 3's argument (read
+ *  only as lazy initial state with `?? []`, so the cost is an empty
+ *  People/Projects table until the next fetch). Without it such a save was
+ *  written over budget and lost ENTIRELY to the quota error `writeDeviceJson`
+ *  swallows. What §361 closed is the MANY-ENTRIES case; stage 5 closes the rest.
  *  ★ `size` is hoisted and recomputed ONLY after a stage actually rewrites
  *  `out`. `mapSize` is a full `JSON.stringify` — measured at 12.6 ms over a
  *  2.7 MB map on Node, and a browser main thread is typically slower — and this
@@ -551,6 +553,21 @@ export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): v
       delete next[k];
       out = next;
       size = mapSize(out);
+    }
+  }
+
+  // Stage 5 — the SAVED entry's own matching-UI inputs, shed whole, aggregates
+  // kept. Reached only when the saved entry ALONE is over budget: stages 2–4
+  // have removed everything else they may. A COPY, never a mutation of the
+  // caller's entry. Nothing further is shed — the roll is already capped by
+  // `withBoundedDaily`, so a real entry fits after this.
+  if (size > MAX_ACTUALS_TOTAL_CHARS) {
+    const e = out[projectId];
+    if (e.users !== undefined || e.projectRefs !== undefined) {
+      const shed = { ...e };
+      delete shed.users;
+      delete shed.projectRefs;
+      out = { ...out, [projectId]: shed };
     }
   }
 

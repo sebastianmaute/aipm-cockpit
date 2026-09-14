@@ -64,7 +64,7 @@ import {
   sanitizeIdList,
 } from "./sanitize-entities";
 import { sanitizeRichText } from "./rich-text-plain";
-import { RICH_SINK } from "./html-start";
+import { RENDER_SINK, RICH_SINK } from "./html-start";
 // ★ Type-only would not do: `acceptsEventDuration` is consulted at runtime by
 //  `CALENDAR_EVENT_FIELD_GUARDS`. It composes `calendar-event.ts`'s own
 //  `intInRange` over that module's private bounds, which is why the range has
@@ -1518,14 +1518,29 @@ export function sanitizeProjectMeta(input: unknown): ProjectMeta | null {
 const REPORT_HTML_MAX = 100_000;
 
 /** Defensive decode for a per-meeting status report. Returns undefined unless a
- *  non-empty `html` string and a string `updatedAt` are present. Pure/SSR-safe:
- *  it does NOT sanitize the HTML (that happens at write time), only caps size. */
+ *  non-empty `html` string and a string `updatedAt` are present. Pure/SSR-safe.
+ *  ★★ Within REPORT_HTML_MAX raw characters the body is BYTE-IDENTICAL (sanitized
+ *  at write time). Over it, sanitizeRichText bounds VISIBLE text at the cap and
+ *  degrades to plain text past it, never ending mid-tag or on a lone surrogate
+ *  the way the old raw `.slice` could (open-followups §108).
+ *  ★★★ OVER-CAP CLASSIFIES ON RENDER_SINK (unanchored "contains a tag
+ *  anywhere?"), NOT anchored RICH_SINK ("starts with a rich tag?"): a report
+ *  can legitimately OPEN with plain text before its first real tag, which the
+ *  anchored test misread as prose and escaped WHOLE into literal
+ *  `&lt;h2&gt;`/`&lt;p&gt;` text the next save then persisted (§108 r1).
+ *  ★ RESIDUAL TRADE: prose merely MENTIONING a bare tag ("we banned <hr>
+ *  rules"), with no real markup elsewhere, now passes through tag-intact
+ *  instead of escaped (RENDER_SINK's accepted cost, html-start.ts) — reachable
+ *  only via a hand-edited/foreign report, since `onSaveReport` runs
+ *  sanitizeRichHtml first and entity-escapes any typed tag; no text is lost. */
 function sanitizeMeetingReport(raw: unknown): MeetingReport | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const rr = raw as Record<string, unknown>;
   if (typeof rr.html !== "string" || rr.html.length === 0) return undefined;
   if (typeof rr.updatedAt !== "string") return undefined;
-  const out: MeetingReport = { html: rr.html.slice(0, REPORT_HTML_MAX), updatedAt: rr.updatedAt };
+  const html = rr.html.length <= REPORT_HTML_MAX ? rr.html : sanitizeRichText(rr.html, REPORT_HTML_MAX, RENDER_SINK);
+  if (!html) return undefined;
+  const out: MeetingReport = { html, updatedAt: rr.updatedAt };
   if (typeof rr.sentAt === "string") out.sentAt = rr.sentAt;
   return out;
 }

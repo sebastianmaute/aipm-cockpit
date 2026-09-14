@@ -78,7 +78,8 @@ export function quoteStep(
  *
  * ★★ A BARE `\r` IS DELIBERATELY UNTOUCHED. `split(/\r?\n/)` does not break on
  * one, so neither may this; normalizing it would also collide with §106
- * (Markdown bare-CR erosion), which is a separate defect.
+ * (Markdown bare-CR erosion, closed 2026-09-13 — that codec also still leaves a
+ * bare CR alone).
  *
  * ★★★ `malformedQuotes` COUNTS RFC 4180 VIOLATIONS, NOT SUSPICION, and the
  * distinction is the whole reason it can exist. §150 proves the question

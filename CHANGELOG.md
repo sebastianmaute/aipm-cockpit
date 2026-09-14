@@ -8,6 +8,48 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.3.2] - 2026-09-14 "Chandler"
+
+Data-loss fixes: rich text that merely opens with a bracketed phrase, Markdown
+line endings, oversized meeting reports, email addresses holding a comma or
+semicolon, and an oversized TimeLog cache entry. Closes follow-ups 32, 106,
+108, 422 and 430, and closes 150 as an accepted limit.
+
+### Fixed
+
+- **Text that opens with a bracketed phrase is no longer deleted.** A
+  description such as `<a note about pricing> is attached` was read as HTML and
+  the words inside the brackets vanished. A tag now counts as HTML only when
+  every attribute after its name carries a value, so that text stays as
+  written. Markup the app writes is recognised exactly as before.
+- **Stray carriage returns no longer disappear one per save.** Text holding a
+  run of carriage returns before a line break lost one of them on every
+  Markdown save and load. The whole run is now folded into the line break on
+  the first save, and the text does not change after that.
+- **An oversized meeting report is no longer cut in the middle of a tag or
+  character.** A report over 100,000 characters was truncated at a fixed
+  length. It now falls back to plain text cleanly, a report that opens with
+  plain text before its first heading keeps its markup, and reports within the
+  limit are stored unchanged.
+- **An email address containing a comma or semicolon can no longer be split in
+  two.** The resource editor, the AI resource tools and the AI inline edit now
+  refuse a new additional email holding `,` or `;`, using one shared rule.
+  Addresses already stored are kept, and nothing is changed when a workspace
+  loads. The inline edit's preview card now matches what it saves.
+- **An oversized TimeLog cache entry is no longer lost.** When one project's
+  cached user list alone was too large for browser storage, the whole save
+  failed silently. The entry now drops its user and project lists instead and
+  keeps its totals and daily figures; the lists return on the next fetch.
+
+### Known issues
+
+- A stored email address that already holds a comma or semicolon is still
+  split the first time the workspace is saved to CSV, Markdown or Turso
+  (follow-up 533).
+- The chat review card can reject one field while showing the call's other
+  fields as landing; Apply sends the whole call, so those other fields are lost
+  too (follow-up 534).
+
 ## [1.3.1] - 2026-09-13 "Chandler"
 
 Budget and exchange-rate fixes, a burn-down that values fixed-price buckets

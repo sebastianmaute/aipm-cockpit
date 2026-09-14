@@ -17,7 +17,7 @@ import { useDraggable } from "./use-draggable";
 import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
-import { ASSIGNEE_MAX, EMAIL_MAX } from "./sanitize";
+import { ASSIGNEE_MAX, EMAIL_MAX, findTornEmail } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -95,6 +95,16 @@ export function ResourceEditModal({
     const emails = (draft.emails ?? [])
       .map((e) => e.trim())
       .filter((e) => e.length > 0);
+    // §422 — the one shared rule, `findTornEmail` (`sanitize-core.ts`), the
+    // same predicate every other write boundary asks. The editor always sends
+    // an ARRAY, so only a member that is BOTH unsafe AND not already present,
+    // trimmed, in `resource` (the row as of when the modal opened, never live
+    // workspace state) is refused; a new resource has no stored list, so any
+    // unsafe member is refused.
+    if (findTornEmail(emails, resource?.emails) !== undefined) {
+      setError(t(lang, "resourceErrorEmailDelimiter"));
+      return;
+    }
     const clean: Resource = {
       ...draft,
       firstName,

@@ -11,7 +11,7 @@ import { useWorkspace } from "./workspace-context";
 import { type Settings } from "./settings-types";
 import { type StorageConfig } from "./storage";
 import { useTaskForm } from "./task-form-context";
-import { type Task } from "./types";
+import { type Resource, type Task } from "./types";
 import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
 import { type LogActivityAsFn } from "./activity-log-context";
@@ -212,12 +212,21 @@ function renderDispatcher(
   //   ~60 callers that omit it are the standing proof the write paths do not
   //   throw without a bypass. Only the arming suite passes a spy.
   allowDestructiveSave?: () => void,
+  // ★★ §422 — the ONLY way to get a delimiter-unsafe `resource.emails` into the
+  //  stored workspace for a test: `createResource`/`updateResource` now refuse
+  //  such an address at write time, so a test proving the STRING-input ruling
+  //  (a stored unsafe address the string contains) must seed it directly through
+  //  `TestProviders`' own seed mechanism rather than through either write path.
+  //  Optional and trailing, so every existing positional call is unaffected.
+  seedResources?: Resource[],
 ) {
   const setSelectedIds = vi.fn();
   const setSettings = vi.fn();
   const settings = makeSettings();
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <TestProviders tasks={initial}>{children}</TestProviders>
+    <TestProviders tasks={initial} seed={seedResources ? { resources: seedResources } : undefined}>
+      {children}
+    </TestProviders>
   );
   const { result } = renderHook(
     () =>
@@ -1497,6 +1506,65 @@ describe("useChatDispatcher – resource directory", () => {
     const { result } = renderDispatcher(seedTasks(), true);
     expect(() => result.current.createResource({ firstName: "X" })).toThrow();
     expect(result.current.listResources()).toHaveLength(0);
+  });
+
+  it("createResource refuses an extra email carrying a delimiter and writes nothing (§422)", () => {
+    const { result } = renderDispatcher();
+    expect(() => result.current.createResource({ firstName: "Ada", emails: ["a,b@x.com"] })).toThrow(/emails/);
+    expect(result.current.listResources()).toHaveLength(0);
+  });
+
+  it("updateResource refuses an extra email carrying a delimiter and leaves the row untouched (§422)", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace", emails: ["ada.alt@x.com"] });
+    expect(() => result.current.updateResource(created.id, { title: "Lead", emails: ["x;y@x.com"] })).toThrow(/emails/);
+    expect(result.current.getResource(created.id)).toMatchObject({ emails: ["ada.alt@x.com"] });
+    expect(result.current.getResource(created.id)?.title).toBeUndefined();
+  });
+
+  it("updateResource refuses a STRING emails while the stored list holds a delimiter-bearing address (§422 ruling)", () => {
+    // Seed a legacy comma address directly through TestProviders (write
+    // boundaries refuse it; load does not) — createResource/updateResource
+    // cannot be used to get it into the store now that both refuse it.
+    const seeded: Resource = {
+      id: 1, firstName: "Ada", lastName: "Lovelace",
+      roleId: null, utilizationMode: "percent", utilization: {},
+      emails: ["a,b@x.com"],
+    };
+    const { result } = renderDispatcher(seedTasks(), false, "open-points", undefined, undefined, undefined, [seeded]);
+    expect(() => result.current.updateResource(1, { title: "Lead", emails: "a,b@x.com, c@y.com" as unknown as string[] })).toThrow(/emails/);
+    expect(result.current.getResource(1)).toMatchObject({ emails: ["a,b@x.com"] });
+    expect(result.current.getResource(1)?.title).toBeUndefined();
+  });
+
+  it("updateResource does not refuse an ARRAY that only echoes an already-stored unsafe address (§422 fix round 1)", () => {
+    // Controller ruling: an array is stored VERBATIM (never split), so
+    // re-sending an address the row already holds cannot tear anything —
+    // only a genuinely NEW unsafe member should be refused.
+    const seeded: Resource = {
+      id: 1, firstName: "Ada", lastName: "Lovelace",
+      roleId: null, utilizationMode: "percent", utilization: {},
+      emails: ["a,b@x.com"],
+    };
+    const { result } = renderDispatcher(seedTasks(), false, "open-points", undefined, undefined, undefined, [seeded]);
+    let updated: unknown;
+    expect(() => {
+      updated = result.current.updateResource(1, { title: "Lead", emails: ["a,b@x.com"] });
+    }).not.toThrow();
+    expect(updated).toMatchObject({ title: "Lead", emails: ["a,b@x.com"] });
+    expect(result.current.getResource(1)).toMatchObject({ title: "Lead", emails: ["a,b@x.com"] });
+  });
+
+  it("updateResource still refuses an ARRAY carrying a genuinely NEW unsafe address (§422 fix round 1)", () => {
+    const seeded: Resource = {
+      id: 1, firstName: "Ada", lastName: "Lovelace",
+      roleId: null, utilizationMode: "percent", utilization: {},
+      emails: ["a,b@x.com"],
+    };
+    const { result } = renderDispatcher(seedTasks(), false, "open-points", undefined, undefined, undefined, [seeded]);
+    expect(() => result.current.updateResource(1, { title: "Lead", emails: ["a,b@x.com", "new;x@y.com"] })).toThrow(/emails/);
+    expect(result.current.getResource(1)).toMatchObject({ emails: ["a,b@x.com"] });
+    expect(result.current.getResource(1)?.title).toBeUndefined();
   });
 
   it("getResource fetches a created resource and returns null for a missing id", () => {

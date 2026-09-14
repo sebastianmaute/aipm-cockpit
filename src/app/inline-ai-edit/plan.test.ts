@@ -681,7 +681,7 @@ describe("resource extra emails (383)", () => {
       { descriptor: d, item, ws: emailWs },
     );
     expect(plan.updates).toEqual([
-      { entity: "resource", field: "emails", before: "b@x.com", after: "b@x.com, a@x.com", raw: "b@x.com, a@x.com" },
+      { entity: "resource", field: "emails", before: "b@x.com", after: "b@x.com, a@x.com", raw: "b@x.com, a@x.com", rawInput: ["b@x.com", "b@x.com", "a@x.com"] },
     ]);
     expect(plan.rejected).toEqual([]);
   });
@@ -705,7 +705,7 @@ describe("resource extra emails (383)", () => {
       [{ type: "tool_use", name: "update_resource", input: { id: 5, emails: [] } }],
       { descriptor: d, item, ws: emailWs },
     );
-    expect(plan.updates).toEqual([{ entity: "resource", field: "emails", before: "b@x.com", after: "", raw: "" }]);
+    expect(plan.updates).toEqual([{ entity: "resource", field: "emails", before: "b@x.com", after: "", raw: "", rawInput: [] }]);
   });
 
   it("drops an extra equal to the row's primary, as the write does", () => {
@@ -723,7 +723,7 @@ describe("resource extra emails (383)", () => {
       { descriptor: d, item, ws: emailWs },
     );
     expect(plan.updates).toEqual([
-      { entity: "resource", field: "emails", before: "b@x.com", after: "a@x.com", raw: "a@x.com" },
+      { entity: "resource", field: "emails", before: "b@x.com", after: "a@x.com", raw: "a@x.com", rawInput: ["m@x.com", "a@x.com"] },
     ]);
   });
 
@@ -740,7 +740,7 @@ describe("resource extra emails (383)", () => {
       { descriptor: d, item, ws: emailWs },
     );
     expect(plan.updates).toEqual([
-      { entity: "resource", field: "emails", before: "b@x.com", after: extras.join(", "), raw: extras.join(", ") },
+      { entity: "resource", field: "emails", before: "b@x.com", after: extras.join(", "), raw: extras.join(", "), rawInput: ["m@x.com", ...extras] },
     ]);
   });
 
@@ -756,7 +756,7 @@ describe("resource extra emails (383)", () => {
     );
     expect(plan.updates).toEqual([
       { entity: "resource", field: "email", before: "m@x.com", after: "a@x.com", raw: "a@x.com" },
-      { entity: "resource", field: "emails", before: "b@x.com", after: "m@x.com", raw: "m@x.com" },
+      { entity: "resource", field: "emails", before: "b@x.com", after: "m@x.com", raw: "m@x.com", rawInput: ["m@x.com", "a@x.com"] },
     ]);
   });
 
@@ -776,7 +776,7 @@ describe("resource extra emails (383)", () => {
     );
     expect(plan.updates).toEqual([
       { entity: "resource", field: "email", before: "m@x.com", after: "Bob@X.com", raw: "Bob@X.com" },
-      { entity: "resource", field: "emails", before: "b@x.com", after: "", raw: "" },
+      { entity: "resource", field: "emails", before: "b@x.com", after: "", raw: "", rawInput: ["bob@x.com"] },
     ]);
   });
 });

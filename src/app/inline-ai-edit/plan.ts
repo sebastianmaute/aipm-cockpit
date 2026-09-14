@@ -5,7 +5,7 @@
 // side effects.
 import { type Task } from "../types";
 import { type Workspace } from "../workspace";
-import { isValidEmail, sanitizeIsoDate, toNumber } from "../sanitize";
+import { findTornEmail, isValidEmail, sanitizeIsoDate, toNumber } from "../sanitize";
 import { descriptionText } from "../rich-text-projection";
 import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor, type InlineEntity } from "./entity-descriptor";
 import { splitName } from "../resource-foundation";
@@ -36,8 +36,17 @@ export type ToolUseLike = { type: string; id?: string; name?: string; input?: un
  *   register was updated; a mixed plan fell back to raw property names (§393).
  *   ★ It is REQUIRED: every producer has the descriptor for the entity the
  *   INPUT belongs to already in scope, so an optional member would only buy a
- *   silent hole for a future producer that forgot. */
-export interface FieldDiff { entity: InlineEntity; field: string; before: string; after: string; raw?: string }
+ *   silent hole for a future producer that forgot.
+ *
+ *  ★★★ `rawInput` IS THE MODEL'S ORIGINAL VALUE, UNSANITIZED, and only
+ *   `resource.emails` carries it (open-followups §422). Its `raw` is the
+ *   ", "-joined preview string, and replaying that string re-splits an address
+ *   holding "," or ";" — while chat Apply replays the ORIGINAL call. With the
+ *   key present, `inlinePatchValue` (`use-inline-entity-edit.ts`) writes it
+ *   verbatim, so the plan guard, the inline write and chat Apply all judge the
+ *   SAME value. `raw` stays a string so every card and sweep comparing it
+ *   against a stored projection is unchanged. */
+export interface FieldDiff { entity: InlineEntity; field: string; before: string; after: string; raw?: string; rawInput?: unknown }
 export interface NewItem { entity: string; title: string; toolName: string; input: Record<string, unknown> }
 export interface Deletion { entity: string; label: string; toolName: string; id: number }
 export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input" | "unsupported"; detail: string }
@@ -45,7 +54,8 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *
  *  ★★★ THIS IS NOT A `FieldDiff` AND MUST NEVER BE PUT IN `plan.updates`.
  *   `use-inline-entity-edit.ts` rebuilds its write patch from `updates` with
- *   `patch[diff.field] = coerce(d, diff.field, diff.raw ?? diff.after)`. A link
+ *   `patch[diff.field] = inlinePatchValue(d, diff)`, which falls back to
+ *   `diff.raw ?? diff.after` for any diff without `rawInput`. A link
  *   diff there would write the TITLE STRING into `linkedTaskIds`, and
  *   `sanitizeIdList` splits a string on `[.;]`, finds no integers and stores
  *   `[]` — wiping every link the row had.
@@ -584,8 +594,25 @@ export function describeEntityCalls(
         const normalize = previewNormalizerFor(d, f);
         const before = normalize ? normalize(item[f], merged) : str(item[f]);
         const after = normalize ? normalize(input[f], merged) : str(input[f]);
-        if (before === after) continue;
         const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
+        // ★★★ §422 — THE ONE SHARED RULE, `findTornEmail` (`sanitize-core.ts`),
+        //  asked with the SAME arguments `updateResource` uses: the RAW incoming
+        //  value and the stored list. Refusing the FIELD keeps it out of the
+        //  inline patch and lets every other field apply — the
+        //  `emailFormatFields` shape below. An array is refused only for a NEW
+        //  unsafe member; a string only when it contains a stored unsafe address.
+        //  ★★ Judged on the RAW value, never `after`, and the inline write
+        //   replays that raw value too (`FieldDiff.rawInput`), so the card, the
+        //   inline write and chat Apply cannot disagree about which call fails.
+        //  ★ ABOVE the `before === after` skip, so a value the writer refuses is
+        //   disclosed even where the preview projection happens to equal the
+        //   stored list (an unsafe member the primary-email dedupe removes).
+        //  ★ The detail uses the RAW incoming value (`str(input[f])`), never
+        //   `after`: `after` has already been through `fieldSanitizers.emails`,
+        //   which re-splits a STRING on `[;,]` and rejoins it — so the card
+        //   would show an address that was never what the model actually sent.
+        if (d.entity === "resource" && f === "emails" && findTornEmail(input[f], Array.isArray(item.emails) ? (item.emails as string[]) : undefined) !== undefined) { bad(`${f}=${str(input[f])}`); continue; }
+        if (before === after) continue;
         // ★★★ A JOINT REQUIREMENT IS JUDGED ON THE MERGED ROW, NEVER ON THIS
         // FIELD ALONE, and the group takes PRECEDENCE over `requiredNonEmpty`
         // so the descriptor's "a member of a group is exempt" holds by
@@ -696,7 +723,8 @@ export function describeEntityCalls(
         const accepts = d.numericFields[f];
         if (accepts && !accepts(input[f])) { bad(`${f}=${after}`); continue; }
         if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }
-        plan.updates.push({ entity: d.entity, field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after), raw: after });
+        // ★★ `rawInput` for `resource.emails` only — see `FieldDiff`.
+        plan.updates.push({ entity: d.entity, field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after), raw: after, ...(d.entity === "resource" && f === "emails" ? { rawInput: input[f] } : {}) });
         applied[f] = after;
       }
       // Relationship and FK inputs, projected against the row being updated.

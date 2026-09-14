@@ -61,11 +61,19 @@ import { DOCUMENT_ALLOWED_TAGS, RICH_ALLOWED_TAGS } from "./sanitize-html";
 const TAG_NAME = /^[a-z][a-z0-9]*$/;
 
 /** Never matches anything. Returned when no valid tag name survives the filter —
- *  an empty alternation would compile to `<()\b[^>]*>`, which matches "<" followed
- *  by any word character (e.g. "<b>", "<div>") and turns every such stray angle
- *  bracket into "this is HTML". Measured: it does NOT match a bare "<>" — `\b`
- *  needs a word character on at least one side, and there is none between "<"
- *  and ">".
+ *  an empty alternation would now compile to `^\s*<()` + `TAG_TAIL`, and that
+ *  DOES match a bare "<>" or "< />". Measured, not reasoned: build that exact
+ *  string (`new RegExp("^\\s*<()" + TAG_TAIL, "i")`, `TAG_TAIL` copied verbatim
+ *  from below) and `.test()` it — `<>` and `< />` both print `true`, `<b>` and
+ *  `<div>` both print `false`, because the character right after the empty
+ *  capture group must be whitespace, `/` or `>`, and `b`/`d` are neither. So
+ *  this guard matters MORE now than it used to: an empty tag list would turn
+ *  every stray "<>" or "< />" into "this is HTML". ★ Before §32 the degenerate
+ *  pattern was `<()\b[^>]*>`, which matched "<" followed by any WORD character
+ *  ("<b>", "<div>") and — measured at the time — did NOT match a bare "<>",
+ *  since `\b` needs a word character on at least one side and there was none
+ *  between "<" and ">". `TAG_TAIL` inverted which bare form the guard has to
+ *  stop.
  *
  *  ★★ UNREACHABLE FROM ANY CURRENT SINK, for the same reason as TAG_NAME above:
  *  with `#text` gone every `SINK_TAGS` member passes the filter, so no live list
@@ -75,6 +83,55 @@ const TAG_NAME = /^[a-z][a-z0-9]*$/;
  *  value would then be stored raw. `html-start.test.ts` reaches it directly with
  *  `htmlStartRe(["#text"])`. */
 const NEVER = /(?!)/;
+
+/** What may follow a tag NAME for the value to count as a tag: zero or more
+ *  attributes that each CARRY A VALUE — double-quoted, single-quoted or
+ *  unquoted — then optional whitespace, an optional `/`, and the closing `>`.
+ *  ONE fragment, shared by `htmlStartRe` and `CONTAINS_TAG`, so the four
+ *  classifiers cannot drift apart on it.
+ *
+ *  ★★★ WHY A VALUE IS REQUIRED (open-followups §32). The previous tail was
+ *  `\b[^>]*>` — anything up to a `>` — so "<a note about pricing> is attached"
+ *  classified as HTML and the sink then dropped "note about pricing".
+ *  Tightening the character after the name does not help: `note`, `about` and
+ *  `pricing` are syntactically legal VALUELESS attribute names. Every attribute
+ *  this app stores carries a value (`href`, `target`, `rel`, `data-align`,
+ *  `data-type`, `data-checked`, plus `data-asset-id` and `alt` on documents),
+ *  DOMPurify serialises attributes quoted, and an unquoted legacy import such
+ *  as `<p class=MsoNormal>` still matches. Measured over the 52 DISTINCT strings holding a `<` in the
+ *  three sample workspaces (682 occurrences total, every one real markup): zero classification changes.
+ *  ★ That corpus holds no PROSE-shaped values, so it witnesses only that real markup kept its
+ *  classification — it says nothing about the direction §32 actually changed, a value that merely
+ *  LOOKS tag-shaped now escaping instead of matching. The "valued-attribute grammar" describe block in
+ *  `html-start.test.ts` is the witness for that direction.
+ *
+ *  ★★ IT ALSO CARRIES THE OLD `\b`'S JOB. The first character after the name
+ *  must be whitespace, `/` or `>`, so `<script>` cannot match the listed `s`
+ *  and `<strongish>` cannot match `strong`.
+ *
+ *  ★★ RESIDUE, and it is undecidable rather than unchased: an ATTRIBUTE-FREE
+ *  tag opening prose ("<mark> means highlight in this project") is
+ *  byte-identical to real markup that opens an element, so it still classifies
+ *  as HTML and the literal "<mark>" token is dropped. Only the words INSIDE the
+ *  brackets were ever recoverable, and those are what this closes.
+ *
+ *  ★★ ACCEPTED COST: three real, FOREIGN HTML shapes now fail this grammar and are escaped whole on
+ *  their next sanitize, where each used to be recognised and kept:
+ *    - a bare BOOLEAN attribute — `<hr noshade>`, `<p class="x" hidden>`, `<ol reversed>`,
+ *      `<td nowrap>`.
+ *    - two attributes with no separating WHITESPACE — `<a href="x"target="_blank">`.
+ *    - an unquoted value that itself holds an `=` — `<a href=page?a=b>`.
+ *  No app-written value is affected by any of the three: DOMPurify always serialises attributes
+ *  quoted and whitespace-separated (a boolean becomes `hidden=""`, and quoting an unquoted value
+ *  removes both the missing separator and the bare `=` from the value), so nothing this app itself
+ *  stores changes classification — but a hand-edited or foreign-imported value using one of the three
+ *  spellings does. Measured against the committed `TAG_TAIL`, not reasoned: `new RegExp("<[a-z][a-z0-9]*"
+ *  + TAG_TAIL, "i")` and the anchored per-sink form both print `false` for
+ *  `<a href="x"target="_blank">x</a>` and for `<a href=page?a=b>x</a>`, on both the rich and render
+ *  sinks; `html-start.test.ts` pins both alongside the boolean-attribute case. Deliberate: the
+ *  alternative is re-admitting `note`/`about`/`pricing`-shaped valueless "attributes", which is the
+ *  defect this closes. */
+const TAG_TAIL = "(?:\\s+[^\\s\"'<>/=]+\\s*=\\s*(?:\"[^\"]*\"|'[^']*'|[^\\s\"'=<>`]+))*\\s*/?>";
 
 /** Matches a well-formed opening tag ANYWHERE in the value — the classifier for
  *  the "render" sink, and deliberately UNANCHORED where the THREE derived ones
@@ -95,7 +152,7 @@ const NEVER = /(?!)/;
  *      src/app/rich-text-plain.property.test.ts src/app/doc-render-docx.test.ts \
  *      src/app/doc-render-html.test.ts src/app/doc-render-pptx.test.ts
  *  Pre-existing; open-followups §141(d). */
-const CONTAINS_TAG = /<[a-z][a-z0-9]*\b[^>]*>/i;
+const CONTAINS_TAG = new RegExp(`<[a-z][a-z0-9]*${TAG_TAIL}`, "i");
 
 /** Build the "already HTML?" test for one allow-list.
  *
@@ -105,34 +162,28 @@ const CONTAINS_TAG = /<[a-z][a-z0-9]*\b[^>]*>/i;
  *  plain text somebody typed. Passing it through makes the sink delete those
  *  literal characters.
  *
- *  ★ `\b[^>]*>` so void spellings (`<hr/>`, `<img src=…>`) and attribute-bearing
- *  tags match. The `\b` does NOT change the outcome for a tag that IS on the
- *  list — with `strong` and `s` both present, "<strong>" matches either way,
- *  since alternation is leftmost-first and (in every real sink) `strong` is
- *  listed before `s`, so `s` is never even tried. What `\b` actually decides is
- *  an UNLISTED tag that shares a listed one's prefix: without it, the `s`
- *  alternative matches the leading "s" of "<script>", "<section>" or
- *  "<summary>" and `[^>]*>` swallows the rest of the name as if it were
- *  attributes — misclassifying each as already-HTML. `s` is a member of
- *  RICH_ALLOWED_TAGS, and DOCUMENT_ALLOWED_TAGS spreads that array, so dropping
- *  `\b` would make ALL THREE derived sinks — rich, document AND projection —
- *  treat a value starting "<script...>" as already-HTML. ★★ "rich" is the one
- *  that matters most: it is the STORAGE classifier for the seven rich entity
- *  fields, so a reader asking "is the rich storage path exposed?" must read this
- *  as YES. (It said "the document and projection sinks" while `s` lived only on
- *  DOCUMENT_ALLOWED_TAGS, and the sentence outlived that fact by one commit.)
+ *  ★ `TAG_TAIL` (above) so void spellings (`<hr/>`, `<img src="…">`) and
+ *  VALUED attribute-bearing tags match. Its first character must be whitespace,
+ *  `/` or `>`, and that is what separates an UNLISTED tag from a listed prefix
+ *  of it: `s` is a member of RICH_ALLOWED_TAGS (and DOCUMENT_ALLOWED_TAGS
+ *  spreads that array), so without the rule the `s` alternative would match the
+ *  leading "s" of "<script>", "<section>" or "<summary>" and ALL THREE derived
+ *  sinks — rich, document AND projection — would treat such a value as
+ *  already-HTML. ★★ "rich" is the one that matters most: it is the STORAGE
+ *  classifier for the seven rich entity fields, so a reader asking "is the rich
+ *  storage path exposed?" must read the rule as what protects it. Until §32 this
+ *  job was a `\b` in front of `[^>]*>`.
  *  Measured, not reasoned — see the "does not let a short tag swallow" test below.
  *
  *  ★ "<strongish>" belongs to the same class but reaches it by a DIFFERENT
- *  alternative, and an earlier revision listed it beside the three above as if
- *  it did not. Measured with `\b` removed: "<script>", "<section>" and
- *  "<summary>" capture "s", while "<strongish>" captures "strong" — leftmost
- *  alternation reaches `strong` first and never tries `s`. Same wrong outcome,
- *  so `\b` is what fixes both, but a prefix-swallow is not always the SHORTEST
- *  listed tag doing the swallowing. Do not reason about which alternative wins;
- *  run the regex.
+ *  alternative: measured on the pre-§32 tail with its `\b` removed, "<script>",
+ *  "<section>" and "<summary>" captured "s" while "<strongish>" captured
+ *  "strong" — leftmost alternation reaches `strong` first and never tries `s`.
+ *  Same wrong outcome, and the whitespace-`/`-`>` rule fixes both, but a
+ *  prefix-swallow is not always the SHORTEST listed tag doing the swallowing.
+ *  Do not reason about which alternative wins; run the regex.
  *
- *  ★★★ The tag must be an OPENING tag that actually CLOSES — `[^>]*>` requires
+ *  ★★★ The tag must be an OPENING tag that actually CLOSES — `TAG_TAIL` requires
  *  the terminating `>`. Accepting a bare opener classified a legacy PLAIN value
  *  that merely STARTS tag-shaped ("<li 3 items", "<p ok", "<em dash - not
  *  markup") as already-HTML: passed through raw instead of escaped, the HTML
@@ -143,15 +194,16 @@ const CONTAINS_TAG = /<[a-z][a-z0-9]*\b[^>]*>/i;
  *  user reads their own text — the same resolution the sink lists reach for a
  *  tag they don't recognise at all.
  *
- *  ★ RESIDUE, deliberately not chased: a value that is genuinely tag-shaped AND
- *  terminated but is not markup — "<a href> tags are banned" — still passes
- *  through, and the sink eats the "<a href>" fragment. A heuristic on the
- *  opening tag alone cannot separate that from real markup; more regex would
- *  only move the boundary, not close it. */
+ *  ★ FORMER RESIDUE, CLOSED by `TAG_TAIL` (open-followups §32): a value that
+ *  is tag-shaped AND terminated but whose "attributes" carry no value — "<a
+ *  href> tags are banned", "<a note about pricing> is attached" — is prose now,
+ *  so it is escaped instead of losing its bracketed words. What remains is the
+ *  attribute-free case `TAG_TAIL`'s docstring states: "<mark> means highlight"
+ *  is byte-identical to real markup and cannot be separated from it. */
 export function htmlStartRe(tags: readonly string[]): RegExp {
   const names = tags.filter((t) => TAG_NAME.test(t));
   if (names.length === 0) return NEVER;
-  return new RegExp(`^\\s*<(${names.join("|")})\\b[^>]*>`, "i");
+  return new RegExp(`^\\s*<(${names.join("|")})${TAG_TAIL}`, "i");
 }
 
 /** The three sinks whose classifier is DERIVED from an allow-list.
@@ -175,7 +227,8 @@ export function htmlStartRe(tags: readonly string[]): RegExp {
  *      is escaped whole and emits literal "&lt;h1&gt;" as visible text into
  *      search, the AI digests and every export.
  *    - OVER-recognising is the §32 direction — a plain sentence that merely
- *      OPENS tag-shaped is passed through, and the strip pass then eats that
+ *      OPENS with a bare tag (no attributes, or only VALUED ones — `TAG_TAIL`)
+ *      is passed through, and the strip pass then eats that
  *      fragment along with its angle brackets. Measured 2026-08-10 through the
  *      real descriptionText: "<mark> means highlight in this project" projects
  *      to "means highlight in this project" — the opening fragment DROPPED.
@@ -189,7 +242,9 @@ export function htmlStartRe(tags: readonly string[]): RegExp {
  *  We take that trade deliberately: under-recognising is the commoner and far
  *  louder failure (an AI-authored heading is real markup a workspace stores every
  *  day; a sentence opening with a bare "<mark>" is rare), and its damage is
- *  visible in every surface at once. §32 stays open and unchanged in kind.
+ *  visible in every surface at once. §32 is CLOSED (2026-09-13) for the shape
+ *  that lost WORDS — a bracketed phrase with valueless "attributes"; the
+ *  attribute-free fragment measured above is the residue this trade still costs.
  *
  *  It is a distinct member from "document" even though the lists are equal today,
  *  so a reader sees WHY it is widest. */
@@ -249,18 +304,17 @@ const SINK_RE: Record<RichTextSink, RegExp> = {
    *  "&lt;strong&gt;". Nothing is stored at a render boundary, so a false NO is
    *  the loud, permanent-looking failure and the one to avoid.
    *
-   *  ★★ It is a TRADE, not a free lunch, and it is the factory's RESIDUE
-   *  paragraph one step wider: prose that merely MENTIONS a terminated tag
-   *  ("we banned <a href> tags") now passes through too, and what the parser
-   *  then does to that fragment is NOT uniform — measured through the real
-   *  sanitizeDocumentHtml, an UNLISTED tag is eaten ("use <div> for layout" →
-   *  "use  for layout"), a LISTED one survives whole ("we banned <hr> rules" →
-   *  unchanged), and the <a> case is the worst of the three: "we banned <a
-   *  href> tags" → 'we banned <a href=""> tags</a>', a LIVE anchor wrapping the
-   *  remainder of the paragraph. Anchored, only a value OPENING that way was
-   *  exposed. We take it for the same reason the projection sink takes its
-   *  trade — real markup is the commoner input and its damage shows up in every
-   *  rendered surface at once.
+   *  ★★ It is a TRADE, not a free lunch: prose that merely MENTIONS a bare
+   *  terminated tag passes through too, and what the parser then does to that
+   *  fragment is NOT uniform — measured through the real sanitizeDocumentHtml,
+   *  an UNLISTED tag is eaten ("use <div> for layout" → "use  for layout") and a
+   *  LISTED one survives whole ("we banned <hr> rules" → unchanged). The worst
+   *  case measured before §32 — "we banned <a href> tags" → 'we banned <a
+   *  href=""> tags</a>', a LIVE anchor wrapping the rest of the paragraph — no
+   *  longer classifies: `href` carries no value, so `TAG_TAIL` refuses it.
+   *  Anchored, only a value OPENING that way was exposed. We take it for the
+   *  same reason the projection sink takes its trade — real markup is the
+   *  commoner input and its damage shows up in every rendered surface at once.
    *
    *  ★★★ Do NOT "restore" the anchor on the strength of that paragraph. It
    *  compares against the ANCHORED form, which only ever existed inside this
@@ -273,9 +327,10 @@ const SINK_RE: Record<RichTextSink, RegExp> = {
    *  not undo a trade — it reintroduces the escaped-markup defect.
    *
    *  It keeps all three guards, because it reuses the same shape: the tag must
-   *  actually CLOSE (`[^>]*>`, so "<li 3 items" escapes), it must start with a
+   *  actually CLOSE (`TAG_TAIL`, so "<li 3 items" escapes), it must start with a
    *  LETTER (so "<3 open" and "cost < 5k" escape), and a CLOSING tag is never
-   *  matched (so "</p> means close" escapes). */
+   *  matched (so "</p> means close" escapes). Since §32 it shares a fourth rule:
+   *  an attribute with no value makes the value prose ("we banned <a href> tags"). */
   render: CONTAINS_TAG,
 };
 

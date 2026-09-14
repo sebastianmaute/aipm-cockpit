@@ -728,6 +728,48 @@ describe("timelog actuals cache — map-level size budget", () => {
     expect(e?.projectRefs).toBeDefined();
   });
 
+  /** ★★★ §430 — STAGE 5. A single entry whose OWN `users` exceed the budget has
+   *  no other entry to shed from, so stages 2–4 all come up empty and the map
+   *  used to be written over budget — lost whole to the quota error
+   *  `writeDeviceJson` swallows. Stage 5 sheds the SAVED entry's
+   *  `users`/`projectRefs` together and keeps everything else.
+   *  ★ Controls, already in this block: "never sheds the saved entry's users,
+   *  even when it is the oldest" (stages 2–4 can fix the map, so stage 5 must not
+   *  fire) and "leaves a map within budget completely untouched". */
+  it("sheds the saved entry's own users and projectRefs when it alone exceeds the budget, keeping the rest", () => {
+    const users = Array.from({ length: 6 }, (_, i) => fatUser(i));
+    const smallWindow = { from: isoDay(0), to: isoDay(9) };
+    const projectRefs = [{ id: 1, name: "P", no: "P-1" }];
+    const caller = {
+      fetchedAt: "2026-09-01T00:00:00.000Z",
+      aggregates: agg(5),
+      partial: true,
+      users,
+      projectRefs,
+      daily: bigRoll(10),
+      dailyWindow: smallWindow,
+      dailyUsers: [7],
+    };
+    saveActualsCache("solo", caller);
+    // ★ Immutability: stage 5 must COPY the entry it sheds from, never mutate
+    // the caller's own object — the caller's `users`/`projectRefs` survive the
+    // call untouched even though the stored copy has both shed.
+    expect(caller.users).toBe(users);
+    expect(caller.projectRefs).toBe(projectRefs);
+    expect(storedLength()).toBeGreaterThan(0);
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+    const e = loadActualsCache("solo");
+    expect(e).toBeDefined();
+    expect(e?.fetchedAt).toBe("2026-09-01T00:00:00.000Z");
+    expect(e?.aggregates?.unattributed.hours).toBe(5);
+    expect(e?.partial).toBe(true);
+    expect(e?.daily).toEqual(bigRoll(10));
+    expect(e?.dailyWindow).toEqual(smallWindow);
+    expect(e?.dailyUsers).toEqual([7]);
+    expect(e?.users).toBeUndefined();
+    expect(e?.projectRefs).toBeUndefined();
+  });
+
   /** ★★ Stage 4 runs only once stages 2 AND 3 have nothing left to give, so the
    *  bulk has to sit in a field no earlier stage sheds — `aggregates` itself,
    *  which is exactly right: it is the thing stage 4 exists to sacrifice last.

@@ -258,7 +258,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§29](#29-formnotelog-is-dead-state-in-the-task-form--closed-in-02111) | ~~`form.noteLog` is dead state in the task form~~ | 0.209.0, promoted 0.210.0 | S | **CLOSED** in 0.211.1 |
 | [§30](#30-a-link-in-a-task-description-loses-its-address-in-document-exports--closed-2026-09-01) | ~~A link in a task description loses its address in document exports~~ | 0.210.0 (Larbalestier) | M | **CLOSED** 2026-09-01 (the decision: real links where the sink allows one, `text (url)` where it does not — non-goals at §329 · §330) |
 | [§31](#31-sanitizerichtext-caps-visible-text-so-markup-bytes-are-unbounded--affects-all-four-rich-entities--closed-2026-08-28) | `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — affects all four rich entities | 0.210.0, pre-existing for 3 of 4 | M | **CLOSED** 2026-08-28 |
-| [§32](#32-html_start-misclassifies-eight-plain-text-prefixes-and-the-text-is-then-deleted--open-small) | `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED — open, small | pre-existing, reach widened 0.210.0 | S | open |
+| [§32](#32-html_start-misclassifies-eight-plain-text-prefixes-and-the-text-is-then-deleted--closed-2026-09-13) | `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED | pre-existing, reach widened 0.210.0 | S | **CLOSED** 2026-09-13 |
 | [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--open-cosmetic) | A multi-paragraph description can overflow its PPTX box — open, cosmetic | 0.210.0 (Larbalestier) | S | open |
 | [§34](#34-the-dom-free-guards-filter-is-a-name-list-where-the-real-set-is-an-import-graph--closed-in-02100) | ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ | 0.210.0 (Larbalestier) | S | **CLOSED** in 0.210.0 |
 | [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--open-suspicion) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion | 0.210.0 (Larbalestier) | S | open |
@@ -332,9 +332,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§103](#103-an-over-cap-load-silently-and-permanently-destroyed-the-excess-documents--closed) | An over-cap load silently and permanently destroyed the excess documents | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** |
 | [§104](#104-the-aidocumentwrite-deep-link-is-still-dead--activityviewof-has-no-production-caller--open) | The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open |
 | [§105](#105-csv-section-markers-are-matched-on-raw-lines-so-a-newline-inside-a-quoted-cell-can-switch-the-parsers-section-mid-row--closed-2026-08-16) | CSV section markers are matched on RAW LINES, so a newline inside a quoted cell can switch the parser's section mid-row | property-based coverage (`!360`, no bump), found by `codec-roundtrip.property.test.ts` | M — silent data loss | **CLOSED** 2026-08-16 |
-| [§106](#106-the-markdown-codec-is-not-a-fixed-point-when-bare-crs-precede-a-newline--open-minor-progressive) | The Markdown codec is not a fixed point when bare CRs precede a newline — open, minor, progressive | property-based coverage (`!360`, no bump) | XS | open |
+| [§106](#106-the-markdown-codec-is-not-a-fixed-point-when-bare-crs-precede-a-newline--closed-2026-09-13) | The Markdown codec is not a fixed point when bare CRs precede a newline | property-based coverage (`!360`, no bump) | XS | **CLOSED** 2026-09-13 |
 | [§107](#107-html_start-and-sanitizetemplatehtml-disagree-about-u--h1--h2-so-a-model-description-leading-with-a-heading-is-stored-as-escaped-literal-markup--closed-2026-08-10) | `HTML_START` and `sanitizeTemplateHtml` disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup | property-based coverage (`!360`, no bump) | M | **CLOSED** 2026-08-10 |
-| [§108](#108-the-meeting-report-html-is-truncated-by-a-raw-slice-so-it-can-cut-mid-tag-and-split-a-surrogate-pair--open) | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — open | split out of §22 rather than folded in — same shape, strictly larger problem | S | open |
+| [§108](#108-the-meeting-report-html-is-truncated-by-a-raw-slice-so-it-can-cut-mid-tag-and-split-a-surrogate-pair--closed-2026-09-13) | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair | split out of §22 rather than folded in — same shape, strictly larger problem | S | **CLOSED** 2026-09-13 |
 | [§109](#109-icon-only-controls-with-no-hover-tooltip-and-one-control-named-only-by-its-title--the-one-name-defect-fixed-2026-08-31-tooltip-inventory-still-open-ratchet) | Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open |
 | [§110](#110-iconbutton-cannot-express-a-non-rounded-md--non-p-1-control--open) | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — open | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open |
 | [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--the-documents-listtsx-half-fixed-2026-08-25-the-docid-sub-section-below-still-open) | Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN | found 2026-08-08 by a merge review, in main's document-authoring code | M | open |
@@ -376,7 +376,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§147](#147-read-only-task-item-checked-state-is-a-character-name-to-at-not-checked--open-a11y-known-limit) | Read-only task-item checked state is a character name to AT, not "checked" — open, a11y, known limit | — | — | open |
 | [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--closed-2026-08-31) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread | — | — | **CLOSED** 2026-08-31 |
 | [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | open |
-| [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--open-undecidable-measured-the-detectable-half-fixed-2026-08-29) | A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured; the DETECTABLE half FIXED 2026-08-29 | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | open |
+| [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--closed-2026-09-13-as-an-accepted-limit) | A balanced pair of stray quotes mislabels rows across a CSV section boundary | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | **CLOSED** 2026-09-13 as an accepted limit |
 | [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-several-source-headers-and-still-asserted-as-a-live-rationale-elsewhere--open-needs-a-probe) | "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open |
 | [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--closed-2026-08-29) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | **CLOSED** 2026-08-29 |
 | [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--open-measured) | PPTX export is one slide per row and drops most rich fields before they can be rendered — open, measured | — | — | open |
@@ -646,7 +646,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§419](#419-a-legacy-over-cap-costimpact-is-silently-clamped-to-amount_max-on-load--closed-2026-09-06) | A legacy over-cap `costImpact` is silently clamped to `AMOUNT_MAX` on LOAD | found 2026-09-06 by the preview/apply-parity round-2 register sweep | S | **CLOSED** 2026-09-06 |
 | [§420](#420-a-creates-link-line-rendered-with-a-bare-field-label-indistinguishable-from-the-open-rows--closed-2026-09-06) | A create's link line rendered with a bare field label, indistinguishable from the open row's | found 2026-09-06 in cold review of the preview/apply-parity branch | S | **CLOSED** 2026-09-06 |
 | [§421](#421-the-registers-own-index-table-cannot-see-eight-of-its-entries--closed-2026-09-07) | The register's own index table cannot see eight of its entries | found 2026-09-06 after it caused the §407 number collision | S | **CLOSED** 2026-09-07 |
-| [§422](#422-a-comma-bearing-email-address-is-destroyed-when-an-inline-edit-names-emails-with-a-changed-value--open) | A comma-bearing email address is destroyed when an inline edit names emails with a changed value | found 2026-09-06 in cold review of the preview/apply-parity branch; trigger claim refuted by probe 2026-09-07 | S | open |
+| [§422](#422-a-comma-bearing-email-address-is-destroyed-when-an-inline-edit-names-emails-with-a-changed-value--closed-2026-09-13) | A comma-bearing email address is destroyed when an inline edit names emails with a changed value | found 2026-09-06 in cold review of the preview/apply-parity branch; trigger claim refuted by probe 2026-09-07 | S | **CLOSED** 2026-09-13 |
 | [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--closed-2026-09-07) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit; it had rotted FOUR times and was incomplete besides | S | **CLOSED** 2026-09-07 |
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--closed-2026-09-13) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | **CLOSED** 2026-09-13 |
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | **CLOSED** 2026-09-07 |
@@ -654,7 +654,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--closed-2026-09-07) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | **CLOSED** 2026-09-07 |
 | [§428](#428-focusaftermove--triggerrefs-has-no-detector-at-any-layer-and-the-playwright-probe-that-was-owed-refuted-its-own-premise--open) | `focusAfterMove` / `triggerRefs` has no detector at any layer | found 2026-09-07 writing the probe the reports-arrangement slice owed | NONE — a decision, not a defect; do not re-owe the probe | open |
 | [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--open) | A CLOSED entry's `**Status:**` line is ungated — `followups-status-check` filters closed entries OUT | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | open |
-| [§430](#430-a-single-cache-entry-over-the-map-budget-is-still-written-over-it-because-every-shedding-stage-skips-the-entry-being-saved--open) | A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved | found 2026-09-07 in review of `ebca2553`, documented rather than fixed | S-M — bound `users` at write time; do NOT shed the saved entry | open |
+| [§430](#430-a-single-cache-entry-over-the-map-budget-is-still-written-over-it-because-every-shedding-stage-skips-the-entry-being-saved--closed-2026-09-13) | A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved | found 2026-09-07 in review of `ebca2553`, documented rather than fixed | S-M — shed the saved entry's `users`/`projectRefs` whole (stage 5), never its aggregates | **CLOSED** 2026-09-13 |
 | [§431](#431-one-malformed-api-date-reached-the-budget-aggregates-as-a-phantom-period-key--closed-2026-09-07) | One malformed API date reached the budget aggregates as a phantom period key | found 2026-09-07 in cold review of the guardrail-bounds branch; the first-party path §367 said had not been probed | S-M — one row rule at ONE consumer; the roll deliberately keeps its unparseable key | **CLOSED** 2026-09-07 |
 | [§432](#432-two-surfaces-tell-the-user-to-re-fetch-hours-that-a-re-fetch-cannot-repair--closed-2026-09-07) | Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S-M — an `undated` subset of `unattributed`, plus one string each | **CLOSED** 2026-09-07 |
 | [§433](#433-a-phantom-period-key-made-an-empty-allocation-read-as-populated--closed-2026-09-07) | A phantom period key made an empty allocation read as populated | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S — one read-side predicate; stored data deliberately untouched | **CLOSED** 2026-09-07 |
@@ -755,6 +755,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§530](#530-there-is-no-microsoft-teams-integration-the-remaining-microsoft-365-gap--open) | There is no Microsoft Teams integration, the remaining Microsoft 365 gap — OPEN | AI PM Cockpit demo 2026-09-11 (P-8), GitLab #74; mirrored into the register 2026-09-13 | L — new Graph scopes, likely admin consent, then channel posts, online meetings and chat links | open |
 | [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--closed-2026-09-13) | Nothing checks that the register and GitLab issues stay one-to-one — CLOSED 2026-09-13 | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | **CLOSED** 2026-09-13 |
 | [§532](#532-two-projects-without-a-code-look-like-the-same-project-to-the-timelog-picker--open) | Two projects without a code look like the same project to the TimeLog picker — OPEN | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | open |
+| [§533](#533-csv-markdown-and-turso-split-a-stored-email-address-containing-a-comma-or-semicolon-on-save--open) | CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — OPEN | found 2026-09-14 in the cold review of the data-loss batch, measured by a codec round-trip probe; GitLab #323 | S–M — a quote-aware join for the `emails` cell, or a one-time migration | open |
+| [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--open) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -2153,17 +2155,15 @@ once — but it can TRUNCATE ALREADY-STORED values on their next load, so it nee
 
 ---
 
-## 32. `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED — open, small
+## 32. `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED — CLOSED 2026-09-13
 
-**Status:** open — a classifier that reads a plain sentence as HTML. Reproduced 2026-08-28 by `grep -n "htmlStartRe" src/app/html-start.ts`.
-
-**Work item:** #97
+**Status:** CLOSED 2026-09-13 — a tag now counts only when every attribute after its name carries a value (`TAG_TAIL`, shared by `htmlStartRe` and `CONTAINS_TAG` in `html-start.ts`). Pinned by `npx vitest run src/app/html-start.test.ts -t "valued-attribute grammar"`, which also pins the attribute-free residue below.
 
 Pre-existing (`narrative-html.ts`, where `HTML_START` then lived), found by a cold review of 0.210.0.
 Not introduced by it, but 0.210.0 extended the reach to the AI write boundaries, so a model-supplied
 value now hits it too.
 
-★★ **STILL OPEN, but the name below is RETIRED — do not go hunting for it.** §107 replaced the one
+★★ **(Open until 2026-09-13 — see the closure block at the end of this entry.) The name below is RETIRED — do not go hunting for it.** §107 replaced the one
 shared `HTML_START` with a per-sink classifier built by `htmlStartRe` (`html-start.ts`) on
 2026-08-10. That factory assembles the SAME shape — `\b[^>]*>` after the alternation — so this
 defect is unchanged in kind and now exists once per sink rather than once globally. The line number
@@ -2204,11 +2204,41 @@ Under the old plain-text-only AI boundary this survived as `&lt;a note…&gt;`. 
 gone with no reader able to recover it.
 
 ★ `rich-text-plain.test.ts` pins the NEVER-CLOSES cases (`"<li 3 items"`), which correctly do NOT match.
-The closes-with-a-space case is what is untested.
-★★ The fix is NOT just tightening the regex: `HTML_START` is shared with the dashboard narrative and it
+The closes-with-a-space case is what is untested. _(Tested since 2026-09-13 — see the closure block.)_
+★★ _(Superseded 2026-09-13 — see the closure block.)_ The fix is NOT just tightening the regex: `HTML_START` is shared with the dashboard narrative and it
 decides the classification for every rich field on every READ, so a change moves what existing stored
 values mean. Requiring `[\s>/]` after the tag name plus a well-formedness check is the shape; it needs
 its own slice and probably a golden check.
+
+**CLOSED 2026-09-13.** `htmlStartRe` and `CONTAINS_TAG` now share one tail, `TAG_TAIL`: after the tag
+name, zero or more attributes that EACH carry a value (double-quoted, single-quoted or unquoted), then
+optional whitespace, an optional `/`, and `>`. All four rows of the second table above (`<a note about
+pricing> is attached`, `<em dash> means something`, `<li 2 items> to review`, `<p 3 open> and
+counting`) and the old `htmlStartRe` RESIDUE case `<a href> tags are banned` classify as prose on all
+four sinks. The first character after the name must be whitespace, `/` or `>`, which is what `\b`
+used to guarantee, so `<script>` / `<strongish>` stay unrecognised on the derived sinks.
+Byte-stability: over the 52 DISTINCT strings holding a `<` in the three sample workspaces (682
+occurrences total, every one real markup), no string changed classification on any sink, and
+`golden-workspace.test.ts` is green with no fixture change. ★ That corpus holds no prose-shaped values,
+so it cannot witness the direction this closes — a value that merely LOOKS tag-shaped now escaping
+instead of matching; the "valued-attribute grammar" describe block in `html-start.test.ts` is the
+witness for that direction.
+
+★★★ **RESIDUE, ACCEPTED — the first table above still reproduces.** `<mark> means highlight in this
+project` and its three siblings open with an ATTRIBUTE-FREE tag, which is byte-identical to real
+markup that opens an element. They still classify as HTML and lose the literal tag token. No words
+inside the brackets are lost in that shape, which is the difference from the rows this closes.
+`html-start.test.ts` pins the residue so it cannot drift silently.
+
+★ §35's CLASSIFIER mechanism (`<a-b>` matching `a` at a word boundary) no longer reproduces under
+`TAG_TAIL` — `-` is not whitespace, `/` or `>`, so pass 1 no longer treats `<a-b>...</a-b>` as
+already-HTML. That does NOT close §35's user-visible symptom: the value is now escaped WHOLE on pass
+1 instead, so the literal angle brackets AND the stray entity both survive as escaped text. Measured:
+`sanitizeAiRichText("<a-b>cost &lt; 5k</a-b>")` → `"<p>&lt;a-b&gt;cost &amp;lt; 5k&lt;/a-b&gt;</p>"`,
+which renders as the literal text `<a-b>cost &lt; 5k</a-b>` — a double-escape of the entity, the same
+class of symptom §35 opened on, by a different route. §35's own body sentence ("fixing that likely
+closes this too") is therefore NOT borne out. §35 is NOT closed by this batch; re-verify it on its own
+before closing it.
 
 ---
 
@@ -2286,7 +2316,8 @@ it through → DOMPurify unwraps the unknown element to bare text → pass 3 no 
 ★ Needs a hyphenated/namespaced element whose name STARTS with one of p/br/strong/em/ul/ol/li/a, in
 leading position, plus an entity in the body. A model would have to emit that unprompted.
 ★ Same root cause as §32 (`HTML_START` classification), so fixing that likely closes this too — worth
-handling together rather than special-casing the third pass.
+handling together rather than special-casing the third pass. _(Superseded 2026-09-13: §32 closed and
+§35 still reproduces — see the note in §32's closure block.)_
 
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry names `HTML_START`, a constant §114 deleted. The mechanism is unchanged because the rich sink derives from `RICH_ALLOWED_TAGS`, which contains `a`, and the word boundary still matches before the hyphen — but the identifier to read is `isHtmlStart` with the rich sink. Reproduced by `grep -n "htmlStartRe" src/app/html-start.ts`.
 
@@ -8268,19 +8299,20 @@ unrelated Markdown fixed-point one. Said explicitly because a reader who greps t
 finds one and can reasonably read this entry as regressed. Re-checked 2026-08-25 with
 `grep -n "describe.skip" src/app/codec-roundtrip.property.test.ts` — one hit, the Markdown one.
 
+★ **Updated 2026-09-13:** §106 is closed and its block runs unskipped, so that grep now returns NO
+`describe.skip` at all — zero is the current correct answer, not a regression.
+
 ---
 
-## 106. The Markdown codec is not a fixed point when bare CRs precede a newline — open, minor, progressive
+## 106. The Markdown codec is not a fixed point when bare CRs precede a newline — CLOSED 2026-09-13
 
-**Status:** open — an asymmetric Markdown escape pair that drops a CR per round-trip. Reproduced 2026-08-28 by `grep -n "mdEscape" src/app/markdown-codecs-core.ts`.
-
-**Work item:** #139
+**Status:** CLOSED 2026-09-13 — `mdEscape`'s newline rule is `/\r*\n/`, so a CR run before an LF collapses on the first encode. Pinned by `npx vitest run src/app/codec-roundtrip.property.test.ts -t "does not erode a CR run"`; the formerly skipped block runs live.
 
 **Where:** `markdown-codecs-core.ts` `mdEscape` / `mdUnescape`.
 
-`mdEscape`'s `/\r?\n/` consumes the ONE carriage return nearest the LF; `mdUnescape` emits a bare LF;
-the next pass then has a fresh `\r\n` to eat. So a run of bare CRs loses one per save/load cycle
-**with no edit in between**:
+**Pre-fix mechanism:** `mdEscape`'s `/\r?\n/` consumed the ONE carriage return nearest the LF;
+`mdUnescape` emitted a bare LF; the next pass then had a fresh `\r\n` to eat. So a run of bare CRs
+lost one per save/load cycle **with no edit in between**:
 
 ```
 "a\r\r\r\nb" → "a\r\r\nb" → "a\r\nb" → "a\nb" → "a\nb"     (one arrow = one full round-trip)
@@ -8291,10 +8323,19 @@ repo's markdown format is LF) — so this sits well below §105. Recorded becaus
 changes on a load that made no edit" is the kind of thing that later reads as corruption.
 
 ★★ **Found only at `numRuns: 1500`; twenty runs missed it on the first seed.** The live fixed-point
-property therefore excludes bare CR explicitly, and the skipped block carries both the unrestricted
-property and a deterministic companion. ★ The skipped PROPERTY is itself seed-dependent at low run
+property therefore excludes bare CR explicitly, and the block that carried both the unrestricted
+property and a deterministic companion was skipped until the fix (now unskipped and live — see the
+CLOSED paragraph below). ★ That property was itself seed-dependent at low run
 counts — on the run where it was unskipped, the deterministic companion failed while the property
 passed. **The deterministic case is the reliable reproduction**; reach for that one, not the property.
+
+**CLOSED 2026-09-13.** `mdEscape` now rewrites `/\r*\n/` to `<br>`, so the whole CR run collapses into the
+break on the first encode and the first cycle is a fixed point (`"a\r\r\r\nb"` → `"a\nb"` → `"a\nb"`).
+A bare CR NOT followed by an LF is unchanged. The block that carried both the unrestricted property and
+the deterministic companion is unskipped. Before unskipping, the unrestricted property was probed
+against the fixed codec at 1500 runs through the identity
+`newRound(x) === oldRound(x.replace(/\r+\n/g, "\n"))`, and it held. No narrowing was needed.
+`golden-workspace.test.ts` is unchanged: no sample workspace contains a CR run before an LF.
 
 ---
 
@@ -8462,11 +8503,9 @@ index and never folded into the entry is a correction with a half-life — the e
 
 ---
 
-## 108. The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — open
+## 108. The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — CLOSED 2026-09-13
 
-**Status:** open — a raw slice that can cut mid-tag. Reproduced 2026-08-28 by `grep -rn "REPORT_HTML_MAX" src/app`.
-
-**Work item:** #140
+**Status:** CLOSED 2026-09-13 — an over-cap report goes through `sanitizeRichText` classified on `RENDER_SINK`; an under-cap one is returned byte-identical. Pinned by `npx vitest run src/app/sanitize-records.test.ts -t "per-meeting report"`.
 
 **Where:** `sanitize-records.ts`, the `MeetingReport` guard — `rr.html.slice(0, REPORT_HTML_MAX)`.
 
@@ -8486,6 +8525,41 @@ the two states, because the next reader sees a sanitizer call and stops looking.
 
 ★ Reachability is narrow: it needs a meeting report whose HTML exceeds `REPORT_HTML_MAX`, which no
 sample fixture does. Unmeasured in the wild — the mechanism is read from the code, not observed.
+
+**CLOSED 2026-09-13.** `sanitizeMeetingReport` returns a body within `REPORT_HTML_MAX` raw characters
+byte-identical, and routes a longer one through `sanitizeRichText(html, REPORT_HTML_MAX, RENDER_SINK)`
+(DOM-free, so the load path stays SSR-safe). Over the cap that bounds VISIBLE text at 100,000, keeps
+formatting while the raw size stays under the shared ceiling, and past either limit degrades through
+`degradeToPlain`, which cannot re-emit severed markup or a lone surrogate. A visually empty result
+drops the report, matching the existing empty-html rule. ★★ The length gate is load-bearing:
+`sanitizeRichText` on an UNDER-cap body measurably trims a trailing newline, turns a tab into a
+space, and — for a body carrying no tag at all — escapes the whole value, so calling it
+unconditionally would rewrite stored bytes on every load. The under-cap control test pins that.
+Semantic change, approved in the batch design: the cap bounds visible text, not raw units, for
+over-cap bodies.
+
+★★★ R1 REGRESSION, FOUND BY A COLD REVIEW AND FIXED THE SAME DAY: the first cut classified the
+over-cap call on the ANCHORED `RICH_SINK` ("starts with a rich tag?"), not `RENDER_SINK`. A report
+can legitimately OPEN with plain text before its first real tag — the write path stores
+`sanitizeRichHtml` (DOMPurify) output, which keeps a leading sentence — and the anchored test answers
+NO for that shape. `descriptionHtml` then escaped the WHOLE body into literal `&lt;h2&gt;`/`&lt;p&gt;`
+text, which the next save persisted permanently; the old raw `.slice` this entry replaced only ever
+lost the tail. `RENDER_SINK`'s unanchored "contains a tag anywhere?" test is the right question for
+this call site, because the body was already sanitized at write time — a plain-text lead in front of
+real markup is real HTML, not prose. Pinned by
+`npx vitest run src/app/sanitize-records.test.ts -t "§108 r1"`; the mutant (reverting to `RICH_SINK`)
+fails that test.
+
+★★ RESIDUAL TRADE, FOUND BY A COLD RE-REVIEW OF THE R1 FIX (non-blocking, disclosed rather than
+fixed): `RENDER_SINK`'s classifier is unanchored, so prose that merely MENTIONS a bare, valueless,
+terminated tag ("we banned `<hr>` rules") and carries no real markup anywhere else in the report is
+now classified as already-HTML and passed through with the literal tag intact, where it used to be
+escaped — the same accepted cost `html-start.ts` already documents for `RENDER_SINK`. Reachable only
+via a hand-edited or foreign-imported report: the app's own write path, `onSaveReport`
+(`use-meeting-report-actions.ts`), runs `sanitizeRichHtml` (DOMPurify) before storing, which
+entity-escapes any tag a user typed as prose, so no report the app itself writes can reach this shape.
+No visible text is lost either way — only whether a mentioned tag renders as a literal word or (on the
+next real sanitize pass) as an actual, usually-empty element.
 
 ---
 ## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet
@@ -9127,6 +9201,9 @@ instruction-only.
 ★ The §32 comparison above is UNTOUCHED by this fix. §32 is the classifier failing the other way —
 plain prose taken FOR markup, words DELETED — and its mechanism is the `TAG` pass, not this one. Do
 not read this closure as covering it.
+
+★ **Updated 2026-09-13:** §32 itself is now CLOSED (valued-attribute grammar, `TAG_TAIL`); the
+comparisons above describe it as it stood before that.
 
 ★ A THIRD sink was needed on top of these two, at the RENDER boundary, and no allow-list could
 express it — that is §118.
@@ -12679,11 +12756,9 @@ internally, like `rebaseline-popover.tsx`'s `TODAY_ISO`), and freeze the clock i
 the suite under a faked future date would enumerate them in one pass, but vitest fakes the clock
 per-test-file, so this needs a harness-level option rather than a one-off command.
 
-## 150. A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured; the DETECTABLE half FIXED 2026-08-29
+## 150. A balanced pair of stray quotes mislabels rows across a CSV section boundary — CLOSED 2026-09-13 as an accepted limit
 
-**Status:** open — the mislabelling is unchanged and the undecidable residue stands, but the MALFORMED subset (this entry's own fixture included) is now detected and pauses saving. Reproduced 2026-08-29 by `npx vitest run src/app/csv-section-split.test.ts -t "swallows a section marker"`, which pins both halves: the same mislabelled parse, and `malformedQuotes: 2` over it.
-
-**Work item:** #160
+**Status:** CLOSED 2026-09-13 as an accepted limit — no code change. The undecidable residue is accepted: a balanced, well-positioned stray quote pair is byte-identical to a legitimate quoted cell (this entry's own proof), the app's encoder can never produce one, and the detectable malformed subset already pauses saving. Witness: `npx vitest run src/app/csv-section-split.test.ts -t "swallows a section marker"`, which pins both the unchanged mislabelled parse and `malformedQuotes: 2` over it.
 
 Opened 2026-08-16 out of the cold review of the branch that closes §105.
 
@@ -12778,7 +12853,7 @@ diag {"droppedRows":0,"unterminatedQuote":false,"malformedQuotes":2}
 The mislabelling row-for-row is identical to the AFTER block above — three tasks, no milestones — so
 nothing about the parse changed. Only the diagnostic did.
 
-★★★ **AND THE RESIDUE IS REAL, SO DO NOT CLOSE THIS.** A stray pair that is BOTH balanced AND
+★★★ **AND THE RESIDUE IS REAL.** _(This said "SO DO NOT CLOSE THIS" until 2026-09-13; it is now closed as an ACCEPTED limit — the residue is unchanged and still undecidable, see the closure block.)_ A stray pair that is BOTH balanced AND
 well-positioned — opening at a field start, closing before a delimiter — swallows a marker while
 counting zero violations, because at that point the file is byte-identically a legitimate quoted
 cell. That case stays silent, stays mislabelled, and stays undecidable. The detector narrows the
@@ -12824,6 +12899,18 @@ a fact is worse than the silence it replaces.
 
 ★ Read with §105 (the mid-row section switch this branch closes) — this is the residue of that fix,
 not an independent defect.
+
+**CLOSED 2026-09-13 as an accepted limit.** Nothing about the parse changed and nothing is claimed
+fixed. The class splits in two and both halves are now settled. The MALFORMED subset (this entry's
+own fixture) is detected by `splitCsvLines`, raises the banner and pauses saving (2026-08-29). The
+residue — a balanced, WELL-POSITIONED stray pair — is byte-identical to a legitimate quoted cell, so
+no parser, detector or heuristic can separate it, and every one proposed above mis-fires on the
+correct §105 case. Its reachability is a hand-edited or foreign file only: `csvEscape` wraps and
+doubles, so the app's own encoder cannot write one (stated as a law by the `codec-roundtrip`
+property "never fires malformedQuotes on output our own encoder wrote"). Keeping an entry open on a
+provably undecidable residue only invites the heuristics this entry already refutes. The `src/`
+comments that cite §150 (`splitCsvLines`, `ImportDiag.malformedQuotes`, `useLoadTruncation`, their
+tests) cite it for the undecidability argument, which stands unchanged; none calls it open.
 
 ## 151. "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe
 
@@ -28496,7 +28583,7 @@ fabricates an `"improved"` outcome. The shedder removes the three fields outrigh
 alone; it never rewrites the window's bounds.
 
 ★ WHAT THIS CLOSED IS THE MANY-ENTRIES CASE. A SINGLE entry whose own `users` list exceeds the
-budget is still written over it, because every stage skips the entry being saved — tracked as §430,
+budget was still written over it, because every stage skipped the entry being saved — tracked as §430 (CLOSED 2026-09-13),
 which is a different defect with a different cause, not a re-opening of this one.
 
 ## 362. A guardrail insight's deep link arms `pendingOpen` with no consumer — OPEN
@@ -31777,18 +31864,35 @@ rewrites every row and fills `— | —` for the eight, whose summary and proven
 written. That is a real edit to entries other slices own, so it wants its own commit and its own
 review, not a drive-by during someone else's release. Deliberately NOT done here.
 
-## 422. A comma-bearing email address is destroyed when an inline edit names emails with a changed value — OPEN
+## 422. A comma-bearing email address is destroyed when an inline edit names emails with a changed value — CLOSED 2026-09-13
 
-**Status:** OPEN. Filed 2026-09-06; its trigger claim was measured and refuted 2026-09-07, and the
-entry was retitled and rewritten to the narrower claim that survives. Last executed verification
-2026-09-07 — the retained probe `src/app/inline-ai-edit/emails-roundtrip.probe.test.ts` (committed as
-66235c60), run with `npx vitest run src/app/inline-ai-edit/emails-roundtrip.probe.test.ts` →
-`Test Files 1 passed (1)` / `Tests 4 passed (4)`. The source claims below were re-checked the same day
-with `grep -n "f in input" src/app/inline-ai-edit/plan.ts`,
-`grep -n -A4 "function coerce" src/app/use-inline-entity-edit.ts` and
-`grep -rn "sanitizeEmail(" src --include=*.ts`.
+**Status:** CLOSED 2026-09-13, one rule since 2026-09-14 — stopped at WRITE, never on load, by ONE predicate,
+`findTornEmail` (`sanitize-core.ts`), which every write boundary asks with the same arguments. For an ARRAY it
+returns the first member that holds `,` or `;` AND is not already present, trimmed, in the stored list. For a
+STRING it returns the first stored unsafe address that the string contains. Anything else returns nothing.
+The paths are `createResource` (no stored list, refuses the call), `updateResource` (the row's `emails`, refuses
+the call), the resource editor's save (the resource as of when the modal opened, blocks the save) and
+`describeEntityCalls` (the item's `emails`, judged on the RAW incoming value, refuses the field). The inline edit
+replays the model's original `emails` value, so the card, the inline write and chat Apply judge the same value.
+Pinned by `npx vitest run src/app/inline-ai-edit/emails-write-parity.test.ts src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/resource-edit-modal.test.tsx`.
+★★ It stops NEW torn addresses only: an address already stored still splits on a CSV, Markdown or Turso save —
+§533. See the 2026-09-14 block at the end of this entry.
 
-**Work item:** #276
+_The Status line below, as written 2026-09-13, is superseded by the one above; preserved as the dated record._
+
+**Status:** CLOSED 2026-09-13 — stopped at WRITE, never on load. The resource editor and
+`updateResource` share one exclusion, `findNewDelimiterUnsafeEmail` (`sanitize-core.ts`, fix round 2):
+both refuse an `emails` ARRAY only for a member that is BOTH unsafe AND not already present, trimmed,
+in the resource's stored `emails` (an array is never split, so re-sending an address the row already
+holds is harmless) — the editor compares against the resource as of when the modal opened, never live
+workspace state, and a NEW resource has no stored list, so every member counts as new there too, matching
+`createResource` (there is no stored row yet, so every member is new). `updateResource` also refuses a
+STRING `emails` whenever the stored list already holds an unsafe address; the inline-edit plan refuses
+the `emails` FIELD when a CHANGED incoming array carries such an address, or when a changed STRING is
+sent while the stored list holds one (`isDelimiterSafeEmail` / `findDelimiterUnsafeEmail` in
+`sanitize-core.ts`). A STRING `emails` on create, or on update of a row whose stored list is safe, is
+split by design and not refused — a string is a delimited list. Pinned by
+`npx vitest run src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/resource-edit-modal.test.tsx src/app/use-chat-dispatcher.test.tsx`.
 
 `resource.emails` round-trips through a joined string: the descriptor projects the stored list as a
 `", "`-joined string for the preview, `coerce` (`use-inline-entity-edit.ts`) passes a
@@ -31829,7 +31933,7 @@ very character at issue, it would destroy the comma just as surely as `sanitizeE
 that comment (`grep -n -B10 "diffFields: \[\"firstName\"" src/app/inline-ai-edit/entity-descriptor.ts`)
 before proposing it again.
 
-★ **What remains unfixed, and what closing it would cost.** The delimited string is the writer's OWN
+★ _(Superseded 2026-09-13 — see the closure block at the end of this entry.)_ **What remains unfixed, and what closing it would cost.** The delimited string is the writer's OWN
 storage format — `sanitizeEmailList`'s docstring calls it "a JSON array or a delimited CSV/MD string"
 — so representing a comma inside an address needs either format validation at `sanitizeEmail`'s call
 sites or a transport for `emails` that never joins. `sanitizeEmail` is `sanitizeText(s, EMAIL_MAX)`
@@ -31842,9 +31946,10 @@ UNFILTERED command would refute it — the first draft of this paragraph did exa
 are external INGEST paths that today accept whatever the remote sends — `jira-api.ts` and
 `outlook-contacts.ts` — so validation is not a single-boundary change. Either fix is its own slice.
 
-_Original finding, as written 2026-09-06. Superseded by everything above: the "ANY unrelated edit"
-trigger is refuted, and the original Status line's `**No test pins this**` is no longer true — the
-probe named above pins it. Preserved unedited as the dated record of what was believed._
+_Original finding, as written 2026-09-06. Superseded by everything above, and by the CLOSED 2026-09-13
+block at the end of this entry: the "ANY unrelated edit" trigger is refuted, and the original Status
+line's `**No test pins this**` is no longer true — the probe named above pins it. Preserved unedited as
+the dated record of what was believed._
 
 **Status:** OPEN. Filed 2026-09-06 from a cold-review finding that was MEASURED and partly refuted —
 the parity half is fine and only the round-trip half survives. Last executed verification 2026-09-06 —
@@ -31872,6 +31977,74 @@ and does NO format validation, so nothing rejects a comma-bearing address at wri
 Whether the fix is validation at the boundary, or an array-preserving transport for `emails` that
 never joins, is the open decision — they are different fixes with different blast radii, and picking
 one is not obvious enough to prescribe here.
+
+_(Superseded 2026-09-14 — the three rules below disagreed with each other; see the one-rule block after this one.)_
+**CLOSED 2026-09-13 — stop at write.** `resource.emails` keeps its joined transport and
+`sanitizeEmailList` and every load/decode path are unchanged. Instead, no write boundary accepts an
+address the transport would tear: `isDelimiterSafeEmail` (`sanitize-core.ts`) refuses a trimmed value
+holding `,` or `;`, with no format validation beyond that. **Fix round 2 controller ruling:** the
+resource editor blocks save with `resourceErrorEmailDelimiter` only for an array member that is BOTH
+unsafe AND not already present, trimmed, in the resource as of when the modal opened (never live
+workspace state) — a NEW resource has no stored list, so every member counts as new there too. The
+shared helper `findNewDelimiterUnsafeEmail` (`sanitize-core.ts`) holds this rule for both the editor
+and `updateResource` below, so the two write boundaries cannot drift. `createResource` in
+`use-chat-dispatcher.ts` throws a tool error naming
+`emails` when any array member is unsafe — there is no stored row yet, so every member counts as new.
+**Fix round 1 controller ruling:** `updateResource` throws the same error for an ARRAY only when the
+unsafe member is NOT already present, trimmed, in the stored list — an array is stored VERBATIM, never
+split, so re-sending an address the row already holds is harmless, and only a genuinely new unsafe
+member can tear anything; without this exclusion a resource already carrying a legacy comma address
+(loaded from JSON/IDB, unaffected by this fix) could never be updated by a caller that echoes the whole
+list back alongside another field. `updateResource` also throws for a STRING `emails` whenever the
+stored list already holds an unsafe address, because a string cannot be inspected per address and is
+refused wholesale rather than diffed — this includes a string that DROPS that address or CLEARS the
+list entirely (e.g. `""`); fixing such a legacy row needs an array-typed call. `describeEntityCalls`
+refuses the `emails` FIELD when a CHANGED incoming array carries such an address, so the patch never
+holds it and the call's other fields apply — the `emailFormatFields` shape — and, by the same
+controller ruling, refuses a CHANGED STRING while the stored list already holds an unsafe address. ★★
+The plan guard is keyed on the INCOMING value, not the stored list, deliberately: a stored comma
+address is only torn when the call carries it back, and a proposed list that drops it shows the removal
+on the card instead — the existing `before === after` skip already handles an unchanged echo, so the
+plan guard (unlike `updateResource`) needs no separate already-present exclusion, since the inline
+transport joins the WHOLE list and a genuinely CHANGED list re-splits it regardless of which member
+moved. External ingest (`jira-api.ts`, `outlook-contacts.ts`) writes no `resource.emails` and is
+untouched. A STRING `emails` on create, or on update of a row whose stored list is safe, is split by
+design and not refused — a string is a delimited list. Primary-email format validation remains out of
+scope. The probe `emails-roundtrip.probe.test.ts` is now `emails-roundtrip.test.ts`.
+
+**ONE RULE 2026-09-14 — the cold review of the fix branch.** The block above left three write paths judging
+`resource.emails` by three different rules, and the two replays carried different values. The card and the
+write disagreed in both directions. An inline edit that dropped a stored comma address showed as applying,
+then sent the joined STRING, and `updateResource` refused the whole call, so a rename in the same edit was
+lost. A chat card that rejected an array keeping the stored address promised `emails` would not land, and
+Apply wrote it. The claim above that "a proposed list that drops it shows the removal on the card instead"
+held for the card and not for the write.
+
+Now every boundary asks `findTornEmail` and nothing else, as the Status line describes, and
+`findDelimiterUnsafeEmail` and `findNewDelimiterUnsafeEmail` were deleted. Two further changes make the
+replays agree:
+- The inline edit no longer replays the joined preview. `describeEntityCalls` carries the model's original
+  `emails` value on the diff as `FieldDiff.rawInput`, and `inlinePatchValue` (`use-inline-entity-edit.ts`)
+  writes it verbatim. `raw`, `before` and `after` stay preview strings, and `emails` is still not in
+  `arrayFields`.
+- The plan guard runs ahead of the unchanged-value skip, so a value the writer refuses is disclosed even where
+  the preview projection equals the stored list.
+
+★★ Witnesses. `emails-write-parity.test.ts` crosses three stored lists (none, safe, one comma address) with
+eight incoming shapes, 24 cells. Each cell asserts a HAND-WRITTEN verdict, plan rejection ⇔ `updateResource`
+throwing, every kept stored address stored untorn, and an inline write that never carries a rejected `emails`
+and stores what the raw replay stored. Mutation-checked on 2026-09-14, each restored afterwards: dropping the
+stored exclusion from the array branch turned 2 cells red, a string branch that never refuses turned 1 red, and
+an inline write replaying `after` turned 1 red.
+
+★ Still true: chat Apply replays the WHOLE call. When the card rejects only `emails` and shows a sibling field
+as landing, `updateResource` refuses the call and the sibling does not land through chat Apply. The inline
+edit does apply it. ★★ This is PRE-EXISTING, not specific to `emails`: it is the same whole-call-replay class
+CLOSED §384 described (`applyProposal` and `confirmInsightRecommendation` both `runTool` the model's original
+call rather than the plan `describeEntityCalls` built), which nothing open tracked until now. The task side has
+its own instance — `describeEntityCalls` rejects `assigneeEmail` via `emailFormatFields`, and `buildTaskCleanPatch`
+throws "assigneeEmail is invalid" for the whole call — and insight recommendations replay the same way and can
+reach `update_task`, though not `update_resource`. Filed as §534.
 
 ## 423. The codename ledger in `version.ts` is duplicated data that has rotted three times — CLOSED 2026-09-07
 
@@ -32648,13 +32821,13 @@ new title, before you commit it.
 `e2e/…spec.ts` FILENAME was rejected with "names no executed verification". A backticked filename is
 not a verification — the gate reads for an INVOCATION. That distinction is what prompted this audit.
 
-## 430. A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved — OPEN
+## 430. A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved — CLOSED 2026-09-13
 
-**Status:** OPEN 2026-09-07 — `never machine-verified`. A save large enough to trigger this has not
-been constructed, so the entry is reasoned from the source and from `ebca2553`'s own docstrings, not
-from a probe. Nothing below should be read as measured.
+**Status:** CLOSED 2026-09-13 — `saveActualsCache` gained a stage 5 that sheds the SAVED entry's own `users`/`projectRefs` whole when it alone is over budget, keeping `aggregates`, `partial`, `fetchedAt` and the roll. Measured, not reasoned: `npx vitest run src/app/timelog-actuals-store.test.ts -t "sheds the saved entry's own users"`.
 
-**Work item:** #280
+★ _(As filed 2026-09-07 — superseded 2026-09-13: `saveActualsCache` now has a fifth stage, and the
+"lost silently" outcome below no longer holds for this shape. See the closure block for what happens
+now; the paragraph is left otherwise as filed.)_
 
 `MAX_ACTUALS_TOTAL_CHARS` (2 MiB) bounds the serialised cache map, but all four of
 `saveActualsCache`'s shedding stages `keep`-exclude the entry being saved. That exclusion is
@@ -32673,7 +32846,7 @@ an entry carrying little or no roll — the same shape that motivated stage 3.
 measuring them — is genuinely closed, and the many-entries case with it. This is a different defect
 with a different cause, which is why it is tracked here rather than by reviving a closed entry.
 
-★★★ DELIBERATELY NOT FIXED, and this is the paragraph to read before "completing the pattern".
+★★★ _(Superseded 2026-09-13 — see the closure block.)_ DELIBERATELY NOT FIXED AS FILED, and this is the paragraph to read before "completing the pattern".
 Closing it means shedding fields off the entry the caller just fetched, which is the one thing every
 stage is built to avoid — doing that reintroduces the silent-discard bug `saveActualsCache` exists to
 prevent. Do NOT close this by adding the saved entry to `shedOrder`. Bounding `users` at write time
@@ -32693,10 +32866,24 @@ returned nothing" — which is what this paragraph first said, and it is false: 
 bare number, and `change-edit-modal.test.tsx` carries two `"q".repeat(4300)` hits. Grep the `§`.
 The citations were added in the review round that caught it. Verify rather than
 trusting this sentence — the same grep is the check either way:
-`grep -n "§430" src/app/timelog-actuals-store.ts` → two hits, one per docstring. ★★ The failure
+`grep -n "§430" src/app/timelog-actuals-store.ts` — as of the stage-5 fix (2026-09-13) the hits land
+on the `MAX_DAILY_ROLL_CHARS` and `MAX_ACTUALS_TOTAL_CHARS` docstrings once each, plus
+`saveActualsCache`'s own docstring twice (its stage list and its stage-5 rationale paragraph); re-run
+it rather than trusting any count quoted here — it has already rotted once. ★★ The failure
 inverts the audit it was meant to support: a reader checking the code for a §430 pointer, finding
 none, concludes the REGISTER is the stale copy. A cross-reference is a claim about ANOTHER file, so
 it is only ever verified by opening that file.
+
+**CLOSED 2026-09-13 — shed whole, never trim.** Stage 5 runs after stage 4, only while the map is
+still over budget, and sheds the saved entry's `users` + `projectRefs` together on a copy. It does
+NOT add the saved entry to `shedOrder` — the prohibition above stands for `aggregates` and the roll,
+which stage 5 never touches — and it does not bound `users` at write time, because a bound would
+TRIM a list, which the store's shed-whole rule forbids. Stage 3's argument carries over unchanged:
+both fields are read only as lazy initial state with `?? []`, so the cost is an empty
+People/Projects table until the next fetch. The per-entry roll is already capped at
+`MAX_DAILY_ROLL_CHARS`, so a real entry fits after stage 5. An entry over budget on `aggregates`
+alone is still written as-is; that shape is unmeasured and not claimed. The two docstrings the
+paragraphs above discuss were rewritten in the same commit.
 
 ## 431. One malformed API date reached the budget aggregates as a phantom period key — CLOSED 2026-09-07
 
@@ -32779,7 +32966,7 @@ rows reach the consumers from `mapTimeItem` (v1) via `listTimeItemsSelf` / `list
 which has no clamp. And `TimelogTimeItem[]` has FIVE consumers, not two; the third — the `covered`
 derivation — is what makes the freeze chain above bite.
 
-★ Related: §367 bound the PARSE (closed) · §430 the single-oversized-entry store residual (open) ·
+★ Related: §367 bound the PARSE (closed) · §430 the single-oversized-entry store residual (CLOSED 2026-09-13) ·
 §432 the remedy text `unattributed` now carries (CLOSED 2026-09-07) · §433 the phantom key's only
 live consequence (CLOSED 2026-09-07; the stored keys themselves are deliberately left inert).
 
@@ -37006,3 +37193,71 @@ tests, which that MR does not otherwise touch.
 
 Related: §521 (project creation from a name alone — closed by the same MR, which is what makes a blank code
 the normal state).
+
+## 533. CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — OPEN
+
+**Status:** open 2026-09-14 — measured by a vite-node round trip over the real codecs (a scratchpad probe,
+not committed). JSON and IndexedDB keep a stored `["a,b@x.com"]` as is, while CSV, Markdown and Turso return
+`["a","b@x.com"]`. The same holds for `";"`: `["a;b@x.com"]` comes back as `["a","b@x.com"]` from the three
+text backends. The two halves of the cause were re-checked the same day with
+`grep -n "input.split(/\[;,\]/)" src/app/sanitize-entities.ts` (the split) and
+`grep -n 'case "emails"' src/app/csv-codecs-core.ts` (the `"; "` join).
+
+**Work item:** #323
+
+**Cause.** The three text backends store `resource.emails` as one cell. `resourceFieldToString` joins the list
+with `"; "`, and on the way back `sanitizeResource` hands that cell to `sanitizeEmailList`, which splits any
+string on `[;,]`. An address that itself holds `,` or `;` therefore comes back as two addresses. JSON keeps the
+array, and IndexedDB stores the object by structured clone without a decode step, so neither splits.
+
+**Relation to §422.** §422 stops NEW such addresses at every write boundary through one rule, `findTornEmail`.
+It cannot repair an address that is already stored: a row loaded from JSON or IndexedDB can still carry one,
+and the first save to CSV, Markdown or Turso tears it with no edit involved.
+
+**Options, deliberately left open.**
+- A quote-aware join and split for the `emails` cell, so a delimiter inside an address survives. The decoder
+  must still read every cell written before the change.
+- A one-time migration that finds stored addresses holding `,` or `;` and asks the user to correct them.
+
+## 534. The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN
+
+**Status:** open 2026-09-14 — found while closing §422, in the cold re-review of the fix branch. Pre-existing,
+not specific to `emails`. `describeEntityCalls` (`src/app/inline-ai-edit/plan.ts`) judges a call PER FIELD: an
+invalid field goes into `plan.rejected` while the call's other fields still show as landing in `plan.updates`.
+Chat Apply does not consult that verdict — `applyProposal` (`src/app/chat-proposal-apply.ts`) runs
+`runTool(dispatcher, guarded.name, guarded.input)` on the model's ORIGINAL call, where `guarded` is
+`remapStagedCall(row.stamped, real)`, with only an `expectedToken` added for a row pending on a create — no
+field the card rejected is removed. When the dispatcher throws for the whole call, every sibling field the
+card promised is lost along with the rejected one. Verified with
+`grep -n "runTool(dispatcher" src/app/chat-proposal-apply.ts src/app/use-insight-recommendations.ts` (both
+replay the raw call unchanged) and
+`grep -n "assigneeEmail is invalid" src/app/chat-task-patch.ts src/app/use-chat-dispatcher.ts` (the task-side
+throw).
+
+**Work item:** #324
+
+Three instances found while closing §422:
+- **resource `emails`.** The card rejects `emails` via §422's `findTornEmail` (`src/app/sanitize-core.ts`); the
+  dispatcher's `updateResource` (`src/app/use-chat-dispatcher.ts`) throws for the whole call, so a sibling field
+  in the same `update_resource` call does not land.
+- **task `assigneeEmail`.** The card rejects `assigneeEmail` via the `emailFormatFields` guard in
+  `describeEntityCalls`; `buildTaskCleanPatch` (`src/app/chat-task-patch.ts`) throws "assigneeEmail is invalid"
+  for the whole call, called from `updateTask` in `use-chat-dispatcher.ts`.
+- **Insight recommendations.** `confirmInsightRecommendation` (`src/app/use-insight-recommendations.ts`) also
+  runs `runTool(dispatcher, call.name, call.input)` on the raw call, and its modal is built by
+  `describeEntityCalls` the same way, so it shares the class. `ALLOWED_REC_TOOLS`
+  (`src/app/insights/insight.ts`) includes `update_task` but not `update_resource`, so this route can lose an
+  `assigneeEmail` sibling but not reach the `emails` instance above.
+
+Inline AI edit is NOT affected: `use-inline-entity-edit.ts` builds its patch from `plan.updates` alone, so a
+rejected field is simply omitted rather than sent and thrown on.
+
+CLOSED §384 ("A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes")
+described this same replay divergence between the chat/recommendation consumers and the inline editor, but
+nothing open tracked the class itself once it closed — this entry does.
+
+**Options, deliberately left open.**
+- Strip plan-rejected fields from the replayed call before Apply dispatches it, so only the fields the card
+  showed as landing are sent.
+- Reject the whole row on the card whenever the dispatcher would throw on a field it rejects, so the card never
+  promises a sibling that will not land.

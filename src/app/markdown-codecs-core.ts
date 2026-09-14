@@ -396,12 +396,19 @@ export function markdownToProject(md: string): ProjectMeta | null {
 // backslash + real newline vs `\\<br>` = escaped backslash + literal `<br>`)
 // resolves unambiguously. Backward compatible: a file written by the OLD
 // mdEscape never contains a bare `\<` (every backslash it emitted was doubled).
+//
+// ★★ `\r*\n`, NOT `\r?\n` (open-followups §106). The newline rule consumes the
+// WHOLE run of carriage returns before an LF. `\r?\n` ate only the CR next to
+// the LF, `mdUnescape` gave back a bare LF, and the next save found a fresh
+// CRLF — so "a\r\r\r\nb" lost one CR per save/load cycle with no edit in
+// between and settled only on the fourth. Collapsing the run makes the first
+// encode a fixed point. A bare CR NOT followed by an LF is still left alone.
 export function mdEscape(value: string): string {
   return value
     .replace(/\\/g, "\\\\")
     .replace(/\|/g, "\\|")
     .replace(/<(?=br\s*\/?>)/gi, "\\<")
-    .replace(/\r?\n/g, "<br>");
+    .replace(/\r*\n/g, "<br>");
 }
 
 export function mdUnescape(value: string): string {
