@@ -683,7 +683,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§458](#458-the-modal-header-help-popover-tab-test-fails-on-press-1-alone-under-ci-load-and-the-autofocus-diagnosis-was-wrong--open) | 458. The modal-header help-popover Tab test fails on press 1 alone under CI load, and the autoFocus diagnosis was wrong | found 2026-09-10 from two CI runs on `feat/modal-help-bespoke`; one attempted fix measured wrong and reverted the same day | M — CI-only, intermittent; needs a diagnostic run under real load before any fix, and the obvious fix has already been tried and reverted | **OPEN** |
 | [§459](#459-two-relation-b-create-arm-probes-are-invalid-by-construction-because-the-harness-mutates-the-seed-rows-value-without-regard-to-what-the-create-will-accept--closed-2026-09-11) | Two Relation B create-arm probes are invalid by construction, because the harness mutates the seed row's value without regard to what the create will accept | first reported 2026-09-08 on the original branch (`1375f3c7`, local-only) and never filed there; analysed and filed 2026-09-11 from the sweep's first run on the landing branch | S — closed by the typed `probeFor` derivation (`src/test/sweep-probes.ts`) replacing the invalid mutated-seed probes; both fields dropped from the sweep's ledger | **CLOSED** 2026-09-11 |
 | [§460](#460-a-create-card-can-preview-meeting-attendees-the-create-then-stores-none-of-because-the-previews-link-guard-runs-on-updates-only--closed-2026-09-11) | A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only | found 2026-09-11 by cold review of the offered-surface landing: a `plan.ts` comment still described both allow-list creates as unguarded | S — closed by `140514bd`, lifting the `target === "row"` gate on link guards, behind a test (`plan.create-path-guards.test.ts`) driving `[4, "4"]` through card and write; §440's refusal-disclosure half stays open | **CLOSED** 2026-09-11 |
-| [§461](#461-an-absence-stores-an-assignee-email-that-is-not-an-address-where-a-task-refuses-the-same-value-loudly--open) | An absence stores an assignee email that is not an address, where a task refuses the same value loudly — OPEN | found 2026-09-11 by cold review of the offered-surface landing, beside §459's task probe | S-M — decide per field whether an assignee email is format-checked, then guard the writer, not the card | open |
+| [§461](#461-an-absence-stores-an-assignee-email-that-is-not-an-address-where-a-task-refuses-the-same-value-loudly--closed-2026-09-14) | An absence stores an assignee email that is not an address, where a task refuses the same value loudly — CLOSED 2026-09-14 | found 2026-09-11 by cold review of the offered-surface landing, beside §459's task probe | S-M — decide per field whether an assignee email is format-checked, then guard the writer, not the card | **CLOSED** 2026-09-14 |
 | [§462](#462-there-is-no-linux-installer-and-several-windows-only-assumptions-stand-in-the-way-of-one--open) | There is no Linux installer, and several Windows-only assumptions stand in the way of one — OPEN | found 2026-09-11 while explaining the CI installer's size gap (the sharp finding in the wine-runner spike) | S-M — a native Linux job with its own artifact and Release link, XDG log paths, a rollout section | open |
 | [§463](#463-export-silently-drops-enabled-sections-and-no-path-exports-calendar-events-knowledge-items-or-insights--open) | Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — OPEN | found 2026-09-11 by a read-only code check of `main` @ `1826cf64` while triaging the demo-backlog issues #38–#74 (issue #75) | S-M — two object literals, but deciding what each export path should contain (and whether they should be one function) is the work | open |
 | [§464](#464-cpi-means-two-different-numbers-and-two-winloss-hints-are-wrong--closed-2026-09-12) | "CPI" means two different numbers, and two win/loss hints are wrong | found 2026-09-11 by the same read-only code check (issue #76) | S-M — closed by `fe174c2d`: the money ratio is renamed `budgetCciRecovery` ("Cost recovery"), so CPI names the EVM hours ratio alone, and both wrong hints were rewritten EN+DE; `winLossHours` is still rendered nowhere | **CLOSED** 2026-09-12 |
@@ -34880,9 +34880,25 @@ now returns nothing. Its comment and the `(C3)` header above its `describe` (whi
 pre-`68486cd4` create path as unguarded) were rewritten with the fix, in `140514bd`, exactly as this
 entry as filed said the fix commit must.
 
-## 461. An absence stores an assignee email that is not an address, where a task refuses the same value loudly — OPEN
+## 461. An absence stores an assignee email that is not an address, where a task refuses the same value loudly — CLOSED 2026-09-14
 
-**Status:** OPEN 2026-09-11 — established by reading both writers, not by a dedicated run; the
+**Status:** CLOSED 2026-09-14 — decided per field: an absence's `assigneeEmail` now carries the task
+rule. `refuseInvalidAbsenceEmail` (`src/app/sanitize-records.ts`) throws `assigneeEmail is invalid`
+for a non-blank address `isValidEmail` rejects, and `createAbsence` / `updateAbsence`
+(`use-register-tools.ts`) call it after `dropUnacceptedAbsenceFields`; blank stays a legal clear.
+The absence descriptor's `emailFormatFields` is now `assigneeEmail`, so the card rejects the value
+before apply, and `absence-edit-modal.tsx` blocks save with `errorInvalidEmail`, as the task form
+does. The allow-list row `ABSENCE_FIELD_GUARDS.assigneeEmail` was deliberately NOT tightened: it is
+model-write-only, but a failing guard DROPS the key, which would turn the loud refusal into a silent
+no-op. `sanitizeAbsence` is unchanged too, because it is also the load path and must not drop stored
+data. `raid.ownerEmail` keeps the old unchecked shape (`sanitizeRaidItem` → `sanitizeEmail`, no format
+guard, empty `emailFormatFields`); it is not part of this closure. The offered-surface sweep needed
+no migration: since §459 its email probe is `m.Jordan+probed@example.com`, a valid address. Pinned by
+`npx vitest run src/app/use-chat-dispatcher.test.tsx -t "invalid assignee email"`,
+`npx vitest run src/app/inline-ai-edit/plan.test.ts -t "malformed absence assignee email"` and
+`npx vitest run src/app/absence-edit-modal.test.tsx -t "invalid assignee email"`.
+
+**As filed:** OPEN 2026-09-11 — established by reading both writers, not by a dedicated run; the
 offered-surface sweep's clean run (0 failed / 74) is consistent with it, carrying no
 `absence.assigneeEmail` finding on either arm, but it was not built to show it. Presence witnesses
 re-run 2026-09-11: `grep -n "assigneeEmail: (v)" src/app/sanitize-records.ts` (absence's allow-list
@@ -34890,8 +34906,6 @@ row, a bare string check), `grep -n -A 2 "export function sanitizeEmail" src/app
 (a length cap, no format check) and
 `grep -rn 'throw new Error("assigneeEmail is invalid")' src/app --include=*.ts` (the two throws,
 both on the task path).
-
-**Work item:** #294
 
 `ABSENCE_FIELD_GUARDS.assigneeEmail` admits any string, and `sanitizeAbsence` stores it through
 `sanitizeEmail`, which is `sanitizeText` at the email length cap — nothing on the path checks the

@@ -190,4 +190,27 @@ describe("AbsenceEditModal", () => {
     fireEvent.change(start, { target: { value: "2026-04-01" } });
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  // §461 — the task form's rule (`validateTaskForm` → `errorInvalidEmail`):
+  //  a non-blank address that is not an address blocks the save and says why;
+  //  a blank one saves as a clear.
+  it("blocks save on an invalid assignee email and shows the invalid-email error", () => {
+    const onSave = vi.fn();
+    setupFull({ absence: { ...base, assigneeEmail: "m.Jordan@example.com probed" }, onSave });
+    fireEvent.submit(
+      screen.getByRole("button", { name: /save/i }).closest("form")!,
+    );
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorInvalidEmail"));
+  });
+
+  it("saves a blank assignee email as a clear", () => {
+    const onSave = vi.fn();
+    setupFull({ absence: { ...base, assigneeEmail: "   " }, onSave });
+    fireEvent.submit(
+      screen.getByRole("button", { name: /save/i }).closest("form")!,
+    );
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBeUndefined();
+  });
 });

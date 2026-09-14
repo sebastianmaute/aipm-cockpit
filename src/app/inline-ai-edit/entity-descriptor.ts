@@ -781,11 +781,14 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // instead of as the `"other"` demotion `sanitizeAbsence` would apply.
     rawTypeGuards: ABSENCE_FIELD_GUARDS,
     enumFields: { type: constSet(ABSENCE_TYPES) },
-    // ★ EMPTY, like `raid.ownerEmail` and unlike `task.assigneeEmail`.
-    //  `sanitizeAbsence` runs `sanitizeEmail(raw.assigneeEmail) || undefined`
-    //  with NO format guard and no throw, so rejecting a malformed address here
-    //  would be the preview inventing a rule apply does not have.
-    emailFormatFields: new Set(),
+    // ★ THE SAME RULE AS `task.assigneeEmail` (§461). `createAbsence` and
+    //  `updateAbsence` (`use-register-tools.ts`) throw "assigneeEmail is
+    //  invalid" for a non-blank address `isValidEmail` rejects, so the preview
+    //  rejects it first and the rest of the patch can still apply. The
+    //  load-path `sanitizeAbsence` still has no format guard and must not
+    //  gain one — that would drop stored data. ★★ `raid.ownerEmail` is still
+    //  UNCHECKED on both sides, so its set stays empty.
+    emailFormatFields: new Set(["assigneeEmail"]),
     arrayFields: new Set(),
     numberFields: new Set(),
     // Mirrors `sanitizeAbsence` (sanitize-entities.ts) field for field.

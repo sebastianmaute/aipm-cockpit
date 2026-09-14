@@ -11,6 +11,7 @@ import {
   dropUnacceptedRaidFields,
   dropUnacceptedResourceFields,
   dropUnacceptedStakeholderFields,
+  refuseInvalidAbsenceEmail,
   sanitizeAbsence,
   sanitizeChangeItem,
   sanitizeMilestone,
@@ -457,9 +458,19 @@ const resourceReader: StoredReader = (field, value) => {
  *  the stored row, so a refused `type` leaves the stored one alone rather than
  *  being demoted to the `"other"` fallback — composed here for the same reason
  *  `raidReader` and `changeReader` compose theirs, and BEFORE any exception
- *  entry could go stale against it. */
+ *  entry could go stale against it.
+ *
+ *  ★★ `refuseInvalidAbsenceEmail` is the writer's second step (§461): it
+ *   THROWS on a non-blank address `isValidEmail` rejects, so this reader
+ *   returns null for it exactly as `taskReader`'s catch does for the task
+ *   path's identical throw. */
 const absenceReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedAbsenceFields({ [field]: value });
+  try {
+    refuseInvalidAbsenceEmail(patch);
+  } catch {
+    return null; // the dispatcher surfaces the throw as a failed tool call
+  }
   const out = sanitizeAbsence({ ...ABS_BASE, ...patch });
   return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
 };

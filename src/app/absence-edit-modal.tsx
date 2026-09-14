@@ -23,6 +23,7 @@ import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
 import { useDraftState } from "./use-draft-state";
+import { isValidEmail, sanitizeEmail } from "./sanitize-core";
 
 interface Props {
   lang: Lang;
@@ -79,6 +80,12 @@ export function AbsenceEditModal({
       return;
     }
     const cleanedEmail = draft.assigneeEmail?.trim() || undefined;
+    // The task form's rule (`validateTaskForm`): a blank address is legal, a
+    // non-blank one must be an address. The AI writers refuse the same (§461).
+    if (cleanedEmail && !isValidEmail(sanitizeEmail(cleanedEmail))) {
+      setError(t(lang, "errorInvalidEmail"));
+      return;
+    }
     const cleanedNote = draft.note?.trim() || undefined;
     onSave({
       ...draft,
