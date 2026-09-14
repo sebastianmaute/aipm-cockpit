@@ -548,7 +548,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§319](#319-this-registers-own-index-rebuild-recipe-silently-strips-hand-written-state-cells-and-claims-to-be-idempotent--open) | This register's own index-rebuild recipe silently strips hand-written `State` cells, and claims to be idempotent — open | found 2026-08-31 while filing §318 | S | open |
 | [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | open |
 | [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | open |
-| [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked) | The asset library offers Insert on a refused-format row, which can only ever render as blocked | found 2026-08-31 in the §230 cold review | S | open |
+| [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked--closed-2026-09-14) | The asset library offers Insert on a refused-format row, which can only ever render as blocked — CLOSED 2026-09-14 | found 2026-08-31 in the §230 cold review | S | **CLOSED** 2026-09-14 |
 | [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | open |
 | [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01) | ~~`actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name~~ | 0.272.0 (Zoline) | S | **CLOSED** 2026-09-01 (closed WIDER than its title; popover internals carved out to §328) |
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-all-four-light-schemes--closed-2026-09-01) | ~~Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes~~ | found 2026-08-31 in the §300 fix round | M | **CLOSED** 2026-09-01 (title AMENDED — the filed figure was beacon vs `--surface`; all four light schemes fail against `--surface-muted`) |
@@ -26601,15 +26601,40 @@ a ref-based bail read at dispatch (the ref is already there for aborts) rather t
 the closure. Cheap — but it changes the send path, which is why it was not folded into a load-path
 slice.
 
-## 322. The asset library offers Insert on a refused-format row, which can only ever render as blocked
+## 322. The asset library offers Insert on a refused-format row, which can only ever render as blocked — CLOSED 2026-09-14
 
-**Status:** OPEN. Filed 2026-08-31 from the §230 cold review — a gap the §230 disclosure work
-exposed rather than caused. Never machine-verified as a user-visible failure; the code path is read
-off `asset-library.tsx`, where the Insert button is rendered under `onInsert &&` with no
-`isBlocked` guard. Reproduce with
-`grep -n "onInsert &&" src/app/asset-library.tsx`.
+**Status:** CLOSED 2026-09-14 on `fix/export-activity-alt-batch`. User decision taken 2026-09-14:
+option (a) "disable with a reason" (of the three this entry listed), applied to BOTH the blocked row
+and the dangling row — the button is one call site, so one fix covers both. `asset-library.tsx`'s
+per-row Insert `Button` now disables on `isBusy || isBlocked || isDangling`. The reason reaches every
+user off the row's OWN EXISTING sr-only marker span — no duplicate text node: `aria-describedby`
+points at that span (a stable id per row, minted from one `useId()` call combined with the row
+index, mirroring `shift-edit-modal.tsx`'s `dayNoticeBase` pattern) for assistive tech, and the same
+string is repeated on the button's `title` for a sighted mouse hover — the gutter glyph stays the
+persistent visual cue. The accessible NAME is unchanged (`rowLabel(t(lang, "insert"), token)` —
+label-in-name holds).
 
-**Work item:** #237
+Pinned by three named tests in `asset-library.test.tsx`: "disables Insert on a blocked row and
+describes the reason to assistive tech", "disables Insert on a dangling row and describes the reason
+to assistive tech", and "keeps Insert enabled with no describedby reason on a healthy row, and
+inserts on click". Mutation-checked: reverting the Insert `Button`'s `disabled`/`aria-describedby`/
+`title` props to their pre-fix form turns the first two tests red (`Tests 2 failed | 36 passed (38)`
+in `asset-library.test.tsx` alone); restoring them returns to green. Verified 2026-09-14: `npx vitest
+run src/app/asset-library.test.tsx src/app/asset-library-modal.test.tsx` → `Test Files 2 passed (2)`,
+`Tests 41 passed (41)`, exit 0; `npx tsc --noEmit` exit 0; `npx eslint --max-warnings=0
+src/app/asset-library.tsx src/app/asset-library.test.tsx` exit 0.
+
+Residuals, stated honestly: (1) an asset already inserted into a document before its row went
+blocked or dangling is untouched by this fix — the in-document §230 marker is what discloses that
+reference, not this control. (2) A blocked asset still cannot be repaired from the UI — §225
+territory: `findDuplicate` matches on hash alone and returns before any metadata write, so
+re-uploading the identical file never corrects a stale stored mime; only recording the mime
+alongside the bytes, as §225 describes, would let a re-upload repair it. (3) `onInsert` renders from
+exactly one call site — the `Button` inside `AssetLibrary` (`src/app/asset-library.tsx`); grep
+`onInsert` across `src/app` confirms `asset-library-modal.tsx` and `documents-asset-section.tsx` only
+supply or wrap that same callback and mount no Insert control of their own, and
+`document-block-gutter.tsx`'s `onInsert` is an unrelated block-add callback (`index, type`), not an
+asset insert — so no other surface needed this guard.
 
 ★ **Number:** 321 was held by a concurrent branch at filing time, so this entry took 322. A number
 is only reserved once it is on `origin/main`; if 321 never lands, the gap stays.
