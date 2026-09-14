@@ -268,7 +268,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--mechanism-candidate-precondition-proved-causation-unreproduced-fix-landed) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed | first seen 0.205.0 | M | open |
 | [§40](#40-text-ui-dark-blue-without-a-mode-appropriate-companion--open-needs-its-own-slice) | `text-ui-dark-blue` without a mode-appropriate companion — open, needs its own slice | pre-existing, counted 0.211.0 | M–L | open |
 | [§41](#41-eye-verification-owed-on-02110-on-surfaces-no-gate-reaches--open) | Eye verification owed on 0.211.0, on surfaces no gate reaches — open | 0.211.0 (Samatar) | S | open |
-| [§42](#42-calendarsynccontrols-pushpull-buttons-carry-unqualified-accessible-names--closed-2026-09-14) | `CalendarSyncControls` push/pull buttons carry unqualified accessible names — CLOSED 2026-09-14 | pre-existing, found 0.211.0 | S — qualified both buttons' `aria-label` with `entityLabelKey`, mirroring the enable toggle | **CLOSED** 2026-09-14 |
+| [§42](#42-calendarsynccontrols-pushpull-buttons-carry-unqualified-accessible-names--closed-2026-09-14) | `CalendarSyncControls` push/pull buttons carry unqualified accessible names — CLOSED 2026-09-14 | pre-existing, found 0.211.0 | S | **CLOSED** 2026-09-14 |
 | [§43](#43-two-suggest-raci-reporting-gaps--open-both-incomplete-rather-than-wrong) | Two "Suggest RACI" reporting gaps — open, both incomplete rather than wrong | 0.211.0 (Samatar) | S | open |
 | [§44](#44-the-last-two-ux-roadmap-slices--s6-designed-and-planned-but-unexecuted-s7-undesigned) | The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned | roadmap (gitignored, local-only) | L | open |
 | [§45](#45-brace-expansion-advisory-in-the-eslint-dev-chain--closed-in-02111) | ~~`brace-expansion` advisory in the eslint dev chain~~ | 0.211.0 | S | **CLOSED** in 0.211.1 |
@@ -2974,8 +2974,6 @@ updated to the qualified name: `change-panel.test.tsx`, `raid-panel.test.tsx`,
 passed (4)`, `Tests 214 passed (214)`). `milestones-panel.tsx`'s own hand-rolled Push/Pull buttons
 (component docstring: "Milestone push/pull is deliberately NOT routed through this") are unaffected
 and remain unqualified — out of scope for this entry, which is about `CalendarSyncControls` only.
-(Work item #105 — close it by hand; a closed entry carries no `**Work item:**` line per
-`followups:workitems:check`'s `ON_CLOSED` rule, so the MR text alone will not close it.)
 
 The enable **checkbox** is qualified per entity (`"… – Tasks (due dates)"`); the Push and Pull
 **buttons** beside it are the bare `calendarPush` / `calendarPull` ("Push to Outlook" / "Pull from
