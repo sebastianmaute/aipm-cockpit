@@ -204,6 +204,42 @@ describe("useActionCenterHandlers — an empty default template never drafts an 
   });
 });
 
+describe("useActionCenterHandlers — a typed stakeholder-comms recipient meets the email write rule", () => {
+  // The stakeholder has no stored address, so the handler prompts for one.
+  const NO_EMAIL = { id: 1, name: "Dana" } as ActionCenterHandlerDeps["stakeholders"][number];
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  function draftWithTyped(typed: string) {
+    vi.spyOn(window, "prompt").mockReturnValue(typed);
+    const send = vi.fn();
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useActionCenterHandlers(makeDeps({ stakeholders: [NO_EMAIL], commSend: { send }, showToast })),
+    );
+    act(() => result.current.handleDraftMessageFromAction(draftAction(1)));
+    return { send, showToast };
+  }
+
+  it("refuses a delimiter-bearing address with the delimiter message and drafts nothing", () => {
+    const { send, showToast } = draftWithTyped("a,b@x.com");
+    expect(send).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "errorEmailDelimiter"));
+  });
+
+  it("refuses a malformed address with the invalid-email message", () => {
+    const { send, showToast } = draftWithTyped("nope");
+    expect(send).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "errorInvalidEmail"));
+  });
+
+  it("positive control: a valid typed address drafts to it", () => {
+    const { send, showToast } = draftWithTyped(" dana@x.com ");
+    expect(send).toHaveBeenCalledTimes(1);
+    expect((send.mock.calls[0][0] as { to: string }).to).toBe("dana@x.com");
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.anything());
+  });
+});
+
 describe("useActionCenterHandlers — Escalate records on the item (§515)", () => {
   const item: RaidItem = {
     id: 5, category: "I", title: "Vendor down", status: "Open", severity: "High",

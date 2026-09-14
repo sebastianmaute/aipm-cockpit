@@ -28,7 +28,7 @@ import type { ActivityKind } from "./activity-log";
 import { buildTaskSeedFromAction } from "./action-task-seed";
 import { emptyForm } from "./task-form-context";
 import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
-import { isValidEmail } from "./sanitize";
+import { isWriteSafeEmail } from "./sanitize";
 import { typedEmailRefusalKey } from "./email-refusal-i18n";
 import { isEscalationWriteEmail } from "./raid-escalation";
 import { renderTemplateForSend, buildStakeholderUpdateVars, type CommTemplateCategory } from "./comm-templates";
@@ -193,12 +193,17 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
       if (action.source === "stakeholder-comms") {
         const sh = stakeholders.find((s) => s.id === id);
         if (!sh) return;
+        let typed = "";
         const email = resolveDraftRecipient(
           sh,
           resources,
-          () => window.prompt(t(lang, "promptEmail", sh.name), ""),
-          isValidEmail,
-          () => showToast("error", t(lang, "errorInvalidEmail")),
+          () => {
+            const answer = window.prompt(t(lang, "promptEmail", sh.name), "");
+            typed = answer ?? "";
+            return answer;
+          },
+          isWriteSafeEmail,
+          () => showToast("error", t(lang, typedEmailRefusalKey(typed.trim()))),
         );
         if (!email) return;
         const subject = t(lang, "commsEmailSubject", project?.name ?? "");
