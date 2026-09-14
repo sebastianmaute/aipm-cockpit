@@ -8,6 +8,55 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.4.0] - 2026-09-14 "Hammett"
+
+A new Version panel and start-window branding, plus five interface fixes: Outlook
+sync button names, the chat attach button, Kanban lanes, guardrail insight links
+and Gantt row numbering. Closes follow-ups 42, 47, 79, 362 and 273; opens 540.
+
+### Added
+
+- **The Version panel is a short pitch instead of a release history.** It shows
+  one line on what the app is and five highlights of what makes it different, in
+  English and German, in place of a list that had grown by one entry per release.
+  The tech-stack line and the Acme footer are gone; the footer now shows the
+  EUPL-1.2 licence, "Created by Sebastian Maute · Built with Claude Code", and
+  links to the GitHub repository and to LinkedIn. `CHANGELOG.md` stays the
+  release history, and a release no longer adds a highlight.
+- **A new start-window banner and larger header logos.** The new-project start
+  window shows the transparent beacon banner. The classic header logo is 300×70,
+  and the modern sidebar logo spans the full sidebar width at the same
+  proportions.
+- **A guardrail insight's person link opens that person.** It now switches to the
+  Resources directory, opens the person's editor and highlights the row, where it
+  used to open the Resources view and stop. Global-search resource hits, Recents
+  and `#resources/<id>` links take the same path.
+
+### Fixed
+
+- **Outlook Push and Pull buttons name their entity** ("Push to Outlook – Tasks").
+  In the classic layout the Tasks buttons and a RAID, Changes or Resources pane's
+  buttons share the screen, and both used to read the same.
+- **The chat attach button no longer clicks a `display: none` input.** Its
+  hidden file input is now visually hidden instead, the pattern the other file
+  pickers use, because some browsers refuse to open a picker for a
+  `display: none` input.
+- **A Kanban task lands in its person's lane by email.** A task with no resource
+  link now matches the assignee email before the name, as loading already did, so
+  a Jira-imported task with a different display name no longer gets a stray lane
+  until reload. External people are never matched by email, the same rule names
+  follow, so "Hide externals" cannot leave a droppable external lane behind.
+- **The Gantt no longer numbers a milestone it does not draw.** A milestone whose
+  stored date cannot be drawn used to take a row number, so its drawn twin was
+  announced as "(1)"; it now takes no row, number or connector height. A project
+  whose only milestones cannot be drawn shows the add-task empty state.
+
+### Known issues
+
+- Repeating a person link while that person's editor is already open re-runs the
+  open. Unsaved edits are lost only if the stored record changed in the meantime
+  (follow-up 540).
+
 ## [1.3.3] - 2026-09-14 "Chandler"
 
 Accessibility and navigation fixes: field hints, stacked dialog close buttons,

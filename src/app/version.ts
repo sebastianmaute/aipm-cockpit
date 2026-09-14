@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "1.3.3";
-export const APP_BUILD_DATE = "2026-09-14"; // 1.3.3: an info hint beside a field is no longer read as part of that field's name — in the task and project forms, the absence, change, RAID, resource and stakeholder editors, Jira settings and four settings sections — and dictation mics no longer sit inside field labels; a dialog opened on top of another names its close button after its own title, so "Close" no longer means two different buttons; the AI absence tools refuse a malformed assignee email as the task tools do, and the absence editor refuses one you type while still saving an absence that already holds one; switching from the classic layout back to the modern one keeps the view you were on; and the TimeLog picker resets when you switch between two projects that have no code (Chandler)
+export const APP_VERSION = "1.4.0";
+export const APP_BUILD_DATE = "2026-09-14"; // 1.4.0: the Version panel shows a one-line pitch and five highlights of what makes the app different instead of a per-release history, and its Acme footer gives way to the EUPL-1.2 licence, an author line built with Claude Code and links to GitHub and LinkedIn; the start window shows the transparent beacon banner, the classic header logo is 300×70 and the modern sidebar logo spans the sidebar; a guardrail insight's person link opens that person's editor in the Resources directory; Outlook Push and Pull buttons name their entity; the chat attach button no longer clicks a display:none input; a Kanban task with no resource link lands in its person's lane by email, never an external's; and the Gantt no longer numbers a milestone it cannot draw — repeating a person link while that person's editor is open re-runs the open, filed as follow-up 540 (Hammett)
+// 1.3.3: an info hint beside a field is no longer read as part of that field's name — in the task and project forms, the absence, change, RAID, resource and stakeholder editors, Jira settings and four settings sections — and dictation mics no longer sit inside field labels; a dialog opened on top of another names its close button after its own title, so "Close" no longer means two different buttons; the AI absence tools refuse a malformed assignee email as the task tools do, and the absence editor refuses one you type while still saving an absence that already holds one; switching from the classic layout back to the modern one keeps the view you were on; and the TimeLog picker resets when you switch between two projects that have no code (Chandler)
 // 1.3.2:rich text that merely opens with a bracketed phrase such as <a note about pricing> is no longer read as HTML and emptied, because a tag now counts as HTML only when every attribute carries a value; a run of carriage returns before a line break no longer loses one on every Markdown save; a meeting report over 100,000 characters falls back to plain text instead of being cut inside a tag or character, and one that opens with plain text keeps its markup; the resource editor, the AI resource tools and the AI inline edit refuse a new email address holding a comma or semicolon through one shared rule while keeping addresses already stored; and a TimeLog cache entry too large for browser storage drops its user and project lists instead of being lost (Chandler)
 // 1.3.1: the Budget burn-down values a fixed-price bucket from its contract amount, so its planned and remaining lines match the budget report and an overrun shows in the period it happens; a non-EUR bucket with no exchange rate still converts at 1:1 but now says so on its currency, and the project total on the Budget panel, the budget report and the Dashboard budget tile names how many fixed-price contract amounts it counted that way; the FX override keeps four decimals in the editor and on load, so its advertised minimum of 0.0001 is no longer rounded to 0 and refused; the bucket editor no longer offers or saves an FX override on an EUR bucket; Help no longer promises a burn-down forecast; and the sidebar and classic top bar show the AI PM Cockpit banner by default (Chandler)
 // 1.3.0: Insights and Next actions can log a signal as a RAID item through the RAID editor, and saving from an insight marks it acted and links the two; Escalate now records who was escalated to and when on the RAID item itself, with a note naming the recipient, an activity entry and the severity raise, shown in a hidden-by-default "Last escalated" column and a read-only list in the RAID editor; the AI assistant can record an escalation the same way — append-only, undoable, authored "AI created", with no mail; and Markdown storage keeps a literal <br> in any cell instead of reading it back as a line break, which had wiped an item's note log or escalation history (Chandler)
@@ -38,7 +39,14 @@ export const APP_BUILD_DATE = "2026-09-14"; // 1.3.3: an info hint beside a fiel
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (an author's surname). The
- *  1.3.x line is "Chandler" (Raymond Chandler, American crime novelist of the
+ *  1.4.x line is "Hammett" (Dashiell Hammett, American crime novelist, author of
+ *  "Red Harvest", 1929, and "The Maltese Falcon", 1930), taken by the SELECTION
+ *  procedure below as the first name in the candidate list. Swept BEFORE the
+ *  1.4.0 header was written, in one run with its controls: `hammett` 0 hits
+ *  anywhere in CHANGELOG.md, 0 against the header pattern at any position, and
+ *  0 in every commit subject in the history; positive control `chandler` 4,
+ *  negative control `zzznotaname` 0.
+ *  The 1.3.x line was "Chandler" (Raymond Chandler, American crime novelist of the
  *  Philip Marlowe novels, beginning with "The Big Sleep", 1939), taken by the
  *  SELECTION procedure below as the first name in the candidate list. Swept
  *  BEFORE the 1.3.0 header was written, in one run with its controls:
@@ -327,7 +335,7 @@ export const APP_BUILD_DATE = "2026-09-14"; // 1.3.3: an info hint beside a fiel
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Chandler";
+export const APP_MILESTONE = "Hammett";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 /** The app's public source repository, linked from the Version panel. */
