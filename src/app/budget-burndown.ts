@@ -9,6 +9,7 @@
 import { generatePeriods } from "./resource-capacity";
 import { bucketRateRows, bucketActivePeriods, effectiveBudgetHours } from "./budget-report";
 import { currencyToEur } from "./fx";
+import { actualHoursIn } from "./actual-hours";
 import type { Absence, BudgetBucket, FxRates, Resource, ResourcePlan, Role } from "./types";
 
 export type BurndownSeries = {
@@ -125,7 +126,7 @@ export function computeBurndownSeries(
           bh += effectiveBudgetHours(
             row, p, active, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan, resourcesById,
           );
-          ah += row.actualHours[p.key] ?? 0;
+          ah += actualHoursIn(row.actualHours, p.key);
         }
         budgetH[i] += bh;
         actualH[i] += ah;
@@ -158,7 +159,7 @@ export function computeBurndownSeries(
         const bh = effectiveBudgetHours(
           row, p, active, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan, resourcesById,
         );
-        const ah = row.actualHours[p.key] ?? 0;
+        const ah = actualHoursIn(row.actualHours, p.key);
         budgetH[i] += bh;
         actualH[i] += ah;
         budgetV[i] += bh * row.rates.external;

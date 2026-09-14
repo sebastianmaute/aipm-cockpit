@@ -14,6 +14,7 @@ import { RagBadge } from "./rag-badge";
 import { ratioHealth, cellHealth } from "./budget-health";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useCommitDraft } from "./use-commit-draft";
+import { actualHoursIn } from "./actual-hours";
 
 /** The leading RAG-dot column, and the fixed Total column that follows the role
  *  label. Neither is in BUDGET_COL_WIDTHS: they are not resizable, so they mint
@@ -368,7 +369,7 @@ export function bucketBudgetGrid<P extends { key: string }>(
   const columns = periods.map((p, i) => ({
     key: p.key,
     budget: rows.reduce((s, r) => s + budgetAt(r, i), 0),
-    actual: rows.reduce((s, r) => s + (r.actualHours[p.key] ?? 0), 0),
+    actual: rows.reduce((s, r) => s + actualHoursIn(r.actualHours, p.key), 0),
   }));
 
   return {

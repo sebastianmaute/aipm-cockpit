@@ -46,6 +46,20 @@ describe("computeBurndownSeries", () => {
     expect(s.actualRemainingHours).toEqual([180, 90, null]);
   });
 
+  it("counts January day keys the same as the period key in actual remaining hours", () => {
+    // Same fixture, but the January actual hours are split into day keys that sum
+    // to the original figure. Every total the report derives must be identical.
+    const dayKeyed = bucket({
+      allocations: [{
+        roleId: 1, resourceIds: [],
+        budgetHours: { "2026-01": 100, "2026-02": 100, "2026-03": 100 },
+        actualHours: { "2026-01-05": 60, "2026-01-20": 60, "2026-02": 90 },
+      }],
+    });
+    const s = computeBurndownSeries([dayKeyed], plan, roles, [], 8, new Set<string>(), [], "2026-02-15", null);
+    expect(s.actualRemainingHours).toEqual([180, 90, null]);
+  });
+
   it("computes € on the external-rate basis", () => {
     const s = computeBurndownSeries([bucket()], plan, roles, [], 8, new Set<string>(), [], "2026-02-15", null);
     expect(s.totalBudgetValue).toBe(60000);

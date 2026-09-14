@@ -47,6 +47,7 @@ import {
   DOT_COL_PX, TOTAL_COL_PX, HoursTd, BucketRowLeadCells, BucketTotalRow, bucketBudgetGrid,
   type TotalsRow,
 } from "./budget-panel-totals";
+import { actualHoursIn } from "./actual-hours";
 
 const BUDGET_COL_WIDTHS = {
   role: 160,
@@ -55,7 +56,7 @@ const BUDGET_COL_WIDTHS = {
 type BudgetCol = keyof typeof BUDGET_COL_WIDTHS;
 
 function sumPeriods(hours: Record<string, number>, periods: { key: string }[]): number {
-  return periods.reduce((s, p) => s + (hours[p.key] ?? 0), 0);
+  return periods.reduce((s, p) => s + actualHoursIn(hours, p.key), 0);
 }
 
 export interface BudgetPanelProps {
