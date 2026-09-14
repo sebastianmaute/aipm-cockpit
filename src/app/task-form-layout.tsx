@@ -7,7 +7,7 @@
 // natural seam. ★ Nothing outside `task-form-fields.tsx` ever imported either
 // symbol (checked across src/e2e/scripts), so the move needed no re-export and
 // there is none: importing `Field` from `./task-form-fields` is a type error.
-import { FieldGroup } from "./form-controls";
+import { FieldGroup, HintedLabel } from "./form-controls";
 import { InfoTooltip } from "./info-tooltip";
 
 // One titled, numbered section of the task form. Owns its own two-column grid so
@@ -106,21 +106,19 @@ export function Field({
     );
   }
   if (hint) {
-    // The trigger comes FIRST in the DOM so keyboard focus still reaches it
-    // before the control, as it did when it sat inside the caption.
     return (
-      <div className={`flex flex-wrap items-center gap-1 ${className ?? ""}`}>
-        <span className="order-1 inline-flex">
-          <InfoTooltip text={hint} />
-        </span>
-        <label className="contents">
-          <span className="order-0 flex items-center gap-1 text-sm font-medium text-foreground">
+      <HintedLabel
+        hint={<InfoTooltip text={hint} />}
+        caption={
+          <span className="flex items-center gap-1 text-sm font-medium text-foreground">
             {label}
             {requiredMark}
           </span>
-          <div className="order-2 min-w-0 basis-full">{children}</div>
-        </label>
-      </div>
+        }
+        className={className}
+      >
+        {children}
+      </HintedLabel>
     );
   }
   const caption = (

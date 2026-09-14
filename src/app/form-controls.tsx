@@ -208,3 +208,49 @@ export function FieldGroup({
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// HintedLabel — a binding <label> with a hint control that is NOT inside it
+// ---------------------------------------------------------------------------
+
+/**
+ * A `<label>` binds implicitly to its control, and its text CONTENT becomes
+ * that control's accessible name. A hint trigger (an `InfoTooltip`) placed
+ * inside the label therefore joins the name (open-followups §386:
+ * testing-library computed "Groupi" for "Group").
+ *
+ * This keeps the trigger OUTSIDE the label while it still sits beside the
+ * caption. The wrapper is the flex row, the `<label>` is `display: contents`,
+ * and `order` puts the caption first, the hint beside it, and the control on
+ * the next line. Measured in Chromium: the textbox is named by the caption
+ * alone, and the implicit binding survives `contents`.
+ *
+ * ★ The hint comes FIRST in the DOM, so keyboard focus reaches it before the
+ *   control, as it did when it sat inside the caption.
+ * ★ The hint reaches assistive tech as its own focusable control, not as the
+ *   control's `aria-describedby` — the caller does not own the child element.
+ * ★ `caption` must carry no bottom margin; the row gap supplies it.
+ */
+export function HintedLabel({
+  hint,
+  caption,
+  className,
+  children,
+}: {
+  /** The hint trigger, rendered outside the label. */
+  hint: React.ReactNode;
+  /** Caption text (label + required marker), rendered inside the label. */
+  caption: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`flex flex-wrap items-center gap-1 ${className ?? ""}`}>
+      <span className="order-1 inline-flex">{hint}</span>
+      <label className="contents">
+        {caption}
+        <div className="order-2 min-w-0 basis-full">{children}</div>
+      </label>
+    </div>
+  );
+}
