@@ -80,9 +80,11 @@ Three MRs, each shippable on its own:
 `BucketAllocation.actualHours` and `DisciplineAllocation.actualHours` accept ISO day keys `YYYY-MM-DD` in addition
 to month keys `YYYY-MM` and week keys `YYYY-Www`.
 
-- Widen the key rule used by `encodePeriodMap`, `decodePeriodMap` and `coercePeriodMap` in
-  `sanitize-entities.ts` (today `PERIOD_KEY_RE`). A key the rule rejects is dropped silently on every backend, so
-  this is the load-bearing change.
+- Add an actual-only key rule and codec variants (`encodeActualMap`, `decodeActualMap` and a private
+  `coerceActualMap` in `sanitize-entities.ts`) and use them at the six `actualHours` sites. The period rule and
+  `encodePeriodMap` / `decodePeriodMap` / `coercePeriodMap` are NOT widened: they are shared with `budgetHours`,
+  `Resource.utilization` and `Resource.absenceOverride`, which stay period-only. A key the rule rejects is dropped
+  silently on JSON, CSV, Markdown and both Turso layouts; IndexedDB stores the in-memory object without a codec.
 - `budgetHours` maps keep the period-only rule: planned hours stay per period.
 - `HOURS_MAP_MAX` (1000, a per-key value clamp) applies unchanged.
 - The bucket rides the existing `budget_buckets` spec (`ENTITY_SPECS`, `BUDGETS_CSV_COLUMNS`), so no column, table
@@ -90,26 +92,32 @@ to month keys `YYYY-MM` and week keys `YYYY-Www`.
 
 ### 4.2 TimeLog Apply
 
-- `aggregateActuals` aggregates per bucket, per resource, per **day** (`it.date`), no longer per period key. The
-  granularity argument is removed from the fetch-time aggregation; periods are derived at read time. This removes
-  the stale-key path of §169.
-- The actuals cache (`aipm-cockpit:timelog-actuals`) stores the day-keyed aggregate. Entries written before this
-  change carry period keys; they are treated as stale and the panel asks for a refresh rather than applying them.
-- `applyActualsToBuckets` keeps its rule that Apply owns every target line of each **period** it covers: within a
-  covered period it replaces that line's day keys and deletes the line's hand-typed period key. The confirm dialog
-  (`describeApplyRows`) already itemises rows whose values change; hand-typed values being removed appear there.
+- `aggregateActuals(items, links)` stores a per-day, per-resource breakdown (`byBucketDay`) and no longer takes the
+  plan granularity. `bucketOverlay(aggregate, granularity)` derives the period-keyed overlay at read time with the
+  LIVE granularity and records each resource's `byDay`; every consumer (TimeLog panel, re-apply, unapplied notice,
+  Budget view) reads the overlay through it. This removes the stale-key path of §169 while Apply's routing and the
+  people rows keep their period-keyed contract.
+- A cache entry written before this change has only period-keyed `byBucket`. `bucketOverlay` keeps its cells only
+  where the key shape matches the live granularity; nothing is marked stale and no new UI is added.
+- `applyActualsToBuckets` keeps owning every target line of each **period** it covers: it removes that line's
+  period key and every day key inside the period, then writes each routed booking's day keys. A period where a
+  routed booking has no `byDay` (a legacy cache cell) is written as a period key, as before. The confirm dialog
+  (`describeApplyRows`) already itemises rows whose values change, and its `current` counts day keys.
 
 ### 4.3 Reader helper
 
-New pure helper `actualHoursIn(map, period)` returns the period key's value plus every day key whose date lies in
-`[period.start, period.end]`. Every reader switches to it:
+New pure module `actual-hours.ts`: `actualHoursIn(map, periodKey)` returns the period key's value plus every day
+key inside that period. The granularity is read off the period key's shape and totals are cached per map.
+`actualHoursAt` does the same but returns `undefined` for an empty period, so editable cells stay blank. Readers
+switched to it:
 
-- `budget-report.ts` — the `sumPeriodMap(row.actualHours, keys)` call
-- `budget-burndown.ts` — both `row.actualHours[p.key]` sites
+- `budget-report.ts` — the bucket report's actual-hours sum
+- `budget-burndown.ts` — both actual-hours sites
 - `budget-panel-totals.tsx` — the column total reducer
-- `budget-panel.tsx` — both `actual={a.actualHours[p.key]}` cells
+- `budget-panel.tsx` — `sumPeriods` (row totals) and both actual cells
 - `timelog-apply.ts` — the diff's `current` value
 
+`budget-bucket-people.ts` reads the period-keyed overlay, not allocation `actualHours`, and needs no change.
 Readers that only test for non-zero values (`budget-bucket-modal.tsx` `hasHours`) need no change.
 
 ### 4.4 Hand edits
@@ -388,8 +396,9 @@ existing EUR rollup, scenario forecasts and Monte Carlo (§502), spreadsheet imp
 
 - **Silent key drop.** Any codec path that keeps the old period-only rule drops TimeLog day hours without error. The
   six-backend round-trip test is the guard.
-- **Cache shape change.** Old period-keyed cache entries must never be applied as if day-keyed; they are treated as
-  stale.
+- **Cache shape change.** A pre-change cache entry holds period keys frozen at its fetch granularity. It must
+  never feed the overlay under a key the report does not read; `bucketOverlay` drops cells whose key shape does not
+  match the live granularity.
 - **Three indices, one word.** Renames must land on every surface in MR 2 at once, or two different numbers carry
   the same "CPI" label again.
 - **Monthly sample.** The sample plan is monthly; the 20-working-day window is exercised by engine fixtures, not by
