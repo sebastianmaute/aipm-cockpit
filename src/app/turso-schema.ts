@@ -31,9 +31,9 @@ import {
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
-import { sanitizeProjectDocuments, type DocTruncationDiag } from "./document-model";
+import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
-import { sanitizeDocumentVersions } from "./document-versions";
+import { sanitizeDocumentVersionsWithDiag } from "./document-versions";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { logDiag } from "./diagnostics";
 import type {
@@ -282,7 +282,7 @@ export function rowsToWorkspace(
   const docRow = rowObjects(byTable.get("meta")).find((r) => r.key === "documents");
   if (docRow?.value) {
     try {
-      const docs = sanitizeProjectDocuments(JSON.parse(docRow.value), diag).map(sanitizeDocumentRichFields);
+      const docs = sanitizeProjectDocumentsWithDiag(JSON.parse(docRow.value), diag).map(sanitizeDocumentRichFields);
       if (docs.length) ws.documents = docs;
     } catch (err) {
       reportUnreadableSlice("documents", err);
@@ -296,7 +296,7 @@ export function rowsToWorkspace(
   const verRow = rowObjects(byTable.get("meta")).find((r) => r.key === "documentVersions");
   if (verRow?.value) {
     try {
-      const versions = sanitizeDocumentVersions(JSON.parse(verRow.value), diag).map((v) => ({
+      const versions = sanitizeDocumentVersionsWithDiag(JSON.parse(verRow.value), diag).map((v) => ({
         ...v,
         blocks: sanitizeDocumentRichFields({
           id: v.documentId,

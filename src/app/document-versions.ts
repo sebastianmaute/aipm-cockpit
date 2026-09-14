@@ -115,10 +115,19 @@ function isCanonicalIso(value: string): boolean {
  *  normalised. Normalising would rewrite stored bytes and put this on the
  *  byte-stability goldens' critical path for no gain; dropping touches nothing
  *  that was already well-formed. Every in-app write is `new Date().toISOString()`,
- *  so only hand-edited files, imports and third-party workspaces can fail it. */
-export function sanitizeDocumentVersions(
+ *  so only hand-edited files, imports and third-party workspaces can fail it.
+ *
+ *  ★ ONE argument, so it is safe point-free (`sanitize-point-free.guard.test.ts`);
+ *  a caller that counts cap losses uses `sanitizeDocumentVersionsWithDiag`. */
+export function sanitizeDocumentVersions(raw: unknown): DocVersion[] {
+  return sanitizeDocumentVersionsWithDiag(raw, undefined);
+}
+
+/** `sanitizeDocumentVersions`, recording block-cap losses into `diag`. `diag`
+ *  is REQUIRED (pass `undefined` for none), so a point-free pass fails tsc. */
+export function sanitizeDocumentVersionsWithDiag(
   raw: unknown,
-  diag?: DocTruncationDiag,
+  diag: DocTruncationDiag | undefined,
 ): DocVersion[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<number>();

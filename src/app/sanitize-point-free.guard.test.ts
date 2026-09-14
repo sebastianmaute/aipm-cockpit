@@ -24,11 +24,17 @@ const APP = join(process.cwd(), "src", "app");
 type Reason = "optional-extra-param" | "number-admitting-2nd-param";
 interface Finding { name: string; reason: Reason }
 
+/** Load-funnel sanitizers outside the `sanitize*` naming, scanned by name.
+ *  Final fix round 4, S4: both took an optional `diag` and threw point-free. */
+const EXTRA_MODULES = ["document-model.ts", "document-versions.ts"];
+
 /** The modules the `./sanitize` barrel re-exports, plus every non-test
- *  `sanitize-*.ts` — DISCOVERED, so a new module is scanned the day it lands. */
+ *  `sanitize-*.ts` — DISCOVERED, so a new module is scanned the day it lands —
+ *  plus `EXTRA_MODULES`. */
 function sanitizeModules(): string[] {
   const barrel = readFileSync(join(APP, "sanitize.ts"), "utf8");
   const mods = new Set([...barrel.matchAll(/export \* from "\.\/([^"]+)"/g)].map((m) => `${m[1]}.ts`));
+  for (const extra of EXTRA_MODULES) mods.add(extra);
   for (const f of readdirSync(APP)) if (/^sanitize-.*\.ts$/.test(f) && !/\.test\.ts$/.test(f)) mods.add(f);
   return [...mods].sort();
 }
@@ -85,8 +91,8 @@ const PINNED_NUMBER_ADMITTING = ["sanitizeLoadedResourceEmails", "sanitizeMultil
 describe("exported sanitizers are safe to pass point-free", () => {
   it("scans the real sanitize modules (non-vacuity)", () => {
     const { modules, names } = scanAll();
-    expect(modules).toEqual(expect.arrayContaining(["sanitize-core.ts", "sanitize-entities.ts", "sanitize-records.ts", "sanitize-load-date.ts"]));
-    expect(names).toEqual(expect.arrayContaining(["sanitizeText", "sanitizeMilestone", "sanitizeLoadedMilestone", "sanitizePriority", "sanitizeLoadedEmail"]));
+    expect(modules).toEqual(expect.arrayContaining(["sanitize-core.ts", "sanitize-entities.ts", "sanitize-records.ts", "sanitize-load-date.ts", ...EXTRA_MODULES]));
+    expect(names).toEqual(expect.arrayContaining(["sanitizeText", "sanitizeMilestone", "sanitizeLoadedMilestone", "sanitizePriority", "sanitizeLoadedEmail", "sanitizeProjectDocuments", "sanitizeDocumentVersions"]));
     expect(names.length).toBeGreaterThanOrEqual(40);
   });
 

@@ -4,6 +4,7 @@ import {
   MAX_VERSIONS_PER_DOC,
   MAX_TOTAL_VERSIONS,
   sanitizeDocumentVersions,
+  sanitizeDocumentVersionsWithDiag,
   trimVersions,
   deletedDocumentVersions,
   orphanedDocumentVersions,
@@ -89,20 +90,29 @@ describe("sanitizeDocumentVersions", () => {
     expect(out[0].documentId).toBe(1);
   });
 
-  it("counts blocks the per-version cap dropped into an optional diag", () => {
+  it("counts blocks the per-version cap dropped into the diag of the named variant", () => {
     const blocks = Array.from({ length: MAX_BLOCKS_PER_DOC + 25 }, () => ({
       type: "paragraph" as const,
       html: "<p>x</p>",
     }));
     const diag: DocTruncationDiag = {};
-    const out = sanitizeDocumentVersions([v({ blocks })], diag);
+    const out = sanitizeDocumentVersionsWithDiag([v({ blocks })], diag);
     expect(out[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC);
     expect(diag.truncatedBlocks).toBe(25);
   });
 
+  // Final fix round 4, S4. `Array#map` hands the INDEX to a second parameter.
+  // With an optional `diag`, index 1 was truthy and the block-cap path threw
+  // assigning `truncatedBlocks` onto a number.
+  it("is safe to pass point-free even when the block cap bites", () => {
+    const blocks = Array.from({ length: MAX_BLOCKS_PER_DOC + 1 }, () => ({ type: "paragraph" as const, html: "<p>x</p>" }));
+    const lists: unknown[] = [[v({ blocks })], [v({ blocks })]];
+    expect(lists.map(sanitizeDocumentVersions).map((l) => l[0].blocks.length)).toEqual([MAX_BLOCKS_PER_DOC, MAX_BLOCKS_PER_DOC]);
+  });
+
   it("leaves truncatedBlocks undefined for an under-cap version", () => {
     const diag: DocTruncationDiag = {};
-    sanitizeDocumentVersions([v()], diag);
+    sanitizeDocumentVersionsWithDiag([v()], diag);
     expect(diag.truncatedBlocks).toBeUndefined();
   });
 
@@ -115,7 +125,7 @@ describe("sanitizeDocumentVersions", () => {
   // load drops it too — so it must not arm the guard.
   it("does not count blocks the validator dropped as invalid", () => {
     const diag: DocTruncationDiag = {};
-    const out = sanitizeDocumentVersions(
+    const out = sanitizeDocumentVersionsWithDiag(
       [
         v({
           blocks: [
@@ -146,7 +156,7 @@ describe("sanitizeDocumentVersions", () => {
     blocks[0] = { type: "paragraph", html: "" };
     blocks[1] = { type: "paragraph", html: "" };
     const diag: DocTruncationDiag = {};
-    const out = sanitizeDocumentVersions([v({ blocks })], diag);
+    const out = sanitizeDocumentVersionsWithDiag([v({ blocks })], diag);
     expect(out[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC - 2);
     expect(diag.truncatedBlocks).toBe(3);
   });

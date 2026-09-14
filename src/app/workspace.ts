@@ -39,9 +39,9 @@ import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 import { sanitizeActivityLog, type ActivityEntry } from "./activity-log";
-import { sanitizeProjectDocuments, type DocTruncationDiag, type ProjectDocument } from "./document-model";
+import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
-import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
+import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-versions";
 // ★ logDiag is a no-op when `window` is undefined and swallows its own errors,
 // so importing it here cannot break the bare-node sample generator.
 import { logDiag } from "./diagnostics";
@@ -711,7 +711,7 @@ export function jsonToWorkspace(
     // off — so containment does not invent a new failure mode for it.
     if (p.documents !== undefined) {
       try {
-        const docs = sanitizeProjectDocuments(p.documents, opts?.diag).map(sanitizeDocumentRichFields);
+        const docs = sanitizeProjectDocumentsWithDiag(p.documents, opts?.diag).map(sanitizeDocumentRichFields);
         if (docs.length) raw.documents = docs;
       } catch (err) {
         // ★★ strict must stay LOUD. The sample generator decodes with
@@ -742,7 +742,7 @@ export function jsonToWorkspace(
     // discard the whole workspace on a non-strict load.
     if (p.documentVersions !== undefined) {
       try {
-        const versions = sanitizeDocumentVersions(p.documentVersions, opts?.diag).map((v) => ({
+        const versions = sanitizeDocumentVersionsWithDiag(p.documentVersions, opts?.diag).map((v) => ({
           ...v,
           blocks: sanitizeDocumentRichFields({
             id: v.documentId,

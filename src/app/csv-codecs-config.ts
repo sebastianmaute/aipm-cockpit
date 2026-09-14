@@ -70,12 +70,12 @@ import {
 import { documentAssetsToCsv } from "./document-asset-codecs";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import {
-  sanitizeProjectDocuments,
+  sanitizeProjectDocumentsWithDiag,
   type DocTruncationDiag,
   type ProjectDocument,
 } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
-import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
+import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-versions";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 
@@ -288,7 +288,7 @@ export function csvToDocuments(
     // ★ `diag` records what the MAX_DOCUMENTS cap silently discarded, so an
     // over-cap file can tell the user before the next autosave writes the
     // truncation back (open-followups §103).
-    const docs = sanitizeProjectDocuments(JSON.parse(rows[0][1]), diag).map(
+    const docs = sanitizeProjectDocumentsWithDiag(JSON.parse(rows[0][1]), diag).map(
       sanitizeDocumentRichFields,
     );
     return docs.length ? docs : undefined;
@@ -333,7 +333,7 @@ export function csvToDocumentVersions(
     // ★ Same accumulator as csvToDocuments above, but here it fills
     // `truncatedBlocks` — a version can never trip the DOCUMENT cap, since
     // sanitizeDocumentVersions sanitizes one version at a time.
-    const versions = sanitizeDocumentVersions(JSON.parse(rows[0][1]), diag).map((v) => ({
+    const versions = sanitizeDocumentVersionsWithDiag(JSON.parse(rows[0][1]), diag).map((v) => ({
       ...v,
       blocks: sanitizeDocumentRichFields({
         id: v.documentId,

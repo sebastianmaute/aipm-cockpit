@@ -14,9 +14,9 @@ import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
-import { sanitizeProjectDocuments, type DocTruncationDiag, type ProjectDocument } from "./document-model";
+import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
-import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
+import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-versions";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 import type { TimelogLinks } from "./timelog-types";
@@ -243,7 +243,7 @@ export function markdownToDocuments(
     // installs JSDOM into globalThis BEFORE it dynamically imports
     // src/app/storage (see its header). A NEW bare-node importer of this module
     // must do the same or it will silently lose every document.
-    const docs = sanitizeProjectDocuments(JSON.parse(m[1]), diag).map(sanitizeDocumentRichFields);
+    const docs = sanitizeProjectDocumentsWithDiag(JSON.parse(m[1]), diag).map(sanitizeDocumentRichFields);
     return docs.length ? docs : undefined;
   } catch {
     return undefined;
@@ -278,7 +278,7 @@ export function markdownToDocumentVersions(
     // HTML allow-list via sanitizeDocumentRichFields. A version has no independent
     // createdAt/updatedAt, so it is passed through a synthetic ProjectDocument-shaped
     // wrapper with savedAt standing in for both.
-    const versions = sanitizeDocumentVersions(JSON.parse(m[1]), diag).map((v) => ({
+    const versions = sanitizeDocumentVersionsWithDiag(JSON.parse(m[1]), diag).map((v) => ({
       ...v,
       blocks: sanitizeDocumentRichFields({
         id: v.documentId,

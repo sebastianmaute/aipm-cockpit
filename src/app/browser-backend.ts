@@ -9,9 +9,9 @@ import { sanitizeProjectMeta, sanitizeSteeringCommittee, withNormalizedEmailFiel
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
-import { sanitizeProjectDocuments, type DocTruncationDiag } from "./document-model";
+import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
-import { sanitizeDocumentVersions } from "./document-versions";
+import { sanitizeDocumentVersionsWithDiag } from "./document-versions";
 import { sanitizeDocumentAsset, type DocumentAsset } from "./document-asset";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
@@ -306,7 +306,7 @@ export class BrowserBackend implements StorageBackend {
       // separate map. Structural-only would pass stored `<script>` straight
       // through to the render sink.
       {
-        const docs = sanitizeProjectDocuments(idbDocuments, diag).map(sanitizeDocumentRichFields);
+        const docs = sanitizeProjectDocumentsWithDiag(idbDocuments, diag).map(sanitizeDocumentRichFields);
         documents = docs.length ? docs : undefined;
       }
       // Optional list: junk/empty versions sanitize to [] → keep undefined.
@@ -316,7 +316,7 @@ export class BrowserBackend implements StorageBackend {
       // no independent createdAt/updatedAt, so it is passed through a synthetic
       // ProjectDocument-shaped wrapper with savedAt standing in for both.
       {
-        const versions = sanitizeDocumentVersions(idbDocumentVersions, diag).map((v) => ({
+        const versions = sanitizeDocumentVersionsWithDiag(idbDocumentVersions, diag).map((v) => ({
           ...v,
           blocks: sanitizeDocumentRichFields({
             id: v.documentId,

@@ -321,10 +321,21 @@ export interface DocTruncationDiag {
 }
 
 /** The SINGLE validator for the persisted documents array. Every load path
- *  routes through this. */
-export function sanitizeProjectDocuments(
+ *  routes through this.
+ *  ★ ONE argument, so it is safe point-free (`sanitize-point-free.guard.test.ts`):
+ *  an optional `diag` received the map INDEX and threw on assignment once the
+ *  cap bit. A caller that counts what the caps dropped uses
+ *  `sanitizeProjectDocumentsWithDiag`. */
+export function sanitizeProjectDocuments(raw: unknown): ProjectDocument[] {
+  return sanitizeProjectDocumentsWithDiag(raw, undefined);
+}
+
+/** `sanitizeProjectDocuments`, recording cap losses into `diag`. `diag` is
+ *  REQUIRED (pass `undefined` for none), so a point-free pass fails tsc rather
+ *  than handing it the index. */
+export function sanitizeProjectDocumentsWithDiag(
   raw: unknown,
-  diag?: DocTruncationDiag,
+  diag: DocTruncationDiag | undefined,
 ): ProjectDocument[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<number>();
