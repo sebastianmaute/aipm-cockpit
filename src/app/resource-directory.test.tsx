@@ -3,9 +3,10 @@ import { render as rtlRender, screen, fireEvent, within, waitFor } from "@testin
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ResourceDirectory } from "./resource-directory";
+import { ResourcesReportPanel } from "./resources-report";
 import { ConfirmProvider } from "./confirm-dialog";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
-import type { Resource } from "./types";
+import type { Resource, ResourcePlan } from "./types";
 import { t, loadI18n } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
@@ -16,6 +17,22 @@ import { expectRowUniqueNames } from "../test/row-unique-names";
 // free, without touching each one individually.
 function render(ui: ReactElement) {
   return rtlRender(<WorkspaceTabProvider>{ui}</WorkspaceTabProvider>);
+}
+
+/** Test-only deep-link trigger: fires `requestOpen("resources", id)` on click
+ *  and renders the live `pendingOpen` value as text, so a test can assert on
+ *  it via the DOM rather than reassigning an outer-scope variable during
+ *  render (banned by `react-hooks/globals` — components must stay pure). */
+function DeepLinkTrigger({ id }: { id: number }) {
+  const { requestOpen, pendingOpen } = useWorkspaceTab();
+  return (
+    <>
+      <button type="button" onClick={() => requestOpen("resources", id)}>
+        go
+      </button>
+      <span data-testid="pending-open">{pendingOpen ? `${pendingOpen.view}:${pendingOpen.id}` : "null"}</span>
+    </>
+  );
 }
 
 const rs: Resource[] = [{ id: 1, firstName: "Sample", lastName: "Dummy", title: "Architect", roleId: null, utilizationMode: "percent", utilization: {} }];
@@ -491,19 +508,9 @@ describe("ResourceDirectory sortable column headers", () => {
 describe("ResourceDirectory deep-link open", () => {
   it("opens the edit modal for a pending deep-linked resource, then clears the request", () => {
     const onEdit = vi.fn();
-    let pendingAfter: unknown = "unset";
-    function Trigger() {
-      const { requestOpen, pendingOpen } = useWorkspaceTab();
-      pendingAfter = pendingOpen;
-      return (
-        <button type="button" onClick={() => requestOpen("resources", 1)}>
-          go
-        </button>
-      );
-    }
     rtlRender(
       <WorkspaceTabProvider>
-        <Trigger />
+        <DeepLinkTrigger id={1} />
         <ResourceDirectory {...common} resources={rs} onEditResource={onEdit} />
       </WorkspaceTabProvider>,
     );
@@ -511,7 +518,25 @@ describe("ResourceDirectory deep-link open", () => {
     fireEvent.click(screen.getByText("go"));
 
     expect(onEdit).toHaveBeenCalledWith(rs[0]);
-    expect(pendingAfter).toBeNull();
+    expect(screen.getByTestId("pending-open")).toHaveTextContent("null");
+  });
+
+  // M1 (fix round 1): mirrors stakeholders'/raid's skip-if-already-open guard
+  // (`draft?.id !== item.id`) — here tracked as "the id this mount already
+  // deep-linked to", since ResourceDirectory does not own the modal's draft.
+  it("does not reopen the editor for a re-fired request for the resource whose editor is already open", () => {
+    const onEdit = vi.fn();
+    rtlRender(
+      <WorkspaceTabProvider>
+        <DeepLinkTrigger id={1} />
+        <ResourceDirectory {...common} resources={rs} onEditResource={onEdit} />
+      </WorkspaceTabProvider>,
+    );
+
+    fireEvent.click(screen.getByText("go")); // opens id 1
+    fireEvent.click(screen.getByText("go")); // re-fired request for the same id (e.g. a back/forward replay)
+
+    expect(onEdit).toHaveBeenCalledTimes(1);
   });
 
   it("honours a pending request already armed before this component mounted (remount-swallow guard)", () => {
@@ -548,19 +573,9 @@ describe("ResourceDirectory deep-link open", () => {
 
   it("consumes an unknown resource id silently, without opening anything", () => {
     const onEdit = vi.fn();
-    let pendingAfter: unknown = "unset";
-    function Trigger() {
-      const { requestOpen, pendingOpen } = useWorkspaceTab();
-      pendingAfter = pendingOpen;
-      return (
-        <button type="button" onClick={() => requestOpen("resources", 999)}>
-          go
-        </button>
-      );
-    }
     rtlRender(
       <WorkspaceTabProvider>
-        <Trigger />
+        <DeepLinkTrigger id={999} />
         <ResourceDirectory {...common} resources={rs} onEditResource={onEdit} />
       </WorkspaceTabProvider>,
     );
@@ -568,6 +583,57 @@ describe("ResourceDirectory deep-link open", () => {
     fireEvent.click(screen.getByText("go"));
 
     expect(onEdit).not.toHaveBeenCalled();
-    expect(pendingAfter).toBeNull();
+    expect(screen.getByTestId("pending-open")).toHaveTextContent("null");
+  });
+});
+
+// I1 (fix round 1): the two describe blocks above pin each host in isolation —
+// this pins the SEAM between them. Nothing forced resources-report.tsx's
+// redirect effect and resource-directory.tsx's consumer effect to agree that
+// pendingOpen must survive the redirect; a redirect that also cleared it (or
+// cleared on any tab change) would leave every test above green while the
+// real, end-to-end deep link stayed dead — the per-task-checks-miss-the-seam
+// shape the review flagged as I1. This mounts BOTH panels behind the SAME
+// `activeTab` gate workspace-section.tsx uses, so the redirect must actually
+// hand a live pendingOpen to the Directory consumer for this to pass.
+const testPlan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "USD" };
+
+function ActiveTabHarness({ onEdit }: { onEdit: (r: Resource) => void }) {
+  const { activeTab } = useWorkspaceTab();
+  if (activeTab === "resources") {
+    return (
+      <ResourcesReportPanel
+        lang="en-US"
+        resources={rs}
+        roles={[]}
+        disciplines={[]}
+        grades={[]}
+        plan={testPlan}
+        absences={[]}
+        holidaySet={new Set()}
+        workdayHours={8}
+      />
+    );
+  }
+  if (activeTab === "directory") {
+    return <ResourceDirectory {...common} resources={rs} onEditResource={onEdit} />;
+  }
+  return null;
+}
+
+describe("§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirectory consumer", () => {
+  it("end to end: a resource deep-link lands on the Resources report, redirects to Directory, and opens the editor", () => {
+    const onEdit = vi.fn();
+    rtlRender(
+      <WorkspaceTabProvider>
+        <DeepLinkTrigger id={1} />
+        <ActiveTabHarness onEdit={onEdit} />
+      </WorkspaceTabProvider>,
+    );
+
+    fireEvent.click(screen.getByText("go"));
+
+    expect(onEdit).toHaveBeenCalledWith(rs[0]);
+    expect(screen.getByTestId("pending-open")).toHaveTextContent("null");
   });
 });

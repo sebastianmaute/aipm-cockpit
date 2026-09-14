@@ -4,7 +4,7 @@
 // Each row shows a resource's contact details and inline discipline/grade
 // selects. Clicking the name cell opens the edit modal.
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownTrayIcon, EyeSlashIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { birthdayMonthDay } from "./birthdays";
@@ -183,12 +183,29 @@ function ResourceDirectoryInner({
   // open their edit modal — and clear the pending signal once acted on. An id
   // matching no resource (deleted, stale link) is still consumed so the
   // request cannot get stuck.
+  //
+  // Skip-if-already-open guard: stakeholders/raid compare against their OWN
+  // local `draft` (`draft?.id !== item.id`) to avoid clobbering an
+  // in-progress edit when a self-induced hashchange re-fires the same
+  // request. This panel does not own the edit modal's state (it lives in
+  // `use-resource-directory.ts`, reached only through the onEditResource
+  // prop), so there is no draft to compare against here — instead track the
+  // id THIS panel most recently opened via a deep-link, for the life of this
+  // mount, and skip re-opening it. A real back/forward through browser
+  // history re-arming the identical `#resources/<id>` hash is the only
+  // reachable repeat (low; both `requestOpen` and the hash write use
+  // `replaceState`). Leaving/returning to the Directory tab remounts this
+  // panel and clears the guard, so an intentional reopen still works.
   const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
   const { flashId, containerRef } = useDeepLinkRowFlash("resources");
+  const lastDeepLinkedIdRef = useRef<number | null>(null);
   useEffect(() => {
     if (pendingOpen?.view !== "resources") return;
     const item = resources.find((r) => r.id === pendingOpen.id);
-    if (item) onEditResource(item);
+    if (item && lastDeepLinkedIdRef.current !== item.id) {
+      onEditResource(item);
+      lastDeepLinkedIdRef.current = item.id;
+    }
     clearPendingOpen();
   }, [pendingOpen, resources, onEditResource, clearPendingOpen]);
 
