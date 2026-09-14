@@ -135,14 +135,22 @@ New pure, i18n-free module `budget-forecast.ts`. Inputs: the project `ProjectRep
 ```ts
 type BudgetForecast = {
   facts: { bac: number; ac: number; remaining: number; ev: number | null; percentComplete: number | null };
-  pace: PaceForecast | { unavailable: "not-enough-bookings" | "no-burn" };
-  efficiency: EfficiencyForecast | { unavailable: "needs-percent-complete" | "no-actual-cost" };
+  pace: PaceForecast | PaceUnavailable;
+  efficiency: EfficiencyForecast | EfficiencyUnavailable;
   gap: { eacDifference: number; percentOfBac: number; severity: "info" | "warning";
          extraWorkingDays: number | null } | null;
   hasFixedPrice: boolean;
 };
-type PaceForecast = { burnRatePerDay: number; windowDays: number; spreadPeriodHoursUsed: boolean;
+type PaceForecast = { burnRatePerDay: number; windowDays: number; windowStart: string; windowEnd: string;
+  spreadPeriodHoursUsed: boolean;
   etc: number; eac: number; vac: number; runOutDate: string | null; daysBeforePlannedEnd: number | null };
+type PaceUnavailable =
+  | { unavailable: "not-enough-bookings"; firstBookingDate: string | null; bookedWorkingDays: number;
+      availableFrom: string | null }
+  | { unavailable: "no-burn"; windowStart: string; windowEnd: string; lastBookingDate: string | null };
+type EfficiencyUnavailable =
+  | { unavailable: "needs-percent-complete"; bucketsMissingPercent: readonly { id: number; name: string }[] }
+  | { unavailable: "no-actual-cost" };
 type EfficiencyForecast = { pv: number; cpi: number; spi: number | null; etc: number; eac: number; vac: number };
 ```
 
@@ -171,8 +179,18 @@ Named constants: `BURN_RATE_WINDOW_WORKING_DAYS = 20`, `FORECAST_GAP_WARNING_RAT
 - Run-out date = the n-th working day after `today`, for the smallest n with `Remaining − burn rate × n ≤ 0`; null
   when Remaining ≤ 0 already or burn rate is 0. `daysBeforePlannedEnd` = calendar days from run-out to plan end
   (negative when the run-out falls after it).
-- Unavailable: fewer than 20 working days between the first booking and `today` → `not-enough-bookings`; burn rate
-  0 → `no-burn`.
+- `windowStart` / `windowEnd` = the first and last working day of the window; always returned so the surface can
+  state which days the burn rate came from.
+- Unavailable, checked in this order:
+  - **`not-enough-bookings`** when `bookedWorkingDays < 20`. `firstBookingDate` = the earliest date carrying actual
+    hours (a day key, or the start of the earliest period with period-key hours); null when nothing is booked.
+    `bookedWorkingDays` = working days from `firstBookingDate` (inclusive) to `today` (exclusive), 0 when null.
+    `availableFrom` = the working day after the 20th working day counted from `firstBookingDate`; null when
+    nothing is booked.
+  - **`no-burn`** when the window's value is 0. `lastBookingDate` = the latest date before `today` carrying actual
+    hours; null when none.
+- Efficiency `needs-percent-complete` carries `bucketsMissingPercent`: every bucket with `budgetValue > 0` and no
+  known percent complete, in bucket order.
 
 ### 5.3 Current efficiency
 
@@ -241,6 +259,29 @@ Order of sections:
 
 New components live in their own files (panel-split convention); the panel stays an orchestrator.
 
+### 6.1a Forecast transparency banner
+
+A forecast that cannot run, or that ran on estimated input, says so in plain words. `budget-forecast-banner.tsx`
+renders the shared `Banner` (`src/app/banner.tsx`) at the top of the Forecast section, above the cards. It has no
+dismiss control and renders nothing when no state applies. It only formats fields of `BudgetForecast`; it computes
+nothing.
+
+| State (engine field) | Severity | Text (EN, example values) |
+|---|---|---|
+| `pace.unavailable === "not-enough-bookings"`, bookings exist | `info` | "The current-pace forecast starts on 13 Oct 2026. It needs 20 working days of bookings; there are 13 so far, starting 15 Sep." (example: first booking 2026-09-15, today 2026-10-02; the 20th working day is 2026-10-12, so `availableFrom` is 2026-10-13) |
+| `pace.unavailable === "not-enough-bookings"`, nothing booked | `info` | "The current-pace forecast starts once hours are booked. It needs 20 working days of bookings." |
+| `pace.unavailable === "no-burn"` | `warn` | "No hours were booked in the last 20 working days (17 Aug – 11 Sep), so there is no current-pace forecast. Last booking: 3 Aug." (the last sentence is omitted when `lastBookingDate` is null) |
+| `pace.spreadPeriodHoursUsed` | `info` | "Part of the burn rate comes from hours entered per month. They were spread evenly over that month's working days." ("per week" on a weekly plan) |
+| `efficiency.unavailable === "needs-percent-complete"` | `info` | "The current-efficiency forecast needs a % complete on every budget bucket. Missing: Design, Rollout." |
+
+- Several states stack as separate banners, in the table's order.
+- Roles follow `Banner`'s defaults (`role="status"`); none uses `error`.
+- `no-actual-cost` shows no banner: the efficiency card's own empty text ("Nothing spent yet") is enough.
+- Dates use the viewer's locale formatting; bucket names come from workspace data and are not translated.
+
+Always visible when the pace forecast exists: a muted line under the pace card, "Burn rate from 17 Aug – 11 Sep
+(20 working days)", from `windowStart` / `windowEnd`.
+
 ### 6.2 Tooltips
 
 Every non-self-explanatory term gets an `InfoTooltip` with a term-bearing accessible name ("What is CPI?"): BAC,
@@ -252,13 +293,17 @@ it. The approved texts are those of the union mockup, adjusted where §5 changed
 
 - Headline: "EAC €261k–€271k · VAC −9% to −13% · runs out 27 Nov"; pace figure alone when efficiency is
   unavailable; Actuals when pace is unavailable.
+- When a §6.1a banner state applies, the tile shows the first one as a single muted line under the headline
+  (e.g. "Pace forecast from 13 Oct 2026"); the full text stays on the Budget report.
 - The budget RAG input is the pace VAC.
 - The tile's minimum height may rise from 2 to 3 rows; the layout engine clamps saved layouts.
 - MR 3 adds the forecast lines and the switch inside the tile.
 
 ### 6.4 Budget view (`budget-panel.tsx`)
 
-- One line above the bucket cards: "Forecast: EAC €261k–€271k → Budget report" (link to the view).
+- One line above the bucket cards: "Forecast: EAC €261k–€271k → Budget report" (link to the view). While the pace
+  forecast is `not-enough-bookings`, the line reads "Forecast from 13 Oct 2026 → Budget report" (or "Forecast
+  starts once hours are booked → Budget report"); while it is `no-burn`, "No recent bookings → Budget report".
 - "Cost recovery" is renamed "Internal cost index" on the project and per-bucket cards.
 
 ### 6.5 Chart (MR 3, `burndown-chart.tsx`)
@@ -303,6 +348,12 @@ it. The approved texts are those of the union mockup, adjusted where §5 changed
 - `budget-forecast.ts`: the §5.6 fixture exactly; the 20-working-day window across a holiday; spread period hours;
   `not-enough-bookings` and `no-burn`; efficiency unavailable when one budgeted bucket lacks percent complete;
   fixed-price uncapped value; gap severity at 9.99% and 10%; `extraWorkingDays` ≤ 0 hidden. Each rule mutation-checked.
+- Engine transparency fields: `firstBookingDate`, `bookedWorkingDays` and `availableFrom` across a weekend and a
+  holiday; nothing booked (all null / 0); `lastBookingDate` for `no-burn`; `windowStart` / `windowEnd` on the §5.6
+  fixture (2026-08-17 / 2026-09-11); `bucketsMissingPercent` names and order.
+- Banner: each §6.1a state renders its text and severity; several states stack in table order; no state renders
+  nothing; `no-actual-cost` renders no banner; the always-visible window line; the tile's one-line form; the Budget
+  view link line variants.
 - Components: both cards, every unavailable state, tooltip names unique per term, dashboard headline and RAG from
   pace, Budget view link line, renames on every surface.
 - i18n: DE loaded (`loadI18n("de")`), encoding test green.
