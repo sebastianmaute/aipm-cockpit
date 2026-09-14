@@ -325,16 +325,11 @@ export function ChangeEditModal({
       heightClassName="h-[960px] min-h-[420px] max-h-[95vh]"
     >
           {/* Title */}
-          {/* ★★ `htmlFor` is LOAD-BEARING — the dictation mic is a real
-              `<button>` sitting in the caption ahead of the input, so an
-              implicit binding named the MIC and left this required field with
-              NO accessible name at all (it has no aria-label and no
-              placeholder). jsdom has no SpeechRecognition, so the mic never
-              renders in unit tests and none can catch this.
+          {/* ★ `htmlFor` is kept as an explicit binding, but is no longer
+              LOAD-BEARING: the hint AND the dictation mic now sit OUTSIDE the
+              naming <label>, in `HintedLabel`'s hint slot (open-followups
+              §386), so neither can join the input's name.
               See src/test/label-binding.ts. */}
-          {/* ★★ The hint AND the mic now sit OUTSIDE the naming <label> in
-              `HintedLabel`'s hint slot (open-followups §386), so neither joins
-              the input's name; `htmlFor` stays as the explicit binding. */}
           <HintedLabel
             htmlFor="change-title"
             className="text-sm sm:col-span-2"

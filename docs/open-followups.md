@@ -613,7 +613,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§386](#386-fields-hint-pollutes-its-controls-accessible-name--closed-2026-09-14) | `Field`'s `hint` pollutes its control's accessible name — CLOSED 2026-09-14 | found 2026-09-05 in the edit-task modal rework | S | **CLOSED** 2026-09-14 (both `Field` implementations and 41 hand-rolled labels in 11 files render the tooltip outside a `display: contents` label via shared `HintedLabel`; enumerated by a TS-AST scan, 41 polluting of 58 before, 0 of 17 after; the hint reaches a screen reader via the adjacent tooltip button, not `aria-describedby`; eye-verify in Firefox/Safari + a real screen reader still owed) |
 | [§387](#387-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
-| [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--closed-2026-09-14) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide | found 2026-09-05 in the edit-task modal rework | M | CLOSED 2026-09-14 |
+| [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--closed-2026-09-14) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide — CLOSED 2026-09-14 | found 2026-09-05 in the edit-task modal rework | M | **CLOSED** 2026-09-14 |
 | [§390](#390-the-inline-create-path-writes-link-fields-with-no-preview-at-all--closed-2026-09-06) | The inline CREATE path writes link fields with no preview at all | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§391](#391-chat-proposal-describetss-emptyplan-is-safe-at-two-of-its-three-call-sites-and-the-reason-is-per-site--open) | `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§392](#392-a-rejection-only-inline-plan-never-reaches-the-preview-so-the-user-is-told-no-changes--closed-2026-09-06) | A rejection-only inline plan never reaches the preview, so the user is told "no changes" | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
@@ -29781,10 +29781,22 @@ on a `data-info-tooltip-trigger` hook on the trigger) with `expectExactLabelName
 `npx vitest run src/app/absence-edit-modal.test.tsx -t "names every hinted control with its caption alone"`.
 ★ The 16 self-named labels still contain a tooltip. Their controls' names are unaffected, and they
 are deliberately left as they are.
-★★ EYE-VERIFY OWED, never done: `display: contents` on a `<label>` was measured in Chromium's
-accessibility tree only. Still owed: Firefox and Safari, a real screen reader, and the running app,
-on the task form's Group and Blockers fields, the time-tracking dialog's remaining-time box, and at
-least one project-form field (e.g. Project code).
+★★ EYE-VERIFY OWED, never done — round 1 only covered Chromium's accessibility tree. The
+consolidated list, both rounds:
+- Firefox and Safari accessibility trees, and a real screen reader (NVDA / VoiceOver), for the
+  `display: contents` label: confirm the name equals the caption and the hint is still reachable
+  via the adjacent, still-focusable tooltip button.
+- The running app, light and dark: caption/hint/control order, wrapping, and that clicking the
+  caption focuses the control, on the task form's Field (Group, Blockers), the time-tracking
+  dialog's remaining-time box, a project form Field (e.g. Project code), and the absence, change,
+  RAID, resource and stakeholder modals, Jira settings, and the AI / integrations / general /
+  localization settings sections (including the Settings row spacing where the input's former
+  `mt-1` gave way to the row gap, and the resource External checkbox row's gap-2→gap-1).
+- The dictation mics that moved OUT of the change title, RAID title and stakeholder
+  Organization/Title/Notes labels: confirm each still sits beside its caption and still dictates
+  (jsdom never renders a mic, so this is untested by the unit suite).
+No repo gate prevents a new `<InfoTooltip>` from landing back inside a naming label — the 58/41/17
+enumeration above was a one-off session script, not a repo script that runs in CI.
 
 A `<label>`'s accessible name is its text CONTENT, so the tooltip trigger's visible glyph is
 concatenated onto the caption: the Group control computes `"Groupi"`, not `"Group"`.
@@ -36091,6 +36103,17 @@ StrictMode an item-bearing cold deep link to a NON-default view (`#raid/123`) en
 because the first passive view→hash write still sees the old tab and replaces the hash with `#dashboard`
 before the remount's warm apply reads it; outside StrictMode the tab is right but the URL loses `/123`.
 The body below is the pre-fix record and is left as written.
+★ 2026-09-14: on a page that LOADED in the classic layout, the first switch to modern is that
+page's first enabled window and so is still COLD — a view-only stale hash lands on the Dashboard,
+and an item-bearing hash left behind by a global-search open during classic reopens that item.
+This is deliberate for now: an async settings load also starts disabled then enables and must
+stay cold too (`use-hash-view.test.tsx` "applies the cold rule on the first EXECUTED run, not the
+first render"), and telling the two apart would need a settings-hydrated signal. Pinned, as the
+classic-load case, by `npx vitest run src/app/use-hash-view.test.tsx -t "is cold on the first
+enabled window even when the page loaded disabled and the cold target is not the default tab"`.
+★ 2026-09-14: the re-entry repair flag is consumed before the MSAL auth-response guard in the
+view→hash effect (`use-hash-view.ts`), so a re-entry that coincides with an auth-response fragment
+skips the bare-hash repair — low probability, and not a regression from before this fix.
 
 `useHashView` (`src/app/use-hash-view.ts`) is enabled only in the modern layout —
 `useHashView(settings.layout === "modern", settings.features)` in `task-manager.tsx`. The first EXECUTED
@@ -37295,7 +37318,7 @@ projects", which seeds two projects that both carry `code: ""` and differ only b
 Mutation-checked: reverting to `projectId: ws.project?.code ?? "default"` turns it red (both projects
 collapse to `""`, so the switch goes undetected and the picker keeps project A's selection). Verified
 2026-09-14: `npx vitest run src/app/timelog-panel.test.tsx -t "§532"` → 1 test passed; full-file run
-`npx vitest run src/app/timelog-panel.test.tsx` → all tests passed (see the full report for counts).
+`npx vitest run src/app/timelog-panel.test.tsx` → `Tests  73 passed (73)`.
 §14's closure text, which had claimed the signal "must keep receiving `ws.project?.code`", carries a
 dated correction pointing here.
 

@@ -43,9 +43,12 @@ export function hintPollutedLabels(root: ParentNode = document.body): string[] {
 
 /**
  * Asserts no hint sits inside a label that names a control.
- * `minHints` is the anti-vacuity floor: a scope that renders fewer InfoTooltip
- * triggers than that throws, so a fixture that stopped rendering the hinted
- * fields cannot pass as clean.
+ * `minHints` does NOT make this non-vacuous: it counts every
+ * `data-info-tooltip-trigger` in `root`, so it only proves SOME trigger
+ * rendered somewhere in scope, not that a specific hinted field did. Pair
+ * this with `expectExactLabelNames` — `getByLabelText` throws when no
+ * control matches a caption, so a fixture that stopped rendering a hinted
+ * field fails there, not here.
  */
 export function expectNoHintInNamingLabel({
   minHints,

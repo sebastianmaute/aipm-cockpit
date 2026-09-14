@@ -295,8 +295,9 @@ describe("AssetPreviewModal — accessible names", () => {
     const dialog = await screen.findByRole("dialog");
     // ★ `scope` is load-bearing: without it the helper counts every button in
     // the document. `minControls` is the MEASURED count for this dialog —
-    // prev, next, plus the shared ModalHeader's ✕ (`alertModalClose`) and its
-    // reset-layout button (`modalResetSize`), which `onResetLayout` renders.
+    // prev, next, plus the shared ModalHeader's ✕ (qualified via
+    // `rowLabel(alertModalClose, title)`, §389) and its reset-layout button
+    // (`modalResetSize`), which `onResetLayout` renders.
     // No `VoiceCommandButton` renders here: `useVoiceCommand()` reads a
     // context whose default is `null` and this test wraps no
     // `VoiceCommandProvider`. Keep the floor exact; a floor set too low

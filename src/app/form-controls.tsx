@@ -232,8 +232,12 @@ export function FieldGroup({
  * ★ The hint reaches assistive tech as its own focusable control, not as the
  *   control's `aria-describedby` — the caller does not own the child element.
  * ★ `caption` must carry no bottom margin; the row gap supplies it.
- * ★ The children wrapper is a `<span>`, not a `<div>`: a `<label>` may hold
- *   phrasing content only.
+ * ★ The children wrapper is a `<span>`, not a `<div>` — so that wrapper
+ *   element itself stays phrasing content. That is NOT a claim that
+ *   everything a caller puts in `children` is phrasing-only: `Field` (and
+ *   this component's own callers) already place flow content inside a
+ *   labelling wrapper — `FieldNotice`'s `<p>`, `ResourcePicker`'s `<div>` —
+ *   and this span does nothing to police that.
  * ★ The hint slot may also carry a caption control such as a dictation mic.
  *   It then sits OUTSIDE the label too, so it can neither join the control's
  *   name nor steal the label's implicit binding.

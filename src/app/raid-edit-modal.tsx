@@ -414,21 +414,15 @@ export function RaidEditModal({
           </div>
           )}
 
-          {/* ★★ `htmlFor` is LOAD-BEARING. The dictation mic is a real
-              `<button>` and sits in the caption AHEAD of the input, so an
-              implicit binding made this label name the MIC — demoting the
-              required Title field to its `placeholder`, which HTML-AAM treats
-              as the fallback name (a poor name, not none; the change and
-              milestone rows have no placeholder and were left with NO name at
-              all) in any browser that
-              supports SpeechRecognition (jsdom has none, so no unit test can
-              see it). See src/test/label-binding.ts. */}
+          {/* ★ `htmlFor` is kept as an explicit binding, but is no longer
+              LOAD-BEARING: the hint AND the dictation mic now sit outside the
+              naming <label>, in `HintedLabel`'s hint slot (open-followups
+              §386), so neither can join the input's name.
+              See src/test/label-binding.ts. */}
           <HintedLabel
             htmlFor="raid-title"
             className="text-sm sm:col-span-2"
             bodyClassName="flex flex-col gap-1"
-            // ★★ The hint AND the mic sit outside the naming <label>
-            //   (open-followups §386); `htmlFor` stays as the explicit binding.
             hint={<><InfoTooltip text={t(lang, "raidFieldTitleHint")} />{titleMic}</>}
             caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "raidTitle")} *</span>}
           >
