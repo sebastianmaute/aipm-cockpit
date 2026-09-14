@@ -316,8 +316,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§87](#87-ai-cannot-read-the-activity-log--closed-2026-09-13) | AI cannot read the activity log | view-scoped AI prompts, unreleased | — | **CLOSED** 2026-09-13 |
 | [§88](#88-ai-sectiontsxs-own-sub-section-titles-are-not-real-headings--closed-2026-08-31) | `ai-section.tsx`'s own sub-section titles are not real headings | found during view-scoped AI prompts review, unreleased | S | **CLOSED** 2026-08-31 |
 | [§89](#89-ai-cannot-read-absences-and-the-resource-calendar-view-renders-them-beside-meetings) | AI cannot read absences, and the Resource-calendar view renders them beside meetings | view-scoped AI prompts, unreleased | S | open |
-| [§90](#90-oncreateresource-is-unguarded-in-a-popout-and-cannot-take-guardedit--open) | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open | undefined` | found in the help-coverage slice-3 review, unreleased | open |
-| [§91](#91-a-popout-can-record-an-undo-entry-and-persist-an-activity-line--open) | A popout can record an undo entry and persist an activity line — open | found in the help-coverage slice-3 review, unreleased | S | open |
+| [§90](#90-oncreateresource-is-unguarded-in-a-popout-and-cannot-take-guardedit--closed-2026-09-14) | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — CLOSED 2026-09-14 | found in the help-coverage slice-3 review, unreleased | — | **CLOSED** 2026-09-14 |
+| [§91](#91-a-popout-can-record-an-undo-entry-and-persist-an-activity-line--closed-2026-09-14) | A popout can record an undo entry and persist an activity line — CLOSED 2026-09-14 | found in the help-coverage slice-3 review, unreleased | S | **CLOSED** 2026-09-14 |
 | [§92](#92-the-settings-types--workspace--document-model-cycle-is-a-standing-trap-for-any-eval-time-snapshot--open) | The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot — open | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per instance | open |
 | [§93](#93-the-pptx-truncation-notice-is-a-hardcoded-english-frame-around-a-localized-title--closed-2026-09-14) | The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — CLOSED 2026-09-14 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | **CLOSED** 2026-09-14 |
 | [§94](#94-pptx-pagination-counts-logical-lines-so-a-wrapped-line-still-overflows--open-eye-verify-owed) | PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
@@ -430,7 +430,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | open |
 | [§202](#202-ooxml-media-machinery-for-document-images--s3c-2--closed-2026-08-22) | OOXML media machinery for document images — S3c-2 | — | — | **CLOSED** 2026-08-22 |
 | [§203](#203-the-asset-library-is-outside-axe-coverage-and-this-is-unfixable-at-the-gate) | The asset library is outside axe coverage, and this is unfixable at the gate | — | — | open |
-| [§204](#204-chat_threads-and-committee_report_versions-rows-outlive-a-project-hard-delete) | `chat_threads` and `committee_report_versions` rows OUTLIVE a project hard-delete | — | — | open |
+| [§204](#204-chat_threads-and-committee_report_versions-rows-outlive-a-project-hard-delete--closed-2026-09-14) | `chat_threads` and `committee_report_versions` rows OUTLIVE a project hard-delete — CLOSED 2026-09-14 | — | — | **CLOSED** 2026-09-14 |
 | [§205](#205-the-missing-image-glyph-in-document-asset-imagests-is-not-eye-verified) | The missing-image glyph in `document-asset-images.ts` is not eye-verified | — | — | open |
 | [§206](#206-documents-history-modaltsx-does-not-resolve-images--closed-2026-08-23) | `documents-history-modal.tsx` does not resolve images | — | — | **CLOSED** 2026-08-23 |
 | [§207](#207-single-tenant-asset-metadata-is-global-while-the-bytes-are-always-partitioned) | Single-tenant asset metadata is global while the bytes are always partitioned | — | — | open |
@@ -549,7 +549,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | open |
 | [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | open |
 | [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked--closed-2026-09-14) | The asset library offers Insert on a refused-format row, which can only ever render as blocked — CLOSED 2026-09-14 | found 2026-08-31 in the §230 cold review | S | **CLOSED** 2026-09-14 |
-| [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | open |
+| [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass--closed-2026-09-14) | The single-task delete is the one entity delete that never arms the destructive-save bypass — CLOSED 2026-09-14 | found 2026-08-31, closing §303 | S | **CLOSED** 2026-09-14 |
 | [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01) | ~~`actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name~~ | 0.272.0 (Zoline) | S | **CLOSED** 2026-09-01 (closed WIDER than its title; popover internals carved out to §328) |
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-all-four-light-schemes--closed-2026-09-01) | ~~Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes~~ | found 2026-08-31 in the §300 fix round | M | **CLOSED** 2026-09-01 (title AMENDED — the filed figure was beacon vs `--surface`; all four light schemes fail against `--surface-muted`) |
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide--closed-2026-09-02) | ~~`TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide~~ | found 2026-08-31, adding the §300 mismatch region | S | **CLOSED** 2026-09-02 (`useId()` for both; the probe REFUTED the entry's click path and found the voice-nonce one) |
@@ -755,13 +755,13 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§530](#530-there-is-no-microsoft-teams-integration-the-remaining-microsoft-365-gap--open) | There is no Microsoft Teams integration, the remaining Microsoft 365 gap — OPEN | AI PM Cockpit demo 2026-09-11 (P-8), GitLab #74; mirrored into the register 2026-09-13 | L — new Graph scopes, likely admin consent, then channel posts, online meetings and chat links | open |
 | [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--closed-2026-09-13) | Nothing checks that the register and GitLab issues stay one-to-one — CLOSED 2026-09-13 | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | **CLOSED** 2026-09-13 |
 | [§532](#532-two-projects-without-a-code-look-like-the-same-project-to-the-timelog-picker--closed-2026-09-14) | Two projects without a code look like the same project to the TimeLog picker — CLOSED 2026-09-14 | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | **CLOSED** 2026-09-14 |
-| [§533](#533-csv-markdown-and-turso-split-a-stored-email-address-containing-a-comma-or-semicolon-on-save--open) | CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — OPEN | found 2026-09-14 in the cold review of the data-loss batch, measured by a codec round-trip probe; GitLab #323 | S–M — a quote-aware join for the `emails` cell, or a one-time migration | open |
+| [§533](#533-csv-markdown-and-turso-split-a-stored-email-address-containing-a-comma-or-semicolon-on-save--closed-2026-09-14-as-an-accepted-limit) | CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — CLOSED 2026-09-14 as an accepted limit | found 2026-09-14 in the cold review of the data-loss batch, measured by a codec round-trip probe; GitLab #323 | S–M — a quote-aware join for the `emails` cell, or a one-time migration | **CLOSED** 2026-09-14 as an accepted limit |
 | [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--open) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | open |
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--open) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | open |
 | [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
 | [§537](#537-project-contact-persons-have-no-ids--open) | Project contact persons have no ids — OPEN | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | open |
 | [§538](#538-single-db-turso-never-persists-project-meta--open) | Single-DB Turso never persists project meta — OPEN | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant project meta row/table (or reuse of the tenant `projects` table), `dirtyWorkspaceTables` taught about project-only edits, and a `turso-migrate.ts` self-heal entry | open |
-| [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--open) | `sanitizeIsoDate` accepts dates that are not real calendar dates — OPEN | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | open |
+| [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--closed-2026-09-14) | `sanitizeIsoDate` accepts dates that are not real calendar dates — CLOSED 2026-09-14 | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | **CLOSED** 2026-09-14 |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--open) | A repeated resource deep link re-runs the open while that resource's editor is open — OPEN | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | open |
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--open) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | open |
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
@@ -6964,11 +6964,9 @@ in §86, which are live external calls) — it was simply out of scope for this 
 
 ---
 
-## 90. `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open
+## 90. `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — CLOSED 2026-09-14
 
-**Status:** open — an unguarded popout handler. Last asserted 2026-08-21; never machine-verified by a committed probe.
-
-**Work item:** #127
+**Status:** CLOSED 2026-09-14 — every resource-creation route is closed in a popout. task-manager passes `isPopout ? undefined :` for `handleCreateResource` (WorkspaceSection and AppModals, so the picker offers no "+ Add" row) and for `handleAddAssigneeToAddressBook` (so the task form shows no "+" address-book button), and `AppModals` never renders `ResourceEditModal` in a popout; the Resources-view openers were already `guardEdit`-wrapped. Pinned by "popout: passes NO onCreateResource and NO onAddAssigneeToAddressBook" and "popout: onEditResource opens no resource editor" (`task-manager.popout-guard.test.tsx`, each beside a main-window positive control), "renders ResourceEditModal in the main window and never in a popout" (`app-modals.test.tsx`) and "renders no button when it is absent" (`task-form-fields.test.tsx`).
 
 Every mutating handler `task-manager` threads to `WorkspaceSection` is either wrapped in
 `guardEdit` (`makeEditGuard(isPopout, …)`) or self-guards; `onChangeBudgets` was the exception and was
@@ -6983,6 +6981,10 @@ edit modal opens in a popout and typing a new name into the owner picker calls t
 `handleCreateResource` → `setResources` + `logActivity("resource.created")`. The item saving around it
 is blocked, so a popout can create a resource it cannot then attach.
 
+★ Closed 2026-09-14: this entry named the RAID owner picker as the only reachable route; the task
+form's address-book button (`onAddAssigneeToAddressBook` → `handleAddAssigneeToAddressBook`) also
+reached the resource editor unguarded (pre-flight C1) and is closed by the same fix shape.
+
 ★ Correction 2026-08-21: `RaidPanelToolbar` never existed — `git log --oneline --all -S'RaidPanelToolbar'
 -- src` returns no commits, ever. Earlier text here used that name for this component; it has been
 `RaidToolbar` (`src/app/raid-panel-toolbar.tsx`) since commit `8b53121a` split it out of
@@ -6992,6 +6994,11 @@ forwarded to `CalendarSyncControls`), and `onCreateResource: handleCreateResourc
 `task-manager.tsx` is still unguarded beside its `guardEdit`-wrapped RAID siblings (`grep -n
 "onCreateResource: handleCreateResource" src/app/task-manager.tsx`).
 
+★ Closed 2026-09-14: superseded — both `task-manager.tsx` call sites now read
+`onCreateResource: isPopout ? undefined : handleCreateResource` /
+`onCreateResource={isPopout ? undefined : handleCreateResource}`, so this paragraph's "still
+unguarded" finding no longer holds; the grep above now returns nothing.
+
 ★ Blast radius is popout-local for the workspace itself (the save effect early-returns on `isPopout`
 and `canSend` disables every outbound broadcast) — but see §91 for the part that is not.
 
@@ -7000,11 +7007,9 @@ picker on `isPopout`.
 
 ---
 
-## 91. A popout can record an undo entry and persist an activity line — open
+## 91. A popout can record an undo entry and persist an activity line — CLOSED 2026-09-14
 
-**Status:** open — an unguarded undo hotkey in a popout. Reproduced 2026-08-28 by `grep -n "isPopout" src/app/use-undo-hotkey.ts`.
-
-**Work item:** #128
+**Status:** CLOSED 2026-09-14 — `useUndoStack` takes `isReadOnly`; in a popout every capture pushes nothing and shows no toast, and `undo`/`redo`/`undoById`/`undoThrough`/`redoThrough` run nothing. Pinned by "useUndoStack — read-only" (`undo/use-undo-stack.test.tsx`) and the popout undo seam case.
 
 Two unguarded paths compose into a write that outlives the window.
 
@@ -7014,6 +7019,10 @@ popout the per-row saves are guarded away while the undo entry still lands. `use
 mounted unconditionally, so Ctrl+Z there calls the unguarded `undoApi.undo` → a real `setRaid`. Only
 the visible undo/redo BUTTONS are popout-gated, which is why the affordance is invisible rather than
 merely available.
+
+★ Closed 2026-09-14: "invisible" overstated it — every capture in a popout showed a clickable Undo
+toast (the ambient toast is not popout-gated), so the affordance was AVAILABLE, not hidden; only the
+underlying write (`setRaid`) was the problem, and that write is now inert too (`isReadOnly`).
 
 ★★★ **THE HALF THAT WAS NOT POPOUT-LOCAL IS FIXED, AND THIS ENTRY'S SEVERITY DROPS WITH IT.** This
 paragraph read: `undo()` calls `logActivity("undo", …)`, and `use-activity-log` writes the log to
@@ -7038,6 +7047,12 @@ grep -n "§91" src/app/use-storage-backend.ts    # the save effect naming the re
 
 ★ Gating `useUndoHotkey` on `isPopout` closes both the `setRaid` and the persisted activity line in one
 edit, and is the reason this is filed as one item rather than two.
+
+★ Closed 2026-09-14: this line proposed gating `useUndoHotkey` directly; that is NOT the fix that
+landed. `useUndoStack` gained `isReadOnly` instead, so `pushEntry`/`undo`/`redo`/`undoById`/
+`undoThrough`/`redoThrough` all return early on it — `useUndoHotkey` itself still never reads
+`isPopout` (the reproduce grep above still exits 1), but its calls now land on an inert stack in a
+popout. Same outcome, different mechanism.
 
 ---
 
@@ -16770,14 +16785,9 @@ unit test (≥2 seeded rows) is not merely the best detector for this surface �
 one that will ever exist, at any gate configuration. Do not read a future green axe run, however
 the seed is widened, as covering this.
 
-## 204. `chat_threads` and `committee_report_versions` rows OUTLIVE a project hard-delete
+## 204. `chat_threads` and `committee_report_versions` rows OUTLIVE a project hard-delete — CLOSED 2026-09-14
 
-**Status:** open — **CONFIRMED 2026-08-25.** This entry used to read "a question to probe, not a
-confirmed defect" and asked the reader to run the probe. The probe is run; it is a defect. Its fix
-is an explicit NON-GOAL of the slice that settled it, so the entry stays open — but nobody needs to
-re-derive the answer. Never machine-verified by a committed probe.
-
-**Work item:** #188
+**Status:** CLOSED 2026-09-14 — `hardDeleteProject` sweeps `PROJECT_SCOPED_SIDE_TABLES` (six tables, not the two this heading named: chat_threads, committee_report_versions, document_asset_data, snapshot, snapshot_series, project_versions) in one non-fatal pipeline; `turso-side-tables.guard.test.ts` fails on an unregistered project-keyed table and `turso-portfolio.execute.test.ts` runs the sweep on node:sqlite.
 
 S3c-1 made `hardDeleteProject` (`turso-portfolio.ts`) explicitly call
 `deleteAllAssetDataForProject` for the new `document_asset_data` side table, non-fatally (via
@@ -16785,6 +16795,12 @@ S3c-1 made `hardDeleteProject` (`turso-portfolio.ts`) explicitly call
 (`chat-threads-schema.ts`) and `committee_report_versions` (`committee-report-versions-schema.ts`)
 are side tables of the same out-of-`TABLE_NAMES` shape, predating this slice. **Neither gets the
 equivalent call, and nothing else sweeps them by project.** The chain, each link greppable:
+
+★ Closed 2026-09-14: `deleteAllAssetDataForProject` no longer exists — `git grep -n
+deleteAllAssetDataForProject -- src/app` now returns nothing. It was replaced by
+`projectSideTableSweepStatements` (`project-side-tables.ts`), which issues the delete for all SIX
+project-scoped side tables — `chat_threads` and `committee_report_versions` included — from one
+`PROJECT_SCOPED_SIDE_TABLES` registry. The numbered chain below describes the state BEFORE this fix.
 
 1. `hardDeleteProject` issues `hardDeleteProjectStatements(id)` plus exactly one extra call —
    `deleteAllAssetDataForProject`. There is no second one.
@@ -16819,6 +16835,11 @@ code today and are **proposed by this entry** — beside `deleteAllAssetDataForP
 leaked rows are recoverable, a half-deleted project is not. ★★ **Do NOT build it from this entry.**
 It was an explicit non-goal of the housekeeping slice that confirmed the leak; it wants its own
 change, with the tenant-vs-single-DB question answered deliberately rather than by analogy.
+
+★★ Closed 2026-09-14: superseded — it WAS built, as `PROJECT_SCOPED_SIDE_TABLES` /
+`projectSideTableSweepStatements`, generalized to every project-scoped side table rather than just
+these two named helpers. Single-DB Turso storage is untouched (that path never calls
+`hardDeleteProject`), so the tenant-vs-single-DB question above was answered by scope, not analogy.
 
 ## 205. The missing-image glyph in `document-asset-images.ts` is not eye-verified
 
@@ -26666,12 +26687,14 @@ a reason, (b) allow it but warn at insert time, (c) leave it and rely on the in-
 ★ Dangling rows have the same unguarded Insert. That half is milder — the retry path exists — but
 whatever is decided here should cover both, since the button is one call site.
 
-## 323. The single-task delete is the one entity delete that never arms the destructive-save bypass
+## 323. The single-task delete is the one entity delete that never arms the destructive-save bypass — CLOSED 2026-09-14
 
-**Status:** OPEN. Filed 2026-08-31 while closing
-[§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31).
-**Never machine-verified** — no probe was run; the unreachability argument below is read off the
-code, not observed. Reproduce with
+**Status:** CLOSED 2026-09-14 by design — `onDelete` does not arm, and a comment there now says why; "can never flag a single-row delete" (`is-workspace-empty.test.ts`) pins the unreachability.
+
+Filed 2026-08-31 while closing
+[§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31),
+originally with no committed probe — the unreachability argument was read off the code, not observed
+(the test above now observes it). Reproduce with
 `grep -n "onDelete\|allowDestructiveSave" src/app/use-task-row-handlers.ts` — it prints the
 `onDelete` declaration and its entry in the returned object, and NO `allowDestructiveSave` line at
 all, which is the finding — and, for the consumers,
@@ -26682,8 +26705,6 @@ is the point — MISSES the voice consumer entirely, since it calls `handlersRef
 rather than forwarding a prop. Run 2026-09-01 it prints **9** lines: three comment mentions, the
 destructure of the handler, the hand-off into `useBulkOperations`, that bag's type declaration, and
 the three consumer sites enumerated below.
-
-**Work item:** #238
 
 ★ **Number:** 324 is held by a concurrent branch at filing time, so this batch took 323, 325 and 326
 and left 324 alone. A number is only reserved once it is on `origin/main`; if 324 never lands, the
@@ -26718,6 +26739,8 @@ would arm here too.
 
 ★ So the useful outcome of this entry may well be a comment at the handler saying why it does NOT
 arm, rather than a code change. Whoever picks it up should decide that first.
+
+★ Closed 2026-09-14: that comment is now above `onDelete` in `use-task-row-handlers.ts`.
 
 ## 324. `actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name — CLOSED 2026-09-01
 
@@ -37722,16 +37745,16 @@ records.
 Related: §521 (project creation from a name alone — closed by the same MR, which is what makes a blank code
 the normal state).
 
-## 533. CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — OPEN
+## 533. CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — CLOSED 2026-09-14 as an accepted limit
 
-**Status:** open 2026-09-14 — measured by a vite-node round trip over the real codecs (a scratchpad probe,
-not committed). JSON and IndexedDB keep a stored `["a,b@x.com"]` as is, while CSV, Markdown and Turso return
+**Status:** CLOSED 2026-09-14 as an accepted limit — "," and ";" are legal only inside a quoted local part (RFC 5321/5322), which this app has no use for, and every email write boundary now refuses a changed value holding either (`emailWriteRefusal` / `findTornEmail`, `sanitize-core.email-rule.test.ts`). An address already torn by a past CSV, Markdown or Turso save cannot be rebuilt.
+
+Measured 2026-09-14 by a vite-node round trip over the real codecs (a scratchpad probe, not committed).
+JSON and IndexedDB keep a stored `["a,b@x.com"]` as is, while CSV, Markdown and Turso return
 `["a","b@x.com"]`. The same holds for `";"`: `["a;b@x.com"]` comes back as `["a","b@x.com"]` from the three
 text backends. The two halves of the cause were re-checked the same day with
 `grep -n "input.split(/\[;,\]/)" src/app/sanitize-entities.ts` (the split) and
 `grep -n 'case "emails"' src/app/csv-codecs-core.ts` (the `"; "` join).
-
-**Work item:** #323
 
 **Cause.** The three text backends store `resource.emails` as one cell. `resourceFieldToString` joins the list
 with `"; "`, and on the way back `sanitizeResource` hands that cell to `sanitizeEmailList`, which splits any
@@ -37742,7 +37765,7 @@ array, and IndexedDB stores the object by structured clone without a decode step
 It cannot repair an address that is already stored: a row loaded from JSON or IndexedDB can still carry one,
 and the first save to CSV, Markdown or Turso tears it with no edit involved.
 
-**Options, deliberately left open.**
+**Options (not taken):**
 - A quote-aware join and split for the `emails` cell, so a delimiter inside an address survives. The decoder
   must still read every cell written before the change.
 - A one-time migration that finds stored addresses holding `,` or `;` and asks the user to correct them.
@@ -38020,15 +38043,20 @@ grep -rn "project?\.name\|project?\.code\|project?\.customer\|project?\.startDat
   src/app/timelog-panel.tsx src/app/use-bulk-operations.ts src/app/workspace-section.tsx src/app/task-manager.tsx
 ```
 
-## 539. sanitizeIsoDate accepts dates that are not real calendar dates — OPEN
+## 539. sanitizeIsoDate accepts dates that are not real calendar dates — CLOSED 2026-09-14
 
-**Status:** open 2026-09-14. Reported by a peer session during its §273 work (branch
+**Status:** CLOSED 2026-09-14 — `sanitizeIsoDate` rejects a non-calendar date on every path by returning `""`; pinned by `sanitize-core.iso-date.test.ts` and the strengthened property in `sanitize.property.test.ts`.
+
+★ Closed 2026-09-14 — scope: this closes `sanitizeIsoDate` only. `calendarEvent`'s own date check,
+`isoDateOrUndefined` (`calendar-event.ts`), is a SEPARATE regex + `Date.parse` implementation that
+still accepts a month-day overflow like `2026-02-30` — that module's own header already documents the
+gap as "stated, not fixed." NOT closed by this entry; still open there.
+
+Reported by a peer session during its §273 work (branch
 `fix/ui-residuals-batch`), which does not edit `sanitize-core.ts`. The user approved "file and fix" for the
 email-guard batch (`fix/email-and-guard-batch`). Verified 2026-09-14 by reading `sanitizeIsoDate` and
 measuring `Date` parsing in Node. The Gantt symptom below is the peer's observation and was not
 reproduced here.
-
-**Work item:** #329
 
 **The problem.** `sanitizeIsoDate` (`src/app/sanitize-core.ts`) returns its input unchanged when it
 matches `/^\d{4}-\d{2}-\d{2}$/` and the year is 1900..2100. Month and day are never checked, so
@@ -38063,6 +38091,10 @@ grep -n "export function sanitizeIsoDate" -A 6 src/app/sanitize-core.ts   # shap
 node -e "for (const s of ['2026-02-30','2026-13-01']) { const d = new Date(s); console.log(s, isNaN(d) ? 'Invalid' : d.toISOString()) }"
 git grep -c sanitizeIsoDate -- src                                        # referencing files
 ```
+
+★ Closed 2026-09-14: the first grep's comment (`# shape + year only`) is now stale — the function
+also checks the month range and the true day-of-month via a `Date.UTC` round trip, so re-running that
+grep today shows the calendar check too. Left as a dated record of the pre-fix shape.
 
 ## 540. A repeated resource deep link re-runs the open while that resource's editor is open — OPEN
 

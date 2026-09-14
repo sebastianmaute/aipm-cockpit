@@ -357,6 +357,11 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     [openEditModal],
   );
 
+  // ★★ Deliberately does NOT arm `allowDestructiveSave` (open-followups §323),
+  //  unlike every other entity's single delete. One call removes exactly ONE
+  //  row, and `isMassDeletion` (workspace-metrics.ts) needs `prev - cur >= 5`,
+  //  so this delete can never trip the guard; arming would only hand a one-shot
+  //  bypass to the NEXT save. Pinned in is-workspace-empty.test.ts.
   const onDelete = useCallback(
     (id: number) => {
       if (!window.confirm(t(lang, "confirmDelete", id))) return;
