@@ -645,12 +645,13 @@ always created WITH the table, so the migrator only ever ADDs TEXT columns.
 ★★★ **`document_asset_data` is deliberately OUTSIDE `TABLE_NAMES`, and this is the same shape as
 `chat_threads` above.** A workspace save emits a per-table `DELETE` + full re-`INSERT` for every
 table `TABLE_NAMES` lists, so listing the byte table would wipe the entire image library on every
-single workspace save. Consequence: nothing cleans it automatically on ordinary project use, so
-`hardDeleteProject` (`turso-portfolio.ts`) calls `deleteAllAssetDataForProject` explicitly — and
-**non-fatally**, via `logDiag`, because leaked bytes are recoverable disk space and a half-deleted
-project is not. ★ It was NOT verified whether the two OLDER side tables of this shape —
-`chat_threads`, `committee_report_versions` — get the same cleanup; probe before assuming either
-way (§204).
+single workspace save. Consequence: nothing cleans it automatically on ordinary project use, so `hardDeleteProject`
+(`turso-portfolio.ts`) sweeps it — together with every other project-keyed side table
+(`chat_threads`, `committee_report_versions`, `snapshot`, `snapshot_series`, `project_versions`) —
+through `PROJECT_SCOPED_SIDE_TABLES` (`project-side-tables.ts`) in one separate pipeline,
+**non-fatally**, via `logDiag`, because leaked rows are recoverable and a half-deleted project is
+not. `turso-side-tables.guard.test.ts` fails on a new project-keyed table missing from that
+registry (§204).
 
 ★★★ **THE TWO HALVES SIT ON OPPOSITE SIDES OF `TABLE_NAMES`, AND BOTH SIDES ARE LOAD-BEARING.**
 The METADATA table `document_assets` **IS** in `TABLE_NAMES` — not by a separate listing, but
@@ -687,8 +688,8 @@ id `null`) while `loadRegistry()` carries no such guard. Without a gate, a Turso
 entering Safe Mode silently swapped the byte-lookup key to the file registry's id — metadata does
 NOT move, since it rides the workspace — so every asset read as dangling, every embedded image
 broke, and any upload wrote bytes under a key normal-mode boot never looks at.
-`deleteAllAssetDataForProject` is keyed the same way, so those orphans then survived project
-deletion too. ★★ It is reachable with NO user action on an env-configured deployment:
+The project hard-delete sweep (`projectSideTableSweepStatements`) is keyed the same way, so those
+orphans then survived project deletion too. ★★ It is reachable with NO user action on an env-configured deployment:
 `getTursoConfig` falls back to `NEXT_PUBLIC_TURSO_*` BEFORE consulting settings, so default Safe
 Mode settings still yield a live config — and a test leaning on the settings coupling passes
 vacuously over exactly that path.

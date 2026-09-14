@@ -8,7 +8,7 @@
 import { runTursoPipeline } from "./turso-pipeline";
 import {
   DOCUMENT_ASSET_DATA_DDL, assetDataSelect, assetDataIdsSelect, assetDataUpsert,
-  assetDataDelete, assetDataDeleteAllForProject, rowsToAssetData, type AssetDataRow,
+  assetDataDelete, rowsToAssetData, type AssetDataRow,
 } from "./document-assets-schema";
 import type { SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
@@ -44,12 +44,4 @@ export async function deleteAssetData(
   config: TursoConfig | null, id: string, projectId: string,
 ): Promise<void> {
   await runTursoPipeline(config, [...ddl(), ...assetDataDelete(id, projectId)]);
-}
-
-/** Project deletion must clean the side table explicitly — the workspace save
- *  never touches it, so nothing else ever will. */
-export async function deleteAllAssetDataForProject(
-  config: TursoConfig | null, projectId: string,
-): Promise<void> {
-  await runTursoPipeline(config, [...ddl(), ...assetDataDeleteAllForProject(projectId)]);
 }

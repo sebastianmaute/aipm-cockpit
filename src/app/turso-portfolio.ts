@@ -13,7 +13,7 @@ import {
   upsertProjectStatement, archiveProjectStatement, restoreProjectStatement,
   hardDeleteProjectStatements, rowsToProjectList, type ProjectListEntry,
 } from "./turso-tenant-schema";
-import { deleteAllAssetDataForProject } from "./document-assets-store";
+import { projectSideTableSweepStatements } from "./project-side-tables";
 import { logDiag } from "./diagnostics";
 import type { SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
@@ -53,14 +53,14 @@ export async function restoreProject(config: TursoConfig | null, id: string): Pr
 
 export async function hardDeleteProject(config: TursoConfig | null, id: string): Promise<void> {
   await runTursoPipeline(config, [...ddl(), ...hardDeleteProjectStatements(id)]);
-  // document_asset_data lives OUTSIDE TABLE_NAMES (a workspace save's per-table
-  // DELETE sweep would otherwise wipe the whole image library on every save),
-  // so hardDeleteProjectStatements' loop over TABLE_NAMES never touches it —
-  // nothing else ever cleans it up. Non-fatal: a failure here must not abort
-  // the project deletion the user asked for. Leaked bytes are recoverable; a
-  // half-deleted project is not.
+  // open-followups §204 — every project-scoped side table lives OUTSIDE
+  // TABLE_NAMES (a workspace save's per-table DELETE would wipe it), so the
+  // transaction above never reaches them. ONE separate, non-fatal pipeline:
+  // leaked rows are recoverable, a half-deleted project is not. ★ A libSQL
+  // pipeline does not abort on a failing statement, so a sweep can be partial;
+  // it is logged and re-runnable.
   try {
-    await deleteAllAssetDataForProject(config, id);
+    await runTursoPipeline(config, projectSideTableSweepStatements(id));
   } catch (err) {
     logDiag("warn", "storage.projectAssetCleanupFailed", { id, message: err instanceof Error ? err.message : String(err) });
   }

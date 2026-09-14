@@ -163,7 +163,7 @@ export function DocumentsTabPanel({
   // not this key —
   // stayed put: every asset reads as dangling, every embedded image breaks, and
   // an upload writes bytes under a key normal-mode boot never looks at.
-  // `deleteAllAssetDataForProject` is keyed the same way, so those orphans would
+  // the project hard-delete sweep (`projectSideTableSweepStatements`) is keyed the same way, so those orphans would
   // then survive project deletion too.
   //
   // ★★ STABILISING THE KEY INSTEAD IS INCOHERENT, NOT MERELY UGLY. Safe Mode

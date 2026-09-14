@@ -40,7 +40,6 @@ vi.mock("./document-assets-store", () => ({
   loadAssetDataIds: vi.fn(async () => []),
   saveAssetData: vi.fn(async () => {}),
   deleteAssetData: vi.fn(async () => {}),
-  deleteAllAssetDataForProject: vi.fn(async () => {}),
 }));
 
 const TURSO_CONFIG: TursoConfig = { httpUrl: "https://db.turso.io", authToken: "tok" };
