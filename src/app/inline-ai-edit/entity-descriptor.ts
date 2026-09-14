@@ -49,13 +49,12 @@ import {
 } from "../calendar-event";
 import { recurrenceText } from "../calendar-recurrence-text";
 import {
-  ABSENCE_FIELD_GUARDS,
-  CALENDAR_EVENT_FIELD_GUARDS,
   acceptsCostAmount,
   acceptsRiskScale,
   acceptsScheduleDays,
   sanitizeMilestoneTaskIds,
 } from "../sanitize-records";
+import { ABSENCE_FIELD_GUARDS, CALENDAR_EVENT_FIELD_GUARDS } from "../sanitize-allowlist-guards";
 import { roleLabel } from "../resource-foundation";
 import { str } from "./str";
 
@@ -769,7 +768,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   },
   absence: {
     entity: "absence", updateTool: "update_absence", deleteTool: "delete_absence", createTool: "create_absence", wsKey: "absences",
-    // Derived from `ABSENCE_FIELD_GUARDS` (sanitize-records.ts) — the set the
+    // Derived from `ABSENCE_FIELD_GUARDS` (sanitize-allowlist-guards.ts) — the set the
     // MERGE SITE lets through — minus `resourceId`, which is an FK and is
     // disclosed through `linkFields` by the same rule as `resource.roleId`.
     diffFields: ["assignee", "assigneeEmail", "startDate", "endDate", "type", "note"],
@@ -860,7 +859,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   },
   calendarEvent: {
     entity: "calendarEvent", updateTool: "update_calendar_event", deleteTool: "delete_calendar_event", createTool: "create_calendar_event", wsKey: "calendarEvents",
-    // Derived from `CALENDAR_EVENT_FIELD_GUARDS` (sanitize-records.ts) minus
+    // Derived from `CALENDAR_EVENT_FIELD_GUARDS` (sanitize-allowlist-guards.ts) minus
     // `attendeeResourceIds`, an id LIST and therefore a `linkFields` member.
     // ★ `exceptions` is absent from the guard table itself and so cannot be
     //  written by the model at all — nothing to disclose.

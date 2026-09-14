@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dropUnacceptedAbsenceFields } from "./sanitize-records";
+import { dropUnacceptedAbsenceFields } from "./sanitize-allowlist-guards";
 
 describe("dropUnacceptedAbsenceFields", () => {
   it("keeps the fields a model may legitimately set", () => {

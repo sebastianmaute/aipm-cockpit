@@ -1,5 +1,5 @@
 // §461 — the absence model-write path's assignee-email rule, kept out of
-// sanitize-records.ts (which sits at the file-size LIMIT). Re-exported through
+// sanitize-records.ts (which sat at the file-size LIMIT when this was written). Re-exported through
 // the `./sanitize` barrel, so callers import it from there.
 
 import { refuseEmailWrite } from "./record-email-guards";
