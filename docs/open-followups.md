@@ -2975,6 +2975,19 @@ passed (4)`, `Tests 214 passed (214)`). `milestones-panel.tsx`'s own hand-rolled
 (component docstring: "Milestone push/pull is deliberately NOT routed through this") are unaffected
 and remain unqualified — out of scope for this entry, which is about `CalendarSyncControls` only.
 
+★★ **Corrected 2026-09-14 (final fix round): where two instances really co-render.** The source
+comment this fix added cited "the Calendar sub-tab's absences + meeting series" as the collision.
+No meeting-series `CalendarSyncControls` exists: the four callers are `tasks-section.tsx`,
+`raid-panel-toolbar.tsx`, `change-panel.tsx` and `resources-panel.tsx`, and i18n has only the Task,
+Raid, Change and Absence entity keys. A later review then called any collision non-existent because
+each caller sits in a different view. That holds for the MODERN layout, which renders one view at a
+time. It does not hold for the CLASSIC layout: `task-manager.tsx`'s classic tree renders
+`tasksSectionEl` directly below `workspaceEl` with no view condition, and the Tasks instance is gated
+only on M365, popout and its toggle handler, so it shares the screen with the RAID, Changes or
+Resources instance. That is the case this entry's dated body describes. It is read from the code, not
+rendered. The comments in `calendar-sync-controls.tsx` and its test now name that case and call the
+qualification preventive everywhere else.
+
 The enable **checkbox** is qualified per entity (`"… – Tasks (due dates)"`); the Push and Pull
 **buttons** beside it are the bare `calendarPush` / `calendarPull` ("Push to Outlook" / "Pull from
 Outlook"). In the CLASSIC layout `TasksSection` and `WorkspaceSection` mount simultaneously
@@ -6394,6 +6407,25 @@ index-normalisation case red (`Tests 1 failed | 64 passed (65)`); restoring each
 Verified 2026-09-14: `npx vitest run src/app/task-kanban.test.ts src/app/resource-fk-backfill.test.ts
 src/app/resource-foundation.test.ts` → `Test Files 3 passed (3)`, `Tests 86 passed (86)`, exit 0;
 `npx tsc --noEmit` exit 0.
+
+★★ **Corrected 2026-09-14 (final fix round): the lane engine never email-matches an external.** As
+first closed, the new email pass matched an EXTERNAL resource, so an FK-less task carrying an
+external's `assigneeEmail` got that external's `res:<id>` lane. `isExternalTask` is link-only, so
+with "Hide externals" on the task stayed visible, and its lane was a live drop target that stamped
+the external FK onto a dropped card, which then vanished. That is the hazard the name guard already
+prevents, and the docstring's "not a regression" was wrong about it. The lane engine now builds its
+indexes through `laneIndexes`, which passes `emailMatchesExternals: false` to
+`buildResourceLookupIndexes`, so such a task gets its name lane (or Unassigned), the same outcome as
+a name match to an external. The option defaults to `true`, so `backfillTaskResourceFks` still links
+by an external's email at load, and after a reload the task takes the FK branch as before
+(`resource-fk-backfill.test.ts` untouched and green). Pinned by `task-kanban.test.ts` "externals are
+never name-matched into a linked lane › …and never email-matched either": "keeps a link-less task
+carrying an external's email OUT of that external's lane" (it also checks `laneKeyOf` and
+`laneResourceIds`) and the control "still email-matches a managed resource in the same directory".
+Against the uncorrected code the first case failed with the task in `res:5`. Mutation-checked:
+indexing externals by email regardless of the option turned only that case red (`Tests 1 failed | 87
+passed (88)` over `task-kanban.test.ts`, `resource-fk-backfill.test.ts` and
+`resource-foundation.test.ts`); restoring it returned all three files green.
 
 `task-kanban.ts` `laneResourceIdOf` resolves an FK-less task to a resource by **name** only.
 `backfillTaskResourceFks` (`resource-foundation.ts`) prefers **email**, then falls back to name. So a
@@ -22748,7 +22780,11 @@ failed, while `buildGanttRows` still made that milestone a row and the token map
 is reachable from stored data: `sanitizeIsoDate` checks only the `YYYY-MM-DD` shape and the year, so
 "2026-13-01" survives load and then fails `parseISO`. The entry's "a row has no bar when its dates
 do not resolve into the visible window" was also wrong: bars are not clipped to the window, and a
-task has no bar when its `dueDate` does not parse (`deriveBar`).
+task has no bar when its `dueDate` does not parse (`deriveBar`). The clause built on that premise,
+"so the affected rows are exactly the ones the user has already filtered or scrolled away from", is
+wrong for the same reason and is corrected here rather than in the dated body: a filtered row never
+reached the token map at all, and scrolling changes nothing, so an affected row was one carrying a
+date that does not parse, wherever it sorted and whether or not its twin was in view.
 
 Pinned by `gantt.test.tsx` "GanttPanel row-unique accessible names": "§273: does not number a
 milestone against a same-named milestone the chart cannot draw", "§273: does not number a task
@@ -22771,8 +22807,27 @@ milestone panel tests red (`Tests 2 failed | 53 passed (55)`).
 skips a milestone connector when it fails. It is fed `visibleMilestones`, now derived from
 `placedMilestones`, so that branch no longer fires, and it draws connectors, not named controls, so it
 cannot misnumber anything. Leaving an undrawable milestone out of `rows` also means it no longer
-takes a row index or counts toward `totalRowsCount`, which it used to do while drawing nothing. That
-is reasoned from the code, not measured by a test. The axe e2e run was not repeated locally (CI only),
+takes a row index or counts toward `totalRowsCount`, which it used to do while drawing nothing.
+
+★★ **Added 2026-09-14 (final fix round), two consequences of that exclusion.** (1) Row index and
+overlay height are now pinned: `gantt.test.tsx` "§273: an undrawable milestone takes no row index and
+no overlay height ('below' placement)" puts a "2026-00-10" milestone (it sorts before every valid 2026
+date) ahead of a drawn milestone linked to a task, and asserts the linked milestone's connector ends at
+row 1 and the dependency overlay is two rows tall. Mutation-checked: keeping undrawable milestones in
+`placedMilestones` while the chart skips drawing them (the base shape) turned it red (`expected 80 to
+be 48`), together with the two milestone numbering tests (`Tests 3 failed | 54 passed (57)` over
+`gantt.test.tsx` and `gantt-chart.test.tsx`). (2) The empty state regressed and is fixed. With no
+drawable task and only undrawable milestones, the base chart body drew an empty grid and its trailing
+"+ Add task" row; after the exclusion `rows` was empty, so the chart body showed only the empty text.
+The whole-panel empty state still counted every milestone (`sortedMilestones.length === 0`), so it
+did not take over. It now asks `hasDrawableMilestone` (any milestone whose date parses, before
+filters), so that project gets the same whole-panel empty state as a project with no milestones: the
+`AddFirstItemButton` box when no filter is active, the empty text otherwise. This is a decision, not a
+byte restore: the base showed an empty grid plus an add row, and this shows the add box. The toolbar's
+own "+ Add task" button was present throughout. Pinned by `gantt.test.tsx` "§273: offers the add-task
+empty state when every milestone is undrawable and there are no tasks", which failed against the
+pre-fix code; reverting the guard to `sortedMilestones.length === 0` turned only that test red (`Tests
+1 failed | 143 passed (144)`). The axe e2e run was not repeated locally (CI only),
 and by `docs/AGENTS/accessibility.md` it cannot see duplicate names anyway.
 
 `gantt.tsx` builds ONE row-token map over the interleaved `rows` list, which is correct — it is the
@@ -28720,24 +28775,33 @@ Consuming it opens the matched resource through the existing `onEditResource` pr
 its row; an id matching no resource is still consumed so the request cannot get stuck. Because the
 redirect and the consumer are the SAME mechanism the report's own comment says they are, the same
 three producers — the guardrail insight, global-search's resource hits and Recents
-(`global-search-box.tsx`'s `onSelect`), and an item-bearing `#resources/<id>` hash/back-forward — now
+(`global-search-box.tsx`'s `onSelect`), and an item-bearing `#resources/<id>` hash — now
 all land on Directory with the row opened, where before they opened only the Resources report tab.
 
-★★ **KNOWN RESIDUAL, not guarded (corrected 2026-09-14, fix round 2):** unlike stakeholders/raid, this
-does NOT skip re-opening the editor when the same resource's editor is already open. A
-skip-if-already-open guard was added in fix round 1 and REMOVED on re-review once shown dead in the
-wired app: every producer above tags the request "resources", `requestOpen` unconditionally flips
-`activeTab` through "resources" first, and `workspace-section.tsx` renders `ResourceDirectory` only
-while `activeTab === "directory"` — so ANY repeat request, including a real back/forward to the
-identical `#resources/<id>` hash, unmounts and remounts a fresh `ResourceDirectoryInner` BEFORE its
-consumer effect ever runs, resetting any per-mount ref/state before it could see a repeat. The edit
-modal's own state (`editingResource`) lives in `task-manager.tsx`, ABOVE this remount, so it survives
-it. Plainly: **a repeated deep link to a resource — including via browser back/forward — while that
-resource's editor is already open re-opens the editor from the stored row and can discard unsaved
-edits.** A working guard needs the "already open" state to live where `editingResource` already does
-(`task-manager.tsx`/`app-modals.tsx`), both on the peer avoid-list for this branch, so the fix is
-deferred rather than shipped as a guard that cannot fire. No new register entry is filed for this
-residual per instruction — the controller decides whether one is warranted.
+★★ **KNOWN RESIDUAL, not guarded (corrected 2026-09-14, final fix round):** unlike stakeholders/raid,
+a repeated deep link to a resource whose editor is already open is not skipped. A skip-if-already-open
+guard was added in fix round 1 and removed on re-review because it could not fire in the wired app:
+every producer above tags the request "resources", `requestOpen` flips `activeTab` through
+"resources" first, and `workspace-section.tsx` renders `ResourceDirectory` only while
+`activeTab === "directory"`, so a repeat request unmounts and remounts a fresh
+`ResourceDirectoryInner` before its consumer effect runs, resetting any per-mount ref or state.
+What a repeat does, reasoned from the code and NOT measured: `onEditResource` fires again with the
+row from `resources`, and the editor stays open on the same resource. `ResourceEditModal` resets its
+draft only when its `resource` prop changes identity (its `prevResource` reconcile), so **unsaved
+edits are kept when that row is the same reference the editor already holds, and are lost only if
+the stored row was replaced while the editor was open** (for example by a concurrent write), because
+the handler then passes the new reference. The fix-round-2 wording here said a repeat "can discard
+unsaved edits" in general, "including via browser back/forward"; the first overstated the common
+case, and back/forward was never measured. The KNOWN RESIDUAL test below observes the edit handler
+only, not the editor's draft. A working guard needs the editor state, `editingResource`, which is
+owned by `useResourceDirectory` in `task-manager.tsx` and rendered by `app-modals.tsx`, above the
+remount.
+
+★ **The item hash does not survive landing** (reasoned from the code, not measured). After the
+redirect, `use-hash-view.ts`'s view-to-hash effect sees the parsed hash view "resources" differ from
+the active view "directory" and calls `history.replaceState` with `buildHash("directory")`, which is
+`#directory`. So a URL copied after landing does not carry `#resources/<id>`, and the history entry
+the deep link arrived on is rewritten the same way.
 
 Pinned by `ResourceDirectory deep-link open` (`resource-directory.test.tsx`: opens + clears on a
 match, honours a request armed before mount, consumes an unknown id silently) and `ResourcesReportPanel
