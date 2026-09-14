@@ -2,21 +2,20 @@ import { describe, expect, it } from "vitest";
 import { describeEntityCalls, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { sanitizeEmailList } from "../sanitize-entities";
-import { findDelimiterUnsafeEmail, findNewDelimiterUnsafeEmail, isDelimiterSafeEmail } from "../sanitize";
+import { findTornEmail, isDelimiterSafeEmail } from "../sanitize";
 import type { Workspace } from "../workspace";
 
 // ★★★ open-followups §422 — THE REGRESSION TEST, converted from the retained
 // probe (`emails-roundtrip.probe.test.ts`, committed as 66235c60).
-// `resource.emails` crosses the inline edit as a ", "-joined string (the
-// descriptor's `emails` entry), `coerce` passes it through untouched, and the
-// writer's `sanitizeEmailList` re-splits it on `[;,]` — so an address carrying
-// either delimiter lands as two. The transport itself stays lossy (test 1); the
-// fix is that every WRITE boundary refuses such an address. This file pins the
-// inline-edit half: a changed `emails` list that CARRIES one is refused as a
-// field, and every other field in the same call still applies.
+// The card renders `resource.emails` as a ", "-joined string, and the writer's
+// `sanitizeEmailList` re-splits any STRING on `[;,]` — so an address carrying
+// either delimiter lands as two whenever it reaches the writer inside a string.
+// The fix is ONE rule, `findTornEmail`, asked by every write boundary. This
+// file pins the predicate and the plan half; `emails-write-parity.test.ts`
+// pins that the plan, `updateResource` and the inline write agree cell by cell.
 // ★ It constructs tool-use blocks directly, so it says nothing about MODEL
 // behaviour — only about what the plan does with a given input.
-describe("isDelimiterSafeEmail / findDelimiterUnsafeEmail", () => {
+describe("isDelimiterSafeEmail", () => {
   it("refuses a comma or a semicolon and nothing else", () => {
     expect(isDelimiterSafeEmail("a@x.com")).toBe(true);
     expect(isDelimiterSafeEmail("  a@x.com  ")).toBe(true);
@@ -24,40 +23,38 @@ describe("isDelimiterSafeEmail / findDelimiterUnsafeEmail", () => {
     expect(isDelimiterSafeEmail("a,b@x.com")).toBe(false);
     expect(isDelimiterSafeEmail("a;b@x.com")).toBe(false);
   });
-
-  it("inspects an array only, returning the first unsafe member", () => {
-    expect(findDelimiterUnsafeEmail(["a@x.com", "b,c@x.com", "d;e@x.com"])).toBe("b,c@x.com");
-    expect(findDelimiterUnsafeEmail(["a@x.com"])).toBeUndefined();
-    expect(findDelimiterUnsafeEmail([])).toBeUndefined();
-    // A string IS a delimited list by definition — splitting it is the writer's design.
-    expect(findDelimiterUnsafeEmail("a@x.com, b@y.com")).toBeUndefined();
-    expect(findDelimiterUnsafeEmail(undefined)).toBeUndefined();
-    expect(findDelimiterUnsafeEmail([42, "a@x.com"])).toBeUndefined();
-  });
 });
 
-// §422 fix round 2 (final-review finding 1) — the shared exclusion behind
-// both `updateResource` (use-chat-dispatcher.ts) and the resource editor's
-// save guard (resource-edit-modal.tsx), so the two write boundaries agree on
-// which unsafe member is genuinely NEW.
-describe("findNewDelimiterUnsafeEmail", () => {
-  it("excludes a member already present, trimmed, in stored", () => {
-    expect(findNewDelimiterUnsafeEmail(["a,b@x.com"], ["a,b@x.com"])).toBeUndefined();
-    expect(findNewDelimiterUnsafeEmail(["a,b@x.com"], [" a,b@x.com "])).toBeUndefined();
+describe("findTornEmail — the one §422 rule", () => {
+  it("ARRAY: returns the first unsafe member not already stored, trimmed", () => {
+    expect(findTornEmail(["a@x.com", "b,c@x.com", "d;e@x.com"], undefined)).toBe("b,c@x.com");
+    expect(findTornEmail(["a,b@x.com"], ["a,b@x.com"])).toBeUndefined();
+    expect(findTornEmail([" a,b@x.com "], ["a,b@x.com "])).toBeUndefined();
+    expect(findTornEmail(["a,b@x.com", "c;d@x.com"], ["a,b@x.com"])).toBe("c;d@x.com");
+    expect(findTornEmail(["a@x.com"], ["a,b@x.com"])).toBeUndefined();
+    expect(findTornEmail([], ["a,b@x.com"])).toBeUndefined();
+    expect(findTornEmail([42, "a@x.com"], undefined)).toBeUndefined();
   });
 
-  it("still finds a genuinely new unsafe member alongside a stored one", () => {
-    expect(findNewDelimiterUnsafeEmail(["a,b@x.com", "c;d@x.com"], ["a,b@x.com"])).toBe("c;d@x.com");
+  it("ARRAY with no stored list refuses every unsafe member", () => {
+    expect(findTornEmail(["a,b@x.com"], undefined)).toBe("a,b@x.com");
+    expect(findTornEmail(["a,b@x.com"], [])).toBe("a,b@x.com");
   });
 
-  it("treats a missing or empty stored list as refusing every unsafe member", () => {
-    expect(findNewDelimiterUnsafeEmail(["a,b@x.com"], undefined)).toBe("a,b@x.com");
-    expect(findNewDelimiterUnsafeEmail(["a,b@x.com"], [])).toBe("a,b@x.com");
+  it("STRING: returns a stored unsafe address the string contains, else undefined", () => {
+    expect(findTornEmail("a,b@x.com, c@y.com", ["a,b@x.com"])).toBe("a,b@x.com");
+    expect(findTornEmail("c@y.com", [" a,b@x.com "])).toBeUndefined();
+    expect(findTornEmail("", ["a,b@x.com"])).toBeUndefined();
+    // A new comma inside a string IS a delimited list — splitting it is the writer's design.
+    expect(findTornEmail("x,y@z.com", ["a,b@x.com"])).toBeUndefined();
+    expect(findTornEmail("a@x.com, b@y.com", ["a@x.com"])).toBeUndefined();
+    expect(findTornEmail("a,b@x.com", undefined)).toBeUndefined();
   });
 
-  it("returns undefined for a non-array list, matching findDelimiterUnsafeEmail", () => {
-    expect(findNewDelimiterUnsafeEmail("a,b@x.com", [])).toBeUndefined();
-    expect(findNewDelimiterUnsafeEmail(undefined, [])).toBeUndefined();
+  it("anything else returns undefined", () => {
+    expect(findTornEmail(undefined, ["a,b@x.com"])).toBeUndefined();
+    expect(findTornEmail(42, ["a,b@x.com"])).toBeUndefined();
+    expect(findTornEmail(null, ["a,b@x.com"])).toBeUndefined();
   });
 });
 
@@ -77,19 +74,30 @@ describe("§422: a comma-bearing address cannot be torn in two by an inline edit
     expect(sanitizeEmailList("a,b@x.com, c@y.com", undefined)).toEqual(["a", "b@x.com", "c@y.com"]);
   });
 
-  it("refuses a changed emails list that carries the comma-bearing address, so the patch never holds it", () => {
-    const plan = planFor({ id: 1, emails: ["a,b@x.com", "c@y.com"] });
+  it("refuses a changed emails list that carries a NEW comma-bearing address, so the patch never holds it", () => {
+    const plan = planFor({ id: 1, emails: ["a,b@x.com", "c;d@y.com"] });
     // `use-inline-entity-edit.ts` builds its patch from `plan.updates` alone.
     expect(plan.updates.map((u) => u.field)).not.toContain("emails");
     expect(plan.rejected).toEqual([
-      { toolName: d.updateTool, reason: "bad-input", detail: "emails=a,b@x.com, c@y.com" },
+      { toolName: d.updateTool, reason: "bad-input", detail: "emails=a,b@x.com, c;d@y.com" },
     ]);
   });
 
   it("still applies an unrelated field in the same call", () => {
-    const plan = planFor({ id: 1, firstName: "Grace", emails: ["a,b@x.com", "c@y.com"] });
+    const plan = planFor({ id: 1, firstName: "Grace", emails: ["a,b@x.com", "c;d@y.com"] });
     expect(plan.updates.map((u) => u.field)).toEqual(["firstName"]);
-    expect(plan.rejected.map((r) => r.detail)).toEqual(["emails=a,b@x.com, c@y.com"]);
+    expect(plan.rejected.map((r) => r.detail)).toEqual(["emails=a,b@x.com, c;d@y.com"]);
+  });
+
+  it("accepts an array that KEEPS the stored comma-bearing address, carrying the raw array for the write", () => {
+    // An array is stored verbatim, so keeping an address the row already holds
+    // tears nothing — and the inline write replays this array, not the joined
+    // preview string (`rawInput`).
+    const plan = planFor({ id: 1, emails: ["a,b@x.com", "c@y.com"] });
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates).toEqual([
+      { entity: "resource", field: "emails", before: "a,b@x.com", after: "a,b@x.com, c@y.com", raw: "a,b@x.com, c@y.com", rawInput: ["a,b@x.com", "c@y.com"] },
+    ]);
   });
 
   it("does not refuse a changed list of delimiter-safe addresses (control)", () => {

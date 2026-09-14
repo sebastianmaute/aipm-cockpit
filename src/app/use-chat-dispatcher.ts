@@ -37,8 +37,7 @@ import {
   sanitizeTaskName,
   sanitizeResource,
   dropUnacceptedResourceFields,
-  findDelimiterUnsafeEmail,
-  findNewDelimiterUnsafeEmail,
+  findTornEmail,
 } from "./sanitize";
 import { sanitizeAiRichText } from "./ai-rich-text";
 import { emptyForm, useTaskForm } from "./task-form-context";
@@ -601,10 +600,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       listResources: () => resourcesRef.current.map(toResourceSummary),
       createResource: (input: ResourceInput) => {
         if (args.isReadOnly) throw readOnlyError();
-        // ★★ §422 — refused BEFORE the id is minted: an extra address holding
-        //  "," or ";" is torn in two by any transport that joins the list, so the
-        //  call fails naming the field and nothing is written.
-        const unsafeEmail = findDelimiterUnsafeEmail(input.emails);
+        // ★★ §422 — refused BEFORE the id is minted, by the one shared rule
+        //  `findTornEmail` (`sanitize-core.ts`) with no stored list: an ARRAY
+        //  holding an address with "," or ";" fails naming the field and nothing
+        //  is written; a STRING is a delimited list and is split by design.
+        const unsafeEmail = findTornEmail(input.emails, undefined);
         if (unsafeEmail !== undefined) throw new Error(`invalid resource: emails must not contain "," or ";" (${JSON.stringify(unsafeEmail)})`);
         const id = mintId("resource", resourcesRef.current);
         // sanitizeResource fills roleId/utilization defaults; returns null with
@@ -643,30 +643,20 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (args.isReadOnly) throw readOnlyError();
         const existing = resourcesRef.current.find((r) => r.id === id);
         if (!existing) return null;
-        // ★★ §422 (fix round 1 controller ruling) — an ARRAY `emails` is refused
-        //  only for a member that is BOTH delimiter-unsafe AND not already
-        //  present, trimmed, in the stored `existing.emails`. An array is
-        //  stored VERBATIM here — never split — so re-sending an address the
-        //  row already holds is harmless; only a genuinely NEW unsafe member
-        //  can tear anything. Without this exclusion, a resource that already
-        //  carries a legacy comma address (loaded from JSON/IDB, unaffected by
-        //  this fix) could never be updated by a caller that echoes the whole
-        //  `emails` list back unchanged alongside another field — the call
-        //  would fail even though nothing would have been torn.
-        //  `createResource` has no such exclusion: there is no stored row, so
-        //  every member is new.
-        //  The STRING branch is UNCHANGED: a string cannot be inspected per
-        //  address, so it is refused whenever the stored list already holds an
-        //  unsafe one (the re-split would tear it) — including a string that
-        //  DROPS that address or CLEARS the list entirely, since a string is
-        //  refused wholesale rather than diffed. Fixing such a legacy row
-        //  needs an array-typed call.
-        //  ★ `findNewDelimiterUnsafeEmail` (`sanitize-core.ts`) holds the ARRAY
-        //  exclusion above and is shared with the resource editor's save guard
-        //  (`resource-edit-modal.tsx`) so the two write boundaries cannot drift.
-        const unsafeEmail =
-          findNewDelimiterUnsafeEmail(patch.emails, existing.emails) ??
-          (typeof patch.emails === "string" ? findDelimiterUnsafeEmail(existing.emails) : undefined);
+        // ★★ §422 — the one shared rule, `findTornEmail` (`sanitize-core.ts`),
+        //  judged against the stored `existing.emails`. The resource editor and
+        //  `describeEntityCalls` ask the same predicate, so the card and this
+        //  write agree on every value. In short:
+        //  • an ARRAY is refused only for a member that is BOTH delimiter-unsafe
+        //    AND not already present, trimmed, in the stored list — an array is
+        //    stored VERBATIM, so echoing a legacy comma address (loaded from
+        //    JSON/IDB) alongside another field tears nothing;
+        //  • a STRING is refused only when it CONTAINS a stored unsafe address,
+        //    which the re-split would tear. A string that drops or clears such
+        //    an address is allowed, and the removal is what the card shows.
+        //  ★ The whole call is refused, never just the field: the inline edit
+        //   keeps a refused `emails` out of its patch on the plan side.
+        const unsafeEmail = findTornEmail(patch.emails, existing.emails);
         if (unsafeEmail !== undefined) throw new Error(`invalid resource update: emails must not contain "," or ";" (${JSON.stringify(unsafeEmail)})`);
         // ★★★ `name` HAS TO BE SPLIT HERE OR IT IS A SILENT NO-OP ON UPDATE, and
         // it was one. `ResourceInput.name` is documented as "split into

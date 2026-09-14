@@ -17,7 +17,7 @@ import { useDraggable } from "./use-draggable";
 import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
-import { ASSIGNEE_MAX, EMAIL_MAX, findNewDelimiterUnsafeEmail } from "./sanitize";
+import { ASSIGNEE_MAX, EMAIL_MAX, findTornEmail } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -95,14 +95,13 @@ export function ResourceEditModal({
     const emails = (draft.emails ?? [])
       .map((e) => e.trim())
       .filter((e) => e.length > 0);
-    // §422 — an address holding "," or ";" is torn in two by any transport that
-    // joins the list, so it is refused here rather than stored. Fix round 2:
-    // mirrors `updateResource`'s exclusion via the shared
-    // `findNewDelimiterUnsafeEmail` — only a member that is BOTH unsafe AND not
-    // already present, trimmed, in `resource` (the row as of when the modal
-    // opened, never live workspace state) is refused; a new resource (`resource`
-    // holds no stored emails yet) refuses any unsafe member.
-    if (findNewDelimiterUnsafeEmail(emails, resource?.emails) !== undefined) {
+    // §422 — the one shared rule, `findTornEmail` (`sanitize-core.ts`), the
+    // same predicate every other write boundary asks. The editor always sends
+    // an ARRAY, so only a member that is BOTH unsafe AND not already present,
+    // trimmed, in `resource` (the row as of when the modal opened, never live
+    // workspace state) is refused; a new resource has no stored list, so any
+    // unsafe member is refused.
+    if (findTornEmail(emails, resource?.emails) !== undefined) {
       setError(t(lang, "resourceErrorEmailDelimiter"));
       return;
     }

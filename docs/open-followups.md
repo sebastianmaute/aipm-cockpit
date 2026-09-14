@@ -31853,6 +31853,20 @@ review, not a drive-by during someone else's release. Deliberately NOT done here
 
 ## 422. A comma-bearing email address is destroyed when an inline edit names emails with a changed value — CLOSED 2026-09-13
 
+**Status:** CLOSED 2026-09-13, one rule since 2026-09-14 — stopped at WRITE, never on load, by ONE predicate,
+`findTornEmail` (`sanitize-core.ts`), which every write boundary asks with the same arguments. For an ARRAY it
+returns the first member that holds `,` or `;` AND is not already present, trimmed, in the stored list. For a
+STRING it returns the first stored unsafe address that the string contains. Anything else returns nothing.
+The paths are `createResource` (no stored list, refuses the call), `updateResource` (the row's `emails`, refuses
+the call), the resource editor's save (the resource as of when the modal opened, blocks the save) and
+`describeEntityCalls` (the item's `emails`, judged on the RAW incoming value, refuses the field). The inline edit
+replays the model's original `emails` value, so the card, the inline write and chat Apply judge the same value.
+Pinned by `npx vitest run src/app/inline-ai-edit/emails-write-parity.test.ts src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/resource-edit-modal.test.tsx`.
+★★ It stops NEW torn addresses only: an address already stored still splits on a CSV, Markdown or Turso save —
+§533. See the 2026-09-14 block at the end of this entry.
+
+_The Status line below, as written 2026-09-13, is superseded by the one above; preserved as the dated record._
+
 **Status:** CLOSED 2026-09-13 — stopped at WRITE, never on load. The resource editor and
 `updateResource` share one exclusion, `findNewDelimiterUnsafeEmail` (`sanitize-core.ts`, fix round 2):
 both refuse an `emails` ARRAY only for a member that is BOTH unsafe AND not already present, trimmed,
@@ -31951,6 +31965,7 @@ Whether the fix is validation at the boundary, or an array-preserving transport 
 never joins, is the open decision — they are different fixes with different blast radii, and picking
 one is not obvious enough to prescribe here.
 
+_(Superseded 2026-09-14 — the three rules below disagreed with each other; see the one-rule block after this one.)_
 **CLOSED 2026-09-13 — stop at write.** `resource.emails` keeps its joined transport and
 `sanitizeEmailList` and every load/decode path are unchanged. Instead, no write boundary accepts an
 address the transport would tear: `isDelimiterSafeEmail` (`sanitize-core.ts`) refuses a trimmed value
@@ -31983,6 +31998,35 @@ moved. External ingest (`jira-api.ts`, `outlook-contacts.ts`) writes no `resourc
 untouched. A STRING `emails` on create, or on update of a row whose stored list is safe, is split by
 design and not refused — a string is a delimited list. Primary-email format validation remains out of
 scope. The probe `emails-roundtrip.probe.test.ts` is now `emails-roundtrip.test.ts`.
+
+**ONE RULE 2026-09-14 — the cold review of the fix branch.** The block above left three write paths judging
+`resource.emails` by three different rules, and the two replays carried different values. The card and the
+write disagreed in both directions. An inline edit that dropped a stored comma address showed as applying,
+then sent the joined STRING, and `updateResource` refused the whole call, so a rename in the same edit was
+lost. A chat card that rejected an array keeping the stored address promised `emails` would not land, and
+Apply wrote it. The claim above that "a proposed list that drops it shows the removal on the card instead"
+held for the card and not for the write.
+
+Now every boundary asks `findTornEmail` and nothing else, as the Status line describes, and
+`findDelimiterUnsafeEmail` and `findNewDelimiterUnsafeEmail` were deleted. Two further changes make the
+replays agree:
+- The inline edit no longer replays the joined preview. `describeEntityCalls` carries the model's original
+  `emails` value on the diff as `FieldDiff.rawInput`, and `inlinePatchValue` (`use-inline-entity-edit.ts`)
+  writes it verbatim. `raw`, `before` and `after` stay preview strings, and `emails` is still not in
+  `arrayFields`.
+- The plan guard runs ahead of the unchanged-value skip, so a value the writer refuses is disclosed even where
+  the preview projection equals the stored list.
+
+★★ Witnesses. `emails-write-parity.test.ts` crosses three stored lists (none, safe, one comma address) with
+eight incoming shapes, 24 cells. Each cell asserts a HAND-WRITTEN verdict, plan rejection ⇔ `updateResource`
+throwing, every kept stored address stored untorn, and an inline write that never carries a rejected `emails`
+and stores what the raw replay stored. Mutation-checked on 2026-09-14, each restored afterwards: dropping the
+stored exclusion from the array branch turned 2 cells red, a string branch that never refuses turned 1 red, and
+an inline write replaying `after` turned 1 red.
+
+★ Still true: chat Apply replays the WHOLE call. When the card rejects only `emails` and shows a sibling field
+as landing, `updateResource` refuses the call and the sibling does not land through chat Apply. The inline
+edit does apply it.
 
 ## 423. The codename ledger in `version.ts` is duplicated data that has rotted three times — CLOSED 2026-09-07
 

@@ -30,40 +30,50 @@ export function isValidEmail(s: string): boolean {
 
 /** True when `s`, trimmed, holds neither `,` nor `;` — the two delimiters
  *  `sanitizeEmailList` splits a delimited string on. An address carrying one
- *  cannot survive a transport that joins the list (the inline AI edit joins
- *  with ", " and the writer re-splits), so the WRITE boundaries refuse it
+ *  is torn in two whenever it reaches the writer inside a delimited STRING
  *  (open-followups §422). No format validation beyond that, and deliberately
  *  never called on a load or decode path. */
 export function isDelimiterSafeEmail(s: string): boolean {
   return !/[,;]/.test(s.trim());
 }
 
-/** The first string member of an ARRAY that `isDelimiterSafeEmail` refuses,
- *  or undefined. A non-array returns undefined: a string `emails` IS a
- *  delimited list, and `sanitizeEmailList` splitting it is the design. */
-export function findDelimiterUnsafeEmail(list: unknown): string | undefined {
-  if (!Array.isArray(list)) return undefined;
-  return list.find((e): e is string => typeof e === "string" && !isDelimiterSafeEmail(e));
-}
-
-/** Like `findDelimiterUnsafeEmail`, but excludes a member already present,
- *  trimmed, in `stored` — an array `emails` is written VERBATIM (never
- *  split), so re-saving an address the row already holds tears nothing; only
- *  a genuinely NEW unsafe member can. `stored` undefined/empty (a brand-new
- *  resource has no stored row yet) means every member counts as new. Shared
- *  by `updateResource` (`use-chat-dispatcher.ts`) and the resource editor
- *  (`resource-edit-modal.tsx`) so the two write boundaries cannot drift
- *  (open-followups §422, fix round 2). */
-export function findNewDelimiterUnsafeEmail(
-  list: unknown,
+/** ★★★ THE ONE §422 RULE — the address an incoming `resource.emails` value
+ *  would tear, or undefined. Every write boundary asks THIS and nothing else:
+ *  `createResource` (stored = undefined), `updateResource` (stored = the
+ *  row's `emails`), the resource editor's save (stored = the resource as of
+ *  when the modal opened) and `describeEntityCalls` (stored = the item's
+ *  `emails`, judged on the RAW incoming value), so the card and the write
+ *  cannot disagree.
+ *  - ARRAY: the first string member that fails `isDelimiterSafeEmail` AND is
+ *    not already present, trimmed, in `stored`. An array is written VERBATIM,
+ *    never split, so re-sending an address the row already holds tears
+ *    nothing; only a NEW unsafe member is refused.
+ *  - STRING: the first unsafe address in `stored` whose trimmed form occurs
+ *    inside the string — `sanitizeEmailList` would re-split it. A string that
+ *    omits every stored unsafe address is allowed: splitting a delimited
+ *    string is the writer's design, and an omitted address is simply removed,
+ *    which the card shows.
+ *  - Anything else: undefined.
+ *  ★ With no stored list (a new row) an array refuses every unsafe member
+ *   and a string refuses nothing.
+ *  ★★ It stops NEW torn addresses only. An address already stored still
+ *   splits on a CSV, Markdown or Turso save (open-followups §533). */
+export function findTornEmail(
+  incoming: unknown,
   stored: readonly string[] | undefined,
 ): string | undefined {
-  if (!Array.isArray(list)) return undefined;
-  const storedTrimmed = new Set((stored ?? []).map((e) => e.trim()));
-  return list.find(
-    (e): e is string =>
-      typeof e === "string" && !isDelimiterSafeEmail(e) && !storedTrimmed.has(e.trim()),
-  );
+  const storedList = (stored ?? []).filter((e): e is string => typeof e === "string");
+  if (Array.isArray(incoming)) {
+    const storedTrimmed = new Set(storedList.map((e) => e.trim()));
+    return incoming.find(
+      (e): e is string =>
+        typeof e === "string" && !isDelimiterSafeEmail(e) && !storedTrimmed.has(e.trim()),
+    );
+  }
+  if (typeof incoming === "string") {
+    return storedList.find((e) => !isDelimiterSafeEmail(e) && incoming.includes(e.trim()));
+  }
+  return undefined;
 }
 
 // --- Generic helpers -------------------------------------------------------

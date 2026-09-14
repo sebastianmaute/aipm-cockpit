@@ -184,6 +184,18 @@ describe("ResourceEditModal", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorEmailDelimiter"));
   });
 
+  // §422 cold-review round — the shared `findTornEmail` rule lets a save DROP a
+  // stored delimiter-unsafe address: removing it tears nothing.
+  it("saves when the user removes the stored delimiter-unsafe address (§422)", () => {
+    const onSave = vi.fn();
+    const stored: Resource = { ...base, emails: ["a,b@x.com"] };
+    setupFull({ resource: stored, onSave });
+    fireEvent.click(screen.getByRole("button", { name: /remove email 1/i }));
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].emails).toBeUndefined();
+  });
+
   it("removes an additional email row via its per-row remove button", () => {
     // ★ Behavioural pin for the converted per-row remove: the row must actually
     // disappear. The variant assertion above proves it still LOOKS destructive;
