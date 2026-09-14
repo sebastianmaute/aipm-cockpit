@@ -531,8 +531,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   demand opposite responses. The per-job detail, the uneven `quality-gate-bypass` hatch and the release
   stage live in that file. New CI gate → also update it.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
-  `CHANGELOG.md` entry, append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE
-  strings). ★★ EVERY OTHER COPY OF THE VERSION IS GATED BY `npm run version:check`, and the list is
+  `CHANGELOG.md` entry. ★ Do NOT add a `versionHighlight*` key: `APP_HIGHLIGHT_KEYS` is now a fixed
+  elevator pitch of what is unique to the app, not a per-release history, and `CHANGELOG.md` owns
+  history. ★★ EVERY OTHER COPY OF THE VERSION IS GATED BY `npm run version:check`, and the list is
   `SATELLITES` in `scripts/version-sync-lib.mjs` — not this line, which said "FIVE MORE PLACES" and
   missed `desktop/package.json` + `desktop/package-lock.json`. Read it with
   `grep -n 'file: "' scripts/version-sync-lib.mjs` (one line per file or glob; each lockfile carries

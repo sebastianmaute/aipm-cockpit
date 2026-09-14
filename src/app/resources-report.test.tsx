@@ -1,9 +1,20 @@
-import { test, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { test, expect, describe } from "vitest";
+import { render as rtlRender, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ResourcesReportPanel } from "./resources-report";
+import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import type { Resource, Role, Discipline, Grade, ResourcePlan } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+
+// ResourcesReportPanel now consumes the workspace-tab context (deep-link
+// redirect — see the "deep-link redirect" describe below), so every render
+// needs a WorkspaceTabProvider ancestor, exactly as the real app provides one.
+// Shadow RTL's `render` so every existing call site in this file gets that for
+// free, without touching each one individually.
+function render(ui: ReactElement) {
+  return rtlRender(<WorkspaceTabProvider>{ui}</WorkspaceTabProvider>);
+}
 
 const disciplines: Discipline[] = [{ id: 1, name: "Developer" }];
 const grades: Grade[] = [{ id: 1, name: "Senior" }];
@@ -139,4 +150,61 @@ test("keeps the group filters' clear buttons distinct once two of them hold a va
   expect(screen.getAllByRole("button", { name: /clear/i })).toHaveLength(2);
   // Measured the same way: 52 here — the 50 above plus the two ✕ buttons.
   expectRowUniqueNames({ minControls: 52, roles: ["button", "searchbox"] });
+});
+
+// §362: a guardrail insight for a resource arms pendingOpen with view
+// "resources" — this report is what mounts for that view, but the resource
+// list lives one sub-tab over (Directory). This panel must redirect there so
+// ResourceDirectory's own deep-link consumer (resource-directory.test.tsx) can
+// reveal the row. It does not clear pendingOpen itself.
+describe("ResourcesReportPanel deep-link redirect", () => {
+  test("redirects to the Directory sub-tab when a resource deep-link lands here", () => {
+    let activeTabAfter = "unset";
+    function Trigger() {
+      const { requestOpen, activeTab } = useWorkspaceTab();
+      activeTabAfter = activeTab;
+      return (
+        <button type="button" onClick={() => requestOpen("resources", 1)}>
+          go
+        </button>
+      );
+    }
+    rtlRender(
+      <WorkspaceTabProvider>
+        <Trigger />
+        <ResourcesReportPanel lang="en-US" resources={resources} roles={roles}
+          disciplines={disciplines} grades={grades} plan={plan} absences={[]}
+          holidaySet={new Set()} workdayHours={8} />
+      </WorkspaceTabProvider>,
+    );
+
+    fireEvent.click(screen.getByText("go"));
+
+    expect(activeTabAfter).toBe("directory");
+  });
+
+  test("does not redirect in embedded mode (e.g. the Reports pane's preview)", () => {
+    let activeTabAfter = "unset";
+    function Trigger() {
+      const { requestOpen, activeTab } = useWorkspaceTab();
+      activeTabAfter = activeTab;
+      return (
+        <button type="button" onClick={() => requestOpen("resources", 1)}>
+          go
+        </button>
+      );
+    }
+    rtlRender(
+      <WorkspaceTabProvider>
+        <Trigger />
+        <ResourcesReportPanel embedded lang="en-US" resources={resources} roles={roles}
+          disciplines={disciplines} grades={grades} plan={plan} absences={[]}
+          holidaySet={new Set()} workdayHours={8} />
+      </WorkspaceTabProvider>,
+    );
+
+    fireEvent.click(screen.getByText("go"));
+
+    expect(activeTabAfter).toBe("resources");
+  });
 });

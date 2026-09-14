@@ -14,15 +14,38 @@ const base = {
 };
 
 describe("CalendarSyncControls", () => {
-  it("shows the short label but keeps the descriptive accessible name", () => {
+  it("shows the short label but keeps the descriptive, entity-qualified accessible name", () => {
     render(<CalendarSyncControls {...base} />);
     // Asserted with toBe, not toContain: the short label is a SUBSTRING of the
-    // long one ("Push" of "Push to Outlook"), so a containment check passes
-    // whether or not the label was ever shortened.
-    const push = screen.getByRole("button", { name: t("en-US", "calendarPush") });
+    // long one ("Push" of "Push to Outlook – RAID items (review dates)"), so a
+    // containment check passes whether or not the label was ever shortened.
+    const push = screen.getByRole("button", {
+      name: `${t("en-US", "calendarPush")} – ${t("en-US", "calendarSyncEntityRaid")}`,
+    });
     expect(push.textContent).toBe(t("en-US", "calendarPushShort"));
-    const pull = screen.getByRole("button", { name: t("en-US", "calendarPull") });
+    const pull = screen.getByRole("button", {
+      name: `${t("en-US", "calendarPull")} – ${t("en-US", "calendarSyncEntityRaid")}`,
+    });
     expect(pull.textContent).toBe(t("en-US", "calendarPullShort"));
+  });
+
+  // §42: the enable toggle was already entity-qualified; the Push/Pull buttons
+  // were not, so two co-rendered instances would announce two identical "Push
+  // to Outlook" buttons — a WCAG 2.4.6 collision axe cannot see (it reports
+  // missing names, never duplicate ones). Two instances render together only in
+  // the classic layout (Tasks below RAID/Changes/Resources); this pins the
+  // names apart for that case and for any future co-render.
+  it("qualifies the push and pull names with the entity, so two instances never collide", () => {
+    render(
+      <>
+        <CalendarSyncControls {...base} entityLabelKey="calendarSyncEntityAbsence" />
+        <CalendarSyncControls {...base} entityLabelKey="calendarSyncEntityTask" />
+      </>,
+    );
+    const names = screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"));
+    expect(new Set(names).size).toBe(names.length);
+    expect(names).toContain(`${t("en-US", "calendarPush")} – ${t("en-US", "calendarSyncEntityTask")}`);
+    expect(names).toContain(`${t("en-US", "calendarPull")} – ${t("en-US", "calendarSyncEntityTask")}`);
   });
 
   // ★ The enable control is a ToggleButton, not a checkbox: the visible label is
@@ -55,9 +78,11 @@ describe("CalendarSyncControls", () => {
     expect(toggle.getAttribute("title")).not.toContain(t("en-US", "toggleStateOn"));
   });
 
-  it("switches the accessible name to the busy text while pushing, so the name still contains the visible label", () => {
+  it("switches the accessible name to the busy text while pushing, so the name still contains the visible label — and stays entity-qualified", () => {
     render(<CalendarSyncControls {...base} calendarPushBusy />);
-    const push = screen.getByRole("button", { name: t("en-US", "calendarPushing") });
+    const push = screen.getByRole("button", {
+      name: `${t("en-US", "calendarPushing")} – ${t("en-US", "calendarSyncEntityRaid")}`,
+    });
     expect(push.textContent).toContain(t("en-US", "calendarPushing"));
   });
 });

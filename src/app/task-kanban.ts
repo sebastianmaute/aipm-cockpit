@@ -1,5 +1,11 @@
 // src/app/task-kanban.ts — pure, i18n-free Kanban grouping.
-import { effectiveAssignee, personNameKey, resourceDisplayName } from "./resource-foundation";
+import {
+  buildResourceLookupIndexes,
+  effectiveAssignee,
+  personNameKey,
+  resolvePersonResourceId,
+  type ResourceLookupIndexes,
+} from "./resource-foundation";
 import { TASK_STATUSES, type Resource, type Task, type TaskStatus } from "./types";
 
 /** Partition tasks into one bucket per TaskStatus (all buckets present, even empty).
@@ -46,70 +52,84 @@ export interface SwimlaneGrouping {
 const nameKey = personNameKey;
 
 /**
- * Display name -> resource id, with a name owned by MORE THAN ONE resource
- * mapping to `null`.
- *
- * ★★ The null is not the same as absent and both branches are load-bearing:
- * absent means "nobody here is called that" and ambiguous means "several people
- * are". Both keep the task in its own name lane, but collapsing them to one
- * state invites a later `?? firstMatch` that would file one person's work under
- * a namesake. Poisoning on insert (rather than counting afterwards) also means
- * a third resource with the same name cannot un-poison the clash.
- */
-function nameToResourceId(resourcesById: ReadonlyMap<number, Resource>): Map<string, number | null> {
-  const out = new Map<string, number | null>();
-  for (const r of resourcesById.values()) {
-    // ★★★ EXTERNALS ARE NEVER NAME-MATCHED. `task-external.ts` classifies
-    // external ownership LINK-ONLY and says why: "a name collision would HIDE
-    // REAL WORK, so this fails safe". Resolving a free-string assignee onto an
-    // external would hand this lane a `resourceId`, making it a live DROP
-    // TARGET — and a task dropped there gets that FK, which `isExternalTask`
-    // then classifies as external, so with "Hide externals" on the card
-    // silently vanishes. `tasks-section.tsx` already filters `extraLaneIds`
-    // (`visibleExtraLaneIds`) for exactly this failure; task-DERIVED lanes are
-    // not filtered, so the guard has to live here.
-    // ★ Cost: an external with both FK-linked and string-only tasks still shows
-    // two lanes while "Hide externals" is OFF. That is the documented lesser
-    // evil — a duplicate lane is visible and harmless, a vanishing card is not.
-    if (r.isExternal === true) continue;
-    const key = nameKey(resourceDisplayName(r));
-    if (!key) continue;
-    out.set(key, out.has(key) ? null : r.id);
-  }
-  return out;
-}
-
-/**
  * The resource a task belongs to for LANE purposes: its FK when that resolves,
- * otherwise the resource its assignee string uniquely names. `null` when the
- * task names nobody the directory knows.
+ * otherwise the resource its `assigneeEmail`/`assignee` uniquely names — email
+ * first, name as a fallback, exactly the precedence `backfillTaskResourceFks`
+ * (`resource-foundation.ts`) writes with. `null` when the task names nobody
+ * the directory knows.
  *
- * ★★★ THE NAME FALLBACK IS THE WHOLE POINT. Keying a linked task `res:<id>` and
- * an unlinked one `name:<string>` rendered the SAME person as two lanes with
- * identical labels — indistinguishable on screen, and only the FK lane's cards
- * had a populated assignee select. A project acquires both shapes routinely:
- * Jira/CSV imports and AI-created tasks write the name, the picker writes the
- * FK. `backfillTaskResourceFks` repairs the DATA at load, but this must resolve
- * too — a task created in-session with a free-text assignee, or one whose
- * person was renamed after the string was cached, never reaches that pass.
+ * ★★★ THE NAME/EMAIL FALLBACK IS THE WHOLE POINT. Keying a linked task
+ * `res:<id>` and an unlinked one `name:<string>` rendered the SAME person as
+ * two lanes with identical labels — indistinguishable on screen, and only the
+ * FK lane's cards had a populated assignee select. A project acquires both
+ * shapes routinely: Jira/CSV imports and AI-created tasks write the
+ * name/email, the picker writes the FK. `backfillTaskResourceFks` repairs the
+ * DATA at load, but this must resolve too — a task created in-session with a
+ * free-text assignee, or one whose person was renamed after the string was
+ * cached, never reaches that pass.
+ *
+ * ★★ Until this fix, ONLY the name was consulted here — the backfill's email
+ * pass had no lane-engine counterpart, so a task with an `assigneeEmail`
+ * match, no FK and a non-matching (or blank) `assignee` string got its own
+ * stray lane until the next load stamped its FK and merged it. §79.
+ *
+ * ★ A DANGLING FK is deliberately re-resolved through email/name here, unlike
+ * `backfillTaskResourceFks` which leaves it dangling — see that function's
+ * docstring for why the two intentionally diverge (this is a reversible
+ * DISPLAY decision; that one REWRITES STORED DATA).
+ *
+ * ★★★ EXTERNALS ARE NEVER NAME-MATCHED — the guard now lives in the shared
+ * `buildResourceLookupIndexes` (`resource-foundation.ts`, byName skips
+ * `isExternal === true`), but the consequence is specific to THIS module, so
+ * it is recorded here rather than there. `task-external.ts` classifies
+ * external ownership LINK-ONLY and says why: "a name collision would HIDE
+ * REAL WORK, so this fails safe". Resolving a free-string assignee onto an
+ * external would hand this lane a `resourceId`, making it a live DROP
+ * TARGET — and a task dropped there gets that FK, which `isExternalTask`
+ * then classifies as external, so with "Hide externals" on the card
+ * silently vanishes. `tasks-section.tsx` already filters `extraLaneIds`
+ * (`visibleExtraLaneIds`) for exactly this failure; task-DERIVED lanes are
+ * only guarded by the shared index. ★ Cost: an external with both FK-linked
+ * and string-only tasks still shows two lanes while "Hide externals" is OFF.
+ * That is the documented lesser evil — a duplicate lane is visible and
+ * harmless, a vanishing card is not.
+ *
+ * ★★ EXTERNALS ARE NEVER EMAIL-MATCHED HERE EITHER — the lane engine builds
+ * its indexes with `emailMatchesExternals: false` (`laneIndexes` below), so an
+ * external's address is treated exactly like an external's name. The same
+ * hazard applies: "Hide externals" filters on the FK alone, so an FK-less task
+ * carrying an external's email stays visible, and resolving it to
+ * `res:<external>` would put a live drop target on screen that stamps the
+ * external FK onto a dropped card, which then vanishes. Such a task resolves
+ * as if the external were not in the directory: a unique managed match by
+ * email or name still wins, else its name lane (or Unassigned). ★ This
+ * deliberately DIVERGES from
+ * `backfillTaskResourceFks`, which still links by an external's email at load.
+ * After a reload the task therefore carries the FK and takes the FK branch
+ * above (and "Hide externals" hides it); only an FK-less task is affected.
  */
 function laneResourceIdOf(
   task: Task,
   resourcesById: ReadonlyMap<number, Resource>,
-  names: ReadonlyMap<string, number | null>,
+  indexes: ResourceLookupIndexes,
 ): number | null {
   if (task.resourceId != null && resourcesById.has(task.resourceId)) return task.resourceId;
-  const key = nameKey(task.assignee);
-  if (!key) return null;
-  return names.get(key) ?? null;
+  return resolvePersonResourceId(task, indexes);
+}
+
+/** The lookup indexes every lane-engine entry point resolves against: the
+ *  shared builder with externals left out of the EMAIL pass too (see
+ *  `laneResourceIdOf`). One helper, so the three entry points cannot drift. */
+function laneIndexes(resourcesById: ReadonlyMap<number, Resource>): ResourceLookupIndexes {
+  return buildResourceLookupIndexes(resourcesById.values(), { emailMatchesExternals: false });
 }
 
 function laneOf(
   task: Task,
   resourcesById: ReadonlyMap<number, Resource>,
-  names: ReadonlyMap<string, number | null>,
+  indexes: ResourceLookupIndexes,
 ): KanbanLane {
-  const resourceId = laneResourceIdOf(task, resourcesById, names);
+  const resourceId = laneResourceIdOf(task, resourcesById, indexes);
   if (resourceId != null) {
     return {
       key: `res:${resourceId}`,
@@ -157,7 +177,7 @@ function laneOf(
  * owns that repair.
  */
 export function laneKeyOf(task: Task, resourcesById: ReadonlyMap<number, Resource>): string {
-  return laneOf(task, resourcesById, nameToResourceId(resourcesById)).key;
+  return laneOf(task, resourcesById, laneIndexes(resourcesById)).key;
 }
 
 function emptyCells(): Record<TaskStatus, Task[]> {
@@ -177,13 +197,14 @@ export function laneResourceIds(
   extraLaneIds: readonly number[],
 ): number[] {
   const ids = new Set<number>();
-  const names = nameToResourceId(resourcesById);
+  const indexes = laneIndexes(resourcesById);
   for (const id of extraLaneIds) if (resourcesById.has(id)) ids.add(id);
-  // Must use the SAME resolution as `laneOf`, name fallback included: a person
-  // who owns a lane only by way of a free-string assignee still owns a lane, and
-  // offering them in the add-lane picker would promise a second one.
+  // Must use the SAME resolution as `laneOf`, email/name fallback included: a
+  // person who owns a lane only by way of a free-string assignee or a matched
+  // email still owns a lane, and offering them in the add-lane picker would
+  // promise a second one.
   for (const t of tasks) {
-    const id = laneResourceIdOf(t, resourcesById, names);
+    const id = laneResourceIdOf(t, resourcesById, indexes);
     if (id != null) ids.add(id);
   }
   return [...ids];
@@ -216,9 +237,9 @@ export function groupByStatusAndPerson(
     return lane.key;
   };
 
-  const names = nameToResourceId(resourcesById);
+  const indexes = laneIndexes(resourcesById);
   for (const task of tasks) {
-    const key = ensure(laneOf(task, resourcesById, names));
+    const key = ensure(laneOf(task, resourcesById, indexes));
     cells[key][task.status].push(task);
   }
 

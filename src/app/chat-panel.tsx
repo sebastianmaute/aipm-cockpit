@@ -1264,7 +1264,7 @@ function ChatPanelInner({
           multiple
           accept={ATTACHMENT_ACCEPT}
           onChange={(e) => handleFiles(e.target.files)}
-          className="hidden"
+          className="sr-only"
           tabIndex={-1}
           aria-hidden="true"
         />

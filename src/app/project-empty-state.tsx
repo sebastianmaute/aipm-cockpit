@@ -44,7 +44,7 @@ import { type ProjectMeta, type Resource } from "./types";
 /** Shipped default for the start window. A path, not a data URL — user overrides
  *  are raster data URLs (SVG uploads stay rejected), but the shipped asset is our
  *  own file and is served same-origin. */
-const DEFAULT_START_LOGO = "/ai-pm-cockpit-banner-harbor.svg";
+const DEFAULT_START_LOGO = "/ai-pm-cockpit-banner-beacon-transparent.svg";
 
 export interface ProjectEmptyStateProps {
   lang: Lang;

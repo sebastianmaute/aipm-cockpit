@@ -1,27 +1,40 @@
-import { describe, it, expect } from "vitest";
+import { beforeAll, describe, it, expect } from "vitest";
+import { loadI18n, t } from "./i18n";
 import { APP_HIGHLIGHT_KEYS, APP_VERSION, APP_MILESTONE } from "./version";
 
-// ★★ The Version popover renders APP_HIGHLIGHT_KEYS in ARRAY ORDER
-// (`version-info.tsx` maps it with no sort and no reverse), and the list is
-// chronological, so the current release's note belongs LAST. A release that
-// inserts its key mid-array puts its own headline behind every prior entry.
-// That shipped once — 0.254.0's key landed at index 212 of 272 — and nothing
-// reported it, because until this file NOTHING asserted the ordering at all.
+// The Version panel's highlights are a fixed elevator pitch of what is unique to
+// the app, NOT a per-release history (CHANGELOG.md owns that). They used to grow
+// by one key per release and had reached 275 entries, so the panel read as a
+// changelog. Pinning the exact list makes a release that appends a key fail here.
 describe("APP_HIGHLIGHT_KEYS", () => {
-  it("ends with the current release's highlight, so the newest note renders last", () => {
-    expect(APP_HIGHLIGHT_KEYS.at(-1)).toBe("versionHighlightAiCalendarWrites");
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("is the fixed five-point pitch, in display order", () => {
+    expect([...APP_HIGHLIGHT_KEYS]).toEqual([
+      "versionHighlightCopilot",
+      "versionHighlightLimits",
+      "versionHighlightStack",
+      "versionHighlightLocalFirst",
+      "versionHighlightScales",
+    ]);
   });
 
   it("has no duplicate keys", () => {
     expect(new Set(APP_HIGHLIGHT_KEYS).size).toBe(APP_HIGHLIGHT_KEYS.length);
   });
 
-  // ★★★ WHAT THIS FILE DOES NOT COVER, because it reads like it does: it is NOT
-  // a release-bump guard. `at(-1)` is pinned to a LITERAL key, so bumping
-  // `APP_VERSION` without adding a highlight at all leaves every test here
-  // green. It guards ORDERING — that a key which exists is last — and nothing
-  // about whether the release remembered to add one.
-  // ★ The assertion below is deliberately loose for the same reason.
+  it("has a real English string and a German one that differs from it for every key", () => {
+    for (const k of APP_HIGHLIGHT_KEYS) {
+      const en = t("en-US", k);
+      const de = t("de", k);
+      expect(en, k).not.toBe(k);
+      expect(en.length, k).toBeGreaterThan(20);
+      expect(de, k).not.toBe(en);
+    }
+  });
+
   it("names a released version and milestone", () => {
     expect(APP_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
     expect(APP_MILESTONE.length).toBeGreaterThan(0);

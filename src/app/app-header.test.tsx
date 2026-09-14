@@ -131,6 +131,18 @@ describe("AppHeader", () => {
       expect(img).toHaveAttribute("src", "/ai-pm-cockpit-banner.svg");
     });
 
+    it("sizes the logo as a definite 300×70 box", () => {
+      // jsdom has no layout, so the rendered size is unobservable here; the
+      // definite height + width classes are the proxy. A cap alone (the old
+      // `max-h-10 max-w-[200px]`) gives the viewBox-only SVG nothing to size
+      // from, which is what collapsed the start window's header once.
+      render(<AppHeader {...makeProps()} />, { wrapper: Wrapper });
+      const img = screen.getByRole("img", { name: t("en-US", "appTitle") });
+      expect(img.className).toMatch(/(?:^|\s)h-\[70px\](?:\s|$)/);
+      expect(img.className).toMatch(/(?:^|\s)w-\[300px\](?:\s|$)/);
+      expect(img.className).not.toMatch(/max-h-|max-w-/);
+    });
+
     it("uses the custom branding logo when one is set", () => {
       const settings = {
         ...defaultSettings,

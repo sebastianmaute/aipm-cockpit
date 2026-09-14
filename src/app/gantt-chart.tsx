@@ -252,10 +252,12 @@ export function GanttChart({
                 its due-date position (buildGanttRows). Milestone rows aren't part
                 of the critical-path / dependency math. */}
             {rows.map((row) => {
+              // ★★ No lookup and no skip here, for either kind (§273): each row
+              // carries the geometry it is drawn with, and GanttPanel numbered
+              // exactly these rows. Deciding again here is how a drawn row
+              // came to be numbered against a twin that was never drawn.
               if (row.kind === "task") {
-                const task = row.task;
-                const bar = bars.get(task.id);
-                if (!bar) return null;
+                const { task, bar } = row;
                 return (
                   <GanttTaskRow
                     key={`t-${task.id}`}
@@ -291,11 +293,12 @@ export function GanttChart({
                   />
                 );
               }
-              const m = row.milestone;
+              const { milestone: m, date } = row;
               return (
                 <GanttMilestoneRow
                   key={`m-${m.id}`}
                   m={m}
+                  date={date}
                   // ★ Same reasoning as the task row's token above.
                   rowToken={rowTokens.get(ganttRowKey(row)) ?? m.name}
                   lang={lang}

@@ -4,7 +4,7 @@
 // Each row shows a resource's contact details and inline discipline/grade
 // selects. Clicking the name cell opens the edit modal.
 
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { ArrowDownTrayIcon, EyeSlashIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { birthdayMonthDay } from "./birthdays";
@@ -30,6 +30,8 @@ import { AddButton } from "./pane-toolbar";
 import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { readDeviceJson, writeDeviceJson } from "./device-store";
+import { useWorkspaceTab } from "./workspace-tab-context";
+import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 
 const HIDE_EXTERNAL_KEY = "aipm-cockpit:directory-hide-external";
 
@@ -173,6 +175,44 @@ function ResourceDirectoryInner({
   // of SortDir and `sortKey` is already the union (its "" member matches no
   // column, which is exactly the unsorted state), so neither needs a cast.
   const th = useSortHeaderProps<SortKey>(sortKey, sortDir, toggleSort, startColResize);
+
+  // Deep-link (§362): a guardrail insight for a resource routes here via the
+  // "resources" pendingOpen view (resources-report.tsx redirects the Resources
+  // report tab to this Directory sub-tab for that same view). Open the edit
+  // modal via the existing onEditResource prop and clear the pending signal
+  // once acted on. An id matching no resource (deleted, stale link) is still
+  // consumed so the request cannot get stuck.
+  //
+  // ★ KNOWN RESIDUAL, not a guard: unlike stakeholders/raid, this does NOT
+  // skip calling `onEditResource` when that resource's editor is already open.
+  // A per-mount skip guard cannot work here: every producer of this deep link
+  // (insights/detect.ts, global-search.ts, use-hash-view.ts) tags the request
+  // "resources", `requestOpen` flips `activeTab` through "resources" first,
+  // and `workspace-section.tsx` renders this panel only while
+  // `activeTab === "directory"`, so a repeat request unmounts and remounts a
+  // fresh `ResourceDirectoryInner` before its consumer effect runs.
+  //
+  // What a repeat does (reasoned from the code, not measured): the edit handler
+  // fires again with the row from `resources`, and the editor stays open on the
+  // same resource. `ResourceEditModal` resets its draft only when its `resource`
+  // prop changes identity (the `prevResource` reconcile), so unsaved edits are
+  // KEPT when that row is the same reference the editor already holds. They are
+  // lost only if the stored row was replaced while the editor was open (e.g. a
+  // concurrent write), because the handler then passes the new reference.
+  //
+  // Pinned as current behaviour by "KNOWN RESIDUAL: re-fires the edit handler
+  // for a repeated deep-link to the resource whose editor is already open" in
+  // resource-directory.test.tsx. A working guard needs the editor state
+  // (`editingResource`, owned by `useResourceDirectory` in `task-manager.tsx`
+  // and rendered by `app-modals.tsx`), which sits above this remount.
+  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { flashId, containerRef } = useDeepLinkRowFlash("resources");
+  useEffect(() => {
+    if (pendingOpen?.view !== "resources") return;
+    const item = resources.find((r) => r.id === pendingOpen.id);
+    if (item) onEditResource(item);
+    clearPendingOpen();
+  }, [pendingOpen, resources, onEditResource, clearPendingOpen]);
 
   const rows = useMemo(() => {
     const roleName = (r: Resource): string => {
@@ -337,7 +377,7 @@ function ResourceDirectoryInner({
       {resources.length === 0 ? (
         <EmptyState title={t(lang, "resourcesEmpty")} />
       ) : (
-        <div className={INNER_TABLE_CLASS}>
+        <div ref={containerRef} className={INNER_TABLE_CLASS}>
           <DataTable className="w-full text-left text-sm" head={<>
               <tr>
                 {bulkEnabled && (
@@ -364,7 +404,12 @@ function ResourceDirectoryInner({
                 // .map()'s own array, via buildRowTokens covering every id in it.
                 const token = rowTokens.get(r.id) ?? resourceDisplayName(r);
                 return (
-                <tr key={r.id} className="cursor-pointer align-middle hover:bg-surface-muted" onClick={() => onEditResource(r)}>
+                <tr
+                  key={r.id}
+                  data-deeplink-row={r.id}
+                  className={["cursor-pointer align-middle hover:bg-surface-muted", flashOutlineClass(flashId === r.id)].join(" ")}
+                  onClick={() => onEditResource(r)}
+                >
                   {bulkEnabled && (
                     <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       <Checkbox

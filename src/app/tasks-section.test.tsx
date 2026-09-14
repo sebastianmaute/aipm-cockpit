@@ -1069,13 +1069,19 @@ describe("TasksSection", () => {
     expect(setSearch).toHaveBeenCalledWith("");
   });
 
+  // §42: the Push/Pull buttons are now entity-qualified too (mirroring the enable
+  // toggle above), so two mounted instances (e.g. tasks + a second Calendar
+  // sub-tab pane) never share a "Push to Outlook" name.
+  const calPushLabel = `${t("en-US", "calendarPush")} – ${t("en-US", "calendarSyncEntityTask")}`;
+  const calPullLabel = `${t("en-US", "calendarPull")} – ${t("en-US", "calendarSyncEntityTask")}`;
+
   it("shows the Push-to-Outlook button when M365 is configured and task calendar sync is enabled", () => {
     stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
     const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
     stubWorkspace([task], [task]);
     render(<TasksSection {...makeProps()} m365Configured />);
     expect(
-      screen.getByRole("button", { name: t("en-US", "calendarPush") }),
+      screen.getByRole("button", { name: calPushLabel }),
     ).toBeInTheDocument();
   });
 
@@ -1127,7 +1133,7 @@ describe("TasksSection", () => {
     stubWorkspace([task], [task]);
     render(<TasksSection {...makeProps()} m365Configured />);
     expect(
-      screen.getByRole("button", { name: t("en-US", "calendarPull") }),
+      screen.getByRole("button", { name: calPullLabel }),
     ).toBeInTheDocument();
   });
 
@@ -1146,7 +1152,7 @@ describe("TasksSection", () => {
     const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
     stubWorkspace([task], [task]);
     render(<TasksSection {...makeProps()} m365Configured />);
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "calendarPull") }));
+    fireEvent.click(screen.getByRole("button", { name: calPullLabel }));
     expect(pullSpy).toHaveBeenCalledTimes(1);
   });
 

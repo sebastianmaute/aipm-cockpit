@@ -268,12 +268,12 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--mechanism-candidate-precondition-proved-causation-unreproduced-fix-landed) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed | first seen 0.205.0 | M | open |
 | [§40](#40-text-ui-dark-blue-without-a-mode-appropriate-companion--open-needs-its-own-slice) | `text-ui-dark-blue` without a mode-appropriate companion — open, needs its own slice | pre-existing, counted 0.211.0 | M–L | open |
 | [§41](#41-eye-verification-owed-on-02110-on-surfaces-no-gate-reaches--open) | Eye verification owed on 0.211.0, on surfaces no gate reaches — open | 0.211.0 (Samatar) | S | open |
-| [§42](#42-calendarsynccontrols-pushpull-buttons-carry-unqualified-accessible-names--open-pre-existing) | `CalendarSyncControls` push/pull buttons carry unqualified accessible names — open, pre-existing | pre-existing, found 0.211.0 | S | open |
+| [§42](#42-calendarsynccontrols-pushpull-buttons-carry-unqualified-accessible-names--closed-2026-09-14) | `CalendarSyncControls` push/pull buttons carry unqualified accessible names — CLOSED 2026-09-14 | pre-existing, found 0.211.0 | S | **CLOSED** 2026-09-14 |
 | [§43](#43-two-suggest-raci-reporting-gaps--open-both-incomplete-rather-than-wrong) | Two "Suggest RACI" reporting gaps — open, both incomplete rather than wrong | 0.211.0 (Samatar) | S | open |
 | [§44](#44-the-last-two-ux-roadmap-slices--s6-designed-and-planned-but-unexecuted-s7-undesigned) | The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned | roadmap (gitignored, local-only) | L | open |
 | [§45](#45-brace-expansion-advisory-in-the-eslint-dev-chain--closed-in-02111) | ~~`brace-expansion` advisory in the eslint dev chain~~ | 0.211.0 | S | **CLOSED** in 0.211.1 |
 | [§46](#46-a-label-wrapped-file-input-can-never-show-a-focus-ring--pattern-open) | A `<label>`-wrapped file input can never show a focus ring — pattern open | 0.211.1 | S | open |
-| [§47](#47-chat-panel-clicks-a-displaynone-file-input--open-pre-existing) | `chat-panel` clicks a `display:none` file input — open, pre-existing | pre-existing, found 0.211.1 | S | open |
+| [§47](#47-chat-panel-clicks-a-displaynone-file-input--closed-2026-09-14) | `chat-panel` clicks a `display:none` file input — CLOSED 2026-09-14 | pre-existing, found 0.211.1 | S | **CLOSED** 2026-09-14 |
 | [§48](#48-raid-editor-destroys-notes-added-while-it-is-open--closed-in-02111) | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED** in 0.211.1 |
 | [§49](#49-every-ai-edit-to-a-raid-item-erased-its-whole-note-log--closed-in-02111) | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED** in 0.211.1 |
 | [§50](#50-undo-of-a-bulk-edit-reverts-write-through-fields--closed-2026-08-18) | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | **CLOSED** 2026-08-18 |
@@ -305,7 +305,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§76](#76-two-hooks-have-a-cleanup-only-mountedref--dev-only-total-suppression--closed-post-346) | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 |
 | [§77](#77-the-snapshot-capture-gate-is-a-one-way-latch-so-a-mid-session-storage-switch-can-still-capture-the-wrong-project--closed-post-02260) | ~~The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project~~ | found post-0.214.0 | M | **CLOSED** post-0.226.0 |
 | [§78](#78-a-brand-new-turso-project-auto-captures-an-empty-snapshot-and-that-row-becomes-the-baseline--half-fixed-post-02260-partial-kpi-half-open) | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — HALF FIXED post-0.226.0, partial-KPI half OPEN | pre-existing, found post-0.214.0 | S | open |
-| [§79](#79-the-lane-engine-resolves-a-person-by-name-but-ignores-assigneeemail-the-backfill-prefers-email--open) | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — open | found post-0.214.0 | S | open |
+| [§79](#79-the-lane-engine-resolves-a-person-by-name-but-ignores-assigneeemail-the-backfill-prefers-email--closed-2026-09-14) | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — CLOSED 2026-09-14 | found post-0.214.0 | S | **CLOSED** 2026-09-14 |
 | [§80](#80-both-hide-external-toggles-trust-whatever-readdevicejson-returns--closed) | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** |
 | [§81](#81-the-swimlane-no-op-drop-guard-no-longer-holds-for-a-name-resolved-task--closed) | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** |
 | [§82](#82-the-task-fk-backfill-lives-in-a-react-hook-outside-the-numbered-migration-chain--open) | The task-FK backfill lives in a React hook, outside the numbered migration chain — open | found post-0.214.0 | M | open |
@@ -499,7 +499,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§270](#270-two-contacts-sharing-a-name-give-two-identically-named-remove-buttons--a-question-not-a-defect--closed-2026-08-28) | Two contacts sharing a name give two identically-named remove buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-08-28 |
 | [§271](#271-collectionspecnamefield-is-an-unchecked-string-so-a-spec-can-still-name-a-field-no-record-carries--the-last-known-instance-fixed-2026-08-31--closed-2026-08-31) | `CollectionSpec.nameField` is an unchecked string, so a spec can still name a field no record carries — the last known instance FIXED 2026-08-31 | pre-existing, found 2026-08-26 | M | **CLOSED** 2026-08-31 |
 | [§272](#272-task-managertsx-sits-exactly-at-its-file-size-baseline-so-the-next-line-added-to-it-fails-ci--closed-2026-08-28) | `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI | found 2026-08-26 | S | **CLOSED** 2026-08-28 |
-| [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual) | Gantt numbers rows the chart may not render — the `!bar` residual | found 2026-08-28 | S | open |
+| [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual--closed-2026-09-14) | Gantt numbers rows the chart may not render — the `!bar` residual — CLOSED 2026-09-14 | found 2026-08-28 | S | **CLOSED** 2026-09-14 |
 | [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | open |
 | [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | open |
 | [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 | scan 2026-08-28 | L | **CLOSED** 2026-08-31 |
@@ -588,7 +588,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
 | [§360](#360-a-guardrail-insight-names-a-resource-but-its-ai-recommendation-gets-no-entity-digest--open) | A guardrail insight names a resource but its AI recommendation gets no entity digest | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--closed-2026-09-07) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
-| [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--open) | A guardrail insight's deep link arms `pendingOpen` with no consumer | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--closed-2026-09-14) | A guardrail insight's deep link arms `pendingOpen` with no consumer — CLOSED 2026-09-14 | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-14 |
 | [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§364](#364-an-older-build-prunes-the-four-guardrail-insight-types-on-load-and-can-write-the-pruned-list-back--open) | An older build prunes the four guardrail insight types on load, and can write the pruned list back | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--open) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | open |
@@ -759,6 +759,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--open) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | open |
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--open) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | open |
 | [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
+| [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--open) | A repeated resource deep link re-runs the open while that resource's editor is open — OPEN | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -2952,11 +2953,41 @@ is ever seen, and "not scanned" has at least two distinct causes that need diffe
 
 ---
 
-## 42. `CalendarSyncControls` push/pull buttons carry unqualified accessible names — open, pre-existing
+## 42. `CalendarSyncControls` push/pull buttons carry unqualified accessible names — CLOSED 2026-09-14
 
-**Status:** open — two per-entity buttons with unqualified accessible names. Reproduced 2026-08-28 by `grep -n "aria-label" src/app/calendar-sync-controls.tsx`.
+**Status:** CLOSED 2026-09-14 on `fix/ui-residuals-batch`. `calendar-sync-controls.tsx`'s Push and
+Pull buttons now qualify their `aria-label` with the same `entityLabelKey` the enable `ToggleButton`
+already used, with the ` – ` separator, in both idle and busy states (`${t(lang,
+calendarPushBusy ? "calendarPushing" : "calendarPush")} – ${entity}`, and the pull mirror) — the
+same shape Task 11 of the S6 plan (`docs/superpowers/plans/2026-07-29-s6-calendar-event-push.md`)
+had already specified, dated-noted there rather than duplicated. `title` stays the short unqualified
+text (unaffected — it is the accessible description, not the name). Pinned by
+`src/app/calendar-sync-controls.test.tsx`'s "qualifies the push and pull names with the entity, so
+two instances never collide" (renders two instances and asserts the accessible names are a set with
+no duplicates) and its updated "shows the short label but keeps the descriptive, entity-qualified
+accessible name" / busy-state test. Mutation-checked: reverting the push button's qualification back
+to the bare `t(lang, …)` call turns 3 of the 5 tests in that file red (`Tests 3 failed | 2 passed
+(5)`); restoring it returns to `Tests 5 passed (5)`. Verified 2026-09-14: `npx vitest run
+src/app/calendar-sync-controls.test.tsx` → `Test Files 1 passed (1)`, `Tests 5 passed (5)`, exit 0.
+The four consumer test files that queried the old unqualified name by exact `getByRole` match were
+updated to the qualified name: `change-panel.test.tsx`, `raid-panel.test.tsx`,
+`resources-panel.test.tsx`, `tasks-section.test.tsx` — all four re-run green together (`Test Files 4
+passed (4)`, `Tests 214 passed (214)`). `milestones-panel.tsx`'s own hand-rolled Push/Pull buttons
+(component docstring: "Milestone push/pull is deliberately NOT routed through this") are unaffected
+and remain unqualified — out of scope for this entry, which is about `CalendarSyncControls` only.
 
-**Work item:** #105
+★★ **Corrected 2026-09-14 (final fix round): where two instances really co-render.** The source
+comment this fix added cited "the Calendar sub-tab's absences + meeting series" as the collision.
+No meeting-series `CalendarSyncControls` exists: the four callers are `tasks-section.tsx`,
+`raid-panel-toolbar.tsx`, `change-panel.tsx` and `resources-panel.tsx`, and i18n has only the Task,
+Raid, Change and Absence entity keys. A later review then called any collision non-existent because
+each caller sits in a different view. That holds for the MODERN layout, which renders one view at a
+time. It does not hold for the CLASSIC layout: `task-manager.tsx`'s classic tree renders
+`tasksSectionEl` directly below `workspaceEl` with no view condition, and the Tasks instance is gated
+only on M365, popout and its toggle handler, so it shares the screen with the RAID, Changes or
+Resources instance. That is the case this entry's dated body describes. It is read from the code, not
+rendered. The comments in `calendar-sync-controls.tsx` and its test now name that case and call the
+qualification preventive everywhere else.
 
 The enable **checkbox** is qualified per entity (`"… – Tasks (due dates)"`); the Push and Pull
 **buttons** beside it are the bare `calendarPush` / `calendarPull` ("Push to Outlook" / "Pull from
@@ -3238,13 +3269,33 @@ whether the element carrying it can receive focus. Check the element type, not t
 
 ---
 
-## 47. `chat-panel` clicks a `display:none` file input — open, pre-existing
+## 47. `chat-panel` clicks a `display:none` file input — CLOSED 2026-09-14
 
-**Status:** open — an attachment input hidden from the a11y tree. Reproduced 2026-08-28 by `grep -n "fileInputRef" src/app/chat-panel.tsx`.
+**Status:** CLOSED 2026-09-14 on `fix/ui-residuals-batch`. `chat-panel.tsx`'s attachment `<input
+type="file">` now carries `className="sr-only"` instead of `className="hidden"` — the minimal fix the
+entry named, keeping `tabIndex={-1}` and `aria-hidden="true"` unchanged. The `FilePickerButton`
+migration the entry also named (which would need a new `multiple` prop) was deliberately NOT taken —
+out of scope for this fix, same as it was scoped out of 0.211.1. ★ The shared `useFilePicker` hook
+(`src/app/use-file-picker.ts`), which already encodes this same `sr-only`/`tabIndex={-1}`/`aria-hidden`
+shape, was also not adopted: its `onFile` signature is single-file (`e.target.files?.[0]`, no `multiple`
+on its input), while chat-panel's input is `multiple` and calls `handleFiles(e.target.files)` on a whole
+`FileList` — it would not drop in without a behavioural change. Pinned by two new tests in
+`src/app/chat-panel.test.tsx`'s "Attachment guidance" describe block: "uses sr-only, not display:none,
+for the attachment input" (asserts the input's `className` contains `sr-only` and not `hidden`) and
+"forwards the attach button click to the input" (spies on the queried input's own `click` method via
+`vi.spyOn(input, "click")` and asserts the attach button's click reaches it). Reproduced RED first
+against the unmodified input (`Tests 1 failed | 81 passed (82)`, the sr-only assertion failing for the
+right reason). Mutation-checked: reverting `className` back to `"hidden"` turns the same test red again
+(`Tests 1 failed | 81 passed (82)`); restoring `sr-only` returns it to green. Verified 2026-09-14:
+`npx vitest run src/app/chat-panel.test.tsx` → `Test Files 1 passed (1)`, `Tests 82 passed (82)`, exit
+0. ★ Honest limitation: jsdom applies no CSS, so these tests pin the CLASS CONTRACT only — they cannot
+reproduce the browser-level defect itself (some browsers refuse to open a file dialog for a
+`display:none` input), which is why §15's rule exists in prose rather than as a runtime check.
+Re-swept `grep -rn 'type="file"' src/app --include=*.tsx`: the only other non-test file input remains
+`step0-import-panel.tsx`, still a plain visible input with no `hidden`/`display:none` class — confirmed
+unaffected, as the entry already noted.
 
-**Work item:** #109
-
-`chat-panel.tsx` gives its attachment input `className="hidden"` (Tailwind `display:none`) and opens it
+`chat-panel.tsx` gave its attachment input `className="hidden"` (Tailwind `display:none`) and opened it
 via `fileInputRef.current?.click()`. That is exactly what §15 warns against — both theme pickers used
 `sr-only` *precisely because* a `display:none` input cannot be clicked in every browser. So the entry
 that documented the rule sat beside a live violation of it.
@@ -3254,9 +3305,9 @@ size caps (`chat-attachments.ts`), so it is a bigger read than swapping one clas
 `step0-import-panel.tsx` is the same class of flow and was excluded for the same reason, though it uses
 a plain visible input and is **not** affected by this particular bug.
 
-**Fix when taken:** move it onto `FilePickerButton` — which would need a `multiple` prop, deliberately
-NOT added speculatively in 0.211.1 — or, minimally, swap `hidden` for `sr-only` plus `tabIndex={-1}` and
-`aria-hidden`.
+**Fix taken:** the minimal option — swap `hidden` for `sr-only`, keeping `tabIndex={-1}` and
+`aria-hidden`. The `FilePickerButton` migration (which would need a new `multiple` prop) remains
+undone, same as it was scoped out of 0.211.1 — see the Status paragraph above.
 
 ---
 
@@ -6326,11 +6377,57 @@ absolute wording is inherited from the original entry; it overstates by one step
 
 ---
 
-## 79. The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — open
+## 79. The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — CLOSED 2026-09-14
 
-**Status:** open — an asymmetry, the lane engine has no email path. Reproduced 2026-08-28 by `grep -n "laneResourceIdOf" src/app/task-kanban.ts`.
+**Status:** CLOSED 2026-09-14 on `fix/ui-residuals-batch`. `task-kanban.ts`'s `laneResourceIdOf` now
+consults `assigneeEmail` before falling back to `assignee`, via two pure helpers extracted from
+`resource-foundation.ts` — `buildResourceLookupIndexes` and `resolvePersonResourceId` — which
+`backfillTaskResourceFks` now also calls, so the lane engine and the load-time backfill share one
+email-then-name precedence (a poisoned/ambiguous email match still falls through to name, and an FK
+still wins when it resolves to a live resource). A dangling FK falls through to email/name
+resolution in the lane engine — before this fix it fell through to name only, now it tries email
+then name too — while `backfillTaskResourceFks` leaves a dangling FK alone either way, since that
+function rewrites stored data and holds the stricter line. Pinned by eight cases in
+`groupByStatusAndPerson — assigneeEmail lane resolution (§79)` (`task-kanban.test.ts`): an email
+match lands the task in that resource's lane even when the name does not match; email wins over a
+differently-named resource; email matches case-insensitively and ignoring whitespace; an ambiguous
+email falls through to an unambiguous name (with the name target deliberately NOT the first-inserted
+resource, so the case can tell the shared helper's poisoning apart from a first-wins index); a
+resource's own stored email with surrounding whitespace/case still matches (pins the INDEX-side
+normalisation, distinct from the query-side case above); an FK still wins over both; an email
+matching nobody falls back to the unchanged name/unassigned behaviour; and an unmatched email plus
+an unmatched non-blank name keeps its own name lane. `backfillTaskResourceFks`'s own precedence and
+ambiguity tests (`resource-fk-backfill.test.ts`) stay green, unchanged. Mutation-checked: removing
+the email lookup from `laneResourceIdOf` turns 4 cases red (`Tests 4 failed | 36 passed (40)`);
+swapping the shared helper's precedence (name before email) turns the "prefers email" case red in
+both `task-kanban.test.ts` and `resource-fk-backfill.test.ts` (`Tests 2 failed | 63 passed (65)`);
+changing the shared index from poison-on-duplicate to first-wins turns the "falls through to an
+unambiguous NAME" case red, along with three pre-existing poisoning tests (`Tests 4 failed | 61
+passed (65)`); dropping the index-side `.trim()` on a resource's own email turns only the new
+index-normalisation case red (`Tests 1 failed | 64 passed (65)`); restoring each returns to green.
+Verified 2026-09-14: `npx vitest run src/app/task-kanban.test.ts src/app/resource-fk-backfill.test.ts
+src/app/resource-foundation.test.ts` → `Test Files 3 passed (3)`, `Tests 86 passed (86)`, exit 0;
+`npx tsc --noEmit` exit 0.
 
-**Work item:** #121
+★★ **Corrected 2026-09-14 (final fix round): the lane engine never email-matches an external.** As
+first closed, the new email pass matched an EXTERNAL resource, so an FK-less task carrying an
+external's `assigneeEmail` got that external's `res:<id>` lane. `isExternalTask` is link-only, so
+with "Hide externals" on the task stayed visible, and its lane was a live drop target that stamped
+the external FK onto a dropped card, which then vanished. That is the hazard the name guard already
+prevents, and the docstring's "not a regression" was wrong about it. The lane engine now builds its
+indexes through `laneIndexes`, which passes `emailMatchesExternals: false` to
+`buildResourceLookupIndexes`, so such a task resolves as if the external were not in the directory (a
+unique managed match by email or name still wins, else its name lane or Unassigned), the same outcome as
+a name match to an external. The option defaults to `true`, so `backfillTaskResourceFks` still links
+by an external's email at load, and after a reload the task takes the FK branch as before
+(`resource-fk-backfill.test.ts` untouched and green). Pinned by `task-kanban.test.ts` "externals are
+never name-matched into a linked lane › …and never email-matched either": "keeps a link-less task
+carrying an external's email OUT of that external's lane" (it also checks `laneKeyOf` and
+`laneResourceIds`) and the control "still email-matches a managed resource in the same directory".
+Against the uncorrected code the first case failed with the task in `res:5`. Mutation-checked:
+indexing externals by email regardless of the option turned only that case red (`Tests 1 failed | 87
+passed (88)` over `task-kanban.test.ts`, `resource-fk-backfill.test.ts` and
+`resource-foundation.test.ts`); restoring it returned all three files green.
 
 `task-kanban.ts` `laneResourceIdOf` resolves an FK-less task to a resource by **name** only.
 `backfillTaskResourceFks` (`resource-foundation.ts`) prefers **email**, then falls back to name. So a
@@ -22254,8 +22351,10 @@ map — `grep -n "aria-label" src/app/gantt-rows.tsx` now returns five lines, ev
 
 ★★ **DISCLOSED RESIDUAL, deliberately not claimed closed:** `gantt-chart.tsx` drops any task whose
 bar is null, so a row numbered "(2)" can render while the "(1)" it is numbered against is off screen.
-It has its own number — see [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual)
+It has its own number — see [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual--closed-2026-09-14)
 — and the comment at the token `useMemo` in `gantt.tsx` says the same thing at the call site.
+★ 2026-09-14: §273 is closed, and that comment is gone. The task-row skip named above never fired
+from `GanttPanel`; the live case was a milestone whose date does not parse. See §273's closure.
 
 ```bash
 grep -n "aria-label" src/app/gantt-rows.tsx
@@ -22661,13 +22760,77 @@ it is pure UI glue added to `coverage.exclude`), and it is not a claim this regi
 are load-bearing — the pointer §254 leans on lives in exactly the block that was almost cut for
 space — so buying a line by deleting one trades a permanent loss of context for a temporary line.
 
-## 273. Gantt numbers rows the chart may not render — the `!bar` residual
+## 273. Gantt numbers rows the chart may not render — the `!bar` residual — CLOSED 2026-09-14
 
-**Status:** open — a disclosed RESIDUAL of
-[§267](#267-gantt-task-and-milestone-name-buttons-take-their-accessible-name-from-content--closed-2026-08-28), filed
-2026-08-28 rather than left inside a closed entry. Small, and deliberately not fixed. Never machine-verified by a committed probe.
+**Status:** CLOSED 2026-09-14 on `fix/ui-residuals-batch`. The rendered row set is now decided ONCE
+and fed to both the row-token map and the chart, which is the fix this entry prescribed. Each
+`GanttRow` carries the geometry it is drawn with (`PlacedTask` = a task and its bar,
+`PlacedMilestone` = a milestone and its parsed date, both in `gantt-engine.ts`), and
+`buildGanttRows` takes those pairs, so a row that cannot be drawn cannot be built. The two decisions
+live in `gantt.tsx`: the `visible` memo leaves out a task with no bar (its existing
+`if (!bar) continue`), and the new `placedMilestones` memo leaves out a milestone whose date does not
+parse. `gantt-chart.tsx` no longer looks a bar up or skips a task row, and `GanttMilestoneRow` takes
+the carried `date` instead of re-parsing `m.date` and returning null. The `KNOWN RESIDUAL` comment at
+the token `useMemo` is replaced by a pointer to the two memos.
 
-**Work item:** #214
+★★ **What the fix found, and it corrects this entry.** The `if (!bar) return null` this entry names
+could never fire from `GanttPanel`: `visible` already dropped every bar-less task against the same
+`allBars` map the chart read, and that `continue` dates from the initial commit
+(`git log -S"if (!bar) continue;" -- src/app/gantt.tsx`). The LIVE instance was in the milestone
+row, which the entry did not mention: `GanttMilestoneRow` returned null when `parseISO(m.date)`
+failed, while `buildGanttRows` still made that milestone a row and the token map numbered it. That
+is reachable from stored data: `sanitizeIsoDate` checks only the `YYYY-MM-DD` shape and the year, so
+"2026-13-01" survives load and then fails `parseISO`. The entry's "a row has no bar when its dates
+do not resolve into the visible window" was also wrong: bars are not clipped to the window, and a
+task has no bar when its `dueDate` does not parse (`deriveBar`). The clause built on that premise,
+"so the affected rows are exactly the ones the user has already filtered or scrolled away from", is
+wrong for the same reason and is corrected here rather than in the dated body: a filtered row never
+reached the token map at all, and scrolling changes nothing, so an affected row was one carrying a
+date that does not parse, wherever it sorted and whether or not its twin was in view.
+
+Pinned by `gantt.test.tsx` "GanttPanel row-unique accessible names": "§273: does not number a
+milestone against a same-named milestone the chart cannot draw", "§273: does not number a task
+against a same-named milestone the chart cannot draw", "§273: does not number a task against a
+same-named task that has no bar" and "§273: numbers the drawn twins from (1) when a bar-less twin
+precedes them"; and by `gantt-chart.test.tsx` "GanttChart row set (§273)", which hands the chart an
+empty `bars` map and a milestone whose own `date` string does not parse, with valid geometry on each
+row, so a chart or row that decides again from its own source drops the row. Against the unfixed code
+the two milestone tests and the chart test failed (`Tests 3 failed | 52 passed (55)`; the base
+rendered "M1 (1)" and "Sync (1)"), and the two task-twin tests passed, as the finding above predicts.
+Mutation-checked, each restored after: building the token map over the unfiltered `tasks` and
+`sortedMilestones` turned all four panel tests red (`Tests 4 failed | 50 passed (54)`); restoring the
+chart's `bars.get` lookup and skip turned the chart test red and left every panel test green
+(`Tests 1 failed | 54 passed (55)`), which is why the chart test exists; restoring the milestone
+row's `parseISO(m.date)` null return turned the chart test red (`Tests 1 failed | 60 passed (61)`);
+and keeping an unparseable-date milestone in `placedMilestones` (with a stand-in date) turned the two
+milestone panel tests red (`Tests 2 failed | 53 passed (55)`).
+
+★ Residuals, stated honestly. `GanttDependencyLayer` (`gantt-chrome.tsx`) still parses `m.date` and
+skips a milestone connector when it fails. It is fed `visibleMilestones`, now derived from
+`placedMilestones`, so that branch no longer fires, and it draws connectors, not named controls, so it
+cannot misnumber anything. Leaving an undrawable milestone out of `rows` also means it no longer
+takes a row index or counts toward `totalRowsCount`, which it used to do while drawing nothing.
+
+★★ **Added 2026-09-14 (final fix round), two consequences of that exclusion.** (1) Row index and
+overlay height are now pinned: `gantt.test.tsx` "§273: an undrawable milestone takes no row index and
+no overlay height ('below' placement)" puts a "2026-00-10" milestone (it sorts before every valid 2026
+date) ahead of a drawn milestone linked to a task, and asserts the linked milestone's connector ends at
+row 1 and the dependency overlay is two rows tall. Mutation-checked: keeping undrawable milestones in
+`placedMilestones` while the chart skips drawing them (the base shape) turned it red (`expected 80 to
+be 48`), together with the two milestone numbering tests (`Tests 3 failed | 54 passed (57)` over
+`gantt.test.tsx` and `gantt-chart.test.tsx`). (2) The empty state regressed and is fixed. With no
+drawable task and only undrawable milestones, the base chart body drew an empty grid and its trailing
+"+ Add task" row; after the exclusion `rows` was empty, so the chart body showed only the empty text.
+The whole-panel empty state still counted every milestone (`sortedMilestones.length === 0`), so it
+did not take over. It now asks `hasDrawableMilestone` (any milestone whose date parses, before
+filters), so that project gets the same whole-panel empty state as a project with no milestones: the
+`AddFirstItemButton` box when no filter is active, the empty text otherwise. This is a decision, not a
+byte restore: the base showed an empty grid plus an add row, and this shows the add box. The toolbar's
+own "+ Add task" button was present throughout. Pinned by `gantt.test.tsx` "§273: offers the add-task
+empty state when every milestone is undrawable and there are no tasks", which failed against the
+pre-fix code; reverting the guard to `sortedMilestones.length === 0` turned only that test red (`Tests
+1 failed | 143 passed (144)`). The axe e2e run was not repeated locally (CI only),
+and by `docs/AGENTS/accessibility.md` it cannot see duplicate names anyway.
 
 `gantt.tsx` builds ONE row-token map over the interleaved `rows` list, which is correct — it is the
 order the user navigates. `gantt-chart.tsx` then drops any task whose derived bar is null
@@ -28599,13 +28762,74 @@ alone; it never rewrites the window's bounds.
 budget was still written over it, because every stage skipped the entry being saved — tracked as §430 (CLOSED 2026-09-13),
 which is a different defect with a different cause, not a re-opening of this one.
 
-## 362. A guardrail insight's deep link arms `pendingOpen` with no consumer — OPEN
+## 362. A guardrail insight's deep link arms `pendingOpen` with no consumer — CLOSED 2026-09-14
 
-**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by command, 2026-09-04:
-`grep -rhn 'pendingOpen?.view !== "\|pendingOpen?.view === "' src/app --include=*.tsx | grep -oE '"[a-z-]+"' | sort -u`
-returns changes · documents · milestones · open-points · raid · stakeholders — `resources` is absent.
+**Status:** CLOSED 2026-09-14 on `fix/ui-residuals-batch`. `resources-report.tsx` (the panel that
+mounts for the "resources" `pendingOpen` view) now redirects to the Directory sub-tab — the one that
+actually lists resources — via `setActiveTab("directory")`, skipped in `embedded` mode (the Reports
+pane's read-only preview). `resource-directory.tsx` now consumes the same `pendingOpen`; the request
+stays tagged "resources" throughout because that is the literal every PRODUCER of it writes
+(`insights/detect.ts`'s guardrail insight, `global-search.ts`'s resource search rows, and
+`use-hash-view.ts`'s handling of an item-bearing `#resources/<id>` hash all call
+`requestOpen("resources", id)`) and nothing ever retags an in-flight request to "directory" — who
+clears it (only Directory, via `clearPendingOpen`) is a separate fact and does not explain the tag.
+Consuming it opens the matched resource through the existing `onEditResource` prop and scrolls/flashes
+its row; an id matching no resource is still consumed so the request cannot get stuck. Because the
+redirect and the consumer are the SAME mechanism the report's own comment says they are, the same
+three producers — the guardrail insight, global-search's resource hits and Recents
+(`global-search-box.tsx`'s `onSelect`), and an item-bearing `#resources/<id>` hash — now
+all land on Directory with the row opened, where before they opened only the Resources report tab.
 
-**Work item:** #258
+★★ **KNOWN RESIDUAL, not guarded (corrected 2026-09-14, final fix round):** unlike stakeholders/raid,
+a repeated deep link to a resource whose editor is already open is not skipped. A skip-if-already-open
+guard was added in fix round 1 and removed on re-review because it could not fire in the wired app:
+every producer above tags the request "resources", `requestOpen` flips `activeTab` through
+"resources" first, and `workspace-section.tsx` renders `ResourceDirectory` only while
+`activeTab === "directory"`, so a repeat request unmounts and remounts a fresh
+`ResourceDirectoryInner` before its consumer effect runs, resetting any per-mount ref or state.
+What a repeat does, reasoned from the code and NOT measured: `onEditResource` fires again with the
+row from `resources`, and the editor stays open on the same resource. `ResourceEditModal` resets its
+draft only when its `resource` prop changes identity (its `prevResource` reconcile), so **unsaved
+edits are kept when that row is the same reference the editor already holds, and are lost only if
+the stored row was replaced while the editor was open** (for example by a concurrent write), because
+the handler then passes the new reference. The fix-round-2 wording here said a repeat "can discard
+unsaved edits" in general, "including via browser back/forward"; the first overstated the common
+case, and back/forward was never measured. The KNOWN RESIDUAL test below observes the edit handler
+only, not the editor's draft. A working guard needs the editor state, `editingResource`, which is
+owned by `useResourceDirectory` in `task-manager.tsx` and rendered by `app-modals.tsx`, above the
+remount.
+
+★ **The item hash does not survive landing** (reasoned from the code, not measured). After the
+redirect, `use-hash-view.ts`'s view-to-hash effect sees the parsed hash view "resources" differ from
+the active view "directory" and calls `history.replaceState` with `buildHash("directory")`, which is
+`#directory`. So a URL copied after landing does not carry `#resources/<id>`, and the history entry
+the deep link arrived on is rewritten the same way.
+
+Pinned by `ResourceDirectory deep-link open` (`resource-directory.test.tsx`: opens + clears on a
+match, honours a request armed before mount, consumes an unknown id silently) and `ResourcesReportPanel
+deep-link redirect` (`resources-report.test.tsx`: redirects to Directory, stays put when `embedded`).
+The fix-round-1 addition `§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirectory
+consumer` (`resource-directory.test.tsx`) mounts BOTH panels behind the same `activeTab` gate
+`workspace-section.tsx` uses and asserts the editor opens end to end, so the redirect and the consumer
+are pinned together and not just each in isolation; fix round 2 adds one more case to that same
+describe block — "KNOWN RESIDUAL: re-fires the edit handler for a repeated deep-link to the resource
+whose editor is already open" — which fires the identical id twice through that same real
+`resources`→`directory` hop and asserts the edit handler is called TWICE, pinning today's behaviour as
+an observable rather than describing it only in prose. Mutation-checked, each restored after: disabling
+the Directory consumer and the report's redirect together turned 4 of 5 then-new cases red
+(`Tests 4 failed | 36 passed (40)`); adding a `clearPendingOpen()` call to the redirect (so it also
+consumes the request instead of only handing it off) turns the end-to-end seam test red alone
+(`Tests 1 failed | 30 passed (31)` on `resource-directory.test.tsx`); removing the `embedded ||` guard
+turns "does not redirect in embedded mode" red alone (`Tests 1 failed | 10 passed (11)` on
+`resources-report.test.tsx`); giving the consumer a Directory-remount-surviving guard (module-scope
+state, simulating what a real fix in `task-manager.tsx` would provide) turns the KNOWN RESIDUAL case
+red alone, run in isolation (`npx vitest run src/app/resource-directory.test.tsx -t "KNOWN RESIDUAL"`
+→ `Tests 1 failed | 30 skipped (31)`) — proving that test would catch a working fix, not just today's
+absence of one. Verified 2026-09-14: `npx vitest run src/app/resource-directory.test.tsx
+src/app/resources-report.test.tsx` → `Test Files 2 passed (2)`, `Tests 42 passed (42)`, exit 0;
+`npx tsc --noEmit` exit 0. Re-running the filing command now returns `resources` too: `grep -rhn
+'pendingOpen?.view !== "\|pendingOpen?.view === "' src/app --include=*.tsx | grep -oE '"[a-z-]+"' |
+sort -u` → changes · documents · milestones · open-points · raid · resources · stakeholders.
 
 Opening a guardrail insight calls `requestOpen("resources", id)`, which sets `pendingOpen`. No
 resources surface reads it, so the view opens and the person is never selected or scrolled to. Every
@@ -37478,3 +37702,29 @@ the signal that a page loaded in classic, and the fix is small. Identify what th
 protects before changing it.
 
 Related: §478 (closed on the same branch), §535.
+
+## 540. A repeated resource deep link re-runs the open while that resource's editor is open — OPEN
+
+**Status:** OPEN 2026-09-14 — the re-fire is pinned as current by
+`npx vitest run src/app/resource-directory.test.tsx -t "KNOWN RESIDUAL"`; the draft-loss consequence below is
+read from the code, not watched in a browser.
+
+**Work item:** #330
+
+§362 made a guardrail insight's resource link — and global-search resource hits, Recents and
+`#resources/<id>` links — open that resource's editor in the Resources directory. Repeating the request while
+that resource's editor is already open re-runs the open. The directory remounts on the tab switch the request
+makes, so it cannot remember what it opened, and the editor state (`editingResource`) lives above it in
+`task-manager.tsx`, which is where a working guard has to sit.
+
+What it costs is usually nothing: `ResourceEditModal` resets its draft only when its `resource` prop is a
+different object, and a repeat passes the same stored row, so the draft survives. Unsaved edits are lost only
+when the stored row was replaced while the editor was open (an AI, sync or other-tab write) and the link is
+then repeated. Back/forward was not measured; landing rewrites the hash to `#directory`, which makes that path
+doubtful.
+
+Fix shape: skip the open when the open editor already belongs to the requested id, in `task-manager.tsx`
+(possibly threaded through `app-modals.tsx`), and pin it through the real `resources` → `directory` hop, not a
+statically mounted directory. The residual test named above must then be inverted.
+
+Related: §362.

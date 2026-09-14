@@ -143,6 +143,98 @@ export function backfillResourceFks(
   };
 }
 
+/** The email→id / name→id lookup indexes {@link buildResourceLookupIndexes}
+ *  builds and {@link resolvePersonResourceId} resolves against. */
+export interface ResourceLookupIndexes {
+  byEmail: ReadonlyMap<string, number | null>;
+  byName: ReadonlyMap<string, number | null>;
+}
+
+/**
+ * Builds the email→id and name→id lookup indexes used to resolve a person
+ * reference's (a task's `assignee`/`assigneeEmail`, or equivalent) owning
+ * resource. Shared by `backfillTaskResourceFks` (which WRITES the resolved id
+ * to storage) and `task-kanban.ts`'s lane engine (which only DISPLAYS it) so
+ * the two agree on what "the same person" means — see `laneResourceIdOf`'s
+ * docstring in `task-kanban.ts` for the one place they deliberately diverge
+ * (a dangling FK).
+ *
+ * Keys owned by MORE THAN ONE resource are poisoned to `null` rather than
+ * dropped, so a third resource sharing the key cannot un-poison the clash.
+ *
+ * ★★ BOTH indexes poison, and the email one deliberately does NOT reuse the
+ * shared `emailToResourceId` helper, which is FIRST-WINS. That helper backs
+ * the v9 absence/raid/shift backfill and changing it would silently alter
+ * behaviour well outside this fix — but inheriting first-wins here would have
+ * this function refuse to guess between two people called "Anna Jordan" while
+ * happily guessing between two rows sharing an address, which is the exact
+ * outcome the paragraph above calls unacceptable. A duplicated email is
+ * usually one person entered twice, so either id is "probably" right —
+ * "probably" is not the standard for silently rewriting stored rows, and a
+ * task left unlinked is trivially repairable while a task linked to the wrong
+ * id is not. ★ This index is LOCAL to its two callers for the same reason —
+ * neither reuses `emailToResourceId`.
+ *
+ * ★★★ EXTERNALS ARE NEVER NAME-MATCHED — and it matters MORE for the write
+ * side than the display side, because `backfillTaskResourceFks` writes to
+ * STORAGE. `isExternalTask` (`task-external.ts`) classifies external
+ * ownership LINK-ONLY precisely so a name collision cannot HIDE REAL WORK;
+ * stamping an FK from a name would manufacture the very link that
+ * classification depends on, and with "Hide externals" on the task then
+ * disappears from Open Points — silently, at load, with no user action to
+ * connect it to and no undo entry. ★ EMAIL still matches externals: an
+ * address is a definite identity, not a guess, which is the whole distinction
+ * task-external.ts draws. A task carrying an external's actual email
+ * genuinely IS their work.
+ *
+ * ★★ `emailMatchesExternals: false` turns that off for ONE caller, the lane
+ * engine (`task-kanban.ts`), which then treats an external's email exactly as
+ * it treats an external's name: not indexed at all. The default stays `true`,
+ * so `backfillTaskResourceFks` is unchanged. See `laneResourceIdOf` for why the
+ * display side needs the stricter rule.
+ */
+export function buildResourceLookupIndexes(
+  resources: Iterable<Resource>,
+  { emailMatchesExternals = true }: { emailMatchesExternals?: boolean } = {},
+): ResourceLookupIndexes {
+  const index = (key: string, id: number, into: Map<string, number | null>) => {
+    if (!key) return;
+    into.set(key, into.has(key) ? null : id);
+  };
+  const byEmail = new Map<string, number | null>();
+  const byName = new Map<string, number | null>();
+  for (const r of resources) {
+    if (emailMatchesExternals || r.isExternal !== true) {
+      index((r.email ?? "").trim().toLowerCase(), r.id, byEmail);
+    }
+    if (r.isExternal !== true) {
+      index(personNameKey(resourceDisplayName(r)), r.id, byName);
+    }
+  }
+  return { byEmail, byName };
+}
+
+/**
+ * Resolves a person reference to a resource id via the email-then-name
+ * precedence `buildResourceLookupIndexes`' callers share: email wins when it
+ * resolves, a POISONED (ambiguous) email match falls THROUGH to the name pass
+ * rather than blocking it — `??` treats it exactly like "no email match",
+ * which is intended: an ambiguous address plus an unambiguous name still
+ * identifies one person, and only an ambiguity in the pass that actually
+ * matched suppresses the link. `null` means neither pass named exactly one
+ * resource.
+ */
+export function resolvePersonResourceId(
+  ref: { assignee?: string | null; assigneeEmail?: string | null },
+  indexes: ResourceLookupIndexes,
+): number | null {
+  const email = (ref.assigneeEmail ?? "").trim().toLowerCase();
+  const viaEmail = email ? indexes.byEmail.get(email) : undefined;
+  const nameKey = personNameKey(ref.assignee);
+  const viaName = nameKey ? indexes.byName.get(nameKey) : undefined;
+  return viaEmail ?? viaName ?? null;
+}
+
 /**
  * Idempotently fill an unset `Task.resourceId` from the directory, by
  * case-folded email first and then by a UNIQUE case-folded display name.
@@ -171,7 +263,7 @@ export function backfillResourceFks(
  * a partial load, a resource deleted in another tab — and silently repointing
  * it at a same-named person would be a guess dressed as a repair.
  *
- * ★★ `task-kanban.ts` DOES re-resolve a dangling FK through the assignee name,
+ * ★★ `task-kanban.ts` DOES re-resolve a dangling FK, through email then name,
  * and the divergence is intended: that is a DISPLAY decision, reversible the
  * moment the directory changes and costing at most a card in the wrong lane.
  * This function REWRITES STORED DATA, so it holds the stricter line. If the two
@@ -193,56 +285,12 @@ export function backfillTaskResourceFks(
   tasks: readonly Task[],
 ): Task[] {
   if (tasks.length === 0 || resources.length === 0) return tasks as Task[];
-  // Keys owned by MORE THAN ONE resource are poisoned to `null` rather than
-  // dropped, so a third resource sharing the key cannot un-poison the clash.
-  //
-  // ★★ BOTH indexes poison, and the email one deliberately does NOT reuse the
-  // shared `emailToResourceId` helper, which is FIRST-WINS. That helper backs
-  // the v9 absence/raid/shift backfill and changing it would silently alter
-  // behaviour well outside this fix — but inheriting first-wins here would have
-  // this function refuse to guess between two people called "Anna Jordan" while
-  // happily guessing between two rows sharing an address, which is the exact
-  // outcome the paragraph above calls unacceptable. A duplicated email is
-  // usually one person entered twice, so either id is "probably" right —
-  // "probably" is not the standard for silently rewriting stored rows, and a
-  // task left unlinked is trivially repairable while a task linked to the wrong
-  // id is not.
-  const index = (key: string, id: number, into: Map<string, number | null>) => {
-    if (!key) return;
-    into.set(key, into.has(key) ? null : id);
-  };
-  const byEmail = new Map<string, number | null>();
-  const byName = new Map<string, number | null>();
-  for (const r of resources) {
-    index((r.email ?? "").trim().toLowerCase(), r.id, byEmail);
-    // ★★★ EXTERNALS ARE NEVER NAME-MATCHED — and here it matters MORE than in
-    // the kanban, because this writes to STORAGE. `isExternalTask`
-    // (`task-external.ts`) classifies external ownership LINK-ONLY precisely so
-    // a name collision cannot HIDE REAL WORK; stamping an FK from a name would
-    // manufacture the very link that classification depends on, and with "Hide
-    // externals" on the task then disappears from Open Points — silently, at
-    // load, with no user action to connect it to and no undo entry.
-    // ★ EMAIL still matches externals: an address is a definite identity, not a
-    // guess, which is the whole distinction task-external.ts draws. A task
-    // carrying an external's actual email genuinely IS their work.
-    if (r.isExternal !== true) {
-      index(personNameKey(resourceDisplayName(r)), r.id, byName);
-    }
-  }
+  const indexes = buildResourceLookupIndexes(resources);
   let changed = false;
   const out = tasks.map((task) => {
     if (task.resourceId != null) return task;
-    const email = (task.assigneeEmail ?? "").trim().toLowerCase();
-    const viaEmail = email ? byEmail.get(email) : undefined;
-    const nameKey = personNameKey(task.assignee);
-    const viaName = nameKey ? byName.get(nameKey) : undefined;
-    // ★ A POISONED email (`null`, i.e. shared by two resources) falls THROUGH to
-    // the name pass rather than blocking the link — `??` treats it exactly like
-    // "no email match". That is intended: an ambiguous address plus an
-    // unambiguous name still identifies one person. Only an ambiguity in the
-    // pass that actually matched suppresses the link.
-    const id = viaEmail ?? viaName ?? null;
-    if (id === null || id === undefined) return task;
+    const id = resolvePersonResourceId(task, indexes);
+    if (id === null) return task;
     changed = true;
     return { ...task, resourceId: id };
   });

@@ -42,6 +42,17 @@ export function CalendarSyncControls({
   calendarPullBusy,
 }: CalendarSyncControlsProps) {
   if (!(m365Configured && !isPopout && onToggleCalendar)) return null;
+  // The VISIBLE text on the Push/Pull buttons stays the short verb; only the
+  // accessible name is entity-qualified, mirroring the enable toggle above, so
+  // two co-rendered instances never give screen-reader users two
+  // indistinguishable "Push to Outlook" buttons (WCAG 2.4.6). Where two can
+  // co-render today (read from the code, not rendered): the modern layout shows
+  // one view at a time, but the CLASSIC layout's `task-manager.tsx` renders
+  // `TasksSection` below `WorkspaceSection` unconditionally, so the Tasks
+  // instance shares the screen with the RAID, Changes or Resources one. Anywhere
+  // else the qualification is preventive. axe cannot see a duplicate name, only
+  // a missing one, so the unit test is the only detector (§42).
+  const entity = t(lang, entityLabelKey);
   return (
     <>
       {/* ★★ A ToggleButton, not a checkbox: the label is PINNED to what pressed=true
@@ -67,7 +78,7 @@ export function CalendarSyncControls({
           onClick={onPushCalendar}
           disabled={calendarPushBusy}
           aria-busy={calendarPushBusy}
-          aria-label={t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
+          aria-label={`${t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")} – ${entity}`}
           title={t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
           className="inline-flex items-center gap-1"
         >
@@ -82,7 +93,7 @@ export function CalendarSyncControls({
           onClick={onPullCalendar}
           disabled={calendarPullBusy}
           aria-busy={calendarPullBusy}
-          aria-label={t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
+          aria-label={`${t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")} – ${entity}`}
           title={t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
           className="inline-flex items-center gap-1"
         >

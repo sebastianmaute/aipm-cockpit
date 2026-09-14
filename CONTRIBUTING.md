@@ -332,7 +332,8 @@ On a noteworthy change, update `src/app/version.ts`:
 - `APP_VERSION` (semver)
 - `APP_BUILD_DATE` (ISO `YYYY-MM-DD`)
 - The leading comment summarising the milestone
-- `APP_HIGHLIGHT_KEYS` if a new highlight should appear in the Version popover
+- Not `APP_HIGHLIGHT_KEYS`: it is a fixed elevator pitch of what makes the app unique, not a
+  per-release list; release notes belong in `CHANGELOG.md`
 
 Then propagate the version everywhere else it is written down — run
 `npm run version:sync`, which rewrites every place in the table below from

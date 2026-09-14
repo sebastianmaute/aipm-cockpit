@@ -235,6 +235,40 @@ describe("externals are never name-matched into a linked lane", () => {
   it("does not offer a name-matched external to the add-lane picker", () => {
     expect(laneResourceIds([task({ assignee: "Ext Contractor" })], withExternal, [])).toEqual([]);
   });
+
+  // §79 follow-up: the lane engine gained an EMAIL pass, and it must apply the
+  // same externals rule the name pass does. `isExternalTask` is link-only, so an
+  // FK-less task carrying an external's address stays visible under "Hide
+  // externals"; resolving it to `res:<external>` would put a live drop target
+  // on screen that stamps the external FK onto whatever is dropped there.
+  describe("…and never email-matched either", () => {
+    const withEmails = new Map<number, Resource>([
+      [1, { id: 1, firstName: "Anna", lastName: "Jordan", email: "anna@example.com" } as Resource],
+      [5, { id: 5, firstName: "Ext", lastName: "Contractor", email: "ext@vendor.example", isExternal: true } as Resource],
+    ]);
+
+    it("keeps a link-less task carrying an external's email OUT of that external's lane", () => {
+      const t1 = task({ id: 1, assignee: "Ext Contractor", assigneeEmail: "ext@vendor.example" });
+      const out = groupByStatusAndPerson([t1], withEmails, []);
+      // Same outcome as a name match to an external: an unlinked name lane.
+      expect(out.lanes.some((l) => l.key === "res:5")).toBe(false);
+      expect(out.cells["name:ext contractor"]["To Do"].map((x) => x.id)).toEqual([1]);
+      expect(out.lanes.find((l) => l.key === "name:ext contractor")?.resourceId).toBeNull();
+      expect(laneKeyOf(t1, withEmails)).toBe("name:ext contractor");
+      expect(laneResourceIds([t1], withEmails, [])).toEqual([]);
+    });
+
+    it("still email-matches a managed resource in the same directory", () => {
+      // Control: proves the case above fails because of isExternal, not because
+      // the email pass stopped working.
+      const out = groupByStatusAndPerson(
+        [task({ id: 1, assignee: "", assigneeEmail: "anna@example.com" })],
+        withEmails,
+        [],
+      );
+      expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
+    });
+  });
 });
 
 // Same duplicate-lane symptom as the FK/name split, for a person the directory
@@ -279,5 +313,115 @@ describe("laneKeyOf", () => {
     expect(laneKeyOf({ ...t(1, "To Do"), assignee: "Nobody  At All" }, resources))
       .toBe("name:nobody at all");
     expect(laneKeyOf(t(2, "To Do"), resources)).toBe(UNASSIGNED_LANE);
+  });
+});
+
+// §79: the lane engine used to resolve a person by NAME only, while the
+// load-time `backfillTaskResourceFks` (resource-foundation.ts) prefers EMAIL,
+// then falls back to name. A task with no FK, an `assigneeEmail` matching a
+// resource and a non-matching (or blank) `assignee` string got a stray lane
+// here until the next load stamped its FK and merged it. `laneResourceIdOf`
+// now shares `buildResourceLookupIndexes`/`resolvePersonResourceId` with the
+// backfill so the two agree.
+describe("groupByStatusAndPerson — assigneeEmail lane resolution (§79)", () => {
+  const withEmails = new Map<number, Resource>([
+    [1, { id: 1, firstName: "Anna", lastName: "Jordan", email: "anna@example.com" } as Resource],
+    [2, { id: 2, firstName: "Bo", lastName: "Klein", email: "bo@example.com" } as Resource],
+  ]);
+
+  it("an assigneeEmail match lands the task in that resource's lane even when the name does not match", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "Someone Else", assigneeEmail: "anna@example.com" })],
+      withEmails,
+      [],
+    );
+    expect(out.lanes.find((l) => l.label === "Anna Jordan")?.key).toBe("res:1");
+    expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
+  });
+
+  it("prefers the email match over a differently-named resource, mirroring the backfill's precedence", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "Bo Klein", assigneeEmail: "anna@example.com" })],
+      withEmails,
+      [],
+    );
+    expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
+    expect(out.lanes.some((l) => l.key === "res:2")).toBe(false);
+  });
+
+  it("matches assigneeEmail case-insensitively and ignoring surrounding whitespace", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "", assigneeEmail: "  ANNA@Example.com  " })],
+      withEmails,
+      [],
+    );
+    expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
+  });
+
+  it("falls through to an unambiguous NAME when the email is ambiguous, like the backfill does", () => {
+    // The name target (id 3) is deliberately NOT the first-inserted resource:
+    // a FIRST-WINS email index (rather than the poison-to-null one this
+    // shares with the backfill) would resolve "shared@example.com" to id 1,
+    // the first resource carrying that key, and the assertion below would
+    // then fail — so this can tell poisoning apart from first-wins, unlike a
+    // fixture where the name target happens to be first in insertion order.
+    const dupes = new Map<number, Resource>([
+      [1, { id: 1, firstName: "Ambiguous", lastName: "One", email: "shared@example.com" } as Resource],
+      [2, { id: 2, firstName: "Ambiguous", lastName: "Two", email: "Shared@Example.com" } as Resource],
+      [3, { id: 3, firstName: "Anna", lastName: "Jordan", email: "unique3@example.com" } as Resource],
+    ]);
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "Anna Jordan", assigneeEmail: "shared@example.com" })],
+      dupes,
+      [],
+    );
+    expect(out.cells["res:3"]["To Do"].map((x) => x.id)).toEqual([1]);
+    expect(out.lanes.some((l) => l.key === "res:1")).toBe(false);
+  });
+
+  it("a resource's own stored email with surrounding whitespace/case still matches (index-side normalisation)", () => {
+    // Distinct from the query-side whitespace/case test above: here the
+    // DIRECTORY's email is padded/mixed-case and the task's is clean, so this
+    // fails specifically if `.trim()`/`.toLowerCase()` were dropped from the
+    // index-building side of `buildResourceLookupIndexes` rather than the
+    // query side `resolvePersonResourceId` already covers.
+    const padded = new Map<number, Resource>([
+      [1, { id: 1, firstName: "Anna", lastName: "Jordan", email: "  Anna@Example.com  " } as Resource],
+    ]);
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "", assigneeEmail: "anna@example.com" })],
+      padded,
+      [],
+    );
+    expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
+  });
+
+  it("an FK still wins over both a matching email and a differently-named resource", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, resourceId: 2, assignee: "Anna Jordan", assigneeEmail: "anna@example.com" })],
+      withEmails,
+      [],
+    );
+    expect(out.cells["res:2"]["To Do"].map((x) => x.id)).toEqual([1]);
+    expect(out.lanes.some((l) => l.key === "res:1")).toBe(false);
+  });
+
+  it("an assigneeEmail matching nobody falls back to the unchanged name/unassigned behaviour", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "", assigneeEmail: "ghost@example.com" })],
+      withEmails,
+      [],
+    );
+    expect(out.cells[UNASSIGNED_LANE]["To Do"].map((x) => x.id)).toEqual([1]);
+  });
+
+  it("an unmatched email plus an unmatched non-blank name keeps its own name lane", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "Nobody Here", assigneeEmail: "ghost@example.com" })],
+      withEmails,
+      [],
+    );
+    expect(out.lanes.map((l) => l.key)).toContain("name:nobody here");
+    expect(out.cells["name:nobody here"]["To Do"].map((x) => x.id)).toEqual([1]);
   });
 });

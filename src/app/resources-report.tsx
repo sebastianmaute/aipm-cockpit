@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { computeResourceReport, type ReportGroupRow, type ReportPeriodRow, type ReportResourceRow } from "./resource-report";
@@ -23,6 +23,7 @@ import {
 import { RagBadge } from "./rag-badge";
 import { marginAmountHealth } from "./budget-health";
 import { ViewCallout } from "./view-callout";
+import { useWorkspaceTab } from "./workspace-tab-context";
 
 // ---------------------------------------------------------------------------
 // Column-width default maps
@@ -114,6 +115,20 @@ export function ResourcesReportPanel({
     byCombo.resetColWidths();
     byResource.resetColWidths();
   }, [byPeriod, byDiscipline, byGrade, byCombo, byResource]);
+
+  // Deep-link (§362): a guardrail insight for a resource arms pendingOpen with
+  // view "resources" — this report is what actually mounts for that view, but
+  // the resource LIST lives one sub-tab over (Directory). Redirect there so
+  // ResourceDirectory's own deep-link consumer (which shares this same
+  // pendingOpen, still tagged "resources") can find the row and open it. This
+  // host does not clear pendingOpen itself — Directory does, once it has acted
+  // on it (or found the id unknown). Skip in `embedded` mode (the Reports
+  // pane's read-only preview embed) where hijacking navigation would be wrong.
+  const { pendingOpen, setActiveTab } = useWorkspaceTab();
+  useEffect(() => {
+    if (embedded || pendingOpen?.view !== "resources") return;
+    setActiveTab("directory");
+  }, [embedded, pendingOpen, setActiveTab]);
 
   if (resources.length === 0) {
     return (

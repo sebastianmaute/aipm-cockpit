@@ -404,7 +404,11 @@ describe("ChangePanel — Outlook calendar toggle (SP3)", () => {
       <ChangePanel {...base} m365Configured onToggleCalendar={vi.fn()} calendarEnabled onPushCalendar={onPushCalendar} />,
       { wrapper: Providers },
     );
-    fireEvent.click(getByRole("button", { name: t("en-US", "calendarPush") }));
+    fireEvent.click(
+      getByRole("button", {
+        name: `${t("en-US", "calendarPush")} – ${t("en-US", "calendarSyncEntityChange")}`,
+      }),
+    );
     expect(onPushCalendar).toHaveBeenCalledTimes(1);
   });
 
@@ -421,7 +425,11 @@ describe("ChangePanel — Outlook calendar toggle (SP3)", () => {
       <ChangePanel {...base} m365Configured onToggleCalendar={vi.fn()} calendarEnabled onPullCalendar={onPullCalendar} />,
       { wrapper: Providers },
     );
-    fireEvent.click(getByRole("button", { name: t("en-US", "calendarPull") }));
+    fireEvent.click(
+      getByRole("button", {
+        name: `${t("en-US", "calendarPull")} – ${t("en-US", "calendarSyncEntityChange")}`,
+      }),
+    );
     expect(onPullCalendar).toHaveBeenCalledTimes(1);
   });
 });

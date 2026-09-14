@@ -83,6 +83,22 @@ describe("Sidebar", () => {
       expect(img.className).not.toMatch(/(^|\s)invert(\s|$)/);
     });
 
+    it("spans the sidebar's full width at the header logo's 300:70 aspect", () => {
+      // jsdom has no layout, so the ~256×60 result is unobservable here; the
+      // width + aspect classes are the proxy, and the logo must sit OUTSIDE the
+      // padded header row or `w-full` would stop short of the sidebar edges.
+      render(<Sidebar {...base} />);
+      const img = screen.getByRole("img", { name: t("en-US", "appTitle") });
+      expect(img.className).toMatch(/(?:^|\s)w-full(?:\s|$)/);
+      expect(img.className).toMatch(/(?:^|\s)aspect-\[300\/70\](?:\s|$)/);
+      expect(img.parentElement?.tagName).toBe("ASIDE");
+    });
+
+    it("renders no logo when collapsed to the icon rail", () => {
+      render(<Sidebar {...base} collapsed={true} />);
+      expect(screen.queryByRole("img", { name: t("en-US", "appTitle") })).toBeNull();
+    });
+
     it("uses the custom branding logo when one is set", () => {
       stubSettings({
         ...defaultSettings,

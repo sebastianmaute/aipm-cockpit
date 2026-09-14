@@ -1818,6 +1818,12 @@ git commit -m "feat(settings): expose meeting-series Outlook sync"
 
 ## Task 11: Entity-qualify the Push/Pull accessible names
 
+> **2026-09-14:** shipped ahead of the rest of this plan, via register §42 (`docs/open-followups.md`).
+> The push/pull `aria-label`s in `calendar-sync-controls.tsx` are now entity-qualified in both idle
+> and busy states, following this task's shape (the busy-state ternary postdates this plan's Step 4
+> sample, so the shipped fix keeps it rather than the plan's non-busy `calendarPush` call). Steps
+> below are left as written for reference; do not re-run them.
+
 **Files:**
 - Modify: `src/app/calendar-sync-controls.tsx:62-63` and `:75-76`
 - Test: `src/app/calendar-sync-controls.test.tsx` plus any caller test that queries by those names
