@@ -497,6 +497,24 @@ describe("valued-attribute grammar (open-followups §32)", () => {
     expect(isHtmlStart("<hr noshade>", RENDER_SINK)).toBe(false);
   });
 
+  it("ACCEPTED COST: two attributes with no separating whitespace also make foreign HTML prose (final-review finding 2)", () => {
+    // DOMPurify always inserts a separating space between serialised
+    // attributes, so no app-written value ever carries this shape — but a
+    // hand-edited or foreign value that runs one quoted value straight into
+    // the next attribute name now fails the grammar too.
+    expect(isHtmlStart('<a href="x"target="_blank">x</a>', RICH_SINK)).toBe(false);
+    expect(isHtmlStart('<a href="x"target="_blank">x</a>', RENDER_SINK)).toBe(false);
+  });
+
+  it("ACCEPTED COST: an unquoted value holding \"=\" also makes foreign HTML prose (final-review finding 2)", () => {
+    // DOMPurify always serialises attribute values quoted, so no app-written
+    // value ever carries an unquoted "=" — but a hand-edited or foreign value
+    // using the bare HTML unquoted-attribute spelling with a query-string-like
+    // value now fails the grammar too.
+    expect(isHtmlStart("<a href=page?a=b>x</a>", RICH_SINK)).toBe(false);
+    expect(isHtmlStart("<a href=page?a=b>x</a>", RENDER_SINK)).toBe(false);
+  });
+
   it("keeps every older guard under the new grammar", () => {
     // The whitespace-`/`-`>` rule after the name replaces `\b`: an unlisted tag
     // sharing a listed prefix must still not match a derived sink.

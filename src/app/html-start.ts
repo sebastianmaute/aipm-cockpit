@@ -98,8 +98,12 @@ const NEVER = /(?!)/;
  *  this app stores carries a value (`href`, `target`, `rel`, `data-align`,
  *  `data-type`, `data-checked`, plus `data-asset-id` and `alt` on documents),
  *  DOMPurify serialises attributes quoted, and an unquoted legacy import such
- *  as `<p class=MsoNormal>` still matches. Measured over every string holding a
- *  `<` in the three sample workspaces (682): zero classification changes.
+ *  as `<p class=MsoNormal>` still matches. Measured over the 52 DISTINCT strings holding a `<` in the
+ *  three sample workspaces (682 occurrences total, every one real markup): zero classification changes.
+ *  ★ That corpus holds no PROSE-shaped values, so it witnesses only that real markup kept its
+ *  classification — it says nothing about the direction §32 actually changed, a value that merely
+ *  LOOKS tag-shaped now escaping instead of matching. The "valued-attribute grammar" describe block in
+ *  `html-start.test.ts` is the witness for that direction.
  *
  *  ★★ IT ALSO CARRIES THE OLD `\b`'S JOB. The first character after the name
  *  must be whitespace, `/` or `>`, so `<script>` cannot match the listed `s`
@@ -111,15 +115,22 @@ const NEVER = /(?!)/;
  *  as HTML and the literal "<mark>" token is dropped. Only the words INSIDE the
  *  brackets were ever recoverable, and those are what this closes.
  *
- *  ★★ ACCEPTED COST: real, FOREIGN HTML that uses a bare BOOLEAN attribute —
- *  `<hr noshade>`, `<p class="x" hidden>`, `<ol reversed>`, `<td nowrap>` — now
- *  fails this grammar too and is escaped whole on its next sanitize, where it
- *  used to be recognised and kept. No app-written value is affected (this app
- *  never emits a boolean attribute; DOMPurify always serialises one quoted,
- *  `hidden=""`), so nothing this app itself stores changes classification, but
- *  a hand-edited or foreign-imported value that used one does. Deliberate: the
- *  alternative is re-admitting `note`/`about`/`pricing`-shaped valueless
- *  "attributes", which is the defect this closes. */
+ *  ★★ ACCEPTED COST: three real, FOREIGN HTML shapes now fail this grammar and are escaped whole on
+ *  their next sanitize, where each used to be recognised and kept:
+ *    - a bare BOOLEAN attribute — `<hr noshade>`, `<p class="x" hidden>`, `<ol reversed>`,
+ *      `<td nowrap>`.
+ *    - two attributes with no separating WHITESPACE — `<a href="x"target="_blank">`.
+ *    - an unquoted value that itself holds an `=` — `<a href=page?a=b>`.
+ *  No app-written value is affected by any of the three: DOMPurify always serialises attributes
+ *  quoted and whitespace-separated (a boolean becomes `hidden=""`, and quoting an unquoted value
+ *  removes both the missing separator and the bare `=` from the value), so nothing this app itself
+ *  stores changes classification — but a hand-edited or foreign-imported value using one of the three
+ *  spellings does. Measured against the committed `TAG_TAIL`, not reasoned: `new RegExp("<[a-z][a-z0-9]*"
+ *  + TAG_TAIL, "i")` and the anchored per-sink form both print `false` for
+ *  `<a href="x"target="_blank">x</a>` and for `<a href=page?a=b>x</a>`, on both the rich and render
+ *  sinks; `html-start.test.ts` pins both alongside the boolean-attribute case. Deliberate: the
+ *  alternative is re-admitting `note`/`about`/`pricing`-shaped valueless "attributes", which is the
+ *  defect this closes. */
 const TAG_TAIL = "(?:\\s+[^\\s\"'<>/=]+\\s*=\\s*(?:\"[^\"]*\"|'[^']*'|[^\\s\"'=<>`]+))*\\s*/?>";
 
 /** Matches a well-formed opening tag ANYWHERE in the value — the classifier for
