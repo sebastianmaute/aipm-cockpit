@@ -319,7 +319,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§90](#90-oncreateresource-is-unguarded-in-a-popout-and-cannot-take-guardedit--open) | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open | undefined` | found in the help-coverage slice-3 review, unreleased | open |
 | [§91](#91-a-popout-can-record-an-undo-entry-and-persist-an-activity-line--open) | A popout can record an undo entry and persist an activity line — open | found in the help-coverage slice-3 review, unreleased | S | open |
 | [§92](#92-the-settings-types--workspace--document-model-cycle-is-a-standing-trap-for-any-eval-time-snapshot--open) | The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot — open | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per instance | open |
-| [§93](#93-the-pptx-truncation-notice-is-a-hardcoded-english-frame-around-a-localized-title--open) | The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — open | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open |
+| [§93](#93-the-pptx-truncation-notice-is-a-hardcoded-english-frame-around-a-localized-title--closed-2026-09-14) | The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — CLOSED 2026-09-14 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | **CLOSED** 2026-09-14 |
 | [§94](#94-pptx-pagination-counts-logical-lines-so-a-wrapped-line-still-overflows--open-eye-verify-owed) | PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
 | [§95](#95-no-test-in-ci-exercises-a-real-turso-database--open-narrowed-2026-08-25) | No test in CI exercises a real Turso database — open, NARROWED 2026-08-25 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M | open |
 | [§96](#96-the-previewprint-path-loads-the-whole-section-registry-unconditionally--open-priority-unknown) | The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
@@ -7163,11 +7163,32 @@ the rule as a manual check and the table as a worked example of applying it.
 
 ---
 
-## 93. The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — open
+## 93. The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — CLOSED 2026-09-14
 
-**Status:** open — a hardcoded English frame around a localized title. Reproduced 2026-08-28 by `grep -rn "Showing the first" src/app --include=*.ts`.
-
-**Work item:** #130
+**Status:** CLOSED 2026-09-14 on `fix/export-activity-alt-batch`. Both sites now source the notice
+from two new i18n keys — `pptxTruncatedNotice` ("Showing the first {0} of {1} {2} rows." / DE "Es
+werden die ersten {0} von {1} Zeilen aus {2} angezeigt.") and `pptxTruncatedHint` ("Export to XLSX
+for the full list." / DE "Für die vollständige Liste als XLSX exportieren.") — added directly after
+`exportPptxHint` in `src/app/i18n.ts` and `src/app/i18n.de.ts`, so `section.title` (already localized
+by the registry) no longer gets spliced into hardcoded English prose. `export-pptx.ts`'s `buildPptx`
+calls `t(lang, "pptxTruncatedNotice", PPTX_MAX_ROWS_PER_SECTION, section.rows.length, section.title)`
+for the notice line and `t(lang, "pptxTruncatedHint")` for the second line; `doc-render-pptx.ts`'s
+`dataSection` case calls only the notice key — one line there, no hint, unchanged from before. The
+★★ comment that used to describe this bug there now explains the shared key instead. Pinned by
+`src/app/export-ooxml.test.ts`'s "localizes the truncation notice for a German deck (§93)" and
+`src/app/doc-render-pptx.test.ts`'s "localizes the truncation notice for German — no hint line
+(§93)", both asserting the German sentence (with the German section title) appears and that
+`/Showing the first/` does not. The pre-existing English assertions — `export-ooxml.test.ts`'s
+"section exceeding per-section cap yields a truncation-notice slide" (`/Showing the first 100 of
+105/`) and `doc-render-pptx.test.ts`'s "caps a long section at PPTX_MAX_ROWS_PER_SECTION and says it
+truncated" — stay green unmodified, so the English output is byte-identical to before. Mutation-
+checked: reverting both call sites back to the old hardcoded template literals turns the two new
+German tests red (`Tests 2 failed | 155 passed (157)` across the two files); reapplying the fix
+returns to `Tests 157 passed (157)`. Verified 2026-09-14: `npx vitest run src/app/export-ooxml.test.ts
+src/app/doc-render-pptx.test.ts src/app/doc-render-pptx-slides.test.ts` → `Test Files 3 passed (3)`,
+`Tests 167 passed (167)`, exit 0; `npx tsc --noEmit` exit 0; `npx eslint --max-warnings=0` on every
+touched file exit 0. Residual: none known — the continuation marker the closing paragraph below
+already points to was numeric before this fix and is unaffected by it.
 
 Both PPTX paths build the same sentence from a hardcoded English frame and a section title that the
 registry has ALREADY translated, so a German deck gets a mixed-language sentence:
