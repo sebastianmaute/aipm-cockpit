@@ -55,7 +55,8 @@
 // revision called the affordance invisible; the Undo toast was visible.)
 //
 // ★ This rationale lives HERE and not at the call site because
-// `task-manager.tsx` is on the file-size ratchet (baselined at 2972 lines);
+// `task-manager.tsx` is on the file-size ratchet (its entry lives in
+// `docs/baselines/file-sizes.json`);
 // nine lines of comment there failed `size:check`, and raising the baseline to
 // hold a comment would be widening a gate to make a pipeline pass.
 // ★ `act` from testing-library, NOT from react: the bare react export logs
@@ -197,6 +198,18 @@ describe("popout read-only guard — resource creation (open-followups §90)", (
     const onEditResource = captured.props!.onEditResource as (r: unknown) => void;
     act(() => onEditResource(ADA));
     expect(capturedModals.props!.editingResource).toMatchObject({ isNew: false });
+  }, 45000);
+
+  it("main window: + Add creates the person WITHOUT an unsafe carried-over email, and keeps a safe one", async () => {
+    await mountAt("/");
+    const create = captured.props!.onCreateResource as (name: string, email: string) => number;
+    let unsafeId = 0;
+    let safeId = 0;
+    act(() => { unsafeId = create("Bob Builder", "a,b@x.com"); });
+    act(() => { safeId = create("Cy Safe", "cy@x.com"); });
+    const resources = capturedModals.props!.resources as readonly { id: number; email?: string }[];
+    expect(resources.find((r) => r.id === unsafeId)).toMatchObject({ email: undefined });
+    expect(resources.find((r) => r.id === safeId)).toMatchObject({ email: "cy@x.com" });
   }, 45000);
 
   it("popout: onEditResource opens no resource editor (spec Part 7 popout pin)", async () => {

@@ -75,6 +75,7 @@ import { useActionCenterHandlers } from "./use-action-center-handlers";
 import { useAiOrchestration } from "./use-ai-orchestration";
 import { buildShellChrome } from "./shell-chrome";
 import { useUndoStack } from "./undo/use-undo-stack";
+import { creatableResourceEmail } from "./resource-create-email";
 import { useUndoHotkey } from "./use-undo-hotkey";
 import { useUndoBatch } from "./use-undo-batch";
 import { UndoControl, RedoControl } from "./undo/undo-control";
@@ -1418,7 +1419,7 @@ function TaskManagerInner() {
       // completeness — a picker-created person must behave like a Resources-view one.
       setResources((prev) => [
         ...prev,
-        { id, firstName, lastName, email: email.trim() || undefined, roleId: null, utilizationMode: "percent", utilization: {}, localModifiedAt: new Date().toISOString() },
+        { id, firstName, lastName, email: creatableResourceEmail(email), roleId: null, utilizationMode: "percent", utilization: {}, localModifiedAt: new Date().toISOString() },
       ]);
       logActivityUser("resource.created", id, `${firstName} ${lastName}`.trim());
       return id;
