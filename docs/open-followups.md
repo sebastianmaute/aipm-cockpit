@@ -760,6 +760,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--open) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | open |
 | [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
 | [§537](#537-project-contact-persons-have-no-ids--open) | Project contact persons have no ids — OPEN | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | open |
+| [§538](#538-single-db-turso-never-persists-project-meta--open) | Single-DB Turso never persists project meta — OPEN | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant project meta row/table (or reuse of the tenant `projects` table), `dirtyWorkspaceTables` taught about project-only edits, and a `turso-migrate.ts` self-heal entry | open |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--open) | A repeated resource deep link re-runs the open while that resource's editor is open — OPEN | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | open |
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--open) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | open |
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
@@ -37918,6 +37919,105 @@ grep -rln "contactPersons\|ContactPerson" src --include=*.ts --include=*.tsx | w
 
 Related: §533 (delimiter-unsafe splitting on the sibling id-less-cell class, `resource.emails`); the
 email-guard batch spec's Part 7 ("Records reached — settled matrix").
+
+## 538. Single-DB Turso never persists project meta — OPEN
+
+**Status:** open 2026-09-14 — found while filing §537 (user chose "file now, fix later"). Verified
+2026-09-14 by reading `dirtyWorkspaceTables`/`workspaceToStatements` (`src/app/turso-schema.ts`),
+`TursoBackend.loadSingleTenant`/`loadTenant` (`src/app/turso-backend.ts`), `createBackend`
+(`src/app/storage.ts`), `handleUpdateCurrentProjectByMode` (`src/app/use-turso-projects.ts`) and the
+`useVersionHistory` comment (`src/app/task-manager.tsx`), and by grepping every consumer listed below
+for a field it reads off `ws.project`. Never machine-verified against a live Turso database — read,
+not reproduced; whether the edit path is even reachable via the Projects panel in single-DB Turso
+storage is unconfirmed.
+
+**Work item:** #328
+
+**The problem.** `workspaceToStatements` (`src/app/turso-schema.ts`) never references `ws.project`,
+and `dirtyWorkspaceTables`'s own docstring says so explicitly: `ws.project` is "DELIBERATELY excluded:
+save() never persists it in either mode — the tenant projects row is written only via
+turso-portfolio.ts's upsert path." That upsert path (`upsertProjectStatement`,
+`src/app/turso-tenant-schema.ts`, called from `turso-portfolio.ts`) is reachable only through the
+multi-project Turso picker. `TursoBackend.loadSingleTenant` (`src/app/turso-backend.ts`) returns a
+`Workspace` built with no `project` field at all — contrast `loadTenant`, which reads the tenant's
+`projects` row via `selectProjectStatement`/`rowsToProjectList` and folds its `meta` in. Single-DB
+Turso storage — `TursoBackend` opened with no `tursoProjectId`, which `createBackend`
+(`src/app/storage.ts`) falls back to whenever `tursoProjectId` is null or empty — is a configuration
+the app deliberately supports: a `task-manager.tsx` comment near `useVersionHistory` calls it out by
+name and notes that `trendsActive` and `workspace-section.tsx`'s `chatTursoMode` both already OR two
+signals to handle it. Nothing in that configuration writes `ws.project` anywhere.
+
+**Use-case consequences (reload, single-DB Turso storage) — verified each consumer actually reads the
+named field off `ws.project`:**
+- Project name is lost: `use-action-center-handlers.ts`, `use-ai-orchestration.ts`,
+  `use-insight-recommendations.ts` and `use-project-switch.ts` all read `project?.name`.
+- `project.code` is lost: `use-timelog-picker-scope.ts`'s `projectCustomerName`/`projectKey` derivation
+  and `use-calendar-integrations.ts`'s `calendarProjectId` fallback both read `project?.code`;
+  `timelog-panel.tsx` passes `ws.project?.code` into the picker.
+- `customer` and `startDate` are lost: `timelog-panel.tsx` reads `ws.project?.customer` and
+  `ws.project?.startDate` to seed the Time-bookings picker.
+- `operatingTimezone` is lost: `use-bulk-operations.ts`, `workspace-section.tsx` and
+  `task-manager.tsx` all resolve the effective timezone via `resolveTimezone(settings.timezone,
+  project?.operatingTimezone)`.
+- `contactPersons` is lost (compounds §537 — even once contact persons gain ids, single-DB Turso
+  still would not persist them).
+- Project `knowledgeLinks` are lost: `knowledge-panel.tsx`'s `setDocsForSource` writes them via
+  `ws.setProject((p) => ...)`, the same never-persisted field.
+- The next-actions `project-meta` provider (`src/app/next-actions/providers/project-meta.ts`) silently
+  has nothing to work with — it takes `projectMeta` as an input and returns `[]` when absent, so a
+  reload in single-DB Turso storage quietly turns off every action it would otherwise raise, with no
+  distinct symptom of its own.
+
+**Why it is silent.** `handleUpdateCurrentProjectByMode` (`src/app/use-turso-projects.ts`) only
+reports failure from inside its `tursoUpdateMeta` `catch` block (an error toast). When
+`portfolioMode === "turso"` and `cfg && tursoProjectId`, it awaits `tursoUpdateMeta`, calls
+`setProject(meta)`, and refreshes the list — success or a caught failure, either way something is
+shown. In FILE portfolio mode the same handler calls `updateCurrentFileProject`, which is
+`handleUpdateCurrentProject` in `task-manager.tsx` — a bare `setProject(meta)` whose own comment
+assumes "the existing save effect persists the workspace (which carries `project`)". For single-DB
+Turso storage that assumption is false: `setProject` updates in-memory state, the save effect runs,
+and `workspaceToStatements` silently drops the field on the way to the database. Nothing distinguishes
+this from a successful save — no toast, no diagnostic entry, no guard-transparency signal.
+
+**Secondary: the no-config edit path.** In `portfolioMode === "turso"` with `cfg` present but
+`tursoProjectId` falsy, `handleUpdateCurrentProjectByMode`'s `if (cfg && tursoProjectId)` guard is
+false and the whole `if` body — including `setProject(meta)` — is skipped: the edit does nothing at
+all, not even in memory. Read, not reproduced; whether a user can reach the project-edit UI in that
+state via the Projects panel is unconfirmed.
+
+**Fix options, deliberately left open:**
+- (a) A single-tenant `project` meta row/table in the single-DB schema, written by `save()` like any
+  other table. Needs `dirtyWorkspaceTables` to learn about project-only edits (today it is keyed off
+  entity tables; a project-only edit currently touches nothing `dirtyWorkspaceTables` tracks, so it
+  would need its own dirty signal or the existing "always include on any save" fallback), a
+  `turso-migrate.ts` self-heal entry for existing single-DB databases (same PRAGMA-diff/`ALTER ADD
+  COLUMN`-or-`CREATE TABLE` pattern used for column additions), and — per the "new persisted
+  `Workspace` field" hard constraint in `AGENTS.md` — a check of all six write paths even though this
+  is an existing field gaining a new backend, not a new field.
+- (b) Reuse the tenant `projects` table under a fixed synthetic id for single-DB mode, so
+  `loadSingleTenant`/save share code with `loadTenant`/`upsertProjectStatement` instead of duplicating
+  schema. Cheaper on schema, but couples the single-DB path to multi-tenant plumbing it currently has
+  no dependency on.
+- (c) Accept and document: state in `AGENTS.md`'s single-DB Turso bullet that project meta (name,
+  code, customer, dates, timezone, contact persons, knowledge links) does not survive a reload in that
+  configuration, and point users at multi-project Turso storage or file/CSV/Markdown storage instead.
+
+Related: §537 (contact persons have no ids — this entry is why even an id-ful `contactPersons` would
+still not persist in single-DB Turso storage).
+
+**Reproduce / verify:**
+```bash
+grep -n "DELIBERATELY excluded" src/app/turso-schema.ts                       # dirtyWorkspaceTables docstring
+grep -n "function workspaceToStatements" -A 3 src/app/turso-schema.ts         # never touches ws.project
+grep -n "loadSingleTenant\|loadTenant" src/app/turso-backend.ts               # single-DB path builds no project field
+grep -n "tursoProjectId" src/app/storage.ts                                   # createBackend's fallback to single-DB
+grep -n "portfolioMode === \"turso\"" -A 15 src/app/use-turso-projects.ts     # handleUpdateCurrentProjectByMode
+grep -n "deliberately supports" src/app/task-manager.tsx                      # useVersionHistory comment
+grep -rn "project?\.name\|project?\.code\|project?\.customer\|project?\.startDate\|project?\.operatingTimezone" \
+  src/app/use-action-center-handlers.ts src/app/use-ai-orchestration.ts src/app/use-insight-recommendations.ts \
+  src/app/use-project-switch.ts src/app/use-timelog-picker-scope.ts src/app/use-calendar-integrations.ts \
+  src/app/timelog-panel.tsx src/app/use-bulk-operations.ts src/app/workspace-section.tsx src/app/task-manager.tsx
+```
 
 ## 540. A repeated resource deep link re-runs the open while that resource's editor is open — OPEN
 
