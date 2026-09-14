@@ -3544,7 +3544,7 @@ git commit --only src/app/undo/use-undo-stack.ts src/app/undo/use-undo-stack.tes
 **Test census:**
 
 ```bash
-git grep -n "deleteAllAssetDataForProject\|assetDataDeleteAllForProject\|hardDeleteProject\|projectAssetCleanupFailed\|SCHEDULED_JOBS_DDL" -- src e2e scripts docs/AGENTS AGENTS.md
+git grep -n "deleteAllAssetDataForProject\|assetDataDeleteAllForProject\|hardDeleteProject\|projectSideTableSweepFailed\|SCHEDULED_JOBS_DDL" -- src e2e scripts docs/AGENTS AGENTS.md
 ```
 
 - MIGRATE `turso-portfolio.test.ts`: the three hard-delete tests keep their assertions (`DELETE FROM projects WHERE id = ?` in the first call, `DELETE FROM document_asset_data WHERE project_id = ?` with `[{ type: "text", value: "p1" }]` somewhere, `toHaveBeenCalledTimes(2)` on failure — the sweep is ONE pipeline); their comments naming `deleteAllAssetDataForProject` are rewritten; ADD one test that the second call deletes every registered table.
@@ -3748,7 +3748,7 @@ export function projectSideTableSweepStatements(projectId: string): SqlStmt[] {
   try {
     await runTursoPipeline(config, projectSideTableSweepStatements(id));
   } catch (err) {
-    logDiag("warn", "storage.projectAssetCleanupFailed", { id, message: err instanceof Error ? err.message : String(err) });
+    logDiag("warn", "storage.projectSideTableSweepFailed", { id, message: err instanceof Error ? err.message : String(err) });
   }
 ```
 

@@ -44,7 +44,7 @@ import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
 import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX, sanitizeEmail } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
-import { emailFlagDescribedBy, emailFlagVisible, emailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
+import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
 import { filterPickerOptions } from "./picker-filter";
 import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
@@ -213,7 +213,7 @@ export function RaidEditModal({
       return;
     }
     const linkedOwner = linkedResourceEmail(resources, draft.ownerResourceId);
-    const ownerEmailRefusal = emailRefusalMessage(lang, cappedOwnerEmail ?? "", openedOwnerEmail, [linkedOwner]);
+    const ownerEmailRefusal = editorEmailRefusalMessage(lang, cappedOwnerEmail ?? "", openedOwnerEmail, [linkedOwner]);
     if (ownerEmailRefusal) {
       setError(ownerEmailRefusal);
       return;

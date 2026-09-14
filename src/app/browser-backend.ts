@@ -374,7 +374,10 @@ export class BrowserBackend implements StorageBackend {
     milestones = milestones.map(sanitizeMilestoneRichFields);
     // Spec Part 2: this backend casts these arrays WITHOUT a record sanitizer,
     // so the email-shape normaliser the other five paths get from their
-    // sanitizers runs here explicitly. It only unwraps `Name <addr>`.
+    // sanitizers runs here explicitly. The scalar fields only get `Name <addr>`
+    // unwrapped; a resource's `emails` list also has multi-address members
+    // split, members that repeat the primary dropped, and the list capped
+    // (`withNormalizedResourceEmails`).
     absences = absences.map((a) => withNormalizedEmailField(a, "assigneeEmail"));
     shifts = shifts.map((s) => withNormalizedEmailField(s, "assigneeEmail"));
     raid = raid.map((r) => withNormalizedEmailField(r, "ownerEmail"));

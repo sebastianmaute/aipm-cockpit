@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   emailFlagDescribedBy,
   emailFlagVisible,
-  emailRefusalMessage,
+  editorEmailRefusalMessage,
   joinDescribedBy,
   linkedResourceEmail,
 } from "./editor-email-rule";
@@ -43,33 +43,33 @@ describe("linkedResourceEmail", () => {
   });
 });
 
-describe("emailRefusalMessage", () => {
+describe("editorEmailRefusalMessage", () => {
   it("returns null for a write-safe value", () => {
-    expect(emailRefusalMessage(EN, "a@b.co", undefined)).toBeNull();
+    expect(editorEmailRefusalMessage(EN, "a@b.co", undefined)).toBeNull();
   });
 
   it("returns null for a blank value", () => {
-    expect(emailRefusalMessage(EN, "", "old@x.com")).toBeNull();
+    expect(editorEmailRefusalMessage(EN, "", "old@x.com")).toBeNull();
   });
 
   it("returns the invalid-format message", () => {
-    expect(emailRefusalMessage(EN, "nope", undefined)).toBe(t(EN, "errorInvalidEmail"));
+    expect(editorEmailRefusalMessage(EN, "nope", undefined)).toBe(t(EN, "errorInvalidEmail"));
   });
 
   it("returns the delimiter message", () => {
-    expect(emailRefusalMessage(EN, "a,b@x.com", undefined)).toBe(t(EN, "errorEmailDelimiter"));
+    expect(editorEmailRefusalMessage(EN, "a,b@x.com", undefined)).toBe(t(EN, "errorEmailDelimiter"));
   });
 
   it("exempts an unchanged value against `stored`, even when unsafe", () => {
-    expect(emailRefusalMessage(EN, "a,b@x.com", "a,b@x.com")).toBeNull();
+    expect(editorEmailRefusalMessage(EN, "a,b@x.com", "a,b@x.com")).toBeNull();
   });
 
   it("exempts a value that matches a copy source", () => {
-    expect(emailRefusalMessage(EN, "a,b@x.com", "old@x.com", ["a,b@x.com"])).toBeNull();
+    expect(editorEmailRefusalMessage(EN, "a,b@x.com", "old@x.com", ["a,b@x.com"])).toBeNull();
   });
 
   it("refuses a changed value even with an unrelated copy source present", () => {
-    expect(emailRefusalMessage(EN, "a,b@x.com", "old@x.com", ["someone-else@x.com"])).toBe(
+    expect(editorEmailRefusalMessage(EN, "a,b@x.com", "old@x.com", ["someone-else@x.com"])).toBe(
       t(EN, "errorEmailDelimiter"),
     );
   });

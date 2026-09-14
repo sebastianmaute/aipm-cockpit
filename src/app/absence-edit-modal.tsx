@@ -25,7 +25,7 @@ import { useConfirm } from "./confirm-dialog";
 import { useDraftState } from "./use-draft-state";
 import { sanitizeEmail } from "./sanitize-core";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
-import { emailFlagDescribedBy, emailFlagVisible, emailRefusalMessage } from "./editor-email-rule";
+import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage } from "./editor-email-rule";
 
 interface Props {
   lang: Lang;
@@ -92,7 +92,7 @@ export function AbsenceEditModal({
     //  before §461 would otherwise block saving any OTHER field at a tier
     //  where the user cannot even see it. Anything typed is still refused.
     const openedEmail = absence?.assigneeEmail?.trim() || undefined;
-    const emailRefusal = emailRefusalMessage(lang, cappedAssigneeEmail ?? "", openedEmail);
+    const emailRefusal = editorEmailRefusalMessage(lang, cappedAssigneeEmail ?? "", openedEmail);
     if (emailRefusal) {
       setError(emailRefusal);
       return;

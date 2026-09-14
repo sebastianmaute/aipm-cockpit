@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { TestProviders } from "./test-providers";
@@ -6,6 +6,7 @@ import { ModalFieldControls } from "./modal-field-controls";
 import { TaskFormFields } from "./task-form-fields";
 import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
 import { t } from "./i18n";
+import { EMAIL_MAX } from "./sanitize";
 import { useTaskForm } from "./task-form-context";
 import { selectFieldTier } from "../test/field-tier";
 import type { TaskBudgetLink } from "./use-task-budget-link";
@@ -316,6 +317,22 @@ describe("TaskFormFields", () => {
       // Advanced default: priority (advanced) present, email (full) absent.
       expect(screen.getByText("Priority")).toBeTruthy();
       expect(screen.queryByText("Email")).toBeNull();
+    });
+
+    // The flag judges the value a submit would STORE (capped at EMAIL_MAX, then
+    // `sanitizeEmail`), exactly as `use-task-submit.ts` does — so a delimiter
+    // that the cap cuts off never flags, while one inside the cap still does.
+    it("flags the capped stored email, not the raw typed one", () => {
+      render(<VisHarness />, { wrapper: TestProviders });
+      selectFieldTier("fieldViewFull");
+      const input = screen.getByPlaceholderText(t("en-US", "placeholderEmail"));
+      const delimiterMessage = t("en-US", "errorEmailDelimiter");
+      fireEvent.change(input, { target: { value: `a@b.${"c".repeat(EMAIL_MAX - 4)},zz` } });
+      expect(screen.queryByText(delimiterMessage)).toBeNull();
+      expect(input.getAttribute("aria-invalid")).not.toBe("true");
+      // Positive control: a delimiter inside the cap still flags.
+      fireEvent.change(input, { target: { value: "a,b@x.com" } });
+      expect(screen.getByText(delimiterMessage)).toBeTruthy();
     });
 
     it("hides advanced fields like Priority when switched to Simple, keeping Task name", () => {

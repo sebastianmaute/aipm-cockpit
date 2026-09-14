@@ -32,6 +32,7 @@ import {
   ASSIGNEE_MAX,
   EMAIL_MAX,
   GROUP_MAX,
+  sanitizeEmail,
   TASK_NAME_MAX,
   TEXTAREA_MAX,
 } from "./sanitize";
@@ -104,6 +105,9 @@ export function TaskFormFields({
   budgetLink,
 }: TaskFormFieldsProps) {
   const { form, setForm, editingId } = useTaskForm();
+  // The flag judges the value a submit would STORE — `use-task-submit.ts` caps
+  // then `sanitizeEmail`s — never the raw typed string.
+  const storedAssigneeEmail = sanitizeEmail(describeTextCap(form.assigneeEmail, EMAIL_MAX).value);
   const isEditing = editingId !== null;
   const { isVisible } = useModalVisibility("task");
   const { settings } = useSettings();
@@ -303,13 +307,13 @@ export function TaskFormFields({
               markTouched("assigneeEmail");
             }}
             placeholder={t(lang, "placeholderEmail")}
-            invalid={errorFor("assigneeEmail") || emailFieldInvalid(form.assigneeEmail) ? true : undefined}
-            aria-describedby={describedBy("assigneeEmail", !errorFor("assigneeEmail") && emailFieldInvalid(form.assigneeEmail) ? "email-counter assigneeEmail-flag" : "email-counter")}
+            invalid={errorFor("assigneeEmail") || emailFieldInvalid(storedAssigneeEmail) ? true : undefined}
+            aria-describedby={describedBy("assigneeEmail", !errorFor("assigneeEmail") && emailFieldInvalid(storedAssigneeEmail) ? "email-counter assigneeEmail-flag" : "email-counter")}
             className="w-full"
           />
           <CharCounter value={form.assigneeEmail} max={EMAIL_MAX} id="email-counter" lang={lang} />
           <FieldError id="assigneeEmail-error">{errorFor("assigneeEmail")}</FieldError>
-          {!errorFor("assigneeEmail") && <EmailFieldError id="assigneeEmail-flag" lang={lang} value={form.assigneeEmail} />}
+          {!errorFor("assigneeEmail") && <EmailFieldError id="assigneeEmail-flag" lang={lang} value={storedAssigneeEmail} />}
         </Field>
         )}
       </TaskFormSection>

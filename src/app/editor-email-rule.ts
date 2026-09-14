@@ -28,7 +28,7 @@ export function linkedResourceEmail(
  *  applies (e.g. `sanitizeEmail` for an EMAIL_MAX-capped field, or the
  *  entity's own cap helper otherwise) — never the raw typed string, or the
  *  judged value can diverge from what a submit actually persists. */
-export function emailRefusalMessage(
+export function editorEmailRefusalMessage(
   lang: Lang,
   incoming: string,
   stored: string | undefined,

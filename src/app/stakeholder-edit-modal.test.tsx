@@ -207,6 +207,30 @@ describe("stakeholder email follows the changed-only write rule", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  // A linked email longer than the stakeholder cap would be stored CUT, so it
+  // is no copy source: the value is judged like a typed one.
+  it("refuses a copy of an over-cap (250-char) linked email, judged like a typed value", () => {
+    const onSave = vi.fn();
+    const longUnsafe = "a,b@x.co" + "m".repeat(242);
+    expect(longUnsafe).toHaveLength(250);
+    const linked: Resource = {
+      id: 9, firstName: "Ada", lastName: "L", email: longUnsafe,
+      roleId: null, utilizationMode: "percent", utilization: {},
+    };
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com", resourceId: 9 }}
+        onSave={onSave}
+        resources={[linked]}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: longUnsafe } });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorEmailDelimiter"));
+  });
+
   // Fix round 2, MINOR — an UNRELATED banner error (blank name) must never
   // hide the flag: the stored unsafe email is untouched.
   it("keeps the flag visible while an unrelated banner error is showing", () => {

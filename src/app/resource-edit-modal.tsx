@@ -19,7 +19,7 @@ import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
 import { ASSIGNEE_MAX, EMAIL_MAX, findTornEmail } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
-import { emailFlagDescribedBy, emailFlagVisible, emailRefusalMessage, joinDescribedBy } from "./editor-email-rule";
+import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, joinDescribedBy } from "./editor-email-rule";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -94,7 +94,7 @@ export function ResourceEditModal({
       return;
     }
     const email = adj.track(cappedEmailReport) || undefined;
-    const emailRefusal = emailRefusalMessage(lang, email ?? "", resource?.email);
+    const emailRefusal = editorEmailRefusalMessage(lang, email ?? "", resource?.email);
     if (emailRefusal) {
       setError(emailRefusal);
       return;
@@ -110,7 +110,7 @@ export function ResourceEditModal({
     // unsafe member is refused.
     const tornEmail = findTornEmail(emails, resource?.emails);
     if (tornEmail !== undefined) {
-      setError(emailRefusalMessage(lang, tornEmail, undefined) ?? t(lang, "errorEmailDelimiter"));
+      setError(editorEmailRefusalMessage(lang, tornEmail, undefined) ?? t(lang, "errorEmailDelimiter"));
       return;
     }
     const clean: Resource = {

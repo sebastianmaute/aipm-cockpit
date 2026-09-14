@@ -62,6 +62,6 @@ export async function hardDeleteProject(config: TursoConfig | null, id: string):
   try {
     await runTursoPipeline(config, projectSideTableSweepStatements(id));
   } catch (err) {
-    logDiag("warn", "storage.projectAssetCleanupFailed", { id, message: err instanceof Error ? err.message : String(err) });
+    logDiag("warn", "storage.projectSideTableSweepFailed", { id, message: err instanceof Error ? err.message : String(err) });
   }
 }

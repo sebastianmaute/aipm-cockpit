@@ -27,7 +27,7 @@ import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { describeTextCap } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
-import { emailFlagDescribedBy, emailFlagVisible, emailRefusalMessage, joinDescribedBy, linkedResourceEmail } from "./editor-email-rule";
+import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, joinDescribedBy, linkedResourceEmail } from "./editor-email-rule";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -159,8 +159,12 @@ export function StakeholderEditModal({
       setError(t(lang, "raidErrorTitleRequired"));
       return;
     }
+    // A copy only exempts when it FITS the stakeholder cap — an over-cap linked
+    // email would be stored cut (torn), so it is judged like a typed value,
+    // mirroring propagation's own over-cap skip (`retargetStakeholderEmails`).
     const linked = linkedResourceEmail(resources, draft.resourceId);
-    const emailRefusal = emailRefusalMessage(lang, cappedEmail, opened.email, [linked]);
+    const fittingCopy = linked !== undefined && linked.trim().length <= BUDGET_NAME_MAX ? linked : undefined;
+    const emailRefusal = editorEmailRefusalMessage(lang, cappedEmail, opened.email, [fittingCopy]);
     if (emailRefusal) {
       setError(emailRefusal);
       return;

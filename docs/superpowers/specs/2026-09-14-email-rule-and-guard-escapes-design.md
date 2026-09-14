@@ -429,7 +429,7 @@ New normaliser module; `sanitize-entities.ts`, `sanitize-records.ts` (line-neutr
 
 - `hardDeleteProject` (`turso-portfolio.ts`) runs `hardDeleteProjectStatements` (`BEGIN`, `DELETE … WHERE
   project_id = ?` per `TABLE_NAMES` member, delete the project row, `COMMIT`), then a separate try/catch
-  around `deleteAllAssetDataForProject` logging `storage.projectAssetCleanupFailed`.
+  around `deleteAllAssetDataForProject` logging `storage.projectSideTableSweepFailed`.
 - Project-keyed tables outside `TABLE_NAMES` with no project sweep: `chat_threads` (`CHAT_THREADS_DDL`),
   `committee_report_versions` (`MEETING_REPORT_VERSION_DDL`), `snapshot` and `snapshot_series`
   (`SNAPSHOT_DDL`), `project_versions` (`VERSION_DDL`, whole-workspace payloads). `document_asset_data`
@@ -444,7 +444,7 @@ New normaliser module; `sanitize-entities.ts`, `sanitize-records.ts` (line-neutr
   `document_asset_data`, replacing its special case).
 - One builder emits, for every entry, its create-if-missing DDL then `DELETE FROM <table> WHERE project_id = ?`.
   Keep the SQL text `DELETE FROM document_asset_data WHERE project_id = ?` and the log key
-  `storage.projectAssetCleanupFailed` where tests pin them.
+  `storage.projectSideTableSweepFailed` where tests pin them.
 - `hardDeleteProject` runs it as ONE separate, non-fatal pipeline after the tenant transaction, logging a
   failure via `logDiag`. The tenant transaction is unchanged.
 - `deleteAllAssetDataForProject` is deleted only if no non-test caller remains; if deleted, its test in

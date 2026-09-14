@@ -29,7 +29,7 @@ import { describeClamp } from "./sanitize-report";
 import { useConfirm } from "./confirm-dialog";
 import { sanitizeEmail } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
-import { emailFlagDescribedBy, emailFlagVisible, emailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
+import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
 
 interface Props {
   lang: Lang;
@@ -145,7 +145,7 @@ export function ShiftEditModal({
       }
     }
     const linked = linkedResourceEmail(resources, draft.resourceId);
-    const emailRefusal = emailRefusalMessage(lang, cappedAssigneeEmail ?? "", shift?.assigneeEmail, [linked]);
+    const emailRefusal = editorEmailRefusalMessage(lang, cappedAssigneeEmail ?? "", shift?.assigneeEmail, [linked]);
     if (emailRefusal) {
       setError(emailRefusal);
       return;

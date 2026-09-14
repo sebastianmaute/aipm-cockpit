@@ -202,6 +202,7 @@ function TaskManagerInner() {
   const { activityLog, logActivity, logActivityAs, logActivityUser, logActivityChangesUser, handleClearActivityLog } =
     useActivityLog();
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
+  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestHelpConcept, requestDocumentsForEntity } = useWorkspaceTab();
   // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
   // capture is threaded into each entity hook below; undo/control are surfaces. ★ Undo/redo is ALWAYS user-caused — a chat tool write takes no undo capture.
   // ★ `allowDestructiveSave` is produced by `useStorageBackend` further down, so
@@ -212,8 +213,10 @@ function TaskManagerInner() {
   // `use-document-assets.ts` use for the same one. Moving the `useUndoStack` call
   // down instead would also move `useUndoHotkey`'s listener registration relative
   // to the other hotkey hooks.
-  const allowDestructiveSaveRef = useRef<(() => void) | undefined>(undefined); const isPopoutRef = useRef(false);
-  const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []); const readOnlyForUndo = useCallback(() => isPopoutRef.current, []);
+  const allowDestructiveSaveRef = useRef<(() => void) | undefined>(undefined);
+  const isPopoutRef = useRef(isPopout);
+  const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
+  const readOnlyForUndo = useCallback(() => isPopoutRef.current, []);
   const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo, isReadOnly: readOnlyForUndo });
   useUndoHotkey(undoApi.undo, undoApi.redo);
   // ★★★ ONE INSTANCE, TWO CONSUMERS, AND THEY MUST BE THE SAME ONE. `.undo`
@@ -237,7 +240,6 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestHelpConcept, requestDocumentsForEntity } = useWorkspaceTab();
   useHashView(settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
@@ -817,7 +819,8 @@ function TaskManagerInner() {
     (id: string, opts: { includeSeed: boolean }) => {
       const tpl = projectTemplates.find((x) => x.id === id);
       if (!tpl) return;
-      const current = buildCurrentWorkspace(); const next = applyTemplate(current, tpl, opts);
+      const current = buildCurrentWorkspace();
+      const next = applyTemplate(current, tpl, opts);
       setFieldVisibility(next.fieldVisibility);
       // Apply the template's functions to the current project too (reactive via
       // useFeaturesSync, persisted via autosave). Filter through ALL_MODULE_IDS so
@@ -831,7 +834,9 @@ function TaskManagerInner() {
         setStakeholders(next.stakeholders ?? []);
         setBudgets(next.budgets ?? []);
       }
-      showToast("info", t(lang, "templateApplied")); const seededEmails = opts.includeSeed ? summarizeUnsafeEmailRecords(templateSeedEmailScope(current, next)) : null; if (seededEmails) showToast("info", t(lang, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
+      showToast("info", t(lang, "templateApplied"));
+      const seededEmails = opts.includeSeed ? summarizeUnsafeEmailRecords(templateSeedEmailScope(current, next)) : null;
+      if (seededEmails) showToast("info", t(lang, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
     },
     [projectTemplates, buildCurrentWorkspace, setFieldVisibility, setFeatures, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets, showToast, lang],
   );

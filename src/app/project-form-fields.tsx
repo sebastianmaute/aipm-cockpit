@@ -30,7 +30,7 @@ import {
 import { NACE_SECTIONS } from "./nace-sections";
 import { type ProjectDraft, type ProjectErrorField } from "./project-validation";
 import { sanitizeEmail } from "./sanitize";
-import { emailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
+import { editorEmailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
 import { ResourcePicker } from "./resource-picker";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { type Contact } from "./contacts";
@@ -708,7 +708,7 @@ function ContactPersonsControl({
       linkedResourceEmail(resources, draft.resourceId),
       addressBook.find((c) => c.name === name)?.email,
     ];
-    const refusal = emailRefusalMessage(lang, cappedEmail, undefined, copySources);
+    const refusal = editorEmailRefusalMessage(lang, cappedEmail, undefined, copySources);
     if (refusal) {
       setEmailError(refusal);
       return;

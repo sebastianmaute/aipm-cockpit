@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { creatableResourceEmail } from "./resource-create-email";
-import { emailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
+import { editorEmailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
 import { EMAIL_MAX } from "./sanitize";
 import { t } from "./i18n";
 import type { Resource } from "./types";
@@ -24,9 +24,9 @@ describe("creatableResourceEmail", () => {
 
   it("a resource created without the unsafe email is no copy source, so the host editor still refuses it", () => {
     const bob: Resource = { id: 5, firstName: "Bob", lastName: "", email: creatableResourceEmail("a,b@x.com"), roleId: null, utilizationMode: "percent", utilization: {} };
-    expect(emailRefusalMessage("en-US", "a,b@x.com", undefined, [linkedResourceEmail([bob], 5)])).toBe(t("en-US", "errorEmailDelimiter"));
+    expect(editorEmailRefusalMessage("en-US", "a,b@x.com", undefined, [linkedResourceEmail([bob], 5)])).toBe(t("en-US", "errorEmailDelimiter"));
     // Positive control: had the unsafe value been stored, the copy exemption would pass it.
     const laundered: Resource = { ...bob, email: "a,b@x.com" };
-    expect(emailRefusalMessage("en-US", "a,b@x.com", undefined, [linkedResourceEmail([laundered], 5)])).toBeNull();
+    expect(editorEmailRefusalMessage("en-US", "a,b@x.com", undefined, [linkedResourceEmail([laundered], 5)])).toBeNull();
   });
 });
