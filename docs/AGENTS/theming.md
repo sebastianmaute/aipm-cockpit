@@ -383,11 +383,14 @@
   `img-src`. ★ Sidebar and classic `AppHeader` share the SAME default asset, `/ai-pm-cockpit-banner.svg` —
   a full-colour banner with its own dark ground, so NEITHER default branch carries `brightness-0 invert` any
   more (that filter used to whiten the retired mono AIPM mark). A custom `branding.logo` renders through the
-  identical size-capping classes as the default, so the default and custom branches collapse to one
-  className each. `project-empty-state.tsx`'s start window is a SEPARATE surface (see `startLogo` below) and
+  identical sizing classes as the default, so the default and custom branches collapse to one className
+  each: classic `AppHeader` a definite 300×70 box (`h-[70px] w-[300px]`), the expanded sidebar the same
+  300:70 aspect at its full width (`w-full aspect-[300/70]`, ~256×60), placed OUTSIDE the padded header
+  row so it reaches both edges. Both are definite, never a cap alone, for the reason the `startLogo`
+  note below gives; `object-contain` letterboxes an upload of another shape. `project-empty-state.tsx`'s start window is a SEPARATE surface (see `startLogo` below) and
   was deliberately left on its own default.
   ★★ `startLogo` is a FIFTH, SEPARATE field driving ONLY the start window (`project-empty-state.tsx`, the
-  `view === "choices"` branch); unset ⇒ the shipped `/ai-pm-cockpit-banner-harbor.svg`, NOT `logo` and NOT the
+  `view === "choices"` branch); unset ⇒ the shipped `/ai-pm-cockpit-banner-beacon-transparent.svg`, NOT `logo` and NOT the
   AIPM mark. It is deliberately not shared with the sidebar `logo` — one wants a small mark, the other a wide
   banner. ★★★ THE `<img>` NEEDS A **DEFINITE** HEIGHT (`h-12`), NEVER ONLY A CAP. It shipped once as
   `max-h-12 w-auto` — all constraints, nothing definite — and the empty-state HEADER COLLAPSED: the shipped

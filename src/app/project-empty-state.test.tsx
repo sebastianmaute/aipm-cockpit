@@ -369,15 +369,15 @@ describe("ProjectEmptyState", () => {
     setup();
     expect(screen.getByRole("img", { name: t("en-US", "appTitle") })).toHaveAttribute(
       "src",
-      "/ai-pm-cockpit-banner-harbor.svg",
+      "/ai-pm-cockpit-banner-beacon-transparent.svg",
     );
   });
 });
 
 describe("start-window logo", () => {
-  it("shows the shipped harbor banner when no start logo is configured", () => {
+  it("shows the shipped beacon banner when no start logo is configured", () => {
     setup();
-    const img = document.querySelector("img[src='/ai-pm-cockpit-banner-harbor.svg']");
+    const img = document.querySelector("img[src='/ai-pm-cockpit-banner-beacon-transparent.svg']");
     expect(img).not.toBeNull();
   });
 
@@ -385,7 +385,7 @@ describe("start-window logo", () => {
     const png = "data:image/png;base64,iVBORw0KGgo=";
     setup({ settings: { ...defaultSettings, branding: { startLogo: png } } });
     expect(document.querySelector(`img[src='${png}']`)).not.toBeNull();
-    expect(document.querySelector("img[src='/ai-pm-cockpit-banner-harbor.svg']")).toBeNull();
+    expect(document.querySelector("img[src='/ai-pm-cockpit-banner-beacon-transparent.svg']")).toBeNull();
   });
 
   it("does not fall back to the sidebar logo", () => {
@@ -395,7 +395,7 @@ describe("start-window logo", () => {
     const png = "data:image/png;base64,iVBORw0KGgo=";
     setup({ settings: { ...defaultSettings, branding: { logo: png } } });
     expect(document.querySelector(`img[src='${png}']`)).toBeNull();
-    expect(document.querySelector("img[src='/ai-pm-cockpit-banner-harbor.svg']")).not.toBeNull();
+    expect(document.querySelector("img[src='/ai-pm-cockpit-banner-beacon-transparent.svg']")).not.toBeNull();
   });
 
   it("sizes the logo with a DEFINITE height, never only a cap", () => {
@@ -410,7 +410,7 @@ describe("start-window logo", () => {
     // The definite height is the proxy: it is what makes the width derivable,
     // and its ABSENCE is precisely what shipped broken.
     setup();
-    const img = document.querySelector<HTMLElement>("img[src='/ai-pm-cockpit-banner-harbor.svg']");
+    const img = document.querySelector<HTMLElement>("img[src='/ai-pm-cockpit-banner-beacon-transparent.svg']");
     expect(img).not.toBeNull();
     // Anchored on start-or-space: a bare /\bh-\d/ also matches INSIDE `max-h-12`
     // (the `-` makes a word boundary), so it would pass against the broken class

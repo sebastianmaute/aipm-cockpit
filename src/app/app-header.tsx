@@ -97,10 +97,13 @@ export function AppHeader({
         <img
           src={settings.branding?.logo || "/ai-pm-cockpit-banner.svg"}
           alt={settings.branding?.logo ? (settings.branding.slogan ?? t(lang, "appTitle")) : t(lang, "appTitle")}
-          // Both a custom logo and the default AI PM Cockpit banner render
-          // as-is, capped so a large upload (or the wide banner) can't blow
-          // out the header.
-          className="max-h-10 w-auto max-w-[200px] object-contain"
+          // Both a custom logo and the default AI PM Cockpit banner render in
+          // one fixed 300×70 box — the banner's own 1200×280 aspect — and
+          // object-contain letterboxes an upload of any other shape. The size
+          // is DEFINITE on both axes, not a cap: the default SVG carries a
+          // viewBox but no width/height, so it has no intrinsic size to derive
+          // one axis from (the start window's header collapsed on exactly that).
+          className="h-[70px] w-[300px] object-contain"
         />
         <div className="flex items-center gap-1">
           {onOpenAiAssistant && (

@@ -43,20 +43,24 @@ export function Sidebar({
         (collapsed ? "w-16" : "w-64")
       }
     >
+      {!collapsed && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={brandLogo || "/ai-pm-cockpit-banner.svg"}
+          alt={brandLogo ? (brandSlogan ?? t(lang, "appTitle")) : t(lang, "appTitle")}
+          // The classic header's 300×70 logo box, scaled to the expanded
+          // sidebar's full width: edge to edge (no row padding) at the same
+          // 300:70 aspect, so 256px wide and ~60px tall. Width and aspect are
+          // both definite because the default SVG has no intrinsic size. A
+          // custom upload letterboxes via object-contain. The banner is
+          // full-colour with its own dark ground, so no brightness-0 invert.
+          className="block aspect-[300/70] w-full object-contain"
+        />
+      )}
       <div className="flex items-center justify-between gap-2 border-b border-ui-white/10 px-4 py-2.5">
         {!collapsed && (
           <div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={brandLogo || "/ai-pm-cockpit-banner.svg"}
-              alt={brandLogo ? (brandSlogan ?? t(lang, "appTitle")) : t(lang, "appTitle")}
-              // Both a custom logo and the default AI PM Cockpit banner render
-              // as-is (capped to the sidebar width) -- the banner is full-colour
-              // with its own dark ground, so it must not carry the old
-              // brightness-0 invert that used to turn a mono glyph white.
-              className="max-h-8 max-w-full w-auto object-contain"
-            />
-            <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-ui-green">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-ui-green">
               {brandSlogan || t(lang, "sidebarBrandSubtitle")}
             </p>
           </div>

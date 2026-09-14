@@ -61,3 +61,9 @@ public/ai-pm-cockpit-banner.svg -text
 # cmp above -- the cmp ALONE cannot see this direction, since it compares the
 # blob against the very working copy a bad checkout would have rewritten.
 public/splash-aipm-cockpit.svg -text
+#
+# The start window's default banner is credentialed the SAME way as
+# ai-pm-cockpit-banner.svg above and has the same CRLF shape (measured
+# 2026-09-14: 83 CR and 83 LF bytes in 11090), so an unpinned `git add` would
+# strip its CR bytes and invalidate the claim. Re-check with the cmp above.
+public/ai-pm-cockpit-banner-beacon-transparent.svg -text
