@@ -9,8 +9,10 @@ import { IconButton } from "./icon-button";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import {
+  APP_AUTHOR_URL,
   APP_BUILD_DATE,
   APP_HIGHLIGHT_KEYS,
+  APP_LICENSE_URL,
   APP_REPO_URL,
   APP_VERSION_LABEL,
 } from "./version";
@@ -59,6 +61,10 @@ export function VersionInfo({ lang }: { lang: Lang }) {
         <Row term={t(lang, "versionBuild")} value={APP_BUILD_DATE} />
       </dl>
 
+      <p className="mt-3 text-sm text-foreground">{t(lang, "versionPitch")}</p>
+
+      {/* The pitch, not a changelog: a short fixed list of what is unique to the
+          app. Release history lives in CHANGELOG.md. */}
       <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {t(lang, "versionHighlightsHeader")}
       </p>
@@ -73,21 +79,36 @@ export function VersionInfo({ lang }: { lang: Lang }) {
         ))}
       </ul>
 
-      <p className="mt-4 text-xs text-foreground">
-        {t(lang, "versionTechStack")}
-      </p>
-      <div className="mt-4 border-t border-line pt-3 text-xs italic text-muted-foreground">
-        <a
-          href={APP_REPO_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium not-italic text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue"
-        >
-          Acme ↗
-        </a>{" "}
-        — Identity Excellence Delivered. Globally.
+      <div className="mt-4 space-y-1 border-t border-line pt-3 text-xs text-muted-foreground">
+        <p>
+          {t(lang, "versionLicenseLabel")}:{" "}
+          <ExternalLink href={APP_LICENSE_URL}>{t(lang, "versionLicenseName")}</ExternalLink>
+        </p>
+        <p>
+          {t(lang, "versionAuthor")} · {t(lang, "versionBuiltWith")}
+        </p>
+        <p className="flex flex-wrap gap-x-3">
+          <ExternalLink href={APP_REPO_URL}>{t(lang, "versionGithubLink")}</ExternalLink>
+          <ExternalLink href={APP_AUTHOR_URL}>{t(lang, "versionLinkedInLink")}</ExternalLink>
+        </p>
       </div>
     </>
+  );
+}
+
+/** A link that opens in a new tab. The ↗ is decorative, so the accessible name
+ *  is exactly the visible label. */
+function ExternalLink({ href, children }: { href: string; children: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue"
+    >
+      {children}
+      <span aria-hidden="true"> ↗</span>
+    </a>
   );
 }
 
