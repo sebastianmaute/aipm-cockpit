@@ -571,3 +571,43 @@ it("clears busy once the successor settles", async () => {
 
   expect(result.current.busy).toBe(false); // the untested opposite failure: busy stuck forever
 });
+
+// ★★★ A refused cache write used to be silent: the hook kept the fresh fetch
+// while storage kept the previous one, and a reload read that as current.
+it("sets cacheNotSaved when the browser refuses the cache write, and clears it on the next successful save", async () => {
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  const { result } = renderHook(() => useTimelogSync(args()));
+  expect(result.current.cacheNotSaved).toBe(false);
+  const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("QuotaExceededError");
+  });
+  try {
+    await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  } finally {
+    setItem.mockRestore();
+  }
+  expect(result.current.cacheNotSaved).toBe(true);
+  // The fetch itself still landed in memory — only the cache write failed.
+  expect(bucketOverlay(result.current.aggregates, "month")[7]?.["2026-06"].hours).toBe(4);
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  expect(result.current.cacheNotSaved).toBe(false);
+  expect(loadActualsCache("p1")).toBeDefined();
+});
+
+it("resets cacheNotSaved on Clear all", async () => {
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  const { result } = renderHook(() => useTimelogSync(args()));
+  const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("QuotaExceededError");
+  });
+  try {
+    await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  } finally {
+    setItem.mockRestore();
+  }
+  expect(result.current.cacheNotSaved).toBe(true);
+  act(() => { result.current.clearAll(); });
+  expect(result.current.cacheNotSaved).toBe(false);
+});

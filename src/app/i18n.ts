@@ -1544,6 +1544,8 @@ const enUS = {
   timelogTestOkOne: "Connected — 1 user, scope: {1}",
   timelogTestFail: "Connection failed (HTTP {0})",
   timelogTokenInvalid: "Token was rejected. Re-enter it.",
+  timelogCacheNotSaved:
+    "These TimeLog bookings could not be saved on this device because browser storage is full or unavailable. The Budget view does not show them, and they are gone after a reload. Apply them to the budget now, or free up browser storage and fetch again.",
   timelogGuardrailsTitle: "Booking guardrails",
   timelogGuardrailsHint:
     "Flag bookings that break these rules. Cockpit never changes a booking — it only tells you. All rules are off until you turn them on.",

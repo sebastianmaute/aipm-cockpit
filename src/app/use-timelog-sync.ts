@@ -18,7 +18,7 @@ import {
   type TimelogCreds,
 } from "./timelog-api";
 import { aggregateActuals, buildDailyRoll, type ActualsAggregate } from "./timelog-actuals";
-import { saveActualsCache, loadActualsCache, clearActualsCache, type TimelogRollWindow } from "./timelog-actuals-store";
+import { saveActualsCache, loadActualsCache, clearActualsCache, type ActualsCacheEntry, type TimelogRollWindow } from "./timelog-actuals-store";
 import { autoMatchUsers, autoMatchProjects, displayableUsers, type TimelogProjectRef } from "./timelog-match";
 import { isAbortError } from "./abort-error";
 import type { TimelogDailyRoll, TimelogLinks, TimelogScopeMode, TimelogTimeItem, TimelogUser } from "./timelog-types";
@@ -42,7 +42,7 @@ type Args = {
 };
 
 /** The guardrail roll and the window it was fetched over, as ONE spreadable
- *  pair — the shape every `saveActualsCache` call spreads.
+ *  pair — the shape every `persist` call spreads.
  *  ★★★ THIS EXISTS SO THE TWO CANNOT BE HALF-WRITTEN. An entry is rewritten
  *  whole, so a saver that carries `daily` but omits `dailyWindow` persists a
  *  roll whose coverage reads as UNKNOWN — the exact state the window was added
@@ -114,6 +114,18 @@ export function useTimelogSync(args: Args) {
   const [dailyUsers, setDailyUsers] = useState<readonly number[] | undefined>(() => loadActualsCache(projectId)?.dailyUsers);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<number | null>(null);
+  // ★★ TRUE when the LAST cache write was refused by the browser (quota or
+  // disabled storage). This hook still holds the fresh fetch, but
+  // `saveActualsCache` removed the stale stored entry rather than leave it, so
+  // the Budget view and the next reload do not see these bookings. The panel
+  // warns while it is set; the next successful save or Clear all resets it.
+  // Not persisted — it describes a write in THIS session.
+  const [cacheNotSaved, setCacheNotSaved] = useState(false);
+  /** Every cache write goes through here, so none of the four savers can drop
+   *  the not-saved signal. */
+  function persist(entry: ActualsCacheEntry): void {
+    setCacheNotSaved(!saveActualsCache(projectId, entry));
+  }
   // Customer directory for the project-scope picker. Lazy + lightweight (no busy
   // modal): the dropdown stays "All only" if it fails.
   const [customers, setCustomers] = useState<TimelogCustomer[]>([]);
@@ -202,7 +214,7 @@ export function useTimelogSync(args: Args) {
       // anywhere. This path has no `items`, so it carries the state through —
       // via `rollPair`, which carries the roll's WINDOW with it (see its note).
       if (fetchedAt) {
-        saveActualsCache(projectId, { fetchedAt, aggregates, users: shown, projectRefs, partial, ...rollPair(daily, dailyWindow, dailyUsers) });
+        persist({ fetchedAt, aggregates, users: shown, projectRefs, partial, ...rollPair(daily, dailyWindow, dailyUsers) });
       }
     });
   }
@@ -246,7 +258,7 @@ export function useTimelogSync(args: Args) {
       // ★★ `partial` and the roll pair carried through for the same reason as
       // the directory reload above — this save has no `items` either.
       if (fetchedAt) {
-        saveActualsCache(projectId, { fetchedAt, aggregates, users, projectRefs: refs, partial, ...rollPair(daily, dailyWindow, dailyUsers) });
+        persist({ fetchedAt, aggregates, users, projectRefs: refs, partial, ...rollPair(daily, dailyWindow, dailyUsers) });
       }
     });
   }
@@ -324,7 +336,7 @@ export function useTimelogSync(args: Args) {
     setDaily(roll);
     setDailyWindow(fetchWindow);
     setDailyUsers(coveredUsers);
-    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs, partial: isPartial, ...rollPair(roll, fetchWindow, coveredUsers) });
+    persist({ fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs, partial: isPartial, ...rollPair(roll, fetchWindow, coveredUsers) });
     return agg;
   }
 
@@ -493,7 +505,7 @@ export function useTimelogSync(args: Args) {
       // ★★ Fourth saver. The roll pair is carried through here too — a
       // display-only people cleanup must not take the guardrail roll, or its
       // declared coverage, with it.
-      saveActualsCache(projectId, { fetchedAt, aggregates, users: next, projectRefs, partial, ...rollPair(daily, dailyWindow, dailyUsers) });
+      persist({ fetchedAt, aggregates, users: next, projectRefs, partial, ...rollPair(daily, dailyWindow, dailyUsers) });
     }
   }
 
@@ -516,7 +528,9 @@ export function useTimelogSync(args: Args) {
     setProjectRefs([]);
     fullDirectoryRef.current = null; // force a fresh directory on the next fetch
     clearActualsCache(projectId);
+    // The warning described a write this Clear just made moot.
+    setCacheNotSaved(false);
   }
 
-  return { aggregates, fetchedAt, partial, daily, dailyWindow, dailyUsers, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
+  return { aggregates, fetchedAt, partial, daily, dailyWindow, dailyUsers, users, projectRefs, customers, customerProjects, busy, error, cacheNotSaved, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
 }

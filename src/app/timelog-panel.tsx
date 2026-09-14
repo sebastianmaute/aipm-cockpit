@@ -9,6 +9,7 @@ import { t, type Lang } from "./i18n";
 import { useWorkspace } from "./workspace-context";
 import { useSettings } from "./use-settings";
 import { useToastContext } from "./toast-context";
+import { Banner } from "./banner";
 import { logDiag } from "./diagnostics";
 import { reportSilentFailure } from "./guard-feedback";
 import { useTimelogSync } from "./use-timelog-sync";
@@ -610,6 +611,14 @@ export function TimelogPanel({
             ? t(lang, "timelogTokenInvalid")
             : t(lang, "timelogTestFail", sync.error && sync.error > 0 ? String(sync.error) : "?")}
         </p>
+      )}
+
+      {/* The fetched bookings could not be cached on this device (browser
+          storage refused the write). Clears on the next successful save. */}
+      {sync.cacheNotSaved && (
+        <Banner severity="warn" className="mb-3">
+          {t(lang, "timelogCacheNotSaved")}
+        </Banner>
       )}
 
       {/* Last synced + unattributed */}

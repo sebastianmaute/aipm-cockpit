@@ -263,8 +263,9 @@ export function clearActualsCache(projectId: string): void {
  *  year, or a 200-booker org-scope fetch across its most recent ~37 days.
  *  UNBOUNDED, that same org-scope fetch across 250 days is 50,000 cells and
  *  measured 3,073,001 chars — against a localStorage origin quota of roughly
- *  5 MB shared with every other `aipm-cockpit:*` key. `writeDeviceJson`
- *  swallows the resulting quota error, so the ENTIRE save is lost silently,
+ *  5 MB shared with every other `aipm-cockpit:*` key. A refused write is now
+ *  reported rather than lost silently — `saveActualsCache` returns `false` and
+ *  removes the entry's stale predecessor — but the ENTIRE save is still lost,
  *  `aggregates` included: a network round trip discarded in order to persist a
  *  field no aggregate reader touches. This cap keeps one roll near a tenth of
  *  that quota.
@@ -305,10 +306,11 @@ export const MAX_DAILY_ROLL_CHARS = 512 * 1024;
  *  ★★★ WHY A SECOND BOUND EXISTS. `MAX_DAILY_ROLL_CHARS` is per-entry, so 50
  *  entries (`MAX_PROJECTS`) each sitting just under it is ~25 MB against a
  *  localStorage origin quota of roughly 5 MB shared with every other
- *  `aipm-cockpit:*` key — and `writeDeviceJson` swallows the resulting quota
- *  error, so the ENTIRE save is lost silently, `aggregates` included. Before
- *  this, the map-level bound was `MAX_PROJECTS` eviction ALONE, which counts
- *  entries and never measures them. See open-followups §361.
+ *  `aipm-cockpit:*` key — and a refused write is reported rather than lost
+ *  silently (`saveActualsCache` returns `false` and removes the entry's stale
+ *  predecessor), but the ENTIRE save is still lost, `aggregates` included.
+ *  Before this, the map-level bound was `MAX_PROJECTS` eviction ALONE, which
+ *  counts entries and never measures them. See open-followups §361.
  *  ★ 2 MiB is ~40% of that quota, leaving ~3 MB for every other device key.
  *  ★★ IT ADMITS THREE FULL-SIZE ROLLS, NOT FOUR, and this line said four. Four
  *  times `MAX_DAILY_ROLL_CHARS` is 2,097,152 — the budget EXACTLY — so a fourth
