@@ -254,7 +254,21 @@ describe("DocumentsAssetSection — the upload box stays out of the disabled bra
   });
 });
 
+/** The ids every insertion/cap test below seeds as library rows. */
+const SEEDED_ASSET_IDS = ["a0", "a1", "a20"];
+
+/** ★★ §322 — Insert is DISABLED on a dangling row, and the file-wide
+ *  `beforeEach` reports NO stored bytes, so every seeded row goes dangling
+ *  once the byte diff resolves. Tests that click Insert must report the
+ *  seeded ids' bytes as present, or they click a disabled button and the
+ *  insert never happens. */
+function reportSeededBytesPresent() {
+  vi.mocked(loadAssetDataIds).mockResolvedValue(SEEDED_ASSET_IDS);
+}
+
 describe("documents asset insertion", () => {
+  beforeEach(reportSeededBytesPresent);
+
   it("inserts a NEW sanitized paragraph block via structural.insert (picker path)", async () => {
     const user = userEvent.setup();
     const d = doc(1, [{ type: "heading", level: 1, text: "Intro" }]);
@@ -769,6 +783,8 @@ describe("documents asset byte partition", () => {
 // make room for 0 more". The second case is what makes the first one mean
 // anything.
 describe("documents asset cap message reports reclaimable room", () => {
+  beforeEach(reportSeededBytesPresent);
+
   /** `count` drawable `<img>` references plus `undrawable` `<span>` ones, all
    *  distinct, in ONE paragraph — `assetRefsInDocument` scans paragraphs only. */
   function docHoldingMixed(count: number, undrawable: number): ProjectDocument {
