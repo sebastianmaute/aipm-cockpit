@@ -13902,8 +13902,8 @@ banners carried was measured, and every one of them was wrong by the time it was
 
 ## 161. `latestAt` picks the "latest" activity entry by raw lexicographic string compare — CLOSED 2026-09-14
 
-**Status:** CLOSED 2026-09-14 on `fix/export-activity-alt-batch` (fix round 1: 2026-09-14, calendar-range
-validation added after review). `sanitizeActivityEntry` (`activity-log.ts`) now NORMALISES `timestamp` at
+**Status:** CLOSED 2026-09-14 on `fix/export-activity-alt-batch` (calendar-range validation added
+after review, on the same day). `sanitizeActivityEntry` (`activity-log.ts`) now NORMALISES `timestamp` at
 the load boundary via a new pure `normalizeActivityTimestamp` helper: an ISO 8601 shape (`YYYY-MM-DD`,
 optionally `THH:MM[:SS][.sss]`, optionally `Z` or `±HH:MM`) is re-stamped to canonical `toISOString()`
 shape — a zoneless date-time is treated as UTC (deterministic across devices, not `Date.parse`'s
@@ -13953,7 +13953,8 @@ those matching `-t "161"`); the broader `golden-workspace.test.ts` / `entity-per
 / `workspace.test.ts` / `dashboard-delta.test.ts` / `dashboard-delta.property.test.ts` /
 `activity-log-panel.test.tsx` / `use-activity-log.test.tsx` / `completion-trend.test.ts` run →
 `Test Files 8 passed (8)`, `Tests 206 passed (206)`, exit 0 (the byte-stable golden fixtures did NOT
-change — every timestamp in `sample-workspace-small.json` was already canonical); `npx tsc --noEmit` exit
+change — but that proves nothing about this fix: `sample-workspace-small.json` carries no `activityLog`,
+so the golden suite never reaches `normalizeActivityTimestamp`); `npx tsc --noEmit` exit
 0; `npx eslint --max-warnings=0` on every touched file exit 0. Residual: none known in the four consumers
 named above — each reads `activityLog` only from workspace state populated either by `applyWorkspace`
 (fed from a `sanitizeActivityLog` output on every one of the five load-funnel call sites:
@@ -27841,7 +27842,7 @@ and the lightbox (`asset-preview-modal.tsx`) renders `alt={current?.name}` from 
 `document-preview.tsx` builds via `imageName()`, which already preferred live metadata before this
 fix. So no *reader of a name* anywhere in the app still saw the stale value — only the browser's own
 broken-image fallback paint did, which is what this fix targets. (2) `documents-history-modal.tsx`
-still renders images against the same stale persisted `alt` and is deliberately untouched (per brief)
+still renders images against the same stale persisted `alt` and is deliberately untouched (out of this fix's scope)
 — not a 2.5.3 mismatch there, verified by grep: that modal's only `aria-label`s are on the per-row
 Preview/Restore buttons, never on the `<img>` itself, so there is no accessible name for the painted
 text to disagree with. §342 (the `role="button"` question on that pane) stays open and untouched. (3)
