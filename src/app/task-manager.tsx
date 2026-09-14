@@ -41,7 +41,7 @@ import { type Resource, type RaidItem, type ChangeItem, type Task, DEFAULT_TASK_
 import { NotesWindow } from "./notes-window";
 import { useNotesWindow } from "./use-notes-window";
 import { applyStatusChange } from "./task-status";
-import { sanitizeRaidItem } from "./sanitize";
+import { sanitizeRaidItem, summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, backfillTaskResourceFks } from "./resource-foundation";
 import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
@@ -816,7 +816,7 @@ function TaskManagerInner() {
     (id: string, opts: { includeSeed: boolean }) => {
       const tpl = projectTemplates.find((x) => x.id === id);
       if (!tpl) return;
-      const next = applyTemplate(buildCurrentWorkspace(), tpl, opts);
+      const current = buildCurrentWorkspace(); const next = applyTemplate(current, tpl, opts);
       setFieldVisibility(next.fieldVisibility);
       // Apply the template's functions to the current project too (reactive via
       // useFeaturesSync, persisted via autosave). Filter through ALL_MODULE_IDS so
@@ -830,7 +830,7 @@ function TaskManagerInner() {
         setStakeholders(next.stakeholders ?? []);
         setBudgets(next.budgets ?? []);
       }
-      showToast("info", t(lang, "templateApplied"));
+      showToast("info", t(lang, "templateApplied")); const seededEmails = opts.includeSeed ? summarizeUnsafeEmailRecords(templateSeedEmailScope(current, next)) : null; if (seededEmails) showToast("info", t(lang, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
     },
     [projectTemplates, buildCurrentWorkspace, setFieldVisibility, setFeatures, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets, showToast, lang],
   );
