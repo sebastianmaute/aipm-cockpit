@@ -565,7 +565,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 | [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--open) | A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all — open | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; the DISCLOSURE half of that report is fixed, this is the residue | S | open |
 | [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--open) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | open |
-| [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--open) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
+| [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--closed-2026-09-14) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — CLOSED 2026-09-14 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-14 |
 | [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--open) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
 | [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
 | [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--open) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
@@ -27781,14 +27781,48 @@ transition, so drag POSITION is restored correctly. `useResizable` has no such h
 window mechanics — has the identical shape. Enumerate other affected call sites before fixing;
 a fix belongs in the hook (take `open`, mirroring `useDraggable`), not at each call site.
 
-## 339. A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — open
+## 339. A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — CLOSED 2026-09-14
 
-**Status:** open — **never machine-verified** (2026-09-02). Reported by a cold a11y reviewer against
-source; no test exercises the rename x broken-image combination. Re-check by reading `imageName` in
-`src/app/document-preview.tsx` against the `alt` written at insert time in
-`src/app/documents-asset-section.tsx`.
+**Status:** CLOSED 2026-09-14 on `fix/export-activity-alt-batch`. `document-preview.tsx`'s
+interactivity effect (the one that stamps `role`/`tabindex`/`aria-label` on `assetImagesIn(el)`) now
+calls a new `syncAltToLiveName(imgs, assetsById)` once, ABOVE both branches, so both the normal
+branch and the `tursoConfig === null` branch (bytes never load there, so a stale `alt` is the ONLY
+thing the reader ever sees) rewrite each image's `alt` to `assetsById.get(id)?.name` whenever that
+name is non-empty, leaving `alt` untouched when no metadata row exists for the id. The `★` comment
+above `imageName` now says its `alt` fallback is the genuine last-resort path (metadata missing
+entirely) rather than the common one, since the DOM node's `alt` is kept in step with live metadata
+whenever metadata exists. Only the RENDERED node is rewritten — the persisted block HTML
+`documents-asset-section.tsx` writes at insert time is untouched, so this is a rendered-DOM fix, not
+a persistence fix.
 
-**Work item:** #245
+Pinned by three named tests in `document-preview.test.tsx`'s "DocumentPreview — rendered alt follows
+the live asset name (§339)": "rewrites a stale alt to the live asset name" (normal branch),
+"rewrites a stale alt even when asset storage is off (null config)" (the `tursoConfig === null`
+branch), and "leaves alt untouched when there is no metadata for the id" (the skip case).
+Mutation-checked: removing the `syncAltToLiveName` call turns the first two red (`Tests 2 failed | 17
+passed (19)`); restoring it returns to `Tests 19 passed (19)`. Verified 2026-09-14: `npx vitest run
+src/app/document-preview.test.tsx` → `Test Files 1 passed (1)`, `Tests 19 passed (19)`, exit 0; `npx
+tsc --noEmit` exit 0; `npx eslint --max-warnings=0 src/app/document-preview.tsx
+src/app/document-preview.test.tsx` exit 0.
+
+Residuals, stated honestly: (1) the PERSISTED `alt` in stored block HTML stays stale after a rename —
+by design, this fix only touches the rendered DOM — and that is harmless in practice because every
+OTHER reader of an asset's name checks live metadata before ever reading `alt`, verified by grep:
+`doc-render-docx.ts` and `doc-render-pptx.ts`'s export placeholders both read `byId.get(id)?.name ??
+id` for the `assetExportPlaceholder` caption, never `alt`; `doc-render-html.ts`'s STANDALONE-only
+`inlineDocumentImages` replaces an omitted `<img>` with that same placeholder built from `nameById`
+rather than leaving an `<img>` tag at all, and adds no accessible label to the images it does keep;
+and the lightbox (`asset-preview-modal.tsx`) renders `alt={current?.name}` from the `assets` list
+`document-preview.tsx` builds via `imageName()`, which already preferred live metadata before this
+fix. So no *reader of a name* anywhere in the app still saw the stale value — only the browser's own
+broken-image fallback paint did, which is what this fix targets. (2) `documents-history-modal.tsx`
+still renders images against the same stale persisted `alt` and is deliberately untouched (per brief)
+— not a 2.5.3 mismatch there, verified by grep: that modal's only `aria-label`s are on the per-row
+Preview/Restore buttons, never on the `<img>` itself, so there is no accessible name for the painted
+text to disagree with. §342 (the `role="button"` question on that pane) stays open and untouched. (3)
+jsdom renders no broken-image fallback paint at all, so nothing here demonstrates the visual repair —
+an eye-verify against a real broken-image case (rename an asset, then break its bytes so no `src`
+loads) is still owed.
 
 The `alt` attribute is baked into the persisted block HTML AT INSERT TIME and never rewritten.
 `imageName()` deliberately prefers the LIVE metadata name, because after a rename the current name
