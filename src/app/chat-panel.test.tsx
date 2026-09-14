@@ -233,6 +233,27 @@ describe("Attachment guidance", () => {
     const input = container.querySelector('input[type="file"]');
     expect(input?.getAttribute("accept")).toBe(ATTACHMENT_ACCEPT);
   });
+
+  // §47: the input used to be display:none (Tailwind `hidden`), which some
+  // browsers refuse to open a file picker for — §15's rule, which the other
+  // file-picker sites (file-picker-button.tsx) already follow via `sr-only`.
+  // ★ jsdom applies no CSS, so this pins the CLASS CONTRACT only — it cannot
+  // reproduce the browser's refusal-to-open behaviour itself.
+  it("uses sr-only, not display:none, for the attachment input", () => {
+    const { container } = renderComposer();
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(input.className).toContain("sr-only");
+    expect(input.className).not.toContain("hidden");
+  });
+
+  it("forwards the attach button click to the input", async () => {
+    const user = userEvent.setup();
+    const { container } = renderComposer();
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const click = vi.spyOn(input, "click");
+    await user.click(screen.getByRole("button", { name: t("en-US", "chatAttach") }));
+    expect(click).toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
