@@ -759,6 +759,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--open) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | open |
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--open) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | open |
 | [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
+| [§537](#537-project-contact-persons-have-no-ids--open) | Project contact persons have no ids — OPEN | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | open |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--open) | A repeated resource deep link re-runs the open while that resource's editor is open — OPEN | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | open |
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--open) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | open |
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
@@ -37845,6 +37846,78 @@ the signal that a page loaded in classic, and the fix is small. Identify what th
 protects before changing it.
 
 Related: §478 (closed on the same branch), §535.
+
+## 537. Project contact persons have no ids — OPEN
+
+**Status:** open 2026-09-14 — filed while specifying the email-guard batch (spec
+`docs/superpowers/specs/2026-09-14-email-rule-and-guard-escapes-design.md`, Part 7); user decision was
+to stay id-less for that batch and file a follow-up. Verified 2026-09-14 by reading `ContactPerson`
+(`src/app/types.ts`), `encodeContactPersons`/`decodeContactPersons` (`src/app/csv-codecs-config.ts`),
+`dirtyWorkspaceTables`/`workspaceToStatements` (`src/app/turso-schema.ts`), `upsertProjectStatement`
+(`src/app/turso-tenant-schema.ts`), `turso-portfolio.ts`, `workspaceToJson` (`src/app/workspace.ts`),
+`browser-backend.ts` and `ContactPersonsControl` (`src/app/project-form-fields.tsx`).
+
+**Work item:** #327
+
+**The problem.** `ContactPerson` (`src/app/types.ts`) has `name`, `email`, `synced` and an optional
+`resourceId` — no `id`. It lives under `ProjectMeta.contactPersons`, a plain array, not an
+`ENTITY_SPECS` table. Every consumer that needs to refer to one row uses its ARRAY POSITION:
+`ContactPersonsControl` removes a contact with `contactPersons.filter((_, i) => i !== idx)` and has no
+in-place edit at all — correcting a contact means remove, then re-add. The email-guard batch's undo
+capture (spec Part 7) could not use the per-row `capturePart<T extends { id: number }>` helper for the
+same reason, and instead captures the whole `contactPersons` array as one hand-rolled `CompositeFragment`
+— undoing an older toast can therefore also roll back a later, unrelated edit to a different contact in
+the same array.
+
+**`resourceId` persistence per write path (verified 2026-09-14):**
+- **JSON** (`workspaceToJson`/`jsonToWorkspace`, `src/app/workspace.ts`) — `ws.project` is spread in
+  whole when set; `resourceId` round-trips as a plain number.
+- **IndexedDB** (`src/app/browser-backend.ts`) — `ws.project` is written with
+  `idbSet(KV_PROJECT_KEY, ws.project)`, a structured clone; `resourceId` round-trips natively.
+- **CSV** and **Markdown** — both go through the shared `projectFieldToString`/`encodeContactPersons`/
+  `decodeContactPersons` codec (`src/app/csv-codecs-config.ts`; Markdown calls it via
+  `src/app/markdown-codecs-core.ts`). Each entry is `name;email;synced[;resourceId]` — `resourceId` is
+  appended as a 4th field only when it is a number, and `;`/`|`/`\` inside `name`/`email` are escaped
+  and reversed on decode, so a stored `;` does NOT tear this cell open the way the naive `[;,]` split
+  §533 describes for `resource.emails` does.
+- **Turso tenant** — persisted, but NOT through the regular per-table workspace `save()`:
+  `dirtyWorkspaceTables` (`src/app/turso-schema.ts`) explicitly excludes `ws.project` from both save
+  modes ("the tenant projects row is written only via turso-portfolio.ts's upsert path"). The real write
+  is `upsertProjectStatement` (`src/app/turso-tenant-schema.ts`), called from `turso-portfolio.ts`'s
+  `createProject`/`updateProjectMeta`, themselves invoked only from the multi-project Turso picker
+  (`use-storage-turso-ops.ts`, `use-turso-projects.ts`). It reuses the same
+  `projectFieldToString`/`encodeContactPersons` codec as CSV/Markdown, so `resourceId` is included.
+- **Turso single** (one DB, no project picker — `TursoBackend` with `projectId === undefined`) —
+  **`ws.project`, and so every `ContactPerson` including `resourceId`, is never persisted at all.**
+  `workspaceToStatements` never references `ws.project`, and there is no single-DB equivalent of
+  `turso-portfolio.ts`'s upsert. This is a whole-field gap, not specific to `resourceId`, and is
+  pre-existing and — per the comment on `dirtyWorkspaceTables` — deliberate; recorded here because it
+  answers the persistence question this entry asks, not as something this entry proposes to fix.
+
+**Cost of adding ids** — reproduce command below counted 36 files referencing `contactPersons` /
+`ContactPerson` under `src/`, 13 of them outside `*.test.*`. Adding an `id` means: a storage-format
+change to the `contactPersons` cell (a 5th delimited field, or a different encoding) across CSV,
+Markdown and the Turso-tenant upsert; the decoder must keep accepting cells written before the change
+(mint an id on decode, as other id-less-on-disk migrations do on load); regenerating
+`__fixtures__/golden-*`; and updating `sanitizeContactPerson` plus the 13 non-test call sites that
+currently assume array position.
+
+**Benefits of adding ids** (not pursued here): per-row `capturePart` undo instead of the whole-array
+`CompositeFragment`; id-based edit/delete instead of index-based, letting `ContactPersonsControl` gain
+in-place edit without a remove-then-re-add; and a stable reference an AI tool or a deep link could
+target.
+
+**Reproduce / verify:**
+```bash
+grep -n "resourceId" src/app/csv-codecs-config.ts                 # encodeContactPersons / decodeContactPersons
+grep -n "DELIBERATELY excluded" src/app/turso-schema.ts           # ws.project dropped from save()
+grep -n "upsertProjectStatement" src/app/turso-tenant-schema.ts src/app/turso-portfolio.ts
+grep -n "contactPersons.filter((_, i)" src/app/project-form-fields.tsx   # index-based remove, no edit
+grep -rln "contactPersons\|ContactPerson" src --include=*.ts --include=*.tsx | wc -l   # 36 (13 non-test)
+```
+
+Related: §533 (delimiter-unsafe splitting on the sibling id-less-cell class, `resource.emails`); the
+email-guard batch spec's Part 7 ("Records reached — settled matrix").
 
 ## 540. A repeated resource deep link re-runs the open while that resource's editor is open — OPEN
 
