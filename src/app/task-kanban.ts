@@ -94,13 +94,17 @@ const nameKey = personNameKey;
  * That is the documented lesser evil — a duplicate lane is visible and
  * harmless, a vanishing card is not.
  *
- * ★ EMAIL still matches an external, unlike name — same distinction
- * `buildResourceLookupIndexes` draws, and now reachable IN-SESSION here too:
- * a task whose `assigneeEmail` matches an external gets that external's
- * `res:<id>` lane (a live drop target) without waiting for a reload to run
- * `backfillTaskResourceFks`. Not a regression: the backfill already stamps
- * that same FK at the next load, so this only makes the display agree with
- * storage sooner.
+ * ★★ EXTERNALS ARE NEVER EMAIL-MATCHED HERE EITHER — the lane engine builds
+ * its indexes with `emailMatchesExternals: false` (`laneIndexes` below), so an
+ * external's address is treated exactly like an external's name. The same
+ * hazard applies: "Hide externals" filters on the FK alone, so an FK-less task
+ * carrying an external's email stays visible, and resolving it to
+ * `res:<external>` would put a live drop target on screen that stamps the
+ * external FK onto a dropped card, which then vanishes. Such a task gets its
+ * name lane (or Unassigned) instead. ★ This deliberately DIVERGES from
+ * `backfillTaskResourceFks`, which still links by an external's email at load.
+ * After a reload the task therefore carries the FK and takes the FK branch
+ * above (and "Hide externals" hides it); only an FK-less task is affected.
  */
 function laneResourceIdOf(
   task: Task,
@@ -109,6 +113,13 @@ function laneResourceIdOf(
 ): number | null {
   if (task.resourceId != null && resourcesById.has(task.resourceId)) return task.resourceId;
   return resolvePersonResourceId(task, indexes);
+}
+
+/** The lookup indexes every lane-engine entry point resolves against: the
+ *  shared builder with externals left out of the EMAIL pass too (see
+ *  `laneResourceIdOf`). One helper, so the three entry points cannot drift. */
+function laneIndexes(resourcesById: ReadonlyMap<number, Resource>): ResourceLookupIndexes {
+  return buildResourceLookupIndexes(resourcesById.values(), { emailMatchesExternals: false });
 }
 
 function laneOf(
@@ -164,7 +175,7 @@ function laneOf(
  * owns that repair.
  */
 export function laneKeyOf(task: Task, resourcesById: ReadonlyMap<number, Resource>): string {
-  return laneOf(task, resourcesById, buildResourceLookupIndexes(resourcesById.values())).key;
+  return laneOf(task, resourcesById, laneIndexes(resourcesById)).key;
 }
 
 function emptyCells(): Record<TaskStatus, Task[]> {
@@ -184,7 +195,7 @@ export function laneResourceIds(
   extraLaneIds: readonly number[],
 ): number[] {
   const ids = new Set<number>();
-  const indexes = buildResourceLookupIndexes(resourcesById.values());
+  const indexes = laneIndexes(resourcesById);
   for (const id of extraLaneIds) if (resourcesById.has(id)) ids.add(id);
   // Must use the SAME resolution as `laneOf`, email/name fallback included: a
   // person who owns a lane only by way of a free-string assignee or a matched
@@ -224,7 +235,7 @@ export function groupByStatusAndPerson(
     return lane.key;
   };
 
-  const indexes = buildResourceLookupIndexes(resourcesById.values());
+  const indexes = laneIndexes(resourcesById);
   for (const task of tasks) {
     const key = ensure(laneOf(task, resourcesById, indexes));
     cells[key][task.status].push(task);

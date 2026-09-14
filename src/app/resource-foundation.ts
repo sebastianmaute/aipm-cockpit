@@ -186,8 +186,17 @@ export interface ResourceLookupIndexes {
  * address is a definite identity, not a guess, which is the whole distinction
  * task-external.ts draws. A task carrying an external's actual email
  * genuinely IS their work.
+ *
+ * ★★ `emailMatchesExternals: false` turns that off for ONE caller, the lane
+ * engine (`task-kanban.ts`), which then treats an external's email exactly as
+ * it treats an external's name: not indexed at all. The default stays `true`,
+ * so `backfillTaskResourceFks` is unchanged. See `laneResourceIdOf` for why the
+ * display side needs the stricter rule.
  */
-export function buildResourceLookupIndexes(resources: Iterable<Resource>): ResourceLookupIndexes {
+export function buildResourceLookupIndexes(
+  resources: Iterable<Resource>,
+  { emailMatchesExternals = true }: { emailMatchesExternals?: boolean } = {},
+): ResourceLookupIndexes {
   const index = (key: string, id: number, into: Map<string, number | null>) => {
     if (!key) return;
     into.set(key, into.has(key) ? null : id);
@@ -195,7 +204,9 @@ export function buildResourceLookupIndexes(resources: Iterable<Resource>): Resou
   const byEmail = new Map<string, number | null>();
   const byName = new Map<string, number | null>();
   for (const r of resources) {
-    index((r.email ?? "").trim().toLowerCase(), r.id, byEmail);
+    if (emailMatchesExternals || r.isExternal !== true) {
+      index((r.email ?? "").trim().toLowerCase(), r.id, byEmail);
+    }
     if (r.isExternal !== true) {
       index(personNameKey(resourceDisplayName(r)), r.id, byName);
     }

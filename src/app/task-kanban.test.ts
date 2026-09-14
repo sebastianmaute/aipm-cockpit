@@ -235,6 +235,40 @@ describe("externals are never name-matched into a linked lane", () => {
   it("does not offer a name-matched external to the add-lane picker", () => {
     expect(laneResourceIds([task({ assignee: "Ext Contractor" })], withExternal, [])).toEqual([]);
   });
+
+  // §79 follow-up: the lane engine gained an EMAIL pass, and it must apply the
+  // same externals rule the name pass does. `isExternalTask` is link-only, so an
+  // FK-less task carrying an external's address stays visible under "Hide
+  // externals"; resolving it to `res:<external>` would put a live drop target
+  // on screen that stamps the external FK onto whatever is dropped there.
+  describe("…and never email-matched either", () => {
+    const withEmails = new Map<number, Resource>([
+      [1, { id: 1, firstName: "Anna", lastName: "Jordan", email: "anna@example.com" } as Resource],
+      [5, { id: 5, firstName: "Ext", lastName: "Contractor", email: "ext@vendor.example", isExternal: true } as Resource],
+    ]);
+
+    it("keeps a link-less task carrying an external's email OUT of that external's lane", () => {
+      const t1 = task({ id: 1, assignee: "Ext Contractor", assigneeEmail: "ext@vendor.example" });
+      const out = groupByStatusAndPerson([t1], withEmails, []);
+      // Same outcome as a name match to an external: an unlinked name lane.
+      expect(out.lanes.some((l) => l.key === "res:5")).toBe(false);
+      expect(out.cells["name:ext contractor"]["To Do"].map((x) => x.id)).toEqual([1]);
+      expect(out.lanes.find((l) => l.key === "name:ext contractor")?.resourceId).toBeNull();
+      expect(laneKeyOf(t1, withEmails)).toBe("name:ext contractor");
+      expect(laneResourceIds([t1], withEmails, [])).toEqual([]);
+    });
+
+    it("still email-matches a managed resource in the same directory", () => {
+      // Control: proves the case above fails because of isExternal, not because
+      // the email pass stopped working.
+      const out = groupByStatusAndPerson(
+        [task({ id: 1, assignee: "", assigneeEmail: "anna@example.com" })],
+        withEmails,
+        [],
+      );
+      expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
+    });
+  });
 });
 
 // Same duplicate-lane symptom as the FK/name split, for a person the directory
