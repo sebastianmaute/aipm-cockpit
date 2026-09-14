@@ -68,10 +68,30 @@ function assetImagesIn(root: HTMLElement): HTMLImageElement[] {
  * metadata (an import that dropped the slice) — then `alt` is all there is, and
  * the id is a last resort rather than the label, because a uuid reads as 36
  * characters of character-salad aloud.
+ * ★★ The `alt` fallback here is now the GENUINE last-resort path (metadata
+ * missing entirely), not the common one — `syncAltToLiveName` below rewrites
+ * the RENDERED `<img>`'s `alt` to match metadata whenever a name exists, so
+ * the persisted-HTML divergence this note describes no longer reaches the DOM
+ * a reader actually sees (§339). Persisted HTML itself is untouched.
  */
 function imageName(img: HTMLImageElement, byId: ReadonlyMap<string, DocumentAsset>): string {
   const id = img.getAttribute("data-asset-id") ?? "";
   return byId.get(id)?.name || img.getAttribute("alt") || id;
+}
+
+/** §339 (WCAG 2.5.3) — a rename strands the `alt` baked into persisted HTML at
+ *  insert time, and when bytes are unavailable the `<img>` has no `src`, so
+ *  the browser paints that stale text while the accessible name (built from
+ *  live metadata) says the current one. Rewriting the RENDERED node's `alt`
+ *  to the live name keeps the two in step; persisted HTML is never touched.
+ *  Skips an id with no metadata row — that image's `alt` is the only name it
+ *  has, and blanking it would be strictly worse than a stale one. */
+function syncAltToLiveName(imgs: readonly HTMLImageElement[], byId: ReadonlyMap<string, DocumentAsset>): void {
+  for (const img of imgs) {
+    const id = img.getAttribute("data-asset-id") ?? "";
+    const liveName = byId.get(id)?.name;
+    if (liveName) img.setAttribute("alt", liveName);
+  }
 }
 
 /** One image as the lightbox wants it. A placed image whose metadata row is
@@ -210,6 +230,12 @@ export function DocumentPreview({
     const el = bodyRef.current;
     if (!el) return;
     const imgs = assetImagesIn(el);
+    // ★★★ RUNS IN BOTH BRANCHES BELOW, DELIBERATELY (§339). Metadata is
+    // readable whether or not Turso storage is on — a null config means the
+    // BYTES can't load, not that the asset library is unavailable — and the
+    // null branch is exactly where a stale `alt` is the ONLY thing the reader
+    // ever sees for that image, since no `src` will ever replace it.
+    syncAltToLiveName(imgs, assetsById);
     // ★★★ A NULL CONFIG MEANS ASSET STORAGE IS OFF — the same bail the resolve
     // effect above carries. No byte can ever load, so an affordance promising a
     // lightbox would be a lie. Attributes are REMOVED rather than merely not
