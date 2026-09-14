@@ -25,7 +25,7 @@ import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures } from "./feature-modules";
 import {
   sanitizeResource, sanitizeRole, sanitizeBudgetBucket, sanitizeDiscipline,
-  sanitizeGrade, sanitizeLoadedAbsence, sanitizeShift, sanitizeFxRates, sanitizePlan,
+  sanitizeGrade, sanitizeLoadedAbsence, sanitizeShift, sanitizeLoadedFxRates, sanitizePlan,
   sanitizeSteeringCommittee,
 } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
@@ -36,7 +36,6 @@ import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions } from "./document-versions";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { logDiag } from "./diagnostics";
-import { requiredIsoDateOnLoad } from "./sanitize-load-date";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
@@ -183,7 +182,7 @@ export function rowsToWorkspace(
   if (planRow) ws.plan = sanitizePlan(planRow, new Date().toISOString().slice(0, 10));
   const fxRow = rowObjects(byTable.get("fx_rates"))[0];
   if (fxRow) {
-    ws.fxRates = sanitizeFxRates({ base: fxRow.base, date: fxRow.date, fetchedAt: fxRow.fetchedAt, rates: decodeRatesMap(fxRow.rates ?? "") }, requiredIsoDateOnLoad);
+    ws.fxRates = sanitizeLoadedFxRates({ base: fxRow.base, date: fxRow.date, fetchedAt: fxRow.fetchedAt, rates: decodeRatesMap(fxRow.rates ?? "") });
   }
   // ★★ NOT silent, and NOT a rethrow. The diagnostics ring is the channel for
   //    this loss, exactly as `jsonToWorkspace` does for the same class of

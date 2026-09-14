@@ -207,9 +207,9 @@ describe("stakeholder email follows the changed-only write rule", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  // A linked email longer than the stakeholder cap would be stored CUT, so it
-  // is no copy source: the value is judged like a typed one.
-  it("refuses a copy of an over-cap (250-char) linked email, judged like a typed value", () => {
+  // The typed value is judged CAPPED (200) while the linked email is 250 chars,
+  // so the capped value never equals the copy source and no exemption applies.
+  it("refuses an over-cap (250-char) unsafe email even when the linked resource holds the same string", () => {
     const onSave = vi.fn();
     const longUnsafe = "a,b@x.co" + "m".repeat(242);
     expect(longUnsafe).toHaveLength(250);

@@ -5,7 +5,11 @@ import { markdownToWorkspace, workspaceToMarkdown } from "./markdown-codecs";
 import { ENTITY_SPECS } from "./turso-schema";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { requiredIsoDateOnLoad } from "./sanitize-load-date";
-import { sanitizeAbsence, sanitizeFxRates, sanitizeMilestone } from "./sanitize";
+import {
+  sanitizeAbsence, sanitizeFxRates, sanitizeMilestone,
+  sanitizeLoadedAbsence, sanitizeLoadedFxRates, sanitizeLoadedMilestone,
+} from "./sanitize";
+import { sanitizeSeed } from "./templates";
 
 // §539 follow-up (final fix round F1). A REQUIRED date that is shape-valid but
 // not a real calendar date must not drop its whole record on load: it is kept
@@ -94,5 +98,34 @@ describe("write paths still refuse a non-calendar required date (positive contro
     expect(sanitizeMilestone({ id: 1, name: "Go-Live", date: BAD })).toBeNull();
     expect(sanitizeFxRates({ base: "EUR", date: BAD, fetchedAt: "2026-02-01T00:00:00.000Z", rates: {} })).toBeNull();
     expect(readDiagLog().filter((e) => e.code === "storage.nonCalendarDateKept")).toHaveLength(0);
+  });
+});
+
+// C1 of the email-and-guard batch: while the date reader was an OPTIONAL second
+// parameter, `arr.map(sanitizeMilestone)` handed it the index and threw. tsc
+// cannot see that, so each public form is pinned by being passed point-free —
+// two elements, because map hands index 0 AND 1.
+describe("every date-reading sanitizer survives being passed point-free", () => {
+  const MILE = { id: 1, name: "Go-Live", date: "2026-03-01" };
+  const ABS = { id: 1, assignee: "Ada", startDate: "2026-02-01", endDate: "2026-02-02" };
+  const FX = { base: "EUR", date: "2026-02-01", fetchedAt: "2026-02-01T00:00:00.000Z", rates: {} };
+  const CASES: ReadonlyArray<readonly [string, (x: unknown) => unknown, unknown]> = [
+    ["sanitizeMilestone", sanitizeMilestone, MILE],
+    ["sanitizeLoadedMilestone", sanitizeLoadedMilestone, MILE],
+    ["sanitizeAbsence", sanitizeAbsence, ABS],
+    ["sanitizeLoadedAbsence", sanitizeLoadedAbsence, ABS],
+    ["sanitizeFxRates", sanitizeFxRates, FX],
+    ["sanitizeLoadedFxRates", sanitizeLoadedFxRates, FX],
+  ];
+  for (const [name, fn, raw] of CASES) {
+    it(name, () => {
+      const out = [raw, raw].map(fn);
+      expect(out.every((x) => x !== null)).toBe(true);
+    });
+  }
+
+  it("a template seed keeps both milestones, reading dates like the other load funnels", () => {
+    const seed = sanitizeSeed({ milestones: [MILE, { ...MILE, id: 2, date: BAD }] });
+    expect(seed?.milestones?.map((m) => m.date)).toEqual(["2026-03-01", BAD]);
   });
 });

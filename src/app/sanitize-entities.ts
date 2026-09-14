@@ -60,7 +60,20 @@ const ABSENCE_TYPE_SET: ReadonlySet<AbsenceType> = new Set(ABSENCE_TYPES);
  *  required date that is shape-valid but not a real calendar date is kept raw
  *  (with a diagnostic) rather than dropping the whole absence. */
 export function sanitizeLoadedAbsence(input: unknown): Absence | null {
-  return sanitizeAbsence(input, requiredIsoDateOnLoad);
+  return absenceWithDateReader(input, requiredIsoDateOnLoad);
+}
+
+/** ★★★ The strict form, and it takes ONE argument on purpose — as do
+ *  `sanitizeMilestone` / `sanitizeFxRates` and their `sanitizeLoaded*` twins.
+ *  Sanitizers are passed point-free (`arr.map(sanitizeX)`, `sanitizeArr`,
+ *  `fromObj:`), and `Array#map` hands a second parameter the INDEX. When the
+ *  date reader was an OPTIONAL second parameter, `sanitizeArr(raw.milestones,
+ *  sanitizeMilestone)` called `0(...)` and threw inside settings hydration, which
+ *  then overwrote the stored settings with defaults. tsc cannot see it: a
+ *  function with an extra optional parameter is assignable to `(x) => T`. The
+ *  reader-taking cores are module-private for the same reason. */
+export function sanitizeAbsence(input: unknown): Absence | null {
+  return absenceWithDateReader(input, sanitizeIsoDate);
 }
 
 /** Returns the input if it is a valid AbsenceType; otherwise falls back to
@@ -83,11 +96,11 @@ export function sanitizeAbsenceNote(s: unknown): string {
 /**
  * Full-record sanitizer for inbound Absence data (file imports, chat tool
  * calls). Drops obviously bad input and clamps fields. Returns null when
- * the record is unrecoverable (missing id, assignee, or dates). `readDate`
- * defaults to the strict `sanitizeIsoDate` (write paths); load funnels call
- * `sanitizeLoadedAbsence`, which keeps a non-calendar date raw instead.
+ * the record is unrecoverable (missing id, assignee, or dates). `readDate` is
+ * the strict `sanitizeIsoDate` via `sanitizeAbsence` (write paths); load
+ * funnels call `sanitizeLoadedAbsence`, which keeps a non-calendar date raw.
  */
-export function sanitizeAbsence(input: unknown, readDate: RequiredDateReader = sanitizeIsoDate): Absence | null {
+function absenceWithDateReader(input: unknown, readDate: RequiredDateReader): Absence | null {
   if (!input || typeof input !== "object") return null;
   const raw = input as Partial<Record<keyof Absence, unknown>>;
   const id = toNumber(raw.id);
@@ -763,9 +776,17 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
   return bucket;
 }
 
-/** `readDate` defaults to the strict `sanitizeIsoDate` (the rates fetch); the
- *  load funnels pass `requiredIsoDateOnLoad` so a stored snapshot is not lost. */
-export function sanitizeFxRates(input: unknown, readDate: RequiredDateReader = sanitizeIsoDate): FxRates | null {
+/** Strict (the rates fetch). ONE argument — see `sanitizeAbsence`. */
+export function sanitizeFxRates(input: unknown): FxRates | null {
+  return fxRatesWithDateReader(input, sanitizeIsoDate);
+}
+
+/** The load funnels' form: a stored snapshot with a non-calendar date is kept. */
+export function sanitizeLoadedFxRates(input: unknown): FxRates | null {
+  return fxRatesWithDateReader(input, requiredIsoDateOnLoad);
+}
+
+function fxRatesWithDateReader(input: unknown, readDate: RequiredDateReader): FxRates | null {
   if (!isPlainObject(input)) return null;
   if (input.base !== "EUR") return null;
   const date = readDate(input.date, "fxRates", undefined, "date");

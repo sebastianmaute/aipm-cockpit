@@ -17,9 +17,9 @@ import {
   sanitizeBudgetBucket,
   sanitizeChangeItem,
   sanitizeDiscipline,
-  sanitizeFxRates,
+  sanitizeLoadedFxRates,
   sanitizeGrade,
-  sanitizeMilestone,
+  sanitizeLoadedMilestone,
   sanitizePlan,
   sanitizeProjectMeta,
   sanitizeResource,
@@ -45,7 +45,6 @@ import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
 // ★ logDiag is a no-op when `window` is undefined and swallows its own errors,
 // so importing it here cannot break the bare-node sample generator.
 import { logDiag } from "./diagnostics";
-import { requiredIsoDateOnLoad } from "./sanitize-load-date";
 import type { SettingsOverrides } from "./settings-types";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
@@ -630,12 +629,12 @@ export function jsonToWorkspace(
       grades: ((p.grades as unknown[]) ?? []).map((g) => sanitizeGrade(g)).filter((g): g is Grade => g !== null),
       plan: sanitizePlan(p.plan ?? {}, new Date().toISOString().slice(0, 10)),
       budgets: ((p.budgets as unknown[]) ?? []).map((b) => sanitizeBudgetBucket(b)).filter((b): b is BudgetBucket => b !== null),
-      fxRates: sanitizeFxRates(p.fxRates, requiredIsoDateOnLoad),
+      fxRates: sanitizeLoadedFxRates(p.fxRates),
       status: sanitizeProjectStatus(p.status),
       // The entity sanitizers UPGRADE a legacy plain rich field (sanitizeRichText
       // -> descriptionHtml) but are DOM-free by contract, so they never run
       // DOMPurify. The whole-object load boundary is where that pass belongs.
-      milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m, requiredIsoDateOnLoad)).filter((m): m is Milestone => m !== null).map(sanitizeMilestoneRichFields),
+      milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeLoadedMilestone(m)).filter((m): m is Milestone => m !== null).map(sanitizeMilestoneRichFields),
       // ★★★ The RAW log is attached BEFORE `sanitizeChangeRichFields`, because
       //     that pass is what sanitizes it; attaching it after would store an
       //     untrusted file's HTML verbatim. Why it has to be carried across

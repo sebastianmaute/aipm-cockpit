@@ -16,7 +16,7 @@ import {
   sanitizeLoadedAbsence,
   sanitizeBudgetBucket,
   sanitizeDiscipline,
-  sanitizeFxRates,
+  sanitizeLoadedFxRates,
   sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
@@ -27,7 +27,6 @@ import {
   sanitizeShift,
   fkIdOrUndefined,
 } from "./sanitize";
-import { requiredIsoDateOnLoad } from "./sanitize-load-date";
 import {
   type Absence,
   type BudgetBucket,
@@ -304,7 +303,7 @@ function parseFxRatesMarkdown(md: string): FxRates | null {
     if (!tline || tline.startsWith("#") || tline.startsWith("|")) continue;
     const cells = tline.split(",").map((s) => s.trim());
     if (cells.length < 4) continue;
-    return sanitizeFxRates({ base: cells[0], date: cells[1], fetchedAt: cells[2], rates: decodeRatesMap(cells.slice(3).join(",")) }, requiredIsoDateOnLoad);
+    return sanitizeLoadedFxRates({ base: cells[0], date: cells[1], fetchedAt: cells[2], rates: decodeRatesMap(cells.slice(3).join(",")) });
   }
   return null;
 }

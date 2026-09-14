@@ -15,7 +15,7 @@ import {
   sanitizeIdList,
   sanitizeIsoDate,
   sanitizeLabels,
-  sanitizeMilestone,
+  sanitizeLoadedMilestone,
   sanitizeOptionalMinutes,
   sanitizePriority,
   sanitizeStakeholder,
@@ -83,7 +83,9 @@ function sanitizeArr<T>(
   fn: (x: unknown) => T | null,
 ): T[] | undefined {
   if (!Array.isArray(raw)) return undefined;
-  const out = raw.map(fn).filter((x): x is T => x !== null);
+  // ★ `(x) => fn(x)`, never `raw.map(fn)`: map's index must not reach a
+  //   sanitizer's second parameter (C1 of the email-and-guard batch).
+  const out = raw.map((x) => fn(x)).filter((x): x is T => x !== null);
   return out.length ? out : undefined;
 }
 
@@ -355,7 +357,9 @@ export function sanitizeSeed(raw: unknown): TemplateSeed | undefined {
   if (!isPlainObject(raw)) return undefined;
   const seed: TemplateSeed = {};
   const tasks = sanitizeArr<Task>(raw.tasks, sanitizeSeedTask);
-  const milestones = sanitizeArr<Milestone>(raw.milestones, sanitizeMilestone);
+  // Stored templates are a LOAD funnel (settings hydration), so a seed
+  // milestone's non-calendar date is kept like the workspace funnels keep it.
+  const milestones = sanitizeArr<Milestone>(raw.milestones, sanitizeLoadedMilestone);
   const rd = sanitizeArr<RaidItem>(raw.raid, sanitizeSeedRaidItem);
   const changes = sanitizeArr<ChangeItem>(raw.changes, sanitizeSeedChangeItem);
   const stakeholders = sanitizeArr<Stakeholder>(

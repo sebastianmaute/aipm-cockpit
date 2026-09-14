@@ -38058,9 +38058,9 @@ grep -rn "project?\.name\|project?\.code\|project?\.customer\|project?\.startDat
 JSON load while IndexedDB kept it). What the code does now: OPTIONAL date fields still blank on load.
 REQUIRED dates are kept as their raw string on load, with a `storage.nonCalendarDateKept` diagnostic
 naming only the entity kind, id and field, through `requiredIsoDateOnLoad` — absence `startDate` /
-`endDate` (`sanitizeLoadedAbsence` on the JSON, CSV, Markdown and Turso funnels), milestone `date` (JSON,
-via `sanitizeMilestone` with the load reader), the fx-rates `date` (`sanitizeFxRates` on all four
-funnels) and the resource plan's `startDate` / `endDate` (`sanitizePlan`, where one such value used to
+`endDate` (`sanitizeLoadedAbsence` on the JSON, CSV, Markdown and Turso funnels), milestone `date` (JSON
+and stored template seeds, via `sanitizeLoadedMilestone`), the fx-rates `date` (`sanitizeLoadedFxRates` on
+all four funnels) and the resource plan's `startDate` / `endDate` (`sanitizePlan`, where one such value used to
 reset both dates to the defaults). CSV, Markdown and Turso milestones (`buildMilestoneFromObj`) and
 IndexedDB never validated these dates, so they keep them raw without a diagnostic. Writes still refuse
 them: the AI absence and milestone writers call the strict `sanitizeAbsence` / `sanitizeMilestone`, and
@@ -38181,9 +38181,9 @@ past its own month's end, which V8 rolls over. A calendar event's `date`, `toDat
 `until` can therefore be stored with an impossible date and rendered on a different day.
 
 Since §539, `sanitizeIsoDate` refuses these dates everywhere else, so the inline-AI card for calendar events
-(`entity-descriptor.ts` uses `acceptsEventDate`) and the rest of the app disagree on them. The gap was
+(`src/app/inline-ai-edit/entity-descriptor.ts` uses `acceptsEventDate`) and the rest of the app disagree on them. The gap was
 documented as stated-not-fixed in `calendar-event.ts`'s header and in the date comments in
-`entity-descriptor.ts` and `plan.ts`, with no register entry until now.
+`src/app/inline-ai-edit/entity-descriptor.ts` and `src/app/inline-ai-edit/plan.ts`, with no register entry until now.
 
 Fix shape: give `isoDateOrUndefined` the same `Date.UTC` round trip `sanitizeIsoDate` uses (keeping its own
 choice about a year bound), then update the three comments that name the gap. Check what the change does to

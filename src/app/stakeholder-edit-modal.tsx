@@ -159,12 +159,8 @@ export function StakeholderEditModal({
       setError(t(lang, "raidErrorTitleRequired"));
       return;
     }
-    // A copy only exempts when it FITS the stakeholder cap — an over-cap linked
-    // email would be stored cut (torn), so it is judged like a typed value,
-    // mirroring propagation's own over-cap skip (`retargetStakeholderEmails`).
     const linked = linkedResourceEmail(resources, draft.resourceId);
-    const fittingCopy = linked !== undefined && linked.trim().length <= BUDGET_NAME_MAX ? linked : undefined;
-    const emailRefusal = editorEmailRefusalMessage(lang, cappedEmail, opened.email, [fittingCopy]);
+    const emailRefusal = editorEmailRefusalMessage(lang, cappedEmail, opened.email, [linked]);
     if (emailRefusal) {
       setError(emailRefusal);
       return;

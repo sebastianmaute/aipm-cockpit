@@ -18,7 +18,7 @@ import {
   sanitizeLoadedAbsence,
   sanitizeBudgetBucket,
   sanitizeDiscipline,
-  sanitizeFxRates,
+  sanitizeLoadedFxRates,
   sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
@@ -29,7 +29,6 @@ import {
   sanitizeShift,
   fkIdOrUndefined,
 } from "./sanitize";
-import { requiredIsoDateOnLoad } from "./sanitize-load-date";
 import {
   type Absence,
   type BudgetBucket,
@@ -520,7 +519,7 @@ export function decodeRatesMap(s: string): Record<string, number> {
 function parseFxRatesLine(line: string): FxRates | null {
   const cells = parseCsv(line)[0];
   if (!cells || cells.length < 4) return null;
-  return sanitizeFxRates({ base: cells[0], date: cells[1], fetchedAt: cells[2], rates: decodeRatesMap(cells[3]) }, requiredIsoDateOnLoad);
+  return sanitizeLoadedFxRates({ base: cells[0], date: cells[1], fetchedAt: cells[2], rates: decodeRatesMap(cells[3]) });
 }
 
 function csvToDisciplines(csv: string, diag?: ImportDiag): Discipline[] {

@@ -58,11 +58,8 @@ import {
   fkIdOrUndefined,
   isPlainObject,
 } from "./sanitize-core";
-import {
-  BUDGET_NAME_MAX,
-  AMOUNT_MAX,
-  sanitizeIdList,
-} from "./sanitize-entities";
+import { BUDGET_NAME_MAX, AMOUNT_MAX, sanitizeIdList } from "./sanitize-entities";
+import { requiredIsoDateOnLoad } from "./sanitize-load-date";
 import { sanitizeRichText } from "./rich-text-plain";
 import { RENDER_SINK, RICH_SINK } from "./html-start";
 // ★ Type-only would not do: `acceptsEventDuration` is consulted at runtime by
@@ -265,7 +262,10 @@ export function dropUnacceptedMilestoneFields<T extends object>(patch: T): T {
   return (out ?? patch) as T;
 }
 
-export function sanitizeMilestone(input: unknown, readDate: RequiredDateReader = sanitizeIsoDate): Milestone | null {
+// ★★ ONE argument each, like `sanitizeAbsence` (see the note there): passed point-free, a 2nd param gets the INDEX.
+export function sanitizeMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, sanitizeIsoDate); }
+export function sanitizeLoadedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnLoad); }
+function milestoneWithDateReader(input: unknown, readDate: RequiredDateReader): Milestone | null {
   if (!isPlainObject(input)) return null;
   const o = input;
   const id = toNumber(o.id);
