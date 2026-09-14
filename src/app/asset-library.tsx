@@ -19,7 +19,7 @@
 // nothing else — and leave any resulting broken image for the document
 // editor to surface.
 
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from "react";
 import { ExclamationTriangleIcon, EyeSlashIcon } from "./icons";
 import { t, localeFor, type Lang } from "./i18n";
 import type { DocumentAsset } from "./document-asset";
@@ -91,6 +91,12 @@ export function AssetLibrary({
   loadImage,
 }: AssetLibraryProps) {
   const confirm = useConfirm();
+  // §322 — base id for each row's Insert-disabled reason. Combined with the
+  // row INDEX (not the asset id) below, mirroring `shift-edit-modal.tsx`'s
+  // `dayNoticeBase` — one `useId()` call, one stable-per-render suffix per
+  // row, so every row gets a valid, unique id without escaping an asset id
+  // that could contain characters an HTML id cannot carry.
+  const reasonIdBase = useId();
   // Index into `sorted` of the asset currently open in the preview lightbox;
   // `null` means closed. Kept as an index rather than an id so "next"/"prev"
   // inside AssetPreviewModal walk the SAME order these rows render in.
@@ -268,6 +274,17 @@ export function AssetLibrary({
               const isBlocked = !isDangling && isBlockedAssetMime(asset.mime);
               const isBusy = busyId === asset.id;
               const isEditing = editingId === asset.id;
+              // §322 — Insert can only ever render blocked (refused mime) or
+              // missing (dangling) art, so it disables on either state and
+              // exposes WHY through the row's own sr-only reason span rather
+              // than duplicating the string in a second node. `undefined`
+              // when neither applies, matching the gutter `title` above.
+              const insertReason = isDangling
+                ? t(lang, "assetLibraryDangling")
+                : isBlocked
+                  ? t(lang, "assetLibraryBlocked")
+                  : undefined;
+              const rowReasonId = `${reasonIdBase}-${index}`;
               return (
                 <tr key={asset.id}>
                   <td className="px-3 py-2 font-medium text-foreground">
@@ -314,8 +331,11 @@ export function AssetLibrary({
                                 span, and this sr-only span is its CHILD, so
                                 that span is not contentless. The premise was
                                 wrong; the conclusion — keep the sr-only text —
-                                is right for the reason above. */}
-                            <span className="sr-only">{t(lang, "assetLibraryDangling")}</span>
+                                is right for the reason above.
+                                ★ §322 — also the Insert button's
+                                `aria-describedby` target on this row: same
+                                text, no duplicate node. */}
+                            <span id={rowReasonId} className="sr-only">{t(lang, "assetLibraryDangling")}</span>
                           </>
                         )}
                         {isBlocked && (
@@ -351,8 +371,11 @@ export function AssetLibrary({
                                 by content hash returns early without a metadata
                                 write, so the stale mime would never be
                                 corrected and the button would silently do
-                                nothing. */}
-                            <span className="sr-only">{t(lang, "assetLibraryBlocked")}</span>
+                                nothing.
+                                ★ §322 — also the Insert button's
+                                `aria-describedby` target on this row: same
+                                text, no duplicate node. */}
+                            <span id={rowReasonId} className="sr-only">{t(lang, "assetLibraryBlocked")}</span>
                           </>
                         )}
                       </span>
@@ -437,12 +460,22 @@ export function AssetLibrary({
                         </Button>
                       )}
                       {onInsert && (
+                        // §322 — a refused-mime or dangling row can only ever
+                        // insert a broken/missing image into the document, so
+                        // Insert disables on either state, alongside `isBusy`.
+                        // The reason reaches every user off the ONE existing
+                        // sr-only span above: `aria-describedby` for AT,
+                        // `title` (same string) for a sighted mouse hover —
+                        // the gutter glyph stays the persistent visual cue.
+                        // The accessible NAME is unchanged (label-in-name).
                         <Button
                           variant="secondary"
                           size="xs"
-                          disabled={isBusy}
+                          disabled={isBusy || isBlocked || isDangling}
                           onClick={() => onInsert(asset.id)}
                           aria-label={rowLabel(t(lang, "insert"), token)}
+                          aria-describedby={insertReason ? rowReasonId : undefined}
+                          title={insertReason}
                         >
                           {t(lang, "insert")}
                         </Button>

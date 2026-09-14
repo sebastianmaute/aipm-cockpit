@@ -9,7 +9,7 @@ import { createLinkSink, type LinkSink } from "./ooxml-links";
 // through the sink. Reused rather than re-derived so this exporter and the
 // document renderer cannot disagree about what a run's marks mean.
 import { pptxRun } from "./doc-render-pptx-slides";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
 import {
   COLOR_DARK_BLUE,
   COLOR_GREEN,
@@ -67,8 +67,8 @@ export function buildPptx(sections: ExportSection[], lang: Lang): Blob {
       slides.push(
         chromeSlide(
           buildPptxNoticeSlide(
-            `Showing the first ${PPTX_MAX_ROWS_PER_SECTION} of ${section.rows.length} ${section.title} rows.`,
-            "Export to XLSX for the full list.",
+            t(lang, "pptxTruncatedNotice", PPTX_MAX_ROWS_PER_SECTION, section.rows.length, section.title),
+            t(lang, "pptxTruncatedHint"),
             lang,
           ),
         ),

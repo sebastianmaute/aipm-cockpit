@@ -319,7 +319,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§90](#90-oncreateresource-is-unguarded-in-a-popout-and-cannot-take-guardedit--open) | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open | undefined` | found in the help-coverage slice-3 review, unreleased | open |
 | [§91](#91-a-popout-can-record-an-undo-entry-and-persist-an-activity-line--open) | A popout can record an undo entry and persist an activity line — open | found in the help-coverage slice-3 review, unreleased | S | open |
 | [§92](#92-the-settings-types--workspace--document-model-cycle-is-a-standing-trap-for-any-eval-time-snapshot--open) | The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot — open | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per instance | open |
-| [§93](#93-the-pptx-truncation-notice-is-a-hardcoded-english-frame-around-a-localized-title--open) | The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — open | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open |
+| [§93](#93-the-pptx-truncation-notice-is-a-hardcoded-english-frame-around-a-localized-title--closed-2026-09-14) | The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — CLOSED 2026-09-14 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | **CLOSED** 2026-09-14 |
 | [§94](#94-pptx-pagination-counts-logical-lines-so-a-wrapped-line-still-overflows--open-eye-verify-owed) | PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
 | [§95](#95-no-test-in-ci-exercises-a-real-turso-database--open-narrowed-2026-08-25) | No test in CI exercises a real Turso database — open, NARROWED 2026-08-25 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M | open |
 | [§96](#96-the-previewprint-path-loads-the-whole-section-registry-unconditionally--open-priority-unknown) | The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
@@ -387,7 +387,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§158](#158-a-blockquotes-own-data-align-is-dropped--importedai-html-only--open) | A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only — open | — | — | open |
 | [§159](#159-today-and-tz-are-two-adjacent-string-parameters-on-the-recap-path-so-a-transposition-typechecks--closed-2026-08-17-by-projectclock) | `today` and `tz` are two adjacent `string` parameters on the recap path, so a transposition typechecks | — | — | **CLOSED** 2026-08-17 by `ProjectClock` |
 | [§160](#160-an-ai-update_settings-writes-two-activity-rows-and-the-second-one-cannot-be-taught-who-caused-it--closed-2026-08-17) | An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it | — | — | **CLOSED** 2026-08-17 |
-| [§161](#161-latestat-picks-the-latest-activity-entry-by-raw-lexicographic-string-compare) | `latestAt` picks the "latest" activity entry by raw lexicographic string compare | — | — | open |
+| [§161](#161-latestat-picks-the-latest-activity-entry-by-raw-lexicographic-string-compare--closed-2026-09-14) | `latestAt` picks the "latest" activity entry by raw lexicographic string compare — CLOSED 2026-09-14 | — | — | **CLOSED** 2026-09-14 |
 | [§162](#162-the-historysearch-kill-switch-is-advertisement-scoped-not-enforced-at-the-executor--closed-2026-08-17-enforcement-added) | The `historySearch` kill switch is advertisement-scoped, not enforced at the executor | — | — | **CLOSED** 2026-08-17 (enforcement added) |
 | [§163](#163-completion-trend-reconstruction-under-counts-the-historical-denominator-after-a-mass-delete-and-its-numerator-never-moves--denominator-fixed-2026-08-17-numerator-fixed-2026-08-30--closed-2026-08-30) | Completion-trend reconstruction under-counts the historical denominator after a mass delete, and its numerator never moves — denominator FIXED 2026-08-17, numerator FIXED 2026-08-30 | — | — | **CLOSED** 2026-08-30 |
 | [§164](#164-renderactivityentry-lacks-the-args-element-guard-the-activity-panel-has-and-it-runs-inside-the-ai-tool-loop--closed-2026-08-17) | `renderActivityEntry` lacks the `args`-element guard the Activity panel has, and it runs inside the AI tool loop | — | — | **CLOSED** 2026-08-17 |
@@ -548,7 +548,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§319](#319-this-registers-own-index-rebuild-recipe-silently-strips-hand-written-state-cells-and-claims-to-be-idempotent--open) | This register's own index-rebuild recipe silently strips hand-written `State` cells, and claims to be idempotent — open | found 2026-08-31 while filing §318 | S | open |
 | [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | open |
 | [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | open |
-| [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked) | The asset library offers Insert on a refused-format row, which can only ever render as blocked | found 2026-08-31 in the §230 cold review | S | open |
+| [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked--closed-2026-09-14) | The asset library offers Insert on a refused-format row, which can only ever render as blocked — CLOSED 2026-09-14 | found 2026-08-31 in the §230 cold review | S | **CLOSED** 2026-09-14 |
 | [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | open |
 | [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01) | ~~`actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name~~ | 0.272.0 (Zoline) | S | **CLOSED** 2026-09-01 (closed WIDER than its title; popover internals carved out to §328) |
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-all-four-light-schemes--closed-2026-09-01) | ~~Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes~~ | found 2026-08-31 in the §300 fix round | M | **CLOSED** 2026-09-01 (title AMENDED — the filed figure was beacon vs `--surface`; all four light schemes fail against `--surface-muted`) |
@@ -565,7 +565,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 | [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--open) | A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all — open | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; the DISCLOSURE half of that report is fixed, this is the residue | S | open |
 | [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--open) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | open |
-| [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--open) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
+| [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--closed-2026-09-14) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — CLOSED 2026-09-14 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-14 |
 | [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--open) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
 | [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
 | [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--open) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
@@ -7163,11 +7163,32 @@ the rule as a manual check and the table as a worked example of applying it.
 
 ---
 
-## 93. The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — open
+## 93. The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — CLOSED 2026-09-14
 
-**Status:** open — a hardcoded English frame around a localized title. Reproduced 2026-08-28 by `grep -rn "Showing the first" src/app --include=*.ts`.
-
-**Work item:** #130
+**Status:** CLOSED 2026-09-14 on `fix/export-activity-alt-batch`. Both sites now source the notice
+from two new i18n keys — `pptxTruncatedNotice` ("Showing the first {0} of {1} {2} rows." / DE "Es
+werden die ersten {0} von {1} Zeilen aus {2} angezeigt.") and `pptxTruncatedHint` ("Export to XLSX
+for the full list." / DE "Für die vollständige Liste als XLSX exportieren.") — added directly after
+`exportPptxHint` in `src/app/i18n.ts` and `src/app/i18n.de.ts`, so `section.title` (already localized
+by the registry) no longer gets spliced into hardcoded English prose. `export-pptx.ts`'s `buildPptx`
+calls `t(lang, "pptxTruncatedNotice", PPTX_MAX_ROWS_PER_SECTION, section.rows.length, section.title)`
+for the notice line and `t(lang, "pptxTruncatedHint")` for the second line; `doc-render-pptx.ts`'s
+`dataSection` case calls only the notice key — one line there, no hint, unchanged from before. The
+★★ comment that used to describe this bug there now explains the shared key instead. Pinned by
+`src/app/export-ooxml.test.ts`'s "localizes the truncation notice for a German deck (§93)" and
+`src/app/doc-render-pptx.test.ts`'s "localizes the truncation notice for German — no hint line
+(§93)", both asserting the German sentence (with the German section title) appears and that
+`/Showing the first/` does not. The pre-existing English assertions — `export-ooxml.test.ts`'s
+"section exceeding per-section cap yields a truncation-notice slide" (`/Showing the first 100 of
+105/`) and `doc-render-pptx.test.ts`'s "caps a long section at PPTX_MAX_ROWS_PER_SECTION and says it
+truncated" — stay green unmodified, so the English output is byte-identical to before. Mutation-
+checked: reverting both call sites back to the old hardcoded template literals turns the two new
+German tests red (`Tests 2 failed | 155 passed (157)` across the two files); reapplying the fix
+returns to `Tests 157 passed (157)`. Verified 2026-09-14: `npx vitest run src/app/export-ooxml.test.ts
+src/app/doc-render-pptx.test.ts src/app/doc-render-pptx-slides.test.ts` → `Test Files 3 passed (3)`,
+`Tests 167 passed (167)`, exit 0; `npx tsc --noEmit` exit 0; `npx eslint --max-warnings=0` on every
+touched file exit 0. Residual: none known — the continuation marker the closing paragraph below
+already points to was numeric before this fix and is unaffected by it.
 
 Both PPTX paths build the same sentence from a hardcoded English frame and a section title that the
 registry has ALREADY translated, so a German deck gets a mixed-language sentence:
@@ -13879,11 +13900,73 @@ two citations into one hit. Use
 breakdown. ★★★ **RUN IT — no count is quoted here, deliberately.** Every figure the two previous
 banners carried was measured, and every one of them was wrong by the time it was read.
 
-## 161. `latestAt` picks the "latest" activity entry by raw lexicographic string compare
+## 161. `latestAt` picks the "latest" activity entry by raw lexicographic string compare — CLOSED 2026-09-14
 
-**Status:** open — a latest-wins compare done lexicographically on unnormalised stamps. Reproduced 2026-08-28 by `grep -n "latestAt" src/app/history-search.ts`.
+**Status:** CLOSED 2026-09-14 on `fix/export-activity-alt-batch` (calendar-range validation added
+after review, on the same day). `sanitizeActivityEntry` (`activity-log.ts`) now NORMALISES `timestamp` at
+the load boundary via a new pure `normalizeActivityTimestamp` helper: an ISO 8601 shape (`YYYY-MM-DD`,
+optionally `THH:MM[:SS][.sss]`, optionally `Z` or `±HH:MM`) is re-stamped to canonical `toISOString()`
+shape — a zoneless date-time is treated as UTC (deterministic across devices, not `Date.parse`'s
+device-dependent local-time reading), a date-only value is UTC midnight — and anything else is dropped,
+the same as a non-string timestamp already was: non-ISO-8601 junk, an ISO-8601 shape whose parse is
+non-finite (e.g. month "13"), AND (round 1) an ISO-8601 shape that is CALENDAR-INVALID even though it
+parses to a finite date. The last case is load-bearing on its own: V8's `Date.parse` silently ROLLS OVER
+an out-of-range day-of-month rather than rejecting it (`"2026-02-30"` → `2026-03-02`), so a
+finite-date-only check would have accepted a corrupt date and silently rewritten it to a different, wrong
+instant instead of dropping the entry. Every captured field is therefore range-checked against the
+INPUT's own digits before parsing: month 01–12; day 1..daysInMonth(year, month) with the full Gregorian
+leap-year rule (divisible by 4, except centuries, except those divisible by 400 — so 2024-02-29 and
+2000-02-29 are kept, 2026-02-29 and 2100-02-29 are dropped); hour 00–23 (24:00 is rejected rather than
+letting JS roll it to the next day); minute and second 00–59; offset hours 00–14 and offset minutes
+00–59. No comparator changed: `mergeActivityLogs`'s sort-then-cap, `summarizeRecentActivity`'s `latestAt`,
+the activity panel's sort and `dashboard-delta.ts` all now see only canonical stamps, because every load
+funnel (JSON, IDB, CSV, Markdown, Turso) converges on `sanitizeActivityLog` → `sanitizeActivityEntry`.
 
-**Work item:** #168
+Pinned by 18 new tests total: `activity-log.test.ts`'s "sanitizeActivityEntry — timestamp normalisation
+(§161)" block carries 16 (offset → UTC instant; zoneless → UTC; date-only → UTC midnight; 2 canonical →
+byte-identical cases; 3 junk/invalid-shape → dropped cases; and, from round 1, Feb 30 dropped, Feb 29
+dropped in 2026, Feb 29 dropped in 2100, Feb 29 kept in 2024, Feb 29 kept in 2000, `T24:00` dropped,
+minute 60 dropped, offset `+15:00` dropped), `activity-log-merge.test.ts` carries 1 ("an offset stamp
+that is actually newest survives the cap after sanitize (§161)"), and `history-search.test.ts` carries 1
+("§161: after sanitize, latestAt follows the real instant across an offset") — the last two sanitize
+their fixtures before calling the consumer, so they prove the fix reaches the consumer rather than merely
+existing in the sanitizer (a canonical-only fixture cannot tell a fixed implementation from a broken
+one). Mutation-checked TWICE, once per round:
+- Round 0: reverting `normalizeActivityTimestamp` to return its input unchanged (the pre-fix
+  `typeof === "string"`-only behaviour) → `Tests 8 failed | 126 passed (134)`. The other 2 of the 10
+  tests that existed at that point stayed green under this mutant — the canonical-passthrough cases,
+  where the raw string already equals its own canonical form, so "return raw" and "normalise" agree.
+- Round 1 (this round, after adding calendar-range validation): reverting `normalizeActivityTimestamp` to
+  the round-0 shape/finite-check-only version (no range checks) → `Tests 5 failed | 137 passed (142)`.
+  Of the 8 new round-1 tests, 5 are sensitive to this mutant (Feb 30, Feb 29/2026, Feb 29/2100, `T24:00`,
+  offset `+15:00` — all cases where V8 rolls the value over to a DIFFERENT finite instant rather than
+  producing `NaN`) and 3 stay green even under it: the two "kept" leap-year cases (2024-02-29,
+  2000-02-29) are genuinely valid dates that both the mutant and the fix parse identically, and "drops
+  minute 60" stays green because V8's `Date.parse` already returns `NaN` for an out-of-range MINUTE
+  (unlike an out-of-range DAY/HOUR/OFFSET, which it silently rolls over) — the pre-existing
+  `Number.isFinite(ms)` check alone already caught that one input, so the new explicit check is
+  correct-but-redundant for it specifically, while still load-bearing for the other 5.
+Reapplying the fix returns to `Test Files 3 passed (3)`, `Tests 142 passed (142)` both times. Verified
+2026-09-14: `npx vitest run src/app/activity-log.test.ts src/app/activity-log-merge.test.ts
+src/app/history-search.test.ts` → `Test Files 3 passed (3)`, `Tests 142 passed (142)`, exit 0 (18 of
+those matching `-t "161"`); the broader `golden-workspace.test.ts` / `entity-persistence-registry.test.ts`
+/ `workspace.test.ts` / `dashboard-delta.test.ts` / `dashboard-delta.property.test.ts` /
+`activity-log-panel.test.tsx` / `use-activity-log.test.tsx` / `completion-trend.test.ts` run →
+`Test Files 8 passed (8)`, `Tests 206 passed (206)`, exit 0 (the byte-stable golden fixtures did NOT
+change — but that proves nothing about this fix: `sample-workspace-small.json` carries no `activityLog`,
+so the golden suite never reaches `normalizeActivityTimestamp`); `npx tsc --noEmit` exit
+0; `npx eslint --max-warnings=0` on every touched file exit 0. Residual: none known in the four consumers
+named above — each reads `activityLog` only from workspace state populated either by `applyWorkspace`
+(fed from a `sanitizeActivityLog` output on every one of the five load-funnel call sites:
+`browser-backend.ts`/IDB, `csv-codecs-config.ts`/CSV, `markdown-codecs-core.ts`/Markdown,
+`turso-schema.ts`/Turso, `workspace.ts`/JSON) or by `appendActivityEntry`/`useActivityLog` (which always
+mint `new Date().toISOString()`, already canonical) — no call site was found that hands any of the four
+consumers a raw, unsanitized log.
+
+★ EVERYTHING BELOW DESCRIBES THE PRE-FIX TREE and is kept as the diagnosis, not as a current reading —
+same convention as §162 and §165. Where it says "nothing enforces that" or that `sanitizeActivityEntry`
+"never normalises", read the opposite: normalisation is exactly what the closure above added, at the same
+function. The "Fixing it" section below is what was implemented, verbatim.
 
 Opened 2026-08-16 out of the AI Recall B2b slice. **Pre-existing class, not introduced here** — B2b
 made it MODEL-VISIBLE by putting `latestAt` into the ambient recap sentence the assistant reads every
@@ -26519,15 +26602,40 @@ a ref-based bail read at dispatch (the ref is already there for aborts) rather t
 the closure. Cheap — but it changes the send path, which is why it was not folded into a load-path
 slice.
 
-## 322. The asset library offers Insert on a refused-format row, which can only ever render as blocked
+## 322. The asset library offers Insert on a refused-format row, which can only ever render as blocked — CLOSED 2026-09-14
 
-**Status:** OPEN. Filed 2026-08-31 from the §230 cold review — a gap the §230 disclosure work
-exposed rather than caused. Never machine-verified as a user-visible failure; the code path is read
-off `asset-library.tsx`, where the Insert button is rendered under `onInsert &&` with no
-`isBlocked` guard. Reproduce with
-`grep -n "onInsert &&" src/app/asset-library.tsx`.
+**Status:** CLOSED 2026-09-14 on `fix/export-activity-alt-batch`. User decision taken 2026-09-14:
+option (a) "disable with a reason" (of the three this entry listed), applied to BOTH the blocked row
+and the dangling row — the button is one call site, so one fix covers both. `asset-library.tsx`'s
+per-row Insert `Button` now disables on `isBusy || isBlocked || isDangling`. The reason reaches every
+user off the row's OWN EXISTING sr-only marker span — no duplicate text node: `aria-describedby`
+points at that span (a stable id per row, minted from one `useId()` call combined with the row
+index, mirroring `shift-edit-modal.tsx`'s `dayNoticeBase` pattern) for assistive tech, and the same
+string is repeated on the button's `title` for a sighted mouse hover — the gutter glyph stays the
+persistent visual cue. The accessible NAME is unchanged (`rowLabel(t(lang, "insert"), token)` —
+label-in-name holds).
 
-**Work item:** #237
+Pinned by three named tests in `asset-library.test.tsx`: "disables Insert on a blocked row and
+describes the reason to assistive tech", "disables Insert on a dangling row and describes the reason
+to assistive tech", and "keeps Insert enabled with no describedby reason on a healthy row, and
+inserts on click". Mutation-checked: reverting the Insert `Button`'s `disabled`/`aria-describedby`/
+`title` props to their pre-fix form turns the first two tests red (`Tests 2 failed | 36 passed (38)`
+in `asset-library.test.tsx` alone); restoring them returns to green. Verified 2026-09-14: `npx vitest
+run src/app/asset-library.test.tsx src/app/asset-library-modal.test.tsx` → `Test Files 2 passed (2)`,
+`Tests 41 passed (41)`, exit 0; `npx tsc --noEmit` exit 0; `npx eslint --max-warnings=0
+src/app/asset-library.tsx src/app/asset-library.test.tsx` exit 0.
+
+Residuals, stated honestly: (1) an asset already inserted into a document before its row went
+blocked or dangling is untouched by this fix — the in-document §230 marker is what discloses that
+reference, not this control. (2) A blocked asset still cannot be repaired from the UI — §225
+territory: `findDuplicate` matches on hash alone and returns before any metadata write, so
+re-uploading the identical file never corrects a stale stored mime; only recording the mime
+alongside the bytes, as §225 describes, would let a re-upload repair it. (3) `onInsert` renders from
+exactly one call site — the `Button` inside `AssetLibrary` (`src/app/asset-library.tsx`); grep
+`onInsert` across `src/app` confirms `asset-library-modal.tsx` and `documents-asset-section.tsx` only
+supply or wrap that same callback and mount no Insert control of their own, and
+`document-block-gutter.tsx`'s `onInsert` is an unrelated block-add callback (`index, type`), not an
+asset insert — so no other surface needed this guard.
 
 ★ **Number:** 321 was held by a concurrent branch at filing time, so this entry took 322. A number
 is only reserved once it is on `origin/main`; if 321 never lands, the gap stays.
@@ -27699,14 +27807,48 @@ transition, so drag POSITION is restored correctly. `useResizable` has no such h
 window mechanics — has the identical shape. Enumerate other affected call sites before fixing;
 a fix belongs in the hook (take `open`, mirroring `useDraggable`), not at each call site.
 
-## 339. A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — open
+## 339. A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — CLOSED 2026-09-14
 
-**Status:** open — **never machine-verified** (2026-09-02). Reported by a cold a11y reviewer against
-source; no test exercises the rename x broken-image combination. Re-check by reading `imageName` in
-`src/app/document-preview.tsx` against the `alt` written at insert time in
-`src/app/documents-asset-section.tsx`.
+**Status:** CLOSED 2026-09-14 on `fix/export-activity-alt-batch`. `document-preview.tsx`'s
+interactivity effect (the one that stamps `role`/`tabindex`/`aria-label` on `assetImagesIn(el)`) now
+calls a new `syncAltToLiveName(imgs, assetsById)` once, ABOVE both branches, so both the normal
+branch and the `tursoConfig === null` branch (bytes never load there, so a stale `alt` is the ONLY
+thing the reader ever sees) rewrite each image's `alt` to `assetsById.get(id)?.name` whenever that
+name is non-empty, leaving `alt` untouched when no metadata row exists for the id. The `★` comment
+above `imageName` now says its `alt` fallback is the genuine last-resort path (metadata missing
+entirely) rather than the common one, since the DOM node's `alt` is kept in step with live metadata
+whenever metadata exists. Only the RENDERED node is rewritten — the persisted block HTML
+`documents-asset-section.tsx` writes at insert time is untouched, so this is a rendered-DOM fix, not
+a persistence fix.
 
-**Work item:** #245
+Pinned by three named tests in `document-preview.test.tsx`'s "DocumentPreview — rendered alt follows
+the live asset name (§339)": "rewrites a stale alt to the live asset name" (normal branch),
+"rewrites a stale alt even when asset storage is off (null config)" (the `tursoConfig === null`
+branch), and "leaves alt untouched when there is no metadata for the id" (the skip case).
+Mutation-checked: removing the `syncAltToLiveName` call turns the first two red (`Tests 2 failed | 17
+passed (19)`); restoring it returns to `Tests 19 passed (19)`. Verified 2026-09-14: `npx vitest run
+src/app/document-preview.test.tsx` → `Test Files 1 passed (1)`, `Tests 19 passed (19)`, exit 0; `npx
+tsc --noEmit` exit 0; `npx eslint --max-warnings=0 src/app/document-preview.tsx
+src/app/document-preview.test.tsx` exit 0.
+
+Residuals, stated honestly: (1) the PERSISTED `alt` in stored block HTML stays stale after a rename —
+by design, this fix only touches the rendered DOM — and that is harmless in practice because every
+OTHER reader of an asset's name checks live metadata before ever reading `alt`, verified by grep:
+`doc-render-docx.ts` and `doc-render-pptx.ts`'s export placeholders both read `byId.get(id)?.name ??
+id` for the `assetExportPlaceholder` caption, never `alt`; `doc-render-html.ts`'s STANDALONE-only
+`inlineDocumentImages` replaces an omitted `<img>` with that same placeholder built from `nameById`
+rather than leaving an `<img>` tag at all, and adds no accessible label to the images it does keep;
+and the lightbox (`asset-preview-modal.tsx`) renders `alt={current?.name}` from the `assets` list
+`document-preview.tsx` builds via `imageName()`, which already preferred live metadata before this
+fix. So no *reader of a name* anywhere in the app still saw the stale value — only the browser's own
+broken-image fallback paint did, which is what this fix targets. (2) `documents-history-modal.tsx`
+still renders images against the same stale persisted `alt` and is deliberately untouched (out of this fix's scope)
+— not a 2.5.3 mismatch there, verified by grep: that modal's only `aria-label`s are on the per-row
+Preview/Restore buttons, never on the `<img>` itself, so there is no accessible name for the painted
+text to disagree with. §342 (the `role="button"` question on that pane) stays open and untouched. (3)
+jsdom renders no broken-image fallback paint at all, so nothing here demonstrates the visual repair —
+an eye-verify against a real broken-image case (rename an asset, then break its bytes so no `src`
+loads) is still owed.
 
 The `alt` attribute is baked into the persisted block HTML AT INSERT TIME and never rewritten.
 `imageName()` deliberately prefers the LIVE metadata name, because after a rename the current name

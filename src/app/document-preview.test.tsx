@@ -228,6 +228,68 @@ describe("DocumentPreview + useDocumentAssets — a repair reaches a placed imag
   });
 });
 
+// ★★★ A RENAME MUST NOT LEAVE A STALE PAINTED ALT (§339, WCAG 2.5.3). The
+// insert path bakes the asset's name into `alt` at INSERT TIME and never
+// rewrites the persisted HTML; after a rename the two diverge. When bytes are
+// unavailable the `<img>` has no `src`, so the browser paints whatever `alt`
+// says — this pins that the RENDERED node's `alt` is kept in step with live
+// metadata, in both branches of the interactivity effect.
+describe("DocumentPreview — rendered alt follows the live asset name (§339)", () => {
+  const TURSO = { httpUrl: "https://db.turso.io", authToken: "t" } as never;
+
+  const asset = (id: string, name: string): DocumentAsset => ({
+    id, name, mime: "image/png", size: 24, hash: `h-${id}`, createdAt: NOW,
+  });
+
+  const D: ProjectDocument = {
+    id: 1, title: "Steering update", blocks: [], createdAt: NOW, updatedAt: NOW,
+  };
+
+  beforeEach(() => {
+    vi.mocked(renderDocumentHtml).mockReturnValue('<p><img data-asset-id="a1" alt="chart.png"></p>');
+    vi.mocked(loadAssetData).mockReset().mockResolvedValue(null);
+  });
+
+  afterEach(() => { vi.mocked(renderDocumentHtml).mockReturnValue("<p>body</p>"); });
+
+  it("rewrites a stale alt to the live asset name", () => {
+    render(
+      <DocumentPreview
+        lang="en-US" doc={D} ws={{ ...emptyWorkspace(), documentAssets: [asset("a1", "diagram.png")] }}
+        tursoConfig={TURSO} projectId="p1"
+      />,
+    );
+    const img = document.querySelector("img[data-asset-id='a1']")!;
+    expect(img.getAttribute("alt")).toBe("diagram.png");
+    expect(img.getAttribute("aria-label")).toContain("diagram.png");
+  });
+
+  it("rewrites a stale alt even when asset storage is off (null config)", () => {
+    // ★ Bytes never load in this branch, so a stale painted alt is the ONLY
+    // thing the reader sees for a missing image — the null-config branch must
+    // not skip the rewrite.
+    render(
+      <DocumentPreview
+        lang="en-US" doc={D} ws={{ ...emptyWorkspace(), documentAssets: [asset("a1", "diagram.png")] }}
+        tursoConfig={null} projectId="p1"
+      />,
+    );
+    const img = document.querySelector("img[data-asset-id='a1']")!;
+    expect(img.getAttribute("alt")).toBe("diagram.png");
+  });
+
+  it("leaves alt untouched when there is no metadata for the id", () => {
+    render(
+      <DocumentPreview
+        lang="en-US" doc={D} ws={{ ...emptyWorkspace(), documentAssets: [] }}
+        tursoConfig={TURSO} projectId="p1"
+      />,
+    );
+    const img = document.querySelector("img[data-asset-id='a1']")!;
+    expect(img.getAttribute("alt")).toBe("chart.png");
+  });
+});
+
 // ★★★ THE SECOND ENTRY POINT INTO THE LIGHTBOX, AND WHY IT CANNOT BE A REACT
 // `onClick`. The preview body is ONE `dangerouslySetInnerHTML` string, so the
 // `<img data-asset-id>` nodes inside it are not React elements — there is

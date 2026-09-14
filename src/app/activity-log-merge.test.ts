@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { mergeActivityLogs, ACTIVITY_MAX_ENTRIES } from "./activity-log-merge";
-import type { ActivityEntry } from "./activity-log";
+import { sanitizeActivityEntry, type ActivityEntry } from "./activity-log";
 
 function entry(id: string, timestamp: string): ActivityEntry {
   return { id, timestamp, kind: "task.created", args: ["T-1"] };
@@ -52,6 +52,36 @@ describe("mergeActivityLogs", () => {
     expect(mergeActivityLogs(a, [])).not.toBe(a);
     const b = [entry("dev2-1", "2026-08-02T00:00:00.000Z")];
     expect(mergeActivityLogs([], b)).not.toBe(b);
+  });
+
+  // §161: `mergeActivityLogs`'s lexicographic sort-then-cap only equals
+  //   chronological order once every timestamp is canonical `toISOString()`
+  //   shape. This proves the fix reaches the cap, not just the comparator:
+  //   entries are sanitized (the real load-boundary step) before merging.
+  it("an offset stamp that is actually newest survives the cap after sanitize (§161)", () => {
+    // ACTIVITY_MAX_ENTRIES canonical entries, one second apart, all within the
+    // first ~8 minutes of the UTC day.
+    const canonical = Array.from({ length: ACTIVITY_MAX_ENTRIES }, (_, i) =>
+      entry(`dev1-${i}`, new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString()),
+    );
+    // Its wall-clock digits ("00:00:00") are IDENTICAL to `dev1-0`'s, and the
+    // offset sign "-" sorts lexicographically BEFORE the fraction-start ".",
+    // so an unsanitized merge treats this as the single OLDEST entry and the
+    // cap drops it. Its real instant (local + 14h) is 2026-01-01T14:00:00Z —
+    // later than every canonical entry above (all ≤ 2026-01-01T00:08:19Z).
+    const offsetNewest: ActivityEntry = {
+      id: "dev2-newest",
+      timestamp: "2026-01-01T00:00:00-14:00",
+      kind: "task.created",
+      args: ["Newest"],
+    };
+
+    const sanitized = [...canonical, offsetNewest].map((e) => sanitizeActivityEntry(e)!);
+    const merged = mergeActivityLogs(sanitized, []);
+
+    expect(merged).toHaveLength(ACTIVITY_MAX_ENTRIES);
+    expect(merged[merged.length - 1].id).toBe("dev2-newest");
+    expect(merged[merged.length - 1].timestamp).toBe("2026-01-01T14:00:00.000Z");
   });
 
   it("agrees on membership regardless of argument order, and never exceeds the cap", () => {

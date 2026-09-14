@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ActivityEntry, ActivityKind } from "./activity-log";
+import { sanitizeActivityLog, type ActivityEntry, type ActivityKind } from "./activity-log";
 import { asTimeZoneForTests } from "./timezone";
 import {
   DEFAULT_HISTORY_LIMIT,
@@ -356,6 +356,27 @@ describe("summarizeRecentActivity", () => {
 
   it("returns null for an unparseable today rather than throwing", () => {
     expect(summarizeRecentActivity([at("2026-08-16T10:00:00.000Z")], "not-a-date", UTC)).toBeNull();
+  });
+
+  // §161: `latestAt` is a bare `>` string compare, so it only follows the real
+  //   instant once every timestamp reaching it is canonical `toISOString()`
+  //   shape. A fixture of canonical-only stamps cannot tell a fixed
+  //   implementation from a broken one (docs/open-followups.md §161's own
+  //   "Fixing it" note) — this one goes through `sanitizeActivityLog`, the
+  //   real load-boundary step, before summarizing, so it proves the fix
+  //   actually reaches this consumer rather than merely existing in the
+  //   sanitizer.
+  it("§161: after sanitize, latestAt follows the real instant across an offset", () => {
+    const raw = [
+      // Lexicographically GREATER than the entry below ("13" > "00" at the
+      // hour position after an identical date prefix) but instantaneously
+      // EARLIER: +14:00 at 13:59 is 2026-08-16T23:59:00Z.
+      { id: "a", timestamp: "2026-08-17T13:59:00+14:00", kind: "task.updated", args: [1, "x"] },
+      { id: "b", timestamp: "2026-08-17T00:00:00.000Z", kind: "task.updated", args: [1, "x"] },
+    ];
+    const sanitized = sanitizeActivityLog(raw);
+    const out = summarizeRecentActivity(sanitized, "2026-08-17", UTC);
+    expect(out?.latestAt).toBe("2026-08-17T00:00:00.000Z");
   });
 });
 

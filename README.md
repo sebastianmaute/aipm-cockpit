@@ -1,7 +1,5 @@
 # AI PM Cockpit
 
-[![Pipeline Status](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
-[![coverage](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
 [![version](https://img.shields.io/badge/version-v1.4.0_%22Hammett%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
@@ -9,9 +7,9 @@
 >
 > A command surface for project leads with a Claude copilot grounded in your operating guides and the view you're in — it surfaces the next best action and can act on it. It plugs into the Microsoft 365 / Jira / Timelog stack you already use, so it accelerates your workflow instead of becoming one more place to re-key data. Local-first, bring-your-own-key, open source — no backend account required.
 
-![The AI PM Cockpit dashboard: project health, ranked next actions, open RAID and budget burn](docs/assets/dashboard.png)
+![The AI PM Cockpit dashboard: overall project health, top actions, progress and open RAID](docs/assets/dashboard.png)
 
-<sub>The landing dashboard, loaded from the bundled demo project.</sub>
+<sub>The landing dashboard.</sub>
 
 ![A guided tour of AI PM Cockpit: dashboard, next actions, Gantt, budget and the Claude assistant](public/demos/demo-aipm-cockpit.webm)
 

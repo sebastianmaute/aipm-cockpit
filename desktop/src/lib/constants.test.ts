@@ -39,9 +39,10 @@ describe("releases page", () => {
     // string pinned against itself pins a typo just as happily. It only makes
     // a LATER change loud. The value was cross-checked by hand when written,
     // against `git remote -v` (git@gitlab.example.com:example-group/public-collab/
-    // aipm-cockpit.git) and the two README shields badges, which carry the
-    // same `example-group/public-collab/aipm-cockpit` path. Re-check it the same way
-    // if you ever change it; do not "update the test to match".
+    // aipm-cockpit.git) and the README's GitLab pipeline and coverage badges,
+    // which then carried the same `example-group/public-collab/aipm-cockpit` path (both
+    // badges have since been removed). Re-check it against `git remote -v` if
+    // you ever change it; do not "update the test to match".
     expect(RELEASES_URL).toBe(
       "https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/releases",
     );

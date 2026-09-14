@@ -36,7 +36,7 @@ import type { DocBlock, ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
 import type { RunMark } from "./rich-text-runs";
 import type { DocumentAsset } from "./document-asset";
-import { t } from "./i18n";
+import { t, loadI18n, type Lang } from "./i18n";
 import { unzipBytes, partText } from "../test/unzip-bytes";
 import { base64ToBytes } from "./document-asset-upload";
 import type { ExportAssets } from "./document-export-assets";
@@ -54,8 +54,12 @@ const doc = (blocks: DocBlock[], title = "Deck"): ProjectDocument => ({
 /** Unzip into `path → decoded text`. ★ readZipEntries returns a
  *  Map<string, Uint8Array>, NOT an array of {path,data} — a `.map((e) => e.path)`
  *  over the result is a TypeError, not a path list. */
-async function parts(d: ProjectDocument, w: Workspace = ws): Promise<Map<string, string>> {
-  const blob = renderDocumentPptx(d, w, "en-US");
+async function parts(
+  d: ProjectDocument,
+  w: Workspace = ws,
+  lang: Lang = "en-US",
+): Promise<Map<string, string>> {
+  const blob = renderDocumentPptx(d, w, lang);
   const entries = await readZipEntries(await blob.arrayBuffer());
   const out = new Map<string, string>();
   for (const [path, data] of entries) out.set(path, decodeUtf8(data));
@@ -65,8 +69,12 @@ async function parts(d: ProjectDocument, w: Workspace = ws): Promise<Map<string,
 const SLIDE_RE = /^ppt\/slides\/slide(\d+)\.xml$/;
 
 /** Slide part XML in slide order (slide1, slide2, … — NOT Map insertion order). */
-async function slides(d: ProjectDocument, w: Workspace = ws): Promise<string[]> {
-  const all = await parts(d, w);
+async function slides(
+  d: ProjectDocument,
+  w: Workspace = ws,
+  lang: Lang = "en-US",
+): Promise<string[]> {
+  const all = await parts(d, w, lang);
   return [...all.entries()]
     .filter(([p]) => SLIDE_RE.test(p))
     .sort((a, b) => Number(SLIDE_RE.exec(a[0])![1]) - Number(SLIDE_RE.exec(b[0])![1]))
@@ -88,8 +96,12 @@ function textNodes(xml: string): string[] {
 }
 
 /** Text of every CONTENT slide (i.e. excluding the leading title slide). */
-async function bodyText(d: ProjectDocument, w: Workspace = ws): Promise<string[]> {
-  return (await slides(d, w)).slice(1).flatMap(textNodes);
+async function bodyText(
+  d: ProjectDocument,
+  w: Workspace = ws,
+  lang: Lang = "en-US",
+): Promise<string[]> {
+  return (await slides(d, w, lang)).slice(1).flatMap(textNodes);
 }
 
 type RunInfo = {
@@ -1008,6 +1020,26 @@ describe("renderDocumentPptx — dataSection", () => {
     expect(joined).toContain(`Risk ${PPTX_MAX_ROWS_PER_SECTION}`);
     expect(joined).not.toContain(`Risk ${PPTX_MAX_ROWS_PER_SECTION + 1}`);
     expect(joined).toContain(String(PPTX_MAX_ROWS_PER_SECTION + 25));
+  });
+
+  it("localizes the truncation notice for German — no hint line (§93)", async () => {
+    await loadI18n("de");
+    const many = {
+      tasks: Array.from({ length: PPTX_MAX_ROWS_PER_SECTION + 5 }, (_, i) => ({
+        id: i + 1,
+        taskName: `Task ${i + 1}`,
+        status: "To Do",
+      })),
+      raid: [],
+    } as unknown as Workspace;
+    const text = await bodyText(doc([{ type: "dataSection", key: "tasks" }]), many, "de");
+    const joined = text.join("\n");
+    expect(joined).toContain(
+      `Es werden die ersten ${PPTX_MAX_ROWS_PER_SECTION} von ${PPTX_MAX_ROWS_PER_SECTION + 5} Zeilen aus Aufgaben angezeigt.`,
+    );
+    expect(joined).not.toMatch(/Showing the first/);
+    // ★ Only ONE line — export-pptx.ts's separate hint line does not belong here.
+    expect(joined).not.toContain("Für die vollständige Liste als XLSX exportieren.");
   });
 });
 
