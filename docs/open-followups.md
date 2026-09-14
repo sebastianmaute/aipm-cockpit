@@ -759,6 +759,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--open) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | open |
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--open) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | open |
 | [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
+| [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--open) | A repeated resource deep link re-runs the open while that resource's editor is open — OPEN | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -6415,7 +6416,8 @@ with "Hide externals" on the task stayed visible, and its lane was a live drop t
 the external FK onto a dropped card, which then vanished. That is the hazard the name guard already
 prevents, and the docstring's "not a regression" was wrong about it. The lane engine now builds its
 indexes through `laneIndexes`, which passes `emailMatchesExternals: false` to
-`buildResourceLookupIndexes`, so such a task gets its name lane (or Unassigned), the same outcome as
+`buildResourceLookupIndexes`, so such a task resolves as if the external were not in the directory (a
+unique managed match by email or name still wins, else its name lane or Unassigned), the same outcome as
 a name match to an external. The option defaults to `true`, so `backfillTaskResourceFks` still links
 by an external's email at load, and after a reload the task takes the FK branch as before
 (`resource-fk-backfill.test.ts` untouched and green). Pinned by `task-kanban.test.ts` "externals are
@@ -37700,3 +37702,29 @@ the signal that a page loaded in classic, and the fix is small. Identify what th
 protects before changing it.
 
 Related: §478 (closed on the same branch), §535.
+
+## 540. A repeated resource deep link re-runs the open while that resource's editor is open — OPEN
+
+**Status:** OPEN 2026-09-14 — the re-fire is pinned as current by
+`npx vitest run src/app/resource-directory.test.tsx -t "KNOWN RESIDUAL"`; the draft-loss consequence below is
+read from the code, not watched in a browser.
+
+**Work item:** #330
+
+§362 made a guardrail insight's resource link — and global-search resource hits, Recents and
+`#resources/<id>` links — open that resource's editor in the Resources directory. Repeating the request while
+that resource's editor is already open re-runs the open. The directory remounts on the tab switch the request
+makes, so it cannot remember what it opened, and the editor state (`editingResource`) lives above it in
+`task-manager.tsx`, which is where a working guard has to sit.
+
+What it costs is usually nothing: `ResourceEditModal` resets its draft only when its `resource` prop is a
+different object, and a repeat passes the same stored row, so the draft survives. Unsaved edits are lost only
+when the stored row was replaced while the editor was open (an AI, sync or other-tab write) and the link is
+then repeated. Back/forward was not measured; landing rewrites the hash to `#directory`, which makes that path
+doubtful.
+
+Fix shape: skip the open when the open editor already belongs to the requested id, in `task-manager.tsx`
+(possibly threaded through `app-modals.tsx`), and pin it through the real `resources` → `directory` hop, not a
+statically mounted directory. The residual test named above must then be inverted.
+
+Related: §362.

@@ -100,8 +100,10 @@ const nameKey = personNameKey;
  * hazard applies: "Hide externals" filters on the FK alone, so an FK-less task
  * carrying an external's email stays visible, and resolving it to
  * `res:<external>` would put a live drop target on screen that stamps the
- * external FK onto a dropped card, which then vanishes. Such a task gets its
- * name lane (or Unassigned) instead. ★ This deliberately DIVERGES from
+ * external FK onto a dropped card, which then vanishes. Such a task resolves
+ * as if the external were not in the directory: a unique managed match by
+ * email or name still wins, else its name lane (or Unassigned). ★ This
+ * deliberately DIVERGES from
  * `backfillTaskResourceFks`, which still links by an external's email at load.
  * After a reload the task therefore carries the FK and takes the FK branch
  * above (and "Hide externals" hides it); only an FK-less task is affected.
