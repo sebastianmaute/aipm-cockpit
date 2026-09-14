@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { FieldNotice } from "./field-feedback";
-import { fieldClass } from "./form-controls";
+import { HintedLabel, fieldClass } from "./form-controls";
 import { TextButton } from "./text-button";
 import { InfoTooltip } from "./info-tooltip";
 import { ClearableSearchInput } from "./clearable-search-input";
@@ -56,6 +56,7 @@ export function JiraSettingsSection({
   const { notifyEnable } = useIntegrationDisclaimer();
   const showToast = useToastContext();
   const [open, setOpen] = useState(false);
+  const apiTokenNoteId = useId();
   const isOpen = alwaysOpen || open;
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [projects, setProjects] = useState<JiraProject[]>([]);
@@ -244,11 +245,12 @@ export function JiraSettingsSection({
 
           {config.enabled && (
           <fieldset className="space-y-2">
-            <label className="block">
-              <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-                {t(lang, "jiraSiteUrl")}
-                <InfoTooltip text={t(lang, "jiraSiteUrlTooltip")} />
-              </span>
+            {/* ★★ Hinted fields render through `HintedLabel`: the hint sits
+                OUTSIDE the naming <label> (open-followups §386). */}
+            <HintedLabel
+              hint={<InfoTooltip text={t(lang, "jiraSiteUrlTooltip")} />}
+              caption={<span className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "jiraSiteUrl")}</span>}
+            >
               <input
                 type="url"
                 value={config.siteUrl}
@@ -274,33 +276,37 @@ export function JiraSettingsSection({
                 placeholder="https://acme.atlassian.net"
                 className={inputClass}
               />
-            </label>
-            <label className="block">
-              <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-                {t(lang, "jiraEmail")}
-                <InfoTooltip text={t(lang, "jiraEmailTooltip")} />
-              </span>
+            </HintedLabel>
+            <HintedLabel
+              hint={<InfoTooltip text={t(lang, "jiraEmailTooltip")} />}
+              caption={<span className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "jiraEmail")}</span>}
+            >
               <input
                 type="email"
                 value={config.email}
                 onChange={(e) => update("email", e.target.value.trim())}
                 className={inputClass}
               />
-            </label>
-            <label className="block">
-              <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-                {t(lang, "jiraApiToken")}
-                <InfoTooltip text={t(lang, "jiraApiTokenTooltip")} />
-              </span>
-              <input
-                type="password"
-                autoComplete="off"
-                value={config.apiToken}
-                onChange={(e) => handleApiTokenChange(e.target.value)}
-                placeholder="ATATT…"
-                className={inputClass}
-              />
-              <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
+            </HintedLabel>
+            {/* ★★ The storage notice and the token link sit OUTSIDE the label
+                as well: inside it, both joined the token field's accessible
+                NAME. The notice is now the field's description. */}
+            <div>
+              <HintedLabel
+                hint={<InfoTooltip text={t(lang, "jiraApiTokenTooltip")} />}
+                caption={<span className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "jiraApiToken")}</span>}
+              >
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={config.apiToken}
+                  onChange={(e) => handleApiTokenChange(e.target.value)}
+                  placeholder="ATATT…"
+                  className={inputClass}
+                  aria-describedby={apiTokenNoteId}
+                />
+              </HintedLabel>
+              <FieldNotice id={apiTokenNoteId}>{t(lang, "credentialStorageNote")}</FieldNotice>
               <a
                 href="https://id.atlassian.com/manage-profile/security/api-tokens"
                 target="_blank"
@@ -309,7 +315,7 @@ export function JiraSettingsSection({
               >
                 {t(lang, "jiraApiTokenLink")} ↗
               </a>
-            </label>
+            </div>
             <label className="block">
               <span className="mb-1 block text-xs text-muted-foreground">
                 {t(lang, "jiraTokenExpires")}
@@ -366,11 +372,10 @@ export function JiraSettingsSection({
             </div>
 
             {projects.length > 0 && (
-              <label className="block">
-                <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-                  {t(lang, "jiraProject")}
-                  <InfoTooltip text={t(lang, "jiraProjectTooltip")} />
-                </span>
+              <HintedLabel
+                hint={<InfoTooltip text={t(lang, "jiraProjectTooltip")} />}
+                caption={<span className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "jiraProject")}</span>}
+              >
                 <select
                   value={config.projectKey}
                   onChange={(e) => {
@@ -392,7 +397,7 @@ export function JiraSettingsSection({
                     </option>
                   ))}
                 </select>
-              </label>
+              </HintedLabel>
             )}
 
             {config.projectKey && projectName && projects.length === 0 && (

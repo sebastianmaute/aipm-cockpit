@@ -43,7 +43,7 @@ import {
   ModalEditFooter,
 } from "./edit-modal-chrome";
 import { MODAL_HELP } from "./help-content";
-import { Input, Select } from "./form-controls";
+import { HintedLabel, Input, Select } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
 import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
@@ -332,11 +332,16 @@ export function ChangeEditModal({
               placeholder). jsdom has no SpeechRecognition, so the mic never
               renders in unit tests and none can catch this.
               See src/test/label-binding.ts. */}
-          <label htmlFor="change-title" className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "changeFieldTitle")} *<InfoTooltip text={t(lang, "changeFieldTitleHint")} />
-              {titleMic}
-            </span>
+          {/* ★★ The hint AND the mic now sit OUTSIDE the naming <label> in
+              `HintedLabel`'s hint slot (open-followups §386), so neither joins
+              the input's name; `htmlFor` stays as the explicit binding. */}
+          <HintedLabel
+            htmlFor="change-title"
+            className="text-sm sm:col-span-2"
+            bodyClassName="flex flex-col gap-1"
+            hint={<><InfoTooltip text={t(lang, "changeFieldTitleHint")} />{titleMic}</>}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "changeFieldTitle")} *</span>}
+          >
             <Input
               id="change-title"
               type="text"
@@ -349,7 +354,7 @@ export function ChangeEditModal({
             />
             <CharCounter value={draft.title} max={BUDGET_NAME_MAX} id="change-title-counter" lang={lang} />
             {titleDictationStatus}
-          </label>
+          </HintedLabel>
 
           {/* Type */}
           {isVisible("type") && (
@@ -495,10 +500,12 @@ export function ChangeEditModal({
 
           {/* Requested by */}
           {isVisible("requestor") && (
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "changeFieldRequestedBy")}<InfoTooltip text={t(lang, "changeFieldRequestedByHint")} />
-            </span>
+          <HintedLabel
+            className="text-sm"
+            bodyClassName="flex flex-col gap-1"
+            hint={<InfoTooltip text={t(lang, "changeFieldRequestedByHint")} />}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "changeFieldRequestedBy")}</span>}
+          >
             <Input
               type="text"
               value={draft.requestedBy ?? ""}
@@ -512,7 +519,7 @@ export function ChangeEditModal({
               aria-describedby="change-requestedBy-counter"
             />
             <CharCounter value={draft.requestedBy ?? ""} max={BUDGET_NAME_MAX} id="change-requestedBy-counter" lang={lang} />
-          </label>
+          </HintedLabel>
           )}
 
           {/* Impact description (part of the `impact` field group) */}
@@ -543,10 +550,12 @@ export function ChangeEditModal({
 
           {/* Schedule impact (days — part of the `deltas` field group) */}
           {isVisible("deltas") && (
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "changeFieldScheduleImpact")}<InfoTooltip text={t(lang, "changeFieldScheduleImpactHint")} />
-            </span>
+          <HintedLabel
+            className="text-sm"
+            bodyClassName="flex flex-col gap-1"
+            hint={<InfoTooltip text={t(lang, "changeFieldScheduleImpactHint")} />}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "changeFieldScheduleImpact")}</span>}
+          >
             <Input
               type="number"
               value={draft.scheduleImpactDays ?? ""}
@@ -568,15 +577,17 @@ export function ChangeEditModal({
               aria-describedby={notice.scheduleImpactDays ? scheduleNoticeId : undefined}
             />
             <FieldNotice id={scheduleNoticeId}>{notice.scheduleImpactDays}</FieldNotice>
-          </label>
+          </HintedLabel>
           )}
 
           {/* Cost impact (part of the `deltas` field group) */}
           {isVisible("deltas") && (
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "changeFieldCostImpact")}<InfoTooltip text={t(lang, "changeFieldCostImpactHint")} />
-            </span>
+          <HintedLabel
+            className="text-sm"
+            bodyClassName="flex flex-col gap-1"
+            hint={<InfoTooltip text={t(lang, "changeFieldCostImpactHint")} />}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "changeFieldCostImpact")}</span>}
+          >
             <Input
               type="number"
               value={draft.costImpact ?? ""}
@@ -598,26 +609,30 @@ export function ChangeEditModal({
               aria-describedby={notice.costImpact ? costNoticeId : undefined}
             />
             <FieldNotice id={costNoticeId}>{notice.costImpact}</FieldNotice>
-          </label>
+          </HintedLabel>
           )}
 
           {/* Raised date — no registry id; always rendered. */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "changeFieldRaisedDate")}<InfoTooltip text={t(lang, "changeFieldRaisedDateHint")} />
-            </span>
+          <HintedLabel
+            className="text-sm"
+            bodyClassName="flex flex-col gap-1"
+            hint={<InfoTooltip text={t(lang, "changeFieldRaisedDateHint")} />}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "changeFieldRaisedDate")}</span>}
+          >
             <Input
               type="date"
               value={draft.raisedDate}
               onChange={(e) => update("raisedDate", e.target.value)}
             />
-          </label>
+          </HintedLabel>
 
           {/* Decided by */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "changeFieldDecisionBy")}<InfoTooltip text={t(lang, "changeFieldDecisionByHint")} />
-            </span>
+          <HintedLabel
+            className="text-sm"
+            bodyClassName="flex flex-col gap-1"
+            hint={<InfoTooltip text={t(lang, "changeFieldDecisionByHint")} />}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "changeFieldDecisionBy")}</span>}
+          >
             <Input
               type="text"
               value={draft.decisionBy ?? ""}
@@ -631,7 +646,7 @@ export function ChangeEditModal({
               aria-describedby="change-decisionBy-counter"
             />
             <CharCounter value={draft.decisionBy ?? ""} max={BUDGET_NAME_MAX} id="change-decisionBy-counter" lang={lang} />
-          </label>
+          </HintedLabel>
 
           {/* Decision date — read-only display when set (auto-filled by status). */}
           {isVisible("decisionDate") && draft.decisionDate && (

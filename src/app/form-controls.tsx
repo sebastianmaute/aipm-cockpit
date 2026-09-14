@@ -222,34 +222,48 @@ export function FieldGroup({
  * This keeps the trigger OUTSIDE the label while it still sits beside the
  * caption. The wrapper is the flex row, the `<label>` is `display: contents`,
  * and `order` puts the caption first, the hint beside it, and the control on
- * the next line. Measured in Chromium: the textbox is named by the caption
- * alone, and the implicit binding survives `contents`.
+ * the next line. ★ The browser evidence is ONE static stand-in page in
+ * Chromium's accessibility tree, not this component and not a real screen
+ * reader: its input was named by the caption alone, and the implicit binding
+ * survived `contents`. What is still owed is recorded in open-followups §386.
  *
  * ★ The hint comes FIRST in the DOM, so keyboard focus reaches it before the
  *   control, as it did when it sat inside the caption.
  * ★ The hint reaches assistive tech as its own focusable control, not as the
  *   control's `aria-describedby` — the caller does not own the child element.
  * ★ `caption` must carry no bottom margin; the row gap supplies it.
+ * ★ The children wrapper is a `<span>`, not a `<div>`: a `<label>` may hold
+ *   phrasing content only.
+ * ★ The hint slot may also carry a caption control such as a dictation mic.
+ *   It then sits OUTSIDE the label too, so it can neither join the control's
+ *   name nor steal the label's implicit binding.
  */
 export function HintedLabel({
   hint,
   caption,
   className,
+  bodyClassName,
+  htmlFor,
   children,
 }: {
-  /** The hint trigger, rendered outside the label. */
+  /** The hint trigger (plus any caption control), rendered outside the label. */
   hint: React.ReactNode;
   /** Caption text (label + required marker), rendered inside the label. */
   caption: React.ReactNode;
   className?: string;
+  /** Classes for the span around `children` (default `block`). Pass
+   *  `flex flex-col gap-1` where the label being replaced was that column. */
+  bodyClassName?: string;
+  /** Explicit binding, for a label that already named its control by id. */
+  htmlFor?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className={`flex flex-wrap items-center gap-1 ${className ?? ""}`}>
-      <span className="order-1 inline-flex">{hint}</span>
-      <label className="contents">
+      <span className="order-1 inline-flex items-center gap-1">{hint}</span>
+      <label htmlFor={htmlFor} className="contents">
         {caption}
-        <div className="order-2 min-w-0 basis-full">{children}</div>
+        <span className={`order-2 min-w-0 basis-full ${bodyClassName ?? "block"}`}>{children}</span>
       </label>
     </div>
   );

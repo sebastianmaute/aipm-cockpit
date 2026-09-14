@@ -31,7 +31,7 @@ import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { MODAL_HELP } from "./help-content";
-import { FieldGroup, Input, Select, Textarea } from "./form-controls";
+import { FieldGroup, HintedLabel, Input, Select, Textarea } from "./form-controls";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
@@ -219,12 +219,16 @@ export function StakeholderEditModal({
 
           {/* Organization */}
           {isVisible("organization") && (
-            /* `htmlFor` — the mic outranks the input otherwise; see Name above. */
-            <label htmlFor="stakeholder-organization" className="flex flex-col gap-1 text-sm">
-              <span className="flex items-center gap-1 font-medium text-foreground">
-                {t(lang, "stakeholderFieldOrganization")}<InfoTooltip text={t(lang, "stakeholderFieldOrganizationHint")} />
-                {orgMic}
-              </span>
+            /* `htmlFor` kept from when the mic sat inside the label; the mic and
+               the hint now both sit OUTSIDE it (open-followups §386), so
+               neither can join the input's name. */
+            <HintedLabel
+              htmlFor="stakeholder-organization"
+              className="text-sm"
+              bodyClassName="flex flex-col gap-1"
+              hint={<><InfoTooltip text={t(lang, "stakeholderFieldOrganizationHint")} />{orgMic}</>}
+              caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "stakeholderFieldOrganization")}</span>}
+            >
               <Input
                 id="stakeholder-organization"
                 type="text"
@@ -240,18 +244,21 @@ export function StakeholderEditModal({
               />
               <CharCounter value={draft.organization ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-organization-counter" lang={lang} />
               {orgDictationStatus}
-            </label>
+            </HintedLabel>
           )}
 
           {/* Title + Email — the `contact` registry field */}
           {isVisible("contact") && (
             <>
-              {/* Title. `htmlFor` — the mic outranks the input; see Name above. */}
-              <label htmlFor="stakeholder-title" className="flex flex-col gap-1 text-sm">
-                <span className="flex items-center gap-1 font-medium text-foreground">
-                  {t(lang, "stakeholderFieldTitle")}<InfoTooltip text={t(lang, "stakeholderFieldTitleHint")} />
-                  {titleMic}
-                </span>
+              {/* Title. `htmlFor` kept; the mic and hint sit outside the label
+                  (open-followups §386), as for Organization above. */}
+              <HintedLabel
+                htmlFor="stakeholder-title"
+                className="text-sm"
+                bodyClassName="flex flex-col gap-1"
+                hint={<><InfoTooltip text={t(lang, "stakeholderFieldTitleHint")} />{titleMic}</>}
+                caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "stakeholderFieldTitle")}</span>}
+              >
                 <Input
                   id="stakeholder-title"
                   type="text"
@@ -267,13 +274,15 @@ export function StakeholderEditModal({
                 />
                 <CharCounter value={draft.title ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-title-counter" lang={lang} />
                 {titleDictationStatus}
-              </label>
+              </HintedLabel>
 
               {/* Email */}
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="flex items-center gap-1 font-medium text-foreground">
-                  {t(lang, "stakeholderFieldEmail")}<InfoTooltip text={t(lang, "stakeholderFieldEmailHint")} />
-                </span>
+              <HintedLabel
+                className="text-sm"
+                bodyClassName="flex flex-col gap-1"
+                hint={<InfoTooltip text={t(lang, "stakeholderFieldEmailHint")} />}
+                caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "stakeholderFieldEmail")}</span>}
+              >
                 <Input
                   type="text"
                   value={draft.email ?? ""}
@@ -285,7 +294,7 @@ export function StakeholderEditModal({
                   aria-describedby="stakeholder-email-counter"
                 />
                 <CharCounter value={draft.email ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-email-counter" lang={lang} />
-              </label>
+              </HintedLabel>
             </>
           )}
 
@@ -336,12 +345,15 @@ export function StakeholderEditModal({
 
           {/* Notes */}
           {isVisible("notes") && (
-            /* `htmlFor` — the mic outranks the textarea; see Name above. */
-            <label htmlFor="stakeholder-notes" className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="flex items-center gap-1 font-medium text-foreground">
-                {t(lang, "stakeholderFieldNotes")}<InfoTooltip text={t(lang, "stakeholderFieldNotesHint")} />
-                {notesMic}
-              </span>
+            /* `htmlFor` kept; the mic and hint sit outside the label
+               (open-followups §386), as for Organization above. */
+            <HintedLabel
+              htmlFor="stakeholder-notes"
+              className="text-sm sm:col-span-2"
+              bodyClassName="flex flex-col gap-1"
+              hint={<><InfoTooltip text={t(lang, "stakeholderFieldNotesHint")} />{notesMic}</>}
+              caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "stakeholderFieldNotes")}</span>}
+            >
               <Textarea
                 id="stakeholder-notes"
                 autoGrow
@@ -358,7 +370,7 @@ export function StakeholderEditModal({
               />
               <CharCounter value={draft.notes ?? ""} max={TEXTAREA_MAX} id="stakeholder-notes-counter" lang={lang} />
               {notesDictationStatus}
-            </label>
+            </HintedLabel>
           )}
 
           {/* Document links */}

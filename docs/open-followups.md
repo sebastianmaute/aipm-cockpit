@@ -610,7 +610,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§383](#383-a-resources-extra-emails-preview-a-list-apply-dedupes-and-caps--closed-2026-09-06) | A resource's extra emails preview a list Apply dedupes and caps | found 2026-09-05 while closing 373 | S | closed |
 | [§384](#384-a-mononym-update_resource-rename-previews-a-rejected-lastname-that-apply-accepts-and-wipes--closed-2026-09-06) | A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes | found 2026-09-05 in cold review of the §372 fix | S | closed |
 | [§385](#385-srcsymbolscheck-prints-a-remedy-it-does-not-implement--open) | `src:symbols:check` prints a remedy it does not implement | found 2026-09-05 while acting on that report's own advice | S | open |
-| [§386](#386-fields-hint-pollutes-its-controls-accessible-name--closed-2026-09-14) | `Field`'s `hint` pollutes its control's accessible name — CLOSED 2026-09-14 | found 2026-09-05 in the edit-task modal rework | S — closed in both `Field` implementations (task form `hint`, project form `tooltip`) by rendering the tooltip as a sibling of a `display: contents` label via shared `HintedLabel`; the hint reaches a screen reader via the adjacent tooltip button, not `aria-describedby`; eye-verify in Firefox/Safari + a real screen reader still owed | **CLOSED** 2026-09-14 |
+| [§386](#386-fields-hint-pollutes-its-controls-accessible-name--closed-2026-09-14) | `Field`'s `hint` pollutes its control's accessible name — CLOSED 2026-09-14 | found 2026-09-05 in the edit-task modal rework | S | **CLOSED** 2026-09-14 (both `Field` implementations and 41 hand-rolled labels in 11 files render the tooltip outside a `display: contents` label via shared `HintedLabel`; enumerated by a TS-AST scan, 41 polluting of 58 before, 0 of 17 after; the hint reaches a screen reader via the adjacent tooltip button, not `aria-describedby`; eye-verify in Firefox/Safari + a real screen reader still owed) |
 | [§387](#387-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--closed-2026-09-14) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide | found 2026-09-05 in the edit-task modal rework | M | CLOSED 2026-09-14 |
@@ -29745,6 +29745,42 @@ and
 `npx vitest run src/app/project-form-fields.test.tsx -t "names a tooltipped field's control with its label alone"`.
 Both are mutation-proved: moving the tooltip back inside the label turns each red. Both prefix-regex
 queries in `task-form-fields.test.tsx` now use the whole-string name.
+★★ THE SAME DEFECT LIVED OUTSIDE `Field`, IN HAND-ROLLED LABELS, AND THOSE ARE CLOSED TOO. The
+enumeration was a TypeScript-AST scan over every non-test `.tsx` under `src/app`: it lists each JSX
+`<label>` whose subtree contains `<InfoTooltip>`, with the controls inside it and whether each names
+itself via `aria-label`/`aria-labelledby`. The scan is a session script, not a repo script. Before the
+fix it listed 58 labels. 41 wrapped a control with no name of its own, so the hint polluted that
+control's name. 16 wrapped only self-named controls, such as the change and stakeholder selects
+and `budget-bucket-modal.tsx`'s inputs. 1 was `general-section.tsx`'s `htmlFor` label for a Select
+that names itself. After the fix it lists 17 labels and 0 polluting. The rough grep
+`git grep -n -B3 "<InfoTooltip" -- src/app | grep -c "<label"` is NOT a substitute: it counts
+nearby lines, not containment, and it both over- and under-counts. Measured on the same day, it
+returned 55 at the pre-fix commit where the scan found 58, and 19 after the fix where the scan found 17. The 41 fixed sites, each
+verified by reading:
+- `absence-edit-modal.tsx`: Start, End, Note.
+- `modal-edit-fields.tsx`: `AssigneeField`, which is shared with the shift editor.
+- `change-edit-modal.tsx`: Title, Requested by, Schedule impact, Cost impact, Raised date, Decided by.
+- `raid-edit-modal.tsx`: Title, Owner, Email, Raised date, Target date.
+- `resource-edit-modal.tsx`: First/Last name, Job title, Company, Department, Location, Phone,
+  Email, the External checkbox, Notes.
+- `stakeholder-edit-modal.tsx`: Organization, Title, Email, Notes.
+- `jira-settings.tsx`: Site URL, Email, API token, Project.
+- `ai-section.tsx`: API key, Model.
+- `general-section.tsx`: Workday hours.
+- `integrations-section.tsx`: M365 client/tenant id, Turso URL, Turso token.
+- `localization-section.tsx`: Language.
+Most now render through `HintedLabel`. `HintedLabel` gained `htmlFor` and `bodyClassName`, and its
+hint slot also carries each dictation mic, which therefore left its label too. Two sites are not
+a wrapping label: the External checkbox row puts the tooltip beside the label, and Workday hours
+binds by id. Three credential or model notices that also sat inside a label moved out and became
+`aria-describedby` descriptions: the Jira and AI API-key storage notes, the Turso token note, and
+the AI needs-a-key hint. Pinned per component by a "hinted field names (§386)" test in each
+component's test file. Each test pairs `expectNoHintInNamingLabel` (`src/test/hint-label.ts`, keyed
+on a `data-info-tooltip-trigger` hook on the trigger) with `expectExactLabelNames`, which asserts
+`toHaveAccessibleName` equal to the caption. Mutation-proved on absence Start, e.g.
+`npx vitest run src/app/absence-edit-modal.test.tsx -t "names every hinted control with its caption alone"`.
+★ The 16 self-named labels still contain a tooltip. Their controls' names are unaffected, and they
+are deliberately left as they are.
 ★★ EYE-VERIFY OWED, never done: `display: contents` on a `<label>` was measured in Chromium's
 accessibility tree only. Still owed: Firefox and Safari, a real screen reader, and the running app,
 on the task form's Group and Blockers fields, the time-tracking dialog's remaining-time box, and at

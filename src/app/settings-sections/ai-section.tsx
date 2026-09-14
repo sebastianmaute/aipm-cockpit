@@ -19,7 +19,7 @@ import { AiUsagePanel } from "./ai-usage-panel";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { Button } from "../button";
-import { Checkbox, Input, Select } from "../form-controls";
+import { Checkbox, HintedLabel, Input, Select } from "../form-controls";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { useConfirm } from "../confirm-dialog";
 import { useToastContext } from "../toast-context";
@@ -90,6 +90,8 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const { notifyEnable } = useIntegrationDisclaimer();
   const aiHeadingId = useId();
   const behaviourHeadingId = useId();
+  const apiKeyNoteId = useId();
+  const modelHintId = useId();
   const confirm = useConfirm();
   const showToast = useToastContext();
   const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
@@ -207,22 +209,27 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       <FieldHint className="mt-1">{t(lang, "aiEnableHelp")}</FieldHint>
       {settings.ai.enabled === true && (
         <>
-      <label className="mt-2 block">
-        <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-          {t(lang, "aiApiKey")}
-          <InfoTooltip text={t(lang, "aiApiKeyTooltip")} />
-        </span>
-        <Input
-          className="w-full"
-          type="password"
-          autoComplete="off"
-          value={settings.ai.apiKey}
-          onChange={(e) => handleApiKeyChange(e.target.value)}
-          onBlur={handleApiKeyBlur}
-          placeholder={t(lang, "aiApiKeyPlaceholder")}
-        />
-        <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
-      </label>
+      {/* ★★ The hint sits OUTSIDE the naming <label> (open-followups §386),
+          and so does the storage notice: inside the label it joined the
+          key field's accessible NAME. It is now the field's description. */}
+      <div className="mt-2">
+        <HintedLabel
+          hint={<InfoTooltip text={t(lang, "aiApiKeyTooltip")} />}
+          caption={<span className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "aiApiKey")}</span>}
+        >
+          <Input
+            className="w-full"
+            type="password"
+            autoComplete="off"
+            value={settings.ai.apiKey}
+            onChange={(e) => handleApiKeyChange(e.target.value)}
+            onBlur={handleApiKeyBlur}
+            placeholder={t(lang, "aiApiKeyPlaceholder")}
+            aria-describedby={apiKeyNoteId}
+          />
+        </HintedLabel>
+        <FieldNotice id={apiKeyNoteId}>{t(lang, "credentialStorageNote")}</FieldNotice>
+      </div>
       <div className="mt-2">
         <label className="flex items-center gap-2">
           <Checkbox
@@ -277,13 +284,17 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           </Button>
         )}
       </div>
-      <label className="mt-2 block">
-        <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-          {t(lang, "aiModel")}
-          <InfoTooltip text={t(lang, "aiModelTooltip")} />
-        </span>
+      {/* ★★ Hint outside the naming <label> (open-followups §386). The
+          needs-a-key hint below moved out too: inside the label it joined the
+          select's accessible NAME. It is now the select's description. */}
+      <div className="mt-2">
+      <HintedLabel
+        hint={<InfoTooltip text={t(lang, "aiModelTooltip")} />}
+        caption={<span className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "aiModel")}</span>}
+      >
         <Select
           className="w-full"
+          aria-describedby={!modelsLoaded ? modelHintId : undefined}
           value={settings.ai.model}
           onChange={(e) =>
             onChange({
@@ -301,12 +312,13 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
             </option>
           ))}
         </Select>
-        {!modelsLoaded && (
-          <FieldHint as="span" className="mt-1 block">
-            {t(lang, "aiModelNeedsKey")}
-          </FieldHint>
-        )}
-      </label>
+      </HintedLabel>
+      {!modelsLoaded && (
+        <FieldHint id={modelHintId} className="mt-1">
+          {t(lang, "aiModelNeedsKey")}
+        </FieldHint>
+      )}
+      </div>
       <FieldHint className="mt-2">
         {t(lang, "aiApiKeyHint")}
       </FieldHint>

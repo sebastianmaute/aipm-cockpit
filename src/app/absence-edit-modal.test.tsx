@@ -6,6 +6,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { AbsenceEditModal } from "./absence-edit-modal";
 import { applyTier } from "./field-visibility";
 import { selectFieldTier } from "../test/field-tier";
+import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
 import { t } from "./i18n";
 import type { Absence } from "./types";
 
@@ -80,6 +81,21 @@ function setupFull(over: Partial<ModalProps> = {}) {
   );
   return { props, ...result };
 }
+
+// open-followups §386: every hinted field's control is named by its caption
+// alone. Assignee comes from the shared `AssigneeField` (modal-edit-fields).
+describe("AbsenceEditModal — hinted field names (§386)", () => {
+  it("names every hinted control with its caption alone", () => {
+    setupFull();
+    expectNoHintInNamingLabel({ minHints: 4 });
+    expectExactLabelNames([
+      `${t("en-US", "absenceAssignee")} *`,
+      `${t("en-US", "absenceStart")} *`,
+      `${t("en-US", "absenceEnd")} *`,
+      t("en-US", "absenceNote"),
+    ]);
+  });
+});
 
 describe("AbsenceEditModal", () => {
   it("renders nothing when absence is null", () => {

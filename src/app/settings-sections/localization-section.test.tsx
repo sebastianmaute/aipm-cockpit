@@ -3,6 +3,16 @@ import { describe, expect, it, vi } from "vitest";
 import { LocalizationSection } from "./localization-section";
 import { defaultSettings } from "../settings-types";
 import { t } from "../i18n";
+import { expectExactLabelNames, expectNoHintInNamingLabel } from "../../test/hint-label";
+
+// open-followups §386: the hinted language select is named by its caption.
+describe("LocalizationSection — hinted field names (§386)", () => {
+  it("names the language select with its caption alone", () => {
+    render(<LocalizationSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expectNoHintInNamingLabel({ minHints: 1 });
+    expectExactLabelNames([t("en-US", "language")]);
+  });
+});
 
 describe("LocalizationSection", () => {
   it("changing the language select calls onChange with the new language", () => {

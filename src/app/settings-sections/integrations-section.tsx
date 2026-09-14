@@ -33,7 +33,7 @@ import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { Button } from "../button";
-import { Checkbox, Input, Select } from "../form-controls";
+import { Checkbox, HintedLabel, Input, Select } from "../form-controls";
 import { TimelogSettings } from "../timelog-settings";
 import { JiraSettingsSection } from "../jira-settings";
 import { defaultTimelogConfig, type TimelogLinks } from "../timelog-types";
@@ -232,6 +232,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // ★ The env-unusable notice is a DESCRIPTION, not part of the field's name —
   // see the render site for why it sits outside the <label>.
   const tursoUrlEnvNoticeId = `${useId()}-turso-url-env`;
+  const tursoTokenNoteId = `${useId()}-turso-token-note`;
   // ★★ TWO ids, because the two states have DIFFERENT descriptions and each
   // must be announced exactly once — see the render site. `tursoMoveHintId`
   // labels the VISIBLE hint, which is reachable on its own; the sr-only node
@@ -473,37 +474,40 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
       {m365.enabled && (
         <div className="mt-3 space-y-2 border-l-2 border-line pl-3">
+          {/* ★★ Hinted fields render through `HintedLabel`: the hint sits
+              OUTSIDE the naming <label> (open-followups §386). Its row gap
+              replaces the input's former `mt-1`. */}
           {!envClientIdSet && (
-            <label className="block text-xs">
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                {t(lang, "integrationsM365ClientId")}
-                <InfoTooltip text={t(lang, "integrationsM365ClientIdTooltip")} />
-              </span>
+            <HintedLabel
+              className="text-xs"
+              hint={<InfoTooltip text={t(lang, "integrationsM365ClientIdTooltip")} />}
+              caption={<span className="inline-flex items-center gap-1 text-muted-foreground">{t(lang, "integrationsM365ClientId")}</span>}
+            >
               <Input
                 size="xs"
                 type="text"
                 value={m365.clientId ?? ""}
                 onChange={(e) => updateM365({ clientId: e.target.value })}
                 placeholder={t(lang, "integrationsM365ClientIdPlaceholder")}
-                className="mt-1 w-full"
+                className="w-full"
               />
-            </label>
+            </HintedLabel>
           )}
           {!envTenantIdSet && (
-            <label className="block text-xs">
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                {t(lang, "integrationsM365TenantId")}
-                <InfoTooltip text={t(lang, "integrationsM365TenantIdTooltip")} />
-              </span>
+            <HintedLabel
+              className="text-xs"
+              hint={<InfoTooltip text={t(lang, "integrationsM365TenantIdTooltip")} />}
+              caption={<span className="inline-flex items-center gap-1 text-muted-foreground">{t(lang, "integrationsM365TenantId")}</span>}
+            >
               <Input
                 size="xs"
                 type="text"
                 value={m365.tenantId ?? ""}
                 onChange={(e) => updateM365({ tenantId: e.target.value })}
                 placeholder={t(lang, "integrationsM365TenantIdPlaceholder")}
-                className="mt-1 w-full"
+                className="w-full"
               />
-            </label>
+            </HintedLabel>
           )}
 
           <div className="flex items-center gap-2">
@@ -660,21 +664,22 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             // ★ axe cannot see any of this (no rule covers a bloated accessible
             // name), so nothing but this comment and a unit test guards it.
             <div className="text-xs">
-              <label className="block">
-                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                  {t(lang, "integrationsTursoUrl")}
-                  <InfoTooltip text={t(lang, "integrationsTursoUrlTooltip")} />
-                </span>
+              {/* ★★ The tooltip is outside the label too (open-followups §386),
+                  for the same reason as the notice above. */}
+              <HintedLabel
+                hint={<InfoTooltip text={t(lang, "integrationsTursoUrlTooltip")} />}
+                caption={<span className="inline-flex items-center gap-1 text-muted-foreground">{t(lang, "integrationsTursoUrl")}</span>}
+              >
                 <Input
                   size="xs"
                   type="text"
                   value={turso.databaseUrl ?? ""}
                   onChange={(e) => updateTurso({ databaseUrl: e.target.value })}
                   placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
-                  className="mt-1 w-full"
+                  className="w-full"
                   aria-describedby={envTursoUrlSet ? tursoUrlEnvNoticeId : undefined}
                 />
-              </label>
+              </HintedLabel>
               {envTursoUrlSet && (
                 <FieldNotice id={tursoUrlEnvNoticeId}>
                   {t(lang, "integrationsTursoUrlEnvUnusable")}
@@ -692,21 +697,26 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             </div>
           )}
           {!envTursoTokenSet && (
-            <label className="block text-xs">
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                {t(lang, "integrationsTursoToken")}
-                <InfoTooltip text={t(lang, "integrationsTursoTokenTooltip")} />
-              </span>
-              <Input
-                size="xs"
-                type="password"
-                value={turso.authToken ?? ""}
-                onChange={(e) => handleAuthTokenChange(e.target.value)}
-                placeholder={t(lang, "integrationsTursoTokenPlaceholder")}
-                className="mt-1 w-full"
-              />
-              <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
-            </label>
+            // ★★ Tooltip AND storage notice sit outside the naming <label>
+            // (open-followups §386; the notice for the same reason as the URL
+            // notice above). The notice is now the field's description.
+            <div className="text-xs">
+              <HintedLabel
+                hint={<InfoTooltip text={t(lang, "integrationsTursoTokenTooltip")} />}
+                caption={<span className="inline-flex items-center gap-1 text-muted-foreground">{t(lang, "integrationsTursoToken")}</span>}
+              >
+                <Input
+                  size="xs"
+                  type="password"
+                  value={turso.authToken ?? ""}
+                  onChange={(e) => handleAuthTokenChange(e.target.value)}
+                  placeholder={t(lang, "integrationsTursoTokenPlaceholder")}
+                  className="w-full"
+                  aria-describedby={tursoTokenNoteId}
+                />
+              </HintedLabel>
+              <FieldNotice id={tursoTokenNoteId}>{t(lang, "credentialStorageNote")}</FieldNotice>
+            </div>
           )}
           {!envTursoTokenSet && (
             <div className="mt-1">

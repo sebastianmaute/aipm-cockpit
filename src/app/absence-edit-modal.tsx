@@ -14,7 +14,7 @@ import { type Lang, t } from "./i18n";
 import { clampRangeEnd } from "./date-range";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { MODAL_HELP } from "./help-content";
-import { Input, Textarea } from "./form-controls";
+import { HintedLabel, Input, Textarea } from "./form-controls";
 import { AssigneeField } from "./modal-edit-fields";
 import { SegmentedControl } from "./segmented-control";
 import { useDraggable } from "./use-draggable";
@@ -156,10 +156,16 @@ export function AbsenceEditModal({
           {/* Start + end dates (grouped under the `dates` id). */}
           {isVisible("dates") && (
             <>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="flex items-center gap-1 font-medium text-foreground">
-                  {t(lang, "absenceStart")} *<InfoTooltip text={t(lang, "absenceStartHint")} />
-                </span>
+              <HintedLabel
+                className="text-sm"
+                bodyClassName="flex flex-col gap-1"
+                hint={<InfoTooltip text={t(lang, "absenceStartHint")} />}
+                caption={
+                  <span className="flex items-center gap-1 font-medium text-foreground">
+                    {t(lang, "absenceStart")} *
+                  </span>
+                }
+              >
                 <Input
                   type="date"
                   required
@@ -178,19 +184,27 @@ export function AbsenceEditModal({
                     setError(null);
                   }}
                 />
-              </label>
+              </HintedLabel>
 
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="flex items-center gap-1 font-medium text-foreground">
-                  {t(lang, "absenceEnd")} *<InfoTooltip text={t(lang, "absenceEndHint")} />
-                </span>
+              {/* ★★ Hinted fields render through `HintedLabel`: the hint sits
+                  OUTSIDE the naming <label> (open-followups §386). */}
+              <HintedLabel
+                className="text-sm"
+                bodyClassName="flex flex-col gap-1"
+                hint={<InfoTooltip text={t(lang, "absenceEndHint")} />}
+                caption={
+                  <span className="flex items-center gap-1 font-medium text-foreground">
+                    {t(lang, "absenceEnd")} *
+                  </span>
+                }
+              >
                 <Input
                   type="date"
                   required
                   value={draft.endDate}
                   onChange={(e) => update("endDate", e.target.value)}
                 />
-              </label>
+              </HintedLabel>
             </>
           )}
 
@@ -219,10 +233,16 @@ export function AbsenceEditModal({
           )}
 
           {isVisible("note") && (
-            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="flex items-center gap-1 font-medium text-foreground">
-                {t(lang, "absenceNote")}<InfoTooltip text={t(lang, "absenceNoteHint")} />
-              </span>
+            <HintedLabel
+              className="text-sm sm:col-span-2"
+              bodyClassName="flex flex-col gap-1"
+              hint={<InfoTooltip text={t(lang, "absenceNoteHint")} />}
+              caption={
+                <span className="flex items-center gap-1 font-medium text-foreground">
+                  {t(lang, "absenceNote")}
+                </span>
+              }
+            >
               <Textarea
                 autoGrow
                 rows={2}
@@ -232,7 +252,7 @@ export function AbsenceEditModal({
                 }
                 placeholder={t(lang, "absencePlaceholderNote")}
               />
-            </label>
+            </HintedLabel>
           )}
 
           {error && <ModalFieldError error={error} />}

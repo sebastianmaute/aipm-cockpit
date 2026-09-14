@@ -14,6 +14,7 @@ import { ToastProvider } from "./toast-context";
 import type { ChangeItem, Stakeholder } from "./types";
 import { expectNoLabelBoundToButton } from "../test/label-binding";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
 
 // ProseMirror (the three RichTextEditors) touches layout APIs jsdom lacks; stub
 // them so the editors mount. Mirrors raid-edit-modal / milestone-edit-modal.
@@ -170,6 +171,23 @@ describe("ChangeEditModal", () => {
       ],
     });
     expectRowUniqueNames({ minControls: 23 });
+  });
+});
+
+// open-followups §386: every hinted field's control is named by its caption
+// alone. (Type / Status / Impact name themselves with aria-label.)
+describe("ChangeEditModal — hinted field names (§386)", () => {
+  it("names every hinted control with its caption alone", () => {
+    renderModalFull();
+    expectNoHintInNamingLabel({ minHints: 6 });
+    expectExactLabelNames([
+      `${t("en-US", "changeFieldTitle")} *`,
+      t("en-US", "changeFieldRequestedBy"),
+      t("en-US", "changeFieldScheduleImpact"),
+      t("en-US", "changeFieldCostImpact"),
+      t("en-US", "changeFieldRaisedDate"),
+      t("en-US", "changeFieldDecisionBy"),
+    ]);
   });
 });
 

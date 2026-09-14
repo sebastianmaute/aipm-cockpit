@@ -9,6 +9,7 @@ import { ResourceEditModal } from "./resource-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
 import { selectFieldTier } from "../test/field-tier";
+import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
 import type { Resource } from "./types";
 
 // ModalFieldControls (rendered in the modal header) reads field visibility from
@@ -79,6 +80,27 @@ function setupFull(over: Partial<ModalProps> = {}) {
   );
   return { props, ...result };
 }
+
+// open-followups §386: every hinted field's control is named by its caption
+// alone, the external-resource checkbox included.
+describe("ResourceEditModal — hinted field names (§386)", () => {
+  it("names every hinted control with its caption alone", () => {
+    setupFull();
+    expectNoHintInNamingLabel({ minHints: 10 });
+    expectExactLabelNames([
+      t("en-US", "resourceFirstName"),
+      t("en-US", "resourceLastName"),
+      t("en-US", "resourceJobTitle"),
+      t("en-US", "resourceCompany"),
+      t("en-US", "resourceDepartment"),
+      t("en-US", "resourceLocation"),
+      t("en-US", "resourcePhone"),
+      t("en-US", "resourceEmail"),
+      t("en-US", "resourceExternal"),
+      t("en-US", "resourceNotes"),
+    ]);
+  });
+});
 
 describe("ResourceEditModal", () => {
   it("renders nothing when resource is null", () => {

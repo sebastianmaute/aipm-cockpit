@@ -48,9 +48,10 @@ export function TaskFormSection({
 // inside it concatenates onto the caption — testing-library computed "Groupi"
 // for "Group". With a hint, the `<label>` is therefore `display: contents` and
 // the `InfoTooltip` is its SIBLING: the wrapper is the flex row, and `order`
-// puts the trigger back beside the caption text visually (measured in Chromium:
-// the textbox is named "Group*", the trigger shares the caption's line, the
-// control wraps below). The trigger stays focusable and its own `aria-label` is
+// puts the trigger back beside the caption text visually. The layout is the
+// shared `HintedLabel`; its docstring and §386 say exactly what was measured
+// (a static stand-in page in Chromium, not this form) and what browser and
+// screen-reader checks are still owed. The trigger stays focusable and its own `aria-label` is
 // the hint — that is how the hint reaches AT. It is NOT wired to the control via
 // `aria-describedby`: `Field` does not own the child element, and cloning it or
 // mutating it imperatively was judged more fragile than the sibling.

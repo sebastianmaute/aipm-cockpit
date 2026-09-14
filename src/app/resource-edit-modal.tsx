@@ -9,7 +9,7 @@ import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { MODAL_HELP } from "./help-content";
-import { Input, Textarea } from "./form-controls";
+import { HintedLabel, Input, Textarea } from "./form-controls";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import type { Resource } from "./types";
@@ -162,11 +162,15 @@ export function ResourceEditModal({
       heightClassName="h-auto min-h-[280px] max-h-[95vh]"
       formClassName="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
     >
+          {/* ★★ Every hinted field below renders through `HintedLabel`, so the
+              hint sits OUTSIDE the naming <label> (open-followups §386). */}
           {/* First name */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "resourceFirstName")}<InfoTooltip text={t(lang, "resourceFirstNameHint")} />
-            </span>
+          <HintedLabel
+            className="text-sm"
+            bodyClassName="flex flex-col gap-1"
+            hint={<InfoTooltip text={t(lang, "resourceFirstNameHint")} />}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "resourceFirstName")}</span>}
+          >
             <Input
               type="text"
               value={draft.firstName ?? ""}
@@ -175,13 +179,15 @@ export function ResourceEditModal({
               aria-describedby="resource-firstName-counter"
             />
             <CharCounter value={draft.firstName ?? ""} max={ASSIGNEE_MAX} id="resource-firstName-counter" lang={lang} />
-          </label>
+          </HintedLabel>
 
           {/* Last name */}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "resourceLastName")}<InfoTooltip text={t(lang, "resourceLastNameHint")} />
-            </span>
+          <HintedLabel
+            className="text-sm"
+            bodyClassName="flex flex-col gap-1"
+            hint={<InfoTooltip text={t(lang, "resourceLastNameHint")} />}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "resourceLastName")}</span>}
+          >
             <Input
               type="text"
               value={draft.lastName ?? ""}
@@ -190,70 +196,80 @@ export function ResourceEditModal({
               aria-describedby="resource-lastName-counter"
             />
             <CharCounter value={draft.lastName ?? ""} max={ASSIGNEE_MAX} id="resource-lastName-counter" lang={lang} />
-          </label>
+          </HintedLabel>
 
           {/* Job title */}
           {isVisible("jobTitle") && (
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="flex items-center gap-1 font-medium text-foreground">
-                {t(lang, "resourceJobTitle")}<InfoTooltip text={t(lang, "resourceJobTitleHint")} />
-              </span>
+            <HintedLabel
+              className="text-sm"
+              bodyClassName="flex flex-col gap-1"
+              hint={<InfoTooltip text={t(lang, "resourceJobTitleHint")} />}
+              caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "resourceJobTitle")}</span>}
+            >
               <Input
                 type="text"
                 value={draft.title ?? ""}
                 onChange={(e) => update("title", e.target.value || undefined)}
               />
-            </label>
+            </HintedLabel>
           )}
 
           {/* Company */}
           {isVisible("company") && (
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="flex items-center gap-1 font-medium text-foreground">
-                {t(lang, "resourceCompany")}<InfoTooltip text={t(lang, "resourceCompanyHint")} />
-              </span>
+            <HintedLabel
+              className="text-sm"
+              bodyClassName="flex flex-col gap-1"
+              hint={<InfoTooltip text={t(lang, "resourceCompanyHint")} />}
+              caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "resourceCompany")}</span>}
+            >
               <Input
                 type="text"
                 value={draft.company ?? ""}
                 onChange={(e) => update("company", e.target.value || undefined)}
               />
-            </label>
+            </HintedLabel>
           )}
 
           {/* Department */}
           {isVisible("department") && (
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="flex items-center gap-1 font-medium text-foreground">
-                {t(lang, "resourceDepartment")}<InfoTooltip text={t(lang, "resourceDepartmentHint")} />
-              </span>
+            <HintedLabel
+              className="text-sm"
+              bodyClassName="flex flex-col gap-1"
+              hint={<InfoTooltip text={t(lang, "resourceDepartmentHint")} />}
+              caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "resourceDepartment")}</span>}
+            >
               <Input
                 type="text"
                 value={draft.department ?? ""}
                 onChange={(e) => update("department", e.target.value || undefined)}
               />
-            </label>
+            </HintedLabel>
           )}
 
           {/* Location */}
           {isVisible("location") && (
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="flex items-center gap-1 font-medium text-foreground">
-                {t(lang, "resourceLocation")}<InfoTooltip text={t(lang, "resourceLocationHint")} />
-              </span>
+            <HintedLabel
+              className="text-sm"
+              bodyClassName="flex flex-col gap-1"
+              hint={<InfoTooltip text={t(lang, "resourceLocationHint")} />}
+              caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "resourceLocation")}</span>}
+            >
               <Input
                 type="text"
                 value={draft.location ?? ""}
                 onChange={(e) => update("location", e.target.value || undefined)}
               />
-            </label>
+            </HintedLabel>
           )}
 
           {/* Business phone */}
           {isVisible("businessPhone") && (
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="flex items-center gap-1 font-medium text-foreground">
-                {t(lang, "resourcePhone")}<InfoTooltip text={t(lang, "resourcePhoneHint")} />
-              </span>
+            <HintedLabel
+              className="text-sm"
+              bodyClassName="flex flex-col gap-1"
+              hint={<InfoTooltip text={t(lang, "resourcePhoneHint")} />}
+              caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "resourcePhone")}</span>}
+            >
               <Input
                 type="tel"
                 value={draft.businessPhone ?? ""}
@@ -261,15 +277,17 @@ export function ResourceEditModal({
                   update("businessPhone", e.target.value || undefined)
                 }
               />
-            </label>
+            </HintedLabel>
           )}
 
           {/* Email */}
           {isVisible("email") && (
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="flex items-center gap-1 font-medium text-foreground">
-                {t(lang, "resourceEmail")}<InfoTooltip text={t(lang, "resourceEmailHint")} />
-              </span>
+            <HintedLabel
+              className="text-sm"
+              bodyClassName="flex flex-col gap-1"
+              hint={<InfoTooltip text={t(lang, "resourceEmailHint")} />}
+              caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "resourceEmail")}</span>}
+            >
               <Input
                 type="email"
                 value={draft.email ?? ""}
@@ -281,7 +299,7 @@ export function ResourceEditModal({
                 aria-describedby="resource-email-counter"
               />
               <CharCounter value={draft.email ?? ""} max={EMAIL_MAX} id="resource-email-counter" lang={lang} />
-            </label>
+            </HintedLabel>
           )}
 
           {/* Additional emails — full width */}
@@ -324,17 +342,20 @@ export function ResourceEditModal({
           )}
 
           {/* External resource flag — full width */}
-          <label className="flex items-center gap-2 text-sm sm:col-span-2">
-            <input
-              type="checkbox"
-              className={`${FOCUS_RING} ${TRANSITION}`}
-              checked={draft.isExternal === true}
-              onChange={(e) => update("isExternal", e.target.checked || undefined)}
-            />
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "resourceExternal")}<InfoTooltip text={t(lang, "resourceExternalHint")} />
-            </span>
-          </label>
+          {/* ★★ The hint is the label's SIBLING, not its child: inside, its text
+              joined the checkbox's accessible name (open-followups §386). */}
+          <div className="flex items-center gap-1 text-sm sm:col-span-2">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className={`${FOCUS_RING} ${TRANSITION}`}
+                checked={draft.isExternal === true}
+                onChange={(e) => update("isExternal", e.target.checked || undefined)}
+              />
+              <span className="font-medium text-foreground">{t(lang, "resourceExternal")}</span>
+            </label>
+            <InfoTooltip text={t(lang, "resourceExternalHint")} />
+          </div>
 
           {/* Birthday — native date picker with optional year */}
           {isVisible("birthday") && (
@@ -374,17 +395,19 @@ export function ResourceEditModal({
 
           {/* Notes — full width textarea */}
           {isVisible("notes") && (
-            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="flex items-center gap-1 font-medium text-foreground">
-                {t(lang, "resourceNotes")}<InfoTooltip text={t(lang, "resourceNotesHint")} />
-              </span>
+            <HintedLabel
+              className="text-sm sm:col-span-2"
+              bodyClassName="flex flex-col gap-1"
+              hint={<InfoTooltip text={t(lang, "resourceNotesHint")} />}
+              caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "resourceNotes")}</span>}
+            >
               <Textarea
                 autoGrow
                 rows={3}
                 value={draft.notes ?? ""}
                 onChange={(e) => update("notes", e.target.value || undefined)}
               />
-            </label>
+            </HintedLabel>
           )}
 
           {error && <ModalFieldError error={error} />}
