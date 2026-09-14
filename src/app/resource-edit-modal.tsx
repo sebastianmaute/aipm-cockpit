@@ -17,7 +17,7 @@ import { useDraggable } from "./use-draggable";
 import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
-import { ASSIGNEE_MAX, EMAIL_MAX, findDelimiterUnsafeEmail } from "./sanitize";
+import { ASSIGNEE_MAX, EMAIL_MAX, findNewDelimiterUnsafeEmail } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -96,8 +96,13 @@ export function ResourceEditModal({
       .map((e) => e.trim())
       .filter((e) => e.length > 0);
     // §422 — an address holding "," or ";" is torn in two by any transport that
-    // joins the list, so it is refused here rather than stored.
-    if (findDelimiterUnsafeEmail(emails) !== undefined) {
+    // joins the list, so it is refused here rather than stored. Fix round 2:
+    // mirrors `updateResource`'s exclusion via the shared
+    // `findNewDelimiterUnsafeEmail` — only a member that is BOTH unsafe AND not
+    // already present, trimmed, in `resource` (the row as of when the modal
+    // opened, never live workspace state) is refused; a new resource (`resource`
+    // holds no stored emails yet) refuses any unsafe member.
+    if (findNewDelimiterUnsafeEmail(emails, resource?.emails) !== undefined) {
       setError(t(lang, "resourceErrorEmailDelimiter"));
       return;
     }

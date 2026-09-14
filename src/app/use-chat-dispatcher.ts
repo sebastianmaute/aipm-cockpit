@@ -38,6 +38,7 @@ import {
   sanitizeResource,
   dropUnacceptedResourceFields,
   findDelimiterUnsafeEmail,
+  findNewDelimiterUnsafeEmail,
 } from "./sanitize";
 import { sanitizeAiRichText } from "./ai-rich-text";
 import { emptyForm, useTaskForm } from "./task-form-context";
@@ -660,12 +661,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //  DROPS that address or CLEARS the list entirely, since a string is
         //  refused wholesale rather than diffed. Fixing such a legacy row
         //  needs an array-typed call.
-        const existingEmailsTrimmed = new Set((existing.emails ?? []).map((e) => e.trim()));
-        const newUnsafeArrayEmails = Array.isArray(patch.emails)
-          ? patch.emails.filter((e) => typeof e !== "string" || !existingEmailsTrimmed.has(e.trim()))
-          : undefined;
+        //  ★ `findNewDelimiterUnsafeEmail` (`sanitize-core.ts`) holds the ARRAY
+        //  exclusion above and is shared with the resource editor's save guard
+        //  (`resource-edit-modal.tsx`) so the two write boundaries cannot drift.
         const unsafeEmail =
-          findDelimiterUnsafeEmail(newUnsafeArrayEmails) ??
+          findNewDelimiterUnsafeEmail(patch.emails, existing.emails) ??
           (typeof patch.emails === "string" ? findDelimiterUnsafeEmail(existing.emails) : undefined);
         if (unsafeEmail !== undefined) throw new Error(`invalid resource update: emails must not contain "," or ";" (${JSON.stringify(unsafeEmail)})`);
         // ★★★ `name` HAS TO BE SPLIT HERE OR IT IS A SILENT NO-OP ON UPDATE, and

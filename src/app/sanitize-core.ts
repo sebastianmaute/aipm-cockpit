@@ -46,6 +46,26 @@ export function findDelimiterUnsafeEmail(list: unknown): string | undefined {
   return list.find((e): e is string => typeof e === "string" && !isDelimiterSafeEmail(e));
 }
 
+/** Like `findDelimiterUnsafeEmail`, but excludes a member already present,
+ *  trimmed, in `stored` — an array `emails` is written VERBATIM (never
+ *  split), so re-saving an address the row already holds tears nothing; only
+ *  a genuinely NEW unsafe member can. `stored` undefined/empty (a brand-new
+ *  resource has no stored row yet) means every member counts as new. Shared
+ *  by `updateResource` (`use-chat-dispatcher.ts`) and the resource editor
+ *  (`resource-edit-modal.tsx`) so the two write boundaries cannot drift
+ *  (open-followups §422, fix round 2). */
+export function findNewDelimiterUnsafeEmail(
+  list: unknown,
+  stored: readonly string[] | undefined,
+): string | undefined {
+  if (!Array.isArray(list)) return undefined;
+  const storedTrimmed = new Set((stored ?? []).map((e) => e.trim()));
+  return list.find(
+    (e): e is string =>
+      typeof e === "string" && !isDelimiterSafeEmail(e) && !storedTrimmed.has(e.trim()),
+  );
+}
+
 // --- Generic helpers -------------------------------------------------------
 
 /**

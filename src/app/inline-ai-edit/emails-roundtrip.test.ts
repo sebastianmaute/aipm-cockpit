@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { describeEntityCalls, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { sanitizeEmailList } from "../sanitize-entities";
-import { findDelimiterUnsafeEmail, isDelimiterSafeEmail } from "../sanitize";
+import { findDelimiterUnsafeEmail, findNewDelimiterUnsafeEmail, isDelimiterSafeEmail } from "../sanitize";
 import type { Workspace } from "../workspace";
 
 // ★★★ open-followups §422 — THE REGRESSION TEST, converted from the retained
@@ -33,6 +33,31 @@ describe("isDelimiterSafeEmail / findDelimiterUnsafeEmail", () => {
     expect(findDelimiterUnsafeEmail("a@x.com, b@y.com")).toBeUndefined();
     expect(findDelimiterUnsafeEmail(undefined)).toBeUndefined();
     expect(findDelimiterUnsafeEmail([42, "a@x.com"])).toBeUndefined();
+  });
+});
+
+// §422 fix round 2 (final-review finding 1) — the shared exclusion behind
+// both `updateResource` (use-chat-dispatcher.ts) and the resource editor's
+// save guard (resource-edit-modal.tsx), so the two write boundaries agree on
+// which unsafe member is genuinely NEW.
+describe("findNewDelimiterUnsafeEmail", () => {
+  it("excludes a member already present, trimmed, in stored", () => {
+    expect(findNewDelimiterUnsafeEmail(["a,b@x.com"], ["a,b@x.com"])).toBeUndefined();
+    expect(findNewDelimiterUnsafeEmail(["a,b@x.com"], [" a,b@x.com "])).toBeUndefined();
+  });
+
+  it("still finds a genuinely new unsafe member alongside a stored one", () => {
+    expect(findNewDelimiterUnsafeEmail(["a,b@x.com", "c;d@x.com"], ["a,b@x.com"])).toBe("c;d@x.com");
+  });
+
+  it("treats a missing or empty stored list as refusing every unsafe member", () => {
+    expect(findNewDelimiterUnsafeEmail(["a,b@x.com"], undefined)).toBe("a,b@x.com");
+    expect(findNewDelimiterUnsafeEmail(["a,b@x.com"], [])).toBe("a,b@x.com");
+  });
+
+  it("returns undefined for a non-array list, matching findDelimiterUnsafeEmail", () => {
+    expect(findNewDelimiterUnsafeEmail("a,b@x.com", [])).toBeUndefined();
+    expect(findNewDelimiterUnsafeEmail(undefined, [])).toBeUndefined();
   });
 });
 
