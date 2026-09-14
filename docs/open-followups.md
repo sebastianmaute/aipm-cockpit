@@ -34955,7 +34955,7 @@ entry as filed said the fix commit must.
 ## 461. An absence stores an assignee email that is not an address, where a task refuses the same value loudly — CLOSED 2026-09-14
 
 **Status:** CLOSED 2026-09-14 — decided per field: an absence's `assigneeEmail` now carries the task
-rule. `refuseInvalidAbsenceEmail` (`src/app/sanitize-records.ts`) throws `assigneeEmail is invalid`
+rule. `refuseInvalidAbsenceEmail` (`src/app/absence-email.ts`, re-exported by `./sanitize`) throws `assigneeEmail is invalid`
 for a non-blank address `isValidEmail` rejects, and `createAbsence` / `updateAbsence`
 (`use-register-tools.ts`) call it after `dropUnacceptedAbsenceFields`; blank stays a legal clear.
 The absence descriptor's `emailFormatFields` is now `assigneeEmail`, so the card rejects the value
