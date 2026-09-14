@@ -20,6 +20,9 @@ Each was forced by the code map and is already written into the spec.
 4. **Two more readers.** `budget-panel.tsx`'s local `sumPeriods` and the two `actual={a.actualHours[p.key]}` cells read period keys directly and are switched too. `budget-bucket-people.ts` reads the overlay, which stays period-keyed, so it needs no change.
 5. **Only the small sample gets day keys.** `sample-workspace-big.json` / `-huge.json` are not regenerated in this MR (`sample-workspace-huge.json` is never staged).
 6. **The read-only cell needs a new prop.** `HoursCell`'s existing `readOnly` drives the budget input only.
+7. **The cached day cells are packed at rest (added 2026-09-14, user decision).** Measured during Task 5: a day-keyed aggregate for 40 buckets × 250 days × 8 people is 177–222% of `MAX_ACTUALS_TOTAL_CHARS`, and a refused `localStorage` write was silent. Tasks 9a/9b pack day cells into per-bucket columns (lossless, about 26% of the verbose size), shed the saved entry's own roll as a last stage, and warn in the TimeLog panel when the browser still refuses the write. Design: `.superpowers/sdd/2026-09-14-dated-actuals/cache-design.md` (git-ignored scratch; the plan text below is self-contained).
+8. **On a refused write the project's previous cache entry is removed**, so a reload reads "not fetched" rather than an older fetch presented as current. The warning is shown in the TimeLog panel only.
+9. **Execution order is 1–7, 9a, 9b, 8**, so Task 8's docs describe the packed cache.
 
 ## Global Constraints
 
@@ -1441,6 +1444,1085 @@ EOF
 
 ---
 
+### Task 9a: Pack cached day cells and report a refused cache write
+
+**Files:**
+- Create: `src/app/timelog-actuals-codec.ts`
+- Modify: `src/app/timelog-actuals-store.ts`, `src/app/device-store.ts`, `docs/AGENTS/theming.md`
+- Test: `src/app/timelog-actuals-codec.test.ts` (new), `src/app/timelog-actuals-store.test.ts`, `src/app/device-store.test.ts`
+
+**Interfaces:**
+- Consumes: `ActualsAggregate`, `ActualsByBucketDay`, `BucketPeriodCell`, `ResourceDayCell` from `./timelog-actuals` (Task 5).
+- Produces (in `timelog-actuals-codec.ts`):
+  - `const PACKED_DAYS_VERSION = 1 as const`
+  - `type PackedBucketColumns = { d: number[]; n: number[]; t: number[]; tb?: number[]; r: number[]; h: number[]; hb?: number[] }`
+  - `type PackedBucketDays = { v: typeof PACKED_DAYS_VERSION; days: string[]; res: number[]; b: Record<string, PackedBucketColumns> }`
+  - `type StoredAggregate = Omit<ActualsAggregate, "byBucketDay"> & { byBucketDay?: ActualsByBucketDay; dayCells?: PackedBucketDays }`
+  - `packBucketDays(byBucketDay: ActualsByBucketDay): PackedBucketDays`
+  - `isPackedBucketDays(v: unknown): v is PackedBucketDays`
+  - `unpackBucketDays(packed: PackedBucketDays): ActualsByBucketDay`
+  - `toStoredAggregate(agg: StoredAggregate): StoredAggregate`
+  - `fromStoredAggregate(agg: StoredAggregate): ActualsAggregate`
+- Changes:
+  - `saveActualsCache(projectId: string, entry: ActualsCacheEntry): boolean` (was `void`)
+  - `writeDeviceJson(key: string, value: unknown): boolean` (was `void`)
+  - `loadActualsCache(projectId: string): ActualsCacheEntry | undefined` (signature unchanged; unpacks)
+
+- [ ] **Step 1: Write the failing codec tests**
+
+Confirm no component of the same stem exists: `git ls-files "src/app/timelog-actuals-codec*"` must print nothing.
+
+Create `src/app/timelog-actuals-codec.test.ts`:
+
+```ts
+import { describe, expect, it } from "vitest";
+import { aggregateActuals } from "./timelog-actuals";
+import {
+  fromStoredAggregate,
+  isPackedBucketDays,
+  packBucketDays,
+  toStoredAggregate,
+  unpackBucketDays,
+  type StoredAggregate,
+} from "./timelog-actuals-codec";
+import type { TimelogLinks, TimelogTimeItem } from "./timelog-types";
+
+const links: TimelogLinks = {
+  userLinks: [
+    { timelogUserId: 1, resourceId: 10, manual: true },
+    { timelogUserId: 2, resourceId: 1726000000020, manual: true },
+  ],
+  projectLinks: [
+    { timelogProjectId: 9, bucketId: 7, manual: true },
+    { timelogProjectId: 8, bucketId: 3, manual: true },
+  ],
+};
+
+const item = (userId: number, projectId: number, date: string, hours: number, billableHours: number): TimelogTimeItem => ({
+  timeRegistrationId: 1, userId, projectId, projectName: "", projectNo: "", taskId: 0, date, hours, billableHours, isBillable: billableHours > 0,
+});
+
+/** Decimal sums (0.1 + 0.2 is 0.30000000000000004), a credit correction, a
+ *  resource id past 2^32 and a shape-valid NON-date (2026-02-30), because
+ *  `aggregateActuals` admits any YYYY-MM-DD-shaped key. */
+const dated = () =>
+  aggregateActuals(
+    [
+      item(1, 9, "2026-06-10", 0.1, 0.1),
+      item(1, 9, "2026-06-10", 0.2, 0),
+      item(2, 9, "2026-06-10", 7.25, 7.25),
+      item(2, 9, "2026-06-11", -1.5, -1.5),
+      item(1, 8, "2026-02-30", 3, 3),
+      item(2, 8, "2026-12-31", 8, 8),
+    ],
+    links,
+  );
+
+describe("timelog actuals codec", () => {
+  it("round-trips the aggregate through JSON exactly", () => {
+    const agg = dated();
+    const stored = JSON.parse(JSON.stringify(toStoredAggregate(agg))) as StoredAggregate;
+    expect(stored.byBucketDay).toBeUndefined();
+    expect(isPackedBucketDays(stored.dayCells)).toBe(true);
+    expect(fromStoredAggregate(stored)).toEqual(agg);
+  });
+
+  it("omits a billable column that equals its hours column, and keeps one that does not", () => {
+    const allBillable = packBucketDays(aggregateActuals([item(1, 9, "2026-06-10", 2, 2)], links).byBucketDay ?? {});
+    expect(allBillable.b["7"].hb).toBeUndefined();
+    expect(allBillable.b["7"].tb).toBeUndefined();
+    const mixed = packBucketDays(dated().byBucketDay ?? {});
+    expect(mixed.b["7"].hb).toEqual([0.1, 7.25, -1.5]);
+    expect(mixed.b["7"].tb).toEqual([7.35, -1.5]);
+  });
+
+  it("passes a legacy period-keyed aggregate through both ways by identity", () => {
+    const legacy = { byBucket: { 7: { "2026-06": { hours: 1, billableHours: 1 } } }, byResource: {}, unattributed: { hours: 0, billableHours: 0 } };
+    expect(toStoredAggregate(legacy)).toBe(legacy);
+    expect(fromStoredAggregate(legacy)).toBe(legacy);
+  });
+
+  it("loads a verbose byBucketDay aggregate from an earlier build by identity", () => {
+    const verbose = dated();
+    expect(fromStoredAggregate(verbose)).toBe(verbose);
+  });
+
+  it("packs a year of day cells to well under a third of the verbose size", () => {
+    // Measured 2026-09-14: this fixture is 186,408 chars verbose and 48,538
+    // packed (ratio 0.260). The bound leaves room for fixture drift, not for a
+    // codec that stopped packing.
+    const items: TimelogTimeItem[] = [];
+    for (let b = 0; b < 10; b += 1) {
+      for (let day = 0; day < 250; day += 1) {
+        for (let p = 0; p < 4; p += 1) {
+          const hours = (((day * 7 + p * 3 + b) % 31) + 1) / 4;
+          const date = `2026-${String((day % 12) + 1).padStart(2, "0")}-${String((day % 28) + 1).padStart(2, "0")}`;
+          items.push(item(p + 1, b + 1, date, hours, (day + p) % 3 === 0 ? 0 : hours));
+        }
+      }
+    }
+    const bigLinks: TimelogLinks = {
+      userLinks: [1, 2, 3, 4].map((u) => ({ timelogUserId: u, resourceId: u * 10, manual: true })),
+      projectLinks: Array.from({ length: 10 }, (_, b) => ({ timelogProjectId: b + 1, bucketId: b + 100, manual: true })),
+    };
+    const agg = aggregateActuals(items, bigLinks);
+    const ratio = JSON.stringify(toStoredAggregate(agg)).length / JSON.stringify(agg).length;
+    expect(ratio).toBeLessThan(0.35);
+  });
+
+  it("admits and unpacks an empty payload", () => {
+    const empty = { v: 1 as const, days: [], res: [], b: {} };
+    expect(isPackedBucketDays(empty)).toBe(true);
+    expect(unpackBucketDays(empty)).toEqual({});
+  });
+
+  describe("rejects a malformed payload", () => {
+    const good = packBucketDays(dated().byBucketDay ?? {});
+    const col = good.b["7"];
+    const cases: [string, unknown][] = [
+      ["an unknown version", { ...good, v: 2 }],
+      ["a day that is not YYYY-MM-DD", { ...good, days: ["06/10/2026", ...good.days.slice(1)] }],
+      ["a day index past the day table", { ...good, b: { ...good.b, 7: { ...col, d: [99, ...col.d.slice(1)] } } }],
+      ["a repeated day in one bucket", { ...good, b: { ...good.b, 7: { ...col, d: [col.d[0], 0] } } }],
+      ["a resource index past the resource table", { ...good, b: { ...good.b, 7: { ...col, r: [5, ...col.r.slice(1)] } } }],
+      ["a resource row missing its hours", { ...good, b: { ...good.b, 7: { ...col, h: col.h.slice(1) } } }],
+      ["a null day total", { ...good, b: { ...good.b, 7: { ...col, t: [null, ...col.t.slice(1)] } } }],
+      ["a negative row count", { ...good, b: { ...good.b, 7: { ...col, n: [-1, ...col.n.slice(1)] } } }],
+      ["a string resource id", { ...good, res: ["10", ...good.res.slice(1)] }],
+      ["bucket columns held in an array", { ...good, b: [] }],
+      ["a null bucket", { ...good, b: { ...good.b, 7: null } }],
+      ["a number", 5],
+      ["null", null],
+    ];
+    it.each(cases)("%s", (_name, payload) => {
+      expect(isPackedBucketDays(payload)).toBe(false);
+    });
+
+    it("accepts the unmodified payload (control)", () => {
+      expect(isPackedBucketDays(JSON.parse(JSON.stringify(good)))).toBe(true);
+    });
+  });
+});
+```
+
+- [ ] **Step 2: Run to verify failure**
+
+Run: `npx vitest run src/app/timelog-actuals-codec.test.ts > "$TMPDIR/t9a.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |Failed to|Cannot find" "$TMPDIR/t9a.log"`
+Expected: `EXIT=1` (the module does not exist).
+
+- [ ] **Step 3: Create the codec**
+
+Create `src/app/timelog-actuals-codec.ts` with the Write tool:
+
+```ts
+// src/app/timelog-actuals-codec.ts — pure, i18n-free AT-REST packing of the
+// day-keyed TimeLog aggregate for the per-device actuals cache
+// (`timelog-actuals-store.ts`). In memory every consumer keeps reading
+// `ActualsAggregate.byBucketDay`; only the stored JSON changes shape.
+import type { ActualsAggregate, ActualsByBucketDay, BucketPeriodCell, ResourceDayCell } from "./timelog-actuals";
+
+/** Bumped only when the column layout changes. An entry carrying any other
+ *  version is rejected by `isPackedBucketDays` and its cache entry dropped:
+ *  that reads as "never fetched", which a re-fetch repairs. */
+export const PACKED_DAYS_VERSION = 1 as const;
+
+/** One bucket's day cells as parallel columns, days in ascending order.
+ *  - `d`  day-index DELTA per day group (first is absolute; later ones > 0)
+ *  - `n`  resource rows in that day group
+ *  - `t`  / `tb` the day cell's `hours` / `billableHours` (`tb` omitted when
+ *         every value equals `t`)
+ *  - `r`  resource index into `PackedBucketDays.res`, one per resource row
+ *  - `h`  / `hb` that resource's `hours` / `billableHours` (`hb` omitted when
+ *         every value equals `h`)
+ *  ★★ The day totals `t`/`tb` are stored even though they equal the sum of the
+ *  resource rows: re-summing reproduces them only when every addend is an exact
+ *  binary fraction, and a one-ULP drift would make the reloaded aggregate differ
+ *  from the fetched one. Measured cost: ~10% of the packed size. */
+export type PackedBucketColumns = {
+  d: number[];
+  n: number[];
+  t: number[];
+  tb?: number[];
+  r: number[];
+  h: number[];
+  hb?: number[];
+};
+
+export type PackedBucketDays = {
+  v: typeof PACKED_DAYS_VERSION;
+  /** Every day key used by any bucket, ascending. Stored as STRINGS, never as
+   *  offsets from a base date: `aggregateActuals` admits any `YYYY-MM-DD`-shaped
+   *  key (`9999-99-99` included), and date arithmetic would silently rewrite a
+   *  shape-valid non-date such as `2026-02-30`. */
+  days: string[];
+  /** Every resource id used by any bucket, ascending. */
+  res: number[];
+  /** bucketId → columns. */
+  b: Record<string, PackedBucketColumns>;
+};
+
+/** An aggregate as it sits in localStorage: `byBucketDay` packed into
+ *  `dayCells`. A legacy `byBucket` entry and a verbose `byBucketDay` entry from
+ *  an earlier build are also valid stored aggregates. */
+export type StoredAggregate = Omit<ActualsAggregate, "byBucketDay"> & {
+  byBucketDay?: ActualsByBucketDay;
+  dayCells?: PackedBucketDays;
+};
+
+const DAY_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function allEqual(a: readonly number[], b: readonly number[]): boolean {
+  return a.every((v, i) => v === b[i]);
+}
+
+export function packBucketDays(byBucketDay: ActualsByBucketDay): PackedBucketDays {
+  const daySet = new Set<string>();
+  const resSet = new Set<number>();
+  for (const cells of Object.values(byBucketDay)) {
+    for (const [day, cell] of Object.entries(cells)) {
+      daySet.add(day);
+      for (const rid of Object.keys(cell.byResource ?? {})) resSet.add(Number(rid));
+    }
+  }
+  const days = [...daySet].sort();
+  const res = [...resSet].sort((x, y) => x - y);
+  const dayIndex = new Map(days.map((day, i) => [day, i] as const));
+  const resIndex = new Map(res.map((id, i) => [id, i] as const));
+
+  const b: Record<string, PackedBucketColumns> = {};
+  for (const [bucketId, cells] of Object.entries(byBucketDay)) {
+    const d: number[] = [];
+    const n: number[] = [];
+    const t: number[] = [];
+    const tb: number[] = [];
+    const r: number[] = [];
+    const h: number[] = [];
+    const hb: number[] = [];
+    let prev = 0;
+    for (const day of Object.keys(cells).sort()) {
+      const cell = cells[day];
+      const index = dayIndex.get(day) ?? 0;
+      d.push(index - prev);
+      prev = index;
+      t.push(cell.hours);
+      tb.push(cell.billableHours);
+      const rows = Object.entries(cell.byResource ?? {});
+      n.push(rows.length);
+      for (const [rid, rc] of rows) {
+        r.push(resIndex.get(Number(rid)) ?? 0);
+        h.push(rc.hours);
+        hb.push(rc.billableHours);
+      }
+    }
+    const columns: PackedBucketColumns = { d, n, t, r, h };
+    if (!allEqual(t, tb)) columns.tb = tb;
+    if (!allEqual(h, hb)) columns.hb = hb;
+    b[bucketId] = columns;
+  }
+  return { v: PACKED_DAYS_VERSION, days, res, b };
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function isFiniteColumn(v: unknown, length: number): v is number[] {
+  return Array.isArray(v) && v.length === length && v.every((x) => typeof x === "number" && Number.isFinite(x));
+}
+
+function isIndexColumn(v: unknown, bound: number): v is number[] {
+  return Array.isArray(v) && v.every((x) => Number.isInteger(x) && (x as number) >= 0 && (x as number) < bound);
+}
+
+function isColumns(v: unknown, dayCount: number, resCount: number): v is PackedBucketColumns {
+  if (!isPlainObject(v)) return false;
+  const { d, n, t, tb, r, h, hb } = v;
+  if (!Array.isArray(d) || !Array.isArray(n) || d.length !== n.length) return false;
+  // Day indices: absolute first, strictly increasing after, all inside `days`.
+  let day = -1;
+  for (let i = 0; i < d.length; i += 1) {
+    const step = d[i];
+    if (!Number.isInteger(step) || step < 0 || (i > 0 && step === 0)) return false;
+    day = i === 0 ? step : day + step;
+    if (day >= dayCount) return false;
+  }
+  if (!n.every((x) => Number.isInteger(x) && (x as number) >= 0)) return false;
+  const rows = (n as number[]).reduce((s, x) => s + x, 0);
+  if (!isFiniteColumn(t, d.length)) return false;
+  if (tb !== undefined && !isFiniteColumn(tb, d.length)) return false;
+  if (!Array.isArray(r) || r.length !== rows || !isIndexColumn(r, resCount)) return false;
+  if (!isFiniteColumn(h, rows)) return false;
+  if (hb !== undefined && !isFiniteColumn(hb, rows)) return false;
+  return true;
+}
+
+/** Shape check for a stored `dayCells` payload. Everything `unpackBucketDays`
+ *  indexes is bounds-checked here, so an admitted payload cannot throw or mint
+ *  an `undefined` key. A rejected payload drops its cache entry, exactly like an
+ *  `aggregates` field of the wrong type does. */
+export function isPackedBucketDays(v: unknown): v is PackedBucketDays {
+  if (!isPlainObject(v) || v.v !== PACKED_DAYS_VERSION) return false;
+  const { days, res, b } = v;
+  if (!Array.isArray(days) || !days.every((x) => typeof x === "string" && DAY_KEY_RE.test(x))) return false;
+  if (!Array.isArray(res) || !res.every((x) => typeof x === "number" && Number.isFinite(x))) return false;
+  if (!isPlainObject(b)) return false;
+  return Object.values(b).every((columns) => isColumns(columns, days.length, res.length));
+}
+
+export function unpackBucketDays(packed: PackedBucketDays): ActualsByBucketDay {
+  const out: ActualsByBucketDay = {};
+  for (const [bucketId, col] of Object.entries(packed.b)) {
+    const cells: Record<string, BucketPeriodCell> = {};
+    let day = 0;
+    let row = 0;
+    for (let g = 0; g < col.d.length; g += 1) {
+      day = g === 0 ? col.d[g] : day + col.d[g];
+      const byResource: Record<number, ResourceDayCell> = {};
+      for (let k = 0; k < col.n[g]; k += 1) {
+        byResource[packed.res[col.r[row]]] = { hours: col.h[row], billableHours: col.hb ? col.hb[row] : col.h[row] };
+        row += 1;
+      }
+      cells[packed.days[day]] = { hours: col.t[g], billableHours: col.tb ? col.tb[g] : col.t[g], byResource };
+    }
+    out[Number(bucketId)] = cells;
+  }
+  return out;
+}
+
+/** Pack on the way INTO storage. An aggregate without `byBucketDay` (a legacy
+ *  period-keyed one, or one already packed) is returned BY IDENTITY. */
+export function toStoredAggregate(agg: StoredAggregate): StoredAggregate {
+  if (agg.byBucketDay === undefined) return agg;
+  const { byBucketDay, ...rest } = agg;
+  return { ...rest, dayCells: packBucketDays(byBucketDay) };
+}
+
+/** Unpack on the way OUT of storage. The caller must have validated
+ *  `dayCells` with `isPackedBucketDays`. An aggregate without `dayCells` (legacy
+ *  `byBucket`, or a verbose `byBucketDay` from an earlier build) is returned BY
+ *  IDENTITY. */
+export function fromStoredAggregate(agg: StoredAggregate): ActualsAggregate {
+  if (agg.dayCells === undefined) return agg;
+  const { dayCells, ...rest } = agg;
+  return { ...rest, byBucketDay: unpackBucketDays(dayCells) };
+}
+```
+
+- [ ] **Step 4: Run the codec tests**
+
+Run: `npx vitest run src/app/timelog-actuals-codec.test.ts > "$TMPDIR/t9a.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$TMPDIR/t9a.log"`
+Expected: `EXIT=0`, `Test Files  1 passed (1)`.
+
+- [ ] **Step 5: Write the failing store and device-store tests**
+
+In `src/app/device-store.test.ts`, add inside the `describe("device-store", …)` block, after the "write survives a throwing setItem" test:
+
+```ts
+  it("reports whether the write reached storage", () => {
+    expect(writeDeviceJson(KEY, { x: 1 })).toBe(true);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    expect(writeDeviceJson(KEY, { x: 2 })).toBe(false);
+  });
+```
+
+In `src/app/timelog-actuals-store.test.ts`:
+
+Replace the first import line `import { describe, it, expect, afterEach } from "vitest";` with
+`import { describe, it, expect, afterEach, vi } from "vitest";`, and add
+`import { aggregateActuals } from "./timelog-actuals";` directly below the `./device-store` import.
+
+Inside `describe("timelog actuals cache — map-level size budget", …)`, insert directly ABOVE the comment line
+`  /** ★★★ THE STAGE-1 RESTORE BRANCH, WHICH HAD NO COVERAGE AT ALL. The existing` (so `bigAgg`, `bigRoll`,
+`fatUser` and `isoDay` are in scope):
+
+```ts
+  /** ★★★ STAGE 6. Day cells are stored packed, but an entry can still sit over
+   *  budget on `aggregates` alone. Stage 5 sheds its users first; stage 6 then
+   *  sheds its roll trio TOGETHER and keeps `aggregates`. `bigAgg(60_000)` is a
+   *  legacy period map (passed through unpacked), measured at 2,400,081 chars
+   *  against the 2,097,152 budget and well inside jsdom's 5 MB quota.
+   *  ★ The CONTROL is the stage-5 test above: its users alone are over budget,
+   *  so after stage 5 the entry fits and its roll must survive — which also
+   *  pins stage 5's `size` recompute. */
+  it("sheds the saved entry's own roll when its aggregates alone exceed the budget, keeping the aggregates", () => {
+    const roll = bigRoll(10);
+    const caller = {
+      fetchedAt: "2026-09-01T00:00:00.000Z",
+      aggregates: bigAgg(60_000),
+      users: [fatUser(1)],
+      projectRefs: [{ id: 1, name: "P", no: "P-1" }],
+      daily: roll,
+      dailyWindow: { from: isoDay(0), to: isoDay(9) },
+      dailyUsers: [7],
+    };
+    expect(saveActualsCache("huge", caller)).toBe(true);
+    const e = loadActualsCache("huge");
+    expect(e?.aggregates?.byBucket?.[7]?.["2000-01"].hours).toBe(8);
+    expect(e?.users).toBeUndefined();
+    expect(e?.daily).toBeUndefined();
+    expect(e?.dailyWindow).toBeUndefined();
+    expect(e?.dailyUsers).toBeUndefined();
+    // A COPY was shed, never the caller's object.
+    expect(caller.daily).toBe(roll);
+  });
+
+  it("returns true when the map reaches storage", () => {
+    expect(saveActualsCache("p", { fetchedAt: "t", aggregates: agg(1) })).toBe(true);
+  });
+
+  /** ★★★ A REFUSED WRITE MUST NOT LEAVE THE PREVIOUS FETCH READABLE. Storage
+   *  still holds this project's old entry, which a reload would read as the
+   *  current fetch; the store removes it and reports the failure instead. The
+   *  refusal is ONE call, so the removal write itself lands. */
+  it("returns false and removes the saving project's stale entry when storage refuses the write", () => {
+    saveActualsCache("keep", { fetchedAt: "2026-09-01T00:00:00.000Z", aggregates: agg(1) });
+    saveActualsCache("p", { fetchedAt: "2026-09-01T00:00:00.000Z", aggregates: agg(2) });
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => {
+      throw new Error("QuotaExceededError");
+    });
+    try {
+      expect(saveActualsCache("p", { fetchedAt: "2026-09-02T00:00:00.000Z", aggregates: agg(3) })).toBe(false);
+    } finally {
+      setItem.mockRestore();
+    }
+    expect(loadActualsCache("p")).toBeUndefined();
+    expect(loadActualsCache("keep")?.aggregates?.unattributed.hours).toBe(1);
+  });
+
+  it("returns false without throwing when storage refuses every write", () => {
+    saveActualsCache("p", { fetchedAt: "2026-09-01T00:00:00.000Z", aggregates: agg(2) });
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    try {
+      expect(saveActualsCache("p", { fetchedAt: "2026-09-02T00:00:00.000Z", aggregates: agg(3) })).toBe(false);
+    } finally {
+      setItem.mockRestore();
+    }
+    // Nothing could be written, so storage still holds the previous entry.
+    expect(loadActualsCache("p")?.aggregates?.unattributed.hours).toBe(2);
+  });
+```
+
+Append at the END of the file (after the last `});`):
+
+```ts
+describe("timelog actuals cache — packed day cells", () => {
+  const links = {
+    userLinks: [
+      { timelogUserId: 1, resourceId: 10, manual: true },
+      { timelogUserId: 2, resourceId: 20, manual: true },
+    ],
+    projectLinks: [{ timelogProjectId: 9, bucketId: 7, manual: true }],
+  };
+  const booking = (userId: number, date: string, hours: number, billableHours: number) => ({
+    timeRegistrationId: 1, userId, projectId: 9, projectName: "", projectNo: "", taskId: 0, date, hours, billableHours, isBillable: billableHours > 0,
+  });
+  const dated = () =>
+    aggregateActuals([booking(1, "2026-06-10", 0.1, 0.1), booking(1, "2026-06-10", 0.2, 0), booking(2, "2026-06-11", 7.25, 7.25)], links);
+  const storedAggregates = (projectId: string) =>
+    (JSON.parse(window.localStorage.getItem(TIMELOG_ACTUALS_KEY) ?? "{}") as Record<string, { aggregates?: Record<string, unknown> }>)[projectId]
+      ?.aggregates;
+
+  it("stores day cells packed and loads them back unchanged", () => {
+    const aggregates = dated();
+    expect(saveActualsCache("p", { fetchedAt: "t", aggregates })).toBe(true);
+    expect(storedAggregates("p")?.byBucketDay).toBeUndefined();
+    expect(storedAggregates("p")?.dayCells).toBeDefined();
+    expect(loadActualsCache("p")?.aggregates).toEqual(aggregates);
+  });
+
+  it("loads a verbose byBucketDay entry an earlier build wrote", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, { p: { fetchedAt: "t", aggregates: dated() } });
+    expect(loadActualsCache("p")?.aggregates).toEqual(dated());
+  });
+
+  it("repacks another project's verbose entry on the next save", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, { old: { fetchedAt: "t", aggregates: dated() } });
+    saveActualsCache("new", { fetchedAt: "t2", aggregates: agg(1) });
+    expect(storedAggregates("old")?.byBucketDay).toBeUndefined();
+    expect(storedAggregates("old")?.dayCells).toBeDefined();
+    expect(loadActualsCache("old")?.aggregates).toEqual(dated());
+  });
+
+  /** A malformed packed payload is the aggregate's core, so the ENTRY goes —
+   *  the rule `isEntry` already applies to `aggregates: 5` — while other
+   *  projects' entries survive. */
+  it("drops an entry whose packed day cells are malformed, keeping the others", () => {
+    saveActualsCache("bad", { fetchedAt: "t", aggregates: dated() });
+    saveActualsCache("good", { fetchedAt: "t", aggregates: dated() });
+    const map = JSON.parse(window.localStorage.getItem(TIMELOG_ACTUALS_KEY) ?? "{}") as Record<
+      string,
+      { aggregates: { dayCells: { v: number } } }
+    >;
+    map.bad.aggregates.dayCells.v = 99;
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, map);
+    expect(loadActualsCache("bad")).toBeUndefined();
+    expect(loadActualsCache("good")?.aggregates).toEqual(dated());
+  });
+});
+```
+
+- [ ] **Step 6: Run to verify failure**
+
+Run: `npx vitest run src/app/timelog-actuals-store.test.ts src/app/device-store.test.ts > "$TMPDIR/t9a.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |✗|×" "$TMPDIR/t9a.log"`
+Expected: `EXIT=1`. The packed, stage-6, return-value and refused-write tests fail; every pre-existing test passes.
+
+- [ ] **Step 7: Make `writeDeviceJson` report the result**
+
+In `src/app/device-store.ts` (Edit tool; CRLF is preserved), replace:
+
+```ts
+/** JSON.stringify + write a per-device key. SSR-safe; swallows quota /
+ *  serialization / disabled-storage errors. */
+export function writeDeviceJson(key: string, value: unknown): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // quota / disabled / serialization — non-fatal
+  }
+}
+```
+
+with:
+
+```ts
+/** JSON.stringify + write a per-device key. SSR-safe; never throws on quota /
+ *  serialization / disabled-storage errors.
+ *  Returns `true` only when the value reached storage. Callers that can live
+ *  with a lost write ignore it; `saveActualsCache` reads it, because a lost
+ *  TimeLog fetch must be reported to the user. */
+export function writeDeviceJson(key: string, value: unknown): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    // quota / disabled / serialization — non-fatal, but reported
+    return false;
+  }
+}
+```
+
+- [ ] **Step 8: Pack in the store, add stage 6, report the write**
+
+All edits in `src/app/timelog-actuals-store.ts` use the Edit tool. Every anchor below was verified to match exactly
+once (the signature anchor exactly four times) against HEAD `0d856c17`.
+
+8.1 Below `import type { ActualsAggregate } from "./timelog-actuals";` add:
+
+```ts
+import { fromStoredAggregate, isPackedBucketDays, toStoredAggregate, type StoredAggregate } from "./timelog-actuals-codec";
+```
+
+8.2 Replace `type CacheMap = Record<string, ActualsCacheEntry>;` with:
+
+```ts
+/** An entry as it sits in localStorage: `ActualsCacheEntry` with its
+ *  aggregate's day cells PACKED (`dayCells`, see `timelog-actuals-codec.ts`).
+ *  ★ Every shedding stage in `saveActualsCache` reads only fields the two shapes
+ *  share, so the stages run on stored entries unchanged. Only
+ *  `loadActualsCache` unpacks, and only the one entry it returns. */
+type StoredEntry = Omit<ActualsCacheEntry, "aggregates"> & { aggregates?: StoredAggregate };
+
+type CacheMap = Record<string, StoredEntry>;
+```
+
+8.3 In `isEntry`, change `function isEntry(v: unknown): v is ActualsCacheEntry {` to `function isEntry(v: unknown): v is StoredEntry {`
+and `const e = v as ActualsCacheEntry;` to `const e = v as StoredEntry;`. Then replace the line
+`  if (e.users !== undefined && !Array.isArray(e.users)) return false;` with:
+
+```ts
+  // ★★ Packed day cells are the aggregate's CORE payload, not an optional side
+  // field, so a malformed payload drops the entry — the rule the `aggregates`
+  // type check above already applies — rather than being stripped: KPIs that
+  // survive while their day cells vanish would show booked hours the Budget
+  // view can never place.
+  if (e.aggregates?.dayCells !== undefined && !isPackedBucketDays(e.aggregates.dayCells)) return false;
+  if (e.users !== undefined && !Array.isArray(e.users)) return false;
+```
+
+8.4 Replace ALL FOUR occurrences (Edit tool `replace_all: true`) of `(e: ActualsCacheEntry): ActualsCacheEntry` with
+`(e: StoredEntry): StoredEntry` (`withCheckedDaily`, `withCheckedDailyWindow`, `withCheckedDailyUsers`,
+`withBoundedDaily`). Confirm: `grep -c "(e: StoredEntry): StoredEntry" src/app/timelog-actuals-store.ts` prints `4`.
+
+8.5 Replace `function readMap(): CacheMap {` with:
+
+```ts
+/** Pack for storage. Identity when there is nothing to pack. */
+function toStoredEntry(e: StoredEntry): StoredEntry {
+  if (e.aggregates === undefined) return e;
+  const aggregates = toStoredAggregate(e.aggregates);
+  return aggregates === e.aggregates ? e : { ...e, aggregates };
+}
+
+/** Unpack for a reader. Identity when there is nothing to unpack. */
+function fromStoredEntry(e: StoredEntry): ActualsCacheEntry {
+  if (e.aggregates === undefined) return e;
+  const aggregates = fromStoredAggregate(e.aggregates);
+  return aggregates === e.aggregates ? e : { ...e, aggregates };
+}
+
+function readMap(): CacheMap {
+```
+
+8.6 Replace:
+
+```ts
+export function loadActualsCache(projectId: string): ActualsCacheEntry | undefined {
+  return readMap()[projectId];
+}
+```
+
+with:
+
+```ts
+export function loadActualsCache(projectId: string): ActualsCacheEntry | undefined {
+  const stored = readMap()[projectId];
+  return stored === undefined ? undefined : fromStoredEntry(stored);
+}
+```
+
+8.7 In the `MAX_ACTUALS_TOTAL_CHARS` docstring, replace:
+
+```ts
+ *  `users`/`projectRefs` whole and keeps its aggregates (§430, closed). An entry
+ *  over budget on `aggregates` alone is still written as-is — nothing sheds
+ *  aggregates off the entry being saved.
+```
+
+with:
+
+```ts
+ *  `users`/`projectRefs` whole and keeps its aggregates (§430, closed). An entry
+ *  STILL over budget sheds its own roll trio (stage 6) and is then written
+ *  as-is — nothing sheds aggregates off the entry being saved. Since the day
+ *  cells are stored packed (`timelog-actuals-codec.ts`) that takes an extreme
+ *  aggregate; when the browser then refuses the write, `saveActualsCache`
+ *  removes the entry's stale predecessor and returns `false`.
+```
+
+8.8 Replace `/** ★★★ FIVE STAGES, IN INCREASING ORDER OF WHAT THEY COST THE USER.` with
+`/** ★★★ SIX STAGES, IN INCREASING ORDER OF WHAT THEY COST THE USER.`, and replace:
+
+```ts
+ *  5. Shed the SAVED entry's own `users` + `projectRefs` — reached only when
+ *     that entry alone is over budget (open-followups §430).
+```
+
+with:
+
+```ts
+ *  5. Shed the SAVED entry's own `users` + `projectRefs` — reached only when
+ *     that entry alone is over budget (open-followups §430).
+ *  6. Shed the SAVED entry's own `daily` + `dailyWindow` + `dailyUsers`
+ *     together — reached only when stage 5 was not enough.
+ *  ★★★ RETURNS WHETHER THE MAP REACHED STORAGE. `writeDeviceJson` never throws,
+ *  so without this a refused write (quota, disabled storage) is silent and the
+ *  next reload reads a stale entry as the current fetch. On a refused write the
+ *  saving project's PREVIOUS entry is removed (a second, smaller write) so the
+ *  stale data cannot be read, and `false` is returned for the caller to
+ *  surface (`use-timelog-sync.ts` → the TimeLog panel's warning).
+```
+
+8.9 Replace:
+
+```ts
+export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): void {
+  const map = readMap();
+  map[projectId] = withBoundedDaily(entry);
+```
+
+with:
+
+```ts
+export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): boolean {
+  // Pack EVERY entry, not only this one: a verbose `byBucketDay` entry an
+  // earlier build left for another project is repacked by the next save of any
+  // project. `toStoredEntry` is identity for an entry already packed.
+  const map: CacheMap = {};
+  for (const [k, v] of Object.entries(readMap())) map[k] = toStoredEntry(v);
+  map[projectId] = withBoundedDaily(toStoredEntry(entry));
+```
+
+8.10 Replace everything from the stage-5 comment to the end of the function:
+
+```ts
+  // Stage 5 — the SAVED entry's own matching-UI inputs, shed whole, aggregates
+  // kept. Reached only when the saved entry ALONE is over budget: stages 2–4
+  // have removed everything else they may. A COPY, never a mutation of the
+  // caller's entry. Nothing further is shed — the roll is already capped by
+  // `withBoundedDaily`, so a real entry fits after this.
+  if (size > MAX_ACTUALS_TOTAL_CHARS) {
+    const e = out[projectId];
+    if (e.users !== undefined || e.projectRefs !== undefined) {
+      const shed = { ...e };
+      delete shed.users;
+      delete shed.projectRefs;
+      out = { ...out, [projectId]: shed };
+    }
+  }
+
+  writeDeviceJson(TIMELOG_ACTUALS_KEY, out);
+}
+```
+
+with:
+
+```ts
+  // Stage 5 — the SAVED entry's own matching-UI inputs, shed whole, aggregates
+  // kept. Reached only when the saved entry ALONE is over budget: stages 2–4
+  // have removed everything else they may. A COPY, never a mutation of the
+  // caller's entry.
+  if (size > MAX_ACTUALS_TOTAL_CHARS) {
+    const e = out[projectId];
+    if (e.users !== undefined || e.projectRefs !== undefined) {
+      const shed = { ...e };
+      delete shed.users;
+      delete shed.projectRefs;
+      out = { ...out, [projectId]: shed };
+      size = mapSize(out);
+    }
+  }
+
+  // Stage 6 — the SAVED entry's own roll trio, shed TOGETHER by stage 2's rule
+  // (a window or scope claim must never outlive its roll). Reached only when
+  // the entry is still over budget without its users, i.e. its packed
+  // aggregates alone approach the budget. The cost is the recoverable one: with
+  // no window the insights reconcile FREEZES until the next fetch.
+  if (size > MAX_ACTUALS_TOTAL_CHARS) {
+    const e = out[projectId];
+    if (e.daily !== undefined || e.dailyWindow !== undefined || e.dailyUsers !== undefined) {
+      const shed = { ...e };
+      delete shed.daily;
+      delete shed.dailyWindow;
+      delete shed.dailyUsers;
+      out = { ...out, [projectId]: shed };
+    }
+  }
+
+  if (writeDeviceJson(TIMELOG_ACTUALS_KEY, out)) return true;
+  // ★★★ THE BROWSER REFUSED THE WRITE. Storage still holds this project's
+  // PREVIOUS entry, which a reload would read as the current fetch — in the
+  // Budget overlay and the unapplied notice — while the workspace may already
+  // carry what the new fetch applied. Remove it: an absent entry reads as "not
+  // fetched", the recoverable direction every stage above sheds towards. This
+  // second write is no larger than what storage already holds minus that
+  // entry, so it normally lands; if it does not, there is nothing left to try.
+  const withoutStale: CacheMap = { ...out };
+  delete withoutStale[projectId];
+  writeDeviceJson(TIMELOG_ACTUALS_KEY, withoutStale);
+  return false;
+}
+```
+
+8.11 Size check: `node -e "console.log(require('fs').readFileSync('src/app/timelog-actuals-store.ts','utf8').split('\n').length)"`
+Expected: about 647 (measured on a scratch copy with these exact edits).
+
+- [ ] **Step 9: Correct the device-store doc claim**
+
+In `docs/AGENTS/theming.md` (LF file; Edit tool), replace
+``validation/cap/dedupe on the parsed result). ★ `writeDeviceJson` SWALLOWS quota throws — a store that must``
+with
+``validation/cap/dedupe on the parsed result). ★ `writeDeviceJson` never throws on a quota failure; it returns `false`, which only `saveActualsCache` reads — a store that must``
+
+- [ ] **Step 10: Run the store, codec and cache-reader suites**
+
+Run: `npx vitest run src/app/timelog-actuals-codec.test.ts src/app/timelog-actuals-store.test.ts src/app/device-store.test.ts src/app/use-timelog-sync.test.ts src/app/budget-unapplied-notice.test.tsx src/app/task-manager.guardrail-reconcile.test.tsx src/app/workspace-section.test.tsx > "$TMPDIR/t9a.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$TMPDIR/t9a.log"`
+Expected: `EXIT=0`, `Test Files  7 passed (7)`.
+
+- [ ] **Step 11: Mutation checks**
+
+Apply each mutant alone with the Edit tool, run the named file, confirm the named test fails, revert with the
+Edit tool, and prove the revert with `git diff --stat`.
+1. Codec `isColumns`: `(i > 0 && step === 0)` → `false`. `timelog-actuals-codec.test.ts` "a repeated day in one bucket" fails.
+2. Codec `packBucketDays`: delete `if (!allEqual(h, hb)) columns.hb = hb;`. "round-trips the aggregate through JSON exactly" fails.
+3. Store `isEntry`: delete the `isPackedBucketDays` line. "drops an entry whose packed day cells are malformed, keeping the others" fails.
+4. Store stage 6: `if (size > MAX_ACTUALS_TOTAL_CHARS) {` directly above `const e = out[projectId];\n    if (e.daily !== undefined` → `if (false) {`. "sheds the saved entry's own roll when its aggregates alone exceed the budget" fails.
+5. Store stage 5: delete the new `size = mapSize(out);` inside stage 5. "sheds the saved entry's own users and projectRefs when it alone exceeds the budget, keeping the rest" fails (stage 6 fires on a stale size).
+6. Store: delete `delete withoutStale[projectId];`. "returns false and removes the saving project's stale entry when storage refuses the write" fails.
+7. Store: `for (const [k, v] of Object.entries(readMap())) map[k] = toStoredEntry(v);` → `… map[k] = v;`. "repacks another project's verbose entry on the next save" fails.
+8. Device store: `return true;` → `return false;`. `device-store.test.ts` "reports whether the write reached storage" fails.
+
+After all reverts, rerun Step 10 at `EXIT=0` with `Test Files  7 passed (7)`.
+
+- [ ] **Step 12: Typecheck, lint, commit**
+
+```bash
+npx tsc --noEmit; echo "EXIT=$?"
+npx eslint --max-warnings=0 src/app/timelog-actuals-codec.ts src/app/timelog-actuals-codec.test.ts src/app/timelog-actuals-store.ts src/app/timelog-actuals-store.test.ts src/app/device-store.ts src/app/device-store.test.ts; echo "EXIT=$?"
+npm run docs:symbols:check; echo "EXIT=$?"
+git ls-files --eol src/app/timelog-actuals-store.ts src/app/device-store.ts docs/AGENTS/theming.md
+git add src/app/timelog-actuals-codec.ts src/app/timelog-actuals-codec.test.ts src/app/timelog-actuals-store.ts src/app/timelog-actuals-store.test.ts src/app/device-store.ts src/app/device-store.test.ts docs/AGENTS/theming.md
+git commit -F - <<'EOF'
+feat(timelog): pack cached day cells and report a refused cache write
+
+The actuals cache now stores each aggregate's day cells as per-bucket
+columns over shared day and resource tables. Packing is lossless and
+loadActualsCache unpacks, so every reader still sees byBucketDay. Legacy
+period entries and verbose day entries from earlier builds still load; a
+malformed packed payload drops its entry. A year of 40 buckets, 8 people
+and 2 bookings a day went from 177% of the cache budget to 46%.
+
+writeDeviceJson now returns whether the write reached storage.
+saveActualsCache sheds the saved entry's own roll when it is still over
+budget (stage 6), and when the browser refuses the write it removes that
+project's stale entry and returns false.
+
+Claude-Session: https://[session link removed]
+EOF
+```
+
+Expected: every `EXIT=0`; `git ls-files --eol` shows `w/crlf` for the two src files and `w/lf` for theming.md.
+
+---
+
+### Task 9b: Warn in the TimeLog panel when fetched bookings could not be cached
+
+**Files:**
+- Modify: `src/app/use-timelog-sync.ts`, `src/app/timelog-panel.tsx`, `src/app/i18n.ts`, `src/app/i18n.de.ts`
+- Test: `src/app/use-timelog-sync.test.ts`, `src/app/timelog-panel.test.tsx`
+
+**Interfaces:**
+- Consumes: `saveActualsCache(projectId, entry): boolean` and `type ActualsCacheEntry` from Task 9a; `Banner` from `./banner`.
+- Produces:
+  - `useTimelogSync(...)` return value gains `cacheNotSaved: boolean`
+  - i18n key `timelogCacheNotSaved` (EN + DE)
+
+- [ ] **Step 1: Write the failing hook tests**
+
+Append at the end of `src/app/use-timelog-sync.test.ts` (it already imports `vi`, `act`, `renderHook`, `api`,
+`bucketOverlay`, `loadActualsCache`, and defines `item` and `args`):
+
+```ts
+// ★★★ A refused cache write used to be silent: the hook kept the fresh fetch
+// while storage kept the previous one, and a reload read that as current.
+it("sets cacheNotSaved when the browser refuses the cache write, and clears it on the next successful save", async () => {
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  const { result } = renderHook(() => useTimelogSync(args()));
+  expect(result.current.cacheNotSaved).toBe(false);
+  const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("QuotaExceededError");
+  });
+  try {
+    await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  } finally {
+    setItem.mockRestore();
+  }
+  expect(result.current.cacheNotSaved).toBe(true);
+  // The fetch itself still landed in memory — only the cache write failed.
+  expect(bucketOverlay(result.current.aggregates, "month")[7]?.["2026-06"].hours).toBe(4);
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  expect(result.current.cacheNotSaved).toBe(false);
+  expect(loadActualsCache("p1")).toBeDefined();
+});
+
+it("resets cacheNotSaved on Clear all", async () => {
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  const { result } = renderHook(() => useTimelogSync(args()));
+  const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("QuotaExceededError");
+  });
+  try {
+    await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  } finally {
+    setItem.mockRestore();
+  }
+  expect(result.current.cacheNotSaved).toBe(true);
+  act(() => { result.current.clearAll(); });
+  expect(result.current.cacheNotSaved).toBe(false);
+});
+```
+
+- [ ] **Step 2: Write the failing panel tests**
+
+In `src/app/timelog-panel.test.tsx`, in `defaultSyncReturn()`, replace `    busy: false,\n    error: null,` with
+`    busy: false,\n    error: null,\n    cacheNotSaved: false,`.
+
+Insert inside `describe("TimelogPanel", () => {`, directly above the comment line
+`  // §432. The attribution hint explains LINK state, and for an undated row the`:
+
+```tsx
+  describe("cache not saved warning", () => {
+    it("warns when the sync hook reports that the cache write was refused", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue({
+        ...defaultSyncReturn(),
+        cacheNotSaved: true,
+      } as unknown as ReturnType<typeof useTimelogSync>);
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const warning = screen.getByText(t("en-US", "timelogCacheNotSaved"));
+      expect(warning.closest('[role="status"]')).not.toBeNull();
+    });
+
+    it("shows no warning when the cache write succeeded (control)", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      expect(screen.queryByText(t("en-US", "timelogCacheNotSaved"))).toBeNull();
+    });
+  });
+
+```
+
+- [ ] **Step 3: Run to verify failure**
+
+Run: `npx vitest run src/app/use-timelog-sync.test.ts src/app/timelog-panel.test.tsx > "$TMPDIR/t9b.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$TMPDIR/t9b.log"`
+Expected: `EXIT=1`. The three new "sets/resets/warns" tests fail; the control passes.
+
+- [ ] **Step 4: Add the strings**
+
+`src/app/i18n.ts` (Edit tool): directly below `  timelogTokenInvalid: "Token was rejected. Re-enter it.",` add:
+
+```ts
+  timelogCacheNotSaved:
+    "These TimeLog bookings could not be saved on this device because browser storage is full or unavailable. The Budget view does not show them, and they are gone after a reload. Apply them to the budget now, or free up browser storage and fetch again.",
+```
+
+`src/app/i18n.de.ts` (Node UTF-8 write, NEVER the Edit tool). Create `$TMPDIR/t9b-de.cjs` with the Write tool:
+
+```js
+const fs = require("fs");
+const p = "src/app/i18n.de.ts";
+const s = fs.readFileSync(p, "utf8");
+const anchor = '  timelogTokenInvalid: "Token wurde abgelehnt. Bitte erneut eingeben.",\r\n';
+const count = s.split(anchor).length - 1;
+if (count !== 1) throw new Error(`anchor matched ${count} times`);
+const add =
+  "  timelogCacheNotSaved:\r\n" +
+  '    "Diese TimeLog-Buchungen konnten auf diesem Gerät nicht gespeichert werden, weil der Browserspeicher voll oder nicht verfügbar ist. Die Budgetansicht zeigt sie nicht an, und nach dem Neuladen sind sie verloren. Wenden Sie sie jetzt auf das Budget an oder geben Sie Browserspeicher frei und rufen Sie die Buchungen erneut ab.",\r\n';
+fs.writeFileSync(p, s.replace(anchor, anchor + add), "utf8");
+const back = fs.readFileSync(p, "utf8");
+console.log(back.includes("auf diesem Gerät nicht gespeichert") && back.includes("nicht verfügbar ist") ? "DE OK" : "DE MISSING");
+```
+
+Run: `node "$TMPDIR/t9b-de.cjs"; echo "EXIT=$?"` → expected `DE OK` and `EXIT=0`. Then
+`git ls-files --eol src/app/i18n.de.ts` must still show `w/crlf`.
+
+- [ ] **Step 5: Track the not-saved state in the hook**
+
+In `src/app/use-timelog-sync.ts` (Edit tool):
+
+5.1 Replace
+`import { saveActualsCache, loadActualsCache, clearActualsCache, type TimelogRollWindow } from "./timelog-actuals-store";`
+with
+`import { saveActualsCache, loadActualsCache, clearActualsCache, type ActualsCacheEntry, type TimelogRollWindow } from "./timelog-actuals-store";`
+
+5.2 In the `rollPair` docstring, replace `pair — the shape every \`saveActualsCache\` call spreads.` with `pair — the shape every \`persist\` call spreads.`
+
+5.3 Directly below `  const [error, setError] = useState<number | null>(null);` add:
+
+```ts
+  // ★★ TRUE when the LAST cache write was refused by the browser (quota or
+  // disabled storage). This hook still holds the fresh fetch, but
+  // `saveActualsCache` removed the stale stored entry rather than leave it, so
+  // the Budget view and the next reload do not see these bookings. The panel
+  // warns while it is set; the next successful save or Clear all resets it.
+  // Not persisted — it describes a write in THIS session.
+  const [cacheNotSaved, setCacheNotSaved] = useState(false);
+  /** Every cache write goes through here, so none of the four savers can drop
+   *  the not-saved signal. */
+  function persist(entry: ActualsCacheEntry): void {
+    setCacheNotSaved(!saveActualsCache(projectId, entry));
+  }
+```
+
+5.4 Replace ALL occurrences (`replace_all: true`) of `saveActualsCache(projectId, {` with `persist({`.
+Confirm: `grep -c "persist({" src/app/use-timelog-sync.ts` prints `4`, and `grep -c "saveActualsCache(projectId" src/app/use-timelog-sync.ts` prints `1` (inside `persist`).
+
+5.5 In `clearAll`, replace `    clearActualsCache(projectId);\n  }` with:
+
+```ts
+    clearActualsCache(projectId);
+    // The warning described a write this Clear just made moot.
+    setCacheNotSaved(false);
+  }
+```
+
+5.6 In the hook's `return { … }`, replace `busy, error, loadDirectory,` with `busy, error, cacheNotSaved, loadDirectory,`.
+
+- [ ] **Step 6: Render the warning**
+
+In `src/app/timelog-panel.tsx` (Edit tool):
+
+6.1 Below `import { useToastContext } from "./toast-context";` add `import { Banner } from "./banner";`
+(`git grep -n "from \"./banner\"" src/app/timelog-panel.tsx` must print nothing beforehand).
+
+6.2 Directly below the `sync.error` block (the `)}` that closes `{sync.error && (`, followed by the blank line and
+`      {/* Last synced + unattributed */}`), insert:
+
+```tsx
+      {/* The fetched bookings could not be cached on this device (browser
+          storage refused the write). Clears on the next successful save. */}
+      {sync.cacheNotSaved && (
+        <Banner severity="warn" className="mb-3">
+          {t(lang, "timelogCacheNotSaved")}
+        </Banner>
+      )}
+
+```
+
+- [ ] **Step 7: Run the suites**
+
+Run: `npx vitest run src/app/use-timelog-sync.test.ts src/app/timelog-panel.test.tsx src/app/i18n-encoding.test.ts src/app/i18n.test.ts > "$TMPDIR/t9b.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$TMPDIR/t9b.log"`
+Expected: `EXIT=0`, `Test Files  4 passed (4)`.
+
+- [ ] **Step 8: Mutation checks**
+
+Apply each alone, confirm the named test fails, revert with the Edit tool, prove with `git diff --stat`:
+1. Hook `persist`: `setCacheNotSaved(!saveActualsCache(projectId, entry));` → `saveActualsCache(projectId, entry);`. "sets cacheNotSaved when the browser refuses the cache write …" fails.
+2. Hook `clearAll`: delete `setCacheNotSaved(false);`. "resets cacheNotSaved on Clear all" fails.
+3. Panel: `{sync.cacheNotSaved && (` → `{false && (`. "warns when the sync hook reports that the cache write was refused" fails.
+
+Rerun Step 7 at `EXIT=0`, `Test Files  4 passed (4)`.
+
+- [ ] **Step 9: Typecheck, lint, size, commit**
+
+```bash
+npx tsc --noEmit; echo "EXIT=$?"
+npx eslint --max-warnings=0 src/app/use-timelog-sync.ts src/app/use-timelog-sync.test.ts src/app/timelog-panel.tsx src/app/timelog-panel.test.tsx src/app/i18n.ts src/app/i18n.de.ts; echo "EXIT=$?"
+node -e "for (const f of ['src/app/use-timelog-sync.ts','src/app/timelog-panel.tsx']) console.log(f, require('fs').readFileSync(f,'utf8').split('\n').length)"
+git ls-files --eol src/app/use-timelog-sync.ts src/app/timelog-panel.tsx src/app/i18n.ts src/app/i18n.de.ts
+git add src/app/use-timelog-sync.ts src/app/use-timelog-sync.test.ts src/app/timelog-panel.tsx src/app/timelog-panel.test.tsx src/app/i18n.ts src/app/i18n.de.ts
+git commit -F - <<'EOF'
+feat(timelog): warn when fetched bookings could not be cached
+
+useTimelogSync routes its four cache writes through one helper and
+exposes cacheNotSaved when the browser refused the write. The TimeLog
+panel shows a warning Banner telling the user the Budget view does not
+see these bookings and that a reload loses them, and to apply them now or
+free storage and fetch again. The next successful save or Clear all
+clears it.
+
+Claude-Session: https://[session link removed]
+EOF
+```
+
+Expected: every `EXIT=0`; line counts about 540 and 832 (limit 1600); all four files `w/crlf`.
+
+**Ordering note for Task 8:** Task 8's `docs/AGENTS/integrations.md` text must describe the packed cache and the
+warning, and it names `toStoredAggregate`, `fromStoredAggregate`, `isPackedBucketDays` and `cacheNotSaved`. Those
+are gated by `docs:symbols:check`, so run Task 8 after 9a and 9b. The exact paragraph is in `cache-design.md` §8.
+
+---
+
 ### Task 8: Spec correction, landmine docs and §169 closure
 
 **Files:**
@@ -1465,10 +2547,18 @@ text and stage the spec in this task's commit.
 In the "Apply to budget" bullet, replace the sentence that begins `★★ The actuals period KEY MUST match the plan granularity:` up to and including `Pass \`plan.granularity\` panel→\`useTimelogSync\`→engine;` with:
 
 ```markdown
-★★ Actual hours carry DAY keys. `aggregateActuals(items, links)` stores `byBucketDay` (bucket → `YYYY-MM-DD` → cell with each resource's hours) and takes NO granularity; the period-keyed overlay every consumer reads is `bucketOverlay(aggregate, plan.granularity)`, derived at read time, so a granularity change after a fetch cannot strand hours under unread keys (§169, closed). Apply writes day keys into allocation `actualHours` and owns each covered period whole (its period key and every day key inside it); every reader goes through `actualHoursIn` / `actualHoursAt` (`actual-hours.ts`), never `actualHours[p.key]`. The codec accepts day keys for `actualHours` ONLY (`encodeActualMap` / `decodeActualMap`); `budgetHours` stays period-only. A period cell holding day keys is read-only in the Budget view. Verify: `git grep -n "actualHours\[" src/app -- ':!*.test.*'` must print nothing.
+★★ Actual hours carry DAY keys. `aggregateActuals(items, links)` stores `byBucketDay` (bucket → `YYYY-MM-DD` → cell with each resource's hours) and takes NO granularity; the period-keyed overlay every consumer reads is `bucketOverlay(aggregate, plan.granularity)`, derived at read time, so a granularity change after a fetch cannot strand hours under unread keys (§169, closed). Apply writes day keys into allocation `actualHours` and owns each covered period whole (its period key and every day key inside it); every reader goes through `actualHoursIn` / `actualHoursAt` (`actual-hours.ts`), never `actualHours[p.key]`. The codec accepts day keys for `actualHours` ONLY (`encodeActualMap` / `decodeActualMap`); `budgetHours` stays period-only. A period cell holding day keys is read-only in the Budget view. Verify: `git grep -n "actualHours\[" -- src/app ':!*.test.*'` must print nothing.
 ```
 
 First, in `src/app/budget-panel-people-rows.tsx`, change the doc comment that quotes `a.actualHours[p.key]` so it quotes `actualHoursAt(a.actualHours, p.key)` instead (Edit tool; the file is CRLF). Then run that verification command; expected no output. If it prints a line, a reader was missed: switch it to `actualHoursIn` before continuing.
+
+Also add to the Timelog "Apply to budget" section of `docs/AGENTS/integrations.md`:
+
+```markdown
+★★ The per-device actuals cache stores day cells PACKED: `saveActualsCache` runs `toStoredAggregate` (`timelog-actuals-codec.ts`: per-bucket columns over shared day and resource tables, lossless) and `loadActualsCache` unpacks with `fromStoredAggregate`, so every reader still sees `byBucketDay`. A pre-packing entry (legacy `byBucket`, or verbose `byBucketDay`) loads as-is; a malformed `dayCells` drops the entry (`isPackedBucketDays`). When the browser refuses the write, `saveActualsCache` removes that project's stale entry and returns `false`, and `useTimelogSync`'s `cacheNotSaved` shows the TimeLog panel's warning.
+```
+
+and in the `BudgetUnappliedNotice` bullet change "`isEntry` only shallow-checks that `aggregates` is an object" to "`isEntry` checks only that `aggregates` is an object and that any packed `dayCells` is well-formed" (grep the quoted phrase first; if it is worded differently, apply the same correction to the real sentence).
 
 - [ ] **Step 3: Close §169 in the register**
 
@@ -1511,12 +2601,12 @@ Expected: all `EXIT=0`. Line endings: `git ls-files --eol docs/open-followups.md
 ```bash
 git add docs/AGENTS/integrations.md docs/open-followups.md src/app/budget-panel-people-rows.tsx
 git commit -F - <<'EOF'
-docs(budget): record dated actuals, correct the spec to the shipped design, close §169
+docs(budget): record dated actuals and the packed cache, close §169
 
-The spec now scopes the day-key rule to actualHours, derives the period
-overlay at read time instead of replacing it, and lists every reader that
-changed. integrations.md replaces the fetch-time granularity rule with the
-day-key rule. §169 is closed with its pinning tests.
+integrations.md replaces the fetch-time granularity rule with the day-key
+rule and documents the packed actuals cache. The people-rows comment names
+the period reader. §169 is closed with its pinning tests; the spec already
+matched the shipped names.
 
 Claude-Session: https://[session link removed]
 EOF
@@ -1531,14 +2621,15 @@ Run once, sequentially, each unpiped:
 ```bash
 npx tsc --noEmit; echo "EXIT=$?"
 npx eslint --max-warnings=0 src; echo "EXIT=$?"
-npm run test:run > "$TMPDIR/final.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$TMPDIR/final.log"
+# Full suite ONLY on the user's explicit say (user instruction 2026-09-14):
+# npm run test:run > "$TMPDIR/final.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$TMPDIR/final.log"
 npm run size:check; echo "EXIT=$?"
 npm run dup:check; echo "EXIT=$?"
-git grep -n "actualHours\[" src/app -- ':!*.test.*'
+git grep -n "actualHours\[" -- src/app ':!*.test.*'
 git log --oneline origin/main..HEAD
 ```
 
-Expected: every `EXIT=0`, the grep prints nothing, and the log shows the two spec commits, this plan's commit and the eight task commits. Push, MR and merge happen only on the user's explicit say.
+Expected: every `EXIT=0`, the grep prints nothing, and the log shows the spec and plan commits plus every task and fix-round commit. Push, MR and merge happen only on the user's explicit say.
 
 ## Owed eye-verify (for the MR description)
 
