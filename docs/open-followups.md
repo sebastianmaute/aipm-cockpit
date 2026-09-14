@@ -38066,6 +38066,12 @@ IndexedDB never validated these dates, so they keep them raw without a diagnosti
 them: the AI absence and milestone writers call the strict `sanitizeAbsence` / `sanitizeMilestone`, and
 the inline-AI preview judges with `sanitizeIsoDate`.
 
+★ Corrected 2026-09-14 (final fix round 3) — the diagnostic above now also names its `source`
+(`workspace` or `templateSeed`), and logs once per session per source, entity, id, field and value
+(Turso re-reads and settings hydration used to re-log it on every load). Stored template seeds read the
+milestone date through `sanitizeLoadedSeedMilestone` (`requiredIsoDateOnTemplateLoad`), no longer
+`sanitizeLoadedMilestone`. Pinned by `sanitize-load-date.test.ts`.
+
 ★ Closed 2026-09-14 — scope: this closes `sanitizeIsoDate` only. `calendarEvent`'s own date check,
 `isoDateOrUndefined` (`calendar-event.ts`), is a SEPARATE regex + `Date.parse` implementation that
 still accepts a month-day overflow like `2026-02-30` — that module's own header already documents the

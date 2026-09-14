@@ -58,7 +58,7 @@ import {
   isPlainObject,
 } from "./sanitize-core";
 import { BUDGET_NAME_MAX, AMOUNT_MAX, sanitizeIdList } from "./sanitize-entities";
-import { requiredIsoDateOnLoad } from "./sanitize-load-date";
+import { requiredIsoDateOnLoad, requiredIsoDateOnTemplateLoad } from "./sanitize-load-date";
 import { sanitizeRichText } from "./rich-text-plain";
 import { RENDER_SINK, RICH_SINK } from "./html-start";
 
@@ -250,6 +250,8 @@ export function dropUnacceptedMilestoneFields<T extends object>(patch: T): T {
 // ★★ ONE argument each, like `sanitizeAbsence` (see the note there): passed point-free, a 2nd param gets the INDEX.
 export function sanitizeMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, sanitizeIsoDate); }
 export function sanitizeLoadedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnLoad); }
+/** A stored template's seed milestone: the load rule, diagnostic attributed to the template seed. */
+export function sanitizeLoadedSeedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnTemplateLoad); }
 function milestoneWithDateReader(input: unknown, readDate: RequiredDateReader): Milestone | null {
   if (!isPlainObject(input)) return null;
   const o = input;

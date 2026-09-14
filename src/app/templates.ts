@@ -15,7 +15,7 @@ import {
   sanitizeIdList,
   sanitizeIsoDate,
   sanitizeLabels,
-  sanitizeLoadedMilestone,
+  sanitizeLoadedSeedMilestone,
   sanitizeOptionalMinutes,
   sanitizePriority,
   sanitizeStakeholder,
@@ -358,8 +358,9 @@ export function sanitizeSeed(raw: unknown): TemplateSeed | undefined {
   const seed: TemplateSeed = {};
   const tasks = sanitizeArr<Task>(raw.tasks, sanitizeSeedTask);
   // Stored templates are a LOAD funnel (settings hydration), so a seed
-  // milestone's non-calendar date is kept like the workspace funnels keep it.
-  const milestones = sanitizeArr<Milestone>(raw.milestones, sanitizeLoadedMilestone);
+  // milestone's non-calendar date is kept like the workspace funnels keep it,
+  // with the diagnostic attributed to the template seed.
+  const milestones = sanitizeArr<Milestone>(raw.milestones, sanitizeLoadedSeedMilestone);
   const rd = sanitizeArr<RaidItem>(raw.raid, sanitizeSeedRaidItem);
   const changes = sanitizeArr<ChangeItem>(raw.changes, sanitizeSeedChangeItem);
   const stakeholders = sanitizeArr<Stakeholder>(

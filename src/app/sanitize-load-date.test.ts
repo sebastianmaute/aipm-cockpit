@@ -4,10 +4,10 @@ import { csvToWorkspace, workspaceToCsv } from "./csv-codecs";
 import { markdownToWorkspace, workspaceToMarkdown } from "./markdown-codecs";
 import { ENTITY_SPECS } from "./turso-schema";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
-import { requiredIsoDateOnLoad } from "./sanitize-load-date";
+import { __resetNonCalendarDateReportsForTests, requiredIsoDateOnLoad } from "./sanitize-load-date";
 import {
   sanitizeAbsence, sanitizeFxRates, sanitizeMilestone,
-  sanitizeLoadedAbsence, sanitizeLoadedFxRates, sanitizeLoadedMilestone,
+  sanitizeLoadedAbsence, sanitizeLoadedFxRates, sanitizeLoadedMilestone, sanitizeLoadedSeedMilestone,
 } from "./sanitize";
 import { sanitizeSeed } from "./templates";
 
@@ -18,6 +18,7 @@ const BAD = "2026-02-30";
 
 beforeEach(() => {
   clearDiagLog();
+  __resetNonCalendarDateReportsForTests();
 });
 
 function seeded(): Workspace {
@@ -36,11 +37,11 @@ const CODECS: [string, RoundTrip][] = [
 ];
 
 describe("requiredIsoDateOnLoad", () => {
-  it("keeps a shape-valid non-calendar date raw and logs only entity, id and field", () => {
+  it("keeps a shape-valid non-calendar date raw and logs only source, entity, id and field", () => {
     expect(requiredIsoDateOnLoad(BAD, "absence", 7, "endDate")).toBe(BAD);
     const events = readDiagLog().filter((e) => e.code === "storage.nonCalendarDateKept");
     expect(events).toHaveLength(1);
-    expect(events[0].fields).toEqual({ entity: "absence", id: 7, field: "endDate" });
+    expect(events[0].fields).toEqual({ source: "workspace", entity: "absence", id: 7, field: "endDate" });
     expect(JSON.stringify(events)).not.toContain(BAD);
   });
 
@@ -51,6 +52,41 @@ describe("requiredIsoDateOnLoad", () => {
     expect(requiredIsoDateOnLoad("not-a-date", "milestone", 1, "date")).toBe("");
     expect(requiredIsoDateOnLoad(20260230, "milestone", 1, "date")).toBe("");
     expect(readDiagLog().filter((e) => e.code === "storage.nonCalendarDateKept")).toHaveLength(0);
+  });
+});
+
+// Final fix round 3, R2. The diagnostic fired on EVERY load of an affected
+// record (Turso re-reads call the decoder repeatedly), and a template seed's
+// milestone logged exactly like a workspace milestone with the same id.
+describe("the non-calendar date diagnostic names its source and does not repeat", () => {
+  const kept = () => readDiagLog().filter((e) => e.code === "storage.nonCalendarDateKept").map((e) => e.fields);
+  const JSON_WS = () => workspaceToJson(seeded());
+
+  it("attributes a template seed milestone and a workspace milestone of the same id separately", () => {
+    sanitizeSeed({ milestones: [{ id: 1, name: "Go-Live", date: BAD }] });
+    jsonToWorkspace(JSON_WS());
+    expect(kept()).toEqual(expect.arrayContaining([
+      { source: "templateSeed", entity: "milestone", id: 1, field: "date" },
+      { source: "workspace", entity: "milestone", id: 1, field: "date" },
+      { source: "workspace", entity: "absence", id: 1, field: "endDate" },
+    ]));
+  });
+
+  it("logs a record's kept value once per session, however often it is loaded", () => {
+    jsonToWorkspace(JSON_WS());
+    const first = kept().length;
+    jsonToWorkspace(JSON_WS());
+    jsonToWorkspace(JSON_WS());
+    sanitizeSeed({ milestones: [{ id: 3, name: "Seed", date: BAD }] });
+    sanitizeSeed({ milestones: [{ id: 3, name: "Seed", date: BAD }] });
+    expect(first).toBeGreaterThan(0);
+    expect(kept()).toHaveLength(first + 1);
+  });
+
+  it("logs again when the same record's field holds a DIFFERENT kept value (positive control)", () => {
+    requiredIsoDateOnLoad("2026-02-30", "absence", 42, "endDate");
+    requiredIsoDateOnLoad("2026-02-31", "absence", 42, "endDate");
+    expect(kept().filter((f) => f?.id === 42)).toHaveLength(2);
   });
 });
 
@@ -69,8 +105,8 @@ describe("a non-calendar required date survives every load funnel", () => {
     expect(out.milestones?.[0].achievedDate).toBeUndefined();
     const kept = readDiagLog().filter((e) => e.code === "storage.nonCalendarDateKept").map((e) => e.fields);
     expect(kept).toEqual(expect.arrayContaining([
-      { entity: "absence", id: 1, field: "endDate" },
-      { entity: "milestone", id: 1, field: "date" },
+      { source: "workspace", entity: "absence", id: 1, field: "endDate" },
+      { source: "workspace", entity: "milestone", id: 1, field: "date" },
     ]));
   });
 
@@ -112,6 +148,7 @@ describe("every date-reading sanitizer survives being passed point-free", () => 
   const CASES: ReadonlyArray<readonly [string, (x: unknown) => unknown, unknown]> = [
     ["sanitizeMilestone", sanitizeMilestone, MILE],
     ["sanitizeLoadedMilestone", sanitizeLoadedMilestone, MILE],
+    ["sanitizeLoadedSeedMilestone", sanitizeLoadedSeedMilestone, MILE],
     ["sanitizeAbsence", sanitizeAbsence, ABS],
     ["sanitizeLoadedAbsence", sanitizeLoadedAbsence, ABS],
     ["sanitizeFxRates", sanitizeFxRates, FX],
