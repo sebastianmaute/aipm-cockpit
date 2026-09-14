@@ -610,7 +610,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§383](#383-a-resources-extra-emails-preview-a-list-apply-dedupes-and-caps--closed-2026-09-06) | A resource's extra emails preview a list Apply dedupes and caps | found 2026-09-05 while closing 373 | S | closed |
 | [§384](#384-a-mononym-update_resource-rename-previews-a-rejected-lastname-that-apply-accepts-and-wipes--closed-2026-09-06) | A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes | found 2026-09-05 in cold review of the §372 fix | S | closed |
 | [§385](#385-srcsymbolscheck-prints-a-remedy-it-does-not-implement--open) | `src:symbols:check` prints a remedy it does not implement | found 2026-09-05 while acting on that report's own advice | S | open |
-| [§386](#386-fields-hint-pollutes-its-controls-accessible-name--open) | `Field`'s `hint` pollutes its control's accessible name | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§386](#386-fields-hint-pollutes-its-controls-accessible-name--closed-2026-09-14) | `Field`'s `hint` pollutes its control's accessible name — CLOSED 2026-09-14 | found 2026-09-05 in the edit-task modal rework | S — closed by rendering the hint tooltip as a sibling of a `display: contents` label; the hint reaches AT via the focusable trigger, not `aria-describedby`; `project-form-fields.tsx`'s own `Field` is not covered | **CLOSED** 2026-09-14 |
 | [§387](#387-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--open) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide | found 2026-09-05 in the edit-task modal rework | M | open |
@@ -29723,16 +29723,25 @@ out. Anything that WEAKENS the report — suppression that hides a real invented
 failure mode to avoid, so (a) needs the same self-exclusion care recorded elsewhere in this
 register for checkers scanning their own corpus.
 
-## 386. `Field`'s `hint` pollutes its control's accessible name — OPEN
+## 386. `Field`'s `hint` pollutes its control's accessible name — CLOSED 2026-09-14
 
-**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. Verified 2026-09-05 by
-measurement, not by reading: a whole-string `getByRole("combobox", { name: "Group" })` finds NOTHING
-on the task form while the same query anchored with a prefix regex passes. The mechanism is
-structural — `grep -n "hint && (" -A 5 src/app/task-form-layout.tsx` shows the `InfoTooltip`
-rendered INSIDE `caption`, and the default (non-`group`) branch wraps that same `caption` in the
-`<label>`.
-
-**Work item:** #266
+**Status:** CLOSED 2026-09-14 — the first closure option below was taken. A hinted, non-`group`
+`Field` (`src/app/task-form-layout.tsx`) now renders the `InfoTooltip` as a SIBLING of the
+`<label>`, not inside it: the wrapper is the flex row, the `<label>` is `display: contents`, and
+`order` classes keep the trigger beside the caption text with the control on the line below. The
+control's name is therefore the label alone (plus the required `*`, as before). Measured in Chromium
+on a static page with the same structure: the textbox is named `"Group*"`, the trigger shares the
+caption's line, the input wraps below. The hint reaches AT through the still-focusable trigger,
+whose own `aria-label` is the hint. RULED: it is NOT the control's `aria-describedby` description.
+`Field` does not own the child element, so that would need cloning the child or mutating it
+imperatively, and both were judged more fragile than the sibling. `group` mode was already correct,
+because `FieldGroup`'s `aria-label` outranks its content. Its caption keeps the tooltip, and the
+redundant `preventDefault` wrapper is gone from both branches. Pinned by
+`npx vitest run src/app/task-form-layout.test.tsx -t "a hinted label Field names its control with the label alone"`,
+mutation-proved: moving the tooltip back inside the label turns it red. Both prefix-regex queries in
+`task-form-fields.test.tsx` now use the whole-string name. ★ SCOPE: this closes the task-form
+`Field` only. `project-form-fields.tsx` has its own `Field` whose `tooltip` prop has the same shape.
+It is not fixed here, and nothing was measured for it.
 
 A `<label>`'s accessible name is its text CONTENT, so the tooltip trigger's visible glyph is
 concatenated onto the caption: the Group control computes `"Groupi"`, not `"Group"`.
@@ -29774,9 +29783,11 @@ unlabeled-control rules ask, and the only rule comparing a name against its visi
 `label-content-name-mismatch`, which is tagged `experimental` and so is dropped by axe's default
 `tagExclude` before it runs. A unit test is the only possible detector.
 
-Closure options, none taken: render the tooltip as a SIBLING of the caption rather than inside it;
-or mark the trigger `aria-hidden` and deliver the hint through `aria-describedby`, which is where an
-explanatory hint belongs regardless.
+Closure options as filed (the first was TAKEN 2026-09-14, see Status): render the tooltip as a
+SIBLING of the caption rather than inside it; or mark the trigger `aria-hidden` and deliver the hint
+through `aria-describedby`. The second was not taken: an `aria-hidden` trigger that is still
+focusable is itself an axe violation (`aria-hidden-focus`), and `Field` cannot set
+`aria-describedby` on a child it does not own.
 
 ## 387. The Relationships empty-section guard is unpinned — OPEN
 

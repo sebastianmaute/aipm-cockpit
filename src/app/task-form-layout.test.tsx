@@ -50,3 +50,52 @@ describe("Field captionAction", () => {
     expect(screen.getByRole("textbox")).toHaveFocus();
   });
 });
+
+describe("Field hint (open-followups §386)", () => {
+  const HINT = "Free-text grouping shown in the task list";
+
+  test("a hinted label Field names its control with the label alone", () => {
+    render(
+      <Field label="Group" hint={HINT}>
+        <input />
+      </Field>,
+    );
+    // Whole-string match: before the fix the tooltip glyph joined the label's
+    // text content and this computed "Groupi".
+    expect(screen.getByRole("textbox", { name: "Group" })).toBeInTheDocument();
+  });
+
+  test("the hint stays reachable to AT through the focusable tooltip trigger", async () => {
+    render(
+      <Field label="Group" hint={HINT}>
+        <input />
+      </Field>,
+    );
+    const trigger = screen.getByRole("button", { name: HINT });
+    await userEvent.tab();
+    expect(trigger).toHaveFocus();
+  });
+
+  test("clicking a hinted caption still focuses its control", async () => {
+    render(
+      <Field label="Group" hint={HINT}>
+        <input />
+      </Field>,
+    );
+    await userEvent.click(screen.getByText("Group"));
+    expect(screen.getByRole("textbox")).toHaveFocus();
+  });
+
+  test("a hinted group Field names its group with the label alone", () => {
+    // ★ Not sensitive to where the tooltip renders: `FieldGroup`'s aria-label
+    //   outranks its content. It pins the outcome, not the §386 mechanism —
+    //   the label-branch test above is the one that fails on a regression.
+    render(
+      <Field label="Health" hint={HINT} group>
+        <button type="button">Auto</button>
+      </Field>,
+    );
+    expect(screen.getByRole("group", { name: "Health" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: HINT })).toBeInTheDocument();
+  });
+});
