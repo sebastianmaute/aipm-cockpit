@@ -990,7 +990,7 @@ describe("preview matches what Apply stores", () => {
   });
 
   // ★ RECOMPUTE (Task 2, email write rule): the probe used to be
-  //  `"a".repeat(400) + "@x.com"`, which clips at BUDGET_NAME_MAX (200) to 195
+  //  `"a".repeat(400) + "@x.com"`, which clips at BUDGET_NAME_MAX (200) to 200
   //  "a"s with the "@x.com" suffix sheared off entirely — no "@" survives the
   //  cap, so `stakeholder.email` joining `emailFormatFields` now correctly
   //  REJECTS it instead of previewing an accepted diff. The cap behaviour this

@@ -64,6 +64,7 @@ import {
 import { t } from "./i18n";
 import { mintId } from "./id-mint-session";
 import {
+  BUDGET_NAME_MAX,
   dropUnacceptedAbsenceFields,
   dropUnacceptedCalendarEventFields,
   dropUnacceptedChangeFields,
@@ -720,7 +721,9 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
 
       createStakeholder: (input) => {
         if (isReadOnly) throw readOnlyError();
-        refuseEmailWrite("email", (input as { email?: unknown }).email, undefined);
+        // BUDGET_NAME_MAX (200), not the default EMAIL_MAX (320) — `sanitizeStakeholder`
+        // caps `email` there via `sanitizeText`, not `sanitizeEmail` (fix round 1).
+        refuseEmailWrite("email", (input as { email?: unknown }).email, undefined, BUDGET_NAME_MAX);
         const id = mintId("stakeholder", stakeholdersRef.current);
         // ★★★ `resourceId` is the reason this line changed. `9c230204` guarded
         //  it on UPDATE and left it writable here — a half-fix, and exactly the
@@ -742,7 +745,8 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = stakeholdersRef.current.find((s) => s.id === id);
         if (!existing) return null;
-        refuseEmailWrite("email", (patch as { email?: unknown }).email, existing.email);
+        // BUDGET_NAME_MAX (200), not the default EMAIL_MAX (320) — see createStakeholder.
+        refuseEmailWrite("email", (patch as { email?: unknown }).email, existing.email, BUDGET_NAME_MAX);
         // ★★ Guarded like the other three registers: `sanitizeStakeholder`
         // RESETS an unrecognised category/influence/interest to a hardcoded
         // fallback, so a refused value silently demotes a "Sponsor" to "Other"

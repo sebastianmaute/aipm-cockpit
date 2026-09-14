@@ -3976,4 +3976,70 @@ describe("the email write rule on AI writers (spec Part 1)", () => {
     expect(() => result.current.createRaid({ category: "R", title: "Risk", ownerEmail: "nope" })).toThrow("ownerEmail is invalid");
     expect(() => result.current.createStakeholder({ name: "Sam", email: "a,b@x.com" })).toThrow('email must not contain "," or ";"');
   });
+
+  // ★★ Fix round 1 — census miss: updateRaid/updateStakeholder/updateAbsence
+  // had no changed-only pin, so the `stored` argument each passes to
+  // `refuseEmailWrite`/`refuseInvalidAbsenceEmail` (`existing.ownerEmail` /
+  // `existing.email` / `existing.assigneeEmail`) was unverified — a patch
+  // that dropped the argument entirely (treating every write as a create)
+  // would still pass every OTHER test in this file.
+
+  it("updateRaid refuses a CHANGED delimiter-bearing ownerEmail and writes nothing", () => {
+    const { result } = renderDispatcher();
+    const id = result.current.createRaid({ category: "R", title: "Risk", ownerEmail: "owner@x.com" }).id;
+    expect(() => result.current.updateRaid(id, { ownerEmail: "a;b@x.com" })).toThrow('ownerEmail must not contain "," or ";"');
+    expect(result.current.getRaidRow(id)?.ownerEmail).toBe("owner@x.com");
+  });
+
+  it("updateRaid keeps a stored unsafe ownerEmail when echoed unchanged, and saves another field", () => {
+    const { result } = renderRaidProbe();
+    const id = result.current.d.createRaid({ category: "R", title: "Risk" }).id;
+    // Bypasses the create-time guard — the only way to get an unsafe value
+    // into the stored row for this test (mirrors §422's seedResources note).
+    act(() => {
+      result.current.ws.setRaid((prev) => prev.map((r) => (r.id === id ? { ...r, ownerEmail: "a,b@x.com" } : r)));
+    });
+    act(() => {
+      result.current.d.updateRaid(id, { ownerEmail: "a,b@x.com", title: "Renamed" });
+    });
+    expect(result.current.d.getRaidRow(id)).toMatchObject({ title: "Renamed", ownerEmail: "a,b@x.com" });
+  });
+
+  it("updateStakeholder refuses a CHANGED delimiter-bearing email and writes nothing", () => {
+    const { result } = renderDispatcher();
+    const id = result.current.createStakeholder({ name: "Sam", email: "sam@x.com" }).id;
+    expect(() => result.current.updateStakeholder(id, { email: "a;b@x.com" })).toThrow('email must not contain "," or ";"');
+    expect(result.current.getStakeholderRow(id)?.email).toBe("sam@x.com");
+  });
+
+  it("updateStakeholder keeps a stored unsafe email when echoed unchanged, and saves another field", () => {
+    const { result } = renderRaidProbe();
+    const id = result.current.d.createStakeholder({ name: "Sam" }).id;
+    act(() => {
+      result.current.ws.setStakeholders((prev) => prev.map((s) => (s.id === id ? { ...s, email: "a,b@x.com" } : s)));
+    });
+    act(() => {
+      result.current.d.updateStakeholder(id, { email: "a,b@x.com", name: "Sam Renamed" });
+    });
+    expect(result.current.d.getStakeholderRow(id)).toMatchObject({ name: "Sam Renamed", email: "a,b@x.com" });
+  });
+
+  it("updateAbsence refuses a CHANGED delimiter-bearing assigneeEmail and writes nothing", () => {
+    const { result } = renderDispatcher();
+    const id = result.current.createAbsence({ assignee: "Ada", startDate: "2026-06-01", endDate: "2026-06-05", assigneeEmail: "ada@x.com" }).id;
+    expect(() => result.current.updateAbsence(id, { assigneeEmail: "a;b@x.com" })).toThrow('assigneeEmail must not contain "," or ";"');
+    expect(result.current.getAbsenceRow(id)?.assigneeEmail).toBe("ada@x.com");
+  });
+
+  it("updateAbsence keeps a stored unsafe assigneeEmail when echoed unchanged, and saves another field", () => {
+    const { result } = renderRaidProbe();
+    const id = result.current.d.createAbsence({ assignee: "Ada", startDate: "2026-06-01", endDate: "2026-06-05" }).id;
+    act(() => {
+      result.current.ws.setAbsences((prev) => prev.map((a) => (a.id === id ? { ...a, assigneeEmail: "a,b@x.com" } : a)));
+    });
+    act(() => {
+      result.current.d.updateAbsence(id, { assigneeEmail: "a,b@x.com", note: "updated" });
+    });
+    expect(result.current.d.getAbsenceRow(id)).toMatchObject({ note: "updated", assigneeEmail: "a,b@x.com" });
+  });
 });

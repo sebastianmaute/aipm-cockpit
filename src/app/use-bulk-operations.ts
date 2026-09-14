@@ -12,12 +12,11 @@ import { useWorkspace } from "./workspace-context";
 import { useFilters } from "./filters-context";
 import { useTaskForm, emptyBulkEdit, emptyForm } from "./task-form-context";
 import {
-  emailWriteRefusal,
   isWriteSafeEmail,
   sanitizeTaskName,
   sanitizeVoiceTranscript,
 } from "./sanitize";
-import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { typedEmailRefusalKey } from "./email-refusal-i18n";
 import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
 import { applyStatusChange, statusActivityKind } from "./task-status";
 import { todayInZone, resolveTimezone } from "./timezone";
@@ -447,7 +446,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
         if (provided === null) continue;
         const trimmed = provided.trim();
         if (!isWriteSafeEmail(trimmed)) {
-          showToastRef.current("error", t(lang, EMAIL_REFUSAL_KEY[emailWriteRefusal(trimmed, undefined) ?? "invalid"]));
+          showToastRef.current("error", t(lang, typedEmailRefusalKey(trimmed)));
           continue;
         }
         email = trimmed;

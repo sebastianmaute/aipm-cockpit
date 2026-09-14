@@ -4,6 +4,7 @@ import { describe, it, expect } from "vitest";
 import { describeEntityCalls, previewNormalizerFor, RICH_FIELDS, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
 import {
+  BUDGET_NAME_MAX,
   dropUnacceptedAbsenceFields,
   dropUnacceptedCalendarEventFields,
   dropUnacceptedChangeFields,
@@ -352,7 +353,10 @@ const taskReader: StoredReader = (field, value) => {
 const stakeholderReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedStakeholderFields({ [field]: value });
   try {
-    refuseEmailWrite("email", (patch as { email?: unknown }).email, STK_BASE.email);
+    // BUDGET_NAME_MAX (200), not the default EMAIL_MAX (320) — `sanitizeStakeholder`
+    // caps `email` there via `sanitizeText`, not `sanitizeEmail` (fix round 1,
+    // mirrors `use-register-tools.ts`'s createStakeholder/updateStakeholder).
+    refuseEmailWrite("email", (patch as { email?: unknown }).email, STK_BASE.email, BUDGET_NAME_MAX);
   } catch {
     return null; // updateStakeholder surfaces the throw as a failed tool call
   }
@@ -1081,5 +1085,43 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
       const rawSpread = body.match(/\.\.\.\s*patch\s*[,}]/g) ?? [];
       expect(rawSpread).toHaveLength(0);
     });
+  });
+});
+
+// ★★★ FIX ROUND 1 — `stakeholder.email` PAST ITS OWN CAP, PINNED IN BOTH
+// DIRECTIONS. `sanitizeStakeholder` caps `email` at BUDGET_NAME_MAX (200) via
+// `sanitizeText`, not EMAIL_MAX (320) via `sanitizeEmail` — a cap the generic
+// `refuseEmailWrite` did not know about until this fix, so it judged the RAW
+// (up to 320-char) incoming value while the preview (`fieldSanitizers.email =
+// text(BUDGET_NAME_MAX)`) judged the ALREADY-200-CAPPED one. Two probes,
+// reviewer-measured on the pre-fix tree, disagreed in OPPOSITE directions:
+//   - a delimiter that the 200-cut REMOVES: preview (judging the capped,
+//     comma-free value) accepted; the writer (judging the raw, comma-bearing
+//     value) threw — refusing a write the card had just shown as safe, losing
+//     every OTHER field in the same patch with it.
+//   - a value that the 200-cut turns into a bare trailing "@" (no domain):
+//     preview (capped) rejected; the writer (raw, still a well-formed address
+//     under 320 chars) accepted, and `sanitizeStakeholder` then stored the
+//     cut, invalid-looking string regardless.
+// The fix makes the writer cap at BUDGET_NAME_MAX FIRST (an explicit `cap`
+// argument on `refuseEmailWrite`, defaulted to EMAIL_MAX for every OTHER
+// caller), so both sides judge the exact string that would be stored.
+describe("stakeholder.email: preview and apply agree past the 200-char cap (fix round 1)", () => {
+  it("a delimiter the cap removes — the raw value is unsafe, the STORED (capped) one is not", () => {
+    const value = "a".repeat(195) + "@x.co,zz"; // 203 raw chars; comma sits past index 200
+    const preview = previewOf("stakeholder", STK_BASE, "email", value);
+    const stored = stakeholderReader("email", value);
+    expect(preview.rejected).toBe(false);
+    expect(stored).not.toBeNull();
+    expect(preview.shown).toBe(stored);
+    expect(stored).not.toContain(",");
+  });
+
+  it("a value the cap turns into a bare trailing \"@\" — both sides refuse it", () => {
+    const value = "a".repeat(199) + "@x.com"; // 205 raw chars; the 200-cut drops the whole domain
+    const preview = previewOf("stakeholder", STK_BASE, "email", value);
+    const stored = stakeholderReader("email", value);
+    expect(preview.rejected).toBe(true);
+    expect(stored).toBeNull();
   });
 });

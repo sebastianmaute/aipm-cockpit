@@ -1321,9 +1321,19 @@ describe("useBulkOperations", () => {
       act(() => { result.current.workspace.setTasks([task]); });
       act(() => { result.current.bulk.onToggleSelect(1); });
       const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("a,b@x.com");
+      // Fix round 1 MINOR 2: a fixture that accidentally reached the send loop
+      // (e.g. a guard dropped instead of `continue`d) would still leave these
+      // two unexercised — assert they never fire, not just the toast.
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
       act(() => { result.current.bulk.handleBulkSendInquiry(); });
       expect(args.showToast).toHaveBeenCalledWith("error", t("en-US", "errorEmailDelimiter"));
+      expect((result.current.workspace.tasks[0] as Task).assigneeEmail).toBe("");
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(openSpy).not.toHaveBeenCalled();
       promptSpy.mockRestore();
+      confirmSpy.mockRestore();
+      openSpy.mockRestore();
     });
   });
   describe("bulk budget-bucket assignment", () => {

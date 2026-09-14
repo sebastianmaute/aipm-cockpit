@@ -464,13 +464,20 @@ export function TasksSection({
       // Jira-synced rows are read-only — no edit, no capture.
       if (!beforeRow || beforeRow.jiraKey) return;
       const knownTaskIds = new Set(tasks.map((tk) => tk.id));
+      // The picked resource's stored email, or undefined when the id is not a
+      // number or names no live resource (fix round 1 MINOR 4 — an `[""]`
+      // fallback here would exempt a blank clear from the copy-source list,
+      // which `emailWriteRefusal` already exempts unconditionally; a missing
+      // resource must contribute NO copy source, not an empty one).
+      const pickedResourceEmail =
+        typeof patch.resourceId === "number" ? resourcesById.get(patch.resourceId)?.email : undefined;
       const patchCtx = {
         hasResource: (id: number) => resourcesById.has(id),
         knownTaskIds,
         ownTaskId: taskId,
         storedAssigneeEmail: beforeRow.assigneeEmail,
         // Only the resource THIS patch picked (spec decision 2, pre-flight M10).
-        copySourceEmails: typeof patch.resourceId === "number" ? [resourcesById.get(patch.resourceId)?.email ?? ""] : [],
+        copySourceEmails: pickedResourceEmail !== undefined ? [pickedResourceEmail] : [],
       };
       const emailRefusal = inlineAssigneeEmailRefusal(patch, patchCtx);
       if (emailRefusal !== null) showToast("error", t(lang, EMAIL_REFUSAL_KEY[emailRefusal]));

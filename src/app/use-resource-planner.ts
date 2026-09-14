@@ -13,8 +13,8 @@ import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type AbsenceType, type RaidEscalation, type RaidItem, type Shift, type Task } from "./types";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
-import { emailWriteRefusal, isWriteSafeEmail } from "./sanitize";
-import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { isWriteSafeEmail } from "./sanitize";
+import { typedEmailRefusalKey } from "./email-refusal-i18n";
 import { descriptionHtml } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
@@ -296,7 +296,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         if (provided === null) return;
         const trimmed = provided.trim();
         if (!isWriteSafeEmail(trimmed)) {
-          window.alert(t(lang, EMAIL_REFUSAL_KEY[emailWriteRefusal(trimmed, undefined) ?? "invalid"]));
+          window.alert(t(lang, typedEmailRefusalKey(trimmed)));
           return;
         }
         email = trimmed;

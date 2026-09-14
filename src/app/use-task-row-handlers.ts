@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import { t, type Lang } from "./i18n";
-import { emailWriteRefusal, isWriteSafeEmail } from "./sanitize";
-import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { isWriteSafeEmail } from "./sanitize";
+import { typedEmailRefusalKey } from "./email-refusal-i18n";
 import { buildMailtoUrl } from "./mailto";
 import { renderTemplateForSend, buildStatusInquiryVars } from "./comm-templates";
 import { sanitizeRichHtml } from "./sanitize-html";
@@ -113,7 +113,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         if (provided === null) return;
         const trimmed = provided.trim();
         if (!isWriteSafeEmail(trimmed)) {
-          window.alert(t(lang, EMAIL_REFUSAL_KEY[emailWriteRefusal(trimmed, undefined) ?? "invalid"]));
+          window.alert(t(lang, typedEmailRefusalKey(trimmed)));
           return;
         }
         email = trimmed;
