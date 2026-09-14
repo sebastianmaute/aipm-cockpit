@@ -51,7 +51,7 @@ export interface TaskFormFieldsProps {
   nextId: number;
   contactsList: ReturnType<typeof listContacts>;
   resources: readonly Resource[];
-  onCreateResource: (name: string, email: string) => number;
+  onCreateResource?: (name: string, email: string) => number;
   absences: readonly Absence[];
   tasksForDeps: readonly Task[];
   uniqueGroups: string[];
@@ -65,7 +65,7 @@ export interface TaskFormFieldsProps {
   jiraDefaultIssueType: string | undefined;
   /** Retained for the parent prop chain; unused here since the assignee field moved to ResourcePicker. Full removal is deferred to the contacts-retirement slice (SP4). */
   onRemoveContact: (name: string) => void;
-  onAddAssigneeToAddressBook: (name: string, email: string) => void;
+  onAddAssigneeToAddressBook?: (name: string, email: string) => void;
   /** Opens the floating note-log window (wired by the host in Task E2). Optional
    *  so this component still compiles/renders standalone before that wiring. */
   onOpenNotes?: () => void;
@@ -265,18 +265,20 @@ export function TaskFormFields({
                 aria-describedby={describedBy("assignee", "assignee-counter")}
               />
             </div>
-            <button
-              type="button"
-              onClick={() =>
-                onAddAssigneeToAddressBook(form.assignee, form.assigneeEmail)
-              }
-              disabled={editingIsJiraLinked}
-              aria-label={t(lang, "taskAddAssigneeToAddressBook")}
-              title={t(lang, "taskAddAssigneeToAddressBook")}
-              className={`shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`}
-            >
-              +
-            </button>
+            {onAddAssigneeToAddressBook && (
+              <button
+                type="button"
+                onClick={() =>
+                  onAddAssigneeToAddressBook(form.assignee, form.assigneeEmail)
+                }
+                disabled={editingIsJiraLinked}
+                aria-label={t(lang, "taskAddAssigneeToAddressBook")}
+                title={t(lang, "taskAddAssigneeToAddressBook")}
+                className={`shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`}
+              >
+                +
+              </button>
+            )}
           </div>
           <CharCounter value={form.assignee} max={ASSIGNEE_MAX} id="assignee-counter" lang={lang} />
           <FieldError id="assignee-error">{errorFor("assignee")}</FieldError>

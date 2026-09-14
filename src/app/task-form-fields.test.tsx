@@ -23,7 +23,7 @@ beforeAll(() => {
 });
 
 function Harness(
-  over: { onOpenNotes?: () => void; budgetLink?: TaskBudgetLink; tasksForDeps?: Task[] } = {},
+  over: { onOpenNotes?: () => void; budgetLink?: TaskBudgetLink; tasksForDeps?: Task[]; withAddressBook?: boolean } = {},
 ) {
   return (
     <form aria-label="form">
@@ -46,7 +46,7 @@ function Harness(
         jiraProjectKey={undefined}
         jiraDefaultIssueType={undefined}
         onRemoveContact={vi.fn()}
-        onAddAssigneeToAddressBook={vi.fn()}
+        onAddAssigneeToAddressBook={over.withAddressBook === false ? undefined : vi.fn()}
         onOpenNotes={over.onOpenNotes}
         budgetLink={over.budgetLink}
       />
@@ -595,5 +595,17 @@ describe("TaskFormFields — dependency caption binding", () => {
     await user.click(screen.getByText(/^Predecessors/, { selector: "span" }));
 
     expect(removes()).toHaveLength(before);
+  });
+});
+
+describe("TaskFormFields — add-to-address-book button (open-followups §90)", () => {
+  it("renders the button when onAddAssigneeToAddressBook is passed (positive control)", () => {
+    render(<Harness />, { wrapper: TestProviders });
+    expect(screen.getByRole("button", { name: t("en-US", "taskAddAssigneeToAddressBook") })).toBeInTheDocument();
+  });
+
+  it("renders no button when it is absent (a popout)", () => {
+    render(<Harness withAddressBook={false} />, { wrapper: TestProviders });
+    expect(screen.queryByRole("button", { name: t("en-US", "taskAddAssigneeToAddressBook") })).toBeNull();
   });
 });

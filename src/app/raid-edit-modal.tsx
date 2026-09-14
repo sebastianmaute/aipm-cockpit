@@ -70,7 +70,7 @@ export type RaidEditModalProps = {
   stakeholders: readonly Stakeholder[];
   resources: readonly Resource[];
   contacts: Contact[];
-  onCreateResource: (name: string, email: string) => number;
+  onCreateResource?: (name: string, email: string) => number;
   draft: RaidItem;
   isNew: boolean;
   onChange: (next: RaidItem) => void;

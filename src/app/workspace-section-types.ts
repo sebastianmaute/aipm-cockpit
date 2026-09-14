@@ -144,7 +144,7 @@ export interface WorkspaceSectionProps {
   handleCancelEdit: () => void;
   setTaskModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   contactsList: Contact[];
-  onCreateResource: (name: string, email: string) => number;
+  onCreateResource?: (name: string, email: string) => number;
   handleClearRaidTaskFilter: () => void;
   // isNew carries the modal's create/edit intent (id-mint race fix — see
   // entity-id-mint.ts); non-modal callers (bulk edit) omit it.

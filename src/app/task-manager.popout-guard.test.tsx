@@ -42,13 +42,12 @@
 // the seam that was broken.
 //
 // ★★★ `onChangeBudgets` IS SAFE TO WRAP ONLY BECAUSE `commitBuckets` RETURNS
-// VOID. `onCreateResource`, in the same prop bag, has the identical gap and
-// CANNOT be fixed this way: it returns the new resource id, and `makeEditGuard`
-// returns `undefined` on the read-only path, so wrapping would silently widen
-// its contract to `number | undefined` for every caller. Check the return type
-// before reaching for the guard. That one is still unguarded — a popout can
-// create a resource through the RAID/task resource picker even though saving
-// the item around it is blocked.
+// VOID. That is why it is NOT wrapped: task-manager passes `isPopout ? undefined :
+// handleCreateResource` instead, and `ResourcePicker` hides its "+ Add" row
+// when the callback is absent. A SECOND route reached the resource editor from
+// a popout — the task form's "+" address-book button — and is closed the same
+// way, with `AppModals` refusing to render `ResourceEditModal` in a popout at
+// all (open-followups §90, every route pinned below).
 //
 // ★★ A THIRD unguarded path, same class, also still open: `onCaptureRaidBulk` /
 // `onCaptureUndo` / `onCaptureFieldEdit` are unwrapped and `useUndoHotkey` is
@@ -86,6 +85,19 @@ vi.mock("./workspace-section", async (importOriginal) => ({
   },
 }));
 
+const capturedModals: { props: Record<string, unknown> | null } = { props: null };
+vi.mock("./app-modals", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./app-modals")>();
+  const RealAppModals = actual.AppModals;
+  return {
+    ...actual,
+    AppModals: (props: Parameters<typeof RealAppModals>[0]) => {
+      capturedModals.props = props as unknown as Record<string, unknown>;
+      return <RealAppModals {...props} />;
+    },
+  };
+});
+
 import TaskManager from "./task-manager";
 
 function seedRegistry() {
@@ -103,6 +115,7 @@ function seedRegistry() {
 async function mountAt(search: string) {
   window.localStorage.clear();
   captured.props = null;
+  capturedModals.props = null;
   commitSpy.mockClear();
   seedRegistry();
   window.history.replaceState(null, "", search);
@@ -147,5 +160,51 @@ describe("popout read-only guard — budget commits", () => {
     // that the prop disappears. Asserting `toBeUndefined()` here would pass for
     // the wrong reason and would also pin the wrong design.
     expect(commitSpy).not.toHaveBeenCalled();
+  }, 45000);
+});
+
+const ADA = { id: 1, firstName: "Ada", lastName: "L", roleId: null, utilizationMode: "percent", utilization: {} };
+
+describe("popout read-only guard — resource creation (open-followups §90)", () => {
+  // ★ Positive controls first: every route below is proven LIVE in the main
+  //  window by the same call on the same mount path, so each popout absence
+  //  assertion is not vacuous.
+  it("main window: passes onCreateResource and onAddAssigneeToAddressBook", async () => {
+    await mountAt("/");
+    expect(typeof captured.props!.onCreateResource).toBe("function");
+    expect(typeof capturedModals.props!.onCreateResource).toBe("function");
+    expect(typeof capturedModals.props!.onAddAssigneeToAddressBook).toBe("function");
+  }, 45000);
+
+  it("popout: passes NO onCreateResource and NO onAddAssigneeToAddressBook", async () => {
+    await mountAt("/?popout=raid");
+    // ★ Unlike onChangeBudgets, the props DISAPPEAR: `makeEditGuard` would
+    // widen `number` to `number | undefined`, ResourcePicker already hides its
+    // "+ Add" row when the callback is absent, and TaskFormFields now hides the
+    // "+" address-book button the same way.
+    expect(captured.props!.onCreateResource).toBeUndefined();
+    expect(capturedModals.props!.onCreateResource).toBeUndefined();
+    expect(capturedModals.props!.onAddAssigneeToAddressBook).toBeUndefined();
+  }, 45000);
+
+  it("main window: the address-book route opens a NEW-resource editor (positive control for route b)", async () => {
+    await mountAt("/");
+    const addToBook = capturedModals.props!.onAddAssigneeToAddressBook as (name: string, email: string) => void;
+    act(() => addToBook("Ada Lovelace", "ada@x.com"));
+    expect(capturedModals.props!.editingResource).toMatchObject({ isNew: true });
+  }, 45000);
+
+  it("main window: onEditResource opens the resource editor (positive control for the Part 7 pin)", async () => {
+    await mountAt("/");
+    const onEditResource = captured.props!.onEditResource as (r: unknown) => void;
+    act(() => onEditResource(ADA));
+    expect(capturedModals.props!.editingResource).toMatchObject({ isNew: false });
+  }, 45000);
+
+  it("popout: onEditResource opens no resource editor (spec Part 7 popout pin)", async () => {
+    await mountAt("/?popout=resources");
+    const onEditResource = captured.props!.onEditResource as (r: unknown) => void;
+    act(() => onEditResource(ADA));
+    expect(capturedModals.props!.editingResource ?? null).toBeNull();
   }, 45000);
 });

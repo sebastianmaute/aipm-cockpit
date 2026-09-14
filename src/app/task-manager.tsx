@@ -2338,7 +2338,7 @@ function TaskManagerInner() {
     handleCancelEdit,
     setTaskModalOpen,
     contactsList,
-    onCreateResource: handleCreateResource,
+    onCreateResource: isPopout ? undefined : handleCreateResource,
     handleClearRaidTaskFilter,
     onOpenNotes: openRaidNotes,
     onOpenChangeNotes: openChangeNotes,
@@ -2976,7 +2976,7 @@ function TaskManagerInner() {
         nextId={nextId}
         contactsList={contactsList}
         resources={resources}
-        onCreateResource={handleCreateResource}
+        onCreateResource={isPopout ? undefined : handleCreateResource}
         absences={absences}
         tasksForDeps={tasks}
         uniqueGroups={uniqueGroups}
@@ -2994,7 +2994,7 @@ function TaskManagerInner() {
         handleSubmit={handleSubmit}
         handleCancelEdit={handleCancelEdit}
         handleRemoveContact={handleRemoveContact}
-        onAddAssigneeToAddressBook={handleAddAssigneeToAddressBook}
+        onAddAssigneeToAddressBook={isPopout ? undefined : handleAddAssigneeToAddressBook}
         editingResource={editingResource}
         onSaveResource={handleSaveResourceFromAnywhere}
         onDeleteResource={handleDeleteResource}

@@ -46,7 +46,7 @@ interface Props {
   /** Remembered contacts offered as a fallback by the assignee picker. */
   contacts: Contact[];
   /** Creates a Resource from a typed name/email and returns its id. */
-  onCreateResource: (name: string, email: string) => number;
+  onCreateResource?: (name: string, email: string) => number;
   onSave: (next: Shift) => void;
   onDelete: (id: number) => void;
   onClose: () => void;
