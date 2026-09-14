@@ -18,10 +18,12 @@ commit message, MR description and closure line writes the pair as "§323/#238" 
 3. Close three guard escapes: a popout can create a resource (§90), a popout can record and replay undo
    (§91), a project hard delete leaves five side tables behind (§204).
 4. Close §323 and §533 with evidence.
+5. When a person's email is corrected in the person record, carry the correction to the records it was
+   copied into (Part 7).
 
 ## Scope
 
-**In:** parts 1–6 below.
+**In:** parts 1–7 below (Part 7's design is PENDING USER DECISION).
 
 **Out:**
 - **§299** (undo/redo restore writes no completion/reopening entry). It is an audit-completeness design
@@ -46,6 +48,33 @@ commit message, MR description and closure line writes the pair as "§323/#238" 
 - §204: all five side tables + guard.
 - §323: close by design (comment + small test).
 
+### Second round (approved 2026-09-14, answers to the first draft's open questions)
+
+1. **Jira/Timelog settings email and `ContactPersonsControl`:** reuse the existing `FieldError`
+   (`field-feedback.tsx`). Typing is never blocked. A changed value is persisted only once it is valid; until
+   then the last valid value stays stored. A contact-person add with an unsafe typed email is refused with a
+   `FieldError`.
+2. **Copied stored emails** (ResourcePicker selection, assign owner, RAID bulk reassign, template linking):
+   allowed, never refused; the editor flags the value. PLUS: when the email is corrected in the person record,
+   the correction populates to the records it was copied to — see Part 7, PENDING USER DECISION.
+3. **Task inline assignee-email cell:** a refused edit reverts to the stored value and shows the existing
+   error toast with the invalid-email message.
+4. **Explicit-import notice** fires on: file open/switch, template apply, new project from template, AI import
+   panel. It shares the single-slot surface `reportImportFor` reports on. Outlook contacts import is a SYNC:
+   diagnostic only, no notice.
+
+### Controller rulings
+
+- **Ruling (Q5):** the escalation load leg MAY rescue `Name <addr>` — the normaliser runs before
+  `isEscalationEmail` in `sanitizeEntry`. The recovery is provably equivalent and strictly less loss than
+  today's drop.
+- **Ruling (Q6):** the §204 guard executes EVERY schema DDL in `node:sqlite` and fails on any table that has a
+  `project_id` column and is not in `PROJECT_SCOPED_SIDE_TABLES`. Store-local DDL constants are exported where
+  needed so the guard can execute them.
+- **Ruling (Q7):** Jira and Timelog emails get NO import clean-up. They are typed settings, not imported data.
+- **Ruling (Q8):** the plan verifies from code whether the task editor is reachable in a popout; the §90 test
+  covers whatever is reachable.
+
 ## Global constraints
 
 - **i18n.** `src/app/i18n.ts` (EN) and `src/app/i18n.de.ts` (DE) key sets stay identical (tsc). NEVER
@@ -58,8 +87,9 @@ commit message, MR description and closure line writes the pair as "§323/#238" 
   an existing import line); new logic goes in a new module. `task-manager.tsx` (3257) is baselined: no new
   lines, no comments there.
 - **No hand-rolled UI controls.** Every editor reuses its existing error surface (`ModalFieldError`,
-  `FieldError`, `window.alert` in the prompt flows). If an editor has no error pattern, STOP and ask the
-  user — see Open questions 1 and 2.
+  `FieldError`, `window.alert` in the prompt flows, the ambient error toast). If an editor has no error
+  pattern, STOP and ask the user. The settings inputs and `ContactPersonsControl` host the existing
+  `FieldError` (second-round decision 1).
 - **Tests.** Targeted files only, one at a time:
   `npx vitest run <file> --maxWorkers=1 --reporter=dot > <log> 2>&1; echo EXIT=$?`. Never the full suite,
   never two vitest runs at once, never read an exit code through a pipe. Also `npx tsc --noEmit` and
@@ -141,17 +171,17 @@ already has.
 
 | Field | UI editor | AI tool | Bulk edit | Inline cell | Inline-AI card | Load paths that must NOT change |
 |---|---|---|---|---|---|---|
-| `Task.assigneeEmail` | `validateTaskForm` (`task-validation.ts`) → `FieldError` | `createTask` (`use-chat-dispatcher.ts`), `buildTaskCleanPatch` (`chat-task-patch.ts`, via `chat-tools-updates.ts`) | `buildBulkEditUpdates` (`bulk-operations-helpers.ts`) | **gap:** `sanitizeInlinePatch` (`task-inline-patch.ts`), fed by the assignee picker in `task-row.tsx` via `tasks-section.tsx` | task descriptor `emailFormatFields` (`entity-descriptor.ts`) + `plan.ts` | `buildTaskFromObj` (CSV), `issueToTaskFields` (Jira), `templates.ts` task decode, `contacts.ts` `loadContacts` |
+| `Task.assigneeEmail` | `validateTaskForm` (`task-validation.ts`) → `FieldError` | `createTask` (`use-chat-dispatcher.ts`), `buildTaskCleanPatch` (`chat-task-patch.ts`, via `chat-tools-updates.ts`) | `buildBulkEditUpdates` (`bulk-operations-helpers.ts`) | **gap:** `sanitizeInlinePatch` (`task-inline-patch.ts`), fed by the assignee picker in `task-row.tsx` via `tasks-section.tsx` `onInlinePatch` → refused edit keeps the stored value + error toast (see "Task inline cell") | task descriptor `emailFormatFields` (`entity-descriptor.ts`) + `plan.ts` | `buildTaskFromObj` (CSV), `issueToTaskFields` (Jira), `templates.ts` task decode, `contacts.ts` `loadContacts` |
 | `Absence.assigneeEmail` | `absence-edit-modal.tsx` `handleSubmit` (already changed-only) | `createAbsence` / `updateAbsence` → `refuseInvalidAbsenceEmail` (`use-register-tools.ts`) | — | — | absence descriptor `emailFormatFields` | `sanitizeAbsence` (`sanitize-entities.ts`) |
 | `Shift.assigneeEmail` | `shift-edit-modal.tsx` (no check today) → `ModalFieldError` | — (no shift tool) | — | — | — (no shift descriptor) | `sanitizeShift` |
 | `Resource.email` | `resource-edit-modal.tsx` (cap only today) → `ModalFieldError` | `createResource` / `updateResource` (`use-chat-dispatcher.ts`, only `emails` checked today) | — | — | resource descriptor (add `email` to `emailFormatFields`) | `sanitizeResource`, `mergeImportedResources` (Outlook) |
 | `Resource.emails` | `resource-edit-modal.tsx` `findTornEmail` | same two, `findTornEmail` | — | — | `plan.ts` `findTornEmail` guard | `sanitizeResource` → `sanitizeEmailList` (string branch unchanged) |
 | `Stakeholder.email` | `stakeholder-edit-modal.tsx` (cap only) → `ModalFieldError` | `createStakeholder` / `updateStakeholder` (`use-register-tools.ts`) | — | — | stakeholder descriptor (add `email`) | `sanitizeStakeholder` (`sanitizeText`, cap `BUDGET_NAME_MAX`) |
-| `RaidItem.ownerEmail` | `raid-edit-modal.tsx` (bare input) → `ModalFieldError`; inquiry prompt in `handleSendRaidInquiry` (`use-resource-planner.ts`) → `window.alert` | `createRaid` / `updateRaid` (`use-register-tools.ts`, tools `create_raid_item` / `update_raid_item`) | RAID bulk apply (`raid-panel.tsx` `applyBulk`) — see Open question 3 | — | raid descriptor (add `ownerEmail`) | `sanitizeRaidItem` (line-neutral), `templates.ts` raid decode |
-| `RaidEscalation.toEmail` | `escalate-popover.tsx` `canConfirm` | `requireEscalationRecipient` | — | — | — (not an inline-edit field) | `sanitizeEntry` keeps `isEscalationEmail` |
-| `ContactPerson.email` | `ContactPersonsControl` `addDraft` (`project-form-fields.tsx`) — see Open question 1 | — (no tool writes `contactPersons`) | — | — | — | `sanitizeContactPerson`, `decodeContactPersons` (reversible, escapes `;`) |
-| `JiraConfig.email` | `jira-settings.tsx` input — see Open question 2 | — | — | — | — | raw merge in `use-settings.ts` |
-| `TimelogConfig.email` | `timelog-settings.tsx` input — see Open question 2 | — | — | — | — | raw merge in `use-settings.ts` |
+| `RaidItem.ownerEmail` | `raid-edit-modal.tsx` (bare input) → `ModalFieldError`; inquiry prompt in `handleSendRaidInquiry` (`use-resource-planner.ts`) → `window.alert` | `createRaid` / `updateRaid` (`use-register-tools.ts`, tools `create_raid_item` / `update_raid_item`) | RAID bulk apply (`raid-panel.tsx` `applyBulk`) — the reassign copies `r?.email`: exempt as a copy, never refused | — | raid descriptor (add `ownerEmail`) | `sanitizeRaidItem` (line-neutral), `templates.ts` raid decode |
+| `RaidEscalation.toEmail` | `escalate-popover.tsx` `canConfirm` | `requireEscalationRecipient` | — | — | — (not an inline-edit field) | `sanitizeEntry` keeps `isEscalationEmail`, after the normaliser (Ruling Q5) |
+| `ContactPerson.email` | `ContactPersonsControl` `addDraft` (`project-form-fields.tsx`) → refused add + `FieldError` under the email input | — (no tool writes `contactPersons`) | — | — | — | `sanitizeContactPerson`, `decodeContactPersons` (reversible, escapes `;`) |
+| `JiraConfig.email` | `jira-settings.tsx` input → local draft + `FieldError`; persisted only once valid | — | — | — | — | raw merge in `use-settings.ts` (no clean-up, Ruling Q7) |
+| `TimelogConfig.email` | `timelog-settings.tsx` input → local draft + `FieldError`; persisted only once valid | — | — | — | — | raw merge in `use-settings.ts` (no clean-up, Ruling Q7) |
 
 The "derive email from the assignee" prompt flows are write boundaries too and use `window.alert`
 already: `onSendInquiry` (`use-task-row-handlers.ts`), the bulk inquiry in `use-bulk-operations.ts`, and
@@ -159,6 +189,42 @@ already: `onSendInquiry` (`use-task-row-handlers.ts`), the bulk inquiry in `use-
 "is the assignee text itself an address" reads in the same flows and in the AI `sendInquiry`
 (`use-chat-dispatcher.ts`) also move, so an
 assignee named `a,b@x.com` is not silently copied into the email field.
+
+### Copied stored emails (decision 2)
+
+A writer that copies a person's STORED email into another record is not a "change" the rule refuses:
+`ResourcePicker` selection (every host: task form, task inline cell, RAID, shift, stakeholder, contact person),
+`applyAssignOwner` (`action-assign-owner.ts`), the task assign CTA in `use-action-center-handlers.ts`,
+`raid-panel.tsx` bulk reassign, `onReassignTask` (workload triage), the `calendar-drag.ts` reassign, and
+`template-apply.ts` `linkResource`. The exemption is exact: the incoming value equals, trimmed, the source
+record's stored email (the resource or address-book contact the same action picked). A value the user then
+types over it is judged by the normal rule. Every editor that shows the field renders the stored-unsafe
+value with its `FieldError` (non-blocking), so the copy is flagged, not hidden. The plan names, per site,
+how the source value reaches the check.
+
+### Task inline cell (decision 3)
+
+`onInlinePatch` (`tasks-section.tsx`) applies `sanitizeInlinePatch` and today drops a refused key silently.
+A refused `assigneeEmail` keeps the stored value (the key is left out of the patch; the other keys apply)
+and shows the error toast through the ambient `useToastContext` (`toast-context.tsx`) — the hook the same
+pane already uses in `use-tasks-inline-ai-edit.tsx` — with `t(lang, "errorInvalidEmail")` or
+`t(lang, "errorEmailDelimiter")`. This is the same `showToast("error", …)` shape used by the other
+invalid-email refusals (`use-bulk-operations.ts`, `use-action-center-handlers.ts`). No new prop.
+★ The inline assignee cell's email comes from the picker, so with the copy exemption the refusal can only
+fire for a value that is not the picked source's stored email. The plan verifies whether that is reachable
+and, if not, pins the exemption instead of an unreachable refusal.
+
+### Settings inputs and contact persons (decision 1)
+
+- `jira-settings.tsx` (`update("email", …)`) and `timelog-settings.tsx` (`set({ email })`) bind the input to
+  the stored config and write on every keystroke. Each gains a local draft: the input shows the draft, typing
+  is never blocked, the config is written only when the draft is `""` or write-safe (changed-only against the
+  stored value), and a `FieldError` shows while the draft is refused. The stored value is the last valid one.
+- The `FieldError` sits OUTSIDE the wrapping `HintedLabel` / `<label>` and is linked by `aria-describedby`,
+  so it does not join the input's accessible name (the Jira file already keeps its storage notice outside
+  the label for the same reason).
+- `ContactPersonsControl` `addDraft`: an unsafe typed email refuses the add, keeps the draft, and shows a
+  `FieldError` under the email input; a copied stored email is exempt (see above).
 
 ### Tests
 
@@ -171,6 +237,12 @@ hits 61 test files, none in `e2e/` or `scripts/` except one comment.
   changed, accepted when unchanged-but-unsafe, error text via `t("en-US", …)`. `task-inline-patch.test.ts`:
   the inline cell refuses a changed unsafe email and leaves the other patch keys intact. A card⇔write
   parity case per newly-guarded descriptor field in `plan.sanitizer-parity.test.ts`.
+  Copy exemption: per copy site, picking a source whose stored email is unsafe succeeds and stores it, and
+  overtyping it with an unsafe value is refused. Task inline cell: a refused email leaves the stored value,
+  applies the other keys and calls the ambient toast once with the right message. Settings: typing an unsafe
+  Jira/Timelog email never blocks the input, shows `FieldError`, and leaves the stored config at the last
+  valid value; clearing and a valid value persist. `ContactPersonsControl`: an unsafe typed email refuses the
+  add with `FieldError` and keeps the draft.
 - **MIGRATE:** `raid-escalation.test.ts` (the `isEscalationEmail` describe stays for the load leg; add a
   write-leg describe), `escalate-popover.test.tsx` and `use-action-center-handlers.test.ts` (three "would
   otherwise pass isValidEmail" cases now name the write predicate), `resource-edit-modal.test.tsx` (two
@@ -188,10 +260,9 @@ hits 61 test files, none in `e2e/` or `scripts/` except one comment.
 
 ### Risks and accepted residue
 
-- **Reassign-to-a-bad-resource.** Several writers COPY an email from a stored resource or contact
-  (`ResourcePicker` selection, `action-assign-owner.ts`, `raid-panel.tsx` bulk reassign, `template-apply.ts`
-  `linkResource`). Under a literal changed-only rule, picking a resource whose stored email is unsafe would
-  refuse the reassignment. Open question 3.
+- **Reassign-to-a-bad-resource.** Resolved by decision 2: a copy of a stored email is exempt, so a
+  reassignment is never refused; the unsafe copy is flagged in the editor and corrected by Part 7 once the
+  person record is fixed.
 - The rule stops NEW unsafe values only. A stored unsafe value survives until someone edits that field.
   This is the design, and the editor shows the field error so the user can see it.
 - `isValidEmail` stays loose (`\S+@\S+\.\S+`); "full format validation" means that predicate, not RFC 5322.
@@ -225,9 +296,20 @@ hits 61 test files, none in `e2e/` or `scripts/` except one comment.
   `sanitizeResource`, `sanitizeStakeholder`, `sanitizeRaidItem` (line-neutral), `sanitizeContactPerson`,
   and the task load funnels (`buildTaskFromObj`, the JSON task path through `migrateTask`, template task
   decode). The plan names the exact call per funnel and counts to six write paths per field.
-- **Notice only on explicit import actions** (Open question 4 fixes the list): one notice with the count
-  and the names of records still holding a non-write-safe address. A normal reload is silent; the editor
-  field error still shows.
+- The escalation load leg normalises `toEmail` before `isEscalationEmail` judges it (Ruling Q5), so a
+  stored `Name <a@x.com>` loads as `a@x.com` instead of being dropped.
+- Jira and Timelog settings emails are NOT normalised (Ruling Q7).
+- **Notice only on explicit import actions** (decision 4): `onOpenStorageFile` and the pick/switch path through
+  `openFileForBackend` (`use-storage-file-ops.ts`), `handleApplyTemplate` (`task-manager.tsx`), new project from
+  template (`new-project-workspace.ts` `applyTemplate`), and the AI import panel (`step0-import-panel.tsx`). One
+  notice with the count and the names of records still holding a non-write-safe address. A normal reload is
+  silent; the editor field error still shows. Outlook contacts import (`handleImportResources`) is a sync:
+  `logDiag` only.
+- **Slot.** `reportImportFor(backend, backendNowPointsAtLoadedFile)` (`use-load-truncation.ts`) accepts only a
+  backend's `lastImport*` counters and is called only from `use-storage-file-ops.ts`, so the notice cannot pass
+  THROUGH it and template apply / the AI panel have no backend to hand it. The notice shares its single-slot
+  toast surface instead and obeys the same ordering landmine: it fires AFTER the action's own confirmation
+  toast and BEFORE `reportImportFor`, so a data-loss diagnostic wins the slot.
 - **Synced records:** `issueToTaskFields` and `mapGraphContact` drop an address that is not write-safe
   after normalising (the record is kept, the field becomes `""`), and `logDiag("warn", …)` records the
   record key and field — never the address itself.
@@ -242,9 +324,12 @@ New normaliser module; `sanitize-entities.ts`, `sanitize-records.ts` (line-neutr
 
 - **ADD:** normaliser unit tests (each shape, unchanged cases, a `Name <a,b@x.com>` stays unchanged); one
   load round trip per codec proving a normalised value; `jira-api.test.ts` and an Outlook test for
-  drop-plus-diagnostic with the record kept; a notice test on the explicit import and a no-notice test on
-  reload.
-- **MIGRATE:** `use-jira-sync.test.tsx` cases that assert an `assigneeEmail` survives verbatim, if any use
+  drop-plus-diagnostic with the record kept; a notice test per explicit import action (four) and a
+  no-notice test on reload and on Outlook contacts import; an ordering test that the notice fires before
+  `reportImportFor` on file open; an escalation load test that `Name <a@x.com>` loads as `a@x.com` and
+  `Name <a,b@x.com>` is still dropped.
+- **MIGRATE:** `raid-escalation.test.ts` load-leg cases that pin a `Name <addr>` drop (Ruling Q5), and
+  `use-jira-sync.test.tsx` cases that assert an `assigneeEmail` survives verbatim, if any use
   a non-write-safe address.
 - **RECOMPUTE:** `codec-roundtrip.property.test.ts` — a generator that can produce `Name <x@y.z>` now loses
   bytes on load by design; narrow the generator or assert the normalised form, and record why.
@@ -253,7 +338,7 @@ New normaliser module; `sanitize-entities.ts`, `sanitize-records.ts` (line-neutr
 ### Risks and accepted residue
 
 - **Escalation records.** `sanitizeEntry` drops a `toEmail` with `<>` today. Normalising `Name <a@x.com>`
-  first would LOAD a record that is dropped today — a load-path behaviour change. Open question 5.
+  first LOADS a record that is dropped today — a deliberate load-path change (Ruling Q5).
 - **Accepted residue (§533):** an address already torn by a past CSV/MD/Turso save cannot be rebuilt.
 
 ---
@@ -267,7 +352,8 @@ New normaliser module; `sanitize-entities.ts`, `sanitize-records.ts` (line-neutr
 - It is passed unguarded in the `WorkspaceSection` bag, to `<AppModals>` (which renders `TaskFormModal`
   under `showTaskFormModal` and `ShiftEditModal` under `editingShift`, with no `isPopout` gate on either; only
   its footer block is `!isPopout`), and to `<RaidCreateHost>` (mounted under `!isPopout`). Whether
-  `showTaskFormModal` can be true in a popout is not traced here — Open question 8. `use-action-center-handlers.ts` passes it twice; the Action Center is not in `POPOUT_TABS`.
+  `showTaskFormModal` can be true in a popout is not traced here; per Ruling Q8 the plan verifies it from code
+  and the §90 test covers every reachable modal. `use-action-center-handlers.ts` passes it twice; the Action Center is not in `POPOUT_TABS`.
 - `ResourcePicker` already types it optional and offers the "add" row only when present.
 - Precedent in the same bag: `onSendRaidInquiry: isPopout ? undefined : handleSendRaidInquiry`.
 
@@ -366,8 +452,12 @@ New normaliser module; `sanitize-entities.ts`, `sanitize-records.ts` (line-neutr
 
 ### Tests
 
-- **ADD:** a guard test that every exported `*_DDL` constant from a `*-schema.ts` module whose SQL contains
-  `project_id` is registered. A `node:sqlite` execute test (reuse the `runStatements` / `bindArg` shape from
+- **ADD:** a guard test (Ruling Q6) that executes EVERY schema DDL — every exported `*_DDL`, plus the
+  store-local constants in `scheduled-jobs-store.ts` and `color-schemes-store.ts` (exported for it if
+  needed) — in `node:sqlite`, reads each created table's columns (`PRAGMA table_info`), and fails on any
+  table with a `project_id` column that is neither a `TABLE_NAMES` member nor in `PROJECT_SCOPED_SIDE_TABLES`.
+  It carries an anti-vacuity floor (a minimum number of tables seen, and at least one registered hit). A
+  `node:sqlite` execute test (reuse the `runStatements` / `bindArg` shape from
   `turso-schema.execute.test.ts`, in a new `turso-portfolio.execute.test.ts`): create tenant + side DDL,
   insert rows for `p1` and `p2` with the real builders, run the hard-delete statements, assert `p1` has 0
   rows in every registered table and `p2` is untouched.
@@ -382,8 +472,9 @@ New normaliser module; `sanitize-entities.ts`, `sanitize-records.ts` (line-neutr
 
 - A libSQL pipeline does not abort on a failing statement (AGENTS.md, `idKind` note), so a partial sweep is
   possible; it is logged and re-runnable. Leaked rows are recoverable; a half-deleted project is not.
-- The guard sees exported schema-module DDL only. Store-local DDL constants are invisible to it (Open
-  question 6).
+- The guard sees only DDL it is handed. A future store that inlines its DDL string without a constant
+  stays invisible; the guard's enumeration (exports plus the named store-local constants) is the plan's to
+  make discoverable rather than hardcoded where it can.
 
 ---
 
@@ -403,6 +494,95 @@ New normaliser module; `sanitize-entities.ts`, `sanitize-records.ts` (line-neutr
   `**Status:**` witness naming the pinning test, `**Work item:**` line removed, every falsified body
   sentence found by grepping the changed symbol and old wording. GitLab issues close after merge only.
 - New findings during implementation get their own register entries, never folded into these.
+
+---
+
+## 7. Propagation of corrected person emails — PENDING USER DECISION
+
+Full research: session scratchpad `propagation-research.md`. The design below is the recommendation;
+the questions at the end are the user's to answer before the plan is written.
+
+### Current behaviour at HEAD (evidence)
+
+- **Nothing propagates on write.** `handleSaveResource` (`use-resource-directory.ts`) map-replaces the resource
+  via a functional `setResources`, captures `captureFieldChanges` → `captureFieldEdit` (`resource.updated`,
+  `RESOURCE_UNDO_GROUPS`) and logs `logUpdate("resource.updated", …)`. No linked record is touched. AI
+  `updateResource` (`use-chat-dispatcher.ts`) is a separate write path that does not call it.
+- **Read-time resolution exists instead, and only partly.** `effectivePersonName` / `effectiveAssignee`
+  (`resource-foundation.ts`) make display surfaces show the live name. `effectivePersonEmail` makes the OUTBOUND
+  inquiry flows use the live email (`use-task-row-handlers.ts` `onSendInquiry`, `use-bulk-operations.ts`, AI
+  `sendInquiry`, `raid-inquiry.ts`, `resources-panel.tsx`). NOT live: the cached field shown in every editor,
+  every export and persisted backend, saved templates, the escalate popover (mails the picker value), and
+  `stakeholderEmail` (`mailto.ts`), where the stakeholder's OWN stored email wins over the linked resource.
+- **The only cascade on a resource is DELETE:** `purgeCalendarFor` removes absences/shifts by FK first, else by
+  case-folded name/email with a surviving-twin guard (`recordMatchesRemoved`), as ONE `captureComposite`
+  (`capturePart` per array) plus one `resource.deleted` log entry. That is the precedent this part follows.
+- **Copy sites that write an FK next to the email:** `ResourcePicker` resource rows (task form, task inline cell,
+  RAID, shift, stakeholder, contact person), `applyAssignOwner`, the task assign CTA, `raid-panel.tsx` bulk
+  reassign, `onReassignTask`, `calendar-drag.ts` reassign, `buildEscalationEntry` (`toResourceId`), and
+  `template-apply.ts` `linkResource` (FK by match; the email is the template seed's own).
+- **Copy sites WITHOUT an FK:** RAID → task conversion in `use-resource-planner.ts` (copies `ownerEmail`, not
+  `ownerResourceId`), `handleOpenShiftEditor` seeds, the add-absence seed in `resource-calendar-rows.tsx`,
+  address-book contact rows (`resourceId: null` by construction), AI `create_task`. `backfillResourceFks` and
+  `backfillTaskResourceFks` stamp an FK from a matching cached email at load, so most unlinked-but-matching rows
+  gain an FK on the next load anyway.
+
+### Options
+
+- **A (recommended) — FK-linked rows only, synchronously in the save.** A pure, i18n-free helper (for example
+  `propagateResourceEmail(prev, next, arrays)` in a new module) returns NEW arrays: every row whose FK equals the
+  resource id AND whose cached email equals, trimmed and case-insensitively, the resource's OLD primary `email`
+  gets the new value. Jira-synced tasks (`jiraKey`) are skipped. Both `handleSaveResource` and AI
+  `updateResource` call it, so a correction propagates whichever path makes it. The resource edit and every
+  propagated row are ONE `captureComposite` entry (`capturePart({ edited })` per array), applied with functional
+  setters in the same tick.
+- **B — A plus old-address match on rows with no FK**, guarded like the delete cascade (skip when another
+  resource shares the old address). Reaches the conversion/seed copies, but a shared team mailbox, an
+  address-book contact or a free-text assignee carrying the same address would be rewritten as if it were this
+  person — and the load-time FK backfill already links most such rows, so the gain is small.
+
+### Constraints the design must meet (either option)
+
+- **Six write paths:** no new field; propagated values ride existing columns, so all six persist them.
+- **Scope:** the loaded workspace only. Other projects and saved templates are not reached.
+- **Undo:** one entry for resource plus copies. When nothing propagates, the existing `captureFieldEdit`
+  capture stays as it is. `pushEntry` shows ONE Undo toast, and a second toast would replace it (single slot).
+- **`ContactPerson`** has no id and lives in project meta, so `capturePart` cannot hold it; including it needs
+  its own before-image in the same composite, or it is excluded.
+- **Escalations are history** (who was mailed, when); rewriting `toEmail` falsifies the record.
+- **Popout:** propagation lives inside the save and inherits its guard; with Part 4 the capture is a no-op in
+  a popout. The plan verifies that the resource save is not reachable in a popout.
+- **AI concurrency tokens:** `entityToken` hashes the CSV projection, so a propagated email invalidates the
+  outstanding `update_*` tokens for the touched rows — refused, never silently accepted.
+- **Outlook:** the plan checks whether an `assigneeEmail` change on an absence/shift with `outlookEventId`
+  triggers a re-push.
+- **Interplay with Part 1:** a propagated value is the corrected, write-safe value, so it passes the rule; a
+  correction TO an unsafe value is refused at the resource editor before anything propagates.
+
+### Tests (once decided)
+
+- **ADD:** pure helper unit tests — FK match with equal old cache updates; different cache untouched; blank
+  cache per decision; no FK untouched (option A); twin-shared address untouched (option B); `jiraKey` skipped;
+  escalations untouched; unchanged email is a no-op returning the same references. Hook test: one save
+  produces one undo entry and one undo restores the resource AND every copy. AI `update_resource` propagates
+  identically. A popout seam case if the save is reachable there.
+- **RECOMPUTE:** `use-resource-directory` save tests that assert a single `captureFieldEdit` call when the save
+  now propagates.
+
+### Questions for the user (recommended option first)
+
+1. **When does it propagate?** (a) on every change of the primary email · (b) only when the old email was not
+   write-safe.
+2. **Which rows?** (a) FK-linked rows only (option A) · (b) FK plus old-address match with a twin guard
+   (option B).
+3. **Among linked rows?** (a) only rows whose cached email equals the old value · (b) every linked row,
+   overwriting a different per-record address · (c) (a) plus rows whose cached email is blank.
+4. **Which records?** (a) tasks, RAID owners, absences, shifts, stakeholders and contact persons; never
+   escalations · (b) the same without contact persons · (c) escalations too.
+5. **Saved templates and other projects?** (a) not updated · (b) also rewrite stored templates.
+6. **How is the user told?** (a) the one Undo toast names the count · (b) a separate info toast (collides with
+   the Undo toast) · (c) silent.
+7. **Activity log?** (a) the existing single `resource.updated` entry · (b) one entry per propagated row.
 
 ---
 
@@ -426,30 +606,29 @@ New normaliser module; `sanitize-entities.ts`, `sanitize-records.ts` (line-neutr
    and `docs:symbols:check` scans only AGENTS.md and `docs/AGENTS/`. Neither gate can see this spec.
 9. `export function sanitizeTask` does not exist; task email load goes through `buildTaskFromObj` (CSV) and
    `migrateTask` (`task-status.ts`).
+10. **`FieldError` exists** in `field-feedback.tsx` (`role="alert"`, pair with `aria-invalid` +
+    `aria-describedby`); `ModalFieldError` is in `edit-modal-chrome.tsx`.
+11. **`reportImportFor` is not a generic notice slot.** It takes a backend's `lastImport*` counters plus
+    `backendNowPointsAtLoadedFile` and is called only from `use-storage-file-ops.ts`. "Reuse its slot" means
+    sharing its single-slot toast surface and ordering rule, not calling it (Part 2).
+12. **`onInlinePatch` (`tasks-section.tsx`) shows no toast today** and has no toast prop; the ambient
+    `useToastContext` is the no-new-prop route (Part 1, "Task inline cell").
+13. **The Jira/Timelog settings inputs are controlled by the stored config** and write per keystroke, so
+    "persist only once valid" needs a local draft in each; `FieldError` fits without a new control.
+14. **Nothing propagates a resource edit today.** Only DELETE cascades (`purgeCalendarFor`); the live email is
+    resolved at read time for inquiry flows only (`effectivePersonEmail`), and `stakeholderEmail` prefers the
+    stakeholder's own stored copy (Part 7).
 
 ## Open questions
 
-1. **`ContactPersonsControl` has no error state.** The project form around it uses `FieldError` /
-   `errorFor`; does wiring the add-draft refusal into that existing `FieldError` count as the existing
-   pattern, or stop and ask?
-2. **Jira and Timelog settings inputs have no field-error pattern** (`jira-settings.tsx` has a status line,
-   `timelog-settings.tsx` a token `Banner`), and both write on every keystroke, so there is no save moment to
-   refuse at. Per the approved design: STOP and ask the user before touching either.
-3. **Copied addresses.** Does picking or reassigning to a resource/contact whose stored email is not
-   write-safe count as a "change" to refuse (ResourcePicker, `action-assign-owner.ts`, RAID bulk reassign,
-   `template-apply.ts`)? And how does the task inline assignee cell, which has no error slot, surface a
-   refusal?
-4. **Which actions are "explicit import"?** Candidates: `onOpenStorageFile` and the pick/switch path that
-   also calls `openFileForBackend` (`use-storage-file-ops.ts`), `handleApplyTemplate`, new project from
-   template (`new-project-workspace.ts`), Outlook contacts import (`handleImportResources`), and the AI
-   import in `step0-import-panel.tsx`. Does the notice share the single-slot `reportImportFor` surface?
-5. **Escalation load leg:** may the normaliser rescue a `Name <addr>` `toEmail` that `sanitizeEntry` drops
-   today, or must the escalation leg stay byte-for-byte?
-6. **§204 guard scope:** is "exported `*_DDL` from `*-schema.ts`" enough, or must the guard also scan
-   store-local DDL constants (`scheduled-jobs-store.ts`, `color-schemes-store.ts`), none of which carry
-   `project_id` today?
-7. **Settings normaliser:** do Jira/Timelog emails get the Part 2 normaliser in `use-settings.ts`, or are
-   settings outside "record sanitizers"?
-8. **Task editor in a popout:** can `showTaskFormModal` (computed in `task-manager.tsx`) be true in a popout?
-   It decides whether the §90 popout test must cover `TaskFormModal` or only `ShiftEditModal` (Resources is a
-   popout tab).
+Q1–Q4 were answered by the second-round decisions and Q5–Q8 by the controller rulings (see "User decisions").
+Still open:
+
+1. **Part 7 — the seven propagation questions** at the end of Part 7. PENDING USER DECISION; the plan must not
+   start Part 7 until they are answered.
+2. **Copy exemption vs contact-person refusal.** Decision 1 refuses a contact-person add with an unsafe email;
+   decision 2 exempts a copied stored email. This spec resolves it as: the add is refused only for a typed or
+   overtyped email, never for one equal to the picked resource's or contact's stored email. Confirm.
+3. **Task inline cell reachability.** The cell's email comes from the picker, so under the copy exemption a
+   refusal may be unreachable (Part 1, "Task inline cell"). If the plan proves it unreachable, is pinning the
+   exemption (no refusal test) acceptable for decision 3?
