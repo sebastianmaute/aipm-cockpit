@@ -273,7 +273,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§44](#44-the-last-two-ux-roadmap-slices--s6-designed-and-planned-but-unexecuted-s7-undesigned) | The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned | roadmap (gitignored, local-only) | L | open |
 | [§45](#45-brace-expansion-advisory-in-the-eslint-dev-chain--closed-in-02111) | ~~`brace-expansion` advisory in the eslint dev chain~~ | 0.211.0 | S | **CLOSED** in 0.211.1 |
 | [§46](#46-a-label-wrapped-file-input-can-never-show-a-focus-ring--pattern-open) | A `<label>`-wrapped file input can never show a focus ring — pattern open | 0.211.1 | S | open |
-| [§47](#47-chat-panel-clicks-a-displaynone-file-input--closed-2026-09-14) | `chat-panel` clicks a `display:none` file input — CLOSED 2026-09-14 | pre-existing, found 0.211.1 | S — swapped `hidden` for `sr-only` on the attachment input | **CLOSED** 2026-09-14 |
+| [§47](#47-chat-panel-clicks-a-displaynone-file-input--closed-2026-09-14) | `chat-panel` clicks a `display:none` file input — CLOSED 2026-09-14 | pre-existing, found 0.211.1 | S | **CLOSED** 2026-09-14 |
 | [§48](#48-raid-editor-destroys-notes-added-while-it-is-open--closed-in-02111) | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED** in 0.211.1 |
 | [§49](#49-every-ai-edit-to-a-raid-item-erased-its-whole-note-log--closed-in-02111) | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED** in 0.211.1 |
 | [§50](#50-undo-of-a-bulk-edit-reverts-write-through-fields--closed-2026-08-18) | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | **CLOSED** 2026-08-18 |
@@ -3261,13 +3261,17 @@ whether the element carrying it can receive focus. Check the element type, not t
 type="file">` now carries `className="sr-only"` instead of `className="hidden"` — the minimal fix the
 entry named, keeping `tabIndex={-1}` and `aria-hidden="true"` unchanged. The `FilePickerButton`
 migration the entry also named (which would need a new `multiple` prop) was deliberately NOT taken —
-out of scope for this fix, same as it was scoped out of 0.211.1. Pinned by two new tests in
+out of scope for this fix, same as it was scoped out of 0.211.1. ★ The shared `useFilePicker` hook
+(`src/app/use-file-picker.ts`), which already encodes this same `sr-only`/`tabIndex={-1}`/`aria-hidden`
+shape, was also not adopted: its `onFile` signature is single-file (`e.target.files?.[0]`, no `multiple`
+on its input), while chat-panel's input is `multiple` and calls `handleFiles(e.target.files)` on a whole
+`FileList` — it would not drop in without a behavioural change. Pinned by two new tests in
 `src/app/chat-panel.test.tsx`'s "Attachment guidance" describe block: "uses sr-only, not display:none,
 for the attachment input" (asserts the input's `className` contains `sr-only` and not `hidden`) and
-"forwards the attach button click to the input" (spies on `HTMLInputElement.prototype.click` via the
-queried input and asserts the attach button's click reaches it). Reproduced RED first against the
-unmodified input (`Tests 1 failed | 81 passed (82)`, the sr-only assertion failing for the right
-reason). Mutation-checked: reverting `className` back to `"hidden"` turns the same test red again
+"forwards the attach button click to the input" (spies on the queried input's own `click` method via
+`vi.spyOn(input, "click")` and asserts the attach button's click reaches it). Reproduced RED first
+against the unmodified input (`Tests 1 failed | 81 passed (82)`, the sr-only assertion failing for the
+right reason). Mutation-checked: reverting `className` back to `"hidden"` turns the same test red again
 (`Tests 1 failed | 81 passed (82)`); restoring `sr-only` returns it to green. Verified 2026-09-14:
 `npx vitest run src/app/chat-panel.test.tsx` → `Test Files 1 passed (1)`, `Tests 82 passed (82)`, exit
 0. ★ Honest limitation: jsdom applies no CSS, so these tests pin the CLASS CONTRACT only — they cannot
