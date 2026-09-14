@@ -1068,6 +1068,8 @@ const enUS = {
   exportXlsxHint: "Frozen header, auto-filter enabled, branded colors.",
   exportPptx: "PowerPoint (.pptx)",
   exportPptxHint: "Title slide + one slide per task (capped at 100).",
+  pptxTruncatedNotice: "Showing the first {0} of {1} {2} rows.",
+  pptxTruncatedHint: "Export to XLSX for the full list.",
 
   completedOn: "Completed on {0}",
 

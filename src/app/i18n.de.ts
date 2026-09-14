@@ -1010,6 +1010,9 @@ export const de: Record<TranslationKey, string> = {
   exportPptx: "PowerPoint (.pptx)",
   exportPptxHint:
     "Titelfolie + eine Folie pro Aufgabe (max. 100 Aufgaben).",
+  pptxTruncatedNotice:
+    "Es werden die ersten {0} von {1} Zeilen aus {2} angezeigt.",
+  pptxTruncatedHint: "Für die vollständige Liste als XLSX exportieren.",
 
   completedOn: "Erledigt am {0}",
 

@@ -360,17 +360,12 @@ function blockLines(block: DocBlock, ctx: RenderCtx): SlideLine[] {
       if (truncated) {
         // ★ Cap and wording mirror export-pptx.ts, which faces the same
         // problem. This notice bounds the PACKAGE; pagination below bounds
-        // what fits on a slide — two different jobs, both needed.
-        // ★★ It is a MIXED-LANGUAGE sentence in a non-English deck: the frame
-        // is hardcoded English like its sibling's, but `section.title` is
-        // already LOCALIZED by the registry, so a German deck reads
-        // "Showing the first 100 of 125 RAID rows." with a German title
-        // spliced in. Wanted: an i18n key. Not done here because that means
-        // opening i18n.de.ts, and silently dropping rows is worse than an
-        // awkward sentence.
-        lines.push(
-          `Showing the first ${PPTX_MAX_ROWS_PER_SECTION} of ${total} ${section.title} rows.`,
-        );
+        // what fits on a slide — two different jobs, both needed. Both sites
+        // share the `pptxTruncatedNotice` i18n key, so the frame is localized
+        // together with `section.title`, which the registry already
+        // localizes — no more mixed-language sentence. Unlike its sibling,
+        // this site pushes ONE line — no separate "Export to XLSX" hint.
+        lines.push(t(lang, "pptxTruncatedNotice", PPTX_MAX_ROWS_PER_SECTION, total, section.title));
       }
       return lines;
     }

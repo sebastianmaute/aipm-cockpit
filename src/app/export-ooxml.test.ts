@@ -10,6 +10,7 @@
 import { describe, it, expect } from "vitest";
 import { buildDocx, buildXlsx, buildPptx } from "./export-ooxml";
 import { buildPdfHtml } from "./export";
+import { loadI18n } from "./i18n";
 import { buildExportSections, cellTextWithLinks } from "./export-sections";
 import type { ExportCell, ExportSection } from "./export-sections";
 import { COLOR_DARK_BLUE } from "./export-ooxml-shared";
@@ -554,6 +555,31 @@ describe("buildPptx", () => {
 
     // Truncation notice must appear
     expect(allSlides).toMatch(/Showing the first 100 of 105/);
+  });
+
+  it("localizes the truncation notice for a German deck (§93)", async () => {
+    await loadI18n("de");
+    const manyTasks = Array.from({ length: 105 }, (_, i) => makeTask(i + 1));
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      tasks: manyTasks,
+      raid: [],
+    };
+    const sections = buildExportSections(ws, defaultExportConfig, "de");
+    const blob = buildPptx(sections, "de");
+    const files = await unzipBlob(blob);
+
+    const allSlides = [...files.entries()]
+      .filter(([k]) => k.startsWith("ppt/slides/slide") && !k.includes("_rels"))
+      .map(([, v]) => v)
+      .join("\n");
+
+    // German notice, with the already-localized section title spliced in.
+    expect(allSlides).toContain(
+      "Es werden die ersten 100 von 105 Zeilen aus Aufgaben angezeigt.",
+    );
+    expect(allSlides).toContain("Für die vollständige Liste als XLSX exportieren.");
+    expect(allSlides).not.toMatch(/Showing the first/);
   });
 
   it("title slide is always first regardless of sections", async () => {
