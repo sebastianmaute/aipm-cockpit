@@ -124,10 +124,16 @@ export interface ActivityEntry {
    *  per-session nonce is minted fresh each module evaluation and never
    *  persisted, so a reload can no longer repeat a prior session's ids. */
   id: string;
-  /** ISO 8601 UTC timestamp captured at append time. Always `toISOString()`
-   *  shape: `mergeActivityLogs` sorts these with a LEXICOGRAPHIC compare, and
-   *  because it caps by slicing the head after sorting, a wrongly-ordered value
-   *  is permanently dropped rather than merely misplaced. */
+  /** ISO 8601 UTC timestamp captured at append time. Every runtime append uses
+   *  `new Date().toISOString()`, and `sanitizeActivityEntry` now NORMALISES any
+   *  other ISO 8601 shape (a zoneless date-time or `±HH:MM` offset) to this
+   *  canonical form at the load boundary, dropping the entry when the value is
+   *  not an ISO 8601 shape at all — so by the time an entry reaches app state
+   *  this field is always `toISOString()` shape. `mergeActivityLogs` sorts
+   *  these with a LEXICOGRAPHIC compare, which equals chronological order only
+   *  because of that normalisation, and because it caps by slicing the head
+   *  after sorting, a wrongly-ordered value would be permanently dropped
+   *  rather than merely misplaced (see docs/open-followups.md §161). */
   timestamp: string;
   kind: ActivityKind;
   /** Positional args interpolated into the i18n message at render time. */
@@ -431,6 +437,34 @@ export function sanitizeActivityLog(v: unknown): ActivityEntry[] {
 }
 
 /**
+ * Matches an ISO 8601 shape ONLY — `YYYY-MM-DD`, optionally `THH:MM`, an
+ * optional `:SS`, an optional fraction, and an optional zone (`Z` or
+ * `±HH:MM`) — never `Date.parse`'s full grammar, which also accepts non-ISO
+ * junk ("Aug 16 2026") and is a DIFFERENT shape test from validity: month
+ * "13" matches this regex and is rejected later, in `normalizeActivityTimestamp`,
+ * by the finite-date check.
+ */
+const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/;
+
+/**
+ * Normalises a raw `timestamp` string to canonical `toISOString()` shape, or
+ * returns null when it cannot (§161). A zoneless date-TIME (`YYYY-MM-DDTHH:MM…`
+ * with no `Z`/offset) is treated as UTC — a `Z` is appended before parsing —
+ * rather than `Date.parse`'s device-dependent LOCAL-time reading, so the
+ * result is deterministic across devices; a date-only value is UTC midnight,
+ * which `new Date` already does without help. Canonical input passes through
+ * to a byte-identical result.
+ */
+function normalizeActivityTimestamp(raw: string): string | null {
+  if (!ISO_TIMESTAMP_RE.test(raw)) return null;
+  const hasZone = /(Z|[+-]\d{2}:\d{2})$/.test(raw);
+  const hasTime = raw.includes("T");
+  const ms = Date.parse(hasTime && !hasZone ? `${raw}Z` : raw);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toISOString();
+}
+
+/**
  * Per-entry validation behind `sanitizeActivityLog` above. Returns null for an
  * entry to drop. DOM-free.
  *
@@ -454,6 +488,16 @@ export function sanitizeActivityLog(v: unknown): ActivityEntry[] {
  * SPREAD, never from a known-field list — a field a newer release adds to
  * `ActivityEntry` must survive an older client's load+save round trip for the
  * same reason the unknown kind must.
+ *
+ * ★★ `timestamp` is NORMALISED, not merely type-checked (§161): a non-ISO-8601
+ * string is treated the same as a non-string — the entry is dropped — and an
+ * ISO-8601 string that is not already canonical `toISOString()` shape (a
+ * zoneless date-time, a date-only value, or an `±HH:MM` offset) is re-stamped
+ * to it via `normalizeActivityTimestamp`. This is the single place every load
+ * funnel converges on, so it fixes every consumer that compares `timestamp` as
+ * a string (`mergeActivityLogs`'s sort-then-cap, `summarizeRecentActivity`'s
+ * `latestAt`, the activity panel's sort, `dashboard-delta.ts`) without any of
+ * them changing.
  */
 export function sanitizeActivityEntry(v: unknown): ActivityEntry | null {
   if (!v || typeof v !== "object") return null;
@@ -463,15 +507,19 @@ export function sanitizeActivityEntry(v: unknown): ActivityEntry | null {
   };
   if (typeof e.id !== "string" || e.id.length === 0) return null;
   if (typeof e.timestamp !== "string") return null;
+  const timestamp = normalizeActivityTimestamp(e.timestamp);
+  if (timestamp === null) return null;
   if (typeof e.kind !== "string") return null;
   if (!Array.isArray(e.args)) return null;
 
-  // ★★ The early return guards on ALL THREE repairs. Keeping it at `changes ===
+  // ★★ The early return guards on ALL FOUR repairs. Keeping it at `changes ===
   // undefined` alone would return a hostile actor untouched whenever `changes`
   // happened to be absent — the COMMON case, so the bug would be invisible in
-  // most fixtures. `argsBad` joined it for the same reason (§164): this branch
-  // returns the ORIGINAL object by reference, so a repair omitted here does not
-  // happen at all on the overwhelmingly common `changes === undefined` path.
+  // most fixtures. `argsBad` joined it for the same reason (§164), and
+  // `timestampBad` for the same reason again (§161): this branch returns the
+  // ORIGINAL object by reference, so a repair omitted here does not happen at
+  // all on the overwhelmingly common `changes === undefined` path.
+  const timestampBad = timestamp !== e.timestamp;
   const actorBad = e.actor !== undefined && typeof e.actor !== "string";
   // ★★ DENSIFY FIRST. `Array.prototype.some`/`map` SKIP HOLES, so a sparse
   //   `args` (`new Array(2)`) reported clean, took the by-reference fast path
@@ -492,9 +540,10 @@ export function sanitizeActivityEntry(v: unknown): ActivityEntry | null {
   //   array first. Accepted — `args` is a handful of elements.
   const args: unknown[] = Array.from(e.args);
   const argsBad = args.some((a) => typeof a !== "string" && typeof a !== "number");
-  if (e.changes === undefined && !actorBad && !argsBad) return v as ActivityEntry;
+  if (e.changes === undefined && !actorBad && !argsBad && !timestampBad) return v as ActivityEntry;
 
   const repaired: Record<string, unknown> = { ...(v as object) };
+  if (timestampBad) repaired.timestamp = timestamp;
   if (actorBad) delete repaired.actor;
   // ★★★ COERCE IN PLACE — never FILTER, and never drop the entry (§164).
   //   `args` is POSITIONAL: renderers call `t(lang, key, ...entry.args)` and the

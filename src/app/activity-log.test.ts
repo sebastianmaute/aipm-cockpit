@@ -474,6 +474,46 @@ describe("sanitizeActivityEntry — actor", () => {
   });
 });
 
+describe("sanitizeActivityEntry — timestamp normalisation (§161)", () => {
+  const base = { id: "d-1-1", kind: "task.created" as const, args: [1, "x"] };
+
+  test("an offset stamp normalises to its UTC instant", () => {
+    const out = sanitizeActivityEntry({ ...base, timestamp: "2026-08-17T13:59:00+14:00" });
+    expect(out?.timestamp).toBe("2026-08-16T23:59:00.000Z");
+  });
+
+  test("a zoneless date-time is treated as UTC, not local time", () => {
+    const out = sanitizeActivityEntry({ ...base, timestamp: "2026-08-17T13:59:00" });
+    expect(out?.timestamp).toBe("2026-08-17T13:59:00.000Z");
+  });
+
+  test("a date-only value normalises to UTC midnight", () => {
+    const out = sanitizeActivityEntry({ ...base, timestamp: "2026-08-17" });
+    expect(out?.timestamp).toBe("2026-08-17T00:00:00.000Z");
+  });
+
+  // ★★★ Canonical stamps must pass through byte-identical (§161's own
+  //   "Fixing it" requirement) — this is what the byte-stable-serializer golden
+  //   fixtures rely on: every real runtime append is already this shape, so a
+  //   normal project's activity log must not churn on load.
+  test.each([
+    "2026-06-02T00:00:00.000Z",
+    "2026-08-17T13:59:00.123Z",
+  ])("a canonical stamp %s passes through byte-identical", (timestamp) => {
+    const out = sanitizeActivityEntry({ ...base, timestamp });
+    expect(out?.timestamp).toBe(timestamp);
+  });
+
+  // ★ Non-ISO-8601 junk, and an ISO-8601 SHAPE that is not a valid date (month
+  //   13), are both dropped the same way a non-string timestamp already is.
+  test.each(["Aug 16 2026", "2026-13-01T00:00:00Z", ""])(
+    "drops an unparseable-or-invalid timestamp %j",
+    (timestamp) => {
+      expect(sanitizeActivityEntry({ ...base, timestamp })).toBeNull();
+    },
+  );
+});
+
 describe("sanitizeActivityEntry — args elements (§164)", () => {
   const base = { id: "d-1-1", timestamp: "2026-08-16T10:00:00.000Z", kind: "task.created" };
   /** A non-callable own `toString` makes ToPrimitive fall through to
