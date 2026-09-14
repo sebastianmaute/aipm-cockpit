@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { t, tPlural, type Lang } from "./i18n";
-import { FieldNotice } from "./field-feedback";
+import { FieldError, FieldNotice } from "./field-feedback";
 import { Banner } from "./banner";
 import type {
   TimelogConfig,
@@ -18,6 +18,8 @@ import { listUsers, getPrivileges } from "./timelog-api";
 import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
 import { Input, Select } from "./form-controls";
+import { emailWriteRefusal } from "./sanitize";
+import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
 
 interface Props {
   lang: Lang;
@@ -41,6 +43,18 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
   const set = (patch: Partial<TimelogConfig>) => onChange({ ...config, ...patch });
+
+  // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1):
+  //  typing is never blocked, and the stored config keeps the last valid value.
+  //  Render-time reconcile adopts an external change (never an effect).
+  const emailErrorId = useId();
+  const [emailDraft, setEmailDraft] = useState(config.email);
+  const [seenEmail, setSeenEmail] = useState(config.email);
+  if (config.email !== seenEmail) {
+    setSeenEmail(config.email);
+    setEmailDraft(config.email);
+  }
+  const emailRefusal = emailWriteRefusal(emailDraft, config.email);
 
   function handleToken(value: string) {
     set({ apiToken: value, tokenInvalidAt: undefined });
@@ -126,10 +140,17 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
               size="xs"
               className="mt-1 w-full"
               type="email"
-              value={config.email}
-              onChange={(e) => set({ email: e.target.value })}
+              value={emailDraft}
+              onChange={(e) => {
+                const next = e.target.value;
+                setEmailDraft(next);
+                if (emailWriteRefusal(next, config.email) === null) set({ email: next });
+              }}
+              aria-invalid={emailRefusal ? true : undefined}
+              aria-describedby={emailRefusal ? emailErrorId : undefined}
             />
           </label>
+          <FieldError id={emailErrorId}>{emailRefusal ? t(lang, EMAIL_REFUSAL_KEY[emailRefusal]) : null}</FieldError>
           <label className="block text-xs">
             {t(lang, "timelogToken")}
             <Input
