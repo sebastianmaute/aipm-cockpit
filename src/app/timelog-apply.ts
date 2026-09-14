@@ -216,7 +216,18 @@ export function buildApplyPlan(
         // reads back as 0.30000000000000004, never equal to the rounded 0.3,
         // so the diff would keep emitting a no-op row after every Apply.
         const current = round2(actualHoursIn(a.actualHours, period));
-        const next = routed.perAlloc.get(i)?.[period] ?? 0;
+        // `next` must be the quantity Apply actually STORES, not the
+        // period-level running sum: for a dated period (writeAllocations
+        // writes each stored day key, each round2ed SEPARATELY), re-reading
+        // gives round2(sum of rounded days) — a different grain from
+        // round2(raw sum) whenever a day figure carries a third decimal
+        // (three 1/3h bookings store 0.33×3 = 0.99, while the raw-sum `rec`
+        // rounds to 1). Using `rec` here left a permanent phantom diff row.
+        // Undated periods (routed.undatedPeriods) are written as `rec` itself
+        // (see writeAllocations), so they keep that basis.
+        const next = routed.undatedPeriods.has(period)
+          ? (routed.perAlloc.get(i)?.[period] ?? 0)
+          : round2(Object.values(routed.perAllocDays.get(i)?.[period] ?? {}).reduce((sum, h) => sum + h, 0));
         // Only real changes: the confirm modal shows this list's LENGTH, so
         // unchanged lines would inflate the count and the Apply button would
         // stay enabled with nothing to do.

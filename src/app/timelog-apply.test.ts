@@ -633,6 +633,29 @@ describe("dated apply", () => {
     expect(planApply(applied, decOverlay, resources, roles)).toEqual([]);
   });
 
+  // I-1: `next` used to be the period-level running sum (rounded once), while
+  // Apply actually STORES each day key rounded SEPARATELY. Three bookings of
+  // 1/3h on three days store 0.33+0.33+0.33 = 0.99, but the old `next` read
+  // round2(1/3+1/3+1/3) = 1 — a permanent phantom diff row that re-apply could
+  // never settle. `next` must equal what gets stored.
+  it("settles re-apply for TimeLog hours with more than two decimals (thirds)", () => {
+    const agg = aggregateActuals(
+      [
+        tItem(1, 9, "2026-06-01", 1 / 3),
+        tItem(2, 9, "2026-06-02", 1 / 3),
+        tItem(3, 9, "2026-06-03", 1 / 3),
+      ],
+      links,
+    );
+    const decOverlay = bucketOverlay(agg, "month");
+    const firstPlan = planApply([bucketWith({})], decOverlay, resources, roles);
+    const applied = applyActualsToBuckets([bucketWith({})], decOverlay, resources, roles);
+    const storedTotal = Math.round(actualHoursIn(applied[0].allocations[0].actualHours, "2026-06") * 100) / 100;
+    const row = firstPlan.find((r) => r.bucketId === 7 && r.period === "2026-06");
+    expect(row?.next).toBe(storedTotal);
+    expect(planApply(applied, decOverlay, resources, roles)).toEqual([]);
+  });
+
   // Fix round 1, minor 3: a routed period is owned WHOLE — every allocation
   // line in the bucket, not just the one that received bookings. Role 2 has no
   // resource in the module-level `resources`/`roles` fixtures (only resource 10,
