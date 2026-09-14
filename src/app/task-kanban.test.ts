@@ -281,3 +281,78 @@ describe("laneKeyOf", () => {
     expect(laneKeyOf(t(2, "To Do"), resources)).toBe(UNASSIGNED_LANE);
   });
 });
+
+// §79: the lane engine used to resolve a person by NAME only, while the
+// load-time `backfillTaskResourceFks` (resource-foundation.ts) prefers EMAIL,
+// then falls back to name. A task with no FK, an `assigneeEmail` matching a
+// resource and a non-matching (or blank) `assignee` string got a stray lane
+// here until the next load stamped its FK and merged it. `laneResourceIdOf`
+// now shares `buildResourceLookupIndexes`/`resolvePersonResourceId` with the
+// backfill so the two agree.
+describe("groupByStatusAndPerson — assigneeEmail lane resolution (§79)", () => {
+  const withEmails = new Map<number, Resource>([
+    [1, { id: 1, firstName: "Anna", lastName: "Jordan", email: "anna@example.com" } as Resource],
+    [2, { id: 2, firstName: "Bo", lastName: "Klein", email: "bo@example.com" } as Resource],
+  ]);
+
+  it("an assigneeEmail match lands the task in that resource's lane even when the name does not match", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "Someone Else", assigneeEmail: "anna@example.com" })],
+      withEmails,
+      [],
+    );
+    expect(out.lanes.find((l) => l.label === "Anna Jordan")?.key).toBe("res:1");
+    expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
+  });
+
+  it("prefers the email match over a differently-named resource, mirroring the backfill's precedence", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "Bo Klein", assigneeEmail: "anna@example.com" })],
+      withEmails,
+      [],
+    );
+    expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
+    expect(out.lanes.some((l) => l.key === "res:2")).toBe(false);
+  });
+
+  it("matches assigneeEmail case-insensitively and ignoring surrounding whitespace", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "", assigneeEmail: "  ANNA@Example.com  " })],
+      withEmails,
+      [],
+    );
+    expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
+  });
+
+  it("falls through to an unambiguous NAME when the email is ambiguous, like the backfill does", () => {
+    const dupes = new Map<number, Resource>([
+      [1, { id: 1, firstName: "Anna", lastName: "Jordan", email: "shared@example.com" } as Resource],
+      [2, { id: 2, firstName: "Bo", lastName: "Klein", email: "Shared@Example.com" } as Resource],
+    ]);
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "Anna Jordan", assigneeEmail: "shared@example.com" })],
+      dupes,
+      [],
+    );
+    expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
+  });
+
+  it("an FK still wins over both a matching email and a differently-named resource", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, resourceId: 2, assignee: "Anna Jordan", assigneeEmail: "anna@example.com" })],
+      withEmails,
+      [],
+    );
+    expect(out.cells["res:2"]["To Do"].map((x) => x.id)).toEqual([1]);
+    expect(out.lanes.some((l) => l.key === "res:1")).toBe(false);
+  });
+
+  it("an assigneeEmail matching nobody falls back to the unchanged name/unassigned behaviour", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "", assigneeEmail: "ghost@example.com" })],
+      withEmails,
+      [],
+    );
+    expect(out.cells[UNASSIGNED_LANE]["To Do"].map((x) => x.id)).toEqual([1]);
+  });
+});
