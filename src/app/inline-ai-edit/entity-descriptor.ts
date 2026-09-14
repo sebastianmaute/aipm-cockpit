@@ -217,15 +217,16 @@ export interface EntityDescriptor {
    *  writer does NOT use `sanitizeIsoDate`.
    *
    *  ★★★ ONE ENTITY NEEDS IT AND IT DIVERGED IN BOTH DIRECTIONS. The default
-   *   is `sanitizeIsoDate(v) === v` — regex + a 1900–2100 year bound and
-   *   nothing else — which is exactly what `sanitizeAbsence` calls, so
+   *   is `sanitizeIsoDate(v) === v` — regex, a real calendar date (§539) and a
+   *   1900–2100 year bound — which is exactly what `sanitizeAbsence` calls, so
    *   absence (and every register entity) is already in parity and must keep
    *   the default. `sanitizeCalendarEvent` instead calls its own
    *   `isoDateOrUndefined`: regex + `Date.parse`, NO year bound. Measured, both
    *   ways: `startDate: "2026-01-32"` previewed as an accepted change and then
    *   made the sanitizer return null, which `updateCalendarEvent` throws on —
    *   costing the whole patch, every other field in the edit with it; and
-   *   `"1899-12-31"` previewed as REJECTED and landed.
+   *   `"1899-12-31"` previewed as REJECTED and landed. ★ Since §539 both rules
+   *   refuse an impossible day, so only the year-bound direction still differs.
    *
    *  ★★ THE WRITER'S OWN PREDICATE, IMPORTED, never a re-spelling (§405) — same
    *   contract as `numericFields`' `acceptsEventDuration` beside it, and the
@@ -867,8 +868,8 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     dateFields: new Set(["startDate"]),
     // See `acceptsDate`. ★★ THE ONE ENTITY THAT NEEDS IT: this sanitizer calls
     // `isoDateOrUndefined` (regex + `Date.parse`, no year bound), NOT the
-    // `sanitizeIsoDate` (regex + 1900–2100, no calendar check) the preview
-    // defaults to — and the two disagree in BOTH directions.
+    // `sanitizeIsoDate` (regex + calendar check + 1900–2100) the preview
+    // defaults to — and the two disagree on the year bound.
     acceptsDate: acceptsEventDate,
     // ★★ AN ACCEPTANCE PREDICATE OVER THE RAW VALUE, and the reason it is not
     //  merely a range: the writer CLAMPS rather than refuses — `intInRange`

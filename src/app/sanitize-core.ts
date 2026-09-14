@@ -242,11 +242,21 @@ export function sanitizeVoiceTranscript(s: string): string {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Returns the input unchanged if it's a valid YYYY-MM-DD in 1900..2100, else "". */
+/** A `YYYY-MM-DD` string that is a REAL calendar date in 1900..2100, returned
+ *  verbatim; otherwise "". ★ §539: the shape and year alone let "2026-13-01",
+ *  "2026-00-10" and "2026-02-30" through. The `Date.UTC` round trip rejects a
+ *  month outside 1..12 and a day past the month's real length (leap years
+ *  included). It runs on LOAD paths too, deliberately: such a value is already
+ *  unusable — `<input type="date">` blanks it, and date math either rolls a day
+ *  overflow silently into the next month or turns a month overflow into NaN. */
 export function sanitizeIsoDate(s: unknown): string {
   if (typeof s !== "string" || !ISO_DATE_RE.test(s)) return "";
   const y = Number(s.slice(0, 4));
   if (!Number.isFinite(y) || y < 1900 || y > 2100) return "";
+  const m = Number(s.slice(5, 7));
+  const d = Number(s.slice(8, 10));
+  const utc = new Date(Date.UTC(y, m - 1, d));
+  if (utc.getUTCFullYear() !== y || utc.getUTCMonth() !== m - 1 || utc.getUTCDate() !== d) return "";
   return s;
 }
 

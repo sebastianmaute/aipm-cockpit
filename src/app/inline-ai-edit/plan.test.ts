@@ -1626,16 +1626,15 @@ describe("a date is judged by its own writer's rule", () => {
     expect(plan.rejected[0].detail).toBe("startDate=1899-12-31");
   });
 
-  it("keeps absence free of the calendar check its own writer lacks", () => {
-    // `sanitizeAbsence` calls `sanitizeIsoDate`, which has no `Date.parse` leg,
-    // so an impossible day IS stored. Parity with a lax writer is still parity;
-    // refusing it here would be the preview inventing a rule.
+  it("rejects an impossible day, as its own writer now does (§539)", () => {
+    // `sanitizeAbsence` calls `sanitizeIsoDate`, which since §539 refuses a
+    // non-calendar date — so parity now means the card rejects it too.
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_absence", input: { id: 50, startDate: "2026-01-32" } }],
       { descriptor: INLINE_DESCRIPTORS.absence, item: holiday as never, ws: calWs },
     );
-    expect(plan.rejected).toEqual([]);
-    expect(plan.updates[0].after).toBe("2026-01-32");
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected[0].detail).toBe("startDate=2026-01-32");
   });
 });
 

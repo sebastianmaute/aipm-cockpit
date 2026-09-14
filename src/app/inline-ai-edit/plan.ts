@@ -659,19 +659,20 @@ export function describeEntityCalls(
             if (!survives) { bad(`${members.join("+")}=empty`); continue; }
           } else if (d.requiredNonEmpty.has(f)) { bad(`${f}=empty`); continue; }
         }
-        // Match the sanitizer EXACTLY — sanitizeIsoDate is format + year-range
-        // (1900-2100), returning the input verbatim when valid and "" otherwise,
-        // so a previewed date can never diverge from what apply persists.
+        // Match the sanitizer EXACTLY — sanitizeIsoDate is format + real
+        // calendar date + year-range (1900-2100), returning the input verbatim
+        // when valid and "" otherwise, so a previewed date can never diverge
+        // from what apply persists.
         // ★★★ THE ENTITY'S OWN DATE RULE, defaulting to `sanitizeIsoDate` —
         //  which is what `sanitizeAbsence` and every register sanitizer call,
         //  so seven of the eight descriptors want the default and must keep it.
         //  `sanitizeCalendarEvent` calls `isoDateOrUndefined` instead (regex +
-        //  `Date.parse`, NO year bound, against the default's regex + 1900–2100
-        //  and nothing else), and the two disagree in BOTH directions:
-        //  `startDate: "2026-01-32"` previewed as an accepted change and then
-        //  made the sanitizer return null, which `updateCalendarEvent` throws
-        //  on — costing the WHOLE patch — while `"1899-12-31"` previewed as
-        //  REJECTED and landed. See `EntityDescriptor.acceptsDate`.
+        //  `Date.parse`, NO year bound, against the default's regex + calendar
+        //  check + 1900–2100). Before §539 the two disagreed in BOTH directions
+        //  (`startDate: "2026-01-32"` previewed as accepted, then threw in
+        //  `updateCalendarEvent` and cost the WHOLE patch); since §539 both
+        //  refuse an impossible day, and only `"1899-12-31"` still differs: it
+        //  previews as REJECTED and lands. See `EntityDescriptor.acceptsDate`.
         if (d.dateFields.has(f) && after !== "" && !(d.acceptsDate ?? defaultAcceptsDate)(after)) { bad(`${f}=${after}`); continue; }
         // ★★ A THROW ON APPLY COSTS THE WHOLE PATCH, not just this field. Every
         // email field's writer now throws through `refuseEmailWrite` (changed-

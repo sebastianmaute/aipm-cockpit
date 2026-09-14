@@ -63,6 +63,12 @@ describe("sanitizeIsoDate", () => {
     expect(sanitizeIsoDate("1899-12-31")).toBe("");
     expect(sanitizeIsoDate("2101-01-01")).toBe("");
   });
+
+  test("rejects shape-valid strings that are not calendar dates (§539)", () => {
+    expect(sanitizeIsoDate("2026-13-01")).toBe("");
+    expect(sanitizeIsoDate("2026-02-30")).toBe("");
+    expect(sanitizeIsoDate("2024-02-29")).toBe("2024-02-29");
+  });
 });
 
 describe("sanitizeLabels", () => {
