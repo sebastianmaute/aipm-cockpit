@@ -757,6 +757,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§532](#532-two-projects-without-a-code-look-like-the-same-project-to-the-timelog-picker--closed-2026-09-14) | Two projects without a code look like the same project to the TimeLog picker — CLOSED 2026-09-14 | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | **CLOSED** 2026-09-14 |
 | [§533](#533-csv-markdown-and-turso-split-a-stored-email-address-containing-a-comma-or-semicolon-on-save--open) | CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — OPEN | found 2026-09-14 in the cold review of the data-loss batch, measured by a codec round-trip probe; GitLab #323 | S–M — a quote-aware join for the `emails` cell, or a one-time migration | open |
 | [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--open) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | open |
+| [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--open) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | open |
+| [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -36106,9 +36108,12 @@ The body below is the pre-fix record and is left as written.
 ★ 2026-09-14: on a page that LOADED in the classic layout, the first switch to modern is that
 page's first enabled window and so is still COLD — a view-only stale hash lands on the Dashboard,
 and an item-bearing hash left behind by a global-search open during classic reopens that item.
-This is deliberate for now: an async settings load also starts disabled then enables and must
-stay cold too (`use-hash-view.test.tsx` "applies the cold rule on the first EXECUTED run, not the
-first render"), and telling the two apart would need a settings-hydrated signal. Pinned, as the
+Left as is because §478 was bound to keep `use-hash-view.test.tsx` "applies the cold rule on the
+first EXECUTED run, not the first render" unchanged, and that test pins a hook that starts disabled
+and enables once as cold. ★★ Corrected the same day: the reason first given here — that an async
+settings load also starts the hook disabled — is UNVERIFIED and likely wrong, because the settings
+default is `layout: "modern"`, so a modern user's hook is enabled on the first render. Tracked,
+with that measurement, as §536. Pinned, as the
 classic-load case, by `npx vitest run src/app/use-hash-view.test.tsx -t "is cold on the first
 enabled window even when the page loaded disabled and the cold target is not the default tab"`.
 ★ 2026-09-14: the re-entry repair flag is consumed before the MSAL auth-response guard in the
@@ -37410,3 +37415,62 @@ nothing open tracked the class itself once it closed — this entry does.
   showed as landing are sent.
 - Reject the whole row on the card whenever the dispatcher would throw on a field it rejects, so the card never
   promises a sibling that will not land.
+
+## 535. A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN
+
+**Status:** OPEN 2026-09-14 — never machine-verified in a browser. Measured on 2026-09-14 with a
+throwaway probe of the hook that was not kept, and found identical in the hook before and after the §478
+fix. Presence witness: `grep -n "does not treat StrictMode" src/app/use-hash-view.test.tsx` returns the
+StrictMode test, which uses `#dashboard/5` precisely to stay clear of this race.
+
+**Work item:** #325
+
+On a cold page load whose hash deep-links an item on a view that is NOT the default tab (for example
+`#raid/123`), `useHashView` (`src/app/use-hash-view.ts`) applies the deep link from its mount layout
+effect, but the first passive view→hash write still sees the old `activeTab` and replaces the hash with
+the bare default view before the tab change has committed.
+
+- Under React StrictMode (the dev app router), the remount's warm apply then reads that rewritten hash,
+  so the user ends on the Dashboard instead of the RAID item.
+- Outside StrictMode the tab is right, but the URL loses `/123`, so a reload or a copied URL no longer
+  deep-links to the item.
+
+★ Pre-existing, NOT introduced by §478: the pre-fix hook behaves identically. Found while fixing §478 and
+recorded in its closure.
+
+Fix direction, not decided: hold the view→hash write until the cold apply's `setActiveTab` has
+committed, or have the cold apply write the hash it honoured. Pin it with a StrictMode test on
+`#raid/123` and a non-StrictMode test asserting the URL keeps `/123`.
+
+Related: §478, §536.
+
+## 536. A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN
+
+**Status:** OPEN 2026-09-14 — the hook-level behaviour is pinned as current by
+`npx vitest run src/app/use-hash-view.test.tsx -t "is cold on the first enabled window even when the page loaded disabled"`;
+everything user-visible below is reasoned from that test and the call sites, not watched in a browser.
+
+**Work item:** #326
+
+§478 made a layout RE-ENTRY (modern → classic → modern) keep the current view. It does not cover a page
+that LOADED in the classic layout. `useHashView` is disabled while classic is active, so the first
+switch to modern is that page's first enabled window, and it runs the cold rule against a hash the
+classic layout never maintained:
+
+- a view-only stale hash (for example residue from an earlier session) lands the user on the Dashboard;
+- an item-bearing hash left by `requestOpen` during classic (global search writes `#<view>/<id>` in any
+  non-popout layout) reopens that item and moves the user to its view.
+
+Why §478 did not fix it: the hook-level test "applies the cold rule on the first EXECUTED run, not the
+first render" (`use-hash-view.test.tsx`) pins a hook that starts disabled and enables once as COLD, and
+§478 was bound to keep it unchanged. Its motivating real-world case has not been identified. ★★ The
+rationale §478's closure first gave — that an async settings load starts the hook disabled — is
+UNVERIFIED and likely wrong: the settings default is `layout: "modern"`
+(`grep -n 'layout: "modern",' src/app/settings-types.ts`) and `task-manager.tsx` passes
+`settings.layout === "modern"` as `enabled`
+(`grep -n 'useHashView(settings.layout === "modern"' src/app/task-manager.tsx`), so a modern user's hook
+is already enabled on the first render. If nothing else starts it disabled, "loaded disabled" is itself
+the signal that a page loaded in classic, and the fix is small. Identify what the first-EXECUTED test
+protects before changing it.
+
+Related: §478 (closed on the same branch), §535.
