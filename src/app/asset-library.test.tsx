@@ -206,6 +206,59 @@ describe("AssetLibrary", () => {
     expect(rowFor("a1").querySelector("[data-blocked-marker]")).toBeNull();
   });
 
+  // §322 — Insert can only ever render blocked/missing art for these two
+  //   states, so it disables ALONGSIDE the existing markers rather than
+  //   offering a control that always produces a broken result. A disabled
+  //   button dispatches no click event, so the click below proves nothing on
+  //   its own — the `disabled` attribute assertion is what actually pins the
+  //   guard; the click is defence in depth against a `disabled` that a future
+  //   edit leaves true while some other path still invokes `onInsert`.
+  it("disables Insert on a blocked row and describes the reason to assistive tech", async () => {
+    const user = userEvent.setup();
+    const onInsert = vi.fn();
+    const stale = [{ ...assets[0], name: "old.svg", mime: "image/svg+xml" }];
+    render(
+      <AssetLibrary {...base} assets={stale} danglingIds={new Set<string>()} onInsert={onInsert} />,
+    );
+    const insertBtn = within(rowFor("a1")).getByRole("button", { name: /insert/i });
+    expect(insertBtn).toBeDisabled();
+    const describedById = insertBtn.getAttribute("aria-describedby");
+    expect(describedById).toBeTruthy();
+    // ★ Resolves to the ROW'S OWN sr-only reason span — no duplicate text node.
+    const reasonEl = document.getElementById(describedById as string);
+    expect(reasonEl).not.toBeNull();
+    expect(reasonEl?.textContent).toBe(t("en-US", "assetLibraryBlocked"));
+    await user.click(insertBtn);
+    expect(onInsert).not.toHaveBeenCalled();
+  });
+
+  it("disables Insert on a dangling row and describes the reason to assistive tech", async () => {
+    const user = userEvent.setup();
+    const onInsert = vi.fn();
+    const ok = [{ ...assets[0], name: "chart.png", mime: "image/png" }];
+    render(<AssetLibrary {...base} assets={ok} danglingIds={new Set(["a1"])} onInsert={onInsert} />);
+    const insertBtn = within(rowFor("a1")).getByRole("button", { name: /insert/i });
+    expect(insertBtn).toBeDisabled();
+    const describedById = insertBtn.getAttribute("aria-describedby");
+    expect(describedById).toBeTruthy();
+    const reasonEl = document.getElementById(describedById as string);
+    expect(reasonEl).not.toBeNull();
+    expect(reasonEl?.textContent).toBe(t("en-US", "assetLibraryDangling"));
+    await user.click(insertBtn);
+    expect(onInsert).not.toHaveBeenCalled();
+  });
+
+  it("keeps Insert enabled with no describedby reason on a healthy row, and inserts on click", async () => {
+    const user = userEvent.setup();
+    const onInsert = vi.fn();
+    render(<AssetLibrary {...base} onInsert={onInsert} />);
+    const insertBtn = within(rowFor("a1")).getByRole("button", { name: /insert/i });
+    expect(insertBtn).toBeEnabled();
+    expect(insertBtn).not.toHaveAttribute("aria-describedby");
+    await user.click(insertBtn);
+    expect(onInsert).toHaveBeenCalledWith("a1");
+  });
+
   // ★★★ THE TWO MARKERS MUST NOT SHARE A GLYPH, AND NOTHING ELSE PINS THIS.
   //     They share a COLOUR deliberately — colour is never the discriminator
   //     (WCAG 1.4.1) — which leaves SHAPE as the only channel a sighted user
