@@ -330,7 +330,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
       {timelogProjectId !== undefined && onGoToTimelog && (
         <BudgetUnappliedNotice
           lang={lang} projectId={timelogProjectId} buckets={buckets} roles={roles}
-          resources={resources} onGoToTimelog={onGoToTimelog}
+          resources={resources} granularity={plan.granularity} onGoToTimelog={onGoToTimelog}
         />
       )}
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { planApply, applyActualsToBuckets, bucketsMissingAllocations, bucketsWithUnmatchedHours, buildApplyPlan, describeApplyRows } from "./timelog-apply";
 import type { BudgetBucket, Discipline, Grade, Resource, Role } from "./types";
-import { aggregateActuals, type ActualsByBucket } from "./timelog-actuals";
+import { aggregateActuals, bucketOverlay, type ActualsByBucket } from "./timelog-actuals";
 import type { TimelogLinks, TimelogTimeItem } from "./timelog-types";
 
 /** Minimal booking row for the aggregate→apply integration test. */
@@ -517,14 +517,14 @@ describe("buildApplyPlan", () => {
       tItem(2, 6, "2026-06-11", 6),
     ];
 
-    const agg = aggregateActuals(items, links, "month");
-    const after = applyActualsToBuckets([twoRoleBucket()], agg.byBucket, dirResources, dirRoles);
+    const overlay = bucketOverlay(aggregateActuals(items, links), "month");
+    const after = applyActualsToBuckets([twoRoleBucket()], overlay, dirResources, dirRoles);
 
     // Each person landed on their OWN role line — the whole point of the
     // breakdown surviving the aggregate→apply boundary.
     expect(after[0].allocations[0].actualHours["2026-06"]).toBe(4);
     expect(after[0].allocations[1].actualHours["2026-06"]).toBe(6);
-    expect(buildApplyPlan([twoRoleBucket()], agg.byBucket, dirResources, dirRoles).unmatchedBuckets)
+    expect(buildApplyPlan([twoRoleBucket()], overlay, dirResources, dirRoles).unmatchedBuckets)
       .toEqual([]);
   });
 

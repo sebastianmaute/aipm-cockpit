@@ -85,6 +85,7 @@ import {
 } from "./workspace-panels";
 import { baselineMilestoneTargets } from "./snapshot";
 import { loadActualsCache } from "./timelog-actuals-store";
+import { bucketOverlay } from "./timelog-actuals";
 import type { WorkspaceSectionProps } from "./workspace-section-types";
 import { WorkspaceTabStrip } from "./workspace-section-chrome";
 import { isAiEnabled } from "./settings-types";
@@ -259,7 +260,8 @@ export function WorkspaceSection({
   // accepted cost of not threading the live sync state through here. Keyed the
   // same way TimelogPanel keys the cache it WRITES — a different fallback than
   // `"default"` would miss every entry and silently report "unknown".
-  const budgetActuals = useMemo(() => { const c = loadActualsCache(currentProjectId ?? "default"); return { byBucket: c?.aggregates?.byBucket ?? {}, fetchedAt: c?.fetchedAt }; }, [currentProjectId]);
+  const planGranularity = plan.granularity;
+  const budgetActuals = useMemo(() => { const c = loadActualsCache(currentProjectId ?? "default"); return { byBucket: bucketOverlay(c?.aggregates, planGranularity), fetchedAt: c?.fetchedAt }; }, [currentProjectId, planGranularity]);
   // Inline "Ask Claude" per-row edit glue (SP2). One instance per entity pane;
   // each yields the row handlers threaded into the panel + its active-edit
   // popover element. Called unconditionally (hook rules); the popover only

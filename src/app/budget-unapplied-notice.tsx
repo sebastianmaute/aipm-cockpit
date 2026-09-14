@@ -16,9 +16,10 @@ import { ExclamationTriangleIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { buildApplyPlan, bucketsMissingAllocations } from "./timelog-apply";
 import { loadActualsCache } from "./timelog-actuals-store";
+import { bucketOverlay } from "./timelog-actuals";
 import { pickMatchableResources } from "./timelog-matchable";
 import { TextButton } from "./text-button";
-import type { BudgetBucket, Resource, Role } from "./types";
+import type { BudgetBucket, PlanGranularity, Resource, Role } from "./types";
 
 interface BudgetUnappliedNoticeProps {
   lang: Lang;
@@ -30,6 +31,8 @@ interface BudgetUnappliedNoticeProps {
   /** The FULL directory as `workspace-section` threads it. Filtered here, never
    *  passed on raw — see `pickMatchableResources`. */
   resources: readonly Resource[];
+  /** Live plan granularity; the cached day cells are rolled up with it. */
+  granularity: PlanGranularity;
   onGoToTimelog: () => void;
 }
 
@@ -73,7 +76,7 @@ function formatHours(hours: number): string {
  *     annotating them is not.
  */
 export function BudgetUnappliedNotice({
-  lang, projectId, buckets, roles, resources, onGoToTimelog,
+  lang, projectId, buckets, roles, resources, granularity, onGoToTimelog,
 }: BudgetUnappliedNoticeProps) {
   const entry = useMemo(() => loadActualsCache(projectId), [projectId]);
   const aggregates = entry?.aggregates;
@@ -90,12 +93,10 @@ export function BudgetUnappliedNotice({
   const partial = entry?.partial === true;
   // Keep the WHOLE plan. Discarding everything but `.rows` is what made this
   // notice silent in the reported state — see the WITHHELD bullet above.
+  const overlay = useMemo(() => (aggregates ? bucketOverlay(aggregates, granularity) : null), [aggregates, granularity]);
   const plan = useMemo(
-    () =>
-      aggregates?.byBucket
-        ? buildApplyPlan(buckets, aggregates.byBucket, pickMatchableResources(resources), roles)
-        : null,
-    [aggregates, buckets, resources, roles],
+    () => (overlay ? buildApplyPlan(buckets, overlay, pickMatchableResources(resources), roles) : null),
+    [overlay, buckets, resources, roles],
   );
   const affected = useMemo(() => new Set((plan?.rows ?? []).map((r) => r.bucketId)).size, [plan]);
   const withheld = plan?.unmatchedBuckets.length ?? 0;
@@ -103,10 +104,7 @@ export function BudgetUnappliedNotice({
   // `routeBucket` returns null for a bucket with no target allocation and
   // `buildApplyPlan` `continue`s, so such a bucket never reaches
   // `unmatchedBuckets` and the plan cannot see it at all.
-  const missing = useMemo(
-    () => (aggregates?.byBucket ? bucketsMissingAllocations(buckets, aggregates.byBucket).length : 0),
-    [aggregates, buckets],
-  );
+  const missing = useMemo(() => (overlay ? bucketsMissingAllocations(buckets, overlay).length : 0), [overlay, buckets]);
 
   // A hand-written or pre-upgrade cache entry can carry anything under
   // `aggregates` — `isEntry` only shallow-checks that it is an object — so an

@@ -25,8 +25,8 @@
 //    bucket" as its example of something a re-fetch is needed for, which is a
 //    counter-example to the very claim it was illustrating.
 import { buildApplyPlan } from "./timelog-apply";
-import type { ActualsAggregate, ActualsByBucket } from "./timelog-actuals";
-import type { BudgetBucket, Resource, Role } from "./types";
+import { bucketOverlay, type ActualsAggregate, type ActualsByBucket } from "./timelog-actuals";
+import type { BudgetBucket, PlanGranularity, Resource, Role } from "./types";
 
 /** What `fetchBookingsForProjects` hands back. `aggregates` is absent whenever
  *  `finish()` was deliberately not run (no projects picked, abort, error). */
@@ -69,9 +69,12 @@ export function decideReapply(
    *  resolve people identically, so hand this the SAME list the panel memo does. */
   resources: readonly Resource[],
   roles: readonly Role[],
+  /** The LIVE plan granularity: the overlay is derived from the fetched day
+   *  cells at call time, never from a period key frozen at fetch time. */
+  granularity: PlanGranularity,
 ): ReapplyOutcome {
   if (!result || result.failedProjects > 0) return { kind: "abort" };
-  const overlay = result.aggregates?.byBucket;
+  const overlay = result.aggregates ? bucketOverlay(result.aggregates, granularity) : undefined;
   // Absent on the no-projects-picked branch, on an abort, and on any error — in
   // each of those nothing was re-attributed, so there is no fresh diff and the
   // dialog must not open on the stale one.

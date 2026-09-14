@@ -9,7 +9,7 @@ const agg = (h: number) => ({ byBucket: {}, byResource: {}, unattributed: { hour
 describe("timelog actuals cache", () => {
   it("round-trips per project", () => {
     saveActualsCache("proj-1", { fetchedAt: "2026-06-23T10:00:00Z", aggregates: { byBucket: { 7: { "2026-06": { hours: 4, billableHours: 4 } } }, byResource: {}, unattributed: { hours: 0, billableHours: 0 } } });
-    expect(loadActualsCache("proj-1")?.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+    expect(loadActualsCache("proj-1")?.aggregates?.byBucket?.[7]?.["2026-06"].hours).toBe(4);
   });
   it("returns undefined for an unknown project and for corrupt JSON", () => {
     expect(loadActualsCache("missing")).toBeUndefined();
@@ -807,7 +807,7 @@ describe("timelog actuals cache — map-level size budget", () => {
     saveActualsCache("oldest-agg", heavyAggEntry("2026-09-01T00:00:00.000Z"));
     expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
     expect(loadActualsCache("oldest-agg")).toBeDefined();
-    expect(loadActualsCache("oldest-agg")?.aggregates?.byBucket[7]["2000-01"].hours).toBe(8);
+    expect(loadActualsCache("oldest-agg")?.aggregates?.byBucket?.[7]?.["2000-01"].hours).toBe(8);
   });
 
   /** ★★★ THE STAGE-1 RESTORE BRANCH, WHICH HAD NO COVERAGE AT ALL. The existing

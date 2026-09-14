@@ -22,7 +22,7 @@ import { saveActualsCache, loadActualsCache, clearActualsCache, type TimelogRoll
 import { autoMatchUsers, autoMatchProjects, displayableUsers, type TimelogProjectRef } from "./timelog-match";
 import { isAbortError } from "./abort-error";
 import type { TimelogDailyRoll, TimelogLinks, TimelogScopeMode, TimelogTimeItem, TimelogUser } from "./timelog-types";
-import type { PlanGranularity, Resource, BudgetBucket } from "./types";
+import type { Resource, BudgetBucket } from "./types";
 
 type Args = {
   creds: TimelogCreds;
@@ -35,7 +35,6 @@ type Args = {
   resources: readonly Resource[];
   budgets: readonly BudgetBucket[];
   scopeMode: TimelogScopeMode;
-  granularity: PlanGranularity;
   projectId: string;
   isPopout: boolean;
   onTokenInvalid: () => void;
@@ -75,7 +74,6 @@ export function useTimelogSync(args: Args) {
   const projectId = args.projectId;
   const isPopout = args.isPopout;
   const scopeMode = args.scopeMode;
-  const granularity = args.granularity;
   const creds = args.creds;
   const links = args.links;
   const resources = args.resources;
@@ -256,7 +254,7 @@ export function useTimelogSync(args: Args) {
   // Shared aggregation tail for BOTH fetch paths (per-user and per-customer):
   // derive distinct project refs, resolve effective (auto + manual) links, run
   // aggregateActuals, and persist the per-project cache. Plain function reading
-  // live render-scope (users/resources/budgets/links/granularity) — same
+  // live render-scope (users/resources/budgets/links) — same
   // non-memoized pattern as the other handlers.
   // ★★ RETURNS the aggregate it just computed, and callers that need the fresh
   // value MUST take it from here rather than reading the `aggregates` STATE
@@ -313,7 +311,7 @@ export function useTimelogSync(args: Args) {
       userLinks: autoMatchUsers(u, resources, links),
       projectLinks: autoMatchProjects(refs, budgets, links),
     };
-    const agg = aggregateActuals(items, effectiveLinks, granularity);
+    const agg = aggregateActuals(items, effectiveLinks);
     // The ONLY place the roll can be built — the other three savers never see
     // `items`. Deliberately links-independent: the guardrail rules ask about a
     // PERSON's day, so an unlinked booker must still be measurable.

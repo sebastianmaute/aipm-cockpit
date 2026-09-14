@@ -44,6 +44,7 @@ const props = {
   buckets: [bucket(1, "PAM")],
   roles,
   resources: [res(1, "Ina")],
+  granularity: "month" as const,
   onGoToTimelog: vi.fn(),
 };
 

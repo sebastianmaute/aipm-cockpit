@@ -1,6 +1,7 @@
 // src/app/timelog-actuals.ts — pure, i18n-free aggregation of Timelog bookings.
 import type { PlanGranularity } from "./types";
 import { periodKeyForDate } from "./resource-capacity";
+import { granularityOfPeriodKey } from "./actual-hours";
 import { dailyKey, type TimelogDailyRoll } from "./timelog-types";
 import type { TimelogTimeItem, TimelogLinks } from "./timelog-types";
 
@@ -16,12 +17,26 @@ export type HourCell = { hours: number; billableHours: number };
  *  persisted per-device and its guard only shallow-checks `aggregates`, so an
  *  entry written before this field existed deserializes without it. Aggregation
  *  always writes it; readers must tolerate its absence (apply treats those hours
- *  as unattributable and surfaces them rather than guessing). */
-export type BucketPeriodCell = HourCell & { byResource?: Record<number, HourCell> };
+ *  as unattributable and surfaces them rather than guessing). Since dated
+ *  actuals, the fetch stores day cells (`byBucketDay`) and periods are derived
+ *  at read time by `bucketOverlay`. */
+/** One resource's hours inside a cell. `byDay` is present on cells derived from
+ *  a dated aggregate (`bucketOverlay` over `byBucketDay`) and lets Apply write
+ *  day keys; a legacy cached cell has no `byDay`. */
+export type ResourceDayCell = HourCell & { byDay?: Record<string, number> };
+export type BucketPeriodCell = HourCell & { byResource?: Record<number, ResourceDayCell> };
+/** bucketId → PERIOD key ("YYYY-MM" / "YYYY-Www") → cell. Derived, never cached. */
 export type ActualsByBucket = Record<number, Record<string, BucketPeriodCell>>;
+/** bucketId → DAY key ("YYYY-MM-DD") → cell. What the fetch stores. */
+export type ActualsByBucketDay = Record<number, Record<string, BucketPeriodCell>>;
 export type ActualsByResource = Record<number, HourCell>;
 export type ActualsAggregate = {
-  byBucket: ActualsByBucket;
+  /** LEGACY: period-keyed cells written before dated actuals, frozen at the
+   *  granularity of that fetch. New fetches never write it. Read it only through
+   *  `bucketOverlay`, which drops keys that do not match the live granularity. */
+  byBucket?: ActualsByBucket;
+  /** Day-keyed cells. Read through `bucketOverlay`. */
+  byBucketDay?: ActualsByBucketDay;
   byResource: ActualsByResource;
   unattributed: HourCell;
   /** The hours inside `unattributed` that failed the DATE check specifically.
@@ -81,15 +96,10 @@ const add = (cell: HourCell | undefined, it: TimelogTimeItem): HourCell => ({
 export function aggregateActuals(
   items: readonly TimelogTimeItem[],
   links: TimelogLinks,
-  // Required (no default): the period key MUST be derived with the SAME
-  // granularity the budget report sums over (plan.granularity), or applied
-  // hours land under keys the report never reads and drop silently from EVM.
-  // A missing arg is a tsc error, not a silent month fallback.
-  granularity: PlanGranularity,
 ): ActualsAggregate {
   const userToRes = new Map(links.userLinks.map((l) => [l.timelogUserId, l.resourceId]));
   const projToBucket = new Map(links.projectLinks.map((l) => [l.timelogProjectId, l.bucketId]));
-  const byBucket: ActualsByBucket = {};
+  const byBucketDay: ActualsByBucketDay = {};
   const byResource: ActualsByResource = {};
   let unattributed: HourCell = { hours: 0, billableHours: 0 };
   // The DATE-failure subset of `unattributed` — see the field's docstring for
@@ -119,17 +129,73 @@ export function aggregateActuals(
       continue;
     }
     byResource[resourceId] = add(byResource[resourceId], it);
-    const pk = periodKeyForDate(it.date, granularity);
-    byBucket[bucketId] ??= {};
-    const cur = byBucket[bucketId][pk];
+    // The DAY is the key. Periods are derived at read time (`bucketOverlay`) with
+    // the live plan granularity, so a granularity change after the fetch can no
+    // longer file hours under keys the report never reads (§169).
+    const day = it.date;
+    byBucketDay[bucketId] ??= {};
+    const cur = byBucketDay[bucketId][day];
     // Keep the resource dimension ON the cell. It was computed above and then
     // discarded here, which is where per-role attribution became impossible.
-    byBucket[bucketId][pk] = {
+    byBucketDay[bucketId][day] = {
       ...add(cur, it),
       byResource: { ...cur?.byResource, [resourceId]: add(cur?.byResource?.[resourceId], it) },
     };
   }
-  return { byBucket, byResource, unattributed, undated };
+  return { byBucketDay, byResource, unattributed, undated };
+}
+
+/**
+ * The period-keyed overlay every consumer reads, derived with the LIVE plan
+ * granularity. A dated aggregate rolls its day cells up and records each
+ * resource's `byDay`, so Apply can write day keys. A legacy aggregate keeps
+ * only the cells whose key shape matches `granularity`; a cell frozen at the
+ * other granularity would land under a key the report never reads.
+ */
+export function bucketOverlay(agg: ActualsAggregate | undefined, granularity: PlanGranularity): ActualsByBucket {
+  if (!agg) return {};
+  if (agg.byBucketDay) return rollUpDays(agg.byBucketDay, granularity);
+  return legacyOverlay(agg.byBucket ?? {}, granularity);
+}
+
+function rollUpDays(days: ActualsByBucketDay, granularity: PlanGranularity): ActualsByBucket {
+  const out: ActualsByBucket = {};
+  for (const [bucketId, byDay] of Object.entries(days)) {
+    const periods: Record<string, BucketPeriodCell> = {};
+    for (const [day, cell] of Object.entries(byDay)) {
+      const pk = periodKeyForDate(day, granularity);
+      const cur = periods[pk];
+      const byResource: Record<number, ResourceDayCell> = { ...cur?.byResource };
+      for (const [rid, rc] of Object.entries(cell.byResource ?? {})) {
+        const id = Number(rid);
+        const prev = byResource[id];
+        byResource[id] = {
+          hours: (prev?.hours ?? 0) + rc.hours,
+          billableHours: (prev?.billableHours ?? 0) + rc.billableHours,
+          byDay: { ...prev?.byDay, [day]: (prev?.byDay?.[day] ?? 0) + rc.hours },
+        };
+      }
+      periods[pk] = {
+        hours: (cur?.hours ?? 0) + cell.hours,
+        billableHours: (cur?.billableHours ?? 0) + cell.billableHours,
+        byResource,
+      };
+    }
+    out[Number(bucketId)] = periods;
+  }
+  return out;
+}
+
+function legacyOverlay(byBucket: ActualsByBucket, granularity: PlanGranularity): ActualsByBucket {
+  const out: ActualsByBucket = {};
+  for (const [bucketId, periods] of Object.entries(byBucket)) {
+    const kept: Record<string, BucketPeriodCell> = {};
+    for (const [pk, cell] of Object.entries(periods)) {
+      if (granularityOfPeriodKey(pk) === granularity) kept[pk] = cell;
+    }
+    if (Object.keys(kept).length > 0) out[Number(bucketId)] = kept;
+  }
+  return out;
 }
 
 /**
