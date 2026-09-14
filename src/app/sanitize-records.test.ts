@@ -165,6 +165,28 @@ describe("sanitizeSteeringCommittee — per-meeting report", () => {
       expect(reportOf(html)).toBe(html);
     }
   });
+
+  // ★★ Review r1 (§108): pin the literal `REPORT_HTML_MAX` boundary itself,
+  // not just values well above/below it. sanitizeRichText's very first step
+  // (WS_CONTROL) replaces every tab with a space UNCONDITIONALLY, before the
+  // cap logic runs — so a tab is a clean observable marker for "did this body
+  // go through sanitizeRichText at all".
+  it("returns a report at the exact REPORT_HTML_MAX boundary byte-identical (§108 boundary)", () => {
+    const html = `<p>${"a".repeat(99_992)}\t</p>`;
+    expect(html.length).toBe(100_000);
+    expect(reportOf(html)).toBe(html);
+  });
+
+  it("routes REPORT_HTML_MAX + 1 raw chars through sanitizeRichText (§108 boundary)", () => {
+    const html = `<p>${"a".repeat(99_993)}\t</p>`;
+    expect(html.length).toBe(100_001);
+    const out = reportOf(html)!;
+    expect(out).not.toBe(html);
+    expect(out).not.toContain("\t");
+    expect(endsInsideTag(out)).toBe(false);
+    expect(hasLoneSurrogate(out)).toBe(false);
+    expect(out).toBe(`<p>${"a".repeat(99_993)} </p>`);
+  });
 });
 
 describe("entity rich-field sink regression (open-followups §143)", () => {
