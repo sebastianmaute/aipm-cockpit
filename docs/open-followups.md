@@ -756,6 +756,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--closed-2026-09-13) | Nothing checks that the register and GitLab issues stay one-to-one — CLOSED 2026-09-13 | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | **CLOSED** 2026-09-13 |
 | [§532](#532-two-projects-without-a-code-look-like-the-same-project-to-the-timelog-picker--open) | Two projects without a code look like the same project to the TimeLog picker — OPEN | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | open |
 | [§533](#533-csv-markdown-and-turso-split-a-stored-email-address-containing-a-comma-or-semicolon-on-save--open) | CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — OPEN | found 2026-09-14 in the cold review of the data-loss batch, measured by a codec round-trip probe; GitLab #323 | S–M — a quote-aware join for the `emails` cell, or a one-time migration | open |
+| [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--open) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -32038,7 +32039,12 @@ an inline write replaying `after` turned 1 red.
 
 ★ Still true: chat Apply replays the WHOLE call. When the card rejects only `emails` and shows a sibling field
 as landing, `updateResource` refuses the call and the sibling does not land through chat Apply. The inline
-edit does apply it.
+edit does apply it. ★★ This is PRE-EXISTING, not specific to `emails`: it is the same whole-call-replay class
+CLOSED §384 described (`applyProposal` and `confirmInsightRecommendation` both `runTool` the model's original
+call rather than the plan `describeEntityCalls` built), which nothing open tracked until now. The task side has
+its own instance — `describeEntityCalls` rejects `assigneeEmail` via `emailFormatFields`, and `buildTaskCleanPatch`
+throws "assigneeEmail is invalid" for the whole call — and insight recommendations replay the same way and can
+reach `update_task`, though not `update_resource`. Filed as §534.
 
 ## 423. The codename ledger in `version.ts` is duplicated data that has rotted three times — CLOSED 2026-09-07
 
@@ -37212,3 +37218,45 @@ and the first save to CSV, Markdown or Turso tears it with no edit involved.
 - A quote-aware join and split for the `emails` cell, so a delimiter inside an address survives. The decoder
   must still read every cell written before the change.
 - A one-time migration that finds stored addresses holding `,` or `;` and asks the user to correct them.
+
+## 534. The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN
+
+**Status:** open 2026-09-14 — found while closing §422, in the cold re-review of the fix branch. Pre-existing,
+not specific to `emails`. `describeEntityCalls` (`src/app/inline-ai-edit/plan.ts`) judges a call PER FIELD: an
+invalid field goes into `plan.rejected` while the call's other fields still show as landing in `plan.updates`.
+Chat Apply does not consult that verdict — `applyProposal` (`src/app/chat-proposal-apply.ts`) runs
+`runTool(dispatcher, guarded.name, guarded.input)` on the model's ORIGINAL call, where `guarded` is
+`remapStagedCall(row.stamped, real)`. When the dispatcher throws for the whole call, every sibling field the
+card promised is lost along with the rejected one. Verified with
+`grep -n "runTool(dispatcher" src/app/chat-proposal-apply.ts src/app/use-insight-recommendations.ts` (both
+replay the raw call unchanged) and
+`grep -n "assigneeEmail is invalid" src/app/chat-task-patch.ts src/app/use-chat-dispatcher.ts` (the task-side
+throw).
+
+**Work item:** #324
+
+Three instances found while closing §422:
+- **resource `emails`.** The card rejects `emails` via §422's `findTornEmail` (`src/app/sanitize-core.ts`); the
+  dispatcher's `updateResource` (`src/app/use-chat-dispatcher.ts`) throws for the whole call, so a sibling field
+  in the same `update_resource` call does not land.
+- **task `assigneeEmail`.** The card rejects `assigneeEmail` via the `emailFormatFields` guard in
+  `describeEntityCalls`; `buildTaskCleanPatch` (`src/app/chat-task-patch.ts`) throws "assigneeEmail is invalid"
+  for the whole call, called from `updateTask` in `use-chat-dispatcher.ts`.
+- **Insight recommendations.** `confirmInsightRecommendation` (`src/app/use-insight-recommendations.ts`) also
+  runs `runTool(dispatcher, call.name, call.input)` on the raw call, and its modal is built by
+  `describeEntityCalls` the same way, so it shares the class. `ALLOWED_REC_TOOLS`
+  (`src/app/insights/insight.ts`) includes `update_task` but not `update_resource`, so this route can lose an
+  `assigneeEmail` sibling but not reach the `emails` instance above.
+
+Inline AI edit is NOT affected: `use-inline-entity-edit.ts` builds its patch from `plan.updates` alone, so a
+rejected field is simply omitted rather than sent and thrown on.
+
+CLOSED §384 ("A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes")
+described this same replay divergence between the chat/recommendation consumers and the inline editor, but
+nothing open tracked the class itself once it closed — this entry does.
+
+**Options, deliberately left open.**
+- Strip plan-rejected fields from the replayed call before Apply dispatches it, so only the fields the card
+  showed as landing are sent.
+- Reject the whole row on the card whenever the dispatcher would throw on a field it rejects, so the card never
+  promises a sibling that will not land.

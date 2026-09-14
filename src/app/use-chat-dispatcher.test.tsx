@@ -215,7 +215,7 @@ function renderDispatcher(
   // ★★ §422 — the ONLY way to get a delimiter-unsafe `resource.emails` into the
   //  stored workspace for a test: `createResource`/`updateResource` now refuse
   //  such an address at write time, so a test proving the STRING-input ruling
-  //  (a stored list already holding one) must seed it directly through
+  //  (a stored unsafe address the string contains) must seed it directly through
   //  `TestProviders`' own seed mechanism rather than through either write path.
   //  Optional and trailing, so every existing positional call is unaffected.
   seedResources?: Resource[],
