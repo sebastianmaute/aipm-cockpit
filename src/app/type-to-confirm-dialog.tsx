@@ -10,6 +10,7 @@ import { t, type Lang } from "./i18n";
 import { Input } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { rowLabel } from "./row-tokens";
 
 export interface TypeToConfirmDialogProps {
   lang: Lang;
@@ -92,7 +93,18 @@ export function TypeToConfirmDialog({
         data-modal-panel
         className="relative flex w-[460px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
-        <ModalHeader lang={lang} title={title} titleId={titleId} onClose={onCancel} />
+        <ModalHeader
+          lang={lang}
+          title={title}
+          titleId={titleId}
+          onClose={onCancel}
+          // §389: the voice-triggered "clear all" path opens this dialog while
+          // the task editor can still be mounted underneath (its mic lives in
+          // ModalHeader, which stays open independent of the active tab), and
+          // the editor's own ✕ stays bare — qualify with the SAME `title` the
+          // header renders so the two cannot drift.
+          closeLabel={rowLabel(t(lang, "alertModalClose"), title)}
+        />
         <div className="flex flex-col gap-4 p-6">
           <p className="text-sm text-foreground">{message}</p>
           <label className="flex flex-col gap-1 text-sm">

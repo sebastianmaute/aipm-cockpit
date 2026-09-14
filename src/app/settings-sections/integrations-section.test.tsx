@@ -19,6 +19,7 @@ import { defaultTimelogConfig } from "../timelog-types";
 import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
 import { testTursoConnection } from "../turso-pipeline";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
+import { expectExactLabelNames, expectNoHintInNamingLabel } from "../../test/hint-label";
 
 vi.mock("../turso-pipeline", async (importActual) => ({
   ...(await importActual<typeof import("../turso-pipeline")>()),
@@ -54,6 +55,28 @@ function tursoSettings(authToken: string) {
     },
   };
 }
+
+// open-followups §386: the hinted M365 and Turso fields are named by their
+// captions alone; the Turso token's storage notice is its description.
+describe("IntegrationsSection — hinted field names (§386)", () => {
+  it("names the M365 client and tenant id fields with their captions alone", () => {
+    render(<IntegrationsSection lang="en-US" settings={m365EnabledSettings()} onChange={() => {}} />);
+    expectNoHintInNamingLabel({ minHints: 2 });
+    expectExactLabelNames([
+      t("en-US", "integrationsM365ClientId"),
+      t("en-US", "integrationsM365TenantId"),
+    ]);
+  });
+
+  it("names the Turso URL and token fields with their captions alone", () => {
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expectNoHintInNamingLabel({ minHints: 2 });
+    expectExactLabelNames([t("en-US", "integrationsTursoUrl"), t("en-US", "integrationsTursoToken")]);
+    expect(screen.getByLabelText(t("en-US", "integrationsTursoToken"))).toHaveAccessibleDescription(
+      t("en-US", "credentialStorageNote"),
+    );
+  });
+});
 
 describe("IntegrationsSection portfolio-mode load hint", () => {
   it("shows a hint naming the load action when Turso is configured", () => {

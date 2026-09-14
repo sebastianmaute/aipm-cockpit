@@ -8,6 +8,43 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.3.3] - 2026-09-14 "Chandler"
+
+Accessibility and navigation fixes: field hints, stacked dialog close buttons,
+absence email checks, the classic-to-modern layout switch and the TimeLog
+project picker. Closes follow-ups 532, 461, 386, 389 and 478.
+
+### Fixed
+
+- **An info hint no longer becomes part of its field's name.** Screen readers
+  and speech input used to hear a field's caption joined to its hint. The hint
+  now sits beside the label, in the task and project forms, the absence,
+  change, RAID, resource and stakeholder editors, Jira settings and the AI,
+  integrations, general and localization settings. Dictation microphones moved
+  out of field labels, and storage and model notes are now linked to their
+  fields as descriptions.
+- **A dialog opened on top of another names its own close button.** The
+  linked-task, Jira conflicts and asset preview dialogs, and the confirmation
+  dialogs, now label their close button "Close – <dialog title>", so saying
+  "click Close" can no longer hit the dialog underneath.
+- **The AI absence tools refuse a malformed assignee email**, as the task tools
+  already did, and the review card rejects it first. The absence editor
+  refuses an email you type that is not an address, but still saves an absence
+  that already holds one when you change something else. Stored addresses are
+  not repaired.
+- **Switching from the classic layout back to the modern one keeps your view**
+  and tidies the address bar, instead of sending you to the Dashboard or
+  reopening an item you had opened from search.
+- **The TimeLog picker resets when you switch between two projects without a
+  code.** It used to keep the first project's customer and project selection.
+
+### Known issues
+
+- On a page that loaded in the classic layout, the first switch to modern still
+  lands on the Dashboard or reopens an item opened from search (follow-up 536).
+- A link to an item on a view other than the Dashboard ends on the Dashboard in
+  development builds and loses its item id elsewhere (follow-up 535).
+
 ## [1.3.2] - 2026-09-14 "Chandler"
 
 Data-loss fixes: rich text that merely opens with a bracketed phrase, Markdown

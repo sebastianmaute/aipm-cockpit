@@ -8,6 +8,7 @@ import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
 import { selectFieldTier } from "../test/field-tier";
 import { expectNoLabelBoundToButton } from "../test/label-binding";
+import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
 import type { Stakeholder, Milestone, Resource } from "./types";
 
 // Mock M365 hooks consumed by KnowledgeLinksFieldGated — default: SharePoint off.
@@ -185,6 +186,21 @@ describe("StakeholderEditModal — field tooltips", () => {
   it("renders an InfoTooltip for the Name field (accessible by hint text as aria-label)", () => {
     setup();
     expect(screen.getByRole("button", { name: t("en-US", "stakeholderFieldNameHint") })).toBeInTheDocument();
+  });
+});
+
+// open-followups §386: every hinted field's control is named by its caption
+// alone. (Category names itself with aria-label.)
+describe("StakeholderEditModal — hinted field names (§386)", () => {
+  it("names every hinted control with its caption alone", () => {
+    setupFull();
+    expectNoHintInNamingLabel({ minHints: 4 });
+    expectExactLabelNames([
+      t("en-US", "stakeholderFieldOrganization"),
+      t("en-US", "stakeholderFieldTitle"),
+      t("en-US", "stakeholderFieldEmail"),
+      t("en-US", "stakeholderFieldNotes"),
+    ]);
   });
 });
 

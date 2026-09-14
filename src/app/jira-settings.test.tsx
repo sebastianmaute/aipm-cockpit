@@ -7,6 +7,8 @@ import { defaultJiraConfig, type JiraConfig } from "./settings-types";
 import { listIssueTypes, listProjects } from "./jira-api";
 import { ToastProvider } from "./toast-context";
 import { readDiagLog, clearDiagLog } from "./diagnostics";
+import { t } from "./i18n";
+import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
 
 // Stub out Jira API calls — tests are pure UI
 vi.mock("./jira-api", () => ({
@@ -38,6 +40,35 @@ describe("JiraSettingsSection — InfoTooltip affordances", () => {
     expect(
       screen.getByRole("button", { name: /connect a jira project to sync tasks/i }),
     ).toBeInTheDocument();
+  });
+});
+
+// open-followups §386: every hinted field's control is named by its caption
+// alone. The project select only renders once a connection test lists projects.
+describe("JiraSettingsSection — hinted field names (§386)", () => {
+  it("names every hinted control with its caption alone, the token note as its description", async () => {
+    vi.mocked(listProjects).mockResolvedValueOnce([{ key: "OPS", name: "Ops" }] as never);
+    const config: JiraConfig = {
+      ...defaultJiraConfig,
+      enabled: true,
+      siteUrl: "https://acme.atlassian.net",
+      email: "pm@acme.com",
+      apiToken: "ATATT-token",
+    };
+    render(<JiraSettingsSection lang="en-US" config={config} onChange={vi.fn()} alwaysOpen />);
+    fireEvent.click(screen.getByRole("button", { name: /test connection/i }));
+    await screen.findByLabelText(t("en-US", "jiraProject"));
+
+    expectNoHintInNamingLabel({ minHints: 4 });
+    expectExactLabelNames([
+      t("en-US", "jiraSiteUrl"),
+      t("en-US", "jiraEmail"),
+      t("en-US", "jiraApiToken"),
+      t("en-US", "jiraProject"),
+    ]);
+    expect(screen.getByLabelText(t("en-US", "jiraApiToken"))).toHaveAccessibleDescription(
+      t("en-US", "credentialStorageNote"),
+    );
   });
 });
 

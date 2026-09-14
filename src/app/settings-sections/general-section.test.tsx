@@ -4,6 +4,7 @@ import { GeneralSection } from "./general-section";
 import { defaultSettings } from "../settings-types";
 import type { Resource } from "../types";
 import { loadI18n, t } from "../i18n";
+import { expectExactLabelNames, expectNoHintInNamingLabel } from "../../test/hint-label";
 
 const resetMock = vi.fn();
 vi.mock("../app-reset", () => ({
@@ -67,6 +68,15 @@ describe("GeneralSection", () => {
     expect(confirm).toBeEnabled();
     fireEvent.click(confirm);
     expect(resetMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// open-followups §386: the hinted workday-hours input is named by its caption.
+describe("GeneralSection — hinted field names (§386)", () => {
+  it("names the workday-hours input with its caption alone", () => {
+    render(<GeneralSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expectNoHintInNamingLabel({ minHints: 1 });
+    expectExactLabelNames([t("en-US", "resourcesWorkdayHours")]);
   });
 });
 

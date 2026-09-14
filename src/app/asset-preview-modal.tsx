@@ -26,6 +26,7 @@ import { MODAL_HELP } from "./help-content";
 import { Button } from "./button";
 import { useResizable } from "./use-resizable";
 import { useDraggable } from "./use-draggable";
+import { rowLabel } from "./row-tokens";
 import { type AssetObjectUrl, assetBytesToObjectUrl } from "./asset-object-url";
 import { logDiag } from "./diagnostics";
 
@@ -198,6 +199,10 @@ export function AssetPreviewModal({
           onClose={onClose}
           dragHandleProps={handleProps}
           onResetLayout={() => { dragReset(); sizeReset(); }}
+          // §389: rendered over `AssetLibraryModal`'s own contents (its ✕ stays
+          // bare) — qualify this one, reusing the same title expression as
+          // above so the two cannot drift.
+          closeLabel={rowLabel(t(lang, "alertModalClose"), t(lang, "assetPreviewTitle", current?.name ?? ""))}
         />
         <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
           {shown?.kind === "ok" && (

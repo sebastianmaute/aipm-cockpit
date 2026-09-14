@@ -38,7 +38,12 @@ export function isAuthResponseHash(raw: string): boolean {
  * requestOpen. On view change we only rewrite the hash when the BASE view
  * differs, so an existing `#raid/123` is preserved while the user stays on RAID.
  *
- * `enabled` gates the whole sync — pass false in Classic mode.
+ * `enabled` gates the whole sync — pass false in Classic mode. Turning it back
+ * on is a LAYOUT RE-ENTRY, not a navigation: the view stays, nothing is
+ * routed or opened, and the URL is rewritten to the bare current view. Only
+ * the first enabled window of the PAGE LOAD applies the cold rule (a view-only
+ * hash is stale residue → Dashboard; an item-bearing hash is a deep link).
+ * See docs/open-followups.md §478.
  * `features` gates navigation to disabled-module views — if the hash points at
  * a view whose module is off, the hash is ignored (the redirect effect keeps
  * the user on a valid view and will rewrite the hash).
@@ -64,24 +69,33 @@ export function isAuthResponseHash(raw: string): boolean {
  */
 export function useHashView(enabled: boolean = true, features?: readonly FeatureModuleId[]): void {
   const { activeTab, setActiveTab, isPopout, requestOpen } = useWorkspaceTab();
-  const coldDoneRef = useRef(false);
+  // ★★ TWO pieces of state, not one (docs/open-followups.md §478, option (c)):
+  //    - `pageColdDoneRef` — has THIS PAGE LOAD's first enabled window run yet?
+  //      Set once, NEVER reset (not by the disabled branch, not by a cleanup).
+  //    - `windowActiveRef` — are we inside a contiguous enabled window? Reset
+  //      ONLY by the disabled branch, so an effect CLEANUP (a dep change, or
+  //      StrictMode's mount → unmount → remount) does not end the window.
+  const pageColdDoneRef = useRef(false);
+  const windowActiveRef = useRef(false);
+  // Set by a layout RE-ENTRY; consumed by the view→hash effect below, which
+  // is the one that can see the live `activeTab`.
+  const reentryRepairRef = useRef(false);
 
   // Mount + back/forward: hash drives the view (and any deep-linked item).
   useLayoutEffect(() => {
     if (!enabled || isPopout) {
-      // ★★ RE-ARM, don't just bail. While disabled this hook maintains nothing —
-      //    neither of its effects writes the hash — so by the time we come back
-      //    the hash is residue this hook did not keep, i.e. the NEXT activation
-      //    is a fresh cold load. ★ It is NOT frozen meanwhile: `requestOpen`
+      // ★★ A LAYOUT SWITCH IS NOT A NAVIGATION. While disabled (classic) this
+      //    hook maintains nothing, but the hash is NOT frozen: `requestOpen`
       //    (workspace-tab-context.tsx) writes `#<view>/<id>` in any non-popout
       //    layout, so an item opened from global search during classic leaves
-      //    an item-bearing hash that the cold rule HONOURS on return
-      //    (docs/open-followups.md §478). Latching the ref once for the hook's
-      //    lifetime reintroduced the very defect it fixes by another route
-      //    (modern → classic → modern honoured the stale hash and yanked the
-      //    user off their current view). "Cold" therefore means the first apply
-      //    of each CONTIGUOUS enabled window.
-      coldDoneRef.current = false;
+      //    an item-bearing hash behind. Coming back to modern must neither
+      //    discard the user's view (the old re-armed cold rule sent them to the
+      //    Dashboard) nor honour that stale hash (a lifetime latch reopened the
+      //    item). So only the WINDOW flag is cleared here — the page-load flag
+      //    stays set, and the next enabled run is a RE-ENTRY, which does not
+      //    route at all (§478).
+      windowActiveRef.current = false;
+      reentryRepairRef.current = false;
       return;
     }
     const apply = (cold: boolean) => {
@@ -110,20 +124,35 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
       setActiveTab(view);
       if (itemId != null) requestOpen(view, itemId);
     };
-    // ★★ ONLY THE FIRST EXECUTED RUN IS COLD. This effect re-runs whenever
-    //    `enabled`, `features` or the context callbacks change identity, and
-    //    `apply` is NOT idempotent any more — a cold run discards a view-only
-    //    hash (see the stale-residue rule above). The worst trigger is the
-    //    async settings load: it commits `features: sanitizeFeatures(stored)`,
-    //    a NEW array for any user with even one module disabled, so without
-    //    this ref a second cold apply fires mid-session and snaps the user off
-    //    whatever view they had navigated to, back to the Dashboard. A layout
-    //    switch (`enabled`) and a project switch (new `features`) do the same.
-    // ★ The ref is set HERE, not at render time: the early return above means
-    //   the first EXECUTED run need not be the first render (Classic mode
-    //   returns early), and that run IS that window's cold load.
-    apply(!coldDoneRef.current);
-    coldDoneRef.current = true;
+    // ★★ ONLY THE PAGE'S FIRST EXECUTED RUN IS COLD. This effect re-runs
+    //    whenever `enabled`, `features` or the context callbacks change
+    //    identity, and `apply` is NOT idempotent — a cold run discards a
+    //    view-only hash (see the stale-residue rule above). The worst trigger
+    //    is the async settings load: it commits `features:
+    //    sanitizeFeatures(stored)`, a NEW array for any user with even one
+    //    module disabled, so a second cold apply would fire mid-session and
+    //    snap the user off whatever view they had navigated to. A re-run INSIDE
+    //    the same enabled window is therefore a warm apply, exactly as before.
+    // ★ The refs are set HERE, not at render time: the early return above means
+    //   the first EXECUTED run need not be the first render (a page that loads
+    //   in Classic returns early), and that run IS the page's cold load.
+    // ★★ STRICTMODE: the dev double-invoke is mount → CLEANUP → mount, and the
+    //    cleanup below touches neither ref, so the second invoke sees the
+    //    window still active and takes the warm branch — it can never be
+    //    mistaken for a re-entry (which would repair the URL and drop an
+    //    item-bearing deep link's `/<id>`).
+    if (!pageColdDoneRef.current) {
+      apply(true);
+      pageColdDoneRef.current = true;
+    } else if (!windowActiveRef.current) {
+      // RE-ENTRY (enabled false → true after the page's cold window already
+      // ran): keep `activeTab`, route nothing, open nothing. The URL is
+      // repaired to the bare current view by the view→hash effect.
+      reentryRepairRef.current = true;
+    } else {
+      apply(false);
+    }
+    windowActiveRef.current = true;
     // MUST be this named wrapper, added and removed as the same reference:
     // passing `apply` directly hands the EVENT OBJECT in as `cold` (truthy),
     // making every later navigation a cold load.
@@ -142,7 +171,17 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
   // the hashchange listener above — see the hook doc comment.
   useEffect(() => {
     if (!enabled || typeof window === "undefined" || isPopout) return;
+    const reentry = reentryRepairRef.current;
+    reentryRepairRef.current = false;
     if (isAuthResponseHash(window.location.hash)) return; // don't clobber an MSAL response
+    // ★★ A layout re-entry writes the BARE view unconditionally: the base-view
+    //    comparison below would keep a stale `#raid/123` whenever `activeTab`
+    //    is already `raid` (§478).
+    if (reentry) {
+      const bare = buildHash(activeTab);
+      if (window.location.hash !== bare) window.history.replaceState(null, "", bare);
+      return;
+    }
     const current = parseHash(window.location.hash);
     if (current.view !== activeTab) {
       window.history.replaceState(null, "", buildHash(activeTab));

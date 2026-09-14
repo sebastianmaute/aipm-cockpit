@@ -254,10 +254,13 @@ describe("TaskFormFields", () => {
     //   needs a `budgetLink` harness AND a real layout engine, which jsdom is
     //   not.
     render(<Harness />, { wrapper: TestProviders });
-    // The accessible name is "Groupi" -- the hint's InfoTooltip glyph joins the
-    // wrapping label's text (open-followups 386), hence the prefix match.
-    const group = screen.getByRole("combobox", { name: /^Group/ });
-    expect(group.closest("label")?.className).toContain("sm:col-start-1");
+    // Whole-string name: the hint's tooltip no longer joins the label's text
+    // (open-followups §386). ★ A HINTED Field's `<label>` is `display: contents`,
+    // so the grid item carrying `className` is the label's PARENT wrapper — the
+    // label itself generates no box and a class on it would place nothing.
+    const group = screen.getByRole("combobox", { name: "Group" });
+    expect(group.closest("label")?.className).toBe("contents");
+    expect(group.closest("label")?.parentElement?.className).toContain("sm:col-start-1");
   });
 
   it("places the Due date field within the Scheduling section", () => {
@@ -367,12 +370,12 @@ describe("TaskFormFields", () => {
       const tracking = screen.getByRole("button", { name: /time tracking/i });
       // Both are `role="combobox"`: the bucket is a `<Select>`, the group a
       // `ComboInput` that sets the role explicitly.
-      // ★ The group caption carries a `hint`, so its `InfoTooltip` glyph joins
-      //   the wrapping `<label>`'s text and the computed name is "Groupi", not
-      //   "Group" — a whole-string `name` finds nothing. Anchored with a prefix
-      //   regex rather than the literal so a reworded tooltip cannot break it.
+      // ★ The group caption carries a `hint`. That once polluted the name
+      //   ("Groupi") and forced a prefix regex here; `Field` now renders the
+      //   tooltip OUTSIDE the `<label>` (open-followups §386), so the name is
+      //   the whole-string label and this query pins that.
       const bucket = screen.getByRole("combobox", { name: t("en-US", "taskBudgetBucket") });
-      const group = screen.getByRole("combobox", { name: new RegExp(`^${t("en-US", "group")}`) });
+      const group = screen.getByRole("combobox", { name: t("en-US", "group") });
 
       expect(tracking.compareDocumentPosition(bucket) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(bucket.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

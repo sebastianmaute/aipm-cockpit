@@ -7,7 +7,7 @@
 // natural seam. ★ Nothing outside `task-form-fields.tsx` ever imported either
 // symbol (checked across src/e2e/scripts), so the move needed no re-export and
 // there is none: importing `Field` from `./task-form-fields` is a type error.
-import { FieldGroup } from "./form-controls";
+import { FieldGroup, HintedLabel } from "./form-controls";
 import { InfoTooltip } from "./info-tooltip";
 
 // One titled, numbered section of the task form. Owns its own two-column grid so
@@ -43,13 +43,22 @@ export function TaskFormSection({
 // set Low, clicking "Labels" DELETED the first chip, and clicking "Health" set
 // Auto. `group` renders a `<div role="group" aria-label>` instead, which names
 // the block for assistive tech without making the caption a click target.
-// ★ The `hint` tooltip below is wrapped in an `onClick` preventDefault. That is
-// a DIFFERENT problem from mis-binding — it suppresses forwarding even when the
-// binding is CORRECT — and it is REDUNDANT: `InfoTooltip`'s own trigger already
-// calls `preventDefault` (`info-tooltip.tsx:52`), and the sibling `Field` in
-// `project-form-fields.tsx` renders one inside its `<label>` branch with no
-// wrapper and is not broken. Kept only because the span also carries layout
-// (`inline-flex`); do not cite it as load-bearing. See src/test/label-binding.ts.
+// ★★ A `hint` MUST NOT sit inside the binding `<label>` (open-followups §386).
+// A label's text CONTENT is its control's accessible name, so a tooltip trigger
+// inside it concatenates onto the caption — testing-library computed "Groupi"
+// for "Group". With a hint, the `<label>` is therefore `display: contents` and
+// the `InfoTooltip` is its SIBLING: the wrapper is the flex row, and `order`
+// puts the trigger back beside the caption text visually. The layout is the
+// shared `HintedLabel`; its docstring and §386 say exactly what was measured
+// (a static stand-in page in Chromium, not this form) and what browser and
+// screen-reader checks are still owed. The trigger stays focusable and its own `aria-label` is
+// the hint — that is how the hint reaches AT. It is NOT wired to the control via
+// `aria-describedby`: `Field` does not own the child element, and cloning it or
+// mutating it imperatively was judged more fragile than the sibling.
+// ★ `group` mode needs none of this — `FieldGroup`'s `aria-label` outranks its
+// content, so a hint inside its caption never reached the group's name.
+// ★ No `preventDefault` wrapper: the trigger is outside the label, and
+// `InfoTooltip`'s own click handler already calls it. See src/test/label-binding.ts.
 export function Field({
   label,
   required,
@@ -81,27 +90,44 @@ export function Field({
   captionAction?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const caption = (
-    <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-      {label}
-      {required && <span className="ml-0.5 text-ui-pink-strong">*</span>}
-      {hint && (
-        // preventDefault stops the wrapping <label> from also focusing/toggling
-        // its control when the tooltip trigger is clicked.
-        <span onClick={(e) => e.preventDefault()} className="inline-flex">
-          <InfoTooltip text={hint} />
-        </span>
-      )}
-      {captionAction && <span className="ml-auto inline-flex">{captionAction}</span>}
-    </span>
-  );
+  const requiredMark = required && <span className="ml-0.5 text-ui-pink-strong">*</span>;
   if (group || captionAction) {
+    const caption = (
+      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+        {label}
+        {requiredMark}
+        {hint && <InfoTooltip text={hint} />}
+        {captionAction && <span className="ml-auto inline-flex">{captionAction}</span>}
+      </span>
+    );
     return (
       <FieldGroup name={label} caption={caption} className={`block ${className ?? ""}`}>
         {children}
       </FieldGroup>
     );
   }
+  if (hint) {
+    return (
+      <HintedLabel
+        hint={<InfoTooltip text={hint} />}
+        caption={
+          <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+            {label}
+            {requiredMark}
+          </span>
+        }
+        className={className}
+      >
+        {children}
+      </HintedLabel>
+    );
+  }
+  const caption = (
+    <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+      {label}
+      {requiredMark}
+    </span>
+  );
   return (
     <label className={`block ${className ?? ""}`}>
       {caption}

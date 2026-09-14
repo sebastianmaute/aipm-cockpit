@@ -46,7 +46,13 @@ export interface TimelogPickerScopeDeps {
   isPopout: boolean;
   /** Canonical per-device store key (`portfolioCurrentId ?? "default"`). */
   projectKey: string;
-  /** `ws.project?.code` — the in-place project-switch signal, NOT the store key. */
+  /** The in-place project-switch signal the hook diffs against `seenProjectId`
+   *  to reset its one-shot seeding. Today this is the caller's `projectKey`
+   *  itself (§532: `ws.project?.code` collapsed two code-less projects to the
+   *  same `"default"` value, so a switch between them went undetected) — kept
+   *  as its own field rather than folded into `projectKey` so a future signal
+   *  narrower than the store key (e.g. one that should NOT reset the actuals
+   *  cache) can diverge from it again without changing this hook's contract. */
   projectId: string;
   /** The project's free-text customer name, for the weakest seed source. */
   projectCustomerName: string | undefined;

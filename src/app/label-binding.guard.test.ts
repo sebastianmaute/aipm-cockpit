@@ -95,10 +95,15 @@ const BUTTON_FIRST: readonly { readonly what: string; readonly re: RegExp }[] = 
 // enumeration, itself incomplete, and the SECOND miss in this class (an earlier
 // cut of the same enumeration missed `raid-edit-modal.tsx`). The scan's own
 // regex above is unaffected: its `\w*` matches the empty prefix.
-// The widened enumeration leaves NO trailing-mic call site anywhere: each
-// survivor is a LEADING mic rescued by an explicit `htmlFor`/`id` (change,
-// milestone, RAID, the four stakeholder fields), or is not a label-binding case
-// at all — the note-log mics sit beside buttons in a flex row; the task
+// The widened enumeration leaves NO trailing-mic call site anywhere. Milestone
+// name is still a LEADING mic rescued by an explicit `htmlFor`/`id`. §386
+// round 2 moved the change title, RAID title and three of the four
+// stakeholder mics (Organization/Title/Notes) OUT of the label entirely —
+// each now sits in `HintedLabel`'s hint slot, a sibling of the `<label>`, so
+// none of the three is inside a label at all any more. The stakeholder NAME
+// mic was never a label-binding case either: it sits in a `FieldGroup`
+// caption, not a `<label>`. The remaining survivors are not a label-binding
+// case at all — the note-log mics sit beside buttons in a flex row; the task
 // description mic's caption is a plain `<span>`, not a `<label>`; and
 // chat-panel's sits in a button column beside a `<textarea>`, with no `<label>`
 // or `<Field>` ancestor at all (that file's only `<label>` opens further down,

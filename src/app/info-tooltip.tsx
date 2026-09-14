@@ -44,6 +44,9 @@ export function InfoTooltip({ text, label }: InfoTooltipProps) {
       <span
         role="button"
         tabIndex={0}
+        // Test hook for `src/test/hint-label.ts`: a naming <label> must never
+        // contain this trigger (open-followups §386).
+        data-info-tooltip-trigger=""
         aria-label={label ?? text}
         onPointerEnter={() => setOpen(true)}
         onPointerLeave={() => setOpen(false)}

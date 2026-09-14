@@ -49,7 +49,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
 import { EditModalShell, ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
 import { MODAL_HELP } from "./help-content";
-import { Input } from "./form-controls";
+import { HintedLabel, Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
 import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
@@ -414,21 +414,18 @@ export function RaidEditModal({
           </div>
           )}
 
-          {/* ★★ `htmlFor` is LOAD-BEARING. The dictation mic is a real
-              `<button>` and sits in the caption AHEAD of the input, so an
-              implicit binding made this label name the MIC — demoting the
-              required Title field to its `placeholder`, which HTML-AAM treats
-              as the fallback name (a poor name, not none; the change and
-              milestone rows have no placeholder and were left with NO name at
-              all) in any browser that
-              supports SpeechRecognition (jsdom has none, so no unit test can
-              see it). See src/test/label-binding.ts. */}
-          <label htmlFor="raid-title" className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "raidTitle")} *
-              <InfoTooltip text={t(lang, "raidFieldTitleHint")} />
-              {titleMic}
-            </span>
+          {/* ★ `htmlFor` is kept as an explicit binding, but is no longer
+              LOAD-BEARING: the hint AND the dictation mic now sit outside the
+              naming <label>, in `HintedLabel`'s hint slot (open-followups
+              §386), so neither can join the input's name.
+              See src/test/label-binding.ts. */}
+          <HintedLabel
+            htmlFor="raid-title"
+            className="text-sm sm:col-span-2"
+            bodyClassName="flex flex-col gap-1"
+            hint={<><InfoTooltip text={t(lang, "raidFieldTitleHint")} />{titleMic}</>}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "raidTitle")} *</span>}
+          >
             <Input
               id="raid-title"
               type="text"
@@ -442,7 +439,7 @@ export function RaidEditModal({
             />
             <CharCounter value={draft.title} max={TASK_NAME_MAX} id="raid-title-counter" lang={lang} />
             {titleDictationStatus}
-          </label>
+          </HintedLabel>
 
           {/* `<div>`, not `<label>` — see Category above. Here the adopted
               button was the dictation mic when dictation is supported, else the
@@ -564,11 +561,12 @@ export function RaidEditModal({
               )}
 
           {isVisible("owner") && (
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "raidOwner")}
-              <InfoTooltip text={t(lang, "raidFieldOwnerHint")} />
-            </span>
+          <HintedLabel
+            className="text-sm"
+            bodyClassName="flex flex-col gap-1"
+            hint={<InfoTooltip text={t(lang, "raidFieldOwnerHint")} />}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "raidOwner")}</span>}
+          >
             <ResourcePicker
               lang={lang}
               value={{ name: draft.owner ?? "", email: draft.ownerEmail ?? "", resourceId: draft.ownerResourceId }}
@@ -591,16 +589,17 @@ export function RaidEditModal({
               aria-describedby="raid-owner-counter"
             />
             <CharCounter value={draft.owner ?? ""} max={ASSIGNEE_MAX} id="raid-owner-counter" lang={lang} />
-          </label>
+          </HintedLabel>
           )}
 
           {/* Owner email travels with the owner field. */}
           {isVisible("owner") && (
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "email")}
-              <InfoTooltip text={t(lang, "raidFieldOwnerEmailHint")} />
-            </span>
+          <HintedLabel
+            className="text-sm"
+            bodyClassName="flex flex-col gap-1"
+            hint={<InfoTooltip text={t(lang, "raidFieldOwnerEmailHint")} />}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "email")}</span>}
+          >
             <Input
               type="email"
               value={draft.ownerEmail ?? ""}
@@ -608,29 +607,31 @@ export function RaidEditModal({
                 onChange({ ...draft, ownerEmail: e.target.value || undefined })
               }
             />
-          </label>
+          </HintedLabel>
           )}
 
           {isVisible("raisedDate") && (
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "raidRaisedDate")}
-              <InfoTooltip text={t(lang, "raidFieldRaisedDateHint")} />
-            </span>
+          <HintedLabel
+            className="text-sm"
+            bodyClassName="flex flex-col gap-1"
+            hint={<InfoTooltip text={t(lang, "raidFieldRaisedDateHint")} />}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "raidRaisedDate")}</span>}
+          >
             <Input
               type="date"
               value={draft.raisedDate}
               onChange={(e) => onChange({ ...draft, raisedDate: e.target.value })}
             />
-          </label>
+          </HintedLabel>
           )}
 
           {isVisible("targetDate") && (
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              {t(lang, "raidTargetDate")}
-              <InfoTooltip text={t(lang, "raidFieldTargetDateHint")} />
-            </span>
+          <HintedLabel
+            className="text-sm"
+            bodyClassName="flex flex-col gap-1"
+            hint={<InfoTooltip text={t(lang, "raidFieldTargetDateHint")} />}
+            caption={<span className="flex items-center gap-1 font-medium text-foreground">{t(lang, "raidTargetDate")}</span>}
+          >
             <Input
               type="date"
               value={draft.targetDate ?? ""}
@@ -638,7 +639,7 @@ export function RaidEditModal({
                 onChange({ ...draft, targetDate: e.target.value || undefined })
               }
             />
-          </label>
+          </HintedLabel>
           )}
 
           {/* `<div>`, not `<label>` — see Category above. */}

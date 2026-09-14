@@ -1332,6 +1332,41 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     expect(updated?.note).toBe("Approved");
   });
 
+  // §461 — the task path's rule at the absence writers' REAL call sites: a
+  //  non-blank address that is not an address THROWS with the task path's
+  //  message (nothing stored), and a blank one clears.
+  it("createAbsence refuses an invalid assignee email and accepts a blank one", () => {
+    const { result } = renderDispatcher();
+    expect(() => result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05",
+      assigneeEmail: "m.Jordan@example.com probed",
+    })).toThrow("assigneeEmail is invalid");
+    expect(result.current.listAbsences()).toHaveLength(0);
+
+    // `AbsenceSummary` carries no email, so the FULL row is read back.
+    const created = result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", assigneeEmail: "",
+    });
+    expect(result.current.listAbsences()).toHaveLength(1);
+    expect(result.current.getAbsenceRow(created.id)?.assigneeEmail).toBeUndefined();
+  });
+
+  it("updateAbsence refuses an invalid assignee email and accepts clearing it", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", assigneeEmail: "alice@example.com",
+    });
+    expect(() => result.current.updateAbsence(created.id, {
+      assigneeEmail: "m.Jordan@example.com probed", note: "Approved",
+    })).toThrow("assigneeEmail is invalid");
+    const kept = result.current.getAbsenceRow(created.id);
+    expect(kept?.assigneeEmail).toBe("alice@example.com");
+    expect(kept?.note).toBeUndefined();
+
+    expect(result.current.updateAbsence(created.id, { assigneeEmail: "" })).not.toBeNull();
+    expect(result.current.getAbsenceRow(created.id)?.assigneeEmail).toBeUndefined();
+  });
+
   it("listCalendarEvents answers empty on an ABSENT slice without writing to it", () => {
     const { result } = renderDispatcher();
     // The workspace seeds `calendarEvents` as `undefined` ("absent"), which is

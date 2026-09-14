@@ -19,6 +19,7 @@ const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: tr
 import { t } from "../i18n";
 import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
 import { ToastProvider } from "../toast-context";
+import { expectExactLabelNames, expectNoHintInNamingLabel } from "../../test/hint-label";
 
 // Stub AiUsagePanel — it reads from context which isn't wired in these unit tests.
 vi.mock("./ai-usage-panel", () => ({
@@ -497,6 +498,19 @@ describe("AiSection", () => {
     render(<AiSection lang="en-US" settings={baseSettings} onChange={onChange} />);
     fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
     expect(onChange.mock.calls.at(-1)![0].ai.enabled).toBe(true);
+  });
+});
+
+// open-followups §386: the hinted key field and model select are named by
+// their captions alone; the storage notice is the key field's description.
+describe("AiSection — hinted field names (§386)", () => {
+  it("names the key field and model select with their captions alone", () => {
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expectNoHintInNamingLabel({ minHints: 2 });
+    expectExactLabelNames([t("en-US", "aiApiKey"), t("en-US", "aiModel")]);
+    expect(screen.getByLabelText(t("en-US", "aiApiKey"))).toHaveAccessibleDescription(
+      t("en-US", "credentialStorageNote"),
+    );
   });
 });
 

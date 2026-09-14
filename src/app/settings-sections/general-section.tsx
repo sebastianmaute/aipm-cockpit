@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
 import type { Resource } from "../types";
@@ -23,6 +23,7 @@ interface GeneralSectionProps {
 
 export function GeneralSection({ lang, settings, onChange, resources = [] }: GeneralSectionProps) {
   const [resetOpen, setResetOpen] = useState(false);
+  const workdayHoursId = useId();
   return (
     <>
       <div className="mb-4">
@@ -50,12 +51,16 @@ export function GeneralSection({ lang, settings, onChange, resources = [] }: Gen
       <hr className="my-4 border-line" />
 
       <div className="mb-4">
-        <label className="flex items-center justify-between gap-2">
+        {/* ★★ The hint is NOT inside the <label> (open-followups §386): there
+            its text joined the input's accessible name. The label now binds
+            by id, so the hint can sit between caption and input as before. */}
+        <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1 text-sm text-foreground">
-            {t(lang, "resourcesWorkdayHours")}
+            <label htmlFor={workdayHoursId}>{t(lang, "resourcesWorkdayHours")}</label>
             <InfoTooltip text={t(lang, "resourcesWorkdayHoursTooltip")} />
           </span>
           <Input
+            id={workdayHoursId}
             type="number" min={1} max={24} step={0.5}
             size="xs"
             className="w-20"
@@ -65,7 +70,7 @@ export function GeneralSection({ lang, settings, onChange, resources = [] }: Gen
               onChange({ ...settings, resources: { ...settings.resources, workdayHours: n } });
             }}
           />
-        </label>
+        </div>
       </div>
 
       <hr className="my-4 border-line" />

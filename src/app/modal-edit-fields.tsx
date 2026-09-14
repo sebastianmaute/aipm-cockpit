@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { InfoTooltip } from "./info-tooltip";
-import { Input } from "./form-controls";
+import { HintedLabel, Input } from "./form-controls";
 
 type AssigneeOption = { name: string; email?: string };
 
@@ -65,38 +65,56 @@ export function AssigneeField({
     [knownAssignees],
   );
 
+  const assigneeInput = (
+    <Input
+      type="text"
+      required
+      value={assignee}
+      onChange={(e) => {
+        const name = e.target.value;
+        onAssigneeChange(name);
+        // Auto-fill email when the typed name matches a known one.
+        const match = options.find(
+          (o) => o.name.toLowerCase() === name.trim().toLowerCase(),
+        );
+        if (match?.email && !assigneeEmail) {
+          onEmailChange(match.email);
+        }
+      }}
+      list={datalistId}
+      placeholder={assigneePlaceholder}
+    />
+  );
+
   return (
     <>
-      <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-        <span className={tooltip ? "flex items-center gap-1 font-medium text-foreground" : "font-medium text-foreground"}>
-          {assigneeLabel} *{tooltip && <InfoTooltip text={tooltip} />}
-        </span>
-        <Input
-          type="text"
-          required
-          value={assignee}
-          onChange={(e) => {
-            const name = e.target.value;
-            onAssigneeChange(name);
-            // Auto-fill email when the typed name matches a known one.
-            const match = options.find(
-              (o) => o.name.toLowerCase() === name.trim().toLowerCase(),
-            );
-            if (match?.email && !assigneeEmail) {
-              onEmailChange(match.email);
-            }
-          }}
-          list={datalistId}
-          placeholder={assigneePlaceholder}
-        />
-        <datalist id={datalistId}>
-          {options.map((o) => (
-            <option key={o.name} value={o.name}>
-              {o.email ?? ""}
-            </option>
-          ))}
-        </datalist>
-      </label>
+      {tooltip ? (
+        // ★★ The hint must stay OUTSIDE the naming <label> (open-followups
+        //   §386): inside it, the trigger's text joins the input's name.
+        <HintedLabel
+          className="text-sm sm:col-span-2"
+          bodyClassName="flex flex-col gap-1"
+          hint={<InfoTooltip text={tooltip} />}
+          caption={
+            <span className="flex items-center gap-1 font-medium text-foreground">{assigneeLabel} *</span>
+          }
+        >
+          {assigneeInput}
+        </HintedLabel>
+      ) : (
+        <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <span className="font-medium text-foreground">{assigneeLabel} *</span>
+          {assigneeInput}
+        </label>
+      )}
+      {/* Outside the label either way: only the input's `list` references it. */}
+      <datalist id={datalistId}>
+        {options.map((o) => (
+          <option key={o.name} value={o.name}>
+            {o.email ?? ""}
+          </option>
+        ))}
+      </datalist>
 
       {showEmail && (
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">

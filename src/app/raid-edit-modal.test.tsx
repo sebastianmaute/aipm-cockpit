@@ -13,6 +13,7 @@ import { htmlTextLength } from "./rich-text-plain";
 import { ToastProvider } from "./toast-context";
 import type { RaidItem } from "./types";
 import { expectNoLabelBoundToButton } from "../test/label-binding";
+import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
 
 // ProseMirror (the description + mitigation RichTextEditors) touches layout
 // APIs jsdom lacks; stub them so the editors mount. Mirrors notes-window /
@@ -115,6 +116,28 @@ describe("RaidEditModal InfoTooltip hints", () => {
     // …and the Delete action button itself no longer has a native title attribute.
     const del = screen.getByRole("button", { name: t("en-US", "raidDelete") });
     expect(del.getAttribute("title")).toBeNull();
+  });
+});
+
+// open-followups §386: every hinted field's control is named by its caption
+// alone. Full tier, so owner / email / raised / target all render.
+describe("RaidEditModal — hinted field names (§386)", () => {
+  it("names every hinted control with its caption alone", () => {
+    render(
+      <>
+        <Seed tier="full" />
+        {modalEl()}
+      </>,
+      { wrapper },
+    );
+    expectNoHintInNamingLabel({ minHints: 5 });
+    expectExactLabelNames([
+      `${t("en-US", "raidTitle")} *`,
+      t("en-US", "raidOwner"),
+      t("en-US", "email"),
+      t("en-US", "raidRaisedDate"),
+      t("en-US", "raidTargetDate"),
+    ]);
   });
 });
 

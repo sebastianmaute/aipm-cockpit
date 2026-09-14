@@ -7,7 +7,7 @@ import type { Settings } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 import { EmptyState } from "../empty-state";
 import { Button } from "../button";
-import { Select } from "../form-controls";
+import { HintedLabel, Select } from "../form-controls";
 import { RemovableChipRow } from "./removable-chip-row";
 
 interface LocalizationSectionProps {
@@ -47,11 +47,16 @@ export function LocalizationSection({ lang, settings, onChange }: LocalizationSe
 
   return (
     <>
-      <label className="mb-4 block">
-        <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-          {t(lang, "language")}
-          <InfoTooltip text={t(lang, "languageTooltip")} />
-        </span>
+      {/* ★★ The hint sits outside the naming <label> (open-followups §386). */}
+      <HintedLabel
+        className="mb-4"
+        hint={<InfoTooltip text={t(lang, "languageTooltip")} />}
+        caption={
+          <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+            {t(lang, "language")}
+          </span>
+        }
+      >
         <Select
           className="w-full"
           value={settings.language}
@@ -63,7 +68,7 @@ export function LocalizationSection({ lang, settings, onChange }: LocalizationSe
           <option value="en-GB">English (UK)</option>
           <option value="de">Deutsch</option>
         </Select>
-      </label>
+      </HintedLabel>
 
       <div>
         <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">

@@ -70,6 +70,7 @@ import {
   dropUnacceptedMilestoneFields,
   dropUnacceptedRaidFields,
   dropUnacceptedStakeholderFields,
+  refuseInvalidAbsenceEmail,
   sanitizeAbsence,
   sanitizeIsoDate,
   sanitizeRaidItem,
@@ -830,7 +831,9 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         //  undisclosed extras are dropped. Verify before adding a schema field
         //  — an allowlist silently drops anything it does not name, which on
         //  create means the field never lands at all. §438.
-        const item = sanitizeAbsence({ ...dropUnacceptedAbsenceFields(input), id });
+        const accepted = dropUnacceptedAbsenceFields(input);
+        refuseInvalidAbsenceEmail(accepted);
+        const item = sanitizeAbsence({ ...accepted, id });
         if (!item) throw new Error("invalid absence: assignee, startDate and endDate are required");
         const next = [...absencesRef.current, item];
         absencesRef.current = next;
@@ -844,9 +847,11 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = absencesRef.current.find((a) => a.id === id);
         if (!existing) return null;
+        const accepted = dropUnacceptedAbsenceFields(patch);
+        refuseInvalidAbsenceEmail(accepted);
         const merged = sanitizeAbsence({
           ...existing,
-          ...dropUnacceptedAbsenceFields(patch),
+          ...accepted,
           id,
           localModifiedAt: new Date().toISOString(),
         });

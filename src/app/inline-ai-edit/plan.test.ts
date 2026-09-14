@@ -968,6 +968,27 @@ describe("preview matches what Apply stores", () => {
     expect(plan.updates.map((u) => u.after)).toEqual([""]);
   });
 
+  // §461 — an absence's assignee email now carries the task rule: the writer
+  //  (`refuseInvalidAbsenceEmail`) throws, so the card must reject it first,
+  //  and a blank address stays a legal clear.
+  it("rejects a malformed absence assignee email, and allows clearing one", () => {
+    const item = { id: 1, assignee: "Ada", startDate: "2026-06-01", endDate: "2026-06-05", assigneeEmail: "old@x.com" };
+    const ctx = { descriptor: INLINE_DESCRIPTORS.absence, item, ws: wsWith({ absences: [item] as never }) };
+    const bad = describeEntityCalls(
+      [{ type: "tool_use", name: "update_absence", input: { id: 1, assigneeEmail: "m.Jordan@example.com probed" } }],
+      ctx,
+    );
+    expect(bad.updates).toEqual([]);
+    expect(bad.rejected.map((r) => r.reason)).toEqual(["bad-input"]);
+
+    const clear = describeEntityCalls(
+      [{ type: "tool_use", name: "update_absence", input: { id: 1, assigneeEmail: "" } }],
+      ctx,
+    );
+    expect(clear.rejected).toEqual([]);
+    expect(clear.updates.map((u) => u.after)).toEqual([""]);
+  });
+
   it("clips a stakeholder email at ITS cap, which is not the task one", () => {
     const item = { id: 1, email: "old@x.com" };
     const long = "a".repeat(400) + "@x.com";

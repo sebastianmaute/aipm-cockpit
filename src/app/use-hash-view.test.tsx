@@ -332,16 +332,11 @@ describe("useHashView", () => {
     expect(result.current.activeTab).toBe("raid");
   });
 
-  it("re-arms the cold rule when the hook is disabled and re-enabled (classic round trip)", () => {
-    // A ref that latched once for the hook's LIFETIME reintroduced the defect by
-    // another route: modern → classic → modern. Both of this hook's effects are
-    // off during the classic interlude, so nothing HERE maintains the hash and
-    // it is residue by re-activation — which makes it a COLD load. It is not
-    // frozen, though: `requestOpen` still writes item hashes during classic
-    // (docs/open-followups.md §478). This test parks a VIEW-ONLY hash, so it
-    // covers the Dashboard branch of re-entry and not the item-bearing one.
-    // Latching once would instead honour that stale hash on the second
-    // activation and yank the user off their current view.
+  // MIGRATED (§478): this test used to be "re-arms the cold rule when the hook is
+  // disabled and re-enabled" and asserted option (b) — a hash parked on `#raid`
+  // resolved to the Dashboard after `enabled` false → true. Option (c) was
+  // chosen instead: a layout switch is NOT a navigation, so the user stays put.
+  it("keeps the current view on a layout re-entry (classic round trip) and rewrites the hash to it", () => {
     window.location.hash = "";
     // ★★ Hoisted, not inline — see the note on the first-EXECUTED-run test: an
     //    inline `features` array re-runs the effect every render and loops.
@@ -355,6 +350,8 @@ describe("useHashView", () => {
     );
     expect(result.current.activeTab).toBe("dashboard");
 
+    // ★ Park on a NON-dashboard view: the Dashboard is the cold target, so a
+    //   re-entry that wrongly went cold would be indistinguishable otherwise.
     act(() => {
       window.location.hash = "#raid";
       window.dispatchEvent(new HashChangeEvent("hashchange"));
@@ -362,8 +359,110 @@ describe("useHashView", () => {
     expect(result.current.activeTab).toBe("raid");
 
     rerender({ enabled: false }); // classic: both effects go quiet
-    rerender({ enabled: true }); // back to modern — a fresh cold window
+    // The user keeps navigating in classic, which writes no hash — so the URL
+    // still says `#raid` while they are on Gantt.
+    act(() => { result.current.setActiveTab("gantt"); });
+    expect(window.location.hash).toBe("#raid");
+
+    rerender({ enabled: true }); // back to modern — a re-entry, not a navigation
+    expect(result.current.activeTab).toBe("gantt");
+    expect(result.current.pendingOpen).toBeNull();
+    expect(window.location.hash).toBe("#gantt");
+  });
+
+  it("does not reopen an item-bearing hash left by requestOpen during classic, even on the same base view", () => {
+    // `requestOpen` writes `#<view>/<id>` in every non-popout layout, so an item
+    // opened from global search while in classic leaves a real-looking deep link
+    // behind. A re-entry must not honour it, and — because the user is still on
+    // that item's BASE view — the ordinary base-view comparison would keep the
+    // stale `/123`; the re-entry writes the bare view itself.
+    window.location.hash = "";
+    const features = [...ALL_MODULE_IDS] as readonly FeatureModuleId[];
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => {
+        useHashView(enabled, features);
+        return useWorkspaceTab();
+      },
+      { wrapper, initialProps: { enabled: true } },
+    );
     expect(result.current.activeTab).toBe("dashboard");
+
+    rerender({ enabled: false });
+    act(() => { result.current.requestOpen("raid", 123); });
+    expect(window.location.hash).toBe("#raid/123");
+    // The editor consumed the request, as the real panel does.
+    act(() => { result.current.clearPendingOpen(); });
+    expect(result.current.pendingOpen).toBeNull();
+
+    rerender({ enabled: true });
+    expect(result.current.activeTab).toBe("raid");
+    expect(result.current.pendingOpen).toBeNull(); // requestOpen was NOT re-invoked
+    expect(window.location.hash).toBe("#raid");
+  });
+
+  it("keeps back/forward authoritative after a layout re-entry", () => {
+    window.location.hash = "";
+    const features = [...ALL_MODULE_IDS] as readonly FeatureModuleId[];
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => {
+        useHashView(enabled, features);
+        return useWorkspaceTab();
+      },
+      { wrapper, initialProps: { enabled: true } },
+    );
+    rerender({ enabled: false });
+    rerender({ enabled: true });
+    act(() => {
+      window.location.hash = "#gantt";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(result.current.activeTab).toBe("gantt");
+  });
+
+  it("is cold on the first enabled window even when the page loaded disabled and the cold target is not the default tab", () => {
+    // Sibling of the first-EXECUTED-run test below, which cannot tell "cold"
+    // from "re-entry" on its own: its cold target (Dashboard) is also the
+    // provider's default tab, and a re-entry keeps the default tab. Dropping the
+    // dashboard module moves the cold target to open-points, so only a genuine
+    // cold apply can land there.
+    window.location.hash = "#raid";
+    const features = ALL_MODULE_IDS.filter((m) => m !== "dashboard");
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => {
+        useHashView(enabled, features);
+        return useWorkspaceTab();
+      },
+      { wrapper, initialProps: { enabled: false } },
+    );
+    expect(result.current.activeTab).toBe("dashboard");
+    rerender({ enabled: true });
+    expect(result.current.activeTab).toBe("open-points");
+  });
+
+  it("does not treat StrictMode's mount → unmount → mount as a layout re-entry", () => {
+    // A re-entry rewrites the URL to the bare view, which would strip the `/<id>`
+    // from a genuine deep link on the very first load in dev (StrictMode).
+    // ★★ The deep link targets the provider's DEFAULT view on purpose. For any
+    //    other view the cold apply changes `activeTab`, and a PRE-EXISTING race
+    //    (identical in the pre-§478 hook, measured) then loses the deep link
+    //    under StrictMode by a different route: the first passive view→hash
+    //    write still sees the old tab and replaces the hash with `#dashboard`,
+    //    which the remount's warm apply reads back. That would make this test
+    //    assert the race instead of the property it exists for.
+    window.location.hash = "#dashboard/5";
+    const addSpy = vi.spyOn(window, "addEventListener");
+    const features = [...ALL_MODULE_IDS] as readonly FeatureModuleId[];
+    const { result } = renderHook(
+      () => { useHashView(true, features); return useWorkspaceTab(); },
+      { wrapper, reactStrictMode: true },
+    );
+    // Positive observable: the layout effect really was double-invoked here
+    // (see strictmode.meta.test.tsx), otherwise this test is vacuous.
+    expect(addSpy.mock.calls.filter(([type]) => type === "hashchange")).toHaveLength(2);
+    addSpy.mockRestore();
+    expect(result.current.activeTab).toBe("dashboard");
+    expect(result.current.pendingOpen).toEqual({ view: "dashboard", id: 5 });
+    expect(window.location.hash).toBe("#dashboard/5");
   });
 
   it("applies the cold rule on the first EXECUTED run, not the first render", () => {

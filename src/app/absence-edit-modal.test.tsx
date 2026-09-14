@@ -6,6 +6,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { AbsenceEditModal } from "./absence-edit-modal";
 import { applyTier } from "./field-visibility";
 import { selectFieldTier } from "../test/field-tier";
+import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
 import { t } from "./i18n";
 import type { Absence } from "./types";
 
@@ -80,6 +81,21 @@ function setupFull(over: Partial<ModalProps> = {}) {
   );
   return { props, ...result };
 }
+
+// open-followups §386: every hinted field's control is named by its caption
+// alone. Assignee comes from the shared `AssigneeField` (modal-edit-fields).
+describe("AbsenceEditModal — hinted field names (§386)", () => {
+  it("names every hinted control with its caption alone", () => {
+    setupFull();
+    expectNoHintInNamingLabel({ minHints: 4 });
+    expectExactLabelNames([
+      `${t("en-US", "absenceAssignee")} *`,
+      `${t("en-US", "absenceStart")} *`,
+      `${t("en-US", "absenceEnd")} *`,
+      t("en-US", "absenceNote"),
+    ]);
+  });
+});
 
 describe("AbsenceEditModal", () => {
   it("renders nothing when absence is null", () => {
@@ -189,5 +205,50 @@ describe("AbsenceEditModal", () => {
     const start = screen.getByLabelText(/start/i) as HTMLInputElement;
     fireEvent.change(start, { target: { value: "2026-04-01" } });
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  // §461 — the task form's rule (`validateTaskForm` → `errorInvalidEmail`):
+  //  a non-blank address that is not an address blocks the save and says why;
+  //  a blank one saves as a clear.
+  it("blocks save on an invalid assignee email and shows the invalid-email error", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave });
+    fireEvent.change(screen.getByLabelText(t("en-US", "absenceAssigneeEmail")), {
+      target: { value: "m.Jordan@example.com probed" },
+    });
+    fireEvent.submit(
+      screen.getByRole("button", { name: /save/i }).closest("form")!,
+    );
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorInvalidEmail"));
+  });
+
+  // ★★ The rule only applies to a CHANGED value. A malformed address stored
+  //  before §461 must not block saving another field — here at the Advanced
+  //  default, where the Full-only Email field is hidden and cannot be fixed.
+  it("saves a stored malformed assignee email unchanged when only another field changes, with Email hidden", () => {
+    const onSave = vi.fn();
+    setup({ absence: { ...base, assigneeEmail: "m.Jordan@example.com probed" }, onSave });
+    expect(screen.queryByText(t("en-US", "absenceAssigneeEmail"))).toBeNull();
+    fireEvent.change(screen.getByLabelText(/end/i), { target: { value: "2026-06-09" } });
+    fireEvent.submit(
+      screen.getByRole("button", { name: /save/i }).closest("form")!,
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({
+      endDate: "2026-06-09",
+      assigneeEmail: "m.Jordan@example.com probed",
+    });
+  });
+
+  it("saves a blank assignee email as a clear", () => {
+    const onSave = vi.fn();
+    setupFull({ absence: { ...base, assigneeEmail: "   " }, onSave });
+    fireEvent.submit(
+      screen.getByRole("button", { name: /save/i }).closest("form")!,
+    );
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBeUndefined();
   });
 });

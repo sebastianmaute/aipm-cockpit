@@ -41,13 +41,23 @@
 //   (a) DICTATION MIC before a text input — every `{…Mic}` caption (RAID/change
 //       title, milestone name, four stakeholder fields). `voice.ts` `getCtor()`
 //       returns null in jsdom, so `dictation-mic` renders `null` and the mic
-//       never competes. In Chrome the mic WON the association. Fixed with
-//       `htmlFor`/`id`, which keeps the caption on the input where it belongs —
-//       EXCEPT the stakeholder NAME row, which uses `FieldGroup` instead because
-//       `ResourcePicker` exposes no id for its inner input.
-//       ★ What that cost varied by field and the difference matters: the change
-//       title and milestone name carry neither `aria-label` nor `placeholder`,
-//       so they were left with NO accessible name; the RAID title has a
+//       never competes. In Chrome the mic WON the association. Originally
+//       fixed with `htmlFor`/`id`, which kept the LEADING mic in the caption
+//       but rebound the label to the input by id — EXCEPT the stakeholder
+//       NAME row, which uses `FieldGroup` instead because `ResourcePicker`
+//       exposes no id for its inner input.
+//       ★ §386 round 2 moved the mic (and the hint) OUT of the caption
+//       entirely for the RAID title, the change title, and three of the four
+//       stakeholder fields (Organization/Title/Notes — not Name, still
+//       `FieldGroup`): each now renders through `HintedLabel`, whose hint
+//       slot sits outside the naming `<label>`. `htmlFor` is kept there as an
+//       explicit binding, but no longer rescues a leading mic. Milestone name
+//       is untouched and still relies on the original
+//       htmlFor-rescues-a-leading-mic shape.
+//       ★ What that cost varied by field and the difference matters, for the
+//       ORIGINAL (pre-§386-round-2) shape: the change title and milestone
+//       name carried neither `aria-label` nor `placeholder`, so they were
+//       left with NO accessible name; the RAID title has a
 //       `raidPlaceholderTitle` placeholder, which HTML-AAM treats as the
 //       fallback name — a poor name, not none. Don't flatten the two.
 //       ★ Cited by SYMBOL, not `file:line`: this very change inserted nine lines

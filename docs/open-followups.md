@@ -610,10 +610,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§383](#383-a-resources-extra-emails-preview-a-list-apply-dedupes-and-caps--closed-2026-09-06) | A resource's extra emails preview a list Apply dedupes and caps | found 2026-09-05 while closing 373 | S | closed |
 | [§384](#384-a-mononym-update_resource-rename-previews-a-rejected-lastname-that-apply-accepts-and-wipes--closed-2026-09-06) | A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes | found 2026-09-05 in cold review of the §372 fix | S | closed |
 | [§385](#385-srcsymbolscheck-prints-a-remedy-it-does-not-implement--open) | `src:symbols:check` prints a remedy it does not implement | found 2026-09-05 while acting on that report's own advice | S | open |
-| [§386](#386-fields-hint-pollutes-its-controls-accessible-name--open) | `Field`'s `hint` pollutes its control's accessible name | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§386](#386-fields-hint-pollutes-its-controls-accessible-name--closed-2026-09-14) | `Field`'s `hint` pollutes its control's accessible name — CLOSED 2026-09-14 | found 2026-09-05 in the edit-task modal rework | S | **CLOSED** 2026-09-14 (both `Field` implementations and 41 hand-rolled labels in 11 files render the tooltip outside a `display: contents` label via shared `HintedLabel`; enumerated by a TS-AST scan, 41 polluting of 58 before, 0 of 17 after; the hint reaches a screen reader via the adjacent tooltip button, not `aria-describedby`; eye-verify in Firefox/Safari + a real screen reader still owed) |
 | [§387](#387-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
-| [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--open) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide | found 2026-09-05 in the edit-task modal rework | M | open |
+| [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--closed-2026-09-14) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide — CLOSED 2026-09-14 | found 2026-09-05 in the edit-task modal rework | M | **CLOSED** 2026-09-14 |
 | [§390](#390-the-inline-create-path-writes-link-fields-with-no-preview-at-all--closed-2026-09-06) | The inline CREATE path writes link fields with no preview at all | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§391](#391-chat-proposal-describetss-emptyplan-is-safe-at-two-of-its-three-call-sites-and-the-reason-is-per-site--open) | `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§392](#392-a-rejection-only-inline-plan-never-reaches-the-preview-so-the-user-is-told-no-changes--closed-2026-09-06) | A rejection-only inline plan never reaches the preview, so the user is told "no changes" | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
@@ -683,7 +683,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§458](#458-the-modal-header-help-popover-tab-test-fails-on-press-1-alone-under-ci-load-and-the-autofocus-diagnosis-was-wrong--open) | 458. The modal-header help-popover Tab test fails on press 1 alone under CI load, and the autoFocus diagnosis was wrong | found 2026-09-10 from two CI runs on `feat/modal-help-bespoke`; one attempted fix measured wrong and reverted the same day | M — CI-only, intermittent; needs a diagnostic run under real load before any fix, and the obvious fix has already been tried and reverted | **OPEN** |
 | [§459](#459-two-relation-b-create-arm-probes-are-invalid-by-construction-because-the-harness-mutates-the-seed-rows-value-without-regard-to-what-the-create-will-accept--closed-2026-09-11) | Two Relation B create-arm probes are invalid by construction, because the harness mutates the seed row's value without regard to what the create will accept | first reported 2026-09-08 on the original branch (`1375f3c7`, local-only) and never filed there; analysed and filed 2026-09-11 from the sweep's first run on the landing branch | S — closed by the typed `probeFor` derivation (`src/test/sweep-probes.ts`) replacing the invalid mutated-seed probes; both fields dropped from the sweep's ledger | **CLOSED** 2026-09-11 |
 | [§460](#460-a-create-card-can-preview-meeting-attendees-the-create-then-stores-none-of-because-the-previews-link-guard-runs-on-updates-only--closed-2026-09-11) | A create card can preview meeting attendees the create then stores none of, because the preview's link guard runs on updates only | found 2026-09-11 by cold review of the offered-surface landing: a `plan.ts` comment still described both allow-list creates as unguarded | S — closed by `140514bd`, lifting the `target === "row"` gate on link guards, behind a test (`plan.create-path-guards.test.ts`) driving `[4, "4"]` through card and write; §440's refusal-disclosure half stays open | **CLOSED** 2026-09-11 |
-| [§461](#461-an-absence-stores-an-assignee-email-that-is-not-an-address-where-a-task-refuses-the-same-value-loudly--open) | An absence stores an assignee email that is not an address, where a task refuses the same value loudly — OPEN | found 2026-09-11 by cold review of the offered-surface landing, beside §459's task probe | S-M — decide per field whether an assignee email is format-checked, then guard the writer, not the card | open |
+| [§461](#461-an-absence-stores-an-assignee-email-that-is-not-an-address-where-a-task-refuses-the-same-value-loudly--closed-2026-09-14) | An absence stores an assignee email that is not an address, where a task refuses the same value loudly — CLOSED 2026-09-14 | found 2026-09-11 by cold review of the offered-surface landing, beside §459's task probe | S-M — decide per field whether an assignee email is format-checked, then guard the writer, not the card | **CLOSED** 2026-09-14 |
 | [§462](#462-there-is-no-linux-installer-and-several-windows-only-assumptions-stand-in-the-way-of-one--open) | There is no Linux installer, and several Windows-only assumptions stand in the way of one — OPEN | found 2026-09-11 while explaining the CI installer's size gap (the sharp finding in the wine-runner spike) | S-M — a native Linux job with its own artifact and Release link, XDG log paths, a rollout section | open |
 | [§463](#463-export-silently-drops-enabled-sections-and-no-path-exports-calendar-events-knowledge-items-or-insights--open) | Export silently drops enabled sections, and no path exports calendar events, knowledge items or insights — OPEN | found 2026-09-11 by a read-only code check of `main` @ `1826cf64` while triaging the demo-backlog issues #38–#74 (issue #75) | S-M — two object literals, but deciding what each export path should contain (and whether they should be one function) is the work | open |
 | [§464](#464-cpi-means-two-different-numbers-and-two-winloss-hints-are-wrong--closed-2026-09-12) | "CPI" means two different numbers, and two win/loss hints are wrong | found 2026-09-11 by the same read-only code check (issue #76) | S-M — closed by `fe174c2d`: the money ratio is renamed `budgetCciRecovery` ("Cost recovery"), so CPI names the EVM hours ratio alone, and both wrong hints were rewritten EN+DE; `winLossHours` is still rendered nowhere | **CLOSED** 2026-09-12 |
@@ -700,7 +700,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--closed-2026-09-13) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read — CLOSED 2026-09-13 | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `68f70b9d` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | **CLOSED** 2026-09-13 |
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--open) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one — OPEN | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | open |
 | [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--open) | Only three currencies are supported, and INR is wanted — OPEN | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | open |
-| [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--open) | Switching back to the modern layout moves the user off their current view — OPEN | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | open |
+| [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--closed-2026-09-14) | Switching back to the modern layout moves the user off their current view — CLOSED 2026-09-14 | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | **CLOSED** 2026-09-14 |
 | [§479](#479-releases-101-102-and-103-were-never-tagged-so-no-published-installer-carries-them-and-their-owed-packaged-build-checks-were-never-run--open) | Releases 1.0.1, 1.0.2 and 1.0.3 were never tagged, so no published installer carries them and their owed packaged-build checks were never run — OPEN | found 2026-09-13 by the housekeeping audit, from the CHANGELOG owed list and the RUNBOOK's unverified release steps | S — a tag per release, each at its own release merge, then a manual pass over the packaged installer | open |
 | [§480](#480-the-desktop-installer-has-no-auto-update-and-its-update-feed-question-is-undecided--open) | The desktop installer has no auto-update and its update-feed question is undecided — OPEN | found 2026-09-13 by the housekeeping audit; GitLab #67 had been closed with this remainder written into its own body, and was reopened 2026-09-13 | M — the feed decision (UNC share or HTTPS) first, then the updater and its release wiring | open |
 | [§481](#481-the-task-row-n-changes-badge-is-a-static-label-with-no-way-to-jump-to-the-linked-changes--open) | The task-row "N changes" badge is a static label with no way to jump to the linked changes — OPEN | found 2026-09-13 by the housekeeping audit, from the change-log register design's deferred click-to-jump | S — a jump handler threaded the way the RAID badge's is | open |
@@ -754,9 +754,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§529](#529-api-key-funding-is-unresolved-and-every-user-must-bring-and-pay-for-their-own-anthropic-key--open) | API key funding is unresolved, and every user must bring and pay for their own Anthropic key — OPEN | AI PM Cockpit demo 2026-09-11 (P-7), GitLab #73; mirrored into the register 2026-09-13 | unestimated (decision) — a shared key would need a new server-side proxy | open |
 | [§530](#530-there-is-no-microsoft-teams-integration-the-remaining-microsoft-365-gap--open) | There is no Microsoft Teams integration, the remaining Microsoft 365 gap — OPEN | AI PM Cockpit demo 2026-09-11 (P-8), GitLab #74; mirrored into the register 2026-09-13 | L — new Graph scopes, likely admin consent, then channel posts, online meetings and chat links | open |
 | [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--closed-2026-09-13) | Nothing checks that the register and GitLab issues stay one-to-one — CLOSED 2026-09-13 | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | **CLOSED** 2026-09-13 |
-| [§532](#532-two-projects-without-a-code-look-like-the-same-project-to-the-timelog-picker--open) | Two projects without a code look like the same project to the TimeLog picker — OPEN | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | open |
+| [§532](#532-two-projects-without-a-code-look-like-the-same-project-to-the-timelog-picker--closed-2026-09-14) | Two projects without a code look like the same project to the TimeLog picker — CLOSED 2026-09-14 | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | **CLOSED** 2026-09-14 |
 | [§533](#533-csv-markdown-and-turso-split-a-stored-email-address-containing-a-comma-or-semicolon-on-save--open) | CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — OPEN | found 2026-09-14 in the cold review of the data-loss batch, measured by a codec round-trip probe; GitLab #323 | S–M — a quote-aware join for the `emails` cell, or a one-time migration | open |
 | [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--open) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | open |
+| [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--open) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | open |
+| [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1513,6 +1515,17 @@ removes the hazard rather than relocating it.
 **wholesale** at file level, so no test there can observe a real cache lookup through a render. Pinning
 "what does the panel hand the hook" has to be done by asserting on the mock's call arguments — which is
 what the §14 guard does, following the one pre-existing precedent in that file.
+
+★★ **Correction 2026-09-14 (§532):** the paragraph above said the picker's in-place project-switch
+signal "must keep receiving `ws.project?.code` or the picker stops re-seeding on a switch" — that was
+true when written and is now FALSE. §532 found that two projects can both carry a blank code (legal
+since O-1), so `ws.project?.code` collapsed them to the same signal and a switch between them went
+undetected. `timelog-panel.tsx` no longer computes a `projectCode` local at all; it now passes its
+`projectKey` prop (the canonical per-device id — the SAME value the actuals cache above is keyed on) as
+`useTimelogPickerScope`'s `projectId`, i.e. the switch signal and the cache key are now the same value,
+by design (`use-timelog-picker-scope.ts`'s `TimelogPickerScopeDeps.projectId` docstring says so). This
+does not reopen the SEC-shaped hazard the "TWO better-looking designs" section above rejects — that
+section is about the ACTUALS CACHE never falling back to a second key, which is unchanged.
 
 ---
 
@@ -29712,16 +29725,82 @@ out. Anything that WEAKENS the report — suppression that hides a real invented
 failure mode to avoid, so (a) needs the same self-exclusion care recorded elsewhere in this
 register for checkers scanning their own corpus.
 
-## 386. `Field`'s `hint` pollutes its control's accessible name — OPEN
+## 386. `Field`'s `hint` pollutes its control's accessible name — CLOSED 2026-09-14
 
-**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. Verified 2026-09-05 by
-measurement, not by reading: a whole-string `getByRole("combobox", { name: "Group" })` finds NOTHING
-on the task form while the same query anchored with a prefix regex passes. The mechanism is
-structural — `grep -n "hint && (" -A 5 src/app/task-form-layout.tsx` shows the `InfoTooltip`
-rendered INSIDE `caption`, and the default (non-`group`) branch wraps that same `caption` in the
-`<label>`.
-
-**Work item:** #266
+**Status:** CLOSED 2026-09-14 — the first closure option below was taken, for BOTH `Field`
+implementations: `src/app/task-form-layout.tsx` (its `hint` prop) and `src/app/project-form-fields.tsx`
+(its `tooltip` prop). Every call site is unchanged. In a hinted, non-`group` Field, both now render
+through the shared `HintedLabel` (`src/app/form-controls.tsx`). The `InfoTooltip` is a SIBLING of the
+`<label>`, not inside it: the wrapper is the flex row, the `<label>` is `display: contents`, and
+`order` classes keep the trigger beside the caption text with the control on the line below. The
+control's name is therefore the label alone (plus the required `*`, as before). Measured in Chromium
+on a static page with the same structure: the textbox is named `"Group*"`, the trigger shares the
+caption's line, the input wraps below. RULED: a screen-reader user reaches the hint through the
+adjacent, still-focusable tooltip button (its own `aria-label`), NOT as the control's
+`aria-describedby` description. `Field` does not own the child element, so a description would need
+cloning the child or mutating it imperatively, and both were judged more fragile than the sibling.
+`group` mode was already correct in both files, because `FieldGroup`'s `aria-label` outranks its
+content; its caption keeps the tooltip. The task form's redundant `preventDefault` wrapper is gone.
+Pinned by
+`npx vitest run src/app/task-form-layout.test.tsx -t "a hinted label Field names its control with the label alone"`
+and
+`npx vitest run src/app/project-form-fields.test.tsx -t "names a tooltipped field's control with its label alone"`.
+Both are mutation-proved: moving the tooltip back inside the label turns each red. Both prefix-regex
+queries in `task-form-fields.test.tsx` now use the whole-string name.
+★★ THE SAME DEFECT LIVED OUTSIDE `Field`, IN HAND-ROLLED LABELS, AND THOSE ARE CLOSED TOO. The
+enumeration was a TypeScript-AST scan over every non-test `.tsx` under `src/app`: it lists each JSX
+`<label>` whose subtree contains `<InfoTooltip>`, with the controls inside it and whether each names
+itself via `aria-label`/`aria-labelledby`. The scan is a session script, not a repo script. Measured
+2026-09-14 — a session scan, not committed to the repo and not reproducible from it: before the fix
+it listed 58 labels. 41 wrapped a control with no name of its own, so the hint polluted that
+control's name. 16 wrapped only self-named controls, such as the change and stakeholder selects
+and `budget-bucket-modal.tsx`'s inputs. 1 was `general-section.tsx`'s `htmlFor` label for a Select
+that names itself. After the fix it lists 17 labels and 0 polluting. The rough grep
+`git grep -n -B3 "<InfoTooltip" -- src/app | grep -c "<label"` is NOT a substitute: it counts
+nearby lines, not containment, and it both over- and under-counts. Measured 2026-09-14 (same
+session scan, not committed to the repo and not reproducible from it), it returned 55 at the pre-fix
+commit where the scan found 58, and 19 after the fix where the scan found 17. The 41 fixed sites, each
+verified by reading:
+- `absence-edit-modal.tsx`: Start, End, Note.
+- `modal-edit-fields.tsx`: `AssigneeField`, which is shared with the shift editor.
+- `change-edit-modal.tsx`: Title, Requested by, Schedule impact, Cost impact, Raised date, Decided by.
+- `raid-edit-modal.tsx`: Title, Owner, Email, Raised date, Target date.
+- `resource-edit-modal.tsx`: First/Last name, Job title, Company, Department, Location, Phone,
+  Email, the External checkbox, Notes.
+- `stakeholder-edit-modal.tsx`: Organization, Title, Email, Notes.
+- `jira-settings.tsx`: Site URL, Email, API token, Project.
+- `ai-section.tsx`: API key, Model.
+- `general-section.tsx`: Workday hours.
+- `integrations-section.tsx`: M365 client/tenant id, Turso URL, Turso token.
+- `localization-section.tsx`: Language.
+Most now render through `HintedLabel`. `HintedLabel` gained `htmlFor` and `bodyClassName`, and its
+hint slot also carries each dictation mic, which therefore left its label too. Two sites are not
+a wrapping label: the External checkbox row puts the tooltip beside the label, and Workday hours
+binds by id. Three credential or model notices that also sat inside a label moved out and became
+`aria-describedby` descriptions: the Jira and AI API-key storage notes, the Turso token note, and
+the AI needs-a-key hint. Pinned per component by a "hinted field names (§386)" test in each
+component's test file. Each test pairs `expectNoHintInNamingLabel` (`src/test/hint-label.ts`, keyed
+on a `data-info-tooltip-trigger` hook on the trigger) with `expectExactLabelNames`, which asserts
+`toHaveAccessibleName` equal to the caption. Mutation-proved on absence Start, e.g.
+`npx vitest run src/app/absence-edit-modal.test.tsx -t "names every hinted control with its caption alone"`.
+★ The 16 self-named labels still contain a tooltip. Their controls' names are unaffected, and they
+are deliberately left as they are.
+★★ EYE-VERIFY OWED, never done — round 1 only covered Chromium's accessibility tree. The
+consolidated list, both rounds:
+- Firefox and Safari accessibility trees, and a real screen reader (NVDA / VoiceOver), for the
+  `display: contents` label: confirm the name equals the caption and the hint is still reachable
+  via the adjacent, still-focusable tooltip button.
+- The running app, light and dark: caption/hint/control order, wrapping, and that clicking the
+  caption focuses the control, on the task form's Field (Group, Blockers), the time-tracking
+  dialog's remaining-time box, a project form Field (e.g. Project code), and the absence, change,
+  RAID, resource and stakeholder modals, Jira settings, and the AI / integrations / general /
+  localization settings sections (including the Settings row spacing where the input's former
+  `mt-1` gave way to the row gap, and the resource External checkbox row's gap-2→gap-1).
+- The dictation mics that moved OUT of the change title, RAID title and stakeholder
+  Organization/Title/Notes labels: confirm each still sits beside its caption and still dictates
+  (jsdom never renders a mic, so this is untested by the unit suite).
+No repo gate prevents a new `<InfoTooltip>` from landing back inside a naming label — the 58/41/17
+enumeration above was a one-off session script, not a repo script that runs in CI.
 
 A `<label>`'s accessible name is its text CONTENT, so the tooltip trigger's visible glyph is
 concatenated onto the caption: the Group control computes `"Groupi"`, not `"Group"`.
@@ -29763,9 +29842,11 @@ unlabeled-control rules ask, and the only rule comparing a name against its visi
 `label-content-name-mismatch`, which is tagged `experimental` and so is dropped by axe's default
 `tagExclude` before it runs. A unit test is the only possible detector.
 
-Closure options, none taken: render the tooltip as a SIBLING of the caption rather than inside it;
-or mark the trigger `aria-hidden` and deliver the hint through `aria-describedby`, which is where an
-explanatory hint belongs regardless.
+Closure options as filed (the first was TAKEN 2026-09-14, see Status): render the tooltip as a
+SIBLING of the caption rather than inside it; or mark the trigger `aria-hidden` and deliver the hint
+through `aria-describedby`. The second was not taken: an `aria-hidden` trigger that is still
+focusable is itself an axe violation (`aria-hidden-focus`), and `Field` cannot set
+`aria-describedby` on a child it does not own.
 
 ## 387. The Relationships empty-section guard is unpinned — OPEN
 
@@ -29819,16 +29900,34 @@ did NOT force `group` is exactly the mis-binding the scan is for.
 force `group`. Nothing detects that today from either direction — the source scan cannot see the
 attribute, and the layout tests only cover the primitive as it currently behaves.
 
-## 389. `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide — OPEN
+## 389. `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide — CLOSED 2026-09-14
 
-**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework, where this defect was fixed
-LOCALLY for one dialog. Verified 2026-09-05 by reading the default and counting consumers:
-`grep -n "closeName = closeLabel" src/app/modal-header.tsx` returns the fallback, and
-`grep -rn "closeLabel=" src/app --include=*.tsx | grep -v "\.test\."` returns exactly ONE call site.
-★ Use that direct grep, not a `grep -A N` window after `<ModalHeader` — the prop sits ~28 lines
-below the tag behind a long comment, so a short window reports ZERO and reads as "nobody uses it".
-
-**Work item:** #269
+**Status:** CLOSED 2026-09-14 — enumerated every pair that can actually be open at once (per the
+2026-09-05 filing's own "tractable next step") and qualified the INNER dialog's ✕ in each, reusing
+the shared `rowLabel` en-dash composer (`row-tokens.ts`) rather than a new separator — the same
+convention `task-time-tracking-modal.tsx`'s local `qualifyWithTitle` already used for the one pair
+fixed locally. The OUTER modal in every pair keeps its bare ✕ (unchanged `<ModalHeader>` calls in
+`task-form-modal.tsx`, `asset-library-modal.tsx`, `edit-modal-chrome.tsx`), since qualifying the
+inner one alone already makes the pair distinct. Five `closeLabel` additions:
+`task-linked-task-modal.tsx` (over the task editor), `jira-conflicts-modal.tsx` (over the task
+editor's "Sync with Jira"), `asset-preview-modal.tsx` (over `AssetLibraryModal`'s contents, reusing
+its own `assetPreviewTitle` expression), `confirm-dialog.tsx` (the shared `useConfirm()` surface,
+which stacks over an edit modal's delete button via `edit-modal-chrome.tsx`; qualified with the same
+`pending.title ?? confirmTitle` the header already renders), `type-to-confirm-dialog.tsx` (the
+voice-triggered "clear all" path can open while the task editor is still mounted, since its mic
+lives in `ModalHeader` independent of the active tab; qualified with its own `title` prop).
+RULED on the sweep's open questions: `ConfirmDialog` and `TypeToConfirmDialog` DO render a ✕ with
+the bare `alertModalClose` name (both via `ModalHeader`, confirmed by reading) — qualified, as
+above; `DisclaimerModal` (`integration-disclaimer.tsx`) renders NO `ModalHeader` and no ✕ at all —
+nothing to qualify, left as-is. Out of scope, per the approved scope: the hand-rolled headers in
+`version-info.tsx` and `calendar-pull-summary-modal.tsx` that reuse the `alertModalClose` string
+(grep each for it) are not stackable and were not touched. Each qualified pair is pinned by a two-layer unit test (a bare stand-in `ModalHeader` for
+the always-bare outer, mounted alongside the real inner component) asserting the two close buttons
+have distinct accessible names — a one-modal fixture cannot fail this, since
+`expectRowUniqueNames`'s `minControls` throws below the floor. Mutation-proved: removing any of the
+five `closeLabel` props turns its pair's test red (and `asset-preview-modal.test.tsx`'s own close
+assertion red too), restored after confirming. Pinned by
+`npx vitest run src/app/stacked-modal-close-names.test.tsx`.
 
 `ModalHeader` defaults its ✕ to `t(lang, "alertModalClose")`, so every modal in the app names that
 button with the same string. Two modals open at once present two controls with one accessible name,
@@ -34869,9 +34968,29 @@ now returns nothing. Its comment and the `(C3)` header above its `describe` (whi
 pre-`68486cd4` create path as unguarded) were rewritten with the fix, in `140514bd`, exactly as this
 entry as filed said the fix commit must.
 
-## 461. An absence stores an assignee email that is not an address, where a task refuses the same value loudly — OPEN
+## 461. An absence stores an assignee email that is not an address, where a task refuses the same value loudly — CLOSED 2026-09-14
 
-**Status:** OPEN 2026-09-11 — established by reading both writers, not by a dedicated run; the
+**Status:** CLOSED 2026-09-14 — decided per field: an absence's `assigneeEmail` now carries the task
+rule. `refuseInvalidAbsenceEmail` (`src/app/absence-email.ts`, re-exported by `./sanitize`) throws `assigneeEmail is invalid`
+for a non-blank address `isValidEmail` rejects, and `createAbsence` / `updateAbsence`
+(`use-register-tools.ts`) call it after `dropUnacceptedAbsenceFields`; blank stays a legal clear.
+The absence descriptor's `emailFormatFields` is now `assigneeEmail`, so the card rejects the value
+before apply, and `absence-edit-modal.tsx` blocks save with `errorInvalidEmail`, as the task form
+does — but ONLY when the trimmed value differs from the one the modal opened with (blank for a new
+absence). The Email field is Full-tier only, so an unconditional check let a stale stored address block
+saving any other field at a tier where it cannot be seen. Pre-existing malformed addresses are
+therefore NOT repaired: they stay stored until someone edits the field (or the AI writes a valid
+one). The allow-list row `ABSENCE_FIELD_GUARDS.assigneeEmail` was deliberately NOT tightened: it is
+model-write-only, but a failing guard DROPS the key, which would turn the loud refusal into a silent
+no-op. `sanitizeAbsence` is unchanged too, because it is also the load path and must not drop stored
+data. `raid.ownerEmail` keeps the old unchecked shape (`sanitizeRaidItem` → `sanitizeEmail`, no format
+guard, empty `emailFormatFields`); it is not part of this closure. The offered-surface sweep needed
+no migration: since §459 its email probe is `m.Jordan+probed@example.com`, a valid address. Pinned by
+`npx vitest run src/app/use-chat-dispatcher.test.tsx -t "invalid assignee email"`,
+`npx vitest run src/app/inline-ai-edit/plan.test.ts -t "malformed absence assignee email"` and
+`npx vitest run src/app/absence-edit-modal.test.tsx -t "assignee email"`.
+
+**As filed:** OPEN 2026-09-11 — established by reading both writers, not by a dedicated run; the
 offered-surface sweep's clean run (0 failed / 74) is consistent with it, carrying no
 `absence.assigneeEmail` finding on either arm, but it was not built to show it. Presence witnesses
 re-run 2026-09-11: `grep -n "assigneeEmail: (v)" src/app/sanitize-records.ts` (absence's allow-list
@@ -34879,8 +34998,6 @@ row, a bare string check), `grep -n -A 2 "export function sanitizeEmail" src/app
 (a length cap, no format check) and
 `grep -rn 'throw new Error("assigneeEmail is invalid")' src/app --include=*.ts` (the two throws,
 both on the task path).
-
-**Work item:** #294
 
 `ABSENCE_FIELD_GUARDS.assigneeEmail` admits any string, and `sanitizeAbsence` stores it through
 `sanitizeEmail`, which is `sanitizeText` at the email length cap — nothing on the path checks the
@@ -35963,18 +36080,42 @@ is not.
 Size XS if the feed carries INR — one array member, plus a fixture covering it so the parser's filter
 is exercised on a fourth currency rather than assumed. Unknown, and much larger, if it does not.
 
-## 478. Switching back to the modern layout moves the user off their current view — OPEN
+## 478. Switching back to the modern layout moves the user off their current view — CLOSED 2026-09-14
 
-**Status:** OPEN 2026-09-13 — the hook-level behaviour is pinned and was re-run that day:
-`npx vitest run src/app/use-hash-view.test.tsx -t "re-arms the cold rule" --maxWorkers=1` passes (1
-passed, 21 skipped), asserting that a hash parked on `#raid` resolves to the Dashboard once `enabled` goes
-false and back to true. Presence witness: `grep -n "coldDoneRef.current = false" src/app/use-hash-view.ts`
-returns the re-arm inside the hook's disabled branch. ★ Everything user-visible below is REASONED from
-that test and from the call sites; no browser run has watched a layout switch do it. (`--maxWorkers=1`
-is there because the same command beside a recursive grep printed `Test Files no tests` at exit 1 —
-worker-start contention, not a result.)
-
-**Work item:** #320
+**Status:** CLOSED 2026-09-14 on `fix/ui-a11y-batch` — option (c) was taken: a layout switch is NOT a
+navigation. `useHashView` (`src/app/use-hash-view.ts`) now keeps TWO pieces of state where it had one:
+`pageColdDoneRef` (the page load's first enabled window has run — set once, never reset) and
+`windowActiveRef` (inside a contiguous enabled window — cleared ONLY by the disabled branch, never by an
+effect cleanup). The first enabled run of the page load is still cold (view-only hash → Dashboard,
+item-bearing hash → deep link). An enabled false → true after that is a RE-ENTRY: it neither routes nor
+calls `requestOpen`, and sets `reentryRepairRef`, which the view→hash effect consumes to write the BARE
+`buildHash(activeTab)` via `history.replaceState` — unconditionally, so a stale `#raid/123` is removed even
+when `activeTab` is already `raid`. A re-run inside one window (the async settings load's new `features`)
+stays a warm apply, as before; back/forward, the MSAL fragment guard and popouts are unchanged. ★ Because
+the cleanup never touches either ref, StrictMode's mount → unmount → mount stays inside the first window
+and is never read as a re-entry. Pinned by `npx vitest run src/app/use-hash-view.test.tsx -t "layout
+re-entry"` (the rewritten former "re-arms the cold rule" test, the new back/forward-after-re-entry test
+and the StrictMode test) and `npx vitest run src/app/use-hash-view.test.tsx -t "requestOpen during
+classic"`; "applies the cold rule on the first EXECUTED run" survives unchanged. Mutation-checked
+2026-09-14: resetting `pageColdDoneRef` in the disabled branch turns the two re-entry tests red; setting
+it there turns "is cold on the first enabled window even when the page loaded disabled…" red (the
+unchanged first-EXECUTED test cannot see that mutant — its cold target is the default tab); resetting
+`windowActiveRef` in the cleanup turns the StrictMode test red; dropping the bare re-entry write turns the
+`requestOpen during classic` test red. ★ Still REASONED for the browser — no layout switch was watched
+live. ★ Found while fixing, NOT fixed and pre-existing (identical in the pre-fix hook, measured): under
+StrictMode an item-bearing cold deep link to a NON-default view (`#raid/123`) ends on the Dashboard,
+because the first passive view→hash write still sees the old tab and replaces the hash with `#dashboard`
+before the remount's warm apply reads it; outside StrictMode the tab is right but the URL loses `/123`.
+The body below is the pre-fix record and is left as written.
+★ 2026-09-14: on a page that LOADED in the classic layout, the first switch to modern is that
+page's first enabled window and so is still COLD — a view-only stale hash lands on the Dashboard,
+and an item-bearing hash left behind by a global-search open during classic reopens that item.
+Left as is and tracked, with the reason and its correction, as §536. Pinned, as the
+classic-load case, by `npx vitest run src/app/use-hash-view.test.tsx -t "is cold on the first
+enabled window even when the page loaded disabled and the cold target is not the default tab"`.
+★ 2026-09-14: the re-entry repair flag is consumed before the MSAL auth-response guard in the
+view→hash effect (`use-hash-view.ts`), so a re-entry that coincides with an auth-response fragment
+skips the bare-hash repair — low probability, and not a regression from before this fix.
 
 `useHashView` (`src/app/use-hash-view.ts`) is enabled only in the modern layout —
 `useHashView(settings.layout === "modern", settings.features)` in `task-manager.tsx`. The first EXECUTED
@@ -37165,16 +37306,32 @@ Size S–M.
 
 **Source:** housekeeping audit 2026-09-13 (register ⇄ GitLab sync)
 
-## 532. Two projects without a code look like the same project to the TimeLog picker — OPEN
+## 532. Two projects without a code look like the same project to the TimeLog picker — CLOSED 2026-09-14
 
-**Status:** OPEN 2026-09-13 — never machine-verified. Reasoned from the call site, which is presence-checked
-with `grep -n "projectId: projectCode" src/app/timelog-panel.tsx` and
-`grep -n "seenProjectId !== projectId" src/app/use-timelog-picker-scope.ts`; no test or browser run has
-switched between two code-less projects.
+**Status:** CLOSED 2026-09-14 on `fix/ui-a11y-batch`. `timelog-panel.tsx` no longer computes a
+`projectCode` local from `ws.project?.code`; it passes its own `projectKey` prop (the canonical
+per-device id workspace-section.tsx derives from `currentProjectId`/`tursoProjectId` — verified to
+change on a Turso project switch too, since `portfolioCurrentId` in `task-manager.tsx` is
+`portfolioMode === "turso" ? tursoProjectId : currentProjectId`) as `useTimelogPickerScope`'s
+`projectId`, so the switch signal and the actuals-cache key are now the same value, by design. The
+hook's contract is unchanged; only its `projectId` docstring was corrected. Pinned by
+`src/app/timelog-panel.test.tsx` "§532: resets the picker on an in-place switch between two code-less
+projects", which seeds two projects that both carry `code: ""` and differ only by `projectKey`.
+Mutation-checked: reverting to `projectId: ws.project?.code ?? "default"` turns it red (both projects
+collapse to `""`, so the switch goes undetected and the picker keeps project A's selection). Verified
+2026-09-14: `npx vitest run src/app/timelog-panel.test.tsx -t "§532"` → 1 test passed; full-file run
+`npx vitest run src/app/timelog-panel.test.tsx` → `Tests  73 passed (73)`.
+★ 2026-09-14: the switch signal is now `projectKey` (`currentProjectId ?? "default"`), so a flow
+that replaces the workspace in place WITHOUT moving the projects registry (e.g. an import or sample
+load while the TimeLog panel is mounted, if any exists) no longer resets the picker, where a changed
+project code used to; impact is small because the stored picker scope is itself keyed on
+`projectKey`. Reasoned, not measured — nobody enumerated which of the `applyWorkspace` call sites run
+with the panel mounted: `git grep -n "applyWorkspace(" -- src/app ':!*.test.*'` → 14 hits as of this
+measurement.
+§14's closure text, which had claimed the signal "must keep receiving `ws.project?.code`", carries a
+dated correction pointing here.
 
-**Work item:** #322
-
-`timelog-panel.tsx` passes `ws.project?.code ?? "default"` to `useTimelogPickerScope` as `projectId`. The
+`timelog-panel.tsx` passed `ws.project?.code ?? "default"` to `useTimelogPickerScope` as `projectId`. The
 hook does not send it anywhere: it compares it against the last value it saw, and a change resets its
 one-shot picker seeding on an in-place project switch. The actuals cache is keyed on `projectKey`, not on
 this value.
@@ -37187,9 +37344,10 @@ picker keeps the first project's customer and project selection.
 ★ It is not new with O-1: two projects that share a code already collapsed the same way. O-1 only makes
 it likely, because a blank code is now the normal state of a new project.
 
-The fix is a signal that is unique per project (the registry or Turso project id), which is what the hook
-actually needs to detect a switch. Not done in O-1's MR because it changes the hook's contract and its
-tests, which that MR does not otherwise touch.
+The fix needed a signal that is unique per project (the registry or Turso project id), which is what the
+hook actually needs to detect a switch. Not done in O-1's MR because it changed the hook's contract and
+its tests, which that MR did not otherwise touch — done here instead, as the Status paragraph above
+records.
 
 Related: §521 (project creation from a name alone — closed by the same MR, which is what makes a blank code
 the normal state).
@@ -37261,3 +37419,62 @@ nothing open tracked the class itself once it closed — this entry does.
   showed as landing are sent.
 - Reject the whole row on the card whenever the dispatcher would throw on a field it rejects, so the card never
   promises a sibling that will not land.
+
+## 535. A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN
+
+**Status:** OPEN 2026-09-14 — never machine-verified in a browser. Measured on 2026-09-14 with a
+throwaway probe of the hook that was not kept, and found identical in the hook before and after the §478
+fix. Presence witness: `grep -n "does not treat StrictMode" src/app/use-hash-view.test.tsx` returns the
+StrictMode test, which uses `#dashboard/5` precisely to stay clear of this race.
+
+**Work item:** #325
+
+On a cold page load whose hash deep-links an item on a view that is NOT the default tab (for example
+`#raid/123`), `useHashView` (`src/app/use-hash-view.ts`) applies the deep link from its mount layout
+effect, but the first passive view→hash write still sees the old `activeTab` and replaces the hash with
+the bare default view before the tab change has committed.
+
+- Under React StrictMode (the dev app router), the remount's warm apply then reads that rewritten hash,
+  so the user ends on the Dashboard instead of the RAID item.
+- Outside StrictMode the tab is right, but the URL loses `/123`, so a reload or a copied URL no longer
+  deep-links to the item.
+
+★ Pre-existing, NOT introduced by §478: the pre-fix hook behaves identically. Found while fixing §478 and
+recorded in its closure.
+
+Fix direction, not decided: hold the view→hash write until the cold apply's `setActiveTab` has
+committed, or have the cold apply write the hash it honoured. Pin it with a StrictMode test on
+`#raid/123` and a non-StrictMode test asserting the URL keeps `/123`.
+
+Related: §478, §536.
+
+## 536. A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN
+
+**Status:** OPEN 2026-09-14 — the hook-level behaviour is pinned as current by
+`npx vitest run src/app/use-hash-view.test.tsx -t "is cold on the first enabled window even when the page loaded disabled"`;
+everything user-visible below is reasoned from that test and the call sites, not watched in a browser.
+
+**Work item:** #326
+
+§478 made a layout RE-ENTRY (modern → classic → modern) keep the current view. It does not cover a page
+that LOADED in the classic layout. `useHashView` is disabled while classic is active, so the first
+switch to modern is that page's first enabled window, and it runs the cold rule against a hash the
+classic layout never maintained:
+
+- a view-only stale hash (for example residue from an earlier session) lands the user on the Dashboard;
+- an item-bearing hash left by `requestOpen` during classic (global search writes `#<view>/<id>` in any
+  non-popout layout) reopens that item and moves the user to its view.
+
+Why §478 did not fix it: the hook-level test "applies the cold rule on the first EXECUTED run, not the
+first render" (`use-hash-view.test.tsx`) pins a hook that starts disabled and enables once as COLD, and
+§478 was bound to keep it unchanged. Its motivating real-world case has not been identified. ★★ The
+rationale §478's closure first gave — that an async settings load starts the hook disabled — is
+UNVERIFIED and likely wrong: the settings default is `layout: "modern"`
+(`grep -n 'layout: "modern",' src/app/settings-types.ts`) and `task-manager.tsx` passes
+`settings.layout === "modern"` as `enabled`
+(`grep -n 'useHashView(settings.layout === "modern"' src/app/task-manager.tsx`), so a modern user's hook
+is already enabled on the first render. If nothing else starts it disabled, "loaded disabled" is itself
+the signal that a page loaded in classic, and the fix is small. Identify what the first-EXECUTED test
+protects before changing it.
+
+Related: §478 (closed on the same branch), §535.

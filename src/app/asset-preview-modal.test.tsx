@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { AssetPreviewModal } from "./asset-preview-modal";
 import { t } from "./i18n";
 import type { DocumentAsset } from "./document-asset";
+import { rowLabel } from "./row-tokens";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const TINY_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
@@ -48,11 +49,17 @@ describe("AssetPreviewModal — shell", () => {
     expect(await screen.findByRole("dialog", { name: /Alpha/ })).toBeInTheDocument();
   });
 
-  // ★ The ✕ is the SHARED ModalHeader's, named by the existing
-  //   `alertModalClose` key — this component adds no close key of its own.
+  // ★ The ✕ is the SHARED ModalHeader's. §389: this dialog can be open over
+  //   `AssetLibraryModal`'s own bare ✕, so it passes `closeLabel` qualified
+  //   with its own title (`rowLabel(alertModalClose, assetPreviewTitle)`) —
+  //   this component adds no close key of its own.
   it("closes from the shared header's close control", async () => {
     const { onClose } = renderModal();
-    await userEvent.click(await screen.findByRole("button", { name: t("en-US", "alertModalClose") }));
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: rowLabel(t("en-US", "alertModalClose"), t("en-US", "assetPreviewTitle", "Alpha")),
+      }),
+    );
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -288,8 +295,9 @@ describe("AssetPreviewModal — accessible names", () => {
     const dialog = await screen.findByRole("dialog");
     // ★ `scope` is load-bearing: without it the helper counts every button in
     // the document. `minControls` is the MEASURED count for this dialog —
-    // prev, next, plus the shared ModalHeader's ✕ (`alertModalClose`) and its
-    // reset-layout button (`modalResetSize`), which `onResetLayout` renders.
+    // prev, next, plus the shared ModalHeader's ✕ (qualified via
+    // `rowLabel(alertModalClose, title)`, §389) and its reset-layout button
+    // (`modalResetSize`), which `onResetLayout` renders.
     // No `VoiceCommandButton` renders here: `useVoiceCommand()` reads a
     // context whose default is `null` and this test wraps no
     // `VoiceCommandProvider`. Keep the floor exact; a floor set too low

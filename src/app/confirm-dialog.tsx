@@ -32,6 +32,7 @@ import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { INTERACTIVE } from "./interaction-styles";
+import { rowLabel } from "./row-tokens";
 
 export interface ConfirmOptions {
   /** Already-translated body text. May contain newlines (rendered pre-line). */
@@ -126,6 +127,12 @@ export function ConfirmProvider({ lang, children }: ConfirmProviderProps) {
               title={pending.title ?? t(lang, "confirmTitle")}
               titleId={TITLE_ID}
               onClose={() => settle(false)}
+              // §389: this is the shared confirm surface (delete/clear
+              // gates) — it commonly opens from an edit modal's own delete
+              // button (`edit-modal-chrome.tsx`), stacked over that modal's
+              // own bare ✕. Qualify with the SAME title the header renders,
+              // so the two cannot drift.
+              closeLabel={rowLabel(t(lang, "alertModalClose"), pending.title ?? t(lang, "confirmTitle"))}
             />
             <div className="flex flex-col gap-4 p-6">
               <p className="whitespace-pre-line text-sm text-foreground">

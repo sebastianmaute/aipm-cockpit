@@ -51,6 +51,16 @@ describe("project form checkbox-grid captions", () => {
     expectNoLabelBoundToButton();
   });
 
+  it("names a tooltipped field's control with its label alone (open-followups §386)", () => {
+    render(<IdentityPeopleFields {...props} />);
+
+    // Whole-string match. With the tooltip inside the binding <label> the
+    // trigger's text joined the control's name, so this found nothing.
+    expect(screen.getByRole("textbox", { name: t("en-US", "projectCode") })).toBeInTheDocument();
+    // The hint is still reachable, through its own focusable trigger.
+    expect(screen.getAllByRole("button", { name: t("en-US", "infoMore") }).length).toBeGreaterThan(0);
+  });
+
   it("renders Identity types as a named group", () => {
     render(<OptionalDetailsFields {...props} />);
 

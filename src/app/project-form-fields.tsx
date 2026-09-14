@@ -14,7 +14,7 @@
 import { useState } from "react";
 import type React from "react";
 import { FieldError } from "./field-feedback";
-import { FieldGroup, fieldClass } from "./form-controls";
+import { FieldGroup, HintedLabel, fieldClass } from "./form-controls";
 import { IconButton } from "./icon-button";
 import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
@@ -156,20 +156,48 @@ export function Field({
   group?: boolean;
   children: React.ReactNode;
 }) {
-  const caption = (
-    <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-      {label}
-      {required && <span className="text-ui-pink-strong">*</span>}
-      {tooltip && <InfoTooltip text={tooltip} label={t(lang, "infoMore")} />}
-    </span>
-  );
+  const requiredMark = required && <span className="text-ui-pink-strong">*</span>;
+  const hint = tooltip && <InfoTooltip text={tooltip} label={t(lang, "infoMore")} />;
   if (group) {
+    // `FieldGroup`'s aria-label outranks its content, so a hint in the caption
+    // never reaches the group's name.
+    const groupCaption = (
+      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+        {label}
+        {requiredMark}
+        {hint}
+      </span>
+    );
     return (
-      <FieldGroup name={label} caption={caption} className={`block ${className ?? ""}`}>
+      <FieldGroup name={label} caption={groupCaption} className={`block ${className ?? ""}`}>
         {children}
       </FieldGroup>
     );
   }
+  if (hint) {
+    // ★★ Never inside the <label>: the trigger's text would join the
+    //   control's accessible name (open-followups §386). See `HintedLabel`.
+    return (
+      <HintedLabel
+        hint={hint}
+        caption={
+          <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+            {label}
+            {requiredMark}
+          </span>
+        }
+        className={className}
+      >
+        {children}
+      </HintedLabel>
+    );
+  }
+  const caption = (
+    <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+      {label}
+      {requiredMark}
+    </span>
+  );
   return (
     <label className={`block ${className ?? ""}`}>
       {caption}

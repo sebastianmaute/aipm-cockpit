@@ -1,7 +1,7 @@
 // src/app/timelog-panel.test.tsx
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act, waitFor, within } from "@testing-library/react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider } from "./workspace-tab-context";
@@ -162,6 +162,17 @@ function SeedProjectStart({ startDate }: { startDate: string }) {
   return null;
 }
 
+/** Seed a project with an explicit (possibly blank) `code` — used by the §532
+ *  regression below, where TWO projects both carry a blank code. */
+function SeedProjectCode({ code }: { code: string }) {
+  const ws = useWorkspace();
+  useEffect(() => {
+    ws.setProject({ code } as unknown as Parameters<typeof ws.setProject>[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
+
 /** Read-only probe for asserting timelogLinks mutations. */
 function LinksProbe({ testId }: { testId: string }) {
   const { timelogLinks } = useWorkspace();
@@ -172,8 +183,8 @@ function LinksProbe({ testId }: { testId: string }) {
   );
 }
 
-/** Buttons that drive workspace setters AFTER mount (late link hydration /
- *  in-place project switch) so the reconcile edge cases can be exercised. */
+/** Buttons that drive workspace setters AFTER mount (late link hydration) so
+ *  the reconcile edge cases can be exercised. */
 function Controls() {
   const ws = useWorkspace();
   return (
@@ -185,10 +196,42 @@ function Controls() {
           path — a test using the button above can only ever discriminate on the
           customer. Use this one when the assertion is about the selection. */}
       <button data-testid="hydrate-links-999-projects" onClick={() => ws.setTimelogLinks({ ...INITIAL_LINKS, customerId: 999, projectIds: [77] })}>hlp</button>
-      <button data-testid="switch-project-b-empty" onClick={() => {
-        ws.setProject({ code: "proj-b" } as unknown as Parameters<typeof ws.setProject>[0]);
-        ws.setTimelogLinks({ ...INITIAL_LINKS }); // new project: no customerId scope
-      }}>sw</button>
+    </>
+  );
+}
+
+/** §532: the real in-place project-switch signal is the `projectKey` PROP the
+ *  parent (workspace-section.tsx) hands TimelogPanel — re-derived from the
+ *  project registry / Turso project id — NOT `ws.project?.code`, which two
+ *  distinct projects can share (both blank, since O-1 allows a code-less
+ *  project). This harness owns that prop as state so a click can change it in
+ *  the SAME gesture as the workspace's own project switch, mirroring
+ *  production: `ws.project`/`timelogLinks` change together with the parent
+ *  re-rendering TimelogPanel with a new `projectKey`. */
+function SwitchHarness({
+  initialProjectKey,
+  toProjectKey,
+  toProjectCode = "proj-b",
+}: {
+  initialProjectKey: string;
+  toProjectKey: string;
+  toProjectCode?: string;
+}) {
+  const ws = useWorkspace();
+  const [projectKey, setProjectKey] = useState(initialProjectKey);
+  return (
+    <>
+      <button
+        data-testid="switch-project-key"
+        onClick={() => {
+          ws.setProject({ code: toProjectCode } as unknown as Parameters<typeof ws.setProject>[0]);
+          ws.setTimelogLinks({ ...INITIAL_LINKS }); // new project: no customerId scope
+          setProjectKey(toProjectKey);
+        }}
+      >
+        sw
+      </button>
+      <TimelogPanel lang="en-US" projectKey={projectKey} />
     </>
   );
 }
@@ -1437,8 +1480,7 @@ describe("TimelogPanel", () => {
       render(
         <>
           <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 667 }} />
-          <Controls />
-          <TimelogPanel lang="en-US" />
+          <SwitchHarness initialProjectKey="proj-a-key" toProjectKey="proj-b-key" />
         </>,
         { wrapper },
       );
@@ -1446,7 +1488,35 @@ describe("TimelogPanel", () => {
       // Seeded from the persisted scope.
       await waitFor(() => expect(select.value).toBe("667"));
       // Switch project in place → new project has no customerId scope → picker resets.
-      await act(async () => { fireEvent.click(screen.getByTestId("switch-project-b-empty")); });
+      await act(async () => { fireEvent.click(screen.getByTestId("switch-project-key")); });
+      await waitFor(() => expect(select.value).toBe(""));
+    });
+
+    // §532: `ws.project?.code` is blank for BOTH projects (O-1 allows a
+    // code-less project, and a switch between two such projects is the exact
+    // case that collapsed before this fix — both produced the same signal, so
+    // the switch was never detected and the picker kept project A's
+    // selection). The real switch signal is the parent-owned `projectKey`
+    // prop, which differs even though the code does not.
+    it("§532: resets the picker on an in-place switch between two code-less projects", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 667 }} />
+          {/* Project A: blank code. */}
+          <SeedProjectCode code="" />
+          {/* Switch to project B, ALSO blank code — differs only by projectKey. */}
+          <SwitchHarness initialProjectKey="proj-a-key" toProjectKey="proj-b-key" toProjectCode="" />
+        </>,
+        { wrapper },
+      );
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
+      await waitFor(() => expect(select.value).toBe("667"));
+      await act(async () => { fireEvent.click(screen.getByTestId("switch-project-key")); });
       await waitFor(() => expect(select.value).toBe(""));
     });
 

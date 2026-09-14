@@ -25,7 +25,7 @@ describe("TaskTimeTrackingModal", () => {
   test("shows the derived remaining figure as a placeholder when nothing is pinned", () => {
     render(<TaskTimeTrackingModal {...base} onSave={vi.fn()} onClose={vi.fn()} />);
     // 480 - 120 = 360 minutes = "6h" on the Jira working-time basis (8h/day).
-    expect(screen.getByRole("textbox", { name: /time remaining/i })).toHaveAttribute(
+    expect(screen.getByRole("textbox", { name: t("en-US", "taskTimeRemaining") })).toHaveAttribute(
       "placeholder",
       "6h",
     );
@@ -35,7 +35,7 @@ describe("TaskTimeTrackingModal", () => {
     render(
       <TaskTimeTrackingModal {...base} remainingMinutes={90} onSave={vi.fn()} onClose={vi.fn()} />,
     );
-    expect(screen.getByRole("textbox", { name: /time remaining/i })).toHaveValue("1h 30m");
+    expect(screen.getByRole("textbox", { name: t("en-US", "taskTimeRemaining") })).toHaveValue("1h 30m");
   });
 
   test("saving an emptied remaining box stores undefined, never zero", async () => {
@@ -46,7 +46,7 @@ describe("TaskTimeTrackingModal", () => {
     render(
       <TaskTimeTrackingModal {...base} remainingMinutes={90} onSave={onSave} onClose={vi.fn()} />,
     );
-    await userEvent.clear(screen.getByRole("textbox", { name: /time remaining/i }));
+    await userEvent.clear(screen.getByRole("textbox", { name: t("en-US", "taskTimeRemaining") }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(onSave).toHaveBeenCalledWith({ spentMinutes: 120, remainingMinutes: undefined });
   });
@@ -94,7 +94,7 @@ describe("TaskTimeTrackingModal", () => {
     render(
       <TaskTimeTrackingModal {...base} remainingMinutes={0} onSave={vi.fn()} onClose={vi.fn()} />,
     );
-    expect(screen.getByRole("textbox", { name: /time remaining/i })).toHaveValue("0m");
+    expect(screen.getByRole("textbox", { name: t("en-US", "taskTimeRemaining") })).toHaveValue("0m");
   });
 
   test("disables Save while a box holds unparsable text, and re-enables it on repair", async () => {
@@ -105,7 +105,7 @@ describe("TaskTimeTrackingModal", () => {
     render(
       <TaskTimeTrackingModal {...base} remainingMinutes={90} onSave={onSave} onClose={vi.fn()} />,
     );
-    const remaining = screen.getByRole("textbox", { name: /time remaining/i });
+    const remaining = screen.getByRole("textbox", { name: t("en-US", "taskTimeRemaining") });
     await userEvent.clear(remaining);
     await userEvent.type(remaining, "4 hours");
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
