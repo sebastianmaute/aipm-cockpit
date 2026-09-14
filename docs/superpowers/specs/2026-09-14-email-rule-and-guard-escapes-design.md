@@ -23,7 +23,7 @@ commit message, MR description and closure line writes the pair as "§323/#238" 
 
 ## Scope
 
-**In:** parts 1–7 below (Part 7's design is PENDING USER DECISION).
+**In:** parts 1–7 below.
 
 **Out:**
 - **§299** (undo/redo restore writes no completion/reopening entry). It is an audit-completeness design
@@ -56,7 +56,7 @@ commit message, MR description and closure line writes the pair as "§323/#238" 
    `FieldError`.
 2. **Copied stored emails** (ResourcePicker selection, assign owner, RAID bulk reassign, template linking):
    allowed, never refused; the editor flags the value. PLUS: when the email is corrected in the person record,
-   the correction populates to the records it was copied to — see Part 7, PENDING USER DECISION.
+   the correction populates to the records it was copied to — see Part 7 (settled 2026-09-14).
 3. **Task inline assignee-email cell:** a refused edit reverts to the stored value and shows the existing
    error toast with the invalid-email message.
 4. **Explicit-import notice** fires on: file open/switch, template apply, new project from template, AI import
@@ -497,10 +497,9 @@ New normaliser module; `sanitize-entities.ts`, `sanitize-records.ts` (line-neutr
 
 ---
 
-## 7. Propagation of corrected person emails — PENDING USER DECISION
+## 7. Propagation of corrected person emails — settled 2026-09-14
 
-Full research: session scratchpad `propagation-research.md`. The design below is the recommendation;
-the questions at the end are the user's to answer before the plan is written.
+Full research: session scratchpad `propagation-research.md`. The design below is the approved design.
 
 ### Current behaviour at HEAD (evidence)
 
@@ -527,62 +526,142 @@ the questions at the end are the user's to answer before the plan is written.
   `backfillTaskResourceFks` stamp an FK from a matching cached email at load, so most unlinked-but-matching rows
   gain an FK on the next load anyway.
 
-### Options
+### User decisions (verbatim outcomes, approved 2026-09-14)
 
-- **A (recommended) — FK-linked rows only, synchronously in the save.** A pure, i18n-free helper (for example
-  `propagateResourceEmail(prev, next, arrays)` in a new module) returns NEW arrays: every row whose FK equals the
-  resource id AND whose cached email equals, trimmed and case-insensitively, the resource's OLD primary `email`
-  gets the new value. Jira-synced tasks (`jiraKey`) are skipped. Both `handleSaveResource` and AI
-  `updateResource` call it, so a correction propagates whichever path makes it. The resource edit and every
-  propagated row are ONE `captureComposite` entry (`capturePart({ edited })` per array), applied with functional
-  setters in the same tick.
-- **B — A plus old-address match on rows with no FK**, guarded like the delete cascade (skip when another
-  resource shares the old address). Reaches the conversion/seed copies, but a shared team mailbox, an
-  address-book contact or a free-text assignee carrying the same address would be rewritten as if it were this
-  person — and the load-time FK backfill already links most such rows, so the gain is small.
+- **Trigger:** ANY change of a person's primary email propagates (answers Q1(a); Q1(b) — only when the old
+  email was not write-safe — is rejected).
+- **Records reached:** tasks (excluding Jira-synced tasks, `jiraKey` set), RAID owner email, absences, shifts,
+  stakeholders, contact persons (answers Q4(a)). NEVER escalations — they record who was actually contacted.
+- **Notification:** the person save plus all copy updates are ONE undo entry; the existing Undo toast names the
+  count of linked records updated, via a NEW EN+DE i18n string carrying a count placeholder (answers Q6(a)).
+  DE is patched with the existing node utf8 script — never Edit/Write `i18n.de.ts` directly (Global
+  constraints, i18n).
 
-### Constraints the design must meet (either option)
+### Controller rulings
+
+- **Ruling: targets are FK-linked rows only (option A); option B is rejected** — address matching instead of
+  FK matching risks rewriting a shared team mailbox, an address-book contact, or a free-text row that merely
+  carries the same address as this person, and the load-time backfill (`backfillResourceFks`,
+  `backfillTaskResourceFks`, `resource-foundation.ts`) already links most unlinked-but-matching rows on the
+  next load, so option B's marginal gain is small — cost if wrong: an address match would silently overwrite
+  someone else's stored email on a shared mailbox, which is worse data loss than the stale copy this part
+  fixes. (Answers Q2(a).)
+- **Ruling: among linked rows, only those whose cached email still equals the resource's OLD primary email,
+  compared trimmed and case-insensitively, get the correction** — this is the codebase's existing case-folding
+  convention for email equality (`(s ?? "").trim().toLowerCase()`, used throughout `resource-foundation.ts`'s
+  `emailToResourceId`/name-and-email index builders and `purgeCalendarFor`'s case-folded match in
+  `use-resource-directory.ts`), so the new rule matches how every existing FK/email match in this codebase
+  already compares — why: overwriting every linked row regardless of its current value would silently discard
+  a user's deliberate per-record override, the same reasoning `absence-edit-modal.tsx`'s changed-only rule
+  already uses — cost if wrong: an untrimmed or case-sensitive compare leaves stale copies uncorrected whenever
+  storage or an editor varies case/whitespace on load, defeating the propagation with no visible symptom.
+  (Answers Q3(a); a blank cached email does not equal a non-blank old value, so it is left untouched — Q3(c)
+  is rejected.)
+- **Ruling: saved templates and other projects are not updated** — propagation is a workspace-scoped save-time
+  helper with no access to template storage or other projects' state, and reaching them needs a second write
+  path with its own undo/token story that nobody asked for — cost if wrong: rewriting data the user never
+  touched in this session, outside the loaded workspace, silently. (Answers Q5(a).)
+- **Ruling: the activity log keeps the single existing `resource.updated` entry; propagated rows get no entry
+  of their own** — matches the precedent `purgeCalendarFor`'s delete cascade already sets (one
+  `resource.deleted` entry covers its whole cascade), and avoids N audit rows for a mechanical copy — cost if
+  wrong: an audit reviewer sees no per-row evidence from this save alone, but the undo entry's before-images
+  already carry that detail if it is ever needed. (Answers Q7(a).)
+- **Ruling: `ContactPersonsControl`'s add refuses only a TYPED or overtyped email, never one that equals the
+  picked resource's or contact's stored email** — this is Part 1 decision 2's copy exemption, which the
+  contact-person add already implements ("Settings inputs and contact persons") — cost if wrong: refusing a
+  copied stored value blocks the very selection the picker exists for, and exempting a typed value lets an
+  unsafe address back in through the one field decision 1 locks down. (Resolves former Open question 2 —
+  confirmed as written.)
+- **Ruling: the task inline assignee-email cell's email always comes from the picker, so a same-cell refusal
+  may be unreachable under the copy exemption; the plan verifies reachability from code and, if unreachable,
+  tests the copy exemption in its place rather than an unreachable refusal** — a refusal test whose refusal
+  branch can never fire is dead weight that reads as coverage it is not — cost if wrong: shipping a test for
+  an unreachable branch passes every run while proving nothing (this repo's session memory already names that
+  failure mode). (Resolves former Open question 3.)
+- **Ruling: ONE shared pure, i18n-free helper computes the propagation; both `handleSaveResource`
+  (`use-resource-directory.ts`) and AI `updateResource` (`use-chat-dispatcher.ts`) call it, pinned by a parity
+  test asserting the two paths produce identical resulting arrays for the same before/after resource** — a
+  second independent implementation is exactly the per-path drift Part 1's dual-use split (task 1) exists to
+  prevent — cost if wrong: the human editor and the AI tool silently diverge on which rows get corrected,
+  reintroducing the drift this batch's own global constraints forbid.
+  - **Six write paths:** the helper is a pure state change (`(prev, next, arrays) => newArrays`, no
+    persistence call) — it satisfies the six-write-paths constraint the same way every other propagated value
+    does, by riding existing columns: JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB all persist whatever is
+    in the arrays already, with no new column and no new per-backend code.
+  - **Popout guard, verified:** AI `updateResource` already throws `readOnlyError()` on `args.isReadOnly` (the
+    popout guard) before its `sanitizeResource`/merge step, so the helper — called after that guard — inherits
+    it for free. The human path inherits Part 4's read-only undo stack the same way if the resource editor is
+    ever reachable in a popout; the plan still verifies that reachability from code.
+  - **Write-concurrency tokens, verified:** the resource side needs no new check — the `update_resource` TOOL
+    WRAPPER (`chat-tools.ts`, `case "update_resource"`) already calls `requireToken("resource", current, input,
+    …)` before the dispatcher runs. Every row the helper TOUCHES gets a changed CSV projection, so
+    `entityToken` invalidates any outstanding `update_*` token the model still holds for that row — `task`,
+    `raid`, `stakeholder` and `absence` are `TokenEntity` members (`ai-entity-token.ts`) and are affected;
+    `shift` and `contactPerson` are not `TokenEntity` members (no `update_*` tool exists for either) and carry
+    no token to invalidate. This is the safe direction: a stale token is refused later, never silently
+    accepted.
+- **Ruling: `ContactPerson` participates in the same `captureComposite` via a hand-rolled whole-array
+  before/after fragment, not `capturePart`** (`capturePart<T extends { id: number }>` requires an id and
+  `ContactPerson` has none) — `CompositeFragment` (`undo/use-undo-stack.ts`) is just `{ isPrimary, restore }`,
+  and `capturePart` is one producer of it, not the only possible one; the fragment's `restore` swaps the whole
+  `contactPersons` array between before/after snapshots, unarmed like `captureFieldPart` (a plain edit removes
+  no rows, so nothing needs a one-shot destructive bypass) — why this ruling exists: excluding `ContactPerson`
+  would contradict the decision that contact persons are reached, and this file's own constraints list had
+  flagged the id-less array as unresolved ("needs its own before-image … or it is excluded") — cost if wrong:
+  an id-keyed capture either drops contact-person changes from undo (a corrected contact stays stuck after
+  undo) or does not compile against a type with no `id`.
+
+### Records reached — settled matrix
+
+| Field | FK column | Reached | Guard |
+|---|---|---|---|
+| `Task.assigneeEmail` | `resourceId` | yes | skip when `jiraKey` is set (Jira-synced, read-only, re-synced) |
+| `RaidItem.ownerEmail` | `ownerResourceId` | yes | — |
+| `Absence.assigneeEmail` | `resourceId` | yes | — |
+| `Shift.assigneeEmail` | `resourceId` | yes | — |
+| `Stakeholder.email` | `resourceId` | yes | — |
+| `ContactPerson.email` | `resourceId` (set only when picked from the registry) | yes | whole-array `CompositeFragment`, not `capturePart` (no id) |
+| `RaidEscalation.toEmail` | `toResourceId` | NEVER | history record — rewriting falsifies who was mailed |
+
+### Constraints the design meets
 
 - **Six write paths:** no new field; propagated values ride existing columns, so all six persist them.
-- **Scope:** the loaded workspace only. Other projects and saved templates are not reached.
+- **Scope:** the loaded workspace only. Other projects and saved templates are not reached (ruling above).
 - **Undo:** one entry for resource plus copies. When nothing propagates, the existing `captureFieldEdit`
-  capture stays as it is. `pushEntry` shows ONE Undo toast, and a second toast would replace it (single slot).
-- **`ContactPerson`** has no id and lives in project meta, so `capturePart` cannot hold it; including it needs
-  its own before-image in the same composite, or it is excluded.
-- **Escalations are history** (who was mailed, when); rewriting `toEmail` falsifies the record.
-- **Popout:** propagation lives inside the save and inherits its guard; with Part 4 the capture is a no-op in
-  a popout. The plan verifies that the resource save is not reachable in a popout.
-- **AI concurrency tokens:** `entityToken` hashes the CSV projection, so a propagated email invalidates the
-  outstanding `update_*` tokens for the touched rows — refused, never silently accepted.
+  capture stays as it is. `pushEntry` shows ONE Undo toast, and a second toast would replace it (single slot);
+  its current text (`t(lang, "undoToastEdit", primaryCount)`, `i18n.ts`) only ever takes the composite's
+  `primaryCount` (1 for a resource edit), so it cannot name the propagated-row count on its own. The plan adds
+  one new key (for example `undoToastResourceEmailPropagated`, EN "Edited 1 item and updated {0} linked
+  record(s)", `{0}` = propagated count) used in place of `undoToastEdit` for this composite only when the
+  propagated count is greater than zero; when nothing propagates the existing text is unchanged.
+- **Escalations are history** (who was mailed, when); rewriting `toEmail` falsifies the record. Never reached
+  (settled matrix above).
+- **Popout and AI concurrency tokens:** see the shared-helper ruling above (both verified from code).
 - **Outlook:** the plan checks whether an `assigneeEmail` change on an absence/shift with `outlookEventId`
   triggers a re-push.
 - **Interplay with Part 1:** a propagated value is the corrected, write-safe value, so it passes the rule; a
   correction TO an unsafe value is refused at the resource editor before anything propagates.
 
-### Tests (once decided)
+### Tests
 
-- **ADD:** pure helper unit tests — FK match with equal old cache updates; different cache untouched; blank
-  cache per decision; no FK untouched (option A); twin-shared address untouched (option B); `jiraKey` skipped;
-  escalations untouched; unchanged email is a no-op returning the same references. Hook test: one save
-  produces one undo entry and one undo restores the resource AND every copy. AI `update_resource` propagates
-  identically. A popout seam case if the save is reachable there.
-- **RECOMPUTE:** `use-resource-directory` save tests that assert a single `captureFieldEdit` call when the save
-  now propagates.
-
-### Questions for the user (recommended option first)
-
-1. **When does it propagate?** (a) on every change of the primary email · (b) only when the old email was not
-   write-safe.
-2. **Which rows?** (a) FK-linked rows only (option A) · (b) FK plus old-address match with a twin guard
-   (option B).
-3. **Among linked rows?** (a) only rows whose cached email equals the old value · (b) every linked row,
-   overwriting a different per-record address · (c) (a) plus rows whose cached email is blank.
-4. **Which records?** (a) tasks, RAID owners, absences, shifts, stakeholders and contact persons; never
-   escalations · (b) the same without contact persons · (c) escalations too.
-5. **Saved templates and other projects?** (a) not updated · (b) also rewrite stored templates.
-6. **How is the user told?** (a) the one Undo toast names the count · (b) a separate info toast (collides with
-   the Undo toast) · (c) silent.
-7. **Activity log?** (a) the existing single `resource.updated` entry · (b) one entry per propagated row.
+- **ADD:** pure helper unit tests — FK match with equal-old-value (trimmed, case-insensitive) cache updates;
+  different cache untouched; blank cache untouched; no FK untouched; `jiraKey` task skipped; escalations
+  untouched; unchanged email is a no-op returning the same references. Parity test: `handleSaveResource` and
+  AI `updateResource` produce identical resulting arrays for the same before/after resource. Hook test: one
+  save produces ONE undo entry (`captureComposite`, including the `ContactPerson` whole-array fragment) and
+  one undo restores the resource AND every copy, `ContactPerson` included. Toast test: the count-bearing key
+  fires only when the propagated count is greater than zero; the plain `undoToastEdit` text is unchanged when
+  nothing propagates. i18n test: the new key's DE string is byte-verified after the node utf8 patch script
+  (Global constraints), and `npx tsc --noEmit` still holds EN/DE key parity. Token test: after a propagating
+  AI `update_resource` call, a stale `expectedToken` on a touched task/raid/stakeholder/absence row is refused
+  by its own `update_*` tool. Activity-log test: a propagating save still logs exactly one `resource.updated`
+  entry. Popout seam case in `task-manager.popout-guard.test.tsx` if the resource save is reachable there
+  (per the shared-helper ruling); otherwise a test pinning that it is not.
+- **RECOMPUTE:** `use-resource-directory` save tests that assert a single `captureFieldEdit` call — a
+  propagating save now asserts `captureComposite` with one part per touched array (plus the resource part);
+  a non-propagating save keeps the existing `captureFieldEdit` assertion. The AI `updateResource` tests
+  asserting a single-part `captureComposite` (`chat-tools.test.ts`) gain propagating-case variants asserting
+  the additional parts.
 
 ---
 
@@ -622,13 +701,6 @@ the questions at the end are the user's to answer before the plan is written.
 ## Open questions
 
 Q1–Q4 were answered by the second-round decisions and Q5–Q8 by the controller rulings (see "User decisions").
-Still open:
-
-1. **Part 7 — the seven propagation questions** at the end of Part 7. PENDING USER DECISION; the plan must not
-   start Part 7 until they are answered.
-2. **Copy exemption vs contact-person refusal.** Decision 1 refuses a contact-person add with an unsafe email;
-   decision 2 exempts a copied stored email. This spec resolves it as: the add is refused only for a typed or
-   overtyped email, never for one equal to the picked resource's or contact's stored email. Confirm.
-3. **Task inline cell reachability.** The cell's email comes from the picker, so under the copy exemption a
-   refusal may be unreachable (Part 1, "Task inline cell"). If the plan proves it unreachable, is pinning the
-   exemption (no refusal test) acceptable for decision 3?
+Part 7's seven propagation questions were answered 2026-09-14 (see Part 7, "User decisions" and "Controller
+rulings"); the former open items 2 (copy exemption vs contact-person refusal) and 3 (task inline cell
+reachability) are resolved by Part 7's controller rulings. None open.
