@@ -198,6 +198,51 @@ describe("ResourceEditModal", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 
+  // Fix round 2, IMPORTANT — judge (and flag) the value that would be
+  // STORED: the primary email is capped at EMAIL_MAX before ever reaching
+  // `emailWriteRefusal`. A >EMAIL_MAX value can carry an unsafe suffix
+  // truncation silently drops — capping first shows a value that is SAFE.
+  it("saves a >EMAIL_MAX email whose unsafe suffix is dropped by the EMAIL_MAX cap", () => {
+    const onSave = vi.fn();
+    setupFull({ resource: { ...base, email: "old@x.com" }, onSave });
+    // 314 + "@x.com" (6) = 320 = EMAIL_MAX; the ",evil@evil.com" (14 more)
+    // suffix is entirely past the cap and never reaches the write rule.
+    const value = "a".repeat(314) + "@x.com" + ",evil@evil.com";
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value } });
+    expect(screen.queryByText(t("en-US", "errorEmailDelimiter"))).toBeNull();
+    expect(screen.getByDisplayValue(value)).not.toHaveAttribute("aria-invalid");
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  // The other side of the same probe: the delimiter sits WITHIN the first
+  // EMAIL_MAX characters, so capping does not remove it — still refused.
+  it("refuses a >EMAIL_MAX email whose delimiter survives the EMAIL_MAX cap", () => {
+    const onSave = vi.fn();
+    setupFull({ resource: { ...base, email: "old@x.com" }, onSave });
+    // Comma sits at index 200, well inside the first EMAIL_MAX (320) chars;
+    // capping to 320 keeps a valid-format-but-delimiter-unsafe string.
+    const value = "a".repeat(200) + "," + "b".repeat(100) + "@x.com" + "z".repeat(50);
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value } });
+    expect(screen.getByDisplayValue(value)).toHaveAttribute("aria-invalid", "true");
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorEmailDelimiter"));
+  });
+
+  // Fix round 2, MINOR — an UNRELATED banner error (blank name) must never
+  // hide the flag: the stored unsafe email is untouched.
+  it("keeps the flag visible while an unrelated banner error is showing", () => {
+    const onSave = vi.fn();
+    setupFull({ resource: { ...base, firstName: "", lastName: "", email: "a,b@x.com" }, onSave });
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    const alerts = screen.getAllByRole("alert").map((a) => a.textContent);
+    expect(alerts).toContain(t("en-US", "resourceErrorName"));
+    expect(alerts).toContain(t("en-US", "errorEmailDelimiter"));
+    expect(alerts).toHaveLength(2);
+  });
+
   // §422 fix round 2 (final-review finding 1) — mirrors updateResource's
   // "not already stored" exclusion: an echoed legacy comma/semicolon address
   // must not block a save that touches an unrelated field.

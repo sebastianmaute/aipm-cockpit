@@ -93,7 +93,7 @@ export function ResourceEditModal({
       setError(t(lang, "resourceErrorName"));
       return;
     }
-    const email = adj.track(describeTextCap((draft.email ?? "").trim(), EMAIL_MAX)) || undefined;
+    const email = adj.track(cappedEmailReport) || undefined;
     const emailRefusal = emailRefusalMessage(lang, email ?? "", resource?.email);
     if (emailRefusal) {
       setError(emailRefusal);
@@ -138,6 +138,16 @@ export function ResourceEditModal({
   }
 
   if (!draft) return null;
+
+  // Judge (and flag) the value that would be STORED, not the raw typed one:
+  // the primary email is capped at EMAIL_MAX before it ever reaches
+  // `emailWriteRefusal` in `handleSubmit`, below — a >EMAIL_MAX value can
+  // carry an unsafe suffix (a second, delimiter-joined address) that
+  // truncation silently drops, so judging the raw string would show a flag
+  // for a save that actually succeeds SAFELY, or worse, miss a refusal the
+  // capped value still earns. Fix round 2.
+  const cappedEmailReport = describeTextCap((draft.email ?? "").trim(), EMAIL_MAX);
+  const cappedEmail = cappedEmailReport.value || undefined;
 
   const title = isNew ? t(lang, "resourceNewTitle") : t(lang, "resourceEditTitle");
 
@@ -304,18 +314,20 @@ export function ResourceEditModal({
                   const trimmed = describeTextCap(e.target.value, EMAIL_MAX).value.trim();
                   update("email", trimmed || undefined);
                 }}
-                aria-invalid={emailFieldInvalid(draft.email) || undefined}
+                aria-invalid={emailFieldInvalid(cappedEmail) || undefined}
                 aria-describedby={joinDescribedBy(
                   "resource-email-counter",
-                  emailFlagDescribedBy("resource-email-error", lang, draft.email, error),
+                  emailFlagDescribedBy("resource-email-error", lang, cappedEmail, error),
                 )}
               />
               <CharCounter value={draft.email ?? ""} max={EMAIL_MAX} id="resource-email-counter" lang={lang} />
               {/* Steps aside ONLY while `error` (the banner below) shows this
                   SAME refusal message — an unrelated banner error (a blank
-                  name) must never hide it (IMPORTANT 1, fix round 1). */}
-              {emailFlagVisible(lang, draft.email, error) && (
-                <EmailFieldError id="resource-email-error" lang={lang} value={draft.email} />
+                  name) must never hide it (IMPORTANT 1, fix round 1). Judges
+                  the CAPPED value, matching what `handleSubmit` would store
+                  (IMPORTANT, fix round 2). */}
+              {emailFlagVisible(lang, cappedEmail, error) && (
+                <EmailFieldError id="resource-email-error" lang={lang} value={cappedEmail} />
               )}
             </HintedLabel>
           )}

@@ -112,6 +112,23 @@ describe("shift assignee email follows the changed-only write rule", () => {
     fireEvent.submit(screen.getByDisplayValue("a,b@x.com").closest("form")!);
     expect(onSave).not.toHaveBeenCalled();
   });
+
+  // Fix round 2, MINOR — an UNRELATED banner error (blank assignee) must
+  // never hide the flag: the stored unsafe email is untouched.
+  it("keeps the flag visible while an unrelated banner error is showing", () => {
+    const onSave = vi.fn();
+    setup({
+      onSave,
+      isNew: false,
+      shift: { id: 1, assignee: "", assigneeEmail: "a,b@x.com", hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0] } as Shift,
+    });
+    fireEvent.submit(screen.getByDisplayValue("a,b@x.com").closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    const alerts = screen.getAllByRole("alert").map((a) => a.textContent);
+    expect(alerts).toContain(t("en-US", "shiftErrorAssigneeRequired"));
+    expect(alerts).toContain(t("en-US", "errorEmailDelimiter"));
+    expect(alerts).toHaveLength(2);
+  });
 });
 
 describe("ShiftEditModal — panel sizing", () => {

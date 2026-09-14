@@ -207,6 +207,25 @@ describe("stakeholder email follows the changed-only write rule", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  // Fix round 2, MINOR — an UNRELATED banner error (blank name) must never
+  // hide the flag: the stored unsafe email is untouched.
+  it("keeps the flag visible while an unrelated banner error is showing", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "a,b@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    const alerts = screen.getAllByRole("alert").map((a) => a.textContent);
+    expect(alerts).toContain(t("en-US", "raidErrorTitleRequired"));
+    expect(alerts).toContain(t("en-US", "errorEmailDelimiter"));
+    expect(alerts).toHaveLength(2);
+  });
+
   // Fix round 1, IMPORTANT 2 — the value that would be STORED must be judged,
   // not the raw typed one: `sanitizeStakeholder` caps email at BUDGET_NAME_MAX
   // (200). Capping at 200 removes the trailing delimiter, leaving a SAFE
