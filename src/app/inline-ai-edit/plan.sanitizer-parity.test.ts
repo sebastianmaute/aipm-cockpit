@@ -11,6 +11,7 @@ import {
   dropUnacceptedRaidFields,
   dropUnacceptedResourceFields,
   dropUnacceptedStakeholderFields,
+  findTornEmail,
   refuseInvalidAbsenceEmail,
   sanitizeAbsence,
   sanitizeChangeItem,
@@ -447,8 +448,16 @@ const changeReader: StoredReader = (field, value) => {
  *  `plan.write-path-sweep.test.ts`, which drives the dispatcher and reads the
  *  live workspace back; the source assertion below is what keeps the two from
  *  drifting apart silently. */
+/** ★★ §422 — the SAME merge-site guard `updateResource`/`createResource` runs
+ *  BEFORE `sanitizeResource`, composed here for the reason `absenceReader`
+ *  composes `refuseInvalidAbsenceEmail`: a torn `emails` value never reaches
+ *  the sanitizer in production, so a reader that skips straight to
+ *  `sanitizeResource` reports an apply WRITE the real writer never makes.
+ *  `RES_BASE` carries no `emails`, so the stored list is `undefined` — the
+ *  same "no stored list" `findTornEmail` sees from `createResource`. */
 const resourceReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedResourceFields({ [field]: value });
+  if (findTornEmail(patch.emails, undefined) !== undefined) return null;
   const out = sanitizeResource({ ...RES_BASE, ...patch });
   return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
 };

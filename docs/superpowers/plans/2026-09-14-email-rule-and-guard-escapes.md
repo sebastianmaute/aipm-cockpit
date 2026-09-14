@@ -87,6 +87,7 @@
 - Modify: `src/app/use-chat-dispatcher.ts` (two §422 throw messages chosen by refusal kind)
 - Create: `src/app/sanitize-core.email-rule.test.ts`
 - Test (RECOMPUTE): `src/app/inline-ai-edit/emails-roundtrip.test.ts`, `src/app/inline-ai-edit/emails-write-parity.test.ts`
+- Test (RECOMPUTE, fix round 1): `src/app/inline-ai-edit/plan.sanitizer-parity.test.ts` — `resourceReader` composes `findTornEmail` over the `emails` field, the same merge-site guard `updateResource`/`createResource` run, so preview⇔write parity for `resource.emails` is pinned in THIS task, not deferred to Task 2 (controller ruling, fix round 1).
 
 **Interfaces:**
 - Consumes: `isValidEmail`, `isDelimiterSafeEmail` (unchanged).
@@ -106,8 +107,8 @@ git grep -n "emails" -- "src/**/*.test.*" | grep -v "@"
 - ADD `src/app/sanitize-core.email-rule.test.ts` (below).
 - RECOMPUTE `inline-ai-edit/emails-roundtrip.test.ts`: `findTornEmail("x,y@z.com", ["a,b@x.com"])` becomes `"x"` (split member `"x"` is new and not an address); `findTornEmail("a,b@x.com", undefined)` becomes `"a"`. `findTornEmail("a@x.com, b@y.com", ["a@x.com"])` stays `undefined`. Every ARRAY case keeps its value.
 - RECOMPUTE `inline-ai-edit/emails-write-parity.test.ts`: `"none/stringNewComma"`, `"safe/stringNewComma"`, `"unsafe/stringNewComma"` join `EXPECT_REJECTED`.
-- Must stay green unchanged: `resource-edit-modal.test.tsx` (its delimiter cases still show `resourceErrorEmailDelimiter`), `use-chat-dispatcher.test.tsx` §422 cases (match `/emails/`), `plan.test.ts`.
-- **Plan defect, fixed here (found running the census against the verbatim Step 3 implementation):** `plan.sanitizer-parity.test.ts` does NOT stay green after Task 1 alone, so it is removed from the "must stay green unchanged" line above. Its `resource: every diffField previews what apply stores` case fails with 5 mismatches: the STRING branch now rejects a new split member that is not `isWriteSafeEmail`, so `describeEntityCalls`'s preview refuses non-email fuzz probes (a 6000-char string, surrogate-straddling strings, a padded string, a CRLF multiline string) on `resource.emails`, while `resourceReader` still calls raw `sanitizeResource` and writes them untouched — that reader does not yet know the new rule. This is exactly the gap Task 2's `resourceReader` MIGRATE (composing `refuseEmailWrite`, see Task 2's own entry for this file) closes, so the file is expected RED between Task 1 landing and Task 2 landing. Verified by running it standalone after Task 1's implementation, before Task 2 starts.
+- Must stay green: `resource-edit-modal.test.tsx` (its delimiter cases still show `resourceErrorEmailDelimiter`), `use-chat-dispatcher.test.tsx` §422 cases (match `/emails/`), `plan.test.ts`, `plan.sanitizer-parity.test.ts` (RECOMPUTE `resourceReader`, see Files above — GREEN at Task 1, not deferred).
+- **Plan defect, fixed here (found running the census against the verbatim Step 3 implementation; corrected again in fix round 1 after a review caught the first correction's own error):** the original brief claimed `plan.sanitizer-parity.test.ts` stays green unchanged after Task 1 alone. It does not: the STRING branch's new rejection of a non-write-safe split member makes `describeEntityCalls`'s preview refuse non-email fuzz probes (a 6000-char string, surrogate-straddling strings, a padded string, a CRLF multiline string) on `resource.emails`, while `resourceReader` called raw `sanitizeResource` and wrote them untouched. ★★★ A FIRST FIX ROUND HERE WRONGLY SAID TASK 2 CLOSES THIS GAP — it does not: Task 2's `resourceReader` migration (see Task 2's own entry) composes `refuseEmailWrite` for the SCALAR `resource.email` field only, and Task 2's self-review matrix credits `Resource.emails — all boundaries` to Task 1 alone. Global constraint: preview⇔write parity is pinned in the SAME task that adds the write check, so the actual fix is in Task 1: `resourceReader` composes `findTornEmail(patch.emails, undefined)` (mirroring the production merge-site guard, exactly as `absenceReader` composes `refuseInvalidAbsenceEmail`) and returns `null` on a torn value, closing the gap here rather than deferring it. Task 2's own `resourceReader` snippet is amended (see Task 2) to KEEP this composition when it adds the scalar `email` refusal, not replace it.
 - The second grep lists tests that pass `emails` members without `@`. For each: if it is a NEW write through a boundary, MIGRATE it to a real address; if it only seeds stored state, no change. Record the labels in the commit body. (Verified for Task 1: every `emails` member across the second grep's hits already carries `@`, or the array is empty — no MIGRATE needed.)
 
 - [ ] **Step 1: Write the failing tests**
@@ -353,10 +354,35 @@ const EXPECT_REJECTED = new Set([
 
 and extend the comment above it: "…or a string whose split yields a new member that is not an address."
 
+- [ ] **Step 5b: Compose the list rule into `plan.sanitizer-parity.test.ts`'s `resourceReader` (controller ruling, fix round 1)**
+
+`src/app/inline-ai-edit/plan.sanitizer-parity.test.ts`: add `findTornEmail,` to the `../sanitize` import list (beside `dropUnacceptedStakeholderFields,`). Replace
+
+```ts
+const resourceReader: StoredReader = (field, value) => {
+  const patch = dropUnacceptedResourceFields({ [field]: value });
+  const out = sanitizeResource({ ...RES_BASE, ...patch });
+  return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
+};
+```
+
+with
+
+```ts
+const resourceReader: StoredReader = (field, value) => {
+  const patch = dropUnacceptedResourceFields({ [field]: value });
+  if (findTornEmail(patch.emails, undefined) !== undefined) return null;
+  const out = sanitizeResource({ ...RES_BASE, ...patch });
+  return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
+};
+```
+
+`RES_BASE` carries no `emails` key, so the stored list is `undefined` — the same "no stored list" `findTornEmail` sees from `createResource`, and mirrors how `absenceReader` composes `refuseInvalidAbsenceEmail` over its own patch before calling `sanitizeAbsence`. This closes the preview⇔write parity gap in THIS task (global constraint: the same task that gains a write check pins the matching `describeEntityCalls` rejection) rather than deferring it to Task 2.
+
 - [ ] **Step 6: Run the tests**
 
-Run: `npx vitest run src/app/sanitize-core.email-rule.test.ts src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/inline-ai-edit/emails-write-parity.test.ts src/app/resource-edit-modal.test.tsx src/app/use-chat-dispatcher.test.tsx --maxWorkers=1 --reporter=dot > "$LOG/t1.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$LOG/t1.log"`
-Expected: EXIT=0, `Test Files 5 passed (5)`.
+Run: `npx vitest run src/app/sanitize-core.email-rule.test.ts src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/inline-ai-edit/emails-write-parity.test.ts src/app/inline-ai-edit/plan.sanitizer-parity.test.ts src/app/inline-ai-edit/plan.test.ts src/app/resource-edit-modal.test.tsx src/app/use-chat-dispatcher.test.tsx --maxWorkers=1 --reporter=dot > "$LOG/t1.log" 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " "$LOG/t1.log"`
+Expected: EXIT=0, `Test Files 7 passed (7)`.
 
 - [ ] **Step 7: Mutation-check the list rule**
 
@@ -366,7 +392,7 @@ Edit `isNewUnsafe`'s `!isWriteSafeEmail(e)` to `!isDelimiterSafeEmail(e)`; rerun
 
 ```bash
 npx tsc --noEmit > "$LOG/tsc.log" 2>&1; echo "EXIT=$?"; grep -c "error TS" "$LOG/tsc.log"
-npx eslint --max-warnings=0 src/app/sanitize-core.ts src/app/sanitize-core.email-rule.test.ts src/app/resource-edit-modal.tsx src/app/use-chat-dispatcher.ts src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/inline-ai-edit/emails-write-parity.test.ts; echo "EXIT=$?"
+npx eslint --max-warnings=0 src/app/sanitize-core.ts src/app/sanitize-core.email-rule.test.ts src/app/resource-edit-modal.tsx src/app/use-chat-dispatcher.ts src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/inline-ai-edit/emails-write-parity.test.ts src/app/inline-ai-edit/plan.sanitizer-parity.test.ts; echo "EXIT=$?"
 npm run size:check > "$LOG/size.log" 2>&1; echo "EXIT=$?"
 ```
 Expected: 0 `error TS`, EXIT=0 for each.
@@ -376,8 +402,8 @@ Expected: 0 `error TS`, EXIT=0 for each.
 Subject `feat: one changed-only email write rule and its list form`; the body names the three predicates and justifies each RECOMPUTE.
 
 ```bash
-git add src/app/sanitize-core.ts src/app/sanitize-core.email-rule.test.ts src/app/resource-edit-modal.tsx src/app/use-chat-dispatcher.ts src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/inline-ai-edit/emails-write-parity.test.ts
-git commit --only src/app/sanitize-core.ts src/app/sanitize-core.email-rule.test.ts src/app/resource-edit-modal.tsx src/app/use-chat-dispatcher.ts src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/inline-ai-edit/emails-write-parity.test.ts -F "$LOG/msg-t1.txt"; echo "EXIT=$?"
+git add src/app/sanitize-core.ts src/app/sanitize-core.email-rule.test.ts src/app/resource-edit-modal.tsx src/app/use-chat-dispatcher.ts src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/inline-ai-edit/emails-write-parity.test.ts src/app/inline-ai-edit/plan.sanitizer-parity.test.ts
+git commit --only src/app/sanitize-core.ts src/app/sanitize-core.email-rule.test.ts src/app/resource-edit-modal.tsx src/app/use-chat-dispatcher.ts src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/inline-ai-edit/emails-write-parity.test.ts src/app/inline-ai-edit/plan.sanitizer-parity.test.ts -F "$LOG/msg-t1.txt"; echo "EXIT=$?"
 ```
 
 ---
@@ -425,7 +451,7 @@ git grep -n "ownerEmail\|stakeholder.*email\|email:" -- "src/app/use-chat-dispat
 - ADD `chat-tools.test.ts` escalate table row `[{ toEmail: "a,b@x.com" }, /toEmail must be a valid email/]`.
 - ADD `chat-task-patch.test.ts`, `bulk-operations-helpers.test.ts`, `task-inline-patch.test.ts`, `tasks-section.test.tsx` cases (code below).
 - ADD `use-chat-dispatcher.test.tsx`: `createTask`/`createResource`/`updateResource` (`email`), `createRaid`/`updateRaid` (`ownerEmail`), `createStakeholder`/`updateStakeholder` (`email`), `updateAbsence` changed-only.
-- MIGRATE `inline-ai-edit/plan.sanitizer-parity.test.ts`: `raidReader`, `stakeholderReader`, `resourceReader` compose `refuseEmailWrite` exactly as `absenceReader` composes `refuseInvalidAbsenceEmail`; `absenceReader` passes `ABS_BASE.assigneeEmail` as stored.
+- MIGRATE `inline-ai-edit/plan.sanitizer-parity.test.ts`: `raidReader`, `stakeholderReader`, `resourceReader` compose `refuseEmailWrite` for their SCALAR email field, exactly as `absenceReader` composes `refuseInvalidAbsenceEmail`; `absenceReader` passes `ABS_BASE.assigneeEmail` as stored. `resourceReader` ADDS this beside the `findTornEmail(patch.emails, undefined)` composition Task 1 already put there for the LIST field `emails` — Task 2 must not remove or replace that line, only add the scalar `email` check next to it (controller ruling, Task 1 fix round 1).
 - ADD `inline-ai-edit/plan.test.ts`: raid `ownerEmail`, stakeholder `email`, resource `email` rejected-when-changed, accepted-when-unchanged-unsafe.
 - RECOMPUTE `inline-ai-edit/descriptor-drift.test.ts`, `plan.offered-surface-sweep.test.ts`, `plan.write-path-sweep.test.ts`, `plan.model-writable-surface.test.ts`, `plan.create-path-guards.test.ts`: any expectation that `emailFormatFields` is `assigneeEmail`-only, or that a raid/stakeholder/resource `email`/`ownerEmail` probe lands, now changes. Each changed expectation is justified in the commit body.
 - ADD `use-task-row-handlers.test.ts`, `use-bulk-operations.test.tsx`, `use-resource-planner.test.tsx`: a typed `a,b@x.com` in the prompt is refused (alert/toast) and nothing is written.
@@ -718,7 +744,7 @@ and rewrite the comment block above it: the writer's guard is now `refuseEmailWr
 `    //  UNCHECKED on both sides, so its set stays empty.`
 Replace that two-line pair with the single line `    //  gain one — that would drop stored data.` (the Edit tool's `old_string` spans both lines, CRLF). Confirm with `grep -n "UNCHECKED" src/app/inline-ai-edit/entity-descriptor.ts`, which must print nothing.
 
-`src/app/inline-ai-edit/plan.sanitizer-parity.test.ts`: add `refuseEmailWrite` to the `../sanitize` import and compose it in three readers (and pass stored in the fourth):
+`src/app/inline-ai-edit/plan.sanitizer-parity.test.ts`: add `refuseEmailWrite` to the `../sanitize` import and compose it in three readers (and pass stored in the fourth). `resourceReader` already carries Task 1's `findTornEmail(patch.emails, undefined)` line for the LIST field `emails` — ADD the scalar `email` check beside it, do not remove it:
 
 ```ts
 const stakeholderReader: StoredReader = (field, value) => {
@@ -752,6 +778,8 @@ const raidReader: StoredReader = (field, value) => {
 ```ts
 const resourceReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedResourceFields({ [field]: value });
+  // Task 1's LIST-field guard, kept — do not remove this line in Task 2.
+  if (findTornEmail(patch.emails, undefined) !== undefined) return null;
   try {
     refuseEmailWrite("email", (patch as { email?: unknown }).email, RES_BASE.email);
   } catch {
