@@ -71,7 +71,8 @@ export function sanitizeLoadedAbsence(input: unknown): Absence | null {
  *  sanitizeMilestone)` called `0(...)` and threw inside settings hydration, which
  *  then overwrote the stored settings with defaults. tsc cannot see it: a
  *  function with an extra optional parameter is assignable to `(x) => T`. The
- *  reader-taking cores are module-private for the same reason. */
+ *  reader-taking cores are module-private for the same reason. Enforced for
+ *  every exported sanitize* by `sanitize-point-free.guard.test.ts`. */
 export function sanitizeAbsence(input: unknown): Absence | null {
   return absenceWithDateReader(input, sanitizeIsoDate);
 }

@@ -52,7 +52,7 @@ import {
   TEXTAREA_MAX,
   toNumber,
   sanitizeText,
-  sanitizeEmail, sanitizeLoadedEmail,
+  sanitizeEmail, sanitizeLoadedEmail, normalizeEmailShape,
   sanitizeIsoDate, type RequiredDateReader,
   fkIdOrUndefined,
   isPlainObject,
@@ -248,6 +248,7 @@ export function dropUnacceptedMilestoneFields<T extends object>(patch: T): T {
 }
 
 // ★★ ONE argument each, like `sanitizeAbsence` (see the note there): passed point-free, a 2nd param gets the INDEX.
+//  Enforced for every exported sanitize* by `sanitize-point-free.guard.test.ts`.
 export function sanitizeMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, sanitizeIsoDate); }
 export function sanitizeLoadedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnLoad); }
 /** A stored template's seed milestone: the load rule, diagnostic attributed to the template seed. */
@@ -1177,6 +1178,13 @@ export function dropUnacceptedResourceFields<T extends object>(patch: T): T {
   return (out ?? patch) as T;
 }
 
+/** A loaded stakeholder email: `sanitizeLoadedEmail`'s unwrap-THEN-cap order,
+ *  capped at the stakeholder's `BUDGET_NAME_MAX` (200) instead of `EMAIL_MAX`.
+ *  A named one-argument form, not a cap parameter (`sanitize-point-free.guard.test.ts`). */
+export function sanitizeLoadedStakeholderEmail(s: unknown): string {
+  return typeof s === "string" ? sanitizeText(normalizeEmailShape(s), BUDGET_NAME_MAX) : "";
+}
+
 export function sanitizeStakeholder(input: unknown): Stakeholder | null {
   if (!isPlainObject(input)) return null;
   const o = input;
@@ -1199,7 +1207,7 @@ export function sanitizeStakeholder(input: unknown): Stakeholder | null {
   };
   const org = sanitizeText(o.organization, BUDGET_NAME_MAX); if (org) item.organization = org;
   const title = sanitizeText(o.title, BUDGET_NAME_MAX); if (title) item.title = title;
-  const email = sanitizeLoadedEmail(o.email, BUDGET_NAME_MAX); if (email) item.email = email;
+  const email = sanitizeLoadedStakeholderEmail(o.email); if (email) item.email = email;
   const notes = sanitizeText(o.notes, TEXTAREA_MAX); if (notes) item.notes = notes;
   const rid = toNumber(o.resourceId);
   if (Number.isFinite(rid) && rid > 0) item.resourceId = Math.floor(rid);

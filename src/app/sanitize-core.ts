@@ -148,9 +148,11 @@ export function withNormalizedEmailField<T extends object>(row: T, field: keyof 
 
 /** A loaded scalar email: unwrap `Name <addr>` FIRST, then trim + cap. The
  *  order is load-bearing — capping first can cut the closing `>` off a long
- *  `Name <addr>`, which would then be stored torn instead of unwrapped. */
-export function sanitizeLoadedEmail(s: unknown, max: number = EMAIL_MAX): string {
-  return typeof s === "string" ? sanitizeText(normalizeEmailShape(s), max) : "";
+ *  `Name <addr>`, which would then be stored torn instead of unwrapped.
+ *  ★ ONE argument (`sanitize-point-free.guard.test.ts`): the stakeholder's
+ *  narrower cap is its own named form, `sanitizeLoadedStakeholderEmail`. */
+export function sanitizeLoadedEmail(s: unknown): string {
+  return typeof s === "string" ? sanitizeText(normalizeEmailShape(s), EMAIL_MAX) : "";
 }
 
 // --- Generic helpers -------------------------------------------------------
@@ -270,7 +272,16 @@ export type RequiredDateReader = (value: unknown, entity: string, id: unknown, f
 
 const PRIORITIES_SET = new Set<Priority>(["Low", "Medium", "High", "Urgent"]);
 
-export function sanitizePriority(p: unknown, fallback: Priority = "Medium"): Priority {
+/** ★ ONE argument, so it is safe point-free (`sanitize-point-free.guard.test.ts`);
+ *  an optional `fallback` would have received the map INDEX. */
+export function sanitizePriority(p: unknown): Priority {
+  return sanitizePriorityOr(p, "Medium");
+}
+
+/** `sanitizePriority` with the caller's fallback — e.g. the stored priority, so
+ *  an invalid model value leaves the task where it was. The fallback is a
+ *  required `Priority`, so a point-free pass fails tsc instead of taking the index. */
+export function sanitizePriorityOr(p: unknown, fallback: Priority): Priority {
   return typeof p === "string" && PRIORITIES_SET.has(p as Priority)
     ? (p as Priority)
     : fallback;

@@ -5,6 +5,7 @@ import {
   sanitizeIsoDate,
   sanitizeLabels,
   sanitizePriority,
+  sanitizePriorityOr,
   parseDependenciesString,
   serializeDependencies,
   sanitizePlan,
@@ -94,12 +95,17 @@ describe("sanitizePriority", () => {
     expect(sanitizePriority("High")).toBe("High");
   });
 
-  test("falls back to provided default when invalid", () => {
-    expect(sanitizePriority("Bogus", "Low")).toBe("Low");
+  test("sanitizePriorityOr falls back to the provided default when invalid, and keeps a valid value", () => {
+    expect(sanitizePriorityOr("Bogus", "Low")).toBe("Low");
+    expect(sanitizePriorityOr("Urgent", "Low")).toBe("Urgent");
   });
 
-  test("defaults to Medium when invalid and no fallback provided", () => {
+  test("defaults to Medium when invalid", () => {
     expect(sanitizePriority(undefined)).toBe("Medium");
+  });
+
+  test("passed point-free, a second element still reads as Medium, never the index", () => {
+    expect(["Bogus", "Bogus"].map(sanitizePriority)).toEqual(["Medium", "Medium"]);
   });
 });
 

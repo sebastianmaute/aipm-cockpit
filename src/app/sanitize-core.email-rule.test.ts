@@ -6,6 +6,7 @@ import {
   normalizeEmailListShape,
   normalizeEmailShape,
   sanitizeLoadedEmail,
+  sanitizeLoadedStakeholderEmail,
   summarizeUnsafeEmailRecords,
   templateSeedEmailScope,
   withNormalizedEmailField,
@@ -132,12 +133,20 @@ describe("sanitizeLoadedEmail — normalise, THEN cap (fix round 1)", () => {
   it("unwraps a Name <addr> longer than the cap instead of storing it torn", () => {
     const long = `Ann ${"x".repeat(196)} <a@x.com>`;
     expect(long.length).toBeGreaterThan(200);
-    expect(sanitizeLoadedEmail(long, 200)).toBe("a@x.com");
+    expect(sanitizeLoadedStakeholderEmail(long)).toBe("a@x.com");
   });
   it("still trims and caps a plain value, and blanks a non-string", () => {
     expect(sanitizeLoadedEmail("  a@x.com  ")).toBe("a@x.com");
     expect(sanitizeLoadedEmail("x".repeat(400))).toHaveLength(320);
     expect(sanitizeLoadedEmail(42)).toBe("");
+  });
+  it("the stakeholder form caps at the stakeholder email width (200) and blanks a non-string", () => {
+    expect(sanitizeLoadedStakeholderEmail("x".repeat(400))).toHaveLength(200);
+    expect(sanitizeLoadedStakeholderEmail(42)).toBe("");
+  });
+  it("passed point-free, a second element is capped at 320, not at its index", () => {
+    const addr = "a@x.com";
+    expect([addr, addr].map(sanitizeLoadedEmail)).toEqual([addr, addr]);
   });
 });
 

@@ -16,7 +16,7 @@ import {
   sanitizeIsoDate,
   sanitizeLabels,
   sanitizeNonNegInt,
-  sanitizePriority,
+  sanitizePriorityOr,
   sanitizeTaskName,
   rendersAsClear,
 } from "./sanitize";
@@ -115,7 +115,7 @@ export function buildTaskCleanPatch(
     }
   }
   if (patch.priority !== undefined)
-    cleanPatch.priority = sanitizePriority(patch.priority, existing.priority);
+    cleanPatch.priority = sanitizePriorityOr(patch.priority, existing.priority);
   if (patch.blockers !== undefined)
     cleanPatch.blockers = sanitizeBlockers(patch.blockers);
   // ★★★ Accepts BOTH shapes: `plainToHtml` escapes & < >, so HTML stored as
