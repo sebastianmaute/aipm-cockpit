@@ -2215,8 +2215,12 @@ pricing> is attached`, `<em dash> means something`, `<li 2 items> to review`, `<
 counting`) and the old `htmlStartRe` RESIDUE case `<a href> tags are banned` classify as prose on all
 four sinks. The first character after the name must be whitespace, `/` or `>`, which is what `\b`
 used to guarantee, so `<script>` / `<strongish>` stay unrecognised on the derived sinks.
-Byte-stability: over every string holding a `<` in the three sample workspaces (682), no string
-changed classification on any sink, and `golden-workspace.test.ts` is green with no fixture change.
+Byte-stability: over the 52 DISTINCT strings holding a `<` in the three sample workspaces (682
+occurrences total, every one real markup), no string changed classification on any sink, and
+`golden-workspace.test.ts` is green with no fixture change. ★ That corpus holds no prose-shaped values,
+so it cannot witness the direction this closes — a value that merely LOOKS tag-shaped now escaping
+instead of matching; the "valued-attribute grammar" describe block in `html-start.test.ts` is the
+witness for that direction.
 
 ★★★ **RESIDUE, ACCEPTED — the first table above still reproduces.** `<mark> means highlight in this
 project` and its three siblings open with an ATTRIBUTE-FREE tag, which is byte-identical to real
@@ -31836,16 +31840,18 @@ review, not a drive-by during someone else's release. Deliberately NOT done here
 
 ## 422. A comma-bearing email address is destroyed when an inline edit names emails with a changed value — CLOSED 2026-09-13
 
-**Status:** CLOSED 2026-09-13 — stopped at WRITE, never on load. The resource editor refuses any
-additional address holding `,` or `;`; `createResource` refuses an `emails` ARRAY holding one (there is
-no stored row yet, so every member is new); `updateResource` refuses an ARRAY only for a member that is
-BOTH unsafe AND not already present, trimmed, in the stored list (an array is never split, so re-sending
-an address the row already holds is harmless), and refuses a STRING `emails` whenever the stored list
-already holds an unsafe address; the inline-edit plan refuses the `emails` FIELD when a CHANGED incoming
-array carries such an address, or when a changed STRING is sent while the stored list holds one
-(`isDelimiterSafeEmail` / `findDelimiterUnsafeEmail` in `sanitize-core.ts`). A STRING `emails` on create,
-or on update of a row whose stored list is safe, is split by design and not refused — a string is a
-delimited list. Pinned by
+**Status:** CLOSED 2026-09-13 — stopped at WRITE, never on load. The resource editor and
+`updateResource` share one exclusion, `findNewDelimiterUnsafeEmail` (`sanitize-core.ts`, fix round 2):
+both refuse an `emails` ARRAY only for a member that is BOTH unsafe AND not already present, trimmed,
+in the resource's stored `emails` (an array is never split, so re-sending an address the row already
+holds is harmless) — the editor compares against the resource as of when the modal opened, never live
+workspace state, and a NEW resource has no stored list, so every member counts as new there too, matching
+`createResource` (there is no stored row yet, so every member is new). `updateResource` also refuses a
+STRING `emails` whenever the stored list already holds an unsafe address; the inline-edit plan refuses
+the `emails` FIELD when a CHANGED incoming array carries such an address, or when a changed STRING is
+sent while the stored list holds one (`isDelimiterSafeEmail` / `findDelimiterUnsafeEmail` in
+`sanitize-core.ts`). A STRING `emails` on create, or on update of a row whose stored list is safe, is
+split by design and not refused — a string is a delimited list. Pinned by
 `npx vitest run src/app/inline-ai-edit/emails-roundtrip.test.ts src/app/resource-edit-modal.test.tsx src/app/use-chat-dispatcher.test.tsx`.
 
 `resource.emails` round-trips through a joined string: the descriptor projects the stored list as a
@@ -31935,8 +31941,13 @@ one is not obvious enough to prescribe here.
 **CLOSED 2026-09-13 — stop at write.** `resource.emails` keeps its joined transport and
 `sanitizeEmailList` and every load/decode path are unchanged. Instead, no write boundary accepts an
 address the transport would tear: `isDelimiterSafeEmail` (`sanitize-core.ts`) refuses a trimmed value
-holding `,` or `;`, with no format validation beyond that. The resource editor blocks save with
-`resourceErrorEmailDelimiter`. `createResource` in `use-chat-dispatcher.ts` throws a tool error naming
+holding `,` or `;`, with no format validation beyond that. **Fix round 2 controller ruling:** the
+resource editor blocks save with `resourceErrorEmailDelimiter` only for an array member that is BOTH
+unsafe AND not already present, trimmed, in the resource as of when the modal opened (never live
+workspace state) — a NEW resource has no stored list, so every member counts as new there too. The
+shared helper `findNewDelimiterUnsafeEmail` (`sanitize-core.ts`) holds this rule for both the editor
+and `updateResource` below, so the two write boundaries cannot drift. `createResource` in
+`use-chat-dispatcher.ts` throws a tool error naming
 `emails` when any array member is unsafe — there is no stored row yet, so every member counts as new.
 **Fix round 1 controller ruling:** `updateResource` throws the same error for an ARRAY only when the
 unsafe member is NOT already present, trimmed, in the stored list — an array is stored VERBATIM, never
