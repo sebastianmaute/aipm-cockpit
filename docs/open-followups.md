@@ -588,7 +588,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
 | [§360](#360-a-guardrail-insight-names-a-resource-but-its-ai-recommendation-gets-no-entity-digest--open) | A guardrail insight names a resource but its AI recommendation gets no entity digest | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--closed-2026-09-07) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
-| [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--open) | A guardrail insight's deep link arms `pendingOpen` with no consumer | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--closed-2026-09-14) | A guardrail insight's deep link arms `pendingOpen` with no consumer — CLOSED 2026-09-14 | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-14 |
 | [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§364](#364-an-older-build-prunes-the-four-guardrail-insight-types-on-load-and-can-write-the-pruned-list-back--open) | An older build prunes the four guardrail insight types on load, and can write the pruned list back | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--open) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | open |
@@ -28653,13 +28653,26 @@ alone; it never rewrites the window's bounds.
 budget was still written over it, because every stage skipped the entry being saved — tracked as §430 (CLOSED 2026-09-13),
 which is a different defect with a different cause, not a re-opening of this one.
 
-## 362. A guardrail insight's deep link arms `pendingOpen` with no consumer — OPEN
+## 362. A guardrail insight's deep link arms `pendingOpen` with no consumer — CLOSED 2026-09-14
 
-**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by command, 2026-09-04:
-`grep -rhn 'pendingOpen?.view !== "\|pendingOpen?.view === "' src/app --include=*.tsx | grep -oE '"[a-z-]+"' | sort -u`
-returns changes · documents · milestones · open-points · raid · stakeholders — `resources` is absent.
-
-**Work item:** #258
+**Status:** CLOSED 2026-09-14 on `fix/ui-residuals-batch`. `resources-report.tsx` (the panel that
+mounts for the "resources" `pendingOpen` view) now redirects to the Directory sub-tab — the one that
+actually lists resources — via `setActiveTab("directory")`, skipped in `embedded` mode (the Reports
+pane's read-only preview). `resource-directory.tsx` now consumes the same `pendingOpen` (still tagged
+"resources", since only Directory clears it) via `useWorkspaceTab`/`useDeepLinkRowFlash`, opening the
+matched resource through the existing `onEditResource` prop (mirrors how stakeholders/raid open their
+edit modal) and scrolling/flashing its row; an id matching no resource is still consumed so the
+request cannot get stuck. Pinned by `ResourceDirectory deep-link open` (`resource-directory.test.tsx`,
+3 cases: opens + clears on a match, honours a request armed before mount, consumes an unknown id
+silently) and `ResourcesReportPanel deep-link redirect` (`resources-report.test.tsx`, 2 cases:
+redirects to Directory, stays put when `embedded`). Mutation-checked: disabling the Directory consumer
+and the report's redirect turned 4 of the 5 new cases red (`Tests 4 failed | 36 passed (40)`);
+restoring both returns to green. Verified 2026-09-14: `npx vitest run src/app/resource-directory.test.tsx
+src/app/resources-report.test.tsx` → `Test Files 2 passed (2)`, `Tests 40 passed (40)`, exit 0;
+`npx tsc --noEmit` exit 0. Re-running the filing command now returns `resources` too:
+`grep -rhn 'pendingOpen?.view !== "\|pendingOpen?.view === "' src/app --include=*.tsx | grep -oE
+'"[a-z-]+"' | sort -u` → changes · documents · milestones · open-points · raid · resources ·
+stakeholders.
 
 Opening a guardrail insight calls `requestOpen("resources", id)`, which sets `pendingOpen`. No
 resources surface reads it, so the view opens and the person is never selected or scrolled to. Every
