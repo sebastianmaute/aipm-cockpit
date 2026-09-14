@@ -761,6 +761,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
 | [§537](#537-project-contact-persons-have-no-ids--open) | Project contact persons have no ids — OPEN | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | open |
 | [§538](#538-single-db-turso-never-persists-project-meta--open) | Single-DB Turso never persists project meta — OPEN | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant project meta row/table (or reuse of the tenant `projects` table), `dirtyWorkspaceTables` taught about project-only edits, and a `turso-migrate.ts` self-heal entry | open |
+| [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--open) | `sanitizeIsoDate` accepts dates that are not real calendar dates — OPEN | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | open |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--open) | A repeated resource deep link re-runs the open while that resource's editor is open — OPEN | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | open |
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--open) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | open |
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
@@ -38017,6 +38018,46 @@ grep -rn "project?\.name\|project?\.code\|project?\.customer\|project?\.startDat
   src/app/use-action-center-handlers.ts src/app/use-ai-orchestration.ts src/app/use-insight-recommendations.ts \
   src/app/use-project-switch.ts src/app/use-timelog-picker-scope.ts src/app/use-calendar-integrations.ts \
   src/app/timelog-panel.tsx src/app/use-bulk-operations.ts src/app/workspace-section.tsx src/app/task-manager.tsx
+```
+
+## 539. sanitizeIsoDate accepts dates that are not real calendar dates — OPEN
+
+**Status:** open 2026-09-14. Reported by a peer session during its §273 work (branch
+`fix/ui-residuals-batch`), which does not edit `sanitize-core.ts`. The user approved "file and fix" for the
+email-guard batch (`fix/email-and-guard-batch`). Verified 2026-09-14 by reading `sanitizeIsoDate` and
+measuring `Date` parsing in Node. The Gantt symptom below is the peer's observation and was not
+reproduced here.
+
+**Work item:** #329
+
+**The problem.** `sanitizeIsoDate` (`src/app/sanitize-core.ts`) returns its input unchanged when it
+matches `/^\d{4}-\d{2}-\d{2}$/` and the year is 1900..2100. Month and day are never checked, so
+`"2026-13-01"`, `"2026-00-10"`, `"2026-02-30"` and `"2026-04-31"` all pass. The function sits on load
+sanitizers, AI and chat patches, inline-AI edit, bulk edit, templates and the Jira mapping (about 30
+files under `src/` reference it).
+
+**Consequences.**
+- A day overflow moves the date without any warning. In V8, `new Date("2026-02-30")` is 2026-03-02 and
+  `new Date("2026-04-31")` is 2026-05-01, so every consumer doing date math sees a different day than
+  the stored string.
+- A month overflow is an Invalid Date. `new Date("2026-13-01")` and `new Date("2026-00-10")` are
+  `NaN`, so date math on them yields `NaN`.
+- Reported by the peer: a Gantt milestone with such a date got a row and a number while
+  `GanttMilestoneRow` rendered nothing. The §273 fix on that branch drops undrawable milestones from
+  the row list; other date consumers were not checked.
+
+**Planned fix.** Reject non-calendar dates everywhere the function is used, load paths included, by
+returning `""` (the function's existing invalid result). Check month 1..12, and check the day against
+the real month length, leap years included. Dropping such a value on load loses nothing usable: an
+`<input type="date">` already blanks an invalid value under the HTML value-sanitization algorithm,
+and date math on it is wrong or `NaN`.
+
+**Reproduce:**
+
+```bash
+grep -n "export function sanitizeIsoDate" -A 6 src/app/sanitize-core.ts   # shape + year only
+node -e "for (const s of ['2026-02-30','2026-13-01']) { const d = new Date(s); console.log(s, isNaN(d) ? 'Invalid' : d.toISOString()) }"
+git grep -c sanitizeIsoDate -- src                                        # referencing files
 ```
 
 ## 540. A repeated resource deep link re-runs the open while that resource's editor is open — OPEN
