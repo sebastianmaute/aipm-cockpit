@@ -1570,11 +1570,12 @@ describe("link fields honour the merge-site guard on the row and the create path
   });
 });
 
-// (C4) THE PER-ENTITY DATE VALIDATOR. The preview defaulted to
-//  `sanitizeIsoDate` (regex + 1900-2100, NO calendar check) for every entity,
-//  but `sanitizeCalendarEvent` calls `isoDateOrUndefined` (regex + `Date.parse`,
-//  NO year bound). The two disagree in BOTH directions, and each direction is a
-//  distinct defect — so each gets its own case.
+// (C4) THE PER-ENTITY DATE VALIDATOR. The preview defaults to
+//  `sanitizeIsoDate` (regex + a real calendar date (§539) + 1900-2100) for
+//  every entity, but `sanitizeCalendarEvent` calls `isoDateOrUndefined` (regex
+//  + `Date.parse`, NO year bound). Since §539 both refuse an impossible day, so
+//  only the year-bound direction still differs — pinned by the second case
+//  below; the first case pins calendarEvent's OWN predicate independently.
 describe("a date is judged by its own writer's rule", () => {
   const meeting = { id: 60, title: "Steering committee", startDate: "2026-07-08" };
   const holiday = { id: 50, assignee: "Ada Lovelace", startDate: "2026-07-06", endDate: "2026-07-10" };
