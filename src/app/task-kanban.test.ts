@@ -325,13 +325,38 @@ describe("groupByStatusAndPerson — assigneeEmail lane resolution (§79)", () =
   });
 
   it("falls through to an unambiguous NAME when the email is ambiguous, like the backfill does", () => {
+    // The name target (id 3) is deliberately NOT the first-inserted resource:
+    // a FIRST-WINS email index (rather than the poison-to-null one this
+    // shares with the backfill) would resolve "shared@example.com" to id 1,
+    // the first resource carrying that key, and the assertion below would
+    // then fail — so this can tell poisoning apart from first-wins, unlike a
+    // fixture where the name target happens to be first in insertion order.
     const dupes = new Map<number, Resource>([
-      [1, { id: 1, firstName: "Anna", lastName: "Jordan", email: "shared@example.com" } as Resource],
-      [2, { id: 2, firstName: "Bo", lastName: "Klein", email: "Shared@Example.com" } as Resource],
+      [1, { id: 1, firstName: "Ambiguous", lastName: "One", email: "shared@example.com" } as Resource],
+      [2, { id: 2, firstName: "Ambiguous", lastName: "Two", email: "Shared@Example.com" } as Resource],
+      [3, { id: 3, firstName: "Anna", lastName: "Jordan", email: "unique3@example.com" } as Resource],
     ]);
     const out = groupByStatusAndPerson(
       [task({ id: 1, assignee: "Anna Jordan", assigneeEmail: "shared@example.com" })],
       dupes,
+      [],
+    );
+    expect(out.cells["res:3"]["To Do"].map((x) => x.id)).toEqual([1]);
+    expect(out.lanes.some((l) => l.key === "res:1")).toBe(false);
+  });
+
+  it("a resource's own stored email with surrounding whitespace/case still matches (index-side normalisation)", () => {
+    // Distinct from the query-side whitespace/case test above: here the
+    // DIRECTORY's email is padded/mixed-case and the task's is clean, so this
+    // fails specifically if `.trim()`/`.toLowerCase()` were dropped from the
+    // index-building side of `buildResourceLookupIndexes` rather than the
+    // query side `resolvePersonResourceId` already covers.
+    const padded = new Map<number, Resource>([
+      [1, { id: 1, firstName: "Anna", lastName: "Jordan", email: "  Anna@Example.com  " } as Resource],
+    ]);
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "", assigneeEmail: "anna@example.com" })],
+      padded,
       [],
     );
     expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
@@ -354,5 +379,15 @@ describe("groupByStatusAndPerson — assigneeEmail lane resolution (§79)", () =
       [],
     );
     expect(out.cells[UNASSIGNED_LANE]["To Do"].map((x) => x.id)).toEqual([1]);
+  });
+
+  it("an unmatched email plus an unmatched non-blank name keeps its own name lane", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, assignee: "Nobody Here", assigneeEmail: "ghost@example.com" })],
+      withEmails,
+      [],
+    );
+    expect(out.lanes.map((l) => l.key)).toContain("name:nobody here");
+    expect(out.cells["name:nobody here"]["To Do"].map((x) => x.id)).toEqual([1]);
   });
 });

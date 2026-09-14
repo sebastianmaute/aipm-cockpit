@@ -143,51 +143,13 @@ export function backfillResourceFks(
   };
 }
 
-/**
- * Idempotently fill an unset `Task.resourceId` from the directory, by
- * case-folded email first and then by a UNIQUE case-folded display name.
- *
- * Tasks were deliberately outside {@link backfillResourceFks} (absence / raid /
- * shift), so a task whose person was stored only as an `assignee` STRING stayed
- * unlinked forever. That is what let one human own two swimlanes — the grouping
- * engine keys a linked task `res:<id>` and an unlinked one `name:<string>` —
- * and what made the per-card assignee select read "Unassigned" beside a card
- * printing that person's name.
- *
- * ★★ The NAME fallback is what makes this useful here and it is why the
- * uniqueness check is not optional: `assigneeEmail` is blank on most
- * hand-entered and AI-created tasks, so an email-only pass (all v9 does) would
- * fix almost nothing. A name shared by two resources resolves to NEITHER —
- * guessing would attribute someone's work to the wrong person, which is worse
- * than the duplicate lane this repairs.
- *
- * ★ Never overwrites a set FK, and leaves the denormalized `assignee` /
- * `assigneeEmail` caches untouched — `effectiveAssignee` already prefers the
- * live resource name over the cache, so rewriting them here would only destroy
- * the historical record of what was typed.
- *
- * ★ A DANGLING FK (an id absent from the directory) is deliberately NOT
- * re-resolved: it is a real pointer to something this workspace cannot see —
- * a partial load, a resource deleted in another tab — and silently repointing
- * it at a same-named person would be a guess dressed as a repair.
- *
- * ★★ `task-kanban.ts` DOES re-resolve a dangling FK through the assignee name,
- * and the divergence is intended: that is a DISPLAY decision, reversible the
- * moment the directory changes and costing at most a card in the wrong lane.
- * This function REWRITES STORED DATA, so it holds the stricter line. If the two
- * ever need to agree, move this one toward the kanban's leniency only with a
- * migration story — never the reverse, which would start rewriting FKs on load.
- *
- * ★★ TWO call sites, because there are two load funnels: `applyWorkspace`
- * (`use-storage-backend.ts`, every backend's load / project switch / create) and
- * `applyRestoredWorkspace` (`task-manager.tsx`, Turso version-history restore).
- * The second fans STORED rows straight into state without touching the first,
- * so omitting it there silently reverts a project's task FKs to the pre-repair
- * shape until the next real load. A third funnel must call this too.
- *
- * Pure: returns the SAME array reference when nothing matched, so the caller
- * can detect a no-op by identity.
- */
+/** The email→id / name→id lookup indexes {@link buildResourceLookupIndexes}
+ *  builds and {@link resolvePersonResourceId} resolves against. */
+export interface ResourceLookupIndexes {
+  byEmail: ReadonlyMap<string, number | null>;
+  byName: ReadonlyMap<string, number | null>;
+}
+
 /**
  * Builds the email→id and name→id lookup indexes used to resolve a person
  * reference's (a task's `assignee`/`assigneeEmail`, or equivalent) owning
@@ -225,11 +187,6 @@ export function backfillResourceFks(
  * task-external.ts draws. A task carrying an external's actual email
  * genuinely IS their work.
  */
-export interface ResourceLookupIndexes {
-  byEmail: ReadonlyMap<string, number | null>;
-  byName: ReadonlyMap<string, number | null>;
-}
-
 export function buildResourceLookupIndexes(resources: Iterable<Resource>): ResourceLookupIndexes {
   const index = (key: string, id: number, into: Map<string, number | null>) => {
     if (!key) return;
@@ -267,6 +224,51 @@ export function resolvePersonResourceId(
   return viaEmail ?? viaName ?? null;
 }
 
+/**
+ * Idempotently fill an unset `Task.resourceId` from the directory, by
+ * case-folded email first and then by a UNIQUE case-folded display name.
+ *
+ * Tasks were deliberately outside {@link backfillResourceFks} (absence / raid /
+ * shift), so a task whose person was stored only as an `assignee` STRING stayed
+ * unlinked forever. That is what let one human own two swimlanes — the grouping
+ * engine keys a linked task `res:<id>` and an unlinked one `name:<string>` —
+ * and what made the per-card assignee select read "Unassigned" beside a card
+ * printing that person's name.
+ *
+ * ★★ The NAME fallback is what makes this useful here and it is why the
+ * uniqueness check is not optional: `assigneeEmail` is blank on most
+ * hand-entered and AI-created tasks, so an email-only pass (all v9 does) would
+ * fix almost nothing. A name shared by two resources resolves to NEITHER —
+ * guessing would attribute someone's work to the wrong person, which is worse
+ * than the duplicate lane this repairs.
+ *
+ * ★ Never overwrites a set FK, and leaves the denormalized `assignee` /
+ * `assigneeEmail` caches untouched — `effectiveAssignee` already prefers the
+ * live resource name over the cache, so rewriting them here would only destroy
+ * the historical record of what was typed.
+ *
+ * ★ A DANGLING FK (an id absent from the directory) is deliberately NOT
+ * re-resolved: it is a real pointer to something this workspace cannot see —
+ * a partial load, a resource deleted in another tab — and silently repointing
+ * it at a same-named person would be a guess dressed as a repair.
+ *
+ * ★★ `task-kanban.ts` DOES re-resolve a dangling FK, through email then name,
+ * and the divergence is intended: that is a DISPLAY decision, reversible the
+ * moment the directory changes and costing at most a card in the wrong lane.
+ * This function REWRITES STORED DATA, so it holds the stricter line. If the two
+ * ever need to agree, move this one toward the kanban's leniency only with a
+ * migration story — never the reverse, which would start rewriting FKs on load.
+ *
+ * ★★ TWO call sites, because there are two load funnels: `applyWorkspace`
+ * (`use-storage-backend.ts`, every backend's load / project switch / create) and
+ * `applyRestoredWorkspace` (`task-manager.tsx`, Turso version-history restore).
+ * The second fans STORED rows straight into state without touching the first,
+ * so omitting it there silently reverts a project's task FKs to the pre-repair
+ * shape until the next real load. A third funnel must call this too.
+ *
+ * Pure: returns the SAME array reference when nothing matched, so the caller
+ * can detect a no-op by identity.
+ */
 export function backfillTaskResourceFks(
   resources: readonly Resource[],
   tasks: readonly Task[],

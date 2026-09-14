@@ -6370,20 +6370,29 @@ consults `assigneeEmail` before falling back to `assignee`, via two pure helpers
 `resource-foundation.ts` — `buildResourceLookupIndexes` and `resolvePersonResourceId` — which
 `backfillTaskResourceFks` now also calls, so the lane engine and the load-time backfill share one
 email-then-name precedence (a poisoned/ambiguous email match still falls through to name, and an FK
-still wins when it resolves to a live resource; a dangling FK still falls through to email/name
-resolution in the lane engine only, as before — this function rewrites stored data and holds the
-stricter line). Pinned by six new cases in `groupByStatusAndPerson — assigneeEmail lane resolution
-(§79)` (`task-kanban.test.ts`): an email match lands the task in that resource's lane even when the
-name does not match; email wins over a differently-named resource; email matches case-insensitively
-and ignoring whitespace; an ambiguous email falls through to an unambiguous name; an FK still wins
-over both; and an email matching nobody falls back to the unchanged name/unassigned behaviour.
-`backfillTaskResourceFks`'s own precedence and ambiguity tests (`resource-fk-backfill.test.ts`) stay
-green, unchanged. Mutation-checked: removing the email lookup from `laneResourceIdOf` turns 3 of the
-new cases red (`Tests 3 failed | 35 passed (38)`); swapping the shared helper's precedence (name
-before email) turns the "prefers email" case red in both `task-kanban.test.ts` and
-`resource-fk-backfill.test.ts` (`Tests 2 failed | 61 passed (63)`); restoring both returns to green.
+still wins when it resolves to a live resource). A dangling FK falls through to email/name
+resolution in the lane engine — before this fix it fell through to name only, now it tries email
+then name too — while `backfillTaskResourceFks` leaves a dangling FK alone either way, since that
+function rewrites stored data and holds the stricter line. Pinned by eight cases in
+`groupByStatusAndPerson — assigneeEmail lane resolution (§79)` (`task-kanban.test.ts`): an email
+match lands the task in that resource's lane even when the name does not match; email wins over a
+differently-named resource; email matches case-insensitively and ignoring whitespace; an ambiguous
+email falls through to an unambiguous name (with the name target deliberately NOT the first-inserted
+resource, so the case can tell the shared helper's poisoning apart from a first-wins index); a
+resource's own stored email with surrounding whitespace/case still matches (pins the INDEX-side
+normalisation, distinct from the query-side case above); an FK still wins over both; an email
+matching nobody falls back to the unchanged name/unassigned behaviour; and an unmatched email plus
+an unmatched non-blank name keeps its own name lane. `backfillTaskResourceFks`'s own precedence and
+ambiguity tests (`resource-fk-backfill.test.ts`) stay green, unchanged. Mutation-checked: removing
+the email lookup from `laneResourceIdOf` turns 4 cases red (`Tests 4 failed | 36 passed (40)`);
+swapping the shared helper's precedence (name before email) turns the "prefers email" case red in
+both `task-kanban.test.ts` and `resource-fk-backfill.test.ts` (`Tests 2 failed | 63 passed (65)`);
+changing the shared index from poison-on-duplicate to first-wins turns the "falls through to an
+unambiguous NAME" case red, along with three pre-existing poisoning tests (`Tests 4 failed | 61
+passed (65)`); dropping the index-side `.trim()` on a resource's own email turns only the new
+index-normalisation case red (`Tests 1 failed | 64 passed (65)`); restoring each returns to green.
 Verified 2026-09-14: `npx vitest run src/app/task-kanban.test.ts src/app/resource-fk-backfill.test.ts
-src/app/resource-foundation.test.ts` → `Test Files 3 passed (3)`, `Tests 84 passed (84)`, exit 0;
+src/app/resource-foundation.test.ts` → `Test Files 3 passed (3)`, `Tests 86 passed (86)`, exit 0;
 `npx tsc --noEmit` exit 0.
 
 `task-kanban.ts` `laneResourceIdOf` resolves an FK-less task to a resource by **name** only.

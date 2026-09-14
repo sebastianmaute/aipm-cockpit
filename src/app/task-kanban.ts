@@ -77,6 +77,30 @@ const nameKey = personNameKey;
  * `backfillTaskResourceFks` which leaves it dangling — see that function's
  * docstring for why the two intentionally diverge (this is a reversible
  * DISPLAY decision; that one REWRITES STORED DATA).
+ *
+ * ★★★ EXTERNALS ARE NEVER NAME-MATCHED — the guard now lives in the shared
+ * `buildResourceLookupIndexes` (`resource-foundation.ts`, byName skips
+ * `isExternal === true`), but the consequence is specific to THIS module, so
+ * it is recorded here rather than there. `task-external.ts` classifies
+ * external ownership LINK-ONLY and says why: "a name collision would HIDE
+ * REAL WORK, so this fails safe". Resolving a free-string assignee onto an
+ * external would hand this lane a `resourceId`, making it a live DROP
+ * TARGET — and a task dropped there gets that FK, which `isExternalTask`
+ * then classifies as external, so with "Hide externals" on the card
+ * silently vanishes. `tasks-section.tsx` already filters `extraLaneIds`
+ * (`visibleExtraLaneIds`) for exactly this failure; task-DERIVED lanes are
+ * only guarded by the shared index. ★ Cost: an external with both FK-linked
+ * and string-only tasks still shows two lanes while "Hide externals" is OFF.
+ * That is the documented lesser evil — a duplicate lane is visible and
+ * harmless, a vanishing card is not.
+ *
+ * ★ EMAIL still matches an external, unlike name — same distinction
+ * `buildResourceLookupIndexes` draws, and now reachable IN-SESSION here too:
+ * a task whose `assigneeEmail` matches an external gets that external's
+ * `res:<id>` lane (a live drop target) without waiting for a reload to run
+ * `backfillTaskResourceFks`. Not a regression: the backfill already stamps
+ * that same FK at the next load, so this only makes the display agree with
+ * storage sooner.
  */
 function laneResourceIdOf(
   task: Task,
