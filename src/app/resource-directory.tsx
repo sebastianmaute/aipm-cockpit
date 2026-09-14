@@ -4,7 +4,7 @@
 // Each row shows a resource's contact details and inline discipline/grade
 // selects. Clicking the name cell opens the edit modal.
 
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { ArrowDownTrayIcon, EyeSlashIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { birthdayMonthDay } from "./birthdays";
@@ -30,6 +30,8 @@ import { AddButton } from "./pane-toolbar";
 import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { readDeviceJson, writeDeviceJson } from "./device-store";
+import { useWorkspaceTab } from "./workspace-tab-context";
+import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 
 const HIDE_EXTERNAL_KEY = "aipm-cockpit:directory-hide-external";
 
@@ -173,6 +175,22 @@ function ResourceDirectoryInner({
   // of SortDir and `sortKey` is already the union (its "" member matches no
   // column, which is exactly the unsorted state), so neither needs a cast.
   const th = useSortHeaderProps<SortKey>(sortKey, sortDir, toggleSort, startColResize);
+
+  // Deep-link (§362): a guardrail insight for a resource routes here via the
+  // "resources" pendingOpen view (resources-report.tsx redirects the Resources
+  // report tab to this Directory sub-tab for that same view). Open the edit
+  // modal via the existing onEditResource prop — mirrors how stakeholders/raid
+  // open their edit modal — and clear the pending signal once acted on. An id
+  // matching no resource (deleted, stale link) is still consumed so the
+  // request cannot get stuck.
+  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { flashId, containerRef } = useDeepLinkRowFlash("resources");
+  useEffect(() => {
+    if (pendingOpen?.view !== "resources") return;
+    const item = resources.find((r) => r.id === pendingOpen.id);
+    if (item) onEditResource(item);
+    clearPendingOpen();
+  }, [pendingOpen, resources, onEditResource, clearPendingOpen]);
 
   const rows = useMemo(() => {
     const roleName = (r: Resource): string => {
@@ -337,7 +355,7 @@ function ResourceDirectoryInner({
       {resources.length === 0 ? (
         <EmptyState title={t(lang, "resourcesEmpty")} />
       ) : (
-        <div className={INNER_TABLE_CLASS}>
+        <div ref={containerRef} className={INNER_TABLE_CLASS}>
           <DataTable className="w-full text-left text-sm" head={<>
               <tr>
                 {bulkEnabled && (
@@ -364,7 +382,12 @@ function ResourceDirectoryInner({
                 // .map()'s own array, via buildRowTokens covering every id in it.
                 const token = rowTokens.get(r.id) ?? resourceDisplayName(r);
                 return (
-                <tr key={r.id} className="cursor-pointer align-middle hover:bg-surface-muted" onClick={() => onEditResource(r)}>
+                <tr
+                  key={r.id}
+                  data-deeplink-row={r.id}
+                  className={["cursor-pointer align-middle hover:bg-surface-muted", flashOutlineClass(flashId === r.id)].join(" ")}
+                  onClick={() => onEditResource(r)}
+                >
                   {bulkEnabled && (
                     <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       <Checkbox

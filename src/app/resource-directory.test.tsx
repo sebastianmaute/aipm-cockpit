@@ -1,11 +1,22 @@
-import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { render as rtlRender, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ResourceDirectory } from "./resource-directory";
 import { ConfirmProvider } from "./confirm-dialog";
+import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import type { Resource } from "./types";
 import { t, loadI18n } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+
+// ResourceDirectory now consumes the workspace-tab context (deep-link open —
+// see the "ResourceDirectory deep-link open" describe below), so every render
+// needs a WorkspaceTabProvider ancestor, exactly as the real app provides one.
+// Shadow RTL's `render` so every existing call site in this file gets that for
+// free, without touching each one individually.
+function render(ui: ReactElement) {
+  return rtlRender(<WorkspaceTabProvider>{ui}</WorkspaceTabProvider>);
+}
 
 const rs: Resource[] = [{ id: 1, firstName: "Sample", lastName: "Dummy", title: "Architect", roleId: null, utilizationMode: "percent", utilization: {} }];
 
@@ -245,8 +256,10 @@ describe("ResourceDirectory", () => {
     );
     expect(screen.queryByRole("button", { name: t("en-US", "outlookImportButton") })).toBeNull();
     rerender(
-      <ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]}
-        onAssignRoleById={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} onImportOutlook={onImport} />,
+      <WorkspaceTabProvider>
+        <ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]}
+          onAssignRoleById={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} onImportOutlook={onImport} />
+      </WorkspaceTabProvider>,
     );
     const btn = screen.getByRole("button", { name: t("en-US", "outlookImportButton") });
     fireEvent.click(btn);
@@ -468,5 +481,93 @@ describe("ResourceDirectory sortable column headers", () => {
       expect(th.className, `header "${th.textContent?.trim()}" is off the row weight`)
         .toContain("font-medium");
     }
+  });
+});
+
+// §362: a guardrail insight's deep link (`requestOpen("resources", id)`) used
+// to arm pendingOpen with no consumer — the view switched but the person was
+// never revealed. These pin the consumer half; the redirect half (Resources
+// report tab -> this Directory sub-tab) is pinned in resources-report.test.tsx.
+describe("ResourceDirectory deep-link open", () => {
+  it("opens the edit modal for a pending deep-linked resource, then clears the request", () => {
+    const onEdit = vi.fn();
+    let pendingAfter: unknown = "unset";
+    function Trigger() {
+      const { requestOpen, pendingOpen } = useWorkspaceTab();
+      pendingAfter = pendingOpen;
+      return (
+        <button type="button" onClick={() => requestOpen("resources", 1)}>
+          go
+        </button>
+      );
+    }
+    rtlRender(
+      <WorkspaceTabProvider>
+        <Trigger />
+        <ResourceDirectory {...common} resources={rs} onEditResource={onEdit} />
+      </WorkspaceTabProvider>,
+    );
+
+    fireEvent.click(screen.getByText("go"));
+
+    expect(onEdit).toHaveBeenCalledWith(rs[0]);
+    expect(pendingAfter).toBeNull();
+  });
+
+  it("honours a pending request already armed before this component mounted (remount-swallow guard)", () => {
+    const onEdit = vi.fn();
+    function Trigger() {
+      const { requestOpen } = useWorkspaceTab();
+      return (
+        <button type="button" onClick={() => requestOpen("resources", 1)}>
+          go
+        </button>
+      );
+    }
+    function Harness({ mountDirectory }: { mountDirectory: boolean }) {
+      return (
+        <>
+          <Trigger />
+          {mountDirectory && <ResourceDirectory {...common} resources={rs} onEditResource={onEdit} />}
+        </>
+      );
+    }
+    const { rerender } = rtlRender(
+      <WorkspaceTabProvider><Harness mountDirectory={false} /></WorkspaceTabProvider>,
+    );
+    // Arm pendingOpen while ResourceDirectory is NOT mounted (e.g. the request
+    // landed while some other Resources sub-tab was active).
+    fireEvent.click(screen.getByText("go"));
+    expect(onEdit).not.toHaveBeenCalled();
+
+    // ResourceDirectory mounts fresh; a seeded-from-live-prop "handled" ref
+    // would read pendingOpen as already-acted-on and swallow it. It must not.
+    rerender(<WorkspaceTabProvider><Harness mountDirectory={true} /></WorkspaceTabProvider>);
+    expect(onEdit).toHaveBeenCalledWith(rs[0]);
+  });
+
+  it("consumes an unknown resource id silently, without opening anything", () => {
+    const onEdit = vi.fn();
+    let pendingAfter: unknown = "unset";
+    function Trigger() {
+      const { requestOpen, pendingOpen } = useWorkspaceTab();
+      pendingAfter = pendingOpen;
+      return (
+        <button type="button" onClick={() => requestOpen("resources", 999)}>
+          go
+        </button>
+      );
+    }
+    rtlRender(
+      <WorkspaceTabProvider>
+        <Trigger />
+        <ResourceDirectory {...common} resources={rs} onEditResource={onEdit} />
+      </WorkspaceTabProvider>,
+    );
+
+    fireEvent.click(screen.getByText("go"));
+
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(pendingAfter).toBeNull();
   });
 });
