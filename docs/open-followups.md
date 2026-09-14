@@ -305,7 +305,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§76](#76-two-hooks-have-a-cleanup-only-mountedref--dev-only-total-suppression--closed-post-346) | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 |
 | [§77](#77-the-snapshot-capture-gate-is-a-one-way-latch-so-a-mid-session-storage-switch-can-still-capture-the-wrong-project--closed-post-02260) | ~~The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project~~ | found post-0.214.0 | M | **CLOSED** post-0.226.0 |
 | [§78](#78-a-brand-new-turso-project-auto-captures-an-empty-snapshot-and-that-row-becomes-the-baseline--half-fixed-post-02260-partial-kpi-half-open) | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — HALF FIXED post-0.226.0, partial-KPI half OPEN | pre-existing, found post-0.214.0 | S | open |
-| [§79](#79-the-lane-engine-resolves-a-person-by-name-but-ignores-assigneeemail-the-backfill-prefers-email--open) | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — open | found post-0.214.0 | S | open |
+| [§79](#79-the-lane-engine-resolves-a-person-by-name-but-ignores-assigneeemail-the-backfill-prefers-email--closed-2026-09-14) | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — CLOSED 2026-09-14 | found post-0.214.0 | S | **CLOSED** 2026-09-14 |
 | [§80](#80-both-hide-external-toggles-trust-whatever-readdevicejson-returns--closed) | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** |
 | [§81](#81-the-swimlane-no-op-drop-guard-no-longer-holds-for-a-name-resolved-task--closed) | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** |
 | [§82](#82-the-task-fk-backfill-lives-in-a-react-hook-outside-the-numbered-migration-chain--open) | The task-FK backfill lives in a React hook, outside the numbered migration chain — open | found post-0.214.0 | M | open |
@@ -6359,11 +6359,28 @@ absolute wording is inherited from the original entry; it overstates by one step
 
 ---
 
-## 79. The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — open
+## 79. The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — CLOSED 2026-09-14
 
-**Status:** open — an asymmetry, the lane engine has no email path. Reproduced 2026-08-28 by `grep -n "laneResourceIdOf" src/app/task-kanban.ts`.
-
-**Work item:** #121
+**Status:** CLOSED 2026-09-14 on `fix/ui-residuals-batch`. `task-kanban.ts`'s `laneResourceIdOf` now
+consults `assigneeEmail` before falling back to `assignee`, via two pure helpers extracted from
+`resource-foundation.ts` — `buildResourceLookupIndexes` and `resolvePersonResourceId` — which
+`backfillTaskResourceFks` now also calls, so the lane engine and the load-time backfill share one
+email-then-name precedence (a poisoned/ambiguous email match still falls through to name, and an FK
+still wins when it resolves to a live resource; a dangling FK still falls through to email/name
+resolution in the lane engine only, as before — this function rewrites stored data and holds the
+stricter line). Pinned by six new cases in `groupByStatusAndPerson — assigneeEmail lane resolution
+(§79)` (`task-kanban.test.ts`): an email match lands the task in that resource's lane even when the
+name does not match; email wins over a differently-named resource; email matches case-insensitively
+and ignoring whitespace; an ambiguous email falls through to an unambiguous name; an FK still wins
+over both; and an email matching nobody falls back to the unchanged name/unassigned behaviour.
+`backfillTaskResourceFks`'s own precedence and ambiguity tests (`resource-fk-backfill.test.ts`) stay
+green, unchanged. Mutation-checked: removing the email lookup from `laneResourceIdOf` turns 3 of the
+new cases red (`Tests 3 failed | 35 passed (38)`); swapping the shared helper's precedence (name
+before email) turns the "prefers email" case red in both `task-kanban.test.ts` and
+`resource-fk-backfill.test.ts` (`Tests 2 failed | 61 passed (63)`); restoring both returns to green.
+Verified 2026-09-14: `npx vitest run src/app/task-kanban.test.ts src/app/resource-fk-backfill.test.ts
+src/app/resource-foundation.test.ts` → `Test Files 3 passed (3)`, `Tests 84 passed (84)`, exit 0;
+`npx tsc --noEmit` exit 0.
 
 `task-kanban.ts` `laneResourceIdOf` resolves an FK-less task to a resource by **name** only.
 `backfillTaskResourceFks` (`resource-foundation.ts`) prefers **email**, then falls back to name. So a
