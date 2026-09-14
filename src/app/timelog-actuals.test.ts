@@ -101,24 +101,25 @@ describe("aggregateActuals", () => {
   // `timelog-api.ts` coerces `Date` through `dateOnly = s(v).slice(0, 10)`, and
   // `s` returns "" for anything non-string — so an absent, null or numeric Date
   // arrives as `date: ""`, and a regionally formatted "05/01/2026" is exactly
-  // ten characters and survives the slice intact. `periodKeyForDate` then mints
-  // a key no rendered column matches (measured: month "" and "05/01/2", week
-  // "NaN-WNaN" for both), so real hours vanish from the Budget view with no
-  // diagnostic. Unattributable to a period ⇒ `unattributed`, like an unlinked row.
+  // ten characters and survives the slice intact. Kept as a day key, such a date
+  // would be rolled by `bucketOverlay`'s `periodKeyForDate` into a key no
+  // rendered column matches (measured: month "" and "05/01/2", week "NaN-WNaN"
+  // for both), so real hours would vanish from the Budget view with no
+  // diagnostic. Unattributable to a day ⇒ `unattributed`, like an unlinked row.
   it("routes a malformed-date row to unattributed instead of a phantom month key", () => {
     const out = aggregateActuals(
       [item(5, 9, "2026-06-10", 4), item(5, 9, "", 3), item(5, 9, "05/01/2026", 2)],
       links,
     );
     expect(out.unattributed).toEqual({ hours: 5, billableHours: 5 });
-    // The junk keys `periodKeyForDate` would have minted must not exist at all.
+    // The junk period keys a malformed day key would roll up to must not exist at all.
     expect(Object.keys(bucketOverlay(out, "month")[7])).toEqual(["2026-06"]);
     expect(bucketOverlay(out, "month")[7][""]).toBeUndefined();
     expect(bucketOverlay(out, "month")[7]["05/01/2"]).toBeUndefined();
   });
 
   // ★★ THE DOUBLE-COUNT GUARD. `byResource[resourceId] = add(...)` is written
-  // BEFORE `periodKeyForDate` is reached, so a date guard placed after that
+  // BEFORE the day-key write is reached, so a date guard placed after that
   // write counts the same hours in `byResource` AND in `unattributed` — a
   // silent inflation of every per-resource total. The good row alongside is
   // what makes the assertion say "only the good hours", not merely "non-zero".
@@ -230,6 +231,17 @@ describe("byBucketDay and bucketOverlay", () => {
     );
     expect(agg.unattributed.hours).toBe(5);
     expect(Object.keys(bucketOverlay(agg, "week")[7] ?? {})).toEqual([good]);
+  });
+
+  // Replaces the deleted "items in different weeks get distinct keys": a Sunday
+  // and the following Monday sit in adjacent ISO weeks but the same month, so a
+  // roll-up that ignored the live granularity would merge them into one key.
+  it("rolls bookings in adjacent ISO weeks into two distinct week keys", () => {
+    const agg = aggregateActuals([item(5, 9, "2026-06-14", 4), item(5, 9, "2026-06-15", 3)], links);
+    const weeks = bucketOverlay(agg, "week")[7];
+    expect(Object.keys(weeks).sort()).toEqual(["2026-W24", "2026-W25"]);
+    expect(weeks["2026-W24"].hours).toBe(4);
+    expect(weeks["2026-W25"].hours).toBe(3);
   });
 
   it("keeps a legacy period-keyed entry only where its keys match the live granularity", () => {

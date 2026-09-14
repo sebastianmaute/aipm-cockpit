@@ -6,6 +6,10 @@ import { dailyKey, type TimelogDailyRoll } from "./timelog-types";
 import type { TimelogTimeItem, TimelogLinks } from "./timelog-types";
 
 export type HourCell = { hours: number; billableHours: number };
+/** One resource's hours inside a cell. `byDay` is present on cells derived from
+ *  a dated aggregate (`bucketOverlay` over `byBucketDay`) and lets Apply write
+ *  day keys; a legacy cached cell has no `byDay`. */
+export type ResourceDayCell = HourCell & { byDay?: Record<string, number> };
 /** A bucket·period total PLUS the per-resource breakdown that produced it.
  *  The breakdown is what lets apply attribute hours to the right role line —
  *  without it apply can only guess, and it guessed allocations[0], costing
@@ -20,12 +24,10 @@ export type HourCell = { hours: number; billableHours: number };
  *  as unattributable and surfaces them rather than guessing). Since dated
  *  actuals, the fetch stores day cells (`byBucketDay`) and periods are derived
  *  at read time by `bucketOverlay`. */
-/** One resource's hours inside a cell. `byDay` is present on cells derived from
- *  a dated aggregate (`bucketOverlay` over `byBucketDay`) and lets Apply write
- *  day keys; a legacy cached cell has no `byDay`. */
-export type ResourceDayCell = HourCell & { byDay?: Record<string, number> };
 export type BucketPeriodCell = HourCell & { byResource?: Record<number, ResourceDayCell> };
-/** bucketId → PERIOD key ("YYYY-MM" / "YYYY-Www") → cell. Derived, never cached. */
+/** bucketId → PERIOD key ("YYYY-MM" / "YYYY-Www") → cell. Derived at read time
+ *  by `bucketOverlay`; the legacy `byBucket` field of a pre-dated-actuals cache
+ *  entry has this shape. */
 export type ActualsByBucket = Record<number, Record<string, BucketPeriodCell>>;
 /** bucketId → DAY key ("YYYY-MM-DD") → cell. What the fetch stores. */
 export type ActualsByBucketDay = Record<number, Record<string, BucketPeriodCell>>;
@@ -75,7 +77,7 @@ export type ActualsAggregate = {
  *  and its docstring argues at length why the identical `^\d{4}-\d{2}-\d{2}$`
  *  shape declared in several modules must stay several constants: each answers
  *  a different question and the answers are free to move apart. This one is a
- *  ROW rule, applied before a period key is minted at all.
+ *  ROW rule, applied before the row's date becomes a day key at all.
  *
  *  ★ SHAPE, never existence — `9999-99-99` is admitted, matching the sibling
  *  rule. The point is to reject a date that is not a calendar day at all, not
@@ -110,15 +112,17 @@ export function aggregateActuals(
     const resourceId = userToRes.get(it.userId);
     const bucketId = projToBucket.get(it.projectId);
     // ★★★ PLACEMENT IS LOAD-BEARING: this MUST stay above the `byResource`
-    // write. `periodKeyForDate` is only reached further down, so the intuitive
-    // spot — beside the call whose output is junk — is AFTER that write, and a
-    // guard there counts the same hours in `byResource` AND in `unattributed`.
-    // A row is unattributable to a PERIOD exactly as an unlinked row is
-    // unattributable to a BUCKET, so it takes the same exit, for the same
-    // reason, at the same point. Measured on the malformed dates this file's
-    // ISO_DAY_RE docstring lists: month keys "" and "05/01/2", week key
-    // "NaN-WNaN" for both — phantom buckets matching no rendered column, so the
-    // hours silently disappear from the Budget view rather than being surfaced.
+    // write. The day-key write is only reached further down, so the intuitive
+    // spot — beside the write whose key would be junk — is AFTER the
+    // `byResource` write, and a guard there counts the same hours in
+    // `byResource` AND in `unattributed`. A row is unattributable to a DAY (and
+    // so to any period) exactly as an unlinked row is unattributable to a
+    // BUCKET, so it takes the same exit, for the same reason, at the same point.
+    // Unguarded, a malformed date would become a day key that `bucketOverlay`'s
+    // `periodKeyForDate` then turns into a phantom period — measured on the
+    // dates this file's ISO_DAY_RE docstring lists: month keys "" and "05/01/2",
+    // week key "NaN-WNaN" for both — matching no rendered column, so the hours
+    // silently disappear from the Budget view rather than being surfaced.
     const dated = ISO_DAY_RE.test(it.date);
     if (resourceId === undefined || bucketId === undefined || bucketId === null || !dated) {
       unattributed = add(unattributed, it);
@@ -203,7 +207,8 @@ function legacyOverlay(byBucket: ActualsByBucket, granularity: PlanGranularity):
  *
  * ★★★ SEPARATE FROM `aggregateActuals` ON PURPOSE, and the difference is the
  * point. Aggregation answers "how do these hours attribute to budget buckets",
- * so it collapses the date to a period key, sums per-entry hours away, and
+ * so it keys by bucket and day (periods are derived later by `bucketOverlay`),
+ * sums per-entry hours away, and
  * folds every unlinked item into `unattributed`. The rules ask "what did this
  * PERSON book that day", so the roll keeps the calendar date, keeps the largest
  * single entry, and keeps non-project time — it is still their time.
