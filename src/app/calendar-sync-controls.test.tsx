@@ -30,9 +30,11 @@ describe("CalendarSyncControls", () => {
   });
 
   // §42: the enable toggle was already entity-qualified; the Push/Pull buttons
-  // were not, so two mounted instances announced two identical "Push to
-  // Outlook" buttons — a WCAG 2.4.6 collision axe cannot see (it reports
-  // missing names, never duplicate ones).
+  // were not, so two co-rendered instances would announce two identical "Push
+  // to Outlook" buttons — a WCAG 2.4.6 collision axe cannot see (it reports
+  // missing names, never duplicate ones). Two instances render together only in
+  // the classic layout (Tasks below RAID/Changes/Resources); this pins the
+  // names apart for that case and for any future co-render.
   it("qualifies the push and pull names with the entity, so two instances never collide", () => {
     render(
       <>

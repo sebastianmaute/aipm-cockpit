@@ -43,12 +43,15 @@ export function CalendarSyncControls({
 }: CalendarSyncControlsProps) {
   if (!(m365Configured && !isPopout && onToggleCalendar)) return null;
   // The VISIBLE text on the Push/Pull buttons stays the short verb; only the
-  // accessible name is entity-qualified, mirroring the enable toggle above —
-  // a pane rendering two instances of this component (e.g. the Calendar
-  // sub-tab's absences + meeting series) would otherwise give screen-reader
-  // users two indistinguishable "Push to Outlook" buttons (WCAG 2.4.6). axe
-  // cannot see a duplicate name, only a missing one, so this is the only
-  // thing standing between us and that collision (§42).
+  // accessible name is entity-qualified, mirroring the enable toggle above, so
+  // two co-rendered instances never give screen-reader users two
+  // indistinguishable "Push to Outlook" buttons (WCAG 2.4.6). Where two can
+  // co-render today (read from the code, not rendered): the modern layout shows
+  // one view at a time, but the CLASSIC layout's `task-manager.tsx` renders
+  // `TasksSection` below `WorkspaceSection` unconditionally, so the Tasks
+  // instance shares the screen with the RAID, Changes or Resources one. Anywhere
+  // else the qualification is preventive. axe cannot see a duplicate name, only
+  // a missing one, so the unit test is the only detector (§42).
   const entity = t(lang, entityLabelKey);
   return (
     <>
