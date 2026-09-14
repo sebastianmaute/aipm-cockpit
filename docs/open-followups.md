@@ -273,7 +273,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§44](#44-the-last-two-ux-roadmap-slices--s6-designed-and-planned-but-unexecuted-s7-undesigned) | The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned | roadmap (gitignored, local-only) | L | open |
 | [§45](#45-brace-expansion-advisory-in-the-eslint-dev-chain--closed-in-02111) | ~~`brace-expansion` advisory in the eslint dev chain~~ | 0.211.0 | S | **CLOSED** in 0.211.1 |
 | [§46](#46-a-label-wrapped-file-input-can-never-show-a-focus-ring--pattern-open) | A `<label>`-wrapped file input can never show a focus ring — pattern open | 0.211.1 | S | open |
-| [§47](#47-chat-panel-clicks-a-displaynone-file-input--open-pre-existing) | `chat-panel` clicks a `display:none` file input — open, pre-existing | pre-existing, found 0.211.1 | S | open |
+| [§47](#47-chat-panel-clicks-a-displaynone-file-input--closed-2026-09-14) | `chat-panel` clicks a `display:none` file input — CLOSED 2026-09-14 | pre-existing, found 0.211.1 | S — swapped `hidden` for `sr-only` on the attachment input | **CLOSED** 2026-09-14 |
 | [§48](#48-raid-editor-destroys-notes-added-while-it-is-open--closed-in-02111) | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED** in 0.211.1 |
 | [§49](#49-every-ai-edit-to-a-raid-item-erased-its-whole-note-log--closed-in-02111) | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED** in 0.211.1 |
 | [§50](#50-undo-of-a-bulk-edit-reverts-write-through-fields--closed-2026-08-18) | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | **CLOSED** 2026-08-18 |
@@ -3257,13 +3257,29 @@ whether the element carrying it can receive focus. Check the element type, not t
 
 ---
 
-## 47. `chat-panel` clicks a `display:none` file input — open, pre-existing
+## 47. `chat-panel` clicks a `display:none` file input — CLOSED 2026-09-14
 
-**Status:** open — an attachment input hidden from the a11y tree. Reproduced 2026-08-28 by `grep -n "fileInputRef" src/app/chat-panel.tsx`.
+**Status:** CLOSED 2026-09-14 on `fix/ui-residuals-batch`. `chat-panel.tsx`'s attachment `<input
+type="file">` now carries `className="sr-only"` instead of `className="hidden"` — the minimal fix the
+entry named, keeping `tabIndex={-1}` and `aria-hidden="true"` unchanged. The `FilePickerButton`
+migration the entry also named (which would need a new `multiple` prop) was deliberately NOT taken —
+out of scope for this fix, same as it was scoped out of 0.211.1. Pinned by two new tests in
+`src/app/chat-panel.test.tsx`'s "Attachment guidance" describe block: "uses sr-only, not display:none,
+for the attachment input" (asserts the input's `className` contains `sr-only` and not `hidden`) and
+"forwards the attach button click to the input" (spies on `HTMLInputElement.prototype.click` via the
+queried input and asserts the attach button's click reaches it). Reproduced RED first against the
+unmodified input (`Tests 1 failed | 81 passed (82)`, the sr-only assertion failing for the right
+reason). Mutation-checked: reverting `className` back to `"hidden"` turns the same test red again
+(`Tests 1 failed | 81 passed (82)`); restoring `sr-only` returns it to green. Verified 2026-09-14:
+`npx vitest run src/app/chat-panel.test.tsx` → `Test Files 1 passed (1)`, `Tests 82 passed (82)`, exit
+0. ★ Honest limitation: jsdom applies no CSS, so these tests pin the CLASS CONTRACT only — they cannot
+reproduce the browser-level defect itself (some browsers refuse to open a file dialog for a
+`display:none` input), which is why §15's rule exists in prose rather than as a runtime check.
+Re-swept `grep -rn 'type="file"' src/app --include=*.tsx`: the only other non-test file input remains
+`step0-import-panel.tsx`, still a plain visible input with no `hidden`/`display:none` class — confirmed
+unaffected, as the entry already noted.
 
-**Work item:** #109
-
-`chat-panel.tsx` gives its attachment input `className="hidden"` (Tailwind `display:none`) and opens it
+`chat-panel.tsx` gave its attachment input `className="hidden"` (Tailwind `display:none`) and opened it
 via `fileInputRef.current?.click()`. That is exactly what §15 warns against — both theme pickers used
 `sr-only` *precisely because* a `display:none` input cannot be clicked in every browser. So the entry
 that documented the rule sat beside a live violation of it.
@@ -3273,9 +3289,9 @@ size caps (`chat-attachments.ts`), so it is a bigger read than swapping one clas
 `step0-import-panel.tsx` is the same class of flow and was excluded for the same reason, though it uses
 a plain visible input and is **not** affected by this particular bug.
 
-**Fix when taken:** move it onto `FilePickerButton` — which would need a `multiple` prop, deliberately
-NOT added speculatively in 0.211.1 — or, minimally, swap `hidden` for `sr-only` plus `tabIndex={-1}` and
-`aria-hidden`.
+**Fix taken:** the minimal option — swap `hidden` for `sr-only`, keeping `tabIndex={-1}` and
+`aria-hidden`. The `FilePickerButton` migration (which would need a new `multiple` prop) remains
+undone, same as it was scoped out of 0.211.1 — see the Status paragraph above.
 
 ---
 
