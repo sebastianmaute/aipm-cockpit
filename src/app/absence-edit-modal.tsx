@@ -82,7 +82,12 @@ export function AbsenceEditModal({
     const cleanedEmail = draft.assigneeEmail?.trim() || undefined;
     // The task form's rule (`validateTaskForm`): a blank address is legal, a
     // non-blank one must be an address. The AI writers refuse the same (§461).
-    if (cleanedEmail && !isValidEmail(sanitizeEmail(cleanedEmail))) {
+    // ★★ ONLY WHEN THE VALUE CHANGED from the one the modal opened with. The
+    //  Email field is Full-tier only, so a stale malformed address stored
+    //  before §461 would otherwise block saving any OTHER field at a tier
+    //  where the user cannot even see it. Anything typed is still refused.
+    const openedEmail = absence?.assigneeEmail?.trim() || undefined;
+    if (cleanedEmail && cleanedEmail !== openedEmail && !isValidEmail(sanitizeEmail(cleanedEmail))) {
       setError(t(lang, "errorInvalidEmail"));
       return;
     }

@@ -34888,7 +34888,11 @@ for a non-blank address `isValidEmail` rejects, and `createAbsence` / `updateAbs
 (`use-register-tools.ts`) call it after `dropUnacceptedAbsenceFields`; blank stays a legal clear.
 The absence descriptor's `emailFormatFields` is now `assigneeEmail`, so the card rejects the value
 before apply, and `absence-edit-modal.tsx` blocks save with `errorInvalidEmail`, as the task form
-does. The allow-list row `ABSENCE_FIELD_GUARDS.assigneeEmail` was deliberately NOT tightened: it is
+does — but ONLY when the trimmed value differs from the one the modal opened with (blank for a new
+absence). The Email field is Full-tier only, so an unconditional check let a stale stored address block
+saving any other field at a tier where it cannot be seen. Pre-existing malformed addresses are
+therefore NOT repaired: they stay stored until someone edits the field (or the AI writes a valid
+one). The allow-list row `ABSENCE_FIELD_GUARDS.assigneeEmail` was deliberately NOT tightened: it is
 model-write-only, but a failing guard DROPS the key, which would turn the loud refusal into a silent
 no-op. `sanitizeAbsence` is unchanged too, because it is also the load path and must not drop stored
 data. `raid.ownerEmail` keeps the old unchecked shape (`sanitizeRaidItem` → `sanitizeEmail`, no format
@@ -34896,7 +34900,7 @@ guard, empty `emailFormatFields`); it is not part of this closure. The offered-s
 no migration: since §459 its email probe is `m.Jordan+probed@example.com`, a valid address. Pinned by
 `npx vitest run src/app/use-chat-dispatcher.test.tsx -t "invalid assignee email"`,
 `npx vitest run src/app/inline-ai-edit/plan.test.ts -t "malformed absence assignee email"` and
-`npx vitest run src/app/absence-edit-modal.test.tsx -t "invalid assignee email"`.
+`npx vitest run src/app/absence-edit-modal.test.tsx -t "assignee email"`.
 
 **As filed:** OPEN 2026-09-11 — established by reading both writers, not by a dedicated run; the
 offered-surface sweep's clean run (0 failed / 74) is consistent with it, carrying no

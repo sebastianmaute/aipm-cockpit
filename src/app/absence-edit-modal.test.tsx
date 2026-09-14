@@ -196,12 +196,34 @@ describe("AbsenceEditModal", () => {
   //  a blank one saves as a clear.
   it("blocks save on an invalid assignee email and shows the invalid-email error", () => {
     const onSave = vi.fn();
-    setupFull({ absence: { ...base, assigneeEmail: "m.Jordan@example.com probed" }, onSave });
+    setupFull({ onSave });
+    fireEvent.change(screen.getByLabelText(t("en-US", "absenceAssigneeEmail")), {
+      target: { value: "m.Jordan@example.com probed" },
+    });
     fireEvent.submit(
       screen.getByRole("button", { name: /save/i }).closest("form")!,
     );
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorInvalidEmail"));
+  });
+
+  // ★★ The rule only applies to a CHANGED value. A malformed address stored
+  //  before §461 must not block saving another field — here at the Advanced
+  //  default, where the Full-only Email field is hidden and cannot be fixed.
+  it("saves a stored malformed assignee email unchanged when only another field changes, with Email hidden", () => {
+    const onSave = vi.fn();
+    setup({ absence: { ...base, assigneeEmail: "m.Jordan@example.com probed" }, onSave });
+    expect(screen.queryByText(t("en-US", "absenceAssigneeEmail"))).toBeNull();
+    fireEvent.change(screen.getByLabelText(/end/i), { target: { value: "2026-06-09" } });
+    fireEvent.submit(
+      screen.getByRole("button", { name: /save/i }).closest("form")!,
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({
+      endDate: "2026-06-09",
+      assigneeEmail: "m.Jordan@example.com probed",
+    });
   });
 
   it("saves a blank assignee email as a clear", () => {
