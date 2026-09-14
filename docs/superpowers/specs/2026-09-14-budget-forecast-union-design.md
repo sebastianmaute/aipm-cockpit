@@ -134,6 +134,11 @@ TimeLog and re-apply.
 - Stored period-key actuals keep working unchanged; nothing is migrated. The next Apply rewrites covered periods.
 - Switching plan granularity regroups day keys automatically. Hand-typed period keys from the old granularity still
   do not match the new periods; that is today's behaviour, recorded here, not fixed.
+- Known gap: a stale period key of the OTHER granularity that overlaps a dated Apply's covered days is not removed
+  by that Apply, and is summed together with the day keys once the plan switches back — e.g. a hand-typed or legacy
+  month key `2026-06: 10` survives a weekly Apply untouched, and the monthly view then reads 10 plus the day hours.
+  A re-apply at that granularity removes the stale key, since Apply owns the period it covers. Tracked as a
+  follow-up (register, user-gated).
 
 ## 5. MR 2 — forecast engine
 
@@ -347,7 +352,7 @@ it. The approved texts are those of the union mockup, adjusted where §5 changed
 - §169 regression: aggregate, switch granularity month → week, apply, hours still counted by the report.
 - `actualHoursIn`: property test — period total equals period key plus that period's day keys, and summing all
   periods equals summing all keys.
-- Read-only cell: disabled state and accessible description.
+- Read-only cell: read-only (not disabled) state, so it stays focusable, plus its accessible description.
 - Before planning: grep the repository for tests and code that assume period-only actual keys and label each hit
   DELETE, MIGRATE or RECOMPUTE.
 
