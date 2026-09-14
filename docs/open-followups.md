@@ -8549,6 +8549,17 @@ real markup is real HTML, not prose. Pinned by
 `npx vitest run src/app/sanitize-records.test.ts -t "§108 r1"`; the mutant (reverting to `RICH_SINK`)
 fails that test.
 
+★★ RESIDUAL TRADE, FOUND BY A COLD RE-REVIEW OF THE R1 FIX (non-blocking, disclosed rather than
+fixed): `RENDER_SINK`'s classifier is unanchored, so prose that merely MENTIONS a bare, valueless,
+terminated tag ("we banned `<hr>` rules") and carries no real markup anywhere else in the report is
+now classified as already-HTML and passed through with the literal tag intact, where it used to be
+escaped — the same accepted cost `html-start.ts` already documents for `RENDER_SINK`. Reachable only
+via a hand-edited or foreign-imported report: the app's own write path, `onSaveReport`
+(`use-meeting-report-actions.ts`), runs `sanitizeRichHtml` (DOMPurify) before storing, which
+entity-escapes any tag a user typed as prose, so no report the app itself writes can reach this shape.
+No visible text is lost either way — only whether a mentioned tag renders as a literal word or (on the
+next real sanitize pass) as an actual, usually-empty element.
+
 ---
 ## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet
 

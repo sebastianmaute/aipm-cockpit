@@ -1519,17 +1519,20 @@ const REPORT_HTML_MAX = 100_000;
 
 /** Defensive decode for a per-meeting status report. Returns undefined unless a
  *  non-empty `html` string and a string `updatedAt` are present. Pure/SSR-safe.
- *  ★★ Within REPORT_HTML_MAX raw characters the body is returned BYTE-IDENTICAL
- *  (it was sanitized at write time; sanitizeRichText would trim and re-classify
- *  it). Over it, sanitizeRichText bounds VISIBLE text at the cap and degrades to
- *  plain text past it, so the result can never end mid-tag or on a lone
- *  surrogate the way the old raw `.slice` could (open-followups §108).
- *  ★★★ THE OVER-CAP CALL CLASSIFIES ON RENDER_SINK (unanchored "contains a tag
- *  anywhere?"), NOT THE ANCHORED RICH_SINK "starts with a rich tag?" test. A
- *  report can legitimately OPEN with plain text before its first real tag —
- *  write-time DOMPurify output keeps a leading sentence — and the anchored test
- *  answered NO for that shape, so descriptionHtml escaped the WHOLE body into
- *  literal `&lt;h2&gt;`/`&lt;p&gt;` text that the next save then persisted (§108 r1). */
+ *  ★★ Within REPORT_HTML_MAX raw characters the body is BYTE-IDENTICAL (sanitized
+ *  at write time). Over it, sanitizeRichText bounds VISIBLE text at the cap and
+ *  degrades to plain text past it, never ending mid-tag or on a lone surrogate
+ *  the way the old raw `.slice` could (open-followups §108).
+ *  ★★★ OVER-CAP CLASSIFIES ON RENDER_SINK (unanchored "contains a tag
+ *  anywhere?"), NOT anchored RICH_SINK ("starts with a rich tag?"): a report
+ *  can legitimately OPEN with plain text before its first real tag, which the
+ *  anchored test misread as prose and escaped WHOLE into literal
+ *  `&lt;h2&gt;`/`&lt;p&gt;` text the next save then persisted (§108 r1).
+ *  ★ RESIDUAL TRADE: prose merely MENTIONING a bare tag ("we banned <hr>
+ *  rules"), with no real markup elsewhere, now passes through tag-intact
+ *  instead of escaped (RENDER_SINK's accepted cost, html-start.ts) — reachable
+ *  only via a hand-edited/foreign report, since `onSaveReport` runs
+ *  sanitizeRichHtml first and entity-escapes any typed tag; no text is lost. */
 function sanitizeMeetingReport(raw: unknown): MeetingReport | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const rr = raw as Record<string, unknown>;
