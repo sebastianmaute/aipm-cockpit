@@ -37226,7 +37226,8 @@ not specific to `emails`. `describeEntityCalls` (`src/app/inline-ai-edit/plan.ts
 invalid field goes into `plan.rejected` while the call's other fields still show as landing in `plan.updates`.
 Chat Apply does not consult that verdict — `applyProposal` (`src/app/chat-proposal-apply.ts`) runs
 `runTool(dispatcher, guarded.name, guarded.input)` on the model's ORIGINAL call, where `guarded` is
-`remapStagedCall(row.stamped, real)`. When the dispatcher throws for the whole call, every sibling field the
+`remapStagedCall(row.stamped, real)`, with only an `expectedToken` added for a row pending on a create — no
+field the card rejected is removed. When the dispatcher throws for the whole call, every sibling field the
 card promised is lost along with the rejected one. Verified with
 `grep -n "runTool(dispatcher" src/app/chat-proposal-apply.ts src/app/use-insight-recommendations.ts` (both
 replay the raw call unchanged) and
