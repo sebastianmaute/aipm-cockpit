@@ -14,11 +14,11 @@
 //  inside the setter's `prev` is not possible — React runs the updater later,
 //  after `captureComposite` has already pushed the entry.
 import type { useWorkspace } from "./workspace-context";
-import type { Resource } from "./types";
+import type { ContactPerson, Resource } from "./types";
 import { type Lang, t } from "./i18n";
 import { capturePart, type CompositeFragment } from "./undo/use-undo-stack";
 import {
-  propagateResourceEmail, resourceEmailChange,
+  propagateResourceEmail, resourceEmailChange, restoreContactPersonEmails,
   retargetAbsenceEmails, retargetContactPersonEmails, retargetRaidEmails, retargetShiftEmails,
   retargetStakeholderEmails, retargetTaskEmails,
   type EmailPropagationInput, type EmailPropagationResult, type ResourceEmailChange,
@@ -27,24 +27,28 @@ import {
 export type PropagationSetters = Pick<ReturnType<typeof useWorkspace>, "setTasks" | "setRaid" | "setAbsences" | "setShifts" | "setStakeholders" | "setProject">;
 
 /** ★ `ContactPerson` has no id, so `capturePart` cannot hold it. Instead the
- *  fragment re-runs the retarget over the LIVE `prev` in the opposite
- *  direction: undo moves the linked rows holding the propagated address back
- *  to the old one, redo moves the linked rows holding the old address forward
- *  again. A whole-array restore would drop every contact person added (or
- *  edited) after the correction — only the rows this correction retargeted
- *  are touched. Unarmed: a plain edit removes no rows. */
+ *  fragment works over the LIVE `prev`: undo gives each linked row holding the
+ *  propagated address back its OWN stored before-image (`originals`, paired by
+ *  name — `restoreContactPersonEmails`), so casing and surrounding whitespace
+ *  survive the round trip; redo re-runs the forward retarget. A whole-array
+ *  restore would drop every contact person added (or edited) after the
+ *  correction — only linked rows holding the propagated address are touched.
+ *  ★ Without ids, a row linked to the same resource and given the new address
+ *  AFTER the correction is also moved back on undo (to the old primary, having
+ *  no before-image of its own). Unarmed: a plain edit removes no rows. */
 export function contactPersonsFragment(
   setProject: PropagationSetters["setProject"],
   change: ResourceEmailChange,
+  originals: readonly ContactPerson[],
 ): CompositeFragment {
-  const reverse: ResourceEmailChange = { resourceId: change.resourceId, from: change.to, to: change.from };
-  const apply = (direction: ResourceEmailChange) =>
-    setProject((prev) => (prev ? { ...prev, contactPersons: [...retargetContactPersonEmails(prev.contactPersons, direction).next] } : prev));
+  const write = (next: (rows: readonly ContactPerson[]) => readonly ContactPerson[]) =>
+    setProject((prev) => (prev ? { ...prev, contactPersons: [...next(prev.contactPersons)] } : prev));
+  const redo = () => write((rows) => retargetContactPersonEmails(rows, change).next);
   return {
     isPrimary: false,
     restore: () => {
-      apply(reverse);
-      return () => apply(change);
+      write((rows) => restoreContactPersonEmails(rows, change, originals));
+      return redo;
     },
   };
 }
@@ -70,7 +74,7 @@ export function commitEmailPropagation(args: {
     capturePart({ setter: setters.setAbsences, edited: result.absences.edited, fromArray: input.absences }),
     capturePart({ setter: setters.setShifts, edited: result.shifts.edited, fromArray: input.shifts }),
     capturePart({ setter: setters.setStakeholders, edited: result.stakeholders.edited, fromArray: input.stakeholders }),
-    result.contactPersons.changed > 0 ? contactPersonsFragment(setters.setProject, change) : null,
+    result.contactPersons.changed > 0 ? contactPersonsFragment(setters.setProject, change, result.contactPersons.edited) : null,
   ];
 }
 

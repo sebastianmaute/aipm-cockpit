@@ -93,7 +93,7 @@ describe("contactPersonsFragment", () => {
     const s = setters();
     const after = [{ ...ada, email: "new@x.com" }];
     const arm = vi.fn();
-    const fragment = contactPersonsFragment(s.setProject, change);
+    const fragment = contactPersonsFragment(s.setProject, change, [ada]);
     expect(fragment.isPrimary).toBe(false);
     const project = { name: "P", contactPersons: after } as ProjectMeta;
     const redo = fragment.restore({ current: new Map() }, false, arm);
@@ -111,7 +111,7 @@ describe("contactPersonsFragment", () => {
     const s = setters();
     const carol: ContactPerson = { name: "Carol", email: "carol@x.com", synced: false };
     const namesake: ContactPerson = { name: "Other Ada", email: "new@x.com", synced: false, resourceId: 8 };
-    const fragment = contactPersonsFragment(s.setProject, change);
+    const fragment = contactPersonsFragment(s.setProject, change, [ada]);
     const live = { name: "P", contactPersons: [{ ...ada, email: "new@x.com" }, namesake, carol] } as ProjectMeta;
     const redo = fragment.restore({ current: new Map() }, false, vi.fn());
     const undone = apply<ProjectMeta | undefined>(live, vi.mocked(s.setProject).mock.calls[0][0] as SetStateAction<ProjectMeta | undefined>);
@@ -119,5 +119,39 @@ describe("contactPersonsFragment", () => {
     redo();
     const redone = apply<ProjectMeta | undefined>(undone, vi.mocked(s.setProject).mock.calls[1][0] as SetStateAction<ProjectMeta | undefined>);
     expect(redone?.contactPersons).toEqual([{ ...ada, email: "new@x.com" }, namesake, carol]);
+  });
+
+  // Final fix round 3, R1. `retarget` matches case- and space-insensitively, so
+  // a row can hold the old address spelled differently from the resource's
+  // trimmed primary. Undo must give each row back ITS OWN stored string, not
+  // `change.from`. Driven through `commitEmailPropagation` so the wiring that
+  // hands the fragment its before-images is pinned too.
+  const setProjectCall = (s: PropagationSetters, n: number) =>
+    vi.mocked(s.setProject).mock.calls[n][0] as SetStateAction<ProjectMeta | undefined>;
+
+  it("undo restores each retargeted row's own stored address byte-for-byte, and redo re-applies", () => {
+    const s = setters();
+    const spaced: ContactPerson = { ...ada, email: " Old@X.com " };
+    const shouty: ContactPerson = { name: "Ada B", email: "OLD@X.COM", synced: false, resourceId: 7 };
+    const input = empty({ contactPersons: [spaced, shouty] });
+    const parts = commitEmailPropagation({ change, input, result: propagateResourceEmail(change, input), setters: s });
+    const committed = apply<ProjectMeta | undefined>({ name: "P", contactPersons: [spaced, shouty] } as ProjectMeta, setProjectCall(s, 0));
+    expect(committed?.contactPersons.map((c) => c.email)).toEqual(["new@x.com", "new@x.com"]);
+    const redo = parts[5]!.restore({ current: new Map() }, false, vi.fn());
+    const undone = apply<ProjectMeta | undefined>(committed, setProjectCall(s, 1));
+    expect(undone?.contactPersons).toEqual([spaced, shouty]);
+    redo();
+    const redone = apply<ProjectMeta | undefined>(undone, setProjectCall(s, 2));
+    expect(redone?.contactPersons.map((c) => c.email)).toEqual(["new@x.com", "new@x.com"]);
+  });
+
+  it("a linked row with no before-image of its name still falls back to the old primary on undo", () => {
+    const s = setters();
+    const addedLater: ContactPerson = { name: "Dora", email: "new@x.com", synced: false, resourceId: 7 };
+    const fragment = contactPersonsFragment(s.setProject, change, [{ ...ada, email: " Old@X.com " }]);
+    fragment.restore({ current: new Map() }, false, vi.fn());
+    const live = { name: "P", contactPersons: [{ ...ada, email: "new@x.com" }, addedLater] } as ProjectMeta;
+    const undone = apply<ProjectMeta | undefined>(live, setProjectCall(s, 0));
+    expect(undone?.contactPersons.map((c) => c.email)).toEqual([" Old@X.com ", "old@x.com"]);
   });
 });

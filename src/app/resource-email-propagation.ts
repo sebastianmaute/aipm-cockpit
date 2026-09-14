@@ -34,9 +34,13 @@ export interface EmailPropagationResult {
   absences: ArrayPropagation<Absence>;
   shifts: ArrayPropagation<Shift>;
   stakeholders: ArrayPropagation<Stakeholder>;
-  contactPersons: { next: readonly ContactPerson[]; changed: number };
+  contactPersons: ContactPersonPropagation;
   count: number;
 }
+
+/** `edited` holds the before-images (the rows as they were), which the undo
+ *  fragment needs because a contact person has no id to restore by. */
+export interface ContactPersonPropagation { next: readonly ContactPerson[]; edited: ContactPerson[]; changed: number }
 
 const fold = (s: string | undefined): string => (s ?? "").trim().toLowerCase();
 
@@ -89,9 +93,31 @@ export function retargetStakeholderEmails(rows: readonly Stakeholder[], change: 
   return retarget(rows, change, (r) => fits && r.resourceId === change.resourceId, (r) => r.email, (r, v) => ({ ...r, email: v }));
 }
 
-export function retargetContactPersonEmails(rows: readonly ContactPerson[], change: ResourceEmailChange): { next: readonly ContactPerson[]; changed: number } {
+export function retargetContactPersonEmails(rows: readonly ContactPerson[], change: ResourceEmailChange): ContactPersonPropagation {
   const out = retarget(rows, change, (r) => r.resourceId === change.resourceId, (r) => r.email, (r, v) => ({ ...r, email: v }));
-  return { next: out.next, changed: out.edited.length };
+  return { next: out.next, edited: out.edited, changed: out.edited.length };
+}
+
+/** The undo of a contact-person retarget. `retarget` matches case- and
+ *  space-insensitively, so a row may have held the old address spelled
+ *  differently from `change.from` (" Old@X.com "). `ContactPerson` has no id
+ *  (§537), so each linked row now holding `change.to` is paired, in order, with
+ *  an unconsumed before-image of the SAME name and gets that row's own stored
+ *  email back byte-for-byte. A row no before-image pairs with — one linked and
+ *  given the new address after the correction — falls back to `change.from`. */
+export function restoreContactPersonEmails(
+  rows: readonly ContactPerson[],
+  change: ResourceEmailChange,
+  originals: readonly ContactPerson[],
+): readonly ContactPerson[] {
+  const reverse: ResourceEmailChange = { resourceId: change.resourceId, from: change.to, to: change.from };
+  const consumed = new Set<number>();
+  return retarget(rows, reverse, (r) => r.resourceId === change.resourceId, (r) => r.email, (r, fallback) => {
+    const i = originals.findIndex((o, idx) => !consumed.has(idx) && o.name === r.name);
+    if (i < 0) return { ...r, email: fallback };
+    consumed.add(i);
+    return { ...r, email: originals[i].email };
+  }).next;
 }
 
 export function propagateResourceEmail(change: ResourceEmailChange, input: EmailPropagationInput): EmailPropagationResult {
