@@ -28716,36 +28716,54 @@ stays tagged "resources" throughout because that is the literal every PRODUCER o
 `use-hash-view.ts`'s handling of an item-bearing `#resources/<id>` hash all call
 `requestOpen("resources", id)`) and nothing ever retags an in-flight request to "directory" — who
 clears it (only Directory, via `clearPendingOpen`) is a separate fact and does not explain the tag.
-Consuming it opens the matched resource through the existing `onEditResource` prop (mirrors how
-stakeholders/raid open their edit modal, including a skip-if-already-open guard — tracked as the id
-this mount last deep-linked to, since this panel does not own the modal's draft state to compare
-against directly) and scrolls/flashes its row; an id matching no resource is still consumed so the
-request cannot get stuck. Because the redirect and the consumer are the SAME mechanism the report's
-own comment says they are, the same three producers — the guardrail insight, global-search's resource
-hits and Recents (`global-search-box.tsx`'s `onSelect`), and an item-bearing `#resources/<id>`
-hash/back-forward — now all land on Directory with the row opened, where before they opened only the
-Resources report tab.
+Consuming it opens the matched resource through the existing `onEditResource` prop and scrolls/flashes
+its row; an id matching no resource is still consumed so the request cannot get stuck. Because the
+redirect and the consumer are the SAME mechanism the report's own comment says they are, the same
+three producers — the guardrail insight, global-search's resource hits and Recents
+(`global-search-box.tsx`'s `onSelect`), and an item-bearing `#resources/<id>` hash/back-forward — now
+all land on Directory with the row opened, where before they opened only the Resources report tab.
+
+★★ **KNOWN RESIDUAL, not guarded (corrected 2026-09-14, fix round 2):** unlike stakeholders/raid, this
+does NOT skip re-opening the editor when the same resource's editor is already open. A
+skip-if-already-open guard was added in fix round 1 and REMOVED on re-review once shown dead in the
+wired app: every producer above tags the request "resources", `requestOpen` unconditionally flips
+`activeTab` through "resources" first, and `workspace-section.tsx` renders `ResourceDirectory` only
+while `activeTab === "directory"` — so ANY repeat request, including a real back/forward to the
+identical `#resources/<id>` hash, unmounts and remounts a fresh `ResourceDirectoryInner` BEFORE its
+consumer effect ever runs, resetting any per-mount ref/state before it could see a repeat. The edit
+modal's own state (`editingResource`) lives in `task-manager.tsx`, ABOVE this remount, so it survives
+it. Plainly: **a repeated deep link to a resource — including via browser back/forward — while that
+resource's editor is already open re-opens the editor from the stored row and can discard unsaved
+edits.** A working guard needs the "already open" state to live where `editingResource` already does
+(`task-manager.tsx`/`app-modals.tsx`), both on the peer avoid-list for this branch, so the fix is
+deferred rather than shipped as a guard that cannot fire. No new register entry is filed for this
+residual per instruction — the controller decides whether one is warranted.
 
 Pinned by `ResourceDirectory deep-link open` (`resource-directory.test.tsx`: opens + clears on a
-match, skips reopening a re-fired request for the resource whose editor is already open, honours a
-request armed before mount, consumes an unknown id silently), `ResourcesReportPanel deep-link
-redirect` (`resources-report.test.tsx`: redirects to Directory, stays put when `embedded`), and — the
-fix-round-1 addition — `§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirectory
-consumer` (`resource-directory.test.tsx`), which mounts BOTH panels behind the same `activeTab` gate
+match, honours a request armed before mount, consumes an unknown id silently) and `ResourcesReportPanel
+deep-link redirect` (`resources-report.test.tsx`: redirects to Directory, stays put when `embedded`).
+The fix-round-1 addition `§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirectory
+consumer` (`resource-directory.test.tsx`) mounts BOTH panels behind the same `activeTab` gate
 `workspace-section.tsx` uses and asserts the editor opens end to end, so the redirect and the consumer
-are pinned together and not just each in isolation. Mutation-checked, each restored after: disabling
-the Directory consumer and the report's redirect together turned 4 of the then-5 new cases red
+are pinned together and not just each in isolation; fix round 2 adds one more case to that same
+describe block — "KNOWN RESIDUAL: re-fires the edit handler for a repeated deep-link to the resource
+whose editor is already open" — which fires the identical id twice through that same real
+`resources`→`directory` hop and asserts the edit handler is called TWICE, pinning today's behaviour as
+an observable rather than describing it only in prose. Mutation-checked, each restored after: disabling
+the Directory consumer and the report's redirect together turned 4 of 5 then-new cases red
 (`Tests 4 failed | 36 passed (40)`); adding a `clearPendingOpen()` call to the redirect (so it also
 consumes the request instead of only handing it off) turns the end-to-end seam test red alone
-(`Tests 1 failed | 30 passed (31)` on `resource-directory.test.tsx`); removing the skip-if-already-open
-guard turns the re-fired-request case red alone (`Tests 1 failed | 30 passed (31)`); removing the
-`embedded ||` guard turns "does not redirect in embedded mode" red alone
-(`Tests 1 failed | 10 passed (11)` on `resources-report.test.tsx`). Verified 2026-09-14:
-`npx vitest run src/app/resource-directory.test.tsx src/app/resources-report.test.tsx` →
-`Test Files 2 passed (2)`, `Tests 42 passed (42)`, exit 0; `npx tsc --noEmit` exit 0. Re-running the
-filing command now returns `resources` too: `grep -rhn 'pendingOpen?.view !== "\|pendingOpen?.view
-=== "' src/app --include=*.tsx | grep -oE '"[a-z-]+"' | sort -u` → changes · documents · milestones ·
-open-points · raid · resources · stakeholders.
+(`Tests 1 failed | 30 passed (31)` on `resource-directory.test.tsx`); removing the `embedded ||` guard
+turns "does not redirect in embedded mode" red alone (`Tests 1 failed | 10 passed (11)` on
+`resources-report.test.tsx`); giving the consumer a Directory-remount-surviving guard (module-scope
+state, simulating what a real fix in `task-manager.tsx` would provide) turns the KNOWN RESIDUAL case
+red alone, run in isolation (`npx vitest run src/app/resource-directory.test.tsx -t "KNOWN RESIDUAL"`
+→ `Tests 1 failed | 30 skipped (31)`) — proving that test would catch a working fix, not just today's
+absence of one. Verified 2026-09-14: `npx vitest run src/app/resource-directory.test.tsx
+src/app/resources-report.test.tsx` → `Test Files 2 passed (2)`, `Tests 42 passed (42)`, exit 0;
+`npx tsc --noEmit` exit 0. Re-running the filing command now returns `resources` too: `grep -rhn
+'pendingOpen?.view !== "\|pendingOpen?.view === "' src/app --include=*.tsx | grep -oE '"[a-z-]+"' |
+sort -u` → changes · documents · milestones · open-points · raid · resources · stakeholders.
 
 Opening a guardrail insight calls `requestOpen("resources", id)`, which sets `pendingOpen`. No
 resources surface reads it, so the view opens and the person is never selected or scrolled to. Every
