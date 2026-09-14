@@ -29750,14 +29750,16 @@ queries in `task-form-fields.test.tsx` now use the whole-string name.
 ★★ THE SAME DEFECT LIVED OUTSIDE `Field`, IN HAND-ROLLED LABELS, AND THOSE ARE CLOSED TOO. The
 enumeration was a TypeScript-AST scan over every non-test `.tsx` under `src/app`: it lists each JSX
 `<label>` whose subtree contains `<InfoTooltip>`, with the controls inside it and whether each names
-itself via `aria-label`/`aria-labelledby`. The scan is a session script, not a repo script. Before the
-fix it listed 58 labels. 41 wrapped a control with no name of its own, so the hint polluted that
+itself via `aria-label`/`aria-labelledby`. The scan is a session script, not a repo script. Measured
+2026-09-14 — a session scan, not committed to the repo and not reproducible from it: before the fix
+it listed 58 labels. 41 wrapped a control with no name of its own, so the hint polluted that
 control's name. 16 wrapped only self-named controls, such as the change and stakeholder selects
 and `budget-bucket-modal.tsx`'s inputs. 1 was `general-section.tsx`'s `htmlFor` label for a Select
 that names itself. After the fix it lists 17 labels and 0 polluting. The rough grep
 `git grep -n -B3 "<InfoTooltip" -- src/app | grep -c "<label"` is NOT a substitute: it counts
-nearby lines, not containment, and it both over- and under-counts. Measured on the same day, it
-returned 55 at the pre-fix commit where the scan found 58, and 19 after the fix where the scan found 17. The 41 fixed sites, each
+nearby lines, not containment, and it both over- and under-counts. Measured 2026-09-14 (same
+session scan, not committed to the repo and not reproducible from it), it returned 55 at the pre-fix
+commit where the scan found 58, and 19 after the fix where the scan found 17. The 41 fixed sites, each
 verified by reading:
 - `absence-edit-modal.tsx`: Start, End, Note.
 - `modal-edit-fields.tsx`: `AssigneeField`, which is shared with the shift editor.
@@ -36108,12 +36110,7 @@ The body below is the pre-fix record and is left as written.
 ★ 2026-09-14: on a page that LOADED in the classic layout, the first switch to modern is that
 page's first enabled window and so is still COLD — a view-only stale hash lands on the Dashboard,
 and an item-bearing hash left behind by a global-search open during classic reopens that item.
-Left as is because §478 was bound to keep `use-hash-view.test.tsx` "applies the cold rule on the
-first EXECUTED run, not the first render" unchanged, and that test pins a hook that starts disabled
-and enables once as cold. ★★ Corrected the same day: the reason first given here — that an async
-settings load also starts the hook disabled — is UNVERIFIED and likely wrong, because the settings
-default is `layout: "modern"`, so a modern user's hook is enabled on the first render. Tracked,
-with that measurement, as §536. Pinned, as the
+Left as is and tracked, with the reason and its correction, as §536. Pinned, as the
 classic-load case, by `npx vitest run src/app/use-hash-view.test.tsx -t "is cold on the first
 enabled window even when the page loaded disabled and the cold target is not the default tab"`.
 ★ 2026-09-14: the re-entry repair flag is consumed before the MSAL auth-response guard in the
@@ -37324,6 +37321,13 @@ Mutation-checked: reverting to `projectId: ws.project?.code ?? "default"` turns 
 collapse to `""`, so the switch goes undetected and the picker keeps project A's selection). Verified
 2026-09-14: `npx vitest run src/app/timelog-panel.test.tsx -t "§532"` → 1 test passed; full-file run
 `npx vitest run src/app/timelog-panel.test.tsx` → `Tests  73 passed (73)`.
+★ 2026-09-14: the switch signal is now `projectKey` (`currentProjectId ?? "default"`), so a flow
+that replaces the workspace in place WITHOUT moving the projects registry (e.g. an import or sample
+load while the TimeLog panel is mounted, if any exists) no longer resets the picker, where a changed
+project code used to; impact is small because the stored picker scope is itself keyed on
+`projectKey`. Reasoned, not measured — nobody enumerated which of the `applyWorkspace` call sites run
+with the panel mounted: `git grep -n "applyWorkspace(" -- src/app ':!*.test.*'` → 14 hits as of this
+measurement.
 §14's closure text, which had claimed the signal "must keep receiving `ws.project?.code`", carries a
 dated correction pointing here.
 
