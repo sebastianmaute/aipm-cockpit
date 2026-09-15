@@ -3,12 +3,12 @@ import { isDesktopShellUserAgent } from "./desktop-shell";
 
 describe("isDesktopShellUserAgent", () => {
   it("recognises the packaged app's own user agent", () => {
-    // The shape Electron 33 actually sends: a Chrome UA with the app's own
+    // The shape Electron 44 actually sends: a Chrome UA with the app's own
     // product token and an `Electron/<version>` token appended.
     expect(
       isDesktopShellUserAgent(
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
-          "aipm-cockpit/1.0.0 Chrome/130.0.0.0 Electron/33.4.11 Safari/537.36",
+          "aipm-cockpit/1.0.0 Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36",
       ),
     ).toBe(true);
   });

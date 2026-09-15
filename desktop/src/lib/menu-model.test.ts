@@ -1,22 +1,20 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { RELEASES_URL } from "./constants";
 import {
   DASHBOARD_VIEW_HASH,
+  DESKTOP_VERSION_REQUEST_EVENT,
   FILE_MENU_ITEMS,
   HELP_MENU_ITEMS,
   HELP_VIEW_HASH,
   type HelpMenuAction,
   type HelpMenuItemId,
-  VERSION_DIALOG_BUTTONS,
-  VERSION_DIALOG_CANCEL_ID,
-  VERSION_DIALOG_DEFAULT_ID,
   fileAction,
-  formatVersionDetail,
   helpAction,
   helpHashScript,
-  versionDialogAction,
-  versionDialogOptions,
+  versionRequestScript,
 } from "./menu-model";
 
 describe("HELP_MENU_ITEMS", () => {
@@ -63,7 +61,7 @@ describe("helpAction", () => {
     // it: exchange the `version` and `updates` VALUES in HELP_ACTIONS and
     // every other test here still passes -- the ids are unchanged, the labels
     // are unchanged, the menu still has three entries, and main.ts still has
-    // a case for both actions. It just shows the version dialog when you ask
+    // a case for both actions. It just opens the Version panel when you ask
     // for updates and opens a browser when you ask for the version. tsc
     // cannot see it either: both values inhabit the same union.
     for (const [id, action] of TABLE) {
@@ -121,183 +119,171 @@ describe("helpHashScript", () => {
   });
 });
 
-describe("formatVersionDetail", () => {
-  it("names the version, where the log lives, and where new versions live", () => {
-    const text = formatVersionDetail(
-      "0.301.0",
-      "C:\\Users\\x\\AppData\\Local\\aipm-cockpit\\logs\\launch.log",
-      RELEASES_URL,
-    );
-    expect(text).toContain("AI PM Cockpit");
-    expect(text).toContain("0.301.0");
-    expect(text).toContain("launch.log");
-    // ★ The log path is NOT decoration: the rollout note tells a user to send
-    // that file when reporting a problem, and this dialog is the only place
-    // the app says where it is. Keep all three.
-    expect(text).toContain(RELEASES_URL);
+/** A minimal CustomEvent standing in for the real DOM constructor, so
+ *  versionRequestScript's output can be run (`new Function`) and observed
+ *  without a jsdom environment (this file is `@vitest-environment node`). */
+class StubCustomEvent {
+  readonly type: string;
+  readonly detail: unknown;
+  readonly cancelable: boolean;
+  defaultPrevented = false;
+  constructor(type: string, init?: { cancelable?: boolean; detail?: unknown }) {
+    this.type = type;
+    this.detail = init?.detail;
+    this.cancelable = init?.cancelable ?? false;
+  }
+  preventDefault(): void {
+    if (this.cancelable) this.defaultPrevented = true;
+  }
+}
+
+/**
+ * Actually EVALUATES a versionRequestScript() build, supplying `window` and
+ * `CustomEvent` as the exact free identifiers the real page provides --
+ * `new Function("window", "CustomEvent", "return " + script)` -- rather than
+ * pattern-matching the source text. `dispatchWith` stands in for the real
+ * `window.dispatchEvent` (in the packaged app: React's event listener,
+ * possibly calling `preventDefault()`); it decides what the script's
+ * `!window.dispatchEvent(ev)` completion value resolves to.
+ *
+ * ★★★ THIS IS WHAT M1 ASKED FOR: a "the substring is present" assertion
+ * cannot tell a correctly-JSON-encoded hostile path from one that merely
+ * LOOKS right, because the mutant it needs to catch (splicing the path into
+ * the script by hand) still contains the same characters SOMEWHERE in the
+ * output. Reading `dispatched.detail.logPath` back out of an event the
+ * script itself constructed is the only check that cannot be fooled that
+ * way -- either the string that comes out equals the string that went in,
+ * or it does not.
+ */
+function runScript(
+  script: string,
+  dispatchWith: (ev: StubCustomEvent) => boolean,
+): { result: unknown; dispatched: StubCustomEvent | null } {
+  let dispatched: StubCustomEvent | null = null;
+  const windowStub = {
+    dispatchEvent: (ev: StubCustomEvent): boolean => {
+      dispatched = ev;
+      return dispatchWith(ev);
+    },
+  };
+  const fn = new Function("window", "CustomEvent", `return ${script}`);
+  const result: unknown = fn(windowStub, StubCustomEvent);
+  return { result, dispatched };
+}
+
+describe("versionRequestScript", () => {
+  it("dispatches the shared event name on window", () => {
+    const script = versionRequestScript("C:\\logs\\launch.log", true);
+    expect(script).toContain("new CustomEvent(");
+    expect(script).toContain("window.dispatchEvent(");
+    expect(script).toContain(JSON.stringify(DESKTOP_VERSION_REQUEST_EVENT));
   });
 
-  it("says updates are manual, so nobody waits for a prompt that never comes", () => {
-    // There is no auto-updater (no feed host; the GitLab project is internal
-    // and serves nothing unauthenticated). A user who assumes the app updates
-    // itself simply runs an old build forever. The dialog has to say so.
-    const text = formatVersionDetail("0.301.0", "x", RELEASES_URL);
-    expect(text).toMatch(/manual/i);
+  it("carries the log path and the open flag as one JSON-encoded detail object", () => {
+    const logPath = "C:\\Users\\x\\AppData\\Local\\aipm-cockpit\\logs\\launch.log";
+    const script = versionRequestScript(logPath, true);
+    // ★★★ A Windows log path holds backslashes -- string concatenation would
+    // corrupt them. JSON.stringify is the only safe way to interpolate it
+    // into a script string, and this asserts the ENCODED form is present,
+    // not merely that the raw text appears somewhere (which a naive
+    // concatenation would also satisfy for a path with no special chars).
+    // The stronger, mutation-resistant version of this claim is the actual
+    // evaluation below ("M1 fix").
+    expect(script).toContain(JSON.stringify({ logPath, open: true }));
   });
 
-  it("interpolates the URL it is handed rather than hardcoding one", () => {
-    // THIS TEST IS THE REASON the URL is a parameter at all: a hardcoded copy
-    // would pass the assertion above while drifting from constants.ts the
-    // moment the project moves. (Not import hygiene -- constants.ts imports
-    // nothing and touches no Electron API.)
-    const text = formatVersionDetail("0.301.0", "x", "https://example.invalid/releases");
-    expect(text).toContain("https://example.invalid/releases");
-    expect(text).not.toContain(RELEASES_URL);
+  it("the open flag distinguishes a priming ping from an actual open request", () => {
+    // Main sends `open: false` once per page load (did-finish-load, to
+    // remember the log path without popping the modal) and `open: true`
+    // from the Help → Version menu click -- two different scripts, or the
+    // app's listener could not tell them apart.
+    const prime = versionRequestScript("x", false);
+    const openRequest = versionRequestScript("x", true);
+    expect(prime).toContain(JSON.stringify({ logPath: "x", open: false }));
+    expect(openRequest).toContain(JSON.stringify({ logPath: "x", open: true }));
+    expect(prime).not.toBe(openRequest);
   });
 
-  it("does not invent a codename it was not given", () => {
-    // src/app/version.ts carries APP_MILESTONE, but the main process has no
-    // access to it -- desktop/package.json holds the version alone. Printing a
-    // stale or guessed codename beside a correct version is the exact defect
-    // APP_VERSION_LABEL already shipped once, so this says nothing rather than
-    // something plausible.
-    expect(formatVersionDetail("0.301.0", "x", RELEASES_URL)).not.toMatch(/"[A-Z][a-z]+"/);
-  });
-});
-
-describe("VERSION_DIALOG_BUTTONS", () => {
-  it("offers OK first and the releases button second", () => {
-    // ORDER IS THE CONTRACT, not a preference: dialog.showMessageBox hands
-    // back an INDEX into this array, so swapping these two rows silently
-    // changes what every response number means.
-    expect(VERSION_DIALOG_BUTTONS.map((b) => b.label)).toEqual(["OK", "Open releases page"]);
+  it("produces a script that is itself valid JS with the expected shape", () => {
+    // Not executed against a real `window` (this file runs under
+    // @vitest-environment node) -- parsed, so a malformed interpolation that
+    // still happens to contain the right substrings is still caught.
+    const script = versionRequestScript("C:\\logs\\launch.log", true);
+    expect(() => new Function(script)).not.toThrow();
   });
 
-  it("pins each row's action value, positionally", () => {
-    // What makes a label unable to arrive WITHOUT an action is the
-    // VersionDialogButton interface, at compile time -- not this assertion.
-    // What this pins is which action each INDEX carries, which no type can.
-    expect(VERSION_DIALOG_BUTTONS.map((b) => b.action)).toEqual(["dismiss", "open-releases"]);
-  });
-});
+  describe("M1 fix: the log path survives a hostile round trip", () => {
+    const HOSTILE_PATHS = [
+      'C:\\Users\\a"b\\launch.log',
+      "C:\\Users\\a'b\\launch.log",
+      "C:\\Users\\a`b\\launch.log",
+      "C:\\Users\\a${b}\\launch.log",
+      "C:\\Users\\a</script>b\\launch.log",
+      "C:\\Users\\a\u2028b\\launch.log",
+      "C:\\trailing\\backslash\\",
+    ];
 
-describe("versionDialogAction", () => {
-  it("reads the response index through the button table", () => {
-    expect(versionDialogAction(0)).toBe("dismiss");
-    expect(versionDialogAction(1)).toBe("open-releases");
-  });
-
-  it("sends the releases button down the SAME action as the menu item", () => {
-    // ★★ This is the "do not duplicate the shell.openExternal call site"
-    // requirement written as an assertion. main.ts switches on these strings,
-    // so as long as they are equal both routes land on its one
-    // openReleasesPage() helper. Change one and not the other and the dialog
-    // button quietly falls through to main.ts's log-and-degrade default --
-    // an inert button, with nothing else red.
-    expect(versionDialogAction(1)).toBe(helpAction("updates"));
-  });
-
-  it("makes Enter and Escape do the harmless thing", () => {
-    // ★★★ THE ONE THAT MATTERS. Enter fires defaultId and Escape fires
-    // cancelId, so if either pointed at the releases button, dismissing this
-    // dialog the way every user dismisses a dialog would launch a browser.
-    // Asserted as a PROPERTY of the two ids rather than as the number 0, so
-    // it survives a deliberate reordering and still catches an accidental
-    // one. Mutant: set either id to 1 -- this goes red and nothing else does.
-    expect(versionDialogAction(VERSION_DIALOG_DEFAULT_ID)).toBe("dismiss");
-    expect(versionDialogAction(VERSION_DIALOG_CANCEL_ID)).toBe("dismiss");
-  });
-
-  it("treats an index outside the table as a dismissal", () => {
-    // ★★ NOT because "a window could close out from under the dialog" --
-    // that was a false reason and this call is parentless anyway. The honest
-    // two: neither tsconfig sets noUncheckedIndexedAccess, so
-    // BUTTONS[response] is TYPED non-undefined while the number itself
-    // arrives from another process; and a row added through a cast would
-    // widen the array without widening the union. Either way the safe
-    // direction is to do NOTHING -- the unsafe one opens a browser the user
-    // never asked for. Mutant: change the fallback to "open-releases".
-    expect(versionDialogAction(99)).toBe("dismiss");
-    expect(versionDialogAction(-1)).toBe("dismiss");
-    expect(versionDialogAction(VERSION_DIALOG_BUTTONS.length)).toBe("dismiss");
-  });
-});
-
-describe("versionDialogOptions", () => {
-  const OPTS = versionDialogOptions({
-    title: "Version",
-    version: "0.301.0",
-    logPath: "C:\\logs\\launch.log",
-    releasesUrl: RELEASES_URL,
-  });
-
-  it("carries the message formatVersionDetail produces", () => {
-    expect(OPTS.message).toBe(
-      formatVersionDetail("0.301.0", "C:\\logs\\launch.log", RELEASES_URL),
-    );
-    expect(OPTS.title).toBe("Version");
-    expect(OPTS.type).toBe("info");
-  });
-
-  it("hands Electron the button labels in table order", () => {
-    // ★★ THE HALF THAT WAS UNPINNED UNTIL NOW. Asserting the table's labels
-    // proved nothing about what the DIALOG receives -- main.ts built this
-    // object itself, and main.ts is the one desktop file the blocking
-    // typecheck skips and no unit test can reach. Building it here moves the
-    // whole options object inside both.
-    expect(OPTS.buttons).toEqual(VERSION_DIALOG_BUTTONS.map((b) => b.label));
-  });
-
-  it("points Enter and Escape at a button that only dismisses", () => {
-    // ★★★ THE GUARANTEE, now end to end. Previously this was asserted about
-    // the CONSTANTS while main.ts was free to pass `defaultId: 1` -- or to
-    // omit both lines, which on Windows leaves Escape on index 0 but Enter
-    // on Electron's own default -- with every test, lint and typecheck
-    // green and Enter opening a browser.
-    //
-    // Mutants, all red here and nowhere else: `defaultId: 1` or
-    // `cancelId: 1` inside versionDialogOptions; deleting either key from
-    // the returned object (it is required on VersionDialogOptions, so that
-    // one is also a compile error in the BLOCKING job); pointing either at
-    // the releases row after a reorder.
-    expect(versionDialogAction(OPTS.defaultId)).toBe("dismiss");
-    expect(versionDialogAction(OPTS.cancelId)).toBe("dismiss");
-    // And the same fact stated against the table, so a reader does not have
-    // to trust versionDialogAction to see what is being claimed.
-    expect(VERSION_DIALOG_BUTTONS[OPTS.defaultId].action).toBe("dismiss");
-    expect(VERSION_DIALOG_BUTTONS[OPTS.cancelId].action).toBe("dismiss");
-  });
-
-  it("keeps noLink on, so neither button renders as a command link", () => {
-    // Windows promotes any button it does not recognise as a stock button
-    // into a large command link. "Open releases page" would then read as the
-    // primary action rather than as OK's peer. Mutant: drop the key (a
-    // compile error too -- it is required) or set it false.
-    expect(OPTS.noLink).toBe(true);
-  });
-
-  it("returns a MUTABLE buttons array", () => {
-    // ★★★ NOT a style point -- the installed electron 33.4.11 typings declare
-    // `buttons?: string[]`, MUTABLE, so a `readonly string[]` cannot be
-    // handed to showMessageBox. VersionDialogOptions mirrors that, which
-    // means a readonly narrowing is now a compile error in menu-model.ts
-    // (the BLOCKING typecheck); it used to fail only in the desktop build,
-    // which is allow_failure on a merge request.
-    //
-    // ★ This test covers what the TYPE cannot: a hoisted shared array cast
-    // to `string[]`, or an Object.freeze, both of which typecheck.
-    expect(Array.isArray(OPTS.buttons)).toBe(true);
-    expect(Object.isFrozen(OPTS.buttons)).toBe(false);
-    const second = versionDialogOptions({
-      title: "Version",
-      version: "0.301.0",
-      logPath: "x",
-      releasesUrl: RELEASES_URL,
+    it("round-trips every hostile path exactly through an actual evaluation", () => {
+      for (const logPath of HOSTILE_PATHS) {
+        const script = versionRequestScript(logPath, true);
+        const { dispatched } = runScript(script, () => true);
+        expect(dispatched).not.toBeNull();
+        expect((dispatched as StubCustomEvent).detail).toEqual({ logPath, open: true });
+      }
     });
-    // A per-call array, so a caller that mutates what Electron handed it
-    // cannot corrupt the next dialog.
-    expect(second.buttons).not.toBe(OPTS.buttons);
-    expect(second.buttons).toEqual(OPTS.buttons);
+  });
+
+  describe("M4 fix: the returned expression reports whether a listener handled the request", () => {
+    it("evaluates to true when dispatchEvent reports the event was prevented (handled)", () => {
+      const script = versionRequestScript("x", true);
+      const { result } = runScript(script, (ev) => {
+        ev.preventDefault();
+        // dispatchEvent's own contract: false once the event was prevented.
+        return false;
+      });
+      expect(result).toBe(true);
+    });
+
+    it("evaluates to false when nothing handled it", () => {
+      const script = versionRequestScript("x", true);
+      const { result } = runScript(script, () => true);
+      expect(result).toBe(false);
+    });
+
+    it("creates the event as cancelable, or preventDefault could never suppress it", () => {
+      const script = versionRequestScript("x", true);
+      const { dispatched } = runScript(script, () => true);
+      expect((dispatched as StubCustomEvent).cancelable).toBe(true);
+    });
+  });
+});
+
+describe("shared strings with the app", () => {
+  // ★ Read as TEXT, never imported: desktop's tsconfig rootDir is
+  // `desktop/src`, so this file cannot import anything under `src/app` --
+  // `tsc -p desktop/tsconfig.json` (part of Verification) would fail the
+  // moment a test file under that rootDir did. Reading the app's source with
+  // node:fs sidesteps that while still catching a drift between the two
+  // independently-declared copies.
+  const desktopShellSrc = readFileSync(
+    join(__dirname, "..", "..", "..", "src", "app", "desktop-shell.ts"),
+    "utf8",
+  );
+  const versionSrc = readFileSync(
+    join(__dirname, "..", "..", "..", "src", "app", "version.ts"),
+    "utf8",
+  );
+
+  it("dispatches the SAME event name src/app/desktop-shell.ts declares", () => {
+    const m = /export const DESKTOP_VERSION_REQUEST_EVENT = "([^"]+)";/.exec(desktopShellSrc);
+    expect(m).not.toBeNull();
+    expect(DESKTOP_VERSION_REQUEST_EVENT).toBe(m?.[1]);
+  });
+
+  it("sends the user to the SAME Releases URL the app's Version panel links to", () => {
+    const m = /export const APP_RELEASES_URL =\s*"([^"]+)";/.exec(versionSrc);
+    expect(m).not.toBeNull();
+    expect(RELEASES_URL).toBe(m?.[1]);
   });
 });
 
@@ -347,8 +333,8 @@ describe("fileAction", () => {
     //
     // ★★ WHAT IT PINS, so it is not read as type-safety theatre: only that the
     // function DISPATCHES on its argument. The cast is the vehicle -- the
-    // types already forbid this call, and the undefined it exposes is the same
-    // one `versionDialogAction` guards against with `?? "dismiss"`.
+    // types already forbid this call, and this is the same undefined-through-
+    // a-cast shape `helpAction`'s equivalent test above exercises.
     expect(fileAction("bogus" as unknown as Parameters<typeof fileAction>[0])).toBeUndefined();
   });
 });

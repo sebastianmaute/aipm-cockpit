@@ -8,7 +8,6 @@ import type { Settings, NextActionsLearningConfig } from "./settings-types";
 import type { StorageKind } from "./storage";
 import { Card } from "./card";
 import { APP_LICENSE, APP_LICENSE_URL, APP_VERSION_LABEL } from "./version";
-import { VersionInfoModal } from "./version-info";
 import { InfoTooltip } from "./info-tooltip";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { Button } from "./button";
@@ -63,6 +62,14 @@ interface SettingsViewProps {
   onChangeLearningConfig?: (c: NextActionsLearningConfig) => void;
   onResetLearning?: () => void;
   onOpenInsights?: () => void;
+  /** FIX ROUND 1 (M3): opens the app's ONE Version modal, owned at the
+   *  task-manager root (use-desktop-version-request.ts). This view no
+   *  longer owns a `showVersion` boolean or renders its own
+   *  `<VersionInfoModal>` — see modern-shell.tsx's identical prop for why
+   *  (a second, independently-owned modal could stack on top of a desktop
+   *  Help → Version request). Optional so existing tests that omit it keep
+   *  working; the footer's version link is then a harmless no-op click. */
+  onOpenVersion?: () => void;
   /** SP-C: builds the AI weight-suggestion context for the requested scope.
    *  Omitted (e.g. in popouts) hides the "Suggest with AI" control. */
   buildWeightSuggestionContext?: (scope: SuggestionScope) => string;
@@ -136,11 +143,10 @@ const FLOWS_ID: SectionId = "informationFlows";
 const DIAGNOSTICS_ID: SectionId = "diagnostics";
 
 export function SettingsView(props: SettingsViewProps) {
-  const { lang, settings, onChange } = props;
+  const { lang, settings, onChange, onOpenVersion } = props;
   // Default to an always-visible section. Appearance + Storage are now folded
   // into General, so General is the landing section.
   const [activeRaw, setActive] = useState<SectionId>("general");
-  const [showVersion, setShowVersion] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
 
   // Deep-link: honor an external request to jump to a specific section (e.g. the
@@ -484,7 +490,7 @@ export function SettingsView(props: SettingsViewProps) {
     <footer className="mx-auto mt-6 flex w-full max-w-5xl flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-line pt-4 text-xs text-muted-foreground">
       <button
         type="button"
-        onClick={() => setShowVersion(true)}
+        onClick={() => onOpenVersion?.()}
         title={t(lang, "versionHistory")}
         className="font-medium text-ui-dark-blue underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-blue"
       >
@@ -512,7 +518,6 @@ export function SettingsView(props: SettingsViewProps) {
         hidePortfolioSwitch
       />
     )}
-    <VersionInfoModal lang={lang} open={showVersion} onClose={() => setShowVersion(false)} />
     </IntegrationDisclaimerProvider>
   );
 }

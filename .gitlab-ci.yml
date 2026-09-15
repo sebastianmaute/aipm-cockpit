@@ -563,7 +563,10 @@ dast-zap:
 # plus two jobs rather than one job with two rules.
 .desktop-package:
   stage: e2e
-  image: electronuserland/builder:wine
+  # ★ Pinned to a dated Node-24 tag so a retag of the floating `wine` tag
+  # cannot move the packaging job's Node major; at pin time (2026-09-15)
+  # `wine` resolved to the same digest.
+  image: electronuserland/builder:24-wine-05.26
   needs: [install]
   script:
     - NEXT_STANDALONE=1 npm run build
@@ -583,8 +586,10 @@ dast-zap:
     # node_modules -- why, and what it cost, is that file's comment on the second
     # extraResources entry. That filter cannot see a copy nested inside another
     # package's node_modules; this walk can, and FAILS the build on either kind
-    # instead of quietly putting ~6 MiB back into an artifact whose headroom is
-    # ~1.3 MB if the limit is GitLab's 100 MiB default. It reads win-unpacked/,
+    # instead of quietly growing an artifact that already sits close to
+    # whatever the instance's max_artifacts_size actually is -- see the
+    # artifacts: block below for the current size and the unresolved limit.
+    # It reads win-unpacked/,
     # the tree electron-builder packs into the installer: on disk in this job,
     # just not uploaded.
     # ★ It sits on the BASE job, so it runs in the manual desktop-package AND the
@@ -603,17 +608,27 @@ dast-zap:
       if [ -n "$hits" ]; then echo "sharp guard: sharp is in the packaged app -- see the sharp filter in desktop/electron-builder.yml:"; echo "$hits"; exit 1; fi
   artifacts:
     # ★★★ THE INSTALLER AND ITS BLOCKMAP, NEVER desktop/release/ WHOLE. This is
-    # a defect fix, not an optimisation: measured 2026-09-10, the directory is
-    # ~408 MiB of which win-unpacked/ is 314 MiB -- an expanded duplicate of the
-    # installer's own contents. Narrowed it is ~93 MiB (97.5 MB).
+    # a defect fix, not an optimisation: measured 2026-09-10 on Electron 33.4.11,
+    # the directory was ~408 MiB of which win-unpacked/ was 314 MiB -- an
+    # expanded duplicate of the installer's own contents. Narrowed it was
+    # ~93 MiB (97.5 MB; job 29645: 97,288,587 B). Electron 44.3.0 (since 2026-09-15)
+    # grew the narrowed artifact too -- see below.
     #
     # ★ The globs are self-protecting against a stale pre-artifactName build:
     # `*-setup.exe` does not match `aipm-cockpit Setup 0.301.0.exe`. CI starts
     # clean anyway; a local tree may hold both.
     #
-    # ★★ 92.9 MiB (97.5 MB) sits against a documented 100 MB max_artifacts_size DEFAULT
-    # that is admin-only and unreadable from here. A rejection arrives AFTER a
-    # green build. See the spike finding under specs/_probes/.
+    # ★★ Electron 44.3.0's own win32-x64 zip grew 109.7 MiB -> 150.8 MiB over
+    # 33.4.11 (local installer 137,285,908 B + blockmap 145,253 B; NSIS
+    # `compression: maximum` gained nothing here, +103 B). 2026-09-15, MR !492
+    # pipeline 7013, manual job desktop-package 30942: SUCCESS, uploaded
+    # installer+blockmap archive 137,319,211 B (~130.96 MiB).  (GitLab)'s
+    # max_artifacts_size (projects API) is null, so the GitLab INSTANCE setting
+    # governs -- and since that upload succeeded, the instance limit is now
+    # known to be ABOVE 100 MiB (at least 137,319,211 B). Its exact value is
+    # still unknown -- do not invent one. See the spike finding under
+    # specs/_probes/ for how the 100 MiB default was ruled out as the binding
+    # constraint.
     #
     # ★ `extends:` deep-merges HASHES ("You can use extends to merge hashes
     # but not arrays" -- GitLab docs), so a concrete job below that overrides

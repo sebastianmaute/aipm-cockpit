@@ -81,6 +81,28 @@ describe("ModernShell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
     expect(onToggleCollapsed).toHaveBeenCalled();
   });
+
+  // ★★★ FIX ROUND 1 (M3): ModernShell no longer owns a `versionOpen` boolean
+  // or renders its own <VersionInfoModal> — clicking the sidebar version line
+  // now calls the `onOpenVersion` prop, which task-manager.tsx wires to the
+  // app's ONE root-owned modal (use-desktop-version-request.ts). Asserting
+  // the CALLBACK fires (rather than looking for a dialog, which this
+  // component no longer renders) is what proves the removal actually
+  // rewired the trigger instead of just deleting it.
+  it("calls onOpenVersion when the sidebar version line is clicked, and renders no dialog of its own", () => {
+    const onOpenVersion = vi.fn();
+    setup({ onOpenVersion, version: "1.5.1 \"Highsmith\"" });
+    fireEvent.click(screen.getByRole("button", { name: 'Version 1.5.1 "Highsmith"' }));
+    expect(onOpenVersion).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog", { name: "Version" })).toBeNull();
+  });
+
+  it("does not throw when onOpenVersion is omitted (the sidebar version line degrades to a no-op)", () => {
+    setup();
+    expect(() =>
+      fireEvent.click(screen.getByRole("button", { name: /^Version /})),
+    ).not.toThrow();
+  });
 });
 
 describe("ModernShell cross-view focus (#48)", () => {

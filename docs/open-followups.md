@@ -769,6 +769,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
 | [§545](#545-the-ai-dashboard-snapshot-and-every-export-carry-none-of-the-budget-forecast-figures--open) | The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN | deferred 2026-09-15 by the budget forecast union spec §9 | M — add the forecast figures to the snapshot and exports once MR 2 ships them | open |
 | [§546](#546-a-dated-timelog-applys-other-granularity-delete-removes-hand-typed-hours-from-days-it-never-routed-and-the-confirm-dialog-never-discloses-it--open) | A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — OPEN | found 2026-09-15 while filing the §543 closure text on `feat/budget-forecast-figures`; user approved filing | S — list the removed other-granularity key in the confirm dialog; re-keying the leftover hours is not sound, since the lump sum has no day-level breakdown | open |
+| [§547](#547-the-desktop-sign-in-popups-state-machine-has-no-unit-harness--open) | The desktop sign-in popup's state machine has no unit harness — OPEN | final review of `chore/electron-44` (M-7 + item 2 recommendation), state bugs M-C/m1/m2 found only by review; GitLab #338 | S–M — a pure `auth-flow-tracker.ts` reducer plus tests replaying the M-C/m1/m2 sequences | open |
+| [§548](#548-an-edit-made-during-a-projects-first-backend-load-is-overwritten-when-that-load-lands--open) | An edit made during a project's first backend load is overwritten when that load lands — OPEN | found 2026-09-15 debugging a `task-manager.template-notice.test.tsx` race on `chore/electron-44`; GitLab #336 | S–M — withhold edits until the first load lands, or make the load-time guard compare per slice | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -29904,7 +29906,9 @@ reachable independently — a create that throws, or one that returns no usable 
 **Status:** OPEN. Filed 2026-09-05. Last executed verification 2026-09-05 — the register's own
 rebuild recipe was extracted verbatim from the fenced block above the index and run against a
 SCRATCH COPY of this file (never the tracked one), then the two index blocks were compared with
-`grep -c "^<" <(diff <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md) <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' COPY))`
+`grep -c "^<" <(diff <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md) <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' COPY))`.
+Re-verified 2026-09-15 on `chore/electron-44`, same method, scratch copy only: 144 rows differ (up
+from 70).
 
 **Work item:** #264
 
@@ -29958,6 +29962,24 @@ and FAILS on a mismatch, which is the form that cannot rot; read it there rather
 rebuild. Reproduce the loss with the fenced recipe above, run against a copy:
 `cp docs/open-followups.md /tmp-copy/ && cd /tmp-copy && <recipe> && diff` — count the changed
 rows, do not read the exit code, which is 0 either way.
+
+★ **Re-verified 2026-09-15, filing §548 on `chore/electron-44`.** Re-ran the same recipe against a
+scratch copy only (never the tracked file): **144 rows now differ**, up from 70 on 2026-09-05 — at
+least 39 lose the Item cell's `~~strikethrough~~` and at least 33 lose the State cell's
+closure-rationale parenthetical (the remainder is other, uncharacterized drift). Two short examples:
+§30's Item loses its `~~strikethrough~~`, and its State drops the parenthetical "the decision: real
+links where the sink allows one, `text (url)` where it does not — non-goals at §329 · §330"; §55's
+State goes from `**CLOSED** 2026-09-01` plus "(8 of 12 migrated to `ToggleButton`, RACI ringed, 3
+adjudicated non-defects)" down to plain `**CLOSED** 2026-09-01`.
+★★ `followups:index:check` is structurally blind to this. `diffHeadingsAgainstIndex`
+(`scripts/followup-index-lib.mjs`) extracts only the §NUMBER from each `##` heading and from each
+index row and compares those two number sets — it never reads Item/Origin/Size/State cell text, so a
+stripped cell is a conforming row and the gate stays green.
+★ §319 tracks the same defect (filed 2026-08-31, five days before this entry — the two were never
+merged).
+★ Not checked: whether an accidental rebuild has actually happened since this entry was filed. The
+rise from 70 to 144 is consistent with new closures simply accumulating reasons since 2026-09-05 and
+does not, by itself, show a rebuild ran in between.
 
 ## 383. A resource's extra emails preview a list Apply dedupes and caps — CLOSED 2026-09-06
 
@@ -35887,8 +35909,10 @@ in the shell because that button renders nothing there. Read the third as expect
 defect. (The `grep -vE` drops comments that merely mention the call; without it the output is dominated
 by prose.) Second witness: `grep -aoh "Scripted print is not supported"
 desktop/node_modules/electron/dist/electron.exe` returns the refusal string. ★ That the popup then stays
-SILENT rather than erroring is REASONED from those two, not observed: confirming it takes a packaged
-build and a PDF export.
+SILENT rather than erroring was REASONED from those two until 2026-09-15, when it was OBSERVED: a
+locally packaged Electron 44.3.0 installer (branch `chore/electron-44`), PDF export opened the tab and no
+print dialog appeared. The refusal string is still present in the 44.3.0 binary, so the Electron 33 → 44
+upgrade does not close this entry.
 
 **Work item:** #297
 
@@ -38346,3 +38370,98 @@ principled way to decide which of the remaining days should carry how much of th
 re-keying would be a guess presented as data. (a) is therefore both the simpler and the only sound fix.
 
 Related: §543.
+
+## 547. The desktop sign-in popup's state machine has no unit harness — OPEN
+
+**Status:** OPEN 2026-09-15 — the test-gap itself is machine-verified:
+`grep -rIl "" desktop/src --include=*.test.ts` lists nine test files, none for `main.ts` (`window-open-policy`
+is the only auth-flow-adjacent one). Not machine-verified as a live defect — none is known at HEAD `2ec30126`;
+the three bugs below were found and fixed by review, not by a test.
+`pendingAuthFlow`, `authFlowFor`, `discardStagedAuthFlow` and the `will-navigate` /
+`will-redirect` / `did-navigate` / `did-fail-load` / `did-fail-provisional-load` / `did-create-window` handlers
+that wire them together live in `desktop/src/main.ts`, wired directly to Electron `WebContents` events, and
+carry no test file. By contrast the PURE policy this wiring calls — `decideNavigation`, `isAppOpenerFrame` and
+`isAppPage` in `desktop/src/lib/window-open-policy.ts` — IS unit-tested (`window-open-policy.test.ts`); do not
+re-file that half.
+
+**Work item:** #338
+
+Three state-transition bugs in this exact wiring were found only by review, not by any test, because none
+could reach the code: M-C (the auth-flow flag was set before Chromium confirmed the navigation, so a later
+redirect denial or load failure left it `true` against a page that never moved; fixed a9c9abc8), m1 (a direct
+server redirect from an identity host to a federated IdP, arriving before the first `did-navigate`, read only
+the committed—still-false—flag and routed to the system browser instead of staying in the popup, hanging
+MSAL; fixed 14839a79) and m2 (`did-fail-provisional-load`, which fires for a cancelled navigation such as a
+`will-redirect` denial's own `preventDefault()`, did not discard a staged flag, so it could survive to be
+wrongly committed by a later, unrelated navigation's `did-navigate`; fixed 14839a79).
+
+Also: this file is invisible to two gates that would otherwise force a size/type discipline on it.
+`scripts/check-file-sizes.mjs` walks only `readdirSync("src", …)`, never `desktop/`, so `main.ts` is outside
+the file-size ratchet. The root `tsconfig.json` `exclude` list carries `"desktop/src/main.ts"` by name, so the
+blocking root `npx tsc --noEmit` never typechecks it either (only the manual desktop-package build compiles
+it — see `local-gates-ci-only`).
+
+Proposed shape (from the branch's final review, not yet built — none of the names below exist in the repo
+today): a pure `desktop/src/lib/auth-flow-tracker.ts` holding a `{committed, staged}` state, with
+`onWillNavigate` and `onWillRedirect` (staging first, `will-redirect` falling back to the committed value),
+`onDidNavigate` (promoting staged to committed) and `onLoadFailed` (dropping staged; a failed return to the
+app origin also ends the flow). `main.ts` would keep a single `WeakMap<WebContents, FlowState>`, apply the
+reducer, then act on the returned decision; tests would replay the M-C / m1 / m2 event sequences above plus
+the n2 sequence (a failed return to `APP_ORIGIN` ends the flow). The review also suggested moving the Version
+panel's target-picking logic into the same lib. Do not build this speculatively — the review recommended
+filing it rather than blocking the merge on the extraction.
+
+Trigger: do this before any further change to the sign-in flow — the review found three bugs in three rounds
+specifically because nothing but re-reading the code could check a transition. Caveat: extracting this wiring
+would be a refactor of a file the blocking root tsc skips today, verifiable only by a packaged build, and
+would invalidate any packaged-build sign-in eye-check done before the refactor lands.
+
+Size S–M.
+
+**Source:** `final-review-report.md` M-7 and its "Recommendation on item 2 (`main.ts` testability)" (same dir
+as this branch's SDD notes); `review-3-fix1-report.md` M-1 (first raised, out of scope for that round).
+
+## 548. An edit made during a project's first backend load is overwritten when that load lands — OPEN
+
+**Status:** OPEN 2026-09-15 — `never machine-verified` as a live product defect: the mechanism is confirmed by
+reading `use-storage-backend.ts`'s load effect and its data-loss guard (`grep -n 'applyWorkspace(workspace,
+"reset", "merge")' src/app/use-storage-backend.ts`), and the window was exposed as a race in
+`src/app/task-manager.template-notice.test.tsx` (MR !492, pipeline 7013 `unit-tests-shuffled` failure; 3/13 local
+repro); not watched against a real browser, a live Turso project or the file backend.
+
+**Work item:** #336
+
+While a project's first backend load is still pending, `use-storage-backend.ts`'s load effect calls
+`backend.load()` and then, unless the data-loss guard refuses it, applies the result with
+`applyWorkspace(workspace, "reset", "merge")`. `"reset"` replaces every entity slice — tasks, RAID, resources,
+milestones and the rest — with the loaded workspace's own arrays; `"merge"` protects only `activityLog` appends.
+The guard (`isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())`) refuses only a load that is
+empty AS A WHOLE — it does not compare per slice. So any edit committed to an entity slice between mount and the
+load landing (applying a template, adding a task, …) is silently discarded the moment the load resolves, as long
+as the loaded workspace carries at least one non-empty collection anywhere: a load holding ten records and zero
+tasks still passes the guard and wipes a task added while that load was in flight.
+
+The load effect, `applyWorkspace` and the guard are backend-agnostic: `useStorageBackend` is wired once (in
+`task-manager.tsx`) over whatever `createBackend(settings.storageConfig, …)` returns, so the same code runs for
+the browser/IndexedDB backend, Turso and the file backend alike. The race is therefore structurally present on
+all three. Only the IndexedDB path was exercised, and only indirectly via the test race below — not in a real
+browser. Turso (network round trip) and the file backend are NOT checked; say "not checked" rather than assume
+the window is smaller there — if anything a network load is slower, widening it.
+
+Product reach is narrow: the UI is interactive well before a slow `backend.load()` would still be pending, so a
+real user reaching this window needs a slow IndexedDB, a cold Turso connection or a slow file read plus an edit
+timed inside it.
+
+Found via: `mount()` in `src/app/task-manager.template-notice.test.tsx` used to wait only for the mock section to
+render, not for the initial load, so a template-apply assertion could race this exact window (instrumented
+locally: without a wait for the load, 3 of 13 local runs raced; with one, 8 of 8 — the capture itself lived in a
+gitignored scratch file and is not checked in). The test's own fix — wait for `storage.loaded` in the diag log
+AFTER mounting (the mock section still needs to render first; the load is awaited before any template is
+applied) — has since LANDED (commit 11d18823) and closes the test flake, not this product window.
+
+Fix shape: TBD — either withhold edit affordances until the first load lands, or make the guard compare loaded
+vs. in-memory state per slice (mirroring §98's per-slice data-loss counters on the save path) instead of asking
+only whether the load is empty as a whole.
+
+Related: §284 (a different Turso load-time data-loss mechanism — a silently discarded meta-blob decode failure —
+closed 2026-08-29); §98 (the save-path analogue: `documents` invisible to the save-time data-loss guards).

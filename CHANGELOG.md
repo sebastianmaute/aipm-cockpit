@@ -8,6 +8,31 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.6.1] - 2026-09-15 "Ishiguro"
+
+The desktop app moves to Electron 44, shows the app's own Version panel, and sends links to other
+websites to your browser while sign-in stays in the app. Opens follow-ups 547 and 548.
+
+### Changed
+
+- **The desktop app now runs on Electron 44** (Chromium 152, bundled Node 24, matching the rest of the
+  app); Electron 33 no longer receives security fixes.
+- **In the desktop app, Help → Version opens the same Version panel the app itself shows** — version
+  name, build date and highlights — in the app's own language, plus a desktop section with where the log
+  file is and how to get updates. The separate native dialog is gone.
+- **In the desktop app, links to other websites open in your normal browser** instead of an app window.
+  Pop-outs, PDF export and the Microsoft sign-in popup stay in the app, including a sign-in that
+  redirects to your organisation's own identity provider.
+- **The CI desktop-package job pins its build image** (`electronuserland/builder:24-wine-05.26`)
+  instead of following a moving tag.
+
+### Known issues
+
+- The desktop sign-in popup's state handling has no unit tests; its last three defects were found by
+  review (follow-up 547).
+- An edit made while a project's first load is still pending is overwritten when that load lands
+  (follow-up 548).
+
 ## [1.6.0] - 2026-09-15 "Ishiguro"
 
 The budget now says where it is heading: the Budget Report forecasts the cost at completion two ways,
