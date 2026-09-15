@@ -86,6 +86,34 @@ describe("propagateResourceEmail", () => {
     expect(out.count).toBe(5);
   });
 
+  // ★★ M3 — a retargeted row CHANGED content, so it is stamped exactly as a
+  //  direct edit of it would be: with the save's own stamp, which both writers
+  //  put on the resource (`localModifiedAt`). An untouched row keeps its stamp.
+  it("M3: stamps every retargeted row with the resource save's localModifiedAt, and no other row", () => {
+    const stamp = "2026-09-15T10:00:00.000Z";
+    const prior = "2026-01-01T00:00:00.000Z";
+    const stamped = resourceEmailChange(ada, { ...ada, email: "new@x.com", localModifiedAt: stamp });
+    expect(stamped).not.toBeNull();
+    const out = propagateResourceEmail(stamped!, input({
+      tasks: [task({ id: 1, localModifiedAt: prior }), task({ id: 2, assigneeEmail: "other@x.com", localModifiedAt: prior })],
+      raid: [{ id: 1, title: "R", category: "R", ownerResourceId: 7, ownerEmail: "old@x.com", localModifiedAt: prior } as unknown as RaidItem],
+      absences: [{ id: 1, assignee: "Ada", assigneeEmail: "old@x.com", resourceId: 7, startDate: "2026-06-01", endDate: "2026-06-02", type: "vacation" }] as never,
+      shifts: [{ id: 1, assignee: "Ada", assigneeEmail: "old@x.com", resourceId: 7, hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0] }] as never,
+      stakeholders: [stakeholder({ localModifiedAt: prior })],
+      contactPersons: [{ name: "Ada", email: "old@x.com", synced: true, resourceId: 7 }],
+    }));
+    expect(out.tasks.next.map((r) => [r.id, r.localModifiedAt])).toEqual([[1, stamp], [2, prior]]);
+    expect(out.raid.next[0].localModifiedAt).toBe(stamp);
+    expect(out.absences.next[0].localModifiedAt).toBe(stamp);
+    expect(out.shifts.next[0].localModifiedAt).toBe(stamp);
+    expect(out.stakeholders.next[0].localModifiedAt).toBe(stamp);
+    // `ContactPerson` carries no stamp field; the retarget must not invent one.
+    expect(out.contactPersons.next[0]).not.toHaveProperty("localModifiedAt");
+    // The before-images (what undo restores) still hold the PRIOR stamp.
+    expect(out.tasks.edited[0].localModifiedAt).toBe(prior);
+    expect(out.raid.edited[0].localModifiedAt).toBe(prior);
+  });
+
   it("returns the same references when nothing matches", () => {
     const tasks = [task({ assigneeEmail: "x@x.com" })];
     const people = [{ name: "Bob", email: "old@x.com", synced: false }];

@@ -16,7 +16,12 @@
 import type { Absence, ContactPerson, RaidItem, Resource, Shift, Stakeholder, Task } from "./types";
 import { BUDGET_NAME_MAX } from "./sanitize-entities";
 
-export interface ResourceEmailChange { resourceId: number; from: string; to: string }
+/** ★★ `stamp` (M3) is the resource save's own `localModifiedAt`. A retargeted row
+ *  changed content, so it is stamped exactly as a direct edit of it would be —
+ *  with that save's stamp, never a second clock read. Absent → rows unstamped.
+ *  Undo needs nothing extra: `capturePart` restores each row's whole
+ *  before-image, prior `localModifiedAt` included. */
+export interface ResourceEmailChange { resourceId: number; from: string; to: string; stamp?: string }
 export interface ArrayPropagation<T> { next: readonly T[]; edited: T[] }
 
 export interface EmailPropagationInput {
@@ -53,7 +58,13 @@ export function resourceEmailChange(before: Resource, after: Resource): Resource
   const from = (before.email ?? "").trim();
   const to = (after.email ?? "").trim();
   if (from === "" || to === "" || from === to) return null;
-  return { resourceId: after.id, from, to };
+  const stamp = after.localModifiedAt;
+  return typeof stamp === "string" && stamp !== "" ? { resourceId: after.id, from, to, stamp } : { resourceId: after.id, from, to };
+}
+
+/** The row with the change's save stamp applied, as a direct edit stamps it. */
+function stamped<T extends { localModifiedAt?: string }>(row: T, change: ResourceEmailChange): T {
+  return change.stamp === undefined ? row : { ...row, localModifiedAt: change.stamp };
 }
 
 function retarget<T>(
@@ -73,24 +84,24 @@ function retarget<T>(
 }
 
 export function retargetTaskEmails(rows: readonly Task[], change: ResourceEmailChange): ArrayPropagation<Task> {
-  return retarget(rows, change, (r) => r.resourceId === change.resourceId && !r.jiraKey, (r) => r.assigneeEmail, (r, v) => ({ ...r, assigneeEmail: v }));
+  return retarget(rows, change, (r) => r.resourceId === change.resourceId && !r.jiraKey, (r) => r.assigneeEmail, (r, v) => stamped({ ...r, assigneeEmail: v }, change));
 }
 
 export function retargetRaidEmails(rows: readonly RaidItem[], change: ResourceEmailChange): ArrayPropagation<RaidItem> {
-  return retarget(rows, change, (r) => r.ownerResourceId === change.resourceId, (r) => r.ownerEmail, (r, v) => ({ ...r, ownerEmail: v }));
+  return retarget(rows, change, (r) => r.ownerResourceId === change.resourceId, (r) => r.ownerEmail, (r, v) => stamped({ ...r, ownerEmail: v }, change));
 }
 
 export function retargetAbsenceEmails(rows: readonly Absence[], change: ResourceEmailChange): ArrayPropagation<Absence> {
-  return retarget(rows, change, (r) => r.resourceId === change.resourceId, (r) => r.assigneeEmail, (r, v) => ({ ...r, assigneeEmail: v }));
+  return retarget(rows, change, (r) => r.resourceId === change.resourceId, (r) => r.assigneeEmail, (r, v) => stamped({ ...r, assigneeEmail: v }, change));
 }
 
 export function retargetShiftEmails(rows: readonly Shift[], change: ResourceEmailChange): ArrayPropagation<Shift> {
-  return retarget(rows, change, (r) => r.resourceId === change.resourceId, (r) => r.assigneeEmail, (r, v) => ({ ...r, assigneeEmail: v }));
+  return retarget(rows, change, (r) => r.resourceId === change.resourceId, (r) => r.assigneeEmail, (r, v) => stamped({ ...r, assigneeEmail: v }, change));
 }
 
 export function retargetStakeholderEmails(rows: readonly Stakeholder[], change: ResourceEmailChange): ArrayPropagation<Stakeholder> {
   const fits = change.to.length <= BUDGET_NAME_MAX;
-  return retarget(rows, change, (r) => fits && r.resourceId === change.resourceId, (r) => r.email, (r, v) => ({ ...r, email: v }));
+  return retarget(rows, change, (r) => fits && r.resourceId === change.resourceId, (r) => r.email, (r, v) => stamped({ ...r, email: v }, change));
 }
 
 export function retargetContactPersonEmails(rows: readonly ContactPerson[], change: ResourceEmailChange): ContactPersonPropagation {

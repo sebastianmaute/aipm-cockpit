@@ -29,10 +29,13 @@ const seed: TestSeed = {
   project: { name: "P", contactPersons: [{ name: "Ada L", email: "old@x.com", synced: true, resourceId: 7 }, { name: "Shared", email: "old@x.com", synced: false }] } as never,
 };
 
+// ★★ M3: `localModifiedAt` is compared by PRESENCE, never stripped. The two
+//  writers stamp with their own clock reads, so the VALUES differ by design;
+//  stripping it hid that a propagated row was not stamped at all.
 function snapshot(ws: ReturnType<typeof useWorkspace>) {
   const strip = (rows: readonly object[]) => rows.map((r) => {
     const copy = { ...r } as Record<string, unknown>;
-    delete copy.localModifiedAt;
+    copy.localModifiedAt = typeof copy.localModifiedAt === "string" && copy.localModifiedAt !== "";
     return copy;
   });
   return {
@@ -95,6 +98,43 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
     expect(snapshot(ai.result.current.ws)).toEqual(initial);
     expect(ai.result.current.ws.resources[0].email).toBe("old@x.com");
     expect(human.result.current.ws.resources[0].email).toBe("old@x.com");
+  });
+
+  it("M3: stamps each propagated row exactly as the resource save, on both writers, and undo restores the prior stamp", () => {
+    const prior = "2026-01-01T00:00:00.000Z";
+    const stampedSeed: TestSeed = { ...seed, raid: [{ ...(seed.raid![0] as object), localModifiedAt: prior } as never] };
+    const human = renderHook(() => {
+      const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
+      return {
+        undo,
+        directory: useResourceDirectory({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), captureComposite: undo.captureComposite, captureFieldEdit: undo.captureFieldEdit, logUpdate: vi.fn() }),
+        ws: useWorkspace(),
+      };
+    }, { wrapper: ({ children }: { children: ReactNode }) => <TestProviders seed={stampedSeed}>{children}</TestProviders> });
+    const ai = renderHook(() => {
+      const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
+      return { undo, d: useChatDispatcher(makeDispatcherArgs({ undo })), ws: useWorkspace() };
+    }, { wrapper: dispatcherWrapperWith(stampedSeed) });
+
+    act(() => { human.result.current.directory.handleEditResource(ada); });
+    act(() => { human.result.current.directory.handleSaveResource({ ...ada, email: "new@x.com" }); });
+    act(() => { ai.result.current.d.updateResource(7, { email: "new@x.com" }); });
+
+    for (const { ws } of [human.result.current, ai.result.current]) {
+      const stamp = ws.resources[0].localModifiedAt;
+      expect(stamp).toBeTruthy();
+      expect(ws.tasks.map((r) => [r.id, r.localModifiedAt])).toEqual([[1, stamp], [2, undefined], [3, undefined], [4, undefined]]);
+      expect([ws.raid[0].localModifiedAt, ws.absences[0].localModifiedAt, ws.shifts[0].localModifiedAt, ws.stakeholders[0].localModifiedAt])
+        .toEqual([stamp, stamp, stamp, stamp]);
+    }
+
+    act(() => { human.result.current.undo.undo(); });
+    act(() => { ai.result.current.undo.undo(); });
+    for (const { ws } of [human.result.current, ai.result.current]) {
+      expect(ws.raid[0]).toMatchObject({ ownerEmail: "old@x.com", localModifiedAt: prior });
+      expect([ws.tasks[0].localModifiedAt, ws.absences[0].localModifiedAt, ws.shifts[0].localModifiedAt, ws.stakeholders[0].localModifiedAt])
+        .toEqual([undefined, undefined, undefined, undefined]);
+    }
   });
 
   it("keeps the plain edit toast on the AI path when nothing propagates", () => {
