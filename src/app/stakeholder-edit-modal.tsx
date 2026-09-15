@@ -25,7 +25,7 @@ import { ResourcePicker } from "./resource-picker";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { describeTextCap } from "./sanitize-report";
-import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
+import { BUDGET_NAME_MAX, TEXTAREA_MAX, normalizeEmailShape, sanitizeLoadedStakeholderEmail } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, joinDescribedBy, linkedResourceEmail } from "./editor-email-rule";
 import { useToastContext } from "./toast-context";
@@ -45,7 +45,9 @@ export interface StakeholderEditModalProps {
   milestones: readonly Milestone[];
   resources: readonly Resource[];
   onChange: (next: Stakeholder) => void;
-  onSave: () => void;
+  /** Receives the row to store: `draft` with its email as judged
+   *  (`sanitizeLoadedStakeholderEmail`, M-C4) — never the raw typed string. */
+  onSave: (saved: Stakeholder) => void;
   onCancel: () => void;
   onDelete: () => void;
   /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
@@ -96,10 +98,12 @@ export function StakeholderEditModal({
   const [opened, setOpened] = useState({ id: draft.id, email: draft.email });
   if (opened.id !== draft.id) setOpened({ id: draft.id, email: draft.email });
   // ★ Judge (and flag) the value that would be STORED, not the raw typed one:
-  // `sanitizeStakeholder` caps `email` at `BUDGET_NAME_MAX` (200), same as
+  // `sanitizeStakeholder` stores `sanitizeLoadedStakeholderEmail` — `Name <addr>`
+  // unwrapped, then capped at `BUDGET_NAME_MAX` (200), same as
   // `name`/`organization`/`title` here — and the field's own `onBlur` cap
-  // does not cover an Enter-submit. Fix round 1, IMPORTANT 2.
-  const cappedEmail = describeTextCap(draft.email ?? "", BUDGET_NAME_MAX).value;
+  // does not cover an Enter-submit. Fix round 1, IMPORTANT 2. ★ M-C4: this is
+  // also the value `handleSubmit` hands to `onSave`, so what is judged is stored.
+  const cappedEmail = sanitizeLoadedStakeholderEmail(draft.email);
   const showToast = useToastContext();
   const adj = useAdjustmentTracker();
   const { isVisible } = useModalVisibility("stakeholder");
@@ -170,10 +174,11 @@ export function StakeholderEditModal({
     adj.track(describeTextCap(draft.name, BUDGET_NAME_MAX));
     adj.track(describeTextCap(draft.organization ?? "", BUDGET_NAME_MAX));
     adj.track(describeTextCap(draft.title ?? "", BUDGET_NAME_MAX));
-    adj.track(describeTextCap(draft.email ?? "", BUDGET_NAME_MAX));
+    adj.track(describeTextCap(normalizeEmailShape(draft.email ?? "").trim(), BUDGET_NAME_MAX));
     adj.track(describeTextCap(draft.notes ?? "", TEXTAREA_MAX));
     if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
-    onSave();
+    // M-C4: store the judged value, not the raw draft. An absent email stays absent.
+    onSave(draft.email === undefined ? draft : { ...draft, email: cappedEmail || undefined });
   }
 
   const title = isNew ? t(lang, "stakeholdersAdd") : t(lang, "stakeholderEditTitle");

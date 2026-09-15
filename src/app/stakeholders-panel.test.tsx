@@ -83,6 +83,17 @@ describe("StakeholdersPanel", () => {
     expect(screen.getByRole("heading", { name: /stakeholder/i })).toBeInTheDocument();
   });
 
+  // M-C4 — the panel stores the object the modal hands `onSave` (the
+  //  `Name <addr>`-unwrapped email), never its own raw draft.
+  it("M-C4: saving an edited Name <addr> email stores addr", () => {
+    const props = renderStakeholders({ stakeholders: [sampleStakeholder({ name: "Dana", email: "old@x.com" })] });
+    fireEvent.click(screen.getByRole("button", { name: "Dana" }));
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "Dana Doe <dana@x.com>" } });
+    fireEvent.submit(screen.getByDisplayValue("Dana").closest("form")!);
+    expect(props.onSave).toHaveBeenCalledTimes(1);
+    expect(props.onSave.mock.calls[0][0]).toMatchObject({ name: "Dana", email: "dana@x.com" });
+  });
+
   it("clicking the name button opens editor exactly once (stopPropagation prevents double-fire)", () => {
     renderStakeholders({ stakeholders: [sampleStakeholder({ name: "Dana" })] });
     const btn = screen.getByRole("button", { name: "Dana" });

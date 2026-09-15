@@ -157,6 +157,38 @@ describe("stakeholder email follows the changed-only write rule", () => {
     expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorInvalidEmail"));
   });
 
+  // M-C4 — the editor hands `onSave` the `Name <addr>`-unwrapped (then capped)
+  //  address, as every AI write and load stores it, and judges that same value.
+  it("M-C4: a typed Name <addr> email is saved as addr, unflagged", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "Ann Lee <ann@x.com>" } });
+    expect(screen.queryByText(t("en-US", "errorInvalidEmail"))).toBeNull();
+    fireEvent.submit(screen.getByDisplayValue("Sam").closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ id: 1, name: "Sam", email: "ann@x.com" });
+  });
+
+  it("M-C4: a shape-only email edit is saved as the unchanged address", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "ada@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("ada@x.com"), { target: { value: "Ada<ada@x.com>" } });
+    fireEvent.submit(screen.getByDisplayValue("Sam").closest("form")!);
+    expect(onSave.mock.calls[0][0].email).toBe("ada@x.com");
+  });
+
   it("saves while an unchanged stored email is unsafe", () => {
     const onSave = vi.fn();
     render(

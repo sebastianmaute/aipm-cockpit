@@ -372,8 +372,8 @@ function StakeholdersPanelBody({
             commsPendingStakeholderIds={commsPendingStakeholderIds}
             onJumpToComms={onJumpToComms}
             onChange={setDraft}
-            onSave={() => {
-              onSave(draft, isNew);
+            onSave={(saved) => {
+              onSave(saved, isNew);
               closeModal();
             }}
             onCancel={closeModal}
