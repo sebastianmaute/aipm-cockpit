@@ -42,33 +42,31 @@
 // the seam that was broken.
 //
 // ★★★ `onChangeBudgets` IS SAFE TO WRAP ONLY BECAUSE `commitBuckets` RETURNS
-// VOID. `onCreateResource`, in the same prop bag, has the identical gap and
-// CANNOT be fixed this way: it returns the new resource id, and `makeEditGuard`
-// returns `undefined` on the read-only path, so wrapping would silently widen
-// its contract to `number | undefined` for every caller. Check the return type
-// before reaching for the guard. That one is still unguarded — a popout can
-// create a resource through the RAID/task resource picker even though saving
-// the item around it is blocked.
+// VOID. That is why it is NOT wrapped: task-manager passes `isPopout ? undefined :
+// handleCreateResource` instead, and `ResourcePicker` hides its "+ Add" row
+// when the callback is absent. A SECOND route reached the resource editor from
+// a popout — the task form's "+" address-book button — and is closed the same
+// way, with `AppModals` refusing to render `ResourceEditModal` in a popout at
+// all (open-followups §90, every route pinned below).
 //
-// ★★ A THIRD unguarded path, same class, also still open: `onCaptureRaidBulk` /
-// `onCaptureUndo` / `onCaptureFieldEdit` are unwrapped and `useUndoHotkey` is
-// mounted unconditionally, while only the visible undo BUTTON is popout-gated.
-// So a RAID popout can bulk-apply (capturing a real undo entry while every
-// per-row save is guarded away), then Ctrl+Z restores it — an unguarded write
-// reachable through an affordance that is invisible. Same popout-local blast
-// radius as the above. Not fixed here; a gate on the hotkey is the likely fix.
+// ★★ The undo stack itself is now read-only in a popout (§91): `useUndoStack`
+// takes `isReadOnly`, so a popout capture pushes nothing and shows no Undo toast,
+// and Ctrl+Z / undoThrough / redoThrough run nothing. Pinned below. (An earlier
+// revision called the affordance invisible; the Undo toast was visible.)
 //
 // ★ This rationale lives HERE and not at the call site because
-// `task-manager.tsx` is on the file-size ratchet (baselined at 2972 lines);
+// `task-manager.tsx` is on the file-size ratchet (its entry lives in
+// `docs/baselines/file-sizes.json`);
 // nine lines of comment there failed `size:check`, and raising the baseline to
 // hold a comment would be widening a gate to make a pipeline pass.
 // ★ `act` from testing-library, NOT from react: the bare react export logs
 // "The current testing environment is not configured to support act(...)" to
 // stderr on every call, which is exactly the noise that teaches people to stop
 // reading stderr.
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
+import { t } from "./i18n";
 
 const { commitSpy } = vi.hoisted(() => ({ commitSpy: vi.fn() }));
 
@@ -85,6 +83,19 @@ vi.mock("./workspace-section", async (importOriginal) => ({
     return <div data-testid="ws-section-mock" />;
   },
 }));
+
+const capturedModals: { props: Record<string, unknown> | null } = { props: null };
+vi.mock("./app-modals", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./app-modals")>();
+  const RealAppModals = actual.AppModals;
+  return {
+    ...actual,
+    AppModals: (props: Parameters<typeof RealAppModals>[0]) => {
+      capturedModals.props = props as unknown as Record<string, unknown>;
+      return <RealAppModals {...props} />;
+    },
+  };
+});
 
 import TaskManager from "./task-manager";
 
@@ -103,6 +114,7 @@ function seedRegistry() {
 async function mountAt(search: string) {
   window.localStorage.clear();
   captured.props = null;
+  capturedModals.props = null;
   commitSpy.mockClear();
   seedRegistry();
   window.history.replaceState(null, "", search);
@@ -147,5 +159,92 @@ describe("popout read-only guard — budget commits", () => {
     // that the prop disappears. Asserting `toBeUndefined()` here would pass for
     // the wrong reason and would also pin the wrong design.
     expect(commitSpy).not.toHaveBeenCalled();
+  }, 45000);
+});
+
+const ADA = { id: 1, firstName: "Ada", lastName: "L", roleId: null, utilizationMode: "percent", utilization: {} };
+
+describe("popout read-only guard — resource creation (open-followups §90)", () => {
+  // ★ Positive controls first: every route below is proven LIVE in the main
+  //  window by the same call on the same mount path, so each popout absence
+  //  assertion is not vacuous.
+  it("main window: passes onCreateResource and onAddAssigneeToAddressBook", async () => {
+    await mountAt("/");
+    expect(typeof captured.props!.onCreateResource).toBe("function");
+    expect(typeof capturedModals.props!.onCreateResource).toBe("function");
+    expect(typeof capturedModals.props!.onAddAssigneeToAddressBook).toBe("function");
+  }, 45000);
+
+  it("popout: passes NO onCreateResource and NO onAddAssigneeToAddressBook", async () => {
+    await mountAt("/?popout=raid");
+    // ★ Unlike onChangeBudgets, the props DISAPPEAR: `makeEditGuard` would
+    // widen `number` to `number | undefined`, ResourcePicker already hides its
+    // "+ Add" row when the callback is absent, and TaskFormFields now hides the
+    // "+" address-book button the same way.
+    expect(captured.props!.onCreateResource).toBeUndefined();
+    expect(capturedModals.props!.onCreateResource).toBeUndefined();
+    expect(capturedModals.props!.onAddAssigneeToAddressBook).toBeUndefined();
+  }, 45000);
+
+  it("main window: the address-book route opens a NEW-resource editor (positive control for route b)", async () => {
+    await mountAt("/");
+    const addToBook = capturedModals.props!.onAddAssigneeToAddressBook as (name: string, email: string) => void;
+    act(() => addToBook("Ada Lovelace", "ada@x.com"));
+    expect(capturedModals.props!.editingResource).toMatchObject({ isNew: true });
+  }, 45000);
+
+  it("main window: onEditResource opens the resource editor (positive control for the Part 7 pin)", async () => {
+    await mountAt("/");
+    const onEditResource = captured.props!.onEditResource as (r: unknown) => void;
+    act(() => onEditResource(ADA));
+    expect(capturedModals.props!.editingResource).toMatchObject({ isNew: false });
+  }, 45000);
+
+  it("main window: + Add creates the person WITHOUT an unsafe carried-over email, and keeps a safe one", async () => {
+    await mountAt("/");
+    const create = captured.props!.onCreateResource as (name: string, email: string) => number;
+    let unsafeId = 0;
+    let safeId = 0;
+    act(() => { unsafeId = create("Bob Builder", "a,b@x.com"); });
+    act(() => { safeId = create("Cy Safe", "cy@x.com"); });
+    const resources = capturedModals.props!.resources as readonly { id: number; email?: string }[];
+    expect(resources.find((r) => r.id === unsafeId)).toMatchObject({ email: undefined });
+    expect(resources.find((r) => r.id === safeId)).toMatchObject({ email: "cy@x.com" });
+  }, 45000);
+
+  it("popout: onEditResource opens no resource editor (spec Part 7 popout pin)", async () => {
+    await mountAt("/?popout=resources");
+    const onEditResource = captured.props!.onEditResource as (r: unknown) => void;
+    act(() => onEditResource(ADA));
+    expect(capturedModals.props!.editingResource ?? null).toBeNull();
+  }, 45000);
+});
+
+describe("popout read-only guard — undo capture (open-followups §91)", () => {
+  const capture = () => (captured.props!.onCaptureUndo as (o: unknown) => void)({
+    setter: vi.fn(), kind: "task.deleted", removed: [{ id: 1 }], fromArray: [{ id: 1 }],
+  });
+  // ★★ Assert on the TOAST, never on a bare "Undo" button: the main window also
+  //  renders the header undo control (`undoControlEl`), so a page-wide
+  //  `getByRole("button", { name: "Undo" })` could pass with no toast at all.
+  //  The toast is the REAL one — `app-modals.tsx` renders `{toast && <div
+  //  role="status">…}` with the action button, and Task 7's AppModals capture
+  //  renders through (pre-flight C2). `task.deleted` is a delete kind, so the
+  //  text is `undoToastDelete`.
+  const toastText = () => t("en-US", "undoToastDelete", 1);
+
+  it("main window: a capture shows the Undo toast (positive control)", async () => {
+    await mountAt("/");
+    act(() => capture());
+    const text = await screen.findByText(toastText());
+    const region = text.closest('[role="status"]') as HTMLElement | null;
+    expect(region).not.toBeNull();
+    expect(within(region!).getByRole("button", { name: /undo/i })).toBeInTheDocument();
+  }, 45000);
+
+  it("popout: a capture records nothing and shows no Undo toast", async () => {
+    await mountAt("/?popout=raid");
+    act(() => capture());
+    expect(screen.queryByText(toastText())).toBeNull();
   }, 45000);
 });

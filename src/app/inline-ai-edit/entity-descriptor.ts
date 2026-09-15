@@ -22,8 +22,8 @@ import {
   optMultiline,
   optText,
   sanitizeAbsenceNote,
-  sanitizeEmailList,
   sanitizeIdList,
+  sanitizeLoadedResourceEmails,
 } from "../sanitize-entities";
 import {
   TASK_NAME_MAX,
@@ -31,7 +31,7 @@ import {
   fkIdOrUndefined,
   sanitizeAssignee,
   sanitizeBlockers,
-  sanitizeEmail,
+  sanitizeLoadedEmail,
   sanitizeGroup,
   sanitizeTaskName,
   sanitizeText,
@@ -49,13 +49,13 @@ import {
 } from "../calendar-event";
 import { recurrenceText } from "../calendar-recurrence-text";
 import {
-  ABSENCE_FIELD_GUARDS,
-  CALENDAR_EVENT_FIELD_GUARDS,
   acceptsCostAmount,
   acceptsRiskScale,
   acceptsScheduleDays,
+  sanitizeLoadedStakeholderEmail,
   sanitizeMilestoneTaskIds,
 } from "../sanitize-records";
+import { ABSENCE_FIELD_GUARDS, CALENDAR_EVENT_FIELD_GUARDS } from "../sanitize-allowlist-guards";
 import { roleLabel } from "../resource-foundation";
 import { str } from "./str";
 
@@ -217,15 +217,20 @@ export interface EntityDescriptor {
    *  writer does NOT use `sanitizeIsoDate`.
    *
    *  ★★★ ONE ENTITY NEEDS IT AND IT DIVERGED IN BOTH DIRECTIONS. The default
-   *   is `sanitizeIsoDate(v) === v` — regex + a 1900–2100 year bound and
-   *   nothing else — which is exactly what `sanitizeAbsence` calls, so
+   *   is `sanitizeIsoDate(v) === v` — regex, a real calendar date (§539) and a
+   *   1900–2100 year bound — which is exactly what `sanitizeAbsence` calls, so
    *   absence (and every register entity) is already in parity and must keep
    *   the default. `sanitizeCalendarEvent` instead calls its own
    *   `isoDateOrUndefined`: regex + `Date.parse`, NO year bound. Measured, both
    *   ways: `startDate: "2026-01-32"` previewed as an accepted change and then
    *   made the sanitizer return null, which `updateCalendarEvent` throws on —
    *   costing the whole patch, every other field in the edit with it; and
-   *   `"1899-12-31"` previewed as REJECTED and landed.
+   *   `"1899-12-31"` previewed as REJECTED and landed. ★ §539 closed the
+   *   field-range overflow direction (day > 31 / month > 12, e.g.
+   *   `"2026-01-32"`) — both rules now refuse it. Two directions still differ:
+   *   the year bound, and a month-specific overflow (`"2026-02-30"`) that
+   *   `sanitizeIsoDate` refuses but `isoDateOrUndefined` still accepts and
+   *   rolls over (`Date.parse` succeeds on it).
    *
    *  ★★ THE WRITER'S OWN PREDICATE, IMPORTED, never a re-spelling (§405) — same
    *   contract as `numericFields`' `acceptsEventDuration` beside it, and the
@@ -270,7 +275,7 @@ export interface EntityDescriptor {
    *   `buildTaskCleanPatch` THROWS "assigneeEmail is invalid" when
    *   `isValidEmail` fails, and a throw there fails the WHOLE patch, so every
    *   other field in the same edit is lost with it. `sanitizeRaidItem` runs the
-   *   same `sanitizeEmail` over `ownerEmail` and simply stores the result with
+   *   same `sanitizeLoadedEmail` over `ownerEmail` and simply stores the result with
    *   no format guard at all, so rejecting there would be the preview inventing
    *   a rule apply does not have.
    *
@@ -442,8 +447,8 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     numericFields: {},
     stringOnlyFields: new Set(),
     enumFields: { status: constSet(TASK_STATUSES), priority: constSet(PRIORITIES) },
-    // ★ The ONLY member across all six entities: `buildTaskCleanPatch` throws
-    //   on a malformed address, and the throw fails the whole patch.
+    // ★ Every email field's writer throws through `refuseEmailWrite`, and a throw
+    //   fails the whole patch, so the card refuses the field first.
     emailFormatFields: new Set(["assigneeEmail"]),
     arrayFields: new Set(["labels"]),
     numberFields: new Set(),
@@ -453,7 +458,8 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     fieldSanitizers: {
       taskName: sanitizeTaskName,
       assignee: sanitizeAssignee,
-      assigneeEmail: sanitizeEmail,
+      // ★ M1: every AI email write stores the `Name <addr>`-unwrapped value, so the card shows it.
+      assigneeEmail: sanitizeLoadedEmail,
       blockers: sanitizeBlockers,
       group: sanitizeGroup,
     },
@@ -478,7 +484,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     stringOnlyFields: new Set(),
     enumFields: { category: constSet(RAID_CATEGORIES), severity: constSet(RAID_SEVERITIES), status: raidStatusResolver },
     enumDefaultFor: (field, item) => (field === "status" ? raidStatusDefault(raidCategoryOf(item)) : undefined),
-    emailFormatFields: new Set(),
+    emailFormatFields: new Set(["ownerEmail"]),
     arrayFields: new Set(),
     numberFields: new Set(["probability", "impact"]),
     // Mirrors `sanitizeRaidItem` (sanitize-records.ts). ★ `title` is capped at
@@ -488,7 +494,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     fieldSanitizers: {
       title: text(TASK_NAME_MAX),
       owner: text(BUDGET_NAME_MAX),
-      ownerEmail: sanitizeEmail,
+      ownerEmail: sanitizeLoadedEmail, // M1: unwrap-then-cap, as `sanitizeRaidItem` stores
     },
     linkFields: {
       linkedTaskIds: { wsKey: "tasks", kind: "list", titleOf: (r) => str(r.taskName), sanitize: sanitizeIdList },
@@ -610,7 +616,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     numericFields: {},
     stringOnlyFields: new Set(),
     enumFields: { category: constSet(STAKEHOLDER_CATEGORIES), influence: constSet(INFLUENCE_INTEREST_LEVELS), interest: constSet(INFLUENCE_INTEREST_LEVELS) },
-    emailFormatFields: new Set(),
+    emailFormatFields: new Set(["email"]),
     arrayFields: new Set(),
     numberFields: new Set(),
     // Mirrors `sanitizeStakeholder` (sanitize-records.ts). ★★ `notes` is
@@ -622,7 +628,8 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       name: text(BUDGET_NAME_MAX),
       organization: text(BUDGET_NAME_MAX),
       title: text(BUDGET_NAME_MAX),
-      email: text(BUDGET_NAME_MAX),
+      // ★ M1: `sanitizeStakeholder`'s own reader — unwrap `Name <addr>` THEN cap at 200.
+      email: sanitizeLoadedStakeholderEmail,
       notes: text(TEXTAREA_MAX),
     },
     // ★ `Stakeholder.raci` IS a relationship, but `stakeholderFields` does not
@@ -678,14 +685,14 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     numericFields: {},
     stringOnlyFields: new Set(),
     enumFields: {},
-    emailFormatFields: new Set(),
+    emailFormatFields: new Set(["email"]),
     arrayFields: new Set(),
     numberFields: new Set(),
     // Mirrors `sanitizeResource` (sanitize-entities.ts), which uses FIVE
     // different helpers across these ten fields — four for the nine text ones,
     // plus a predicate for the tenth:
     //   • firstName/lastName → `sanitizeAssignee` (trim + ASSIGNEE_MAX 200)
-    //   • email              → `sanitizeEmail`    (trim + EMAIL_MAX 320)
+    //   • email              → `sanitizeLoadedEmail` (unwrap `Name <addr>`, trim + EMAIL_MAX 320)
     //   • the five optional single-line fields → `optText` (trim, NO cap)
     //   • notes              → `optMultiline`     (CRLF→LF, trim, NO cap)
     //   • isExternal         → `isExternalFlag`   (the predicate below)
@@ -703,7 +710,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     fieldSanitizers: {
       firstName: sanitizeAssignee,
       lastName: sanitizeAssignee,
-      email: sanitizeEmail,
+      email: sanitizeLoadedEmail,
       title: optionalText,
       department: optionalText,
       company: optionalText,
@@ -727,15 +734,17 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       //  a primary changed in the same call" (plan.test.ts).
       // ★ Joined with ", " like every other list this module renders (`str`,
       //  `resolveLinkTitles`); the writer's `[;,]` split accepts it back.
-      // ★★ THE PRIMARY GOES THROUGH `sanitizeEmail` FIRST, exactly as
-      //  `sanitizeResource` does it — the raw `row.email` is NOT the value the
-      //  writer de-dupes against. `sanitizeEmail` trims and clips to
-      //  `EMAIL_MAX`, and `sanitizeEmailList` compares on an EXACT
+      // ★★ THE PRIMARY GOES THROUGH THE WRITER'S OWN READER FIRST — the raw
+      //  `row.email` is NOT the value the writer de-dupes against. It trims and
+      //  clips to `EMAIL_MAX`, and the list dedupe compares on an EXACT
       //  `primary.toLowerCase()`, so `{ email: "  Bob@X.com  ", emails:
       //  ["bob@x.com"] }` dropped the extra in the write and KEPT it in the
       //  preview. Same divergence for an over-`EMAIL_MAX` primary.
-      emails: (v, row) =>
-        sanitizeEmailList(v, typeof row.email === "string" ? sanitizeEmail(row.email) || undefined : undefined).join(", "),
+      // ★★★ M1: that reader is now `sanitizeLoadedResourceEmails` WHOLE — the
+      //  exact pair `sanitizeResource` stores, `Name <addr>` members and primary
+      //  unwrapped. Calling `sanitizeEmailList` alone showed "Two <two@x.com>"
+      //  while the write stored "two@x.com".
+      emails: (v, row) => sanitizeLoadedResourceEmails(row.email, v).emails.join(", "),
     },
     // ★★★ `roleId` IS writable — it is listed as absent from `diffFields` above
     //  under "an FK, excluded by the same rule as Task.resourceId", and that
@@ -764,7 +773,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   },
   absence: {
     entity: "absence", updateTool: "update_absence", deleteTool: "delete_absence", createTool: "create_absence", wsKey: "absences",
-    // Derived from `ABSENCE_FIELD_GUARDS` (sanitize-records.ts) — the set the
+    // Derived from `ABSENCE_FIELD_GUARDS` (sanitize-allowlist-guards.ts) — the set the
     // MERGE SITE lets through — minus `resourceId`, which is an FK and is
     // disclosed through `linkFields` by the same rule as `resource.roleId`.
     diffFields: ["assignee", "assigneeEmail", "startDate", "endDate", "type", "note"],
@@ -786,8 +795,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  invalid" for a non-blank address `isValidEmail` rejects, so the preview
     //  rejects it first and the rest of the patch can still apply. The
     //  load-path `sanitizeAbsence` still has no format guard and must not
-    //  gain one — that would drop stored data. ★★ `raid.ownerEmail` is still
-    //  UNCHECKED on both sides, so its set stays empty.
+    //  gain one — that would drop stored data.
     emailFormatFields: new Set(["assigneeEmail"]),
     arrayFields: new Set(),
     numberFields: new Set(),
@@ -798,7 +806,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  `text(TEXTAREA_MAX)`, which would be the wrong family AND a restated cap.
     fieldSanitizers: {
       assignee: sanitizeAssignee,
-      assigneeEmail: sanitizeEmail,
+      assigneeEmail: sanitizeLoadedEmail,
       note: sanitizeAbsenceNote,
     },
     // ★★★ THE WHOLE-ROW RULE `fieldSanitizers` CANNOT EXPRESS. `sanitizeAbsence`
@@ -856,7 +864,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   },
   calendarEvent: {
     entity: "calendarEvent", updateTool: "update_calendar_event", deleteTool: "delete_calendar_event", createTool: "create_calendar_event", wsKey: "calendarEvents",
-    // Derived from `CALENDAR_EVENT_FIELD_GUARDS` (sanitize-records.ts) minus
+    // Derived from `CALENDAR_EVENT_FIELD_GUARDS` (sanitize-allowlist-guards.ts) minus
     // `attendeeResourceIds`, an id LIST and therefore a `linkFields` member.
     // ★ `exceptions` is absent from the guard table itself and so cannot be
     //  written by the model at all — nothing to disclose.
@@ -868,8 +876,10 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     dateFields: new Set(["startDate"]),
     // See `acceptsDate`. ★★ THE ONE ENTITY THAT NEEDS IT: this sanitizer calls
     // `isoDateOrUndefined` (regex + `Date.parse`, no year bound), NOT the
-    // `sanitizeIsoDate` (regex + 1900–2100, no calendar check) the preview
-    // defaults to — and the two disagree in BOTH directions.
+    // `sanitizeIsoDate` (regex + calendar check + 1900–2100) the preview
+    // defaults to — and the two still disagree on the year bound, and on a
+    // month-specific overflow ("2026-02-30") this rule refuses but the
+    // writer still accepts.
     acceptsDate: acceptsEventDate,
     // ★★ AN ACCEPTANCE PREDICATE OVER THE RAW VALUE, and the reason it is not
     //  merely a range: the writer CLAMPS rather than refuses — `intInRange`

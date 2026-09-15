@@ -215,14 +215,16 @@ export function acceptsEventDuration(v: unknown): boolean {
  *
  *  ★★★ IT EXISTS BECAUSE THE PREVIEW'S DEFAULT DATE RULE AND THIS MODULE'S
  *   DISAGREE IN BOTH DIRECTIONS, and each direction is its own defect.
- *   `sanitizeIsoDate` (sanitize-core.ts) is regex + a 1900–2100 year bound and
- *   nothing else; `isoDateOrUndefined` here is regex + `Date.parse` and NO year
- *   bound. So `"2026-01-32"` previewed as an accepted change and then made
- *   `sanitizeCalendarEvent` return null — which `updateCalendarEvent` throws on,
- *   costing the WHOLE patch — while `"1899-12-31"` previewed as REJECTED and
- *   landed. `INLINE_DESCRIPTORS.calendarEvent.acceptsDate` points here so the
- *   card asks the writer's own question (§405), rather than a second spelling
- *   of a similar one.
+ *   `sanitizeIsoDate` (sanitize-core.ts) is regex + a calendar check (§539) +
+ *   a 1900–2100 year bound; `isoDateOrUndefined` here is regex + `Date.parse`
+ *   and NO year bound. So `"2026-01-32"` previewed as an accepted change and
+ *   then made `sanitizeCalendarEvent` return null — which `updateCalendarEvent`
+ *   throws on, costing the WHOLE patch — while `"1899-12-31"` previewed as
+ *   REJECTED and landed. `INLINE_DESCRIPTORS.calendarEvent.acceptsDate` points
+ *   here so the card asks the writer's own question (§405), rather than a
+ *   second spelling of a similar one. ★ The `"2026-01-32"` direction was
+ *   closed at the source by §539; the year-bound direction is why this
+ *   override remains.
  *
  *  ★★ THE FIX IS ON THE PREVIEW SIDE ON PURPOSE. Adding a year bound to
  *   `isoDateOrUndefined` would close the same gap by CHANGING WHAT IS STORED —

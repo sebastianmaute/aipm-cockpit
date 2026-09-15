@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
-import { FieldNotice } from "./field-feedback";
+import { FieldError, FieldNotice } from "./field-feedback";
 import { HintedLabel, fieldClass } from "./form-controls";
 import { TextButton } from "./text-button";
 import { InfoTooltip } from "./info-tooltip";
@@ -24,6 +24,9 @@ import {
   defaultJiraConfig,
 } from "./settings-types";
 import { saveSecretValue } from "./use-secrets";
+import { emailWriteRefusal } from "./sanitize";
+import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
+import { useEmailDraft } from "./use-email-draft";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
 import { FOCUS_RING } from "./interaction-styles";
 import { Button } from "./button";
@@ -64,6 +67,15 @@ export function JiraSettingsSection({
   const [userQuery, setUserQuery] = useState("");
   const [userResults, setUserResults] = useState<JiraUser[]>([]);
   const userSearchTimer = useRef<number | null>(null);
+
+  // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1) —
+  //  shared with timelog-settings.tsx via `useEmailDraft` (fix round 1).
+  const {
+    value: emailDraft,
+    setValue: setEmailDraft,
+    refusal: emailRefusal,
+    errorId: emailErrorId,
+  } = useEmailDraft(config.email);
 
   const creds = {
     siteUrl: config.siteUrl,
@@ -283,11 +295,18 @@ export function JiraSettingsSection({
             >
               <input
                 type="email"
-                value={config.email}
-                onChange={(e) => update("email", e.target.value.trim())}
+                value={emailDraft}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setEmailDraft(next);
+                  if (emailWriteRefusal(next, config.email) === null) update("email", next.trim());
+                }}
+                aria-invalid={emailRefusal ? true : undefined}
+                aria-describedby={emailRefusal ? emailErrorId : undefined}
                 className={inputClass}
               />
             </HintedLabel>
+            <FieldError id={emailErrorId}>{emailRefusal ? t(lang, EMAIL_REFUSAL_KEY[emailRefusal]) : null}</FieldError>
             {/* ★★ The storage notice and the token link sit OUTSIDE the label
                 as well: inside it, both joined the token field's accessible
                 NAME. The notice is now the field's description. */}

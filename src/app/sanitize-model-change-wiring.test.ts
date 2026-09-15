@@ -42,7 +42,12 @@ describe("which sanitizer each change write path is wired to", () => {
     //  would write a value under a card that said "unchanged".
     const src = read("src/app/use-register-tools.ts");
     expect(src.match(/\bsanitizeModelChangeItem\(/g) ?? []).toHaveLength(1);
-    expect(src.match(/\bsanitizeChangeItem\(/g) ?? []).toHaveLength(1);
+    // ★★ M6: the update rebuilds through `rebuildChangeForUpdate`, which runs the
+    //  SAME verbatim core as `sanitizeChangeItem` (`changeWithDateReader`) and only
+    //  carries an untouched stored date. So the verbatim call is that name now,
+    //  and the plain one must be gone from this file — asserted as a pair.
+    expect(src.match(/\brebuildChangeForUpdate\(/g) ?? []).toHaveLength(1);
+    expect(src.match(/\bsanitizeChangeItem\(/g) ?? []).toHaveLength(0);
     // ★★ The guard is what makes the verbatim sanitizer safe on the update path,
     //  so its presence is part of THIS claim, not a separate one. Without it the
     //  plain sanitizer would write the model's refused value straight through —
@@ -81,7 +86,11 @@ describe("which sanitizer each change write path is wired to", () => {
       "src/app/templates.ts",
     ]) {
       const src = read(path);
-      expect(src.match(/\bsanitizeChangeItem\(/g) ?? []).not.toHaveLength(0);
+      // ★★ M2: these load funnels now call the LOAD twins, which run the SAME
+      //  verbatim core as `sanitizeChangeItem` (`changeWithDateReader`) and only
+      //  add a diagnostic for a blanked date — so the verbatim call is spelled
+      //  `sanitizeLoadedChangeItem` / `sanitizeLoadedSeedChangeItem` here now.
+      expect(src.match(/\bsanitizeLoaded(Seed)?ChangeItem\(/g) ?? []).not.toHaveLength(0);
       expect(src.match(/\bsanitizeModelChangeItem\b/g) ?? []).toHaveLength(0);
     }
   });

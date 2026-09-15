@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { TestProviders } from "./test-providers";
@@ -6,6 +6,7 @@ import { ModalFieldControls } from "./modal-field-controls";
 import { TaskFormFields } from "./task-form-fields";
 import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
 import { t } from "./i18n";
+import { EMAIL_MAX } from "./sanitize";
 import { useTaskForm } from "./task-form-context";
 import { selectFieldTier } from "../test/field-tier";
 import type { TaskBudgetLink } from "./use-task-budget-link";
@@ -23,7 +24,7 @@ beforeAll(() => {
 });
 
 function Harness(
-  over: { onOpenNotes?: () => void; budgetLink?: TaskBudgetLink; tasksForDeps?: Task[] } = {},
+  over: { onOpenNotes?: () => void; budgetLink?: TaskBudgetLink; tasksForDeps?: Task[]; withAddressBook?: boolean } = {},
 ) {
   return (
     <form aria-label="form">
@@ -46,7 +47,7 @@ function Harness(
         jiraProjectKey={undefined}
         jiraDefaultIssueType={undefined}
         onRemoveContact={vi.fn()}
-        onAddAssigneeToAddressBook={vi.fn()}
+        onAddAssigneeToAddressBook={over.withAddressBook === false ? undefined : vi.fn()}
         onOpenNotes={over.onOpenNotes}
         budgetLink={over.budgetLink}
       />
@@ -316,6 +317,36 @@ describe("TaskFormFields", () => {
       // Advanced default: priority (advanced) present, email (full) absent.
       expect(screen.getByText("Priority")).toBeTruthy();
       expect(screen.queryByText("Email")).toBeNull();
+    });
+
+    // The flag judges the value a submit would STORE (capped at EMAIL_MAX, then
+    // `sanitizeEmail`), exactly as `use-task-submit.ts` does — so a delimiter
+    // that the cap cuts off never flags, while one inside the cap still does.
+    it("flags the capped stored email, not the raw typed one", () => {
+      render(<VisHarness />, { wrapper: TestProviders });
+      selectFieldTier("fieldViewFull");
+      const input = screen.getByPlaceholderText(t("en-US", "placeholderEmail"));
+      const delimiterMessage = t("en-US", "errorEmailDelimiter");
+      fireEvent.change(input, { target: { value: `a@b.${"c".repeat(EMAIL_MAX - 4)},zz` } });
+      expect(screen.queryByText(delimiterMessage)).toBeNull();
+      expect(input.getAttribute("aria-invalid")).not.toBe("true");
+      // Positive control: a delimiter inside the cap still flags.
+      fireEvent.change(input, { target: { value: "a,b@x.com" } });
+      expect(screen.getByText(delimiterMessage)).toBeTruthy();
+    });
+
+    // M-C4 — the submit stores the `Name <addr>`-unwrapped address, so the flag
+    //  judges that value too.
+    it("M-C4: does not flag a Name <addr> whose inner address is write-safe", () => {
+      render(<VisHarness />, { wrapper: TestProviders });
+      selectFieldTier("fieldViewFull");
+      const input = screen.getByPlaceholderText(t("en-US", "placeholderEmail"));
+      fireEvent.change(input, { target: { value: "Ann Lee <ann@x.com>" } });
+      expect(screen.queryByText(t("en-US", "errorInvalidEmail"))).toBeNull();
+      expect(input.getAttribute("aria-invalid")).not.toBe("true");
+      // Positive control: a shape that does not unwrap still flags.
+      fireEvent.change(input, { target: { value: "Dee <not-an-email>" } });
+      expect(screen.getByText(t("en-US", "errorInvalidEmail"))).toBeTruthy();
     });
 
     it("hides advanced fields like Priority when switched to Simple, keeping Task name", () => {
@@ -595,5 +626,17 @@ describe("TaskFormFields — dependency caption binding", () => {
     await user.click(screen.getByText(/^Predecessors/, { selector: "span" }));
 
     expect(removes()).toHaveLength(before);
+  });
+});
+
+describe("TaskFormFields — add-to-address-book button (open-followups §90)", () => {
+  it("renders the button when onAddAssigneeToAddressBook is passed (positive control)", () => {
+    render(<Harness />, { wrapper: TestProviders });
+    expect(screen.getByRole("button", { name: t("en-US", "taskAddAssigneeToAddressBook") })).toBeInTheDocument();
+  });
+
+  it("renders no button when it is absent (a popout)", () => {
+    render(<Harness withAddressBook={false} />, { wrapper: TestProviders });
+    expect(screen.queryByRole("button", { name: t("en-US", "taskAddAssigneeToAddressBook") })).toBeNull();
   });
 });

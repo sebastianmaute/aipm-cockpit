@@ -309,3 +309,27 @@ describe("JiraSettingsSection — user-search field", () => {
     expect(field.value).toBe("");
   });
 });
+
+describe("JiraSettingsSection — email draft persists only a valid value", () => {
+  function openWithEmail(email: string, onChange = vi.fn()) {
+    render(<JiraSettingsSection lang="en-US" config={{ ...defaultJiraConfig, enabled: true, email }} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: /jira integration/i }));
+    return { onChange, input: screen.getByRole("textbox", { name: t("en-US", "jiraEmail") }) };
+  }
+
+  it("keeps typing, shows FieldError, and does not persist a changed unsafe email", () => {
+    const { onChange, input } = openWithEmail("ada@x.com");
+    fireEvent.change(input, { target: { value: "a,b@x.com" } });
+    expect(input).toHaveValue("a,b@x.com");
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("persists a valid value and a clear", () => {
+    const { onChange, input } = openWithEmail("ada@x.com");
+    fireEvent.change(input, { target: { value: "grace@x.com" } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ email: "grace@x.com" }));
+    fireEvent.change(input, { target: { value: "" } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ email: "" }));
+  });
+});

@@ -1172,9 +1172,12 @@ describe("GanttPanel row-unique accessible names", () => {
   // geometry they are drawn with, so neither the chart nor a row component
   // decides again. `gantt-chart.test.tsx` pins the chart half of that.
   //
-  // ★ "2026-13-01" is the realistic bad date, not a contrived one: it passes the
-  // load sanitizer (`sanitizeIsoDate` checks the shape and the year only) and
-  // fails `parseISO`, so a stored milestone can carry it.
+  // ★ "2026-13-01" is a realistic bad date shape, not a contrived one, and
+  // `mkDatedMilestone` below builds the prop directly rather than through the
+  // sanitizer to reach it. A milestone `date` is REQUIRED, so a load keeps
+  // such a shape-valid non-calendar value RAW (with a diagnostic) rather than
+  // dropping the record — every backend can still hand it to the chart, and
+  // writes refuse it. It fails `parseISO`, which is the property under test.
   const mkDatedMilestone = (id: number, name: string, date: string): Milestone =>
     ({ id, name, date, linkedTaskIds: [] }) as unknown as Milestone;
 

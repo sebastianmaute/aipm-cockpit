@@ -612,7 +612,7 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   `export-ooxml.ts` is a BARREL re-exporting the 3 builders — `export.ts` consumes them via `await
   import("./export-ooxml")` and `export-ooxml.test.ts` imports from the barrel, so keep those three names
   exported there. (Sections come from `export-sections.ts`.)
-- **Sanitize module map:** `sanitize.ts` is a BARREL (`export *`) over three files — keep importing from
+- **Sanitize module map:** `sanitize.ts` is a BARREL (`export *`) — keep importing from
   `./sanitize` (**63** importers on 2026-08-04 — `grep -rl 'from "\./sanitize"' src/app --include=*.ts
   --include=*.tsx | wc -l`; a long-stale "≈37" sat here, so re-derive rather than trust the number).
   Pure i18n-free, one-way deps (core ← entities ← records): `sanitize-core.ts`
@@ -620,7 +620,11 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   field/date/email/label/dependency sanitizers), `sanitize-entities.ts`
   (Absence/Shift/Resource/Role/Discipline/Grade/Plan/Budget/allocations/FxRates), `sanitize-records.ts`
   (Milestone/Change/RAID/Stakeholder/ProjectMeta/SteeringCommittee/timezone — imports only
-  `BUDGET_NAME_MAX`+`sanitizeIdList` from entities). ★ A NEW entity sanitizer goes in entities or records
+  `BUDGET_NAME_MAX`+`AMOUNT_MAX`+`sanitizeIdList` from entities; it holds the five DENYLIST merge-site guard tables).
+  `sanitize-allowlist-guards.ts` holds the two ALLOWLIST merge-site guards (`ABSENCE_FIELD_GUARDS`,
+  `CALENDAR_EVENT_FIELD_GUARDS` and their `dropUnaccepted*Fields`), moved out of records for size headroom
+  (§447). The barrel also re-exports `absence-email.ts` and `record-email-guards.ts` — read the barrel
+  itself for the current list. ★ A NEW entity sanitizer goes in entities or records
   (whichever cluster); a new shared primitive goes in core. Each `*_SET`/`*_RE` const stays in the file with
   its consumers. Golden byte-stability + `sanitize.test`/`.property` + the 63 importers guard behavior.
 - **Codec module maps:** `csv-codecs.ts` and `markdown-codecs.ts` are BARRELS (`export *`) — keep importing

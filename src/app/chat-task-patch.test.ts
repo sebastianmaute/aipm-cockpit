@@ -273,6 +273,15 @@ describe("buildTaskCleanPatch", () => {
     });
   });
 
+  describe("assigneeEmail follows the changed-only write rule", () => {
+    it("refuses a changed delimiter-bearing address", () => {
+      expect(() => buildTaskCleanPatch({ assigneeEmail: "a,b@x.com" }, task())).toThrow('assigneeEmail must not contain "," or ";"');
+    });
+    it("keeps an unchanged stored unsafe address", () => {
+      expect(buildTaskCleanPatch({ assigneeEmail: "a,b@x.com" }, { ...task(), assigneeEmail: "a,b@x.com" }).assigneeEmail).toBe("a,b@x.com");
+    });
+  });
+
   // ★★★ THE TWO DATES ARE DELIBERATELY ASYMMETRIC and a reader will try to
   // "fix" it. `dueDate` is user intent — a garbage one must surface as an error
   // the model can act on. `lastUpdateDate` is bookkeeping the model has no

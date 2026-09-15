@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect, useRef, useState } from "react";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
+import { t } from "./i18n";
 import { loadJiraApi } from "./use-jira-sync";
 import { useUndoStack } from "./undo/use-undo-stack";
 import type { Task, Resource } from "./types";
@@ -364,6 +365,28 @@ describe("useTaskRowHandlers — onSendInquiry", () => {
     act(() => result.current.onSendInquiry(task));
     expect(alertSpy).toHaveBeenCalled();
     expect(setTasks).not.toHaveBeenCalled();
+  });
+
+  it("alerts with the delimiter message and aborts on a delimiter-bearing prompted email", () => {
+    vi.spyOn(window, "prompt").mockReturnValue("a,b@x.com");
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const setTasks = vi.fn();
+    const task = makeTask({ id: 1, assigneeEmail: "", assignee: "No Email Person" });
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
+    act(() => result.current.onSendInquiry(task));
+    expect(alertSpy).toHaveBeenCalledWith(t("en-US", "errorEmailDelimiter"));
+    expect(setTasks).not.toHaveBeenCalled();
+  });
+
+  it("M-C4: persists a prompted Name <addr> as addr and sends to it", () => {
+    vi.spyOn(window, "prompt").mockReturnValue("Bob Jones <bob@example.com>");
+    const setTasks = vi.fn();
+    const task = makeTask({ id: 1, assigneeEmail: "", assignee: "Bob" });
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
+    act(() => result.current.onSendInquiry(task));
+    const persist = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    expect(persist([task])[0].assigneeEmail).toBe("bob@example.com");
+    expect(hrefValue.startsWith("mailto:bob%40example.com")).toBe(true);
   });
 
   it("persists a valid prompted email and proceeds to send", () => {

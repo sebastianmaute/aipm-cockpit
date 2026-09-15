@@ -45,6 +45,8 @@ export function AssigneeField({
   assigneePlaceholder,
   showEmail = true,
   tooltip,
+  emailInvalid,
+  emailDescribedBy,
 }: {
   datalistId: string;
   assignee: string;
@@ -59,6 +61,10 @@ export function AssigneeField({
   showEmail?: boolean;
   /** Optional already-translated tooltip text shown inline after the label. */
   tooltip?: string;
+  /** Marks the email input invalid: a stored or copied unsafe value the caller flags. */
+  emailInvalid?: boolean;
+  /** Id of the caller's flag element, for the email input's aria-describedby. */
+  emailDescribedBy?: string;
 }) {
   const options = useMemo(
     () => dedupeAssignees(knownAssignees),
@@ -123,6 +129,8 @@ export function AssigneeField({
             type="email"
             value={assigneeEmail ?? ""}
             onChange={(e) => onEmailChange(e.target.value || undefined)}
+            invalid={emailInvalid || undefined}
+            aria-describedby={emailDescribedBy}
           />
         </label>
       )}

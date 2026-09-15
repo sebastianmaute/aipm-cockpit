@@ -13,10 +13,10 @@ import { defaultResourcePlan } from "./resource-foundation";
 import {
   dropDanglingDependencies,
   parseDependenciesString,
-  sanitizeAbsence,
-  sanitizeBudgetBucket,
+  sanitizeLoadedAbsence,
+  sanitizeLoadedBudgetBucket,
   sanitizeDiscipline,
-  sanitizeFxRates,
+  sanitizeLoadedFxRates,
   sanitizeGrade,
   sanitizeGroup,
   sanitizeLabels,
@@ -204,7 +204,7 @@ const ABSENCE_ALIASES: Record<string, string> = {
 };
 
 function markdownToAbsences(md: string, diag?: ImportDiag): Absence[] {
-  return decodeMdTable(md, ABSENCE_ALIASES, sanitizeAbsence, "absences", diag);
+  return decodeMdTable(md, ABSENCE_ALIASES, sanitizeLoadedAbsence, "absences", diag);
 }
 
 /** Derived from EVENTS_MD_COLUMNS (markdown-codecs-core.ts), not hand-written —
@@ -294,7 +294,7 @@ const BUDGET_ALIASES: Record<string, string> = {
 };
 
 function markdownToBudgets(md: string, diag?: ImportDiag): BudgetBucket[] {
-  return decodeMdTable(md, BUDGET_ALIASES, sanitizeBudgetBucket, "budgets", diag);
+  return decodeMdTable(md, BUDGET_ALIASES, sanitizeLoadedBudgetBucket, "budgets", diag);
 }
 
 function parseFxRatesMarkdown(md: string): FxRates | null {
@@ -303,7 +303,7 @@ function parseFxRatesMarkdown(md: string): FxRates | null {
     if (!tline || tline.startsWith("#") || tline.startsWith("|")) continue;
     const cells = tline.split(",").map((s) => s.trim());
     if (cells.length < 4) continue;
-    return sanitizeFxRates({ base: cells[0], date: cells[1], fetchedAt: cells[2], rates: decodeRatesMap(cells.slice(3).join(",")) });
+    return sanitizeLoadedFxRates({ base: cells[0], date: cells[1], fetchedAt: cells[2], rates: decodeRatesMap(cells.slice(3).join(",")) });
   }
   return null;
 }

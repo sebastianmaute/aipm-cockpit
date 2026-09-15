@@ -4,4 +4,6 @@
 export * from "./sanitize-core";
 export * from "./sanitize-entities";
 export * from "./sanitize-records";
+export * from "./sanitize-allowlist-guards";
 export * from "./absence-email";
+export * from "./record-email-guards";

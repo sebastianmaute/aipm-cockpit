@@ -5,7 +5,7 @@
 // side effects.
 import { type Task } from "../types";
 import { type Workspace } from "../workspace";
-import { findTornEmail, isValidEmail, sanitizeIsoDate, toNumber } from "../sanitize";
+import { emailWriteRefusal, findTornEmail, sanitizeIsoDate, toNumber } from "../sanitize";
 import { descriptionText } from "../rich-text-projection";
 import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor, type InlineEntity } from "./entity-descriptor";
 import { splitName } from "../resource-foundation";
@@ -611,7 +611,7 @@ export function describeEntityCalls(
         //   `after`: `after` has already been through `fieldSanitizers.emails`,
         //   which re-splits a STRING on `[;,]` and rejoins it — so the card
         //   would show an address that was never what the model actually sent.
-        if (d.entity === "resource" && f === "emails" && findTornEmail(input[f], Array.isArray(item.emails) ? (item.emails as string[]) : undefined) !== undefined) { bad(`${f}=${str(input[f])}`); continue; }
+        if (d.entity === "resource" && f === "emails" && findTornEmail(input[f], Array.isArray(item.emails) ? (item.emails as string[]) : undefined, true) !== undefined) { bad(`${f}=${str(input[f])}`); continue; }
         if (before === after) continue;
         // ★★★ A JOINT REQUIREMENT IS JUDGED ON THE MERGED ROW, NEVER ON THIS
         // FIELD ALONE, and the group takes PRECEDENCE over `requiredNonEmpty`
@@ -659,28 +659,30 @@ export function describeEntityCalls(
             if (!survives) { bad(`${members.join("+")}=empty`); continue; }
           } else if (d.requiredNonEmpty.has(f)) { bad(`${f}=empty`); continue; }
         }
-        // Match the sanitizer EXACTLY — sanitizeIsoDate is format + year-range
-        // (1900-2100), returning the input verbatim when valid and "" otherwise,
-        // so a previewed date can never diverge from what apply persists.
+        // Match the sanitizer EXACTLY — sanitizeIsoDate is format + real
+        // calendar date + year-range (1900-2100), returning the input verbatim
+        // when valid and "" otherwise, so a previewed date can never diverge
+        // from what apply persists.
         // ★★★ THE ENTITY'S OWN DATE RULE, defaulting to `sanitizeIsoDate` —
         //  which is what `sanitizeAbsence` and every register sanitizer call,
         //  so seven of the eight descriptors want the default and must keep it.
         //  `sanitizeCalendarEvent` calls `isoDateOrUndefined` instead (regex +
-        //  `Date.parse`, NO year bound, against the default's regex + 1900–2100
-        //  and nothing else), and the two disagree in BOTH directions:
-        //  `startDate: "2026-01-32"` previewed as an accepted change and then
-        //  made the sanitizer return null, which `updateCalendarEvent` throws
-        //  on — costing the WHOLE patch — while `"1899-12-31"` previewed as
-        //  REJECTED and landed. See `EntityDescriptor.acceptsDate`.
+        //  `Date.parse`, NO year bound, against the default's regex + calendar
+        //  check + 1900–2100). §539 closed the field-range overflow direction
+        //  (`"2026-01-32"`, which used to preview as accepted then throw in
+        //  `updateCalendarEvent`). Two directions still differ: the year bound
+        //  (`"1899-12-31"` still lands), and a month-specific overflow
+        //  (`"2026-02-30"`) this rule refuses but the writer still accepts.
         if (d.dateFields.has(f) && after !== "" && !(d.acceptsDate ?? defaultAcceptsDate)(after)) { bad(`${f}=${after}`); continue; }
-        // ★★ A THROW ON APPLY COSTS THE WHOLE PATCH, not just this field.
-        // `buildTaskCleanPatch` throws "assigneeEmail is invalid" for an address
-        // `isValidEmail` rejects, and the dispatcher surfaces that as a failed
-        // tool call — so every OTHER field the same edit changed is lost with
-        // it. Rejecting here keeps the bad value out of the patch and lets the
-        // rest apply. Blank is exempt because the sanitizer's own guard is
-        // `if (e && !isValidEmail(e))` — clearing an address is legal.
-        if (d.emailFormatFields.has(f) && after !== "" && !isValidEmail(after)) { bad(`${f}=${after}`); continue; }
+        // ★★ A THROW ON APPLY COSTS THE WHOLE PATCH, not just this field. Every
+        // email field's writer now throws through `refuseEmailWrite` (changed-
+        // only, format + delimiter), and the dispatcher surfaces that as a
+        // failed tool call — so every OTHER field the same edit changed is lost
+        // with it. The card asks the SAME `emailWriteRefusal` against the
+        // stored `item[f]`, so a value the writer would accept (unchanged, or a
+        // copy of a stored source) is never rejected here either. Blank stays
+        // legal — `emailWriteRefusal` never refuses an empty `after`.
+        if (d.emailFormatFields.has(f) && emailWriteRefusal(after, str(item[f])) !== null) { bad(`${f}=${after}`); continue; }
         // ★★ THE RAW VALUE, for the same reason the numeric guard below reads
         //  it — this check and that one are the same shape, one register apart.
         //  A rich field has no `fieldSanitizers` entry (its apply-path sanitizer

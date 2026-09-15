@@ -203,6 +203,32 @@ describe("useTursoProjectOps — §103 truncation", () => {
     expect(result.current.guard.loadWasIncomplete).toBe(false);
   });
 
+  const SEED_TASK = { id: 1, taskName: "From seed", assignee: "B", assigneeEmail: "a,b@x.com", dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", status: "To Do", createdDate: "2026-06-01" };
+
+  it.each([
+    ["a template", { includeSeed: true, template: { id: "t", name: "T", features: [], fieldVisibility: {}, seed: { tasks: [SEED_TASK] } } }],
+    ["an AI-import seed", { includeSeed: true, aiSeed: { tasks: [SEED_TASK] } }],
+  ])("createTursoProject with %s shows the unsafe-email notice after projectCreatedToast (pre-flight I5)", async (_label, opts) => {
+    const { result } = renderWithRealGuard(async () => {});
+    await act(async () => {
+      await result.current.ops.createTursoProject({ id: "n-2", name: "New", code: "N" } as never, opts as never);
+    });
+    const texts = result.current.showToast.mock.calls.map((c) => c[1]);
+    const created = texts.indexOf(t("en-US", "projectCreatedToast", "New"));
+    expect(created).toBeGreaterThanOrEqual(0);
+    expect(texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "From seed"))).toBeGreaterThan(created);
+  });
+
+  it("createTursoProject with no seed shows no notice (positive control above)", async () => {
+    const { result } = renderWithRealGuard(async () => {});
+    await act(async () => {
+      await result.current.ops.createTursoProject({ id: "n-3", name: "New", code: "N" } as never);
+    });
+    const texts = result.current.showToast.mock.calls.map((c) => String(c[1]));
+    expect(texts).toContain(t("en-US", "projectCreatedToast", "New"));
+    expect(texts.some((s) => s.startsWith("Imported records with an invalid email address"))).toBe(false);
+  });
+
   // ★★★ THE KILL LINE FOR MIGRATE'S PRE-CHECK. Removing it left this whole file
   // green: the census below only proves this FILE has one `.save(`, which says
   // nothing about whether migrate calls `guardedWrite`, honours its return, or

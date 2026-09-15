@@ -7,6 +7,7 @@ import {
   JiraApiError,
   type JiraIssue,
 } from "./jira-api";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { defaultJiraConfig } from "./settings-types";
 import type { Task } from "./types";
 
@@ -185,5 +186,22 @@ describe("diffTaskAgainstIssue", () => {
     } as unknown as Task;
     const diffs = diffTaskAgainstIssue(local, { taskName: "t", status: "Done", completedDate: "2026-05-09" });
     expect(diffs.map((d) => d.key)).toContain("completedDate");
+  });
+});
+
+describe("issueToTaskFields drops an assignee address that is not write-safe", () => {
+  it("keeps the record, blanks the field and logs the key — never the address", () => {
+    clearDiagLog();
+    const fields = issueToTaskFields({ key: "LOP-7", fields: { summary: "S", assignee: { displayName: "Ada", emailAddress: "a,b@x.com" } } } as JiraIssue, "2026-01-01");
+    expect(fields.taskName).toBe("S");
+    expect(fields.assigneeEmail).toBe("");
+    const entry = readDiagLog().find((e) => e.code === "jira.assigneeEmailDropped");
+    expect(entry?.fields).toEqual({ issueKey: "LOP-7", field: "assigneeEmail" });
+    expect(JSON.stringify(readDiagLog())).not.toContain("a,b@x.com");
+  });
+  it("unwraps Name <addr> and keeps it, logging nothing", () => {
+    clearDiagLog();
+    expect(issueToTaskFields({ key: "LOP-8", fields: { summary: "S", assignee: { displayName: "Ada", emailAddress: "Ada <ada@x.com>" } } } as JiraIssue, "2026-01-01").assigneeEmail).toBe("ada@x.com");
+    expect(readDiagLog().find((e) => e.code === "jira.assigneeEmailDropped")).toBeUndefined();
   });
 });

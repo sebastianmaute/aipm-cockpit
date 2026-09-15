@@ -10,20 +10,21 @@ import {
   isPlainObject,
   sanitizeAssignee,
   sanitizeBlockers,
-  sanitizeBudgetBucket,
-  sanitizeChangeItem,
-  sanitizeEmail,
   sanitizeIdList,
-  sanitizeIsoDate,
   sanitizeLabels,
-  sanitizeMilestone,
+  sanitizeLoadedSeedBudgetBucket,
+  sanitizeLoadedSeedChangeItem,
+  sanitizeLoadedSeedMilestone,
   sanitizeOptionalMinutes,
   sanitizePriority,
   sanitizeStakeholder,
   sanitizeTaskName,
   TEXTAREA_MAX,
+  sanitizeLoadedEmail,
 } from "./sanitize";
 import { htmlPlainProjection, sanitizeRichText } from "./rich-text-plain";
+// ★ M2: a stored template is a LOAD funnel, so an optional date it blanks is reported (`templateSeed`).
+import { optionalIsoDateOnTemplateLoad } from "./sanitize-load-date";
 import { RICH_SINK } from "./html-start";
 import { sanitizeNoteLogWith } from "./note-log-policy";
 import {
@@ -83,7 +84,9 @@ function sanitizeArr<T>(
   fn: (x: unknown) => T | null,
 ): T[] | undefined {
   if (!Array.isArray(raw)) return undefined;
-  const out = raw.map(fn).filter((x): x is T => x !== null);
+  // ★ `(x) => fn(x)`, never `raw.map(fn)`: map's index must not reach a
+  //   sanitizer's second parameter (C1 of the email-and-guard batch).
+  const out = raw.map((x) => fn(x)).filter((x): x is T => x !== null);
   return out.length ? out : undefined;
 }
 
@@ -156,9 +159,9 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
     id,
     taskName,
     assignee: sanitizeAssignee(raw.assignee),
-    assigneeEmail: sanitizeEmail(raw.assigneeEmail),
-    dueDate: sanitizeIsoDate(raw.dueDate),
-    lastUpdateDate: sanitizeIsoDate(raw.lastUpdateDate),
+    assigneeEmail: sanitizeLoadedEmail(raw.assigneeEmail),
+    dueDate: optionalIsoDateOnTemplateLoad(raw.dueDate, "task", id, "dueDate"),
+    lastUpdateDate: optionalIsoDateOnTemplateLoad(raw.lastUpdateDate, "task", id, "lastUpdateDate"),
     priority: sanitizePriority(raw.priority),
     status: raw.status as Task["status"],
     blockers: sanitizeBlockers(raw.blockers),
@@ -209,9 +212,9 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
     // classifier narrower than its sink escapes the whole value (§107).
     description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX, RICH_SINK),
   };
-  const startDate = sanitizeIsoDate(raw.startDate);
+  const startDate = optionalIsoDateOnTemplateLoad(raw.startDate, "task", id, "startDate");
   if (startDate) task.startDate = startDate;
-  const completedDate = sanitizeIsoDate(raw.completedDate);
+  const completedDate = optionalIsoDateOnTemplateLoad(raw.completedDate, "task", id, "completedDate");
   if (completedDate) task.completedDate = completedDate;
   const group = nonEmptyStr(raw.group);
   if (group) task.group = group;
@@ -296,21 +299,21 @@ function sanitizeSeedRaidItem(raw: unknown): RaidItem | null {
     linkedTaskIds: sanitizeIdList(raw.linkedTaskIds),
     causedByRaidIds: sanitizeIdList(raw.causedByRaidIds),
     stakeholderIds: sanitizeIdList(raw.stakeholderIds),
-    raisedDate: sanitizeIsoDate(raw.raisedDate),
+    raisedDate: optionalIsoDateOnTemplateLoad(raw.raisedDate, "raid", id, "raisedDate"),
   };
   const description = nonEmptyStr(raw.description);
   if (description) item.description = description;
   const owner = nonEmptyStr(raw.owner);
   if (owner) item.owner = owner;
-  const ownerEmail = sanitizeEmail(raw.ownerEmail);
+  const ownerEmail = sanitizeLoadedEmail(raw.ownerEmail);
   if (ownerEmail) item.ownerEmail = ownerEmail;
   const ownerResourceId = fkIdOrUndefined(raw.ownerResourceId);
   if (ownerResourceId !== undefined) item.ownerResourceId = ownerResourceId;
   const mitigation = nonEmptyStr(raw.mitigation);
   if (mitigation) item.mitigation = mitigation;
-  const targetDate = sanitizeIsoDate(raw.targetDate);
+  const targetDate = optionalIsoDateOnTemplateLoad(raw.targetDate, "raid", id, "targetDate");
   if (targetDate) item.targetDate = targetDate;
-  const closedDate = sanitizeIsoDate(raw.closedDate);
+  const closedDate = optionalIsoDateOnTemplateLoad(raw.closedDate, "raid", id, "closedDate");
   if (closedDate) item.closedDate = closedDate;
   if (category === "R") {
     const probability = sanitizeRiskScale(raw.probability);
@@ -336,7 +339,7 @@ function sanitizeSeedRaidItem(raw: unknown): RaidItem | null {
  * they must not have.
  */
 function sanitizeSeedChangeItem(raw: unknown): ChangeItem | null {
-  const item = sanitizeChangeItem(raw);
+  const item = sanitizeLoadedSeedChangeItem(raw);
   if (!item) return null;
   if (!isPlainObject(raw)) return item;
   const noteLog = sanitizeSeedNoteLog(raw.noteLog);
@@ -355,14 +358,17 @@ export function sanitizeSeed(raw: unknown): TemplateSeed | undefined {
   if (!isPlainObject(raw)) return undefined;
   const seed: TemplateSeed = {};
   const tasks = sanitizeArr<Task>(raw.tasks, sanitizeSeedTask);
-  const milestones = sanitizeArr<Milestone>(raw.milestones, sanitizeMilestone);
+  // Stored templates are a LOAD funnel (settings hydration), so a seed
+  // milestone's non-calendar date is kept like the workspace funnels keep it,
+  // with the diagnostic attributed to the template seed.
+  const milestones = sanitizeArr<Milestone>(raw.milestones, sanitizeLoadedSeedMilestone);
   const rd = sanitizeArr<RaidItem>(raw.raid, sanitizeSeedRaidItem);
   const changes = sanitizeArr<ChangeItem>(raw.changes, sanitizeSeedChangeItem);
   const stakeholders = sanitizeArr<Stakeholder>(
     raw.stakeholders,
     sanitizeStakeholder,
   );
-  const budgets = sanitizeArr<BudgetBucket>(raw.budgets, sanitizeBudgetBucket);
+  const budgets = sanitizeArr<BudgetBucket>(raw.budgets, sanitizeLoadedSeedBudgetBucket);
   if (tasks) seed.tasks = tasks;
   if (milestones) seed.milestones = milestones;
   if (rd) seed.raid = rd;

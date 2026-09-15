@@ -8,7 +8,7 @@ import { useAdjustmentTracker } from "./field-feedback";
 import { t, type Lang } from "./i18n";
 import { mintId } from "./id-mint-session";
 import { type Settings } from "./settings-types";
-import { type Task, type RaidItem } from "./types";
+import { type Task, type RaidItem, type Resource } from "./types";
 import { applyStatusChange, statusActivityKind } from "./task-status";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { TASK_UNDO_GROUPS } from "./undo/field-groups";
@@ -21,8 +21,9 @@ import {
   TEXTAREA_MAX,
   sanitizeAssignee,
   sanitizeBlockers,
+  normalizeEmailShape,
   sanitizeDependencies,
-  sanitizeEmail,
+  sanitizeLoadedEmail,
   sanitizeGroup,
   sanitizeIsoDate,
   sanitizeLabels,
@@ -41,6 +42,10 @@ export interface UseTaskSubmitArgs {
   setEditingId: React.Dispatch<React.SetStateAction<number | null>>;
   setTaskModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   tasks: readonly Task[];
+  /** Live directory resources. The linked resource's stored email is a copy
+   *  source the changed-only rule exempts (spec Part 1, decision 2). Optional:
+   *  absent means no copy source. */
+  resources?: readonly Resource[];
   today: string;
   lang: Lang;
   settings: Settings;
@@ -85,6 +90,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     setEditingId,
     setTaskModalOpen,
     tasks,
+    resources = [],
     today,
     lang,
     settings,
@@ -108,9 +114,12 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
   // the Save button (saveDisabled) — see task-validation.ts for the rules.
   const [submitted, setSubmitted] = useState(false);
   const isNewTask = editingId === null;
+  const storedEmail = editingId !== null ? tasks.find((row) => row.id === editingId)?.assigneeEmail : undefined;
+  const linkedEmail = form.resourceId != null ? resources.find((r) => r.id === form.resourceId)?.email : undefined;
+  const emailContext = useMemo(() => ({ stored: storedEmail, copySources: [linkedEmail] }), [storedEmail, linkedEmail]);
   const fieldErrors = useMemo(
-    () => validateTaskForm(form, today, isNewTask),
-    [form, today, isNewTask],
+    () => validateTaskForm(form, today, isNewTask, emailContext),
+    [form, today, isNewTask, emailContext],
   );
   const saveDisabled = hasTaskErrors(fieldErrors);
   const adj = useAdjustmentTracker();
@@ -124,7 +133,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       // Per-field validation gates the submit (same rules surfaced inline).
       // Normally the Save button is already disabled when invalid; this is the
       // belt-and-suspenders guard for any path that still fires onSubmit.
-      if (hasTaskErrors(validateTaskForm(form, today, isNewTask))) return;
+      if (hasTaskErrors(validateTaskForm(form, today, isNewTask, emailContext))) return;
 
       // Safety net: fields are normally already trimmed on blur, but we re-cap here at submit time in case blur was skipped.
       const taskName = sanitizeTaskName(adj.track(describeTextCap(form.taskName, TASK_NAME_MAX)));
@@ -142,7 +151,10 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         }
       }
 
-      const email = sanitizeEmail(adj.track(describeTextCap(form.assigneeEmail, EMAIL_MAX)));
+      // M-C4: store the `Name <addr>`-unwrapped address (unwrap, THEN cap), as every
+      // AI email write and load does; the adjustment counts a cap of that same value.
+      adj.track(describeTextCap(normalizeEmailShape(form.assigneeEmail).trim(), EMAIL_MAX));
+      const email = sanitizeLoadedEmail(form.assigneeEmail);
 
       const knownIds = new Set(tasks.map((row) => row.id));
       const cleanDependencies = sanitizeDependencies(
@@ -507,6 +519,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       editingId,
       isNewTask,
       tasks,
+      emailContext,
       today,
       lang,
       settings,

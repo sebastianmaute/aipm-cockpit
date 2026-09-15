@@ -122,12 +122,6 @@ export const assetDataDelete = (id: string, projectId: string): SqlStmt[] => [{
   args: [txt(id), txt(projectId)],
 }];
 
-/** Every row of a project, for the project-deletion cleanup path. */
-export const assetDataDeleteAllForProject = (projectId: string): SqlStmt[] => [{
-  sql: `DELETE FROM document_asset_data WHERE project_id = ?`,
-  args: [txt(projectId)],
-}];
-
 export function rowsToAssetData(res: PipelineResultLike | undefined): AssetDataRow[] {
   return rowObjects(res).map((r) => ({
     id: r.id ?? "",

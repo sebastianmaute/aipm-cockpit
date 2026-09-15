@@ -8,6 +8,68 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.5.1] - 2026-09-15 "Highsmith"
+
+One rule for email addresses in every email field, a correction to a person's email that reaches the
+records holding a copy of it, three places a popout or a project delete escaped its guard, and dates
+that are not on the calendar. Closes follow-ups 90, 91, 204, 323, 447, 533 and 539; opens 537, 538,
+541 and 542.
+
+### Fixed
+
+- **An email field refuses a changed address that is not valid or holds a comma or semicolon.** The
+  task, absence, shift, resource, stakeholder and RAID editors, the project contact persons, bulk
+  edit and the escalation and inquiry prompts now refuse it with "That doesn't look like a valid email
+  address." or "An email address cannot contain a comma or a semicolon.", and the AI tools refuse it
+  too, where several of them saved any text before. A person's additional address holding a comma or
+  semicolon is split in two on a CSV, Markdown or Turso save. Only a changed value is judged: an
+  address already stored keeps loading and can be saved unchanged, and clearing a field is always
+  allowed.
+- **The Jira and TimeLog settings keep the last valid email while you type.** Typing is never
+  blocked; an invalid address shows an error under the field and is not stored until it is valid.
+- **A stored `Name <address>` becomes the bare address.** It loads that way on every storage
+  backend, and the editors and AI tools store it that way, so the same value is judged, previewed and
+  saved. A RAID escalation recorded to such an address is kept instead of being dropped on load.
+- **Imports say which records still hold an unsafe address.** Opening a file, switching to a project
+  that is not on Turso for the first time in a session, applying a template, or creating a project from a template or an AI
+  seed shows one notice naming those records. An AI seed leaves such an address blank, and Jira and
+  Outlook contact sync blank one and record a diagnostic, while keeping the record.
+- **Correcting a person's email updates the records that copied it.** When a person's primary email
+  changes in the Resources editor or through the AI assistant, linked tasks, RAID owners, absences,
+  shifts, stakeholders and project contact persons still holding the old address get the new one.
+  Jira-synced tasks and escalation history are left alone, and a row carrying a different address is
+  not touched. The save and every copy are one undo step, and the Undo toast counts the linked records
+  updated. Clearing the email does not propagate.
+- **"+ Add" in a person picker no longer creates a person with an unsafe email** carried over from the
+  field; the person is created without an email instead.
+- **A popout can no longer create a person** from a person picker or the task form's address-book
+  button (follow-up 90).
+- **A popout no longer records or replays undo.** Edits there push no undo entry and show no Undo
+  toast, and Ctrl+Z / Ctrl+Y do nothing (follow-up 91).
+- **Permanently deleting a Turso project also removes its chat threads, committee report versions,
+  snapshots and version history.** They were left behind; the delete now clears them together with its
+  document images, in a separate step that records a diagnostic if it fails (follow-up 204).
+- **A date that is not on the calendar, such as 2026-02-30, is no longer stored on save** (follow-up
+  539). When a file or Turso project loads, an optional date of that kind is blanked and a required one
+  is kept as stored, so no record is dropped, and most such dates are recorded in the diagnostics. An AI
+  update of an absence, milestone, change or RAID item that does not change its stored date keeps it as
+  stored.
+
+### Changed
+
+- An optional date already stored as a day that does not exist loads blank from a file or Turso
+  project, and the next save stores it blank.
+- Follow-up 323 is closed by design: deleting a single task still does not switch off the save guard
+  that refuses a mass deletion, because deleting one task can never trip it. Follow-up 533 is closed as
+  an accepted limit: an address already split by an earlier save cannot be rebuilt.
+
+### Known issues
+
+- The stakeholder editor saves name, organization, title and notes uncapped when the form is submitted
+  with Enter before leaving the field; they are cut to their limit on the next load (follow-up 541).
+- A calendar event still accepts a day past its month's end, such as 2026-02-30, and shows it on the
+  day it rolls over to in the next month (follow-up 542).
+
 ## [1.5.0] - 2026-09-15 "Highsmith"
 
 TimeLog actuals keep their booking days, so hours applied from TimeLog stay counted when a plan

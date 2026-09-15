@@ -29,8 +29,12 @@
 // ★★★ THE CLOCK AND SETTINGS REFS ARE PASSED IN, NOT RE-MINTED HERE. A second
 // `useRef(args.clock)` in this file would be a second copy of the §159 clock
 // bag refreshed by a second effect, and the entire value of that bag is that
-// there is exactly ONE place to read the project's day from. The four register
-// refs below have no reader outside this file, so those DO move.
+// there is exactly ONE place to read the project's day from. The CHANGES and
+// MILESTONES refs below have no reader outside this file, so those DO move.
+// ★★★ RAID, STAKEHOLDERS AND ABSENCES ARE PASSED IN TOO (spec Part 7): AI
+// `updateResource` in use-chat-dispatcher.ts propagates a corrected email into
+// those three slices, so it reads and advances the SAME refs these writers use.
+// A private copy here would let a same-turn update revert the propagated copy.
 //
 // ★★ Every write refuses in a read-only popout, exactly as before. ★ The reason
 // that used to be given here — "chat tool writes take no undo capture, so a
@@ -64,24 +68,29 @@ import {
 import { t } from "./i18n";
 import { mintId } from "./id-mint-session";
 import {
+  BUDGET_NAME_MAX,
   dropUnacceptedAbsenceFields,
   dropUnacceptedCalendarEventFields,
   dropUnacceptedChangeFields,
   dropUnacceptedMilestoneFields,
   dropUnacceptedRaidFields,
   dropUnacceptedStakeholderFields,
+  refuseEmailWrite,
+  rebuildAbsenceForUpdate,
+  rebuildChangeForUpdate,
+  rebuildMilestoneForUpdate,
+  rebuildRaidForUpdate,
   refuseInvalidAbsenceEmail,
   sanitizeAbsence,
   sanitizeIsoDate,
   sanitizeRaidItem,
-  sanitizeChangeItem,
   sanitizeModelChangeItem,
   sanitizeMilestone,
   sanitizeStakeholder,
 } from "./sanitize";
 import type { Settings } from "./settings-types";
 import type { ProjectClock } from "./timezone";
-import type { RaidItem, Resource } from "./types";
+import type { Absence, RaidItem, Resource, Stakeholder } from "./types";
 import { appendPatch } from "./undo/append-patch";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
@@ -159,20 +168,22 @@ export interface RegisterToolsDeps {
    *  ★ That owner's `create_resource` writer assigns `.current` synchronously,
    *   so a same-turn create should be visible here — but no test pins it. */
   resourcesRef: RefObject<readonly Resource[]>;
+  /** Owned by use-chat-dispatcher and SHARED with `updateResource`'s email
+   *  propagation — see the ★★★ note at the top of this file. */
+  raidRef: RefObject<readonly RaidItem[]>;
+  stakeholdersRef: RefObject<readonly Stakeholder[]>;
+  absencesRef: RefObject<readonly Absence[]>;
 }
 
 export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatcher {
-  const { isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave, undoRef, resourcesRef } = deps;
+  const { isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave, undoRef, resourcesRef, raidRef, stakeholdersRef, absencesRef } = deps;
   const {
-    raid,
     setRaid,
     changes,
     setChanges,
     milestones,
     setMilestones,
-    stakeholders,
     setStakeholders,
-    absences,
     setAbsences,
     calendarEvents,
     setCalendarEvents,
@@ -181,11 +192,9 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
   // Refs, so this object's identity stays stable across register edits and so
   // back-to-back tool calls in one turn read each other's writes — the same
   // pattern use-chat-dispatcher keeps for every other slice.
-  const raidRef = useRef(raid);
+  // (`raidRef`, `stakeholdersRef` and `absencesRef` come from `deps`.)
   const changesRef = useRef(changes);
   const milestonesRef = useRef(milestones);
-  const stakeholdersRef = useRef(stakeholders);
-  const absencesRef = useRef(absences);
   // ★★ `calendarEvents` is `readonly CalendarEvent[] | undefined` and the ref
   // keeps that EXACTLY — `undefined` means "the slice is absent", which is not
   // the same claim as "the project has no meetings", and every backend
@@ -194,20 +203,11 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
   // slice from absent to `[item]`, which is the only correct transition.
   const calendarEventsRef = useRef(calendarEvents);
   useEffect(() => {
-    raidRef.current = raid;
-  }, [raid]);
-  useEffect(() => {
     changesRef.current = changes;
   }, [changes]);
   useEffect(() => {
     milestonesRef.current = milestones;
   }, [milestones]);
-  useEffect(() => {
-    stakeholdersRef.current = stakeholders;
-  }, [stakeholders]);
-  useEffect(() => {
-    absencesRef.current = absences;
-  }, [absences]);
   useEffect(() => {
     calendarEventsRef.current = calendarEvents;
   }, [calendarEvents]);
@@ -264,6 +264,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       // use-chat-dispatcher.ts. Every update and delete here DOES capture.
       createRaid: (input) => {
         if (isReadOnly) throw readOnlyError();
+        refuseEmailWrite("ownerEmail", (input as { ownerEmail?: unknown }).ownerEmail, undefined);
         const id = mintId("raid", raidRef.current);
         const sanitized = sanitizeRaidItem({
           // ★★★ THE SAME GUARD THE UPDATE PATH USES, and it belongs here for
@@ -305,6 +306,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = raidRef.current.find((r) => r.id === id);
         if (!existing) return null;
+        refuseEmailWrite("ownerEmail", (patch as { ownerEmail?: unknown }).ownerEmail, existing.ownerEmail);
         // ★★★ `dropUnacceptedRaidFields` FIRST — `sanitizeRaidItem` rebuilds a
         // whole record, so a value it refuses CLEARS the merged field rather
         // than leaving the stored one alone (or resets it to a hardcoded
@@ -314,7 +316,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // here and never in the sanitizer: that runs on JSON load, CSV decode,
         // template apply and AI proposal too, where there IS no prior value.
         // Mirrors `applyModelChangeStatus`, applied one field over.
-        const merged = sanitizeRaidItem({
+        // ★★ `rebuildRaidForUpdate` (M6): an optional date the patch leaves as
+        // stored is carried verbatim — CSV/MD/Turso and IndexedDB store them
+        // unvalidated, and the strict rebuild silently blanked one on any update.
+        const merged = rebuildRaidForUpdate(existing, {
           ...existing,
           // ★ Guard OUTSIDE, matching milestone — see the note at that call
           // site for why the order is load-bearing. It is behaviour-NEUTRAL
@@ -545,7 +550,9 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // already keeps the stored one and owns the coupled `decisionDate`
         // transition, and it gates on the model's RAW value, which dropping the
         // key would take away.
-        const merged = sanitizeChangeItem({
+        // ★★ `rebuildChangeForUpdate` (M6): an untouched stored `raisedDate` /
+        // `decisionDate` is carried verbatim, never silently blanked.
+        const merged = rebuildChangeForUpdate(existing, {
           ...existing,
           // ★ Guard OUTSIDE, matching milestone. Behaviour-NEUTRAL here today:
           // `CHANGE_FIELD_GUARDS`' keys (type, impact, the two dates,
@@ -634,7 +641,11 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // assigns `achievedDate` conditionally, so a refused value CLEARS the
         // stored date instead of failing. The guard turns "refused" back into
         // "unchanged", which is what the preview already promises.
-        const merged = sanitizeMilestone({
+        // ★★ `rebuildMilestoneForUpdate`, not the strict `sanitizeMilestone`: a
+        // `date` the patch leaves as stored is carried even when the load funnel
+        // kept it raw ("2026-02-30"), so a rename of such a row no longer throws.
+        // A CHANGED date is still judged strictly — the card's rule too (§539).
+        const merged = rebuildMilestoneForUpdate(existing, {
           ...existing,
           // ★★★ THE GUARD NESTS OUTSIDE, AND THE ORDER IS THE WHOLE GUARD.
           // `withAiRichFields` runs `sanitizeAiRichText`, which returns "" for
@@ -717,6 +728,9 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
 
       createStakeholder: (input) => {
         if (isReadOnly) throw readOnlyError();
+        // BUDGET_NAME_MAX (200), not the default EMAIL_MAX (320) — `sanitizeStakeholder`
+        // caps `email` there via `sanitizeText`, not `sanitizeEmail` (fix round 1).
+        refuseEmailWrite("email", (input as { email?: unknown }).email, undefined, BUDGET_NAME_MAX);
         const id = mintId("stakeholder", stakeholdersRef.current);
         // ★★★ `resourceId` is the reason this line changed. `9c230204` guarded
         //  it on UPDATE and left it writable here — a half-fix, and exactly the
@@ -738,6 +752,8 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = stakeholdersRef.current.find((s) => s.id === id);
         if (!existing) return null;
+        // BUDGET_NAME_MAX (200), not the default EMAIL_MAX (320) — see createStakeholder.
+        refuseEmailWrite("email", (patch as { email?: unknown }).email, existing.email, BUDGET_NAME_MAX);
         // ★★ Guarded like the other three registers: `sanitizeStakeholder`
         // RESETS an unrecognised category/influence/interest to a hardcoded
         // fallback, so a refused value silently demotes a "Sponsor" to "Other"
@@ -848,8 +864,9 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const existing = absencesRef.current.find((a) => a.id === id);
         if (!existing) return null;
         const accepted = dropUnacceptedAbsenceFields(patch);
-        refuseInvalidAbsenceEmail(accepted);
-        const merged = sanitizeAbsence({
+        refuseInvalidAbsenceEmail(accepted, existing.assigneeEmail);
+        // ★★ Carries an UNCHANGED kept-raw stored date — see updateMilestone (§539).
+        const merged = rebuildAbsenceForUpdate(existing, {
           ...existing,
           ...accepted,
           id,
@@ -1034,6 +1051,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       //  escalation writer is the first body in this memo to read it directly.
       settingsRef,
       resourcesRef,
+      // ★ The three shared register refs, from `deps` — same reason as above.
+      raidRef,
+      stakeholdersRef,
+      absencesRef,
       setRaid,
       setChanges,
       setMilestones,

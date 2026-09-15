@@ -1299,6 +1299,166 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     expect(result.current.listAbsences()).toHaveLength(1);
   });
 
+  // §539 follow-up: LOAD keeps a non-calendar required date raw, but a WRITE
+  // still refuses one — the AI writer runs the strict `sanitizeAbsence`.
+  it("updateAbsence and createAbsence still refuse a non-calendar date", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-02-01", endDate: "2026-02-05", type: "vacation",
+    });
+    expect(() => result.current.updateAbsence(created.id, { endDate: "2026-02-30" })).toThrow("invalid absence update");
+    expect(result.current.listAbsences()[0].endDate).toBe("2026-02-05");
+    expect(() => result.current.createAbsence({
+      assignee: "Bob", startDate: "2026-02-01", endDate: "2026-02-30", type: "vacation",
+    })).toThrow(/invalid absence/);
+    expect(result.current.listAbsences()).toHaveLength(1);
+  });
+
+  // ★★★ §539's LOAD rule keeps a non-calendar REQUIRED date raw, so a stored row
+  //  can hold "2026-02-30". The writers rebuild the MERGED row, and before the
+  //  fix they re-judged that UNTOUCHED stored date strictly — every AI update of
+  //  such a row threw, on any field, while the inline card (which judges only
+  //  the patch's own fields) previewed it as accepted. The rule now: a date the
+  //  patch does not CHANGE is carried as stored; a changed one is judged
+  //  strictly. The row is SEEDED, because no write path can create it.
+  function renderKeptRawProbe() {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <TestProviders seed={{
+        milestones: [{ id: 7, name: "Go-live", date: "2026-02-30", linkedTaskIds: [] }],
+        absences: [{ id: 9, assignee: "Alice", startDate: "2026-02-30", endDate: "2026-03-05", type: "vacation" }],
+      }}>
+        {children}
+      </TestProviders>
+    );
+    return renderHook(
+      () => useChatDispatcher({
+        settings: makeSettings(),
+        clock: testClock("2026-05-19", "UTC"),
+        setSelectedIds: vi.fn(),
+        setSettings: vi.fn(),
+        isReadOnly: false,
+        currentView: "open-points",
+        settingsProjectId: "default", holidaySet: new Set<string>(),
+        getDashboardModel: stubGetDashboardModel,
+        getBudgetRollup: stubGetBudgetRollup,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+      }),
+      { wrapper },
+    );
+  }
+
+  it("updates a non-date field of a row whose stored required date was kept raw, carrying that date", () => {
+    const { result } = renderKeptRawProbe();
+    expect(result.current.listMilestones().map((m) => m.date)).toEqual(["2026-02-30"]);
+
+    const m = result.current.updateMilestone(7, { name: "Go-live (moved)" });
+    expect(m?.name).toBe("Go-live (moved)");
+    expect(m?.date).toBe("2026-02-30");
+
+    const a = result.current.updateAbsence(9, { note: "Approved" });
+    expect(a?.note).toBe("Approved");
+    expect([a?.startDate, a?.endDate]).toEqual(["2026-02-30", "2026-03-05"]);
+  });
+
+  it("re-sending the stored kept-raw date is unchanged, not refused — the card skips it as before === after", () => {
+    const { result } = renderKeptRawProbe();
+    expect(result.current.updateMilestone(7, { date: "2026-02-30", name: "Renamed" })?.name).toBe("Renamed");
+    expect(result.current.updateAbsence(9, { startDate: "2026-02-30", note: "n" })?.startDate).toBe("2026-02-30");
+  });
+
+  it("still refuses a CHANGED non-calendar date on a kept-raw row, and leaves the row alone", () => {
+    const { result } = renderKeptRawProbe();
+    expect(() => result.current.updateMilestone(7, { date: "2026-02-31" })).toThrow("invalid milestone update");
+    expect(() => result.current.updateAbsence(9, { endDate: "2026-02-31" })).toThrow("invalid absence update");
+    expect(result.current.listMilestones()[0].date).toBe("2026-02-30");
+    expect(result.current.listAbsences()[0].endDate).toBe("2026-03-05");
+  });
+
+  // ★★★ M6 (the I1 fix's concern C1) — the OPTIONAL-date half of the same class.
+  //  CSV, Markdown, Turso (`buildRaidFromObj`, `buildMilestoneFromObj`) and
+  //  IndexedDB store an optional date unvalidated, so a row can hold "2026-02-30"
+  //  or "tbd". The writers rebuilt `{...stored, ...patch}` strictly and SILENTLY
+  //  BLANKED that untouched date on an update of any other field, while the card
+  //  showed nothing. The rule is I1's: carry what the patch does not change.
+  function renderOptionalRawProbe() {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <TestProviders seed={{
+        milestones: [{ id: 7, name: "Go-live", date: "2026-03-01", achievedDate: "2026-02-30", linkedTaskIds: [] }],
+        raid: [{
+          id: 3, category: "R", title: "Vendor risk", status: "Open", raisedDate: "2026-02-30",
+          targetDate: "2026-02-31", closedDate: "tbd", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [],
+        } as never],
+        changes: [{
+          id: 5, title: "Scope", description: "", type: "Scope", status: "Approved", raisedDate: "tbd",
+          decisionDate: "2026-02-30", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
+        } as never],
+      }}>
+        {children}
+      </TestProviders>
+    );
+    return renderHook(
+      () => useChatDispatcher({
+        settings: makeSettings(),
+        clock: testClock("2026-05-19", "UTC"),
+        setSelectedIds: vi.fn(),
+        setSettings: vi.fn(),
+        isReadOnly: false,
+        currentView: "open-points",
+        settingsProjectId: "default", holidaySet: new Set<string>(),
+        getDashboardModel: stubGetDashboardModel,
+        getBudgetRollup: stubGetBudgetRollup,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+      }),
+      { wrapper },
+    );
+  }
+
+  it("M6: an update of an unrelated field carries every untouched stored optional date verbatim", () => {
+    const { result } = renderOptionalRawProbe();
+    expect(result.current.updateMilestone(7, { name: "Go-live (moved)" })?.achievedDate).toBe("2026-02-30");
+    result.current.updateRaid(3, { title: "Vendor risk (re-scoped)" });
+    expect(result.current.getRaidRow(3)).toMatchObject({ title: "Vendor risk (re-scoped)", raisedDate: "2026-02-30", targetDate: "2026-02-31", closedDate: "tbd" });
+    result.current.updateChange(5, { title: "Scope (v2)" });
+    expect(result.current.getChangeRow(5)).toMatchObject({ title: "Scope (v2)", raisedDate: "tbd", decisionDate: "2026-02-30" });
+  });
+
+  // ★★★ M1 (pre-release review): the `Name <addr>` unwrap is ONE behaviour on
+  //  every AI email write — the value judged AND stored is the unwrapped one.
+  //  Before, stakeholder/resource/absence stored the unwrap while judging the raw
+  //  value (so "Ann Lee <ann@x.com>", holding a space, was REFUSED), and RAID and
+  //  task stored the raw string verbatim.
+  it("M1: every AI email writer judges and stores the unwrapped address", () => {
+    const { result } = renderDispatcher();
+    const task = result.current.createTask({ taskName: "Mail", assignee: "Ada", dueDate: "2026-06-01", assigneeEmail: "Ada Lovelace <ada@x.com>" } as never);
+    expect(result.current.listTasks().find((r) => r.id === task.id)?.assigneeEmail).toBe("ada@x.com");
+    result.current.updateTask(task.id, { assigneeEmail: "Bob<bob@x.com>" });
+    expect(result.current.listTasks().find((r) => r.id === task.id)?.assigneeEmail).toBe("bob@x.com");
+
+    const raid = result.current.createRaid({ title: "Risk", category: "R", ownerEmail: "Ann Lee <ann@x.com>" } as never);
+    expect(result.current.getRaidRow(raid.id)?.ownerEmail).toBe("ann@x.com");
+    result.current.updateRaid(raid.id, { ownerEmail: "Cara<cara@x.com>" } as never);
+    expect(result.current.getRaidRow(raid.id)?.ownerEmail).toBe("cara@x.com");
+
+    const stk = result.current.createStakeholder({ name: "Sam", email: "Sam Poe <sam@x.com>" } as never);
+    expect(result.current.getStakeholderRow(stk.id)?.email).toBe("sam@x.com");
+    const abs = result.current.createAbsence({ assignee: "Al", startDate: "2026-06-01", endDate: "2026-06-02", type: "vacation", assigneeEmail: "Al Bee <al@x.com>" } as never);
+    expect(result.current.getAbsenceRow(abs.id)?.assigneeEmail).toBe("al@x.com");
+    expect(() => result.current.createResource({ firstName: "Res", lastName: "One", email: "Res One <res@x.com>", emails: ["Two Tee <two@x.com>"] } as never)).not.toThrow();
+
+    // A shape the unwrap cannot prove equal is judged as sent, and still refused.
+    expect(() => result.current.createRaid({ title: "Torn", category: "R", ownerEmail: "Name <a,b@x.com>" } as never)).toThrow(/ownerEmail/);
+  });
+
+  it("M6: a CHANGED optional date is still judged strictly — a refused one leaves the stored value, a valid one lands, a clear clears", () => {
+    const { result } = renderOptionalRawProbe();
+    result.current.updateRaid(3, { targetDate: "2026-02-29", closedDate: "" });
+    expect(result.current.getRaidRow(3)).toMatchObject({ targetDate: "2026-02-31" });
+    expect(result.current.getRaidRow(3)?.closedDate).toBeUndefined();
+    result.current.updateRaid(3, { targetDate: "2026-03-02" });
+    expect(result.current.getRaidRow(3)?.targetDate).toBe("2026-03-02");
+    expect(result.current.updateMilestone(7, { achievedDate: "2026-04-01" })?.achievedDate).toBe("2026-04-01");
+  });
+
   // ★★★ THE MERGE-SITE GUARD AT ITS REAL CALL SITE, which nothing pinned before.
   //  `sanitize-absence-patch.test.ts` exercises `dropUnacceptedAbsenceFields`
   //  DIRECTLY, so it proves the helper's rule and says nothing about whether
@@ -3940,5 +4100,106 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
       result.current.ws.setActivityLog([BOUNDARY, INSIDE]);
     });
     expect(result.current.d.getSnapshot().activitySummary).toBeUndefined();
+  });
+});
+
+describe("the email write rule on AI writers (spec Part 1)", () => {
+  it("createTask refuses a delimiter-bearing assigneeEmail", () => {
+    const { result } = renderDispatcher();
+    expect(() => result.current.createTask({ taskName: "T", assignee: "Ada", dueDate: "2026-06-01", assigneeEmail: "a,b@x.com" })).toThrow('assigneeEmail must not contain "," or ";"');
+  });
+
+  it("updateTask keeps a stored unsafe assigneeEmail when it is echoed unchanged", () => {
+    const seeded = seedTasks().map((row, i) => (i === 0 ? { ...row, assigneeEmail: "a,b@x.com" } : row));
+    const { result } = renderDispatcher(seeded);
+    const id = seeded[0].id;
+    act(() => { result.current.updateTask(id, { assigneeEmail: "a,b@x.com", taskName: "Renamed" }); });
+    expect(result.current.getTask(id)).toMatchObject({ taskName: "Renamed", assigneeEmail: "a,b@x.com" });
+  });
+
+  it("createResource refuses a malformed primary email and writes nothing", () => {
+    const { result } = renderDispatcher();
+    expect(() => result.current.createResource({ firstName: "Ada", email: "nope" })).toThrow("email is invalid");
+    expect(result.current.listResources()).toHaveLength(0);
+  });
+
+  it("updateResource refuses a CHANGED delimiter-bearing primary email", () => {
+    const { result } = renderDispatcher();
+    let id = 0;
+    act(() => { id = result.current.createResource({ firstName: "Ada", lastName: "L", email: "ada@x.com" }).id; });
+    expect(() => result.current.updateResource(id, { email: "a;b@x.com" })).toThrow('email must not contain "," or ";"');
+    expect(result.current.getResourceRow(id)?.email).toBe("ada@x.com");
+  });
+
+  it("createRaid refuses a malformed ownerEmail; createStakeholder refuses a delimiter-bearing email", () => {
+    const { result } = renderDispatcher();
+    expect(() => result.current.createRaid({ category: "R", title: "Risk", ownerEmail: "nope" })).toThrow("ownerEmail is invalid");
+    expect(() => result.current.createStakeholder({ name: "Sam", email: "a,b@x.com" })).toThrow('email must not contain "," or ";"');
+  });
+
+  // ★★ Fix round 1 — census miss: updateRaid/updateStakeholder/updateAbsence
+  // had no changed-only pin, so the `stored` argument each passes to
+  // `refuseEmailWrite`/`refuseInvalidAbsenceEmail` (`existing.ownerEmail` /
+  // `existing.email` / `existing.assigneeEmail`) was unverified — a patch
+  // that dropped the argument entirely (treating every write as a create)
+  // would still pass every OTHER test in this file.
+
+  it("updateRaid refuses a CHANGED delimiter-bearing ownerEmail and writes nothing", () => {
+    const { result } = renderDispatcher();
+    const id = result.current.createRaid({ category: "R", title: "Risk", ownerEmail: "owner@x.com" }).id;
+    expect(() => result.current.updateRaid(id, { ownerEmail: "a;b@x.com" })).toThrow('ownerEmail must not contain "," or ";"');
+    expect(result.current.getRaidRow(id)?.ownerEmail).toBe("owner@x.com");
+  });
+
+  it("updateRaid keeps a stored unsafe ownerEmail when echoed unchanged, and saves another field", () => {
+    const { result } = renderRaidProbe();
+    const id = result.current.d.createRaid({ category: "R", title: "Risk" }).id;
+    // Bypasses the create-time guard — the only way to get an unsafe value
+    // into the stored row for this test (mirrors §422's seedResources note).
+    act(() => {
+      result.current.ws.setRaid((prev) => prev.map((r) => (r.id === id ? { ...r, ownerEmail: "a,b@x.com" } : r)));
+    });
+    act(() => {
+      result.current.d.updateRaid(id, { ownerEmail: "a,b@x.com", title: "Renamed" });
+    });
+    expect(result.current.d.getRaidRow(id)).toMatchObject({ title: "Renamed", ownerEmail: "a,b@x.com" });
+  });
+
+  it("updateStakeholder refuses a CHANGED delimiter-bearing email and writes nothing", () => {
+    const { result } = renderDispatcher();
+    const id = result.current.createStakeholder({ name: "Sam", email: "sam@x.com" }).id;
+    expect(() => result.current.updateStakeholder(id, { email: "a;b@x.com" })).toThrow('email must not contain "," or ";"');
+    expect(result.current.getStakeholderRow(id)?.email).toBe("sam@x.com");
+  });
+
+  it("updateStakeholder keeps a stored unsafe email when echoed unchanged, and saves another field", () => {
+    const { result } = renderRaidProbe();
+    const id = result.current.d.createStakeholder({ name: "Sam" }).id;
+    act(() => {
+      result.current.ws.setStakeholders((prev) => prev.map((s) => (s.id === id ? { ...s, email: "a,b@x.com" } : s)));
+    });
+    act(() => {
+      result.current.d.updateStakeholder(id, { email: "a,b@x.com", name: "Sam Renamed" });
+    });
+    expect(result.current.d.getStakeholderRow(id)).toMatchObject({ name: "Sam Renamed", email: "a,b@x.com" });
+  });
+
+  it("updateAbsence refuses a CHANGED delimiter-bearing assigneeEmail and writes nothing", () => {
+    const { result } = renderDispatcher();
+    const id = result.current.createAbsence({ assignee: "Ada", startDate: "2026-06-01", endDate: "2026-06-05", assigneeEmail: "ada@x.com" }).id;
+    expect(() => result.current.updateAbsence(id, { assigneeEmail: "a;b@x.com" })).toThrow('assigneeEmail must not contain "," or ";"');
+    expect(result.current.getAbsenceRow(id)?.assigneeEmail).toBe("ada@x.com");
+  });
+
+  it("updateAbsence keeps a stored unsafe assigneeEmail when echoed unchanged, and saves another field", () => {
+    const { result } = renderRaidProbe();
+    const id = result.current.d.createAbsence({ assignee: "Ada", startDate: "2026-06-01", endDate: "2026-06-05" }).id;
+    act(() => {
+      result.current.ws.setAbsences((prev) => prev.map((a) => (a.id === id ? { ...a, assigneeEmail: "a,b@x.com" } : a)));
+    });
+    act(() => {
+      result.current.d.updateAbsence(id, { assigneeEmail: "a,b@x.com", note: "updated" });
+    });
+    expect(result.current.d.getAbsenceRow(id)).toMatchObject({ note: "updated", assigneeEmail: "a,b@x.com" });
   });
 });

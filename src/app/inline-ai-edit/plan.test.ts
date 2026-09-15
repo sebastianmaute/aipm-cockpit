@@ -989,14 +989,46 @@ describe("preview matches what Apply stores", () => {
     expect(clear.updates.map((u) => u.after)).toEqual([""]);
   });
 
+  // ★ RECOMPUTE (Task 2, email write rule): the probe used to be
+  //  `"a".repeat(400) + "@x.com"`, which clips at BUDGET_NAME_MAX (200) to 200
+  //  "a"s with the "@x.com" suffix sheared off entirely — no "@" survives the
+  //  cap, so `stakeholder.email` joining `emailFormatFields` now correctly
+  //  REJECTS it instead of previewing an accepted diff. The cap behaviour this
+  //  test exists to pin is unrelated to that email-format guard, so the probe
+  //  is reshaped to still look like an address after the cap: 195 "a"s then
+  //  "@x.com" (201 chars) clips to 195 "a"s + "@x.co" (200 chars, the format
+  //  guard's own `after !== ""` / `isValidEmail` still pass on the truncated
+  //  domain), which is what "clips at ITS cap" is actually about.
   it("clips a stakeholder email at ITS cap, which is not the task one", () => {
     const item = { id: 1, email: "old@x.com" };
-    const long = "a".repeat(400) + "@x.com";
+    const long = "a".repeat(195) + "@x.com";
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_stakeholder", input: { id: 1, email: long } }],
       { descriptor: INLINE_DESCRIPTORS.stakeholder, item, ws: wsWith({ stakeholders: [item] as never }) },
     );
+    expect(plan.rejected).toEqual([]);
     expect(plan.updates[0].after.length).toBe(200);
+  });
+
+  it.each([
+    ["raid", "update_raid_item", "ownerEmail", { id: 1, title: "Risk", category: "R", ownerEmail: "old@x.com" }],
+    ["stakeholder", "update_stakeholder", "email", { id: 1, name: "Sam", email: "old@x.com" }],
+    ["resource", "update_resource", "email", { id: 1, firstName: "Ada", lastName: "L", email: "old@x.com" }],
+  ] as const)("%s: refuses a changed delimiter-bearing email and allows an unchanged unsafe one", (entity, tool, field, stored) => {
+    const d = INLINE_DESCRIPTORS[entity];
+    const changed = describeEntityCalls(
+      [{ type: "tool_use", name: tool, input: { id: 1, [field]: "a,b@x.com" } }],
+      { descriptor: d, item: stored as never, ws: wsWith({}) },
+    );
+    expect(changed.updates).toEqual([]);
+    expect(changed.rejected.map((r) => r.reason)).toEqual(["bad-input"]);
+
+    const legacy = { ...stored, [field]: "a,b@x.com" };
+    const echoed = describeEntityCalls(
+      [{ type: "tool_use", name: tool, input: { id: 1, [field]: "a,b@x.com" } }],
+      { descriptor: d, item: legacy as never, ws: wsWith({}) },
+    );
+    expect(echoed.rejected).toEqual([]);
   });
 });
 
@@ -1538,11 +1570,14 @@ describe("link fields honour the merge-site guard on the row and the create path
   });
 });
 
-// (C4) THE PER-ENTITY DATE VALIDATOR. The preview defaulted to
-//  `sanitizeIsoDate` (regex + 1900-2100, NO calendar check) for every entity,
-//  but `sanitizeCalendarEvent` calls `isoDateOrUndefined` (regex + `Date.parse`,
-//  NO year bound). The two disagree in BOTH directions, and each direction is a
-//  distinct defect — so each gets its own case.
+// (C4) THE PER-ENTITY DATE VALIDATOR. The preview defaults to
+//  `sanitizeIsoDate` (regex + a real calendar date (§539) + 1900-2100) for
+//  every entity, but `sanitizeCalendarEvent` calls `isoDateOrUndefined` (regex
+//  + `Date.parse`, NO year bound). §539 closed the field-range overflow
+//  direction (day > 31 / month > 12, e.g. "2026-01-32") — pinned by the first
+//  case below. Two directions still differ: the year bound (second case), and
+//  a month-specific overflow ("2026-02-30") that `sanitizeIsoDate` refuses but
+//  `isoDateOrUndefined` still accepts and rolls over (`Date.parse` succeeds).
 describe("a date is judged by its own writer's rule", () => {
   const meeting = { id: 60, title: "Steering committee", startDate: "2026-07-08" };
   const holiday = { id: 50, assignee: "Ada Lovelace", startDate: "2026-07-06", endDate: "2026-07-10" };
@@ -1594,16 +1629,15 @@ describe("a date is judged by its own writer's rule", () => {
     expect(plan.rejected[0].detail).toBe("startDate=1899-12-31");
   });
 
-  it("keeps absence free of the calendar check its own writer lacks", () => {
-    // `sanitizeAbsence` calls `sanitizeIsoDate`, which has no `Date.parse` leg,
-    // so an impossible day IS stored. Parity with a lax writer is still parity;
-    // refusing it here would be the preview inventing a rule.
+  it("rejects an impossible day, as its own writer now does (§539)", () => {
+    // `sanitizeAbsence` calls `sanitizeIsoDate`, which since §539 refuses a
+    // non-calendar date — so parity now means the card rejects it too.
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_absence", input: { id: 50, startDate: "2026-01-32" } }],
       { descriptor: INLINE_DESCRIPTORS.absence, item: holiday as never, ws: calWs },
     );
-    expect(plan.rejected).toEqual([]);
-    expect(plan.updates[0].after).toBe("2026-01-32");
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected[0].detail).toBe("startDate=2026-01-32");
   });
 });
 

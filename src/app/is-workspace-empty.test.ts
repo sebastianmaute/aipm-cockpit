@@ -47,6 +47,10 @@ describe("isMassDeletion", () => {
     expect(isMassDeletion(3, 0)).toBe(false);    // removed 3 < floor 5 (small project)
     expect(isMassDeletion(10, 20)).toBe(false);  // grew
   });
+
+  it("can never flag a single-row delete, whatever the workspace size (open-followups §323)", () => {
+    for (let prev = 1; prev <= 2000; prev++) expect(isMassDeletion(prev, prev - 1), `prev=${prev}`).toBe(false);
+  });
 });
 
 describe("the save-time counters cover user-authored content", () => {

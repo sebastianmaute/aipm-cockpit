@@ -35,7 +35,6 @@ import {
   type CommitteeMeeting,
   type InfoSchedule,
   type MeetingReport,
-  ABSENCE_TYPES,
 } from "./types";
 import {
   IDENTITY_TYPE_SET,
@@ -53,32 +52,18 @@ import {
   TEXTAREA_MAX,
   toNumber,
   sanitizeText,
-  sanitizeEmail,
-  sanitizeIsoDate,
+  sanitizeLoadedEmail, normalizeEmailShape,
+  sanitizeIsoDate, type RequiredDateReader,
   fkIdOrUndefined,
   isPlainObject,
 } from "./sanitize-core";
+import { BUDGET_NAME_MAX, AMOUNT_MAX, sanitizeIdList } from "./sanitize-entities";
 import {
-  BUDGET_NAME_MAX,
-  AMOUNT_MAX,
-  sanitizeIdList,
-} from "./sanitize-entities";
+  optionalIsoDateOnLoad, optionalIsoDateOnTemplateLoad,
+  requiredIsoDateOnLoad, requiredIsoDateOnTemplateLoad, requiredIsoDateOnUpdate,
+} from "./sanitize-load-date";
 import { sanitizeRichText } from "./rich-text-plain";
 import { RENDER_SINK, RICH_SINK } from "./html-start";
-// ★ Type-only would not do: `acceptsEventDuration` is consulted at runtime by
-//  `CALENDAR_EVENT_FIELD_GUARDS`. It composes `calendar-event.ts`'s own
-//  `intInRange` over that module's private bounds, which is why the range has
-//  one spelling across the guard, the sanitizer and the preview.
-// ★★★ THIS CLOSES AN IMPORT CYCLE — `calendar-event.ts` imports the `./sanitize`
-//  barrel, which re-exports THIS module — and it is safe for one specific
-//  reason: `acceptsEventDuration` is a hoisted FUNCTION DECLARATION, so its
-//  binding is initialised before either module body runs and
-//  `CALENDAR_EVENT_FIELD_GUARDS` (a module-level const) can read it whichever
-//  side of the cycle is evaluated first. Re-spelling it as a `const` arrow in
-//  `calendar-event.ts` would put that read in the TDZ and throw at import time,
-//  in one evaluation order only — i.e. intermittently, and never in a
-//  typecheck. Keep it a `function`.
-import { acceptsEventDuration } from "./calendar-event";
 
 /** The milestone's linked-task rule. ★★ It USED to be deliberately different
  *  from `sanitizeIdList` — array-only and non-deduping — which meant
@@ -265,14 +250,29 @@ export function dropUnacceptedMilestoneFields<T extends object>(patch: T): T {
   return (out ?? patch) as T;
 }
 
-export function sanitizeMilestone(input: unknown): Milestone | null {
+// ★★ ONE argument each, like `sanitizeAbsence` (see the note there): passed point-free, a 2nd param gets the INDEX.
+//  Enforced for every exported sanitize* by `sanitize-point-free.guard.test.ts`.
+export function sanitizeMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, sanitizeIsoDate, sanitizeIsoDate); }
+export function sanitizeLoadedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnLoad, optionalIsoDateOnLoad); }
+/** The AI UPDATE writer's rebuild of `merged` (`{...stored, ...patch}`): strict, except that a
+ *  date — the required `date` AND the optional `achievedDate` — equal to `stored`'s is carried
+ *  verbatim (`requiredIsoDateOnUpdate`); a changed one is judged strictly.
+ *  ★ Deliberately NOT `sanitize*`-named: it takes two arguments, so it must never be passed point-free. */
+export function rebuildMilestoneForUpdate(stored: Milestone, merged: unknown): Milestone | null {
+  const carry = requiredIsoDateOnUpdate(stored as unknown as Record<string, unknown>);
+  return milestoneWithDateReader(merged, carry, carry);
+}
+/** A stored template's seed milestone: the load rule, diagnostic attributed to the template seed. */
+export function sanitizeLoadedSeedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnTemplateLoad, optionalIsoDateOnTemplateLoad); }
+/** `readDate` reads the required `date`, `readOptional` every optional date (M6: an update carries both). */
+function milestoneWithDateReader(input: unknown, readDate: RequiredDateReader, readOptional: RequiredDateReader): Milestone | null {
   if (!isPlainObject(input)) return null;
   const o = input;
   const id = toNumber(o.id);
   if (!Number.isFinite(id) || id <= 0) return null;
   const name = sanitizeText(o.name, BUDGET_NAME_MAX);
   if (!name) return null;
-  const date = sanitizeIsoDate(o.date);
+  const date = readDate(o.date, "milestone", o.id, "date");
   if (!date) return null;
   const m: Milestone = {
     id: Math.floor(id),
@@ -285,7 +285,7 @@ export function sanitizeMilestone(input: unknown): Milestone | null {
   //  those as a clear. The sanitizer stores a date or nothing, so it consults
   //  `sanitizeIsoDate` — the leg `acceptsPatchDate` itself delegates to. One
   //  parser, two policies, and the policies differ on purpose.
-  const achievedDate = sanitizeIsoDate(o.achievedDate);
+  const achievedDate = readOptional(o.achievedDate, "milestone", o.id, "achievedDate");
   if (achievedDate) m.achievedDate = achievedDate;
   const description = sanitizeRichText(o.description, TEXTAREA_MAX, RICH_SINK);
   if (description) m.description = description;
@@ -307,7 +307,19 @@ const CHANGE_STATUS_SET = new Set<string>(CHANGE_STATUSES);
 const CHANGE_IMPACT_SET = new Set<string>(["Low", "Medium", "High", "Critical"]);
 
 /** Accept only well-formed change items from untrusted JSON. id>0 + title required. */
-export function sanitizeChangeItem(input: unknown): ChangeItem | null {
+export function sanitizeChangeItem(input: unknown): ChangeItem | null { return changeWithDateReader(input, sanitizeIsoDate); }
+/** The load funnels' form (JSON, and `buildChangeFromObj` for CSV/MD/Turso): VERBATIM like
+ *  `sanitizeChangeItem`, but an optional date it blanks is reported (M2). */
+export function sanitizeLoadedChangeItem(input: unknown): ChangeItem | null { return changeWithDateReader(input, optionalIsoDateOnLoad); }
+/** A stored template's seed change: the load rule, reported as `templateSeed`. */
+export function sanitizeLoadedSeedChangeItem(input: unknown): ChangeItem | null { return changeWithDateReader(input, optionalIsoDateOnTemplateLoad); }
+/** The AI UPDATE writer's rebuild (M6): like `rebuildMilestoneForUpdate`, an optional date
+ *  (`raisedDate`, `decisionDate`) equal to `stored`'s is carried verbatim, a changed one is strict.
+ *  ★ Two arguments, so NOT `sanitize*`-named. */
+export function rebuildChangeForUpdate(stored: ChangeItem, merged: unknown): ChangeItem | null {
+  return changeWithDateReader(merged, requiredIsoDateOnUpdate(stored as unknown as Record<string, unknown>));
+}
+function changeWithDateReader(input: unknown, readOptional: RequiredDateReader): ChangeItem | null {
   if (!isPlainObject(input)) return null;
   const o = input;
   const id = toNumber(o.id);
@@ -324,7 +336,7 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
     description: sanitizeRichText(o.description, TEXTAREA_MAX, RICH_SINK),
     type,
     status,
-    raisedDate: sanitizeIsoDate(o.raisedDate),
+    raisedDate: readOptional(o.raisedDate, "change", o.id, "raisedDate"),
     linkedTaskIds: sanitizeIdList(o.linkedTaskIds),
     linkedRaidIds: sanitizeIdList(o.linkedRaidIds),
     stakeholderIds: sanitizeIdList(o.stakeholderIds),
@@ -359,7 +371,7 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   if (Number.isFinite(cost) && cost >= 0) item.costImpact = cost;
   const reqBy = sanitizeText(o.requestedBy, BUDGET_NAME_MAX); if (reqBy) item.requestedBy = reqBy;
   const decBy = sanitizeText(o.decisionBy, BUDGET_NAME_MAX); if (decBy) item.decisionBy = decBy;
-  const decDate = sanitizeIsoDate(o.decisionDate); if (decDate) item.decisionDate = decDate;
+  const decDate = readOptional(o.decisionDate, "change", o.id, "decisionDate"); if (decDate) item.decisionDate = decDate;
   const notes = sanitizeRichText(o.resolutionNotes, TEXTAREA_MAX, RICH_SINK); if (notes) item.resolutionNotes = notes;
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
   const dl = sanitizeKnowledgeLinks((input as Record<string, unknown>).knowledgeLinks ?? (input as Record<string, unknown>).documentLinks);
@@ -730,7 +742,13 @@ function statusSetForCategory(cat: RaidCategory): { set: Set<string>; statuses: 
 }
 
 /** Accept only well-formed RAID items from untrusted JSON. id>0 + title required. */
-export function sanitizeRaidItem(input: unknown): RaidItem | null {
+export function sanitizeRaidItem(input: unknown): RaidItem | null { return raidWithDateReader(input, sanitizeIsoDate); }
+/** The AI UPDATE writer's rebuild (M6): `raisedDate` / `targetDate` / `closedDate` equal to
+ *  `stored`'s are carried verbatim, a changed one is strict. ★ Two arguments, so NOT `sanitize*`-named. */
+export function rebuildRaidForUpdate(stored: RaidItem, merged: unknown): RaidItem | null {
+  return raidWithDateReader(merged, requiredIsoDateOnUpdate(stored as unknown as Record<string, unknown>));
+}
+function raidWithDateReader(input: unknown, readOptional: RequiredDateReader): RaidItem | null {
   if (!isPlainObject(input)) return null;
   const o = input;
   const id = toNumber(o.id);
@@ -757,7 +775,7 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
     category,
     title,
     status,
-    raisedDate: sanitizeIsoDate(o.raisedDate),
+    raisedDate: readOptional(o.raisedDate, "raid", o.id, "raisedDate"),
     linkedTaskIds: sanitizeIdList(o.linkedTaskIds),
     causedByRaidIds: sanitizeIdList(o.causedByRaidIds),
     stakeholderIds: sanitizeIdList(o.stakeholderIds),
@@ -769,7 +787,8 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
   if (mitigation) item.mitigation = mitigation;
   const owner = sanitizeText(o.owner, BUDGET_NAME_MAX);
   if (owner) item.owner = owner;
-  const ownerEmail = sanitizeEmail(o.ownerEmail);
+  // ★ M1: unwrap-then-cap, as every other AI email write stores (and every load already reads).
+  const ownerEmail = sanitizeLoadedEmail(o.ownerEmail);
   if (ownerEmail) item.ownerEmail = ownerEmail;
   const ownerResourceId = fkIdOrUndefined(o.ownerResourceId);
   if (ownerResourceId !== undefined) item.ownerResourceId = ownerResourceId;
@@ -782,9 +801,9 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
   if (acceptsRiskScale(o.probability, category)) item.probability = toNumber(o.probability) as RiskScale;
   if (acceptsRiskScale(o.impact, category)) item.impact = toNumber(o.impact) as RiskScale;
 
-  const targetDate = sanitizeIsoDate(o.targetDate);
+  const targetDate = readOptional(o.targetDate, "raid", o.id, "targetDate");
   if (targetDate) item.targetDate = targetDate;
-  const closedDate = sanitizeIsoDate(o.closedDate);
+  const closedDate = readOptional(o.closedDate, "raid", o.id, "closedDate");
   if (closedDate) item.closedDate = closedDate;
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX);
   if (lma) item.localModifiedAt = lma;
@@ -1144,7 +1163,7 @@ export function dropUnacceptedStakeholderFields<T extends object>(patch: T): T {
 // this guard, exactly as `changeReader` and `stakeholderReader` already do.
 //
 // ★★ DENYLIST, matching the four tables above rather than the two allowlists
-// below: it iterates the TABLE and deletes only refused fields, so every
+// in sanitize-allowlist-guards.ts: it iterates the TABLE and deletes only refused fields, so every
 // resource field NOT named here still reaches the sanitizer untouched. An
 // allowlist here would silently drop every legitimately writable field the
 // table forgot to name.
@@ -1190,144 +1209,11 @@ export function dropUnacceptedResourceFields<T extends object>(patch: T): T {
   return (out ?? patch) as T;
 }
 
-// --- Absence + calendar event merge-site guards -----------------------------
-//
-// ★★★ THESE TWO ARE ALLOWLISTS, NOT DENYLISTS — the opposite shape from the
-// five guard tables above. `MILESTONE_FIELD_GUARDS` / `CHANGE_FIELD_GUARDS` /
-// `RAID_FIELD_GUARDS` / `STAKEHOLDER_FIELD_GUARDS` / `RESOURCE_FIELD_GUARDS`
-// (★ enumerate rather than trust this line:
-// `grep -n "_FIELD_GUARDS: Readonly" src/app/sanitize-records.ts` — the rows
-// above this comment are the denylists, the two below it the allowlists) all
-// iterate their OWN
-// entries and `delete` a field that fails its guard — a field with no entry in
-// the table is left alone, because those sanitizers already have a closed,
-// hand-enumerated set of writable fields elsewhere in the load/update path.
-// Absences and calendar events have no such enumeration: BOTH strip helpers
-// (`patchWithoutId`, `createInputWithoutId`) forward whatever the model emitted
-// minus `id`/`expectedToken`/the token exclusions (docs/open-followups.md §418),
-// so a field this table does not name is one the model can write on EITHER path.
-// Iterating the PATCH and keeping entries with a passing guard closes that gap,
-// including against a field invented by a future model or added to the entity
-// after this table was written, which a denylist here could not do.
-
-/** Which model-supplied absence fields survive the merge.
- *
- *  ★★★ IT EXISTS BECAUSE BOTH STRIP HELPERS FORWARD EVERYTHING. The model's
- *   patch reaches the writer with only `id`, `expectedToken` and the token
- *   exclusions removed, on create as well as update (§418), so any key absent
- *   from this table is one the model can write. `outlookEventId` and
- *   `localModifiedAt` are owned by sync and are why this is not optional.
- *   ★★ UNLIKE the milestone/stakeholder guards
- *   above, though, the strip is NOT what makes those two unreachable here: this
- *   ALLOWLIST names neither, so it refuses both first and the strip is inert
- *   defence-in-depth. Keep it — `ai-entity-token.ts` says that row is
- *   legitimate ONLY while this allowlist holds.
- *
- *  ★★ `type` is dropped rather than corrected when unrecognised. `sanitizeAbsence`
- *   RESETS an unknown type to a fallback, and a reset is invisible on the review
- *   card — the same silent-demotion shape `dropUnacceptedStakeholderFields`
- *   exists for.
- *
- *  ★★★ `resourceId: null` IS THE MODEL'S ONLY WAY TO UNLINK A RESOURCE, not a
- *   dead branch — `Absence.resourceId` is typed `number | undefined` because
- *   `null` is a WIRE value the sanitizer normalises away, never a stored one.
- *   `sanitizeAbsence` (sanitize-entities.ts) feeds `raw.resourceId` through
- *   `fkIdOrUndefined` (sanitize-core.ts), which is `toNumber` gated on
- *   `Number.isFinite(n) && n > 0`; `toNumber(null)` is `NaN`, so `null` comes
- *   out the other side as `undefined` — the clear. Dropping this branch would
- *   silently remove the unlink capability. A STRING is refused on purpose even
- *   though `fkIdOrUndefined` itself would accept one (`toNumber("5")` is a
- *   real number): this guard is stricter so the review card cannot show a
- *   link the model spelled as text. */
-/** ★★★ EXPORTED so the AI review card can MODEL this table rather than restate
- *  it (`INLINE_DESCRIPTORS.absence.rawTypeGuards`). It is an ALLOW-LIST — see
- *  `dropUnacceptedAbsenceFields` below — so a field it refuses never reaches
- *  `sanitizeAbsence` and the STORED value survives. A preview that ran the
- *  refused value through the sanitizer instead would show a clear the write
- *  does not make; measured, on `assigneeEmail` and `note`, by
- *  `plan.sanitizer-parity.test.ts`. */
-export const ABSENCE_FIELD_GUARDS: Readonly<Record<string, (v: unknown) => boolean>> = {
-  assignee: (v) => typeof v === "string",
-  assigneeEmail: (v) => typeof v === "string",
-  startDate: (v) => typeof v === "string",
-  endDate: (v) => typeof v === "string",
-  type: (v) => typeof v === "string" && (ABSENCE_TYPES as readonly string[]).includes(v),
-  note: (v) => typeof v === "string",
-  resourceId: (v) => typeof v === "number" || v === null,
-};
-
-export function dropUnacceptedAbsenceFields<T extends object>(patch: T): T {
-  const out: Record<string, unknown> = {};
-  for (const [field, value] of Object.entries(patch)) {
-    const accepts = ABSENCE_FIELD_GUARDS[field];
-    if (accepts && accepts(value)) out[field] = value;
-  }
-  return out as T;
-}
-
-/** Which model-supplied calendar-event fields survive the merge.
- *
- *  ★★★ `sendInvitations` IS DELIBERATELY PRESENT. Once the Outlook push lands it
- *   would mail attendees — the one effect here that leaves the building — and the
- *   user's scope decision was to allow the model to set it and force any such
- *   call through the staged review card (`shouldStage`). Dropping it here would
- *   make that staging rule unreachable.
- *
- *  ★★ PRESENT TENSE WOULD BE FALSE TODAY, and three comments across this slice
- *   used it. The flag is persisted and INERT: no consumer outside the codecs,
- *   this table, the tool schema and the review descriptor reads it, and the push
- *   slice is unstarted (`calendar-event-modal.tsx` says the field stays on the
- *   model with no UI). Reproduce with
- *   `grep -rln sendInvitations src --include=*.ts --include=*.tsx | grep -v test`.
- *   KEEP the staging rule regardless — it is cheap, it is correct the day the
- *   push lands, and arming it later is the edit most likely to be forgotten.
- *
- *  ★★ `exceptions` is ABSENT on purpose: per-occurrence skip/move bookkeeping
- *   the UI writes when a user edits one instance. There is no phrasing a model
- *   could use for it that a reviewer could check at a glance.
- *
- *  ★★ `recurrence` uses `isPlainObject`, NOT a hand-rolled `typeof v ===
- *   "object" && v !== null` — that looser form is also true of an ARRAY, and
- *   `RecurrenceRule` (calendar-event.ts) is a union of plain objects, never an
- *   array. `isPlainObject` (sanitize-core.ts) already excludes `Array.isArray`;
- *   re-deriving the check here would just be a second spelling to drift from
- *   the first. */
-/** ★★★ EXPORTED for the review card, exactly as `ABSENCE_FIELD_GUARDS` above,
- *  and it matters MORE here: `sendInvitations` is the one field in the app
- *  whose write leaves the building. Refused (a non-boolean), the stored flag
- *  survives — so a preview projecting the refusal renders "invitations: on →
- *  off" for a write that keeps them ON, which is the one direction a user must
- *  never be misled in. */
-export const CALENDAR_EVENT_FIELD_GUARDS: Readonly<Record<string, (v: unknown) => boolean>> = {
-  title: (v) => typeof v === "string",
-  startDate: (v) => typeof v === "string",
-  startTime: (v) => typeof v === "string",
-  // ★★★ THE WRITER'S OWN RANGE, NOT A BARE `typeof number`, and the tightening
-  //  is §384's shape closed writer-side — the direction §396 records as the
-  //  right one. `sanitizeCalendarEvent` CLAMPS an out-of-range duration to the
-  //  60-minute default rather than refusing it, so while this guard admitted
-  //  any finite number, `update_calendar_event({durationMinutes: 3})` silently
-  //  demoted a stored 90-minute meeting to 60. `dropUnaccepted*` exists so an
-  //  unaccepted value means "leave the stored value alone"; a type check alone
-  //  could not deliver that here. Same shape as `probability`/`impact` in
-  //  `RAID_FIELD_GUARDS`, which use `acceptsRiskScale` for the same reason.
-  //  Found by `plan.sanitizer-parity.test.ts` the day `calendarEvent` was added
-  //  to its sweep, reported as "preview REJECTS, apply moves 90 -> 60".
-  durationMinutes: acceptsEventDuration,
-  location: (v) => typeof v === "string",
-  notes: (v) => typeof v === "string",
-  attendeeResourceIds: (v) => Array.isArray(v) && v.every((n) => typeof n === "number"),
-  sendInvitations: (v) => typeof v === "boolean",
-  recurrence: (v) => isPlainObject(v),
-};
-
-export function dropUnacceptedCalendarEventFields<T extends object>(patch: T): T {
-  const out: Record<string, unknown> = {};
-  for (const [field, value] of Object.entries(patch)) {
-    const accepts = CALENDAR_EVENT_FIELD_GUARDS[field];
-    if (accepts && accepts(value)) out[field] = value;
-  }
-  return out as T;
+/** A loaded stakeholder email: `sanitizeLoadedEmail`'s unwrap-THEN-cap order,
+ *  capped at the stakeholder's `BUDGET_NAME_MAX` (200) instead of `EMAIL_MAX`.
+ *  A named one-argument form, not a cap parameter (`sanitize-point-free.guard.test.ts`). */
+export function sanitizeLoadedStakeholderEmail(s: unknown): string {
+  return typeof s === "string" ? sanitizeText(normalizeEmailShape(s), BUDGET_NAME_MAX) : "";
 }
 
 export function sanitizeStakeholder(input: unknown): Stakeholder | null {
@@ -1352,7 +1238,7 @@ export function sanitizeStakeholder(input: unknown): Stakeholder | null {
   };
   const org = sanitizeText(o.organization, BUDGET_NAME_MAX); if (org) item.organization = org;
   const title = sanitizeText(o.title, BUDGET_NAME_MAX); if (title) item.title = title;
-  const email = sanitizeText(o.email, BUDGET_NAME_MAX); if (email) item.email = email;
+  const email = sanitizeLoadedStakeholderEmail(o.email); if (email) item.email = email;
   const notes = sanitizeText(o.notes, TEXTAREA_MAX); if (notes) item.notes = notes;
   const rid = toNumber(o.resourceId);
   if (Number.isFinite(rid) && rid > 0) item.resourceId = Math.floor(rid);
@@ -1368,7 +1254,7 @@ function sanitizeContactPerson(input: unknown): ContactPerson | null {
   if (!isPlainObject(input)) return null;
   const name = sanitizeText(input.name, BUDGET_NAME_MAX);
   if (!name) return null;
-  const email = sanitizeEmail(input.email);
+  const email = sanitizeLoadedEmail(input.email);
   const synced = typeof input.synced === "boolean" ? input.synced : false;
   const resourceId = fkIdOrUndefined(input.resourceId);
   return resourceId === undefined ? { name, email, synced } : { name, email, synced, resourceId };
@@ -1400,7 +1286,11 @@ export function sanitizeTimezone(raw: unknown): string | undefined {
  * blank `name`, or a non-blank `naceSection`/`deployment` outside its known
  * set — every other key fact may be blank (`""` / `[]`) since O-1.
  */
-export function sanitizeProjectMeta(input: unknown): ProjectMeta | null {
+export function sanitizeProjectMeta(input: unknown): ProjectMeta | null { return projectMetaWithDateReader(input, sanitizeIsoDate); }
+/** The load funnels' form (JSON, `buildProjectFromObj` for CSV/Markdown/Turso, IndexedDB):
+ *  identical, but a start/end date it blanks is reported (M2). */
+export function sanitizeLoadedProjectMeta(input: unknown): ProjectMeta | null { return projectMetaWithDateReader(input, optionalIsoDateOnLoad); }
+function projectMetaWithDateReader(input: unknown, readOptional: RequiredDateReader): ProjectMeta | null {
   if (!isPlainObject(input)) return null;
   const o = input;
 
@@ -1426,8 +1316,8 @@ export function sanitizeProjectMeta(input: unknown): ProjectMeta | null {
   const deployment = deploymentRaw as Deployment | "";
 
   // Both dates are optional; an unparseable value reads as "" (not set).
-  const startDate = sanitizeIsoDate(o.startDate);
-  const endDate = sanitizeIsoDate(o.endDate);
+  const startDate = readOptional(o.startDate, "project", undefined, "startDate");
+  const endDate = readOptional(o.endDate, "project", undefined, "endDate");
 
   // Key stakeholders (internal / external): any sanitized array, including empty.
   const keyStakeholdersInternal = sanitizeStringArray(o.keyStakeholdersInternal, BUDGET_NAME_MAX);

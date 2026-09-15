@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
 import {
   mapGraphContact,
   parseGraphBirthday,
@@ -185,5 +186,21 @@ describe("contactsFromImported", () => {
       { sourceId: "2", firstName: "", lastName: "", displayName: "", email: "x@x.com" },
     ]);
     expect(out).toEqual([{ name: "A B", email: "ab@x.com" }]);
+  });
+});
+
+describe("mapGraphContact drops an address that is not write-safe", () => {
+  it("keeps the contact, blanks the email and logs the source id", () => {
+    clearDiagLog();
+    const c = mapGraphContact({ id: "g1", displayName: "Zoe Adams", emailAddresses: [{ address: "a;b@x.com" }] }, 0)!;
+    expect(c.displayName).toBe("Zoe Adams");
+    expect(c.email).toBe("");
+    expect(readDiagLog().find((e) => e.code === "outlook.contactEmailDropped")?.fields).toEqual({ sourceId: "g1", field: "email" });
+    expect(JSON.stringify(readDiagLog())).not.toContain("a;b@x.com");
+  });
+  it("keeps a write-safe address and logs nothing (positive control)", () => {
+    clearDiagLog();
+    expect(mapGraphContact({ id: "g2", displayName: "Zoe Adams", emailAddresses: [{ address: "Zoe <zoe@x.com>" }] }, 0)!.email).toBe("zoe@x.com");
+    expect(readDiagLog().find((e) => e.code === "outlook.contactEmailDropped")).toBeUndefined();
   });
 });

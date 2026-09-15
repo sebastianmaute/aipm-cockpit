@@ -3,6 +3,7 @@ import {
   decodeRaidEscalations,
   encodeRaidEscalations,
   isEscalationEmail,
+  isEscalationWriteEmail,
   lastEscalation,
   RAID_ESCALATIONS_MAX,
   requireEscalationRecipient,
@@ -84,12 +85,40 @@ describe("requireEscalationRecipient — toEmail rejects \"<\"/\">\" too (fix-al
   it("throws for a <br>-bearing address that would otherwise pass isValidEmail", () => {
     expect(() => requireEscalationRecipient({ toEmail: "a<br>@b.co" })).toThrow(/toEmail must be a valid email/);
   });
+  it("throws for a delimiter-bearing address", () => {
+    expect(() => requireEscalationRecipient({ toEmail: "a,b@x.com" })).toThrow(/toEmail must be a valid email/);
+  });
+});
+
+describe("isEscalationWriteEmail — the WRITE leg (spec Part 1 dual-use split)", () => {
+  it("refuses a delimiter-bearing address the load leg still accepts", () => {
+    expect(isEscalationWriteEmail("a,b@x.com")).toBe(false);
+    expect(isEscalationWriteEmail("a;b@x.com")).toBe(false);
+    // Load leg unchanged: a stored escalation carrying it is not dropped.
+    expect(isEscalationEmail("a,b@x.com")).toBe(true);
+  });
+  it("keeps the bracket refusal and accepts a plain address", () => {
+    expect(isEscalationWriteEmail("a<br>@b.co")).toBe(false);
+    expect(isEscalationWriteEmail("jane@example.com")).toBe(true);
+  });
+  it("requireEscalationRecipient refuses a delimiter-bearing address", () => {
+    expect(() => requireEscalationRecipient({ toEmail: "a,b@x.com" })).toThrow(/toEmail must be a valid email/);
+  });
 });
 
 describe("sanitizeRaidEscalations — drops an entry whose toEmail carries \"<\"/\">\" (fix-all-1)", () => {
   it("drops the entry rather than storing a bracket-bearing address verbatim", () => {
     const withBadEmail: RaidEscalation = { ...NOTIFY, toEmail: "a<br>@b.co" };
     expect(sanitizeRaidEscalations([withBadEmail, NOTIFY])).toEqual([NOTIFY]);
+  });
+});
+
+describe("sanitizeRaidEscalations — unwraps Name <addr> before judging it (spec Part 2, Ruling Q5)", () => {
+  it("keeps the entry carrying the bare address", () => {
+    expect(sanitizeRaidEscalations([{ ...NOTIFY, toEmail: "Ops Team <ops@example.com>" }])).toEqual([NOTIFY]);
+  });
+  it("still drops a Name <addr> whose inner address is not write-safe", () => {
+    expect(sanitizeRaidEscalations([{ ...NOTIFY, toEmail: "Ops <nope>" }, NOTIFY])).toEqual([NOTIFY]);
   });
 });
 

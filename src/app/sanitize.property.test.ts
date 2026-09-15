@@ -95,21 +95,29 @@ describe("sanitize — properties", () => {
     );
   });
 
-  test("sanitizeIsoDate returns '' or a valid in-range date, and is idempotent", () => {
+  test("sanitizeIsoDate returns '' or a REAL in-range calendar date, and is idempotent (§539)", () => {
+    const pad = (n: number, w: number) => String(n).padStart(w, "0");
     const mixed = fc.oneof(
       fc.string(),
       fc
         .date({ min: new Date("1850-01-01"), max: new Date("2150-12-31"), noInvalidDate: true })
         .map((d) => d.toISOString().slice(0, 10)),
+      // ★ Shape-valid but frequently NON-calendar (month 00–19, day 00–39):
+      //  the arm the fc.date generator above can never produce.
+      fc
+        .tuple(fc.integer({ min: 1890, max: 2110 }), fc.integer({ min: 0, max: 19 }), fc.integer({ min: 0, max: 39 }))
+        .map(([y, m, d]) => `${pad(y, 4)}-${pad(m, 2)}-${pad(d, 2)}`),
     );
     fc.assert(
       fc.property(mixed, (s) => {
         const out = sanitizeIsoDate(s);
         if (out !== "") {
           expect(/^\d{4}-\d{2}-\d{2}$/.test(out)).toBe(true);
-          const year = Number(out.slice(0, 4));
+          const [year, month, day] = out.split("-").map(Number);
           expect(year).toBeGreaterThanOrEqual(1900);
           expect(year).toBeLessThanOrEqual(2100);
+          const utc = new Date(Date.UTC(year, month - 1, day));
+          expect([utc.getUTCFullYear(), utc.getUTCMonth() + 1, utc.getUTCDate()]).toEqual([year, month, day]);
         }
         expect(sanitizeIsoDate(out)).toBe(out); // idempotent
       }),

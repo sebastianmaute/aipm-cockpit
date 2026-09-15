@@ -18,7 +18,7 @@ export const SCHEDULED_JOBS_TABLE = "scheduled_jobs";
 // One row per job; the whole job (history inline) is stored as a JSON blob in
 // `data` so a new history field never needs a column migration. SqlArg.value is
 // string-only even for the integer id (Turso wants String(v)).
-const SCHEDULED_JOBS_DDL: string[] = [
+export const SCHEDULED_JOBS_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS ${SCHEDULED_JOBS_TABLE} (id TEXT PRIMARY KEY, data TEXT)`,
 ];
 const ddl = (): SqlStmt[] => SCHEDULED_JOBS_DDL.map((sql) => ({ sql }));

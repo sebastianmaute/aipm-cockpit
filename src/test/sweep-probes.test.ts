@@ -88,6 +88,23 @@ describe("ADMISSION_ORACLE", () => {
   //  ★★ BY REFERENCE, not by name: two oracles can share a spelling, and the
   //  arrows beside it are fresh instances per entry, so identity is the only
   //  comparison that answers the question.
+  // ★★ P5: the update arm models the REAL update writer (`rebuild*ForUpdate`), which
+  //  carries an untouched stored date the load funnel kept raw. A strict sanitizer
+  //  refused the whole row for a stored "2026-02-30" that the writer accepts.
+  it("models the update arm with the writers' rebuilds: an untouched kept-raw stored date does not refuse the row", () => {
+    const milestone = { id: 1, name: "M", date: "2026-02-30", linkedTaskIds: [] };
+    expect(admitProbe("milestone", "update", "name", milestone, "M probed", sameAt)).toBeUndefined();
+    const absence = { id: 1, assignee: "Ada Lovelace", startDate: "2026-02-30", endDate: "2026-03-02" };
+    expect(admitProbe("absence", "update", "assignee", absence, "Ada probed", sameAt)).toBeUndefined();
+    const raid = { id: 1, category: "R", title: "Risk", raisedDate: "2026-02-30", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [] };
+    expect(admitProbe("raid", "update", "raisedDate", raid, "2026-02-30", sameAt)).toBeUndefined();
+    const change = { id: 1, title: "C", raisedDate: "2026-02-30", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [] };
+    expect(admitProbe("change", "update", "raisedDate", change, "2026-02-30", sameAt)).toBeUndefined();
+    // Controls: the create arm stays strict, and a CHANGED invalid date is still judged strictly on update.
+    expect(admitProbe("milestone", "create", "name", milestone, "M probed", sameAt)).toMatch(/refuses the whole row/);
+    expect(admitProbe("milestone", "update", "date", milestone, "2026-02-31", sameAt)).toMatch(/refuses the whole row/);
+  });
+
   it("reaches the deliberately weak at-rest oracle from task alone", () => {
     const weak = ENTITIES.filter((entity) =>
       (["create", "update"] as const).some((arm) => ADMISSION_ORACLE[entity][arm] === taskAtRest),

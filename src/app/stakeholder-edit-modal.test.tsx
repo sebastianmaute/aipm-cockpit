@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { StakeholderEditModal } from "./stakeholder-edit-modal";
@@ -107,6 +107,217 @@ describe("StakeholderEditModal", () => {
     const p = setup({ draft: { ...draft, influence: "Low", interest: "Low" } });
     fireEvent.click(screen.getByRole("button", { name: /influence high.*interest high/i }));
     expect(p.onChange).toHaveBeenCalledWith(expect.objectContaining({ influence: "High", interest: "High" }));
+  });
+});
+
+describe("stakeholder email follows the changed-only write rule", () => {
+  // ★ StakeholderEditModal is controlled (the parent owns `draft`), so a typed
+  //  change must be reflected back through a stateful host or the value never
+  //  reaches the modal's own handleSubmit.
+  function Host({
+    initial,
+    onSave,
+    resources = [],
+  }: {
+    initial: Stakeholder;
+    onSave: () => void;
+    resources?: Resource[];
+  }) {
+    const [d, setD] = useState(initial);
+    return (
+      <>
+        <Seed tier="full" />
+        <StakeholderEditModal
+          lang="en-US"
+          draft={d}
+          isNew={true}
+          milestones={milestones}
+          resources={resources}
+          onChange={setD}
+          onSave={onSave}
+          onCancel={vi.fn()}
+          onDelete={vi.fn()}
+        />
+      </>
+    );
+  }
+
+  it("refuses a CHANGED malformed email on save", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "nope" } });
+    fireEvent.submit(screen.getByDisplayValue("Sam").closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorInvalidEmail"));
+  });
+
+  // M-C4 — the editor hands `onSave` the `Name <addr>`-unwrapped (then capped)
+  //  address, as every AI write and load stores it, and judges that same value.
+  it("M-C4: a typed Name <addr> email is saved as addr, unflagged", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "Ann Lee <ann@x.com>" } });
+    expect(screen.queryByText(t("en-US", "errorInvalidEmail"))).toBeNull();
+    fireEvent.submit(screen.getByDisplayValue("Sam").closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ id: 1, name: "Sam", email: "ann@x.com" });
+  });
+
+  it("M-C4: a shape-only email edit is saved as the unchanged address", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "ada@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("ada@x.com"), { target: { value: "Ada<ada@x.com>" } });
+    fireEvent.submit(screen.getByDisplayValue("Sam").closest("form")!);
+    expect(onSave.mock.calls[0][0].email).toBe("ada@x.com");
+  });
+
+  it("saves while an unchanged stored email is unsafe", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "a,b@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.submit(screen.getByDisplayValue("Sam").closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  // Fix round 1, IMPORTANT 3 — the copy-source exemption was unpinned: every
+  // host passed `resources={[]}`, so a real linked resource's unsafe email was
+  // never actually exercised as a copy source.
+  it("exempts a copy of the linked resource's stored email", () => {
+    const onSave = vi.fn();
+    const linked: Resource = {
+      id: 9, firstName: "Ada", lastName: "L", email: "a,b@x.com",
+      roleId: null, utilizationMode: "percent", utilization: {},
+    };
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com", resourceId: 9 }}
+        onSave={onSave}
+        resources={[linked]}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "a,b@x.com" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  // Positive control: the SAME unsafe value with no resource link is refused.
+  it("positive control: the identical value with no link is refused", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "a,b@x.com" } });
+    fireEvent.submit(screen.getByDisplayValue("Sam").closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  // The typed value is judged CAPPED (200) while the linked email is 250 chars,
+  // so the capped value never equals the copy source and no exemption applies.
+  it("refuses an over-cap (250-char) unsafe email even when the linked resource holds the same string", () => {
+    const onSave = vi.fn();
+    const longUnsafe = "a,b@x.co" + "m".repeat(242);
+    expect(longUnsafe).toHaveLength(250);
+    const linked: Resource = {
+      id: 9, firstName: "Ada", lastName: "L", email: longUnsafe,
+      roleId: null, utilizationMode: "percent", utilization: {},
+    };
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com", resourceId: 9 }}
+        onSave={onSave}
+        resources={[linked]}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: longUnsafe } });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorEmailDelimiter"));
+  });
+
+  // Fix round 2, MINOR — an UNRELATED banner error (blank name) must never
+  // hide the flag: the stored unsafe email is untouched.
+  it("keeps the flag visible while an unrelated banner error is showing", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "a,b@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    const alerts = screen.getAllByRole("alert").map((a) => a.textContent);
+    expect(alerts).toContain(t("en-US", "raidErrorTitleRequired"));
+    expect(alerts).toContain(t("en-US", "errorEmailDelimiter"));
+    expect(alerts).toHaveLength(2);
+  });
+
+  // Fix round 1, IMPORTANT 2 — the value that would be STORED must be judged,
+  // not the raw typed one: `sanitizeStakeholder` caps email at BUDGET_NAME_MAX
+  // (200). Capping at 200 removes the trailing delimiter, leaving a SAFE
+  // 200-char address.
+  it("saves a >200-char email that is safe once capped at BUDGET_NAME_MAX", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), {
+      target: { value: "a".repeat(195) + "@x.co,zz" },
+    });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  // The other side of the same probe: capping at 200 truncates mid-domain,
+  // leaving an INVALID 200-char address — still refused.
+  it("refuses a >200-char email that is invalid once capped at BUDGET_NAME_MAX", () => {
+    const onSave = vi.fn();
+    render(
+      <Host
+        initial={{ id: 1, name: "Sam", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "old@x.com" }}
+        onSave={onSave}
+      />,
+      { wrapper },
+    );
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), {
+      target: { value: "a".repeat(199) + "@x.com" },
+    });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
   });
 });
 

@@ -42,15 +42,47 @@ import {
   sanitizeMultiline,
   sanitizeAssignee,
   sanitizeEmail,
+  sanitizeLoadedEmail,
+  normalizeEmailListShape,
   sanitizeNotes,
   sanitizeIsoDate,
+  type RequiredDateReader,
   fkIdOrUndefined,
   isPlainObject,
 } from "./sanitize-core";
+import { optionalIsoDateOnLoad, optionalIsoDateOnTemplateLoad, requiredIsoDateOnLoad, requiredIsoDateOnUpdate } from "./sanitize-load-date";
 
 // --- Absence sanitizers ----------------------------------------------------
 
 const ABSENCE_TYPE_SET: ReadonlySet<AbsenceType> = new Set(ABSENCE_TYPES);
+
+/** The LOAD-funnel form of `sanitizeAbsence` (JSON, CSV, Markdown, Turso): a
+ *  required date that is shape-valid but not a real calendar date is kept raw
+ *  (with a diagnostic) rather than dropping the whole absence. */
+export function sanitizeLoadedAbsence(input: unknown): Absence | null {
+  return absenceWithDateReader(input, requiredIsoDateOnLoad);
+}
+
+/** ★★★ The strict form, and it takes ONE argument on purpose — as do
+ *  `sanitizeMilestone` / `sanitizeFxRates` and their `sanitizeLoaded*` twins.
+ *  Sanitizers are passed point-free (`arr.map(sanitizeX)`, `sanitizeArr`,
+ *  `fromObj:`), and `Array#map` hands a second parameter the INDEX. When the
+ *  date reader was an OPTIONAL second parameter, `sanitizeArr(raw.milestones,
+ *  sanitizeMilestone)` called `0(...)` and threw inside settings hydration, which
+ *  then overwrote the stored settings with defaults. tsc cannot see it: a
+ *  function with an extra optional parameter is assignable to `(x) => T`. The
+ *  reader-taking cores are module-private for the same reason. Enforced for
+ *  every exported sanitize* by `sanitize-point-free.guard.test.ts`. */
+export function sanitizeAbsence(input: unknown): Absence | null {
+  return absenceWithDateReader(input, sanitizeIsoDate);
+}
+
+/** The AI UPDATE writer's rebuild of `merged` (`{...stored, ...patch}`): strict, except that a
+ *  `startDate` / `endDate` equal to `stored`'s kept-raw one is carried (`requiredIsoDateOnUpdate`).
+ *  ★ Deliberately NOT `sanitize*`-named: it takes two arguments, so it must never be passed point-free. */
+export function rebuildAbsenceForUpdate(stored: Absence, merged: unknown): Absence | null {
+  return absenceWithDateReader(merged, requiredIsoDateOnUpdate(stored as unknown as Record<string, unknown>));
+}
 
 /** Returns the input if it is a valid AbsenceType; otherwise falls back to
  *  "other" so hand-edited files and chat tools can't break the union. */
@@ -72,17 +104,19 @@ export function sanitizeAbsenceNote(s: unknown): string {
 /**
  * Full-record sanitizer for inbound Absence data (file imports, chat tool
  * calls). Drops obviously bad input and clamps fields. Returns null when
- * the record is unrecoverable (missing id, assignee, or dates).
+ * the record is unrecoverable (missing id, assignee, or dates). `readDate` is
+ * the strict `sanitizeIsoDate` via `sanitizeAbsence` (write paths); load
+ * funnels call `sanitizeLoadedAbsence`, which keeps a non-calendar date raw.
  */
-export function sanitizeAbsence(input: unknown): Absence | null {
+function absenceWithDateReader(input: unknown, readDate: RequiredDateReader): Absence | null {
   if (!input || typeof input !== "object") return null;
   const raw = input as Partial<Record<keyof Absence, unknown>>;
   const id = toNumber(raw.id);
   if (!Number.isFinite(id) || id <= 0) return null;
   const assignee = sanitizeAssignee(raw.assignee);
   if (!assignee) return null;
-  const startDate = sanitizeIsoDate(raw.startDate);
-  const endDate = sanitizeIsoDate(raw.endDate);
+  const startDate = readDate(raw.startDate, "absence", raw.id, "startDate");
+  const endDate = readDate(raw.endDate, "absence", raw.id, "endDate");
   if (!startDate || !endDate) return null;
   // Defensive: swap if reversed rather than rejecting.
   const [start, end] =
@@ -92,7 +126,7 @@ export function sanitizeAbsence(input: unknown): Absence | null {
     assignee,
     assigneeEmail:
       typeof raw.assigneeEmail === "string"
-        ? sanitizeEmail(raw.assigneeEmail) || undefined
+        ? sanitizeLoadedEmail(raw.assigneeEmail) || undefined
         : undefined,
     startDate: start,
     endDate: end,
@@ -180,7 +214,7 @@ export function sanitizeShift(input: unknown): Shift | null {
     assignee,
     assigneeEmail:
       typeof raw.assigneeEmail === "string"
-        ? sanitizeEmail(raw.assigneeEmail) || undefined
+        ? sanitizeLoadedEmail(raw.assigneeEmail) || undefined
         : undefined,
     hoursPerWeekday,
     note: sanitizeNotes(raw.note) || undefined,
@@ -374,10 +408,9 @@ export function sanitizeResource(input: unknown): Resource | null {
     utilizationMode: mode,
     utilization,
   };
-  const email = typeof input.email === "string" ? sanitizeEmail(input.email) || undefined : undefined;
-  if (email) resource.email = email;
-  const emails = sanitizeEmailList(input.emails, email);
-  if (emails.length > 0) resource.emails = emails;
+  const pair = sanitizeLoadedResourceEmails(input.email, input.emails);
+  if (pair.email) resource.email = pair.email;
+  if (pair.emails.length > 0) resource.emails = pair.emails;
   const title = optText(input.title); if (title) resource.title = title;
   const phone = optText(input.businessPhone); if (phone) resource.businessPhone = phone;
   const location = optText(input.location); if (location) resource.location = location;
@@ -432,6 +465,34 @@ export function sanitizeEmailList(input: unknown, primary: string | undefined): 
     if (out.length >= RESOURCE_EMAILS_MAX) break;
   }
   return out;
+}
+
+/** A loaded resource's `email` + `emails` pair, exactly as `sanitizeResource`
+ *  stores it (spec Part 2): `Name <addr>` unwrapped and write-safe multi-address
+ *  members split BEFORE the cap, then `sanitizeEmailList` dedupes, caps and
+ *  drops the primary. The ONE definition every load path shares. */
+export function sanitizeLoadedResourceEmails(email: unknown, emails: unknown): { email: string | undefined; emails: string[] } {
+  const primary = sanitizeLoadedEmail(email) || undefined;
+  const list = Array.isArray(emails)
+    ? emails.filter((e): e is string => typeof e === "string")
+    : typeof emails === "string" ? emails.split(/[;,]/) : [];
+  return { email: primary, emails: sanitizeEmailList(normalizeEmailListShape(list), primary) };
+}
+
+/** `sanitizeLoadedResourceEmails` for a row a backend CASTS instead of
+ *  sanitizing (IndexedDB). Same reference when nothing changes; an absent key
+ *  stays absent, and an empty result removes the key — as `sanitizeResource`. */
+export function withNormalizedResourceEmails<T extends { email?: string; emails?: string[] }>(row: T): T {
+  const pair = sanitizeLoadedResourceEmails(row.email, row.emails);
+  const stored = row.emails;
+  const sameEmails = pair.emails.length === 0
+    ? stored === undefined
+    : stored !== undefined && stored.length === pair.emails.length && stored.every((e, i) => e === pair.emails[i]);
+  if (pair.email === row.email && sameEmails) return row;
+  const next: { email?: string; emails?: string[] } = { ...row };
+  if (pair.email) next.email = pair.email; else delete next.email;
+  if (pair.emails.length > 0) next.emails = pair.emails; else delete next.emails;
+  return next as T;
 }
 
 function sanitizeRate(n: unknown): number {
@@ -515,8 +576,10 @@ export function sanitizeGrade(input: unknown): Grade | null {
 export function sanitizePlan(input: unknown, today: string): ResourcePlan {
   const fallback = defaultResourcePlan(today);
   const raw = isPlainObject(input) ? input : {};
-  const startDate = sanitizeIsoDate(raw.startDate);
-  const endDate = sanitizeIsoDate(raw.endDate);
+  // Load-only (every caller is a load funnel): a non-calendar date is kept raw
+  // rather than resetting BOTH dates to the defaults.
+  const startDate = requiredIsoDateOnLoad(raw.startDate, "plan", undefined, "startDate");
+  const endDate = requiredIsoDateOnLoad(raw.endDate, "plan", undefined, "endDate");
   const granularity: PlanGranularity = raw.granularity === "week" ? "week" : "month";
   const trimmedCurrency = typeof raw.currency === "string" ? raw.currency.trim() : undefined;
   const currency = isBudgetCurrency(trimmedCurrency) ? trimmedCurrency : fallback.currency;
@@ -666,7 +729,12 @@ function sanitizeDisciplineAllocations(input: unknown): DisciplineAllocation[] {
   return input.map(sanitizeDisciplineAllocation).filter((a): a is DisciplineAllocation => a !== null);
 }
 
-export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
+export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null { return budgetWithDateReader(input, sanitizeIsoDate); }
+/** The load funnels' form (JSON, CSV, Markdown, Turso): a date it blanks is reported (M2). */
+export function sanitizeLoadedBudgetBucket(input: unknown): BudgetBucket | null { return budgetWithDateReader(input, optionalIsoDateOnLoad); }
+/** A stored template's seed budget, reported as `templateSeed`. */
+export function sanitizeLoadedSeedBudgetBucket(input: unknown): BudgetBucket | null { return budgetWithDateReader(input, optionalIsoDateOnTemplateLoad); }
+function budgetWithDateReader(input: unknown, readOptional: RequiredDateReader): BudgetBucket | null {
   if (!isPlainObject(input)) return null;
   const id = toNumber(input.id);
   if (!Number.isFinite(id) || id <= 0) return null;
@@ -680,8 +748,8 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
   const currency = isBudgetCurrency(input.currency) ? input.currency : SUPPORTED_CURRENCIES[0];
   const status: BucketStatus = input.status === "closed" ? "closed" : "open";
 
-  const startDate = sanitizeIsoDate(input.startDate);
-  const endDate = sanitizeIsoDate(input.endDate);
+  const startDate = readOptional(input.startDate, "budget", id, "startDate");
+  const endDate = readOptional(input.endDate, "budget", id, "endDate");
   const [start, end] = startDate && endDate && endDate < startDate ? [endDate, startDate] : [startDate, endDate];
 
   const bucket: BudgetBucket = {
@@ -698,7 +766,7 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
   const succ = toNumber(input.successorId);
   if (Number.isFinite(succ) && succ > 0 && succ !== id) bucket.successorId = succ;
   if (status === "closed") {
-    const cd = sanitizeIsoDate(input.closedDate);
+    const cd = readOptional(input.closedDate, "budget", id, "closedDate");
     if (cd) bucket.closedDate = cd;
   }
   const fx = sanitizeAmount(input.fxRateOverride, 4);
@@ -721,10 +789,20 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
   return bucket;
 }
 
+/** Strict (the rates fetch). ONE argument — see `sanitizeAbsence`. */
 export function sanitizeFxRates(input: unknown): FxRates | null {
+  return fxRatesWithDateReader(input, sanitizeIsoDate);
+}
+
+/** The load funnels' form: a stored snapshot with a non-calendar date is kept. */
+export function sanitizeLoadedFxRates(input: unknown): FxRates | null {
+  return fxRatesWithDateReader(input, requiredIsoDateOnLoad);
+}
+
+function fxRatesWithDateReader(input: unknown, readDate: RequiredDateReader): FxRates | null {
   if (!isPlainObject(input)) return null;
   if (input.base !== "EUR") return null;
-  const date = sanitizeIsoDate(input.date);
+  const date = readDate(input.date, "fxRates", undefined, "date");
   if (!date) return null;
   const fetchedAt = typeof input.fetchedAt === "string" && input.fetchedAt ? input.fetchedAt : "";
   if (!fetchedAt) return null;

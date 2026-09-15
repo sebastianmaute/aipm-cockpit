@@ -13,20 +13,21 @@ import { migrateTask } from "./task-status";
 import { sanitizeNoteFields, sanitizeRaidRichFields, sanitizeChangeRichFields, sanitizeMilestoneRichFields } from "./note-log";
 import { withStoredNoteLog } from "./change-log";
 import {
-  sanitizeAbsence,
-  sanitizeBudgetBucket,
-  sanitizeChangeItem,
+  sanitizeLoadedAbsence,
+  sanitizeLoadedBudgetBucket,
+  sanitizeLoadedChangeItem,
   sanitizeDiscipline,
-  sanitizeFxRates,
+  sanitizeLoadedFxRates,
   sanitizeGrade,
-  sanitizeMilestone,
+  sanitizeLoadedMilestone,
   sanitizePlan,
-  sanitizeProjectMeta,
+  sanitizeLoadedProjectMeta,
   sanitizeResource,
   sanitizeRole,
   sanitizeShift,
   sanitizeStakeholder,
   sanitizeSteeringCommittee,
+  withNormalizedEmailField,
 } from "./sanitize";
 // ★ TYPE-ONLY, and from the zero-import LEAF rather than the codec barrel: the
 // barrel pulls the whole decode layer, which imports THIS file. `csv-codecs-sections.ts`
@@ -38,9 +39,9 @@ import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 import { sanitizeActivityLog, type ActivityEntry } from "./activity-log";
-import { sanitizeProjectDocuments, type DocTruncationDiag, type ProjectDocument } from "./document-model";
+import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
-import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
+import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-versions";
 // ★ logDiag is a no-op when `window` is undefined and swallows its own errors,
 // so importing it here cannot break the bare-node sample generator.
 import { logDiag } from "./diagnostics";
@@ -619,28 +620,28 @@ export function jsonToWorkspace(
       // sanitized-HTML fields (noteLog[].html / description) that CSV/MD/Turso
       // scrub on load but the whole-object JSON cast would pass through verbatim.
       tasks: (p.tasks as Task[]).map(migrateTask).map(sanitizeNoteFields),
-      raid: (p.raid as RaidItem[]).map(sanitizeRaidRichFields),
-      absences: ((p.absences as unknown[]) ?? []).map((a) => sanitizeAbsence(a)).filter((a): a is Absence => a !== null),
+      raid: (p.raid as RaidItem[]).map(sanitizeRaidRichFields).map((r) => withNormalizedEmailField(r, "ownerEmail")),
+      absences: ((p.absences as unknown[]) ?? []).map((a) => sanitizeLoadedAbsence(a)).filter((a): a is Absence => a !== null),
       shifts: ((p.shifts as unknown[]) ?? []).map((s) => sanitizeShift(s)).filter((s): s is Shift => s !== null),
       resources: ((p.resources as unknown[]) ?? []).map((r) => sanitizeResource(r)).filter((r): r is Resource => r !== null),
       roles: ((p.roles as unknown[]) ?? []).map((r) => sanitizeRole(r)).filter((r): r is Role => r !== null),
       disciplines: ((p.disciplines as unknown[]) ?? []).map((d) => sanitizeDiscipline(d)).filter((d): d is Discipline => d !== null),
       grades: ((p.grades as unknown[]) ?? []).map((g) => sanitizeGrade(g)).filter((g): g is Grade => g !== null),
       plan: sanitizePlan(p.plan ?? {}, new Date().toISOString().slice(0, 10)),
-      budgets: ((p.budgets as unknown[]) ?? []).map((b) => sanitizeBudgetBucket(b)).filter((b): b is BudgetBucket => b !== null),
-      fxRates: sanitizeFxRates(p.fxRates),
+      budgets: ((p.budgets as unknown[]) ?? []).map((b) => sanitizeLoadedBudgetBucket(b)).filter((b): b is BudgetBucket => b !== null),
+      fxRates: sanitizeLoadedFxRates(p.fxRates),
       status: sanitizeProjectStatus(p.status),
       // The entity sanitizers UPGRADE a legacy plain rich field (sanitizeRichText
       // -> descriptionHtml) but are DOM-free by contract, so they never run
       // DOMPurify. The whole-object load boundary is where that pass belongs.
-      milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m)).filter((m): m is Milestone => m !== null).map(sanitizeMilestoneRichFields),
+      milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeLoadedMilestone(m)).filter((m): m is Milestone => m !== null).map(sanitizeMilestoneRichFields),
       // ★★★ The RAW log is attached BEFORE `sanitizeChangeRichFields`, because
       //     that pass is what sanitizes it; attaching it after would store an
       //     untrusted file's HTML verbatim. Why it has to be carried across
       //     `sanitizeChangeItem` at all: see `withStoredNoteLog`.
       changes: ((p.changes as unknown[]) ?? [])
         .map((c) => {
-          const s = sanitizeChangeItem(c);
+          const s = sanitizeLoadedChangeItem(c);
           return s === null ? null : withStoredNoteLog(s, (c as { noteLog?: unknown } | null)?.noteLog);
         })
         .filter((c): c is ChangeItem => c !== null)
@@ -650,7 +651,7 @@ export function jsonToWorkspace(
     // Additive: sanitize an incoming project when present; otherwise leave the
     // key off so no-project files round-trip without a `project` field.
     if (p.project !== undefined) {
-      const project = sanitizeProjectMeta(p.project);
+      const project = sanitizeLoadedProjectMeta(p.project);
       if (project) raw.project = project;
     }
     // Additive: sanitize an incoming field-visibility config when present;
@@ -710,7 +711,7 @@ export function jsonToWorkspace(
     // off — so containment does not invent a new failure mode for it.
     if (p.documents !== undefined) {
       try {
-        const docs = sanitizeProjectDocuments(p.documents, opts?.diag).map(sanitizeDocumentRichFields);
+        const docs = sanitizeProjectDocumentsWithDiag(p.documents, opts?.diag).map(sanitizeDocumentRichFields);
         if (docs.length) raw.documents = docs;
       } catch (err) {
         // ★★ strict must stay LOUD. The sample generator decodes with
@@ -741,7 +742,7 @@ export function jsonToWorkspace(
     // discard the whole workspace on a non-strict load.
     if (p.documentVersions !== undefined) {
       try {
-        const versions = sanitizeDocumentVersions(p.documentVersions, opts?.diag).map((v) => ({
+        const versions = sanitizeDocumentVersionsWithDiag(p.documentVersions, opts?.diag).map((v) => ({
           ...v,
           blocks: sanitizeDocumentRichFields({
             id: v.documentId,

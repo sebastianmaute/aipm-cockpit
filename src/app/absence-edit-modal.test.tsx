@@ -223,6 +223,66 @@ describe("AbsenceEditModal", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorInvalidEmail"));
   });
 
+  it("blocks save on a changed delimiter-bearing assignee email with the delimiter message", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave });
+    fireEvent.change(screen.getByLabelText(t("en-US", "absenceAssigneeEmail")), { target: { value: "a,b@x.com" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorEmailDelimiter"));
+  });
+
+  // M-C4 — the editor stores the `Name <addr>`-unwrapped address, as every AI
+  //  write and load does, and judges (and flags) that same value.
+  it("M-C4: a typed Name <addr> assignee email saves as addr, unflagged", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave });
+    fireEvent.change(screen.getByLabelText(t("en-US", "absenceAssigneeEmail")), { target: { value: "Ann Lee <ann@x.com>" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBe("ann@x.com");
+  });
+
+  it("M-C4: a shape-only assignee email edit saves the unchanged address", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave });
+    fireEvent.change(screen.getByLabelText(t("en-US", "absenceAssigneeEmail")), { target: { value: "Sample<Sample@example.com>" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBe("Sample@example.com");
+  });
+
+  // Fix round 1, IMPORTANT 1 — an UNRELATED banner error (end before start)
+  // must never hide the flag: the stored assignee email is untouched and
+  // still unsafe.
+  it("keeps the flag visible while an unrelated banner error is showing", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave, absence: { ...base, assigneeEmail: "a,b@x.com" } });
+    fireEvent.change(screen.getByLabelText(/end/i), { target: { value: "2026-05-01" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+    const alerts = screen.getAllByRole("alert").map((a) => a.textContent);
+    expect(alerts).toContain(t("en-US", "absenceErrorEndBeforeStart"));
+    // The flag is a SECOND alert, distinct from the unrelated banner.
+    expect(alerts).toContain(t("en-US", "errorEmailDelimiter"));
+    expect(alerts).toHaveLength(2);
+  });
+
+  it("flags a stored unsafe assignee email without blocking an unchanged save (pre-flight I7)", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave, absence: { ...base, assigneeEmail: "a,b@x.com" } });
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
+    expect(screen.getByLabelText(t("en-US", "absenceAssigneeEmail"))).toHaveAttribute("aria-invalid", "true");
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("positive control: a clean stored assignee email shows no flag", () => {
+    setupFull();
+    expect(screen.getByLabelText(t("en-US", "absenceAssigneeEmail"))).not.toHaveAttribute("aria-invalid");
+    expect(screen.queryByText(t("en-US", "errorEmailDelimiter"))).toBeNull();
+  });
+
   // ★★ The rule only applies to a CHANGED value. A malformed address stored
   //  before §461 must not block saving another field — here at the Advanced
   //  default, where the Full-only Email field is hidden and cannot be fixed.

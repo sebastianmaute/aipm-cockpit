@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import { t, type Lang } from "./i18n";
-import { isValidEmail } from "./sanitize";
+import { isWriteSafeEmail, sanitizeLoadedEmail } from "./sanitize";
+import { typedEmailRefusalKey } from "./email-refusal-i18n";
 import { buildMailtoUrl } from "./mailto";
 import { renderTemplateForSend, buildStatusInquiryVars } from "./comm-templates";
 import { sanitizeRichHtml } from "./sanitize-html";
@@ -101,7 +102,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       // Prefer the linked resource's CURRENT email; the cached assigneeEmail
       // can be stale after a rename/re-link. Unlinked → the cached email.
       let email = effectivePersonEmail(task.assigneeEmail ?? "", task.resourceId, resourcesById).trim();
-      if (!email && isValidEmail(task.assignee)) {
+      if (!email && isWriteSafeEmail(task.assignee)) {
         email = task.assignee.trim();
       }
       if (!email) {
@@ -110,9 +111,9 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
           "",
         );
         if (provided === null) return;
-        const trimmed = provided.trim();
-        if (!isValidEmail(trimmed)) {
-          window.alert(t(lang, "errorInvalidEmail"));
+        const trimmed = sanitizeLoadedEmail(provided); // M-C4: the unwrapped address, as every AI write stores
+        if (!isWriteSafeEmail(trimmed)) {
+          window.alert(t(lang, typedEmailRefusalKey(trimmed)));
           return;
         }
         email = trimmed;
@@ -356,6 +357,11 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     [openEditModal],
   );
 
+  // ★★ Deliberately does NOT arm `allowDestructiveSave` (open-followups §323),
+  //  unlike every other entity's single delete. One call removes exactly ONE
+  //  row, and `isMassDeletion` (workspace-metrics.ts) needs `prev - cur >= 5`,
+  //  so this delete can never trip the guard; arming would only hand a one-shot
+  //  bypass to the NEXT save. Pinned in is-workspace-empty.test.ts.
   const onDelete = useCallback(
     (id: number) => {
       if (!window.confirm(t(lang, "confirmDelete", id))) return;

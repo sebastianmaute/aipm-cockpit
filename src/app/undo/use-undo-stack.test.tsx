@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useState, type SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { useUndoStack, capturePart, buildUndoLabel } from "./use-undo-stack";
 import { ACTIVITY_KIND_TO_KEY, type ActivityKind } from "../activity-log";
 import { t } from "../i18n";
@@ -19,6 +19,18 @@ function makeDeps(overrides: Partial<Parameters<typeof useUndoStack>[0]> = {}) {
 }
 
 describe("useUndoStack", () => {
+  it("captureComposite uses toastText in place of the generic edit text when given", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    act(() => {
+      result.current.captureComposite({
+        kind: "resource.updated", primaryCount: 1, toastText: "Edited 1 item and updated 3 linked record(s)",
+        parts: [capturePart({ setter: vi.fn(), edited: [{ id: 1, name: "a" }], fromArray: [{ id: 1, name: "a" }], isPrimary: true })],
+      });
+    });
+    expect(deps.showToastAction).toHaveBeenCalledWith("info", "Edited 1 item and updated 3 linked record(s)", expect.objectContaining({ labelKey: "undo" }));
+  });
+
   it("capture pushes an entry, fires an action toast, and sets canUndo", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useUndoStack(deps));
@@ -1265,5 +1277,61 @@ describe("captureFieldRows", () => {
 
     expect(rows()[0].assignee).toBe("Ada");
     expect(rows()[0].assigneeEmail).toBe("fresh@example.com");
+  });
+});
+
+describe("useUndoStack — read-only (open-followups §91)", () => {
+  const rows: readonly Row[] = [{ id: 1, name: "a" }];
+
+  function seededStack(readOnly: { current: boolean }) {
+    const deps = makeDeps({ isReadOnly: () => readOnly.current });
+    const setter: Dispatch<SetStateAction<readonly Row[]>> = vi.fn();
+    const { result } = renderHook(() => useUndoStack(deps));
+    return { deps, setter, result };
+  }
+
+  it("positive control: captures push and toast when not read-only", () => {
+    const flag = { current: false };
+    const { deps, setter, result } = seededStack(flag);
+    act(() => { result.current.capture({ setter, kind: "task.deleted", removed: [rows[0]], fromArray: rows }); });
+    expect(result.current.stack).toHaveLength(1);
+    expect(deps.showToastAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("every capture pushes nothing and shows no toast while read-only", () => {
+    const flag = { current: true };
+    const { deps, setter, result } = seededStack(flag);
+    act(() => {
+      result.current.capture({ setter, kind: "task.deleted", removed: [rows[0]], fromArray: rows });
+      result.current.captureFieldEdit({ setter, kind: "task.updated", id: 1, before: { name: "a" }, after: { name: "b" } });
+      result.current.captureComposite({ kind: "task.updated", primaryCount: 1, parts: [capturePart({ setter, edited: [rows[0]], fromArray: rows, isPrimary: true })] });
+      result.current.captureFieldRows({ setter, kind: "bulk.edit", edits: [{ id: 1, before: { name: "a" }, after: { name: "b" } }] });
+    });
+    expect(result.current.stack).toHaveLength(0);
+    expect(deps.showToastAction).not.toHaveBeenCalled();
+  });
+
+  it("the five restore entry points run nothing and log nothing while read-only", () => {
+    const flag = { current: false };
+    const { deps, setter, result } = seededStack(flag);
+    act(() => { result.current.capture({ setter, kind: "task.deleted", removed: [rows[0]], fromArray: rows }); });
+    act(() => { result.current.capture({ setter, kind: "task.deleted", removed: [rows[0]], fromArray: rows }); });
+    act(() => { result.current.undo(); }); // one entry on the redo stack
+    vi.mocked(setter).mockClear();
+    vi.mocked(deps.logActivity).mockClear();
+    flag.current = true;
+    const topId = result.current.stack[0].id;
+    const redoId = result.current.redoStack[0].id;
+    act(() => {
+      result.current.undo();
+      result.current.redo();
+      result.current.undoById(topId);
+      result.current.undoThrough(topId);
+      result.current.redoThrough(redoId);
+    });
+    expect(setter).not.toHaveBeenCalled();
+    expect(deps.logActivity).not.toHaveBeenCalled();
+    expect(result.current.stack).toHaveLength(1);
+    expect(result.current.redoStack).toHaveLength(1);
   });
 });

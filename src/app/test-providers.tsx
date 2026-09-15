@@ -9,8 +9,10 @@ import {
   type Absence,
   type ChangeItem,
   type Milestone,
+  type ProjectMeta,
   type RaidItem,
   type Resource,
+  type Shift,
   type Stakeholder,
   type Task,
 } from "./types";
@@ -28,6 +30,8 @@ export interface TestSeed {
   milestones?: Milestone[];
   stakeholders?: Stakeholder[];
   absences?: Absence[];
+  shifts?: Shift[];
+  project?: ProjectMeta;
   /** ★★★ OPTIONAL FOR TWO REASONS, and the second one is load-bearing.
    *  `Workspace.calendarEvents` is `readonly CalendarEvent[] | undefined` and
    *  `undefined` means "the slice is ABSENT", which is not the same claim as
@@ -46,7 +50,7 @@ export interface TestSeed {
 function Seeder({ seed }: { seed: TestSeed }) {
   const {
     setTasks, setResources, setRaid, setChanges, setMilestones, setStakeholders,
-    setAbsences, setCalendarEvents,
+    setAbsences, setCalendarEvents, setShifts, setProject,
   } = useWorkspace();
   const seededRef = useRef(false);
   useEffect(() => {
@@ -62,6 +66,8 @@ function Seeder({ seed }: { seed: TestSeed }) {
     if (seed.milestones?.length) setMilestones(seed.milestones);
     if (seed.stakeholders?.length) setStakeholders(seed.stakeholders);
     if (seed.absences?.length) setAbsences(seed.absences);
+    if (seed.shifts?.length) setShifts(seed.shifts);
+    if (seed.project) setProject(seed.project);
     // ★ The guard is not merely tidiness on THIS line — see `calendarEvents` on
     // `TestSeed`. Writing `[]` for an unseeded project would assert the slice is
     // PRESENT AND EMPTY, a different fact from absent, and would defeat the one

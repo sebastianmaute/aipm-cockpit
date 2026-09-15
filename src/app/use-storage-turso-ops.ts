@@ -16,7 +16,7 @@ import type { Settings } from "./settings-types";
 import type { Workspace } from "./storage";
 import type { ProjectMeta } from "./types";
 import type { TursoConfig } from "./turso-config";
-import { buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
+import { aiSeedUnsafeEmails, buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
 import { resetMintState, snapshotMintState, restoreMintState } from "./id-mint-session";
 import { saveCurrentTursoProjectId, savePortfolioMode } from "./portfolio-mode";
 import { TursoBackend } from "./turso-backend";
@@ -28,6 +28,7 @@ import {
   hardDeleteProject as portfolioHardDelete,
 } from "./turso-portfolio";
 import { writeSettings } from "./use-settings";
+import { summarizeUnsafeEmailRecords } from "./sanitize";
 import { logDiag } from "./diagnostics";
 import type { TruncationOps } from "./use-load-truncation";
 
@@ -133,6 +134,9 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       deps.setTursoProjectId(id);
       saveCurrentTursoProjectId(id);
       deps.showToast("info", t(deps.langRef.current, "projectCreatedToast", meta.name));
+      // ★ M5: template = copy source, notice-only; AI seed = unsafe addresses left blank, notice from the seed.
+      const seededEmails = opts.template ? summarizeUnsafeEmailRecords(ws) : aiSeedUnsafeEmails(opts);
+      if (seededEmails) deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
     } catch (err) {
       // Create aborted before applyWorkspace reseeded — roll the minter back so
       // the still-active old project doesn't lose its high-water marks (which

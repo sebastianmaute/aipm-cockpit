@@ -467,7 +467,8 @@ function ResourceDirectoryInner({
                       // has the primary stripped out of `emails`. What is NOT
                       // deduped is a live in-session write that bypasses it:
                       // `resource-edit-modal.tsx`'s save maps `draft.emails`
-                      // through `.trim()` + a blank filter and nothing else, so
+                      // through `.trim()`, the `Name <addr>` unwrap and a blank
+                      // filter, and nothing else — no dedupe — so
                       // the duplicate exists in memory from that save until the
                       // next load. Any other writer that skips the sanitizer
                       // has the same effect. Reproduce:

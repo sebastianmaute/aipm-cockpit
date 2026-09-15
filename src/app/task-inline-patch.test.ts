@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeInlinePatch, type InlinePatchContext } from "./task-inline-patch";
+import { inlineAssigneeEmailRefusal, sanitizeInlinePatch, type InlinePatchContext } from "./task-inline-patch";
 import type { Task } from "./types";
 
 function ctx(overrides: Partial<InlinePatchContext> = {}): InlinePatchContext {
@@ -66,5 +66,45 @@ describe("sanitizeInlinePatch", () => {
   it("coerces non-string free text safely", () => {
     const patch = { assignee: 123 } as unknown as Partial<Task>;
     expect(sanitizeInlinePatch(patch, ctx()).assignee).toBe("");
+  });
+});
+
+describe("assigneeEmail follows the changed-only write rule (spec Part 1, decision 3)", () => {
+  it("refuses a changed unsafe email and leaves the other keys intact", () => {
+    const c = ctx({ storedAssigneeEmail: "old@x.com" });
+    const patch = { assignee: "Bob", assigneeEmail: "a,b@x.com" };
+    expect(inlineAssigneeEmailRefusal(patch, c)).toBe("delimiter");
+    const out = sanitizeInlinePatch(patch, c);
+    expect(out).not.toHaveProperty("assigneeEmail");
+    expect(out.assignee).toBe("Bob");
+  });
+
+  it("keeps an unchanged stored unsafe email", () => {
+    const c = ctx({ storedAssigneeEmail: "a,b@x.com" });
+    expect(inlineAssigneeEmailRefusal({ assigneeEmail: "a,b@x.com" }, c)).toBeNull();
+    expect(sanitizeInlinePatch({ assigneeEmail: "a,b@x.com" }, c).assigneeEmail).toBe("a,b@x.com");
+  });
+
+  it("exempts a copy of a picked resource's stored email — the only path the cell's picker can take", () => {
+    const c = ctx({ storedAssigneeEmail: "old@x.com", copySourceEmails: ["a,b@x.com"] });
+    expect(sanitizeInlinePatch({ assigneeEmail: "a,b@x.com", resourceId: 7 }, c).assigneeEmail).toBe("a,b@x.com");
+  });
+
+  it("never refuses a clear", () => {
+    expect(inlineAssigneeEmailRefusal({ assigneeEmail: "" }, ctx({ storedAssigneeEmail: "a,b@x.com" }))).toBeNull();
+  });
+
+  // M-C4 — the cell stores the `Name <addr>`-unwrapped address, as every AI write
+  //  and load does, and judges that same value.
+  it("M-C4: judges and stores a typed Name <addr> as addr", () => {
+    const c = ctx({ storedAssigneeEmail: "old@x.com" });
+    const patch = { assigneeEmail: "Ann Lee <ann@x.com>" };
+    expect(inlineAssigneeEmailRefusal(patch, c)).toBeNull();
+    expect(sanitizeInlinePatch(patch, c).assigneeEmail).toBe("ann@x.com");
+  });
+
+  it("M-C4: a shape-only edit yields the stored address, so the pane's valuesDiffer sees no change", () => {
+    const c = ctx({ storedAssigneeEmail: "ada@x.com" });
+    expect(sanitizeInlinePatch({ assigneeEmail: "Ada <ada@x.com>" }, c).assigneeEmail).toBe("ada@x.com");
   });
 });

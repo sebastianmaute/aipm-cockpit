@@ -171,4 +171,13 @@ describe("AppModals", () => {
     render(<AppModals {...makeProps()} />);
     expect(screen.getByTestId("task-form-modal")).toHaveAttribute("data-budget-bucket", "absent");
   });
+
+  it("renders ResourceEditModal in the main window and never in a popout (open-followups §90)", () => {
+    stubTaskForm();
+    const editing = { resource: { id: 1, firstName: "Ada", lastName: "L", roleId: null, utilizationMode: "percent", utilization: {} } as never, isNew: true };
+    const { rerender } = render(<AppModals {...makeProps()} isPopout={false} editingResource={editing} />);
+    expect(screen.getByTestId("resource-edit-modal")).toBeInTheDocument(); // positive control
+    rerender(<AppModals {...makeProps()} isPopout={true} editingResource={editing} />);
+    expect(screen.queryByTestId("resource-edit-modal")).toBeNull();
+  });
 });

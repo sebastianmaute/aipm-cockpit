@@ -37,43 +37,140 @@ export function isDelimiterSafeEmail(s: string): boolean {
   return !/[,;]/.test(s.trim());
 }
 
-/** ★★★ THE ONE §422 RULE — the address an incoming `resource.emails` value
- *  would tear, or undefined. Every write boundary asks THIS and nothing else:
- *  `createResource` (stored = undefined), `updateResource` (stored = the
- *  row's `emails`), the resource editor's save (stored = the resource as of
- *  when the modal opened) and `describeEntityCalls` (stored = the item's
- *  `emails`, judged on the RAW incoming value), so the card and the write
- *  cannot disagree.
- *  - ARRAY: the first string member that fails `isDelimiterSafeEmail` AND is
- *    not already present, trimmed, in `stored`. An array is written VERBATIM,
- *    never split, so re-sending an address the row already holds tears
- *    nothing; only a NEW unsafe member is refused.
- *  - STRING: the first unsafe address in `stored` whose trimmed form occurs
- *    inside the string — `sanitizeEmailList` would re-split it. A string that
- *    omits every stored unsafe address is allowed: splitting a delimited
- *    string is the writer's design, and an omitted address is simply removed,
- *    which the card shows.
+/** The two reasons a write boundary refuses an email value. */
+export type EmailRefusal = "invalid" | "delimiter";
+
+/** ★ THE WRITE PREDICATE: a loose-format address (`isValidEmail`) that is also
+ *  delimiter-safe (`isDelimiterSafeEmail`). Neither component changes, and no
+ *  load or decode path calls this. */
+export function isWriteSafeEmail(s: string): boolean {
+  return isValidEmail(s) && isDelimiterSafeEmail(s);
+}
+
+/** ★★★ THE ONE SCALAR WRITE RULE for every email field, refusing a value only
+ *  when it CHANGES:
+ *  1. a blank `incoming` is never refused — clearing is always legal;
+ *  2. an `incoming` equal, trimmed, to `stored` is never refused, even when the
+ *     stored value is itself unsafe (a create passes `stored = undefined`);
+ *  3. an `incoming` equal, trimmed, to one of `copySources` is never refused —
+ *     a copy of a person's STORED email made by a picker or a reassign;
+ *  4. otherwise `"invalid"` when `isValidEmail` fails, `"delimiter"` when
+ *     `isDelimiterSafeEmail` fails, else null. `"a,b@x.com"` passes
+ *     `isValidEmail`, so it yields `"delimiter"`. */
+export function emailWriteRefusal(
+  incoming: string,
+  stored: string | undefined,
+  copySources: readonly (string | undefined)[] = [],
+): EmailRefusal | null {
+  const next = incoming.trim();
+  if (next === "") return null;
+  if (stored !== undefined && next === stored.trim()) return null;
+  if (copySources.some((source) => source !== undefined && source.trim() === next)) return null;
+  if (!isValidEmail(next)) return "invalid";
+  if (!isDelimiterSafeEmail(next)) return "delimiter";
+  return null;
+}
+
+/** ★★★ THE LIST FORM OF `emailWriteRefusal`, for `resource.emails` — the address
+ *  an incoming value would store unsafely, or undefined. Every `emails` write
+ *  boundary asks THIS with the same arguments: `createResource` (stored =
+ *  undefined), `updateResource` (stored = the row's `emails`), the resource
+ *  editor's save (stored = the resource as of when the modal opened) and
+ *  `describeEntityCalls` (stored = the item's `emails`, judged on the model's
+ *  RAW incoming value rather than the preview projection, with each member
+ *  unwrapped via `normalize`), so the card and the write cannot disagree.
+ *  - ARRAY: the first string member that is non-blank, NOT already present
+ *    (trimmed) in `stored`, and not `isWriteSafeEmail`. An array is written
+ *    verbatim, so re-sending a stored member changes nothing and is allowed.
+ *  - STRING: first, a stored delimiter-unsafe address the string contains
+ *    (`sanitizeEmailList` would re-split it); then the first member the
+ *    `[;,]` split produces that is new and not `isWriteSafeEmail`.
  *  - Anything else: undefined.
- *  ★ With no stored list (a new row) an array refuses every unsafe member
- *   and a string refuses nothing.
- *  ★★ It stops NEW torn addresses only. An address already stored still
- *   splits on a CSV, Markdown or Turso save (open-followups §533). */
+ *  ★ It stops NEW unsafe addresses only; stored ones keep loading. An address
+ *   already torn by a past CSV, Markdown or Turso save cannot be rebuilt — the
+ *   accepted limit recorded in open-followups §533.
+ *  ★★ `normalize` (M1): judge each member `Name <addr>`-unwrapped, as the AI
+ *   writers, the inline card and (M-C4) the human resource editor do, because
+ *   each of them STORES the unwrapped member. It defaults to off, but since
+ *   M-C4 every production caller passes `true` — reproduce:
+ *   `git grep -n "findTornEmail(" -- "src/app/*.ts" "src/app/*.tsx" ":!*.test.*"`.
+ *   The stored-torn check on a STRING always reads the raw string. */
 export function findTornEmail(
   incoming: unknown,
   stored: readonly string[] | undefined,
+  normalize = false,
 ): string | undefined {
   const storedList = (stored ?? []).filter((e): e is string => typeof e === "string");
+  const storedTrimmed = new Set(storedList.map((e) => e.trim()));
+  const shaped = (e: string): string => (normalize ? normalizeEmailShape(e.trim()) : e);
+  const isNewUnsafe = (e: string): boolean =>
+    e.trim() !== "" && !storedTrimmed.has(e.trim()) && !isWriteSafeEmail(e);
   if (Array.isArray(incoming)) {
-    const storedTrimmed = new Set(storedList.map((e) => e.trim()));
-    return incoming.find(
-      (e): e is string =>
-        typeof e === "string" && !isDelimiterSafeEmail(e) && !storedTrimmed.has(e.trim()),
-    );
+    return incoming.find((e): e is string => typeof e === "string" && isNewUnsafe(shaped(e)));
   }
   if (typeof incoming === "string") {
-    return storedList.find((e) => !isDelimiterSafeEmail(e) && incoming.includes(e.trim()));
+    const torn = storedList.find((e) => !isDelimiterSafeEmail(e) && incoming.includes(e.trim()));
+    if (torn !== undefined) return torn;
+    return incoming.split(/[;,]/).map((e) => shaped(e.trim())).find(isNewUnsafe);
   }
   return undefined;
+}
+
+// --- Email load clean-up (spec Part 2) --------------------------------------
+
+const NAME_ADDRESS_RE = /^[^<>]*<([^<>]+)>$/;
+
+/** ★ Only a provably equivalent shape: a scalar `Name <addr>` whose inner
+ *  `addr` is `isWriteSafeEmail` becomes `addr`. Anything else — including
+ *  `Name <a,b@x.com>` — is returned UNCHANGED, so nothing ever refuses, drops or
+ *  rewrites a value it cannot prove equal.
+ *  ★★★ M1 (pre-release review): NOT load-side only, which this said while five
+ *  AI writers already unwrapped through their sanitizers and two did not. It is
+ *  now ONE behaviour: every LOAD path and every AI email WRITE unwraps (the
+ *  writers store `sanitizeLoadedEmail`, `refuseEmailWrite` judges the unwrapped
+ *  value, `findTornEmail`'s `normalize` flag does it for `resource.emails`, and
+ *  the inline card's email readers show it). ★ M-C4: the HUMAN editors now judge
+ *  and store the same unwrapped value (`sanitizeLoadedEmail` /
+ *  `sanitizeLoadedStakeholderEmail`, and this function per `resource.emails`
+ *  member) instead of what the person typed. */
+export function normalizeEmailShape(value: string): string {
+  const match = NAME_ADDRESS_RE.exec(value.trim());
+  if (!match) return value;
+  const inner = match[1].trim();
+  return isWriteSafeEmail(inner) ? inner : value;
+}
+
+/** The list form, for `Resource.emails`: each member is unwrapped as above,
+ *  and a member holding several addresses splits into separate members only
+ *  when EVERY part is write-safe. */
+export function normalizeEmailListShape(list: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const member of list) {
+    const scalar = normalizeEmailShape(member);
+    if (scalar !== member) { out.push(scalar); continue; }
+    const parts = member.split(/[;,]/).map((p) => normalizeEmailShape(p.trim())).filter((p) => p !== "");
+    if (parts.length > 1 && parts.every(isWriteSafeEmail)) out.push(...parts);
+    else out.push(member);
+  }
+  return out;
+}
+
+/** Row helper for load paths that cast rows instead of sanitizing them
+ *  (IndexedDB, the JSON RAID map). Same reference when nothing changes. */
+export function withNormalizedEmailField<T extends object>(row: T, field: keyof T & string): T {
+  const value = (row as Record<string, unknown>)[field];
+  if (typeof value !== "string") return row;
+  const next = normalizeEmailShape(value);
+  return next === value ? row : { ...row, [field]: next };
+}
+
+/** A loaded scalar email: unwrap `Name <addr>` FIRST, then trim + cap. The
+ *  order is load-bearing — capping first can cut the closing `>` off a long
+ *  `Name <addr>`, which would then be stored torn instead of unwrapped.
+ *  ★ ONE argument (`sanitize-point-free.guard.test.ts`): the stakeholder's
+ *  narrower cap is its own named form, `sanitizeLoadedStakeholderEmail`. */
+export function sanitizeLoadedEmail(s: unknown): string {
+  return typeof s === "string" ? sanitizeText(normalizeEmailShape(s), EMAIL_MAX) : "";
 }
 
 // --- Generic helpers -------------------------------------------------------
@@ -165,17 +262,44 @@ export function sanitizeVoiceTranscript(s: string): string {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Returns the input unchanged if it's a valid YYYY-MM-DD in 1900..2100, else "". */
+/** A `YYYY-MM-DD` string that is a REAL calendar date in 1900..2100, returned
+ *  verbatim; otherwise "". ★ §539: the shape and year alone let "2026-13-01",
+ *  "2026-00-10" and "2026-02-30" through. The `Date.UTC` round trip rejects a
+ *  month outside 1..12 and a day past the month's real length (leap years
+ *  included). Such a value is unusable — `<input type="date">` blanks it, and
+ *  date math either rolls a day overflow silently into the next month or turns
+ *  a month overflow into NaN — so write paths refuse it and load paths blank an
+ *  OPTIONAL date field with it. ★ A REQUIRED date on a load path is read with
+ *  `requiredIsoDateOnLoad` (sanitize-load-date.ts) instead, which keeps the raw
+ *  value with a diagnostic: blanking it would drop the whole record. */
 export function sanitizeIsoDate(s: unknown): string {
   if (typeof s !== "string" || !ISO_DATE_RE.test(s)) return "";
   const y = Number(s.slice(0, 4));
   if (!Number.isFinite(y) || y < 1900 || y > 2100) return "";
+  const m = Number(s.slice(5, 7));
+  const d = Number(s.slice(8, 10));
+  const utc = new Date(Date.UTC(y, m - 1, d));
+  if (utc.getUTCFullYear() !== y || utc.getUTCMonth() !== m - 1 || utc.getUTCDate() !== d) return "";
   return s;
 }
 
+/** How an entity sanitizer reads a REQUIRED date field: `sanitizeIsoDate` on
+ *  write paths (the extra arguments are ignored), `requiredIsoDateOnLoad`
+ *  (sanitize-load-date.ts) on load paths. */
+export type RequiredDateReader = (value: unknown, entity: string, id: unknown, field: string) => string;
+
 const PRIORITIES_SET = new Set<Priority>(["Low", "Medium", "High", "Urgent"]);
 
-export function sanitizePriority(p: unknown, fallback: Priority = "Medium"): Priority {
+/** ★ ONE argument, so it is safe point-free (`sanitize-point-free.guard.test.ts`);
+ *  an optional `fallback` would have received the map INDEX. */
+export function sanitizePriority(p: unknown): Priority {
+  return sanitizePriorityOr(p, "Medium");
+}
+
+/** `sanitizePriority` with the caller's fallback — e.g. the stored priority, so
+ *  an invalid model value leaves the task where it was. The fallback is a
+ *  required `Priority`, so a point-free pass fails tsc instead of taking the index. */
+export function sanitizePriorityOr(p: unknown, fallback: Priority): Priority {
   return typeof p === "string" && PRIORITIES_SET.has(p as Priority)
     ? (p as Priority)
     : fallback;
