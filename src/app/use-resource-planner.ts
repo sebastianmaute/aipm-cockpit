@@ -13,7 +13,7 @@ import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type AbsenceType, type RaidEscalation, type RaidItem, type Shift, type Task } from "./types";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
-import { isWriteSafeEmail } from "./sanitize";
+import { isWriteSafeEmail, sanitizeLoadedEmail } from "./sanitize";
 import { typedEmailRefusalKey } from "./email-refusal-i18n";
 import { descriptionHtml } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
@@ -294,7 +294,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       if (!email) {
         const provided = window.prompt(t(lang, "promptEmail", item.owner || item.title), "");
         if (provided === null) return;
-        const trimmed = provided.trim();
+        const trimmed = sanitizeLoadedEmail(provided); // M-C4: the unwrapped address, as every AI write stores
         if (!isWriteSafeEmail(trimmed)) {
           window.alert(t(lang, typedEmailRefusalKey(trimmed)));
           return;

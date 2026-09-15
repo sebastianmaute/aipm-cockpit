@@ -1416,6 +1416,17 @@ describe("useResourcePlanner", () => {
       vi.restoreAllMocks();
     });
 
+    it("M-C4: persists a prompted Name <addr> owner email as addr and sends to it", () => {
+      vi.spyOn(window, "prompt").mockReturnValue("No Email <owner@x.com>");
+      const { result } = renderPlanner();
+      act(() => { result.current.workspace.setRaid([owned({ owner: "No Email", ownerEmail: undefined })]); });
+      act(() => { result.current.planner.handleSendRaidInquiry(owned({ owner: "No Email", ownerEmail: undefined })); });
+      expect((result.current.workspace.raid[0] as RaidItem).ownerEmail).toBe("owner@x.com");
+      expect(hrefValue).toContain(encodeURIComponent("owner@x.com"));
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+      vi.restoreAllMocks();
+    });
+
     it("alerts with the delimiter message and does nothing for a delimiter-bearing prompted email", () => {
       vi.spyOn(window, "prompt").mockReturnValue("a,b@x.com");
       const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});

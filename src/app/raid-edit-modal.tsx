@@ -42,7 +42,7 @@ import { RaidCausedByField, RaidLinkedTasksField } from "./raid-edit-fields";
 import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
-import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX, sanitizeEmail } from "./sanitize";
+import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX, sanitizeLoadedEmail } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
 import { filterPickerOptions } from "./picker-filter";
@@ -160,11 +160,12 @@ export function RaidEditModal({
     setOpenedOwnerEmail(draft.ownerEmail);
   }
   // ★ Judge (and, on save, store) the value the write path actually applies:
-  // `sanitizeEmail` (EMAIL_MAX) is the SAME treatment the AI writer's
-  // `ownerEmail: sanitizeEmail` field descriptor and every decode path give
-  // this field, matching the cap `handleSubmit` already applies to
-  // `title`/`owner` on the saved object. Fix round 1, IMPORTANT 2.
-  const cappedOwnerEmail = sanitizeEmail(draft.ownerEmail ?? "") || undefined;
+  // `sanitizeLoadedEmail` (unwrap `Name <addr>`, then trim + EMAIL_MAX) is the
+  // SAME treatment the AI writer (`sanitizeRaidItem`), its
+  // `ownerEmail: sanitizeLoadedEmail` field descriptor and every decode path
+  // give this field (M1, M-C4), matching the cap `handleSubmit` already applies
+  // to `title`/`owner` on the saved object. Fix round 1, IMPORTANT 2.
+  const cappedOwnerEmail = sanitizeLoadedEmail(draft.ownerEmail ?? "") || undefined;
 
   const statusOpts = statusOptionsFor(draft.category);
 

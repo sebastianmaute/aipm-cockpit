@@ -187,6 +187,26 @@ describe("RAID owner email follows the changed-only write rule", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 
+  // M-C4 — the editor stores the `Name <addr>`-unwrapped address, as every AI
+  //  write and load does, and judges (and flags) that same value.
+  it("M-C4: a typed Name <addr> owner email saves as addr, unflagged", () => {
+    const onSave = vi.fn();
+    render(<StatefulModal initial={makeDraft({ ownerEmail: "old@x.com" })} onSave={onSave} />, { wrapper });
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "Ann Lee <ann@x.com>" } });
+    expect(screen.queryByText(t("en-US", "errorInvalidEmail"))).toBeNull();
+    fireEvent.submit(screen.getByRole("button", { name: t("en-US", "raidSave") }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].ownerEmail).toBe("ann@x.com");
+  });
+
+  it("M-C4: a shape-only owner email edit saves the unchanged address", () => {
+    const onSave = vi.fn();
+    render(<StatefulModal initial={makeDraft({ ownerEmail: "ada@x.com" })} onSave={onSave} />, { wrapper });
+    fireEvent.change(screen.getByDisplayValue("ada@x.com"), { target: { value: "Ada<ada@x.com>" } });
+    fireEvent.submit(screen.getByRole("button", { name: t("en-US", "raidSave") }).closest("form")!);
+    expect(onSave.mock.calls[0][0].ownerEmail).toBe("ada@x.com");
+  });
+
   // Positive control: the SAME unsafe value with no resource link is refused.
   it("positive control: the identical value with no link is refused", () => {
     const onSave = vi.fn();
