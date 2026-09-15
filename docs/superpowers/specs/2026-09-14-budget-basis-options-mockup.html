@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Basis Options — §499 / §501 / §504</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #ffffff; --muted: #5b6573; --text: #16202b;
+    --border: #d9dee5; --blue: #0b3a64; --green: #2f8f4e; --pink: #c2185b;
+    --amber: #a8660b; --grey: #8a94a3; --accent-bg: #eef3f8; --warn-bg: #fdf1f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10161d; --surface: #18212b; --muted: #9aa6b4; --text: #e6ebf1;
+      --border: #2c3845; --blue: #7fb3e6; --green: #6cc48a; --pink: #f07aa6;
+      --amber: #e0a54a; --grey: #7c8796; --accent-bg: #1d2a38; --warn-bg: #2d1c24;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px 16px 48px; }
+  .wrap { max-width: 1320px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 0 0 2px; }
+  h3 { font-size: 13px; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  p.lead { color: var(--muted); margin: 0 0 20px; max-width: 900px; }
+  .note { font-size: 12px; color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); gap: 20px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; min-width: 0; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+    background: var(--accent-bg); color: var(--blue); margin-bottom: 8px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .tile { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  .tile .l { font-size: 11px; color: var(--muted); }
+  .tile .v { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 11px; color: var(--muted); }
+  .tile.bad .v { color: var(--pink); }
+  .tile.new { border-color: var(--blue); border-style: dashed; }
+  .i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--muted);
+    font-size: 9px; line-height: 12px; text-align: center; color: var(--muted); margin-left: 3px; vertical-align: 1px; }
+  .summary { margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--blue); background: var(--accent-bg);
+    font-size: 13px; font-variant-numeric: tabular-nums; }
+  .callout { margin-top: 10px; padding: 8px 10px; border-left: 3px solid var(--pink); background: var(--warn-bg); font-size: 13px; }
+  .chart { overflow-x: auto; }
+  svg { display: block; max-width: 100%; height: auto; }
+  svg text { fill: var(--muted); font-size: 10px; font-family: inherit; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .sw { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 4px; }
+  .dash { border-top-style: dashed; }
+  .dash-tile { display: flex; gap: 12px; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; max-width: 360px; }
+  .dash-tile .big { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .dot { width: 10px; border-radius: 3px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--accent-bg); }
+  td:first-child { font-weight: 600; width: 22%; }
+  .good { color: var(--green); font-weight: 600; }
+  .weak { color: var(--pink); font-weight: 600; }
+  .mid { color: var(--amber); font-weight: 600; }
+  .tablewrap { overflow-x: auto; }
+  code { font-size: 12px; background: var(--accent-bg); padding: 1px 4px; border-radius: 4px; }
+  @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Budget basis: option 1 vs option 2</h1>
+<p class="lead">
+  Two ways to show the executive figures (§499), EVM wording (§501) and a burn-down forecast (§504) in contract money.
+  <strong>Same illustrative project in both:</strong> contract budget €240,000, planned 5 Jan – 18 Dec 2026, today 14 Sep 2026,
+  €168,000 booked, €27,000 booked in the last 4 weeks (20 working days), 62% of linked tasks finished.
+  Numbers are invented but internally consistent. Colours are approximate, not the app palette. Dashed tiles are new; the rest exist today.
+</p>
+
+<div class="grid2">
+
+<!-- ============================ OPTION 1 ============================ -->
+<section class="panel">
+  <span class="tag">Option 1 · AIPM burn-rate method</span>
+  <h2>Contract price, forecast from recent burn</h2>
+  <p class="sub">Follows the AIPM Project Burndown Dashboard: remaining budget ÷ the last 4 weeks' average spend.
+     Asks “when does the money run out, and what will it have cost by the planned end?”</p>
+
+  <h3>Budget report · project total</h3>
+  <div class="tiles">
+    <div class="tile"><div class="l">Budget (BAC)<span class="i">i</span></div><div class="v">€240,000</div><div class="s">contract value</div></div>
+    <div class="tile"><div class="l">Actuals (AC)</div><div class="v">€168,000</div><div class="s">70% of budget</div></div>
+    <div class="tile"><div class="l">Remaining</div><div class="v">€72,000</div><div class="s">30% of budget</div></div>
+    <div class="tile new"><div class="l">Burn rate (last 4 weeks)<span class="i">i</span></div><div class="v">€1,350/day</div><div class="s">€6,750/week</div></div>
+    <div class="tile new"><div class="l">Forecast to complete (ETC)<span class="i">i</span></div><div class="v">€93,150</div><div class="s">burn × 69 working days left</div></div>
+    <div class="tile new"><div class="l">Estimate at completion (EAC)</div><div class="v">€261,150</div><div class="s">AC + ETC</div></div>
+    <div class="tile new bad"><div class="l">Variance at completion (VAC)</div><div class="v">−€21,150</div><div class="s">−8.8% of budget</div></div>
+    <div class="tile new bad"><div class="l">Budget runs out</div><div class="v">26 Nov 2026</div><div class="s">3 weeks before planned end</div></div>
+  </div>
+
+  <h3>Burn-down (remaining budget)</h3>
+  <div class="chart">
+  <svg viewBox="0 0 640 262" role="img" aria-label="Option 1 burn-down: ideal line, actual remaining budget to today, and a dashed forecast reaching zero on 26 November, before the 18 December planned end">
+    <!-- grid -->
+    <g stroke="var(--border)" stroke-width="1">
+      <line x1="60" y1="230" x2="620" y2="230"/>
+      <line x1="60" y1="171.8" x2="620" y2="171.8" stroke-dasharray="2 4"/>
+      <line x1="60" y1="113.5" x2="620" y2="113.5" stroke-dasharray="2 4"/>
+      <line x1="60" y1="55.2" x2="620" y2="55.2" stroke-dasharray="2 4"/>
+    </g>
+    <text x="54" y="233" text-anchor="end">€0</text>
+    <text x="54" y="175" text-anchor="end">€72k</text>
+    <text x="54" y="117" text-anchor="end">€144k</text>
+    <text x="54" y="58" text-anchor="end">€216k</text>
+    <g text-anchor="middle">
+      <text x="60" y="248">Jan</text><text x="143.6" y="248">Mar</text><text x="230.1" y="248">May</text>
+      <text x="316.6" y="248">Jul</text><text x="404.5" y="248">Sep</text><text x="491" y="248">Nov</text><text x="577.5" y="248">Jan</text>
+    </g>
+    <!-- ideal -->
+    <line x1="65.7" y1="36.2" x2="557.6" y2="230" stroke="var(--grey)" stroke-width="2" stroke-dasharray="6 4"/>
+    <!-- actual -->
+    <polyline points="65.7,36.2 143.6,50.7 230.1,84.6 316.6,125 360.6,145.2 423,171.8" fill="none" stroke="var(--green)" stroke-width="2.5"/>
+    <!-- forecast -->
+    <line x1="423" y1="171.8" x2="526.4" y2="230" stroke="var(--blue)" stroke-width="2.5" stroke-dasharray="7 4"/>
+    <!-- today -->
+    <line x1="423" y1="20" x2="423" y2="230" stroke="var(--text)" stroke-width="1" stroke-dasharray="3 3"/>
+    <text x="427" y="30">today</text>
+    <!-- planned end -->
+    <line x1="557.6" y1="20" x2="557.6" y2="230" stroke="var(--grey)" stroke-width="1"/>
+    <text x="561" y="30">planned end</text>
+    <!-- depletion -->
+    <circle cx="526.4" cy="230" r="4.5" fill="var(--pink)"/>
+    <text x="519" y="226" text-anchor="end" style="fill:var(--pink)">26 Nov</text>
+    <line x1="526.4" y1="200" x2="557.6" y2="200" stroke="var(--pink)" stroke-width="1"/>
+    <text x="542" y="195" text-anchor="middle" style="fill:var(--pink)">−22 d</text>
+  </svg>
+  </div>
+  <div class="legend">
+    <span><span class="sw dash" style="border-color:var(--grey)"></span>Planned (ideal)</span>
+    <span><span class="sw" style="border-color:var(--green)"></span>Actual remaining</span>
+    <span><span class="sw dash" style="border-color:var(--blue)"></span>Forecast (4-week burn)</span>
+  </div>
+  <div class="summary">Forecast — budget runs out <strong>26 Nov 2026</strong>, in 73 days · burn €1,350/day · <strong>Budget runs out 3 weeks before project end</strong></div>
+
+  <h3>Earned value section (unchanged engine, relabelled)</h3>
+  <div class="tiles">
+    <div class="tile"><div class="l">Planned value (PV) · effort</div><div class="v">1,620 h</div></div>
+    <div class="tile"><div class="l">Earned value (EV) · effort</div><div class="v">1,410 h</div></div>
+    <div class="tile"><div class="l">CPI · effort<span class="i">i</span></div><div class="v">0.91</div></div>
+    <div class="tile"><div class="l">SPI · effort<span class="i">i</span></div><div class="v">0.87</div></div>
+  </div>
+  <p class="note">Indices stay on task effort. Every label says so, and the budget figures above never divide by them.</p>
+
+  <h3>Dashboard tile</h3>
+  <div class="dash-tile">
+    <div class="dot" style="background:var(--amber)"></div>
+    <div>
+      <div class="note">Budget · estimate at completion</div>
+      <div class="big">€261k <span style="font-size:14px;color:var(--pink)">VAC −8.8%</span></div>
+      <div class="note">Runs out 26 Nov, 3 weeks before planned end</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ OPTION 2 ============================ -->
+<section class="panel">
+  <span class="tag">Option 2 · EVM formulas on price</span>
+  <h2>Contract price, forecast from cost performance</h2>
+  <p class="sub">Textbook EVM (PMI): EAC = AC + (BAC − EV) ÷ CPI, with EV = contract budget × % complete.
+     Asks “given how efficiently we have turned money into finished work, what will the whole job cost?”</p>
+
+  <h3>Budget report · project total</h3>
+  <div class="tiles">
+    <div class="tile"><div class="l">Budget at completion (BAC)<span class="i">i</span></div><div class="v">€240,000</div><div class="s">contract value</div></div>
+    <div class="tile"><div class="l">Actual cost (AC)</div><div class="v">€168,000</div><div class="s">70% of budget</div></div>
+    <div class="tile new"><div class="l">Planned value (PV)<span class="i">i</span></div><div class="v">€176,000</div><div class="s">budget scheduled to date</div></div>
+    <div class="tile new"><div class="l">Earned value (EV)<span class="i">i</span></div><div class="v">€148,800</div><div class="s">62% complete × BAC</div></div>
+    <div class="tile new bad"><div class="l">CPI (price)<span class="i">i</span></div><div class="v">0.89</div><div class="s">EV ÷ AC</div></div>
+    <div class="tile new bad"><div class="l">SPI (price)<span class="i">i</span></div><div class="v">0.85</div><div class="s">EV ÷ PV</div></div>
+    <div class="tile new"><div class="l">Estimate to complete (ETC)</div><div class="v">€102,968</div><div class="s">(BAC − EV) ÷ CPI</div></div>
+    <div class="tile new"><div class="l">Estimate at completion (EAC)</div><div class="v">€270,968</div><div class="s">AC + ETC</div></div>
+    <div class="tile new bad"><div class="l">Variance at completion (VAC)</div><div class="v">−€30,968</div><div class="s">−12.9% of budget</div></div>
+  </div>
+
+  <h3>S-curve (cumulative)</h3>
+  <div class="chart">
+  <svg viewBox="0 0 640 262" role="img" aria-label="Option 2 S-curve: planned value and actual cost accumulate over time, earned value is a single point today, and a dashed forecast climbs from actual cost to the estimate at completion above the budget line">
+    <g stroke="var(--border)" stroke-width="1">
+      <line x1="60" y1="230" x2="620" y2="230"/>
+      <line x1="60" y1="160" x2="620" y2="160" stroke-dasharray="2 4"/>
+      <line x1="60" y1="90" x2="620" y2="90" stroke-dasharray="2 4"/>
+    </g>
+    <text x="54" y="233" text-anchor="end">€0</text>
+    <text x="54" y="163" text-anchor="end">€100k</text>
+    <text x="54" y="93" text-anchor="end">€200k</text>
+    <g text-anchor="middle">
+      <text x="60" y="248">Jan</text><text x="143.6" y="248">Mar</text><text x="230.1" y="248">May</text>
+      <text x="316.6" y="248">Jul</text><text x="404.5" y="248">Sep</text><text x="491" y="248">Nov</text><text x="577.5" y="248">Jan</text>
+    </g>
+    <!-- BAC line -->
+    <line x1="60" y1="62" x2="620" y2="62" stroke="var(--grey)" stroke-width="1.5" stroke-dasharray="6 4"/>
+    <text x="64" y="57">BAC €240k</text>
+    <!-- EAC line -->
+    <line x1="423" y1="40.3" x2="620" y2="40.3" stroke="var(--pink)" stroke-width="1.5" stroke-dasharray="2 3"/>
+    <text x="616" y="35" text-anchor="end" style="fill:var(--pink)">EAC €271k</text>
+    <!-- PV -->
+    <polyline points="65.7,230 143.6,214.6 230.1,181 316.6,142.5 423,106.8 491,79.5 557.6,62" fill="none" stroke="var(--grey)" stroke-width="2.5"/>
+    <!-- AC -->
+    <polyline points="65.7,230 143.6,217.4 230.1,188 316.6,153 360.6,135.5 423,112.4" fill="none" stroke="var(--green)" stroke-width="2.5"/>
+    <!-- forecast -->
+    <line x1="423" y1="112.4" x2="557.6" y2="40.3" stroke="var(--blue)" stroke-width="2.5" stroke-dasharray="7 4"/>
+    <!-- EV point -->
+    <circle cx="423" cy="125.8" r="5" fill="var(--amber)"/>
+    <text x="417" y="139" text-anchor="end" style="fill:var(--amber)">EV €149k</text>
+    <!-- today / planned end -->
+    <line x1="423" y1="20" x2="423" y2="230" stroke="var(--text)" stroke-width="1" stroke-dasharray="3 3"/>
+    <text x="427" y="228">today</text>
+    <line x1="557.6" y1="20" x2="557.6" y2="230" stroke="var(--grey)" stroke-width="1"/>
+    <!-- VAC bracket -->
+    <line x1="590" y1="40.3" x2="590" y2="62" stroke="var(--pink)" stroke-width="2"/>
+    <text x="596" y="56" style="fill:var(--pink)">VAC</text>
+  </svg>
+  </div>
+  <div class="legend">
+    <span><span class="sw" style="border-color:var(--grey)"></span>Planned value (PV)</span>
+    <span><span class="sw" style="border-color:var(--green)"></span>Actual cost (AC)</span>
+    <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--amber);margin-right:4px"></span>Earned value (EV) — today only</span>
+    <span><span class="sw dash" style="border-color:var(--blue)"></span>Forecast to EAC</span>
+  </div>
+  <div class="summary">EAC <strong>€270,968</strong> · VAC <strong>−€30,968 (−12.9%)</strong> · CPI 0.89 · SPI 0.85</div>
+  <p class="note">EV is only a single point. Percent complete is not stored over time, so there is no EV curve until history exists (same reason the 2026-06 spec deferred it).</p>
+
+  <div class="callout">
+    <strong>Two CPIs on screen.</strong> The Budget panel already shows <em>Cost recovery 1.12</em>, which is EV ÷ actual cost on
+    <em>internal</em> cost. Here the CPI on <em>price</em> reads 0.89 for the same project, and the task-effort CPI is 0.91.
+    Three “CPI” numbers mean different things. That is the confusion §464 closed.
+  </div>
+
+  <h3>Dashboard tile</h3>
+  <div class="dash-tile">
+    <div class="dot" style="background:var(--pink)"></div>
+    <div>
+      <div class="note">Budget · estimate at completion</div>
+      <div class="big">€271k <span style="font-size:14px;color:var(--pink)">VAC −12.9%</span></div>
+      <div class="note">CPI 0.89 · SPI 0.85</div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<!-- ============================ COMPARISON ============================ -->
+<section class="panel" style="margin-top:20px">
+  <h2>Comparison</h2>
+  <p class="sub">Both use contract money. The difference is <em>what drives the forecast</em>: recent spending pace (1) or progress-adjusted efficiency (2).</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Aspect</th><th>Option 1 · AIPM burn-rate</th><th>Option 2 · EVM formulas on price</th></tr></thead>
+    <tbody>
+      <tr><td>Question answered</td>
+          <td>When does the money run out at the current pace, and what will it have cost by the planned end?</td>
+          <td>Given progress per euro so far, what will the whole scope cost?</td></tr>
+      <tr><td>Inputs</td>
+          <td>Budget, bookings with dates, planned end, working-day calendar.</td>
+          <td>Budget, bookings, <strong>% complete</strong> (linked tasks or manual), budget phased per period for PV.</td></tr>
+      <tr><td>This example</td>
+          <td>EAC €261k · VAC −8.8% · runs out 26 Nov</td>
+          <td>EAC €271k · VAC −12.9% · CPI 0.89 · SPI 0.85</td></tr>
+      <tr><td>Sees scope progress?</td>
+          <td class="weak">No. A team burning steadily on the wrong work looks fine.</td>
+          <td class="good">Yes. Money spent without finished work lowers CPI and raises EAC.</td></tr>
+      <tr><td>Sees staffing changes?</td>
+          <td class="good">Yes, within 4 weeks: a new consultant raises the burn rate at once.</td>
+          <td class="mid">Only indirectly, as CPI drifts.</td></tr>
+      <tr><td>Works without task links / % complete</td>
+          <td class="good">Yes. Needs bookings only.</td>
+          <td class="weak">No. Without % complete, EV, CPI, ETC and EAC are all blank.</td></tr>
+      <tr><td>Early project (&lt; 4 weeks booked) or pause</td>
+          <td class="mid">Burn rate is thin or zero; forecast shown as “not enough recent bookings”.</td>
+          <td class="mid">EV is tiny and CPI swings wildly in the first weeks.</td></tr>
+      <tr><td>Matches AIPM Project Burndown (§504)</td>
+          <td class="good">Yes, same formula, 4-week lookback, depletion date and “N weeks before project end” text.</td>
+          <td class="weak">No. Different forecast; the AIPM dashboard has no EV or CPI.</td></tr>
+      <tr><td>EVM terminology (§501 ask)</td>
+          <td class="mid">BAC, AC, ETC, EAC and VAC labels yes; ETC is a burn-rate ETC, not the PMI one (the hint says so).</td>
+          <td class="good">Full PMI set: BAC, PV, EV, AC, CPI, SPI, ETC, EAC, VAC.</td></tr>
+      <tr><td>Chart</td>
+          <td>Burn-down with forecast line (extends today's chart).</td>
+          <td>S-curve (new chart); EV only a point today, no curve until history is stored.</td></tr>
+      <tr><td>CPI confusion (§464)</td>
+          <td class="good">No new index. Existing effort indices relabelled “· effort”.</td>
+          <td class="weak">Adds a price CPI next to the internal-cost “Cost recovery” and the effort CPI.</td></tr>
+      <tr><td>Explainable to a stakeholder</td>
+          <td class="good">“We spend €1,350 a day; €72k left lasts until 26 Nov.”</td>
+          <td class="mid">Needs EV and CPI explained first.</td></tr>
+      <tr><td>Fixed-price buckets</td>
+          <td class="mid">Budget is the contract amount; how actuals are valued still needs checking against <code>consumedValue</code>.</td>
+          <td class="mid">Same check, plus % complete must exist on every budgeted bucket or the rollup blanks.</td></tr>
+      <tr><td>Build effort (estimate)</td>
+          <td>M: dated booking series (exists for the burn-down), burn rate, depletion, 4 tiles, forecast line, labels.</td>
+          <td>M–L: price-basis EV and CPI, PV per period, 9 tiles, new S-curve chart, disambiguating three CPIs.</td></tr>
+      <tr><td>Register coverage</td>
+          <td>§499 yes · §504 yes · §501 labels yes, S-curve later</td>
+          <td>§499 yes · §501 yes (point-EV S-curve) · §504 no</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note" style="margin-top:10px">
+    <strong>A hybrid is possible:</strong> option 1 as the headline figures and forecast, with option 2's EAC shown as a second
+    “EAC (performance-based)” only when % complete exists. That doubles the explanations needed; worth deciding after you've looked at both.
+  </p>
+</section>
+
+</div>
+</body>
+</html>

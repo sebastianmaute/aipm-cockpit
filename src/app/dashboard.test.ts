@@ -6,7 +6,8 @@ import {
   type DashboardInput,
 } from "./dashboard";
 import type { ProjectReport } from "./budget-report";
-import type { Task, RaidItem, Milestone, ChangeItem, BudgetBucket } from "./types";
+import { isPaceAvailable } from "./budget-forecast";
+import type { Task, RaidItem, Milestone, ChangeItem, BudgetBucket, Role } from "./types";
 import type { ActivityEntry } from "./activity-log";
 
 function task(o: Partial<Task> = {}): Task {
@@ -289,6 +290,84 @@ describe("computeDashboard", () => {
     expect(m.budget.computed).toBe("A");
     expect(m.budget.effective).toBe("G");
     expect(m.budget.overridden).toBe(true);
+  });
+
+  // Ruling 7: once the pace forecast exists, the Budget RAG reads the pace
+  // VAC instead of the consumed/budget ratio (spec §6.3). A single T&M bucket,
+  // budgeted 1000h in June at the role's €100 external rate -> BAC €100,000.
+  describe("Budget RAG from the pace forecast (Ruling 7)", () => {
+    const forecastToday = "2026-09-14"; // Monday; matches the §5.6 fixture.
+    // The 20 working days immediately before `forecastToday`, no holidays —
+    // the pace window (`workingDaysBefore(forecastToday, 20, none)`).
+    const WINDOW_DAYS = [
+      "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21",
+      "2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28",
+      "2026-08-31", "2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04",
+      "2026-09-07", "2026-09-08", "2026-09-09", "2026-09-10", "2026-09-11",
+    ];
+    const forecastRole = { id: 1, disciplineId: 1, name: "Dev", gradeId: 1, internalRate: 60, externalRate: 100 } as Role;
+
+    /** Spreads `totalValue` (in EUR, at the role's €100/h external rate) evenly
+     *  as day-keyed actual hours across `days`. */
+    function spreadDaily(days: string[], totalValue: number): Record<string, number> {
+      const perDay = totalValue / days.length / forecastRole.externalRate;
+      return Object.fromEntries(days.map((d) => [d, perDay]));
+    }
+
+    function forecastBucket(actualHours: Record<string, number>): BudgetBucket {
+      return {
+        id: 1, name: "B1", type: "tm", currency: "EUR",
+        startDate: "2026-01-01", endDate: "2026-12-31", status: "open",
+        allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-06": 1000 }, actualHours }],
+      } as unknown as BudgetBucket;
+    }
+
+    it("reads R when >= 20 working days are booked and the pace VAC is -15% of BAC", () => {
+      // ac = 57,500 booked evenly over the window; workingDaysLeft = 20 (plan
+      // ends exactly 20 working days after today) -> burnRatePerDay = 2,875,
+      // etc = 57,500, eac = 115,000 = 1.15 x BAC -> vac = -15,000 = -15% of BAC.
+      const budgets = [forecastBucket(spreadDaily(WINDOW_DAYS, 57_500))];
+      const m = computeDashboard(baseInput({
+        budgets, roles: [forecastRole], today: forecastToday,
+        plan: { startDate: "2026-01-01", endDate: "2026-10-12", granularity: "month", currency: "EUR" },
+      }));
+      expect(m.forecast).not.toBeNull();
+      expect(isPaceAvailable(m.forecast!.pace)).toBe(true);
+      if (isPaceAvailable(m.forecast!.pace)) {
+        expect(m.forecast!.pace.vac).toBeCloseTo(-15_000, 6);
+      }
+      expect(m.budget.computed).toBe("R");
+      expect(m.budget.effective).toBe("R");
+    });
+
+    it("falls back to the consumed/budget ratio rule when nothing is booked", () => {
+      const budgets = [forecastBucket({})];
+      const m = computeDashboard(baseInput({
+        budgets, roles: [forecastRole], today: forecastToday,
+        plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
+      }));
+      expect(m.forecast).not.toBeNull();
+      expect(isPaceAvailable(m.forecast!.pace)).toBe(false);
+      // consumedValue 0 / budgetValue 100,000 -> the ratio rule's Green branch.
+      expect(m.budget.computed).toBe("G");
+    });
+
+    it("reads G from a pace VAC >= 0 even when consumed/budget is >= 0.9 (the ratio rule's Amber threshold)", () => {
+      // ac = 95,000 (95% of BAC) booked evenly over the window; plan ends
+      // TODAY -> workingDaysLeft = 0 -> etc = 0 -> eac = ac = 95,000 ->
+      // vac = +5,000 (>= 0), even though consumed/budget = 0.95 >= amberRatio.
+      const budgets = [forecastBucket(spreadDaily(WINDOW_DAYS, 95_000))];
+      const m = computeDashboard(baseInput({
+        budgets, roles: [forecastRole], today: forecastToday,
+        plan: { startDate: "2026-01-01", endDate: forecastToday, granularity: "month", currency: "EUR" },
+      }));
+      expect(m.forecast).not.toBeNull();
+      expect(isPaceAvailable(m.forecast!.pace)).toBe(true);
+      if (isPaceAvailable(m.forecast!.pace)) {
+        expect(m.forecast!.pace.vac).toBeGreaterThanOrEqual(0);
+      }
+      expect(m.budget.computed).toBe("G");
+    });
   });
 
   // Two buckets covering Mar-Jun of a Jan-Dec plan, so a chained span is a

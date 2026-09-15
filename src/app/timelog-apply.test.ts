@@ -674,6 +674,29 @@ describe("dated apply", () => {
     const after = applyActualsToBuckets([b], datedOverlay, resources, roles);
     expect(after[0].allocations[1].actualHours).toEqual({ "2026-05": 9 });
   });
+
+  it("removes a hand-typed month key that overlaps a weekly dated apply (§543)", () => {
+    const agg = aggregateActuals([tItem(1, 9, "2026-06-10", 4)], links);
+    const after = applyActualsToBuckets([bucketWith({ "2026-06": 10 })], bucketOverlay(agg, "week"), resources, roles);
+    const hours = after[0].allocations[0].actualHours;
+    expect(hours["2026-06"]).toBeUndefined();
+    expect(actualHoursIn(hours, "2026-06")).toBe(4);
+    expect(actualHoursIn(hours, "2026-W24")).toBe(4);
+  });
+
+  it("removes a hand-typed week key that overlaps a monthly dated apply (§543)", () => {
+    const agg = aggregateActuals([tItem(1, 9, "2026-06-10", 4)], links);
+    const after = applyActualsToBuckets([bucketWith({ "2026-W24": 10 })], bucketOverlay(agg, "month"), resources, roles);
+    const hours = after[0].allocations[0].actualHours;
+    expect(hours["2026-W24"]).toBeUndefined();
+    expect(actualHoursIn(hours, "2026-W24")).toBe(4);
+  });
+
+  it("keeps an other-granularity key that no applied day falls in (§543)", () => {
+    const agg = aggregateActuals([tItem(1, 9, "2026-06-10", 4)], links);
+    const after = applyActualsToBuckets([bucketWith({ "2026-07": 8 })], bucketOverlay(agg, "week"), resources, roles);
+    expect(after[0].allocations[0].actualHours["2026-07"]).toBe(8);
+  });
 });
 
 describe("bucketsMissingAllocations", () => {

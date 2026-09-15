@@ -259,6 +259,13 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   ★★ Calendar being unscanned has already cost real bugs: 0.202.0 shipped an AA contrast failure
   there (`text-ui-pink` on `bg-surface-muted`, under the 4.5:1 AA threshold) that a fully green axe run said nothing
   about (the count at the time was lower than today's, which is why this sentence no longer quotes one). Check contrast BY HAND for anything styled on that surface.
+  ★ **"Reports" in the list means the `reports` PARENT view, not the Budget report.** `openView(page,
+  "Reports")` (`e2e/seed.ts`) clicks the sidebar item whose accessible name is exactly "Reports", which
+  lands on the `reports` view; `budget-report` is a separate CHILD view under that nav group
+  (`nav-config.ts`: `{ view: "reports", children: [{ view: "budget-report" }, ...] }`), reached only by
+  navigating further in. The scan never lands there, so the Forecast cards/banner/tooltips added to
+  `budget-report-panel.tsx` are covered by no axe run — eye-verify them, same class as the Calendar
+  sub-tab above.
   Verify IA/UI/contrast changes with
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
   BEFORE pushing — unit suite (`test:run` = vitest) never runs playwright, so axe regressions slip

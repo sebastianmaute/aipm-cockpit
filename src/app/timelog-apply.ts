@@ -2,7 +2,8 @@
 import type { BudgetBucket, BucketAllocation, Discipline, DisciplineAllocation, Grade, Resource, Role } from "./types";
 import { roleLabel } from "./resource-foundation";
 import type { ActualsByBucket, BucketPeriodCell } from "./timelog-actuals";
-import { actualHoursIn, withoutPeriod } from "./actual-hours";
+import { actualHoursIn, granularityOfPeriodKey, withoutPeriod } from "./actual-hours";
+import { periodKeyForDate } from "./resource-capacity";
 
 /** 2dp, binary-float safe. Hours are money-adjacent (they multiply a rate), so
  *  a running sum of TimeLog decimals must not persist 7.000000000000001. */
@@ -318,7 +319,15 @@ function writeAllocations<T extends { actualHours: Record<string, number> }>(
       if (routed.undatedPeriods.has(period)) {
         nextActual[period] = rec?.[period] ?? 0;
       } else {
-        for (const [day, h] of Object.entries(days?.[period] ?? {})) nextActual[day] = h;
+        // §543: a dated Apply owns every covered DAY, so a bare period key of
+        // the OTHER granularity that contains one of those days is stale hand
+        // input and would be summed on top of the day keys after a switch back.
+        const own = granularityOfPeriodKey(period);
+        const other = own === "month" ? "week" : own === "week" ? "month" : null;
+        for (const [day, h] of Object.entries(days?.[period] ?? {})) {
+          if (other) delete nextActual[periodKeyForDate(day, other)];
+          nextActual[day] = h;
+        }
       }
     }
     return { ...a, actualHours: nextActual };

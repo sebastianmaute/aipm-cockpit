@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Forecast Switch vs Union</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #ffffff; --muted: #5b6573; --text: #16202b;
+    --border: #d9dee5; --blue: #0b3a64; --green: #2f8f4e; --pink: #c2185b;
+    --amber: #a8660b; --grey: #8a94a3; --accent-bg: #eef3f8; --warn-bg: #fdf1f5; --violet: #6a4fb3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10161d; --surface: #18212b; --muted: #9aa6b4; --text: #e6ebf1;
+      --border: #2c3845; --blue: #7fb3e6; --green: #6cc48a; --pink: #f07aa6;
+      --amber: #e0a54a; --grey: #7c8796; --accent-bg: #1d2a38; --warn-bg: #2d1c24; --violet: #b49cf0;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px 16px 48px; }
+  .wrap { max-width: 1320px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 0 0 2px; }
+  h3 { font-size: 13px; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  p.lead { color: var(--muted); margin: 0 0 20px; max-width: 920px; }
+  .note { font-size: 12px; color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); gap: 20px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; min-width: 0; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+    background: var(--accent-bg); color: var(--blue); margin-bottom: 8px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { font: inherit; font-size: 13px; padding: 5px 12px; border: 0; background: transparent; color: var(--text); cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button[aria-pressed="true"] { background: var(--blue); color: var(--surface); font-weight: 600; }
+  .seg button[aria-pressed="true"]::before { content: "✓ "; }
+  .seg button:disabled { color: var(--grey); cursor: not-allowed; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .tile { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  .tile .l { font-size: 11px; color: var(--muted); }
+  .tile .v { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 11px; color: var(--muted); }
+  .tile.bad .v { color: var(--pink); }
+  .i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--muted);
+    font-size: 9px; line-height: 12px; text-align: center; color: var(--muted); margin-left: 3px; vertical-align: 1px; }
+  .tip { position: relative; display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; padding: 0; margin-left: 4px; border-radius: 50%; border: 1px solid var(--muted);
+    background: transparent; color: var(--muted); font-size: 9px; font-weight: 700; line-height: 1; cursor: help; vertical-align: 1px; }
+  .tip:hover, .tip:focus-visible { border-color: var(--blue); color: var(--blue); }
+  .tip:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .tip::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    width: 270px; padding: 8px 10px; border-radius: 6px; background: var(--text); color: var(--surface);
+    font-size: 12px; font-weight: 400; line-height: 1.4; text-align: left; text-transform: none; letter-spacing: 0;
+    white-space: normal; opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 20; }
+  .tip.l::after { left: -8px; transform: none; }
+  .tip:hover::after, .tip:focus-visible::after { opacity: 1; }
+  .gap { margin-top: 10px; padding: 8px 10px; border-left: 3px solid var(--amber); background: var(--accent-bg); font-size: 13px; }
+  .fc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .fcard { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; border-top: 3px solid var(--blue); }
+  .fcard.b { border-top-color: var(--violet); }
+  .fcard .q { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .fcard .big { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 13px; font-variant-numeric: tabular-nums; margin-top: 6px; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .agree { margin-top: 10px; padding: 8px 10px; border-left: 3px solid var(--green); background: var(--accent-bg); font-size: 13px; }
+  .summary { margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--blue); background: var(--accent-bg); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .callout { margin-top: 10px; padding: 8px 10px; border-left: 3px solid var(--pink); background: var(--warn-bg); font-size: 13px; }
+  svg { display: block; max-width: 100%; height: auto; }
+  svg text { fill: var(--muted); font-size: 10px; font-family: inherit; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .sw { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 4px; }
+  .dash { border-top-style: dashed; }
+  .dash-tile { display: flex; gap: 12px; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; max-width: 380px; }
+  .dash-tile .big { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .dot { width: 10px; border-radius: 3px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--accent-bg); }
+  td:first-child { font-weight: 600; width: 22%; }
+  .good { color: var(--green); font-weight: 600; }
+  .weak { color: var(--pink); font-weight: 600; }
+  .mid { color: var(--amber); font-weight: 600; }
+  .tablewrap { overflow-x: auto; }
+  ol.dec { margin: 6px 0 0 18px; padding: 0; }
+  ol.dec li { margin-bottom: 6px; }
+  @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } .fc { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Budget forecast: switch vs union</h1>
+<p class="lead">
+  Same illustrative project as the first page: contract €240,000, €168,000 booked, €27,000 of it in the last 4 weeks,
+  62% of linked tasks finished, planned end 18 Dec 2026, today 14 Sep. <strong>The switches on this page work</strong>, so click them.
+  Colours are approximate, not the app palette.
+</p>
+
+<div class="grid2">
+
+<!-- ======================= VARIANT A: SWITCH ======================= -->
+<section class="panel">
+  <span class="tag">Variant A · switch between methods</span>
+  <h2>One method at a time</h2>
+  <p class="sub">A “Forecast method” switch swaps the figures, the chart and the dashboard tile. Only one set of numbers is ever on screen.</p>
+
+  <div class="row">
+    <div class="note">Budget report · project total</div>
+    <div class="seg" role="group" aria-label="Forecast method">
+      <button type="button" aria-pressed="true" data-a="burn">Current pace</button>
+      <button type="button" aria-pressed="false" data-a="evm">Earned value</button>
+    </div>
+  </div>
+
+  <div id="a-burn">
+    <h3>Figures · current pace</h3>
+    <div class="tiles">
+      <div class="tile"><div class="l">Budget (BAC)</div><div class="v">€240,000</div></div>
+      <div class="tile"><div class="l">Actuals (AC)</div><div class="v">€168,000</div><div class="s">70%</div></div>
+      <div class="tile"><div class="l">Burn rate (4 weeks)</div><div class="v">€1,350/day</div></div>
+      <div class="tile"><div class="l">ETC</div><div class="v">€93,150</div></div>
+      <div class="tile"><div class="l">EAC</div><div class="v">€261,150</div></div>
+      <div class="tile bad"><div class="l">VAC</div><div class="v">−€21,150</div><div class="s">−8.8%</div></div>
+    </div>
+    <h3>Burn-down</h3>
+    <svg viewBox="0 0 640 262" role="img" aria-label="Burn-down with a burn-rate forecast reaching zero on 26 November">
+      <g stroke="var(--border)"><line x1="60" y1="230" x2="620" y2="230"/></g>
+      <text x="54" y="233" text-anchor="end">€0</text><text x="54" y="40" text-anchor="end">€240k</text>
+      <g text-anchor="middle"><text x="60" y="248">Jan</text><text x="230.1" y="248">May</text><text x="404.5" y="248">Sep</text><text x="577.5" y="248">Jan</text></g>
+      <line x1="65.7" y1="36.2" x2="557.6" y2="230" stroke="var(--grey)" stroke-width="2" stroke-dasharray="6 4"/>
+      <polyline points="65.7,36.2 143.6,50.7 230.1,84.6 316.6,125 360.6,145.2 423,171.8" fill="none" stroke="var(--green)" stroke-width="2.5"/>
+      <line x1="423" y1="171.8" x2="526.4" y2="230" stroke="var(--blue)" stroke-width="2.5" stroke-dasharray="7 4"/>
+      <line x1="423" y1="20" x2="423" y2="230" stroke="var(--text)" stroke-dasharray="3 3"/><text x="427" y="30">today</text>
+      <line x1="557.6" y1="20" x2="557.6" y2="230" stroke="var(--grey)"/>
+      <circle cx="526.4" cy="230" r="4.5" fill="var(--pink)"/><text x="519" y="226" text-anchor="end" style="fill:var(--pink)">26 Nov</text>
+    </svg>
+    <div class="summary">Runs out <strong>26 Nov 2026</strong> · 3 weeks before planned end</div>
+  </div>
+
+  <div id="a-evm" hidden>
+    <h3>Figures · earned value</h3>
+    <div class="tiles">
+      <div class="tile"><div class="l">BAC</div><div class="v">€240,000</div></div>
+      <div class="tile"><div class="l">AC</div><div class="v">€168,000</div></div>
+      <div class="tile"><div class="l">PV</div><div class="v">€176,000</div></div>
+      <div class="tile"><div class="l">EV</div><div class="v">€148,800</div><div class="s">62% complete</div></div>
+      <div class="tile bad"><div class="l">CPI · SPI</div><div class="v">0.89 · 0.85</div></div>
+      <div class="tile"><div class="l">ETC</div><div class="v">€102,968</div></div>
+      <div class="tile"><div class="l">EAC</div><div class="v">€270,968</div></div>
+      <div class="tile bad"><div class="l">VAC</div><div class="v">−€30,968</div><div class="s">−12.9%</div></div>
+    </div>
+    <h3>S-curve</h3>
+    <svg viewBox="0 0 640 262" role="img" aria-label="S-curve of planned value and actual cost with a forecast to an estimate at completion above budget">
+      <g stroke="var(--border)"><line x1="60" y1="230" x2="620" y2="230"/></g>
+      <text x="54" y="233" text-anchor="end">€0</text>
+      <g text-anchor="middle"><text x="60" y="248">Jan</text><text x="230.1" y="248">May</text><text x="404.5" y="248">Sep</text><text x="577.5" y="248">Jan</text></g>
+      <line x1="60" y1="62" x2="620" y2="62" stroke="var(--grey)" stroke-dasharray="6 4"/><text x="64" y="57">BAC €240k</text>
+      <polyline points="65.7,230 143.6,214.6 230.1,181 316.6,142.5 423,106.8 491,79.5 557.6,62" fill="none" stroke="var(--grey)" stroke-width="2.5"/>
+      <polyline points="65.7,230 143.6,217.4 230.1,188 316.6,153 360.6,135.5 423,112.4" fill="none" stroke="var(--green)" stroke-width="2.5"/>
+      <line x1="423" y1="112.4" x2="557.6" y2="40.3" stroke="var(--violet)" stroke-width="2.5" stroke-dasharray="7 4"/>
+      <circle cx="423" cy="125.8" r="5" fill="var(--amber)"/>
+      <line x1="423" y1="20" x2="423" y2="230" stroke="var(--text)" stroke-dasharray="3 3"/>
+      <text x="616" y="35" text-anchor="end" style="fill:var(--pink)">EAC €271k</text>
+    </svg>
+    <div class="summary">EAC <strong>€270,968</strong> · CPI 0.89 · SPI 0.85</div>
+  </div>
+
+  <h3>Dashboard tile (follows the switch)</h3>
+  <div class="dash-tile" id="a-tile">
+    <div class="dot" style="background:var(--amber)"></div>
+    <div><div class="note" id="a-tile-l">Budget · EAC (current pace)</div>
+      <div class="big" id="a-tile-v">€261k <span style="font-size:14px;color:var(--pink)">−8.8%</span></div></div>
+  </div>
+
+  <div class="callout">
+    <strong>Same project, two answers, one visible at a time.</strong> Switch and the EAC jumps €10k and the dashboard RAG
+    may change colour. Two people with different switch settings quote different numbers in the same meeting.
+  </div>
+</section>
+
+<!-- ======================= VARIANT B: UNION ======================= -->
+<section class="panel">
+  <span class="tag">Variant B · union</span>
+  <h2>Both forecasts together, one chart</h2>
+  <p class="sub">Shared facts once, then two forecast cards, each named by the question it answers. The switch only turns the chart
+     between burn-down and cumulative; the numbers never change.</p>
+
+  <h3>Facts (same in every method)</h3>
+  <div class="tiles">
+    <div class="tile"><div class="l">Budget (BAC)<button type="button" class="tip l" aria-label="What is BAC?" data-tip="Budget at completion: the total contract value of all budget buckets. Everything below is measured against it.">i</button></div><div class="v">€240,000</div><div class="s">contract value</div></div>
+    <div class="tile"><div class="l">Actuals (AC)<button type="button" class="tip l" aria-label="What is AC?" data-tip="Actual cost: the value of all hours booked on the project so far.">i</button></div><div class="v">€168,000</div><div class="s">70% of budget</div></div>
+    <div class="tile"><div class="l">Remaining</div><div class="v">€72,000</div><div class="s">30% of budget</div></div>
+    <div class="tile"><div class="l">Earned value (EV)<button type="button" class="tip l" aria-label="What is EV?" data-tip="Earned value: the budget value of the work actually finished. Here 62% complete × €240,000 budget = €148,800. It can be lower than what was spent (AC) when work costs more than planned.">i</button></div><div class="v">€148,800</div><div class="s">62% complete</div></div>
+  </div>
+
+  <h3>Forecasts</h3>
+  <div class="fc">
+    <div class="fcard">
+      <div class="q">At current pace<button type="button" class="tip l" aria-label="How does the current-pace forecast work?" data-tip="Assumes spending continues at the average of the last 4 weeks until the planned end date. It looks at the calendar only: it assumes the work is finished on the planned end, whether or not progress supports that. This is the AIPM Project Burndown method.">i</button><br>spending continues as in the last 4 weeks</div>
+      <div class="big">EAC €261,150<button type="button" class="tip l" aria-label="What is EAC at current pace?" data-tip="Estimate at completion: what the project will have cost in total. At current pace = spent so far (€168,000) + estimate to complete (€93,150).">i</button></div>
+      <div class="kv">
+        <span>VAC at current pace<button type="button" class="tip l" aria-label="What is VAC?" data-tip="Variance at completion = budget − estimate at completion. Negative means the budget will be overrun by this amount: €240,000 − €261,150 = −€21,150.">i</button></span><span style="color:var(--pink)">−€21,150 (−8.8%)</span>
+        <span>ETC<button type="button" class="tip l" aria-label="What is ETC at current pace?" data-tip="Estimate to complete: what is still to be spent. At current pace = burn rate €1,350/day × 69 working days left until 18 Dec = €93,150.">i</button></span><span>€93,150</span>
+        <span>Burn rate<button type="button" class="tip l" aria-label="What is the burn rate?" data-tip="Average spend per working day over the last 4 weeks: €27,000 booked ÷ 20 working days = €1,350/day.">i</button></span><span>€1,350/day</span>
+        <span>Runs out<button type="button" class="tip l" aria-label="What does runs out mean?" data-tip="The day the remaining €72,000 is used up if spending continues at the burn rate: 53 working days from today, 26 Nov, 22 days before the planned end.">i</button></span><span>26 Nov · 3 wk before end</span>
+      </div>
+    </div>
+    <div class="fcard b">
+      <div class="q">At current efficiency<button type="button" class="tip l" aria-label="How does the current-efficiency forecast work?" data-tip="Assumes the remaining work will cost as much per unit as the finished work did. It looks at scope only: what finishing the rest of the work will cost, whatever the calendar says. This is the standard earned value (EVM) method.">i</button><br>remaining work costs what finished work cost</div>
+      <div class="big">EAC €270,968<button type="button" class="tip l" aria-label="What is EAC at current efficiency?" data-tip="Estimate at completion: what the project will have cost in total. At current efficiency = spent so far (€168,000) + estimate to complete (€102,968).">i</button></div>
+      <div class="kv">
+        <span>VAC at current efficiency<button type="button" class="tip l" aria-label="What is VAC?" data-tip="Variance at completion = budget − estimate at completion. Negative means the budget will be overrun by this amount: €240,000 − €270,968 = −€30,968.">i</button></span><span style="color:var(--pink)">−€30,968 (−12.9%)</span>
+        <span>ETC<button type="button" class="tip l" aria-label="What is ETC at current efficiency?" data-tip="Estimate to complete: what finishing the remaining work will cost. Remaining budgeted work (€240,000 − €148,800 = €91,200) ÷ CPI 0.89 = €102,968.">i</button></span><span>€102,968</span>
+        <span>CPI<button type="button" class="tip l" aria-label="What is CPI?" data-tip="Cost performance index = earned value ÷ actual cost (€148,800 ÷ €168,000). 1.00 means work costs what was budgeted. Below 1 means it costs more: at 0.89, each €1 of budgeted work is costing about €1.13.">i</button></span><span>0.89</span>
+        <span>SPI<button type="button" class="tip l" aria-label="What is SPI?" data-tip="Schedule performance index = earned value ÷ planned value (€148,800 ÷ €176,000). 1.00 means on schedule. At 0.85, 85% of the work planned to be finished by today is finished.">i</button></span><span>0.85</span>
+        <span>Needs<button type="button" class="tip l" aria-label="What does this forecast need?" data-tip="Percent complete, from the tasks linked to each budget bucket or a manual % complete on the bucket. Without it, this card cannot be calculated and shows what is missing.">i</button></span><span>% complete (62%)</span>
+      </div>
+    </div>
+  </div>
+  <div class="gap">
+    <strong>The forecasts differ by €9,818 (4% of budget). Both say the budget will be overrun.</strong><br>
+    Finishing the remaining work at current efficiency costs €102,968. At the current burn rate that takes
+    <strong>about 76 working days, 7 more than remain before the planned end</strong> (around 29 Dec)<button type="button" class="tip" aria-label="How is this calculated?" data-tip="€102,968 still needed at current efficiency ÷ €1,350/day burn rate = about 76 working days. Only 69 working days remain until 18 Dec. Public holidays are not counted in this mockup.">i</button>.
+    The current-pace forecast only budgets €93,150 because it assumes the work is done on 18 Dec. Progress so far says it will not be:
+    either the project runs about 7 working days late, or more people are added to hold the date. Either way it costs about €10k more.
+    <div class="note" style="margin-top:4px">Below a threshold (proposal: 10% of budget) this is shown as an information line; above it, as a warning.</div>
+  </div>
+
+  <div class="row" style="margin-top:14px">
+    <div class="note">Chart</div>
+    <div class="seg" role="group" aria-label="Chart view">
+      <button type="button" aria-pressed="true" data-b="down">Burn-down</button>
+      <button type="button" aria-pressed="false" data-b="cum">Cumulative</button>
+    </div>
+  </div>
+
+  <svg id="b-down" viewBox="0 0 640 262" role="img" aria-label="Burn-down of remaining budget with two forecasts: current pace reaches zero on 26 November, current efficiency falls further below zero by the planned end">
+    <g stroke="var(--border)">
+      <line x1="60" y1="202" x2="620" y2="202"/>
+      <line x1="60" y1="118" x2="620" y2="118" stroke-dasharray="2 4"/>
+      <line x1="60" y1="34" x2="620" y2="34" stroke-dasharray="2 4"/>
+    </g>
+    <text x="54" y="205" text-anchor="end">€0</text><text x="54" y="121" text-anchor="end">€120k</text><text x="54" y="37" text-anchor="end">€240k</text>
+    <text x="54" y="226" text-anchor="end" style="fill:var(--pink)">over</text>
+    <g text-anchor="middle"><text x="60" y="248">Jan</text><text x="143.6" y="248">Mar</text><text x="230.1" y="248">May</text><text x="316.6" y="248">Jul</text><text x="404.5" y="248">Sep</text><text x="491" y="248">Nov</text><text x="577.5" y="248">Jan</text></g>
+    <line x1="65.7" y1="34" x2="557.6" y2="202" stroke="var(--grey)" stroke-width="2" stroke-dasharray="6 4"/>
+    <polyline points="65.7,34 143.6,46.6 230.1,76 316.6,111 360.6,128.5 423,151.6" fill="none" stroke="var(--green)" stroke-width="2.5"/>
+    <line x1="423" y1="151.6" x2="557.6" y2="216.8" stroke="var(--blue)" stroke-width="2.5" stroke-dasharray="7 4"/>
+    <line x1="423" y1="151.6" x2="557.6" y2="223.7" stroke="var(--violet)" stroke-width="2.5" stroke-dasharray="2 3"/>
+    <circle cx="423" cy="138.2" r="4.5" fill="var(--amber)"/><text x="430" y="134" style="fill:var(--amber)">work left €91k</text>
+    <line x1="423" y1="20" x2="423" y2="230" stroke="var(--text)" stroke-dasharray="3 3"/><text x="427" y="30">today</text>
+    <line x1="557.6" y1="20" x2="557.6" y2="230" stroke="var(--grey)"/><text x="561" y="30">planned end</text>
+    <circle cx="526.4" cy="202" r="4.5" fill="var(--pink)"/><text x="520" y="216" text-anchor="end" style="fill:var(--pink)">runs out 26 Nov</text>
+    <text x="563" y="220" style="fill:var(--blue)">−€21k</text>
+    <text x="563" y="232" style="fill:var(--violet)">−€31k</text>
+  </svg>
+
+  <svg id="b-cum" viewBox="0 0 640 262" role="img" aria-label="Cumulative spend with planned value, actual cost, earned value today, and two forecasts crossing the budget line" hidden>
+    <g stroke="var(--border)">
+      <line x1="60" y1="230" x2="620" y2="230"/>
+      <line x1="60" y1="160" x2="620" y2="160" stroke-dasharray="2 4"/>
+      <line x1="60" y1="90" x2="620" y2="90" stroke-dasharray="2 4"/>
+    </g>
+    <text x="54" y="233" text-anchor="end">€0</text><text x="54" y="163" text-anchor="end">€100k</text><text x="54" y="93" text-anchor="end">€200k</text>
+    <g text-anchor="middle"><text x="60" y="248">Jan</text><text x="143.6" y="248">Mar</text><text x="230.1" y="248">May</text><text x="316.6" y="248">Jul</text><text x="404.5" y="248">Sep</text><text x="491" y="248">Nov</text><text x="577.5" y="248">Jan</text></g>
+    <line x1="60" y1="62" x2="620" y2="62" stroke="var(--grey)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="64" y="57">BAC €240k</text>
+    <polyline points="65.7,230 143.6,214.6 230.1,181 316.6,142.5 423,106.8 491,79.5 557.6,62" fill="none" stroke="var(--grey)" stroke-width="2.5"/>
+    <polyline points="65.7,230 143.6,217.4 230.1,188 316.6,153 360.6,135.5 423,112.4" fill="none" stroke="var(--green)" stroke-width="2.5"/>
+    <line x1="423" y1="112.4" x2="557.6" y2="47.2" stroke="var(--blue)" stroke-width="2.5" stroke-dasharray="7 4"/>
+    <line x1="423" y1="112.4" x2="557.6" y2="40.3" stroke="var(--violet)" stroke-width="2.5" stroke-dasharray="2 3"/>
+    <circle cx="423" cy="125.8" r="5" fill="var(--amber)"/><text x="417" y="139" text-anchor="end" style="fill:var(--amber)">EV €149k</text>
+    <circle cx="526.4" cy="62" r="4.5" fill="var(--pink)"/><text x="520" y="54" text-anchor="end" style="fill:var(--pink)">budget used up 26 Nov</text>
+    <line x1="423" y1="20" x2="423" y2="230" stroke="var(--text)" stroke-dasharray="3 3"/><text x="427" y="228">today</text>
+    <line x1="557.6" y1="20" x2="557.6" y2="230" stroke="var(--grey)"/>
+    <text x="563" y="50" style="fill:var(--blue)">€261k</text>
+    <text x="563" y="38" style="fill:var(--violet)">€271k</text>
+  </svg>
+
+  <div class="legend">
+    <span><span class="sw dash" style="border-color:var(--grey)"></span>Planned</span>
+    <span><span class="sw" style="border-color:var(--green)"></span>Actual</span>
+    <span><span class="sw dash" style="border-color:var(--blue)"></span>At current pace</span>
+    <span><span class="sw dash" style="border-color:var(--violet)"></span>At current efficiency</span>
+    <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--amber);margin-right:4px"></span>Earned value (today)</span>
+  </div>
+
+  <h3>Dashboard tile (one headline, the other beside it)</h3>
+  <div class="dash-tile">
+    <div class="dot" style="background:var(--amber)"></div>
+    <div><div class="note">Budget · estimate at completion</div>
+      <div class="big">€261k–€271k <span style="font-size:14px;color:var(--pink)">−9% to −13%</span></div>
+      <div class="note">Runs out 26 Nov at current pace</div></div>
+  </div>
+
+  <div class="note" style="margin-top:10px">
+    Without % complete the efficiency card shows “Needs linked tasks or a % complete” and the tile falls back to the pace figure alone.
+    Early in a project (under 4 weeks of bookings) the pace card says “not enough recent bookings” instead.
+  </div>
+</section>
+
+</div>
+
+<!-- ======================= COMPARISON ======================= -->
+<section class="panel" style="margin-top:20px">
+  <h2>Switch vs union</h2>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Aspect</th><th>Variant A · switch methods</th><th>Variant B · union (+ chart-orientation switch)</th></tr></thead>
+    <tbody>
+      <tr><td>Numbers on screen</td><td>One EAC at a time.</td><td>Both EACs, labelled by question, plus their range.</td></tr>
+      <tr><td>Screen space</td><td class="good">Compact: 6–8 tiles.</td><td class="mid">Larger: 4 facts + 2 cards + agreement line.</td></tr>
+      <tr><td>Disagreement between methods</td><td class="weak">Hidden. You only see it by switching back and forth.</td>
+          <td class="good">Visible, and it is information: “spending on pace, but finished work lags” is a real warning.</td></tr>
+      <tr><td>Same number for everyone?</td><td class="weak">No, unless the switch is per project. A per-device switch means two PMs can quote different EACs.</td>
+          <td class="good">Yes. The switch only turns the chart, never the figures.</td></tr>
+      <tr><td>Where the setting lives</td><td class="mid">Per device is cheap. Per project is a new workspace field across all six write paths.</td>
+          <td class="good">Per device is fine, because it changes nothing anyone quotes.</td></tr>
+      <tr><td>Dashboard RAG, insights, AI summary, exports</td><td class="weak">Must still pick one method, or they follow a personal switch and differ per person.</td>
+          <td class="mid">Still needs one headline for the RAG (proposal: current pace, which always exists), and exports carry both cards.</td></tr>
+      <tr><td>No % complete</td><td class="mid">“Earned value” button disabled with a reason.</td><td class="good">Efficiency card explains what it needs; nothing else changes.</td></tr>
+      <tr><td>AIPM Project Burndown (§504)</td><td class="good">Current-pace view matches it.</td><td class="good">Burn-down orientation matches it; the efficiency line is an extra.</td></tr>
+      <tr><td>EVM vocabulary and S-curve (§501)</td><td class="good">Earned-value view.</td><td class="good">Cumulative orientation is the S-curve; EV, CPI, SPI in the efficiency card.</td></tr>
+      <tr><td>CPI confusion (§464)</td><td class="mid">Price CPI appears in the EV view, next to “Cost recovery” elsewhere.</td>
+          <td class="mid">Same. Needs one naming decision either way (e.g. rename Budget panel “Cost recovery” and effort CPI).</td></tr>
+      <tr><td>Build effort (rough)</td><td>M–L: both engines, two tile sets, two charts, switch state, one downstream policy.</td>
+          <td>M–L: both engines, one chart with two orientations, cards, agreement rule, one downstream policy.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3 style="margin-top:16px">My take</h3>
+  <p style="margin:0">The union is the stronger design. It keeps one set of figures for everyone, shows the useful disagreement between
+  pace and progress, and still gives both looks (AIPM burn-down and EVM S-curve) through the chart switch. A method switch
+  mainly hides that disagreement and forces a “whose setting wins” rule on the dashboard and exports.</p>
+  <p class="note" style="margin-top:8px">Decisions either design still needs:</p>
+  <ol class="dec note">
+    <li>Which forecast is the dashboard headline and RAG source (proposal: current pace, since it always exists).</li>
+    <li>Agreement threshold for the “forecasts disagree” line (e.g. 10% of BAC).</li>
+    <li>Names for the three CPIs: price (new), internal cost (“Cost recovery” today), effort (task estimates).</li>
+    <li>Default chart orientation (proposal: burn-down, matching AIPM), remembered per device.</li>
+  </ol>
+</section>
+
+</div>
+<script>
+  function wire(attr, map) {
+    const btns = document.querySelectorAll('[data-' + attr + ']');
+    btns.forEach(b => b.addEventListener('click', () => {
+      btns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      Object.entries(map).forEach(([k, ids]) => ids.forEach(id => { document.getElementById(id).toggleAttribute('hidden', k !== b.dataset[attr]); }));
+      if (attr === 'a') {
+        const evm = b.dataset.a === 'evm';
+        document.getElementById('a-tile-l').textContent = evm ? 'Budget · EAC (earned value)' : 'Budget · EAC (current pace)';
+        document.getElementById('a-tile-v').innerHTML = evm
+          ? '€271k <span style="font-size:14px;color:var(--pink)">−12.9%</span>'
+          : '€261k <span style="font-size:14px;color:var(--pink)">−8.8%</span>';
+      }
+    }));
+  }
+  wire('a', { burn: ['a-burn'], evm: ['a-evm'] });
+  wire('b', { down: ['b-down'], cum: ['b-cum'] });
+</script>
+</body>
+</html>

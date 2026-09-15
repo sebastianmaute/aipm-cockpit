@@ -80,7 +80,7 @@ describe("BudgetPanel", () => {
     // as happily when the query is wrong, the scope is empty, or the panel
     // failed to render. `getAllByText` THROWS on zero matches, and the floor
     // proves the scope is populated. MEASURED over this fixture, not reasoned:
-    // 3, not 4 — the Cost recovery tile has no earned-value baseline here, so it renders
+    // 3, not 4 — the Internal cost index tile has no earned-value baseline here, so it renders
     // `unknown` and both of its figures are "—". An exact count, because a
     // loose floor would let a tile silently stop rendering money at all.
     const money = within(rollup).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
@@ -93,8 +93,10 @@ describe("BudgetPanel", () => {
   test("the budget tile does not call its money ratio CPI", () => {
     // Two different quantities were both labelled CPI a click apart: this money
     // ratio (earnedValue ÷ cost) and the EVM hours ratio on the Dashboard and
-    // the Budget report. CPI is EVM's term of art, so it stays with EVM and the
-    // money ratio is renamed "Cost recovery" (docs/open-followups.md §464).
+    // the Budget report. CPI is EVM's term of art, so it stays with EVM; the
+    // money ratio was first renamed "Cost recovery" (docs/open-followups.md
+    // §464) and, this branch, renamed again to "Internal cost index" now that
+    // a bare "CPI" means the forecast's price-based index (spec §11).
     render(<BudgetPanel {...props} />);
     expect(screen.queryAllByText(/CPI/)).toHaveLength(0);
     // ★ THE POSITIVE CONTROL. `queryAllByText` returns [] just as happily when
@@ -102,7 +104,7 @@ describe("BudgetPanel", () => {
     // PRESENT. An exact count, MEASURED over this one-bucket fixture: the tile
     // renders twice, once in the project rollup and once for the bucket — a
     // loose floor would let one of the two silently stop rendering.
-    expect(screen.getAllByText(/Cost recovery/)).toHaveLength(2);
+    expect(screen.getAllByText(/Internal cost index/)).toHaveLength(2);
   });
 
   test("lists each bucket by name", () => {
@@ -705,8 +707,8 @@ describe("Cci primary prop", () => {
   });
 });
 
-describe("BudgetPanel — Cost recovery card (EV/AC)", () => {
-  const recoveryLabel = t("en-US", "budgetCciRecovery");
+describe("BudgetPanel — Internal cost index card (EV/AC)", () => {
+  const recoveryLabel = t("en-US", "budgetCciInternalCostIndex");
   const recoveryCardsIn = () =>
     Array.from(document.querySelectorAll(".rounded-lg.border.border-line.p-3"))
       .filter((c) => c.textContent?.includes(recoveryLabel));
@@ -1673,12 +1675,44 @@ describe("BudgetPanel — the German text of the three keys this branch changed"
     expect(screen.getByRole("tooltip")).toHaveTextContent(hint);
   });
 
-  test("the renamed cost-recovery label renders at BOTH of its sites", () => {
-    // `budgetCciCpi` → `budgetCciRecovery`. The key is read twice — once by the
-    // project rollup, once per bucket — and a rename that reached only one call
-    // site is the failure this pins. An EXACT count, measured over the
-    // one-bucket fixture: a floor of 1 passes with either site dropped.
+  test("the renamed internal-cost-index label renders at BOTH of its sites", () => {
+    // The key was renamed again this branch (from the "Cost recovery" name).
+    // It is read twice — once by the project rollup, once per bucket — and a
+    // rename that reached only one call site is the failure this pins. An
+    // EXACT count, measured over the one-bucket fixture: a floor of 1 passes
+    // with either site dropped.
     render(<BudgetPanel {...props} lang="de" />);
-    expect(screen.getAllByText("Kostendeckung")).toHaveLength(2);
+    expect(screen.getAllByText("Interner Kostenindex")).toHaveLength(2);
+  });
+});
+
+// §6.4 Budget view link line. `props` has no `onOpenBudgetReport` by default,
+// so every other test in this file exercises the "does not render" branch
+// implicitly — these pin both branches explicitly.
+describe("BudgetPanel — §6.4 forecast link line", () => {
+  test("renders a Budget Report link when onOpenBudgetReport is provided", () => {
+    render(<BudgetPanel {...props} onOpenBudgetReport={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Budget Report" })).toBeInTheDocument();
+  });
+
+  // Mutation: dropping the `onOpenBudgetReport &&` guard in budget-panel.tsx
+  // (the popout omission — Plan Ruling 12) turns this red.
+  test("renders nothing without onOpenBudgetReport (the popout state)", () => {
+    render(<BudgetPanel {...props} />);
+    expect(screen.queryByRole("button", { name: "Budget Report" })).toBeNull();
+  });
+
+  test("renders nothing without buckets, even with onOpenBudgetReport", () => {
+    render(<BudgetPanel {...props} buckets={[]} onOpenBudgetReport={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Budget Report" })).toBeNull();
+  });
+
+  // Mutation: removing the `onOpen` call from BudgetForecastLink's TextButton
+  // turns this red.
+  test("clicking the Budget Report link calls onOpenBudgetReport once", () => {
+    const onOpenBudgetReport = vi.fn();
+    render(<BudgetPanel {...props} onOpenBudgetReport={onOpenBudgetReport} />);
+    fireEvent.click(screen.getByRole("button", { name: "Budget Report" }));
+    expect(onOpenBudgetReport).toHaveBeenCalledTimes(1);
   });
 });

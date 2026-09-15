@@ -372,14 +372,14 @@ describe("DashboardPanel budget-burn CPI stat", () => {
   ] as never[];
 
   // CPI is an EVM index → it lives ONLY in the EVM SPI/CPI row (the burn row now
-  // holds just Sub-budget + "h"). The EVM row renders only when there's estimate
+  // holds just Spent + "h"). The EVM row renders only when there's estimate
   // coverage; its CPI tile sits beside the SPI tile.
   function evmCpiTile(): HTMLElement {
-    const spiTile = screen.getByText("SPI").closest("div.rounded-lg") as HTMLElement;
+    const spiTile = screen.getByText("Effort SPI").closest("div.rounded-lg") as HTMLElement;
     // Each hinted tile is wrapped in a `div.relative` (tooltip sibling), so the
     // shared EVM row is the wrapper's parent, not the tile's direct parent.
     const evmRow = spiTile.parentElement?.parentElement as HTMLElement;
-    return within(evmRow).getByText("CPI").closest("div.rounded-lg") as HTMLElement;
+    return within(evmRow).getByText("Effort CPI").closest("div.rounded-lg") as HTMLElement;
   }
 
   it("shows the CPI value in the EVM row when model.evm.cpi is present", () => {
@@ -422,8 +422,8 @@ describe("DashboardPanel budget-burn CPI stat", () => {
     // The burn row (the flex row containing the "h" tile) must NOT contain a CPI
     // tile — CPI now lives only in the EVM row, so CPI appears exactly once.
     const burnRow = (screen.getByText("h").closest("div.rounded-lg") as HTMLElement).parentElement as HTMLElement;
-    expect(within(burnRow).queryByText("CPI")).toBeNull();
-    expect(screen.getAllByText("CPI")).toHaveLength(1);
+    expect(within(burnRow).queryByText("Effort CPI")).toBeNull();
+    expect(screen.getAllByText("Effort CPI")).toHaveLength(1);
   });
 });
 
@@ -547,6 +547,20 @@ const fullProps = {
   ] as ChangeItem[],
 };
 
+// The EVM tiles only render once there is estimate coverage (`evm.ts`
+// `computeEvm`: a task participates iff `originalEstimateMinutes > 0`) — plain
+// `fullProps` (tasks: []) never reaches that branch, so it cannot exercise the
+// showBudget→EVM gate below. This task gives a non-null coverage without
+// otherwise changing what `fullProps`-based baseline assertions see.
+const tasksWithEvmEstimate = [
+  {
+    id: 1, title: "Done task", status: "Done", health: "G",
+    originalEstimateMinutes: 57, timeSpentMinutes: 60,
+    dueDate: "2026-06-01", completedDate: "2026-06-01",
+    linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [],
+  },
+] as never[];
+
 describe("DashboardPanel module visibility gates (Task 8)", () => {
   it("shows Budget burn section and RAID section when all flags are true (baseline)", () => {
     render(<DashboardPanel {...fullProps} />, { wrapper });
@@ -556,11 +570,21 @@ describe("DashboardPanel module visibility gates (Task 8)", () => {
     expect(screen.getByText("Changes")).toBeInTheDocument();
   });
 
+  it("shows the Effort SPI/CPI tiles when showBudget is true (positive control)", () => {
+    // Without this, the negative test below (queryByText → toBeNull) would pass
+    // just as happily if the EVM row's text were renamed out from under the
+    // query — a bare `queryByText` failing to find a stale string reads
+    // identically to the gate actually working.
+    render(<DashboardPanel {...fullProps} tasks={tasksWithEvmEstimate} />, { wrapper });
+    expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
+  });
+
   it("hides Budget burn section and EVM when showBudget is false", () => {
-    render(<DashboardPanel {...fullProps} showBudget={false} />, { wrapper });
+    render(<DashboardPanel {...fullProps} tasks={tasksWithEvmEstimate} showBudget={false} />, { wrapper });
     expect(screen.queryByText("Budget burn")).toBeNull();
-    expect(screen.queryByText("SPI")).toBeNull();
-    expect(screen.queryByText("CPI")).toBeNull();
+    expect(screen.queryByText(t("en-US", "evmSpi"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "evmCpi"))).toBeNull();
   });
 
   it("hides RAID section when showRaid is false", () => {
@@ -797,6 +821,21 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Open change Scope cut" }));
     expect(onOpenChange).toHaveBeenCalledWith(7);
+  });
+
+  it("labels the burn tile's spend box \"Spent\", not \"Budget\" (the budget rating now follows the forecast)", () => {
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
+    // The label + activate button both carry the new "Spent" wording, and the
+    // accessible name (label-in-name) still contains the visible "Spent" text.
+    expect(screen.getByText("Spent")).toBeInTheDocument();
+    // The top-band pill (dashboard-hero.tsx, a separate surface) is unaffected
+    // and still reads "Budget" — this proves the rename is scoped to the burn
+    // tile, not a global string swap.
+    expect(screen.getAllByText("Budget").length).toBeGreaterThan(0);
+    const activateBtn = screen.getByRole("button", { name: /^Spent – /  });
+    fireEvent.click(activateBtn);
+    expect(onNavigate).toHaveBeenCalledWith("budget");
   });
 
 });

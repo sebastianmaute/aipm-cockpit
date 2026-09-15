@@ -253,6 +253,51 @@ Calendar check: 2026-09-14 is a Monday and 2026-12-18 a Friday; working days aft
 The engine test pins these values. The brainstorming mockups quoted "26 Nov", "about 7 days" and "around 29 Dec"
 from rounded arithmetic; the values in this table are authoritative.
 
+### 5.7 Plan corrections (2026-09-15)
+
+Implementation (`docs/superpowers/plans/2026-09-15-forecast-figures.md`, Rulings 5, 7, 10 and 13) and the
+execution of that plan found this section and §6 diverging from what shipped. Recorded here so the two stay
+in agreement, rather than restated a third time.
+
+- **Ruling 5 — zero earned value.** `EfficiencyUnavailable` gains a third member
+  `{ unavailable: "no-earned-value" }` ("Nothing earned yet", no banner), returned when EV is known but 0
+  while AC > 0 (CPI would be 0 and ETC infinite). Not listed in §5's type block above; `budget-forecast.ts`'s
+  `EfficiencyUnavailable` carries it.
+- **`workingDaysLeft` field.** `PaceForecast` also carries `workingDaysLeft: number` (working days strictly
+  after `today` up to and including the plan end) — not listed in §5's type block above. §5.5's
+  `extraWorkingDays` and the tooltips read it directly rather than recomputing it.
+- **Ruling 7 — Budget RAG.** Once the pace forecast is available, the budget RAG input becomes
+  `paceVacHealth(vac, bac)` (`PACE_VAC_RED_RATIO = 0.10`): green at VAC ≥ 0, amber between 0 and −10% of
+  BAC, red at ≤ −10%. Otherwise the existing `computeBudgetStatus` ratio stays the input. The effort CPI
+  (`evmIndexHealth`) stays in the worst-of either way — §6.3's "the budget RAG input is the pace VAC"
+  undersold this: the ratio-based rule is still the fallback, and effort is not removed.
+- **Ruling 10 — locale formats.** `formatMoneyCompact` (`forecast-format.ts`) rounds to 3 significant digits
+  under `notation: "compact"`, with an exact (non-compact) fallback for a locale that does not abbreviate at
+  that magnitude — measured on de-DE below roughly €1M, which prints the full grouped figure instead of a
+  K/M suffix. `formatSignedPercent`, `formatDayMonthYear` and `formatDayMonth` complete the set; all dates
+  render in UTC. §6.1a's and §6.3's quoted example strings ("€261k", "13 Oct 2026") are en-GB-looking
+  illustrations, not literal output — en-US prints what `Intl` actually gives ("€261K", "Oct 13, 2026").
+- **Ruling 13 — tile size.** The `burn` catalogue entry is `h: 3, minH: 3, maxH: 4` (not "may rise from 2 to
+  3" as §6.3 says); `reconcile` clamps a saved layout into that range.
+- **Fixed-price AC (§5.4 correction).** The uncapped ratio divides by the bucket's OWN budget hours, i.e.
+  `budgetHours − spilloverInHours` (`computeBucketReport`'s reported total minus rolled-in spillover from a
+  closed predecessor) — not the spillover-inflated total, which would understate (or, with negative
+  spillover, zero) the ratio relative to the report this forecast mirrors.
+- **PV and mid-period SPI (§5.3 correction).** PV includes the WHOLE current period, matching the burn-down
+  chart's own `plannedRemainingValue[todayIndex]` (period-indexed, not daily) — so a project read partway
+  through its current period shows a lower SPI than a daily pro-ration would, by design: the forecast tracks
+  the same series the chart already draws.
+- **Tooltip labels (§6.2 correction).** `InfoTooltip`'s accessible name is `forecastWhatMeans`
+  ("What does {0} mean?") for Needs / Runs out / Extra working days / the card titles, and `forecastWhatIs`
+  ("What is {0}?") for noun terms (BAC, AC, EV, CPI, SPI, …) — not one label for all of them.
+- **Card titles (§6.1 correction).** The "At current pace" / "At current efficiency" card titles are `<h4>`,
+  under the Forecast section's own `<h3>` (`Section`), not a flat heading level.
+- **The union mockup is in the repo (Plan Ruling 14 correction).**
+  `docs/superpowers/specs/2026-09-14-budget-forecast-union-mockup.html` is committed beside this spec;
+  Ruling 14's "not in the repo" no longer holds. Its `<h3>Forecasts</h3>` (plural) was not carried into the
+  shipped section title, which stays singular "Forecast" (`forecastTitle`, §6.1 item 2) — a mockup-vs-spec
+  difference, not a spec-vs-code one.
+
 ## 6. UI
 
 ### 6.1 Budget report (`budget-report-panel.tsx`)
