@@ -37029,8 +37029,9 @@ Size M — an importer for resource × month × hours × rate that writes bucket
 ## 501. EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve — OPEN
 
 **Status:** OPEN 2026-09-15 — the forecast figures (§499, closed) shipped BAC/EAC/ETC/VAC labels and the
-effort-index qualifier: `grep -n "forecastFactBac\|evmCpi" src/app/i18n.ts` → `forecastFactBac: "Budget
-(BAC)"` and `evmCpi: "Effort CPI"` (paired with `evmSpi: "Effort SPI"`); the forecast cards' own
+effort-index qualifier: `grep -n "forecastFactBac\|evmCpi" src/app/i18n.ts` prints three lines — among
+them `forecastFactBac: "Budget (BAC)"` and `evmCpi: "Effort CPI"` (the third is `evmCpiHint`'s text;
+paired with `evmSpi: "Effort SPI"`, outside the grep pattern); the forecast cards' own
 `forecastEacPace`/`forecastEtcPace`/`forecastVacPace` (and the Efficiency-card pair) render the EAC/ETC/VAC
 terms. The time-phased EVM S-curve from `docs/superpowers/specs/2026-06-02-earned-value-design.md` remains
 for MR 3 of the forecast-figures slice, still not built.
@@ -37094,8 +37095,9 @@ Size unestimated (product backlog) — nothing can be sized until the live misbe
 
 ## 504. The burn-down draws no forecast line and is not aligned with the internal AIPM Project Burndown standard — OPEN
 
-**Status:** OPEN 2026-09-15 — `grep -rln "computeBurndownSeries" src/app` → `budget-burndown.ts`,
-`budget-report-panel.tsx` and `dashboard.ts` plus tests. The executive forecast figures (BAC/EAC/ETC/VAC,
+**Status:** OPEN 2026-09-15 — `grep -rln "computeBurndownSeries(" src/app` → `budget-burndown.ts`,
+`budget-forecast.ts`, `budget-report-panel.tsx` and `dashboard.ts` plus tests (the bare, unparenthesised
+grep also matches a comment-only mention in `fx.ts`). The executive forecast figures (BAC/EAC/ETC/VAC,
 §499, closed) ship in MR 2 of `docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md`; a drawn
 forecast/projection line on the burn-down chart itself, and the chart's burn-down/cumulative switch, are
 MR 3 of that slice and are NOT part of this MR — the chart still draws no forecast line. Alignment with the
