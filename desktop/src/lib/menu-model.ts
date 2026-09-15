@@ -291,7 +291,7 @@ export interface VersionDialogOptions {
   type: "info";
   title: string;
   message: string;
-  // ★★★ MUTABLE ON PURPOSE, mirroring electron 33.4.11's own
+  // ★★★ MUTABLE ON PURPOSE, mirroring electron 44.3.0's own
   // `buttons?: string[]` (verified in
   // desktop/node_modules/electron/electron.d.ts). A `readonly string[]`
   // would not assign to that, so it cannot be one here either -- do not

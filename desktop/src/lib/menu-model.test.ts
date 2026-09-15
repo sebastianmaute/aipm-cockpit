@@ -277,7 +277,7 @@ describe("versionDialogOptions", () => {
   });
 
   it("returns a MUTABLE buttons array", () => {
-    // ★★★ NOT a style point -- the installed electron 33.4.11 typings declare
+    // ★★★ NOT a style point -- the installed electron 44.3.0 typings declare
     // `buttons?: string[]`, MUTABLE, so a `readonly string[]` cannot be
     // handed to showMessageBox. VersionDialogOptions mirrors that, which
     // means a readonly narrowing is now a compile error in menu-model.ts

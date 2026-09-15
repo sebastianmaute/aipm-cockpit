@@ -47,7 +47,7 @@ describe("PrintButton", () => {
 
   const ELECTRON_UA =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
-    "aipm-cockpit/1.0.0 Chrome/130.0.0.0 Electron/33.4.11 Safari/537.36";
+    "aipm-cockpit/1.0.0 Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36";
 
   it("renders nothing inside the desktop shell, where printing cannot work", () => {
     // ★★★ THE POINT OF THE CHANGE. Electron refuses a renderer-initiated

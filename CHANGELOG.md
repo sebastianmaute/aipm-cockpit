@@ -8,6 +8,13 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [Unreleased]
+
+### Changed
+
+- The desktop app now runs on Electron 44 (bundled Node 24, matching the rest of the app);
+  Electron 33 no longer receives security fixes.
+
 ## [1.5.1] - 2026-09-15 "Highsmith"
 
 One rule for email addresses in every email field, a correction to a person's email that reaches the

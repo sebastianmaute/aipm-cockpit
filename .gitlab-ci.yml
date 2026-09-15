@@ -563,7 +563,10 @@ dast-zap:
 # plus two jobs rather than one job with two rules.
 .desktop-package:
   stage: e2e
-  image: electronuserland/builder:wine
+  # ★ Pinned to a dated Node-24 tag so a retag of the floating `wine` tag
+  # cannot move the packaging job's Node major; at pin time (2026-09-15)
+  # `wine` resolved to the same digest.
+  image: electronuserland/builder:24-wine-05.26
   needs: [install]
   script:
     - NEXT_STANDALONE=1 npm run build
