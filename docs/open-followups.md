@@ -768,6 +768,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--open) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | open |
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
 | [§545](#545-the-ai-dashboard-snapshot-and-every-export-carry-none-of-the-budget-forecast-figures--open) | The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN | deferred 2026-09-15 by the budget forecast union spec §9 | M — add the forecast figures to the snapshot and exports once MR 2 ships them | open |
+| [§546](#546-an-edit-made-during-a-projects-first-backend-load-is-overwritten-when-that-load-lands--open) | An edit made during a project's first backend load is overwritten when that load lands — OPEN | found 2026-09-15 debugging a `task-manager.template-notice.test.tsx` race on `chore/electron-44`; GitLab #336 | S–M — withhold edits until the first load lands, or make the load-time guard compare per slice | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38286,3 +38287,47 @@ Fix shape: once MR 2 ships the forecast engine, add the forecast figures to the 
 rename or document the snapshot's effort indices.
 
 Related: §499, §501.
+
+## 546. An edit made during a project's first backend load is overwritten when that load lands — OPEN
+
+**Status:** OPEN 2026-09-15 — `never machine-verified` as a live product defect: the mechanism is confirmed by
+reading `use-storage-backend.ts`'s load effect and its data-loss guard (`grep -n 'applyWorkspace(workspace,
+"reset", "merge")' src/app/use-storage-backend.ts`), and the window was exposed as a race in
+`src/app/task-manager.template-notice.test.tsx` (MR !492, pipeline 7013 `unit-tests-shuffled` failure; 3/13 local
+repro); not watched against a real browser, a live Turso project or the file backend.
+
+**Work item:** #336
+
+While a project's first backend load is still pending, `use-storage-backend.ts`'s load effect calls
+`backend.load()` and then, unless the data-loss guard refuses it, applies the result with
+`applyWorkspace(workspace, "reset", "merge")`. `"reset"` replaces every entity slice — tasks, RAID, resources,
+milestones and the rest — with the loaded workspace's own arrays; `"merge"` protects only `activityLog` appends.
+The guard (`isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())`) refuses only a load that is
+empty AS A WHOLE — it does not compare per slice. So any edit committed to an entity slice between mount and the
+load landing (applying a template, adding a task, …) is silently discarded the moment the load resolves, as long
+as the loaded workspace carries at least one non-empty collection anywhere: a load holding ten records and zero
+tasks still passes the guard and wipes a task added while that load was in flight.
+
+The load effect, `applyWorkspace` and the guard are backend-agnostic: `useStorageBackend` is wired once (in
+`task-manager.tsx`) over whatever `createBackend(settings.storageConfig, …)` returns, so the same code runs for
+the browser/IndexedDB backend, Turso and the file backend alike. The race is therefore structurally present on
+all three. Only the IndexedDB path was exercised, and only indirectly via the test race below — not in a real
+browser. Turso (network round trip) and the file backend are NOT checked; say "not checked" rather than assume
+the window is smaller there — if anything a network load is slower, widening it.
+
+Product reach is narrow: the UI is interactive well before a slow `backend.load()` would still be pending, so a
+real user reaching this window needs a slow IndexedDB, a cold Turso connection or a slow file read plus an edit
+timed inside it.
+
+Found via: `mount()` in `src/app/task-manager.template-notice.test.tsx` waits only for the mock section to
+render, not for the initial load, so a template-apply assertion can race this exact window (instrumented capture:
+`.superpowers/sdd/2026-09-15-electron-44/debug-template-notice.md`). The test's own fix — wait for
+`storage.loaded` in the diag log before mounting — is being made separately and closes the test flake, not this
+product window.
+
+Fix shape: TBD — either withhold edit affordances until the first load lands, or make the guard compare loaded
+vs. in-memory state per slice (mirroring §98's per-slice data-loss counters on the save path) instead of asking
+only whether the load is empty as a whole.
+
+Related: §284 (a different Turso load-time data-loss mechanism — a silently discarded meta-blob decode failure —
+closed 2026-08-29); §98 (the save-path analogue: `documents` invisible to the save-time data-loss guards).
