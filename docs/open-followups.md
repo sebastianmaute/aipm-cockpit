@@ -29904,7 +29904,9 @@ reachable independently — a create that throws, or one that returns no usable 
 **Status:** OPEN. Filed 2026-09-05. Last executed verification 2026-09-05 — the register's own
 rebuild recipe was extracted verbatim from the fenced block above the index and run against a
 SCRATCH COPY of this file (never the tracked one), then the two index blocks were compared with
-`grep -c "^<" <(diff <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md) <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' COPY))`
+`grep -c "^<" <(diff <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md) <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' COPY))`.
+Re-verified 2026-09-15 on `chore/electron-44`, same method, scratch copy only: 144 rows differ (up
+from 70).
 
 **Work item:** #264
 
@@ -29958,6 +29960,24 @@ and FAILS on a mismatch, which is the form that cannot rot; read it there rather
 rebuild. Reproduce the loss with the fenced recipe above, run against a copy:
 `cp docs/open-followups.md /tmp-copy/ && cd /tmp-copy && <recipe> && diff` — count the changed
 rows, do not read the exit code, which is 0 either way.
+
+★ **Re-verified 2026-09-15, filing §546 on `chore/electron-44`.** Re-ran the same recipe against a
+scratch copy only (never the tracked file): **144 rows now differ**, up from 70 on 2026-09-05 — at
+least 39 lose the Item cell's `~~strikethrough~~` and at least 33 lose the State cell's
+closure-rationale parenthetical (the remainder is other, uncharacterized drift). Two short examples:
+§30's Item loses its `~~strikethrough~~`, and its State drops the parenthetical "the decision: real
+links where the sink allows one, `text (url)` where it does not — non-goals at §329 · §330"; §55's
+State goes from `**CLOSED** 2026-09-01` plus "(8 of 12 migrated to `ToggleButton`, RACI ringed, 3
+adjudicated non-defects)" down to plain `**CLOSED** 2026-09-01`.
+★★ `followups:index:check` is structurally blind to this. `diffHeadingsAgainstIndex`
+(`scripts/followup-index-lib.mjs`) extracts only the §NUMBER from each `##` heading and from each
+index row and compares those two number sets — it never reads Item/Origin/Size/State cell text, so a
+stripped cell is a conforming row and the gate stays green.
+★ §319 tracks the same defect (filed 2026-08-31, five days before this entry — the two were never
+merged).
+★ Not checked: whether an accidental rebuild has actually happened since this entry was filed. The
+rise from 70 to 144 is consistent with new closures simply accumulating reasons since 2026-09-05 and
+does not, by itself, show a rebuild ran in between.
 
 ## 383. A resource's extra emails preview a list Apply dedupes and caps — CLOSED 2026-09-06
 
