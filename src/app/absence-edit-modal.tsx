@@ -23,7 +23,7 @@ import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
 import { useDraftState } from "./use-draft-state";
-import { sanitizeEmail } from "./sanitize-core";
+import { sanitizeLoadedEmail } from "./sanitize-core";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage } from "./editor-email-rule";
 
@@ -85,8 +85,8 @@ export function AbsenceEditModal({
     // changed-only): a blank address is legal, a non-blank CHANGED one must be
     // write-safe. The AI writers refuse the same (§461). Judged (and stored,
     // below) as `cappedAssigneeEmail` — the value the write path actually
-    // applies: `sanitizeEmail` (EMAIL_MAX) is what `sanitizeAbsence`'s decode
-    // path already gives `assigneeEmail`.
+    // applies: `sanitizeLoadedEmail` (unwrap `Name <addr>`, then EMAIL_MAX) is
+    // what `sanitizeAbsence`'s decode path already gives `assigneeEmail` (M-C4).
     // ★★ ONLY WHEN THE VALUE CHANGED from the one the modal opened with. The
     //  Email field is Full-tier only, so a stale malformed address stored
     //  before §461 would otherwise block saving any OTHER field at a tier
@@ -122,10 +122,11 @@ export function AbsenceEditModal({
 
   if (!draft) return null;
 
-  // Judge (and flag) the value the write path applies: `sanitizeEmail`
-  // (EMAIL_MAX) is what `sanitizeAbsence`'s decode path already gives
-  // `assigneeEmail`. Mirrors the cap `handleSubmit` applies before storing.
-  const cappedAssigneeEmail = sanitizeEmail(draft.assigneeEmail ?? "") || undefined;
+  // Judge (and flag) the value the write path applies: `sanitizeLoadedEmail`
+  // (unwrap `Name <addr>`, then trim + EMAIL_MAX) is what `sanitizeAbsence`'s
+  // decode path and the AI writers give `assigneeEmail` (M-C4). Mirrors what
+  // `handleSubmit` stores.
+  const cappedAssigneeEmail = sanitizeLoadedEmail(draft.assigneeEmail ?? "") || undefined;
 
   const title = isNew
     ? t(lang, "absenceNewItem")

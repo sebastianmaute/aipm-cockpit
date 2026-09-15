@@ -232,6 +232,26 @@ describe("AbsenceEditModal", () => {
     expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorEmailDelimiter"));
   });
 
+  // M-C4 — the editor stores the `Name <addr>`-unwrapped address, as every AI
+  //  write and load does, and judges (and flags) that same value.
+  it("M-C4: a typed Name <addr> assignee email saves as addr, unflagged", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave });
+    fireEvent.change(screen.getByLabelText(t("en-US", "absenceAssigneeEmail")), { target: { value: "Ann Lee <ann@x.com>" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBe("ann@x.com");
+  });
+
+  it("M-C4: a shape-only assignee email edit saves the unchanged address", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave });
+    fireEvent.change(screen.getByLabelText(t("en-US", "absenceAssigneeEmail")), { target: { value: "Sample<Sample@example.com>" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBe("Sample@example.com");
+  });
+
   // Fix round 1, IMPORTANT 1 — an UNRELATED banner error (end before start)
   // must never hide the flag: the stored assignee email is untouched and
   // still unsafe.
