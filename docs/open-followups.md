@@ -35886,8 +35886,10 @@ in the shell because that button renders nothing there. Read the third as expect
 defect. (The `grep -vE` drops comments that merely mention the call; without it the output is dominated
 by prose.) Second witness: `grep -aoh "Scripted print is not supported"
 desktop/node_modules/electron/dist/electron.exe` returns the refusal string. ★ That the popup then stays
-SILENT rather than erroring is REASONED from those two, not observed: confirming it takes a packaged
-build and a PDF export.
+SILENT rather than erroring was REASONED from those two until 2026-09-15, when it was OBSERVED: a
+locally packaged Electron 44.3.0 installer (branch `chore/electron-44`), PDF export opened the tab and no
+print dialog appeared. The refusal string is still present in the 44.3.0 binary, so the Electron 33 → 44
+upgrade does not close this entry.
 
 **Work item:** #297
 
