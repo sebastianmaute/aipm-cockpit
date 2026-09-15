@@ -89,6 +89,72 @@ export const MS_IDENTITY_HOSTS: readonly string[] = [
   "login.live.com",
 ];
 
+// ★★★ m3/n1 FIX (review-3-fix2-report.md). Round 2 computed
+// `initiatorIsAppOpener` by comparing `details.initiator` against a latched
+// `WebFrameMain` OBJECT by reference. electron.d.ts documents no object-
+// identity guarantee for repeated reads of the same underlying frame --
+// only that certain PROPERTIES of a frame stay stable. This replaces the
+// object comparison with a structural check on properties electron.d.ts
+// DOES document:
+//   - `frameToken: string` -- "uniquely identifies the frame within its
+//     associated renderer process" (electron.d.ts:19236-19240);
+//   - `processId: number` -- "the Chromium internal pid of the process
+//     which owns this frame" (electron.d.ts:19302-19308);
+//   - `detached: boolean` -- "whether the frame is detached from the frame
+//     tree. If a frame is accessed while the corresponding page is running
+//     any unload listeners, it may become detached" (electron.d.ts:19216-
+//     19223) -- a detached frame is mid-teardown, never a live opener;
+//   - `url: string` -- "the current URL of the frame" (electron.d.ts:19322-
+//     19326), checked as `new URL(initiator.url).origin === appOrigin`.
+//     Deliberately `.url`, NOT `.origin`: `WebFrameMain.origin`'s own doc
+//     comment (quoted above `decideWindowOpen`) says an about:blank child
+//     INHERITS its opener's origin, so an origin-STRING check cannot tell
+//     the popup's own frame apart from its opener's -- but `.url` can,
+//     because the popup's own `.url` is the empty string (same doc:
+//     "frame.url will return the empty string") while a real app frame's
+//     is a genuine `APP_ORIGIN` URL.
+// `processId`+`frameToken` are latched ONCE at creation as PLAIN VALUES
+// (main.ts's `WindowFacts`), never the `WebFrameMain` object itself -- so
+// this is correct even if Electron were to hand out a different wrapper for
+// the same underlying frame later, which round 2's object comparison
+// silently assumed away.
+export interface LatchedOpenerFrame {
+  processId: number;
+  frameToken: string;
+}
+
+// A structural subset of `Electron.WebFrameMain` -- an inline shape rather
+// than the real Electron type, so this module (and `isAppOpenerFrame`
+// below) stay Electron-free and unit-testable without mocking Electron.
+// `Electron.WebFrameMain` satisfies this shape structurally.
+export interface FrameIdentity {
+  detached: boolean;
+  processId: number;
+  frameToken: string;
+  url: string;
+}
+
+// Is `initiator` genuinely the SAME frame as the one latched at window
+// creation? `null`/`undefined` (no initiator, or facts never latched --
+// e.g. the main window) fails closed.
+export function isAppOpenerFrame(
+  initiator: FrameIdentity | null | undefined,
+  latched: LatchedOpenerFrame | null,
+  appOrigin: string,
+): boolean {
+  if (initiator == null || latched === null) return false;
+  if (initiator.detached) return false;
+  if (initiator.processId !== latched.processId) return false;
+  if (initiator.frameToken !== latched.frameToken) return false;
+  try {
+    return new URL(initiator.url).origin === appOrigin;
+  } catch {
+    // Covers the empty string too (`new URL("")` throws) -- the exact
+    // shape a click inside an about:blank popup/tab's OWN frame reports.
+    return false;
+  }
+}
+
 // Per-webContents navigation context `main.ts` assembles for each
 // will-navigate/will-redirect event. This module stays Electron-free, so all
 // three are plain booleans main.ts derives from its own state (never a live
@@ -105,16 +171,23 @@ export const MS_IDENTITY_HOSTS: readonly string[] = [
 //   by the frame that created this window (script running as the opener,
 //   e.g. `popupWindow.location.assign(...)`), rather than by this window's
 //   OWN document (a user clicking a rendered link, or that document's own
-//   script)? Computed per-event from the navigation's `details.initiator`
-//   compared, by REFERENCE, against the opener frame latched at creation --
-//   never from `contents.opener` re-read live (see `createdAsBlankPopup`'s
-//   sibling concern: COOP on an identity host's response can sever that
-//   live property mid-flow, which would wrongly block a FEDERATED hop if
-//   this check were required to continue rather than only to ENTER).
+//   script)? Computed per-event by `isAppOpenerFrame` (above) from the
+//   navigation's `details.initiator` against the identity latched at
+//   creation -- never from `contents.opener` re-read live (see
+//   `createdAsBlankPopup`'s sibling concern: COOP on an identity host's
+//   response can sever that live property mid-flow, which would wrongly
+//   block a FEDERATED hop if this check were required to continue rather
+//   than only to ENTER).
 // - `inAuthFlow`: is this webContents currently inside a Microsoft sign-in
-//   flow (committed by main.ts on `did-navigate`, not set optimistically at
-//   `will-navigate` time -- a will-* decision can still be reversed by a
-//   later redirect denial or a load failure before anything commits).
+//   flow? For `will-navigate`, the COMMITTED state (set by main.ts on
+//   `did-navigate`, not optimistically at `will-navigate` time -- a will-*
+//   decision can still be reversed by a later redirect denial or a load
+//   failure before anything commits). For `will-redirect`, main.ts feeds
+//   the STAGED value when one exists (`pendingAuthFlow.get(contents) ??
+//   authFlowFor(contents)`) -- see the m1 fix at the `will-redirect` wiring:
+//   a server redirect that arrives before the FIRST commit belongs to the
+//   navigation that just staged that value, not to whatever committed
+//   before it.
 export interface NavigationContext {
   createdAsBlankPopup: boolean;
   initiatorIsAppOpener: boolean;

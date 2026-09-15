@@ -17,7 +17,9 @@ import { shouldReportServerExit } from "./lib/exit-reporting";
 import {
   decideNavigation,
   decideWindowOpen,
+  isAppOpenerFrame,
   originOnly,
+  type LatchedOpenerFrame,
   type NavigationContext,
 } from "./lib/window-open-policy";
 import {
@@ -80,11 +82,16 @@ interface WindowFacts {
   // `setWindowOpenHandler` already decided on (HandlerDetails.url), so this
   // can only be true for a window this app's own policy already allowed.
   createdAsBlankPopup: boolean;
-  // The frame that CREATED this window, captured once, by reference -- NOT
-  // `contents.opener` re-read later (see the module comment above).
-  // `null` only for a webContents this map never saw created (the main
-  // window, or if `did-create-window` itself never fired for some reason).
-  openerFrame: WebFrameMain | null;
+  // ★★★ m3 FIX (review-3-fix2-report.md). PLAIN VALUES latched once --
+  // `processId`+`frameToken`, never a `WebFrameMain` OBJECT captured by
+  // reference (round 2's approach). electron.d.ts documents no object-
+  // identity guarantee across separate reads of the same frame; it does
+  // document that `processId`/`frameToken` identify a frame. See
+  // `isAppOpenerFrame` in window-open-policy.ts for the comparison and its
+  // doc-line citations. `null` only for a webContents this map never saw
+  // created (the main window, or if `did-create-window` itself never fired
+  // for some reason).
+  openerFrame: LatchedOpenerFrame | null;
 }
 const windowFacts = new Map<number, WindowFacts>();
 function factsFor(contents: WebContents): WindowFacts {
@@ -102,6 +109,36 @@ function factsFor(contents: WebContents): WindowFacts {
 // `did-navigate` commits it, `did-fail-load` (main frame) discards it
 // without touching the confirmed `authFlowState`.
 const pendingAuthFlow = new WeakMap<WebContents, boolean>();
+
+// ★★★ m2/n2 FIX (review-3-fix2-report.md), called from BOTH `did-fail-load`
+// and `did-fail-provisional-load` (m2: a CANCELLED navigation -- e.g. a
+// later navigation superseding it, or `preventDefault()` from a will-*
+// denial -- fires `did-fail-provisional-load`, NOT `did-fail-load`;
+// electron.d.ts's doc on the former: "This event is like `did-fail-load`
+// but emitted when the load was cancelled (e.g. `window.stop()` was
+// invoked)." Without also discarding here, a `pendingAuthFlow` staged by an
+// entry hop that was then denied/redirected-away-from could survive
+// indefinitely, uncommitted, until some LATER unrelated navigation's
+// `did-navigate` wrongly committed it).
+//
+// n2: a failed ATTEMPT to return to `APP_ORIGIN` (the local server briefly
+// unreachable, offline, etc.) still ends the flow -- the flow's purpose is
+// over the moment the popup tries to come home, whether or not that
+// specific attempt lands; retrying only re-attempts the same return, and
+// there is no benefit to leaving `authFlowState` on `true` against
+// whatever error page Chromium shows instead. This COMMITS `false`
+// directly (not via `pendingAuthFlow`, which is simply discarded) because
+// there is nothing further to wait for.
+function discardStagedAuthFlow(contents: WebContents, validatedURL: string): void {
+  pendingAuthFlow.delete(contents);
+  try {
+    if (new URL(validatedURL).origin === APP_ORIGIN) {
+      authFlowState.set(contents, false);
+    }
+  } catch {
+    // Empty or unparsable: not a return to the app, nothing to end.
+  }
+}
 
 const logDir = resolveLogDir(process.env);
 function log(line: string): void {
@@ -667,16 +704,24 @@ if (!app.requestSingleInstanceLock()) {
     // `DidCreateWindowDetails.url` describe the same value), so a window can
     // only be recorded `createdAsBlankPopup: true` if this shell's own
     // policy already decided to allow it in-app as `about:blank`/empty.
-    // `contents.mainFrame` (THIS webContents' top frame, the one that just
-    // called `window.open`) is captured ONCE, by reference, as the child's
-    // `openerFrame` -- never `childContents.opener` read later, which is
-    // the live property M-A flagged as COOP-fragile.
+    //
+    // ★ m3 FIX: `contents.mainFrame.processId`/`.frameToken` (THIS
+    // webContents' top frame, the one that just called `window.open`) are
+    // captured ONCE as PLAIN VALUES -- never the `WebFrameMain` object
+    // itself (round 2's approach, which relied on an object-identity
+    // guarantee electron.d.ts does not document; see `isAppOpenerFrame`'s
+    // doc comment in window-open-policy.ts). Still never `childContents.
+    // opener` read later, which is the live property M-A flagged as
+    // COOP-fragile.
     try {
       contents.on("did-create-window", (childWindow, details) => {
         const childContents = childWindow.webContents;
         windowFacts.set(childContents.id, {
           createdAsBlankPopup: details.url === "" || details.url === "about:blank",
-          openerFrame: contents.mainFrame,
+          openerFrame: {
+            processId: contents.mainFrame.processId,
+            frameToken: contents.mainFrame.frameToken,
+          },
         });
         childContents.once("destroyed", () => windowFacts.delete(childContents.id));
       });
@@ -685,31 +730,34 @@ if (!app.requestSingleInstanceLock()) {
     }
 
     // ★★★ AUTH-FLOW CONTEXT FOR THIS WEBCONTENTS, shared by `will-navigate`
-    // and `will-redirect` below -- both read the SAME `windowFacts`/
-    // `authFlowState` entries, because a Microsoft sign-in can enter the
-    // flow on an ordinary navigation (`location.assign`, MSAL's own path --
-    // see `decideNavigation`'s doc comment) and continue it through a SERVER
+    // and `will-redirect` below -- both read the SAME `windowFacts` entry,
+    // because a Microsoft sign-in can enter the flow on an ordinary
+    // navigation (`location.assign`, MSAL's own path -- see
+    // `decideNavigation`'s doc comment) and continue it through a SERVER
     // redirect (a federated IdP forwarding back to login.microsoftonline.com,
     // or vice versa) with no navigation event of the other kind in between.
-    // `details.initiator` (electron.d.ts: "The frame which initiated the
-    // navigation... or null if the navigation was not initiated by a
-    // frame", present on both `WebContentsWillNavigateEventParams`, around
-    // electron.d.ts:24560, and `WebContentsWillRedirectEventParams`, around
-    // :24590) is compared BY REFERENCE against the `openerFrame` latched at
-    // creation -- a link clicked inside the popup/tab is initiated by that
-    // window's OWN top frame, a DIFFERENT `WebFrameMain` instance than its
-    // opener even though both may report the SAME string origin (an
-    // about:blank child inherits its opener's origin per `WebFrameMain.
-    // origin`'s own doc comment), which is exactly why an origin-STRING
-    // comparison here would NOT have distinguished the two and object
-    // identity is the reliable signal.
-    const navContext = (details: { initiator?: WebFrameMain | null }): NavigationContext => {
+    // `inAuthFlow` is NOT read here -- each call site below passes its own
+    // (see the m1 fix at `will-redirect`), so this only assembles the two
+    // fields that never differ between them.
+    //
+    // ★ m3 FIX: `isAppOpenerFrame` (window-open-policy.ts), not an object-
+    // reference comparison -- see its doc comment and `WindowFacts.
+    // openerFrame` above for the citations. `details.initiator`
+    // (electron.d.ts: "The frame which initiated the navigation... or null
+    // if the navigation was not initiated by a frame", present on both
+    // `WebContentsWillNavigateEventParams`, around electron.d.ts:24560, and
+    // `WebContentsWillRedirectEventParams`, around :24590) structurally
+    // satisfies `isAppOpenerFrame`'s `FrameIdentity` parameter type (a
+    // `WebFrameMain` has every property that shape asks for).
+    const navContextFor = (
+      details: { initiator?: WebFrameMain | null },
+      inAuthFlow: boolean,
+    ): NavigationContext => {
       const facts = factsFor(contents);
       return {
         createdAsBlankPopup: facts.createdAsBlankPopup,
-        initiatorIsAppOpener:
-          facts.openerFrame !== null && details.initiator === facts.openerFrame,
-        inAuthFlow: authFlowFor(contents),
+        initiatorIsAppOpener: isAppOpenerFrame(details.initiator, facts.openerFrame, APP_ORIGIN),
+        inAuthFlow,
       };
     };
 
@@ -745,7 +793,13 @@ if (!app.requestSingleInstanceLock()) {
     try {
       contents.on("will-navigate", (details) => {
         if (!details.isMainFrame) return;
-        const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, navContext(details));
+        // ★ COMMITTED state only -- unlike will-redirect below (the m1
+        // fix), a will-navigate always starts a NEW top-level navigation,
+        // so there is no earlier `pendingAuthFlow` for THIS attempt to
+        // inherit; whatever is in `pendingAuthFlow` right now belongs to
+        // whatever the PREVIOUS navigation staged (already superseded).
+        const ctx = navContextFor(details, authFlowFor(contents));
+        const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, ctx);
         if (decision === "allow-in-app") {
           pendingAuthFlow.set(contents, authFlow);
           return;
@@ -785,7 +839,23 @@ if (!app.requestSingleInstanceLock()) {
     try {
       contents.on("will-redirect", (details) => {
         if (!details.isMainFrame) return;
-        const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, navContext(details));
+        // ★★★ m1 FIX. STAGED value first, falling back to committed --
+        // `pendingAuthFlow.get(contents) ?? authFlowFor(contents)`. A
+        // redirect belongs to the SAME in-flight navigation that a
+        // preceding will-navigate may have just staged: Azure AD can answer
+        // MSAL's `location.assign(authorityUrl)` with a DIRECT 30x to a
+        // tenant's federated IdP (home-realm-discovery auto-acceleration),
+        // arriving here before any `did-navigate` has committed anything.
+        // Reading only the COMMITTED flag (round 2's behaviour) made that
+        // hop `open-external` -- a regression from round 1, where the flag
+        // was written at will-navigate time and so was already `true` here.
+        // A staged value can only exist for a `createdAsBlankPopup` +
+        // opener-initiated navigation that a will-* decision just allowed
+        // (see `will-navigate` above and `pendingAuthFlow`'s own comment) --
+        // this fallback never invents flow state for an ordinary page.
+        const inAuthFlow = pendingAuthFlow.get(contents) ?? authFlowFor(contents);
+        const ctx = navContextFor(details, inAuthFlow);
+        const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, ctx);
         if (decision === "allow-in-app") {
           pendingAuthFlow.set(contents, authFlow);
           return;
@@ -823,21 +893,50 @@ if (!app.requestSingleInstanceLock()) {
       log(`did-navigate handler install: ${String(e)}`);
     }
 
-    // ★★★ M-C, THE DISCARD HALF. A main-frame load that fails (offline, DNS,
-    // a denied navigation that still left something in flight) never reaches
-    // `did-navigate`, so without this the flag some `will-*` decision staged
-    // would sit in `pendingAuthFlow` forever, uncommitted but also never
-    // cleared -- harmless in itself (it is simply never read again until
-    // the NEXT navigation overwrites it), but a stale entry is exactly the
-    // kind of state this fix removes elsewhere. Explicit `isMainFrame` check
-    // here: unlike `did-navigate`, `did-fail-load` DOES fire for subframes.
+    // ★★★ M-C/n2, THE DISCARD HALF. A main-frame load that fails (offline,
+    // DNS, a denied navigation that still left something in flight) never
+    // reaches `did-navigate`, so without this the flag some `will-*`
+    // decision staged would sit in `pendingAuthFlow` uncommitted --
+    // harmless on its own (never read again until the next navigation
+    // overwrites it), but a stale entry is exactly the kind of state this
+    // fix removes elsewhere. `discardStagedAuthFlow` (module scope, shared
+    // with `did-fail-provisional-load` below) also ends a COMMITTED flow
+    // outright if the failed load's `validatedURL` origin is `APP_ORIGIN`
+    // (n2). Explicit `isMainFrame` check here: unlike `did-navigate`,
+    // `did-fail-load` DOES fire for subframes.
     try {
-      contents.on("did-fail-load", (_event, _errorCode, _errorDescription, _validatedURL, isMainFrame) => {
-        if (!isMainFrame) return;
-        pendingAuthFlow.delete(contents);
-      });
+      contents.on(
+        "did-fail-load",
+        (_event, _errorCode, _errorDescription, validatedURL, isMainFrame) => {
+          if (!isMainFrame) return;
+          discardStagedAuthFlow(contents, validatedURL);
+        },
+      );
     } catch (e: unknown) {
       log(`did-fail-load handler install: ${String(e)}`);
+    }
+
+    // ★★★ m2 FIX. `did-fail-load` does NOT fire for a CANCELLED navigation
+    // -- Electron emits `did-fail-provisional-load` for that instead
+    // ("This event is like `did-fail-load` but emitted when the load was
+    // cancelled (e.g. `window.stop()` was invoked)", electron.d.ts, the doc
+    // comment immediately above the event). A `will-redirect` denial calls
+    // `preventDefault()`, which cancels the navigation this way -- so
+    // without this handler, an entry hop that staged `true` and then got
+    // redirected somewhere this policy denies would leave `pendingAuthFlow`
+    // stuck, uncommitted, for a LATER unrelated navigation's `did-navigate`
+    // to wrongly commit. Same signature, same `isMainFrame` guard, same
+    // shared discard/n2 logic as `did-fail-load` above.
+    try {
+      contents.on(
+        "did-fail-provisional-load",
+        (_event, _errorCode, _errorDescription, validatedURL, isMainFrame) => {
+          if (!isMainFrame) return;
+          discardStagedAuthFlow(contents, validatedURL);
+        },
+      );
+    } catch (e: unknown) {
+      log(`did-fail-provisional-load handler install: ${String(e)}`);
     }
   });
 

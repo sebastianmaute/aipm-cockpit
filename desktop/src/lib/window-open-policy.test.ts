@@ -1,6 +1,13 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { decideNavigation, decideWindowOpen, originOnly } from "./window-open-policy";
+import {
+  decideNavigation,
+  decideWindowOpen,
+  isAppOpenerFrame,
+  originOnly,
+  type FrameIdentity,
+  type LatchedOpenerFrame,
+} from "./window-open-policy";
 
 const APP_ORIGIN = "http://127.0.0.1:17300";
 
@@ -145,6 +152,66 @@ describe("originOnly", () => {
 
   it("returns a fixed marker for an unparsable string, never the raw input", () => {
     expect(originOnly("not a url")).toBe("<unparsable>");
+  });
+});
+
+describe("isAppOpenerFrame", () => {
+  const APP_URL = `${APP_ORIGIN}/`;
+  const latched: LatchedOpenerFrame = { processId: 7, frameToken: "tok-opener" };
+  const opener = (overrides: Partial<FrameIdentity> = {}): FrameIdentity => ({
+    detached: false,
+    processId: 7,
+    frameToken: "tok-opener",
+    url: APP_URL,
+    ...overrides,
+  });
+
+  it("true: matching process+token, not detached, at the app origin", () => {
+    expect(isAppOpenerFrame(opener(), latched, APP_ORIGIN)).toBe(true);
+  });
+
+  it("false: no initiator (null or undefined)", () => {
+    expect(isAppOpenerFrame(null, latched, APP_ORIGIN)).toBe(false);
+    expect(isAppOpenerFrame(undefined, latched, APP_ORIGIN)).toBe(false);
+  });
+
+  it("false: no latched opener (facts never recorded -- e.g. the main window)", () => {
+    expect(isAppOpenerFrame(opener(), null, APP_ORIGIN)).toBe(false);
+  });
+
+  it("false: detached, even with matching process+token and app-origin url", () => {
+    // ★ Kills a mutant that drops the `!detached` check.
+    expect(isAppOpenerFrame(opener({ detached: true }), latched, APP_ORIGIN)).toBe(false);
+  });
+
+  it("false: same frameToken but a different process", () => {
+    expect(isAppOpenerFrame(opener({ processId: 8 }), latched, APP_ORIGIN)).toBe(false);
+  });
+
+  it("false: same process but a different frameToken", () => {
+    // ★ Kills a mutant that compares processId only.
+    expect(isAppOpenerFrame(opener({ frameToken: "tok-someone-else" }), latched, APP_ORIGIN)).toBe(
+      false,
+    );
+  });
+
+  it("false: about:blank's own frame -- empty url, even with matching process+token", () => {
+    // ★ Kills a mutant that drops the origin check. This is the exact shape
+    // a click INSIDE an about:blank popup/tab reports for its own frame:
+    // matching identity is impossible there (a different process+token), but
+    // this row isolates the origin check alone in case process+token ever
+    // coincidentally matched (e.g. a same-process navigation).
+    expect(isAppOpenerFrame(opener({ url: "" }), latched, APP_ORIGIN)).toBe(false);
+  });
+
+  it("false: a real URL, but on a different origin than the app", () => {
+    expect(isAppOpenerFrame(opener({ url: "https://evil.example/" }), latched, APP_ORIGIN)).toBe(
+      false,
+    );
+  });
+
+  it("false: an unparsable url", () => {
+    expect(isAppOpenerFrame(opener({ url: "not a url" }), latched, APP_ORIGIN)).toBe(false);
   });
 });
 
