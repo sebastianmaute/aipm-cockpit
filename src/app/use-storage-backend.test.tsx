@@ -4100,7 +4100,47 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
 
     (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
     await act(async () => { await result.current.loadProjectFromFile("json"); });
-    expect(notices()).toBe(3); // an explicit import is always announced
+    // ★ A positive control only: every file open mints a fresh id, so a gate on this
+    //  path could never suppress it. The pin is the test below (M-C1).
+    expect(notices()).toBe(3);
+  });
+
+  // ★★ M-C1: a file open RECORDS its id, so switching back to it is silent; and it is
+  //  never GATED — re-importing the very same id still announces. `randomUUID` is
+  //  stubbed so the second import reuses the id; without that a gate is invisible.
+  it("loadProjectFromFile records its id (switching back is silent) and is not gated (re-importing the same id announces) (M-C1)", async () => {
+    const fileId = "00000000-0000-4000-8000-000000000001" as const;
+    const uuid = vi.spyOn(crypto, "randomUUID").mockReturnValue(fileId);
+    try {
+      const main = makeImportBackend();
+      const target = makeImportBackend();
+      target.load.mockImplementation(async () =>
+        ({ ...emptyWorkspace(), tasks: [{ id: 555, taskName: "FromTarget", assigneeEmail: "a,b@x.com" } as unknown as Task] }) as never);
+      createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+      (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+      (handlesMod.getHandle as ReturnType<typeof vi.fn>).mockResolvedValue({ name: "p.json" });
+      registerTarget("imp-other");
+      const { result } = renderBackend(makeArgs({ setStorageConfig }));
+      await act(async () => { await Promise.resolve(); });
+      const notice = t("en-US", "importUnsafeEmailsNotice", 1, "FromTarget");
+      const notices = () => showToast.mock.calls.filter((c) => c[1] === notice).length;
+
+      await act(async () => { await result.current.loadProjectFromFile("json"); });
+      expect(loadRegistry().currentProjectId).toBe(fileId);
+      expect(notices()).toBe(1);
+      await act(async () => { await result.current.switchToProject("imp-other"); });
+      expect(notices()).toBe(2); // positive control: the other project's first switch announces
+      await act(async () => { await result.current.switchToProject(fileId); });
+      expect(loadRegistry().currentProjectId).toBe(fileId); // control: the switch back really ran
+      expect(notices()).toBe(2); // the file open recorded its id
+
+      await act(async () => { await result.current.switchToProject("imp-other"); });
+      await act(async () => { await result.current.loadProjectFromFile("json"); });
+      expect(loadRegistry().currentProjectId).toBe(fileId);
+      expect(notices()).toBe(3); // same, already-announced id: an explicit import is still announced
+    } finally {
+      uuid.mockRestore();
+    }
   });
 
   it("loadProjectFromFile still reports — the path the inline block was moved OFF", async () => {
