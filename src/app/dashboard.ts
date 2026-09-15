@@ -8,12 +8,13 @@ import { workdaysUntil } from "./due-dates";
 import { partitionMilestones } from "./milestones";
 import { computeEvm, projectBlendedInternalRate, type EvmMetrics } from "./evm";
 import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
-import { computeBudgetForecast, isPaceAvailable, paceVacHealth, type BudgetForecast } from "./budget-forecast";
+import { isPaceAvailable, paceVacHealth, type BudgetForecast } from "./budget-forecast";
+import { computeForecastBundle, type ForecastBundle } from "./budget-forecasts";
 import { resolveBucketChain, type BucketChain } from "./budget-bucket-chain";
 import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
 import { isTaskClosed, isTaskDelivered, isTaskOutOfScope } from "./task-closed";
 import type {
-  Absence, BudgetBucket, ChangeItem, FxRates, Milestone, ProjectStatus, RaidItem, RaidSeverity,
+  Absence, BudgetBucket, ChangeItem, Discipline, FxRates, Grade, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
 } from "./types";
 import type { ActivityEntry } from "./activity-log";
@@ -276,6 +277,11 @@ export type DashboardModel = {
    *  input and the dashboard tile's headline. Null exactly when `burndown` is
    *  (no budgets, or the report/burndown pair could not be built). */
   forecast: BudgetForecast | null;
+  /** € + hours forecasts, rate mix and earned-value history (MR 3). `forecast`
+   *  above is `forecastBundle.eur`. Null exactly when `forecast` is. */
+  forecastBundle: ForecastBundle | null;
+  /** Dates the burn-down chart needs beyond the series (MR 3 date axis). */
+  chartDates: { today: string; planEnd: string };
   /** The buckets' successor-chain resolution — drives the burn-down x-axis span
    *  and the "not one chain" warning. Null when there are no budgets. */
   bucketChain: BucketChain | null;
@@ -311,6 +317,8 @@ export interface DashboardEntities {
   fxRates: FxRates | null;
   milestones?: readonly Milestone[];
   changes?: readonly ChangeItem[];
+  disciplines?: readonly Discipline[];
+  grades?: readonly Grade[];
 }
 
 /** The non-entity context (today/zone-derived date, settings-derived scalars,
@@ -345,6 +353,8 @@ export function buildDashboardInput(e: DashboardEntities, ctx: DashboardContext)
     fxRates: e.fxRates,
     milestones: e.milestones ?? [],
     changes: e.changes ?? [],
+    disciplines: e.disciplines ?? [],
+    grades: e.grades ?? [],
     workdayHours: ctx.workdayHours,
     holidaySet: ctx.holidaySet,
     status: ctx.status,
@@ -396,12 +406,16 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
           bucketChain?.kind === "chain" ? { start: bucketChain.start, end: bucketChain.end } : undefined,
         )
       : null;
-  const forecast: BudgetForecast | null = report && burndown
-    ? computeBudgetForecast({
+  const forecastBundle: ForecastBundle | null = report && burndown
+    ? computeForecastBundle({
         report, buckets: input.budgets, roles: input.roles, fxRates: input.fxRates,
         tasks: input.tasks, plan: input.plan, burndown, holidaySet, today,
+        resources: input.resources, workdayHours: input.workdayHours, absences: input.absences,
+        disciplines: input.disciplines, grades: input.grades,
       })
     : null;
+  // The budget RAG and the tile headline stay € only (addendum §3.3).
+  const forecast: BudgetForecast | null = forecastBundle?.eur ?? null;
   // The budget RAG reads the pace VAC once the pace forecast exists (spec
   // §6.3); before that the consumed-vs-budget ratio stays the signal. Effort
   // CPI stays in the worst-of either way.
@@ -440,6 +454,8 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     burn,
     burndown,
     forecast,
+    forecastBundle,
+    chartDates: { today, planEnd: input.plan.endDate },
     bucketChain,
     evm,
     topRaid: selectTopRaid(input.raid, topRaidN),

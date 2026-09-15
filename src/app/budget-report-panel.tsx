@@ -22,7 +22,7 @@ import { formatCurrency } from "./resource-cost";
 import { resolveRate, resolveRateSource, type RateSource } from "./fx";
 import { bucketCurrencyLabel } from "./budget-currency-label";
 import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
-import type { Absence, BudgetBucket, Discipline, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
+import type { Absence, BudgetBucket, Discipline, FxRates, Grade, ResourcePlan, Resource, Role, Task } from "./types";
 import { RagBadge } from "./rag-badge";
 import { InfoTooltip } from "./info-tooltip";
 import { ratioHealth, marginHealth, costPerformanceHealth, planVsBudgetHealth } from "./budget-health";
@@ -32,7 +32,7 @@ import { BurndownCharts } from "./burndown-chart";
 import { BurndownChainWarning } from "./budget-chain-warning";
 import { EmptyState } from "./empty-state";
 import { ViewCallout } from "./view-callout";
-import { computeBudgetForecast } from "./budget-forecast";
+import { computeForecastBundle } from "./budget-forecasts";
 import { ForecastFactsRow } from "./budget-forecast-facts";
 import { ForecastCards } from "./budget-forecast-cards";
 import { ForecastBanners } from "./budget-forecast-banner";
@@ -47,12 +47,17 @@ type DetailSortKey =
   | "name" | "mode" | "type" | "status" | "currency"
   | "budgetH" | "planH" | "actualH" | "budgetEur" | "consumedEur" | "margin" | "winLoss";
 
+// A `grades = []` destructuring default would mint a fresh array every render,
+// invalidating the bundle memo below on every render for no input change.
+const NO_GRADES: readonly Grade[] = [];
+
 interface Props {
   lang: Lang;
   buckets: readonly BudgetBucket[];
   plan: ResourcePlan;
   roles: readonly Role[];
   disciplines: readonly Discipline[];
+  grades?: readonly Grade[];
   resources: readonly Resource[];
   absences: readonly Absence[];
   holidaySet: Set<string>;
@@ -67,7 +72,7 @@ interface Props {
 }
 
 export function BudgetReportPanel({
-  lang, buckets, plan, roles, disciplines, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
+  lang, buckets, plan, roles, disciplines, grades = NO_GRADES, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
   showHints, isPopout, onLearnMore,
 }: Props) {
   // Hooks are called unconditionally before the empty-state early return (rules of hooks).
@@ -96,10 +101,14 @@ export function BudgetReportPanel({
     ),
     [buckets, plan, roles, resources, workdayHours, holidaySet, absences, today, fxRates, bucketChain],
   );
-  const forecast = useMemo(
-    () => computeBudgetForecast({ report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today }),
-    [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today],
+  const bundle = useMemo(
+    () => computeForecastBundle({
+      report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today,
+      resources, workdayHours, absences, disciplines, grades,
+    }),
+    [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today, resources, workdayHours, absences, disciplines, grades],
   );
+  const forecast = bundle.eur;
   const { ref, reset } = useResizable("aipm-cockpit:budget-report-size");
   const detail = useColumnResize<DetailCol>("budgetReportDetail", DETAIL_COL_WIDTHS);
 

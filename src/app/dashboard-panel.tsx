@@ -6,7 +6,7 @@ import { buildDashboardInput, computeDashboard, hasNoActiveScope } from "./dashb
 import { useWorkspace } from "./workspace-context";
 import { type Lang, t, localeFor } from "./i18n";
 import type { Health } from "./health";
-import type { Absence, BudgetBucket, ChangeItem, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
+import type { Absence, BudgetBucket, ChangeItem, Discipline, Grade, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
 import { formatCurrency } from "./resource-cost";
 import type { SuggestedAction } from "./next-actions/types";
 import type { InsightActions } from "./insights/insight";
@@ -47,6 +47,8 @@ interface DashboardPanelProps {
   roles: readonly Role[];
   resources: readonly Resource[];
   absences: readonly Absence[];
+  disciplines?: readonly Discipline[];
+  grades?: readonly Grade[];
   holidaySet: ReadonlySet<string>;
   workdayHours: number;
   today: string;
@@ -125,6 +127,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
             fxRates,
             milestones: showMilestones ? props.milestones : [],
             changes: showChanges ? props.changes : [],
+            disciplines: props.disciplines,
+            grades: props.grades,
           },
           {
             workdayHours: props.workdayHours,
@@ -140,6 +144,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
       props.roles, props.resources, props.absences,
       props.workdayHours, props.holidaySet,
       props.milestones, props.changes,
+      props.disciplines, props.grades,
       showRaid, showBudget, showMilestones, showChanges,
       status, activity, today, fxRates,
     ],

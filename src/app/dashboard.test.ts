@@ -198,7 +198,7 @@ describe("computeDashboard", () => {
       tasks: [], raid: [], budgets: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
       roles: [], resources: [], absences: [], fxRates: null, workdayHours: 8,
       holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02",
-      milestones: [], changes: [],
+      milestones: [], changes: [], disciplines: [], grades: [],
       ...over,
     };
   }
@@ -372,14 +372,22 @@ describe("computeDashboard", () => {
 
   // Two buckets covering Mar-Jun of a Jan-Dec plan, so a chained span is a
   // strictly narrower window than the plan range.
+  // ★ P12: carries real allocations (a rated role + some actuals) so a test
+  // reading the forecast bundle off these buckets compares non-zero values —
+  // the empty `allocations: []` this used to have made such a comparison
+  // vacuous (0 === 0). The other bucket-chain tests below only assert
+  // `bucketChain`/`burndown.periods`, which allocation content cannot affect.
   const bucketA = {
     id: 1, name: "Phase 1", type: "tm", currency: "EUR",
-    startDate: "2026-03-01", endDate: "2026-04-30", status: "open", allocations: [],
+    startDate: "2026-03-01", endDate: "2026-04-30", status: "open",
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-03": 100 }, actualHours: { "2026-03": 40 } }],
   } as unknown as BudgetBucket;
   const bucketB = {
     id: 2, name: "Phase 2", type: "tm", currency: "EUR",
-    startDate: "2026-05-01", endDate: "2026-06-30", status: "open", allocations: [],
+    startDate: "2026-05-01", endDate: "2026-06-30", status: "open",
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-05": 80 }, actualHours: { "2026-05": 30 } }],
   } as unknown as BudgetBucket;
+  const bucketChainRole = { id: 1, disciplineId: 1, gradeId: 1, internalRate: 60, externalRate: 100 } as Role;
 
   it("has no bucket chain when there are no budgets", () => {
     expect(computeDashboard(baseInput()).bucketChain).toBeNull();
@@ -419,6 +427,22 @@ describe("computeDashboard", () => {
     expect(m.bucketChain).toMatchObject({ kind: "broken", reason: "outside-plan" });
     expect(m.burndown?.periods).toHaveLength(12);
   });
+
+  it("carries the forecast bundle (MR 3) and keeps forecast as its € member", () => {
+    const m = computeDashboard(baseInput({ budgets: [bucketA, bucketB], roles: [bucketChainRole] }));
+    expect(m.forecastBundle).not.toBeNull();
+    expect(m.forecast).toBe(m.forecastBundle!.eur);
+    expect(m.forecastBundle!.hours.facts.bac).toBe(m.burn!.budgetHours);
+    // P12: non-vacuous — bucketA/bucketB now carry real allocations with a
+    // rated role and actual hours, so these are real figures, not 0 === 0.
+    expect(m.forecastBundle!.hours.facts.bac).toBeGreaterThan(0);
+    expect(m.forecastBundle!.eur.facts.bac).toBeGreaterThan(0);
+    expect(m.chartDates).toEqual({ today: "2026-06-02", planEnd: "2026-12-31" });
+  });
+
+  it("has no forecast bundle without budgets", () => {
+    expect(computeDashboard(baseInput()).forecastBundle).toBeNull();
+  });
 });
 
 describe("dashboard scope signal from changes", () => {
@@ -427,7 +451,7 @@ describe("dashboard scope signal from changes", () => {
       tasks: [], raid: [], budgets: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
       roles: [], resources: [], absences: [], fxRates: null, workdayHours: 8,
       holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02",
-      milestones: [], changes: [],
+      milestones: [], changes: [], disciplines: [], grades: [],
       ...over,
     };
   }
@@ -470,6 +494,7 @@ describe("computeDashboard burndown", () => {
       roles: [], resources: [], absences: [], fxRates: null,
       workdayHours: 8, holidaySet: holidays,
       status: {} as DashboardInput["status"], activity: [], today, milestones: [], changes: [],
+      disciplines: [], grades: [],
       ...over,
     };
   }
