@@ -165,6 +165,24 @@ describe("computeForecastFromFacts — pace unavailable", () => {
     const f = computeForecastFromFacts(fixture({ dated: [day("2026-01-05", 100), day("2026-09-14", 50)] }));
     expect(f.pace).toMatchObject({ unavailable: "no-burn", lastBookingDate: "2026-01-05" });
   });
+
+  it("no-burn uses a spread month period's start for the last booking, not its spread working day (M2)", () => {
+    // The entry's `date` (2026-07-31, a working day the period's hours were
+    // spread onto) sits before the pace window (2026-08-17–2026-09-11) — same
+    // as `bookedFrom` (2026-07-01) — so this is still a no-burn fixture either
+    // way; only `lastBookingDate` distinguishes the two.
+    const f = computeForecastFromFacts(fixture({
+      dated: [{ date: "2026-07-31", bookedFrom: "2026-07-01", value: 100, spread: true }],
+    }));
+    expect(f.pace).toMatchObject({ unavailable: "no-burn", lastBookingDate: "2026-07-01" });
+  });
+
+  it("no-burn: a later day-key booking still wins over an earlier spread period's start (M2)", () => {
+    const f = computeForecastFromFacts(fixture({
+      dated: [{ date: "2026-07-31", bookedFrom: "2026-07-01", value: 100, spread: true }, day("2026-08-15", 50)],
+    }));
+    expect(f.pace).toMatchObject({ unavailable: "no-burn", lastBookingDate: "2026-08-15" });
+  });
 });
 
 describe("computeForecastFromFacts — efficiency unavailable", () => {

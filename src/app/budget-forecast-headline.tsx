@@ -18,7 +18,7 @@ import { forecastNoticeShortText } from "./budget-forecast-banner";
 export function forecastHeadlineText(f: BudgetForecast, lang: Lang): string {
   const locale = localeFor(lang);
   const bac = f.facts.bac;
-  const vacPercent = (vac: number) => formatSignedPercent(bac !== 0 ? vac / bac : 0, locale, 0);
+  const vacPercent = (vac: number) => formatSignedPercent(bac > 0 ? vac / bac : 0, locale, 0);
 
   if (!isPaceAvailable(f.pace)) {
     return t(lang, "forecastTileActuals", formatMoneyCompact(f.facts.ac, locale), formatMoneyCompact(bac, locale));

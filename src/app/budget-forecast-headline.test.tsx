@@ -86,6 +86,24 @@ describe("forecastHeadlineText", () => {
     expect(forecastHeadlineText(forecast, "en-US")).toBe("Actuals €168K of €240K");
   });
 
+  it("zero BAC reads 0% VAC (bac > 0 guard, M3)", () => {
+    const forecast: BudgetForecast = { facts: { ...BASE_FACTS, bac: 0 }, pace: PACE, efficiency: { unavailable: "no-actual-cost" }, gap: null, hasFixedPrice: false };
+    const expected = [
+      t("en-US", "forecastTileSingle", formatMoneyCompact(PACE.eac, locale), formatSignedPercent(0, locale, 0)),
+      t("en-US", "forecastTileRunsOut", formatDayMonth(PACE.runOutDate!, locale)),
+    ].join(" · ");
+    expect(forecastHeadlineText(forecast, "en-US")).toBe(expected);
+  });
+
+  it("negative BAC also reads 0% VAC, matching the cards' bac > 0 guard rather than dividing by a negative (M3)", () => {
+    const forecast: BudgetForecast = { facts: { ...BASE_FACTS, bac: -1000 }, pace: PACE, efficiency: { unavailable: "no-actual-cost" }, gap: null, hasFixedPrice: false };
+    const expected = [
+      t("en-US", "forecastTileSingle", formatMoneyCompact(PACE.eac, locale), formatSignedPercent(0, locale, 0)),
+      t("en-US", "forecastTileRunsOut", formatDayMonth(PACE.runOutDate!, locale)),
+    ].join(" · ");
+    expect(forecastHeadlineText(forecast, "en-US")).toBe(expected);
+  });
+
   it("omits the run-out part when runOutDate is null", () => {
     const pace: BudgetForecast["pace"] = { ...PACE, runOutDate: null, daysBeforePlannedEnd: null };
     const forecast = forecastWith(pace, EFFICIENCY);

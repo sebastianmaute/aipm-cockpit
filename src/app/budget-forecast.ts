@@ -86,7 +86,12 @@ function pace(f: ForecastFacts): PaceForecast | PaceUnavailable {
     if (d.spread) spreadPeriodHoursUsed = true;
   }
   if (windowValue <= 0) {
-    const lastBookingDate = booked.reduce<string | null>((m, d) => (d.date < today && (m === null || d.date > m) ? d.date : m), null);
+    // §5.2: "latest date carrying actual hours" — for a spread period entry
+    // that is its `bookedFrom` (period start), never the last WORKING day the
+    // spread loop happens to land the value on (a month total entered per
+    // period must not read as "Last booking: <last working day>"). Mirrors
+    // `first` above, which already uses `bookedFrom`.
+    const lastBookingDate = booked.reduce<string | null>((m, d) => (d.bookedFrom < today && (m === null || d.bookedFrom > m) ? d.bookedFrom : m), null);
     return { unavailable: "no-burn", windowStart, windowEnd, lastBookingDate };
   }
   const burnRatePerDay = windowValue / BURN_RATE_WINDOW_WORKING_DAYS;
