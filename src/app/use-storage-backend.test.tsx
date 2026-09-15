@@ -4069,6 +4069,36 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     expect(survivingToast()).toContain("4 invalid row(s)"); // the data-loss diagnostic keeps the slot
   });
 
+  // ★★ M4 (pre-release review): an ordinary switch re-announced the same stored
+  //  addresses EVERY time, crowding the single-slot toast. It is now at most once
+  //  per project per session; an explicit import (file open) always announces.
+  it("switchToProject announces a project's unsafe emails once per session; switching back is silent, a fresh import is not (M4)", async () => {
+    const main = makeImportBackend();
+    const target = makeImportBackend();
+    target.load.mockImplementation(async () =>
+      ({ ...emptyWorkspace(), tasks: [{ id: 555, taskName: "FromTarget", assigneeEmail: "a,b@x.com" } as unknown as Task] }) as never);
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    registerTarget("imp-email");
+    registerTarget("imp-other");
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    const notice = t("en-US", "importUnsafeEmailsNotice", 1, "FromTarget");
+    const notices = () => showToast.mock.calls.filter((c) => c[1] === notice).length;
+
+    await act(async () => { await result.current.switchToProject("imp-email"); });
+    expect(notices()).toBe(1);
+    await act(async () => { await result.current.switchToProject("imp-other"); });
+    expect(notices()).toBe(2); // positive control: a DIFFERENT project announces once too
+    await act(async () => { await result.current.switchToProject("imp-email"); });
+    await act(async () => { await result.current.switchToProject("imp-other"); });
+    expect(loadRegistry().currentProjectId).toBe("imp-other"); // control: the switches really ran
+    expect(notices()).toBe(2);
+
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+    await act(async () => { await result.current.loadProjectFromFile("json"); });
+    expect(notices()).toBe(3); // an explicit import is always announced
+  });
+
   it("loadProjectFromFile still reports — the path the inline block was moved OFF", async () => {
     // This one path DID report before `reportFor` absorbed it. The move must not
     // have cost it: a refactor that centralises a behaviour and loses it at its

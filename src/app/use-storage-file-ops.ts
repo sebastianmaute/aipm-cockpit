@@ -67,6 +67,12 @@ export interface FileProjectOpsDeps {
   reportProjectError: (err: unknown) => void;
   suppressNextLoadRef: React.MutableRefObject<boolean>;
   suppressNextSaveRef: React.MutableRefObject<boolean>;
+  /** ★★ M4: registry ids whose unsafe-email notice this SESSION already showed.
+   *  An ordinary SWITCH announces a project at most once; an explicit import
+   *  (file open, a create with a template or AI seed) always announces and
+   *  records its id, so switching back to it later is silent. Owned by
+   *  `useStorageBackend` (session lifetime, never shared between instances). */
+  announcedUnsafeEmailsRef: React.MutableRefObject<Set<string>>;
 }
 
 export function useFileProjectOps(deps: FileProjectOpsDeps) {
@@ -116,8 +122,12 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       //    the two runs LAST is the only one the user ever sees, and this one is
       //    the disposable half (a confirmation with no remedy attached).
       deps.showToast("info", t(deps.langRef.current, "projectSwitchedToast", target.name));
-      const unsafeEmails = summarizeUnsafeEmailRecords(loaded); // spec Part 2: after the confirmation, before the report
-      if (unsafeEmails) deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", unsafeEmails.count, unsafeEmails.names));
+      // spec Part 2: after the confirmation, before the report. ★ M4: once per project per session on a switch.
+      const unsafeEmails = deps.announcedUnsafeEmailsRef.current.has(id) ? null : summarizeUnsafeEmailRecords(loaded);
+      if (unsafeEmails) {
+        deps.announcedUnsafeEmailsRef.current.add(id);
+        deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", unsafeEmails.count, unsafeEmails.names));
+      }
       deps.truncationOps.reportFor(targetBackend);
       // 4. Suppress the auto-load the storageConfig change triggers (we just
       //    loaded), then point the active backend + registry at the target.
@@ -180,7 +190,10 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.setStorageConfig(storageConfig);
       deps.showToast("info", t(deps.langRef.current, "projectCreatedToast", meta.name));
       const seededEmails = opts.template || opts.aiSeed ? summarizeUnsafeEmailRecords(ws) : null; // template or AI import seed only
-      if (seededEmails) deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
+      if (seededEmails) {
+        deps.announcedUnsafeEmailsRef.current.add(id); // an explicit import always announces (M4)
+        deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
+      }
     } catch (err) {
       // Create aborted before applyWorkspace reseeded — roll the minter back so
       // the still-active old project doesn't lose its high-water marks (which
@@ -257,7 +270,10 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       //    silently moved it in FRONT and the count stopped painting.
       deps.showToast("info", t(deps.langRef.current, "projectLoadedToast", entry.name));
       const unsafeEmails = summarizeUnsafeEmailRecords(loaded); // spec Part 2: after the confirmation, before the report
-      if (unsafeEmails) deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", unsafeEmails.count, unsafeEmails.names));
+      if (unsafeEmails) {
+        deps.announcedUnsafeEmailsRef.current.add(id); // an explicit import always announces (M4)
+        deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", unsafeEmails.count, unsafeEmails.names));
+      }
       deps.truncationOps.reportFor(targetBackend);
       deps.suppressNextLoadRef.current = true;
       deps.suppressNextSaveRef.current = true;
