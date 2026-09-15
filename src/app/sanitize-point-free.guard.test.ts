@@ -128,7 +128,7 @@ const REVIEWED_REJECTS_NUMBER = [
 
 /** Never called: it exists for tsc. vitest does not typecheck. */
 export function reviewedListRejectsPointFree(xs: unknown[]): void {
-  // @ts-expect-error the index is not a ReadonlySet<number>
+  // @ts-expect-error the array (map's 3rd argument) is not a number | null
   xs.map(sanitizeDependencies);
   // @ts-expect-error the index has no property of DocTruncationDiag
   xs.map(sanitizeDocumentVersionsWithDiag);

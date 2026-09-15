@@ -161,8 +161,8 @@ describe("contactPersonsFragment", () => {
     expect(undone?.contactPersons).toEqual([spaced, shouty]);
   });
 
-  // ★ The documented residual (§537), pinned honestly rather than fixed: rows
-  // have no id, so a same-named linked row inserted AHEAD after the correction
+  // ★ A residual of §537's cause, pinned honestly rather than fixed (§537 names
+  // the cause, not this shift): rows have no id, so a same-named linked row inserted AHEAD after the correction
   // takes the first before-image, the originals shift down one, and the last
   // row falls back to `change.from`. Every value is still fold-equal to the old
   // primary; only the per-row spelling moves.
