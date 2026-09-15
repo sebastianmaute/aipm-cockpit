@@ -68,7 +68,7 @@ async function mount() {
   // after it: apply sets tasks to [seed], the load resets to [], and a
   // second apply re-mints the same id, so the count never exceeds 1 no
   // matter how long a caller waits on it. THIS IS A PRODUCT DEFECT, not just
-  // a test race -- filed as **§546** in docs/open-followups.md (an edit made
+  // a test race -- filed as **§548** in docs/open-followups.md (an edit made
   // during a project's first backend load is silently overwritten when that
   // load lands); this test merely raced the same window. Instrumented
   // locally (M-4, final-review-report.md; the capture itself lived in a
