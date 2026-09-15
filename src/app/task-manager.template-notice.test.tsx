@@ -57,6 +57,34 @@ async function mount() {
   window.history.replaceState(null, "", "/");
   render(<TaskManager />);
   await screen.findByTestId("ws-section-mock");
+  // ★★★ WAIT FOR THE FIRST BACKEND LOAD TO LAND, not just for the mock to
+  // mount. use-storage-backend.ts's load effect calls
+  // applyWorkspace(workspace, "reset", "merge") once it resolves, which
+  // REPLACES tasks with whatever was in browser storage -- empty, on the
+  // freshly-cleared localStorage this test seeds. `ws-section-mock` renders
+  // unconditionally on mount, before that load effect has necessarily
+  // finished, so a template apply issued right after `mount()` returns can
+  // land BEFORE the load and then get silently wiped when the load lands
+  // after it: apply sets tasks to [seed], the load resets to [], and a
+  // second apply re-mints the same id, so the count never exceeds 1 no
+  // matter how long a caller waits on it. This raced 3/13 local runs and
+  // was the real cause of the "expected '1' to be '2'" failure this file's
+  // history attributed to a slow render (see
+  // .superpowers/sdd/2026-09-15-electron-44/debug-template-notice.md) --
+  // no waitFor timeout on the taskCount assertions could ever have fixed
+  // it, since the count settles at a wrong value rather than merely
+  // arriving late. `storage.loaded` is the product's own diag-log marker
+  // for "the load effect ran" (use-storage-backend.ts:344,
+  // `logDiag("info", "storage.loaded", ...)`, written into
+  // localStorage["aipm-cockpit:diag-log"]); 15000ms because the load is a
+  // real IndexedDB/localStorage read, not a synchronous re-render -- the
+  // timeouts removed from the taskCount waits below are unrelated and stay
+  // at the default now that they no longer have a race to paper over.
+  await waitFor(
+    () =>
+      expect(window.localStorage.getItem("aipm-cockpit:diag-log") ?? "").toContain("storage.loaded"),
+    { timeout: 15000 },
+  );
 }
 
 const taskCount = () => screen.getByTestId("ws-section-mock").getAttribute("data-task-count");
@@ -76,17 +104,11 @@ describe("handleApplyTemplate — the unsafe-email notice (spec Part 2, pre-flig
   it("names only the rows the template brought in: a second apply announces ONE record, not two", async () => {
     await mount();
     act(() => chrome.apply!("tpl-unsafe-email", { includeSeed: true }));
-    // ★ Explicit timeout, below the test's own 45000 ms: waitFor's default is
-    // 1000 ms, and a slow CI runner can take longer than that to render the
-    // second template apply, timing this out under load while the test's
-    // own budget still has room (MR !492 pipeline 7013, unit-tests-shuffled
-    // seed 1: failed here at line 83 with "expected '1' to be '2'"; the
-    // retry at the same seed passed).
-    await waitFor(() => expect(taskCount()).toBe("1"), { timeout: 15000 });
+    await waitFor(() => expect(taskCount()).toBe("1"));
     expect(await screen.findByText(t("en-US", "importUnsafeEmailsNotice", 1, "Seeded"))).toBeInTheDocument();
 
     act(() => chrome.apply!("tpl-unsafe-email", { includeSeed: true }));
-    await waitFor(() => expect(taskCount()).toBe("2"), { timeout: 15000 }); // control: the second seed landed beside the first
+    await waitFor(() => expect(taskCount()).toBe("2")); // control: the second seed landed beside the first
     expect(screen.getByText(t("en-US", "importUnsafeEmailsNotice", 1, "Seeded"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "importUnsafeEmailsNotice", 2, "Seeded, Seeded"))).toBeNull();
   }, 45000);
