@@ -38216,7 +38216,7 @@ choice about a year bound), then update the three comments that name the gap. Ch
 stored events that already hold such a date: blanking an optional event date on load is consistent with §539,
 but a required one must not drop the record (see §539's load note).
 
-Related: §539.
+Related: §539, §544.
 
 ## 543. A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN
 
@@ -38261,7 +38261,7 @@ Fix shape: reject calendar-invalid dates in `aggregateActuals` with a UTC round 
 applied and saved.
 
 Related: §543. The same calendar-invalid-date class also affects calendar-event dates; that is tracked
-separately on another branch.
+separately on another branch. Related: §542.
 
 ## 545. The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN
 
