@@ -34,8 +34,7 @@ import { EmptyState } from "./empty-state";
 import { ViewCallout } from "./view-callout";
 import { computeForecastBundle } from "./budget-forecasts";
 import { ForecastFactsRow } from "./budget-forecast-facts";
-import { ForecastCards } from "./budget-forecast-cards";
-import { ForecastBanners } from "./budget-forecast-banner";
+import { ForecastSection } from "./budget-forecast-section";
 
 const DETAIL_COL_WIDTHS = {
   bucket: 160, mode: 90, type: 80, status: 80, currency: 110,
@@ -162,10 +161,7 @@ export function BudgetReportPanel({
       </Section>
 
       <Section title={t(lang, "forecastTitle")}>
-        <div className="space-y-3">
-          <ForecastBanners lang={lang} forecast={forecast} granularity={plan.granularity} />
-          <ForecastCards lang={lang} forecast={forecast} />
-        </div>
+        <ForecastSection lang={lang} bundle={bundle} granularity={plan.granularity} />
       </Section>
 
       <Section title={t(lang, "budgetBurndownTitle")}>

@@ -98,7 +98,14 @@ describe("BudgetReportPanel", () => {
     renderPanel();
     const input = screen.getByPlaceholderText(/filter buckets/i);
     await user.type(input, "alpha");
-    const table = within(screen.getByRole("table"));
+    // Task 9: the default fixture's rate mix triggers, so a second `<table>`
+    // (the always-in-DOM "Where the hours went" disclosure, native <details>
+    // whose closed content jsdom still exposes to role queries) now co-exists
+    // with the bucket table — scope to the "By bucket" Section the same way
+    // the forecast-section test above scopes to "Forecast" (Finding 7).
+    const byBucketHeading = screen.getByRole("heading", { name: t("en-US", "budgetReportByBucket") });
+    const byBucketSection = byBucketHeading.parentElement as HTMLElement;
+    const table = within(within(byBucketSection).getByRole("table"));
     const rows = table.getAllByRole("row").slice(1); // skip header row
     const names = rows.map((tr) => (tr.querySelectorAll("td")[1] as HTMLElement)?.textContent ?? "");
     expect(names).toContain("Alpha");

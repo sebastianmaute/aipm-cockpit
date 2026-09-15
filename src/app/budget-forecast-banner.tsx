@@ -7,8 +7,11 @@
 import { type Lang, t, localeFor } from "./i18n";
 import { formatDayMonth, formatDayMonthYear } from "./forecast-format";
 import { Banner } from "./banner";
+import { Button } from "./button";
+import { rateMixBannerText } from "./budget-rate-mix-text";
 import { forecastNotices, type ForecastNotice } from "./budget-forecast-notices";
 import { BURN_RATE_WINDOW_WORKING_DAYS, type BudgetForecast } from "./budget-forecast";
+import type { RateMix } from "./budget-rate-mix";
 import type { PlanGranularity } from "./types";
 
 /** Full banner sentence for one notice (§6.1a). */
@@ -57,16 +60,32 @@ export function forecastNoticeShortText(n: ForecastNotice, lang: Lang): string {
 }
 
 export function ForecastBanners({
-  lang, forecast, granularity,
+  lang, forecast, granularity, hours = null, mix = null, onShowMix,
 }: {
   lang: Lang;
   forecast: BudgetForecast;
   granularity: PlanGranularity;
+  hours?: BudgetForecast | null;
+  mix?: RateMix | null;
+  onShowMix?: () => void;
 }) {
   const notices = forecastNotices(forecast);
-  if (notices.length === 0) return null;
+  // MR 3 §4.3: the rate-mix banner goes FIRST — it changes how the cards read.
+  // It cannot co-occur with a pace-unavailable notice (the trigger needs both
+  // pace forecasts), but it can be the ONLY banner, so the early return below
+  // must account for it.
+  const mixBanner = mix && mix.triggered && hours ? (
+    <Banner severity={mix.severity === "warning" ? "warn" : "info"} className="flex flex-wrap items-start gap-2">
+      <span className="min-w-0 flex-1">{rateMixBannerText(lang, mix, forecast, hours)}</span>
+      {onShowMix ? (
+        <Button variant="secondary" size="xs" onClick={onShowMix}>{t(lang, "forecastMixAction")}</Button>
+      ) : null}
+    </Banner>
+  ) : null;
+  if (notices.length === 0 && mixBanner === null) return null;
   return (
     <div className="space-y-2">
+      {mixBanner}
       {notices.map((n) => (
         <Banner key={n.kind} severity={n.severity}>
           {forecastNoticeText(n, lang, granularity)}

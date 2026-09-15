@@ -1,10 +1,12 @@
-import { beforeAll, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { ForecastBanners, forecastNoticeText, forecastNoticeShortText } from "./budget-forecast-banner";
 import { formatDayMonth, formatDayMonthYear } from "./forecast-format";
 import { loadI18n, localeFor, t } from "./i18n";
 import type { BudgetForecast } from "./budget-forecast";
 import type { ForecastNotice } from "./budget-forecast-notices";
+import { EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, HOURS_FORECAST_EUR_WORSE, MIX_HOURS_WORSE, MIX_EUR_WORSE, MIX_ON_PLAN } from "../test/forecast-fixtures";
+import { rateMixBannerText } from "./budget-rate-mix-text";
 
 const locale = localeFor("en-US");
 
@@ -151,5 +153,40 @@ describe("ForecastBanners", () => {
     expect(warnBanner.className).toContain("--rag-amber");
     expect(infoBanner.className).toContain("ui-dark-blue");
     expect(warnBanner.className).not.toBe(infoBanner.className);
+  });
+});
+
+describe("ForecastBanners — rate-mix banner (MR 3)", () => {
+  it("renders the mix banner even when no other notice applies, as a warning", () => {
+    render(<ForecastBanners lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_HOURS_WORSE} granularity="month" />);
+    const banners = screen.getAllByRole("status");
+    expect(banners).toHaveLength(1);
+    expect(banners[0]).toHaveTextContent(rateMixBannerText("en-US", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE));
+    expect(banners[0].className).toContain("--rag-amber");
+  });
+
+  it("uses the info tint when only the drift fires", () => {
+    render(<ForecastBanners lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_EUR_WORSE} mix={MIX_EUR_WORSE} granularity="month" />);
+    expect(screen.getByRole("status").className).toContain("ui-dark-blue");
+  });
+
+  it("sits first, ahead of the existing notices", () => {
+    const efficiency: BudgetForecast["efficiency"] = { unavailable: "needs-percent-complete", bucketsMissingPercent: [{ id: 1, name: "Design" }] };
+    render(<ForecastBanners lang="en-US" forecast={{ ...EUR_FORECAST, efficiency }} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_HOURS_WORSE} granularity="month" />);
+    const banners = screen.getAllByRole("status");
+    expect(banners).toHaveLength(2);
+    expect(banners[0]).toHaveTextContent("Warning: the hours tell a worse story");
+  });
+
+  it("renders nothing when the mix does not trigger and no notice applies", () => {
+    const { container } = render(<ForecastBanners lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_ON_PLAN} granularity="month" />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("offers the action only with a handler, and calls it", () => {
+    const onShowMix = vi.fn();
+    render(<ForecastBanners lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_HOURS_WORSE} granularity="month" onShowMix={onShowMix} />);
+    fireEvent.click(screen.getByRole("button", { name: "Where the hours went" }));
+    expect(onShowMix).toHaveBeenCalledTimes(1);
   });
 });
