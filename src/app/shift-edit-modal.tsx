@@ -27,7 +27,7 @@ import type { Contact } from "./contacts";
 import { FieldNotice } from "./field-feedback";
 import { describeClamp } from "./sanitize-report";
 import { useConfirm } from "./confirm-dialog";
-import { sanitizeEmail } from "./sanitize";
+import { sanitizeLoadedEmail } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
 
@@ -107,9 +107,10 @@ export function ShiftEditModal({
   if (!draft) return null;
 
   // Judge (and, on save, store) the value the write path actually applies:
-  // `sanitizeEmail` (EMAIL_MAX) is what `sanitizeShift`'s decode path already
-  // gives `assigneeEmail`. Fix round 1, IMPORTANT 2.
-  const cappedAssigneeEmail = sanitizeEmail(draft.assigneeEmail ?? "") || undefined;
+  // `sanitizeLoadedEmail` (unwrap `Name <addr>`, then trim + EMAIL_MAX) is what
+  // `sanitizeShift`'s decode path gives `assigneeEmail`. Fix round 1,
+  // IMPORTANT 2; unwrapped since M-C4.
+  const cappedAssigneeEmail = sanitizeLoadedEmail(draft.assigneeEmail ?? "") || undefined;
 
   function update<K extends keyof Shift>(key: K, value: Shift[K]) {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));

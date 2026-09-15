@@ -72,6 +72,26 @@ describe("shift assignee email follows the changed-only write rule", () => {
     expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorInvalidEmail"));
   });
 
+  // M-C4 — the editor stores the `Name <addr>`-unwrapped address, as every
+  //  load does, and judges (and flags) that same value.
+  it("M-C4: a typed Name <addr> email saves as addr, unflagged", () => {
+    const onSave = vi.fn();
+    setup({ onSave, isNew: false, shift: { id: 1, assignee: "Ada", assigneeEmail: "old@x.com", hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0] } as Shift });
+    fireEvent.change(screen.getByLabelText(t("en-US", "shiftAssigneeEmail")), { target: { value: "Ann Lee <ann@x.com>" } });
+    expect(screen.queryByText(t("en-US", "errorInvalidEmail"))).toBeNull();
+    fireEvent.submit(screen.getByDisplayValue("Ann Lee <ann@x.com>").closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBe("ann@x.com");
+  });
+
+  it("M-C4: a shape-only email edit saves the unchanged address", () => {
+    const onSave = vi.fn();
+    setup({ onSave, isNew: false, shift: { id: 1, assignee: "Ada", assigneeEmail: "ada@x.com", hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0] } as Shift });
+    fireEvent.change(screen.getByLabelText(t("en-US", "shiftAssigneeEmail")), { target: { value: "Ada<ada@x.com>" } });
+    fireEvent.submit(screen.getByDisplayValue("Ada<ada@x.com>").closest("form")!);
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBe("ada@x.com");
+  });
+
   it("saves while an unchanged stored email is unsafe", () => {
     const onSave = vi.fn();
     setup({ onSave, isNew: false, shift: { id: 1, assignee: "Ada", assigneeEmail: "a,b@x.com", hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0] } as Shift });
