@@ -14,6 +14,9 @@ longer carries its own changelog comment.
 
 - The desktop app now runs on Electron 44 (bundled Node 24, matching the rest of the app);
   Electron 33 no longer receives security fixes.
+- In the desktop app, Help → Version now opens the same Version panel the app itself shows —
+  version name, build date and highlights — in the app's own language, plus where the log file
+  is and how to get updates, instead of a separate native dialog.
 
 ## [1.5.1] - 2026-09-15 "Highsmith"
 

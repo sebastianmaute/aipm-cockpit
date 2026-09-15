@@ -14,8 +14,7 @@ import {
   fileAction,
   helpAction,
   helpHashScript,
-  versionDialogAction,
-  versionDialogOptions,
+  versionRequestScript,
 } from "./lib/menu-model";
 import { resolveLogDir } from "./lib/log-paths";
 import { isPrintCancellation, pickPrintTarget } from "./lib/print-target";
@@ -152,10 +151,12 @@ function fileMenuClick(id: FileMenuItemId): () => void {
   }
 }
 
-// ★★ THE ONLY shell.openExternal CALL SITE. Two routes reach it -- the Help
-// menu's "Check for updates…" item and the Version dialog's second button --
-// and they share this function rather than a copy each, so the URL, the
-// error handling and the log line cannot drift between them.
+// ★★ THE ONLY shell.openExternal CALL SITE, reached from the Help menu's
+// "Check for updates…" item. It used to have a second caller -- the removed
+// native Version dialog's second button -- which is why this stayed a
+// function of its own rather than an inline call; the Version panel's own
+// Releases link (src/app/version-info.tsx) is now an ordinary in-page <a
+// target="_blank">, not routed through this process at all.
 //
 // ★ Hand the page to the user's OWN browser, where they are already signed in
 // to an `internal` GitLab. There is no updater and no feed to poll -- see
@@ -188,7 +189,7 @@ function openReleasesPage(): void {
 // the startup block at the bottom of this file), so such a throw is VISIBLE
 // -- logged, with a dialog. It still leaves the user with no app, which is
 // why the default branch still logs and returns a no-op rather than throwing.
-function helpMenuClick(id: HelpMenuItemId, label: string): () => void {
+function helpMenuClick(id: HelpMenuItemId): () => void {
   const action = helpAction(id);
   switch (action) {
     case "open-help":
@@ -224,29 +225,38 @@ function helpMenuClick(id: HelpMenuItemId, label: string): () => void {
       };
     case "show-version":
       return () => {
-        // ★★★ EVERY OPTION COMES FROM menu-model.ts, none is spelled here.
-        // Buttons, defaultId, cancelId and noLink are load-bearing (Enter and
-        // Escape must not open a browser), and this file is the one desktop
-        // file the blocking typecheck skips and no unit test can import -- so
-        // an option written here would be pinned by nothing. Only the `.then`
-        // below is eye-verified.
-        void dialog
-          .showMessageBox(
-            versionDialogOptions({
-              title: label,
-              version: app.getVersion(),
-              logPath: join(logDir, "launch.log"),
-              releasesUrl: RELEASES_URL,
-            }),
-          )
-          .then(({ response }) => {
-            // The dialog answers with an INDEX; menu-model.ts owns what each
-            // index means, so this file never compares a raw number.
-            if (versionDialogAction(response) === "open-releases") openReleasesPage();
-          })
-          .catch((e: unknown) => {
-            log(`version dialog: ${String(e)}`);
-          });
+        // ★★★ OPENS THE APP'S OWN VERSION MODAL NOW, not a native dialog --
+        // see menu-model.ts's versionRequestScript for why the script itself
+        // lives there (pure, unit-tested) rather than being built inline
+        // here, which is the one file the blocking typecheck skips and no
+        // unit test can import.
+        //
+        // ★ SAME TARGET-SELECTION AS File → Print (pickPrintTarget,
+        // print-target.ts): prefer the FOCUSED window when it is one of
+        // ours, else `win`. A popout asking for the Version panel should get
+        // its OWN copy of the modal rather than main.ts stealing focus back
+        // to the main window -- `pickPrintTarget` already encodes exactly
+        // that decision (`liveWindow(focused ?? main)`), so this reuses it
+        // rather than re-deciding the same liveness question a third way.
+        //
+        // ★ SAME LIVENESS + TRY/CATCH SHAPE AS open-help ABOVE: touching
+        // `webContents` on a destroyed window throws SYNCHRONOUSLY, so the
+        // try/catch is the whole safety net for the (vanishingly rare) race
+        // between the liveness check and the call.
+        const target = pickPrintTarget(BrowserWindow.getFocusedWindow(), win);
+        if (target === null) {
+          log("version menu: no window to open the Version panel in");
+          return;
+        }
+        try {
+          void target.webContents
+            .executeJavaScript(versionRequestScript(join(logDir, "launch.log")))
+            .catch((e: unknown) => {
+              log(`version menu: ${String(e)}`);
+            });
+        } catch (e: unknown) {
+          log(`version menu: ${String(e)}`);
+        }
       };
     case "open-releases":
       return openReleasesPage;
@@ -282,7 +292,7 @@ function helpMenuClick(id: HelpMenuItemId, label: string): () => void {
 function buildMenu(): void {
   const help: MenuItemConstructorOptions[] = HELP_MENU_ITEMS.map((item) => ({
     label: item.label,
-    click: helpMenuClick(item.id, item.label),
+    click: helpMenuClick(item.id),
   }));
 
   // ★★★ File is now hand-built rather than `{ role: "fileMenu" }`, and

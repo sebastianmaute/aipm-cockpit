@@ -28,3 +28,18 @@
 export function isDesktopShellUserAgent(userAgent: string): boolean {
   return userAgent.includes("Electron");
 }
+
+// The DOM CustomEvent name the desktop shell's Help -> Version menu item
+// dispatches on `window` (see desktop/src/lib/menu-model.ts
+// `versionRequestScript`) to ask the already-loaded page to open the app's
+// own Version panel instead of a native dialog. `detail` carries
+// `{ logPath: string }`.
+//
+// ★★★ DECLARED ON BOTH SIDES OF THE BOUNDARY, not imported once, because
+// desktop's tsconfig rootDir is `desktop/src` -- it cannot import anything
+// under `src/app`, and `src/app` has no route back into `desktop/src` either
+// (this is remote content to Electron, loaded over HTTP, not a Node module
+// graph). `desktop/src/lib/menu-model.test.ts` reads THIS file as text and
+// pins the two string literals equal, so a rename on one side without the
+// other fails that test rather than silently going quiet in the packaged app.
+export const DESKTOP_VERSION_REQUEST_EVENT = "aipm-cockpit-desktop-version-request";

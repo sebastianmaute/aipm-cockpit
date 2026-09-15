@@ -1390,6 +1390,9 @@ const enUS = {
   versionBuiltWith: "Built with Claude Code",
   versionGithubLink: "Source on GitHub",
   versionLinkedInLink: "Sebastian Maute on LinkedIn",
+  versionLogPathLabel: "Log file",
+  versionUpdatesManual: "Updates are manual: this app does not check for new versions on its own.",
+  versionReleasesLink: "Releases page",
 
   group: "Group",
   labels: "Labels",

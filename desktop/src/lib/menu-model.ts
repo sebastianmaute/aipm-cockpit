@@ -162,170 +162,38 @@ export function helpHashScript(hash: string = HELP_VIEW_HASH): string {
   return `window.location.hash = ""; window.location.hash = ${JSON.stringify(hash)};`;
 }
 
-// What the Version dialog says. The version is the packaged app's own
-// (app.getVersion(), which reads desktop/package.json -- a version:sync
-// satellite, so it cannot drift from src/app/version.ts without failing CI).
+// The desktop shell's Help -> Version menu item no longer builds a native
+// dialog. It asks the already-loaded page to open the SAME Version panel the
+// web app shows (VersionInfoModal, src/app/version-info.tsx) by dispatching a
+// DOM CustomEvent on `window` inside the renderer, via executeJavaScript --
+// the same mechanism `helpHashScript` above already uses to navigate the Help
+// view without a full page reload.
 //
-// ★ The log path is included on purpose: the rollout note tells a user to send
-// that file when reporting a problem, and this is the one place in the app
-// that can tell them where it is without them knowing what %LOCALAPPDATA% means.
+// ★★★ THE EVENT NAME IS DECLARED ON BOTH SIDES, not imported once, because
+// desktop's tsconfig rootDir is `desktop/src` -- this file cannot import
+// anything under `src/app`, and the renderer is remote HTTP content to
+// Electron, not a Node module graph, so there is no route back either. The
+// app's copy lives in src/app/desktop-shell.ts as
+// `DESKTOP_VERSION_REQUEST_EVENT`; menu-model.test.ts's "shared strings with
+// the app" describe block reads that file as TEXT and pins the two literals
+// equal, so a rename on one side without the other fails a test rather than
+// quietly going inert in the packaged app (main.ts is the one desktop file
+// the blocking root typecheck skips and no unit test can import).
+export const DESKTOP_VERSION_REQUEST_EVENT = "aipm-cockpit-desktop-version-request";
+
+// Builds the script main.ts hands to `webContents.executeJavaScript`. A pure
+// function, so it is unit-testable here rather than pinned by nothing (main.ts
+// is the file the blocking typecheck skips).
 //
-// ★★ The updates line exists because there is NO auto-updater. Left unsaid, a
-// user reasonably assumes the app keeps itself current and runs a stale build
-// indefinitely -- silence reads as "nothing to do here". Saying it once, in
-// the dialog they already open to answer "what version am I on", costs
-// nothing and is the only place the app can say it.
-//
-// ★ `releasesUrl` is a PARAMETER so a TEST can pass a sentinel and prove no
-// hardcoded copy of the real URL is baked in here -- a copy would satisfy
-// every "the dialog names the Releases page" assertion while silently
-// drifting from constants.ts the moment the project moves.
-//
-// ★★ NOT for import hygiene, which is what this comment used to claim and
-// which is false: constants.ts has no imports of its own and touches no
-// Electron API, so importing it would leave this module exactly as
-// Electron-free and exactly as testable. The caller (main.ts) already imports
-// constants.ts and passes RELEASES_URL.
-export function formatVersionDetail(
-  version: string,
-  logPath: string,
-  releasesUrl: string,
-): string {
+// ★★★ JSON.stringify EVERY INTERPOLATED VALUE, not string concatenation. A
+// Windows log path holds backslashes (`C:\Users\...\launch.log`), which would
+// corrupt or -- worse, with a stray quote -- break out of a hand-built string
+// literal. Wrapping the whole `detail` object in one JSON.stringify call
+// covers the event name argument too, so there is exactly one non-literal
+// value on each side of the CustomEvent constructor and both go through it.
+export function versionRequestScript(logPath: string): string {
   return (
-    `AI PM Cockpit ${version}\n\n` +
-    `Log file:\n${logPath}\n\n` +
-    `Updates are manual: this app does not check for new versions on its own.\n` +
-    `Download the newest version from:\n${releasesUrl}`
+    `window.dispatchEvent(new CustomEvent(${JSON.stringify(DESKTOP_VERSION_REQUEST_EVENT)}, ` +
+    `{ detail: ${JSON.stringify({ logPath })} }));`
   );
-}
-
-// What the Version dialog's buttons say and MEAN.
-//
-// ★ "open-releases" is the SAME string HelpMenuAction uses, so the dialog
-// button and the Help menu item land on main.ts's one openReleasesPage()
-// helper rather than two copies of the same shell.openExternal call. The
-// `Extract` makes that sharing structural instead of coincidental: rename the
-// member in HelpMenuAction and this collapses to "dismiss" alone.
-//
-// ★★ WHERE YOU WILL MEET THAT ERROR: on a BUTTON ROW below, in THIS file --
-// `Type '"open-releases"' is not assignable to type '"dismiss"'` -- so it
-// fails the BLOCKING root typecheck, not merely main.ts's case (which the
-// blocking job never reads). An earlier version of this comment credited the
-// weaker of the two.
-//
-// ★★ WHAT IT DOES NOT BUY: nothing behavioural. The two strings never pass
-// between the two types, so no amount of typing stops one being edited and
-// the other left alone -- the runtime assertion
-// `versionDialogAction(1) === helpAction("updates")` is what pins the
-// sharing. This only stops a RENAME from going quietly half-done.
-export type VersionDialogAction = "dismiss" | Extract<HelpMenuAction, "open-releases">;
-
-export interface VersionDialogButton {
-  label: string;
-  action: VersionDialogAction;
-}
-
-// ★★★ THE ARRAY INDEX IS THE PROTOCOL. dialog.showMessageBox resolves with a
-// NUMBER into this list, so reordering these rows changes what every response
-// means. Label and action are one row precisely so a button cannot be added
-// with a label and no decision about what it does -- the interface requires
-// both, and versionDialogAction reads the action positionally, so the two can
-// never disagree about which index is which.
-//
-// ★ OK stays FIRST: it is the harmless choice and it is where the index of
-// the dialog's only button was before this second one existed, so no meaning
-// was reassigned.
-export const VERSION_DIALOG_BUTTONS: readonly VersionDialogButton[] = [
-  { label: "OK", action: "dismiss" },
-  { label: "Open releases page", action: "open-releases" },
-];
-
-// ★★★ Enter fires `defaultId` and Escape fires `cancelId`. Both point at OK,
-// so dismissing this dialog the way a person dismisses any dialog CANNOT
-// launch a browser -- an unasked-for window opening because someone tapped
-// Enter is exactly the kind of surprise a Version dialog must not produce.
-// `cancelId: 0` is also Electron's own default, but stating it keeps the
-// guarantee true if the rows are ever reordered.
-export const VERSION_DIALOG_DEFAULT_ID = 0;
-export const VERSION_DIALOG_CANCEL_ID = 0;
-
-// ★★ An index with no row is a DISMISSAL, never an action.
-//
-// ★★ The `?.`/`??` look dead against the declared types, and they are not.
-// NEITHER tsconfig sets `noUncheckedIndexedAccess`, so `BUTTONS[response]` is
-// TYPED as a present row while the number itself arrives from another
-// process -- the type is unsound here by configuration, not by accident. The
-// second case is a row appended through a cast, widening the array without
-// widening the union.
-//
-// ★★ Do NOT justify this with "the window could close out from under the
-// dialog": that was a false reason, and this dialog is parentless anyway (the
-// call passes no BrowserWindow). Doing nothing is recoverable -- the user
-// clicks again; opening a browser they did not ask for is not.
-export function versionDialogAction(response: number): VersionDialogAction {
-  return VERSION_DIALOG_BUTTONS[response]?.action ?? "dismiss";
-}
-
-// The Version dialog's COMPLETE options object, built here rather than in
-// main.ts.
-//
-// ★★★ THAT IS THE WHOLE POINT, and it closes a half-open guarantee. While
-// main.ts assembled this object, the tests could only assert things about
-// VERSION_DIALOG_DEFAULT_ID -- main.ts remained free to pass `defaultId: 1`,
-// or to omit both keys (on Windows that leaves Escape on index 0 but hands
-// Enter to Electron's own default), with every test, lint and the blocking
-// typecheck green and Enter opening a browser. main.ts is the ONE desktop
-// file the blocking typecheck skips and the one no unit test can import, so
-// anything load-bearing has to live on this side of the line.
-//
-// ★ Deliberately an OPTIONS-OBJECT parameter, not four positional strings: a
-// transposition of same-typed arguments is invisible to tsc, and this is the
-// repo's own deps-object convention.
-//
-// ★ Structurally compatible with Electron's MessageBoxOptions without
-// importing it -- this module stays Electron-free. `type` is the LITERAL
-// "info" because the installed typings declare a union
-// ('none'|'info'|'error'|'question'|'warning'), which a plain `string` would
-// not satisfy.
-export interface VersionDialogOptions {
-  type: "info";
-  title: string;
-  message: string;
-  // ★★★ MUTABLE ON PURPOSE, mirroring electron 44.3.0's own
-  // `buttons?: string[]` (verified in
-  // desktop/node_modules/electron/electron.d.ts). A `readonly string[]`
-  // would not assign to that, so it cannot be one here either -- do not
-  // hoist the labels to a `readonly` constant and do not add `as const`.
-  //
-  // ★★ Declaring it HERE is what makes that safe: an attempt to narrow it to
-  // readonly now fails in THIS file, inside the blocking root typecheck.
-  // While main.ts built the object, the same mistake failed only in the
-  // desktop build -- `allow_failure: true` on a merge request.
-  buttons: string[];
-  defaultId: number;
-  cancelId: number;
-  noLink: boolean;
-}
-
-export function versionDialogOptions(args: {
-  title: string;
-  version: string;
-  logPath: string;
-  releasesUrl: string;
-}): VersionDialogOptions {
-  return {
-    type: "info",
-    title: args.title,
-    message: formatVersionDetail(args.version, args.logPath, args.releasesUrl),
-    // A fresh array per call, both to satisfy the mutable declaration above
-    // and so a caller that mutates what it was handed cannot affect the next
-    // dialog.
-    buttons: VERSION_DIALOG_BUTTONS.map((b) => b.label),
-    defaultId: VERSION_DIALOG_DEFAULT_ID,
-    cancelId: VERSION_DIALOG_CANCEL_ID,
-    // Without this, Windows renders any button it does not recognise as a
-    // stock one as a large command LINK -- "Open releases page" would read
-    // as the primary action instead of OK's peer.
-    noLink: true,
-  };
 }

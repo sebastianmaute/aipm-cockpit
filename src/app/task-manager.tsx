@@ -90,6 +90,8 @@ import { snoozeGroupIds } from "./action-snooze";
 import { useActionNotifications } from "./use-action-notifications";
 import { isReportPopoutTab, openPopoutWindow } from "./broadcast-sync";
 import { ModernShell } from "./modern-shell";
+import { VersionInfoModal } from "./version-info";
+import { useDesktopVersionRequest } from "./use-desktop-version-request";
 import { AskClaudeMenu } from "./ask-claude-menu";
 import { useHashView } from "./use-hash-view";
 import { navLabelKey, filterNavGroups } from "./nav-config";
@@ -451,6 +453,15 @@ function TaskManagerInner() {
     window.addEventListener("aipm-cockpit-secret-unreadable", onSecretUnreadable);
     return () => window.removeEventListener("aipm-cockpit-secret-unreadable", onSecretUnreadable);
   }, [showToast, lang]);
+
+  // Desktop shell's Help → Version menu item asks the already-loaded page to
+  // open this modal (see use-desktop-version-request.ts for why this is a
+  // separate root-level instance rather than lifting ModernShell's own
+  // `versionOpen`). Called unconditionally here because TaskManagerInner is
+  // ONE component instance regardless of isPopout / settings.layout — the
+  // <VersionInfoModal> below is rendered from `modalsBlock`, which every
+  // returned tree (classic, popout, modern) includes.
+  const desktopVersionRequest = useDesktopVersionRequest();
 
   // Observable copy of the portfolio registry. The storage hook persists the
   // registry inside its switch/create/load flows; it cannot setState here, so we
@@ -2896,6 +2907,12 @@ function TaskManagerInner() {
 
   const modalsBlock = (
     <>
+      <VersionInfoModal
+        lang={lang}
+        open={desktopVersionRequest.open}
+        onClose={desktopVersionRequest.onClose}
+        logPath={desktopVersionRequest.logPath}
+      />
       {!isPopout && reviewInsight?.recommendation && reviewPlan && (
         <RecommendationReviewModal
           lang={lang}

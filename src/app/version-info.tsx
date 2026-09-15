@@ -2,32 +2,44 @@
 
 // Shared version/highlights body rendered by both the VersionMenu popover (in
 // the action menus) and the VersionInfoModal (opened from the sidebar version
-// line and the Settings footer). Single source of truth for the "about" panel.
+// line, the Settings footer, and — desktop only — the Help → Version menu
+// item via use-desktop-version-request.ts). Single source of truth for the
+// "about" panel.
 
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
+import { isDesktopShellUserAgent } from "./desktop-shell";
 import {
   APP_AUTHOR_URL,
   APP_BUILD_DATE,
   APP_HIGHLIGHT_KEYS,
   APP_LICENSE_URL,
+  APP_RELEASES_URL,
   APP_REPO_URL,
   APP_VERSION_LABEL,
 } from "./version";
 
-/** Centered modal wrapping VersionInfo, opened from the sidebar version line
- *  and the Settings footer. Controlled: parent owns the open boolean. Delegates
- *  focus trap / restore, Escape, and backdrop dismissal to the shared Modal. */
+/** Centered modal wrapping VersionInfo, opened from the sidebar version line,
+ *  the Settings footer, and (desktop only) the Help → Version menu item via
+ *  `useDesktopVersionRequest`. Controlled: parent owns the open boolean.
+ *  Delegates focus trap / restore, Escape, and backdrop dismissal to the
+ *  shared Modal. */
 export function VersionInfoModal({
   lang,
   open,
   onClose,
+  logPath,
 }: {
   lang: Lang;
   open: boolean;
   onClose: () => void;
+  /** The desktop app's launch-log path, forwarded from the main process
+   *  through `useDesktopVersionRequest`. Absent for every other caller
+   *  (sidebar / Settings footer), and for the desktop caller until the
+   *  first request has actually landed. */
+  logPath?: string;
 }) {
   return (
     <Modal open={open} onClose={onClose} ariaLabel={t(lang, "version")} align="center" zIndex={50}>
@@ -44,13 +56,22 @@ export function VersionInfoModal({
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />
           </IconButton>
         </div>
-        <VersionInfo lang={lang} />
+        <VersionInfo lang={lang} logPath={logPath} />
       </div>
     </Modal>
   );
 }
 
-export function VersionInfo({ lang }: { lang: Lang }) {
+export function VersionInfo({ lang, logPath }: { lang: Lang; logPath?: string }) {
+  // ★ A plain render-time check, not the useSyncExternalStore dance
+  // PrintButton (task-manager-ui.tsx) needs: THIS component only ever mounts
+  // once its enclosing Modal's `open` becomes true, which starts false and
+  // flips only from a client-side click or event — never during the initial
+  // (possibly server) render — so there is no SSR/hydration pass to disagree
+  // with. `typeof navigator` guards the same test file rendering VersionInfo
+  // directly outside any Modal.
+  const isDesktop =
+    typeof navigator !== "undefined" && isDesktopShellUserAgent(navigator.userAgent);
   return (
     <>
       <p className="text-base font-semibold text-ui-dark-blue dark:text-ui-light-grey">
@@ -92,6 +113,27 @@ export function VersionInfo({ lang }: { lang: Lang }) {
           <ExternalLink href={APP_AUTHOR_URL}>{t(lang, "versionLinkedInLink")}</ExternalLink>
         </p>
       </div>
+
+      {/* Desktop-only: the packaged app's former native Version dialog said
+       *  this (log path, "updates are manual", a Releases link) in English
+       *  only, from a separate surface that could drift from this one. Help →
+       *  Version now opens THIS modal instead (see
+       *  use-desktop-version-request.ts), so the same three facts are said
+       *  here, in the app's own language, reusing the file's existing Row /
+       *  ExternalLink / paragraph styles rather than a second set of controls. */}
+      {isDesktop && (
+        <div className="mt-4 space-y-1 border-t border-line pt-3 text-xs text-muted-foreground">
+          {logPath && (
+            <dl>
+              <Row term={t(lang, "versionLogPathLabel")} value={logPath} />
+            </dl>
+          )}
+          <p>{t(lang, "versionUpdatesManual")}</p>
+          <p>
+            <ExternalLink href={APP_RELEASES_URL}>{t(lang, "versionReleasesLink")}</ExternalLink>
+          </p>
+        </div>
+      )}
     </>
   );
 }

@@ -1335,6 +1335,9 @@ export const de: Record<TranslationKey, string> = {
   versionBuiltWith: "Entwickelt mit Claude Code",
   versionGithubLink: "Quellcode auf GitHub",
   versionLinkedInLink: "Sebastian Maute auf LinkedIn",
+  versionLogPathLabel: "Protokolldatei",
+  versionUpdatesManual: "Updates sind manuell: Diese App prüft nicht von selbst auf neue Versionen.",
+  versionReleasesLink: "Releases-Seite",
 
   group: "Gruppe",
   labels: "Labels",

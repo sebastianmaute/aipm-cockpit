@@ -358,6 +358,18 @@ export const APP_LICENSE = "EUPL-1.2";
 export const APP_LICENSE_URL =
   "https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12";
 
+/** Where to get a newer build, linked from the Version panel's desktop-only
+ *  section (rendered only under `isDesktopShellUserAgent()` — the web app has
+ *  its own deploy and no "get a newer build" question). MUST equal desktop's
+ *  own `RELEASES_URL` (desktop/src/lib/constants.ts), which the packaged
+ *  app's Help → "Check for updates…" item already opens via
+ *  `shell.openExternal` — two copies of one URL, pinned equal by
+ *  `desktop/src/lib/menu-model.test.ts` (reads this file as text; desktop
+ *  cannot import across its tsconfig rootDir, so there is no single shared
+ *  constant to import instead). */
+export const APP_RELEASES_URL =
+  "https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/releases";
+
 /** Translation keys for the elevator-pitch highlights in the Version panel: the
  *  features unique to this app, NOT a per-release history (CHANGELOG.md owns that).
  *  A release does not add a key here. Update EN and DE together. */
