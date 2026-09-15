@@ -180,6 +180,39 @@ describe("ResourceEditModal", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
   });
 
+  // M-C4 — the editor stores the `Name <addr>`-unwrapped address, as every AI
+  //  write and load does, and judges (and flags) that same value.
+  it("M-C4: a typed Name <addr> primary and additional email save as addr, unflagged", () => {
+    const onSave = vi.fn();
+    setupFull({ resource: { ...base, email: "old@x.com" }, onSave });
+    fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "Ann Lee <ann@x.com>" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /add email/i }));
+    const [extra] = screen.getAllByRole("textbox", { name: /additional emails/i });
+    fireEvent.change(extra, { target: { value: "Two Tee <two@x.com>" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ email: "ann@x.com", emails: ["two@x.com"] });
+  });
+
+  it("M-C4: a shape-only primary edit saves the unchanged address, so the save is no email correction", () => {
+    const onSave = vi.fn();
+    setupFull({ resource: { ...base, email: "ada@x.com" }, onSave });
+    fireEvent.change(screen.getByDisplayValue("ada@x.com"), { target: { value: "Ada<ada@x.com>" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+    expect(onSave.mock.calls[0][0].email).toBe("ada@x.com");
+  });
+
+  it("M-C4: a Name <addr> additional email whose inner address is unsafe is still refused", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave });
+    fireEvent.click(screen.getByRole("button", { name: /add email/i }));
+    const [extra] = screen.getAllByRole("textbox", { name: /additional emails/i });
+    fireEvent.change(extra, { target: { value: "Name <a,b@x.com>" } });
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it("refuses a CHANGED primary email that is not write-safe", () => {
     const onSave = vi.fn();
     setupFull({ resource: { ...base, email: "old@x.com" }, onSave });

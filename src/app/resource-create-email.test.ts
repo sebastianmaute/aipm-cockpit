@@ -17,6 +17,11 @@ describe("creatableResourceEmail", () => {
     expect(creatableResourceEmail("   ")).toBeUndefined();
   });
 
+  it("M-C4: keeps a Name <addr> as its unwrapped addr, and drops one whose inner address is unsafe", () => {
+    expect(creatableResourceEmail("Bob Jones <bob@x.com>")).toBe("bob@x.com");
+    expect(creatableResourceEmail("Bob <a,b@x.com>")).toBeUndefined();
+  });
+
   it("judges the capped value that would be stored", () => {
     const long = `a@b.${"c".repeat(EMAIL_MAX)}`;
     expect(creatableResourceEmail(long)).toBe(long.slice(0, EMAIL_MAX));
