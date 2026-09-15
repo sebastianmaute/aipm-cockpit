@@ -322,4 +322,19 @@ describe("contact person add follows the email write rule", () => {
     expect(result).toHaveLength(1);
     expect(result[0].email).toBe("a".repeat(314) + "@x.com");
   });
+
+  // M-C4 — the add stores the `Name <addr>`-unwrapped address, as every load
+  //  (`sanitizeContactPerson`) does, and judges that same value.
+  it("M-C4: adds a typed Name <addr> email as addr", async () => {
+    const user = userEvent.setup();
+    const setDraft = vi.fn();
+    render(<IdentityPeopleFields {...props} setDraft={setDraft} />);
+    await user.type(screen.getByRole("combobox", { name: t("en-US", "contactAddManual") }), "Bob Jones");
+    const email = screen.getByRole("textbox", { name: `${t("en-US", "contactAddManual")} — ${t("en-US", "email")}` });
+    fireEvent.change(email, { target: { value: "Bob Jones <bob@x.com>" } });
+    await user.click(screen.getByRole("button", { name: t("en-US", "add") }));
+    expect(setDraft).toHaveBeenCalledTimes(1);
+    const updater = setDraft.mock.calls[0][0] as (p: ProjectFormDraft) => ProjectFormDraft;
+    expect(updater(props.draft).contactPersons[0].email).toBe("bob@x.com");
+  });
 });

@@ -29,7 +29,7 @@ import {
 } from "./project-options";
 import { NACE_SECTIONS } from "./nace-sections";
 import { type ProjectDraft, type ProjectErrorField } from "./project-validation";
-import { sanitizeEmail } from "./sanitize";
+import { sanitizeLoadedEmail } from "./sanitize";
 import { editorEmailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
 import { ResourcePicker } from "./resource-picker";
 import { buildRowTokens, rowLabel } from "./row-tokens";
@@ -699,11 +699,12 @@ function ContactPersonsControl({
     const name = draft.name.trim();
     if (!name || hasName(name)) return;
     // Judge (and store) the value that would be STORED: `sanitizeContactPerson`
-    // caps email at EMAIL_MAX via `sanitizeEmail` — the same treatment every
-    // other editor's email field now gets (fix round 2 ruling). A TYPED
-    // unsafe email refuses the add; a copy of the picked person's stored
-    // email is exempt (spec Part 1, decision 1 + Part 7 ruling).
-    const cappedEmail = sanitizeEmail(draft.email);
+    // stores `sanitizeLoadedEmail` (unwrap `Name <addr>`, then trim + EMAIL_MAX)
+    // — the same treatment every other editor's email field gets (fix round 2
+    // ruling; unwrapped since M-C4). A TYPED unsafe email refuses the add; a
+    // copy of the picked person's stored email is exempt (spec Part 1,
+    // decision 1 + Part 7 ruling).
+    const cappedEmail = sanitizeLoadedEmail(draft.email);
     const copySources = [
       linkedResourceEmail(resources, draft.resourceId),
       addressBook.find((c) => c.name === name)?.email,
