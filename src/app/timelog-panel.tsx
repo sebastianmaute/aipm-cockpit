@@ -9,6 +9,7 @@ import { t, type Lang } from "./i18n";
 import { useWorkspace } from "./workspace-context";
 import { useSettings } from "./use-settings";
 import { useToastContext } from "./toast-context";
+import { Banner } from "./banner";
 import { logDiag } from "./diagnostics";
 import { reportSilentFailure } from "./guard-feedback";
 import { useTimelogSync } from "./use-timelog-sync";
@@ -40,6 +41,7 @@ import { TimelogNotConfigured } from "./timelog-not-configured";
 import { canApplyToBudget, canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshAndReapply, canRefreshBookings } from "./timelog-guards";
 import { TimelogApplyNotices } from "./timelog-apply-notices";
 import { decideReapply } from "./timelog-reapply";
+import { bucketOverlay } from "./timelog-actuals";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -106,7 +108,6 @@ export function TimelogPanel({
     resources: matchableResources,
     budgets,
     scopeMode: cfg.scopeMode,
-    granularity: planGranularity,
     projectId: projectKey,
     isPopout,
     onTokenInvalid: () => {
@@ -225,8 +226,11 @@ export function TimelogPanel({
   );
 
   // KPI values
-  const overlay = sync.aggregates?.byBucket;
   const syncAggregates = sync.aggregates;
+  const overlay = useMemo(
+    () => (syncAggregates ? bucketOverlay(syncAggregates, planGranularity) : undefined),
+    [syncAggregates, planGranularity],
+  );
 
   const byResource = useMemo(
     () => syncAggregates?.byResource ?? {},
@@ -455,7 +459,7 @@ export function TimelogPanel({
   //    re-apply the stale attribution and silently reintroduce the very bug.
   async function handleRefreshAndReapply() {
     if (!canRefreshAndReapply({ isPopout, syncBusy: sync.busy, confirming, isMisconfigured, canRefresh })) return;
-    const outcome = decideReapply(await handleRefreshBookings(), budgets, matchableResources, roles);
+    const outcome = decideReapply(await handleRefreshBookings(), budgets, matchableResources, roles, planGranularity);
     if (outcome.kind === "abort") return;
     if (outcome.kind === "nothing") {
       showToast("info", t(lang, "timelogNothingToApply"));
@@ -607,6 +611,14 @@ export function TimelogPanel({
             ? t(lang, "timelogTokenInvalid")
             : t(lang, "timelogTestFail", sync.error && sync.error > 0 ? String(sync.error) : "?")}
         </p>
+      )}
+
+      {/* The fetched bookings could not be cached on this device (browser
+          storage refused the write). Clears on the next successful save. */}
+      {sync.cacheNotSaved && (
+        <Banner severity="warn" className="mb-3">
+          {t(lang, "timelogCacheNotSaved")}
+        </Banner>
       )}
 
       {/* Last synced + unattributed */}

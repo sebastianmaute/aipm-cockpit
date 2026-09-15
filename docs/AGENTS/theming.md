@@ -581,7 +581,7 @@
 - **Shared consolidation modules (Tier E, 0.190.39) — reuse these, do NOT re-hand-roll:**
   • **`device-store.ts`** = `readDeviceJson<T>(key, fallback)` / `writeDeviceJson(key, v)` / `removeDeviceKey(key)` —
   the SSR-guard + try/catch JSON envelope EVERY per-device `aipm-cockpit:*` store uses (the store keeps its OWN
-  validation/cap/dedupe on the parsed result). ★ `writeDeviceJson` SWALLOWS quota throws — a store that must
+  validation/cap/dedupe on the parsed result). ★ `writeDeviceJson` never throws on a quota failure; it returns `false`, which only `saveActualsCache` reads — a store that must
   PROPAGATE a write failure (scheduled-jobs / operating-guide) keeps its own throwing writer and adopts device-store
   for READS only; a raw-non-JSON store (reminder-snooze stores a bare number) doesn't use it at all.
   • **`capped-list-store.ts`** = `createCappedListStore<T extends {id;name}>(key, max, sanitizeList, {capOnLoad?})`

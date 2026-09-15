@@ -235,6 +235,49 @@ function coercePeriodMap(input: unknown, clampMax: number): Record<string, numbe
   return out;
 }
 
+// ★★ `actualHours` accepts DAY keys ("YYYY-MM-DD", written by TimeLog Apply) as
+// well as period keys; `budgetHours`, `Resource.utilization` and
+// `Resource.absenceOverride` stay period-only and keep the functions above. The
+// period rule and these three functions are deliberately NOT widened in place —
+// every caller of them would start accepting day keys.
+const ACTUAL_KEY_RE = /^\d{4}-((0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?|W[0-4]\d|W5[0-3])$/;
+
+/** Encode an actualHours map (period and day keys) to "k=v|k=v". */
+export function encodeActualMap(map: Record<string, number> | undefined): string {
+  if (!map) return "";
+  return Object.entries(map)
+    .filter(([k, v]) => ACTUAL_KEY_RE.test(k) && Number.isFinite(v))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("|");
+}
+
+/** Decode "k=v|k=v" to an actualHours map; drops malformed keys/values. */
+export function decodeActualMap(s: unknown): Record<string, number> {
+  if (typeof s !== "string" || !s) return {};
+  const out: Record<string, number> = {};
+  for (const part of s.split("|")) {
+    const eq = part.indexOf("=");
+    if (eq <= 0) continue;
+    const key = part.slice(0, eq).trim();
+    const val = Number(part.slice(eq + 1).trim());
+    if (ACTUAL_KEY_RE.test(key) && Number.isFinite(val)) out[key] = val;
+  }
+  return out;
+}
+
+/** `coercePeriodMap` for actualHours: object OR encoded string, clamped. */
+function coerceActualMap(input: unknown, clampMax: number): Record<string, number> {
+  const raw = typeof input === "string" ? decodeActualMap(input) : isPlainObject(input) ? input : {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!ACTUAL_KEY_RE.test(k)) continue;
+    const n = toNumber(v);
+    if (!Number.isFinite(n)) continue;
+    out[k] = Math.min(clampMax, Math.max(0, n));
+  }
+  return out;
+}
+
 function sanitizeUtilizationMode(s: unknown): UtilizationMode {
   return s === "hours" ? "hours" : "percent";
 }
@@ -534,7 +577,7 @@ export function encodeAllocations(allocs: readonly BucketAllocation[] | undefine
   if (!Array.isArray(allocs) || allocs.length === 0) return "";
   return allocs
     .map((a) =>
-      [a.roleId, a.resourceIds.join("."), encodePeriodMap(a.budgetHours), encodePeriodMap(a.actualHours)].join(";"),
+      [a.roleId, a.resourceIds.join("."), encodePeriodMap(a.budgetHours), encodeActualMap(a.actualHours)].join(";"),
     )
     .join("~");
 }
@@ -551,7 +594,7 @@ export function decodeAllocations(s: unknown): BucketAllocation[] {
       roleId,
       resourceIds: sanitizeIdList(idsStr),
       budgetHours: decodePeriodMap(budgetStr),
-      actualHours: decodePeriodMap(actualStr),
+      actualHours: decodeActualMap(actualStr),
     });
   }
   return out;
@@ -565,7 +608,7 @@ function sanitizeAllocation(input: unknown): BucketAllocation | null {
     roleId,
     resourceIds: sanitizeIdList(input.resourceIds),
     budgetHours: coercePeriodMap(input.budgetHours, HOURS_MAP_MAX),
-    actualHours: coercePeriodMap(input.actualHours, HOURS_MAP_MAX),
+    actualHours: coerceActualMap(input.actualHours, HOURS_MAP_MAX),
   };
 }
 
@@ -582,7 +625,7 @@ export function encodeDisciplineAllocations(allocs: readonly DisciplineAllocatio
   if (!Array.isArray(allocs) || allocs.length === 0) return "";
   return allocs
     .map((a) =>
-      [a.disciplineId, a.resourceIds.join("."), encodePeriodMap(a.budgetHours), encodePeriodMap(a.actualHours)].join(";"),
+      [a.disciplineId, a.resourceIds.join("."), encodePeriodMap(a.budgetHours), encodeActualMap(a.actualHours)].join(";"),
     )
     .join("~");
 }
@@ -599,7 +642,7 @@ export function decodeDisciplineAllocations(s: unknown): DisciplineAllocation[] 
       disciplineId,
       resourceIds: sanitizeIdList(idsStr),
       budgetHours: decodePeriodMap(budgetStr),
-      actualHours: decodePeriodMap(actualStr),
+      actualHours: decodeActualMap(actualStr),
     });
   }
   return out;
@@ -613,7 +656,7 @@ function sanitizeDisciplineAllocation(input: unknown): DisciplineAllocation | nu
     disciplineId,
     resourceIds: sanitizeIdList(input.resourceIds),
     budgetHours: coercePeriodMap(input.budgetHours, HOURS_MAP_MAX),
-    actualHours: coercePeriodMap(input.actualHours, HOURS_MAP_MAX),
+    actualHours: coerceActualMap(input.actualHours, HOURS_MAP_MAX),
   };
 }
 

@@ -79,6 +79,7 @@ function defaultSyncReturn() {
     customerProjects: [],
     busy: false,
     error: null,
+    cacheNotSaved: false,
     loadDirectory: vi.fn().mockResolvedValue(undefined),
     loadManagedProjects: vi.fn().mockResolvedValue(undefined),
     loadCustomers: vi.fn().mockResolvedValue(undefined),
@@ -327,6 +328,38 @@ describe("TimelogPanel", () => {
       // Unattributed = 2 h
       expect(screen.getByText(t("en-US", "timelogKpiWinLoss"))).toBeInTheDocument();
       expect(screen.getByText("2 h")).toBeInTheDocument();
+    });
+  });
+
+  describe("cache not saved warning", () => {
+    it("warns when the sync hook reports that the cache write was refused", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue({
+        ...defaultSyncReturn(),
+        cacheNotSaved: true,
+      } as unknown as ReturnType<typeof useTimelogSync>);
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const warning = screen.getByText(t("en-US", "timelogCacheNotSaved"));
+      expect(warning.closest('[role="status"]')).not.toBeNull();
+    });
+
+    it("shows no warning when the cache write succeeded (control)", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      expect(screen.queryByText(t("en-US", "timelogCacheNotSaved"))).toBeNull();
     });
   });
 

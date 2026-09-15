@@ -2,6 +2,7 @@
 import type { BudgetBucket, BucketAllocation, Discipline, DisciplineAllocation, Grade, Resource, Role } from "./types";
 import { roleLabel } from "./resource-foundation";
 import type { ActualsByBucket, BucketPeriodCell } from "./timelog-actuals";
+import { actualHoursIn, withoutPeriod } from "./actual-hours";
 
 /** 2dp, binary-float safe. Hours are money-adjacent (they multiply a rate), so
  *  a running sum of TimeLog decimals must not persist 7.000000000000001. */
@@ -75,6 +76,11 @@ function allocationIndexFor(
 type Routed = {
   /** allocation index → periodKey → hours */
   perAlloc: Map<number, Record<string, number>>;
+  /** alloc index → period → day → hours, from each routed booking's `byDay`. */
+  perAllocDays: Map<number, Record<string, Record<string, number>>>;
+  /** Periods where at least one routed booking had no `byDay` (legacy cache):
+   *  those are written as a period key, exactly as before dated actuals. */
+  undatedPeriods: Set<string>;
   /**
    * Periods that routed AT LEAST ONE booking — only these are OWNED (see
    * writeAllocations). A period whose hours were entirely unattributable is
@@ -103,6 +109,8 @@ function routeBucket(
   if (list.length === 0) return null;
   const blended = b.planningMode === "blended";
   const perAlloc = new Map<number, Record<string, number>>();
+  const perAllocDays = new Map<number, Record<string, Record<string, number>>>();
+  const undatedPeriods = new Set<string>();
   const routedPeriods = new Set<string>();
   let unmatched = false;
   // NET hours, so the number answers "how far off is the budget". A +40/-40 pair
@@ -138,6 +146,15 @@ function routeBucket(
       // so the float would be stored, not just shown.
       rec[period] = round2((rec[period] ?? 0) + hc.hours);
       perAlloc.set(idx, rec);
+      if (hc.byDay) {
+        const allocDays = perAllocDays.get(idx) ?? {};
+        const periodDays = { ...allocDays[period] };
+        for (const [day, h] of Object.entries(hc.byDay)) periodDays[day] = round2((periodDays[day] ?? 0) + h);
+        allocDays[period] = periodDays;
+        perAllocDays.set(idx, allocDays);
+      } else if (hc.hours !== 0) {
+        undatedPeriods.add(period);
+      }
       // Ownership needs a REAL booking. A person whose hours net to zero (a +4
       // and a -4 credit correction) says nothing about the period, so on its own
       // that must not claim every other line and zero a hand-entered figure.
@@ -146,7 +163,7 @@ function routeBucket(
       if (hc.hours !== 0) routedPeriods.add(period);
     }
   }
-  return { perAlloc, periods: [...routedPeriods], unmatched, unmatchedHours };
+  return { perAlloc, perAllocDays, undatedPeriods, periods: [...routedPeriods], unmatched, unmatchedHours };
 }
 
 function indexes(resources: readonly Resource[], roles: readonly Role[]) {
@@ -192,8 +209,25 @@ export function buildApplyPlan(
     unmatchedHours += routed.unmatchedHours;
     targetAllocations(b).forEach((a, i) => {
       for (const period of routed.periods) {
-        const current = a.actualHours[period] ?? 0;
-        const next = routed.perAlloc.get(i)?.[period] ?? 0;
+        // round2, matching the ACCUMULATION point in routeBucket: `next` is a
+        // running sum of TimeLog decimals rounded there, so an unrounded
+        // `current` (actualHoursIn sums stored day keys with plain addition)
+        // can land one float ULP off it forever — 0.1 + 0.2 stored as day keys
+        // reads back as 0.30000000000000004, never equal to the rounded 0.3,
+        // so the diff would keep emitting a no-op row after every Apply.
+        const current = round2(actualHoursIn(a.actualHours, period));
+        // `next` must be the quantity Apply actually STORES, not the
+        // period-level running sum: for a dated period (writeAllocations
+        // writes each stored day key, each round2ed SEPARATELY), re-reading
+        // gives round2(sum of rounded days) — a different grain from
+        // round2(raw sum) whenever a day figure carries a third decimal
+        // (three 1/3h bookings store 0.33×3 = 0.99, while the raw-sum `rec`
+        // rounds to 1). Using `rec` here left a permanent phantom diff row.
+        // Undated periods (routed.undatedPeriods) are written as `rec` itself
+        // (see writeAllocations), so they keep that basis.
+        const next = routed.undatedPeriods.has(period)
+          ? (routed.perAlloc.get(i)?.[period] ?? 0)
+          : round2(Object.values(routed.perAllocDays.get(i)?.[period] ?? {}).reduce((sum, h) => sum + h, 0));
         // Only real changes: the confirm modal shows this list's LENGTH, so
         // unchanged lines would inflate the count and the Apply button would
         // stay enabled with nothing to do.
@@ -260,11 +294,14 @@ export function planApply(
 }
 
 /**
- * Apply OWNS every target line for the periods it covers: a line with no bookings
- * in an applied period is written to 0, not skipped. Skipping it would leave a
- * stale total (e.g. one written by the old allocations[0] behaviour) sitting
- * alongside the new per-role numbers and DOUBLE-COUNT the bucket. Periods outside
- * the overlay are untouched.
+ * Apply OWNS every target line for the periods it covers: the period key and
+ * every day key inside the period are replaced. A dated period writes each
+ * line's routed day keys, and a line with NO bookings in it ends with none of
+ * them; an undated period (a legacy cached cell with no `byDay`) writes the
+ * period key as before, and a line with no bookings in it is written to 0, not
+ * skipped. Skipping a line would leave a stale total (e.g. one written by the
+ * old allocations[0] behaviour) sitting alongside the new per-role numbers and
+ * DOUBLE-COUNT the bucket. Periods outside the overlay are untouched.
  */
 function writeAllocations<T extends { actualHours: Record<string, number> }>(
   list: readonly T[],
@@ -272,8 +309,18 @@ function writeAllocations<T extends { actualHours: Record<string, number> }>(
 ): T[] {
   return list.map((a, i) => {
     const rec = routed.perAlloc.get(i);
-    const nextActual = { ...a.actualHours };
-    for (const period of routed.periods) nextActual[period] = rec?.[period] ?? 0;
+    const days = routed.perAllocDays.get(i);
+    let nextActual: Record<string, number> = { ...a.actualHours };
+    for (const period of routed.periods) {
+      // Apply OWNS the period: its hand-typed period key and every day key inside
+      // it are replaced, whether or not this line routed anything.
+      nextActual = withoutPeriod(nextActual, period);
+      if (routed.undatedPeriods.has(period)) {
+        nextActual[period] = rec?.[period] ?? 0;
+      } else {
+        for (const [day, h] of Object.entries(days?.[period] ?? {})) nextActual[day] = h;
+      }
+    }
     return { ...a, actualHours: nextActual };
   });
 }

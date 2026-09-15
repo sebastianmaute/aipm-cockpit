@@ -27,12 +27,12 @@ function aggregate(hours: number): ActualsAggregate {
 
 describe("decideReapply", () => {
   it("aborts when the refresh returned nothing at all", () => {
-    expect(decideReapply(undefined, [bucket()], RESOURCES, ROLES)).toEqual({ kind: "abort" });
+    expect(decideReapply(undefined, [bucket()], RESOURCES, ROLES, "month")).toEqual({ kind: "abort" });
   });
 
   it("aborts when the refresh produced no aggregate", () => {
     expect(
-      decideReapply({ failedProjects: 0, projectCount: 0 }, [bucket()], RESOURCES, ROLES),
+      decideReapply({ failedProjects: 0, projectCount: 0 }, [bucket()], RESOURCES, ROLES, "month"),
     ).toEqual({ kind: "abort" });
   });
 
@@ -43,11 +43,11 @@ describe("decideReapply", () => {
   //     rows — the ONLY thing wrong with it is that it is partial.
   it("aborts on a PARTIAL fetch even though the aggregate is present and yields rows", () => {
     const partial = { failedProjects: 1, projectCount: 2, aggregates: aggregate(24) };
-    expect(decideReapply(partial, [bucket()], RESOURCES, ROLES)).toEqual({ kind: "abort" });
+    expect(decideReapply(partial, [bucket()], RESOURCES, ROLES, "month")).toEqual({ kind: "abort" });
     // Control: the identical aggregate with every project fetched DOES confirm,
     // so the assertion above cannot pass for any reason but `failedProjects`.
     expect(
-      decideReapply({ ...partial, failedProjects: 0 }, [bucket()], RESOURCES, ROLES),
+      decideReapply({ ...partial, failedProjects: 0 }, [bucket()], RESOURCES, ROLES, "month"),
     ).toEqual({ kind: "confirm", overlay: partial.aggregates.byBucket });
   });
 
@@ -56,14 +56,14 @@ describe("decideReapply", () => {
     // empty — a dialog here would read "Apply 0 bucket changes" over an empty list.
     const settled = bucket({ "2026-06": 20 });
     expect(
-      decideReapply({ failedProjects: 0, projectCount: 1, aggregates: aggregate(20) }, [settled], RESOURCES, ROLES),
+      decideReapply({ failedProjects: 0, projectCount: 1, aggregates: aggregate(20) }, [settled], RESOURCES, ROLES, "month"),
     ).toEqual({ kind: "nothing" });
   });
 
   it("confirms with the FRESH overlay when there are rows to write", () => {
     const agg = aggregate(20);
     expect(
-      decideReapply({ failedProjects: 0, projectCount: 1, aggregates: agg }, [bucket()], RESOURCES, ROLES),
+      decideReapply({ failedProjects: 0, projectCount: 1, aggregates: agg }, [bucket()], RESOURCES, ROLES, "month"),
     ).toEqual({ kind: "confirm", overlay: agg.byBucket });
   });
 });

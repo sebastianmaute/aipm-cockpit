@@ -47,6 +47,7 @@ import {
   DOT_COL_PX, TOTAL_COL_PX, HoursTd, BucketRowLeadCells, BucketTotalRow, bucketBudgetGrid,
   type TotalsRow,
 } from "./budget-panel-totals";
+import { actualHoursAt, actualHoursIn, hasDayKeysIn } from "./actual-hours";
 
 const BUDGET_COL_WIDTHS = {
   role: 160,
@@ -55,7 +56,7 @@ const BUDGET_COL_WIDTHS = {
 type BudgetCol = keyof typeof BUDGET_COL_WIDTHS;
 
 function sumPeriods(hours: Record<string, number>, periods: { key: string }[]): number {
-  return periods.reduce((s, p) => s + (hours[p.key] ?? 0), 0);
+  return periods.reduce((s, p) => s + actualHoursIn(hours, p.key), 0);
 }
 
 export interface BudgetPanelProps {
@@ -329,7 +330,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
       {timelogProjectId !== undefined && onGoToTimelog && (
         <BudgetUnappliedNotice
           lang={lang} projectId={timelogProjectId} buckets={buckets} roles={roles}
-          resources={resources} onGoToTimelog={onGoToTimelog}
+          resources={resources} granularity={plan.granularity} onGoToTimelog={onGoToTimelog}
         />
       )}
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
@@ -658,7 +659,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
                             key={p.key}
                             ariaPrefix={`${bucket.id}-${a.roleId}-${p.key}`}
                             budget={totals.budgetAt(a, pi)}
-                            actual={a.actualHours[p.key]}
+                            actual={actualHoursAt(a.actualHours, p.key)}
+                            actualReadOnlyReason={hasDayKeysIn(a.actualHours, p.key) ? t(lang, "budgetActualFromTimelog") : undefined}
                             readOnly={mirror}
                             onBudget={(v) => setCell(bucket.id, a.roleId, p.key, "budgetHours", v)}
                             onActual={(v) => setCell(bucket.id, a.roleId, p.key, "actualHours", v)}
@@ -704,7 +706,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
                             key={p.key}
                             ariaPrefix={`${bucket.id}-d${a.disciplineId}-${p.key}`}
                             budget={totals.budgetAt(a, pi)}
-                            actual={a.actualHours[p.key]}
+                            actual={actualHoursAt(a.actualHours, p.key)}
+                            actualReadOnlyReason={hasDayKeysIn(a.actualHours, p.key) ? t(lang, "budgetActualFromTimelog") : undefined}
                             readOnly={mirror}
                             onBudget={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "budgetHours", v)}
                             onActual={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "actualHours", v)}

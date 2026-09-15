@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { jsonToWorkspace } from "./storage";
 import { computeBudgetReport } from "./budget-report";
 import { absencesForResource, absenceWorkdays, generatePeriods, workdaysInRange } from "./resource-capacity";
+import { actualHoursIn, isDayKey } from "./actual-hours";
 
 const json = readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8");
 const ws = jsonToWorkspace(json);
@@ -25,7 +26,8 @@ describe("sample-workspace budgets", () => {
     expect(b.startDate).toBe("2026-04-01");
     expect(b.endDate).toBe("2026-06-30");
     expect(r1.budgetHours).toEqual({ "2026-04": 150, "2026-05": 165, "2026-06": 65 });
-    expect(r1.actualHours).toEqual({ "2026-04": 116, "2026-05": 128, "2026-06": 48 });
+    expect(r1.actualHours).toEqual({ "2026-04": 116, "2026-05": 128, "2026-06-01": 16, "2026-06-02": 16, "2026-06-03": 16 });
+    expect(actualHoursIn(r1.actualHours, "2026-06")).toBe(48);
   });
   test("bucket 2 is blended with two discipline allocations", () => {
     const b = ws.budgets!.find((x) => x.id === 2)!;
@@ -44,8 +46,14 @@ describe("sample-workspace budgets", () => {
     for (const b of ws.budgets!) {
       const rows = [...b.allocations, ...(b.disciplineAllocations ?? [])];
       for (const row of rows) {
-        for (const key of [...Object.keys(row.budgetHours), ...Object.keys(row.actualHours)]) {
+        for (const key of Object.keys(row.budgetHours)) {
           expect(`${key}-01` >= b.startDate! && key <= b.endDate!.slice(0, 7)).toBe(true);
+        }
+        for (const key of Object.keys(row.actualHours)) {
+          const inRange = isDayKey(key)
+            ? key >= b.startDate! && key <= b.endDate!
+            : `${key}-01` >= b.startDate! && key <= b.endDate!.slice(0, 7);
+          expect(inRange).toBe(true);
         }
       }
     }

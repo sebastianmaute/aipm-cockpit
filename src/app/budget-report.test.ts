@@ -64,6 +64,20 @@ describe("computeBudgetReport — budget follows plan", () => {
     expect(report.project.budgetHours).toBeCloseTo(PLANNED_JAN, 5);
   });
 
+  test("counts TimeLog day keys the same as a period key in actual hours", () => {
+    // Same fixture, but the January actual hours are split into day keys that sum
+    // to the original figure. Every total the report derives must be identical.
+    const dayKeyedBucket: BudgetBucket = {
+      ...resourcedStaleBucket,
+      allocations: [{ roleId: 3, resourceIds: [5], budgetHours: { "2026-01": 0 }, actualHours: { "2026-01-05": 20, "2026-01-20": 20 } }],
+    };
+    const dayKeyed = computeBudgetReport(
+      [dayKeyedBucket], { ...plan, budgetFollowsPlan: true }, roles, resources, 8, noHolidays, [], [], null,
+    );
+    expect(dayKeyed.buckets[0].actualHours).toBe(40);
+    expect(dayKeyed.project.actualHours).toBe(40);
+  });
+
   test("OFF — a resourced row uses the stored budget hours (unchanged behavior)", () => {
     const report = computeBudgetReport(
       [resourcedStaleBucket], { ...plan, budgetFollowsPlan: false }, roles, resources, 8, noHolidays, [], [], null,

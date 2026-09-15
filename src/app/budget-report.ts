@@ -15,6 +15,7 @@ import {
 } from "./budget-rates";
 import { RATIO_EPSILON } from "./budget-health";
 import { bucketPercentComplete, earnedValueFor } from "./budget-earned-value";
+import { actualHoursIn } from "./actual-hours";
 
 /** Plan periods whose start falls within the bucket's [startDate,endDate]. */
 export function bucketActivePeriods(bucket: Pick<BudgetBucket, "startDate" | "endDate">, plan: ResourcePlan): Period[] {
@@ -74,14 +75,6 @@ export function effectiveBudgetHours(
     return allocationPlannedHours(alloc, period, canonicalPeriods, resources, workdayHours, holidaySet, granularity, absences, byId);
   }
   return alloc.budgetHours[period.key] ?? 0;
-}
-
-/** Sum a periodKey -> number map over a set of period keys (or all when omitted). */
-function sumPeriodMap(map: Record<string, number>, keys?: readonly string[]): number {
-  if (!keys) return Object.values(map).reduce((a, b) => a + b, 0);
-  let s = 0;
-  for (const k of keys) s += map[k] ?? 0;
-  return s;
 }
 
 /** Resolve the Role for an allocation. */
@@ -306,7 +299,7 @@ export function computeBucketReport(
   for (const row of rows) {
     const { internal, external } = row.rates;
     let aBudget = 0;
-    const aActual = sumPeriodMap(row.actualHours, keys);
+    const aActual = keys.reduce((s, k) => s + actualHoursIn(row.actualHours, k), 0);
     for (const p of periods) {
       aBudget += effectiveBudgetHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan, resourcesById);
       plannedHours += allocationPlannedHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences, resourcesById);

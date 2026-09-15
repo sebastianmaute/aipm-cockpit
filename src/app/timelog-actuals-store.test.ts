@@ -1,6 +1,7 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { isDailyCell, loadActualsCache, MAX_ACTUALS_TOTAL_CHARS, MAX_DAILY_ROLL_CHARS, MAX_PROJECTS, saveActualsCache, TIMELOG_ACTUALS_KEY } from "./timelog-actuals-store";
 import { writeDeviceJson } from "./device-store";
+import { aggregateActuals } from "./timelog-actuals";
 
 afterEach(() => window.localStorage.clear());
 
@@ -9,7 +10,7 @@ const agg = (h: number) => ({ byBucket: {}, byResource: {}, unattributed: { hour
 describe("timelog actuals cache", () => {
   it("round-trips per project", () => {
     saveActualsCache("proj-1", { fetchedAt: "2026-06-23T10:00:00Z", aggregates: { byBucket: { 7: { "2026-06": { hours: 4, billableHours: 4 } } }, byResource: {}, unattributed: { hours: 0, billableHours: 0 } } });
-    expect(loadActualsCache("proj-1")?.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+    expect(loadActualsCache("proj-1")?.aggregates?.byBucket?.[7]?.["2026-06"].hours).toBe(4);
   });
   it("returns undefined for an unknown project and for corrupt JSON", () => {
     expect(loadActualsCache("missing")).toBeUndefined();
@@ -807,7 +808,74 @@ describe("timelog actuals cache — map-level size budget", () => {
     saveActualsCache("oldest-agg", heavyAggEntry("2026-09-01T00:00:00.000Z"));
     expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
     expect(loadActualsCache("oldest-agg")).toBeDefined();
-    expect(loadActualsCache("oldest-agg")?.aggregates?.byBucket[7]["2000-01"].hours).toBe(8);
+    expect(loadActualsCache("oldest-agg")?.aggregates?.byBucket?.[7]?.["2000-01"].hours).toBe(8);
+  });
+
+  /** ★★★ STAGE 6. Day cells are stored packed, but an entry can still sit over
+   *  budget on `aggregates` alone. Stage 5 sheds its users first; stage 6 then
+   *  sheds its roll trio TOGETHER and keeps `aggregates`. `bigAgg(60_000)` is a
+   *  legacy period map (passed through unpacked), measured at 2,400,081 chars
+   *  against the 2,097,152 budget and well inside jsdom's 5 MB quota.
+   *  ★ The CONTROL is the stage-5 test above: its users alone are over budget,
+   *  so after stage 5 the entry fits and its roll must survive — which also
+   *  pins stage 5's `size` recompute. */
+  it("sheds the saved entry's own roll when its aggregates alone exceed the budget, keeping the aggregates", () => {
+    const roll = bigRoll(10);
+    const caller = {
+      fetchedAt: "2026-09-01T00:00:00.000Z",
+      aggregates: bigAgg(60_000),
+      users: [fatUser(1)],
+      projectRefs: [{ id: 1, name: "P", no: "P-1" }],
+      daily: roll,
+      dailyWindow: { from: isoDay(0), to: isoDay(9) },
+      dailyUsers: [7],
+    };
+    expect(saveActualsCache("huge", caller)).toBe(true);
+    const e = loadActualsCache("huge");
+    expect(e?.aggregates?.byBucket?.[7]?.["2000-01"].hours).toBe(8);
+    expect(e?.users).toBeUndefined();
+    expect(e?.daily).toBeUndefined();
+    expect(e?.dailyWindow).toBeUndefined();
+    expect(e?.dailyUsers).toBeUndefined();
+    // A COPY was shed, never the caller's object.
+    expect(caller.daily).toBe(roll);
+  });
+
+  it("returns true when the map reaches storage", () => {
+    expect(saveActualsCache("p", { fetchedAt: "t", aggregates: agg(1) })).toBe(true);
+  });
+
+  /** ★★★ A REFUSED WRITE MUST NOT LEAVE THE PREVIOUS FETCH READABLE. Storage
+   *  still holds this project's old entry, which a reload would read as the
+   *  current fetch; the store removes it and reports the failure instead. The
+   *  refusal is ONE call, so the removal write itself lands. */
+  it("returns false and removes the saving project's stale entry when storage refuses the write", () => {
+    saveActualsCache("keep", { fetchedAt: "2026-09-01T00:00:00.000Z", aggregates: agg(1) });
+    saveActualsCache("p", { fetchedAt: "2026-09-01T00:00:00.000Z", aggregates: agg(2) });
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => {
+      throw new Error("QuotaExceededError");
+    });
+    try {
+      expect(saveActualsCache("p", { fetchedAt: "2026-09-02T00:00:00.000Z", aggregates: agg(3) })).toBe(false);
+    } finally {
+      setItem.mockRestore();
+    }
+    expect(loadActualsCache("p")).toBeUndefined();
+    expect(loadActualsCache("keep")?.aggregates?.unattributed.hours).toBe(1);
+  });
+
+  it("returns false without throwing when storage refuses every write", () => {
+    saveActualsCache("p", { fetchedAt: "2026-09-01T00:00:00.000Z", aggregates: agg(2) });
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    try {
+      expect(saveActualsCache("p", { fetchedAt: "2026-09-02T00:00:00.000Z", aggregates: agg(3) })).toBe(false);
+    } finally {
+      setItem.mockRestore();
+    }
+    // Nothing could be written, so storage still holds the previous entry.
+    expect(loadActualsCache("p")?.aggregates?.unattributed.hours).toBe(2);
   });
 
   /** ★★★ THE STAGE-1 RESTORE BRANCH, WHICH HAD NO COVERAGE AT ALL. The existing
@@ -880,5 +948,60 @@ describe("timelog actuals cache — map-level size budget", () => {
     expect(loadActualsCache("s1")?.users).toEqual(users);
     expect(loadActualsCache("s1")?.projectRefs).toEqual(projectRefs);
     expect(loadActualsCache("s2")?.daily).toEqual(bigRoll(10));
+  });
+});
+
+describe("timelog actuals cache — packed day cells", () => {
+  const links = {
+    userLinks: [
+      { timelogUserId: 1, resourceId: 10, manual: true },
+      { timelogUserId: 2, resourceId: 20, manual: true },
+    ],
+    projectLinks: [{ timelogProjectId: 9, bucketId: 7, manual: true }],
+  };
+  const booking = (userId: number, date: string, hours: number, billableHours: number) => ({
+    timeRegistrationId: 1, userId, projectId: 9, projectName: "", projectNo: "", taskId: 0, date, hours, billableHours, isBillable: billableHours > 0,
+  });
+  const dated = () =>
+    aggregateActuals([booking(1, "2026-06-10", 0.1, 0.1), booking(1, "2026-06-10", 0.2, 0), booking(2, "2026-06-11", 7.25, 7.25)], links);
+  const storedAggregates = (projectId: string) =>
+    (JSON.parse(window.localStorage.getItem(TIMELOG_ACTUALS_KEY) ?? "{}") as Record<string, { aggregates?: Record<string, unknown> }>)[projectId]
+      ?.aggregates;
+
+  it("stores day cells packed and loads them back unchanged", () => {
+    const aggregates = dated();
+    expect(saveActualsCache("p", { fetchedAt: "t", aggregates })).toBe(true);
+    expect(storedAggregates("p")?.byBucketDay).toBeUndefined();
+    expect(storedAggregates("p")?.dayCells).toBeDefined();
+    expect(loadActualsCache("p")?.aggregates).toEqual(aggregates);
+  });
+
+  it("loads a verbose byBucketDay entry an earlier build wrote", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, { p: { fetchedAt: "t", aggregates: dated() } });
+    expect(loadActualsCache("p")?.aggregates).toEqual(dated());
+  });
+
+  it("repacks another project's verbose entry on the next save", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, { old: { fetchedAt: "t", aggregates: dated() } });
+    saveActualsCache("new", { fetchedAt: "t2", aggregates: agg(1) });
+    expect(storedAggregates("old")?.byBucketDay).toBeUndefined();
+    expect(storedAggregates("old")?.dayCells).toBeDefined();
+    expect(loadActualsCache("old")?.aggregates).toEqual(dated());
+  });
+
+  /** A malformed packed payload is the aggregate's core, so the ENTRY goes —
+   *  the rule `isEntry` already applies to `aggregates: 5` — while other
+   *  projects' entries survive. */
+  it("drops an entry whose packed day cells are malformed, keeping the others", () => {
+    saveActualsCache("bad", { fetchedAt: "t", aggregates: dated() });
+    saveActualsCache("good", { fetchedAt: "t", aggregates: dated() });
+    const map = JSON.parse(window.localStorage.getItem(TIMELOG_ACTUALS_KEY) ?? "{}") as Record<
+      string,
+      { aggregates: { dayCells: { v: number } } }
+    >;
+    map.bad.aggregates.dayCells.v = 99;
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, map);
+    expect(loadActualsCache("bad")).toBeUndefined();
+    expect(loadActualsCache("good")?.aggregates).toEqual(dated());
   });
 });

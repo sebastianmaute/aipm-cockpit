@@ -395,7 +395,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§166](#166-an-undone-bulkdelete-corrupted-the-completion-trend-permanently--closed) | An UNDONE `bulk.delete` corrupted the completion trend permanently | — | — | **CLOSED** |
 | [§167](#167-bulk-edit-on-the-changes-register-bypassed-applychangestatus--closed-2026-08-18) | Bulk edit on the changes register bypassed `applyChangeStatus` | — | — | **CLOSED** 2026-08-18 |
 | [§168](#168-template-import-drops-every-registers-note-log--closed-2026-08-28) | Template import drops every register's note log | — | — | **CLOSED** 2026-08-28 |
-| [§169](#169-timelog-period-keys-are-derived-at-fetch-time-from-the-granularity-then-cached--open) | TimeLog period keys are derived at FETCH time from the granularity, then cached — open | — | — | open |
+| [§169](#169-timelog-period-keys-are-derived-at-fetch-time-from-the-granularity-then-cached--closed-2026-09-14) | TimeLog period keys are derived at FETCH time from the granularity, then cached — CLOSED 2026-09-14 | — | — | **CLOSED** 2026-09-14 |
 | [§170](#170-the-changepanelmemo-docblock-claims-a-usecallback-the-parent-does-not-do--closed-2026-08-20) | The `ChangePanelMemo` docblock claims a `useCallback` the parent does not do | — | — | **CLOSED** 2026-08-20 |
 | [§171](#171-the-axe-gate-now-scans-the-time-bookings-empty-state-not-the-table--open-knowingly-accepted) | The axe gate now scans the Time bookings EMPTY STATE, not the table — open, knowingly accepted | — | — | open |
 | [§172](#172-a-partial-timelog-fetch-overwrote-the-cached-aggregate-and-the-manual-apply-path-would-write-it--closed-2026-08-18) | A partial TimeLog fetch overwrote the cached aggregate, and the manual Apply path would write it | — | — | **CLOSED** 2026-08-18 |
@@ -760,6 +760,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--open) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | open |
 | [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--open) | A repeated resource deep link re-runs the open while that resource's editor is open — OPEN | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | open |
+| [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--open) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | open |
+| [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
+| [§545](#545-the-ai-dashboard-snapshot-and-every-export-carry-none-of-the-budget-forecast-figures--open) | The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN | deferred 2026-09-15 by the budget forecast union spec §9 | M — add the forecast figures to the snapshot and exports once MR 2 ships them | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -14620,11 +14623,9 @@ fails exactly the change test and nothing else.
 ★★ Carrying the log made the §36(a) allow-list gap WIDER before it closed it — a captured note log is
 rich HTML reaching a new sink. Both landed in the same slice; see §36(a).
 
-## 169. TimeLog period keys are derived at FETCH time from the granularity, then cached — open
+## 169. TimeLog period keys are derived at FETCH time from the granularity, then cached — CLOSED 2026-09-14
 
-**Status:** open — period keys frozen at fetch time. Reproduced 2026-08-28 by `grep -rn "aggregateActuals" src/app --include=*.ts`.
-
-**Work item:** #169
+**Status:** CLOSED 2026-09-14 on `feat/budget-forecast-union`. `aggregateActuals` no longer takes a granularity: it stores day-keyed cells (`byBucketDay`), and every consumer derives periods at read time with the live plan granularity through `bucketOverlay`. A pre-change cached entry keeps only the cells whose key shape matches the live granularity. Pinned by `timelog-actuals.test.ts` "rolls the same aggregate into ISO weeks when the plan is weekly (§169)" and "keeps a legacy period-keyed entry only where its keys match the live granularity", and `timelog-apply.test.ts` "keeps hours counted when the plan switches granularity after apply (§169)", each mutation-checked. The OPEN-era text below is kept as the record of what was found.
 
 `aggregateActuals` takes `granularity` as a required argument and buckets each booking with
 `periodKeyForDate(it.date, granularity)`; `use-timelog-sync.ts` calls it during the fetch and
@@ -37870,3 +37871,67 @@ Fix shape: skip the open when the open editor already belongs to the requested i
 statically mounted directory. The residual test named above must then be inverted.
 
 Related: §362.
+
+## 543. A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN
+
+**Status:** OPEN 2026-09-15 — `never machine-verified` in the repo: measured by the final whole-branch review of
+`feat/budget-forecast-union` with a scratch probe outside the tree against the real modules; not watched in a
+browser.
+
+**Work item:** #333
+
+A dated TimeLog Apply owns each covered period: `writeAllocations` (`timelog-apply.ts`) runs `withoutPeriod`
+(`actual-hours.ts`), which removes the period's own key and every day key inside it, then writes the routed day
+keys. It does not remove a period key of the OTHER plan granularity that overlaps those days, and `actualHoursIn`
+sums day keys with the period key of the requested granularity. Example: an allocation holds a hand-typed
+`2026-06: 10`; the plan switches to weekly and Apply writes June day keys; after switching back to monthly, June
+reads 10 plus the day hours. The reverse (a legacy week key, a monthly Apply, back to weekly) behaves the same.
+
+It takes two granularity switches around an Apply. The cell is read-only once it holds day keys, but
+`buildApplyPlan`'s `current` includes the stale key, so the unapplied notice flags the period and a re-apply at
+that granularity removes it. Spec §4.5 of `2026-09-14-budget-forecast-union-design.md` records the gap.
+
+Fix shape: let a dated Apply also remove other-granularity period keys whose period overlaps a covered day, and
+pin it with a month → week → month test.
+
+Related: §169, §544.
+
+## 544. A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN
+
+**Status:** OPEN 2026-09-15 — `never machine-verified` in the repo: measured with a scratch `vite-node` probe
+outside the tree against `periodKeyForDate` and `actualHoursIn`; TimeLog is not known to emit such dates.
+
+**Work item:** #334
+
+`aggregateActuals` (`timelog-actuals.ts`) checks a booking date's SHAPE only, and the `actualHours` codec
+(`encodeActualMap` / `decodeActualMap` in `sanitize-entities.ts`) bounds the day at 31, not by month, so
+`2026-02-30` survives as a day key. `periodKeyForDate` (`resource-capacity.ts`) files it under month
+`2026-02` by slicing the string but under `2026-W10` (the week of 2 March) through a `Date` rollover, so the
+monthly and weekly views place the same hours in different months. Within one granularity it is consistent, and
+re-apply stays a no-op.
+
+Fix shape: reject calendar-invalid dates in `aggregateActuals` with a UTC round trip and route them to
+`undated` beside the existing shape check. Not in the codec: rejecting there would silently drop hours already
+applied and saved.
+
+Related: §543. The same calendar-invalid-date class also affects calendar-event dates; that is tracked
+separately on another branch.
+
+## 545. The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN
+
+**Status:** OPEN 2026-09-15 — deferred by `docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md` §9;
+the forecast itself ships in MR 2 of that slice. `grep -n -i "forecast" src/app/ai-dashboard-snapshot.ts`
+prints nothing today.
+
+**Work item:** #335
+
+The budget forecast union will add contract-price facts, an "at current pace" and an "at current efficiency"
+forecast and the gap between them to Reports → Budget report, the dashboard "Budget burn" tile and the Budget
+view (MR 2 of that slice; 1.5.0 ships none of it). The
+AI dashboard snapshot (`ai-dashboard-snapshot.ts`) and every export carry none of those figures, and after the
+planned renames the snapshot's `evm.spi` / `evm.cpi` become the effort indices without saying so.
+
+Fix shape: once MR 2 ships the forecast engine, add the forecast figures to the snapshot and the exports, and
+rename or document the snapshot's effort indices.
+
+Related: §499, §501.

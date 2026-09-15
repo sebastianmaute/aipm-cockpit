@@ -22,7 +22,7 @@ import * as api from "./timelog-api";
 import { useTimelogSync } from "./use-timelog-sync";
 import { loadActualsCache } from "./timelog-actuals-store";
 import type { TimelogLinks } from "./timelog-types";
-import type { ActualsAggregate } from "./timelog-actuals";
+import { bucketOverlay, type ActualsAggregate } from "./timelog-actuals";
 
 const creds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
 // Persisted links are always MANUAL pins in production (auto-matches are never
@@ -39,7 +39,7 @@ beforeEach(() => {
 });
 
 function args(over: Partial<Parameters<typeof useTimelogSync>[0]> = {}) {
-  return { creds, links, resources: [], budgets: [], scopeMode: "auto" as const, granularity: "month" as const, projectId: "p1", isPopout: false, onTokenInvalid: vi.fn(), onTokenValid: vi.fn(), ...over };
+  return { creds, links, resources: [], budgets: [], scopeMode: "auto" as const, projectId: "p1", isPopout: false, onTokenInvalid: vi.fn(), onTokenValid: vi.fn(), ...over };
 }
 
 it("self mode aggregates the token user's items and caches them", async () => {
@@ -47,7 +47,7 @@ it("self mode aggregates the token user's items and caches them", async () => {
   (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
   const { result } = renderHook(() => useTimelogSync(args()));
   await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
-  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  expect(bucketOverlay(result.current.aggregates, "month")[7]?.["2026-06"].hours).toBe(4);
   // Distinct project refs collected from the fetched items (item() uses projectId 9)
   expect(result.current.projectRefs).toEqual([{ id: 9, name: "", no: "" }]);
 });
@@ -77,7 +77,7 @@ it("attributes hours via AUTO-matched links (no manual pins persisted)", async (
   // Attributed to resource 2 (user 5 auto-matched by email) + bucket 7 (project
   // "Acme" auto-matched by name) — NOT dumped into unattributed.
   expect(result.current.aggregates?.byResource[2].hours).toBe(6);
-  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(6);
+  expect(bucketOverlay(result.current.aggregates, "month")[7]?.["2026-06"].hours).toBe(6);
   expect(result.current.aggregates?.unattributed.hours).toBe(0);
 });
 
@@ -129,7 +129,7 @@ it("removeUsers drops people and persists the trimmed list to the cache", async 
   // Trimmed list persisted: a fresh mount restores only user 2.
   const second = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
   expect(second.result.current.users.map((u) => u.userId)).toEqual([2]);
-  expect(second.result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4); // aggregates kept
+  expect(bucketOverlay(second.result.current.aggregates, "month")[7]?.["2026-06"].hours).toBe(4); // aggregates kept
 });
 
 it("clearAll resets state and clears the cache", async () => {
@@ -159,7 +159,7 @@ it("org mode is fail-soft: one employee error does not abort the others", async 
   // Org bookings scoped to the explicitly-chosen user ids (the ticked people).
   let fetchResult: { failedEmployees: number } | undefined;
   await act(async () => { fetchResult = await result.current.fetchBookings("2026-06-01", "2026-06-30", [5, 6]); });
-  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  expect(bucketOverlay(result.current.aggregates, "month")[7]?.["2026-06"].hours).toBe(4);
   // The swallowed per-employee failure is still counted and surfaced to the
   // caller, so a partial fetch doesn't silently look like a complete one.
   expect(fetchResult?.failedEmployees).toBe(1);
@@ -210,13 +210,13 @@ it("fetchBookingsForProjects fetches each SELECTED project (no customer resolve)
   const calledIds = (api.listProjectTimeRegistrations as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[1]);
   expect(calledIds).toEqual([9, 12]);
   // Booking on project 9 attributes to bucket 7 via the persisted manual link.
-  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  expect(bucketOverlay(result.current.aggregates, "month")[7]?.["2026-06"].hours).toBe(4);
   expect(out?.failedProjects).toBe(0);
   expect(out?.projectCount).toBe(2);
   // The aggregate now comes back FROM the call: reading sync.aggregates after the
   // await is stale state in the same closure, which would re-apply the old
   // overlay. Pinned here so the widened return cannot be quietly narrowed again.
-  expect(out?.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  expect(bucketOverlay(out?.aggregates, "month")[7]?.["2026-06"].hours).toBe(4);
   // No per-user / org path touched.
   expect(api.listEmployeeTimeItems).not.toHaveBeenCalled();
   expect(api.listTimeItemsSelf).not.toHaveBeenCalled();
@@ -228,14 +228,14 @@ it("fetchBookingsForProjects with NO selected projects does NOT clobber prior ag
   (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
   const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
   await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
-  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  expect(bucketOverlay(result.current.aggregates, "month")[7]?.["2026-06"].hours).toBe(4);
   // Now an EMPTY project selection → prior data kept, no fetch.
   let out: { failedProjects: number; projectCount: number } | undefined;
   await act(async () => { out = await result.current.fetchBookingsForProjects([], "2026-06-01", "2026-06-30"); });
   expect(out).toEqual({ failedProjects: 0, projectCount: 0 });
   expect(api.listProjectTimeRegistrations).not.toHaveBeenCalled();
   // Aggregates unchanged (NOT cleared to empty).
-  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  expect(bucketOverlay(result.current.aggregates, "month")[7]?.["2026-06"].hours).toBe(4);
 });
 
 it("fetchBookingsForProjects clamps items to the requested date window (v2 may ignore the params)", async () => {
@@ -247,7 +247,7 @@ it("fetchBookingsForProjects clamps items to the requested date window (v2 may i
   const { result } = renderHook(() => useTimelogSync(args()));
   await act(async () => { await result.current.fetchBookingsForProjects([9], "2026-06-01", "2026-06-30"); });
   // Only the in-window 4h booking survives → bucket 7 gets 4, not 20.
-  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  expect(bucketOverlay(result.current.aggregates, "month")[7]?.["2026-06"].hours).toBe(4);
 });
 
 it("fetchBookingsForProjects is fail-soft: one project error does not abort the rest", async () => {
@@ -257,7 +257,7 @@ it("fetchBookingsForProjects is fail-soft: one project error does not abort the 
   const { result } = renderHook(() => useTimelogSync(args()));
   let out: { failedProjects: number; projectCount: number } | undefined;
   await act(async () => { out = await result.current.fetchBookingsForProjects([9, 12], "2026-06-01", "2026-06-30"); });
-  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  expect(bucketOverlay(result.current.aggregates, "month")[7]?.["2026-06"].hours).toBe(4);
   expect(out?.failedProjects).toBe(1);
 });
 
@@ -504,17 +504,6 @@ it("popout is read-only: sync is a no-op", async () => {
   expect(api.listTimeItemsSelf).not.toHaveBeenCalled();
 });
 
-it("week granularity: aggregates under weekly key (2026-W24), not monthly key (2026-06)", async () => {
-  // item date 2026-06-10 is Wednesday of ISO week 2026-W24
-  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
-  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
-  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self", granularity: "week" })));
-  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
-  const byPeriod = result.current.aggregates?.byBucket[7];
-  expect(byPeriod?.["2026-W24"]?.hours).toBe(4);
-  expect(byPeriod?.["2026-06"]).toBeUndefined();
-});
-
 // §128 — a superseded run's `finally` must not clear `busy` out from under its
 // successor. Run A's mocked `listTimeItemsSelf` genuinely settles on abort (an
 // AbortError rejection wired to the signal), so it reaches the SAME `finally`
@@ -581,4 +570,44 @@ it("clears busy once the successor settles", async () => {
   });
 
   expect(result.current.busy).toBe(false); // the untested opposite failure: busy stuck forever
+});
+
+// ★★★ A refused cache write used to be silent: the hook kept the fresh fetch
+// while storage kept the previous one, and a reload read that as current.
+it("sets cacheNotSaved when the browser refuses the cache write, and clears it on the next successful save", async () => {
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  const { result } = renderHook(() => useTimelogSync(args()));
+  expect(result.current.cacheNotSaved).toBe(false);
+  const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("QuotaExceededError");
+  });
+  try {
+    await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  } finally {
+    setItem.mockRestore();
+  }
+  expect(result.current.cacheNotSaved).toBe(true);
+  // The fetch itself still landed in memory — only the cache write failed.
+  expect(bucketOverlay(result.current.aggregates, "month")[7]?.["2026-06"].hours).toBe(4);
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  expect(result.current.cacheNotSaved).toBe(false);
+  expect(loadActualsCache("p1")).toBeDefined();
+});
+
+it("resets cacheNotSaved on Clear all", async () => {
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  const { result } = renderHook(() => useTimelogSync(args()));
+  const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("QuotaExceededError");
+  });
+  try {
+    await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  } finally {
+    setItem.mockRestore();
+  }
+  expect(result.current.cacheNotSaved).toBe(true);
+  act(() => { result.current.clearAll(); });
+  expect(result.current.cacheNotSaved).toBe(false);
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { aggregateActuals, buildDailyRoll } from "./timelog-actuals";
-import { periodKeyForDate, generatePeriods } from "./resource-capacity";
+import { aggregateActuals, bucketOverlay, buildDailyRoll } from "./timelog-actuals";
+import { periodKeyForDate } from "./resource-capacity";
 import { parseDailyKey } from "./timelog-types";
 import type { TimelogTimeItem, TimelogLinks } from "./timelog-types";
 
@@ -15,15 +15,15 @@ const links: TimelogLinks = {
 
 describe("aggregateActuals", () => {
   it("sums mapped hours into byBucket[bucketId][period]", () => {
-    const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-06-20", 2)], links, "month");
+    const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-06-20", 2)], links);
     // toMatchObject, not toEqual: the cell also carries the per-resource
     // breakdown apply needs. This assertion is about the TOTALS.
-    expect(out.byBucket[7]["2026-06"]).toMatchObject({ hours: 6, billableHours: 6 });
+    expect(bucketOverlay(out, "month")[7]["2026-06"]).toMatchObject({ hours: 6, billableHours: 6 });
   });
   it("splits hours across distinct period keys", () => {
-    const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-07-01", 3)], links, "month");
-    expect(out.byBucket[7]["2026-06"].hours).toBe(4);
-    expect(out.byBucket[7]["2026-07"].hours).toBe(3);
+    const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-07-01", 3)], links);
+    expect(bucketOverlay(out, "month")[7]["2026-06"].hours).toBe(4);
+    expect(bucketOverlay(out, "month")[7]["2026-07"].hours).toBe(3);
   });
   // The bucket·period TOTAL alone cannot be attributed to a role downstream:
   // apply had to guess, and guessed allocations[0], costing everyone at the
@@ -40,15 +40,15 @@ describe("aggregateActuals", () => {
     const out = aggregateActuals(
       [item(5, 9, "2026-06-10", 4), item(6, 9, "2026-06-11", 2), item(5, 9, "2026-06-12", 1)],
       twoPeople,
-      "month",
     );
-    const cell = out.byBucket[7]["2026-06"];
+    const cell = bucketOverlay(out, "month")[7]["2026-06"];
     expect(cell.hours).toBe(7); // total unchanged
     // The field is optional on the TYPE (a pre-breakdown persisted cache has no
     // such key), so assert aggregation actually produced it.
     expect(cell.byResource).toBeDefined();
-    expect(cell.byResource?.[2]).toEqual({ hours: 5, billableHours: 5 });
-    expect(cell.byResource?.[3]).toEqual({ hours: 2, billableHours: 2 });
+    // toMatchObject: an overlay cell also carries the resource's `byDay`.
+    expect(cell.byResource?.[2]).toMatchObject({ hours: 5, billableHours: 5 });
+    expect(cell.byResource?.[3]).toMatchObject({ hours: 2, billableHours: 2 });
   });
 
   // The breakdown must always reconcile to the total it sits on, or apply and
@@ -71,9 +71,8 @@ describe("aggregateActuals", () => {
         item(5, 9, "2026-06-12", 3, 3),
       ],
       twoPeople,
-      "month",
     );
-    const cell = out.byBucket[7]["2026-06"];
+    const cell = bucketOverlay(out, "month")[7]["2026-06"];
     expect(cell.byResource).toBeDefined();
     const summed = Object.values(cell.byResource ?? {}).reduce(
       (acc, c) => ({ hours: acc.hours + c.hours, billableHours: acc.billableHours + c.billableHours }),
@@ -83,58 +82,44 @@ describe("aggregateActuals", () => {
   });
 
   it("aggregates per resource", () => {
-    const out = aggregateActuals([item(5, 9, "2026-06-10", 4)], links, "month");
+    const out = aggregateActuals([item(5, 9, "2026-06-10", 4)], links);
     expect(out.byResource[2]).toEqual({ hours: 4, billableHours: 4 });
   });
   it("routes unmapped user OR unmapped project hours to unattributed (never dropped)", () => {
-    const out = aggregateActuals([item(5, 999, "2026-06-10", 3), item(404, 9, "2026-06-10", 5)], links, "month");
+    const out = aggregateActuals([item(5, 999, "2026-06-10", 3), item(404, 9, "2026-06-10", 5)], links);
     expect(out.unattributed.hours).toBe(8);
-    expect(out.byBucket[7]).toBeUndefined();
+    expect(bucketOverlay(out, "month")[7]).toBeUndefined();
     expect(Object.keys(out.byResource).length).toBe(0);
   });
   it("maps a bucketId:null project link to unattributed", () => {
     const out = aggregateActuals([item(5, 9, "2026-06-10", 4)],
-      { userLinks: links.userLinks, projectLinks: [{ timelogProjectId: 9, bucketId: null, manual: true }] }, "month");
+      { userLinks: links.userLinks, projectLinks: [{ timelogProjectId: 9, bucketId: null, manual: true }] });
     expect(out.unattributed.hours).toBe(4);
     expect(Object.keys(out.byResource).length).toBe(0);
-  });
-
-  it("week granularity: aggregates under YYYY-Www key, NOT YYYY-MM", () => {
-    // 2026-06-10 is Wednesday; belongs to ISO week 2026-W24
-    const expectedKey = periodKeyForDate("2026-06-10", "week");
-    // Verify via generatePeriods that the key is correct
-    const periods = generatePeriods("2026-06-08", "2026-06-14", "week");
-    const containingPeriod = periods.find((p) => p.start <= "2026-06-10" && "2026-06-10" <= p.end);
-    expect(expectedKey).toBe(containingPeriod?.key);
-
-    const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-06-11", 2)], links, "week");
-    // Hours must land under the weekly key, not the monthly key
-    expect(out.byBucket[7][expectedKey]).toMatchObject({ hours: 6, billableHours: 6 });
-    expect(out.byBucket[7]["2026-06"]).toBeUndefined();
   });
 
   // `timelog-api.ts` coerces `Date` through `dateOnly = s(v).slice(0, 10)`, and
   // `s` returns "" for anything non-string — so an absent, null or numeric Date
   // arrives as `date: ""`, and a regionally formatted "05/01/2026" is exactly
-  // ten characters and survives the slice intact. `periodKeyForDate` then mints
-  // a key no rendered column matches (measured: month "" and "05/01/2", week
-  // "NaN-WNaN" for both), so real hours vanish from the Budget view with no
-  // diagnostic. Unattributable to a period ⇒ `unattributed`, like an unlinked row.
+  // ten characters and survives the slice intact. Kept as a day key, such a date
+  // would be rolled by `bucketOverlay`'s `periodKeyForDate` into a key no
+  // rendered column matches (measured: month "" and "05/01/2", week "NaN-WNaN"
+  // for both), so real hours would vanish from the Budget view with no
+  // diagnostic. Unattributable to a day ⇒ `unattributed`, like an unlinked row.
   it("routes a malformed-date row to unattributed instead of a phantom month key", () => {
     const out = aggregateActuals(
       [item(5, 9, "2026-06-10", 4), item(5, 9, "", 3), item(5, 9, "05/01/2026", 2)],
       links,
-      "month",
     );
     expect(out.unattributed).toEqual({ hours: 5, billableHours: 5 });
-    // The junk keys `periodKeyForDate` would have minted must not exist at all.
-    expect(Object.keys(out.byBucket[7])).toEqual(["2026-06"]);
-    expect(out.byBucket[7][""]).toBeUndefined();
-    expect(out.byBucket[7]["05/01/2"]).toBeUndefined();
+    // The junk period keys a malformed day key would roll up to must not exist at all.
+    expect(Object.keys(bucketOverlay(out, "month")[7])).toEqual(["2026-06"]);
+    expect(bucketOverlay(out, "month")[7][""]).toBeUndefined();
+    expect(bucketOverlay(out, "month")[7]["05/01/2"]).toBeUndefined();
   });
 
   // ★★ THE DOUBLE-COUNT GUARD. `byResource[resourceId] = add(...)` is written
-  // BEFORE `periodKeyForDate` is reached, so a date guard placed after that
+  // BEFORE the day-key write is reached, so a date guard placed after that
   // write counts the same hours in `byResource` AND in `unattributed` — a
   // silent inflation of every per-resource total. The good row alongside is
   // what makes the assertion say "only the good hours", not merely "non-zero".
@@ -142,22 +127,9 @@ describe("aggregateActuals", () => {
     const out = aggregateActuals(
       [item(5, 9, "2026-06-10", 4), item(5, 9, "", 3)],
       links,
-      "month",
     );
     expect(out.unattributed).toEqual({ hours: 3, billableHours: 3 });
     expect(out.byResource[2]).toEqual({ hours: 4, billableHours: 4 });
-  });
-
-  it("week granularity: a malformed date does not mint the NaN-WNaN key", () => {
-    const good = periodKeyForDate("2026-06-10", "week");
-    const out = aggregateActuals(
-      [item(5, 9, "2026-06-10", 4), item(5, 9, "", 3), item(5, 9, "05/01/2026", 2)],
-      links,
-      "week",
-    );
-    expect(Object.keys(out.byBucket[7])).toEqual([good]);
-    expect(out.byBucket[7]["NaN-WNaN"]).toBeUndefined();
-    expect(out.unattributed.hours).toBe(5);
   });
 
   // ★★★ THE SUBSET INVARIANT, and it is the whole safety of the `undated` split.
@@ -176,7 +148,6 @@ describe("aggregateActuals", () => {
         item(99, 9, "2026-06-11", 8), // unlinked user, date healthy → unattributed ONLY
       ],
       links,
-      "month",
     );
     expect(out.unattributed).toEqual({ hours: 11, billableHours: 11 });
     expect(out.undated).toEqual({ hours: 3, billableHours: 3 });
@@ -202,7 +173,6 @@ describe("aggregateActuals", () => {
     const out = aggregateActuals(
       [item(5, 9, "2026-06-10", 4), item(99, 9, "2026-06-11", 8)],
       links,
-      "month",
     );
     expect(out.undated?.hours ?? 0).toBe(0);
     expect(out.undated?.billableHours ?? 0).toBe(0);
@@ -215,22 +185,76 @@ describe("aggregateActuals", () => {
   // assertion above. A wholly well-formed fixture must still attribute in full,
   // with nothing diverted.
   it("leaves a wholly well-formed fixture fully attributed", () => {
-    const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-07-01", 3)], links, "month");
+    const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-07-01", 3)], links);
     expect(out.unattributed).toEqual({ hours: 0, billableHours: 0 });
-    expect(out.byBucket[7]["2026-06"].hours).toBe(4);
-    expect(out.byBucket[7]["2026-07"].hours).toBe(3);
+    expect(bucketOverlay(out, "month")[7]["2026-06"].hours).toBe(4);
+    expect(bucketOverlay(out, "month")[7]["2026-07"].hours).toBe(3);
     expect(out.byResource[2]).toEqual({ hours: 7, billableHours: 7 });
   });
+});
 
-  it("week granularity: items in different weeks get distinct keys", () => {
-    // 2026-06-10 (Wed, W24) and 2026-06-15 (Mon, W25)
-    const keyW24 = periodKeyForDate("2026-06-10", "week");
-    const keyW25 = periodKeyForDate("2026-06-15", "week");
-    expect(keyW24).not.toBe(keyW25);
+describe("byBucketDay and bucketOverlay", () => {
+  // The file's `links` maps ONE user (5 → resource 2); the second booker needs
+  // a second link, mirroring the `twoPeople` fixture above (6 → resource 3).
+  const twoPeople: TimelogLinks = {
+    userLinks: [...links.userLinks, { timelogUserId: 6, resourceId: 3, manual: false }],
+    projectLinks: links.projectLinks,
+  };
 
-    const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-06-15", 3)], links, "week");
-    expect(out.byBucket[7][keyW24].hours).toBe(4);
-    expect(out.byBucket[7][keyW25].hours).toBe(3);
+  it("keeps each booking's day and resource in byBucketDay", () => {
+    const agg = aggregateActuals([item(5, 9, "2026-06-10", 2), item(5, 9, "2026-06-10", 1), item(6, 9, "2026-06-11", 4)], twoPeople);
+    expect(agg.byBucket).toBeUndefined();
+    const days = agg.byBucketDay?.[7];
+    expect(days?.["2026-06-10"]?.hours).toBe(3);
+    expect(days?.["2026-06-11"]?.byResource?.[3]?.hours).toBe(4);
+  });
+
+  it("rolls days up into month periods with per-resource byDay", () => {
+    const agg = aggregateActuals([item(5, 9, "2026-06-10", 2), item(5, 9, "2026-06-30", 1), item(5, 9, "2026-07-01", 5)], links);
+    const overlay = bucketOverlay(agg, "month");
+    expect(overlay[7]["2026-06"].hours).toBe(3);
+    expect(overlay[7]["2026-06"].byResource?.[2]?.byDay).toEqual({ "2026-06-10": 2, "2026-06-30": 1 });
+    expect(overlay[7]["2026-07"].hours).toBe(5);
+  });
+
+  it("rolls the same aggregate into ISO weeks when the plan is weekly (§169)", () => {
+    const agg = aggregateActuals([item(5, 9, "2026-06-10", 4)], links);
+    expect(bucketOverlay(agg, "week")[7]["2026-W24"].hours).toBe(4);
+    expect(bucketOverlay(agg, "month")[7]["2026-06"].hours).toBe(4);
+  });
+
+  it("a malformed-date row never mints a week key in the overlay", () => {
+    const good = periodKeyForDate("2026-06-10", "week");
+    const agg = aggregateActuals(
+      [item(5, 9, "2026-06-10", 4), item(5, 9, "", 3), item(5, 9, "05/01/2026", 2)],
+      links,
+    );
+    expect(agg.unattributed.hours).toBe(5);
+    expect(Object.keys(bucketOverlay(agg, "week")[7] ?? {})).toEqual([good]);
+  });
+
+  // Replaces the deleted "items in different weeks get distinct keys": a Sunday
+  // and the following Monday sit in adjacent ISO weeks but the same month, so a
+  // roll-up that ignored the live granularity would merge them into one key.
+  it("rolls bookings in adjacent ISO weeks into two distinct week keys", () => {
+    const agg = aggregateActuals([item(5, 9, "2026-06-14", 4), item(5, 9, "2026-06-15", 3)], links);
+    const weeks = bucketOverlay(agg, "week")[7];
+    expect(Object.keys(weeks).sort()).toEqual(["2026-W24", "2026-W25"]);
+    expect(weeks["2026-W24"].hours).toBe(4);
+    expect(weeks["2026-W25"].hours).toBe(3);
+  });
+
+  it("keeps a legacy period-keyed entry only where its keys match the live granularity", () => {
+    const legacy = {
+      byBucket: { 7: { "2026-06": { hours: 6, billableHours: 6 }, "2026-W24": { hours: 4, billableHours: 4 } } },
+      byResource: {}, unattributed: { hours: 0, billableHours: 0 },
+    };
+    expect(Object.keys(bucketOverlay(legacy, "month")[7])).toEqual(["2026-06"]);
+    expect(Object.keys(bucketOverlay(legacy, "week")[7])).toEqual(["2026-W24"]);
+  });
+
+  it("returns an empty overlay for an absent aggregate", () => {
+    expect(bucketOverlay(undefined, "month")).toEqual({});
   });
 });
 

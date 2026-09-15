@@ -356,7 +356,7 @@ export function BucketPeopleRows({
    *
    * ★★★ THESE ROWS AND THE ROLE ROW ABOVE THEM READ "BOOKED" FROM DIFFERENT
    * SOURCES, AND THE LAYOUT SAYS OTHERWISE. The role row renders the PERSISTED
-   * `a.actualHours[p.key]` — written only when a user runs Apply in the Timelog
+   * `actualHoursAt(a.actualHours, p.key)` — written only when a user runs Apply in the Timelog
    * panel, and hand-editable in the cell. These rows render the per-resource
    * breakdown from the PER-DEVICE Timelog cache, rewritten by every fetch and
    * editable by nobody. A disclosure opening directly under a figure reads as a

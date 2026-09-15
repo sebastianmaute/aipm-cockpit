@@ -22,14 +22,19 @@ export function readDeviceJson<T>(key: string, fallback: T): T {
   }
 }
 
-/** JSON.stringify + write a per-device key. SSR-safe; swallows quota /
- *  serialization / disabled-storage errors. */
-export function writeDeviceJson(key: string, value: unknown): void {
-  if (typeof window === "undefined") return;
+/** JSON.stringify + write a per-device key. SSR-safe; never throws on quota /
+ *  serialization / disabled-storage errors.
+ *  Returns `true` only when the value reached storage. Callers that can live
+ *  with a lost write ignore it; `saveActualsCache` reads it, because a lost
+ *  TimeLog fetch must be reported to the user. */
+export function writeDeviceJson(key: string, value: unknown): boolean {
+  if (typeof window === "undefined") return false;
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
-    // quota / disabled / serialization — non-fatal
+    // quota / disabled / serialization — non-fatal, but reported
+    return false;
   }
 }
 

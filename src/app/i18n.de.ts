@@ -572,6 +572,7 @@ export const de: Record<TranslationKey, string> = {
   budgetFollowsPlanHint: "Wenn aktiv, spiegeln die Budgetstunden von Zeilen mit zugewiesenen Ressourcen die geplante Kapazität wider und sind schreibgeschützt.",
   budgetCellBudget: "Budget",
   budgetCellActual: "Ist",
+  budgetActualFromTimelog: "Aus TimeLog. Zum Ändern erneut übernehmen.",
   budgetTotal: "Gesamt",
   budgetTotalFiltered: "Gesamt (gefiltert)",
   budgetPeopleSource: "TimeLog-Buchungen, abgerufen am {0}. Nicht die übernommene Summe oben — zum Übernehmen Zeitbuchungen öffnen.",
@@ -1481,6 +1482,8 @@ export const de: Record<TranslationKey, string> = {
   timelogTestOkOne: "Verbunden — 1 Benutzer, Bereich: {1}",
   timelogTestFail: "Verbindung fehlgeschlagen (HTTP {0})",
   timelogTokenInvalid: "Token wurde abgelehnt. Bitte erneut eingeben.",
+  timelogCacheNotSaved:
+    "Diese TimeLog-Buchungen konnten auf diesem Gerät nicht gespeichert werden, weil der Browserspeicher voll oder nicht verfügbar ist. Die Budgetansicht zeigt sie nicht an, und nach dem Neuladen sind sie verloren. Wenden Sie sie jetzt auf das Budget an oder geben Sie Browserspeicher frei und rufen Sie die Buchungen erneut ab.",
   timelogGuardrailsTitle: "Buchungs-Leitplanken",
   timelogGuardrailsHint:
     "Markiert Buchungen, die gegen diese Regeln verstoßen. Cockpit ändert keine Buchung — es weist nur darauf hin. Alle Regeln sind aus, bis Sie sie einschalten.",

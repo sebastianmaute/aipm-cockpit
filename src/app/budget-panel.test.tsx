@@ -893,6 +893,35 @@ describe("budget: per-period cell RAG is period-aware", () => {
   });
 });
 
+describe("budget: actual cell is read-only when TimeLog day keys are booked", () => {
+  // One allocation across two monthly periods: January carries TimeLog day
+  // keys (summing to 5), February carries a plain period-key total (10) with
+  // no day keys — the sibling that must stay editable.
+  const dayKeyBucket: BudgetBucket[] = [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-02-28", status: "open",
+    allocations: [{
+      roleId: 3, resourceIds: [],
+      budgetHours: { "2026-01": 100, "2026-02": 100 },
+      actualHours: { "2026-01-05": 3, "2026-01-06": 2, "2026-02": 10 },
+    }],
+  }];
+
+  test("period holding TimeLog day keys is read-only, summed, and described", () => {
+    render(<BudgetPanel {...props} buckets={dayKeyBucket} />);
+    const input = screen.getByLabelText("actual-1-3-2026-01") as HTMLInputElement;
+    expect(input.readOnly).toBe(true);
+    expect(input.value).toBe("5");
+    expect(input).toHaveAccessibleDescription(t("en-US", "budgetActualFromTimelog"));
+  });
+
+  test("a sibling period without day keys in the same row stays editable", () => {
+    render(<BudgetPanel {...props} buckets={dayKeyBucket} />);
+    const input = screen.getByLabelText("actual-1-3-2026-02") as HTMLInputElement;
+    expect(input.readOnly).toBe(false);
+    expect(input).not.toHaveAttribute("aria-describedby");
+  });
+});
+
 describe("BudgetPanel — Total column + total row", () => {
   // 2 rows x 2 periods, every marginal distinct:
   //   rows    : 80/65 and 40/50
