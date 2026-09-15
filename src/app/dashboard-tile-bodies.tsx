@@ -45,6 +45,7 @@ import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { Sparkline } from "./sparkline";
 import { EmptyState } from "./empty-state";
 import { INTERACTIVE } from "./interaction-styles";
+import { ForecastHeadline } from "./budget-forecast-headline";
 import { DashboardKpiStrip } from "./dashboard-sections/dashboard-kpi-strip";
 import { DashboardTopActions } from "./dashboard-sections/dashboard-top-actions";
 import { RaidRegisterCard, UpcomingCard } from "./dashboard-sections/registers-band";
@@ -238,6 +239,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
 
     burn: (
       <>
+        {model.forecast ? <ForecastHeadline lang={lang} forecast={model.forecast} /> : null}
         {model.burn ? (
           <div className="flex flex-wrap gap-2">
             <Tile
