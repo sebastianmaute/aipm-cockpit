@@ -38339,11 +38339,12 @@ Product reach is narrow: the UI is interactive well before a slow `backend.load(
 real user reaching this window needs a slow IndexedDB, a cold Turso connection or a slow file read plus an edit
 timed inside it.
 
-Found via: `mount()` in `src/app/task-manager.template-notice.test.tsx` waits only for the mock section to
-render, not for the initial load, so a template-apply assertion can race this exact window (instrumented capture:
-`.superpowers/sdd/2026-09-15-electron-44/debug-template-notice.md`). The test's own fix — wait for
-`storage.loaded` in the diag log before mounting — is being made separately and closes the test flake, not this
-product window.
+Found via: `mount()` in `src/app/task-manager.template-notice.test.tsx` used to wait only for the mock section to
+render, not for the initial load, so a template-apply assertion could race this exact window (instrumented
+locally: without a wait for the load, 3 of 13 local runs raced; with one, 8 of 8 — the capture itself lived in a
+gitignored scratch file and is not checked in). The test's own fix — wait for `storage.loaded` in the diag log
+AFTER mounting (the mock section still needs to render first; the load is awaited before any template is
+applied) — has since LANDED (commit 11d18823) and closes the test flake, not this product window.
 
 Fix shape: TBD — either withhold edit affordances until the first load lands, or make the guard compare loaded
 vs. in-memory state per slice (mirroring §98's per-slice data-loss counters on the save path) instead of asking

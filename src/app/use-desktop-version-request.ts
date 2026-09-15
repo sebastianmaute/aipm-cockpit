@@ -29,9 +29,12 @@
 // its injected script's completion value is `!window.dispatchEvent(ev)` --
 // `dispatchEvent` returns `false` only when something called
 // `preventDefault()`, so main can tell a real page (this listener exists) from
-// a focused window with nobody listening (the PDF/export popup, an
-// external-link window) and retry on the main window instead of failing
-// silently. Called UNCONDITIONALLY whenever this listener runs at all --
+// a focused window with nobody listening (the PDF/export popup -- M-2,
+// final-review-report.md: an "external-link window" no longer exists at
+// HEAD; the one other non-app in-app page, the MSAL sign-in popup, is now
+// never scripted at all, see I-1 in desktop/src/main.ts) and retry on the
+// main window instead of failing silently. Called UNCONDITIONALLY whenever
+// this listener runs at all --
 // including the `open: false` priming ping below -- because "handled" means
 // "a TaskManager page received this", independent of whether it also opened
 // the modal.

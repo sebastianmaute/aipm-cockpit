@@ -155,6 +155,37 @@ export function isAppOpenerFrame(
   }
 }
 
+// ★★★ I-1 FIX (final-review-report.md). Is `url` a page THIS SHELL OWNS --
+// safe to `executeJavaScript` into? Exact origin match only, same rule as
+// `decideWindowOpen`/`decideNavigation` above (never `startsWith`). Unlike
+// those two, `about:blank` and the empty string are NOT allowed here: they
+// are legitimate navigation/open targets, but neither is a page this shell
+// authored a listener into, so scripting either one is exactly the mistake
+// this function exists to refuse (see `readDetail`'s comment on
+// `use-desktop-version-request.ts` for what "nobody is listening" costs
+// today -- a benign no-op; the case this function actually closes is the
+// one page that DOES have listeners of its OWN: the MSAL sign-in popup, on
+// `login.microsoftonline.com` or, once the flow is under way, any https
+// host `decideNavigation` continues it onto).
+//
+// `main.ts` uses this in two places: the `did-finish-load` prime (never run
+// the priming script in a page we do not own -- and en passant, this is
+// also the M-6 fix: an unparsable `contents.getURL()` -- the PDF/export
+// `about:blank` tab -- now returns `false` here instead of throwing
+// `new URL("")` and logging a `TypeError` on every export) and the
+// `show-version` menu route (never `executeJavaScript` the Version-panel
+// request into whichever window happens to be FOCUSED -- `pickPrintTarget`
+// does not know or care what that window is showing -- go straight to the
+// main window instead when the focused one is not ours).
+export function isAppPage(url: string, appOrigin: string): boolean {
+  try {
+    return new URL(url).origin === appOrigin;
+  } catch {
+    // Covers "", "about:blank", and anything else `new URL` cannot parse.
+    return false;
+  }
+}
+
 // Per-webContents navigation context `main.ts` assembles for each
 // will-navigate/will-redirect event. This module stays Electron-free, so all
 // three are plain booleans main.ts derives from its own state (never a live
@@ -249,6 +280,15 @@ export interface NavigationDecision {
 // overall navigation, not "who sent the 302"), and requiring the entry
 // booleans again on every hop would break exactly the federated/personal-
 // account tenants this whole feature exists for.
+// ★★ N-1 (final-review-report.md), BY DESIGN: the same "no re-check" rule
+// applies to a `will-navigate`, not only a server `will-redirect` -- so
+// once the popup has entered the flow, ANY https link a user clicks INSIDE
+// the identity or federated page (not just a 30x it receives) keeps
+// rendering in that chromeless in-app window, until it returns to
+// `APP_ORIGIN` or a load to `APP_ORIGIN` fails. A stored link cannot start
+// this on its own: entry itself still requires an app-opener-initiated
+// navigation from a blank popup (`canEnterFlow` above), which a click
+// inside an already-open identity page is not.
 // ★ THE MAIN WINDOW CAN NEVER ENTER: `main.ts` never records `windowFacts`
 // for it (it is built via `new BrowserWindow` + `loadFile`/`loadURL`, never
 // `window.open`), so `createdAsBlankPopup` reads `false` by construction --

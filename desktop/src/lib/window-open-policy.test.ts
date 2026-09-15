@@ -4,6 +4,7 @@ import {
   decideNavigation,
   decideWindowOpen,
   isAppOpenerFrame,
+  isAppPage,
   originOnly,
   type FrameIdentity,
   type LatchedOpenerFrame,
@@ -152,6 +153,25 @@ describe("originOnly", () => {
 
   it("returns a fixed marker for an unparsable string, never the raw input", () => {
     expect(originOnly("not a url")).toBe("<unparsable>");
+  });
+});
+
+describe("isAppPage", () => {
+  // I-1 (final-review-report.md): the table the brief asks for, adapted to
+  // the real APP_ORIGIN shape (`http://127.0.0.1:17300`).
+  it.each<[string, string, boolean]>([
+    ["an app URL with a path and query string", `${APP_ORIGIN}/?popout=raid`, true],
+    ["the bare app origin", APP_ORIGIN, true],
+    ["about:blank", "about:blank", false],
+    ["the empty string", "", false],
+    ["the Microsoft sign-in host", "https://login.microsoftonline.com/tenant/authorize", false],
+    // Look-alike host per decideWindowOpen's own userinfo-trick fixture:
+    // starts with the app origin string, but its real origin is evil.com.
+    ["a look-alike host that merely starts with the app origin string", "http://127.0.0.1:17300@evil.com/", false],
+    ["the same host on a different port", "http://127.0.0.1:17301/", false],
+    ["an unparsable string", "not a url", false],
+  ])("%s -> %s", (_label, url, expected) => {
+    expect(isAppPage(url, APP_ORIGIN)).toBe(expected);
   });
 });
 

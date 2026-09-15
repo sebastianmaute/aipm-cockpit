@@ -18,6 +18,7 @@ import {
   decideNavigation,
   decideWindowOpen,
   isAppOpenerFrame,
+  isAppPage,
   originOnly,
   type LatchedOpenerFrame,
   type NavigationContext,
@@ -266,12 +267,18 @@ function fileMenuClick(id: FileMenuItemId): () => void {
   }
 }
 
-// ★★ THE ONLY shell.openExternal CALL SITE, reached from the Help menu's
-// "Check for updates…" item. It used to have a second caller -- the removed
-// native Version dialog's second button -- which is why this stayed a
-// function of its own rather than an inline call; the Version panel's own
-// Releases link (src/app/version-info.tsx) is now an ordinary in-page <a
-// target="_blank">, not routed through this process at all.
+// ★★ ONE OF FOUR shell.openExternal CALL SITES (M-1, final-review-report.md
+// -- this comment used to say "the only" one, which stopped being true once
+// the navigation guards below could reach it too): this function (the Help
+// menu's "Check for updates…" item), the `setWindowOpenHandler`'s
+// `open-external` case, and `will-navigate`/`will-redirect`'s own
+// `open-external` branches, all further down this file. This stayed a
+// function of its own rather than an inline call because it used to have a
+// second caller -- the removed native Version dialog's second button; the
+// Version panel's own Releases link (src/app/version-info.tsx) is now an
+// ordinary in-page <a target="_blank">, which IS routed through this
+// process: the `open` goes through `setWindowOpenHandler` -> `decideWindowOpen`
+// -> `shell.openExternal`, one of the other three sites above, not this one.
 //
 // ★ Hand the page to the user's OWN browser, where they are already signed in
 // to an `internal` GitLab. There is no updater and no feed to poll -- see
@@ -293,11 +300,16 @@ function openReleasesPage(): void {
 // ★★★ THIS IS THE FIX FOR THE SILENT NO-OP. `pickPrintTarget` targets
 // whichever window is FOCUSED, which is correct for File → Print (the user
 // wants to print what they are looking at) but not for Version: a focused
-// window that is not a TaskManager page at all (the PDF/export popup, or an
-// external-link window `target="_blank"` spawns) has no listener, and
-// before this fix the event was dispatched into the void with nothing
-// logged and nothing shown. `versionRequestScript`'s return value
-// (`!window.dispatchEvent(ev)`) makes that observable from here.
+// window that is not a TaskManager page at all -- the PDF/export popup, or
+// (M-2, final-review-report.md: an "external-link window" no longer exists
+// at HEAD; the one remaining case is the MSAL sign-in popup, see I-1 below
+// at the show-version case) -- has no listener, and before this fix the
+// event was dispatched into the void with nothing logged and nothing shown.
+// `versionRequestScript`'s return value (`!window.dispatchEvent(ev)`) makes
+// that observable from here. `requestVersionPanel` itself never checks
+// WHICH page `target` is showing -- that is the caller's job (I-1), because
+// this function's only job is to run the given script and report the
+// result.
 function requestVersionPanel(target: BrowserWindow, script: string): Promise<boolean> {
   try {
     return target.webContents.executeJavaScript(script).then(
@@ -384,22 +396,41 @@ function helpMenuClick(id: HelpMenuItemId): () => void {
         // to the main window -- `pickPrintTarget` already encodes exactly
         // that decision (`liveWindow(focused ?? main)`), so this reuses it
         // rather than re-deciding the same liveness question a third way.
+        // `pickPrintTarget` itself does not, and should not, know what page
+        // the window it picks is showing -- see I-1 immediately below.
         const target = pickPrintTarget(BrowserWindow.getFocusedWindow(), win);
         if (target === null) {
           log("version menu: no window to open the Version panel in");
           return;
         }
         const script = versionRequestScript(join(logDir, "launch.log"), true);
-        // ★★★ RETRY ONCE ON THE MAIN WINDOW when the focused target did not
-        // handle it (requestVersionPanel's `false`). The focused window can
-        // be a non-TaskManager page (PDF/export popup, an external-link
-        // window) with no listener at all; `win` always carries one, because
-        // TaskManagerInner mounts the listener unconditionally. If the
+        // ★★★ I-1 FIX (final-review-report.md). NEVER `executeJavaScript`
+        // into a page this shell does not own. `pickPrintTarget` can pick
+        // the MSAL sign-in popup -- once the flow is under way it can be on
+        // ANY https host (`decideNavigation`) -- and running app script
+        // there would both execute in a third-party page and hand it the
+        // absolute launch-log path (`versionRequestScript`'s argument) in a
+        // dispatched event's `detail`. `isAppPage` (window-open-policy.ts)
+        // is the same guard the `did-finish-load` prime uses below. When the
+        // picked target is not ours, go straight to the main window instead
+        // of scripting `target` at all -- not a retry-after-failure, a
+        // redirect BEFORE the first attempt.
+        const effectiveTarget = isAppPage(target.webContents.getURL(), APP_ORIGIN)
+          ? target
+          : liveWindow(win);
+        if (effectiveTarget === null) {
+          log("version menu: no window to open the Version panel in");
+          return;
+        }
+        // ★★★ RETRY ONCE ON THE MAIN WINDOW when the effective target did
+        // not handle it (requestVersionPanel's `false`). An app page can
+        // still have no listener yet (a race with TaskManagerInner mounting
+        // it); `win` always carries one once it does. If the effective
         // target already WAS `win`, or `win` itself is gone, there is
         // nowhere left to retry -- log and stop.
-        void requestVersionPanel(target, script).then((handled) => {
+        void requestVersionPanel(effectiveTarget, script).then((handled) => {
           if (handled) return;
-          if (target === win) {
+          if (effectiveTarget === win) {
             log("version menu: no listener responded");
             return;
           }
@@ -614,12 +645,17 @@ if (!app.requestSingleInstanceLock()) {
   // hands over exactly the object `did-finish-load` lives on, with nothing
   // to unwrap.
   //
-  // ★ Scoped to the app's OWN origin (`APP_ORIGIN`) so this never touches
-  // the PDF/export popup or an external-link window (the Releases link,
-  // GitHub, LinkedIn) -- those pages have no listener for the dispatched
-  // event either way (dispatchEvent on an unlistened window is a harmless
-  // no-op), but there is nothing to prime there and no reason to run a
-  // script in a page we do not own.
+  // ★ Scoped to the app's OWN origin (`isAppPage`, window-open-policy.ts) so
+  // this never touches the PDF/export popup or (M-2, final-review-report.md:
+  // an "external-link window" no longer exists at HEAD -- the Releases link,
+  // GitHub and LinkedIn all now leave via `shell.openExternal` and never
+  // render in-app at all) the MSAL sign-in popup, which DOES have listeners
+  // of its own once it lands on a Microsoft page. The PDF/export popup has
+  // no listener for the dispatched event either way (dispatchEvent on an
+  // unlistened window is a harmless no-op) and `isAppPage` denying it is
+  // belt-and-braces there; for the sign-in popup, refusing to script it at
+  // all is the whole point (I-1) -- there is nothing to prime in a page we
+  // do not own, and on that page "no listener" is not the only concern.
   //
   // ★★★ ALSO WHERE THE WINDOW-OPEN POLICY AND THE TOP-LEVEL NAVIGATION GUARD
   // ARE WIRED, one listener rather than a second `app.on("web-contents-
@@ -639,8 +675,20 @@ if (!app.requestSingleInstanceLock()) {
       // to land: it is not a rejected promise (no `.catch` reaches it) and
       // this file installs no `uncaughtException` handler, so an uncaught one
       // here has the same blast radius as it would from a menu click.
+      //
+      // ★★★ M-6 FIX (final-review-report.md). This used to be
+      // `new URL(contents.getURL()).origin !== APP_ORIGIN` inline, which
+      // THROWS on an unparsable URL rather than denying -- and
+      // `contents.getURL()` on the PDF/export tab (`window.open("",
+      // "_blank")`) can plausibly BE unparsable (`""`) before that tab's own
+      // navigation lands. That made this catch block fire, and log a
+      // `version prime: TypeError: Invalid URL` line, on every PDF/document
+      // export -- reasoned, not measured (M-6 was never watched against a
+      // real export). `isAppPage` folds the unparsable case into a plain
+      // `false` instead, so this returns silently there, same as it always
+      // has for the app's own origin mismatches.
       try {
-        if (new URL(contents.getURL()).origin !== APP_ORIGIN) return;
+        if (!isAppPage(contents.getURL(), APP_ORIGIN)) return;
         void contents
           .executeJavaScript(versionRequestScript(join(logDir, "launch.log"), false))
           .catch((e: unknown) => {
@@ -849,10 +897,18 @@ if (!app.requestSingleInstanceLock()) {
         // Reading only the COMMITTED flag (round 2's behaviour) made that
         // hop `open-external` -- a regression from round 1, where the flag
         // was written at will-navigate time and so was already `true` here.
-        // A staged value can only exist for a `createdAsBlankPopup` +
-        // opener-initiated navigation that a will-* decision just allowed
-        // (see `will-navigate` above and `pendingAuthFlow`'s own comment) --
-        // this fallback never invents flow state for an ordinary page.
+        // ★ N3-1 (review-3-fix3-report.md): scoped to a staged `true`. A
+        // staged `false` is NOT limited to a `createdAsBlankPopup` +
+        // opener-initiated navigation -- `decideNavigation`'s "return to the
+        // app" branch stages `false` for ANY ordinary same-origin
+        // `will-navigate`/`will-redirect`, main window included (it never
+        // gets a `windowFacts` entry, so it always reads
+        // `createdAsBlankPopup: false`). Harmless either way: a staged
+        // `false` and a committed `false` are indistinguishable to this `??`
+        // fallback and to every downstream decision, and a fresh `true` can
+        // still only be MINTED by that one entry condition (see
+        // `decideNavigation`'s own doc comment for the induction) -- this
+        // fallback never invents a `true` for an ordinary page.
         const inAuthFlow = pendingAuthFlow.get(contents) ?? authFlowFor(contents);
         const ctx = navContextFor(details, inAuthFlow);
         const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, ctx);
