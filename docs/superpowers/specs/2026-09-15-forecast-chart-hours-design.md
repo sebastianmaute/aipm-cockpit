@@ -6,7 +6,8 @@
 document; everything else in the parent still holds)
 **Mockup:** `docs/superpowers/specs/2026-09-15-forecast-chart-hours-mockup.html` (the scenario switch drives every card
 and signal with the MR 2 formulas)
-**Register:** closes §501 (#40) and §504 (#44); files §549 (#339, earned-value history); extends §545 (#335)
+**Register:** closes §501 (#40) and §504 (#44); files §549 (#339, earned-value history — narrowed by MR 3 to recorded
+history for hand-entered % complete, see §3.4); extends §545 (#335)
 **Branch:** `feat/budget-forecast-chart` off `origin/main` at 1.6.1
 
 ## 1. Problem
@@ -43,7 +44,8 @@ else, so it forecasts hours unchanged once it is given hours facts.
 | Trigger | `|rate drift| ≥ 3%` OR the € and hours pace VAC ratings differ |
 | Budget RAG and tile headline | Unchanged — € only. Hours explain a rating; they never change it |
 | S4 role mix | In MR 3 |
-| §501 | Closes with MR 3; the missing earned-value history is filed as §549 |
+| Earned-value history | In MR 3, derived from task completion dates (Option 1, decided 2026-09-15); drawn only when every budgeted bucket is task-linked (§3.4) |
+| §501 | Closes with MR 3; §549 stays open, narrowed to recorded history for buckets with a hand-entered % complete |
 
 ## 3. Engine and data
 
@@ -58,9 +60,12 @@ else, so it forecasts hours unchanged once it is given hours facts.
   - **PV h** = the burn-down's hours series at `todayIndex` (`totalBudgetHours − plannedRemainingHours[todayIndex]`),
     mirroring the € PV rule of parent §5.7.
   - **Dated values** = the same day-key and spread-period walk as €, with hours as the value.
-- Denominators follow the € path's own-hours rule (budget hours minus `spilloverInHours`). **Before the plan is
-  written**, verify on the §5.6 fixture that EV h ÷ BAC h equals the € percent complete; if the report's project
-  hour totals include spillover while the per-bucket EV does not, the plan picks one basis and records the ruling.
+- **EV h basis (verified 2026-09-15 by probe, corrects an earlier "own-hours" wording here):** each bucket's EV h term
+  uses the REPORTED, spillover-inclusive `br.budgetHours`, because `report.project.budgetHours` (BAC h) sums exactly
+  those, just as EV € uses the spillover-inclusive `br.budgetValue` that BAC € sums. A closed donor spilling 50 h /
+  €5,000 into a 60%-complete T&M successor gives EV h ÷ BAC h = EV € ÷ BAC € = 45% on this basis and a mismatched
+  30% on the own-hours basis. The own-hours subtraction (`br.budgetHours − br.spilloverInHours`) stays where it is:
+  the fixed-price AC ratio only.
 - New wrapper `computeProjectForecasts(args)` returns `{ eur: BudgetForecast; hours: BudgetForecast; mix: RateMix |
   null }`. `computeProjectForecast` keeps returning the € forecast, so every 1.6.x caller is unchanged.
 
@@ -73,6 +78,12 @@ else, so it forecasts hours unchanged once it is given hours facts.
   buckets): `plannedShare` (budget hours ÷ total budget hours), `bookedShare` (actual hours ÷ total actual hours),
   `difference` (booked − planned share), `usedOfBudget` (actual ÷ budget hours of that row).
   - `RateRow` gains an optional `roleId` or `disciplineId`, set in `bucketRateRows`; nothing else reads it.
+  - Hours per row mirror `computeBucketReport` exactly: effective budget hours (`effectiveBudgetHours`, so
+    budget-follows-plan buckets work) and `actualHoursIn` over the bucket's active periods, OWN hours (no
+    spillover). A parity test pins Σ rows against the report.
+  - Row names are workspace data, not i18n: a role row uses `roleLabel(role, disciplines, grades)`, a discipline
+    row the discipline's name. The engine therefore takes `disciplines` and `grades`; the Budget report panel and
+    the dashboard input gain both.
 - **Driver** = the row with the largest positive `difference`; null when none exceeds 3 points.
 - **Trigger** fires when both pace forecasts are available AND (`|drift| ≥ RATE_DRIFT_SIGNAL_RATIO` (0.03) OR
   `paceVacHealth(eur) !== paceVacHealth(hours)`).
@@ -80,6 +91,22 @@ else, so it forecasts hours unchanged once it is given hours facts.
 - **Severity** = `"warning"` when the two ratings differ, else `"info"`.
 - `RateMix = { drift, bookedRate, plannedRate, rows, driver, triggered, direction, severity }`; the wrapper returns
   `mix: null` when there are no hourly buckets or no booked hours.
+
+### 3.4 Earned-value history (Option 1, derived)
+
+- For each date of the chart's actual line (every past period end, and today), per budgeted bucket (`budgetValue >
+  0`): share = linked tasks finished (`isTaskFinished`) with a `completedDate` on or before that date ÷ resolved
+  linked tasks. EV € = Σ `br.budgetValue` × share; EV h = Σ `br.budgetHours` × share (the §3.1 basis).
+- The TODAY point uses `bucketPercentComplete` itself, so the line ends exactly at the forecast's EV. A finished task
+  with no `completedDate` (Cancelled is closed but never delivered) cannot be placed in the past, so it counts only
+  in the today point.
+- **All or nothing.** When any budgeted bucket has a hand-entered `percentComplete`, or no resolvable linked tasks,
+  there is no history: the engine returns the unavailable state with those buckets, and the chart shows a muted
+  note naming them instead of a partial line. A partial line would under-report earned value and read as a
+  schedule problem.
+- It is an approximation and says so in its tooltip: today's links and budget are applied to the past, and a task
+  reopened after completion loses its earlier completion.
+- New pure module `budget-ev-history.ts`; the result rides the forecast bundle next to `mix`.
 
 ### 3.3 Unchanged
 
@@ -182,6 +209,7 @@ snapshot and every export. §545 now also names the hours forecast and rate-mix 
 | At current pace | to plan end | to plan end | `ui-dark-blue`, dashed |
 | At current efficiency | to plan end | to plan end | `ui-purple`, dotted |
 | Earned value today | diamond at BAC − EV ("work left") | diamond at EV | `--rag-amber` |
+| Earned-value history (§3.4) | — | line from the origin to the EV diamond | `--rag-amber`, dash-dot |
 | Run-out | circle at zero on the run-out date | circle on the BAC line | `ui-pink` |
 | BAC line | — | dashed, labelled | muted |
 | Today / plan end | vertical lines | vertical lines | muted (today is no longer dark blue — that colour now belongs to the pace line) |
@@ -217,6 +245,9 @@ snapshot and every export. §545 now also names the hours forecast and rate-mix 
 
   Plus: fixed-price buckets excluded from drift; null cases; drift at 2.99% vs 3.00%; the rating-band rule alone
   (drift under 3% with differing ratings); driver null under 3 points. Each rule mutation-checked.
+- **EV history**: points at the actual line's dates; a task completed mid-period counted from its own date; the
+  today point equal to the forecast's EV (both units); a Cancelled task counted only at today; unavailable with the
+  named buckets for a hand-entered % complete and for a bucket with no resolvable links.
 - **`InfoTooltip`**: existing tests unchanged; the children trigger opens on hover and focus, closes on Escape, and its
   label passes a label-in-name assertion.
 - **Components**: hours lines per card and their unavailable states; chip names unique per card; banner text in both
@@ -235,14 +266,15 @@ snapshot and every export. §545 now also names the hours forecast and rate-mix 
 
 - Close §501 (#40) and §504 (#44) in the MR that ships this, with evidence; delete their `**Work item:**` lines in the
   same commit; one `Closes #NN` per line in the MR description.
-- §549 (#339) filed with this addendum: earned-value history for the cumulative line.
+- §549 (#339) filed with this addendum; the MR that ships §3.4 narrows its title, status and fix shape (and the
+  issue title) to recorded history for buckets with a hand-entered % complete.
 - §545 (#335) extended: hours forecast and rate-mix figures also missing from the snapshot and exports.
 - `docs/AGENTS/dashboard.md`: the burn tile's chart switches and chip. CHANGELOG entry at release (1.7.0; codename
   checked then with the dash-agnostic command in `version.ts`).
 
 ## 9. Out of scope
 
-Earned-value history (§549); hours in the budget RAG or tile headline; the AI snapshot and exports (§545); per-person
+Recorded earned-value history for hand-entered % complete (§549); hours in the budget RAG or tile headline; the AI snapshot and exports (§545); per-person
 rate mix; a % of budget chart view (mockup option C, not chosen); scenario forecasts and Monte Carlo (§502).
 
 ## 10. Risks
