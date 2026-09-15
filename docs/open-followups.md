@@ -769,6 +769,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
 | [§545](#545-the-ai-dashboard-snapshot-and-every-export-carry-none-of-the-budget-forecast-figures--open) | The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN | deferred 2026-09-15 by the budget forecast union spec §9 | M — add the forecast figures to the snapshot and exports once MR 2 ships them | open |
 | [§546](#546-an-edit-made-during-a-projects-first-backend-load-is-overwritten-when-that-load-lands--open) | An edit made during a project's first backend load is overwritten when that load lands — OPEN | found 2026-09-15 debugging a `task-manager.template-notice.test.tsx` race on `chore/electron-44`; GitLab #336 | S–M — withhold edits until the first load lands, or make the load-time guard compare per slice | open |
+| [§547](#547-the-desktop-sign-in-popups-state-machine-has-no-unit-harness--open) | The desktop sign-in popup's state machine has no unit harness — OPEN | final review of `chore/electron-44` (M-7 + item 2 recommendation), state bugs M-C/m1/m2 found only by review; GitLab #338 | S–M — a pure `auth-flow-tracker.ts` reducer plus tests replaying the M-C/m1/m2 sequences | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38352,3 +38353,53 @@ only whether the load is empty as a whole.
 
 Related: §284 (a different Turso load-time data-loss mechanism — a silently discarded meta-blob decode failure —
 closed 2026-08-29); §98 (the save-path analogue: `documents` invisible to the save-time data-loss guards).
+
+## 547. The desktop sign-in popup's state machine has no unit harness — OPEN
+
+**Status:** OPEN 2026-09-15 — the test-gap itself is machine-verified:
+`grep -rIl "" desktop/src --include=*.test.ts` lists nine test files, none for `main.ts` (`window-open-policy`
+is the only auth-flow-adjacent one). Not machine-verified as a live defect — none is known at HEAD `2ec30126`;
+the three bugs below were found and fixed by review, not by a test.
+`pendingAuthFlow`, `authFlowFor`, `discardStagedAuthFlow` and the `will-navigate` /
+`will-redirect` / `did-navigate` / `did-fail-load` / `did-fail-provisional-load` / `did-create-window` handlers
+that wire them together live in `desktop/src/main.ts`, wired directly to Electron `WebContents` events, and
+carry no test file. By contrast the PURE policy this wiring calls — `decideNavigation`, `isAppOpenerFrame` and
+`isAppPage` in `desktop/src/lib/window-open-policy.ts` — IS unit-tested (`window-open-policy.test.ts`); do not
+re-file that half.
+
+**Work item:** #338
+
+Three state-transition bugs in this exact wiring were found only by review, not by any test, because none
+could reach the code: M-C (the auth-flow flag was set before Chromium confirmed the navigation, so a later
+redirect denial or load failure left it `true` against a page that never moved; fixed a9c9abc8), m1 (a direct
+server redirect from an identity host to a federated IdP, arriving before the first `did-navigate`, read only
+the committed—still-false—flag and routed to the system browser instead of staying in the popup, hanging
+MSAL; fixed 14839a79) and m2 (`did-fail-provisional-load`, which fires for a cancelled navigation such as a
+`will-redirect` denial's own `preventDefault()`, did not discard a staged flag, so it could survive to be
+wrongly committed by a later, unrelated navigation's `did-navigate`; fixed 14839a79).
+
+Also: this file is invisible to two gates that would otherwise force a size/type discipline on it.
+`scripts/check-file-sizes.mjs` walks only `readdirSync("src", …)`, never `desktop/`, so `main.ts` is outside
+the file-size ratchet. The root `tsconfig.json` `exclude` list carries `"desktop/src/main.ts"` by name, so the
+blocking root `npx tsc --noEmit` never typechecks it either (only the manual desktop-package build compiles
+it — see `local-gates-ci-only`).
+
+Proposed shape (from the branch's final review, not yet built — none of the names below exist in the repo
+today): a pure `desktop/src/lib/auth-flow-tracker.ts` holding a `{committed, staged}` state, with
+`onWillNavigate` and `onWillRedirect` (staging first, `will-redirect` falling back to the committed value),
+`onDidNavigate` (promoting staged to committed) and `onLoadFailed` (dropping staged; a failed return to the
+app origin also ends the flow). `main.ts` would keep a single `WeakMap<WebContents, FlowState>`, apply the
+reducer, then act on the returned decision; tests would replay the M-C / m1 / m2 event sequences above plus
+the n2 sequence (a failed return to `APP_ORIGIN` ends the flow). The review also suggested moving the Version
+panel's target-picking logic into the same lib. Do not build this speculatively — the review recommended
+filing it rather than blocking the merge on the extraction.
+
+Trigger: do this before any further change to the sign-in flow — the review found three bugs in three rounds
+specifically because nothing but re-reading the code could check a transition. Caveat: extracting this wiring
+would be a refactor of a file the blocking root tsc skips today, verifiable only by a packaged build, and
+would invalidate any packaged-build sign-in eye-check done before the refactor lands.
+
+Size S–M.
+
+**Source:** `final-review-report.md` M-7 and its "Recommendation on item 2 (`main.ts` testability)" (same dir
+as this branch's SDD notes); `review-3-fix1-report.md` M-1 (first raised, out of scope for that round).
