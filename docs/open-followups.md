@@ -38071,9 +38071,18 @@ naming only the entity kind, id and field, through `requiredIsoDateOnLoad` — a
 and stored template seeds, via `sanitizeLoadedMilestone`), the fx-rates `date` (`sanitizeLoadedFxRates` on
 all four funnels) and the resource plan's `startDate` / `endDate` (`sanitizePlan`, where one such value used to
 reset both dates to the defaults). CSV, Markdown and Turso milestones (`buildMilestoneFromObj`) and
-IndexedDB never validated these dates, so they keep them raw without a diagnostic. Writes still refuse
-them: the AI absence and milestone writers call the strict `sanitizeAbsence` / `sanitizeMilestone`, and
-the inline-AI preview judges with `sanitizeIsoDate`.
+IndexedDB never validated these dates, so they keep them raw without a diagnostic. A write refuses such a
+date only when it CHANGES it: the AI absence and milestone update writers rebuild the merged row through
+`rebuildAbsenceForUpdate` / `rebuildMilestoneForUpdate`, which judge a changed required date with
+`sanitizeIsoDate` and carry one equal to the stored kept-raw value (`requiredIsoDateOnUpdate`); creates
+still call the strict `sanitizeAbsence` / `sanitizeMilestone`. The inline-AI preview agrees — it judges a
+changed date with `sanitizeIsoDate` and skips an unchanged one.
+
+★ Corrected 2026-09-15 (pre-release review, I1) — the sentence above used to read "Writes still refuse
+them", and the code matched it too literally: the update writers re-judged an UNTOUCHED stored date
+strictly, so every AI update of a kept-raw row threw ("invalid milestone update" / "invalid absence
+update") on ANY field while the card previewed it as accepted. Pinned by the kept-raw tests in
+`use-chat-dispatcher.test.tsx` and the card-vs-write rows in `plan.sanitizer-parity.test.ts`.
 
 ★ Corrected 2026-09-14 (final fix round 3) — the diagnostic above now also names its `source`
 (`workspace` or `templateSeed`), and logs once per session per source, entity, id, field and value

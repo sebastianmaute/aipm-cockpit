@@ -9,7 +9,7 @@
 // backend loaded before §539) and a diagnostic is logged. Optional date fields
 // keep using `sanitizeIsoDate` and blank on load; write paths keep refusing.
 import { logDiag } from "./diagnostics";
-import { sanitizeIsoDate } from "./sanitize-core";
+import { sanitizeIsoDate, type RequiredDateReader } from "./sanitize-core";
 
 const ISO_DATE_SHAPE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MIN_YEAR = 1900;
@@ -42,11 +42,29 @@ export function requiredIsoDateOnTemplateLoad(value: unknown, entity: string, id
   return readRequiredDate("templateSeed", value, entity, id, field);
 }
 
-function readRequiredDate(source: LoadDateSource, value: unknown, entity: string, id: unknown, field: string): string {
-  const strict = sanitizeIsoDate(value);
-  if (strict !== "" || typeof value !== "string" || !ISO_DATE_SHAPE_RE.test(value)) return strict;
+/** Whether the load rule KEEPS this value raw: `YYYY-MM-DD`, year 1900..2100,
+ *  and not a real calendar date. False for a valid date (kept verbatim anyway). */
+function isKeptNonCalendarDate(value: unknown): value is string {
+  if (sanitizeIsoDate(value) !== "" || typeof value !== "string" || !ISO_DATE_SHAPE_RE.test(value)) return false;
   const year = Number(value.slice(0, 4));
-  if (year < MIN_YEAR || year > MAX_YEAR) return "";
+  return year >= MIN_YEAR && year <= MAX_YEAR;
+}
+
+/** The REQUIRED-date reader for an UPDATE writer that rebuilds the merged row
+ *  `{...stored, ...patch}` through a strict entity sanitizer. A value equal to
+ *  the STORED one is unchanged and is carried when the load rule kept it raw;
+ *  anything else is judged by `sanitizeIsoDate`. So a write refuses a CHANGED
+ *  non-calendar date and never re-judges an untouched stored one — without
+ *  this, every AI update of a row the load funnel kept ("2026-02-30") threw on
+ *  ANY field while the inline card, which skips `before === after`, previewed
+ *  it as accepted. No diagnostic: the load funnel already reported the value. */
+export function requiredIsoDateOnUpdate(stored: Readonly<Record<string, unknown>>): RequiredDateReader {
+  return (value, _entity, _id, field) =>
+    value === stored[field] && isKeptNonCalendarDate(value) ? value : sanitizeIsoDate(value);
+}
+
+function readRequiredDate(source: LoadDateSource, value: unknown, entity: string, id: unknown, field: string): string {
+  if (!isKeptNonCalendarDate(value)) return sanitizeIsoDate(value);
   const safeId = typeof id === "number" || typeof id === "string" ? id : "";
   const key = JSON.stringify([source, entity, safeId, field, value]);
   if (!reported.has(key)) {

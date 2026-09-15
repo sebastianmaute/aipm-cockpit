@@ -50,7 +50,7 @@ import {
   fkIdOrUndefined,
   isPlainObject,
 } from "./sanitize-core";
-import { requiredIsoDateOnLoad } from "./sanitize-load-date";
+import { requiredIsoDateOnLoad, requiredIsoDateOnUpdate } from "./sanitize-load-date";
 
 // --- Absence sanitizers ----------------------------------------------------
 
@@ -75,6 +75,13 @@ export function sanitizeLoadedAbsence(input: unknown): Absence | null {
  *  every exported sanitize* by `sanitize-point-free.guard.test.ts`. */
 export function sanitizeAbsence(input: unknown): Absence | null {
   return absenceWithDateReader(input, sanitizeIsoDate);
+}
+
+/** The AI UPDATE writer's rebuild of `merged` (`{...stored, ...patch}`): strict, except that a
+ *  `startDate` / `endDate` equal to `stored`'s kept-raw one is carried (`requiredIsoDateOnUpdate`).
+ *  ★ Deliberately NOT `sanitize*`-named: it takes two arguments, so it must never be passed point-free. */
+export function rebuildAbsenceForUpdate(stored: Absence, merged: unknown): Absence | null {
+  return absenceWithDateReader(merged, requiredIsoDateOnUpdate(stored as unknown as Record<string, unknown>));
 }
 
 /** Returns the input if it is a valid AbsenceType; otherwise falls back to

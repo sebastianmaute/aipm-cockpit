@@ -58,7 +58,7 @@ import {
   isPlainObject,
 } from "./sanitize-core";
 import { BUDGET_NAME_MAX, AMOUNT_MAX, sanitizeIdList } from "./sanitize-entities";
-import { requiredIsoDateOnLoad, requiredIsoDateOnTemplateLoad } from "./sanitize-load-date";
+import { requiredIsoDateOnLoad, requiredIsoDateOnTemplateLoad, requiredIsoDateOnUpdate } from "./sanitize-load-date";
 import { sanitizeRichText } from "./rich-text-plain";
 import { RENDER_SINK, RICH_SINK } from "./html-start";
 
@@ -251,6 +251,12 @@ export function dropUnacceptedMilestoneFields<T extends object>(patch: T): T {
 //  Enforced for every exported sanitize* by `sanitize-point-free.guard.test.ts`.
 export function sanitizeMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, sanitizeIsoDate); }
 export function sanitizeLoadedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnLoad); }
+/** The AI UPDATE writer's rebuild of `merged` (`{...stored, ...patch}`): strict, except that a
+ *  required `date` equal to `stored`'s kept-raw one is carried (`requiredIsoDateOnUpdate`).
+ *  ★ Deliberately NOT `sanitize*`-named: it takes two arguments, so it must never be passed point-free. */
+export function rebuildMilestoneForUpdate(stored: Milestone, merged: unknown): Milestone | null {
+  return milestoneWithDateReader(merged, requiredIsoDateOnUpdate(stored as unknown as Record<string, unknown>));
+}
 /** A stored template's seed milestone: the load rule, diagnostic attributed to the template seed. */
 export function sanitizeLoadedSeedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnTemplateLoad); }
 function milestoneWithDateReader(input: unknown, readDate: RequiredDateReader): Milestone | null {

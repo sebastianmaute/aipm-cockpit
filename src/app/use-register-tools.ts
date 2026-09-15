@@ -76,6 +76,8 @@ import {
   dropUnacceptedRaidFields,
   dropUnacceptedStakeholderFields,
   refuseEmailWrite,
+  rebuildAbsenceForUpdate,
+  rebuildMilestoneForUpdate,
   refuseInvalidAbsenceEmail,
   sanitizeAbsence,
   sanitizeIsoDate,
@@ -633,7 +635,11 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // assigns `achievedDate` conditionally, so a refused value CLEARS the
         // stored date instead of failing. The guard turns "refused" back into
         // "unchanged", which is what the preview already promises.
-        const merged = sanitizeMilestone({
+        // ★★ `rebuildMilestoneForUpdate`, not the strict `sanitizeMilestone`: a
+        // `date` the patch leaves as stored is carried even when the load funnel
+        // kept it raw ("2026-02-30"), so a rename of such a row no longer throws.
+        // A CHANGED date is still judged strictly — the card's rule too (§539).
+        const merged = rebuildMilestoneForUpdate(existing, {
           ...existing,
           // ★★★ THE GUARD NESTS OUTSIDE, AND THE ORDER IS THE WHOLE GUARD.
           // `withAiRichFields` runs `sanitizeAiRichText`, which returns "" for
@@ -853,7 +859,8 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (!existing) return null;
         const accepted = dropUnacceptedAbsenceFields(patch);
         refuseInvalidAbsenceEmail(accepted, existing.assigneeEmail);
-        const merged = sanitizeAbsence({
+        // ★★ Carries an UNCHANGED kept-raw stored date — see updateMilestone (§539).
+        const merged = rebuildAbsenceForUpdate(existing, {
           ...existing,
           ...accepted,
           id,

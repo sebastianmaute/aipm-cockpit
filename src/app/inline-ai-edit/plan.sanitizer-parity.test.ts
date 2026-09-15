@@ -13,6 +13,8 @@ import {
   dropUnacceptedResourceFields,
   dropUnacceptedStakeholderFields,
   findTornEmail,
+  rebuildAbsenceForUpdate,
+  rebuildMilestoneForUpdate,
   refuseEmailWrite,
   refuseInvalidAbsenceEmail,
   sanitizeAbsence,
@@ -1124,4 +1126,71 @@ describe("stakeholder.email: preview and apply agree past the 200-char cap (fix 
     expect(preview.rejected).toBe(true);
     expect(stored).toBeNull();
   });
+});
+
+// ★★★ §539 PRE-RELEASE I1 — A STORED REQUIRED DATE THE LOAD FUNNEL KEPT RAW.
+// Every fixture above stores a VALID date, so none of it could see this: the
+// writers rebuilt `{...stored, ...patch}` through the strict sanitizer and threw
+// on an UNTOUCHED "2026-02-30", while the card judges only the patch's own
+// fields and previewed the call as accepted. The rule both sides now follow: a
+// date the patch does not CHANGE is carried; a changed one is judged strictly.
+// ★ Each row asserts the WRITE against the CARD, never against a hand-written
+//  expectation, so a future divergence in either direction goes red here.
+// ★ `endDate: "2026-02-10"` is the swap row: the carried raw start sorts after
+//  the new end, and `crossFieldRewrite` must disclose the same swap the write makes.
+describe("§539 kept-raw stored required date: the card and the AI update writer agree", () => {
+  const MILE_RAW = { id: 1, name: "M", date: "2026-02-30", linkedTaskIds: [] as number[] };
+  const ABS_RAW = { id: 1, assignee: "Ada", startDate: "2026-02-30", endDate: "2026-03-05", type: "vacation" };
+
+  const writeMilestone = (patch: Record<string, unknown>): Record<string, unknown> | null =>
+    rebuildMilestoneForUpdate(
+      MILE_RAW as unknown as Parameters<typeof rebuildMilestoneForUpdate>[0],
+      { ...MILE_RAW, ...dropUnacceptedMilestoneFields(patch) },
+    ) as unknown as Record<string, unknown> | null;
+  const writeAbsence = (patch: Record<string, unknown>): Record<string, unknown> | null => {
+    const accepted = dropUnacceptedAbsenceFields(patch);
+    try {
+      refuseInvalidAbsenceEmail(accepted, undefined);
+    } catch {
+      return null;
+    }
+    return rebuildAbsenceForUpdate(
+      ABS_RAW as unknown as Parameters<typeof rebuildAbsenceForUpdate>[0],
+      { ...ABS_RAW, ...accepted },
+    ) as unknown as Record<string, unknown> | null;
+  };
+
+  const ROWS: ReadonlyArray<{ entity: InlineEntity; input: Record<string, unknown>; accepted: boolean }> = [
+    { entity: "milestone", input: { name: "Renamed" }, accepted: true },
+    { entity: "milestone", input: { date: "2026-02-30" }, accepted: true },
+    { entity: "milestone", input: { date: "2026-02-31" }, accepted: false },
+    { entity: "milestone", input: { date: "2026-03-01" }, accepted: true },
+    { entity: "absence", input: { note: "Approved" }, accepted: true },
+    { entity: "absence", input: { startDate: "2026-02-30" }, accepted: true },
+    { entity: "absence", input: { endDate: "2026-02-31" }, accepted: false },
+    { entity: "absence", input: { endDate: "2026-02-10" }, accepted: true },
+  ];
+
+  for (const { entity, input, accepted } of ROWS) {
+    it(`${entity} ${JSON.stringify(input)}: card ${accepted ? "accepts" : "rejects"} and the write does the same`, () => {
+      const base = entity === "milestone" ? MILE_RAW : ABS_RAW;
+      const d = INLINE_DESCRIPTORS[entity];
+      const ws = { [d.wsKey]: [base] } as unknown as Workspace;
+      const block: ToolUseLike = { type: "tool_use", name: d.updateTool, input: { id: 1, ...input } };
+      const plan = describeEntityCalls([block], { descriptor: d, item: base as { id: number }, ws });
+      const written = entity === "milestone" ? writeMilestone(input) : writeAbsence(input);
+
+      expect(plan.rejected.length === 0).toBe(accepted);
+      expect(written !== null).toBe(accepted);
+      if (!written) return;
+      // Every field the call touches, plus every date field the write rebuilt.
+      const fields = new Set([...Object.keys(input), ...d.dateFields]);
+      for (const f of fields) {
+        if (!(f in base) && !(f in input)) continue;
+        const u = plan.updates.find((x) => x.field === f);
+        const shown = u ? (u.raw ?? u.after) : String((base as Record<string, unknown>)[f] ?? "");
+        expect(String(written[f] ?? ""), `${entity}.${f}`).toBe(shown);
+      }
+    });
+  }
 });

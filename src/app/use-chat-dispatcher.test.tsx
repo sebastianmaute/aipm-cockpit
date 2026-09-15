@@ -1314,6 +1314,66 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     expect(result.current.listAbsences()).toHaveLength(1);
   });
 
+  // ★★★ §539's LOAD rule keeps a non-calendar REQUIRED date raw, so a stored row
+  //  can hold "2026-02-30". The writers rebuild the MERGED row, and before the
+  //  fix they re-judged that UNTOUCHED stored date strictly — every AI update of
+  //  such a row threw, on any field, while the inline card (which judges only
+  //  the patch's own fields) previewed it as accepted. The rule now: a date the
+  //  patch does not CHANGE is carried as stored; a changed one is judged
+  //  strictly. The row is SEEDED, because no write path can create it.
+  function renderKeptRawProbe() {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <TestProviders seed={{
+        milestones: [{ id: 7, name: "Go-live", date: "2026-02-30", linkedTaskIds: [] }],
+        absences: [{ id: 9, assignee: "Alice", startDate: "2026-02-30", endDate: "2026-03-05", type: "vacation" }],
+      }}>
+        {children}
+      </TestProviders>
+    );
+    return renderHook(
+      () => useChatDispatcher({
+        settings: makeSettings(),
+        clock: testClock("2026-05-19", "UTC"),
+        setSelectedIds: vi.fn(),
+        setSettings: vi.fn(),
+        isReadOnly: false,
+        currentView: "open-points",
+        settingsProjectId: "default", holidaySet: new Set<string>(),
+        getDashboardModel: stubGetDashboardModel,
+        getBudgetRollup: stubGetBudgetRollup,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+      }),
+      { wrapper },
+    );
+  }
+
+  it("updates a non-date field of a row whose stored required date was kept raw, carrying that date", () => {
+    const { result } = renderKeptRawProbe();
+    expect(result.current.listMilestones().map((m) => m.date)).toEqual(["2026-02-30"]);
+
+    const m = result.current.updateMilestone(7, { name: "Go-live (moved)" });
+    expect(m?.name).toBe("Go-live (moved)");
+    expect(m?.date).toBe("2026-02-30");
+
+    const a = result.current.updateAbsence(9, { note: "Approved" });
+    expect(a?.note).toBe("Approved");
+    expect([a?.startDate, a?.endDate]).toEqual(["2026-02-30", "2026-03-05"]);
+  });
+
+  it("re-sending the stored kept-raw date is unchanged, not refused — the card skips it as before === after", () => {
+    const { result } = renderKeptRawProbe();
+    expect(result.current.updateMilestone(7, { date: "2026-02-30", name: "Renamed" })?.name).toBe("Renamed");
+    expect(result.current.updateAbsence(9, { startDate: "2026-02-30", note: "n" })?.startDate).toBe("2026-02-30");
+  });
+
+  it("still refuses a CHANGED non-calendar date on a kept-raw row, and leaves the row alone", () => {
+    const { result } = renderKeptRawProbe();
+    expect(() => result.current.updateMilestone(7, { date: "2026-02-31" })).toThrow("invalid milestone update");
+    expect(() => result.current.updateAbsence(9, { endDate: "2026-02-31" })).toThrow("invalid absence update");
+    expect(result.current.listMilestones()[0].date).toBe("2026-02-30");
+    expect(result.current.listAbsences()[0].endDate).toBe("2026-03-05");
+  });
+
   // ★★★ THE MERGE-SITE GUARD AT ITS REAL CALL SITE, which nothing pinned before.
   //  `sanitize-absence-patch.test.ts` exercises `dropUnacceptedAbsenceFields`
   //  DIRECTLY, so it proves the helper's rule and says nothing about whether
