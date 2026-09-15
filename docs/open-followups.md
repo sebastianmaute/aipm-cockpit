@@ -38169,22 +38169,25 @@ Related: §362.
 
 ## 541. The stakeholder editor saves its text fields uncapped when submitted with Enter — OPEN
 
-**Status:** OPEN 2026-09-14 — read from the code, not watched in a browser. Checked with
-`grep -n "adj.track\|onSave()" src/app/stakeholder-edit-modal.tsx` (the caps are tracked, then `onSave()` runs)
-and `grep -n "sanitizeStakeholder\|describeTextCap" src/app/use-stakeholders.ts` (no hits).
+**Status:** OPEN 2026-09-14, narrowed 2026-09-15 — read from the code, not watched in a browser. Checked with
+`grep -n "adj.track\|onSave(" src/app/stakeholder-edit-modal.tsx` (the caps are tracked, then `onSave(...)` runs
+with only the email replaced by its judged value) and
+`grep -n "sanitizeStakeholder\|describeTextCap" src/app/use-stakeholders.ts` (no hits).
 
 **Work item:** #331
 
 `StakeholderEditModal` caps `name`, `organization` and `title` at `BUDGET_NAME_MAX` (200) only in each field's
 `onBlur`. `handleSubmit` runs `describeTextCap` on name, organization, title, email and notes (`TEXTAREA_MAX`),
-but only to COUNT adjustments for the "fields adjusted" toast, then calls `onSave()` with the uncapped draft.
-`handleSaveStakeholder` (`use-stakeholders.ts`) stores the row as given, without `sanitizeStakeholder`.
+but only to COUNT adjustments for the "fields adjusted" toast. It then calls `onSave` with the draft, replacing
+only the email by its judged value (unwrapped from `Name <addr>`, then capped at 200); name, organization, title
+and notes go through uncapped. `handleSaveStakeholder` (`use-stakeholders.ts`) stores the row as given, without
+`sanitizeStakeholder`.
 
 Consequence: a 250-character title submitted with Enter, without leaving the field, is saved with all 250
 characters while the toast says the fields were adjusted. It is cut to 200 only on the next load, through
-`sanitizeStakeholder`, so the live session and exports see the uncapped value. Stakeholder email is judged on
-its capped value since the email-guard batch; whether the stored email is capped at save should be checked
-with the rest.
+`sanitizeStakeholder`, so the live session and exports see the uncapped value. The email is no longer affected:
+since the email-guard batch the stored email is the same capped, unwrapped value the editor judges, so this entry
+now covers name, organization, title and notes only.
 
 Fix shape: cap each field in `handleSubmit` and save the capped draft (the RAID, shift and absence editors
 save the capped value they judge), or sanitise in `handleSaveStakeholder`. Pin with an Enter-submit test that

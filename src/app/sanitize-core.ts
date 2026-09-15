@@ -76,8 +76,9 @@ export function emailWriteRefusal(
  *  boundary asks THIS with the same arguments: `createResource` (stored =
  *  undefined), `updateResource` (stored = the row's `emails`), the resource
  *  editor's save (stored = the resource as of when the modal opened) and
- *  `describeEntityCalls` (stored = the item's `emails`, judged on the RAW
- *  incoming value), so the card and the write cannot disagree.
+ *  `describeEntityCalls` (stored = the item's `emails`, judged on the model's
+ *  RAW incoming value rather than the preview projection, with each member
+ *  unwrapped via `normalize`), so the card and the write cannot disagree.
  *  - ARRAY: the first string member that is non-blank, NOT already present
  *    (trimmed) in `stored`, and not `isWriteSafeEmail`. An array is written
  *    verbatim, so re-sending a stored member changes nothing and is allowed.
