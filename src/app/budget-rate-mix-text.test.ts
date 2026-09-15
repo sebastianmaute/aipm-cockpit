@@ -90,26 +90,38 @@ describe("chips, names, points, rate fact", () => {
   });
 });
 
-describe("pace unavailable — paceVacRatio's null branch", () => {
-  // HOURS_FORECAST_HOURS_WORSE with its pace forecast swapped for an
-  // "unavailable" one: covers paceVacRatio's isPaceAvailable-false path
-  // (used by both rateMixExplanation and rateMixTileChipText) and the
-  // no-run-out fallback in rateMixTileChipText — a real, reachable state
-  // (a project with too few recent bookings), not a provably-unreachable
-  // guard, so it is tested rather than removed (ruling P16).
+describe("type-safety-only branches — not reachable via computeRateMix", () => {
+  // `computeRateMix` only sets a non-null `mix.direction` when BOTH pace
+  // forecasts are available and both BACs are positive (`rateMixSignal`,
+  // spec §4.3), so a triggered mix can never actually be paired with an
+  // "unavailable" pace forecast — that co-occurrence does not exist in
+  // real data. `HOURS_FORECAST_PACE_UNAVAILABLE` below is hand-built only
+  // because `rateMixExplanation`/`rateMixTileChipText` take `mix` and
+  // `eur`/`hours` as independent parameters, so TypeScript cannot prove
+  // they came from the same `computeForecastBundle` call — the null/
+  // unavailable-pace guards in the implementation exist for that type
+  // reason alone. These tests exercise the guards for coverage; they do
+  // NOT assert the fallback figures (e.g. a 0% VAC) as if they were real,
+  // user-visible numbers, because they are not.
   const HOURS_FORECAST_PACE_UNAVAILABLE: BudgetForecast = {
     ...HOURS_FORECAST_HOURS_WORSE,
     pace: { unavailable: "no-burn", windowStart: "2026-08-17", windowEnd: "2026-09-14", lastBookingDate: null },
   };
 
-  it("drops the pace sentence when one forecast's pace is unavailable", () => {
+  it("drops the pace sentence when one forecast's pace is unavailable, without fabricating a VAC figure", () => {
     const text = rateMixExplanation(en, MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_PACE_UNAVAILABLE);
     expect(text).not.toContain("At current pace");
     expect(text.startsWith("Consultant Junior:")).toBe(true);
   });
-  it("falls back to the no-run-out tile text when pace is unavailable", () => {
-    expect(rateMixTileChipText(en, MIX_HOURS_WORSE, HOURS_FORECAST_PACE_UNAVAILABLE))
-      .toBe(t(en, "forecastMixTileHoursWorseNoRunOut", formatSignedPercent(0, loc, 0)));
+  it("falls back to the no-run-out tile template, without asserting the placeholder percent as a real figure", () => {
+    const text = rateMixTileChipText(en, MIX_HOURS_WORSE, HOURS_FORECAST_PACE_UNAVAILABLE);
+    // Structural check only: the function picked the no-run-out template
+    // (not the "runs out <date>" one) and did not throw. The percent this
+    // template contains is the implementation's documented 0-fallback for
+    // an unavailable pace, not a computed VAC ratio — deliberately not
+    // pinned here as expected output.
+    expect(text).toMatch(/^Hours /);
+    expect(text).not.toContain("runs out");
   });
 });
 

@@ -10,6 +10,14 @@ import { formatDayMonth, formatHours, formatShare, formatSignedPercent } from ".
 import { isPaceAvailable, type BudgetForecast } from "./budget-forecast";
 import { RATE_DRIFT_SIGNAL_RATIO, type RateMix } from "./budget-rate-mix";
 
+// `computeRateMix` only sets a non-null `direction` when BOTH pace
+// forecasts are available and both BACs are positive (`rateMixSignal`,
+// spec §4.3) — so for a mix the real engine produced, `paceVacRatio` below
+// never actually returns null for either forecast. TypeScript cannot infer
+// that from these independent parameters (`RateMix`/`BudgetForecast` carry
+// no link to each other in their types), so the null case stays as a
+// type-safety fallback only — it is not a real forecast state that
+// co-occurs with a triggered mix.
 function paceVacRatio(f: BudgetForecast): number | null {
   return isPaceAvailable(f.pace) && f.facts.bac > 0 ? f.pace.vac / f.facts.bac : null;
 }
@@ -26,6 +34,9 @@ export function rateMixExplanation(lang: Lang, mix: RateMix, eur: BudgetForecast
   }
   const e = paceVacRatio(eur);
   const h = paceVacRatio(hours);
+  // `mix.direction !== null` is the real-world gate (it already implies
+  // `e`/`h` are non-null for an engine-produced mix, see the comment on
+  // `paceVacRatio`); the null checks are the type-safety-only part.
   if (e !== null && h !== null && mix.direction !== null) {
     parts.push(mix.direction === "hours-worse"
       ? t(lang, "forecastMixPaceHoursWorse", formatSignedPercent(h, locale, 1), formatSignedPercent(e, locale, 1))
@@ -50,9 +61,18 @@ export function rateMixChipName(lang: Lang, mix: RateMix, card: "pace" | "effici
 
 export function rateMixTileChipText(lang: Lang, mix: RateMix, hours: BudgetForecast): string {
   const locale = localeFor(lang);
-  const h = formatSignedPercent(paceVacRatio(hours) ?? 0, locale, 0);
+  // `pace` is bound to ONE local so both narrows below (VAC ratio and
+  // run-out date) read the same value, rather than re-reading
+  // `hours.pace` per use. As with `paceVacRatio`, `pace` being unavailable
+  // here is a type-safety fallback, not a real state that co-occurs with a
+  // triggered mix (see that function's comment) — this function is only
+  // ever called with an unavailable-pace `hours` forecast if a caller
+  // passes a `mix`/`hours` pair that did not come from the same
+  // `computeForecastBundle`.
+  const pace = hours.pace;
+  const h = formatSignedPercent(isPaceAvailable(pace) && hours.facts.bac > 0 ? pace.vac / hours.facts.bac : 0, locale, 0);
   if (mix.direction === "eur-worse") return t(lang, "forecastMixTileEurWorse", h);
-  const runOut = isPaceAvailable(hours.pace) ? hours.pace.runOutDate : null;
+  const runOut = isPaceAvailable(pace) ? pace.runOutDate : null;
   return runOut === null
     ? t(lang, "forecastMixTileHoursWorseNoRunOut", h)
     : t(lang, "forecastMixTileHoursWorse", h, formatDayMonth(runOut, locale));
