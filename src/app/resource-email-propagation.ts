@@ -125,7 +125,7 @@ export function retargetContactPersonEmails(rows: readonly ContactPerson[], chan
 
 /** The undo of a contact-person retarget. `retarget` matches case- and
  *  space-insensitively and `Name <addr>`-unwrapped, so a row may have held the
- *  old address spelled differently from `change.from` (" Old@X.com ").`ContactPerson` has no id
+ *  old address spelled differently from `change.from` (" Old@X.com "). `ContactPerson` has no id
  *  (§537), so each linked row now holding `change.to` is paired, in order, with
  *  an unconsumed before-image of the SAME name and gets that row's own stored
  *  email back byte-for-byte. A row no before-image pairs with — one linked and
