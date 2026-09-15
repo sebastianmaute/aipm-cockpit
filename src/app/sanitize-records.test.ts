@@ -7,6 +7,9 @@ import {
   sanitizeMilestoneTaskIds,
   sanitizeChangeItem,
   sanitizeModelChangeItem,
+  sanitizeLoadedChangeItem,
+  sanitizeLoadedSeedChangeItem,
+  rebuildChangeForUpdate,
   sanitizeStakeholder,
   acceptsRiskScale,
   acceptsScheduleDays,
@@ -385,6 +388,27 @@ describe("delegate-never-restate: the change sanitizer and its merge-site guard"
     expect(acceptsCostAmount(1234.567)).toBe(false);
     expect(acceptsScheduleDays(0.5)).toBe(false);
     expect(sanitizeModelChangeItem({ id: 1, title: "t", costImpact: 2_000_000_000 })!.costImpact).toBe(AMOUNT_MAX);
+  });
+
+  it("keeps a STORED costImpact/scheduleImpactDays verbatim through the load, seed-load and AI-update rebuilds (R-I1)", () => {
+    // ★★★ `sanitize-model-change-wiring.test.ts` pins that the load funnels call
+    //  `sanitizeLoaded(Seed)?ChangeItem` and the AI update calls
+    //  `rebuildChangeForUpdate` — on the premise that their VERBATIM behaviour is
+    //  pinned elsewhere. The test above pins it for `sanitizeChangeItem` only, so a
+    //  repair added to any of these three (keeping its date reader) survived the
+    //  suite. Both values are ones the predicates REFUSE (positive control above).
+    const stored = { id: 1, title: "t", costImpact: 2_000_000_000, scheduleImpactDays: 1.5 };
+    expect(acceptsScheduleDays(1.5)).toBe(false);
+    for (const load of [sanitizeLoadedChangeItem, sanitizeLoadedSeedChangeItem]) {
+      const item = load(stored)!;
+      expect(item.costImpact).toBe(2_000_000_000);
+      expect(item.scheduleImpactDays).toBe(1.5);
+    }
+    const storedItem = sanitizeLoadedChangeItem(stored)!;
+    const rebuilt = rebuildChangeForUpdate(storedItem, { ...storedItem, title: "renamed" })!;
+    expect(rebuilt.title).toBe("renamed");
+    expect(rebuilt.costImpact).toBe(2_000_000_000);
+    expect(rebuilt.scheduleImpactDays).toBe(1.5);
   });
 
   it("leaves an already-valid value untouched on BOTH paths", () => {
