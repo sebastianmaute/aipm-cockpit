@@ -389,3 +389,25 @@ describe("TimelogSettings guardrails in German", () => {
     expect(screen.getByText(de)).toBeTruthy();
   });
 });
+
+describe("TimelogSettings — email draft persists only a valid value", () => {
+  it("keeps typing, shows FieldError, and leaves the stored config at the last valid value", () => {
+    const onChange = vi.fn();
+    render(<TimelogSettings lang="en-US" config={{ ...defaultTimelogConfig, enabled: true, email: "ada@x.com" }} onChange={onChange} />);
+    const input = screen.getByLabelText(t("en-US", "timelogEmail"));
+    fireEvent.change(input, { target: { value: "nope" } });
+    expect(input).toHaveValue("nope");
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorInvalidEmail"));
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "grace@x.com" } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ email: "grace@x.com" }));
+  });
+
+  it("persists a clear (pre-flight M9)", () => {
+    const onChange = vi.fn();
+    render(<TimelogSettings lang="en-US" config={{ ...defaultTimelogConfig, enabled: true, email: "ada@x.com" }} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText(t("en-US", "timelogEmail")), { target: { value: "" } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ email: "" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});

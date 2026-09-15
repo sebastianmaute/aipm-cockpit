@@ -250,6 +250,55 @@ describe("useTaskSubmit — validation guards", () => {
   });
 });
 
+describe("useTaskSubmit — the email copy source comes from args.resources (pre-flight I1)", () => {
+  const linked = { id: 7, firstName: "Ada", lastName: "L", email: "a,b@x.com", roleId: null, utilizationMode: "percent" as const, utilization: {} };
+
+  it("positive control: the same unsafe value with no resources is refused", () => {
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ form: { ...validForm(), resourceId: 7, assigneeEmail: "a,b@x.com" } })),
+    );
+    expect(result.current.fieldErrors.assigneeEmail).toBe("errorEmailDelimiter");
+  });
+
+  it("exempts a copy of the linked resource's stored email", () => {
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ form: { ...validForm(), resourceId: 7, assigneeEmail: "a,b@x.com" }, resources: [linked] })),
+    );
+    expect(result.current.fieldErrors.assigneeEmail).toBeUndefined();
+  });
+});
+
+describe("useTaskSubmit — M-C4: the form stores the Name <addr>-unwrapped email", () => {
+  it("a typed Name <addr> saves as addr on the patched row", () => {
+    const setTasks = vi.fn();
+    const existing = makeTask({ id: 1, assignee: "Ann", assigneeEmail: "old@x.com" });
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [existing], tasksRef: { current: [existing] },
+        form: { ...validForm(), assignee: "Ann", assigneeEmail: "Ann Lee <ann@x.com>" },
+      })),
+    );
+    expect(result.current.fieldErrors.assigneeEmail).toBeUndefined();
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    expect(updater([existing])[0].assigneeEmail).toBe("ann@x.com");
+  });
+
+  it("a shape-only edit stores the unchanged address", () => {
+    const setTasks = vi.fn();
+    const existing = makeTask({ id: 1, assignee: "Ada", assigneeEmail: "ada@x.com" });
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [existing], tasksRef: { current: [existing] },
+        form: { ...validForm(), assignee: "Ada", assigneeEmail: "Ada <ada@x.com>" },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    expect(updater([existing])[0].assigneeEmail).toBe("ada@x.com");
+  });
+});
+
 describe("useTaskSubmit — edit branch", () => {
   it("patches the edited row, stamps localModifiedAt, clears editing, logs task.updated", () => {
     const setTasks = vi.fn();

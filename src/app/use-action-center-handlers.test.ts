@@ -18,6 +18,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useActionCenterHandlers, type ActionCenterHandlerDeps } from "./use-action-center-handlers";
+import { t } from "./i18n";
 import type { SuggestedAction } from "./next-actions";
 import type { RaidItem, Task } from "./types";
 
@@ -203,6 +204,42 @@ describe("useActionCenterHandlers — an empty default template never drafts an 
   });
 });
 
+describe("useActionCenterHandlers — a typed stakeholder-comms recipient meets the email write rule", () => {
+  // The stakeholder has no stored address, so the handler prompts for one.
+  const NO_EMAIL = { id: 1, name: "Dana" } as ActionCenterHandlerDeps["stakeholders"][number];
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  function draftWithTyped(typed: string) {
+    vi.spyOn(window, "prompt").mockReturnValue(typed);
+    const send = vi.fn();
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useActionCenterHandlers(makeDeps({ stakeholders: [NO_EMAIL], commSend: { send }, showToast })),
+    );
+    act(() => result.current.handleDraftMessageFromAction(draftAction(1)));
+    return { send, showToast };
+  }
+
+  it("refuses a delimiter-bearing address with the delimiter message and drafts nothing", () => {
+    const { send, showToast } = draftWithTyped("a,b@x.com");
+    expect(send).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "errorEmailDelimiter"));
+  });
+
+  it("refuses a malformed address with the invalid-email message", () => {
+    const { send, showToast } = draftWithTyped("nope");
+    expect(send).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "errorInvalidEmail"));
+  });
+
+  it("positive control: a valid typed address drafts to it", () => {
+    const { send, showToast } = draftWithTyped(" dana@x.com ");
+    expect(send).toHaveBeenCalledTimes(1);
+    expect((send.mock.calls[0][0] as { to: string }).to).toBe("dana@x.com");
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.anything());
+  });
+});
+
 describe("useActionCenterHandlers — Escalate records on the item (§515)", () => {
   const item: RaidItem = {
     id: 5, category: "I", title: "Vendor down", status: "Open", severity: "High",
@@ -302,8 +339,8 @@ describe("useActionCenterHandlers — Escalate records on the item (§515)", () 
     expect(logActivity).not.toHaveBeenCalled();
   });
 
-  // fix-all-1: isEscalationEmail rejects "<"/">" too — an address that would
-  // otherwise pass isValidEmail must still be refused here.
+  // fix-all-1: isEscalationWriteEmail rejects "<"/">" too — an address that
+  // would otherwise pass isValidEmail must still be refused here.
   it("writes nothing for a <br>-bearing address that would otherwise pass isValidEmail", () => {
     const setRaid = vi.fn();
     const showToast = vi.fn();
@@ -311,6 +348,17 @@ describe("useActionCenterHandlers — Escalate records on the item (§515)", () 
     const { result } = renderHook(() => useActionCenterHandlers(makeDeps({ raid: [item], setRaid, showToast, logActivity })));
     act(() => { result.current.escalateBundle!.onEscalate(escalateAction, { ...recipient, email: "a<br>@b.co" }); });
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+    expect(setRaid).not.toHaveBeenCalled();
+    expect(logActivity).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing for a delimiter-bearing address and shows the delimiter message", () => {
+    const setRaid = vi.fn();
+    const showToast = vi.fn();
+    const logActivity = vi.fn();
+    const { result } = renderHook(() => useActionCenterHandlers(makeDeps({ raid: [item], setRaid, showToast, logActivity })));
+    act(() => { result.current.escalateBundle!.onEscalate(escalateAction, { ...recipient, email: "a,b@x.com" }); });
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "errorEmailDelimiter"));
     expect(setRaid).not.toHaveBeenCalled();
     expect(logActivity).not.toHaveBeenCalled();
   });

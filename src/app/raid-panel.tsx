@@ -75,7 +75,7 @@ export type RaidPanelProps = EntityPaneCalendarHintsProps & {
   /** Registry resources + remembered contacts for the owner ResourcePicker. */
   resources: readonly Resource[];
   contacts: Contact[];
-  onCreateResource: (name: string, email: string) => number;
+  onCreateResource?: (name: string, email: string) => number;
   /** YYYY-MM-DD; used for default `raisedDate` and "closed today" autofill. */
   today: string;
   /** When non-null, only items linking to this task id are shown. The task

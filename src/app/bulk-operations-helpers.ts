@@ -7,19 +7,19 @@ import type { BulkEditDraft } from "./task-form-context";
 import type { Task } from "./types";
 import { greetingName } from "./contacts";
 import {
-  isValidEmail,
+  emailWriteRefusal,
   sanitizeAssignee,
   sanitizeBlockers,
-  sanitizeEmail,
   sanitizeGroup,
   sanitizeIsoDate,
   sanitizeLabels,
+  sanitizeLoadedEmail,
   sanitizePriority,
 } from "./sanitize";
 import { sanitizeRichHtml } from "./sanitize-html";
 
 export type BulkEditBuild =
-  | { ok: false; error: "pastDate" | "invalidEmail" }
+  | { ok: false; error: "pastDate" | "invalidEmail" | "emailDelimiter" }
   | { ok: true; updates: Partial<Task> };
 
 /** Validate the enabled bulk-edit fields and build the sanitized `Task` patch.
@@ -36,10 +36,12 @@ export function buildBulkEditUpdates(
   if (fields.dueDate && (!newDue || newDue < today)) {
     return { ok: false, error: "pastDate" };
   }
-  const newEmail = fields.assigneeEmail ? sanitizeEmail(bulkEdit.assigneeEmail) : "";
-  if (fields.assigneeEmail && newEmail && !isValidEmail(newEmail)) {
-    return { ok: false, error: "invalidEmail" };
-  }
+  // M-C4: the `Name <addr>`-unwrapped address, as every AI email write and load stores.
+  const newEmail = fields.assigneeEmail ? sanitizeLoadedEmail(bulkEdit.assigneeEmail) : "";
+  // A bulk value is TYPED, never a stored one, so it is judged as a create.
+  const emailRefusal = fields.assigneeEmail ? emailWriteRefusal(newEmail, undefined) : null;
+  if (emailRefusal === "invalid") return { ok: false, error: "invalidEmail" };
+  if (emailRefusal === "delimiter") return { ok: false, error: "emailDelimiter" };
   const updates: Partial<Task> = {};
   if (fields.priority) updates.priority = sanitizePriority(bulkEdit.priority);
   if (fields.dueDate) updates.dueDate = newDue;

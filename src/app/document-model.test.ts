@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   sanitizeProjectDocuments,
+  sanitizeProjectDocumentsWithDiag,
   MAX_DOCUMENTS,
   MAX_BLOCKS_PER_DOC,
   MAX_TABLE_ROWS,
@@ -578,29 +579,39 @@ describe("sanitizeProjectDocuments", () => {
     expect(codeOnly).not.toMatch(/new Set\s*\(\s*EXPORT_SECTION_KEYS/);
   });
 
-  it("counts entries the cap dropped into an optional diag", () => {
+  it("counts entries the cap dropped into the diag of the named variant", () => {
     const many = Array.from({ length: MAX_DOCUMENTS + 5 }, (_, i) => doc({ id: i + 1 }));
     const diag: DocTruncationDiag = {};
-    expect(sanitizeProjectDocuments(many, diag)).toHaveLength(MAX_DOCUMENTS);
+    expect(sanitizeProjectDocumentsWithDiag(many, diag)).toHaveLength(MAX_DOCUMENTS);
     expect(diag.truncatedEntries).toBe(5);
   });
 
   it("leaves the diag untouched when nothing is truncated", () => {
     const diag: DocTruncationDiag = {};
-    sanitizeProjectDocuments([doc()], diag);
+    sanitizeProjectDocumentsWithDiag([doc()], diag);
     expect(diag.truncatedEntries).toBeUndefined();
   });
 
   it("still truncates when no diag is passed", () => {
     const many = Array.from({ length: MAX_DOCUMENTS + 5 }, (_, i) => doc({ id: i + 1 }));
     expect(sanitizeProjectDocuments(many)).toHaveLength(MAX_DOCUMENTS);
+    expect(sanitizeProjectDocumentsWithDiag(many, undefined)).toHaveLength(MAX_DOCUMENTS);
+  });
+
+  // Final fix round 4, S4. `Array#map` hands the INDEX to a second parameter.
+  // With an optional `diag`, index 1 was truthy and the cap path threw
+  // assigning `truncatedEntries` onto a number.
+  it("is safe to pass point-free even when the cap bites", () => {
+    const many = Array.from({ length: MAX_DOCUMENTS + 1 }, (_, i) => doc({ id: i + 1 }));
+    const lists: unknown[] = [many, many];
+    expect(lists.map(sanitizeProjectDocuments).map((l) => l.length)).toEqual([MAX_DOCUMENTS, MAX_DOCUMENTS]);
   });
 
   it("accumulates rather than overwriting, so one diag can span several calls", () => {
     const many = Array.from({ length: MAX_DOCUMENTS + 2 }, (_, i) => doc({ id: i + 1 }));
     const diag: DocTruncationDiag = {};
-    sanitizeProjectDocuments(many, diag);
-    sanitizeProjectDocuments(many, diag);
+    sanitizeProjectDocumentsWithDiag(many, diag);
+    sanitizeProjectDocumentsWithDiag(many, diag);
     expect(diag.truncatedEntries).toBe(4);
   });
 
@@ -615,7 +626,7 @@ describe("sanitizeProjectDocuments", () => {
 
   it("counts blocks past the per-document cap on a LIVE document", () => {
     const diag: DocTruncationDiag = {};
-    const out = sanitizeProjectDocuments([doc({ blocks: overCapBlocks(MAX_BLOCKS_PER_DOC + 100) })], diag);
+    const out = sanitizeProjectDocumentsWithDiag([doc({ blocks: overCapBlocks(MAX_BLOCKS_PER_DOC + 100) })], diag);
     expect(out[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC);
     expect(diag.truncatedBlocks).toBe(100);
     // The DOCUMENT cap is a separate channel and must not be cross-contaminated.
@@ -630,7 +641,7 @@ describe("sanitizeProjectDocuments", () => {
     // is dropped by every future load, so refusing to save cannot recover it:
     // exactly the reasoning that excludes invalid blocks two lines above.
     const diag: DocTruncationDiag = {};
-    const out = sanitizeProjectDocuments(
+    const out = sanitizeProjectDocumentsWithDiag(
       [
         doc({ id: 7, blocks: overCapBlocks(3) }),
         doc({ id: 7, blocks: overCapBlocks(MAX_BLOCKS_PER_DOC + 250) }),
@@ -646,7 +657,7 @@ describe("sanitizeProjectDocuments", () => {
     // would satisfy nothing, but one that writes 0 unconditionally would still
     // raise the sticky save guard on every clean load.
     const diag: DocTruncationDiag = {};
-    sanitizeProjectDocuments([doc({ blocks: overCapBlocks(3) })], diag);
+    sanitizeProjectDocumentsWithDiag([doc({ blocks: overCapBlocks(3) })], diag);
     expect(diag.truncatedBlocks).toBeUndefined();
   });
 
@@ -659,7 +670,7 @@ describe("sanitizeProjectDocuments", () => {
   // save can never recover it.
   it("does not count blocks the validator dropped as invalid", () => {
     const diag: DocTruncationDiag = {};
-    const out = sanitizeProjectDocuments(
+    const out = sanitizeProjectDocumentsWithDiag(
       [
         doc({
           blocks: [

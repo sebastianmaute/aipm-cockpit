@@ -15,7 +15,8 @@
 //   verbatim instead of decoding into a real newline. `isEscalationEmail` and
 //   `stripBreakTags` stay as defence in depth: an address or name holding
 //   `<`/`>` has no legitimate use here, whatever the codec layer now tolerates.
-import { isValidEmail } from "./sanitize-core";
+// ★ `isEscalationEmail` is the LOAD predicate; writers use `isEscalationWriteEmail`.
+import { isValidEmail, isWriteSafeEmail, normalizeEmailShape } from "./sanitize-core";
 import { RAID_SEVERITIES, type RaidEscalation, type RaidItem, type RaidSeverity } from "./types";
 
 /** Newest entries win when a hand-edited file carries more than this. */
@@ -39,6 +40,16 @@ export function isEscalationEmail(s: string): boolean {
   return isValidEmail(s) && !/[<>]/.test(s);
 }
 
+/** ★★ THE WRITE FORM of `isEscalationEmail`, and the split is the point.
+ *  `isEscalationEmail` above stays the LOAD predicate (`sanitizeEntry`), so no
+ *  stored escalation starts being dropped. Every WRITER — `requireEscalationRecipient`
+ *  (AI `escalate_raid_item`), `escalate-popover.tsx` `canConfirm` and the
+ *  escalate handler in `use-action-center-handlers.ts` — asks THIS, which also
+ *  refuses "," and ";" (the one email write rule, `isWriteSafeEmail`). */
+export function isEscalationWriteEmail(s: string): boolean {
+  return isWriteSafeEmail(s) && !/[<>]/.test(s);
+}
+
 /** The recipient of an `escalate_raid_item` call, validated at the TOOL
  *  BOUNDARY (§515). Throws a model-facing message for any value the escalation
  *  record could not store verbatim. It returns ONLY these two fields, which is
@@ -50,7 +61,7 @@ export function isEscalationEmail(s: string): boolean {
  *   so `toEmail`/`toName` there would be misreported as update_task inputs. */
 export function requireEscalationRecipient(input: Record<string, unknown>): { email: string; name: string } {
   const email = typeof input.toEmail === "string" ? input.toEmail.trim() : "";
-  if (!email || !isEscalationEmail(email) || email.length > EMAIL_MAX) {
+  if (!email || !isEscalationWriteEmail(email) || email.length > EMAIL_MAX) {
     throw new Error(`toEmail must be a valid email address of at most ${EMAIL_MAX} characters`);
   }
   const rawName = input.toName;
@@ -96,7 +107,8 @@ function sanitizeEntry(raw: unknown): RaidEscalation | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const o = raw as Record<string, unknown>;
   const at = typeof o.at === "string" && !Number.isNaN(Date.parse(o.at)) ? o.at.slice(0, AT_MAX) : "";
-  const toEmail = typeof o.toEmail === "string" ? o.toEmail.trim().slice(0, EMAIL_MAX) : "";
+  // Ruling Q5: Name <addr> is unwrapped BEFORE isEscalationEmail judges it.
+  const toEmail = typeof o.toEmail === "string" ? normalizeEmailShape(o.toEmail.trim()).slice(0, EMAIL_MAX) : "";
   // isEscalationEmail, not a bare "@" check: rejects a malformed address AND
   // one holding "<"/">" (§515 defence in depth — mirrors the `toName` bracket
   // rejection in `requireEscalationRecipient` above). Deliberate: every writer

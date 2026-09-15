@@ -538,6 +538,10 @@ export interface CaptureCompositeOpts {
    *  kind's prefix, `"bulk"` is not in `ENTITY_KEY_SET`, and without this the
    *  label degrades to the generic "Edited N item(s)". */
   entityKey?: UndoEntityKey;
+  /** Replaces the generic "Edited N item(s)" Undo toast text for THIS entry
+   *  (spec Part 7: a resource save that also corrected linked copies names the
+   *  count). The label and the activity log are unaffected. */
+  toastText?: string;
 }
 
 /** A single-array bulk field edit: N rows, each reverted by MERGING a field
@@ -592,6 +596,10 @@ export interface UseUndoStackDeps {
    *  ★★ ARMED IN THE SAME SYNCHRONOUS BLOCK AS THE SETTER, deliberately — a
    *  site that arms, awaits, then mutates loses its permission. */
   allowDestructiveSave?: () => void;
+  /** True while this window may not mutate (a popout, §91). Read LAZILY
+   *  through `depsRef` at call time: captures push nothing and toast nothing,
+   *  and every restore entry point returns without running a runner or logging. */
+  isReadOnly?: () => boolean;
 }
 
 /** One entry on either stack: display meta + the impure directional runner. */
@@ -643,6 +651,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   }, []);
 
   const undoById = useCallback((id: number) => {
+    if (depsRef.current.isReadOnly?.()) return;
     const s = stackRef.current;
     const entry = s.find((e) => e.meta.id === id);
     if (!entry) return;
@@ -651,6 +660,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   }, [commitUndo]);
 
   const undo = useCallback(() => {
+    if (depsRef.current.isReadOnly?.()) return;
     const popped = popUndo(stackRef.current);
     if (!popped) return;
     commitUndo(popped.entry, popped.rest, true);
@@ -663,6 +673,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   //    double-invokes updaters, which would apply all N restores twice (same
   //    reason commitUndo runs entry.run() before its setStates).
   const undoThrough = useCallback((id: number) => {
+    if (depsRef.current.isReadOnly?.()) return;
     const taken = takeThrough(stackRef.current, id);
     if (!taken) return;
     const inverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run() }));
@@ -683,6 +694,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   // with redo() — that function has its own body and shares nothing with
   // commitUndo, so unifying them would be a refactor of working code.
   const redoThrough = useCallback((id: number) => {
+    if (depsRef.current.isReadOnly?.()) return;
     const taken = takeThrough(redoStackRef.current, id);
     if (!taken) return;
     const inverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run() }));
@@ -700,6 +712,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   // Redo the last undone op: apply its forward runner (which returns a fresh undo
   // runner so redo→undo round-trips), and push the re-undoable entry back on top.
   const redo = useCallback(() => {
+    if (depsRef.current.isReadOnly?.()) return;
     const popped = popUndo(redoStackRef.current);
     if (!popped) return;
     const undoRun = popped.entry.run();
@@ -718,7 +731,9 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     primaryCount: number,
     run: Runner,
     labelOpts?: { name?: string; entityKey?: UndoEntityKey },
+    toastText?: string,
   ) => {
+    if (depsRef.current.isReadOnly?.()) return;
     const id = (idRef.current += 1);
     const label = buildUndoLabel(depsRef.current.lang, kind, primaryCount, labelOpts);
     const meta: UndoMeta = { id, kind, count: primaryCount, timestamp: new Date().toISOString(), label };
@@ -729,7 +744,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // entry's label describe ONE action, and fixing only the label leaves this
     // saying "Edited" over a mass deletion.
     const isDelete = isDeleteKind(kind);
-    const text = t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", primaryCount);
+    const text = toastText ?? t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", primaryCount);
     showToastAction("info", text, { labelKey: "undo", run: () => undoById(id) });
   }, [undoById]);
 
@@ -766,7 +781,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   const captureComposite = useCallback((opts: CaptureCompositeOpts) => {
     const fragments = opts.parts.filter((f): f is CompositeFragment => f !== null);
     if (fragments.length === 0) return;
-    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments, armDestructive), { name: opts.name, entityKey: opts.entityKey });
+    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments, armDestructive), { name: opts.name, entityKey: opts.entityKey }, opts.toastText);
   }, [pushEntry, armDestructive]);
 
   const captureFieldRows = useCallback(<T extends { id: number }>(opts: CaptureFieldRowsOpts<T>) => {

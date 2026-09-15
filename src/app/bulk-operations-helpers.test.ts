@@ -41,6 +41,20 @@ describe("buildBulkEditUpdates", () => {
     expect(buildBulkEditUpdates(d, "2030-06-01")).toEqual({ ok: false, error: "invalidEmail" });
   });
 
+  it("M-C4: stores a typed Name <addr> bulk email as addr", () => {
+    const d = emptyBulkEdit();
+    d.enabled.assigneeEmail = true;
+    d.assigneeEmail = "Ann Lee <ann@x.com>";
+    expect(buildBulkEditUpdates(d, "2030-06-01")).toEqual({ ok: true, updates: { assigneeEmail: "ann@x.com" } });
+  });
+
+  it("refuses a delimiter-bearing bulk email with its own error", () => {
+    const d = emptyBulkEdit();
+    d.enabled.assigneeEmail = true;
+    d.assigneeEmail = "a,b@x.com";
+    expect(buildBulkEditUpdates(d, "2030-06-01")).toEqual({ ok: false, error: "emailDelimiter" });
+  });
+
   it("validates due date before email (past-date wins when both bad)", () => {
     const d = emptyBulkEdit();
     d.enabled.dueDate = true;

@@ -24,7 +24,7 @@ export interface TaskFormModalProps {
   nextId: number;
   contactsList: ReturnType<typeof listContacts>;
   resources: readonly Resource[];
-  onCreateResource: (name: string, email: string) => number;
+  onCreateResource?: (name: string, email: string) => number;
   absences: readonly Absence[];
   tasksForDeps: readonly Task[];
   uniqueGroups: string[];
@@ -41,7 +41,7 @@ export interface TaskFormModalProps {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;
   onRemoveContact: (name: string) => void;
-  onAddAssigneeToAddressBook: (name: string, email: string) => void;
+  onAddAssigneeToAddressBook?: (name: string, email: string) => void;
   /** Editor action buttons (Send inquiry / Push to Jira) rendered in the footer before Cancel/Save. */
   leadingActions?: ReactNode;
   /** Destructive Delete button rendered on the left of the footer. */

@@ -23,7 +23,9 @@ import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
 import { useDraftState } from "./use-draft-state";
-import { isValidEmail, sanitizeEmail } from "./sanitize-core";
+import { sanitizeLoadedEmail } from "./sanitize-core";
+import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
+import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage } from "./editor-email-rule";
 
 interface Props {
   lang: Lang;
@@ -79,23 +81,27 @@ export function AbsenceEditModal({
       setError(t(lang, "absenceErrorEndBeforeStart"));
       return;
     }
-    const cleanedEmail = draft.assigneeEmail?.trim() || undefined;
-    // The task form's rule (`validateTaskForm`): a blank address is legal, a
-    // non-blank one must be an address. The AI writers refuse the same (§461).
+    // The rule is the shared `emailWriteRefusal` (format + delimiter,
+    // changed-only): a blank address is legal, a non-blank CHANGED one must be
+    // write-safe. The AI writers refuse the same (§461). Judged (and stored,
+    // below) as `cappedAssigneeEmail` — the value the write path actually
+    // applies: `sanitizeLoadedEmail` (unwrap `Name <addr>`, then EMAIL_MAX) is
+    // what `sanitizeAbsence`'s decode path already gives `assigneeEmail` (M-C4).
     // ★★ ONLY WHEN THE VALUE CHANGED from the one the modal opened with. The
     //  Email field is Full-tier only, so a stale malformed address stored
     //  before §461 would otherwise block saving any OTHER field at a tier
     //  where the user cannot even see it. Anything typed is still refused.
     const openedEmail = absence?.assigneeEmail?.trim() || undefined;
-    if (cleanedEmail && cleanedEmail !== openedEmail && !isValidEmail(sanitizeEmail(cleanedEmail))) {
-      setError(t(lang, "errorInvalidEmail"));
+    const emailRefusal = editorEmailRefusalMessage(lang, cappedAssigneeEmail ?? "", openedEmail);
+    if (emailRefusal) {
+      setError(emailRefusal);
       return;
     }
     const cleanedNote = draft.note?.trim() || undefined;
     onSave({
       ...draft,
       assignee,
-      assigneeEmail: cleanedEmail,
+      assigneeEmail: cappedAssigneeEmail,
       startDate,
       endDate,
       note: cleanedNote,
@@ -115,6 +121,12 @@ export function AbsenceEditModal({
   );
 
   if (!draft) return null;
+
+  // Judge (and flag) the value the write path applies: `sanitizeLoadedEmail`
+  // (unwrap `Name <addr>`, then trim + EMAIL_MAX) is what `sanitizeAbsence`'s
+  // decode path and the AI writers give `assigneeEmail` (M-C4). Mirrors what
+  // `handleSubmit` stores.
+  const cappedAssigneeEmail = sanitizeLoadedEmail(draft.assigneeEmail ?? "") || undefined;
 
   const title = isNew
     ? t(lang, "absenceNewItem")
@@ -151,7 +163,18 @@ export function AbsenceEditModal({
             assigneePlaceholder={t(lang, "absencePlaceholderAssignee")}
             showEmail={isVisible("email")}
             tooltip={t(lang, "absenceAssigneeHint")}
+            emailInvalid={emailFieldInvalid(cappedAssigneeEmail)}
+            emailDescribedBy={emailFlagDescribedBy("absence-email-error", lang, cappedAssigneeEmail, error)}
           />
+          {/* Steps aside ONLY while `error` (the blocking banner below) shows
+              this SAME refusal message — an unrelated banner error (a blank
+              assignee, end before start) must never hide it (IMPORTANT 1,
+              fix round 1). */}
+          {isVisible("email") && emailFlagVisible(lang, cappedAssigneeEmail, error) && (
+            <div className="sm:col-span-2">
+              <EmailFieldError id="absence-email-error" lang={lang} value={cappedAssigneeEmail} />
+            </div>
+          )}
 
           {/* Start + end dates (grouped under the `dates` id). */}
           {isVisible("dates") && (

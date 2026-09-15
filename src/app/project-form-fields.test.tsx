@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
@@ -258,5 +258,83 @@ describe("contact persons", () => {
     const heard = controlNames(["button"], contactsList()).map((n) => n.replace(/\s+/g, " "));
     expect(heard).toHaveLength(2);
     expect(new Set(heard).size).toBe(heard.length);
+  });
+});
+
+describe("contact person add follows the email write rule", () => {
+  it("refuses an add with a typed unsafe email, keeps the draft and shows the error", async () => {
+    const user = userEvent.setup();
+    const setDraft = vi.fn();
+    render(<IdentityPeopleFields {...props} setDraft={setDraft} />);
+    await user.type(screen.getByRole("combobox", { name: t("en-US", "contactAddManual") }), "Bob Jones");
+    const email = screen.getByRole("textbox", { name: `${t("en-US", "contactAddManual")} — ${t("en-US", "email")}` });
+    await user.type(email, "a,b@x.com");
+    await user.click(screen.getByRole("button", { name: t("en-US", "add") }));
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "errorEmailDelimiter"));
+    expect(email).toHaveValue("a,b@x.com");
+  });
+
+  it("adds with a copied unsafe email picked from the address book", async () => {
+    const user = userEvent.setup();
+    const setDraft = vi.fn();
+    render(<IdentityPeopleFields {...props} setDraft={setDraft} addressBook={[{ name: "Bob Jones", email: "a,b@x.com" }] as never} />);
+    await user.type(screen.getByRole("combobox", { name: t("en-US", "contactAddManual") }), "Bob");
+    await user.click(await screen.findByText("Bob Jones"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "add") }));
+    expect(setDraft).toHaveBeenCalledTimes(1);
+  });
+
+  // Fix round 1, IMPORTANT 3 — the copy-source exemption was unpinned for the
+  // REGISTRY-resource source specifically (only the address book was tested).
+  it("adds with a copied unsafe email picked from a registry resource", async () => {
+    const user = userEvent.setup();
+    const setDraft = vi.fn();
+    const linked = {
+      id: 5, firstName: "Bob", lastName: "Jones", email: "a,b@x.com",
+      roleId: null, utilizationMode: "percent" as const, utilization: {},
+    };
+    render(<IdentityPeopleFields {...props} setDraft={setDraft} resources={[linked]} />);
+    await user.type(screen.getByRole("combobox", { name: t("en-US", "contactAddManual") }), "Bob");
+    await user.click(await screen.findByText("Bob Jones"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "add") }));
+    expect(setDraft).toHaveBeenCalledTimes(1);
+  });
+
+  // Fix round 2 ruling — judge (and store) the value that would be STORED:
+  // `sanitizeContactPerson` caps email at EMAIL_MAX via `sanitizeEmail`, same
+  // as every other editor. A >EMAIL_MAX value whose unsafe suffix falls past
+  // the cap is added with the SAFE, capped address.
+  it("adds a >EMAIL_MAX email capped to a safe value, not the raw typed one", async () => {
+    const user = userEvent.setup();
+    const setDraft = vi.fn();
+    render(<IdentityPeopleFields {...props} setDraft={setDraft} />);
+    await user.type(screen.getByRole("combobox", { name: t("en-US", "contactAddManual") }), "Bob Jones");
+    const email = screen.getByRole("textbox", { name: `${t("en-US", "contactAddManual")} — ${t("en-US", "email")}` });
+    // 314 + "@x.com" (6) = 320 = EMAIL_MAX; the ",evil@evil.com" suffix is
+    // entirely past the cap and never reaches the write rule.
+    const value = "a".repeat(314) + "@x.com" + ",evil@evil.com";
+    fireEvent.change(email, { target: { value } });
+    await user.click(screen.getByRole("button", { name: t("en-US", "add") }));
+    expect(setDraft).toHaveBeenCalledTimes(1);
+    const updater = setDraft.mock.calls[0][0] as (p: ProjectFormDraft) => ProjectFormDraft;
+    const result = updater(props.draft).contactPersons;
+    expect(result).toHaveLength(1);
+    expect(result[0].email).toBe("a".repeat(314) + "@x.com");
+  });
+
+  // M-C4 — the add stores the `Name <addr>`-unwrapped address, as every load
+  //  (`sanitizeContactPerson`) does, and judges that same value.
+  it("M-C4: adds a typed Name <addr> email as addr", async () => {
+    const user = userEvent.setup();
+    const setDraft = vi.fn();
+    render(<IdentityPeopleFields {...props} setDraft={setDraft} />);
+    await user.type(screen.getByRole("combobox", { name: t("en-US", "contactAddManual") }), "Bob Jones");
+    const email = screen.getByRole("textbox", { name: `${t("en-US", "contactAddManual")} — ${t("en-US", "email")}` });
+    fireEvent.change(email, { target: { value: "Bob Jones <bob@x.com>" } });
+    await user.click(screen.getByRole("button", { name: t("en-US", "add") }));
+    expect(setDraft).toHaveBeenCalledTimes(1);
+    const updater = setDraft.mock.calls[0][0] as (p: ProjectFormDraft) => ProjectFormDraft;
+    expect(updater(props.draft).contactPersons[0].email).toBe("bob@x.com");
   });
 });

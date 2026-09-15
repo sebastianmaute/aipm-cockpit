@@ -31,7 +31,7 @@ import {
 import { addProject, loadRegistry, saveRegistry, setCurrentProject as setCurrentProjectInRegistry } from "./projects-registry";
 import { getHandle } from "./project-file-handles";
 import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
-import { buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
+import { aiSeedUnsafeEmails, buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
 import { resetMintState, snapshotMintState, restoreMintState, seedMintFromWorkspace } from "./id-mint-session";
 import type { ProjectMeta, RaidItem, Task } from "./types";
 import { loadPortfolioMode, savePortfolioMode } from "./portfolio-mode";
@@ -40,6 +40,7 @@ import type { TruncationOps } from "./use-load-truncation";
 import { getTursoConfig } from "./turso-config";
 import { isTursoLockTimeout } from "./storage-error";
 import { STORAGE_LABEL_KEYS } from "./use-storage-backend-types";
+import { summarizeUnsafeEmailRecords } from "./sanitize";
 import type { UseMsAuthResult } from "./use-ms-auth";
 
 /** Live closure values the file/local project flows read each render. */
@@ -66,6 +67,12 @@ export interface FileProjectOpsDeps {
   reportProjectError: (err: unknown) => void;
   suppressNextLoadRef: React.MutableRefObject<boolean>;
   suppressNextSaveRef: React.MutableRefObject<boolean>;
+  /** ★★ M4: registry ids whose unsafe-email notice this SESSION already showed.
+   *  An ordinary SWITCH announces a project at most once; an explicit import
+   *  (file open, a create with a template or AI seed) always announces and
+   *  records its id, so switching back to it later is silent. Owned by
+   *  `useStorageBackend` (session lifetime, never shared between instances). */
+  announcedUnsafeEmailsRef: React.MutableRefObject<Set<string>>;
 }
 
 export function useFileProjectOps(deps: FileProjectOpsDeps) {
@@ -115,6 +122,12 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       //    the two runs LAST is the only one the user ever sees, and this one is
       //    the disposable half (a confirmation with no remedy attached).
       deps.showToast("info", t(deps.langRef.current, "projectSwitchedToast", target.name));
+      // spec Part 2: after the confirmation, before the report. ★ M4: once per project per session on a switch.
+      const unsafeEmails = deps.announcedUnsafeEmailsRef.current.has(id) ? null : summarizeUnsafeEmailRecords(loaded);
+      if (unsafeEmails) {
+        deps.announcedUnsafeEmailsRef.current.add(id);
+        deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", unsafeEmails.count, unsafeEmails.names));
+      }
       deps.truncationOps.reportFor(targetBackend);
       // 4. Suppress the auto-load the storageConfig change triggers (we just
       //    loaded), then point the active backend + registry at the target.
@@ -176,6 +189,13 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.suppressNextSaveRef.current = true;
       deps.setStorageConfig(storageConfig);
       deps.showToast("info", t(deps.langRef.current, "projectCreatedToast", meta.name));
+      // ★ M5: a TEMPLATE is a copy source, kept and notice-only; an AI seed's unsafe addresses were left
+      //  blank by `buildNewProjectWorkspace`, so its notice is judged on the seed as supplied.
+      const seededEmails = opts.template ? summarizeUnsafeEmailRecords(ws) : aiSeedUnsafeEmails(opts);
+      if (seededEmails) {
+        deps.announcedUnsafeEmailsRef.current.add(id); // an explicit import always announces (M4)
+        deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
+      }
     } catch (err) {
       // Create aborted before applyWorkspace reseeded — roll the minter back so
       // the still-active old project doesn't lose its high-water marks (which
@@ -251,6 +271,11 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       //    AFTER this toast and therefore survived; centralising it into `reportFor`
       //    silently moved it in FRONT and the count stopped painting.
       deps.showToast("info", t(deps.langRef.current, "projectLoadedToast", entry.name));
+      const unsafeEmails = summarizeUnsafeEmailRecords(loaded); // spec Part 2: after the confirmation, before the report
+      if (unsafeEmails) {
+        deps.announcedUnsafeEmailsRef.current.add(id); // an explicit import always announces (M4)
+        deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", unsafeEmails.count, unsafeEmails.names));
+      }
       deps.truncationOps.reportFor(targetBackend);
       deps.suppressNextLoadRef.current = true;
       deps.suppressNextSaveRef.current = true;
@@ -419,6 +444,8 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
         // faithful extraction of original behavior (not a bug fix).
         await deps.refreshBackendStatus();
         deps.emitToast("info", t(deps.langRef.current, "storageOpenedToast", loaded.tasks.length));
+        const openedEmails = summarizeUnsafeEmailRecords({ tasks: loaded.tasks, raid: loaded.raid }); // only what this path applies
+        if (openedEmails) deps.emitToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", openedEmails.count, openedEmails.names));
       }
       // ★★★ AFTER the toast above, never before: the surface is single-slot and REPLACES, so a diagnostic fired first is created and instantly discarded. The confirmation is the disposable half — it carries no remedy, and a clean import shows nothing here so it still paints. See the landmine on `TruncationOps.reportFor`.
       deps.truncationOps.reportImportFor(deps.backend, accepted); // ★★★ THE SECOND ARGUMENT IS THE DECISION, NOT A FORMALITY: diagnostics fire on BOTH exits OF THE CONFIRM — not on both exits of the function, since a rejecting `setBackendFileHandle` jumps to the catch and never reaches this line, leaving that file's dropped rows unreported (pre-existing, not this branch's) — the quoting HOLD only when a pending save could actually reach the file just read — ACCEPT alone since §287, because DECLINE commits nothing and leaves the backend on the user's previous file. A bare `true` here restores a real regression (autosave of an untouched project halted all session over a file the user refused to open) and no gate would notice. Full reasoning on `TruncationOps.reportImportFor`.

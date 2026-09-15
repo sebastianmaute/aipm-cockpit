@@ -11,7 +11,7 @@
 // module needs no validation logic of its own. AIPM palette only — no shadows or
 // gradients.
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type React from "react";
 import { FieldError } from "./field-feedback";
 import { FieldGroup, HintedLabel, fieldClass } from "./form-controls";
@@ -29,6 +29,8 @@ import {
 } from "./project-options";
 import { NACE_SECTIONS } from "./nace-sections";
 import { type ProjectDraft, type ProjectErrorField } from "./project-validation";
+import { sanitizeLoadedEmail } from "./sanitize";
+import { editorEmailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
 import { ResourcePicker } from "./resource-picker";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { type Contact } from "./contacts";
@@ -638,6 +640,8 @@ function ContactPersonsControl({
   const [draft, setDraft] = useState<{ name: string; email: string; resourceId: number | null }>(
     { name: "", email: "", resourceId: null },
   );
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const emailErrorId = useId();
 
   const hasName = (name: string) =>
     contactPersons.some((c) => c.name.trim().toLowerCase() === name.trim().toLowerCase());
@@ -694,12 +698,29 @@ function ContactPersonsControl({
   const addDraft = () => {
     const name = draft.name.trim();
     if (!name || hasName(name)) return;
+    // Judge (and store) the value that would be STORED: `sanitizeContactPerson`
+    // stores `sanitizeLoadedEmail` (unwrap `Name <addr>`, then trim + EMAIL_MAX)
+    // — the same treatment every other editor's email field gets (fix round 2
+    // ruling; unwrapped since M-C4). A TYPED unsafe email refuses the add; a
+    // copy of the picked person's stored email is exempt (spec Part 1,
+    // decision 1 + Part 7 ruling).
+    const cappedEmail = sanitizeLoadedEmail(draft.email);
+    const copySources = [
+      linkedResourceEmail(resources, draft.resourceId),
+      addressBook.find((c) => c.name === name)?.email,
+    ];
+    const refusal = editorEmailRefusalMessage(lang, cappedEmail, undefined, copySources);
+    if (refusal) {
+      setEmailError(refusal);
+      return;
+    }
+    setEmailError(null);
     const synced = draft.resourceId != null || addressBook.some((c) => c.name === name);
     onChange([
       ...contactPersons,
       draft.resourceId != null
-        ? { name, email: draft.email.trim(), synced, resourceId: draft.resourceId }
-        : { name, email: draft.email.trim(), synced },
+        ? { name, email: cappedEmail, synced, resourceId: draft.resourceId }
+        : { name, email: cappedEmail, synced },
     ]);
     setDraft({ name: "", email: "", resourceId: null });
   };
@@ -752,7 +773,10 @@ function ContactPersonsControl({
             value={draft}
             resources={resources}
             contacts={addressBook}
-            onChange={(next) => setDraft({ name: next.name, email: next.email, resourceId: next.resourceId })}
+            onChange={(next) => {
+              setDraft({ name: next.name, email: next.email, resourceId: next.resourceId });
+              setEmailError(null);
+            }}
             placeholder={t(lang, "contactAddManual")}
             aria-label={t(lang, "contactAddManual")}
           />
@@ -763,9 +787,15 @@ function ContactPersonsControl({
             value={draft.email}
             placeholder={t(lang, "email")}
             aria-label={`${t(lang, "contactAddManual")} — ${t(lang, "email")}`}
-            onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))}
+            onChange={(e) => {
+              setDraft((d) => ({ ...d, email: e.target.value }));
+              setEmailError(null);
+            }}
+            aria-invalid={emailError ? true : undefined}
+            aria-describedby={emailError ? emailErrorId : undefined}
             className={inputClass}
           />
+          <FieldError id={emailErrorId}>{emailError}</FieldError>
         </div>
         <button
           type="button"

@@ -7,6 +7,7 @@ import {
   archiveProject, restoreProject, hardDeleteProject,
 } from "./turso-portfolio";
 import { upsertProjectStatement } from "./turso-tenant-schema";
+import { PROJECT_SCOPED_SIDE_TABLES } from "./project-side-tables";
 import type { ProjectMeta } from "./types";
 
 const cfg = { httpUrl: "https://x.turso.io", authToken: "t" };
@@ -58,9 +59,9 @@ describe("turso-portfolio", () => {
     expect(vi.mocked(runTursoPipeline).mock.calls.at(-1)![1].some((s) => s.sql.includes("'1' WHERE id = ?"))).toBe(true);
     await restoreProject(cfg, "p1");
     expect(vi.mocked(runTursoPipeline).mock.calls.at(-1)![1].some((s) => s.sql.includes("'0' WHERE id = ?"))).toBe(true);
-    // hardDeleteProject now issues a SECOND runTursoPipeline call (the asset-byte
-    // cleanup below), so the tenant-delete statements are no longer the LAST
-    // call — take the first call made after this point, not .at(-1).
+    // hardDeleteProject now issues a SECOND runTursoPipeline call (the
+    // side-table sweep below), so the tenant-delete statements are no longer
+    // the LAST call — take the first call made after this point, not .at(-1).
     const callsBeforeDelete = vi.mocked(runTursoPipeline).mock.calls.length;
     await hardDeleteProject(cfg, "p1");
     const deleteCalls = vi.mocked(runTursoPipeline).mock.calls.slice(callsBeforeDelete);
@@ -78,9 +79,9 @@ describe("turso-portfolio", () => {
     expect(assetStmt!.args).toEqual([{ type: "text", value: "p1" }]);
   });
 
-  it("hardDeleteProject still completes (and still removes the project row) when asset-byte cleanup fails", async () => {
+  it("hardDeleteProject still completes (and still removes the project row) when the side-table sweep fails", async () => {
     // First runTursoPipeline call = the tenant hard-delete transaction; second =
-    // deleteAllAssetDataForProject's own pipeline call, which rejects here.
+    // the side-table sweep's own pipeline call, which rejects here.
     vi.mocked(runTursoPipeline)
       .mockResolvedValueOnce([])
       .mockRejectedValueOnce(new Error("asset cleanup boom"));
@@ -88,6 +89,16 @@ describe("turso-portfolio", () => {
     const firstCallStmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
     expect(firstCallStmts.some((s) => s.sql.includes("DELETE FROM projects WHERE id = ?"))).toBe(true);
     expect(vi.mocked(runTursoPipeline)).toHaveBeenCalledTimes(2);
+  });
+
+  it("hardDeleteProject sweeps every project-scoped side table in ONE second pipeline (§204)", async () => {
+    vi.mocked(runTursoPipeline).mockResolvedValue([]);
+    await hardDeleteProject(cfg, "p1");
+    const calls = vi.mocked(runTursoPipeline).mock.calls;
+    expect(calls).toHaveLength(2);
+    const sweep = calls[1][1].filter((s) => s.sql.startsWith("DELETE"));
+    expect(sweep.map((s) => s.sql)).toEqual(PROJECT_SCOPED_SIDE_TABLES.map((e) => `DELETE FROM ${e.table} WHERE project_id = ?`));
+    for (const s of sweep) expect(s.args).toEqual([{ type: "text", value: "p1" }]);
   });
 
   it("updateProjectMeta emits an upsert with archived='0'", async () => {

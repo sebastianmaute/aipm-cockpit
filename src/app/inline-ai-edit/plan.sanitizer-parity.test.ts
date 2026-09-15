@@ -4,6 +4,7 @@ import { describe, it, expect } from "vitest";
 import { describeEntityCalls, previewNormalizerFor, RICH_FIELDS, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
 import {
+  BUDGET_NAME_MAX,
   dropUnacceptedAbsenceFields,
   dropUnacceptedCalendarEventFields,
   dropUnacceptedChangeFields,
@@ -11,6 +12,12 @@ import {
   dropUnacceptedRaidFields,
   dropUnacceptedResourceFields,
   dropUnacceptedStakeholderFields,
+  findTornEmail,
+  rebuildAbsenceForUpdate,
+  rebuildChangeForUpdate,
+  rebuildMilestoneForUpdate,
+  rebuildRaidForUpdate,
+  refuseEmailWrite,
   refuseInvalidAbsenceEmail,
   sanitizeAbsence,
   sanitizeChangeItem,
@@ -21,6 +28,11 @@ import {
 } from "../sanitize";
 import { sanitizeCalendarEvent } from "../calendar-event";
 import { buildTaskCleanPatch } from "../chat-task-patch";
+import { buildBulkEditUpdates } from "../bulk-operations-helpers";
+import { creatableResourceEmail } from "../resource-create-email";
+import { emptyBulkEdit, emptyForm } from "../task-form-context";
+import { sanitizeInlinePatch } from "../task-inline-patch";
+import { validateTaskForm } from "../task-validation";
 import { applyModelChangeStatus } from "../change-log";
 import { applyStatusChange, isTaskStatus } from "../task-status";
 import { type ChangeStatus, type RaidItem, type Task } from "../types";
@@ -349,6 +361,14 @@ const taskReader: StoredReader = (field, value) => {
  *  a non-default row, which is where such a fixture belongs. */
 const stakeholderReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedStakeholderFields({ [field]: value });
+  try {
+    // BUDGET_NAME_MAX (200), not the default EMAIL_MAX (320) — `sanitizeStakeholder`
+    // caps `email` there via `sanitizeText`, not `sanitizeEmail` (fix round 1,
+    // mirrors `use-register-tools.ts`'s createStakeholder/updateStakeholder).
+    refuseEmailWrite("email", (patch as { email?: unknown }).email, STK_BASE.email, BUDGET_NAME_MAX);
+  } catch {
+    return null; // updateStakeholder surfaces the throw as a failed tool call
+  }
   const out = sanitizeStakeholder({ ...STK_BASE, ...patch });
   return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
 };
@@ -364,6 +384,11 @@ const raidReader: StoredReader = (field, value) => {
     { [field]: value },
     RAID_BASE as unknown as Pick<RaidItem, "category">,
   );
+  try {
+    refuseEmailWrite("ownerEmail", (patch as { ownerEmail?: unknown }).ownerEmail, RAID_BASE.ownerEmail);
+  } catch {
+    return null; // updateRaid surfaces the throw as a failed tool call
+  }
   const out = sanitizeRaidItem({ ...RAID_BASE, ...patch });
   return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
 };
@@ -447,8 +472,23 @@ const changeReader: StoredReader = (field, value) => {
  *  `plan.write-path-sweep.test.ts`, which drives the dispatcher and reads the
  *  live workspace back; the source assertion below is what keeps the two from
  *  drifting apart silently. */
+/** ★★ §422 — the SAME merge-site guard `updateResource`/`createResource` runs
+ *  BEFORE `sanitizeResource`, composed here for the reason `absenceReader`
+ *  composes `refuseInvalidAbsenceEmail`: a torn `emails` value never reaches
+ *  the sanitizer in production, so a reader that skips straight to
+ *  `sanitizeResource` reports an apply WRITE the real writer never makes.
+ *  `RES_BASE` carries no `emails`, so the stored list is `undefined` — the
+ *  same "no stored list" `findTornEmail` sees from `createResource`. */
 const resourceReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedResourceFields({ [field]: value });
+  // Task 1's LIST-field guard, kept — do not remove this line in Task 2.
+  // ★ M1: `normalize`, exactly as `createResource`/`updateResource` and the card ask it.
+  if (findTornEmail(patch.emails, undefined, true) !== undefined) return null;
+  try {
+    refuseEmailWrite("email", (patch as { email?: unknown }).email, RES_BASE.email);
+  } catch {
+    return null; // updateResource surfaces the throw as a failed tool call
+  }
   const out = sanitizeResource({ ...RES_BASE, ...patch });
   return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
 };
@@ -467,7 +507,7 @@ const resourceReader: StoredReader = (field, value) => {
 const absenceReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedAbsenceFields({ [field]: value });
   try {
-    refuseInvalidAbsenceEmail(patch);
+    refuseInvalidAbsenceEmail(patch, ABS_BASE.assigneeEmail);
   } catch {
     return null; // the dispatcher surfaces the throw as a failed tool call
   }
@@ -1056,4 +1096,263 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
       expect(rawSpread).toHaveLength(0);
     });
   });
+});
+
+// ★★★ FIX ROUND 1 — `stakeholder.email` PAST ITS OWN CAP, PINNED IN BOTH
+// DIRECTIONS. `sanitizeStakeholder` caps `email` at BUDGET_NAME_MAX (200) via
+// `sanitizeText`, not EMAIL_MAX (320) via `sanitizeEmail` — a cap the generic
+// `refuseEmailWrite` did not know about until this fix, so it judged the RAW
+// (up to 320-char) incoming value while the preview (`fieldSanitizers.email =
+// text(BUDGET_NAME_MAX)`) judged the ALREADY-200-CAPPED one. Two probes,
+// reviewer-measured on the pre-fix tree, disagreed in OPPOSITE directions:
+//   - a delimiter that the 200-cut REMOVES: preview (judging the capped,
+//     comma-free value) accepted; the writer (judging the raw, comma-bearing
+//     value) threw — refusing a write the card had just shown as safe, losing
+//     every OTHER field in the same patch with it.
+//   - a value that the 200-cut turns into a bare trailing "@" (no domain):
+//     preview (capped) rejected; the writer (raw, still a well-formed address
+//     under 320 chars) accepted, and `sanitizeStakeholder` then stored the
+//     cut, invalid-looking string regardless.
+// The fix makes the writer cap at BUDGET_NAME_MAX FIRST (an explicit `cap`
+// argument on `refuseEmailWrite`, defaulted to EMAIL_MAX for every OTHER
+// caller), so both sides judge the exact string that would be stored.
+describe("stakeholder.email: preview and apply agree past the 200-char cap (fix round 1)", () => {
+  it("a delimiter the cap removes — the raw value is unsafe, the STORED (capped) one is not", () => {
+    const value = "a".repeat(195) + "@x.co,zz"; // 203 raw chars; comma sits past index 200
+    const preview = previewOf("stakeholder", STK_BASE, "email", value);
+    const stored = stakeholderReader("email", value);
+    expect(preview.rejected).toBe(false);
+    expect(stored).not.toBeNull();
+    expect(preview.shown).toBe(stored);
+    expect(stored).not.toContain(",");
+  });
+
+  it("a value the cap turns into a bare trailing \"@\" — both sides refuse it", () => {
+    const value = "a".repeat(199) + "@x.com"; // 205 raw chars; the 200-cut drops the whole domain
+    const preview = previewOf("stakeholder", STK_BASE, "email", value);
+    const stored = stakeholderReader("email", value);
+    expect(preview.rejected).toBe(true);
+    expect(stored).toBeNull();
+  });
+});
+
+// ★★★ §539 PRE-RELEASE I1 — A STORED REQUIRED DATE THE LOAD FUNNEL KEPT RAW.
+// Every fixture above stores a VALID date, so none of it could see this: the
+// writers rebuilt `{...stored, ...patch}` through the strict sanitizer and threw
+// on an UNTOUCHED "2026-02-30", while the card judges only the patch's own
+// fields and previewed the call as accepted. The rule both sides now follow: a
+// date the patch does not CHANGE is carried; a changed one is judged strictly.
+// ★ Each row asserts the WRITE against the CARD, never against a hand-written
+//  expectation, so a future divergence in either direction goes red here.
+// ★ `endDate: "2026-02-10"` is the swap row: the carried raw start sorts after
+//  the new end, and `crossFieldRewrite` must disclose the same swap the write makes.
+describe("§539 kept-raw stored required date: the card and the AI update writer agree", () => {
+  // ★★ `mileDate` overrides the stored milestone date. "tbd" is the row the load
+  //  rule would NOT keep but CSV/MD/Turso (`buildMilestoneFromObj`) and IndexedDB
+  //  store unvalidated: the card skips it as unchanged, so the write must carry
+  //  it too. A reader narrowed to the load rule's shape survived every other row.
+  const mileRaw = (date = "2026-02-30") => ({ id: 1, name: "M", date, linkedTaskIds: [] as number[] });
+  const ABS_RAW = { id: 1, assignee: "Ada", startDate: "2026-02-30", endDate: "2026-03-05", type: "vacation" };
+
+  const writeMilestone = (base: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> | null =>
+    rebuildMilestoneForUpdate(
+      base as unknown as Parameters<typeof rebuildMilestoneForUpdate>[0],
+      { ...base, ...dropUnacceptedMilestoneFields(patch) },
+    ) as unknown as Record<string, unknown> | null;
+  const writeAbsence = (patch: Record<string, unknown>): Record<string, unknown> | null => {
+    const accepted = dropUnacceptedAbsenceFields(patch);
+    try {
+      refuseInvalidAbsenceEmail(accepted, undefined);
+    } catch {
+      return null;
+    }
+    return rebuildAbsenceForUpdate(
+      ABS_RAW as unknown as Parameters<typeof rebuildAbsenceForUpdate>[0],
+      { ...ABS_RAW, ...accepted },
+    ) as unknown as Record<string, unknown> | null;
+  };
+
+  const ROWS: ReadonlyArray<{ entity: InlineEntity; input: Record<string, unknown>; accepted: boolean; mileDate?: string }> = [
+    { entity: "milestone", input: { name: "Renamed" }, accepted: true },
+    { entity: "milestone", input: { name: "Renamed" }, accepted: true, mileDate: "tbd" },
+    { entity: "milestone", input: { date: "tbe" }, accepted: false, mileDate: "tbd" },
+    { entity: "milestone", input: { date: "2026-02-30" }, accepted: true },
+    { entity: "milestone", input: { date: "2026-02-31" }, accepted: false },
+    { entity: "milestone", input: { date: "2026-03-01" }, accepted: true },
+    { entity: "absence", input: { note: "Approved" }, accepted: true },
+    { entity: "absence", input: { startDate: "2026-02-30" }, accepted: true },
+    { entity: "absence", input: { endDate: "2026-02-31" }, accepted: false },
+    { entity: "absence", input: { endDate: "2026-02-10" }, accepted: true },
+  ];
+
+  for (const { entity, input, accepted, mileDate } of ROWS) {
+    it(`${entity}${mileDate ? ` (stored date ${mileDate})` : ""} ${JSON.stringify(input)}: card ${accepted ? "accepts" : "rejects"} and the write does the same`, () => {
+      const base = entity === "milestone" ? mileRaw(mileDate) : ABS_RAW;
+      const d = INLINE_DESCRIPTORS[entity];
+      const ws = { [d.wsKey]: [base] } as unknown as Workspace;
+      const block: ToolUseLike = { type: "tool_use", name: d.updateTool, input: { id: 1, ...input } };
+      const plan = describeEntityCalls([block], { descriptor: d, item: base as { id: number }, ws });
+      const written = entity === "milestone" ? writeMilestone(base, input) : writeAbsence(input);
+
+      expect(plan.rejected.length === 0).toBe(accepted);
+      expect(written !== null).toBe(accepted);
+      if (!written) return;
+      // Every field the call touches, plus every date field the write rebuilt.
+      const fields = new Set([...Object.keys(input), ...d.dateFields]);
+      for (const f of fields) {
+        if (!(f in base) && !(f in input)) continue;
+        const u = plan.updates.find((x) => x.field === f);
+        const shown = u ? (u.raw ?? u.after) : String((base as Record<string, unknown>)[f] ?? "");
+        expect(String(written[f] ?? ""), `${entity}.${f}`).toBe(shown);
+      }
+    });
+  }
+});
+
+// ★★★ M1 — THE `Name <addr>` UNWRAP IS ONE BEHAVIOUR ON EVERY AI EMAIL WRITE.
+// The writer judges and stores the unwrapped address; the card must show and
+// judge that same value. A separate block rather than new `PROBES`, because the
+// sweep's bucket totals above are exact and would all move.
+describe("M1: name-address emails — the card shows and judges exactly what the AI write stores", () => {
+  const NAME_FORMS = ["Ann Lee <ann@x.com>", "Bob<bob@x.com>", "  <cara@x.com>  ", "Name <a,b@x.com>", "Dee <not-an-email>"];
+  const EMAIL_FIELDS: ReadonlyArray<readonly [InlineEntity, string]> = [
+    ["task", "assigneeEmail"], ["raid", "ownerEmail"], ["stakeholder", "email"], ["resource", "email"], ["absence", "assigneeEmail"],
+  ];
+  const caseOf = (entity: InlineEntity) => CASES.find((c) => c.entity === entity)!;
+
+  for (const [entity, field] of EMAIL_FIELDS) {
+    for (const value of NAME_FORMS) {
+      it(`${entity}.${field} ${JSON.stringify(value)}`, () => {
+        const c = caseOf(entity);
+        const stored = c.read(field, value);
+        const preview = previewOf(entity, c.base, field, value);
+        expect(preview.rejected, "card rejects ⇔ write refuses").toBe(stored === null);
+        if (stored !== null) expect(preview.shown).toBe(stored);
+      });
+    }
+  }
+
+  it("resource.emails: the card shows and judges the unwrapped members the write stores", () => {
+    for (const value of [["Two Tee <two@x.com>", "three@x.com"], ["Name <a,b@x.com>"]]) {
+      const c = caseOf("resource");
+      const stored = c.read("emails", value);
+      const preview = previewOf("resource", c.base, "emails", value);
+      expect(preview.rejected).toBe(stored === null);
+      // ★ Compared as MEMBER LISTS: the card joins with ", " and `readStored` with ","
+      //  (`String(array)`). A comma-bearing member is refused on both sides first.
+      const members = (s: string) => s.split(/,\s*/).filter((m) => m !== "");
+      if (stored !== null) expect(members(preview.shown)).toEqual(members(stored));
+    }
+  });
+
+  it("pins the outcomes themselves (anti-vacuity: agreement on the raw value would pass the rows above)", () => {
+    expect(caseOf("raid").read("ownerEmail", "Ann Lee <ann@x.com>")).toBe("ann@x.com");
+    expect(caseOf("task").read("assigneeEmail", "Bob<bob@x.com>")).toBe("bob@x.com");
+    expect(caseOf("stakeholder").read("email", "  <cara@x.com>  ")).toBe("cara@x.com");
+    expect(previewOf("absence", ABS_BASE, "assigneeEmail", "Ann Lee <ann@x.com>")).toEqual({ rejected: false, shown: "ann@x.com" });
+    expect(previewOf("resource", RES_BASE, "emails", ["Two Tee <two@x.com>"])).toEqual({ rejected: false, shown: "two@x.com" });
+    expect(caseOf("resource").read("email", "Name <a,b@x.com>")).toBeNull();
+  });
+});
+
+// ★★ M-C4 — THE EDITOR ROW. The human editors' PURE save builders store and
+// refuse exactly what the AI write stores and refuses, on the same shapes. The
+// modal editors (RAID, stakeholder, resource, absence, shift, contact person)
+// store the same helper inline and are pinned on their SAVED row by their own
+// component tests; comparing that helper with itself here would be tautological.
+describe("M-C4: name-address emails — the human editor save stores exactly what the AI write stores", () => {
+  const NAME_FORMS = ["Ann Lee <ann@x.com>", "Bob<bob@x.com>", "  <cara@x.com>  ", "Name <a,b@x.com>", "Dee <not-an-email>"];
+  const caseOf = (entity: InlineEntity) => CASES.find((c) => c.entity === entity)!;
+
+  for (const value of NAME_FORMS) {
+    it(`task.assigneeEmail ${JSON.stringify(value)}: inline cell, bulk edit and form validation`, () => {
+      const ai = caseOf("task").read("assigneeEmail", value);
+      const inline = sanitizeInlinePatch(
+        { assigneeEmail: value },
+        { hasResource: () => false, knownTaskIds: new Set(), ownTaskId: 1, storedAssigneeEmail: TASK_BASE.assigneeEmail },
+      );
+      expect("assigneeEmail" in inline ? inline.assigneeEmail : null, "inline cell").toBe(ai);
+      const bulk = emptyBulkEdit();
+      bulk.enabled.assigneeEmail = true;
+      bulk.assigneeEmail = value;
+      const built = buildBulkEditUpdates(bulk, "2026-01-01");
+      expect(built.ok ? built.updates.assigneeEmail : null, "bulk edit").toBe(ai);
+      const form = { ...emptyForm(), taskName: "T", assignee: "Ann", dueDate: "2026-01-01", assigneeEmail: value };
+      const refused = validateTaskForm(form, "2026-01-01", false, { stored: TASK_BASE.assigneeEmail }).assigneeEmail !== undefined;
+      expect(refused, "form refuses ⇔ AI write refuses").toBe(ai === null);
+    });
+
+    it(`resource.email ${JSON.stringify(value)}: ResourcePicker "+ Add"`, () => {
+      expect(creatableResourceEmail(value) ?? null).toBe(caseOf("resource").read("email", value));
+    });
+  }
+
+  it("pins the outcomes themselves (anti-vacuity: agreement on the raw value would pass the rows above)", () => {
+    expect(sanitizeInlinePatch({ assigneeEmail: "Bob<bob@x.com>" }, { hasResource: () => false, knownTaskIds: new Set(), ownTaskId: 1 }).assigneeEmail).toBe("bob@x.com");
+    expect(creatableResourceEmail("Ann Lee <ann@x.com>")).toBe("ann@x.com");
+  });
+});
+
+// ★★★ M6 — A STORED OPTIONAL DATE THAT NO LOAD FUNNEL VALIDATED (CSV/MD/Turso
+// `buildRaidFromObj` / `buildMilestoneFromObj`, IndexedDB). The strict rebuild
+// silently BLANKED it on an update of any other field while the card showed no
+// diff. Same rule and same reader as I1: carry what the patch does not change.
+// ★ Every date field is asserted against the card (its `raw ?? after`, or the
+//  stored value when the card shows no diff), never against a literal.
+describe("M6 unvalidated stored optional date: the card and the AI update writer agree", () => {
+  const MILE = { id: 1, name: "M", date: "2026-03-01", achievedDate: "2026-02-30", linkedTaskIds: [] as number[] };
+  const RAID = {
+    id: 1, category: "R", title: "T", status: "Open", raisedDate: "2026-02-30", targetDate: "tbd", closedDate: "2026-02-31",
+    linkedTaskIds: [] as number[], causedByRaidIds: [] as number[], stakeholderIds: [] as number[],
+  };
+  const CHANGE = {
+    id: 1, title: "C", description: "", type: "Scope", status: "Proposed", raisedDate: "tbd", decisionDate: "2026-02-30",
+    linkedTaskIds: [] as number[], linkedRaidIds: [] as number[], stakeholderIds: [] as number[],
+  };
+  type Row = Record<string, unknown>;
+  const WRITERS: Record<"milestone" | "raid" | "change", { base: Row; write: (patch: Row) => Row | null; stored: string[] }> = {
+    milestone: {
+      base: MILE, stored: ["achievedDate"],
+      write: (p) => rebuildMilestoneForUpdate(MILE as never, { ...MILE, ...dropUnacceptedMilestoneFields(p) }) as unknown as Row | null,
+    },
+    raid: {
+      base: RAID, stored: ["raisedDate", "targetDate", "closedDate"],
+      write: (p) => rebuildRaidForUpdate(RAID as never, { ...RAID, ...dropUnacceptedRaidFields(p, RAID as never) }) as unknown as Row | null,
+    },
+    change: {
+      base: CHANGE, stored: ["raisedDate", "decisionDate"],
+      write: (p) => rebuildChangeForUpdate(CHANGE as never, { ...CHANGE, ...dropUnacceptedChangeFields(p) }) as unknown as Row | null,
+    },
+  };
+  const ROWS: ReadonlyArray<{ entity: "milestone" | "raid" | "change"; input: Row }> = [
+    { entity: "milestone", input: { name: "Renamed" } },
+    { entity: "milestone", input: { achievedDate: "2026-02-30" } },
+    { entity: "milestone", input: { achievedDate: "2026-02-31" } },
+    { entity: "milestone", input: { achievedDate: "2026-04-01" } },
+    { entity: "milestone", input: { achievedDate: "" } },
+    { entity: "raid", input: { title: "Renamed" } },
+    { entity: "raid", input: { targetDate: "tbe" } },
+    { entity: "raid", input: { targetDate: "2026-05-01", closedDate: "" } },
+    { entity: "raid", input: { raisedDate: "2026-02-30" } },
+    { entity: "change", input: { title: "Renamed" } },
+    { entity: "change", input: { raisedDate: "2026-06-01" } },
+    { entity: "change", input: { raisedDate: "2026-02-31" } },
+  ];
+
+  for (const { entity, input } of ROWS) {
+    it(`${entity} ${JSON.stringify(input)}: every stored optional date the write keeps is what the card shows`, () => {
+      const { base, write, stored } = WRITERS[entity];
+      const d = INLINE_DESCRIPTORS[entity];
+      const ws = { [d.wsKey]: [base] } as unknown as Workspace;
+      const block: ToolUseLike = { type: "tool_use", name: d.updateTool, input: { id: 1, ...input } };
+      const plan = describeEntityCalls([block], { descriptor: d, item: base as { id: number }, ws });
+      const written = write(input);
+      expect(written).not.toBeNull();
+      for (const f of new Set([...stored, ...Object.keys(input)])) {
+        const u = plan.updates.find((x) => x.field === f);
+        const shown = u ? (u.raw ?? u.after) : String(base[f] ?? "");
+        expect(String(written?.[f] ?? ""), `${entity}.${f}`).toBe(shown);
+      }
+    });
+  }
 });

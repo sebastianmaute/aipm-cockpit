@@ -17,7 +17,9 @@ import { useDraggable } from "./use-draggable";
 import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
-import { ASSIGNEE_MAX, EMAIL_MAX, findTornEmail } from "./sanitize";
+import { ASSIGNEE_MAX, EMAIL_MAX, findTornEmail, normalizeEmailShape, sanitizeLoadedEmail } from "./sanitize";
+import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
+import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, joinDescribedBy } from "./editor-email-rule";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -91,18 +93,28 @@ export function ResourceEditModal({
       setError(t(lang, "resourceErrorName"));
       return;
     }
-    const email = adj.track(describeTextCap((draft.email ?? "").trim(), EMAIL_MAX)) || undefined;
+    adj.track(cappedEmailReport);
+    const email = cappedEmail;
+    const emailRefusal = editorEmailRefusalMessage(lang, email ?? "", resource?.email);
+    if (emailRefusal) {
+      setError(emailRefusal);
+      return;
+    }
+    // M-C4: each member is stored `Name <addr>`-unwrapped (`normalizeEmailShape`),
+    // as `sanitizeResource` stores it for every AI write and load.
     const emails = (draft.emails ?? [])
-      .map((e) => e.trim())
+      .map((e) => normalizeEmailShape(e.trim()))
       .filter((e) => e.length > 0);
     // §422 — the one shared rule, `findTornEmail` (`sanitize-core.ts`), the
     // same predicate every other write boundary asks. The editor always sends
     // an ARRAY, so only a member that is BOTH unsafe AND not already present,
     // trimmed, in `resource` (the row as of when the modal opened, never live
     // workspace state) is refused; a new resource has no stored list, so any
-    // unsafe member is refused.
-    if (findTornEmail(emails, resource?.emails) !== undefined) {
-      setError(t(lang, "resourceErrorEmailDelimiter"));
+    // unsafe member is refused. `normalize` (M-C4): judged unwrapped, the value
+    // stored above, exactly as `createResource`/`updateResource` ask it.
+    const tornEmail = findTornEmail(emails, resource?.emails, true);
+    if (tornEmail !== undefined) {
+      setError(editorEmailRefusalMessage(lang, tornEmail, undefined) ?? t(lang, "errorEmailDelimiter"));
       return;
     }
     const clean: Resource = {
@@ -130,6 +142,19 @@ export function ResourceEditModal({
   }
 
   if (!draft) return null;
+
+  // Judge (and flag) the value that would be STORED, not the raw typed one:
+  // the primary email is capped at EMAIL_MAX before it ever reaches
+  // `emailWriteRefusal` in `handleSubmit`, below — a >EMAIL_MAX value can
+  // carry an unsafe suffix (a second, delimiter-joined address) that
+  // truncation silently drops, so judging the raw string would show a flag
+  // for a save that actually succeeds SAFELY, or worse, miss a refusal the
+  // capped value still earns. Fix round 2.
+  // ★ M-C4: the stored value is `sanitizeLoadedEmail` — `Name <addr>` unwrapped
+  // FIRST, then trimmed + capped — what `sanitizeResource` stores for every AI
+  // write and load. The report only counts a cap of that same unwrapped value.
+  const cappedEmailReport = describeTextCap(normalizeEmailShape((draft.email ?? "").trim()), EMAIL_MAX);
+  const cappedEmail = sanitizeLoadedEmail(draft.email) || undefined;
 
   const title = isNew ? t(lang, "resourceNewTitle") : t(lang, "resourceEditTitle");
 
@@ -296,9 +321,21 @@ export function ResourceEditModal({
                   const trimmed = describeTextCap(e.target.value, EMAIL_MAX).value.trim();
                   update("email", trimmed || undefined);
                 }}
-                aria-describedby="resource-email-counter"
+                aria-invalid={emailFieldInvalid(cappedEmail) || undefined}
+                aria-describedby={joinDescribedBy(
+                  "resource-email-counter",
+                  emailFlagDescribedBy("resource-email-error", lang, cappedEmail, error),
+                )}
               />
               <CharCounter value={draft.email ?? ""} max={EMAIL_MAX} id="resource-email-counter" lang={lang} />
+              {/* Steps aside ONLY while `error` (the banner below) shows this
+                  SAME refusal message — an unrelated banner error (a blank
+                  name) must never hide it (IMPORTANT 1, fix round 1). Judges
+                  the CAPPED value, matching what `handleSubmit` would store
+                  (IMPORTANT, fix round 2). */}
+              {emailFlagVisible(lang, cappedEmail, error) && (
+                <EmailFieldError id="resource-email-error" lang={lang} value={cappedEmail} />
+              )}
             </HintedLabel>
           )}
 

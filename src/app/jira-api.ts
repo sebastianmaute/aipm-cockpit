@@ -7,12 +7,14 @@ import { adfToText, textToAdf } from "./adf";
 import { jiraCategoryToStatus, statusToJiraCategory } from "./jira-status-map";
 import { jiraProjectKeys } from "./jira-projects";
 import {
+  isWriteSafeEmail,
   sanitizeAssignee,
-  sanitizeEmail,
+  sanitizeLoadedEmail,
   sanitizeIsoDate,
   sanitizeLabels,
   sanitizeTaskName,
 } from "./sanitize";
+import { logDiag } from "./diagnostics";
 import { plainToHtml } from "./sanitize-html";
 import { descriptionText } from "./rich-text-projection";
 import type { JiraConfig } from "./settings-types";
@@ -215,11 +217,16 @@ export function issueToTaskFields(
   const resolved = (f.resolutiondate ?? "").slice(0, 10);
   const statusKey = f.status?.statusCategory?.key ?? "";
   const isDone = statusKey === "done";
+  // Spec Part 2: a synced record keeps everything but an address that is not
+  // write-safe after normalising; the diagnostic names the issue, never the address.
+  const syncedEmail = sanitizeLoadedEmail(f.assignee?.emailAddress ?? "");
+  const assigneeEmail = syncedEmail === "" || isWriteSafeEmail(syncedEmail) ? syncedEmail : "";
+  if (assigneeEmail !== syncedEmail) logDiag("warn", "jira.assigneeEmailDropped", { issueKey: issue.key, field: "assigneeEmail" });
 
   return {
     taskName: sanitizeTaskName(f.summary ?? issue.key),
     assignee: sanitizeAssignee(f.assignee?.displayName ?? ""),
-    assigneeEmail: sanitizeEmail(f.assignee?.emailAddress ?? ""),
+    assigneeEmail,
     dueDate: sanitizeIsoDate(f.duedate ?? "") || "",
     lastUpdateDate: sanitizeIsoDate(updated) || todayIso,
     priority: mapPriority(f.priority?.name),

@@ -26,10 +26,9 @@ import { resolveDependencyWrite } from "./task-dependency-write";
 import { useFilters } from "./filters-context";
 import { t } from "./i18n";
 import {
-  isValidEmail,
   sanitizeAssignee,
   sanitizeBlockers,
-  sanitizeEmail,
+  sanitizeLoadedEmail,
   sanitizeGroup,
   sanitizeIsoDate,
   sanitizeLabels,
@@ -37,18 +36,28 @@ import {
   sanitizeTaskName,
   sanitizeResource,
   dropUnacceptedResourceFields,
+  emailWriteRefusal,
   findTornEmail,
+  isWriteSafeEmail,
+  refuseEmailWrite,
 } from "./sanitize";
 import { sanitizeAiRichText } from "./ai-rich-text";
 import { emptyForm, useTaskForm } from "./task-form-context";
 import { applyStatusChange, isTaskStatus, statusActivityKind } from "./task-status";
 import { capturePart } from "./undo/use-undo-stack";
+import { commitResourceEmailCorrection } from "./resource-email-propagation-commit";
 import { DEFAULT_TASK_STATUS, type Task } from "./types";
 import { useWorkspace } from "./workspace-context";
 import { useDocumentTools } from "./use-document-tools";
 import { useRegisterTools } from "./use-register-tools";
 import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
 export type { ChatDispatcherArgs };
+
+/** The §422 `emails` refusal text, naming WHICH rule the address broke. */
+function emailsRefusalText(address: string): string {
+  const reason = emailWriteRefusal(address, undefined) === "invalid" ? "emails is invalid" : 'emails must not contain "," or ";"';
+  return `${reason} (${JSON.stringify(address)})`;
+}
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const {
@@ -57,6 +66,16 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     milestones,
     resources,
     setResources,
+    raid,
+    setRaid,
+    absences,
+    setAbsences,
+    shifts,
+    setShifts,
+    stakeholders,
+    setStakeholders,
+    project,
+    setProject,
     insights,
     knowledgeItems,
     budgets,
@@ -99,6 +118,30 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
   const undoRef = useRef(args.undo);
+  // ★★★ ONE ref per register slice, SHARED with use-register-tools.ts (passed in
+  // below). Its RAID/stakeholder/absence WRITERS and `updateResource`'s email
+  // propagation (spec Part 7) must read and advance the SAME `.current`: with a
+  // second ref, a same-turn register write is invisible to the propagation and
+  // a later register write reverts the propagated copies. Minted here because
+  // both consumers sit under this hook; do not add another ref for these slices.
+  const raidRef = useRef(raid);
+  const stakeholdersRef = useRef(stakeholders);
+  const absencesRef = useRef(absences);
+  useEffect(() => {
+    raidRef.current = raid;
+  }, [raid]);
+  useEffect(() => {
+    stakeholdersRef.current = stakeholders;
+  }, [stakeholders]);
+  useEffect(() => {
+    absencesRef.current = absences;
+  }, [absences]);
+  // Shifts and contact persons have NO AI writer (no tool writes either slice),
+  // so the propagation is this ref's only reader.
+  const unwrittenLinkedRef = useRef({ shifts, project });
+  useEffect(() => {
+    unwrittenLinkedRef.current = { shifts, project };
+  }, [shifts, project]);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
@@ -160,7 +203,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       // stale after a rename/re-link.
       const resById = new Map(resourcesRef.current.map((r) => [r.id, r]));
       let email = effectivePersonEmail(task.assigneeEmail ?? "", task.resourceId, resById).trim();
-      if (!email && isValidEmail(task.assignee)) email = task.assignee.trim();
+      if (!email && isWriteSafeEmail(task.assignee)) email = task.assignee.trim();
       if (!email) return { sent: false, reason: "no-email-on-file" };
 
       const greeting = greetingName(task.assignee) || task.assignee;
@@ -235,6 +278,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // nothing and reads the current value at call time.
     undoRef,
     resourcesRef,
+    raidRef,
+    stakeholdersRef,
+    absencesRef,
   });
 
   // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`
@@ -257,9 +303,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!taskName) throw new Error("taskName is required");
         if (!assignee) throw new Error("assignee is required");
         if (!dueDate) throw new Error("dueDate must be YYYY-MM-DD");
-        const email = sanitizeEmail(input.assigneeEmail);
-        if (email && !isValidEmail(email))
-          throw new Error("assigneeEmail is invalid");
+        const email = sanitizeLoadedEmail(input.assigneeEmail); // ★ M1: the unwrapped address, as every AI email write stores
+        refuseEmailWrite("assigneeEmail", email, undefined);
         const baseTask: Task = {
           id,
           taskName,
@@ -604,8 +649,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //  `findTornEmail` (`sanitize-core.ts`) with no stored list: an ARRAY
         //  holding an address with "," or ";" fails naming the field and nothing
         //  is written; a STRING is a delimited list and is split by design.
-        const unsafeEmail = findTornEmail(input.emails, undefined);
-        if (unsafeEmail !== undefined) throw new Error(`invalid resource: emails must not contain "," or ";" (${JSON.stringify(unsafeEmail)})`);
+        const unsafeEmail = findTornEmail(input.emails, undefined, true); // M1: judged unwrapped, as sanitizeResource stores
+        if (unsafeEmail !== undefined) throw new Error(`invalid resource: ${emailsRefusalText(unsafeEmail)}`);
+        refuseEmailWrite("email", input.email, undefined);
         const id = mintId("resource", resourcesRef.current);
         // sanitizeResource fills roleId/utilization defaults; returns null with
         // no first/last name (or splittable full name).
@@ -656,8 +702,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //    an address is allowed, and the removal is what the card shows.
         //  ★ The whole call is refused, never just the field: the inline edit
         //   keeps a refused `emails` out of its patch on the plan side.
-        const unsafeEmail = findTornEmail(patch.emails, existing.emails);
-        if (unsafeEmail !== undefined) throw new Error(`invalid resource update: emails must not contain "," or ";" (${JSON.stringify(unsafeEmail)})`);
+        const unsafeEmail = findTornEmail(patch.emails, existing.emails, true); // M1: judged unwrapped
+        if (unsafeEmail !== undefined) throw new Error(`invalid resource update: ${emailsRefusalText(unsafeEmail)}`);
+        refuseEmailWrite("email", patch.email, existing.email);
         // ★★★ `name` HAS TO BE SPLIT HERE OR IT IS A SILENT NO-OP ON UPDATE, and
         // it was one. `ResourceInput.name` is documented as "split into
         // first/last when the parts aren't given", and `sanitizeResource`
@@ -712,6 +759,26 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // is still the PRE-op array — the reassignment is below. Capturing
         // `merged` would store the new values as the "before" image and undo
         // would be a silent no-op.
+        // Spec Part 7 — after the popout throw and the token check in
+        // `chat-tools.ts`, a corrected primary email reaches FK-linked copies,
+        // through the same helpers `handleSaveResource` uses.
+        // ★★ The input is read from the refs the register WRITERS share, and every
+        //  ref the propagation wrote is advanced, exactly as `tasksRef` is — so a
+        //  RAID/stakeholder/absence write earlier in the turn is propagated over
+        //  (and captured with its post-write before-image), and one later in the
+        //  turn token-checks against, and maps over, the retargeted row.
+        const unwritten = unwrittenLinkedRef.current;
+        const corrected = commitResourceEmailCorrection({
+          previous: existing, next: merged, lang: settingsRef.current.language,
+          input: { tasks: tasksRef.current, raid: raidRef.current, absences: absencesRef.current, shifts: unwritten.shifts, stakeholders: stakeholdersRef.current, contactPersons: unwritten.project?.contactPersons ?? [] },
+          setters: { setTasks, setRaid, setAbsences, setShifts, setStakeholders, setProject },
+        });
+        if (corrected) {
+          tasksRef.current = corrected.result.tasks.next as typeof tasksRef.current;
+          raidRef.current = corrected.result.raid.next as typeof raidRef.current;
+          stakeholdersRef.current = corrected.result.stakeholders.next as typeof stakeholdersRef.current;
+          absencesRef.current = corrected.result.absences.next as typeof absencesRef.current;
+        }
         undoRef.current?.captureComposite({
           kind: "resource.updated",
           primaryCount: 1,
@@ -720,9 +787,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
             edited: [existing],
             fromArray: resourcesRef.current,
             isPrimary: true,
-          })],
+          }), ...(corrected?.cascade ?? [])],
           name: resourceLogName(existing),
           entityKey: "resource",
+          toastText: corrected?.toastText,
         });
         resourcesRef.current = next;
         setResources(next);
@@ -853,7 +921,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // hook's dep array, not of this one: the day that array gains a dep this one
     // lacks, the omission becomes the documentTools bug above, silently.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly, documentTools, registerTools],
+    [args.isReadOnly, documentTools, registerTools, setRaid, setAbsences, setShifts, setStakeholders, setProject],
   );
 
   return dispatcher;

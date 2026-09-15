@@ -1106,6 +1106,32 @@ describe("useStorageBackend — handlers", () => {
     expect(storageMod.openFileForBackend).toHaveBeenCalledWith(mockBackend);
     expect(result.current.tasks[0]?.id).toBe(99);
   });
+
+  it("onOpenStorageFile shows the unsafe-email notice AFTER the opened toast (spec Part 2)", async () => {
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+    mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });
+    mockBackend.load.mockResolvedValueOnce({
+      tasks: [{ id: 99, taskName: "Loaded", assigneeEmail: "a,b@x.com" }] as unknown as Task[],
+      raid: [], absences: [], shifts: [],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    showToast.mockClear();
+    await act(async () => { await result.current.onOpenStorageFile(); });
+    const texts = showToast.mock.calls.map((c) => c[1]);
+    const opened = texts.indexOf(t("en-US", "storageOpenedToast", 1));
+    const notice = texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "Loaded"));
+    expect(opened).toBeGreaterThanOrEqual(0);
+    expect(notice).toBeGreaterThan(opened);
+  });
+
+  it("a normal reload shows no unsafe-email notice", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "A", assigneeEmail: "a,b@x.com" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.tasks[0]?.assigneeEmail).toBe("a,b@x.com"); // control: the unsafe row really loaded
+    expect(showToast.mock.calls.map((c) => c[1])).not.toContain(t("en-US", "importUnsafeEmailsNotice", 1, "A"));
+  });
 });
 
 describe("useStorageBackend — broadcast send gating", () => {
@@ -1984,6 +2010,56 @@ describe("useStorageBackend — project flows", () => {
     const reg = loadRegistry();
     expect(reg.projects.some((p) => p.name === "New Proj")).toBe(true);
     expect(reg.currentProjectId).not.toBeNull();
+  });
+
+  const SEED_TASK = { id: 1, taskName: "From seed", assignee: "B", assigneeEmail: "a,b@x.com", dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", status: "To Do", createdDate: "2026-06-01" };
+
+  // ★ M5: the third column is what is STORED — a template is a copy source and
+  //  keeps the address; an AI seed introduces it, so it is left blank.
+  it.each([
+    ["a template", { includeSeed: true, template: { id: "t", name: "T", features: [], fieldVisibility: {}, seed: { tasks: [SEED_TASK] } } }, "a,b@x.com"],
+    ["an AI-import seed", { includeSeed: true, aiSeed: { tasks: [SEED_TASK] } }, ""],
+  ])("createProject with %s shows the unsafe-email notice after projectCreatedToast (spec Part 2, pre-flight I5)", async (_label, opts, stored) => {
+    const targetBackend = {
+      kind: "local-json",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("new.json"),
+    };
+    createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValue(targetBackend);
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    showToast.mockClear();
+    await act(async () => {
+      await result.current.createProject({ name: "New Proj", code: "NP" } as never, "json", opts as never);
+    });
+    const texts = showToast.mock.calls.map((c) => c[1]);
+    const created = texts.indexOf(t("en-US", "projectCreatedToast", "New Proj"));
+    expect(created).toBeGreaterThanOrEqual(0);
+    expect(texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "From seed"))).toBeGreaterThan(created);
+    const saved = targetBackend.save.mock.calls[0][0] as { tasks: Task[] };
+    expect(saved.tasks.map((r) => r.assigneeEmail ?? "")).toEqual([stored]);
+  });
+
+  it("createProject with neither a template nor an AI seed shows no notice (positive control above)", async () => {
+    const targetBackend = {
+      kind: "local-json",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("new.json"),
+    };
+    createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValue(targetBackend);
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    showToast.mockClear();
+    await act(async () => {
+      await result.current.createProject({ name: "New Proj", code: "NP" } as never, "json");
+    });
+    const texts = showToast.mock.calls.map((c) => String(c[1]));
+    expect(texts).toContain(t("en-US", "projectCreatedToast", "New Proj"));
+    expect(texts.some((s) => s.startsWith("Imported records with an invalid email address"))).toBe(false);
   });
 
   // ── createDemoProject — registers the demo as a REAL local project ──────────
@@ -3973,6 +4049,100 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     expect(seen).toContain("unclosed quotation mark");
   });
 
+  it("switchToProject: the unsafe-email notice fires AFTER projectSwitchedToast and BEFORE the import diagnostic, which survives (spec Part 2)", async () => {
+    const main = makeImportBackend();
+    const target = makeImportBackend();
+    target.load.mockImplementation(async () => {
+      target.lastImportDroppedRows = 4;
+      return { ...emptyWorkspace(), tasks: [{ id: 555, taskName: "FromTarget", assigneeEmail: "a,b@x.com" } as unknown as Task] } as never;
+    });
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    registerTarget("imp-email");
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.switchToProject("imp-email"); });
+
+    const texts = showToast.mock.calls.map((c) => String(c[1]));
+    const switched = texts.indexOf(t("en-US", "projectSwitchedToast", "Target"));
+    const notice = texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "FromTarget"));
+    const diagnostic = texts.findIndex((s) => s.includes("4 invalid row(s)"));
+    expect(switched).toBeGreaterThanOrEqual(0);
+    expect(notice).toBeGreaterThan(switched);
+    expect(diagnostic).toBeGreaterThan(notice);
+    expect(survivingToast()).toContain("4 invalid row(s)"); // the data-loss diagnostic keeps the slot
+  });
+
+  // ★★ M4 (pre-release review): an ordinary switch re-announced the same stored
+  //  addresses EVERY time, crowding the single-slot toast. It is now at most once
+  //  per project per session; an explicit import (file open) always announces.
+  it("switchToProject announces a project's unsafe emails once per session; switching back is silent, a fresh import is not (M4)", async () => {
+    const main = makeImportBackend();
+    const target = makeImportBackend();
+    target.load.mockImplementation(async () =>
+      ({ ...emptyWorkspace(), tasks: [{ id: 555, taskName: "FromTarget", assigneeEmail: "a,b@x.com" } as unknown as Task] }) as never);
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    registerTarget("imp-email");
+    registerTarget("imp-other");
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    const notice = t("en-US", "importUnsafeEmailsNotice", 1, "FromTarget");
+    const notices = () => showToast.mock.calls.filter((c) => c[1] === notice).length;
+
+    await act(async () => { await result.current.switchToProject("imp-email"); });
+    expect(notices()).toBe(1);
+    await act(async () => { await result.current.switchToProject("imp-other"); });
+    expect(notices()).toBe(2); // positive control: a DIFFERENT project announces once too
+    await act(async () => { await result.current.switchToProject("imp-email"); });
+    await act(async () => { await result.current.switchToProject("imp-other"); });
+    expect(loadRegistry().currentProjectId).toBe("imp-other"); // control: the switches really ran
+    expect(notices()).toBe(2);
+
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+    await act(async () => { await result.current.loadProjectFromFile("json"); });
+    // ★ A positive control only: every file open mints a fresh id, so a gate on this
+    //  path could never suppress it. The pin is the test below (M-C1).
+    expect(notices()).toBe(3);
+  });
+
+  // ★★ M-C1: a file open RECORDS its id, so switching back to it is silent; and it is
+  //  never GATED — re-importing the very same id still announces. `randomUUID` is
+  //  stubbed so the second import reuses the id; without that a gate is invisible.
+  it("loadProjectFromFile records its id (switching back is silent) and is not gated (re-importing the same id announces) (M-C1)", async () => {
+    const fileId = "00000000-0000-4000-8000-000000000001" as const;
+    const uuid = vi.spyOn(crypto, "randomUUID").mockReturnValue(fileId);
+    try {
+      const main = makeImportBackend();
+      const target = makeImportBackend();
+      target.load.mockImplementation(async () =>
+        ({ ...emptyWorkspace(), tasks: [{ id: 555, taskName: "FromTarget", assigneeEmail: "a,b@x.com" } as unknown as Task] }) as never);
+      createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+      (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+      (handlesMod.getHandle as ReturnType<typeof vi.fn>).mockResolvedValue({ name: "p.json" });
+      registerTarget("imp-other");
+      const { result } = renderBackend(makeArgs({ setStorageConfig }));
+      await act(async () => { await Promise.resolve(); });
+      const notice = t("en-US", "importUnsafeEmailsNotice", 1, "FromTarget");
+      const notices = () => showToast.mock.calls.filter((c) => c[1] === notice).length;
+
+      await act(async () => { await result.current.loadProjectFromFile("json"); });
+      expect(loadRegistry().currentProjectId).toBe(fileId);
+      expect(notices()).toBe(1);
+      await act(async () => { await result.current.switchToProject("imp-other"); });
+      expect(notices()).toBe(2); // positive control: the other project's first switch announces
+      await act(async () => { await result.current.switchToProject(fileId); });
+      expect(loadRegistry().currentProjectId).toBe(fileId); // control: the switch back really ran
+      expect(notices()).toBe(2); // the file open recorded its id
+
+      await act(async () => { await result.current.switchToProject("imp-other"); });
+      await act(async () => { await result.current.loadProjectFromFile("json"); });
+      expect(loadRegistry().currentProjectId).toBe(fileId);
+      expect(notices()).toBe(3); // same, already-announced id: an explicit import is still announced
+    } finally {
+      uuid.mockRestore();
+    }
+  });
+
   it("loadProjectFromFile still reports — the path the inline block was moved OFF", async () => {
     // This one path DID report before `reportFor` absorbed it. The move must not
     // have cost it: a refactor that centralises a behaviour and loses it at its
@@ -3994,6 +4164,53 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     //    regression, invisible to a call-log assertion.
     expect(survivingToast()).toContain("9 invalid row(s)");
     expect(importToasts()).toEqual([expect.stringContaining("9 invalid row(s)")]);
+  });
+
+  it("loadProjectFromFile: the unsafe-email notice fires BEFORE the import diagnostic, which survives (spec Part 2, pre-flight I5 + I9)", async () => {
+    const main = makeImportBackend();
+    const opened = makeImportBackend();
+    opened.load.mockImplementation(async () => {
+      opened.lastImportDroppedRows = 9;
+      return { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "Loaded", assigneeEmail: "a,b@x.com" } as unknown as Task] } as never;
+    });
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(opened);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.loadProjectFromFile("json"); });
+
+    const texts = showToast.mock.calls.map((c) => String(c[1]));
+    const notice = texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "Loaded"));
+    const diagnostic = texts.findIndex((s) => s.includes("9 invalid row(s)"));
+    expect(notice).toBeGreaterThanOrEqual(0); // control: the notice fired at all
+    expect(diagnostic).toBeGreaterThan(notice);
+    expect(survivingToast()).toContain("9 invalid row(s)"); // the data-loss diagnostic keeps the slot
+  });
+
+  it("onOpenStorageFile: the notice fires AFTER storageOpenedToast and BEFORE the import diagnostic, which survives (pre-flight I9)", async () => {
+    const b = makeImportBackend();
+    createBackendMock.mockReturnValue(b);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    // ★ The mount load applied an EMPTY workspace, so `onOpenStorageFile` never
+    //   asks window.confirm here — no spy needed.
+    b.load.mockImplementationOnce(async () => {
+      b.lastImportDroppedRows = 7;
+      return { ...emptyWorkspace(), tasks: [{ id: 99, taskName: "Loaded", assigneeEmail: "a,b@x.com" } as unknown as Task] } as never;
+    });
+
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    const texts = showToast.mock.calls.map((c) => String(c[1]));
+    const opened = texts.indexOf(t("en-US", "storageOpenedToast", 1));
+    const notice = texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "Loaded"));
+    const diagnostic = texts.findIndex((s) => s.includes("7 invalid row(s)"));
+    expect(opened).toBeGreaterThanOrEqual(0);
+    expect(notice).toBeGreaterThan(opened);
+    expect(diagnostic).toBeGreaterThan(notice);
+    expect(survivingToast()).toContain("7 invalid row(s)");
   });
 
   // ── the sixth path: `onOpenStorageFile`, via the IMPORT-ONLY op (§152) ─────

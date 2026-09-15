@@ -260,3 +260,18 @@ describe("template description fallback precedence", () => {
     expect(reloaded?.seed?.tasks?.[0]?.description).toBe("<p>current</p>");
   });
 });
+
+// Email-rule batch Task 5, fix round 2: the seed task's assigneeEmail is
+// normalised BEFORE the cap. Capping first cut the `>` off an over-cap
+// `Name <addr>`, so migrateTask's later unwrap never matched.
+describe("a template seed task's over-cap Name <addr> email loads unwrapped", () => {
+  it("stores the inner address, not a torn prefix", () => {
+    const long = `Ada ${"x".repeat(310)} <ada@x.com>`;
+    expect(long.length).toBeGreaterThan(320); // control: really over EMAIL_MAX
+    const [tpl] = sanitizeTemplates([{
+      id: "t", name: "T", features: [], fieldVisibility: {},
+      seed: { tasks: [{ id: 1, taskName: "Seeded", assignee: "Ada", assigneeEmail: long, dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", status: "To Do", createdDate: "2026-06-01" }] },
+    }]);
+    expect(tpl?.seed?.tasks?.[0]?.assigneeEmail).toBe("ada@x.com");
+  });
+});

@@ -1301,6 +1301,60 @@ describe("useBulkOperations", () => {
       openSpy.mockRestore();
       confirmSpy.mockRestore();
     });
+
+    it("M-C4: persists a prompted Name <addr> as addr and sends to it", () => {
+      const { result } = renderBulk();
+      const task: Task = {
+        id: 1, taskName: "Task A", assignee: "Alice", assigneeEmail: "",
+        dueDate: "2026-06-01", lastUpdateDate: "2026-05-20", status: "To Do", priority: "Medium",
+        blockers: "", description: "", inquiriesSent: 0, localModifiedAt: "2026-05-20T00:00:00.000Z",
+      };
+      act(() => { result.current.workspace.setTasks([task]); });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("Alice Smith <alice@test.com>");
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+      act(() => { result.current.bulk.handleBulkSendInquiry(); });
+      expect((result.current.workspace.tasks[0] as Task).assigneeEmail).toBe("alice@test.com");
+      expect(openSpy).toHaveBeenCalledWith(expect.stringContaining("mailto:alice%40test.com"));
+      promptSpy.mockRestore();
+      confirmSpy.mockRestore();
+      openSpy.mockRestore();
+    });
+
+    it("shows the delimiter error and sends nothing for a delimiter-bearing prompted email", () => {
+      const { result, args } = renderBulk();
+      const task: Task = {
+        id: 1,
+        taskName: "Task A",
+        assignee: "Alice",
+        assigneeEmail: "",
+        dueDate: "2026-06-01",
+        lastUpdateDate: "2026-05-20",
+        status: "To Do",
+        priority: "Medium",
+        blockers: "",
+        description: "",
+        inquiriesSent: 0,
+        localModifiedAt: "2026-05-20T00:00:00.000Z",
+      };
+      act(() => { result.current.workspace.setTasks([task]); });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("a,b@x.com");
+      // Fix round 1 MINOR 2: a fixture that accidentally reached the send loop
+      // (e.g. a guard dropped instead of `continue`d) would still leave these
+      // two unexercised — assert they never fire, not just the toast.
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+      act(() => { result.current.bulk.handleBulkSendInquiry(); });
+      expect(args.showToast).toHaveBeenCalledWith("error", t("en-US", "errorEmailDelimiter"));
+      expect((result.current.workspace.tasks[0] as Task).assigneeEmail).toBe("");
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(openSpy).not.toHaveBeenCalled();
+      promptSpy.mockRestore();
+      confirmSpy.mockRestore();
+      openSpy.mockRestore();
+    });
   });
   describe("bulk budget-bucket assignment", () => {
     // The link lives on the BUCKET, so every assertion here watches `budgets`.

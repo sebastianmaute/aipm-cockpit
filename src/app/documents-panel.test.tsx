@@ -61,7 +61,6 @@ vi.mock("./document-assets-store", () => ({
   loadAssetDataIds: vi.fn(async () => []),
   saveAssetData: vi.fn(async () => {}),
   deleteAssetData: vi.fn(async () => {}),
-  deleteAllAssetDataForProject: vi.fn(async () => {}),
 }));
 
 // ★★ REQUIRED, not hygiene: the panel now PERSISTS the chosen format to

@@ -27,6 +27,9 @@ import type { Contact } from "./contacts";
 import { FieldNotice } from "./field-feedback";
 import { describeClamp } from "./sanitize-report";
 import { useConfirm } from "./confirm-dialog";
+import { sanitizeLoadedEmail } from "./sanitize";
+import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
+import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
 
 interface Props {
   lang: Lang;
@@ -43,7 +46,7 @@ interface Props {
   /** Remembered contacts offered as a fallback by the assignee picker. */
   contacts: Contact[];
   /** Creates a Resource from a typed name/email and returns its id. */
-  onCreateResource: (name: string, email: string) => number;
+  onCreateResource?: (name: string, email: string) => number;
   onSave: (next: Shift) => void;
   onDelete: (id: number) => void;
   onClose: () => void;
@@ -103,6 +106,12 @@ export function ShiftEditModal({
 
   if (!draft) return null;
 
+  // Judge (and, on save, store) the value the write path actually applies:
+  // `sanitizeLoadedEmail` (unwrap `Name <addr>`, then trim + EMAIL_MAX) is what
+  // `sanitizeShift`'s decode path gives `assigneeEmail`. Fix round 1,
+  // IMPORTANT 2; unwrapped since M-C4.
+  const cappedAssigneeEmail = sanitizeLoadedEmail(draft.assigneeEmail ?? "") || undefined;
+
   function update<K extends keyof Shift>(key: K, value: Shift[K]) {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
     setError(null);
@@ -136,10 +145,16 @@ export function ShiftEditModal({
         return;
       }
     }
+    const linked = linkedResourceEmail(resources, draft.resourceId);
+    const emailRefusal = editorEmailRefusalMessage(lang, cappedAssigneeEmail ?? "", shift?.assigneeEmail, [linked]);
+    if (emailRefusal) {
+      setError(emailRefusal);
+      return;
+    }
     onSave({
       ...draft,
       assignee,
-      assigneeEmail: draft.assigneeEmail?.trim() || undefined,
+      assigneeEmail: cappedAssigneeEmail,
       note: draft.note?.trim() || undefined,
     });
   }
@@ -208,8 +223,17 @@ export function ShiftEditModal({
               type="email"
               value={draft.assigneeEmail ?? ""}
               onChange={(e) => update("assigneeEmail", e.target.value || undefined)}
+              aria-invalid={emailFieldInvalid(cappedAssigneeEmail) || undefined}
+              aria-describedby={emailFlagDescribedBy("shift-email-error", lang, cappedAssigneeEmail, error)}
             />
           </label>
+          {/* Steps aside ONLY while `error` (the banner below) shows this
+              SAME refusal message — an unrelated banner error (a blank
+              assignee, an hour out of range, a duplicate) must never hide it
+              (IMPORTANT 1, fix round 1). */}
+          {emailFlagVisible(lang, cappedAssigneeEmail, error) && (
+            <EmailFieldError id="shift-email-error" lang={lang} value={cappedAssigneeEmail} />
+          )}
 
           <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">

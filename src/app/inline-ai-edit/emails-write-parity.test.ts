@@ -51,12 +51,16 @@ const INCOMING: ReadonlyArray<{ label: string; make: (s: readonly string[]) => I
 ];
 
 // ★★ HAND-WRITTEN, the anti-tautology column. Only a NEW unsafe array member,
-//  or a string carrying a stored unsafe address, tears anything.
+//  or a string carrying a stored unsafe address, tears anything — or a string
+//  whose split yields a new member that is not an address.
 const EXPECT_REJECTED = new Set([
   "none/arrayAddsNewUnsafe",
   "safe/arrayAddsNewUnsafe",
   "unsafe/arrayAddsNewUnsafe",
   "unsafe/stringContainsStored",
+  "none/stringNewComma",
+  "safe/stringNewComma",
+  "unsafe/stringNewComma",
 ]);
 
 const rowWith = (emails: string[] | undefined): Resource => ({

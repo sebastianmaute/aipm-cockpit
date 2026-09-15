@@ -55,12 +55,12 @@ export interface AppModalsProps {
   handleCloseShiftModal: () => void;
 
   // TaskFormModal props
-  onAddAssigneeToAddressBook: (name: string, email: string) => void;
+  onAddAssigneeToAddressBook?: (name: string, email: string) => void;
   today: string;
   nextId: number;
   contactsList: ReturnType<typeof listContacts>;
   resources: readonly Resource[];
-  onCreateResource: (name: string, email: string) => number;
+  onCreateResource?: (name: string, email: string) => number;
   absences: readonly Absence[];
   tasksForDeps: readonly Task[];
   uniqueGroups: string[];
@@ -254,7 +254,7 @@ export function AppModals({
         />
       )}
 
-      {editingResource && (
+      {editingResource && !isPopout && (
         <ResourceEditModal
           lang={lang}
           resource={editingResource.resource}

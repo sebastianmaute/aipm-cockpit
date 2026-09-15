@@ -9,6 +9,7 @@ import { ResourcePicker } from "./resource-picker";
 import type { listContacts } from "./contacts";
 import { DependencyLinkGroup } from "./dependencies-editor";
 import { CharCounter, FieldError } from "./field-feedback";
+import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 import { Field, TaskFormSection } from "./task-form-layout";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
@@ -31,6 +32,7 @@ import {
   ASSIGNEE_MAX,
   EMAIL_MAX,
   GROUP_MAX,
+  sanitizeLoadedEmail,
   TASK_NAME_MAX,
   TEXTAREA_MAX,
 } from "./sanitize";
@@ -50,7 +52,7 @@ export interface TaskFormFieldsProps {
   nextId: number;
   contactsList: ReturnType<typeof listContacts>;
   resources: readonly Resource[];
-  onCreateResource: (name: string, email: string) => number;
+  onCreateResource?: (name: string, email: string) => number;
   absences: readonly Absence[];
   tasksForDeps: readonly Task[];
   uniqueGroups: string[];
@@ -64,7 +66,7 @@ export interface TaskFormFieldsProps {
   jiraDefaultIssueType: string | undefined;
   /** Retained for the parent prop chain; unused here since the assignee field moved to ResourcePicker. Full removal is deferred to the contacts-retirement slice (SP4). */
   onRemoveContact: (name: string) => void;
-  onAddAssigneeToAddressBook: (name: string, email: string) => void;
+  onAddAssigneeToAddressBook?: (name: string, email: string) => void;
   /** Opens the floating note-log window (wired by the host in Task E2). Optional
    *  so this component still compiles/renders standalone before that wiring. */
   onOpenNotes?: () => void;
@@ -103,6 +105,9 @@ export function TaskFormFields({
   budgetLink,
 }: TaskFormFieldsProps) {
   const { form, setForm, editingId } = useTaskForm();
+  // The flag judges the value a submit would STORE — `use-task-submit.ts` stores
+  // `sanitizeLoadedEmail` (unwrap `Name <addr>`, then trim + cap) — never the raw typed string.
+  const storedAssigneeEmail = sanitizeLoadedEmail(form.assigneeEmail);
   const isEditing = editingId !== null;
   const { isVisible } = useModalVisibility("task");
   const { settings } = useSettings();
@@ -264,18 +269,20 @@ export function TaskFormFields({
                 aria-describedby={describedBy("assignee", "assignee-counter")}
               />
             </div>
-            <button
-              type="button"
-              onClick={() =>
-                onAddAssigneeToAddressBook(form.assignee, form.assigneeEmail)
-              }
-              disabled={editingIsJiraLinked}
-              aria-label={t(lang, "taskAddAssigneeToAddressBook")}
-              title={t(lang, "taskAddAssigneeToAddressBook")}
-              className={`shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`}
-            >
-              +
-            </button>
+            {onAddAssigneeToAddressBook && (
+              <button
+                type="button"
+                onClick={() =>
+                  onAddAssigneeToAddressBook(form.assignee, form.assigneeEmail)
+                }
+                disabled={editingIsJiraLinked}
+                aria-label={t(lang, "taskAddAssigneeToAddressBook")}
+                title={t(lang, "taskAddAssigneeToAddressBook")}
+                className={`shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`}
+              >
+                +
+              </button>
+            )}
           </div>
           <CharCounter value={form.assignee} max={ASSIGNEE_MAX} id="assignee-counter" lang={lang} />
           <FieldError id="assignee-error">{errorFor("assignee")}</FieldError>
@@ -300,12 +307,13 @@ export function TaskFormFields({
               markTouched("assigneeEmail");
             }}
             placeholder={t(lang, "placeholderEmail")}
-            invalid={errorFor("assigneeEmail") ? true : undefined}
-            aria-describedby={describedBy("assigneeEmail", "email-counter")}
+            invalid={errorFor("assigneeEmail") || emailFieldInvalid(storedAssigneeEmail) ? true : undefined}
+            aria-describedby={describedBy("assigneeEmail", !errorFor("assigneeEmail") && emailFieldInvalid(storedAssigneeEmail) ? "email-counter assigneeEmail-flag" : "email-counter")}
             className="w-full"
           />
           <CharCounter value={form.assigneeEmail} max={EMAIL_MAX} id="email-counter" lang={lang} />
           <FieldError id="assigneeEmail-error">{errorFor("assigneeEmail")}</FieldError>
+          {!errorFor("assigneeEmail") && <EmailFieldError id="assigneeEmail-flag" lang={lang} value={storedAssigneeEmail} />}
         </Field>
         )}
       </TaskFormSection>

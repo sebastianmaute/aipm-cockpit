@@ -8,15 +8,15 @@
 //   Error as the tool result the model reads.
 
 import {
-  isValidEmail,
+  refuseEmailWrite,
   sanitizeAssignee,
   sanitizeBlockers,
-  sanitizeEmail,
+  sanitizeLoadedEmail,
   sanitizeGroup,
   sanitizeIsoDate,
   sanitizeLabels,
   sanitizeNonNegInt,
-  sanitizePriority,
+  sanitizePriorityOr,
   sanitizeTaskName,
   rendersAsClear,
 } from "./sanitize";
@@ -86,8 +86,8 @@ export function buildTaskCleanPatch(
   if (patch.assignee !== undefined)
     cleanPatch.assignee = sanitizeAssignee(patch.assignee);
   if (patch.assigneeEmail !== undefined) {
-    const e = sanitizeEmail(patch.assigneeEmail);
-    if (e && !isValidEmail(e)) throw new Error("assigneeEmail is invalid");
+    const e = sanitizeLoadedEmail(patch.assigneeEmail); // ★ M1: the unwrapped address, as every AI email write stores
+    refuseEmailWrite("assigneeEmail", e, existing.assigneeEmail);
     cleanPatch.assigneeEmail = e;
   }
   if (patch.dueDate !== undefined) {
@@ -115,7 +115,7 @@ export function buildTaskCleanPatch(
     }
   }
   if (patch.priority !== undefined)
-    cleanPatch.priority = sanitizePriority(patch.priority, existing.priority);
+    cleanPatch.priority = sanitizePriorityOr(patch.priority, existing.priority);
   if (patch.blockers !== undefined)
     cleanPatch.blockers = sanitizeBlockers(patch.blockers);
   // ★★★ Accepts BOTH shapes: `plainToHtml` escapes & < >, so HTML stored as

@@ -19,10 +19,10 @@ import { loadSchemes, cleanScheme, type ColorScheme } from "./color-schemes";
 
 export const COLOR_SCHEMES_TABLE = "color_schemes";
 
-const DDL: string[] = [
+export const COLOR_SCHEMES_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS ${COLOR_SCHEMES_TABLE} (id TEXT PRIMARY KEY, data TEXT)`,
 ];
-const ddl = (): SqlStmt[] => DDL.map((sql) => ({ sql }));
+const ddl = (): SqlStmt[] => COLOR_SCHEMES_DDL.map((sql) => ({ sql }));
 const schemesSelect = (): SqlStmt[] => [{ sql: `SELECT id, data FROM ${COLOR_SCHEMES_TABLE}` }];
 
 /** Decode + SANITIZE DB rows. color_schemes is a SHARED-TENANT surface (any
@@ -70,7 +70,7 @@ export async function loadSchemesAsync(config: TursoConfig | null): Promise<Colo
   if (!config) return localUser;
   try {
     const results = await runTursoPipeline(config, [...ddl(), ...schemesSelect()]);
-    const dbUser = rowsToSchemes(results[DDL.length]);
+    const dbUser = rowsToSchemes(results[COLOR_SCHEMES_DDL.length]);
     const dbIds = new Set(dbUser.map((s) => s.id));
     const localOnly = localUser.filter((s) => !dbIds.has(s.id));
     if (localOnly.length > 0) {

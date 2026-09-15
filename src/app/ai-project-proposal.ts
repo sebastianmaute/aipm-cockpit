@@ -257,14 +257,15 @@ function isObj(v: unknown): v is Record<string, unknown> {
  *  ★ That case is the only one that can prove it: the stakeholder NAME leg is
  *  pinned in `template-apply.test.ts`, which drives `remapSeed` on a hand-built
  *  seed and is therefore blind to this schema entirely.
- *  ★★ NEITHER ADDRESS IS VALIDATED, and the two do not even share a cap.
- *  `sanitizeRaidItem` puts `ownerEmail` through `sanitizeEmail`, itself just
- *  `sanitizeText(…, EMAIL_MAX)` (320); `sanitizeStakeholder` puts `email`
- *  through `sanitizeText(…, BUDGET_NAME_MAX)` (200). Both only TRIM and CAP —
- *  no format check whatever — so each stores whatever string the model sent.
- *  The prompt's "Do not invent owners or emails" and the two schema descriptions
- *  are the only things asking for a real address. Do not read either sanitizer
- *  as a validator, and do not assume the raid cap applies here.
+ *  ★★ NEITHER SANITIZER VALIDATES AN ADDRESS, and the two do not share a cap.
+ *  `sanitizeRaidItem` puts `ownerEmail` through `sanitizeLoadedEmail` (unwrap
+ *  `Name <addr>`, then cap at EMAIL_MAX 320); `sanitizeStakeholder` does the
+ *  same at BUDGET_NAME_MAX (200). Neither checks the format — do not read either
+ *  as a validator. ★★ The seed's ADDRESS CHECK lives one step later, where the
+ *  seed is applied (M5): `buildNewProjectWorkspace` leaves an address that is not
+ *  write-safe BLANK and the create notice names the record. An earlier revision
+ *  here said each "stores whatever string the model sent", which that step made
+ *  false.
  *
  *  ★★ Do NOT name the plain change sanitizer in this file, in a comment or
  *  otherwise: `sanitize-model-change-wiring.test.ts` asserts its bare name

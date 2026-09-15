@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dropUnacceptedCalendarEventFields } from "./sanitize-records";
+import { dropUnacceptedCalendarEventFields } from "./sanitize-allowlist-guards";
 
 describe("dropUnacceptedCalendarEventFields", () => {
   it("keeps the fields a model may legitimately set", () => {

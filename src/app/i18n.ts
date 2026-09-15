@@ -119,6 +119,7 @@ const enUS = {
   errorDueDateRequired: "Due date is required.",
   errorPastDate: "Due date must be today or later.",
   errorInvalidEmail: "That doesn't look like a valid email address.",
+  errorEmailDelimiter: "An email address cannot contain a comma or a semicolon.",
   errorInvalidDate: "Enter a valid date (YYYY-MM-DD).",
 
   priorityLow: "Low",
@@ -1140,6 +1141,7 @@ const enUS = {
   templateApplyReplacesFv: "Applying replaces this project's field-visibility and functions.",
   templateApplyAction: "Apply",
   templateApplied: "Template applied",
+  importUnsafeEmailsNotice: "Imported records with an invalid email address ({0}): {1}",
   templateSaved: "Template saved",
   templateSuggested: "Suggested",
   suggestSignalTeam: "{0} people",
@@ -1999,7 +2001,6 @@ const enUS = {
   resourceConfirmDelete: "Delete this resource?",
   resourceDeleteCascadeNote: "The person's calendar entries (absences and shifts) will also be removed.",
   resourceErrorName: "Enter a first or last name.",
-  resourceErrorEmailDelimiter: "An additional email address cannot contain a comma or a semicolon.",
 
   resourcesUnlinked: "Unlinked",
   resourcesUnlinkedHint: "Not in the address book",
@@ -2313,6 +2314,7 @@ const enUS = {
   undoRestored: "Restored {0} item(s)",
   undoToastDelete: "Deleted {0} item(s)",
   undoToastEdit: "Edited {0} item(s)",
+  undoToastResourceEmailPropagated: "Edited 1 item and updated {0} linked record(s)",
   redo: "Redo",
   redoTooltip: "Redo last change",
   redoRestored: "Redid {0} item(s)",

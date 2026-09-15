@@ -63,6 +63,28 @@ describe("useSettings", () => {
       expect(result.current.settings.language).toBe("en-GB");
     });
 
+    // C1 of the email-and-guard batch: `sanitizeArr` passed `sanitizeMilestone`
+    // point-free while it took an optional date reader, so `Array#map`'s index
+    // arrived as the reader and threw inside hydration. The catch then marked
+    // hydration done on DEFAULTS and the persist effect overwrote the blob.
+    it("keeps a stored template with a seed milestone, and the rest of the stored settings, through hydration", async () => {
+      const template = {
+        id: "tpl-1", name: "Rollout", features: [], fieldVisibility: {},
+        seed: { milestones: [{ id: 1, name: "Go-Live", date: "2026-03-01" }, { id: 2, name: "Hypercare end", date: "2026-02-30" }] },
+      };
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, language: "en-GB", templates: [template] }));
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.language).toBe("en-GB");
+      const [loaded] = result.current.settings.templates ?? [];
+      expect(loaded?.id).toBe("tpl-1");
+      // Both kept: a stored template is a load funnel, so the non-calendar date stays raw.
+      expect(loaded?.seed?.milestones?.map((m) => m.date)).toEqual(["2026-03-01", "2026-02-30"]);
+      const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}");
+      expect(stored.language).toBe("en-GB");
+      expect(stored.templates?.[0]?.seed?.milestones).toHaveLength(2);
+    });
+
     it("sanitizes persisted reports.extra (drops junk + dups) on load", async () => {
       localStorage.setItem(
         SETTINGS_KEY,

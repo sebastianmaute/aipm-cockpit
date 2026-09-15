@@ -26,9 +26,11 @@
 // never judged, and it is never green by default.
 import { sanitizeCalendarEvent } from "../app/calendar-event";
 import type { InlineEntity } from "../app/inline-ai-edit/entity-descriptor";
-import { sanitizeAbsence, sanitizeResource } from "../app/sanitize-entities";
+import { rebuildAbsenceForUpdate, sanitizeAbsence, sanitizeResource } from "../app/sanitize-entities";
 import {
-  sanitizeChangeItem,
+  rebuildChangeForUpdate,
+  rebuildMilestoneForUpdate,
+  rebuildRaidForUpdate,
   sanitizeMilestone,
   sanitizeModelChangeItem,
   sanitizeRaidItem,
@@ -186,15 +188,20 @@ export const taskAtRest = (row: Row): Row | null =>
  *  `create_task` has no row sanitizer — its writer builds the row field by
  *  field. That oracle is WEAK on purpose and pinned as such in
  *  `sweep-probes.test.ts`. `change` differs by arm: the create writer repairs
- *  through `sanitizeModelChangeItem` (`use-register-tools.ts`). */
-export const ADMISSION_ORACLE: Readonly<Record<InlineEntity, Readonly<Record<Arm, (row: Row) => Row | null>>>> = {
+ *  through `sanitizeModelChangeItem` (`use-register-tools.ts`).
+ *  ★★ The UPDATE arm of raid, change, milestone and absence is the writers' own
+ *  `rebuild*ForUpdate(stored, merged)`, NOT the strict sanitizer: those writers
+ *  carry an untouched stored date the load funnel kept raw, so a strict oracle
+ *  judged a different writer than the one that runs. `stored` is the row the
+ *  probe is merged into (`admitProbe`'s reference); the create arm ignores it. */
+export const ADMISSION_ORACLE: Readonly<Record<InlineEntity, Readonly<Record<Arm, (row: Row, stored: Row) => Row | null>>>> = {
   task: { create: taskAtRest, update: taskAtRest },
-  raid: { create: (r) => asRow(sanitizeRaidItem(r)), update: (r) => asRow(sanitizeRaidItem(r)) },
-  change: { create: (r) => asRow(sanitizeModelChangeItem(r)), update: (r) => asRow(sanitizeChangeItem(r)) },
-  milestone: { create: (r) => asRow(sanitizeMilestone(r)), update: (r) => asRow(sanitizeMilestone(r)) },
+  raid: { create: (r) => asRow(sanitizeRaidItem(r)), update: (r, s) => asRow(rebuildRaidForUpdate(s as never, r)) },
+  change: { create: (r) => asRow(sanitizeModelChangeItem(r)), update: (r, s) => asRow(rebuildChangeForUpdate(s as never, r)) },
+  milestone: { create: (r) => asRow(sanitizeMilestone(r)), update: (r, s) => asRow(rebuildMilestoneForUpdate(s as never, r)) },
   stakeholder: { create: (r) => asRow(sanitizeStakeholder(r)), update: (r) => asRow(sanitizeStakeholder(r)) },
   resource: { create: (r) => asRow(sanitizeResource(r)), update: (r) => asRow(sanitizeResource(r)) },
-  absence: { create: (r) => asRow(sanitizeAbsence(r)), update: (r) => asRow(sanitizeAbsence(r)) },
+  absence: { create: (r) => asRow(sanitizeAbsence(r)), update: (r, s) => asRow(rebuildAbsenceForUpdate(s as never, r)) },
   calendarEvent: { create: (r) => asRow(sanitizeCalendarEvent(r)), update: (r) => asRow(sanitizeCalendarEvent(r)) },
 };
 
@@ -208,7 +215,7 @@ export function admitProbe(
   probe: unknown,
   compare: Compare,
 ): string | undefined {
-  const kept = ADMISSION_ORACLE[entity][arm]({ ...reference, [field]: probe });
+  const kept = ADMISSION_ORACLE[entity][arm]({ ...reference, [field]: probe }, reference);
   if (!kept) return `the ${arm} writer's sanitizer refuses the whole row once ${field} is ${JSON.stringify(probe)}`;
   // Deliberately `kept`, not `reference`: this asks whether the SANITIZED row
   // — the probe's own post-sanitizer siblings — still carries the probe

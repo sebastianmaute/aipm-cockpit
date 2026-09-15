@@ -123,6 +123,7 @@ export const de: Record<TranslationKey, string> = {
   errorDueDateRequired: "Fälligkeitsdatum ist erforderlich.",
   errorPastDate: "Fälligkeitsdatum muss heute oder später sein.",
   errorInvalidEmail: "Das sieht nicht nach einer gültigen E-Mail-Adresse aus.",
+  errorEmailDelimiter: "Eine E-Mail-Adresse darf weder ein Komma noch ein Semikolon enthalten.",
 
   priorityLow: "Niedrig",
   priorityMedium: "Mittel",
@@ -1054,6 +1055,7 @@ export const de: Record<TranslationKey, string> = {
   templateApplyReplacesFv: "Das Anwenden ersetzt die Feldsichtbarkeit und Funktionen dieses Projekts.",
   templateApplyAction: "Anwenden",
   templateApplied: "Vorlage angewendet",
+  importUnsafeEmailsNotice: "Importierte Einträge mit ungültiger E-Mail-Adresse ({0}): {1}",
   templateSaved: "Vorlage gespeichert",
   templateSuggested: "Empfohlen",
   suggestSignalTeam: "{0} Personen",
@@ -1904,7 +1906,6 @@ export const de: Record<TranslationKey, string> = {
   resourceConfirmDelete: "Diese Ressource löschen?",
   resourceDeleteCascadeNote: "Die Kalendereinträge der Person (Abwesenheiten und Schichten) werden ebenfalls entfernt.",
   resourceErrorName: "Bitte Vor- oder Nachnamen angeben.",
-  resourceErrorEmailDelimiter: "Eine zusätzliche E-Mail-Adresse darf weder ein Komma noch ein Semikolon enthalten.",
 
   resourcesUnlinked: "Nicht zugeordnet",
   resourcesUnlinkedHint: "Nicht im Verzeichnis",
@@ -2189,6 +2190,7 @@ export const de: Record<TranslationKey, string> = {
   undoRestored: "{0} Element(e) wiederhergestellt",
   undoToastDelete: "{0} Element(e) gelöscht",
   undoToastEdit: "{0} Element(e) bearbeitet",
+  undoToastResourceEmailPropagated: "1 Element bearbeitet und {0} verknüpfte Einträge aktualisiert",
   activityRedo: "Wiederholen: {0} Element(e) erneut angewendet",
   activityUnknownKind: "Unbekannte Aktivität ({0})",
   redo: "Wiederholen",

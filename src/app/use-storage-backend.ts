@@ -117,6 +117,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const suppressNextSaveRef = useRef(false);
   // Suppresses the load effect that fires after onRequestStorageSwitch sets new config
   const suppressNextLoadRef = useRef(false);
+  // M4: projects whose unsafe-email notice this session already showed (see `FileProjectOpsDeps`).
+  const announcedUnsafeEmailsRef = useRef<Set<string>>(new Set());
   // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
   const reloadInFlightRef = useRef(false);
   // ★★ The DESTRUCTIVE lockout. Its peer is `useLoadTruncation` directly below;
@@ -711,6 +713,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     reportProjectError,
     suppressNextLoadRef,
     suppressNextSaveRef,
+    announcedUnsafeEmailsRef,
   });
 
   const {

@@ -1,6 +1,7 @@
 // src/app/task-status.ts — pure, i18n-free task workflow-status engine.
 import { DEFAULT_TASK_STATUS, TASK_STATUSES, type Task, type TaskStatus } from "./types";
 import { isTaskDelivered } from "./task-closed";
+import { normalizeEmailShape } from "./sanitize-core";
 
 const STATUS_SET = new Set<string>(TASK_STATUSES);
 
@@ -30,17 +31,22 @@ export function applyStatusChange(task: Task, next: TaskStatus, today: string): 
   return { ...task, status: next, completedDate: "" };
 }
 
-/** Normalize a raw/legacy task on LOAD. Two jobs, both idempotent:
+/** Normalize a raw/legacy task on LOAD. Three jobs, all idempotent:
  *  - status: absent/invalid derives from completedDate (set => Done, else To Do)
  *  - createdDate: absent falls back to lastUpdateDate, else "" (never invented)
- *  Runs on all six load paths, so it is the single backfill seam. */
+ *  - assigneeEmail: a `Name <addr>` shape loads as `addr` (`normalizeEmailShape`)
+ *  Runs on all six load paths, so it is the single backfill seam. Returns the
+ *  SAME reference when none of the three applies. */
 export function migrateTask(task: Task): Task {
   const statusOk = typeof task.status === "string" && STATUS_SET.has(task.status);
   const createdOk = typeof task.createdDate === "string";
-  if (statusOk && createdOk) return task;
+  const email = typeof task.assigneeEmail === "string" ? normalizeEmailShape(task.assigneeEmail) : task.assigneeEmail;
+  const emailOk = email === task.assigneeEmail;
+  if (statusOk && createdOk && emailOk) return task;
   const out = { ...task };
   if (!statusOk) out.status = task.completedDate ? "Done" : DEFAULT_TASK_STATUS;
   if (!createdOk) out.createdDate = task.lastUpdateDate || "";
+  if (!emailOk) out.assigneeEmail = email;
   return out;
 }
 

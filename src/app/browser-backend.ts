@@ -5,13 +5,13 @@
 // storage.ts (which re-exports everything).
 
 import { defaultResourcePlan } from "./resource-foundation";
-import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
+import { sanitizeLoadedProjectMeta, sanitizeSteeringCommittee, withNormalizedEmailField, withNormalizedResourceEmails } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
-import { sanitizeProjectDocuments, type DocTruncationDiag } from "./document-model";
+import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
-import { sanitizeDocumentVersions } from "./document-versions";
+import { sanitizeDocumentVersionsWithDiag } from "./document-versions";
 import { sanitizeDocumentAsset, type DocumentAsset } from "./document-asset";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
@@ -263,7 +263,7 @@ export class BrowserBackend implements StorageBackend {
       milestones = idbMilestones ?? [];
       changes = idbChanges ?? [];
       stakeholders = idbStakeholders ?? [];
-      project = sanitizeProjectMeta(idbProject) ?? undefined;
+      project = sanitizeLoadedProjectMeta(idbProject) ?? undefined;
       // Optional singletons: junk/empty fieldVisibility sanitizes to undefined.
       fieldVisibility = sanitizeFieldVisibility(idbFieldVisibility);
       // Present-check: absent ⇒ undefined (no override); an explicit [] (Simple)
@@ -306,7 +306,7 @@ export class BrowserBackend implements StorageBackend {
       // separate map. Structural-only would pass stored `<script>` straight
       // through to the render sink.
       {
-        const docs = sanitizeProjectDocuments(idbDocuments, diag).map(sanitizeDocumentRichFields);
+        const docs = sanitizeProjectDocumentsWithDiag(idbDocuments, diag).map(sanitizeDocumentRichFields);
         documents = docs.length ? docs : undefined;
       }
       // Optional list: junk/empty versions sanitize to [] → keep undefined.
@@ -316,7 +316,7 @@ export class BrowserBackend implements StorageBackend {
       // no independent createdAt/updatedAt, so it is passed through a synthetic
       // ProjectDocument-shaped wrapper with savedAt standing in for both.
       {
-        const versions = sanitizeDocumentVersions(idbDocumentVersions, diag).map((v) => ({
+        const versions = sanitizeDocumentVersionsWithDiag(idbDocumentVersions, diag).map((v) => ({
           ...v,
           blocks: sanitizeDocumentRichFields({
             id: v.documentId,
@@ -372,6 +372,17 @@ export class BrowserBackend implements StorageBackend {
     raid = raid.map(sanitizeRaidRichFields);
     changes = changes.map(sanitizeChangeRichFields);
     milestones = milestones.map(sanitizeMilestoneRichFields);
+    // Spec Part 2: this backend casts these arrays WITHOUT a record sanitizer,
+    // so the email-shape normaliser the other five paths get from their
+    // sanitizers runs here explicitly. The scalar fields only get `Name <addr>`
+    // unwrapped; a resource's `emails` list also has multi-address members
+    // split, members that repeat the primary dropped, and the list capped
+    // (`withNormalizedResourceEmails`).
+    absences = absences.map((a) => withNormalizedEmailField(a, "assigneeEmail"));
+    shifts = shifts.map((s) => withNormalizedEmailField(s, "assigneeEmail"));
+    raid = raid.map((r) => withNormalizedEmailField(r, "ownerEmail"));
+    stakeholders = stakeholders.map((s) => withNormalizedEmailField(s, "email"));
+    resources = resources.map((r) => withNormalizedResourceEmails(r));
     const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders };
     if (project) raw.project = project;
     if (fieldVisibility) raw.fieldVisibility = fieldVisibility;

@@ -1,7 +1,7 @@
 // src/app/document-assets-store.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  loadAssetData, saveAssetData, deleteAssetData, loadAssetDataIds, deleteAllAssetDataForProject,
+  loadAssetData, saveAssetData, deleteAssetData, loadAssetDataIds,
 } from "./document-assets-store";
 import { DOCUMENT_ASSET_DATA_DDL } from "./document-assets-schema";
 import type { PipelineResultLike } from "./turso-schema";
@@ -81,13 +81,5 @@ describe("document-assets-store", () => {
     expect(await loadAssetDataIds(config, "p1")).toEqual(["a1"]);
     const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
     expect(stmts[stmts.length - 1].sql).toContain("'' AS data");
-  });
-
-  it("deletes every row of a project in one statement after the DDL, for project-deletion cleanup", async () => {
-    vi.mocked(runTursoPipeline).mockResolvedValue([ddlAck]);
-    await deleteAllAssetDataForProject(config, "p1");
-    const stmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
-    expect(stmts).toHaveLength(DOCUMENT_ASSET_DATA_DDL.length + 1);
-    expect(stmts[stmts.length - 1].sql).toContain("DELETE FROM document_asset_data WHERE project_id = ?");
   });
 });
