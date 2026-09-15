@@ -167,32 +167,42 @@ export type BudgetForecastInput = {
   holidaySet: ReadonlySet<string>; today: string;
 };
 
+export type ForecastFactsByUnit = { eur: ForecastFacts; hours: ForecastFacts };
+
 /**
- * Builds `ForecastFacts` from a live `BudgetReport` + rate rows + burn-down
- * series (§5.1–§5.4):
- * - AC (§5.4/Ruling 1): per bucket, T&M → `BucketReport.consumedValue`
- *   (external-EUR basis, already report-consistent); fixed price → the
- *   UNCAPPED contract ratio `contract × actualHours ÷ budgetHours`, so an
- *   overrun shows (the report's own `consumedValue` is capped at the contract
- *   amount and must never be reused here).
- * - EV (Ruling 2): `Σ budgetValue × bucketPercentComplete(bucket, tasks) ÷ 100`
- *   over buckets with `budgetValue > 0`; null (with the naming list) the
- *   moment any such bucket has no resolvable percent complete.
- * - PV (Ruling 3): `totalBudgetValue − plannedRemainingValue[todayIndex]` of
- *   the burn-down, 0 when `todayIndex === -1`.
- * - Dated bookings (Ruling 4): only keys the report itself counts — a day key
- *   whose owning period is active, or a period key at the live granularity
- *   that is active, spread evenly over its working days (or placed on its
- *   first calendar day when it has none). An entry with hours ≤ 0 carries no
- *   booking date at all (excluded from `dated`).
+ * One walk, two units (MR 3 addendum §3.1). € facts are exactly what
+ * `forecastFacts` has always returned. Hours facts:
+ * - BAC h = `report.project.budgetHours`, AC h = `report.project.actualHours`;
+ * - EV h = Σ reported `br.budgetHours` × percent complete (Ruling 1: the same
+ *   spillover-inclusive basis BAC h sums, so EV h ÷ BAC h = EV € ÷ BAC €);
+ * - PV h from the burn-down hours series at `todayIndex`;
+ * - dated values are hours, from the same day-key / spread-period rules.
+ *
+ * AC (§5.4/Ruling 1): per bucket, T&M → `BucketReport.consumedValue`
+ * (external-EUR basis, already report-consistent); fixed price → the
+ * UNCAPPED contract ratio `contract × actualHours ÷ budgetHours`, so an
+ * overrun shows (the report's own `consumedValue` is capped at the contract
+ * amount and must never be reused here).
+ * EV (Ruling 2): `Σ budgetValue × bucketPercentComplete(bucket, tasks) ÷ 100`
+ * over buckets with `budgetValue > 0`; null (with the naming list) the
+ * moment any such bucket has no resolvable percent complete.
+ * PV (Ruling 3): `totalBudgetValue − plannedRemainingValue[todayIndex]` of
+ * the burn-down, 0 when `todayIndex === -1`.
+ * Dated bookings (Ruling 4): only keys the report itself counts — a day key
+ * whose owning period is active, or a period key at the live granularity
+ * that is active, spread evenly over its working days (or placed on its
+ * first calendar day when it has none). An entry with hours ≤ 0 carries no
+ * booking date at all (excluded from `dated`).
  */
-export function forecastFacts(input: BudgetForecastInput): ForecastFacts {
+export function forecastFactsByUnit(input: BudgetForecastInput): ForecastFactsByUnit {
   const { report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today } = input;
   const reportById = new Map(report.buckets.map((r) => [r.bucketId, r]));
-  const dated: DatedValue[] = [];
+  const datedEur: DatedValue[] = [];
+  const datedHours: DatedValue[] = [];
   const bucketsMissingPercent: { id: number; name: string }[] = [];
   let ac = 0;
   let ev = 0;
+  let evHours = 0;
   let hasFixedPrice = false;
   for (const bucket of buckets) {
     const br = reportById.get(bucket.id);
@@ -217,8 +227,14 @@ export function forecastFacts(input: BudgetForecastInput): ForecastFacts {
     ac += isFixed ? fixedPerHour * br.actualHours : br.consumedValue;
     if (br.budgetValue > 0) {
       const pct = bucketPercentComplete(bucket, tasks);
-      if (pct === null) bucketsMissingPercent.push({ id: bucket.id, name: bucket.name });
-      else ev += (br.budgetValue * pct) / 100;
+      if (pct === null) {
+        bucketsMissingPercent.push({ id: bucket.id, name: bucket.name });
+      } else {
+        ev += (br.budgetValue * pct) / 100;
+        // Ruling 1 (MR 3): REPORTED hours, not `ownBudgetHours` — the own-hours
+        // subtraction above serves the fixed-price AC ratio only.
+        evHours += (br.budgetHours * pct) / 100;
+      }
     }
     const active = new Set(bucketActivePeriods(bucket, plan).map((p) => p.key));
     for (const row of bucketRateRows(bucket, roles)) {
@@ -231,7 +247,8 @@ export function forecastFacts(input: BudgetForecastInput): ForecastFacts {
         if (!(hours > 0)) continue;
         if (isDayKey(key)) {
           if (active.has(periodKeyForDate(key, plan.granularity))) {
-            dated.push({ date: key, bookedFrom: key, value: hours * perHour, spread: false });
+            datedEur.push({ date: key, bookedFrom: key, value: hours * perHour, spread: false });
+            datedHours.push({ date: key, bookedFrom: key, value: hours, spread: false });
           }
           continue;
         }
@@ -240,23 +257,45 @@ export function forecastFacts(input: BudgetForecastInput): ForecastFacts {
         if (!bounds) continue;
         const days = workingDaysInRange(bounds.start, bounds.end, holidaySet);
         if (days.length === 0) {
-          dated.push({ date: bounds.start, bookedFrom: bounds.start, value: hours * perHour, spread: true });
+          datedEur.push({ date: bounds.start, bookedFrom: bounds.start, value: hours * perHour, spread: true });
+          datedHours.push({ date: bounds.start, bookedFrom: bounds.start, value: hours, spread: true });
           continue;
         }
-        const each = (hours * perHour) / days.length;
-        for (const d of days) dated.push({ date: d, bookedFrom: bounds.start, value: each, spread: true });
+        // € keeps its exact original expression so existing € pins stay bit-identical.
+        const eachEur = (hours * perHour) / days.length;
+        const eachHours = hours / days.length;
+        for (const d of days) {
+          datedEur.push({ date: d, bookedFrom: bounds.start, value: eachEur, spread: true });
+          datedHours.push({ date: d, bookedFrom: bounds.start, value: eachHours, spread: true });
+        }
       }
     }
   }
-  const pv = burndown.todayIndex >= 0 ? burndown.totalBudgetValue - burndown.plannedRemainingValue[burndown.todayIndex] : 0;
+  const at = burndown.todayIndex;
+  const pv = at >= 0 ? burndown.totalBudgetValue - burndown.plannedRemainingValue[at] : 0;
+  const pvHours = at >= 0 ? burndown.totalBudgetHours - burndown.plannedRemainingHours[at] : 0;
+  const missing = bucketsMissingPercent.length > 0;
+  const common = { bucketsMissingPercent, planEnd: plan.endDate, today, holidaySet, hasFixedPrice };
   return {
-    bac: report.project.budgetValue, ac, ev: bucketsMissingPercent.length > 0 ? null : ev, pv,
-    bucketsMissingPercent, dated, planEnd: plan.endDate, today, holidaySet, hasFixedPrice,
+    eur: { bac: report.project.budgetValue, ac, ev: missing ? null : ev, pv, dated: datedEur, ...common },
+    hours: {
+      bac: report.project.budgetHours, ac: report.project.actualHours, ev: missing ? null : evHours, pv: pvHours,
+      dated: datedHours, ...common,
+    },
   };
+}
+
+export function forecastFacts(input: BudgetForecastInput): ForecastFacts {
+  return forecastFactsByUnit(input).eur;
 }
 
 export function computeBudgetForecast(input: BudgetForecastInput): BudgetForecast {
   return computeForecastFromFacts(forecastFacts(input));
+}
+
+export function computeBudgetForecastsByUnit(input: BudgetForecastInput): { eur: BudgetForecast; hours: BudgetForecast } {
+  const facts = forecastFactsByUnit(input);
+  return { eur: computeForecastFromFacts(facts.eur), hours: computeForecastFromFacts(facts.hours) };
 }
 
 export type ProjectForecastArgs = {

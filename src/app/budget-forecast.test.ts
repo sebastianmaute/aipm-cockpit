@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  computeBudgetForecast, computeForecastFromFacts, computeProjectForecast, forecastFacts, forecastGap,
+  computeBudgetForecast, computeBudgetForecastsByUnit, computeForecastFromFacts, computeProjectForecast,
+  forecastFacts, forecastFactsByUnit, forecastGap,
   isEfficiencyAvailable, isPaceAvailable, paceVacHealth,
   type BudgetForecastInput, type DatedValue, type EfficiencyForecast, type ForecastFacts, type PaceForecast,
 } from "./budget-forecast";
@@ -508,5 +509,75 @@ describe("computeProjectForecast", () => {
       buckets: [b], roles, fxRates: null, tasks: [], plan, burndown: trimmed, holidaySet: none, today,
     });
     expect(forecast).toEqual(direct);
+  });
+});
+
+describe("hours facts (MR 3 addendum §3.1)", () => {
+  it("pins the hours scenario of spec §7 through the unchanged core", () => {
+    const f = computeForecastFromFacts(fixture({
+      bac: 2_000, ac: 1_450, ev: 1_240, pv: 176_000 / 120,
+      dated: [day("2026-01-05", 1_230), ...workingDaysBefore("2026-09-14", 20, none).map((d) => day(d, 11))],
+    }));
+    if (!isPaceAvailable(f.pace) || !isEfficiencyAvailable(f.efficiency)) throw new Error("unavailable");
+    expect(f.pace.burnRatePerDay).toBeCloseTo(11, 9);
+    expect(f.pace.etc).toBeCloseTo(759, 6);
+    expect(f.pace.eac).toBeCloseTo(2_209, 6);
+    expect(f.pace.vac).toBeCloseTo(-209, 6);
+    expect(f.pace.runOutDate).toBe("2026-11-23");
+    expect(f.efficiency.cpi).toBeCloseTo(0.8552, 4);
+    expect(f.efficiency.etc).toBeCloseTo(888.7, 1);
+    expect(f.efficiency.eac).toBeCloseTo(2_338.7, 1);
+    expect(f.gap?.eacDifference).toBeCloseTo(129.7, 1);
+    expect(f.gap?.extraWorkingDays).toBe(12);
+  });
+
+  it("builds hours facts from the same walk: BAC/AC hours, day-key bookings valued as hours", () => {
+    const { eur, hours } = forecastFactsByUnit(input([withActual(1, { "2026-06-10": 8 })]));
+    expect(hours.bac).toBe(100);
+    expect(hours.ac).toBe(8);
+    expect(hours.dated).toEqual([{ date: "2026-06-10", bookedFrom: "2026-06-10", value: 8, spread: false }]);
+    expect(eur.dated).toEqual([{ date: "2026-06-10", bookedFrom: "2026-06-10", value: 800, spread: false }]);
+  });
+
+  it("spreads a period key's hours evenly over its working days", () => {
+    const { hours } = forecastFactsByUnit(input([withActual(1, { "2026-06": 22 })]));
+    expect(hours.dated).toHaveLength(22);
+    expect(hours.dated.every((d) => d.value === 1 && d.spread && d.bookedFrom === "2026-06-01")).toBe(true);
+  });
+
+  it("reads PV hours from the burn-down hours series", () => {
+    const { eur, hours } = forecastFactsByUnit(input([withActual(1, {})]));
+    expect(hours.pv).toBe(100);
+    expect(eur.pv).toBe(10_000);
+  });
+
+  it("uses the reported, spillover-inclusive bucket hours for EV h (Ruling 1)", () => {
+    const donor = bucket(1, {
+      status: "closed", successorId: 2, percentComplete: 100,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 50 }, actualHours: {} }],
+    } as Partial<BudgetBucket>);
+    const succ = bucket(2, {
+      percentComplete: 60,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-06": 100 }, actualHours: {} }],
+    } as Partial<BudgetBucket>);
+    const { eur, hours } = forecastFactsByUnit(input([donor, succ]));
+    expect(hours.bac).toBe(200);
+    expect(hours.ev).toBeCloseTo(140, 9);
+    expect(eur.ev! / eur.bac).toBeCloseTo(hours.ev! / hours.bac, 9);
+  });
+
+  it("shares the missing-percent rule between units", () => {
+    const { eur, hours } = forecastFactsByUnit(input([withActual(1, {}, { name: "Design" } as Partial<BudgetBucket>)]));
+    expect(eur.ev).toBeNull();
+    expect(hours.ev).toBeNull();
+    expect(hours.bucketsMissingPercent).toEqual([{ id: 1, name: "Design" }]);
+  });
+
+  it("forecastFacts still returns the € facts, and the pair wrapper runs both", () => {
+    const inp = input([withActual(1, { "2026-06-10": 8 })]);
+    expect(forecastFacts(inp)).toEqual(forecastFactsByUnit(inp).eur);
+    const both = computeBudgetForecastsByUnit(inp);
+    expect(both.eur).toEqual(computeBudgetForecast(inp));
+    expect(both.hours.facts.bac).toBe(100);
   });
 });
