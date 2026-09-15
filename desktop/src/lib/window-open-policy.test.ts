@@ -149,103 +149,224 @@ describe("originOnly", () => {
 });
 
 describe("decideNavigation", () => {
-  const child = (inAuthFlow = false): { isChildWindow: boolean; inAuthFlow: boolean } => ({
-    isChildWindow: true,
-    inAuthFlow,
+  // ★ Explicit per-field construction, never a two-arg "child()" shorthand --
+  // round 1's `child()`/`main()` helpers collapsed the entry question to one
+  // boolean, which is exactly the shape N-I1 found too wide. Every test below
+  // states all three fields so a reader never has to guess a default.
+  type Ctx = { createdAsBlankPopup: boolean; initiatorIsAppOpener: boolean; inAuthFlow: boolean };
+  const ctx = (overrides: Partial<Ctx> = {}): Ctx => ({
+    createdAsBlankPopup: false,
+    initiatorIsAppOpener: false,
+    inAuthFlow: false,
+    ...overrides,
   });
-  const main = (inAuthFlow = false): { isChildWindow: boolean; inAuthFlow: boolean } => ({
-    isChildWindow: false,
-    inAuthFlow,
-  });
+  // The one combination that can ever ENTER the flow: a window whose first
+  // URL was about:blank, navigated by its own opener's script.
+  const eligiblePopup = (overrides: Partial<Ctx> = {}): Ctx =>
+    ctx({ createdAsBlankPopup: true, initiatorIsAppOpener: true, ...overrides });
 
   it.each(["login.microsoftonline.com", "login.microsoft.com", "login.live.com"])(
-    "a child window entering %s starts auth flow and is allowed in-app",
+    "an opener-initiated about:blank popup entering %s starts auth flow and is allowed in-app",
     (host) => {
-      const result = decideNavigation(`https://${host}/tenant/authorize`, APP_ORIGIN, child());
+      const result = decideNavigation(`https://${host}/tenant/authorize`, APP_ORIGIN, eligiblePopup());
       expect(result).toEqual({ decision: "allow-in-app", authFlow: true });
     },
   );
 
-  it("matches an identity host case-insensitively", () => {
+  it("an uppercase-scheme/host URL still matches -- WHATWG URL lower-cases hostname on parse", () => {
+    // ★ N-2: this does NOT kill a mutant that removes the `.toLowerCase()`
+    // call on `parsed.hostname` -- the URL parser has already lower-cased it
+    // by the time this function sees it, so that call is defense in depth
+    // against a non-standard parser, not something this suite can pin.
+    // Kept because it is free and the failure mode of relying on it being
+    // unnecessary is worse than the failure mode of one redundant call.
     const result = decideNavigation(
       "https://LOGIN.MICROSOFTONLINE.com/tenant/authorize",
       APP_ORIGIN,
-      child(),
+      eligiblePopup(),
     );
     expect(result).toEqual({ decision: "allow-in-app", authFlow: true });
+  });
+
+  // ★★★ N-I1 -- the three combinations the fix-2 brief requires, each one
+  // pinning a different half of the entry gate.
+  it("a same-origin popout (?popout=) + a stored identity-host link click is NOT flow entry", () => {
+    // The popout's own first URL is the app's path, never blank, so
+    // createdAsBlankPopup is false regardless of who initiated the click.
+    const result = decideNavigation(
+      "https://login.microsoftonline.com/tenant/authorize",
+      APP_ORIGIN,
+      ctx({ createdAsBlankPopup: false, initiatorIsAppOpener: false }),
+    );
+    expect(result).toEqual({ decision: "open-external", authFlow: false });
+  });
+
+  it("a PDF/export tab (about:blank) + a user-gesture link click is NOT flow entry", () => {
+    // The tab WAS created blank (export.ts / document-download.ts both do
+    // `window.open("", "_blank")`), but a click on a rendered link inside it
+    // is initiated by the tab's OWN document, not its opener.
+    const result = decideNavigation(
+      "https://login.microsoftonline.com/tenant/authorize",
+      APP_ORIGIN,
+      ctx({ createdAsBlankPopup: true, initiatorIsAppOpener: false }),
+    );
+    expect(result).toEqual({ decision: "open-external", authFlow: false });
+  });
+
+  it("MSAL's own about:blank popup, navigated by its opener's script, IS flow entry", () => {
+    const result = decideNavigation(
+      "https://login.microsoftonline.com/tenant/authorize",
+      APP_ORIGIN,
+      eligiblePopup(),
+    );
+    expect(result).toEqual({ decision: "allow-in-app", authFlow: true });
+  });
+
+  it("opener-initiated but never created blank is NOT flow entry either -- both must hold", () => {
+    // No real code path does this today (nothing script-navigates a
+    // `?popout=` window), but the entry gate is an AND of two independent
+    // facts and each half needs its own witness -- this is the one that
+    // kills a mutant dropping `createdAsBlankPopup` from the entry check.
+    const result = decideNavigation(
+      "https://login.microsoftonline.com/tenant/authorize",
+      APP_ORIGIN,
+      ctx({ createdAsBlankPopup: false, initiatorIsAppOpener: true }),
+    );
+    expect(result).toEqual({ decision: "open-external", authFlow: false });
   });
 
   it("a look-alike host is NOT an identity host -- not a real Microsoft hostname", () => {
     const result = decideNavigation(
       "https://not-login.microsoftonline.com.evil.com/x",
       APP_ORIGIN,
-      child(),
+      eligiblePopup(),
+    );
+    expect(result).toEqual({ decision: "open-external", authFlow: false });
+  });
+
+  // ★ M-B: a SUFFIX match, not just a different-TLD look-alike. Both of
+  // these genuinely END with "login.microsoftonline.com" as a substring, so
+  // an `endsWith(...)` mutant (which the round-1 `.evil.com` row could not
+  // kill -- that one fails an endsWith check too) would wrongly pass them.
+  it.each(["evil-login.microsoftonline.com", "xlogin.microsoftonline.com", "sso.login.microsoftonline.com"])(
+    "a suffix look-alike %s is NOT an identity host",
+    (host) => {
+      const result = decideNavigation(`https://${host}/x`, APP_ORIGIN, eligiblePopup());
+      expect(result).toEqual({ decision: "open-external", authFlow: false });
+    },
+  );
+
+  it("http (no https) to an identity host is NOT flow entry, even from an eligible popup", () => {
+    const result = decideNavigation("http://login.microsoftonline.com/x", APP_ORIGIN, eligiblePopup());
+    expect(result).toEqual({ decision: "open-external", authFlow: false });
+  });
+
+  it("an explicit non-default port on an identity host is NOT flow entry", () => {
+    const result = decideNavigation(
+      "https://login.microsoftonline.com:8443/x",
+      APP_ORIGIN,
+      eligiblePopup(),
     );
     expect(result).toEqual({ decision: "open-external", authFlow: false });
   });
 
   it("a federated IdP is allowed in-app ONLY once the flow is already active", () => {
-    // Not in flow yet: an arbitrary https host is just external.
-    expect(decideNavigation("https://adfs.example.com/adfs/ls/", APP_ORIGIN, child(false))).toEqual({
+    // Not in flow yet, and not a fresh identity-host entry either: an
+    // arbitrary https host from an eligible popup is just external.
+    expect(decideNavigation("https://adfs.example.com/adfs/ls/", APP_ORIGIN, eligiblePopup())).toEqual({
       decision: "open-external",
       authFlow: false,
     });
     // In flow: the same host is allowed in-app, because the flow may hop
-    // through exactly this kind of company-federated IdP.
-    expect(decideNavigation("https://adfs.example.com/adfs/ls/", APP_ORIGIN, child(true))).toEqual({
-      decision: "allow-in-app",
-      authFlow: true,
-    });
+    // through exactly this kind of company-federated IdP. Continuation does
+    // NOT re-check createdAsBlankPopup/initiatorIsAppOpener -- a server
+    // redirect has no script initiator to re-verify.
+    expect(
+      decideNavigation("https://adfs.example.com/adfs/ls/", APP_ORIGIN, ctx({ inAuthFlow: true })),
+    ).toEqual({ decision: "allow-in-app", authFlow: true });
   });
 
   it("denies a non-https hop while in auth flow, without ending the flow", () => {
-    const result = decideNavigation("http://adfs.example.com/adfs/ls/", APP_ORIGIN, child(true));
+    const result = decideNavigation(
+      "http://adfs.example.com/adfs/ls/",
+      APP_ORIGIN,
+      ctx({ inAuthFlow: true }),
+    );
+    expect(result).toEqual({ decision: "deny", authFlow: true });
+  });
+
+  it("denies mailto: while in auth flow, without ending the flow", () => {
+    const result = decideNavigation("mailto:a@b.com", APP_ORIGIN, ctx({ inAuthFlow: true }));
+    expect(result).toEqual({ decision: "deny", authFlow: true });
+  });
+
+  it("denies about:blank while in auth flow, without ending the flow", () => {
+    // Unlike decideWindowOpen (a fresh window OPEN), about:blank as a
+    // NAVIGATION target mid-flow has no legitimate reason and is refused
+    // like any other non-https hop.
+    const result = decideNavigation("about:blank", APP_ORIGIN, ctx({ inAuthFlow: true }));
     expect(result).toEqual({ decision: "deny", authFlow: true });
   });
 
   it("returning to the app origin ends the flow", () => {
-    const result = decideNavigation(`${APP_ORIGIN}/msal-redirect`, APP_ORIGIN, child(true));
+    const result = decideNavigation(`${APP_ORIGIN}/msal-redirect`, APP_ORIGIN, ctx({ inAuthFlow: true }));
     expect(result).toEqual({ decision: "allow-in-app", authFlow: false });
   });
 
   it("the MAIN window never enters auth flow -- an identity host there is just external", () => {
+    // The main window's webContents never gets a `windowFacts` entry (it is
+    // built via `new BrowserWindow` + `loadFile`/`loadURL`, never
+    // `window.open`), so main.ts always feeds it createdAsBlankPopup:false,
+    // initiatorIsAppOpener:false -- the plain `ctx()` default.
     const result = decideNavigation(
       "https://login.microsoftonline.com/tenant/authorize",
       APP_ORIGIN,
-      main(),
+      ctx(),
     );
     expect(result).toEqual({ decision: "open-external", authFlow: false });
   });
 
-  it("a child window outside auth flow follows the ordinary external-site policy", () => {
-    expect(decideNavigation("https://example.com", APP_ORIGIN, child())).toEqual({
+  it("N-3: a stale inAuthFlow:true on a window that could never have entered still continues -- a wiring invariant, not a policy check", () => {
+    // decideNavigation trusts `ctx.inAuthFlow` as given; it is main.ts's job
+    // (never this function's) to guarantee that flag can only become true
+    // through a real entry. Documented here so the assumption is visible.
+    const result = decideNavigation(
+      "https://adfs.example.com/adfs/ls/",
+      APP_ORIGIN,
+      ctx({ inAuthFlow: true }),
+    );
+    expect(result).toEqual({ decision: "allow-in-app", authFlow: true });
+  });
+
+  it("an ordinary window outside auth flow follows the ordinary external-site policy", () => {
+    expect(decideNavigation("https://example.com", APP_ORIGIN, ctx())).toEqual({
       decision: "open-external",
       authFlow: false,
     });
-    expect(decideNavigation("mailto:a@b.com", APP_ORIGIN, child())).toEqual({
+    expect(decideNavigation("mailto:a@b.com", APP_ORIGIN, ctx())).toEqual({
       decision: "open-external",
       authFlow: false,
     });
   });
 
   it("denies an unparsable URL and preserves whatever flow state it had", () => {
-    expect(decideNavigation("not a url", APP_ORIGIN, child(true))).toEqual({
+    expect(decideNavigation("not a url", APP_ORIGIN, ctx({ inAuthFlow: true }))).toEqual({
       decision: "deny",
       authFlow: true,
     });
-    expect(decideNavigation("not a url", APP_ORIGIN, child(false))).toEqual({
+    expect(decideNavigation("not a url", APP_ORIGIN, ctx({ inAuthFlow: false }))).toEqual({
       decision: "deny",
       authFlow: false,
     });
   });
 
-  it("denies file: and javascript: for a child window, in or out of flow", () => {
-    expect(decideNavigation("file:///C:/x", APP_ORIGIN, child(false))).toEqual({
+  it("denies file: and javascript: regardless of flow state", () => {
+    expect(decideNavigation("file:///C:/x", APP_ORIGIN, ctx())).toEqual({
       decision: "deny",
       authFlow: false,
     });
     // Not https, so even mid-flow this does not get the federated-IdP pass.
-    expect(decideNavigation("javascript:alert(1)", APP_ORIGIN, child(true))).toEqual({
+    expect(decideNavigation("javascript:alert(1)", APP_ORIGIN, ctx({ inAuthFlow: true }))).toEqual({
       decision: "deny",
       authFlow: true,
     });

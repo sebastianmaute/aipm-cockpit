@@ -6,6 +6,7 @@ import {
   shell,
   type MenuItemConstructorOptions,
   type WebContents,
+  type WebFrameMain,
 } from "electron";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -56,6 +57,51 @@ const authFlowState = new WeakMap<WebContents, boolean>();
 function authFlowFor(contents: WebContents): boolean {
   return authFlowState.get(contents) === true;
 }
+
+// ★★★ N-I1 FIX (review-3-fix1-report.md). Facts latched ONCE per child
+// webContents, at the moment `did-create-window` fires on the OPENER --
+// "emitted _after_ successful creation of a window via window.open"
+// (electron.d.ts, the doc comment on `did-create-window`) -- never re-read
+// from a live Electron property afterward on every navigation event, which
+// is exactly what M-A flagged in round 1's `isChildWindow: contents.opener
+// !== null` (a live read COOP on an identity host's response can sever
+// mid-flow).
+//
+// ★ Keyed by `.id`, per the brief -- unlike `authFlowState` above, which is
+// keyed by the WebContents object itself. Both are safe against id reuse
+// (this Map deletes its entry on `destroyed`, so a reused id never finds a
+// stale fact), but the object key would work here too; the id key is what
+// M-A asked for and makes the lifecycle (`delete` on `destroyed`) explicit
+// rather than relying on GC.
+interface WindowFacts {
+  // Was this window's FIRST committed/initial URL `about:blank` or empty --
+  // the shape `window.open("about:blank", ...)` and MSAL's own popup
+  // creation take? `details.url` here is the SAME resolved URL
+  // `setWindowOpenHandler` already decided on (HandlerDetails.url), so this
+  // can only be true for a window this app's own policy already allowed.
+  createdAsBlankPopup: boolean;
+  // The frame that CREATED this window, captured once, by reference -- NOT
+  // `contents.opener` re-read later (see the module comment above).
+  // `null` only for a webContents this map never saw created (the main
+  // window, or if `did-create-window` itself never fired for some reason).
+  openerFrame: WebFrameMain | null;
+}
+const windowFacts = new Map<number, WindowFacts>();
+function factsFor(contents: WebContents): WindowFacts {
+  return windowFacts.get(contents.id) ?? { createdAsBlankPopup: false, openerFrame: null };
+}
+
+// ★★★ M-C FIX. The auth-flow flag now commits on `did-navigate` (a main-
+// frame navigation completing), never inside `will-navigate`/`will-redirect`
+// themselves -- round 1 wrote `authFlowState` the moment a will-* decision
+// ALLOWED a hop, before Chromium had actually committed it. A later
+// `will-redirect` denial, or the navigation simply failing (offline, DNS),
+// left the flag on `true` with the page still showing whatever it showed
+// before, which widens exactly the window N-I1 closes. `pendingAuthFlow`
+// holds the NEXT value for an in-flight, not-yet-committed navigation;
+// `did-navigate` commits it, `did-fail-load` (main frame) discards it
+// without touching the confirmed `authFlowState`.
+const pendingAuthFlow = new WeakMap<WebContents, boolean>();
 
 const logDir = resolveLogDir(process.env);
 function log(line: string): void {
@@ -613,23 +659,59 @@ if (!app.requestSingleInstanceLock()) {
       log(`window-open handler install: ${String(e)}`);
     }
 
+    // ★★★ N-I1 FIX: LATCHES `windowFacts` FOR EVERY CHILD THIS `contents`
+    // CREATES, the moment Electron confirms creation -- "Emitted _after_
+    // successful creation of a window via window.open" (electron.d.ts's
+    // `did-create-window` doc). `details.url` is the SAME resolved URL
+    // `setWindowOpenHandler` already allowed (`HandlerDetails.url` and
+    // `DidCreateWindowDetails.url` describe the same value), so a window can
+    // only be recorded `createdAsBlankPopup: true` if this shell's own
+    // policy already decided to allow it in-app as `about:blank`/empty.
+    // `contents.mainFrame` (THIS webContents' top frame, the one that just
+    // called `window.open`) is captured ONCE, by reference, as the child's
+    // `openerFrame` -- never `childContents.opener` read later, which is
+    // the live property M-A flagged as COOP-fragile.
+    try {
+      contents.on("did-create-window", (childWindow, details) => {
+        const childContents = childWindow.webContents;
+        windowFacts.set(childContents.id, {
+          createdAsBlankPopup: details.url === "" || details.url === "about:blank",
+          openerFrame: contents.mainFrame,
+        });
+        childContents.once("destroyed", () => windowFacts.delete(childContents.id));
+      });
+    } catch (e: unknown) {
+      log(`did-create-window handler install: ${String(e)}`);
+    }
+
     // ★★★ AUTH-FLOW CONTEXT FOR THIS WEBCONTENTS, shared by `will-navigate`
-    // and `will-redirect` below -- both read and write the SAME
-    // `authFlowState` entry, because a Microsoft sign-in can enter the flow
-    // on an ordinary navigation (`location.assign`, MSAL's own path -- see
-    // `decideNavigation`'s doc comment) and continue it through a SERVER
+    // and `will-redirect` below -- both read the SAME `windowFacts`/
+    // `authFlowState` entries, because a Microsoft sign-in can enter the
+    // flow on an ordinary navigation (`location.assign`, MSAL's own path --
+    // see `decideNavigation`'s doc comment) and continue it through a SERVER
     // redirect (a federated IdP forwarding back to login.microsoftonline.com,
     // or vice versa) with no navigation event of the other kind in between.
-    // `contents.opener` (electron.d.ts: "represents the frame that opened
-    // this WebContents, either with open(), or by navigating a link with a
-    // target attribute") is read FRESH on every event rather than cached at
-    // `web-contents-created` time: it is a property of the live `contents`,
-    // cheap to read, and reading it late means no assumption about when
-    // Electron populates it relative to this listener's registration.
-    const navContext = (): NavigationContext => ({
-      isChildWindow: contents.opener !== null,
-      inAuthFlow: authFlowFor(contents),
-    });
+    // `details.initiator` (electron.d.ts: "The frame which initiated the
+    // navigation... or null if the navigation was not initiated by a
+    // frame", present on both `WebContentsWillNavigateEventParams`, around
+    // electron.d.ts:24560, and `WebContentsWillRedirectEventParams`, around
+    // :24590) is compared BY REFERENCE against the `openerFrame` latched at
+    // creation -- a link clicked inside the popup/tab is initiated by that
+    // window's OWN top frame, a DIFFERENT `WebFrameMain` instance than its
+    // opener even though both may report the SAME string origin (an
+    // about:blank child inherits its opener's origin per `WebFrameMain.
+    // origin`'s own doc comment), which is exactly why an origin-STRING
+    // comparison here would NOT have distinguished the two and object
+    // identity is the reliable signal.
+    const navContext = (details: { initiator?: WebFrameMain | null }): NavigationContext => {
+      const facts = factsFor(contents);
+      return {
+        createdAsBlankPopup: facts.createdAsBlankPopup,
+        initiatorIsAppOpener:
+          facts.openerFrame !== null && details.initiator === facts.openerFrame,
+        inAuthFlow: authFlowFor(contents),
+      };
+    };
 
     // ★ GUARDS PLAIN-LINK NAVIGATION (no `target`, so no `window.open` and
     // no `setWindowOpenHandler` call) of the TOP-LEVEL frame -- the gap the
@@ -652,12 +734,22 @@ if (!app.requestSingleInstanceLock()) {
     // not by top-level navigation guards. A subframe guard is out of scope
     // by that reasoning, not merely unimplemented; add one only if a
     // same-origin iframe embedding untrusted content is ever introduced.
+    //
+    // ★★★ M-C: `allow-in-app` no longer writes `authFlowState` directly --
+    // it stashes the NEXT value in `pendingAuthFlow` and lets `did-navigate`
+    // (below) commit it once Chromium confirms the navigation actually
+    // landed. `deny`/`open-external` never touch `pendingAuthFlow` at all:
+    // the navigation is cancelled either way, so there is nothing pending to
+    // stash, and `authFlowState` is simply left as it was (its value is
+    // already the committed truth from whatever DID land last).
     try {
       contents.on("will-navigate", (details) => {
         if (!details.isMainFrame) return;
-        const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, navContext());
-        authFlowState.set(contents, authFlow);
-        if (decision === "allow-in-app") return;
+        const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, navContext(details));
+        if (decision === "allow-in-app") {
+          pendingAuthFlow.set(contents, authFlow);
+          return;
+        }
         details.preventDefault();
         if (decision === "open-external") {
           void shell.openExternal(new URL(details.url).href).catch((e: unknown) => {
@@ -693,9 +785,11 @@ if (!app.requestSingleInstanceLock()) {
     try {
       contents.on("will-redirect", (details) => {
         if (!details.isMainFrame) return;
-        const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, navContext());
-        authFlowState.set(contents, authFlow);
-        if (decision === "allow-in-app") return;
+        const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, navContext(details));
+        if (decision === "allow-in-app") {
+          pendingAuthFlow.set(contents, authFlow);
+          return;
+        }
         details.preventDefault();
         if (decision === "open-external") {
           void shell.openExternal(new URL(details.url).href).catch((e: unknown) => {
@@ -707,6 +801,43 @@ if (!app.requestSingleInstanceLock()) {
       });
     } catch (e: unknown) {
       log(`will-redirect handler install: ${String(e)}`);
+    }
+
+    // ★★★ M-C, THE COMMIT HALF. "Emitted when a main frame navigation is
+    // done" (electron.d.ts's `did-navigate` doc) -- this event is inherently
+    // main-frame-only (unlike will-navigate/will-redirect, it has no
+    // `isMainFrame` parameter to check), and fires exactly once a navigation
+    // has actually landed, whether that navigation was ever seen by
+    // `will-navigate` at all (a programmatic `loadURL`, e.g. `win.loadURL(
+    // APP_ORIGIN)` at startup, never fires will-navigate, but DOES fire
+    // did-navigate) -- so a missing `pendingAuthFlow` entry here is the
+    // ordinary case, not an error, and is silently ignored.
+    try {
+      contents.on("did-navigate", () => {
+        const pending = pendingAuthFlow.get(contents);
+        if (pending === undefined) return;
+        authFlowState.set(contents, pending);
+        pendingAuthFlow.delete(contents);
+      });
+    } catch (e: unknown) {
+      log(`did-navigate handler install: ${String(e)}`);
+    }
+
+    // ★★★ M-C, THE DISCARD HALF. A main-frame load that fails (offline, DNS,
+    // a denied navigation that still left something in flight) never reaches
+    // `did-navigate`, so without this the flag some `will-*` decision staged
+    // would sit in `pendingAuthFlow` forever, uncommitted but also never
+    // cleared -- harmless in itself (it is simply never read again until
+    // the NEXT navigation overwrites it), but a stale entry is exactly the
+    // kind of state this fix removes elsewhere. Explicit `isMainFrame` check
+    // here: unlike `did-navigate`, `did-fail-load` DOES fire for subframes.
+    try {
+      contents.on("did-fail-load", (_event, _errorCode, _errorDescription, _validatedURL, isMainFrame) => {
+        if (!isMainFrame) return;
+        pendingAuthFlow.delete(contents);
+      });
+    } catch (e: unknown) {
+      log(`did-fail-load handler install: ${String(e)}`);
     }
   });
 

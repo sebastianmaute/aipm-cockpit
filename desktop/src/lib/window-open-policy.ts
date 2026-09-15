@@ -75,26 +75,49 @@ export function originOnly(url: string): string {
 // PublicClientApplication can send a sign-in/token/sign-out popup to first
 // (authority `https://login.microsoftonline.com/<tenant>`; `login.microsoft.com`
 // and `login.live.com` cover personal-account and legacy-tenant redirects
-// Microsoft's own libraries use). EXACT hostname match, never a suffix/prefix
-// test -- `login.microsoftonline.com.evil.com` and
-// `not-login.microsoftonline.com` are both real hostnames a hostile page
-// could present and neither is in this list.
+// Microsoft's own libraries use). EXACT hostname match on the DEFAULT port
+// only, never a suffix/prefix test -- `not-login.microsoftonline.com.evil.com`
+// (a different TLD entirely), `evil-login.microsoftonline.com` /
+// `xlogin.microsoftonline.com` / `sso.login.microsoftonline.com` (each a real
+// hostname that genuinely ENDS with an entry in this list, so an
+// `endsWith(...)` mutant would wrongly accept them) and
+// `login.microsoftonline.com:8443` (an explicit non-default port) are all
+// pinned as NOT identity hosts in window-open-policy.test.ts.
 export const MS_IDENTITY_HOSTS: readonly string[] = [
   "login.microsoftonline.com",
   "login.microsoft.com",
   "login.live.com",
 ];
 
-// Per-webContents navigation context `main.ts` tracks across the lifetime of
-// one window (a `WeakMap<WebContents, boolean>`, since this module stays
-// Electron-free): whether the webContents is a CHILD (has an `opener`,
-// i.e. was created via `window.open()` or a `target=` link -- verified in
-// electron.d.ts's `WebContents.opener` doc: "represents the frame that
-// opened this WebContents, either with open(), or by navigating a link with
-// a target attribute"), and whether it is currently inside a Microsoft
-// sign-in flow.
+// Per-webContents navigation context `main.ts` assembles for each
+// will-navigate/will-redirect event. This module stays Electron-free, so all
+// three are plain booleans main.ts derives from its own state (never a live
+// Electron read passed through unexamined):
+//
+// - `createdAsBlankPopup`: was this window's FIRST committed/initial URL
+//   `about:blank` or empty -- the exact shape `window.open("about:blank",
+//   ...)` and MSAL's own popup creation take? Latched ONCE at window
+//   creation (`did-create-window` on the OPENER, main.ts's `windowFacts`
+//   map), never re-derived from a live property later. A same-origin
+//   `?popout=` window's first URL is the app's own path, never blank, so
+//   this is `false` for it regardless of what it navigates to afterward.
+// - `initiatorIsAppOpener`: was THIS specific navigation attempt initiated
+//   by the frame that created this window (script running as the opener,
+//   e.g. `popupWindow.location.assign(...)`), rather than by this window's
+//   OWN document (a user clicking a rendered link, or that document's own
+//   script)? Computed per-event from the navigation's `details.initiator`
+//   compared, by REFERENCE, against the opener frame latched at creation --
+//   never from `contents.opener` re-read live (see `createdAsBlankPopup`'s
+//   sibling concern: COOP on an identity host's response can sever that
+//   live property mid-flow, which would wrongly block a FEDERATED hop if
+//   this check were required to continue rather than only to ENTER).
+// - `inAuthFlow`: is this webContents currently inside a Microsoft sign-in
+//   flow (committed by main.ts on `did-navigate`, not set optimistically at
+//   `will-navigate` time -- a will-* decision can still be reversed by a
+//   later redirect denial or a load failure before anything commits).
 export interface NavigationContext {
-  isChildWindow: boolean;
+  createdAsBlankPopup: boolean;
+  initiatorIsAppOpener: boolean;
   inAuthFlow: boolean;
 }
 
@@ -125,11 +148,38 @@ export interface NavigationDecision {
 // federated IdP, both go through `will-navigate`/`will-redirect`, which is
 // what this function decides.
 //
-// ★ THE MAIN WINDOW NEVER ENTERS AUTH FLOW. `ctx.isChildWindow` gates entry:
-// the main window's webContents has no opener, so an identity host reached
-// by the main window's OWN top-level frame (which nothing in this app does
-// today, but a compromised renderer might try) is just another external
-// site -- no special latitude for the app's single trusted window.
+// ★★★ N-I1 FIX (review-3-fix1-report.md). Round 1 gated entry on
+// `isChildWindow` alone (`opener !== null`), which is true for EVERY window
+// this app opens -- including its own `?popout=` windows (`broadcast-
+// sync.ts`) and the PDF/export `about:blank` tabs (`export.ts`,
+// `document-download.ts`). Rich-text links carry no `target`
+// (`sanitize-html.ts` strips it), so a stored `https://login.
+// microsoftonline.com/...` link clicked inside a popout is a plain
+// navigation with `isChildWindow: true` -- round 1 let it enter the flow and
+// then rendered whatever page Azure AD (or an attacker's `redirect_uri`)
+// sent back, chromeless. ENTRY now requires BOTH `createdAsBlankPopup` AND
+// `initiatorIsAppOpener`: an about:blank popup satisfies the first, but a
+// click on a link INSIDE that popup is initiated by the popup's own
+// document, not its opener, so `initiatorIsAppOpener` is false and entry is
+// refused -- exactly the three cases the fix-2 brief requires:
+//   - `?popout=` window + identity-host link click -> open-external (fails
+//     `createdAsBlankPopup`: its first URL was the app's own path).
+//   - PDF/export tab (about:blank) + identity-host link click ->
+//     open-external (passes `createdAsBlankPopup`, fails
+//     `initiatorIsAppOpener`: the click's initiator is the tab's own frame).
+//   - MSAL's own popup (about:blank) + its opener's `location.assign(...)`
+//     -> flow (passes both).
+// ★ ONCE IN FLOW, NEITHER of the two entry booleans is re-checked --
+// `ctx.inAuthFlow` alone continues it. That is deliberate: a federated IdP
+// hop is a SERVER redirect with no script initiator of its own to check
+// (`will-redirect`'s `details.initiator` describes who started the
+// overall navigation, not "who sent the 302"), and requiring the entry
+// booleans again on every hop would break exactly the federated/personal-
+// account tenants this whole feature exists for.
+// ★ THE MAIN WINDOW CAN NEVER ENTER: `main.ts` never records `windowFacts`
+// for it (it is built via `new BrowserWindow` + `loadFile`/`loadURL`, never
+// `window.open`), so `createdAsBlankPopup` reads `false` by construction --
+// no separate "is this the main window" check is needed.
 export function decideNavigation(
   url: string,
   appOrigin: string,
@@ -148,15 +198,24 @@ export function decideNavigation(
   if (parsed.origin === appOrigin) return { decision: "allow-in-app", authFlow: false };
 
   const isHttps = parsed.protocol === "https:";
-  const isIdentityHost = isHttps && MS_IDENTITY_HOSTS.includes(parsed.hostname.toLowerCase());
+  // ★ `parsed.port === ""` requires the DEFAULT port for the scheme (443 for
+  // https, which the URL parser omits from `.port` when explicit) --
+  // `https://login.microsoftonline.com:8443` is not Microsoft's real
+  // service on any port other than the default one, so it is never treated
+  // as an identity host, entry or continuation alike is unaffected since
+  // this term only gates the exact-host ENTRY check below.
+  const isIdentityHost =
+    isHttps && parsed.port === "" && MS_IDENTITY_HOSTS.includes(parsed.hostname.toLowerCase());
+  const canEnterFlow = ctx.createdAsBlankPopup && ctx.initiatorIsAppOpener;
 
-  if (ctx.isChildWindow && (isIdentityHost || ctx.inAuthFlow)) {
-    // Entering the flow (a fresh identity-host hop) or already in it (a
-    // federated IdP redirect, which can be ANY https host -- that is the
-    // whole reason a company's own ADFS/PingFederate/Okta host has to be
-    // allowed sight-unseen once the flow starts). A non-https hop here has
-    // no legitimate reason and is refused WITHOUT ending the flow: nothing
-    // actually navigated, so the popup is still wherever it was.
+  if ((canEnterFlow && isIdentityHost) || ctx.inAuthFlow) {
+    // Entering the flow (a fresh, opener-initiated identity-host hop from a
+    // blank popup) or already in it (a federated IdP redirect, which can be
+    // ANY https host -- that is the whole reason a company's own ADFS/
+    // PingFederate/Okta host has to be allowed sight-unseen once the flow
+    // starts). A non-https hop here has no legitimate reason and is refused
+    // WITHOUT ending the flow: nothing actually navigated, so the popup is
+    // still wherever it was.
     if (isHttps) return { decision: "allow-in-app", authFlow: true };
     return { decision: "deny", authFlow: ctx.inAuthFlow };
   }
