@@ -611,7 +611,7 @@ export function describeEntityCalls(
         //   `after`: `after` has already been through `fieldSanitizers.emails`,
         //   which re-splits a STRING on `[;,]` and rejoins it — so the card
         //   would show an address that was never what the model actually sent.
-        if (d.entity === "resource" && f === "emails" && findTornEmail(input[f], Array.isArray(item.emails) ? (item.emails as string[]) : undefined) !== undefined) { bad(`${f}=${str(input[f])}`); continue; }
+        if (d.entity === "resource" && f === "emails" && findTornEmail(input[f], Array.isArray(item.emails) ? (item.emails as string[]) : undefined, true) !== undefined) { bad(`${f}=${str(input[f])}`); continue; }
         if (before === after) continue;
         // ★★★ A JOINT REQUIREMENT IS JUDGED ON THE MERGED ROW, NEVER ON THIS
         // FIELD ALONE, and the group takes PRECEDENCE over `requiredNonEmpty`

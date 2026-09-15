@@ -137,6 +137,23 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
     }
   });
 
+  it("M1: an unrelated AI edit of a resource holding a Name <addr> primary does not propagate", () => {
+    const shaped: TestSeed = {
+      ...seed,
+      resources: [{ ...ada, email: "Ada L <old@x.com>" }],
+      tasks: [{ ...(seed.tasks![0] as Task), assigneeEmail: "Ada L <old@x.com>" }],
+    };
+    const showToastAction = vi.fn();
+    const ai = renderHook(() => {
+      const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction });
+      return { undo, d: useChatDispatcher(makeDispatcherArgs({ undo })), ws: useWorkspace() };
+    }, { wrapper: dispatcherWrapperWith(shaped) });
+    act(() => { ai.result.current.d.updateResource(7, { title: "Lead" }); });
+    expect(ai.result.current.ws.resources[0].title).toBe("Lead"); // control: the edit landed
+    expect(ai.result.current.ws.tasks[0].assigneeEmail).toBe("Ada L <old@x.com>");
+    expect(showToastAction).toHaveBeenLastCalledWith("info", t("en-US", "undoToastEdit", 1), expect.anything());
+  });
+
   it("keeps the plain edit toast on the AI path when nothing propagates", () => {
     const { ai, showToastAction } = renderAi();
     act(() => { ai.result.current.d.updateResource(7, { title: "Lead" }); });

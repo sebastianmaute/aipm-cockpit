@@ -477,7 +477,8 @@ const changeReader: StoredReader = (field, value) => {
 const resourceReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedResourceFields({ [field]: value });
   // Task 1's LIST-field guard, kept — do not remove this line in Task 2.
-  if (findTornEmail(patch.emails, undefined) !== undefined) return null;
+  // ★ M1: `normalize`, exactly as `createResource`/`updateResource` and the card ask it.
+  if (findTornEmail(patch.emails, undefined, true) !== undefined) return null;
   try {
     refuseEmailWrite("email", (patch as { email?: unknown }).email, RES_BASE.email);
   } catch {
@@ -1201,6 +1202,52 @@ describe("§539 kept-raw stored required date: the card and the AI update writer
       }
     });
   }
+});
+
+// ★★★ M1 — THE `Name <addr>` UNWRAP IS ONE BEHAVIOUR ON EVERY AI EMAIL WRITE.
+// The writer judges and stores the unwrapped address; the card must show and
+// judge that same value. A separate block rather than new `PROBES`, because the
+// sweep's bucket totals above are exact and would all move.
+describe("M1: name-address emails — the card shows and judges exactly what the AI write stores", () => {
+  const NAME_FORMS = ["Ann Lee <ann@x.com>", "Bob<bob@x.com>", "  <cara@x.com>  ", "Name <a,b@x.com>", "Dee <not-an-email>"];
+  const EMAIL_FIELDS: ReadonlyArray<readonly [InlineEntity, string]> = [
+    ["task", "assigneeEmail"], ["raid", "ownerEmail"], ["stakeholder", "email"], ["resource", "email"], ["absence", "assigneeEmail"],
+  ];
+  const caseOf = (entity: InlineEntity) => CASES.find((c) => c.entity === entity)!;
+
+  for (const [entity, field] of EMAIL_FIELDS) {
+    for (const value of NAME_FORMS) {
+      it(`${entity}.${field} ${JSON.stringify(value)}`, () => {
+        const c = caseOf(entity);
+        const stored = c.read(field, value);
+        const preview = previewOf(entity, c.base, field, value);
+        expect(preview.rejected, "card rejects ⇔ write refuses").toBe(stored === null);
+        if (stored !== null) expect(preview.shown).toBe(stored);
+      });
+    }
+  }
+
+  it("resource.emails: the card shows and judges the unwrapped members the write stores", () => {
+    for (const value of [["Two Tee <two@x.com>", "three@x.com"], ["Name <a,b@x.com>"]]) {
+      const c = caseOf("resource");
+      const stored = c.read("emails", value);
+      const preview = previewOf("resource", c.base, "emails", value);
+      expect(preview.rejected).toBe(stored === null);
+      // ★ Compared as MEMBER LISTS: the card joins with ", " and `readStored` with ","
+      //  (`String(array)`). A comma-bearing member is refused on both sides first.
+      const members = (s: string) => s.split(/,\s*/).filter((m) => m !== "");
+      if (stored !== null) expect(members(preview.shown)).toEqual(members(stored));
+    }
+  });
+
+  it("pins the outcomes themselves (anti-vacuity: agreement on the raw value would pass the rows above)", () => {
+    expect(caseOf("raid").read("ownerEmail", "Ann Lee <ann@x.com>")).toBe("ann@x.com");
+    expect(caseOf("task").read("assigneeEmail", "Bob<bob@x.com>")).toBe("bob@x.com");
+    expect(caseOf("stakeholder").read("email", "  <cara@x.com>  ")).toBe("cara@x.com");
+    expect(previewOf("absence", ABS_BASE, "assigneeEmail", "Ann Lee <ann@x.com>")).toEqual({ rejected: false, shown: "ann@x.com" });
+    expect(previewOf("resource", RES_BASE, "emails", ["Two Tee <two@x.com>"])).toEqual({ rejected: false, shown: "two@x.com" });
+    expect(caseOf("resource").read("email", "Name <a,b@x.com>")).toBeNull();
+  });
 });
 
 // ★★★ M6 — A STORED OPTIONAL DATE THAT NO LOAD FUNNEL VALIDATED (CSV/MD/Turso

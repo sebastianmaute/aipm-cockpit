@@ -1,7 +1,7 @@
 // Write-boundary email guards shared by every AI/tool writer (spec Part 1).
 // Kept out of sanitize-records.ts, which sits at the file-size LIMIT, and
 // re-exported through the `./sanitize` barrel like absence-email.ts.
-import { EMAIL_MAX, emailWriteRefusal, isWriteSafeEmail, sanitizeText, type EmailRefusal } from "./sanitize-core";
+import { EMAIL_MAX, emailWriteRefusal, isWriteSafeEmail, normalizeEmailShape, sanitizeText, type EmailRefusal } from "./sanitize-core";
 import type { Absence, ProjectMeta, RaidItem, Resource, Shift, Stakeholder, Task } from "./types";
 import type { Workspace } from "./workspace";
 
@@ -22,10 +22,15 @@ export function emailRefusalMessage(field: string, refusal: EmailRefusal): strin
  *  BUDGET_NAME_MAX (200) via `sanitizeText`, not `sanitizeEmail`, so
  *  `use-register-tools.ts`'s stakeholder writers pass that cap explicitly —
  *  else a >200-char address could pass THIS guard capped at 320 and then be
- *  re-cut to 200 by the sanitizer into something invalid it stores anyway. */
+ *  re-cut to 200 by the sanitizer into something invalid it stores anyway.
+ *  ★★★ M1: and the value judged is UNWRAPPED first — `Name <addr>` → `addr`
+ *  (`normalizeEmailShape`), THEN capped, the order `sanitizeLoadedEmail` uses —
+ *  because every AI email writer now STORES that unwrapped value. Judging the raw
+ *  string refused "Ann Lee <ann@x.com>" (it holds a space) while the sanitizer
+ *  would have stored the valid "ann@x.com". */
 export function refuseEmailWrite(field: string, incoming: unknown, stored: string | undefined, cap: number = EMAIL_MAX): void {
   if (typeof incoming !== "string") return;
-  const refusal = emailWriteRefusal(sanitizeText(incoming, cap), stored);
+  const refusal = emailWriteRefusal(sanitizeText(normalizeEmailShape(incoming), cap), stored);
   if (refusal !== null) throw new Error(emailRefusalMessage(field, refusal));
 }
 

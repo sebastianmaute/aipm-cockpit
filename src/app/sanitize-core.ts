@@ -87,22 +87,29 @@ export function emailWriteRefusal(
  *  - Anything else: undefined.
  *  ★ It stops NEW unsafe addresses only; stored ones keep loading. An address
  *   already torn by a past CSV, Markdown or Turso save cannot be rebuilt — the
- *   accepted limit recorded in open-followups §533. */
+ *   accepted limit recorded in open-followups §533.
+ *  ★★ `normalize` (M1): judge each member `Name <addr>`-unwrapped, as the AI
+ *   writers and the inline card do, because `sanitizeResource` STORES the
+ *   unwrapped member. Off by default: the human resource editor stores the list
+ *   as typed, so it must keep judging the raw member. The stored-torn check on
+ *   a STRING always reads the raw string. */
 export function findTornEmail(
   incoming: unknown,
   stored: readonly string[] | undefined,
+  normalize = false,
 ): string | undefined {
   const storedList = (stored ?? []).filter((e): e is string => typeof e === "string");
   const storedTrimmed = new Set(storedList.map((e) => e.trim()));
+  const shaped = (e: string): string => (normalize ? normalizeEmailShape(e.trim()) : e);
   const isNewUnsafe = (e: string): boolean =>
     e.trim() !== "" && !storedTrimmed.has(e.trim()) && !isWriteSafeEmail(e);
   if (Array.isArray(incoming)) {
-    return incoming.find((e): e is string => typeof e === "string" && isNewUnsafe(e));
+    return incoming.find((e): e is string => typeof e === "string" && isNewUnsafe(shaped(e)));
   }
   if (typeof incoming === "string") {
     const torn = storedList.find((e) => !isDelimiterSafeEmail(e) && incoming.includes(e.trim()));
     if (torn !== undefined) return torn;
-    return incoming.split(/[;,]/).map((e) => e.trim()).find(isNewUnsafe);
+    return incoming.split(/[;,]/).map((e) => shaped(e.trim())).find(isNewUnsafe);
   }
   return undefined;
 }
@@ -111,10 +118,17 @@ export function findTornEmail(
 
 const NAME_ADDRESS_RE = /^[^<>]*<([^<>]+)>$/;
 
-/** ★ LOAD-SIDE ONLY, and only a provably equivalent shape: a scalar
- *  `Name <addr>` whose inner `addr` is `isWriteSafeEmail` becomes `addr`.
- *  Anything else — including `Name <a,b@x.com>` — is returned UNCHANGED, so a
- *  load never refuses, drops or rewrites a value it cannot prove equal. */
+/** ★ Only a provably equivalent shape: a scalar `Name <addr>` whose inner
+ *  `addr` is `isWriteSafeEmail` becomes `addr`. Anything else — including
+ *  `Name <a,b@x.com>` — is returned UNCHANGED, so nothing ever refuses, drops or
+ *  rewrites a value it cannot prove equal.
+ *  ★★★ M1 (pre-release review): NOT load-side only, which this said while five
+ *  AI writers already unwrapped through their sanitizers and two did not. It is
+ *  now ONE behaviour: every LOAD path and every AI email WRITE unwraps (the
+ *  writers store `sanitizeLoadedEmail`, `refuseEmailWrite` judges the unwrapped
+ *  value, `findTornEmail`'s `normalize` flag does it for `resource.emails`, and
+ *  the inline card's email readers show it). The HUMAN editors still store what
+ *  the person typed. */
 export function normalizeEmailShape(value: string): string {
   const match = NAME_ADDRESS_RE.exec(value.trim());
   if (!match) return value;

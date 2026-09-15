@@ -11,7 +11,7 @@ import {
   refuseEmailWrite,
   sanitizeAssignee,
   sanitizeBlockers,
-  sanitizeEmail,
+  sanitizeLoadedEmail,
   sanitizeGroup,
   sanitizeIsoDate,
   sanitizeLabels,
@@ -86,7 +86,7 @@ export function buildTaskCleanPatch(
   if (patch.assignee !== undefined)
     cleanPatch.assignee = sanitizeAssignee(patch.assignee);
   if (patch.assigneeEmail !== undefined) {
-    const e = sanitizeEmail(patch.assigneeEmail);
+    const e = sanitizeLoadedEmail(patch.assigneeEmail); // ★ M1: the unwrapped address, as every AI email write stores
     refuseEmailWrite("assigneeEmail", e, existing.assigneeEmail);
     cleanPatch.assigneeEmail = e;
   }

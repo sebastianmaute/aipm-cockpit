@@ -1422,6 +1422,33 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     expect(result.current.getChangeRow(5)).toMatchObject({ title: "Scope (v2)", raisedDate: "tbd", decisionDate: "2026-02-30" });
   });
 
+  // ★★★ M1 (pre-release review): the `Name <addr>` unwrap is ONE behaviour on
+  //  every AI email write — the value judged AND stored is the unwrapped one.
+  //  Before, stakeholder/resource/absence stored the unwrap while judging the raw
+  //  value (so "Ann Lee <ann@x.com>", holding a space, was REFUSED), and RAID and
+  //  task stored the raw string verbatim.
+  it("M1: every AI email writer judges and stores the unwrapped address", () => {
+    const { result } = renderDispatcher();
+    const task = result.current.createTask({ taskName: "Mail", assignee: "Ada", dueDate: "2026-06-01", assigneeEmail: "Ada Lovelace <ada@x.com>" } as never);
+    expect(result.current.listTasks().find((r) => r.id === task.id)?.assigneeEmail).toBe("ada@x.com");
+    result.current.updateTask(task.id, { assigneeEmail: "Bob<bob@x.com>" });
+    expect(result.current.listTasks().find((r) => r.id === task.id)?.assigneeEmail).toBe("bob@x.com");
+
+    const raid = result.current.createRaid({ title: "Risk", category: "R", ownerEmail: "Ann Lee <ann@x.com>" } as never);
+    expect(result.current.getRaidRow(raid.id)?.ownerEmail).toBe("ann@x.com");
+    result.current.updateRaid(raid.id, { ownerEmail: "Cara<cara@x.com>" } as never);
+    expect(result.current.getRaidRow(raid.id)?.ownerEmail).toBe("cara@x.com");
+
+    const stk = result.current.createStakeholder({ name: "Sam", email: "Sam Poe <sam@x.com>" } as never);
+    expect(result.current.getStakeholderRow(stk.id)?.email).toBe("sam@x.com");
+    const abs = result.current.createAbsence({ assignee: "Al", startDate: "2026-06-01", endDate: "2026-06-02", type: "vacation", assigneeEmail: "Al Bee <al@x.com>" } as never);
+    expect(result.current.getAbsenceRow(abs.id)?.assigneeEmail).toBe("al@x.com");
+    expect(() => result.current.createResource({ firstName: "Res", lastName: "One", email: "Res One <res@x.com>", emails: ["Two Tee <two@x.com>"] } as never)).not.toThrow();
+
+    // A shape the unwrap cannot prove equal is judged as sent, and still refused.
+    expect(() => result.current.createRaid({ title: "Torn", category: "R", ownerEmail: "Name <a,b@x.com>" } as never)).toThrow(/ownerEmail/);
+  });
+
   it("M6: a CHANGED optional date is still judged strictly — a refused one leaves the stored value, a valid one lands, a clear clears", () => {
     const { result } = renderOptionalRawProbe();
     result.current.updateRaid(3, { targetDate: "2026-02-29", closedDate: "" });

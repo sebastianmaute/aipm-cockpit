@@ -28,7 +28,7 @@ import { t } from "./i18n";
 import {
   sanitizeAssignee,
   sanitizeBlockers,
-  sanitizeEmail,
+  sanitizeLoadedEmail,
   sanitizeGroup,
   sanitizeIsoDate,
   sanitizeLabels,
@@ -303,7 +303,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!taskName) throw new Error("taskName is required");
         if (!assignee) throw new Error("assignee is required");
         if (!dueDate) throw new Error("dueDate must be YYYY-MM-DD");
-        const email = sanitizeEmail(input.assigneeEmail);
+        const email = sanitizeLoadedEmail(input.assigneeEmail); // ★ M1: the unwrapped address, as every AI email write stores
         refuseEmailWrite("assigneeEmail", email, undefined);
         const baseTask: Task = {
           id,
@@ -649,7 +649,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //  `findTornEmail` (`sanitize-core.ts`) with no stored list: an ARRAY
         //  holding an address with "," or ";" fails naming the field and nothing
         //  is written; a STRING is a delimited list and is split by design.
-        const unsafeEmail = findTornEmail(input.emails, undefined);
+        const unsafeEmail = findTornEmail(input.emails, undefined, true); // M1: judged unwrapped, as sanitizeResource stores
         if (unsafeEmail !== undefined) throw new Error(`invalid resource: ${emailsRefusalText(unsafeEmail)}`);
         refuseEmailWrite("email", input.email, undefined);
         const id = mintId("resource", resourcesRef.current);
@@ -702,7 +702,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //    an address is allowed, and the removal is what the card shows.
         //  ★ The whole call is refused, never just the field: the inline edit
         //   keeps a refused `emails` out of its patch on the plan side.
-        const unsafeEmail = findTornEmail(patch.emails, existing.emails);
+        const unsafeEmail = findTornEmail(patch.emails, existing.emails, true); // M1: judged unwrapped
         if (unsafeEmail !== undefined) throw new Error(`invalid resource update: ${emailsRefusalText(unsafeEmail)}`);
         refuseEmailWrite("email", patch.email, existing.email);
         // ★★★ `name` HAS TO BE SPLIT HERE OR IT IS A SILENT NO-OP ON UPDATE, and

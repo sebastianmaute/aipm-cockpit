@@ -15,6 +15,7 @@
 //  row keeps its stale copy and is not counted.
 import type { Absence, ContactPerson, RaidItem, Resource, Shift, Stakeholder, Task } from "./types";
 import { BUDGET_NAME_MAX } from "./sanitize-entities";
+import { normalizeEmailShape } from "./sanitize-core";
 
 /** ★★ `stamp` (M3) is the resource save's own `localModifiedAt`. A retargeted row
  *  changed content, so it is stamped exactly as a direct edit of it would be —
@@ -53,11 +54,16 @@ const fold = (s: string | undefined): string => (s ?? "").trim().toLowerCase();
  *  (a case-only correction included); a blank old email propagates nothing,
  *  because a blank cache must never be filled by this, and a blank NEW email
  *  propagates nothing either — clearing a person's address is not a
- *  correction, and must never blank the copies linked rows hold. */
+ *  correction, and must never blank the copies linked rows hold.
+ *  ★★ M1: equality is judged `Name <addr>`-UNWRAPPED. An AI write stores the
+ *  unwrapped address, so an UNRELATED edit of a resource holding
+ *  "Ada L <old@x.com>" rewrites it to "old@x.com" — a shape change, not a
+ *  correction, which must never retarget linked rows. `from` stays the stored
+ *  spelling, since that is what a linked row's cached copy holds. */
 export function resourceEmailChange(before: Resource, after: Resource): ResourceEmailChange | null {
   const from = (before.email ?? "").trim();
   const to = (after.email ?? "").trim();
-  if (from === "" || to === "" || from === to) return null;
+  if (from === "" || to === "" || normalizeEmailShape(from) === normalizeEmailShape(to)) return null;
   const stamp = after.localModifiedAt;
   return typeof stamp === "string" && stamp !== "" ? { resourceId: after.id, from, to, stamp } : { resourceId: after.id, from, to };
 }

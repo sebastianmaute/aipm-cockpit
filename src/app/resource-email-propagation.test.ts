@@ -30,6 +30,15 @@ describe("resourceEmailChange", () => {
     // Positive control: a real correction still yields a change.
     expect(resourceEmailChange(ada, { ...ada, email: "new@x.com" })).not.toBeNull();
   });
+  // ★★ M1: an AI write stores the unwrapped address, so a stored `Name <addr>`
+  //  becomes `addr` on an UNRELATED edit. That is a shape change, not a
+  //  correction, and must never retarget linked rows.
+  it("M1: is null when the two addresses differ only by the Name <addr> shape", () => {
+    expect(resourceEmailChange({ ...ada, email: "Bob<old@x.com>" }, { ...ada, email: "old@x.com" })).toBeNull();
+    expect(resourceEmailChange({ ...ada, email: "old@x.com" }, { ...ada, email: "Ada L <old@x.com>" })).toBeNull();
+    // Positive control: a different address inside the same shape is a change.
+    expect(resourceEmailChange({ ...ada, email: "Bob<old@x.com>" }, { ...ada, email: "new@x.com" })).not.toBeNull();
+  });
   it("describes any other change, a case-only change included", () => {
     expect(resourceEmailChange(ada, { ...ada, email: "new@x.com" })).toEqual({ resourceId: 7, from: "old@x.com", to: "new@x.com" });
     expect(resourceEmailChange(ada, { ...ada, email: "Old@x.com" })).toEqual({ resourceId: 7, from: "old@x.com", to: "Old@x.com" });

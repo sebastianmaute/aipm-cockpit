@@ -22,8 +22,8 @@ import {
   optMultiline,
   optText,
   sanitizeAbsenceNote,
-  sanitizeEmailList,
   sanitizeIdList,
+  sanitizeLoadedResourceEmails,
 } from "../sanitize-entities";
 import {
   TASK_NAME_MAX,
@@ -31,7 +31,7 @@ import {
   fkIdOrUndefined,
   sanitizeAssignee,
   sanitizeBlockers,
-  sanitizeEmail,
+  sanitizeLoadedEmail,
   sanitizeGroup,
   sanitizeTaskName,
   sanitizeText,
@@ -52,6 +52,7 @@ import {
   acceptsCostAmount,
   acceptsRiskScale,
   acceptsScheduleDays,
+  sanitizeLoadedStakeholderEmail,
   sanitizeMilestoneTaskIds,
 } from "../sanitize-records";
 import { ABSENCE_FIELD_GUARDS, CALENDAR_EVENT_FIELD_GUARDS } from "../sanitize-allowlist-guards";
@@ -274,7 +275,7 @@ export interface EntityDescriptor {
    *   `buildTaskCleanPatch` THROWS "assigneeEmail is invalid" when
    *   `isValidEmail` fails, and a throw there fails the WHOLE patch, so every
    *   other field in the same edit is lost with it. `sanitizeRaidItem` runs the
-   *   same `sanitizeEmail` over `ownerEmail` and simply stores the result with
+   *   same `sanitizeLoadedEmail` over `ownerEmail` and simply stores the result with
    *   no format guard at all, so rejecting there would be the preview inventing
    *   a rule apply does not have.
    *
@@ -457,7 +458,8 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     fieldSanitizers: {
       taskName: sanitizeTaskName,
       assignee: sanitizeAssignee,
-      assigneeEmail: sanitizeEmail,
+      // ★ M1: every AI email write stores the `Name <addr>`-unwrapped value, so the card shows it.
+      assigneeEmail: sanitizeLoadedEmail,
       blockers: sanitizeBlockers,
       group: sanitizeGroup,
     },
@@ -492,7 +494,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     fieldSanitizers: {
       title: text(TASK_NAME_MAX),
       owner: text(BUDGET_NAME_MAX),
-      ownerEmail: sanitizeEmail,
+      ownerEmail: sanitizeLoadedEmail, // M1: unwrap-then-cap, as `sanitizeRaidItem` stores
     },
     linkFields: {
       linkedTaskIds: { wsKey: "tasks", kind: "list", titleOf: (r) => str(r.taskName), sanitize: sanitizeIdList },
@@ -626,7 +628,8 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       name: text(BUDGET_NAME_MAX),
       organization: text(BUDGET_NAME_MAX),
       title: text(BUDGET_NAME_MAX),
-      email: text(BUDGET_NAME_MAX),
+      // ★ M1: `sanitizeStakeholder`'s own reader — unwrap `Name <addr>` THEN cap at 200.
+      email: sanitizeLoadedStakeholderEmail,
       notes: text(TEXTAREA_MAX),
     },
     // ★ `Stakeholder.raci` IS a relationship, but `stakeholderFields` does not
@@ -689,7 +692,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // different helpers across these ten fields — four for the nine text ones,
     // plus a predicate for the tenth:
     //   • firstName/lastName → `sanitizeAssignee` (trim + ASSIGNEE_MAX 200)
-    //   • email              → `sanitizeEmail`    (trim + EMAIL_MAX 320)
+    //   • email              → `sanitizeLoadedEmail` (unwrap `Name <addr>`, trim + EMAIL_MAX 320)
     //   • the five optional single-line fields → `optText` (trim, NO cap)
     //   • notes              → `optMultiline`     (CRLF→LF, trim, NO cap)
     //   • isExternal         → `isExternalFlag`   (the predicate below)
@@ -707,7 +710,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     fieldSanitizers: {
       firstName: sanitizeAssignee,
       lastName: sanitizeAssignee,
-      email: sanitizeEmail,
+      email: sanitizeLoadedEmail,
       title: optionalText,
       department: optionalText,
       company: optionalText,
@@ -731,15 +734,17 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       //  a primary changed in the same call" (plan.test.ts).
       // ★ Joined with ", " like every other list this module renders (`str`,
       //  `resolveLinkTitles`); the writer's `[;,]` split accepts it back.
-      // ★★ THE PRIMARY GOES THROUGH `sanitizeEmail` FIRST, exactly as
-      //  `sanitizeResource` does it — the raw `row.email` is NOT the value the
-      //  writer de-dupes against. `sanitizeEmail` trims and clips to
-      //  `EMAIL_MAX`, and `sanitizeEmailList` compares on an EXACT
+      // ★★ THE PRIMARY GOES THROUGH THE WRITER'S OWN READER FIRST — the raw
+      //  `row.email` is NOT the value the writer de-dupes against. It trims and
+      //  clips to `EMAIL_MAX`, and the list dedupe compares on an EXACT
       //  `primary.toLowerCase()`, so `{ email: "  Bob@X.com  ", emails:
       //  ["bob@x.com"] }` dropped the extra in the write and KEPT it in the
       //  preview. Same divergence for an over-`EMAIL_MAX` primary.
-      emails: (v, row) =>
-        sanitizeEmailList(v, typeof row.email === "string" ? sanitizeEmail(row.email) || undefined : undefined).join(", "),
+      // ★★★ M1: that reader is now `sanitizeLoadedResourceEmails` WHOLE — the
+      //  exact pair `sanitizeResource` stores, `Name <addr>` members and primary
+      //  unwrapped. Calling `sanitizeEmailList` alone showed "Two <two@x.com>"
+      //  while the write stored "two@x.com".
+      emails: (v, row) => sanitizeLoadedResourceEmails(row.email, v).emails.join(", "),
     },
     // ★★★ `roleId` IS writable — it is listed as absent from `diffFields` above
     //  under "an FK, excluded by the same rule as Task.resourceId", and that
@@ -801,7 +806,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  `text(TEXTAREA_MAX)`, which would be the wrong family AND a restated cap.
     fieldSanitizers: {
       assignee: sanitizeAssignee,
-      assigneeEmail: sanitizeEmail,
+      assigneeEmail: sanitizeLoadedEmail,
       note: sanitizeAbsenceNote,
     },
     // ★★★ THE WHOLE-ROW RULE `fieldSanitizers` CANNOT EXPRESS. `sanitizeAbsence`

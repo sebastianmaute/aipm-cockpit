@@ -52,7 +52,7 @@ import {
   TEXTAREA_MAX,
   toNumber,
   sanitizeText,
-  sanitizeEmail, sanitizeLoadedEmail, normalizeEmailShape,
+  sanitizeLoadedEmail, normalizeEmailShape,
   sanitizeIsoDate, type RequiredDateReader,
   fkIdOrUndefined,
   isPlainObject,
@@ -787,7 +787,8 @@ function raidWithDateReader(input: unknown, readOptional: RequiredDateReader): R
   if (mitigation) item.mitigation = mitigation;
   const owner = sanitizeText(o.owner, BUDGET_NAME_MAX);
   if (owner) item.owner = owner;
-  const ownerEmail = sanitizeEmail(o.ownerEmail);
+  // ★ M1: unwrap-then-cap, as every other AI email write stores (and every load already reads).
+  const ownerEmail = sanitizeLoadedEmail(o.ownerEmail);
   if (ownerEmail) item.ownerEmail = ownerEmail;
   const ownerResourceId = fkIdOrUndefined(o.ownerResourceId);
   if (ownerResourceId !== undefined) item.ownerResourceId = ownerResourceId;
