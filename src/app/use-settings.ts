@@ -277,6 +277,10 @@ export function useSettings(): {
               (parsed as Record<string, unknown>).tasksViewMode === "board" ? "board"
               : (parsed as Record<string, unknown>).tasksViewMode === "swimlane" ? "swimlane"
               : "table",
+            budgetChartView:
+              (parsed as Record<string, unknown>).budgetChartView === "cumulative" ? "cumulative" : "burndown",
+            budgetChartUnit:
+              (parsed as Record<string, unknown>).budgetChartUnit === "hours" ? "hours" : "eur",
             selfResourceId: sanitizeSelfResourceId((parsed as Record<string, unknown>).selfResourceId),
             digest: sanitizeDigestConfig((parsed as Record<string, unknown>).digest),
             dictation: {

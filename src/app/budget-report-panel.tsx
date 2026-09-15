@@ -28,7 +28,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { ratioHealth, marginHealth, costPerformanceHealth, planVsBudgetHealth } from "./budget-health";
 import { computeBurndownSeries } from "./budget-burndown";
 import { resolveBucketChain } from "./budget-bucket-chain";
-import { BurndownCharts } from "./burndown-chart";
+import { BurndownChartPanel } from "./burndown-chart-panel";
 import { BurndownChainWarning } from "./budget-chain-warning";
 import { EmptyState } from "./empty-state";
 import { ViewCallout } from "./view-callout";
@@ -176,7 +176,7 @@ export function BudgetReportPanel({
             §465). ★ Contrast `budget-panel.tsx`'s per-bucket tiles, which
             convert EUR→bucket currency BEFORE labelling and so correctly use
             the bucket's own currency. */}
-        <BurndownCharts series={burndown} lang={lang} currency="EUR" />
+        <BurndownChartPanel lang={lang} series={burndown} bundle={bundle} today={today} planEnd={plan.endDate} currency="EUR" />
         <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
       </Section>
 

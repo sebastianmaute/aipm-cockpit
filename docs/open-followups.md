@@ -35973,7 +35973,7 @@ deliberately so: snapshots already persisted in a Turso project carry a non-EUR 
 a reader-side fix relabels those. `89ee78a7` then dropped the `latest` prop from `TrendsPanelProps`,
 which had become dead. The consequence is that the whole chain from the writer through the persisted
 column and its decode is still live, and **nothing reads the decoded value**. The `currency` passed
-to `BurndownCharts` from `dashboard-tile-bodies.tsx` is not this field — it is the dashboard args'
+to `BurndownChartPanel` from `dashboard-tile-bodies.tsx` is not this field — it is the dashboard args'
 own relabelled `"EUR"` literal.
 
 Deferred rather than folded into the currency-boundary slice because removing the field is a schema

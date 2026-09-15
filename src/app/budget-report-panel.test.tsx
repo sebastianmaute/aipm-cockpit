@@ -131,10 +131,15 @@ describe("BudgetReportPanel", () => {
     expect(screen.queryByRole("button", { name: /print/i })).toBeNull();
   });
 
-  it("renders the burn-down section with both chart captions", () => {
+  it("renders the burn-down section with its chart switches", () => {
     renderPanel();
-    expect(screen.getByText("Burn-down")).toBeTruthy();
-    expect(screen.getByText("Hours remaining")).toBeTruthy();
+    // A bare `getByText("Burn-down")` now matches the section heading AND the
+    // orientation radio, so each is asked for by role.
+    expect(screen.getByRole("heading", { name: "Burn-down" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Burn-down" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Hours" })).toBeInTheDocument();
+    // The default device view (vitest.setup.ts clears localStorage after every test).
+    expect(screen.getByText("Budget remaining")).toBeInTheDocument();
   });
 
   it("shows a RAG badge on the Actual (h) cell judged vs budget hours", () => {
@@ -162,19 +167,20 @@ describe("BudgetReportPanel", () => {
     // helper already hardcodes `formatCurrency(n, "EUR", …)` for the
     // co-rendered cost/EVM tiles, which are rate-derived in exactly the same way.
     renderPanel({ plan: { ...plan, currency: "USD" } });
-    // Scoped to the CURRENCY chart: `Chart` renders `<div>{caption}</div><svg>`,
-    // so the caption's parent is that chart alone. The twin hours chart carries
-    // no money and would only dilute the count.
+    // Scoped to the € chart: `BurndownChart` renders `<div>{caption}</div><svg>`,
+    // so the caption's parent is that chart alone ("Budget remaining" is the
+    // default burn-down × € view).
     const valueChart = screen.getByText(/Budget remaining/i).parentElement!;
 
     // ★★★ THE POSITIVE CONTROL. `queryByText(/\$/) === null` passes just as
     // happily when the query is wrong, the scope is empty, or the chart failed
-    // to render. `getAllByText` THROWS on zero matches, and the exact count
-    // proves the axis is populated. MEASURED, not reasoned: 3 — `Chart` emits
-    // one `<text>` per y-tick and `yTicks` is `[0, max/2, max]` whenever
-    // `max > 0`.
-    const money = within(valueChart).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
-    expect(money).toHaveLength(3);
+    // to render. The exact count proves the axis is populated. Y ticks only
+    // (`data-axis="y"`): forecast end labels are money too and would blur the
+    // claim. Ticks are `[yMin if below zero, 0, total/2, total]`, and this
+    // fixture is OVER budget (Gamma books 120 h against 80, so actual spend
+    // exceeds the budget and the actual line ends below zero) → 4.
+    const money = Array.from(valueChart.querySelectorAll("svg text[data-axis='y']")).map((el) => el.textContent ?? "");
+    expect(money).toHaveLength(4);
     expect(money.filter((s) => s.includes("$"))).toEqual([]);
     expect(money.every((s) => s.includes("€"))).toBe(true);
   });

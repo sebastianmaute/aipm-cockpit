@@ -1442,14 +1442,15 @@ describe("DashboardPanel currency labelling", () => {
 
   it("labels the burn-down value axis in EUR even when the plan names another currency", () => {
     renderUsdDashboard();
-    // Scoped to the CURRENCY chart: `Chart` renders `<div>{caption}</div><svg>`,
-    // so the caption's parent is that chart alone. The twin hours chart carries
-    // no money and would only dilute the count.
+    // Scoped to the € chart: `BurndownChart` renders `<div>{caption}</div><svg>`,
+    // so the caption's parent is that chart alone ("Budget remaining" is the
+    // default burn-down × € view).
     const valueChart = screen.getByText(/Budget remaining/i).parentElement!;
 
-    // MEASURED, not reasoned: 3 — `Chart` emits one `<text>` per y-tick and
-    // `yTicks` is `[0, max/2, max]` whenever `max > 0`.
-    const money = within(valueChart).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
+    // Y ticks only (`data-axis="y"`): forecast end labels are money too. Ticks
+    // are `[yMin if below zero, 0, total/2, total]`; this fixture books 40 h of
+    // 100 h, nothing reaches below zero, so yMin is 0 and deduplicates → 3.
+    const money = Array.from(valueChart.querySelectorAll("svg text[data-axis='y']")).map((el) => el.textContent ?? "");
     expect(money).toHaveLength(3);
     expect(money.filter((s) => s.includes("$"))).toEqual([]);
     expect(money.every((s) => s.includes("€"))).toBe(true);

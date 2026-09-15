@@ -37,7 +37,7 @@ import { RagDot } from "./rag-dot";
 import { RagBadge } from "./rag-badge";
 import { ratioHealth } from "./budget-health";
 import { changeImpactRag } from "./change-log";
-import { BurndownCharts } from "./burndown-chart";
+import { BurndownChartPanel } from "./burndown-chart-panel";
 import { BurndownChainWarning } from "./budget-chain-warning";
 import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
 import { VarianceSummary } from "./variance-summary";
@@ -290,7 +290,14 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
         {model.burndown ? (
           <div className="mt-3">
             <BurndownChainWarning lang={lang} chain={model.bucketChain} />
-            <BurndownCharts series={model.burndown} lang={lang} currency={a.currency} />
+            <BurndownChartPanel
+              lang={lang}
+              series={model.burndown}
+              bundle={model.forecastBundle}
+              today={model.chartDates.today}
+              planEnd={model.chartDates.planEnd}
+              currency={a.currency}
+            />
           </div>
         ) : null}
         {model.burn ? (
