@@ -5,6 +5,16 @@
  * own ETC so there is no jump at today, and their end labels carry the
  * forecast's own figures. `frameDiffers` tells the surface to say so when the
  * chart's totals and the forecast's BAC/AC disagree (fixed price, bucket window).
+ *
+ * Overdue projects (Controller ruling — spec silent): a forecast segment always
+ * runs from the last actual point to `planEnd`. Once the project has slipped
+ * past its own plan end — `last.date >= planEnd` — that span is zero or
+ * negative, so a real (non-zero) ETC would draw backward or straight down/up
+ * instead of forward. Rather than draw a stub with no forward meaning, the
+ * model omits BOTH forecast segments and the run-out circle entirely once the
+ * project is overdue; the actual line itself is untouched, and the surface
+ * (Task 12) should read "no forecast" from `pace`/`efficiency`/`runOut` all
+ * being null rather than from a special-cased x position.
  */
 import { isEfficiencyAvailable, isPaceAvailable, type BudgetForecast } from "./budget-forecast";
 import { actualPointDates, type BurndownSeries } from "./budget-burndown";
@@ -18,7 +28,15 @@ export type ChartSegment = { from: ChartPoint; to: ChartPoint; endFigure: number
 export type ChartModel = {
   empty: boolean; xDomain: readonly [string, string]; yDomain: readonly [number, number]; total: number;
   planned: readonly ChartPoint[]; actual: readonly ChartPoint[]; over: boolean;
-  pace: ChartSegment | null; efficiency: ChartSegment | null; runOut: ChartPoint | null; ev: ChartPoint | null;
+  pace: ChartSegment | null; efficiency: ChartSegment | null;
+  /** Zero-value marker at the pace forecast's `runOutDate` (working-day math,
+   *  from `PaceForecast.runOutDate`). The pace SEGMENT is a straight line in
+   *  CALENDAR days between two points (`last` and `planEnd`); the circle sits
+   *  at a date derived by counting only WORKING days forward from today. The
+   *  two are different measures over the same axis, so the circle is not
+   *  guaranteed to land exactly on the segment's line — that is not a bug for
+   *  Task 12 to "fix" by snapping one to the other. */
+  runOut: ChartPoint | null; ev: ChartPoint | null;
   evLine: readonly ChartPoint[] | null; evHistoryBlockedBy: readonly string[] | null;
   bacLine: number | null; today: string | null; planEnd: string; frameDiffers: boolean;
 };
@@ -76,16 +94,20 @@ export function buildChartModel(input: ChartInput): ChartModel {
   let runOut: ChartPoint | null = null;
   let ev: ChartPoint | null = null;
   if (forecast && last) {
-    const segment = (etc: number, figure: number): ChartSegment => ({
-      from: last, to: { date: planEnd, value: down ? last.value - etc : last.value + etc }, endFigure: figure,
-    });
-    const p = forecast.pace;
-    if (isPaceAvailable(p)) {
-      pace = segment(p.etc, down ? p.vac : p.eac);
-      if (p.runOutDate !== null && p.runOutDate <= planEnd) runOut = { date: p.runOutDate, value: down ? 0 : total };
+    // Overdue guard (see module docstring): a segment from `last` to `planEnd`
+    // is only forward-meaningful while there is a forward span to draw it on.
+    if (last.date < planEnd) {
+      const segment = (etc: number, figure: number): ChartSegment => ({
+        from: last, to: { date: planEnd, value: down ? last.value - etc : last.value + etc }, endFigure: figure,
+      });
+      const p = forecast.pace;
+      if (isPaceAvailable(p)) {
+        pace = segment(p.etc, down ? p.vac : p.eac);
+        if (p.runOutDate !== null && p.runOutDate <= planEnd) runOut = { date: p.runOutDate, value: down ? 0 : total };
+      }
+      const e = forecast.efficiency;
+      if (isEfficiencyAvailable(e)) efficiency = segment(e.etc, down ? e.vac : e.eac);
     }
-    const e = forecast.efficiency;
-    if (isEfficiencyAvailable(e)) efficiency = segment(e.etc, down ? e.vac : e.eac);
     if (forecast.facts.ev !== null) ev = { date: last.date, value: fromCumulative(forecast.facts.ev) };
   }
 

@@ -32,3 +32,20 @@ export const CHART_FORECAST: BudgetForecast = {
   gap: null,
   hasFixedPrice: false,
 };
+
+// The hours-basis twin of CHART_FORECAST — every figure divided by 100 (the
+// implicit €/hour ratio baked into CHART_SERIES: 9_000 € / 90 h), so it lines
+// up with CHART_SERIES's hours arrays (total 90, last actual 50 at
+// "2026-02-14" in burndown orientation → cumulative-spent 40, matching
+// facts.ac here for a frameDiffers === false case). Used by Task 11's
+// hours-unit + forecast coverage test.
+export const CHART_FORECAST_HOURS: BudgetForecast = {
+  facts: { bac: 90, ac: 40, remaining: 50, ev: 36, percentComplete: 40 },
+  pace: {
+    burnRatePerDay: 2, windowDays: 20, windowStart: "2026-01-19", windowEnd: "2026-02-13", spreadPeriodHoursUsed: false,
+    workingDaysLeft: 30, etc: 60, eac: 100, vac: -10, runOutDate: "2026-03-20", daysBeforePlannedEnd: 11,
+  },
+  efficiency: { pv: 45, cpi: 0.9, spi: 0.8, etc: 70, eac: 110, vac: -20 },
+  gap: null,
+  hasFixedPrice: false,
+};

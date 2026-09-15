@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildChartModel, daysBetweenUtc, scaleDate, scaleValue, type ChartInput } from "./burndown-geometry";
-import { CHART_SERIES, CHART_FORECAST } from "../test/chart-fixtures";
+import { CHART_SERIES, CHART_FORECAST, CHART_FORECAST_HOURS } from "../test/chart-fixtures";
 import type { BurndownSeries } from "./budget-burndown";
 import type { BudgetForecast } from "./budget-forecast";
 
@@ -60,6 +60,17 @@ describe("buildChartModel — cumulative", () => {
     expect(m.ev?.value).toBe(3_600);
     expect(m.bacLine).toBe(9_000);
   });
+  it("plots the full planned line in cumulative values, not just the burn-down reading", () => {
+    // Pins the cumulative orientation's own transform (fromCumulative(total -
+    // remaining) = total - remaining when down is false) so a mutant that
+    // pushed the raw `remaining` for planned points — mathematically
+    // indistinguishable from the correct value in burn-down orientation, since
+    // fromCumulative flips it back there — is caught here instead.
+    expect(m.planned).toEqual([
+      { date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 3_000 },
+      { date: "2026-02-28", value: 6_000 }, { date: "2026-03-31", value: 9_000 },
+    ]);
+  });
   it("draws the earned-value history only here", () => {
     const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 1_000, hours: 10 }, { date: "2026-02-14", eur: 3_600, hours: 36 }] };
     expect(buildChartModel({ ...base, orientation: "cumulative", evHistory }).evLine).toEqual([
@@ -87,6 +98,25 @@ describe("buildChartModel — edges", () => {
     const m = buildChartModel({ ...base, unit: "hours", forecast: null });
     expect(m.total).toBe(90);
     expect(m.actual[m.actual.length - 1].value).toBe(50);
+  });
+  it("plots the full planned line from the hours arrays, not the € ones", () => {
+    // Pins `plannedRemaining = eurUnit ? …Value : …Hours` end to end — a
+    // mutant that always read the € array would still pass a total/last-point
+    // check (values happen to differ) but fails this full-array comparison
+    // against the hours figures (60,30,0 vs €'s 6000,3000,0).
+    const m = buildChartModel({ ...base, unit: "hours", forecast: null });
+    expect(m.planned).toEqual([
+      { date: "2026-01-01", value: 90 }, { date: "2026-01-31", value: 60 },
+      { date: "2026-02-28", value: 30 }, { date: "2026-03-31", value: 0 },
+    ]);
+  });
+  it("computes forecast segments in the hours unit", () => {
+    const m = buildChartModel({ ...base, unit: "hours", forecast: CHART_FORECAST_HOURS });
+    expect(m.total).toBe(90);
+    expect(m.pace).toEqual({ from: { date: "2026-02-14", value: 50 }, to: { date: "2026-03-31", value: -10 }, endFigure: -10 });
+    expect(m.efficiency?.to.value).toBe(-20);
+    expect(m.efficiency?.endFigure).toBe(-20);
+    expect(m.frameDiffers).toBe(false);
   });
   it("draws no forecast when it is unavailable or absent", () => {
     const unavailable = { ...CHART_FORECAST, pace: { unavailable: "no-burn", windowStart: "a", windowEnd: "b", lastBookingDate: null }, efficiency: { unavailable: "no-actual-cost" } } as BudgetForecast;
@@ -144,5 +174,34 @@ describe("buildChartModel — edges", () => {
     expect(m.actual).toEqual([
       { date: "2026-01-01", value: 9_000 }, { date: "2026-01-31", value: 7_000 },
     ]);
+  });
+  it("has no forecast segments or run-out for an overdue project (Controller ruling: last.date >= planEnd)", () => {
+    // Monthly plan ending mid-month, today after it — the shape from the
+    // review finding: a forecast segment from the last actual point to
+    // planEnd would run backward/vertical instead of forward.
+    const overdueSeries: BurndownSeries = {
+      periods: ["2026-03"], periodStarts: ["2026-03-01"], periodEnds: ["2026-03-31"],
+      plannedRemainingHours: [0], plannedRemainingValue: [0],
+      actualRemainingHours: [10], actualRemainingValue: [1_000],
+      todayIndex: 0, totalBudgetHours: 90, totalBudgetValue: 9_000,
+    };
+    const m = buildChartModel({ ...base, series: overdueSeries, today: "2026-03-20", planEnd: "2026-03-15" });
+    expect(m.pace).toBeNull();
+    expect(m.efficiency).toBeNull();
+    expect(m.runOut).toBeNull();
+    // The actual line itself is untouched by the overdue guard.
+    expect(m.actual.length).toBeGreaterThan(0);
+    expect(m.actual[m.actual.length - 1]).toEqual({ date: "2026-03-20", value: 1_000 });
+  });
+  it("has no forecast segments exactly at the plan-end boundary (last.date === planEnd)", () => {
+    const m = buildChartModel({ ...base, planEnd: "2026-02-14" });
+    expect(m.pace).toBeNull();
+    expect(m.efficiency).toBeNull();
+    expect(m.runOut).toBeNull();
+  });
+  it("still has a forecast the day before the plan end (last.date < planEnd)", () => {
+    const m = buildChartModel({ ...base, planEnd: "2026-02-15" });
+    expect(m.pace).not.toBeNull();
+    expect(m.efficiency).not.toBeNull();
   });
 });
