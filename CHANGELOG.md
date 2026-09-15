@@ -8,6 +8,50 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.5.0] - 2026-09-15 "Highsmith"
+
+TimeLog actuals keep their booking days, so hours applied from TimeLog stay counted when a plan
+switches between monthly and weekly periods. Closes follow-up 169; opens 543, 544 and 545.
+
+**Upgrade note:** do not roll back past this release once TimeLog hours have been applied. An older
+build does not recognise the new day keys and drops those actual hours when it loads the project.
+
+### Changed
+
+- **TimeLog Apply keeps booking days.** Apply writes each person's hours per booking day into the
+  budget line and replaces every period it covers as a whole, including hours typed by hand into
+  that period. The budget report, the burn-down and the Budget view add day hours into whichever
+  month or week contains them, so changing the plan granularity after a fetch or an Apply no longer
+  leaves hours under keys the report never reads.
+- **A period holding TimeLog hours is read-only in the Budget view.** Its actual cell shows the
+  period total and explains "From TimeLog. Re-apply to change." on hover and to screen readers.
+  Periods without TimeLog hours stay editable.
+- **The TimeLog cache stores day hours compactly.** Each device keeps fetched bookings in a packed
+  form, about a quarter of the unpacked size, so a large project fits the storage budget. Caches
+  saved by an earlier build still load.
+
+### Added
+
+- **A warning when fetched bookings cannot be saved on this device.** If the browser refuses to
+  store the TimeLog cache, the TimeLog panel says so and suggests applying the bookings now or
+  freeing browser storage. The stale cached copy is removed, so a reload shows the bookings as not
+  fetched rather than an older fetch.
+
+### Fixed
+
+- **Re-applying the same TimeLog bookings changes nothing.** Hours with decimals, including
+  minute-based bookings with more than two decimals, no longer leave a "0.99 → 1.00" change that the
+  Budget view's unapplied notice keeps reporting.
+
+### Known issues
+
+- After an Apply at one granularity, a period value typed by hand at the other granularity is kept
+  and added to the day hours once the plan switches back; re-applying at that granularity removes it
+  (follow-up 543).
+- A booking dated on a day that does not exist, such as 2026-02-30, lands in February in the
+  monthly view but in March in the weekly view (follow-up 544).
+- The AI dashboard snapshot and the exports do not carry budget forecast figures yet (follow-up 545).
+
 ## [1.4.0] - 2026-09-14 "Hammett"
 
 A new Version panel and start-window branding, plus five interface fixes: Outlook
