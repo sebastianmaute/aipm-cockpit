@@ -37,6 +37,6 @@ describe("buildTaskSeedFromAction", () => {
     expect(seed.taskName).toBe("Budget: Acme");
     expect(seed.description.startsWith("<p>From: ")).toBe(true);
     expect(seed.description).toContain("Budget");
-    expect(seed.description).toContain("Cost performance below target (CPI 0.80)");
+    expect(seed.description).toContain("Cost performance below target (Effort CPI 0.80)");
   });
 });

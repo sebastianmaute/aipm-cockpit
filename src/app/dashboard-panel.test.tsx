@@ -375,11 +375,11 @@ describe("DashboardPanel budget-burn CPI stat", () => {
   // holds just Sub-budget + "h"). The EVM row renders only when there's estimate
   // coverage; its CPI tile sits beside the SPI tile.
   function evmCpiTile(): HTMLElement {
-    const spiTile = screen.getByText("SPI").closest("div.rounded-lg") as HTMLElement;
+    const spiTile = screen.getByText("Effort SPI").closest("div.rounded-lg") as HTMLElement;
     // Each hinted tile is wrapped in a `div.relative` (tooltip sibling), so the
     // shared EVM row is the wrapper's parent, not the tile's direct parent.
     const evmRow = spiTile.parentElement?.parentElement as HTMLElement;
-    return within(evmRow).getByText("CPI").closest("div.rounded-lg") as HTMLElement;
+    return within(evmRow).getByText("Effort CPI").closest("div.rounded-lg") as HTMLElement;
   }
 
   it("shows the CPI value in the EVM row when model.evm.cpi is present", () => {
@@ -422,8 +422,8 @@ describe("DashboardPanel budget-burn CPI stat", () => {
     // The burn row (the flex row containing the "h" tile) must NOT contain a CPI
     // tile — CPI now lives only in the EVM row, so CPI appears exactly once.
     const burnRow = (screen.getByText("h").closest("div.rounded-lg") as HTMLElement).parentElement as HTMLElement;
-    expect(within(burnRow).queryByText("CPI")).toBeNull();
-    expect(screen.getAllByText("CPI")).toHaveLength(1);
+    expect(within(burnRow).queryByText("Effort CPI")).toBeNull();
+    expect(screen.getAllByText("Effort CPI")).toHaveLength(1);
   });
 });
 

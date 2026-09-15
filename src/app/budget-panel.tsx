@@ -100,9 +100,11 @@ export interface BudgetPanelProps {
   onGoToTimelog?: () => void;
 }
 
-/** Builds the Cci-shaped value for the cost-recovery tile (`budgetCciRecovery`;
- *  it was the "CPI" tile before this branch renamed the key, and a test in this
- *  panel now asserts the panel renders no `/CPI/` at all): `costPerformanceIndex` is a
+/** Builds the Cci-shaped value for the internal-cost-index tile (`budgetCciInternalCostIndex`;
+ *  it was the "CPI" tile, then the "Cost recovery" tile under an earlier key
+ *  before this branch renamed it again — bare "CPI" now means the forecast's
+ *  price-based index (spec §11), and a test in this panel asserts the panel
+ *  renders no `/CPI/` at all): `costPerformanceIndex` is a
  *  0-1 ratio (not the 0-100 percent every other CciValue.percent carries), so
  *  it is scaled ×100 here at the one render boundary rather than in the pure
  *  engine. `earnedValue` is EUR, like every other CciValue.amount — callers
@@ -392,7 +394,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={report.project.contributionMargin} currency={projCur} locale={locale} lang={lang} rag={marginHealth(report.project.contributionMargin.percent)} unknown={!costIsKnowable(report.project)} />
           <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={report.project.costPerformance} currency={projCur} locale={locale} lang={lang} rag={costPerformanceHealth(report.project.costPerformance.percent)} primary="percent" unknown={!costIsKnowable(report.project)} />
-          <Cci label={t(lang, "budgetCciRecovery")} hint={t(lang, "budgetCciRecoveryHint")} value={cpiCciValue(report.project.earnedValue, report.project.costPerformanceIndex)} currency={projCur} locale={locale} lang={lang} rag={costPerformanceIndexHealth(report.project.costPerformanceIndex)} primary="percent" unknown={report.project.costPerformanceIndex === null} />
+          <Cci label={t(lang, "budgetCciInternalCostIndex")} hint={t(lang, "budgetCciInternalCostIndexHint")} value={cpiCciValue(report.project.earnedValue, report.project.costPerformanceIndex)} currency={projCur} locale={locale} lang={lang} rag={costPerformanceIndexHealth(report.project.costPerformanceIndex)} primary="percent" unknown={report.project.costPerformanceIndex === null} />
           <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={report.project.consumption} currency={projCur} locale={locale} lang={lang} rag={ratioHealth(report.project.consumedValue, report.project.budgetValue)} primary="percent" />
         </div>
         <CostUnknownNotice
@@ -535,7 +537,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     on top of the same internal-rate basis burn/margin need —
                     so it is gated on its OWN null-ness, not `costIsKnowable`
                     alone (a rated bucket with no progress set is still "—"). */}
-                <Cci label={t(lang, "budgetCciRecovery")} hint={t(lang, "budgetCciRecoveryHint")} scopeName={bucketToken} value={cci(cpiCciValue(br.earnedValue, br.costPerformanceIndex))} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceIndexHealth(br.costPerformanceIndex)} primary="percent" unknown={br.costPerformanceIndex === null} />
+                <Cci label={t(lang, "budgetCciInternalCostIndex")} hint={t(lang, "budgetCciInternalCostIndexHint")} scopeName={bucketToken} value={cci(cpiCciValue(br.earnedValue, br.costPerformanceIndex))} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceIndexHealth(br.costPerformanceIndex)} primary="percent" unknown={br.costPerformanceIndex === null} />
                 {/* Consumption is an EXTERNAL-rate ratio — knowable without a
                     rate card, so it is deliberately not gated. */}
                 <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} scopeName={bucketToken} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} primary="percent" />
