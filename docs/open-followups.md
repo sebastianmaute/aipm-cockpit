@@ -761,7 +761,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--open) | A repeated resource deep link re-runs the open while that resource's editor is open — OPEN | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | open |
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--open) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | open |
-| [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union`; same class as §542 | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
+| [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
 | [§545](#545-the-ai-dashboard-snapshot-and-every-export-carry-none-of-the-budget-forecast-figures--open) | The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN | deferred 2026-09-15 by the budget forecast union spec §9 | M — add the forecast figures to the snapshot and exports once MR 2 ships them | open |
 <!-- INDEX:END -->
 
@@ -37914,7 +37914,8 @@ Fix shape: reject calendar-invalid dates in `aggregateActuals` with a UTC round 
 `undated` beside the existing shape check. Not in the codec: rejecting there would silently drop hours already
 applied and saved.
 
-Related: §542 (the same class in calendar events), §543.
+Related: §543. The same calendar-invalid-date class also affects calendar-event dates; that is tracked
+separately on another branch.
 
 ## 545. The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN
 
@@ -37924,8 +37925,9 @@ prints nothing today.
 
 **Work item:** #335
 
-The budget forecast union adds contract-price facts, an "at current pace" and an "at current efficiency" forecast
-and the gap between them to Reports → Budget report, the dashboard "Budget burn" tile and the Budget view. The
+The budget forecast union will add contract-price facts, an "at current pace" and an "at current efficiency"
+forecast and the gap between them to Reports → Budget report, the dashboard "Budget burn" tile and the Budget
+view (MR 2 of that slice; 1.5.0 ships none of it). The
 AI dashboard snapshot (`ai-dashboard-snapshot.ts`) and every export carry none of those figures, and after the
 planned renames the snapshot's `evm.spi` / `evm.cpi` become the effort indices without saying so.
 

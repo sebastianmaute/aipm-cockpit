@@ -27,8 +27,8 @@ build does not recognise the new day keys and drops those actual hours when it l
   period total and explains "From TimeLog. Re-apply to change." on hover and to screen readers.
   Periods without TimeLog hours stay editable.
 - **The TimeLog cache stores day hours compactly.** Each device keeps fetched bookings in a packed
-  form, about a quarter of the unpacked size, so a large project fits the storage budget. Caches
-  saved by an earlier build still load.
+  form, several times smaller than the unpacked one, so a large project fits the storage budget.
+  Caches saved by an earlier build still load.
 
 ### Added
 
@@ -37,20 +37,15 @@ build does not recognise the new day keys and drops those actual hours when it l
   freeing browser storage. The stale cached copy is removed, so a reload shows the bookings as not
   fetched rather than an older fetch.
 
-### Fixed
-
-- **Re-applying the same TimeLog bookings changes nothing.** Hours with decimals, including
-  minute-based bookings with more than two decimals, no longer leave a "0.99 → 1.00" change that the
-  Budget view's unapplied notice keeps reporting.
-
 ### Known issues
 
-- After an Apply at one granularity, a period value typed by hand at the other granularity is kept
-  and added to the day hours once the plan switches back; re-applying at that granularity removes it
-  (follow-up 543).
+- After an Apply at one granularity, a period value at the other granularity is kept and added to
+  the day hours once the plan switches back — whether it was typed by hand or written by an Apply
+  before 1.5.0. For example, apply on a monthly plan in 1.4.0, apply again on a weekly plan in
+  1.5.0, then switch back to monthly: that month counts its TimeLog hours twice. Re-applying at the
+  monthly granularity removes the extra value (follow-up 543).
 - A booking dated on a day that does not exist, such as 2026-02-30, lands in February in the
   monthly view but in March in the weekly view (follow-up 544).
-- The AI dashboard snapshot and the exports do not carry budget forecast figures yet (follow-up 545).
 
 ## [1.4.0] - 2026-09-14 "Hammett"
 
