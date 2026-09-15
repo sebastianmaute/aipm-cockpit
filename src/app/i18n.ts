@@ -647,6 +647,100 @@ const enUS = {
   burndownActual: "Actual",
   burndownToday: "today",
   budgetReportTitle: "Budget Report",
+  forecastTitle: "Forecasts",
+  forecastWhatIs: "What is {0}?",
+  forecastFactBac: "Budget (BAC)",
+  forecastFactAc: "Actuals (AC)",
+  forecastFactRemaining: "Remaining",
+  forecastFactEv: "Earned value (EV)",
+  forecastPaceTitle: "At current pace",
+  forecastPaceQuestion: "spending continues as in the last {0} working days",
+  forecastEfficiencyTitle: "At current efficiency",
+  forecastEfficiencyQuestion: "remaining work costs what finished work cost",
+  forecastEacPace: "EAC at current pace",
+  forecastEacEfficiency: "EAC at current efficiency",
+  forecastVacPace: "VAC at current pace",
+  forecastVacEfficiency: "VAC at current efficiency",
+  forecastEtcPace: "ETC at current pace",
+  forecastEtcEfficiency: "ETC at current efficiency",
+  forecastBurnRate: "Burn rate",
+  forecastPerDay: "{0}/day",
+  forecastRunOut: "Runs out",
+  forecastRunOutBefore: "{0}, {1} days before plan end",
+  forecastRunOutAfter: "{0}, {1} days after plan end",
+  forecastRunOutOnEnd: "{0}, on the plan end",
+  forecastRunOutAlready: "Already used up",
+  forecastCpi: "CPI",
+  forecastSpi: "SPI",
+  forecastNeeds: "Needs",
+  forecastPaceNotEnough: "Not enough recent bookings",
+  forecastPaceNoBurn: "No recent bookings",
+  forecastEfficiencyNeedsPercent: "Needs linked tasks or a % complete",
+  forecastEfficiencyNoCost: "Nothing spent yet",
+  forecastEfficiencyNoEarned: "Nothing earned yet",
+  forecastFixedPriceNote: "Fixed price: the overrun is internal effort; the client price does not change.",
+  forecastWindowLine: "Burn rate from {0} – {1} ({2} working days)",
+  forecastGapInfo: "The forecasts differ by {0} ({1} of budget).",
+  forecastGapWarning: "Warning: the forecasts differ by {0} ({1} of budget).",
+  forecastExtraDaysTerm: "Extra working days",
+  forecastGapExtraDays:
+    "At current efficiency the work needs {0} working days beyond the planned end; the pace forecast assumes it finishes on time.",
+  forecastBannerStartsOn:
+    "The current-pace forecast starts on {0}. It needs {1} working days of bookings; there are {2} so far, starting {3}.",
+  forecastBannerStartsOnceBooked:
+    "The current-pace forecast starts once hours are booked. It needs {0} working days of bookings.",
+  forecastBannerNoBurn:
+    "No hours were booked in the last {0} working days ({1} – {2}), so there is no current-pace forecast.",
+  forecastBannerLastBooking: "Last booking: {0}.",
+  forecastBannerSpreadMonth:
+    "Part of the burn rate comes from hours entered per month. They were spread evenly over that month's working days.",
+  forecastBannerSpreadWeek:
+    "Part of the burn rate comes from hours entered per week. They were spread evenly over that week's working days.",
+  forecastBannerNeedsPercent:
+    "The current-efficiency forecast needs a % complete on every budget bucket. Missing: {0}.",
+  forecastShortStartsOn: "Pace forecast from {0}",
+  forecastShortOnceBooked: "Pace forecast starts once hours are booked",
+  forecastShortNoBurn: "No recent bookings",
+  forecastShortSpread: "Burn rate partly from hours entered per period",
+  forecastShortNeedsPercent: "Efficiency forecast needs a % complete",
+  forecastTileRange: "EAC {0}–{1} · VAC {2} to {3}",
+  forecastTileSingle: "EAC {0} · VAC {1}",
+  forecastTileRunsOut: "runs out {0}",
+  forecastTileActuals: "Actuals {0} of {1}",
+  forecastLinkRange: "Forecast: EAC {0}–{1}",
+  forecastLinkSingle: "Forecast: EAC {0}",
+  forecastLinkStartsOn: "Forecast from {0}",
+  forecastLinkOnceBooked: "Forecast starts once hours are booked",
+  forecastLinkNoBurn: "No recent bookings",
+  forecastTipBac:
+    "Budget at completion: the total contract value of all budget buckets, {0}. Everything below is measured against it.",
+  forecastTipAc:
+    "Actual cost: the value of all hours booked so far, {0}. Fixed-price buckets count their share of the contract without the cap, so an overrun shows.",
+  forecastTipRemaining: "Remaining budget: budget {0} − actual cost {1} = {2}.",
+  forecastTipEv:
+    "Earned value: the budget value of the work actually finished, {0} ({1} complete). It can be lower than what was spent (AC) when work costs more than planned.",
+  forecastTipPace:
+    "Assumes spending continues at the average of the last {0} working days until the planned end date. It looks at the calendar only: it assumes the work is finished on the planned end, whether or not progress supports that. This is the AIPM Project Burndown method.",
+  forecastTipEfficiency:
+    "Assumes the remaining work will cost as much per unit as the finished work did. It looks at scope only: what finishing the rest of the work will cost, whatever the calendar says. This is the standard earned value (EVM) method.",
+  forecastTipEac: "Estimate at completion: actual cost {0} + ETC {1} = {2}. Above the budget means an overrun.",
+  forecastTipVac:
+    "Variance at completion: budget − estimate at completion. Negative means the budget will be overrun by this amount: {0} − {1} = {2}.",
+  forecastTipEtcPace:
+    "Estimate to complete: what is still to be spent. At current pace = burn rate {0} × {1} working days left = {2}.",
+  forecastTipEtcEfficiency:
+    "Estimate to complete: what finishing the remaining work will cost. (Budget {0} − earned value {1}) ÷ CPI {2} = {3}.",
+  forecastTipCpi:
+    "Cost performance index: earned value {0} ÷ actual cost {1} = {2}. 1.00 means work costs what was budgeted; below 1 means it costs more than planned.",
+  forecastTipSpi:
+    "Schedule performance index: earned value {0} ÷ planned value {1} = {2}. Below 1 means behind the planned schedule.",
+  forecastTipBurnRate: "Average value booked per working day: {0} over the last {1} working days = {2} per day.",
+  forecastTipRunOut:
+    "The working day on which the remaining budget {0} is used up at {1} per day. Before the plan end means the budget runs out early.",
+  forecastTipNeeds:
+    "Percent complete, from the tasks linked to each budget bucket or a manual % complete on the bucket. Without it, this card cannot be calculated and shows what is missing.",
+  forecastTipExtraDays:
+    "At current efficiency the remaining work needs ETC {0} ÷ burn rate {1} = {2} working days, {3} more than are left before the plan end.",
   budgetReportEmpty: "No budget buckets yet.",
   budgetReportProjectTotal: "Project total",
   budgetReportByBucket: "By bucket",
