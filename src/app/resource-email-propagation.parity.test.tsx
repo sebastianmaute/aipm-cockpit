@@ -154,6 +154,36 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
     expect(showToastAction).toHaveBeenLastCalledWith("info", t("en-US", "undoToastEdit", 1), expect.anything());
   });
 
+  it("M-C3: a real correction retargets a linked row holding a Name <addr> copy, on both writers, and undo restores it exactly", () => {
+    const wrapped: TestSeed = { ...seed, tasks: [{ ...(seed.tasks![0] as Task), assigneeEmail: "Ada <old@x.com>" }] };
+    const human = renderHook(() => {
+      const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
+      return {
+        undo,
+        directory: useResourceDirectory({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), captureComposite: undo.captureComposite, captureFieldEdit: undo.captureFieldEdit, logUpdate: vi.fn() }),
+        ws: useWorkspace(),
+      };
+    }, { wrapper: ({ children }: { children: ReactNode }) => <TestProviders seed={wrapped}>{children}</TestProviders> });
+    const ai = renderHook(() => {
+      const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
+      return { undo, d: useChatDispatcher(makeDispatcherArgs({ undo })), ws: useWorkspace() };
+    }, { wrapper: dispatcherWrapperWith(wrapped) });
+
+    act(() => { human.result.current.directory.handleEditResource(ada); });
+    act(() => { human.result.current.directory.handleSaveResource({ ...ada, email: "new@x.com" }); });
+    act(() => { ai.result.current.d.updateResource(7, { email: "new@x.com" }); });
+    for (const { ws } of [human.result.current, ai.result.current]) {
+      expect(ws.resources[0].email).toBe("new@x.com"); // control: the correction landed
+      expect(ws.tasks[0].assigneeEmail).toBe("new@x.com");
+    }
+
+    act(() => { human.result.current.undo.undo(); });
+    act(() => { ai.result.current.undo.undo(); });
+    for (const { ws } of [human.result.current, ai.result.current]) {
+      expect(ws.tasks[0].assigneeEmail).toBe("Ada <old@x.com>");
+    }
+  });
+
   it("keeps the plain edit toast on the AI path when nothing propagates", () => {
     const { ai, showToastAction } = renderAi();
     act(() => { ai.result.current.d.updateResource(7, { title: "Lead" }); });

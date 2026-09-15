@@ -55,6 +55,20 @@ describe("propagateResourceEmail", () => {
     expect(out.count).toBe(1);
   });
 
+  // ★★ M-C3: a linked row may still hold a human-typed `Name <addr>` copy after an
+  //  unrelated AI edit unwrapped the resource's own address (which no longer
+  //  propagates, M1). A later REAL correction must still reach that copy, so the
+  //  match is judged unwrapped on both sides.
+  it("M-C3: retargets a linked row holding a Name <addr> copy of the old address, from either spelling", () => {
+    const wrappedRow = propagateResourceEmail(change, input({ tasks: [task({ assigneeEmail: "Ada <old@x.com>" })] }));
+    expect(wrappedRow.tasks.edited.map((r) => r.assigneeEmail)).toEqual(["Ada <old@x.com>"]);
+    expect(wrappedRow.tasks.next[0].assigneeEmail).toBe("new@x.com");
+    const wrappedFrom = propagateResourceEmail({ ...change, from: "Ada L <old@x.com>" }, input({ tasks: [task({ assigneeEmail: "old@x.com" })] }));
+    expect(wrappedFrom.tasks.next[0].assigneeEmail).toBe("new@x.com");
+    // Control: a wrapped DIFFERENT address is still not a match.
+    expect(propagateResourceEmail(change, input({ tasks: [task({ assigneeEmail: "Ada <other@x.com>" })] })).tasks.edited).toHaveLength(0);
+  });
+
   it("leaves a different cache, a blank cache and an unlinked row untouched", () => {
     const rows = [task({ id: 1, assigneeEmail: "other@x.com" }), task({ id: 2, assigneeEmail: "" }), task({ id: 3, resourceId: undefined })];
     const out = propagateResourceEmail(change, input({ tasks: rows }));

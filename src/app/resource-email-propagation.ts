@@ -73,6 +73,13 @@ function stamped<T extends { localModifiedAt?: string }>(row: T, change: Resourc
   return change.stamp === undefined ? row : { ...row, localModifiedAt: change.stamp };
 }
 
+/** ★★ M-C3: the match key is `Name <addr>`-UNWRAPPED on BOTH sides, with the same
+ *  `normalizeEmailShape` `resourceEmailChange` judges by. A linked row can still hold
+ *  a human-typed "Ada <old@x.com>" copy after an unrelated AI edit unwrapped the
+ *  resource's own address (a shape change, which does not propagate), and a later
+ *  real correction must still reach that copy. */
+const matchKey = (s: string | undefined): string => fold(normalizeEmailShape(s ?? ""));
+
 function retarget<T>(
   rows: readonly T[],
   change: ResourceEmailChange,
@@ -81,8 +88,9 @@ function retarget<T>(
   withEmail: (row: T, value: string) => T,
 ): ArrayPropagation<T> {
   const edited: T[] = [];
+  const from = matchKey(change.from);
   const next = rows.map((row) => {
-    if (!linked(row) || fold(email(row)) !== fold(change.from)) return row;
+    if (!linked(row) || matchKey(email(row)) !== from) return row;
     edited.push(row);
     return withEmail(row, change.to);
   });
@@ -116,8 +124,8 @@ export function retargetContactPersonEmails(rows: readonly ContactPerson[], chan
 }
 
 /** The undo of a contact-person retarget. `retarget` matches case- and
- *  space-insensitively, so a row may have held the old address spelled
- *  differently from `change.from` (" Old@X.com "). `ContactPerson` has no id
+ *  space-insensitively and `Name <addr>`-unwrapped, so a row may have held the
+ *  old address spelled differently from `change.from` (" Old@X.com ").`ContactPerson` has no id
  *  (§537), so each linked row now holding `change.to` is paired, in order, with
  *  an unconsumed before-image of the SAME name and gets that row's own stored
  *  email back byte-for-byte. A row no before-image pairs with — one linked and
