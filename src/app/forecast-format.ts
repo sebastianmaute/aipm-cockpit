@@ -1,11 +1,29 @@
 /** Locale formatting for the budget forecast surfaces. Forecast money is EUR (engine unit). Dates are ISO days read in UTC. */
+// Fix round 2: some locales (measured: de-DE) do not abbreviate compact
+// currency below roughly EUR1M at maximumSignificantDigits:3 -- Intl just
+// rounds to 3 significant digits and prints the full grouped number with no
+// K/M-style suffix, which reads as an EXACT figure rather than a rounded
+// one (261_150 -> "261.000 €"). en-US/en-GB always carry a compact suffix at
+// every magnitude, so this only bites locales like de-DE. Detect the
+// no-suffix case via `formatToParts`'s `type: "compact"` part and fall back
+// to the ordinary (non-compact) currency format in that case, which prints
+// the real, non-rounded figure instead.
 export function formatMoneyCompact(amount: number, locale: string): string {
-  return new Intl.NumberFormat(locale, {
+  const compactFormatter = new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "EUR",
     notation: "compact",
     maximumSignificantDigits: 3,
-  }).format(amount);
+  });
+  const isCompacted = compactFormatter.formatToParts(amount).some((part) => part.type === "compact");
+  if (!isCompacted) {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "EUR",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  }
+  return compactFormatter.format(amount);
 }
 
 export function formatSignedPercent(ratio: number, locale: string, fractionDigits: 0 | 1): string {

@@ -11,15 +11,19 @@ describe("forecast-format", () => {
     // abbreviation at every magnitude; this pins the >=1M case that the
     // original brief's test never exercised.
     expect(formatMoneyCompact(1_240_000, "en-US")).toBe("€1.24M");
-    // Fix round 1, finding 3 (re-measured after the significant-digits
-    // change): the de-DE assertion is a hardcoded literal measured once on
-    // this machine's Node (a live `Intl` call built from the same options as
-    // the implementation could never disagree with itself). At 3 significant
-    // digits, 261_150 rounds to 261_000 and this Node's ICU still does not
-    // abbreviate de-DE compact currency at this magnitude -- it prints the
-    // full grouped number with a non-breaking space ( ) before the
-    // currency symbol.
-    expect(formatMoneyCompact(261_150, "de-DE")).toBe("261.000 €");
+    // Fix round 2: this Node's ICU does not abbreviate de-DE compact
+    // currency below roughly EUR1M at maximumSignificantDigits:3 -- it
+    // rounds to 3 significant digits and prints the full grouped number
+    // with NO K/M-style suffix, which would read as an exact figure
+    // ("261.000 €") rather than the rounded one it actually is. The
+    // implementation detects the missing `type: "compact"` part in
+    // `formatToParts` and falls back to the ordinary (non-compact,
+    // maximumFractionDigits:0) currency format, which prints the real,
+    // non-rounded figure instead. Literals are hardcoded, measured once on
+    // this machine's Node (both carry a non-breaking space,  , before
+    // "Mio."/"€").
+    expect(formatMoneyCompact(261_150, "de-DE")).toBe("261.150 €");
+    expect(formatMoneyCompact(1_240_000, "de-DE")).toBe("1,24 Mio. €");
   });
 
   it("signed percent", () => {
