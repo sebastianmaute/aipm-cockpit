@@ -191,9 +191,31 @@ export const DESKTOP_VERSION_REQUEST_EVENT = "aipm-cockpit-desktop-version-reque
 // literal. Wrapping the whole `detail` object in one JSON.stringify call
 // covers the event name argument too, so there is exactly one non-literal
 // value on each side of the CustomEvent constructor and both go through it.
-export function versionRequestScript(logPath: string): string {
+//
+// ★★ `open` IS PART OF THE CONTRACT, NOT JUST THE PATH. There are now TWO
+// senders: a priming ping fired once per page load (`did-finish-load`, both
+// the main window and every popout -- see the `web-contents-created` listener
+// in main.ts) with `open: false`, which only lets the page remember the log
+// path so it is already known the first time the panel opens; and the actual
+// Help -> Version menu click, with `open: true`. The app's root listener
+// (use-desktop-version-request.ts) only flips its modal open on the latter.
+//
+// ★★★ THE RETURN VALUE IS THE FIX FOR THE SILENT NO-OP. `executeJavaScript`
+// resolves with the COMPLETION VALUE of the injected script, so wrapping the
+// whole thing in one IIFE makes that value `!window.dispatchEvent(ev)` --
+// `dispatchEvent` returns `false` only when a listener called
+// `preventDefault()` on a `cancelable` event, so `!dispatchEvent(...)` is
+// `true` exactly when SOMETHING handled the request. main.ts reads that
+// boolean to decide whether to retry on the main window (see
+// `requestVersionPanel`). The IIFE also keeps `ev` out of the page's global
+// scope: two separate `executeJavaScript` calls both declaring a top-level
+// `const` in the SAME global lexical environment throw "already declared" on
+// the second one (a documented `Runtime.evaluate`/`executeJavaScript`
+// footgun) -- an IIFE gives each call its own function scope instead.
+export function versionRequestScript(logPath: string, open: boolean): string {
   return (
-    `window.dispatchEvent(new CustomEvent(${JSON.stringify(DESKTOP_VERSION_REQUEST_EVENT)}, ` +
-    `{ detail: ${JSON.stringify({ logPath })} }));`
+    `(() => { const ev = new CustomEvent(${JSON.stringify(DESKTOP_VERSION_REQUEST_EVENT)}, ` +
+    `{ cancelable: true, detail: ${JSON.stringify({ logPath, open })} }); ` +
+    `return !window.dispatchEvent(ev); })();`
   );
 }

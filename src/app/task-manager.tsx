@@ -454,13 +454,17 @@ function TaskManagerInner() {
     return () => window.removeEventListener("aipm-cockpit-secret-unreadable", onSecretUnreadable);
   }, [showToast, lang]);
 
-  // Desktop shell's Help → Version menu item asks the already-loaded page to
-  // open this modal (see use-desktop-version-request.ts for why this is a
-  // separate root-level instance rather than lifting ModernShell's own
-  // `versionOpen`). Called unconditionally here because TaskManagerInner is
-  // ONE component instance regardless of isPopout / settings.layout — the
-  // <VersionInfoModal> below is rendered from `modalsBlock`, which every
-  // returned tree (classic, popout, modern) includes.
+  // ★★★ FIX ROUND 1 (M3): THE ONLY VersionInfoModal IN THE APP, and its
+  // `openVersion` is now the ONE way anything opens it — the desktop shell's
+  // Help → Version menu event (handled inside the hook), the sidebar version
+  // line (ModernShell's `onOpenVersion` prop below), and the Settings footer
+  // (SettingsView's `onOpenVersion` prop) all end up calling the SAME state
+  // flip, so a second modal cannot exist by construction. Called
+  // unconditionally here because TaskManagerInner is ONE component instance
+  // regardless of isPopout / settings.layout — the <VersionInfoModal> below is
+  // rendered from `modalsBlock`, which every returned tree (classic, popout,
+  // modern) includes. See use-desktop-version-request.ts's docstring for the
+  // full history (it used to be a third, independently-owned instance).
   const desktopVersionRequest = useDesktopVersionRequest();
 
   // Observable copy of the portfolio registry. The storage hook persists the
@@ -2738,6 +2742,7 @@ function TaskManagerInner() {
       onChangeLearningConfig={isPopout ? undefined : (c) => setSettings((s) => ({ ...s, nextActionsLearning: c }))}
       onResetLearning={isPopout ? undefined : () => { void learning.reset(); }}
       onOpenInsights={isPopout ? undefined : () => setActiveTab("learning-insights")}
+      onOpenVersion={desktopVersionRequest.openVersion}
       requestSection={settingsSectionRequest}
       onSectionConsumed={clearSettingsSectionRequest}
       isPopout={isPopout}
@@ -3100,6 +3105,7 @@ function TaskManagerInner() {
         bannerCount={nowCount}
         onShowAlerts={() => setActiveTab("actions")}
         onOpenAiAssistant={aiAssistantOpener(settings.ai, () => openPopoutWindow("chat", settings.popout.reuseWindow))}
+        onOpenVersion={desktopVersionRequest.openVersion}
         search={
           <div className="min-w-0 w-44 max-w-[55vw] sm:w-72 lg:w-96">
             <GlobalSearchConnected lang={lang} />

@@ -119,40 +119,142 @@ describe("helpHashScript", () => {
   });
 });
 
+/** A minimal CustomEvent standing in for the real DOM constructor, so
+ *  versionRequestScript's output can be run (`new Function`) and observed
+ *  without a jsdom environment (this file is `@vitest-environment node`). */
+class StubCustomEvent {
+  readonly type: string;
+  readonly detail: unknown;
+  readonly cancelable: boolean;
+  defaultPrevented = false;
+  constructor(type: string, init?: { cancelable?: boolean; detail?: unknown }) {
+    this.type = type;
+    this.detail = init?.detail;
+    this.cancelable = init?.cancelable ?? false;
+  }
+  preventDefault(): void {
+    if (this.cancelable) this.defaultPrevented = true;
+  }
+}
+
+/**
+ * Actually EVALUATES a versionRequestScript() build, supplying `window` and
+ * `CustomEvent` as the exact free identifiers the real page provides --
+ * `new Function("window", "CustomEvent", "return " + script)` -- rather than
+ * pattern-matching the source text. `dispatchWith` stands in for the real
+ * `window.dispatchEvent` (in the packaged app: React's event listener,
+ * possibly calling `preventDefault()`); it decides what the script's
+ * `!window.dispatchEvent(ev)` completion value resolves to.
+ *
+ * ★★★ THIS IS WHAT M1 ASKED FOR: a "the substring is present" assertion
+ * cannot tell a correctly-JSON-encoded hostile path from one that merely
+ * LOOKS right, because the mutant it needs to catch (splicing the path into
+ * the script by hand) still contains the same characters SOMEWHERE in the
+ * output. Reading `dispatched.detail.logPath` back out of an event the
+ * script itself constructed is the only check that cannot be fooled that
+ * way -- either the string that comes out equals the string that went in,
+ * or it does not.
+ */
+function runScript(
+  script: string,
+  dispatchWith: (ev: StubCustomEvent) => boolean,
+): { result: unknown; dispatched: StubCustomEvent | null } {
+  let dispatched: StubCustomEvent | null = null;
+  const windowStub = {
+    dispatchEvent: (ev: StubCustomEvent): boolean => {
+      dispatched = ev;
+      return dispatchWith(ev);
+    },
+  };
+  const fn = new Function("window", "CustomEvent", `return ${script}`);
+  const result: unknown = fn(windowStub, StubCustomEvent);
+  return { result, dispatched };
+}
+
 describe("versionRequestScript", () => {
   it("dispatches the shared event name on window", () => {
-    const script = versionRequestScript("C:\\logs\\launch.log");
-    expect(script).toContain("window.dispatchEvent(new CustomEvent(");
+    const script = versionRequestScript("C:\\logs\\launch.log", true);
+    expect(script).toContain("new CustomEvent(");
+    expect(script).toContain("window.dispatchEvent(");
     expect(script).toContain(JSON.stringify(DESKTOP_VERSION_REQUEST_EVENT));
   });
 
-  it("carries the log path as detail.logPath, JSON-encoded", () => {
+  it("carries the log path and the open flag as one JSON-encoded detail object", () => {
     const logPath = "C:\\Users\\x\\AppData\\Local\\aipm-cockpit\\logs\\launch.log";
-    const script = versionRequestScript(logPath);
+    const script = versionRequestScript(logPath, true);
     // ★★★ A Windows log path holds backslashes -- string concatenation would
     // corrupt them. JSON.stringify is the only safe way to interpolate it
     // into a script string, and this asserts the ENCODED form is present,
     // not merely that the raw text appears somewhere (which a naive
     // concatenation would also satisfy for a path with no special chars).
-    expect(script).toContain(JSON.stringify({ logPath }));
+    // The stronger, mutation-resistant version of this claim is the actual
+    // evaluation below ("M1 fix").
+    expect(script).toContain(JSON.stringify({ logPath, open: true }));
   });
 
-  it("JSON-encodes a path holding a quote rather than breaking out of the string", () => {
-    // The attack-shaped case: a path containing a quote and a semicolon must
-    // not let the interpolated value terminate the script's own string
-    // literal or start a new statement.
-    const logPath = 'C:\\a"; alert(1); "\\b';
-    const script = versionRequestScript(logPath);
-    expect(script).toContain(JSON.stringify({ logPath }));
-    expect(script).not.toContain('alert(1); "\\b' + '", { detail:');
+  it("the open flag distinguishes a priming ping from an actual open request", () => {
+    // Main sends `open: false` once per page load (did-finish-load, to
+    // remember the log path without popping the modal) and `open: true`
+    // from the Help → Version menu click -- two different scripts, or the
+    // app's listener could not tell them apart.
+    const prime = versionRequestScript("x", false);
+    const openRequest = versionRequestScript("x", true);
+    expect(prime).toContain(JSON.stringify({ logPath: "x", open: false }));
+    expect(openRequest).toContain(JSON.stringify({ logPath: "x", open: true }));
+    expect(prime).not.toBe(openRequest);
   });
 
   it("produces a script that is itself valid JS with the expected shape", () => {
     // Not executed against a real `window` (this file runs under
     // @vitest-environment node) -- parsed, so a malformed interpolation that
     // still happens to contain the right substrings is still caught.
-    const script = versionRequestScript("C:\\logs\\launch.log");
+    const script = versionRequestScript("C:\\logs\\launch.log", true);
     expect(() => new Function(script)).not.toThrow();
+  });
+
+  describe("M1 fix: the log path survives a hostile round trip", () => {
+    const HOSTILE_PATHS = [
+      'C:\\Users\\a"b\\launch.log',
+      "C:\\Users\\a'b\\launch.log",
+      "C:\\Users\\a`b\\launch.log",
+      "C:\\Users\\a${b}\\launch.log",
+      "C:\\Users\\a</script>b\\launch.log",
+      "C:\\Users\\a\u2028b\\launch.log",
+      "C:\\trailing\\backslash\\",
+    ];
+
+    it("round-trips every hostile path exactly through an actual evaluation", () => {
+      for (const logPath of HOSTILE_PATHS) {
+        const script = versionRequestScript(logPath, true);
+        const { dispatched } = runScript(script, () => true);
+        expect(dispatched).not.toBeNull();
+        expect((dispatched as StubCustomEvent).detail).toEqual({ logPath, open: true });
+      }
+    });
+  });
+
+  describe("M4 fix: the returned expression reports whether a listener handled the request", () => {
+    it("evaluates to true when dispatchEvent reports the event was prevented (handled)", () => {
+      const script = versionRequestScript("x", true);
+      const { result } = runScript(script, (ev) => {
+        ev.preventDefault();
+        // dispatchEvent's own contract: false once the event was prevented.
+        return false;
+      });
+      expect(result).toBe(true);
+    });
+
+    it("evaluates to false when nothing handled it", () => {
+      const script = versionRequestScript("x", true);
+      const { result } = runScript(script, () => true);
+      expect(result).toBe(false);
+    });
+
+    it("creates the event as cancelable, or preventDefault could never suppress it", () => {
+      const script = versionRequestScript("x", true);
+      const { dispatched } = runScript(script, () => true);
+      expect((dispatched as StubCustomEvent).cancelable).toBe(true);
+    });
   });
 });
 

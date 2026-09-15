@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
-import { VersionInfoModal } from "./version-info";
 import { navLabelKey, type AppView, type NavGroup } from "./nav-config";
 import { type AppMode } from "./feature-modules";
 import { type ProjectSwitcherProps } from "./project-switcher";
@@ -20,6 +19,15 @@ interface ModernShellProps {
   bannerCount: number;
   onShowAlerts: () => void;
   onOpenAiAssistant?: () => void;
+  /** FIX ROUND 1 (M3): opens the app's ONE Version modal, owned at the
+   *  task-manager root (use-desktop-version-request.ts). This component no
+   *  longer owns a `versionOpen` boolean or renders its own
+   *  `<VersionInfoModal>` — it used to, and a desktop Help → Version request
+   *  arriving while that one was already open stacked a second live modal on
+   *  top of it (review-2-report.md M3). Optional so existing render tests
+   *  that omit it keep working; the sidebar version line is then a harmless
+   *  no-op click rather than a crash. */
+  onOpenVersion?: () => void;
   /** Rendered at the LEFT edge of the TopBar's action cluster (global search). */
   search?: React.ReactNode;
   topBarMenus: React.ReactNode;
@@ -46,6 +54,7 @@ interface ModernShellProps {
 export function ModernShell({
   lang, activeView, onNavigate, version, mode, bannerCount, onShowAlerts,
   onOpenAiAssistant,
+  onOpenVersion,
   search = null,
   topBarMenus, sidebarFooter, tasksSection, workspace,
   settingsView = null,
@@ -57,7 +66,6 @@ export function ModernShell({
   projectSwitcher,
   projectSwitcherTrailing,
 }: ModernShellProps) {
-  const [versionOpen, setVersionOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
   // Track the last-focused view rather than a mounted boolean so the guard is
   // idempotent under StrictMode's dev double-invoke of mount effects (a boolean
@@ -179,14 +187,14 @@ export function ModernShell({
                   navigateAndCloseDrawer,
                   () => {
                     setDrawerOpen(false);
-                    setVersionOpen(true);
+                    onOpenVersion?.();
                   },
                   t(lang, "sidebarCloseMenu"),
                 )}
               </div>
             </>
           )
-        : renderSidebar(collapsed, onToggleCollapsed, onNavigate, () => setVersionOpen(true))}
+        : renderSidebar(collapsed, onToggleCollapsed, onNavigate, () => onOpenVersion?.())}
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           lang={lang}
@@ -216,7 +224,6 @@ export function ModernShell({
           {content}
         </main>
       </div>
-      <VersionInfoModal lang={lang} open={versionOpen} onClose={() => setVersionOpen(false)} />
     </div>
   );
 }

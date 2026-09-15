@@ -87,6 +87,27 @@ describe("SettingsView", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ expertMode: false }));
   });
 
+  // ★★★ FIX ROUND 1 (M3): SettingsView no longer owns a `showVersion` boolean
+  // or renders its own <VersionInfoModal> — clicking the footer version link
+  // now calls the `onOpenVersion` prop, which task-manager.tsx wires to the
+  // app's ONE root-owned modal (use-desktop-version-request.ts).
+  it("calls onOpenVersion when the footer version link is clicked, and renders no dialog of its own", () => {
+    const onOpenVersion = vi.fn();
+    render(<SettingsView {...makeProps({ onOpenVersion })} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: new RegExp(`^${t("en-US", "versionVersion")} `) }),
+    );
+    expect(onOpenVersion).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog", { name: t("en-US", "version") })).toBeNull();
+  });
+
+  it("does not throw when onOpenVersion is omitted (the footer version link degrades to a no-op)", () => {
+    render(<SettingsView {...makeProps()} />);
+    expect(() =>
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${t("en-US", "versionVersion")} `) })),
+    ).not.toThrow();
+  });
+
   it("clicking a rail entry switches the visible section", () => {
     render(<SettingsView {...makeProps()} />);
     // Localization is an always-visible standalone rail entry.

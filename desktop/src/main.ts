@@ -167,6 +167,37 @@ function openReleasesPage(): void {
   });
 }
 
+// Runs `script` (a versionRequestScript() build) in `target` and reports
+// whether a listener handled it. NEVER throws or rejects -- a destroyed-
+// window race, a script error, and "nothing was listening" all fold into
+// `false`, logged where that is new information (an unexpected throw) and
+// silent where it is not (the caller already knows what an unhandled `false`
+// means and decides what to do about it -- see the show-version case, which
+// retries once).
+//
+// ★★★ THIS IS THE FIX FOR THE SILENT NO-OP. `pickPrintTarget` targets
+// whichever window is FOCUSED, which is correct for File → Print (the user
+// wants to print what they are looking at) but not for Version: a focused
+// window that is not a TaskManager page at all (the PDF/export popup, or an
+// external-link window `target="_blank"` spawns) has no listener, and
+// before this fix the event was dispatched into the void with nothing
+// logged and nothing shown. `versionRequestScript`'s return value
+// (`!window.dispatchEvent(ev)`) makes that observable from here.
+function requestVersionPanel(target: BrowserWindow, script: string): Promise<boolean> {
+  try {
+    return target.webContents.executeJavaScript(script).then(
+      (handled: unknown) => handled === true,
+      (e: unknown) => {
+        log(`version menu: ${String(e)}`);
+        return false;
+      },
+    );
+  } catch (e: unknown) {
+    log(`version menu: ${String(e)}`);
+    return Promise.resolve(false);
+  }
+}
+
 // HOW each Help menu action is carried out. WHICH action an id means is
 // decided by the pure `helpAction` in menu-model.ts, where it is
 // unit-testable and covered by the blocking root typecheck; this file owns
@@ -174,7 +205,7 @@ function openReleasesPage(): void {
 //
 // ★★★ EXHAUSTIVE BY ACTION, never a two-way ternary. This was `item.id ===
 // "help" ? openHelp : showVersion`, which silently treated EVERY other id as
-// the Version dialog -- so adding a third entry gave it the wrong handler
+// the Version handler -- so adding a third entry gave it the wrong handler
 // with nothing red anywhere.
 //
 // ★★★ AND IT MUST NOT THROW. This function runs EAGERLY inside buildMenu()'s
@@ -238,25 +269,34 @@ function helpMenuClick(id: HelpMenuItemId): () => void {
         // to the main window -- `pickPrintTarget` already encodes exactly
         // that decision (`liveWindow(focused ?? main)`), so this reuses it
         // rather than re-deciding the same liveness question a third way.
-        //
-        // ★ SAME LIVENESS + TRY/CATCH SHAPE AS open-help ABOVE: touching
-        // `webContents` on a destroyed window throws SYNCHRONOUSLY, so the
-        // try/catch is the whole safety net for the (vanishingly rare) race
-        // between the liveness check and the call.
         const target = pickPrintTarget(BrowserWindow.getFocusedWindow(), win);
         if (target === null) {
           log("version menu: no window to open the Version panel in");
           return;
         }
-        try {
-          void target.webContents
-            .executeJavaScript(versionRequestScript(join(logDir, "launch.log")))
-            .catch((e: unknown) => {
-              log(`version menu: ${String(e)}`);
-            });
-        } catch (e: unknown) {
-          log(`version menu: ${String(e)}`);
-        }
+        const script = versionRequestScript(join(logDir, "launch.log"), true);
+        // ★★★ RETRY ONCE ON THE MAIN WINDOW when the focused target did not
+        // handle it (requestVersionPanel's `false`). The focused window can
+        // be a non-TaskManager page (PDF/export popup, an external-link
+        // window) with no listener at all; `win` always carries one, because
+        // TaskManagerInner mounts the listener unconditionally. If the
+        // target already WAS `win`, or `win` itself is gone, there is
+        // nowhere left to retry -- log and stop.
+        void requestVersionPanel(target, script).then((handled) => {
+          if (handled) return;
+          if (target === win) {
+            log("version menu: no listener responded");
+            return;
+          }
+          const mainTarget = liveWindow(win);
+          if (mainTarget === null) {
+            log("version menu: no listener responded, and the main window is gone");
+            return;
+          }
+          void requestVersionPanel(mainTarget, script).then((handledOnMain) => {
+            if (!handledOnMain) log("version menu: no listener responded on the main window either");
+          });
+        });
       };
     case "open-releases":
       return openReleasesPage;
@@ -435,6 +475,45 @@ if (!app.requestSingleInstanceLock()) {
     } catch (e: unknown) {
       log(`second-instance: ${String(e)}`);
     }
+  });
+
+  // ★★★ PRIMES EVERY WINDOW'S REMEMBERED LOG PATH, main AND every popout
+  // alike, the moment its page finishes loading -- so the log-path row in
+  // the Version panel is never missing just because Help → Version happened
+  // to be clicked before the menu route ever fired for that window.
+  //
+  // ★ `web-contents-created` FIRES FOR EVERY WebContents THE APP EVER
+  // CREATES, not just `win`. Popouts are never built by THIS file -- the
+  // renderer's `window.open()` (src/app/broadcast-sync.ts openPopoutWindow)
+  // is turned into a real BrowserWindow by Electron's own DEFAULT
+  // window-open handling (no setWindowOpenHandler override anywhere in this
+  // shell), so main.ts holds no reference to a popout's BrowserWindow to
+  // attach a per-window listener to. Registering globally on `app` is the
+  // only way to reach one. It also covers `win` itself for free (its
+  // creation in start() fires this same event), so there is no separate
+  // "prime the main window" call anywhere else.
+  //
+  // ★ `web-contents-created` (a WebContents), not `browser-window-created`
+  // (a BrowserWindow whose `.webContents` you would then read) -- the two
+  // fire at the same moments for a window-backed WebContents, but this one
+  // hands over exactly the object `did-finish-load` lives on, with nothing
+  // to unwrap.
+  //
+  // ★ Scoped to the app's OWN origin (`APP_ORIGIN`) so this never touches
+  // the PDF/export popup or an external-link window (the Releases link,
+  // GitHub, LinkedIn) -- those pages have no listener for the dispatched
+  // event either way (dispatchEvent on an unlistened window is a harmless
+  // no-op), but there is nothing to prime there and no reason to run a
+  // script in a page we do not own.
+  app.on("web-contents-created", (_event, contents) => {
+    contents.on("did-finish-load", () => {
+      if (!contents.getURL().startsWith(APP_ORIGIN)) return;
+      void contents
+        .executeJavaScript(versionRequestScript(join(logDir, "launch.log"), false))
+        .catch((e: unknown) => {
+          log(`version prime: ${String(e)}`);
+        });
+    });
   });
 
   // ★★★ THE .catch IS LOAD-BEARING. Without it, a throw anywhere in start()

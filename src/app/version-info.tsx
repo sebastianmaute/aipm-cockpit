@@ -63,13 +63,18 @@ export function VersionInfoModal({
 }
 
 export function VersionInfo({ lang, logPath }: { lang: Lang; logPath?: string }) {
-  // ★ A plain render-time check, not the useSyncExternalStore dance
-  // PrintButton (task-manager-ui.tsx) needs: THIS component only ever mounts
-  // once its enclosing Modal's `open` becomes true, which starts false and
-  // flips only from a client-side click or event — never during the initial
-  // (possibly server) render — so there is no SSR/hydration pass to disagree
-  // with. `typeof navigator` guards the same test file rendering VersionInfo
-  // directly outside any Modal.
+  // ★ FIX ROUND 1 (M5): CORRECTED. This used to say VersionInfo "only ever
+  // mounts once its enclosing Modal's open becomes true" — true of
+  // VersionInfoModal, but not the only parent: VersionMenu (version-menu.tsx,
+  // the classic header's info-icon popover) renders THIS component directly
+  // inside a PopoverPanel, whose own `open` state also starts `false`. The
+  // CONCLUSION still holds for both: PopoverPanel returns `null` while closed
+  // (popover-panel.tsx's early `if (!open || ...) return null`), the same
+  // shape as Modal's `if (!open) return null` — so VersionInfo never renders
+  // during SSR either way, and a plain render-time `navigator` read (not the
+  // useSyncExternalStore dance PrintButton in task-manager-ui.tsx needs) is
+  // safe under BOTH parents. `typeof navigator` guards the same test file
+  // rendering VersionInfo directly, with no parent at all.
   const isDesktop =
     typeof navigator !== "undefined" && isDesktopShellUserAgent(navigator.userAgent);
   return (
