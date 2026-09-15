@@ -8,7 +8,7 @@ import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { formatDayMonthYear, formatHours } from "./forecast-format";
 import { TermTooltip } from "./budget-forecast-tooltip";
-import { scaleDate, scaleValue, type ChartModel, type ChartOrientation, type ChartPoint, type ChartSegment, type ChartUnit } from "./burndown-geometry";
+import { scaleDate, scaleValue, type ChartModel, type ChartOrientation, type ChartPoint, type ChartUnit } from "./burndown-geometry";
 
 const W = 640, H = 240, PAD_L = 64, PAD_R = 80, PAD_T = 16, PAD_B = 28;
 const X0 = PAD_L, X1 = W - PAD_R, Y_BOTTOM = H - PAD_B, Y_TOP = PAD_T;
@@ -21,14 +21,6 @@ function Swatch({ className, dash, width = 2.5 }: { className: string; dash?: st
       <line x1="0" y1="3" x2="22" y2="3" className={className} strokeWidth={width} strokeDasharray={dash} />
     </svg>
   );
-}
-
-/** The VAC a segment ends at, in BOTH orientations (spec §5.2: the chart's name
- *  summarises the end VAC values). `buildChartModel` sets a burn-down segment's
- *  `endFigure` to the forecast's VAC but a cumulative one's to its EAC, so the
- *  cumulative VAC is recovered in the chart's frame as `total − EAC`. */
-function segmentVac(segment: ChartSegment, orientation: ChartOrientation, total: number): number {
-  return orientation === "burndown" ? segment.endFigure : total - segment.endFigure;
 }
 
 export function BurndownChart({
@@ -48,11 +40,12 @@ export function BurndownChart({
     : (unit === "eur" ? "burndownValueCumulative" : "burndownHoursCumulative"));
   const aria = [t(lang, "burndownAria", caption, t(lang, unit === "eur" ? "burndownUnitEur" : "burndownUnitHours"))];
   if (model.runOut) aria.push(t(lang, "burndownAriaRunOut", formatDayMonthYear(model.runOut.date, locale)));
+  // Spec §5.2: the name carries the forecast's own VAC (the card figure) in BOTH
+  // orientations; `endFigure` is the EAC in cumulative, so it is not used here.
   if (model.pace && model.efficiency) {
-    aria.push(t(lang, "burndownAriaEnd",
-      fmt(segmentVac(model.pace, orientation, model.total)), fmt(segmentVac(model.efficiency, orientation, model.total))));
+    aria.push(t(lang, "burndownAriaEnd", fmt(model.pace.vac), fmt(model.efficiency.vac)));
   } else if (model.pace) {
-    aria.push(t(lang, "burndownAriaEndPace", fmt(segmentVac(model.pace, orientation, model.total))));
+    aria.push(t(lang, "burndownAriaEndPace", fmt(model.pace.vac)));
   }
   const yTicks = [...new Set([model.yDomain[0], 0, model.total / 2, model.total])].filter((v) => v >= model.yDomain[0]);
   const belowZero = model.yDomain[0] < 0;

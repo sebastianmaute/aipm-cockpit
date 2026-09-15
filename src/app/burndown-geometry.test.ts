@@ -34,9 +34,10 @@ describe("buildChartModel — burn-down, €", () => {
     expect(m.today).toBe("2026-02-14");
   });
   it("extends both forecasts from the last actual point by their ETC, labelled with VAC", () => {
-    expect(m.pace).toEqual({ from: { date: "2026-02-14", value: 5_000 }, to: { date: "2026-03-31", value: -1_000 }, endFigure: -1_000 });
+    expect(m.pace).toEqual({ from: { date: "2026-02-14", value: 5_000 }, to: { date: "2026-03-31", value: -1_000 }, endFigure: -1_000, vac: -1_000 });
     expect(m.efficiency?.to.value).toBe(-2_000);
     expect(m.efficiency?.endFigure).toBe(-2_000);
+    expect(m.efficiency?.vac).toBe(-2_000);
   });
   it("places the run-out at zero on its date, EV as work left, and opens the domain below zero", () => {
     expect(m.runOut).toEqual({ date: "2026-03-20", value: 0 });
@@ -56,6 +57,10 @@ describe("buildChartModel — cumulative", () => {
     expect(m.actual[m.actual.length - 1]).toEqual({ date: "2026-02-14", value: 4_000 });
     expect(m.pace?.to.value).toBe(10_000);
     expect(m.pace?.endFigure).toBe(10_000);
+    // The end LABEL is the EAC here, but `vac` stays the forecast's own VAC.
+    expect(m.pace?.vac).toBe(-1_000);
+    expect(m.efficiency?.endFigure).toBe(11_000);
+    expect(m.efficiency?.vac).toBe(-2_000);
     expect(m.runOut).toEqual({ date: "2026-03-20", value: 9_000 });
     expect(m.ev?.value).toBe(3_600);
     expect(m.bacLine).toBe(9_000);
@@ -113,9 +118,10 @@ describe("buildChartModel — edges", () => {
   it("computes forecast segments in the hours unit", () => {
     const m = buildChartModel({ ...base, unit: "hours", forecast: CHART_FORECAST_HOURS });
     expect(m.total).toBe(90);
-    expect(m.pace).toEqual({ from: { date: "2026-02-14", value: 50 }, to: { date: "2026-03-31", value: -10 }, endFigure: -10 });
+    expect(m.pace).toEqual({ from: { date: "2026-02-14", value: 50 }, to: { date: "2026-03-31", value: -10 }, endFigure: -10, vac: -10 });
     expect(m.efficiency?.to.value).toBe(-20);
     expect(m.efficiency?.endFigure).toBe(-20);
+    expect(m.efficiency?.vac).toBe(-20);
     expect(m.frameDiffers).toBe(false);
   });
   it("draws no forecast when it is unavailable or absent", () => {

@@ -52,6 +52,25 @@ describe("BurndownChart", () => {
     expect(aria).not.toContain(eur(11_000));
   });
 
+  it("names the forecast card's VAC, not a chart-frame figure, when the chart total differs from BAC", () => {
+    // BAC 9,500 against a 9,000 chart total (frameDiffers). EACs stay 10,000 / 11,000, so the
+    // card VACs are BAC − EAC = −500 / −1,500, while a chart-frame recomputation
+    // (total − EAC) would give −1,000 / −2,000.
+    const forecast = {
+      ...CHART_FORECAST,
+      facts: { ...CHART_FORECAST.facts, bac: 9_500 },
+      pace: { ...CHART_FORECAST.pace, vac: -500 },
+      efficiency: { ...CHART_FORECAST.efficiency, vac: -1_500 },
+    };
+    const { container } = draw({ orientation: "cumulative", forecast });
+    const aria = ariaOf(container);
+    expect(screen.getByText(/Chart totals differ from the forecast figures/)).toBeInTheDocument();
+    expect(aria).toContain(`At plan end: ${eur(-500)} at current pace, ${eur(-1_500)} at current efficiency.`);
+    // Chart-frame figures (total 9,000 − EAC 10,000 / 11,000) must not be named.
+    expect(aria).not.toContain(eur(-1_000));
+    expect(aria).not.toContain(eur(-2_000));
+  });
+
   it("names only the pace VAC when the efficiency forecast is unavailable", () => {
     const { container } = draw({ forecast: { ...CHART_FORECAST, efficiency: { unavailable: "no-earned-value" } } });
     expect(ariaOf(container)).toContain(`At plan end: ${eur(-1_000)} at current pace.`);

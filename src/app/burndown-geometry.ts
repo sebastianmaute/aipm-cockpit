@@ -24,7 +24,10 @@ export type ChartUnit = "eur" | "hours";
 export type ChartOrientation = "burndown" | "cumulative";
 export const CHART_FRAME_TOLERANCE = 0.5;
 export type ChartPoint = { date: string; value: number };
-export type ChartSegment = { from: ChartPoint; to: ChartPoint; endFigure: number };
+/** `endFigure` is the end label (VAC in burn-down, EAC in cumulative); `vac` is
+ *  always the forecast's OWN VAC (the card figure), in both orientations — never
+ *  a chart-frame recomputation, which differs whenever `frameDiffers`. */
+export type ChartSegment = { from: ChartPoint; to: ChartPoint; endFigure: number; vac: number };
 export type ChartModel = {
   empty: boolean; xDomain: readonly [string, string]; yDomain: readonly [number, number]; total: number;
   planned: readonly ChartPoint[]; actual: readonly ChartPoint[]; over: boolean;
@@ -97,16 +100,16 @@ export function buildChartModel(input: ChartInput): ChartModel {
     // Overdue guard (see module docstring): a segment from `last` to `planEnd`
     // is only forward-meaningful while there is a forward span to draw it on.
     if (last.date < planEnd) {
-      const segment = (etc: number, figure: number): ChartSegment => ({
-        from: last, to: { date: planEnd, value: down ? last.value - etc : last.value + etc }, endFigure: figure,
+      const segment = (etc: number, figure: number, vac: number): ChartSegment => ({
+        from: last, to: { date: planEnd, value: down ? last.value - etc : last.value + etc }, endFigure: figure, vac,
       });
       const p = forecast.pace;
       if (isPaceAvailable(p)) {
-        pace = segment(p.etc, down ? p.vac : p.eac);
+        pace = segment(p.etc, down ? p.vac : p.eac, p.vac);
         if (p.runOutDate !== null && p.runOutDate <= planEnd) runOut = { date: p.runOutDate, value: down ? 0 : total };
       }
       const e = forecast.efficiency;
-      if (isEfficiencyAvailable(e)) efficiency = segment(e.etc, down ? e.vac : e.eac);
+      if (isEfficiencyAvailable(e)) efficiency = segment(e.etc, down ? e.vac : e.eac, e.vac);
     }
     if (forecast.facts.ev !== null) ev = { date: last.date, value: fromCumulative(forecast.facts.ev) };
   }
