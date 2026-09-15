@@ -201,19 +201,26 @@ describe("computeRateMix — rules", () => {
     ).toBeGreaterThanOrEqual(3);
   });
 
-  it("honors the plan's budgetFollowsPlan flag", () => {
+  it("honors the plan's budgetFollowsPlan flag (budget hours match the report's)", () => {
     const followPlan = { ...plan, budgetFollowsPlan: true };
-    // A non-empty resources list (unreferenced by any allocation) exercises the
-    // id→resource index build; every other test in this file passes `[]`.
+    // The senior allocation is staffed by a resource planned at 700 h in June,
+    // so with the flag ON its budget hours are the live 700, not the stored
+    // 600. Without a staffed allocation `effectiveBudgetHours` returns the
+    // stored map either way and this test could not see the flag at all.
     const resources = [{
-      id: 1, firstName: "A", lastName: "B", roleId: null,
-      utilizationMode: "hours" as const, utilization: {},
+      id: 1, firstName: "A", lastName: "B", roleId: 1,
+      utilizationMode: "hours" as const, utilization: { "2026-06": 700 },
     }];
+    const base = scenarioBucket([339, 572, 539]);
+    const b = [{ ...base, allocations: base.allocations.map((a, i) => (i === 0 ? { ...a, resourceIds: [1] } : a)) }];
     const m = computeRateMix({
-      buckets: [scenarioBucket([339, 572, 539])], roles, disciplines, grades, plan: followPlan, resources, workdayHours: 8, holidaySet: none, absences: [],
+      buckets: b, roles, disciplines, grades, plan: followPlan, resources, workdayHours: 8, holidaySet: none, absences: [],
       eur: EUR, hours: hoursForecast(1_450, 220),
     })!;
-    expect(m.drift).toBeCloseTo((168_000 / 1_450) / 120 - 1, 9);
+    const report = computeBudgetReport(b, followPlan, roles, resources, 8, none, [], [], null);
+    const hourly = report.buckets.filter((r) => r.type !== "fixed");
+    expect(m.budgetHours).toBeCloseTo(2_100, 9);
+    expect(m.budgetHours).toBeCloseTo(hourly.reduce((s, r) => s + r.budgetHours - r.spilloverInHours, 0), 9);
   });
 });
 

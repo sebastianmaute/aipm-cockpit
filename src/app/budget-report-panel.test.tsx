@@ -68,7 +68,7 @@ describe("BudgetReportPanel — the project rollup discloses unresolved-rate sum
 
 describe("BudgetReportPanel", () => {
   it("shows the project rollup (revenue + cost in EUR)", () => {
-    const { container } = renderPanel();
+    renderPanel();
     // revenue = 80*180 + 50*150 + 120*150 = 39900 ; cost = 80*120 + 50*100 + 120*100 = 26600
     // Every bucket here is T&M, where consumed value IS revenue, so the figure
     // renders TWICE: once on the revenue tile, once on the consumption tile.
@@ -76,16 +76,13 @@ describe("BudgetReportPanel", () => {
     // ★ Task 5 scope: every bucket here is also T&M, so the forecast facts
     // row's AC happens to equal the same 39,900 — scope to the EXISTING
     // tiles grid so this assertion stays about the rollup tiles, not a
-    // coincidence of the fixture. ★★ Task 10: this fixture's booked/planned
-    // rate differs by <3% (below RATE_DRIFT_SIGNAL_RATIO), so `computeRateMix`
-    // still returns a non-null (non-triggered) mix and the facts row grows a
-    // fifth tile — its class then reads `sm:grid-cols-3 lg:grid-cols-5`,
-    // dropping OUT of this selector, so only the EXISTING tiles grid (always
-    // `sm:grid-cols-4`, unconditionally) matches. Take the LAST match rather
-    // than a fixed index so this stays correct whether the facts row's own
-    // grid class does or doesn't happen to collide with this selector.
-    const grids = container.querySelectorAll(".grid.grid-cols-2.gap-3.sm\\:grid-cols-4");
-    const existingTilesGrid = grids[grids.length - 1] as HTMLElement;
+    // coincidence of the fixture. ★★ Find that grid through a label that
+    // lives only in it ("Consumption"), never through its classes: the
+    // Earned-value grid carries the very same `grid-cols-2 gap-3
+    // sm:grid-cols-4` classes and renders after it, and the facts row's grid
+    // class changes with the rate fact, so a class selector's "last match"
+    // depends on which of those happen to render.
+    const existingTilesGrid = screen.getByText(t("en-US", "budgetCciConsumption")).closest(".grid") as HTMLElement;
     expect(within(existingTilesGrid).getAllByText(/€?39,900|39\.900/)).toHaveLength(2);
     expect(within(existingTilesGrid).getByText(/€?26,600|26\.600/)).toBeInTheDocument();
   });
@@ -105,11 +102,13 @@ describe("BudgetReportPanel", () => {
     renderPanel();
     const input = screen.getByPlaceholderText(/filter buckets/i);
     await user.type(input, "alpha");
-    // Task 9: the default fixture's rate mix triggers, so a second `<table>`
-    // (the always-in-DOM "Where the hours went" disclosure, native <details>
-    // whose closed content jsdom still exposes to role queries) now co-exists
-    // with the bucket table — scope to the "By bucket" Section the same way
-    // the forecast-section test above scopes to "Forecast" (Finding 7).
+    // Task 9: the "Where the hours went" disclosure renders whenever the rate
+    // mix is non-null (the default fixture's mix is non-null but does not
+    // trigger), so a second `<table>` (native <details> whose closed content
+    // jsdom still exposes to role queries) co-exists with the bucket table —
+    // scope to the "By bucket" Section the same way the forecast-section test
+    // further below ("shows the facts row and forecast cards inside their own
+    // Forecast section") scopes to "Forecast" (Finding 7).
     const byBucketHeading = screen.getByRole("heading", { name: t("en-US", "budgetReportByBucket") });
     const byBucketSection = byBucketHeading.parentElement as HTMLElement;
     const table = within(within(byBucketSection).getByRole("table"));
