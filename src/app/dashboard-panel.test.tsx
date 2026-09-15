@@ -372,7 +372,7 @@ describe("DashboardPanel budget-burn CPI stat", () => {
   ] as never[];
 
   // CPI is an EVM index → it lives ONLY in the EVM SPI/CPI row (the burn row now
-  // holds just Sub-budget + "h"). The EVM row renders only when there's estimate
+  // holds just Spent + "h"). The EVM row renders only when there's estimate
   // coverage; its CPI tile sits beside the SPI tile.
   function evmCpiTile(): HTMLElement {
     const spiTile = screen.getByText("Effort SPI").closest("div.rounded-lg") as HTMLElement;
