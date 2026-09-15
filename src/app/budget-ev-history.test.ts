@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { computeEvHistory, type EvHistoryTask } from "./budget-ev-history";
 import { computeBudgetReport } from "./budget-report";
 import { computeBudgetForecastsByUnit, type BudgetForecastInput } from "./budget-forecast";
-import { computeBurndownSeries } from "./budget-burndown";
+import { actualPointDates, computeBurndownSeries } from "./budget-burndown";
 import type { BudgetBucket, ResourcePlan, Role } from "./types";
 
 const none = new Set<string>();
@@ -46,6 +46,32 @@ describe("computeEvHistory", () => {
     const h = computeEvHistory({ report: inp.report, buckets: b, tasks, dates, today });
     if (!h.available) throw new Error("unavailable");
     const last = h.points[h.points.length - 1];
+    expect(last.eur).toBeCloseTo(eur.facts.ev!, 9);
+    expect(last.hours).toBeCloseTo(hours.facts.ev!, 9);
+  });
+
+  it("ends at the forecast's EV when today is past the last plan period (overdue project)", () => {
+    // The plan ended on 2026-06-30 and today is 2026-09-14, so `actualPointDates`
+    // ends at the last period END, which is before today: no date reaches the
+    // `date >= today` branch. The last point must still use the live percent
+    // complete, or it drops the Cancelled task (no completion date) and the
+    // task finished after the plan end, and the line ends below the EV diamond.
+    const overduePlan: ResourcePlan = { ...plan, endDate: "2026-06-30" };
+    const b = [bucket(1, { endDate: "2026-06-30", taskIds: [1, 3, 4, 5] })];
+    const withLate: EvHistoryTask[] = [...tasks, { id: 5, status: "Done", completedDate: "2026-08-01" }];
+    const today = "2026-09-14";
+    const rep = computeBudgetReport(b, overduePlan, roles, [], 8, none, [], [], null);
+    const burndown = computeBurndownSeries(b, overduePlan, roles, [], 8, none, [], today, null);
+    const pointDates = actualPointDates(burndown, today);
+    expect(pointDates[pointDates.length - 1] < today).toBe(true);
+    const inp: BudgetForecastInput = { report: rep, buckets: b, roles, fxRates: null, tasks: withLate, plan: overduePlan, burndown, holidaySet: none, today };
+    const { eur, hours } = computeBudgetForecastsByUnit(inp);
+    const h = computeEvHistory({ report: rep, buckets: b, tasks: withLate, dates: pointDates, today });
+    if (!h.available) throw new Error("unavailable");
+    const last = h.points[h.points.length - 1];
+    // 3 of 4 linked tasks finished (Done, Cancelled, late Done) → 75% of 10,000 € / 100 h.
+    expect(last.eur).toBeCloseTo(7_500, 9);
+    expect(last.hours).toBeCloseTo(75, 9);
     expect(last.eur).toBeCloseTo(eur.facts.ev!, 9);
     expect(last.hours).toBeCloseTo(hours.facts.ev!, 9);
   });

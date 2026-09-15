@@ -15,6 +15,30 @@ const X0 = PAD_L, X1 = W - PAD_R, Y_BOTTOM = H - PAD_B, Y_TOP = PAD_T;
 
 const DASH = { planned: "5 4", pace: "7 4", efficiency: "2 3", evLine: "6 2 1 2", bac: "4 4", today: "3 3" } as const;
 
+/** Baseline offset of an end label below its line end (8px text). */
+const END_LABEL_OFFSET = 3;
+/** Minimum distance between the pace and efficiency end-label baselines. */
+const END_LABEL_GAP = 10;
+
+/**
+ * Baselines for the two end labels. Each sits at its own line end; when the two
+ * ends are closer than END_LABEL_GAP (EAC pace ≈ EAC efficiency is common) the
+ * pair is spread around its midpoint, keeping its order (pace on top on a tie),
+ * then shifted back inside the plot.
+ */
+function endLabelYs(paceY: number | null, efficiencyY: number | null): { pace: number | null; efficiency: number | null } {
+  if (paceY === null || efficiencyY === null || Math.abs(paceY - efficiencyY) >= END_LABEL_GAP) {
+    return { pace: paceY, efficiency: efficiencyY };
+  }
+  const mid = (paceY + efficiencyY) / 2;
+  const top = mid - END_LABEL_GAP / 2;
+  const bottom = mid + END_LABEL_GAP / 2;
+  const shift = bottom > Y_BOTTOM ? Y_BOTTOM - bottom : top < Y_TOP + END_LABEL_GAP ? Y_TOP + END_LABEL_GAP - top : 0;
+  return paceY <= efficiencyY
+    ? { pace: top + shift, efficiency: bottom + shift }
+    : { pace: bottom + shift, efficiency: top + shift };
+}
+
 function Swatch({ className, dash, width = 2.5 }: { className: string; dash?: string; width?: number }) {
   return (
     <svg width="22" height="6" aria-hidden="true">
@@ -51,6 +75,10 @@ export function BurndownChart({
   const belowZero = model.yDomain[0] < 0;
   const zeroY = y(0);
   const actualClass = model.over ? "stroke-ui-pink" : "stroke-ui-green";
+  const labelY = endLabelYs(
+    model.pace ? y(model.pace.to.value) + END_LABEL_OFFSET : null,
+    model.efficiency ? y(model.efficiency.to.value) + END_LABEL_OFFSET : null,
+  );
 
   return (
     <div className="space-y-2">
@@ -84,13 +112,13 @@ export function BurndownChart({
           {model.pace && (
             <>
               <line x1={x(model.pace.from.date)} y1={y(model.pace.from.value)} x2={x(model.pace.to.date)} y2={y(model.pace.to.value)} className="stroke-ui-dark-blue" strokeWidth={2.5} strokeDasharray={DASH.pace} />
-              <text x={X1 + 4} y={y(model.pace.to.value) + 3} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">{fmt(model.pace.endFigure)}</text>
+              <text x={X1 + 4} y={labelY.pace ?? undefined} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">{fmt(model.pace.endFigure)}</text>
             </>
           )}
           {model.efficiency && (
             <>
               <line x1={x(model.efficiency.from.date)} y1={y(model.efficiency.from.value)} x2={x(model.efficiency.to.date)} y2={y(model.efficiency.to.value)} className="stroke-ui-purple" strokeWidth={2.5} strokeDasharray={DASH.efficiency} />
-              <text x={X1 + 4} y={y(model.efficiency.to.value) + 12} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">{fmt(model.efficiency.endFigure)}</text>
+              <text x={X1 + 4} y={labelY.efficiency ?? undefined} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">{fmt(model.efficiency.endFigure)}</text>
             </>
           )}
           {model.today && (

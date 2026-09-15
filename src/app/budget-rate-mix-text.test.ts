@@ -62,7 +62,8 @@ describe("chips, names, points, rate fact", () => {
   });
   it("points carry a sign and round to whole points", () => {
     expect(rateMixPoints(en, 0.0717)).toBe("+7 pts");
-    expect(rateMixPoints(en, -0.0662)).toBe("−7 pts");
+    // ASCII hyphen-minus, matching `formatSignedPercent` on the same page.
+    expect(rateMixPoints(en, -0.0662)).toBe("-7 pts");
     expect(rateMixPoints(en, 0.004)).toBe("0 pts");
   });
   it("rate fact: drift above the threshold, on plan below it", () => {
@@ -129,6 +130,18 @@ describe("German", () => {
   it("renders the banner head and chip name from the DE dictionary", () => {
     expect(rateMixBannerText("de", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE).startsWith(`${t("de", "forecastMixLeadWarning")} ${t("de", "forecastMixHeadHoursWorse")}`)).toBe(true);
     expect(rateMixChipName("de", MIX_HOURS_WORSE, "pace")).toBe("Aufwand schlechter als € beim aktuellen Tempo – warum?");
+  });
+  it("reads as whole German sentences (hard-coded, not built from the dictionary)", () => {
+    // A literal, so a grammar slip in i18n.de.ts (a lower-case sentence after
+    // "Warnung:", or a doubled unit) turns this red; a t()-built expectation
+    // would follow the dictionary into the slip. U+00A0 is Intl's space before
+    // "%" and "€" in de-DE.
+    const explanation =
+      "Consultant Junior: 37 % der gebuchten Stunden (geplant 30 %), daher liegt der Stundensatz im Schnitt bei 116 €/h statt 120 €/h. " +
+      "Beim aktuellen Tempo zeigen die Stunden -10,5 %, das Budget -8,8 %.";
+    expect(rateMixExplanation("de", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE)).toBe(explanation);
+    expect(rateMixBannerText("de", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE))
+      .toBe(`Warnung: Die Stunden zeichnen ein schlechteres Bild als das Budget. ${explanation}`);
   });
   it("rate fact parts render the DE note and drift arrow", () => {
     const parts = rateFactParts("de", MIX_HOURS_WORSE);

@@ -27,8 +27,16 @@ export function RateMixDetails({
   open: boolean; onToggle: (open: boolean) => void; focusNonce: number;
 }) {
   const summaryRef = useRef<HTMLElement | null>(null);
+  // Seeded from the live nonce at mount, so a REMOUNT (the mix went null and
+  // came back after a live edit, while the section kept its nonce) does not
+  // replay a focus request that was already handled. Safe here: the banner
+  // action that bumps the nonce exists only while this component is mounted,
+  // so no request can be pending at mount.
+  const handledNonce = useRef(focusNonce);
   useEffect(() => {
-    if (focusNonce > 0) summaryRef.current?.focus();
+    if (focusNonce === handledNonce.current) return;
+    handledNonce.current = focusNonce;
+    summaryRef.current?.focus();
   }, [focusNonce]);
   const locale = localeFor(lang);
   const money = (n: number) => formatCurrency(n, "EUR", locale);

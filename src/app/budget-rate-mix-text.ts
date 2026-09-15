@@ -84,7 +84,9 @@ export function rateMixWhyName(lang: Lang, visibleText: string): string {
 
 export function rateMixPoints(lang: Lang, difference: number): string {
   const points = Math.round(difference * 100);
-  const text = points > 0 ? `+${points}` : points < 0 ? `−${Math.abs(points)}` : "0";
+  // ASCII hyphen-minus for a negative, matching `formatSignedPercent` on the
+  // same page (controller ruling); `String(-7)` is "-7" and `String(0)` "0".
+  const text = points > 0 ? `+${points}` : String(points);
   return t(lang, "forecastMixPoints", text);
 }
 

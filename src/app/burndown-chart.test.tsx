@@ -124,6 +124,24 @@ describe("BurndownChart", () => {
     expect(screen.getByText(/Hand-entered % complete or no linked tasks: Design\./)).toBeInTheDocument();
   });
 
+  it("keeps the two end labels at least 10px apart when both forecasts end at the same value", () => {
+    // Equal ETCs put both segment ends on one y (at the plot bottom here); the
+    // two end labels must neither overlap nor leave the plot.
+    const forecast = {
+      ...CHART_FORECAST,
+      pace: { ...CHART_FORECAST.pace, vac: -1_200 },
+      efficiency: { ...CHART_FORECAST.efficiency, etc: 6_000, vac: -1_500 },
+    };
+    const { container } = draw({ forecast });
+    const labels = [...container.querySelectorAll("svg[role='img'] text:not([data-axis])")];
+    const yOf = (text: string) => Number(labels.find((el) => el.textContent === text)!.getAttribute("y"));
+    const paceY = yOf(eur(-1_200));
+    const efficiencyY = yOf(eur(-1_500));
+    expect(Math.abs(paceY - efficiencyY)).toBeGreaterThanOrEqual(10);
+    // Plot bottom: H 240 − PAD_B 28.
+    expect(Math.max(paceY, efficiencyY)).toBeLessThanOrEqual(212);
+  });
+
   it("shows the no-budget hint for an empty chart", () => {
     draw({ series: { ...CHART_SERIES, totalBudgetValue: 0 } });
     expect(screen.getByText("No budget configured")).toBeInTheDocument();
