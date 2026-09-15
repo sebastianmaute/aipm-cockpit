@@ -16,7 +16,7 @@ import {
   dropDanglingDependencies,
   parseDependenciesString,
   sanitizeLoadedAbsence,
-  sanitizeBudgetBucket,
+  sanitizeLoadedBudgetBucket,
   sanitizeDiscipline,
   sanitizeLoadedFxRates,
   sanitizeGrade,
@@ -501,7 +501,7 @@ function csvToRoles(csv: string, diag?: ImportDiag): Role[] {
 }
 
 function csvToBudgets(csv: string, diag?: ImportDiag): BudgetBucket[] {
-  return collectRows(csvRowsToObjects(csv), sanitizeBudgetBucket, "budgets", diag);
+  return collectRows(csvRowsToObjects(csv), sanitizeLoadedBudgetBucket, "budgets", diag);
 }
 
 export function decodeRatesMap(s: string): Record<string, number> {

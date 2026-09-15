@@ -36,7 +36,7 @@ import {
   encodeAllocations,
   encodeDisciplineAllocations,
   encodePeriodMap,
-  sanitizeChangeItem,
+  sanitizeLoadedChangeItem,
   sanitizeStakeholder,
   encodeRaciMap,
   decodeRaciMap,
@@ -434,7 +434,7 @@ export function changeFieldToString(c: ChangeItem, col: keyof ChangeItem): strin
 }
 
 export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | null {
-  const item = sanitizeChangeItem({
+  const item = sanitizeLoadedChangeItem({
     ...obj,
     id: obj.id ? Number(obj.id) : undefined,
     scheduleImpactDays: obj.scheduleImpactDays ? Number(obj.scheduleImpactDays) : undefined,

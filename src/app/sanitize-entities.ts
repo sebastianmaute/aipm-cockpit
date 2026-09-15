@@ -50,7 +50,7 @@ import {
   fkIdOrUndefined,
   isPlainObject,
 } from "./sanitize-core";
-import { requiredIsoDateOnLoad, requiredIsoDateOnUpdate } from "./sanitize-load-date";
+import { optionalIsoDateOnLoad, optionalIsoDateOnTemplateLoad, requiredIsoDateOnLoad, requiredIsoDateOnUpdate } from "./sanitize-load-date";
 
 // --- Absence sanitizers ----------------------------------------------------
 
@@ -729,7 +729,12 @@ function sanitizeDisciplineAllocations(input: unknown): DisciplineAllocation[] {
   return input.map(sanitizeDisciplineAllocation).filter((a): a is DisciplineAllocation => a !== null);
 }
 
-export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
+export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null { return budgetWithDateReader(input, sanitizeIsoDate); }
+/** The load funnels' form (JSON, CSV, Markdown, Turso): a date it blanks is reported (M2). */
+export function sanitizeLoadedBudgetBucket(input: unknown): BudgetBucket | null { return budgetWithDateReader(input, optionalIsoDateOnLoad); }
+/** A stored template's seed budget, reported as `templateSeed`. */
+export function sanitizeLoadedSeedBudgetBucket(input: unknown): BudgetBucket | null { return budgetWithDateReader(input, optionalIsoDateOnTemplateLoad); }
+function budgetWithDateReader(input: unknown, readOptional: RequiredDateReader): BudgetBucket | null {
   if (!isPlainObject(input)) return null;
   const id = toNumber(input.id);
   if (!Number.isFinite(id) || id <= 0) return null;
@@ -743,8 +748,8 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
   const currency = isBudgetCurrency(input.currency) ? input.currency : SUPPORTED_CURRENCIES[0];
   const status: BucketStatus = input.status === "closed" ? "closed" : "open";
 
-  const startDate = sanitizeIsoDate(input.startDate);
-  const endDate = sanitizeIsoDate(input.endDate);
+  const startDate = readOptional(input.startDate, "budget", id, "startDate");
+  const endDate = readOptional(input.endDate, "budget", id, "endDate");
   const [start, end] = startDate && endDate && endDate < startDate ? [endDate, startDate] : [startDate, endDate];
 
   const bucket: BudgetBucket = {
@@ -761,7 +766,7 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
   const succ = toNumber(input.successorId);
   if (Number.isFinite(succ) && succ > 0 && succ !== id) bucket.successorId = succ;
   if (status === "closed") {
-    const cd = sanitizeIsoDate(input.closedDate);
+    const cd = readOptional(input.closedDate, "budget", id, "closedDate");
     if (cd) bucket.closedDate = cd;
   }
   const fx = sanitizeAmount(input.fxRateOverride, 4);

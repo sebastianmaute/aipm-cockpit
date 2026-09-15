@@ -86,7 +86,11 @@ describe("which sanitizer each change write path is wired to", () => {
       "src/app/templates.ts",
     ]) {
       const src = read(path);
-      expect(src.match(/\bsanitizeChangeItem\(/g) ?? []).not.toHaveLength(0);
+      // ★★ M2: these load funnels now call the LOAD twins, which run the SAME
+      //  verbatim core as `sanitizeChangeItem` (`changeWithDateReader`) and only
+      //  add a diagnostic for a blanked date — so the verbatim call is spelled
+      //  `sanitizeLoadedChangeItem` / `sanitizeLoadedSeedChangeItem` here now.
+      expect(src.match(/\bsanitizeLoaded(Seed)?ChangeItem\(/g) ?? []).not.toHaveLength(0);
       expect(src.match(/\bsanitizeModelChangeItem\b/g) ?? []).toHaveLength(0);
     }
   });

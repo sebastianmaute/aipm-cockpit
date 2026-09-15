@@ -10,11 +10,10 @@ import {
   isPlainObject,
   sanitizeAssignee,
   sanitizeBlockers,
-  sanitizeBudgetBucket,
-  sanitizeChangeItem,
   sanitizeIdList,
-  sanitizeIsoDate,
   sanitizeLabels,
+  sanitizeLoadedSeedBudgetBucket,
+  sanitizeLoadedSeedChangeItem,
   sanitizeLoadedSeedMilestone,
   sanitizeOptionalMinutes,
   sanitizePriority,
@@ -24,6 +23,8 @@ import {
   sanitizeLoadedEmail,
 } from "./sanitize";
 import { htmlPlainProjection, sanitizeRichText } from "./rich-text-plain";
+// ★ M2: a stored template is a LOAD funnel, so an optional date it blanks is reported (`templateSeed`).
+import { optionalIsoDateOnTemplateLoad } from "./sanitize-load-date";
 import { RICH_SINK } from "./html-start";
 import { sanitizeNoteLogWith } from "./note-log-policy";
 import {
@@ -159,8 +160,8 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
     taskName,
     assignee: sanitizeAssignee(raw.assignee),
     assigneeEmail: sanitizeLoadedEmail(raw.assigneeEmail),
-    dueDate: sanitizeIsoDate(raw.dueDate),
-    lastUpdateDate: sanitizeIsoDate(raw.lastUpdateDate),
+    dueDate: optionalIsoDateOnTemplateLoad(raw.dueDate, "task", id, "dueDate"),
+    lastUpdateDate: optionalIsoDateOnTemplateLoad(raw.lastUpdateDate, "task", id, "lastUpdateDate"),
     priority: sanitizePriority(raw.priority),
     status: raw.status as Task["status"],
     blockers: sanitizeBlockers(raw.blockers),
@@ -211,9 +212,9 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
     // classifier narrower than its sink escapes the whole value (§107).
     description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX, RICH_SINK),
   };
-  const startDate = sanitizeIsoDate(raw.startDate);
+  const startDate = optionalIsoDateOnTemplateLoad(raw.startDate, "task", id, "startDate");
   if (startDate) task.startDate = startDate;
-  const completedDate = sanitizeIsoDate(raw.completedDate);
+  const completedDate = optionalIsoDateOnTemplateLoad(raw.completedDate, "task", id, "completedDate");
   if (completedDate) task.completedDate = completedDate;
   const group = nonEmptyStr(raw.group);
   if (group) task.group = group;
@@ -298,7 +299,7 @@ function sanitizeSeedRaidItem(raw: unknown): RaidItem | null {
     linkedTaskIds: sanitizeIdList(raw.linkedTaskIds),
     causedByRaidIds: sanitizeIdList(raw.causedByRaidIds),
     stakeholderIds: sanitizeIdList(raw.stakeholderIds),
-    raisedDate: sanitizeIsoDate(raw.raisedDate),
+    raisedDate: optionalIsoDateOnTemplateLoad(raw.raisedDate, "raid", id, "raisedDate"),
   };
   const description = nonEmptyStr(raw.description);
   if (description) item.description = description;
@@ -310,9 +311,9 @@ function sanitizeSeedRaidItem(raw: unknown): RaidItem | null {
   if (ownerResourceId !== undefined) item.ownerResourceId = ownerResourceId;
   const mitigation = nonEmptyStr(raw.mitigation);
   if (mitigation) item.mitigation = mitigation;
-  const targetDate = sanitizeIsoDate(raw.targetDate);
+  const targetDate = optionalIsoDateOnTemplateLoad(raw.targetDate, "raid", id, "targetDate");
   if (targetDate) item.targetDate = targetDate;
-  const closedDate = sanitizeIsoDate(raw.closedDate);
+  const closedDate = optionalIsoDateOnTemplateLoad(raw.closedDate, "raid", id, "closedDate");
   if (closedDate) item.closedDate = closedDate;
   if (category === "R") {
     const probability = sanitizeRiskScale(raw.probability);
@@ -338,7 +339,7 @@ function sanitizeSeedRaidItem(raw: unknown): RaidItem | null {
  * they must not have.
  */
 function sanitizeSeedChangeItem(raw: unknown): ChangeItem | null {
-  const item = sanitizeChangeItem(raw);
+  const item = sanitizeLoadedSeedChangeItem(raw);
   if (!item) return null;
   if (!isPlainObject(raw)) return item;
   const noteLog = sanitizeSeedNoteLog(raw.noteLog);
@@ -367,7 +368,7 @@ export function sanitizeSeed(raw: unknown): TemplateSeed | undefined {
     raw.stakeholders,
     sanitizeStakeholder,
   );
-  const budgets = sanitizeArr<BudgetBucket>(raw.budgets, sanitizeBudgetBucket);
+  const budgets = sanitizeArr<BudgetBucket>(raw.budgets, sanitizeLoadedSeedBudgetBucket);
   if (tasks) seed.tasks = tasks;
   if (milestones) seed.milestones = milestones;
   if (rd) seed.raid = rd;

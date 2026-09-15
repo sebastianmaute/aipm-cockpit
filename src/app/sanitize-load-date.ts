@@ -7,7 +7,8 @@
 // and the load funnel DROP THE WHOLE RECORD — so the load funnels read required
 // dates through this instead: such a value is KEPT as its raw string (what every
 // backend loaded before §539) and a diagnostic is logged. Optional date fields
-// keep using `sanitizeIsoDate` and blank on load; write paths keep refusing.
+// still blank on load, and since M2 the blank is reported too
+// (`optionalIsoDateOnLoad`); write paths keep refusing.
 import { logDiag } from "./diagnostics";
 import { sanitizeIsoDate, type RequiredDateReader } from "./sanitize-core";
 
@@ -74,13 +75,39 @@ export function requiredIsoDateOnUpdate(stored: Readonly<Record<string, unknown>
 
 function readRequiredDate(source: LoadDateSource, value: unknown, entity: string, id: unknown, field: string): string {
   if (!isKeptNonCalendarDate(value)) return sanitizeIsoDate(value);
-  const safeId = typeof id === "number" || typeof id === "string" ? id : "";
-  const key = JSON.stringify([source, entity, safeId, field, value]);
-  if (!reported.has(key)) {
-    reported.add(key);
-    logDiag("warn", "storage.nonCalendarDateKept", { source, entity, id: safeId, field });
-  }
+  reportOnce("storage.nonCalendarDateKept", source, value, entity, id, field);
   return value;
+}
+
+/** An OPTIONAL date as a WORKSPACE load funnel reads it (M2). The §539 outcome
+ *  is unchanged — `sanitizeIsoDate`, so a non-calendar value blanks — but a value
+ *  the REQUIRED reader would have KEPT is reported as
+ *  `storage.nonCalendarDateBlanked`: the same fields and the same once-per-session
+ *  dedupe as `storage.nonCalendarDateKept`, so the loss is visible.
+ *  ★ A blank, absent or non-date value ("tbd") is NOT reported: that loss predates
+ *  §539 and was never a date this rule could have kept. Matches `RequiredDateReader`. */
+export function optionalIsoDateOnLoad(value: unknown, entity: string, id: unknown, field: string): string {
+  return readOptionalDate("workspace", value, entity, id, field);
+}
+
+/** `optionalIsoDateOnLoad` for a stored template's seed, attributed to `templateSeed`. */
+export function optionalIsoDateOnTemplateLoad(value: unknown, entity: string, id: unknown, field: string): string {
+  return readOptionalDate("templateSeed", value, entity, id, field);
+}
+
+function readOptionalDate(source: LoadDateSource, value: unknown, entity: string, id: unknown, field: string): string {
+  if (isKeptNonCalendarDate(value)) reportOnce("storage.nonCalendarDateBlanked", source, value, entity, id, field);
+  return sanitizeIsoDate(value);
+}
+
+/** ★ The key carries the CODE too, so a kept required value and a blanked
+ *  optional one on the same record never suppress each other. */
+function reportOnce(code: string, source: LoadDateSource, value: string, entity: string, id: unknown, field: string): void {
+  const safeId = typeof id === "number" || typeof id === "string" ? id : "";
+  const key = JSON.stringify([code, source, entity, safeId, field, value]);
+  if (reported.has(key)) return;
+  reported.add(key);
+  logDiag("warn", code, { source, entity, id: safeId, field });
 }
 
 /** Test-only: forget what this session already reported. */

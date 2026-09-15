@@ -14,7 +14,7 @@ import {
   dropDanglingDependencies,
   parseDependenciesString,
   sanitizeLoadedAbsence,
-  sanitizeBudgetBucket,
+  sanitizeLoadedBudgetBucket,
   sanitizeDiscipline,
   sanitizeLoadedFxRates,
   sanitizeGrade,
@@ -294,7 +294,7 @@ const BUDGET_ALIASES: Record<string, string> = {
 };
 
 function markdownToBudgets(md: string, diag?: ImportDiag): BudgetBucket[] {
-  return decodeMdTable(md, BUDGET_ALIASES, sanitizeBudgetBucket, "budgets", diag);
+  return decodeMdTable(md, BUDGET_ALIASES, sanitizeLoadedBudgetBucket, "budgets", diag);
 }
 
 function parseFxRatesMarkdown(md: string): FxRates | null {

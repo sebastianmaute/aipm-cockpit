@@ -24,7 +24,7 @@ import { sanitizeActivityLog } from "./activity-log";
 import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures } from "./feature-modules";
 import {
-  sanitizeResource, sanitizeRole, sanitizeBudgetBucket, sanitizeDiscipline,
+  sanitizeResource, sanitizeRole, sanitizeLoadedBudgetBucket, sanitizeDiscipline,
   sanitizeGrade, sanitizeLoadedAbsence, sanitizeShift, sanitizeLoadedFxRates, sanitizePlan,
   sanitizeSteeringCommittee,
 } from "./sanitize";
@@ -103,7 +103,7 @@ export const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<Role>({ table: "roles", wsKey: "roles", columns: ROLES_CSV_COLUMNS, get: (w) => w.roles, toRow: anyToRow as (e: Role, col: string) => string, fromObj: sanitizeRole }),
   spec<Discipline>({ table: "disciplines", wsKey: "disciplines", columns: REF_CSV_COLUMNS, get: (w) => w.disciplines, toRow: anyToRow as (e: Discipline, col: string) => string, fromObj: sanitizeDiscipline }),
   spec<Grade>({ table: "grades", wsKey: "grades", columns: REF_CSV_COLUMNS, get: (w) => w.grades, toRow: anyToRow as (e: Grade, col: string) => string, fromObj: sanitizeGrade }),
-  spec<BudgetBucket>({ table: "budget_buckets", wsKey: "budgets", columns: BUDGETS_CSV_COLUMNS, get: (w) => w.budgets ?? [], toRow: budgetFieldToString, fromObj: sanitizeBudgetBucket }),
+  spec<BudgetBucket>({ table: "budget_buckets", wsKey: "budgets", columns: BUDGETS_CSV_COLUMNS, get: (w) => w.budgets ?? [], toRow: budgetFieldToString, fromObj: sanitizeLoadedBudgetBucket }),
   spec<Milestone>({ table: "milestones", wsKey: "milestones", columns: MILESTONES_CSV_COLUMNS, get: (w) => w.milestones ?? [], toRow: milestoneFieldToString as unknown as (e: Milestone, col: string) => string, fromObj: buildMilestoneFromObj }),
   spec<ChangeItem>({ table: "changes", wsKey: "changes", columns: CHANGES_CSV_COLUMNS, get: (w) => w.changes ?? [], toRow: changeFieldToString as unknown as (e: ChangeItem, col: string) => string, fromObj: buildChangeFromObj }),
   spec<Stakeholder>({ table: "stakeholders", wsKey: "stakeholders", columns: STAKEHOLDERS_CSV_COLUMNS, get: (w) => w.stakeholders ?? [], toRow: stakeholderFieldToString as unknown as (e: Stakeholder, col: string) => string, fromObj: buildStakeholderFromObj }),

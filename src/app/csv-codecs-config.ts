@@ -6,7 +6,7 @@
 // Re-exported via the ./csv-codecs barrel.
 
 import { encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
-import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
+import { sanitizeLoadedProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import type { TimelogLinks } from "./timelog-types";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
@@ -593,7 +593,7 @@ function decodeProjectObj(obj: Record<string, string>): Record<string, unknown> 
 /** Decode a `field -> raw string` map (as produced by the CSV/MD parsers) back
  *  into a sanitized ProjectMeta. Returns null when the data is invalid. */
 export function buildProjectFromObj(obj: Record<string, string>): ProjectMeta | null {
-  return sanitizeProjectMeta(decodeProjectObj(obj));
+  return sanitizeLoadedProjectMeta(decodeProjectObj(obj));
 }
 
 /** Serializes ProjectMeta as a `field,value` CSV block (mirrors statusToCsv).

@@ -58,7 +58,10 @@ import {
   isPlainObject,
 } from "./sanitize-core";
 import { BUDGET_NAME_MAX, AMOUNT_MAX, sanitizeIdList } from "./sanitize-entities";
-import { requiredIsoDateOnLoad, requiredIsoDateOnTemplateLoad, requiredIsoDateOnUpdate } from "./sanitize-load-date";
+import {
+  optionalIsoDateOnLoad, optionalIsoDateOnTemplateLoad,
+  requiredIsoDateOnLoad, requiredIsoDateOnTemplateLoad, requiredIsoDateOnUpdate,
+} from "./sanitize-load-date";
 import { sanitizeRichText } from "./rich-text-plain";
 import { RENDER_SINK, RICH_SINK } from "./html-start";
 
@@ -250,7 +253,7 @@ export function dropUnacceptedMilestoneFields<T extends object>(patch: T): T {
 // ★★ ONE argument each, like `sanitizeAbsence` (see the note there): passed point-free, a 2nd param gets the INDEX.
 //  Enforced for every exported sanitize* by `sanitize-point-free.guard.test.ts`.
 export function sanitizeMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, sanitizeIsoDate, sanitizeIsoDate); }
-export function sanitizeLoadedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnLoad, sanitizeIsoDate); }
+export function sanitizeLoadedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnLoad, optionalIsoDateOnLoad); }
 /** The AI UPDATE writer's rebuild of `merged` (`{...stored, ...patch}`): strict, except that a
  *  date — the required `date` AND the optional `achievedDate` — equal to `stored`'s is carried
  *  verbatim (`requiredIsoDateOnUpdate`); a changed one is judged strictly.
@@ -260,7 +263,7 @@ export function rebuildMilestoneForUpdate(stored: Milestone, merged: unknown): M
   return milestoneWithDateReader(merged, carry, carry);
 }
 /** A stored template's seed milestone: the load rule, diagnostic attributed to the template seed. */
-export function sanitizeLoadedSeedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnTemplateLoad, sanitizeIsoDate); }
+export function sanitizeLoadedSeedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnTemplateLoad, optionalIsoDateOnTemplateLoad); }
 /** `readDate` reads the required `date`, `readOptional` every optional date (M6: an update carries both). */
 function milestoneWithDateReader(input: unknown, readDate: RequiredDateReader, readOptional: RequiredDateReader): Milestone | null {
   if (!isPlainObject(input)) return null;
@@ -305,6 +308,11 @@ const CHANGE_IMPACT_SET = new Set<string>(["Low", "Medium", "High", "Critical"])
 
 /** Accept only well-formed change items from untrusted JSON. id>0 + title required. */
 export function sanitizeChangeItem(input: unknown): ChangeItem | null { return changeWithDateReader(input, sanitizeIsoDate); }
+/** The load funnels' form (JSON, and `buildChangeFromObj` for CSV/MD/Turso): VERBATIM like
+ *  `sanitizeChangeItem`, but an optional date it blanks is reported (M2). */
+export function sanitizeLoadedChangeItem(input: unknown): ChangeItem | null { return changeWithDateReader(input, optionalIsoDateOnLoad); }
+/** A stored template's seed change: the load rule, reported as `templateSeed`. */
+export function sanitizeLoadedSeedChangeItem(input: unknown): ChangeItem | null { return changeWithDateReader(input, optionalIsoDateOnTemplateLoad); }
 /** The AI UPDATE writer's rebuild (M6): like `rebuildMilestoneForUpdate`, an optional date
  *  (`raisedDate`, `decisionDate`) equal to `stored`'s is carried verbatim, a changed one is strict.
  *  ★ Two arguments, so NOT `sanitize*`-named. */
@@ -1277,7 +1285,11 @@ export function sanitizeTimezone(raw: unknown): string | undefined {
  * blank `name`, or a non-blank `naceSection`/`deployment` outside its known
  * set — every other key fact may be blank (`""` / `[]`) since O-1.
  */
-export function sanitizeProjectMeta(input: unknown): ProjectMeta | null {
+export function sanitizeProjectMeta(input: unknown): ProjectMeta | null { return projectMetaWithDateReader(input, sanitizeIsoDate); }
+/** The load funnels' form (JSON, `buildProjectFromObj` for CSV/Markdown/Turso, IndexedDB):
+ *  identical, but a start/end date it blanks is reported (M2). */
+export function sanitizeLoadedProjectMeta(input: unknown): ProjectMeta | null { return projectMetaWithDateReader(input, optionalIsoDateOnLoad); }
+function projectMetaWithDateReader(input: unknown, readOptional: RequiredDateReader): ProjectMeta | null {
   if (!isPlainObject(input)) return null;
   const o = input;
 
@@ -1303,8 +1315,8 @@ export function sanitizeProjectMeta(input: unknown): ProjectMeta | null {
   const deployment = deploymentRaw as Deployment | "";
 
   // Both dates are optional; an unparseable value reads as "" (not set).
-  const startDate = sanitizeIsoDate(o.startDate);
-  const endDate = sanitizeIsoDate(o.endDate);
+  const startDate = readOptional(o.startDate, "project", undefined, "startDate");
+  const endDate = readOptional(o.endDate, "project", undefined, "endDate");
 
   // Key stakeholders (internal / external): any sanitized array, including empty.
   const keyStakeholdersInternal = sanitizeStringArray(o.keyStakeholdersInternal, BUDGET_NAME_MAX);

@@ -7,6 +7,7 @@ import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { __resetNonCalendarDateReportsForTests, requiredIsoDateOnLoad } from "./sanitize-load-date";
 import {
   sanitizeAbsence, sanitizeFxRates, sanitizeMilestone,
+  sanitizeBudgetBucket, sanitizeChangeItem, sanitizeProjectMeta, sanitizeRaidItem,
   sanitizeLoadedAbsence, sanitizeLoadedFxRates, sanitizeLoadedMilestone, sanitizeLoadedSeedMilestone,
 } from "./sanitize";
 import { sanitizeSeed } from "./templates";
@@ -125,6 +126,108 @@ describe("a non-calendar required date survives every load funnel", () => {
     const spec = ENTITY_SPECS.find((s) => s.table === "absences")!;
     const row = spec.fromObj({ id: "1", assignee: "Ada", startDate: "2026-02-01", endDate: BAD, type: "vacation" } as never);
     expect(row).toMatchObject({ endDate: BAD });
+  });
+});
+
+// ★★★ M2 (pre-release review): an OPTIONAL date the load funnel blanks under
+// §539 was lost with no trace, while the REQUIRED path reports what it keeps.
+// The outcome stays a blank; the loss is now reported in the same family —
+// attributed source/entity/id/field, once per session per record/field/value.
+describe("M2: an optional non-calendar date blanked on load is reported", () => {
+  const blanked = () => readDiagLog().filter((e) => e.code === "storage.nonCalendarDateBlanked").map((e) => e.fields);
+  const optionalWs = (): Workspace => ({
+    ...emptyWorkspace(),
+    milestones: [{ id: 1, name: "Go-Live", date: "2026-03-01", achievedDate: BAD, linkedTaskIds: [] } as never],
+    changes: [{
+      id: 2, title: "Scope", description: "", type: "Scope", status: "Approved", raisedDate: BAD, decisionDate: BAD,
+      linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
+    } as never],
+    budgets: [{
+      id: 3, name: "Build", type: "tm", currency: "EUR", startDate: BAD, endDate: "2026-12-31", status: "closed", closedDate: BAD, allocations: [],
+    } as never],
+    // Full shape (the CSV/MD writers need `contactPersons`); only the dates are raw.
+    project: { ...sanitizeProjectMeta({ name: "Apollo" }), startDate: BAD, endDate: "2026-12-31" } as never,
+  });
+  const WS_EXPECTED = [
+    { source: "workspace", entity: "change", id: 2, field: "raisedDate" },
+    { source: "workspace", entity: "change", id: 2, field: "decisionDate" },
+    { source: "workspace", entity: "budget", id: 3, field: "startDate" },
+    { source: "workspace", entity: "budget", id: 3, field: "closedDate" },
+    { source: "workspace", entity: "project", id: "", field: "startDate" },
+  ];
+
+  it("JSON reports the milestone, change, budget and project dates it blanks, and still blanks them", () => {
+    const out = jsonToWorkspace(workspaceToJson(optionalWs()));
+    expect(out.milestones?.[0].achievedDate).toBeUndefined();
+    expect(out.changes?.[0]).toMatchObject({ raisedDate: "" });
+    expect(out.changes?.[0].decisionDate).toBeUndefined();
+    expect(out.budgets?.[0]).toMatchObject({ startDate: "", endDate: "2026-12-31" });
+    expect(out.project?.startDate).toBe("");
+    expect(blanked()).toEqual(expect.arrayContaining([
+      { source: "workspace", entity: "milestone", id: 1, field: "achievedDate" }, ...WS_EXPECTED,
+    ]));
+    expect(JSON.stringify(readDiagLog())).not.toContain(BAD);
+  });
+
+  it.each(CODECS.slice(1))("%s reports the change, budget and project dates it blanks", (_label, roundTrip) => {
+    const out = roundTrip(optionalWs());
+    expect(out.budgets?.[0].startDate).toBe("");
+    expect(blanked()).toEqual(expect.arrayContaining(WS_EXPECTED));
+  });
+
+  it("Turso decodes the change and the budget through the same reporting reader", () => {
+    ENTITY_SPECS.find((s) => s.table === "budget_buckets")!.fromObj({ id: "3", name: "Build", startDate: BAD } as never);
+    ENTITY_SPECS.find((s) => s.table === "changes")!.fromObj({ id: "2", title: "Scope", decisionDate: BAD } as never);
+    expect(blanked()).toEqual(expect.arrayContaining([
+      { source: "workspace", entity: "budget", id: 3, field: "startDate" },
+      { source: "workspace", entity: "change", id: 2, field: "decisionDate" },
+    ]));
+  });
+
+  it("a stored template seed attributes every blanked optional date to templateSeed", () => {
+    sanitizeSeed({
+      tasks: [{ id: 1, taskName: "T", dueDate: BAD, lastUpdateDate: "2026-01-01", completedDate: BAD }],
+      raid: [{ id: 2, category: "R", title: "R", status: "Open", raisedDate: BAD, targetDate: BAD }],
+      changes: [{ id: 3, title: "C", decisionDate: BAD }],
+      milestones: [{ id: 4, name: "M", date: "2026-03-01", achievedDate: BAD }],
+      budgets: [{ id: 5, name: "B", endDate: BAD }],
+    });
+    expect(blanked()).toEqual(expect.arrayContaining([
+      { source: "templateSeed", entity: "task", id: 1, field: "dueDate" },
+      { source: "templateSeed", entity: "task", id: 1, field: "completedDate" },
+      { source: "templateSeed", entity: "raid", id: 2, field: "raisedDate" },
+      { source: "templateSeed", entity: "raid", id: 2, field: "targetDate" },
+      { source: "templateSeed", entity: "change", id: 3, field: "decisionDate" },
+      { source: "templateSeed", entity: "milestone", id: 4, field: "achievedDate" },
+      { source: "templateSeed", entity: "budget", id: 5, field: "endDate" },
+    ]));
+    expect(blanked().every((f) => f?.source === "templateSeed")).toBe(true);
+  });
+
+  it("reports a record's blanked value once per session, and again for a different value", () => {
+    jsonToWorkspace(workspaceToJson(optionalWs()));
+    const first = blanked().length;
+    jsonToWorkspace(workspaceToJson(optionalWs()));
+    csvToWorkspace(workspaceToCsv(optionalWs()));
+    expect(first).toBeGreaterThanOrEqual(6);
+    expect(blanked()).toHaveLength(first);
+    const again = optionalWs();
+    (again.milestones![0] as { achievedDate?: string }).achievedDate = "2026-02-31";
+    jsonToWorkspace(workspaceToJson(again));
+    expect(blanked()).toHaveLength(first + 1);
+  });
+
+  it("reports neither a valid, blank or non-date value, nor anything on a write path", () => {
+    const ws = optionalWs();
+    (ws.milestones![0] as { achievedDate?: string }).achievedDate = "tbd";
+    jsonToWorkspace(workspaceToJson({ ...ws, changes: [], budgets: [], project: undefined }));
+    expect(blanked()).toHaveLength(0);
+    sanitizeMilestone({ id: 1, name: "M", date: "2026-03-01", achievedDate: BAD });
+    sanitizeChangeItem({ id: 1, title: "C", decisionDate: BAD });
+    sanitizeRaidItem({ id: 1, title: "R", targetDate: BAD });
+    sanitizeBudgetBucket({ id: 1, name: "B", startDate: BAD });
+    sanitizeProjectMeta({ name: "P", startDate: BAD });
+    expect(blanked()).toHaveLength(0);
   });
 });
 

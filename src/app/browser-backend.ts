@@ -5,7 +5,7 @@
 // storage.ts (which re-exports everything).
 
 import { defaultResourcePlan } from "./resource-foundation";
-import { sanitizeProjectMeta, sanitizeSteeringCommittee, withNormalizedEmailField, withNormalizedResourceEmails } from "./sanitize";
+import { sanitizeLoadedProjectMeta, sanitizeSteeringCommittee, withNormalizedEmailField, withNormalizedResourceEmails } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
@@ -263,7 +263,7 @@ export class BrowserBackend implements StorageBackend {
       milestones = idbMilestones ?? [];
       changes = idbChanges ?? [];
       stakeholders = idbStakeholders ?? [];
-      project = sanitizeProjectMeta(idbProject) ?? undefined;
+      project = sanitizeLoadedProjectMeta(idbProject) ?? undefined;
       // Optional singletons: junk/empty fieldVisibility sanitizes to undefined.
       fieldVisibility = sanitizeFieldVisibility(idbFieldVisibility);
       // Present-check: absent ⇒ undefined (no override); an explicit [] (Simple)

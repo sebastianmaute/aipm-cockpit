@@ -14,14 +14,14 @@ import { sanitizeNoteFields, sanitizeRaidRichFields, sanitizeChangeRichFields, s
 import { withStoredNoteLog } from "./change-log";
 import {
   sanitizeLoadedAbsence,
-  sanitizeBudgetBucket,
-  sanitizeChangeItem,
+  sanitizeLoadedBudgetBucket,
+  sanitizeLoadedChangeItem,
   sanitizeDiscipline,
   sanitizeLoadedFxRates,
   sanitizeGrade,
   sanitizeLoadedMilestone,
   sanitizePlan,
-  sanitizeProjectMeta,
+  sanitizeLoadedProjectMeta,
   sanitizeResource,
   sanitizeRole,
   sanitizeShift,
@@ -628,7 +628,7 @@ export function jsonToWorkspace(
       disciplines: ((p.disciplines as unknown[]) ?? []).map((d) => sanitizeDiscipline(d)).filter((d): d is Discipline => d !== null),
       grades: ((p.grades as unknown[]) ?? []).map((g) => sanitizeGrade(g)).filter((g): g is Grade => g !== null),
       plan: sanitizePlan(p.plan ?? {}, new Date().toISOString().slice(0, 10)),
-      budgets: ((p.budgets as unknown[]) ?? []).map((b) => sanitizeBudgetBucket(b)).filter((b): b is BudgetBucket => b !== null),
+      budgets: ((p.budgets as unknown[]) ?? []).map((b) => sanitizeLoadedBudgetBucket(b)).filter((b): b is BudgetBucket => b !== null),
       fxRates: sanitizeLoadedFxRates(p.fxRates),
       status: sanitizeProjectStatus(p.status),
       // The entity sanitizers UPGRADE a legacy plain rich field (sanitizeRichText
@@ -641,7 +641,7 @@ export function jsonToWorkspace(
       //     `sanitizeChangeItem` at all: see `withStoredNoteLog`.
       changes: ((p.changes as unknown[]) ?? [])
         .map((c) => {
-          const s = sanitizeChangeItem(c);
+          const s = sanitizeLoadedChangeItem(c);
           return s === null ? null : withStoredNoteLog(s, (c as { noteLog?: unknown } | null)?.noteLog);
         })
         .filter((c): c is ChangeItem => c !== null)
@@ -651,7 +651,7 @@ export function jsonToWorkspace(
     // Additive: sanitize an incoming project when present; otherwise leave the
     // key off so no-project files round-trip without a `project` field.
     if (p.project !== undefined) {
-      const project = sanitizeProjectMeta(p.project);
+      const project = sanitizeLoadedProjectMeta(p.project);
       if (project) raw.project = project;
     }
     // Additive: sanitize an incoming field-visibility config when present;
