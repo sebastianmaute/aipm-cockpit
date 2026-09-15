@@ -5,6 +5,7 @@ import type { ChildProcess } from "node:child_process";
 import { APP_ORIGIN, APP_PORT, RELEASES_URL } from "./lib/constants";
 import { classifyPortOwner, type PortProbe } from "./lib/port-owner";
 import { shouldReportServerExit } from "./lib/exit-reporting";
+import { decideWindowOpen } from "./lib/window-open-policy";
 import {
   DASHBOARD_VIEW_HASH,
   FILE_MENU_ITEMS,
@@ -77,12 +78,14 @@ function fileMenuClick(id: FileMenuItemId): () => void {
         // ★★★ THE FOCUSED WINDOW, NOT `win`. This shipped printing `win`
         // unconditionally, which is wrong the moment a SECOND window exists --
         // and the app makes real ones: `openPopoutWindow`
-        // (src/app/broadcast-sync.ts) does a `window.open`, which Electron's
-        // DEFAULT handler turns into a genuine BrowserWindow because this shell
-        // overrides nothing (no setWindowOpenHandler -- and see the grep caveat
-        // below, which applies to that symbol too). Its callers,
-        // matched as CALLS rather than by name (a bare-name grep here listed
-        // `document-editor.tsx`, whose only occurrence is a COMMENT):
+        // (src/app/broadcast-sync.ts) does a `window.open` to a same-origin
+        // URL, which this shell's OWN `setWindowOpenHandler` (installed on
+        // every WebContents via `web-contents-created`, below) allows through
+        // as a genuine BrowserWindow -- Electron's default window-open
+        // handling no longer runs at all, this shell's policy decides every
+        // case. Its callers, matched as CALLS rather than by name (a
+        // bare-name grep here listed `document-editor.tsx`, whose only
+        // occurrence is a COMMENT):
         //   grep -rn "openPopoutWindow(" src --include=*.tsx \
         //     | grep -v "\.test\." | grep -vE "^\S+: *(//|\*)"
         // -- today shell-chrome, task-manager and workspace-section-chrome.
@@ -101,19 +104,22 @@ function fileMenuClick(id: FileMenuItemId): () => void {
         // window. That path should be unreachable from the accelerator: an
         // application-menu accelerator needs one of our own windows focused,
         // and nothing registers a global shortcut -- verify with
-        //   grep -rn "globalShortcut\|setWindowOpenHandler" desktop/src
-        // ★★ WHOSE ONLY HITS ARE THE TWO COMMENT BLOCKS IN THIS FUNCTION --
-        // this one and the window-open note above it, which cross-reference
-        // each other. Read an empty result as
-        // impossible, not as failure: naming a symbol in the command that
-        // looks for it makes the comment match itself. The first version of
-        // this line claimed the command "returns nothing", which was false the
-        // moment it was written -- the same trap this commit fixes in
-        // task-manager-ui.tsx, applied there and missed here. So with
-        // the app backgrounded the OS routes Ctrl+P elsewhere. Reasoned, not
-        // measured, like the mechanism above. It is still a DECISION: if some
-        // path does reach the item unfocused, printing the main view serves the
-        // user better than silence.
+        //   grep -rn "globalShortcut" desktop/src
+        // ★★ WHICH RETURNS NOTHING outside this comment naming it. Read an
+        // empty result as impossible, not as failure: naming a symbol in the
+        // command that looks for it makes the comment match itself. The first
+        // version of this line claimed the command "returns nothing", which
+        // was false the moment it was written -- the same trap this commit
+        // fixes in task-manager-ui.tsx, applied there and missed here.
+        // ★ `setWindowOpenHandler` used to be part of this same grep, back
+        // when this shell installed none -- it now has real hits (below, via
+        // `web-contents-created`), which would have made that combined grep
+        // misleading rather than confirming. Dropped from the command for
+        // that reason, not because the reasoning about global shortcuts
+        // changed. So with the app backgrounded the OS routes Ctrl+P
+        // elsewhere. Reasoned, not measured, like the mechanism above. It is
+        // still a DECISION: if some path does reach the item unfocused,
+        // printing the main view serves the user better than silence.
         //
         // ★ The choice itself is pure and TESTED in lib/print-target.ts --
         // including that a destroyed focused window prints nothing rather than
@@ -485,13 +491,13 @@ if (!app.requestSingleInstanceLock()) {
   // ★ `web-contents-created` FIRES FOR EVERY WebContents THE APP EVER
   // CREATES, not just `win`. Popouts are never built by THIS file -- the
   // renderer's `window.open()` (src/app/broadcast-sync.ts openPopoutWindow)
-  // is turned into a real BrowserWindow by Electron's own DEFAULT
-  // window-open handling (no setWindowOpenHandler override anywhere in this
-  // shell), so main.ts holds no reference to a popout's BrowserWindow to
-  // attach a per-window listener to. Registering globally on `app` is the
-  // only way to reach one. It also covers `win` itself for free (its
-  // creation in start() fires this same event), so there is no separate
-  // "prime the main window" call anywhere else.
+  // is turned into a real BrowserWindow, now via the `setWindowOpenHandler`
+  // installed below (formerly Electron's own DEFAULT window-open handling,
+  // before this shell overrode it), so main.ts holds no reference to a
+  // popout's BrowserWindow to attach a per-window listener to. Registering
+  // globally on `app` is the only way to reach one. It also covers `win`
+  // itself for free (its creation in start() fires this same event), so
+  // there is no separate "prime the main window" call anywhere else.
   //
   // ★ `web-contents-created` (a WebContents), not `browser-window-created`
   // (a BrowserWindow whose `.webContents` you would then read) -- the two
@@ -505,15 +511,102 @@ if (!app.requestSingleInstanceLock()) {
   // event either way (dispatchEvent on an unlistened window is a harmless
   // no-op), but there is nothing to prime there and no reason to run a
   // script in a page we do not own.
+  //
+  // ★★★ ALSO WHERE THE WINDOW-OPEN POLICY AND THE TOP-LEVEL NAVIGATION GUARD
+  // ARE WIRED, one listener rather than a second `app.on("web-contents-
+  // created", ...)` registration: it needs the exact same "every WebContents,
+  // including popouts, reached only via `app`" reasoning immediately above,
+  // and a second registration would either restate that comment or silently
+  // rely on a reader having read this one. `decideWindowOpen` (lib/window-
+  // open-policy.ts) is the pure decision; this is only the Electron wiring.
   app.on("web-contents-created", (_event, contents) => {
     contents.on("did-finish-load", () => {
-      if (!contents.getURL().startsWith(APP_ORIGIN)) return;
-      void contents
-        .executeJavaScript(versionRequestScript(join(logDir, "launch.log"), false))
-        .catch((e: unknown) => {
-          log(`version prime: ${String(e)}`);
-        });
+      // ★★ TOUCHING `webContents` ON A DESTROYED WINDOW THROWS SYNCHRONOUSLY
+      // -- the same rule `helpMenuClick`/`fileMenuClick`/`requestVersionPanel`
+      // guard with a try/catch. This listener's `contents` cannot itself be
+      // the destroyed one (an event a WebContents fires on itself implies it
+      // is still alive to fire it), but `getURL()` is Chromium-backed, and a
+      // synchronous throw inside a `did-finish-load` handler has nowhere else
+      // to land: it is not a rejected promise (no `.catch` reaches it) and
+      // this file installs no `uncaughtException` handler, so an uncaught one
+      // here has the same blast radius as it would from a menu click.
+      try {
+        if (!contents.getURL().startsWith(APP_ORIGIN)) return;
+        void contents
+          .executeJavaScript(versionRequestScript(join(logDir, "launch.log"), false))
+          .catch((e: unknown) => {
+            log(`version prime: ${String(e)}`);
+          });
+      } catch (e: unknown) {
+        log(`version prime: ${String(e)}`);
+      }
     });
+
+    // ★★★ THE ONLY setWindowOpenHandler IN THE SHELL, and it now runs for
+    // EVERY WebContents (see the block comment above) -- a popout created
+    // without one would otherwise fall through to Electron's own default,
+    // which is exactly the unrestricted behaviour this commit removes.
+    // `{ action: "allow" }` with no `overrideBrowserWindowOptions`
+    // deliberately preserves today's popout window shape: per
+    // `DidCreateWindowDetails.options` in electron.d.ts, the created
+    // window's options are "parsed options from the `features` string from
+    // `window.open()`[, then] security-related webPreferences inherited
+    // from the parent, and options given by `webContents.
+    // setWindowOpenHandler`" -- so `openPopoutWindow`'s own
+    // `"popup=yes,width=1200,height=800"` features string and this app's
+    // sandboxed/contextIsolated webPreferences both still apply without
+    // this handler repeating either.
+    try {
+      contents.setWindowOpenHandler((details) => {
+        const decision = decideWindowOpen(details.url, APP_ORIGIN);
+        switch (decision) {
+          case "allow-in-app":
+            return { action: "allow" };
+          case "open-external":
+            void shell.openExternal(details.url).catch((e: unknown) => {
+              log(`window-open: ${String(e)}`);
+            });
+            return { action: "deny" };
+          case "deny":
+            log(`window-open: denied ${details.url}`);
+            return { action: "deny" };
+        }
+      });
+    } catch (e: unknown) {
+      // ★★ MUST NOT THROW, same reasoning as the did-finish-load listener
+      // above -- and here a throw is worse: the SAME line would re-throw on
+      // every future `web-contents-created` for the lifetime of the process,
+      // not just once.
+      log(`window-open handler install: ${String(e)}`);
+    }
+
+    // ★ GUARDS PLAIN-LINK NAVIGATION (no `target`, so no `window.open` and
+    // no `setWindowOpenHandler` call) of the TOP-LEVEL frame -- the gap the
+    // handler above cannot close. Confirmed in electron.d.ts:
+    // `WebContentsWillNavigateEventParams` "does not fire for same document
+    // navigations using window.history api and reference fragment
+    // navigations", so this app's own `#hash` view routing (nav-config.ts /
+    // task-manager's hash-based view switch) and Next's client-side routing
+    // are both untouched -- neither is a top-level navigation in Electron's
+    // sense. Scoped to `isMainFrame`: this shell renders no iframes today,
+    // but a stray subframe navigation is not this guard's job.
+    try {
+      contents.on("will-navigate", (details) => {
+        if (!details.isMainFrame) return;
+        const decision = decideWindowOpen(details.url, APP_ORIGIN);
+        if (decision === "allow-in-app") return;
+        details.preventDefault();
+        if (decision === "open-external") {
+          void shell.openExternal(details.url).catch((e: unknown) => {
+            log(`will-navigate: ${String(e)}`);
+          });
+        } else {
+          log(`will-navigate: denied ${details.url}`);
+        }
+      });
+    } catch (e: unknown) {
+      log(`will-navigate handler install: ${String(e)}`);
+    }
   });
 
   // ★★★ THE .catch IS LOAD-BEARING. Without it, a throw anywhere in start()

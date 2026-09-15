@@ -17,6 +17,8 @@ longer carries its own changelog comment.
 - In the desktop app, Help → Version now opens the same Version panel the app itself shows —
   version name, build date and highlights — in the app's own language, plus where the log file
   is and how to get updates, instead of a separate native dialog.
+- In the desktop app, links to other websites now open in your normal browser instead of an app
+  window.
 
 ## [1.5.1] - 2026-09-15 "Highsmith"
 

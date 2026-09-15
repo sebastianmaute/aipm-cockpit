@@ -611,7 +611,7 @@ dast-zap:
     # a defect fix, not an optimisation: measured 2026-09-10 on Electron 33.4.11,
     # the directory was ~408 MiB of which win-unpacked/ was 314 MiB -- an
     # expanded duplicate of the installer's own contents. Narrowed it was
-    # ~93 MiB (97.5 MB; job 29645: 97,288,587 B). Electron 44.3.0 (this branch)
+    # ~93 MiB (97.5 MB; job 29645: 97,288,587 B). Electron 44.3.0 (since 2026-09-15)
     # grew the narrowed artifact too -- see below.
     #
     # ★ The globs are self-protecting against a stale pre-artifactName build:
