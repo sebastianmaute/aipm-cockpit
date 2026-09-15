@@ -1,11 +1,24 @@
-import { app, BrowserWindow, dialog, Menu, shell, type MenuItemConstructorOptions } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  Menu,
+  shell,
+  type MenuItemConstructorOptions,
+  type WebContents,
+} from "electron";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { ChildProcess } from "node:child_process";
 import { APP_ORIGIN, APP_PORT, RELEASES_URL } from "./lib/constants";
 import { classifyPortOwner, type PortProbe } from "./lib/port-owner";
 import { shouldReportServerExit } from "./lib/exit-reporting";
-import { decideWindowOpen } from "./lib/window-open-policy";
+import {
+  decideNavigation,
+  decideWindowOpen,
+  originOnly,
+  type NavigationContext,
+} from "./lib/window-open-policy";
 import {
   DASHBOARD_VIEW_HASH,
   FILE_MENU_ITEMS,
@@ -30,6 +43,19 @@ let win: BrowserWindow | null = null;
 // what a crash looks like. Without this flag every normal close ended with an
 // error dialog claiming the background service had stopped unexpectedly.
 let quitting = false;
+
+// ★ PER-WEBCONTENTS AUTH-FLOW STATE, keyed by the WebContents object itself
+// (never by `.id`: ids are only unique among LIVE WebContents and Electron
+// reuses them, so a numeric key could read a closed popup's flow state as a
+// brand-new one's). A `WeakMap` rather than a `Map` on purpose: a popup
+// closes and its WebContents is garbage-collected without this file ever
+// being told to delete an entry -- the window-close/webContents-destroyed
+// events exist, but nothing here needs them if the map cannot leak. Read via
+// `authFlowFor` below, which is also where "no entry yet" becomes `false`.
+const authFlowState = new WeakMap<WebContents, boolean>();
+function authFlowFor(contents: WebContents): boolean {
+  return authFlowState.get(contents) === true;
+}
 
 const logDir = resolveLogDir(process.env);
 function log(line: string): void {
@@ -531,7 +557,7 @@ if (!app.requestSingleInstanceLock()) {
       // this file installs no `uncaughtException` handler, so an uncaught one
       // here has the same blast radius as it would from a menu click.
       try {
-        if (!contents.getURL().startsWith(APP_ORIGIN)) return;
+        if (new URL(contents.getURL()).origin !== APP_ORIGIN) return;
         void contents
           .executeJavaScript(versionRequestScript(join(logDir, "launch.log"), false))
           .catch((e: unknown) => {
@@ -556,6 +582,13 @@ if (!app.requestSingleInstanceLock()) {
     // `"popup=yes,width=1200,height=800"` features string and this app's
     // sandboxed/contextIsolated webPreferences both still apply without
     // this handler repeating either.
+    //
+    // ★ NO AUTH-FLOW AWARENESS NEEDED HERE, deliberately -- see
+    // `decideNavigation`'s doc comment in window-open-policy.ts for the
+    // measured reason (`use-ms-auth.ts` never sets `navigatePopups: false`,
+    // so MSAL never calls `window.open` with a non-blank URL for this app).
+    // The window-OPEN decision stays exactly `decideWindowOpen`; the auth
+    // fix lives entirely in the navigation guards below.
     try {
       contents.setWindowOpenHandler((details) => {
         const decision = decideWindowOpen(details.url, APP_ORIGIN);
@@ -563,12 +596,12 @@ if (!app.requestSingleInstanceLock()) {
           case "allow-in-app":
             return { action: "allow" };
           case "open-external":
-            void shell.openExternal(details.url).catch((e: unknown) => {
+            void shell.openExternal(new URL(details.url).href).catch((e: unknown) => {
               log(`window-open: ${String(e)}`);
             });
             return { action: "deny" };
           case "deny":
-            log(`window-open: denied ${details.url}`);
+            log(`window-open: denied ${originOnly(details.url)}`);
             return { action: "deny" };
         }
       });
@@ -580,6 +613,24 @@ if (!app.requestSingleInstanceLock()) {
       log(`window-open handler install: ${String(e)}`);
     }
 
+    // ★★★ AUTH-FLOW CONTEXT FOR THIS WEBCONTENTS, shared by `will-navigate`
+    // and `will-redirect` below -- both read and write the SAME
+    // `authFlowState` entry, because a Microsoft sign-in can enter the flow
+    // on an ordinary navigation (`location.assign`, MSAL's own path -- see
+    // `decideNavigation`'s doc comment) and continue it through a SERVER
+    // redirect (a federated IdP forwarding back to login.microsoftonline.com,
+    // or vice versa) with no navigation event of the other kind in between.
+    // `contents.opener` (electron.d.ts: "represents the frame that opened
+    // this WebContents, either with open(), or by navigating a link with a
+    // target attribute") is read FRESH on every event rather than cached at
+    // `web-contents-created` time: it is a property of the live `contents`,
+    // cheap to read, and reading it late means no assumption about when
+    // Electron populates it relative to this listener's registration.
+    const navContext = (): NavigationContext => ({
+      isChildWindow: contents.opener !== null,
+      inAuthFlow: authFlowFor(contents),
+    });
+
     // ★ GUARDS PLAIN-LINK NAVIGATION (no `target`, so no `window.open` and
     // no `setWindowOpenHandler` call) of the TOP-LEVEL frame -- the gap the
     // handler above cannot close. Confirmed in electron.d.ts:
@@ -588,24 +639,74 @@ if (!app.requestSingleInstanceLock()) {
     // navigations", so this app's own `#hash` view routing (nav-config.ts /
     // task-manager's hash-based view switch) and Next's client-side routing
     // are both untouched -- neither is a top-level navigation in Electron's
-    // sense. Scoped to `isMainFrame`: this shell renders no iframes today,
-    // but a stray subframe navigation is not this guard's job.
+    // sense. Also where MSAL's `location.assign(authorityUrl)` on its
+    // pre-opened `about:blank` popup lands (see `decideNavigation`), which is
+    // why this now carries auth-flow context rather than the plain
+    // `decideWindowOpen` this commit's first cut used.
+    //
+    // ★ DELIBERATELY SCOPED TO `isMainFrame`: this shell renders no
+    // cross-origin `<iframe>` of its own (`git grep -n iframe src/app`
+    // outside comments returns nothing), and the one cross-origin subframe
+    // this app ever loads -- MSAL's `acquireTokenSilent` hidden iframe
+    // (`use-ms-auth.ts:266`) -- is governed by `frame-src` in `src/proxy.ts`,
+    // not by top-level navigation guards. A subframe guard is out of scope
+    // by that reasoning, not merely unimplemented; add one only if a
+    // same-origin iframe embedding untrusted content is ever introduced.
     try {
       contents.on("will-navigate", (details) => {
         if (!details.isMainFrame) return;
-        const decision = decideWindowOpen(details.url, APP_ORIGIN);
+        const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, navContext());
+        authFlowState.set(contents, authFlow);
         if (decision === "allow-in-app") return;
         details.preventDefault();
         if (decision === "open-external") {
-          void shell.openExternal(details.url).catch((e: unknown) => {
+          void shell.openExternal(new URL(details.url).href).catch((e: unknown) => {
             log(`will-navigate: ${String(e)}`);
           });
         } else {
-          log(`will-navigate: denied ${details.url}`);
+          log(`will-navigate: denied ${originOnly(details.url)}`);
         }
       });
     } catch (e: unknown) {
       log(`will-navigate handler install: ${String(e)}`);
+    }
+
+    // ★★★ SERVER REDIRECTS ARE A SEPARATE EVENT FROM `will-navigate`, and
+    // before this commit nothing policed them: `will-navigate` only sees the
+    // navigation's INITIAL URL, so a same-origin/allow-in-app page (or a
+    // popout) that received a 30x to another origin would render that other
+    // origin in-app and chromeless -- exactly what this whole file exists to
+    // prevent, and exactly the shape an OAuth authorize response takes
+    // (Azure AD redirects to a federated IdP, then back). Confirmed in
+    // electron.d.ts: "Emitted when a server side redirect occurs during
+    // navigation. ... Calling event.preventDefault() will prevent the
+    // navigation (not just the redirect)." -- so `preventDefault()` here
+    // cancels the WHOLE in-flight navigation, not merely this one hop, which
+    // is why the `open-external`/`deny` branches below never also need to
+    // stop a later `did-navigate`. No open redirect exists in this app today
+    // (`grep -rn "NextResponse.redirect\|redirect(\|Response.redirect"
+    // src/proxy.ts src/app/api` is empty), so this is defence in depth
+    // against a future one, not a fix for a reachable bug -- and it is load-
+    // bearing for I-1: MSAL's popup navigates to login.microsoftonline.com
+    // and Azure AD then 30x's it to the tenant's federated IdP, a SERVER
+    // redirect this event is the only guard for.
+    try {
+      contents.on("will-redirect", (details) => {
+        if (!details.isMainFrame) return;
+        const { decision, authFlow } = decideNavigation(details.url, APP_ORIGIN, navContext());
+        authFlowState.set(contents, authFlow);
+        if (decision === "allow-in-app") return;
+        details.preventDefault();
+        if (decision === "open-external") {
+          void shell.openExternal(new URL(details.url).href).catch((e: unknown) => {
+            log(`will-redirect: ${String(e)}`);
+          });
+        } else {
+          log(`will-redirect: denied ${originOnly(details.url)}`);
+        }
+      });
+    } catch (e: unknown) {
+      log(`will-redirect handler install: ${String(e)}`);
     }
   });
 
