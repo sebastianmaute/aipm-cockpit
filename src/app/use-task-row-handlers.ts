@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import { t, type Lang } from "./i18n";
-import { isWriteSafeEmail } from "./sanitize";
+import { isWriteSafeEmail, sanitizeLoadedEmail } from "./sanitize";
 import { typedEmailRefusalKey } from "./email-refusal-i18n";
 import { buildMailtoUrl } from "./mailto";
 import { renderTemplateForSend, buildStatusInquiryVars } from "./comm-templates";
@@ -111,7 +111,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
           "",
         );
         if (provided === null) return;
-        const trimmed = provided.trim();
+        const trimmed = sanitizeLoadedEmail(provided); // M-C4: the unwrapped address, as every AI write stores
         if (!isWriteSafeEmail(trimmed)) {
           window.alert(t(lang, typedEmailRefusalKey(trimmed)));
           return;

@@ -335,6 +335,20 @@ describe("TaskFormFields", () => {
       expect(screen.getByText(delimiterMessage)).toBeTruthy();
     });
 
+    // M-C4 — the submit stores the `Name <addr>`-unwrapped address, so the flag
+    //  judges that value too.
+    it("M-C4: does not flag a Name <addr> whose inner address is write-safe", () => {
+      render(<VisHarness />, { wrapper: TestProviders });
+      selectFieldTier("fieldViewFull");
+      const input = screen.getByPlaceholderText(t("en-US", "placeholderEmail"));
+      fireEvent.change(input, { target: { value: "Ann Lee <ann@x.com>" } });
+      expect(screen.queryByText(t("en-US", "errorInvalidEmail"))).toBeNull();
+      expect(input.getAttribute("aria-invalid")).not.toBe("true");
+      // Positive control: a shape that does not unwrap still flags.
+      fireEvent.change(input, { target: { value: "Dee <not-an-email>" } });
+      expect(screen.getByText(t("en-US", "errorInvalidEmail"))).toBeTruthy();
+    });
+
     it("hides advanced fields like Priority when switched to Simple, keeping Task name", () => {
       render(<VisHarness />, { wrapper: TestProviders });
       expect(screen.getByText("Priority")).toBeTruthy();

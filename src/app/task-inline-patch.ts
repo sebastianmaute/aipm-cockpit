@@ -10,8 +10,8 @@ import {
   sanitizeAssignee,
   sanitizeBlockers,
   sanitizeDependencies,
-  sanitizeEmail,
   sanitizeIsoDate,
+  sanitizeLoadedEmail,
   sanitizePriority,
   sanitizeTaskName,
 } from "./sanitize";
@@ -41,7 +41,7 @@ export interface InlinePatchContext {
  *  this sanitizer judge ONE value with ONE rule. */
 export function inlineAssigneeEmailRefusal(patch: Partial<Task>, ctx: InlinePatchContext): EmailRefusal | null {
   if (!("assigneeEmail" in patch)) return null;
-  return emailWriteRefusal(sanitizeEmail(patch.assigneeEmail), ctx.storedAssigneeEmail, ctx.copySourceEmails ?? []);
+  return emailWriteRefusal(sanitizeLoadedEmail(patch.assigneeEmail), ctx.storedAssigneeEmail, ctx.copySourceEmails ?? []);
 }
 
 /**
@@ -59,7 +59,7 @@ export function sanitizeInlinePatch(patch: Partial<Task>, ctx: InlinePatchContex
   }
   if ("assignee" in patch) clean.assignee = sanitizeAssignee(patch.assignee);
   if ("assigneeEmail" in patch && inlineAssigneeEmailRefusal(patch, ctx) === null) {
-    clean.assigneeEmail = sanitizeEmail(patch.assigneeEmail); // a refused value keeps the stored one
+    clean.assigneeEmail = sanitizeLoadedEmail(patch.assigneeEmail); // a refused value keeps the stored one
   }
   if ("resourceId" in patch) {
     const rid = patch.resourceId;

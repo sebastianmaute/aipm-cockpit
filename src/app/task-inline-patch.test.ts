@@ -93,4 +93,18 @@ describe("assigneeEmail follows the changed-only write rule (spec Part 1, decisi
   it("never refuses a clear", () => {
     expect(inlineAssigneeEmailRefusal({ assigneeEmail: "" }, ctx({ storedAssigneeEmail: "a,b@x.com" }))).toBeNull();
   });
+
+  // M-C4 — the cell stores the `Name <addr>`-unwrapped address, as every AI write
+  //  and load does, and judges that same value.
+  it("M-C4: judges and stores a typed Name <addr> as addr", () => {
+    const c = ctx({ storedAssigneeEmail: "old@x.com" });
+    const patch = { assigneeEmail: "Ann Lee <ann@x.com>" };
+    expect(inlineAssigneeEmailRefusal(patch, c)).toBeNull();
+    expect(sanitizeInlinePatch(patch, c).assigneeEmail).toBe("ann@x.com");
+  });
+
+  it("M-C4: a shape-only edit yields the stored address, so the pane's valuesDiffer sees no change", () => {
+    const c = ctx({ storedAssigneeEmail: "ada@x.com" });
+    expect(sanitizeInlinePatch({ assigneeEmail: "Ada <ada@x.com>" }, c).assigneeEmail).toBe("ada@x.com");
+  });
 });

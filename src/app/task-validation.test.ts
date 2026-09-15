@@ -77,6 +77,14 @@ describe("assigneeEmail follows the changed-only write rule", () => {
   it("exempts a copy of the linked resource's stored email", () => {
     expect(validateTaskForm(unsafe(), TODAY, false, { stored: "old@x.com", copySources: ["a,b@x.com"] }).assigneeEmail).toBeUndefined();
   });
+  // M-C4 — the form stores the `Name <addr>`-unwrapped address (as every AI
+  //  write and every load does), so it must judge that same value.
+  it("M-C4: judges the Name <addr>-unwrapped address the save stores", () => {
+    const named = (assigneeEmail: string) => draft({ taskName: "X", assignee: "Y", dueDate: TODAY, assigneeEmail });
+    expect(validateTaskForm(named("Ann Lee <ann@x.com>"), TODAY, false, { stored: "old@x.com" }).assigneeEmail).toBeUndefined();
+    // Positive control: a shape whose inner address is not write-safe is not unwrapped, so it is still refused.
+    expect(validateTaskForm(named("Dee <not-an-email>"), TODAY, false, { stored: "old@x.com" }).assigneeEmail).toBe("errorInvalidEmail");
+  });
 });
 
 describe("validateTaskForm past-date rule", () => {

@@ -10,10 +10,10 @@ import {
   emailWriteRefusal,
   sanitizeAssignee,
   sanitizeBlockers,
-  sanitizeEmail,
   sanitizeGroup,
   sanitizeIsoDate,
   sanitizeLabels,
+  sanitizeLoadedEmail,
   sanitizePriority,
 } from "./sanitize";
 import { sanitizeRichHtml } from "./sanitize-html";
@@ -36,7 +36,8 @@ export function buildBulkEditUpdates(
   if (fields.dueDate && (!newDue || newDue < today)) {
     return { ok: false, error: "pastDate" };
   }
-  const newEmail = fields.assigneeEmail ? sanitizeEmail(bulkEdit.assigneeEmail) : "";
+  // M-C4: the `Name <addr>`-unwrapped address, as every AI email write and load stores.
+  const newEmail = fields.assigneeEmail ? sanitizeLoadedEmail(bulkEdit.assigneeEmail) : "";
   // A bulk value is TYPED, never a stored one, so it is judged as a create.
   const emailRefusal = fields.assigneeEmail ? emailWriteRefusal(newEmail, undefined) : null;
   if (emailRefusal === "invalid") return { ok: false, error: "invalidEmail" };

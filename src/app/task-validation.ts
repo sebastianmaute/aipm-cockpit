@@ -10,8 +10,8 @@ import { type TaskFormDraft } from "./task-form-context";
 import {
   emailWriteRefusal,
   sanitizeAssignee,
-  sanitizeEmail,
   sanitizeIsoDate,
+  sanitizeLoadedEmail,
   sanitizeTaskName,
 } from "./sanitize";
 import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
@@ -56,7 +56,8 @@ export function validateTaskForm(
   else if (isNew && dueDate < today) errors.dueDate = "errorPastDate";
 
   // A blank email is allowed; a CHANGED one must be write-safe (spec Part 1).
-  const refusal = emailWriteRefusal(sanitizeEmail(form.assigneeEmail), email.stored, email.copySources ?? []);
+  // M-C4: judged `Name <addr>`-unwrapped, the value `use-task-submit.ts` stores.
+  const refusal = emailWriteRefusal(sanitizeLoadedEmail(form.assigneeEmail), email.stored, email.copySources ?? []);
   if (refusal) errors.assigneeEmail = EMAIL_REFUSAL_KEY[refusal];
 
   return errors;

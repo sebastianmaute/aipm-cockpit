@@ -21,8 +21,9 @@ import {
   TEXTAREA_MAX,
   sanitizeAssignee,
   sanitizeBlockers,
+  normalizeEmailShape,
   sanitizeDependencies,
-  sanitizeEmail,
+  sanitizeLoadedEmail,
   sanitizeGroup,
   sanitizeIsoDate,
   sanitizeLabels,
@@ -150,7 +151,10 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         }
       }
 
-      const email = sanitizeEmail(adj.track(describeTextCap(form.assigneeEmail, EMAIL_MAX)));
+      // M-C4: store the `Name <addr>`-unwrapped address (unwrap, THEN cap), as every
+      // AI email write and load does; the adjustment counts a cap of that same value.
+      adj.track(describeTextCap(normalizeEmailShape(form.assigneeEmail).trim(), EMAIL_MAX));
+      const email = sanitizeLoadedEmail(form.assigneeEmail);
 
       const knownIds = new Set(tasks.map((row) => row.id));
       const cleanDependencies = sanitizeDependencies(

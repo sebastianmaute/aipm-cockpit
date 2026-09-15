@@ -268,6 +268,37 @@ describe("useTaskSubmit — the email copy source comes from args.resources (pre
   });
 });
 
+describe("useTaskSubmit — M-C4: the form stores the Name <addr>-unwrapped email", () => {
+  it("a typed Name <addr> saves as addr on the patched row", () => {
+    const setTasks = vi.fn();
+    const existing = makeTask({ id: 1, assignee: "Ann", assigneeEmail: "old@x.com" });
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [existing], tasksRef: { current: [existing] },
+        form: { ...validForm(), assignee: "Ann", assigneeEmail: "Ann Lee <ann@x.com>" },
+      })),
+    );
+    expect(result.current.fieldErrors.assigneeEmail).toBeUndefined();
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    expect(updater([existing])[0].assigneeEmail).toBe("ann@x.com");
+  });
+
+  it("a shape-only edit stores the unchanged address", () => {
+    const setTasks = vi.fn();
+    const existing = makeTask({ id: 1, assignee: "Ada", assigneeEmail: "ada@x.com" });
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [existing], tasksRef: { current: [existing] },
+        form: { ...validForm(), assignee: "Ada", assigneeEmail: "Ada <ada@x.com>" },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    expect(updater([existing])[0].assigneeEmail).toBe("ada@x.com");
+  });
+});
+
 describe("useTaskSubmit — edit branch", () => {
   it("patches the edited row, stamps localModifiedAt, clears editing, logs task.updated", () => {
     const setTasks = vi.fn();

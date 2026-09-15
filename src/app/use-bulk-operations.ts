@@ -13,6 +13,7 @@ import { useFilters } from "./filters-context";
 import { useTaskForm, emptyBulkEdit, emptyForm } from "./task-form-context";
 import {
   isWriteSafeEmail,
+  sanitizeLoadedEmail,
   sanitizeTaskName,
   sanitizeVoiceTranscript,
 } from "./sanitize";
@@ -444,7 +445,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       if (!email) {
         const provided = window.prompt(t(lang, "promptEmail", task.assignee), "");
         if (provided === null) continue;
-        const trimmed = provided.trim();
+        const trimmed = sanitizeLoadedEmail(provided); // M-C4: the unwrapped address, as every AI write stores
         if (!isWriteSafeEmail(trimmed)) {
           showToastRef.current("error", t(lang, typedEmailRefusalKey(trimmed)));
           continue;

@@ -32,7 +32,7 @@ import {
   ASSIGNEE_MAX,
   EMAIL_MAX,
   GROUP_MAX,
-  sanitizeEmail,
+  sanitizeLoadedEmail,
   TASK_NAME_MAX,
   TEXTAREA_MAX,
 } from "./sanitize";
@@ -105,9 +105,9 @@ export function TaskFormFields({
   budgetLink,
 }: TaskFormFieldsProps) {
   const { form, setForm, editingId } = useTaskForm();
-  // The flag judges the value a submit would STORE — `use-task-submit.ts` caps
-  // then `sanitizeEmail`s — never the raw typed string.
-  const storedAssigneeEmail = sanitizeEmail(describeTextCap(form.assigneeEmail, EMAIL_MAX).value);
+  // The flag judges the value a submit would STORE — `use-task-submit.ts` stores
+  // `sanitizeLoadedEmail` (unwrap `Name <addr>`, then trim + cap) — never the raw typed string.
+  const storedAssigneeEmail = sanitizeLoadedEmail(form.assigneeEmail);
   const isEditing = editingId !== null;
   const { isVisible } = useModalVisibility("task");
   const { settings } = useSettings();
