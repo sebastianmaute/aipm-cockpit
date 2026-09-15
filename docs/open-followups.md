@@ -771,6 +771,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§546](#546-a-dated-timelog-applys-other-granularity-delete-removes-hand-typed-hours-from-days-it-never-routed-and-the-confirm-dialog-never-discloses-it--open) | A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — OPEN | found 2026-09-15 while filing the §543 closure text on `feat/budget-forecast-figures`; user approved filing | S — list the removed other-granularity key in the confirm dialog; re-keying the leftover hours is not sound, since the lump sum has no day-level breakdown | open |
 | [§547](#547-the-desktop-sign-in-popups-state-machine-has-no-unit-harness--open) | The desktop sign-in popup's state machine has no unit harness — OPEN | final review of `chore/electron-44` (M-7 + item 2 recommendation), state bugs M-C/m1/m2 found only by review; GitLab #338 | S–M — a pure `auth-flow-tracker.ts` reducer plus tests replaying the M-C/m1/m2 sequences | open |
 | [§548](#548-an-edit-made-during-a-projects-first-backend-load-is-overwritten-when-that-load-lands--open) | An edit made during a project's first backend load is overwritten when that load lands — OPEN | found 2026-09-15 debugging a `task-manager.template-notice.test.tsx` race on `chore/electron-44`; GitLab #336 | S–M — withhold edits until the first load lands, or make the load-time guard compare per slice | open |
+| [§549](#549-the-budget-report-has-no-earned-value-history-so-the-cumulative-chart-shows-earned-value-only-as-a-point-at-today--open) | The Budget report has no earned-value history, so the cumulative chart shows earned value only as a point at today — OPEN | deferred 2026-09-15 by the forecast chart and hours addendum (MR 3), user approved filing; GitLab #339 | M — derive per-period earned value from task completion dates; hand-entered % complete has no history | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38326,6 +38327,10 @@ planned renames the snapshot's `evm.spi` / `evm.cpi` become the effort indices w
 Fix shape: once MR 2 ships the forecast engine, add the forecast figures to the snapshot and the exports, and
 rename or document the snapshot's effort indices.
 
+MR 3 of that slice (`docs/superpowers/specs/2026-09-15-forecast-chart-hours-design.md`) adds an hours forecast and
+a rate-mix signal (average booked rate against the planned rate, and the role driving the difference) to the same
+surfaces. The snapshot and the exports carry none of those either; they belong in the same fix.
+
 Related: §499, §501.
 
 ## 546. A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — OPEN
@@ -38465,3 +38470,27 @@ only whether the load is empty as a whole.
 
 Related: §284 (a different Turso load-time data-loss mechanism — a silently discarded meta-blob decode failure —
 closed 2026-08-29); §98 (the save-path analogue: `documents` invisible to the save-time data-loss guards).
+
+## 549. The Budget report has no earned-value history, so the cumulative chart shows earned value only as a point at today — OPEN
+
+**Status:** OPEN 2026-09-15 — `grep -rniE "earned.?value.?(history|series|curve)|evHistory|evSeries" src/app
+--include=*.ts --include=*.tsx` prints nothing (exit 1) on a tree identical to `origin/main` under `src`; the
+positive control `grep -rliE "earned.?value" src/app --include=*.ts --include=*.tsx` lists 33 files, so the
+pattern is not vacuous. The `BurndownSeries` type carries no earned-value field, and `computeEvm` (`evm.ts`)
+returns the point-in-time `EvmMetrics` only.
+
+**Work item:** #339
+
+MR 3 of the budget forecast slice (`docs/superpowers/specs/2026-09-15-forecast-chart-hours-design.md`) adds a
+Cumulative orientation to the Budget report and dashboard burn-down chart. It plots planned value and actual cost
+over time, but earned value only as a single point at today, because nothing records or derives earned value per
+period. The time-phased S-curve §501 asked for (planned, earned and actual over time) therefore stays incomplete
+when §501 closes with MR 3. The union spec (`2026-09-14-budget-forecast-union-design.md` §10) ruled EV history out
+of scope for that slice; the user approved filing this entry on 2026-09-15.
+
+Fix shape: derive a per-period earned-value series. Buckets whose percent complete comes from linked tasks can be
+reconstructed from task completion dates. A bucket with a hand-entered percent complete has no history, so it
+needs either a recorded percent complete per period (for example alongside Turso snapshots) or an explicit
+"no history" gap in the line rather than an invented value. Then draw it as a third cumulative line.
+
+Related: §501, §504.
