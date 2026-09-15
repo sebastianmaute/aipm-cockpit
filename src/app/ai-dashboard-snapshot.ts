@@ -125,8 +125,8 @@ export function buildDashboardSnapshot(
             // check (see ProjectReport.costPerformanceIndex), and in a
             // mixed-bucket case can legitimately be non-null even when the
             // project-level costUnknownReason is set — matching what the
-            // budget panel's CPI tile itself shows. Adding the gate here would
-            // make this payload diverge from the panel.
+            // budget panel's internal-cost-index tile itself shows. Adding the
+            // gate here would make this payload diverge from the panel.
             earnedValue: project.earnedValue,
             costPerformanceIndex: project.costPerformanceIndex,
             costUnknownReason: project.costUnknownReason,

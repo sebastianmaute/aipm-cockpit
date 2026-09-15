@@ -45,6 +45,7 @@ import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { Sparkline } from "./sparkline";
 import { EmptyState } from "./empty-state";
 import { INTERACTIVE } from "./interaction-styles";
+import { ForecastHeadline } from "./budget-forecast-headline";
 import { DashboardKpiStrip } from "./dashboard-sections/dashboard-kpi-strip";
 import { DashboardTopActions } from "./dashboard-sections/dashboard-top-actions";
 import { RaidRegisterCard, UpcomingCard } from "./dashboard-sections/registers-band";
@@ -238,14 +239,15 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
 
     burn: (
       <>
+        {model.forecast ? <ForecastHeadline lang={lang} forecast={model.forecast} /> : null}
         {model.burn ? (
           <div className="flex flex-wrap gap-2">
             <Tile
-              label={t(lang, "dashboardSubBudget")} hint={t(lang, "dashboardBudgetHint")}
+              label={t(lang, "dashboardSubSpent")} hint={t(lang, "dashboardSpentHint")}
               value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
-              rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubBudget")} />}
+              rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubSpent")} />}
               onActivate={openBudget}
-              activateLabel={`${t(lang, "dashboardSubBudget")} – ${t(lang, "dashboardOpenBudgetView")}`}
+              activateLabel={`${t(lang, "dashboardSubSpent")} – ${t(lang, "dashboardOpenBudgetView")}`}
             />
             <Tile
               label="h" hint={t(lang, "dashboardHoursHint")}

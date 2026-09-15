@@ -68,13 +68,19 @@ describe("BudgetReportPanel — the project rollup discloses unresolved-rate sum
 
 describe("BudgetReportPanel", () => {
   it("shows the project rollup (revenue + cost in EUR)", () => {
-    renderPanel();
+    const { container } = renderPanel();
     // revenue = 80*180 + 50*150 + 120*150 = 39900 ; cost = 80*120 + 50*100 + 120*100 = 26600
     // Every bucket here is T&M, where consumed value IS revenue, so the figure
     // renders TWICE: once on the revenue tile, once on the consumption tile.
     // Pinned exactly — a bare "at least one" would not notice a third.
-    expect(screen.getAllByText(/€?39,900|39\.900/)).toHaveLength(2);
-    expect(screen.getByText(/€?26,600|26\.600/)).toBeInTheDocument();
+    // ★ Task 5 scope: every bucket here is also T&M, so the forecast facts
+    // row's AC happens to equal the same 39,900 — scope to the EXISTING
+    // tiles grid (index 1; index 0 is the new forecast facts row) so this
+    // assertion stays about the rollup tiles, not a coincidence of the fixture.
+    const grids = container.querySelectorAll(".grid.grid-cols-2.gap-3.sm\\:grid-cols-4");
+    const existingTilesGrid = grids[1] as HTMLElement;
+    expect(within(existingTilesGrid).getAllByText(/€?39,900|39\.900/)).toHaveLength(2);
+    expect(within(existingTilesGrid).getByText(/€?26,600|26\.600/)).toBeInTheDocument();
   });
 
   it("lists a row per bucket with its planning mode", () => {
@@ -507,5 +513,44 @@ describe("§474 — the missing-bucket fallback does not claim EUR", () => {
     // Rendering is unchanged: no suffix, no "1:1" marker, nothing claiming EUR.
     expect(row).not.toHaveTextContent(/1:1/);
     expect(row).not.toHaveTextContent(/EUR/);
+  });
+});
+
+// Task 5: facts row, forecast cards, banner and the new section order.
+describe("BudgetReportPanel — forecast section order", () => {
+  it("orders sections Project total, Forecast, Burn-down, By bucket, Earned value", () => {
+    renderPanel();
+    // Only the report's own SECTION headings — every `Section` title is an
+    // h3; the two forecast card titles are h4 (nested under the Forecast
+    // section's h3, not siblings of it), so a bare heading-role query would
+    // still pick both up. Filtering to the known, distinct Section title
+    // texts keeps this scoped to sections regardless of level.
+    const sectionTitles = [
+      t("en-US", "budgetReportProjectTotal"),
+      t("en-US", "forecastTitle"),
+      t("en-US", "budgetBurndownTitle"),
+      t("en-US", "budgetReportByBucket"),
+      // Pinned via the live key (not a literal) so Task 6's rename to
+      // "Earned value · effort" keeps this assertion valid.
+      t("en-US", "evmTitle"),
+    ];
+    const headingTexts = screen.getAllByRole("heading").map((h) => h.textContent ?? "");
+    const found = headingTexts.filter((text) => sectionTitles.includes(text));
+    expect(found).toEqual(sectionTitles);
+  });
+
+  it("shows the facts row and forecast cards inside their own Forecast section", () => {
+    renderPanel();
+    const forecastHeading = screen.getByRole("heading", { name: t("en-US", "forecastTitle") });
+    // Finding 7: `within` the actual Forecast section, not a bare "exists
+    // somewhere on the page" check — the heading's parent IS the `Section`
+    // wrapper (`report-table.tsx`'s `Section` renders `<h3>{title}</h3>` as a
+    // sibling of its children inside one wrapping `<div>`).
+    const forecastSection = forecastHeading.parentElement as HTMLElement;
+    // Finding 2: each card's `aria-labelledby` now points at an inner <span>
+    // holding only the title text, so the region's accessible name is the
+    // exact EN title — no regex needed.
+    expect(within(forecastSection).getByRole("region", { name: t("en-US", "forecastPaceTitle") })).toBeInTheDocument();
+    expect(within(forecastSection).getByRole("region", { name: t("en-US", "forecastEfficiencyTitle") })).toBeInTheDocument();
   });
 });

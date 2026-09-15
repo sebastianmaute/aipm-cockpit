@@ -748,6 +748,7 @@ export function WorkspaceSection({
               tasks={tasks}
               actualsByBucket={budgetActuals.byBucket} actualsFetchedAt={budgetActuals.fetchedAt}
               timelogProjectId={currentProjectId ?? "default"} onGoToTimelog={() => setActiveTab("timelog")}
+              onOpenBudgetReport={isPopout ? undefined : () => setActiveTab("budget-report")}
               onChangeBuckets={onChangeBudgets}
               onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
               onRefreshFx={onRefreshFx}

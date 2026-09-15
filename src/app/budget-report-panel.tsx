@@ -32,6 +32,10 @@ import { BurndownCharts } from "./burndown-chart";
 import { BurndownChainWarning } from "./budget-chain-warning";
 import { EmptyState } from "./empty-state";
 import { ViewCallout } from "./view-callout";
+import { computeBudgetForecast } from "./budget-forecast";
+import { ForecastFactsRow } from "./budget-forecast-facts";
+import { ForecastCards } from "./budget-forecast-cards";
+import { ForecastBanners } from "./budget-forecast-banner";
 
 const DETAIL_COL_WIDTHS = {
   bucket: 160, mode: 90, type: 80, status: 80, currency: 110,
@@ -92,6 +96,10 @@ export function BudgetReportPanel({
     ),
     [buckets, plan, roles, resources, workdayHours, holidaySet, absences, today, fxRates, bucketChain],
   );
+  const forecast = useMemo(
+    () => computeBudgetForecast({ report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today }),
+    [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today],
+  );
   const { ref, reset } = useResizable("aipm-cockpit:budget-report-size");
   const detail = useColumnResize<DetailCol>("budgetReportDetail", DETAIL_COL_WIDTHS);
 
@@ -114,6 +122,7 @@ export function BudgetReportPanel({
   const content = (
     <>
       <Section title={t(lang, "budgetReportProjectTotal")}>
+        <ForecastFactsRow lang={lang} forecast={forecast} />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Tile label={t(lang, "budgetBudgetHours")} value={proj.budgetHours.toFixed(0)} />
           <Tile label={t(lang, "budgetPlanHours")} value={proj.plannedHours.toFixed(0)}
@@ -143,23 +152,11 @@ export function BudgetReportPanel({
         <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} />
       </Section>
 
-      <Section title={t(lang, "evmTitle")}>
-        {evm.coverage.withEstimate === 0 ? (
-          <p className="text-sm text-muted-foreground">{t(lang, "evmNoEstimates")}</p>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Tile label={t(lang, "evmPv")} value={`${Math.round(evm.pv)}h${evm.money ? ` (${money(evm.money.pv)})` : ""}`} />
-              <Tile label={t(lang, "evmEv")} value={`${Math.round(evm.ev)}h${evm.money ? ` (${money(evm.money.ev)})` : ""}`} />
-              <Tile label={t(lang, "evmAc")} value={`${Math.round(evm.ac)}h${evm.money ? ` (${money(evm.money.ac)})` : ""}`} />
-              <Tile label={<>{t(lang, "evmSpi")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "evmSpiHint")} /></span></>} value={evm.spi != null ? evm.spi.toFixed(2) : "—"} />
-              <Tile label={<>{t(lang, "evmCpi")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "evmCpiHint")} /></span></>} value={evm.cpi != null ? evm.cpi.toFixed(2) : "—"} />
-              <Tile label={t(lang, "evmSv")} value={`${Math.round(evm.sv)}h${evm.money ? ` (${money(evm.money.sv)})` : ""}`} />
-              <Tile label={t(lang, "evmCv")} value={`${Math.round(evm.cv)}h${evm.money ? ` (${money(evm.money.cv)})` : ""}`} />
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">{t(lang, "evmCoverage", String(evm.coverage.withEstimate), String(evm.coverage.total))}</p>
-          </>
-        )}
+      <Section title={t(lang, "forecastTitle")}>
+        <div className="space-y-3">
+          <ForecastBanners lang={lang} forecast={forecast} granularity={plan.granularity} />
+          <ForecastCards lang={lang} forecast={forecast} />
+        </div>
       </Section>
 
       <Section title={t(lang, "budgetBurndownTitle")}>
@@ -186,6 +183,25 @@ export function BudgetReportPanel({
         colResize={detail}
         money={money}
       />
+
+      <Section title={t(lang, "evmTitle")}>
+        {evm.coverage.withEstimate === 0 ? (
+          <p className="text-sm text-muted-foreground">{t(lang, "evmNoEstimates")}</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Tile label={t(lang, "evmPv")} value={`${Math.round(evm.pv)}h${evm.money ? ` (${money(evm.money.pv)})` : ""}`} />
+              <Tile label={t(lang, "evmEv")} value={`${Math.round(evm.ev)}h${evm.money ? ` (${money(evm.money.ev)})` : ""}`} />
+              <Tile label={t(lang, "evmAc")} value={`${Math.round(evm.ac)}h${evm.money ? ` (${money(evm.money.ac)})` : ""}`} />
+              <Tile label={<>{t(lang, "evmSpi")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "evmSpiHint")} /></span></>} value={evm.spi != null ? evm.spi.toFixed(2) : "—"} />
+              <Tile label={<>{t(lang, "evmCpi")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "evmCpiHint")} /></span></>} value={evm.cpi != null ? evm.cpi.toFixed(2) : "—"} />
+              <Tile label={t(lang, "evmSv")} value={`${Math.round(evm.sv)}h${evm.money ? ` (${money(evm.money.sv)})` : ""}`} />
+              <Tile label={t(lang, "evmCv")} value={`${Math.round(evm.cv)}h${evm.money ? ` (${money(evm.money.cv)})` : ""}`} />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{t(lang, "evmCoverage", String(evm.coverage.withEstimate), String(evm.coverage.total))}</p>
+          </>
+        )}
+      </Section>
     </>
   );
 

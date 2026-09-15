@@ -47,7 +47,7 @@ describe("restoreTile", () => {
   it("appends a hidden tile to the board at its catalogue default size", () => {
     const next = restoreTile(layout(), "burn");
     expect(next.hidden).toEqual([]);
-    expect(next.board.at(-1)).toEqual({ id: "burn", w: 1, h: 2 });
+    expect(next.board.at(-1)).toEqual({ id: "burn", w: 1, h: 3 });
   });
 
   it("inserts at an explicit index when given one", () => {

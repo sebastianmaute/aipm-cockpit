@@ -40,6 +40,8 @@ import { AddButton } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { ViewCallout } from "./view-callout";
 import { BudgetUnappliedNotice } from "./budget-unapplied-notice";
+import { computeProjectForecast } from "./budget-forecast";
+import { BudgetForecastLink } from "./budget-forecast-link";
 import { useConfirm } from "./confirm-dialog";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { ROW_RULE_CLASS, rowRuleClass } from "./table-styles";
@@ -98,11 +100,17 @@ export interface BudgetPanelProps {
    *  needed before the notice renders at all. */
   timelogProjectId?: string;
   onGoToTimelog?: () => void;
+  /** Opens the Budget report tab (§6.4 link line). `workspace-section.tsx`
+   *  omits this prop in a popout (Plan Ruling 12), so the link renders only
+   *  when both this and a project forecast exist. */
+  onOpenBudgetReport?: () => void;
 }
 
-/** Builds the Cci-shaped value for the cost-recovery tile (`budgetCciRecovery`;
- *  it was the "CPI" tile before this branch renamed the key, and a test in this
- *  panel now asserts the panel renders no `/CPI/` at all): `costPerformanceIndex` is a
+/** Builds the Cci-shaped value for the internal-cost-index tile (`budgetCciInternalCostIndex`;
+ *  it was the "CPI" tile, then the "Cost recovery" tile under an earlier key
+ *  before this branch renamed it again — bare "CPI" now means the forecast's
+ *  price-based index (spec §11), and a test in this panel asserts the panel
+ *  renders no `/CPI/` at all): `costPerformanceIndex` is a
  *  0-1 ratio (not the 0-100 percent every other CciValue.percent carries), so
  *  it is scaled ×100 here at the one render boundary rather than in the pure
  *  engine. `earnedValue` is EUR, like every other CciValue.amount — callers
@@ -127,13 +135,23 @@ function blankBucket(id: number, plan: ResourcePlan): BudgetBucket {
 }
 
 export function BudgetPanel(props: BudgetPanelProps) {
-  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, timelogProjectId, onGoToTimelog, tasks = [], actualsByBucket = NO_ACTUALS, actualsFetchedAt } = props;
+  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, timelogProjectId, onGoToTimelog, onOpenBudgetReport, tasks = [], actualsByBucket = NO_ACTUALS, actualsFetchedAt } = props;
   const locale = localeFor(lang);
   const confirm = useConfirm();
+  // Hoisted from `props.today` — a `react-hooks/exhaustive-deps` dep may not
+  // be a member expression.
+  const today = props.today;
 
   const report = useMemo(
     () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates),
     [buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates],
+  );
+  // §6.4 Budget view link line: null without buckets (nothing to forecast) —
+  // `computeProjectForecast` builds its own report/chain/burn-down, so this is
+  // a second, cheap pass over the same inputs, not a reuse of `report` above.
+  const forecast = useMemo(
+    () => computeProjectForecast({ buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today }),
+    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today],
   );
 
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
@@ -333,6 +351,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
           resources={resources} granularity={plan.granularity} onGoToTimelog={onGoToTimelog}
         />
       )}
+      {onOpenBudgetReport && forecast && (
+        <BudgetForecastLink lang={lang} forecast={forecast} onOpen={onOpenBudgetReport} />
+      )}
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-lg font-medium text-foreground">
           {t(lang, "tabBudget")}{" "}
@@ -392,7 +413,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={report.project.contributionMargin} currency={projCur} locale={locale} lang={lang} rag={marginHealth(report.project.contributionMargin.percent)} unknown={!costIsKnowable(report.project)} />
           <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={report.project.costPerformance} currency={projCur} locale={locale} lang={lang} rag={costPerformanceHealth(report.project.costPerformance.percent)} primary="percent" unknown={!costIsKnowable(report.project)} />
-          <Cci label={t(lang, "budgetCciRecovery")} hint={t(lang, "budgetCciRecoveryHint")} value={cpiCciValue(report.project.earnedValue, report.project.costPerformanceIndex)} currency={projCur} locale={locale} lang={lang} rag={costPerformanceIndexHealth(report.project.costPerformanceIndex)} primary="percent" unknown={report.project.costPerformanceIndex === null} />
+          <Cci label={t(lang, "budgetCciInternalCostIndex")} hint={t(lang, "budgetCciInternalCostIndexHint")} value={cpiCciValue(report.project.earnedValue, report.project.costPerformanceIndex)} currency={projCur} locale={locale} lang={lang} rag={costPerformanceIndexHealth(report.project.costPerformanceIndex)} primary="percent" unknown={report.project.costPerformanceIndex === null} />
           <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={report.project.consumption} currency={projCur} locale={locale} lang={lang} rag={ratioHealth(report.project.consumedValue, report.project.budgetValue)} primary="percent" />
         </div>
         <CostUnknownNotice
@@ -535,7 +556,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     on top of the same internal-rate basis burn/margin need —
                     so it is gated on its OWN null-ness, not `costIsKnowable`
                     alone (a rated bucket with no progress set is still "—"). */}
-                <Cci label={t(lang, "budgetCciRecovery")} hint={t(lang, "budgetCciRecoveryHint")} scopeName={bucketToken} value={cci(cpiCciValue(br.earnedValue, br.costPerformanceIndex))} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceIndexHealth(br.costPerformanceIndex)} primary="percent" unknown={br.costPerformanceIndex === null} />
+                <Cci label={t(lang, "budgetCciInternalCostIndex")} hint={t(lang, "budgetCciInternalCostIndexHint")} scopeName={bucketToken} value={cci(cpiCciValue(br.earnedValue, br.costPerformanceIndex))} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceIndexHealth(br.costPerformanceIndex)} primary="percent" unknown={br.costPerformanceIndex === null} />
                 {/* Consumption is an EXTERNAL-rate ratio — knowable without a
                     rate card, so it is deliberately not gated. */}
                 <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} scopeName={bucketToken} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} primary="percent" />

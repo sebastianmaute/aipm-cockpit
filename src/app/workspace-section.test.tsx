@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 import type React from "react";
 import { WorkspaceProvider } from "./workspace-context";
@@ -466,6 +466,57 @@ describe("WorkspaceSection — budget people-row actuals wiring", () => {
     // The control: with nothing seeded the assertion above would pass against a
     // hardcoded `{}`, so this pins that the empty case is the EMPTY one.
     expect((await renderAtBudget()).actualsByBucket).toEqual({});
+  });
+});
+
+// §6.4 / Plan Ruling 12: `onOpenBudgetReport` switches to the budget-report
+// tab, and is omitted (not a no-op) in a popout — `isPopout` comes from
+// `WorkspaceTabProvider`, driven by the `?popout=` URL search param
+// (task-manager.key-facts-cache.test.tsx / task-manager.popout-guard.test.tsx
+// use the same pattern).
+describe("WorkspaceSection — budget forecast link wiring", () => {
+  function TabProbe({ view }: { view: AppView }) {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-budget" onClick={() => setActiveTab(view)} />;
+  }
+
+  const renderAtBudget = async () => {
+    render(
+      <>
+        <TabProbe view="budget" />
+        <WorkspaceSection {...makeProps()} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-budget"));
+    await screen.findByTestId("budget-panel");
+    return budgetPanelMock.props.at(-1)!;
+  };
+
+  beforeEach(() => {
+    budgetPanelMock.props.length = 0;
+  });
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("wires a callback that switches to the budget-report tab", async () => {
+    const props = await renderAtBudget();
+    expect(typeof props.onOpenBudgetReport).toBe("function");
+    act(() => (props.onOpenBudgetReport as () => void)());
+    // `id`, not `data-testid` — matches how workspace-section.tsx marks this
+    // tabpanel. BudgetReportPanel itself is not mocked in this file, so this
+    // only asserts the tab switch happened, not its contents.
+    expect(document.getElementById("panel-budget-report")).toBeInTheDocument();
+  });
+
+  // Mutation: dropping the `isPopout ? undefined :` guard in
+  // workspace-section.tsx turns this red.
+  it("omits the callback in a popout", async () => {
+    window.history.replaceState(null, "", "/?popout=budget");
+    const props = await renderAtBudget();
+    expect(props.onOpenBudgetReport).toBeUndefined();
   });
 });
 

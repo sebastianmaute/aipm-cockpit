@@ -8,6 +8,74 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.6.0] - 2026-09-15 "Ishiguro"
+
+The budget now says where it is heading: the Budget Report forecasts the cost at completion two ways,
+the dashboard rates the budget by that forecast, the Budget view links to it, and the task-effort
+indices are named so they cannot be mistaken for the forecast's figures. Closes follow-ups 499 and
+543; opens 546.
+
+### Added
+
+- **The Budget Report has a Forecast section.** A facts row above it shows "Budget (BAC)",
+  "Actuals (AC)", "Remaining" and "Earned value (EV)". Two cards follow: "At current pace" assumes
+  spending continues as in the last 20 working days, and "At current efficiency" assumes the remaining
+  work costs what finished work cost. Each card shows its estimate at completion (EAC), variance at
+  completion (VAC) and estimate to complete (ETC); the pace card adds the burn rate per day and the day
+  the budget runs out, and the efficiency card adds CPI and SPI. When both forecasts exist, a line says
+  how far apart they are, as a warning once the difference reaches 10% of the budget, and how many extra
+  working days the efficiency forecast needs beyond the planned end.
+- **The forecast says when it cannot be calculated yet.** Banners explain that the current-pace
+  forecast starts on a given date or once hours are booked, that no hours were booked in the last 20
+  working days (with the last booking date), that part of the burn rate comes from hours entered per
+  month or per week and spread evenly over its working days, or that the current-efficiency forecast
+  needs a % complete on every budget bucket, naming the ones missing. When the current-efficiency card
+  cannot be calculated it shows what it needs instead, and a project with a fixed-price bucket notes that the overrun is internal
+  effort and the client price does not change.
+- **Every forecast term has a tooltip** that explains it and shows the calculation with the project's
+  own figures.
+- **The dashboard "Budget burn" tile shows the forecast headline**, the EAC range and VAC with the
+  run-out date, or the actuals against the budget while there is no current-pace forecast, with the
+  first forecast notice below it.
+- **The Budget view shows a forecast line above the bucket cards**, with a link to the Budget Report.
+  It does not appear in a popout.
+
+### Changed
+
+- **The dashboard Budget rating follows the current-pace forecast once it exists.** From 20 working
+  days after the first booking, and while hours were booked in the last 20 working days, the rating is
+  green when the current-pace VAC is zero or above, amber below zero and red at −10% of the budget or
+  worse. Before that, and whenever nothing was booked recently, spend against the budget stays the
+  signal. The effort CPI still turns the rating amber or red on its own, and a manual override still
+  wins.
+- **The Budget rating a Trends snapshot records follows the same rule from this version on.** A
+  snapshot captured after the upgrade can therefore carry a different colour than the one before it
+  without the budget having changed, and the budget trend Next actions reads from two snapshots with no
+  remaining cost can show that step as a change. Snapshots captured before the upgrade keep the rating
+  they were stored with.
+- **The "Budget burn" tile's spend box reads "Spent"** instead of "Budget", with the hint "Spent so far
+  against the total budget, coloured by that ratio. Not the forecast — the line above shows where the
+  budget is heading."
+- **The task-effort indices are called "Effort CPI" and "Effort SPI" everywhere.** This covers the
+  Budget Report's "Earned value · effort" section, the Trends KPIs, the dashboard health help, Next
+  actions reasons and the "Schedule: Effort SPI — warn below" and "Schedule: Effort SPI — critical below"
+  settings, Help and the AI prompt label "On track? (Effort CPI)". Bare CPI and SPI now mean only the
+  forecast's price-based indices.
+- **The Budget view's "Cost recovery" tile is now "Internal cost index"**, and its hint says both
+  figures are at internal rates and that it is not the forecast's price-based index.
+
+### Fixed
+
+- **A dated TimeLog Apply no longer leaves a period total of the other granularity behind** (follow-up
+  543). Applying weekly hours removes a month total covering one of the applied days, and applying
+  monthly hours removes such a week total, so switching the plan between monthly and weekly no longer
+  counts those hours twice.
+
+### Known issues
+
+- The period total that a dated TimeLog Apply removes is deleted whole, including hand-typed hours for
+  days the Apply did not cover, and the Apply confirm dialog does not mention it (follow-up 546).
+
 ## [1.5.1] - 2026-09-15 "Highsmith"
 
 One rule for email addresses in every email field, a correction to a person's email that reaches the

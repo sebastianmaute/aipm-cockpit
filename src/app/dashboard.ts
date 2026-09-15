@@ -2,12 +2,13 @@
 // single testable unit behind dashboard-panel.tsx.
 
 import { computeGroupHealth, type Health } from "./health";
-import { computeBudgetReport, type CciValue, type CostUnknownReason, type ProjectReport } from "./budget-report";
+import { computeBudgetReport, type BudgetReport, type CciValue, type CostUnknownReason, type ProjectReport } from "./budget-report";
 import { isTerminalStatus, riskSeverityFromMatrix } from "./raid";
 import { workdaysUntil } from "./due-dates";
 import { partitionMilestones } from "./milestones";
 import { computeEvm, projectBlendedInternalRate, type EvmMetrics } from "./evm";
 import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
+import { computeBudgetForecast, isPaceAvailable, paceVacHealth, type BudgetForecast } from "./budget-forecast";
 import { resolveBucketChain, type BucketChain } from "./budget-bucket-chain";
 import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
 import { isTaskClosed, isTaskDelivered, isTaskOutOfScope } from "./task-closed";
@@ -271,6 +272,10 @@ export type DashboardModel = {
   progress: DashboardProgress;
   burn: DashboardBurn | null;
   burndown: BurndownSeries | null;
+  /** The pace/efficiency forecast (spec §5) driving the Budget RAG's pace-VAC
+   *  input and the dashboard tile's headline. Null exactly when `burndown` is
+   *  (no budgets, or the report/burndown pair could not be built). */
+  forecast: BudgetForecast | null;
   /** The buckets' successor-chain resolution — drives the burn-down x-axis span
    *  and the "not one chain" warning. Null when there are no budgets. */
   bucketChain: BucketChain | null;
@@ -376,20 +381,10 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
   const scheduleComputed: Health =
     worstHealth(taskSchedule, msContribution, evmIndexHealth(evm.spi)) ?? "G";
 
-  const project: ProjectReport | null = input.budgets.length > 0
-    ? computeBudgetReport(input.budgets, input.plan, input.roles, input.resources, input.workdayHours, holidaySet, input.absences, [], input.fxRates).project
+  const report: BudgetReport | null = input.budgets.length > 0
+    ? computeBudgetReport(input.budgets, input.plan, input.roles, input.resources, input.workdayHours, holidaySet, input.absences, [], input.fxRates)
     : null;
-  // CPI feeds the Budget RAG (worst-of with the budget-bucket status); it can
-  // surface a Budget RAG even when no buckets are configured.
-  const budgetComputed = worstHealth(computeBudgetStatus(project, amberRatio), evmIndexHealth(evm.cpi));
-  const burn: DashboardBurn | null = project
-    ? {
-        budgetValue: project.budgetValue, consumedValue: project.consumedValue,
-        budgetHours: project.budgetHours, actualHours: project.actualHours,
-        cost: project.cost, costPerformance: project.costPerformance, consumption: project.consumption,
-        costUnknownReason: project.costUnknownReason,
-      }
-    : null;
+  const project: ProjectReport | null = report?.project ?? null;
   const bucketChain: BucketChain | null = input.budgets.length > 0
     ? resolveBucketChain(input.budgets, { start: input.plan.startDate, end: input.plan.endDate })
     : null;
@@ -401,6 +396,27 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
           bucketChain?.kind === "chain" ? { start: bucketChain.start, end: bucketChain.end } : undefined,
         )
       : null;
+  const forecast: BudgetForecast | null = report && burndown
+    ? computeBudgetForecast({
+        report, buckets: input.budgets, roles: input.roles, fxRates: input.fxRates,
+        tasks: input.tasks, plan: input.plan, burndown, holidaySet, today,
+      })
+    : null;
+  // The budget RAG reads the pace VAC once the pace forecast exists (spec
+  // §6.3); before that the consumed-vs-budget ratio stays the signal. Effort
+  // CPI stays in the worst-of either way.
+  const budgetBucketStatus = forecast && isPaceAvailable(forecast.pace)
+    ? paceVacHealth(forecast.pace.vac, forecast.facts.bac)
+    : computeBudgetStatus(project, amberRatio);
+  const budgetComputed = worstHealth(budgetBucketStatus, evmIndexHealth(evm.cpi));
+  const burn: DashboardBurn | null = project
+    ? {
+        budgetValue: project.budgetValue, consumedValue: project.consumedValue,
+        budgetHours: project.budgetHours, actualHours: project.actualHours,
+        cost: project.cost, costPerformance: project.costPerformance, consumption: project.consumption,
+        costUnknownReason: project.costUnknownReason,
+      }
+    : null;
 
   const scopeComputed = computeScopeStatus(input.changes, SCOPE_PENDING_RED);
   const changeStatusCounts = countByStatus(input.changes);
@@ -423,6 +439,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     progress: computeDashboardProgress(input.tasks, today, holidaySet),
     burn,
     burndown,
+    forecast,
     bucketChain,
     evm,
     topRaid: selectTopRaid(input.raid, topRaidN),
