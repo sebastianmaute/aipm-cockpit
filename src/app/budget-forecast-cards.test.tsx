@@ -4,8 +4,9 @@ import { ForecastCards } from "./budget-forecast-cards";
 import { ForecastFactsRow } from "./budget-forecast-facts";
 import { formatCurrency } from "./resource-cost";
 import { formatSignedPercent } from "./forecast-format";
-import { localeFor } from "./i18n";
-import type { BudgetForecast, PaceUnavailable, EfficiencyUnavailable } from "./budget-forecast";
+import { localeFor, t } from "./i18n";
+import { formatDayMonthYear } from "./forecast-format";
+import type { BudgetForecast, PaceForecast, PaceUnavailable, EfficiencyUnavailable } from "./budget-forecast";
 
 const locale = localeFor("en-US");
 const money = (n: number) => formatCurrency(n, "EUR", locale);
@@ -59,6 +60,26 @@ describe("ForecastCards — pace card (§5.6 worked example)", () => {
       unavailable: "no-burn", windowStart: "2026-08-17", windowEnd: "2026-09-11", lastBookingDate: null,
     })} />);
     expect(screen.getByText("No recent bookings")).toBeInTheDocument();
+  });
+
+  // Finding 8: the other three run-out variants — the worked example only
+  // exercises "before plan end".
+  it("run-out: renders the after-plan-end variant when the run-out date falls past plan end", () => {
+    const pace: PaceForecast = { ...(AVAILABLE.pace as PaceForecast), runOutDate: "2027-01-05", daysBeforePlannedEnd: -5 };
+    render(<ForecastCards lang="en-US" forecast={{ ...AVAILABLE, pace, gap: null }} />);
+    expect(screen.getByText(t("en-US", "forecastRunOutAfter", formatDayMonthYear("2027-01-05", locale), "5"))).toBeInTheDocument();
+  });
+
+  it("run-out: renders the on-plan-end variant when daysBeforePlannedEnd is exactly 0", () => {
+    const pace: PaceForecast = { ...(AVAILABLE.pace as PaceForecast), runOutDate: "2026-12-18", daysBeforePlannedEnd: 0 };
+    render(<ForecastCards lang="en-US" forecast={{ ...AVAILABLE, pace, gap: null }} />);
+    expect(screen.getByText(t("en-US", "forecastRunOutOnEnd", formatDayMonthYear("2026-12-18", locale)))).toBeInTheDocument();
+  });
+
+  it("run-out: renders \"Already used up\" when runOutDate is null", () => {
+    const pace: PaceForecast = { ...(AVAILABLE.pace as PaceForecast), runOutDate: null, daysBeforePlannedEnd: null };
+    render(<ForecastCards lang="en-US" forecast={{ ...AVAILABLE, pace, gap: null }} />);
+    expect(screen.getByText(t("en-US", "forecastRunOutAlready"))).toBeInTheDocument();
   });
 });
 
@@ -165,5 +186,15 @@ describe("ForecastCards + ForecastFactsRow — accessibility", () => {
     render(<ForecastCards lang="en-US" forecast={AVAILABLE} />);
     expect(screen.getByRole("button", { name: "What is EAC at current pace?" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "What is EAC at current efficiency?" })).toBeInTheDocument();
+  });
+
+  // Finding 2: each card's `aria-labelledby` now points at an inner <span>
+  // holding ONLY the title text, not the whole heading (which also contains
+  // the tooltip trigger's visible "i" glyph) — so the region's accessible
+  // name is the exact EN title, matchable without a regex.
+  it("each card is a region with the exact EN title as its accessible name", () => {
+    render(<ForecastCards lang="en-US" forecast={AVAILABLE} />);
+    expect(screen.getByRole("region", { name: t("en-US", "forecastPaceTitle") })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: t("en-US", "forecastEfficiencyTitle") })).toBeInTheDocument();
   });
 });

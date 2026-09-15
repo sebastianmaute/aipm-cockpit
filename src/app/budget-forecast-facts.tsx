@@ -6,7 +6,7 @@
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { Tile } from "./report-table";
-import { InfoTooltip } from "./info-tooltip";
+import { TermTooltip } from "./budget-forecast-tooltip";
 import type { BudgetForecast } from "./budget-forecast";
 
 /** Label with a term-bearing "What is X?" tooltip trigger (§6.2). */
@@ -14,9 +14,7 @@ function FactLabel({ lang, term, tip }: { lang: Lang; term: string; tip: string 
   return (
     <>
       {term}
-      <span className="print:hidden ml-1">
-        <InfoTooltip text={tip} label={t(lang, "forecastWhatIs", term)} />
-      </span>
+      <TermTooltip lang={lang} term={term} tip={tip} />
     </>
   );
 }

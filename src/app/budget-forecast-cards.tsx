@@ -5,11 +5,11 @@
 // <dl> of VAC/ETC plus method-specific rows, and the gap line below both.
 // Pure presentation over `BudgetForecast` — every figure is formatted here,
 // nothing is computed.
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { formatSignedPercent, formatDayMonth, formatDayMonthYear } from "./forecast-format";
-import { InfoTooltip } from "./info-tooltip";
+import { TermTooltip } from "./budget-forecast-tooltip";
 import {
   isPaceAvailable, isEfficiencyAvailable, BURN_RATE_WINDOW_WORKING_DAYS,
   type BudgetForecast, type PaceForecast, type PaceUnavailable,
@@ -18,15 +18,6 @@ import {
 
 type Money = (n: number) => string;
 type Facts = BudgetForecast["facts"];
-
-/** Term + tooltip trigger, "What is X?" by default or "What does X mean?" for a verb/adjective term (§6.2, controller ruling). */
-function TipLabel({ lang, term, tip, means = false }: { lang: Lang; term: string; tip: string; means?: boolean }) {
-  return (
-    <span className="print:hidden ml-1">
-      <InfoTooltip text={tip} label={t(lang, means ? "forecastWhatMeans" : "forecastWhatIs", term)} />
-    </span>
-  );
-}
 
 /** One `<dl>` row: term (+ tooltip) on the left, value on the right. */
 function MetricRow({
@@ -38,7 +29,7 @@ function MetricRow({
     <div className="flex items-baseline justify-between gap-2">
       <dt className="flex items-center text-muted-foreground">
         {term}
-        <TipLabel lang={lang} term={term} tip={tip} means={means} />
+        <TermTooltip lang={lang} term={term} tip={tip} means={means} />
       </dt>
       <dd className="tabular-nums font-medium text-foreground">{children}</dd>
     </div>
@@ -51,7 +42,7 @@ function EacFigure({ lang, label, tip, value }: { lang: Lang; label: string; tip
     <div className="mt-2">
       <p className="flex items-center text-xs uppercase tracking-wide text-muted-foreground">
         {label}
-        <TipLabel lang={lang} term={label} tip={tip} />
+        <TermTooltip lang={lang} term={label} tip={tip} />
       </p>
       <p className="text-2xl font-semibold tabular-nums text-ui-dark-blue dark:text-ui-light-grey">{value}</p>
     </div>
@@ -77,7 +68,7 @@ function EfficiencyUnavailableBody({ lang, efficiency }: { lang: Lang; efficienc
     return (
       <p className="mt-2 text-sm text-muted-foreground">
         {t(lang, "forecastEfficiencyNeedsPercent")}
-        <TipLabel lang={lang} term={t(lang, "forecastNeeds")} means tip={t(lang, "forecastTipNeeds")} />
+        <TermTooltip lang={lang} term={t(lang, "forecastNeeds")} means tip={t(lang, "forecastTipNeeds")} />
       </p>
     );
   }
@@ -90,14 +81,14 @@ function PaceCard({
 }: {
   lang: Lang; pace: BudgetForecast["pace"]; facts: Facts; money: Money; locale: string; hasFixedPrice: boolean;
 }) {
-  const titleId = "forecast-pace-title";
+  const titleId = useId();
   const paceTitle = t(lang, "forecastPaceTitle");
   return (
     <section aria-labelledby={titleId} className="rounded-lg border border-line bg-surface p-3">
-      <h3 id={titleId} className="flex items-center text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-        {paceTitle}
-        <TipLabel lang={lang} term={paceTitle} tip={t(lang, "forecastTipPace", String(BURN_RATE_WINDOW_WORKING_DAYS))} />
-      </h3>
+      <h4 className="flex items-center text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
+        <span id={titleId}>{paceTitle}</span>
+        <TermTooltip lang={lang} term={paceTitle} means tip={t(lang, "forecastTipPace", String(BURN_RATE_WINDOW_WORKING_DAYS))} />
+      </h4>
       <p className="text-xs text-muted-foreground">{t(lang, "forecastPaceQuestion", String(BURN_RATE_WINDOW_WORKING_DAYS))}</p>
       {isPaceAvailable(pace) ? (
         <>
@@ -155,17 +146,17 @@ function EfficiencyCard({
 }: {
   lang: Lang; efficiency: BudgetForecast["efficiency"]; facts: Facts; money: Money; locale: string; hasFixedPrice: boolean;
 }) {
-  const titleId = "forecast-efficiency-title";
+  const titleId = useId();
   const effTitle = t(lang, "forecastEfficiencyTitle");
   // Guaranteed non-null whenever `efficiency` is available (§5.3: EV null ⇒
   // "needs-percent-complete", which is the unavailable branch below).
   const ev = facts.ev ?? 0;
   return (
     <section aria-labelledby={titleId} className="rounded-lg border border-line bg-surface p-3">
-      <h3 id={titleId} className="flex items-center text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-        {effTitle}
-        <TipLabel lang={lang} term={effTitle} tip={t(lang, "forecastTipEfficiency")} />
-      </h3>
+      <h4 className="flex items-center text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
+        <span id={titleId}>{effTitle}</span>
+        <TermTooltip lang={lang} term={effTitle} means tip={t(lang, "forecastTipEfficiency")} />
+      </h4>
       <p className="text-xs text-muted-foreground">{t(lang, "forecastEfficiencyQuestion")}</p>
       {isEfficiencyAvailable(efficiency) ? (
         <>
@@ -228,7 +219,7 @@ function GapLine({
     <>
       {" "}
       {t(lang, "forecastGapExtraDays", String(gap.extraWorkingDays))}
-      <TipLabel
+      <TermTooltip
         lang={lang}
         term={t(lang, "forecastExtraDaysTerm")}
         means

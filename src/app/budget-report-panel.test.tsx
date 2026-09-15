@@ -521,10 +521,10 @@ describe("BudgetReportPanel — forecast section order", () => {
   it("orders sections Project total, Forecast, Burn-down, By bucket, Earned value", () => {
     renderPanel();
     // Only the report's own SECTION headings — every `Section` title is an
-    // h3, same as the card titles inside it ("At current pace" / "At current
-    // efficiency"), so filtering by heading LEVEL alone cannot separate them.
-    // Filtering to the known, distinct Section title texts does (controller
-    // ruling: query the Section heading level or scope within sections).
+    // h3; the two forecast card titles are h4 (nested under the Forecast
+    // section's h3, not siblings of it), so a bare heading-role query would
+    // still pick both up. Filtering to the known, distinct Section title
+    // texts keeps this scoped to sections regardless of level.
     const sectionTitles = [
       t("en-US", "budgetReportProjectTotal"),
       t("en-US", "forecastTitle"),
@@ -539,13 +539,18 @@ describe("BudgetReportPanel — forecast section order", () => {
     expect(found).toEqual(sectionTitles);
   });
 
-  it("shows the facts row and forecast cards inside their own section", () => {
+  it("shows the facts row and forecast cards inside their own Forecast section", () => {
     renderPanel();
-    expect(screen.getByRole("heading", { name: t("en-US", "forecastTitle") })).toBeInTheDocument();
-    // Regex, not an exact string: each card's h3 also carries a tooltip
-    // trigger (visible "i" glyph) as part of its accessible name — the same
-    // pattern the existing CCI tile labels use elsewhere in this panel.
-    expect(screen.getByRole("heading", { name: new RegExp(t("en-US", "forecastPaceTitle")) })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: new RegExp(t("en-US", "forecastEfficiencyTitle")) })).toBeInTheDocument();
+    const forecastHeading = screen.getByRole("heading", { name: t("en-US", "forecastTitle") });
+    // Finding 7: `within` the actual Forecast section, not a bare "exists
+    // somewhere on the page" check — the heading's parent IS the `Section`
+    // wrapper (`report-table.tsx`'s `Section` renders `<h3>{title}</h3>` as a
+    // sibling of its children inside one wrapping `<div>`).
+    const forecastSection = forecastHeading.parentElement as HTMLElement;
+    // Finding 2: each card's `aria-labelledby` now points at an inner <span>
+    // holding only the title text, so the region's accessible name is the
+    // exact EN title — no regex needed.
+    expect(within(forecastSection).getByRole("region", { name: t("en-US", "forecastPaceTitle") })).toBeInTheDocument();
+    expect(within(forecastSection).getByRole("region", { name: t("en-US", "forecastEfficiencyTitle") })).toBeInTheDocument();
   });
 });

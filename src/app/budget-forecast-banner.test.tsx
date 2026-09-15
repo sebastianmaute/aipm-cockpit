@@ -50,6 +50,16 @@ describe("forecastNoticeText", () => {
     );
   });
 
+  // Finding 10: one LITERAL EN sentence, so a placeholder-order mistake (e.g.
+  // swapping windowStart/windowEnd, or the "20" constant) is caught even if a
+  // future edit to `t()` or the key text itself stays self-consistent.
+  it("no-burn renders the exact EN sentence for concrete dates", () => {
+    const n: ForecastNotice = { kind: "no-burn", severity: "warn", windowStart: "2026-08-17", windowEnd: "2026-09-11", lastBookingDate: null };
+    expect(forecastNoticeText(n, "en-US", "month")).toBe(
+      "No hours were booked in the last 20 working days (Aug 17 – Sep 11), so there is no current-pace forecast.",
+    );
+  });
+
   it("spread uses the month wording on a monthly plan", () => {
     const n: ForecastNotice = { kind: "spread", severity: "info" };
     expect(forecastNoticeText(n, "en-US", "month")).toBe(t("en-US", "forecastBannerSpreadMonth"));
@@ -126,10 +136,20 @@ describe("ForecastBanners", () => {
     expect(banners[1].textContent).toBe(t("en-US", "forecastBannerNeedsPercent", "Design"));
   });
 
-  it("marks a no-burn state with the warn severity class distinct from info", () => {
+  // Finding 1: the old version only asserted `className !== ""` — every Banner
+  // has SOME class, so that passed even if severity were hard-coded. This
+  // renders one warn (no-burn) and one info (needs-percent) notice together
+  // and pins each against banner.tsx's own severity→tint class map, so a
+  // hard-coded `severity="info"` in ForecastBanners turns it red.
+  it("passes the warn severity through for no-burn, distinct from an info notice", () => {
     const pace: BudgetForecast["pace"] = { unavailable: "no-burn", windowStart: "2026-08-17", windowEnd: "2026-09-11", lastBookingDate: null };
-    render(<ForecastBanners lang="en-US" forecast={forecastWith(pace)} granularity="month" />);
-    const banner = screen.getByRole("status");
-    expect(banner.className).not.toBe("");
+    const efficiency: BudgetForecast["efficiency"] = { unavailable: "needs-percent-complete", bucketsMissingPercent: [{ id: 1, name: "Design" }] };
+    render(<ForecastBanners lang="en-US" forecast={forecastWith(pace, efficiency)} granularity="month" />);
+    const banners = screen.getAllByRole("status");
+    expect(banners).toHaveLength(2);
+    const [warnBanner, infoBanner] = banners; // no-burn (pace, warn) then needs-percent (efficiency, info) — table order
+    expect(warnBanner.className).toContain("--rag-amber");
+    expect(infoBanner.className).toContain("ui-dark-blue");
+    expect(warnBanner.className).not.toBe(infoBanner.className);
   });
 });

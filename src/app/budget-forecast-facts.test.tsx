@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { ForecastFactsRow } from "./budget-forecast-facts";
 import type { BudgetForecast } from "./budget-forecast";
 
@@ -26,10 +26,16 @@ describe("ForecastFactsRow", () => {
     expect(screen.getByText("€148,800 (62%)")).toBeInTheDocument();
   });
 
-  it("shows a dash for EV when it is null", () => {
+  it("shows a dash for EV (and no percent) when ev/percentComplete are null, while BAC/AC/Remaining still show real figures", () => {
     render(<ForecastFactsRow lang="en-US" forecast={EV_NULL} />);
-    const dashes = screen.getAllByText("—");
-    expect(dashes.length).toBeGreaterThanOrEqual(1);
+    // Exactly one dash on the page — the EV tile's value — and the other
+    // three facts still render their real money figures (EV_NULL uses
+    // distinct bac/ac/remaining so this can't pass by accidental overlap).
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByText("€240,000")).toBeInTheDocument();
+    expect(screen.getByText("€100,000")).toBeInTheDocument();
+    expect(screen.getByText("€140,000")).toBeInTheDocument();
+    expect(screen.queryByText(/%\)$/)).toBeNull();
   });
 
   it("gives each fact a term-bearing tooltip trigger", () => {
@@ -44,9 +50,11 @@ describe("ForecastFactsRow", () => {
     ]);
   });
 
-  it("every fact label contains its own visible term (label-in-name)", () => {
-    const { container } = render(<ForecastFactsRow lang="en-US" forecast={AVAILABLE} />);
-    const tiles = within(container).getAllByText(/Budget \(BAC\)|Actuals \(AC\)|Remaining|Earned value \(EV\)/);
-    expect(tiles.length).toBeGreaterThan(0);
-  });
+  // Finding 6: label-in-name is already covered exactly by "gives each fact a
+  // term-bearing tooltip trigger" above — each label is literally
+  // `What is <term>?`, so an exact match on the label IMPLIES it contains the
+  // term. A separate containment check here would be vacuous (it would pass
+  // even if the labels were unrelated to their tiles, since `within(container)`
+  // finds the tile's own visible term text regardless of what the tooltip
+  // label says). Deleted rather than kept as a weaker duplicate.
 });
