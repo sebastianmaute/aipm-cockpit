@@ -89,10 +89,11 @@ export function emailWriteRefusal(
  *   already torn by a past CSV, Markdown or Turso save cannot be rebuilt — the
  *   accepted limit recorded in open-followups §533.
  *  ★★ `normalize` (M1): judge each member `Name <addr>`-unwrapped, as the AI
- *   writers and the inline card do, because `sanitizeResource` STORES the
- *   unwrapped member. Off by default: the human resource editor stores the list
- *   as typed, so it must keep judging the raw member. The stored-torn check on
- *   a STRING always reads the raw string. */
+ *   writers, the inline card and (M-C4) the human resource editor do, because
+ *   each of them STORES the unwrapped member. It defaults to off, but since
+ *   M-C4 every production caller passes `true` — reproduce:
+ *   `git grep -n "findTornEmail(" -- "src/app/*.ts" "src/app/*.tsx" ":!*.test.*"`.
+ *   The stored-torn check on a STRING always reads the raw string. */
 export function findTornEmail(
   incoming: unknown,
   stored: readonly string[] | undefined,
@@ -127,8 +128,10 @@ const NAME_ADDRESS_RE = /^[^<>]*<([^<>]+)>$/;
  *  now ONE behaviour: every LOAD path and every AI email WRITE unwraps (the
  *  writers store `sanitizeLoadedEmail`, `refuseEmailWrite` judges the unwrapped
  *  value, `findTornEmail`'s `normalize` flag does it for `resource.emails`, and
- *  the inline card's email readers show it). The HUMAN editors still store what
- *  the person typed. */
+ *  the inline card's email readers show it). ★ M-C4: the HUMAN editors now judge
+ *  and store the same unwrapped value (`sanitizeLoadedEmail` /
+ *  `sanitizeLoadedStakeholderEmail`, and this function per `resource.emails`
+ *  member) instead of what the person typed. */
 export function normalizeEmailShape(value: string): string {
   const match = NAME_ADDRESS_RE.exec(value.trim());
   if (!match) return value;

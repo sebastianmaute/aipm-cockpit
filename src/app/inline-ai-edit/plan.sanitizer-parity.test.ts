@@ -28,6 +28,11 @@ import {
 } from "../sanitize";
 import { sanitizeCalendarEvent } from "../calendar-event";
 import { buildTaskCleanPatch } from "../chat-task-patch";
+import { buildBulkEditUpdates } from "../bulk-operations-helpers";
+import { creatableResourceEmail } from "../resource-create-email";
+import { emptyBulkEdit, emptyForm } from "../task-form-context";
+import { sanitizeInlinePatch } from "../task-inline-patch";
+import { validateTaskForm } from "../task-validation";
 import { applyModelChangeStatus } from "../change-log";
 import { applyStatusChange, isTaskStatus } from "../task-status";
 import { type ChangeStatus, type RaidItem, type Task } from "../types";
@@ -1247,6 +1252,44 @@ describe("M1: name-address emails — the card shows and judges exactly what the
     expect(previewOf("absence", ABS_BASE, "assigneeEmail", "Ann Lee <ann@x.com>")).toEqual({ rejected: false, shown: "ann@x.com" });
     expect(previewOf("resource", RES_BASE, "emails", ["Two Tee <two@x.com>"])).toEqual({ rejected: false, shown: "two@x.com" });
     expect(caseOf("resource").read("email", "Name <a,b@x.com>")).toBeNull();
+  });
+});
+
+// ★★ M-C4 — THE EDITOR ROW. The human editors' PURE save builders store and
+// refuse exactly what the AI write stores and refuses, on the same shapes. The
+// modal editors (RAID, stakeholder, resource, absence, shift, contact person)
+// store the same helper inline and are pinned on their SAVED row by their own
+// component tests; comparing that helper with itself here would be tautological.
+describe("M-C4: name-address emails — the human editor save stores exactly what the AI write stores", () => {
+  const NAME_FORMS = ["Ann Lee <ann@x.com>", "Bob<bob@x.com>", "  <cara@x.com>  ", "Name <a,b@x.com>", "Dee <not-an-email>"];
+  const caseOf = (entity: InlineEntity) => CASES.find((c) => c.entity === entity)!;
+
+  for (const value of NAME_FORMS) {
+    it(`task.assigneeEmail ${JSON.stringify(value)}: inline cell, bulk edit and form validation`, () => {
+      const ai = caseOf("task").read("assigneeEmail", value);
+      const inline = sanitizeInlinePatch(
+        { assigneeEmail: value },
+        { hasResource: () => false, knownTaskIds: new Set(), ownTaskId: 1, storedAssigneeEmail: TASK_BASE.assigneeEmail },
+      );
+      expect("assigneeEmail" in inline ? inline.assigneeEmail : null, "inline cell").toBe(ai);
+      const bulk = emptyBulkEdit();
+      bulk.enabled.assigneeEmail = true;
+      bulk.assigneeEmail = value;
+      const built = buildBulkEditUpdates(bulk, "2026-01-01");
+      expect(built.ok ? built.updates.assigneeEmail : null, "bulk edit").toBe(ai);
+      const form = { ...emptyForm(), taskName: "T", assignee: "Ann", dueDate: "2026-01-01", assigneeEmail: value };
+      const refused = validateTaskForm(form, "2026-01-01", false, { stored: TASK_BASE.assigneeEmail }).assigneeEmail !== undefined;
+      expect(refused, "form refuses ⇔ AI write refuses").toBe(ai === null);
+    });
+
+    it(`resource.email ${JSON.stringify(value)}: ResourcePicker "+ Add"`, () => {
+      expect(creatableResourceEmail(value) ?? null).toBe(caseOf("resource").read("email", value));
+    });
+  }
+
+  it("pins the outcomes themselves (anti-vacuity: agreement on the raw value would pass the rows above)", () => {
+    expect(sanitizeInlinePatch({ assigneeEmail: "Bob<bob@x.com>" }, { hasResource: () => false, knownTaskIds: new Set(), ownTaskId: 1 }).assigneeEmail).toBe("bob@x.com");
+    expect(creatableResourceEmail("Ann Lee <ann@x.com>")).toBe("ann@x.com");
   });
 });
 

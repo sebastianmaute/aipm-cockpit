@@ -24,10 +24,11 @@ export function linkedResourceEmail(
 /** Judges `incoming` against `stored` + `copySources` (the changed-only write
  *  rule) and returns the already-translated refusal message, or null when the
  *  write is safe. `incoming`/`stored` must be the value that would actually
- *  be STORED — the same cap/sanitize treatment the entity's write path
- *  applies (e.g. `sanitizeEmail` for an EMAIL_MAX-capped field, or the
- *  entity's own cap helper otherwise) — never the raw typed string, or the
- *  judged value can diverge from what a submit actually persists. */
+ *  be STORED — the same unwrap/cap treatment the entity's write path
+ *  applies (`sanitizeLoadedEmail` for an EMAIL_MAX-capped field,
+ *  `sanitizeLoadedStakeholderEmail` for the stakeholder's 200 cap; M-C4) —
+ *  never the raw typed string, or the judged value can diverge from what a
+ *  submit actually persists. */
 export function editorEmailRefusalMessage(
   lang: Lang,
   incoming: string,
