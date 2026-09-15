@@ -647,8 +647,9 @@ const enUS = {
   burndownActual: "Actual",
   burndownToday: "today",
   budgetReportTitle: "Budget Report",
-  forecastTitle: "Forecasts",
+  forecastTitle: "Forecast",
   forecastWhatIs: "What is {0}?",
+  forecastWhatMeans: "What does {0} mean?",
   forecastFactBac: "Budget (BAC)",
   forecastFactAc: "Actuals (AC)",
   forecastFactRemaining: "Remaining",
@@ -718,12 +719,13 @@ const enUS = {
     "Actual cost: the value of all hours booked so far, {0}. Fixed-price buckets count their share of the contract without the cap, so an overrun shows.",
   forecastTipRemaining: "Remaining budget: budget {0} − actual cost {1} = {2}.",
   forecastTipEv:
-    "Earned value: the budget value of the work actually finished, {0} ({1} complete). It can be lower than what was spent (AC) when work costs more than planned.",
+    "Earned value: the budget value of the work actually finished: {1} complete of the budget = {0}. It can be lower than what was spent (AC) when work costs more than planned.",
   forecastTipPace:
     "Assumes spending continues at the average of the last {0} working days until the planned end date. It looks at the calendar only: it assumes the work is finished on the planned end, whether or not progress supports that. This is the AIPM Project Burndown method.",
   forecastTipEfficiency:
     "Assumes the remaining work will cost as much per unit as the finished work did. It looks at scope only: what finishing the rest of the work will cost, whatever the calendar says. This is the standard earned value (EVM) method.",
-  forecastTipEac: "Estimate at completion: actual cost {0} + ETC {1} = {2}. Above the budget means an overrun.",
+  forecastTipEac:
+    "Estimate at completion: what the project will have cost in total: actual cost {0} + ETC {1} = {2}. Above the budget means an overrun.",
   forecastTipVac:
     "Variance at completion: budget − estimate at completion. Negative means the budget will be overrun by this amount: {0} − {1} = {2}.",
   forecastTipEtcPace:
@@ -733,10 +735,10 @@ const enUS = {
   forecastTipCpi:
     "Cost performance index: earned value {0} ÷ actual cost {1} = {2}. 1.00 means work costs what was budgeted; below 1 means it costs more than planned.",
   forecastTipSpi:
-    "Schedule performance index: earned value {0} ÷ planned value {1} = {2}. Below 1 means behind the planned schedule.",
-  forecastTipBurnRate: "Average value booked per working day: {0} over the last {1} working days = {2} per day.",
+    "Schedule performance index: earned value {0} ÷ planned value {1} = {2}. 1.00 means on schedule; below 1 means behind the planned schedule.",
+  forecastTipBurnRate: "Average spend per working day: {0} booked ÷ {1} working days = {2} per day.",
   forecastTipRunOut:
-    "The working day on which the remaining budget {0} is used up at {1} per day. Before the plan end means the budget runs out early.",
+    "The day the remaining {0} is used up if spending continues at the burn rate of {1} per day. Before the plan end means the budget runs out early.",
   forecastTipNeeds:
     "Percent complete, from the tasks linked to each budget bucket or a manual % complete on the bucket. Without it, this card cannot be calculated and shows what is missing.",
   forecastTipExtraDays:

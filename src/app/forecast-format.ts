@@ -4,7 +4,7 @@ export function formatMoneyCompact(amount: number, locale: string): string {
     style: "currency",
     currency: "EUR",
     notation: "compact",
-    maximumFractionDigits: 0,
+    maximumSignificantDigits: 3,
   }).format(amount);
 }
 
