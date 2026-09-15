@@ -51,16 +51,21 @@ function isKeptNonCalendarDate(value: unknown): value is string {
 }
 
 /** The REQUIRED-date reader for an UPDATE writer that rebuilds the merged row
- *  `{...stored, ...patch}` through a strict entity sanitizer. A value equal to
- *  the STORED one is unchanged and is carried when the load rule kept it raw;
- *  anything else is judged by `sanitizeIsoDate`. So a write refuses a CHANGED
- *  non-calendar date and never re-judges an untouched stored one — without
- *  this, every AI update of a row the load funnel kept ("2026-02-30") threw on
- *  ANY field while the inline card, which skips `before === after`, previewed
- *  it as accepted. No diagnostic: the load funnel already reported the value. */
+ *  `{...stored, ...patch}` through a strict entity sanitizer. A string equal to
+ *  the STORED one is unchanged and is carried VERBATIM; anything else is judged
+ *  by `sanitizeIsoDate`. So a write refuses a CHANGED invalid date and never
+ *  re-judges an untouched stored one — without this, every AI update of a row
+ *  the load funnel kept ("2026-02-30") threw on ANY field while the inline
+ *  card, which skips `before === after`, previewed it as accepted.
+ *  ★★ VERBATIM, not "only when the load rule would keep it": CSV, Markdown and
+ *  Turso milestones (`buildMilestoneFromObj`) and IndexedDB never validate the
+ *  date, so a stored "tbd" is reachable, and the card accepts an update of that
+ *  row for exactly the same reason. Narrowing the carry to the load rule's
+ *  shape left that row throwing behind an accepted card — measured by mutation.
+ *  No diagnostic: the load funnel already reported what it kept. */
 export function requiredIsoDateOnUpdate(stored: Readonly<Record<string, unknown>>): RequiredDateReader {
   return (value, _entity, _id, field) =>
-    value === stored[field] && isKeptNonCalendarDate(value) ? value : sanitizeIsoDate(value);
+    typeof value === "string" && value === stored[field] ? value : sanitizeIsoDate(value);
 }
 
 function readRequiredDate(source: LoadDateSource, value: unknown, entity: string, id: unknown, field: string): string {

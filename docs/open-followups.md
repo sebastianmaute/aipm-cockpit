@@ -38074,7 +38074,7 @@ reset both dates to the defaults). CSV, Markdown and Turso milestones (`buildMil
 IndexedDB never validated these dates, so they keep them raw without a diagnostic. A write refuses such a
 date only when it CHANGES it: the AI absence and milestone update writers rebuild the merged row through
 `rebuildAbsenceForUpdate` / `rebuildMilestoneForUpdate`, which judge a changed required date with
-`sanitizeIsoDate` and carry one equal to the stored kept-raw value (`requiredIsoDateOnUpdate`); creates
+`sanitizeIsoDate` and carry one equal to the stored value verbatim (`requiredIsoDateOnUpdate`); creates
 still call the strict `sanitizeAbsence` / `sanitizeMilestone`. The inline-AI preview agrees — it judges a
 changed date with `sanitizeIsoDate` and skips an unchanged one.
 
