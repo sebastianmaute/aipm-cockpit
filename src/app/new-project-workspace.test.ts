@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sanitizeAiRichText } from "./ai-rich-text";
-import { buildNewProjectWorkspace } from "./new-project-workspace";
+import { aiSeedUnsafeEmails, buildNewProjectWorkspace } from "./new-project-workspace";
 import { appendSeed } from "./template-apply";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
 import type { ProjectMeta } from "./types";
@@ -266,6 +266,50 @@ describe("appendSeed — the allow-list is idempotent (§288)", () => {
     // would make the byte-identity assertion above trivially true.
     expect(sanitizeAiRichText(HOSTILE)).not.toBe(HOSTILE);
     expect(sanitizeAiRichText(HOSTILE)).not.toContain("<script");
+  });
+});
+
+// ★★★ M5 (pre-release review): an AI seed INTRODUCES every value it carries,
+// so under the write rule each is CHANGED and an unsafe address must not be
+// stored — left blank, as ResourcePicker "+ Add" does (`creatableResourceEmail`).
+// A TEMPLATE seed is a copy from a stored source, exempt by the copy-source
+// rule, so it keeps its values and stays notice-only.
+describe("buildNewProjectWorkspace — an AI seed does not store an unsafe email (M5)", () => {
+  const unsafeSeed = (): TemplateSeed => ({
+    tasks: [{ id: 1, taskName: "Task bad", assignee: "B", assigneeEmail: "a,b@x.com", dueDate: "", lastUpdateDate: "", status: "To Do", priority: "Medium", blockers: "", description: "" }],
+    raid: [
+      { id: 1, category: "R", title: "Risk bad", status: "Open", raisedDate: "", ownerEmail: "not-an-email", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [] },
+      { id: 2, category: "R", title: "Risk ok", status: "Open", raisedDate: "", ownerEmail: "ok@x.com", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [] },
+    ],
+    stakeholders: [{ id: 1, name: "Stake bad", category: "Other", influence: "Medium", interest: "Medium", raci: {}, email: "x;y@z.com" }],
+    resources: [{ id: 1, firstName: "Res", lastName: "Bad", email: "nope", emails: ["good@x.com", "c,d@x.com"], roleId: null, utilizationMode: "percent", utilization: {} }],
+  });
+
+  it("leaves every unsafe AI-seeded address blank and keeps the safe ones", () => {
+    const ws = buildNewProjectWorkspace(meta, { features: [], includeSeed: true, aiSeed: unsafeSeed() });
+    expect(ws.tasks[0].assigneeEmail ?? "").toBe("");
+    expect(ws.raid.map((r) => [r.title, r.ownerEmail ?? ""])).toEqual([["Risk bad", ""], ["Risk ok", "ok@x.com"]]);
+    expect(ws.stakeholders?.[0]?.email ?? "").toBe("");
+    expect(ws.stakeholders).toHaveLength(1); // control: the row really landed
+    const res = ws.resources.find((r) => r.firstName === "Res");
+    expect(res?.email ?? "").toBe("");
+    expect(res?.emails ?? []).toEqual(["good@x.com"]);
+  });
+
+  it("names the records whose address was left blank, and nothing for a clean or excluded seed", () => {
+    expect(aiSeedUnsafeEmails({ features: [], includeSeed: true, aiSeed: unsafeSeed() }))
+      .toEqual({ count: 4, names: "Task bad, Risk bad, Res Bad, Stake bad" });
+    expect(aiSeedUnsafeEmails({ features: [], includeSeed: false, aiSeed: unsafeSeed() })).toBeNull();
+    expect(aiSeedUnsafeEmails({ features: [], includeSeed: true, aiSeed: unsafeSeed(), template: tpl })).toBeNull();
+    expect(aiSeedUnsafeEmails({ features: [], includeSeed: true, aiSeed })).toBeNull();
+  });
+
+  it("a TEMPLATE seed is a copy source: its stored addresses are kept verbatim", () => {
+    const ws = buildNewProjectWorkspace(meta, {
+      template: { id: "t-email", name: "T", features: [], fieldVisibility: {}, seed: { raid: unsafeSeed().raid } } as never,
+      includeSeed: true,
+    });
+    expect(ws.raid.map((r) => r.ownerEmail)).toEqual(["not-an-email", "ok@x.com"]);
   });
 });
 

@@ -37760,6 +37760,8 @@ the normal state).
 
 **Status:** CLOSED 2026-09-14 as an accepted limit — "," and ";" are legal only inside a quoted local part (RFC 5321/5322), which this app has no use for, and every email write boundary now refuses a changed value holding either (`emailWriteRefusal` / `findTornEmail`, `sanitize-core.email-rule.test.ts`). An address already torn by a past CSV, Markdown or Turso save cannot be rebuilt.
 
+**The two seed routes, by the same rule (corrected 2026-09-15, pre-release M5).** A TEMPLATE apply (creating a project from a stored template, or applying one) copies from a stored source, so it is exempt by the copy-source rule: its addresses are kept, and `importUnsafeEmailsNotice` only names the records — notice-only by decision. An AI SEED (the AI project proposal's `aiSeed`) introduces new values, so every address in it is CHANGED and the write rule applies: an unsafe one is NOT stored — `buildNewProjectWorkspace` leaves the field blank, as ResourcePicker "+ Add" does — and the notice names the record (`aiSeedUnsafeEmails`). The wizard shows no per-row seed card, so there is no card to hold in parity. Before this correction both routes were notice-only and this entry did not say so.
+
 Measured 2026-09-14 by a vite-node round trip over the real codecs (a scratchpad probe, not committed).
 JSON and IndexedDB keep a stored `["a,b@x.com"]` as is, while CSV, Markdown and Turso return
 `["a","b@x.com"]`. The same holds for `";"`: `["a;b@x.com"]` comes back as `["a","b@x.com"]` from the three

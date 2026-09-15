@@ -31,7 +31,7 @@ import {
 import { addProject, loadRegistry, saveRegistry, setCurrentProject as setCurrentProjectInRegistry } from "./projects-registry";
 import { getHandle } from "./project-file-handles";
 import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
-import { buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
+import { aiSeedUnsafeEmails, buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
 import { resetMintState, snapshotMintState, restoreMintState, seedMintFromWorkspace } from "./id-mint-session";
 import type { ProjectMeta, RaidItem, Task } from "./types";
 import { loadPortfolioMode, savePortfolioMode } from "./portfolio-mode";
@@ -189,7 +189,9 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.suppressNextSaveRef.current = true;
       deps.setStorageConfig(storageConfig);
       deps.showToast("info", t(deps.langRef.current, "projectCreatedToast", meta.name));
-      const seededEmails = opts.template || opts.aiSeed ? summarizeUnsafeEmailRecords(ws) : null; // template or AI import seed only
+      // ★ M5: a TEMPLATE is a copy source, kept and notice-only; an AI seed's unsafe addresses were left
+      //  blank by `buildNewProjectWorkspace`, so its notice is judged on the seed as supplied.
+      const seededEmails = opts.template ? summarizeUnsafeEmailRecords(ws) : aiSeedUnsafeEmails(opts);
       if (seededEmails) {
         deps.announcedUnsafeEmailsRef.current.add(id); // an explicit import always announces (M4)
         deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));

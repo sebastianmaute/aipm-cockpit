@@ -2014,10 +2014,12 @@ describe("useStorageBackend — project flows", () => {
 
   const SEED_TASK = { id: 1, taskName: "From seed", assignee: "B", assigneeEmail: "a,b@x.com", dueDate: "2026-06-01", lastUpdateDate: "2026-06-01", priority: "Medium", status: "To Do", createdDate: "2026-06-01" };
 
+  // ★ M5: the third column is what is STORED — a template is a copy source and
+  //  keeps the address; an AI seed introduces it, so it is left blank.
   it.each([
-    ["a template", { includeSeed: true, template: { id: "t", name: "T", features: [], fieldVisibility: {}, seed: { tasks: [SEED_TASK] } } }],
-    ["an AI-import seed", { includeSeed: true, aiSeed: { tasks: [SEED_TASK] } }],
-  ])("createProject with %s shows the unsafe-email notice after projectCreatedToast (spec Part 2, pre-flight I5)", async (_label, opts) => {
+    ["a template", { includeSeed: true, template: { id: "t", name: "T", features: [], fieldVisibility: {}, seed: { tasks: [SEED_TASK] } } }, "a,b@x.com"],
+    ["an AI-import seed", { includeSeed: true, aiSeed: { tasks: [SEED_TASK] } }, ""],
+  ])("createProject with %s shows the unsafe-email notice after projectCreatedToast (spec Part 2, pre-flight I5)", async (_label, opts, stored) => {
     const targetBackend = {
       kind: "local-json",
       load: vi.fn().mockResolvedValue(emptyWorkspace()),
@@ -2036,6 +2038,8 @@ describe("useStorageBackend — project flows", () => {
     const created = texts.indexOf(t("en-US", "projectCreatedToast", "New Proj"));
     expect(created).toBeGreaterThanOrEqual(0);
     expect(texts.indexOf(t("en-US", "importUnsafeEmailsNotice", 1, "From seed"))).toBeGreaterThan(created);
+    const saved = targetBackend.save.mock.calls[0][0] as { tasks: Task[] };
+    expect(saved.tasks.map((r) => r.assigneeEmail ?? "")).toEqual([stored]);
   });
 
   it("createProject with neither a template nor an AI seed shows no notice (positive control above)", async () => {
