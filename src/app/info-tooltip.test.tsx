@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { InfoTooltip } from "./info-tooltip";
 
 describe("InfoTooltip", () => {
@@ -87,6 +87,44 @@ describe("InfoTooltip", () => {
       const leftPx = parseFloat(bubble.style.left);
       // max clamped = innerWidth(1000) - MARGIN(8) - HALF(128) = 864
       expect(leftPx).toBeLessThanOrEqual(864);
+    });
+  });
+
+  describe("custom trigger (children)", () => {
+    const name = "Effort worse than € at current pace — why?";
+
+    it("renders the children inside the one focusable trigger, named by label", () => {
+      render(<InfoTooltip text="because" label={name}><span>Effort worse than €</span></InfoTooltip>);
+      const trigger = screen.getByRole("button", { name });
+      expect(trigger).toHaveTextContent("Effort worse than €");
+      expect(trigger).toHaveAttribute("data-info-tooltip-trigger");
+      expect(trigger.className).not.toContain("h-4");
+      expect(screen.getAllByRole("button")).toHaveLength(1);
+    });
+
+    it("keeps the visible text inside the accessible name (label-in-name)", () => {
+      render(<InfoTooltip text="because" label={name}><span>Effort worse than €</span></InfoTooltip>);
+      const trigger = screen.getByRole("button", { name });
+      expect(trigger.getAttribute("aria-label")).toContain(trigger.textContent ?? "");
+    });
+
+    it("opens on pointer enter and on focus, and closes on Escape", () => {
+      render(<InfoTooltip text="because" label={name}><span>Effort worse than €</span></InfoTooltip>);
+      const trigger = screen.getByRole("button", { name });
+      fireEvent.pointerEnter(trigger);
+      expect(screen.getByRole("tooltip")).toHaveTextContent("because");
+      fireEvent.pointerLeave(trigger);
+      expect(screen.queryByRole("tooltip")).toBeNull();
+      act(() => trigger.focus());
+      expect(screen.getByRole("tooltip")).toHaveTextContent("because");
+      fireEvent.keyDown(trigger, { key: "Escape" });
+      expect(screen.queryByRole("tooltip")).toBeNull();
+    });
+
+    it("requires a label with a custom trigger (type-level)", () => {
+      // @ts-expect-error — `label` is required when `children` is given
+      const element = <InfoTooltip text="x"><span>y</span></InfoTooltip>;
+      expect(element).toBeTruthy();
     });
   });
 });

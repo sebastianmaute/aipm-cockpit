@@ -1,15 +1,31 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-interface InfoTooltipProps {
-  /** Already-translated tooltip text. Empty → renders nothing. */
-  text: string;
-  /** Accessible label for the trigger; defaults to `text`. */
-  label?: string;
-}
+type InfoTooltipProps =
+  | {
+      /** Already-translated tooltip text. Empty → renders nothing. */
+      text: string;
+      /** Accessible label for the trigger; defaults to `text`. */
+      label?: string;
+      children?: undefined;
+    }
+  | {
+      text: string;
+      /** Required with a custom trigger, and it must CONTAIN the trigger's
+       *  visible text (WCAG 2.5.3 label-in-name). */
+      label: string;
+      /** Custom trigger content (e.g. a `Badge` chip), rendered inside the one
+       *  focusable trigger instead of the "i" glyph (MR 3, plan Ruling 8). */
+      children: ReactNode;
+    };
 
-export function InfoTooltip({ text, label }: InfoTooltipProps) {
+const ICON_TRIGGER_CLASS =
+  "flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[10px] font-semibold normal-case leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green";
+const CUSTOM_TRIGGER_CLASS =
+  "inline-flex cursor-help items-center rounded-full focus:outline-none focus:ring-2 focus:ring-ui-green";
+
+export function InfoTooltip({ text, label, children }: InfoTooltipProps) {
   const ref = useRef<HTMLSpanElement | null>(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -54,9 +70,9 @@ export function InfoTooltip({ text, label }: InfoTooltipProps) {
         onBlur={() => setOpen(false)}
         onClick={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).focus(); }}
         onKeyDown={(e) => { if (e.key === "Escape") (e.currentTarget as HTMLElement).blur(); }}
-        className="flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[10px] font-semibold normal-case leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
+        className={children === undefined ? ICON_TRIGGER_CLASS : CUSTOM_TRIGGER_CLASS}
       >
-        i
+        {children === undefined ? "i" : children}
       </span>
       {open && pos && typeof document !== "undefined" &&
         createPortal(
