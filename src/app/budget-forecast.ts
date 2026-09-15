@@ -6,7 +6,18 @@
  * - current efficiency — ETC = (BAC − EV) ÷ CPI.
  * Money is EUR, on the contract basis (BAC = `budgetValue`), never internal cost.
  */
-import { calendarDaysBetween, countWorkingDays, addCalendarDays, isWorkingDay, nthWorkingDayAfter, workingDaysBefore } from "./working-days";
+import {
+  calendarDaysBetween, countWorkingDays, addCalendarDays, isWorkingDay, nthWorkingDayAfter, workingDaysBefore,
+  periodBounds, workingDaysInRange,
+} from "./working-days";
+import { computeBudgetReport, bucketActivePeriods, bucketRateRows, type BudgetReport } from "./budget-report";
+import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
+import { resolveBucketChain } from "./budget-bucket-chain";
+import { bucketPercentComplete } from "./budget-earned-value";
+import { currencyToEur } from "./fx";
+import { periodKeyForDate } from "./resource-capacity";
+import { isDayKey, granularityOfPeriodKey } from "./actual-hours";
+import type { Absence, BudgetBucket, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
 
 export const BURN_RATE_WINDOW_WORKING_DAYS = 20;
 export const FORECAST_GAP_WARNING_RATIO = 0.10;
@@ -83,7 +94,10 @@ function pace(f: ForecastFacts): PaceForecast | PaceUnavailable {
   const etc = burnRatePerDay * workingDaysLeft;
   const eac = f.ac + etc;
   const remaining = f.bac - f.ac;
-  const runOutDate = remaining <= 0 ? null : nthWorkingDayAfter(today, Math.ceil(remaining / burnRatePerDay), hs);
+  // Tolerance-safe ceil: a float division that lands exactly on an integer can
+  // drift to n+epsilon (e.g. remaining = burn × 54 → remaining/burn =
+  // 54.00000000000001), which would report one extra working day.
+  const runOutDate = remaining <= 0 ? null : nthWorkingDayAfter(today, Math.ceil(remaining / burnRatePerDay - 1e-9), hs);
   return {
     burnRatePerDay, windowDays: BURN_RATE_WINDOW_WORKING_DAYS, windowStart, windowEnd, spreadPeriodHoursUsed,
     workingDaysLeft, etc, eac, vac: f.bac - eac, runOutDate,
@@ -101,10 +115,15 @@ function efficiency(f: ForecastFacts): EfficiencyForecast | EfficiencyUnavailabl
   return { pv: f.pv, cpi, spi: f.pv === 0 ? null : f.ev / f.pv, etc, eac, vac: f.bac - eac };
 }
 
-export function forecastGap(p: PaceForecast, e: EfficiencyForecast, bac: number): ForecastGap {
+export function forecastGap(p: PaceForecast, e: EfficiencyForecast, bac: number): ForecastGap | null {
+  // A non-positive burn rate has no meaningful "extra working days" (division
+  // by zero or a sign flip), so there is nothing to compare — null, not a
+  // fabricated figure.
+  if (p.burnRatePerDay <= 0) return null;
   const eacDifference = Math.abs(e.eac - p.eac);
   const percentOfBac = bac > 0 ? eacDifference / bac : 0;
-  const extra = Math.ceil(e.etc / p.burnRatePerDay) - p.workingDaysLeft;
+  // Tolerance-safe ceil — see the matching comment on `runOutDate` above.
+  const extra = Math.ceil(e.etc / p.burnRatePerDay - 1e-9) - p.workingDaysLeft;
   return {
     eacDifference, percentOfBac,
     severity: percentOfBac >= FORECAST_GAP_WARNING_RATIO ? "warning" : "info",
@@ -131,4 +150,114 @@ export function computeForecastFromFacts(f: ForecastFacts): BudgetForecast {
     gap: isPaceAvailable(p) && isEfficiencyAvailable(e) ? forecastGap(p, e, f.bac) : null,
     hasFixedPrice: f.hasFixedPrice,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Assembler — turns the existing BudgetReport, buckets, rate rows and
+// burn-down series into ForecastFacts, per spec §5.1–§5.4.
+
+export type BudgetForecastInput = {
+  report: BudgetReport; buckets: readonly BudgetBucket[]; roles: readonly Role[]; fxRates: FxRates | null;
+  tasks: readonly Pick<Task, "id" | "status">[]; plan: ResourcePlan; burndown: BurndownSeries;
+  holidaySet: ReadonlySet<string>; today: string;
+};
+
+/**
+ * Builds `ForecastFacts` from a live `BudgetReport` + rate rows + burn-down
+ * series (§5.1–§5.4):
+ * - AC (§5.4/Ruling 1): per bucket, T&M → `BucketReport.consumedValue`
+ *   (external-EUR basis, already report-consistent); fixed price → the
+ *   UNCAPPED contract ratio `contract × actualHours ÷ budgetHours`, so an
+ *   overrun shows (the report's own `consumedValue` is capped at the contract
+ *   amount and must never be reused here).
+ * - EV (Ruling 2): `Σ budgetValue × bucketPercentComplete(bucket, tasks) ÷ 100`
+ *   over buckets with `budgetValue > 0`; null (with the naming list) the
+ *   moment any such bucket has no resolvable percent complete.
+ * - PV (Ruling 3): `totalBudgetValue − plannedRemainingValue[todayIndex]` of
+ *   the burn-down, 0 when `todayIndex === -1`.
+ * - Dated bookings (Ruling 4): only keys the report itself counts — a day key
+ *   whose owning period is active, or a period key at the live granularity
+ *   that is active, spread evenly over its working days (or placed on its
+ *   first calendar day when it has none). An entry with hours ≤ 0 carries no
+ *   booking date at all (excluded from `dated`).
+ */
+export function forecastFacts(input: BudgetForecastInput): ForecastFacts {
+  const { report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today } = input;
+  const reportById = new Map(report.buckets.map((r) => [r.bucketId, r]));
+  const dated: DatedValue[] = [];
+  const bucketsMissingPercent: { id: number; name: string }[] = [];
+  let ac = 0;
+  let ev = 0;
+  let hasFixedPrice = false;
+  for (const bucket of buckets) {
+    const br = reportById.get(bucket.id);
+    if (!br) continue;
+    const isFixed = bucket.type === "fixed";
+    hasFixedPrice ||= isFixed;
+    // §5.4: the uncapped contract ratio, so a fixed-price overrun shows.
+    const fixedPerHour = isFixed && br.budgetHours > 0
+      ? currencyToEur(bucket.fixedPriceAmount ?? 0, bucket, fxRates) / br.budgetHours
+      : 0;
+    ac += isFixed ? fixedPerHour * br.actualHours : br.consumedValue;
+    if (br.budgetValue > 0) {
+      const pct = bucketPercentComplete(bucket, tasks);
+      if (pct === null) bucketsMissingPercent.push({ id: bucket.id, name: bucket.name });
+      else ev += (br.budgetValue * pct) / 100;
+    }
+    const active = new Set(bucketActivePeriods(bucket, plan).map((p) => p.key));
+    for (const row of bucketRateRows(bucket, roles)) {
+      const perHour = isFixed ? fixedPerHour : row.rates.external;
+      for (const [key, hours] of Object.entries(row.actualHours)) {
+        // Ruling 4: hours ≤ 0 carry no booking date at all.
+        if (!(hours > 0)) continue;
+        if (isDayKey(key)) {
+          if (active.has(periodKeyForDate(key, plan.granularity))) {
+            dated.push({ date: key, bookedFrom: key, value: hours * perHour, spread: false });
+          }
+          continue;
+        }
+        if (granularityOfPeriodKey(key) !== plan.granularity || !active.has(key)) continue;
+        const bounds = periodBounds(key);
+        if (!bounds) continue;
+        const days = workingDaysInRange(bounds.start, bounds.end, holidaySet);
+        if (days.length === 0) {
+          dated.push({ date: bounds.start, bookedFrom: bounds.start, value: hours * perHour, spread: true });
+          continue;
+        }
+        const each = (hours * perHour) / days.length;
+        for (const d of days) dated.push({ date: d, bookedFrom: bounds.start, value: each, spread: true });
+      }
+    }
+  }
+  const pv = burndown.todayIndex >= 0 ? burndown.totalBudgetValue - burndown.plannedRemainingValue[burndown.todayIndex] : 0;
+  return {
+    bac: report.project.budgetValue, ac, ev: bucketsMissingPercent.length > 0 ? null : ev, pv,
+    bucketsMissingPercent, dated, planEnd: plan.endDate, today, holidaySet, hasFixedPrice,
+  };
+}
+
+export function computeBudgetForecast(input: BudgetForecastInput): BudgetForecast {
+  return computeForecastFromFacts(forecastFacts(input));
+}
+
+export type ProjectForecastArgs = {
+  buckets: readonly BudgetBucket[]; plan: ResourcePlan; roles: readonly Role[]; resources: readonly Resource[];
+  workdayHours: number; holidaySet: ReadonlySet<string>; absences: readonly Absence[];
+  tasks: readonly Pick<Task, "id" | "status">[]; fxRates: FxRates | null; today: string;
+};
+
+/** Builds report, bucket chain and burn-down the way `budget-report-panel.tsx`
+ *  does; null without buckets — there is nothing to forecast. */
+export function computeProjectForecast(a: ProjectForecastArgs): BudgetForecast | null {
+  if (a.buckets.length === 0) return null;
+  const report = computeBudgetReport(a.buckets, a.plan, a.roles, a.resources, a.workdayHours, a.holidaySet, a.absences, [], a.fxRates);
+  const chain = resolveBucketChain(a.buckets, { start: a.plan.startDate, end: a.plan.endDate });
+  const burndown = computeBurndownSeries(
+    a.buckets, a.plan, a.roles, a.resources, a.workdayHours, a.holidaySet, a.absences, a.today, a.fxRates,
+    chain.kind === "chain" ? { start: chain.start, end: chain.end } : undefined,
+  );
+  return computeBudgetForecast({
+    report, buckets: a.buckets, roles: a.roles, fxRates: a.fxRates, tasks: a.tasks, plan: a.plan, burndown,
+    holidaySet: a.holidaySet, today: a.today,
+  });
 }
