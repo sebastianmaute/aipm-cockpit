@@ -189,6 +189,10 @@ export type RateRow = {
   /** Set ONLY on a blended row whose discipline has unpriced grades and whose
    *  bucket does not override the internal rate. Drives the named message. */
   unpricedBlendDisciplineId?: number;
+  /** The allocation's role (role-planned bucket) or discipline (blended bucket).
+   *  Read by `budget-rate-mix.ts` to group rows; nothing else relies on it. */
+  roleId?: number;
+  disciplineId?: number;
 };
 
 /** Uniform rate-bearing rows for a bucket: from disciplineAllocations (blended)
@@ -212,6 +216,7 @@ export function bucketRateRows(bucket: BudgetBucket, roles: readonly Role[]): Ra
       resourceIds: a.resourceIds,
       unpricedBlendDisciplineId:
         !overridden && disciplineHasUnpricedGrade(a.disciplineId, roles) ? a.disciplineId : undefined,
+      disciplineId: a.disciplineId,
     }));
   }
   return bucket.allocations.map((a) => {
@@ -221,6 +226,7 @@ export function bucketRateRows(bucket: BudgetBucket, roles: readonly Role[]): Ra
       budgetHours: a.budgetHours,
       actualHours: a.actualHours,
       resourceIds: a.resourceIds,
+      roleId: a.roleId,
     };
   });
 }
