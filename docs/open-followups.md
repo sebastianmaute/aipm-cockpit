@@ -721,7 +721,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§496](#496-testing-libraryjest-dom-7-has-been-published-and-is-unassessed--open) | @testing-library/jest-dom 7 has been published and is unassessed — OPEN | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S — test-only, the cheapest of the deferred majors to attempt | open |
 | [§497](#497-playwright-and-axe-core-have-moved-past-the-pinned-ci-image-and-they-must-be-bumped-together-with-it--open) | Playwright and axe-core have moved past the pinned CI image, and they must be bumped together with it — OPEN | tech-debt-register deferred dependency table (lockstep row) and its Resolved lockstep rule, moved into the register 2026-09-13 | S–M — client, e2e image and axe in one MR, then re-measure the axe claims AGENTS.md quotes against 4.12.1 | open |
 | [§498](#498-the-msal-sign-in-flow-has-never-been-smoke-tested-against-a-real-microsoft-365-tenant--open) | The MSAL sign-in flow has never been smoke-tested against a real Microsoft 365 tenant — OPEN | tech-debt-register dependency table (`@azure/msal-browser` caveat), moved into the register 2026-09-13 | S–M — a documented manual smoke per MSAL bump, or a gated e2e with tenant secrets if a CI tenant is ever provisioned | open |
-| [§499](#499-the-four-executive-budget-figures-are-not-all-surfaced-because-etc-eac-and-vac-are-computed-nowhere--open) | The four executive budget figures are not all surfaced, because ETC, EAC and VAC are computed nowhere — OPEN | AI PM Cockpit demo 2026-09-11 (F-1), GitLab #38; mirrored into the register 2026-09-13 | M — one agreed formula, then the Budget panel, Budget report and Dashboard | open |
+| [§499](#499-the-four-executive-budget-figures-are-not-all-surfaced-because-etc-eac-and-vac-are-computed-nowhere--closed-2026-09-15) | The four executive budget figures are not all surfaced, because ETC, EAC and VAC are computed nowhere — CLOSED 2026-09-15 | AI PM Cockpit demo 2026-09-11 (F-1), GitLab #38; mirrored into the register 2026-09-13 | M — one agreed formula, then the Budget panel, Budget report and Dashboard | **CLOSED** 2026-09-15 |
 | [§500](#500-budget-forecast-hours-cannot-be-imported-from-a-spreadsheet-and-must-be-re-entered-by-hand--open) | Budget forecast hours cannot be imported from a spreadsheet and must be re-entered by hand — OPEN | AI PM Cockpit demo 2026-09-11 (F-2), GitLab #39; mirrored into the register 2026-09-13 | M — an importer for resource × month × hours × rate that writes bucket allocations | open |
 | [§501](#501-evm-terminology-is-incomplete-across-the-app-with-no-bac-eac-or-etc-labels-and-no-time-phased-s-curve--open) | EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve — OPEN | AI PM Cockpit demo 2026-09-11 (F-3), GitLab #40; mirrored into the register 2026-09-13 | M — terminology and hints first, the S-curve chart as a second slice | open |
 | [§502](#502-there-is-no-probabilistic-monte-carlo-forecast-with-scenarios-and-confidence-levels--open) | There is no probabilistic Monte Carlo forecast with scenarios and confidence levels — OPEN | AI PM Cockpit demo 2026-09-11 (F-4), GitLab #41; mirrored into the register 2026-09-13 | L — a simulation engine, scenario inputs and P50/P80-style output on the forecast surfaces | open |
@@ -760,7 +760,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--open) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | open |
 | [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
 | [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--open) | A repeated resource deep link re-runs the open while that resource's editor is open — OPEN | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | open |
-| [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--open) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | open |
+| [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--closed-2026-09-15) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — CLOSED 2026-09-15 | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | **CLOSED** 2026-09-15 |
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
 | [§545](#545-the-ai-dashboard-snapshot-and-every-export-carry-none-of-the-budget-forecast-figures--open) | The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN | deferred 2026-09-15 by the budget forecast union spec §9 | M — add the forecast figures to the snapshot and exports once MR 2 ships them | open |
 <!-- INDEX:END -->
@@ -36983,10 +36983,15 @@ Size S–M.
 
 **Source:** `docs/tech-debt-register.md` ("Deferred major dependency upgrades", `@azure/msal-browser` row)
 
-## 499. The four executive budget figures are not all surfaced, because ETC, EAC and VAC are computed nowhere — OPEN
+## 499. The four executive budget figures are not all surfaced, because ETC, EAC and VAC are computed nowhere — CLOSED 2026-09-15
 
-**Status:** OPEN 2026-09-13 — `grep -rlnE "estimateAtCompletion|\bEAC\b|\bETC\b" src/app --include=*.ts --include=*.tsx` →
-only `operating-guide-builtin.generated.ts` (generated guide text), so no engine computes either figure.
+**Status:** CLOSED 2026-09-15 on `feat/budget-forecast-figures`. `budget-forecast.ts` now computes ETC, EAC
+and VAC for both the current-pace and current-efficiency methods (`computeForecastFromFacts`, assembled by
+`forecastFacts` into `computeBudgetForecast`/`computeProjectForecast`), pinned by `budget-forecast.test.ts`'s
+`describe("computeForecastFromFacts — spec §5.6 acceptance fixture")`. The figures surface on the Budget
+report cards (`budget-forecast-cards.tsx`), the dashboard tile headline (`budget-forecast-headline.tsx`) and
+the Budget view link line (`budget-forecast-link.tsx`). The OPEN-era text below is kept as the record of what
+was found.
 
 Michael Leather asked for the executive figures to be shown explicitly: budget (the PMO maximum), actuals
 spent, forecast to complete, estimate at completion and variance against budget. He named financials as his
@@ -37002,8 +37007,6 @@ Related: §501 (EVM terminology), §488 (the demo's budget-report gap), §466 (t
 Size M — one agreed formula, then the Budget panel, Budget report and Dashboard.
 
 **Source:** GitLab #38 (F-1, source::demo-2026-09-11)
-
-**Work item:** #38
 
 ## 500. Budget forecast hours cannot be imported from a spreadsheet and must be re-entered by hand — OPEN
 
@@ -37025,8 +37028,12 @@ Size M — an importer for resource × month × hours × rate that writes bucket
 
 ## 501. EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -nE "cpi|spi" src/app/evm.ts` → `computeEvm` returns pv, ev, ac, spi, cpi, sv and cv; the
-EAC/ETC grep in §499 finds only generated guide text.
+**Status:** OPEN 2026-09-15 — the forecast figures (§499, closed) shipped BAC/EAC/ETC/VAC labels and the
+effort-index qualifier: `grep -n "forecastFactBac\|evmCpi" src/app/i18n.ts` → `forecastFactBac: "Budget
+(BAC)"` and `evmCpi: "Effort CPI"` (paired with `evmSpi: "Effort SPI"`); the forecast cards' own
+`forecastEacPace`/`forecastEtcPace`/`forecastVacPace` (and the Efficiency-card pair) render the EAC/ETC/VAC
+terms. The time-phased EVM S-curve from `docs/superpowers/specs/2026-06-02-earned-value-design.md` remains
+for MR 3 of the forecast-figures slice, still not built.
 
 Kai Mindermann asked for Earned Value Management terminology throughout the app, explicitly including the
 charts and graphs, not only the labels. The underlying data was said to exist already.
@@ -37087,12 +37094,15 @@ Size unestimated (product backlog) — nothing can be sized until the live misbe
 
 ## 504. The burn-down draws no forecast line and is not aligned with the internal AIPM Project Burndown standard — OPEN
 
-**Status:** OPEN 2026-09-13 — `grep -rln "computeBurndownSeries" src/app` → `budget-burndown.ts`, `budget-report-panel.tsx` and
-`dashboard.ts` plus tests. Alignment with the article is never machine-verified; nobody has read it in full.
+**Status:** OPEN 2026-09-15 — `grep -rln "computeBurndownSeries" src/app` → `budget-burndown.ts`,
+`budget-report-panel.tsx` and `dashboard.ts` plus tests. The executive forecast figures (BAC/EAC/ETC/VAC,
+§499, closed) ship in MR 2 of `docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md`; a drawn
+forecast/projection line on the burn-down chart itself, and the chart's burn-down/cumulative switch, are
+MR 3 of that slice and are NOT part of this MR — the chart still draws no forecast line. Alignment with the
+article is never machine-verified; nobody has read it in full.
 
 Kai Mindermann asked in writing that the forecasting approach align with the Acme Confluence blog
-article "The Project Burndown". It was not discussed on the call. The URL was supplied truncated, so the full
-title and slug must be confirmed before the article is fetched.
+article "The Project Burndown". It was not discussed on the call.
 
 A burn-down exists (`computeBurndownSeries`, drawn in the Budget report and on the dashboard), but it draws
 no forecast or projection line, and nothing references the internal standard.
@@ -37872,13 +37882,19 @@ statically mounted directory. The residual test named above must then be inverte
 
 Related: §362.
 
-## 543. A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — OPEN
+## 543. A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — CLOSED 2026-09-15
 
-**Status:** OPEN 2026-09-15 — `never machine-verified` in the repo: measured by the final whole-branch review of
-`feat/budget-forecast-union` with a scratch probe outside the tree against the real modules; not watched in a
-browser.
-
-**Work item:** #333
+**Status:** CLOSED 2026-09-15 on `feat/budget-forecast-figures`. `writeAllocations` (`timelog-apply.ts`) now
+deletes `periodKeyForDate(day, other)` for the OTHER plan granularity for each routed day, before writing day
+keys, so a stale month/week total can no longer double-count. Pinned by three tests in
+`timelog-apply.test.ts`'s `describe("dated apply")`: "removes a hand-typed month key that overlaps a weekly
+dated apply (§543)", "removes a hand-typed week key that overlaps a monthly dated apply (§543)" and "keeps an
+other-granularity key that no applied day falls in (§543)", mutation-proven — removing the delete turns the
+first two red. The removed key can also hold hand-typed hours on days TimeLog itself never covered (a PM's
+manual note for a day with no booking is deleted along with the days that were routed), and the Apply confirm
+dialog (`TimelogApplyConfirm`) itemizes only the routed role-line diffs via `describeApplyRows` — it does not
+list this key's removal, so a user is not told the other-granularity figure is gone. The OPEN-era text below
+is kept as the record of what was found.
 
 A dated TimeLog Apply owns each covered period: `writeAllocations` (`timelog-apply.ts`) runs `withoutPeriod`
 (`actual-hours.ts`), which removes the period's own key and every day key inside it, then writes the routed day

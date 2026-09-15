@@ -132,6 +132,17 @@ shipped comfortable/80** (measured, default catalogue board, 1600px, e2e seed: `
 introduced, and no row unit fixes those three — fitting `burn` at h:2 would take a ~340px unit, which
 is what per-axis resize is for. Measure comfortable before calling anything a regression.
 
+★ **The `burn` tile's content (forecast figures union, MR 2):** the headline is `forecastHeadlineText`
+(`budget-forecast-headline.tsx`), the first entry of `forecastNotices` renders below it as a muted line
+(`forecastNoticeShortText`), and the tile body scrolls (`overflow-auto`, per the 507px-over measurement
+above) at its catalogue `minH` of 3. `dashboard.ts`'s `budgetComputed` reads the budget RAG from
+`paceVacHealth(forecast.pace.vac, forecast.facts.bac)` once the pace forecast exists (`BudgetForecast`
+from `computeBudgetForecast`), and falls back to the ratio-based `computeBudgetStatus` otherwise; the
+effort CPI (`evmIndexHealth(evm.cpi)`) stays in the worst-of either way. Trends' persisted `budgetRag`
+(`snapshot.ts`) reads this same `model.budget.effective`, so a Trends capture switches to the pace rule
+from this release on — an OLDER captured snapshot stays ratio-based, because it was written before the
+pace forecast existed to read.
+
 ★★ **TWO CHROMIUM MEASUREMENTS FROM THIS BRANCH'S REVIEW, both about assertions that LOOK sufficient:**
 • `grid-auto-flow: row dense` COMPUTES as `"dense"`, not `"row dense"` — a `toHaveCSS("grid-auto-flow",
 "row dense")` would fail against correct code. The spec's `gridMetrics` still collects `autoFlow` but
