@@ -40,6 +40,8 @@ import { AddButton } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { ViewCallout } from "./view-callout";
 import { BudgetUnappliedNotice } from "./budget-unapplied-notice";
+import { computeProjectForecast } from "./budget-forecast";
+import { BudgetForecastLink } from "./budget-forecast-link";
 import { useConfirm } from "./confirm-dialog";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { ROW_RULE_CLASS, rowRuleClass } from "./table-styles";
@@ -98,6 +100,10 @@ export interface BudgetPanelProps {
    *  needed before the notice renders at all. */
   timelogProjectId?: string;
   onGoToTimelog?: () => void;
+  /** Opens the Budget report tab (§6.4 link line). `workspace-section.tsx`
+   *  omits this prop in a popout (Plan Ruling 12), so the link renders only
+   *  when both this and a project forecast exist. */
+  onOpenBudgetReport?: () => void;
 }
 
 /** Builds the Cci-shaped value for the internal-cost-index tile (`budgetCciInternalCostIndex`;
@@ -129,13 +135,23 @@ function blankBucket(id: number, plan: ResourcePlan): BudgetBucket {
 }
 
 export function BudgetPanel(props: BudgetPanelProps) {
-  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, timelogProjectId, onGoToTimelog, tasks = [], actualsByBucket = NO_ACTUALS, actualsFetchedAt } = props;
+  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, timelogProjectId, onGoToTimelog, onOpenBudgetReport, tasks = [], actualsByBucket = NO_ACTUALS, actualsFetchedAt } = props;
   const locale = localeFor(lang);
   const confirm = useConfirm();
+  // Hoisted from `props.today` — a `react-hooks/exhaustive-deps` dep may not
+  // be a member expression.
+  const today = props.today;
 
   const report = useMemo(
     () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates),
     [buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates],
+  );
+  // §6.4 Budget view link line: null without buckets (nothing to forecast) —
+  // `computeProjectForecast` builds its own report/chain/burn-down, so this is
+  // a second, cheap pass over the same inputs, not a reuse of `report` above.
+  const forecast = useMemo(
+    () => computeProjectForecast({ buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today }),
+    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today],
   );
 
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
@@ -334,6 +350,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
           lang={lang} projectId={timelogProjectId} buckets={buckets} roles={roles}
           resources={resources} granularity={plan.granularity} onGoToTimelog={onGoToTimelog}
         />
+      )}
+      {onOpenBudgetReport && forecast && (
+        <BudgetForecastLink lang={lang} forecast={forecast} onOpen={onOpenBudgetReport} />
       )}
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-lg font-medium text-foreground">

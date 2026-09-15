@@ -1685,3 +1685,34 @@ describe("BudgetPanel — the German text of the three keys this branch changed"
     expect(screen.getAllByText("Interner Kostenindex")).toHaveLength(2);
   });
 });
+
+// §6.4 Budget view link line. `props` has no `onOpenBudgetReport` by default,
+// so every other test in this file exercises the "does not render" branch
+// implicitly — these pin both branches explicitly.
+describe("BudgetPanel — §6.4 forecast link line", () => {
+  test("renders a Budget Report link when onOpenBudgetReport is provided", () => {
+    render(<BudgetPanel {...props} onOpenBudgetReport={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Budget Report" })).toBeInTheDocument();
+  });
+
+  // Mutation: dropping the `onOpenBudgetReport &&` guard in budget-panel.tsx
+  // (the popout omission — Plan Ruling 12) turns this red.
+  test("renders nothing without onOpenBudgetReport (the popout state)", () => {
+    render(<BudgetPanel {...props} />);
+    expect(screen.queryByRole("button", { name: "Budget Report" })).toBeNull();
+  });
+
+  test("renders nothing without buckets, even with onOpenBudgetReport", () => {
+    render(<BudgetPanel {...props} buckets={[]} onOpenBudgetReport={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Budget Report" })).toBeNull();
+  });
+
+  // Mutation: removing the `onOpen` call from BudgetForecastLink's TextButton
+  // turns this red.
+  test("clicking the Budget Report link calls onOpenBudgetReport once", () => {
+    const onOpenBudgetReport = vi.fn();
+    render(<BudgetPanel {...props} onOpenBudgetReport={onOpenBudgetReport} />);
+    fireEvent.click(screen.getByRole("button", { name: "Budget Report" }));
+    expect(onOpenBudgetReport).toHaveBeenCalledTimes(1);
+  });
+});
