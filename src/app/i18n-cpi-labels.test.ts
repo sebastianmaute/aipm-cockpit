@@ -4,21 +4,19 @@ import { de } from "./i18n.de";
 
 // Spec §11 "Three indices, one word": after MR 2 a bare CPI/SPI label means the
 // price-based forecast index. Every other user-visible CPI/SPI is the task-effort
-// index and must say so. Allowlist = forecast keys that really are price-based
-// (verified by reading each: `forecastCpi`/`forecastSpi` are the bare price-based
-// labels; `forecastTipEtcEfficiency` embeds a literal "CPI" in its formula text;
-// `forecastTipCpi`/`forecastTipSpi`/`forecastTipEfficiency` spell the term out in
-// full ("Cost performance index" / "Schedule performance index" / no acronym at
-// all) so the bare-acronym regex never actually matches them, but they stay in
-// the allowlist since they are price-based content and would need it if reworded).
-const PRICE_BASED = new Set([
-  "forecastCpi",
-  "forecastSpi",
-  "forecastTipCpi",
-  "forecastTipSpi",
-  "forecastTipEfficiency",
-  "forecastTipEtcEfficiency",
-]);
+// index and must say so. Allowlist = forecast keys that ACTUALLY MATCH the regex
+// below today (verified in both EN and DE): `forecastCpi`/`forecastSpi` are the
+// bare price-based labels; `forecastTipEtcEfficiency` embeds a literal "CPI" in
+// its formula text. `forecastTipCpi`/`forecastTipSpi`/`forecastTipEfficiency` are
+// ALSO price-based content, but spell the term out in full ("Cost performance
+// index" / "Schedule performance index" / no acronym at all in EN, and the German
+// equivalents in DE) — deliberately left OFF this list, so a bare "CPI"/"SPI"
+// introduced into one of them later (a reword that drops the spelled-out form)
+// is still caught rather than silently passing through a blanket allowlist entry.
+// ★ The regex only catches the bare, singular, upper-case acronym at a word
+// boundary — a plural ("CPIs"/"SPIs", no boundary after the trailing letter) or a
+// lower/mixed-case form ("cpi") is NOT guarded.
+const PRICE_BASED = new Set(["forecastCpi", "forecastSpi", "forecastTipEtcEfficiency"]);
 
 describe("CPI/SPI labels", () => {
   it("EN: every CPI/SPI outside the forecast is qualified as effort", () => {

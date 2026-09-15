@@ -547,6 +547,20 @@ const fullProps = {
   ] as ChangeItem[],
 };
 
+// The EVM tiles only render once there is estimate coverage (`evm.ts`
+// `computeEvm`: a task participates iff `originalEstimateMinutes > 0`) — plain
+// `fullProps` (tasks: []) never reaches that branch, so it cannot exercise the
+// showBudget→EVM gate below. This task gives a non-null coverage without
+// otherwise changing what `fullProps`-based baseline assertions see.
+const tasksWithEvmEstimate = [
+  {
+    id: 1, title: "Done task", status: "Done", health: "G",
+    originalEstimateMinutes: 57, timeSpentMinutes: 60,
+    dueDate: "2026-06-01", completedDate: "2026-06-01",
+    linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [],
+  },
+] as never[];
+
 describe("DashboardPanel module visibility gates (Task 8)", () => {
   it("shows Budget burn section and RAID section when all flags are true (baseline)", () => {
     render(<DashboardPanel {...fullProps} />, { wrapper });
@@ -556,11 +570,21 @@ describe("DashboardPanel module visibility gates (Task 8)", () => {
     expect(screen.getByText("Changes")).toBeInTheDocument();
   });
 
+  it("shows the Effort SPI/CPI tiles when showBudget is true (positive control)", () => {
+    // Without this, the negative test below (queryByText → toBeNull) would pass
+    // just as happily if the EVM row's text were renamed out from under the
+    // query — a bare `queryByText` failing to find a stale string reads
+    // identically to the gate actually working.
+    render(<DashboardPanel {...fullProps} tasks={tasksWithEvmEstimate} />, { wrapper });
+    expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
+  });
+
   it("hides Budget burn section and EVM when showBudget is false", () => {
-    render(<DashboardPanel {...fullProps} showBudget={false} />, { wrapper });
+    render(<DashboardPanel {...fullProps} tasks={tasksWithEvmEstimate} showBudget={false} />, { wrapper });
     expect(screen.queryByText("Budget burn")).toBeNull();
-    expect(screen.queryByText("SPI")).toBeNull();
-    expect(screen.queryByText("CPI")).toBeNull();
+    expect(screen.queryByText(t("en-US", "evmSpi"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "evmCpi"))).toBeNull();
   });
 
   it("hides RAID section when showRaid is false", () => {
