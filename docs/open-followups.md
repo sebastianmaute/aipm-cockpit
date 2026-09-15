@@ -768,6 +768,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--closed-2026-09-15) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice — CLOSED 2026-09-15 | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | **CLOSED** 2026-09-15 |
 | [§544](#544-a-calendar-invalid-timelog-day-such-as-2026-02-30-lands-in-february-by-month-but-in-march-by-iso-week--open) | A calendar-invalid TimeLog day such as 2026-02-30 lands in February by month but in March by ISO week — OPEN | found 2026-09-15 by the dated-actuals reviews on `feat/budget-forecast-union` | S — reject calendar-invalid dates in `aggregateActuals` with a UTC round trip | open |
 | [§545](#545-the-ai-dashboard-snapshot-and-every-export-carry-none-of-the-budget-forecast-figures--open) | The AI dashboard snapshot and every export carry none of the budget forecast figures — OPEN | deferred 2026-09-15 by the budget forecast union spec §9 | M — add the forecast figures to the snapshot and exports once MR 2 ships them | open |
+| [§546](#546-a-dated-timelog-applys-other-granularity-delete-removes-hand-typed-hours-from-days-it-never-routed-and-the-confirm-dialog-never-discloses-it--open) | A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — OPEN | found 2026-09-15 while filing the §543 closure text on `feat/budget-forecast-figures`; user approved filing | S — list the removed other-granularity key in the confirm dialog; re-keying the leftover hours is not sound, since the lump sum has no day-level breakdown | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38302,3 +38303,46 @@ Fix shape: once MR 2 ships the forecast engine, add the forecast figures to the 
 rename or document the snapshot's effort indices.
 
 Related: §499, §501.
+
+## 546. A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — OPEN
+
+**Status:** OPEN 2026-09-15 — reproduced by running `npx vitest run src/app/timelog-apply.test.ts -t "removes
+a hand-typed month key that overlaps a weekly dated apply"` (the shipped §543 regression test): a hand-typed
+`"2026-06": 10` month total is deleted WHOLE by a weekly Apply that routes only one day (`2026-06-10`, 4h),
+leaving no trace of the other 6h; confirmed by reading `describeApplyRows` and `timelog-apply-confirm.tsx`,
+which list only the routed-granularity period rows and never the deleted other-granularity key.
+
+**Work item:** #337
+
+Since §543's fix, `writeAllocations` (`timelog-apply.ts`) runs `if (other) delete
+nextActual[periodKeyForDate(day, other)]` for EVERY routed day, which deletes the WHOLE other-granularity
+period key the moment any one of its days is routed — not just that day's share of it. A bare period key is
+a single hand-typed lump sum with no day-level breakdown, so when it covers days beyond the ones this Apply
+routed, the hours attributable to those other days are discarded along with the rest, and there is no record
+of which remaining days they belonged to. `grep -n "periodKeyForDate(day, other)" src/app/timelog-apply.ts`.
+
+The already-shipped `describe("dated apply")` test "removes a hand-typed month key that overlaps a weekly
+dated apply (§543)" demonstrates it directly: a hand-typed `"2026-06": 10` month total is wiped to nothing by
+a weekly Apply that only books `2026-06-10` (4h) — the other 6h a PM had typed for the rest of June, days the
+weekly Apply never touched, vanish, and the test asserts `hours["2026-06"]` is `undefined` rather than
+carrying a residual 6h.
+
+`TimelogApplyConfirm` (`timelog-apply-confirm.tsx`) renders exactly the rows `describeApplyRows` returns, and
+those rows come from `buildApplyPlan`'s routed-period diffs — one row per bucket/line/period for the periods
+actually being applied at the LIVE granularity. Neither function ever produces a row for the deleted
+other-granularity key, so the confirm dialog gives the user no indication that a second, unrelated figure is
+about to be zeroed alongside the one they can see changing. Already disclosed in
+[`docs/AGENTS/integrations.md`](docs/AGENTS/integrations.md)'s Timelog ★ bullet ("A dated Apply also removes
+the OTHER granularity's bare period key (§543, closed)") and in §543's own closure text above; this entry
+gives the gap its own number so it can be tracked and fixed independently of §543's closure.
+
+Fix shape: (a) disclosure — teach `buildApplyPlan`/`describeApplyRows` to also emit a row for every
+other-granularity key `writeAllocations` is about to delete (bucket · line · that key · hours → 0), so
+`TimelogApplyConfirm` lists the removal before the user confirms and they can cancel if it holds real data.
+(b) preservation — instead of deleting the whole other-granularity key, re-key its total into day keys for
+the days it covers that this Apply did not route, deleting only the routed day(s)' share. (b) is not actually
+available here: the hand-typed period figure is a single lump sum with no day-level breakdown, so there is no
+principled way to decide which of the remaining days should carry how much of the leftover total — any
+re-keying would be a guess presented as data. (a) is therefore both the simpler and the only sound fix.
+
+Related: §543.
