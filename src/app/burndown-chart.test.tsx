@@ -5,6 +5,8 @@ import type { BurndownSeries } from "./budget-burndown";
 
 const series: BurndownSeries = {
   periods: ["2026-01", "2026-02", "2026-03"],
+  periodStarts: ["2026-01-01", "2026-02-01", "2026-03-01"],
+  periodEnds: ["2026-01-31", "2026-02-28", "2026-03-31"],
   plannedRemainingHours: [200, 100, 0],
   plannedRemainingValue: [40000, 20000, 0],
   actualRemainingHours: [180, 90, null],
@@ -50,6 +52,8 @@ describe("BurndownCharts", () => {
   it("labels the hours axis with the max value and a period date", () => {
     const SERIES: BurndownSeries = {
       periods: ["2026-01", "2026-02", "2026-03"],
+      periodStarts: ["2026-01-01", "2026-02-01", "2026-03-01"],
+      periodEnds: ["2026-01-31", "2026-02-28", "2026-03-31"],
       plannedRemainingHours: [100, 50, 0],
       actualRemainingHours: [100, 60, null],
       plannedRemainingValue: [10000, 5000, 0],

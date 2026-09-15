@@ -14,6 +14,9 @@ import type { Absence, BudgetBucket, FxRates, Resource, ResourcePlan, Role } fro
 
 export type BurndownSeries = {
   periods: readonly string[];
+  /** ISO start / end date of each entry of `periods`, same index (MR 3 date axis). */
+  periodStarts: readonly string[];
+  periodEnds: readonly string[];
   /** totalBudget - cumulative budgeted, per period (the planned glide-path). */
   plannedRemainingHours: readonly number[];
   plannedRemainingValue: readonly number[];
@@ -191,8 +194,23 @@ export function computeBurndownSeries(
 
   return {
     periods: periods.map((p) => p.key),
+    periodStarts: periods.map((p) => p.start),
+    periodEnds: periods.map((p) => p.end),
     plannedRemainingHours, plannedRemainingValue,
     actualRemainingHours, actualRemainingValue,
     todayIndex, totalBudgetHours, totalBudgetValue,
   };
+}
+
+/** Dates of the actual line's points: every past period's end, and for the
+ *  period containing `today` the earlier of `today` and that period's end.
+ *  Empty when `todayIndex === -1`. Shared by the chart geometry and the
+ *  earned-value history so both lines sit on the same x positions. */
+export function actualPointDates(series: Pick<BurndownSeries, "periodEnds" | "todayIndex">, today: string): string[] {
+  const out: string[] = [];
+  for (let i = 0; i <= series.todayIndex; i++) {
+    const end = series.periodEnds[i];
+    out.push(i === series.todayIndex && today < end ? today : end);
+  }
+  return out;
 }
