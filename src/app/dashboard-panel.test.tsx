@@ -823,6 +823,21 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
     expect(onOpenChange).toHaveBeenCalledWith(7);
   });
 
+  it("labels the burn tile's spend box \"Spent\", not \"Budget\" (the budget rating now follows the forecast)", () => {
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
+    // The label + activate button both carry the new "Spent" wording, and the
+    // accessible name (label-in-name) still contains the visible "Spent" text.
+    expect(screen.getByText("Spent")).toBeInTheDocument();
+    // The top-band pill (dashboard-hero.tsx, a separate surface) is unaffected
+    // and still reads "Budget" — this proves the rename is scoped to the burn
+    // tile, not a global string swap.
+    expect(screen.getAllByText("Budget").length).toBeGreaterThan(0);
+    const activateBtn = screen.getByRole("button", { name: /^Spent – /  });
+    fireEvent.click(activateBtn);
+    expect(onNavigate).toHaveBeenCalledWith("budget");
+  });
+
 });
 
 // ★★ EVERY TEST HERE NEEDS ITS OWN `projectId`. `useDashboardLayout` keys its

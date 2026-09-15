@@ -243,11 +243,11 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
         {model.burn ? (
           <div className="flex flex-wrap gap-2">
             <Tile
-              label={t(lang, "dashboardSubBudget")} hint={t(lang, "dashboardBudgetHint")}
+              label={t(lang, "dashboardSubSpent")} hint={t(lang, "dashboardSpentHint")}
               value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
-              rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubBudget")} />}
+              rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubSpent")} />}
               onActivate={openBudget}
-              activateLabel={`${t(lang, "dashboardSubBudget")} – ${t(lang, "dashboardOpenBudgetView")}`}
+              activateLabel={`${t(lang, "dashboardSubSpent")} – ${t(lang, "dashboardOpenBudgetView")}`}
             />
             <Tile
               label="h" hint={t(lang, "dashboardHoursHint")}
