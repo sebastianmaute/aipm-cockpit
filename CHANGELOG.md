@@ -19,19 +19,19 @@ that are not on the calendar. Closes follow-ups 90, 91, 204, 323, 447, 533 and 5
 
 - **An email field refuses a changed address that is not valid or holds a comma or semicolon.** The
   task, absence, shift, resource, stakeholder and RAID editors, the project contact persons, bulk
-  edit, the escalation and inquiry prompts and the AI tools now refuse it with "That doesn't look like a
-  valid email address." or "An email address cannot contain a comma or a semicolon.", where several of
-  them saved any text before. An address holding a comma or semicolon was split in two on a CSV,
-  Markdown or Turso save. Only a changed value is
-  judged: an address already stored keeps loading and can be saved unchanged, and clearing a field is
-  always allowed.
+  edit and the escalation and inquiry prompts now refuse it with "That doesn't look like a valid email
+  address." or "An email address cannot contain a comma or a semicolon.", and the AI tools refuse it
+  too, where several of them saved any text before. A person's additional address holding a comma or
+  semicolon is split in two on a CSV, Markdown or Turso save. Only a changed value is judged: an
+  address already stored keeps loading and can be saved unchanged, and clearing a field is always
+  allowed.
 - **The Jira and TimeLog settings keep the last valid email while you type.** Typing is never
   blocked; an invalid address shows an error under the field and is not stored until it is valid.
 - **A stored `Name <address>` becomes the bare address.** It loads that way on every storage
   backend, and the editors and AI tools store it that way, so the same value is judged, previewed and
   saved. A RAID escalation recorded to such an address is kept instead of being dropped on load.
 - **Imports say which records still hold an unsafe address.** Opening a file, switching to a project
-  for the first time in a session, applying a template, or creating a project from a template or an AI
+  that is not on Turso for the first time in a session, applying a template, or creating a project from a template or an AI
   seed shows one notice naming those records. An AI seed leaves such an address blank, and Jira and
   Outlook contact sync blank one and record a diagnostic, while keeping the record.
 - **Correcting a person's email updates the records that copied it.** When a person's primary email
@@ -46,21 +46,22 @@ that are not on the calendar. Closes follow-ups 90, 91, 204, 323, 447, 533 and 5
   button (follow-up 90).
 - **A popout no longer records or replays undo.** Edits there push no undo entry and show no Undo
   toast, and Ctrl+Z / Ctrl+Y do nothing (follow-up 91).
-- **Permanently deleting a Turso project removes all of its data.** Its chat threads, committee report
-  versions, snapshots and version history were left behind; the delete now clears them together with
-  its document images (follow-up 204).
-- **A date that is not on the calendar, such as 2026-02-30, is refused on save** (follow-up 539). On
-  load, an optional date of that kind is blanked and a required one is kept as stored, so no record is
-  dropped; both cases are recorded in the diagnostics. An AI update that does not change a stored date
-  keeps it as stored.
+- **Permanently deleting a Turso project also removes its chat threads, committee report versions,
+  snapshots and version history.** They were left behind; the delete now clears them together with its
+  document images, in a separate step that records a diagnostic if it fails (follow-up 204).
+- **A date that is not on the calendar, such as 2026-02-30, is no longer stored on save** (follow-up
+  539). When a file or Turso project loads, an optional date of that kind is blanked and a required one
+  is kept as stored, so no record is dropped, and most such dates are recorded in the diagnostics. An AI
+  update of an absence, milestone, change or RAID item that does not change its stored date keeps it as
+  stored.
 
 ### Changed
 
-- An optional date already stored as a day that does not exist loads blank, and the next save stores
-  it blank.
-- Follow-up 323 is closed by design: deleting a single task still does not bypass the empty-workspace
-  save guard, because a single-row delete cannot trigger it. Follow-up 533 is closed as an accepted
-  limit: an address already split by an earlier save cannot be rebuilt.
+- An optional date already stored as a day that does not exist loads blank from a file or Turso
+  project, and the next save stores it blank.
+- Follow-up 323 is closed by design: deleting a single task still does not switch off the save guard
+  that refuses a mass deletion, because deleting one task can never trip it. Follow-up 533 is closed as
+  an accepted limit: an address already split by an earlier save cannot be rebuilt.
 
 ### Known issues
 
