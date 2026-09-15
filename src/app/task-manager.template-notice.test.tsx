@@ -76,11 +76,17 @@ describe("handleApplyTemplate — the unsafe-email notice (spec Part 2, pre-flig
   it("names only the rows the template brought in: a second apply announces ONE record, not two", async () => {
     await mount();
     act(() => chrome.apply!("tpl-unsafe-email", { includeSeed: true }));
-    await waitFor(() => expect(taskCount()).toBe("1"));
+    // ★ Explicit timeout, below the test's own 45000 ms: waitFor's default is
+    // 1000 ms, and a slow CI runner can take longer than that to render the
+    // second template apply, timing this out under load while the test's
+    // own budget still has room (MR !492 pipeline 7013, unit-tests-shuffled
+    // seed 1: failed here at line 83 with "expected '1' to be '2'"; the
+    // retry at the same seed passed).
+    await waitFor(() => expect(taskCount()).toBe("1"), { timeout: 15000 });
     expect(await screen.findByText(t("en-US", "importUnsafeEmailsNotice", 1, "Seeded"))).toBeInTheDocument();
 
     act(() => chrome.apply!("tpl-unsafe-email", { includeSeed: true }));
-    await waitFor(() => expect(taskCount()).toBe("2")); // control: the second seed landed beside the first
+    await waitFor(() => expect(taskCount()).toBe("2"), { timeout: 15000 }); // control: the second seed landed beside the first
     expect(screen.getByText(t("en-US", "importUnsafeEmailsNotice", 1, "Seeded"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "importUnsafeEmailsNotice", 2, "Seeded, Seeded"))).toBeNull();
   }, 45000);
