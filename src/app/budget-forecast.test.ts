@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   computeBudgetForecast, computeForecastFromFacts, computeProjectForecast, forecastFacts, forecastGap,
   isEfficiencyAvailable, isPaceAvailable, paceVacHealth,
@@ -6,8 +6,23 @@ import {
 } from "./budget-forecast";
 import { computeBudgetReport } from "./budget-report";
 import { computeBurndownSeries } from "./budget-burndown";
+import { resolveBucketChain } from "./budget-bucket-chain";
 import { nthWorkingDayAfter, periodBounds, workingDaysBefore, workingDaysInRange } from "./working-days";
 import type { BudgetBucket, ResourcePlan, Role } from "./types";
+
+// Wraps the REAL implementation (never replaces its behaviour) so a single
+// test — "passes the bucket chain's own (narrower) span…" below — can assert
+// on the SPAN ARGUMENT computeProjectForecast actually calls it with. That
+// argument is the only reliable witness for review finding 3: PV is
+// mathematically invariant to this narrowing for any valid chain (its bounds
+// always subsume every contributing bucket's own dates), so no
+// BudgetForecast-level return-value assertion can distinguish "spanned" from
+// "always undefined" — verified empirically, not assumed (see task-3-report.md
+// Fix round 1).
+vi.mock("./budget-burndown", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./budget-burndown")>();
+  return { ...actual, computeBurndownSeries: vi.fn(actual.computeBurndownSeries) };
+});
 
 const none = new Set<string>();
 const day = (date: string, value: number, spread = false): DatedValue => ({ date, bookedFrom: date, value, spread });
@@ -280,6 +295,36 @@ describe("forecastFacts", () => {
     expect(f.hasFixedPrice).toBe(true);
   });
 
+  it("uses the bucket's OWN budget hours for a fixed-price ratio, never the spillover-inflated report total (review finding 1)", () => {
+    // Donor: T&M, closed, 50 own budgeted hours, nothing booked — spills its
+    // whole 50h of remaining budget into the fixed-price successor, and
+    // contributes 0 AC of its own (isolating the successor's contribution below).
+    const donor = bucket(1, {
+      status: "closed", successorId: 2, type: "tm",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 50 }, actualHours: {} }],
+    } as Partial<BudgetBucket>);
+    // Successor: fixed-price, 100 own budgeted hours, 50 actual — not overrun
+    // against its OWN hours (50/100), but its REPORTED budgetHours (100+50
+    // spilled-in = 150) would understate the ratio if used as the denominator.
+    const succ = bucket(2, {
+      type: "fixed", fixedPriceAmount: 100_000,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-06": 100 }, actualHours: { "2026-06": 50 } }],
+    } as Partial<BudgetBucket>);
+    const inp = input([donor, succ]);
+    const succReport = inp.report.buckets.find((r) => r.bucketId === 2)!;
+    // Confirm the spillover premise this test turns on.
+    expect(succReport.spilloverInHours).toBe(50);
+    expect(succReport.budgetHours).toBe(150);
+    expect(succReport.consumedValue).toBeCloseTo(50_000, 6); // report's own ratio: 100,000 × (50÷100 own hours)
+
+    const f = forecastFacts(inp);
+    // Donor contributes 0 AC (no actual hours booked), so f.ac isolates the
+    // successor's uncapped-ratio contribution — it must equal the report's
+    // value for the (here, not overrun) uncapped share.
+    expect(f.ac).toBeCloseTo(50_000, 6);
+    expect(f.ac).toBeCloseTo(succReport.consumedValue, 6);
+  });
+
   it("sums earned value over budgeted buckets", () => {
     const f = forecastFacts(input([withActual(1, {}, { percentComplete: 50 } as Partial<BudgetBucket>)]));
     expect(f.ev).toBe(5_000);
@@ -296,10 +341,23 @@ describe("forecastFacts", () => {
     expect(f.bucketsMissingPercent).toEqual([{ id: 2, name: "Design" }, { id: 3, name: "Rollout" }]);
   });
 
-  it("derives PV from the burn-down series", () => {
-    const inp = input([withActual(1, {})]);
-    const s = inp.burndown;
-    expect(forecastFacts(inp).pv).toBe(s.todayIndex >= 0 ? s.totalBudgetValue - s.plannedRemainingValue[s.todayIndex] : 0);
+  it("derives PV from the burn-down series (review finding 2: literal values, not a re-derivation)", () => {
+    // A re-derivation using the SAME burndown output (`s.plannedRemainingValue[s.todayIndex]`)
+    // can't catch a mutated index — the mutant computes its wrong answer from the
+    // same array the test then reads back. Assert literal numbers instead, at a
+    // spot where todayIndex and todayIndex-1 give DIFFERENT results, so an
+    // off-by-one can't hide behind a coincidental match.
+    //
+    // 100 h budgeted in June at 100/hr = 10,000 EUR is the bucket's only value.
+    // With "today" inside June, plannedRemainingValue[todayIndex(June)] = 0 (June's
+    // own budget is already included in the cumulative) while
+    // plannedRemainingValue[todayIndex-1(May)] = 10,000 (nothing spent through May) —
+    // so PV(correct) = 10,000 and PV(todayIndex-1 mutant) = 0.
+    const inJune = input([withActual(1, {})], [], "2026-06-15");
+    expect(inJune.burndown.todayIndex).toBe(5); // Jan=0 … Jun=5
+    expect(forecastFacts(inJune).pv).toBe(10_000);
+    // Before any budgeted period has started: literal 0, from BOTH the
+    // todayIndex===-1 fallback and (independently) a positive-but-pre-activity index.
     expect(forecastFacts(input([withActual(1, {})], [], "2025-06-01")).pv).toBe(0);
   });
 
@@ -315,7 +373,16 @@ describe("forecastFacts", () => {
     expect(f.dated).toEqual([]);
   });
 
-  it("excludes a period key whose granularity has no calendar bounds (week 00)", () => {
+  it("excludes a period key that matches the week-key syntax but is never a real active period (ISO week 00; review finding 4)", () => {
+    // "2026-W00" passes `granularityOfPeriodKey` (its regex allows week 00) but
+    // ISO weeks start at 1, so `generatePeriods`/`bucketActivePeriods` never
+    // produce it — it is dropped by the `!active.has(key)` check, NOT by
+    // `periodBounds` returning null (that null branch needs a key `active` could
+    // never contain in the first place, since `active` itself is built from the
+    // same real-week keys `periodBounds` resolves — see the module's read-first
+    // note). This exercises the week-granularity arm of that active-periods
+    // exclusion (the month-granularity arm is covered by "2025-12" in the
+    // "values exactly the keys" test above).
     const weekPlan: ResourcePlan = { ...plan, granularity: "week" };
     const b = bucket(1, { allocations: [{ roleId: 1, resourceIds: [], budgetHours: {}, actualHours: { "2026-W00": 40 } }] });
     const report = computeBudgetReport([b], weekPlan, roles, [], 8, none, [], [], null);
@@ -353,8 +420,75 @@ describe("computeProjectForecast", () => {
   });
 
   it("does not trim the burn-down window when the buckets do not form one chain", () => {
-    const b = [withActual(1, { "2026-06-10": 8 }), bucket(2)];
+    // Two independent buckets, no successorId: multiple roots, no chain intent
+    // → resolveBucketChain returns "unchained" → span stays undefined, same as
+    // `input()`'s own (always-unspanned) burn-down call. Dated Feb–Mar and
+    // Jun–Jul — deliberately NOT spanning the full Jan–Dec plan and NOT even
+    // together covering it (review finding 3: the original version of this
+    // test used full-plan-dated buckets, so a span accidentally derived from
+    // bucket bounds would have coincided with "no span" and gone undetected;
+    // these bounds would visibly narrow the burn-down if that ever happened).
+    const b = [
+      withActual(1, { "2026-02-10": 8 }, { startDate: "2026-02-01", endDate: "2026-03-31", allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-02": 100 }, actualHours: { "2026-02-10": 8 } }] } as Partial<BudgetBucket>),
+      bucket(2, { startDate: "2026-06-01", endDate: "2026-07-31" } as Partial<BudgetBucket>),
+    ];
     const direct = computeBudgetForecast(input(b));
-    expect(computeProjectForecast({ buckets: b, plan, roles, resources: [], workdayHours: 8, holidaySet: none, absences: [], tasks: [], fxRates: null, today: "2026-09-14" })).toEqual(direct);
+    const forecast = computeProjectForecast({ buckets: b, plan, roles, resources: [], workdayHours: 8, holidaySet: none, absences: [], tasks: [], fxRates: null, today: "2026-09-14" });
+    expect(forecast).toEqual(direct);
+    // And explicitly: the full 12-period plan axis, not an 6-period Feb–Jul one.
+    expect(computeBurndownSeries(b, plan, roles, [], 8, none, [], "2026-09-14", null).periods).toHaveLength(12);
+  });
+
+  it("passes the bucket chain's own (narrower) span to the burn-down, not the full plan window (review finding 3)", () => {
+    // A single bucket dated narrower than the plan already resolves to a
+    // "chain" (resolveBucketChain: one root, no break) whose start/end are the
+    // bucket's own dates — narrower than the plan's Jan–Dec span.
+    const b = bucket(1, {
+      startDate: "2026-03-01", endDate: "2026-06-30",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-04": 40 }, actualHours: {} }],
+    } as Partial<BudgetBucket>);
+    const today = "2026-05-15";
+    const chain = resolveBucketChain([b], { start: plan.startDate, end: plan.endDate });
+    if (chain.kind !== "chain") throw new Error("expected a chain");
+    expect(chain.start).toBe("2026-03-01");
+    expect(chain.end).toBe("2026-06-30");
+
+    const trimmed = computeBurndownSeries([b], plan, roles, [], 8, none, [], today, null, { start: chain.start, end: chain.end });
+    const untrimmed = computeBurndownSeries([b], plan, roles, [], 8, none, [], today, null);
+    // The genuinely observable fact the span controls: a shorter periods axis
+    // and a DIFFERENT todayIndex position within it (May is index 4 of 12 in
+    // the full-plan axis, index 2 of 4 in the March–June axis). PV itself is
+    // NOT a reliable witness here — for a bucket whose own active periods
+    // already sit entirely inside [chain.start, chain.end] (true by
+    // construction: chain bounds are the min/max of every contributing
+    // bucket's own dates), the cumulative-to-date sum at todayIndex is
+    // identical whichever axis it's read from, so PV provably cannot diverge.
+    expect(trimmed.periods).toEqual(["2026-03", "2026-04", "2026-05", "2026-06"]);
+    expect(trimmed.periods.length).toBeLessThan(untrimmed.periods.length);
+    expect(trimmed.todayIndex).toBe(2);
+    expect(untrimmed.todayIndex).toBe(4);
+
+    // The reliable witness: assert the ARGUMENT computeProjectForecast calls
+    // computeBurndownSeries with, not its return value (a return-value equality
+    // check here would pass even under the "always pass undefined" mutant —
+    // confirmed by actually reverting the ternary and re-running this file: the
+    // pv-based assertion stayed green, because PV is invariant here; this
+    // spy-based one goes red as expected — see task-3-report.md Fix round 1).
+    vi.mocked(computeBurndownSeries).mockClear();
+    computeProjectForecast({ buckets: [b], plan, roles, resources: [], workdayHours: 8, holidaySet: none, absences: [], tasks: [], fxRates: null, today });
+    expect(computeBurndownSeries).toHaveBeenCalledWith(
+      [b], plan, roles, [], 8, none, [], today, null, { start: "2026-03-01", end: "2026-06-30" },
+    );
+
+    // And a consistency sanity check: the resulting forecast really is the one
+    // built from the TRIMMED burndown (it happens to also equal the untrimmed
+    // one here, per the PV-invariance above — both are asserted so neither
+    // silently drifts).
+    const forecast = computeProjectForecast({ buckets: [b], plan, roles, resources: [], workdayHours: 8, holidaySet: none, absences: [], tasks: [], fxRates: null, today });
+    const direct = computeBudgetForecast({
+      report: computeBudgetReport([b], plan, roles, [], 8, none, [], [], null),
+      buckets: [b], roles, fxRates: null, tasks: [], plan, burndown: trimmed, holidaySet: none, today,
+    });
+    expect(forecast).toEqual(direct);
   });
 });

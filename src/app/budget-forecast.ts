@@ -195,8 +195,19 @@ export function forecastFacts(input: BudgetForecastInput): ForecastFacts {
     const isFixed = bucket.type === "fixed";
     hasFixedPrice ||= isFixed;
     // §5.4: the uncapped contract ratio, so a fixed-price overrun shows.
-    const fixedPerHour = isFixed && br.budgetHours > 0
-      ? currencyToEur(bucket.fixedPriceAmount ?? 0, bucket, fxRates) / br.budgetHours
+    // ★ Review finding 1: `br.budgetHours` is `computeBucketReport`'s REPORTED
+    // budget hours, i.e. own hours PLUS `spilloverInHours` rolled in from a
+    // closed predecessor (budget-report.ts `reportedBudgetHours`). The report's
+    // OWN fixed-price ratio (`consumedValue`, budget-report.ts ~362-364) and its
+    // `budgetValue` (~359-361) are built from OWN hours only — spillover never
+    // inflates a fixed-price bucket's denominator there. Dividing by the
+    // spillover-inflated total here would understate the ratio (and, with a
+    // negative spillover, could even zero AC out) relative to the report this
+    // is meant to mirror. Subtract spillover back out to recover the same "own
+    // hours" the report itself divides by.
+    const ownBudgetHours = br.budgetHours - br.spilloverInHours;
+    const fixedPerHour = isFixed && ownBudgetHours > 0
+      ? currencyToEur(bucket.fixedPriceAmount ?? 0, bucket, fxRates) / ownBudgetHours
       : 0;
     ac += isFixed ? fixedPerHour * br.actualHours : br.consumedValue;
     if (br.budgetValue > 0) {
@@ -208,7 +219,10 @@ export function forecastFacts(input: BudgetForecastInput): ForecastFacts {
     for (const row of bucketRateRows(bucket, roles)) {
       const perHour = isFixed ? fixedPerHour : row.rates.external;
       for (const [key, hours] of Object.entries(row.actualHours)) {
-        // Ruling 4: hours ≤ 0 carry no booking date at all.
+        // Ruling 4: hours ≤ 0 carry no booking date at all — a negative hand
+        // correction is therefore excluded from the dated window BY DESIGN, so
+        // Σ dated can legitimately differ from AC (`br.consumedValue`, which
+        // still includes it) whenever negatives are present.
         if (!(hours > 0)) continue;
         if (isDayKey(key)) {
           if (active.has(periodKeyForDate(key, plan.granularity))) {
