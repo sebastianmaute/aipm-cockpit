@@ -62,6 +62,10 @@ function isKeptNonCalendarDate(value: unknown): value is string {
  *  date, so a stored "tbd" is reachable, and the card accepts an update of that
  *  row for exactly the same reason. Narrowing the carry to the load rule's
  *  shape left that row throwing behind an accepted card — measured by mutation.
+ *  ★★ M6: the SAME reader also reads every OPTIONAL date on those rebuilds
+ *  (`rebuildMilestoneForUpdate` `achievedDate`, `rebuildRaidForUpdate`,
+ *  `rebuildChangeForUpdate`) — a strict optional read turns a refusal into a
+ *  SILENT BLANK of an untouched stored value instead of a throw.
  *  No diagnostic: the load funnel already reported what it kept. */
 export function requiredIsoDateOnUpdate(stored: Readonly<Record<string, unknown>>): RequiredDateReader {
   return (value, _entity, _id, field) =>

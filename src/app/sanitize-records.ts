@@ -249,17 +249,20 @@ export function dropUnacceptedMilestoneFields<T extends object>(patch: T): T {
 
 // ★★ ONE argument each, like `sanitizeAbsence` (see the note there): passed point-free, a 2nd param gets the INDEX.
 //  Enforced for every exported sanitize* by `sanitize-point-free.guard.test.ts`.
-export function sanitizeMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, sanitizeIsoDate); }
-export function sanitizeLoadedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnLoad); }
+export function sanitizeMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, sanitizeIsoDate, sanitizeIsoDate); }
+export function sanitizeLoadedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnLoad, sanitizeIsoDate); }
 /** The AI UPDATE writer's rebuild of `merged` (`{...stored, ...patch}`): strict, except that a
- *  required `date` equal to `stored`'s kept-raw one is carried (`requiredIsoDateOnUpdate`).
+ *  date — the required `date` AND the optional `achievedDate` — equal to `stored`'s is carried
+ *  verbatim (`requiredIsoDateOnUpdate`); a changed one is judged strictly.
  *  ★ Deliberately NOT `sanitize*`-named: it takes two arguments, so it must never be passed point-free. */
 export function rebuildMilestoneForUpdate(stored: Milestone, merged: unknown): Milestone | null {
-  return milestoneWithDateReader(merged, requiredIsoDateOnUpdate(stored as unknown as Record<string, unknown>));
+  const carry = requiredIsoDateOnUpdate(stored as unknown as Record<string, unknown>);
+  return milestoneWithDateReader(merged, carry, carry);
 }
 /** A stored template's seed milestone: the load rule, diagnostic attributed to the template seed. */
-export function sanitizeLoadedSeedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnTemplateLoad); }
-function milestoneWithDateReader(input: unknown, readDate: RequiredDateReader): Milestone | null {
+export function sanitizeLoadedSeedMilestone(input: unknown): Milestone | null { return milestoneWithDateReader(input, requiredIsoDateOnTemplateLoad, sanitizeIsoDate); }
+/** `readDate` reads the required `date`, `readOptional` every optional date (M6: an update carries both). */
+function milestoneWithDateReader(input: unknown, readDate: RequiredDateReader, readOptional: RequiredDateReader): Milestone | null {
   if (!isPlainObject(input)) return null;
   const o = input;
   const id = toNumber(o.id);
@@ -279,7 +282,7 @@ function milestoneWithDateReader(input: unknown, readDate: RequiredDateReader): 
   //  those as a clear. The sanitizer stores a date or nothing, so it consults
   //  `sanitizeIsoDate` — the leg `acceptsPatchDate` itself delegates to. One
   //  parser, two policies, and the policies differ on purpose.
-  const achievedDate = sanitizeIsoDate(o.achievedDate);
+  const achievedDate = readOptional(o.achievedDate, "milestone", o.id, "achievedDate");
   if (achievedDate) m.achievedDate = achievedDate;
   const description = sanitizeRichText(o.description, TEXTAREA_MAX, RICH_SINK);
   if (description) m.description = description;
@@ -301,7 +304,14 @@ const CHANGE_STATUS_SET = new Set<string>(CHANGE_STATUSES);
 const CHANGE_IMPACT_SET = new Set<string>(["Low", "Medium", "High", "Critical"]);
 
 /** Accept only well-formed change items from untrusted JSON. id>0 + title required. */
-export function sanitizeChangeItem(input: unknown): ChangeItem | null {
+export function sanitizeChangeItem(input: unknown): ChangeItem | null { return changeWithDateReader(input, sanitizeIsoDate); }
+/** The AI UPDATE writer's rebuild (M6): like `rebuildMilestoneForUpdate`, an optional date
+ *  (`raisedDate`, `decisionDate`) equal to `stored`'s is carried verbatim, a changed one is strict.
+ *  ★ Two arguments, so NOT `sanitize*`-named. */
+export function rebuildChangeForUpdate(stored: ChangeItem, merged: unknown): ChangeItem | null {
+  return changeWithDateReader(merged, requiredIsoDateOnUpdate(stored as unknown as Record<string, unknown>));
+}
+function changeWithDateReader(input: unknown, readOptional: RequiredDateReader): ChangeItem | null {
   if (!isPlainObject(input)) return null;
   const o = input;
   const id = toNumber(o.id);
@@ -318,7 +328,7 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
     description: sanitizeRichText(o.description, TEXTAREA_MAX, RICH_SINK),
     type,
     status,
-    raisedDate: sanitizeIsoDate(o.raisedDate),
+    raisedDate: readOptional(o.raisedDate, "change", o.id, "raisedDate"),
     linkedTaskIds: sanitizeIdList(o.linkedTaskIds),
     linkedRaidIds: sanitizeIdList(o.linkedRaidIds),
     stakeholderIds: sanitizeIdList(o.stakeholderIds),
@@ -353,7 +363,7 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   if (Number.isFinite(cost) && cost >= 0) item.costImpact = cost;
   const reqBy = sanitizeText(o.requestedBy, BUDGET_NAME_MAX); if (reqBy) item.requestedBy = reqBy;
   const decBy = sanitizeText(o.decisionBy, BUDGET_NAME_MAX); if (decBy) item.decisionBy = decBy;
-  const decDate = sanitizeIsoDate(o.decisionDate); if (decDate) item.decisionDate = decDate;
+  const decDate = readOptional(o.decisionDate, "change", o.id, "decisionDate"); if (decDate) item.decisionDate = decDate;
   const notes = sanitizeRichText(o.resolutionNotes, TEXTAREA_MAX, RICH_SINK); if (notes) item.resolutionNotes = notes;
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
   const dl = sanitizeKnowledgeLinks((input as Record<string, unknown>).knowledgeLinks ?? (input as Record<string, unknown>).documentLinks);
@@ -724,7 +734,13 @@ function statusSetForCategory(cat: RaidCategory): { set: Set<string>; statuses: 
 }
 
 /** Accept only well-formed RAID items from untrusted JSON. id>0 + title required. */
-export function sanitizeRaidItem(input: unknown): RaidItem | null {
+export function sanitizeRaidItem(input: unknown): RaidItem | null { return raidWithDateReader(input, sanitizeIsoDate); }
+/** The AI UPDATE writer's rebuild (M6): `raisedDate` / `targetDate` / `closedDate` equal to
+ *  `stored`'s are carried verbatim, a changed one is strict. ★ Two arguments, so NOT `sanitize*`-named. */
+export function rebuildRaidForUpdate(stored: RaidItem, merged: unknown): RaidItem | null {
+  return raidWithDateReader(merged, requiredIsoDateOnUpdate(stored as unknown as Record<string, unknown>));
+}
+function raidWithDateReader(input: unknown, readOptional: RequiredDateReader): RaidItem | null {
   if (!isPlainObject(input)) return null;
   const o = input;
   const id = toNumber(o.id);
@@ -751,7 +767,7 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
     category,
     title,
     status,
-    raisedDate: sanitizeIsoDate(o.raisedDate),
+    raisedDate: readOptional(o.raisedDate, "raid", o.id, "raisedDate"),
     linkedTaskIds: sanitizeIdList(o.linkedTaskIds),
     causedByRaidIds: sanitizeIdList(o.causedByRaidIds),
     stakeholderIds: sanitizeIdList(o.stakeholderIds),
@@ -776,9 +792,9 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
   if (acceptsRiskScale(o.probability, category)) item.probability = toNumber(o.probability) as RiskScale;
   if (acceptsRiskScale(o.impact, category)) item.impact = toNumber(o.impact) as RiskScale;
 
-  const targetDate = sanitizeIsoDate(o.targetDate);
+  const targetDate = readOptional(o.targetDate, "raid", o.id, "targetDate");
   if (targetDate) item.targetDate = targetDate;
-  const closedDate = sanitizeIsoDate(o.closedDate);
+  const closedDate = readOptional(o.closedDate, "raid", o.id, "closedDate");
   if (closedDate) item.closedDate = closedDate;
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX);
   if (lma) item.localModifiedAt = lma;

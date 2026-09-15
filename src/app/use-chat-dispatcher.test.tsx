@@ -1374,6 +1374,64 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     expect(result.current.listAbsences()[0].endDate).toBe("2026-03-05");
   });
 
+  // ★★★ M6 (the I1 fix's concern C1) — the OPTIONAL-date half of the same class.
+  //  CSV, Markdown, Turso (`buildRaidFromObj`, `buildMilestoneFromObj`) and
+  //  IndexedDB store an optional date unvalidated, so a row can hold "2026-02-30"
+  //  or "tbd". The writers rebuilt `{...stored, ...patch}` strictly and SILENTLY
+  //  BLANKED that untouched date on an update of any other field, while the card
+  //  showed nothing. The rule is I1's: carry what the patch does not change.
+  function renderOptionalRawProbe() {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <TestProviders seed={{
+        milestones: [{ id: 7, name: "Go-live", date: "2026-03-01", achievedDate: "2026-02-30", linkedTaskIds: [] }],
+        raid: [{
+          id: 3, category: "R", title: "Vendor risk", status: "Open", raisedDate: "2026-02-30",
+          targetDate: "2026-02-31", closedDate: "tbd", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [],
+        } as never],
+        changes: [{
+          id: 5, title: "Scope", description: "", type: "Scope", status: "Approved", raisedDate: "tbd",
+          decisionDate: "2026-02-30", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
+        } as never],
+      }}>
+        {children}
+      </TestProviders>
+    );
+    return renderHook(
+      () => useChatDispatcher({
+        settings: makeSettings(),
+        clock: testClock("2026-05-19", "UTC"),
+        setSelectedIds: vi.fn(),
+        setSettings: vi.fn(),
+        isReadOnly: false,
+        currentView: "open-points",
+        settingsProjectId: "default", holidaySet: new Set<string>(),
+        getDashboardModel: stubGetDashboardModel,
+        getBudgetRollup: stubGetBudgetRollup,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+      }),
+      { wrapper },
+    );
+  }
+
+  it("M6: an update of an unrelated field carries every untouched stored optional date verbatim", () => {
+    const { result } = renderOptionalRawProbe();
+    expect(result.current.updateMilestone(7, { name: "Go-live (moved)" })?.achievedDate).toBe("2026-02-30");
+    result.current.updateRaid(3, { title: "Vendor risk (re-scoped)" });
+    expect(result.current.getRaidRow(3)).toMatchObject({ title: "Vendor risk (re-scoped)", raisedDate: "2026-02-30", targetDate: "2026-02-31", closedDate: "tbd" });
+    result.current.updateChange(5, { title: "Scope (v2)" });
+    expect(result.current.getChangeRow(5)).toMatchObject({ title: "Scope (v2)", raisedDate: "tbd", decisionDate: "2026-02-30" });
+  });
+
+  it("M6: a CHANGED optional date is still judged strictly — a refused one leaves the stored value, a valid one lands, a clear clears", () => {
+    const { result } = renderOptionalRawProbe();
+    result.current.updateRaid(3, { targetDate: "2026-02-29", closedDate: "" });
+    expect(result.current.getRaidRow(3)).toMatchObject({ targetDate: "2026-02-31" });
+    expect(result.current.getRaidRow(3)?.closedDate).toBeUndefined();
+    result.current.updateRaid(3, { targetDate: "2026-03-02" });
+    expect(result.current.getRaidRow(3)?.targetDate).toBe("2026-03-02");
+    expect(result.current.updateMilestone(7, { achievedDate: "2026-04-01" })?.achievedDate).toBe("2026-04-01");
+  });
+
   // ★★★ THE MERGE-SITE GUARD AT ITS REAL CALL SITE, which nothing pinned before.
   //  `sanitize-absence-patch.test.ts` exercises `dropUnacceptedAbsenceFields`
   //  DIRECTLY, so it proves the helper's rule and says nothing about whether

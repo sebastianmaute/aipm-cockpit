@@ -14,7 +14,9 @@ import {
   dropUnacceptedStakeholderFields,
   findTornEmail,
   rebuildAbsenceForUpdate,
+  rebuildChangeForUpdate,
   rebuildMilestoneForUpdate,
+  rebuildRaidForUpdate,
   refuseEmailWrite,
   refuseInvalidAbsenceEmail,
   sanitizeAbsence,
@@ -1196,6 +1198,70 @@ describe("§539 kept-raw stored required date: the card and the AI update writer
         const u = plan.updates.find((x) => x.field === f);
         const shown = u ? (u.raw ?? u.after) : String((base as Record<string, unknown>)[f] ?? "");
         expect(String(written[f] ?? ""), `${entity}.${f}`).toBe(shown);
+      }
+    });
+  }
+});
+
+// ★★★ M6 — A STORED OPTIONAL DATE THAT NO LOAD FUNNEL VALIDATED (CSV/MD/Turso
+// `buildRaidFromObj` / `buildMilestoneFromObj`, IndexedDB). The strict rebuild
+// silently BLANKED it on an update of any other field while the card showed no
+// diff. Same rule and same reader as I1: carry what the patch does not change.
+// ★ Every date field is asserted against the card (its `raw ?? after`, or the
+//  stored value when the card shows no diff), never against a literal.
+describe("M6 unvalidated stored optional date: the card and the AI update writer agree", () => {
+  const MILE = { id: 1, name: "M", date: "2026-03-01", achievedDate: "2026-02-30", linkedTaskIds: [] as number[] };
+  const RAID = {
+    id: 1, category: "R", title: "T", status: "Open", raisedDate: "2026-02-30", targetDate: "tbd", closedDate: "2026-02-31",
+    linkedTaskIds: [] as number[], causedByRaidIds: [] as number[], stakeholderIds: [] as number[],
+  };
+  const CHANGE = {
+    id: 1, title: "C", description: "", type: "Scope", status: "Proposed", raisedDate: "tbd", decisionDate: "2026-02-30",
+    linkedTaskIds: [] as number[], linkedRaidIds: [] as number[], stakeholderIds: [] as number[],
+  };
+  type Row = Record<string, unknown>;
+  const WRITERS: Record<"milestone" | "raid" | "change", { base: Row; write: (patch: Row) => Row | null; stored: string[] }> = {
+    milestone: {
+      base: MILE, stored: ["achievedDate"],
+      write: (p) => rebuildMilestoneForUpdate(MILE as never, { ...MILE, ...dropUnacceptedMilestoneFields(p) }) as unknown as Row | null,
+    },
+    raid: {
+      base: RAID, stored: ["raisedDate", "targetDate", "closedDate"],
+      write: (p) => rebuildRaidForUpdate(RAID as never, { ...RAID, ...dropUnacceptedRaidFields(p, RAID as never) }) as unknown as Row | null,
+    },
+    change: {
+      base: CHANGE, stored: ["raisedDate", "decisionDate"],
+      write: (p) => rebuildChangeForUpdate(CHANGE as never, { ...CHANGE, ...dropUnacceptedChangeFields(p) }) as unknown as Row | null,
+    },
+  };
+  const ROWS: ReadonlyArray<{ entity: "milestone" | "raid" | "change"; input: Row }> = [
+    { entity: "milestone", input: { name: "Renamed" } },
+    { entity: "milestone", input: { achievedDate: "2026-02-30" } },
+    { entity: "milestone", input: { achievedDate: "2026-02-31" } },
+    { entity: "milestone", input: { achievedDate: "2026-04-01" } },
+    { entity: "milestone", input: { achievedDate: "" } },
+    { entity: "raid", input: { title: "Renamed" } },
+    { entity: "raid", input: { targetDate: "tbe" } },
+    { entity: "raid", input: { targetDate: "2026-05-01", closedDate: "" } },
+    { entity: "raid", input: { raisedDate: "2026-02-30" } },
+    { entity: "change", input: { title: "Renamed" } },
+    { entity: "change", input: { raisedDate: "2026-06-01" } },
+    { entity: "change", input: { raisedDate: "2026-02-31" } },
+  ];
+
+  for (const { entity, input } of ROWS) {
+    it(`${entity} ${JSON.stringify(input)}: every stored optional date the write keeps is what the card shows`, () => {
+      const { base, write, stored } = WRITERS[entity];
+      const d = INLINE_DESCRIPTORS[entity];
+      const ws = { [d.wsKey]: [base] } as unknown as Workspace;
+      const block: ToolUseLike = { type: "tool_use", name: d.updateTool, input: { id: 1, ...input } };
+      const plan = describeEntityCalls([block], { descriptor: d, item: base as { id: number }, ws });
+      const written = write(input);
+      expect(written).not.toBeNull();
+      for (const f of new Set([...stored, ...Object.keys(input)])) {
+        const u = plan.updates.find((x) => x.field === f);
+        const shown = u ? (u.raw ?? u.after) : String(base[f] ?? "");
+        expect(String(written?.[f] ?? ""), `${entity}.${f}`).toBe(shown);
       }
     });
   }

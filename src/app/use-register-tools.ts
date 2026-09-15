@@ -77,12 +77,13 @@ import {
   dropUnacceptedStakeholderFields,
   refuseEmailWrite,
   rebuildAbsenceForUpdate,
+  rebuildChangeForUpdate,
   rebuildMilestoneForUpdate,
+  rebuildRaidForUpdate,
   refuseInvalidAbsenceEmail,
   sanitizeAbsence,
   sanitizeIsoDate,
   sanitizeRaidItem,
-  sanitizeChangeItem,
   sanitizeModelChangeItem,
   sanitizeMilestone,
   sanitizeStakeholder,
@@ -315,7 +316,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // here and never in the sanitizer: that runs on JSON load, CSV decode,
         // template apply and AI proposal too, where there IS no prior value.
         // Mirrors `applyModelChangeStatus`, applied one field over.
-        const merged = sanitizeRaidItem({
+        // ★★ `rebuildRaidForUpdate` (M6): an optional date the patch leaves as
+        // stored is carried verbatim — CSV/MD/Turso and IndexedDB store them
+        // unvalidated, and the strict rebuild silently blanked one on any update.
+        const merged = rebuildRaidForUpdate(existing, {
           ...existing,
           // ★ Guard OUTSIDE, matching milestone — see the note at that call
           // site for why the order is load-bearing. It is behaviour-NEUTRAL
@@ -546,7 +550,9 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // already keeps the stored one and owns the coupled `decisionDate`
         // transition, and it gates on the model's RAW value, which dropping the
         // key would take away.
-        const merged = sanitizeChangeItem({
+        // ★★ `rebuildChangeForUpdate` (M6): an untouched stored `raisedDate` /
+        // `decisionDate` is carried verbatim, never silently blanked.
+        const merged = rebuildChangeForUpdate(existing, {
           ...existing,
           // ★ Guard OUTSIDE, matching milestone. Behaviour-NEUTRAL here today:
           // `CHANGE_FIELD_GUARDS`' keys (type, impact, the two dates,
