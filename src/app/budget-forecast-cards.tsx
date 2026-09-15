@@ -8,8 +8,11 @@
 import { useId, type ReactNode } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
-import { formatSignedPercent, formatDayMonth, formatDayMonthYear } from "./forecast-format";
+import { formatSignedPercent, formatDayMonth, formatDayMonthYear, formatHours } from "./forecast-format";
 import { TermTooltip } from "./budget-forecast-tooltip";
+import { RateMixChip } from "./budget-rate-mix-chip";
+import { rateMixChipName, rateMixChipText, rateMixExplanation } from "./budget-rate-mix-text";
+import type { RateMix } from "./budget-rate-mix";
 import {
   isPaceAvailable, isEfficiencyAvailable, BURN_RATE_WINDOW_WORKING_DAYS,
   type BudgetForecast, type PaceForecast, type PaceUnavailable,
@@ -76,10 +79,43 @@ function EfficiencyUnavailableBody({ lang, efficiency }: { lang: Lang; efficienc
   return <p className="mt-2 text-sm text-muted-foreground">{t(lang, key)}</p>;
 }
 
+/** One "In hours" `<dl>` row. No tooltip: the € row above explains the term (plan Ruling 16). */
+function HoursRow({ term, children }: { term: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <dt className="flex items-center text-muted-foreground">{term}</dt>
+      <dd className="tabular-nums font-medium text-foreground">{children}</dd>
+    </div>
+  );
+}
+
+function HoursLine({ lang, chip, children }: { lang: Lang; chip: ReactNode; children: ReactNode }) {
+  return (
+    <div className="mt-3 border-t border-dashed border-line pt-2">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t(lang, "forecastInHours")}</p>
+      <dl className="mt-1 space-y-1 text-sm">{children}</dl>
+      {chip ? <div className="mt-2">{chip}</div> : null}
+    </div>
+  );
+}
+
+function mixChip(lang: Lang, mix: RateMix | null, eur: BudgetForecast, hours: BudgetForecast, card: "pace" | "efficiency"): ReactNode {
+  if (!mix || !mix.triggered || mix.direction === null) return null;
+  return (
+    <RateMixChip
+      name={rateMixChipName(lang, mix, card)}
+      text={rateMixChipText(lang, mix)}
+      tip={rateMixExplanation(lang, mix, eur, hours)}
+      direction={mix.direction}
+    />
+  );
+}
+
 function PaceCard({
-  lang, pace, facts, money, locale, hasFixedPrice,
+  lang, pace, facts, money, locale, hasFixedPrice, eur, hours, mix,
 }: {
   lang: Lang; pace: BudgetForecast["pace"]; facts: Facts; money: Money; locale: string; hasFixedPrice: boolean;
+  eur: BudgetForecast; hours: BudgetForecast | null; mix: RateMix | null;
 }) {
   const titleId = useId();
   const paceTitle = t(lang, "forecastPaceTitle");
@@ -132,6 +168,17 @@ function PaceCard({
           <p className="mt-2 text-xs text-muted-foreground">
             {t(lang, "forecastWindowLine", formatDayMonth(pace.windowStart, locale), formatDayMonth(pace.windowEnd, locale), String(pace.windowDays))}
           </p>
+          {hours && isPaceAvailable(hours.pace) && (
+            <HoursLine lang={lang} chip={mixChip(lang, mix, eur, hours, "pace")}>
+              <HoursRow term={t(lang, "forecastEacHours")}>{formatHours(hours.pace.eac, locale)}</HoursRow>
+              <HoursRow term={t(lang, "forecastVacHours")}>
+                {formatHours(hours.pace.vac, locale)} ({formatSignedPercent(hours.facts.bac > 0 ? hours.pace.vac / hours.facts.bac : 0, locale, 1)})
+              </HoursRow>
+              <HoursRow term={t(lang, "forecastRunOutHours")}>
+                {hours.pace.runOutDate === null ? t(lang, "forecastRunOutAlready") : formatDayMonthYear(hours.pace.runOutDate, locale)}
+              </HoursRow>
+            </HoursLine>
+          )}
         </>
       ) : (
         <PaceUnavailableBody lang={lang} pace={pace} />
@@ -142,9 +189,10 @@ function PaceCard({
 }
 
 function EfficiencyCard({
-  lang, efficiency, facts, money, locale, hasFixedPrice,
+  lang, efficiency, facts, money, locale, hasFixedPrice, eur, hours, mix,
 }: {
   lang: Lang; efficiency: BudgetForecast["efficiency"]; facts: Facts; money: Money; locale: string; hasFixedPrice: boolean;
+  eur: BudgetForecast; hours: BudgetForecast | null; mix: RateMix | null;
 }) {
   const titleId = useId();
   const effTitle = t(lang, "forecastEfficiencyTitle");
@@ -196,6 +244,19 @@ function EfficiencyCard({
               {efficiency.spi === null ? "—" : efficiency.spi.toFixed(2)}
             </MetricRow>
           </dl>
+          {hours && isEfficiencyAvailable(hours.efficiency) && (
+            <HoursLine lang={lang} chip={mixChip(lang, mix, eur, hours, "efficiency")}>
+              <HoursRow term={t(lang, "forecastEacHours")}>{formatHours(hours.efficiency.eac, locale)}</HoursRow>
+              <HoursRow term={t(lang, "forecastVacHours")}>
+                {formatHours(hours.efficiency.vac, locale)} ({formatSignedPercent(hours.facts.bac > 0 ? hours.efficiency.vac / hours.facts.bac : 0, locale, 1)})
+              </HoursRow>
+              <HoursRow
+                term={<>{t(lang, "forecastCpiHours")}<TermTooltip lang={lang} term={t(lang, "forecastCpiHours")} tip={t(lang, "forecastTipCpiHours", formatHours(hours.facts.ev ?? 0, locale), formatHours(hours.facts.ac, locale), hours.efficiency.cpi.toFixed(2))} /></>}
+              >
+                {hours.efficiency.cpi.toFixed(2)}
+              </HoursRow>
+            </HoursLine>
+          )}
         </>
       ) : (
         <EfficiencyUnavailableBody lang={lang} efficiency={efficiency} />
@@ -237,15 +298,17 @@ function GapLine({
   return <p className="mt-3 text-sm">{text}{extra}</p>;
 }
 
-export function ForecastCards({ lang, forecast }: { lang: Lang; forecast: BudgetForecast }) {
+export function ForecastCards({
+  lang, forecast, hours = null, mix = null,
+}: { lang: Lang; forecast: BudgetForecast; hours?: BudgetForecast | null; mix?: RateMix | null }) {
   const locale = localeFor(lang);
   const money: Money = (n) => formatCurrency(n, "EUR", locale);
   const { pace, efficiency, gap, facts, hasFixedPrice } = forecast;
   return (
     <div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <PaceCard lang={lang} pace={pace} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} />
-        <EfficiencyCard lang={lang} efficiency={efficiency} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} />
+        <PaceCard lang={lang} pace={pace} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} />
+        <EfficiencyCard lang={lang} efficiency={efficiency} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} />
       </div>
       {gap && isPaceAvailable(pace) && isEfficiencyAvailable(efficiency) && (
         <GapLine lang={lang} gap={gap} pace={pace} efficiency={efficiency} money={money} locale={locale} />
