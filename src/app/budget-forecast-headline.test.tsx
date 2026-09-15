@@ -4,6 +4,8 @@ import { forecastHeadlineText, ForecastHeadline } from "./budget-forecast-headli
 import { formatMoneyCompact, formatSignedPercent, formatDayMonth } from "./forecast-format";
 import { localeFor, t } from "./i18n";
 import type { BudgetForecast } from "./budget-forecast";
+import { EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, MIX_HOURS_WORSE, MIX_ON_PLAN } from "../test/forecast-fixtures";
+import { rateMixTileChipText, rateMixWhyName } from "./budget-rate-mix-text";
 
 const locale = localeFor("en-US");
 
@@ -131,5 +133,20 @@ describe("ForecastHeadline", () => {
     const forecast = forecastWith(PACE, EFFICIENCY);
     const { container } = render(<ForecastHeadline lang="en-US" forecast={forecast} />);
     expect(container.querySelectorAll("p")).toHaveLength(1);
+  });
+});
+
+describe("ForecastHeadline — tile chip (MR 3)", () => {
+  it("adds the hours chip under the headline when the mix triggers", () => {
+    render(<ForecastHeadline lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_HOURS_WORSE} />);
+    const text = rateMixTileChipText("en-US", MIX_HOURS_WORSE, HOURS_FORECAST_HOURS_WORSE);
+    expect(screen.getByRole("button", { name: rateMixWhyName("en-US", text) })).toHaveTextContent(text);
+  });
+
+  it("adds nothing when the mix does not trigger or is absent", () => {
+    const { rerender } = render(<ForecastHeadline lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_ON_PLAN} />);
+    expect(screen.queryByRole("button")).toBeNull();
+    rerender(<ForecastHeadline lang="en-US" forecast={EUR_FORECAST} />);
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });

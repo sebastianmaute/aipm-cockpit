@@ -75,10 +75,17 @@ describe("BudgetReportPanel", () => {
     // Pinned exactly — a bare "at least one" would not notice a third.
     // ★ Task 5 scope: every bucket here is also T&M, so the forecast facts
     // row's AC happens to equal the same 39,900 — scope to the EXISTING
-    // tiles grid (index 1; index 0 is the new forecast facts row) so this
-    // assertion stays about the rollup tiles, not a coincidence of the fixture.
+    // tiles grid so this assertion stays about the rollup tiles, not a
+    // coincidence of the fixture. ★★ Task 10: this fixture's booked/planned
+    // rate differs by <3% (below RATE_DRIFT_SIGNAL_RATIO), so `computeRateMix`
+    // still returns a non-null (non-triggered) mix and the facts row grows a
+    // fifth tile — its class then reads `sm:grid-cols-3 lg:grid-cols-5`,
+    // dropping OUT of this selector, so only the EXISTING tiles grid (always
+    // `sm:grid-cols-4`, unconditionally) matches. Take the LAST match rather
+    // than a fixed index so this stays correct whether the facts row's own
+    // grid class does or doesn't happen to collide with this selector.
     const grids = container.querySelectorAll(".grid.grid-cols-2.gap-3.sm\\:grid-cols-4");
-    const existingTilesGrid = grids[1] as HTMLElement;
+    const existingTilesGrid = grids[grids.length - 1] as HTMLElement;
     expect(within(existingTilesGrid).getAllByText(/€?39,900|39\.900/)).toHaveLength(2);
     expect(within(existingTilesGrid).getByText(/€?26,600|26\.600/)).toBeInTheDocument();
   });

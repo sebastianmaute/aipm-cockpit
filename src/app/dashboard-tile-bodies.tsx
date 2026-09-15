@@ -239,7 +239,14 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
 
     burn: (
       <>
-        {model.forecast ? <ForecastHeadline lang={lang} forecast={model.forecast} /> : null}
+        {model.forecast ? (
+          <ForecastHeadline
+            lang={lang}
+            forecast={model.forecast}
+            hours={model.forecastBundle?.hours ?? null}
+            mix={model.forecastBundle?.mix ?? null}
+          />
+        ) : null}
         {model.burn ? (
           <div className="flex flex-wrap gap-2">
             <Tile

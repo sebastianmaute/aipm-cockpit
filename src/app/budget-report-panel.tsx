@@ -130,7 +130,7 @@ export function BudgetReportPanel({
   const content = (
     <>
       <Section title={t(lang, "budgetReportProjectTotal")}>
-        <ForecastFactsRow lang={lang} forecast={forecast} />
+        <ForecastFactsRow lang={lang} forecast={forecast} mix={bundle.mix} />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Tile label={t(lang, "budgetBudgetHours")} value={proj.budgetHours.toFixed(0)} />
           <Tile label={t(lang, "budgetPlanHours")} value={proj.plannedHours.toFixed(0)}
