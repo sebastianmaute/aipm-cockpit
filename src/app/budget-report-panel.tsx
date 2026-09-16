@@ -104,6 +104,7 @@ export function BudgetReportPanel({
     () => computeForecastBundle({
       report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today,
       resources, workdayHours, absences, disciplines, grades,
+      progress: new Map(), // Task 10 threads snapshot progress here
     }),
     [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today, resources, workdayHours, absences, disciplines, grades],
   );

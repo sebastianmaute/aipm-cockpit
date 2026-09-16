@@ -15,6 +15,7 @@ function input(buckets: BudgetBucket[]): ForecastBundleInput {
   return {
     report, buckets, roles, fxRates: null, tasks: [], plan, burndown, holidaySet: none, today,
     resources: [], workdayHours: 8, absences: [], disciplines: [{ id: 1, name: "Dev" }], grades: [{ id: 1, name: "Senior" }],
+    progress: new Map(),
   };
 }
 const bucket = {
@@ -31,6 +32,6 @@ describe("computeForecastBundle", () => {
   it("attaches the rate mix and the earned-value history", () => {
     const b = computeForecastBundle(input([bucket]));
     expect(b.mix?.rows[0].name).toBe("Dev Senior");
-    expect(b.evHistory).toEqual({ available: false, reason: "no-linked-tasks", buckets: [{ id: 1, name: "B1" }] });
+    expect(b.evHistory).toEqual({ available: false, reason: "no-earned-value", buckets: [{ id: 1, name: "B1" }] });
   });
 });

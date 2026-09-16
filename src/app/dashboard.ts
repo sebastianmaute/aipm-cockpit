@@ -412,6 +412,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
         tasks: input.tasks, plan: input.plan, burndown, holidaySet, today,
         resources: input.resources, workdayHours: input.workdayHours, absences: input.absences,
         disciplines: input.disciplines, grades: input.grades,
+        progress: new Map(), // Task 10 threads snapshot progress here
       })
     : null;
   // The budget RAG and the tile headline stay € only (addendum §3.3).

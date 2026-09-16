@@ -58,9 +58,9 @@ export const MIX_ON_PLAN: RateMix = mixOf([420, 560, 420], { triggered: false, d
 export const EV_HISTORY: EvHistory = {
   available: true,
   points: [
-    { date: "2026-03-31", eur: 60_000, hours: 500 },
-    { date: "2026-06-30", eur: 110_000, hours: 917 },
-    { date: "2026-09-14", eur: 148_800, hours: 1_240 },
+    { date: "2026-03-31", eur: 60_000, hours: 500, partial: [], joins: [] },
+    { date: "2026-06-30", eur: 110_000, hours: 917, partial: [], joins: [] },
+    { date: "2026-09-14", eur: 148_800, hours: 1_240, partial: [], joins: [] },
   ],
 };
 

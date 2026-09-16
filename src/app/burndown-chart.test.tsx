@@ -124,7 +124,7 @@ describe("BurndownChart", () => {
   });
 
   it("draws the earned-value history line in the cumulative orientation only", () => {
-    const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 2_000, hours: 20 }] };
+    const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 2_000, hours: 20, partial: [], joins: [] }] };
     draw({ orientation: "cumulative", evHistory });
     expect(screen.getByText("Earned value")).toBeInTheDocument();
     draw({ orientation: "burndown", evHistory });
@@ -134,7 +134,7 @@ describe("BurndownChart", () => {
   it("shows the frame note and the blocked-history note when they apply", () => {
     draw({ forecast: { ...CHART_FORECAST, facts: { ...CHART_FORECAST.facts, bac: 9_500 } } });
     expect(screen.getByText(/Chart totals differ from the forecast figures/)).toBeInTheDocument();
-    draw({ orientation: "cumulative", evHistory: { available: false, reason: "manual-percent", buckets: [{ id: 2, name: "Design" }] } });
+    draw({ orientation: "cumulative", evHistory: { available: false, reason: "no-earned-value", buckets: [{ id: 2, name: "Design" }] } });
     expect(screen.getByText(/Hand-entered % complete or no linked tasks: Design\./)).toBeInTheDocument();
   });
 

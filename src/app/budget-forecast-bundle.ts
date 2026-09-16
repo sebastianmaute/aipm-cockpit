@@ -8,7 +8,7 @@
  */
 import { computeBudgetForecastsByUnit, type BudgetForecast, type BudgetForecastInput } from "./budget-forecast";
 import { actualPointDates } from "./budget-burndown";
-import { computeEvHistory, type EvHistory } from "./budget-ev-history";
+import { computeEvHistory, type BucketProgressRecord, type EvHistory } from "./budget-ev-history";
 import { computeRateMix, type RateMix } from "./budget-rate-mix";
 import type { Absence, Discipline, Grade, Resource, Task } from "./types";
 
@@ -17,6 +17,8 @@ export type ForecastBundleInput = BudgetForecastInput & {
   tasks: readonly Pick<Task, "id" | "status" | "completedDate">[];
   resources: readonly Resource[]; workdayHours: number; absences: readonly Absence[];
   disciplines: readonly Discipline[]; grades: readonly Grade[];
+  /** Recorded percents of hand-entered buckets, from `bucketProgressSeries`. */
+  progress: ReadonlyMap<number, readonly BucketProgressRecord[]>;
 };
 
 export function computeForecastBundle(input: ForecastBundleInput): ForecastBundle {
@@ -29,6 +31,7 @@ export function computeForecastBundle(input: ForecastBundleInput): ForecastBundl
   const evHistory = computeEvHistory({
     report: input.report, buckets: input.buckets, tasks: input.tasks,
     dates: actualPointDates(input.burndown, input.today), today: input.today,
+    progress: input.progress,
   });
   return { eur, hours, mix, evHistory };
 }

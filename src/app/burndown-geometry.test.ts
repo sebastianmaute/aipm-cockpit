@@ -77,14 +77,14 @@ describe("buildChartModel — cumulative", () => {
     ]);
   });
   it("draws the earned-value history only here", () => {
-    const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 1_000, hours: 10 }, { date: "2026-02-14", eur: 3_600, hours: 36 }] };
+    const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 1_000, hours: 10, partial: [], joins: [] }, { date: "2026-02-14", eur: 3_600, hours: 36, partial: [], joins: [] }] };
     expect(buildChartModel({ ...base, orientation: "cumulative", evHistory }).evLine).toEqual([
       { date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 1_000 }, { date: "2026-02-14", value: 3_600 },
     ]);
     expect(buildChartModel({ ...base, evHistory }).evLine).toBeNull();
   });
   it("names the buckets that block the history", () => {
-    const evHistory = { available: false as const, reason: "manual-percent" as const, buckets: [{ id: 2, name: "Design" }] };
+    const evHistory = { available: false as const, reason: "no-earned-value" as const, buckets: [{ id: 2, name: "Design" }] };
     expect(buildChartModel({ ...base, orientation: "cumulative", evHistory }).evHistoryBlockedBy).toEqual(["Design"]);
   });
   it("returns null evLine when the history has no points", () => {
@@ -92,7 +92,7 @@ describe("buildChartModel — cumulative", () => {
     expect(buildChartModel({ ...base, orientation: "cumulative", evHistory }).evLine).toBeNull();
   });
   it("reads the earned-value history in the hours unit", () => {
-    const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 1_000, hours: 10 }] };
+    const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 1_000, hours: 10, partial: [], joins: [] }] };
     const m = buildChartModel({ ...base, unit: "hours", orientation: "cumulative", forecast: null, evHistory });
     expect(m.evLine).toEqual([{ date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 10 }]);
   });
