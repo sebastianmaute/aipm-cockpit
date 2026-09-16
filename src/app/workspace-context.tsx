@@ -51,6 +51,7 @@ import { mintId } from "./id-mint-session";
 import type { SettingsOverrides } from "./settings-types";
 import type { CalendarEvent } from "./calendar-event";
 import type { ActivityEntry } from "./activity-log";
+import type { BudgetHistoryEntry } from "./budget-history";
 import type { DocumentAsset } from "./document-asset";
 
 /** Workspace-section state is `readonly X[]` on purpose: these arrays become
@@ -176,6 +177,10 @@ interface WorkspaceValue {
    *  skip the write — hence the readonly type, as for every slice above. */
   activityLog: readonly ActivityEntry[];
   setActivityLog: Dispatch<SetStateAction<readonly ActivityEntry[]>>;
+  /** Budget-at-completion history (meta-blob sibling of `activityLog`). Never
+   *  undefined — `recordBudgetChange` appends to it; replace, never `push`. */
+  budgetHistory: readonly BudgetHistoryEntry[];
+  setBudgetHistory: Dispatch<SetStateAction<readonly BudgetHistoryEntry[]>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -209,6 +214,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [calendarEvents, setCalendarEvents] = useState<readonly CalendarEvent[] | undefined>(undefined);
   const [documentAssets, setDocumentAssets] = useState<readonly DocumentAsset[] | undefined>(undefined);
   const [activityLog, setActivityLog] = useState<readonly ActivityEntry[]>([]);
+  const [budgetHistory, setBudgetHistory] = useState<readonly BudgetHistoryEntry[]>([]);
 
   // ★★★ THE BEFORE-IMAGE CANNOT BE COMPUTED INSIDE A FUNCTIONAL SETTER.
   // `documents` and `documentVersions` are two separate setters, and the
@@ -477,6 +483,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       calendarEvents, setCalendarEvents,
       documentAssets, setDocumentAssets,
       activityLog, setActivityLog,
+      budgetHistory, setBudgetHistory,
     }),
     [
       tasks,
@@ -515,6 +522,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       calendarEvents,
       documentAssets,
       activityLog,
+      budgetHistory,
     ],
   );
 

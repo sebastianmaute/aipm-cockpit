@@ -49,6 +49,9 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     //     documents precedent by adding it.
     //     Same reasoning keeps it out of nonEmptyCollectionCount /
     //     workspaceRecordCount (SAVE-time mass-deletion thresholds, §98).
+    // ★★ budgetHistory is ABSENT for the same reason: ordinary budget edits
+    //     append it as a side record, so counting it would keep a wiped project
+    //     reading as non-empty. Pinned by workspace.test.ts ("ONLY budgetHistory").
 }
 
 /** ★★★ WHICH SLICES COUNT, AND WHY THE EXCLUSIONS ARE LOAD-BEARING.
@@ -66,6 +69,8 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
  *     used, and reaching 0 is L3's entire trigger — the full-wipe guard would be
  *     dead for good. isWorkspaceEmpty documents the identical inversion for
  *     itself and warns against "completing" the documents precedent.
+ *   - budgetHistory: written by ordinary budget edits as a side record — the
+ *     same inversion as activityLog, for the same reason.
  *   - documentVersions: auto-captured and pruned by retention, so counting it
  *     would make an ordinary prune read as a mass deletion and refuse a
  *     legitimate save.

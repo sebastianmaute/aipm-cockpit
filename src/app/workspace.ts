@@ -39,6 +39,7 @@ import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 import { sanitizeActivityLog, type ActivityEntry } from "./activity-log";
+import { sanitizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
 import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-versions";
@@ -136,6 +137,11 @@ export type Workspace = {
    *  undefined/empty serializes to nothing (byte-stable). Sanitized by
    *  sanitizeActivityLog. */
   activityLog?: readonly ActivityEntry[];
+  /** Budget-at-completion history (EUR, project own basis). Meta-blob sibling
+   *  of `activityLog`: storage-only, never capped, NOT counted by
+   *  isWorkspaceEmpty. Optional & additive: undefined/empty serializes to
+   *  nothing (byte-stable). Sanitized by sanitizeBudgetHistory. */
+  budgetHistory?: readonly BudgetHistoryEntry[];
   /** AI- and user-authored project documents (canonical block model; the
    *  .docx/.pptx/.html/.pdf bytes are rendered on demand and never stored).
    *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
@@ -518,6 +524,8 @@ export function workspaceToJson(ws: Workspace): string {
       // stay free of an `activityLog` key. JSON is the complete round-trip, so
       // this is always emitted (storage AND export) when present.
       ...(ws.activityLog && ws.activityLog.length ? { activityLog: ws.activityLog } : {}),
+      // Additive, same shape: legacy files stay free of a `budgetHistory` key.
+      ...(ws.budgetHistory && ws.budgetHistory.length ? { budgetHistory: ws.budgetHistory } : {}),
       // Additive: only present when documents exist, so legacy files stay free
       // of a `documents` key. JSON is the complete round-trip, so this is
       // always emitted (storage AND export) when present.
@@ -689,6 +697,11 @@ export function jsonToWorkspace(
     if (p.activityLog !== undefined) {
       const log = sanitizeActivityLog(p.activityLog);
       if (log.length) raw.activityLog = log;
+    }
+    // Additive: sanitize incoming budget-history entries when present.
+    if (p.budgetHistory !== undefined) {
+      const hist = sanitizeBudgetHistory(p.budgetHistory);
+      if (hist.length) raw.budgetHistory = hist;
     }
     // Additive: sanitize incoming documents when present. TWO passes, in this
     // order: sanitizeProjectDocuments enforces the STRUCTURE (and is DOM-free

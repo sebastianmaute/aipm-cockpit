@@ -46,6 +46,28 @@ export function sanitizeBudgetHistory(input: unknown): BudgetHistoryEntry[] {
   return input.map(sanitizeEntry).filter((e): e is BudgetHistoryEntry => e !== null);
 }
 
+/**
+ * Union by `id` for a same-project load (`applyWorkspace`'s "merge" mode):
+ * `prev` in its order first, then the ids only `next` holds, in `next`'s order.
+ * `prev` wins a duplicate id (ids are minted once, so both copies are equal).
+ * NEVER capped, unlike `mergeActivityLogs`. ALWAYS returns a new array — the
+ * Turso dirty check is reference equality, so returning an input would skip
+ * the save.
+ */
+export function mergeBudgetHistories(
+  prev: readonly BudgetHistoryEntry[] | undefined,
+  next: readonly BudgetHistoryEntry[] | undefined,
+): BudgetHistoryEntry[] {
+  const out = [...(prev ?? [])];
+  const seen = new Set(out.map((e) => e.id));
+  for (const e of next ?? []) {
+    if (seen.has(e.id)) continue;
+    seen.add(e.id);
+    out.push(e);
+  }
+  return out;
+}
+
 export function recordBudgetChange(
   history: readonly BudgetHistoryEntry[], change: BudgetChange,
 ): readonly BudgetHistoryEntry[] {

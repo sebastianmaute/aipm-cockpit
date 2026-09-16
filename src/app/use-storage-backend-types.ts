@@ -30,7 +30,8 @@ export interface UseStorageBackendArgs {
   // ★ `activityLog`/`setActivityLog` were args until the log became workspace
   // data — the hook now reads BOTH from `useWorkspace()`, so there is ONE
   // source. Re-adding them here would let the broadcast and the save see
-  // different arrays.
+  // different arrays. `budgetHistory`/`setBudgetHistory` follow the same rule:
+  // never args, always `useWorkspace()`.
   showToast: (kind: "info" | "error" | "success", text: string) => void;
   /** ★ The literal union rather than `ToastKind`, matching `showToast` above —
    *  the two args are read side by side and a lone alias reads as a difference. */

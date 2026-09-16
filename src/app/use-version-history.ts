@@ -65,7 +65,8 @@ export interface UseVersionHistoryResult {
 //   - `documentVersions` is derived from `documents` (`workspace-context.tsx`
 //     sets both from one loader result), so it adds nothing a `documents` count
 //     does not, and inherits the same objection.
-// Same reasoning already excludes `activityLog` — see docs/AGENTS/activity-log.md.
+// Same reasoning already excludes `activityLog` — see docs/AGENTS/activity-log.md —
+// and `budgetHistory`, which is not in the version payload at all (ruling R6).
 export function isEmptyWorkspacePayload(json: string): boolean {
   try {
     // Parse RAW (not jsonToWorkspace, which sanitizes/drops incomplete records) —

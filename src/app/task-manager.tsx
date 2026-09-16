@@ -1309,7 +1309,7 @@ function TaskManagerInner() {
   // set mirrors `applyRestoredWorkspace` below — capture and restore must agree or a
   // restore blanks what the capture never carried. NOT the save/export set in
   // `use-storage-backend.ts` (which also carries fieldVisibility, features,
-  // documentAssets, activityLog). Placed after the stakeholders hook for scope.
+  // documentAssets, activityLog, budgetHistory). Placed after the stakeholders hook for scope.
   // ★★ `documentAssets` is DELIBERATELY not captured — the decision, its two reasons and its user-visible consequence are recorded in docs/AGENTS/documents.md, "Asset images (S3c-1)" (open-followups §254); pinned by "captures documents but not documentAssets".
   const getVersionPayload = useCallback(
     () => workspaceToJson({
@@ -1329,6 +1329,8 @@ function TaskManagerInner() {
   // ★★ `activityLog` is DELIBERATELY MISSING, and missing STRUCTURALLY: no `setActivityLog` binding exists
   // in this file, so the blanking line cannot be written without first bringing a setter into scope. Why —
   // and what still differs between the two funnels — is in `docs/AGENTS/activity-log.md`, not AGENTS.md.
+  // ★★ `budgetHistory` is missing for the same reason (R6): no `setBudgetHistory` binding exists here, so a
+  // restore never blanks it; the BAC movement a restore causes surfaces as unattributed variance instead.
   const applyRestoredWorkspace = useCallback((w: Workspace) => {
     setTasks(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? [])); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);

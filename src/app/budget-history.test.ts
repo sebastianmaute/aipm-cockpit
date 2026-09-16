@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recordBudgetChange, sanitizeBudgetHistory, splitVariance, summarizeBudgetHistory, type BudgetChange } from "./budget-history";
+import { mergeBudgetHistories, recordBudgetChange, sanitizeBudgetHistory, splitVariance, summarizeBudgetHistory, type BudgetChange } from "./budget-history";
 
 let n = 0;
 const change = (over: Partial<BudgetChange>): BudgetChange => ({
@@ -77,5 +77,32 @@ describe("sanitizeBudgetHistory", () => {
     const good = recordBudgetChange([], change({}));
     const [sanitized] = sanitizeBudgetHistory([{ ...good[1], bucketName: 42 }]);
     expect(sanitized).toMatchObject({ ...good[1], bucketName: "" });
+  });
+});
+
+describe("mergeBudgetHistories", () => {
+  const a = recordBudgetChange([], change({}));
+  const b = recordBudgetChange(a, change({ before: { hours: 150, value: 15000 }, after: { hours: 170, value: 17000 } }));
+  it("unions by id keeping prev order first, then next-only ids in next order", () => {
+    const localOnly = recordBudgetChange(a, change({ kind: "created", bucketId: 9, before: { hours: 150, value: 15000 }, after: { hours: 160, value: 16000 } }));
+    const merged = mergeBudgetHistories(localOnly, b);
+    expect(merged.map((e) => e.id)).toEqual([...localOnly.map((e) => e.id), b[2].id]);
+  });
+  it("keeps prev's entry on a duplicate id", () => {
+    const next = [{ ...a[0], bucketName: "other" }];
+    expect(mergeBudgetHistories(a, next)[0]).toBe(a[0]);
+  });
+  it("treats undefined on either side as empty and ALWAYS returns a new array", () => {
+    expect(mergeBudgetHistories(undefined, undefined)).toEqual([]);
+    const fromPrev = mergeBudgetHistories(a, undefined);
+    expect(fromPrev).toEqual(a);
+    expect(fromPrev).not.toBe(a);
+    const fromNext = mergeBudgetHistories([], b);
+    expect(fromNext).toEqual(b);
+    expect(fromNext).not.toBe(b);
+  });
+  it("never caps", () => {
+    const many = Array.from({ length: 5000 }, (_, i) => ({ ...a[1], id: `m-${i}` }));
+    expect(mergeBudgetHistories(many, [{ ...a[1], id: "last" }])).toHaveLength(5001);
   });
 });

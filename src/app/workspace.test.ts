@@ -8,6 +8,7 @@ import {
   type Workspace,
 } from "./workspace";
 import { ACTIVITY_MAX_ENTRIES } from "./activity-log";
+import { recordBudgetChange, type BudgetHistoryEntry } from "./budget-history";
 
 /** Render a STORED value the way a sink would and assert nothing live survives.
  *  Deliberately does NOT re-sanitize: the subject is the LOAD boundary, and the
@@ -492,5 +493,44 @@ describe("documentAssets JSON round-trip", () => {
   it("drops an all-garbage documentAssets list, leaving the key absent", () => {
     const json = JSON.stringify({ tasks: [], raid: [], documentAssets: [{ name: "no id" }, null] });
     expect(jsonToWorkspace(json).documentAssets).toBeUndefined();
+  });
+});
+
+// ── budgetHistory (Task 4): meta-blob sibling of activityLog ──────────────────
+function budgetHistoryFixture(): readonly BudgetHistoryEntry[] {
+  let n = 0;
+  const newId = () => `bh-${++n}`;
+  return recordBudgetChange([], {
+    kind: "updated", bucketId: 1, bucketName: "Build",
+    before: { hours: 100, value: 10000 }, after: { hours: 120, value: 12000 },
+    at: "2026-09-01T10:00:00.000Z", date: "2026-09-01", newId,
+  });
+}
+
+describe("isWorkspaceEmpty excludes budgetHistory (same inversion as activityLog)", () => {
+  it("a workspace holding ONLY budgetHistory is still EMPTY", () => {
+    const ws = { ...emptyWorkspace(), budgetHistory: budgetHistoryFixture() };
+    expect(isWorkspaceEmpty(ws)).toBe(true);
+  });
+});
+
+describe("budgetHistory JSON write path", () => {
+  it("round-trips budgetHistory (baseline + updated) through JSON", () => {
+    const hist = budgetHistoryFixture();
+    expect(hist.map((e) => e.kind)).toEqual(["baseline", "updated"]);
+    const back = jsonToWorkspace(workspaceToJson({ ...emptyWorkspace(), budgetHistory: hist }));
+    expect(back.budgetHistory).toEqual(hist);
+  });
+
+  it("omits the budgetHistory key entirely when the history is empty", () => {
+    const ws = { ...emptyWorkspace(), budgetHistory: [] };
+    expect(JSON.parse(workspaceToJson(ws))).not.toHaveProperty("budgetHistory");
+    expect(jsonToWorkspace(workspaceToJson(ws)).budgetHistory).toBeUndefined();
+  });
+
+  it("drops one malformed entry on load and keeps the rest", () => {
+    const hist = budgetHistoryFixture();
+    const json = JSON.stringify({ tasks: [], raid: [], budgetHistory: [hist[0], { id: "bad", kind: "nope" }, hist[1]] });
+    expect((jsonToWorkspace(json).budgetHistory ?? []).map((e) => e.id)).toEqual(["bh-1", "bh-2"]);
   });
 });

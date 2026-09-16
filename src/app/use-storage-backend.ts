@@ -20,6 +20,7 @@ import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId } from "./portfolio-mode";
 import { isTursoLockTimeout, tursoErrorKind } from "./storage-error";
 import { mergeActivityLogs } from "./activity-log-merge";
+import { mergeBudgetHistories } from "./budget-history";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
@@ -55,6 +56,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     timelogLinks, setTimelogLinks,
     knowledgeItems, setKnowledgeItems,
     insights, setInsights, documents, setDocuments, documentVersions, setDocumentVersions, activityLog, setActivityLog,
+    budgetHistory, setBudgetHistory,
     settingsOverrides, setSettingsOverrides,
     calendarEvents, setCalendarEvents, documentAssets, setDocumentAssets,
   } = useWorkspace();
@@ -233,6 +235,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // load-from-file): `prev` is the OUTGOING project's log, so merging carries its entries — including
     // `changes` payloads holding its old/new field values — into the target project, unrecoverably.
     setActivityLog((prev) => (logMode === "merge" ? mergeActivityLogs(prev, workspace.activityLog) : (workspace.activityLog ?? [])));
+    // Same two branches for the budget history, but merged by id in stored order and NEVER capped.
+    setBudgetHistory((prev) => (logMode === "merge" ? mergeBudgetHistories(prev, workspace.budgetHistory) : (workspace.budgetHistory ?? [])));
     setSettingsOverrides(workspace.settingsOverrides);
     setCalendarEvents(workspace.calendarEvents); setDocumentAssets(workspace.documentAssets);
     // Seed the session id-minter's high-water from the loaded set so the next
@@ -413,7 +417,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   REQUIRED field, and only 9 of the 28 are required — new slices add OPTIONAL ones.
     //   Measured: dropping `activityLog` from this literal keeps tsc GREEN. The single
     //   spelling, NOT tsc, is what protects this; do not re-inline the literal at the save.
-    const outgoing: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog };
+    const outgoing: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory };
     const curCollections = nonEmptyCollectionCount(outgoing);
     const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
@@ -580,7 +584,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // `allowDestructiveSaveAnyway` does, and without the dep the authorised save
     // would wait for an unrelated edit — with saving paused, there may not be one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -597,6 +601,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useBroadcastSync("stakeholders", stakeholders, setStakeholders, canSend);
   useBroadcastSync("documents", documents, setDocuments, canSend); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, canSend); // ★ PAIRED on one line: written when the size ratchet's LIMIT was 800 and this file sat at it (check-file-sizes.mjs counts split("\n").length = wc -l + 1); the LIMIT is 1600 now. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
   useBroadcastSync("activityLog", activityLog, setActivityLog, canSend); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
+  useBroadcastSync("budgetHistory", budgetHistory, setBudgetHistory, canSend); // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
   // `project` (ProjectMeta | undefined) so a main-window project switch live-updates
   // the read-only project header in popout windows. The generic handles undefined.
   useBroadcastSync("project", project, setProject, canSend);
@@ -606,7 +611,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // onOpenStorageFile / onRequestStorageSwitch), which take it as a dep. Must
   // NOT be memoized or it would capture stale state.
   function currentWorkspace(): Workspace {
-    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog };
+    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory };
   }
 
   // Persist the registry AND surface the change to the caller so its observable

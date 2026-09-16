@@ -22,6 +22,7 @@ import { EXPORT_SECTION_KEYS } from "./settings-types";
 import { type Workspace, sanitizeProjectStatus } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
 import type { ActivityEntry } from "./activity-log";
+import { sanitizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import {
   CSV_SECTION_ABSENCES,
@@ -49,6 +50,7 @@ import {
   CSV_SECTION_DOCUMENT_VERSIONS,
   CSV_SECTION_DOCUMENT_ASSETS,
   CSV_SECTION_ACTIVITY,
+  CSV_SECTION_BUDGET_HISTORY,
   CSV_SECTION_TASKS,
   absencesToCsv,
   budgetsToCsv,
@@ -373,6 +375,26 @@ export function csvToActivityLog(text: string): ActivityEntry[] | undefined {
   try {
     const log = sanitizeActivityLog(JSON.parse(rows[0][1]));
     return log.length ? log : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// --- Budget history encoder / decoder ----------------------------------------
+//
+// Meta-blob sibling of the activity log: the same single `config,<json>` row,
+// STORAGE-ONLY behind the same `config === undefined` gate (no export key).
+
+export function budgetHistoryToCsv(history: readonly BudgetHistoryEntry[], neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(history), neutralize)].join(",");
+}
+
+export function csvToBudgetHistory(text: string): BudgetHistoryEntry[] | undefined {
+  const row = parseCsv(text).find((r) => r.length >= 2 && r[0] === "config");
+  if (!row) return undefined;
+  try {
+    const history = sanitizeBudgetHistory(JSON.parse(row[1]));
+    return history.length ? history : undefined;
   } catch {
     return undefined;
   }
@@ -726,5 +748,9 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // golden-workspace.test pins them.
   if (config === undefined && ws.activityLog && ws.activityLog.length)
     csvPush(CSV_SECTION_ACTIVITY, activityLogToCsv(ws.activityLog, neutralize));
+  // Budget history — STORAGE-ONLY, same gate; emitted after the log so a
+  // history-less workspace keeps its bytes (golden-workspace.test).
+  if (config === undefined && ws.budgetHistory && ws.budgetHistory.length)
+    csvPush(CSV_SECTION_BUDGET_HISTORY, budgetHistoryToCsv(ws.budgetHistory, neutralize));
   return parts.join("\r\n");
 }

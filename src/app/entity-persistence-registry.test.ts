@@ -44,6 +44,7 @@ import { tenantSchemaDdl } from "./turso-tenant-schema";
 import type { Workspace } from "./workspace";
 import type { RaidEscalation } from "./types";
 import type { DocumentAsset } from "./document-asset";
+import { recordBudgetChange } from "./budget-history";
 
 const EVT = "evt-registry-123";
 
@@ -456,6 +457,44 @@ describe("entity persistence registry — activityLog survives every text backen
   it("activityLog survives the Markdown round-trip", () => {
     const back = markdownToWorkspace(workspaceToMarkdown(seedActivity()));
     expect(back.activityLog).toEqual(seedActivity().activityLog);
+  });
+});
+
+// budgetHistory — the budget-at-completion series, a meta-blob SIBLING of
+// activityLog (same fenced-JSON / `config,<json>` shape, storage-only). The
+// seed is a baseline + updated pair from recordBudgetChange, so a backend that
+// kept only the first entry, or dropped the nullable baseline bucketId, fails.
+describe("entity persistence registry — budgetHistory survives every text backend", () => {
+  const seedHistory = (): Workspace => {
+    let n = 0;
+    return {
+      ...emptyWorkspace(),
+      budgetHistory: recordBudgetChange([], {
+        kind: "updated", bucketId: 3, bucketName: "Design",
+        before: { hours: 40, value: 4000 }, after: { hours: 55.5, value: 5550 },
+        at: "2026-09-02T08:00:00.000Z", date: "2026-09-02", newId: () => `bh-${++n}`,
+      }),
+    };
+  };
+
+  it("budgetHistory survives the CSV round-trip", () => {
+    const back = csvToWorkspace(workspaceToCsv(seedHistory()));
+    expect(back.budgetHistory).toHaveLength(2);
+    expect(back.budgetHistory).toEqual(seedHistory().budgetHistory);
+  });
+
+  it("budgetHistory survives the Markdown round-trip", () => {
+    const back = markdownToWorkspace(workspaceToMarkdown(seedHistory()));
+    expect(back.budgetHistory).toHaveLength(2);
+    expect(back.budgetHistory).toEqual(seedHistory().budgetHistory);
+  });
+
+  it("an empty budgetHistory emits no section on either text backend", () => {
+    const ws: Workspace = { ...emptyWorkspace(), budgetHistory: [] };
+    expect(csvToWorkspace(workspaceToCsv(ws)).budgetHistory).toBeUndefined();
+    expect(markdownToWorkspace(workspaceToMarkdown(ws)).budgetHistory).toBeUndefined();
+    expect(workspaceToCsv(ws)).toBe(workspaceToCsv(emptyWorkspace()));
+    expect(workspaceToMarkdown(ws)).toBe(workspaceToMarkdown(emptyWorkspace()));
   });
 });
 

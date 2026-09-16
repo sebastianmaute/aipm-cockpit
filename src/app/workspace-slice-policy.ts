@@ -85,6 +85,11 @@ export const SLICE_POLICY: Readonly<Record<string, SlicePolicy>> = {
     reason:
       "Auto-appended by ordinary use. Counting it means nonEmptyCollectionCount can never reach 0 in a project that has ever been used — and reaching 0 is the full-wipe guard's ENTIRE trigger, so that guard would be dead for good. isWorkspaceEmpty documents the identical inversion for itself; do not 'complete' the documents precedent by adding it.",
   },
+  budgetHistory: {
+    counted: false,
+    reason:
+      "Written by ordinary budget edits as a side record; counting it would keep a wiped project reading as non-empty, the same inversion as activityLog.",
+  },
   documentVersions: {
     counted: false,
     reason:

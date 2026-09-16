@@ -2,6 +2,7 @@ import { describe, it, test, expect } from "vitest";
 import { SCHEMA_DDL, TABLE_NAMES, ENTITY_SPECS, selectStatements, workspaceToStatements, rowsToWorkspace, dirtyWorkspaceTables, type PipelineResultLike } from "./turso-schema";
 import { emptyWorkspace } from "./storage";
 import type { ActivityEntry } from "./activity-log";
+import { recordBudgetChange, type BudgetHistoryEntry } from "./budget-history";
 
 function resultsFromStatements(stmts: { sql: string; args?: { value?: string }[] }[]): PipelineResultLike[] {
   const byTable: Record<string, { cols: string[]; rows: { value: string }[][] }> = {};
@@ -305,6 +306,45 @@ describe("turso activityLog (meta KV)", () => {
       (s) => s.sql.startsWith("INSERT INTO meta") && s.args?.some((a) => a.value === "activityLog"),
     );
     expect(metaInsert).toBeUndefined();
+  });
+});
+
+describe("turso budgetHistory (meta KV)", () => {
+  let n = 0;
+  const sampleHistory = recordBudgetChange([], {
+    kind: "created", bucketId: 7, bucketName: "QA",
+    before: { hours: 0, value: 0 }, after: { hours: 30, value: 2700 },
+    at: "2026-09-03T09:00:00.000Z", date: "2026-09-03", newId: () => `bh-${++n}`,
+  });
+  const findRow = (stmts: ReturnType<typeof workspaceToStatements>) =>
+    stmts.find((s) => s.sql.startsWith("INSERT INTO meta") && s.args?.some((a) => a.value === "budgetHistory"));
+
+  it("writes budgetHistory as a meta row", () => {
+    const row = findRow(workspaceToStatements({ ...emptyWorkspace(), budgetHistory: sampleHistory }));
+    expect(row).toBeDefined();
+    expect(row!.args!.some((a) => a.value === JSON.stringify(sampleHistory))).toBe(true);
+  });
+
+  it("marks meta dirty when budgetHistory changes by reference (and not when it does not)", () => {
+    const prev = { ...emptyWorkspace(), budgetHistory: [] as BudgetHistoryEntry[] };
+    expect(dirtyWorkspaceTables(prev, { ...prev }).has("meta")).toBe(false);
+    expect(dirtyWorkspaceTables(prev, { ...prev, budgetHistory: sampleHistory }).has("meta")).toBe(true);
+  });
+
+  it("keeps budgetHistory OUT of TABLE_NAMES (it rides meta, no table of its own)", () => {
+    expect(TABLE_NAMES).not.toContain("budgetHistory");
+    expect(TABLE_NAMES).not.toContain("budget_history");
+  });
+
+  it("round-trips budgetHistory via rowsToWorkspace", () => {
+    const ws = { ...emptyWorkspace(), budgetHistory: sampleHistory };
+    const back = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
+    expect(back.budgetHistory).toHaveLength(2);
+    expect(back.budgetHistory).toEqual(sampleHistory);
+  });
+
+  it("omits the budgetHistory meta row when the history is empty", () => {
+    expect(findRow(workspaceToStatements({ ...emptyWorkspace(), budgetHistory: [] }))).toBeUndefined();
   });
 });
 
