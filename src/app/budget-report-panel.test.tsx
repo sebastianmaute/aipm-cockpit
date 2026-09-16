@@ -495,6 +495,7 @@ describe("§474 — the missing-bucket fallback does not claim EUR", () => {
     budgetHours: 0, plannedHours: 0, actualHours: 0,
     budgetValue: 0, consumedValue: 0, revenue: 0, cost: 0, budgetCost: 0,
     winLossHours: 0, winLossValue: 0, spilloverInHours: 0, spilloverInValue: 0,
+    ownBudget: { budgetHours: 0, budgetValue: 0, winLossHours: 0, winLossValue: 0 },
     contributionMargin: emptyCci, costPerformance: emptyCci, consumption: emptyCci,
     earnedValue: null, costPerformanceIndex: null, budgetMirrorsPlan: false,
     costUnknownReason: "no-rows", unpricedDisciplineIds: [],

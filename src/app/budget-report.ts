@@ -118,6 +118,32 @@ export function ratesMissing(r: { costUnknownReason: CostUnknownReason | null })
   return r.costUnknownReason !== null && r.costUnknownReason !== "no-rows";
 }
 
+/**
+ * A bucket's budget figures with spilled-in budget EXCLUDED — what the bucket
+ * would report with no predecessor rolling a remainder into it.
+ *
+ * ★★★ THE PROJECT ROLLUP MUST SUM THESE, NEVER THE REPORTED TWINS. Spillover is
+ * a REALLOCATION of an already-budgeted remainder, not new scope: the closed
+ * predecessor goes on reporting its own full budget while the successor absorbs
+ * the remainder, so summing the reported figures counts it twice and closing a
+ * bucket reports a healthier project with nothing added and nothing delivered
+ * (open-followups §550, measured at +60 h on a 150 h project).
+ *
+ * ★★ They are computed HERE, beside the reported figures they mirror, because
+ * the two differ ASYMMETRICALLY and a caller re-deriving them gets it subtly
+ * wrong: `budgetHours` always carries the spilled-in hours, while `budgetValue`
+ * carries the spilled-in value for a time-and-materials bucket ONLY — a
+ * fixed-price bucket's budget IS its contract amount and already excludes it,
+ * although it can still RECEIVE a non-zero `spilloverInValue` as a successor.
+ * So `reported − spilloverInValue` under-counts every fixed-price successor.
+ */
+export type OwnBudgetFigures = {
+  budgetHours: number;
+  budgetValue: number;
+  winLossHours: number;
+  winLossValue: number;
+};
+
 export type BucketReport = {
   bucketId: number;
   name: string;
@@ -143,6 +169,10 @@ export type BucketReport = {
   /** Remaining budget rolled in from a closed predecessor (EUR + hours). */
   spilloverInHours: number;
   spilloverInValue: number;
+  /** The four figures above with spilled-in budget excluded — see
+   *  `OwnBudgetFigures`. Surfaces render the spillover-INCLUSIVE twins (that is
+   *  what a bucket now has to spend); only the project rollup reads these. */
+  ownBudget: OwnBudgetFigures;
   contributionMargin: CciValue;
   costPerformance: CciValue;
   consumption: CciValue;
@@ -364,7 +394,11 @@ export function computeBucketReport(
   const revenue = isFixed ? fixedPrice : tmRevenue;
   // Spillover adds available budget to a T&M bucket; a fixed-price bucket's
   // budget IS the contract amount and is not inflated by spilled-in value.
-  const budgetValue = isFixed ? fixedPrice : budgetValueExternal + spilloverInValue;
+  // ★ The own/reported pair is spelled as one base plus one conditional addend
+  // so the two can only differ by the spillover term — writing `budgetValue`
+  // out a second time would let the fixed-price branch drift between them.
+  const ownBudgetValue = isFixed ? fixedPrice : budgetValueExternal;
+  const budgetValue = isFixed ? ownBudgetValue : ownBudgetValue + spilloverInValue;
   const consumedValue = isFixed
     ? (budgetHours > 0 ? Math.min(fixedPrice, fixedPrice * (actualHours / budgetHours)) : 0)
     : tmRevenue;
@@ -384,6 +418,13 @@ export function computeBucketReport(
 
   const winLossHours = budgetHours + spilloverInHours - actualHours;
   const winLossValue = isFixed ? revenue - cost : budgetValue - consumedValue;
+  // The same two figures over the OWN budget (see `OwnBudgetFigures`). A fixed
+  // bucket's win/loss is revenue − cost, which never carried spillover, so the
+  // own and reported forms coincide there — kept as one expression rather than
+  // simplified to `winLossValue`, because that equality is a property of the
+  // fixed branch, not of the pair.
+  const ownWinLossHours = budgetHours - actualHours;
+  const ownWinLossValue = isFixed ? revenue - cost : ownBudgetValue - consumedValue;
 
   // For fixed-price with no budgeted hours, consumption % is meaningless.
   const consumptionPercent = isFixed && budgetHours === 0 ? null : pct(consumedValue, budgetValue);
@@ -408,6 +449,10 @@ export function computeBucketReport(
     budgetValue, consumedValue, revenue, cost, budgetCost,
     winLossHours, winLossValue,
     spilloverInHours, spilloverInValue,
+    ownBudget: {
+      budgetHours, budgetValue: ownBudgetValue,
+      winLossHours: ownWinLossHours, winLossValue: ownWinLossValue,
+    },
     contributionMargin: { amount: revenue - cost, percent: pct(revenue - cost, revenue) },
     costPerformance: { amount: budgetCost - cost, percent: pct(budgetCost, cost) },
     // The tile prints this amount directly beneath `percent`, so it must be the
@@ -423,6 +468,11 @@ export function computeBucketReport(
 }
 
 export type ProjectReport = {
+  /** ★★ The four budget figures (`budgetHours`, `budgetValue`, `winLossHours`,
+   *  `winLossValue`) sum each bucket's `ownBudget`, NOT its reported twin, so a
+   *  remainder spilled from a closed predecessor into its successor is counted
+   *  once — see `OwnBudgetFigures`. `consumption` below divides by that same
+   *  honest `budgetValue`. */
   budgetHours: number;
   plannedHours: number;
   actualHours: number;
@@ -541,7 +591,12 @@ export function computeBudgetReport(
   const sum = (sel: (r: BucketReport) => number) => reports.reduce((a, r) => a + sel(r), 0);
   const revenue = sum((r) => r.revenue);
   const cost = sum((r) => r.cost);
-  const budgetValue = sum((r) => r.budgetValue);
+  // ★★★ OWN budget, not the reported one — see `OwnBudgetFigures`. Summing
+  // `r.budgetValue` here counted a closed predecessor's remainder twice, so
+  // closing a bucket reported a richer project (open-followups §550). Every
+  // figure derived from this — `consumption`, and the forecast's variance at
+  // completion, run-out date and burn-down ceiling — inherited the inflation.
+  const budgetValue = sum((r) => r.ownBudget.budgetValue);
   const consumedValue = sum((r) => r.consumedValue);
   const budgetCost = sum((r) => r.budgetCost);
 
@@ -612,12 +667,13 @@ export function computeBudgetReport(
       }, null) ?? "no-rows";
 
   const project: ProjectReport = {
-    budgetHours: sum((r) => r.budgetHours),
+    // All four budget figures sum the OWN forms (§550) — `budgetValue` above.
+    budgetHours: sum((r) => r.ownBudget.budgetHours),
     plannedHours: sum((r) => r.plannedHours),
     actualHours: sum((r) => r.actualHours),
     budgetValue, consumedValue, revenue, cost,
-    winLossHours: sum((r) => r.winLossHours),
-    winLossValue: sum((r) => r.winLossValue),
+    winLossHours: sum((r) => r.ownBudget.winLossHours),
+    winLossValue: sum((r) => r.ownBudget.winLossValue),
     contributionMargin: { amount: revenue - cost, percent: pct(revenue - cost, revenue) },
     costPerformance: { amount: budgetCost - cost, percent: pct(budgetCost, cost) },
     // The tile prints this amount directly beneath `percent`, so it must be the

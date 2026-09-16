@@ -551,7 +551,15 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
     expect(eur.pv).toBe(10_000);
   });
 
-  it("uses the reported, spillover-inclusive bucket hours for EV h (Ruling 1)", () => {
+  // ★★★ RULING 1 (MR 3) IS SUPERSEDED. This test formerly pinned the opposite —
+  // "uses the reported, spillover-inclusive bucket hours for EV h" — asserting
+  // BAC h 200 and EV h 140. Both numbers were artefacts of the §550 defect: the
+  // donor's 50 h remainder was counted in BOTH buckets. Ruling 1 was coherent
+  // while BAC carried the same double-count, but once §550 re-based BAC to own
+  // budget it left EV as the only spillover-inclusive term, so ΣEV could exceed
+  // BAC. EV is now own-basis in both units. Kept, rewritten, NOT deleted: the
+  // ruling it encoded is part of this file's history.
+  it("uses OWN bucket hours for EV h — Ruling 1 (MR 3) superseded by §550", () => {
     const donor = bucket(1, {
       status: "closed", successorId: 2, percentComplete: 100,
       allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 50 }, actualHours: {} }],
@@ -560,9 +568,18 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
       percentComplete: 60,
       allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-06": 100 }, actualHours: {} }],
     } as Partial<BudgetBucket>);
-    const { eur, hours } = forecastFactsByUnit(input([donor, succ]));
-    expect(hours.bac).toBe(200);
-    expect(hours.ev).toBeCloseTo(140, 9);
+    const inp = input([donor, succ]);
+    const { eur, hours } = forecastFactsByUnit(inp);
+    // The donor really does spill, or this pins nothing.
+    expect(inp.report.buckets.find((b) => b.bucketId === 2)!.spilloverInHours).toBe(50);
+    // BAC counts the 50 h remainder once: 50 + 100.
+    expect(hours.bac).toBe(150);
+    // EV on the OWN basis: 50×100% + 100×60% = 110. The reported basis gave 140
+    // (the successor's 150 reported hours × 60%, plus the donor's 50), which is
+    // what this used to pin.
+    expect(hours.ev).toBeCloseTo(110, 9);
+    expect(eur.ev).toBeCloseTo(11_000, 9);
+    // The two units stay in lockstep — the property Ruling 1 was protecting.
     expect(eur.ev! / eur.bac).toBeCloseTo(hours.ev! / hours.bac, 9);
   });
 
@@ -579,5 +596,130 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
     const both = computeBudgetForecastsByUnit(inp);
     expect(both.eur).toEqual(computeBudgetForecast(inp));
     expect(both.hours.facts.bac).toBe(100);
+  });
+});
+
+/**
+ * §550, second half — earned value re-based onto the OWN budget, superseding
+ * Ruling 1 (MR 3). Four bases feed the forecast and three of them were already
+ * own-budget: BAC (fixed by the project rollup), PV (the burn-down builds its
+ * totals straight from allocations and never sees spillover — MEASURED below,
+ * not assumed) and the report's own `earnedValue`, which scales `budgetCost`
+ * and is likewise spillover-free. EV in `forecastFactsByUnit` was the last
+ * spillover-inclusive term, and every figure that divides by it moved when a
+ * bucket closed.
+ *
+ * Fixture throughout: a 100 h donor closing into a 100 h successor, rates 60
+ * internal / 100 external, so the donor spills 60 h and 6000 EUR.
+ */
+describe("forecastFactsByUnit — EV on the own-budget basis (§550, Ruling 1 superseded)", () => {
+  const donor = (status: BudgetBucket["status"], percentComplete: number) =>
+    bucket(1, {
+      status, successorId: 2, percentComplete,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-06": 100 }, actualHours: { "2026-06": 40 } }],
+    } as Partial<BudgetBucket>);
+  const succ = (percentComplete: number) =>
+    bucket(2, {
+      percentComplete,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-06": 100 }, actualHours: { "2026-06": 30 } }],
+    } as Partial<BudgetBucket>);
+  const facts = (status: BudgetBucket["status"], donorPct: number, succPct: number) =>
+    forecastFactsByUnit(input([donor(status, donorPct), succ(succPct)]));
+
+  it("the fixture really spills, or every assertion here is about zero", () => {
+    const inp = input([donor("closed", 100), succ(50)]);
+    const s = inp.report.buckets.find((b) => b.bucketId === 2)!;
+    expect(s.spilloverInHours).toBe(60);
+    expect(s.spilloverInValue).toBe(6_000);
+    // The successor's REPORTED figures still carry it — per-bucket reporting is
+    // unchanged by §550, so this test would be vacuous if they did not.
+    expect(s.budgetHours).toBe(160);
+    expect(s.budgetValue).toBe(16_000);
+  });
+
+  // THE INVARIANT. Both buckets fully delivered: EV must equal BAC, never
+  // exceed it. Before this change the closed state read EV € 26000 against BAC
+  // € 20000 and EV h 260 against BAC h 200 — a finished project reporting 130%
+  // complete.
+  it("summed EV never exceeds BAC, in either unit, open or closed", () => {
+    for (const status of ["open", "closed"] as const) {
+      const { eur, hours } = facts(status, 100, 100);
+      expect(eur.ev).toBeLessThanOrEqual(eur.bac);
+      expect(hours.ev).toBeLessThanOrEqual(hours.bac);
+      // Fully delivered means exactly BAC, not merely "not more".
+      expect(eur.ev).toBeCloseTo(20_000, 9);
+      expect(hours.ev).toBeCloseTo(200, 9);
+    }
+  });
+
+  it("EV is unchanged by closing the predecessor (was 15000/150 → 18000/180)", () => {
+    const open = facts("open", 100, 50);
+    const closed = facts("closed", 100, 50);
+    expect(open.eur.ev).toBeCloseTo(15_000, 9);
+    expect(closed.eur.ev).toBeCloseTo(15_000, 9);
+    expect(open.hours.ev).toBeCloseTo(150, 9);
+    expect(closed.hours.ev).toBeCloseTo(150, 9);
+  });
+
+  // PV and the report's own earnedValue were ALREADY own-basis. Pinned so a
+  // future reader does not re-investigate, and so a regression that made either
+  // spillover-inclusive would be caught here.
+  it("PV and the report's earnedValue were already own-basis and stay put", () => {
+    const openInp = input([donor("open", 100), succ(50)]);
+    const closedInp = input([donor("closed", 100), succ(50)]);
+    expect(openInp.burndown.totalBudgetValue).toBe(20_000);
+    expect(closedInp.burndown.totalBudgetValue).toBe(20_000);
+    expect(forecastFactsByUnit(openInp).eur.pv).toBe(20_000);
+    expect(forecastFactsByUnit(closedInp).eur.pv).toBe(20_000);
+    expect(forecastFactsByUnit(openInp).hours.pv).toBe(200);
+    expect(forecastFactsByUnit(closedInp).hours.pv).toBe(200);
+    // `BucketReport.earnedValue` scales `budgetCost`, which never receives
+    // spillover, so the report's own EV rollup and CPI were never affected.
+    expect(openInp.report.project.earnedValue).toBe(9_000);
+    expect(closedInp.report.project.earnedValue).toBe(9_000);
+    expect(closedInp.report.project.costPerformanceIndex).toBeCloseTo(9_000 / 4_200, 9);
+  });
+
+  // The user-visible magnitude, recorded. Every one of these divides by EV, and
+  // every one moved when a bucket was closed. The "before" numbers are what
+  // shipped; the assertions are the honest values, which closing no longer
+  // changes.
+  it("CPI, SPI, ETC and EAC no longer move when a bucket is closed", () => {
+    const open = computeForecastFromFacts(facts("open", 100, 50).eur);
+    const closed = computeForecastFromFacts(facts("closed", 100, 50).eur);
+    if (!isEfficiencyAvailable(open.efficiency) || !isEfficiencyAvailable(closed.efficiency)) {
+      throw new Error("efficiency unavailable");
+    }
+    // was 2.571429 closed
+    expect(closed.efficiency.cpi).toBeCloseTo(15_000 / 7_000, 9);
+    expect(closed.efficiency.cpi).toBeCloseTo(open.efficiency.cpi, 9);
+    // was 0.9 closed
+    expect(closed.efficiency.spi).toBeCloseTo(0.75, 9);
+    // was 777.78 closed
+    expect(closed.efficiency.etc).toBeCloseTo(2_333.333333, 5);
+    // was 7777.78 closed — 16.7% below the honest figure
+    expect(closed.efficiency.eac).toBeCloseTo(9_333.333333, 5);
+    expect(closed.efficiency.eac).toBeCloseTo(open.efficiency.eac, 9);
+    // was 90 closed
+    expect(closed.facts.percentComplete).toBeCloseTo(75, 9);
+  });
+
+  // The gate moved to `ownBudget.budgetValue` in step with the accumulation. A
+  // bucket holding nothing but spilled-in budget contributes exactly 0 to EV,
+  // so demanding a percent-complete from it would blank the whole project's EV
+  // for a bucket that cannot affect it.
+  it("a bucket holding only spilled-in budget does not blank the project EV", () => {
+    const emptySucc = bucket(2, {
+      name: "Placeholder",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
+    } as Partial<BudgetBucket>);
+    const inp = input([donor("closed", 100), emptySucc]);
+    const succRep = inp.report.buckets.find((b) => b.bucketId === 2)!;
+    expect(succRep.ownBudget.budgetValue).toBe(0);
+    expect(succRep.budgetValue).toBe(6_000); // it DID receive the spillover
+    const { eur, hours } = forecastFactsByUnit(inp);
+    expect(eur.bucketsMissingPercent).toEqual([]);
+    expect(eur.ev).toBeCloseTo(10_000, 9);
+    expect(hours.ev).toBeCloseTo(100, 9);
   });
 });
