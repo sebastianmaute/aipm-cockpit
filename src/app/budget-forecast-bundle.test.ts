@@ -3,6 +3,7 @@ import { computeForecastBundle, type ForecastBundleInput } from "./budget-foreca
 import { computeBudgetForecastsByUnit } from "./budget-forecast";
 import { computeBudgetReport } from "./budget-report";
 import { computeBurndownSeries } from "./budget-burndown";
+import { summarizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
 import type { BudgetBucket, ResourcePlan, Role } from "./types";
 
 const none = new Set<string>();
@@ -15,7 +16,7 @@ function input(buckets: BudgetBucket[]): ForecastBundleInput {
   return {
     report, buckets, roles, fxRates: null, tasks: [], plan, burndown, holidaySet: none, today,
     resources: [], workdayHours: 8, absences: [], disciplines: [{ id: 1, name: "Dev" }], grades: [{ id: 1, name: "Senior" }],
-    progress: new Map(),
+    progress: new Map(), budgetHistory: [],
   };
 }
 const bucket = {
@@ -33,5 +34,22 @@ describe("computeForecastBundle", () => {
     const b = computeForecastBundle(input([bucket]));
     expect(b.mix?.rows[0].name).toBe("Dev Senior");
     expect(b.evHistory).toEqual({ available: false, reason: "no-earned-value", buckets: [{ id: 1, name: "B1" }] });
+  });
+  it("carries the summarized budget history, or null when there is none yet", () => {
+    const withoutHistory = computeForecastBundle({ ...input([bucket]), budgetHistory: [] });
+    expect(withoutHistory.history).toBeNull();
+    const history: BudgetHistoryEntry[] = [
+      {
+        id: "h1", at: "2026-01-01T00:00:00.000Z", date: "2026-01-01", kind: "baseline",
+        bucketId: null, bucketName: "", projectBacHours: 100, projectBacValue: 15000, deltaHours: 0, deltaValue: 0,
+      },
+      {
+        id: "h2", at: "2026-02-01T00:00:00.000Z", date: "2026-02-01", kind: "created",
+        bucketId: 2, bucketName: "B2", projectBacHours: 120, projectBacValue: 18000, deltaHours: 20, deltaValue: 3000,
+      },
+    ];
+    const withHistory = computeForecastBundle({ ...input([bucket]), budgetHistory: history });
+    expect(withHistory.history).toEqual(summarizeBudgetHistory(history));
+    expect(withHistory.history).not.toBeNull();
   });
 });

@@ -62,6 +62,8 @@ import { visibleReports, type FeatureModuleId, ALL_MODULE_IDS } from "./feature-
 import { ActionChips, chipsForView } from "./action-chips";
 import type { AppView } from "./nav-config";
 import type { SuggestedAction } from "./next-actions/types";
+import type { SnapshotRecord } from "./snapshot";
+import type { BudgetHistoryEntry } from "./budget-history";
 import type {
   Absence, BudgetBucket, Discipline, FxRates, Grade, Milestone, RaidItem, Resource, ResourcePlan, Role, Stakeholder,
 } from "./types";
@@ -73,6 +75,10 @@ import type {
  *  `= []` in the destructuring mints a new array every render, which is exactly
  *  the identity churn the prop's own docstring asks callers to avoid. */
 const EMPTY_EXTRA_REPORTS: AddableReportId[] = [];
+// Same identity-stability reasoning as `EMPTY_EXTRA_REPORTS` (Task 10): an
+// inline `[]` default would mint a fresh array every render.
+const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
+const EMPTY_BUDGET_HISTORY: readonly BudgetHistoryEntry[] = [];
 
 /** ★ Narrows a block id to one of the four embedded report panels. Those are
  *  the only blocks a feature module can switch off; the nine built-ins read
@@ -90,6 +96,8 @@ export function ReportsPanel({
   nextActions = [], onOpenAction, onShowActions,
   projectId = "default",
   isPopout = false,
+  snapshots = EMPTY_SNAPSHOTS,
+  budgetHistory = EMPTY_BUDGET_HISTORY,
 }: {
   tasks: readonly Task[];
   today: string;
@@ -144,6 +152,11 @@ export function ReportsPanel({
   nextActions?: readonly SuggestedAction[];
   onOpenAction?: (a: SuggestedAction) => void;
   onShowActions?: () => void;
+  /** Recorded snapshots, only when Turso trends are active — threaded to the
+   *  embedded Budget report for its earned-value history chart (Task 10). */
+  snapshots?: readonly SnapshotRecord[];
+  /** The project's recorded budget-at-completion history (`useWorkspace()`). */
+  budgetHistory?: readonly BudgetHistoryEntry[];
 }) {
   // id -> Resource lookup so the by-assignee grouping keys off each linked
   // task's LIVE resource name (the stored `assignee` cache goes stale on rename).
@@ -378,7 +391,7 @@ export function ReportsPanel({
 
   const renderEmbedded = (id: AddableReportId) => {
     if (id === "raid-report") return <RaidReportPanel embedded lang={lang} items={raid} today={today} resourcesById={resourcesById} />;
-    if (id === "budget-report") return plan ? <BudgetReportPanel embedded lang={lang} buckets={buckets} plan={plan} roles={roles} disciplines={disciplines} grades={grades} resources={resources} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} fxRates={fxRates} tasks={tasks} today={today} /> : null;
+    if (id === "budget-report") return plan ? <BudgetReportPanel embedded lang={lang} buckets={buckets} plan={plan} roles={roles} disciplines={disciplines} grades={grades} resources={resources} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} fxRates={fxRates} tasks={tasks} today={today} snapshots={snapshots} budgetHistory={budgetHistory} /> : null;
     if (id === "resource-report") return plan ? <ResourcesReportPanel embedded lang={lang} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} /> : null;
     if (id === "stakeholder-report") return <StakeholderReportPanel embedded lang={lang} stakeholders={stakeholders} milestones={milestones} />;
     return null;

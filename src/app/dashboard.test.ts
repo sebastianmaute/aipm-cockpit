@@ -7,6 +7,8 @@ import {
 } from "./dashboard";
 import type { ProjectReport } from "./budget-report";
 import { isPaceAvailable } from "./budget-forecast";
+import { summarizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
+import type { SnapshotRecord } from "./snapshot";
 import type { Task, RaidItem, Milestone, ChangeItem, BudgetBucket, Role } from "./types";
 import type { ActivityEntry } from "./activity-log";
 
@@ -198,7 +200,7 @@ describe("computeDashboard", () => {
       tasks: [], raid: [], budgets: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
       roles: [], resources: [], absences: [], fxRates: null, workdayHours: 8,
       holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02",
-      milestones: [], changes: [], disciplines: [], grades: [],
+      milestones: [], changes: [], disciplines: [], grades: [], snapshots: [], budgetHistory: [],
       ...over,
     };
   }
@@ -443,6 +445,51 @@ describe("computeDashboard", () => {
   it("has no forecast bundle without budgets", () => {
     expect(computeDashboard(baseInput()).forecastBundle).toBeNull();
   });
+
+  // Task 10: `snapshots`/`budgetHistory` are optional `DashboardEntities`
+  // fields, defaulted to `[]` by `buildDashboardInput`, threaded through to
+  // `computeForecastBundle`'s `progress`/`budgetHistory`.
+  it("threads recorded snapshots into the earned-value history and budget history into the bundle's history", () => {
+    const manualBucket = {
+      id: 9, name: "Manual", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-12-31", status: "open", percentComplete: 60,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
+    } as unknown as BudgetBucket;
+    const snapshots: SnapshotRecord[] = [{
+      id: "s1", capturedAt: "2026-01-01T00:00:00.000Z", bucket: "2026-01", cadence: "monthly", trigger: "manual",
+      isBaseline: false, remainingHours: null, remainingCost: null, pctComplete: 30,
+      forecastEndDate: "2026-12-31", planEndDate: "2026-12-31", spi: null, cpi: null,
+      overallRag: "", scheduleRag: "", budgetRag: "", scopeRag: "",
+      milestones: [], series: [], bucketProgress: [{ bucketId: 9, pctComplete: 30 }],
+    }];
+    const history: BudgetHistoryEntry[] = [{
+      id: "h1", at: "2026-01-01T00:00:00.000Z", date: "2026-01-01", kind: "baseline",
+      bucketId: null, bucketName: "", projectBacHours: 100, projectBacValue: 15000, deltaHours: 0, deltaValue: 0,
+    }];
+    const m = computeDashboard(baseInput({ budgets: [manualBucket], roles: [bucketChainRole], snapshots, budgetHistory: history }));
+    expect(m.forecastBundle).not.toBeNull();
+    expect(m.forecastBundle!.history).toEqual(summarizeBudgetHistory(history));
+    // Previously (progress stubbed to an empty Map — Task 8), every
+    // pre-today point had no record to read and stayed partial.
+    expect(m.forecastBundle!.evHistory.available).toBe(true);
+    if (m.forecastBundle!.evHistory.available) {
+      expect(m.forecastBundle!.evHistory.points.some((p) => p.partial.length > 0)).toBe(false);
+    }
+  });
+
+  it("without snapshots, a hand-entered bucket's pre-today points stay partial (the Task 8 stub's prior behaviour)", () => {
+    const manualBucket = {
+      id: 9, name: "Manual", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-12-31", status: "open", percentComplete: 60,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
+    } as unknown as BudgetBucket;
+    const m = computeDashboard(baseInput({ budgets: [manualBucket], roles: [bucketChainRole] }));
+    expect(m.forecastBundle!.history).toBeNull();
+    expect(m.forecastBundle!.evHistory.available).toBe(true);
+    if (m.forecastBundle!.evHistory.available) {
+      expect(m.forecastBundle!.evHistory.points.some((p) => p.partial.length > 0)).toBe(true);
+    }
+  });
 });
 
 describe("dashboard scope signal from changes", () => {
@@ -451,7 +498,7 @@ describe("dashboard scope signal from changes", () => {
       tasks: [], raid: [], budgets: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
       roles: [], resources: [], absences: [], fxRates: null, workdayHours: 8,
       holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02",
-      milestones: [], changes: [], disciplines: [], grades: [],
+      milestones: [], changes: [], disciplines: [], grades: [], snapshots: [], budgetHistory: [],
       ...over,
     };
   }
@@ -494,7 +541,7 @@ describe("computeDashboard burndown", () => {
       roles: [], resources: [], absences: [], fxRates: null,
       workdayHours: 8, holidaySet: holidays,
       status: {} as DashboardInput["status"], activity: [], today, milestones: [], changes: [],
-      disciplines: [], grades: [],
+      disciplines: [], grades: [], snapshots: [], budgetHistory: [],
       ...over,
     };
   }

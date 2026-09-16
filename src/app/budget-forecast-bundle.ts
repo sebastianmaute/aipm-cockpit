@@ -4,21 +4,30 @@
  * Budget report and the dashboard already hold. A separate module because
  * `budget-rate-mix.ts` imports from `budget-forecast.ts` (plan Ruling 2 — no
  * import cycle). `budget-ev-history.ts` does not: it imports
- * `budget-earned-value`, `task-status`, `budget-report` and `types` only.
+ * `budget-earned-value`, `task-status`, `budget-report`, `types` and
+ * `snapshot` (type-only, for `SnapshotRecord`).
  */
 import { computeBudgetForecastsByUnit, type BudgetForecast, type BudgetForecastInput } from "./budget-forecast";
 import { actualPointDates } from "./budget-burndown";
 import { computeEvHistory, type BucketProgressRecord, type EvHistory } from "./budget-ev-history";
 import { computeRateMix, type RateMix } from "./budget-rate-mix";
+import { summarizeBudgetHistory, type BudgetHistoryEntry, type BudgetHistorySummary } from "./budget-history";
 import type { Absence, Discipline, Grade, Resource, Task } from "./types";
 
-export type ForecastBundle = { eur: BudgetForecast; hours: BudgetForecast; mix: RateMix | null; evHistory: EvHistory };
+export type ForecastBundle = {
+  eur: BudgetForecast; hours: BudgetForecast; mix: RateMix | null; evHistory: EvHistory;
+  /** The recorded budget-at-completion series (Task 5), summarized — or null
+   *  before the first recorded budget change (ruling R1). */
+  history: BudgetHistorySummary | null;
+};
 export type ForecastBundleInput = BudgetForecastInput & {
   tasks: readonly Pick<Task, "id" | "status" | "completedDate">[];
   resources: readonly Resource[]; workdayHours: number; absences: readonly Absence[];
   disciplines: readonly Discipline[]; grades: readonly Grade[];
   /** Recorded percents of hand-entered buckets, from `bucketProgressSeries`. */
   progress: ReadonlyMap<number, readonly BucketProgressRecord[]>;
+  /** The project's recorded budget-at-completion history (`useWorkspace().budgetHistory`). */
+  budgetHistory: readonly BudgetHistoryEntry[];
 };
 
 export function computeForecastBundle(input: ForecastBundleInput): ForecastBundle {
@@ -33,5 +42,6 @@ export function computeForecastBundle(input: ForecastBundleInput): ForecastBundl
     dates: actualPointDates(input.burndown, input.today), today: input.today,
     progress: input.progress,
   });
-  return { eur, hours, mix, evHistory };
+  const history = summarizeBudgetHistory(input.budgetHistory);
+  return { eur, hours, mix, evHistory, history };
 }

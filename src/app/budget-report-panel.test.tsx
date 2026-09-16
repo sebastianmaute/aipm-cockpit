@@ -1,9 +1,12 @@
-import { beforeAll, describe, expect, it } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BudgetReportPanel, BucketDetailTable, detailRowRateSource } from "./budget-report-panel";
 import { loadI18n, t } from "./i18n";
+import { SETTINGS_KEY } from "./use-settings";
+import { defaultSettings } from "./settings-types";
 import type { BucketReport, CciValue } from "./budget-report";
+import type { SnapshotRecord } from "./snapshot";
 import type { BudgetBucket, FxRates, ResourcePlan, Role } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "EUR" };
@@ -572,5 +575,59 @@ describe("BudgetReportPanel — forecast section order", () => {
     // exact EN title — no regex needed.
     expect(within(forecastSection).getByRole("region", { name: t("en-US", "forecastPaceTitle") })).toBeInTheDocument();
     expect(within(forecastSection).getByRole("region", { name: t("en-US", "forecastEfficiencyTitle") })).toBeInTheDocument();
+  });
+});
+
+// Task 10: threads `snapshots` into `bucketProgressSeries` -> `progress`, so a
+// hand-entered bucket's recorded history reaches the earned-value chart. The
+// ev-history line only draws in the "cumulative" chart orientation
+// (`burndown-geometry.ts`'s `!down` gate), so these tests persist that device
+// choice to `localStorage` before rendering, mirroring
+// `burndown-chart-panel.test.tsx`'s "opens on a persisted device choice".
+describe("BudgetReportPanel — snapshot progress feeds the earned-value chart (Task 10)", () => {
+  beforeAll(() => loadI18n("en-US"));
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, budgetChartView: "cumulative" }));
+  });
+
+  function snapshotRecord(over: Partial<SnapshotRecord> = {}): SnapshotRecord {
+    return {
+      id: "2026-01-01T00:00:00.000Z", capturedAt: "2026-01-01T00:00:00.000Z",
+      bucket: "2026-01", cadence: "monthly", trigger: "manual", isBaseline: false,
+      remainingHours: null, remainingCost: null, pctComplete: 30,
+      forecastEndDate: "2026-06-30", planEndDate: "2026-06-30", spi: null, cpi: null,
+      overallRag: "", scheduleRag: "", budgetRag: "", scopeRag: "",
+      milestones: [], series: [], bucketProgress: [{ bucketId: 1, pctComplete: 30 }],
+      ...over,
+    };
+  }
+  const manualPlan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-06-30", granularity: "month", currency: "EUR" };
+  const manualBucket: BudgetBucket = {
+    id: 1, name: "Manual", type: "tm", currency: "EUR",
+    startDate: "2026-01-01", endDate: "2026-06-30", status: "open", percentComplete: 60,
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
+  } as unknown as BudgetBucket;
+
+  it("without a matching snapshot record, the bucket's pre-today points stay partial", async () => {
+    renderPanel({ buckets: [manualBucket], plan: manualPlan, today: "2026-06-02" });
+    await act(async () => {});
+    expect(screen.getByText(t("en-US", "burndownEvPartial"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "burndownEvPartialNotRecorded", "Manual"))).toBeInTheDocument();
+  });
+
+  it("draws a solid earned-value line, with no partial legend/aria sentence, once the bucket's recorded snapshot is threaded", async () => {
+    const { container } = renderPanel({
+      buckets: [manualBucket], plan: manualPlan, today: "2026-06-02",
+      snapshots: [snapshotRecord()],
+    });
+    await act(async () => {});
+    // Previously (progress stubbed to an empty Map — Task 8), every point
+    // before today had no record to read and stayed partial; assert on both
+    // the chart's accessible name (aria-label) and the visible legend/caption.
+    const aria = container.querySelector("svg[role='img']")?.getAttribute("aria-label") ?? "";
+    expect(aria).not.toContain(t("en-US", "burndownAriaEvPartial", "Manual"));
+    expect(screen.queryByText(t("en-US", "burndownEvPartial"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "burndownEvPartialNotRecorded", "Manual"))).toBeNull();
   });
 });

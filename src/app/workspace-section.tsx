@@ -83,7 +83,7 @@ import {
   KnowledgePanel,
   TimelogPanel, DocumentsTabPanel,
 } from "./workspace-panels";
-import { baselineMilestoneTargets } from "./snapshot";
+import { baselineMilestoneTargets, type SnapshotRecord } from "./snapshot";
 import { loadActualsCache } from "./timelog-actuals-store";
 import { bucketOverlay } from "./timelog-actuals";
 import type { WorkspaceSectionProps } from "./workspace-section-types";
@@ -92,6 +92,11 @@ import { isAiEnabled } from "./settings-types";
 // Re-export so existing importers of `WorkspaceSectionProps` from
 // "./workspace-section" keep working (the type now lives in the types module).
 export type { WorkspaceSectionProps } from "./workspace-section-types";
+
+// Task 10: a stable identity for the "trends inactive" default, so the Budget
+// report / Reports panes' `snapshots` prop never mints a fresh array (see the
+// AGENTS.md memo bullet — a fresh literal invalidates a memo dependency).
+const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
 
 export function WorkspaceSection({
   today,
@@ -239,7 +244,7 @@ export function WorkspaceSection({
   //   thing `use-entity-inline-ai-edit.tsx` does with `useWorkspace()` for the
   //   inline row editor, which grounds through the same descriptor engine.
   const workspace = useWorkspace();
-  const { tasks, raid, absences, shifts, resources, setResources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights } = workspace;
+  const { tasks, raid, absences, shifts, resources, setResources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights, budgetHistory } = workspace;
   // Per-project EFFECTIVE settings — device folded with this project's policy
   // overrides (nextActions/notifications/timezone) AND its per-device appearance
   // overrides (density/view-hints/tasks-view-mode). Reactive: an appearance change
@@ -423,6 +428,8 @@ export function WorkspaceSection({
               nextActions={nextActions}
               onOpenAction={onOpenAction}
               onShowActions={() => setActiveTab("actions")}
+              snapshots={trendsActive ? trendsSnapshots : EMPTY_SNAPSHOTS}
+              budgetHistory={budgetHistory}
             />
           </div>
         )}
@@ -778,6 +785,8 @@ export function WorkspaceSection({
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
+              snapshots={trendsActive ? trendsSnapshots : EMPTY_SNAPSHOTS}
+              budgetHistory={budgetHistory}
             />
           </div>
         )}
