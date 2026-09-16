@@ -723,10 +723,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§498](#498-the-msal-sign-in-flow-has-never-been-smoke-tested-against-a-real-microsoft-365-tenant--open) | The MSAL sign-in flow has never been smoke-tested against a real Microsoft 365 tenant — OPEN | tech-debt-register dependency table (`@azure/msal-browser` caveat), moved into the register 2026-09-13 | S–M — a documented manual smoke per MSAL bump, or a gated e2e with tenant secrets if a CI tenant is ever provisioned | open |
 | [§499](#499-the-four-executive-budget-figures-are-not-all-surfaced-because-etc-eac-and-vac-are-computed-nowhere--closed-2026-09-15) | The four executive budget figures are not all surfaced, because ETC, EAC and VAC are computed nowhere — CLOSED 2026-09-15 | AI PM Cockpit demo 2026-09-11 (F-1), GitLab #38; mirrored into the register 2026-09-13 | M — one agreed formula, then the Budget panel, Budget report and Dashboard | **CLOSED** 2026-09-15 |
 | [§500](#500-budget-forecast-hours-cannot-be-imported-from-a-spreadsheet-and-must-be-re-entered-by-hand--open) | Budget forecast hours cannot be imported from a spreadsheet and must be re-entered by hand — OPEN | AI PM Cockpit demo 2026-09-11 (F-2), GitLab #39; mirrored into the register 2026-09-13 | M — an importer for resource × month × hours × rate that writes bucket allocations | open |
-| [§501](#501-evm-terminology-is-incomplete-across-the-app-with-no-bac-eac-or-etc-labels-and-no-time-phased-s-curve--open) | EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve — OPEN | AI PM Cockpit demo 2026-09-11 (F-3), GitLab #40; mirrored into the register 2026-09-13 | M — terminology and hints first, the S-curve chart as a second slice | open |
+| [§501](#501-evm-terminology-is-incomplete-across-the-app-with-no-bac-eac-or-etc-labels-and-no-time-phased-s-curve--closed-2026-09-15) | EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve — CLOSED 2026-09-15 | AI PM Cockpit demo 2026-09-11 (F-3), GitLab #40; mirrored into the register 2026-09-13 | M — terminology and hints first, the S-curve chart as a second slice | **CLOSED** 2026-09-15 |
 | [§502](#502-there-is-no-probabilistic-monte-carlo-forecast-with-scenarios-and-confidence-levels--open) | There is no probabilistic Monte Carlo forecast with scenarios and confidence levels — OPEN | AI PM Cockpit demo 2026-09-11 (F-4), GitLab #41; mirrored into the register 2026-09-13 | L — a simulation engine, scenario inputs and P50/P80-style output on the forecast surfaces | open |
 | [§503](#503-task-effort-and-over-budget-handling-misbehaved-during-the-demo-and-no-reproduction-was-recorded--open) | Task effort and over-budget handling misbehaved during the demo, and no reproduction was recorded — OPEN | AI PM Cockpit demo 2026-09-11 (F-6), GitLab #43; mirrored into the register 2026-09-13 | unestimated (product backlog) — nothing can be sized until the live misbehaviour is reproduced | open |
-| [§504](#504-the-burn-down-draws-no-forecast-line-and-is-not-aligned-with-the-internal-AIPM-project-burndown-standard--open) | The burn-down draws no forecast line and is not aligned with the internal AIPM Project Burndown standard — OPEN | AI PM Cockpit demo 2026-09-11 (F-7), GitLab #44; mirrored into the register 2026-09-13 | M — once the full article has been read | open |
+| [§504](#504-the-burn-down-draws-no-forecast-line-and-is-not-aligned-with-the-internal-AIPM-project-burndown-standard--closed-2026-09-15) | The burn-down draws no forecast line and is not aligned with the internal AIPM Project Burndown standard — CLOSED 2026-09-15 | AI PM Cockpit demo 2026-09-11 (F-7), GitLab #44; mirrored into the register 2026-09-13 | M — once the full article has been read | **CLOSED** 2026-09-15 |
 | [§505](#505-there-is-no-project-governance-module-that-weights-health-by-engagement-type--open) | There is no project governance module that weights health by engagement type — OPEN | AI PM Cockpit demo 2026-09-11 (G-1), GitLab #45; mirrored into the register 2026-09-13 | L — engagement type on the project, a weight profile and a weighted health engine | open |
 | [§506](#506-a-delivery-project-cannot-represent-the-clients-own-governance-structure-beside-AIPM-governance--open) | A delivery project cannot represent the client's own governance structure beside AIPM governance — OPEN | AI PM Cockpit demo 2026-09-11 (G-2), GitLab #46; mirrored into the register 2026-09-13 | unestimated (product backlog) — likely scoped together with §505 | open |
 | [§507](#507-multi-tenancy-is-not-built-at-the-app-layer-no-identity-no-hosted-deployment-and-no-pm-dimension-in-the-portfolio-view--open) | Multi-tenancy is not built at the app layer: no identity, no hosted deployment and no PM dimension in the portfolio view — OPEN | AI PM Cockpit demo 2026-09-11 (M-1), GitLab #47; mirrored into the register 2026-09-13 | L — identity and login, ownership, access control, hosting, then the portfolio dimension | open |
@@ -771,6 +771,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§546](#546-a-dated-timelog-applys-other-granularity-delete-removes-hand-typed-hours-from-days-it-never-routed-and-the-confirm-dialog-never-discloses-it--open) | A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — OPEN | found 2026-09-15 while filing the §543 closure text on `feat/budget-forecast-figures`; user approved filing | S — list the removed other-granularity key in the confirm dialog; re-keying the leftover hours is not sound, since the lump sum has no day-level breakdown | open |
 | [§547](#547-the-desktop-sign-in-popups-state-machine-has-no-unit-harness--open) | The desktop sign-in popup's state machine has no unit harness — OPEN | final review of `chore/electron-44` (M-7 + item 2 recommendation), state bugs M-C/m1/m2 found only by review; GitLab #338 | S–M — a pure `auth-flow-tracker.ts` reducer plus tests replaying the M-C/m1/m2 sequences | open |
 | [§548](#548-an-edit-made-during-a-projects-first-backend-load-is-overwritten-when-that-load-lands--open) | An edit made during a project's first backend load is overwritten when that load lands — OPEN | found 2026-09-15 debugging a `task-manager.template-notice.test.tsx` race on `chore/electron-44`; GitLab #336 | S–M — withhold edits until the first load lands, or make the load-time guard compare per slice | open |
+| [§549](#549-buckets-with-a-hand-entered--complete-have-no-earned-value-history-so-the-cumulative-chart-cannot-draw-one-for-them--open) | Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — OPEN | deferred 2026-09-15 by the forecast chart and hours addendum (MR 3), user approved filing; GitLab #339 | M — record % complete per period for hand-entered buckets | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -35972,7 +35973,7 @@ deliberately so: snapshots already persisted in a Turso project carry a non-EUR 
 a reader-side fix relabels those. `89ee78a7` then dropped the `latest` prop from `TrendsPanelProps`,
 which had become dead. The consequence is that the whole chain from the writer through the persisted
 column and its decode is still live, and **nothing reads the decoded value**. The `currency` passed
-to `BurndownCharts` from `dashboard-tile-bodies.tsx` is not this field — it is the dashboard args'
+to `BurndownChartPanel` from `dashboard-tile-bodies.tsx` is not this field — it is the dashboard args'
 own relabelled `"EUR"` literal.
 
 Deferred rather than folded into the currency-boundary slice because removing the field is a schema
@@ -37088,15 +37089,13 @@ Size M — an importer for resource × month × hours × rate that writes bucket
 
 **Work item:** #39
 
-## 501. EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve — OPEN
+## 501. EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve — CLOSED 2026-09-15
 
-**Status:** OPEN 2026-09-15 — the forecast figures (§499, closed) shipped BAC/EAC/ETC/VAC labels and the
-effort-index qualifier: `grep -n "forecastFactBac\|evmCpi" src/app/i18n.ts` prints three lines — among
-them `forecastFactBac: "Budget (BAC)"` and `evmCpi: "Effort CPI"` (the third is `evmCpiHint`'s text;
-paired with `evmSpi: "Effort SPI"`, outside the grep pattern); the forecast cards' own
-`forecastEacPace`/`forecastEtcPace`/`forecastVacPace` (and the Efficiency-card pair) render the EAC/ETC/VAC
-terms. The time-phased EVM S-curve from `docs/superpowers/specs/2026-06-02-earned-value-design.md` remains
-for MR 3 of the forecast-figures slice, still not built.
+**Status:** CLOSED 2026-09-15 — the forecast figures (§499) shipped the BAC/EAC/ETC/VAC labels; MR 3 of the
+budget forecast slice shipped the time-phased view: the Cumulative orientation of the burn-down chart draws
+planned value, actual cost and a derived earned-value line (`grep -n "burndownValueCumulative\|burndownEvHistory"
+src/app/i18n.ts` prints both keys; `buildChartModel` in `burndown-geometry.ts` builds `evLine`). Earned-value
+history for buckets with a hand-entered % complete continues as §549.
 
 Kai Mindermann asked for Earned Value Management terminology throughout the app, explicitly including the
 charts and graphs, not only the labels. The underlying data was said to exist already.
@@ -37112,8 +37111,6 @@ over time) from `docs/superpowers/specs/2026-06-02-earned-value-design.md`.
 Size M — terminology and hints first, the S-curve chart as a second slice.
 
 **Source:** GitLab #40 (F-3, source::demo-2026-09-11)
-
-**Work item:** #40
 
 ## 502. There is no probabilistic Monte Carlo forecast with scenarios and confidence levels — OPEN
 
@@ -37155,15 +37152,14 @@ Size unestimated (product backlog) — nothing can be sized until the live misbe
 
 **Work item:** #43
 
-## 504. The burn-down draws no forecast line and is not aligned with the internal AIPM Project Burndown standard — OPEN
+## 504. The burn-down draws no forecast line and is not aligned with the internal AIPM Project Burndown standard — CLOSED 2026-09-15
 
-**Status:** OPEN 2026-09-15 — `grep -rln "computeBurndownSeries(" src/app` → `budget-burndown.ts`,
-`budget-forecast.ts`, `budget-report-panel.tsx` and `dashboard.ts` plus tests (the bare, unparenthesised
-grep also matches a comment-only mention in `fx.ts`). The executive forecast figures (BAC/EAC/ETC/VAC,
-§499, closed) ship in MR 2 of `docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md`; a drawn
-forecast/projection line on the burn-down chart itself, and the chart's burn-down/cumulative switch, are
-MR 3 of that slice and are NOT part of this MR — the chart still draws no forecast line. Alignment with the
-article is never machine-verified; nobody has read it in full.
+**Status:** CLOSED 2026-09-15 — the burn-down chart draws the current-pace forecast (the AIPM Project Burndown
+"Forecast (Simple)" line: remaining budget minus the 20-working-day burn rate) and the current-efficiency
+forecast, with a run-out marker, on the Budget report and the dashboard burn tile (`grep -n
+"stroke-ui-dark-blue\|stroke-ui-purple" src/app/burndown-chart.tsx` prints both forecast lines). Alignment
+with the article: burn rate over the last 20 working days, run-out date, and depletion before or after plan
+end, per `docs/superpowers/specs/2026-09-14-budget-forecast-union-design.md` §1.
 
 Kai Mindermann asked in writing that the forecasting approach align with the Acme Confluence blog
 article "The Project Burndown". It was not discussed on the call.
@@ -37177,8 +37173,6 @@ Related: §466 (Help promises the missing forecast line), §472 (fixed-price buc
 Size M — once the full article has been read.
 
 **Source:** GitLab #44 (F-7, source::demo-2026-09-11)
-
-**Work item:** #44
 
 ## 505. There is no project governance module that weights health by engagement type — OPEN
 
@@ -38326,6 +38320,10 @@ planned renames the snapshot's `evm.spi` / `evm.cpi` become the effort indices w
 Fix shape: once MR 2 ships the forecast engine, add the forecast figures to the snapshot and the exports, and
 rename or document the snapshot's effort indices.
 
+MR 3 of that slice (`docs/superpowers/specs/2026-09-15-forecast-chart-hours-design.md`) adds an hours forecast and
+a rate-mix signal (average booked rate against the planned rate, and the role driving the difference) to the same
+surfaces. The snapshot and the exports carry none of those either; they belong in the same fix.
+
 Related: §499, §501.
 
 ## 546. A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — OPEN
@@ -38465,3 +38463,22 @@ only whether the load is empty as a whole.
 
 Related: §284 (a different Turso load-time data-loss mechanism — a silently discarded meta-blob decode failure —
 closed 2026-08-29); §98 (the save-path analogue: `documents` invisible to the save-time data-loss guards).
+
+## 549. Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — OPEN
+
+**Status:** OPEN 2026-09-15 — MR 3 derives earned-value history from task completion dates, all or nothing:
+`grep -n "manual-percent" src/app/budget-ev-history.ts` shows the unavailable state a hand-entered percent
+produces, and the chart then names those buckets instead of drawing a line.
+
+**Work item:** #339
+
+MR 3 of the budget forecast slice (`docs/superpowers/specs/2026-09-15-forecast-chart-hours-design.md`) shipped
+a per-period earned-value history for buckets whose percent complete comes from linked tasks: the history is
+reconstructed from each task's completion date, with today's bucket-to-task links applied across the whole
+period, since nothing records how a link looked in the past. A bucket whose percent complete is hand-entered
+carries no such record, so the chart names it as unavailable instead of drawing an invented line.
+
+Fix shape: record each bucket's percent complete per period (for example alongside Turso snapshots), so a
+hand-entered percent gains history from the day recording starts.
+
+Related: §501, §504.

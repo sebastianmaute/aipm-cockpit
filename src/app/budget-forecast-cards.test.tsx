@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { ForecastCards } from "./budget-forecast-cards";
 import { ForecastFactsRow } from "./budget-forecast-facts";
 import { formatCurrency } from "./resource-cost";
 import { formatSignedPercent } from "./forecast-format";
 import { localeFor, t } from "./i18n";
 import { formatDayMonthYear } from "./forecast-format";
+import { EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, MIX_HOURS_WORSE, MIX_ON_PLAN } from "../test/forecast-fixtures";
+import { rateMixExplanation } from "./budget-rate-mix-text";
 import type { BudgetForecast, PaceForecast, PaceUnavailable, EfficiencyUnavailable } from "./budget-forecast";
 
 const locale = localeFor("en-US");
@@ -196,5 +198,44 @@ describe("ForecastCards + ForecastFactsRow — accessibility", () => {
     render(<ForecastCards lang="en-US" forecast={AVAILABLE} />);
     expect(screen.getByRole("region", { name: t("en-US", "forecastPaceTitle") })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: t("en-US", "forecastEfficiencyTitle") })).toBeInTheDocument();
+  });
+});
+
+describe("ForecastCards — In hours (MR 3)", () => {
+  it("renders no hours line without hours", () => {
+    render(<ForecastCards lang="en-US" forecast={EUR_FORECAST} />);
+    expect(screen.queryByText("In hours")).toBeNull();
+  });
+
+  it("shows EAC, VAC and run-out in hours, and CPI (hours) on the efficiency card", () => {
+    render(<ForecastCards lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_ON_PLAN} />);
+    expect(screen.getAllByText("In hours")).toHaveLength(2);
+    expect(screen.getByText("2,209 h")).toBeInTheDocument();
+    expect(screen.getByText("2,339 h")).toBeInTheDocument();
+    expect(screen.getByText("Nov 23, 2026")).toBeInTheDocument();
+    expect(screen.getByText("CPI (hours)")).toBeInTheDocument();
+    expect(screen.getByText("0.86")).toBeInTheDocument();
+  });
+
+  it("shows card-unique chips when the mix triggers, explained by the shared sentence", () => {
+    render(<ForecastCards lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_HOURS_WORSE} />);
+    const pace = screen.getByRole("button", { name: "Effort worse than € at current pace — why?" });
+    expect(screen.getByRole("button", { name: "Effort worse than € at current efficiency — why?" })).toBeInTheDocument();
+    expect(pace).toHaveTextContent("Effort worse than €");
+    act(() => pace.focus());
+    expect(screen.getByRole("tooltip")).toHaveTextContent(
+      rateMixExplanation("en-US", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE),
+    );
+  });
+
+  it("shows no chip when the mix does not trigger", () => {
+    render(<ForecastCards lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_ON_PLAN} />);
+    expect(screen.queryByRole("button", { name: /why\?$/ })).toBeNull();
+  });
+
+  it("hides the pace hours line when the hours pace forecast is unavailable", () => {
+    const hours: BudgetForecast = { ...HOURS_FORECAST_HOURS_WORSE, pace: { unavailable: "no-burn", windowStart: "2026-08-17", windowEnd: "2026-09-11", lastBookingDate: null } };
+    render(<ForecastCards lang="en-US" forecast={EUR_FORECAST} hours={hours} mix={MIX_ON_PLAN} />);
+    expect(screen.getAllByText("In hours")).toHaveLength(1);
   });
 });

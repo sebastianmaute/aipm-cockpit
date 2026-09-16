@@ -143,6 +143,14 @@ effort CPI (`evmIndexHealth(evm.cpi)`) stays in the worst-of either way. Trends'
 from this release on — an OLDER captured snapshot stays ratio-based, because it was written before the
 pace forecast existed to read.
 
+★ **The `burn` tile's chart and hours signal (MR 3):** the chart is `BurndownChartPanel`
+(`burndown-chart-panel.tsx`) — the same component the Budget report mounts — with two `SegmentedControl`s
+writing the device settings `budgetChartView` / `budgetChartUnit` through `useSettings` (no per-project
+override). The model carries `forecastBundle` (€ and hours forecasts, rate mix, earned-value history from
+`computeForecastBundle`) and `chartDates`; `forecast` stays `forecastBundle.eur`, so the budget RAG is still
+€ only. When the rate mix triggers, `ForecastHeadline` adds a `RateMixChip` under the headline; the tile
+body scrolls inside the tile at `h: 3` as before.
+
 ★★ **TWO CHROMIUM MEASUREMENTS FROM THIS BRANCH'S REVIEW, both about assertions that LOOK sufficient:**
 • `grid-auto-flow: row dense` COMPUTES as `"dense"`, not `"row dense"` — a `toHaveCSS("grid-auto-flow",
 "row dense")` would fail against correct code. The spec's `gridMetrics` still collects `autoFlow` but

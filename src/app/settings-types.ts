@@ -623,6 +623,11 @@ export type Settings = {
   tasksViewMode?: "table" | "board" | "swimlane";
   /** Per-device Dashboard density (spacing only). Default "comfortable". */
   dashboardDensity?: "comfortable" | "compact";
+  /** Per-device burn-down chart orientation (Budget report + dashboard tile). Default "burndown".
+   *  No per-project override (MR 3 addendum §6). */
+  budgetChartView?: "burndown" | "cumulative";
+  /** Per-device burn-down chart unit. Default "eur". */
+  budgetChartUnit?: "eur" | "hours";
   /** Per-device: the Resource id representing "me" (the current user). Drives
    *  note-log author attribution etc. Undefined = not set. Positive integer. */
   selfResourceId?: number;
@@ -725,6 +730,8 @@ export const defaultSettings: Settings = {
   hideExternalTasks: false,
   tasksViewMode: "table",
   dashboardDensity: "comfortable",
+  budgetChartView: "burndown",
+  budgetChartUnit: "eur",
   digest: { enabled: false, cadenceDays: 7 },
   dictation: { engine: "web-speech", hotkey: "F4" },
   showViewHints: true,

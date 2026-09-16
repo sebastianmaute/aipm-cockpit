@@ -8,6 +8,8 @@ import { formatCurrency } from "./resource-cost";
 import { Tile } from "./report-table";
 import { TermTooltip } from "./budget-forecast-tooltip";
 import type { BudgetForecast } from "./budget-forecast";
+import { rateFactParts, rateFactTip } from "./budget-rate-mix-text";
+import type { RateMix } from "./budget-rate-mix";
 
 /** Label with a term-bearing "What is X?" tooltip trigger (§6.2). */
 function FactLabel({ lang, term, tip }: { lang: Lang; term: string; tip: string }) {
@@ -19,7 +21,11 @@ function FactLabel({ lang, term, tip }: { lang: Lang; term: string; tip: string 
   );
 }
 
-export function ForecastFactsRow({ lang, forecast }: { lang: Lang; forecast: BudgetForecast }) {
+export function ForecastFactsRow({
+  lang, forecast, mix = null,
+}: {
+  lang: Lang; forecast: BudgetForecast; mix?: RateMix | null;
+}) {
   const locale = localeFor(lang);
   const money = (n: number) => formatCurrency(n, "EUR", locale);
   const { bac, ac, remaining, ev, percentComplete } = forecast.facts;
@@ -36,8 +42,13 @@ export function ForecastFactsRow({ lang, forecast }: { lang: Lang; forecast: Bud
   const remainingTerm = t(lang, "forecastFactRemaining");
   const evTerm = t(lang, "forecastFactEv");
 
+  // Split into rate/note/arrow by Task 7's `rateFactParts` — the ONE place the
+  // `RATE_DRIFT_SIGNAL_RATIO` threshold is checked (controller ruling P13);
+  // this component never re-derives the arrow from the raw drift ratio.
+  const rateParts = mix ? rateFactParts(lang, mix) : null;
+
   return (
-    <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className={`mb-3 grid grid-cols-2 gap-3 ${mix ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-4"}`}>
       <Tile
         label={<FactLabel lang={lang} term={bacTerm} tip={t(lang, "forecastTipBac", money(bac))} />}
         value={money(bac)}
@@ -54,6 +65,18 @@ export function ForecastFactsRow({ lang, forecast }: { lang: Lang; forecast: Bud
         label={<FactLabel lang={lang} term={evTerm} tip={t(lang, "forecastTipEv", evMoneyText, evPercentText)} />}
         value={evValue}
       />
+      {mix && rateParts ? (
+        <Tile
+          label={<FactLabel lang={lang} term={t(lang, "forecastFactRate")} tip={rateFactTip(lang, mix)} />}
+          value={
+            rateParts.arrow !== null ? (
+              <>{rateParts.rate} <span aria-hidden="true">{rateParts.arrow}</span> {rateParts.note}</>
+            ) : (
+              <>{rateParts.rate} · {rateParts.note}</>
+            )
+          }
+        />
+      ) : null}
     </div>
   );
 }

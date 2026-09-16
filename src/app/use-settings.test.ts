@@ -166,6 +166,39 @@ describe("useSettings", () => {
       expect(result.current.settings.tasksViewMode).toBe("swimlane");
     });
 
+    it("budget chart settings default to burn-down and € when absent", async () => {
+      const legacy: Record<string, unknown> = { ...defaultSettings };
+      delete legacy.budgetChartView;
+      delete legacy.budgetChartUnit;
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.budgetChartView).toBe("burndown");
+      expect(result.current.settings.budgetChartUnit).toBe("eur");
+    });
+
+    it("budget chart settings coerce invalid values to the defaults", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...defaultSettings, budgetChartView: "garbage", budgetChartUnit: 7 }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.budgetChartView).toBe("burndown");
+      expect(result.current.settings.budgetChartUnit).toBe("eur");
+    });
+
+    it("budget chart settings keep strictly valid persisted values", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...defaultSettings, budgetChartView: "cumulative", budgetChartUnit: "hours" }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.budgetChartView).toBe("cumulative");
+      expect(result.current.settings.budgetChartUnit).toBe("hours");
+    });
+
     it("defaults dictation.engine to 'web-speech' when absent from persisted blob", async () => {
       const legacy: Record<string, unknown> = { ...defaultSettings };
       delete legacy.dictation;

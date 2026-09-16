@@ -22,20 +22,19 @@ import { formatCurrency } from "./resource-cost";
 import { resolveRate, resolveRateSource, type RateSource } from "./fx";
 import { bucketCurrencyLabel } from "./budget-currency-label";
 import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
-import type { Absence, BudgetBucket, Discipline, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
+import type { Absence, BudgetBucket, Discipline, FxRates, Grade, ResourcePlan, Resource, Role, Task } from "./types";
 import { RagBadge } from "./rag-badge";
 import { InfoTooltip } from "./info-tooltip";
 import { ratioHealth, marginHealth, costPerformanceHealth, planVsBudgetHealth } from "./budget-health";
 import { computeBurndownSeries } from "./budget-burndown";
 import { resolveBucketChain } from "./budget-bucket-chain";
-import { BurndownCharts } from "./burndown-chart";
+import { BurndownChartPanel } from "./burndown-chart-panel";
 import { BurndownChainWarning } from "./budget-chain-warning";
 import { EmptyState } from "./empty-state";
 import { ViewCallout } from "./view-callout";
-import { computeBudgetForecast } from "./budget-forecast";
+import { computeForecastBundle } from "./budget-forecast-bundle";
 import { ForecastFactsRow } from "./budget-forecast-facts";
-import { ForecastCards } from "./budget-forecast-cards";
-import { ForecastBanners } from "./budget-forecast-banner";
+import { ForecastSection } from "./budget-forecast-section";
 
 const DETAIL_COL_WIDTHS = {
   bucket: 160, mode: 90, type: 80, status: 80, currency: 110,
@@ -47,12 +46,17 @@ type DetailSortKey =
   | "name" | "mode" | "type" | "status" | "currency"
   | "budgetH" | "planH" | "actualH" | "budgetEur" | "consumedEur" | "margin" | "winLoss";
 
+// A `grades = []` destructuring default would mint a fresh array every render,
+// invalidating the bundle memo below on every render for no input change.
+const NO_GRADES: readonly Grade[] = [];
+
 interface Props {
   lang: Lang;
   buckets: readonly BudgetBucket[];
   plan: ResourcePlan;
   roles: readonly Role[];
   disciplines: readonly Discipline[];
+  grades?: readonly Grade[];
   resources: readonly Resource[];
   absences: readonly Absence[];
   holidaySet: Set<string>;
@@ -67,7 +71,7 @@ interface Props {
 }
 
 export function BudgetReportPanel({
-  lang, buckets, plan, roles, disciplines, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
+  lang, buckets, plan, roles, disciplines, grades = NO_GRADES, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
   showHints, isPopout, onLearnMore,
 }: Props) {
   // Hooks are called unconditionally before the empty-state early return (rules of hooks).
@@ -96,10 +100,14 @@ export function BudgetReportPanel({
     ),
     [buckets, plan, roles, resources, workdayHours, holidaySet, absences, today, fxRates, bucketChain],
   );
-  const forecast = useMemo(
-    () => computeBudgetForecast({ report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today }),
-    [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today],
+  const bundle = useMemo(
+    () => computeForecastBundle({
+      report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today,
+      resources, workdayHours, absences, disciplines, grades,
+    }),
+    [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today, resources, workdayHours, absences, disciplines, grades],
   );
+  const forecast = bundle.eur;
   const { ref, reset } = useResizable("aipm-cockpit:budget-report-size");
   const detail = useColumnResize<DetailCol>("budgetReportDetail", DETAIL_COL_WIDTHS);
 
@@ -122,7 +130,7 @@ export function BudgetReportPanel({
   const content = (
     <>
       <Section title={t(lang, "budgetReportProjectTotal")}>
-        <ForecastFactsRow lang={lang} forecast={forecast} />
+        <ForecastFactsRow lang={lang} forecast={forecast} mix={bundle.mix} />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Tile label={t(lang, "budgetBudgetHours")} value={proj.budgetHours.toFixed(0)} />
           <Tile label={t(lang, "budgetPlanHours")} value={proj.plannedHours.toFixed(0)}
@@ -153,10 +161,7 @@ export function BudgetReportPanel({
       </Section>
 
       <Section title={t(lang, "forecastTitle")}>
-        <div className="space-y-3">
-          <ForecastBanners lang={lang} forecast={forecast} granularity={plan.granularity} />
-          <ForecastCards lang={lang} forecast={forecast} />
-        </div>
+        <ForecastSection lang={lang} bundle={bundle} granularity={plan.granularity} />
       </Section>
 
       <Section title={t(lang, "budgetBurndownTitle")}>
@@ -171,7 +176,7 @@ export function BudgetReportPanel({
             §465). ★ Contrast `budget-panel.tsx`'s per-bucket tiles, which
             convert EUR→bucket currency BEFORE labelling and so correctly use
             the bucket's own currency. */}
-        <BurndownCharts series={burndown} lang={lang} currency="EUR" />
+        <BurndownChartPanel lang={lang} series={burndown} bundle={bundle} today={today} planEnd={plan.endDate} currency="EUR" />
         <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
       </Section>
 

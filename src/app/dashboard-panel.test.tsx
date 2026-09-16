@@ -11,6 +11,8 @@ import * as dashboardModule from "./dashboard";
 import type { ActivityEntry } from "./activity-log";
 import type { BudgetBucket, RaidItem, Milestone, ChangeItem } from "./types";
 import { expectButtonOrder } from "../test/toolbar-order";
+import { rateMixTileChipText, rateMixWhyName } from "./budget-rate-mix-text";
+import { BUNDLE_HOURS_WORSE, HOURS_FORECAST_HOURS_WORSE, MIX_HOURS_WORSE } from "../test/forecast-fixtures";
 
 /**
  * The `scrollRef` every render hands `useListReorderDnd`, captured through a
@@ -1442,14 +1444,15 @@ describe("DashboardPanel currency labelling", () => {
 
   it("labels the burn-down value axis in EUR even when the plan names another currency", () => {
     renderUsdDashboard();
-    // Scoped to the CURRENCY chart: `Chart` renders `<div>{caption}</div><svg>`,
-    // so the caption's parent is that chart alone. The twin hours chart carries
-    // no money and would only dilute the count.
+    // Scoped to the € chart: `BurndownChart` renders `<div>{caption}</div><svg>`,
+    // so the caption's parent is that chart alone ("Budget remaining" is the
+    // default burn-down × € view).
     const valueChart = screen.getByText(/Budget remaining/i).parentElement!;
 
-    // MEASURED, not reasoned: 3 — `Chart` emits one `<text>` per y-tick and
-    // `yTicks` is `[0, max/2, max]` whenever `max > 0`.
-    const money = within(valueChart).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
+    // Y ticks only (`data-axis="y"`): forecast end labels are money too. Ticks
+    // are `[yMin if below zero, 0, total/2, total]`; this fixture books 40 h of
+    // 100 h, nothing reaches below zero, so yMin is 0 and deduplicates → 3.
+    const money = Array.from(valueChart.querySelectorAll("svg text[data-axis='y']")).map((el) => el.textContent ?? "");
     expect(money).toHaveLength(3);
     expect(money.filter((s) => s.includes("$"))).toEqual([]);
     expect(money.every((s) => s.includes("€"))).toBe(true);
@@ -1504,5 +1507,40 @@ describe("DashboardPanel budget tile — unresolved-rate FX rollup notice (§474
     renderDashboard([budgetBucket()]);
     const tile = screen.getByTestId("tile-burn");
     expect(within(tile).queryByText(/without an FX rate/i)).toBeNull();
+  });
+});
+
+// S5: the burn tile threads the bundle's `hours` and `mix` into
+// `ForecastHeadline`. Replacing either prop with null left every other test
+// green, so this pins the wiring with a triggered mix. The model is the real
+// one with only the forecast bundle swapped in: building a triggered mix from
+// workspace data would need a whole booked-hours scenario for one chip.
+describe("DashboardPanel burn tile — rate-mix chip (S5)", () => {
+  it("shows the hours-view chip inside the burn tile when the rate mix triggers", () => {
+    const realCompute = dashboardModule.computeDashboard;
+    const spy = vi.spyOn(dashboardModule, "computeDashboard").mockImplementation(
+      (...args: Parameters<typeof realCompute>) => ({
+        ...realCompute(...args), forecast: BUNDLE_HOURS_WORSE.eur, forecastBundle: BUNDLE_HOURS_WORSE,
+      }),
+    );
+    try {
+      const bucket = {
+        id: 1, name: "PO", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-12-31", status: "open",
+        allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
+      } as unknown as BudgetBucket;
+      render(
+        <DashboardPanel
+          lang="en-US" tasks={[]} raid={[]} budgets={[bucket]} plan={plan}
+          roles={[{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }]}
+          resources={[]} absences={[]} holidaySet={new Set<string>()} workdayHours={8} today="2026-06-02"
+        />,
+        { wrapper },
+      );
+      const chipText = rateMixTileChipText("en-US", MIX_HOURS_WORSE, HOURS_FORECAST_HOURS_WORSE);
+      const tile = screen.getByTestId("tile-burn");
+      expect(within(tile).getByRole("button", { name: rateMixWhyName("en-US", chipText) })).toBeInTheDocument();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

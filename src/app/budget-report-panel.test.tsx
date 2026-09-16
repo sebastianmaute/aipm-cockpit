@@ -68,17 +68,21 @@ describe("BudgetReportPanel — the project rollup discloses unresolved-rate sum
 
 describe("BudgetReportPanel", () => {
   it("shows the project rollup (revenue + cost in EUR)", () => {
-    const { container } = renderPanel();
+    renderPanel();
     // revenue = 80*180 + 50*150 + 120*150 = 39900 ; cost = 80*120 + 50*100 + 120*100 = 26600
     // Every bucket here is T&M, where consumed value IS revenue, so the figure
     // renders TWICE: once on the revenue tile, once on the consumption tile.
     // Pinned exactly — a bare "at least one" would not notice a third.
     // ★ Task 5 scope: every bucket here is also T&M, so the forecast facts
     // row's AC happens to equal the same 39,900 — scope to the EXISTING
-    // tiles grid (index 1; index 0 is the new forecast facts row) so this
-    // assertion stays about the rollup tiles, not a coincidence of the fixture.
-    const grids = container.querySelectorAll(".grid.grid-cols-2.gap-3.sm\\:grid-cols-4");
-    const existingTilesGrid = grids[1] as HTMLElement;
+    // tiles grid so this assertion stays about the rollup tiles, not a
+    // coincidence of the fixture. ★★ Find that grid through a label that
+    // lives only in it ("Consumption"), never through its classes: the
+    // Earned-value grid carries the very same `grid-cols-2 gap-3
+    // sm:grid-cols-4` classes and renders after it, and the facts row's grid
+    // class changes with the rate fact, so a class selector's "last match"
+    // depends on which of those happen to render.
+    const existingTilesGrid = screen.getByText(t("en-US", "budgetCciConsumption")).closest(".grid") as HTMLElement;
     expect(within(existingTilesGrid).getAllByText(/€?39,900|39\.900/)).toHaveLength(2);
     expect(within(existingTilesGrid).getByText(/€?26,600|26\.600/)).toBeInTheDocument();
   });
@@ -98,7 +102,16 @@ describe("BudgetReportPanel", () => {
     renderPanel();
     const input = screen.getByPlaceholderText(/filter buckets/i);
     await user.type(input, "alpha");
-    const table = within(screen.getByRole("table"));
+    // Task 9: the "Where the hours went" disclosure renders whenever the rate
+    // mix is non-null (the default fixture's mix is non-null but does not
+    // trigger), so a second `<table>` (native <details> whose closed content
+    // jsdom still exposes to role queries) co-exists with the bucket table —
+    // scope to the "By bucket" Section the same way the forecast-section test
+    // further below ("shows the facts row and forecast cards inside their own
+    // Forecast section") scopes to "Forecast" (Finding 7).
+    const byBucketHeading = screen.getByRole("heading", { name: t("en-US", "budgetReportByBucket") });
+    const byBucketSection = byBucketHeading.parentElement as HTMLElement;
+    const table = within(within(byBucketSection).getByRole("table"));
     const rows = table.getAllByRole("row").slice(1); // skip header row
     const names = rows.map((tr) => (tr.querySelectorAll("td")[1] as HTMLElement)?.textContent ?? "");
     expect(names).toContain("Alpha");
@@ -117,10 +130,15 @@ describe("BudgetReportPanel", () => {
     expect(screen.queryByRole("button", { name: /print/i })).toBeNull();
   });
 
-  it("renders the burn-down section with both chart captions", () => {
+  it("renders the burn-down section with its chart switches", () => {
     renderPanel();
-    expect(screen.getByText("Burn-down")).toBeTruthy();
-    expect(screen.getByText("Hours remaining")).toBeTruthy();
+    // A bare `getByText("Burn-down")` now matches the section heading AND the
+    // orientation radio, so each is asked for by role.
+    expect(screen.getByRole("heading", { name: "Burn-down" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Burn-down" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Hours" })).toBeInTheDocument();
+    // The default device view (vitest.setup.ts clears localStorage after every test).
+    expect(screen.getByText("Budget remaining")).toBeInTheDocument();
   });
 
   it("shows a RAG badge on the Actual (h) cell judged vs budget hours", () => {
@@ -148,19 +166,20 @@ describe("BudgetReportPanel", () => {
     // helper already hardcodes `formatCurrency(n, "EUR", …)` for the
     // co-rendered cost/EVM tiles, which are rate-derived in exactly the same way.
     renderPanel({ plan: { ...plan, currency: "USD" } });
-    // Scoped to the CURRENCY chart: `Chart` renders `<div>{caption}</div><svg>`,
-    // so the caption's parent is that chart alone. The twin hours chart carries
-    // no money and would only dilute the count.
+    // Scoped to the € chart: `BurndownChart` renders `<div>{caption}</div><svg>`,
+    // so the caption's parent is that chart alone ("Budget remaining" is the
+    // default burn-down × € view).
     const valueChart = screen.getByText(/Budget remaining/i).parentElement!;
 
     // ★★★ THE POSITIVE CONTROL. `queryByText(/\$/) === null` passes just as
     // happily when the query is wrong, the scope is empty, or the chart failed
-    // to render. `getAllByText` THROWS on zero matches, and the exact count
-    // proves the axis is populated. MEASURED, not reasoned: 3 — `Chart` emits
-    // one `<text>` per y-tick and `yTicks` is `[0, max/2, max]` whenever
-    // `max > 0`.
-    const money = within(valueChart).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
-    expect(money).toHaveLength(3);
+    // to render. The exact count proves the axis is populated. Y ticks only
+    // (`data-axis="y"`): forecast end labels are money too and would blur the
+    // claim. Ticks are `[yMin if below zero, 0, total/2, total]`, and this
+    // fixture is OVER budget (Gamma books 120 h against 80, so actual spend
+    // exceeds the budget and the actual line ends below zero) → 4.
+    const money = Array.from(valueChart.querySelectorAll("svg text[data-axis='y']")).map((el) => el.textContent ?? "");
+    expect(money).toHaveLength(4);
     expect(money.filter((s) => s.includes("$"))).toEqual([]);
     expect(money.every((s) => s.includes("€"))).toBe(true);
   });

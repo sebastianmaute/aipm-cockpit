@@ -767,6 +767,7 @@ export function WorkspaceSection({
               buckets={budgets}
               plan={plan}
               roles={roles} disciplines={disciplines}
+              grades={grades}
               resources={resources}
               absences={absences}
               holidaySet={holidaySet}
@@ -838,6 +839,8 @@ export function WorkspaceSection({
               roles={roles}
               resources={resources}
               absences={absences}
+              disciplines={disciplines}
+              grades={grades}
               holidaySet={holidaySet}
               workdayHours={settings.resources.workdayHours}
               today={today}

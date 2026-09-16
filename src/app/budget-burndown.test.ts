@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeBurndownSeries } from "./budget-burndown";
+import { computeBurndownSeries, actualPointDates } from "./budget-burndown";
 import { computeBudgetReport } from "./budget-report";
 import type { BudgetBucket, ResourcePlan, Role, Resource } from "./types";
 
@@ -383,5 +383,27 @@ describe("computeBurndownSeries span", () => {
     const r = computeBurndownSeries(febOnly, plan, roles, [], 8, new Set<string>(), [], "2026-02-15", null,
       { start: "2099-01-01", end: "2099-12-31" });
     expect(r.periods).toEqual(["2026-01", "2026-02", "2026-03"]);
+  });
+});
+
+describe("period dates (MR 3 date axis)", () => {
+  it("carries each period's start and end date, index-aligned with the keys", () => {
+    const s = computeBurndownSeries([], { startDate: "2026-01-01", endDate: "2026-03-31", granularity: "month", currency: "EUR" } as unknown as ResourcePlan, [], [], 8, new Set(), [], "2026-02-14", null);
+    expect(s.periods).toEqual(["2026-01", "2026-02", "2026-03"]);
+    expect(s.periodStarts).toEqual(["2026-01-01", "2026-02-01", "2026-03-01"]);
+    expect(s.periodEnds).toEqual(["2026-01-31", "2026-02-28", "2026-03-31"]);
+  });
+});
+
+describe("actualPointDates", () => {
+  const periodEnds = ["2026-01-31", "2026-02-28", "2026-03-31"];
+  it("uses each past period's end and today inside the current period", () => {
+    expect(actualPointDates({ periodEnds, todayIndex: 1 }, "2026-02-14")).toEqual(["2026-01-31", "2026-02-14"]);
+  });
+  it("uses the period end when today is on or after it", () => {
+    expect(actualPointDates({ periodEnds, todayIndex: 1 }, "2026-02-28")).toEqual(["2026-01-31", "2026-02-28"]);
+  });
+  it("is empty before the first period", () => {
+    expect(actualPointDates({ periodEnds, todayIndex: -1 }, "2025-12-01")).toEqual([]);
   });
 });

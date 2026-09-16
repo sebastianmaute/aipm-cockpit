@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MR 3 mockup — forecast in € and hours</title>
+<style>
+  :root { --text:#1d2b3a; --muted:#5f6b78; --border:#d9dee4; --bg:#f6f7f9; --card:#fff;
+          --green:#2e8540; --grey:#8a939c; --blue:#1f5fa8; --violet:#7a3fa0; --pink:#c2185b; --amber:#b06a00;
+          --info-bg:#eaf2fb; --warn-bg:#fdf3e3; }
+  body { font: 14px/1.45 system-ui, sans-serif; color: var(--text); background: var(--bg); margin: 0; padding: 24px 16px 80px; }
+  main { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 17px; margin: 36px 0 6px; } h3 { font-size: 14px; margin: 18px 0 6px; }
+  h4 { font-size: 13px; margin: 0; }
+  .sub { color: var(--muted); margin: 0 0 12px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin: 10px 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; background: #fff; padding: 4px 12px; font: inherit; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--text); color: #fff; }
+  .note { color: var(--muted); font-size: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border-bottom: 1px solid var(--border); padding: 5px 8px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  .bad { color: var(--pink); } .warn { color: var(--amber); } .ok { color: var(--green); }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .legend svg { vertical-align: middle; margin-right: 4px; }
+  .twin, .tiles, .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tile { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; width: 100%; box-sizing: border-box; }
+  .tile .big { font-size: 18px; font-weight: 600; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 10px; background: #e8edf3; color: var(--text); margin-left: 6px; }
+  ul { margin: 6px 0; padding-left: 20px; } li { margin: 3px 0; }
+  code { font-size: 12px; background: #eef1f4; padding: 0 3px; border-radius: 3px; }
+  svg text { font-size: 11px; fill: var(--muted); }
+  .opt { border-left: 4px solid var(--blue); padding-left: 12px; margin-top: 22px; }
+  .opt > h3 { margin-top: 0; }
+  .rec { display:inline-block; font-size: 11px; font-weight: 600; color: #fff; background: var(--green); border-radius: 10px; padding: 1px 8px; margin-left: 6px; }
+  .scen { position: sticky; top: 0; z-index: 5; background: var(--text); color: #fff; border-radius: 8px; padding: 8px 12px; margin: 14px 0; }
+  .scen .seg { border-color: #fff4; } .scen .seg button { background: transparent; color: #fff; }
+  .scen .seg button[aria-pressed="true"] { background: #fff; color: var(--text); }
+  /* forecast card */
+  .fcard { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; background: #fff; }
+  .fcard .q { color: var(--muted); font-size: 12px; margin: 2px 0 6px; }
+  .fcard .big { font-size: 22px; font-weight: 600; }
+  .fcard .big small { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .fcard dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 8px 0 0; font-size: 13px; }
+  .fcard dt { color: var(--muted); } .fcard dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .fcard dl.cols { grid-template-columns: auto 1fr 1fr; }
+  .fcard dl.cols .hd { font-size: 11px; color: var(--muted); text-align: right; border-bottom: 1px solid var(--border); }
+  .fcard .diverge { background: var(--warn-bg); border-radius: 3px; }
+  .hline { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border); font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+  .hline b { font-weight: 600; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; border-radius: 10px; padding: 1px 8px; border: 1px solid currentColor; }
+  .banner { border-radius: 6px; padding: 8px 12px; font-size: 13px; display: flex; gap: 10px; align-items: flex-start; }
+  .banner.info { background: var(--info-bg); } .banner.warn { background: var(--warn-bg); }
+  .banner button { margin-left: auto; white-space: nowrap; font: inherit; font-size: 12px; border: 1px solid var(--border); background: #fff; border-radius: 5px; padding: 2px 8px; cursor: pointer; }
+  /* tooltip mock */
+  .tip { position: relative; display: inline-flex; }
+  .tip > button { border: 0; background: none; padding: 0 2px; cursor: help; color: var(--muted); font: inherit; }
+  .tip > span { display: none; position: absolute; left: 50%; top: 120%; transform: translateX(-50%); width: 300px; background: var(--text); color: #fff; font-size: 12px; font-weight: 400; line-height: 1.4; padding: 8px 10px; border-radius: 6px; z-index: 10; text-align: left; }
+  .tip:hover > span, .tip:focus-within > span { display: block; }
+  /* bars */
+  .bars { display: grid; grid-template-columns: 120px 1fr 60px; gap: 6px 10px; align-items: center; font-size: 12px; }
+  .bar { height: 12px; background: #eef1f4; border-radius: 6px; position: relative; overflow: hidden; }
+  .bar > i { position: absolute; inset: 0 auto 0 0; border-radius: 6px; }
+  details summary { cursor: pointer; font-size: 13px; }
+  .mix td.driver { font-weight: 600; }
+  .arrow { font-weight: 700; }
+  @media (max-width: 760px) { .twin, .tiles, .cards { grid-template-columns: 1fr; } .bars { grid-template-columns: 96px 1fr 50px; } }
+</style>
+</head>
+<body>
+<main>
+<h1>MR 3 mockup — forecast lines in € <em>and</em> hours</h1>
+<p class="sub">Local throwaway mockup. Fixture = spec §5.6 (contract €240k, plan 5 Jan – 18 Dec 2026, today 14 Sep, monthly plan),
+extended with an hours side: budget 2,000 h at a planned average of €120/h.</p>
+
+<div class="card">
+  <h3>Why the hours chart has no forecast today</h3>
+  <ul>
+    <li><b>Spec ruling, not a technical limit.</b> §2 set the money basis to contract price (AIPM Burndown standard), so MR 2 built € facts only.</li>
+    <li><b>The engine does not care about units.</b> <code>computeForecastFromFacts</code> reads <code>bac · ac · ev · pv · dated[].value</code> and nothing else. Feed it hours and it returns burn rate h/day, ETC/EAC/VAC in hours, a run-out date, CPI/SPI in hours.</li>
+    <li><b>All inputs exist.</b> Dated actual hours are already walked in <code>forecastFacts</code>; BAC/AC hours sit on <code>report.project</code>; EV hours = Σ bucket budget hours × % complete; PV hours = the chart's own hours series.</li>
+    <li><b>Hours are simpler.</b> No rates, no FX, and no fixed-price uncapping (§5.4) — hours are the internal-effort truth.</li>
+  </ul>
+</div>
+
+<h2>The two units tell different stories</h2>
+<p class="sub">Scenario 1 below. Cheaper roles are burning more hours than planned. The € forecast hides it; the hours forecast shows it.</p>
+<div class="card">
+<table>
+  <thead><tr><th>Figure</th><th>€ · at current pace</th><th>€ · at current efficiency</th><th>h · at current pace</th><th>h · at current efficiency</th></tr></thead>
+  <tbody>
+    <tr><td>Budget (BAC) · Actual (AC)</td><td colspan="2" style="text-align:center">€240,000 · €168,000 (70%)</td><td colspan="2" style="text-align:center">2,000 h · 1,450 h (72.5%)</td></tr>
+    <tr><td>Burn rate</td><td>€1,350/day</td><td>—</td><td>11.0 h/day</td><td>—</td></tr>
+    <tr><td>CPI · SPI</td><td>—</td><td>0.89 · 0.85</td><td>—</td><td>0.86 · 0.85</td></tr>
+    <tr><td>ETC</td><td>€93,150</td><td>€102,968</td><td>759 h</td><td>889 h</td></tr>
+    <tr><td>EAC</td><td>€261,150</td><td>€270,968</td><td>2,209 h</td><td>2,339 h</td></tr>
+    <tr><td>VAC</td><td class="warn">−€21,150 (−8.8%)</td><td class="bad">−€30,968 (−12.9%)</td><td class="bad">−209 h (−10.4%)</td><td class="bad">−339 h (−16.9%)</td></tr>
+    <tr><td>Runs out</td><td>27 Nov (21 days early)</td><td>—</td><td>23 Nov (25 days early)</td><td>—</td></tr>
+    <tr><td>Gap</td><td colspan="2" style="text-align:center">€9,818 = 4.1% · +8 working days</td><td colspan="2" style="text-align:center">130 h = 6.5% · +12 working days</td></tr>
+  </tbody>
+</table>
+<p class="note">Budget RAG stays on € pace VAC (amber here), as shipped in 1.6.0. Rating hours as well would be a new decision.</p>
+</div>
+
+<h2>Chart option A — one chart, unit switch</h2>
+<p class="sub">Two <code>SegmentedControl</code>s: orientation (spec §6.5) and a new unit (€ | h). Both remembered per device. Same layout on report and tile.</p>
+<div class="card">
+  <div class="row">
+    <span class="note">Chart</span>
+    <div class="seg" role="group" aria-label="Chart orientation" data-group="a-orient">
+      <button type="button" aria-pressed="true" data-v="down">Burn-down</button><button type="button" aria-pressed="false" data-v="cum">Cumulative</button>
+    </div>
+    <div class="seg" role="group" aria-label="Chart unit" data-group="a-unit">
+      <button type="button" aria-pressed="true" data-v="eur">€</button><button type="button" aria-pressed="false" data-v="h">Hours</button>
+    </div>
+  </div>
+  <div id="a-chart"></div>
+  <div class="legend" id="legend-a"></div>
+</div>
+
+<h2>Chart option B — twin charts, both with forecasts</h2>
+<p class="sub">Today's side-by-side layout kept; each chart gets its own forecast lines. One orientation switch drives both. No unit setting.</p>
+<div class="card">
+  <div class="row">
+    <span class="note">Chart</span>
+    <div class="seg" role="group" aria-label="Chart orientation" data-group="b-orient">
+      <button type="button" aria-pressed="true" data-v="down">Burn-down</button><button type="button" aria-pressed="false" data-v="cum">Cumulative</button>
+    </div>
+  </div>
+  <div class="twin"><div id="b-h"></div><div id="b-eur"></div></div>
+  <div class="legend" id="legend-b"></div>
+  <p class="note">At half width the run-out labels and VAC end labels start to collide; the tile below is narrower still.</p>
+</div>
+
+<h2>Chart option C (new) — one chart in % of budget, both units on it</h2>
+<p class="sub">Creative alternative to a unit switch: plot € and hours as a share of their own budget on one axis. The spread between the two actual lines <em>is</em> the role-mix story, visible without switching anything.</p>
+<div class="card">
+  <div id="c-chart"></div>
+  <div class="legend">
+    <span><svg width="24" height="8" aria-hidden="true"><line x1="0" y1="4" x2="24" y2="4" stroke="#8a939c" stroke-width="2" stroke-dasharray="6 4"/></svg>Planned (same % for both units)</span>
+    <span><svg width="24" height="8" aria-hidden="true"><line x1="0" y1="4" x2="24" y2="4" stroke="#2e8540" stroke-width="2.5"/></svg>Actual €</span>
+    <span><svg width="24" height="8" aria-hidden="true"><line x1="0" y1="4" x2="24" y2="4" stroke="#1d2b3a" stroke-width="2.5" stroke-dasharray="1 0"/><circle cx="12" cy="4" r="2.5" fill="#1d2b3a"/></svg>Actual hours (dots on line)</span>
+    <span><svg width="24" height="8" aria-hidden="true"><line x1="0" y1="4" x2="24" y2="4" stroke="#1f5fa8" stroke-width="2.5" stroke-dasharray="8 4"/></svg>At current pace (€ / h)</span>
+    <span><svg width="14" height="10" aria-hidden="true"><rect width="14" height="10" fill="#b06a00" opacity=".18"/></svg>Gap between units</span>
+  </div>
+  <p class="note">Cost: a third orientation, and % loses the absolute figures (tooltips / table would carry them). Scenario 1 data only.</p>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="cards">Forecast cards — showing hours and signalling when the units disagree</h2>
+<p class="sub">Everything below recomputes from facts with the MR 2 formulas. Switch the scenario to see each signal appear, flip direction, or disappear.</p>
+
+<div class="scen row" role="group" aria-label="Scenario">
+  <b style="margin-right:6px">Scenario</b>
+  <div class="seg" data-group="scen">
+    <button type="button" aria-pressed="true" data-v="cheap">1 · Cheaper roles overburn</button><button type="button" aria-pressed="false" data-v="dear">2 · Senior roles overburn</button><button type="button" aria-pressed="false" data-v="aligned">3 · Mix on plan</button>
+  </div>
+  <span id="scen-desc" class="note" style="color:#fffc"></span>
+</div>
+
+<div class="card">
+  <h3>The mechanism, in one number</h3>
+  <p style="margin:0">€ and hours only diverge when the <b>average rate of the hours actually booked</b> differs from the <b>planned average rate</b>
+  (€240,000 ÷ 2,000 h = €120/h). Everything else — which forecast looks worse, by how much, and why — follows from that drift and from
+  <em>which roles</em> caused it. So every signal below is driven by the same two derived facts:</p>
+  <ul>
+    <li><b>Rate drift</b> = (AC € ÷ AC h) ÷ (BAC € ÷ BAC h) − 1 → <span id="m-drift"></span></li>
+    <li><b>Driver role</b> = role whose share of booked hours exceeds its planned share the most → <span id="m-driver"></span></li>
+  </ul>
+  <p class="note" style="margin:6px 0 0">Proposed trigger (open question): signal when <b>|rate drift| ≥ 3%</b> <em>or</em> the € and hours pace VAC fall into different RAG bands. Scenario 1 trips both; 2 trips the drift rule; 3 trips neither.
+  Fixed-price buckets are excluded from the drift (their € actual is already an hours ratio, §5.4).</p>
+</div>
+
+<h3>Card layouts</h3>
+
+<div class="opt">
+  <h3>Card 1 — € card, hours as a second line <span class="rec">recommended</span></h3>
+  <p class="note">€ stays the headline (matches RAG, tile, contract). One compact hours line per card. When the trigger trips, the line carries a text chip with a tooltip that explains <em>why</em>.</p>
+  <div class="cards" id="card1"></div>
+</div>
+
+<div class="opt">
+  <h3>Card 2 — two value columns, disagreeing rows highlighted</h3>
+  <p class="note">Every figure in € and h side by side. The row where the story differs gets a tinted background and an arrow — readable, but twice the numbers on every visit, even when nothing diverges.</p>
+  <div class="cards" id="card2"></div>
+</div>
+
+<div class="opt">
+  <h3>Card 3 — unit switch on the section (shares the chart's € | h setting)</h3>
+  <p class="note">Cards show one unit at a time. Risk this mockup exists to expose: a user who never switches never sees the hours story — so it only works together with a banner that offers the switch.</p>
+  <div class="row" style="margin-bottom:8px">
+    <span class="note">Figures in</span>
+    <div class="seg" data-group="c3-unit"><button type="button" aria-pressed="true" data-v="eur">€</button><button type="button" aria-pressed="false" data-v="h">Hours</button></div>
+  </div>
+  <div id="card3-banner" style="margin-bottom:8px"></div>
+  <div class="cards" id="card3"></div>
+</div>
+
+<h3>Signals — candidates to make the divergence transparent</h3>
+<p class="note">Not mutually exclusive. The recommendation at the end combines a trigger-gated banner (S1) with the explanation (S4) and a permanent small fact (S2).</p>
+
+<div class="opt">
+  <h3>S1 — Banner at the top of the Forecast section (trigger-gated) <span class="rec">recommended</span></h3>
+  <p class="note">Shared <code>Banner</code>, stacks with the §6.1a banners, <code>role="status"</code>, starts with a word so the state is not colour-only. Wording flips with the direction. Absent when the trigger does not trip.</p>
+  <div id="s1"></div>
+</div>
+
+<div class="opt">
+  <h3>S2 — Rate fact in the facts row (always visible)</h3>
+  <p class="note">A fifth fact beside BAC · AC · Remaining · EV. Quiet when on plan, carries an arrow + text when drifting. Teaches the mechanism before anything goes wrong.</p>
+  <div id="s2"></div>
+</div>
+
+<div class="opt">
+  <h3>S3 — Three bars on one scale: hours used · budget used · work complete</h3>
+  <p class="note">Visual: the gap between the first two bars is the mix effect; the gap to the third is the efficiency problem. No new terms needed.</p>
+  <div id="s3"></div>
+</div>
+
+<div class="opt">
+  <h3>S4 — "Where the hours went": role mix disclosure <span class="rec">recommended</span></h3>
+  <p class="note">The <em>cause</em>, not just the flag. Collapsed <code>&lt;details&gt;</code> under the banner (or opened from its action). Data exists: bucket rate rows carry role, rate, budget and actual hours.</p>
+  <div id="s4"></div>
+</div>
+
+<div class="opt">
+  <h3>S5 — Dashboard tile: hours chip under the € headline</h3>
+  <p class="note">The tile cannot hold a banner. One text chip, only when the trigger trips; its tooltip carries the one-sentence explanation and links to the Budget report.</p>
+  <div class="tiles"><div id="s5"></div><div class="note" style="align-self:center">Chip text names the unit and the figure, so it is not colour-only. Gone in scenario 3.</div></div>
+</div>
+
+<div class="opt">
+  <h3>S6 — Tooltip on the € VAC (and on the chip)</h3>
+  <p class="note">Weakest alone (hover/focus only, invisible on touch until tapped) but cheap and useful as the second layer behind S1/S5. Hover the ⓘ in Card 1 to see the text.</p>
+</div>
+
+<h2>Recommendation to discuss</h2>
+<div class="card">
+<ul>
+  <li><b>Cards:</b> Card 1 — € headline card + one hours line per card (EAC h · VAC h · runs out).</li>
+  <li><b>Signal:</b> S1 banner when the trigger trips, its action opens S4 (role mix); S2 rate fact always in the facts row; S5 chip on the tile; S6 tooltip text shared by chip and hours line.</li>
+  <li><b>Chart:</b> A (unit switch) — or C (% view) if the banner should never need a click to be verified.</li>
+  <li><b>Unchanged:</b> RAG and tile headline stay €. Hours never change a rating; they explain it.</li>
+  <li><b>Open:</b> trigger thresholds (3% drift / RAG band), name of the hours CPI if Card 2 wins ("CPI (hours)" beside Effort CPI), whether S4 belongs to MR 3 or a follow-up.</li>
+</ul>
+</div>
+</main>
+
+<script>
+/* ----------------------------------------------------------------- charts (scenario 1 data) */
+const START = "2026-01-05", END = "2026-12-18", TODAY = "2026-09-14";
+const MONTH_ENDS = ["2026-01-31","2026-02-28","2026-03-31","2026-04-30","2026-05-31","2026-06-30","2026-07-31","2026-08-31","2026-09-30","2026-10-31","2026-11-30","2026-12-18"];
+const plannedK = [16,18,20,20,20,20,20,20,22,22,22,20];
+const DATA = {
+  eur: { bac: 240000, planned: plannedK.map(k => k * 1000), actual: [14,17,19,20,21,20,19,22].map(k => k * 1000), actualSep: 16000,
+         pace: { eac: 261150, runOut: "2026-11-27" }, eff: { eac: 270968 }, ev: 148800,
+         fmt: v => (v < 0 ? "−" : "") + "€" + Math.round(Math.abs(v) / 1000) + "k" },
+  h:   { bac: 2000, planned: plannedK.map(k => k * 1000 / 120), actual: [125,150,165,170,178,170,162,190], actualSep: 140,
+         pace: { eac: 2209, runOut: "2026-11-23" }, eff: { eac: 2339 }, ev: 1240,
+         fmt: v => (v < 0 ? "−" : "") + Math.round(Math.abs(v)).toLocaleString("en") + " h" },
+};
+const D = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const dm = s => +s.slice(8, 10) + " " + MONTHS[+s.slice(5, 7) - 1];
+function cum(arr) { let c = 0; return arr.map(v => (c += v)); }
+
+function draw(unit, orient, compact) {
+  const d = DATA[unit];
+  const W = 640, H = compact ? 220 : 270, pL = compact ? 50 : 62, pR = compact ? 52 : 74, pT = 22, pB = 28;
+  const fs = compact ? 13 : 11;
+  const x = s => pL + (D(s) - D(START)) / (D(END) - D(START)) * (W - pL - pR);
+  const down = orient === "down";
+  const toY = c => (down ? d.bac - c : c);
+  const plannedCum = cum(d.planned), actualCum = cum(d.actual);
+  const acToday = actualCum[actualCum.length - 1] + d.actualSep;
+  const yMax = down ? d.bac : Math.max(d.bac, d.eff.eac) * 1.08;
+  const yMin = down ? Math.min(0, d.bac - d.eff.eac) * 1.35 : 0;
+  const y = v => pT + (yMax - v) / (yMax - yMin) * (H - pT - pB);
+  const pts = arr => arr.map(([s, v]) => `${x(s).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const out = [];
+  out.push(`<svg viewBox="0 0 ${W} ${H}" role="img" style="width:100%;font-size:${fs}px" aria-label="${down ? "Burn-down" : "Cumulative"} in ${unit === "eur" ? "euro" : "hours"} with two forecasts">`);
+  if (down && yMin < 0) out.push(`<rect x="${pL}" y="${y(0)}" width="${W - pL - pR}" height="${y(yMin) - y(0)}" fill="#c2185b" opacity="0.06"/>`);
+  for (const t of [0, d.bac / 2, d.bac]) out.push(`<line x1="${pL}" x2="${W - pR}" y1="${y(t)}" y2="${y(t)}" stroke="#d9dee4" ${t ? 'stroke-dasharray="2 4"' : ""}/><text x="${pL - 5}" y="${y(t) + 4}" text-anchor="end" style="font-size:${fs}px">${d.fmt(t)}</text>`);
+  if (down && yMin < 0) out.push(`<text x="${pL - 5}" y="${y(yMin) - 2}" text-anchor="end" style="fill:#c2185b;font-size:${fs}px">over</text>`);
+  for (const m of [0, 2, 4, 6, 8, 10]) { const s = m === 0 ? START : `2026-${String(m + 1).padStart(2, "0")}-01`; out.push(`<text x="${x(s)}" y="${H - 8}" text-anchor="middle" style="font-size:${fs}px">${MONTHS[m]}</text>`); }
+  if (!down) out.push(`<line x1="${pL}" x2="${W - pR}" y1="${y(d.bac)}" y2="${y(d.bac)}" stroke="#8a939c" stroke-width="1.5" stroke-dasharray="6 4"/><text x="${pL + 4}" y="${y(d.bac) - 5}" style="font-size:${fs}px">BAC ${d.fmt(d.bac)}</text>`);
+  out.push(`<polyline fill="none" stroke="#8a939c" stroke-width="2" stroke-dasharray="6 4" points="${pts([[START, toY(0)], ...MONTH_ENDS.map((s, i) => [s, toY(plannedCum[i])])])}"/>`);
+  out.push(`<polyline fill="none" stroke="#2e8540" stroke-width="2.5" points="${pts([[START, toY(0)], ...MONTH_ENDS.slice(0, 8).map((s, i) => [s, toY(actualCum[i])]), [TODAY, toY(acToday)]])}"/>`);
+  out.push(`<line x1="${x(TODAY)}" y1="${y(toY(acToday))}" x2="${x(END)}" y2="${y(toY(d.pace.eac))}" stroke="#1f5fa8" stroke-width="2.5" stroke-dasharray="8 4"/>`);
+  out.push(`<line x1="${x(TODAY)}" y1="${y(toY(acToday))}" x2="${x(END)}" y2="${y(toY(d.eff.eac))}" stroke="#7a3fa0" stroke-width="2.5" stroke-dasharray="2 4"/>`);
+  const evY = y(toY(d.ev));
+  out.push(`<path d="M${x(TODAY)} ${evY - 6} l6 6 -6 6 -6 -6z" fill="#b06a00"/><text x="${x(TODAY) - 9}" y="${evY + (down ? -8 : 16)}" text-anchor="end" style="fill:#b06a00;font-size:${fs}px">${down ? "work left " + d.fmt(d.bac - d.ev) : "EV " + d.fmt(d.ev)}</text>`);
+  out.push(`<line x1="${x(TODAY)}" x2="${x(TODAY)}" y1="${pT - 8}" y2="${H - pB}" stroke="#1d2b3a" stroke-dasharray="3 3"/><text x="${x(TODAY) + 4}" y="${pT - 10 + fs}" style="font-size:${fs}px">today</text>`);
+  out.push(`<line x1="${x(END)}" x2="${x(END)}" y1="${pT - 8}" y2="${H - pB}" stroke="#8a939c"/>`);
+  const target = down ? 0 : d.bac;
+  const y0 = toY(acToday), y1 = toY(d.pace.eac);
+  const f = (target - y0) / (y1 - y0);
+  const rx = x(TODAY) + f * (x(END) - x(TODAY));
+  out.push(`<circle cx="${rx}" cy="${y(target)}" r="5" fill="#c2185b"/><text x="${rx - 7}" y="${y(target) + (down ? 16 : -8)}" text-anchor="end" style="fill:#c2185b;font-size:${fs}px">${compact ? "" : (down ? "runs out " : "used up ")}${dm(d.pace.runOut)}</text>`);
+  const lp = y(toY(d.pace.eac)), le = y(toY(d.eff.eac));
+  const lab = v => (down ? d.fmt(d.bac - v) : d.fmt(v));
+  const apart = Math.abs(lp - le) < fs + 2 ? (fs + 2) / 2 : 0;
+  out.push(`<text x="${x(END) + 5}" y="${(down ? lp - apart : lp + apart) + 4}" style="fill:#1f5fa8;font-size:${fs}px">${lab(d.pace.eac)}</text>`);
+  out.push(`<text x="${x(END) + 5}" y="${(down ? le + apart : le - apart) + 4}" style="fill:#7a3fa0;font-size:${fs}px">${lab(d.eff.eac)}</text>`);
+  out.push(`</svg>`);
+  const caption = `<div class="note" style="text-transform:uppercase;letter-spacing:.04em">${down ? (unit === "eur" ? "Budget remaining" : "Hours remaining") : (unit === "eur" ? "Spend, cumulative" : "Hours, cumulative")}</div>`;
+  return caption + out.join("");
+}
+
+function drawPct() {
+  const W = 640, H = 270, pL = 52, pR = 92, pT = 22, pB = 28;
+  const x = s => pL + (D(s) - D(START)) / (D(END) - D(START)) * (W - pL - pR);
+  const yMax = 1.2, y = v => pT + (yMax - v) / yMax * (H - pT - pB);
+  const e = DATA.eur, h = DATA.h;
+  const pc = (u, c) => c / DATA[u].bac;
+  const plan = cum(e.planned).map(c => c / e.bac);
+  const ae = cum(e.actual), ah = cum(h.actual);
+  const eNow = (ae[7] + e.actualSep) / e.bac, hNow = (ah[7] + h.actualSep) / h.bac;
+  const ptsE = [[START, 0], ...MONTH_ENDS.slice(0, 8).map((s, i) => [s, ae[i] / e.bac]), [TODAY, eNow]];
+  const ptsH = [[START, 0], ...MONTH_ENDS.slice(0, 8).map((s, i) => [s, ah[i] / h.bac]), [TODAY, hNow]];
+  const p = a => a.map(([s, v]) => `${x(s).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const o = [`<svg viewBox="0 0 ${W} ${H}" role="img" style="width:100%" aria-label="Share of budget used, euro and hours, with pace forecasts">`];
+  for (const t of [0, 0.5, 1]) o.push(`<line x1="${pL}" x2="${W - pR}" y1="${y(t)}" y2="${y(t)}" stroke="${t === 1 ? "#8a939c" : "#d9dee4"}" ${t === 1 ? 'stroke-width="1.5" stroke-dasharray="6 4"' : t ? 'stroke-dasharray="2 4"' : ""}/><text x="${pL - 5}" y="${y(t) + 4}" text-anchor="end">${t * 100}%</text>`);
+  o.push(`<text x="${pL + 4}" y="${y(1) - 5}">budget (100%)</text>`);
+  for (const m of [0, 2, 4, 6, 8, 10]) { const s = m === 0 ? START : `2026-${String(m + 1).padStart(2, "0")}-01`; o.push(`<text x="${x(s)}" y="${H - 8}" text-anchor="middle">${MONTHS[m]}</text>`); }
+  // gap band between the two actual lines
+  o.push(`<polygon points="${p(ptsH)} ${p([...ptsE].reverse())}" fill="#b06a00" opacity=".18"/>`);
+  o.push(`<polygon points="${x(TODAY)},${y(hNow)} ${x(END)},${y(h.pace.eac / h.bac)} ${x(END)},${y(e.pace.eac / e.bac)} ${x(TODAY)},${y(eNow)}" fill="#b06a00" opacity=".10"/>`);
+  o.push(`<polyline fill="none" stroke="#8a939c" stroke-width="2" stroke-dasharray="6 4" points="${p([[START, 0], ...MONTH_ENDS.map((s, i) => [s, plan[i]])])}"/>`);
+  o.push(`<polyline fill="none" stroke="#2e8540" stroke-width="2.5" points="${p(ptsE)}"/>`);
+  o.push(`<polyline fill="none" stroke="#1d2b3a" stroke-width="2.5" points="${p(ptsH)}"/>`);
+  for (const [s, v] of ptsH.slice(1)) o.push(`<circle cx="${x(s)}" cy="${y(v)}" r="2.5" fill="#1d2b3a"/>`);
+  o.push(`<line x1="${x(TODAY)}" y1="${y(eNow)}" x2="${x(END)}" y2="${y(e.pace.eac / e.bac)}" stroke="#1f5fa8" stroke-width="2.5" stroke-dasharray="8 4"/>`);
+  o.push(`<line x1="${x(TODAY)}" y1="${y(hNow)}" x2="${x(END)}" y2="${y(h.pace.eac / h.bac)}" stroke="#1f5fa8" stroke-width="2.5" stroke-dasharray="8 4"/>`);
+  o.push(`<line x1="${x(TODAY)}" x2="${x(TODAY)}" y1="${pT - 8}" y2="${H - pB}" stroke="#1d2b3a" stroke-dasharray="3 3"/><text x="${x(TODAY) + 4}" y="${pT + 2}">today</text>`);
+  o.push(`<text x="${x(TODAY) - 6}" y="${y(hNow) - 8}" text-anchor="end" style="fill:#1d2b3a">h ${(hNow * 100).toFixed(1)}%</text>`);
+  o.push(`<text x="${x(TODAY) + 6}" y="${y(eNow) + 16}" style="fill:#2e8540">€ ${(eNow * 100).toFixed(1)}%</text>`);
+  o.push(`<line x1="${x(END)}" x2="${x(END)}" y1="${pT - 8}" y2="${H - pB}" stroke="#8a939c"/>`);
+  o.push(`<text x="${x(END) + 5}" y="${y(h.pace.eac / h.bac) - 2}" style="fill:#1d2b3a">h ${(h.pace.eac / h.bac * 100).toFixed(1)}%</text>`);
+  o.push(`<text x="${x(END) + 5}" y="${y(e.pace.eac / e.bac) + 12}" style="fill:#1f5fa8">€ ${(e.pace.eac / e.bac * 100).toFixed(1)}%</text>`);
+  o.push(`</svg>`);
+  return `<div class="note" style="text-transform:uppercase;letter-spacing:.04em">Budget used, % — € and hours</div>` + o.join("");
+}
+
+function legend() {
+  const sw = (stroke, dash, w = 2.5) => `<svg width="24" height="8" aria-hidden="true"><line x1="0" y1="4" x2="24" y2="4" stroke="${stroke}" stroke-width="${w}" ${dash ? `stroke-dasharray="${dash}"` : ""}/></svg>`;
+  return `<span>${sw("#8a939c", "6 4", 2)}Planned</span><span>${sw("#2e8540")}Actual</span><span>${sw("#1f5fa8", "8 4")}At current pace</span><span>${sw("#7a3fa0", "2 4")}At current efficiency</span>` +
+    `<span><svg width="12" height="12" aria-hidden="true"><path d="M6 0 l6 6 -6 6 -6 -6z" fill="#b06a00"/></svg>Earned value (today)</span>` +
+    `<span><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="#c2185b"/></svg>Runs out</span>`;
+}
+
+/* ----------------------------------------------------------------- forecast engine (MR 2 formulas) */
+const WINDOW = 20, DAYS_LEFT = 69, PCT = 0.62;
+function nthWorkingDayAfter(iso, n) {
+  const t = new Date(iso + "T00:00:00Z"); let k = 0;
+  while (k < n) { t.setUTCDate(t.getUTCDate() + 1); const w = t.getUTCDay(); if (w && w < 6) k++; }
+  return t.toISOString().slice(0, 10);
+}
+function forecast({ bac, ac, windowValue, pv }) {
+  const burn = windowValue / WINDOW, etc = burn * DAYS_LEFT, eac = ac + etc, vac = bac - eac;
+  const runOut = bac - ac <= 0 ? null : nthWorkingDayAfter(TODAY, Math.ceil((bac - ac) / burn - 1e-9));
+  const ev = PCT * bac, cpi = ev / ac, etcE = (bac - ev) / cpi, eacE = ac + etcE;
+  const daysEarly = runOut ? (D(END) - D(runOut)) / 864e5 : null;
+  return { bac, ac, burn, etc, eac, vac, vacPct: vac / bac, runOut, daysEarly, ev, cpi, spi: ev / pv, etcE, eacE, vacE: bac - eacE, vacEPct: (bac - eacE) / bac };
+}
+const rag = r => (r >= 0 ? "G" : -r >= 0.10 ? "R" : "A");
+const ROLES = [
+  { name: "Senior consultant", rate: 150, budget: 600 },
+  { name: "Consultant", rate: 120, budget: 800 },
+  { name: "Junior consultant", rate: 90, budget: 600 },
+];
+const SCEN = {
+  cheap:   { desc: "Juniors booked more hours than planned; € looks milder than the effort.", booked: [339, 572, 539], windowH: 220 },
+  dear:    { desc: "Seniors booked more hours than planned; € looks worse than the effort.", booked: [505, 540, 305], windowH: 205 },
+  aligned: { desc: "Every role on its planned share; € and hours agree.", booked: [420, 560, 420], windowH: 225 },
+};
+const EUR = { bac: 240000, ac: 168000, windowValue: 27000, pv: 176000 };
+const H_BAC = 2000, H_PV = 176000 / 120;
+
+function model(key) {
+  const s = SCEN[key];
+  const acH = s.booked.reduce((a, b) => a + b, 0);
+  const acE = s.booked.reduce((a, b, i) => a + b * ROLES[i].rate, 0);
+  const e = forecast(EUR);
+  const h = forecast({ bac: H_BAC, ac: acH, windowValue: s.windowH, pv: H_PV });
+  const drift = (acE / acH) / (EUR.bac / H_BAC) - 1;
+  const roles = ROLES.map((r, i) => ({ ...r, booked: s.booked[i], plannedShare: r.budget / H_BAC, bookedShare: s.booked[i] / acH, used: s.booked[i] / r.budget }));
+  const driver = roles.reduce((m, r) => (r.bookedShare - r.plannedShare > m.bookedShare - m.plannedShare ? r : m));
+  const ragDiffers = rag(e.vacPct) !== rag(h.vacPct);
+  const trips = Math.abs(drift) >= 0.03 || ragDiffers;
+  const hoursWorse = h.vacPct < e.vacPct;
+  return { s, e, h, acE, acH, drift, roles, driver, ragDiffers, trips, hoursWorse };
+}
+
+/* ----------------------------------------------------------------- formatting */
+const eur = v => (v < 0 ? "−" : "") + "€" + Math.round(Math.abs(v)).toLocaleString("en-GB");
+const hrs = v => (v < 0 ? "−" : "") + Math.round(Math.abs(v)).toLocaleString("en-GB") + " h";
+const pct = (v, d = 1) => (v < 0 ? "−" : v > 0 ? "+" : "") + Math.abs(v * 100).toFixed(d) + "%";
+const cls = r => ({ G: "ok", A: "warn", R: "bad" }[rag(r)]);
+const ragWord = r => ({ G: "green", A: "amber", R: "red" }[rag(r)]);
+const tip = text => `<span class="tip"><button type="button" aria-label="Why do € and hours differ?">ⓘ</button><span role="tooltip">${text}</span></span>`;
+
+function explain(m) {
+  const d = m.driver;
+  if (!m.trips) return "Hours are booked at the planned rate mix, so € and hours tell the same story.";
+  return m.hoursWorse
+    ? `The hours booked so far cost an average of ${eur(m.acE / m.acH)}/h against a planned ${eur(120)}/h (${pct(m.drift)}). ${d.name}s did ${Math.round(d.bookedShare * 100)}% of the hours instead of the planned ${Math.round(d.plannedShare * 100)}%. Cheaper hours keep the € forecast at ${pct(m.e.vacPct)}, while the effort overrun is ${pct(m.h.vacPct)}. If the remaining work needs the planned mix, the € overrun grows.`
+    : `The hours booked so far cost an average of ${eur(m.acE / m.acH)}/h against a planned ${eur(120)}/h (${pct(m.drift)}). ${d.name}s did ${Math.round(d.bookedShare * 100)}% of the hours instead of the planned ${Math.round(d.plannedShare * 100)}%. The € forecast (${pct(m.e.vacPct)}) is worse than the effort alone (${pct(m.h.vacPct)}): the overrun is in rate, not in hours.`;
+}
+
+/* ----------------------------------------------------------------- cards */
+function paceDl(m, unit) {
+  const f = unit === "eur" ? m.e : m.h, fm = unit === "eur" ? eur : hrs, per = unit === "eur" ? "/day" : "/day";
+  return `<dl><dt>VAC at current pace</dt><dd class="${cls(f.vacPct)}">${fm(f.vac)} (${pct(f.vacPct)})</dd>
+    <dt>ETC</dt><dd>${fm(f.etc)}</dd><dt>Burn rate</dt><dd>${unit === "eur" ? eur(f.burn) : f.burn.toFixed(1) + " h"}${per}</dd>
+    <dt>Runs out</dt><dd>${dm(f.runOut)} (${f.daysEarly} days early)</dd></dl>`;
+}
+function effDl(m, unit) {
+  const f = unit === "eur" ? m.e : m.h, fm = unit === "eur" ? eur : hrs;
+  return `<dl><dt>VAC at current efficiency</dt><dd class="${cls(f.vacEPct)}">${fm(f.vacE)} (${pct(f.vacEPct)})</dd>
+    <dt>ETC</dt><dd>${fm(f.etcE)}</dd><dt>CPI · SPI</dt><dd>${f.cpi.toFixed(2)} · ${f.spi.toFixed(2)}</dd></dl>`;
+}
+const Q_PACE = "Where do we end if we keep working like the last 20 working days?";
+const Q_EFF = "Where do we end if the remaining work costs what the done work cost?";
+
+function card1(m) {
+  const chip = m.trips
+    ? `<span class="chip ${m.hoursWorse ? "bad" : "warn"}"><span class="arrow">${m.hoursWorse ? "▲" : "▼"}</span>${m.hoursWorse ? "Effort worse than €" : "€ worse than effort"}</span>${tip(explain(m))}`
+    : `<span class="note">same story as €</span>`;
+  const hl = (lbl, eac, vac, extra) => `<div class="hline"><b>In hours</b><span>EAC ${hrs(eac)}</span><span class="${cls(vac / H_BAC)}">VAC ${pct(vac / H_BAC)}</span>${extra}${chip}</div>`;
+  return `<article class="fcard"><h4>At current pace</h4><p class="q">${Q_PACE}</p><div class="big">${eur(m.e.eac)} <small>EAC</small></div>${paceDl(m, "eur")}${hl("pace", m.h.eac, m.h.vac, `<span>runs out ${dm(m.h.runOut)}</span>`)}</article>
+          <article class="fcard"><h4>At current efficiency</h4><p class="q">${Q_EFF}</p><div class="big">${eur(m.e.eacE)} <small>EAC</small></div>${effDl(m, "eur")}${hl("eff", m.h.eacE, m.h.vacE, `<span>CPI (hours) ${m.h.cpi.toFixed(2)}</span>`)}</article>`;
+}
+
+function card2(m) {
+  const row = (label, a, b, diverge, arrowTxt) =>
+    `<dt class="${diverge ? "diverge" : ""}">${label}${diverge ? ` <span class="arrow ${m.hoursWorse ? "bad" : "warn"}" title="${arrowTxt}">${m.hoursWorse ? "▲ h" : "▲ €"}</span>` : ""}</dt><dd class="${diverge ? "diverge" : ""}">${a}</dd><dd class="${diverge ? "diverge" : ""}">${b}</dd>`;
+  const vDiv = m.trips;
+  const pace = `<dl class="cols"><dt></dt><dd class="hd">€</dd><dd class="hd">hours</dd>
+    ${row("EAC", eur(m.e.eac), hrs(m.h.eac), false)}
+    ${row("VAC", `<span class="${cls(m.e.vacPct)}">${pct(m.e.vacPct)}</span>`, `<span class="${cls(m.h.vacPct)}">${pct(m.h.vacPct)}</span>`, vDiv, "units disagree")}
+    ${row("ETC", eur(m.e.etc), hrs(m.h.etc), false)}
+    ${row("Burn rate", eur(m.e.burn) + "/day", m.h.burn.toFixed(1) + " h/day", false)}
+    ${row("Runs out", dm(m.e.runOut), dm(m.h.runOut), m.e.runOut !== m.h.runOut && vDiv, "units disagree")}</dl>`;
+  const eff = `<dl class="cols"><dt></dt><dd class="hd">€</dd><dd class="hd">hours</dd>
+    ${row("EAC", eur(m.e.eacE), hrs(m.h.eacE), false)}
+    ${row("VAC", `<span class="${cls(m.e.vacEPct)}">${pct(m.e.vacEPct)}</span>`, `<span class="${cls(m.h.vacEPct)}">${pct(m.h.vacEPct)}</span>`, vDiv, "units disagree")}
+    ${row("ETC", eur(m.e.etcE), hrs(m.h.etcE), false)}
+    ${row("CPI", m.e.cpi.toFixed(2), m.h.cpi.toFixed(2), vDiv, "units disagree")}</dl>`;
+  return `<article class="fcard"><h4>At current pace</h4><p class="q">${Q_PACE}</p>${pace}</article>
+          <article class="fcard"><h4>At current efficiency</h4><p class="q">${Q_EFF}</p>${eff}</article>`;
+}
+
+function card3(m, unit) {
+  const fm = unit === "eur" ? eur : hrs, f = unit === "eur" ? m.e : m.h;
+  return `<article class="fcard"><h4>At current pace</h4><p class="q">${Q_PACE}</p><div class="big">${fm(f.eac)} <small>EAC</small></div>${paceDl(m, unit)}</article>
+          <article class="fcard"><h4>At current efficiency</h4><p class="q">${Q_EFF}</p><div class="big">${fm(f.eacE)} <small>EAC</small></div>${effDl(m, unit)}</article>`;
+}
+
+/* ----------------------------------------------------------------- signals */
+function banner(m, viewing, withSwitch) {
+  if (!m.trips) return `<p class="note">No banner — trigger not tripped (drift ${pct(m.drift)}, both units ${ragWord(m.e.vacPct)}).</p>`;
+  const sev = m.ragDiffers ? "warn" : "info";
+  const word = sev === "warn" ? "Warning:" : "Note:";
+  const d = m.driver;
+  const text = m.hoursWorse
+    ? `<b>${word} the hours tell a worse story than the budget.</b> ${d.name}s did ${Math.round(d.bookedShare * 100)}% of the booked hours (planned ${Math.round(d.plannedShare * 100)}%), so the average booked rate is ${eur(m.acE / m.acH)}/h instead of €120/h. At current pace the effort overrun is <b>${pct(m.h.vacPct)}</b> while € shows ${pct(m.e.vacPct)}.`
+    : `<b>${word} the budget tells a worse story than the hours.</b> ${d.name}s did ${Math.round(d.bookedShare * 100)}% of the booked hours (planned ${Math.round(d.plannedShare * 100)}%), so the average booked rate is ${eur(m.acE / m.acH)}/h instead of €120/h. At current pace € shows <b>${pct(m.e.vacPct)}</b> while the effort overrun is only ${pct(m.h.vacPct)}.`;
+  const other = viewing === "eur" ? "Show in hours" : "Show in €";
+  const action = withSwitch ? `<button type="button" data-switch="${viewing === "eur" ? "h" : "eur"}">${other}</button>` : `<button type="button" data-open-mix>Where the hours went</button>`;
+  return `<div class="banner ${sev}" role="status"><span>${text}</span>${action}</div>`;
+}
+
+function s2(m) {
+  const rate = m.acE / m.acH;
+  const drifting = Math.abs(m.drift) >= 0.03;
+  const facts = [["Budget (BAC)", "€240,000"], ["Actual (AC)", "€168,000"], ["Remaining", "€72,000"], ["Earned (EV)", "€148,800"]];
+  const cell = (l, v) => `<div style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;min-width:120px"><div class="note">${l}</div><div style="font-weight:600">${v}</div></div>`;
+  const rateCell = `<div style="padding:6px 10px;border:1px solid ${drifting ? "var(--amber)" : "var(--border)"};border-radius:6px;min-width:170px">
+      <div class="note">Avg rate booked ${tip(`Contract value of the hours booked so far ÷ the hours. Planned average: €240,000 ÷ 2,000 h = €120/h. When this drifts, € and hours forecasts disagree. ${explain(m)}`)}</div>
+      <div style="font-weight:600">${eur(rate)}/h <span class="${drifting ? "warn" : "note"}" style="font-weight:${drifting ? 600 : 400}">${drifting ? (m.drift < 0 ? "▼ " : "▲ ") + pct(m.drift) + " vs plan" : "on plan (" + pct(m.drift) + ")"}</span></div></div>`;
+  return `<div class="row">${facts.map(([l, v]) => cell(l, v)).join("")}${rateCell}</div>`;
+}
+
+function s3(m) {
+  const bar = (label, v, color, extra = "") => `<span>${label}</span><div class="bar"><i style="width:${Math.min(100, v * 100)}%;background:${color}"></i></div><span style="text-align:right;font-variant-numeric:tabular-nums">${(v * 100).toFixed(1)}%${extra}</span>`;
+  return `<div class="bars">${bar("Hours used", m.acH / H_BAC, "#1d2b3a")}${bar("Budget used", m.acE / EUR.bac, "#2e8540")}${bar("Work complete", PCT, "#b06a00")}</div>
+    <p class="note" style="margin:6px 0 0">${m.trips ? (m.hoursWorse ? `Hours run ${((m.acH / H_BAC - m.acE / EUR.bac) * 100).toFixed(1)} points ahead of the budget: the gap between the first two bars is the role mix.` : `The budget runs ${((m.acE / EUR.bac - m.acH / H_BAC) * 100).toFixed(1)} points ahead of the hours: the gap between the first two bars is the role mix.`) : "Hours and budget used move together; only the gap to work complete (efficiency) remains."}</p>`;
+}
+
+function s4(m, open) {
+  const rows = m.roles.map(r => {
+    const delta = r.bookedShare - r.plannedShare;
+    const isDriver = m.trips && r === m.driver;
+    return `<tr class="${isDriver ? "" : ""}"><td class="${isDriver ? "driver" : ""}">${r.name}${isDriver ? ' <span class="chip warn">driver</span>' : ""}</td><td>€${r.rate}/h</td>
+      <td>${Math.round(r.plannedShare * 100)}%</td><td>${Math.round(r.bookedShare * 100)}%</td>
+      <td class="${Math.abs(delta) >= 0.03 ? (delta > 0 ? "bad" : "ok") : ""}">${delta >= 0 ? "+" : "−"}${Math.abs(delta * 100).toFixed(0)} pts</td>
+      <td>${r.booked} of ${r.budget} h (${Math.round(r.used * 100)}%)</td></tr>`;
+  }).join("");
+  return `<details ${open ? "open" : ""} id="mix"><summary><b>Where the hours went</b> — share of booked hours by role vs plan</summary>
+    <table class="mix" style="margin-top:6px"><thead><tr><th>Role</th><th>Rate</th><th>Planned share</th><th>Booked share</th><th>Difference</th><th>Hours used of role budget</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="note" style="margin:6px 0 0">Work complete is ${Math.round(PCT * 100)}% for comparison. ${m.trips ? explain(m) : "No role is off its planned share by 3 points or more."}</p></details>`;
+}
+
+function s5(m) {
+  const chip = m.trips
+    ? `<div style="margin-top:4px"><span class="chip ${m.hoursWorse ? "bad" : "warn"}">${m.hoursWorse ? "▲ Hours " + pct(m.h.vacPct, 0) + " · runs out " + dm(m.h.runOut) : "▼ Hours only " + pct(m.h.vacPct, 0) + " — overrun is in rate"}</span>${tip(explain(m))}</div>`
+    : "";
+  return `<div class="tile"><div class="note">Budget · estimate at completion</div>
+    <div class="big">€${Math.round(m.e.eac / 1000)}k–€${Math.round(m.e.eacE / 1000)}k <span class="${cls(m.e.vacPct)}" style="font-size:13px">${pct(m.e.vacPct, 0)} to ${pct(m.e.vacEPct, 0)}</span><span class="tag">${ragWord(m.e.vacPct)}</span></div>
+    <div class="note">Runs out ${dm(m.e.runOut)} at current pace</div>${chip}</div>`;
+}
+
+/* ----------------------------------------------------------------- state + render */
+const state = { "a-orient": "down", "a-unit": "eur", "b-orient": "down", scen: "cheap", "c3-unit": "eur", mixOpen: false };
+function render() {
+  document.getElementById("a-chart").innerHTML = draw(state["a-unit"], state["a-orient"], false);
+  document.getElementById("b-h").innerHTML = draw("h", state["b-orient"], true);
+  document.getElementById("b-eur").innerHTML = draw("eur", state["b-orient"], true);
+  document.getElementById("c-chart").innerHTML = drawPct();
+  document.getElementById("legend-a").innerHTML = legend();
+  document.getElementById("legend-b").innerHTML = legend();
+
+  const m = model(state.scen);
+  document.getElementById("scen-desc").textContent = m.s.desc;
+  document.getElementById("m-drift").innerHTML = `<b>${eur(m.acE / m.acH)}/h</b> booked vs €120/h planned = <b>${pct(m.drift)}</b>`;
+  document.getElementById("m-driver").innerHTML = m.trips ? `<b>${m.driver.name}</b>: ${Math.round(m.driver.bookedShare * 100)}% of booked hours, planned ${Math.round(m.driver.plannedShare * 100)}%` : "none (all within 3 points)";
+  document.getElementById("card1").innerHTML = card1(m);
+  document.getElementById("card2").innerHTML = card2(m);
+  document.getElementById("card3").innerHTML = card3(m, state["c3-unit"]);
+  document.getElementById("card3-banner").innerHTML = banner(m, state["c3-unit"], true);
+  document.getElementById("s1").innerHTML = banner(m, "eur", false);
+  document.getElementById("s2").innerHTML = s2(m);
+  document.getElementById("s3").innerHTML = s3(m);
+  document.getElementById("s4").innerHTML = s4(m, state.mixOpen);
+  document.getElementById("s5").innerHTML = s5(m);
+}
+function setGroup(group, v) {
+  state[group] = v;
+  document.querySelectorAll(`.seg[data-group="${group}"] button`).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === v)));
+}
+document.addEventListener("click", e => {
+  const segBtn = e.target.closest(".seg[data-group] button");
+  if (segBtn) { setGroup(segBtn.closest(".seg").dataset.group, segBtn.dataset.v); render(); return; }
+  const sw = e.target.closest("button[data-switch]");
+  if (sw) { setGroup("c3-unit", sw.dataset.switch); render(); return; }
+  if (e.target.closest("button[data-open-mix]")) { state.mixOpen = true; render(); document.getElementById("mix").scrollIntoView({ behavior: "smooth", block: "center" }); }
+});
+document.addEventListener("toggle", e => { if (e.target.id === "mix") state.mixOpen = e.target.open; }, true);
+render();
+</script>
+</body>
+</html>

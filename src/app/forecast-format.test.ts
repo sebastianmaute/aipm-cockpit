@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDayMonth, formatDayMonthYear, formatMoneyCompact, formatSignedPercent } from "./forecast-format";
+import { formatDayMonth, formatDayMonthYear, formatHours, formatMoneyCompact, formatShare, formatSignedPercent } from "./forecast-format";
 
 describe("forecast-format", () => {
   it("compact EUR", () => {
@@ -38,5 +38,15 @@ describe("forecast-format", () => {
     expect(formatDayMonth("2026-09-15", "en-US")).toBe("Sep 15");
     // Controller ruling 2: Node's ICU prints "15 Sept" for en-GB short month.
     expect(formatDayMonth("2026-09-15", "en-GB")).toMatch(/^15 Sept?$/);
+  });
+});
+
+describe("formatHours / formatShare (MR 3)", () => {
+  it("formats whole hours with a unit", () => {
+    expect(formatHours(2_208.6, "en-US")).toBe("2,209 h");
+    expect(formatHours(2_208.6, "de-DE")).toBe("2.209 h");
+  });
+  it("formats a share as a whole percent", () => {
+    expect(formatShare(539 / 1_450, "en-US")).toBe("37%");
   });
 });

@@ -366,6 +366,10 @@ it. The approved texts are those of the union mockup, adjusted where §5 changed
 
 ### 6.5 Chart (MR 3, `burndown-chart.tsx`)
 
+> **Superseded in part (2026-09-15)** by `2026-09-15-forecast-chart-hours-design.md`: one chart with a € | Hours
+> unit switch replaces the twin hours + € charts, and that addendum adds the hours forecast, the rate-mix signal
+> and the chart-geometry rulings. The bullets below still hold where the addendum does not override them.
+
 - Series: planned, actual, pace forecast (dashed), efficiency forecast (dotted), run-out marker, EV point today.
   Dash patterns and the legend carry meaning, not colour alone.
 - Burn-down orientation plots remaining = BAC − cumulative, including values below zero; cumulative orientation

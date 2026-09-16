@@ -8,6 +8,45 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.7.0] - 2026-09-16 "Sayers"
+
+One burn-down chart replaces the twin charts, with switches for how you read it and which unit it
+counts; every forecast now comes in hours as well as euros; and when cheaper roles burn more hours
+than planned, the report says so instead of leaving you to spot it. Closes follow-ups 501 and 504.
+
+### Added
+
+- **The Budget Report and the dashboard budget tile share one burn-down chart** with two switches:
+  Burn-down or Cumulative, and € or Hours. Each device remembers what you picked. The chart draws both
+  forecast lines — at current pace and at current efficiency — anchored to the last real data point,
+  and marks where the budget runs out.
+- **In the cumulative view the chart also draws the earned value delivered so far**, built from the
+  dates work was actually completed. A bucket whose percent complete was typed in by hand has no such
+  history, so no line is drawn for it (follow-up 549).
+- **Every forecast card now carries an "In hours" line** — estimate at completion, variance and, on the
+  pace card, the date the hours run out. An overrun in effort is visible even where the money still
+  looks fine.
+- **When cheaper roles burn more hours than planned, the report says so.** A banner names the driver,
+  a "Where the hours went" table compares each role's share of booked hours against its planned share,
+  the facts row shows the rate actually being booked per hour against the planned rate, and a chip
+  appears on both forecast cards and on the dashboard tile. Every rate figure covers hourly buckets
+  only and names the fixed-price hours it leaves out.
+
+### Fixed
+
+- **A booked rate of zero no longer reports a 100% drop against plan.** When every booked hour sat on
+  an unpriced role — or one whose role record had been deleted — the rate comparison was computed
+  against nothing and always raised the signal. It is now left out instead.
+- **The chart's description for screen readers names the figure it reads out.** In the cumulative view
+  the spoken figure is the variance while the visible labels show the estimate at completion; the
+  wording said neither, so the two could not be told apart.
+- **The role table has a name for screen readers.**
+
+### Known issues
+
+- Buckets whose percent complete was entered by hand carry no earned-value history, so the cumulative
+  chart cannot draw one for them (follow-up 549).
+
 ## [1.6.1] - 2026-09-15 "Ishiguro"
 
 The desktop app moves to Electron 44, shows the app's own Version panel, and sends links to other

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { ForecastFactsRow } from "./budget-forecast-facts";
 import type { BudgetForecast } from "./budget-forecast";
+import { EUR_FORECAST, MIX_HOURS_WORSE, MIX_ON_PLAN } from "../test/forecast-fixtures";
+import { rateFactParts, rateFactTip, rateFactValue } from "./budget-rate-mix-text";
 
 // §5.6 worked example: BAC €240,000, AC €168,000, Remaining €72,000, EV €148,800 (62%).
 const AVAILABLE: BudgetForecast = {
@@ -57,4 +59,48 @@ describe("ForecastFactsRow", () => {
   // even if the labels were unrelated to their tiles, since `within(container)`
   // finds the tile's own visible term text regardless of what the tooltip
   // label says). Deleted rather than kept as a weaker duplicate.
+});
+
+// P13: the arrow glyph is an aria-hidden span rendered around
+// `rateFactValue`'s parts (never re-derived from `RATE_DRIFT_SIGNAL_RATIO` in
+// the component) — `rateFactParts`/`RATE_DRIFT_SIGNAL_RATIO` is the ONE check.
+describe("ForecastFactsRow — rate fact (MR 3)", () => {
+  it("adds no fifth fact without a mix, keeping the four-column grid", () => {
+    const { container } = render(<ForecastFactsRow lang="en-US" forecast={EUR_FORECAST} />);
+    expect(screen.queryByText("Avg rate booked")).toBeNull();
+    expect(container.firstElementChild!.className).toContain("sm:grid-cols-4");
+  });
+
+  it("shows the drifting rate with a direction arrow and its tooltip", () => {
+    const { container } = render(<ForecastFactsRow lang="en-US" forecast={EUR_FORECAST} mix={MIX_HOURS_WORSE} />);
+    // getByText only reads an element's DIRECT text-node children (nested
+    // elements, like the aria-hidden arrow span, don't contribute to the
+    // match), so this also locates the ONE element that wraps the whole
+    // value — that element's full textContent (fix round 1: the previous
+    // version stopped at the getByText match, which is blind to where the
+    // arrow sits, or even whether it exists at all — a mutant moving the
+    // `aria-hidden` span BEFORE the rate still reads as "rate note" once
+    // whitespace collapses, and passed).
+    const parts = rateFactParts("en-US", MIX_HOURS_WORSE);
+    const valueEl = screen.getByText(rateFactValue("en-US", MIX_HOURS_WORSE));
+    expect(valueEl.textContent).toBe(`${parts.rate} ${parts.arrow} ${parts.note}`);
+    const arrowEl = valueEl.querySelector("[aria-hidden='true']");
+    expect(arrowEl).not.toBeNull();
+    expect(arrowEl!.textContent).toBe("▼");
+    // The glyph is a DIRECT child of the value element, not just "somewhere
+    // in the container" — pins the arrow's position, not merely its presence.
+    expect(arrowEl!.parentElement).toBe(valueEl);
+    expect(container.firstElementChild!.className).toContain("lg:grid-cols-5");
+    const trigger = screen.getByRole("button", { name: "What is Avg rate booked?" });
+    act(() => trigger.focus());
+    expect(screen.getByRole("tooltip")).toHaveTextContent(rateFactTip("en-US", MIX_HOURS_WORSE));
+  });
+
+  it("shows 'on plan' without an arrow when the drift is below the threshold", () => {
+    const { container } = render(<ForecastFactsRow lang="en-US" forecast={EUR_FORECAST} mix={MIX_ON_PLAN} />);
+    const parts = rateFactParts("en-US", MIX_ON_PLAN);
+    const valueEl = screen.getByText(rateFactValue("en-US", MIX_ON_PLAN));
+    expect(valueEl.textContent).toBe(`${parts.rate} · ${parts.note}`);
+    expect(container.textContent).not.toMatch(/[▲▼]/);
+  });
 });

@@ -9,6 +9,9 @@ import { formatMoneyCompact, formatSignedPercent, formatDayMonth } from "./forec
 import { isPaceAvailable, isEfficiencyAvailable, type BudgetForecast } from "./budget-forecast";
 import { forecastNotices } from "./budget-forecast-notices";
 import { forecastNoticeShortText } from "./budget-forecast-banner";
+import { RateMixChip } from "./budget-rate-mix-chip";
+import { rateMixExplanation, rateMixTileChipText, rateMixWhyName } from "./budget-rate-mix-text";
+import type { RateMix } from "./budget-rate-mix";
 
 /** One-line tile headline (§6.3): the pace/efficiency EAC range (ordered by
  *  EAC ascending, each VAC following its own EAC), or the pace figure alone
@@ -47,14 +50,31 @@ export function forecastHeadlineText(f: BudgetForecast, lang: Lang): string {
 
 /** Dashboard "Budget burn" tile headline body (§6.3): the headline line, plus
  *  the first §6.1a notice (if any) as a muted second line — the full notice
- *  text stays on the Budget report. */
-export function ForecastHeadline({ lang, forecast }: { lang: Lang; forecast: BudgetForecast }) {
+ *  text stays on the Budget report. S5: when the rate-mix signal triggers, a
+ *  third line adds the hours-view chip (spec §4.5) so the € tile still
+ *  surfaces the hours divergence without becoming a second money reading. */
+export function ForecastHeadline({
+  lang, forecast, hours = null, mix = null,
+}: {
+  lang: Lang; forecast: BudgetForecast; hours?: BudgetForecast | null; mix?: RateMix | null;
+}) {
   const notices = forecastNotices(forecast);
+  const chipText = mix && mix.triggered && mix.direction !== null && hours ? rateMixTileChipText(lang, mix, hours) : null;
   return (
     <>
       <p className="text-sm font-semibold">{forecastHeadlineText(forecast, lang)}</p>
       {notices.length > 0 ? (
         <p className="text-xs text-muted-foreground">{forecastNoticeShortText(notices[0], lang)}</p>
+      ) : null}
+      {chipText !== null && mix && mix.direction !== null && hours ? (
+        <div className="mt-1">
+          <RateMixChip
+            name={rateMixWhyName(lang, chipText)}
+            text={chipText}
+            tip={rateMixExplanation(lang, mix, forecast, hours)}
+            direction={mix.direction}
+          />
+        </div>
       ) : null}
     </>
   );
