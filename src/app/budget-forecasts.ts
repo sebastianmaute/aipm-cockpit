@@ -2,8 +2,9 @@
  * Forecast bundle (MR 3 addendum §3). One call builds the € and hours
  * forecasts, the rate mix and the earned-value history from the inputs the
  * Budget report and the dashboard already hold. A separate module because
- * `budget-rate-mix.ts` and `budget-ev-history.ts` import from
- * `budget-forecast.ts` (plan Ruling 2 — no import cycle).
+ * `budget-rate-mix.ts` imports from `budget-forecast.ts` (plan Ruling 2 — no
+ * import cycle). `budget-ev-history.ts` does not: it imports
+ * `budget-earned-value`, `task-status`, `budget-report` and `types` only.
  */
 import { computeBudgetForecastsByUnit, type BudgetForecast, type BudgetForecastInput } from "./budget-forecast";
 import { actualPointDates } from "./budget-burndown";

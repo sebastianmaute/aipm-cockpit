@@ -44,6 +44,9 @@ function mixOf(booked: [number, number, number], signal: Pick<RateMix, "triggere
   return {
     drift: (168_000 / total) / 120 - 1, bookedRate: 168_000 / total, plannedRate: 120,
     budgetHours: 2_000, actualHours: total, budgetValue: 240_000, bookedValue: 168_000,
+    // No fixed-price bucket in the §7 scenarios, so the scope disclosure is off
+    // on all three; a test that wants it spreads a non-zero over the fixture.
+    excludedActualHours: 0,
     rows, driver: driverIndex === null ? null : rows[driverIndex], ...signal,
   };
 }

@@ -74,6 +74,10 @@ else, so it forecasts hours unchanged once it is given hours facts.
 - **Rate drift** = (booked € ÷ booked h) ÷ (budget € ÷ budget h) − 1, at external (contract) rates, over **hourly
   buckets only** — fixed-price buckets are excluded, because their € actual is already an hours ratio. Null when any
   of the four totals is 0.
+  - The exclusion is **disclosed on every surface that shows a rate figure**: the hours pace VAC in the same sentence
+    is project-wide (§3.1), so a reader otherwise compares an hourly-bucket share against a project-wide overrun.
+    `excludedActualHours` carries the booked hours the skip dropped (actual hours only — no budget-hours walk), and
+    the disclosure prints only when it is above 0.
 - **Role mix rows**, grouped across all hourly buckets by role (role-planned buckets) or by discipline (blended
   buckets): `plannedShare` (budget hours ÷ total budget hours), `bookedShare` (actual hours ÷ total actual hours),
   `difference` (booked − planned share), `usedOfBudget` (actual ÷ budget hours of that row).
@@ -89,8 +93,9 @@ else, so it forecasts hours unchanged once it is given hours facts.
   `paceVacHealth(eur) !== paceVacHealth(hours)`).
 - **Direction** = `"hours-worse"` when hours pace VAC ÷ BAC h < € pace VAC ÷ BAC €, else `"eur-worse"`.
 - **Severity** = `"warning"` when the two ratings differ, else `"info"`.
-- `RateMix = { drift, bookedRate, plannedRate, rows, driver, triggered, direction, severity }`; the wrapper returns
-  `mix: null` when there are no hourly buckets or no booked hours.
+- `RateMix = { drift, bookedRate, plannedRate, rows, driver, excludedActualHours, triggered, direction, severity }`;
+  the wrapper returns `mix: null` when there are no hourly buckets, no booked hours, or the booked hours carry no
+  contract value at all (every hour on an unpriced or dangling role — `bookedRate` 0 would render as "−100% vs plan").
 
 ### 3.4 Earned-value history (Option 1, derived)
 
@@ -150,6 +155,9 @@ snapshot and every export. §545 now also names the hours forecast and rate-mix 
   hours (planned 30%), so hours cost €124/h on average instead of €120/h. At current pace the budget shows −8.8%
   while the effort overrun is only −2.9%: the overrun is in rate, not in hours."
 - When the driver is null the role sentence is omitted.
+- When booked hours were excluded, a closing sentence names the scope: "Rate figures cover hourly buckets only;
+  900 h of fixed-price work are excluded." It rides the shared S6 explanation, so it reaches the banner, both card
+  chips, the tile chip and the S4 footnote at once.
 - Action: `Button` (secondary, xs) "Where the hours went" — opens S4 and moves focus to its `<summary>`.
 
 ### 4.4 S4 — "Where the hours went"
@@ -165,6 +173,8 @@ snapshot and every export. §545 now also names the hours forecast and rate-mix 
 
 - A fifth fact, "Avg rate booked": "€116/h ▼ −3.4% vs plan" when `|drift| ≥ 3%`, else "€120/h · on plan".
 - Standard `InfoTooltip` with the S6 text. Hidden when `mix` is null.
+- Its tooltip closes with the same scope sentence as §4.3 when booked hours were excluded — the two rate figures it
+  spells out are hourly-bucket totals, not project-wide ones.
 
 ### 4.6 S5 — tile chip
 

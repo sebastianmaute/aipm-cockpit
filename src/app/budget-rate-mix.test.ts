@@ -93,6 +93,33 @@ describe("computeRateMix — rules", () => {
     expect(with_.actualHours).toBe(without.actualHours);
   });
 
+  it("reports the booked hours the fixed-price skip dropped, so the surfaces can disclose the scope", () => {
+    const fixed = { ...scenarioBucket([900, 0, 0]), id: 2, type: "fixed", fixedPriceAmount: 50_000 } as BudgetBucket;
+    // Same fixture as the exclusion test above: 900 h booked into the fixed
+    // bucket, 1,450 h into the hourly one. The dropped hours are reported but
+    // still absent from every figure the rate sentences compute.
+    const with_ = mix([scenarioBucket([339, 572, 539]), fixed])!;
+    expect(with_.excludedActualHours).toBe(900);
+    expect(with_.actualHours).toBe(1_450);
+    expect(mix([scenarioBucket([339, 572, 539])])!.excludedActualHours).toBe(0);
+  });
+
+  it("is null when the booked hours carry no contract value (every hour on a zero-rate role)", () => {
+    // Budget value is positive (the rated role is budgeted) so the existing
+    // `budgetValue` guard cannot catch this; all the BOOKED hours sit on a
+    // dangling roleId, whose row `bucketRateRows` keeps at an external rate of
+    // 0. Unfixed, `bookedRate` is 0 and `drift` exactly -1 → "-100.0% vs plan"
+    // with the signal guaranteed to fire.
+    const bucket: BudgetBucket = {
+      id: 1, name: "B1", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-12-31", status: "open",
+      allocations: [
+        { roleId: 1, resourceIds: [], budgetHours: { "2026-06": 600 }, actualHours: {} },
+        { roleId: 99, resourceIds: [], budgetHours: {}, actualHours: { "2026-06": 300 } },
+      ],
+    } as BudgetBucket;
+    expect(mix([bucket])).toBeNull();
+  });
+
   it("groups blended buckets by discipline, named by the discipline", () => {
     const blended = {
       ...scenarioBucket([0, 0, 0]), id: 2, planningMode: "blended", allocations: [],

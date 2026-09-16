@@ -52,7 +52,10 @@ export function RateMixDetails({
         <span className="ml-2 text-xs font-normal text-muted-foreground">{t(lang, "forecastMixSummary")}</span>
       </summary>
       <div className="overflow-x-auto px-3 pb-3">
-        <table className="mt-2 w-full text-sm">
+        {/* The <summary> above is not programmatically associated with the
+            table, so the table carries its own accessible name — the same
+            sentence the summary shows, rather than a second wording. */}
+        <table className="mt-2 w-full text-sm" aria-label={t(lang, "forecastMixSummary")}>
           <thead>
             <tr>
               {headers.map((key) => (

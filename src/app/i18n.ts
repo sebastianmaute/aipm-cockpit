@@ -745,6 +745,7 @@ const enUS = {
   forecastMixUsed: "{0} of {1} ({2})",
   forecastMixDriverBadge: "Driver",
   forecastMixOnPlan: "No role is {0} points or more off its planned share.",
+  forecastMixFixedPriceScope: "Rate figures cover hourly buckets only; {0} of fixed-price work are excluded.",
   forecastFactRate: "Avg rate booked",
   forecastRatePerHour: "{0}/h",
   forecastRateDrift: "{0} vs plan",
@@ -778,6 +779,7 @@ const enUS = {
   // "variance" is load-bearing here — do not shorten it back out.
   burndownAriaEnd: "Variance at plan end: {0} at current pace, {1} at current efficiency.",
   burndownAriaEndPace: "Variance at plan end: {0} at current pace.",
+  burndownAriaEndEfficiency: "Variance at plan end: {0} at current efficiency.",
   forecastTileActuals: "Actuals {0} of {1}",
   forecastLinkRange: "Forecast: EAC {0}–{1}",
   forecastLinkSingle: "Forecast: EAC {0}",

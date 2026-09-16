@@ -77,6 +77,20 @@ describe("BurndownChart", () => {
     expect(screen.queryByText("At current efficiency")).toBeNull();
   });
 
+  it("names only the efficiency VAC when the pace forecast is unavailable", () => {
+    // The two availability predicates are independent, so this state is real —
+    // before the third branch existed the name carried no end figure at all.
+    const { container } = draw({
+      forecast: {
+        ...CHART_FORECAST,
+        pace: { unavailable: "no-burn", windowStart: "2026-01-19", windowEnd: "2026-02-13", lastBookingDate: null },
+      },
+    });
+    const aria = ariaOf(container);
+    expect(aria).toContain(`Variance at plan end: ${eur(-2_000)} at current efficiency.`);
+    expect(aria).not.toContain("at current pace");
+  });
+
   it("labels the y axis below zero and the first and last period", () => {
     const { container } = draw();
     // yDomain [−2,000 (efficiency end), 9,000] → ticks −2,000 · 0 · 4,500 · 9,000.

@@ -22,6 +22,11 @@ describe("RateMixDetails", () => {
     expect(within(junior).getByText("539 of 600 h (90%)")).toBeInTheDocument();
   });
 
+  it("names the table for assistive tech — the <summary> above it is not associated with it", () => {
+    render(<RateMixDetails {...props} mix={MIX_HOURS_WORSE} open focusNonce={0} />);
+    expect(screen.getByRole("table", { name: "Share of booked hours by role compared with the plan" })).toBeInTheDocument();
+  });
+
   it("marks only the driver row with the Driver badge", () => {
     render(<RateMixDetails {...props} mix={MIX_HOURS_WORSE} open focusNonce={0} />);
     expect(screen.getAllByText("Driver")).toHaveLength(1);

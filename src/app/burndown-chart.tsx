@@ -70,6 +70,11 @@ export function BurndownChart({
     aria.push(t(lang, "burndownAriaEnd", fmt(model.pace.vac), fmt(model.efficiency.vac)));
   } else if (model.pace) {
     aria.push(t(lang, "burndownAriaEndPace", fmt(model.pace.vac)));
+  } else if (model.efficiency) {
+    // The two availability predicates are independent, so efficiency-without-pace
+    // is a real state (`isPaceAvailable` false, `isEfficiencyAvailable` true);
+    // without this branch that forecast's name carries no end figure at all.
+    aria.push(t(lang, "burndownAriaEndEfficiency", fmt(model.efficiency.vac)));
   }
   const yTicks = [...new Set([model.yDomain[0], 0, model.total / 2, model.total])].filter((v) => v >= model.yDomain[0]);
   const belowZero = model.yDomain[0] < 0;

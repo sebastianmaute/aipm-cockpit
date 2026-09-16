@@ -22,6 +22,19 @@ function paceVacRatio(f: BudgetForecast): number | null {
   return isPaceAvailable(f.pace) && f.facts.bac > 0 ? f.pace.vac / f.facts.bac : null;
 }
 
+/**
+ * Scope disclosure (§3.2): every rate figure in these sentences is measured over
+ * HOURLY buckets only, while the hours pace VAC beside it is project-wide (§3.1).
+ * Appended to the explanation and the rate-fact tooltip — and ONLY when the skip
+ * actually dropped booked hours, so a fixed-price bucket with nothing booked adds
+ * no caveat. `{0}` already carries its " h" unit from `formatHours`.
+ */
+function fixedPriceScope(lang: Lang, mix: RateMix, locale: string): string | null {
+  return mix.excludedActualHours > 0
+    ? t(lang, "forecastMixFixedPriceScope", formatHours(mix.excludedActualHours, locale))
+    : null;
+}
+
 export function rateMixExplanation(lang: Lang, mix: RateMix, eur: BudgetForecast, hours: BudgetForecast): string {
   const locale = localeFor(lang);
   const money = (n: number) => formatCurrency(n, "EUR", locale);
@@ -42,6 +55,8 @@ export function rateMixExplanation(lang: Lang, mix: RateMix, eur: BudgetForecast
       ? t(lang, "forecastMixPaceHoursWorse", formatSignedPercent(h, locale, 1), formatSignedPercent(e, locale, 1))
       : t(lang, "forecastMixPaceEurWorse", formatSignedPercent(e, locale, 1), formatSignedPercent(h, locale, 1)));
   }
+  const scope = fixedPriceScope(lang, mix, locale);
+  if (scope !== null) parts.push(scope);
   return parts.join(" ");
 }
 
@@ -115,9 +130,11 @@ export function rateFactValue(lang: Lang, mix: RateMix): string {
 export function rateFactTip(lang: Lang, mix: RateMix): string {
   const locale = localeFor(lang);
   const money = (n: number) => formatCurrency(n, "EUR", locale);
-  return t(
+  const tip = t(
     lang, "forecastTipRate",
     money(mix.bookedValue), formatHours(mix.actualHours, locale), money(mix.bookedRate),
     money(mix.budgetValue), formatHours(mix.budgetHours, locale), money(mix.plannedRate),
   );
+  const scope = fixedPriceScope(lang, mix, locale);
+  return scope === null ? tip : `${tip} ${scope}`;
 }

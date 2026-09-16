@@ -27,6 +27,12 @@ export type RateMixSignal = {
 export type RateMix = RateMixSignal & {
   drift: number; bookedRate: number; plannedRate: number; budgetHours: number; actualHours: number;
   budgetValue: number; bookedValue: number; rows: readonly RateMixRow[]; driver: RateMixRow | null;
+  /** Booked hours the fixed-price skip left OUT of every figure above, so the
+   *  surfaces can disclose the scope (the hours pace VAC in the same sentence
+   *  is project-wide, §3.1). Budget hours are deliberately NOT summed for the
+   *  excluded buckets: that would need a fourth `effectiveBudgetHours` walk
+   *  per recalculation and the disclosure does not use them. */
+  excludedActualHours: number;
 };
 export type RateMixInput = {
   buckets: readonly BudgetBucket[]; roles: readonly Role[]; disciplines: readonly Discipline[]; grades: readonly Grade[];
@@ -58,8 +64,17 @@ export function computeRateMix(input: RateMixInput): RateMix | null {
   let actualHours = 0;
   let budgetValue = 0;
   let bookedValue = 0;
+  let excludedActualHours = 0;
   for (const bucket of buckets) {
-    if (bucket.type === "fixed") continue;
+    if (bucket.type === "fixed") {
+      // Actual hours only — no `effectiveBudgetHours` walk here (see the field's
+      // comment on `RateMix`); this loop runs on every dashboard recalculation.
+      const fixedPeriods = bucketActivePeriods(bucket, plan);
+      for (const row of bucketRateRows(bucket, roles)) {
+        for (const p of fixedPeriods) excludedActualHours += actualHoursIn(row.actualHours, p.key);
+      }
+      continue;
+    }
     const periods = bucketActivePeriods(bucket, plan);
     for (const row of bucketRateRows(bucket, roles)) {
       // `bucketRateRows` always tags a role-planned row with `roleId` and a
@@ -87,7 +102,13 @@ export function computeRateMix(input: RateMixInput): RateMix | null {
       bookedValue += ah * external;
     }
   }
-  if (!(budgetHours > 0) || !(actualHours > 0) || !(budgetValue > 0)) return null;
+  // `bookedValue` is guarded like the other three: every booked hour landing on
+  // a row whose external rate is 0 (an unpriced role, or a dangling `roleId`
+  // whose role was deleted — those rows are kept) makes `bookedRate` 0 and
+  // `drift` exactly −1, which renders "-100.0% vs plan" and guarantees the
+  // signal. A mix with a zero booked rate has no meaning; every surface is
+  // already gated on a non-null mix.
+  if (!(budgetHours > 0) || !(actualHours > 0) || !(budgetValue > 0) || !(bookedValue > 0)) return null;
   const plannedRate = budgetValue / budgetHours;
   const bookedRate = bookedValue / actualHours;
   const drift = bookedRate / plannedRate - 1;
@@ -110,6 +131,7 @@ export function computeRateMix(input: RateMixInput): RateMix | null {
     .reduce<RateMixRow | null>((best, r) => (best === null || r.difference > best.difference ? r : best), null);
   return {
     drift, bookedRate, plannedRate, budgetHours, actualHours, budgetValue, bookedValue, rows, driver,
+    excludedActualHours,
     ...rateMixSignal(drift, eur, hours),
   };
 }

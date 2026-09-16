@@ -91,6 +91,37 @@ describe("chips, names, points, rate fact", () => {
   });
 });
 
+describe("fixed-price scope disclosure", () => {
+  // `computeRateMix` skips fixed-price buckets, but the hours pace VAC in the
+  // same sentence is project-wide (§3.1) — so the shares only mean what they
+  // look like once the excluded hours are named.
+  const EXCLUDED = { ...MIX_HOURS_WORSE, excludedActualHours: 900 };
+  const sentence = "Rate figures cover hourly buckets only; 900 h of fixed-price work are excluded.";
+
+  it("is absent from both surfaces when nothing was excluded", () => {
+    expect(MIX_HOURS_WORSE.excludedActualHours).toBe(0);
+    expect(rateMixExplanation(en, MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE)).not.toContain("fixed-price");
+    expect(rateFactTip(en, MIX_HOURS_WORSE)).not.toContain("fixed-price");
+  });
+
+  it("closes the explanation and the rate-fact tooltip, with the excluded hours", () => {
+    expect(rateMixExplanation(en, EXCLUDED, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE).endsWith(sentence)).toBe(true);
+    expect(rateFactTip(en, EXCLUDED).endsWith(sentence)).toBe(true);
+  });
+
+  it("reaches the banner through the shared explanation", () => {
+    expect(rateMixBannerText(en, EXCLUDED, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE).endsWith(sentence)).toBe(true);
+  });
+
+  it("renders as a whole German sentence on both surfaces", () => {
+    // A literal, not a t()-built expectation, so a grammar slip in i18n.de.ts
+    // turns this red rather than following the dictionary into the slip.
+    const de = "Die Satzwerte umfassen nur Stundenposten; 900 h aus Festpreis-Posten sind ausgenommen.";
+    expect(rateMixExplanation("de", EXCLUDED, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE).endsWith(de)).toBe(true);
+    expect(rateFactTip("de", EXCLUDED).endsWith(de)).toBe(true);
+  });
+});
+
 describe("type-safety-only branches — not reachable via computeRateMix", () => {
   // `computeRateMix` only sets a non-null `mix.direction` when BOTH pace
   // forecasts are available and both BACs are positive (`rateMixSignal`,
