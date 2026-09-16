@@ -26,10 +26,9 @@ function buildHistory(start: number, steps: readonly number[]): readonly BudgetH
   return history;
 }
 
-/** 1e-6 tolerance, scaled to the magnitude of the reference value so it does
- *  not flake from float error at values up to 1e7 (relative, not absolute). */
+/** Absolute 1e-6 tolerance (values run up to 1e7). */
 const closeTo = (actual: number, expected: number): boolean =>
-  Math.abs(actual - expected) <= 1e-6 * Math.max(1, Math.abs(expected));
+  Math.abs(actual - expected) <= 1e-6;
 
 describe("splitVariance identity (property)", () => {
   it("performance + attributed + unattributed === vac for any recorded chain and any bac/eac", () => {
