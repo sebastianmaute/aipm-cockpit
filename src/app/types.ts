@@ -664,6 +664,7 @@ export type BudgetBucket = {
   successorId?: number | null;
   status: BucketStatus;
   closedDate?: string;
+  createdDate?: string; // YYYY-MM-DD, the day the bucket was created here; absent = unknown
   /** Manual EUR → currency rate override; wins over cached ECB while present. */
   fxRateOverride?: number;
   /** Planning granularity. Absent ⇒ "detailed" (back-compat for existing buckets). */

@@ -212,7 +212,7 @@ export const MILESTONES_CSV_COLUMNS = [
 
 export const BUDGETS_CSV_COLUMNS = [
   "id", "name", "poNumber", "type", "currency", "fixedPriceAmount",
-  "startDate", "endDate", "successorId", "status", "closedDate",
+  "startDate", "endDate", "successorId", "status", "closedDate", "createdDate",
   "fxRateOverride", "allocations", "localModifiedAt", "order",
   "planningMode", "disciplineAllocations", "rateOverrideInternal", "rateOverrideExternal",
   "taskIds", "percentComplete",
@@ -695,6 +695,7 @@ export function budgetFieldToString(b: BudgetBucket, c: string): string {
     case "successorId": return b.successorId == null ? "" : String(b.successorId);
     case "status": return b.status;
     case "closedDate": return b.closedDate ?? "";
+    case "createdDate": return b.createdDate ?? "";
     case "fxRateOverride": return b.fxRateOverride == null ? "" : String(b.fxRateOverride);
     case "allocations": return encodeAllocations(b.allocations);
     case "localModifiedAt": return b.localModifiedAt ?? "";

@@ -284,6 +284,7 @@ const BUDGET_ALIASES: Record<string, string> = {
   start: "startDate", startdate: "startDate", end: "endDate", enddate: "endDate",
   successorid: "successorId", status: "status",
   closed: "closedDate", closeddate: "closedDate",
+  created: "createdDate", createddate: "createdDate",
   fxoverride: "fxRateOverride", fxrateoverride: "fxRateOverride",
   allocations: "allocations",
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",

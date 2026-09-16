@@ -517,6 +517,26 @@ describe("BudgetPanel", () => {
     fireEvent.keyDown(handles[0], { key: "ArrowUp" }); // already at top → no change
     expect(onChangeBuckets).not.toHaveBeenCalled();
   });
+
+  test("clicking the add-bucket button stamps the new bucket's createdDate with `today`", () => {
+    const onChangeBuckets = vi.fn();
+    render(<BudgetPanel {...props} onChangeBuckets={onChangeBuckets} />);
+    fireEvent.click(screen.getByRole("button", { name: /add bucket/i }));
+    expect(onChangeBuckets).toHaveBeenCalledTimes(1);
+    const next = onChangeBuckets.mock.calls[0][0] as BudgetBucket[];
+    const fresh = next[next.length - 1];
+    expect(fresh.createdDate).toBe(props.today);
+  });
+
+  test("editing an existing bucket passes its createdDate through unchanged", () => {
+    const onChangeBuckets = vi.fn();
+    const datedBuckets: BudgetBucket[] = [{ ...buckets[0], createdDate: "2026-01-05" }];
+    render(<BudgetPanel {...props} buckets={datedBuckets} onChangeBuckets={onChangeBuckets} />);
+    fireEvent.click(screen.getByRole("button", { name: /close bucket/i }));
+    expect(onChangeBuckets).toHaveBeenCalledTimes(1);
+    const next = onChangeBuckets.mock.calls[0][0] as BudgetBucket[];
+    expect(next[0].createdDate).toBe("2026-01-05");
+  });
 });
 
 test("filters the bucket role table by role name", () => {

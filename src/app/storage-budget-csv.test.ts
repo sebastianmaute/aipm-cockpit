@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { workspaceToCsv, csvToWorkspace, emptyWorkspace } from "./storage";
+import { workspaceToCsv, csvToWorkspace, workspaceToMarkdown, markdownToWorkspace, emptyWorkspace } from "./storage";
 
 function wsWithBudget() {
   const ws = emptyWorkspace();
@@ -39,6 +39,21 @@ describe("budget CSV round-trip", () => {
     };
     const back = csvToWorkspace(workspaceToCsv(wsWithOrder));
     expect(back.budgets![0].order).toBe(3);
+  });
+
+  test("bucket createdDate survives CSV and Markdown encode/decode", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      budgets: [{
+        id: 1, name: "Dated bucket", type: "tm" as const, currency: "EUR" as const,
+        startDate: "2026-01-01", endDate: "2026-06-30", status: "open" as const,
+        createdDate: "2026-07-01", allocations: [],
+      }],
+    };
+    const viaCsv = csvToWorkspace(workspaceToCsv(ws));
+    expect(viaCsv.budgets![0].createdDate).toBe("2026-07-01");
+    const viaMd = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(viaMd.budgets![0].createdDate).toBe("2026-07-01");
   });
 
   test("bucket taskIds and percentComplete survive CSV encode/decode", () => {

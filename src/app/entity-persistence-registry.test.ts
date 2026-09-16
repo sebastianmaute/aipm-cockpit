@@ -298,6 +298,7 @@ describe("entity persistence registry — bucket task links + manual completion 
   it("budget columns are in the CSV column registry (drives CSV + Turso single/tenant)", () => {
     expect(BUDGETS_CSV_COLUMNS as readonly string[]).toContain("taskIds");
     expect(BUDGETS_CSV_COLUMNS as readonly string[]).toContain("percentComplete");
+    expect(BUDGETS_CSV_COLUMNS as readonly string[]).toContain("createdDate");
   });
 
   it("bucket taskIds + percentComplete survive the CSV round-trip", () => {

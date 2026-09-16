@@ -769,6 +769,8 @@ function budgetWithDateReader(input: unknown, readOptional: RequiredDateReader):
     const cd = readOptional(input.closedDate, "budget", id, "closedDate");
     if (cd) bucket.closedDate = cd;
   }
+  const created = readOptional(input.createdDate, "budget", id, "createdDate");
+  if (created) bucket.createdDate = created;
   const fx = sanitizeAmount(input.fxRateOverride, 4);
   if (fx !== undefined && fx > 0) bucket.fxRateOverride = fx;
   if (input.order !== undefined && input.order !== null && input.order !== "") {
