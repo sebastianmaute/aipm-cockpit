@@ -12,7 +12,7 @@ import { SegmentedControl } from "./segmented-control";
 import { BurndownChart } from "./burndown-chart";
 import { buildChartModel, type ChartOrientation, type ChartUnit } from "./burndown-geometry";
 import type { BurndownSeries } from "./budget-burndown";
-import type { ForecastBundle } from "./budget-forecasts";
+import type { ForecastBundle } from "./budget-forecast-bundle";
 
 export function BurndownChartPanel({
   lang, series, bundle, today, planEnd, currency,

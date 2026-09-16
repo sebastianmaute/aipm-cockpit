@@ -32,7 +32,7 @@ import { BurndownChartPanel } from "./burndown-chart-panel";
 import { BurndownChainWarning } from "./budget-chain-warning";
 import { EmptyState } from "./empty-state";
 import { ViewCallout } from "./view-callout";
-import { computeForecastBundle } from "./budget-forecasts";
+import { computeForecastBundle } from "./budget-forecast-bundle";
 import { ForecastFactsRow } from "./budget-forecast-facts";
 import { ForecastSection } from "./budget-forecast-section";
 

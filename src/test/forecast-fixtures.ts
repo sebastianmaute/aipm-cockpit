@@ -10,7 +10,7 @@ import { computeForecastFromFacts, type BudgetForecast, type DatedValue, type Fo
 import { workingDaysBefore } from "../app/working-days";
 import type { RateMix, RateMixRow } from "../app/budget-rate-mix";
 import type { EvHistory } from "../app/budget-ev-history";
-import type { ForecastBundle } from "../app/budget-forecasts";
+import type { ForecastBundle } from "../app/budget-forecast-bundle";
 
 const none = new Set<string>();
 const day = (date: string, value: number): DatedValue => ({ date, bookedFrom: date, value, spread: false });

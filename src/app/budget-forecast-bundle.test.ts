@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeForecastBundle, type ForecastBundleInput } from "./budget-forecasts";
+import { computeForecastBundle, type ForecastBundleInput } from "./budget-forecast-bundle";
 import { computeBudgetForecastsByUnit } from "./budget-forecast";
 import { computeBudgetReport } from "./budget-report";
 import { computeBurndownSeries } from "./budget-burndown";

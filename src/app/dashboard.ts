@@ -9,7 +9,7 @@ import { partitionMilestones } from "./milestones";
 import { computeEvm, projectBlendedInternalRate, type EvmMetrics } from "./evm";
 import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
 import { isPaceAvailable, paceVacHealth, type BudgetForecast } from "./budget-forecast";
-import { computeForecastBundle, type ForecastBundle } from "./budget-forecasts";
+import { computeForecastBundle, type ForecastBundle } from "./budget-forecast-bundle";
 import { resolveBucketChain, type BucketChain } from "./budget-bucket-chain";
 import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
 import { isTaskClosed, isTaskDelivered, isTaskOutOfScope } from "./task-closed";

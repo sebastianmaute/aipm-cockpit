@@ -6,7 +6,7 @@
 import { useState } from "react";
 import type { Lang } from "./i18n";
 import type { PlanGranularity } from "./types";
-import type { ForecastBundle } from "./budget-forecasts";
+import type { ForecastBundle } from "./budget-forecast-bundle";
 import { ForecastBanners } from "./budget-forecast-banner";
 import { ForecastCards } from "./budget-forecast-cards";
 import { RateMixDetails } from "./budget-rate-mix-details";

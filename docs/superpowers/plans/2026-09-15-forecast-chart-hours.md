@@ -2,6 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Renamed since this plan was written:** the bundle module `budget-forecasts.ts` (with its test)
+> shipped as **`budget-forecast-bundle.ts`** — one character from `budget-forecast.ts` was a footgun
+> in imports and greps. Its exports (`computeForecastBundle`, `ForecastBundle`, `ForecastBundleInput`)
+> are unchanged. The steps below keep the original filename deliberately: this is a record of the plan
+> as executed, not a description of today's tree. Do NOT renumber or rewrite them.
+
 **Goal:** The Budget report and the dashboard "Budget burn" tile get one burn-down chart with orientation (Burn-down / Cumulative) and unit (€ / Hours) switches, both forecast lines, a derived earned-value history, and an hours forecast whose disagreement with the € forecast is signalled (banner, role-mix disclosure, rate fact, chips).
 
 **Architecture:** Pure, i18n-free engines first: hours facts from the existing single facts walk (`budget-forecast.ts`), `budget-ev-history.ts`, `budget-rate-mix.ts`, bundled by `budget-forecasts.ts`, and a chart geometry model (`burndown-geometry.ts`). A React-free text layer (`budget-rate-mix-text.ts`) turns them into EN/DE sentences. React surfaces only format and lay out, using existing primitives (`InfoTooltip` gains a `children` trigger).
