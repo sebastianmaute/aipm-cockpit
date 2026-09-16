@@ -823,6 +823,14 @@ const enUS = {
     "Percent complete, from the tasks linked to each budget bucket or a manual % complete on the bucket. Without it, this card cannot be calculated and shows what is missing.",
   forecastTipExtraDays:
     "At current efficiency the remaining work needs ETC {0} ÷ burn rate {1} = {2} working days, {3} more than are left before the plan end.",
+  forecastSplitSince: "Since {0}",
+  forecastSplitPerformance: "Performance",
+  forecastSplitScope: "Added scope",
+  forecastSplitUnattributed: "Unexplained budget change",
+  forecastTipSplitUnattributed:
+    "Budget at completion moved without a recorded budget edit — for example a capacity, absence or holiday change, an undo, or a restored version. Check the activity log for budget edits in this period.",
+  forecastSplitNoHistory: "The split into performance and added scope starts with the first recorded budget change.",
+  forecastTipSplitNameUnattributed: "About the unexplained budget change",
   budgetReportEmpty: "No budget buckets yet.",
   budgetReportProjectTotal: "Project total",
   budgetReportByBucket: "By bucket",

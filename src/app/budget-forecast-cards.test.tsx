@@ -1,17 +1,22 @@
-import { describe, expect, it } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { beforeAll, describe, expect, it } from "vitest";
+import { act, render, screen, within } from "@testing-library/react";
 import { ForecastCards } from "./budget-forecast-cards";
 import { ForecastFactsRow } from "./budget-forecast-facts";
 import { formatCurrency } from "./resource-cost";
-import { formatSignedPercent } from "./forecast-format";
-import { localeFor, t } from "./i18n";
+import { formatHours, formatSignedPercent } from "./forecast-format";
+import { loadI18n, localeFor, t } from "./i18n";
 import { formatDayMonthYear } from "./forecast-format";
 import { EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, MIX_HOURS_WORSE, MIX_ON_PLAN } from "../test/forecast-fixtures";
 import { rateMixExplanation } from "./budget-rate-mix-text";
 import type { BudgetForecast, PaceForecast, PaceUnavailable, EfficiencyUnavailable } from "./budget-forecast";
+import type { BudgetHistorySummary } from "./budget-history";
 
 const locale = localeFor("en-US");
 const money = (n: number) => formatCurrency(n, "EUR", locale);
+
+beforeAll(async () => {
+  await loadI18n("de");
+});
 
 // §5.6 worked example, mirrored exactly (Contract €240,000; today 2026-09-14; plan end 2026-12-18).
 const AVAILABLE: BudgetForecast = {
@@ -237,5 +242,113 @@ describe("ForecastCards — In hours (MR 3)", () => {
     const hours: BudgetForecast = { ...HOURS_FORECAST_HOURS_WORSE, pace: { unavailable: "no-burn", windowStart: "2026-08-17", windowEnd: "2026-09-11", lastBookingDate: null } };
     render(<ForecastCards lang="en-US" forecast={EUR_FORECAST} hours={hours} mix={MIX_ON_PLAN} />);
     expect(screen.getAllByText("In hours")).toHaveLength(1);
+  });
+});
+
+// Task 11: three-part variance split (performance / added scope / unattributed)
+// beneath the VAC row, in € always and in hours whenever the hours line shows.
+// `pace.eac` and `efficiency.eac` are deliberately DIFFERENT on both fixtures
+// below (1440 vs 1300 hours; 144000 vs 130000 €) so a mutant that has the
+// efficiency card read the pace card's EAC is caught by a distinct expected
+// figure per card, not by a coincidentally-equal one.
+describe("ForecastCards — three-part variance split (task 11)", () => {
+  const signedText = (base: string, n: number) => (n > 0 ? `+${base}` : base);
+
+  const HISTORY: BudgetHistorySummary = {
+    baselineDate: "2026-01-05",
+    baseline: { hours: 1200, value: 120000 },
+    attributed: { hours: 500, value: 50000 },
+    changes: [],
+  };
+
+  function hoursSplitForecast(bac: number): BudgetForecast {
+    return {
+      facts: { bac, ac: 1200, remaining: bac - 1200, ev: 1100, percentComplete: 64.7 },
+      pace: {
+        burnRatePerDay: 20, windowDays: 20, windowStart: "2026-08-17", windowEnd: "2026-09-11",
+        spreadPeriodHoursUsed: false, workingDaysLeft: 12,
+        etc: 240, eac: 1440, vac: bac - 1440, runOutDate: null, daysBeforePlannedEnd: null,
+      },
+      efficiency: { pv: 1150, cpi: 1100 / 1200, spi: 1100 / 1150, etc: 100, eac: 1300, vac: bac - 1300 },
+      gap: null,
+      hasFixedPrice: false,
+    };
+  }
+
+  function eurSplitForecast(bac: number): BudgetForecast {
+    return {
+      facts: { bac, ac: 120000, remaining: bac - 120000, ev: 110000, percentComplete: 64.7 },
+      pace: {
+        burnRatePerDay: 2000, windowDays: 20, windowStart: "2026-08-17", windowEnd: "2026-09-11",
+        spreadPeriodHoursUsed: false, workingDaysLeft: 12,
+        etc: 24000, eac: 144000, vac: bac - 144000, runOutDate: null, daysBeforePlannedEnd: null,
+      },
+      efficiency: { pv: 115000, cpi: 110000 / 120000, spi: 110000 / 115000, etc: 10000, eac: 130000, vac: bac - 130000 },
+      gap: null,
+      hasFixedPrice: false,
+    };
+  }
+
+  it("shows performance and added-scope in hours, with no unattributed row, when the recorded change covers the whole BAC move", () => {
+    render(<ForecastCards lang="en-US" forecast={eurSplitForecast(170000)} hours={hoursSplitForecast(1700)} history={HISTORY} />);
+    const paceRegion = screen.getByRole("region", { name: t("en-US", "forecastPaceTitle") });
+    expect(within(paceRegion).getByText(signedText(formatHours(-240, locale), -240))).toBeInTheDocument();
+    expect(within(paceRegion).getByText(signedText(formatHours(500, locale), 500))).toBeInTheDocument();
+    expect(within(paceRegion).queryByText(t("en-US", "forecastSplitUnattributed"))).toBeNull();
+
+    const effRegion = screen.getByRole("region", { name: t("en-US", "forecastEfficiencyTitle") });
+    expect(within(effRegion).getByText(signedText(formatHours(-100, locale), -100))).toBeInTheDocument();
+    expect(within(effRegion).getByText(signedText(formatHours(500, locale), 500))).toBeInTheDocument();
+    expect(within(effRegion).queryByText(t("en-US", "forecastSplitUnattributed"))).toBeNull();
+  });
+
+  it("shows the unattributed row and its tooltip once the recorded change no longer covers the whole BAC move", () => {
+    render(<ForecastCards lang="en-US" forecast={eurSplitForecast(170000)} hours={hoursSplitForecast(1760)} history={HISTORY} />);
+    const paceRegion = screen.getByRole("region", { name: t("en-US", "forecastPaceTitle") });
+    expect(within(paceRegion).getByText(signedText(formatHours(60, locale), 60))).toBeInTheDocument();
+    const trigger = within(paceRegion).getByRole("button", {
+      name: `${t("en-US", "forecastTipSplitNameUnattributed")} – ${t("en-US", "forecastPaceTitle")} – ${t("en-US", "forecastInHours")}`,
+    });
+    act(() => trigger.focus());
+    expect(screen.getByRole("tooltip")).toHaveTextContent(t("en-US", "forecastTipSplitUnattributed"));
+  });
+
+  it("shows the unattributed row exactly at the 0.5 threshold (boundary for the >= check)", () => {
+    render(<ForecastCards lang="en-US" forecast={eurSplitForecast(170000)} hours={hoursSplitForecast(1700.5)} history={HISTORY} />);
+    const paceRegion = screen.getByRole("region", { name: t("en-US", "forecastPaceTitle") });
+    expect(within(paceRegion).getByText(t("en-US", "forecastSplitUnattributed"))).toBeInTheDocument();
+  });
+
+  it("renders the split rows in € the same way, with the baseline-date caption", () => {
+    render(<ForecastCards lang="en-US" forecast={eurSplitForecast(170000)} history={HISTORY} />);
+    const paceRegion = screen.getByRole("region", { name: t("en-US", "forecastPaceTitle") });
+    expect(within(paceRegion).getByText(t("en-US", "forecastSplitSince", formatDayMonthYear("2026-01-05", locale)))).toBeInTheDocument();
+    expect(within(paceRegion).getByText(signedText(money(-24000), -24000))).toBeInTheDocument();
+    expect(within(paceRegion).getByText(signedText(money(50000), 50000))).toBeInTheDocument();
+    expect(within(paceRegion).queryByText(t("en-US", "forecastSplitUnattributed"))).toBeNull();
+
+    const effRegion = screen.getByRole("region", { name: t("en-US", "forecastEfficiencyTitle") });
+    expect(within(effRegion).getByText(signedText(money(-10000), -10000))).toBeInTheDocument();
+    expect(within(effRegion).getByText(signedText(money(50000), 50000))).toBeInTheDocument();
+    expect(within(effRegion).queryByText(t("en-US", "forecastSplitUnattributed"))).toBeNull();
+  });
+
+  it("shows the no-history note once per card when history is null", () => {
+    render(<ForecastCards lang="en-US" forecast={EUR_FORECAST} />);
+    expect(screen.getAllByText(t("en-US", "forecastSplitNoHistory"))).toHaveLength(2);
+  });
+
+  it("keeps every unattributed-variance tooltip's accessible name unique across both cards and both units", () => {
+    render(<ForecastCards lang="en-US" forecast={eurSplitForecast(176000)} hours={hoursSplitForecast(1760)} history={HISTORY} />);
+    const triggers = document.querySelectorAll("[data-info-tooltip-trigger]");
+    const labels = Array.from(triggers).map((el) => el.getAttribute("aria-label"));
+    const unattributedLabels = labels.filter((l) => l?.includes(t("en-US", "forecastTipSplitNameUnattributed")));
+    expect(unattributedLabels).toHaveLength(4);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("renders the DE added-scope label", () => {
+    render(<ForecastCards lang="de" forecast={eurSplitForecast(170000)} history={HISTORY} />);
+    expect(screen.getAllByText("Zusätzlicher Umfang").length).toBeGreaterThan(0);
   });
 });
