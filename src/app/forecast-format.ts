@@ -61,6 +61,16 @@ export function formatHours(hours: number, locale: string): string {
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(hours)} h`;
 }
 
+/**
+ * An explicit +/− prefix over an already-formatted magnitude. The formatter
+ * itself supplies the "−" for a negative value (matching `formatSignedPercent`'s
+ * hyphen-minus convention on these surfaces), so only a positive value needs a
+ * prefix added — and a zero deliberately gets none.
+ */
+export function signedFigure(text: string, value: number): string {
+  return value > 0 ? `+${text}` : text;
+}
+
 /** A 0-1 share as a whole percent: "37%". */
 export function formatShare(ratio: number, locale: string): string {
   return new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 }).format(ratio);

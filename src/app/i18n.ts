@@ -787,6 +787,19 @@ const enUS = {
   burndownAriaEnd: "Variance at plan end: {0} at current pace, {1} at current efficiency.",
   burndownAriaEndPace: "Variance at plan end: {0} at current pace.",
   burndownAriaEndEfficiency: "Variance at plan end: {0} at current efficiency.",
+  burndownBacBaseline: "Budget at start of recording",
+  // {0} is the signed amount in the displayed unit, {1} the bucket names. The
+  // ordinary (non-deletion) marker is the same pair with no trailing word, so
+  // it is composed in the chart rather than carrying a key of its own.
+  burndownBacMarkerRemoved: "{0} {1} removed",
+  burndownAriaBudgetChanges: "Budget changes: {0}.",
+  budgetChangeTableCaption: "Budget changes ({0})",
+  budgetChangeColDate: "Date",
+  budgetChangeColBucket: "Bucket",
+  budgetChangeColChange: "Change",
+  budgetChangeColCumulative: "Added scope to date",
+  budgetChangeRemoved: "removed",
+  budgetChangePaceNote: "Split against the pace forecast.",
   forecastTileActuals: "Actuals {0} of {1}",
   forecastLinkRange: "Forecast: EAC {0}–{1}",
   forecastLinkSingle: "Forecast: EAC {0}",

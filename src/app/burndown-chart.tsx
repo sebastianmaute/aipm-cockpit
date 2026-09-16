@@ -6,9 +6,9 @@
 // schemes); the line swatch in the legend carries the colour.
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
-import { formatDayMonthYear, formatHours } from "./forecast-format";
+import { formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { TermTooltip } from "./budget-forecast-tooltip";
-import { scaleDate, scaleValue, type ChartModel, type ChartOrientation, type ChartPoint, type ChartUnit } from "./burndown-geometry";
+import { scaleDate, scaleValue, type BacMarker, type ChartModel, type ChartOrientation, type ChartPoint, type ChartUnit } from "./burndown-geometry";
 
 const W = 640, H = 240, PAD_L = 64, PAD_R = 80, PAD_T = 16, PAD_B = 28;
 const X0 = PAD_L, X1 = W - PAD_R, Y_BOTTOM = H - PAD_B, Y_TOP = PAD_T;
@@ -81,6 +81,24 @@ export function BurndownChart({
     // without this branch that forecast's name carries no end figure at all.
     aria.push(t(lang, "burndownAriaEndEfficiency", fmt(model.efficiency.vac)));
   }
+  // A marker reads "+€3,000 Vendor", or "−€800 Ops removed" when every entry
+  // behind it deleted its bucket. The pure model carries the amount and the
+  // names apart (it is i18n- and formatter-free), so the sentence is composed
+  // here — the ordinary case is the pair with no trailing word, which is why
+  // only the deletion wording is a key.
+  const markerLabel = (marker: BacMarker) => {
+    const amount = signedFigure(fmt(marker.amount), marker.amount);
+    return marker.removed
+      ? t(lang, "burndownBacMarkerRemoved", amount, marker.label)
+      : `${amount} ${marker.label}`;
+  };
+  // The ticks are `aria-hidden` like every other in-plot label, so without this
+  // sentence the recorded budget changes would reach no screen reader at all.
+  if (model.bacMarkers.length > 0) {
+    aria.push(t(lang, "burndownAriaBudgetChanges", model.bacMarkers
+      .map((marker) => `${formatDayMonthYear(marker.date, locale)} ${markerLabel(marker)}`)
+      .join("; ")));
+  }
   // Two partial spans can name the same buckets; say each sentence once.
   for (const names of new Set(model.evPartialNames.map((p) => p.names))) aria.push(t(lang, "burndownAriaEvPartial", names));
   const partialCaptions = [...new Set(model.evPartialNames.map((p) =>
@@ -115,9 +133,30 @@ export function BurndownChart({
               <text x={X1} y={H - 8} textAnchor="end" className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">{periods[periods.length - 1]}</text>
             </>
           )}
-          {model.bacLine !== null && (
+          {/* Recorded budget changes replace the flat BAC line with a stepped
+              one plus a dashed reference at the baseline. Each of the two is
+              named by its own text label, so they never rely on weight alone. */}
+          {model.bacSteps ? (
             <>
-              <line x1={X0} y1={y(model.bacLine)} x2={X1} y2={y(model.bacLine)} className="stroke-muted-foreground" strokeWidth={1.5} strokeDasharray={DASH.bac} />
+              {model.bacBaseline !== null && (
+                <>
+                  <line data-bac-baseline="" x1={X0} y1={y(model.bacBaseline)} x2={X1} y2={y(model.bacBaseline)} className="stroke-muted-foreground" strokeWidth={1} strokeDasharray={DASH.bac} />
+                  <text x={X0 + 4} y={y(model.bacBaseline) + 9} className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownBacBaseline")}</text>
+                </>
+              )}
+              <polyline data-bac-steps="" points={pts(model.bacSteps)} fill="none" className="stroke-muted-foreground" strokeWidth={1.5} strokeDasharray={DASH.bac} />
+              {model.bacMarkers.map((marker) => (
+                <g key={marker.date}>
+                  <line x1={x(marker.date)} y1={y(marker.value) - 4} x2={x(marker.date)} y2={y(marker.value) + 4} className="stroke-muted-foreground" strokeWidth={1.5} />
+                  <text x={x(marker.date) + (x(marker.date) > (X0 + X1) / 2 ? -4 : 4)} y={y(marker.value) - 7} textAnchor={x(marker.date) > (X0 + X1) / 2 ? "end" : "start"} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">
+                    {markerLabel(marker)}
+                  </text>
+                </g>
+              ))}
+            </>
+          ) : model.bacLine !== null && (
+            <>
+              <line data-bac-line="" x1={X0} y1={y(model.bacLine)} x2={X1} y2={y(model.bacLine)} className="stroke-muted-foreground" strokeWidth={1.5} strokeDasharray={DASH.bac} />
               <text x={X0 + 4} y={y(model.bacLine) - 4} className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownBac", fmt(model.bacLine))}</text>
             </>
           )}

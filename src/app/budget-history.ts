@@ -70,6 +70,23 @@ export function mergeBudgetHistories(
   return out;
 }
 
+/**
+ * Chronological order for display. `mergeBudgetHistories` unions prev-then-new
+ * ids, so a same-project load from a second device can hand the entries back in
+ * an order that is NOT chronological — any surface that steps a running figure
+ * over them (the chart's BAC steps, the change table's cumulative column) must
+ * order first or its running total is wrong. Sorted on `at` (the wall-clock
+ * stamp), falling back to `date` for an entry whose `at` is blank; ties keep
+ * the caller's order (Array#sort is stable).
+ */
+export function orderBudgetChanges(changes: readonly BudgetHistoryEntry[]): BudgetHistoryEntry[] {
+  const key = (e: BudgetHistoryEntry) => e.at || e.date;
+  return [...changes].sort((a, b) => {
+    const ka = key(a), kb = key(b);
+    return ka < kb ? -1 : ka > kb ? 1 : 0;
+  });
+}
+
 export function recordBudgetChange(
   history: readonly BudgetHistoryEntry[], change: BudgetChange,
 ): readonly BudgetHistoryEntry[] {

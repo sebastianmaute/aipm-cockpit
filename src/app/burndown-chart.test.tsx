@@ -5,13 +5,14 @@ import { buildChartModel, type ChartInput } from "./burndown-geometry";
 import { formatCurrency } from "./resource-cost";
 import { loadI18n } from "./i18n";
 import type { EvHistory } from "./budget-ev-history";
+import type { BudgetHistorySummary } from "./budget-history";
 import { CHART_FORECAST, CHART_FORECAST_HOURS, CHART_SERIES } from "../test/chart-fixtures";
 
 const eur = (v: number) => formatCurrency(v, "EUR", "en-US");
 
 const base: ChartInput = {
   series: CHART_SERIES, unit: "eur", orientation: "burndown", forecast: CHART_FORECAST,
-  evHistory: null, today: "2026-02-14", planEnd: "2026-03-31",
+  evHistory: null, history: null, today: "2026-02-14", planEnd: "2026-03-31",
 };
 function draw(over: Partial<ChartInput> = {}) {
   const input = { ...base, ...over };
@@ -256,6 +257,71 @@ describe("BurndownChart", () => {
         />,
       );
       expect(screen.getByText("Vendor, Ops kommen hinzu (+8 h)")).toBeInTheDocument();
+    });
+  });
+
+  describe("budget-at-completion steps", () => {
+    const summary: BudgetHistorySummary = {
+      baselineDate: "2026-01-05",
+      baseline: { hours: 90, value: 9_000 },
+      attributed: { hours: 22, value: 2_200 },
+      changes: [
+        {
+          id: "a", at: "2026-01-20T09:00:00.000Z", date: "2026-01-20", kind: "updated",
+          bucketId: 1, bucketName: "Vendor", deltaHours: 30, deltaValue: 3_000,
+          projectBacHours: 120, projectBacValue: 12_000,
+        },
+        {
+          id: "b", at: "2026-02-10T09:00:00.000Z", date: "2026-02-10", kind: "deleted",
+          bucketId: 2, bucketName: "Ops", deltaHours: -8, deltaValue: -800,
+          projectBacHours: 112, projectBacValue: 11_200,
+        },
+      ],
+    };
+    const stepped = (over: Partial<ChartInput> = {}) => draw({ orientation: "cumulative", history: summary, ...over });
+
+    it("replaces the flat BAC line with a stepped one and draws the baseline reference", () => {
+      const { container } = stepped();
+      const steps = container.querySelector("polyline[data-bac-steps]");
+      expect(steps).not.toBeNull();
+      // Six geometry points: origin, two per change, and the run to the domain end.
+      expect(steps!.getAttribute("points")!.trim().split(/\s+/)).toHaveLength(6);
+      // The flat line is gone; the baseline reference took its place.
+      expect(container.querySelector("line[data-bac-line]")).toBeNull();
+      expect(container.querySelector("line[data-bac-baseline]")).not.toBeNull();
+      expect(screen.getByText("Budget at start of recording")).toBeInTheDocument();
+      // Anti-vacuity: without history the same orientation draws the flat line.
+      const flat = draw({ orientation: "cumulative" });
+      expect(flat.container.querySelector("line[data-bac-line]")).not.toBeNull();
+      expect(flat.container.querySelector("polyline[data-bac-steps]")).toBeNull();
+    });
+
+    it("labels each marker with its signed amount, its bucket and a removal wording", () => {
+      stepped();
+      expect(screen.getByText(`+${eur(3_000)} Vendor`)).toBeInTheDocument();
+      expect(screen.getByText(`${eur(-800)} Ops removed`)).toBeInTheDocument();
+    });
+
+    it("names the budget changes in the chart's accessible name", () => {
+      const { container } = stepped();
+      const aria = ariaOf(container);
+      expect(aria).toContain("Budget changes:");
+      expect(aria).toContain(`+${eur(3_000)} Vendor`);
+      expect(aria).toContain(`${eur(-800)} Ops removed`);
+      // Anti-vacuity: the sentence is absent when there is no recorded history.
+      expect(ariaOf(draw({ orientation: "cumulative" }).container)).not.toContain("Budget changes:");
+    });
+
+    it("renders the German baseline caption and removal wording with umlauts", async () => {
+      await loadI18n("de");
+      render(
+        <BurndownChart
+          lang="de" currency="EUR" unit="hours" orientation="cumulative" periods={CHART_SERIES.periods}
+          model={buildChartModel({ ...base, unit: "hours", forecast: CHART_FORECAST_HOURS, orientation: "cumulative", history: summary })}
+        />,
+      );
+      expect(screen.getByText("Budget bei Aufzeichnungsbeginn")).toBeInTheDocument();
+      expect(screen.getByText(/Ops entfernt$/)).toBeInTheDocument();
     });
   });
 

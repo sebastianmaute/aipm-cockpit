@@ -18,6 +18,7 @@
  */
 import { isEfficiencyAvailable, isPaceAvailable, type BudgetForecast } from "./budget-forecast";
 import { actualPointDates, type BurndownSeries } from "./budget-burndown";
+import { orderBudgetChanges, type BudgetHistoryEntry, type BudgetHistorySummary } from "./budget-history";
 import type { EvHistory, EvHistoryPoint, EvPartialBucket } from "./budget-ev-history";
 
 export type ChartUnit = "eur" | "hours";
@@ -53,8 +54,26 @@ export type ChartModel = {
   evPartialNames: readonly EvPartialNames[];
   /** Names of the budgeted buckets when no earned-value history exists at all. */
   evUnavailable: readonly string[] | null;
+  /** The recorded budget at completion as a STEPPED polyline (cumulative
+   *  orientation only): it runs at `bacBaseline` from the chart origin to the
+   *  first recorded change, then steps to each entry's own project BAC and runs
+   *  flat to the end of the domain. Null when nothing has been recorded — the
+   *  flat `bacLine` is what the surface draws then. */
+  bacSteps: readonly ChartPoint[] | null;
+  /** The project BAC before the first recorded change, drawn as a dashed
+   *  reference. Null exactly when `bacSteps` is. */
+  bacBaseline: number | null;
+  /** One tick per PERIOD that holds recorded changes, at the level the last of
+   *  them left. Several entries in one period are summed and their bucket names
+   *  joined, so the labels cannot pile up on one x. A tick whose summed amount
+   *  shows as 0 in the current unit is left out (the Task 9 join rule). */
+  bacMarkers: readonly BacMarker[];
   bacLine: number | null; today: string | null; planEnd: string; frameDiffers: boolean;
 };
+/** `label` is the bucket names joined with ", "; `amount` their summed delta in
+ *  the current unit; `removed` is true only when EVERY entry behind the tick
+ *  deleted its bucket, which picks the "… removed" sentence. */
+export type BacMarker = { date: string; value: number; amount: number; label: string; removed: boolean };
 export type EvSegment = { partial: boolean; points: readonly ChartPoint[] };
 /** `label` is the bucket names joined with ", "; `count` how many names it holds (it picks the
  *  singular or plural sentence); `amount` their summed contribution. */
@@ -62,7 +81,8 @@ export type EvJoinLabel = { date: string; value: number; amount: number; label: 
 export type EvPartialNames = { names: string; created: boolean };
 export type ChartInput = {
   series: BurndownSeries; unit: ChartUnit; orientation: ChartOrientation;
-  forecast: BudgetForecast | null; evHistory: EvHistory | null; today: string; planEnd: string;
+  forecast: BudgetForecast | null; evHistory: EvHistory | null;
+  history: BudgetHistorySummary | null; today: string; planEnd: string;
 };
 
 const utc = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
@@ -131,8 +151,67 @@ function evHistoryFields(evHistory: EvHistory, eurUnit: boolean, origin: ChartPo
   };
 }
 
+type BacFields = Pick<ChartModel, "bacSteps" | "bacBaseline" | "bacMarkers">;
+const NO_BAC: BacFields = { bacSteps: null, bacBaseline: null, bacMarkers: [] };
+
+/**
+ * Budget-at-completion steps, markers and baseline from the recorded history.
+ * Entries are ORDERED first (`orderBudgetChanges`) — the union a second device
+ * produces is not chronological, and every figure here is a running one.
+ * Dates are clamped into the chart's own x domain so a change recorded before
+ * the first period (or after the last) cannot draw outside the plot.
+ */
+function bacFields(
+  history: BudgetHistorySummary, eurUnit: boolean, series: BurndownSeries, start: string, end: string,
+): BacFields {
+  const changes = orderBudgetChanges(history.changes);
+  if (changes.length === 0) return NO_BAC;
+  const bacOf = (e: BudgetHistoryEntry) => (eurUnit ? e.projectBacValue : e.projectBacHours);
+  const deltaOf = (e: BudgetHistoryEntry) => (eurUnit ? e.deltaValue : e.deltaHours);
+  const clamp = (date: string) => (date < start ? start : date > end ? end : date);
+  const baseline = eurUnit ? history.baseline.value : history.baseline.hours;
+
+  const steps: ChartPoint[] = [{ date: start, value: baseline }];
+  let level = baseline;
+  for (const e of changes) {
+    const at = clamp(e.date);
+    steps.push({ date: at, value: level });
+    level = bacOf(e);
+    steps.push({ date: at, value: level });
+  }
+  steps.push({ date: end, value: level });
+
+  // One tick per period, keyed by the period the change falls in; a date past
+  // the last period end (or before the first, which `findIndex` already maps to
+  // period 0) belongs to the last one. With no periods at all the key falls
+  // back to the date itself, so nothing collapses by accident.
+  const periodKey = (date: string) => {
+    if (series.periodEnds.length === 0) return date;
+    const i = series.periodEnds.findIndex((periodEnd) => date <= periodEnd);
+    return `p${i < 0 ? series.periodEnds.length - 1 : i}`;
+  };
+  const groups = new Map<string, BudgetHistoryEntry[]>();
+  for (const e of changes) {
+    const key = periodKey(clamp(e.date));
+    const group = groups.get(key);
+    if (group) group.push(e);
+    else groups.set(key, [e]);
+  }
+  const bacMarkers = [...groups.values()].flatMap((group): BacMarker[] => {
+    const amount = group.reduce((sum, e) => sum + deltaOf(e), 0);
+    if (shownAsZero(amount)) return [];
+    const last = group[group.length - 1];
+    const names = [...new Set(group.map((e) => e.bucketName).filter((name) => name !== ""))];
+    return [{
+      date: clamp(last.date), value: bacOf(last), amount,
+      label: names.join(", "), removed: group.every((e) => e.kind === "deleted"),
+    }];
+  });
+  return { bacSteps: steps, bacBaseline: baseline, bacMarkers };
+}
+
 export function buildChartModel(input: ChartInput): ChartModel {
-  const { series, unit, orientation, forecast, evHistory, today, planEnd } = input;
+  const { series, unit, orientation, forecast, evHistory, history, today, planEnd } = input;
   const eurUnit = unit === "eur";
   const down = orientation === "burndown";
   const total = eurUnit ? series.totalBudgetValue : series.totalBudgetHours;
@@ -182,6 +261,7 @@ export function buildChartModel(input: ChartInput): ChartModel {
   }
 
   const evFields = !down && evHistory ? evHistoryFields(evHistory, eurUnit, origin) : NO_EV;
+  const bacF = !down && history ? bacFields(history, eurUnit, series, xDomain[0], xDomain[1]) : NO_BAC;
 
   const lastCumulative = last === null ? null : (down ? total - last.value : last.value);
   const frameDiffers = forecast !== null && lastCumulative !== null && (
@@ -193,6 +273,9 @@ export function buildChartModel(input: ChartInput): ChartModel {
     0, total,
     ...planned.map((pt) => pt.value), ...actual.map((pt) => pt.value),
     ...(evFields.evSegments ?? []).flatMap((s) => s.points.map((pt) => pt.value)),
+    // The stepped BAC can rise above `total` (recorded scope added after the
+    // baseline), so the domain has to open for it or the steps leave the plot.
+    ...(bacF.bacSteps ?? []).map((pt) => pt.value),
     ...[pace?.to.value, efficiency?.to.value, ev?.value].filter((v): v is number => v !== undefined),
   ];
   const yMin = Math.min(...values);
@@ -201,7 +284,7 @@ export function buildChartModel(input: ChartInput): ChartModel {
 
   return {
     empty: !(total > 0), xDomain, yDomain: [yMin, yMax], total,
-    planned, actual, over, pace, efficiency, runOut, ev, ...evFields,
+    planned, actual, over, pace, efficiency, runOut, ev, ...evFields, ...bacF,
     bacLine: down ? null : total,
     today: dates.length > 0 ? dates[dates.length - 1] : null,
     planEnd, frameDiffers,

@@ -4,10 +4,11 @@ import { CHART_SERIES, CHART_FORECAST, CHART_FORECAST_HOURS } from "../test/char
 import type { BurndownSeries } from "./budget-burndown";
 import type { BudgetForecast } from "./budget-forecast";
 import type { EvHistoryPoint, EvJoin, EvPartialBucket } from "./budget-ev-history";
+import type { BudgetHistoryEntry, BudgetHistorySummary } from "./budget-history";
 
 const base: ChartInput = {
   series: CHART_SERIES, unit: "eur", orientation: "burndown",
-  forecast: CHART_FORECAST, evHistory: null, today: "2026-02-14", planEnd: "2026-03-31",
+  forecast: CHART_FORECAST, evHistory: null, history: null, today: "2026-02-14", planEnd: "2026-03-31",
 };
 /** An EV history point worth `eur` €, and eur/100 hours. */
 function evPoint(
@@ -173,6 +174,126 @@ describe("buildChartModel — partial earned value and joins", () => {
     // €: Vendor's 40 shows, Ops's 0 does not; hours: 0.4 h rounds to "0 h", so nothing is labelled.
     expect(cumulative(points).evJoins).toEqual([{ date: "2026-01-31", value: 40, amount: 40, label: "Vendor", count: 1 }]);
     expect(cumulative(points, "hours").evJoins).toEqual([]);
+  });
+});
+
+describe("buildChartModel — budget-at-completion steps", () => {
+  /** A recorded change; `at` defaults to 09:00 on its own day so a test can
+   *  hand `at` and `date` apart when it wants to pin the ordering rule. */
+  function change(over: Partial<BudgetHistoryEntry> & { id: string; date: string }): BudgetHistoryEntry {
+    return {
+      at: `${over.date}T09:00:00.000Z`, kind: "updated", bucketId: 1, bucketName: "Vendor",
+      projectBacHours: 90, projectBacValue: 9_000, deltaHours: 0, deltaValue: 0, ...over,
+    };
+  }
+  function summary(changes: BudgetHistoryEntry[]): BudgetHistorySummary {
+    return {
+      baselineDate: "2026-01-05",
+      baseline: { hours: 90, value: 9_000 },
+      attributed: {
+        hours: changes.reduce((s, e) => s + e.deltaHours, 0),
+        value: changes.reduce((s, e) => s + e.deltaValue, 0),
+      },
+      changes,
+    };
+  }
+  const cumulative = (history: BudgetHistorySummary, unit: ChartInput["unit"] = "eur") =>
+    buildChartModel({ ...base, unit, orientation: "cumulative", forecast: null, history });
+
+  const VENDOR_UP = change({
+    id: "a", date: "2026-01-20", bucketName: "Vendor",
+    deltaHours: 30, deltaValue: 3_000, projectBacHours: 120, projectBacValue: 12_000,
+  });
+  const OPS_GONE = change({
+    id: "b", date: "2026-02-10", kind: "deleted", bucketId: 2, bucketName: "Ops",
+    deltaHours: -8, deltaValue: -800, projectBacHours: 112, projectBacValue: 11_200,
+  });
+
+  it("steps from the baseline to each entry's BAC, one level per entry", () => {
+    const m = cumulative(summary([VENDOR_UP, OPS_GONE]));
+    expect(m.bacBaseline).toBe(9_000);
+    expect(m.bacSteps).toEqual([
+      { date: "2026-01-01", value: 9_000 },
+      { date: "2026-01-20", value: 9_000 }, { date: "2026-01-20", value: 12_000 },
+      { date: "2026-02-10", value: 12_000 }, { date: "2026-02-10", value: 11_200 },
+      { date: "2026-03-31", value: 11_200 },
+    ]);
+    // Three levels for two entries in different months: baseline, then each BAC.
+    expect(new Set((m.bacSteps ?? []).map((p) => p.value)).size).toBe(3);
+    // The domain opens far enough for the raised BAC to stay inside the plot.
+    expect(m.yDomain[1]).toBeGreaterThanOrEqual(12_000);
+  });
+
+  it("marks each entry in its own period, naming the bucket and flagging a deletion", () => {
+    const m = cumulative(summary([VENDOR_UP, OPS_GONE]));
+    expect(m.bacMarkers).toEqual([
+      { date: "2026-01-20", value: 12_000, amount: 3_000, label: "Vendor", removed: false },
+      { date: "2026-02-10", value: 11_200, amount: -800, label: "Ops", removed: true },
+    ]);
+  });
+
+  it("sums several entries in one period into one marker with their names joined", () => {
+    const first = change({
+      id: "a", date: "2026-01-10", bucketName: "Vendor",
+      deltaHours: 30, deltaValue: 3_000, projectBacHours: 120, projectBacValue: 12_000,
+    });
+    const second = change({
+      id: "b", date: "2026-01-20", bucketId: 2, bucketName: "Ops",
+      deltaHours: 5, deltaValue: 500, projectBacHours: 125, projectBacValue: 12_500,
+    });
+    const m = cumulative(summary([first, second]));
+    // Both steps are still drawn — only the LABELS collapse.
+    expect(new Set((m.bacSteps ?? []).map((p) => p.value)).size).toBe(3);
+    expect(m.bacMarkers).toEqual([
+      { date: "2026-01-20", value: 12_500, amount: 3_500, label: "Vendor, Ops", removed: false },
+    ]);
+  });
+
+  it("orders by `at`, not by array order, and reads the hours unit", () => {
+    // `mergeBudgetHistories` unions prev-then-new ids, so a reload from another
+    // device can hand the changes back out of chronological order.
+    const early = change({
+      id: "a", at: "2026-01-20T09:00:00.000Z", date: "2026-01-20", bucketName: "Vendor",
+      deltaHours: 30, deltaValue: 3_000, projectBacHours: 120, projectBacValue: 12_000,
+    });
+    const late = change({
+      id: "b", at: "2026-02-10T09:00:00.000Z", date: "2026-02-10", bucketId: 2, bucketName: "Ops",
+      deltaHours: -8, deltaValue: -800, projectBacHours: 112, projectBacValue: 11_200,
+    });
+    const m = cumulative(summary([late, early]), "hours");
+    expect(m.bacSteps).toEqual([
+      { date: "2026-01-01", value: 90 },
+      { date: "2026-01-20", value: 90 }, { date: "2026-01-20", value: 120 },
+      { date: "2026-02-10", value: 120 }, { date: "2026-02-10", value: 112 },
+      { date: "2026-03-31", value: 112 },
+    ]);
+    expect(m.bacMarkers.map((mk) => mk.label)).toEqual(["Vendor", "Ops"]);
+    expect(m.bacMarkers.map((mk) => mk.amount)).toEqual([30, -8]);
+  });
+
+  it("drops a marker whose summed amount shows as 0 in the current unit", () => {
+    // 40 € / 0.4 h: the € marker shows, the hours one would read "+0 h".
+    const tiny = summary([change({
+      id: "a", date: "2026-01-20", bucketName: "Vendor",
+      deltaHours: 0.4, deltaValue: 40, projectBacHours: 90.4, projectBacValue: 9_040,
+    })]);
+    expect(cumulative(tiny).bacMarkers).toHaveLength(1);
+    expect(cumulative(tiny, "hours").bacMarkers).toEqual([]);
+    // The step itself is geometry, not a label — it is still drawn.
+    expect(cumulative(tiny, "hours").bacSteps).not.toBeNull();
+  });
+
+  it("has no steps without history, in the burn-down orientation, or with no changes", () => {
+    const m = buildChartModel({ ...base, orientation: "cumulative" });
+    expect(m.bacSteps).toBeNull();
+    expect(m.bacBaseline).toBeNull();
+    expect(m.bacMarkers).toEqual([]);
+    // The flat BAC line is untouched when there is nothing to step.
+    expect(m.bacLine).toBe(9_000);
+    const down = buildChartModel({ ...base, history: summary([VENDOR_UP]) });
+    expect(down.bacSteps).toBeNull();
+    expect(down.bacMarkers).toEqual([]);
+    expect(cumulative(summary([])).bacSteps).toBeNull();
   });
 });
 
