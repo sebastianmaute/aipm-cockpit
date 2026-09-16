@@ -18,7 +18,7 @@
  */
 import { isEfficiencyAvailable, isPaceAvailable, type BudgetForecast } from "./budget-forecast";
 import { actualPointDates, type BurndownSeries } from "./budget-burndown";
-import type { EvHistory } from "./budget-ev-history";
+import type { EvHistory, EvHistoryPoint, EvPartialBucket } from "./budget-ev-history";
 
 export type ChartUnit = "eur" | "hours";
 export type ChartOrientation = "burndown" | "cumulative";
@@ -40,9 +40,25 @@ export type ChartModel = {
    *  guaranteed to land exactly on the segment's line — that is not a bug for
    *  Task 12 to "fix" by snapping one to the other. */
   runOut: ChartPoint | null; ev: ChartPoint | null;
-  evLine: readonly ChartPoint[] | null; evHistoryBlockedBy: readonly string[] | null;
+  /** Earned-value history (cumulative orientation only), split into runs of
+   *  partial and complete points. Neighbouring segments SHARE their boundary
+   *  point, so the drawn line stays continuous; the span leading out of a
+   *  partial run into a complete point is drawn as complete. */
+  evSegments: readonly EvSegment[] | null;
+  /** Buckets whose earned value starts counting at a point, with the amount
+   *  they bring in (current unit). A join that shows as 0 is left out. */
+  evJoins: readonly EvJoinLabel[];
+  /** One entry per partial segment, in order: its bucket names and whether
+   *  every one of them was created after its own start date. */
+  evPartialNames: readonly EvPartialNames[];
+  /** Names of the budgeted buckets when no earned-value history exists at all. */
+  evUnavailable: readonly string[] | null;
   bacLine: number | null; today: string | null; planEnd: string; frameDiffers: boolean;
 };
+export type EvSegment = { partial: boolean; points: readonly ChartPoint[] };
+/** `label` is the bucket names joined with ", "; `amount` their summed contribution. */
+export type EvJoinLabel = { date: string; value: number; amount: number; label: string };
+export type EvPartialNames = { names: string; created: boolean };
 export type ChartInput = {
   series: BurndownSeries; unit: ChartUnit; orientation: ChartOrientation;
   forecast: BudgetForecast | null; evHistory: EvHistory | null; today: string; planEnd: string;
@@ -62,6 +78,56 @@ export function scaleDate(date: string, domain: readonly [string, string], x0: n
 export function scaleValue(value: number, domain: readonly [number, number], yBottom: number, yTop: number): number {
   const span = domain[1] - domain[0];
   return span <= 0 ? yBottom : yBottom - ((value - domain[0]) / span) * (yBottom - yTop);
+}
+
+/** The chart prints € and hours with no fractional digits, so a join below
+ *  half a unit would read "+0" — such a join is not labelled. */
+const shownAsZero = (amount: number) => Math.round(amount) === 0;
+
+const createdAfterStart = (b: EvPartialBucket) =>
+  b.createdDate !== null && b.startDate !== null && b.createdDate.slice(0, 10) > b.startDate.slice(0, 10);
+
+function partialNames(points: readonly EvHistoryPoint[]): EvPartialNames {
+  const buckets = new Map<number, EvPartialBucket>();
+  for (const pt of points) for (const b of pt.partial) if (!buckets.has(b.id)) buckets.set(b.id, b);
+  const list = [...buckets.values()];
+  return { names: list.map((b) => b.name).join(", "), created: list.every(createdAfterStart) };
+}
+
+type EvFields = Pick<ChartModel, "evSegments" | "evJoins" | "evPartialNames" | "evUnavailable">;
+const NO_EV: EvFields = { evSegments: null, evJoins: [], evPartialNames: [], evUnavailable: null };
+
+function evHistoryFields(evHistory: EvHistory, eurUnit: boolean, origin: ChartPoint): EvFields {
+  if (!evHistory.available) return { ...NO_EV, evUnavailable: evHistory.buckets.map((b) => b.name) };
+  const { points } = evHistory;
+  if (points.length === 0) return NO_EV;
+  const valueOf = (pt: { eur: number; hours: number }) => (eurUnit ? pt.eur : pt.hours);
+  const segments: { partial: boolean; points: ChartPoint[]; source: EvHistoryPoint[] }[] = [];
+  let previous = origin;
+  points.forEach((pt) => {
+    const partial = pt.partial.length > 0;
+    const at: ChartPoint = { date: pt.date, value: valueOf(pt) };
+    const current = segments.at(-1);
+    if (current && current.partial === partial) {
+      current.points.push(at);
+      current.source.push(pt);
+    } else {
+      segments.push({ partial, points: [previous, at], source: [pt] });
+    }
+    previous = at;
+  });
+  const evJoins = points.flatMap((pt): EvJoinLabel[] => {
+    const shown = pt.joins.filter((j) => !shownAsZero(valueOf(j)));
+    if (shown.length === 0) return [];
+    const amount = shown.reduce((sum, j) => sum + valueOf(j), 0);
+    return [{ date: pt.date, value: valueOf(pt), amount, label: shown.map((j) => j.name).join(", ") }];
+  });
+  return {
+    evSegments: segments.map(({ partial, points: pts }) => ({ partial, points: pts })),
+    evJoins,
+    evPartialNames: segments.filter((s) => s.partial).map((s) => partialNames(s.source)),
+    evUnavailable: null,
+  };
 }
 
 export function buildChartModel(input: ChartInput): ChartModel {
@@ -114,15 +180,7 @@ export function buildChartModel(input: ChartInput): ChartModel {
     if (forecast.facts.ev !== null) ev = { date: last.date, value: fromCumulative(forecast.facts.ev) };
   }
 
-  let evLine: ChartPoint[] | null = null;
-  let evHistoryBlockedBy: string[] | null = null;
-  if (!down && evHistory) {
-    if (evHistory.available) {
-      evLine = evHistory.points.length === 0 ? null : [origin, ...evHistory.points.map((pt) => ({ date: pt.date, value: eurUnit ? pt.eur : pt.hours }))];
-    } else {
-      evHistoryBlockedBy = evHistory.buckets.map((b) => b.name);
-    }
-  }
+  const evFields = !down && evHistory ? evHistoryFields(evHistory, eurUnit, origin) : NO_EV;
 
   const lastCumulative = last === null ? null : (down ? total - last.value : last.value);
   const frameDiffers = forecast !== null && lastCumulative !== null && (
@@ -133,7 +191,7 @@ export function buildChartModel(input: ChartInput): ChartModel {
   const values = [
     0, total,
     ...planned.map((pt) => pt.value), ...actual.map((pt) => pt.value),
-    ...(evLine ?? []).map((pt) => pt.value),
+    ...(evFields.evSegments ?? []).flatMap((s) => s.points.map((pt) => pt.value)),
     ...[pace?.to.value, efficiency?.to.value, ev?.value].filter((v): v is number => v !== undefined),
   ];
   const yMin = Math.min(...values);
@@ -142,7 +200,7 @@ export function buildChartModel(input: ChartInput): ChartModel {
 
   return {
     empty: !(total > 0), xDomain, yDomain: [yMin, yMax], total,
-    planned, actual, over, pace, efficiency, runOut, ev, evLine, evHistoryBlockedBy,
+    planned, actual, over, pace, efficiency, runOut, ev, ...evFields,
     bacLine: down ? null : total,
     today: dates.length > 0 ? dates[dates.length - 1] : null,
     planEnd, frameDiffers,

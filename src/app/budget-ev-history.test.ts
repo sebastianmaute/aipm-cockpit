@@ -83,7 +83,7 @@ describe("computeEvHistory", () => {
     const b = [bucket(1, { taskIds: [1] }), bucket(2, { percentComplete: 50, name: "Design" })];
     const h = computeEvHistory({ report: report(b), buckets: b, tasks, dates, today: "2026-09-14", progress: NO_PROGRESS });
     if (!h.available) throw new Error("unavailable");
-    const design = [{ id: 2, name: "Design", createdDate: null }];
+    const design = [{ id: 2, name: "Design", createdDate: null, startDate: "2026-01-01" }];
     expect(h.points).toEqual([
       { date: "2026-01-31", eur: 0, hours: 0, partial: design, joins: [] },
       { date: "2026-03-31", eur: 10_000, hours: 100, partial: design, joins: [] },
@@ -185,7 +185,7 @@ describe("computeEvHistory — rule 1A′", () => {
   it("(1) a manual bucket contributes 0 and is complete before its start, partial once active without a record", () => {
     const points = run([ruleBucket(1, { startDate: "2026-07-31", percentComplete: 80 })]);
     for (const pt of points.slice(0, 6)) expect(pt).toMatchObject({ eur: 0, hours: 0, partial: [], joins: [] });
-    expect(points[6].partial).toEqual([{ id: 1, name: "R1", createdDate: null }]);
+    expect(points[6].partial).toEqual([{ id: 1, name: "R1", createdDate: null, startDate: "2026-07-31" }]);
     expect(points[11]).toMatchObject({ eur: 800, hours: 8, partial: [], joins: [] });
   });
 
@@ -203,13 +203,13 @@ describe("computeEvHistory — rule 1A′", () => {
   });
 
   it.each([
-    ["undated", "", undefined, null],
-    ["active from month 1", "2026-01-01", "2026-05-01", "2026-05-01"],
-  ])("(4) %s, with no record before month 7: partial, then joins with its contribution", (_label, startDate, createdDate, shown) => {
+    ["undated", "", undefined, null, null],
+    ["active from month 1", "2026-01-01", "2026-05-01", "2026-05-01", "2026-01-01"],
+  ])("(4) %s, with no record before month 7: partial, then joins with its contribution", (_label, startDate, createdDate, shown, shownStart) => {
     const points = run([ruleBucket(1, { startDate, createdDate, percentComplete: 60 })], { progress: recorded(1) });
     for (const pt of points.slice(0, 6)) {
       expect(pt).toMatchObject({ eur: 0, hours: 0, joins: [] });
-      expect(pt.partial).toEqual([{ id: 1, name: "R1", createdDate: shown }]);
+      expect(pt.partial).toEqual([{ id: 1, name: "R1", createdDate: shown, startDate: shownStart }]);
     }
     expect(points[6]).toEqual({ date: "2026-07-31", eur: 200, hours: 2, partial: [], joins: [{ id: 1, name: "R1", eur: 200, hours: 2 }] });
     expect(points.slice(7).every((pt) => pt.joins.length === 0 && pt.partial.length === 0)).toBe(true);
@@ -217,14 +217,24 @@ describe("computeEvHistory — rule 1A′", () => {
 
   it("(5) the today point uses the current percent: never partial, never a join", () => {
     const points = run([ruleBucket(1, { percentComplete: 30 })]);
-    for (const pt of points.slice(0, 11)) expect(pt.partial).toEqual([{ id: 1, name: "R1", createdDate: null }]);
+    for (const pt of points.slice(0, 11)) expect(pt.partial).toEqual([{ id: 1, name: "R1", createdDate: null, startDate: null }]);
     expect(points[11]).toEqual({ date: MONTH_12, eur: 300, hours: 3, partial: [], joins: [] });
+  });
+
+  it("(2b) a linked bucket starting later is known-zero before its start, so it is never partial nor a join", () => {
+    const tasks: EvHistoryTask[] = [{ id: 7, status: "Done", completedDate: "2026-02-10" }];
+    const points = run([ruleBucket(1, { startDate: "2026-04-01", taskIds: [7] })], { tasks });
+    // Month 2 has the task done, but months 2-3 precede the start: 0, known.
+    expect(points.slice(1, 3).map((pt) => [pt.eur, pt.partial.length, pt.joins.length])).toEqual([[0, 0, 0], [0, 0, 0]]);
+    // Month 4 (the start): the finished task counts in full, and nothing was unknown before it.
+    expect(points[3]).toEqual({ date: "2026-04-30", eur: 1_000, hours: 10, partial: [], joins: [] });
+    expect(points.every((pt) => pt.partial.length === 0 && pt.joins.length === 0)).toBe(true);
   });
 
   it("(R3) a linked bucket whose links resolve to nothing is partial at every non-today point", () => {
     const tasks: EvHistoryTask[] = [{ id: 7, status: "Done", completedDate: "2026-04-15" }];
     const points = run([ruleBucket(1, { taskIds: [7] }), ruleBucket(2, { taskIds: [99] })], { tasks });
-    for (const pt of points.slice(0, 11)) expect(pt.partial).toEqual([{ id: 2, name: "R2", createdDate: null }]);
+    for (const pt of points.slice(0, 11)) expect(pt.partial).toEqual([{ id: 2, name: "R2", createdDate: null, startDate: null }]);
     expect(points[11]).toEqual({ date: MONTH_12, eur: 1_000, hours: 10, partial: [], joins: [] });
   });
 

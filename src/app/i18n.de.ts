@@ -706,8 +706,13 @@ export const de: Record<TranslationKey, string> = {
   burndownBac: "BAC {0}",
   burndownFrameNote:
     "Die Diagrammsummen weichen von den Prognosewerten ab (Festpreis oder Budgetzeitraum); maßgeblich sind die Werte oben.",
-  burndownEvHistoryUnavailable:
-    "Earned Value im Zeitverlauf braucht Budgetposten mit verknüpften Aufgaben. Manueller Fertigstellungsgrad oder keine verknüpften Aufgaben: {0}.",
+  burndownEvHistoryUnavailable: "Noch kein Verlauf des Earned Value für {0}.",
+  burndownEvPartial: "Unvollständiger Earned Value",
+  burndownEvPartialNotRecorded: "Unvollständig: {0} nicht erfasst",
+  burndownEvPartialCreated: "Unvollständig: {0} später angelegt",
+  burndownEvJoinsHours: "{0} kommt hinzu (+{1} h)",
+  burndownEvJoinsEur: "{0} kommt hinzu (+{1})",
+  burndownAriaEvPartial: "Der Earned Value ist für {0} unvollständig.",
   burndownTipEvHistory:
     "Earned Value im Zeitverlauf, aus den Abschlussdaten der verknüpften Aufgaben. Heutige Verknüpfungen und Budgets gelten rückwirkend; eine neu verknüpfte oder wieder geöffnete Aufgabe ändert frühere Punkte.",
   burndownAria: "{0} in {1}.",

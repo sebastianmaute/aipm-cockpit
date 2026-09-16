@@ -3,11 +3,21 @@ import { buildChartModel, daysBetweenUtc, scaleDate, scaleValue, type ChartInput
 import { CHART_SERIES, CHART_FORECAST, CHART_FORECAST_HOURS } from "../test/chart-fixtures";
 import type { BurndownSeries } from "./budget-burndown";
 import type { BudgetForecast } from "./budget-forecast";
+import type { EvHistoryPoint, EvJoin, EvPartialBucket } from "./budget-ev-history";
 
 const base: ChartInput = {
   series: CHART_SERIES, unit: "eur", orientation: "burndown",
   forecast: CHART_FORECAST, evHistory: null, today: "2026-02-14", planEnd: "2026-03-31",
 };
+/** An EV history point worth `eur` €, and eur/100 hours. */
+function evPoint(
+  date: string, eur: number,
+  over: { partial?: EvPartialBucket[]; joins?: EvJoin[] } = {},
+): EvHistoryPoint {
+  return { date, eur, hours: eur / 100, partial: over.partial ?? [], joins: over.joins ?? [] };
+}
+const VENDOR: EvPartialBucket = { id: 3, name: "Vendor", createdDate: null, startDate: "2026-01-01" };
+const OPS: EvPartialBucket = { id: 4, name: "Ops", createdDate: "2026-02-01", startDate: "2026-01-01" };
 
 describe("scales", () => {
   it("counts UTC calendar days and maps dates and values linearly", () => {
@@ -77,24 +87,92 @@ describe("buildChartModel — cumulative", () => {
     ]);
   });
   it("draws the earned-value history only here", () => {
-    const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 1_000, hours: 10, partial: [], joins: [] }, { date: "2026-02-14", eur: 3_600, hours: 36, partial: [], joins: [] }] };
-    expect(buildChartModel({ ...base, orientation: "cumulative", evHistory }).evLine).toEqual([
+    const evHistory = { available: true as const, points: [evPoint("2026-01-31", 1_000), evPoint("2026-02-14", 3_600)] };
+    const m = buildChartModel({ ...base, orientation: "cumulative", evHistory });
+    expect(m.evSegments).toEqual([{ partial: false, points: [
       { date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 1_000 }, { date: "2026-02-14", value: 3_600 },
-    ]);
-    expect(buildChartModel({ ...base, evHistory }).evLine).toBeNull();
+    ] }]);
+    expect(m.evPartialNames).toEqual([]);
+    expect(m.evJoins).toEqual([]);
+    expect(m.evUnavailable).toBeNull();
+    const down = buildChartModel({ ...base, evHistory });
+    expect(down.evSegments).toBeNull();
+    expect(down.evJoins).toEqual([]);
+    expect(down.evPartialNames).toEqual([]);
   });
-  it("names the buckets that block the history", () => {
+  it("names the buckets that have no earned-value history", () => {
     const evHistory = { available: false as const, reason: "no-earned-value" as const, buckets: [{ id: 2, name: "Design" }] };
-    expect(buildChartModel({ ...base, orientation: "cumulative", evHistory }).evHistoryBlockedBy).toEqual(["Design"]);
+    const m = buildChartModel({ ...base, orientation: "cumulative", evHistory });
+    expect(m.evUnavailable).toEqual(["Design"]);
+    expect(m.evSegments).toBeNull();
   });
-  it("returns null evLine when the history has no points", () => {
+  it("returns null evSegments when the history has no points", () => {
     const evHistory = { available: true as const, points: [] };
-    expect(buildChartModel({ ...base, orientation: "cumulative", evHistory }).evLine).toBeNull();
+    expect(buildChartModel({ ...base, orientation: "cumulative", evHistory }).evSegments).toBeNull();
   });
   it("reads the earned-value history in the hours unit", () => {
-    const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 1_000, hours: 10, partial: [], joins: [] }] };
+    const evHistory = { available: true as const, points: [evPoint("2026-01-31", 1_000)] };
     const m = buildChartModel({ ...base, unit: "hours", orientation: "cumulative", forecast: null, evHistory });
-    expect(m.evLine).toEqual([{ date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 10 }]);
+    expect(m.evSegments).toEqual([{ partial: false, points: [{ date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 10 }] }]);
+  });
+});
+
+describe("buildChartModel — partial earned value and joins", () => {
+  const cumulative = (points: EvHistoryPoint[], unit: ChartInput["unit"] = "eur") =>
+    buildChartModel({ ...base, unit, orientation: "cumulative", forecast: null, evHistory: { available: true, points } });
+
+  it("groups consecutive partial points into one segment that shares its boundary points", () => {
+    const m = cumulative([
+      evPoint("2026-01-10", 100, { partial: [VENDOR] }),
+      evPoint("2026-01-20", 200, { partial: [VENDOR, OPS] }),
+      evPoint("2026-01-31", 800, { joins: [{ id: 3, name: "Vendor", eur: 500, hours: 5 }] }),
+      evPoint("2026-02-10", 900, { partial: [OPS] }),
+      evPoint("2026-02-14", 1_000),
+    ]);
+    const at = (date: string, value: number) => ({ date, value });
+    expect(m.evSegments).toEqual([
+      { partial: true, points: [at("2026-01-01", 0), at("2026-01-10", 100), at("2026-01-20", 200)] },
+      { partial: false, points: [at("2026-01-20", 200), at("2026-01-31", 800)] },
+      { partial: true, points: [at("2026-01-31", 800), at("2026-02-10", 900)] },
+      { partial: false, points: [at("2026-02-10", 900), at("2026-02-14", 1_000)] },
+    ]);
+    // Continuity: each segment starts where the previous one ended.
+    const segments = m.evSegments ?? [];
+    for (let i = 1; i < segments.length; i++) {
+      expect(segments[i].points[0]).toEqual(segments[i - 1].points.at(-1));
+    }
+    expect(m.evPartialNames).toEqual([
+      { names: "Vendor, Ops", created: false },
+      { names: "Ops", created: true },
+    ]);
+  });
+
+  it("calls a segment 'created later' only when every bucket in it was created after its start", () => {
+    const late = { id: 3, name: "Vendor", createdDate: "2026-02-01", startDate: "2026-01-01" };
+    const lateToo = { id: 4, name: "Ops", createdDate: "2026-03-01", startDate: "2026-01-15" };
+    expect(cumulative([evPoint("2026-01-31", 0, { partial: [late, lateToo] }), evPoint("2026-02-14", 10)]).evPartialNames)
+      .toEqual([{ names: "Vendor, Ops", created: true }]);
+    const sameDay = { ...lateToo, createdDate: "2026-01-15" };
+    expect(cumulative([evPoint("2026-01-31", 0, { partial: [late, sameDay] }), evPoint("2026-02-14", 10)]).evPartialNames)
+      .toEqual([{ names: "Vendor, Ops", created: false }]);
+    const undated = { ...late, startDate: null };
+    expect(cumulative([evPoint("2026-01-31", 0, { partial: [undated] }), evPoint("2026-02-14", 10)]).evPartialNames)
+      .toEqual([{ names: "Vendor", created: false }]);
+  });
+
+  it("labels a join at its point with the amount in the current unit", () => {
+    const joins = [{ id: 3, name: "Vendor", eur: 500, hours: 5 }, { id: 4, name: "Ops", eur: 250, hours: 2.5 }];
+    const points = [evPoint("2026-01-20", 0, { partial: [VENDOR] }), evPoint("2026-01-31", 800, { joins }), evPoint("2026-02-14", 1_000)];
+    expect(cumulative(points).evJoins).toEqual([{ date: "2026-01-31", value: 800, amount: 750, label: "Vendor, Ops" }]);
+    expect(cumulative(points, "hours").evJoins).toEqual([{ date: "2026-01-31", value: 8, amount: 7.5, label: "Vendor, Ops" }]);
+  });
+
+  it("drops a join whose amount shows as 0 in the current unit", () => {
+    const joins = [{ id: 3, name: "Vendor", eur: 40, hours: 0.4 }, { id: 4, name: "Ops", eur: 0, hours: 0 }];
+    const points = [evPoint("2026-01-20", 0, { partial: [VENDOR, OPS] }), evPoint("2026-01-31", 40, { joins }), evPoint("2026-02-14", 50)];
+    // €: Vendor's 40 shows, Ops's 0 does not; hours: 0.4 h rounds to "0 h", so nothing is labelled.
+    expect(cumulative(points).evJoins).toEqual([{ date: "2026-01-31", value: 40, amount: 40, label: "Vendor" }]);
+    expect(cumulative(points, "hours").evJoins).toEqual([]);
   });
 });
 

@@ -767,8 +767,13 @@ const enUS = {
   burndownBac: "BAC {0}",
   burndownFrameNote:
     "Chart totals differ from the forecast figures (fixed-price or bucket window); the figures above are authoritative.",
-  burndownEvHistoryUnavailable:
-    "Earned value over time needs task-linked budget buckets. Hand-entered % complete or no linked tasks: {0}.",
+  burndownEvHistoryUnavailable: "No earned-value history yet for {0}.",
+  burndownEvPartial: "Partial earned value",
+  burndownEvPartialNotRecorded: "Partial: {0} not recorded",
+  burndownEvPartialCreated: "Partial: {0} created later",
+  burndownEvJoinsHours: "{0} joins (+{1} h)",
+  burndownEvJoinsEur: "{0} joins (+{1})",
+  burndownAriaEvPartial: "Earned value is partial for {0}.",
   burndownTipEvHistory:
     "Earned value over time, from the dates the linked tasks were completed. Today's task links and budget are applied to the past, so a relinked or reopened task changes earlier points.",
   burndownAria: "{0} in {1}.",

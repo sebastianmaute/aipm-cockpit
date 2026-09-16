@@ -26,7 +26,9 @@ import type { BudgetBucket, Task } from "./types";
 
 export type EvHistoryTask = Pick<Task, "id" | "status" | "completedDate">;
 export type BucketProgressRecord = { date: string; pct: number };
-export type EvPartialBucket = { id: number; name: string; createdDate: string | null };
+/** `startDate` is null for an undated bucket; the chart compares it with
+ *  `createdDate` to say whether the bucket was created after it started. */
+export type EvPartialBucket = { id: number; name: string; createdDate: string | null; startDate: string | null };
 export type EvJoin = { id: number; name: string; eur: number; hours: number };
 export type EvHistoryPoint = {
   date: string; eur: number; hours: number;
@@ -125,7 +127,9 @@ export function computeEvHistory(input: EvHistoryInput): EvHistory {
       eur += t.eur * share;
       hours += t.hours * share;
       const { id, name } = t.bucket;
-      if (!known && !isToday) partial.push({ id, name, createdDate: t.bucket.createdDate ?? null });
+      if (!known && !isToday) {
+        partial.push({ id, name, createdDate: t.bucket.createdDate ?? null, startDate: t.bucket.startDate || null });
+      }
       if (known && !isToday && previous !== null && !previous[k].known) {
         joins.push({ id, name, eur: t.eur * share, hours: t.hours * share });
       }

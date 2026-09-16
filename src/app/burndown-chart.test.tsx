@@ -3,6 +3,8 @@ import { render, screen } from "@testing-library/react";
 import { BurndownChart } from "./burndown-chart";
 import { buildChartModel, type ChartInput } from "./burndown-geometry";
 import { formatCurrency } from "./resource-cost";
+import { loadI18n } from "./i18n";
+import type { EvHistory } from "./budget-ev-history";
 import { CHART_FORECAST, CHART_FORECAST_HOURS, CHART_SERIES } from "../test/chart-fixtures";
 
 const eur = (v: number) => formatCurrency(v, "EUR", "en-US");
@@ -131,11 +133,90 @@ describe("BurndownChart", () => {
     expect(screen.getAllByText("Earned value")).toHaveLength(1);
   });
 
-  it("shows the frame note and the blocked-history note when they apply", () => {
+  it("shows the frame note and the no-history note when they apply", () => {
     draw({ forecast: { ...CHART_FORECAST, facts: { ...CHART_FORECAST.facts, bac: 9_500 } } });
     expect(screen.getByText(/Chart totals differ from the forecast figures/)).toBeInTheDocument();
     draw({ orientation: "cumulative", evHistory: { available: false, reason: "no-earned-value", buckets: [{ id: 2, name: "Design" }] } });
-    expect(screen.getByText(/Hand-entered % complete or no linked tasks: Design\./)).toBeInTheDocument();
+    expect(screen.getByText("No earned-value history yet for Design.")).toBeInTheDocument();
+  });
+
+  describe("partial earned value and joins", () => {
+    const vendor = { id: 3, name: "Vendor", createdDate: null, startDate: "2026-01-01" };
+    const partialHistory = (joinEur = 500): EvHistory => ({
+      available: true,
+      points: [
+        { date: "2026-01-20", eur: 0, hours: 0, partial: [vendor], joins: [] },
+        { date: "2026-01-31", eur: 800, hours: 8, partial: [], joins: [{ id: 3, name: "Vendor", eur: joinEur, hours: joinEur / 100 }] },
+        { date: "2026-02-14", eur: 1_000, hours: 10, partial: [], joins: [] },
+      ],
+    });
+    const evLines = (container: HTMLElement) => [...container.querySelectorAll("svg[role='img'] polyline.stroke-\\[var\\(--rag-amber\\)\\]")];
+
+    it("dashes a partial span differently from the solid history, and captions it", () => {
+      const { container } = draw({ orientation: "cumulative", evHistory: partialHistory() });
+      const dashes = evLines(container).map((line) => line.getAttribute("stroke-dasharray"));
+      expect(dashes).toEqual(["2 4", "6 2 1 2"]);
+      expect(screen.getByText("Partial: Vendor not recorded")).toBeVisible();
+      expect(screen.getByText("Partial earned value")).toBeInTheDocument();
+    });
+
+    it("says 'created later' when the bucket was created after its start", () => {
+      const created = { ...vendor, createdDate: "2026-01-25" };
+      const history = partialHistory();
+      if (!history.available) throw new Error("fixture");
+      draw({ orientation: "cumulative", evHistory: { ...history, points: [{ ...history.points[0], partial: [created] }, ...history.points.slice(1)] } });
+      expect(screen.getByText("Partial: Vendor created later")).toBeInTheDocument();
+    });
+
+    it("labels the join with its amount in the current unit", () => {
+      draw({ orientation: "cumulative", evHistory: partialHistory() });
+      expect(screen.getByText(`Vendor joins (+${eur(500)})`)).toBeInTheDocument();
+      draw({ unit: "hours", orientation: "cumulative", forecast: CHART_FORECAST_HOURS, evHistory: partialHistory() });
+      expect(screen.getByText("Vendor joins (+5 h)")).toBeInTheDocument();
+    });
+
+    it("renders no join label for a join worth 0 in the current unit", () => {
+      draw({ unit: "hours", orientation: "cumulative", forecast: CHART_FORECAST_HOURS, evHistory: partialHistory(40) });
+      expect(screen.queryByText(/joins/)).toBeNull();
+      // Anti-vacuity: the same history still draws its partial caption.
+      expect(screen.getByText("Partial: Vendor not recorded")).toBeInTheDocument();
+    });
+
+    it("names the partial buckets in the chart's accessible name", () => {
+      const { container } = draw({ orientation: "cumulative", evHistory: partialHistory() });
+      expect(ariaOf(container)).toContain("Earned value is partial for Vendor.");
+      const complete = draw({ orientation: "cumulative", evHistory: { available: true, points: [{ date: "2026-01-31", eur: 800, hours: 8, partial: [], joins: [] }] } });
+      expect(ariaOf(complete.container)).not.toContain("partial");
+    });
+
+    it("says each partial sentence once when two spans name the same bucket", () => {
+      const history: EvHistory = {
+        available: true,
+        points: [
+          { date: "2026-01-10", eur: 0, hours: 0, partial: [vendor], joins: [] },
+          { date: "2026-01-20", eur: 100, hours: 1, partial: [], joins: [] },
+          { date: "2026-01-31", eur: 100, hours: 1, partial: [vendor], joins: [] },
+          { date: "2026-02-14", eur: 1_000, hours: 10, partial: [], joins: [] },
+        ],
+      };
+      const { container } = draw({ orientation: "cumulative", evHistory: history });
+      // Anti-vacuity: the model really has two partial spans.
+      expect(evLines(container).filter((line) => line.getAttribute("stroke-dasharray") === "2 4")).toHaveLength(2);
+      expect(screen.getAllByText("Partial: Vendor not recorded")).toHaveLength(1);
+      expect(ariaOf(container).split("Earned value is partial for Vendor.")).toHaveLength(2);
+    });
+
+    it("renders the German caption with umlauts", async () => {
+      await loadI18n("de");
+      render(
+        <BurndownChart
+          lang="de" currency="EUR" unit="eur" orientation="cumulative" periods={CHART_SERIES.periods}
+          model={buildChartModel({ ...base, orientation: "cumulative", evHistory: partialHistory() })}
+        />,
+      );
+      expect(screen.getByText("Unvollständig: Vendor nicht erfasst")).toBeInTheDocument();
+      expect(screen.getByText("Unvollständiger Earned Value")).toBeInTheDocument();
+    });
   });
 
   it("keeps the two end labels at least 10px apart when both forecasts end at the same value", () => {
