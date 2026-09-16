@@ -161,13 +161,22 @@ const NO_BAC: BacFields = { bacSteps: null, bacBaseline: null, bacMarkers: [] };
  * Dates are clamped into the chart's own x domain so a change recorded before
  * the first period (or after the last) cannot draw outside the plot.
  *
- * The stepped line's final level is the LAST RECORDED entry's own BAC, not
- * necessarily today's true one: an undo or a version restore moves the BAC
- * without going through `commitBuckets` (ruling R2), so it writes no entry
- * here and the step stays at whatever it was before that move. The footer's
- * unattributed row (`splitVariance`, `bac - baseline - attributed`) is exactly
- * that gap — it reads the true current BAC directly, which this stepped line
- * does not.
+ * The stepped line's final level is the LAST RECORDED entry's own stored BAC —
+ * its `after` value, captured LIVE at commit time from the actual bucket state
+ * (`commitBuckets`, `use-budget-buckets.ts`; `recordBudgetChange`,
+ * `budget-history.ts`), never an increment over the previous entry. So an
+ * undo, version restore or template-apply's unrecorded BAC movement (ruling
+ * R2) only leaves the line stale UNTIL the next recorded commit — that
+ * commit's own `after` reads today's true BAC (whatever the unrecorded move
+ * already did to it) and the step jumps straight there, self-healing the gap.
+ * The footer's unattributed row (`splitVariance`, `bac - baseline -
+ * attributed`) is the RUNNING TOTAL of every such unrecorded movement since
+ * the baseline, not the currently visible staleness — it can stay non-zero
+ * even once a later commit has healed the line back to today's true BAC.
+ * Example: baseline 10,000 → +2,000 recorded (BAC 12,000) → −1,000 undone
+ * unrecorded (true BAC 11,000, line still shows 12,000) → +500 recorded
+ * stores `after` 11,500 (line jumps to 11,500 = today's true BAC, gap 0) —
+ * yet unattributed = 11,500 − 10,000 − (2,000 + 500) = −1,000.
  */
 function bacFields(
   history: BudgetHistorySummary, eurUnit: boolean, series: BurndownSeries, start: string, end: string,

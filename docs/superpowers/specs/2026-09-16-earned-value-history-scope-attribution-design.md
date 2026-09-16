@@ -183,13 +183,13 @@ For each bucket in each period `p`:
   `"manual-percent"` and `"no-linked-tasks"` reasons are removed; one `"no-earned-value"` reason
   remains (ruling R3).
 - **Amended (R3):** `available: false` is precise, not "partial at every point" — it is kept only
-  when **no budgeted bucket has a known value AT TODAY** (`computeEvHistory` in
-  `budget-ev-history.ts`), i.e. every tracked bucket is still unknown at today's point. This is an
-  asymmetric rule between the two kinds of bucket: a manual bucket always carries its own
-  `percentComplete` (even 0), so it is never unknown at today; only a **task-linked bucket whose
-  links resolve to no tasks** (`bucketPercentComplete` returns `null`) can leave every bucket
-  unknown and trip this state. A bucket that is merely partial in *earlier* periods but known today
-  does not.
+  when **at least one budgeted bucket exists and none of them has a known value AT TODAY**
+  (`computeEvHistory`'s `tracked.length > 0 && tracked.every(...)` guard in `budget-ev-history.ts`;
+  with zero tracked buckets the history stays available, trivially, with nothing to draw). A bucket
+  is unknown at today when it has **neither a hand-entered percent nor any resolvable task link**
+  (`bucketPercentComplete` returns `null`: no `percentComplete` set, and either no `taskIds` at all —
+  `blankBucket`'s default shape — or every linked task has been deleted). A bucket that is merely
+  partial in *earlier* periods but known today does not trip this state.
 - Hours and value use the same rule, on the own basis (1.7.1).
 
 ### 5.2 Three-part variance on both forecast cards
