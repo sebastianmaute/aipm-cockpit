@@ -93,8 +93,8 @@ import { isAiEnabled } from "./settings-types";
 // "./workspace-section" keep working (the type now lives in the types module).
 export type { WorkspaceSectionProps } from "./workspace-section-types";
 
-// Task 10: a stable identity for the "trends inactive" default, so the Budget
-// report / Reports panes' `snapshots` prop never mints a fresh array (see the
+// A stable identity for the "trends inactive" default, so the Budget report /
+// Reports panes' `snapshots` prop never mints a fresh array (see the
 // AGENTS.md memo bullet — a fresh literal invalidates a memo dependency).
 const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
 

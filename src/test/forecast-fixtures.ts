@@ -64,8 +64,9 @@ export const EV_HISTORY: EvHistory = {
   ],
 };
 
-// `history: null` — Task 10's `BudgetHistorySummary`, unrelated to these §7
-// rate-mix scenarios ("no history yet", ruling R1's pre-first-change state).
+// `history: null` — `ForecastBundle`'s `BudgetHistorySummary | null`, unrelated
+// to these §7 rate-mix scenarios (null is the state before the first recorded
+// budget change, i.e. "no history yet").
 export const BUNDLE_HOURS_WORSE: ForecastBundle = {
   eur: EUR_FORECAST, hours: HOURS_FORECAST_HOURS_WORSE, mix: MIX_HOURS_WORSE, evHistory: EV_HISTORY, history: null,
 };

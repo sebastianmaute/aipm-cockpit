@@ -38,9 +38,9 @@ import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { tileById, type DashboardTileId, type TileGateInput } from "./dashboard-tiles";
 import type { PlacedTile } from "./dashboard-layout";
 
-// Task 10: a stable identity for the "no snapshots yet" default — an inline
-// `[]` fallback would mint a fresh array every render, invalidating the
-// `model` memo's `snapshots` dependency for no input change (AGENTS.md memo bullet).
+// A stable identity for the "no snapshots yet" default — an inline `[]`
+// fallback would mint a fresh array every render, invalidating the `model`
+// memo's `snapshots` dependency for no input change (AGENTS.md memo bullet).
 const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
 
 interface DashboardPanelProps {
@@ -95,8 +95,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const dc = densityClasses(density);
   const varianceRows = props.variance ?? [];
   const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory } = useWorkspace();
-  // Hoisted above `model` (Task 10): `model`'s useMemo depends on it, and it
-  // must keep a stable identity when `props.snapshots` is absent so that memo
+  // Hoisted above the `model` useMemo below: it depends on this, and it must
+  // keep a stable identity when `props.snapshots` is absent so that memo
   // never invalidates for no input change.
   const snapshots = props.snapshots ?? EMPTY_SNAPSHOTS;
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:dashboard-size");
@@ -138,10 +138,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
             changes: showChanges ? props.changes : [],
             disciplines: props.disciplines,
             grades: props.grades,
-            // Task 10: only when Turso trends are active — mirrors the same
-            // gate `TileGateInput.tursoActive` (below) already reads off this
-            // prop, and keeps a stubbed `props.tursoActive=false` caller (most
-            // tests) byte-identical to before this change.
+            // Only when Turso trends are active — mirrors the same gate the
+            // `gate: TileGateInput` object's `tursoActive` field already reads
+            // off this prop, and keeps a stubbed `props.tursoActive=false`
+            // caller (most tests) byte-identical to before this change.
             snapshots: props.tursoActive ? snapshots : EMPTY_SNAPSHOTS,
             budgetHistory,
           },

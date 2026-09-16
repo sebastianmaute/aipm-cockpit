@@ -6,8 +6,9 @@
  * - before the bucket's `startDate`: 0, known (no such work in the plan);
  * - task-linked: linked tasks finished by that date ÷ resolved linked tasks;
  * - hand-entered: the latest snapshot record on or before that date;
- * - otherwise (no record yet, or links that resolve to nothing — ruling R3):
- *   0, UNKNOWN, and the point lists the bucket in `partial`.
+ * - otherwise (no record yet, or task links that resolve to no tasks — treated
+ *   the same as an unrecorded manual bucket): 0, UNKNOWN, and the point lists
+ *   the bucket in `partial`.
  * A bucket that becomes known after an unknown point is a `join` there, with
  * the amount it brings in, so the step does not read as a sudden delivery.
  * The TODAY point uses `bucketPercentComplete`, so the line ends exactly at the

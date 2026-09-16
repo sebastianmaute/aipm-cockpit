@@ -1331,8 +1331,8 @@ function TaskManagerInner() {
   // in this file, so the blanking line cannot be written without first bringing a setter into scope. Why —
   // and what still differs between the two funnels — is in `docs/AGENTS/activity-log.md`, not AGENTS.md.
   // ★★ `budgetHistory` is DELIBERATELY MISSING here too, but no longer for the STRUCTURAL reason above —
-  // `setBudgetHistory` is now in scope (Task 5, budget-commit-boundary recording). Ruling R2: undo and
-  // version restore do not write entries; a restore's BAC movement surfaces as unattributed variance
+  // `setBudgetHistory` is now in scope. The budget commit boundary is the series' only writer; undo and
+  // version restore do not go through it, so a restore's BAC movement surfaces as unattributed variance
   // instead, and a restore never blanks the recorded series either.
   const applyRestoredWorkspace = useCallback((w: Workspace) => {
     setTasks(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? [])); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);

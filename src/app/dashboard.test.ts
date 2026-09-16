@@ -446,8 +446,8 @@ describe("computeDashboard", () => {
     expect(computeDashboard(baseInput()).forecastBundle).toBeNull();
   });
 
-  // Task 10: `snapshots`/`budgetHistory` are optional `DashboardEntities`
-  // fields, defaulted to `[]` by `buildDashboardInput`, threaded through to
+  // `snapshots`/`budgetHistory` are optional `DashboardEntities` fields,
+  // defaulted to `[]` by `buildDashboardInput`, threaded through to
   // `computeForecastBundle`'s `progress`/`budgetHistory`.
   it("threads recorded snapshots into the earned-value history and budget history into the bundle's history", () => {
     const manualBucket = {
@@ -469,15 +469,15 @@ describe("computeDashboard", () => {
     const m = computeDashboard(baseInput({ budgets: [manualBucket], roles: [bucketChainRole], snapshots, budgetHistory: history }));
     expect(m.forecastBundle).not.toBeNull();
     expect(m.forecastBundle!.history).toEqual(summarizeBudgetHistory(history));
-    // Previously (progress stubbed to an empty Map — Task 8), every
-    // pre-today point had no record to read and stayed partial.
+    // Previously (progress stubbed to an empty Map — the stop-gap this task
+    // replaces), every pre-today point had no record to read and stayed partial.
     expect(m.forecastBundle!.evHistory.available).toBe(true);
     if (m.forecastBundle!.evHistory.available) {
       expect(m.forecastBundle!.evHistory.points.some((p) => p.partial.length > 0)).toBe(false);
     }
   });
 
-  it("without snapshots, a hand-entered bucket's pre-today points stay partial (the Task 8 stub's prior behaviour)", () => {
+  it("without snapshots, a hand-entered bucket's pre-today points stay partial (the empty-progress stop-gap's prior behaviour)", () => {
     const manualBucket = {
       id: 9, name: "Manual", type: "tm", currency: "EUR",
       startDate: "2026-01-01", endDate: "2026-12-31", status: "open", percentComplete: 60,

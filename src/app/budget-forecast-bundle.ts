@@ -16,8 +16,9 @@ import type { Absence, Discipline, Grade, Resource, Task } from "./types";
 
 export type ForecastBundle = {
   eur: BudgetForecast; hours: BudgetForecast; mix: RateMix | null; evHistory: EvHistory;
-  /** The recorded budget-at-completion series (Task 5), summarized — or null
-   *  before the first recorded budget change (ruling R1). */
+  /** The recorded budget-at-completion series (`budget-history.ts`),
+   *  summarized — or null before the first recorded budget change (the
+   *  budget commit boundary is the only writer of that series). */
   history: BudgetHistorySummary | null;
 };
 export type ForecastBundleInput = BudgetForecastInput & {

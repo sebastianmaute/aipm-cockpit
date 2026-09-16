@@ -52,9 +52,9 @@ type DetailSortKey =
 // A `grades = []` destructuring default would mint a fresh array every render,
 // invalidating the bundle memo below on every render for no input change.
 const NO_GRADES: readonly Grade[] = [];
-// Same identity-stability reasoning for the two Task 10 props: an inline `[]`
-// default in the destructure below would mint a fresh array every render,
-// invalidating the `progress`/`bundle` memos for no input change.
+// Same identity-stability reasoning for the `snapshots`/`budgetHistory` props:
+// an inline `[]` default in the destructure below would mint a fresh array
+// every render, invalidating the `progress`/`bundle` memos for no input change.
 const NO_SNAPSHOTS: readonly SnapshotRecord[] = [];
 const NO_BUDGET_HISTORY: readonly BudgetHistoryEntry[] = [];
 

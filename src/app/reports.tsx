@@ -75,8 +75,8 @@ import type {
  *  `= []` in the destructuring mints a new array every render, which is exactly
  *  the identity churn the prop's own docstring asks callers to avoid. */
 const EMPTY_EXTRA_REPORTS: AddableReportId[] = [];
-// Same identity-stability reasoning as `EMPTY_EXTRA_REPORTS` (Task 10): an
-// inline `[]` default would mint a fresh array every render.
+// Same identity-stability reasoning as `EMPTY_EXTRA_REPORTS` above: an inline
+// `[]` default would mint a fresh array every render.
 const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
 const EMPTY_BUDGET_HISTORY: readonly BudgetHistoryEntry[] = [];
 
@@ -153,7 +153,7 @@ export function ReportsPanel({
   onOpenAction?: (a: SuggestedAction) => void;
   onShowActions?: () => void;
   /** Recorded snapshots, only when Turso trends are active — threaded to the
-   *  embedded Budget report for its earned-value history chart (Task 10). */
+   *  embedded Budget report for its earned-value history chart. */
   snapshots?: readonly SnapshotRecord[];
   /** The project's recorded budget-at-completion history (`useWorkspace()`). */
   budgetHistory?: readonly BudgetHistoryEntry[];

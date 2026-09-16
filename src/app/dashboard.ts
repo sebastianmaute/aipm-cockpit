@@ -322,7 +322,7 @@ export interface DashboardEntities {
   changes?: readonly ChangeItem[];
   disciplines?: readonly Discipline[];
   grades?: readonly Grade[];
-  /** Recorded snapshots, only when Turso trends are active (Task 10) — feeds
+  /** Recorded snapshots, only when Turso trends are active — feeds
    *  `bucketProgressSeries` for hand-entered buckets' earned-value history. */
   snapshots?: readonly SnapshotRecord[];
   /** The project's recorded budget-at-completion history (`useWorkspace().budgetHistory`). */

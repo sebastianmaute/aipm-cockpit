@@ -1,5 +1,6 @@
-// budgetHistory through the storage HOOK (Task 4). The six backends are pinned
-// in their own files; this file pins the part tsc cannot: `Workspace.budgetHistory`
+// budgetHistory through the storage HOOK (`use-storage-backend.ts`). The six
+// backends are pinned in their own files; this file pins the part tsc cannot:
+// `Workspace.budgetHistory`
 // is OPTIONAL, so dropping it from the save effect's `outgoing` literal, from
 // the effect's dependency array, or from `applyWorkspace` compiles clean and
 // silently loses the series on the next autosave.

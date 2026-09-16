@@ -1,8 +1,10 @@
 /**
  * Append-only budget-at-completion series (spec 2026-09-16 §4.3). Values are the
  * project OWN basis in hours and EUR — EUR by construction (§465), so no stored
- * currency. Written only from the budget commit boundary (ruling R1); undo and
- * version restore bypass it and surface as unattributed (R2).
+ * currency. Written only from the budget commit boundary — the first recorded
+ * change seeds a `baseline` entry from the BAC before that change; undo and
+ * version restore bypass this write path entirely and their BAC movement
+ * surfaces as unattributed variance instead.
  */
 import { sanitizeIsoDate } from "./sanitize-core";
 

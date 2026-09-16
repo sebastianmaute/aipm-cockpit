@@ -496,7 +496,7 @@ describe("documentAssets JSON round-trip", () => {
   });
 });
 
-// ── budgetHistory (Task 4): meta-blob sibling of activityLog ──────────────────
+// ── budgetHistory: meta-blob sibling of activityLog ────────────────────────────
 function budgetHistoryFixture(): readonly BudgetHistoryEntry[] {
   let n = 0;
   const newId = () => `bh-${++n}`;
