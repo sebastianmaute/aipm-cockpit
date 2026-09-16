@@ -56,6 +56,9 @@ export function BurndownChart({
   const locale = localeFor(lang);
   const fmt = (v: number) => (unit === "eur" ? formatCurrency(v, currency, locale) : formatHours(v, locale));
   // The hours key carries its own " h", so the join amount is the bare number.
+  const joinKey = (count: number) => (unit === "eur"
+    ? (count > 1 ? "burndownEvJoinsEurPlural" : "burndownEvJoinsEur")
+    : (count > 1 ? "burndownEvJoinsHoursPlural" : "burndownEvJoinsHours"));
   const joinAmount = (v: number) => (unit === "eur" ? fmt(v) : new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(v));
   const x = (date: string) => scaleDate(date, model.xDomain, X0, X1);
   const y = (value: number) => scaleValue(value, model.yDomain, Y_BOTTOM, Y_TOP);
@@ -124,7 +127,7 @@ export function BurndownChart({
           ))}
           {model.evJoins.map((j) => (
             <text key={j.date} x={x(j.date)} y={y(j.value) - 6} textAnchor={x(j.date) > (X0 + X1) / 2 ? "end" : "start"} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">
-              {t(lang, unit === "eur" ? "burndownEvJoinsEur" : "burndownEvJoinsHours", j.label, joinAmount(j.amount))}
+              {t(lang, joinKey(j.count), j.label, joinAmount(j.amount))}
             </text>
           ))}
           {model.actual.length > 1 && <polyline points={pts(model.actual)} fill="none" className={actualClass} strokeWidth={2.5} />}

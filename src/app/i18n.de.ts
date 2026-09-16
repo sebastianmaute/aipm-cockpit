@@ -712,9 +712,11 @@ export const de: Record<TranslationKey, string> = {
   burndownEvPartialCreated: "Unvollständig: {0} später angelegt",
   burndownEvJoinsHours: "{0} kommt hinzu (+{1} h)",
   burndownEvJoinsEur: "{0} kommt hinzu (+{1})",
+  burndownEvJoinsHoursPlural: "{0} kommen hinzu (+{1} h)",
+  burndownEvJoinsEurPlural: "{0} kommen hinzu (+{1})",
   burndownAriaEvPartial: "Der Earned Value ist für {0} unvollständig.",
   burndownTipEvHistory:
-    "Earned Value im Zeitverlauf, aus den Abschlussdaten der verknüpften Aufgaben. Heutige Verknüpfungen und Budgets gelten rückwirkend; eine neu verknüpfte oder wieder geöffnete Aufgabe ändert frühere Punkte.",
+    "Earned Value im Zeitverlauf, aus den Abschlussdaten der verknüpften Aufgaben und dem in Snapshots erfassten Fertigstellungsgrad manuell gepflegter Budgetposten. Heutige Verknüpfungen und Budgets gelten rückwirkend; eine neu verknüpfte oder wieder geöffnete Aufgabe ändert frühere Punkte.",
   burndownAria: "{0} in {1}.",
   burndownAriaRunOut: "Beim aktuellen Tempo aufgebraucht am {0}.",
   burndownAriaEnd: "Abweichung zum Planende: {0} beim aktuellen Tempo, {1} bei aktueller Effizienz.",

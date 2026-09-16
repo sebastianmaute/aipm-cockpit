@@ -163,15 +163,15 @@ describe("buildChartModel — partial earned value and joins", () => {
   it("labels a join at its point with the amount in the current unit", () => {
     const joins = [{ id: 3, name: "Vendor", eur: 500, hours: 5 }, { id: 4, name: "Ops", eur: 250, hours: 2.5 }];
     const points = [evPoint("2026-01-20", 0, { partial: [VENDOR] }), evPoint("2026-01-31", 800, { joins }), evPoint("2026-02-14", 1_000)];
-    expect(cumulative(points).evJoins).toEqual([{ date: "2026-01-31", value: 800, amount: 750, label: "Vendor, Ops" }]);
-    expect(cumulative(points, "hours").evJoins).toEqual([{ date: "2026-01-31", value: 8, amount: 7.5, label: "Vendor, Ops" }]);
+    expect(cumulative(points).evJoins).toEqual([{ date: "2026-01-31", value: 800, amount: 750, label: "Vendor, Ops", count: 2 }]);
+    expect(cumulative(points, "hours").evJoins).toEqual([{ date: "2026-01-31", value: 8, amount: 7.5, label: "Vendor, Ops", count: 2 }]);
   });
 
   it("drops a join whose amount shows as 0 in the current unit", () => {
     const joins = [{ id: 3, name: "Vendor", eur: 40, hours: 0.4 }, { id: 4, name: "Ops", eur: 0, hours: 0 }];
     const points = [evPoint("2026-01-20", 0, { partial: [VENDOR, OPS] }), evPoint("2026-01-31", 40, { joins }), evPoint("2026-02-14", 50)];
     // €: Vendor's 40 shows, Ops's 0 does not; hours: 0.4 h rounds to "0 h", so nothing is labelled.
-    expect(cumulative(points).evJoins).toEqual([{ date: "2026-01-31", value: 40, amount: 40, label: "Vendor" }]);
+    expect(cumulative(points).evJoins).toEqual([{ date: "2026-01-31", value: 40, amount: 40, label: "Vendor", count: 1 }]);
     expect(cumulative(points, "hours").evJoins).toEqual([]);
   });
 });

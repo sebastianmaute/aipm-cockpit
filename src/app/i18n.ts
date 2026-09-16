@@ -773,9 +773,11 @@ const enUS = {
   burndownEvPartialCreated: "Partial: {0} created later",
   burndownEvJoinsHours: "{0} joins (+{1} h)",
   burndownEvJoinsEur: "{0} joins (+{1})",
+  burndownEvJoinsHoursPlural: "{0} join (+{1} h)",
+  burndownEvJoinsEurPlural: "{0} join (+{1})",
   burndownAriaEvPartial: "Earned value is partial for {0}.",
   burndownTipEvHistory:
-    "Earned value over time, from the dates the linked tasks were completed. Today's task links and budget are applied to the past, so a relinked or reopened task changes earlier points.",
+    "Earned value over time, from linked-task completion dates and the % complete recorded in snapshots for hand-entered buckets. Today's task links and budget are applied to the past, so a relinked or reopened task changes earlier points.",
   burndownAria: "{0} in {1}.",
   burndownAriaRunOut: "Runs out {0} at current pace.",
   // ★ These name the VARIANCE in BOTH orientations (spec §5.2), while the chart's

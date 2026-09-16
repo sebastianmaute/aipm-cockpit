@@ -56,8 +56,9 @@ export type ChartModel = {
   bacLine: number | null; today: string | null; planEnd: string; frameDiffers: boolean;
 };
 export type EvSegment = { partial: boolean; points: readonly ChartPoint[] };
-/** `label` is the bucket names joined with ", "; `amount` their summed contribution. */
-export type EvJoinLabel = { date: string; value: number; amount: number; label: string };
+/** `label` is the bucket names joined with ", "; `count` how many names it holds (it picks the
+ *  singular or plural sentence); `amount` their summed contribution. */
+export type EvJoinLabel = { date: string; value: number; amount: number; label: string; count: number };
 export type EvPartialNames = { names: string; created: boolean };
 export type ChartInput = {
   series: BurndownSeries; unit: ChartUnit; orientation: ChartOrientation;
@@ -120,7 +121,7 @@ function evHistoryFields(evHistory: EvHistory, eurUnit: boolean, origin: ChartPo
     const shown = pt.joins.filter((j) => !shownAsZero(valueOf(j)));
     if (shown.length === 0) return [];
     const amount = shown.reduce((sum, j) => sum + valueOf(j), 0);
-    return [{ date: pt.date, value: valueOf(pt), amount, label: shown.map((j) => j.name).join(", ") }];
+    return [{ date: pt.date, value: valueOf(pt), amount, label: shown.map((j) => j.name).join(", "), count: shown.length }];
   });
   return {
     evSegments: segments.map(({ partial, points: pts }) => ({ partial, points: pts })),

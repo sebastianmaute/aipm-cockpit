@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { BurndownChart } from "./burndown-chart";
 import { buildChartModel, type ChartInput } from "./burndown-geometry";
 import { formatCurrency } from "./resource-cost";
@@ -175,6 +175,34 @@ describe("BurndownChart", () => {
       expect(screen.getByText("Vendor joins (+5 h)")).toBeInTheDocument();
     });
 
+    const twoJoins: EvHistory = {
+      available: true,
+      points: [
+        { date: "2026-01-20", eur: 0, hours: 0, partial: [vendor, { ...vendor, id: 4, name: "Ops" }], joins: [] },
+        {
+          date: "2026-01-31", eur: 800, hours: 8, partial: [],
+          joins: [{ id: 3, name: "Vendor", eur: 500, hours: 5 }, { id: 4, name: "Ops", eur: 300, hours: 3 }],
+        },
+        { date: "2026-02-14", eur: 1_000, hours: 10, partial: [], joins: [] },
+      ],
+    };
+
+    it("uses the plural sentence when several buckets join at one point", () => {
+      draw({ orientation: "cumulative", evHistory: twoJoins });
+      expect(screen.getByText(`Vendor, Ops join (+${eur(800)})`)).toBeInTheDocument();
+      draw({ unit: "hours", orientation: "cumulative", forecast: CHART_FORECAST_HOURS, evHistory: twoJoins });
+      expect(screen.getByText("Vendor, Ops join (+8 h)")).toBeInTheDocument();
+      expect(screen.queryByText(/Vendor, Ops joins/)).toBeNull();
+    });
+
+    it("explains both sources of the earned-value line in its tooltip", async () => {
+      const { container } = draw({ orientation: "cumulative", evHistory: partialHistory() });
+      fireEvent.focus(container.querySelector("[data-info-tooltip-trigger]")!);
+      expect(await screen.findByRole("tooltip")).toHaveTextContent(
+        "Earned value over time, from linked-task completion dates and the % complete recorded in snapshots for hand-entered buckets.",
+      );
+    });
+
     it("renders no join label for a join worth 0 in the current unit", () => {
       draw({ unit: "hours", orientation: "cumulative", forecast: CHART_FORECAST_HOURS, evHistory: partialHistory(40) });
       expect(screen.queryByText(/joins/)).toBeNull();
@@ -216,6 +244,18 @@ describe("BurndownChart", () => {
       );
       expect(screen.getByText("Unvollständig: Vendor nicht erfasst")).toBeInTheDocument();
       expect(screen.getByText("Unvollständiger Earned Value")).toBeInTheDocument();
+      expect(screen.getByText(/^Vendor kommt hinzu \(\+/)).toBeInTheDocument();
+    });
+
+    it("renders the German plural join sentence", async () => {
+      await loadI18n("de");
+      render(
+        <BurndownChart
+          lang="de" currency="EUR" unit="hours" orientation="cumulative" periods={CHART_SERIES.periods}
+          model={buildChartModel({ ...base, unit: "hours", forecast: CHART_FORECAST_HOURS, orientation: "cumulative", evHistory: twoJoins })}
+        />,
+      );
+      expect(screen.getByText("Vendor, Ops kommen hinzu (+8 h)")).toBeInTheDocument();
     });
   });
 
