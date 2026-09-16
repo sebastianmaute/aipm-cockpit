@@ -10,7 +10,7 @@ function snap(capturedAt: string, pct: number): SnapshotRecord {
     trigger: "manual", isBaseline: false, remainingHours: null, remainingCost: null,
     pctComplete: pct, forecastEndDate: "2026-12-31", planEndDate: "2026-12-31",
     spi: null, cpi: null, overallRag: "", scheduleRag: "", budgetRag: "", scopeRag: "",
-    currency: "EUR", milestones: [], series: [],
+    currency: "EUR", milestones: [], series: [], bucketProgress: [],
   };
 }
 

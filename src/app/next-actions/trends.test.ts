@@ -9,7 +9,7 @@ function snap(over: Partial<SnapshotRecord>): SnapshotRecord {
     remainingHours: null, remainingCost: null, pctComplete: 0,
     forecastEndDate: "2026-12-31", planEndDate: "2026-12-31",
     spi: null, cpi: null, overallRag: "", scheduleRag: "", budgetRag: "",
-    scopeRag: "", currency: "EUR", milestones: [], series: [],
+    scopeRag: "", currency: "EUR", milestones: [], series: [], bucketProgress: [],
     ...over,
   };
 }

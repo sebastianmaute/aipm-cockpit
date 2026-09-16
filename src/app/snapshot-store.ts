@@ -10,7 +10,7 @@
 import { runTursoPipeline } from "./turso-pipeline";
 import {
   SNAPSHOT_DDL, appendStatements, deleteStatements, rowsToSnapshots,
-  setBaselineStatements, snapshotSelectStatements,
+  setBaselineStatements, snapshotColumnEnsureStatements, snapshotSelectStatements,
 } from "./snapshot-schema";
 import type { SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
@@ -25,8 +25,16 @@ export async function loadSnapshots(config: TursoConfig | null, projectId: strin
   return rowsToSnapshots(results[base], results[base + 1]);
 }
 
+/** The only INSERT path. Two round-trips: the DDL plus a column read, then the
+ *  insert transaction with any missing-column ALTERs AHEAD of its INSERTs.
+ *  ★★ The ALTERs cannot ride behind the INSERT, nor be skipped: a libSQL
+ *  pipeline does not abort at a failing statement, so an INSERT naming a column
+ *  an older table lacks would fail alone while COMMIT still ran (see
+ *  `snapshotColumnEnsureStatements`). */
 export async function appendSnapshot(config: TursoConfig | null, rec: SnapshotRecord, projectId: string): Promise<void> {
-  await runTursoPipeline(config, [...ddl(), ...appendStatements(rec, projectId)]);
+  const head = await runTursoPipeline(config, [...ddl(), { sql: 'PRAGMA table_info("snapshot")' }]);
+  const ensure = snapshotColumnEnsureStatements(head[SNAPSHOT_DDL.length]);
+  await runTursoPipeline(config, appendStatements(rec, projectId, ensure));
 }
 
 export async function setBaseline(config: TursoConfig | null, id: string, projectId: string): Promise<void> {

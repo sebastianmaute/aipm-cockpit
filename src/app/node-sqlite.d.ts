@@ -4,7 +4,8 @@
 // the module resolves at RUNTIME (vitest runs on Node 24) but not at COMPILE
 // time: a plain `import { DatabaseSync } from "node:sqlite"` fails
 // `npx tsc --noEmit` with TS2591 while passing vitest — the repo's documented
-// vitest-green/tsc-red shape. Only `turso-schema.execute.test.ts` uses it.
+// vitest-green/tsc-red shape. Used by `turso-schema.execute.test.ts` and
+// `snapshot-schema.execute.test.ts`.
 //
 // ★★ DELETE THIS FILE when `@types/node` reaches >= 22.5. From that version on
 // it SHADOWS the real declarations, so a stub that is merely incomplete (or has

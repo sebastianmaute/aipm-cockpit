@@ -25,7 +25,7 @@ function snap(id: string, bucket: string, over: Partial<SnapshotRecord> = {}): S
     id, capturedAt: id, bucket, cadence: "weekly", trigger: "auto", isBaseline: false,
     remainingHours: 50, remainingCost: 5000, pctComplete: 40, forecastEndDate: "2026-09-01",
     planEndDate: "2026-07-31", spi: 0.9, cpi: 1.0, overallRag: "A", scheduleRag: "R",
-    budgetRag: "A", scopeRag: "", currency: "EUR", milestones: [], series: [], ...over,
+    budgetRag: "A", scopeRag: "", currency: "EUR", milestones: [], series: [], bucketProgress: [], ...over,
   };
 }
 const variance: VarianceRow[] = [

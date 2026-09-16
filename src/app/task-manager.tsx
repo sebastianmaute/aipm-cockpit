@@ -644,6 +644,7 @@ function TaskManagerInner() {
         model,
         tasks,
         milestones,
+        buckets: budgets,
         planEndDate: plan.endDate,
         currency: plan.currency,
       };
