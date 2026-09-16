@@ -772,8 +772,12 @@ const enUS = {
     "Earned value over time, from the dates the linked tasks were completed. Today's task links and budget are applied to the past, so a relinked or reopened task changes earlier points.",
   burndownAria: "{0} in {1}.",
   burndownAriaRunOut: "Runs out {0} at current pace.",
-  burndownAriaEnd: "At plan end: {0} at current pace, {1} at current efficiency.",
-  burndownAriaEndPace: "At plan end: {0} at current pace.",
+  // ★ These name the VARIANCE in BOTH orientations (spec §5.2), while the chart's
+  // visible end labels show the EAC in the cumulative one. A listener who is told
+  // only "at plan end: …" has no way to tell the two figures apart, so the word
+  // "variance" is load-bearing here — do not shorten it back out.
+  burndownAriaEnd: "Variance at plan end: {0} at current pace, {1} at current efficiency.",
+  burndownAriaEndPace: "Variance at plan end: {0} at current pace.",
   forecastTileActuals: "Actuals {0} of {1}",
   forecastLinkRange: "Forecast: EAC {0}–{1}",
   forecastLinkSingle: "Forecast: EAC {0}",

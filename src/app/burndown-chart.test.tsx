@@ -38,7 +38,7 @@ describe("BurndownChart", () => {
     const aria = ariaOf(container);
     expect(aria).toContain("Budget remaining in €.");
     expect(aria).toContain("Runs out Mar 20, 2026 at current pace.");
-    expect(aria).toContain(`At plan end: ${eur(-1_000)} at current pace, ${eur(-2_000)} at current efficiency.`);
+    expect(aria).toContain(`Variance at plan end: ${eur(-1_000)} at current pace, ${eur(-2_000)} at current efficiency.`);
   });
 
   it("names the VAC, not the EAC, in the cumulative orientation's svg name", () => {
@@ -47,7 +47,7 @@ describe("BurndownChart", () => {
     const { container } = draw({ orientation: "cumulative" });
     const aria = ariaOf(container);
     expect(aria).toContain("Spend, cumulative in €.");
-    expect(aria).toContain(`At plan end: ${eur(-1_000)} at current pace, ${eur(-2_000)} at current efficiency.`);
+    expect(aria).toContain(`Variance at plan end: ${eur(-1_000)} at current pace, ${eur(-2_000)} at current efficiency.`);
     expect(aria).not.toContain(eur(10_000));
     expect(aria).not.toContain(eur(11_000));
   });
@@ -65,7 +65,7 @@ describe("BurndownChart", () => {
     const { container } = draw({ orientation: "cumulative", forecast });
     const aria = ariaOf(container);
     expect(screen.getByText(/Chart totals differ from the forecast figures/)).toBeInTheDocument();
-    expect(aria).toContain(`At plan end: ${eur(-500)} at current pace, ${eur(-1_500)} at current efficiency.`);
+    expect(aria).toContain(`Variance at plan end: ${eur(-500)} at current pace, ${eur(-1_500)} at current efficiency.`);
     // Chart-frame figures (total 9,000 − EAC 10,000 / 11,000) must not be named.
     expect(aria).not.toContain(eur(-1_000));
     expect(aria).not.toContain(eur(-2_000));
@@ -73,7 +73,7 @@ describe("BurndownChart", () => {
 
   it("names only the pace VAC when the efficiency forecast is unavailable", () => {
     const { container } = draw({ forecast: { ...CHART_FORECAST, efficiency: { unavailable: "no-earned-value" } } });
-    expect(ariaOf(container)).toContain(`At plan end: ${eur(-1_000)} at current pace.`);
+    expect(ariaOf(container)).toContain(`Variance at plan end: ${eur(-1_000)} at current pace.`);
     expect(screen.queryByText("At current efficiency")).toBeNull();
   });
 
