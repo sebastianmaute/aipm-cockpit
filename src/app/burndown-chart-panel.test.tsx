@@ -91,6 +91,30 @@ describe("BurndownChartPanel", () => {
     expect(perf().getByText("-10 h")).toBeInTheDocument();
   });
 
+  it("stacks the chart and table even at desktop width when compact (dashboard tile), never side-by-side", async () => {
+    const { container: normal } = render(
+      <BurndownChartPanel
+        lang="en-US" series={CHART_SERIES} bundle={{ ...bundle, history: HISTORY }}
+        today="2026-02-14" planEnd="2026-03-31" currency="EUR"
+      />,
+    );
+    await act(async () => {});
+    const normalRow = normal.querySelector(".flex.flex-col.gap-3");
+    expect(normalRow?.className).toContain("md:flex-row");
+    expect(normal.querySelector(".md\\:w-80")).not.toBeNull();
+
+    const { container: compact } = render(
+      <BurndownChartPanel
+        lang="en-US" series={CHART_SERIES} bundle={{ ...bundle, history: HISTORY }}
+        today="2026-02-14" planEnd="2026-03-31" currency="EUR" compact
+      />,
+    );
+    await act(async () => {});
+    const compactRow = compact.querySelector(".flex.flex-col.gap-3");
+    expect(compactRow?.className).not.toContain("md:flex-row");
+    expect(compact.querySelector(".md\\:w-80")).toBeNull();
+  });
+
   it("renders no change table when nothing has been recorded", async () => {
     renderPanel();
     await act(async () => {});

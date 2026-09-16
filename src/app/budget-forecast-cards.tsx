@@ -81,7 +81,10 @@ function EfficiencyUnavailableBody({ lang, efficiency }: { lang: Lang; efficienc
   return <p className="mt-2 text-sm text-muted-foreground">{t(lang, key)}</p>;
 }
 
-/** One "In hours" `<dl>` row. No tooltip: the € row above explains the term (plan Ruling 16). */
+/** One `<dl>` row — despite the name, `VarianceSplitRows` reuses it for its €
+ *  instance too (`unitLabel: null`, e.g. the Pace card's performance/scope
+ *  rows), not only the "In hours" block. Most instances carry a plain term;
+ *  the unattributed-split row's term additionally wraps an `InfoTooltip`. */
 function HoursRow({ term, children }: { term: ReactNode; children: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
@@ -101,10 +104,10 @@ function HoursLine({ lang, chip, children }: { lang: Lang; chip: ReactNode; chil
   );
 }
 
-/** Explicit +/− prefix over an already-formatted magnitude (task 11): the
- *  formatter itself supplies the "−" for a negative value (matching
- *  `formatSignedPercent`'s ASCII hyphen-minus convention elsewhere on this
- *  page — controller ruling), so only a positive value needs a prefix added. */
+/** Explicit +/- prefix over an already-formatted magnitude (task 11): `Intl.NumberFormat`
+ *  already supplies the leading "-" (ASCII hyphen-minus, verified against its actual output)
+ *  for a negative value on these surfaces, matching `formatSignedPercent`'s own formatter —
+ *  so only a positive value needs a prefix added. */
 function signed(text: string, n: number): string {
   return n > 0 ? `+${text}` : text;
 }

@@ -160,6 +160,14 @@ const NO_BAC: BacFields = { bacSteps: null, bacBaseline: null, bacMarkers: [] };
  * produces is not chronological, and every figure here is a running one.
  * Dates are clamped into the chart's own x domain so a change recorded before
  * the first period (or after the last) cannot draw outside the plot.
+ *
+ * The stepped line's final level is the LAST RECORDED entry's own BAC, not
+ * necessarily today's true one: an undo or a version restore moves the BAC
+ * without going through `commitBuckets` (ruling R2), so it writes no entry
+ * here and the step stays at whatever it was before that move. The footer's
+ * unattributed row (`splitVariance`, `bac - baseline - attributed`) is exactly
+ * that gap — it reads the true current BAC directly, which this stepped line
+ * does not.
  */
 function bacFields(
   history: BudgetHistorySummary, eurUnit: boolean, series: BurndownSeries, start: string, end: string,
@@ -202,9 +210,13 @@ function bacFields(
     if (shownAsZero(amount)) return [];
     const last = group[group.length - 1];
     const names = [...new Set(group.map((e) => e.bucketName).filter((name) => name !== ""))];
+    // A group whose every entry carries a blank bucket name joins to "", which
+    // would otherwise leave the drawn label (and the accessible-name sentence
+    // built from it) with a dangling or doubled space. The em dash mirrors the
+    // change table's own fallback for the same case (`budget-change-table.tsx`).
     return [{
       date: clamp(last.date), value: bacOf(last), amount,
-      label: names.join(", "), removed: group.every((e) => e.kind === "deleted"),
+      label: names.length > 0 ? names.join(", ") : "—", removed: group.every((e) => e.kind === "deleted"),
     }];
   });
   return { bacSteps: steps, bacBaseline: baseline, bacMarkers };

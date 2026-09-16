@@ -18,10 +18,15 @@ import type { BurndownSeries } from "./budget-burndown";
 import type { ForecastBundle } from "./budget-forecast-bundle";
 
 export function BurndownChartPanel({
-  lang, series, bundle, today, planEnd, currency,
+  lang, series, bundle, today, planEnd, currency, compact = false,
 }: {
   lang: Lang; series: BurndownSeries; bundle: Pick<ForecastBundle, "eur" | "hours" | "evHistory" | "history"> | null;
   today: string; planEnd: string; currency: string;
+  /** True inside the dashboard tile, which stays HALF the pane's width even on
+   *  a desktop viewport — the `md:` breakpoint below reads the VIEWPORT, not
+   *  the tile's own (much narrower) box, so a plain `md:flex-row` still turns
+   *  side-by-side there and squeezes the chart. Compact always stacks. */
+  compact?: boolean;
 }) {
   const { settings, setSettings } = useSettings();
   const orientation: ChartOrientation = settings.budgetChartView ?? "burndown";
@@ -80,12 +85,14 @@ export function BurndownChartPanel({
         />
       </div>
       {/* The table stacks BELOW the chart on a narrow pane and sits beside it
-          from md up; `min-w-0` keeps the svg column shrinkable inside the row. */}
-      <div className="flex flex-col gap-3 md:flex-row">
+          from md up; `min-w-0` keeps the svg column shrinkable inside the row.
+          `compact` (the dashboard tile) forces the stacked layout regardless
+          of viewport width — see the prop doc above. */}
+      <div className={`flex flex-col gap-3${compact ? "" : " md:flex-row"}`}>
         <div className="min-w-0 flex-1">
           <BurndownChart lang={lang} currency={currency} model={model} unit={unit} orientation={orientation} periods={series.periods} />
         </div>
-        {changeTable && <div className="min-w-0 md:w-80 md:shrink-0">{changeTable}</div>}
+        {changeTable && <div className={`min-w-0${compact ? "" : " md:w-80 md:shrink-0"}`}>{changeTable}</div>}
       </div>
     </div>
   );

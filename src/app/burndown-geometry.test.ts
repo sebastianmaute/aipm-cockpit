@@ -232,6 +232,17 @@ describe("buildChartModel — budget-at-completion steps", () => {
     ]);
   });
 
+  it("falls back to an em dash when every entry in a marker's group has a blank bucket name", () => {
+    const blank = change({
+      id: "a", date: "2026-01-20", bucketName: "",
+      deltaHours: 30, deltaValue: 3_000, projectBacHours: 120, projectBacValue: 12_000,
+    });
+    const m = cumulative(summary([blank]));
+    expect(m.bacMarkers).toEqual([
+      { date: "2026-01-20", value: 12_000, amount: 3_000, label: "—", removed: false },
+    ]);
+  });
+
   it("sums several entries in one period into one marker with their names joined", () => {
     const first = change({
       id: "a", date: "2026-01-10", bucketName: "Vendor",

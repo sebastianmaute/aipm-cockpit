@@ -47,6 +47,11 @@ export function BudgetChangeTable({
   // A running total without a reassigned accumulator: `react-hooks/immutability`
   // rejects mutating a local across a render, and the lists here are tiny.
   const runningTotals = deltas.map((_, i) => deltas.slice(0, i + 1).reduce((sum, d) => sum + d, 0));
+  // Unlike the chart's `bacMarkers` (`burndown-geometry.ts`), which group by
+  // PERIOD and drop a marker whose summed amount rounds to 0 in the displayed
+  // unit, every entry gets its own row here regardless of its size — so a
+  // change that rounds to "+€0"/"-€0" still shows a row even though the same
+  // group produced no marker on the chart above.
   const rows = ordered.map((entry, i) => ({
     id: entry.id,
     date: formatDayMonthYear(entry.date, locale),
