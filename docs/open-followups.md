@@ -773,6 +773,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§548](#548-an-edit-made-during-a-projects-first-backend-load-is-overwritten-when-that-load-lands--open) | An edit made during a project's first backend load is overwritten when that load lands — OPEN | found 2026-09-15 debugging a `task-manager.template-notice.test.tsx` race on `chore/electron-44`; GitLab #336 | S–M — withhold edits until the first load lands, or make the load-time guard compare per slice | open |
 | [§549](#549-buckets-with-a-hand-entered--complete-have-no-earned-value-history-so-the-cumulative-chart-cannot-draw-one-for-them--open) | Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — OPEN | deferred 2026-09-15 by the forecast chart and hours addendum (MR 3), user approved filing; GitLab #339 | M — record % complete per period for hand-entered buckets | open |
 | [§550](#550-closing-a-bucket-with-a-successor-inflates-project-budget-at-completion-by-the-unconsumed-remainder--closed-2026-09-16) | Closing a bucket with a successor inflates project budget at completion by the unconsumed remainder — CLOSED 2026-09-16 | measured 2026-09-16 by probe while designing the earned-value history slice; GitLab #340 | S — sum own budget, not the spillover-inclusive reported budget, in the project rollup | closed |
+| [§551](#551-dropping-the-dead-snapshot-currency-column-is-unsafe-while-older-clients-can-still-write-it--open) | Dropping the dead snapshot currency column is unsafe while older clients can still write it — OPEN | deferred 2026-09-16 by the earned-value history slice (§4.4), user approved filing; GitLab #341 | S — enforce a minimum client version, then drop the column | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38525,3 +38526,28 @@ attributing budget changes to dated events: this inflation would have been attri
 surfaced as unexplained budget change.
 
 Related: §501, §504, §549.
+
+## 551. Dropping the dead snapshot currency column is unsafe while older clients can still write it — OPEN
+
+**Status:** OPEN 2026-09-16 — established by reading `appendStatements` in `snapshot-schema.ts` against the
+pipeline behaviour AGENTS.md records in its `idKind` bullet; not run. Deferred by the earned-value history slice
+(`docs/superpowers/specs/2026-09-16-earned-value-history-scope-attribution-design.md`, §4.4), user approved filing.
+
+**Work item:** #341
+
+That slice deletes `SnapshotRecord.currency` from the app (closing §469), but the `currency` column stays in every
+existing Turso `snapshot` table. Dropping the column is simple in itself: it is a plain nullable `TEXT` column with
+no index and no key. The risk is **older clients still writing to the same database**. A desktop build or an
+unreloaded browser tab from before the slice still sends an INSERT that names `currency`, and against a dropped
+column that statement fails. A libSQL pipeline batch does not abort on a failing statement, so
+`appendStatements` would commit the `snapshot_series` rows **without their `snapshot` row**, which leaves
+orphaned series data. That is worse than a failed capture.
+
+The drop is safe only with an enforceable guarantee that no client which writes the column can reach the database,
+for example a minimum client version recorded in the database and checked before any write. Waiting some number of
+releases is not a guarantee, because the desktop app can lag arbitrarily.
+
+Fix shape: add the guarantee, then drop the column with `ALTER TABLE snapshot DROP COLUMN currency` behind a PRAGMA
+check, as `turso-migrate.ts` does for its self-heal, and verify with the real statements against `node:sqlite`.
+
+Related: §465, §469.
