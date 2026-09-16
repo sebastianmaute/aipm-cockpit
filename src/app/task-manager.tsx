@@ -646,7 +646,6 @@ function TaskManagerInner() {
         milestones,
         buckets: budgets,
         planEndDate: plan.endDate,
-        currency: plan.currency,
       };
     },
     onError: (err) => {

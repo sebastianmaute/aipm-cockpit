@@ -4,16 +4,18 @@
 // never runs it, so it cannot see the one failure this file exists for: an
 // EXISTING database whose `snapshot` table predates a column the INSERT now
 // names. `CREATE TABLE IF NOT EXISTS` is a no-op against such a table, so the
-// named-column INSERT is rejected — and because a libSQL pipeline does NOT
-// abort at a failing statement, COMMIT still runs and the capture is silently
-// lost. `snapshotColumnEnsureStatements` is the repair; this suite runs it,
-// and the real INSERT, against `node:sqlite` (see `node-sqlite.d.ts` for why
-// the import type-checks).
+// named-column INSERT is rejected. Against the real `runTursoPipeline` path a
+// libSQL pipeline does NOT abort at that failing statement — the snapshot
+// INSERT fails, its series rows still commit, and the save reports failure.
+// `snapshotColumnEnsureStatements` is the repair; this suite runs it, and the
+// real INSERT, against `node:sqlite` (see `node-sqlite.d.ts` for why the
+// import type-checks) — here the driver throws synchronously instead, since
+// these statements are run directly rather than through a pipeline.
 
 import { describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import {
-  appendStatements, rowsToSnapshots, snapshotColumnEnsureStatements,
+  SNAPSHOT_DDL, appendStatements, rowsToSnapshots, snapshotColumnEnsureStatements,
 } from "./snapshot-schema";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { SnapshotRecord } from "./snapshot";
@@ -42,7 +44,6 @@ const rec: SnapshotRecord = {
   remainingHours: 60, remainingCost: 6000, pctComplete: 25,
   forecastEndDate: "2026-09-15", planEndDate: "2026-07-31", spi: 0.8, cpi: 1.1,
   overallRag: "A", scheduleRag: "R", budgetRag: "A", scopeRag: "",
-  currency: "EUR",
   milestones: [{ id: 7, name: "M1", target: "2026-07-01", forecast: "2026-07-10" }],
   bucketProgress: [{ bucketId: 1, pctComplete: 40 }, { bucketId: 2, pctComplete: 50 }],
   series: [{ period: "2026-06", plannedHours: 50, actualHours: 60, plannedCost: 5000, actualCost: 6000 }],
@@ -108,6 +109,31 @@ describe("snapshot schema against an existing (pre-bucket-progress) database", (
       db.exec(OLD_SNAPSHOT_DDL);
       db.exec(OLD_SERIES_DDL);
       expect(() => runStatements(db, appendStatements(rec, "p1"))).toThrow(/bucket_progress_json/);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// ★ Pins that the LIVE `SNAPSHOT_DDL` and `SNAPSHOT_COLS` still agree — in
+// particular after `currency` was removed from `SNAPSHOT_COLS` while the DDL
+// keeps the column (§469). A fresh (not pre-existing) database needs no
+// ensure statements and the insert + round-trip must still succeed.
+describe("snapshot schema against a fresh (live DDL) database", () => {
+  it("ensure is empty, the insert succeeds, and the record round-trips", () => {
+    const db = new DatabaseSync(":memory:");
+    try {
+      for (const ddl of SNAPSHOT_DDL) db.exec(ddl);
+
+      expect(snapshotColumnEnsureStatements(pragma(db))).toEqual([]);
+
+      runStatements(db, appendStatements(rec, "p1"));
+
+      const out = rowsToSnapshots(
+        query(db, "SELECT * FROM snapshot"),
+        query(db, "SELECT * FROM snapshot_series"),
+      );
+      expect(out).toEqual([rec]);
     } finally {
       db.close();
     }

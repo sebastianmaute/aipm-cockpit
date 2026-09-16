@@ -11,7 +11,7 @@ const rec: SnapshotRecord = {
   remainingHours: 60, remainingCost: 6000, pctComplete: 25,
   forecastEndDate: "2026-09-15", planEndDate: "2026-07-31", spi: 0.8, cpi: 1.1,
   overallRag: "A", scheduleRag: "R", budgetRag: "A", scopeRag: "",
-  currency: "EUR", milestones: [], series: [], bucketProgress: [],
+  milestones: [], series: [], bucketProgress: [],
 };
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -93,8 +93,8 @@ describe("snapshot-store", () => {
       results: [
         { type: "ok" }, { type: "ok" }, // 2 DDL
         { type: "ok", response: { type: "execute", result: {
-          cols: ["id","captured_at","bucket","cadence","trigger","is_baseline","remaining_hours","remaining_cost","pct_complete","forecast_end_date","plan_end_date","spi","cpi","overall_rag","schedule_rag","budget_rag","scope_rag","currency","milestones_json"].map((name) => ({ name })),
-          rows: [["a","a","2026-W23","weekly","auto","1","","","10","2026-07-31","2026-07-31","","","G","","","","EUR","[]"].map((value) => ({ value }))],
+          cols: ["id","captured_at","bucket","cadence","trigger","is_baseline","remaining_hours","remaining_cost","pct_complete","forecast_end_date","plan_end_date","spi","cpi","overall_rag","schedule_rag","budget_rag","scope_rag","milestones_json"].map((name) => ({ name })),
+          rows: [["a","a","2026-W23","weekly","auto","1","","","10","2026-07-31","2026-07-31","","","G","","","","[]"].map((value) => ({ value }))],
         } } },
         { type: "ok", response: { type: "execute", result: { cols: [], rows: [] } } },
       ],

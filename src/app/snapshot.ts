@@ -51,7 +51,6 @@ export interface SnapshotRecord {
   scheduleRag: Health | "";
   budgetRag: Health | "";
   scopeRag: Health | "";
-  currency: string;
   milestones: SnapshotMilestone[];
   bucketProgress: SnapshotBucketProgress[];
   series: SnapshotSeriesPoint[];
@@ -184,7 +183,6 @@ export interface BuildSnapshotInput {
   milestones: readonly Milestone[];
   buckets: readonly Pick<BudgetBucket, "id" | "taskIds" | "percentComplete">[];
   planEndDate: string;
-  currency: string;
   capturedAt: string;       // ISO ms timestamp; also used as the record id
   cadence: SnapshotCadence;
   trigger: SnapshotTrigger;
@@ -195,7 +193,7 @@ const ragOrEmpty = (h: Health | null): Health | "" => h ?? "";
 /** Assemble a SnapshotRecord from an already-computed DashboardModel + context.
  *  Pure: the caller supplies `capturedAt` (no implicit clock). */
 export function buildSnapshot(input: BuildSnapshotInput): SnapshotRecord {
-  const { model, tasks, milestones, buckets, planEndDate, currency, capturedAt, cadence, trigger } = input;
+  const { model, tasks, milestones, buckets, planEndDate, capturedAt, cadence, trigger } = input;
   const tasksById = new Map(tasks.map((t) => [t.id, t] as const));
   const bd = model.burndown;
   const series: SnapshotSeriesPoint[] = bd
@@ -225,7 +223,6 @@ export function buildSnapshot(input: BuildSnapshotInput): SnapshotRecord {
     scheduleRag: ragOrEmpty(model.schedule.effective),
     budgetRag: ragOrEmpty(model.budget.effective),
     scopeRag: ragOrEmpty(model.scope.effective),
-    currency,
     milestones: milestones.map((m) => ({
       id: m.id, name: m.name, target: m.date, forecast: milestoneForecast(m, tasksById),
     })),

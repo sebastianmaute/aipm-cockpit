@@ -20,7 +20,8 @@ export const SNAPSHOT_DDL: string[] = [
     is_baseline TEXT, remaining_hours TEXT, remaining_cost TEXT, pct_complete TEXT,
     forecast_end_date TEXT, plan_end_date TEXT, spi TEXT, cpi TEXT,
     overall_rag TEXT, schedule_rag TEXT, budget_rag TEXT, scope_rag TEXT,
-    currency TEXT, milestones_json TEXT, bucket_progress_json TEXT, project_id TEXT
+    currency TEXT, -- unused since §469; dropped only once §551's minimum-client guarantee exists
+    milestones_json TEXT, bucket_progress_json TEXT, project_id TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS snapshot_series (
     snapshot_id TEXT, seq TEXT, period TEXT,
@@ -35,7 +36,7 @@ const SNAPSHOT_COLS = [
   "id", "captured_at", "bucket", "cadence", "trigger", "is_baseline",
   "remaining_hours", "remaining_cost", "pct_complete", "forecast_end_date",
   "plan_end_date", "spi", "cpi", "overall_rag", "schedule_rag", "budget_rag",
-  "scope_rag", "currency", "milestones_json", "bucket_progress_json", "project_id",
+  "scope_rag", "milestones_json", "bucket_progress_json", "project_id",
 ] as const;
 
 const SERIES_COLS = [
@@ -64,14 +65,18 @@ export function snapshotSelectStatements(projectId: string): SqlStmt[] {
  *  ★★ `CREATE TABLE IF NOT EXISTS` is a no-op against a table created by an
  *  earlier release, so a column added since (`bucket_progress_json`) is absent
  *  there and the named-column INSERT is rejected. A libSQL pipeline does NOT
- *  abort at that failing statement: COMMIT still runs and the capture is lost
- *  while the rest of the batch reports ok. So these ALTERs must run BEFORE the
- *  INSERT — `appendStatements` takes them as `ensure` and places them first
+ *  abort at that failing statement: the snapshot INSERT fails, its series rows
+ *  still commit, and the save reports failure. So these ALTERs must run BEFORE
+ *  the INSERT — `appendStatements` takes them as `ensure` and places them first
  *  inside the transaction.
  *
  *  Returns [] when the PRAGMA result is unreadable or the table is absent — the
  *  same "do not ALTER" rule `existingColumnsFromPragma` applies to workspace
- *  tables (the DDL creates an absent table with every column). */
+ *  tables (the DDL creates an absent table with every column).
+ *
+ *  ★ Two clients upgrading at the same moment can both send the ALTER; the
+ *  second fails with "duplicate column", its capture still commits, and that
+ *  save is reported as failed (SQLite has no ADD COLUMN IF NOT EXISTS). */
 export function snapshotColumnEnsureStatements(pragmaResult: PipelineResultLike | undefined): SqlStmt[] {
   const existing = existingColumnsFromPragma(pragmaResult);
   if (existing === null) return [];
@@ -97,7 +102,7 @@ export function appendStatements(
     numText(rec.remainingHours), numText(rec.remainingCost), numText(rec.pctComplete),
     text(rec.forecastEndDate), text(rec.planEndDate), numText(rec.spi), numText(rec.cpi),
     text(rec.overallRag), text(rec.scheduleRag), text(rec.budgetRag), text(rec.scopeRag),
-    text(rec.currency), text(JSON.stringify(rec.milestones)), text(JSON.stringify(rec.bucketProgress)),
+    text(JSON.stringify(rec.milestones)), text(JSON.stringify(rec.bucketProgress)),
     text(projectId),
   ]));
   rec.series.forEach((p, i) => {
@@ -211,7 +216,6 @@ export function rowsToSnapshots(
       scheduleRag: ragOf(r.schedule_rag),
       budgetRag: ragOf(r.budget_rag),
       scopeRag: ragOf(r.scope_rag),
-      currency: r.currency || "EUR",
       milestones: parseMilestones(r.milestones_json),
       bucketProgress: parseBucketProgress(r.bucket_progress_json),
       series: orderedById.get(r.id) ?? [],

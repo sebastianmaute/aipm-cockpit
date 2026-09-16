@@ -10,7 +10,7 @@ function rec(id: string, bucket: string, isBaseline = false): SnapshotRecord {
     id, capturedAt: id, bucket, cadence: "weekly", trigger: "auto", isBaseline,
     remainingHours: null, remainingCost: null, pctComplete: 0, forecastEndDate: "2026-07-31",
     planEndDate: "2026-07-31", spi: null, cpi: null, overallRag: "G", scheduleRag: "G",
-    budgetRag: "", scopeRag: "", currency: "EUR", milestones: [], series: [], bucketProgress: [],
+    budgetRag: "", scopeRag: "", milestones: [], series: [], bucketProgress: [],
   };
 }
 
@@ -25,7 +25,7 @@ const baseArgs = {
     model: { progress: { percent: 0 }, overall: { effective: "G" }, schedule: { effective: "G" },
       budget: { effective: null }, scope: { effective: null }, burndown: null,
       evm: { spi: null, cpi: null } },
-    tasks: [taskWith(1, "To Do")], milestones: [], planEndDate: "2026-07-31", currency: "EUR", buckets: [],
+    tasks: [taskWith(1, "To Do")], milestones: [], planEndDate: "2026-07-31", buckets: [],
   }) as unknown as ReturnType<NonNullable<Parameters<typeof useSnapshots>[0]["buildContext"]>>,
   showToast: vi.fn(),
   lang: "en-US" as const,
@@ -38,7 +38,7 @@ const emptyContextArgs = {
     model: { progress: { percent: 0 }, overall: { effective: "G" }, schedule: { effective: "G" },
       budget: { effective: null }, scope: { effective: null }, burndown: null,
       evm: { spi: null, cpi: null } },
-    tasks: [], milestones: [], planEndDate: "2026-07-31", currency: "EUR", buckets: [],
+    tasks: [], milestones: [], planEndDate: "2026-07-31", buckets: [],
   }) as unknown as ReturnType<NonNullable<Parameters<typeof useSnapshots>[0]["buildContext"]>>,
 };
 
@@ -92,7 +92,7 @@ describe("useSnapshots", () => {
           burndown: { periods: ["2026-06"], plannedRemainingHours: [10], actualRemainingHours: [8],
             plannedRemainingValue: [1000], actualRemainingValue: [800] },
           evm: { spi: 0.9, cpi: 1.1 } },
-        tasks: [], milestones: [], planEndDate: "2026-07-31", currency: "EUR", buckets: [],
+        tasks: [], milestones: [], planEndDate: "2026-07-31", buckets: [],
       }) as unknown as ReturnType<NonNullable<Parameters<typeof useSnapshots>[0]["buildContext"]>>,
     });
 

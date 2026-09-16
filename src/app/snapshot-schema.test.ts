@@ -13,7 +13,6 @@ const rec: SnapshotRecord = {
   remainingHours: 60, remainingCost: 6000, pctComplete: 25,
   forecastEndDate: "2026-09-15", planEndDate: "2026-07-31", spi: 0.8, cpi: 1.1,
   overallRag: "A", scheduleRag: "R", budgetRag: "A", scopeRag: "",
-  currency: "EUR",
   milestones: [{ id: 1, name: "M1", target: "2026-07-01", forecast: "2026-07-10" }],
   bucketProgress: [{ bucketId: 1, pctComplete: 40 }, { bucketId: 2, pctComplete: 50 }],
   series: [
@@ -44,6 +43,14 @@ describe("snapshot schema", () => {
     expect(snapInsert?.args?.some((a) => a.value === "1")).toBe(true); // is_baseline "1"
   });
 
+  it("the snapshot INSERT names its live columns, never the retired currency column", () => {
+    const snapInsert = appendStatements(rec, "p1").find((s) => /INSERT INTO snapshot \(/.test(s.sql));
+    const cols = /\(([^)]*)\)/.exec(snapInsert?.sql ?? "")?.[1].split(", ") ?? [];
+    expect(cols).toContain("bucket_progress_json"); // positive: a live column is named
+    expect(cols).not.toContain("currency");          // absence: the retired column is not
+    expect(snapInsert?.args).toHaveLength(cols.length); // arg count matches the column list
+  });
+
   it("setBaselineStatements clears all then sets one", () => {
     const stmts = setBaselineStatements("abc", "p1");
     expect(stmts[0].sql).toMatch(/UPDATE snapshot SET is_baseline='0'/);
@@ -61,11 +68,11 @@ describe("snapshot schema", () => {
     const snapshotResult: PipelineResultLike = {
       type: "ok",
       response: { type: "execute", result: {
-        cols: ["id","captured_at","bucket","cadence","trigger","is_baseline","remaining_hours","remaining_cost","pct_complete","forecast_end_date","plan_end_date","spi","cpi","overall_rag","schedule_rag","budget_rag","scope_rag","currency","milestones_json","bucket_progress_json"].map((name) => ({ name })),
+        cols: ["id","captured_at","bucket","cadence","trigger","is_baseline","remaining_hours","remaining_cost","pct_complete","forecast_end_date","plan_end_date","spi","cpi","overall_rag","schedule_rag","budget_rag","scope_rag","milestones_json","bucket_progress_json"].map((name) => ({ name })),
         rows: [[
           rec.id, rec.capturedAt, rec.bucket, rec.cadence, rec.trigger, "1",
           "60", "6000", "25", rec.forecastEndDate, rec.planEndDate, "0.8", "1.1",
-          "A", "R", "A", "", "EUR", JSON.stringify(rec.milestones), JSON.stringify(rec.bucketProgress),
+          "A", "R", "A", "", JSON.stringify(rec.milestones), JSON.stringify(rec.bucketProgress),
         ].map((value) => ({ value }))],
       } },
     };
@@ -176,7 +183,7 @@ function projRec(): SnapshotRecord {
     remainingHours: 1, remainingCost: 2, pctComplete: 3,
     forecastEndDate: "2026-06-01", planEndDate: "2026-06-01", spi: 1, cpi: 1,
     overallRag: "G", scheduleRag: "G", budgetRag: "G", scopeRag: "G",
-    currency: "EUR", milestones: [], bucketProgress: [], series: [{ period: "P1", plannedHours: 1, actualHours: 1, plannedCost: 1, actualCost: 1 }],
+    milestones: [], bucketProgress: [], series: [{ period: "P1", plannedHours: 1, actualHours: 1, plannedCost: 1, actualCost: 1 }],
   };
 }
 

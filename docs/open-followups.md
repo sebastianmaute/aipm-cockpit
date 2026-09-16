@@ -691,7 +691,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--closed-2026-09-13) | Help promises a burn-down forecast that the chart does not draw — CLOSED 2026-09-13 | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | **CLOSED** 2026-09-13 |
 | [§467](#467-fields-the-offered-surface-sweeps-typed-probes-cannot-measure--open) | Fields the offered-surface sweep's typed probes cannot measure — OPEN | found 2026-09-11 by the typed-probe slice's first measured run | S per field — a probe shape or a column decision each | open |
 | [§468](#468-pdf-export-opens-a-window-that-never-prints-in-the-desktop-app--open) | PDF export opens a window that never prints in the desktop app — OPEN | found 2026-09-12 by cold review of the desktop print-route commit `252fbca7`, which fixed the in-pane Print button and overstated its scope | M — a main-process print route (`webContents.printToPDF` or a print handler on the opened window), then a decision about whether the three PDF surfaces still open a tab at all | open |
-| [§469](#469-snapshotrecordcurrency-is-written-on-every-capture-and-read-by-nothing--open) | `SnapshotRecord.currency` is written on every capture and read by nothing — OPEN | found 2026-09-12 by the currency-boundary slice's closing pass over §465, and independently by two of its reviewers | S-M — the work is the decision: delete the field (one Turso table's DDL, encode and decode — NOT the six workspace write paths) or normalise it to EUR at the writer | open |
+| [§469](#469-snapshotrecordcurrency-is-written-on-every-capture-and-read-by-nothing--closed-2026-09-16) | `SnapshotRecord.currency` is written on every capture and read by nothing — CLOSED 2026-09-16 | feat/ev-history-scope-attribution | S-M — deleted the field, its writer, column list entry, encode and decode; the DDL column stays until §551 | closed |
 | [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--open) | The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN | found 2026-09-12 while closing §465, from `d4fa68c3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | open |
 | [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--closed-2026-09-13) | The FX-override field's advertised minimum rounds to zero and is then refused — CLOSED 2026-09-13 | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | **CLOSED** 2026-09-13 |
 | [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--closed-2026-09-13) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture — CLOSED 2026-09-13 | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | **CLOSED** 2026-09-13 |
@@ -35952,23 +35952,10 @@ Unfixed, and deliberately so: the repair needs a main-process route (`webContent
 print handler installed on the opened window) plus a decision about whether the three surfaces keep
 producing an on-screen tab at all when a real PDF writer is available. Size M.
 
-## 469. `SnapshotRecord.currency` is written on every capture and read by nothing — OPEN
+## 469. `SnapshotRecord.currency` is written on every capture and read by nothing — CLOSED 2026-09-16
 
-**Status:** OPEN 2026-09-12 — established by reading the chain end to end, not by a run. Presence
-witnesses run 2026-09-12: `grep -c "currency: plan.currency" src/app/task-manager.tsx` → 1 (the sole
-writer), `grep -n "currency" src/app/snapshot.ts` → 4 (the field on `SnapshotRecord`, the builder's
-destructure, its write into the record, and the input type),
-`grep -n "currency" src/app/snapshot-schema.ts` → **4**, not 3 (the DDL column, the ordered COLUMN
-LIST, the encode, and the `r.currency || "EUR"` decode) and
-`grep -c 'const currency = "EUR"' src/app/trends-panel.tsx` → 1 (the reader, now a literal).
-★ COUNT CORRECTED 2026-09-12 (re-run, returns 4): the original said 3 and named only the DDL, the
-encode and the decode. The missed hit is the column list, and it is not a harmless omission — it is
-one of the four places the removal scoped at the bottom of this entry would have to change, so an
-undercounted witness understated the entry's own work by exactly the site most easily forgotten.
-Insert and DDL derive their column order from that list; edit one without the other and the encode
-writes a value into the wrong column with no error.
-
-**Work item:** #298
+**Status:** CLOSED 2026-09-16 by `feat/ev-history-scope-attribution`: the field, its writer, column
+list entry, encode and decode are removed; the DDL column stays until §551.
 
 The Trends remaining-cost mislabel (§465) was fixed at the READER rather than the writer, and
 deliberately so: snapshots already persisted in a Turso project carry a non-EUR `currency`, and only
