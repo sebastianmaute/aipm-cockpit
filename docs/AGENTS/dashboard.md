@@ -152,8 +152,10 @@ override). The model carries `forecastBundle` (€ and hours forecasts, rate mix
 body scrolls inside the tile at `h: 3` as before.
 
 ★ **Chart/table split and EV availability (§549):** `BurndownChartPanel`'s `compact` prop (always true here) stacks the
-chart and its change table vertically — the tile is narrower than the pane at every desktop breakpoint (half at `lg`'s
-2-column grid, a quarter at `xl`'s 4-column grid; `arrangement-grid.tsx`), where the panel's own `md:flex-row`
+chart and its change table vertically — at its DEFAULT width (`w: 1`) the tile is narrower than the pane at every
+desktop breakpoint (half at `lg`'s 2-column grid, a quarter at `xl`'s 4-column grid; `arrangement-grid.tsx`), though a
+user may widen it up to `maxW: 2` (`dashboard-tiles.ts`), which is full pane width at `lg` (`col-span-2` there spans
+both columns). Either way the panel's own `md:flex-row`
 breakpoint would otherwise still fire and squeeze the chart. `computeEvHistory` (`budget-ev-history.ts`) marks history
 unavailable only when at least one budgeted bucket exists and none has a known value AT TODAY: a bucket is unknown
 there when it has neither a hand-entered percent nor any resolvable task link (`bucketPercentComplete` returns null —

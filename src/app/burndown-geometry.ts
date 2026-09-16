@@ -173,10 +173,14 @@ const NO_BAC: BacFields = { bacSteps: null, bacBaseline: null, bacMarkers: [] };
  * attributed`) is the RUNNING TOTAL of every such unrecorded movement since
  * the baseline, not the currently visible staleness — it can stay non-zero
  * even once a later commit has healed the line back to today's true BAC.
- * Example: baseline 10,000 → +2,000 recorded (BAC 12,000) → −1,000 undone
- * unrecorded (true BAC 11,000, line still shows 12,000) → +500 recorded
- * stores `after` 11,500 (line jumps to 11,500 = today's true BAC, gap 0) —
- * yet unattributed = 11,500 − 10,000 − (2,000 + 500) = −1,000.
+ * Example: baseline 10,000 → +2,000 recorded (BAC 12,000) → a version restore
+ * to an earlier snapshot drops it to 11,000, unrecorded (line still shows
+ * 12,000) → +500 recorded stores `after` 11,500 (line jumps to 11,500 =
+ * today's true BAC, gap 0) — yet unattributed = 11,500 − 10,000 − (2,000 +
+ * 500) = −1,000. (Undo restores a whole before-image, so undoing the +2,000
+ * commit itself would land exactly back at the 10,000 baseline, not 11,000 —
+ * a version restore or `handleApplyTemplate` can land on any BAC a full undo
+ * would not.)
  */
 function bacFields(
   history: BudgetHistorySummary, eurUnit: boolean, series: BurndownSeries, start: string, end: string,

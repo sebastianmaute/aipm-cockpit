@@ -110,8 +110,9 @@ function trackBuckets(input: EvHistoryInput): Tracked[] {
 export function computeEvHistory(input: EvHistoryInput): EvHistory {
   const { dates, today } = input;
   const tracked = trackBuckets(input);
-  // Only a bucket with no current percent (links resolving to nothing) can
-  // stay unknown after its start, so this is "no bucket yields earned value".
+  // Only a bucket with neither a hand-entered percent nor any resolvable task
+  // link (no `taskIds` at all, or every linked task deleted) can stay unknown
+  // after its start, so this is "no bucket yields earned value".
   if (tracked.length > 0 && tracked.every((t) => !t.valueAt(today, true).known)) {
     return { available: false, reason: "no-earned-value", buckets: tracked.map((t) => ({ id: t.bucket.id, name: t.bucket.name })) };
   }
