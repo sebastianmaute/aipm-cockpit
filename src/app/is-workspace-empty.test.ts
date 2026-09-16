@@ -91,6 +91,21 @@ describe("the save-time counters deliberately exclude auto-grown slices", () => 
     expect(workspaceRecordCount(logged)).toBe(0);
   });
 
+  it("budgetHistory is excluded — the same inversion as activityLog", () => {
+    // Written by ordinary budget edits as a side record. Asserted as "adding it
+    // changes NOTHING" against a base that already counts (positive control),
+    // and against the empty workspace for isWorkspaceEmpty.
+    const history = [{ id: "b1" }, { id: "b2" }, { id: "b3" }] as never;
+    const base = { ...ws, tasks: [{ id: 1 }] as never };
+    expect(nonEmptyCollectionCount(base)).toBe(1);
+    expect(workspaceRecordCount(base)).toBe(1);
+    expect(nonEmptyCollectionCount({ ...base, budgetHistory: history })).toBe(1);
+    expect(workspaceRecordCount({ ...base, budgetHistory: history })).toBe(1);
+    expect(nonEmptyCollectionCount({ ...ws, budgetHistory: history })).toBe(0);
+    expect(workspaceRecordCount({ ...ws, budgetHistory: history })).toBe(0);
+    expect(isWorkspaceEmpty({ ...ws, budgetHistory: history })).toBe(true);
+  });
+
   it("documentVersions is excluded, so a retention prune is not a mass deletion", () => {
     const versioned = { ...ws, documentVersions: Array.from({ length: 50 }, (_, i) => ({ id: `v${i}` })) as never };
     expect(nonEmptyCollectionCount(versioned)).toBe(0);
