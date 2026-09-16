@@ -5,6 +5,8 @@ import { computeBudgetForecastsByUnit, type BudgetForecastInput } from "./budget
 import { actualPointDates, computeBurndownSeries } from "./budget-burndown";
 import type { BudgetBucket, ResourcePlan, Role } from "./types";
 
+const TODAY = "2026-09-14";
+
 const none = new Set<string>();
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
 const roles = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 60, externalRate: 100 } as Role];
@@ -99,5 +101,53 @@ describe("computeEvHistory", () => {
     const b = [bucket(1, { taskIds: [1] }), empty];
     expect(computeEvHistory({ report: report(b), buckets: b, tasks, dates: [], today: "2026-09-14" }))
       .toEqual({ available: true, points: [] });
+  });
+});
+
+// §550 re-based `budget-forecast.ts` onto `br.ownBudget.*`; `computeEvHistory`
+// still read the reported, spillover-inclusive `br.budgetValue`/`br.budgetHours`.
+// Fixture shape reused from the §550 spillover test in `budget-report.test.ts`
+// ("does NOT report budgetMirrorsPlan when spillover makes the two figures
+// differ") and from the two-bucket 100h/100h, 60/100-rate fixture in
+// `budget-forecast.test.ts`'s "EV on the own-budget basis (§550...)" describe —
+// here with both buckets linked to a single Done task instead of a manual
+// percentComplete, so `computeEvHistory`'s task-linked path is exercised.
+function spilloverFixture() {
+  const donor = bucket(1, {
+    status: "closed", closedDate: "2026-06-30", successorId: 2, taskIds: [1],
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-06": 100 }, actualHours: { "2026-06": 40 } }],
+  });
+  const succ = bucket(2, {
+    taskIds: [2],
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-06": 100 }, actualHours: { "2026-06": 30 } }],
+  });
+  const buckets = [donor, succ];
+  const spilloverTasks: EvHistoryTask[] = [
+    { id: 1, status: "Done", completedDate: "2026-06-15" },
+    { id: 2, status: "Done", completedDate: "2026-06-20" },
+  ];
+  const bucketReport = report(buckets);
+  const burndown = computeBurndownSeries(buckets, plan, roles, [], 8, none, [], TODAY, null);
+  const forecastInput: BudgetForecastInput = {
+    report: bucketReport, buckets, roles, fxRates: null, tasks: spilloverTasks, plan, burndown, holidaySet: none, today: TODAY,
+  };
+  return { report: bucketReport, buckets, tasks: spilloverTasks, forecastInput };
+}
+
+describe("computeEvHistory — own-basis re-basing (§550)", () => {
+  it("the fixture really spills, or the assertion below proves nothing", () => {
+    const { report: bucketReport } = spilloverFixture();
+    const s = bucketReport.buckets.find((b) => b.bucketId === 2)!;
+    expect(s.spilloverInHours).toBe(60);
+    expect(s.spilloverInValue).toBe(6_000);
+  });
+
+  it("ends on the same own-basis earned value the forecast reports (§550 re-basing)", () => {
+    const { report: bucketReport, buckets, tasks, forecastInput } = spilloverFixture();
+    const h = computeEvHistory({ report: bucketReport, buckets, tasks, dates: [TODAY], today: TODAY });
+    if (!h.available) throw new Error("expected available");
+    const f = computeBudgetForecastsByUnit(forecastInput);
+    expect(h.points.at(-1)!.eur).toBeCloseTo(f.eur.facts.ev!, 6);
+    expect(h.points.at(-1)!.hours).toBeCloseTo(f.hours.facts.ev!, 6);
   });
 });

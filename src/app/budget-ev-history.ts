@@ -2,7 +2,10 @@
  * Derived earned-value history (MR 3 addendum §3.4, Option 1). Pure, i18n-free.
  * Per date and per budgeted bucket: share = linked tasks finished with a
  * completion date on or before that date ÷ resolved linked tasks. EV € = Σ
- * budgetValue × share, EV h = Σ reported budgetHours × share (§3.1 basis).
+ * ownBudget.budgetValue × share, EV h = Σ ownBudget.budgetHours × share — the
+ * own basis `budget-forecast.ts` uses since §550, not the reported,
+ * spillover-inclusive twins (a closed donor bucket's remainder must not be
+ * counted in both its own share and its successor's).
  * The TODAY point uses `bucketPercentComplete`, so the line ends exactly at the
  * forecast's EV; a finished task with no completion date (Cancelled) can only
  * be placed there. The today point is any date on or after today AND always
@@ -42,7 +45,7 @@ export function computeEvHistory(input: EvHistoryInput): EvHistory {
   const linked: LinkedBucket[] = [];
   for (const bucket of buckets) {
     const br = reportById.get(bucket.id);
-    if (!br || !(br.budgetValue > 0)) continue;
+    if (!br || !(br.ownBudget.budgetValue > 0)) continue;
     if (bucket.percentComplete !== undefined) {
       anyManual = true;
       blocking.push({ id: bucket.id, name: bucket.name });
@@ -55,7 +58,8 @@ export function computeEvHistory(input: EvHistoryInput): EvHistory {
       blocking.push({ id: bucket.id, name: bucket.name });
       continue;
     }
-    linked.push({ bucket, eur: br.budgetValue, hours: br.budgetHours, resolved });
+    // Own basis, matching budget-forecast.ts since §550 — the reported twins double-count spilled-in budget.
+    linked.push({ bucket, eur: br.ownBudget.budgetValue, hours: br.ownBudget.budgetHours, resolved });
   }
   if (blocking.length > 0) {
     return { available: false, reason: anyManual ? "manual-percent" : "no-linked-tasks", buckets: blocking };
