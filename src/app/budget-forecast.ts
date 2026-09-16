@@ -173,8 +173,11 @@ export type ForecastFactsByUnit = { eur: ForecastFacts; hours: ForecastFacts };
  * One walk, two units (MR 3 addendum §3.1). € facts are exactly what
  * `forecastFacts` has always returned. Hours facts:
  * - BAC h = `report.project.budgetHours`, AC h = `report.project.actualHours`;
- * - EV h = Σ reported `br.budgetHours` × percent complete (Ruling 1: the same
- *   spillover-inclusive basis BAC h sums, so EV h ÷ BAC h = EV € ÷ BAC €);
+ * - EV h = Σ `br.ownBudget.budgetHours` × percent complete — the same OWN-budget
+ *   basis BAC h sums (§550), so EV h ÷ BAC h = EV € ÷ BAC €. ★ Ruling 1 (MR 3)
+ *   specified the REPORTED, spillover-inclusive basis here and is SUPERSEDED:
+ *   it held only while BAC was spillover-inclusive too, and once §550 made BAC
+ *   own-basis it let ΣEV exceed BAC. See the call site for the measurement;
  * - PV h from the burn-down hours series at `todayIndex`;
  * - dated values are hours, from the same day-key / spread-period rules.
  *
@@ -183,9 +186,12 @@ export type ForecastFactsByUnit = { eur: ForecastFacts; hours: ForecastFacts };
  * UNCAPPED contract ratio `contract × actualHours ÷ budgetHours`, so an
  * overrun shows (the report's own `consumedValue` is capped at the contract
  * amount and must never be reused here).
- * EV (Ruling 2): `Σ budgetValue × bucketPercentComplete(bucket, tasks) ÷ 100`
- * over buckets with `budgetValue > 0`; null (with the naming list) the
- * moment any such bucket has no resolvable percent complete.
+ * EV (Ruling 2, re-based by §550): `Σ ownBudget.budgetValue ×
+ * bucketPercentComplete(bucket, tasks) ÷ 100` over buckets with
+ * `ownBudget.budgetValue > 0`; null (with the naming list) the moment any such
+ * bucket has no resolvable percent complete. Ruling 2's SHAPE is unchanged —
+ * only the basis moved from the reported budget value to the own one, in step
+ * with BAC.
  * PV (Ruling 3): `totalBudgetValue − plannedRemainingValue[todayIndex]` of
  * the burn-down, 0 when `todayIndex === -1`.
  * Dated bookings (Ruling 4): only keys the report itself counts — a day key
@@ -212,28 +218,48 @@ export function forecastFactsByUnit(input: BudgetForecastInput): ForecastFactsBy
     // §5.4: the uncapped contract ratio, so a fixed-price overrun shows.
     // ★ Review finding 1: `br.budgetHours` is `computeBucketReport`'s REPORTED
     // budget hours, i.e. own hours PLUS `spilloverInHours` rolled in from a
-    // closed predecessor (budget-report.ts `reportedBudgetHours`). The report's
-    // OWN fixed-price ratio (`consumedValue`, budget-report.ts ~362-364) and its
-    // `budgetValue` (~359-361) are built from OWN hours only — spillover never
+    // closed predecessor. The report's OWN fixed-price ratio (`consumedValue`)
+    // and its `budgetValue` are built from OWN hours only — spillover never
     // inflates a fixed-price bucket's denominator there. Dividing by the
     // spillover-inflated total here would understate the ratio (and, with a
     // negative spillover, could even zero AC out) relative to the report this
-    // is meant to mirror. Subtract spillover back out to recover the same "own
-    // hours" the report itself divides by.
-    const ownBudgetHours = br.budgetHours - br.spilloverInHours;
+    // is meant to mirror.
+    // ★ This used to hand-derive `br.budgetHours - br.spilloverInHours`. It now
+    // reads the report's own field so there is ONE definition of own budget in
+    // the codebase — see `OwnBudgetFigures` in budget-report.ts, which also
+    // explains why that subtraction is NOT valid for value.
+    const ownBudgetHours = br.ownBudget.budgetHours;
     const fixedPerHour = isFixed && ownBudgetHours > 0
       ? currencyToEur(bucket.fixedPriceAmount ?? 0, bucket, fxRates) / ownBudgetHours
       : 0;
     ac += isFixed ? fixedPerHour * br.actualHours : br.consumedValue;
-    if (br.budgetValue > 0) {
+    // ★★★ OWN budget, in BOTH units. Ruling 1 (MR 3) said the opposite — EV on
+    // the REPORTED, spillover-inclusive basis — and it is SUPERSEDED by the
+    // §550 project-rollup fix, not worked around.
+    //
+    // Ruling 1 was sound while BAC was itself the sum of the reported per-bucket
+    // budgets: both sides carried a closed predecessor's remainder twice, so the
+    // EV ÷ BAC ratio still came out right. §550 fixed BAC to sum each bucket's
+    // OWN budget (the remainder is a REALLOCATION, not new scope), which left EV
+    // as the only spillover-inclusive term and broke the one invariant that must
+    // never break: ΣEV ≤ BAC. Measured on a two-bucket fixture, both buckets
+    // 100% complete, predecessor closed: EV € 26000 against BAC € 20000 — a
+    // finished project reporting 130% complete, SPI 1.3, a NEGATIVE ETC of
+    // −1615 and an EAC of 5385 BELOW the 7000 already spent.
+    //
+    // ★★ The gate is `ownBudget.budgetValue`, the same quantity EV now derives
+    // from. Gating on the reported value instead would demand a percent-complete
+    // from a bucket holding nothing but spilled-in budget — one that contributes
+    // exactly 0 to EV — and blank the project's whole EV when it has none.
+    // Mirrors `evRelevant`'s `budgetCost > 0` gate in budget-report.ts: gate on
+    // what you divide, not on a neighbouring figure.
+    if (br.ownBudget.budgetValue > 0) {
       const pct = bucketPercentComplete(bucket, tasks);
       if (pct === null) {
         bucketsMissingPercent.push({ id: bucket.id, name: bucket.name });
       } else {
-        ev += (br.budgetValue * pct) / 100;
-        // Ruling 1 (MR 3): REPORTED hours, not `ownBudgetHours` — the own-hours
-        // subtraction above serves the fixed-price AC ratio only.
-        evHours += (br.budgetHours * pct) / 100;
+        ev += (br.ownBudget.budgetValue * pct) / 100;
+        evHours += (br.ownBudget.budgetHours * pct) / 100;
       }
     }
     const active = new Set(bucketActivePeriods(bucket, plan).map((p) => p.key));
