@@ -66,8 +66,9 @@ export interface UseVersionHistoryResult {
 //     sets both from one loader result), so it adds nothing a `documents` count
 //     does not, and inherits the same objection.
 // Same reasoning already excludes `activityLog` — see docs/AGENTS/activity-log.md —
-// and `budgetHistory`, which is storage-only and never reaches the version
-// payload at all (`use-storage-backend.ts`'s save/version funnels never carry it).
+// and `budgetHistory`, which is storage-only: carried by the save funnel
+// (`use-storage-backend.ts`'s `outgoing`) but deliberately absent from the
+// version payload (`getVersionPayload` in `task-manager.tsx`).
 export function isEmptyWorkspacePayload(json: string): boolean {
   try {
     // Parse RAW (not jsonToWorkspace, which sanitizes/drops incomplete records) —

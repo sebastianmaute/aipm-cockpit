@@ -539,7 +539,7 @@ describe("§474 — the missing-bucket fallback does not claim EUR", () => {
   });
 });
 
-// The facts row, forecast cards, banner and the section order they added.
+// The facts row, forecast cards, banner and the section order.
 describe("BudgetReportPanel — forecast section order", () => {
   it("orders sections Project total, Forecast, Burn-down, By bucket, Earned value", () => {
     renderPanel();
@@ -553,8 +553,9 @@ describe("BudgetReportPanel — forecast section order", () => {
       t("en-US", "forecastTitle"),
       t("en-US", "budgetBurndownTitle"),
       t("en-US", "budgetReportByBucket"),
-      // Pinned via the live key (not a literal) so a future rename of the
-      // heading text (e.g. to "Earned value · effort") keeps this assertion valid.
+      // Pinned via the live key (currently "Earned value · effort"), not a
+      // hardcoded literal, so a future rename of the heading text keeps this
+      // assertion valid.
       t("en-US", "evmTitle"),
     ];
     const headingTexts = screen.getAllByRole("heading").map((h) => h.textContent ?? "");

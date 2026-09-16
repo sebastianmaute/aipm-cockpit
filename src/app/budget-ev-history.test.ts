@@ -159,9 +159,12 @@ describe("computeEvHistory — own-basis re-basing (§550)", () => {
     expect(h.points.at(-1)!.hours).toBeCloseTo(f.hours.facts.ev!, 6);
   });
 });
-// Rule 1A′ (spec §5.1) — an unresolved task-linked bucket is treated the same
-// as an unrecorded manual one (stays partial while active, never unavailable
-// on its own). A plan of twelve months with a point at
+// Rule 1A′ (spec §5.1) — a task-linked bucket whose links resolve to no tasks:
+// at non-today points it behaves like an unrecorded manual bucket (partial,
+// contributes 0), but — unlike a manual bucket, whose `percentComplete` field
+// is always defined — at the TODAY point `bucketPercentComplete` also returns
+// null for it, so a project of only such buckets is unavailable. A plan of
+// twelve months with a point at
 // each month end; the last point is today. The report is faked to the one field
 // the engine reads, so every bucket is worth 1,000 € / 10 h on its own basis.
 const MONTH_ENDS = [
