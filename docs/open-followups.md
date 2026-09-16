@@ -772,7 +772,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§547](#547-the-desktop-sign-in-popups-state-machine-has-no-unit-harness--open) | The desktop sign-in popup's state machine has no unit harness — OPEN | final review of `chore/electron-44` (M-7 + item 2 recommendation), state bugs M-C/m1/m2 found only by review; GitLab #338 | S–M — a pure `auth-flow-tracker.ts` reducer plus tests replaying the M-C/m1/m2 sequences | open |
 | [§548](#548-an-edit-made-during-a-projects-first-backend-load-is-overwritten-when-that-load-lands--open) | An edit made during a project's first backend load is overwritten when that load lands — OPEN | found 2026-09-15 debugging a `task-manager.template-notice.test.tsx` race on `chore/electron-44`; GitLab #336 | S–M — withhold edits until the first load lands, or make the load-time guard compare per slice | open |
 | [§549](#549-buckets-with-a-hand-entered--complete-have-no-earned-value-history-so-the-cumulative-chart-cannot-draw-one-for-them--open) | Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — OPEN | deferred 2026-09-15 by the forecast chart and hours addendum (MR 3), user approved filing; GitLab #339 | M — record % complete per period for hand-entered buckets | open |
-| [§550](#550-closing-a-bucket-with-a-successor-inflates-project-budget-at-completion-by-the-unconsumed-remainder--open) | Closing a bucket with a successor inflates project budget at completion by the unconsumed remainder — OPEN | measured 2026-09-16 by probe while designing the earned-value history slice; user approved filing; GitLab #340 | S — sum own budget, not the spillover-inclusive reported budget, in the project rollup | open |
+| [§550](#550-closing-a-bucket-with-a-successor-inflates-project-budget-at-completion-by-the-unconsumed-remainder--closed-2026-09-16) | Closing a bucket with a successor inflates project budget at completion by the unconsumed remainder — CLOSED 2026-09-16 | measured 2026-09-16 by probe while designing the earned-value history slice; GitLab #340 | S — sum own budget, not the spillover-inclusive reported budget, in the project rollup | closed |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38484,15 +38484,25 @@ hand-entered percent gains history from the day recording starts.
 
 Related: §501, §504.
 
-## 550. Closing a bucket with a successor inflates project budget at completion by the unconsumed remainder — OPEN
+## 550. Closing a bucket with a successor inflates project budget at completion by the unconsumed remainder — CLOSED 2026-09-16
 
-**Status:** OPEN 2026-09-16 — MEASURED, not read: a throwaway probe against the real engine put project
+**Status:** CLOSED 2026-09-16 by `fix/spillover-project-double-count`. `BucketReport` gained an
+`ownBudget` group (budget hours, budget value and both win/loss figures, excluding spilled-in budget) and the
+project rollup sums those instead of the reported spillover-inclusive twins, so closing a bucket now adds
+nothing. All four project figures were measured wrong first: budget hours 210 against an honest 150, win/loss
+hours 170 against 110, budget value 31500 against 22500, win/loss value 25500 against 16500. A fifth,
+`project.consumption.percent`, rode `budgetValue` and read 19.05% closed against 26.67% open. Earned value was
+re-based onto the same own basis in both units, which SUPERSEDES Ruling 1 of the MR 3 plan — that ruling was
+sound only while BAC carried the same double-count, so both sides cancelled. Before the re-basing, a
+fully-complete spillover fixture reported EV 26000 against BAC 20000, 130% complete, ETC −1615.38 and EAC
+5384.62 below the 7000 already spent. `budgetCost` was MEASURED clean and is not affected, and `pv` was
+confirmed already own-basis; both are now pinned so neither is re-investigated.
+
+Original finding — MEASURED, not read: a throwaway probe against the real engine put project
 budget hours at 150 h with the predecessor open and 210 h with it closed, a delta of exactly the 60 h
 remainder. Reproduce by giving `computeBudgetReport` a predecessor (100 h budget, 40 h actual,
 `successorId` set) plus a successor holding 50 h of its own, and reading `report.project.budgetHours`
 with the predecessor open against closed.
-
-**Work item:** #340
 
 `computeBucketReport` reports its `budgetHours` as own budget PLUS `spilloverInHours`, and the project
 rollup sums that across every bucket including the closed predecessor, which keeps its own full budget.

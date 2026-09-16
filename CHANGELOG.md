@@ -8,6 +8,36 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.7.1] - 2026-09-16 "Sayers"
+
+Closing a budget bucket no longer flatters the forecast. Leftover budget passed to a successor was
+counted twice, which raised the project's budget and made every forecast figure look better than it
+was. Closes follow-up 550.
+
+### Fixed
+
+- **Closing a bucket that passes its remaining budget to a successor no longer inflates the project's
+  budget at completion.** The leftover was counted twice — once in the closed bucket's own budget and
+  again as the successor's inherited budget. Measured on a project whose honest budget was 150 hours:
+  it read 210 hours once the predecessor was closed. Budget value, both win/loss figures and the
+  percentage of budget consumed carried the same error.
+- **Every forecast figure that rides the project budget is corrected with it** — variance at
+  completion, the date the budget runs out, and the burn-down chart's budget line. Before this,
+  closing a bucket made a project appear healthier with no scope added and no work delivered.
+- **Earned value now sits on the same footing as the budget it is compared against.** Previously a
+  project could report having earned more than its entire budget (26,000 against 20,000), being 130%
+  complete, needing a negative amount to finish, and a cost at completion below what it had already
+  spent. On a part-finished project the cost at completion was understated by 17% and the remaining
+  cost by a factor of three.
+- **A bucket holding only inherited budget no longer blanks the project's earned value.** It
+  contributes nothing to earned value by definition, but was still required to report a percentage
+  complete, and the whole project's earned value went blank when it had none.
+
+### Note
+
+Any project with a closed bucket feeding a successor will see its forecast figures change on this
+release. The new figures are the correct ones; the previous ones overstated the project's health.
+
 ## [1.7.0] - 2026-09-16 "Sayers"
 
 One burn-down chart replaces the twin charts, with switches for how you read it and which unit it
