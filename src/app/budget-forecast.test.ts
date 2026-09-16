@@ -561,7 +561,20 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
       allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-06": 100 }, actualHours: {} }],
     } as Partial<BudgetBucket>);
     const { eur, hours } = forecastFactsByUnit(input([donor, succ]));
-    expect(hours.bac).toBe(200);
+    // ★★ BAC is 150, NOT the 200 this pinned before §550: the donor's 50 h
+    // remainder spills into the successor, and `report.project.budgetHours` now
+    // sums each bucket's OWN budget so that remainder is counted once (it used
+    // to be counted in both buckets). The project really does hold 150 h.
+    //
+    // ★★★ EV IS STILL ON THE REPORTED, SPILLOVER-INCLUSIVE BASIS — that is what
+    // Ruling 1 says and what the 140 below pins (own-basis EV h would be
+    // 50×100% + 100×60% = 110). So BAC and EV now sit on DIFFERENT bases and
+    // ΣEV can in principle exceed BAC. The inconsistency is not new, it MOVED:
+    // before §550, EV agreed with BAC and PV was the outlier (the burn-down
+    // builds its totals straight from allocations, so `pv` never carried
+    // spillover); now BAC agrees with PV and EV is the outlier. Re-basing EV is
+    // a forecast-semantics ruling, deliberately NOT taken here.
+    expect(hours.bac).toBe(150);
     expect(hours.ev).toBeCloseTo(140, 9);
     expect(eur.ev! / eur.bac).toBeCloseTo(hours.ev! / hours.bac, 9);
   });

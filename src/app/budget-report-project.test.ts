@@ -39,6 +39,145 @@ describe("computeBudgetReport", () => {
 });
 
 /**
+ * §550 — closing a bucket must not change the project's budget.
+ *
+ * Spillover is a REALLOCATION of an existing bucket's unconsumed remainder to
+ * its successor, not new scope: the closed predecessor goes on reporting its
+ * own full budget while the successor's reported figures absorb the remainder,
+ * so a project rollup summing the REPORTED per-bucket figures counts that
+ * remainder twice. Closing a bucket then reports a healthier project with
+ * nothing added and nothing delivered.
+ *
+ * Every case is written as the SAME honest total in both the open and the
+ * closed state, because that invariance IS the property — a one-state
+ * assertion would pin whatever the engine happens to produce.
+ *
+ * ★ Each case first pins that its fixture really spills. With no spillover
+ * every assertion below holds trivially, so the anti-vacuity guard is what
+ * makes the rest evidence rather than arithmetic about zero.
+ */
+describe("computeBudgetReport — project rollup excludes spilled-in budget (§550)", () => {
+  const noHolidays = new Set<string>();
+
+  function alloc(budgetHours: number, actualHours: number): BudgetBucket["allocations"] {
+    return [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": budgetHours }, actualHours: { "2026-01": actualHours } }];
+  }
+  const run = (bs: BudgetBucket[]) => computeBudgetReport(bs, plan, roles, [], 8, noHolidays, [], [], null);
+
+  describe("a time-and-materials successor", () => {
+    // 100 h budget / 40 h actual → a 60 h (9000 EUR) remainder spills on close.
+    const pred = (status: BudgetBucket["status"]) => bucket(1, { status, successorId: 2, allocations: alloc(100, 40) });
+    const succ = bucket(2, { allocations: alloc(50, 0) });
+    const open = run([pred("open"), succ]);
+    const closed = run([pred("closed"), succ]);
+
+    test("the fixture really spills — without this the case is vacuous", () => {
+      expect(closed.buckets.find((b) => b.bucketId === 2)!.spilloverInHours).toBe(60);
+      expect(closed.buckets.find((b) => b.bucketId === 2)!.spilloverInValue).toBe(9000);
+    });
+
+    test("project budget hours are the two own budgets, open or closed", () => {
+      expect(open.project.budgetHours).toBe(150);
+      expect(closed.project.budgetHours).toBe(150);
+    });
+    test("project win/loss hours are own budget less actual, open or closed", () => {
+      expect(open.project.winLossHours).toBe(150 - 40);
+      expect(closed.project.winLossHours).toBe(150 - 40);
+    });
+    test("project budget value is the two own budgets, open or closed", () => {
+      expect(open.project.budgetValue).toBe(22500);
+      expect(closed.project.budgetValue).toBe(22500);
+    });
+    test("project win/loss value is own budget less consumed, open or closed", () => {
+      expect(open.project.winLossValue).toBe(22500 - 6000);
+      expect(closed.project.winLossValue).toBe(22500 - 6000);
+    });
+    // Consumption rides `budgetValue`, so an inflated denominator makes a
+    // project look less burned the moment a bucket is closed.
+    test("project consumption percent is unchanged by closing the predecessor", () => {
+      expect(closed.project.consumption.percent).toBeCloseTo(open.project.consumption.percent!, 9);
+    });
+  });
+
+  describe("a fixed-price successor receiving spillover", () => {
+    // The asymmetry: `computeBucketReport` adds spilled-in HOURS to every
+    // bucket's reported budget hours but adds spilled-in VALUE only to a T&M
+    // bucket — a fixed-price budget IS its contract amount. So the hours here
+    // are inflated while the value is not, and a project-level rollup that
+    // subtracted the spilled-in value from every bucket would UNDER-count this
+    // project by 9000 EUR.
+    // ★★ The successor books 20 of its 50 h ON PURPOSE. A fixed-price bucket's
+    // win/loss is `revenue − cost` (20000 − 2000 = 18000), never
+    // `budget − consumed` (20000 − 8000 = 12000); with 0 actual hours the two
+    // expressions collapse to the same number and a rollup taking the wrong one
+    // would pass. These figures are what separate them.
+    const pred = (status: BudgetBucket["status"]) => bucket(1, { status, successorId: 2, allocations: alloc(100, 40) });
+    const succ = bucket(2, { type: "fixed", fixedPriceAmount: 20000, allocations: alloc(50, 20) });
+    const open = run([pred("open"), succ]);
+    const closed = run([pred("closed"), succ]);
+
+    test("the fixture really spills into the fixed-price bucket", () => {
+      const succRep = closed.buckets.find((b) => b.bucketId === 2)!;
+      expect(succRep.spilloverInHours).toBe(60);
+      expect(succRep.spilloverInValue).toBe(9000);
+      // …and that value is correctly ignored by the bucket's own budget.
+      expect(succRep.budgetValue).toBe(20000);
+      // The two win/loss expressions really do differ on this fixture.
+      expect(succRep.consumedValue).toBe(8000);
+      expect(succRep.winLossValue).toBe(18000);
+    });
+
+    test("project budget hours are the two own budgets, open or closed", () => {
+      expect(open.project.budgetHours).toBe(150);
+      expect(closed.project.budgetHours).toBe(150);
+    });
+    test("project win/loss hours are own budget less actual, open or closed", () => {
+      expect(open.project.winLossHours).toBe(150 - 60);
+      expect(closed.project.winLossHours).toBe(150 - 60);
+    });
+    test("project budget value keeps the fixed contract WHOLE — never 26000", () => {
+      expect(open.project.budgetValue).toBe(15000 + 20000);
+      expect(closed.project.budgetValue).toBe(15000 + 20000);
+    });
+    test("project win/loss value uses revenue−cost for the fixed bucket", () => {
+      expect(open.project.winLossValue).toBe(9000 + 18000);
+      expect(closed.project.winLossValue).toBe(9000 + 18000);
+    });
+  });
+
+  describe("two predecessors chaining into one successor", () => {
+    const p1 = (status: BudgetBucket["status"]) => bucket(1, { status, successorId: 3, allocations: alloc(100, 40) });
+    const p2 = (status: BudgetBucket["status"]) => bucket(2, { status, successorId: 3, allocations: alloc(50, 10) });
+    const succ = bucket(3, { allocations: alloc(30, 0) });
+    const open = run([p1("open"), p2("open"), succ]);
+    const closed = run([p1("closed"), p2("closed"), succ]);
+
+    test("both remainders really accumulate into the one successor", () => {
+      const succRep = closed.buckets.find((b) => b.bucketId === 3)!;
+      expect(succRep.spilloverInHours).toBe(60 + 40);
+      expect(succRep.spilloverInValue).toBe(9000 + 6000);
+    });
+
+    test("project budget hours are the three own budgets, open or closed", () => {
+      expect(open.project.budgetHours).toBe(180);
+      expect(closed.project.budgetHours).toBe(180);
+    });
+    test("project win/loss hours are own budget less actual, open or closed", () => {
+      expect(open.project.winLossHours).toBe(180 - 50);
+      expect(closed.project.winLossHours).toBe(180 - 50);
+    });
+    test("project budget value is the three own budgets, open or closed", () => {
+      expect(open.project.budgetValue).toBe(27000);
+      expect(closed.project.budgetValue).toBe(27000);
+    });
+    test("project win/loss value is own budget less consumed, open or closed", () => {
+      expect(open.project.winLossValue).toBe(27000 - 7500);
+      expect(closed.project.winLossValue).toBe(27000 - 7500);
+    });
+  });
+});
+
+/**
  * The vacuity trap these pin against: every other fixture in this file is
  * `currency: "EUR"` and passes `fxRates: null`, and under EITHER condition
  * `resolveRate` returns 1 and `currencyToEur` is the identity — so a currency
