@@ -771,7 +771,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§546](#546-a-dated-timelog-applys-other-granularity-delete-removes-hand-typed-hours-from-days-it-never-routed-and-the-confirm-dialog-never-discloses-it--open) | A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — OPEN | found 2026-09-15 while filing the §543 closure text on `feat/budget-forecast-figures`; user approved filing | S — list the removed other-granularity key in the confirm dialog; re-keying the leftover hours is not sound, since the lump sum has no day-level breakdown | open |
 | [§547](#547-the-desktop-sign-in-popups-state-machine-has-no-unit-harness--open) | The desktop sign-in popup's state machine has no unit harness — OPEN | final review of `chore/electron-44` (M-7 + item 2 recommendation), state bugs M-C/m1/m2 found only by review; GitLab #338 | S–M — a pure `auth-flow-tracker.ts` reducer plus tests replaying the M-C/m1/m2 sequences | open |
 | [§548](#548-an-edit-made-during-a-projects-first-backend-load-is-overwritten-when-that-load-lands--open) | An edit made during a project's first backend load is overwritten when that load lands — OPEN | found 2026-09-15 debugging a `task-manager.template-notice.test.tsx` race on `chore/electron-44`; GitLab #336 | S–M — withhold edits until the first load lands, or make the load-time guard compare per slice | open |
-| [§549](#549-buckets-with-a-hand-entered--complete-have-no-earned-value-history-so-the-cumulative-chart-cannot-draw-one-for-them--open) | Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — OPEN | deferred 2026-09-15 by the forecast chart and hours addendum (MR 3), user approved filing; GitLab #339 | M — record % complete per period for hand-entered buckets | open |
+| [§549](#549-buckets-with-a-hand-entered--complete-have-no-earned-value-history-so-the-cumulative-chart-cannot-draw-one-for-them--closed-2026-09-16) | Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — CLOSED 2026-09-16 | closed 2026-09-16 by `feat/ev-history-scope-attribution`; GitLab #339 | M — recorded per-period % complete via Turso snapshots, drawn by `computeEvHistory` | closed |
 | [§550](#550-closing-a-bucket-with-a-successor-inflates-project-budget-at-completion-by-the-unconsumed-remainder--closed-2026-09-16) | Closing a bucket with a successor inflates project budget at completion by the unconsumed remainder — CLOSED 2026-09-16 | measured 2026-09-16 by probe while designing the earned-value history slice; GitLab #340 | S — sum own budget, not the spillover-inclusive reported budget, in the project rollup | closed |
 | [§551](#551-dropping-the-dead-snapshot-currency-column-is-unsafe-while-older-clients-can-still-write-it--open) | Dropping the dead snapshot currency column is unsafe while older clients can still write it — OPEN | deferred 2026-09-16 by the earned-value history slice (§4.4), user approved filing; GitLab #341 | S — enforce a minimum client version, then drop the column | open |
 <!-- INDEX:END -->
@@ -38453,13 +38453,14 @@ only whether the load is empty as a whole.
 Related: §284 (a different Turso load-time data-loss mechanism — a silently discarded meta-blob decode failure —
 closed 2026-08-29); §98 (the save-path analogue: `documents` invisible to the save-time data-loss guards).
 
-## 549. Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — OPEN
+## 549. Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — CLOSED 2026-09-16
 
-**Status:** OPEN 2026-09-15 — MR 3 derives earned-value history from task completion dates, all or nothing:
-`grep -n "manual-percent" src/app/budget-ev-history.ts` shows the unavailable state a hand-entered percent
-produces, and the chart then names those buckets instead of drawing a line.
-
-**Work item:** #339
+**Status:** CLOSED 2026-09-16 by `feat/ev-history-scope-attribution`: Stage 1 (this slice's spec,
+`docs/superpowers/specs/2026-09-16-earned-value-history-scope-attribution-design.md`) records each
+bucket's percent complete per period via Turso snapshots (`SnapshotRecord.bucketProgress`,
+`bucketProgressSeries`), and Stage 2's `computeEvHistory` (rule 1A′, `budget-ev-history.ts`) draws
+earned-value history for hand-entered buckets from those records — partial while unrecorded, complete
+once one lands.
 
 MR 3 of the budget forecast slice (`docs/superpowers/specs/2026-09-15-forecast-chart-hours-design.md`) shipped
 a per-period earned-value history for buckets whose percent complete comes from linked tasks: the history is

@@ -7,6 +7,10 @@
 §550 fix shipped in 1.7.1
 **Next slice, out of scope here:** §545 with §463 and §509
 
+**Amended during planning (2026-09-16):** rulings R2–R4 (recorded in this slice's `constraints.md`)
+fill gaps this spec left, and shipped code took precedence where they diverge. §5.1, §5.3 and the
+§6 undo row below are corrected to match what shipped, not the original wording.
+
 ## 1. Problem
 
 Two gaps in the budget forecast shipped in 1.7.0.
@@ -175,8 +179,17 @@ For each bucket in each period `p`:
 - **Undated buckets** (no `startDate`) keep `bucketActivePeriods`' fall-back to every period, so a manual undated
   bucket is partial until its first record. That is the honest reading: the chart should not claim history it
   never had.
-- This replaces today's all-or-nothing `manual-percent` state in `budget-ev-history.ts`. The unavailable state
-  remains **only** for the case where no bucket in the project yields any earned value.
+- This replaces today's all-or-nothing `manual-percent` state in `budget-ev-history.ts`. The old
+  `"manual-percent"` and `"no-linked-tasks"` reasons are removed; one `"no-earned-value"` reason
+  remains (ruling R3).
+- **Amended (R3):** `available: false` is precise, not "partial at every point" — it is kept only
+  when **no budgeted bucket has a known value AT TODAY** (`computeEvHistory` in
+  `budget-ev-history.ts`), i.e. every tracked bucket is still unknown at today's point. This is an
+  asymmetric rule between the two kinds of bucket: a manual bucket always carries its own
+  `percentComplete` (even 0), so it is never unknown at today; only a **task-linked bucket whose
+  links resolve to no tasks** (`bucketPercentComplete` returns `null`) can leave every bucket
+  unknown and trip this state. A bucket that is merely partial in *earlier* periods but known today
+  does not.
 - Hours and value use the same rule, on the own basis (1.7.1).
 
 ### 5.2 Three-part variance on both forecast cards
@@ -213,7 +226,13 @@ check:  performance + attributed + unattributed = VAC        (exact, by construc
 - The baseline BAC is drawn as a dashed reference line. The gap between the two lines is the attributed plus
   unattributed change.
 - Several entries in one period combine into a single marker, and its label lists them.
-- The table beside the chart (layout 2) gains performance, scope and unattributed columns per period.
+- **Amended (R4):** no table existed to extend, and per-period performance needs a per-period EAC,
+  which is not recorded — so "gains performance, scope and unattributed columns per period" does not
+  match what shipped. `BudgetChangeTable` lists one **row per recorded change** (not per period),
+  columns date · bucket · signed change · cumulative attributed scope, ordered by `at`
+  (`orderBudgetChanges`, never array order — a second-device union is not chronological). Its
+  **footer** carries the summary instead of per-row columns: performance, attributed and
+  unattributed **as of today**, from the pace forecast's own split.
 - Markers need an accessible name, and colour must not be the only cue. The chart's existing text alternative
   carries the marker list.
 
@@ -226,7 +245,7 @@ check:  performance + attributed + unattributed = VAC        (exact, by construc
 | Capacity, absence or holiday change moves BAC | not a logged budget change, so it lands in **unattributed** (by design) |
 | Fixed-price bucket | own `budgetValue` is the contract amount in EUR (§465, §550); deltas follow the engine |
 | Bucket created with a backdated start | partial span labelled "created <date>" (§5.1) |
-| Undo of a budget change | a new entry; history is append-only |
+| Undo of a budget change, a version restore, or applying a project template with seed data | **Amended (R2):** none of the three writes an entry — undo, version restore (`applyRestoredWorkspace`) and `handleApplyTemplate` (`task-manager.tsx`) all set the budgets array directly and bypass the commit boundary (`commitBuckets`), which is the series' only writer. Each one's BAC movement surfaces as **unattributed** variance instead; history stays append-only for what it DOES record |
 | Two tabs editing budgets | each writes its own entry; merge follows the workspace's existing save semantics; the plan must check this against the §548 first-load race |
 | Read-only popout | writes nothing |
 | File backends | §4.1 and §4.3 work everywhere; §4.2, and so manual-bucket history, is Turso only, and file users see manual buckets as partial for their whole span |

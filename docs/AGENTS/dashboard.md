@@ -151,6 +151,13 @@ override). The model carries `forecastBundle` (€ and hours forecasts, rate mix
 € only. When the rate mix triggers, `ForecastHeadline` adds a `RateMixChip` under the headline; the tile
 body scrolls inside the tile at `h: 3` as before.
 
+★ **Chart/table split and EV availability (§549):** `BurndownChartPanel`'s `compact` prop (always true here) stacks the
+chart and its change table vertically — the tile stays half the pane's width even at a desktop viewport, where the
+panel's own `md:flex-row` breakpoint would otherwise still fire and squeeze the chart. `computeEvHistory`
+(`budget-ev-history.ts`) marks history unavailable only when NO budgeted bucket has a known value AT TODAY — a manual
+bucket always carries `percentComplete`, so only an unresolved task-linked bucket can trip it; its snapshot input
+(`bucketProgressSeries`) is Turso-only, so a file-mode project sees every hand-entered bucket as partial for its whole span.
+
 ★★ **TWO CHROMIUM MEASUREMENTS FROM THIS BRANCH'S REVIEW, both about assertions that LOOK sufficient:**
 • `grid-auto-flow: row dense` COMPUTES as `"dense"`, not `"row dense"` — a `toHaveCSS("grid-auto-flow",
 "row dense")` would fail against correct code. The spec's `gridMetrics` still collects `autoFlow` but
