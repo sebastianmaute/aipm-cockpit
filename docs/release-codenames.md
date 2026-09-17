@@ -5,11 +5,10 @@
 This list does not name every shipped codename; check the `## [x.y.z] - date "Codename"` headers in
 `CHANGELOG.md` before picking one.
 
-Highsmith, Hammett, Chandler, Hodgell, Doyle, Pratchett, Christie, Blaylock, Arnason, Mohanraj, Yefremov, Malzberg, Gentle, McHugh, Borges, Jimenez, Vandermeer, Yoshimoto, Hoban, Holdstock, Mirrlees, Duchamp, Tiptree, Elgin, Piercy, Martine, Friedman, Lostetter, McKillip, Samatar, Beukes, Swainston, Cho, Tsutsui, Mandelo, Shepard, Butcher, Bodard, Buckell, Waldrop, Aaronovitch, Ashby, Tuttle, Kavan, Charnas, Kuttner, Sladek, Varley, Goonan, Zoline, Gibson, Tchaikovsky, Due, Ogawa, Nagamatsu, Nagata, Russell, Okorafor, Leckie, Stapledon, Khaw, Bisson, Yoshinaga, Pinsker, Card, Rothfuss, Abercrombie, Stross, Zahn, Verne, Dick, Wyndham, Aldiss, Kurtz, McDevitt, Bova, Effinger, Delany, Feist, Williams, Kay, Stephenson, Vinge, Cook, Beagle, Crowley, Herbert, Peake, Scalzi, Sanderson, Dunsany, Weeks, Reynolds, Sullivan, Robinson, Lawrence, Lewis, Barker, Kiernan, Liu, Wilhelm, McKinley, Novik, Muir, Hurley, Kowal, Huxley, Chambers, Wells, Willis, Cherryh, Russ, Shelley, Jemisin, Butler, Atwood, Kennedy, Heinlein, Asimov, Clarke, Banks, Adams, Calvino, Duras, Elias, Faulkner, García, Hemingway, Ibsen, Joyce, Kafka, Lorca, Bradbury, Bacigalupi, Ryman, Hand, Moorcock, Silverberg, Vance, Link, Disch, Fowler, Ballard, Slonczewski, Harrison, Sawyer, McIntyre, Brunner, Weir, Cline, Yoon, Chiang, Bardugo, Harkaway, Addison, Vonnegut, Sturgeon, Wilson, Nix, Grossman, Wexler, Islington, Barnes, Wurts, Lynch, Sterling, Morgan, Hutchinson, Watts, Tepper, Norton, Gaiman, McCaffrey, Mieville, Cadigan, Asaro, Kingfisher, Ellison, Newitz, Bennett, Sapkowski, Powers, Erikson, Baxter, Kloos, Solomon, Rajaniemi, Onyebuchi, Slatter, Kritzer, Kress, Egan, Niven, Eddings, Hamilton, Griffith, Benford, Czerneda, Robson, Older, Anderson, Priest, Roanhorse, Harrow, Corey, Clark, Gladstone, Doctorow, Cixin, Mann, Nabokov, Zamyatin, Le Guin, Sayers
+Rendell, Sayers, Ishiguro, Highsmith, Hammett, Chandler, Hodgell, Doyle, Pratchett, Christie, Blaylock, Arnason, Mohanraj, Yefremov, Malzberg, Gentle, McHugh, Borges, Jimenez, Vandermeer, Yoshimoto, Hoban, Holdstock, Mirrlees, Duchamp, Tiptree, Elgin, Piercy, Martine, Friedman, Lostetter, McKillip, Samatar, Beukes, Swainston, Cho, Tsutsui, Mandelo, Shepard, Butcher, Bodard, Buckell, Waldrop, Aaronovitch, Ashby, Tuttle, Kavan, Charnas, Kuttner, Sladek, Varley, Goonan, Zoline, Gibson, Tchaikovsky, Due, Ogawa, Nagamatsu, Nagata, Russell, Okorafor, Leckie, Stapledon, Khaw, Bisson, Yoshinaga, Pinsker, Card, Rothfuss, Abercrombie, Stross, Zahn, Verne, Dick, Wyndham, Aldiss, Kurtz, McDevitt, Bova, Effinger, Delany, Feist, Williams, Kay, Stephenson, Vinge, Cook, Beagle, Crowley, Herbert, Peake, Scalzi, Sanderson, Dunsany, Weeks, Reynolds, Sullivan, Robinson, Lawrence, Lewis, Barker, Kiernan, Liu, Wilhelm, McKinley, Novik, Muir, Hurley, Kowal, Huxley, Chambers, Wells, Willis, Cherryh, Russ, Shelley, Jemisin, Butler, Atwood, Kennedy, Heinlein, Asimov, Clarke, Banks, Adams, Calvino, Duras, Elias, Faulkner, García, Hemingway, Ibsen, Joyce, Kafka, Lorca, Bradbury, Bacigalupi, Ryman, Hand, Moorcock, Silverberg, Vance, Link, Disch, Fowler, Ballard, Slonczewski, Harrison, Sawyer, McIntyre, Brunner, Weir, Cline, Yoon, Chiang, Bardugo, Harkaway, Addison, Vonnegut, Sturgeon, Wilson, Nix, Grossman, Wexler, Islington, Barnes, Wurts, Lynch, Sterling, Morgan, Hutchinson, Watts, Tepper, Norton, Gaiman, McCaffrey, Mieville, Cadigan, Asaro, Kingfisher, Ellison, Newitz, Bennett, Sapkowski, Powers, Erikson, Baxter, Kloos, Solomon, Rajaniemi, Onyebuchi, Slatter, Kritzer, Kress, Egan, Niven, Eddings, Hamilton, Griffith, Benford, Czerneda, Robson, Older, Anderson, Priest, Roanhorse, Harrow, Corey, Clark, Gladstone, Doctorow, Cixin, Mann, Nabokov, Zamyatin, Le Guin
 
 ## Candidate Names Not Yet Used
 
-6. Rendell
 7. James
 8. Leonard
 9. Grisham
@@ -25,7 +24,6 @@ Highsmith, Hammett, Chandler, Hodgell, Doyle, Pratchett, Christie, Blaylock, Arn
 19. French
 20. Flynn
 21. Munro
-22. Ishiguro
 23. Rushdie
 24. Marquez
 25. Allende
