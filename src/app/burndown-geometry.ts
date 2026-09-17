@@ -141,7 +141,12 @@ function evHistoryFields(evHistory: EvHistory, eurUnit: boolean, origin: ChartPo
     const shown = pt.joins.filter((j) => !shownAsZero(valueOf(j)));
     if (shown.length === 0) return [];
     const amount = shown.reduce((sum, j) => sum + valueOf(j), 0);
-    return [{ date: pt.date, value: valueOf(pt), amount, label: shown.map((j) => j.name).join(", "), count: shown.length }];
+    // A join whose bucket carries a blank name would otherwise join to "", leaving
+    // the drawn label (and the sentence built from it, "{0} joins (+{1})") with a
+    // dangling leading space and no subject. The em dash mirrors `bacFields`'
+    // fallback for the same case, just below.
+    const names = [...new Set(shown.map((j) => j.name).filter((name) => name !== ""))];
+    return [{ date: pt.date, value: valueOf(pt), amount, label: names.length > 0 ? names.join(", ") : "—", count: shown.length }];
   });
   return {
     evSegments: segments.map(({ partial, points: pts }) => ({ partial, points: pts })),

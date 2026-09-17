@@ -175,6 +175,12 @@ describe("buildChartModel — partial earned value and joins", () => {
     expect(cumulative(points).evJoins).toEqual([{ date: "2026-01-31", value: 40, amount: 40, label: "Vendor", count: 1 }]);
     expect(cumulative(points, "hours").evJoins).toEqual([]);
   });
+
+  it("falls back to an em dash when every joining bucket has a blank name", () => {
+    const joins = [{ id: 3, name: "", eur: 300, hours: 3 }];
+    const points = [evPoint("2026-01-20", 0, { partial: [VENDOR] }), evPoint("2026-01-31", 300, { joins }), evPoint("2026-02-14", 400)];
+    expect(cumulative(points).evJoins).toEqual([{ date: "2026-01-31", value: 300, amount: 300, label: "—", count: 1 }]);
+  });
 });
 
 describe("buildChartModel — budget-at-completion steps", () => {

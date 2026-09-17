@@ -62,10 +62,11 @@ export function formatHours(hours: number, locale: string): string {
 }
 
 /**
- * An explicit +/− prefix over an already-formatted magnitude. The formatter
- * itself supplies the "−" for a negative value (matching `formatSignedPercent`'s
- * hyphen-minus convention on these surfaces), so only a positive value needs a
- * prefix added — and a zero deliberately gets none.
+ * An explicit +/- prefix over an already-formatted magnitude. `Intl.NumberFormat`
+ * already supplies the leading "-" (ASCII hyphen-minus, verified against its
+ * actual output) for a negative value on these surfaces, matching
+ * `formatSignedPercent`'s own formatter — so only a positive value needs a
+ * prefix added, and a zero deliberately gets none.
  */
 export function signedFigure(text: string, value: number): string {
   return value > 0 ? `+${text}` : text;

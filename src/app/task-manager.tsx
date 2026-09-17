@@ -1641,6 +1641,12 @@ function TaskManagerInner() {
   );
   const { commitBuckets } = useBudgetBuckets({
     budgets, setBudgets, allowDestructiveSave, capture: undoApi.capture, captureComposite: undoApi.captureComposite, logActivity: logActivityUser,
+    // The bare `[]` for `tasks` is deliberate: `computeBudgetReport` only reads `tasks` to derive
+    // each bucket's `pctComplete` (`budget-report.ts`, `bucketPercentComplete`) — it plays no part
+    // in `ownBudget.budgetHours`/`ownBudget.budgetValue`, which is all `project.budgetHours` and
+    // `project.budgetValue` below sum. This is also the series' ONLY writer (`setBudgetHistory`
+    // above), so a future BAC term that DOES depend on tasks would have to revisit this call, not
+    // just the report engine.
     projectBac: (bs) => {
       const p = computeBudgetReport(bs, plan, roles, resources, settings.resources.workdayHours, holidaySet, absences, [], fxRates).project;
       return { hours: p.budgetHours, value: p.budgetValue };

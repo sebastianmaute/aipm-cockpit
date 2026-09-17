@@ -351,8 +351,11 @@ a `CSV_SECTION_BUDGET_HISTORY` `config,<json>` row and a `## Budget History` fen
 STORAGE-ONLY behind `config === undefined` (no export key), omitted everywhere when empty,
 sanitized by `sanitizeBudgetHistory` on every load, excluded from `isWorkspaceEmpty` and both
 save-time counters (`workspace-slice-policy.ts` records why), and absent from
-`applyRestoredWorkspace` and the version payload (ruling R6 — no `setBudgetHistory` is in scope
-there). `applyWorkspace` takes the same `logMode` split, REPLACE by default.
+`applyRestoredWorkspace` and the version payload (ruling R6 — `setBudgetHistory` IS in scope
+there now; the omission is a deliberate policy choice, not a structural gap: the budget commit
+boundary is the series' only writer, and a restore's BAC movement is meant to land as
+unattributed variance rather than a recorded entry). `applyWorkspace` takes the same `logMode`
+split, REPLACE by default.
 ★ Where it differs: it merges with `mergeBudgetHistories` — union by `id`, `prev` order first, then
 next-only ids — rather than a timestamp sort; it is **never capped**; and it has its own
 `useBroadcastSync("budgetHistory", …)` channel beside the log's. The hook-level pins (the `outgoing`
