@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildChartModel, daysBetweenUtc, scaleDate, scaleValue, type ChartInput } from "./burndown-geometry";
+import {
+  buildChartModel, daysBetweenUtc, scaleDate, scaleValue, layoutMarkerLabels, markerBandHeight, markerLabelBoxes,
+  MARKER_LABEL_FONT_PX, type ChartInput,
+} from "./burndown-geometry";
 import { CHART_SERIES, CHART_FORECAST, CHART_FORECAST_HOURS } from "../test/chart-fixtures";
 import type { BurndownSeries } from "./budget-burndown";
 import type { BudgetForecast } from "./budget-forecast";
@@ -448,5 +451,61 @@ describe("buildChartModel — edges", () => {
     const m = buildChartModel({ ...base, planEnd: "2026-02-15" });
     expect(m.pace).not.toBeNull();
     expect(m.efficiency).not.toBeNull();
+  });
+});
+
+describe("layoutMarkerLabels", () => {
+  const PLOT_TOP = 40;
+  const MID_X = 300;
+  type Box = { left: number; right: number; top: number; bottom: number };
+  const overlaps = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+
+  // Three changes in adjacent monthly periods sit ~30px apart on a 640px chart,
+  // and their labels run ~150px wide, so each collides with the one before it.
+  const ADJACENT = [
+    { x: 200, text: "+€24,000 Capped SOW (rate override)" },
+    { x: 230, text: "+€30,000 Data Migration (fixed price)" },
+    { x: 260, text: "−€12,000 Pilot Workshop removed" },
+  ];
+
+  it("keeps three markers in adjacent periods pairwise apart", () => {
+    const layout = layoutMarkerLabels(ADJACENT, MID_X);
+    const boxes = markerLabelBoxes(layout, PLOT_TOP);
+    expect(boxes).toHaveLength(3);
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) expect(overlaps(boxes[i], boxes[j]), `labels ${i} and ${j}`).toBe(false);
+    }
+    // Anti-vacuity: the three really do collide horizontally, so only the rows keep them apart.
+    expect(layout.labels.map((l) => l.row)).toEqual([0, 1, 2]);
+    expect(layout.rows).toBe(3);
+  });
+
+  it("keeps every label inside the band above the plot", () => {
+    const layout = layoutMarkerLabels(ADJACENT, MID_X);
+    for (const box of markerLabelBoxes(layout, PLOT_TOP)) {
+      expect(box.bottom).toBeLessThanOrEqual(PLOT_TOP);
+      expect(box.top).toBeGreaterThanOrEqual(PLOT_TOP - markerBandHeight(layout.rows));
+      expect(box.bottom - box.top).toBe(MARKER_LABEL_FONT_PX);
+    }
+  });
+
+  it("reuses the lowest row when labels do not collide", () => {
+    const layout = layoutMarkerLabels([{ x: 70, text: "+€1 A" }, { x: 250, text: "+€2 B" }, { x: 560, text: "+€3 C" }], MID_X);
+    expect(layout.labels.map((l) => l.row)).toEqual([0, 0, 0]);
+    expect(layout.rows).toBe(1);
+  });
+
+  it("anchors a label on the right half at its end, so it grows leftward", () => {
+    const [left, right] = layoutMarkerLabels([{ x: 100, text: "+€1 A" }, { x: 500, text: "+€2 B" }], MID_X).labels;
+    expect(left.anchor).toBe("start");
+    expect(left.left).toBeGreaterThan(100);
+    expect(right.anchor).toBe("end");
+    expect(right.right).toBeLessThan(500);
+  });
+
+  it("needs no band without markers", () => {
+    const layout = layoutMarkerLabels([], MID_X);
+    expect(layout.rows).toBe(0);
+    expect(markerBandHeight(0)).toBe(0);
   });
 });

@@ -8,10 +8,16 @@ import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { TermTooltip } from "./budget-forecast-tooltip";
-import { scaleDate, scaleValue, type BacMarker, type ChartModel, type ChartOrientation, type ChartPoint, type ChartUnit } from "./burndown-geometry";
+import {
+  layoutMarkerLabels, markerBandHeight, markerLabelBoxes, scaleDate, scaleValue,
+  type BacMarker, type ChartModel, type ChartOrientation, type ChartPoint, type ChartUnit,
+} from "./burndown-geometry";
 
+// `H` and `PAD_T` are the chart's height and top margin when the budget-change
+// labels fit the default margin. More label rows grow the top margin
+// (`markerBandHeight`) and the height with it, so the plot never shrinks.
 const W = 640, H = 240, PAD_L = 64, PAD_R = 80, PAD_T = 16, PAD_B = 28;
-const X0 = PAD_L, X1 = W - PAD_R, Y_BOTTOM = H - PAD_B, Y_TOP = PAD_T;
+const X0 = PAD_L, X1 = W - PAD_R;
 
 const DASH = { planned: "5 4", pace: "7 4", efficiency: "2 3", evLine: "6 2 1 2", evPartial: "2 4", bac: "4 4", today: "3 3" } as const;
 
@@ -26,14 +32,16 @@ const END_LABEL_GAP = 10;
  * pair is spread around its midpoint, keeping its order (pace on top on a tie),
  * then shifted back inside the plot.
  */
-function endLabelYs(paceY: number | null, efficiencyY: number | null): { pace: number | null; efficiency: number | null } {
+function endLabelYs(
+  paceY: number | null, efficiencyY: number | null, yTop: number, yBottom: number,
+): { pace: number | null; efficiency: number | null } {
   if (paceY === null || efficiencyY === null || Math.abs(paceY - efficiencyY) >= END_LABEL_GAP) {
     return { pace: paceY, efficiency: efficiencyY };
   }
   const mid = (paceY + efficiencyY) / 2;
   const top = mid - END_LABEL_GAP / 2;
   const bottom = mid + END_LABEL_GAP / 2;
-  const shift = bottom > Y_BOTTOM ? Y_BOTTOM - bottom : top < Y_TOP + END_LABEL_GAP ? Y_TOP + END_LABEL_GAP - top : 0;
+  const shift = bottom > yBottom ? yBottom - bottom : top < yTop + END_LABEL_GAP ? yTop + END_LABEL_GAP - top : 0;
   return paceY <= efficiencyY
     ? { pace: top + shift, efficiency: bottom + shift }
     : { pace: bottom + shift, efficiency: top + shift };
@@ -63,8 +71,6 @@ export function BurndownChart({
   const joinAmount = (v: number) =>
     signedFigure(unit === "eur" ? fmt(v) : new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(v), v);
   const x = (date: string) => scaleDate(date, model.xDomain, X0, X1);
-  const y = (value: number) => scaleValue(value, model.yDomain, Y_BOTTOM, Y_TOP);
-  const pts = (list: readonly ChartPoint[]) => list.map((p) => `${x(p.date).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");
   const down = orientation === "burndown";
   const caption = t(lang, down
     ? (unit === "eur" ? "burndownBudgetRemaining" : "burndownHoursRemaining")
@@ -94,6 +100,20 @@ export function BurndownChart({
       ? t(lang, "burndownBacMarkerRemoved", amount, marker.label)
       : `${amount} ${marker.label}`;
   };
+  // Marker labels sit in rows in a band above the plot (`layoutMarkerLabels`),
+  // so close ticks cannot print on top of each other. The plot moves down by
+  // however much of that band the default top margin cannot hold.
+  const markerLayout = layoutMarkerLabels(
+    model.bacSteps ? model.bacMarkers.map((marker) => ({ x: x(marker.date), text: markerLabel(marker) })) : [],
+    (X0 + X1) / 2,
+  );
+  const yTop = Math.max(PAD_T, markerBandHeight(markerLayout.rows));
+  const grow = yTop - PAD_T;
+  const height = H + grow;
+  const yBottom = H - PAD_B + grow;
+  const markerLabels = markerLabelBoxes(markerLayout, yTop);
+  const y = (value: number) => scaleValue(value, model.yDomain, yBottom, yTop);
+  const pts = (list: readonly ChartPoint[]) => list.map((p) => `${x(p.date).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");
   // The ticks are `aria-hidden` like every other in-plot label, so without this
   // sentence the recorded budget changes would reach no screen reader at all.
   if (model.bacMarkers.length > 0) {
@@ -121,26 +141,27 @@ export function BurndownChart({
   const labelY = endLabelYs(
     model.pace ? y(model.pace.to.value) + END_LABEL_OFFSET : null,
     model.efficiency ? y(model.efficiency.to.value) + END_LABEL_OFFSET : null,
+    yTop, yBottom,
   );
 
   return (
     <div className="space-y-2">
       <div>
         <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">{caption}</div>
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={aria.join(" ")}>
-          {belowZero && <rect x={X0} y={zeroY} width={X1 - X0} height={Y_BOTTOM - zeroY} className="fill-ui-pink/10" />}
-          <line x1={X0} y1={Y_TOP} x2={X0} y2={Y_BOTTOM} className="stroke-line" strokeWidth={1} />
+        <svg viewBox={`0 0 ${W} ${height}`} className="w-full" role="img" aria-label={aria.join(" ")}>
+          {belowZero && <rect x={X0} y={zeroY} width={X1 - X0} height={yBottom - zeroY} className="fill-ui-pink/10" />}
+          <line x1={X0} y1={yTop} x2={X0} y2={yBottom} className="stroke-line" strokeWidth={1} />
           <line x1={X0} y1={zeroY} x2={X1} y2={zeroY} className="stroke-line" strokeWidth={1} />
           {yTicks.map((v) => (
             <text key={v} data-axis="y" x={X0 - 4} y={y(v) + 3} textAnchor="end" className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">{fmt(v)}</text>
           ))}
           {belowZero && (
-            <text x={X0 + 4} y={Y_BOTTOM - 4} className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownOver")}</text>
+            <text x={X0 + 4} y={yBottom - 4} className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownOver")}</text>
           )}
           {periods.length > 0 && (
             <>
-              <text x={X0} y={H - 8} textAnchor="start" className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">{periods[0]}</text>
-              <text x={X1} y={H - 8} textAnchor="end" className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">{periods[periods.length - 1]}</text>
+              <text x={X0} y={height - 8} textAnchor="start" className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">{periods[0]}</text>
+              <text x={X1} y={height - 8} textAnchor="end" className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">{periods[periods.length - 1]}</text>
             </>
           )}
           {/* Recorded budget changes replace the flat BAC line with a stepped
@@ -150,10 +171,11 @@ export function BurndownChart({
               weight alone: `burndownBacBaseline` at the left end of the
               reference, `burndownBac` (with the stepped line's FINAL level, the
               last recorded entry's own BAC) at the right end of the steps.
-              Both labels sit BELOW their line — the markers put theirs ABOVE
-              at -7, and whenever the last period's group yields a marker that
-              marker's value IS this final level, so an above-placed label here
-              would land 3px from it. */}
+              Both labels sit BELOW their line: the marker ticks sit ON the
+              stepped line, and whenever the last period's group yields a
+              marker, its tick is at this final level, so an above-placed label
+              would crowd it. The marker labels themselves sit in the band
+              above the plot (`layoutMarkerLabels`). */}
           {model.bacSteps ? (
             <>
               {model.bacBaseline !== null && (
@@ -166,14 +188,20 @@ export function BurndownChart({
               {bacStepEnd !== null && (
                 <text x={X1} y={y(bacStepEnd) + 9} textAnchor="end" className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownBac", fmt(bacStepEnd))}</text>
               )}
-              {model.bacMarkers.map((marker) => (
-                <g key={marker.date}>
-                  <line x1={x(marker.date)} y1={y(marker.value) - 4} x2={x(marker.date)} y2={y(marker.value) + 4} className="stroke-muted-foreground" strokeWidth={1.5} />
-                  <text x={x(marker.date) + (x(marker.date) > (X0 + X1) / 2 ? -4 : 4)} y={y(marker.value) - 7} textAnchor={x(marker.date) > (X0 + X1) / 2 ? "end" : "start"} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">
-                    {markerLabel(marker)}
-                  </text>
-                </g>
-              ))}
+              {model.bacMarkers.map((marker, i) => {
+                // Same order as the ticks `markerLayout` was built from.
+                const label = markerLabels[i];
+                return (
+                  <g key={marker.date}>
+                    <line x1={x(marker.date)} y1={y(marker.value) - 4} x2={x(marker.date)} y2={y(marker.value) + 4} className="stroke-muted-foreground" strokeWidth={1.5} />
+                    {/* A faint leader ties the label in the band to its tick. */}
+                    <line data-bac-leader="" x1={x(marker.date)} y1={label.baseline + 2} x2={x(marker.date)} y2={y(marker.value) - 4} className="stroke-line" strokeWidth={0.75} />
+                    <text data-bac-marker-label="" x={label.x} y={label.baseline} textAnchor={label.anchor} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">
+                      {markerLabel(marker)}
+                    </text>
+                  </g>
+                );
+              })}
             </>
           ) : model.bacLine !== null && (
             <>
@@ -204,9 +232,9 @@ export function BurndownChart({
             </>
           )}
           {model.today && (
-            <line x1={x(model.today)} y1={Y_TOP} x2={x(model.today)} y2={Y_BOTTOM} className="stroke-muted-foreground" strokeWidth={1} strokeDasharray={DASH.today} />
+            <line x1={x(model.today)} y1={yTop} x2={x(model.today)} y2={yBottom} className="stroke-muted-foreground" strokeWidth={1} strokeDasharray={DASH.today} />
           )}
-          <line x1={x(model.planEnd)} y1={Y_TOP} x2={x(model.planEnd)} y2={Y_BOTTOM} className="stroke-line" strokeWidth={1} />
+          <line x1={x(model.planEnd)} y1={yTop} x2={x(model.planEnd)} y2={yBottom} className="stroke-line" strokeWidth={1} />
           {model.ev && (
             <path d={`M ${x(model.ev.date)} ${y(model.ev.value) - 5} l 5 5 l -5 5 l -5 -5 z`} className="fill-[var(--rag-amber)]" />
           )}

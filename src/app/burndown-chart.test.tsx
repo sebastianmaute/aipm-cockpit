@@ -381,7 +381,7 @@ describe("BurndownChart", () => {
       // The last recorded entry's own stored BAC, not an increment.
       const label = screen.getByText(`BAC ${eur(11_200)}`);
       expect(label.getAttribute("text-anchor")).toBe("end");
-      // Placed BELOW its line end, where the markers put theirs ABOVE (−7).
+      // Placed BELOW its line end: the last marker's tick sits on that level.
       const steps = container.querySelector("polyline[data-bac-steps]")!;
       const endY = Number(steps.getAttribute("points")!.trim().split(/\s+/).pop()!.split(",")[1]);
       expect(Number(label.getAttribute("y"))).toBeGreaterThan(endY);
@@ -398,6 +398,21 @@ describe("BurndownChart", () => {
       stepped();
       expect(screen.getByText(`+${eur(3_000)} Vendor`)).toBeInTheDocument();
       expect(screen.getByText(`${eur(-800)} Ops removed`)).toBeInTheDocument();
+    });
+
+    it("draws the marker labels in the band above the plot, each tied to its tick by a leader", () => {
+      const { container } = stepped();
+      const svg = container.querySelector("svg[role='img']")!;
+      // The y axis runs from the plot's top edge down; its x is the left padding.
+      const axis = [...svg.querySelectorAll("line")].find((l) => l.getAttribute("x1") === l.getAttribute("x2") && l.getAttribute("x1") === "64")!;
+      const plotTop = Number(axis.getAttribute("y1"));
+      const labels = [...svg.querySelectorAll("text[data-bac-marker-label]")];
+      expect(labels.map((l) => l.textContent)).toEqual([`+${eur(3_000)} Vendor`, `${eur(-800)} Ops removed`]);
+      for (const label of labels) expect(Number(label.getAttribute("y"))).toBeLessThan(plotTop);
+      expect(svg.querySelectorAll("line[data-bac-leader]")).toHaveLength(labels.length);
+      // Anti-vacuity: without history there are no marker labels or leaders.
+      const flat = draw({ orientation: "cumulative" }).container;
+      expect(flat.querySelectorAll("text[data-bac-marker-label], line[data-bac-leader]")).toHaveLength(0);
     });
 
     it("names the budget changes in the chart's accessible name", () => {

@@ -241,6 +241,70 @@ function bacFields(
   return { bacSteps: steps, bacBaseline: baseline, bacMarkers };
 }
 
+/** Font size of a budget-change marker label, in chart px (`text-[8px]`). */
+export const MARKER_LABEL_FONT_PX = 8;
+/** Row pitch of the marker-label band. At least one label line, so two rows
+ *  can never overlap vertically. */
+export const MARKER_LABEL_LINE_PX = 10;
+/** An ESTIMATE of a label glyph's average advance, in em. The chart never
+ *  measures text; the factor is picked on the wide side for its 8px sans, so
+ *  an estimate that is off errs towards a further row rather than an overlap. */
+const MARKER_LABEL_CHAR_EM = 0.6;
+/** Horizontal distance from the tick to the label's anchored edge. */
+const MARKER_LABEL_TICK_OFFSET_PX = 4;
+/** Minimum horizontal clearance between two labels in one row. */
+const MARKER_LABEL_CLEARANCE_PX = 4;
+/** Distance from the lowest row's baseline up from the plot's top edge. */
+const MARKER_LABEL_BASELINE_GAP_PX = 4;
+
+export type MarkerLabelTick = { x: number; text: string };
+/** `x` and `anchor` are the SVG text attributes; `left`/`right` its estimated
+ *  horizontal extent; `row` 0 is the row nearest the plot. */
+export type MarkerLabelPlacement = { x: number; anchor: "start" | "end"; row: number; left: number; right: number };
+export type MarkerLabelLayout = { labels: readonly MarkerLabelPlacement[]; rows: number };
+
+/**
+ * Places the budget-change marker labels in rows in a band ABOVE the plot, so
+ * no two labels overlap however close their ticks are. A label on the right
+ * half of the plot is end-anchored (it grows leftward), the same half-plot
+ * rule the chart applies to its join labels. Each label takes the lowest row where its estimated extent
+ * clears every label already in that row. Pure: x positions come in, rows come
+ * out; `markerLabelBoxes` turns rows into baselines for a given plot top.
+ */
+export function layoutMarkerLabels(ticks: readonly MarkerLabelTick[], midX: number): MarkerLabelLayout {
+  const rowExtents: { left: number; right: number }[][] = [];
+  const labels = ticks.map(({ x, text }): MarkerLabelPlacement => {
+    const width = text.length * MARKER_LABEL_CHAR_EM * MARKER_LABEL_FONT_PX;
+    const anchor = x > midX ? "end" : "start";
+    const at = anchor === "end" ? x - MARKER_LABEL_TICK_OFFSET_PX : x + MARKER_LABEL_TICK_OFFSET_PX;
+    const left = anchor === "end" ? at - width : at;
+    const right = left + width;
+    const clears = (row: readonly { left: number; right: number }[]) => row.every((placed) =>
+      right + MARKER_LABEL_CLEARANCE_PX <= placed.left || placed.right + MARKER_LABEL_CLEARANCE_PX <= left);
+    const found = rowExtents.findIndex(clears);
+    const row = found < 0 ? rowExtents.length : found;
+    rowExtents[row] = [...(rowExtents[row] ?? []), { left, right }];
+    return { x: at, anchor, row, left, right };
+  });
+  return { labels, rows: rowExtents.length };
+}
+
+/** Height the label band needs above the plot's top edge for `rows` rows. */
+export function markerBandHeight(rows: number): number {
+  return rows === 0 ? 0 : MARKER_LABEL_BASELINE_GAP_PX + (rows - 1) * MARKER_LABEL_LINE_PX + MARKER_LABEL_FONT_PX;
+}
+
+/** The text baseline of each placed label, and its estimated box, for a plot
+ *  whose top edge sits at `plotTop`. */
+export function markerLabelBoxes(
+  layout: MarkerLabelLayout, plotTop: number,
+): (MarkerLabelPlacement & { baseline: number; top: number; bottom: number })[] {
+  return layout.labels.map((label) => {
+    const baseline = plotTop - MARKER_LABEL_BASELINE_GAP_PX - label.row * MARKER_LABEL_LINE_PX;
+    return { ...label, baseline, top: baseline - MARKER_LABEL_FONT_PX, bottom: baseline };
+  });
+}
+
 export function buildChartModel(input: ChartInput): ChartModel {
   const { series, unit, orientation, forecast, evHistory, history, today, planEnd } = input;
   const eurUnit = unit === "eur";

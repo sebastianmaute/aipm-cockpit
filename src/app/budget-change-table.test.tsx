@@ -57,6 +57,23 @@ describe("BudgetChangeTable", () => {
   // axe's scrollable-region-focusable (serious) flagged the unfocusable
   // `overflow-x-auto` wrapper once the e2e seed carried budget history (§557):
   // its cells hold no control, so a keyboard user could not scroll it.
+  // The narrow column used to break "+€24,000" after its sign and each date
+  // over three lines (seen in the Reports visual baseline). jsdom cannot
+  // measure a line break, so the no-wrap class is what is pinned.
+  it("keeps every signed figure and every date on one line", () => {
+    const { container } = draw();
+    const rows = [...container.querySelectorAll("tbody tr, tfoot tr")];
+    expect(rows).toHaveLength(5);
+    for (const row of rows) {
+      const figures = [...row.querySelectorAll("td")].filter((td) => /€/.test(td.textContent ?? ""));
+      expect(figures.length).toBeGreaterThan(0);
+      for (const td of figures) expect(td).toHaveClass("whitespace-nowrap");
+    }
+    for (const row of bodyRows(container)) expect(row.querySelector("td")).toHaveClass("whitespace-nowrap");
+    // Bucket names may still wrap.
+    for (const row of bodyRows(container)) expect(row.querySelectorAll("td")[1]).not.toHaveClass("whitespace-nowrap");
+  });
+
   it("makes its horizontal scroll wrapper a keyboard-focusable region named by the caption", () => {
     const { container } = draw();
     const region = screen.getByRole("region", { name: "Budget changes (€)" });

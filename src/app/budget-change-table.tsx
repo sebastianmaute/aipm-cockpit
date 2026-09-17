@@ -24,7 +24,12 @@ import type { ChartUnit } from "./burndown-geometry";
 const TH_CLASS = "px-2 py-1 text-left text-xs font-medium text-muted-foreground";
 const TH_NUM_CLASS = "px-2 py-1 text-right text-xs font-medium text-muted-foreground";
 const TD_CLASS = "px-2 py-1 align-top";
-const TD_NUM_CLASS = "px-2 py-1 text-right align-top tabular-nums";
+// A signed figure and a date are each one unbreakable unit: the narrow column
+// otherwise breaks "+€24,000" after its sign and a date over three lines.
+// Should the table then outgrow its column, it scrolls inside the focusable
+// region below. Bucket names keep wrapping.
+const TD_DATE_CLASS = `${TD_CLASS} whitespace-nowrap`;
+const TD_NUM_CLASS = "px-2 py-1 text-right align-top tabular-nums whitespace-nowrap";
 
 export function BudgetChangeTable({
   lang, history, split, unit, currency,
@@ -99,7 +104,7 @@ export function BudgetChangeTable({
         <tbody>
           {rows.map((row) => (
             <tr key={row.id} className="border-t border-line">
-              <td className={TD_CLASS}>{row.date}</td>
+              <td className={TD_DATE_CLASS}>{row.date}</td>
               <td className={TD_CLASS}>
                 {row.bucketName === "" ? "—" : row.bucketName}
                 {/* A deletion is called out in words, never by the sign alone. */}
