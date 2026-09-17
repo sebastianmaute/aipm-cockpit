@@ -70,6 +70,7 @@ import {
   markdownToDocumentVersions,
   markdownToInsights,
   markdownToActivityLog,
+  markdownToBudgetHistory,
   markdownToSettingsOverrides,
   mdUnescape,
   splitMdRow,
@@ -123,9 +124,9 @@ function splitMarkdownSections(md: string): {
   // scan (markdownToDocuments/markdownToDocumentVersions/markdownToActivityLog,
   // plus fieldVisibility/functions/steeringCommittee/timelogLinks/
   // settingsOverrides/knowledgeItems/insights below) rather than via a split
-  // section — this array is never read back. The three explicit stop-rules
+  // section — this array is never read back. The four explicit stop-rules
   // just below exist ONLY to make "## Documents" / "## Document versions" /
-  // "## Activity Log" STOP whatever table section is currently accumulating,
+  // "## Activity Log" / "## Budget History" STOP whatever table section is currently accumulating,
   // never to route their lines anywhere real. See the comment on the "##
   // Document Assets" rule for why this matters now.
   const ignoredLines: string[] = [];
@@ -158,6 +159,7 @@ function splitMarkdownSections(md: string): {
     if (/^##\s+Documents\b/i.test(trimmed)) { target = ignoredLines; continue; }
     if (/^##\s+Document\s+versions\b/i.test(trimmed)) { target = ignoredLines; continue; }
     if (/^##\s+Activity\s+Log\b/i.test(trimmed)) { target = ignoredLines; continue; }
+    if (/^##\s+Budget\s+History\b/i.test(trimmed)) { target = ignoredLines; continue; }
     if (/^#\s+Shifts\b/i.test(trimmed)) { target = shiftsLines; target.push(line); continue; }
     if (/^#\s+Resources\b/i.test(trimmed)) { target = resourcesLines; target.push(line); continue; }
     if (/^#\s+Roles\b/i.test(trimmed)) { target = rolesLines; target.push(line); continue; }
@@ -284,6 +286,7 @@ const BUDGET_ALIASES: Record<string, string> = {
   start: "startDate", startdate: "startDate", end: "endDate", enddate: "endDate",
   successorid: "successorId", status: "status",
   closed: "closedDate", closeddate: "closedDate",
+  created: "createdDate", createddate: "createdDate",
   fxoverride: "fxRateOverride", fxrateoverride: "fxRateOverride",
   allocations: "allocations",
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
@@ -431,6 +434,9 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   // lines never look like a table row.
   const activityLog = markdownToActivityLog(md);
   if (activityLog) ws.activityLog = activityLog;
+  // Same whole-md scan for the budget history, emitted after the log.
+  const budgetHistory = markdownToBudgetHistory(md);
+  if (budgetHistory) ws.budgetHistory = budgetHistory;
   return migrateWorkspaceV10(ws);
 }
 

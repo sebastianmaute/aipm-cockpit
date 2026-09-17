@@ -18,7 +18,8 @@
  */
 import { isEfficiencyAvailable, isPaceAvailable, type BudgetForecast } from "./budget-forecast";
 import { actualPointDates, type BurndownSeries } from "./budget-burndown";
-import type { EvHistory } from "./budget-ev-history";
+import { orderBudgetChanges, type BudgetHistoryEntry, type BudgetHistorySummary } from "./budget-history";
+import type { EvHistory, EvHistoryPoint, EvPartialBucket } from "./budget-ev-history";
 
 export type ChartUnit = "eur" | "hours";
 export type ChartOrientation = "burndown" | "cumulative";
@@ -40,12 +41,48 @@ export type ChartModel = {
    *  guaranteed to land exactly on the segment's line — that is not a bug for
    *  Task 12 to "fix" by snapping one to the other. */
   runOut: ChartPoint | null; ev: ChartPoint | null;
-  evLine: readonly ChartPoint[] | null; evHistoryBlockedBy: readonly string[] | null;
+  /** Earned-value history (cumulative orientation only), split into runs of
+   *  partial and complete points. Neighbouring segments SHARE their boundary
+   *  point, so the drawn line stays continuous; the span leading out of a
+   *  partial run into a complete point is drawn as complete. */
+  evSegments: readonly EvSegment[] | null;
+  /** Buckets whose earned value starts counting at a point, with the amount
+   *  they bring in (current unit). A join that shows as 0 is left out. */
+  evJoins: readonly EvJoinLabel[];
+  /** One entry per partial segment, in order: its bucket names and whether
+   *  every one of them was created after its own start date. */
+  evPartialNames: readonly EvPartialNames[];
+  /** Names of the budgeted buckets when no earned-value history exists at all. */
+  evUnavailable: readonly string[] | null;
+  /** The recorded budget at completion as a STEPPED polyline (cumulative
+   *  orientation only): it runs at `bacBaseline` from the chart origin to the
+   *  first recorded change, then steps to each entry's own project BAC and runs
+   *  flat to the end of the domain. Null when nothing has been recorded — the
+   *  flat `bacLine` is what the surface draws then. */
+  bacSteps: readonly ChartPoint[] | null;
+  /** The project BAC before the first recorded change, drawn as a dashed
+   *  reference. Null exactly when `bacSteps` is. */
+  bacBaseline: number | null;
+  /** One tick per PERIOD that holds recorded changes, at the level the last of
+   *  them left. Several entries in one period are summed and their bucket names
+   *  joined, so the labels cannot pile up on one x. A tick whose summed amount
+   *  shows as 0 in the current unit is left out (the Task 9 join rule). */
+  bacMarkers: readonly BacMarker[];
   bacLine: number | null; today: string | null; planEnd: string; frameDiffers: boolean;
 };
+/** `label` is the bucket names joined with ", "; `amount` their summed delta in
+ *  the current unit; `removed` is true only when EVERY entry behind the tick
+ *  deleted its bucket, which picks the "… removed" sentence. */
+export type BacMarker = { date: string; value: number; amount: number; label: string; removed: boolean };
+export type EvSegment = { partial: boolean; points: readonly ChartPoint[] };
+/** `label` is the bucket names joined with ", "; `count` how many names it holds (it picks the
+ *  singular or plural sentence); `amount` their summed contribution. */
+export type EvJoinLabel = { date: string; value: number; amount: number; label: string; count: number };
+export type EvPartialNames = { names: string; created: boolean };
 export type ChartInput = {
   series: BurndownSeries; unit: ChartUnit; orientation: ChartOrientation;
-  forecast: BudgetForecast | null; evHistory: EvHistory | null; today: string; planEnd: string;
+  forecast: BudgetForecast | null; evHistory: EvHistory | null;
+  history: BudgetHistorySummary | null; today: string; planEnd: string;
 };
 
 const utc = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
@@ -64,8 +101,212 @@ export function scaleValue(value: number, domain: readonly [number, number], yBo
   return span <= 0 ? yBottom : yBottom - ((value - domain[0]) / span) * (yBottom - yTop);
 }
 
+/** The chart prints € and hours with no fractional digits, so a join below
+ *  half a unit would read "+0" — such a join is not labelled. The same holds
+ *  for a point's summed join amount, which mixed signs can bring near 0. */
+const shownAsZero = (amount: number) => Math.round(amount) === 0;
+
+const createdAfterStart = (b: EvPartialBucket) =>
+  b.createdDate !== null && b.startDate !== null && b.createdDate.slice(0, 10) > b.startDate.slice(0, 10);
+
+function partialNames(points: readonly EvHistoryPoint[]): EvPartialNames {
+  const buckets = new Map<number, EvPartialBucket>();
+  for (const pt of points) for (const b of pt.partial) if (!buckets.has(b.id)) buckets.set(b.id, b);
+  const list = [...buckets.values()];
+  return { names: list.map((b) => b.name).join(", "), created: list.every(createdAfterStart) };
+}
+
+type EvFields = Pick<ChartModel, "evSegments" | "evJoins" | "evPartialNames" | "evUnavailable">;
+const NO_EV: EvFields = { evSegments: null, evJoins: [], evPartialNames: [], evUnavailable: null };
+
+function evHistoryFields(evHistory: EvHistory, eurUnit: boolean, origin: ChartPoint): EvFields {
+  if (!evHistory.available) return { ...NO_EV, evUnavailable: evHistory.buckets.map((b) => b.name) };
+  const { points } = evHistory;
+  if (points.length === 0) return NO_EV;
+  const valueOf = (pt: { eur: number; hours: number }) => (eurUnit ? pt.eur : pt.hours);
+  const segments: { partial: boolean; points: ChartPoint[]; source: EvHistoryPoint[] }[] = [];
+  let previous = origin;
+  points.forEach((pt) => {
+    const partial = pt.partial.length > 0;
+    const at: ChartPoint = { date: pt.date, value: valueOf(pt) };
+    const current = segments.at(-1);
+    if (current && current.partial === partial) {
+      current.points.push(at);
+      current.source.push(pt);
+    } else {
+      segments.push({ partial, points: [previous, at], source: [pt] });
+    }
+    previous = at;
+  });
+  const evJoins = points.flatMap((pt): EvJoinLabel[] => {
+    const shown = pt.joins.filter((j) => !shownAsZero(valueOf(j)));
+    const amount = shown.reduce((sum, j) => sum + valueOf(j), 0);
+    if (shown.length === 0 || shownAsZero(amount)) return [];
+    // A join whose bucket carries a blank name would otherwise join to "", leaving
+    // the drawn label (and the sentence built from it, "{0} joins ({1})") with a
+    // dangling leading space and no subject. The em dash mirrors `bacFields`'
+    // fallback for the same case, just below.
+    const names = [...new Set(shown.map((j) => j.name).filter((name) => name !== ""))];
+    return [{ date: pt.date, value: valueOf(pt), amount, label: names.length > 0 ? names.join(", ") : "—", count: shown.length }];
+  });
+  return {
+    evSegments: segments.map(({ partial, points: pts }) => ({ partial, points: pts })),
+    evJoins,
+    evPartialNames: segments.filter((s) => s.partial).map((s) => partialNames(s.source)),
+    evUnavailable: null,
+  };
+}
+
+type BacFields = Pick<ChartModel, "bacSteps" | "bacBaseline" | "bacMarkers">;
+const NO_BAC: BacFields = { bacSteps: null, bacBaseline: null, bacMarkers: [] };
+
+/**
+ * Budget-at-completion steps, markers and baseline from the recorded history.
+ * Entries are ORDERED first (`orderBudgetChanges`) — the union a second device
+ * produces is not chronological, and every figure here is a running one.
+ * Dates are clamped into the chart's own x domain so a change recorded before
+ * the first period (or after the last) cannot draw outside the plot.
+ *
+ * The stepped line's final level is the LAST RECORDED entry's own stored BAC —
+ * its `after` value, captured LIVE at commit time from the actual bucket state
+ * (`commitBuckets`, `use-budget-buckets.ts`; `recordBudgetChange`,
+ * `budget-history.ts`), never an increment over the previous entry. So an
+ * undo, version restore or template-apply's unrecorded BAC movement (ruling
+ * R2) only leaves the line stale UNTIL the next recorded commit — that
+ * commit's own `after` reads today's true BAC (whatever the unrecorded move
+ * already did to it) and the step jumps straight there, self-healing the gap.
+ * The footer's unattributed row (`splitVariance`, `bac - baseline -
+ * attributed`) is the RUNNING TOTAL of every such unrecorded movement since
+ * the baseline, not the currently visible staleness — it can stay non-zero
+ * even once a later commit has healed the line back to today's true BAC.
+ * Example: baseline 10,000 → +2,000 recorded (BAC 12,000) → a version restore
+ * to an earlier snapshot drops it to 11,000, unrecorded (line still shows
+ * 12,000) → +500 recorded stores `after` 11,500 (line jumps to 11,500 =
+ * today's true BAC, gap 0) — yet unattributed = 11,500 − 10,000 − (2,000 +
+ * 500) = −1,000. (Undo restores a whole before-image, so undoing the +2,000
+ * commit itself would land exactly back at the 10,000 baseline, not 11,000 —
+ * a version restore or `handleApplyTemplate` can land on any BAC a full undo
+ * would not.)
+ */
+function bacFields(
+  history: BudgetHistorySummary, eurUnit: boolean, series: BurndownSeries, start: string, end: string,
+): BacFields {
+  const changes = orderBudgetChanges(history.changes);
+  if (changes.length === 0) return NO_BAC;
+  const bacOf = (e: BudgetHistoryEntry) => (eurUnit ? e.projectBacValue : e.projectBacHours);
+  const deltaOf = (e: BudgetHistoryEntry) => (eurUnit ? e.deltaValue : e.deltaHours);
+  const clamp = (date: string) => (date < start ? start : date > end ? end : date);
+  const baseline = eurUnit ? history.baseline.value : history.baseline.hours;
+
+  const steps: ChartPoint[] = [{ date: start, value: baseline }];
+  let level = baseline;
+  for (const e of changes) {
+    const at = clamp(e.date);
+    steps.push({ date: at, value: level });
+    level = bacOf(e);
+    steps.push({ date: at, value: level });
+  }
+  steps.push({ date: end, value: level });
+
+  // One tick per period, keyed by the period the change falls in; a date past
+  // the last period end (or before the first, which `findIndex` already maps to
+  // period 0) belongs to the last one. With no periods at all the key falls
+  // back to the date itself, so nothing collapses by accident.
+  const periodKey = (date: string) => {
+    if (series.periodEnds.length === 0) return date;
+    const i = series.periodEnds.findIndex((periodEnd) => date <= periodEnd);
+    return `p${i < 0 ? series.periodEnds.length - 1 : i}`;
+  };
+  const groups = new Map<string, BudgetHistoryEntry[]>();
+  for (const e of changes) {
+    const key = periodKey(clamp(e.date));
+    const group = groups.get(key);
+    if (group) group.push(e);
+    else groups.set(key, [e]);
+  }
+  const bacMarkers = [...groups.values()].flatMap((group): BacMarker[] => {
+    const amount = group.reduce((sum, e) => sum + deltaOf(e), 0);
+    if (shownAsZero(amount)) return [];
+    const last = group[group.length - 1];
+    const names = [...new Set(group.map((e) => e.bucketName).filter((name) => name !== ""))];
+    // A group whose every entry carries a blank bucket name joins to "", which
+    // would otherwise leave the drawn label (and the accessible-name sentence
+    // built from it) with a dangling or doubled space. The em dash mirrors the
+    // change table's own fallback for the same case (`budget-change-table.tsx`).
+    return [{
+      date: clamp(last.date), value: bacOf(last), amount,
+      label: names.length > 0 ? names.join(", ") : "—", removed: group.every((e) => e.kind === "deleted"),
+    }];
+  });
+  return { bacSteps: steps, bacBaseline: baseline, bacMarkers };
+}
+
+/** Font size of a budget-change marker label, in chart px (`text-[8px]`). */
+export const MARKER_LABEL_FONT_PX = 8;
+/** Row pitch of the marker-label band. At least one label line, so two rows
+ *  can never overlap vertically. */
+export const MARKER_LABEL_LINE_PX = 10;
+/** An ESTIMATE of a label glyph's average advance, in em. The chart never
+ *  measures text; the factor is picked on the wide side for its 8px sans, so
+ *  an estimate that is off errs towards a further row rather than an overlap. */
+const MARKER_LABEL_CHAR_EM = 0.6;
+/** Horizontal distance from the tick to the label's anchored edge. */
+const MARKER_LABEL_TICK_OFFSET_PX = 4;
+/** Minimum horizontal clearance between two labels in one row. */
+const MARKER_LABEL_CLEARANCE_PX = 4;
+/** Distance from the lowest row's baseline up from the plot's top edge. */
+const MARKER_LABEL_BASELINE_GAP_PX = 4;
+
+export type MarkerLabelTick = { x: number; text: string };
+/** `x` and `anchor` are the SVG text attributes; `left`/`right` its estimated
+ *  horizontal extent; `row` 0 is the row nearest the plot. */
+export type MarkerLabelPlacement = { x: number; anchor: "start" | "end"; row: number; left: number; right: number };
+export type MarkerLabelLayout = { labels: readonly MarkerLabelPlacement[]; rows: number };
+
+/**
+ * Places the budget-change marker labels in rows in a band ABOVE the plot, so
+ * no two labels overlap however close their ticks are. A label on the right
+ * half of the plot is end-anchored (it grows leftward), the same half-plot
+ * rule the chart applies to its join labels. Each label takes the lowest row where its estimated extent
+ * clears every label already in that row. Pure: x positions come in, rows come
+ * out; `markerLabelBoxes` turns rows into baselines for a given plot top.
+ */
+export function layoutMarkerLabels(ticks: readonly MarkerLabelTick[], midX: number): MarkerLabelLayout {
+  const rowExtents: { left: number; right: number }[][] = [];
+  const labels = ticks.map(({ x, text }): MarkerLabelPlacement => {
+    const width = text.length * MARKER_LABEL_CHAR_EM * MARKER_LABEL_FONT_PX;
+    const anchor = x > midX ? "end" : "start";
+    const at = anchor === "end" ? x - MARKER_LABEL_TICK_OFFSET_PX : x + MARKER_LABEL_TICK_OFFSET_PX;
+    const left = anchor === "end" ? at - width : at;
+    const right = left + width;
+    const clears = (row: readonly { left: number; right: number }[]) => row.every((placed) =>
+      right + MARKER_LABEL_CLEARANCE_PX <= placed.left || placed.right + MARKER_LABEL_CLEARANCE_PX <= left);
+    const found = rowExtents.findIndex(clears);
+    const row = found < 0 ? rowExtents.length : found;
+    rowExtents[row] = [...(rowExtents[row] ?? []), { left, right }];
+    return { x: at, anchor, row, left, right };
+  });
+  return { labels, rows: rowExtents.length };
+}
+
+/** Height the label band needs above the plot's top edge for `rows` rows. */
+export function markerBandHeight(rows: number): number {
+  return rows === 0 ? 0 : MARKER_LABEL_BASELINE_GAP_PX + (rows - 1) * MARKER_LABEL_LINE_PX + MARKER_LABEL_FONT_PX;
+}
+
+/** The text baseline of each placed label, and its estimated box, for a plot
+ *  whose top edge sits at `plotTop`. */
+export function markerLabelBoxes(
+  layout: MarkerLabelLayout, plotTop: number,
+): (MarkerLabelPlacement & { baseline: number; top: number; bottom: number })[] {
+  return layout.labels.map((label) => {
+    const baseline = plotTop - MARKER_LABEL_BASELINE_GAP_PX - label.row * MARKER_LABEL_LINE_PX;
+    return { ...label, baseline, top: baseline - MARKER_LABEL_FONT_PX, bottom: baseline };
+  });
+}
+
 export function buildChartModel(input: ChartInput): ChartModel {
-  const { series, unit, orientation, forecast, evHistory, today, planEnd } = input;
+  const { series, unit, orientation, forecast, evHistory, history, today, planEnd } = input;
   const eurUnit = unit === "eur";
   const down = orientation === "burndown";
   const total = eurUnit ? series.totalBudgetValue : series.totalBudgetHours;
@@ -114,15 +355,8 @@ export function buildChartModel(input: ChartInput): ChartModel {
     if (forecast.facts.ev !== null) ev = { date: last.date, value: fromCumulative(forecast.facts.ev) };
   }
 
-  let evLine: ChartPoint[] | null = null;
-  let evHistoryBlockedBy: string[] | null = null;
-  if (!down && evHistory) {
-    if (evHistory.available) {
-      evLine = evHistory.points.length === 0 ? null : [origin, ...evHistory.points.map((pt) => ({ date: pt.date, value: eurUnit ? pt.eur : pt.hours }))];
-    } else {
-      evHistoryBlockedBy = evHistory.buckets.map((b) => b.name);
-    }
-  }
+  const evFields = !down && evHistory ? evHistoryFields(evHistory, eurUnit, origin) : NO_EV;
+  const bacF = !down && history ? bacFields(history, eurUnit, series, xDomain[0], xDomain[1]) : NO_BAC;
 
   const lastCumulative = last === null ? null : (down ? total - last.value : last.value);
   const frameDiffers = forecast !== null && lastCumulative !== null && (
@@ -133,7 +367,10 @@ export function buildChartModel(input: ChartInput): ChartModel {
   const values = [
     0, total,
     ...planned.map((pt) => pt.value), ...actual.map((pt) => pt.value),
-    ...(evLine ?? []).map((pt) => pt.value),
+    ...(evFields.evSegments ?? []).flatMap((s) => s.points.map((pt) => pt.value)),
+    // The stepped BAC can rise above `total` (recorded scope added after the
+    // baseline), so the domain has to open for it or the steps leave the plot.
+    ...(bacF.bacSteps ?? []).map((pt) => pt.value),
     ...[pace?.to.value, efficiency?.to.value, ev?.value].filter((v): v is number => v !== undefined),
   ];
   const yMin = Math.min(...values);
@@ -142,7 +379,7 @@ export function buildChartModel(input: ChartInput): ChartModel {
 
   return {
     empty: !(total > 0), xDomain, yDomain: [yMin, yMax], total,
-    planned, actual, over, pace, efficiency, runOut, ev, evLine, evHistoryBlockedBy,
+    planned, actual, over, pace, efficiency, runOut, ev, ...evFields, ...bacF,
     bacLine: down ? null : total,
     today: dates.length > 0 ? dates[dates.length - 1] : null,
     planEnd, frameDiffers,

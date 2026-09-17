@@ -767,10 +767,17 @@ const enUS = {
   burndownBac: "BAC {0}",
   burndownFrameNote:
     "Chart totals differ from the forecast figures (fixed-price or bucket window); the figures above are authoritative.",
-  burndownEvHistoryUnavailable:
-    "Earned value over time needs task-linked budget buckets. Hand-entered % complete or no linked tasks: {0}.",
+  burndownEvHistoryUnavailable: "No earned-value history yet for {0}.",
+  burndownEvPartial: "Partial earned value",
+  burndownEvPartialNotRecorded: "Partial: {0} not recorded",
+  burndownEvPartialCreated: "Partial: {0} created later",
+  burndownEvJoinsHours: "{0} joins ({1} h)",
+  burndownEvJoinsEur: "{0} joins ({1})",
+  burndownEvJoinsHoursPlural: "{0} join ({1} h)",
+  burndownEvJoinsEurPlural: "{0} join ({1})",
+  burndownAriaEvPartial: "Earned value is partial for {0}.",
   burndownTipEvHistory:
-    "Earned value over time, from the dates the linked tasks were completed. Today's task links and budget are applied to the past, so a relinked or reopened task changes earlier points.",
+    "Earned value over time, from linked-task completion dates and the % complete recorded in snapshots for hand-entered buckets. Today's task links and budget are applied to the past, so a relinked or reopened task changes earlier points.",
   burndownAria: "{0} in {1}.",
   burndownAriaRunOut: "Runs out {0} at current pace.",
   // ★ These name the VARIANCE in BOTH orientations (spec §5.2), while the chart's
@@ -780,6 +787,19 @@ const enUS = {
   burndownAriaEnd: "Variance at plan end: {0} at current pace, {1} at current efficiency.",
   burndownAriaEndPace: "Variance at plan end: {0} at current pace.",
   burndownAriaEndEfficiency: "Variance at plan end: {0} at current efficiency.",
+  burndownBacBaseline: "Budget at start of recording",
+  // {0} is the signed amount in the displayed unit, {1} the bucket names. The
+  // ordinary (non-deletion) marker is the same pair with no trailing word, so
+  // it is composed in the chart rather than carrying a key of its own.
+  burndownBacMarkerRemoved: "{0} {1} removed",
+  burndownAriaBudgetChanges: "Budget changes: {0}.",
+  budgetChangeTableCaption: "Budget changes ({0})",
+  budgetChangeColDate: "Date",
+  budgetChangeColBucket: "Bucket",
+  budgetChangeColChange: "Change",
+  budgetChangeColCumulative: "Added scope to date",
+  budgetChangeRemoved: "removed",
+  budgetChangePaceNote: "Split against the pace forecast.",
   forecastTileActuals: "Actuals {0} of {1}",
   forecastLinkRange: "Forecast: EAC {0}–{1}",
   forecastLinkSingle: "Forecast: EAC {0}",
@@ -816,6 +836,14 @@ const enUS = {
     "Percent complete, from the tasks linked to each budget bucket or a manual % complete on the bucket. Without it, this card cannot be calculated and shows what is missing.",
   forecastTipExtraDays:
     "At current efficiency the remaining work needs ETC {0} ÷ burn rate {1} = {2} working days, {3} more than are left before the plan end.",
+  forecastSplitSince: "Since {0}",
+  forecastSplitPerformance: "Performance",
+  forecastSplitScope: "Added scope",
+  forecastSplitUnattributed: "Unexplained budget change",
+  forecastTipSplitUnattributed:
+    "Budget at completion moved without a recorded budget edit — for example a capacity, absence or holiday change, an undo, or a restored version. Check the activity log for budget edits in this period.",
+  forecastSplitNoHistory: "The split into performance and added scope starts with the first recorded budget change.",
+  forecastTipSplitNameUnattributed: "About the unexplained budget change",
   budgetReportEmpty: "No budget buckets yet.",
   budgetReportProjectTotal: "Project total",
   budgetReportByBucket: "By bucket",

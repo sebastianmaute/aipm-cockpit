@@ -1,19 +1,44 @@
+import type { Dispatch, SetStateAction } from "react";
 import { describe, expect, test, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useBudgetBuckets } from "./use-budget-buckets";
 import type { BudgetBucket } from "./types";
+import type { BudgetHistoryEntry, ProjectBac } from "./budget-history";
 
-const bucket = (id: number, name = `B${id}`): BudgetBucket =>
-  ({ id, name, taskIds: [] } as unknown as BudgetBucket);
+// `allocationCount` defaults to 0 so every pre-existing call site (which never
+// passes it) keeps producing a bucket with an empty `allocations` array — the
+// budget-history stub below reads `allocations.length`, so a bucket without
+// the field would throw.
+const bucket = (id: number, name = `B${id}`, allocationCount = 0): BudgetBucket =>
+  ({
+    id, name, taskIds: [],
+    allocations: Array.from({ length: allocationCount }, () => ({})),
+  } as unknown as BudgetBucket);
 
-function setup(budgets: readonly BudgetBucket[]) {
+type HistoryDeps = {
+  projectBac?: (buckets: readonly BudgetBucket[]) => ProjectBac;
+  setBudgetHistory?: Dispatch<SetStateAction<readonly BudgetHistoryEntry[]>>;
+  today?: string;
+};
+
+// Mirrors the brief's stub: 10 hours / 100 EUR per allocation, summed across buckets.
+const stubProjectBac = (buckets: readonly BudgetBucket[]): ProjectBac => ({
+  hours: buckets.reduce((s, b) => s + b.allocations.length * 10, 0),
+  value: buckets.reduce((s, b) => s + b.allocations.length * 100, 0),
+});
+
+const TODAY = "2026-01-15";
+
+function setup(budgets: readonly BudgetBucket[], extra: HistoryDeps = {}) {
   const setBudgets = vi.fn();
   const allowDestructiveSave = vi.fn();
   const capture = vi.fn();
   const captureComposite = vi.fn();
   const logActivity = vi.fn();
   const { result } = renderHook(() =>
-    useBudgetBuckets({ budgets, setBudgets, allowDestructiveSave, capture, captureComposite, logActivity }),
+    useBudgetBuckets({
+      budgets, setBudgets, allowDestructiveSave, capture, captureComposite, logActivity, ...extra,
+    }),
   );
   return { result, setBudgets, allowDestructiveSave, capture, captureComposite, logActivity };
 }
@@ -114,5 +139,97 @@ describe("commitBuckets", () => {
     s.result.current.commitBuckets([{ ...prev, name: "x" }], { kind: "bulk.edit", callerLogs: true });
     expect(s.logActivity).not.toHaveBeenCalled();
     expect(s.setBudgets).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("commitBuckets — budget history recording", () => {
+  test("(a) creating a bucket that moves BAC writes [baseline, created] named after the new bucket", () => {
+    const keep = bucket(1, "Design", 0);
+    const setBudgetHistory = vi.fn();
+    const s = setup([keep], { projectBac: stubProjectBac, setBudgetHistory, today: TODAY });
+    const created = bucket(2, "Build", 1);
+    s.result.current.commitBuckets([keep, created]);
+
+    expect(setBudgetHistory).toHaveBeenCalledTimes(1);
+    const updater = setBudgetHistory.mock.calls[0][0];
+    expect(typeof updater).toBe("function");
+    const result = (updater as (h: readonly BudgetHistoryEntry[]) => readonly BudgetHistoryEntry[])([]);
+    expect(result.map((e) => e.kind)).toEqual(["baseline", "created"]);
+    expect(result[1].bucketName).toBe("Build");
+    expect(result[0].projectBacHours).toBe(0);
+    expect(result[1].projectBacHours).toBe(10);
+  });
+
+  test("(b) a rename-only update writes nothing observable — the updater is a no-op over any seed", () => {
+    const prev = bucket(1, "Design", 2);
+    const setBudgetHistory = vi.fn();
+    const s = setup([prev], { projectBac: stubProjectBac, setBudgetHistory, today: TODAY });
+    s.result.current.commitBuckets([{ ...prev, name: "Design phase" }]);
+
+    if (setBudgetHistory.mock.calls.length === 0) return; // acceptable per ambiguity resolution
+    const updater = setBudgetHistory.mock.calls[0][0];
+    const seed: readonly BudgetHistoryEntry[] = [];
+    const applied = typeof updater === "function"
+      ? (updater as (h: readonly BudgetHistoryEntry[]) => readonly BudgetHistoryEntry[])(seed)
+      : updater;
+    expect(applied).toBe(seed);
+  });
+
+  test("(c) deleting writes a deleted entry named after the removed bucket", () => {
+    const keep = bucket(1, "Design", 0);
+    const gone = bucket(2, "Build", 3);
+    const setBudgetHistory = vi.fn();
+    const s = setup([keep, gone], { projectBac: stubProjectBac, setBudgetHistory, today: TODAY });
+    s.result.current.commitBuckets([keep]);
+
+    expect(setBudgetHistory).toHaveBeenCalledTimes(1);
+    const updater = setBudgetHistory.mock.calls[0][0] as (h: readonly BudgetHistoryEntry[]) => readonly BudgetHistoryEntry[];
+    const result = updater([]);
+    const deletedEntry = result.find((e) => e.kind === "deleted");
+    expect(deletedEntry?.bucketName).toBe("Build");
+  });
+
+  // No caller produces a create+edit commit today, so this pins the guard, not
+  // a repair: the recorded row must be chosen by the same rule as the kind.
+  test("(c2) a commit that BOTH creates and edits records the CREATED bucket, matching its own kind", () => {
+    const edited = bucket(1, "Design", 1);
+    const setBudgetHistory = vi.fn();
+    const s = setup([edited], { projectBac: stubProjectBac, setBudgetHistory, today: TODAY });
+    const created = bucket(2, "Build", 1);
+    s.result.current.commitBuckets([{ ...edited, name: "Design phase", allocations: [{}, {}] } as unknown as BudgetBucket, created]);
+
+    const updater = setBudgetHistory.mock.calls[0][0] as (h: readonly BudgetHistoryEntry[]) => readonly BudgetHistoryEntry[];
+    const entry = updater([]).find((e) => e.kind === "created");
+    expect(entry?.bucketId).toBe(2);
+    expect(entry?.bucketName).toBe("Build");
+    // Anti-vacuity: the edited bucket is the one the old `soleRow` order picked,
+    // and it is present in this commit under a name of its own.
+    expect(entry?.bucketName).not.toBe("Design phase");
+  });
+
+  test("(d) without projectBac (an old caller) nothing is recorded and nothing throws", () => {
+    const keep = bucket(1, "Design", 0);
+    const s = setup([keep]);
+    expect(() => {
+      s.result.current.commitBuckets([{ ...keep, name: "x" }]);
+    }).not.toThrow();
+    expect(s.setBudgets).toHaveBeenCalledTimes(1);
+  });
+
+  test("(e) two commits in one tick both land — setBudgetHistory is called with a FUNCTIONAL updater", () => {
+    let historyState: readonly BudgetHistoryEntry[] = [];
+    const setBudgetHistory = vi.fn((updater: unknown) => {
+      historyState = typeof updater === "function"
+        ? (updater as (h: readonly BudgetHistoryEntry[]) => readonly BudgetHistoryEntry[])(historyState)
+        : (updater as readonly BudgetHistoryEntry[]);
+    });
+    const prev = bucket(1, "Design", 0);
+    const s = setup([prev], { projectBac: stubProjectBac, setBudgetHistory, today: TODAY });
+
+    s.result.current.commitBuckets([{ ...prev, name: "Design", allocations: [{}] } as unknown as BudgetBucket]);
+    s.result.current.commitBuckets([{ ...prev, name: "Design", allocations: [{}, {}] } as unknown as BudgetBucket]);
+
+    expect(setBudgetHistory).toHaveBeenCalledTimes(2);
+    expect(historyState).toHaveLength(3);
   });
 });

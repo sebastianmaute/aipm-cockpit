@@ -8,6 +8,82 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.8.0] - 2026-09-17 "Rendell"
+
+The budget chart now shows where the budget moved. Every budget change is recorded, the cumulative
+chart steps the budget line at each one and names the bucket, and each forecast separates what
+performance caused from what added scope caused. On Turso, a percent complete typed in by hand now
+feeds the earned-value line too. Closes follow-ups 469, 549 and 552–557; opens 551.
+
+### Added
+
+- **Budget changes are recorded.** Creating, editing or deleting a budget bucket in a way that moves
+  the project's budget at completion records the date, the bucket and the amount, in euros and in
+  hours. The first recorded change also records the budget as it stood just before it, as the
+  starting point. The history is saved with the project on every storage backend and is not exported.
+- **The cumulative chart shows the budget moving.** The budget line steps at each recorded change,
+  with a marker naming the bucket and the amount ("removed" for a deleted bucket), and a dashed
+  reference line labelled "Budget at start of recording" shows where it began. The chart's
+  screen-reader description lists the changes.
+- **A change table on the Budget Report** lists every recorded change — date, bucket, amount and the
+  added scope to date — and closes with the split below, taken against the pace forecast.
+- **Each forecast card splits its variance at completion**, from the day recording started, into
+  Performance (the starting budget less the estimate at completion), Added scope (the recorded
+  changes) and, when it is at least half a euro or half an hour, Unexplained budget change: budget
+  movement no recorded edit accounts for, such as a capacity, absence or holiday change, an undo, a
+  restored version or an applied template. Until the first change is recorded, the card says the split
+  starts then.
+- **On Turso, the earned-value line covers buckets whose percent complete is typed in by hand.** Each
+  Trends snapshot now also keeps every bucket's percent complete, and the line uses those figures for
+  the past and today's figure for today.
+- **The earned-value line says where it is incomplete.** A stretch that leaves out a budgeted bucket —
+  one with no recorded percent complete, or one created later — is dashed and labelled with the
+  buckets it leaves out, today's point included. Where a bucket starts counting, the chart names it
+  and the amount it adds.
+- **The steps, markers and change table follow the chart's € / Hours switch.** Each forecast card
+  shows the split in euros, and in hours too inside its "In hours" line whenever that line shows.
+
+### Changed
+
+- **The dashboard budget tile shows the chart alone.** The change table and its split appear on the
+  Budget Report only.
+- **The change table sits below the chart** and moves beside it only on a window at least 1536 pixels
+  wide, where both fit without cutting off figures.
+- **The earned-value tooltip names both sources**: linked-task completion dates and, for hand-entered
+  buckets, the percent complete recorded in snapshots.
+- **Trends snapshots no longer store a currency**, which nothing read (follow-up 469). The column stays
+  in existing Turso databases for now, because older app versions still write to it (follow-up 551).
+
+### Fixed
+
+These were found in the new budget surfaces above before release; no earlier version had them.
+
+- **The change table's scrolling area can be reached with the keyboard.**
+- **Change labels on the chart no longer overlap.** They are staggered into rows, and each sits on a
+  background so the marker lines behind it do not cross the text.
+- **In the change table, a sign stays with its amount and a date stays on one line.**
+- **Figures in the change table are no longer cut off** beside the chart on laptop-sized windows.
+- **The legend shows the solid "Earned value" entry only when a solid line is drawn** (follow-up 552).
+- **A bucket that joins with a negative amount reads "-", not "+-"** (follow-up 553).
+- **Today's earned-value point is marked partial, and names a joining bucket, like every other point**
+  (follow-up 556).
+- **After two devices' histories are merged, the split and the table start from the earliest recorded
+  starting point and count changes in date order** (follow-up 554).
+
+### Internal
+
+- The Next Actions and AI dashboard model now receives the recorded budget history (follow-up 555).
+  This changes no visible output today: nothing that reads that model uses the forecast figures yet.
+- The browser test data carries a budget history, so the accessibility and visual runs now render the
+  change table, the split and the stepped budget line (follow-up 557).
+
+### Known limitations
+
+- Outside Turso there are no snapshots, so a bucket whose percent complete is typed in by hand still
+  leaves the earned-value line partial for past periods.
+- The history starts with the first budget change made on this release; earlier changes were never
+  recorded.
+
 ## [1.7.1] - 2026-09-16 "Sayers"
 
 Closing a budget bucket no longer flatters the forecast. Leftover budget passed to a successor was

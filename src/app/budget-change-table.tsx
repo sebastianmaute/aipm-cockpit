@@ -1,0 +1,138 @@
+"use client";
+
+// The recorded budget changes beside the burn-down chart (spec 2026-09-16 §5.3,
+// planning ruling R4). One row per recorded change — date, bucket, signed
+// amount and the running attributed scope — with the pace forecast's variance
+// split in the footer.
+//
+// ★ The rows are ORDERED by `orderBudgetChanges`, never by array order:
+// `mergeBudgetHistories` unions prev-then-new ids, so a same-project load from
+// a second device can hand the entries back out of chronological order, and the
+// cumulative column is a running total over whatever order it is given.
+//
+// No sort, so `SortResizeTh` is deliberately not used (see
+// `docs/AGENTS/ui-shell.md` — non-sortable text-only header cells keep a raw
+// `<th>`). The `<caption>` is the table's accessible name and carries the unit,
+// which is the only thing that tells a "+30" apart from a "+€3,000".
+import { useId } from "react";
+import { type Lang, t, localeFor } from "./i18n";
+import { formatCurrency } from "./resource-cost";
+import { formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
+import { orderBudgetChanges, type BudgetHistorySummary, type VarianceSplit } from "./budget-history";
+import type { ChartUnit } from "./burndown-geometry";
+
+const TH_CLASS = "px-2 py-1 text-left text-xs font-medium text-muted-foreground";
+const TH_NUM_CLASS = "px-2 py-1 text-right text-xs font-medium text-muted-foreground";
+const TD_CLASS = "px-2 py-1 align-top";
+// A signed figure and a date are each one unbreakable unit: the narrow column
+// otherwise breaks "+€24,000" after its sign and a date over three lines.
+// Should the table then outgrow its column, it scrolls inside the focusable
+// region below. Bucket names keep wrapping.
+const TD_DATE_CLASS = `${TD_CLASS} whitespace-nowrap`;
+const TD_NUM_CLASS = "px-2 py-1 text-right align-top tabular-nums whitespace-nowrap";
+
+export function BudgetChangeTable({
+  lang, history, split, unit, currency,
+}: {
+  lang: Lang;
+  history: BudgetHistorySummary;
+  /** The pace forecast's variance split in the DISPLAYED unit, or null when
+   *  that forecast is unavailable — the rows still stand on their own then. */
+  split: VarianceSplit | null;
+  unit: ChartUnit;
+  currency: string;
+}) {
+  const captionId = useId();
+  const locale = localeFor(lang);
+  const eurUnit = unit === "eur";
+  const fmt = (v: number) => (eurUnit ? formatCurrency(v, currency, locale) : formatHours(v, locale));
+  const signed = (v: number) => signedFigure(fmt(v), v);
+  const unitLabel = t(lang, eurUnit ? "burndownUnitEur" : "burndownUnitHours");
+
+  const ordered = orderBudgetChanges(history.changes);
+  const deltas = ordered.map((entry) => (eurUnit ? entry.deltaValue : entry.deltaHours));
+  // A running total without a reassigned accumulator: `react-hooks/immutability`
+  // rejects mutating a local across a render, and the lists here are tiny.
+  const runningTotals = deltas.map((_, i) => deltas.slice(0, i + 1).reduce((sum, d) => sum + d, 0));
+  // Unlike the chart's `bacMarkers` (`burndown-geometry.ts`), which group by
+  // PERIOD and drop a marker whose summed amount rounds to 0 in the displayed
+  // unit, every entry gets its own row here regardless of its size — so a
+  // change that rounds to "+€0"/"-€0" still shows a row even though the same
+  // group produced no marker on the chart above.
+  const rows = ordered.map((entry, i) => ({
+    id: entry.id,
+    date: formatDayMonthYear(entry.date, locale),
+    bucketName: entry.bucketName,
+    removed: entry.kind === "deleted",
+    change: signed(deltas[i]),
+    cumulative: signed(runningTotals[i]),
+  }));
+
+  const footRows: readonly { key: string; term: string; value: number }[] = split === null ? [] : [
+    { key: "performance", term: t(lang, "forecastSplitPerformance"), value: split.performance },
+    { key: "attributed", term: t(lang, "forecastSplitScope"), value: split.attributed },
+    { key: "unattributed", term: t(lang, "forecastSplitUnattributed"), value: split.unattributed },
+  ];
+
+  return (
+    // ★ `tabIndex={0}` is an accessibility fix: this wrapper scrolls and its
+    // cells hold no control, so without it a keyboard user could not scroll it
+    // — axe's scrollable-region-focusable (serious), found once the e2e seed
+    // carried budget history (§557). Same fix as `document-preview.tsx`; the
+    // region is named by the caption through `aria-labelledby`, so it needs no
+    // i18n key of its own.
+    // ★ The ring is the `focus-visible` idiom focusable containers use (the
+    // help and notes windows; see `usePanelInitialFocus`), not `FOCUS_RING`:
+    // `focus:` would also ring the region on a mouse click into the table.
+    <section
+      tabIndex={0}
+      aria-labelledby={captionId}
+      className="overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
+    >
+      <table className="w-full text-sm">
+        <caption id={captionId} className="mb-1 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          {t(lang, "budgetChangeTableCaption", unitLabel)}
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col" className={TH_CLASS}>{t(lang, "budgetChangeColDate")}</th>
+            <th scope="col" className={TH_CLASS}>{t(lang, "budgetChangeColBucket")}</th>
+            <th scope="col" className={TH_NUM_CLASS}>{t(lang, "budgetChangeColChange")}</th>
+            <th scope="col" className={TH_NUM_CLASS}>{t(lang, "budgetChangeColCumulative")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} className="border-t border-line">
+              <td className={TD_DATE_CLASS}>{row.date}</td>
+              <td className={TD_CLASS}>
+                {row.bucketName === "" ? "—" : row.bucketName}
+                {/* A deletion is called out in words, never by the sign alone. */}
+                {row.removed && (
+                  <span className="ml-1 text-xs text-muted-foreground">{t(lang, "budgetChangeRemoved")}</span>
+                )}
+              </td>
+              <td className={TD_NUM_CLASS}>{row.change}</td>
+              <td className={TD_NUM_CLASS}>{row.cumulative}</td>
+            </tr>
+          ))}
+        </tbody>
+        {footRows.length > 0 && (
+          <tfoot className="border-t border-line">
+            {footRows.map((row) => (
+              <tr key={row.key}>
+                <th scope="row" colSpan={3} className={`${TD_CLASS} text-left font-normal text-muted-foreground`}>
+                  {row.term}
+                </th>
+                <td className={TD_NUM_CLASS}>{signed(row.value)}</td>
+              </tr>
+            ))}
+          </tfoot>
+        )}
+      </table>
+      {footRows.length > 0 && (
+        <p className="mt-1 text-xs text-muted-foreground">{t(lang, "budgetChangePaceNote")}</p>
+      )}
+    </section>
+  );
+}

@@ -1,13 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { buildChartModel, daysBetweenUtc, scaleDate, scaleValue, type ChartInput } from "./burndown-geometry";
+import {
+  buildChartModel, daysBetweenUtc, scaleDate, scaleValue, layoutMarkerLabels, markerBandHeight, markerLabelBoxes,
+  MARKER_LABEL_FONT_PX, type ChartInput,
+} from "./burndown-geometry";
 import { CHART_SERIES, CHART_FORECAST, CHART_FORECAST_HOURS } from "../test/chart-fixtures";
 import type { BurndownSeries } from "./budget-burndown";
 import type { BudgetForecast } from "./budget-forecast";
+import type { EvHistoryPoint, EvJoin, EvPartialBucket } from "./budget-ev-history";
+import type { BudgetHistoryEntry, BudgetHistorySummary } from "./budget-history";
 
 const base: ChartInput = {
   series: CHART_SERIES, unit: "eur", orientation: "burndown",
-  forecast: CHART_FORECAST, evHistory: null, today: "2026-02-14", planEnd: "2026-03-31",
+  forecast: CHART_FORECAST, evHistory: null, history: null, today: "2026-02-14", planEnd: "2026-03-31",
 };
+/** An EV history point worth `eur` €, and eur/100 hours. */
+function evPoint(
+  date: string, eur: number,
+  over: { partial?: EvPartialBucket[]; joins?: EvJoin[] } = {},
+): EvHistoryPoint {
+  return { date, eur, hours: eur / 100, partial: over.partial ?? [], joins: over.joins ?? [] };
+}
+const VENDOR: EvPartialBucket = { id: 3, name: "Vendor", createdDate: null, startDate: "2026-01-01" };
+const OPS: EvPartialBucket = { id: 4, name: "Ops", createdDate: "2026-02-01", startDate: "2026-01-01" };
 
 describe("scales", () => {
   it("counts UTC calendar days and maps dates and values linearly", () => {
@@ -77,24 +91,252 @@ describe("buildChartModel — cumulative", () => {
     ]);
   });
   it("draws the earned-value history only here", () => {
-    const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 1_000, hours: 10 }, { date: "2026-02-14", eur: 3_600, hours: 36 }] };
-    expect(buildChartModel({ ...base, orientation: "cumulative", evHistory }).evLine).toEqual([
+    const evHistory = { available: true as const, points: [evPoint("2026-01-31", 1_000), evPoint("2026-02-14", 3_600)] };
+    const m = buildChartModel({ ...base, orientation: "cumulative", evHistory });
+    expect(m.evSegments).toEqual([{ partial: false, points: [
       { date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 1_000 }, { date: "2026-02-14", value: 3_600 },
-    ]);
-    expect(buildChartModel({ ...base, evHistory }).evLine).toBeNull();
+    ] }]);
+    expect(m.evPartialNames).toEqual([]);
+    expect(m.evJoins).toEqual([]);
+    expect(m.evUnavailable).toBeNull();
+    const down = buildChartModel({ ...base, evHistory });
+    expect(down.evSegments).toBeNull();
+    expect(down.evJoins).toEqual([]);
+    expect(down.evPartialNames).toEqual([]);
   });
-  it("names the buckets that block the history", () => {
-    const evHistory = { available: false as const, reason: "manual-percent" as const, buckets: [{ id: 2, name: "Design" }] };
-    expect(buildChartModel({ ...base, orientation: "cumulative", evHistory }).evHistoryBlockedBy).toEqual(["Design"]);
+  it("names the buckets that have no earned-value history", () => {
+    const evHistory = { available: false as const, reason: "no-earned-value" as const, buckets: [{ id: 2, name: "Design" }] };
+    const m = buildChartModel({ ...base, orientation: "cumulative", evHistory });
+    expect(m.evUnavailable).toEqual(["Design"]);
+    expect(m.evSegments).toBeNull();
   });
-  it("returns null evLine when the history has no points", () => {
+  it("returns null evSegments when the history has no points", () => {
     const evHistory = { available: true as const, points: [] };
-    expect(buildChartModel({ ...base, orientation: "cumulative", evHistory }).evLine).toBeNull();
+    expect(buildChartModel({ ...base, orientation: "cumulative", evHistory }).evSegments).toBeNull();
   });
   it("reads the earned-value history in the hours unit", () => {
-    const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 1_000, hours: 10 }] };
+    const evHistory = { available: true as const, points: [evPoint("2026-01-31", 1_000)] };
     const m = buildChartModel({ ...base, unit: "hours", orientation: "cumulative", forecast: null, evHistory });
-    expect(m.evLine).toEqual([{ date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 10 }]);
+    expect(m.evSegments).toEqual([{ partial: false, points: [{ date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 10 }] }]);
+  });
+});
+
+describe("buildChartModel — partial earned value and joins", () => {
+  const cumulative = (points: EvHistoryPoint[], unit: ChartInput["unit"] = "eur") =>
+    buildChartModel({ ...base, unit, orientation: "cumulative", forecast: null, evHistory: { available: true, points } });
+
+  it("groups consecutive partial points into one segment that shares its boundary points", () => {
+    const m = cumulative([
+      evPoint("2026-01-10", 100, { partial: [VENDOR] }),
+      evPoint("2026-01-20", 200, { partial: [VENDOR, OPS] }),
+      evPoint("2026-01-31", 800, { joins: [{ id: 3, name: "Vendor", eur: 500, hours: 5 }] }),
+      evPoint("2026-02-10", 900, { partial: [OPS] }),
+      evPoint("2026-02-14", 1_000),
+    ]);
+    const at = (date: string, value: number) => ({ date, value });
+    expect(m.evSegments).toEqual([
+      { partial: true, points: [at("2026-01-01", 0), at("2026-01-10", 100), at("2026-01-20", 200)] },
+      { partial: false, points: [at("2026-01-20", 200), at("2026-01-31", 800)] },
+      { partial: true, points: [at("2026-01-31", 800), at("2026-02-10", 900)] },
+      { partial: false, points: [at("2026-02-10", 900), at("2026-02-14", 1_000)] },
+    ]);
+    // Continuity: each segment starts where the previous one ended.
+    const segments = m.evSegments ?? [];
+    for (let i = 1; i < segments.length; i++) {
+      expect(segments[i].points[0]).toEqual(segments[i - 1].points.at(-1));
+    }
+    expect(m.evPartialNames).toEqual([
+      { names: "Vendor, Ops", created: false },
+      { names: "Ops", created: true },
+    ]);
+  });
+
+  it("calls a segment 'created later' only when every bucket in it was created after its start", () => {
+    const late = { id: 3, name: "Vendor", createdDate: "2026-02-01", startDate: "2026-01-01" };
+    const lateToo = { id: 4, name: "Ops", createdDate: "2026-03-01", startDate: "2026-01-15" };
+    expect(cumulative([evPoint("2026-01-31", 0, { partial: [late, lateToo] }), evPoint("2026-02-14", 10)]).evPartialNames)
+      .toEqual([{ names: "Vendor, Ops", created: true }]);
+    const sameDay = { ...lateToo, createdDate: "2026-01-15" };
+    expect(cumulative([evPoint("2026-01-31", 0, { partial: [late, sameDay] }), evPoint("2026-02-14", 10)]).evPartialNames)
+      .toEqual([{ names: "Vendor, Ops", created: false }]);
+    const undated = { ...late, startDate: null };
+    expect(cumulative([evPoint("2026-01-31", 0, { partial: [undated] }), evPoint("2026-02-14", 10)]).evPartialNames)
+      .toEqual([{ names: "Vendor", created: false }]);
+  });
+
+  it("labels a join at its point with the amount in the current unit", () => {
+    const joins = [{ id: 3, name: "Vendor", eur: 500, hours: 5 }, { id: 4, name: "Ops", eur: 250, hours: 2.5 }];
+    const points = [evPoint("2026-01-20", 0, { partial: [VENDOR] }), evPoint("2026-01-31", 800, { joins }), evPoint("2026-02-14", 1_000)];
+    expect(cumulative(points).evJoins).toEqual([{ date: "2026-01-31", value: 800, amount: 750, label: "Vendor, Ops", count: 2 }]);
+    expect(cumulative(points, "hours").evJoins).toEqual([{ date: "2026-01-31", value: 8, amount: 7.5, label: "Vendor, Ops", count: 2 }]);
+  });
+
+  it("drops a join whose amount shows as 0 in the current unit", () => {
+    const joins = [{ id: 3, name: "Vendor", eur: 40, hours: 0.4 }, { id: 4, name: "Ops", eur: 0, hours: 0 }];
+    const points = [evPoint("2026-01-20", 0, { partial: [VENDOR, OPS] }), evPoint("2026-01-31", 40, { joins }), evPoint("2026-02-14", 50)];
+    // €: Vendor's 40 shows, Ops's 0 does not; hours: 0.4 h rounds to "0 h", so nothing is labelled.
+    expect(cumulative(points).evJoins).toEqual([{ date: "2026-01-31", value: 40, amount: 40, label: "Vendor", count: 1 }]);
+    expect(cumulative(points, "hours").evJoins).toEqual([]);
+  });
+
+  it("drops a point whose joins sum to an amount that shows as 0", () => {
+    // +1 and −1.4 each show, but sum to −0.4, which would print as "-0".
+    const joins = [{ id: 3, name: "Vendor", eur: 1, hours: 0.01 }, { id: 4, name: "Ops", eur: -1.4, hours: -0.014 }];
+    const points = [evPoint("2026-01-20", 0, { partial: [VENDOR, OPS] }), evPoint("2026-01-31", 40, { joins }), evPoint("2026-02-14", 50)];
+    expect(cumulative(points).evJoins).toEqual([]);
+  });
+
+  // §556: today's point (always the last) may now be partial or carry a join.
+  it("ends on a partial segment and names its bucket when the final point is partial", () => {
+    const m = cumulative([evPoint("2026-01-31", 800), evPoint("2026-02-14", 1_000, { partial: [VENDOR] })]);
+    expect(m.evSegments).toEqual([
+      { partial: false, points: [{ date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 800 }] },
+      { partial: true, points: [{ date: "2026-01-31", value: 800 }, { date: "2026-02-14", value: 1_000 }] },
+    ]);
+    expect(m.evPartialNames).toEqual([{ names: "Vendor", created: false }]);
+  });
+
+  it("labels a join on the final point", () => {
+    const joins = [{ id: 3, name: "Vendor", eur: 500, hours: 5 }];
+    const m = cumulative([evPoint("2026-01-31", 300, { partial: [VENDOR] }), evPoint("2026-02-14", 1_000, { joins })]);
+    expect(m.evJoins).toEqual([{ date: "2026-02-14", value: 1_000, amount: 500, label: "Vendor", count: 1 }]);
+  });
+
+  it("falls back to an em dash when every joining bucket has a blank name", () => {
+    const joins = [{ id: 3, name: "", eur: 300, hours: 3 }];
+    const points = [evPoint("2026-01-20", 0, { partial: [VENDOR] }), evPoint("2026-01-31", 300, { joins }), evPoint("2026-02-14", 400)];
+    expect(cumulative(points).evJoins).toEqual([{ date: "2026-01-31", value: 300, amount: 300, label: "—", count: 1 }]);
+  });
+});
+
+describe("buildChartModel — budget-at-completion steps", () => {
+  /** A recorded change; `at` defaults to 09:00 on its own day so a test can
+   *  hand `at` and `date` apart when it wants to pin the ordering rule. */
+  function change(over: Partial<BudgetHistoryEntry> & { id: string; date: string }): BudgetHistoryEntry {
+    return {
+      at: `${over.date}T09:00:00.000Z`, kind: "updated", bucketId: 1, bucketName: "Vendor",
+      projectBacHours: 90, projectBacValue: 9_000, deltaHours: 0, deltaValue: 0, ...over,
+    };
+  }
+  function summary(changes: BudgetHistoryEntry[]): BudgetHistorySummary {
+    return {
+      baselineDate: "2026-01-05",
+      baseline: { hours: 90, value: 9_000 },
+      attributed: {
+        hours: changes.reduce((s, e) => s + e.deltaHours, 0),
+        value: changes.reduce((s, e) => s + e.deltaValue, 0),
+      },
+      changes,
+    };
+  }
+  const cumulative = (history: BudgetHistorySummary, unit: ChartInput["unit"] = "eur") =>
+    buildChartModel({ ...base, unit, orientation: "cumulative", forecast: null, history });
+
+  const VENDOR_UP = change({
+    id: "a", date: "2026-01-20", bucketName: "Vendor",
+    deltaHours: 30, deltaValue: 3_000, projectBacHours: 120, projectBacValue: 12_000,
+  });
+  const OPS_GONE = change({
+    id: "b", date: "2026-02-10", kind: "deleted", bucketId: 2, bucketName: "Ops",
+    deltaHours: -8, deltaValue: -800, projectBacHours: 112, projectBacValue: 11_200,
+  });
+
+  it("steps from the baseline to each entry's BAC, one level per entry", () => {
+    const m = cumulative(summary([VENDOR_UP, OPS_GONE]));
+    expect(m.bacBaseline).toBe(9_000);
+    expect(m.bacSteps).toEqual([
+      { date: "2026-01-01", value: 9_000 },
+      { date: "2026-01-20", value: 9_000 }, { date: "2026-01-20", value: 12_000 },
+      { date: "2026-02-10", value: 12_000 }, { date: "2026-02-10", value: 11_200 },
+      { date: "2026-03-31", value: 11_200 },
+    ]);
+    // Three levels for two entries in different months: baseline, then each BAC.
+    expect(new Set((m.bacSteps ?? []).map((p) => p.value)).size).toBe(3);
+    // The domain opens far enough for the raised BAC to stay inside the plot.
+    expect(m.yDomain[1]).toBeGreaterThanOrEqual(12_000);
+  });
+
+  it("marks each entry in its own period, naming the bucket and flagging a deletion", () => {
+    const m = cumulative(summary([VENDOR_UP, OPS_GONE]));
+    expect(m.bacMarkers).toEqual([
+      { date: "2026-01-20", value: 12_000, amount: 3_000, label: "Vendor", removed: false },
+      { date: "2026-02-10", value: 11_200, amount: -800, label: "Ops", removed: true },
+    ]);
+  });
+
+  it("falls back to an em dash when every entry in a marker's group has a blank bucket name", () => {
+    const blank = change({
+      id: "a", date: "2026-01-20", bucketName: "",
+      deltaHours: 30, deltaValue: 3_000, projectBacHours: 120, projectBacValue: 12_000,
+    });
+    const m = cumulative(summary([blank]));
+    expect(m.bacMarkers).toEqual([
+      { date: "2026-01-20", value: 12_000, amount: 3_000, label: "—", removed: false },
+    ]);
+  });
+
+  it("sums several entries in one period into one marker with their names joined", () => {
+    const first = change({
+      id: "a", date: "2026-01-10", bucketName: "Vendor",
+      deltaHours: 30, deltaValue: 3_000, projectBacHours: 120, projectBacValue: 12_000,
+    });
+    const second = change({
+      id: "b", date: "2026-01-20", bucketId: 2, bucketName: "Ops",
+      deltaHours: 5, deltaValue: 500, projectBacHours: 125, projectBacValue: 12_500,
+    });
+    const m = cumulative(summary([first, second]));
+    // Both steps are still drawn — only the LABELS collapse.
+    expect(new Set((m.bacSteps ?? []).map((p) => p.value)).size).toBe(3);
+    expect(m.bacMarkers).toEqual([
+      { date: "2026-01-20", value: 12_500, amount: 3_500, label: "Vendor, Ops", removed: false },
+    ]);
+  });
+
+  it("orders by `at`, not by array order, and reads the hours unit", () => {
+    // `mergeBudgetHistories` unions prev-then-new ids, so a reload from another
+    // device can hand the changes back out of chronological order.
+    const early = change({
+      id: "a", at: "2026-01-20T09:00:00.000Z", date: "2026-01-20", bucketName: "Vendor",
+      deltaHours: 30, deltaValue: 3_000, projectBacHours: 120, projectBacValue: 12_000,
+    });
+    const late = change({
+      id: "b", at: "2026-02-10T09:00:00.000Z", date: "2026-02-10", bucketId: 2, bucketName: "Ops",
+      deltaHours: -8, deltaValue: -800, projectBacHours: 112, projectBacValue: 11_200,
+    });
+    const m = cumulative(summary([late, early]), "hours");
+    expect(m.bacSteps).toEqual([
+      { date: "2026-01-01", value: 90 },
+      { date: "2026-01-20", value: 90 }, { date: "2026-01-20", value: 120 },
+      { date: "2026-02-10", value: 120 }, { date: "2026-02-10", value: 112 },
+      { date: "2026-03-31", value: 112 },
+    ]);
+    expect(m.bacMarkers.map((mk) => mk.label)).toEqual(["Vendor", "Ops"]);
+    expect(m.bacMarkers.map((mk) => mk.amount)).toEqual([30, -8]);
+  });
+
+  it("drops a marker whose summed amount shows as 0 in the current unit", () => {
+    // 40 € / 0.4 h: the € marker shows, the hours one would read "+0 h".
+    const tiny = summary([change({
+      id: "a", date: "2026-01-20", bucketName: "Vendor",
+      deltaHours: 0.4, deltaValue: 40, projectBacHours: 90.4, projectBacValue: 9_040,
+    })]);
+    expect(cumulative(tiny).bacMarkers).toHaveLength(1);
+    expect(cumulative(tiny, "hours").bacMarkers).toEqual([]);
+    // The step itself is geometry, not a label — it is still drawn.
+    expect(cumulative(tiny, "hours").bacSteps).not.toBeNull();
+  });
+
+  it("has no steps without history, in the burn-down orientation, or with no changes", () => {
+    const m = buildChartModel({ ...base, orientation: "cumulative" });
+    expect(m.bacSteps).toBeNull();
+    expect(m.bacBaseline).toBeNull();
+    expect(m.bacMarkers).toEqual([]);
+    // The flat BAC line is untouched when there is nothing to step.
+    expect(m.bacLine).toBe(9_000);
+    const down = buildChartModel({ ...base, history: summary([VENDOR_UP]) });
+    expect(down.bacSteps).toBeNull();
+    expect(down.bacMarkers).toEqual([]);
+    expect(cumulative(summary([])).bacSteps).toBeNull();
   });
 });
 
@@ -209,5 +451,61 @@ describe("buildChartModel — edges", () => {
     const m = buildChartModel({ ...base, planEnd: "2026-02-15" });
     expect(m.pace).not.toBeNull();
     expect(m.efficiency).not.toBeNull();
+  });
+});
+
+describe("layoutMarkerLabels", () => {
+  const PLOT_TOP = 40;
+  const MID_X = 300;
+  type Box = { left: number; right: number; top: number; bottom: number };
+  const overlaps = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+
+  // Three changes in adjacent monthly periods sit ~30px apart on a 640px chart,
+  // and their labels run ~150px wide, so each collides with the one before it.
+  const ADJACENT = [
+    { x: 200, text: "+€24,000 Capped SOW (rate override)" },
+    { x: 230, text: "+€30,000 Data Migration (fixed price)" },
+    { x: 260, text: "−€12,000 Pilot Workshop removed" },
+  ];
+
+  it("keeps three markers in adjacent periods pairwise apart", () => {
+    const layout = layoutMarkerLabels(ADJACENT, MID_X);
+    const boxes = markerLabelBoxes(layout, PLOT_TOP);
+    expect(boxes).toHaveLength(3);
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) expect(overlaps(boxes[i], boxes[j]), `labels ${i} and ${j}`).toBe(false);
+    }
+    // Anti-vacuity: the three really do collide horizontally, so only the rows keep them apart.
+    expect(layout.labels.map((l) => l.row)).toEqual([0, 1, 2]);
+    expect(layout.rows).toBe(3);
+  });
+
+  it("keeps every label inside the band above the plot", () => {
+    const layout = layoutMarkerLabels(ADJACENT, MID_X);
+    for (const box of markerLabelBoxes(layout, PLOT_TOP)) {
+      expect(box.bottom).toBeLessThanOrEqual(PLOT_TOP);
+      expect(box.top).toBeGreaterThanOrEqual(PLOT_TOP - markerBandHeight(layout.rows));
+      expect(box.bottom - box.top).toBe(MARKER_LABEL_FONT_PX);
+    }
+  });
+
+  it("reuses the lowest row when labels do not collide", () => {
+    const layout = layoutMarkerLabels([{ x: 70, text: "+€1 A" }, { x: 250, text: "+€2 B" }, { x: 560, text: "+€3 C" }], MID_X);
+    expect(layout.labels.map((l) => l.row)).toEqual([0, 0, 0]);
+    expect(layout.rows).toBe(1);
+  });
+
+  it("anchors a label on the right half at its end, so it grows leftward", () => {
+    const [left, right] = layoutMarkerLabels([{ x: 100, text: "+€1 A" }, { x: 500, text: "+€2 B" }], MID_X).labels;
+    expect(left.anchor).toBe("start");
+    expect(left.left).toBeGreaterThan(100);
+    expect(right.anchor).toBe("end");
+    expect(right.right).toBeLessThan(500);
+  });
+
+  it("needs no band without markers", () => {
+    const layout = layoutMarkerLabels([], MID_X);
+    expect(layout.rows).toBe(0);
+    expect(markerBandHeight(0)).toBe(0);
   });
 });

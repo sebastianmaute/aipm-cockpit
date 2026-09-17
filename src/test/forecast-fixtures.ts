@@ -58,12 +58,15 @@ export const MIX_ON_PLAN: RateMix = mixOf([420, 560, 420], { triggered: false, d
 export const EV_HISTORY: EvHistory = {
   available: true,
   points: [
-    { date: "2026-03-31", eur: 60_000, hours: 500 },
-    { date: "2026-06-30", eur: 110_000, hours: 917 },
-    { date: "2026-09-14", eur: 148_800, hours: 1_240 },
+    { date: "2026-03-31", eur: 60_000, hours: 500, partial: [], joins: [] },
+    { date: "2026-06-30", eur: 110_000, hours: 917, partial: [], joins: [] },
+    { date: "2026-09-14", eur: 148_800, hours: 1_240, partial: [], joins: [] },
   ],
 };
 
+// `history: null` — `ForecastBundle`'s `BudgetHistorySummary | null`, unrelated
+// to these §7 rate-mix scenarios (null is the state before the first recorded
+// budget change, i.e. "no history yet").
 export const BUNDLE_HOURS_WORSE: ForecastBundle = {
-  eur: EUR_FORECAST, hours: HOURS_FORECAST_HOURS_WORSE, mix: MIX_HOURS_WORSE, evHistory: EV_HISTORY,
+  eur: EUR_FORECAST, hours: HOURS_FORECAST_HOURS_WORSE, mix: MIX_HOURS_WORSE, evHistory: EV_HISTORY, history: null,
 };

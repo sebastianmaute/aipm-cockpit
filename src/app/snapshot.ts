@@ -6,8 +6,9 @@
 
 import type { Health } from "./health";
 import type { DashboardModel } from "./dashboard";
+import { bucketPercentComplete } from "./budget-earned-value";
 import { isTaskClosed, isTaskOutOfScope } from "./task-closed";
-import type { Milestone, Task } from "./types";
+import type { BudgetBucket, Milestone, Task } from "./types";
 
 export type SnapshotCadence = "weekly" | "daily" | "monthly";
 export type SnapshotTrigger = "auto" | "manual";
@@ -27,6 +28,11 @@ export interface SnapshotMilestone {
   forecast: string;  // YYYY-MM-DD
 }
 
+/** One budget bucket's percent complete (0-100) at capture time. Buckets whose
+ *  percent cannot be resolved (`bucketPercentComplete` returns null) are
+ *  omitted rather than recorded as 0. */
+export type SnapshotBucketProgress = { bucketId: number; pctComplete: number };
+
 export interface SnapshotRecord {
   id: string;            // client-generated = capturedAt (ISO ms), unique per capture
   capturedAt: string;    // ISO timestamp
@@ -45,8 +51,8 @@ export interface SnapshotRecord {
   scheduleRag: Health | "";
   budgetRag: Health | "";
   scopeRag: Health | "";
-  currency: string;
   milestones: SnapshotMilestone[];
+  bucketProgress: SnapshotBucketProgress[];
   series: SnapshotSeriesPoint[];
 }
 
@@ -175,8 +181,8 @@ export interface BuildSnapshotInput {
   model: DashboardModel;
   tasks: readonly Task[];
   milestones: readonly Milestone[];
+  buckets: readonly Pick<BudgetBucket, "id" | "taskIds" | "percentComplete">[];
   planEndDate: string;
-  currency: string;
   capturedAt: string;       // ISO ms timestamp; also used as the record id
   cadence: SnapshotCadence;
   trigger: SnapshotTrigger;
@@ -187,7 +193,7 @@ const ragOrEmpty = (h: Health | null): Health | "" => h ?? "";
 /** Assemble a SnapshotRecord from an already-computed DashboardModel + context.
  *  Pure: the caller supplies `capturedAt` (no implicit clock). */
 export function buildSnapshot(input: BuildSnapshotInput): SnapshotRecord {
-  const { model, tasks, milestones, planEndDate, currency, capturedAt, cadence, trigger } = input;
+  const { model, tasks, milestones, buckets, planEndDate, capturedAt, cadence, trigger } = input;
   const tasksById = new Map(tasks.map((t) => [t.id, t] as const));
   const bd = model.burndown;
   const series: SnapshotSeriesPoint[] = bd
@@ -217,10 +223,13 @@ export function buildSnapshot(input: BuildSnapshotInput): SnapshotRecord {
     scheduleRag: ragOrEmpty(model.schedule.effective),
     budgetRag: ragOrEmpty(model.budget.effective),
     scopeRag: ragOrEmpty(model.scope.effective),
-    currency,
     milestones: milestones.map((m) => ({
       id: m.id, name: m.name, target: m.date, forecast: milestoneForecast(m, tasksById),
     })),
+    bucketProgress: buckets.flatMap((b) => {
+      const pct = bucketPercentComplete(b, tasks);
+      return pct === null ? [] : [{ bucketId: b.id, pctComplete: pct }];
+    }),
     series,
   };
 }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   sanitizeBudgetBucket,
+  sanitizeLoadedBudgetBucket,
   sanitizeFxRates,
   sanitizePlan,
   encodeAllocations,
@@ -47,6 +48,13 @@ describe("sanitizeBudgetBucket", () => {
     const b = sanitizeBudgetBucket({ ...base, allocations: enc })!;
     expect(b.allocations[0].roleId).toBe(3);
     expect(b.allocations[0].actualHours).toEqual({ "2026-01": 38 });
+  });
+  test("keeps a valid createdDate and drops an invalid one, on every status", () => {
+    const base = { id: 7, name: "B", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-12-31", status: "open", allocations: [] };
+    expect(sanitizeLoadedBudgetBucket({ ...base, createdDate: "2026-07-01" })?.createdDate).toBe("2026-07-01");
+    expect(sanitizeLoadedBudgetBucket({ ...base, createdDate: "2026-02-30" })?.createdDate).toBeUndefined();
+    expect(sanitizeLoadedBudgetBucket({ ...base, createdDate: "" })).not.toHaveProperty("createdDate");
+    expect(sanitizeLoadedBudgetBucket({ ...base, status: "closed", closedDate: "2026-08-01", createdDate: "2026-07-01" })?.createdDate).toBe("2026-07-01");
   });
 });
 

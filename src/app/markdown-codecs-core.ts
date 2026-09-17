@@ -45,6 +45,7 @@ import { EXPORT_SECTION_KEYS } from "./settings-types";
 import { type Workspace, sanitizeProjectStatus } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
 import type { ActivityEntry } from "./activity-log";
+import { sanitizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
 import {
   type ImportDiag,
   type ImportSectionKey,
@@ -334,6 +335,23 @@ export function markdownToActivityLog(md: string): ActivityEntry[] | undefined {
     // pass needed, unlike markdownToDocuments above.
     const log = sanitizeActivityLog(JSON.parse(m[1]));
     return log.length ? log : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Budget history — meta-blob sibling of the activity log above: the same
+ *  fenced json blob, STORAGE-ONLY behind the same `config === undefined` gate. */
+export function budgetHistoryToMarkdown(history: readonly BudgetHistoryEntry[]): string {
+  return ["## Budget History", "", "```json", JSON.stringify(history, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToBudgetHistory(md: string): BudgetHistoryEntry[] | undefined {
+  const found = /## Budget History\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
+  if (!found) return undefined;
+  try {
+    const history = sanitizeBudgetHistory(JSON.parse(found[1]));
+    return history.length ? history : undefined;
   } catch {
     return undefined;
   }
@@ -721,6 +739,10 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // as it did before the field existed (the golden fixtures pin those bytes).
   if (config === undefined && ws.activityLog && ws.activityLog.length)
     mdParts.push(activityLogToMarkdown(ws.activityLog));
+  // Budget history — STORAGE-ONLY, same gate, emitted last so a history-less
+  // workspace keeps its bytes (golden fixtures).
+  if (config === undefined && ws.budgetHistory && ws.budgetHistory.length)
+    mdParts.push(budgetHistoryToMarkdown(ws.budgetHistory));
   const out = mdParts.join("\n");
   return out;
 }

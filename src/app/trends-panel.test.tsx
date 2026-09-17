@@ -25,7 +25,7 @@ function snap(id: string, bucket: string, over: Partial<SnapshotRecord> = {}): S
     id, capturedAt: id, bucket, cadence: "weekly", trigger: "auto", isBaseline: false,
     remainingHours: 50, remainingCost: 5000, pctComplete: 40, forecastEndDate: "2026-09-01",
     planEndDate: "2026-07-31", spi: 0.9, cpi: 1.0, overallRag: "A", scheduleRag: "R",
-    budgetRag: "A", scopeRag: "", currency: "EUR", milestones: [], series: [], ...over,
+    budgetRag: "A", scopeRag: "", milestones: [], series: [], bucketProgress: [], ...over,
   };
 }
 const variance: VarianceRow[] = [
@@ -204,35 +204,22 @@ describe("TrendsPanel", () => {
   });
 });
 
-// ★★ `SnapshotRecord.currency` is the ONLY reader of the `currency` that
-// `task-manager.tsx` puts into the snapshot `buildContext` payload, and it is
-// set from `plan.currency`. What it labels here is `remainingCost`, which
-// `buildSnapshot` takes from `model.burndown.actualRemainingValue` — the budget
-// engine's series, built as `budgetHours × role.rates.external` and converted
-// NOWHERE. The engine's money unit is EUR, so the figure is EUR whatever
-// `plan.currency` says. Narrowing that field to the `BudgetCurrency` union did
-// NOT make it safe to label with: the union still admits `USD`/`GBP`, so it
-// states the plan's base currency, never the unit of an unconverted engine
-// figure (docs/open-followups.md §465).
-// ★ Fixed at the READER rather than at the writer on purpose: snapshots already
-// persisted carry a non-EUR `currency`, and only a fix here relabels those too.
-// ★★ THE ADVERSARIAL INPUT MOVED, and it is not the one the defect was found
-// on. The `latest` prop that carried the currency was dropped in the same
-// change (this was its only reader, and an unused interface member is
-// invisible to both tsc and eslint), so no fixture can reach the panel that
-// way any more. What remains is `snapshots`, whose records each still carry a
-// `currency` field — the one plausible way someone re-wires a per-snapshot
-// currency back in. Seeding THOSE with USD is what keeps this test able to
-// fail; the original pre-fix failure (`['$0','$2,500','$5,000']`) was measured
-// on the `latest` fixture, which no longer exists.
+// ★ The panel's `currency` is a hardcoded "EUR": what it labels is
+// `remainingCost`, which `buildSnapshot` takes from
+// `model.burndown.actualRemainingValue` — the budget engine's series, built as
+// `budgetHours × role.rates.external` and converted NOWHERE, so the figure is
+// EUR regardless of any project-level currency setting (docs/open-followups.md
+// §465). `SnapshotRecord` no longer carries a `currency` field to mislabel
+// with (§469) and `TrendsPanelProps` never took one, so this test now pins
+// only the label itself, not an absence of a per-snapshot override.
 describe("TrendsPanel currency labelling", () => {
-  it("labels the remaining-cost trend in EUR even when the snapshots name another currency", () => {
+  it("labels the remaining-cost trend in EUR", () => {
     renderPanel(
       <TrendsPanel
         {...base}
         snapshots={[
-          snap("2026-05-25T00:00:00.000Z", "2026-W22", { isBaseline: true, currency: "USD" }),
-          snap("2026-06-10T00:00:00.000Z", "2026-W24", { currency: "USD" }),
+          snap("2026-05-25T00:00:00.000Z", "2026-W22", { isBaseline: true }),
+          snap("2026-06-10T00:00:00.000Z", "2026-W24"),
         ]}
       />,
     );

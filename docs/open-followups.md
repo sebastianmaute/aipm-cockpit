@@ -691,7 +691,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§466](#466-help-promises-a-burn-down-forecast-that-the-chart-does-not-draw--closed-2026-09-13) | Help promises a burn-down forecast that the chart does not draw — CLOSED 2026-09-13 | found 2026-09-11 by the same read-only code check (issue #78) | S — two strings, EN and DE together | **CLOSED** 2026-09-13 |
 | [§467](#467-fields-the-offered-surface-sweeps-typed-probes-cannot-measure--open) | Fields the offered-surface sweep's typed probes cannot measure — OPEN | found 2026-09-11 by the typed-probe slice's first measured run | S per field — a probe shape or a column decision each | open |
 | [§468](#468-pdf-export-opens-a-window-that-never-prints-in-the-desktop-app--open) | PDF export opens a window that never prints in the desktop app — OPEN | found 2026-09-12 by cold review of the desktop print-route commit `252fbca7`, which fixed the in-pane Print button and overstated its scope | M — a main-process print route (`webContents.printToPDF` or a print handler on the opened window), then a decision about whether the three PDF surfaces still open a tab at all | open |
-| [§469](#469-snapshotrecordcurrency-is-written-on-every-capture-and-read-by-nothing--open) | `SnapshotRecord.currency` is written on every capture and read by nothing — OPEN | found 2026-09-12 by the currency-boundary slice's closing pass over §465, and independently by two of its reviewers | S-M — the work is the decision: delete the field (one Turso table's DDL, encode and decode — NOT the six workspace write paths) or normalise it to EUR at the writer | open |
+| [§469](#469-snapshotrecordcurrency-is-written-on-every-capture-and-read-by-nothing--closed-2026-09-16) | `SnapshotRecord.currency` is written on every capture and read by nothing — CLOSED 2026-09-16 | feat/ev-history-scope-attribution | S-M — deleted the field, its writer, column list entry, encode and decode; the DDL column stays until §551 | closed |
 | [§470](#470-the-indexeddb-load-path-sanitizes-the-plans-currency-and-nothing-else--open) | The IndexedDB load path sanitizes the plan's currency and nothing else — OPEN | found 2026-09-12 while closing §465, from `d4fa68c3`'s deliberately narrow currency-only coercion | M — not the edit but a per-field decision about whether an IndexedDB load should repair a malformed stored plan, plus tests for whichever of the four behaviours change | open |
 | [§471](#471-the-fx-override-fields-advertised-minimum-rounds-to-zero-and-is-then-refused--closed-2026-09-13) | The FX-override field's advertised minimum rounds to zero and is then refused — CLOSED 2026-09-13 | found 2026-09-12 by a reviewer reading the bucket modal during the currency-boundary slice; pre-existing | XS-S — align the input's `min`/`step` with the blur handler's `round`; deciding which precision an FX override carries is the only real question | **CLOSED** 2026-09-13 |
 | [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--closed-2026-09-13) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture — CLOSED 2026-09-13 | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | **CLOSED** 2026-09-13 |
@@ -771,8 +771,15 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§546](#546-a-dated-timelog-applys-other-granularity-delete-removes-hand-typed-hours-from-days-it-never-routed-and-the-confirm-dialog-never-discloses-it--open) | A dated TimeLog Apply's other-granularity delete removes hand-typed hours from days it never routed, and the confirm dialog never discloses it — OPEN | found 2026-09-15 while filing the §543 closure text on `feat/budget-forecast-figures`; user approved filing | S — list the removed other-granularity key in the confirm dialog; re-keying the leftover hours is not sound, since the lump sum has no day-level breakdown | open |
 | [§547](#547-the-desktop-sign-in-popups-state-machine-has-no-unit-harness--open) | The desktop sign-in popup's state machine has no unit harness — OPEN | final review of `chore/electron-44` (M-7 + item 2 recommendation), state bugs M-C/m1/m2 found only by review; GitLab #338 | S–M — a pure `auth-flow-tracker.ts` reducer plus tests replaying the M-C/m1/m2 sequences | open |
 | [§548](#548-an-edit-made-during-a-projects-first-backend-load-is-overwritten-when-that-load-lands--open) | An edit made during a project's first backend load is overwritten when that load lands — OPEN | found 2026-09-15 debugging a `task-manager.template-notice.test.tsx` race on `chore/electron-44`; GitLab #336 | S–M — withhold edits until the first load lands, or make the load-time guard compare per slice | open |
-| [§549](#549-buckets-with-a-hand-entered--complete-have-no-earned-value-history-so-the-cumulative-chart-cannot-draw-one-for-them--open) | Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — OPEN | deferred 2026-09-15 by the forecast chart and hours addendum (MR 3), user approved filing; GitLab #339 | M — record % complete per period for hand-entered buckets | open |
+| [§549](#549-buckets-with-a-hand-entered--complete-have-no-earned-value-history-so-the-cumulative-chart-cannot-draw-one-for-them--closed-2026-09-16) | Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — CLOSED 2026-09-16 | deferred 2026-09-15 by the forecast chart and hours addendum (MR 3), user approved filing; GitLab #339 | M — record % complete per period for hand-entered buckets | closed |
 | [§550](#550-closing-a-bucket-with-a-successor-inflates-project-budget-at-completion-by-the-unconsumed-remainder--closed-2026-09-16) | Closing a bucket with a successor inflates project budget at completion by the unconsumed remainder — CLOSED 2026-09-16 | measured 2026-09-16 by probe while designing the earned-value history slice; GitLab #340 | S — sum own budget, not the spillover-inclusive reported budget, in the project rollup | closed |
+| [§551](#551-dropping-the-dead-snapshot-currency-column-is-unsafe-while-older-clients-can-still-write-it--open) | Dropping the dead snapshot currency column is unsafe while older clients can still write it — OPEN | deferred 2026-09-16 by the earned-value history slice (§4.4), user approved filing; GitLab #341 | S — enforce a minimum client version, then drop the column | open |
+| [§552](#552-the-earned-value-legend-advertises-a-solid-line-the-chart-may-not-draw--closed-2026-09-17) | The earned-value legend advertises a solid line the chart may not draw — CLOSED 2026-09-17 | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #342 | XS — gate the entry on a non-partial segment, mirroring the partial swatch | closed |
+| [§553](#553-budget-change-join-labels-hardcode-a-plus-sign-instead-of-formatting-a-signed-figure--closed-2026-09-17) | Budget-change join labels hardcode a plus sign instead of formatting a signed figure — CLOSED 2026-09-17 | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #343 | S — drop the sign from four strings in both dictionaries, format it with signedFigure | closed |
+| [§554](#554-the-budget-history-summary-picks-its-baseline-and-changes-by-array-position-not-by-date--closed-2026-09-17) | The budget-history summary picks its baseline and changes by array position, not by date — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #344 | S — order the entries before summarising, and decide which baseline wins | closed |
+| [§555](#555-the-next-actions-and-ai-dashboard-model-never-receives-recorded-budget-history--closed-2026-09-17) | The Next Actions and AI dashboard model never receives recorded budget history — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #345 | S — pass snapshots and budget history, or say why that model omits them | closed |
+| [§556](#556-the-earned-value-today-point-never-flags-a-partial-bucket-or-a-join--closed-2026-09-17) | The earned-value today point never flags a partial bucket or a join — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #346 | S — decide whether today's point may carry partial and join entries | closed |
+| [§557](#557-no-end-to-end-fixture-carries-budget-history-so-no-browser-run-renders-the-new-budget-surfaces--closed-2026-09-17) | No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #347 | M — seed budget history and bucket progress, then extend the axe and visual runs | closed |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -35951,23 +35958,10 @@ Unfixed, and deliberately so: the repair needs a main-process route (`webContent
 print handler installed on the opened window) plus a decision about whether the three surfaces keep
 producing an on-screen tab at all when a real PDF writer is available. Size M.
 
-## 469. `SnapshotRecord.currency` is written on every capture and read by nothing — OPEN
+## 469. `SnapshotRecord.currency` is written on every capture and read by nothing — CLOSED 2026-09-16
 
-**Status:** OPEN 2026-09-12 — established by reading the chain end to end, not by a run. Presence
-witnesses run 2026-09-12: `grep -c "currency: plan.currency" src/app/task-manager.tsx` → 1 (the sole
-writer), `grep -n "currency" src/app/snapshot.ts` → 4 (the field on `SnapshotRecord`, the builder's
-destructure, its write into the record, and the input type),
-`grep -n "currency" src/app/snapshot-schema.ts` → **4**, not 3 (the DDL column, the ordered COLUMN
-LIST, the encode, and the `r.currency || "EUR"` decode) and
-`grep -c 'const currency = "EUR"' src/app/trends-panel.tsx` → 1 (the reader, now a literal).
-★ COUNT CORRECTED 2026-09-12 (re-run, returns 4): the original said 3 and named only the DDL, the
-encode and the decode. The missed hit is the column list, and it is not a harmless omission — it is
-one of the four places the removal scoped at the bottom of this entry would have to change, so an
-undercounted witness understated the entry's own work by exactly the site most easily forgotten.
-Insert and DDL derive their column order from that list; edit one without the other and the encode
-writes a value into the wrong column with no error.
-
-**Work item:** #298
+**Status:** CLOSED 2026-09-16 by `feat/ev-history-scope-attribution`: the field, its writer, column
+list entry, encode and decode are removed; the DDL column stays until §551.
 
 The Trends remaining-cost mislabel (§465) was fixed at the READER rather than the writer, and
 deliberately so: snapshots already persisted in a Turso project carry a non-EUR `currency`, and only
@@ -38319,7 +38313,7 @@ AI dashboard snapshot (`ai-dashboard-snapshot.ts`) and every export carry none o
 planned renames the snapshot's `evm.spi` / `evm.cpi` become the effort indices without saying so.
 
 Fix shape: once MR 2 ships the forecast engine, add the forecast figures to the snapshot and the exports, and
-rename or document the snapshot's effort indices.
+rename or document the snapshot's effort indices. `forecastBundle.history.changes` is uncapped (`summarizeBudgetHistory`), so bound or summarise it before the forecast bundle enters the AI snapshot.
 
 MR 3 of that slice (`docs/superpowers/specs/2026-09-15-forecast-chart-hours-design.md`) adds an hours forecast and
 a rate-mix signal (average booked rate against the planned rate, and the role driving the difference) to the same
@@ -38465,13 +38459,14 @@ only whether the load is empty as a whole.
 Related: §284 (a different Turso load-time data-loss mechanism — a silently discarded meta-blob decode failure —
 closed 2026-08-29); §98 (the save-path analogue: `documents` invisible to the save-time data-loss guards).
 
-## 549. Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — OPEN
+## 549. Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — CLOSED 2026-09-16
 
-**Status:** OPEN 2026-09-15 — MR 3 derives earned-value history from task completion dates, all or nothing:
-`grep -n "manual-percent" src/app/budget-ev-history.ts` shows the unavailable state a hand-entered percent
-produces, and the chart then names those buckets instead of drawing a line.
-
-**Work item:** #339
+**Status:** CLOSED 2026-09-16 by `feat/ev-history-scope-attribution`: Stage 1 (this slice's spec,
+`docs/superpowers/specs/2026-09-16-earned-value-history-scope-attribution-design.md`) records each
+bucket's percent complete per period via Turso snapshots (`SnapshotRecord.bucketProgress`,
+`bucketProgressSeries`), and Stage 2's `computeEvHistory` (rule 1A′, `budget-ev-history.ts`) draws
+earned-value history for hand-entered buckets from those records — partial while unrecorded, complete
+once one lands.
 
 MR 3 of the budget forecast slice (`docs/superpowers/specs/2026-09-15-forecast-chart-hours-design.md`) shipped
 a per-period earned-value history for buckets whose percent complete comes from linked tasks: the history is
@@ -38525,3 +38520,161 @@ attributing budget changes to dated events: this inflation would have been attri
 surfaced as unexplained budget change.
 
 Related: §501, §504, §549.
+
+## 551. Dropping the dead snapshot currency column is unsafe while older clients can still write it — OPEN
+
+**Status:** OPEN 2026-09-16 — established by reading `appendStatements` in `snapshot-schema.ts` against the
+pipeline behaviour AGENTS.md records in its `idKind` bullet; never machine-verified. Deferred by the earned-value history slice
+(`docs/superpowers/specs/2026-09-16-earned-value-history-scope-attribution-design.md`, §4.4), user approved filing.
+
+**Work item:** #341
+
+That slice deletes `SnapshotRecord.currency` from the app (closing §469), but the `currency` column stays in every
+existing Turso `snapshot` table. Dropping the column is simple in itself: it is a plain nullable `TEXT` column with
+no index and no key. The risk is **older clients still writing to the same database**. A desktop build or an
+unreloaded browser tab from before the slice still sends an INSERT that names `currency`, and against a dropped
+column that statement fails. A libSQL pipeline batch does not abort on a failing statement, so
+`appendStatements` would commit the `snapshot_series` rows **without their `snapshot` row**, which leaves
+orphaned series data. That is worse than a failed capture.
+
+The drop is safe only with an enforceable guarantee that no client which writes the column can reach the database,
+for example a minimum client version recorded in the database and checked before any write. Waiting some number of
+releases is not a guarantee, because the desktop app can lag arbitrarily.
+
+Fix shape: add the guarantee, then drop the column with `ALTER TABLE snapshot DROP COLUMN currency` behind a PRAGMA
+check, as `turso-migrate.ts` does for its self-heal, and verify with the real statements against `node:sqlite`.
+
+Related: §465, §469.
+
+## 552. The earned-value legend advertises a solid line the chart may not draw — CLOSED 2026-09-17
+
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `BurndownChart` (`burndown-chart.tsx`) now renders the "Earned value" legend entry on `hasSolid` — some segment is not partial — beside the existing `hasPartial`, so an all-partial or empty segment list no longer advertises a solid line. Pinned by the "earned-value legend entries follow the drawn segments (§552)" describe block in `burndown-chart.test.tsx` (all-partial, empty, mixed). Verified by `npx vitest run src/app/burndown-chart.test.tsx --maxWorkers=1`.
+
+The "Earned value" legend entry is gated on `model.evSegments` being truthy. Its neighbours in the same
+block gate on what is actually drawn — `model.actual.length > 1` for the actual line, `hasPartial` for the
+partial EV swatch two lines below. That gap shows up two ways:
+
+- Every segment partial: the chart draws only the short-dash partial line, while the legend shows BOTH the
+  solid "Earned value" swatch and the partial one. The reader looks for a solid amber line that is not there.
+- `evSegments` as an EMPTY array is still truthy, so the legend entry renders with no EV line at all.
+
+Neither misleads about a NUMBER — the figures on the chart are right either way — which is why this was filed
+rather than fixed inside the slice that introduced it.
+
+Fix shape: gate the entry on some segment being non-partial, mirroring `hasPartial`. One predicate, no new
+UI and no i18n change. The alternative reading — that a legend is the chart's vocabulary rather than an
+inventory of drawn lines — is defensible, but it is not the reading the sibling entries already implement.
+
+Related: §553.
+
+## 553. Budget-change join labels hardcode a plus sign instead of formatting a signed figure — CLOSED 2026-09-17
+
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: the four join keys (`burndownEvJoinsHours`, `burndownEvJoinsEur`, `burndownEvJoinsHoursPlural`, `burndownEvJoinsEurPlural`) no longer carry a `+` in `i18n.ts` or `i18n.de.ts`, and `joinAmount` in `burndown-chart.tsx` passes its figure through `signedFigure`, so a positive join still reads `+` and a negative one reads a single `-`. `parseBucketProgress` is unchanged. Pinned by the negative-join cases (EN hours and EUR, and DE) in `burndown-chart.test.tsx`. Verified by `npx vitest run src/app/burndown-chart.test.tsx --maxWorkers=1`.
+
+The four join-label strings bake the sign into the copy — `burndownEvJoinsHours` is
+`"{0} joins (+{1} h)"`, and its Eur and plural siblings do the same. `parseBucketProgress`
+(`snapshot-schema.ts`) accepts any finite `pctComplete`, and `budget-ev-history.ts` uses that value
+directly, so a negative recorded percent reaches the label and renders a doubled sign: `+-EUR 500`.
+
+**Reachability is the reason this is filed rather than fixed.** The app's own UI cannot produce a negative
+percent; only a hand-edited or otherwise corrupted database row gets there. For every project the app itself
+writes, the labels are correct today.
+
+Fix shape: drop the `+` from all four strings in BOTH `i18n.ts` and `i18n.de.ts` and let `joinAmount`
+produce the sign through `signedFigure` (`forecast-format.ts`), which the same branch already made the
+single source of that rule. Eight strings, and the German file tolerates only a Node UTF-8 script anchored on
+`\r\n` — the cost is real and buys nothing visible until a corrupt row exists, so weigh it against leaving
+the label honest-but-ugly on data the app cannot create.
+
+Do NOT close this by clamping a negative `pctComplete` at the parse boundary: silently rewriting a stored
+value destroys the only signal that the row is corrupt.
+
+Related: §552.
+
+## 554. The budget-history summary picks its baseline and changes by array position, not by date — CLOSED 2026-09-17
+
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `summarizeBudgetHistory` (`budget-history.ts`)
+now calls `orderBudgetChanges` on the whole history BEFORE locating the baseline, so the earliest baseline wins
+and every change is attributed in `orderBudgetChanges` order — by `at`, falling back to `date` — rather than by array position. Pinned by three new cases in the
+`summarizeBudgetHistory` describe block of `budget-history.test.ts`. Verified by `npx vitest run src/app/budget-history.test.ts --maxWorkers=1`.
+
+`summarizeBudgetHistory` (`budget-history.ts`) takes the FIRST `baseline` entry by array position and
+attributes only the changes positioned AFTER it (`history.slice(i + 1)`). Array order is not a date order:
+`mergeBudgetHistories` unions previous-then-loaded entries by id, and `orderBudgetChanges`' own docstring says
+a second-device load can hand entries back out of chronological order. The display layer already orders on
+`at` before stepping a running figure — the summary, which feeds the variance split, does not.
+
+Two consequences, both established by reading, neither run:
+
+- A change positioned ahead of the first baseline is dropped from `attributed`, so its BAC movement lands in
+  the unexplained bucket instead of added scope.
+- When two devices each seeded their own baseline, the one that wins is whichever sits first in the array,
+  not the earlier one.
+
+**Reachability.** `recordBudgetChange` always seeds a baseline before the first change, so the app's own
+recorder never produces the first shape on one device. It needs a merged or sanitised array.
+
+Fix shape: sort with the same key `orderBudgetChanges` uses before locating the baseline, and state which
+baseline wins when there are several. Pin both with a merged fixture whose array order differs from its date
+order.
+
+## 555. The Next Actions and AI dashboard model never receives recorded budget history — CLOSED 2026-09-17
+
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `task-manager.tsx` now builds `dashboardModel` through the new `buildLiveDashboardInput` (`dashboard.ts`), which requires `budgetHistory` and passes recorded snapshots only while `trendsActive`; the snapshot `buildContext` passes `budgetHistory` too, and the comment above `dashboardModel` now names its real consumers and says the panel builds its own module-gated model. The fix changes no output today: none of the three consumers of `dashboardModel` reads `forecastBundle` — Next Actions reads only `budget` and `evm`, and the AI dashboard snapshot (`buildDashboardSnapshot`) and the meeting-report prompt (`buildMeetingReportPrompt`) carry no forecast figures (§545). The body's "the forecast bundle the AI sees" therefore overstated the defect; the fix removes a latent divergence for when §545 lands. Rulings: module gating was deliberately not copied (the Next Actions engine already skips a provider whose `moduleId` is disabled), and `disciplines`/`grades` were left out because they feed only `forecastBundle.mix`. The `buildLiveDashboardInput` block in `dashboard.test.ts` pins the helper only; the call site is pinned only by the helper's required `budgetHistory` type. Verified by `npx vitest run src/app/dashboard.test.ts --maxWorkers=1`.
+
+`task-manager.tsx` builds `dashboardModel` with `buildDashboardInput` but passes neither `snapshots` nor
+`budgetHistory`, so both default to `[]`. That model feeds Next Actions and BOTH `getDashboardModel`
+handlers the AI assistant reads. The dashboard panel builds its OWN model (`dashboard-panel.tsx`) and does
+pass both. So the forecast bundle the AI sees has no recorded budget history and no earned-value progress for
+hand-entered buckets, while the dashboard the user looks at has both.
+
+The comment above `dashboardModel` makes this worse: it says the model is memoised "so nextActions and the
+dashboard panel share one computation". The panel does not consume it. That sentence dates from the commit
+that wired the Action Center, so it was false before the earned-value branch — the branch widened the gap by
+giving only the panel's model the two new inputs. The same file's snapshot `buildContext` omits them too.
+
+Established by reading every `computeDashboard` call site, not by running.
+
+Fix shape: either pass `snapshots` and `budgetHistory` into the render-scope model, or state why the AI's
+model deliberately omits them. Correct the comment either way. The panel also applies module gating that this
+model does not — decide whether that divergence is intended while there.
+
+## 556. The earned-value today point never flags a partial bucket or a join — CLOSED 2026-09-17
+
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `computeEvHistory` (`budget-ev-history.ts`) no longer suppresses `partial` and `joins` on today's point, so a bucket with no current percent is listed there and a bucket first known today is a join; today's value still comes from `bucketPercentComplete`, which, like the forecast, ignores `startDate`; today's `partial` names the same buckets as the forecast's `bucketsMissingPercent` (the forecast then withholds EV), and whenever the forecast has an EV the line ends exactly on it. The chart needed no change: `buildChartModel` already dashes a partial final segment, captions its bucket and labels a final-point join, now pinned by `budget-ev-history.test.ts` ("(5)" and "(R3)"), `burndown-geometry.test.ts` and `burndown-chart.test.tsx`. Verified by `npx vitest run src/app/budget-ev-history.test.ts --maxWorkers=1`.
+
+`budget-ev-history.ts` computes the last point with `bucketPercentComplete` so the line ends exactly on the
+forecast's earned value, and its docstring states that point is "never partial and never a join". The code
+enforces that with `!isToday` on both lists. Two consequences, established by reading:
+
+- **Partial.** A bucket with no current percent contributes 0 to today's point with no `partial` entry. The
+  availability guard only trips when EVERY tracked bucket is unknown today, so with one bucket unknown and
+  another known, today's figure silently omits the first.
+- **Join.** A bucket whose first known value is today steps into the last segment with no join label — the
+  sudden-delivery reading that joins exist to prevent on every earlier point.
+
+Neither is wrong about the NUMBER: the forecast's own EV treats an unknown bucket the same way, so the line
+and the card agree. What is missing is the disclosure.
+
+Fix shape: allow today's point to carry `partial` and `joins` while keeping its value on the forecast's
+EV, then make sure the geometry and the chart caption handle a partial final point.
+
+## 557. No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — CLOSED 2026-09-17
+
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `e2e/seed.ts` now authors a `budgetHistory` slice (a baseline, then a create, an increase and a delete) and maps its IndexedDB kv key. Which browser run renders which surface: the change table and its split rows are rendered by the Reports axe scans (default burn-down orientation), by `seed-content.spec.ts` (three rows, the "removed" label, a non-zero unexplained figure) and by the new `visual: Reports budget history (cumulative)` snapshot; the stepped budget line and its markers draw only in the cumulative orientation and are rendered by `seed-content.spec.ts` (through the chart's accessible name), by the new `a11y: harbor-light — Reports (budget chart, cumulative)` scan and by the same snapshot. The Dashboard burn tile is compact (no table) and burn-down (no steps), so no Dashboard run shows either. The seeded table surfaced a real axe violation (`scrollable-region-focusable`, serious, all seven Reports combos), fixed by making `BudgetChangeTable`'s scroll wrapper a focusable region named by its caption, with a `focus-visible` ring, pinned in `budget-change-table.test.tsx`. Correction to the body below: the file-mode seed DOES render a partial earned-value span (buckets with no recorded progress, captioned "… not recorded", visible in the new snapshot). What it cannot reach is snapshot-recorded bucket progress, which is Turso-only and remains an eye-verify on a real Turso project. Verified by `npx vitest run src/app/budget-change-table.test.tsx --maxWorkers=1`, `npx playwright test e2e/seed-content.spec.ts --project=chromium --workers=1`, `npx playwright test e2e/a11y.spec.ts --project=chromium --workers=1 -g "Reports"` and `npx playwright test e2e/visual.spec.ts --project=visual --workers=1 -g "Reports budget history"`.
+
+Neither `e2e/seed.ts` nor `sample-workspace-small.json` carries `budgetHistory`. Without it the stepped
+budget line, its markers, the change table and the variance split rows never render in any Playwright run.
+The axe gate, the visual baselines and the e2e smoke therefore say nothing about them; their only coverage is
+the unit suite, which cannot see layout, contrast or duplicate accessible names.
+
+`budget-report` is already in `DEFAULT_EXTRA_REPORTS`, so the Reports axe scan very likely reaches the
+block itself — the gap is the missing data, not the missing view. The earned-value partial span has the same
+problem: it needs snapshot bucket progress, and snapshots are Turso-only, so the file-mode seed cannot reach
+it at all.
+
+Established by reading the seed, the sample and `e2e/a11y.spec.ts`; not run.
+
+Fix shape: seed a baseline plus create, increase and delete entries (in `e2e/seed.ts` rather than the sample
+master, if the sample should stay free of history), re-baseline the affected visual specs, and confirm the
+axe scan renders the change table. Leave the Turso-only span to an eye-verify.

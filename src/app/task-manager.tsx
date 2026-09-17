@@ -99,7 +99,7 @@ import { useSnapshots } from "./use-snapshots";
 import { useVersionHistory } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
-import { buildDashboardInput, computeDashboard } from "./dashboard";
+import { buildLiveDashboardInput, computeDashboard } from "./dashboard";
 import { CORE_INSIGHT_TYPES, detectInsights, type InsightInput } from "./insights/detect";
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
 import type { Insight, InsightType } from "./insights/insight";
@@ -316,6 +316,8 @@ function TaskManagerInner() {
     project,
     setProject,
     setFeatures,
+    budgetHistory,
+    setBudgetHistory,
   } = useWorkspace();
 
   // Mirror the active project's per-project `Workspace.features` into the
@@ -633,18 +635,22 @@ function TaskManagerInner() {
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
     today: new Date(),
     buildContext: () => {
+      // No snapshots here: a capture (`buildSnapshot`) reads only the model's burndown, progress,
+      // EVM and RAGs, none of which depend on them — and the list is this `useSnapshots` call's own
+      // return value, so passing it would need a self-reference.
       const model = computeDashboard(
-        buildDashboardInput(
-          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes },
+        buildLiveDashboardInput(
+          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory },
           { workdayHours: settings.resources.workdayHours, holidaySet, status, activity: activityLog, today },
+          null,
         ),
       );
       return {
         model,
         tasks,
         milestones,
+        buckets: budgets,
         planEndDate: plan.endDate,
-        currency: plan.currency,
       };
     },
     onError: (err) => {
@@ -870,17 +876,22 @@ function TaskManagerInner() {
     flags: { stakeholdersEnabled, milestonesEnabled, raidEnabled, changesEnabled },
   });
 
-  // Render-scope dashboard model — same args as the snapshot buildContext above,
-  // but memoized so nextActions and the dashboard panel share one computation.
+  // Render-scope dashboard model, read by Next Actions (`buildActionInput`'s `dashboard`), both
+  // `getDashboardModel` handlers (the AI assistant's dashboard snapshot and the meeting report) —
+  // NOT by the dashboard panel, which builds its own module-gated model and also passes `disciplines`/`grades`.
+  // Unlike the snapshot buildContext above it also passes the recorded snapshots, behind the
+  // same `trendsActive` gate the panel's `tursoActive` prop carries.
+  const snapshotRecords = snapshots.snapshots;
   const dashboardModel = useMemo(
     () =>
       computeDashboard(
-        buildDashboardInput(
-          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes },
+        buildLiveDashboardInput(
+          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory },
           { workdayHours: settings.resources.workdayHours, holidaySet, status, activity: activityLog, today },
+          { active: trendsActive, snapshots: snapshotRecords },
         ),
       ),
-    [tasks, raid, budgets, plan, roles, resources, absences, fxRates, settings.resources.workdayHours, holidaySet, status, activityLog, today, milestones, changes],
+    [tasks, raid, budgets, plan, roles, resources, absences, fxRates, settings.resources.workdayHours, holidaySet, status, activityLog, today, milestones, changes, budgetHistory, trendsActive, snapshotRecords],
   );
 
   // --- Insights → Action Loop (#6B SP1) --------------------------------------
@@ -1309,7 +1320,7 @@ function TaskManagerInner() {
   // set mirrors `applyRestoredWorkspace` below — capture and restore must agree or a
   // restore blanks what the capture never carried. NOT the save/export set in
   // `use-storage-backend.ts` (which also carries fieldVisibility, features,
-  // documentAssets, activityLog). Placed after the stakeholders hook for scope.
+  // documentAssets, activityLog, budgetHistory). Placed after the stakeholders hook for scope.
   // ★★ `documentAssets` is DELIBERATELY not captured — the decision, its two reasons and its user-visible consequence are recorded in docs/AGENTS/documents.md, "Asset images (S3c-1)" (open-followups §254); pinned by "captures documents but not documentAssets".
   const getVersionPayload = useCallback(
     () => workspaceToJson({
@@ -1329,6 +1340,10 @@ function TaskManagerInner() {
   // ★★ `activityLog` is DELIBERATELY MISSING, and missing STRUCTURALLY: no `setActivityLog` binding exists
   // in this file, so the blanking line cannot be written without first bringing a setter into scope. Why —
   // and what still differs between the two funnels — is in `docs/AGENTS/activity-log.md`, not AGENTS.md.
+  // ★★ `budgetHistory` is DELIBERATELY MISSING here too, but no longer for the STRUCTURAL reason above —
+  // `setBudgetHistory` is now in scope. The budget commit boundary is the series' only writer; undo and
+  // version restore do not go through it, so a restore's BAC movement surfaces as unattributed variance
+  // instead, and a restore never blanks the recorded series either.
   const applyRestoredWorkspace = useCallback((w: Workspace) => {
     setTasks(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? [])); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
@@ -1634,7 +1649,21 @@ function TaskManagerInner() {
     },
     [setTasks],
   );
-  const { commitBuckets } = useBudgetBuckets({ budgets, setBudgets, allowDestructiveSave, capture: undoApi.capture, captureComposite: undoApi.captureComposite, logActivity: logActivityUser });
+  const { commitBuckets } = useBudgetBuckets({
+    budgets, setBudgets, allowDestructiveSave, capture: undoApi.capture, captureComposite: undoApi.captureComposite, logActivity: logActivityUser,
+    // The bare `[]` for `tasks` is deliberate: `computeBudgetReport` only reads `tasks` to derive
+    // each bucket's `pctComplete` (`budget-report.ts`, `bucketPercentComplete`) — it plays no part
+    // in `ownBudget.budgetHours`/`ownBudget.budgetValue`, which is all `project.budgetHours` and
+    // `project.budgetValue` below sum. This is also the series' ONLY writer (`setBudgetHistory`
+    // above), so a future BAC term that DOES depend on tasks would have to revisit this call, not
+    // just the report engine.
+    projectBac: (bs) => {
+      const p = computeBudgetReport(bs, plan, roles, resources, settings.resources.workdayHours, holidaySet, absences, [], fxRates).project;
+      return { hours: p.budgetHours, value: p.budgetValue };
+    },
+    setBudgetHistory,
+    today,
+  });
   const editorBuffer = useTaskEditorBuffer({ applyRaid: applyRaidFromTask, applyLink: applyLinkFromTask });
   const { flush: flushEditorBuffer, discard: discardEditorBuffer, stageRaid: stageEditorRaid, stageLink: stageEditorLink } = editorBuffer;
   const { budgetLink, onTaskCreated: onTaskCreatedWithBucket, onEditorDiscard: onEditorDiscardWithBucket } = useTaskBudgetLink({ enabled: isModuleEnabled("budget", settings.features), budgets, editingId, commitBuckets, flushEditorBuffer, discardEditorBuffer });

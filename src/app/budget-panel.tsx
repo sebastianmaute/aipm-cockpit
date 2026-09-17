@@ -127,10 +127,11 @@ function nextBucketId(buckets: readonly BudgetBucket[]): number {
   return mintId("budgetBucket", buckets);
 }
 
-function blankBucket(id: number, plan: ResourcePlan): BudgetBucket {
+function blankBucket(id: number, plan: ResourcePlan, today: string): BudgetBucket {
   return {
     id, name: `Bucket ${id}`, type: "tm", currency: "EUR",
     startDate: plan.startDate, endDate: plan.endDate, status: "open", allocations: [],
+    createdDate: today,
   };
 }
 
@@ -255,7 +256,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
 
   const addBucket = () => {
     const id = nextBucketId(buckets);
-    const fresh = blankBucket(id, plan);
+    const fresh = blankBucket(id, plan, today);
     props.onChangeBuckets([...buckets, fresh], { kind: "budget.created", name: fresh.name });
     setEditingBucketId(id);
   };

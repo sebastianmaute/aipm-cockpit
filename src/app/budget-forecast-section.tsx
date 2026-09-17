@@ -14,7 +14,7 @@ import { RateMixDetails } from "./budget-rate-mix-details";
 export function ForecastSection({ lang, bundle, granularity }: { lang: Lang; bundle: ForecastBundle; granularity: PlanGranularity }) {
   const [mixOpen, setMixOpen] = useState(false);
   const [focusNonce, setFocusNonce] = useState(0);
-  const { eur, hours, mix } = bundle;
+  const { eur, hours, mix, history } = bundle;
   const showMix = () => {
     setMixOpen(true);
     setFocusNonce((n) => n + 1);
@@ -25,7 +25,7 @@ export function ForecastSection({ lang, bundle, granularity }: { lang: Lang; bun
       {mix ? (
         <RateMixDetails lang={lang} mix={mix} eur={eur} hours={hours} open={mixOpen} onToggle={setMixOpen} focusNonce={focusNonce} />
       ) : null}
-      <ForecastCards lang={lang} forecast={eur} hours={hours} mix={mix} />
+      <ForecastCards lang={lang} forecast={eur} hours={hours} mix={mix} history={history} />
     </div>
   );
 }

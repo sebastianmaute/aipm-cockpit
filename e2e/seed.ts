@@ -245,6 +245,52 @@ const SEED_WORKSPACE: Record<string, unknown> = {
       firstSeenAt: "2026-06-03T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 1,
     },
   ],
+  // ★★ e2e-only recorded budget history (docs/open-followups.md §557). Without it
+  // no Playwright run renders the stepped budget line, its change markers, the
+  // Reports "Budget changes" table or the variance split rows under it, so the
+  // axe gate and the visual baselines said nothing about any of them. Kept out
+  // of the sample master for the same golden-fixture reason as `insights`.
+  // ★ Shape: one `baseline`, then a create, an increase and a delete, all dated
+  // inside the plan window (2026-04-01 … 2026-07-31) and before FROZEN_NOW, one
+  // per month so each change gets its own chart marker (the chart groups markers
+  // by plan period). Each running BAC is the previous one plus its delta, which
+  // is the invariant `recordBudgetChange` writes. The final 1400 h / €262,000
+  // deliberately differs from today's own-basis BAC (1440 h / €264,927.27 at the
+  // time of writing), so the split rows show a non-zero "unexplained" part
+  // (seed-content.spec.ts asserts that figure is not zero). The probe below
+  // passes `[]` for tasks exactly as `BudgetReportPanel` does, the default 8 h
+  // workday, and an EMPTY holiday set, where the app passes its configured one.
+  // ★ Buckets 3 and 4 are real buckets of the master; 9201 names a bucket that
+  // no longer exists, which is what a `deleted` entry means. Every row must pass
+  // `sanitizeBudgetHistory` (budget-history.ts) or it is dropped on load.
+  // Re-measure today's BAC (vite-node takes files only):
+  //   printf '%s' 'import {readFileSync} from "node:fs"; import {computeBudgetReport} from "./src/app/budget-report";
+  //   const m=JSON.parse(readFileSync("sample-workspace-small.json","utf8"));
+  //   const r=computeBudgetReport(m.budgets,m.plan,m.roles,m.resources,8,new Set(),m.absences,[],m.fxRates);
+  //   console.log(r.project.budgetHours, r.project.budgetValue);' > probe.tmp.ts
+  //   npx vite-node probe.tmp.ts && rm probe.tmp.ts
+  budgetHistory: [
+    {
+      id: "e2e-bh-1", at: "2026-04-06T09:00:00.000Z", date: "2026-04-06", kind: "baseline",
+      bucketId: null, bucketName: "",
+      projectBacHours: 1200, projectBacValue: 220000, deltaHours: 0, deltaValue: 0,
+    },
+    {
+      id: "e2e-bh-2", at: "2026-04-20T09:00:00.000Z", date: "2026-04-20", kind: "created",
+      bucketId: 3, bucketName: "Capped SOW (rate override)",
+      projectBacHours: 1360, projectBacValue: 244000, deltaHours: 160, deltaValue: 24000,
+    },
+    {
+      id: "e2e-bh-3", at: "2026-05-11T09:00:00.000Z", date: "2026-05-11", kind: "updated",
+      bucketId: 4, bucketName: "Data Migration (fixed price)",
+      projectBacHours: 1480, projectBacValue: 274000, deltaHours: 120, deltaValue: 30000,
+    },
+    {
+      id: "e2e-bh-4", at: "2026-06-01T09:00:00.000Z", date: "2026-06-01", kind: "deleted",
+      bucketId: 9201, bucketName: "Pilot Workshop",
+      projectBacHours: 1400, projectBacValue: 262000, deltaHours: -80, deltaValue: -12000,
+    },
+  ],
   // ★★★ NEITHER TABLE REACHES THE axe SCAN ANY MORE, and this comment used to say
   // the Projects one did. 0.245.0 gated timelog-panel.tsx on `cfg.enabled`,
   // returning `TimelogNotConfigured` when the integration is off — and nothing
@@ -352,6 +398,12 @@ function seedIndexedDb(ws: Record<string, unknown>): Promise<void> {
     // authored above is silently dropped and every seeded image renders its
     // missing-asset marker no matter what the byte store says.
     documentAssets: "documentAssets",
+    // ★ Checked against KV_BUDGET_HISTORY_KEY, per the same rule. Without this
+    // row the `budgetHistory` slice above is dropped and no budget-history
+    // surface renders (§557). The dated "TEN optional slices" above predates
+    // three keys (activity log, document assets and this one); list today's with
+    //   grep -n "^const KV_.*_KEY" src/app/browser-backend.ts
+    budgetHistory: "budgetHistory",
   };
   return new Promise((resolve, reject) => {
     // ★ The version is hardcoded here but derived from IDB_VERSION in idb.ts.

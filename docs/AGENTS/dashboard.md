@@ -151,6 +151,21 @@ override). The model carries `forecastBundle` (€ and hours forecasts, rate mix
 € only. When the rate mix triggers, `ForecastHeadline` adds a `RateMixChip` under the headline; the tile
 body scrolls inside the tile at `h: 3` as before.
 
+★ **Chart/table split and EV availability (§549):** `BurndownChartPanel`'s `compact` prop (always true here) suppresses
+the recorded-change table and its variance footer entirely — spec §5.2, "the dashboard tile shows the headline only",
+whose D7 names "tile carries the split too" as the rejected alternative. The chart, its BAC markers and the EV line all
+stay. ★★ The tile is too narrow to have carried the table anyway: at its DEFAULT width (`w: 1`) it is half the pane at
+`lg`'s 2-column grid and a quarter at `xl`'s 4-column grid (`arrangement-grid.tsx`), though a user may widen it up to
+`maxW: 2` (`dashboard-tiles.ts`), which is full pane width at `lg` (`col-span-2` there spans both columns) — and the
+panel's own `2xl:flex-row` breakpoint reads the VIEWPORT, not that box, so on a viewport of 1536px or wider it would have fired
+whatever the tile's own width was. `computeEvHistory` (`budget-ev-history.ts`) marks history
+unavailable only when at least one budgeted bucket exists and none has a known value AT TODAY: a bucket is unknown
+there when it has neither a hand-entered percent nor any resolvable task link (`bucketPercentComplete` returns null —
+no `taskIds` at all, or every linked task deleted). Its snapshot input (`bucketProgressSeries`) is Turso-only, so in a
+file-mode project a hand-entered bucket (it has no recorded progress there) is known-zero before its `startDate`
+(when it has one), partial from then (from the first point, without one) until today, and known at today's point from its current percent
+(`valueFn` in `budget-ev-history.ts`).
+
 ★★ **TWO CHROMIUM MEASUREMENTS FROM THIS BRANCH'S REVIEW, both about assertions that LOOK sufficient:**
 • `grid-auto-flow: row dense` COMPUTES as `"dense"`, not `"row dense"` — a `toHaveCSS("grid-auto-flow",
 "row dense")` would fail against correct code. The spec's `gridMetrics` still collects `autoFlow` but

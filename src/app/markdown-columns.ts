@@ -192,6 +192,7 @@ export const BUDGETS_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "successorId", label: "SuccessorId" },
   { col: "status", label: "Status" },
   { col: "closedDate", label: "Closed" },
+  { col: "createdDate", label: "Created" },
   { col: "fxRateOverride", label: "FxOverride" },
   { col: "allocations", label: "Allocations" },
   { col: "localModifiedAt", label: "LocalModified" },

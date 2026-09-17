@@ -82,6 +82,7 @@ const KV_CALENDAR_EVENTS_KEY = "calendarEvents";
 const KV_DOCUMENTS_KEY = "documents";
 const KV_DOCUMENT_VERSIONS_KEY = "documentVersions";
 const KV_ACTIVITY_LOG_KEY = "activityLog";
+const KV_BUDGET_HISTORY_KEY = "budgetHistory";
 const KV_DOCUMENT_ASSETS_KEY = "documentAssets";
 import {
   type StorageBackend,
@@ -90,6 +91,7 @@ import {
   migrateWorkspaceV10,
 } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
+import { sanitizeBudgetHistory } from "./budget-history";
 
 /**
  * Browser-local persistence backed by IndexedDB record stores (one row per
@@ -165,6 +167,7 @@ export class BrowserBackend implements StorageBackend {
     let documents: Workspace["documents"] | undefined;
     let documentVersions: Workspace["documentVersions"] | undefined;
     let activityLog: Workspace["activityLog"] | undefined;
+    let budgetHistory: Workspace["budgetHistory"] | undefined;
     let documentAssets: Workspace["documentAssets"] | undefined;
     try {
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
@@ -198,6 +201,7 @@ export class BrowserBackend implements StorageBackend {
         idbDocumentVersions,
         idbActivityLog,
         idbDocumentAssets,
+        idbBudgetHistory,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -227,6 +231,7 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_DOCUMENT_VERSIONS_KEY),
         idbGet(KV_ACTIVITY_LOG_KEY),
         idbGet(KV_DOCUMENT_ASSETS_KEY),
+        idbGet(KV_BUDGET_HISTORY_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
@@ -334,6 +339,11 @@ export class BrowserBackend implements StorageBackend {
         const log = sanitizeActivityLog(idbActivityLog);
         activityLog = log.length ? log : undefined;
       }
+      // Same optional-list shape for the budget history (never capped).
+      {
+        const history = sanitizeBudgetHistory(idbBudgetHistory);
+        budgetHistory = history.length ? history : undefined;
+      }
       // Optional list: garbage rows dropped individually (sanitizeDocumentAsset
       // never throws); junk/empty list sanitizes to [] → keep undefined.
       {
@@ -396,6 +406,7 @@ export class BrowserBackend implements StorageBackend {
     if (documents) raw.documents = documents;
     if (documentVersions) raw.documentVersions = documentVersions;
     if (activityLog) raw.activityLog = activityLog;
+    if (budgetHistory) raw.budgetHistory = budgetHistory;
     if (documentAssets) raw.documentAssets = documentAssets;
     const ws = migrateWorkspaceV10(raw);
 
@@ -557,6 +568,10 @@ export class BrowserBackend implements StorageBackend {
       ws.activityLog && ws.activityLog.length
         ? idbSet(KV_ACTIVITY_LOG_KEY, ws.activityLog)
         : idbDelete(KV_ACTIVITY_LOG_KEY),
+      // Delete-on-absent so a cleared budget history doesn't reload stale.
+      ws.budgetHistory && ws.budgetHistory.length
+        ? idbSet(KV_BUDGET_HISTORY_KEY, ws.budgetHistory)
+        : idbDelete(KV_BUDGET_HISTORY_KEY),
       // Delete-on-absent so a cleared asset list doesn't linger and reload stale.
       ws.documentAssets && ws.documentAssets.length
         ? idbSet(KV_DOCUMENT_ASSETS_KEY, ws.documentAssets)

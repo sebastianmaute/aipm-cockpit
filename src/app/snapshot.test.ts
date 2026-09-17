@@ -10,7 +10,7 @@ function snap(capturedAt: string, bucket: string): SnapshotRecord {
     isBaseline: false, remainingHours: null, remainingCost: null, pctComplete: 0,
     forecastEndDate: "", planEndDate: "", spi: null, cpi: null,
     overallRag: "", scheduleRag: "", budgetRag: "", scopeRag: "",
-    currency: "EUR", milestones: [], series: [],
+    milestones: [], series: [], bucketProgress: [],
   };
 }
 
@@ -131,9 +131,9 @@ describe("buildSnapshot", () => {
     recentActivity: [], narrative: { text: "" },
   } as unknown as DashboardModel;
 
-  it("captures effective RAGs, %complete, EVM indices, currency, and the last actual remaining", () => {
+  it("captures effective RAGs, %complete, EVM indices, and the last actual remaining", () => {
     const rec = buildSnapshot({
-      model, tasks: [], milestones: [], planEndDate: "2026-07-31", currency: "EUR",
+      model, tasks: [], milestones: [], planEndDate: "2026-07-31", buckets: [],
       capturedAt: "2026-06-03T09:00:00.000Z", cadence: "weekly", trigger: "manual",
     });
     expect(rec.id).toBe("2026-06-03T09:00:00.000Z");
@@ -145,7 +145,6 @@ describe("buildSnapshot", () => {
     expect(rec.scopeRag).toBe("");    // null -> ""
     expect(rec.spi).toBe(0.8);
     expect(rec.cpi).toBe(1.1);
-    expect(rec.currency).toBe("EUR");
     expect(rec.remainingHours).toBe(60); // last non-null actualRemainingHours
     expect(rec.remainingCost).toBe(6000);
     expect(rec.series).toHaveLength(2);
@@ -157,17 +156,35 @@ describe("buildSnapshot", () => {
     const t = { ...baseTask, id: 1, status: "Cancelled" as const, dueDate: "2027-12-31" };
     const milestones: Milestone[] = [{ id: 1, name: "M", date: "2026-09-01", linkedTaskIds: [1] }];
     const rec = buildSnapshot({
-      model, tasks: [t], milestones, planEndDate: "2026-07-31", currency: "EUR",
+      model, tasks: [t], milestones, planEndDate: "2026-07-31", buckets: [],
       capturedAt: "2026-06-03T09:00:00.000Z", cadence: "weekly", trigger: "manual",
     });
     expect(rec.milestones[0].forecast).toBe("2026-09-01");
     expect(rec.forecastEndDate).toBe("2026-09-01");
   });
 
+  it("records each bucket's percent complete, omitting buckets whose percent is unknown", () => {
+    const t1 = { ...baseTask, id: 1, status: "Done" as const };
+    const t2 = { ...baseTask, id: 2, status: "To Do" as const };
+    const rec = buildSnapshot({
+      model, tasks: [t1, t2], milestones: [], planEndDate: "2026-07-31",
+      buckets: [
+        { id: 1, percentComplete: 40 },
+        { id: 2, taskIds: [1, 2] },
+        { id: 3, taskIds: [] },
+      ],
+      capturedAt: "2026-06-03T09:00:00.000Z", cadence: "weekly", trigger: "manual",
+    });
+    expect(rec.bucketProgress).toEqual([
+      { bucketId: 1, pctComplete: 40 },
+      { bucketId: 2, pctComplete: 50 },
+    ]);
+  });
+
   it("yields null remaining + empty series when there is no burndown", () => {
     const rec = buildSnapshot({
       model: { ...model, burndown: null } as DashboardModel, tasks: [], milestones: [],
-      planEndDate: "2026-07-31", currency: "USD",
+      planEndDate: "2026-07-31", buckets: [],
       capturedAt: "2026-06-03T09:00:00.000Z", cadence: "weekly", trigger: "auto",
     });
     expect(rec.remainingHours).toBeNull();
@@ -182,7 +199,7 @@ function recWith(over: Partial<SnapshotRecord>): SnapshotRecord {
     isBaseline: false, remainingHours: 0, remainingCost: 0, pctComplete: 0,
     forecastEndDate: "2026-07-31", planEndDate: "2026-07-31", spi: null, cpi: null,
     overallRag: "", scheduleRag: "", budgetRag: "", scopeRag: "",
-    currency: "EUR", milestones: [], series: [], ...over,
+    milestones: [], series: [], bucketProgress: [], ...over,
   };
 }
 

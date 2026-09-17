@@ -297,6 +297,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
               today={model.chartDates.today}
               planEnd={model.chartDates.planEnd}
               currency={a.currency}
+              compact
             />
           </div>
         ) : null}

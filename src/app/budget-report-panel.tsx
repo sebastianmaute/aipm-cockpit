@@ -33,8 +33,11 @@ import { BurndownChainWarning } from "./budget-chain-warning";
 import { EmptyState } from "./empty-state";
 import { ViewCallout } from "./view-callout";
 import { computeForecastBundle } from "./budget-forecast-bundle";
+import { bucketProgressSeries } from "./budget-ev-history";
 import { ForecastFactsRow } from "./budget-forecast-facts";
 import { ForecastSection } from "./budget-forecast-section";
+import type { BudgetHistoryEntry } from "./budget-history";
+import type { SnapshotRecord } from "./snapshot";
 
 const DETAIL_COL_WIDTHS = {
   bucket: 160, mode: 90, type: 80, status: 80, currency: 110,
@@ -49,6 +52,11 @@ type DetailSortKey =
 // A `grades = []` destructuring default would mint a fresh array every render,
 // invalidating the bundle memo below on every render for no input change.
 const NO_GRADES: readonly Grade[] = [];
+// Same identity-stability reasoning for the `snapshots`/`budgetHistory` props:
+// an inline `[]` default in the destructure below would mint a fresh array
+// every render, invalidating the `progress`/`bundle` memos for no input change.
+const NO_SNAPSHOTS: readonly SnapshotRecord[] = [];
+const NO_BUDGET_HISTORY: readonly BudgetHistoryEntry[] = [];
 
 interface Props {
   lang: Lang;
@@ -68,11 +76,16 @@ interface Props {
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
+  /** Recorded snapshots, only when Turso trends are active — the source of
+   *  hand-entered buckets' earned-value history (`bucketProgressSeries`). */
+  snapshots?: readonly SnapshotRecord[];
+  /** The project's recorded budget-at-completion history (`useWorkspace()`). */
+  budgetHistory?: readonly BudgetHistoryEntry[];
 }
 
 export function BudgetReportPanel({
   lang, buckets, plan, roles, disciplines, grades = NO_GRADES, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
-  showHints, isPopout, onLearnMore,
+  showHints, isPopout, onLearnMore, snapshots = NO_SNAPSHOTS, budgetHistory = NO_BUDGET_HISTORY,
 }: Props) {
   // Hooks are called unconditionally before the empty-state early return (rules of hooks).
   const report = useMemo(
@@ -100,12 +113,14 @@ export function BudgetReportPanel({
     ),
     [buckets, plan, roles, resources, workdayHours, holidaySet, absences, today, fxRates, bucketChain],
   );
+  const progress = useMemo(() => bucketProgressSeries(snapshots), [snapshots]);
   const bundle = useMemo(
     () => computeForecastBundle({
       report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today,
       resources, workdayHours, absences, disciplines, grades,
+      progress, budgetHistory,
     }),
-    [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today, resources, workdayHours, absences, disciplines, grades],
+    [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today, resources, workdayHours, absences, disciplines, grades, progress, budgetHistory],
   );
   const forecast = bundle.eur;
   const { ref, reset } = useResizable("aipm-cockpit:budget-report-size");

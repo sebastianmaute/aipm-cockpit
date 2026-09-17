@@ -10,6 +10,7 @@ import { computeEvm, projectBlendedInternalRate, type EvmMetrics } from "./evm";
 import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
 import { isPaceAvailable, paceVacHealth, type BudgetForecast } from "./budget-forecast";
 import { computeForecastBundle, type ForecastBundle } from "./budget-forecast-bundle";
+import { bucketProgressSeries } from "./budget-ev-history";
 import { resolveBucketChain, type BucketChain } from "./budget-bucket-chain";
 import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
 import { isTaskClosed, isTaskDelivered, isTaskOutOfScope } from "./task-closed";
@@ -18,6 +19,8 @@ import type {
   Resource, ResourcePlan, Role, Task,
 } from "./types";
 import type { ActivityEntry } from "./activity-log";
+import type { SnapshotRecord } from "./snapshot";
+import type { BudgetHistoryEntry } from "./budget-history";
 
 export type SubStatus = Health | null;
 
@@ -319,6 +322,11 @@ export interface DashboardEntities {
   changes?: readonly ChangeItem[];
   disciplines?: readonly Discipline[];
   grades?: readonly Grade[];
+  /** Recorded snapshots, only when Turso trends are active — feeds
+   *  `bucketProgressSeries` for hand-entered buckets' earned-value history. */
+  snapshots?: readonly SnapshotRecord[];
+  /** The project's recorded budget-at-completion history (`useWorkspace().budgetHistory`). */
+  budgetHistory?: readonly BudgetHistoryEntry[];
 }
 
 /** The non-entity context (today/zone-derived date, settings-derived scalars,
@@ -355,12 +363,41 @@ export function buildDashboardInput(e: DashboardEntities, ctx: DashboardContext)
     changes: e.changes ?? [],
     disciplines: e.disciplines ?? [],
     grades: e.grades ?? [],
+    snapshots: e.snapshots ?? [],
+    budgetHistory: e.budgetHistory ?? [],
     workdayHours: ctx.workdayHours,
     holidaySet: ctx.holidaySet,
     status: ctx.status,
     activity: ctx.activity,
     today: ctx.today,
   };
+}
+
+const NO_SNAPSHOTS: readonly SnapshotRecord[] = [];
+
+/** Entities for `buildLiveDashboardInput`. `budgetHistory` is required so a
+ *  caller cannot drop it silently; `snapshots` arrives through the trends gate. */
+export type LiveDashboardEntities = Omit<DashboardEntities, "snapshots" | "budgetHistory"> & {
+  budgetHistory: readonly BudgetHistoryEntry[];
+};
+
+/** Input for the model task-manager builds for Next Actions, the AI assistant
+ *  and snapshot capture. It applies no module gating; the dashboard panel
+ *  builds its own, module-gated model, which also passes `disciplines` and
+ *  `grades`. Snapshots pass
+ *  through only while `trends.active`, the same Turso gate the panel applies;
+ *  `trends: null` means the caller has no snapshot list to offer. Every call
+ *  without active trends gets the same module-level empty `snapshots` array. */
+export function buildLiveDashboardInput(
+  e: LiveDashboardEntities,
+  ctx: DashboardContext,
+  trends: { active: boolean; snapshots: readonly SnapshotRecord[] } | null,
+): DashboardInput {
+  const { budgetHistory, ...rest } = e;
+  return buildDashboardInput(
+    { ...rest, budgetHistory, snapshots: trends?.active ? trends.snapshots : NO_SNAPSHOTS },
+    ctx,
+  );
 }
 
 export interface DashboardOptions {
@@ -412,6 +449,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
         tasks: input.tasks, plan: input.plan, burndown, holidaySet, today,
         resources: input.resources, workdayHours: input.workdayHours, absences: input.absences,
         disciplines: input.disciplines, grades: input.grades,
+        progress: bucketProgressSeries(input.snapshots), budgetHistory: input.budgetHistory,
       })
     : null;
   // The budget RAG and the tile headline stay € only (addendum §3.3).

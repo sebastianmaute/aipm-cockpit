@@ -11,6 +11,7 @@ import { emptyWorkspace, PROJECT_CSV_COLUMNS } from "./storage";
 import type { ProjectMeta } from "./types";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { ActivityEntry } from "./activity-log";
+import { recordBudgetChange } from "./budget-history";
 import type { Workspace } from "./workspace";
 
 function meta(): ProjectMeta {
@@ -271,6 +272,35 @@ describe("turso-tenant-schema — activityLog (meta KV, tenant path)", () => {
   });
 });
 
+describe("turso-tenant-schema — budgetHistory (meta KV, tenant path)", () => {
+  let n = 0;
+  const sampleHistory = recordBudgetChange([], {
+    kind: "deleted", bucketId: 4, bucketName: "Ops",
+    before: { hours: 80, value: 8000 }, after: { hours: 50, value: 5000 },
+    at: "2026-09-04T11:00:00.000Z", date: "2026-09-04", newId: () => `bh-${++n}`,
+  });
+  const findRow = (stmts: SqlStmt[]) =>
+    stmts.find((s) => s.sql.startsWith("INSERT INTO meta") && s.args?.some((a) => a.value === "budgetHistory"));
+
+  it("writes budgetHistory as a meta row on the tenant path", () => {
+    const row = findRow(tenantWorkspaceToStatements({ ...emptyWorkspace(), budgetHistory: sampleHistory }, "p1"));
+    expect(row).toBeDefined();
+    expect(row!.args!.some((a) => a.value === JSON.stringify(sampleHistory))).toBe(true);
+    expect(row!.args?.[row!.args.length - 1]).toEqual({ type: "text", value: "p1" });
+  });
+
+  it("omits the budgetHistory meta row when the history is empty on the tenant path", () => {
+    expect(findRow(tenantWorkspaceToStatements({ ...emptyWorkspace(), budgetHistory: [] }, "p1"))).toBeUndefined();
+  });
+
+  it("round-trips budgetHistory via rowsToWorkspace on the tenant path", () => {
+    const ws = { ...emptyWorkspace(), budgetHistory: sampleHistory };
+    const decoded = rowsToWorkspace(simulateSelect(tenantWorkspaceToStatements(ws, "p1")));
+    expect(decoded.budgetHistory).toHaveLength(2);
+    expect(decoded.budgetHistory).toEqual(sampleHistory);
+  });
+});
+
 describe("turso-tenant-schema — meta-key parity (class guard)", () => {
   // Build a workspace populated with every meta-blob slice both writers may
   // emit, so the emitted KEY SETS can be compared directly. We don't care
@@ -297,6 +327,7 @@ describe("turso-tenant-schema — meta-key parity (class guard)", () => {
       activityLog: [
         { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] },
       ],
+      budgetHistory: [{ id: "bh-1" }] as unknown as Workspace["budgetHistory"],
       settingsOverrides: { timezone: {} } as unknown as Workspace["settingsOverrides"],
     };
   }

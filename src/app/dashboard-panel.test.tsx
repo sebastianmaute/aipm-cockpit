@@ -9,6 +9,8 @@ import { RaidRegisterCard } from "./dashboard-sections/registers-band";
 import { t } from "./i18n";
 import * as dashboardModule from "./dashboard";
 import type { ActivityEntry } from "./activity-log";
+import type { SnapshotRecord } from "./snapshot";
+import type { BudgetHistoryEntry } from "./budget-history";
 import type { BudgetBucket, RaidItem, Milestone, ChangeItem } from "./types";
 import { expectButtonOrder } from "../test/toolbar-order";
 import { rateMixTileChipText, rateMixWhyName } from "./budget-rate-mix-text";
@@ -712,7 +714,7 @@ describe("DashboardPanel completion-trend card", () => {
       trigger: "manual" as const, isBaseline: false, remainingHours: null, remainingCost: null,
       pctComplete: pct, forecastEndDate: "2026-12-31", planEndDate: "2026-12-31",
       spi: null, cpi: null, overallRag: "" as const, scheduleRag: "" as const,
-      budgetRag: "" as const, scopeRag: "" as const, currency: "EUR", milestones: [], series: [],
+      budgetRag: "" as const, scopeRag: "" as const, milestones: [], series: [], bucketProgress: [],
     };
   }
 
@@ -1359,6 +1361,52 @@ describe("DashboardPanel activity log source (activity-log-workspace-data, task 
     // makes the assertion above non-vacuous (an empty `activity` would also
     // pass a bare "OLD is absent" check).
     expect(ctxArg.activity.some((e) => e.args.includes("OLD"))).toBe(false);
+  });
+});
+
+// Pins the wiring that feeds `computeForecastBundle`'s `progress`/`budgetHistory`
+// (via `buildDashboardInput`'s `snapshots`/`budgetHistory` entities): `snapshots`
+// only reaches it while Turso trends are active, `budgetHistory` always does.
+describe("DashboardPanel forecast bundle wiring (snapshots / budgetHistory)", () => {
+  function SeedBudgetHistory({ budgetHistory }: { budgetHistory: readonly BudgetHistoryEntry[] }) {
+    const { setBudgetHistory } = useWorkspace();
+    useEffect(() => {
+      setBudgetHistory(budgetHistory);
+    }, [budgetHistory, setBudgetHistory]);
+    return null;
+  }
+
+  const snapshot: SnapshotRecord = {
+    id: "s1", capturedAt: "2026-01-01T00:00:00.000Z", bucket: "2026-01", cadence: "monthly", trigger: "manual",
+    isBaseline: false, remainingHours: null, remainingCost: null, pctComplete: 30,
+    forecastEndDate: "2026-12-31", planEndDate: "2026-12-31", spi: null, cpi: null,
+    overallRag: "", scheduleRag: "", budgetRag: "", scopeRag: "",
+    milestones: [], series: [], bucketProgress: [{ bucketId: 1, pctComplete: 30 }],
+  };
+  const history: BudgetHistoryEntry[] = [{
+    id: "h1", at: "2026-01-01T00:00:00.000Z", date: "2026-01-01", kind: "baseline",
+    bucketId: null, bucketName: "", projectBacHours: 100, projectBacValue: 15000, deltaHours: 0, deltaValue: 0,
+  }];
+
+  it("carries `snapshots` into buildDashboardInput's entities when Turso trends are active, and carries `budgetHistory`", () => {
+    const buildSpy = vi.spyOn(dashboardModule, "buildDashboardInput");
+    render(
+      <>
+        <SeedBudgetHistory budgetHistory={history} />
+        <DashboardPanel {...fullProps} tursoActive snapshots={[snapshot]} />
+      </>,
+      { wrapper },
+    );
+    const entitiesArg = buildSpy.mock.calls.at(-1)![0];
+    expect(entitiesArg.snapshots).toEqual([snapshot]);
+    expect(entitiesArg.budgetHistory).toEqual(history);
+  });
+
+  it("carries an EMPTY snapshots array when Turso trends are NOT active, even though `snapshots` was supplied", () => {
+    const buildSpy = vi.spyOn(dashboardModule, "buildDashboardInput");
+    render(<DashboardPanel {...fullProps} tursoActive={false} snapshots={[snapshot]} />, { wrapper });
+    const entitiesArg = buildSpy.mock.calls.at(-1)![0];
+    expect(entitiesArg.snapshots).toEqual([]);
   });
 });
 

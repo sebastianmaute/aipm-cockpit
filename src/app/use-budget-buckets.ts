@@ -10,6 +10,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { ActivityKind } from "./activity-log";
 import type { BudgetBucket } from "./types";
 import { capturePart, type CompositeFragment, type UndoStackApi } from "./undo/use-undo-stack";
+import { recordBudgetChange, type BudgetHistoryEntry, type ProjectBac } from "./budget-history";
 
 export interface BucketCommitMeta {
   /** Overrides the kind derived from the diff. */
@@ -42,6 +43,13 @@ interface Deps {
   capture: UndoStackApi["capture"];
   captureComposite: UndoStackApi["captureComposite"];
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** Project own-basis BAC (hours/EUR) for a bucket set. Absent for callers
+   *  that predate budget history (e.g. bulk-edit test doubles) — recording is
+   *  skipped entirely rather than defaulting, so no history entry is ever
+   *  minted from a synthetic zero BAC. */
+  projectBac?: (buckets: readonly BudgetBucket[]) => ProjectBac;
+  setBudgetHistory?: Dispatch<SetStateAction<readonly BudgetHistoryEntry[]>>;
+  today?: string;
 }
 
 export interface BudgetBucketsApi {
@@ -49,7 +57,7 @@ export interface BudgetBucketsApi {
 }
 
 export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
-  const { budgets, setBudgets, allowDestructiveSave, capture, captureComposite, logActivity } = deps;
+  const { budgets, setBudgets, allowDestructiveSave, capture, captureComposite, logActivity, projectBac, setBudgetHistory, today } = deps;
 
   function commitBuckets(next: readonly BudgetBucket[], meta?: BucketCommitMeta): void {
     const prev = budgets;
@@ -148,6 +156,38 @@ export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
     // into whatever save follows. Computed from the prev→next diff above, not
     // inside a setState updater (React may run an updater more than once).
     if (deleted.length > 0) allowDestructiveSave?.();
+
+    // Budget-at-completion history (spec §4.3, R1). Skipped entirely for
+    // callers that don't pass all three deps (old callers / test doubles) —
+    // see the `projectBac` doc comment. `historyKind` is derived from the
+    // diff, never from `meta?.kind`, because an overriding activity kind (for
+    // example a task-link commit) is not a budget kind.
+    if (projectBac && setBudgetHistory && today) {
+      const before = projectBac(prev);
+      const after = projectBac(next);
+      // One commit touching several buckets records ONE entry: the first bucket
+      // OF THE KIND THAT ENTRY CLAIMS, and the whole BAC delta.
+      // ★ `historyRow` is selected by the SAME three-way test as `historyKind`,
+      // never by the `soleRow` order above (`deleted ?? edited ?? created`). A
+      // commit that both creates and edits — no caller produces one today, but
+      // nothing here prevents it — would otherwise record kind "created" while
+      // `bucketId`/`bucketName` named the EDITED bucket, and the chart marker
+      // and change-table row would name the wrong one. `soleRow` keeps its own
+      // order because it only ever feeds the `touched === 1` name fallback,
+      // where exactly one list holds a row, so both selectors pick that row.
+      const historyKind = deleted.length > 0 ? "deleted" : created.length > 0 ? "created" : "updated";
+      const historyRow = historyKind === "deleted" ? deleted[0] : historyKind === "created" ? created[0] : editedBefore[0];
+      // An edit's `historyRow` is the PRE-edit bucket; name the entry after the saved one.
+      const bucketName = historyKind === "deleted"
+        ? historyRow.name
+        : next.find((b) => b.id === historyRow.id)?.name ?? historyRow.name;
+      const at = new Date().toISOString();
+      setBudgetHistory((h) => recordBudgetChange(h, {
+        kind: historyKind, bucketId: historyRow.id, bucketName,
+        before, after, at, date: today, newId: () => crypto.randomUUID(),
+      }));
+    }
+
     setBudgets(next);
   }
 

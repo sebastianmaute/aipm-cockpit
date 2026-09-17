@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import type { ChangeItem, Milestone, RaidItem, Task } from "./types";
 import type { ActivityEntry } from "./activity-log";
+import { recordBudgetChange, type BudgetHistoryEntry } from "./budget-history";
 import type { DocumentAsset } from "./document-asset";
 
 const ctl = vi.hoisted(() => ({
@@ -43,6 +44,15 @@ import { BrowserBackend } from "./browser-backend";
 import type { FeatureModuleId } from "./feature-modules";
 import { IDB_RAID_STORE, IDB_TASKS_STORE, idbGet, idbSet } from "./idb";
 import { emptyWorkspace, jsonToWorkspace, workspaceToJson } from "./workspace";
+
+function budgetHistoryFixture(): readonly BudgetHistoryEntry[] {
+  let n = 0;
+  return recordBudgetChange([], {
+    kind: "updated", bucketId: 2, bucketName: "Run",
+    before: { hours: 10, value: 900 }, after: { hours: 12, value: 1080 },
+    at: "2026-09-05T12:00:00.000Z", date: "2026-09-05", newId: () => `bh-${++n}`,
+  });
+}
 
 const task = {
   id: 1,
@@ -329,6 +339,34 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.activityLog).toBeUndefined();
+  });
+
+  it("round-trips budgetHistory through IndexedDB", async () => {
+    const hist = budgetHistoryFixture();
+    await new BrowserBackend().save({ ...emptyWorkspace(), budgetHistory: hist });
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.budgetHistory).toHaveLength(2);
+    expect(loaded.budgetHistory).toEqual(hist);
+  });
+
+  it("deletes the stored budgetHistory when it is cleared, so it cannot reload stale", async () => {
+    const backend = new BrowserBackend();
+    await backend.save({ ...emptyWorkspace(), budgetHistory: budgetHistoryFixture() });
+    expect((await new BrowserBackend().load()).budgetHistory).toHaveLength(2);
+    await backend.save({ ...emptyWorkspace(), budgetHistory: [] });
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.budgetHistory).toBeUndefined();
+  });
+
+  it("sanitizes a stored budgetHistory on read, dropping a malformed entry", async () => {
+    const hist = budgetHistoryFixture();
+    await new BrowserBackend().save({ ...emptyWorkspace(), budgetHistory: hist });
+    await idbSet("budgetHistory", [{ id: "junk" }, hist[1]]);
+
+    const loaded = await new BrowserBackend().load();
+    expect((loaded.budgetHistory ?? []).map((e) => e.id)).toEqual([hist[1].id]);
   });
 
   it("second save of an unchanged workspace emits empty deltas (baselines advanced)", async () => {

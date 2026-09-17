@@ -8,11 +8,13 @@
 import { useId, type ReactNode } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
-import { formatSignedPercent, formatDayMonth, formatDayMonthYear, formatHours } from "./forecast-format";
+import { formatSignedPercent, formatDayMonth, formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { TermTooltip } from "./budget-forecast-tooltip";
+import { InfoTooltip } from "./info-tooltip";
 import { RateMixChip } from "./budget-rate-mix-chip";
 import { rateMixChipName, rateMixChipText, rateMixExplanation } from "./budget-rate-mix-text";
 import type { RateMix } from "./budget-rate-mix";
+import { splitVariance, type BudgetHistorySummary } from "./budget-history";
 import {
   isPaceAvailable, isEfficiencyAvailable, BURN_RATE_WINDOW_WORKING_DAYS,
   type BudgetForecast, type PaceForecast, type PaceUnavailable,
@@ -79,7 +81,10 @@ function EfficiencyUnavailableBody({ lang, efficiency }: { lang: Lang; efficienc
   return <p className="mt-2 text-sm text-muted-foreground">{t(lang, key)}</p>;
 }
 
-/** One "In hours" `<dl>` row. No tooltip: the € row above explains the term (plan Ruling 16). */
+/** One `<dl>` row — despite the name, `VarianceSplitRows` reuses it for its €
+ *  instance too (`unitLabel: null`, e.g. the Pace card's performance/scope
+ *  rows), not only the "In hours" block. Most instances carry a plain term;
+ *  the unattributed-split row's term additionally wraps an `InfoTooltip`. */
 function HoursRow({ term, children }: { term: ReactNode; children: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
@@ -99,6 +104,57 @@ function HoursLine({ lang, chip, children }: { lang: Lang; chip: ReactNode; chil
   );
 }
 
+/**
+ * The three-part variance split beneath a card's VAC row (task 11): recorded
+ * performance vs. the baseline, attributed (recorded) scope change, and — only
+ * when it clears the 0.5-in-this-unit noise floor — unattributed change. Reused
+ * for both € (always, beneath the card's primary VAC row) and hours (nested in
+ * the existing "In hours" block, only when that block already renders).
+ * `unitLabel` disambiguates the unattributed row's tooltip name from its
+ * sibling in the OTHER unit on the same card (both would otherwise share the
+ * same static accessible name); it is `null` for the € instance, which needs
+ * only the card-title qualifier the brief calls for.
+ */
+function VarianceSplitRows({
+  lang, locale, history, baseline, attributed, bac, eac, format, cardTitle, unitLabel, noteWhenEmpty,
+}: {
+  lang: Lang; locale: string; history: BudgetHistorySummary | null;
+  baseline: number; attributed: number; bac: number; eac: number;
+  format: (n: number) => string; cardTitle: string; unitLabel: string | null; noteWhenEmpty: boolean;
+}) {
+  if (history === null) {
+    return noteWhenEmpty ? <p className="mt-2 text-xs text-muted-foreground">{t(lang, "forecastSplitNoHistory")}</p> : null;
+  }
+  const split = splitVariance(baseline, attributed, bac, eac);
+  const showUnattributed = Math.abs(split.unattributed) >= 0.5;
+  const tooltipName = unitLabel === null
+    ? `${t(lang, "forecastTipSplitNameUnattributed")} – ${cardTitle}`
+    : `${t(lang, "forecastTipSplitNameUnattributed")} – ${cardTitle} – ${unitLabel}`;
+  return (
+    <div className="mt-2">
+      <p className="text-xs text-muted-foreground">{t(lang, "forecastSplitSince", formatDayMonthYear(history.baselineDate, locale))}</p>
+      <dl className="mt-1 space-y-1 text-sm">
+        <HoursRow term={t(lang, "forecastSplitPerformance")}>{signedFigure(format(split.performance), split.performance)}</HoursRow>
+        <HoursRow term={t(lang, "forecastSplitScope")}>{signedFigure(format(split.attributed), split.attributed)}</HoursRow>
+        {showUnattributed && (
+          <HoursRow
+            term={
+              <>
+                {t(lang, "forecastSplitUnattributed")}
+                <span className="print:hidden ml-1">
+                  <InfoTooltip text={t(lang, "forecastTipSplitUnattributed")} label={tooltipName} />
+                </span>
+              </>
+            }
+          >
+            {signedFigure(format(split.unattributed), split.unattributed)}
+          </HoursRow>
+        )}
+      </dl>
+    </div>
+  );
+}
+
 function mixChip(lang: Lang, mix: RateMix | null, eur: BudgetForecast, hours: BudgetForecast, card: "pace" | "efficiency"): ReactNode {
   if (!mix || !mix.triggered || mix.direction === null) return null;
   return (
@@ -112,10 +168,10 @@ function mixChip(lang: Lang, mix: RateMix | null, eur: BudgetForecast, hours: Bu
 }
 
 function PaceCard({
-  lang, pace, facts, money, locale, hasFixedPrice, eur, hours, mix,
+  lang, pace, facts, money, locale, hasFixedPrice, eur, hours, mix, history,
 }: {
   lang: Lang; pace: BudgetForecast["pace"]; facts: Facts; money: Money; locale: string; hasFixedPrice: boolean;
-  eur: BudgetForecast; hours: BudgetForecast | null; mix: RateMix | null;
+  eur: BudgetForecast; hours: BudgetForecast | null; mix: RateMix | null; history: BudgetHistorySummary | null;
 }) {
   const titleId = useId();
   const paceTitle = t(lang, "forecastPaceTitle");
@@ -165,19 +221,32 @@ function PaceCard({
               {runOutText(lang, pace, locale)}
             </MetricRow>
           </dl>
+          <VarianceSplitRows
+            lang={lang} locale={locale} history={history}
+            baseline={history?.baseline.value ?? 0} attributed={history?.attributed.value ?? 0}
+            bac={facts.bac} eac={pace.eac} format={money} cardTitle={paceTitle} unitLabel={null} noteWhenEmpty
+          />
           <p className="mt-2 text-xs text-muted-foreground">
             {t(lang, "forecastWindowLine", formatDayMonth(pace.windowStart, locale), formatDayMonth(pace.windowEnd, locale), String(pace.windowDays))}
           </p>
           {hours && isPaceAvailable(hours.pace) && (
-            <HoursLine lang={lang} chip={mixChip(lang, mix, eur, hours, "pace")}>
-              <HoursRow term={t(lang, "forecastEacHours")}>{formatHours(hours.pace.eac, locale)}</HoursRow>
-              <HoursRow term={t(lang, "forecastVacHours")}>
-                {formatHours(hours.pace.vac, locale)} ({formatSignedPercent(hours.facts.bac > 0 ? hours.pace.vac / hours.facts.bac : 0, locale, 1)})
-              </HoursRow>
-              <HoursRow term={t(lang, "forecastRunOutHours")}>
-                {hours.pace.runOutDate === null ? t(lang, "forecastRunOutAlready") : formatDayMonthYear(hours.pace.runOutDate, locale)}
-              </HoursRow>
-            </HoursLine>
+            <>
+              <HoursLine lang={lang} chip={mixChip(lang, mix, eur, hours, "pace")}>
+                <HoursRow term={t(lang, "forecastEacHours")}>{formatHours(hours.pace.eac, locale)}</HoursRow>
+                <HoursRow term={t(lang, "forecastVacHours")}>
+                  {formatHours(hours.pace.vac, locale)} ({formatSignedPercent(hours.facts.bac > 0 ? hours.pace.vac / hours.facts.bac : 0, locale, 1)})
+                </HoursRow>
+                <HoursRow term={t(lang, "forecastRunOutHours")}>
+                  {hours.pace.runOutDate === null ? t(lang, "forecastRunOutAlready") : formatDayMonthYear(hours.pace.runOutDate, locale)}
+                </HoursRow>
+              </HoursLine>
+              <VarianceSplitRows
+                lang={lang} locale={locale} history={history}
+                baseline={history?.baseline.hours ?? 0} attributed={history?.attributed.hours ?? 0}
+                bac={hours.facts.bac} eac={hours.pace.eac} format={(n) => formatHours(n, locale)}
+                cardTitle={paceTitle} unitLabel={t(lang, "forecastInHours")} noteWhenEmpty={false}
+              />
+            </>
           )}
         </>
       ) : (
@@ -189,10 +258,10 @@ function PaceCard({
 }
 
 function EfficiencyCard({
-  lang, efficiency, facts, money, locale, hasFixedPrice, eur, hours, mix,
+  lang, efficiency, facts, money, locale, hasFixedPrice, eur, hours, mix, history,
 }: {
   lang: Lang; efficiency: BudgetForecast["efficiency"]; facts: Facts; money: Money; locale: string; hasFixedPrice: boolean;
-  eur: BudgetForecast; hours: BudgetForecast | null; mix: RateMix | null;
+  eur: BudgetForecast; hours: BudgetForecast | null; mix: RateMix | null; history: BudgetHistorySummary | null;
 }) {
   const titleId = useId();
   const effTitle = t(lang, "forecastEfficiencyTitle");
@@ -244,18 +313,31 @@ function EfficiencyCard({
               {efficiency.spi === null ? "—" : efficiency.spi.toFixed(2)}
             </MetricRow>
           </dl>
+          <VarianceSplitRows
+            lang={lang} locale={locale} history={history}
+            baseline={history?.baseline.value ?? 0} attributed={history?.attributed.value ?? 0}
+            bac={facts.bac} eac={efficiency.eac} format={money} cardTitle={effTitle} unitLabel={null} noteWhenEmpty
+          />
           {hours && isEfficiencyAvailable(hours.efficiency) && (
-            <HoursLine lang={lang} chip={mixChip(lang, mix, eur, hours, "efficiency")}>
-              <HoursRow term={t(lang, "forecastEacHours")}>{formatHours(hours.efficiency.eac, locale)}</HoursRow>
-              <HoursRow term={t(lang, "forecastVacHours")}>
-                {formatHours(hours.efficiency.vac, locale)} ({formatSignedPercent(hours.facts.bac > 0 ? hours.efficiency.vac / hours.facts.bac : 0, locale, 1)})
-              </HoursRow>
-              <HoursRow
-                term={<>{t(lang, "forecastCpiHours")}<TermTooltip lang={lang} term={t(lang, "forecastCpiHours")} tip={t(lang, "forecastTipCpiHours", formatHours(hours.facts.ev ?? 0, locale), formatHours(hours.facts.ac, locale), hours.efficiency.cpi.toFixed(2))} /></>}
-              >
-                {hours.efficiency.cpi.toFixed(2)}
-              </HoursRow>
-            </HoursLine>
+            <>
+              <HoursLine lang={lang} chip={mixChip(lang, mix, eur, hours, "efficiency")}>
+                <HoursRow term={t(lang, "forecastEacHours")}>{formatHours(hours.efficiency.eac, locale)}</HoursRow>
+                <HoursRow term={t(lang, "forecastVacHours")}>
+                  {formatHours(hours.efficiency.vac, locale)} ({formatSignedPercent(hours.facts.bac > 0 ? hours.efficiency.vac / hours.facts.bac : 0, locale, 1)})
+                </HoursRow>
+                <HoursRow
+                  term={<>{t(lang, "forecastCpiHours")}<TermTooltip lang={lang} term={t(lang, "forecastCpiHours")} tip={t(lang, "forecastTipCpiHours", formatHours(hours.facts.ev ?? 0, locale), formatHours(hours.facts.ac, locale), hours.efficiency.cpi.toFixed(2))} /></>}
+                >
+                  {hours.efficiency.cpi.toFixed(2)}
+                </HoursRow>
+              </HoursLine>
+              <VarianceSplitRows
+                lang={lang} locale={locale} history={history}
+                baseline={history?.baseline.hours ?? 0} attributed={history?.attributed.hours ?? 0}
+                bac={hours.facts.bac} eac={hours.efficiency.eac} format={(n) => formatHours(n, locale)}
+                cardTitle={effTitle} unitLabel={t(lang, "forecastInHours")} noteWhenEmpty={false}
+              />
+            </>
           )}
         </>
       ) : (
@@ -299,16 +381,19 @@ function GapLine({
 }
 
 export function ForecastCards({
-  lang, forecast, hours = null, mix = null,
-}: { lang: Lang; forecast: BudgetForecast; hours?: BudgetForecast | null; mix?: RateMix | null }) {
+  lang, forecast, hours = null, mix = null, history = null,
+}: {
+  lang: Lang; forecast: BudgetForecast; hours?: BudgetForecast | null; mix?: RateMix | null;
+  history?: BudgetHistorySummary | null;
+}) {
   const locale = localeFor(lang);
   const money: Money = (n) => formatCurrency(n, "EUR", locale);
   const { pace, efficiency, gap, facts, hasFixedPrice } = forecast;
   return (
     <div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <PaceCard lang={lang} pace={pace} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} />
-        <EfficiencyCard lang={lang} efficiency={efficiency} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} />
+        <PaceCard lang={lang} pace={pace} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} />
+        <EfficiencyCard lang={lang} efficiency={efficiency} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} />
       </div>
       {gap && isPaceAvailable(pace) && isEfficiencyAvailable(efficiency) && (
         <GapLine lang={lang} gap={gap} pace={pace} efficiency={efficiency} money={money} locale={locale} />

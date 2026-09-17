@@ -43,7 +43,10 @@ export interface SlicePolicy {
 }
 
 /** Every array-typed member of `Workspace`, with its save-guard decision.
- *  Twenty slices as of 2026-08-29; the test fails on any addition or removal. */
+ *  Twenty-one slices as of 2026-09-16; the test fails on any addition or
+ *  removal. ★ The number rots — recount rather than trusting it, with
+ *  `grep -cE "^  [a-zA-Z]+: \{" src/app/workspace-slice-policy.ts`, whose every
+ *  match is a key of this object and nothing else in the file. */
 export const SLICE_POLICY: Readonly<Record<string, SlicePolicy>> = {
   // ── The thirteen entity collections. All user-authored, all unrecoverable,
   //    none auto-appended — the rule's central case.
@@ -84,6 +87,11 @@ export const SLICE_POLICY: Readonly<Record<string, SlicePolicy>> = {
     counted: false,
     reason:
       "Auto-appended by ordinary use. Counting it means nonEmptyCollectionCount can never reach 0 in a project that has ever been used — and reaching 0 is the full-wipe guard's ENTIRE trigger, so that guard would be dead for good. isWorkspaceEmpty documents the identical inversion for itself; do not 'complete' the documents precedent by adding it.",
+  },
+  budgetHistory: {
+    counted: false,
+    reason:
+      "Written by ordinary budget edits as a side record; counting it would keep a wiped project reading as non-empty, the same inversion as activityLog.",
   },
   documentVersions: {
     counted: false,

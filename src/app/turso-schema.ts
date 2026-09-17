@@ -21,6 +21,7 @@ import {
   emptyWorkspace, migrateWorkspaceV10, sanitizeProjectStatus, type Workspace,
 } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
+import { sanitizeBudgetHistory } from "./budget-history";
 import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures } from "./feature-modules";
 import {
@@ -274,6 +275,15 @@ export function rowsToWorkspace(
       reportUnreadableSlice("activityLog", err);
     }
   }
+  const budgetHistoryRow = rowObjects(byTable.get("meta")).find((r) => r.key === "budgetHistory");
+  if (budgetHistoryRow?.value) {
+    try {
+      const history = sanitizeBudgetHistory(JSON.parse(budgetHistoryRow.value));
+      if (history.length) ws.budgetHistory = history;
+    } catch (err) {
+      reportUnreadableSlice("budgetHistory", err);
+    }
+  }
   // Documents ride `meta` as one JSON blob — no table of their own, so
   // TABLE_NAMES stays untouched. TWO passes, in this order: the structural
   // sanitizer is DOM-FREE and cannot strip markup, so the rich-field allow-list
@@ -367,6 +377,7 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.knowledgeItems !== next.knowledgeItems) dirty.add("meta");
   if (prev.insights !== next.insights) dirty.add("meta");
   if (prev.activityLog !== next.activityLog) dirty.add("meta");
+  if (prev.budgetHistory !== next.budgetHistory) dirty.add("meta");
   if (prev.documents !== next.documents) dirty.add("meta");
   if (prev.documentVersions !== next.documentVersions) dirty.add("meta");
   if (prev.settingsOverrides !== next.settingsOverrides) dirty.add("meta");
@@ -473,6 +484,16 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         args: [
           { type: "text", value: "activityLog" },
           { type: "text", value: JSON.stringify(ws.activityLog) },
+        ],
+      });
+    }
+    // budgetHistory: meta-blob sibling of activityLog (tenant writer mirrors it).
+    if (ws.budgetHistory && ws.budgetHistory.length) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "budgetHistory" },
+          { type: "text", value: JSON.stringify(ws.budgetHistory) },
         ],
       });
     }

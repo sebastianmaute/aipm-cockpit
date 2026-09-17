@@ -1,15 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { BurndownChart } from "./burndown-chart";
 import { buildChartModel, type ChartInput } from "./burndown-geometry";
 import { formatCurrency } from "./resource-cost";
+import { loadI18n } from "./i18n";
+import type { EvHistory } from "./budget-ev-history";
+import type { BudgetHistorySummary } from "./budget-history";
 import { CHART_FORECAST, CHART_FORECAST_HOURS, CHART_SERIES } from "../test/chart-fixtures";
 
 const eur = (v: number) => formatCurrency(v, "EUR", "en-US");
 
 const base: ChartInput = {
   series: CHART_SERIES, unit: "eur", orientation: "burndown", forecast: CHART_FORECAST,
-  evHistory: null, today: "2026-02-14", planEnd: "2026-03-31",
+  evHistory: null, history: null, today: "2026-02-14", planEnd: "2026-03-31",
 };
 function draw(over: Partial<ChartInput> = {}) {
   const input = { ...base, ...over };
@@ -124,18 +127,335 @@ describe("BurndownChart", () => {
   });
 
   it("draws the earned-value history line in the cumulative orientation only", () => {
-    const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 2_000, hours: 20 }] };
+    const evHistory = { available: true as const, points: [{ date: "2026-01-31", eur: 2_000, hours: 20, partial: [], joins: [] }] };
     draw({ orientation: "cumulative", evHistory });
     expect(screen.getByText("Earned value")).toBeInTheDocument();
     draw({ orientation: "burndown", evHistory });
     expect(screen.getAllByText("Earned value")).toHaveLength(1);
   });
 
-  it("shows the frame note and the blocked-history note when they apply", () => {
+  describe("earned-value legend entries follow the drawn segments (§552)", () => {
+    const withSegments = (evSegments: NonNullable<ReturnType<typeof buildChartModel>["evSegments"]>) => render(
+      <BurndownChart
+        lang="en-US" currency="EUR" unit="eur" orientation="cumulative" periods={CHART_SERIES.periods}
+        model={{ ...buildChartModel({ ...base, orientation: "cumulative", forecast: null }), evSegments }}
+      />,
+    );
+    const seg = (partial: boolean) => ({ partial, points: [{ date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 100 }] });
+
+    const tooltipTriggers = (container: HTMLElement) => container.querySelectorAll("[data-info-tooltip-trigger]");
+
+    it("shows only the partial entry when every segment is partial, and keeps the explanation reachable there", () => {
+      const { container } = withSegments([seg(true)]);
+      expect(screen.queryByText("Earned value")).toBeNull();
+      expect(screen.getByText("Partial earned value")).toBeInTheDocument();
+      expect(tooltipTriggers(container)).toHaveLength(1);
+    });
+
+    it("shows neither entry for an empty segment list", () => {
+      withSegments([]);
+      expect(screen.queryByText("Earned value")).toBeNull();
+      expect(screen.queryByText("Partial earned value")).toBeNull();
+    });
+
+    it("shows both entries for mixed segments, with one explanation", () => {
+      const { container } = withSegments([seg(true), seg(false)]);
+      expect(screen.getByText("Earned value")).toBeInTheDocument();
+      expect(screen.getByText("Partial earned value")).toBeInTheDocument();
+      expect(tooltipTriggers(container)).toHaveLength(1);
+    });
+  });
+
+  it("shows the frame note and the no-history note when they apply", () => {
     draw({ forecast: { ...CHART_FORECAST, facts: { ...CHART_FORECAST.facts, bac: 9_500 } } });
     expect(screen.getByText(/Chart totals differ from the forecast figures/)).toBeInTheDocument();
-    draw({ orientation: "cumulative", evHistory: { available: false, reason: "manual-percent", buckets: [{ id: 2, name: "Design" }] } });
-    expect(screen.getByText(/Hand-entered % complete or no linked tasks: Design\./)).toBeInTheDocument();
+    draw({ orientation: "cumulative", evHistory: { available: false, reason: "no-earned-value", buckets: [{ id: 2, name: "Design" }] } });
+    expect(screen.getByText("No earned-value history yet for Design.")).toBeInTheDocument();
+  });
+
+  describe("partial earned value and joins", () => {
+    const vendor = { id: 3, name: "Vendor", createdDate: null, startDate: "2026-01-01" };
+    const partialHistory = (joinEur = 500): EvHistory => ({
+      available: true,
+      points: [
+        { date: "2026-01-20", eur: 0, hours: 0, partial: [vendor], joins: [] },
+        { date: "2026-01-31", eur: 800, hours: 8, partial: [], joins: [{ id: 3, name: "Vendor", eur: joinEur, hours: joinEur / 100 }] },
+        { date: "2026-02-14", eur: 1_000, hours: 10, partial: [], joins: [] },
+      ],
+    });
+    const evLines = (container: HTMLElement) => [...container.querySelectorAll("svg[role='img'] polyline.stroke-\\[var\\(--rag-amber\\)\\]")];
+
+    it("dashes a partial span differently from the solid history, and captions it", () => {
+      const { container } = draw({ orientation: "cumulative", evHistory: partialHistory() });
+      const dashes = evLines(container).map((line) => line.getAttribute("stroke-dasharray"));
+      expect(dashes).toEqual(["2 4", "6 2 1 2"]);
+      expect(screen.getByText("Partial: Vendor not recorded")).toBeVisible();
+      expect(screen.getByText("Partial earned value")).toBeInTheDocument();
+    });
+
+    it("says 'created later' when the bucket was created after its start", () => {
+      const created = { ...vendor, createdDate: "2026-01-25" };
+      const history = partialHistory();
+      if (!history.available) throw new Error("fixture");
+      draw({ orientation: "cumulative", evHistory: { ...history, points: [{ ...history.points[0], partial: [created] }, ...history.points.slice(1)] } });
+      expect(screen.getByText("Partial: Vendor created later")).toBeInTheDocument();
+    });
+
+    it("labels the join with its amount in the current unit", () => {
+      draw({ orientation: "cumulative", evHistory: partialHistory() });
+      expect(screen.getByText(`Vendor joins (+${eur(500)})`)).toBeInTheDocument();
+      draw({ unit: "hours", orientation: "cumulative", forecast: CHART_FORECAST_HOURS, evHistory: partialHistory() });
+      expect(screen.getByText("Vendor joins (+5 h)")).toBeInTheDocument();
+    });
+
+    const twoJoins: EvHistory = {
+      available: true,
+      points: [
+        { date: "2026-01-20", eur: 0, hours: 0, partial: [vendor, { ...vendor, id: 4, name: "Ops" }], joins: [] },
+        {
+          date: "2026-01-31", eur: 800, hours: 8, partial: [],
+          joins: [{ id: 3, name: "Vendor", eur: 500, hours: 5 }, { id: 4, name: "Ops", eur: 300, hours: 3 }],
+        },
+        { date: "2026-02-14", eur: 1_000, hours: 10, partial: [], joins: [] },
+      ],
+    };
+
+    it("uses the plural sentence when several buckets join at one point", () => {
+      draw({ orientation: "cumulative", evHistory: twoJoins });
+      expect(screen.getByText(`Vendor, Ops join (+${eur(800)})`)).toBeInTheDocument();
+      draw({ unit: "hours", orientation: "cumulative", forecast: CHART_FORECAST_HOURS, evHistory: twoJoins });
+      expect(screen.getByText("Vendor, Ops join (+8 h)")).toBeInTheDocument();
+      expect(screen.queryByText(/Vendor, Ops joins/)).toBeNull();
+    });
+
+    it("explains both sources of the earned-value line in its tooltip", async () => {
+      const { container } = draw({ orientation: "cumulative", evHistory: partialHistory() });
+      fireEvent.focus(container.querySelector("[data-info-tooltip-trigger]")!);
+      expect(await screen.findByRole("tooltip")).toHaveTextContent(
+        "Earned value over time, from linked-task completion dates and the % complete recorded in snapshots for hand-entered buckets.",
+      );
+    });
+
+    it("renders no join label for a join worth 0 in the current unit", () => {
+      draw({ unit: "hours", orientation: "cumulative", forecast: CHART_FORECAST_HOURS, evHistory: partialHistory(40) });
+      expect(screen.queryByText(/joins/)).toBeNull();
+      // Anti-vacuity: the same history still draws its partial caption.
+      expect(screen.getByText("Partial: Vendor not recorded")).toBeInTheDocument();
+    });
+
+    // §556: today's point (the last) may be partial or carry a join.
+    it("dashes and captions a partial final span", () => {
+      const partialToday: EvHistory = {
+        available: true,
+        points: [
+          { date: "2026-01-31", eur: 800, hours: 8, partial: [], joins: [] },
+          { date: "2026-02-14", eur: 1_000, hours: 10, partial: [vendor], joins: [] },
+        ],
+      };
+      const { container } = draw({ orientation: "cumulative", evHistory: partialToday });
+      expect(evLines(container).map((line) => line.getAttribute("stroke-dasharray"))).toEqual(["6 2 1 2", "2 4"]);
+      expect(screen.getByText("Partial: Vendor not recorded")).toBeVisible();
+      expect(ariaOf(container)).toContain("Earned value is partial for Vendor.");
+    });
+
+    it("labels a join on the final point", () => {
+      const joinToday: EvHistory = {
+        available: true,
+        points: [
+          { date: "2026-01-31", eur: 300, hours: 3, partial: [vendor], joins: [] },
+          { date: "2026-02-14", eur: 1_000, hours: 10, partial: [], joins: [{ id: 3, name: "Vendor", eur: 500, hours: 5 }] },
+        ],
+      };
+      draw({ orientation: "cumulative", evHistory: joinToday });
+      expect(screen.getByText(`Vendor joins (+${eur(500)})`)).toBeInTheDocument();
+    });
+
+    // §553: the sign comes from `signedFigure`, never from the copy.
+    it("renders a negative join amount with one minus sign and no plus", () => {
+      draw({ orientation: "cumulative", evHistory: partialHistory(-500) });
+      expect(screen.getByText(`Vendor joins (${eur(-500)})`)).toBeInTheDocument();
+      draw({ unit: "hours", orientation: "cumulative", forecast: CHART_FORECAST_HOURS, evHistory: partialHistory(-500) });
+      expect(screen.getByText("Vendor joins (-5 h)")).toBeInTheDocument();
+      expect(screen.queryByText(/\+-/)).toBeNull();
+      expect(eur(-500).startsWith("-")).toBe(true);
+    });
+
+    it("names the partial buckets in the chart's accessible name", () => {
+      const { container } = draw({ orientation: "cumulative", evHistory: partialHistory() });
+      expect(ariaOf(container)).toContain("Earned value is partial for Vendor.");
+      const complete = draw({ orientation: "cumulative", evHistory: { available: true, points: [{ date: "2026-01-31", eur: 800, hours: 8, partial: [], joins: [] }] } });
+      expect(ariaOf(complete.container)).not.toContain("partial");
+    });
+
+    it("says each partial sentence once when two spans name the same bucket", () => {
+      const history: EvHistory = {
+        available: true,
+        points: [
+          { date: "2026-01-10", eur: 0, hours: 0, partial: [vendor], joins: [] },
+          { date: "2026-01-20", eur: 100, hours: 1, partial: [], joins: [] },
+          { date: "2026-01-31", eur: 100, hours: 1, partial: [vendor], joins: [] },
+          { date: "2026-02-14", eur: 1_000, hours: 10, partial: [], joins: [] },
+        ],
+      };
+      const { container } = draw({ orientation: "cumulative", evHistory: history });
+      // Anti-vacuity: the model really has two partial spans.
+      expect(evLines(container).filter((line) => line.getAttribute("stroke-dasharray") === "2 4")).toHaveLength(2);
+      expect(screen.getAllByText("Partial: Vendor not recorded")).toHaveLength(1);
+      expect(ariaOf(container).split("Earned value is partial for Vendor.")).toHaveLength(2);
+    });
+
+    it("renders the German caption with umlauts", async () => {
+      await loadI18n("de");
+      render(
+        <BurndownChart
+          lang="de" currency="EUR" unit="eur" orientation="cumulative" periods={CHART_SERIES.periods}
+          model={buildChartModel({ ...base, orientation: "cumulative", evHistory: partialHistory() })}
+        />,
+      );
+      expect(screen.getByText("Unvollständig: Vendor nicht erfasst")).toBeInTheDocument();
+      expect(screen.getByText("Unvollständiger Earned Value")).toBeInTheDocument();
+      expect(screen.getByText(/^Vendor kommt hinzu \(\+/)).toBeInTheDocument();
+    });
+
+    it("renders a negative German join amount with a single minus sign (§553)", async () => {
+      await loadI18n("de");
+      render(
+        <BurndownChart
+          lang="de" currency="EUR" unit="hours" orientation="cumulative" periods={CHART_SERIES.periods}
+          model={buildChartModel({ ...base, unit: "hours", forecast: CHART_FORECAST_HOURS, orientation: "cumulative", evHistory: partialHistory(-500) })}
+        />,
+      );
+      expect(screen.getByText("Vendor kommt hinzu (-5 h)")).toBeInTheDocument();
+    });
+
+    it("renders the German plural join sentence", async () => {
+      await loadI18n("de");
+      render(
+        <BurndownChart
+          lang="de" currency="EUR" unit="hours" orientation="cumulative" periods={CHART_SERIES.periods}
+          model={buildChartModel({ ...base, unit: "hours", forecast: CHART_FORECAST_HOURS, orientation: "cumulative", evHistory: twoJoins })}
+        />,
+      );
+      expect(screen.getByText("Vendor, Ops kommen hinzu (+8 h)")).toBeInTheDocument();
+    });
+  });
+
+  describe("budget-at-completion steps", () => {
+    const summary: BudgetHistorySummary = {
+      baselineDate: "2026-01-05",
+      baseline: { hours: 90, value: 9_000 },
+      attributed: { hours: 22, value: 2_200 },
+      changes: [
+        {
+          id: "a", at: "2026-01-20T09:00:00.000Z", date: "2026-01-20", kind: "updated",
+          bucketId: 1, bucketName: "Vendor", deltaHours: 30, deltaValue: 3_000,
+          projectBacHours: 120, projectBacValue: 12_000,
+        },
+        {
+          id: "b", at: "2026-02-10T09:00:00.000Z", date: "2026-02-10", kind: "deleted",
+          bucketId: 2, bucketName: "Ops", deltaHours: -8, deltaValue: -800,
+          projectBacHours: 112, projectBacValue: 11_200,
+        },
+      ],
+    };
+    const stepped = (over: Partial<ChartInput> = {}) => draw({ orientation: "cumulative", history: summary, ...over });
+
+    it("replaces the flat BAC line with a stepped one and draws the baseline reference", () => {
+      const { container } = stepped();
+      const steps = container.querySelector("polyline[data-bac-steps]");
+      expect(steps).not.toBeNull();
+      // Six geometry points: origin, two per change, and the run to the domain end.
+      expect(steps!.getAttribute("points")!.trim().split(/\s+/)).toHaveLength(6);
+      // The flat line is gone; the baseline reference took its place.
+      expect(container.querySelector("line[data-bac-line]")).toBeNull();
+      expect(container.querySelector("line[data-bac-baseline]")).not.toBeNull();
+      expect(screen.getByText("Budget at start of recording")).toBeInTheDocument();
+      // Anti-vacuity: without history the same orientation draws the flat line.
+      const flat = draw({ orientation: "cumulative" });
+      expect(flat.container.querySelector("line[data-bac-line]")).not.toBeNull();
+      expect(flat.container.querySelector("polyline[data-bac-steps]")).toBeNull();
+    });
+
+    it("names the stepped line with its final BAC, below the line, so it never rides stroke weight alone", () => {
+      const { container } = stepped();
+      // The last recorded entry's own stored BAC, not an increment.
+      const label = screen.getByText(`BAC ${eur(11_200)}`);
+      expect(label.getAttribute("text-anchor")).toBe("end");
+      // Placed BELOW its line end: the last marker's tick sits on that level.
+      const steps = container.querySelector("polyline[data-bac-steps]")!;
+      const endY = Number(steps.getAttribute("points")!.trim().split(/\s+/).pop()!.split(",")[1]);
+      expect(Number(label.getAttribute("y"))).toBeGreaterThan(endY);
+      // It is its own element, not the baseline reference's label.
+      expect(label).not.toBe(screen.getByText("Budget at start of recording"));
+      // Anti-vacuity: the stepped label is absent without history, where the
+      // flat line carries the same key at the chart total instead.
+      const flat = draw({ orientation: "cumulative" });
+      expect(flat.container.textContent).not.toContain(`BAC ${eur(11_200)}`);
+      expect(flat.container.textContent).toContain(`BAC ${eur(9_000)}`);
+    });
+
+    it("labels each marker with its signed amount, its bucket and a removal wording", () => {
+      stepped();
+      expect(screen.getByText(`+${eur(3_000)} Vendor`)).toBeInTheDocument();
+      expect(screen.getByText(`${eur(-800)} Ops removed`)).toBeInTheDocument();
+    });
+
+    it("draws the marker labels in the band above the plot, each tied to its tick by a leader", () => {
+      const { container } = stepped();
+      const svg = container.querySelector("svg[role='img']")!;
+      // The y axis runs from the plot's top edge down; its x is the left padding.
+      const axis = [...svg.querySelectorAll("line")].find((l) => l.getAttribute("x1") === l.getAttribute("x2") && l.getAttribute("x1") === "64")!;
+      const plotTop = Number(axis.getAttribute("y1"));
+      const labels = [...svg.querySelectorAll("text[data-bac-marker-label]")];
+      expect(labels.map((l) => l.textContent)).toEqual([`+${eur(3_000)} Vendor`, `${eur(-800)} Ops removed`]);
+      for (const label of labels) expect(Number(label.getAttribute("y"))).toBeLessThan(plotTop);
+      expect(svg.querySelectorAll("line[data-bac-leader]")).toHaveLength(labels.length);
+      // Anti-vacuity: without history there are no marker labels or leaders.
+      const flat = draw({ orientation: "cumulative" }).container;
+      expect(flat.querySelectorAll("text[data-bac-marker-label], line[data-bac-leader]")).toHaveLength(0);
+    });
+
+    it("haloes each marker label and paints every leader before any label", () => {
+      const { container } = stepped();
+      const svg = container.querySelector("svg[role='img']")!;
+      const labels = [...svg.querySelectorAll("text[data-bac-marker-label]")];
+      const leaders = [...svg.querySelectorAll("line[data-bac-leader]")];
+      expect(labels.length).toBeGreaterThan(1);
+      for (const label of labels) {
+        // The stroke is drawn under the fill, in the card's surface colour.
+        expect(label.getAttribute("paint-order")).toBe("stroke");
+        expect(label).toHaveClass("stroke-surface");
+        expect(Number(label.getAttribute("stroke-width"))).toBeGreaterThan(0);
+      }
+      // A later leader must not paint over an earlier label: every leader
+      // precedes every label in document (paint) order.
+      const lastLeader = leaders[leaders.length - 1];
+      for (const label of labels) {
+        expect(lastLeader.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      }
+    });
+
+    it("names the budget changes in the chart's accessible name", () => {
+      const { container } = stepped();
+      const aria = ariaOf(container);
+      expect(aria).toContain("Budget changes:");
+      expect(aria).toContain(`+${eur(3_000)} Vendor`);
+      expect(aria).toContain(`${eur(-800)} Ops removed`);
+      // Anti-vacuity: the sentence is absent when there is no recorded history.
+      expect(ariaOf(draw({ orientation: "cumulative" }).container)).not.toContain("Budget changes:");
+    });
+
+    it("renders the German baseline caption and removal wording with umlauts", async () => {
+      await loadI18n("de");
+      render(
+        <BurndownChart
+          lang="de" currency="EUR" unit="hours" orientation="cumulative" periods={CHART_SERIES.periods}
+          model={buildChartModel({ ...base, unit: "hours", forecast: CHART_FORECAST_HOURS, orientation: "cumulative", history: summary })}
+        />,
+      );
+      expect(screen.getByText("Budget bei Aufzeichnungsbeginn")).toBeInTheDocument();
+      expect(screen.getByText(/Ops entfernt$/)).toBeInTheDocument();
+    });
   });
 
   it("keeps the two end labels at least 10px apart when both forecasts end at the same value", () => {

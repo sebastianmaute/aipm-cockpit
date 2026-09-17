@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "1.7.1";
-export const APP_BUILD_DATE = "2026-09-16"; // 1.7.1: closing a budget bucket that passes its remaining budget to a successor no longer makes the project look better off — that leftover budget was being counted twice, which raised the project's budget at completion and, through it, flattered every forecast figure: variance at completion, the date the budget runs out, the burn-down's budget line, and the percentage of budget consumed. Earned value moved onto the same footing, so a project could no longer report having earned more than its whole budget, being more than 100% complete, or costing less to finish than it had already spent. Any project with a closed bucket feeding a successor will see its forecast figures move — the new numbers are the honest ones (Sayers)
+export const APP_VERSION = "1.8.0";
+export const APP_BUILD_DATE = "2026-09-17"; // 1.8.0: the budget chart now shows where the budget moved — every saved budget edit that changes the project's budget at completion is recorded with its date, bucket and amount, starting from the budget as it stood before the first one; in the cumulative view the budget line steps at each change with a marker naming the bucket, the change table lists every recorded change with the added scope to date, and each forecast card splits its variance at completion into performance, added scope and any unexplained budget change; on Turso, snapshots now keep each bucket's percent complete, so the earned-value line also covers buckets whose percent complete is typed in by hand, and any stretch the line cannot fully cover is dashed and labelled; the dashboard budget tile keeps the chart alone, and the change table sits below the chart until the screen is wide enough for both side by side (Rendell)
+// 1.7.1: closing a budget bucket that passes its remaining budget to a successor no longer makes the project look better off — that leftover budget was being counted twice, which raised the project's budget at completion and, through it, flattered every forecast figure: variance at completion, the date the budget runs out, the burn-down's budget line, and the percentage of budget consumed. Earned value moved onto the same footing, so a project could no longer report having earned more than its whole budget, being more than 100% complete, or costing less to finish than it had already spent. Any project with a closed bucket feeding a successor will see its forecast figures move — the new numbers are the honest ones (Sayers)
 // 1.7.0: the Budget Report and the dashboard burn tile now share ONE burn-down chart, with Burn-down/Cumulative and €/Hours switches that each device remembers, drawing both forecast lines and — in the cumulative view — the earned value actually delivered to date; each forecast card gains an "In hours" line carrying its own estimate at completion, variance and run-out, so an overrun in effort is visible even where the money still looks fine; and when cheaper roles burn more hours than planned the report says so in one voice — a banner, a "Where the hours went" role table, a booked rate per hour beside the other figures, and a chip on both cards and on the dashboard tile — with every rate figure covering hourly buckets only and naming the fixed-price hours it leaves out (Sayers)
 // 1.6.1: the desktop app now runs on Electron 44 (Chromium 152, Node 24); Help → Version opens the app's own Version panel with the same content as in the app, in the app's language, plus a desktop section naming the log file and how to get updates, instead of a separate native dialog; links to other websites open in the system browser while pop-outs, PDF export and Microsoft sign-in stay in the app; and the CI desktop-package job pins its build image — the desktop sign-in popup's state handling has no unit tests, filed as follow-up 547, and an edit made while a project's first load is still pending is overwritten when that load lands, filed as follow-up 548 (Ishiguro)
 // 1.6.0: the Budget Report gains a Forecast section — a facts row of budget, actuals, remaining budget and earned value, and two forecast cards, at current pace and at current efficiency, each with its estimate at completion, variance at completion and estimate to complete, the pace card adding the burn rate and the day the budget runs out, and a line saying how far the two forecasts differ — with banners saying when a forecast cannot be calculated yet and a tooltip on every term; the dashboard Budget burn tile shows the forecast headline, its spend box reads "Spent", and the Budget rating follows the current-pace variance at completion once that forecast exists, still combined with the effort cost index, so a Trends snapshot captured from this release on can change colour without the budget changing; the Budget view shows a forecast line linking to the Budget Report; the task-effort indices read "Effort CPI" and "Effort SPI" everywhere and the "Cost recovery" tile is now "Internal cost index"; and a dated TimeLog Apply removes the overlapping period total of the other granularity (follow-up 543) — that removal also deletes hand-typed hours on days the Apply never routed, without the confirm dialog saying so, filed as follow-up 546 (Ishiguro)
@@ -45,7 +46,18 @@ export const APP_BUILD_DATE = "2026-09-16"; // 1.7.1: closing a budget bucket th
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (an author's surname). The
- *  1.6.x line is "Ishiguro" (Kazuo Ishiguro, British novelist and 2017 Nobel
+ *  1.8.x line is "Rendell" (Ruth Rendell, British crime novelist, author of "A
+ *  Judgement in Stone", 1977, and the Inspector Wexford novels beginning with
+ *  "From Doon with Death", 1964), taken by the SELECTION procedure below as the
+ *  first name in the candidate list. Swept BEFORE the 1.8.0 header was written,
+ *  in one run with its controls: `rendell` 0 hits anywhere in CHANGELOG.md, 0
+ *  against the header lines, and 0 in every commit subject in the history;
+ *  positive control `sayers` 2 on each axis, negative control `zzznotaname` 0.
+ *  The 1.7.x line was "Sayers", taken as the first name in the candidate list
+ *  (it was entry 5 there). The 1.7.0 release commit did not update this
+ *  docstring, so no sweep for it was recorded here and this lead went on naming
+ *  1.6.x through two releases.
+ *  The 1.6.x line was "Ishiguro" (Kazuo Ishiguro, British novelist and 2017 Nobel
  *  laureate, author of "The Remains of the Day", 1989, and "Never Let Me Go",
  *  2005), chosen after the first candidate turned out to be taken by 0.16.0.
  *  Swept BEFORE the 1.6.0 header was written, in one run with its controls:
@@ -355,7 +367,7 @@ export const APP_BUILD_DATE = "2026-09-16"; // 1.7.1: closing a budget bucket th
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Sayers";
+export const APP_MILESTONE = "Rendell";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 /** The app's public source repository, linked from the Version panel. */

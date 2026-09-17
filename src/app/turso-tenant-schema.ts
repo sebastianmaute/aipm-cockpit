@@ -156,6 +156,10 @@ export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, di
     if (ws.activityLog && ws.activityLog.length) {
       out.push(tenantInsert("meta", ["key", "value"], ["activityLog", JSON.stringify(ws.activityLog)], projectId));
     }
+    // budgetHistory: same shared-load reasoning as activityLog above.
+    if (ws.budgetHistory && ws.budgetHistory.length) {
+      out.push(tenantInsert("meta", ["key", "value"], ["budgetHistory", JSON.stringify(ws.budgetHistory)], projectId));
+    }
     // Documents ride `meta` here too. BOTH backends need this — the load side is
     // shared (rowsToWorkspace), so a save added on only one of them drops the
     // data silently on the other.
