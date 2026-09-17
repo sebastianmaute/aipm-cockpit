@@ -228,7 +228,11 @@ export function BurndownChart({
           </span>
         )}
         {hasPartial && (
-          <span className="inline-flex items-center gap-1.5"><Swatch className="stroke-[var(--rag-amber)]" dash={DASH.evPartial} width={2} />{t(lang, "burndownEvPartial")}</span>
+          <span className="inline-flex items-center gap-1.5">
+            <Swatch className="stroke-[var(--rag-amber)]" dash={DASH.evPartial} width={2} />{t(lang, "burndownEvPartial")}
+            {/* With no solid entry, this is the only place the line's explanation can live. */}
+            {!hasSolid && <TermTooltip lang={lang} term={t(lang, "burndownEvPartial")} tip={t(lang, "burndownTipEvHistory")} />}
+          </span>
         )}
         {model.ev && <span className="inline-flex items-center gap-1.5"><svg width="10" height="10" aria-hidden="true"><path d="M 5 0 l 5 5 l -5 5 l -5 -5 z" className="fill-[var(--rag-amber)]" /></svg>{t(lang, "burndownEv")}</span>}
         {model.runOut && <span className="inline-flex items-center gap-1.5"><svg width="10" height="10" aria-hidden="true"><circle cx="5" cy="5" r="4" className="fill-ui-pink" /></svg>{t(lang, "forecastRunOut")}</span>}

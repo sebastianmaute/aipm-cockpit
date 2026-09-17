@@ -227,6 +227,15 @@ describe("computeEvHistory — rule 1A′", () => {
     expect(points[11]).toEqual({ date: MONTH_12, eur: 300, hours: 3, partial: [], joins: [{ id: 1, name: "R1", eur: 300, hours: 3 }] });
   });
 
+  it("(5b) a bucket with no percent that starts after today is known-zero before, but partial on today's point", () => {
+    // Today's point ignores `startDate`, as the forecast's `bucketsMissingPercent` does.
+    const points = run([ruleBucket(1, { taskIds: [7] }), ruleBucket(2, { startDate: "2027-03-01" })], {
+      tasks: [{ id: 7, status: "Done", completedDate: "2026-04-15" }],
+    });
+    for (const pt of points.slice(0, 11)) expect(pt.partial).toEqual([]);
+    expect(points[11].partial).toEqual([{ id: 2, name: "R2", createdDate: null, startDate: "2027-03-01" }]);
+  });
+
   it("(2b) a linked bucket starting later is known-zero before its start, so it is never partial nor a join", () => {
     const tasks: EvHistoryTask[] = [{ id: 7, status: "Done", completedDate: "2026-02-10" }];
     const points = run([ruleBucket(1, { startDate: "2026-04-01", taskIds: [7] })], { tasks });
@@ -241,7 +250,7 @@ describe("computeEvHistory — rule 1A′", () => {
     const tasks: EvHistoryTask[] = [{ id: 7, status: "Done", completedDate: "2026-04-15" }];
     const points = run([ruleBucket(1, { taskIds: [7] }), ruleBucket(2, { taskIds: [99] })], { tasks });
     for (const pt of points) expect(pt.partial).toEqual([{ id: 2, name: "R2", createdDate: null, startDate: null }]);
-    // Today's VALUE is unchanged: R2 still contributes 0, as in the forecast's own EV.
+    // Today's VALUE is unchanged: R2 still contributes 0; the forecast withholds EV and names R2.
     expect(points[11]).toEqual({ date: MONTH_12, eur: 1_000, hours: 10, partial: [{ id: 2, name: "R2", createdDate: null, startDate: null }], joins: [] });
   });
 

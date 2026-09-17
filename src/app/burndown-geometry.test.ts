@@ -176,6 +176,13 @@ describe("buildChartModel — partial earned value and joins", () => {
     expect(cumulative(points, "hours").evJoins).toEqual([]);
   });
 
+  it("drops a point whose joins sum to an amount that shows as 0", () => {
+    // +1 and −1.4 each show, but sum to −0.4, which would print as "-0".
+    const joins = [{ id: 3, name: "Vendor", eur: 1, hours: 0.01 }, { id: 4, name: "Ops", eur: -1.4, hours: -0.014 }];
+    const points = [evPoint("2026-01-20", 0, { partial: [VENDOR, OPS] }), evPoint("2026-01-31", 40, { joins }), evPoint("2026-02-14", 50)];
+    expect(cumulative(points).evJoins).toEqual([]);
+  });
+
   // §556: today's point (always the last) may now be partial or carry a join.
   it("ends on a partial segment and names its bucket when the final point is partial", () => {
     const m = cumulative([evPoint("2026-01-31", 800), evPoint("2026-02-14", 1_000, { partial: [VENDOR] })]);

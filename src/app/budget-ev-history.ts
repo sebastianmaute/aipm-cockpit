@@ -11,10 +11,11 @@
  *   the bucket in `partial`.
  * A bucket that becomes known after an unknown point is a `join` there, with
  * the amount it brings in, so the step does not read as a sudden delivery.
- * The TODAY point uses `bucketPercentComplete`, so the line ends exactly at the
- * forecast's EV: a bucket with no current percent adds 0 there, as it does to
- * the forecast's EV, and is listed in `partial` like on any other point; a
- * bucket first known today is a `join` there. It is any date on or
+ * The TODAY point uses `bucketPercentComplete` and, like the forecast, ignores
+ * `startDate`: a bucket with no current percent adds 0 and is listed in
+ * `partial` — the same buckets the forecast names in `bucketsMissingPercent`
+ * when it withholds EV — and whenever the forecast has an EV the line ends
+ * exactly on it; a bucket first known today is a `join` there. It is any date on or
  * after today AND always the last date: once today is past the last plan
  * period, `actualPointDates` ends at that period's end, which precedes today.
  * Unavailable only when no budgeted bucket yields earned value at all — every

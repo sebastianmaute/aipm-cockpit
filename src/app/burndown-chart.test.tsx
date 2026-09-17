@@ -143,10 +143,13 @@ describe("BurndownChart", () => {
     );
     const seg = (partial: boolean) => ({ partial, points: [{ date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 100 }] });
 
-    it("shows only the partial entry when every segment is partial", () => {
-      withSegments([seg(true)]);
+    const tooltipTriggers = (container: HTMLElement) => container.querySelectorAll("[data-info-tooltip-trigger]");
+
+    it("shows only the partial entry when every segment is partial, and keeps the explanation reachable there", () => {
+      const { container } = withSegments([seg(true)]);
       expect(screen.queryByText("Earned value")).toBeNull();
       expect(screen.getByText("Partial earned value")).toBeInTheDocument();
+      expect(tooltipTriggers(container)).toHaveLength(1);
     });
 
     it("shows neither entry for an empty segment list", () => {
@@ -155,10 +158,11 @@ describe("BurndownChart", () => {
       expect(screen.queryByText("Partial earned value")).toBeNull();
     });
 
-    it("shows both entries for mixed segments", () => {
-      withSegments([seg(true), seg(false)]);
+    it("shows both entries for mixed segments, with one explanation", () => {
+      const { container } = withSegments([seg(true), seg(false)]);
       expect(screen.getByText("Earned value")).toBeInTheDocument();
       expect(screen.getByText("Partial earned value")).toBeInTheDocument();
+      expect(tooltipTriggers(container)).toHaveLength(1);
     });
   });
 
@@ -240,7 +244,7 @@ describe("BurndownChart", () => {
     });
 
     // §556: today's point (the last) may be partial or carry a join.
-    it("dashes and captions a partial final span, and labels a join on the final point", () => {
+    it("dashes and captions a partial final span", () => {
       const partialToday: EvHistory = {
         available: true,
         points: [
@@ -252,6 +256,9 @@ describe("BurndownChart", () => {
       expect(evLines(container).map((line) => line.getAttribute("stroke-dasharray"))).toEqual(["6 2 1 2", "2 4"]);
       expect(screen.getByText("Partial: Vendor not recorded")).toBeVisible();
       expect(ariaOf(container)).toContain("Earned value is partial for Vendor.");
+    });
+
+    it("labels a join on the final point", () => {
       const joinToday: EvHistory = {
         available: true,
         points: [

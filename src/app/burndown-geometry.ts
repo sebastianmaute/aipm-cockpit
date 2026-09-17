@@ -102,7 +102,8 @@ export function scaleValue(value: number, domain: readonly [number, number], yBo
 }
 
 /** The chart prints € and hours with no fractional digits, so a join below
- *  half a unit would read "+0" — such a join is not labelled. */
+ *  half a unit would read "+0" — such a join is not labelled. The same holds
+ *  for a point's summed join amount, which mixed signs can bring near 0. */
 const shownAsZero = (amount: number) => Math.round(amount) === 0;
 
 const createdAfterStart = (b: EvPartialBucket) =>
@@ -139,8 +140,8 @@ function evHistoryFields(evHistory: EvHistory, eurUnit: boolean, origin: ChartPo
   });
   const evJoins = points.flatMap((pt): EvJoinLabel[] => {
     const shown = pt.joins.filter((j) => !shownAsZero(valueOf(j)));
-    if (shown.length === 0) return [];
     const amount = shown.reduce((sum, j) => sum + valueOf(j), 0);
+    if (shown.length === 0 || shownAsZero(amount)) return [];
     // A join whose bucket carries a blank name would otherwise join to "", leaving
     // the drawn label (and the sentence built from it, "{0} joins ({1})") with a
     // dangling leading space and no subject. The em dash mirrors `bacFields`'
