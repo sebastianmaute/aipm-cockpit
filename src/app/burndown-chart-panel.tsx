@@ -25,8 +25,8 @@ export function BurndownChartPanel({
   /** True inside the dashboard tile. Spec §5.2 — "the dashboard tile shows the
    *  headline only", with D7 naming "tile carries the split too" as the
    *  REJECTED alternative — so the recorded-change table and its variance
-   *  footer are suppressed here and the tile keeps the chart alone (markers and
-   *  EV line included, which D7 does keep). The report pane passes nothing and
+   *  footer are suppressed here and the tile keeps the chart alone (its markers
+   *  kept by D7, its EV line by §5.1). The report pane passes nothing and
    *  gets both. Suppressing rather than merely narrowing is also what the tile's
    *  box wants: it is one cell of `ArrangementGrid`'s
    *  `lg:grid-cols-2 xl:grid-cols-4` grid, so at its default `w: 1` (the `burn`

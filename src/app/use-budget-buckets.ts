@@ -174,7 +174,7 @@ export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
       // `bucketId`/`bucketName` named the EDITED bucket, and the chart marker
       // and change-table row would name the wrong one. `soleRow` keeps its own
       // order because it only ever feeds the `touched === 1` name fallback,
-      // where all three lists coincide.
+      // where exactly one list holds a row, so both selectors pick that row.
       const historyKind = deleted.length > 0 ? "deleted" : created.length > 0 ? "created" : "updated";
       const historyRow = historyKind === "deleted" ? deleted[0] : historyKind === "created" ? created[0] : editedBefore[0];
       // An edit's `historyRow` is the PRE-edit bucket; name the entry after the saved one.
