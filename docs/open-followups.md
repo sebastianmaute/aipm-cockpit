@@ -774,6 +774,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§549](#549-buckets-with-a-hand-entered--complete-have-no-earned-value-history-so-the-cumulative-chart-cannot-draw-one-for-them--closed-2026-09-16) | Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — CLOSED 2026-09-16 | deferred 2026-09-15 by the forecast chart and hours addendum (MR 3), user approved filing; GitLab #339 | M — record % complete per period for hand-entered buckets | closed |
 | [§550](#550-closing-a-bucket-with-a-successor-inflates-project-budget-at-completion-by-the-unconsumed-remainder--closed-2026-09-16) | Closing a bucket with a successor inflates project budget at completion by the unconsumed remainder — CLOSED 2026-09-16 | measured 2026-09-16 by probe while designing the earned-value history slice; GitLab #340 | S — sum own budget, not the spillover-inclusive reported budget, in the project rollup | closed |
 | [§551](#551-dropping-the-dead-snapshot-currency-column-is-unsafe-while-older-clients-can-still-write-it--open) | Dropping the dead snapshot currency column is unsafe while older clients can still write it — OPEN | deferred 2026-09-16 by the earned-value history slice (§4.4), user approved filing; GitLab #341 | S — enforce a minimum client version, then drop the column | open |
+| [§552](#552-the-earned-value-legend-advertises-a-solid-line-the-chart-may-not-draw--open) | The earned-value legend advertises a solid line the chart may not draw — OPEN | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #342 | XS — gate the entry on a non-partial segment, mirroring the partial swatch | open |
+| [§553](#553-budget-change-join-labels-hardcode-a-plus-sign-instead-of-formatting-a-signed-figure--open) | Budget-change join labels hardcode a plus sign instead of formatting a signed figure — OPEN | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #343 | S — drop the sign from four strings in both dictionaries, format it with signedFigure | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38539,3 +38541,56 @@ Fix shape: add the guarantee, then drop the column with `ALTER TABLE snapshot DR
 check, as `turso-migrate.ts` does for its self-heal, and verify with the real statements against `node:sqlite`.
 
 Related: §465, §469.
+
+## 552. The earned-value legend advertises a solid line the chart may not draw — OPEN
+
+**Status:** OPEN 2026-09-17 — found by the cold whole-branch review of
+`feat/ev-history-scope-attribution`, established by reading `burndown-chart.tsx` against its own sibling
+legend entries; not run. User approved filing, deliberately not fixed in that branch.
+
+**Work item:** #342
+
+The "Earned value" legend entry is gated on `model.evSegments` being truthy. Its neighbours in the same
+block gate on what is actually drawn — `model.actual.length > 1` for the actual line, `hasPartial` for the
+partial EV swatch two lines below. That gap shows up two ways:
+
+- Every segment partial: the chart draws only the short-dash partial line, while the legend shows BOTH the
+  solid "Earned value" swatch and the partial one. The reader looks for a solid amber line that is not there.
+- `evSegments` as an EMPTY array is still truthy, so the legend entry renders with no EV line at all.
+
+Neither misleads about a NUMBER — the figures on the chart are right either way — which is why this was filed
+rather than fixed inside the slice that introduced it.
+
+Fix shape: gate the entry on some segment being non-partial, mirroring `hasPartial`. One predicate, no new
+UI and no i18n change. The alternative reading — that a legend is the chart's vocabulary rather than an
+inventory of drawn lines — is defensible, but it is not the reading the sibling entries already implement.
+
+Related: §553.
+
+## 553. Budget-change join labels hardcode a plus sign instead of formatting a signed figure — OPEN
+
+**Status:** OPEN 2026-09-17 — found by the cold whole-branch review of
+`feat/ev-history-scope-attribution`, established by reading the i18n strings against
+`parseBucketProgress`; not run. User approved filing, deliberately not fixed in that branch.
+
+**Work item:** #343
+
+The four join-label strings bake the sign into the copy — `burndownEvJoinsHours` is
+`"{0} joins (+{1} h)"`, and its Eur and plural siblings do the same. `parseBucketProgress`
+(`snapshot-schema.ts`) accepts any finite `pctComplete`, and `budget-ev-history.ts` uses that value
+directly, so a negative recorded percent reaches the label and renders a doubled sign: `+-EUR 500`.
+
+**Reachability is the reason this is filed rather than fixed.** The app's own UI cannot produce a negative
+percent; only a hand-edited or otherwise corrupted database row gets there. For every project the app itself
+writes, the labels are correct today.
+
+Fix shape: drop the `+` from all four strings in BOTH `i18n.ts` and `i18n.de.ts` and let `joinAmount`
+produce the sign through `signedFigure` (`forecast-format.ts`), which the same branch already made the
+single source of that rule. Eight strings, and the German file tolerates only a Node UTF-8 script anchored on
+`\r\n` — the cost is real and buys nothing visible until a corrupt row exists, so weigh it against leaving
+the label honest-but-ugly on data the app cannot create.
+
+Do NOT close this by clamping a negative `pctComplete` at the parse boundary: silently rewriting a stored
+value destroys the only signal that the row is corrupt.
+
+Related: §552.
