@@ -62,6 +62,9 @@ describe("BudgetChangeTable", () => {
     const region = screen.getByRole("region", { name: "Budget changes (€)" });
     expect(region).toHaveAttribute("tabindex", "0");
     expect(region).toHaveClass("overflow-x-auto");
+    // Keyboard-only ring: a `focus:` ring would also show on a mouse click.
+    expect(region).toHaveClass("focus-visible:ring-2");
+    expect(region).not.toHaveClass("focus:ring-2");
     expect(region).toContainElement(container.querySelector("table"));
   });
 

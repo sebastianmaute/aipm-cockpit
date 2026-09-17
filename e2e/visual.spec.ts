@@ -57,3 +57,47 @@ for (const name of VISUAL_VIEWS) {
     });
   });
 }
+
+// §557: the budget-history surfaces render only on Reports, and the stepped
+// budget line and its change markers only in the CUMULATIVE orientation
+// (`buildChartModel` skips `bacFields` for burn-down, the default). None of the
+// whole-view snapshots above opens Reports, so this one photographs the Budget
+// report block alone, after switching orientation: stepped line, markers, the
+// change table and its split rows, from the history e2e/seed.ts authors.
+// ★ Element-scoped, so the rest of Reports cannot drift this baseline. Same
+// determinism setup as the loop above (tour suppressed, frozen clock via
+// gotoApp, fonts ready, animations off). `report-block-budget-report` is the
+// test id Reports already stamps on every block (`testIdPrefix`).
+test("visual: Reports budget history (cumulative)", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
+  });
+  await gotoApp(page);
+  await openView(page, "Reports");
+  const block = page.getByTestId("report-block-budget-report");
+  await block
+    .getByRole("radiogroup", { name: "Chart orientation", exact: true })
+    .getByRole("radio", { name: "Cumulative", exact: true })
+    .click();
+  // Proves the switch landed before the capture: only the cumulative chart's
+  // name carries the "Budget changes:" sentence.
+  // ★ Built from `page`, not `block`: a `has:` locator is resolved RELATIVE to
+  // each candidate, so a `block`-prefixed one looks for the block inside the
+  // candidate and matches nothing (measured: the capture timed out).
+  const chart = page.getByRole("img", { name: /Budget changes: / });
+  const table = page.getByRole("table", { name: "Budget changes (€)", exact: true });
+  await expect(block.locator(chart)).toHaveCount(1);
+  // ★ The capture is the INNERMOST element holding both the chart and the
+  // change table (`.last()`: a descendant follows its ancestors in document
+  // order). The whole block is taller than the scrolling main pane, and an
+  // element capture is clipped to that pane, which cut off the table's last
+  // row and its split rows on the first attempt.
+  const chartAndTable = block.locator("div").filter({ has: chart }).filter({ has: table }).last();
+  await page.evaluate(() => document.fonts.ready);
+
+  await expect(chartAndTable).toHaveScreenshot("reports-budget-history.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+  });
+});

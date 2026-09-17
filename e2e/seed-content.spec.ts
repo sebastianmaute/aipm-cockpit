@@ -234,8 +234,16 @@ test("the seeded dashboard renders a populated board, not an empty one", async (
 });
 
 // ★★ §557: seed.ts authors a `budgetHistory` slice (a baseline plus three
-// changes) so the Reports budget block renders its history surfaces under the
-// axe scan and the visual specs. Before it, no Playwright run drew any of them.
+// changes) so the Reports budget block renders its history surfaces in the
+// browser. Which run sees what:
+//   change table + split rows → this test, the Reports axe scans (default
+//     burn-down orientation) and visual.spec.ts's budget-report snapshot;
+//   stepped line + markers    → this test (the chart's name), the cumulative
+//     Reports scan in a11y.spec.ts and the same snapshot, which switches to
+//     the cumulative orientation first.
+// The Dashboard burn tile is compact (no table) and burn-down (no steps), so
+// no Dashboard run shows either. Before this seed, no Playwright run drew any
+// of them.
 // ★ The table is found by its <caption>, which is its accessible name and
 // carries the unit — "Budget changes (€)" while the chart unit is the default
 // `eur` (`budgetChartUnit ?? "eur"` in burndown-chart-panel.tsx). The baseline
@@ -268,11 +276,17 @@ test("seeded budget history reaches the Reports change table and chart", async (
   await expect(rows.nth(1)).toContainText("Data Migration (fixed price)");
   await expect(rows.nth(2)).toContainText("Pilot Workshop");
   await expect(rows.nth(2)).toContainText("removed");
-  // The variance split footer: the seeded final BAC differs from today's, so
-  // the unexplained row is the one this seed exists to render.
-  await expect(
-    table.getByRole("rowheader", { name: "Unexplained budget change", exact: true }),
-  ).toBeVisible();
+  // The variance split footer. `BudgetChangeTable` renders all three split
+  // rows whenever a pace split exists, whatever their values, so the header
+  // alone proves nothing about the seed. The seeded final BAC differs from
+  // today's, so the unexplained figure must not be a zero: `signedFigure`
+  // prefixes "+" only to a positive value, and a zero renders as a bare "€0".
+  const unexplained = table.getByRole("row", { name: /^Unexplained budget change/ });
+  await expect(unexplained).toHaveCount(1);
+  // The positive half first, so an empty or unformatted cell cannot pass the
+  // negative half vacuously.
+  await expect(unexplained.getByRole("cell")).toHaveText(/€\d/);
+  await expect(unexplained.getByRole("cell")).not.toHaveText(/^[+\-−]?€0(?:\.0+)?$/);
 
   await page
     .getByRole("radiogroup", { name: "Chart orientation", exact: true })

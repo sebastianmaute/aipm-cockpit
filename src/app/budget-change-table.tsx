@@ -16,7 +16,6 @@
 // which is the only thing that tells a "+30" apart from a "+€3,000".
 import { useId } from "react";
 import { type Lang, t, localeFor } from "./i18n";
-import { FOCUS_RING } from "./interaction-styles";
 import { formatCurrency } from "./resource-cost";
 import { formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { orderBudgetChanges, type BudgetHistorySummary, type VarianceSplit } from "./budget-history";
@@ -77,7 +76,14 @@ export function BudgetChangeTable({
     // carried budget history (§557). Same fix as `document-preview.tsx`; the
     // region is named by the caption through `aria-labelledby`, so it needs no
     // i18n key of its own.
-    <section tabIndex={0} aria-labelledby={captionId} className={`overflow-x-auto ${FOCUS_RING}`}>
+    // ★ The ring is the `focus-visible` idiom focusable containers use (the
+    // help and notes windows; see `usePanelInitialFocus`), not `FOCUS_RING`:
+    // `focus:` would also ring the region on a mouse click into the table.
+    <section
+      tabIndex={0}
+      aria-labelledby={captionId}
+      className="overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
+    >
       <table className="w-full text-sm">
         <caption id={captionId} className="mb-1 text-left text-xs uppercase tracking-wide text-muted-foreground">
           {t(lang, "budgetChangeTableCaption", unitLabel)}

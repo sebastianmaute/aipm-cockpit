@@ -37,17 +37,19 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
 // ★ 7 combos × 17 views = 119, + the Kanban-board scan below (ONE PER COMBO,
 // its own `for (const combo of COMBOS)` loop — it scales with the combo count,
 // it is NOT a fixed 5) = 126, + 1 notes-window toolbar scan + 1 Documents
-// block-editor scan (both harbor-light only, hardcoded — neither scales with
-// the combo count) = 128 scans, plus the one non-scan guard below = 129 tests.
+// block-editor scan + 1 Reports cumulative-chart scan (all three harbor-light
+// only, hardcoded — none scales with the combo count) = 129 scans, plus the
+// one non-scan guard below = 130 tests.
 // MEASURE it in the same commit that changes A11Y_VIEWS or adds a scan rather
 // than deriving it — this comment said 85 for as long as the list said 16
 // views, and a beacon-added-combo draft of this very comment still said "108
 // scans / 109 tests" by carrying forward the pre-beacon "5 Kanban variants"
 // instead of re-measuring. The 128/129 above were likewise MEASURED, not
-// derived, in the commit that added the umber-dark combo. Reproduce (no
-// browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 129 total
-//   …then `grep -c "a11y:"` over that output       # 128 scans
+// derived, in the commit that added the umber-dark combo, and 129/130
+// re-measured when the Reports cumulative scan was added (§557). Reproduce
+// (no browsers needed):
+//   npx playwright test e2e/a11y.spec.ts --list   # 130 total
+//   …then `grep -c "a11y:"` over that output       # 129 scans
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },
@@ -311,4 +313,46 @@ test("a11y: harbor-light — Documents (block editor)", async ({ page }) => {
     .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
     .join("\n");
   expect(blocking, `Documents block editor a11y violations:\n${summary}`).toEqual([]);
+});
+
+// §557: the Budget report's chart draws the recorded budget history (stepped
+// line, change markers) only in the CUMULATIVE orientation, and the Reports
+// scan in the A11Y_VIEWS loop sees the default burn-down. e2e/seed.ts seeds the
+// history; this scan switches orientation and checks those surfaces too.
+// ★ Same axe configuration as every scan above; harbor-light only, like the
+// two scans before it.
+test("a11y: harbor-light — Reports (budget chart, cumulative)", async ({ page }) => {
+  await page.addInitScript(seedScript(COMBOS[0]));
+
+  await gotoApp(page);
+  await openView(page, "Reports");
+  // DOM-click the radio (mirrors the scans above) so the auto-launched guided
+  // tour overlay cannot intercept a real pointer click. Assert it was found so
+  // a renamed control fails loudly instead of rescanning the burn-down chart.
+  const clickedCumulative = await page.evaluate(() => {
+    const group = document.querySelector('[role="radiogroup"][aria-label="Chart orientation"]');
+    const radio = [...(group?.querySelectorAll('[role="radio"]') ?? [])].find(
+      (r) => (r.textContent || "").trim() === "Cumulative",
+    );
+    if (!radio) return false;
+    (radio as HTMLElement).click();
+    return true;
+  });
+  expect(clickedCumulative, "Cumulative orientation radio not found in Reports").toBe(true);
+  // Only the cumulative chart's name carries the recorded changes, so this
+  // proves the stepped line and markers are on screen when axe runs.
+  await expect(page.getByRole("img", { name: /Budget changes: / })).toHaveCount(1);
+  await waitForViewSettled(page);
+
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+
+  const blocking = results.violations.filter(
+    (v) => v.impact === "critical" || v.impact === "serious",
+  );
+  const summary = blocking
+    .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
+    .join("\n");
+  expect(blocking, `Reports cumulative budget chart a11y violations:\n${summary}`).toEqual([]);
 });

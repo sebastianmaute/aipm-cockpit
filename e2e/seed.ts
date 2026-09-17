@@ -256,7 +256,10 @@ const SEED_WORKSPACE: Record<string, unknown> = {
   // by plan period). Each running BAC is the previous one plus its delta, which
   // is the invariant `recordBudgetChange` writes. The final 1400 h / €262,000
   // deliberately differs from today's own-basis BAC (1440 h / €264,927.27 at the
-  // time of writing, measured with an 8 h workday and no holidays), so the split rows show a non-zero "unexplained" part.
+  // time of writing), so the split rows show a non-zero "unexplained" part
+  // (seed-content.spec.ts asserts that figure is not zero). The probe below
+  // passes `[]` for tasks exactly as `BudgetReportPanel` does, the default 8 h
+  // workday, and an EMPTY holiday set, where the app passes its configured one.
   // ★ Buckets 3 and 4 are real buckets of the master; 9201 names a bucket that
   // no longer exists, which is what a `deleted` entry means. Every row must pass
   // `sanitizeBudgetHistory` (budget-history.ts) or it is dropped on load.
