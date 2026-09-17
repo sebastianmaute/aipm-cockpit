@@ -232,3 +232,55 @@ test("the seeded dashboard renders a populated board, not an empty one", async (
     ).toBeVisible();
   }
 });
+
+// ★★ §557: seed.ts authors a `budgetHistory` slice (a baseline plus three
+// changes) so the Reports budget block renders its history surfaces under the
+// axe scan and the visual specs. Before it, no Playwright run drew any of them.
+// ★ The table is found by its <caption>, which is its accessible name and
+// carries the unit — "Budget changes (€)" while the chart unit is the default
+// `eur` (`budgetChartUnit ?? "eur"` in burndown-chart-panel.tsx). The baseline
+// is not a change, so three seeded changes mean exactly three body rows.
+// ★ The chart's in-plot markers are `aria-hidden`; they reach assistive tech
+// only through the chart's own `role="img"` name
+// ("… Budget changes: <date> <amount> <bucket>; …"), so that name is the stable
+// hook. The deleted bucket's marker must read "<amount> Pilot Workshop removed".
+// ★★ The stepped line and its markers are drawn in the CUMULATIVE orientation
+// only (`buildChartModel` skips `bacFields` when orientation is "burndown", the
+// default), so the spec switches orientation first. Measured: in the default
+// orientation the name carries no "Budget changes:" sentence at all.
+// ★ `tourSeen` is seeded because the orientation switch is a real pointer
+// click, and the auto-launched guided tour's backdrop intercepts it (measured:
+// the click timed out on "Welcome to the PM Tracker"). Same fix as
+// control-defects-eye-verify.spec.ts.
+test("seeded budget history reaches the Reports change table and chart", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
+  });
+  await gotoApp(page);
+  await openView(page, "Reports");
+
+  const table = page.getByRole("table", { name: "Budget changes (€)", exact: true });
+  await expect(table).toBeVisible();
+  const rows = table.locator("tbody").getByRole("row");
+  await expect(rows).toHaveCount(3);
+  // Each seeded bucket, in date order — a partial or reordered seed fails here.
+  await expect(rows.nth(0)).toContainText("Capped SOW (rate override)");
+  await expect(rows.nth(1)).toContainText("Data Migration (fixed price)");
+  await expect(rows.nth(2)).toContainText("Pilot Workshop");
+  await expect(rows.nth(2)).toContainText("removed");
+  // The variance split footer: the seeded final BAC differs from today's, so
+  // the unexplained row is the one this seed exists to render.
+  await expect(
+    table.getByRole("rowheader", { name: "Unexplained budget change", exact: true }),
+  ).toBeVisible();
+
+  await page
+    .getByRole("radiogroup", { name: "Chart orientation", exact: true })
+    .getByRole("radio", { name: "Cumulative", exact: true })
+    .click();
+  // One marker per seeded month, joined by "; " — three separate markers, in date order.
+  const chart = page.getByRole("img", {
+    name: /Budget changes: [^;]*Capped SOW \(rate override\); [^;]*Data Migration \(fixed price\); [^;]*Pilot Workshop removed\./,
+  });
+  await expect(chart).toHaveCount(1);
+});

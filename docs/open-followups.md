@@ -779,7 +779,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§554](#554-the-budget-history-summary-picks-its-baseline-and-changes-by-array-position-not-by-date--closed-2026-09-17) | The budget-history summary picks its baseline and changes by array position, not by date — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #344 | S — order the entries before summarising, and decide which baseline wins | closed |
 | [§555](#555-the-next-actions-and-ai-dashboard-model-never-receives-recorded-budget-history--closed-2026-09-17) | The Next Actions and AI dashboard model never receives recorded budget history — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #345 | S — pass snapshots and budget history, or say why that model omits them | closed |
 | [§556](#556-the-earned-value-today-point-never-flags-a-partial-bucket-or-a-join--closed-2026-09-17) | The earned-value today point never flags a partial bucket or a join — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #346 | S — decide whether today's point may carry partial and join entries | closed |
-| [§557](#557-no-end-to-end-fixture-carries-budget-history-so-no-browser-run-renders-the-new-budget-surfaces--open) | No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #347 | M — seed budget history and bucket progress, then extend the axe and visual runs | open |
+| [§557](#557-no-end-to-end-fixture-carries-budget-history-so-no-browser-run-renders-the-new-budget-surfaces--closed-2026-09-17) | No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #347 | M — seed budget history and bucket progress, then extend the axe and visual runs | closed |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38669,10 +38669,9 @@ and the card agree. What is missing is the disclosure.
 Fix shape: allow today's point to carry `partial` and `joins` while keeping its value on the forecast's
 EV, then make sure the geometry and the chart caption handle a partial final point.
 
-## 557. No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — OPEN
+## 557. No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — CLOSED 2026-09-17
 
-**Status:** OPEN 2026-09-17 — found while finishing the earned-value history branch (`feat/ev-history-scope-attribution`); established by reading, not run. User approved
-filing.
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `e2e/seed.ts` now authors a `budgetHistory` slice (a baseline, then a create, an increase and a delete) and maps its IndexedDB kv key, and `seed-content.spec.ts` pins that Reports renders the "Budget changes (€)" table with three rows and that the cumulative chart's accessible name lists the changes. The seeded table surfaced a real axe violation (`scrollable-region-focusable`, serious, all seven Reports combos), fixed by making `BudgetChangeTable`'s scroll wrapper a focusable region named by its caption and pinned in `budget-change-table.test.tsx`. No visual baseline changed: the stepped line and markers draw only in the cumulative orientation, and the visual specs photograph the default burn-down. The earned-value partial span is still out of reach of the file-mode seed and remains an eye-verify on a real Turso project. Verified by `npx vitest run src/app/budget-change-table.test.tsx --maxWorkers=1` and `npx playwright test e2e/seed-content.spec.ts --project=chromium --workers=1`.
 
 **Work item:** #347
 

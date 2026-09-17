@@ -14,7 +14,9 @@
 // `docs/AGENTS/ui-shell.md` — non-sortable text-only header cells keep a raw
 // `<th>`). The `<caption>` is the table's accessible name and carries the unit,
 // which is the only thing that tells a "+30" apart from a "+€3,000".
+import { useId } from "react";
 import { type Lang, t, localeFor } from "./i18n";
+import { FOCUS_RING } from "./interaction-styles";
 import { formatCurrency } from "./resource-cost";
 import { formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { orderBudgetChanges, type BudgetHistorySummary, type VarianceSplit } from "./budget-history";
@@ -36,6 +38,7 @@ export function BudgetChangeTable({
   unit: ChartUnit;
   currency: string;
 }) {
+  const captionId = useId();
   const locale = localeFor(lang);
   const eurUnit = unit === "eur";
   const fmt = (v: number) => (eurUnit ? formatCurrency(v, currency, locale) : formatHours(v, locale));
@@ -68,9 +71,15 @@ export function BudgetChangeTable({
   ];
 
   return (
-    <div className="overflow-x-auto">
+    // ★ `tabIndex={0}` is an accessibility fix: this wrapper scrolls and its
+    // cells hold no control, so without it a keyboard user could not scroll it
+    // — axe's scrollable-region-focusable (serious), found once the e2e seed
+    // carried budget history (§557). Same fix as `document-preview.tsx`; the
+    // region is named by the caption through `aria-labelledby`, so it needs no
+    // i18n key of its own.
+    <section tabIndex={0} aria-labelledby={captionId} className={`overflow-x-auto ${FOCUS_RING}`}>
       <table className="w-full text-sm">
-        <caption className="mb-1 text-left text-xs uppercase tracking-wide text-muted-foreground">
+        <caption id={captionId} className="mb-1 text-left text-xs uppercase tracking-wide text-muted-foreground">
           {t(lang, "budgetChangeTableCaption", unitLabel)}
         </caption>
         <thead>
@@ -113,6 +122,6 @@ export function BudgetChangeTable({
       {footRows.length > 0 && (
         <p className="mt-1 text-xs text-muted-foreground">{t(lang, "budgetChangePaceNote")}</p>
       )}
-    </div>
+    </section>
   );
 }

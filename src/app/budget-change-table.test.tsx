@@ -54,6 +54,17 @@ describe("BudgetChangeTable", () => {
     expect(hours.container.querySelector("caption")).toHaveTextContent("Budget changes (Hours)");
   });
 
+  // axe's scrollable-region-focusable (serious) flagged the unfocusable
+  // `overflow-x-auto` wrapper once the e2e seed carried budget history (§557):
+  // its cells hold no control, so a keyboard user could not scroll it.
+  it("makes its horizontal scroll wrapper a keyboard-focusable region named by the caption", () => {
+    const { container } = draw();
+    const region = screen.getByRole("region", { name: "Budget changes (€)" });
+    expect(region).toHaveAttribute("tabindex", "0");
+    expect(region).toHaveClass("overflow-x-auto");
+    expect(region).toContainElement(container.querySelector("table"));
+  });
+
   it("lists the changes in chronological order, not in the array's order", () => {
     const { container } = draw();
     const rows = bodyRows(container);
