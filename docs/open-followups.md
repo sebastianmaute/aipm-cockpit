@@ -38550,8 +38550,6 @@ Related: §465, §469.
 
 **Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `BurndownChart` (`burndown-chart.tsx`) now renders the "Earned value" legend entry on `hasSolid` — some segment is not partial — beside the existing `hasPartial`, so an all-partial or empty segment list no longer advertises a solid line. Pinned by the "earned-value legend entries follow the drawn segments (§552)" describe block in `burndown-chart.test.tsx` (all-partial, empty, mixed). Verified by `npx vitest run src/app/burndown-chart.test.tsx --maxWorkers=1`.
 
-**Work item:** #342
-
 The "Earned value" legend entry is gated on `model.evSegments` being truthy. Its neighbours in the same
 block gate on what is actually drawn — `model.actual.length > 1` for the actual line, `hasPartial` for the
 partial EV swatch two lines below. That gap shows up two ways:
@@ -38572,8 +38570,6 @@ Related: §553.
 ## 553. Budget-change join labels hardcode a plus sign instead of formatting a signed figure — CLOSED 2026-09-17
 
 **Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: the four join keys (`burndownEvJoinsHours`, `burndownEvJoinsEur`, `burndownEvJoinsHoursPlural`, `burndownEvJoinsEurPlural`) no longer carry a `+` in `i18n.ts` or `i18n.de.ts`, and `joinAmount` in `burndown-chart.tsx` passes its figure through `signedFigure`, so a positive join still reads `+` and a negative one reads a single `-`. `parseBucketProgress` is unchanged. Pinned by the negative-join cases (EN hours and EUR, and DE) in `burndown-chart.test.tsx`. Verified by `npx vitest run src/app/burndown-chart.test.tsx --maxWorkers=1`.
-
-**Work item:** #343
 
 The four join-label strings bake the sign into the copy — `burndownEvJoinsHours` is
 `"{0} joins (+{1} h)"`, and its Eur and plural siblings do the same. `parseBucketProgress`
@@ -38602,8 +38598,6 @@ now calls `orderBudgetChanges` on the whole history BEFORE locating the baseline
 and every change is attributed in `orderBudgetChanges` order — by `at`, falling back to `date` — rather than by array position. Pinned by three new cases in the
 `summarizeBudgetHistory` describe block of `budget-history.test.ts`. Verified by `npx vitest run src/app/budget-history.test.ts --maxWorkers=1`.
 
-**Work item:** #344
-
 `summarizeBudgetHistory` (`budget-history.ts`) takes the FIRST `baseline` entry by array position and
 attributes only the changes positioned AFTER it (`history.slice(i + 1)`). Array order is not a date order:
 `mergeBudgetHistories` unions previous-then-loaded entries by id, and `orderBudgetChanges`' own docstring says
@@ -38628,8 +38622,6 @@ order.
 
 **Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `task-manager.tsx` now builds `dashboardModel` through the new `buildLiveDashboardInput` (`dashboard.ts`), which requires `budgetHistory` and passes recorded snapshots only while `trendsActive`; the snapshot `buildContext` passes `budgetHistory` too, and the comment above `dashboardModel` now names its real consumers and says the panel builds its own module-gated model. The fix changes no output today: none of the three consumers of `dashboardModel` reads `forecastBundle` — Next Actions reads only `budget` and `evm`, and the AI dashboard snapshot (`buildDashboardSnapshot`) and the meeting-report prompt (`buildMeetingReportPrompt`) carry no forecast figures (§545). The body's "the forecast bundle the AI sees" therefore overstated the defect; the fix removes a latent divergence for when §545 lands. Rulings: module gating was deliberately not copied (the Next Actions engine already skips a provider whose `moduleId` is disabled), and `disciplines`/`grades` were left out because they feed only `forecastBundle.mix`. The `buildLiveDashboardInput` block in `dashboard.test.ts` pins the helper only; the call site is pinned only by the helper's required `budgetHistory` type. Verified by `npx vitest run src/app/dashboard.test.ts --maxWorkers=1`.
 
-**Work item:** #345
-
 `task-manager.tsx` builds `dashboardModel` with `buildDashboardInput` but passes neither `snapshots` nor
 `budgetHistory`, so both default to `[]`. That model feeds Next Actions and BOTH `getDashboardModel`
 handlers the AI assistant reads. The dashboard panel builds its OWN model (`dashboard-panel.tsx`) and does
@@ -38651,8 +38643,6 @@ model does not — decide whether that divergence is intended while there.
 
 **Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `computeEvHistory` (`budget-ev-history.ts`) no longer suppresses `partial` and `joins` on today's point, so a bucket with no current percent is listed there and a bucket first known today is a join; today's value still comes from `bucketPercentComplete`, which, like the forecast, ignores `startDate`; today's `partial` names the same buckets as the forecast's `bucketsMissingPercent` (the forecast then withholds EV), and whenever the forecast has an EV the line ends exactly on it. The chart needed no change: `buildChartModel` already dashes a partial final segment, captions its bucket and labels a final-point join, now pinned by `budget-ev-history.test.ts` ("(5)" and "(R3)"), `burndown-geometry.test.ts` and `burndown-chart.test.tsx`. Verified by `npx vitest run src/app/budget-ev-history.test.ts --maxWorkers=1`.
 
-**Work item:** #346
-
 `budget-ev-history.ts` computes the last point with `bucketPercentComplete` so the line ends exactly on the
 forecast's earned value, and its docstring states that point is "never partial and never a join". The code
 enforces that with `!isToday` on both lists. Two consequences, established by reading:
@@ -38672,8 +38662,6 @@ EV, then make sure the geometry and the chart caption handle a partial final poi
 ## 557. No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — CLOSED 2026-09-17
 
 **Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `e2e/seed.ts` now authors a `budgetHistory` slice (a baseline, then a create, an increase and a delete) and maps its IndexedDB kv key. Which browser run renders which surface: the change table and its split rows are rendered by the Reports axe scans (default burn-down orientation), by `seed-content.spec.ts` (three rows, the "removed" label, a non-zero unexplained figure) and by the new `visual: Reports budget history (cumulative)` snapshot; the stepped budget line and its markers draw only in the cumulative orientation and are rendered by `seed-content.spec.ts` (through the chart's accessible name), by the new `a11y: harbor-light — Reports (budget chart, cumulative)` scan and by the same snapshot. The Dashboard burn tile is compact (no table) and burn-down (no steps), so no Dashboard run shows either. The seeded table surfaced a real axe violation (`scrollable-region-focusable`, serious, all seven Reports combos), fixed by making `BudgetChangeTable`'s scroll wrapper a focusable region named by its caption, with a `focus-visible` ring, pinned in `budget-change-table.test.tsx`. Correction to the body below: the file-mode seed DOES render a partial earned-value span (buckets with no recorded progress, captioned "… not recorded", visible in the new snapshot). What it cannot reach is snapshot-recorded bucket progress, which is Turso-only and remains an eye-verify on a real Turso project. Verified by `npx vitest run src/app/budget-change-table.test.tsx --maxWorkers=1`, `npx playwright test e2e/seed-content.spec.ts --project=chromium --workers=1`, `npx playwright test e2e/a11y.spec.ts --project=chromium --workers=1 -g "Reports"` and `npx playwright test e2e/visual.spec.ts --project=visual --workers=1 -g "Reports budget history"`.
-
-**Work item:** #347
 
 Neither `e2e/seed.ts` nor `sample-workspace-small.json` carries `budgetHistory`. Without it the stepped
 budget line, its markers, the change table and the variance split rows never render in any Playwright run.
