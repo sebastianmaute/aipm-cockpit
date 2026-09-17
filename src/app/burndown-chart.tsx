@@ -104,6 +104,9 @@ export function BurndownChart({
   const partialCaptions = [...new Set(model.evPartialNames.map((p) =>
     t(lang, p.created ? "burndownEvPartialCreated" : "burndownEvPartialNotRecorded", p.names)))];
   const hasPartial = model.evSegments?.some((seg) => seg.partial) ?? false;
+  // The solid "Earned value" entry names only a line that is drawn: an empty
+  // list, or one whose every segment is partial, draws no solid span.
+  const hasSolid = model.evSegments?.some((seg) => !seg.partial) ?? false;
   // The stepped BAC line's final level, which its text label names. `bacFields`
   // seeds `steps` with the baseline point before reading any entry and returns
   // NO_BAC when there are none, so a non-null `bacSteps` is never empty — the
@@ -216,7 +219,7 @@ export function BurndownChart({
         {model.actual.length > 1 && <span className="inline-flex items-center gap-1.5"><Swatch className={actualClass} />{t(lang, "burndownActual")}</span>}
         {model.pace && <span className="inline-flex items-center gap-1.5"><Swatch className="stroke-ui-dark-blue" dash={DASH.pace} />{t(lang, "forecastPaceTitle")}</span>}
         {model.efficiency && <span className="inline-flex items-center gap-1.5"><Swatch className="stroke-ui-purple" dash={DASH.efficiency} />{t(lang, "forecastEfficiencyTitle")}</span>}
-        {model.evSegments && (
+        {hasSolid && (
           <span className="inline-flex items-center gap-1.5">
             <Swatch className="stroke-[var(--rag-amber)]" dash={DASH.evLine} width={2} />{t(lang, "burndownEvHistory")}
             <TermTooltip lang={lang} term={t(lang, "burndownEvHistory")} tip={t(lang, "burndownTipEvHistory")} />

@@ -774,7 +774,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§549](#549-buckets-with-a-hand-entered--complete-have-no-earned-value-history-so-the-cumulative-chart-cannot-draw-one-for-them--closed-2026-09-16) | Buckets with a hand-entered % complete have no earned-value history, so the cumulative chart cannot draw one for them — CLOSED 2026-09-16 | deferred 2026-09-15 by the forecast chart and hours addendum (MR 3), user approved filing; GitLab #339 | M — record % complete per period for hand-entered buckets | closed |
 | [§550](#550-closing-a-bucket-with-a-successor-inflates-project-budget-at-completion-by-the-unconsumed-remainder--closed-2026-09-16) | Closing a bucket with a successor inflates project budget at completion by the unconsumed remainder — CLOSED 2026-09-16 | measured 2026-09-16 by probe while designing the earned-value history slice; GitLab #340 | S — sum own budget, not the spillover-inclusive reported budget, in the project rollup | closed |
 | [§551](#551-dropping-the-dead-snapshot-currency-column-is-unsafe-while-older-clients-can-still-write-it--open) | Dropping the dead snapshot currency column is unsafe while older clients can still write it — OPEN | deferred 2026-09-16 by the earned-value history slice (§4.4), user approved filing; GitLab #341 | S — enforce a minimum client version, then drop the column | open |
-| [§552](#552-the-earned-value-legend-advertises-a-solid-line-the-chart-may-not-draw--open) | The earned-value legend advertises a solid line the chart may not draw — OPEN | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #342 | XS — gate the entry on a non-partial segment, mirroring the partial swatch | open |
+| [§552](#552-the-earned-value-legend-advertises-a-solid-line-the-chart-may-not-draw--closed-2026-09-17) | The earned-value legend advertises a solid line the chart may not draw — CLOSED 2026-09-17 | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #342 | XS — gate the entry on a non-partial segment, mirroring the partial swatch | closed |
 | [§553](#553-budget-change-join-labels-hardcode-a-plus-sign-instead-of-formatting-a-signed-figure--open) | Budget-change join labels hardcode a plus sign instead of formatting a signed figure — OPEN | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #343 | S — drop the sign from four strings in both dictionaries, format it with signedFigure | open |
 | [§554](#554-the-budget-history-summary-picks-its-baseline-and-changes-by-array-position-not-by-date--closed-2026-09-17) | The budget-history summary picks its baseline and changes by array position, not by date — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #344 | S — order the entries before summarising, and decide which baseline wins | closed |
 | [§555](#555-the-next-actions-and-ai-dashboard-model-never-receives-recorded-budget-history--open) | The Next Actions and AI dashboard model never receives recorded budget history — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #345 | S — pass snapshots and budget history, or say why that model omits them | open |
@@ -38546,11 +38546,9 @@ check, as `turso-migrate.ts` does for its self-heal, and verify with the real st
 
 Related: §465, §469.
 
-## 552. The earned-value legend advertises a solid line the chart may not draw — OPEN
+## 552. The earned-value legend advertises a solid line the chart may not draw — CLOSED 2026-09-17
 
-**Status:** OPEN 2026-09-17 — found by the cold whole-branch review of
-`feat/ev-history-scope-attribution`, established by reading `burndown-chart.tsx` against its own sibling
-legend entries; not run. User approved filing, deliberately not fixed in that branch.
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `BurndownChart` (`burndown-chart.tsx`) now renders the "Earned value" legend entry on `hasSolid` — some segment is not partial — beside the existing `hasPartial`, so an all-partial or empty segment list no longer advertises a solid line. Pinned by the "earned-value legend entries follow the drawn segments (§552)" describe block in `burndown-chart.test.tsx` (all-partial, empty, mixed). Verified by `npx vitest run src/app/burndown-chart.test.tsx --maxWorkers=1`.
 
 **Work item:** #342
 

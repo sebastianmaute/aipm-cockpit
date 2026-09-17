@@ -134,6 +134,34 @@ describe("BurndownChart", () => {
     expect(screen.getAllByText("Earned value")).toHaveLength(1);
   });
 
+  describe("earned-value legend entries follow the drawn segments (§552)", () => {
+    const withSegments = (evSegments: NonNullable<ReturnType<typeof buildChartModel>["evSegments"]>) => render(
+      <BurndownChart
+        lang="en-US" currency="EUR" unit="eur" orientation="cumulative" periods={CHART_SERIES.periods}
+        model={{ ...buildChartModel({ ...base, orientation: "cumulative", forecast: null }), evSegments }}
+      />,
+    );
+    const seg = (partial: boolean) => ({ partial, points: [{ date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 100 }] });
+
+    it("shows only the partial entry when every segment is partial", () => {
+      withSegments([seg(true)]);
+      expect(screen.queryByText("Earned value")).toBeNull();
+      expect(screen.getByText("Partial earned value")).toBeInTheDocument();
+    });
+
+    it("shows neither entry for an empty segment list", () => {
+      withSegments([]);
+      expect(screen.queryByText("Earned value")).toBeNull();
+      expect(screen.queryByText("Partial earned value")).toBeNull();
+    });
+
+    it("shows both entries for mixed segments", () => {
+      withSegments([seg(true), seg(false)]);
+      expect(screen.getByText("Earned value")).toBeInTheDocument();
+      expect(screen.getByText("Partial earned value")).toBeInTheDocument();
+    });
+  });
+
   it("shows the frame note and the no-history note when they apply", () => {
     draw({ forecast: { ...CHART_FORECAST, facts: { ...CHART_FORECAST.facts, bac: 9_500 } } });
     expect(screen.getByText(/Chart totals differ from the forecast figures/)).toBeInTheDocument();
