@@ -776,7 +776,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§551](#551-dropping-the-dead-snapshot-currency-column-is-unsafe-while-older-clients-can-still-write-it--open) | Dropping the dead snapshot currency column is unsafe while older clients can still write it — OPEN | deferred 2026-09-16 by the earned-value history slice (§4.4), user approved filing; GitLab #341 | S — enforce a minimum client version, then drop the column | open |
 | [§552](#552-the-earned-value-legend-advertises-a-solid-line-the-chart-may-not-draw--open) | The earned-value legend advertises a solid line the chart may not draw — OPEN | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #342 | XS — gate the entry on a non-partial segment, mirroring the partial swatch | open |
 | [§553](#553-budget-change-join-labels-hardcode-a-plus-sign-instead-of-formatting-a-signed-figure--open) | Budget-change join labels hardcode a plus sign instead of formatting a signed figure — OPEN | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #343 | S — drop the sign from four strings in both dictionaries, format it with signedFigure | open |
-| [§554](#554-the-budget-history-summary-picks-its-baseline-and-changes-by-array-position-not-by-date--open) | The budget-history summary picks its baseline and changes by array position, not by date — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #344 | S — order the entries before summarising, and decide which baseline wins | open |
+| [§554](#554-the-budget-history-summary-picks-its-baseline-and-changes-by-array-position-not-by-date--closed-2026-09-17) | The budget-history summary picks its baseline and changes by array position, not by date — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #344 | S — order the entries before summarising, and decide which baseline wins | closed |
 | [§555](#555-the-next-actions-and-ai-dashboard-model-never-receives-recorded-budget-history--open) | The Next Actions and AI dashboard model never receives recorded budget history — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #345 | S — pass snapshots and budget history, or say why that model omits them | open |
 | [§556](#556-the-earned-value-today-point-never-flags-a-partial-bucket-or-a-join--open) | The earned-value today point never flags a partial bucket or a join — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #346 | S — decide whether today's point may carry partial and join entries | open |
 | [§557](#557-no-end-to-end-fixture-carries-budget-history-so-no-browser-run-renders-the-new-budget-surfaces--open) | No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #347 | M — seed budget history and bucket progress, then extend the axe and visual runs | open |
@@ -38599,10 +38599,12 @@ value destroys the only signal that the row is corrupt.
 
 Related: §552.
 
-## 554. The budget-history summary picks its baseline and changes by array position, not by date — OPEN
+## 554. The budget-history summary picks its baseline and changes by array position, not by date — CLOSED 2026-09-17
 
-**Status:** OPEN 2026-09-17 — found while finishing the earned-value history branch (`feat/ev-history-scope-attribution`); established by reading, not run. User approved
-filing.
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `summarizeBudgetHistory` (`budget-history.ts`)
+now calls `orderBudgetChanges` on the whole history BEFORE locating the baseline, so the earliest baseline wins
+and every change is attributed by date rather than array position. Pinned by three new cases in the
+`summarizeBudgetHistory` describe block of `budget-history.test.ts`. Verified by `npx vitest run src/app/budget-history.test.ts --maxWorkers=1`.
 
 **Work item:** #344
 

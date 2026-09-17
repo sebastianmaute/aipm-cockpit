@@ -109,11 +109,23 @@ export type BudgetHistorySummary = {
   changes: readonly BudgetHistoryEntry[];
 };
 
+/**
+ * Orders the history with `orderBudgetChanges` FIRST — `mergeBudgetHistories`
+ * unions prev-then-new ids, so array position is not date order — then locates
+ * the baseline in that chronological order. When a second device seeded its
+ * own baseline before syncing, several `baseline` entries can exist; the
+ * EARLIEST one (first after ordering) wins and every later one is dropped by
+ * the `kind !== "baseline"` filter below, same as any other baseline. A change
+ * dated before the earliest baseline is excluded from `attributed` — only
+ * corrupted or hand-edited data reaches that shape, since `recordBudgetChange`
+ * always seeds the baseline before its first change.
+ */
 export function summarizeBudgetHistory(history: readonly BudgetHistoryEntry[]): BudgetHistorySummary | null {
-  const i = history.findIndex((e) => e.kind === "baseline");
+  const ordered = orderBudgetChanges(history);
+  const i = ordered.findIndex((e) => e.kind === "baseline");
   if (i < 0) return null;
-  const base = history[i];
-  const changes = history.slice(i + 1).filter((e) => e.kind !== "baseline");
+  const base = ordered[i];
+  const changes = ordered.slice(i + 1).filter((e) => e.kind !== "baseline");
   return {
     baselineDate: base.date,
     baseline: { hours: base.projectBacHours, value: base.projectBacValue },
