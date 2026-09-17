@@ -111,12 +111,14 @@ export type BudgetHistorySummary = {
 
 /**
  * Orders the history with `orderBudgetChanges` FIRST — `mergeBudgetHistories`
- * unions prev-then-new ids, so array position is not date order — then locates
- * the baseline in that chronological order. When a second device seeded its
+ * unions prev-then-new ids, so array position is not chronological — then
+ * locates the baseline in that order, which is by `at`, falling back to `date`
+ * (the `orderBudgetChanges` key). When a second device seeded its
  * own baseline before syncing, several `baseline` entries can exist; the
  * EARLIEST one (first after ordering) wins and every later one is dropped by
  * the `kind !== "baseline"` filter below, same as any other baseline. A change
- * dated before the earliest baseline is excluded from `attributed` — only
+ * that sorts before the earliest baseline (by `at`, falling back to `date`) is
+ * excluded from `attributed` — only
  * corrupted or hand-edited data reaches that shape, since `recordBudgetChange`
  * always seeds the baseline before its first change.
  */

@@ -188,18 +188,25 @@ export function BurndownChart({
               {bacStepEnd !== null && (
                 <text x={X1} y={y(bacStepEnd) + 9} textAnchor="end" className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownBac", fmt(bacStepEnd))}</text>
               )}
+              {/* Ticks and leaders first, then every label, so a leader that runs
+                  down through a lower row passes BEHIND that row's label. Each
+                  label carries a halo in the card's own `surface` colour
+                  (`paint-order="stroke"`: the stroke is drawn under the fill), so
+                  the text reads cleanly over the leader line. */}
+              {model.bacMarkers.map((marker, i) => (
+                <g key={marker.date}>
+                  <line x1={x(marker.date)} y1={y(marker.value) - 4} x2={x(marker.date)} y2={y(marker.value) + 4} className="stroke-muted-foreground" strokeWidth={1.5} />
+                  {/* A faint leader ties the label in the band to its tick. */}
+                  <line data-bac-leader="" x1={x(marker.date)} y1={markerLabels[i].baseline + 2} x2={x(marker.date)} y2={y(marker.value) - 4} className="stroke-line" strokeWidth={0.75} />
+                </g>
+              ))}
               {model.bacMarkers.map((marker, i) => {
                 // Same order as the ticks `markerLayout` was built from.
                 const label = markerLabels[i];
                 return (
-                  <g key={marker.date}>
-                    <line x1={x(marker.date)} y1={y(marker.value) - 4} x2={x(marker.date)} y2={y(marker.value) + 4} className="stroke-muted-foreground" strokeWidth={1.5} />
-                    {/* A faint leader ties the label in the band to its tick. */}
-                    <line data-bac-leader="" x1={x(marker.date)} y1={label.baseline + 2} x2={x(marker.date)} y2={y(marker.value) - 4} className="stroke-line" strokeWidth={0.75} />
-                    <text data-bac-marker-label="" x={label.x} y={label.baseline} textAnchor={label.anchor} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">
-                      {markerLabel(marker)}
-                    </text>
-                  </g>
+                  <text key={marker.date} data-bac-marker-label="" x={label.x} y={label.baseline} textAnchor={label.anchor} paintOrder="stroke" strokeWidth={3} strokeLinejoin="round" className="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">
+                    {markerLabel(marker)}
+                  </text>
                 );
               })}
             </>

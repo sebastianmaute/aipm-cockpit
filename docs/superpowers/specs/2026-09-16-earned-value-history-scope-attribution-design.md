@@ -253,7 +253,7 @@ check:  performance + attributed + unattributed = VAC        (exact, by construc
 | Undo of a budget change, a version restore, or applying a project template with seed data | **Amended (R2):** none of the three writes an entry — undo, version restore (`applyRestoredWorkspace`) and `handleApplyTemplate` (`task-manager.tsx`) all set the budgets array directly and bypass the commit boundary (`commitBuckets`), which is the series' only writer. Each one's BAC movement surfaces as **unattributed** variance instead; history stays append-only for what it DOES record |
 | Two tabs editing budgets | each writes its own entry; merge follows the workspace's existing save semantics; the plan must check this against the §548 first-load race |
 | Read-only popout | writes nothing |
-| File backends | §4.1 and §4.3 work everywhere; §4.2, and so manual-bucket history, is Turso only, and file users see manual buckets as partial for their whole span |
+| File backends | §4.1 and §4.3 work everywhere; §4.2, and so manual-bucket history, is Turso only, and file users see a manual bucket as known-zero before its start date, partial from then until today, and known at today from its current percent |
 
 ## 7. Testing
 

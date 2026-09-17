@@ -415,6 +415,26 @@ describe("BurndownChart", () => {
       expect(flat.querySelectorAll("text[data-bac-marker-label], line[data-bac-leader]")).toHaveLength(0);
     });
 
+    it("haloes each marker label and paints every leader before any label", () => {
+      const { container } = stepped();
+      const svg = container.querySelector("svg[role='img']")!;
+      const labels = [...svg.querySelectorAll("text[data-bac-marker-label]")];
+      const leaders = [...svg.querySelectorAll("line[data-bac-leader]")];
+      expect(labels.length).toBeGreaterThan(1);
+      for (const label of labels) {
+        // The stroke is drawn under the fill, in the card's surface colour.
+        expect(label.getAttribute("paint-order")).toBe("stroke");
+        expect(label).toHaveClass("stroke-surface");
+        expect(Number(label.getAttribute("stroke-width"))).toBeGreaterThan(0);
+      }
+      // A later leader must not paint over an earlier label: every leader
+      // precedes every label in document (paint) order.
+      const lastLeader = leaders[leaders.length - 1];
+      for (const label of labels) {
+        expect(lastLeader.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      }
+    });
+
     it("names the budget changes in the chart's accessible name", () => {
       const { container } = stepped();
       const aria = ariaOf(container);

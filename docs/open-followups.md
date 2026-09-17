@@ -38599,7 +38599,7 @@ Related: §552.
 
 **Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `summarizeBudgetHistory` (`budget-history.ts`)
 now calls `orderBudgetChanges` on the whole history BEFORE locating the baseline, so the earliest baseline wins
-and every change is attributed by date rather than array position. Pinned by three new cases in the
+and every change is attributed in `orderBudgetChanges` order — by `at`, falling back to `date` — rather than by array position. Pinned by three new cases in the
 `summarizeBudgetHistory` describe block of `budget-history.test.ts`. Verified by `npx vitest run src/app/budget-history.test.ts --maxWorkers=1`.
 
 **Work item:** #344
