@@ -104,6 +104,11 @@ export function BurndownChart({
   const partialCaptions = [...new Set(model.evPartialNames.map((p) =>
     t(lang, p.created ? "burndownEvPartialCreated" : "burndownEvPartialNotRecorded", p.names)))];
   const hasPartial = model.evSegments?.some((seg) => seg.partial) ?? false;
+  // The stepped BAC line's final level, which its text label names. `bacFields`
+  // seeds `steps` with the baseline point before reading any entry and returns
+  // NO_BAC when there are none, so a non-null `bacSteps` is never empty — the
+  // null here is the no-history case, not an empty-array one.
+  const bacStepEnd = model.bacSteps ? model.bacSteps[model.bacSteps.length - 1].value : null;
   const yTicks = [...new Set([model.yDomain[0], 0, model.total / 2, model.total])].filter((v) => v >= model.yDomain[0]);
   const belowZero = model.yDomain[0] < 0;
   const zeroY = y(0);
@@ -134,8 +139,16 @@ export function BurndownChart({
             </>
           )}
           {/* Recorded budget changes replace the flat BAC line with a stepped
-              one plus a dashed reference at the baseline. Each of the two is
-              named by its own text label, so they never rely on weight alone. */}
+              one plus a dashed reference at the baseline. The two share
+              `DASH.bac` and `stroke-muted-foreground` and differ only by stroke
+              width, so each carries its own text label and neither relies on
+              weight alone: `burndownBacBaseline` at the left end of the
+              reference, `burndownBac` (with the stepped line's FINAL level, the
+              last recorded entry's own BAC) at the right end of the steps.
+              Both labels sit BELOW their line — the markers put theirs ABOVE
+              at -7, and whenever the last period's group yields a marker that
+              marker's value IS this final level, so an above-placed label here
+              would land 3px from it. */}
           {model.bacSteps ? (
             <>
               {model.bacBaseline !== null && (
@@ -145,6 +158,9 @@ export function BurndownChart({
                 </>
               )}
               <polyline data-bac-steps="" points={pts(model.bacSteps)} fill="none" className="stroke-muted-foreground" strokeWidth={1.5} strokeDasharray={DASH.bac} />
+              {bacStepEnd !== null && (
+                <text x={X1} y={y(bacStepEnd) + 9} textAnchor="end" className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownBac", fmt(bacStepEnd))}</text>
+              )}
               {model.bacMarkers.map((marker) => (
                 <g key={marker.date}>
                   <line x1={x(marker.date)} y1={y(marker.value) - 4} x2={x(marker.date)} y2={y(marker.value) + 4} className="stroke-muted-foreground" strokeWidth={1.5} />

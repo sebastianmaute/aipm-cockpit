@@ -7,9 +7,10 @@
 §550 fix shipped in 1.7.1
 **Next slice, out of scope here:** §545 with §463 and §509
 
-**Amended during planning (2026-09-16):** rulings R2–R4 (recorded in this slice's `constraints.md`)
-fill gaps this spec left, and shipped code took precedence where they diverge. §5.1, §5.3 and the
-§6 undo row below are corrected to match what shipped, not the original wording.
+**Amended during planning (2026-09-16):** rulings R1–R4 (recorded in this slice's `constraints.md`)
+fill gaps this spec left, and shipped code took precedence where they diverge. §4.3's baseline-writer
+and undo bullets, §5.1, §5.3 and the §6 undo row below are corrected to match what shipped, not the
+original wording.
 
 ## 1. Problem
 
@@ -119,9 +120,11 @@ Stage 1 must merge first. Stage 2 consumes its data and must not ship without it
   computed from the engine. It is never computed from the edited fields, because budget hours derive from
   allocations, capacity, absences and holidays.
 - **Baseline entry:** when a workspace has buckets but an empty series, one `baseline` entry records the current
-  BAC and marks the day recording began. Every later split is measured from it. It is written on the first budget
-  change or the first forecast computation after load, whichever comes first. The plan must pick a single writer
-  and make sure that writer respects read-only popouts.
+  BAC and marks the day recording began. Every later split is measured from it. **Amended (R1):** the single writer
+  is the budget commit boundary — the first recorded change seeds the `baseline` entry from the BAC *before* that
+  change. There is no forecast-time writer: that would be a write during render, and forecasts are also computed in
+  read-only popouts. Consequence, stated here because it is user-visible: until someone edits a budget the cards show
+  the "no history yet" note, and a project whose budget never changes never gets the split.
 - **Retention:** keep everything. The size is bounded by how often budgets change, not by elapsed time.
 - **Why it is separate from the activity log:** a user can clear that log, and `applyWorkspace` replaces it on load
   by default. It is a witness, not a ledger. `budget.updated` entries may **explain** an amount the series cannot
@@ -131,8 +134,10 @@ Stage 1 must merge first. Stage 2 consumes its data and must not ship without it
   malformed entries. It stays out of `TABLE_NAMES`. `isWorkspaceEmpty` must **not** count it, for the same reason
   it does not count `activityLog`. Whether it appears in exports is ruled in the §545 slice; in this slice it is
   storage-only.
-- **Undo:** reverting a budget change through the undo stack is itself a budget change and records a new entry.
-  Entries are never deleted.
+- **Undo:** **Amended (R2):** reverting a budget change through the undo stack does NOT record an entry — undo sets
+  the budgets array directly and never passes the commit boundary that writes the series, so its BAC movement
+  surfaces as **unattributed** variance instead. Same for a version restore and for applying a project template.
+  Entries are never deleted. (The §6 table's undo row states the same ruling.)
 
 ### 4.4 Delete `SnapshotRecord.currency` (§469)
 

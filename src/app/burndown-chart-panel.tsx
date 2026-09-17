@@ -22,10 +22,16 @@ export function BurndownChartPanel({
 }: {
   lang: Lang; series: BurndownSeries; bundle: Pick<ForecastBundle, "eur" | "hours" | "evHistory" | "history"> | null;
   today: string; planEnd: string; currency: string;
-  /** True inside the dashboard tile, which stays HALF the pane's width even on
-   *  a desktop viewport — the `md:` breakpoint below reads the VIEWPORT, not
-   *  the tile's own (much narrower) box, so a plain `md:flex-row` still turns
-   *  side-by-side there and squeezes the chart. Compact always stacks. */
+  /** True inside the dashboard tile. Spec §5.2 — "the dashboard tile shows the
+   *  headline only", with D7 naming "tile carries the split too" as the
+   *  REJECTED alternative — so the recorded-change table and its variance
+   *  footer are suppressed here and the tile keeps the chart alone (markers and
+   *  EV line included, which D7 does keep). The report pane passes nothing and
+   *  gets both. Suppressing rather than merely narrowing is also what the tile's
+   *  box wants: it is one cell of `ArrangementGrid`'s
+   *  `lg:grid-cols-2 xl:grid-cols-4` grid, so at its default `w: 1` (the `burn`
+   *  row of `DASHBOARD_TILES`) it is a HALF of the pane at `lg` and a QUARTER at
+   *  `xl`, while this panel's `md:` breakpoint reads the VIEWPORT, not that box. */
   compact?: boolean;
 }) {
   const { settings, setSettings } = useSettings();
@@ -53,7 +59,8 @@ export function BurndownChartPanel({
       forecast.facts.bac, forecast.pace.eac,
     )
     : null;
-  const changeTable = history !== null && history.changes.length > 0
+  // Spec §5.2: headline only in the tile — see the `compact` prop doc.
+  const changeTable = !compact && history !== null && history.changes.length > 0
     ? <BudgetChangeTable lang={lang} history={history} split={split} unit={unit} currency={currency} />
     : null;
   // No budget in EITHER unit: the switches could not reach a drawable chart,
@@ -86,13 +93,14 @@ export function BurndownChartPanel({
       </div>
       {/* The table stacks BELOW the chart on a narrow pane and sits beside it
           from md up; `min-w-0` keeps the svg column shrinkable inside the row.
-          `compact` (the dashboard tile) forces the stacked layout regardless
-          of viewport width — see the prop doc above. */}
-      <div className={`flex flex-col gap-3${compact ? "" : " md:flex-row"}`}>
+          No `compact` branch here: a compact panel builds no `changeTable` at
+          all, so the row holds the chart alone and the breakpoint has nothing
+          to place beside it. */}
+      <div className="flex flex-col gap-3 md:flex-row">
         <div className="min-w-0 flex-1">
           <BurndownChart lang={lang} currency={currency} model={model} unit={unit} orientation={orientation} periods={series.periods} />
         </div>
-        {changeTable && <div className={`min-w-0${compact ? "" : " md:w-80 md:shrink-0"}`}>{changeTable}</div>}
+        {changeTable && <div className="min-w-0 md:w-80 md:shrink-0">{changeTable}</div>}
       </div>
     </div>
   );

@@ -296,6 +296,24 @@ describe("BurndownChart", () => {
       expect(flat.container.querySelector("polyline[data-bac-steps]")).toBeNull();
     });
 
+    it("names the stepped line with its final BAC, below the line, so it never rides stroke weight alone", () => {
+      const { container } = stepped();
+      // The last recorded entry's own stored BAC, not an increment.
+      const label = screen.getByText(`BAC ${eur(11_200)}`);
+      expect(label.getAttribute("text-anchor")).toBe("end");
+      // Placed BELOW its line end, where the markers put theirs ABOVE (−7).
+      const steps = container.querySelector("polyline[data-bac-steps]")!;
+      const endY = Number(steps.getAttribute("points")!.trim().split(/\s+/).pop()!.split(",")[1]);
+      expect(Number(label.getAttribute("y"))).toBeGreaterThan(endY);
+      // It is its own element, not the baseline reference's label.
+      expect(label).not.toBe(screen.getByText("Budget at start of recording"));
+      // Anti-vacuity: the stepped label is absent without history, where the
+      // flat line carries the same key at the chart total instead.
+      const flat = draw({ orientation: "cumulative" });
+      expect(flat.container.textContent).not.toContain(`BAC ${eur(11_200)}`);
+      expect(flat.container.textContent).toContain(`BAC ${eur(9_000)}`);
+    });
+
     it("labels each marker with its signed amount, its bucket and a removal wording", () => {
       stepped();
       expect(screen.getByText(`+${eur(3_000)} Vendor`)).toBeInTheDocument();

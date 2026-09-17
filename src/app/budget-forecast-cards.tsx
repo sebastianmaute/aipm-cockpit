@@ -8,7 +8,7 @@
 import { useId, type ReactNode } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
-import { formatSignedPercent, formatDayMonth, formatDayMonthYear, formatHours } from "./forecast-format";
+import { formatSignedPercent, formatDayMonth, formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { TermTooltip } from "./budget-forecast-tooltip";
 import { InfoTooltip } from "./info-tooltip";
 import { RateMixChip } from "./budget-rate-mix-chip";
@@ -104,14 +104,6 @@ function HoursLine({ lang, chip, children }: { lang: Lang; chip: ReactNode; chil
   );
 }
 
-/** Explicit +/- prefix over an already-formatted magnitude (task 11): `Intl.NumberFormat`
- *  already supplies the leading "-" (ASCII hyphen-minus, verified against its actual output)
- *  for a negative value on these surfaces, matching `formatSignedPercent`'s own formatter —
- *  so only a positive value needs a prefix added. */
-function signed(text: string, n: number): string {
-  return n > 0 ? `+${text}` : text;
-}
-
 /**
  * The three-part variance split beneath a card's VAC row (task 11): recorded
  * performance vs. the baseline, attributed (recorded) scope change, and — only
@@ -142,8 +134,8 @@ function VarianceSplitRows({
     <div className="mt-2">
       <p className="text-xs text-muted-foreground">{t(lang, "forecastSplitSince", formatDayMonthYear(history.baselineDate, locale))}</p>
       <dl className="mt-1 space-y-1 text-sm">
-        <HoursRow term={t(lang, "forecastSplitPerformance")}>{signed(format(split.performance), split.performance)}</HoursRow>
-        <HoursRow term={t(lang, "forecastSplitScope")}>{signed(format(split.attributed), split.attributed)}</HoursRow>
+        <HoursRow term={t(lang, "forecastSplitPerformance")}>{signedFigure(format(split.performance), split.performance)}</HoursRow>
+        <HoursRow term={t(lang, "forecastSplitScope")}>{signedFigure(format(split.attributed), split.attributed)}</HoursRow>
         {showUnattributed && (
           <HoursRow
             term={
@@ -155,7 +147,7 @@ function VarianceSplitRows({
               </>
             }
           >
-            {signed(format(split.unattributed), split.unattributed)}
+            {signedFigure(format(split.unattributed), split.unattributed)}
           </HoursRow>
         )}
       </dl>

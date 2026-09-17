@@ -91,17 +91,19 @@ describe("BurndownChartPanel", () => {
     expect(perf().getByText("-10 h")).toBeInTheDocument();
   });
 
-  it("stacks the chart and table even at desktop width when compact (dashboard tile), never side-by-side", async () => {
-    const { container: normal } = render(
+  // Spec §5.2 / D7: the dashboard tile shows the headline only. The chart (with
+  // its BAC markers) stays; the change table and its variance footer do not.
+  it("renders no change table when compact (dashboard tile), while the same props non-compact do", async () => {
+    const { container: normal, unmount } = render(
       <BurndownChartPanel
         lang="en-US" series={CHART_SERIES} bundle={{ ...bundle, history: HISTORY }}
         today="2026-02-14" planEnd="2026-03-31" currency="EUR"
       />,
     );
     await act(async () => {});
-    const normalRow = normal.querySelector(".flex.flex-col.gap-3");
-    expect(normalRow?.className).toContain("md:flex-row");
-    expect(normal.querySelector(".md\\:w-80")).not.toBeNull();
+    expect(screen.getByRole("table", { name: /Budget changes/ })).toBeInTheDocument();
+    expect(normal.querySelector("svg[role='img']")).not.toBeNull();
+    unmount();
 
     const { container: compact } = render(
       <BurndownChartPanel
@@ -110,9 +112,9 @@ describe("BurndownChartPanel", () => {
       />,
     );
     await act(async () => {});
-    const compactRow = compact.querySelector(".flex.flex-col.gap-3");
-    expect(compactRow?.className).not.toContain("md:flex-row");
-    expect(compact.querySelector(".md\\:w-80")).toBeNull();
+    expect(screen.queryByRole("table")).toBeNull();
+    // The chart itself is untouched — this suppresses the table, not the tile.
+    expect(compact.querySelector("svg[role='img']")).not.toBeNull();
   });
 
   it("renders no change table when nothing has been recorded", async () => {

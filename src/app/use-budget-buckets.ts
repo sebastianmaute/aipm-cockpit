@@ -165,16 +165,25 @@ export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
     if (projectBac && setBudgetHistory && today) {
       const before = projectBac(prev);
       const after = projectBac(next);
-      // An edit's `soleRow` is the PRE-edit bucket; name the entry after the saved one.
-      const bucketName = deleted.length > 0
-        ? soleRow.name
-        : next.find((b) => b.id === soleRow.id)?.name ?? soleRow.name;
-      // One commit touching several buckets records ONE entry: the first bucket's
-      // name and the whole BAC delta.
+      // One commit touching several buckets records ONE entry: the first bucket
+      // OF THE KIND THAT ENTRY CLAIMS, and the whole BAC delta.
+      // ★ `historyRow` is selected by the SAME three-way test as `historyKind`,
+      // never by the `soleRow` order above (`deleted ?? edited ?? created`). A
+      // commit that both creates and edits — no caller produces one today, but
+      // nothing here prevents it — would otherwise record kind "created" while
+      // `bucketId`/`bucketName` named the EDITED bucket, and the chart marker
+      // and change-table row would name the wrong one. `soleRow` keeps its own
+      // order because it only ever feeds the `touched === 1` name fallback,
+      // where all three lists coincide.
       const historyKind = deleted.length > 0 ? "deleted" : created.length > 0 ? "created" : "updated";
+      const historyRow = historyKind === "deleted" ? deleted[0] : historyKind === "created" ? created[0] : editedBefore[0];
+      // An edit's `historyRow` is the PRE-edit bucket; name the entry after the saved one.
+      const bucketName = historyKind === "deleted"
+        ? historyRow.name
+        : next.find((b) => b.id === historyRow.id)?.name ?? historyRow.name;
       const at = new Date().toISOString();
       setBudgetHistory((h) => recordBudgetChange(h, {
-        kind: historyKind, bucketId: soleRow.id, bucketName,
+        kind: historyKind, bucketId: historyRow.id, bucketName,
         before, after, at, date: today, newId: () => crypto.randomUUID(),
       }));
     }

@@ -189,6 +189,24 @@ describe("commitBuckets — budget history recording", () => {
     expect(deletedEntry?.bucketName).toBe("Build");
   });
 
+  // No caller produces a create+edit commit today, so this pins the guard, not
+  // a repair: the recorded row must be chosen by the same rule as the kind.
+  test("(c2) a commit that BOTH creates and edits records the CREATED bucket, matching its own kind", () => {
+    const edited = bucket(1, "Design", 1);
+    const setBudgetHistory = vi.fn();
+    const s = setup([edited], { projectBac: stubProjectBac, setBudgetHistory, today: TODAY });
+    const created = bucket(2, "Build", 1);
+    s.result.current.commitBuckets([{ ...edited, name: "Design phase", allocations: [{}, {}] } as unknown as BudgetBucket, created]);
+
+    const updater = setBudgetHistory.mock.calls[0][0] as (h: readonly BudgetHistoryEntry[]) => readonly BudgetHistoryEntry[];
+    const entry = updater([]).find((e) => e.kind === "created");
+    expect(entry?.bucketId).toBe(2);
+    expect(entry?.bucketName).toBe("Build");
+    // Anti-vacuity: the edited bucket is the one the old `soleRow` order picked,
+    // and it is present in this commit under a name of its own.
+    expect(entry?.bucketName).not.toBe("Design phase");
+  });
+
   test("(d) without projectBac (an old caller) nothing is recorded and nothing throws", () => {
     const keep = bucket(1, "Design", 0);
     const s = setup([keep]);

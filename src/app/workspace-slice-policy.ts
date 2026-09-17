@@ -43,7 +43,10 @@ export interface SlicePolicy {
 }
 
 /** Every array-typed member of `Workspace`, with its save-guard decision.
- *  Twenty slices as of 2026-08-29; the test fails on any addition or removal. */
+ *  Twenty-one slices as of 2026-09-16; the test fails on any addition or
+ *  removal. ★ The number rots — recount rather than trusting it, with
+ *  `grep -cE "^  [a-zA-Z]+: \{" src/app/workspace-slice-policy.ts`, whose every
+ *  match is a key of this object and nothing else in the file. */
 export const SLICE_POLICY: Readonly<Record<string, SlicePolicy>> = {
   // ── The thirteen entity collections. All user-authored, all unrecoverable,
   //    none auto-appended — the rule's central case.

@@ -150,9 +150,12 @@ function parseMilestones(json: string): SnapshotMilestone[] {
   }
 }
 
-/** Decode `bucket_progress_json`. An absent column (a database older than the
- *  column reads as ""), unparseable JSON or a non-array all decode to [];
- *  entries whose fields are not finite numbers are dropped. */
+/** Decode `bucket_progress_json`. An absent column (`rowObjects` builds keys
+ *  only from the result's own `cols`, so a database older than the column reads
+ *  as `undefined`, not ""), unparseable JSON or a non-array all decode to [];
+ *  entries whose fields are not finite numbers are dropped. The `!json` guard
+ *  covers `undefined` and "" alike, which is why the distinction changes no
+ *  behaviour — but the declared `string` parameter is a lie at that call. */
 function parseBucketProgress(json: string): SnapshotBucketProgress[] {
   if (!json) return [];
   try {

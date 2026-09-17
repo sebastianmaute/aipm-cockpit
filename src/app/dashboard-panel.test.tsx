@@ -714,7 +714,7 @@ describe("DashboardPanel completion-trend card", () => {
       trigger: "manual" as const, isBaseline: false, remainingHours: null, remainingCost: null,
       pctComplete: pct, forecastEndDate: "2026-12-31", planEndDate: "2026-12-31",
       spi: null, cpi: null, overallRag: "" as const, scheduleRag: "" as const,
-      budgetRag: "" as const, scopeRag: "" as const, currency: "EUR", milestones: [], series: [], bucketProgress: [],
+      budgetRag: "" as const, scopeRag: "" as const, milestones: [], series: [], bucketProgress: [],
     };
   }
 
