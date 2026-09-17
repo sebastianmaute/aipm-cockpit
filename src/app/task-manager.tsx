@@ -99,7 +99,7 @@ import { useSnapshots } from "./use-snapshots";
 import { useVersionHistory } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
-import { buildDashboardInput, computeDashboard } from "./dashboard";
+import { buildLiveDashboardInput, computeDashboard } from "./dashboard";
 import { CORE_INSIGHT_TYPES, detectInsights, type InsightInput } from "./insights/detect";
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
 import type { Insight, InsightType } from "./insights/insight";
@@ -316,6 +316,7 @@ function TaskManagerInner() {
     project,
     setProject,
     setFeatures,
+    budgetHistory,
     setBudgetHistory,
   } = useWorkspace();
 
@@ -634,10 +635,13 @@ function TaskManagerInner() {
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
     today: new Date(),
     buildContext: () => {
+      // `snapshots` cannot be passed here: it is the value this `useSnapshots` call returns, and
+      // nothing a capture records reads the snapshot-derived earned-value history anyway.
       const model = computeDashboard(
-        buildDashboardInput(
-          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes },
+        buildLiveDashboardInput(
+          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory },
           { workdayHours: settings.resources.workdayHours, holidaySet, status, activity: activityLog, today },
+          null,
         ),
       );
       return {
@@ -871,17 +875,22 @@ function TaskManagerInner() {
     flags: { stakeholdersEnabled, milestonesEnabled, raidEnabled, changesEnabled },
   });
 
-  // Render-scope dashboard model — same args as the snapshot buildContext above,
-  // but memoized so nextActions and the dashboard panel share one computation.
+  // Render-scope dashboard model, read by Next Actions (`buildActionInput`'s `dashboard`), both
+  // `getDashboardModel` handlers (the AI assistant's dashboard snapshot and the meeting report) —
+  // NOT by the dashboard panel, which builds its own module-gated model from the same inputs.
+  // Unlike the snapshot buildContext above it also passes the recorded snapshots, behind the
+  // same `trendsActive` gate the panel's `tursoActive` prop carries.
+  const snapshotRecords = snapshots.snapshots;
   const dashboardModel = useMemo(
     () =>
       computeDashboard(
-        buildDashboardInput(
-          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes },
+        buildLiveDashboardInput(
+          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory },
           { workdayHours: settings.resources.workdayHours, holidaySet, status, activity: activityLog, today },
+          { active: trendsActive, snapshots: snapshotRecords },
         ),
       ),
-    [tasks, raid, budgets, plan, roles, resources, absences, fxRates, settings.resources.workdayHours, holidaySet, status, activityLog, today, milestones, changes],
+    [tasks, raid, budgets, plan, roles, resources, absences, fxRates, settings.resources.workdayHours, holidaySet, status, activityLog, today, milestones, changes, budgetHistory, trendsActive, snapshotRecords],
   );
 
   // --- Insights → Action Loop (#6B SP1) --------------------------------------

@@ -777,7 +777,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§552](#552-the-earned-value-legend-advertises-a-solid-line-the-chart-may-not-draw--closed-2026-09-17) | The earned-value legend advertises a solid line the chart may not draw — CLOSED 2026-09-17 | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #342 | XS — gate the entry on a non-partial segment, mirroring the partial swatch | closed |
 | [§553](#553-budget-change-join-labels-hardcode-a-plus-sign-instead-of-formatting-a-signed-figure--closed-2026-09-17) | Budget-change join labels hardcode a plus sign instead of formatting a signed figure — CLOSED 2026-09-17 | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #343 | S — drop the sign from four strings in both dictionaries, format it with signedFigure | closed |
 | [§554](#554-the-budget-history-summary-picks-its-baseline-and-changes-by-array-position-not-by-date--closed-2026-09-17) | The budget-history summary picks its baseline and changes by array position, not by date — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #344 | S — order the entries before summarising, and decide which baseline wins | closed |
-| [§555](#555-the-next-actions-and-ai-dashboard-model-never-receives-recorded-budget-history--open) | The Next Actions and AI dashboard model never receives recorded budget history — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #345 | S — pass snapshots and budget history, or say why that model omits them | open |
+| [§555](#555-the-next-actions-and-ai-dashboard-model-never-receives-recorded-budget-history--closed-2026-09-17) | The Next Actions and AI dashboard model never receives recorded budget history — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #345 | S — pass snapshots and budget history, or say why that model omits them | closed |
 | [§556](#556-the-earned-value-today-point-never-flags-a-partial-bucket-or-a-join--closed-2026-09-17) | The earned-value today point never flags a partial bucket or a join — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #346 | S — decide whether today's point may carry partial and join entries | closed |
 | [§557](#557-no-end-to-end-fixture-carries-budget-history-so-no-browser-run-renders-the-new-budget-surfaces--open) | No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #347 | M — seed budget history and bucket progress, then extend the axe and visual runs | open |
 <!-- INDEX:END -->
@@ -38624,10 +38624,9 @@ Fix shape: sort with the same key `orderBudgetChanges` uses before locating the 
 baseline wins when there are several. Pin both with a merged fixture whose array order differs from its date
 order.
 
-## 555. The Next Actions and AI dashboard model never receives recorded budget history — OPEN
+## 555. The Next Actions and AI dashboard model never receives recorded budget history — CLOSED 2026-09-17
 
-**Status:** OPEN 2026-09-17 — found while finishing the earned-value history branch (`feat/ev-history-scope-attribution`); established by reading, not run. User approved
-filing.
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `task-manager.tsx` now builds `dashboardModel` through the new `buildLiveDashboardInput` (`dashboard.ts`), which requires `budgetHistory` and passes recorded snapshots only while `trendsActive`; the snapshot `buildContext` passes `budgetHistory` too, and the comment above `dashboardModel` now names its real consumers and says the panel builds its own module-gated model. Pinned by the `buildLiveDashboardInput` block in `dashboard.test.ts`. Verified by `npx vitest run src/app/dashboard.test.ts --maxWorkers=1`.
 
 **Work item:** #345
 

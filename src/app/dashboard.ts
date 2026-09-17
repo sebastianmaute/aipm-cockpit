@@ -373,6 +373,32 @@ export function buildDashboardInput(e: DashboardEntities, ctx: DashboardContext)
   };
 }
 
+const NO_SNAPSHOTS: readonly SnapshotRecord[] = [];
+
+/** Entities for `buildLiveDashboardInput`. `budgetHistory` is required so a
+ *  caller cannot drop it silently; `snapshots` arrives through the trends gate. */
+export type LiveDashboardEntities = Omit<DashboardEntities, "snapshots" | "budgetHistory"> & {
+  budgetHistory: readonly BudgetHistoryEntry[];
+};
+
+/** Input for the model task-manager builds for Next Actions, the AI assistant
+ *  and snapshot capture. It applies no module gating; the dashboard panel
+ *  builds its own, module-gated model from the same inputs. Snapshots pass
+ *  through only while `trends.active`, the same Turso gate the panel applies;
+ *  `trends: null` means the caller has no snapshot list to offer. Every call
+ *  without active trends gets the same module-level empty `snapshots` array. */
+export function buildLiveDashboardInput(
+  e: LiveDashboardEntities,
+  ctx: DashboardContext,
+  trends: { active: boolean; snapshots: readonly SnapshotRecord[] } | null,
+): DashboardInput {
+  const { budgetHistory, ...rest } = e;
+  return buildDashboardInput(
+    { ...rest, budgetHistory, snapshots: trends?.active ? trends.snapshots : NO_SNAPSHOTS },
+    ctx,
+  );
+}
+
 export interface DashboardOptions {
   dueSoonWorkdays?: number;
   topRaid?: number;

@@ -3,7 +3,7 @@ import {
   computeDashboardProgress, computeScheduleStatus, computeBudgetStatus,
   selectTopRaid, partitionUpcoming, recentActivity, computeDashboard,
   evmIndexHealth, scopeCounts, tasksHaveNoActiveScope, hasNoActiveScope,
-  type DashboardInput,
+  buildLiveDashboardInput, type DashboardInput,
 } from "./dashboard";
 import type { ProjectReport } from "./budget-report";
 import { isPaceAvailable } from "./budget-forecast";
@@ -653,5 +653,41 @@ describe("scopeCounts / tasksHaveNoActiveScope", () => {
       expect(tasksHaveNoActiveScope(tasks)).toBe(hasNoActiveScope(progress));
       expect(scopeCounts(tasks)).toEqual({ total: progress.total, inScope: progress.inScope });
     }
+  });
+});
+
+// §555: the render-scope model task-manager builds for Next Actions, the AI
+// assistant and snapshot capture goes through this helper.
+describe("buildLiveDashboardInput", () => {
+  const entities = {
+    tasks: [], raid: [], budgets: [],
+    plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" } as DashboardInput["plan"],
+    roles: [], resources: [], absences: [], fxRates: null,
+  };
+  const ctx = { workdayHours: 8, holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02" };
+  const history: BudgetHistoryEntry[] = [{
+    id: "h1", at: "2026-01-01T00:00:00.000Z", date: "2026-01-01", kind: "baseline",
+    bucketId: null, bucketName: "", projectBacHours: 100, projectBacValue: 15000, deltaHours: 0, deltaValue: 0,
+  }];
+  const records = [{ id: "s1" }] as unknown as SnapshotRecord[];
+
+  it("threads the recorded budget history through", () => {
+    const input = buildLiveDashboardInput({ ...entities, budgetHistory: history }, ctx, null);
+    expect(input.budgetHistory).toBe(history);
+  });
+
+  it("passes snapshots only while trends are active", () => {
+    const on = buildLiveDashboardInput({ ...entities, budgetHistory: [] }, ctx, { active: true, snapshots: records });
+    expect(on.snapshots).toBe(records);
+    const off = buildLiveDashboardInput({ ...entities, budgetHistory: [] }, ctx, { active: false, snapshots: records });
+    expect(off.snapshots).toEqual([]);
+    const none = buildLiveDashboardInput({ ...entities, budgetHistory: [] }, ctx, null);
+    expect(none.snapshots).toEqual([]);
+  });
+
+  it("returns the same empty snapshot array on every inactive call", () => {
+    const a = buildLiveDashboardInput({ ...entities, budgetHistory: [] }, ctx, { active: false, snapshots: records });
+    const b = buildLiveDashboardInput({ ...entities, budgetHistory: [] }, ctx, null);
+    expect(a.snapshots).toBe(b.snapshots);
   });
 });
