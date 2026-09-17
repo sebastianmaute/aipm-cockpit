@@ -263,6 +263,16 @@ describe("BurndownChart", () => {
       expect(screen.getByText(`Vendor joins (+${eur(500)})`)).toBeInTheDocument();
     });
 
+    // §553: the sign comes from `signedFigure`, never from the copy.
+    it("renders a negative join amount with one minus sign and no plus", () => {
+      draw({ orientation: "cumulative", evHistory: partialHistory(-500) });
+      expect(screen.getByText(`Vendor joins (${eur(-500)})`)).toBeInTheDocument();
+      draw({ unit: "hours", orientation: "cumulative", forecast: CHART_FORECAST_HOURS, evHistory: partialHistory(-500) });
+      expect(screen.getByText("Vendor joins (-5 h)")).toBeInTheDocument();
+      expect(screen.queryByText(/\+-/)).toBeNull();
+      expect(eur(-500).startsWith("-")).toBe(true);
+    });
+
     it("names the partial buckets in the chart's accessible name", () => {
       const { container } = draw({ orientation: "cumulative", evHistory: partialHistory() });
       expect(ariaOf(container)).toContain("Earned value is partial for Vendor.");
@@ -298,6 +308,17 @@ describe("BurndownChart", () => {
       expect(screen.getByText("Unvollständig: Vendor nicht erfasst")).toBeInTheDocument();
       expect(screen.getByText("Unvollständiger Earned Value")).toBeInTheDocument();
       expect(screen.getByText(/^Vendor kommt hinzu \(\+/)).toBeInTheDocument();
+    });
+
+    it("renders a negative German join amount with a single minus sign (§553)", async () => {
+      await loadI18n("de");
+      render(
+        <BurndownChart
+          lang="de" currency="EUR" unit="hours" orientation="cumulative" periods={CHART_SERIES.periods}
+          model={buildChartModel({ ...base, unit: "hours", forecast: CHART_FORECAST_HOURS, orientation: "cumulative", evHistory: partialHistory(-500) })}
+        />,
+      );
+      expect(screen.getByText("Vendor kommt hinzu (-5 h)")).toBeInTheDocument();
     });
 
     it("renders the German plural join sentence", async () => {

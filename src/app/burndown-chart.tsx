@@ -56,10 +56,12 @@ export function BurndownChart({
   const locale = localeFor(lang);
   const fmt = (v: number) => (unit === "eur" ? formatCurrency(v, currency, locale) : formatHours(v, locale));
   // The hours key carries its own " h", so the join amount is the bare number.
+  // The keys carry no sign: `signedFigure` adds the "+" and the formatter the "-".
   const joinKey = (count: number) => (unit === "eur"
     ? (count > 1 ? "burndownEvJoinsEurPlural" : "burndownEvJoinsEur")
     : (count > 1 ? "burndownEvJoinsHoursPlural" : "burndownEvJoinsHours"));
-  const joinAmount = (v: number) => (unit === "eur" ? fmt(v) : new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(v));
+  const joinAmount = (v: number) =>
+    signedFigure(unit === "eur" ? fmt(v) : new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(v), v);
   const x = (date: string) => scaleDate(date, model.xDomain, X0, X1);
   const y = (value: number) => scaleValue(value, model.yDomain, Y_BOTTOM, Y_TOP);
   const pts = (list: readonly ChartPoint[]) => list.map((p) => `${x(p.date).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");

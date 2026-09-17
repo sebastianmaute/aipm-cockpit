@@ -775,7 +775,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§550](#550-closing-a-bucket-with-a-successor-inflates-project-budget-at-completion-by-the-unconsumed-remainder--closed-2026-09-16) | Closing a bucket with a successor inflates project budget at completion by the unconsumed remainder — CLOSED 2026-09-16 | measured 2026-09-16 by probe while designing the earned-value history slice; GitLab #340 | S — sum own budget, not the spillover-inclusive reported budget, in the project rollup | closed |
 | [§551](#551-dropping-the-dead-snapshot-currency-column-is-unsafe-while-older-clients-can-still-write-it--open) | Dropping the dead snapshot currency column is unsafe while older clients can still write it — OPEN | deferred 2026-09-16 by the earned-value history slice (§4.4), user approved filing; GitLab #341 | S — enforce a minimum client version, then drop the column | open |
 | [§552](#552-the-earned-value-legend-advertises-a-solid-line-the-chart-may-not-draw--closed-2026-09-17) | The earned-value legend advertises a solid line the chart may not draw — CLOSED 2026-09-17 | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #342 | XS — gate the entry on a non-partial segment, mirroring the partial swatch | closed |
-| [§553](#553-budget-change-join-labels-hardcode-a-plus-sign-instead-of-formatting-a-signed-figure--open) | Budget-change join labels hardcode a plus sign instead of formatting a signed figure — OPEN | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #343 | S — drop the sign from four strings in both dictionaries, format it with signedFigure | open |
+| [§553](#553-budget-change-join-labels-hardcode-a-plus-sign-instead-of-formatting-a-signed-figure--closed-2026-09-17) | Budget-change join labels hardcode a plus sign instead of formatting a signed figure — CLOSED 2026-09-17 | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #343 | S — drop the sign from four strings in both dictionaries, format it with signedFigure | closed |
 | [§554](#554-the-budget-history-summary-picks-its-baseline-and-changes-by-array-position-not-by-date--closed-2026-09-17) | The budget-history summary picks its baseline and changes by array position, not by date — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #344 | S — order the entries before summarising, and decide which baseline wins | closed |
 | [§555](#555-the-next-actions-and-ai-dashboard-model-never-receives-recorded-budget-history--open) | The Next Actions and AI dashboard model never receives recorded budget history — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #345 | S — pass snapshots and budget history, or say why that model omits them | open |
 | [§556](#556-the-earned-value-today-point-never-flags-a-partial-bucket-or-a-join--closed-2026-09-17) | The earned-value today point never flags a partial bucket or a join — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #346 | S — decide whether today's point may carry partial and join entries | closed |
@@ -38569,11 +38569,9 @@ inventory of drawn lines — is defensible, but it is not the reading the siblin
 
 Related: §553.
 
-## 553. Budget-change join labels hardcode a plus sign instead of formatting a signed figure — OPEN
+## 553. Budget-change join labels hardcode a plus sign instead of formatting a signed figure — CLOSED 2026-09-17
 
-**Status:** OPEN 2026-09-17 — found by the cold whole-branch review of
-`feat/ev-history-scope-attribution`, established by reading the i18n strings against
-`parseBucketProgress`; not run. User approved filing, deliberately not fixed in that branch.
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: the four join keys (`burndownEvJoinsHours`, `burndownEvJoinsEur`, `burndownEvJoinsHoursPlural`, `burndownEvJoinsEurPlural`) no longer carry a `+` in `i18n.ts` or `i18n.de.ts`, and `joinAmount` in `burndown-chart.tsx` passes its figure through `signedFigure`, so a positive join still reads `+` and a negative one reads a single `-`. `parseBucketProgress` is unchanged. Pinned by the negative-join cases (EN hours and EUR, and DE) in `burndown-chart.test.tsx`. Verified by `npx vitest run src/app/burndown-chart.test.tsx --maxWorkers=1`.
 
 **Work item:** #343
 
