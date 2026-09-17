@@ -38524,7 +38524,7 @@ Related: §501, §504, §549.
 ## 551. Dropping the dead snapshot currency column is unsafe while older clients can still write it — OPEN
 
 **Status:** OPEN 2026-09-16 — established by reading `appendStatements` in `snapshot-schema.ts` against the
-pipeline behaviour AGENTS.md records in its `idKind` bullet; not run. Deferred by the earned-value history slice
+pipeline behaviour AGENTS.md records in its `idKind` bullet; never machine-verified. Deferred by the earned-value history slice
 (`docs/superpowers/specs/2026-09-16-earned-value-history-scope-attribution-design.md`, §4.4), user approved filing.
 
 **Work item:** #341
