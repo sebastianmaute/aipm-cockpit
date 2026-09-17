@@ -211,6 +211,30 @@ describe("BurndownChart", () => {
       expect(screen.getByText("Partial: Vendor not recorded")).toBeInTheDocument();
     });
 
+    // §556: today's point (the last) may be partial or carry a join.
+    it("dashes and captions a partial final span, and labels a join on the final point", () => {
+      const partialToday: EvHistory = {
+        available: true,
+        points: [
+          { date: "2026-01-31", eur: 800, hours: 8, partial: [], joins: [] },
+          { date: "2026-02-14", eur: 1_000, hours: 10, partial: [vendor], joins: [] },
+        ],
+      };
+      const { container } = draw({ orientation: "cumulative", evHistory: partialToday });
+      expect(evLines(container).map((line) => line.getAttribute("stroke-dasharray"))).toEqual(["6 2 1 2", "2 4"]);
+      expect(screen.getByText("Partial: Vendor not recorded")).toBeVisible();
+      expect(ariaOf(container)).toContain("Earned value is partial for Vendor.");
+      const joinToday: EvHistory = {
+        available: true,
+        points: [
+          { date: "2026-01-31", eur: 300, hours: 3, partial: [vendor], joins: [] },
+          { date: "2026-02-14", eur: 1_000, hours: 10, partial: [], joins: [{ id: 3, name: "Vendor", eur: 500, hours: 5 }] },
+        ],
+      };
+      draw({ orientation: "cumulative", evHistory: joinToday });
+      expect(screen.getByText(`Vendor joins (+${eur(500)})`)).toBeInTheDocument();
+    });
+
     it("names the partial buckets in the chart's accessible name", () => {
       const { container } = draw({ orientation: "cumulative", evHistory: partialHistory() });
       expect(ariaOf(container)).toContain("Earned value is partial for Vendor.");

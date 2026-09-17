@@ -778,7 +778,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§553](#553-budget-change-join-labels-hardcode-a-plus-sign-instead-of-formatting-a-signed-figure--open) | Budget-change join labels hardcode a plus sign instead of formatting a signed figure — OPEN | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #343 | S — drop the sign from four strings in both dictionaries, format it with signedFigure | open |
 | [§554](#554-the-budget-history-summary-picks-its-baseline-and-changes-by-array-position-not-by-date--closed-2026-09-17) | The budget-history summary picks its baseline and changes by array position, not by date — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #344 | S — order the entries before summarising, and decide which baseline wins | closed |
 | [§555](#555-the-next-actions-and-ai-dashboard-model-never-receives-recorded-budget-history--open) | The Next Actions and AI dashboard model never receives recorded budget history — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #345 | S — pass snapshots and budget history, or say why that model omits them | open |
-| [§556](#556-the-earned-value-today-point-never-flags-a-partial-bucket-or-a-join--open) | The earned-value today point never flags a partial bucket or a join — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #346 | S — decide whether today's point may carry partial and join entries | open |
+| [§556](#556-the-earned-value-today-point-never-flags-a-partial-bucket-or-a-join--closed-2026-09-17) | The earned-value today point never flags a partial bucket or a join — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #346 | S — decide whether today's point may carry partial and join entries | closed |
 | [§557](#557-no-end-to-end-fixture-carries-budget-history-so-no-browser-run-renders-the-new-budget-surfaces--open) | No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #347 | M — seed budget history and bucket progress, then extend the axe and visual runs | open |
 <!-- INDEX:END -->
 
@@ -38652,10 +38652,9 @@ Fix shape: either pass `snapshots` and `budgetHistory` into the render-scope mod
 model deliberately omits them. Correct the comment either way. The panel also applies module gating that this
 model does not — decide whether that divergence is intended while there.
 
-## 556. The earned-value today point never flags a partial bucket or a join — OPEN
+## 556. The earned-value today point never flags a partial bucket or a join — CLOSED 2026-09-17
 
-**Status:** OPEN 2026-09-17 — found while finishing the earned-value history branch (`feat/ev-history-scope-attribution`); established by reading, not run. User approved
-filing.
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `computeEvHistory` (`budget-ev-history.ts`) no longer suppresses `partial` and `joins` on today's point, so a bucket with no current percent is listed there and a bucket first known today is a join; today's value still comes from `bucketPercentComplete` and matches the forecast's EV. The chart needed no change: `buildChartModel` already dashes a partial final segment, captions its bucket and labels a final-point join, now pinned by `budget-ev-history.test.ts` ("(5)" and "(R3)"), `burndown-geometry.test.ts` and `burndown-chart.test.tsx`. Verified by `npx vitest run src/app/budget-ev-history.test.ts --maxWorkers=1`.
 
 **Work item:** #346
 

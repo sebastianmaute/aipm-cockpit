@@ -88,7 +88,8 @@ describe("computeEvHistory", () => {
       { date: "2026-01-31", eur: 0, hours: 0, partial: design, joins: [] },
       { date: "2026-03-31", eur: 10_000, hours: 100, partial: design, joins: [] },
       { date: "2026-06-30", eur: 10_000, hours: 100, partial: design, joins: [] },
-      { date: "2026-09-14", eur: 15_000, hours: 150, partial: [], joins: [] },
+      // Design is first known today, so today's point discloses it as a join (§556).
+      { date: "2026-09-14", eur: 15_000, hours: 150, partial: [], joins: [{ id: 2, name: "Design", eur: 5_000, hours: 50 }] },
     ]);
   });
 
@@ -191,7 +192,7 @@ describe("computeEvHistory — rule 1A′", () => {
     const points = run([ruleBucket(1, { startDate: "2026-07-31", percentComplete: 80 })]);
     for (const pt of points.slice(0, 6)) expect(pt).toMatchObject({ eur: 0, hours: 0, partial: [], joins: [] });
     expect(points[6].partial).toEqual([{ id: 1, name: "R1", createdDate: null, startDate: "2026-07-31" }]);
-    expect(points[11]).toMatchObject({ eur: 800, hours: 8, partial: [], joins: [] });
+    expect(points[11]).toMatchObject({ eur: 800, hours: 8, partial: [], joins: [{ id: 1, name: "R1", eur: 800, hours: 8 }] });
   });
 
   it("(2) a linked bucket derives from its tasks and is never partial", () => {
@@ -220,10 +221,10 @@ describe("computeEvHistory — rule 1A′", () => {
     expect(points.slice(7).every((pt) => pt.joins.length === 0 && pt.partial.length === 0)).toBe(true);
   });
 
-  it("(5) the today point uses the current percent: never partial, never a join", () => {
+  it("(5) the today point uses the current percent, and a bucket first known today is a join there (§556)", () => {
     const points = run([ruleBucket(1, { percentComplete: 30 })]);
     for (const pt of points.slice(0, 11)) expect(pt.partial).toEqual([{ id: 1, name: "R1", createdDate: null, startDate: null }]);
-    expect(points[11]).toEqual({ date: MONTH_12, eur: 300, hours: 3, partial: [], joins: [] });
+    expect(points[11]).toEqual({ date: MONTH_12, eur: 300, hours: 3, partial: [], joins: [{ id: 1, name: "R1", eur: 300, hours: 3 }] });
   });
 
   it("(2b) a linked bucket starting later is known-zero before its start, so it is never partial nor a join", () => {
@@ -236,11 +237,12 @@ describe("computeEvHistory — rule 1A′", () => {
     expect(points.every((pt) => pt.partial.length === 0 && pt.joins.length === 0)).toBe(true);
   });
 
-  it("(R3) a linked bucket whose links resolve to nothing is partial at every non-today point", () => {
+  it("(R3) a linked bucket whose links resolve to nothing is partial at every point, today included (§556)", () => {
     const tasks: EvHistoryTask[] = [{ id: 7, status: "Done", completedDate: "2026-04-15" }];
     const points = run([ruleBucket(1, { taskIds: [7] }), ruleBucket(2, { taskIds: [99] })], { tasks });
-    for (const pt of points.slice(0, 11)) expect(pt.partial).toEqual([{ id: 2, name: "R2", createdDate: null, startDate: null }]);
-    expect(points[11]).toEqual({ date: MONTH_12, eur: 1_000, hours: 10, partial: [], joins: [] });
+    for (const pt of points) expect(pt.partial).toEqual([{ id: 2, name: "R2", createdDate: null, startDate: null }]);
+    // Today's VALUE is unchanged: R2 still contributes 0, as in the forecast's own EV.
+    expect(points[11]).toEqual({ date: MONTH_12, eur: 1_000, hours: 10, partial: [{ id: 2, name: "R2", createdDate: null, startDate: null }], joins: [] });
   });
 
   it("is unavailable only when no budgeted bucket yields any earned value", () => {

@@ -12,7 +12,9 @@
  * A bucket that becomes known after an unknown point is a `join` there, with
  * the amount it brings in, so the step does not read as a sudden delivery.
  * The TODAY point uses `bucketPercentComplete`, so the line ends exactly at the
- * forecast's EV; it is never partial and never a join. It is any date on or
+ * forecast's EV: a bucket with no current percent adds 0 there, as it does to
+ * the forecast's EV, and is listed in `partial` like on any other point; a
+ * bucket first known today is a `join` there. It is any date on or
  * after today AND always the last date: once today is past the last plan
  * period, `actualPointDates` ends at that period's end, which precedes today.
  * Unavailable only when no budgeted bucket yields earned value at all — every
@@ -129,14 +131,14 @@ export function computeEvHistory(input: EvHistoryInput): EvHistory {
       eur += t.eur * share;
       hours += t.hours * share;
       const { id, name } = t.bucket;
-      if (!known && !isToday) {
+      if (!known) {
         partial.push({ id, name, createdDate: t.bucket.createdDate ?? null, startDate: t.bucket.startDate || null });
       }
-      if (known && !isToday && previous !== null && !previous[k].known) {
+      if (known && previous !== null && !previous[k].known) {
         joins.push({ id, name, eur: t.eur * share, hours: t.hours * share });
       }
     });
-    previous = isToday ? null : values;
+    previous = values;
     return { date, eur, hours, partial, joins };
   });
   return { available: true, points };

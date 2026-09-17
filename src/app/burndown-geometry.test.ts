@@ -176,6 +176,22 @@ describe("buildChartModel — partial earned value and joins", () => {
     expect(cumulative(points, "hours").evJoins).toEqual([]);
   });
 
+  // §556: today's point (always the last) may now be partial or carry a join.
+  it("ends on a partial segment and names its bucket when the final point is partial", () => {
+    const m = cumulative([evPoint("2026-01-31", 800), evPoint("2026-02-14", 1_000, { partial: [VENDOR] })]);
+    expect(m.evSegments).toEqual([
+      { partial: false, points: [{ date: "2026-01-01", value: 0 }, { date: "2026-01-31", value: 800 }] },
+      { partial: true, points: [{ date: "2026-01-31", value: 800 }, { date: "2026-02-14", value: 1_000 }] },
+    ]);
+    expect(m.evPartialNames).toEqual([{ names: "Vendor", created: false }]);
+  });
+
+  it("labels a join on the final point", () => {
+    const joins = [{ id: 3, name: "Vendor", eur: 500, hours: 5 }];
+    const m = cumulative([evPoint("2026-01-31", 300, { partial: [VENDOR] }), evPoint("2026-02-14", 1_000, { joins })]);
+    expect(m.evJoins).toEqual([{ date: "2026-02-14", value: 1_000, amount: 500, label: "Vendor", count: 1 }]);
+  });
+
   it("falls back to an em dash when every joining bucket has a blank name", () => {
     const joins = [{ id: 3, name: "", eur: 300, hours: 3 }];
     const points = [evPoint("2026-01-20", 0, { partial: [VENDOR] }), evPoint("2026-01-31", 300, { joins }), evPoint("2026-02-14", 400)];
