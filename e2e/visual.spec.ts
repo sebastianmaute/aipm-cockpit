@@ -61,9 +61,11 @@ for (const name of VISUAL_VIEWS) {
 // §557: the budget-history surfaces render only on Reports, and the stepped
 // budget line and its change markers only in the CUMULATIVE orientation
 // (`buildChartModel` skips `bacFields` for burn-down, the default). None of the
-// whole-view snapshots above opens Reports, so this one photographs the Budget
-// report block alone, after switching orientation: stepped line, markers, the
-// change table and its split rows, from the history e2e/seed.ts authors.
+// whole-view snapshots above opens Reports, so this test photographs the Budget
+// report block's chart (stepped line, markers, their labels) and its change table
+// (rows and split rows), after switching orientation, from the history
+// e2e/seed.ts authors. At this 1440px viewport the table sits BELOW the chart
+// (`BurndownChartPanel` places it beside the chart only from `2xl`).
 // ★ Element-scoped, so the rest of Reports cannot drift this baseline. Same
 // determinism setup as the loop above (tour suppressed, frozen clock via
 // gotoApp, fonts ready, animations off). `report-block-budget-report` is the
@@ -87,17 +89,20 @@ test("visual: Reports budget history (cumulative)", async ({ page }) => {
   const chart = page.getByRole("img", { name: /Budget changes: / });
   const table = page.getByRole("table", { name: "Budget changes (€)", exact: true });
   await expect(block.locator(chart)).toHaveCount(1);
-  // ★ The capture is the INNERMOST element holding both the chart and the
-  // change table (`.last()`: a descendant follows its ancestors in document
-  // order). The whole block is taller than the scrolling main pane, and an
-  // element capture is clipped to that pane, which cut off the table's last
-  // row and its split rows on the first attempt.
-  const chartAndTable = block.locator("div").filter({ has: chart }).filter({ has: table }).last();
+  // ★ TWO captures, each shorter than the block's scrolling body (497px
+  // visible at this viewport, measured). An element capture is clipped to
+  // that body: a single capture of the chart-and-table row showed a blank where
+  // the table was, and the whole chart column (517px, with legend and notes)
+  // lost its last caption line. So the chart capture is the INNERMOST `div`
+  // holding the chart (`.last()`: a descendant follows its ancestors in
+  // document order), i.e. the chart's caption and svg; the legend and notes
+  // below it are not photographed.
+  const chartFigure = block.locator("div").filter({ has: chart }).filter({ hasNot: table }).last();
+  const changeTable = block.getByRole("region", { name: "Budget changes (€)", exact: true });
+  await expect(changeTable.locator(table)).toHaveCount(1);
   await page.evaluate(() => document.fonts.ready);
 
-  await expect(chartAndTable).toHaveScreenshot("reports-budget-history.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.01,
-  });
+  const options = { animations: "disabled", caret: "hide", maxDiffPixelRatio: 0.01 } as const;
+  await expect(chartFigure).toHaveScreenshot("reports-budget-history.png", options);
+  await expect(changeTable).toHaveScreenshot("reports-budget-changes.png", options);
 });

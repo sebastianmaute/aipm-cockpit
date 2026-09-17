@@ -157,7 +157,7 @@ whose D7 names "tile carries the split too" as the rejected alternative. The cha
 stay. ★★ The tile is too narrow to have carried the table anyway: at its DEFAULT width (`w: 1`) it is half the pane at
 `lg`'s 2-column grid and a quarter at `xl`'s 4-column grid (`arrangement-grid.tsx`), though a user may widen it up to
 `maxW: 2` (`dashboard-tiles.ts`), which is full pane width at `lg` (`col-span-2` there spans both columns) — and the
-panel's own `md:flex-row` breakpoint reads the VIEWPORT, not that box, so on a desktop viewport it would have fired
+panel's own `2xl:flex-row` breakpoint reads the VIEWPORT, not that box, so on a viewport of 1536px or wider it would have fired
 whatever the tile's own width was. `computeEvHistory` (`budget-ev-history.ts`) marks history
 unavailable only when at least one budgeted bucket exists and none has a known value AT TODAY: a bucket is unknown
 there when it has neither a hand-entered percent nor any resolvable task link (`bucketPercentComplete` returns null —

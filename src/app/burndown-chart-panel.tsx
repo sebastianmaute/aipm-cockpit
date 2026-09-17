@@ -31,7 +31,7 @@ export function BurndownChartPanel({
    *  box wants: it is one cell of `ArrangementGrid`'s
    *  `lg:grid-cols-2 xl:grid-cols-4` grid, so at its default `w: 1` (the `burn`
    *  row of `DASHBOARD_TILES`) it is a HALF of the pane at `lg` and a QUARTER at
-   *  `xl`, while this panel's `md:` breakpoint reads the VIEWPORT, not that box. */
+   *  `xl`, while this panel's `2xl:` breakpoint reads the VIEWPORT, not that box. */
   compact?: boolean;
 }) {
   const { settings, setSettings } = useSettings();
@@ -91,16 +91,22 @@ export function BurndownChartPanel({
           ariaLabel={t(lang, "burndownUnitLabel")}
         />
       </div>
-      {/* The table stacks BELOW the chart on a narrow pane and sits beside it
-          from md up; `min-w-0` keeps the svg column shrinkable inside the row.
+      {/* The table sits BELOW the chart, at full width, and moves beside it
+          only from `2xl` (1536px viewport) up, where both fit. Measured in
+          Chromium on the seeded Reports pane: the table's natural width is
+          469px (every figure and date is no-wrap), so its column is 30rem
+          (480px) and it never scrolls there; the row is about 380px narrower
+          than the viewport, which leaves the chart 664px at 1536. Below 640px
+          the chart's 8px labels render smaller than 8px, and at `xl` (1280)
+          it would get only 408px. `min-w-0` keeps the svg column shrinkable.
           No `compact` branch here: a compact panel builds no `changeTable` at
           all, so the row holds the chart alone and the breakpoint has nothing
           to place beside it. */}
-      <div className="flex flex-col gap-3 md:flex-row">
+      <div className="flex flex-col gap-3 2xl:flex-row">
         <div className="min-w-0 flex-1">
           <BurndownChart lang={lang} currency={currency} model={model} unit={unit} orientation={orientation} periods={series.periods} />
         </div>
-        {changeTable && <div className="min-w-0 md:w-80 md:shrink-0">{changeTable}</div>}
+        {changeTable && <div className="min-w-0 2xl:w-[30rem] 2xl:shrink-0">{changeTable}</div>}
       </div>
     </div>
   );
