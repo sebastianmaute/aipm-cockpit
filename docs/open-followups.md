@@ -38313,7 +38313,7 @@ AI dashboard snapshot (`ai-dashboard-snapshot.ts`) and every export carry none o
 planned renames the snapshot's `evm.spi` / `evm.cpi` become the effort indices without saying so.
 
 Fix shape: once MR 2 ships the forecast engine, add the forecast figures to the snapshot and the exports, and
-rename or document the snapshot's effort indices.
+rename or document the snapshot's effort indices. `forecastBundle.history.changes` is uncapped (`summarizeBudgetHistory`), so bound or summarise it before the forecast bundle enters the AI snapshot.
 
 MR 3 of that slice (`docs/superpowers/specs/2026-09-15-forecast-chart-hours-design.md`) adds an hours forecast and
 a rate-mix signal (average booked rate against the planned rate, and the role driving the difference) to the same
@@ -38626,7 +38626,7 @@ order.
 
 ## 555. The Next Actions and AI dashboard model never receives recorded budget history — CLOSED 2026-09-17
 
-**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `task-manager.tsx` now builds `dashboardModel` through the new `buildLiveDashboardInput` (`dashboard.ts`), which requires `budgetHistory` and passes recorded snapshots only while `trendsActive`; the snapshot `buildContext` passes `budgetHistory` too, and the comment above `dashboardModel` now names its real consumers and says the panel builds its own module-gated model. Pinned by the `buildLiveDashboardInput` block in `dashboard.test.ts`. Verified by `npx vitest run src/app/dashboard.test.ts --maxWorkers=1`.
+**Status:** CLOSED 2026-09-17 by `feat/ev-history-scope-attribution`: `task-manager.tsx` now builds `dashboardModel` through the new `buildLiveDashboardInput` (`dashboard.ts`), which requires `budgetHistory` and passes recorded snapshots only while `trendsActive`; the snapshot `buildContext` passes `budgetHistory` too, and the comment above `dashboardModel` now names its real consumers and says the panel builds its own module-gated model. The fix changes no output today: none of the three consumers of `dashboardModel` reads `forecastBundle` — Next Actions reads only `budget` and `evm`, and the AI dashboard snapshot (`buildDashboardSnapshot`) and the meeting-report prompt (`buildMeetingReportPrompt`) carry no forecast figures (§545). The body's "the forecast bundle the AI sees" therefore overstated the defect; the fix removes a latent divergence for when §545 lands. Rulings: module gating was deliberately not copied (the Next Actions engine already skips a provider whose `moduleId` is disabled), and `disciplines`/`grades` were left out because they feed only `forecastBundle.mix`. The `buildLiveDashboardInput` block in `dashboard.test.ts` pins the helper only; the call site is pinned only by the helper's required `budgetHistory` type. Verified by `npx vitest run src/app/dashboard.test.ts --maxWorkers=1`.
 
 **Work item:** #345
 

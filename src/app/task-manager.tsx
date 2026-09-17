@@ -635,8 +635,9 @@ function TaskManagerInner() {
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
     today: new Date(),
     buildContext: () => {
-      // `snapshots` cannot be passed here: it is the value this `useSnapshots` call returns, and
-      // nothing a capture records reads the snapshot-derived earned-value history anyway.
+      // No snapshots here: a capture (`buildSnapshot`) reads only the model's burndown, progress,
+      // EVM and RAGs, none of which depend on them — and the list is this `useSnapshots` call's own
+      // return value, so passing it would need a self-reference.
       const model = computeDashboard(
         buildLiveDashboardInput(
           { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory },
@@ -877,7 +878,7 @@ function TaskManagerInner() {
 
   // Render-scope dashboard model, read by Next Actions (`buildActionInput`'s `dashboard`), both
   // `getDashboardModel` handlers (the AI assistant's dashboard snapshot and the meeting report) —
-  // NOT by the dashboard panel, which builds its own module-gated model from the same inputs.
+  // NOT by the dashboard panel, which builds its own module-gated model and also passes `disciplines`/`grades`.
   // Unlike the snapshot buildContext above it also passes the recorded snapshots, behind the
   // same `trendsActive` gate the panel's `tursoActive` prop carries.
   const snapshotRecords = snapshots.snapshots;

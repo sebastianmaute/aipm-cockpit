@@ -383,7 +383,8 @@ export type LiveDashboardEntities = Omit<DashboardEntities, "snapshots" | "budge
 
 /** Input for the model task-manager builds for Next Actions, the AI assistant
  *  and snapshot capture. It applies no module gating; the dashboard panel
- *  builds its own, module-gated model from the same inputs. Snapshots pass
+ *  builds its own, module-gated model, which also passes `disciplines` and
+ *  `grades`. Snapshots pass
  *  through only while `trends.active`, the same Turso gate the panel applies;
  *  `trends: null` means the caller has no snapshot list to offer. Every call
  *  without active trends gets the same module-level empty `snapshots` array. */
