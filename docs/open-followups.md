@@ -776,6 +776,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§551](#551-dropping-the-dead-snapshot-currency-column-is-unsafe-while-older-clients-can-still-write-it--open) | Dropping the dead snapshot currency column is unsafe while older clients can still write it — OPEN | deferred 2026-09-16 by the earned-value history slice (§4.4), user approved filing; GitLab #341 | S — enforce a minimum client version, then drop the column | open |
 | [§552](#552-the-earned-value-legend-advertises-a-solid-line-the-chart-may-not-draw--open) | The earned-value legend advertises a solid line the chart may not draw — OPEN | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #342 | XS — gate the entry on a non-partial segment, mirroring the partial swatch | open |
 | [§553](#553-budget-change-join-labels-hardcode-a-plus-sign-instead-of-formatting-a-signed-figure--open) | Budget-change join labels hardcode a plus sign instead of formatting a signed figure — OPEN | found 2026-09-17 by the cold review of the earned-value history branch, user approved filing; GitLab #343 | S — drop the sign from four strings in both dictionaries, format it with signedFigure | open |
+| [§554](#554-the-budget-history-summary-picks-its-baseline-and-changes-by-array-position-not-by-date--open) | The budget-history summary picks its baseline and changes by array position, not by date — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #344 | S — order the entries before summarising, and decide which baseline wins | open |
+| [§555](#555-the-next-actions-and-ai-dashboard-model-never-receives-recorded-budget-history--open) | The Next Actions and AI dashboard model never receives recorded budget history — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #345 | S — pass snapshots and budget history, or say why that model omits them | open |
+| [§556](#556-the-earned-value-today-point-never-flags-a-partial-bucket-or-a-join--open) | The earned-value today point never flags a partial bucket or a join — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #346 | S — decide whether today's point may carry partial and join entries | open |
+| [§557](#557-no-end-to-end-fixture-carries-budget-history-so-no-browser-run-renders-the-new-budget-surfaces--open) | No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — OPEN | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #347 | M — seed budget history and bucket progress, then extend the axe and visual runs | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38594,3 +38598,100 @@ Do NOT close this by clamping a negative `pctComplete` at the parse boundary: si
 value destroys the only signal that the row is corrupt.
 
 Related: §552.
+
+## 554. The budget-history summary picks its baseline and changes by array position, not by date — OPEN
+
+**Status:** OPEN 2026-09-17 — found while finishing the earned-value history branch (`feat/ev-history-scope-attribution`); established by reading, not run. User approved
+filing.
+
+**Work item:** #344
+
+`summarizeBudgetHistory` (`budget-history.ts`) takes the FIRST `baseline` entry by array position and
+attributes only the changes positioned AFTER it (`history.slice(i + 1)`). Array order is not a date order:
+`mergeBudgetHistories` unions previous-then-loaded entries by id, and `orderBudgetChanges`' own docstring says
+a second-device load can hand entries back out of chronological order. The display layer already orders on
+`at` before stepping a running figure — the summary, which feeds the variance split, does not.
+
+Two consequences, both established by reading, neither run:
+
+- A change positioned ahead of the first baseline is dropped from `attributed`, so its BAC movement lands in
+  the unexplained bucket instead of added scope.
+- When two devices each seeded their own baseline, the one that wins is whichever sits first in the array,
+  not the earlier one.
+
+**Reachability.** `recordBudgetChange` always seeds a baseline before the first change, so the app's own
+recorder never produces the first shape on one device. It needs a merged or sanitised array.
+
+Fix shape: sort with the same key `orderBudgetChanges` uses before locating the baseline, and state which
+baseline wins when there are several. Pin both with a merged fixture whose array order differs from its date
+order.
+
+## 555. The Next Actions and AI dashboard model never receives recorded budget history — OPEN
+
+**Status:** OPEN 2026-09-17 — found while finishing the earned-value history branch (`feat/ev-history-scope-attribution`); established by reading, not run. User approved
+filing.
+
+**Work item:** #345
+
+`task-manager.tsx` builds `dashboardModel` with `buildDashboardInput` but passes neither `snapshots` nor
+`budgetHistory`, so both default to `[]`. That model feeds Next Actions and BOTH `getDashboardModel`
+handlers the AI assistant reads. The dashboard panel builds its OWN model (`dashboard-panel.tsx`) and does
+pass both. So the forecast bundle the AI sees has no recorded budget history and no earned-value progress for
+hand-entered buckets, while the dashboard the user looks at has both.
+
+The comment above `dashboardModel` makes this worse: it says the model is memoised "so nextActions and the
+dashboard panel share one computation". The panel does not consume it. That sentence dates from the commit
+that wired the Action Center, so it was false before the earned-value branch — the branch widened the gap by
+giving only the panel's model the two new inputs. The same file's snapshot `buildContext` omits them too.
+
+Established by reading every `computeDashboard` call site, not by running.
+
+Fix shape: either pass `snapshots` and `budgetHistory` into the render-scope model, or state why the AI's
+model deliberately omits them. Correct the comment either way. The panel also applies module gating that this
+model does not — decide whether that divergence is intended while there.
+
+## 556. The earned-value today point never flags a partial bucket or a join — OPEN
+
+**Status:** OPEN 2026-09-17 — found while finishing the earned-value history branch (`feat/ev-history-scope-attribution`); established by reading, not run. User approved
+filing.
+
+**Work item:** #346
+
+`budget-ev-history.ts` computes the last point with `bucketPercentComplete` so the line ends exactly on the
+forecast's earned value, and its docstring states that point is "never partial and never a join". The code
+enforces that with `!isToday` on both lists. Two consequences, established by reading:
+
+- **Partial.** A bucket with no current percent contributes 0 to today's point with no `partial` entry. The
+  availability guard only trips when EVERY tracked bucket is unknown today, so with one bucket unknown and
+  another known, today's figure silently omits the first.
+- **Join.** A bucket whose first known value is today steps into the last segment with no join label — the
+  sudden-delivery reading that joins exist to prevent on every earlier point.
+
+Neither is wrong about the NUMBER: the forecast's own EV treats an unknown bucket the same way, so the line
+and the card agree. What is missing is the disclosure.
+
+Fix shape: allow today's point to carry `partial` and `joins` while keeping its value on the forecast's
+EV, then make sure the geometry and the chart caption handle a partial final point.
+
+## 557. No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — OPEN
+
+**Status:** OPEN 2026-09-17 — found while finishing the earned-value history branch (`feat/ev-history-scope-attribution`); established by reading, not run. User approved
+filing.
+
+**Work item:** #347
+
+Neither `e2e/seed.ts` nor `sample-workspace-small.json` carries `budgetHistory`. Without it the stepped
+budget line, its markers, the change table and the variance split rows never render in any Playwright run.
+The axe gate, the visual baselines and the e2e smoke therefore say nothing about them; their only coverage is
+the unit suite, which cannot see layout, contrast or duplicate accessible names.
+
+`budget-report` is already in `DEFAULT_EXTRA_REPORTS`, so the Reports axe scan very likely reaches the
+block itself — the gap is the missing data, not the missing view. The earned-value partial span has the same
+problem: it needs snapshot bucket progress, and snapshots are Turso-only, so the file-mode seed cannot reach
+it at all.
+
+Established by reading the seed, the sample and `e2e/a11y.spec.ts`; not run.
+
+Fix shape: seed a baseline plus create, increase and delete entries (in `e2e/seed.ts` rather than the sample
+master, if the sample should stay free of history), re-baseline the affected visual specs, and confirm the
+axe scan renders the change table. Leave the Turso-only span to an eye-verify.
