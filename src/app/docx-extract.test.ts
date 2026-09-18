@@ -34,4 +34,19 @@ describe("extractDocx", () => {
   it("returns empty string when document.xml is missing", () => {
     expect(extractDocx(new Map())).toBe("");
   });
+
+  it("does not blow up on repetitive unclosed markup", async () => {
+    // 40k unclosed table opens. With a lazy [\s\S]*? pair regex this is
+    // quadratic (measured 142ms at 40k chars, 1861ms at 160k); the cursor
+    // walk is linear. The ceiling is deliberately loose - it fails on the
+    // pattern class, not on a machine's speed.
+    const xml =
+      '<?xml version="1.0"?><w:document><w:body>' +
+      "<w:tbl ".repeat(40_000) +
+      "</w:body></w:document>";
+    const entries = new Map([["word/document.xml", new TextEncoder().encode(xml)]]);
+    const start = performance.now();
+    extractDocx(entries);
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
 });
