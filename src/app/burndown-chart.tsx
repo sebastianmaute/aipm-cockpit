@@ -4,6 +4,7 @@
 // Dash patterns and the legend carry each series' meaning, not colour alone.
 // End labels are foreground text (small `ui-purple` text fails AA on dark
 // schemes); the line swatch in the legend carries the colour.
+import { useMemo } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
@@ -12,6 +13,9 @@ import {
   layoutMarkerLabels, markerBandHeight, markerLabelBoxes, scaleDate, scaleValue,
   type BacMarker, type ChartModel, type ChartOrientation, type ChartPoint, type ChartUnit,
 } from "./burndown-geometry";
+import { ChartReadout, readoutSentence } from "./chart-readout";
+import { readoutAt, readoutStops } from "./burndown-readout";
+import { useChartReadout } from "./use-chart-readout";
 
 // `H` and `PAD_T` are the chart's height and top margin when the budget-change
 // labels fit the default margin. More label rows grow the top margin
@@ -55,12 +59,18 @@ function Swatch({ className, dash, width = 2.5 }: { className: string; dash?: st
   );
 }
 
-export function BurndownChart({
+export function BurndownChart(props: {
+  lang: Lang; currency: string; model: ChartModel; unit: ChartUnit; orientation: ChartOrientation; periods: readonly string[];
+}) {
+  if (props.model.empty) return <p className="text-sm text-muted-foreground">{t(props.lang, "dashboardNoBudget")}</p>;
+  return <BurndownChartBody {...props} />;
+}
+
+function BurndownChartBody({
   lang, currency, model, unit, orientation, periods,
 }: {
   lang: Lang; currency: string; model: ChartModel; unit: ChartUnit; orientation: ChartOrientation; periods: readonly string[];
 }) {
-  if (model.empty) return <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>;
   const locale = localeFor(lang);
   const fmt = (v: number) => (unit === "eur" ? formatCurrency(v, currency, locale) : formatHours(v, locale));
   // The hours key carries its own " h", so the join amount is the bare number.
@@ -143,12 +153,24 @@ export function BurndownChart({
     model.efficiency ? y(model.efficiency.to.value) + END_LABEL_OFFSET : null,
     yTop, yBottom,
   );
+  // `readoutStops` walks the whole model, so memoize it on the model's own identity.
+  const stops = useMemo(() => readoutStops(model), [model]);
+  const readout = useChartReadout({ stops, xDomain: model.xDomain, x0: X0, x1: X1, viewBoxWidth: W });
+  const active = readout.stop === null ? null : readoutAt(model, readout.stop);
+  const activeX = readout.stop === null ? null : x(readout.stop);
+  const announce = active ? readoutSentence(lang, active, fmt, locale) : "";
 
   return (
     <div className="space-y-2">
       <div>
         <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">{caption}</div>
-        <svg viewBox={`0 0 ${W} ${height}`} className="w-full" role="img" aria-label={aria.join(" ")}>
+        <button
+          type="button"
+          {...readout.triggerProps}
+          aria-label={t(lang, "burndownReadoutTrigger")}
+          className="block w-full cursor-crosshair rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green print:cursor-auto"
+        >
+          <svg viewBox={`0 0 ${W} ${height}`} className="w-full" role="img" aria-label={aria.join(" ")}>
           {belowZero && <rect x={X0} y={zeroY} width={X1 - X0} height={yBottom - zeroY} className="fill-ui-pink/10" />}
           <line x1={X0} y1={yTop} x2={X0} y2={yBottom} className="stroke-line" strokeWidth={1} />
           <line x1={X0} y1={zeroY} x2={X1} y2={zeroY} className="stroke-line" strokeWidth={1} />
@@ -249,7 +271,24 @@ export function BurndownChart({
             <text x={x(model.ev.date) - 7} y={y(model.ev.value) - 7} textAnchor="end" className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownWorkLeft", fmt(model.ev.value))}</text>
           )}
           {model.runOut && <circle cx={x(model.runOut.date)} cy={y(model.runOut.value)} r={4} className="fill-ui-pink" />}
-        </svg>
+          {activeX !== null && active && (
+            <g aria-hidden="true" className="pointer-events-none print:hidden">
+              <line data-readout-guide="" x1={activeX} y1={yTop} x2={activeX} y2={yBottom} className="stroke-foreground" strokeWidth={1} />
+              {active.rows
+                .filter((row) => row.kind !== "change")
+                .map((row) => (
+                  <circle data-readout-dot="" key={row.kind} cx={activeX} cy={y(row.value)} r={2.5} className="fill-foreground" />
+                ))}
+            </g>
+          )}
+          </svg>
+        </button>
+        {active && readout.anchor && (
+          <span className="print:hidden">
+            <ChartReadout lang={lang} readout={active} anchor={readout.anchor} fmt={fmt} locale={locale} />
+          </span>
+        )}
+        <span data-readout-live="" aria-live="polite" className="sr-only">{announce}</span>
       </div>
       <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1.5"><Swatch className="stroke-muted-foreground" dash={DASH.planned} width={2} />{t(lang, "burndownPlanned")}</span>

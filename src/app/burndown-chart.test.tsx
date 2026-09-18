@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { BurndownChart } from "./burndown-chart";
-import { buildChartModel, type ChartInput } from "./burndown-geometry";
+import { buildChartModel, type ChartInput, type ChartModel } from "./burndown-geometry";
 import { formatCurrency } from "./resource-cost";
 import { loadI18n } from "./i18n";
 import type { EvHistory } from "./budget-ev-history";
@@ -25,6 +26,41 @@ function draw(over: Partial<ChartInput> = {}) {
 }
 const ariaOf = (container: HTMLElement) =>
   container.querySelector("svg[role='img']")?.getAttribute("aria-label") ?? "";
+
+// A raw ChartModel fixture for the hover-readout tests below, copied from
+// `burndown-readout.test.ts`'s BASE — those tests exercise the readout's pure
+// half against this exact shape, so reusing it keeps the two suites talking
+// about the same stops.
+const MODEL: ChartModel = {
+  empty: false,
+  xDomain: ["2026-01-01", "2026-03-01"],
+  yDomain: [0, 100],
+  total: 100,
+  planned: [{ date: "2026-01-01", value: 100 }, { date: "2026-03-01", value: 0 }],
+  actual: [{ date: "2026-01-01", value: 100 }, { date: "2026-02-01", value: 60 }],
+  over: false,
+  pace: {
+    from: { date: "2026-02-01", value: 60 }, to: { date: "2026-03-01", value: 10 },
+    endFigure: -10, vac: -10,
+  },
+  efficiency: {
+    from: { date: "2026-02-01", value: 60 }, to: { date: "2026-03-01", value: 20 },
+    endFigure: -5, vac: -5,
+  },
+  runOut: { date: "2026-02-15", value: 0 },
+  ev: { date: "2026-02-01", value: 55 },
+  evSegments: null,
+  evJoins: [],
+  evPartialNames: [],
+  evUnavailable: null,
+  bacSteps: null,
+  bacBaseline: null,
+  bacMarkers: [],
+  bacLine: 100,
+  today: "2026-02-01",
+  planEnd: "2026-03-01",
+  frameDiffers: false,
+};
 
 describe("BurndownChart", () => {
   it.each([
@@ -479,5 +515,74 @@ describe("BurndownChart", () => {
   it("shows the no-budget hint for an empty chart", () => {
     draw({ series: { ...CHART_SERIES, totalBudgetValue: 0 } });
     expect(screen.getByText("No budget configured")).toBeInTheDocument();
+  });
+
+  describe("hover readout", () => {
+    const RECT = { left: 0, top: 0, width: 640, height: 240, right: 640, bottom: 240, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+
+    afterEach(() => { vi.restoreAllMocks(); });
+
+    it("is absent until the chart is hovered or focused", () => {
+      render(<BurndownChart lang="en-US" currency="EUR" model={MODEL} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
+      expect(screen.queryByRole("tooltip")).toBeNull();
+      expect(document.querySelector("[data-readout-guide]")).toBeNull();
+    });
+
+    it("shows the guide line, a dot per drawn point and the box on hover", async () => {
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(RECT);
+      const user = userEvent.setup();
+      render(<BurndownChart lang="en-US" currency="EUR" model={MODEL} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
+      await user.pointer({ target: screen.getByRole("button", { name: /arrow keys/i }), coords: { clientX: 312, clientY: 100 } });
+      expect(screen.getByRole("tooltip")).toBeInTheDocument();
+      expect(document.querySelector("[data-readout-guide]")).not.toBeNull();
+      expect(document.querySelectorAll("[data-readout-dot]").length).toBeGreaterThan(0);
+    });
+
+    // Mutation check 1: removing `aria-hidden` from the decorations group must
+    // turn this red. Mutation check 2 (the group half): removing `print:hidden`
+    // from the same group must also turn this red.
+    it("keeps the guide line and dots out of the accessibility tree and hidden from print", async () => {
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(RECT);
+      const user = userEvent.setup();
+      render(<BurndownChart lang="en-US" currency="EUR" model={MODEL} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
+      await user.pointer({ target: screen.getByRole("button", { name: /arrow keys/i }), coords: { clientX: 312, clientY: 100 } });
+      const group = document.querySelector("[data-readout-guide]")!.closest("g")!;
+      expect(group).toHaveAttribute("aria-hidden", "true");
+      expect(group).toHaveClass("print:hidden");
+    });
+
+    // Mutation check 2 (the box half): the box is a portal, so the only place
+    // its own `print:hidden` can land is the wrapping span this file renders
+    // around `ChartReadout` — removing that class must turn this red.
+    it("hides the readout box from print", async () => {
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(RECT);
+      const user = userEvent.setup();
+      const { container } = render(<BurndownChart lang="en-US" currency="EUR" model={MODEL} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
+      await user.pointer({ target: screen.getByRole("button", { name: /arrow keys/i }), coords: { clientX: 312, clientY: 100 } });
+      expect(screen.getByRole("tooltip")).toBeInTheDocument();
+      const printHiddenSpans = [...container.querySelectorAll("span")].filter((el) => el.className.includes("print:hidden"));
+      expect(printHiddenSpans.length).toBeGreaterThan(0);
+    });
+
+    it("steps with the keyboard and announces the stop politely", async () => {
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(RECT);
+      const user = userEvent.setup();
+      render(<BurndownChart lang="en-US" currency="EUR" model={MODEL} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
+      await user.tab();
+      await user.keyboard("{ArrowRight}");
+      const live = document.querySelector("[data-readout-live]");
+      expect(live).toHaveAttribute("aria-live", "polite");
+      expect(live?.textContent ?? "").toContain("Planned");
+    });
+
+    it("keeps the chart's own description on the image", () => {
+      render(<BurndownChart lang="en-US" currency="EUR" model={MODEL} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
+      expect(screen.getByRole("img").getAttribute("aria-label") ?? "").toContain("in ");
+    });
+
+    it("renders no trigger for an empty model", () => {
+      render(<BurndownChart lang="en-US" currency="EUR" model={{ ...MODEL, empty: true }} unit="eur" orientation="cumulative" periods={[]} />);
+      expect(screen.queryByRole("button")).toBeNull();
+    });
   });
 });
