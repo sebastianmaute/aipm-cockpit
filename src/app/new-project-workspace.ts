@@ -16,6 +16,10 @@ export interface NewProjectOpts {
    *  the Turso backend regardless of the global portfolio mode. Ignored by
    *  buildNewProjectWorkspace (it has no effect on the assembled Workspace). */
   storage?: "file" | "turso";
+  /** A native workspace the user imported in the create wizard. When set it IS
+   *  the new project's content: template, AI seed and features are ignored, and
+   *  only the wizard's `meta` replaces the file's own project meta. */
+  importedWorkspace?: Workspace;
 }
 
 /** Assemble a new project's Workspace: base + meta, optionally apply a template
@@ -25,6 +29,7 @@ export interface NewProjectOpts {
  *  `{ ...emptyWorkspace(), project: meta }` with no field-visibility override
  *  (undefined) and no features override (undefined). */
 export function buildNewProjectWorkspace(meta: ProjectMeta, opts: NewProjectOpts): Workspace {
+  if (opts.importedWorkspace) return { ...opts.importedWorkspace, project: meta };
   let ws: Workspace = { ...emptyWorkspace(), project: meta };
   if (opts.template) {
     ws = applyTemplate(ws, opts.template, { includeSeed: !!opts.includeSeed });

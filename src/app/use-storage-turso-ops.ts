@@ -135,7 +135,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       saveCurrentTursoProjectId(id);
       deps.showToast("info", t(deps.langRef.current, "projectCreatedToast", meta.name));
       // ★ M5: template = copy source, notice-only; AI seed = unsafe addresses left blank, notice from the seed.
-      const seededEmails = opts.template ? summarizeUnsafeEmailRecords(ws) : aiSeedUnsafeEmails(opts);
+      const seededEmails = opts.template || opts.importedWorkspace ? summarizeUnsafeEmailRecords(ws) : aiSeedUnsafeEmails(opts);
       if (seededEmails) deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
     } catch (err) {
       // Create aborted before applyWorkspace reseeded — roll the minter back so
