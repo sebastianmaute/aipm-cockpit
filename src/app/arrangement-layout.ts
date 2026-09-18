@@ -130,6 +130,19 @@ export interface ArrangementLayout<Id extends string> {
   v: 1;
   board: PlacedBlock<Id>[];
   hidden: Id[];
+  /**
+   * Ids of one-time upgrades already applied to this stored layout (spec C
+   * decision 11) — how a surface migrates its stored arrangement WITHOUT a
+   * version bump, which would be a lockstep decision across every surface
+   * (`arrangement-store.ts` says why). Optional: absent on every layout written
+   * before it existed and on every surface with no upgrade (Reports).
+   * ★★ `readArrangement` sanitises it and `isArrangementLayout` ignores it, so
+   * junk here is dropped and never rejects — i.e. never resets — a layout.
+   * `reconcile` carries it through. ★ An OLDER build's `reconcile` rebuilds
+   * `{v, board, hidden}` and drops it; a layout an older build rewrites is
+   * therefore upgraded once more. Accepted in the spec.
+   */
+  upgrades?: readonly string[];
 }
 
 /**
@@ -333,5 +346,7 @@ export function reconcile<Id extends string>(
     present.add(spec.id);
   });
 
-  return { v: 1, board, hidden };
+  // ★ Spec C: carry the applied-upgrades list through, and add NO key when the
+  // stored layout had none, so a layout without one stays byte-identical.
+  return stored.upgrades ? { v: 1, board, hidden, upgrades: stored.upgrades } : { v: 1, board, hidden };
 }

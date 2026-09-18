@@ -46,15 +46,17 @@ function Harness({
   projectId = "p1",
   readOnly = false,
   seed,
+  upgrade,
   log,
 }: {
   projectId?: string;
   readOnly?: boolean;
   seed?: () => ArrangementLayout<TestId> | null;
+  upgrade?: (l: ArrangementLayout<TestId>) => ArrangementLayout<TestId>;
   log?: string[];
 }) {
   const a = useArrangement<TestId>({
-    catalogue: CAT, storageKey: KEY, fallback: FALLBACK, projectId, readOnly, seed,
+    catalogue: CAT, storageKey: KEY, fallback: FALLBACK, projectId, readOnly, seed, upgrade,
   });
   useEffect(() => { log?.push(`${projectId}:${a.layout.hidden.join("+")}`); });
   return (
@@ -401,5 +403,68 @@ describe("useArrangement — the optional seed", () => {
     expect(screen.getByTestId("hidden").textContent).toBe("c");
     rerender(<Harness projectId="p2" seed={() => SEEDED} />);
     expect(screen.getByTestId("hidden").textContent).toBe("a");
+  });
+});
+
+describe("useArrangement — the optional upgrade (spec C)", () => {
+  const STORED: ArrangementLayout<TestId> = {
+    v: 1, board: [{ id: "a", w: 2, h: 2 }, { id: "b", w: 1, h: 1 }, { id: "c", w: 4, h: 2 }], hidden: [],
+  };
+  /** Reverses the board and records "u1"; returns its input BY REFERENCE once
+   *  "u1" is recorded — the contract the option documents. */
+  const markU1 = (l: ArrangementLayout<TestId>): ArrangementLayout<TestId> =>
+    l.upgrades?.includes("u1")
+      ? l
+      : { ...l, board: [...l.board].reverse(), upgrades: [...(l.upgrades ?? []), "u1"] };
+
+  it("runs on a stored layout before reconcile and writes the result back once", async () => {
+    vi.useFakeTimers();
+    saveArrangement(KEY, "p1", STORED);
+    render(<Harness upgrade={markU1} />);
+    expect(ids()).toEqual(["c", "b", "a"]);
+    await act(async () => { vi.advanceTimersByTime(LAYOUT_PERSIST_MS + 50); });
+    const stored = loadArrangement(KEY, "p1")!;
+    expect(stored.upgrades).toEqual(["u1"]);
+    expect(stored.board.map((b) => b.id)).toEqual(["c", "b", "a"]);
+  });
+
+  it("writes nothing when the upgrade has nothing to do", async () => {
+    vi.useFakeTimers();
+    const blob = JSON.stringify({ p1: { ...STORED, upgrades: ["u1"] } });
+    localStorage.setItem(KEY, blob);
+    render(<Harness upgrade={markU1} />);
+    expect(ids()).toEqual(["a", "b", "c"]);
+    await act(async () => { vi.advanceTimersByTime(LAYOUT_PERSIST_MS + 50); });
+    expect(localStorage.getItem(KEY)).toBe(blob);
+  });
+
+  it("is not consulted when nothing is stored — the fallback is already current", async () => {
+    vi.useFakeTimers();
+    const upgrade = vi.fn(markU1);
+    render(<Harness upgrade={upgrade} />);
+    expect(upgrade).not.toHaveBeenCalled();
+    await act(async () => { vi.advanceTimersByTime(LAYOUT_PERSIST_MS + 50); });
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("upgrades in memory but writes nothing when readOnly", async () => {
+    vi.useFakeTimers();
+    saveArrangement(KEY, "p1", STORED);
+    const before = localStorage.getItem(KEY);
+    render(<Harness upgrade={markU1} readOnly />);
+    expect(ids()).toEqual(["c", "b", "a"]);
+    await act(async () => { vi.advanceTimersByTime(LAYOUT_PERSIST_MS + 50); });
+    expect(localStorage.getItem(KEY)).toBe(before);
+  });
+
+  it("upgrades a project switched INTO, and writes it under THAT project's id", async () => {
+    vi.useFakeTimers();
+    saveArrangement(KEY, "p2", STORED);
+    const { rerender } = render(<Harness projectId="p1" upgrade={markU1} />);
+    rerender(<Harness projectId="p2" upgrade={markU1} />);
+    expect(ids()).toEqual(["c", "b", "a"]);
+    await act(async () => { vi.advanceTimersByTime(LAYOUT_PERSIST_MS + 50); });
+    expect(loadArrangement(KEY, "p2")!.upgrades).toEqual(["u1"]);
+    expect(loadArrangement(KEY, "p1")).toBeNull();
   });
 });
