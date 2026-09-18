@@ -66,6 +66,18 @@ describe("extractXlsx", () => {
   it("does not swallow surrounding rows around a self-closing row", () => {
     // Excel emits a self-closing <row/> for an empty row - forEachXmlElement
     // (xlsx-extract.ts) must not let that swallow the rows either side of it.
+    //
+    // NOT MUTATION-PROVED, documented intent rather than a pinned guard:
+    // disabling the self-closing branch entirely still passes this test.
+    // extractXlsx resolves cells by their own `r` reference regardless of
+    // which <row> wrapper claims them, so a row wrongly merged forward still
+    // yields row 3's cell unchanged; and renderRows drops any row whose cell
+    // array is empty either way, which a genuinely self-closed row's array
+    // always is. So "3 raw rows, 1 filtered" and "2 raw rows (one already
+    // merged), 0 filtered" render byte-identical Markdown - the swallow-
+    // forward is real but unobservable at this output boundary for "row".
+    // The cell-level tests below exercise the SAME shared branch (this is
+    // one function called for both "row" and "c") and are the actual guard.
     const sheet = `<worksheet><sheetData>
       <row r="1"><c r="A1"><v>1</v></c></row>
       <row r="2"/>
@@ -112,6 +124,15 @@ describe("extractXlsx", () => {
     // <sheetData>. This placement can't actually reach forEachXmlElement's
     // "c" scan (see the adversarial test below for why), but it pins the
     // realistic shape end-to-end as a regression check regardless.
+    //
+    // NOT MUTATION-PROVED: this stays green even with `\b` removed from the
+    // "c" open pattern. `<col>` can only ever be a child of `<cols>`, itself
+    // a sibling of <sheetData> per the OOXML schema - it can never nest
+    // inside a <row> - so forEachXmlElement("c", ...), which only ever runs
+    // on text already sliced out of a matched <row>...</row>, structurally
+    // never sees "<col" text in any placement a real spreadsheet could
+    // produce. The decoy test below is the one that actually pins the `\b`
+    // guard.
     const sheet = `<worksheet><cols><col min="1" max="1" width="9"/></cols><sheetData>
       <row r="1"><c r="A1"><v>1</v></c></row>
     </sheetData></worksheet>`;

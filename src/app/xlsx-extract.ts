@@ -134,6 +134,22 @@ function cellValue(cXml: string, shared: string[]): string {
  * real ">" on every repetition, same shape as the lazy-regex bug (§558).
  *
  * `visit` returning false stops the walk, matching forEachTagPair.
+ *
+ * ★ The cached `gt` can be reused across TWO DIFFERENT opens (this open's
+ * own lookahead can be judged against a ">" an earlier open's lookahead
+ * found) — that's the whole point, not a hazard: `indexOf(">", innerStart)`
+ * is a pure position fact about the string, not something tied to which
+ * tag triggered the scan, so if a later open's `innerStart` is still `<=
+ * gt`, there is provably no ">" between the two positions (indexOf would
+ * have returned that nearer one first), and the cached value is exactly
+ * what a fresh `indexOf` would give. The only way this misjudges a
+ * self-close is a SECOND `<name` open appearing before any ">" follows the
+ * first (e.g. `<c <c r="A1">...`) — a stray unescaped "<" in attribute
+ * position, which only malformed XML can produce. Confirmed this is not a
+ * regression: ran the original `<c\b[^>]*\/>|<c\b[\s\S]*?<\/c>` regex and
+ * this function side by side against two such malformed fixtures (a bare
+ * stray "<c" and one with an intervening attribute) — both produced
+ * byte-identical (also-wrong-but-identically-wrong) merged output.
  */
 function forEachXmlElement(xml: string, name: string, visit: (whole: string) => boolean): void {
   // Case-sensitive ("g", not "gi") to match the original regexes this
