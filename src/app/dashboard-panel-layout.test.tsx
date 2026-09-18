@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
+import { DASHBOARD_SHELF_TRAY_ID } from "./dashboard-shelf";
 import { groupNextActions } from "./next-actions/group";
 import { rowLabel } from "./row-tokens";
 import { t, tPlural } from "./i18n";
@@ -162,6 +163,10 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
     render(<DashboardPanel {...baseProps} projectId="p-row1-popout" isPopout />, { wrapper });
     expect(screen.queryByTestId("tile-progress")).toBeNull();         // the hide was persisted
     expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();
+    // ★ Fix round 1: the tray itself (not just the badge) must be absent in a
+    // popout — it was guarded by the same `!arrangement.readOnly`, but nothing
+    // pinned that the guard actually removes the tray node from the DOM.
+    expect(document.getElementById(DASHBOARD_SHELF_TRAY_ID)).toBeNull();
   });
 
   it("returns focus to the badge after a Restore that leaves tiles hidden", async () => {
@@ -172,5 +177,22 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
     await user.click(screen.getByRole("button", { name: badgeName(2) }));
     await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
     expect(document.activeElement).toBe(screen.getByRole("button", { name: badgeName(1) }));
+  });
+
+  it("closes the tray when the last hidden tile is restored, so a later hide does not re-open it unasked", async () => {
+    // ★ Fix round 1: `trayOpen` used to survive a Restore that emptied the
+    // tray, so the NEXT hide immediately re-opened it (the badge remounting
+    // with `aria-expanded="true"` although nobody asked for the tray open).
+    const user = userEvent.setup();
+    render(<DashboardPanel {...baseProps} projectId="p-row1-tray-restale" />, { wrapper });
+    await hideFromMenu(user, "Progress");
+    await user.click(screen.getByRole("button", { name: badgeName(1) }));         // open the tray
+    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
+    expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();  // badge unmounted at 0
+
+    await hideFromMenu(user, "Upcoming & overdue");
+    const badge = screen.getByRole("button", { name: badgeName(1) });
+    expect(badge).toHaveAttribute("aria-expanded", "false");
+    expect(document.getElementById(DASHBOARD_SHELF_TRAY_ID)).toHaveAttribute("hidden");
   });
 });

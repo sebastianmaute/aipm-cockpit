@@ -517,6 +517,12 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const trayShown = trayOpen && (shelfHidden.length > 0 || reorder.isDragging);
   const restoreFromShelf = (id: DashboardTileId) => {
     arrangement.restore(id);
+    // ★ Fix round 1: restoring the LAST hidden tile must also close the tray's
+    // own `open` state, not just let `trayShown` fall to false for this render.
+    // Without this, `trayOpen` stays true and the very next Hide re-opens the
+    // tray unasked (`trayShown = trayOpen && shelfHidden.length > 0` flips back
+    // true the moment a tile is hidden again).
+    if (shelfHidden.length <= 1) setTrayOpen(false);
     setFocusRequest(shelfHidden.length > 1 ? { badge: true } : { tile: id });
   };
 
@@ -564,6 +570,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
             />
           }
           controls={
+            // ★ `gap-2` here is MOVED, unchanged, from this same control stack
+            // before spec C — not a new literal (D7 binds new spacing to `dc.*`).
             <div className="flex shrink-0 flex-col gap-2 print:hidden">
               <PrintButton lang={lang} />
               {/* ★★★ The `!arrangement.readOnly` guard is LOAD-BEARING and is not
