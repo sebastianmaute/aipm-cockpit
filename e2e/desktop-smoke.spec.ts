@@ -310,32 +310,98 @@ async function waitForAppOrigin(launched: Launched): Promise<number> {
   return status;
 }
 
+// How long a graceful quit gets before this spec gives up and forces the app
+// down. Generous but bounded -- the same "wait on the condition, not a guess"
+// discipline as waitForPortRelease(), just with an upper bound because there
+// is no condition here to poll: only `exit`.
+const GRACEFUL_QUIT_BUDGET_MS = 20_000;
+
+// Resolves `true` once `child` has actually exited, `false` once `budgetMs`
+// passes without that. A `taskkill` call RETURNING is not the process
+// exiting -- see the note above waitForPortRelease().
+function waitForExit(child: ChildProcess, budgetMs: number): Promise<boolean> {
+  if (child.exitCode !== null) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      child.off("exit", onExit);
+      resolve(false);
+    }, budgetMs);
+    function onExit(): void {
+      clearTimeout(timer);
+      resolve(true);
+    }
+    child.once("exit", onExit);
+  });
+}
+
 // PID-scoped, never by image name -- the same discipline as killServer in
-// desktop/src/server-child.ts. `/T` takes the utility-process server with the
-// main process; waitForPortRelease() then proves it really went.
-function killApp(child: ChildProcess): void {
+// desktop/src/server-child.ts. `/T /F` takes the whole process tree down
+// directly and unconditionally, including the utility-process server, so
+// waitForPortRelease() passes whether or not killServer() did anything at
+// all. Used ONLY as killApp()'s fallback, after a graceful quit failed to
+// exit the app within budget.
+function forceKillApp(child: ChildProcess): void {
   if (child.pid === undefined || child.exitCode !== null) return;
   try {
     if (process.platform === "win32") {
       execFileSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
     } else {
-      child.kill();
+      child.kill("SIGKILL");
     }
   } catch {
     // Already gone.
   }
 }
 
-async function shutdown({ child, profile }: Launched, browser?: Browser): Promise<void> {
-  // A CDP-connected browser's close() only DISCONNECTS; the kill is below.
-  await browser?.close().catch(() => undefined);
-  killApp(child);
-  await waitForPortRelease();
+// ★★★ GRACEFUL FIRST, AND THAT IS THE WHOLE POINT OF THIS FUNCTION. The old
+// code went straight to `taskkill /T /F`, which tears the process tree down
+// itself and never asks the app to quit -- so this spec proved nothing about
+// `killServer(serverChild)`, the "child MUST die with the parent" guard in
+// desktop/src/main.ts. `taskkill /PID <pid>` WITHOUT `/F` sends WM_CLOSE to
+// the process's top-level window, the same message Windows sends when a user
+// clicks the window's own close button; that reaches main.ts's
+// `window-all-closed` -> `app.quit()` -> `before-quit` chain, which is what
+// actually calls `killServer`. Reaching the `/T /F` fallback now FAILS the
+// test rather than silently "working" -- a fallback that papers over a broken
+// `killServer` is exactly the gap open-followups §561 flags this spec for.
+async function killApp(child: ChildProcess): Promise<void> {
+  if (child.pid === undefined || child.exitCode !== null) return;
+  const pid = child.pid;
   try {
-    rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    if (process.platform === "win32") {
+      execFileSync("taskkill", ["/PID", String(pid)], { stdio: "ignore" });
+    } else {
+      child.kill("SIGTERM");
+    }
   } catch {
-    // A profile directory Windows still holds open is harmless — it is under
-    // the OS temp dir. Never fail a smoke test on its own cleanup.
+    // Already gone.
+  }
+  if (await waitForExit(child, GRACEFUL_QUIT_BUDGET_MS)) return;
+  forceKillApp(child);
+  throw new Error(
+    `Packaged app (PID ${pid}) did not quit within ${GRACEFUL_QUIT_BUDGET_MS}ms of a ` +
+      `graceful close request and had to be force-killed. A graceful quit should reach ` +
+      `window-all-closed -> app.quit() -> before-quit -> killServer() in ` +
+      `desktop/src/main.ts -- investigate that chain, don't raise this budget.`,
+  );
+}
+
+async function shutdown({ child, profile }: Launched, browser?: Browser): Promise<void> {
+  // A CDP-connected browser's close() only DISCONNECTS; killApp() below does
+  // the real shutdown.
+  await browser?.close().catch(() => undefined);
+  try {
+    await killApp(child);
+    await waitForPortRelease();
+  } finally {
+    // Runs even when killApp() or waitForPortRelease() throws -- cleanup must
+    // not depend on the app having shut down cleanly.
+    try {
+      rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    } catch {
+      // A profile directory Windows still holds open is harmless — it is under
+      // the OS temp dir. Never fail a smoke test on its own cleanup.
+    }
   }
 }
 
