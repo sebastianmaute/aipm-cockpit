@@ -45,14 +45,20 @@ spotlight positioning eye-verified (jsdom rect=0).
 (`demo-workspace.ts`) = the curated master + a date shift so today sits where `DEMO_AS_OF` sits in the
 authored file — re-authoring the master means updating `DEMO_AS_OF` in the SAME commit, or the shift is
 wrong. `shiftWorkspaceDates` (`shift-workspace-dates.ts`) walks the whole workspace GENERICALLY — any
-date-shaped string value or key, not a hardcoded field list — moving month-plan dates by whole months
-(day clamped) and week-plan dates by whole weeks; a weekend date-ONLY value normally rolls forward to
-Monday, EXCEPT a value that is the 1st or the last day of its own month, which maps to the 1st/last day
-of the target month and is NEVER rolled — rolling a budget bucket's 1st-of-month `startDate` off the 1st
-desyncs it from `bucketActivePeriods` (`budget-report.ts`), which keeps only periods whose `start`
-(always the 1st) falls inside the bucket's window, silently dropping its first month of budget and
-actuals. Colliding day keys (e.g. two dates rolled onto the same day) are SUMMED. The golden fixtures
-(`__fixtures__/golden-*`) pin the UNSHIFTED master, never the demo's shifted output.
+date-shaped string value or key, not a hardcoded field list. ★ The two granularities behave differently:
+a WEEK plan moves every date by whole weeks (7·n days), which keeps weekdays, so nothing is rolled. A
+MONTH plan moves dates by whole months (day clamped), and only there does the rest apply: a weekend
+date-ONLY value rolls forward to Monday, EXCEPT a value that is the 1st or the last day of its own month,
+which maps to the 1st/last day of the target month and is NEVER rolled — rolling a budget bucket's
+1st-of-month `startDate` off the 1st desyncs it from `bucketActivePeriods` (`budget-report.ts`), which
+keeps only periods whose `start` falls inside the bucket's window, and a MONTH period's `start` is always
+the 1st — so it would silently drop the bucket's first month of budget and actuals. Timestamps move by
+the same months but are never rolled. Colliding keys (e.g. two dates rolled onto the same day) are
+SUMMED when both values are numbers; any other collision THROWS, which `loadDemo` catches and surfaces as
+the `tourDemoError` toast. ★ Accepted imprecision: a month-granular shift moves by whole months while
+"today" moves by days, so early in a month the demo can place dated actuals, completed dates and
+activity timestamps up to ~4 weeks AFTER today. The golden fixtures (`__fixtures__/golden-*`) pin the
+UNSHIFTED master, never the demo's shifted output.
 
 ### Timezones
 
