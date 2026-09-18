@@ -787,9 +787,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§573](#573-the-open-points-visual-baseline-is-stale--open) | The Open Points visual baseline is stale — OPEN | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | open |
 | [§580](#580-dashboardmodelburn-and-forecast-have-no-reader-outside-dashboardts--closed-2026-09-18) | `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` — CLOSED 2026-09-18 | found 2026-09-18 auditing the dashboard model after spec C removed `ForecastHeadline`; GitLab #365 | S — delete the dead field(s) or give them a reader | closed |
 | [§581](#581-the-kpi-strips-lggrid-cols-5-leaves-a-gap-when-only-one-of-spicpi-shows--open) | The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows — OPEN | found 2026-09-18 reading `dashboard-kpi-strip.tsx`'s `cols` ternary; not eye-checked; GitLab #366 | XS — branch the class on the real tile count, not the OR | open |
-| [§582](#582-the-next-actions-heros-open-cta-renders-and-does-nothing-without-onopenaction--open) | The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — OPEN | found 2026-09-18 reading `action-hero-card.tsx`/`action-cta-controls.tsx`; latent, every production caller passes it; GitLab #367 | S — hide the CTA when the handler is absent, or make the prop required | open |
+| [§582](#582-the-next-actions-heros-open-cta-renders-and-does-nothing-without-onopenaction--closed-2026-09-18) | The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — CLOSED 2026-09-18 | found 2026-09-18 reading `action-hero-card.tsx`/`action-cta-controls.tsx`; latent, every production caller passes it; GitLab #367 | S — hide the CTA when the handler is absent, or make the prop required | closed |
 | [§583](#583-budget-historypropertytestts-flaked-once-in-ci-under-an-unseeded-fast-check-run--open) | `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — OPEN | one failure in CI pipeline 7251's unit-tests job on the spec-B release branch, cleared by retry; hypothesis not confirmed; GitLab #368 | S — capture a counterexample at high `numRuns`, then fix the tolerance or the summation | open |
-| [§584](#584-two-next-actions-hero-tests-are-weaker-than-they-look--open) | Two Next-actions hero tests are weaker than they look — OPEN | found 2026-09-18 reading `actions-panel.test.tsx`, `dashboard-panel-layout.test.tsx` and `next-actions/group.test.ts`; GitLab #369 | S — add a monitor-topped fixture and a visible-text uniqueness assertion | open |
+| [§584](#584-two-next-actions-hero-tests-are-weaker-than-they-look--closed-2026-09-18) | Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18 | found 2026-09-18 reading `actions-panel.test.tsx`, `dashboard-panel-layout.test.tsx` and `next-actions/group.test.ts`; GitLab #369 | S — add a monitor-topped fixture and a visible-text uniqueness assertion | closed |
 | [§585](#585-on-xl-the-kpi-tile-lands-below-the-2x8-burn-tile-not-beside-it--open) | On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — OPEN | accepted during spec C; measured 2026-09-18 against `DASHBOARD_TILES`/`xl:grid-cols-4`; GitLab #370 | S — revisit the burn tile's default width or the tile order | open |
 <!-- INDEX:END -->
 
@@ -38872,12 +38872,24 @@ Fix shape: branch the class on the actual tile count rather than the OR, e.g. `s
 The class must stay a whole literal string — an interpolated Tailwind class emits no CSS, per the comment
 already in the file.
 
-## 582. The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — OPEN
+## 582. The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — CLOSED 2026-09-18
 
-**Status:** OPEN 2026-09-18 — read `action-hero-card.tsx`, `action-cta-controls.tsx` and
-`next-actions/action-cta.ts`, then confirmed every production caller passes `onOpenAction`
-(`workspace-section.tsx`'s one `<DashboardPanel>` call site and `task-manager.tsx`'s unconditional wiring);
-not reproducible in the shipped app today.
+**Status:** CLOSED 2026-09-18 on `docs/spec-c-dashboard-rework`, taking the "hide the CTA" fix shape
+below (the prop stays optional, since popouts and read-only callers legitimately omit it).
+`ActionHandlers.onOpen` (`action-cta-controls.tsx`) is now optional; `ActionPrimaryCta` hides both the
+primary Open button and the ghost Open alongside a different primary whenever `handlers.onOpen` is
+absent, instead of always rendering one that no-ops on click. `dashboard-panel.tsx` no longer needs
+`NOOP_OPEN` — it forwards `onOpenAction` (still optional) straight to the hero. `action-row.tsx`'s
+row-click-to-open convenience is guarded (`props.onOpen?.(action)`) to satisfy the now-optional type;
+every row-list owner (`ActionsPanel`, `DashboardTopActions`) still always wires a real handler there, so
+row behaviour is unchanged. TDD: `action-hero-card.test.tsx`'s new "hides the Open CTA when onOpen is
+absent, and shows it once wired" failed RED (10 passed, 1 failed) before the fix and passed GREEN after.
+Mutation check: reverted the `onOpenHandler ? … : null` guard back to an unconditional render (with
+`onOpenHandler?.(action)` in the click handler to keep it compiling) — the RED test above failed again
+(10 passed, 1 failed) — then restored the guard. Verified with `npx vitest run
+src/app/action-hero-card.test.tsx src/app/action-row.test.tsx src/app/actions-panel.test.tsx
+src/app/dashboard-panel-layout.test.tsx src/app/workspace-section.test.tsx` (136/136 passed),
+`npx tsc --noEmit` (0 errors) and `npx eslint --max-warnings=0` on the touched files (0 warnings).
 
 **Work item:** #367
 
@@ -38923,10 +38935,27 @@ Fix shape: once a counterexample is captured, use a tolerance proportional to th
 (relative, not flat) or fix the summation to reduce accumulated float error — do not just raise the flat
 absolute tolerance until it passes without knowing why.
 
-## 584. Two Next-actions hero tests are weaker than they look — OPEN
+## 584. Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18
 
-**Status:** OPEN 2026-09-18 — read `actions-panel.test.tsx`, `dashboard-panel-layout.test.tsx`,
-`workspace-section.test.tsx` and `next-actions/group.test.ts`; not fixed, mutation not run.
+**Status:** CLOSED 2026-09-18 on `docs/spec-c-dashboard-rework`. (a) Added a discriminating fixture to
+`actions-panel.test.tsx` and `workspace-section.test.tsx`: a group list where the TOP-SCORED group is
+`monitor` tier and a lower-scored group is not (built with explicit `score` overrides, since `mk`'s own
+table always puts `now` on top and can't reach this case). `pickHeroGroup` correctly returns null for
+that fixture (it never looks past a monitor-tier top group), so both tests assert no hero renders /
+`heroGroup` is null. Mutation check: swapped `pickHeroGroup(groups)` for `groups[0]` in
+`actions-panel.tsx` and `pickHeroGroup(nextActionGroups)` for `nextActionGroups[0] ?? null` in
+`workspace-section.tsx` — both new tests (and two pre-existing ones) went red (5 failed, 51 passed) —
+then reverted both. (b) `dashboard-panel-layout.test.tsx`'s "keeps the hero's action in the Top actions
+tile too, with names that never collide" test now also asserts on VISIBLE text (`getByText`, not
+`aria-label`): one "Open" occurrence inside `tile-topActions` and one inside the hero region, plus a
+`screen.getAllByText(...)` count of exactly 2. Mutation check: temporarily blanked the hero's (prominent)
+Open button's visible text while leaving its `aria-label` intact — the pre-existing aria-label-only
+assertions in that test stayed green in isolation, but the new visible-text assertion failed (confirmed
+via the printed DOM: `Unable to find an element with the text: Open` inside the hero `<section>`) — then
+reverted. Verified with `npx vitest run src/app/action-hero-card.test.tsx src/app/action-row.test.tsx
+src/app/actions-panel.test.tsx src/app/dashboard-panel-layout.test.tsx src/app/workspace-section.test.tsx
+src/app/next-actions/group.test.ts src/app/action-chips.test.tsx` (143/143 passed), `npx tsc --noEmit`
+(0 errors) and `npx eslint --max-warnings=0` on the touched files (0 warnings).
 
 **Work item:** #369
 

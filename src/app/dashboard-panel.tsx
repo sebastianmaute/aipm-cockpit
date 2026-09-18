@@ -48,9 +48,8 @@ import type { PlacedTile } from "./dashboard-layout";
 // memo's `snapshots` dependency for no input change (AGENTS.md memo bullet).
 const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
 
-/** Stable empties for the hero's CTA bundle — see `heroHandlers` below. */
+/** Stable empty for the hero's CTA bundle — see `heroHandlers` below. */
 const NO_HANDLERS: Omit<ActionHandlers, "onOpen"> = {};
-const NOOP_OPEN = () => {};
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -234,7 +233,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const heroEl = heroGroup ? (
     <ActionHeroCard
       {...heroHandlers}
-      onOpen={onOpenAction ?? NOOP_OPEN}
+      onOpen={onOpenAction}
       lang={lang}
       group={heroGroup}
       expertMode={props.expertMode}

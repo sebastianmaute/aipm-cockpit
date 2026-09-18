@@ -22,7 +22,11 @@ export interface AssignOwnerBundle {
 
 /** Every optional handler/bundle the surface may thread down. Shared by row + hero. */
 export interface ActionHandlers {
-  onOpen: (action: SuggestedAction) => void;
+  /** §582 — optional so a caller (a popout, a read-only surface) can legitimately
+   *  omit it; `ActionPrimaryCta` hides the Open CTA entirely rather than render
+   *  one that does nothing when clicked. A row-list owner (`ActionsPanel`,
+   *  `DashboardTopActions`) still always wires a real handler here today. */
+  onOpen?: (action: SuggestedAction) => void;
   /** `extraIds`, when given, are the OTHER ids in the row's `ActionGroup` (F1 —
    *  snoozing a grouped row must snooze every signal in the group, not just the
    *  promoted primary, or the row reappears immediately with the next one
@@ -101,13 +105,17 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
   // ★ Rendered for EVERY action — as the primary when `kind === "open"`, and as
   //   the ghost alongside every other primary — so this one element is two
   //   identically-named buttons the moment a list holds two rows.
-  const open = (
-    <button type="button" onClick={(e) => { stop(e); handlers.onOpen(action); }}
+  // §582 — `onOpen` is optional (a popout/read-only caller legitimately omits
+  // it); a button that calls nothing on click is worse than no button, so hide
+  // it entirely rather than fall back to a no-op handler.
+  const onOpenHandler = handlers.onOpen;
+  const open = onOpenHandler ? (
+    <button type="button" onClick={(e) => { stop(e); onOpenHandler(action); }}
       aria-label={rowLabel(t(lang, "actionOpen"), rowToken)}
       className={kind === "open" ? directBtn : `${GHOST} px-3`}>
       {t(lang, "actionOpen")}
     </button>
-  );
+  ) : null;
 
   let primary: React.ReactNode = open;
   if (kind === "assign" && handlers.assignOwner) {

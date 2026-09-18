@@ -88,6 +88,15 @@ describe("DashboardPanel row 2 — the hero beside Overall status (spec C)", () 
     expect(new Set(names).size).toBe(names.length);
     expect(names).toContain(rowLabel(t(EN, "actionOpen"), TITLE));        // the tile row, unchanged
     expect(names).toContain(rowLabel(t(EN, "actionOpen"), HERO_TOKEN));   // the hero, section-qualified
+    // §584(b) — the assertions above compare ARIA labels only, which the
+    // disambiguating token always keeps distinct by construction; they cannot
+    // see a regression on the VISIBLE side (a button silently losing its
+    // visible text, or the tile/hero controls collapsing into one DOM node).
+    // Query on visible text instead (getByText resolves against rendered
+    // content, not aria-label) and pin one occurrence in EACH container.
+    expect(within(screen.getByTestId("tile-topActions")).getByText(t(EN, "actionOpen"))).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: HERO })).getByText(t(EN, "actionOpen"))).toBeInTheDocument();
+    expect(screen.getAllByText(t(EN, "actionOpen"))).toHaveLength(2);
   });
 
   it("threads the CTA bundle to the hero", async () => {

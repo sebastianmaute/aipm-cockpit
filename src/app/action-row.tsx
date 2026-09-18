@@ -37,7 +37,7 @@ export function ActionRow(props: ActionRowProps) {
     // Mouse convenience only — NOT role=button (nested-interactive a11y). Inner
     // controls are the real keyboard affordances.
     <div
-      onClick={() => props.onOpen(action)}
+      onClick={() => props.onOpen?.(action)}
       className={`flex cursor-pointer items-center gap-2 rounded-md border border-line border-l-4 ${rag.stripe} bg-surface px-3 py-1.5 hover:bg-surface-muted`}
     >
       <span className="min-w-0 flex-1">

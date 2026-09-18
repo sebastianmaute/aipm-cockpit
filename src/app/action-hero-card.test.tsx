@@ -20,6 +20,13 @@ describe("ActionHeroCard", () => {
     expect(screen.getByText(/Vendor API delay/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open – Row" })).toBeInTheDocument();
   });
+  // §582 — an Open CTA that does nothing without a handler must not render at all.
+  it("hides the Open CTA when onOpen is absent, and shows it once wired", () => {
+    const { rerender } = render(<ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner)} />);
+    expect(screen.queryByRole("button", { name: "Open – Row" })).toBeNull();
+    rerender(<ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner)} onOpen={() => {}} />);
+    expect(screen.getByRole("button", { name: "Open – Row" })).toBeInTheDocument();
+  });
   it("offers Log as RAID in the hero's overflow for a non-RAID signal (§515)", () => {
     const slip = {
       ...noOwner, id: "milestone:4:atrisk", source: "milestone",

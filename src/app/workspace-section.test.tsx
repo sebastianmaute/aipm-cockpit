@@ -907,6 +907,22 @@ describe("WorkspaceSection — the dashboard hero and its CTA bundle (spec C)", 
     expect(dashboardPanelMock.props.at(-1)!.heroGroup).toBeNull();
   });
 
+  // §584(a) — the two tests above both use fixtures where the top-scored group
+  // is already non-monitor, so `pickHeroGroup` (refuses to promote past a
+  // monitor-tier TOP group) and a naive inline `groups[0]` rule agree and this
+  // wiring cannot distinguish them. Force the top-SCORED group to be
+  // monitor-tier, with a lower-scored non-monitor group present: `pickHeroGroup`
+  // still yields no hero (it never looks past a monitor top group), while
+  // `groups[0]` would hand the dashboard that monitor group as its hero.
+  // Mutation check: swapping `pickHeroGroup(nextActionGroups)` for
+  // `nextActionGroups[0]` in workspace-section.tsx turns this test red.
+  it("hands the dashboard no hero when the top-scored group is monitor even though a lower group is not (mutant: groups[0])", () => {
+    const groups = groupNextActions([mkAction("mon", "monitor", 90, 1), mkAction("n", "now", 20, 2)]);
+    expect(pickHeroGroup(groups)).toBeNull();
+    render(<WorkspaceSection {...makeProps({ nextActions: groups.map((g) => g.primary), nextActionGroups: groups })} />, { wrapper: Wrapper });
+    expect(dashboardPanelMock.props.at(-1)!.heroGroup).toBeNull();
+  });
+
   it("threads the SAME ten handler functions ActionsPanel receives, as one bag", () => {
     const onMarkDone = vi.fn();
     const onSnooze = vi.fn();
