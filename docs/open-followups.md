@@ -38952,6 +38952,13 @@ model as the rest of this entry.
    Chromium teardown of a window's child processes frees the port anyway regardless of whether
    `killServer` ran. Needs a probe that can tell the two apart — for example the child's own exit log,
    or a quit fired while a spawn is still pending. Not done.
+7. **`desktop/src/server-child.ts` left the blocking typecheck.** It now imports `utilityProcess` from
+   `electron`, which the root install does not carry, so MR !500's `typecheck` and `build` jobs failed
+   with TS2307. A local `npx tsc --noEmit` did not catch it because electron resolves on a machine that
+   has installed the desktop package. The fix follows the `main.ts` precedent (§547): the root
+   `tsconfig.json` `exclude` list now names `"desktop/src/server-child.ts"`, so only the manual
+   `desktop-package` job compiles it. Getting it back under a blocking gate needs either the fork
+   injected from `main.ts` or a desktop typecheck job in CI. Not done.
 
 ★ This lands in the same gap as the M365 sign-in verification already owed on a packaged 1.6.1+
 build: anything that only exists in a packaged artifact is invisible to every local gate and to
