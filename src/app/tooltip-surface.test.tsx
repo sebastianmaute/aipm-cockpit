@@ -10,6 +10,7 @@ describe("TooltipSurface", () => {
     expect(tip).toHaveStyle({ top: "12px", left: "34px" });
     expect(tip.getAttribute("class")).toContain(TOOLTIP_SURFACE_CLASS);
     expect(tip).toHaveAttribute("data-tooltip-portal");
+    expect(tip.style.transform).toBe("translateX(-50%)");
   });
 
   it("appends a caller class without dropping the shared one", () => {
