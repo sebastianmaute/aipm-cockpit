@@ -535,7 +535,15 @@ npx vitest run src/app/tooltip-surface.test.tsx src/app/info-tooltip.test.tsx > 
 npx tsc --noEmit; echo "TSC_EXIT=$?"
 npx eslint --max-warnings=0 src/app/tooltip-surface.tsx src/app/tooltip-surface.test.tsx src/app/info-tooltip.tsx; echo "LINT_EXIT=$?"
 ```
-Expected: EXIT=0 everywhere. `info-tooltip.test.tsx` passes **unedited** — that is the evidence the extraction changed no behaviour. If it needed an edit, the extraction is wrong.
+Expected: EXIT=0 everywhere. `info-tooltip.test.tsx` passes **unedited** — if it needed an edit, the extraction is wrong.
+
+★ But do NOT read that green run as proof the markup is unchanged, which an earlier revision of this
+plan did. Those ten tests assert one class substring (`normal-case`) and read `bubble.style.left`;
+they never assert `data-tooltip-portal`, the full class string, or the `transform`. The unedited pass
+proves only that nothing OBSERVED by them moved. The markup contract is pinned by the NEW
+`tooltip-surface.test.tsx` (full-string class match, the portal attribute, the position and the
+centring transform), and the class literal's equality with what shipped before is verifiable only by
+comparing against this commit's `-` lines — no gate in this repo can see that drift.
 
 - [ ] **Step 6: Commit**
 
@@ -546,8 +554,10 @@ refactor(ui): share the tooltip bubble as TooltipSurface
 
 InfoTooltip's portalled bubble becomes a reusable surface so the budget
 chart's readout uses the one tooltip look rather than a second hand-rolled
-one. Markup, styling and positioning behaviour are unchanged, which
-info-tooltip's own unedited test file pins.
+one. Markup, styling and positioning behaviour are unchanged: info-tooltip's
+own test file passes unedited, and the new tooltip-surface tests pin the
+class string, the portal attribute and the centring transform, none of which
+the old suite ever asserted.
 
 Claude-Session: https://[session link removed]
 EOF
