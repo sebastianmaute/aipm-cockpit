@@ -1492,7 +1492,7 @@ describe("DashboardPanel currency labelling", () => {
 
   it("labels the burn-down value axis in EUR even when the plan names another currency", () => {
     renderUsdDashboard();
-    // Scoped to the € chart: `BurndownChart` renders `<div>{caption}</div><svg>`,
+    // Scoped to the € chart: `BurndownChart` renders `<div>{caption}</div><button><svg>…</svg></button>`,
     // so the caption's parent is that chart alone ("Budget remaining" is the
     // default burn-down × € view).
     const valueChart = screen.getByText(/Budget remaining/i).parentElement!;
