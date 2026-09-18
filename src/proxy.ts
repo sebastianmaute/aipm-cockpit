@@ -24,16 +24,34 @@ import { type NextRequest, NextResponse } from "next/server";
 //                    SANITIZES — not because no sink exists. ★★ This said
 //                    "no dangerouslySetInnerHTML anywhere" until 2026-08-09
 //                    and `docs/security/threat-model.md` cited that wording
-//                    as its mitigation. `grep -rn "dangerouslySetInnerHTML={{"
-//                    src` returns the SIX real JSX sinks: rich-text-view,
-//                    comm-send-preview-modal and meeting-report-panel wrap
-//                    the value in a sanitizer at the sink; document-preview
+//                    as its mitigation. There are EIGHT real JSX sinks, not
+//                    the six this comment used to claim, plus three
+//                    document.write calls — eleven untrusted-HTML sinks in
+//                    all. Enumerate them; never trust the count written here:
+//                      grep -rn "dangerouslySetInnerHTML={" src --include=*.tsx
+//                      grep -rnE "document\.write\(" src
+//                    (each filtered through `grep -v "\.test\."`). The eight:
+//                    rich-text-view, comm-send-preview-modal and
+//                    meeting-report-panel wrap the value in sanitizeRichHtml
+//                    at the sink; document-block-notices and document-editor
+//                    wrap theirs in sanitizeDocumentHtml; document-preview
 //                    and documents-history-modal render doc-render-html
-//                    output; layout injects an app-authored constant.
-//                    ★ The `={{` filter is load-bearing: the unfiltered grep
-//                    returns 13 rows, seven of them prose — and two of those
-//                    are THIS comment, so the count grows each time someone
-//                    restates it. A
+//                    output; layout injects an app-authored constant. Every
+//                    one sanitizes, so the risk argument above stands — only
+//                    the enumeration was wrong.
+//                    ★★★ THE OLD `={{` FILTER IS WHAT HID TWO OF THEM, and
+//                    it was cited as the authority for a list that NAMED
+//                    both: document-preview and documents-history-modal
+//                    memoize a `{ __html }` object for referential identity
+//                    and pass it as `={bodyHtml}` / `={previewHtml}`, which
+//                    `={{` cannot match. Match on `={` instead.
+//                    ★★ ESCAPE THE DOT in the document.write sweep. A plain
+//                    "document.write" lets the dot match a space and returns
+//                    19 rows against the real 3 (document-download twice,
+//                    export once).
+//                    ★ Do NOT quote a number for the unfiltered grep: most of
+//                    its rows are prose and several are THIS comment, so it
+//                    grows every time someone restates it. A
 //                    security note that overstates the mitigation is the
 //                    kind that stops a reviewer checking the real one.
 //   connect-src      api.anthropic.com — chat panel calls Anthropic from
