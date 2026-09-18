@@ -38881,15 +38881,25 @@ primary Open button and the ghost Open alongside a different primary whenever `h
 absent, instead of always rendering one that no-ops on click. `dashboard-panel.tsx` no longer needs
 `NOOP_OPEN` — it forwards `onOpenAction` (still optional) straight to the hero. `action-row.tsx`'s
 row-click-to-open convenience is guarded (`props.onOpen?.(action)`) to satisfy the now-optional type;
-every row-list owner (`ActionsPanel`, `DashboardTopActions`) still always wires a real handler there, so
-row behaviour is unchanged. TDD: `action-hero-card.test.tsx`'s new "hides the Open CTA when onOpen is
-absent, and shows it once wired" failed RED (10 passed, 1 failed) before the fix and passed GREEN after.
-Mutation check: reverted the `onOpenHandler ? … : null` guard back to an unconditional render (with
-`onOpenHandler?.(action)` in the click handler to keep it compiling) — the RED test above failed again
-(10 passed, 1 failed) — then restored the guard. Verified with `npx vitest run
-src/app/action-hero-card.test.tsx src/app/action-row.test.tsx src/app/actions-panel.test.tsx
-src/app/dashboard-panel-layout.test.tsx src/app/workspace-section.test.tsx` (136/136 passed),
-`npx tsc --noEmit` (0 errors) and `npx eslint --max-warnings=0` on the touched files (0 warnings).
+`ActionsPanel` still always wires a real handler there, so its rows are unchanged. TDD:
+`action-hero-card.test.tsx`'s new "hides the Open CTA when onOpen is absent, and shows it once wired"
+failed RED (10 passed, 1 failed) before the fix and passed GREEN after. Mutation check: reverted the
+`onOpenHandler ? … : null` guard back to an unconditional render (with `onOpenHandler?.(action)` in the
+click handler to keep it compiling) — the RED test above failed again (10 passed, 1 failed) — then
+restored the guard. Verified with `npx vitest run src/app/action-hero-card.test.tsx
+src/app/action-row.test.tsx src/app/actions-panel.test.tsx src/app/dashboard-panel-layout.test.tsx
+src/app/workspace-section.test.tsx` (136/136 passed), `npx tsc --noEmit` (0 errors) and
+`npx eslint --max-warnings=0` on the touched files (0 warnings). **Fix round 1 (2026-09-19):** the
+Dashboard's Top-actions tile (`dashboard-sections/dashboard-top-actions.tsx`) had the identical
+Open-does-nothing fallback (`onOpenAction ?? (() => {})`) for its `ActionRow` list; it now forwards
+`onOpenAction` through as-is so that tile's Open CTA hides the same way when the handler is absent —
+covered by a new RED/GREEN test in `dashboard-top-actions.test.tsx` and its own mutation check (4
+passed/1 failed with the fallback reinstated, 5/5 passed after reverting), verified with
+`npx vitest run src/app/dashboard-sections/dashboard-top-actions.test.tsx
+src/app/dashboard-panel-layout.test.tsx src/app/dashboard-panel.test.tsx src/app/action-row.test.tsx`
+(140/140 passed), `npx tsc --noEmit` (0 errors) and `npx eslint --max-warnings=0` on the two touched
+files (0 warnings). A repo-wide grep for `onOpen=` fallbacks of this shape found no other production
+call site — every other `onOpen={() => {}}` hit is in a test file.
 
 **Work item:** #367
 
