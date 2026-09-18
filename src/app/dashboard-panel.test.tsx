@@ -381,15 +381,14 @@ describe("DashboardPanel budget-burn CPI stat", () => {
 
   // ★ Spec C decision 8: the EVM indices live in the KPI tile now, not the burn
   // tile. The KPI tile's grid holds all five tiles, so SPI and CPI still share
-  // one row there. ★ Deviation from the controller ruling's literal
-  // `closest("button")`: this fixture renders `DashboardPanel` with no
-  // `onNavigate`, so the CPI `Tile`'s `onActivate` is undefined and it takes
-  // the `Card` (`<div>`) branch, never the `<button>` branch — `closest("button")`
-  // resolves to `null` here. Scoping to the whole `tile-kpi` element (the
-  // ruling's own "otherwise" alternative) proves the value renders IN the KPI
-  // tile without depending on which branch `Tile` takes.
-  function evmCpiTile(): HTMLElement {
-    return screen.getByTestId("tile-kpi");
+  // one row there. No `onNavigate` is passed in this fixture, so the CPI
+  // `Tile`'s `onActivate` is undefined and it renders its `Card` (`<div>`)
+  // branch rather than a `<button>` — `closest("div.rounded-lg")` from the CPI
+  // label lands on that tile's own box, which sits BESIDE (never inside or
+  // around) the SPI tile's box, so this stays scoped to the CPI tile alone.
+  function cpiTile(): HTMLElement {
+    const kpi = screen.getByTestId("tile-kpi");
+    return within(kpi).getByText("Effort CPI").closest("div.rounded-lg") as HTMLElement;
   }
 
   it("shows the CPI value in the KPI tile when model.evm.cpi is present", () => {
@@ -409,7 +408,7 @@ describe("DashboardPanel budget-burn CPI stat", () => {
       />,
       { wrapper },
     );
-    expect(within(evmCpiTile()).getByText("0.95")).toBeInTheDocument();
+    expect(within(cpiTile()).getByText("0.95")).toBeInTheDocument();
   });
 
   it("renders CPI exactly once — in the KPI tile, never in the burn tile", () => {
@@ -561,9 +560,8 @@ const fullProps = {
 // non-null coverage without otherwise changing what `fullProps`-based
 // baseline assertions see. ★ Spec C: Effort SPI and Effort CPI are each keyed
 // on their OWN model field (`model.evm.spi`/`model.evm.cpi`), never on
-// `showBudget` (see the SPI/CPI visibility ruling above), so
-// `tasksWithEvmEstimate` is exercised both WITH and WITHOUT the Budget
-// module below.
+// `showBudget`, so `tasksWithEvmEstimate` is exercised both WITH and WITHOUT
+// the Budget module below.
 const tasksWithEvmEstimate = [
   {
     id: 1, title: "Done task", status: "Done", health: "G",
@@ -582,11 +580,9 @@ describe("DashboardPanel module visibility gates (Task 8)", () => {
     expect(screen.getByText("Changes")).toBeInTheDocument();
   });
 
-  it("shows the Effort SPI/CPI tiles when showBudget is true (positive control)", () => {
-    // Without this, the test below (both indices visible with showBudget
-    // false) would prove nothing on its own — it needs this control to show
-    // the tiles render AT ALL given estimate coverage, before the next test
-    // proves they persist even with the module off.
+  it("shows the Effort SPI/CPI tiles when showBudget is true (its default)", () => {
+    // Covers the default `showBudget=true` path; the next test covers
+    // `showBudget=false`.
     render(<DashboardPanel {...fullProps} tasks={tasksWithEvmEstimate} />, { wrapper });
     expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
     expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
@@ -1492,8 +1488,8 @@ describe("DashboardPanel burn tile is chart-only (spec C)", () => {
       const tile = screen.getByTestId("tile-burn");
       // Positive control: the chart is there (its € caption).
       expect(within(tile).getByText(/Budget remaining/i)).toBeInTheDocument();
-      // `forecastHeadlineText` is gone with the deleted `budget-forecast-headline.tsx`
-      // (see Step 5(i)); a substring match is enough to prove the headline is absent.
+      // `forecastHeadlineText` is gone with the deleted `budget-forecast-headline.tsx`;
+      // a substring match is enough to prove the headline is absent.
       expect(within(tile).queryByText(/EAC|VAC/)).toBeNull();
       const chipText = rateMixTileChipText("en-US", MIX_HOURS_WORSE, HOURS_FORECAST_HOURS_WORSE);
       expect(within(tile).queryByRole("button", { name: rateMixWhyName("en-US", chipText) })).toBeNull();

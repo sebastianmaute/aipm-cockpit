@@ -18,9 +18,8 @@ interface DashboardKpiStripProps {
 
 /** Standalone "at a glance" KPI card: completion % · overdue · open RAID,
  *  plus Effort SPI · Effort CPI whenever `model.evm.spi`/`model.evm.cpi` is
- *  non-null (spec C decision 8) — each is independent of the Budget module
- *  (see the SPI/CPI visibility ruling above); `DashboardKpiStripProps` gains
- *  no new field.
+ *  non-null (spec C decision 8) — each is independent of the Budget module;
+ *  `DashboardKpiStripProps` gains no new field.
  *
  *  ★ NO BOX OF ITS OWN — the arrangeable tile chrome (`dashboard-tile.tsx`)
  *  draws the border and the title ("At a glance"). A `Card boxed` here would

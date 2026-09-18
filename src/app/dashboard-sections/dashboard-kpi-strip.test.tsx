@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { computeDashboard, buildDashboardInput } from "../dashboard";
 import { densityClasses } from "../dashboard-density";
 import { computeMetricTrends } from "../dashboard-trends";
@@ -183,12 +183,33 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
     { ...taskFixture(2, "To Do"), dueDate: "2026-06-02", originalEstimateMinutes: 2400 },
   ];
 
+  // pv = 80h (due by today, so it counts), ev = 80h (completed by today), ac = 0
+  // (`timeSpentMinutes` 0) → spi = 1.00, cpi = null (`evm.ts`: cpi is null when
+  // ac === 0). The common early case: an estimate exists and its due date has
+  // passed, but no hours have been booked against it yet.
+  const SPI_ONLY_TASKS = [
+    { ...taskFixture(1, "In Progress", "2026-06-01"), dueDate: "2026-06-01", originalEstimateMinutes: 4800, timeSpentMinutes: 0 },
+  ];
+
+  // pv = 0 (due date is AFTER today, so it never counts toward pv) → spi = null.
+  // ac = 100h (`timeSpentMinutes` booked) → cpi = 0/100 = 0.00. The mirror case:
+  // hours are booked against a task before its due date arrives.
+  const CPI_ONLY_TASKS = [
+    { ...taskFixture(1, "In Progress"), dueDate: "2026-07-01", originalEstimateMinutes: 4800, timeSpentMinutes: 6000 },
+  ];
+
+  // Each index's own `<Tile>` — a `<button>` here since every render in this
+  // describe block passes `onNavigate`. Scoping a value to its own tile (not
+  // just to the strip as a whole) is what catches a mutant that swapped the
+  // SPI and CPI values under their labels.
+  function tileFor(label: string): HTMLElement {
+    return screen.getByText(label).closest("button") as HTMLElement;
+  }
+
   it("adds both index tiles with their labels, values and hints when estimates exist", () => {
     render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
-    expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
-    expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
-    expect(screen.getByText("0.67")).toBeInTheDocument();
-    expect(screen.getByText("0.80")).toBeInTheDocument();
+    expect(within(tileFor(t("en-US", "evmSpi"))).getByText("0.67")).toBeInTheDocument();
+    expect(within(tileFor(t("en-US", "evmCpi"))).getByText("0.80")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: t("en-US", "evmSpiHint") })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: t("en-US", "evmCpiHint") })).toBeInTheDocument();
   });
@@ -213,5 +234,20 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
     expect(screen.getByText("Complete")).toBeInTheDocument();          // positive control
     expect(screen.queryByText(t("en-US", "evmSpi"))).toBeNull();
     expect(screen.queryByText(t("en-US", "evmCpi"))).toBeNull();
+  });
+
+  // The engine makes the two indices INDEPENDENT (`evm.ts`: spi is null when
+  // pv === 0, cpi is null when ac === 0 — two different sums), so a tile gated
+  // on the WRONG field is a real, reachable bug, not just a theoretical one.
+  it("shows only Effort SPI when an estimate is due but no hours are booked yet", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(SPI_ONLY_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "evmCpi"))).toBeNull();
+  });
+
+  it("shows only Effort CPI when hours are booked on a task that is not yet due", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(CPI_ONLY_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "evmSpi"))).toBeNull();
   });
 });
