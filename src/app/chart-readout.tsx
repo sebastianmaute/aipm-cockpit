@@ -53,11 +53,6 @@ function valueText(lang: Lang, row: ReadoutRow, fmt: (v: number) => string): str
  *  marker conveys. Appended after the value (not the parens the visual marker
  *  uses, which read as stray punctuation spoken aloud), mirroring the marker's
  *  own position after the value in the box. */
-/** The forecast/partial flags are WORDS, not shades — the live region is the
- *  accessible channel, so it must carry everything the visual `(forecast)`
- *  marker conveys. Appended after the value (not the parens the visual marker
- *  uses, which read as stray punctuation spoken aloud), mirroring the marker's
- *  own position after the value in the box. */
 function rowText(lang: Lang, row: ReadoutRow, fmt: (v: number) => string): string {
   const base = t(lang, "burndownReadoutSentence", t(lang, labelKey(row)), valueText(lang, row, fmt));
   return row.forecast ? `${base}, ${t(lang, "burndownReadoutForecast")}` : base;
