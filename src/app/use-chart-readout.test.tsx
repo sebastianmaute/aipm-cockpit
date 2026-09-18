@@ -174,26 +174,37 @@ describe("useChartReadout", () => {
     stubRect();
     function Empty() {
       const r = useChartReadout({ stops: [], xDomain: ["2026-01-01", "2026-03-01"], x0: 64, x1: 560, viewBoxWidth: 640 });
-      return <><button type="button" {...r.triggerProps}>chart</button><output>{r.stop ?? "closed"}</output></>;
+      // A plain `r.stop ?? "closed"` renders `undefined` and `null`
+      // identically, which is exactly the value a dropped `stops.length ===
+      // 0` guard produces (it indexes an empty array and hands `step`
+      // `undefined` instead of a date) — so that fallback alone cannot tell
+      // a correct guard from a missing one. Render `undefined` as its own
+      // distinct string so the assertion below is checking the real
+      // invariant ("stays closed", not merely "didn't say a date").
+      const text = r.stop === undefined ? "undefined" : r.stop ?? "closed";
+      return <><button type="button" {...r.triggerProps}>chart</button><output>{text}</output></>;
     }
-    // A dropped `stops.length === 0` guard would index an empty `stops`
-    // array and pass `undefined` where a date is expected downstream. The
-    // harness's `?? "closed"` fallback renders `undefined` and `null`
-    // identically, so the text assertions below cannot tell a correct guard
-    // from a missing one on their own — a synchronous `window` `"error"`
-    // listener catches the resulting uncaught exception deterministically
-    // instead of relying on it merely failing the process (which it also
-    // does, but only as an unasserted side effect).
+    // Secondary signal, kept alongside the direct check above: a dropped
+    // guard also throws downstream (`scaleDate` on an `undefined` date), and
+    // a synchronous `window` `"error"` listener catches that uncaught
+    // exception deterministically. This is a proxy for the real invariant,
+    // not a replacement for it — a future change that made the downstream
+    // code tolerate a bad date instead of throwing would silently defeat it
+    // while leaving the guard missing, which is why the direct check above
+    // exists too.
     const onError = vi.fn();
     window.addEventListener("error", onError);
-    const user = userEvent.setup();
-    render(<Empty />);
-    await user.click(screen.getByRole("button", { name: "chart" }));
-    expect(screen.getByRole("status")).toHaveTextContent("closed");
-    await user.tab();
-    await user.keyboard("{ArrowRight}");
-    expect(screen.getByRole("status")).toHaveTextContent("closed");
-    expect(onError).not.toHaveBeenCalled();
-    window.removeEventListener("error", onError);
+    try {
+      const user = userEvent.setup();
+      render(<Empty />);
+      await user.click(screen.getByRole("button", { name: "chart" }));
+      expect(screen.getByRole("status")).toHaveTextContent("closed");
+      await user.tab();
+      await user.keyboard("{ArrowRight}");
+      expect(screen.getByRole("status")).toHaveTextContent("closed");
+      expect(onError).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener("error", onError);
+    }
   });
 });
