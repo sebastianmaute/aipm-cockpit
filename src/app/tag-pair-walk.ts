@@ -20,7 +20,8 @@ export interface TagPair {
 
 /** How to locate one family of pairs. */
 export interface TagPairSpec {
-  /** Open-tag pattern, compiled "gi" — e.g. `<h([1-6])\b`. */
+  /** Open-tag pattern, compiled with the flags `caseInsensitive` selects —
+   *  e.g. `<h([1-6])\b`. */
   openPattern: string;
   /** The close-tag NAME an open match must be closed by — e.g. "h2" for
    *  `<h2 ...>`. Derived from the open match rather than given as a fixed
@@ -51,43 +52,71 @@ export interface TagPairSpec {
    *  the un-flagged behaviour here — see forEachTagPair's own note), so
    *  turning this on for them would be a NEW divergence, not a fix. */
   skipSelfClosing?: boolean;
+  /** True compiles `openPattern` and the derived close pattern with "gi";
+   *  false (the default) compiles with plain "g".
+   *
+   *  ★★★ Not decorative — forEachTagPair used to hardcode "gi" unconditionally,
+   *  which silently WIDENED matching for every OOXML caller (office-xml.ts's
+   *  extractRuns, docx-extract.ts's BLOCK_PAIR, pptx-extract.ts's P_PAIR —
+   *  found in review; TC_PAIR/TR_PAIR and xlsx's SI_PAIR carry the identical
+   *  risk even without a named repro) relative to the plain "g" lazy regexes
+   *  they replace: `<T>up</T><t>low</t>` yielded `["low"]` before porting,
+   *  `["up","low"]` after, for any of them. html-extract.ts's five specs are
+   *  the one family that WANTS "gi" — HTML tag names are case-insensitive —
+   *  so they set this explicitly; every OOXML spec leaves it unset (§558 fix
+   *  round 3, item 5).
+   *
+   *  ★ This also closes a sharper bug docx's BLOCK_PAIR had under the old
+   *  hardcoded "gi": `closeName` there compares `openMatch[0] === "<w:tbl"`,
+   *  an exact case-SENSITIVE string test against what was a case-INSENSITIVE
+   *  match — so `<W:TBL` matched the open pattern, failed that comparison,
+   *  and silently got routed to the "w:p" closer instead. Restoring "g" for
+   *  that spec makes `<W:TBL` fail to match at all (as the original regex
+   *  also did), so the comparison is never reached with a mismatched case. */
+  caseInsensitive?: boolean;
 }
 
 /** Walk every `<name ...>...</name>` pair in document order, linearly, calling
  *  `visit` on each; `visit` returns false to stop the walk.
  *
  *  This is the shared replacement for the `<name\b[^>]*>([\s\S]*?)</name\s*>`
- *  pair regex — the O(n^2) shape stripComments and dropTagSubtree above
- *  already avoid, quadratic by two mechanisms at once: an unterminated open
- *  tag makes the lazy `[\s\S]*?` rescan to end of input from every open, and
- *  `[^>]*` on input with no ">" at all backtracks to EOF from every start
- *  position. Five steps of this pipeline went on using it — tables, their
- *  rows, their cells, headings and list items — while the two comments above
- *  explained why it was banned.
+ *  pair regex — the O(n^2) shape stripComments and dropTagSubtree
+ *  (html-extract.ts) already avoid, quadratic by two mechanisms at once: an
+ *  unterminated open tag makes the lazy `[\s\S]*?` rescan to end of input
+ *  from every open, and `[^>]*` on input with no ">" at all backtracks to
+ *  EOF from every start position. Five steps of html-extract.ts's pipeline
+ *  went on using it — tables, their rows, their cells, headings and list
+ *  items — while stripComments's and dropTagSubtree's own comments
+ *  (html-extract.ts) explained why it was banned there.
  *
- *  Measured at MAX_HTML_INPUT_CHARS, one unit repeated to fill, before ->
- *  after this walk (2026-09-03): "<h1" with no ">" anywhere 27,864 -> 895ms,
- *  "<h1>" 8,871 -> 12ms, "<li>" 3,548 -> 11ms, "<table>" 1,130 -> 8ms, one
- *  <table> of unterminated "<tr" 14,858 -> 7ms, one <table> of unterminated
- *  "<td" 31,418 -> 12ms. Every one of those produced 42 characters of output.
- *  ★ The surviving 895ms is NOT this walk: 815ms of it is the generic
- *  TAG_STRIP_RE pass at the end of extractHtmlMarkdown, bounded (finite, not
- *  cheap) by MAX_TAG_SCAN_CHARS. 500k bare "<" characters, an input that
- *  reaches no pair walk at all, cost 2,511ms on the same machine — that is
- *  the pipeline's floor, and it is what a processing-time test must clear.
+ *  Measured at html-extract.ts's MAX_HTML_INPUT_CHARS clamp, one unit
+ *  repeated to fill, before -> after this walk (2026-09-03): "<h1" with no
+ *  ">" anywhere 27,864 -> 895ms, "<h1>" 8,871 -> 12ms, "<li>" 3,548 -> 11ms,
+ *  "<table>" 1,130 -> 8ms, one <table> of unterminated "<tr" 14,858 -> 7ms,
+ *  one <table> of unterminated "<td" 31,418 -> 12ms. Every one of those
+ *  produced 42 characters of output.
+ *  ★ The surviving 895ms is NOT this walk: 815ms of it is html-extract.ts's
+ *  generic TAG_STRIP_RE pass at the end of extractHtmlMarkdown, bounded
+ *  (finite, not cheap) by html-extract.ts's MAX_TAG_SCAN_CHARS. 500k bare
+ *  "<" characters, an input that reaches no pair walk at all, cost 2,511ms
+ *  on the same machine — that is html-extract.ts's pipeline floor, and it
+ *  is what a processing-time test on that pipeline must clear.
  *
  *  Linear because every scan only moves forward: open tags are visited in
  *  increasing order, and one close scanner is kept per close NAME, so a name
  *  whose close is missing is searched for exactly once and then retired. The
  *  name set is bounded per call site (1 for table/tr/li, 2 for td/th, 6 for
- *  h1-h6), so the whole walk is O(n) in the clamped input length.
+ *  h1-h6 in html-extract.ts), so the whole walk is O(n) in the input length.
  *
- *  ★ The unterminated-input fallback here is NOT dropTagSubtree's, and copying
- *  that one would silently delete the rest of the document. A pair regex that
- *  finds no close does not match AT ALL, so an unclosed open tag is left in
- *  place for the later generic TAG_STRIP_RE to remove. */
+ *  ★ The unterminated-input fallback here is NOT dropTagSubtree's
+ *  (html-extract.ts), and copying that one would silently delete the rest of
+ *  the document. A pair regex that finds no close does not match AT ALL, so
+ *  an unclosed open tag is left in place for html-extract.ts's later generic
+ *  TAG_STRIP_RE to remove — a caller that doesn't run such a pass afterward
+ *  keeps the unclosed open tag in its own output verbatim. */
 export function forEachTagPair(html: string, spec: TagPairSpec, visit: (pair: TagPair) => boolean): void {
-  const openRe = new RegExp(spec.openPattern, "gi");
+  const flags = spec.caseInsensitive ? "gi" : "g";
+  const openRe = new RegExp(spec.openPattern, flags);
   // null = this name has already been shown to have no close left anywhere in
   // the input, so no open of the same name further right can match either.
   const closers = new Map<string, RegExp | null>();
@@ -96,7 +125,7 @@ export function forEachTagPair(html: string, spec: TagPairSpec, visit: (pair: Ta
     const name = spec.closeName(openMatch);
     let closeRe = closers.get(name);
     if (closeRe === undefined) {
-      closeRe = new RegExp("</" + name + "\\s*>", "gi");
+      closeRe = new RegExp("</" + name + "\\s*>", flags);
       closers.set(name, closeRe);
     }
     // ★ Before the attribute scan below, not after. That scan can run to end

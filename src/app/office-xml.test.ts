@@ -32,6 +32,27 @@ describe("office-xml", () => {
     expect(extractRuns(xml, "w:t")).toEqual(["cell"]);
   });
 
+  it("is case-sensitive, matching the plain \"g\" regex it replaced", () => {
+    // §558 fix round 3, item 5: forEachTagPair used to hardcode "gi"
+    // unconditionally, silently widening every OOXML caller (this one
+    // included) beyond the plain "g" lazy regex it replaced. OOXML element
+    // names are case-sensitive XML, so an uppercase look-alike is a
+    // DIFFERENT tag, not the same one spelled differently.
+    const xml = "<T>up</T><t>low</t>";
+    expect(extractRuns(xml, "t")).toEqual(["low"]);
+  });
+
+  it("does not confuse a tag with a hyphenated look-alike", () => {
+    // §558 fix round 3, item 6: `\b` fires between "t" and "-" (both are
+    // non-word-vs-non-word... "-" is non-word, "t" is word, so `\b` DOES
+    // match there), so a `\b`-based open pattern treated "<t-alt" as if it
+    // were "<t " and merged forward into the next real <t>...</t> exactly
+    // like the self-closing bug above. Old regex: ["real"]. `\b`-based open
+    // pattern (the regression this test catches): ["decoy</t-alt><t>real"].
+    const xml = "<t-alt>decoy</t-alt><t>real</t>";
+    expect(extractRuns(xml, "t")).toEqual(["real"]);
+  });
+
   it("skips a bare self-closing tag instead of merging the next run into it (xlsx shape)", () => {
     // §558 fix round 3: porting extractRuns onto forEachTagPair regressed
     // this - without skipSelfClosing, <t/> paired with the NEXT <t>...</t>,

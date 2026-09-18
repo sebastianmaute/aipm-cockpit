@@ -182,19 +182,40 @@ function dropTagSubtree(html: string, tag: string): string {
   return out;
 }
 
-const TABLE_PAIR: TagPairSpec = { openPattern: "<table\\b", closeName: () => "table", hasAttributes: false };
-const ROW_PAIR: TagPairSpec = { openPattern: "<tr\\b", closeName: () => "tr", hasAttributes: false };
+// HTML tag names are case-insensitive (`<TABLE>`/`<Table>` are the same
+// element as `<table>`), so every spec below opts into forEachTagPair's
+// "gi" flags — unlike the OOXML specs elsewhere, whose element/namespace
+// names are case-sensitive (§558 fix round 3, item 5).
+const TABLE_PAIR: TagPairSpec = {
+  openPattern: "<table\\b",
+  closeName: () => "table",
+  hasAttributes: false,
+  caseInsensitive: true,
+};
+const ROW_PAIR: TagPairSpec = {
+  openPattern: "<tr\\b",
+  closeName: () => "tr",
+  hasAttributes: false,
+  caseInsensitive: true,
+};
 const CELL_PAIR: TagPairSpec = {
   openPattern: "<(t[dh])\\b",
   closeName: (openMatch) => openMatch[1].toLowerCase(),
   hasAttributes: true,
+  caseInsensitive: true,
 };
 const HEADING_PAIR: TagPairSpec = {
   openPattern: "<h([1-6])\\b",
   closeName: (openMatch) => "h" + openMatch[1],
   hasAttributes: true,
+  caseInsensitive: true,
 };
-const LIST_ITEM_PAIR: TagPairSpec = { openPattern: "<li\\b", closeName: () => "li", hasAttributes: true };
+const LIST_ITEM_PAIR: TagPairSpec = {
+  openPattern: "<li\\b",
+  closeName: () => "li",
+  hasAttributes: true,
+  caseInsensitive: true,
+};
 
 function cellText(html: string): string {
   const stripped = html.replace(TAG_STRIP_RE, "");
@@ -263,9 +284,10 @@ export const NO_EXTRACTABLE_TEXT = "_(document contained no extractable text)_";
  *  property of the whole pipeline, not of any one step: input reaching here is
  *  hostile by assumption and is processed on the browser MAIN THREAD, so one
  *  quadratic step is enough to freeze the tab. The `<tag>...</tag>` pair regex
- *  is the recurring way to reintroduce one — stripComments, dropTagSubtree and
- *  forEachTagPair (./tag-pair-walk) each replace one instance of it, and no
- *  `[\s\S]*?` regex is left here. stripTrailingOpenTag replaces the fourth
+ *  is the recurring way to reintroduce one — stripComments, dropTagSubtree,
+ *  and forEachTagPair (./tag-pair-walk, used five times below: table/tr/td-
+ *  th/heading/li) between them replace every remaining occurrence of it, and
+ *  no `[\s\S]*?` regex is left here. stripTrailingOpenTag replaces the fourth
  *  and worst one, which wore no `[\s\S]*?` at all. TAG_STRIP_RE is the one
  *  unbounded-looking scan left and is the exception: it is bounded by
  *  MAX_TAG_SCAN_CHARS to a linear pass with a 4096 constant, which is the

@@ -35,6 +35,23 @@ describe("extractDocx", () => {
     expect(extractDocx(new Map())).toBe("");
   });
 
+  it("does not misroute an uppercase look-alike block to the wrong closer", () => {
+    // §558 fix round 3, item 5: forEachTagPair used to hardcode "gi", so
+    // <W:TBL matched BLOCK_PAIR's open pattern, but the exact
+    // case-SENSITIVE `openMatch[0] === "<w:tbl"` comparison (both in
+    // closeName and in extractDocx's own renderer choice) then failed,
+    // routing it to the "w:p" closer instead - silently merging the decoy's
+    // content forward into whatever the next real </w:p> was ("decoyReal").
+    // Restoring case sensitivity ("g") means <W:TBL simply does not match
+    // the open pattern at all, exactly like the original regex, so its
+    // content is skipped entirely rather than merged.
+    const xml = `<w:document><w:body>
+      <W:TBL><w:t>decoy</w:t></W:TBL>
+      <w:p><w:r><w:t>Real</w:t></w:r></w:p>
+    </w:body></w:document>`;
+    expect(extractDocx(entries(xml))).toBe("Real");
+  });
+
   it("does not blow up on repetitive unclosed markup", async () => {
     // 120k unclosed table opens - 840,063 chars for THIS fixture as
     // committed (`node -e` and print `xml.length` to re-check; don't trust

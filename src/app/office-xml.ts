@@ -33,12 +33,11 @@ export function unescapeXml(input: string): string {
 
 /**
  * Return the ordered inner text of every `<tag ...>...</tag>` occurrence,
- * XML-unescaped. `\b` after the tag name guards against a prefix collision
- * (`<w:t>` must not match `<w:tbl>`) and `hasAttributes` skips to the open
- * tag's own closing `>` before reading inner text. A self-closing `<tag/>`
- * or `<tag attr="..."/>` is SKIPPED — it produces no entry in the returned
- * array — never matched as a pair with a later close tag. Tags with child
- * elements are out of scope — OOXML text tags (w:t/a:t/t) hold pure text.
+ * XML-unescaped. `hasAttributes` skips to the open tag's own closing `>`
+ * before reading inner text. A self-closing `<tag/>` or `<tag attr="..."/>`
+ * is SKIPPED — it produces no entry in the returned array — never matched
+ * as a pair with a later close tag. Tags with child elements are out of
+ * scope — OOXML text tags (w:t/a:t/t) hold pure text.
  *
  * Walked via the shared forEachTagPair cursor (tag-pair-walk.ts) rather than
  * a `[\s\S]*?` lazy pair regex — that shape is quadratic on repetitive
@@ -59,10 +58,27 @@ export function unescapeXml(input: string): string {
  * closes a bug the old regex already had for the ATTRIBUTE form
  * (`<t xml:space="preserve"/>` merged forward identically, pre-dating this
  * whole slice) — one fix, two bugs, only one of which was a regression.
+ *
+ * ★★★ The open pattern is `(?=[\s/>])`, a lookahead, NOT `\b` — `\b` is a
+ * SECOND regression of the same shape as the one above, found in the same
+ * review round. `\b` admits ANY non-word character after the tag name, not
+ * just whitespace/"/"/">", so `<t-alt>decoy</t-alt><t>real</t>` matched
+ * `<t-alt` as if it were `<t ...>` (boundary fires between "t" and "-") and
+ * merged forward into `<t>real</t>` exactly like the self-closing bug did:
+ * `["decoy</t-alt><t>real"]` instead of `["real"]`. The ORIGINAL regex never
+ * had this hole — `(?:\s[^>]*)?>` only ever consumes from a LEADING
+ * whitespace or an immediate ">", so `-` right after the tag name always
+ * failed it outright. The lookahead restores that exact boundary (plus "/"
+ * for the self-closing detection above to see) without reintroducing `\b`'s
+ * over-admission. This is scoped to extractRuns alone: every other
+ * TagPairSpec in this codebase already used `\b` in the ORIGINAL regex it
+ * replaced (docx/pptx/xlsx/html's own comments all quote a `<name\b...`
+ * shape), so `\b` there is faithful porting, not a second instance of this
+ * bug — extractRuns's original shape was the one exception.
  */
 export function extractRuns(xml: string, tag: string): string[] {
   const spec: TagPairSpec = {
-    openPattern: `<${tag}\\b`,
+    openPattern: `<${tag}(?=[\\s/>])`,
     closeName: () => tag,
     hasAttributes: true,
     skipSelfClosing: true,
