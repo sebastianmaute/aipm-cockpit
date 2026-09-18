@@ -790,6 +790,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--open) | Two settings sections clear a token by resealing an empty string instead of removing it — OPEN | audit (2026-09) | S | open |
 | [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--open) | The Jira proxy logs the raw fetch-rejection object server-side — OPEN | audit (2026-09) | S | open |
 | [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--open) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — OPEN | slice (2026-09) | M | open |
+| [§568](#568-the-registers-index-rebuild-recipe-is-not-a-no-op-on-the-committed-table-and-discards-hand-written-state-prose--open) | The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN | slice (2026-09) | S–M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38973,3 +38974,39 @@ mistake ships. It wants its own slice, its own tests (a round-trip per id, drive
 so a sixth id is covered without being named) and its own reviewer.
 
 Related: §560, §564, §13.
+
+## 568. The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN
+
+**Status:** OPEN 2026-09-18 — measured, not reasoned: the `REBUILD` recipe above was extracted, pointed at a copy of this file with `node`, and the region between the two `INDEX:` markers diffed against the committed one (157 rows changed, nothing outside the markers); a second run on the rebuilt copy was byte-identical; and `npm run followups:index:check` exited 0 on the same committed table throughout. Found during the 2026-09 security audit follow-up slice, which spliced its new rows in by hand to avoid it.
+
+**Work item:** #353
+
+The recipe's own text says it "is idempotent — a rebuild that changes nothing is the proof that the
+table already matches the headings". Half of that holds and half does not, and the half that fails is
+the one a contributor relies on.
+
+- **It IS idempotent** in the strict sense: run it twice and the second run changes nothing.
+- **It is NOT a no-op on the committed table.** Run once against the table as committed, it rewrites
+  **157 of 555 rows** — while `npm run followups:index:check`, the blocking gate over the same table,
+  reports no drift at all. So "a rebuild that changes nothing" never happens, the proof it promises
+  never fires, and anyone who follows this file's own instruction ("rebuild after adding, closing,
+  retitling or renumbering an entry") gets a 157-row diff on a one-entry change.
+
+The 157 rows split into two kinds, and only one is harmless:
+
+- **132 Item cells** lose a trailing `— CLOSED <date>` that the committed table repeats beside the
+  State column. Cosmetic: the date survives in State.
+- **78 State cells** are cut back to the bare `**CLOSED** <date>` marker, discarding hand-written
+  prose after it. That is data loss. §30's cell is the worked example — it carries a one-line summary
+  of the decision taken ("real links where the sink allows one, `text (url)` where it does not"),
+  and that wording appears nowhere in §30's own entry, so the rebuild deletes the only copy.
+
+Why the gate cannot see it: `followups:index:check` compares heading and row SETS by section number;
+it does not compare cell content, so a table can pass it while disagreeing with what the recipe would
+generate.
+
+Options, not yet decided: make the recipe preserve the existing State and Item cells the way it
+already preserves Origin and Size (`keep` holds only those two columns today); or normalise the table
+once, first moving any State prose that exists nowhere else into its entry; or correct the recipe's
+claim to say it is a normaliser rather than a proof. Any of them needs the 78 prose cells checked
+individually before a rebuild is ever run for real.
