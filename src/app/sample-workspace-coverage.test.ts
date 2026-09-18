@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { jsonToWorkspace } from "./workspace";
 import { isDayKey } from "./actual-hours";
+import { DEMO_AS_OF } from "./demo-workspace";
 
 // The content contract of the hand-curated sample master: it is authored as of
 // DEMO_AS_OF (mid-project) and exercises every feature a demo should show.
@@ -10,7 +11,7 @@ import { isDayKey } from "./actual-hours";
 // record the sanitizers drop is a defect in the master, not in this test.
 const raw = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8"));
 const ws = jsonToWorkspace(JSON.stringify(raw), { strict: true });
-const AS_OF = "2026-09-18";
+const AS_OF = DEMO_AS_OF;
 
 describe("sample master is current (as of DEMO_AS_OF)", () => {
   it("is mid-project on DEMO_AS_OF", () => {
