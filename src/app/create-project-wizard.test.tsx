@@ -577,6 +577,14 @@ describe("CreateProjectWizard native workspace import (Step 1, key-free)", () =>
     window.localStorage.removeItem(SETTINGS_KEY);
   });
 
+  /** The Step-1 picker renders `<Button>` + a sibling hidden file input
+   *  (FilePickerButton's DOM shape). */
+  function workspacePickerInput() {
+    return screen
+      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
+      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+  }
+
   // Regression guard for the "picker AI-only" mutant: the workspace-import
   // control must be offered even when no Anthropic key is configured — it is
   // the key-free route, not an AI-fast-path extra.
@@ -589,13 +597,14 @@ describe("CreateProjectWizard native workspace import (Step 1, key-free)", () =>
 
   it("imports a workspace file from Step 1 and creates the project with its content", async () => {
     const { onCreate } = setup();
-    const input = screen
-      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
-      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
-    fireEvent.change(input, {
+    fireEvent.change(workspacePickerInput(), {
       target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
     });
     expect(await screen.findByText(/Importing sample\.json: \d+ tasks/)).toBeInTheDocument();
+    // The imported file's own project meta pre-fills Step 1 — not a blank form.
+    expect(
+      screen.getByLabelText("Project name", { exact: false }),
+    ).toHaveValue("Customer Identity Platform");
     // Submit Step 1 with its pre-filled name — the import must have replaced
     // the (previously blank) form draft, or Next stays disabled.
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
@@ -606,13 +615,56 @@ describe("CreateProjectWizard native workspace import (Step 1, key-free)", () =>
 
   it("rejects a JSON that is not a workspace, and creates nothing", async () => {
     const { onCreate } = setup();
-    const input = screen
-      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
-      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
-    fireEvent.change(input, {
+    fireEvent.change(workspacePickerInput(), {
       target: { files: [new File(['{"a":1}'], "x.json", { type: "application/json" })] },
     });
     expect(await screen.findByText("x.json is not a workspace file.")).toBeInTheDocument();
     expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  // Review finding 1: acceptImport must clear any meta captured from a prior
+  // manual Step-1 visit (the same guard runIngest already carries), or an
+  // import that lands AFTER a Details → Next → Back round-trip is shadowed by
+  // the stale meta — the notice says "Importing X" but the form (and the
+  // eventual submit) still carries the OLD project's name.
+  it("clears stale Step-1 meta on import, so Back-then-import shows the file's own project name", async () => {
+    setup();
+    // Submit Step 1 manually (captures `meta` with name "WizardProj") …
+    completeStep1();
+    // … then Back to Step 1: the manually-submitted meta is still in effect.
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(
+      screen.getByLabelText("Project name", { exact: false }),
+    ).toHaveValue("WizardProj");
+    // Now import — the file's OWN project name must win, not the stale meta.
+    fireEvent.change(workspacePickerInput(), {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText("Project name", { exact: false }),
+      ).toHaveValue("Customer Identity Platform"),
+    );
+  });
+
+  // Controller ruling: the clear button must be a REAL control, not a no-op —
+  // it drops `imported` so a subsequent Next takes the normal (Template/
+  // Functions) path instead of the import shortcut.
+  it("Clear import removes the notice, and a subsequent Next takes the normal (non-import) path", async () => {
+    const { onCreate } = setup();
+    fireEvent.change(workspacePickerInput(), {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    await screen.findByText(/Importing sample\.json: \d+ tasks/);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear imported workspace sample.json" }),
+    );
+    expect(screen.queryByText(/Importing sample\.json: \d+ tasks/)).toBeNull();
+    // The form draft is untouched by Clear (still valid from the import), so
+    // Next is enabled — but `imported` is gone, so it goes to Step 2
+    // (Template), never straight to onCreate.
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(onCreate).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /Standard PM/ })).toBeInTheDocument();
   });
 });

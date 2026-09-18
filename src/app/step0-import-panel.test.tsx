@@ -248,6 +248,49 @@ describe("Step0ImportPanel native workspace routing", () => {
     await waitFor(() => expect(onIngest).toHaveBeenCalledTimes(1));
     expect(onImportWorkspace).not.toHaveBeenCalled();
   });
+
+  // Controller ruling: the `ignored` sibling-file list is a real, tested
+  // value — not just plumbing. A workspace import is a solo action; anything
+  // dropped alongside it is named so the wizard can show it was skipped.
+  it("imports a workspace JSON dropped alongside another file, reporting the sibling as ignored", async () => {
+    const onIngest = vi.fn();
+    const onImportWorkspace = vi.fn();
+    render(
+      <Step0ImportPanel {...baseProps} onIngest={onIngest} onImportWorkspace={onImportWorkspace} />,
+    );
+    selectFileMethod();
+    fireEvent.change(fileInput(), {
+      target: {
+        files: [
+          new File([sampleText], "sample.json", { type: "application/json" }),
+          new File(["irrelevant"], "notes.txt", { type: "text/plain" }),
+        ],
+      },
+    });
+    await waitFor(() => expect(onImportWorkspace).toHaveBeenCalledTimes(1));
+    expect(onImportWorkspace.mock.calls[0][2]).toEqual(["notes.txt"]);
+    expect(onIngest).not.toHaveBeenCalled();
+  });
+
+  // Controller ruling: the `invalid` branch (JSON that HAS the tasks+raid
+  // shape but fails the strict decoder) is a real, tested guard — without it
+  // such a file would silently fall through to the model as a document.
+  it("shows an alert for a JSON that looks like a workspace but fails strict decode, and imports nothing", async () => {
+    const onIngest = vi.fn();
+    const onImportWorkspace = vi.fn();
+    render(
+      <Step0ImportPanel {...baseProps} onIngest={onIngest} onImportWorkspace={onImportWorkspace} />,
+    );
+    selectFileMethod();
+    fireEvent.change(fileInput(), {
+      target: { files: [new File(['{"tasks": [], "raid": 7}'], "bad.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "bad.json looks like a workspace file but could not be read.",
+    );
+    expect(onImportWorkspace).not.toHaveBeenCalled();
+    expect(onIngest).not.toHaveBeenCalled();
+  });
 });
 
 describe("Step0ImportPanel SharePoint import", () => {

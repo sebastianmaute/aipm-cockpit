@@ -232,6 +232,10 @@ export function CreateProjectWizard({
   const acceptImport = (ws: Workspace, fileName: string, ignored: string[] = []) => {
     setImported({ ws, fileName, ignored });
     setImportMsg(null);
+    // Clear any meta captured from a prior manual Step-1 visit so the file's
+    // own project meta (via draftPatch below) wins on the next Step-1 mount —
+    // initialMeta would otherwise shadow it (same guard as runIngest above).
+    setMeta(null);
     if (ws.project) setDraftPatch(draftFromMeta(ws.project));
     setImportNonce((n) => n + 1);
     setStep(1);
