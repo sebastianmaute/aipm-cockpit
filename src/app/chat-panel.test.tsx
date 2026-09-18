@@ -305,7 +305,7 @@ describe("Attachment guidance", () => {
   // `apiKeyMissing` / `AI_WITHOUT_KEY`) — reuse the `guidesReady gate`
   // describe block's own mechanism (groundInGuides + guidesReady=false) to
   // reach `attachDisabled`, rather than skip drop-guard coverage entirely.
-  it("does not stage a dropped file while the composer is disabled (guides pending)", () => {
+  it("does not stage a dropped file while the composer is disabled (guides pending)", async () => {
     const { container } = render(
       <ChatPanel
         lang="en-US"
@@ -317,6 +317,16 @@ describe("Attachment guidance", () => {
     );
     const target = container.firstElementChild as HTMLElement;
     fireEvent.drop(target, { dataTransfer: { files: [txt("blocked.txt")] } });
+    // handleFiles is async (ingestFile awaits file.arrayBuffer()) — a
+    // synchronous check here would pass whether the onDrop guard blocked the
+    // drop OR the async chain simply had not resolved yet, which is vacuous
+    // (fix-round-1: a mutant that deletes only the guard line, leaving
+    // onDrop/handleFiles intact, stayed green against the old synchronous
+    // assertion). Flush real timers first so any staging that WOULD happen
+    // has actually happened before asserting its absence.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
     expect(screen.queryByRole("button", { name: "Remove blocked.txt" })).toBeNull();
   });
 });
