@@ -101,6 +101,16 @@ describe("ChartReadout", () => {
     expect(screen.getByRole("tooltip")).toHaveStyle({ top: "33px", left: "44px" });
   });
 
+  // The box is a portal (`TooltipSurface` → `document.body`), so a `print:hidden`
+  // wrapper anywhere in `burndown-chart.tsx`'s own tree can never cascade into it —
+  // the rule has to live on the portaled node's OWN class list, which is what
+  // `TooltipSurface`'s `className` prop lands it on. Assert it here, at the node
+  // that actually needs to disappear on print.
+  it("hides the box from print", () => {
+    render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
+    expect(screen.getByRole("tooltip")).toHaveClass("print:hidden");
+  });
+
   // Pins the aria-hidden contract in BOTH directions: the box really is hidden from the
   // a11y tree (so Task 5's live region is the sole accessible channel — no double
   // announcement), AND an ordinary (non-`hidden: true`) role query really finds nothing,

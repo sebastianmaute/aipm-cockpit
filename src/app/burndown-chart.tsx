@@ -284,9 +284,7 @@ function BurndownChartBody({
           </svg>
         </button>
         {active && readout.anchor && (
-          <span className="print:hidden">
-            <ChartReadout lang={lang} readout={active} anchor={readout.anchor} fmt={fmt} locale={locale} />
-          </span>
+          <ChartReadout lang={lang} readout={active} anchor={readout.anchor} fmt={fmt} locale={locale} />
         )}
         <span data-readout-live="" aria-live="polite" className="sr-only">{announce}</span>
       </div>

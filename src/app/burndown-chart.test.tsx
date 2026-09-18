@@ -538,9 +538,13 @@ describe("BurndownChart", () => {
       expect(document.querySelectorAll("[data-readout-dot]").length).toBeGreaterThan(0);
     });
 
-    // Mutation check 1: removing `aria-hidden` from the decorations group must
-    // turn this red. Mutation check 2 (the group half): removing `print:hidden`
-    // from the same group must also turn this red.
+    // Mutation checks 1 and 2 (the group half): removing `aria-hidden` from the
+    // decorations group, or removing its own `print:hidden`, must each turn
+    // this red. The box's own `print:hidden` lives on the PORTALED tooltip node
+    // itself (`chart-readout.tsx`'s `TooltipSurface` className), not anywhere in
+    // this component's own DOM, so that half is covered in
+    // `chart-readout.test.tsx` instead — asserting it here would either miss
+    // the portal target or pass for the wrong reason.
     it("keeps the guide line and dots out of the accessibility tree and hidden from print", async () => {
       vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(RECT);
       const user = userEvent.setup();
@@ -549,19 +553,6 @@ describe("BurndownChart", () => {
       const group = document.querySelector("[data-readout-guide]")!.closest("g")!;
       expect(group).toHaveAttribute("aria-hidden", "true");
       expect(group).toHaveClass("print:hidden");
-    });
-
-    // Mutation check 2 (the box half): the box is a portal, so the only place
-    // its own `print:hidden` can land is the wrapping span this file renders
-    // around `ChartReadout` — removing that class must turn this red.
-    it("hides the readout box from print", async () => {
-      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(RECT);
-      const user = userEvent.setup();
-      const { container } = render(<BurndownChart lang="en-US" currency="EUR" model={MODEL} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
-      await user.pointer({ target: screen.getByRole("button", { name: /arrow keys/i }), coords: { clientX: 312, clientY: 100 } });
-      expect(screen.getByRole("tooltip")).toBeInTheDocument();
-      const printHiddenSpans = [...container.querySelectorAll("span")].filter((el) => el.className.includes("print:hidden"));
-      expect(printHiddenSpans.length).toBeGreaterThan(0);
     });
 
     it("steps with the keyboard and announces the stop politely", async () => {

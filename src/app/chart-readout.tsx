@@ -77,7 +77,7 @@ export function ChartReadout({
 }) {
   if (readout.rows.length === 0) return null;
   return (
-    <TooltipSurface top={anchor.top} left={anchor.left} className="max-w-[22rem]">
+    <TooltipSurface top={anchor.top} left={anchor.left} className="max-w-[22rem] print:hidden">
       {/* aria-hidden: the polite live region in `burndown-chart.tsx` is the
           accessible channel, so this box must not be announced twice. */}
       <span aria-hidden="true" className="block">
