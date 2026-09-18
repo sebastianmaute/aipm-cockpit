@@ -628,6 +628,10 @@ export type Settings = {
   budgetChartView?: "burndown" | "cumulative";
   /** Per-device burn-down chart unit. Default "eur". */
   budgetChartUnit?: "eur" | "hours";
+  /** Per-device forecast reading: which forecast card the Budget report shows
+   *  ("At current pace" or "At current efficiency"). Default "pace". Printing
+   *  shows the chosen card (forecast-switch spec B, Decision 2). */
+  budgetForecastView?: "pace" | "efficiency";
   /** Per-device: the Resource id representing "me" (the current user). Drives
    *  note-log author attribution etc. Undefined = not set. Positive integer. */
   selfResourceId?: number;
@@ -732,6 +736,7 @@ export const defaultSettings: Settings = {
   dashboardDensity: "comfortable",
   budgetChartView: "burndown",
   budgetChartUnit: "eur",
+  budgetForecastView: "pace",
   digest: { enabled: false, cadenceDays: 7 },
   dictation: { engine: "web-speech", hotkey: "F4" },
   showViewHints: true,

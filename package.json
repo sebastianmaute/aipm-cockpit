@@ -1,6 +1,6 @@
 {
   "name": "aipm-cockpit",
-  "version": "1.9.0",
+  "version": "1.10.1",
   "private": true,
   "license": "EUPL-1.2",
   "engines": {
@@ -124,7 +124,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.3",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^10",
     "eslint-config-next": "16.2.6",
     "fake-indexeddb": "^6.2.5",
@@ -135,7 +135,7 @@
     "msw": "^2.14.6",
     "tailwindcss": "^4",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.11"
   },
   "allowScripts": {
     "esbuild@0.28.1": true,

@@ -72,6 +72,56 @@ describe("timelog proxy SSRF guard", () => {
     const out = await parseTimelogRequest(req({ ...creds, path: "/v1/x\r\nX: y" }));
     expect("error" in out && (out.error as Response).status).toBe(400);
   });
+  it("refuses an upstream 3xx rather than following it to an unvalidated host", async () => {
+    // normalizeHost allowlisted the INITIAL host only. A redirect is a second
+    // hop nothing checked — an unauthenticated hop to wherever the upstream
+    // points.
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 302, headers: { location: "https://evil.example/" } }));
+    const r = await callTimelog(creds, "/v1/user", { method: "GET" });
+    expect(r.status).toBe(502);
+    await expect(r.json()).resolves.toEqual({ error: "upstream-redirect" });
+    // LOAD-BEARING: a followed redirect could ALSO end in a 502 (the second hop
+    // refusing us), so the status alone passes against the unfixed code. Only
+    // the call count proves we stopped at the first hop.
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("releases the body of a refused 3xx instead of leaving it unread", async () => {
+    const cancel = vi.fn();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(new ReadableStream({ cancel }), {
+        status: 302,
+        headers: { location: "https://evil.example/" },
+      }),
+    );
+    const r = await callTimelog(creds, "/v1/user", { method: "GET" });
+    expect(r.status).toBe(502);
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  it("answers a refused 3xx without waiting for a cancel that never settles", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(new ReadableStream({ cancel: () => new Promise<void>(() => {}) }), { status: 302 }),
+    );
+    const outcome = await Promise.race([
+      callTimelog(creds, "/v1/user", { method: "GET" }),
+      new Promise<"stalled">((resolve) => setTimeout(() => resolve("stalled"), 1000)),
+    ]);
+    expect(outcome).not.toBe("stalled");
+    expect((outcome as Response).status).toBe(502);
+  });
+
+  it("tells fetch not to follow redirects itself", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+    await callTimelog(creds, "/v1/user", { method: "GET" });
+    // The mock cannot model a real redirect chain, so the 3xx test above can
+    // never see this option go missing: against a real fetch without it, the
+    // redirect is followed transparently and a 3xx never reaches our check.
+    expect(fetchMock.mock.calls[0][1]?.redirect).toBe("manual");
+  });
+
   it("gives the heavy v2 per-project time-registrations call a longer (30s) upstream timeout", async () => {
     const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));

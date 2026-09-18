@@ -7,6 +7,7 @@ import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
 import type { BucketReport, CciValue } from "./budget-report";
 import type { SnapshotRecord } from "./snapshot";
+import type { BudgetHistoryEntry } from "./budget-history";
 import type { BudgetBucket, FxRates, ResourcePlan, Role } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "EUR" };
@@ -133,15 +134,15 @@ describe("BudgetReportPanel", () => {
     expect(screen.queryByRole("button", { name: /print/i })).toBeNull();
   });
 
-  it("renders the burn-down section with its chart switches", () => {
+  it("renders the chart and its switches inside the Forecast section, with no Burn-down section of its own", () => {
     renderPanel();
-    // A bare `getByText("Burn-down")` now matches the section heading AND the
-    // orientation radio, so each is asked for by role.
-    expect(screen.getByRole("heading", { name: "Burn-down" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Burn-down" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Hours" })).toBeInTheDocument();
+    const forecastSection = screen.getByRole("heading", { name: t("en-US", "forecastTitle") }).parentElement as HTMLElement;
+    // Spec B, Decision 6: the two sections merged into one.
+    expect(screen.queryByRole("heading", { name: "Burn-down" })).toBeNull();
+    expect(within(forecastSection).getByRole("radio", { name: "Burn-down" })).toBeInTheDocument();
+    expect(within(forecastSection).getByRole("radio", { name: "Hours" })).toBeInTheDocument();
     // The default device view (vitest.setup.ts clears localStorage after every test).
-    expect(screen.getByText("Budget remaining")).toBeInTheDocument();
+    expect(within(forecastSection).getByText("Budget remaining")).toBeInTheDocument();
   });
 
   it("shows a RAG badge on the Actual (h) cell judged vs budget hours", () => {
@@ -541,17 +542,17 @@ describe("§474 — the missing-bucket fallback does not claim EUR", () => {
 
 // The facts row, forecast cards, banner and the section order.
 describe("BudgetReportPanel — forecast section order", () => {
-  it("orders sections Project total, Forecast, Burn-down, By bucket, Earned value", () => {
+  it("orders sections Project total, Forecast, By bucket, Earned value", () => {
     renderPanel();
     // Only the report's own SECTION headings — every `Section` title is an
-    // h3; the two forecast card titles are h4 (nested under the Forecast
-    // section's h3, not siblings of it), so a bare heading-role query would
-    // still pick both up. Filtering to the known, distinct Section title
-    // texts keeps this scoped to sections regardless of level.
+    // h3; the forecast card title is an h4 (nested under the Forecast
+    // section's h3, not a sibling of it), so a bare heading-role query would
+    // still pick it up. Filtering to the known, distinct Section title
+    // texts keeps this scoped to sections regardless of level. The
+    // Burn-down section no longer exists: its chart lives in Forecast.
     const sectionTitles = [
       t("en-US", "budgetReportProjectTotal"),
       t("en-US", "forecastTitle"),
-      t("en-US", "budgetBurndownTitle"),
       t("en-US", "budgetReportByBucket"),
       // Pinned via the live key (currently "Earned value · effort"), not a
       // hardcoded literal, so a future rename of the heading text keeps this
@@ -563,7 +564,7 @@ describe("BudgetReportPanel — forecast section order", () => {
     expect(found).toEqual(sectionTitles);
   });
 
-  it("shows the facts row and forecast cards inside their own Forecast section", () => {
+  it("shows the reading switch and the chosen card inside their own Forecast section", () => {
     renderPanel();
     const forecastHeading = screen.getByRole("heading", { name: t("en-US", "forecastTitle") });
     // Finding 7: `within` the actual Forecast section, not a bare "exists
@@ -571,11 +572,12 @@ describe("BudgetReportPanel — forecast section order", () => {
     // wrapper (`report-table.tsx`'s `Section` renders `<h3>{title}</h3>` as a
     // sibling of its children inside one wrapping `<div>`).
     const forecastSection = forecastHeading.parentElement as HTMLElement;
-    // Finding 2: each card's `aria-labelledby` now points at an inner <span>
-    // holding only the title text, so the region's accessible name is the
-    // exact EN title — no regex needed.
+    expect(within(forecastSection).getByRole("radiogroup", { name: t("en-US", "forecastViewLabel") })).toBeInTheDocument();
+    // Finding 2: the region's accessible name is the exact EN title.
     expect(within(forecastSection).getByRole("region", { name: t("en-US", "forecastPaceTitle") })).toBeInTheDocument();
-    expect(within(forecastSection).getByRole("region", { name: t("en-US", "forecastEfficiencyTitle") })).toBeInTheDocument();
+    // One card at a time; pace is the default device reading
+    // (vitest.setup.ts clears localStorage after every test).
+    expect(within(forecastSection).queryByRole("region", { name: t("en-US", "forecastEfficiencyTitle") })).toBeNull();
   });
 });
 
@@ -637,5 +639,66 @@ describe("BudgetReportPanel — snapshot progress feeds the earned-value chart",
     // is present, and the "no history yet" note is absent.
     expect(screen.getByText(t("en-US", "burndownEvHistory"))).toBeInTheDocument();
     expect(screen.queryByText(/No earned-value history yet/i)).toBeNull();
+  });
+});
+
+// Spec B: one Forecast section — banners, rate-mix note, then a row holding the
+// chosen card (30%) and the chart (70%), then the recorded-change table at full
+// width below the row. jsdom has no layout, so placement is pinned by structure
+// and by the classes that produce it.
+describe("BudgetReportPanel — the forecast row (spec B)", () => {
+  // Default fixture: 230 budget hours worth 37,500 € at external rates; the
+  // history records a baseline and one later change, so the table has a row.
+  const HISTORY: BudgetHistoryEntry[] = [
+    {
+      id: "h1", at: "2026-01-01T00:00:00.000Z", date: "2026-01-01", kind: "baseline",
+      bucketId: null, bucketName: "", projectBacHours: 200, projectBacValue: 33000, deltaHours: 0, deltaValue: 0,
+    },
+    {
+      id: "h2", at: "2026-01-10T09:00:00.000Z", date: "2026-01-10", kind: "updated",
+      bucketId: 3, bucketName: "Gamma", projectBacHours: 230, projectBacValue: 37500, deltaHours: 30, deltaValue: 4500,
+    },
+  ];
+  const forecastSectionOf = () =>
+    screen.getByRole("heading", { name: t("en-US", "forecastTitle") }).parentElement as HTMLElement;
+  const ancestorWithClass = (el: Element, cls: string): HTMLElement | null => {
+    for (let n = el.parentElement; n; n = n.parentElement) if (n.classList.contains(cls)) return n;
+    return null;
+  };
+  const rowIn = (section: HTMLElement) => {
+    const card = within(section).getByRole("region", { name: t("en-US", "forecastPaceTitle") });
+    const row = ancestorWithClass(card, "xl:flex-row");
+    expect(row).not.toBeNull();
+    return row!;
+  };
+
+  it("puts the chosen card beside the chart in one row, card first, with the caption under the chart", () => {
+    renderPanel();
+    const row = rowIn(forecastSectionOf());
+    const [cardCol, chartCol] = Array.from(row.children) as HTMLElement[];
+    expect(row.children).toHaveLength(2);
+    expect(cardCol).toHaveClass("xl:w-[30%]");
+    expect(cardCol).toContainElement(screen.getByRole("region", { name: t("en-US", "forecastPaceTitle") }));
+    expect(chartCol).toHaveClass("min-w-0", "flex-1");
+    const orientation = within(chartCol).getByRole("radiogroup", { name: "Chart orientation" });
+    const caption = within(chartCol).getByText(t("en-US", "dashboardBurnCaption"));
+    expect(orientation.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(chartCol.lastElementChild).toBe(caption);
+  });
+
+  it("puts the recorded-change table full width below the row, never beside the chart", () => {
+    renderPanel({ budgetHistory: HISTORY });
+    const section = forecastSectionOf();
+    const row = rowIn(section);
+    const tables = within(section).getAllByRole("region", { name: /Budget changes/ });
+    expect(tables).toHaveLength(1);
+    const table = tables[0];
+    expect(row.contains(table)).toBe(false);
+    expect(row.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The panel's own 2xl side-by-side slot is not used in the report.
+    expect(ancestorWithClass(table, "2xl:flex-row")).toBeNull();
+    // The caption stays with the chart, above the table.
+    const caption = within(section).getByText(t("en-US", "dashboardBurnCaption"));
+    expect(caption.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

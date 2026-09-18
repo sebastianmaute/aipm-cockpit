@@ -13,6 +13,11 @@
 > audit record to match today's tree destroys the only thing it is good for, which is saying what was
 > true when it was signed. Re-verify any finding here against HEAD before acting on it; if a claim
 > still matters, restate it in a live doc rather than editing this one.
+>
+> ★★ **Appended 2026-09-18 — the sentence above is itself wrong about one file.**
+> `document-links-field.tsx` was **not** deleted; it still exists. That claim was added to this
+> banner without being checked, and is corrected in full in the dated note under the URL-sink table
+> below. The rest of this banner stands, and nothing in the original record has been rewritten.
 
 ## Headline
 
@@ -57,6 +62,37 @@
 | URL-5 | — | static/internal (`APP_LICENSE_URL`, `/recovery`, `/`, hardcoded https) | ✅ safe | constants + same-origin routes; no user/model input |
 
 **No unguarded dynamic URL sink found.** `target="_blank"` sinks all carry `rel="noopener noreferrer"`.
+
+> ### Correction appended 2026-09-18 — URL-1 evidence, not the URL-1 verdict
+>
+> **The original URL-1 row above is left exactly as signed.** This note sits beside it; it does not
+> replace it. Both files named in URL-1's evidence column have since moved on, and the note in this
+> file's banner claiming one of them was *deleted* is wrong.
+>
+> Verified against the tree at the time of writing (each file opened, not inferred from a diff):
+>
+> - **`document-links-field.tsx` still exists.** It was rewritten as the Documents pane's entity
+>   cross-reference picker, built on the shared `EntityLinkPicker`, and it **renders no URL at all**
+>   — it holds `DocEntityRef` values pointing at tasks, milestones, RAID items and changes. A
+>   case-insensitive sweep of that file for `href`, `isSafeHttpUrl`, an `http` scheme or the word
+>   `url` returns **zero** hits. So there is no sink there to guard any more, which is a stronger
+>   outcome than the guard URL-1 recorded.
+> - **`documents-panel.tsx` no longer calls `isSafeHttpUrl` either** (zero hits), and carries no
+>   `href=`. That half of URL-1's evidence is stale for the same reason.
+> - **The guard itself was not removed.** `isSafeHttpUrl` is still defined in `document-link.ts` and
+>   is still **enforced** at the sinks that took over the user-supplied-link job:
+>   `knowledge-links-field.tsx` gates the rendered anchor on it, and `knowledge-panel.tsx` calls it
+>   in three places (the manual-add validity check and two render-time `safe` decisions).
+>   `rich-text-editor.tsx` and `ai-project-proposal.ts` also still gate on it.
+>
+> **Net effect on URL-1's verdict: unchanged.** The user-supplied document-link sink is still
+> guarded; it simply lives in the knowledge surface now. Only the two file references in the
+> evidence column, and the banner's deletion claim, were stale.
+>
+> ★ Why this is a note and not an edit: rewriting a signed audit to match today's tree destroys the
+> only thing it is good for. The broken `path:LINE` citations in this file are deliberately
+> grandfathered in `docs/baselines/doc-line-cites.json` for the same reason. The live successor
+> record is `findings-2026-09.md`.
 
 ---
 

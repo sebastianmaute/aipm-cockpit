@@ -1,16 +1,46 @@
 // src/app/secrets.ts
 //
-// At-rest encryption for the two browser-held secrets (Anthropic API key, Turso
-// auth token). Pure WebCrypto: AES-256-GCM with either a non-extractable
-// device-bound key (default) or a PBKDF2-derived passphrase key. i18n-free.
+// At-rest encryption for the browser-held secrets (see SECRET_IDS). Pure
+// WebCrypto: AES-256-GCM with either a non-extractable device-bound key
+// (default) or a PBKDF2-derived passphrase key. i18n-free.
 
 export type WrapMode = "device" | "passphrase";
-export type SecretId =
-  | "anthropicApiKey"
-  | "tursoAuthToken"
-  | "jiraApiToken"
-  | "timelogApiToken"
-  | "sttApiKey";
+
+/**
+ * Every device-sealed secret id, as a RUNTIME list; `SecretId` is derived from
+ * it rather than hand-written. A TypeScript union cannot be enumerated at
+ * runtime, and the one thing this list has to support is a check that no id was
+ * left behind by a consumer that walks the set.
+ */
+export const SECRET_IDS = [
+  "anthropicApiKey",
+  "tursoAuthToken",
+  "jiraApiToken",
+  "timelogApiToken",
+  "sttApiKey",
+] as const;
+export type SecretId = (typeof SECRET_IDS)[number];
+
+/**
+ * Where each sealed secret lives inside `Settings`, as a property path.
+ *
+ * The id and the field it seals are NOT the same string — three of the five
+ * differ — and `jira`, `timelog` and `dictation` sit at the TOP level of
+ * Settings, not under `integrations`. Derived from `writeSettings` and
+ * `hydrateSecretsInto` (use-settings.ts), which are authoritative for both.
+ *
+ * Typed as a TOTAL Record so a new `SecretId` with no path is a tsc error.
+ * Consumers that have to reach the fields walk this instead of restating the
+ * paths: a second copy is precisely how the recovery-export redaction came to
+ * cover three of the five while silently missing the other two.
+ */
+export const SECRET_SETTINGS_PATHS: Readonly<Record<SecretId, readonly string[]>> = {
+  anthropicApiKey: ["ai", "apiKey"],
+  tursoAuthToken: ["integrations", "turso", "authToken"],
+  jiraApiToken: ["jira", "apiToken"],
+  timelogApiToken: ["timelog", "apiToken"],
+  sttApiKey: ["dictation", "sttApiKey"],
+};
 
 export interface SealedSecret {
   v: 1;

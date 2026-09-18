@@ -281,6 +281,8 @@ export function useSettings(): {
               (parsed as Record<string, unknown>).budgetChartView === "cumulative" ? "cumulative" : "burndown",
             budgetChartUnit:
               (parsed as Record<string, unknown>).budgetChartUnit === "hours" ? "hours" : "eur",
+            budgetForecastView:
+              (parsed as Record<string, unknown>).budgetForecastView === "efficiency" ? "efficiency" : "pace",
             selfResourceId: sanitizeSelfResourceId((parsed as Record<string, unknown>).selfResourceId),
             digest: sanitizeDigestConfig((parsed as Record<string, unknown>).digest),
             dictation: {
@@ -467,9 +469,14 @@ export function useSettings(): {
   }, []);
 
   // Persist settings on every change, guarded by hydration so mount doesn't overwrite.
-  // Route through writeSettings so the two at-rest secrets (ai.apiKey,
-  // integrations.turso.authToken) are blanked before they hit localStorage —
-  // a raw JSON.stringify(settings) write would dump the decrypted plaintext.
+  // Route through writeSettings so EVERY at-rest secret is blanked before it
+  // hits localStorage — a raw JSON.stringify(settings) write would dump the
+  // decrypted plaintext. ★★ There are FIVE, not the two this comment named
+  // until 2026-09-18: ai.apiKey, integrations.turso.authToken, jira.apiToken,
+  // timelog.apiToken and dictation.sttApiKey. Do not trust that restatement
+  // either — SECRET_IDS and SECRET_SETTINGS_PATHS (secrets.ts) are the source
+  // of truth, and a hardcoded copy of them drifting out of step is the exact
+  // rot §560 was filed to kill in redactSettings.
   const settingsWriteFailingRef = useRef(false);
   useEffect(() => {
     if (!hydrated || isSafeMode()) return;

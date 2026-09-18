@@ -99,6 +99,32 @@ export function stripBreakTags(name: string): string {
   return name.replace(BREAK_TAG, " ").trim();
 }
 
+/** A `<br` tag prefix running to the end of a sliced value: "<", "<b", or
+ *  "<br" plus attributes with no ">" yet. */
+const TRAILING_BREAK_PREFIX = /<(?:b?$|br\b[^>]*$)/i;
+const BREAK_TAG_AT = /<br\b[^>]*>/iy;
+
+/** `stripBreakTags` over the first `max` characters of a LOADED value.
+ *  Slicing first bounds the regex: `BREAK_TAG`'s `\s*` and `[^>]*` backtrack
+ *  to the end of the value from every start, so stripping an unbounded stored
+ *  name first took seconds. Stripping only shortens a value, so the result
+ *  stays within `max` with no second slice. A value within `max` gives exactly
+ *  `stripBreakTags(raw)`; a longer one keeps no text from past the cap, so it
+ *  can come out shorter than when stripping ran first.
+ *  ★ A tag the slice cuts in half ("…<b") would survive as a fragment, so a
+ *  trailing prefix is dropped when the FULL value completes it into a real
+ *  tag there. That is one anchored scan, so it stays linear. A "<b" that was
+ *  never a tag ("<bob>", "<brx>") is kept, as before. */
+function stripBreakTagsWithin(raw: string, max: number): string {
+  let head = raw.slice(0, max);
+  const cut = raw.length > max ? head.search(TRAILING_BREAK_PREFIX) : -1;
+  if (cut !== -1) {
+    BREAK_TAG_AT.lastIndex = cut;
+    if (BREAK_TAG_AT.test(raw)) head = head.slice(0, cut);
+  }
+  return stripBreakTags(head);
+}
+
 function severityOrUndefined(v: unknown): RaidSeverity | undefined {
   return typeof v === "string" && SEVERITY_SET.has(v) ? (v as RaidSeverity) : undefined;
 }
@@ -119,7 +145,7 @@ function sanitizeEntry(raw: unknown): RaidEscalation | null {
   // "ops@localhost", or a bracket address written by this branch's own
   // earlier, unreleased commits). It never drops a record this app produced.
   if (!at || !isEscalationEmail(toEmail)) return null;
-  const toName = typeof o.toName === "string" ? stripBreakTags(o.toName).slice(0, NAME_MAX) : "";
+  const toName = typeof o.toName === "string" ? stripBreakTagsWithin(o.toName, NAME_MAX) : "";
   const toResourceId =
     typeof o.toResourceId === "number" && Number.isInteger(o.toResourceId) && o.toResourceId > 0
       ? o.toResourceId
