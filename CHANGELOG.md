@@ -26,6 +26,12 @@ load.
 - **An imported RAID item with an oversized name no longer costs seconds to load.** The load path
   stripped `<br>` tags before capping a name to its length limit; a very long name made that strip
   itself quadratic. The value is now capped first (`§578`).
+- **A malformed docx/pptx tag no longer leaks raw markup into extracted text, and an xlsx sheet
+  whose name contains `>` no longer silently vanishes from the export.** Found in the same round as
+  the fix above: `extractRuns` admitted a bare `/` right after a tag name even when it was not
+  actually a self-close, and the rels-mapping sheet reader truncated a `<sheet ...>` tag at the
+  first `>` — including one sitting inside a quoted `name=`, which is legal XML — losing the sheet's
+  `r:id` along with it (`§558`).
 
 ### Security
 
@@ -42,6 +48,13 @@ load.
   Node debugger. To keep the app starting with `RunAsNode` off, its server now launches via
   Electron's `utilityProcess.fork` instead of the old child-process spawn (`§561`; the CI
   desktop-package job does not yet confirm the fuses on every build — tracked open).
+- **The packaged app's server no longer inherits `NODE_OPTIONS` (or `NODE_PATH` /
+  `NODE_REPL_EXTERNAL_MODULE`) from its launch environment.** These can make Node load or execute
+  code, or attach a debugger, that was never part of the app. A packaged-exe probe — launch with
+  `NODE_OPTIONS=--require <a script that writes a marker file>` set, let the server start, quit,
+  check for the marker — found the marker was NOT written either way, with or without this change,
+  so the existing Node-options fuse already covered the server process; this is belt-and-braces
+  hardening rather than a fix for a demonstrated leak (`§561`).
 
 Two follow-ups filed by the same audit remain open: quadratic regexes outside the OOXML extractors,
 in `html-to-text.ts`, `narrative-html.ts`, the Markdown fenced-block reads and the RAID escalation

@@ -38781,6 +38781,40 @@ comfortably under the ceiling, so that size could not have caught it. The next p
 these will reach for 40k; the ceiling is deliberately loose because it must fail on the pattern
 class, not on a machine's speed.
 
+★★ **A later pre-release review (`final-release-review.md`) found two more defects in the same
+four extractors, both closed 2026-09-18 on `fix/security-audit-followups`.**
+
+- **M-3 — `05480846`: `extractRuns`'s open pattern admitted a malformed tag as if it were
+  self-closing.** `openPattern: \`<${tag}(?=[\\s/>])\`` (`office-xml.ts`) admitted a bare `/` right
+  after the tag name whether or not it was actually followed by `>`. `<a:t/a:r><a:r><a:t>t2</a:t>`
+  (only reachable on corrupted input, per the review's fuzz) has `<a:t/` satisfy that lookahead; the
+  self-close check (`tag-pair-walk.ts`, `html[gt-1] === "/"`) then does NOT fire, because the first
+  `>` found belongs to `<a:r>`, not the tag itself — so `<a:t/a:r>` was treated as an ordinary open
+  and paired with the far-away `</a:t>`, leaking raw markup (`<a:r><a:t>t2`) into extracted text.
+  Fixed by splitting the lookahead into `(?=[\s>]|/>)`: a bare `/` is now admitted only immediately
+  before a `>`. Scoped to `extractRuns` alone — every other `TagPairSpec` in the four extractors
+  already uses `\b`, faithfully porting the regex it replaced, so this is not a second instance of
+  the same bug. Verified with `npx vitest run src/app/office-xml.test.ts` (the reviewer's exact
+  repro as a new test, plus a normal-document regression test) and mutation-proved (reverted,
+  confirmed the named test alone goes red, restored).
+- **M-7 — `619f4366`: `sheetEntries`'s rels-path read still cut a `<sheet` tag at a quoted `>`.**
+  `xlsx-extract.ts` `sheetEntries` scanned the workbook's `<sheet ...>` tags via `forEachOpenTag`,
+  whose returned tag text is truncated at the FIRST `>` — including one sitting inside a quoted
+  `name=` value, which legal XML permits unescaped. `345ff195` already fixed this for the
+  POSITIONAL-fallback reader (`sheetNames`/`readSheetName`), but the rels-mapping reader (the one
+  real files use) still had it, and because real Excel writes `name` before `r:id`, the truncation
+  lost `r:id` too — the sheet dropped out of `mapped` entirely (not merely mis-titled), and with
+  another sheet still present `mapped.length > 0` stayed true so `sheetEntries` never fell back to
+  the positional reader either: the sheet vanished from the export altogether. Pre-existing on
+  `main`; the review's fuzz confirmed parity with the old `<sheet\b[^>]*\/?>` regex, which had the
+  identical truncation. Fixed by extracting the quote-aware scan `readSheetName` already used into a
+  shared `quoteAwareTagEnd` (skips a `>` found inside a quoted attribute value), now called by both
+  `readSheetName` and the new `sheetTagAttrs` (the rels-path reader) — one shared helper, not a
+  second copy of the quote-tracking scan (dup:check is blocking). Verified with `npx vitest run
+  src/app/xlsx-extract.test.ts` (a two-sheet, reordered-rels fixture where one name contains `>`,
+  plus the existing linearity/performance fixtures unchanged) and mutation-proved (reverted
+  `sheetTagAttrs`'s bound to a naive `indexOf`, confirmed the named test alone goes red, restored).
+
 Related: §13 (the audit that found it), §559, §560.
 
 ## 559. The Jira and Timelog proxies followed upstream redirects to hosts outside the allowlist — CLOSED 2026-09-18
@@ -38892,6 +38926,21 @@ model as the rest of this entry.
    e2e:desktop` green, all three tests.
 3. `ELECTRON_RUN_AS_NODE=1 <app>.exe -e "console.log(1)"` must no longer execute as Node. Not run;
    the fuse read is the only evidence so far.
+4. **M-6 (`final-release-review.md`) — Done 2026-09-18, `9801919c`.** Nothing had verified that the
+   `enableNodeOptionsEnvironmentVariable` fuse also covers a `utilityProcess.fork`ed child's own env
+   (`spawnServer` builds it from `{ ...process.env, ... }`), as opposed to only the exe itself.
+   `server-child.ts` now scrubs `NODE_OPTIONS`, `NODE_PATH` and `NODE_REPL_EXTERNAL_MODULE` from that
+   env before spawning (`scrubbedEnv`) — the Node env vars documented to load/execute code or attach
+   a debugger. **Verified by probe, not assumed:** launched the packaged exe with
+   `NODE_OPTIONS=--require <marker-writing script>` set in its own environment, let the server child
+   start, quit it gracefully, and checked whether the marker was created. Result, reported honestly:
+   the marker was NOT created either way — with the scrub in place, and with it mutated back to
+   `...process.env` (rebuilt, repackaged, same probe rerun). **So the fuse already covers the
+   utility-process child on this build** — the scrub did not turn a leak off, because there was no
+   observable leak to turn off; it stays as belt-and-braces since the fuse's coverage of this child
+   is measured, not a documented Electron contract. `npm run e2e:desktop` stayed green (3/3) at
+   fixed, mutant and restored. This is a NARROWER probe than items 1 and 3 above (one env var family,
+   one build) and does not close them.
 
 ★ This lands in the same gap as the M365 sign-in verification already owed on a packaged 1.6.1+
 build: anything that only exists in a packaged artifact is invisible to every local gate and to
