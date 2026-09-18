@@ -8,6 +8,41 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.10.1] - 2026-09-18 "Leonard"
+
+The 2026-09 security audit's follow-up fixes: hostile Office files can no longer stall document
+ingest, two backend proxies no longer forward credentials to an attacker-controlled redirect
+target, the packaged desktop app's server starts with fewer Node capabilities available to it,
+and an imported RAID item with an oversized name no longer costs seconds to load.
+
+### Fixed
+
+- **A docx, xlsx or pptx file with repetitive unclosed markup no longer stalls document ingest.**
+  `docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts` and the shared `extractRuns` walked their
+  markup with lazy backtracking regexes, which are linear on well-formed input but quadratic once a
+  closing tag is missing — trivial for a hostile file to arrange. All four now walk one linear
+  cursor (`§558`).
+- **An imported RAID item with an oversized name no longer costs seconds to load.** The load path
+  stripped `<br>` tags before capping a name to its length limit; a very long name made that strip
+  itself quadratic. The value is now capped first (`§578`).
+
+### Security
+
+- **The Jira and TimeLog proxies no longer follow an upstream redirect.** Both proxies forwarded
+  the caller's credentials to wherever an upstream 3xx response pointed, including a host outside
+  the configured allowlist. They now refuse the redirect outright (`§559`).
+- **The config export now redacts every sealed secret, not three of five.** The redaction backstop
+  missed two of the five `SecretId`s, so exporting a project's configuration could leak them in
+  plain text (`§560`).
+- **The packaged desktop app's server now runs with fewer Node capabilities.** It launches via
+  `utilityProcess.fork` instead of a plain child process, with the Electron `RunAsNode` fuse and
+  the Node inspector/debug fuses off, so a compromised server process has less to work with
+  (`§561`; the CI desktop-package job does not yet confirm the fuses on every build — tracked open).
+
+Two follow-ups filed by the same audit remain open: quadratic regexes outside the OOXML extractors,
+in `html-to-text.ts`, `narrative-html.ts` and the Markdown fenced-block reads (`§578`), and an xlsx
+whose rows each reach column XFD, bounded only by the inflate cap rather than a row budget (`§579`).
+
 ## [1.10.0] - 2026-09-18 "Leonard"
 
 The Budget forecast now shows one card at a time — a switch above it lets you pick "At current
