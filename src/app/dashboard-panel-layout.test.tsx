@@ -195,4 +195,26 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
     expect(badge).toHaveAttribute("aria-expanded", "false");
     expect(document.getElementById(DASHBOARD_SHELF_TRAY_ID)).toHaveAttribute("hidden");
   });
+
+  it("closes the tray after a drag that opened it at hidden-count 0 ends without a drop, so a later hide does not re-open it unasked", async () => {
+    // ★ Fix round 2: a drag entering the badge at count 0 sets `trayOpen`
+    // true; ending the drag WITHOUT a drop (no hide happens) leaves
+    // `trayOpen` stale, so the very next Hide via the tile menu re-opened the
+    // tray unasked — the same shape as the restore case above, reached via
+    // drag instead of restore.
+    const user = userEvent.setup();
+    render(<DashboardPanel {...baseProps} projectId="p-row1-drag-empty-close" />, { wrapper });
+    const gripButton = screen.getByRole("button", { name: grip("Progress") });
+    fireEvent.dragStart(gripButton);
+    const dragBadge = screen.getByRole("button", { name: badgeName(0) });
+    fireEvent.dragEnter(dragBadge);
+    expect(dragBadge).toHaveAttribute("aria-expanded", "true");         // tray opened by the drag
+    fireEvent.dragEnd(gripButton);                                      // ends WITHOUT a drop
+    expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull(); // badge unmounted at 0
+
+    await hideFromMenu(user, "Progress");
+    const badge = screen.getByRole("button", { name: badgeName(1) });
+    expect(badge).toHaveAttribute("aria-expanded", "false");
+    expect(document.getElementById(DASHBOARD_SHELF_TRAY_ID)).toHaveAttribute("hidden");
+  });
 });

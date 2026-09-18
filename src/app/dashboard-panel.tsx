@@ -515,6 +515,26 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // in flight — otherwise it could be left open with no badge to close it.
   const [trayOpen, setTrayOpen] = useState(false);
   const trayShown = trayOpen && (shelfHidden.length > 0 || reorder.isDragging);
+  // ★ Fix round 2: a drag that opens the tray via the badge while hidden
+  // count is 0 (dragEnter sets `trayOpen`) and then ends WITHOUT a drop
+  // leaves `trayOpen` stuck true even though `trayShown` already fell back
+  // to false for this render — the very next Hide via the tile menu would
+  // then flip `trayShown` back to true unasked. Only clear `trayOpen` when a
+  // drag actually JUST ended (this render's `isDragging` is false, the
+  // PREVIOUS render's was true) and there is still nothing to show — NOT on
+  // every count-0 render, which also happens when a module gate hides the
+  // sole chip, where `trayOpen` must survive to reopen the tray once the
+  // gate comes back (see "drops a hidden tile from the shelf once its
+  // module gate goes off" in dashboard-panel.test.tsx). Render-time
+  // reconcile against a last-seen STATE, not a ref (`react-hooks/refs` bans
+  // reading/writing a ref during render) and not an effect
+  // (`react-hooks/set-state-in-effect` is banned) — same shape as
+  // `tasks-section.tsx`'s `handledClearNonce`.
+  const [wasDragging, setWasDragging] = useState(reorder.isDragging);
+  if (wasDragging !== reorder.isDragging) {
+    if (wasDragging && trayOpen && shelfHidden.length === 0) setTrayOpen(false);
+    setWasDragging(reorder.isDragging);
+  }
   const restoreFromShelf = (id: DashboardTileId) => {
     arrangement.restore(id);
     // ★ Fix round 1: restoring the LAST hidden tile must also close the tray's

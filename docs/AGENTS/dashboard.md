@@ -177,8 +177,8 @@ forecast exists and falls back to `computeBudgetStatus`; Trends' persisted `budg
 
 ★ **Chart/table split and EV availability (§549):** `BurndownChartPanel`'s `compact` prop (always true here) suppresses
 the recorded-change table and its variance footer entirely — spec §5.2, "the dashboard tile shows the headline only",
-whose D7 names "tile carries the split too" as the rejected alternative. ★★ THAT QUOTED CLAIM IS NOW FALSE (spec C,
-controller ruling D10): the headline left the tile along with `ForecastHeadline` itself, now DELETED (see
+naming "tile carries the split too" as the rejected alternative. ★★ THAT QUOTED CLAIM IS NOW FALSE (spec C):
+the headline left the tile along with `ForecastHeadline` itself, now DELETED (see
 the CHART-ONLY paragraph above) — `compact` now suppresses the table AND leaves no headline behind it, so
 the tile shows the chart only, not "the headline only". The chart, its BAC markers and the EV line all
 stay. ★★ The tile is too narrow to have carried the table anyway: at its DEFAULT width (`w: 2`, spec C) it is full pane width

@@ -33099,7 +33099,7 @@ makes it eight and no gate will say so. Re-derive rather than trusting this para
 read the hits.
 
 **2. The 120px row unit.** `ArrangementGrid` is given `rowClass="auto-rows-[120px]"` here against
-the Dashboard's 80px, because `BlockSpan` caps at 4 and 4 × 80px would put a whole embedded report
+the Dashboard's 80px, because `REPORT_BLOCKS` caps every block's height at 4 and 4 × 80px would put a whole embedded report
 panel in a 320px box. Verify that an embedded report at `h: 4` is actually usable at 120px — this is
 the number the whole grid's vertical rhythm rides on, and nothing but an eye can price it.
 ★ The class is a WHOLE LITERAL STRING for Tailwind's scanner; the unit test asserting it is the only

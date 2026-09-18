@@ -277,7 +277,7 @@ export type DashboardModel = {
   burn: DashboardBurn | null;
   burndown: BurndownSeries | null;
   /** The pace/efficiency forecast (spec §5) driving the Budget RAG's pace-VAC
-   *  input and the dashboard tile's headline. Null exactly when `burndown` is
+   *  input. Null exactly when `burndown` is
    *  (no budgets, or the report/burndown pair could not be built). */
   forecast: BudgetForecast | null;
   /** € + hours forecasts, rate mix and earned-value history (MR 3). `forecast`
@@ -452,7 +452,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
         progress: bucketProgressSeries(input.snapshots), budgetHistory: input.budgetHistory,
       })
     : null;
-  // The budget RAG and the tile headline stay € only (addendum §3.3).
+  // The budget RAG stays € only (addendum §3.3).
   const forecast: BudgetForecast | null = forecastBundle?.eur ?? null;
   // The budget RAG reads the pace VAC once the pace forecast exists (spec
   // §6.3); before that the consumed-vs-budget ratio stays the signal. Effort
