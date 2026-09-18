@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [1.11.0] - 2026-09-18 "Tey"
+## [1.11.0] - 2026-09-18 "Grisham"
 
 A new project can now be created straight from a workspace JSON file, the AI Assistant takes
 several attachments at once — including `.json` and files dropped onto it — within a per-message
