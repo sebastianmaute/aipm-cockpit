@@ -586,6 +586,7 @@ EOF
       ref: (el: HTMLElement | null) => void;
       onPointerMove: (e: React.PointerEvent<HTMLElement>) => void;
       onPointerLeave: () => void;
+      onPointerDown: (e: React.PointerEvent<HTMLElement>) => void;
       onClick: (e: React.MouseEvent<HTMLElement>) => void;
       onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => void;
       onBlur: () => void;
@@ -685,7 +686,7 @@ describe("useChartReadout", () => {
     expect(screen.getByRole("status")).toHaveTextContent("closed");
   });
 
-  it("toggles on click, for touch", async () => {
+  it("opens on a tap and stays open on a second tap", async () => {
     stubRect();
     const user = userEvent.setup();
     render(<Harness />);
@@ -693,7 +694,29 @@ describe("useChartReadout", () => {
     await user.click(trigger);
     expect(screen.getByRole("status")).not.toHaveTextContent("closed");
     await user.click(trigger);
-    expect(screen.getByRole("status")).toHaveTextContent("closed");
+    expect(screen.getByRole("status")).not.toHaveTextContent("closed");
+  });
+
+  // The mouse regression an earlier draft of this plan shipped: it toggled on
+  // `stop !== null`, and both user-event and real browsers dispatch pointermove
+  // before click, so hovering and then clicking closed the readout.
+  it("stays open when a mouse hovers and then clicks", async () => {
+    stubRect();
+    const user = userEvent.setup();
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "chart" });
+    await user.pointer({ target: trigger, coords: { clientX: 412, clientY: 60 } });
+    await user.click(trigger);
+    expect(screen.getByRole("status")).not.toHaveTextContent("closed");
+  });
+
+  it("opens at the first stop on a keyboard activation", async () => {
+    stubRect();
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.tab();
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("status")).toHaveTextContent(STOPS[0]);
   });
 
   it("stays closed with no stops", async () => {
@@ -748,6 +771,7 @@ export type ChartReadoutApi = {
     ref: (el: HTMLElement | null) => void;
     onPointerMove: (e: PointerEvent<HTMLElement>) => void;
     onPointerLeave: () => void;
+    onPointerDown: (e: PointerEvent<HTMLElement>) => void;
     onClick: (e: MouseEvent<HTMLElement>) => void;
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
     onBlur: () => void;
@@ -820,13 +844,19 @@ export function useChartReadout({
       ref: (el) => { hostRef.current = el; },
       onPointerMove: (e) => move(e.clientX),
       onPointerLeave: close,
+      // Touch has no hover, and a pointerdown carries real coordinates on touch as
+      // well as mouse — so this, not onClick, is what opens the readout on a tap.
+      onPointerDown: (e) => move(e.clientX),
       onClick: (e) => {
         e.preventDefault();
-        if (stop !== null) { close(); return; }
-        move(e.clientX);
-        // A keyboard/assistive click reports clientX 0, which would snap to the
-        // first stop by accident; fall back to today's end of the series.
-        if (e.clientX === 0) step("first");
+        // A keyboard or assistive activation reports clientX 0. A real pointer click
+        // was already handled above, so there is nothing left to do here.
+        // ★ This must NEVER close. An earlier draft toggled on `stop !== null`, which
+        // made hover-then-click close the readout for every mouse user: user-event and
+        // real browsers both dispatch pointermove before click, so the stop was always
+        // already set by the time this ran. The spec asks only for "tap shows it, tap
+        // outside hides it" — there is no toggle to implement.
+        if (e.clientX === 0 && stop === null) step("first");
       },
       onKeyDown: (e) => {
         if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
@@ -852,7 +882,9 @@ Expected: all EXIT=0, 7 tests pass. If the anchor assertion's number disagrees w
 
 - [ ] **Step 5: Mutation-check the stepping clamp**
 
-Change `Math.min(Math.max(..., 0), stops.length - 1)` to `at + delta` (unclamped) and run the file: the End-then-ArrowRight assertion must fail with `undefined`. Revert with an anchored Edit and confirm `git diff --stat` is empty for the file.
+Change `Math.min(Math.max(..., 0), stops.length - 1)` to `at + delta` (unclamped) and run the file: the End-then-ArrowRight assertion must fail, because stepping past the last stop indexes off the end. ★ It fails reading **"closed"**, not the literal `undefined` an earlier revision of this line predicted — the harness renders `r.stop ?? "closed"` and `??` treats `undefined` as nullish just as it does `null`. Revert with an anchored Edit and confirm `git diff --stat` is empty for the file.
+
+Three further mutations are mandated, each guarding one of the three click/tap tests: remove `onPointerDown` (the tap test must fail); empty the `e.clientX === 0 && stop === null` body (the keyboard-activation test must fail); re-introduce the old `if (stop !== null) { close(); return; }` at the top of `onClick` (the hover-then-click test must fail, proving that regression test guards the defect rather than merely passing beside it).
 
 - [ ] **Step 6: Commit**
 
