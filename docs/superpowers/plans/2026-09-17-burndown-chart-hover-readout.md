@@ -62,7 +62,7 @@
 - Produces:
   ```ts
   export type ReadoutKind =
-    | "plan" | "budget" | "baseline" | "actual" | "ev"
+    | "plan" | "budget" | "baseline" | "actual" | "ev" | "evPoint"
     | "pace" | "efficiency" | "change" | "runOut";
   export type ReadoutRow = {
     kind: ReadoutKind;
@@ -264,7 +264,7 @@ Create `src/app/burndown-readout.ts`:
 import { daysBetweenUtc, scaleDate, type ChartModel, type ChartPoint, type ChartSegment } from "./burndown-geometry";
 
 export type ReadoutKind =
-  | "plan" | "budget" | "baseline" | "actual" | "ev"
+  | "plan" | "budget" | "baseline" | "actual" | "ev" | "evPoint"
   | "pace" | "efficiency" | "change" | "runOut";
 
 export type ReadoutRow = {
@@ -378,6 +378,10 @@ export function readoutAt(model: ChartModel, date: string): Readout | null {
   push("actual", pointAt(model.actual, date));
   const ev = evAt(model, date);
   if (ev) rows.push({ kind: "ev", value: ev.value, partial: ev.partial });
+  // The singular EV point is drawn in BOTH orientations (the amber diamond), while
+  // `evSegments` exists only in the cumulative one — so this row is the ONLY earned-value
+  // row a reader gets in the default burn-down view, and in cumulative both may appear.
+  if (model.ev && model.ev.date === date) rows.push({ kind: "evPoint", value: model.ev.value });
   push("pace", segmentAt(model.pace, date), { forecast: true });
   push("efficiency", segmentAt(model.efficiency, date), { forecast: true });
   const marker = model.bacMarkers.find((m) => m.date === date);
@@ -896,6 +900,7 @@ In `src/app/i18n.ts`, next to the other `burndown*` keys (after `burndownBacBase
   burndownReadoutTipBaseline: "The budget at completion before the first recorded change.",
   burndownReadoutTipActual: "The value of all hours booked up to this date.",
   burndownReadoutTipEv: "The budget value of the work finished by this date.",
+  burndownReadoutTipEvPoint: "The budget value of all work finished so far.",
   burndownReadoutTipPace: "Where spending lands if it continues at the recent daily average.",
   burndownReadoutTipEfficiency: "Where spending lands if the remaining work costs what finished work did.",
   burndownReadoutTipChange: "A recorded change to the budget, summed over this period.",
@@ -927,6 +932,7 @@ const block = [
   '  burndownReadoutTipBaseline: "Das Budget bei Fertigstellung vor der ersten erfassten Änderung.",',
   '  burndownReadoutTipActual: "Der Wert aller bis zu diesem Datum gebuchten Stunden.",',
   '  burndownReadoutTipEv: "Der Budgetwert der bis zu diesem Datum fertiggestellten Arbeit.",',
+  '  burndownReadoutTipEvPoint: "Der Budgetwert der bisher fertiggestellten Arbeit.",',
   '  burndownReadoutTipPace: "Wohin die Ausgaben laufen, wenn das Tagesmittel der letzten Zeit anhält.",',
   '  burndownReadoutTipEfficiency: "Wohin die Ausgaben laufen, wenn die restliche Arbeit so viel kostet wie die fertige.",',
   '  burndownReadoutTipChange: "Eine erfasste Budgetänderung, summiert über diese Periode.",',
@@ -968,6 +974,7 @@ const full: Readout = {
     { kind: "baseline", value: 90 },
     { kind: "actual", value: 70 },
     { kind: "ev", value: 65, partial: true },
+    { kind: "evPoint", value: 64 },
     { kind: "pace", value: 60, forecast: true },
     { kind: "efficiency", value: 55, forecast: true },
     { kind: "change", value: -8, label: "Ops", removed: true },
@@ -979,23 +986,40 @@ describe("ChartReadout", () => {
   it("lists every row in the legend's order with its value", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
     const rows = screen.getAllByRole("listitem").map((li) => li.textContent ?? "");
-    expect(rows).toHaveLength(9);
+    expect(rows).toHaveLength(10);
     expect(rows[0]).toContain("Planned");
     expect(rows[0]).toContain("80 EUR");
     expect(rows[1]).toContain("Budget");
     expect(rows[2]).toContain("Budget at start of recording");
     expect(rows[3]).toContain("Actual");
     expect(rows[4]).toContain("Partial earned value");
-    expect(rows[5]).toContain("At current pace");
-    expect(rows[6]).toContain("At current efficiency");
-    expect(rows[7]).toContain("Ops");
-    expect(rows[8]).toContain("Runs out");
+    // "Earned value (today)" (`burndownEv`), NOT "Earned value" (`burndownEvHistory`) — a bare
+    // "Earned value" here is a substring of both and would pass against the wrong key.
+    expect(rows[5]).toContain("Earned value (today)");
+    expect(rows[5]).toContain("64 EUR");
+    expect(rows[6]).toContain("At current pace");
+    expect(rows[7]).toContain("At current efficiency");
+    expect(rows[8]).toContain("Ops");
+    expect(rows[9]).toContain("Runs out");
   });
 
-  it("carries one explanation per row", () => {
+  // Every tip is asserted BY NAME. An earlier cut checked two of them, which left seven
+  // strings written, read and never tested — the vacuous-coverage shape this repo keeps
+  // being bitten by. One case per row kind, so a missing or mis-mapped tip fails here.
+  it.each([
+    ["What the plan expected to be spent by this date."],
+    ["The budget at completion in force on this date."],
+    ["The budget at completion before the first recorded change."],
+    ["The value of all hours booked up to this date."],
+    ["The budget value of the work finished by this date."],
+    ["The budget value of all work finished so far."],
+    ["Where spending lands if it continues at the recent daily average."],
+    ["Where spending lands if the remaining work costs what finished work did."],
+    ["A recorded change to the budget, summed over this period."],
+    ["The day the budget is used up at the current pace."],
+  ])("carries the explanation %s", (tip) => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
-    expect(screen.getByText("What the plan expected to be spent by this date.")).toBeInTheDocument();
-    expect(screen.getByText("The day the budget is used up at the current pace.")).toBeInTheDocument();
+    expect(screen.getByText(tip)).toBeInTheDocument();
   });
 
   it("marks the forecasts as forecasts and says when the date is today", () => {
@@ -1006,7 +1030,7 @@ describe("ChartReadout", () => {
 
   it("signs a change amount and names a deletion", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
-    const change = screen.getAllByRole("listitem")[7].textContent ?? "";
+    const change = screen.getAllByRole("listitem")[8].textContent ?? "";
     expect(change).toContain("-8 EUR");
     expect(change).toContain("removed");
   });
@@ -1071,6 +1095,9 @@ const ROW: Record<ReadoutKind, { label: TranslationKey; tip: TranslationKey; swa
   baseline: { label: "burndownBacBaseline", tip: "burndownReadoutTipBaseline", swatch: "bg-muted-foreground" },
   actual: { label: "burndownActual", tip: "burndownReadoutTipActual", swatch: "bg-ui-green" },
   ev: { label: "burndownEvHistory", tip: "burndownReadoutTipEv", swatch: "bg-[var(--rag-amber)]" },
+  // The diamond's own legend wording is `burndownEv`, NOT `burndownEvHistory` — the two are
+  // different series and both can appear at one stop in the cumulative orientation.
+  evPoint: { label: "burndownEv", tip: "burndownReadoutTipEvPoint", swatch: "bg-[var(--rag-amber)]" },
   pace: { label: "forecastPaceTitle", tip: "burndownReadoutTipPace", swatch: "bg-ui-dark-blue" },
   efficiency: { label: "forecastEfficiencyTitle", tip: "burndownReadoutTipEfficiency", swatch: "bg-ui-purple" },
   change: { label: "burndownReadoutChange", tip: "burndownReadoutTipChange", swatch: "bg-muted-foreground" },
@@ -1538,6 +1565,16 @@ Write the report the executing skill asks for, quoting every EXIT code above, th
 **Spec coverage:** stop rule → Task 1 (`readoutStops`, its two tests); row list and order → Tasks 1 and 4; explanations → Task 4's keys; keyboard/touch/Escape/blur → Task 3, wired in Task 5; both surfaces → Task 5 (the chart component is the one both mount, so the dashboard tile gets it with no extra work); print hidden → Task 5's `print:hidden` on the box, the guide group and the cursor; one new display surface only → Task 2; screen-reader channel → Task 5's live region plus Task 4's `readoutSentence`; tests incl. the "baselines must not change" assertion → Tasks 1-6 and Step 5 of Task 5; out-of-scope items appear in no task.
 
 **Placeholders:** none — every step carries its command or its code.
+
+**Correction, 2026-09-18 (found by Task 1's review, fixed here and in Task 1's code):** the first
+cut of this plan had `readoutAt` read earned value from `model.evSegments` alone. Geometry computes
+`evFields = !down && evHistory ? … : NO_EV`, so `evSegments` is **null in the default burn-down
+orientation**, while the singular `model.ev` is set in both and is drawn in both (the amber diamond,
+with its own legend entry `burndownEv`). Since `readoutStops` already snaps to `model.ev.date`, the
+default view offered a stop with no earned-value row at all. Hence the `"evPoint"` kind: a distinct
+row, because in the cumulative orientation the history line and the diamond BOTH exist and the
+legend words them differently. Task 4's tip test was widened to one case per row kind at the same
+time — it previously asserted two of the explanations and left the rest untested.
 
 **Type consistency:** `Readout`, `ReadoutRow`, `ReadoutKind`, `readoutStops`, `readoutAt`, `nearestStop` (Task 1) are consumed under those names in Tasks 3-5; `ReadoutAnchor`, `ChartReadoutApi`, `useChartReadout` (Task 3) in Tasks 4-5; `TooltipSurface`, `TOOLTIP_SURFACE_CLASS` (Task 2) in Tasks 2 and 4; `ChartReadout`, `readoutSentence` (Task 4) in Task 5. The i18n keys added in Task 4 are the exact ones `ROW`, `labelKey` and `valueText` read.
 
