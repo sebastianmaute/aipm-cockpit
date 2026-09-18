@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent, act, waitFor, within } from "@testing-library/react";
-import { BurndownChartPanel } from "./burndown-chart-panel";
+import { BurndownChartPanel, BurndownChangeTableBlock } from "./burndown-chart-panel";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
 import { CHART_FORECAST, CHART_FORECAST_HOURS, CHART_SERIES } from "../test/chart-fixtures";
@@ -23,6 +23,12 @@ function renderPanel() {
   return render(
     <BurndownChartPanel lang="en-US" series={CHART_SERIES} bundle={bundle} today="2026-02-14" planEnd="2026-03-31" currency="EUR" />,
   );
+}
+
+/** jsdom has no layout, so placement is pinned by the classes that produce it. */
+function ancestorWithClass(el: Element, cls: string): HTMLElement | null {
+  for (let n = el.parentElement; n; n = n.parentElement) if (n.classList.contains(cls)) return n;
+  return null;
 }
 
 describe("BurndownChartPanel", () => {
@@ -123,10 +129,82 @@ describe("BurndownChartPanel", () => {
     expect(screen.queryByRole("table")).toBeNull();
   });
 
+  it("keeps the table beside the chart from 2xl when not detached (every existing caller's behaviour)", async () => {
+    render(
+      <BurndownChartPanel
+        lang="en-US" series={CHART_SERIES} bundle={{ ...bundle, history: HISTORY }}
+        today="2026-02-14" planEnd="2026-03-31" currency="EUR"
+      />,
+    );
+    await act(async () => {});
+    const region = screen.getByRole("region", { name: /Budget changes/ });
+    expect(ancestorWithClass(region, "2xl:w-[30rem]")).not.toBeNull();
+    expect(ancestorWithClass(region, "2xl:flex-row")).not.toBeNull();
+  });
+
+  it("renders no change table when detached, while keeping the chart and both switches", async () => {
+    const { container } = render(
+      <BurndownChartPanel
+        lang="en-US" series={CHART_SERIES} bundle={{ ...bundle, history: HISTORY }}
+        today="2026-02-14" planEnd="2026-03-31" currency="EUR" detachChangeTable
+      />,
+    );
+    await act(async () => {});
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByRole("radiogroup", { name: "Chart orientation" })).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Chart unit" })).toBeInTheDocument();
+    expect(container.querySelector("svg[role='img']")).not.toBeNull();
+  });
+
   it("renders the chart without forecast lines when no bundle is available", async () => {
     render(<BurndownChartPanel lang="en-US" series={CHART_SERIES} bundle={null} today="2026-02-14" planEnd="2026-03-31" currency="EUR" />);
     await act(async () => {});
     expect(screen.getByText("Budget remaining")).toBeInTheDocument();
     expect(screen.queryByText("At current pace")).toBeNull();
+  });
+});
+
+describe("BurndownChangeTableBlock", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("renders the change table in the chart's displayed unit, and follows the panel's unit switch", async () => {
+    const withHistory = { ...bundle, history: HISTORY };
+    render(
+      <>
+        <BurndownChartPanel
+          lang="en-US" series={CHART_SERIES} bundle={withHistory}
+          today="2026-02-14" planEnd="2026-03-31" currency="EUR" detachChangeTable
+        />
+        <BurndownChangeTableBlock lang="en-US" series={CHART_SERIES} bundle={withHistory} currency="EUR" />
+      </>,
+    );
+    await act(async () => {});
+    const perf = () => within(within(screen.getByRole("table", { name: /Budget changes/ }))
+      .getByRole("rowheader", { name: "Performance" }).closest("tr") as HTMLElement);
+    // CHART_FORECAST: BAC 9,000, pace EAC 10,000 → performance = baseline 9,000 − 10,000.
+    expect(perf().getByText("-€1,000")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Hours" }));
+    // The two components are separate useSettings instances; the settings
+    // listener registry carries the panel's write to the block.
+    await waitFor(() => expect(perf().getByText("-10 h")).toBeInTheDocument());
+  });
+
+  it("renders nothing without a recorded change, or when neither unit has a budget — the panel's own rule", async () => {
+    const { container, rerender } = render(
+      <BurndownChangeTableBlock lang="en-US" series={CHART_SERIES} bundle={bundle} currency="EUR" />,
+    );
+    await act(async () => {});
+    expect(container).toBeEmptyDOMElement();
+    rerender(
+      <BurndownChangeTableBlock
+        lang="en-US" series={{ ...CHART_SERIES, totalBudgetValue: 0, totalBudgetHours: 0 }}
+        bundle={{ ...bundle, history: HISTORY }} currency="EUR"
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
+    // Positive control: the same history with a budget does render — so the
+    // two empty results above are the rule, not a broken block.
+    rerender(<BurndownChangeTableBlock lang="en-US" series={CHART_SERIES} bundle={{ ...bundle, history: HISTORY }} currency="EUR" />);
+    expect(screen.getByRole("table", { name: /Budget changes/ })).toBeInTheDocument();
   });
 });

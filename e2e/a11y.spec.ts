@@ -38,8 +38,11 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
 // its own `for (const combo of COMBOS)` loop — it scales with the combo count,
 // it is NOT a fixed 5) = 126, + 1 notes-window toolbar scan + 1 Documents
 // block-editor scan + 1 Reports cumulative-chart scan (all three harbor-light
-// only, hardcoded — none scales with the combo count) = 129 scans, plus the
-// one non-scan guard below = 130 tests.
+// only, hardcoded — none scales with the combo count) = 129 `a11y:`-prefixed
+// scans, + 1 chart-readout scan whose name does NOT carry that prefix (its
+// name is asserted verbatim by the chart-hover-readout plan, so `grep -c
+// "a11y:"` undercounts by exactly one) + the one non-scan guard below = 131
+// tests.
 // MEASURE it in the same commit that changes A11Y_VIEWS or adds a scan rather
 // than deriving it — this comment said 85 for as long as the list said 16
 // views, and a beacon-added-combo draft of this very comment still said "108
@@ -48,8 +51,8 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
 // derived, in the commit that added the umber-dark combo, and 129/130
 // re-measured when the Reports cumulative scan was added (§557). Reproduce
 // (no browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 130 total
-//   …then `grep -c "a11y:"` over that output       # 129 scans
+//   npx playwright test e2e/a11y.spec.ts --list   # 131 total
+//   …then `grep -c "a11y:"` over that output       # 129 scans (+1 unprefixed)
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },
@@ -355,4 +358,47 @@ test("a11y: harbor-light — Reports (budget chart, cumulative)", async ({ page 
     .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
     .join("\n");
   expect(blocking, `Reports cumulative budget chart a11y violations:\n${summary}`).toEqual([]);
+});
+
+// Chart hover/keyboard readout (chart-hover-readout branch): the box and its
+// SVG decorations (`[data-readout-guide]`/`[data-readout-dot]`) are taken out
+// of the accessibility tree entirely (`TooltipSurface`'s `decorative` prop:
+// `aria-hidden`, no `role`), so this scan is really checking the TRIGGER and
+// the portaled box's STRUCTURE, not any content inside it — and it is what
+// first caught `aria-tooltip-name`: the box used to keep `role="tooltip"`
+// while hiding only its content, which left a nameless ARIA tooltip node in
+// the tree. Re-adding that role here (without also re-adding an accessible
+// name) must turn this scan red again — that is the mutation this test guards
+// against, not merely renders beside.
+// ★ Same axe configuration as every scan above; harbor-light only, like the
+// two scans before it.
+test("Reports with the chart readout open has no axe violations", async ({ page }) => {
+  await gotoApp(page);
+  await openView(page, "Reports");
+  const trigger = page
+    .getByTestId("report-block-budget-report")
+    .getByRole("button", { name: /arrow keys/i });
+  // `.focus()` auto-scrolls the trigger into view as part of Playwright's
+  // actionability checks, unlike a raw `boundingBox()`/`mouse.move()` pair.
+  await trigger.focus();
+  await page.keyboard.press("ArrowRight");
+  // Without this the scan can run before the box mounts and report GREEN over
+  // markup that is not in the DOM — the silent no-op this file warns about.
+  // The box carries no ARIA role, so its presence is checked via its own
+  // `[data-readout-box]` hook, not `getByRole("tooltip")` — and not the
+  // `[data-tooltip-portal]` hook every `TooltipSurface` sets, which would let
+  // the scan pass with an unrelated tooltip up and the readout closed.
+  await expect(page.locator("[data-readout-box]")).toBeVisible();
+
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+
+  const blocking = results.violations.filter(
+    (v) => v.impact === "critical" || v.impact === "serious",
+  );
+  const summary = blocking
+    .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
+    .join("\n");
+  expect(blocking, `Reports chart readout a11y violations:\n${summary}`).toEqual([]);
 });

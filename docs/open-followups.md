@@ -791,6 +791,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--open) | The Jira proxy logs the raw fetch-rejection object server-side — OPEN | audit (2026-09) | S | open |
 | [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--open) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — OPEN | slice (2026-09) | M | open |
 | [§568](#568-the-registers-index-rebuild-recipe-is-not-a-no-op-on-the-committed-table-and-discards-hand-written-state-prose--open) | The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN | slice (2026-09) | S–M | open |
+| [§569](#569-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--open) | Screen readers may never deliver the chart readout's arrow keys — OPEN | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | open |
+| [§570](#570-the-spoken-readout-capitalises-mid-sentence--open) | The spoken readout capitalises mid-sentence — OPEN | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | open |
+| [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--open) | The chart-box clamp's boundary width has no test — OPEN | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | open |
+| [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
+| [§573](#573-the-open-points-visual-baseline-is-stale--open) | The Open Points visual baseline is stale — OPEN | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | open |
 | [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
 | [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN | audit (2026-09) | S | open |
 <!-- INDEX:END -->
@@ -39069,6 +39074,130 @@ already preserves Origin and Size (`keep` holds only those two columns today); o
 once, first moving any State prose that exists nowhere else into its entry; or correct the recipe's
 claim to say it is a normaliser rather than a proof. Any of them needs the 78 prose cells checked
 individually before a rebuild is ever run for real.
+
+## 569. Screen readers may never deliver the chart readout's arrow keys — OPEN
+
+**Status:** OPEN 2026-09-18 — found reviewing the merged chart hover readout (`feat/chart-hover-readout`,
+1.9.0 "James"); the browse-mode mechanism is established from NVDA/JAWS documentation, not measured against
+either screen reader — never machine-verified.
+
+**Work item:** #354
+
+The readout trigger in `src/app/burndown-chart.tsx` is a plain `<button type="button">` wired via
+`readout.triggerProps`, and `useChartReadout` (`src/app/use-chart-readout.ts`) attaches its `onKeyDown` to
+ArrowRight/ArrowLeft (step through stops), Home/End (jump to the first/last stop) and Escape (close). In
+NVDA and JAWS browse mode, arrow keys move the virtual cursor across the page rather than reaching the
+focused element's own key handler, and focusing a button does not by itself switch either screen reader into
+focus/forms mode. Nothing in the markup asks for that switch — no `role="application"`, no announced
+instructions — so a browse-mode user who tabs to the button may never have any of the four keys reach
+`onKeyDown`.
+
+Nothing has measured this: the code was reviewed, no screen reader was run against it.
+
+Options: scope `role="application"` to the trigger (opts the element out of browse mode entirely, with the
+usual application-mode trade-offs); add `aria-roledescription` plus visible/announced instructions telling a
+browse-mode user to switch into forms mode; or accept the existing live region (`aria-live="polite"`,
+`data-readout-live`) as the fallback channel for anyone who never reaches the arrow keys, and say so
+explicitly rather than by omission.
+
+Fix shape: run a real NVDA pass and a real JAWS pass against the trigger button, pick one of the above (or a
+fourth option the pass turns up), and record which mechanism was actually verified. No `theme::a11y` label
+exists in this project today, so this entry carries none.
+
+## 570. The spoken readout capitalises mid-sentence — OPEN
+
+**Status:** OPEN 2026-09-18 — found reading `rowText` in `src/app/chart-readout.tsx` against the tip strings
+in `i18n.ts` and `i18n.de.ts` (reproduce: `grep -n "burndownReadoutTip" src/app/i18n.ts src/app/i18n.de.ts`
+shows every tip opening with a capital); not measured against a real screen reader.
+
+**Work item:** #355
+
+`rowText` joins a row's sentence and its explanation (`ROW[row.kind].tip`) with a comma:
+`` `${flagged}, ${t(lang, ROW[row.kind].tip)}` ``. All ten `tip` strings in both `i18n.ts` and `i18n.de.ts`
+(`burndownReadoutTipPlan`, `burndownReadoutTipBudget`, `burndownReadoutTipBaseline`, `burndownReadoutTipActual`,
+`burndownReadoutTipEv`, `burndownReadoutTipEvPoint`, `burndownReadoutTipPace`, `burndownReadoutTipEfficiency`,
+`burndownReadoutTipChange`, `burndownReadoutTipRunOut`) start with a capital letter, so a screen reader hears
+a capitalised word in the middle of the spoken sentence — e.g. "…80 EUR, What the plan expected to be spent
+by this date."
+
+The fix is either to lower-case the first character of the explanation or to join the two clauses with a
+full stop instead of a comma. Checked `i18n.ts` and `i18n.de.ts` before recommending the first option: today's
+ten German tip strings all open with an article or pronoun (`Was`, `Das`, `Der`, `Wohin`, `Eine`), never a
+noun, so lower-casing them would not misspell anything as things stand — but German nouns stay capitalised
+wherever they sit in a sentence, so a blanket "lower-case the first character" rule is unsafe in general: the
+first tip string ever written to start with a noun would be mis-capitalised by it. The full-stop join
+sidesteps the question for every language and is the safer fix.
+
+## 571. The chart-box clamp's boundary width has no test — OPEN
+
+**Status:** OPEN 2026-09-18 — found by mutation-testing `anchorFor` in `src/app/use-chart-readout.ts`:
+mutating `>` to `>=` and rerunning `npx vitest run src/app/use-chart-readout.test.tsx` left all 19 tests green.
+
+**Work item:** #356
+
+`anchorFor` decides which clamp to apply to the readout box's horizontal position with
+`rect.width > HALF * 2` (`HALF = 176`, so the threshold is 352px — the readout box's own `max-w-[22rem]`).
+Above that width it clamps the box inside the chart's own rect; at or below it, it clamps to the viewport
+instead. `use-chart-readout.test.tsx` exercises a 640px rect (`RECT`) and a 200px rect (a narrower fixture for
+the dashboard-tile case), both comfortably on one side of 352, so a mutation at the boundary itself (`>` to
+`>=`) changes which branch fires at exactly 352px and nothing in the suite notices — verified by making that
+exact edit and rerunning the file, which still passed 19/19.
+
+Fix shape: add a case at `rect.width === 352` (i.e. `HALF * 2`) and assert which clamp it takes, so the
+boundary itself — not just each side of it — is pinned.
+
+## 572. AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN
+
+**Status:** OPEN 2026-09-18 — measured on this branch: corrupting the generated routes file with a syntax
+error made a real, pre-existing semantic error in `src/` vanish from `npx tsc --noEmit`'s output.
+
+**Work item:** #357
+
+AGENTS.md's Commands block tells readers to run `npx tsc --noEmit` and to trust it over the IDE's inline
+squiggles. That is correct as far as it goes, but incomplete: TypeScript only collects SEMANTIC diagnostics
+(type errors) when the program has no SYNTACTIC ones (parse errors), and it reports them for the WHOLE
+program, not per file. `next-env.d.ts` — pulled into every `tsc` run in this repo — imports
+`./.next/dev/types/routes.d.ts`, a file Next.js generates and overwrites on every dev-server start. A corrupt
+copy of that generated file (a syntax error such as TS1434/TS1005/TS1109/TS1435) turns off type-checking of
+the entire program, `src/` included, for the whole run.
+
+Measured on this branch on 2026-09-18: with a deliberately bad assignment added under `src/app/` (a real
+TS2322), a clean `npx tsc --noEmit` reported it as expected. Appending one invalid line to
+`.next/dev/types/routes.d.ts` and rerunning reported only errors inside `.next/dev/types/routes.d.ts`
+(TS1109/TS1005/TS1434/TS1435) — the TS2322 in `src/` was gone from the output, though the file and its bad
+assignment were untouched. Both changes were reverted before this entry was filed.
+
+A reader who filters tsc's output down to "0 errors in `src/`" then sees a false green — the filter cannot
+tell a genuinely clean `src/` from a `src/` that was never checked. The correct pass condition is 0 TOTAL
+errors in the run; any error outside `src/` (including one inside `.next/`) makes a `src/`-only count
+unreadable. Clearing `.next` with no dev server running regenerates the file.
+
+Fix shape: amend the AGENTS.md Commands block's `npx tsc --noEmit` guidance to state the total-vs-`src/`
+distinction and the `.next`-clearing remedy. Not done in this commit — filing only, `type::docs`.
+
+## 573. The Open Points visual baseline is stale — OPEN
+
+**Status:** OPEN 2026-09-18 — measured by running `npm run e2e:visual` on this branch.
+
+**Work item:** #358
+
+`e2e/visual.spec.ts-snapshots/open-points-visual-win32.png` was last committed 2026-09-02
+(`git log -1 --format=%cd -- e2e/visual.spec.ts-snapshots/open-points-visual-win32.png`). `npm run
+e2e:visual` on 2026-09-18 failed `visual: Open Points` with 28611 pixels different (ratio 0.03 of the
+image). The diff shows the sidebar navigation grouping, the Open Points toolbar (a Swimlanes view option
+added since the baseline) and row heights, all changed by releases after the baseline was captured.
+`visual: Dashboard`, `visual: Gantt` and `visual: Reports budget history (cumulative)` passed in the same
+run, so the drift is confined to Open Points.
+
+The visual project is opt-in: `playwright.config.ts` defines a `visual` project matched only by
+`visual.spec.ts` and `icon-gallery.visual.spec.ts`, and excludes both from the default project via
+`testIgnore`. `.gitlab-ci.yml`'s `e2e` job runs plain `npm run e2e`, which does not select the `visual`
+project, and no job in the pipeline runs `npm run e2e:visual` or otherwise passes `--project=visual`. So this
+drift is invisible to CI and stays invisible until someone runs the visual project by hand.
+
+Fix shape: after eye-checking the new Open Points screenshot against the real view, regenerate just that
+baseline with `npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --update-snapshots`
+(on win32, since baselines are per-platform).
 
 ## 578. Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN
 

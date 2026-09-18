@@ -259,13 +259,28 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   ★★ Calendar being unscanned has already cost real bugs: 0.202.0 shipped an AA contrast failure
   there (`text-ui-pink` on `bg-surface-muted`, under the 4.5:1 AA threshold) that a fully green axe run said nothing
   about (the count at the time was lower than today's, which is why this sentence no longer quotes one). Check contrast BY HAND for anything styled on that surface.
-  ★ **"Reports" in the list means the `reports` PARENT view, not the Budget report.** `openView(page,
-  "Reports")` (`e2e/seed.ts`) clicks the sidebar item whose accessible name is exactly "Reports", which
-  lands on the `reports` view; `budget-report` is a separate CHILD view under that nav group
-  (`nav-config.ts`: `{ view: "reports", children: [{ view: "budget-report" }, ...] }`), reached only by
-  navigating further in. The scan never lands there, so the Forecast cards/banner/tooltips added to
-  `budget-report-panel.tsx` are covered by no axe run — eye-verify them, same class as the Calendar
-  sub-tab above.
+  ★ **"Reports" in the list means the `reports` PARENT view, and a separate nav-child route genuinely
+  isn't scanned — but an earlier revision here overclaimed from that fact.** `openView(page, "Reports")`
+  (`e2e/seed.ts`) clicks the sidebar item whose accessible name is exactly "Reports", landing on the
+  `reports` view; `budget-report` is ALSO a distinct nav child (`nav-config.ts`: `{ view: "reports",
+  children: [{ view: "budget-report" }, ...] }`) that sets `activeTab === "budget-report"` and mounts a
+  STANDALONE, non-`embedded` `BudgetReportPanel` (`workspace-section.tsx`'s `panel-budget-report`) — no
+  scan ever sets that `activeTab` (`A11Y_VIEWS` has no "Budget report" entry; "Budget" there is the
+  separate `budget` panel).
+  ★★ **DISPROVED: the Forecast cards/banner/tooltips are NOT "covered by no axe run".**
+  `budget-report-panel.tsx`'s `embedded` branch (`if (embedded) return <div
+  className="space-y-6">{content}</div>;`) reuses the SAME `content` — `ForecastSection`/`ForecastCards`,
+  the chart, the EVM tiles — as the standalone branch; only the `ReportCard`/`ViewCallout`
+  title-and-callout wrapper differs. And `reports.tsx`'s default `extraReports` is
+  `DEFAULT_EXTRA_REPORTS` (`addable-reports.ts`: `["raid-report", "budget-report"]`), so the composed
+  `reports` view mounts that `embedded` `BudgetReportPanel` as `report-block-budget-report` with no
+  settings change needed. Two `e2e/a11y.spec.ts` scans exploit exactly that block: "Reports (budget
+  chart, cumulative)" switches its chart to cumulative orientation (where the recorded-change markers
+  render) before scanning, and "Reports with the chart readout open has no axe violations" opens its
+  keyboard readout before scanning — both run axe over the Forecast content. What is genuinely unscanned
+  is only the standalone route's own wrapper (the `panel-budget-report` title bar and its
+  `ViewCallout`) — eye-verify THAT, same class as the Calendar sub-tab above. Reproduce: `grep -n "if
+  (embedded)" src/app/budget-report-panel.tsx` and `grep -n "DEFAULT_EXTRA_REPORTS =" src/app/addable-reports.ts`.
   Verify IA/UI/contrast changes with
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
   BEFORE pushing — unit suite (`test:run` = vitest) never runs playwright, so axe regressions slip

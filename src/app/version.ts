@@ -2,8 +2,10 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "1.8.0";
-export const APP_BUILD_DATE = "2026-09-17"; // 1.8.0: the budget chart now shows where the budget moved — every saved budget edit that changes the project's budget at completion is recorded with its date, bucket and amount, starting from the budget as it stood before the first one; in the cumulative view the budget line steps at each change with a marker naming the bucket, the change table lists every recorded change with the added scope to date, and each forecast card splits its variance at completion into performance, added scope and any unexplained budget change; on Turso, snapshots now keep each bucket's percent complete, so the earned-value line also covers buckets whose percent complete is typed in by hand, and any stretch the line cannot fully cover is dashed and labelled; the dashboard budget tile keeps the chart alone, and the change table sits below the chart until the screen is wide enough for both side by side (Rendell)
+export const APP_VERSION = "1.10.0";
+export const APP_BUILD_DATE = "2026-09-18"; // 1.10.0: the Budget forecast now shows one card at a time — a switch above it picks "At current pace" or "At current efficiency", remembered per device, and hidden when printing so the printout shows the chosen card — with a red/amber/green badge from that card's own variance at completion; on the Budget report, Forecast and Burn-down are now one Forecast section, with the card beside the chart on wide screens and stacked below 1280px, and the recorded-change table full width below both; and the gap line now names both readings it is comparing (Leonard)
+// 1.9.0: the budget report and dashboard burn-down and cumulative charts now let you hover, tap or use a pen over a plotted point — or reach one with the keyboard, using arrow keys, Home, End and Escape on the chart's own tab stop — to see a readout box naming that stop's date, each series' value there and a one-line explanation of what it means, with the same content spoken to a screen reader through a live region; the box stays clamped inside both the chart and the browser window, a stop with nothing to report is skipped instead of shown empty, and the app's info-hint bubble now shares its box styling with the chart readout instead of drawing its own (James)
+// 1.8.0: the budget chart now shows where the budget moved — every saved budget edit that changes the project's budget at completion is recorded with its date, bucket and amount, starting from the budget as it stood before the first one; in the cumulative view the budget line steps at each change with a marker naming the bucket, the change table lists every recorded change with the added scope to date, and each forecast card splits its variance at completion into performance, added scope and any unexplained budget change; on Turso, snapshots now keep each bucket's percent complete, so the earned-value line also covers buckets whose percent complete is typed in by hand, and any stretch the line cannot fully cover is dashed and labelled; the dashboard budget tile keeps the chart alone, and the change table sits below the chart until the screen is wide enough for both side by side (Rendell)
 // 1.7.1: closing a budget bucket that passes its remaining budget to a successor no longer makes the project look better off — that leftover budget was being counted twice, which raised the project's budget at completion and, through it, flattered every forecast figure: variance at completion, the date the budget runs out, the burn-down's budget line, and the percentage of budget consumed. Earned value moved onto the same footing, so a project could no longer report having earned more than its whole budget, being more than 100% complete, or costing less to finish than it had already spent. Any project with a closed bucket feeding a successor will see its forecast figures move — the new numbers are the honest ones (Sayers)
 // 1.7.0: the Budget Report and the dashboard burn tile now share ONE burn-down chart, with Burn-down/Cumulative and €/Hours switches that each device remembers, drawing both forecast lines and — in the cumulative view — the earned value actually delivered to date; each forecast card gains an "In hours" line carrying its own estimate at completion, variance and run-out, so an overrun in effort is visible even where the money still looks fine; and when cheaper roles burn more hours than planned the report says so in one voice — a banner, a "Where the hours went" role table, a booked rate per hour beside the other figures, and a chip on both cards and on the dashboard tile — with every rate figure covering hourly buckets only and naming the fixed-price hours it leaves out (Sayers)
 // 1.6.1: the desktop app now runs on Electron 44 (Chromium 152, Node 24); Help → Version opens the app's own Version panel with the same content as in the app, in the app's language, plus a desktop section naming the log file and how to get updates, instead of a separate native dialog; links to other websites open in the system browser while pop-outs, PDF export and Microsoft sign-in stay in the app; and the CI desktop-package job pins its build image — the desktop sign-in popup's state handling has no unit tests, filed as follow-up 547, and an edit made while a project's first load is still pending is overwritten when that load lands, filed as follow-up 548 (Ishiguro)
@@ -46,7 +48,21 @@ export const APP_BUILD_DATE = "2026-09-17"; // 1.8.0: the budget chart now shows
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (an author's surname). The
- *  1.8.x line is "Rendell" (Ruth Rendell, British crime novelist, author of "A
+ *  1.10.x line is "Leonard" (Elmore Leonard, American crime novelist, author of
+ *  "Get Shorty", 1990, and "Rum Punch", 1992), taken by the SELECTION procedure
+ *  below as the first name in the candidate list. Swept BEFORE the 1.10.0
+ *  header was written, in one run with its controls: `grep -ci leonard
+ *  CHANGELOG.md` 0, `grep -c '"Leonard"' CHANGELOG.md` 0, and `git log
+ *  --format=%s | grep -ci leonard` 0; positive control `grep -c '"James"'
+ *  CHANGELOG.md` 1.
+ *  The 1.9.x line was "James" (P. D. James, British crime novelist, author of
+ *  "Cover Her Face", 1962, and "The Children of Men", 1992), taken by the
+ *  SELECTION procedure below as the first name in the candidate list. Swept
+ *  BEFORE the 1.9.0 header was written, in one run with its controls: `james`
+ *  0 hits anywhere in CHANGELOG.md, 0 against the header lines, and 0 in every
+ *  commit subject in the history; positive control `rendell` 1 header hit,
+ *  negative control `zzznotaname` 0.
+ *  The 1.8.x line was "Rendell" (Ruth Rendell, British crime novelist, author of "A
  *  Judgement in Stone", 1977, and the Inspector Wexford novels beginning with
  *  "From Doon with Death", 1964), taken by the SELECTION procedure below as the
  *  first name in the candidate list. Swept BEFORE the 1.8.0 header was written,
@@ -367,7 +383,7 @@ export const APP_BUILD_DATE = "2026-09-17"; // 1.8.0: the budget chart now shows
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Rendell";
+export const APP_MILESTONE = "Leonard";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 /** The app's public source repository, linked from the Version panel. */

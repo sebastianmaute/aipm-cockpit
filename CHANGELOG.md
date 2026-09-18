@@ -8,6 +8,57 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.10.0] - 2026-09-18 "Leonard"
+
+The Budget forecast now shows one card at a time — a switch above it lets you pick "At current
+pace" or "At current efficiency", remembered per device, and the chosen card carries a badge
+showing its health at a glance. On the Budget report, the forecast and burn-down live in one
+Forecast section, with the card and chart side by side on wide screens.
+
+### Added
+
+- **The Budget forecast shows one card at a time.** A switch above the card — "At current pace" /
+  "At current efficiency" — picks which forecast reads, remembered per device
+  (`budgetForecastView`, defaulting to pace); the switch is hidden when printing, so the printout
+  shows the card you had chosen.
+- **The shown card carries a red/amber/green badge** naming its own variance at completion at a
+  glance — no badge when there is no budget to compare against or the forecast cannot be
+  calculated yet.
+- **The Budget report's Forecast and Burn-down sections are now one "Forecast" section** — the
+  card sits beside the chart at roughly 30%/70% on wide screens, the two stack into one column
+  below 1280px, and the recorded-change table runs full width underneath.
+
+### Changed
+
+- **The gap line now names both readings it compares** — "The pace and efficiency forecasts
+  differ by …" — instead of leaving the reader to infer which two figures it means.
+- The dashboard budget tile is unchanged by this release.
+
+## [1.9.0] - 2026-09-18 "James"
+
+The budget report and dashboard burn-down and cumulative charts now answer "what was that worth"
+wherever you point. Hover, tap or use a pen over a plotted date, or reach one by keyboard, to open a
+box naming every line's value there with a one-line explanation of what it means, and the same words
+are spoken to a screen reader.
+
+### Added
+
+- **The budget charts get a hover, tap and keyboard readout.** Point at, tap or use a pen on any
+  plotted date on the burn-down or cumulative chart — on both the Budget Report and the dashboard
+  tile, since they share the same chart — to open a box listing every line drawn at that date: its
+  value in the current unit and a one-line explanation of what it means, in the legend's order. A
+  stop with nothing to show there is left out of the box rather than shown empty.
+- **The chart is reachable by keyboard.** Tab to the chart, then use the Left and Right arrow keys
+  to step from one stop to the next, Home and End to jump to the first or last, and Escape to close
+  the box; the same rows are spoken to a screen reader through a live region as you step.
+- **The box stays on screen.** It is clamped inside both the chart and the browser window, so it
+  never runs off either edge.
+
+### Changed
+
+- **The info-hint bubble (ⓘ) now shares its box styling with the chart readout** instead of drawing
+  its own — no visible change to the existing hints.
+
 ## [1.8.0] - 2026-09-17 "Rendell"
 
 The budget chart now shows where the budget moved. Every budget change is recorded, the cumulative

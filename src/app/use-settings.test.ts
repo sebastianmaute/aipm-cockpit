@@ -199,6 +199,45 @@ describe("useSettings", () => {
       expect(result.current.settings.budgetChartUnit).toBe("hours");
     });
 
+    it("budgetForecastView defaults to pace, in the defaults and when absent from the persisted blob", async () => {
+      expect(defaultSettings.budgetForecastView).toBe("pace");
+      const legacy: Record<string, unknown> = { ...defaultSettings };
+      delete legacy.budgetForecastView;
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.budgetForecastView).toBe("pace");
+    });
+
+    it("budgetForecastView coerces anything but the exact string 'efficiency' to pace", async () => {
+      for (const junk of ["garbage", 7, null, "Efficiency", ["efficiency"]]) {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, budgetForecastView: junk }));
+        const { result, unmount } = renderHook(() => useSettings());
+        await act(async () => {});
+        expect(result.current.settings.budgetForecastView, String(junk)).toBe("pace");
+        unmount();
+      }
+    });
+
+    it("budgetForecastView keeps a persisted 'efficiency' through writeSettings -> load", async () => {
+      writeSettings({ ...defaultSettings, budgetForecastView: "efficiency" });
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.budgetForecastView).toBe("efficiency");
+    });
+
+    it("budgetForecastView persists when set", async () => {
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      act(() => {
+        result.current.setSettings((s) => ({ ...s, budgetForecastView: "efficiency" }));
+      });
+      await waitFor(() => {
+        const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as { budgetForecastView?: string };
+        expect(stored.budgetForecastView).toBe("efficiency");
+      });
+    });
+
     it("defaults dictation.engine to 'web-speech' when absent from persisted blob", async () => {
       const legacy: Record<string, unknown> = { ...defaultSettings };
       delete legacy.dictation;

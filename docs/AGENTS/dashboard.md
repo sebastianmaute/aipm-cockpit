@@ -166,6 +166,57 @@ file-mode project a hand-entered bucket (it has no recorded progress there) is k
 (when it has one), partial from then (from the first point, without one) until today, and known at today's point from its current percent
 (`valueFn` in `budget-ev-history.ts`).
 
+★ **The Budget report's forecast row (forecast-switch spec B):** the report has ONE Forecast section.
+`ForecastSection` reads the device setting `budgetForecastView` (validated on load in `use-settings.ts`
+beside `budgetChartView`) and `ForecastCards` renders ONE card, picked by a `SegmentedControl` that heads
+the card COLUMN — never the card itself, because the two cards are different components and a switch inside
+either would unmount on every change, dropping keyboard focus to `<body>`. The chosen card's title carries
+a `RagBadge` from `paceVacHealth` over that card's own VAC, with NO `title` prop, so its accessible name is
+the health word. The report passes the chart column in as `chart`, with `BurndownChartPanel`'s
+`detachChangeTable` set, and mounts `BurndownChangeTableBlock` as `belowRow`, so the recorded-change table
+spans the section under the row; both go through one `changeTableFor` rule. The dashboard tile mounts no
+`ForecastSection` and never sets `detachChangeTable` (it passes `compact`, which already builds no
+table), so it is unchanged. ★ jsdom has no layout: the 30/70 split and the `xl` breakpoint are pinned
+only by class assertions in `budget-forecast-section.test.tsx` and `budget-report-panel.test.tsx`. The
+chart capture's width in the Reports visual spec (1440px only) pins the chart column, and the
+change-table capture pins the table outside it. The card column, the switch and the stacking below `xl`
+are photographed by nothing, so check them by eye.
+
+★ **The chart's hover/keyboard readout:** hovering, tapping or
+focusing the chart's trigger `<button>` and pressing an arrow key opens a box naming every drawn
+series' value at one "stop". `readoutStops` (`burndown-readout.ts`) only ever lands on a RECORDED
+date — each series' own points, today, the plan end, every budget-change marker and the run-out,
+minus any of those where `readoutAt` finds no row (a stop must have something to say) —
+never an arbitrary calendar day, because `actual` and the earned-value spans carry one point per
+plan period (a value between two of them would be invented) and the two forecast segments are
+already straight lines, so reading along one at a stop is exactly what the chart draws.
+`burndown-readout.ts` is pure and formatter/i18n-free by design; `chart-readout.tsx` owns every
+word the box or the live region speaks. The box is portaled through the shared `TooltipSurface`
+(`tooltip-surface.tsx`) — the SAME component `InfoTooltip` renders through, lifted out on purpose
+so the app keeps one tooltip look — so a style change there moves every tooltip in the app, not
+just this one. ★★ The box itself and its SVG decorations (`[data-readout-guide]` and
+`[data-readout-dot]`) are `aria-hidden`; the polite `[data-readout-live]` region is the ONLY
+accessible channel for a value, so it must never be allowed to lag or drop what the box shows —
+a word added to the box without a matching word in the live region's sentence is invisible to a
+screen-reader user. ★★★ The box's `aria-hidden` sits on `TooltipSurface`'s ROOT node, via its
+`decorative` prop, not on a child inside it — an axe scan opening the readout is what caught the
+narrower shape (`aria-tooltip-name`, serious): a `role="tooltip"` node whose content is hidden is
+itself a nameless ARIA tooltip, which is a violation whether or not anything inside it is
+announced. `decorative` therefore drops the `role` entirely rather than merely hiding the content;
+`InfoTooltip` passes no such prop and keeps `role="tooltip"`, since IT is the accessible content.
+A component reaching for `role="tooltip"` on a node it also means to `aria-hidden` should use
+`TooltipSurface`'s `decorative` prop instead of hand-rolling the combination. ★★ **Accepted trade-off:** the SVG keeps its own `role="img"` with the chart's
+full, unshortened `aria-label`, and the trigger button ALSO folds that same label in as its
+`aria-describedby` — so a screen-reader user who both Tabs to the trigger (hearing the
+`burndownReadoutTrigger` name plus the described summary) and separately browses into the nested
+image hears the summary twice. Accepted deliberately: it only costs the secondary
+object-navigation path, while the Tab-and-arrow path this widget exists for previously got NO
+chart summary at all. ★★★ TEST TRAP for anyone unit-testing the pointer math: jsdom's
+`getBoundingClientRect` returns an all-zero rect, so a test exercising `use-chart-readout.ts`'s
+pointer-position arithmetic without stubbing it is measuring a zero-width chart and will pass
+against almost any formula — stub the rect (`use-chart-readout.test.tsx` does) or the test proves
+nothing.
+
 ★★ **TWO CHROMIUM MEASUREMENTS FROM THIS BRANCH'S REVIEW, both about assertions that LOOK sufficient:**
 • `grid-auto-flow: row dense` COMPUTES as `"dense"`, not `"row dense"` — a `toHaveCSS("grid-auto-flow",
 "row dense")` would fail against correct code. The spec's `gridMetrics` still collects `autoFlow` but
