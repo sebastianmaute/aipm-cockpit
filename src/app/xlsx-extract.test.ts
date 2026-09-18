@@ -290,6 +290,37 @@ describe("extractXlsx", () => {
     }
   });
 
+  it("resolves a sheet name containing '>' to the right rels target (M-7)", () => {
+    // final-release-review.md M-7: forEachOpenTag hands the visitor the
+    // <sheet ...> tag text only up to the first ">", so a name containing
+    // one — legal XML; only "<", "&" and the quote character itself must be
+    // escaped in an AttValue — truncated the tag before r:id was ever read
+    // (real Excel writes name before r:id), and the sheet silently dropped
+    // out of `mapped` entirely. With a SECOND, unaffected sheet also present,
+    // `mapped.length > 0` is still true, so sheetEntries returned early
+    // rather than falling back to sheetNames — the '>'-named sheet vanished
+    // from the output altogether rather than merely mis-titled.
+    const workbook = `<workbook><sheets>
+      <sheet name="D>E" sheetId="1" r:id="rId1"/>
+      <sheet name="Plain" sheetId="2" r:id="rId2"/>
+    </sheets></workbook>`;
+    const rels = `<Relationships>
+      <Relationship Id="rId1" Target="worksheets/sheet2.xml"/>
+      <Relationship Id="rId2" Target="worksheets/sheet1.xml"/>
+    </Relationships>`;
+    const sheet1 = `<worksheet><sheetData><row r="1"><c r="A1"><v>fromPlain</v></c></row></sheetData></worksheet>`;
+    const sheet2 = `<worksheet><sheetData><row r="1"><c r="A1"><v>fromDE</v></c></row></sheetData></worksheet>`;
+    const entries = new Map<string, Uint8Array>([
+      ["xl/workbook.xml", enc(workbook)],
+      ["xl/_rels/workbook.xml.rels", enc(rels)],
+      ["xl/worksheets/sheet1.xml", enc(sheet1)],
+      ["xl/worksheets/sheet2.xml", enc(sheet2)],
+    ]);
+    expect(extractXlsx(entries)).toBe(
+      "## Sheet: D>E\n\n| fromDE |\n| --- |\n\n## Sheet: Plain\n\n| fromPlain |\n| --- |",
+    );
+  });
+
   it("keeps sheet names in declaration order whatever the attribute order", () => {
     // Both workbook readers — the rels mapping and the positional fallback.
     const workbook = `<workbook><sheets>

@@ -42,28 +42,63 @@ function sheetNames(entries: Map<string, Uint8Array>): string[] {
 }
 
 /**
+ * The end index (the tag-closing ">") of the open tag beginning at `from`
+ * (the position right after the tag NAME — e.g. right after "<sheet"),
+ * skipping any ">" that sits INSIDE a quoted attribute value instead of
+ * stopping there. Real XML allows a literal ">" unescaped in an AttValue
+ * (only "<", "&" and the quote character itself are excluded), and a
+ * user-typed sheet name can and does contain one (M-7,
+ * final-release-review.md) — a naive `indexOf(">", from)` truncates the tag
+ * right there. Shared by `readSheetName` (the positional-fallback reader,
+ * below) and `sheetTagAttrs` (the rels-mapping reader) rather than a second
+ * copy of the quote-tracking scan — dup:check is blocking.
+ *
+ * Linear: each character between `from` and the real end is visited once.
+ * A run with no unquoted ">" anywhere further right returns -1 at end of
+ * input, same as `indexOf`'s own miss behaviour — both callers here already
+ * short-circuit the walk on -1, so a huge unclosed-tag-soup input is still
+ * one O(n) scan overall, not one per open tag (measured: see the
+ * "stays linear" / "no '>' at all" tests in xlsx-extract.test.ts).
+ */
+function quoteAwareTagEnd(xml: string, from: number): number {
+  let quote: string | null = null;
+  for (let i = from; i < xml.length; i++) {
+    const ch = xml[i];
+    if (quote !== null) {
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === ">") {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
  * The name="…" of the `<sheet` open whose tag text starts at `from`, read as
  * the former `<sheet\b[^>]*\bname="([^"]*)"` regex read it, but linearly —
  * that regex's `[^>]*` ran to the next ">" from EVERY open (§558).
  *
- * The name is looked for before the tag's first ">" (or end of input), and
- * the RIGHTMOST one wins, as the greedy `[^>]*` backtracked to it — the same
- * choice docx's headingDigit makes. Its value then runs to the closing quote
- * even past a ">", which XML allows unescaped inside an attribute value.
+ * The name is looked for before the tag's real end (quote-aware — see
+ * `quoteAwareTagEnd`) or end of input, and the RIGHTMOST one wins, as the
+ * greedy `[^>]*` backtracked to it — the same choice docx's headingDigit
+ * makes. Its value then runs to the closing quote even past a ">", which
+ * XML allows unescaped inside an attribute value.
  *
  * `resume` is where the regex resumed: past the value's closing quote, or,
- * with no name in the tag, past its ">" — any open inside the tag sees the
- * same ">" and so no name either. So each character is scanned at most
+ * with no name in the tag, past its real end — any open inside the tag sees
+ * the same end and so no name either. So each character is scanned at most
  * twice: the first open after a name, inside the same tag, rescans that
  * tag's tail, finds no name (the one read was the rightmost) and skips past
- * the ">". Null means no open further right can yield a name.
+ * the real end. Null means no open further right can yield a name.
  *
  * ONE divergence, on malformed input only: when the rightmost name's quote
  * never closes, the regex backtracked to an EARLIER name and read a "value"
  * running into the later `name="`; this stops instead.
  */
 function readSheetName(xml: string, from: number): { name: string | null; resume: number } | null {
-  const gt = xml.indexOf(">", from);
+  const gt = quoteAwareTagEnd(xml, from);
   const tagEnd = gt === -1 ? xml.length : gt;
   const nameRe = /\bname="/g;
   const tag = xml.slice(from, tagEnd);
@@ -73,6 +108,30 @@ function readSheetName(xml: string, from: number): { name: string | null; resume
   const quote = xml.indexOf('"', valueStart);
   if (quote === -1) return null;
   return { name: xml.slice(valueStart, quote), resume: quote + 1 };
+}
+
+/**
+ * The `name=`/`r:id=` values of the `<sheet` open tag beginning at `from`
+ * (the position right after "<sheet"), read the same quote-aware way as
+ * `readSheetName` (via the shared `quoteAwareTagEnd`) — `sheetEntries`'
+ * rels-mapping path needs BOTH attributes, and real Excel writes `name`
+ * before `r:id`, so the naive `forEachOpenTag`-truncated tag text this
+ * replaces lost r:id too whenever name contained a ">" (M-7): the whole
+ * tail of the tag, r:id included, sat past the truncation point, and the
+ * sheet silently dropped out of `mapped` rather than merely being
+ * mis-titled. Null means no open further right can complete (mirrors
+ * `quoteAwareTagEnd`'s -1).
+ */
+function sheetTagAttrs(
+  xml: string,
+  from: number,
+): { name: string | null; rid: string | null; resume: number } | null {
+  const gt = quoteAwareTagEnd(xml, from);
+  if (gt === -1) return null;
+  const tag = xml.slice(from, gt);
+  const nameM = /\bname="([^"]*)"/.exec(tag);
+  const ridM = /\br:id="([^"]*)"/.exec(tag);
+  return { name: nameM ? nameM[1] : null, rid: ridM ? ridM[1] : null, resume: gt + 1 };
 }
 
 function worksheetPaths(entries: Map<string, Uint8Array>): string[] {
@@ -109,16 +168,23 @@ function sheetEntries(entries: Map<string, Uint8Array>): { name: string; path: s
       if (id && target) relMap.set(id[1], target[1]);
       return true;
     });
+    // The wb <sheet> scan is NOT forEachOpenTag — its tag text is truncated
+    // at the first ">", which a name containing one (legal XML) sits inside
+    // of, silently losing r:id (written after name by real Excel) along with
+    // it (M-7). sheetTagAttrs reads both attributes quote-aware instead.
     const mapped: { name: string; path: string }[] = [];
-    forEachOpenTag(decodeUtf8(wb), "<sheet\\b", (tag) => {
-      const nameM = /\bname="([^"]*)"/.exec(tag);
-      const ridM = /\br:id="([^"]*)"/.exec(tag);
-      const target = nameM && ridM ? relMap.get(ridM[1]) : undefined;
-      if (!nameM || !target) return true;
-      const path = resolveTarget(target);
-      if (entries.has(path)) mapped.push({ name: unescapeXml(nameM[1]), path });
-      return true;
-    });
+    const wbXml = decodeUtf8(wb);
+    const sheetOpenRe = /<sheet\b/g;
+    while (sheetOpenRe.exec(wbXml) !== null) {
+      const tag = sheetTagAttrs(wbXml, sheetOpenRe.lastIndex);
+      if (tag === null) break;
+      const target = tag.name !== null && tag.rid !== null ? relMap.get(tag.rid) : undefined;
+      if (tag.name !== null && target) {
+        const path = resolveTarget(target);
+        if (entries.has(path)) mapped.push({ name: unescapeXml(tag.name), path });
+      }
+      sheetOpenRe.lastIndex = tag.resume;
+    }
     if (mapped.length > 0) return mapped;
   }
   const names = sheetNames(entries);
