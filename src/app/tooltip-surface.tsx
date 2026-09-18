@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 // The tooltip bubble, lifted verbatim out of `info-tooltip.tsx` so the chart
 // readout can reuse the one surface instead of hand-rolling a second tooltip
