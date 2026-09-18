@@ -52,10 +52,13 @@ function valueText(lang: Lang, row: ReadoutRow, fmt: (v: number) => string): str
  *  accessible channel, so it must carry everything the visual `(forecast)`
  *  marker conveys. Appended after the value (not the parens the visual marker
  *  uses, which read as stray punctuation spoken aloud), mirroring the marker's
- *  own position after the value in the box. */
+ *  own position after the value in the box. The row's explanation goes last,
+ *  as it sits last in the box's row: it is the readout's stated purpose, and
+ *  the live region is the only channel a screen-reader user gets it from. */
 function rowText(lang: Lang, row: ReadoutRow, fmt: (v: number) => string): string {
   const base = t(lang, "burndownReadoutSentence", t(lang, labelKey(row)), valueText(lang, row, fmt));
-  return row.forecast ? `${base}, ${t(lang, "burndownReadoutForecast")}` : base;
+  const flagged = row.forecast ? `${base}, ${t(lang, "burndownReadoutForecast")}` : base;
+  return `${flagged}, ${t(lang, ROW[row.kind].tip)}`;
 }
 
 /** The live region's text: the date, then every row, semicolon separated. */
@@ -85,8 +88,10 @@ export function ChartReadout({
           accessible name is itself an axe-serious violation
           (`aria-tooltip-name`), which is what a root-only `aria-hidden` used to
           leave behind. The inner span below keeps its `block` layout class but
-          no longer needs its own `aria-hidden` — the root already covers it. */}
-      <span className="block">
+          no longer needs its own `aria-hidden` — the root already covers it.
+          `data-readout-box` identifies THIS box: `data-tooltip-portal` is set
+          by every `TooltipSurface`, so it only proves that SOME tooltip is up. */}
+      <span data-readout-box="" className="block">
         <span className="block font-semibold tabular-nums">
           {formatDayMonthYear(readout.date, locale)}
           {readout.today && <span className="ml-1 font-normal text-muted-foreground">{t(lang, "burndownReadoutTodayFlag")}</span>}

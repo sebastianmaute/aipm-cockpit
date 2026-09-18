@@ -4,6 +4,10 @@ import type { Readout } from "./burndown-readout";
 import { ChartReadout, readoutSentence } from "./chart-readout";
 
 const fmt = (v: number) => `${v} EUR`;
+/** The portal ROOT this readout renders into, reached through the readout's own
+ *  `data-readout-box` hook: `data-tooltip-portal` alone is set by every
+ *  `TooltipSurface`, so it could match an unrelated tooltip. */
+const readoutRoot = () => document.querySelector("[data-readout-box]")?.closest("[data-tooltip-portal]") ?? null;
 const full: Readout = {
   date: "2026-02-01",
   today: true,
@@ -56,23 +60,25 @@ describe("ChartReadout", () => {
     expect(rows[9]).toContain("0 EUR");
   });
 
-  // Every tip is asserted BY NAME. An earlier cut checked two of them, which left seven
-  // strings written, read and never tested — the vacuous-coverage shape this repo keeps
-  // being bitten by. One case per row kind, so a missing or mis-mapped tip fails here.
+  // Every tip is asserted BY NAME and INSIDE ITS OWN ROW, in the fixture's row order. An
+  // earlier cut checked two of them, which left seven strings written, read and never tested;
+  // a later one searched the whole page, so any permutation of tips across rows passed. One
+  // case per row kind, so a missing tip, or a tip mapped to the wrong row kind, fails here.
   it.each([
-    ["What the plan expected to be spent by this date."],
-    ["The budget at completion in force on this date."],
-    ["The budget at completion before the first recorded change."],
-    ["The value of all hours booked up to this date."],
-    ["The budget value of the work finished by this date."],
-    ["The budget value of all work finished so far."],
-    ["Where spending lands if it continues at the recent daily average."],
-    ["Where spending lands if the remaining work costs what finished work did."],
-    ["A recorded change to the budget, summed over this period."],
-    ["The day the budget is used up at the current pace."],
-  ])("carries the explanation %s", (tip) => {
+    [0, "What the plan expected to be spent by this date."],
+    [1, "The budget at completion in force on this date."],
+    [2, "The budget at completion before the first recorded change."],
+    [3, "The value of all hours booked up to this date."],
+    [4, "The budget value of the work finished by this date."],
+    [5, "The budget value of all work finished so far."],
+    [6, "Where spending lands if it continues at the recent daily average."],
+    [7, "Where spending lands if the remaining work costs what finished work did."],
+    [8, "A recorded change to the budget, summed over this period."],
+    [9, "The day the budget is used up at the current pace."],
+  ])("carries row %i's explanation %s", (i, tip) => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
-    expect(screen.getByText(tip)).toBeInTheDocument();
+    const rows = screen.getAllByRole("listitem", { hidden: true }).map((li) => li.textContent ?? "");
+    expect(rows[i]).toContain(tip);
   });
 
   it("marks the forecasts as forecasts and says when the date is today", () => {
@@ -82,8 +88,8 @@ describe("ChartReadout", () => {
     expect(screen.getAllByText("(forecast)")).toHaveLength(2);
     // The box carries no ARIA role (`TooltipSurface`'s `decorative` prop — see
     // "keeps the box and the row list out of the accessibility tree" below), so
-    // it is found by its `data-tooltip-portal` hook, not `getByRole("tooltip")`.
-    expect(document.querySelector("[data-tooltip-portal]")).toHaveTextContent("today");
+    // it is found by its own `data-readout-box` hook, not `getByRole("tooltip")`.
+    expect(document.querySelector("[data-readout-box]")).toHaveTextContent("today");
   });
 
   it("signs a change amount and names a deletion", () => {
@@ -101,7 +107,7 @@ describe("ChartReadout", () => {
 
   it("positions the box at the anchor", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 33, left: 44 }} fmt={fmt} locale="en-US" />);
-    expect(document.querySelector("[data-tooltip-portal]")).toHaveStyle({ top: "33px", left: "44px" });
+    expect(readoutRoot()).toHaveStyle({ top: "33px", left: "44px" });
   });
 
   // The PRIMARY guard is `globals.css`'s `[data-tooltip-portal] { display: none
@@ -116,7 +122,7 @@ describe("ChartReadout", () => {
   // that actually needs to disappear on print.
   it("hides the box from print", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
-    expect(document.querySelector("[data-tooltip-portal]")).toHaveClass("print:hidden");
+    expect(readoutRoot()).toHaveClass("print:hidden");
   });
 
   // Pins the aria-hidden contract in BOTH directions: the box really is hidden from the
@@ -130,7 +136,7 @@ describe("ChartReadout", () => {
   // which axe's `aria-tooltip-name` rule flags as a serious violation.
   it("keeps the box and the row list out of the accessibility tree", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
-    const tooltip = document.querySelector("[data-tooltip-portal]")!;
+    const tooltip = readoutRoot()!;
     expect(tooltip).toHaveAttribute("aria-hidden", "true");
     expect(tooltip).not.toHaveAttribute("role");
     expect(screen.queryByRole("tooltip")).toBeNull();
@@ -163,6 +169,28 @@ describe("readoutSentence", () => {
     // Exactly the two forecast rows carry the word — rules out it leaking onto any
     // of the other eight even if their own label/value text happened to differ.
     expect(text.split(", forecast").length - 1).toBe(2);
+  });
+
+  // The box's "today" flag is pinned above; this is the spoken copy of the same fact, in both
+  // directions. Anchored on the head (the text before the first ";"), because the evPoint
+  // row's own label, "Earned value (today)", also carries the word.
+  it("flags today in the head only when the date is today", () => {
+    const today = readoutSentence("en-US", full, fmt, "en-US");
+    expect(today.split("; ")[0]).toBe("Feb 1, 2026 (today)");
+    const notToday = readoutSentence("en-US", { ...full, today: false }, fmt, "en-US");
+    expect(notToday.split("; ")[0]).toBe("Feb 1, 2026");
+  });
+
+  // Each spoken row carries the same explanation the box shows under it, last, after the
+  // value and any forecast flag — the live region is the only channel it reaches a
+  // screen-reader user through.
+  it("speaks each row's explanation after its value", () => {
+    const text = readoutSentence("en-US", full, fmt, "en-US");
+    expect(text).toContain("Planned: 80 EUR, What the plan expected to be spent by this date.");
+    expect(text).toContain(
+      "At current pace: 60 EUR, forecast, Where spending lands if it continues at the recent daily average.",
+    );
+    expect(text).toContain("Runs out: 0 EUR, The day the budget is used up at the current pace.");
   });
 
   it("formats the date in day-month order for an en-GB locale", () => {
