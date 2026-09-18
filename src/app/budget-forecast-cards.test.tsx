@@ -286,7 +286,7 @@ describe("ForecastCards — fixed-price note", () => {
 describe("ForecastCards — gap line (conditions unchanged)", () => {
   it("renders the info sentence as a plain paragraph without a role", () => {
     render(<Cards lang="en-US" forecast={AVAILABLE} />);
-    const text = screen.getByText(/The forecasts differ by/);
+    const text = screen.getByText(/The pace and efficiency forecasts differ by/);
     expect(text.tagName).toBe("P");
     expect(text.getAttribute("role")).toBeNull();
     expect(text.textContent).toContain("8 working days beyond the planned end");
@@ -294,7 +294,7 @@ describe("ForecastCards — gap line (conditions unchanged)", () => {
 
   it("renders under the efficiency card too — it compares both forecasts whichever card shows", () => {
     render(<Cards lang="en-US" view="efficiency" forecast={AVAILABLE} />);
-    expect(screen.getByText(/The forecasts differ by/)).toBeInTheDocument();
+    expect(screen.getByText(/The pace and efficiency forecasts differ by/)).toBeInTheDocument();
   });
 
   it("hides the extra-days clause when extraWorkingDays is null", () => {
@@ -303,7 +303,7 @@ describe("ForecastCards — gap line (conditions unchanged)", () => {
       gap: { eacDifference: 9818, percentOfBac: 9818 / 240000, severity: "info", extraWorkingDays: null },
     };
     render(<Cards lang="en-US" forecast={noExtra} />);
-    const text = screen.getByText(/The forecasts differ by/);
+    const text = screen.getByText(/The pace and efficiency forecasts differ by/);
     expect(text.textContent).not.toContain("working days beyond the planned end");
   });
 
@@ -319,7 +319,7 @@ describe("ForecastCards — gap line (conditions unchanged)", () => {
 
   it("renders nothing when gap is null", () => {
     render(<Cards lang="en-US" forecast={{ ...AVAILABLE, gap: null }} />);
-    expect(screen.queryByText(/The forecasts differ by/)).toBeNull();
+    expect(screen.queryByText(/The pace and efficiency forecasts differ by/)).toBeNull();
   });
 
   it("renders nothing when either forecast is unavailable, in either view", () => {
@@ -330,7 +330,7 @@ describe("ForecastCards — gap line (conditions unchanged)", () => {
     for (const view of VIEWS) {
       for (const forecast of unavailableScenarios) {
         const { unmount } = render(<Cards lang="en-US" view={view} forecast={forecast} />);
-        expect(screen.queryByText(/The forecasts differ by/)).toBeNull();
+        expect(screen.queryByText(/The pace and efficiency forecasts differ by/)).toBeNull();
         unmount();
       }
     }

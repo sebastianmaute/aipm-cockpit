@@ -12,8 +12,16 @@ const PACE = t("en-US", "forecastPaceTitle");
 const EFF = t("en-US", "forecastEfficiencyTitle");
 const CHART = <div data-testid="chart-slot">chart</div>;
 
-/** The row is the chart slot's grandparent: row > chart column > slot. */
-const rowOf = () => screen.getByTestId("chart-slot").parentElement!.parentElement as HTMLElement;
+/** Walk up from `el` until an ancestor carries `cls` (mirrors the idiom in
+ *  `budget-report-panel.test.tsx`), throwing rather than returning null so a
+ *  broken lookup fails at the call site with a clear message. */
+const ancestorWithClass = (el: Element, cls: string): HTMLElement => {
+  for (let n = el.parentElement; n; n = n.parentElement) if (n.classList.contains(cls)) return n;
+  throw new Error(`no ancestor of ${el.tagName} carries class "${cls}"`);
+};
+
+/** The row is the chart slot's ancestor carrying the row's own `xl:flex-row` class. */
+const rowOf = () => ancestorWithClass(screen.getByTestId("chart-slot"), "xl:flex-row");
 
 describe("ForecastSection", () => {
   it("opens the role mix from the banner and focuses its summary", () => {

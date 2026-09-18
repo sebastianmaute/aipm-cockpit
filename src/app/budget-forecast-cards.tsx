@@ -9,6 +9,7 @@
 // nothing is computed.
 import { useId, type ReactNode } from "react";
 import { type Lang, t, localeFor } from "./i18n";
+import type { Settings } from "./settings-types";
 import { SegmentedControl } from "./segmented-control";
 import { RagBadge } from "./rag-badge";
 import { formatCurrency } from "./resource-cost";
@@ -29,7 +30,7 @@ type Money = (n: number) => string;
 type Facts = BudgetForecast["facts"];
 
 /** Which forecast card shows — the device setting `budgetForecastView`. */
-export type ForecastView = "pace" | "efficiency";
+export type ForecastView = NonNullable<Settings["budgetForecastView"]>;
 
 /** The card's health at a glance (spec B, Decision 3): `paceVacHealth` over
  *  THIS card's own VAC. ★ No `title` on purpose — `RagBadge` then names the

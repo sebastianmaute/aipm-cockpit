@@ -682,8 +682,8 @@ const enUS = {
   forecastEfficiencyNoEarned: "Nothing earned yet",
   forecastFixedPriceNote: "Fixed price: the overrun is internal effort; the client price does not change.",
   forecastWindowLine: "Burn rate from {0} – {1} ({2} working days)",
-  forecastGapInfo: "The forecasts differ by {0} ({1} of budget).",
-  forecastGapWarning: "Warning: the forecasts differ by {0} ({1} of budget).",
+  forecastGapInfo: "The pace and efficiency forecasts differ by {0} ({1} of budget).",
+  forecastGapWarning: "Warning: the pace and efficiency forecasts differ by {0} ({1} of budget).",
   forecastExtraDaysTerm: "Extra working days",
   forecastGapExtraDays:
     "At current efficiency the work needs {0} working days beyond the planned end; the pace forecast assumes it finishes on time.",
