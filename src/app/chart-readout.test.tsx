@@ -127,6 +127,20 @@ describe("readoutSentence", () => {
     expect(text).toContain("Ops");
   });
 
+  // The visual `(forecast)` marker is a WORD, not a shade, so the spoken sentence must
+  // carry it too — both directions: it appears on both forecast rows (pace, efficiency),
+  // and it appears on NEITHER of the other eight, so a version that stamps every row (or
+  // drops it from both) passes neither half.
+  it("announces the forecast flag for forecast rows only", () => {
+    const text = readoutSentence("en-US", full, fmt, "en-US");
+    expect(text).toContain("At current pace: 60 EUR, forecast");
+    expect(text).toContain("At current efficiency: 55 EUR, forecast");
+    expect(text).not.toContain("Planned: 80 EUR, forecast");
+    // Exactly the two forecast rows carry the word — rules out it leaking onto any
+    // of the other eight even if their own label/value text happened to differ.
+    expect(text.split(", forecast").length - 1).toBe(2);
+  });
+
   it("formats the date in day-month order for an en-GB locale", () => {
     const text = readoutSentence("en-US", full, fmt, "en-GB");
     expect(text).toContain("1 Feb 2026");
