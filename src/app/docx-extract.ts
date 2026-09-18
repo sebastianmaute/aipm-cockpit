@@ -5,7 +5,7 @@
 // extract partially.
 
 import { decodeUtf8, extractRuns } from "./office-xml";
-import { forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
+import { forEachOpenTag, forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
 
 const TC_PAIR: TagPairSpec = { openPattern: "<w:tc\\b", closeName: () => "w:tc", hasAttributes: true };
 const TR_PAIR: TagPairSpec = { openPattern: "<w:tr\\b", closeName: () => "w:tr", hasAttributes: true };
@@ -53,12 +53,28 @@ function renderTable(tblXml: string): string {
 function renderParagraph(pXml: string): string {
   const text = extractRuns(pXml, "w:t").join("").trim();
   if (text === "") return "";
-  const h = /<w:pStyle\b[^>]*w:val="(?:Heading|heading)(\d)"/.exec(pXml);
-  if (h) {
-    const level = Math.min(6, Math.max(1, parseInt(h[1], 10)));
+  const digit = headingDigit(pXml);
+  if (digit !== null) {
+    const level = Math.min(6, Math.max(1, parseInt(digit, 10)));
     return `${"#".repeat(level)} ${text}`;
   }
   return text;
+}
+
+/** The N of the first `<w:pStyle ... w:val="HeadingN">` in a paragraph, or
+ *  null. Read tag by tag rather than by the former
+ *  `<w:pStyle\b[^>]*w:val=...` regex, whose `[^>]*` ran to the paragraph's
+ *  close from every unclosed open — quadratic (§558). Within one tag the
+ *  rightmost hit wins, as that greedy `[^>]*` backtracked to it. */
+function headingDigit(pXml: string): string | null {
+  let digit: string | null = null;
+  forEachOpenTag(pXml, "<w:pStyle\\b", (tag) => {
+    const valRe = /w:val="(?:Heading|heading)(\d)"/g;
+    let m: RegExpExecArray | null;
+    while ((m = valRe.exec(tag)) !== null) digit = m[1];
+    return digit === null;
+  });
+  return digit;
 }
 
 /** Extract Markdown from a docx's entry map (needs `word/document.xml`). */

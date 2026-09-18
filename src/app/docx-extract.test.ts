@@ -74,4 +74,38 @@ describe("extractDocx", () => {
     extractDocx(entries);
     expect(performance.now() - start).toBeLessThan(1000);
   });
+
+  it("does not blow up on unclosed <w:pStyle opens inside one paragraph", () => {
+    // §558 remainder: the paragraph's own heading read was a
+    // `<w:pStyle\b[^>]*w:val=...` regex. With no ">" before the paragraph's
+    // close, `[^>]*` runs to it from EVERY open and backtracks all the way,
+    // so 40k opens measured ~5s against the old read (20k ~1.2s, 80k ~21s —
+    // ~4x per doubling). The ceiling is deliberately loose: it fails on the
+    // pattern class, not on a machine's speed.
+    const xml =
+      "<w:document><w:body><w:p><w:r><w:t>x</w:t></w:r>" +
+      "<w:pStyle ".repeat(40_000) +
+      "</w:p></w:body></w:document>";
+    const start = performance.now();
+    extractDocx(entries(xml));
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
+
+  it("still reads the heading level whatever the pStyle's attribute order", () => {
+    // The linear read must accept every shape the former regex did: w:val
+    // before or after other attributes, lower-case "heading", a paired
+    // (not self-closing) pStyle, and the first pStyle that names a heading
+    // winning over an earlier one that does not.
+    const para = (pPr: string, text: string) =>
+      `<w:p><w:pPr>${pPr}</w:pPr><w:r><w:t>${text}</w:t></w:r></w:p>`;
+    const xml = `<w:document><w:body>${[
+      para(`<w:pStyle w:val="Heading2"/>`, "a"),
+      para(`<w:pStyle w:x="1" w:val="Heading3" w:y="2"/>`, "b"),
+      para(`<w:pStyle w:val="heading4"></w:pStyle>`, "c"),
+      para(`<w:pStyle w:val="Title"/><w:pStyle w:val="Heading5"/>`, "d"),
+      para(`<w:pStyle w:val="Heading12"/>`, "e"),
+      para(`<w:pStyle w:val="Normal"/>`, "f"),
+    ].join("")}</w:body></w:document>`;
+    expect(extractDocx(entries(xml))).toBe("## a\n\n### b\n\n#### c\n\n##### d\n\ne\n\nf");
+  });
 });

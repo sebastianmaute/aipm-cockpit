@@ -173,6 +173,27 @@ export function forEachTagPair(html: string, spec: TagPairSpec, visit: (pair: Ta
   }
 }
 
+/** Walk every open tag matched by `openPattern` (e.g. `<sheet\b`, compiled
+ *  "g") in document order, linearly, handing `visit` the tag's own text up to
+ *  and including its first ">" — what a `<name\b[^>]*>` regex matched, minus
+ *  the backtracking: with no ">" after them, `[^>]*` runs to end of input
+ *  from EVERY open, O(n^2) (§558). `visit` returns false to stop the walk.
+ *
+ *  Linear because the next open is searched for from just past the ">" this
+ *  one ended at, so no character is scanned twice. That also consumes any
+ *  open sitting inside the visited tag's text, as the regex did. An open with
+ *  no ">" after it ends the walk: none further right can have one either. */
+export function forEachOpenTag(xml: string, openPattern: string, visit: (tag: string) => boolean): void {
+  const openRe = new RegExp(openPattern, "g");
+  let m: RegExpExecArray | null;
+  while ((m = openRe.exec(xml)) !== null) {
+    const gt = xml.indexOf(">", openRe.lastIndex);
+    if (gt === -1) return;
+    if (!visit(xml.slice(m.index, gt + 1))) return;
+    openRe.lastIndex = gt + 1;
+  }
+}
+
 /** forEachTagPair with each pair replaced by `render`'s output — what
  *  String.replace did with the pair regex, minus the backtracking. */
 export function replaceTagPairs(html: string, spec: TagPairSpec, render: (pair: TagPair) => string): string {

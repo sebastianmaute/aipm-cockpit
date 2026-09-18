@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { forEachTagPair, replaceTagPairs, type TagPairSpec } from "./tag-pair-walk";
+import { forEachOpenTag, forEachTagPair, replaceTagPairs, type TagPairSpec } from "./tag-pair-walk";
 
 const SPEC: TagPairSpec = {
   openPattern: "<(w:tbl)\\b",
@@ -132,5 +132,51 @@ describe("replaceTagPairs", () => {
   it("replaces each pair and keeps the text around it", () => {
     const out = replaceTagPairs("x<w:tbl>a</w:tbl>y", SPEC, (p) => "[" + p.inner + "]");
     expect(out).toBe("x[a]y");
+  });
+});
+
+describe("forEachOpenTag", () => {
+  const tagsOf = (xml: string, stopAfter = Infinity): string[] => {
+    const tags: string[] = [];
+    forEachOpenTag(xml, "<sheet\\b", (tag) => {
+      tags.push(tag);
+      return tags.length < stopAfter;
+    });
+    return tags;
+  };
+
+  it("visits each open tag through its first '>', whatever its form", () => {
+    expect(tagsOf(`<sheets><sheet a="1"/><sheet b="2"></sheet><sheetX/></sheets>`)).toEqual([
+      `<sheet a="1"/>`,
+      `<sheet b="2">`,
+    ]);
+  });
+
+  it("consumes an open that sits inside an earlier tag, as `<sheet\\b[^>]*>` did", () => {
+    expect(tagsOf(`<sheet a <sheet b>`)).toEqual([`<sheet a <sheet b>`]);
+  });
+
+  it("stops at an open with no '>' after it, and when visit returns false", () => {
+    expect(tagsOf(`<sheet a/><sheet b`)).toEqual([`<sheet a/>`]);
+    expect(tagsOf(`<sheet a/><sheet b/>`, 1)).toEqual([`<sheet a/>`]);
+  });
+
+  it("stays linear on opens with no '>' anywhere at all", () => {
+    // Skipping such an open instead of ending the walk makes every later one
+    // rescan to end of input. indexOf is fast enough that this only shows at
+    // scale: ~0.2s per walk at 40k opens, ~4s at this size.
+    const input = "<sheet ".repeat(200_000);
+    const start = performance.now();
+    expect(tagsOf(input)).toEqual([]);
+    expect(performance.now() - start).toBeLessThan(250);
+  });
+
+  it("stays linear on opens with no '>' before the end of a long input", () => {
+    // Resuming the open scan anywhere short of the visited tag's ">" makes
+    // every one of these opens rescan out to the single ">" at the end.
+    const input = "<sheet ".repeat(80_000) + ">";
+    const start = performance.now();
+    expect(tagsOf(input)).toHaveLength(1);
+    expect(performance.now() - start).toBeLessThan(250);
   });
 });

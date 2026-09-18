@@ -182,4 +182,102 @@ describe("extractXlsx", () => {
     extractXlsx(entries);
     expect(performance.now() - start).toBeLessThan(1000);
   });
+
+  // §558 remainder. Each fixture below measured ~4x slower per doubling of
+  // its repeat count against the read it replaces; the ceiling is loose on
+  // purpose — it fails on the pattern class, not on a machine's speed.
+  it("does not blow up on unclosed <sheet opens in workbook.xml", () => {
+    // sheetNames' `<sheet\b[^>]*\bname="..."` ran `[^>]*` to the one ">" at
+    // the end from every open and backtracked all the way: ~3.6s at 40k,
+    // ~14s at 80k.
+    const workbook = "<workbook><sheets>" + "<sheet ".repeat(80_000) + "</sheets></workbook>";
+    const entries = new Map<string, Uint8Array>([["xl/workbook.xml", enc(workbook)]]);
+    const start = performance.now();
+    extractXlsx(entries);
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
+
+  it("does not blow up on unclosed <sheet and <Relationship opens with no '>' at all", () => {
+    // The rels mapping's `<sheet\b[^>]*\/?>` and `<Relationship\b[^>]*\/?>`
+    // match fine once a ">" follows, but with none anywhere every open scans
+    // to end of input and fails — as does sheetNames' read. Measured 63s for
+    // all three at 80k; 40k keeps each one alone well over the ceiling.
+    const workbook = "<sheet ".repeat(40_000);
+    const rels = "<Relationship ".repeat(40_000);
+    const entries = new Map<string, Uint8Array>([
+      ["xl/workbook.xml", enc(workbook)],
+      ["xl/_rels/workbook.xml.rels", enc(rels)],
+    ]);
+    const start = performance.now();
+    extractXlsx(entries);
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
+
+  it("does not blow up on many unclosed <v> inside one cell", () => {
+    // cellValue's `<v>([\s\S]*?)<\/v>` rescanned to the cell's end from every
+    // <v>: ~2.4s at 80k. One <c> can hold the whole sheet, so "a cell's own
+    // short content" was never a bound.
+    const sheet =
+      "<worksheet><sheetData><row><c>" + "<v>".repeat(160_000) + "</c></row></sheetData></worksheet>";
+    const entries = new Map<string, Uint8Array>([["xl/worksheets/sheet1.xml", enc(sheet)]]);
+    const start = performance.now();
+    extractXlsx(entries);
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
+
+  it("drops a cell whose column is past Excel's last (XFD) instead of padding out to it", () => {
+    // colIndex("ZZZZZZZ") is ~8e9; padding the row out to it exhausted memory.
+    // XFE is the first column past XFD.
+    const sheet = `<worksheet><sheetData>
+      <row r="1"><c r="A1"><v>1</v></c><c r="ZZZZZZZ1"><v>9</v></c><c r="B1"><v>2</v></c><c r="XFE1"><v>8</v></c></row>
+    </sheetData></worksheet>`;
+    const entries = new Map<string, Uint8Array>([["xl/worksheets/sheet1.xml", enc(sheet)]]);
+    const start = performance.now();
+    const out = extractXlsx(entries);
+    expect(performance.now() - start).toBeLessThan(1000);
+    expect(out).toBe("## Sheet: Sheet1\n\n| 1 | 2 |\n| --- | --- |");
+  });
+
+  it("keeps a cell in Excel's last column (XFD)", () => {
+    const sheet = `<worksheet><sheetData><row r="1"><c r="XFD1"><v>7</v></c></row></sheetData></worksheet>`;
+    const entries = new Map<string, Uint8Array>([["xl/worksheets/sheet1.xml", enc(sheet)]]);
+    const row = extractXlsx(entries).split("\n")[2];
+    expect(row.split("|").length - 2).toBe(16_384);
+    expect(row.endsWith("| 7 |")).toBe(true);
+  });
+
+  it("reads the first <v> of a cell", () => {
+    const sheet = `<worksheet><sheetData>
+      <row r="1"><c r="A1"><v>first</v><v>second</v></c><c r="B1"><v>a &amp; b</v></c><c r="C1"><v>open</c></row>
+    </sheetData></worksheet>`;
+    const entries = new Map<string, Uint8Array>([["xl/worksheets/sheet1.xml", enc(sheet)]]);
+    expect(extractXlsx(entries)).toBe("## Sheet: Sheet1\n\n| first | a & b |  |\n| --- | --- | --- |");
+  });
+
+  it("keeps sheet names in declaration order whatever the attribute order", () => {
+    // Both workbook readers — the rels mapping and the positional fallback.
+    const workbook = `<workbook><sheets>
+      <sheet name="One" sheetId="1" r:id="rId1"/>
+      <sheet r:id="rId2" sheetId="2" name="Two &amp; more"/>
+      <sheet sheetId="3" name="Three" r:id="rId3"></sheet>
+    </sheets></workbook>`;
+    const sheet = (v: string) =>
+      enc(`<worksheet><sheetData><row r="1"><c r="A1"><v>${v}</v></c></row></sheetData></worksheet>`);
+    const files: [string, Uint8Array][] = [
+      ["xl/worksheets/sheet1.xml", sheet("1")],
+      ["xl/worksheets/sheet2.xml", sheet("2")],
+      ["xl/worksheets/sheet3.xml", sheet("3")],
+    ];
+    const expected =
+      "## Sheet: One\n\n| 1 |\n| --- |\n\n## Sheet: Two & more\n\n| 2 |\n| --- |\n\n## Sheet: Three\n\n| 3 |\n| --- |";
+    const fallback = new Map<string, Uint8Array>([["xl/workbook.xml", enc(workbook)], ...files]);
+    expect(extractXlsx(fallback)).toBe(expected);
+    const rels = `<Relationships>
+      <Relationship Id="rId1" Target="worksheets/sheet1.xml"/>
+      <Relationship Target="/xl/worksheets/sheet2.xml" Id="rId2"/>
+      <Relationship Id="rId3" Target="worksheets/sheet3.xml"></Relationship>
+    </Relationships>`;
+    const mapped = new Map<string, Uint8Array>([...fallback, ["xl/_rels/workbook.xml.rels", enc(rels)]]);
+    expect(extractXlsx(mapped)).toBe(expected);
+  });
 });

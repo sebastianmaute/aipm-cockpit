@@ -3,7 +3,7 @@
 // formulas/styles). xlsm is identical (the macro blob is ignored). Pure.
 
 import { decodeUtf8, extractRuns, unescapeXml } from "./office-xml";
-import { forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
+import { forEachOpenTag, forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
 
 // Walked via forEachTagPair rather than the former `<si\b[\s\S]*?<\/si>`
 // lazy pair regex, which is quadratic on repetitive unclosed markup — see
@@ -31,9 +31,13 @@ function sheetNames(entries: Map<string, Uint8Array>): string[] {
   if (!b) return [];
   const xml = decodeUtf8(b);
   const out: string[] = [];
-  const re = /<sheet\b[^>]*\bname="([^"]*)"/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(xml)) !== null) out.push(unescapeXml(m[1]));
+  // Tag by tag, not the former `<sheet\b[^>]*\bname="..."` regex, whose
+  // `[^>]*` ran to the next ">" from every unclosed open — quadratic (§558).
+  forEachOpenTag(xml, "<sheet\\b", (tag) => {
+    const m = /\bname="([^"]*)"/.exec(tag);
+    if (m) out.push(unescapeXml(m[1]));
+    return true;
+  });
   return out;
 }
 
@@ -62,33 +66,33 @@ function sheetEntries(entries: Map<string, Uint8Array>): { name: string; path: s
   const wb = entries.get("xl/workbook.xml");
   const rels = entries.get("xl/_rels/workbook.xml.rels");
   if (wb && rels) {
+    // Both walked tag by tag rather than by `<name\b[^>]*\/?>` regexes, which
+    // scan to end of input from every open when no ">" follows (§558).
     const relMap = new Map<string, string>();
-    const relRe = /<Relationship\b[^>]*\/?>/g;
-    const relXml = decodeUtf8(rels);
-    let rm: RegExpExecArray | null;
-    while ((rm = relRe.exec(relXml)) !== null) {
-      const id = /\bId="([^"]*)"/.exec(rm[0]);
-      const target = /\bTarget="([^"]*)"/.exec(rm[0]);
+    forEachOpenTag(decodeUtf8(rels), "<Relationship\\b", (tag) => {
+      const id = /\bId="([^"]*)"/.exec(tag);
+      const target = /\bTarget="([^"]*)"/.exec(tag);
       if (id && target) relMap.set(id[1], target[1]);
-    }
-    const wbXml = decodeUtf8(wb);
-    const sRe = /<sheet\b[^>]*\/?>/g;
+      return true;
+    });
     const mapped: { name: string; path: string }[] = [];
-    let sm: RegExpExecArray | null;
-    while ((sm = sRe.exec(wbXml)) !== null) {
-      const nameM = /\bname="([^"]*)"/.exec(sm[0]);
-      const ridM = /\br:id="([^"]*)"/.exec(sm[0]);
-      if (!nameM || !ridM) continue;
-      const target = relMap.get(ridM[1]);
-      if (!target) continue;
+    forEachOpenTag(decodeUtf8(wb), "<sheet\\b", (tag) => {
+      const nameM = /\bname="([^"]*)"/.exec(tag);
+      const ridM = /\br:id="([^"]*)"/.exec(tag);
+      const target = nameM && ridM ? relMap.get(ridM[1]) : undefined;
+      if (!nameM || !target) return true;
       const path = resolveTarget(target);
       if (entries.has(path)) mapped.push({ name: unescapeXml(nameM[1]), path });
-    }
+      return true;
+    });
     if (mapped.length > 0) return mapped;
   }
   const names = sheetNames(entries);
   return paths.map((path, i) => ({ name: names[i] ?? `Sheet${i + 1}`, path }));
 }
+
+/** Excel's column count: A..XFD. */
+const MAX_XLSX_COLUMNS = 16_384;
 
 function colIndex(ref: string): number {
   const m = /^([A-Z]+)/.exec(ref);
@@ -102,15 +106,15 @@ function cellValue(cXml: string, shared: string[]): string {
   const t = /\bt="([^"]*)"/.exec(cXml);
   const type = t ? t[1] : "";
   if (type === "inlineStr") return extractRuns(cXml, "t").join("");
-  // Bounded, not ported: cXml is already one <c>...</c> element's own text
-  // (sliced out by forEachXmlElement below), so this lazy pair regex runs
-  // once per cell against that cell's own short content — there is exactly
-  // one <v> to find or none, never a rescan-to-end-of-input over the whole
-  // sheet. The quadratic shape needs a lazy pair regex looped over a large
-  // shared input with a missing close; neither holds here.
-  const v = /<v>([\s\S]*?)<\/v>/.exec(cXml);
-  if (!v) return "";
-  const raw = unescapeXml(v[1]);
+  // The first <v>'s text, by two forward indexOf scans. The former
+  // `<v>([\s\S]*?)<\/v>` lazy regex was NOT bounded by the cell: one <c> can
+  // hold the whole sheet, and with no "</v>" it rescanned to the cell's end
+  // from every <v> — quadratic (§558). If the first <v> has no close after
+  // it, no later one can either, exactly when the regex found no match.
+  const vStart = cXml.indexOf("<v>");
+  const vEnd = vStart === -1 ? -1 : cXml.indexOf("</v>", vStart + 3);
+  if (vEnd === -1) return "";
+  const raw = unescapeXml(cXml.slice(vStart + 3, vEnd));
   if (type === "s") {
     const i = parseInt(raw, 10);
     return shared[i] ?? "";
@@ -203,6 +207,9 @@ function sheetRows(xml: string, shared: string[]): string[][] {
     forEachXmlElement(rowXml, "c", (cellXml) => {
       const ref = /\br="([A-Z]+\d+)"/.exec(cellXml);
       const idx = ref ? colIndex(ref[1]) : cells.length;
+      // Past XFD no real sheet has a cell, and padding out to one (ZZZZZZZ is
+      // ~8e9) would exhaust memory, so the cell is dropped instead (§558).
+      if (idx >= MAX_XLSX_COLUMNS) return true;
       while (cells.length < idx) cells.push("");
       cells.push(cellValue(cellXml, shared).replace(/\|/g, "\\|"));
       return true;
