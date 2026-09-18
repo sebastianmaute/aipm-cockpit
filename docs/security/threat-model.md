@@ -109,10 +109,10 @@ The strongest surface — this is where the server makes outbound calls on the u
   different questions** — this bullet answers the count, and the per-sink judgement is the audit's,
   in `findings-2026-09.md`.
 
-  ★ The enumeration in the `src/proxy.ts` CSP comment is **still stale** as of 2026-09-18: it names
-  six JSX sinks and omits `document-block-notices.tsx` and `document-editor.tsx`. Both omitted sinks
-  sanitize, so the comment's rationale holds and only its list is wrong. Fixing it is a source
-  change and was deferred out of the commit that corrected this file.
+  ★ The enumeration in the `src/proxy.ts` CSP comment used to name six JSX sinks, omitting
+  `document-block-notices.tsx` and `document-editor.tsx`. Both omitted sinks sanitize, so the
+  comment's rationale always held and only its list was wrong. **Corrected 2026-09-18 in
+  `src/proxy.ts`**, which now enumerates all eight and carries both sweep commands.
 - **Dependency posture:** `npm audit` = 0 vulns across 719 deps (verified 2026-07-02); Phase 1 adds a blocking CI audit gate.
 
 ---

@@ -53,8 +53,9 @@ precisely the control that is supposed to survive that.
 **Fix:** mirror the stt pattern in both helpers — `redirect: "manual"`, treat 3xx as 502. Neither
 helper has redirect test coverage today; `stt/route.test.ts` shows the shape.
 
-**Status:** still open as of this file's commit. Reproduce by sweeping `src/app/api/` for a
-`redirect` policy: only the stt helper sets one.
+**Status:** fixed in the follow-up slice (register §559). `callJira` and `callTimelog` now set
+`redirect: "manual"` and reject 3xx, so a sweep of `src/app/api/` for a redirect policy finds all
+three helpers, not just stt. At `ed6ed8e4` only stt set one.
 
 ## HIGH-2 — Quadratic blowup in the OOXML extractors (client-side denial of service)
 
@@ -166,8 +167,9 @@ for `ai.apiKey`.
 **Fix:** derive the redaction from the `SecretId` list and its field mapping rather than restating
 it.
 
-**Status:** still open as of this file's commit — re-read `redactSettings`; it still names three
-fields and no more.
+**Status:** fixed in the follow-up slice (register §560). `redactSettings` now names no field at
+all — it walks `SECRET_IDS` and redacts each id's path from `SECRET_SETTINGS_PATHS`, so the list
+cannot rot out of step with the `SecretId` union again. At `ed6ed8e4` it named three.
 
 ## MEDIUM-3 — no Electron fuses configured
 
@@ -246,8 +248,9 @@ this state machine has no unit harness.
 - **Register §13 can be closed by this run**, now that the report sits in `docs/security/` as a
   dated snapshot beside the 2026-07 one, not replacing it.
 - New register entries are needed for each finding above that is not fixed in the same slice.
-- Of the three stale claims found during triage, two are corrected in the same commit as this file:
-  the `threat-model.md` sink count, and the `findings-2026-07.md` URL-1 note claiming
-  `document-links-field.tsx` was deleted. The third — the `src/proxy.ts` comment enumerating six
-  JSX sinks — is a source change, was deliberately deferred out of this documentation commit, and
-  **remains outstanding.**
+- All three stale claims found during triage are now corrected. Two were fixed in the commit that
+  created this file: the `threat-model.md` sink count, and the `findings-2026-07.md` URL-1 note
+  claiming `document-links-field.tsx` was deleted. The third — the `src/proxy.ts` comment
+  enumerating six JSX sinks — was a source change, deferred out of that documentation commit and
+  **corrected shortly after in `962d51dc`**; that comment now enumerates all eight JSX sinks, names
+  the three `document.write` sites, and carries both sweep commands.
