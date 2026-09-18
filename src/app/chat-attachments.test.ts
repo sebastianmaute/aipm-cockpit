@@ -13,10 +13,15 @@ import {
   HTML_EXTENSIONS,
   OFFICE_EXTENSIONS,
   MAIL_EXTENSIONS,
+  MAX_CHAT_ATTACHMENTS,
+  MAX_STAGED_PAYLOAD_BYTES,
+  blocksPayloadBytes,
+  planStaging,
   type AttachmentKind,
   type AttachmentBlock,
   type ImageBlock,
   type DocumentBlock,
+  type StagingCandidate,
 } from "./chat-attachments";
 import { loadI18n, t } from "./i18n";
 
@@ -527,5 +532,59 @@ describe("the attachment hint discloses what the picker accepts", () => {
       expect(hint).toContain(flat);
       expect(hint).toContain(mail);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pure staging caps — blocksPayloadBytes / planStaging
+// ---------------------------------------------------------------------------
+
+const textBlock = (n: number): AttachmentBlock => ({
+  type: "document",
+  source: { type: "text", media_type: "text/plain", data: "x".repeat(n) },
+});
+const imgBlock = (n: number): AttachmentBlock => ({
+  type: "image",
+  source: { type: "base64", media_type: "image/png", data: "A".repeat(n) },
+});
+
+describe("blocksPayloadBytes", () => {
+  it("sums the data length of every block, text and base64 alike", () => {
+    expect(blocksPayloadBytes([textBlock(3), imgBlock(5)])).toBe(8);
+  });
+  it("is 0 for no blocks", () => {
+    expect(blocksPayloadBytes([])).toBe(0);
+  });
+});
+
+describe("planStaging", () => {
+  const c = (name: string, bytes: number): StagingCandidate => ({ name, blocks: [textBlock(bytes)] });
+
+  it("accepts up to the count cap, counting what is already staged", () => {
+    const cands = Array.from({ length: 5 }, (_, i) => c(`f${i}`, 1));
+    const r = planStaging(MAX_CHAT_ATTACHMENTS - 2, 0, cands);
+    expect(r.accepted.map((a) => a.name)).toEqual(["f0", "f1"]);
+    expect(r.rejected).toEqual([
+      { name: "f2", reason: "too-many" },
+      { name: "f3", reason: "too-many" },
+      { name: "f4", reason: "too-many" },
+    ]);
+  });
+
+  it("rejects a file that would push the payload over the cap but keeps later ones that fit", () => {
+    const r = planStaging(0, MAX_STAGED_PAYLOAD_BYTES - 10, [c("big", 11), c("small", 10)]);
+    expect(r.accepted.map((a) => a.name)).toEqual(["small"]);
+    expect(r.rejected).toEqual([{ name: "big", reason: "over-budget" }]);
+  });
+
+  it("accepts a file that lands exactly on the cap", () => {
+    const r = planStaging(0, MAX_STAGED_PAYLOAD_BYTES - 10, [c("exact", 10)]);
+    expect(r.accepted.map((a) => a.name)).toEqual(["exact"]);
+  });
+
+  it("does not count an over-budget rejection toward the count cap", () => {
+    const r = planStaging(MAX_CHAT_ATTACHMENTS - 1, MAX_STAGED_PAYLOAD_BYTES, [c("big", 1), c("ok", 0)]);
+    expect(r.accepted.map((a) => a.name)).toEqual(["ok"]);
+    expect(r.rejected).toEqual([{ name: "big", reason: "over-budget" }]);
   });
 });
