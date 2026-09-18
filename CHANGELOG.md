@@ -11,9 +11,10 @@ longer carries its own changelog comment.
 ## [1.10.1] - 2026-09-18 "Leonard"
 
 The 2026-09 security audit's follow-up fixes: hostile Office files can no longer stall document
-ingest, two backend proxies no longer forward credentials to an attacker-controlled redirect
-target, the packaged desktop app's server starts with fewer Node capabilities available to it,
-and an imported RAID item with an oversized name no longer costs seconds to load.
+ingest, two backend proxies no longer follow an upstream redirect to a host outside their
+allowlist, the packaged desktop app can no longer be used as a general-purpose Node runtime or
+debugger target, and an imported RAID item with an oversized name no longer costs seconds to
+load.
 
 ### Fixed
 
@@ -28,20 +29,24 @@ and an imported RAID item with an oversized name no longer costs seconds to load
 
 ### Security
 
-- **The Jira and TimeLog proxies no longer follow an upstream redirect.** Both proxies forwarded
-  the caller's credentials to wherever an upstream 3xx response pointed, including a host outside
-  the configured allowlist. They now refuse the redirect outright (`§559`).
+- **The Jira and TimeLog proxies no longer follow an upstream redirect.** Both proxies validated
+  their host allowlist against the initial URL only, so an upstream 3xx response could send the
+  request on to a host the allowlist never checked — an unauthenticated hop to wherever the
+  redirect pointed. They now refuse the redirect outright (`§559`).
 - **The config export now redacts every sealed secret, not three of five.** The redaction backstop
-  missed two of the five `SecretId`s, so exporting a project's configuration could leak them in
-  plain text (`§560`).
-- **The packaged desktop app's server now runs with fewer Node capabilities.** It launches via
-  `utilityProcess.fork` instead of a plain child process, with the Electron `RunAsNode` fuse and
-  the Node inspector/debug fuses off, so a compromised server process has less to work with
-  (`§561`; the CI desktop-package job does not yet confirm the fuses on every build — tracked open).
+  missed two of the five `SecretId`s, so it would not have caught a leak of those two if
+  `writeSettings` ever regressed (`§560`).
+- **The packaged desktop app can no longer be used as a general-purpose Node runtime or debugger
+  target.** The `RunAsNode`, Node-inspect and `NODE_OPTIONS` fuses are off and only `app.asar` is
+  loaded, so the shipped exe can no longer be run as a plain Node interpreter or attached to by a
+  Node debugger. To keep the app starting with `RunAsNode` off, its server now launches via
+  Electron's `utilityProcess.fork` instead of the old child-process spawn (`§561`; the CI
+  desktop-package job does not yet confirm the fuses on every build — tracked open).
 
 Two follow-ups filed by the same audit remain open: quadratic regexes outside the OOXML extractors,
-in `html-to-text.ts`, `narrative-html.ts` and the Markdown fenced-block reads (`§578`), and an xlsx
-whose rows each reach column XFD, bounded only by the inflate cap rather than a row budget (`§579`).
+in `html-to-text.ts`, `narrative-html.ts`, the Markdown fenced-block reads and the RAID escalation
+write path (`buildEscalationEntry`) (`§578`), and an xlsx whose rows each reach column XFD, bounded
+only by the inflate cap rather than a row budget (`§579`).
 
 ## [1.10.0] - 2026-09-18 "Leonard"
 

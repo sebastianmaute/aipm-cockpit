@@ -781,7 +781,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§556](#556-the-earned-value-today-point-never-flags-a-partial-bucket-or-a-join--closed-2026-09-17) | The earned-value today point never flags a partial bucket or a join — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #346 | S — decide whether today's point may carry partial and join entries | closed |
 | [§557](#557-no-end-to-end-fixture-carries-budget-history-so-no-browser-run-renders-the-new-budget-surfaces--closed-2026-09-17) | No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #347 | M — seed budget history and bucket progress, then extend the axe and visual runs | closed |
 | [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-unclosed-markup--closed-2026-09-18) | The three OOXML extractors were quadratic on repetitive unclosed markup | audit (2026-09) | M | **CLOSED** 2026-09-18 |
-| [§559](#559-the-jira-and-timelog-proxies-followed-upstream-redirects-with-credentials-attached--closed-2026-09-18) | The Jira and Timelog proxies followed upstream redirects with credentials attached | audit (2026-09) | S | **CLOSED** 2026-09-18 |
+| [§559](#559-the-jira-and-timelog-proxies-followed-upstream-redirects-to-hosts-outside-the-allowlist--closed-2026-09-18) | The Jira and Timelog proxies followed upstream redirects to hosts outside the allowlist | audit (2026-09) | S | **CLOSED** 2026-09-18 |
 | [§560](#560-the-config-export-redaction-backstop-covered-three-of-the-five-sealed-secrets--closed-2026-09-18) | The config-export redaction backstop covered three of the five sealed secrets | audit (2026-09) | S | **CLOSED** 2026-09-18 |
 | [§561](#561-the-electron-fuses-are-confirmed-on-a-local-package-only-not-by-the-ci-desktop-package-job--open) | The Electron fuses are confirmed on a local package only, not by the CI desktop-package job — OPEN | audit (2026-09) | S (verify) | open |
 | [§562](#562-the-shared-proxy-rate-limiter-is-bypassable-by-a-client-supplied-header-and-its-store-is-in-memory--open-decision-owed) | The shared proxy rate limiter is bypassable by a client-supplied header, and its store is in-memory — OPEN (decision owed) | audit (2026-09) | decision | open |
@@ -38783,14 +38783,17 @@ class, not on a machine's speed.
 
 Related: §13 (the audit that found it), §559, §560.
 
-## 559. The Jira and Timelog proxies followed upstream redirects with credentials attached — CLOSED 2026-09-18
+## 559. The Jira and Timelog proxies followed upstream redirects to hosts outside the allowlist — CLOSED 2026-09-18
 
 **Status:** CLOSED 2026-09-18 by `fix/security-audit-followups` (`8aec2a24`): `api/jira/_helpers.ts` and `api/timelog/_helpers.ts` now pass `redirect: "manual"` to `fetch` and reject any 3xx as a 502, mirroring what `api/stt/_helpers.ts` already did. `382efe57` makes both proxies cancel the body of the refused response before they return. Before that, the unread body held the upstream connection until it was garbage-collected. Verified by `npx vitest run src/app/api/jira/_helpers.test.ts src/app/api/timelog/_helpers.test.ts`.
 
 Both proxies applied their host allowlist to the INITIAL URL only, and neither set a redirect
 policy, so `fetch` followed a 3xx by default. A redirect from the configured upstream therefore
-reached a host nobody validated, with the `Authorization` header still attached — the allowlist
-silently stopped applying at exactly the point it was most needed.
+reached a host nobody validated: an unauthenticated request hop to wherever the redirect pointed —
+the allowlist silently stopped applying at exactly the point it was most needed. (Node's `fetch`
+already strips the `Authorization` header on a cross-origin redirect per the Fetch spec, so the
+credential itself was never at risk; the exposure was the unvalidated destination, not a leaked
+credential.)
 
 ★ **The 2026-09 audit rates this HIGH-1, and that label governs** — `docs/security/findings-2026-09.md`
 is the dated record of the judgement made at `ed6ed8e4`, and this entry cites it rather than
