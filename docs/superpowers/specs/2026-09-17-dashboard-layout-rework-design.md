@@ -216,3 +216,14 @@ grid   [ budget burn 2×8 (chart only) ][ kpi 4×2 incl. Effort SPI/CPI ]
   acceptable" — an index is never gated on a module switch that does not actually gate every value
   it can move. Confirmed by re-reading `dashboard-panel.tsx`, `dashboard-delta-strip.tsx`,
   `ai-dashboard-snapshot.ts`, `snapshot.ts` and `portfolio-health-panel.tsx`.
+
+## Revision notes (2026-09-19)
+
+- The layout sketch's `kpi 4×2` and decision 11's "every other tile keeps its saved order and
+  size" are superseded for the KPI tile (`docs/open-followups.md` §585, closed 2026-09-19): the
+  tile's catalogue default is now `w:2 h:3`, beside the `burn` tile on `xl` rather than below its
+  eight rows. The one-time stored-layout upgrade (decision 11) also resizes an old-default KPI
+  block, each axis only from exactly its untouched old default (`w:4` → 2, `h:2` → 3), and only
+  alongside the `burn` move — any other stored width or height is the user's and stays untouched.
+- The KPI tile's minimum height is now 3 (`minH: 3`), so with `maxH` already 3 its height is
+  effectively fixed — no wrapped strip row can land inside an inner scroll.

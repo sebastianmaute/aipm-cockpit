@@ -62,9 +62,11 @@ function spansBetween(lo: BlockHeight, hi: BlockHeight): BlockHeight[] {
 }
 
 /**
- * One axis. Exported for its own test: no block in the Dashboard catalogue pins
- * an axis today, so the `lo === hi` branch is unreachable through
- * `ArrangementBlockMenu` there and can only be exercised directly.
+ * One axis. Exported for its own test: it used to be true that no block in the
+ * Dashboard catalogue pinned an axis, making the `lo === hi` branch unreachable
+ * through `ArrangementBlockMenu` and exercisable only directly. The Dashboard's
+ * `kpi` tile now pins its height (`minH === maxH === 3`, §585 fix round), so the
+ * branch is reachable there too — this direct test still stands beside it.
  */
 export function AxisGroup({
   lang, axis, blockTitle, value, lo, hi, onPick,

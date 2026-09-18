@@ -160,6 +160,8 @@ describe("useDashboardLayout — the one-time burn upgrade (spec C)", () => {
     const stored = loadLayout("p1")!;
     expect(stored.upgrades).toContain("dashboard-burn-2x8");
     expect(stored.board[0]).toEqual({ id: "burn", w: 2, h: 8 });
+    // §585 — the KPI tile's old-default 4×2 is resized to 2×3 alongside the burn move.
+    expect(stored.board[1]).toEqual({ id: "kpi", w: 2, h: 3 });
   });
 
   it("never runs again: a burn the user moved back keeps its place", async () => {

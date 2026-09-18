@@ -24,8 +24,9 @@ export interface AssignOwnerBundle {
 export interface ActionHandlers {
   /** §582 — optional so a caller (a popout, a read-only surface) can legitimately
    *  omit it; `ActionPrimaryCta` hides the Open CTA entirely rather than render
-   *  one that does nothing when clicked. A row-list owner (`ActionsPanel`,
-   *  `DashboardTopActions`) still always wires a real handler here today. */
+   *  one that does nothing when clicked. `ActionsPanel` always wires a real
+   *  handler here; `DashboardTopActions` forwards the Dashboard's optional
+   *  `onOpenAction` through as-is, so its rows hide Open when it is absent. */
   onOpen?: (action: SuggestedAction) => void;
   /** `extraIds`, when given, are the OTHER ids in the row's `ActionGroup` (F1 —
    *  snoozing a grouped row must snooze every signal in the group, not just the

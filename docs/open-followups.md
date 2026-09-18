@@ -787,7 +787,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§573](#573-the-open-points-visual-baseline-is-stale--open) | The Open Points visual baseline is stale — OPEN | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | open |
 | [§580](#580-dashboardmodelburn-and-forecast-have-no-reader-outside-dashboardts--closed-2026-09-18) | `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` — CLOSED 2026-09-18 | found 2026-09-18 auditing the dashboard model after spec C removed `ForecastHeadline`; GitLab #365 | S — delete the dead field(s) or give them a reader | closed |
 | [§581](#581-the-kpi-strips-lggrid-cols-5-leaves-a-gap-when-only-one-of-spicpi-shows--closed-2026-09-19) | The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows — CLOSED 2026-09-19 | found 2026-09-18 reading `dashboard-kpi-strip.tsx`'s `cols` ternary; not eye-checked; GitLab #366 | XS — branch the class on the real tile count, not the OR | closed |
-| [§582](#582-the-next-actions-heros-open-cta-renders-and-does-nothing-without-onopenaction--closed-2026-09-18) | The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — CLOSED 2026-09-18 | found 2026-09-18 reading `action-hero-card.tsx`/`action-cta-controls.tsx`; latent, every production caller passes it; GitLab #367 | S — hide the CTA when the handler is absent, or make the prop required | closed |
+| [§582](#582-the-next-actions-heros-open-cta-renders-and-does-nothing-without-onopenaction--closed-2026-09-19) | The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — CLOSED 2026-09-19 | found 2026-09-18 reading `action-hero-card.tsx`/`action-cta-controls.tsx`; latent, every production caller passes it; GitLab #367 | S — hide the CTA when the handler is absent, or make the prop required | closed |
 | [§583](#583-budget-historypropertytestts-flaked-once-in-ci-under-an-unseeded-fast-check-run--closed-2026-09-19) | `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — CLOSED 2026-09-19 | one failure in CI pipeline 7251's unit-tests job on the spec-B release branch, cleared by retry; root cause confirmed 2026-09-19; GitLab #368 | S — capture a counterexample at high `numRuns`, then fix the tolerance or the summation | closed |
 | [§584](#584-two-next-actions-hero-tests-are-weaker-than-they-look--closed-2026-09-18) | Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18 | found 2026-09-18 reading `actions-panel.test.tsx`, `dashboard-panel-layout.test.tsx` and `next-actions/group.test.ts`; GitLab #369 | S — add a monitor-topped fixture and a visible-text uniqueness assertion | closed |
 | [§585](#585-on-xl-the-kpi-tile-lands-below-the-2x8-burn-tile-not-beside-it--closed-2026-09-19) | On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — CLOSED 2026-09-19 | accepted during spec C; measured 2026-09-18 against `DASHBOARD_TILES`/`xl:grid-cols-4`; GitLab #370 | S — revisit the burn tile's default width or the tile order | closed |
@@ -38879,9 +38879,9 @@ Fix shape: branch the class on the actual tile count rather than the OR, e.g. `s
 The class must stay a whole literal string — an interpolated Tailwind class emits no CSS, per the comment
 already in the file.
 
-## 582. The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — CLOSED 2026-09-18
+## 582. The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — CLOSED 2026-09-19
 
-**Status:** CLOSED 2026-09-18 on `docs/spec-c-dashboard-rework`, taking the "hide the CTA" fix shape
+**Status:** CLOSED 2026-09-19 on `docs/spec-c-dashboard-rework`, taking the "hide the CTA" fix shape
 below (the prop stays optional, since popouts and read-only callers legitimately omit it).
 `ActionHandlers.onOpen` (`action-cta-controls.tsx`) is now optional; `ActionPrimaryCta` hides both the
 primary Open button and the ghost Open alongside a different primary whenever `handlers.onOpen` is
@@ -39022,6 +39022,17 @@ when it moves burn to the front, and never a user-chosen size. Verified with
 `npx playwright test e2e/dashboard-grid.spec.ts --project=chromium --workers=1`: KPI right of burn with
 overlapping vertical ranges (red against `w: 4`), and at a 1280px viewport a seeded 4- and 5-cell strip, in both
 densities, ends inside the tile body with nothing to scroll (all four red against `h: 2`).
+**Fix round (2026-09-19):** `kpi`'s `minH` raised from 2 to 3 in `DASHBOARD_TILES`, so with `maxH` already 3
+its height is effectively fixed — a user can no longer shrink it back to h:2 and reopen the inner-scroll gap
+this entry exists to close. `reconcile` already clamps a stored size per axis, so a layout below the new
+floor (from a build before this raise) is lifted to 3 on the next load — the resize menu itself renders no
+height chooser at all for the tile once `min === max` (`arrangement-block-menu.tsx`'s existing `lo === hi`
+branch), so shrinking it in the UI is not merely refused but not offered. Covered by new tests: `reconcile`
+clamps a stored kpi h:2 up to 3 (`dashboard-layout.test.ts`) and `DashboardTileMenu` renders "Fixed at 3" with
+no height radiogroup for `kpi` (`dashboard-grid.test.tsx`); both went red against the pre-raise `minH: 2` and
+green after. Verified with `npx vitest run src/app/dashboard-layout.test.ts src/app/dashboard-grid.test.tsx`
+(41/41 passed) and the same e2e spec (11/11 passed) — the dense-packing and width-span specs seed a stored
+`kpi` at h:2, which the raised `minH` now clamps to h:3 on load, unaffected by width-driven assertions.
 
 **Work item:** #370
 

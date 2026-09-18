@@ -122,17 +122,21 @@ describe("DashboardTile", () => {
   });
 });
 
+const MENU_TITLES: Record<"raid" | "trends" | "kpi", string> = {
+  raid: "RAID register", trends: "Trends", kpi: "KPI tile",
+};
+
 function menuFor(
-  id: "raid" | "trends",
-  extra: { index?: number; count?: number; onResize?: (a: "w" | "h", v: number) => void } = {},
+  id: "raid" | "trends" | "kpi",
+  extra: { index?: number; count?: number; h?: number; onResize?: (a: "w" | "h", v: number) => void } = {},
 ) {
   return render(
     <DashboardTileMenu
       lang="en-US"
       tileId={id}
-      title={id === "raid" ? "RAID register" : "Trends"}
+      title={MENU_TITLES[id]}
       w={2}
-      h={2}
+      h={(extra.h ?? 2) as never}
       index={extra.index ?? 1}
       count={extra.count ?? 3}
       onResize={extra.onResize ?? (() => {})}
@@ -176,16 +180,25 @@ describe("DashboardTileMenu", () => {
   });
 
   it("renders NO chooser for an axis whose min equals its max", () => {
-    // ★★ No tile in the catalogue pins an axis today, so this branch is
-    // unreachable through `DashboardTileMenu` — it is exercised on the axis
-    // component directly. A row of buttons with every value but one disabled
-    // reads as a broken control, which is why nothing is rendered instead.
+    // ★★ Exercised directly on the axis component rather than through a
+    // catalogue tile when this was written; the Dashboard's `kpi` tile now
+    // pins its height too (see the next test) so the branch is reachable
+    // through `DashboardTileMenu` as well. A row of buttons with every value
+    // but one disabled reads as a broken control, which is why nothing is
+    // rendered instead.
     render(
       <TileAxisGroup lang="en-US" axis="h" tileTitle="RAID register" value={2} lo={2} hi={2} onPick={() => {}} />,
     );
     expect(screen.queryByRole("radiogroup")).toBeNull();
     expect(screen.queryAllByRole("radio")).toHaveLength(0);
     expect(screen.getByText("Fixed at 2")).toBeInTheDocument();
+  });
+
+  it("renders no height chooser for the KPI tile — minH === maxH === 3 (§585 fix round)", () => {
+    menuFor("kpi", { h: 3 });
+    expect(screen.getByRole("radiogroup", { name: /width/i })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: /height/i })).toBeNull();
+    expect(screen.getByText("Fixed at 3")).toBeInTheDocument();
   });
 
   it("calls onResize with the axis and the picked value", () => {

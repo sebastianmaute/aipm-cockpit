@@ -271,11 +271,15 @@ for (const density of ["comfortable", "compact"] as const) {
  * backfills. This seeds an arrangement whose only correct rendering REQUIRES the
  * backfill, then reads the resulting tops.
  *
- * Seeded board (all three are ungated catalogue tiles, and every span is inside
- * its own min/max so `reconcile` cannot clamp it):
- *   1. upcoming w2 h2 → rows 1-2, cols 1-2
- *   2. kpi      w4 h2 → cannot fit the two free columns, so rows 3-4
- *   3. progress w2 h2 → dense pulls it UP into rows 1-2, cols 3-4
+ * Seeded board (all three are ungated catalogue tiles; `upcoming` and `progress`
+ * are inside their own min/max so `reconcile` cannot clamp either — `kpi`'s
+ * stored h:2 is NOT: its `minH` is now 3 (§585 fix round, `maxH` was already 3),
+ * so `reconcile` clamps it up to h:3 on load. That clamp does not change what
+ * this test measures — the backfill turns on `kpi`'s WIDTH (w:4 cannot fit the
+ * two free columns beside `upcoming`), never its height):
+ *   1. upcoming w2 h2        → rows 1-2, cols 1-2
+ *   2. kpi      w4 h2(→h3)   → cannot fit the two free columns, so rows 3-5
+ *   3. progress w2 h2        → dense pulls it UP into rows 1-2, cols 3-4
  * Without `dense` it would sit at rows 5-6, below kpi.
  *
  * ★ Every other tile is HIDDEN, not merely omitted: `reconcile` re-inserts any

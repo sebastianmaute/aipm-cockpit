@@ -125,7 +125,17 @@ describe("reconcile", () => {
     const next = reconcile(stored);
     const kpi = next.board.find((t) => t.id === "kpi")!;
     expect(kpi.w).toBe(2);   // clamped up to minW
-    expect(kpi.h).toBe(3);   // legal, and therefore PRESERVED, not reset to the default 2
+    expect(kpi.h).toBe(3);   // legal (minH === maxH === 3), and therefore PRESERVED
+  });
+
+  // §585 fix round: `kpi`'s `minH` rose to 3 (`maxH` was already 3), so a stored
+  // height below that — reachable only from a build before the raise, since the
+  // resize menu itself now offers no lower value — is clamped up on load, same
+  // as any other out-of-range axis above.
+  it("clamps a stored kpi height below the new minH (3) up to it", () => {
+    const stored = { v: 1 as const, board: [{ id: "kpi" as const, w: 2 as const, h: 2 as const }], hidden: [] };
+    const next = reconcile(stored);
+    expect(next.board.find((t) => t.id === "kpi")!.h).toBe(3);
   });
 
   it("keeps a gateable tile in the layout rather than dropping it", () => {

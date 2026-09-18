@@ -29,6 +29,11 @@
  * ★ `kpi` DID later move to h:3, for a different reason (§585): at half width
  * on xl its cells wrap to a second row in BOTH densities, and h:3 is what keeps
  * that row out of an inner scroll. `milestones` stays h:2.
+ * ★★ `kpi`'s `minH` is now 3 too (§585 fix round), so with `maxH` already 3
+ * its height is effectively FIXED — a user cannot shrink it back to h:2 and
+ * reintroduce the inner scroll the h:3 default exists to avoid. A stored
+ * layout below the new floor is clamped up by `reconcile`; the resize menu
+ * renders no chooser at all for a `min === max` axis (`arrangement-block-menu.tsx`).
  */
 
 // ★ TYPE-ONLY, and that is what keeps the "i18n-free" promise above true: the
@@ -103,7 +108,7 @@ const ALWAYS = () => true;
 // densities. The upgrade resizes a stored 4×2 to match.
 export const DASHBOARD_TILES: readonly TileSpec[] = [
   { id: "burn",            labelKey: "dashboardBudgetBurn",     w: 2, h: 8, minW: 1, maxW: 4, minH: 4, maxH: 8, gate: (g) => g.showBudget },
-  { id: "kpi",             labelKey: "dashboardKpiTile",        w: 2, h: 3, minW: 2, maxW: 4, minH: 2, maxH: 3, gate: ALWAYS },
+  { id: "kpi",             labelKey: "dashboardKpiTile",        w: 2, h: 3, minW: 2, maxW: 4, minH: 3, maxH: 3, gate: ALWAYS },
   { id: "topActions",      labelKey: "dashboardTopActions",     w: 2, h: 3, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasTopActions },
   { id: "insights",        labelKey: "dashboardInsights",       w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasInsights },
   { id: "raid",            labelKey: "dashboardRaidRegister",   w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showRaid },
