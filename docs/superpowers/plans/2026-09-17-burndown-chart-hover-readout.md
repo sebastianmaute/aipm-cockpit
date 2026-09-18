@@ -847,16 +847,21 @@ export function useChartReadout({
     triggerProps: {
       ref: (el) => { hostRef.current = el; },
       onPointerMove: (e) => move(e.clientX),
-      // ★ Touch gets implicit pointer capture on pointerdown, so a genuine drag-off keeps
-      // targeting this element and never fires pointerleave. The ONLY pointerleave a touch
-      // pointer produces is the one at release, immediately after pointerup (measured:
-      // user-event's `release()` dispatches pointerout+pointerleave unconditionally, and
-      // that models the spec's behaviour for a pointer that ceases to exist). Closing on
-      // that made every tap open and instantly close itself. Touch closes by blur instead.
-      onPointerLeave: (e) => { if (e.pointerType !== "touch") close(); },
+      // ★ Only a HOVERING pointer closes on leave, and this is an ALLOW-LIST rather than
+      // `!== "touch"` on purpose. A touch pointer ceases to exist when contact ends, so
+      // pointerout+pointerleave arrive immediately after pointerup (measured: user-event's
+      // `release()` dispatches both unconditionally, modelling the spec's behaviour for a
+      // pointer that stops existing) — closing on that made every tap open and instantly
+      // close itself. A NON-HOVERING STYLUS (`pointerType === "pen"`) does exactly the same,
+      // which a `!== "touch"` guard would have missed. Everything that is not a mouse
+      // therefore closes by blur or Escape. An unknown or future pointerType fails safe:
+      // the box lingers until a blur clears it, rather than being impossible to open.
+      onPointerLeave: (e) => { if (e.pointerType === "mouse") close(); },
       // Touch has no hover, and a pointerdown carries real coordinates on touch as
       // well as mouse — so this, not onClick, is what opens the readout on a tap.
-      onPointerDown: (e) => move(e.clientX),
+      // Primary button only — a right- or middle-click would otherwise reposition the
+      // readout just as a context menu opens. Touch and pen contact both report button 0.
+      onPointerDown: (e) => { if (e.button === 0) move(e.clientX); },
       onClick: (e) => {
         e.preventDefault();
         // A keyboard or assistive activation reports clientX 0. A real pointer click
@@ -900,6 +905,13 @@ Four further mutations are mandated, and the last two are a PAIR — a one-sided
 - empty the `e.clientX === 0 && stop === null` body → the keyboard-activation test must fail.
 - re-introduce `if (stop !== null) { close(); return; }` at the top of `onClick` → the hover-then-click test must fail, proving that regression test guards the defect rather than merely passing beside it.
 - drop the `pointerType` guard so `onPointerLeave` closes unconditionally → the touch-tap test must fail; AND empty `onPointerLeave` entirely → "opens on pointer move at the nearest stop and closes on pointer leave" must fail. Both directions, or the guard is unpinned.
+- narrow the allow-list back to `!== "touch"` → the PEN test must fail. A stylus that does not hover behaves exactly like touch, and a deny-list misses it.
+- remove the `e.button === 0` guard → the right-click test must fail.
+- typo the scroll listener's event name → the scroll-closes test must fail.
+
+★ **A carried-forward mutation verdict is not a re-confirmed one.** When the code under a mutation
+changes shape — as `onPointerLeave` and `onClick` both did mid-task — re-run that mutation rather
+than citing the earlier round's result.
 
 - [ ] **Step 6: Commit**
 
