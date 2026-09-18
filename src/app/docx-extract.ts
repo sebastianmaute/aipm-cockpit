@@ -4,10 +4,9 @@
 // the w:tbl pair spec closes on the inner table's close tag; such docs
 // extract partially.
 
-import { decodeUtf8, unescapeXml } from "./office-xml";
+import { decodeUtf8, extractRuns } from "./office-xml";
 import { forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
 
-const T_PAIR: TagPairSpec = { openPattern: "<w:t\\b", closeName: () => "w:t", hasAttributes: true };
 const TC_PAIR: TagPairSpec = { openPattern: "<w:tc\\b", closeName: () => "w:tc", hasAttributes: true };
 const TR_PAIR: TagPairSpec = { openPattern: "<w:tr\\b", closeName: () => "w:tr", hasAttributes: true };
 // w:tbl and w:p are walked together, in document order, exactly as the
@@ -20,22 +19,8 @@ const BLOCK_PAIR: TagPairSpec = {
   hasAttributes: true,
 };
 
-/** Join the text of every `<w:t>` run in `xml`, XML-unescaped — the ported
- *  equivalent of `extractRuns(xml, "w:t").join("")` (office-xml.ts), walked
- *  linearly via forEachTagPair instead of that helper's lazy pair regex.
- *  office-xml.ts's extractRuns is left as-is: pptx-extract.ts and
- *  xlsx-extract.ts still call it directly. */
-function runsText(xml: string): string {
-  const parts: string[] = [];
-  forEachTagPair(xml, T_PAIR, (t) => {
-    parts.push(unescapeXml(t.inner));
-    return true;
-  });
-  return parts.join("");
-}
-
 function cellText(tcXml: string): string {
-  return runsText(tcXml).trim().replace(/\|/g, "\\|");
+  return extractRuns(tcXml, "w:t").join("").trim().replace(/\|/g, "\\|");
 }
 
 function renderTable(tblXml: string): string {
@@ -66,7 +51,7 @@ function renderTable(tblXml: string): string {
 }
 
 function renderParagraph(pXml: string): string {
-  const text = runsText(pXml).trim();
+  const text = extractRuns(pXml, "w:t").join("").trim();
   if (text === "") return "";
   const h = /<w:pStyle\b[^>]*w:val="(?:Heading|heading)(\d)"/.exec(pXml);
   if (h) {

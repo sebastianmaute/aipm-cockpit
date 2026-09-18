@@ -160,16 +160,23 @@ describe("extractXlsx", () => {
   });
 
   it("does not blow up on repetitive unclosed markup", () => {
-    // 80k unclosed <c opens inside one row - same shape as
-    // docx-extract.test.ts's fixture, sized up from its 40k so the margin
-    // over the ceiling has real headroom on a loaded machine (measured
-    // ~11.5s old vs <5ms new here, a >1000x margin). With the former
-    // `<c\b[^>]*\/>|<c\b[\s\S]*?<\/c>` lazy pair regex this is quadratic
-    // (every open re-scans to end of input); forEachXmlElement
-    // (xlsx-extract.ts) is linear. The ceiling is deliberately loose - it
-    // fails on the pattern class, not on a machine's speed.
+    // 320k unclosed <c opens inside one row. Sized to kill TWO different
+    // mutants, not just the lazy-regex one this was originally written
+    // against - do not shrink this back down:
+    //  - the former `<c\b[^>]*\/>|<c\b[\s\S]*?<\/c>` lazy pair regex
+    //    (measured ~24s old vs <10ms new here at this size);
+    //  - forEachXmlElement's `gt` CACHE specifically. Forcing a fresh
+    //    `indexOf(">", ...)` on every iteration (instead of reusing `gt`
+    //    while `innerStart <= gt`) is still linear in the LAZY-REGEX sense
+    //    (no backtracking), but every one of the 320k opens now re-scans
+    //    forward to this row's one distant closing ">", which is its own
+    //    O(n^2): measured 195ms/785ms/3783ms at 80k/160k/320k reps without
+    //    the cache, against <10ms at every size with it. At 80k the
+    //    no-cache mutant measured ~195ms - comfortably UNDER the 1000ms
+    //    ceiling, so that size could not have caught it; 320k measures
+    //    ~3.8s, reliably over.
     const sheet =
-      "<worksheet><sheetData><row>" + "<c ".repeat(80_000) + "</row></sheetData></worksheet>";
+      "<worksheet><sheetData><row>" + "<c ".repeat(320_000) + "</row></sheetData></worksheet>";
     const entries = new Map<string, Uint8Array>([["xl/worksheets/sheet1.xml", enc(sheet)]]);
     const start = performance.now();
     extractXlsx(entries);

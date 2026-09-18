@@ -36,13 +36,21 @@ describe("extractDocx", () => {
   });
 
   it("does not blow up on repetitive unclosed markup", async () => {
-    // 40k unclosed table opens. With a lazy [\s\S]*? pair regex this is
-    // quadratic (measured 142ms at 40k chars, 1861ms at 160k); the cursor
-    // walk is linear. The ceiling is deliberately loose - it fails on the
-    // pattern class, not on a machine's speed.
+    // 120k unclosed table opens - 840,063 chars for THIS fixture as
+    // committed (`node -e` and print `xml.length` to re-check; don't trust
+    // a number here without doing that). Raised from 40k: at 40k (280,063
+    // chars) the old lazy `[\s\S]*?` pair regex measured ~1.5s here, only
+    // 1.5x over the 1000ms ceiling - too thin a margin on a loaded machine.
+    // An earlier revision of this comment conflated repetition count with
+    // char count ("142ms at 40k chars, 1861ms at 160k") and both numbers
+    // were unreproducible against the actual committed fixture, which
+    // measured ~1.5s at 40k reps, not 142ms. At 120k reps the old regex
+    // measured ~24.4s; the cursor walk stays linear. The ceiling is
+    // deliberately loose - it fails on the pattern class, not on a
+    // machine's speed.
     const xml =
       '<?xml version="1.0"?><w:document><w:body>' +
-      "<w:tbl ".repeat(40_000) +
+      "<w:tbl ".repeat(120_000) +
       "</w:body></w:document>";
     const entries = new Map([["word/document.xml", new TextEncoder().encode(xml)]]);
     const start = performance.now();
