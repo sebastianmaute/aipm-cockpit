@@ -318,9 +318,14 @@ const GRACEFUL_QUIT_BUDGET_MS = 20_000;
 
 // Resolves `true` once `child` has actually exited, `false` once `budgetMs`
 // passes without that. A `taskkill` call RETURNING is not the process
-// exiting -- see the note above waitForPortRelease().
+// exiting -- see the note above waitForPortRelease(). `signalCode !== null`
+// counts as exited too (N-8, final-rereview.md): a POSIX child that exited on
+// a signal before this call has `exitCode === null` with `signalCode` set, so
+// checking `exitCode` alone would wait out the whole budget on a process that
+// has already exited and then throw a misleading force-kill error. Windows,
+// where this smoke runs, is unaffected either way.
 function waitForExit(child: ChildProcess, budgetMs: number): Promise<boolean> {
-  if (child.exitCode !== null) return Promise.resolve(true);
+  if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       child.off("exit", onExit);
@@ -362,8 +367,12 @@ function forceKillApp(child: ChildProcess): void {
 // clicks the window's own close button; that reaches main.ts's
 // `window-all-closed` -> `app.quit()` -> `before-quit` chain, which is what
 // actually calls `killServer`. Reaching the `/T /F` fallback now FAILS the
-// test rather than silently "working" -- a fallback that papers over a broken
-// `killServer` is exactly the gap open-followups §561 flags this spec for.
+// test rather than silently "working" -- but that only proves the APP quit
+// within budget, not that `killServer` ran: a round-1 mutant (`killServer`
+// made a no-op) left this spec green anyway, because Windows tears the
+// utility-process child down with the app regardless. `killServer` staying
+// unproven is filed as an owed item in open-followups §561, not a gap §561
+// flags this spec for.
 async function killApp(child: ChildProcess): Promise<void> {
   if (child.pid === undefined || child.exitCode !== null) return;
   const pid = child.pid;
