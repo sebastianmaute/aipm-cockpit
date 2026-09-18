@@ -38766,10 +38766,14 @@ policy, so `fetch` followed a 3xx by default. A redirect from the configured ups
 reached a host nobody validated, with the `Authorization` header still attached — the allowlist
 silently stopped applying at exactly the point it was most needed.
 
-Reaching it requires control of, or a foothold in, the configured upstream, so this is not a
-drive-by. That is the argument for LOW severity, not an argument for leaving it: the allowlist is
-precisely the control meant to survive an upstream that has gone bad, and a control that lapses
-under the condition it was written for is not a control.
+★ **The 2026-09 audit rates this HIGH-1, and that label governs** — `docs/security/findings-2026-09.md`
+is the dated record of the judgement made at `ed6ed8e4`, and this entry cites it rather than
+re-scoring it. What follows is the practical qualifier, not a competing severity.
+
+Reaching it requires control of, or a foothold in, the configured upstream, so it is not a drive-by,
+and that is why it was never an emergency. It is also why it was FIXED rather than accepted: the
+allowlist is precisely the control meant to survive an upstream that has gone bad, and a control
+that lapses under the condition it was written for is not a control.
 
 ★ `/api/stt` was already correct here, and for an instructive reason — its base URL is user-supplied
 BYO, so it could never lean on a vendor apex and had to state a redirect policy explicitly. The two
@@ -38804,7 +38808,13 @@ Related: §564 (the same hardcoded-list rot in `diagnostics-redact.ts`), §567 (
 
 `electronFuses` was absent from `desktop/electron-builder.yml`, which left `RunAsNode` enabled on
 the packaged binary: a local actor could run arbitrary Node through the shipped executable, using
-the app's own signature and install path as cover. Local-only impact, so LOW, but free to fix.
+the app's own signature and install path as cover.
+
+★ **The 2026-09 audit rates this MEDIUM-3, and that label governs** — this entry cites the audit
+rather than re-scoring it. The qualifier: the impact is local-only, since an actor who can already
+run code on the machine is the only one who can use the shipped binary as a Node interpreter. It was
+cheap to close, which is why it was closed; it stays OPEN only because nothing has verified the
+fuses on a packaged build.
 
 `desktop/electron-builder.yml` now sets `runAsNode: false`,
 `enableNodeCliInspectArguments: false`, `enableNodeOptionsEnvironmentVariable: false` and
