@@ -1054,7 +1054,11 @@ const full: Readout = {
 describe("ChartReadout", () => {
   it("lists every row in the legend's order with its value", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
-    const rows = screen.getAllByRole("listitem").map((li) => li.textContent ?? "");
+    // ★ `{ hidden: true }` is REQUIRED: the box is aria-hidden (the live region in Task 5 is
+    // the accessible channel), and Testing Library excludes an aria-hidden subtree from role
+    // queries by default. Without it these queries find nothing while the DOM dump shows the
+    // rows sitting right there.
+    const rows = screen.getAllByRole("listitem", { hidden: true }).map((li) => li.textContent ?? "");
     expect(rows).toHaveLength(10);
     expect(rows[0]).toContain("Planned");
     expect(rows[0]).toContain("80 EUR");
@@ -1093,13 +1097,15 @@ describe("ChartReadout", () => {
 
   it("marks the forecasts as forecasts and says when the date is today", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
-    expect(screen.getAllByText("forecast")).toHaveLength(2);
+    // "(forecast)" with the parens: they are layout, not translation, so they live in the JSX
+    // and getAllByText is an exact match by default.
+    expect(screen.getAllByText("(forecast)")).toHaveLength(2);
     expect(screen.getByRole("tooltip")).toHaveTextContent("today");
   });
 
   it("signs a change amount and names a deletion", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
-    const change = screen.getAllByRole("listitem")[8].textContent ?? "";
+    const change = screen.getAllByRole("listitem", { hidden: true })[8].textContent ?? "";
     expect(change).toContain("-8 EUR");
     expect(change).toContain("removed");
   });
@@ -1107,22 +1113,40 @@ describe("ChartReadout", () => {
   it("signs a positive change with a plus", () => {
     const plus: Readout = { date: "2026-02-01", today: false, rows: [{ kind: "change", value: 8, label: "Vendor", removed: false }] };
     render(<ChartReadout lang="en-US" readout={plus} anchor={{ top: 0, left: 0 }} fmt={fmt} locale="en-US" />);
-    expect(screen.getAllByRole("listitem")[0].textContent).toContain("+8 EUR");
+    expect(screen.getAllByRole("listitem", { hidden: true })[0].textContent).toContain("+8 EUR");
   });
 
   it("positions the box at the anchor", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 33, left: 44 }} fmt={fmt} locale="en-US" />);
     expect(screen.getByRole("tooltip")).toHaveStyle({ top: "33px", left: "44px" });
   });
+
+  // ★★ The aria-hidden contract, pinned in BOTH directions. Without the second assertion,
+  // deleting `aria-hidden` would leave every `{ hidden: true }` query above green and nothing
+  // would notice that the chart had started reading its own numbers out twice.
+  it("keeps the box out of the accessibility tree", () => {
+    render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
+    // Structure-agnostic on purpose: assert that SOME element inside the surface carries the
+    // attribute, not which one, so a wrapper added later does not fail this for no reason.
+    expect(screen.getByRole("tooltip").querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+  });
 });
 
 describe("readoutSentence", () => {
   it("names the date and every row for the live region", () => {
     const text = readoutSentence("en-US", full, fmt, "en-US");
-    expect(text).toContain("1 Feb 2026");
+    // ★ Intl for en-US is MONTH-first. "1 Feb 2026" is en-GB, and asserting it here was a plan
+    // defect. Both cases assert a LITERAL — never compute the expectation by calling
+    // formatDayMonthYear, which would pass whatever that function did.
+    expect(text).toContain("Feb 1, 2026");
     expect(text).toContain("Planned: 80 EUR");
     expect(text).toContain("At current pace: 60 EUR");
     expect(text).toContain("Ops");
+  });
+
+  it("follows the locale's date order", () => {
+    expect(readoutSentence("en-GB", full, fmt, "en-GB")).toContain("1 Feb 2026");
   });
 
   it("is empty for a readout with no rows", () => {
