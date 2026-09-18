@@ -780,11 +780,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§555](#555-the-next-actions-and-ai-dashboard-model-never-receives-recorded-budget-history--closed-2026-09-17) | The Next Actions and AI dashboard model never receives recorded budget history — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #345 | S — pass snapshots and budget history, or say why that model omits them | closed |
 | [§556](#556-the-earned-value-today-point-never-flags-a-partial-bucket-or-a-join--closed-2026-09-17) | The earned-value today point never flags a partial bucket or a join — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #346 | S — decide whether today's point may carry partial and join entries | closed |
 | [§557](#557-no-end-to-end-fixture-carries-budget-history-so-no-browser-run-renders-the-new-budget-surfaces--closed-2026-09-17) | No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #347 | M — seed budget history and bucket progress, then extend the axe and visual runs | closed |
-| [§558](#558-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--open) | Screen readers may never deliver the chart readout's arrow keys — OPEN | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | open |
-| [§559](#559-the-spoken-readout-capitalises-mid-sentence--open) | The spoken readout capitalises mid-sentence — OPEN | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | open |
-| [§560](#560-the-chart-box-clamps-boundary-width-has-no-test--open) | The chart-box clamp's boundary width has no test — OPEN | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | open |
-| [§561](#561-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
-| [§562](#562-the-open-points-visual-baseline-is-stale--open) | The Open Points visual baseline is stale — OPEN | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | open |
+| [§569](#569-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--open) | Screen readers may never deliver the chart readout's arrow keys — OPEN | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | open |
+| [§570](#570-the-spoken-readout-capitalises-mid-sentence--open) | The spoken readout capitalises mid-sentence — OPEN | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | open |
+| [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--open) | The chart-box clamp's boundary width has no test — OPEN | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | open |
+| [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
+| [§573](#573-the-open-points-visual-baseline-is-stale--open) | The Open Points visual baseline is stale — OPEN | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38684,7 +38684,7 @@ Fix shape: seed a baseline plus create, increase and delete entries (in `e2e/see
 master, if the sample should stay free of history), re-baseline the affected visual specs, and confirm the
 axe scan renders the change table. Leave the Turso-only span to an eye-verify.
 
-## 558. Screen readers may never deliver the chart readout's arrow keys — OPEN
+## 569. Screen readers may never deliver the chart readout's arrow keys — OPEN
 
 **Status:** OPEN 2026-09-18 — found reviewing the merged chart hover readout (`feat/chart-hover-readout`,
 1.9.0 "James"); the browse-mode mechanism is established from NVDA/JAWS documentation, not measured against
@@ -38713,7 +38713,7 @@ Fix shape: run a real NVDA pass and a real JAWS pass against the trigger button,
 fourth option the pass turns up), and record which mechanism was actually verified. No `theme::a11y` label
 exists in this project today, so this entry carries none.
 
-## 559. The spoken readout capitalises mid-sentence — OPEN
+## 570. The spoken readout capitalises mid-sentence — OPEN
 
 **Status:** OPEN 2026-09-18 — found reading `rowText` in `src/app/chart-readout.tsx` against the tip strings
 in `i18n.ts` and `i18n.de.ts`; not measured against a real screen reader.
@@ -38736,7 +38736,7 @@ wherever they sit in a sentence, so a blanket "lower-case the first character" r
 first tip string ever written to start with a noun would be mis-capitalised by it. The full-stop join
 sidesteps the question for every language and is the safer fix.
 
-## 560. The chart-box clamp's boundary width has no test — OPEN
+## 571. The chart-box clamp's boundary width has no test — OPEN
 
 **Status:** OPEN 2026-09-18 — found by mutation-testing `anchorFor` in `src/app/use-chart-readout.ts`:
 mutating `>` to `>=` and rerunning `use-chart-readout.test.tsx` left all 19 tests green.
@@ -38754,7 +38754,7 @@ exact edit and rerunning the file, which still passed 19/19.
 Fix shape: add a case at `rect.width === 352` (i.e. `HALF * 2`) and assert which clamp it takes, so the
 boundary itself — not just each side of it — is pinned.
 
-## 561. AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN
+## 572. AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN
 
 **Status:** OPEN 2026-09-18 — measured on this branch: corrupting the generated routes file with a syntax
 error made a real, pre-existing semantic error in `src/` vanish from `npx tsc --noEmit`'s output.
@@ -38783,7 +38783,7 @@ unreadable. Clearing `.next` with no dev server running regenerates the file.
 Fix shape: amend the AGENTS.md Commands block's `npx tsc --noEmit` guidance to state the total-vs-`src/`
 distinction and the `.next`-clearing remedy. Not done in this commit — filing only, `type::docs`.
 
-## 562. The Open Points visual baseline is stale — OPEN
+## 573. The Open Points visual baseline is stale — OPEN
 
 **Status:** OPEN 2026-09-18 — measured by running `npm run e2e:visual` on this branch.
 
