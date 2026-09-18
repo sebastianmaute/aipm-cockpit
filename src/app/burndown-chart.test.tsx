@@ -524,7 +524,11 @@ describe("BurndownChart", () => {
 
     it("is absent until the chart is hovered or focused", () => {
       render(<BurndownChart lang="en-US" currency="EUR" model={MODEL} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
-      expect(screen.queryByRole("tooltip")).toBeNull();
+      // The box carries no ARIA role (`TooltipSurface`'s `decorative` prop), so a
+      // role query would find nothing whether the box renders or not — that
+      // would make this assertion pass vacuously. `[data-tooltip-portal]` is the
+      // box's real presence hook.
+      expect(document.querySelector("[data-tooltip-portal]")).toBeNull();
       expect(document.querySelector("[data-readout-guide]")).toBeNull();
     });
 
@@ -533,7 +537,7 @@ describe("BurndownChart", () => {
       const user = userEvent.setup();
       render(<BurndownChart lang="en-US" currency="EUR" model={MODEL} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
       await user.pointer({ target: screen.getByRole("button", { name: /arrow keys/i }), coords: { clientX: 312, clientY: 100 } });
-      expect(screen.getByRole("tooltip")).toBeInTheDocument();
+      expect(document.querySelector("[data-tooltip-portal]")).toBeInTheDocument();
       expect(document.querySelector("[data-readout-guide]")).not.toBeNull();
       expect(document.querySelectorAll("[data-readout-dot]").length).toBeGreaterThan(0);
     });

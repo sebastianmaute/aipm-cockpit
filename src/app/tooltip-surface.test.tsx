@@ -32,4 +32,19 @@ describe("TooltipSurface", () => {
     const cls = screen.getByRole("tooltip").getAttribute("class") ?? "";
     expect(cls).toContain("max-w-[16rem]");
   });
+
+  // `decorative` takes the WHOLE node out of the accessibility tree, not just
+  // its content: no `role`, so an ordinary role query — even a `hidden: true`
+  // one, which only bypasses the ancestor check, not a missing role — finds
+  // nothing, and the query must fall back to the `data-tooltip-portal` hook
+  // every caller already relies on.
+  it("renders a decorative surface with aria-hidden and no tooltip role", () => {
+    render(<TooltipSurface top={0} left={0} decorative>hidden</TooltipSurface>);
+    const tip = document.querySelector("[data-tooltip-portal]")!;
+    expect(tip).toHaveAttribute("aria-hidden", "true");
+    expect(tip).not.toHaveAttribute("role");
+    expect(tip).toHaveTextContent("hidden");
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    expect(screen.queryByRole("tooltip", { hidden: true })).toBeNull();
+  });
 });

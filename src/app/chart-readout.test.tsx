@@ -80,7 +80,10 @@ describe("ChartReadout", () => {
     // The marker's text node is literally "(forecast)" — the parens are the component's own
     // layout, not the i18n value, so the parens belong in the assertion.
     expect(screen.getAllByText("(forecast)")).toHaveLength(2);
-    expect(screen.getByRole("tooltip")).toHaveTextContent("today");
+    // The box carries no ARIA role (`TooltipSurface`'s `decorative` prop — see
+    // "keeps the box and the row list out of the accessibility tree" below), so
+    // it is found by its `data-tooltip-portal` hook, not `getByRole("tooltip")`.
+    expect(document.querySelector("[data-tooltip-portal]")).toHaveTextContent("today");
   });
 
   it("signs a change amount and names a deletion", () => {
@@ -98,7 +101,7 @@ describe("ChartReadout", () => {
 
   it("positions the box at the anchor", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 33, left: 44 }} fmt={fmt} locale="en-US" />);
-    expect(screen.getByRole("tooltip")).toHaveStyle({ top: "33px", left: "44px" });
+    expect(document.querySelector("[data-tooltip-portal]")).toHaveStyle({ top: "33px", left: "44px" });
   });
 
   // The PRIMARY guard is `globals.css`'s `[data-tooltip-portal] { display: none
@@ -113,7 +116,7 @@ describe("ChartReadout", () => {
   // that actually needs to disappear on print.
   it("hides the box from print", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
-    expect(screen.getByRole("tooltip")).toHaveClass("print:hidden");
+    expect(document.querySelector("[data-tooltip-portal]")).toHaveClass("print:hidden");
   });
 
   // Pins the aria-hidden contract in BOTH directions: the box really is hidden from the
@@ -121,10 +124,16 @@ describe("ChartReadout", () => {
   // announcement), AND an ordinary (non-`hidden: true`) role query really finds nothing,
   // so a later removal of `aria-hidden` cannot slip past unnoticed — every `{hidden: true}`
   // query above would stay green either way, which is exactly the silent-rot this closes.
-  it("keeps the row list out of the accessibility tree", () => {
+  // ★ The `aria-hidden`/missing-`role` pair now sits on the PORTAL ROOT itself
+  // (`TooltipSurface`'s `decorative` prop), not just its first child: a root that
+  // is hidden but still carries `role="tooltip"` is a nameless ARIA tooltip node,
+  // which axe's `aria-tooltip-name` rule flags as a serious violation.
+  it("keeps the box and the row list out of the accessibility tree", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
-    const tooltip = screen.getByRole("tooltip");
-    expect(tooltip.firstElementChild).toHaveAttribute("aria-hidden", "true");
+    const tooltip = document.querySelector("[data-tooltip-portal]")!;
+    expect(tooltip).toHaveAttribute("aria-hidden", "true");
+    expect(tooltip).not.toHaveAttribute("role");
+    expect(screen.queryByRole("tooltip")).toBeNull();
     expect(screen.queryAllByRole("listitem")).toEqual([]);
   });
 });

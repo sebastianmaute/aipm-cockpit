@@ -77,10 +77,16 @@ export function ChartReadout({
 }) {
   if (readout.rows.length === 0) return null;
   return (
-    <TooltipSurface top={anchor.top} left={anchor.left} className="max-w-[22rem] print:hidden">
-      {/* aria-hidden: the polite live region in `burndown-chart.tsx` is the
-          accessible channel, so this box must not be announced twice. */}
-      <span aria-hidden="true" className="block">
+    <TooltipSurface decorative top={anchor.top} left={anchor.left} className="max-w-[22rem] print:hidden">
+      {/* `TooltipSurface`'s `decorative` prop takes the WHOLE node out of the
+          accessibility tree (aria-hidden, no role) — the polite live region in
+          `burndown-chart.tsx` is the sole accessible channel, so this box must
+          not be announced twice, and an ARIA `role="tooltip"` node with no
+          accessible name is itself an axe-serious violation
+          (`aria-tooltip-name`), which is what a root-only `aria-hidden` used to
+          leave behind. The inner span below keeps its `block` layout class but
+          no longer needs its own `aria-hidden` — the root already covers it. */}
+      <span className="block">
         <span className="block font-semibold tabular-nums">
           {formatDayMonthYear(readout.date, locale)}
           {readout.today && <span className="ml-1 font-normal text-muted-foreground">{t(lang, "burndownReadoutTodayFlag")}</span>}
