@@ -32,8 +32,9 @@ badge, and reads it beside the chart it explains rather than a screen apart from
 
 ## Decisions
 
-1. **One card at a time, chosen by a `SegmentedControl`** in the card's header with the options
-   "At current pace" and "At current efficiency". No new control is hand-rolled.
+1. **One card at a time, chosen by a `SegmentedControl`** above the card, with the options
+   "At current pace" and "At current efficiency". No new control is hand-rolled. See
+   `## Implementation notes` for why the switch sits above the card rather than in its header.
 2. **The choice is a device setting**, `settings.budgetForecastView: "pace" | "efficiency"`,
    defaulting to `"pace"`, stored alongside the existing chart-view setting. Printing therefore
    shows the chosen card, and the report and any other consumer stay in step.
@@ -45,8 +46,9 @@ badge, and reads it beside the chart it explains rather than a screen apart from
 5. **The chart keeps both forecast lines.** The switch picks a card, not a series; the spec-A
    readout keeps listing both.
 6. **The Budget report merges the two sections into one "Forecast" section**, in this order:
-   banners → rate-mix note → a row with the card at 30% and the chart at 70% → the gap line under
-   the card → the recorded-change table at full width below the row → the existing caption.
+   banners → rate-mix note → a row with the card column (30%, gap line under the card) and the
+   chart column (70%: chain warning, chart, caption) → the recorded-change table at full width
+   below the row.
 7. **The change table never sits beside the row.** At 70% of even a wide viewport the chart is
    already near its 640px floor, so `BurndownChartPanel`'s `2xl:flex-row` table placement is not
    reachable in this context and the table goes full width below.
@@ -108,8 +110,20 @@ The 30/70 split is expressed with the app's existing width classes on an `xl:fle
 - Toolbar/ordering assertions use the shared `src/test/toolbar-order.ts` helper where buttons are
   involved.
 - Axe scan of Reports (the section's structure changes).
-- Both Reports visual baselines (`reports-budget-history`, `reports-budget-changes`) are expected
-  to change and are refreshed deliberately, with the new captures eyeballed before commit.
+- The `reports-budget-history` visual baseline is expected to change and is refreshed
+  deliberately, with the new capture eyeballed before commit. `reports-budget-changes` stays
+  byte-identical — the change table's width context is unchanged (the same full section width as
+  before this spec).
+
+## Implementation notes
+
+- The switch heads the card column, above the card, rather than living in the card's own header
+  (amends Decision 1): `PaceCard` and `EfficiencyCard` are different components, so a control
+  swapped along with the card would unmount on every change and drop keyboard focus.
+- Only the `reports-budget-history` visual baseline changed; `reports-budget-changes` stayed
+  byte-identical, because the recorded-change table's width context is the same full section width
+  it had before this row existed (amends the Testing section, which originally expected both
+  baselines to change).
 
 ## Out of scope
 

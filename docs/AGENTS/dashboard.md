@@ -166,6 +166,22 @@ file-mode project a hand-entered bucket (it has no recorded progress there) is k
 (when it has one), partial from then (from the first point, without one) until today, and known at today's point from its current percent
 (`valueFn` in `budget-ev-history.ts`).
 
+★ **The Budget report's forecast row (forecast-switch spec B):** the report has ONE Forecast section.
+`ForecastSection` reads the device setting `budgetForecastView` (validated on load in `use-settings.ts`
+beside `budgetChartView`) and `ForecastCards` renders ONE card, picked by a `SegmentedControl` that heads
+the card COLUMN — never the card itself, because the two cards are different components and a switch inside
+either would unmount on every change, dropping keyboard focus to `<body>`. The chosen card's title carries
+a `RagBadge` from `paceVacHealth` over that card's own VAC, with NO `title` prop, so its accessible name is
+the health word. The report passes the chart column in as `chart`, with `BurndownChartPanel`'s
+`detachChangeTable` set, and mounts `BurndownChangeTableBlock` as `belowRow`, so the recorded-change table
+spans the section under the row; both go through one `changeTableFor` rule. The dashboard tile mounts no
+`ForecastSection` and never sets `detachChangeTable` (it passes `compact`, which already builds no
+table), so it is unchanged. ★ jsdom has no layout: the 30/70 split and the `xl` breakpoint are pinned
+only by class assertions in `budget-forecast-section.test.tsx` and `budget-report-panel.test.tsx`. The
+chart capture's width in the Reports visual spec (1440px only) pins the chart column, and the
+change-table capture pins the table outside it. The card column, the switch and the stacking below `xl`
+are photographed by nothing, so check them by eye.
+
 ★ **The chart's hover/keyboard readout:** hovering, tapping or
 focusing the chart's trigger `<button>` and pressing an arrow key opens a box naming every drawn
 series' value at one "stop". `readoutStops` (`burndown-readout.ts`) only ever lands on a RECORDED
