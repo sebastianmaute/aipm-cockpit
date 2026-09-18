@@ -25,7 +25,8 @@ export type Readout = { date: string; today: boolean; rows: readonly ReadoutRow[
 
 /**
  * Every date the readout may land on: the union of all drawn series' own
- * points, today, the plan end, each budget-change marker and the run-out.
+ * points, today, the plan end, each budget-change marker and the run-out —
+ * minus any of those at which `readoutAt` finds no row.
  *
  * ★ Deliberately NOT every calendar day. `actual` and the earned-value spans
  * carry ONE point per plan period, so a value between two points would be
@@ -48,7 +49,10 @@ export function readoutStops(model: ChartModel): readonly string[] {
   if (model.runOut) dates.add(model.runOut.date);
   if (model.today) dates.add(model.today);
   dates.add(model.planEnd);
-  return [...dates].sort();
+  // A stop the user can land on must have something to say: a date where no
+  // series is drawn (today or the plan end past every line, with no flat
+  // budget) would otherwise open a blank box, guide line and live region.
+  return [...dates].sort().filter((date) => readoutAt(model, date) !== null);
 }
 
 /** The stop whose x is closest to `x`, in the SVG's own coordinate space. */

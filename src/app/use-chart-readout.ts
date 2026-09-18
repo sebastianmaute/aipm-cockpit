@@ -15,6 +15,8 @@ export type ReadoutAnchor = { top: number; left: number };
 const HALF = 176;
 /** The box sits this far below the chart box's top edge. */
 const ANCHOR_TOP_PX = 8;
+/** The box keeps this far from either viewport edge (`InfoTooltip`'s `MARGIN`). */
+const VIEWPORT_MARGIN_PX = 8;
 
 export type ChartReadoutApi = {
   stop: string | null;
@@ -24,6 +26,7 @@ export type ChartReadoutApi = {
     ref: (el: HTMLElement | null) => void;
     onPointerMove: (e: PointerEvent<HTMLElement>) => void;
     onPointerLeave: (e: PointerEvent<HTMLElement>) => void;
+    onPointerUp: () => void;
     onPointerDown: (e: PointerEvent<HTMLElement>) => void;
     onClick: (e: MouseEvent<HTMLElement>) => void;
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
@@ -41,18 +44,35 @@ export function useChartReadout({
   const hostRef = useRef<HTMLElement | null>(null);
   const [stop, setStop] = useState<string | null>(null);
   const [anchor, setAnchor] = useState<ReadoutAnchor | null>(null);
+  /** True from a pointerup until the next task: the window in which a pen's
+   *  pointerleave is a tap lifting off rather than a hovering pen leaving. */
+  const justLiftedRef = useRef(false);
+  const liftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Unmount only: drop a pending lift timer so it cannot fire into a dead hook.
+  useEffect(() => () => {
+    if (liftTimerRef.current !== null) clearTimeout(liftTimerRef.current);
+  }, []);
 
   const close = useCallback(() => { setStop(null); setAnchor(null); }, []);
 
-  /** Screen position of a stop, clamped inside the chart's own box. */
+  /** Screen position of a stop, clamped inside the chart's own box when the box
+   *  fits there, and inside the viewport always. ★ The viewport clamp is the
+   *  outer floor for the case where the box is WIDER than the chart (the
+   *  dashboard tile at `xl`): there the chart-box clamp cannot hold, and
+   *  without a floor the box would run off-screen. Mirrors `InfoTooltip`. */
   const anchorFor = useCallback((date: string): ReadoutAnchor | null => {
     const rect = hostRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0) return null;
     const svgX = scaleDate(date, xDomain, x0, x1);
     const raw = rect.left + (svgX / viewBoxWidth) * rect.width;
-    const left = rect.width > HALF * 2
+    const inChart = rect.width > HALF * 2
       ? Math.min(Math.max(raw, rect.left + HALF), rect.right - HALF)
       : raw;
+    const left = Math.min(
+      Math.max(inChart, VIEWPORT_MARGIN_PX + HALF),
+      window.innerWidth - VIEWPORT_MARGIN_PX - HALF,
+    );
     return { top: rect.top + ANCHOR_TOP_PX, left };
   }, [x0, x1, viewBoxWidth, xDomain]);
 
@@ -98,11 +118,25 @@ export function useChartReadout({
       onPointerMove: (e) => move(e.clientX),
       // Only a hovering pointer closes on leave. ★ An ALLOW-LIST, not `!== "touch"`: a
       // touch pointer and a non-hovering stylus both fire pointerleave the instant contact
-      // ends, which would close the readout a frame after opening it. Anything that is not
-      // a mouse therefore closes by blur or Escape instead. An unknown or future
-      // pointerType fails safe this way — it leaves the readout open, which a blur clears,
-      // rather than making the readout unusable with that device.
-      onPointerLeave: (e) => { if (e.pointerType === "mouse") close(); },
+      // ends, which would close the readout a frame after opening it. A pen is split by
+      // whether a pointerup JUST fired: straight after one it is a tap lifting off, and it
+      // stays open; with none it is a HOVERING pen gliding away, and it closes. ★★ That pen
+      // case needs this leave path — a hovering pen opens the readout by pointermove alone,
+      // never focuses the button, and so has no blur or Escape to fall back on. A touch
+      // tap, and an unknown or future pointerType, stay open until a tap elsewhere moves
+      // focus off the button (which blurs it) or Escape — failing safe rather than making
+      // the readout unusable with that device.
+      onPointerLeave: (e) => {
+        if (e.pointerType === "mouse" || (e.pointerType === "pen" && !justLiftedRef.current)) close();
+      },
+      onPointerUp: () => {
+        justLiftedRef.current = true;
+        if (liftTimerRef.current !== null) clearTimeout(liftTimerRef.current);
+        liftTimerRef.current = setTimeout(() => {
+          justLiftedRef.current = false;
+          liftTimerRef.current = null;
+        }, 0);
+      },
       // A tap has no preceding hover, but its pointerdown carries a real
       // coordinate on touch as well as mouse — this is what makes "tap shows
       // it" work without a click-driven toggle. Only the primary button/contact

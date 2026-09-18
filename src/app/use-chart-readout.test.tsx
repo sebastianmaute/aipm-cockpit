@@ -21,8 +21,13 @@ function Harness() {
 
 afterEach(() => { vi.restoreAllMocks(); });
 
-function stubRect() {
-  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(RECT);
+function stubRect(rect: DOMRect = RECT) {
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(rect);
+}
+
+/** A chart narrower than the 352px box, as the dashboard tile is at `xl`. */
+function narrowRect(left: number): DOMRect {
+  return { left, top: 50, width: 200, height: 240, right: left + 200, bottom: 290, x: left, y: 50, toJSON: () => ({}) } as DOMRect;
 }
 
 describe("useChartReadout", () => {
@@ -46,17 +51,103 @@ describe("useChartReadout", () => {
     expect(screen.getByRole("status")).toHaveTextContent("closed");
   });
 
-  it("stays open when a non-hovering pen leaves", async () => {
+  it("stays open when a non-hovering pen lifts off and leaves", async () => {
     stubRect();
     const user = userEvent.setup();
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "chart" });
     await user.pointer({ target: trigger, coords: { clientX: 412, clientY: 60 } });
     expect(screen.getByRole("status")).toHaveTextContent("2026-02-01");
-    // user-event has no pen binding, so a synthetic pointerleave is the only
-    // way to reach this pointerType — fireEvent, not user.pointer, here.
+    // user-event has no pen binding, so synthetic events are the only way to
+    // reach this pointerType — fireEvent, not user.pointer, here. A pen that
+    // cannot hover fires pointerleave in the same task as its pointerup.
+    fireEvent.pointerUp(trigger, { pointerType: "pen" });
     fireEvent.pointerLeave(trigger, { pointerType: "pen" });
-    expect(screen.getByRole("status")).not.toHaveTextContent("closed");
+    expect(screen.getByRole("status")).toHaveTextContent("2026-02-01");
+  });
+
+  // The mirror case: a pen that HOVERS opens the readout by pointermove alone and never
+  // focuses the button, so leaving is its only close path — there is no blur or Escape.
+  it("closes when a hovering pen leaves", async () => {
+    stubRect();
+    const user = userEvent.setup();
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "chart" });
+    await user.pointer({ target: trigger, coords: { clientX: 412, clientY: 60 } });
+    expect(screen.getByRole("status")).toHaveTextContent("2026-02-01");
+    fireEvent.pointerLeave(trigger, { pointerType: "pen" });
+    expect(screen.getByRole("status")).toHaveTextContent("closed");
+  });
+
+  // The lift-off window is one task wide: a pen that tapped, then hovered away LATER,
+  // is a hovering pen again and must close.
+  it("closes when a pen leaves after its lift-off has passed", async () => {
+    stubRect();
+    const user = userEvent.setup();
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "chart" });
+    await user.pointer({ target: trigger, coords: { clientX: 412, clientY: 60 } });
+    fireEvent.pointerUp(trigger, { pointerType: "pen" });
+    await act(() => new Promise((resolve) => { setTimeout(resolve, 0); }));
+    expect(screen.getByRole("status")).toHaveTextContent("2026-02-01");
+    fireEvent.pointerLeave(trigger, { pointerType: "pen" });
+    expect(screen.getByRole("status")).toHaveTextContent("closed");
+  });
+
+  it("stays open when a touch contact leaves, lift-off or not", async () => {
+    stubRect();
+    const user = userEvent.setup();
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "chart" });
+    await user.pointer({ target: trigger, coords: { clientX: 412, clientY: 60 } });
+    fireEvent.pointerLeave(trigger, { pointerType: "touch" });
+    expect(screen.getByRole("status")).toHaveTextContent("2026-02-01");
+  });
+
+  // Pure arithmetic over the stubbed rect, so jsdom's lack of layout is no barrier. The
+  // chart's x axis runs 64…560 of a 640-wide viewBox, drawn 1:1 into RECT (left 100,
+  // right 740); the box is 352 wide, so its centre is clamped to [276, 564].
+  describe("anchor clamp", () => {
+    const anchorAt = async (key: "{Home}" | "{End}") => {
+      const user = userEvent.setup();
+      render(<Harness />);
+      await user.tab();
+      await user.keyboard(key);
+      return screen.getByTestId("anchor").textContent;
+    };
+
+    it("keeps the box inside the chart at the first stop", async () => {
+      stubRect();
+      // Raw x 100 + 64 = 164, pulled right to 100 + 176.
+      expect(await anchorAt("{Home}")).toBe("58/276");
+    });
+
+    it("keeps the box inside the chart at the last stop", async () => {
+      stubRect();
+      // Raw x 100 + 560 = 660, pulled left to 740 - 176.
+      expect(await anchorAt("{End}")).toBe("58/564");
+    });
+
+    // A chart narrower than the box cannot hold it, so the chart-box clamp stands down —
+    // but the viewport clamp still applies: centre within [8 + 176, innerWidth - 8 - 176].
+    it("keeps a box wider than the chart inside the viewport on the right", async () => {
+      expect(window.innerWidth).toBe(1024);
+      stubRect(narrowRect(800));
+      // Raw x 800 + 560 * 200/640 = 975, pulled left to 1024 - 184 = 840.
+      expect(await anchorAt("{End}")).toBe("58/840");
+    });
+
+    it("keeps a box wider than the chart inside the viewport on the left", async () => {
+      stubRect(narrowRect(0));
+      // Raw x 64 * 200/640 = 20, pulled right to 184.
+      expect(await anchorAt("{Home}")).toBe("58/184");
+    });
+
+    it("leaves a narrow chart's stop unclamped where the box already fits the viewport", async () => {
+      stubRect(narrowRect(500));
+      // Raw x 500 + 20 = 520: inside both viewport bounds, and the chart-box clamp is off.
+      expect(await anchorAt("{Home}")).toBe("58/520");
+    });
   });
 
   it("closes on scroll and on resize", async () => {

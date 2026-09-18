@@ -46,6 +46,31 @@ describe("readoutStops", () => {
     ]);
   });
 
+  // The fixture above over-collides: its marker date is also a budget step, and today and the
+  // plan end are also series points, so dropping any of those three adds changes nothing there.
+  // Here each sits on a date no other series carries, so each contributes its own stop.
+  it("adds a marker, today and the plan end even where no other series has a point", () => {
+    const stops = readoutStops(model({
+      bacMarkers: [{ date: "2026-01-10", value: 100, amount: 10, label: "Vendor", removed: false }],
+      today: "2026-01-25",
+      planEnd: "2026-03-10",
+    }));
+    expect(stops).toContain("2026-01-10");
+    expect(stops).toContain("2026-01-25");
+    expect(stops).toContain("2026-03-10");
+    expect(stops).toEqual([
+      "2026-01-01", "2026-01-10", "2026-01-25", "2026-02-01", "2026-02-15", "2026-03-01", "2026-03-10",
+    ]);
+  });
+
+  // A stop must have something to say: with no flat budget line, a today that no series
+  // reaches would open an empty box, so it is not a stop at all.
+  it("drops a date at which no series is drawn", () => {
+    const stops = readoutStops(model({ bacLine: null, today: "2026-01-15" }));
+    expect(stops).not.toContain("2026-01-15");
+    expect(stops).toEqual(["2026-01-01", "2026-02-01", "2026-02-15", "2026-03-01"]);
+  });
+
   it("de-duplicates and sorts", () => {
     const stops = readoutStops(model({ actual: [{ date: "2026-03-01", value: 0 }] }));
     expect(stops).toEqual(["2026-01-01", "2026-02-01", "2026-02-15", "2026-03-01"]);
@@ -155,6 +180,19 @@ describe("readoutAt", () => {
     });
     expect(readoutAt(withEv, "2026-01-01")!.rows.find((r) => r.kind === "ev")!.partial).toBe(true);
     expect(readoutAt(withEv, "2026-02-01")!.rows.find((r) => r.kind === "ev")!.partial).toBe(false);
+  });
+
+  // The reverse order of the pair above. There, last-span-wins happens to agree with
+  // prefer-complete; here the partial span comes LAST, so only prefer-complete says false.
+  it("prefers a complete span on a shared boundary whichever order the spans come in", () => {
+    const withEv = model({
+      evSegments: [
+        { partial: false, points: [{ date: "2026-01-01", value: 0 }, { date: "2026-02-01", value: 55 }] },
+        { partial: true, points: [{ date: "2026-02-01", value: 55 }, { date: "2026-03-01", value: 80 }] },
+      ],
+    });
+    expect(readoutAt(withEv, "2026-02-01")!.rows.find((r) => r.kind === "ev")!.partial).toBe(false);
+    expect(readoutAt(withEv, "2026-03-01")!.rows.find((r) => r.kind === "ev")!.partial).toBe(true);
   });
 
   it("adds the marker's names and signed amount on a change date", () => {
