@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CreateProjectWizard } from "./create-project-wizard";
@@ -7,6 +9,11 @@ import { type NewProjectOpts } from "./new-project-workspace";
 import { defaultSettings } from "./settings-types";
 import { SETTINGS_KEY } from "./use-settings";
 import { loadI18n, t } from "./i18n";
+
+const sampleText = readFileSync(
+  join(import.meta.dirname, "..", "..", "sample-workspace-small.json"),
+  "utf8",
+);
 
 const generateMock = vi.fn();
 vi.mock("./use-project-proposal", () => ({
@@ -562,5 +569,50 @@ describe("CreateProjectWizard AI Step 0", () => {
         name: t("en-US", "wizardImportMethodConfluence"),
       }),
     ).toBeNull();
+  });
+});
+
+describe("CreateProjectWizard native workspace import (Step 1, key-free)", () => {
+  beforeEach(() => {
+    window.localStorage.removeItem(SETTINGS_KEY);
+  });
+
+  // Regression guard for the "picker AI-only" mutant: the workspace-import
+  // control must be offered even when no Anthropic key is configured — it is
+  // the key-free route, not an AI-fast-path extra.
+  it("offers the workspace import without an API key", () => {
+    setup();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") }),
+    ).toBeInTheDocument();
+  });
+
+  it("imports a workspace file from Step 1 and creates the project with its content", async () => {
+    const { onCreate } = setup();
+    const input = screen
+      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
+      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByText(/Importing sample\.json: \d+ tasks/)).toBeInTheDocument();
+    // Submit Step 1 with its pre-filled name — the import must have replaced
+    // the (previously blank) form draft, or Next stays disabled.
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    const opts = onCreate.mock.calls[0][2];
+    expect(opts.importedWorkspace?.tasks.length).toBeGreaterThan(0);
+  });
+
+  it("rejects a JSON that is not a workspace, and creates nothing", async () => {
+    const { onCreate } = setup();
+    const input = screen
+      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
+      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(['{"a":1}'], "x.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByText("x.json is not a workspace file.")).toBeInTheDocument();
+    expect(onCreate).not.toHaveBeenCalled();
   });
 });

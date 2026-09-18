@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Step0ImportPanel } from "./step0-import-panel";
@@ -5,6 +7,11 @@ import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
 import { ATTACHMENT_ACCEPT, type DocumentBlock } from "./chat-attachments";
 import { buildCfbf } from "./__fixtures__/cfbf-writer";
+
+const sampleText = readFileSync(
+  join(import.meta.dirname, "..", "..", "sample-workspace-small.json"),
+  "utf8",
+);
 
 // SharePoint path stubs — the picker itself and the Graph fetch are mocked so
 // the regression test below can drive Step0ImportPanel's onSharePointPick
@@ -37,6 +44,7 @@ const baseProps = {
   aiError: null as string | null,
   onResetAi: vi.fn(),
   onSkip: vi.fn(),
+  onImportWorkspace: vi.fn(),
 };
 
 function selectFileMethod() {
@@ -208,6 +216,37 @@ describe("Step0ImportPanel multi-file", () => {
     const data = (block.source as { data: string }).data;
     expect(data).toContain("Hi");
     expect(data).not.toContain("x()");
+  });
+});
+
+describe("Step0ImportPanel native workspace routing", () => {
+  it("routes a native workspace JSON to onImportWorkspace without a model call", async () => {
+    const onIngest = vi.fn();
+    const onImportWorkspace = vi.fn();
+    render(
+      <Step0ImportPanel {...baseProps} onIngest={onIngest} onImportWorkspace={onImportWorkspace} />,
+    );
+    selectFileMethod();
+    fireEvent.change(fileInput(), {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    await waitFor(() => expect(onImportWorkspace).toHaveBeenCalledTimes(1));
+    expect(onImportWorkspace.mock.calls[0][1]).toBe("sample.json");
+    expect(onIngest).not.toHaveBeenCalled();
+  });
+
+  it("sends a non-workspace JSON to Claude like any document", async () => {
+    const onIngest = vi.fn().mockResolvedValue(undefined);
+    const onImportWorkspace = vi.fn();
+    render(
+      <Step0ImportPanel {...baseProps} onIngest={onIngest} onImportWorkspace={onImportWorkspace} />,
+    );
+    selectFileMethod();
+    fireEvent.change(fileInput(), {
+      target: { files: [new File(['{"invoice":1}'], "inv.json", { type: "application/json" })] },
+    });
+    await waitFor(() => expect(onIngest).toHaveBeenCalledTimes(1));
+    expect(onImportWorkspace).not.toHaveBeenCalled();
   });
 });
 

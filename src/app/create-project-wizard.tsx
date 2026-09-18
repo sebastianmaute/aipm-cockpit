@@ -38,12 +38,16 @@ import { useTemplates } from "./use-templates";
 import { useProjectProposal, type ProposalContent } from "./use-project-proposal";
 import { proposalToDraftPatch, proposalToSeed, seedHasContent } from "./ai-project-proposal";
 import { Step0ImportPanel } from "./step0-import-panel";
+import { draftFromMeta } from "./project-form";
+import { parseNativeWorkspace } from "./native-workspace-import";
+import type { Workspace } from "./workspace";
 import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 import { WizardStepIndicator } from "./wizard-step-indicator";
 import { Checkbox } from "./form-controls";
 import { Badge } from "./badge";
 import { Button } from "./button";
+import { FilePickerButton } from "./file-picker-button";
 import { ToggleButton } from "./toggle-button";
 
 type CreateFormat = "json" | "csv" | "md";
@@ -166,6 +170,20 @@ export function CreateProjectWizard({
   const [features, setFeatures] = useState<FeatureModuleId[]>([...ALL_MODULE_IDS]);
   const [includeSeed, setIncludeSeed] = useState(false);
 
+  // Native workspace JSON import (Step 0's file router, or Step 1's own
+  // key-free picker): when set, it IS the new project's content — Step 1's
+  // Create shortcut bypasses Template/Functions entirely (see handleDetails).
+  const [imported, setImported] = useState<{ ws: Workspace; fileName: string; ignored: string[] } | null>(null);
+  // A Step-1-local import error (invalid / not-a-workspace); distinct from
+  // Step 0's own `importError`, which unmounts once the wizard advances.
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  // Bumped on every accepted import so Step 1's already-mounted CreateProjectForm
+  // remounts and re-derives its initial draft from the fresh draftPatch — a
+  // prop-only change would otherwise be swallowed by ProjectForm's lazy
+  // useState initializer (remount-swallow, the opposite direction: here the
+  // mount must be FORCED, not guarded against).
+  const [importNonce, setImportNonce] = useState(0);
+
   // Suggestion derived from the captured Step-1 meta. Drives the badge + reason
   // line and is preselected ONCE when Step 1 is submitted (see handleDetails),
   // unless the user has already touched the list.
@@ -206,11 +224,49 @@ export function CreateProjectWizard({
     setStep(1);
   };
 
+  // Accepts a workspace parsed from EITHER route (Step 0's file router or
+  // Step 1's own picker) — the only two call sites, and both only ever pass a
+  // `parseNativeWorkspace` result of kind "workspace". Pre-fills Step 1 from
+  // the file's own project meta and forces a remount (importNonce) so an
+  // already-mounted Step 1 (the key-free route) picks it up.
+  const acceptImport = (ws: Workspace, fileName: string, ignored: string[] = []) => {
+    setImported({ ws, fileName, ignored });
+    setImportMsg(null);
+    if (ws.project) setDraftPatch(draftFromMeta(ws.project));
+    setImportNonce((n) => n + 1);
+    setStep(1);
+  };
+
+  // Step 1's own key-free picker: parses locally (no model call) and routes
+  // through the same acceptImport as Step 0's file router.
+  const onWorkspaceFile = async (file: File) => {
+    const parsed = parseNativeWorkspace(await file.text());
+    if (parsed.kind === "workspace") {
+      acceptImport(parsed.workspace, file.name);
+      return;
+    }
+    setImportMsg(
+      t(
+        lang,
+        parsed.kind === "invalid" ? "wizardImportWorkspaceInvalid" : "wizardImportWorkspaceNotWorkspace",
+        file.name,
+      ),
+    );
+  };
+
   const handleDetails = (
     m: ProjectMeta,
     fmt: CreateFormat,
     sto: "file" | "turso",
   ) => {
+    // A native workspace import IS the new project's content — skip the
+    // Template/Functions steps and create straight away. Only `meta` (the
+    // just-submitted, possibly user-edited form) and storage are threaded;
+    // template/features/aiSeed are meaningless once a workspace is imported.
+    if (imported) {
+      onCreate(m, fmt, { importedWorkspace: imported.ws, storage: sto });
+      return;
+    }
     setMeta(m);
     setFormat(fmt);
     setStorage(sto);
@@ -245,15 +301,25 @@ export function CreateProjectWizard({
   const aiSeedActive = selectedTemplate === null && seedHasContent(aiSeed);
   const offerSeed = hasSeedContent(selectedTemplate) || aiSeedActive;
 
-  // Step-1 footer left slot: a Back-to-Describe button (only on the AI fast-path,
-  // before details are captured). Without it, an AI user who lands on Step 1 has
-  // no way back to re-describe — only Cancel.
-  const step1FooterLeft =
-    aiEnabled && !meta ? (
-      <Button variant="secondary" onClick={() => setStep(0)}>
-        {t(lang, "wizardBack")}
-      </Button>
-    ) : undefined;
+  // Step-1 footer left slot: an optional Back-to-Describe button (only on the
+  // AI fast-path, before details are captured — without it, an AI user who
+  // lands on Step 1 has no way back to re-describe, only Cancel) plus the
+  // workspace-import picker, which is the KEY-FREE route and therefore always
+  // rendered, AI-enabled or not.
+  const step1FooterLeft = (
+    <div className="flex items-center gap-2">
+      {aiEnabled && !meta && (
+        <Button variant="secondary" onClick={() => setStep(0)}>
+          {t(lang, "wizardBack")}
+        </Button>
+      )}
+      <FilePickerButton
+        label={t(lang, "wizardImportWorkspaceButton")}
+        accept="application/json,.json"
+        onFile={(f) => { void onWorkspaceFile(f); }}
+      />
+    </div>
+  );
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -278,6 +344,7 @@ export function CreateProjectWizard({
           onResetAi={resetAi}
           onSkip={() => setStep(1)}
           onCancel={onCancel}
+          onImportWorkspace={acceptImport}
         />
       )}
 
@@ -287,22 +354,46 @@ export function CreateProjectWizard({
 
         {/* Step 1 — Details: reuse the shared create form (its submit advances). */}
         {step === 1 && (
-          <CreateProjectForm
-            lang={lang}
-            stakeholderNames={stakeholderNames}
-            addressBook={addressBook}
-            resources={resources}
-            settings={settings}
-            onChangeSettings={onChangeSettings}
-            onCreate={handleDetails}
-            onCancel={onCancel}
-            hideFormat={hideFormat}
-            footerLeft={step1FooterLeft}
-            submitLabel={t(lang, "wizardNext")}
-            initialMeta={meta ?? undefined}
-            initialDraftPatch={meta ? undefined : draftPatch}
-            initialFormat={format}
-          />
+          <>
+            {imported && (
+              <p className="mb-3 text-xs text-muted-foreground">
+                {t(lang, "wizardImportWorkspaceNotice", imported.fileName, imported.ws.tasks.length, imported.ws.raid.length, imported.ws.budgets?.length ?? 0)}
+                {imported.ignored.length > 0 && (
+                  <>
+                    {" "}
+                    {t(lang, "wizardImportWorkspaceIgnored", imported.ignored.join(", "))}
+                  </>
+                )}
+                {" "}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t(lang, "wizardImportWorkspaceClear", imported.fileName)}
+                  onClick={() => setImported(null)}
+                >
+                  <span aria-hidden="true">✕</span>
+                </Button>
+              </p>
+            )}
+            {importMsg && <FieldError>{importMsg}</FieldError>}
+            <CreateProjectForm
+              key={importNonce}
+              lang={lang}
+              stakeholderNames={stakeholderNames}
+              addressBook={addressBook}
+              resources={resources}
+              settings={settings}
+              onChangeSettings={onChangeSettings}
+              onCreate={handleDetails}
+              onCancel={onCancel}
+              hideFormat={hideFormat}
+              footerLeft={step1FooterLeft}
+              submitLabel={t(lang, "wizardNext")}
+              initialMeta={meta ?? undefined}
+              initialDraftPatch={meta ? undefined : draftPatch}
+              initialFormat={format}
+            />
+          </>
         )}
 
         {/* Step 2 — Template. */}
