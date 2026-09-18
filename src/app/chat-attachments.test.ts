@@ -355,7 +355,7 @@ describe("ATTACHMENT_ACCEPT", () => {
     }
     // A seventh extension set added to ATTACHMENT_ACCEPT's spread and forgotten
     // above would be invisible to the loop — pin the count too.
-    expect(tokens.filter((t) => t.startsWith(".")).length).toBe(21);
+    expect(tokens.filter((t) => t.startsWith(".")).length).toBe(22);
   });
 
   // ★ Round-trips every DERIVED token, not just a fixed trio — 8 of the 11
@@ -373,7 +373,7 @@ describe("ATTACHMENT_ACCEPT", () => {
     // "image/*" (which the loop below skips) still fails: the loop over an
     // absent token does nothing, so this count is the only thing that would
     // catch it.
-    expect(tokens.filter((t) => !t.startsWith(".")).length).toBe(13);
+    expect(tokens.filter((t) => !t.startsWith(".")).length).toBe(14);
     for (const token of tokens) {
       if (token === "image/*") continue;
       if (token.startsWith(".")) {
@@ -473,6 +473,20 @@ function familiesMissingFrom(hint: string): string[] {
     (f) => ![...f.exts].some((ext) => upper.includes(ext.slice(1).toUpperCase())),
   ).map((f) => f.family);
 }
+
+describe("JSON attachments", () => {
+  it("classifies a .json file as text by extension", () => {
+    expect(classifyAttachment("", "sample-workspace-small.json")).toBe("text");
+  });
+  it("classifies application/json as text by MIME", () => {
+    expect(classifyAttachment("application/json", "noext")).toBe("text");
+  });
+  it("offers .json in the shared picker accept list", () => {
+    const parts = ATTACHMENT_ACCEPT.split(",");
+    expect(parts).toContain(".json");
+    expect(parts).toContain("application/json");
+  });
+});
 
 describe("the attachment hint discloses what the picker accepts", () => {
   // ★★★ THE NEGATIVE CONTROL, AND IT RUNS FIRST ON PURPOSE. A predicate that

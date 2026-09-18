@@ -52,7 +52,7 @@ export const SUPPORTED_IMAGE_MIMES: ReadonlySet<string> = new Set([
 
 export const PDF_EXTENSIONS: ReadonlySet<string> = new Set([".pdf"]);
 export const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
-export const TEXT_EXTENSIONS: ReadonlySet<string> = new Set([".txt", ".md", ".markdown", ".csv", ".vtt"]);
+export const TEXT_EXTENSIONS: ReadonlySet<string> = new Set([".txt", ".md", ".markdown", ".csv", ".vtt", ".json"]);
 export const HTML_EXTENSIONS: ReadonlySet<string> = new Set([".html", ".htm"]);
 export const OFFICE_EXTENSIONS: ReadonlySet<string> = new Set([".docx", ".xlsx", ".xlsm", ".pptx"]);
 export const MAIL_EXTENSIONS: ReadonlySet<string> = new Set([".eml", ".mhtml", ".mht", ".msg"]);
@@ -77,6 +77,7 @@ const ACCEPT_MIMES = [
   "text/csv",
   "text/html",
   "text/vtt",
+  "application/json",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel.sheet.macroEnabled.12",
@@ -139,7 +140,8 @@ export function classifyAttachment(
     mime === "text/plain" ||
     mime === "text/markdown" ||
     mime === "text/csv" ||
-    mime === "text/vtt"
+    mime === "text/vtt" ||
+    mime === "application/json"
   ) {
     return "text";
   }
