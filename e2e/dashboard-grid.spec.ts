@@ -57,28 +57,17 @@ test.describe("dashboard grid geometry", () => {
   test("resolves to four equal column tracks at xl", async ({ page }) => {
     const m = await gridMetrics(page);
     expect(m.tracks).toHaveLength(4);
-    // ★★★ THE EQUAL-WIDTH LOOP IS THE ONLY ASSERTION IN THIS TEST THAT CATCHES A
-    // MISSING `xl:grid-cols-4`, AND NEITHER OF THE OTHER TWO HELPS. Measured, not
-    // reasoned — delete `xl:grid-cols-4` from `arrangement-grid.tsx` (it moved
-    // there with the grid extraction; `dashboard-grid.tsx`, which this recipe
-    // used to name, is now a thin adapter and contains no such class), restart
-    // the dev server so Tailwind cannot serve a stale sheet, and read the computed
-    // style: `gridTemplateColumns` is "19.3594px 19.3594px 575.641px 575.641px".
-    // FOUR entries, so `toHaveLength(4)` PASSES. The template does not collapse
-    // to one track, because the w:4 tile's own `xl:col-span-4` spans past the two
-    // explicit `lg:grid-cols-2` tracks and grid MANUFACTURES two implicit ones to
-    // hold it. Only these unequal widths give it away (delta 556.28px).
-    // ★ That was measured while `kpi` defaulted to w:4. Since §585 no default
-    // tile is 4 wide, so the implicit tracks this mutant manufactures now come
-    // from 2-wide spans instead — NOT re-measured; re-run the mutant before
-    // quoting the figures above for today's board.
+    // ★★ WHICH ASSERTION CATCHES A MISSING `xl:grid-cols-4` DEPENDS ON THE
+    // BOARD, and on this one it is the length check above. Measured 2026-09-19:
+    // delete `xl:grid-cols-4` from `arrangement-grid.tsx` and this default board
+    // (no stored layout, no tile wider than 2 since §585) resolves to TWO tracks,
+    // so `toHaveLength(4)` goes red first. A board holding a w:4 tile behaves
+    // differently: the width-span describe below seeds one, and under the same
+    // mutant its template still lists four entries, of unequal width — so there
+    // only a width comparison can see it. The equal-width loop is kept for that
+    // shape of failure on this board too.
     for (const w of m.tracks) expect(Math.abs(w - m.tracks[0])).toBeLessThan(1);
-    // ★★ …and the sum below does NOT catch it either, which is the surprise:
-    // implicit tracks are content-sized, so the row still tiles the content box
-    // exactly. Measured under the same mutant: 1238.0008px of tracks+gaps against
-    // a 1238px content box, a 0.0008px delta well inside this 1.5 tolerance. It
-    // is kept because it pins a DIFFERENT failure (a template that resolves to
-    // four tracks not filling the box), not as a second detector for this one.
+    // Pins a DIFFERENT failure: four tracks that do not fill the content box.
     const spanned = m.tracks.reduce((a, b) => a + b, 0) + 3 * m.colGap;
     expect(Math.abs(spanned - m.contentWidth)).toBeLessThan(1.5);
   });
@@ -104,8 +93,8 @@ test.describe("dashboard grid geometry", () => {
     // tile: `row-span-2` is a SECOND literal class table (`H_CLASS`) that
     // Tailwind must also have emitted. A h:2 tile is two row units plus the row
     // gap between them.
-    const kpi = await tileBox(page, "kpi"); // catalogue default h: 2
-    expect(Math.abs(kpi.height - (2 * 80 + m.rowGap))).toBeLessThan(1.5);
+    const upcoming = await tileBox(page, "upcoming"); // catalogue default h: 2
+    expect(Math.abs(upcoming.height - (2 * 80 + m.rowGap))).toBeLessThan(1.5);
   });
 
   test("emitted the Dashboard-only height utilities — an h:8 tile is eight row units tall", async ({ page }) => {
@@ -124,7 +113,7 @@ test.describe("dashboard grid geometry", () => {
 
   test("places the KPI tile BESIDE the 2×8 burn tile on xl, not below it (§585)", async ({ page }) => {
     // ★ The default board (no stored layout): burn w2 h8 takes columns 1-2 for
-    // eight rows, and the KPI tile's w:2 default lets dense packing put it in
+    // eight rows, and the KPI tile's 2×3 default lets dense packing put it in
     // columns 3-4 of burn's first rows. At its former w:4 it could only fit
     // below all eight.
     const burn = await tileBox(page, "burn");
@@ -137,10 +126,14 @@ test.describe("dashboard grid geometry", () => {
 });
 
 /**
- * ★ No catalogue tile defaults to w:4 since §585 moved the KPI tile to w:2, so
+ * ★ No catalogue tile defaults to w:4 since §585 moved the KPI tile to 2×3, so
  * the full-row width is measured on a SEEDED w:4 KPI tile. The layout carries
- * the burn upgrade id, or `upgradeDashboardLayout` would narrow that w:4 back
- * to 2 before it ever rendered.
+ * the burn upgrade id, or `upgradeDashboardLayout` would resize that 4×2 to
+ * 2×3 before it ever rendered.
+ * ★ It names two tiles only. `reconcile` re-inserts every other catalogue tile
+ * that is on neither list, beside its nearest present neighbour — harmless
+ * here: the assertions read the widths of `kpi` and `upcoming`, which a
+ * re-inserted tile cannot change, and never their positions.
  */
 const W4_LAYOUT = {
   v: 1,
@@ -172,14 +165,11 @@ test.describe("dashboard grid width spans", () => {
     // tile would fall back to a single implicit column, and this is the only
     // assertion in the repo that would notice.
     //
-    // ★★ It is ALSO a second, independent detector for a missing container
-    // template — measured under the `xl:grid-cols-4` mutant described above, the
-    // w:2 line fails (upcoming renders 54.72px against an expected 611px) while
-    // the w:4 line PASSES (kpi still fills 1238px, because its span reaches the
-    // implicit tracks). So of the five tests here that mutant turns exactly TWO
-    // red, each on its second assertion: 3 passed / 2 failed. ★ Measured
-    // before §585 split this test into its own seeded describe; the tally is
-    // that run's, not today's.
+    // ★★ It is ALSO a detector for a missing container template, and on THIS
+    // seeded board the only one. Measured 2026-09-19 with `xl:grid-cols-4`
+    // deleted from `arrangement-grid.tsx`: the template here reads four entries
+    // of unequal width, the seeded w:4 kpi still fills the content box, and the
+    // w:2 line fails — upcoming renders about 55px wide instead of half the row.
     const m = await gridMetrics(page);
     const kpi = await tileBox(page, "kpi");           // seeded w: 4 (W4_LAYOUT above)
     const upcoming = await tileBox(page, "upcoming"); // seeded w: 2
@@ -190,6 +180,86 @@ test.describe("dashboard grid width spans", () => {
     expect(kpi.width).toBeGreaterThan(upcoming.width * 1.8);
   });
 });
+
+/**
+ * §585: nothing that shows a value may be hidden, and a cell reachable only by
+ * scrolling inside its tile counts as hidden.
+ *
+ * ★★ At a 1280px viewport the half-width KPI tile is too narrow for four or
+ * five cells in one row, so `KPI_STRIP_COLS` wraps them to a second row — which
+ * is why the KPI default is h:3. Only a real layout can show the second row
+ * still fits the tile BODY (the `overflow-auto` box under the chrome), so this
+ * measures it, in both densities.
+ *
+ * ★ The sample workspace carries no estimates, so its strip shows three cells
+ * only. This seeds EVM data straight into the IndexedDB tasks store the seed
+ * fixture wrote (the page is still on its same-origin `/favicon.ico` here):
+ * every task gets an estimate, so the tasks already due by `FROZEN_NOW` make
+ * SPI non-null; booked minutes also make CPI non-null (`evm.ts`).
+ */
+async function seedEvm(page: import("@playwright/test").Page, withBookedHours: boolean) {
+  await page.evaluate((booked) => new Promise<void>((resolve, reject) => {
+    const open = indexedDB.open("aipm-cockpit");
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const db = open.result;
+      const tx = db.transaction("tasks", "readwrite");
+      const store = tx.objectStore("tasks");
+      const all = store.getAll();
+      all.onsuccess = () => {
+        for (const task of all.result as Record<string, unknown>[]) {
+          store.put({ ...task, originalEstimateMinutes: 480, ...(booked ? { timeSpentMinutes: 240 } : {}) });
+        }
+      };
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }), withBookedHours);
+}
+
+const KPI_FIT_VW = 1280;
+
+for (const density of ["comfortable", "compact"] as const) {
+  for (const cells of [5, 4] as const) {
+    test(`the ${cells}-cell KPI strip fits its tile body at half-width xl — ${density} (§585)`, async ({ page }) => {
+      await seedEvm(page, cells === 5);
+      await page.addInitScript((d) => {
+        localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ dashboardDensity: d }));
+      }, density);
+      await page.setViewportSize({ width: KPI_FIT_VW, height: 1000 });
+      await gotoApp(page);
+      await openView(page, "Dashboard");
+
+      // Guards: the seed and the density both took, or this measures the wrong
+      // board. The row unit is the density's (`dashboard-density.ts`).
+      expect((await gridMetrics(page)).autoRows).toBe(density === "compact" ? "72px" : "80px");
+      const tile = page.getByTestId("tile-kpi");
+      await expect(tile.getByText("Effort SPI")).toBeVisible();
+      await expect(tile.getByText("Effort CPI")).toHaveCount(cells === 5 ? 1 : 0);
+
+      const fit = await tile.evaluate((section) => {
+        const body = section.lastElementChild as HTMLElement; // the overflow-auto body
+        const strip = body.querySelector('[class*="@container"] > div') as HTMLElement;
+        const cellBottoms = [...strip.children].map((c) => c.getBoundingClientRect().bottom);
+        return {
+          count: strip.children.length,
+          rows: new Set([...strip.children].map((c) => Math.round(c.getBoundingClientRect().top))).size,
+          lowestCell: Math.max(...cellBottoms),
+          bodyBottom: body.getBoundingClientRect().bottom,
+          scrollHeight: body.scrollHeight,
+          clientHeight: body.clientHeight,
+        };
+      });
+      expect(fit.count).toBe(cells);
+      // The case this exists for: the cells really did wrap.
+      expect(fit.rows).toBe(2);
+      // Every cell ends inside the body's visible box, and the body has nothing
+      // to scroll.
+      expect(fit.lowestCell).toBeLessThanOrEqual(fit.bodyBottom + 0.5);
+      expect(fit.scrollHeight).toBeLessThanOrEqual(fit.clientHeight);
+    });
+  }
+}
 
 /**
  * Dense packing, measured rather than asserted as a class.

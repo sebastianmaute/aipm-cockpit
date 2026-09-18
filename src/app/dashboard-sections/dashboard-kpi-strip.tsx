@@ -72,7 +72,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
   const openBudget = onNavigate ? () => onNavigate("budget") : undefined;
   const cellCount = (3 + (showSpi ? 1 : 0) + (showCpi ? 1 : 0)) as KpiCellCount;
   return (
-    <div className={`@container ${dc.cardPad}`}>
+    <div className={`@container ${dc.kpiPad}`}>
       <div className={`grid grid-cols-1 ${KPI_STRIP_COLS[cellCount]} ${dc.kpiGap}`}>
         <Tile
           label={noActiveScope ? t(lang, "dashboardNoActiveScope") : t(lang, "dashboardKpiComplete")}

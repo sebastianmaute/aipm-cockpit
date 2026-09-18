@@ -262,6 +262,13 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
       expect(classesOf(stripGrid(container).wrapper)).toContain("@container");
     });
 
+    it("pads with the density's kpiPad, not cardPad (§585)", () => {
+      const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={densityClasses("compact")} />);
+      const wrapper = classesOf(stripGrid(container).wrapper);
+      expect(wrapper).toEqual(expect.arrayContaining(["px-2", "py-0"]));
+      expect(wrapper).not.toContain("p-2");
+    });
+
     it("3 cells: one row of three, never four or five columns", () => {
       const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={densityClasses("comfortable")} />);
       const { grid } = stripGrid(container);

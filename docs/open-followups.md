@@ -39011,14 +39011,17 @@ Fix shape: (a) add a fixture where the first (top-ranked) group is `monitor` and
 ## 585. On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — CLOSED 2026-09-19
 
 **Status:** CLOSED 2026-09-19 on `docs/spec-c-dashboard-rework`, with §581. The KPI tile's catalogue default in
-`DASHBOARD_TILES` is now `w: 2` (`minW: 2` unchanged), so on xl dense packing puts it in columns 3–4 beside
-burn. Stored layouts: the ONE existing upgrade, `upgradeDashboardLayout` (still keyed on
-`DASHBOARD_BURN_UPGRADE`; the branch is unreleased), also narrows a stored `kpi` block from exactly `w: 4` to
-`w: 2` — only when it moves burn to the front, never when burn is hidden, and never a user-chosen width. Verified
-with `npx vitest run src/app/dashboard-layout-upgrade.test.ts` (resized at 4, untouched at 3 and with burn
-hidden, a fresh board gets 2; a mutant dropping the narrowing went red) and
-`npx playwright test e2e/dashboard-grid.spec.ts --project=chromium --workers=1`, whose new test asserts the KPI
-box sits right of burn with overlapping vertical ranges (red against a `w: 4` default).
+`DASHBOARD_TILES` is now `w: 2 h: 3` (`minW: 2`, `maxH: 3` unchanged), so on xl dense packing puts it in columns
+3–4 beside burn, and a strip that wraps to two rows at half width stays inside the tile body with no inner
+scroll. Compact density pads the strip with the new `DensityClasses.kpiPad` (`px-2 py-0`): with `cardPad`'s
+vertical padding a wrapped 4-cell strip overflowed its body by 3px at the 72px row unit. Stored layouts: the ONE
+existing upgrade, `upgradeDashboardLayout` (still keyed on `DASHBOARD_BURN_UPGRADE`; the branch is unreleased),
+also resizes a stored `kpi` block, each axis only from exactly its old default (`w: 4` → 2, `h: 2` → 3), only
+when it moves burn to the front, and never a user-chosen size. Verified with
+`npx vitest run src/app/dashboard-layout-upgrade.test.ts` (mutants dropping either axis went red) and
+`npx playwright test e2e/dashboard-grid.spec.ts --project=chromium --workers=1`: KPI right of burn with
+overlapping vertical ranges (red against `w: 4`), and at a 1280px viewport a seeded 4- and 5-cell strip, in both
+densities, ends inside the tile body with nothing to scroll (all four red against `h: 2`).
 
 **Work item:** #370
 

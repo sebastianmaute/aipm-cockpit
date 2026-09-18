@@ -45,8 +45,9 @@ on.
 ★★ **WIDTHS RUN 1–4 AND HEIGHTS 1–8, AS TWO TYPES (spec C).** `BlockWidth` (the four-column grid)
 and `BlockHeight` replaced the one shared union, so an 8-wide block cannot type-check; `H_CLASS`
 carries literal `row-span-5` … `row-span-8`. Only the Dashboard's catalogue reaches past 4 — `burn` is
-`w:2 h:8`, FIRST in `DEFAULT_LAYOUT`, with `kpi` second at `w:2` (§585) so that on xl dense packing puts it in
-columns 3–4 BESIDE burn rather than below its eight rows — and Reports caps itself through its own `maxH`, pinned in
+`w:2 h:8`, FIRST in `DEFAULT_LAYOUT`, with `kpi` second at `w:2 h:3` (§585) so that on xl dense packing puts it in
+columns 3–4 BESIDE burn rather than below its eight rows (h:3 keeps a strip that wraps to two rows at half
+width inside the tile body — measured in both densities by `e2e/dashboard-grid.spec.ts`) — and Reports caps itself through its own `maxH`, pinned in
 `report-blocks.test.ts`. The 8-row box is measured by `e2e/dashboard-grid.spec.ts`.
 
 ★★ **A STORED LAYOUT CARRIES AN OPTIONAL `upgrades` LIST, NOT A NEW VERSION (spec C).** `v` stays 1
@@ -55,8 +56,8 @@ an optional `upgrade` that runs on a stored `ok` read BEFORE `reconcile`; a diff
 that read dirty, so the upgraded layout is written back once. The Dashboard passes
 `upgradeDashboardLayout` (`dashboard-layout-upgrade.ts`), keyed on `DASHBOARD_BURN_UPGRADE`: Budget burn
 to the front at 2×8 unless hidden, Completion trend's height clamped into 2–4, and — only alongside that
-burn move, only from exactly the old default `w:4` — the KPI tile narrowed to `w:2` (§585; any other stored
-width is the user's and stays). Nothing else is touched.
+burn move, each axis only from exactly its old default (`w:4`, `h:2`) — the KPI tile resized to `w:2 h:3`
+(§585; any other stored width or height is the user's and stays). Nothing else is touched.
 ★★★ `DEFAULT_LAYOUT` already carries the id and must — a fresh or reset board is persisted from it,
 and without the id its next load would drag burn back to the front. `readArrangement` sanitises the list
 (junk is dropped, never a rejection) and `reconcile` carries it. ★ An older build's `reconcile` drops the
@@ -432,7 +433,9 @@ The presentational slices:
   `model.evm.cpi` is non-null — spec C, independent of the Budget module; overdue and open-RAID
   always carry a `TrendArrow`, completion
   carries one only outside the no-active-scope state below); the body of the `kpi` tile. Uses a
-  `dc.cardPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
+  `dc.kpiPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
+  ★ `kpiPad`, not `cardPad` (§585): same horizontal padding, but compact drops the vertical padding — with
+  it, a wrapped strip overflowed its h:3 tile body by 3px at the 72px row unit.
   ★★ Its columns come from `KPI_STRIP_COLS`, keyed on the VISIBLE cell count (3, 4 or 5 — so no count leaves
   an empty cell) and read as CONTAINER queries off that wrapper, which is the `@container`: they size to the
   tile, not the viewport (§581). The breakpoints are measured label widths; the derivation sits on the constant.
@@ -472,7 +475,8 @@ The presentational slices:
   render-time reconcile; the textarea carries an `aria-label`, NOT just a placeholder — axe).
 ★ ALL tier/card spacing uses `dc.*` density classes, never literal `gap-*`/`space-y-*`/`p-*`/`mb-*`.
 `DashboardPanelProps` is unchanged by the reorg (the ~30 test/caller sites were untouched).
-★★ `DensityClasses` has FIVE fields — `{outer, kpiGap, cardPad, sectionGap, tileRow}`. A sixth,
+★★ `DensityClasses` has SIX fields — `{outer, kpiGap, cardPad, kpiPad, sectionGap, tileRow}`; `kpiPad` is the
+KPI strip's own padding (§585). An earlier sixth,
 `cardGap` (`mb-4`/`mb-2`), was the masonry's inter-card margin and is REMOVED along with it. It
 outlived the masonry for one release because `dashboard-density.test.ts` still asserted its value, so
 nothing went red — a test over a dead field is not evidence the field is used. ★ The two surviving
@@ -595,7 +599,7 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   exposes `completed`+`total`. i18n EN+DE.
 - **Density toggle ("fit more on screen"):** per-device Comfortable/Compact, SPACING ONLY (no
   font/palette/contrast change). Pure i18n-free `dashboard-density.ts` `densityClasses(d)` →
-  `{outer,kpiGap,cardPad,sectionGap,tileRow}` class strings — comfortable REPRODUCES the original
+  `{outer,kpiGap,cardPad,kpiPad,sectionGap,tileRow}` class strings — comfortable REPRODUCES the original
   literals (`space-y-4`/`gap-2`/`p-3`/`gap-4`, a no-op for existing users), compact tightens
   (`space-y-2`/`gap-1`/`p-2`/`gap-2`). ★★ `sectionGap` NO LONGER drives "the two-column section grids
   (Progress+Budget, Milestones+Changes)" — those grids went with the masonry, and its ONLY consumer today

@@ -9,10 +9,11 @@
  *     hidden it: a hidden tile stays hidden, and restoring it later gives it the
  *     catalogue default, which is 2×8 anyway.
  *   · Completion trend's height is clamped into its new 2–4.
- *   · The KPI tile goes from the old catalogue default `w: 4` to `w: 2`, so it
- *     sits BESIDE burn on xl (§585) — but only when burn is moved (not hidden),
- *     and only from exactly 4: any other stored width is the user's choice and
- *     stays. Its height is kept.
+ *   · The KPI tile goes from the old catalogue default 4×2 to 2×3, so it sits
+ *     BESIDE burn on xl (§585) and its cells, which wrap to a second row at
+ *     half width, stay inside the tile body — but only when burn is moved (not
+ *     hidden), and each axis only from exactly its old default (`w: 4`,
+ *     `h: 2`): any other stored width or height is the user's choice and stays.
  *   · Every other tile keeps its order, size and hidden state.
  * The id is then recorded, so it never runs again.
  *
@@ -41,14 +42,22 @@ function clampTrendHeight(h: number): TileHeight {
   return Math.max(TREND_MIN_H, Math.min(TREND_MAX_H, Math.round(h))) as TileHeight;
 }
 
-/** The KPI tile's catalogue default before §585, and the width beside burn.
- *  Literals, like the 2×8 below, never a read of the catalogue. */
+/** The KPI tile's catalogue default before §585 (4×2), and its size beside
+ *  burn (2×3). Literals, like the 2×8 below, never a read of the catalogue. */
 const KPI_OLD_DEFAULT_W = 4;
 const KPI_BESIDE_BURN_W = 2;
+const KPI_OLD_DEFAULT_H = 2;
+const KPI_BESIDE_BURN_H = 3;
 
-/** §585: only the untouched old default narrows; a user-chosen width stays. */
-function narrowKpi(p: PlacedTile): PlacedTile {
-  return p.id === "kpi" && p.w === KPI_OLD_DEFAULT_W ? { ...p, w: KPI_BESIDE_BURN_W } : p;
+/** §585: each axis moves only from its untouched old default; a user-chosen
+ *  width or height stays. The two axes are judged independently. */
+function resizeKpi(p: PlacedTile): PlacedTile {
+  if (p.id !== "kpi") return p;
+  return {
+    ...p,
+    w: p.w === KPI_OLD_DEFAULT_W ? KPI_BESIDE_BURN_W : p.w,
+    h: p.h === KPI_OLD_DEFAULT_H ? KPI_BESIDE_BURN_H : p.h,
+  };
 }
 
 /**
@@ -71,9 +80,9 @@ export function upgradeDashboardLayout(stored: unknown): DashboardLayout {
   return {
     ...layout,
     // The literal 2×8 the id names, never a read of the catalogue. The KPI
-    // tile narrows only alongside that move: with burn hidden there is nothing
-    // for it to sit beside.
-    board: burnHidden ? rest : [{ id: "burn", w: 2, h: 8 }, ...rest.map(narrowKpi)],
+    // tile is resized only alongside that move: with burn hidden there is
+    // nothing for it to sit beside.
+    board: burnHidden ? rest : [{ id: "burn", w: 2, h: 8 }, ...rest.map(resizeKpi)],
     upgrades: [...(layout.upgrades ?? []), DASHBOARD_BURN_UPGRADE],
   };
 }
