@@ -17,7 +17,7 @@ import { t, type Lang } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { type Settings } from "./settings-types";
 import { type ProposalContent } from "./use-project-proposal";
-import { classifyAttachment, ATTACHMENT_ACCEPT, type AttachmentBlock } from "./chat-attachments";
+import { checkAttachmentSize, classifyAttachment, ATTACHMENT_ACCEPT, type AttachmentBlock } from "./chat-attachments";
 import { flattenIngestBlocks, ingestBytes, ingestFile } from "./attachment-ingest";
 import { officeKindOf } from "./office-extract";
 import { isJsonFile, parseNativeWorkspace } from "./native-workspace-import";
@@ -116,7 +116,19 @@ export function Step0ImportPanel({
     // action) — surfaced by name so the wizard can show it was ignored.
     const jsonFiles = files.filter(isJsonFile);
     for (const jf of jsonFiles) {
-      const parsed = parseNativeWorkspace(await jf.text());
+      // An oversize JSON is never read here: it falls through to the ingest
+      // loop, whose own size gate reports it as skipped (too large).
+      if (checkAttachmentSize(jf.size) !== null) continue;
+      let text: string;
+      try {
+        text = await jf.text();
+      } catch {
+        // Unread, so nothing says it is a workspace: the generic source error
+        // (as the ingest loop's own read failure) rather than the workspace one.
+        setImportError(t(lang, "wizardImportErrorSource"));
+        return;
+      }
+      const parsed = parseNativeWorkspace(text);
       if (parsed.kind === "workspace") {
         const others = files.filter((f) => f !== jf).map((f) => f.name);
         onImportWorkspace(parsed.workspace, jf.name, others);

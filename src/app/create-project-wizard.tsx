@@ -38,6 +38,7 @@ import { useTemplates } from "./use-templates";
 import { useProjectProposal, type ProposalContent } from "./use-project-proposal";
 import { proposalToDraftPatch, proposalToSeed, seedHasContent } from "./ai-project-proposal";
 import { Step0ImportPanel } from "./step0-import-panel";
+import { checkAttachmentSize } from "./chat-attachments";
 import { draftFromMeta } from "./project-form";
 import { parseNativeWorkspace } from "./native-workspace-import";
 import type { Workspace } from "./workspace";
@@ -212,6 +213,11 @@ export function CreateProjectWizard({
   const runIngest = async (content: ProposalContent, signal?: AbortSignal) => {
     const p = await generate(content, signal);
     if (!p) return; // error surfaced via aiError
+    // A fresh proposal supersedes an earlier workspace import (reachable via
+    // Step 1's Back): left set, handleDetails would create from the old file
+    // and silently drop this proposal's seed. Cleared HERE rather than on Back
+    // so Back → Skip still returns to the import the user made.
+    setImported(null);
     const today = new Date().toISOString().slice(0, 10); // callback context — lint-safe
     // Clear any meta captured from a prior manual Step-1 visit so the fresh AI
     // draftPatch wins on the next Step-1 mount (initialMeta would otherwise shadow it).
@@ -244,7 +250,20 @@ export function CreateProjectWizard({
   // Step 1's own key-free picker: parses locally (no model call) and routes
   // through the same acceptImport as Step 0's file router.
   const onWorkspaceFile = async (file: File) => {
-    const parsed = parseNativeWorkspace(await file.text());
+    // Same per-file ceiling the ingest path enforces, checked BEFORE the read
+    // so an oversize file is never pulled into memory.
+    if (checkAttachmentSize(file.size) !== null) {
+      setImportMsg(t(lang, "wizardImportErrorTooLarge"));
+      return;
+    }
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      setImportMsg(t(lang, "wizardImportWorkspaceInvalid", file.name));
+      return;
+    }
+    const parsed = parseNativeWorkspace(text);
     if (parsed.kind === "workspace") {
       acceptImport(parsed.workspace, file.name);
       return;

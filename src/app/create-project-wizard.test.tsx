@@ -556,6 +556,37 @@ describe("CreateProjectWizard AI Step 0", () => {
     expect(last.source.data).toBe("hi");
   });
 
+  // Final-review finding: import a workspace, go Back to Step 0 and accept an
+  // AI proposal instead. `imported` used to survive that, so Next on Step 1
+  // took the import shortcut and created from the OLD file — dropping the
+  // proposal (and its seed) the user had just accepted.
+  it("a new AI proposal after Back supersedes an earlier workspace import", async () => {
+    generateMock.mockResolvedValue({ meta: { name: "Proposed Project" }, features: [], seed: undefined });
+    const { onCreate } = renderWithKey();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateSkip") }));
+    const picker = screen
+      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
+      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(picker, {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    await screen.findByText(/Importing sample\.json: \d+ tasks/);
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.change(screen.getByLabelText(t("en-US", "aiCreateDescribeLabel")), {
+      target: { value: "a crm project" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateGenerate") }));
+    await waitFor(() => expect(screen.getByDisplayValue("Proposed Project")).toBeInTheDocument());
+    expect(screen.queryByText(/Importing sample\.json/)).toBeNull();
+    completeStep1();
+    // The import shortcut would have called onCreate right here.
+    expect(onCreate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(onCreate.mock.calls[0][2].importedWorkspace).toBeUndefined();
+  });
+
   it("hides SharePoint without M365 and Confluence without Jira config", () => {
     // defaultSettings: M365 disabled + no jira creds.
     renderWithKey();
@@ -619,6 +650,31 @@ describe("CreateProjectWizard native workspace import (Step 1, key-free)", () =>
       target: { files: [new File(['{"a":1}'], "x.json", { type: "application/json" })] },
     });
     expect(await screen.findByText("x.json is not a workspace file.")).toBeInTheDocument();
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  // Final-review finding: Step 1's picker read the file with no size gate and
+  // no catch — a failed read was an unhandled rejection with no message.
+  it("rejects an oversize workspace file without reading it", async () => {
+    const { onCreate } = setup();
+    const big = new File([sampleText], "huge.json", { type: "application/json" });
+    Object.defineProperty(big, "size", { value: 21 * 1024 * 1024 });
+    const text = vi.spyOn(big, "text");
+    fireEvent.change(workspacePickerInput(), { target: { files: [big] } });
+    expect(await screen.findByText(t("en-US", "wizardImportErrorTooLarge"))).toBeInTheDocument();
+    expect(text).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Importing huge\.json/)).toBeNull();
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  it("reports a workspace file whose read fails", async () => {
+    const { onCreate } = setup();
+    const broken = new File([sampleText], "broken.json", { type: "application/json" });
+    vi.spyOn(broken, "text").mockRejectedValue(new Error("NotReadableError"));
+    fireEvent.change(workspacePickerInput(), { target: { files: [broken] } });
+    expect(
+      await screen.findByText("broken.json looks like a workspace file but could not be read."),
+    ).toBeInTheDocument();
     expect(onCreate).not.toHaveBeenCalled();
   });
 

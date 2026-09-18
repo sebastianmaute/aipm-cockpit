@@ -291,6 +291,44 @@ describe("Step0ImportPanel native workspace routing", () => {
     expect(onImportWorkspace).not.toHaveBeenCalled();
     expect(onIngest).not.toHaveBeenCalled();
   });
+
+  // Final-review finding: the JSON pre-parse read every .json in full before
+  // any size gate. An oversize one is now never read here; the ingest loop's
+  // own gate reports it as skipped. ★ The body IS a valid workspace and only
+  // the reported size is oversize, so a missing gate reads it and imports it.
+  it("never reads an oversize JSON as a workspace; it is skipped as too large", async () => {
+    const onIngest = vi.fn();
+    const onImportWorkspace = vi.fn();
+    render(
+      <Step0ImportPanel {...baseProps} onIngest={onIngest} onImportWorkspace={onImportWorkspace} />,
+    );
+    selectFileMethod();
+    const big = new File([sampleText], "huge.json", { type: "application/json" });
+    Object.defineProperty(big, "size", { value: 21 * 1024 * 1024 });
+    const text = vi.spyOn(big, "text");
+    fireEvent.change(fileInput(), { target: { files: [big] } });
+    expect(await screen.findByText(/skipped/i)).toHaveTextContent("huge.json");
+    expect(text).not.toHaveBeenCalled();
+    expect(onImportWorkspace).not.toHaveBeenCalled();
+    expect(onIngest).not.toHaveBeenCalled();
+  });
+
+  it("reports a JSON whose read fails instead of rejecting unhandled", async () => {
+    const onIngest = vi.fn();
+    const onImportWorkspace = vi.fn();
+    render(
+      <Step0ImportPanel {...baseProps} onIngest={onIngest} onImportWorkspace={onImportWorkspace} />,
+    );
+    selectFileMethod();
+    const broken = new File([sampleText], "broken.json", { type: "application/json" });
+    vi.spyOn(broken, "text").mockRejectedValue(new Error("NotReadableError"));
+    fireEvent.change(fileInput(), { target: { files: [broken] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      t("en-US", "wizardImportErrorSource"),
+    );
+    expect(onImportWorkspace).not.toHaveBeenCalled();
+    expect(onIngest).not.toHaveBeenCalled();
+  });
 });
 
 describe("Step0ImportPanel SharePoint import", () => {
