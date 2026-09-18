@@ -215,6 +215,18 @@ describe("callJira — SSRF / URL hardening", () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
+  it("answers a refused 3xx without waiting for a cancel that never settles", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(new ReadableStream({ cancel: () => new Promise<void>(() => {}) }), { status: 302 }),
+    );
+    const outcome = await Promise.race([
+      callWith("https://acme.atlassian.net"),
+      new Promise<"stalled">((resolve) => setTimeout(() => resolve("stalled"), 1000)),
+    ]);
+    expect(outcome).not.toBe("stalled");
+    expect((outcome as Response).status).toBe(502);
+  });
+
   it("tells fetch not to follow redirects itself", async () => {
     await callWith("https://acme.atlassian.net");
     // The mock cannot model a real redirect chain, so the 3xx test above can

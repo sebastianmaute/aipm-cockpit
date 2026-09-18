@@ -100,6 +100,18 @@ describe("timelog proxy SSRF guard", () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
+  it("answers a refused 3xx without waiting for a cancel that never settles", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(new ReadableStream({ cancel: () => new Promise<void>(() => {}) }), { status: 302 }),
+    );
+    const outcome = await Promise.race([
+      callTimelog(creds, "/v1/user", { method: "GET" }),
+      new Promise<"stalled">((resolve) => setTimeout(() => resolve("stalled"), 1000)),
+    ]);
+    expect(outcome).not.toBe("stalled");
+    expect((outcome as Response).status).toBe(502);
+  });
+
   it("tells fetch not to follow redirects itself", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
     await callTimelog(creds, "/v1/user", { method: "GET" });

@@ -150,12 +150,11 @@ export async function callTimelog(
     });
     if (res.status >= 300 && res.status < 400) {
       // Never read, so release it rather than leave the connection held open
-      // until the body is garbage-collected.
-      try {
-        await res.body?.cancel();
-      } catch (err) {
+      // until the body is garbage-collected. Not awaited: a cancel that never
+      // settles must not hold back the 502.
+      void res.body?.cancel().catch((err: unknown) => {
         console.error("Timelog upstream redirect body cancel failed:", err);
-      }
+      });
       return Response.json(
         { error: "upstream-redirect" },
         { status: 502 },
