@@ -64,8 +64,10 @@ for (const name of VISUAL_VIEWS) {
 // whole-view snapshots above opens Reports, so this test photographs the Budget
 // report block's chart (stepped line, markers, their labels) and its change table
 // (rows and split rows), after switching orientation, from the history
-// e2e/seed.ts authors. At this 1440px viewport the table sits BELOW the chart
-// (`BurndownChartPanel` places it beside the chart only from `2xl`).
+// e2e/seed.ts authors. The Budget report puts the table full width BELOW its
+// forecast row (card 30% beside chart 70% from `xl`, so side by side at this
+// 1440px viewport), not inside `BurndownChartPanel` — the report sets its
+// `detachChangeTable` and mounts `BurndownChangeTableBlock` under the row.
 // ★ Element-scoped, so the rest of Reports cannot drift this baseline. Same
 // determinism setup as the loop above (tour suppressed, frozen clock via
 // gotoApp, fonts ready, animations off). `report-block-budget-report` is the
