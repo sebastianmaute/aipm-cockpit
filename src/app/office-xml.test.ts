@@ -31,4 +31,21 @@ describe("office-xml", () => {
     const xml = `<w:tbl><w:t>cell</w:t></w:tbl>`;
     expect(extractRuns(xml, "w:t")).toEqual(["cell"]);
   });
+
+  it("does not blow up on repetitive unclosed markup", () => {
+    // 100k unclosed <t opens, no closing tag anywhere - same shape as
+    // docx-extract.test.ts's fixture, sized up from its 40k: at 40k the
+    // former `<tag(?:\s[^>]*)?>([\s\S]*?)</tag>` lazy pair regex measured
+    // only ~1.3-2s here (a thin margin over the ceiling on a loaded
+    // machine), so this pins the class at a size with real headroom -
+    // measured ~11.5s old vs <5ms new, a >100x margin. extractRuns is now a
+    // shared primitive (xlsx-extract.ts and pptx-extract.ts both call it),
+    // so it gets its own pin rather than relying only on its callers'. The
+    // ceiling is deliberately loose - it fails on the pattern class, not on
+    // a machine's speed.
+    const xml = "<t ".repeat(100_000);
+    const start = performance.now();
+    extractRuns(xml, "t");
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
 });

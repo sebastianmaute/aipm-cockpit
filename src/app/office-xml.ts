@@ -1,5 +1,7 @@
 // src/app/office-xml.ts — pure, i18n-free shared helpers for OOXML text extraction.
 
+import { forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
+
 const utf8 = new TextDecoder("utf-8");
 
 /** Decode a byte array as UTF-8. */
@@ -31,15 +33,24 @@ export function unescapeXml(input: string): string {
 
 /**
  * Return the ordered inner text of every `<tag ...>...</tag>` occurrence,
- * XML-unescaped. The optional attribute group + closing `>` guard against a
- * prefix collision (`<w:t>` must not match `<w:tbl>`). Self-closing tags and
+ * XML-unescaped. `\b` after the tag name guards against a prefix collision
+ * (`<w:t>` must not match `<w:tbl>`) and `hasAttributes` skips to the open
+ * tag's own closing `>` before reading inner text. Self-closing tags and
  * tags with child elements are out of scope — OOXML text tags (w:t/a:t/t) hold
  * pure text.
+ *
+ * Walked via the shared forEachTagPair cursor (tag-pair-walk.ts) rather than
+ * a `[\s\S]*?` lazy pair regex — that shape is quadratic on repetitive
+ * unclosed markup (every open re-scans to end of input), and this is a
+ * shared primitive three extractors call, so the fix belongs here once
+ * rather than at each caller (§558).
  */
 export function extractRuns(xml: string, tag: string): string[] {
-  const re = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, "g");
+  const spec: TagPairSpec = { openPattern: `<${tag}\\b`, closeName: () => tag, hasAttributes: true };
   const out: string[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(xml)) !== null) out.push(unescapeXml(m[1]));
+  forEachTagPair(xml, spec, (pair) => {
+    out.push(unescapeXml(pair.inner));
+    return true;
+  });
   return out;
 }

@@ -3,11 +3,17 @@
 // Pure.
 
 import { decodeUtf8, extractRuns } from "./office-xml";
+import { forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
 
 function slideNum(path: string): number {
   const m = /slide(\d+)\.xml$/.exec(path);
   return m ? parseInt(m[1], 10) : 0;
 }
+
+// Walked via forEachTagPair rather than the former `<a:p\b[\s\S]*?<\/a:p>`
+// lazy pair regex, which is quadratic on repetitive unclosed markup — see
+// tag-pair-walk.ts (§558).
+const P_PAIR: TagPairSpec = { openPattern: "<a:p\\b", closeName: () => "a:p", hasAttributes: true };
 
 /** Extract Markdown from a pptx entry map (one section per slide). */
 export function extractPptx(entries: Map<string, Uint8Array>): string {
@@ -18,12 +24,11 @@ export function extractPptx(entries: Map<string, Uint8Array>): string {
   slides.forEach((path, i) => {
     const xml = decodeUtf8(entries.get(path)!);
     const bullets: string[] = [];
-    const pRe = /<a:p\b[\s\S]*?<\/a:p>/g;
-    let m: RegExpExecArray | null;
-    while ((m = pRe.exec(xml)) !== null) {
-      const text = extractRuns(m[0], "a:t").join("").trim();
+    forEachTagPair(xml, P_PAIR, (p) => {
+      const text = extractRuns(p.whole, "a:t").join("").trim();
       if (text !== "") bullets.push(`- ${text}`);
-    }
+      return true;
+    });
     const heading = `## Slide ${i + 1}`;
     sections.push(bullets.length > 0 ? `${heading}\n${bullets.join("\n")}` : heading);
   });

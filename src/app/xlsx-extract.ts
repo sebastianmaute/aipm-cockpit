@@ -3,16 +3,26 @@
 // formulas/styles). xlsm is identical (the macro blob is ignored). Pure.
 
 import { decodeUtf8, extractRuns, unescapeXml } from "./office-xml";
+import { forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
+
+// Walked via forEachTagPair rather than the former `<si\b[\s\S]*?<\/si>`
+// lazy pair regex, which is quadratic on repetitive unclosed markup — see
+// tag-pair-walk.ts (§558). <si> has no self-closing form in practice (it
+// always wraps at least one run/rPr child), so — like docx's w:tc/w:tr —
+// this is a plain paired walk with no self-close handling, matching what
+// the original regex supported.
+const SI_PAIR: TagPairSpec = { openPattern: "<si\\b", closeName: () => "si", hasAttributes: true };
 
 function sharedStrings(entries: Map<string, Uint8Array>): string[] {
   const b = entries.get("xl/sharedStrings.xml");
   if (!b) return [];
   const xml = decodeUtf8(b);
   const out: string[] = [];
-  const siRe = /<si\b[\s\S]*?<\/si>/g;
-  let m: RegExpExecArray | null;
   // Each <si> may hold multiple <t> runs (rich text) → join them.
-  while ((m = siRe.exec(xml)) !== null) out.push(extractRuns(m[0], "t").join(""));
+  forEachTagPair(xml, SI_PAIR, (si) => {
+    out.push(extractRuns(si.whole, "t").join(""));
+    return true;
+  });
   return out;
 }
 
@@ -92,6 +102,12 @@ function cellValue(cXml: string, shared: string[]): string {
   const t = /\bt="([^"]*)"/.exec(cXml);
   const type = t ? t[1] : "";
   if (type === "inlineStr") return extractRuns(cXml, "t").join("");
+  // Bounded, not ported: cXml is already one <c>...</c> element's own text
+  // (sliced out by forEachXmlElement below), so this lazy pair regex runs
+  // once per cell against that cell's own short content — there is exactly
+  // one <v> to find or none, never a rescan-to-end-of-input over the whole
+  // sheet. The quadratic shape needs a lazy pair regex looped over a large
+  // shared input with a missing close; neither holds here.
   const v = /<v>([\s\S]*?)<\/v>/.exec(cXml);
   if (!v) return "";
   const raw = unescapeXml(v[1]);
@@ -103,22 +119,71 @@ function cellValue(cXml: string, shared: string[]): string {
   return raw;
 }
 
+/**
+ * Walk `<name ...>...</name>` pairs OR self-closing `<name .../>` elements
+ * of `name`, in document order, linearly. sheetData genuinely needs both
+ * forms — Excel emits a self-closing `<c r="B2"/>` for an empty cell and
+ * `<row r="5"/>` for an empty row — so this can't be forEachTagPair
+ * (paired-only) directly; it reuses that walk's technique (an open-tag
+ * scan plus a per-name close scan, each retired once shown absent
+ * anywhere further right) plus a self-close check on the SAME ">" that
+ * hasAttributes looks for, cached so a run of opens sharing one distant
+ * ">" isn't rescanned by every one of them. That rescan is exactly the
+ * O(n^2) this exists to avoid: without the cache, an open whose own tag
+ * never closes (no ">" nearby) pays for a fresh `indexOf` out to the next
+ * real ">" on every repetition, same shape as the lazy-regex bug (§558).
+ *
+ * `visit` returning false stops the walk, matching forEachTagPair.
+ */
+function forEachXmlElement(xml: string, name: string, visit: (whole: string) => boolean): void {
+  // Case-sensitive ("g", not "gi") to match the original regexes this
+  // replaces — OOXML element names are always lowercase in practice.
+  const openRe = new RegExp(`<${name}\\b`, "g");
+  let closeRe: RegExp | null = new RegExp(`</${name}\\s*>`, "g");
+  let gt = -1; // cached position of the next ">"; valid while innerStart <= gt
+  let m: RegExpExecArray | null;
+  while ((m = openRe.exec(xml)) !== null) {
+    const innerStart = openRe.lastIndex;
+    if (innerStart > gt) {
+      gt = xml.indexOf(">", innerStart);
+      // No ">" anywhere further right - no open tag from here on (self-
+      // closing or otherwise) can ever complete. Same abort forEachTagPair
+      // takes for the identical reason.
+      if (gt === -1) return;
+    }
+    if (xml[gt - 1] === "/") {
+      const end = gt + 1;
+      if (!visit(xml.slice(m.index, end))) return;
+      openRe.lastIndex = end;
+      continue;
+    }
+    if (closeRe === null) continue; // this name's close is known absent everywhere further right
+    closeRe.lastIndex = gt + 1;
+    const cm = closeRe.exec(xml);
+    if (cm === null) {
+      closeRe = null;
+      continue;
+    }
+    const end = cm.index + cm[0].length;
+    if (!visit(xml.slice(m.index, end))) return;
+    openRe.lastIndex = end;
+  }
+}
+
 function sheetRows(xml: string, shared: string[]): string[][] {
   const rows: string[][] = [];
-  const rowRe = /<row\b[^>]*\/>|<row\b[\s\S]*?<\/row>/g;
-  let rm: RegExpExecArray | null;
-  while ((rm = rowRe.exec(xml)) !== null) {
+  forEachXmlElement(xml, "row", (rowXml) => {
     const cells: string[] = [];
-    const cRe = /<c\b[^>]*\/>|<c\b[\s\S]*?<\/c>/g;
-    let cm: RegExpExecArray | null;
-    while ((cm = cRe.exec(rm[0])) !== null) {
-      const ref = /\br="([A-Z]+\d+)"/.exec(cm[0]);
+    forEachXmlElement(rowXml, "c", (cellXml) => {
+      const ref = /\br="([A-Z]+\d+)"/.exec(cellXml);
       const idx = ref ? colIndex(ref[1]) : cells.length;
       while (cells.length < idx) cells.push("");
-      cells.push(cellValue(cm[0], shared).replace(/\|/g, "\\|"));
-    }
+      cells.push(cellValue(cellXml, shared).replace(/\|/g, "\\|"));
+      return true;
+    });
     rows.push(cells);
-  }
+    return true;
+  });
   return rows;
 }
 

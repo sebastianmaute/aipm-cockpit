@@ -62,4 +62,21 @@ describe("extractXlsx", () => {
   it("returns empty string when there are no worksheets", () => {
     expect(extractXlsx(new Map())).toBe("");
   });
+
+  it("does not blow up on repetitive unclosed markup", () => {
+    // 80k unclosed <c opens inside one row - same shape as
+    // docx-extract.test.ts's fixture, sized up from its 40k so the margin
+    // over the ceiling has real headroom on a loaded machine (measured
+    // ~11.5s old vs <5ms new here, a >1000x margin). With the former
+    // `<c\b[^>]*\/>|<c\b[\s\S]*?<\/c>` lazy pair regex this is quadratic
+    // (every open re-scans to end of input); forEachXmlElement
+    // (xlsx-extract.ts) is linear. The ceiling is deliberately loose - it
+    // fails on the pattern class, not on a machine's speed.
+    const sheet =
+      "<worksheet><sheetData><row>" + "<c ".repeat(80_000) + "</row></sheetData></worksheet>";
+    const entries = new Map<string, Uint8Array>([["xl/worksheets/sheet1.xml", enc(sheet)]]);
+    const start = performance.now();
+    extractXlsx(entries);
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
 });
