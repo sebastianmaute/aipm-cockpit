@@ -38691,7 +38691,7 @@ axe scan renders the change table. Leave the Turso-only span to an eye-verify.
 
 ## 558. The three OOXML extractors were quadratic on repetitive unclosed markup — CLOSED 2026-09-18
 
-**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups`: `docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts` and the shared `extractRuns` in `office-xml.ts` all located their elements with lazy backtracking `[\s\S]*?` pair regexes, so a single unclosed open tag made every following open re-scan to end of input. All four now walk one linear cursor — `forEachTagPair` in the new `src/app/tag-pair-walk.ts`, extracted from `html-extract.ts`, which had already solved this for itself and was the only OOXML-adjacent extractor not affected. `xlsx-extract.ts` additionally needed a local `forEachXmlElement` (`grep -n "function forEachXmlElement" src/app/xlsx-extract.ts`), because real xlsx self-closes empty rows and cells and the shared walk is paired-only. Eleven commits: `0ac53c0c` (extract the walk), `4fdabde6` (docx), `5d354f76` (the close-name ordering test), `fc904400` (xlsx, pptx, `extractRuns`), `ecf88557` and `afe0b925` (the self-closing path, and marking which of its tests are mutation-proved and which are not), then three fix rounds — `10dbc77f` (`extractRuns` corrupted output on a bare self-closing text tag), `9f0a697d` (harden the xlsx cache pin, correct the docx perf comment's numbers, drop the now-dead `runsText`), `d061d37e` (restore case sensitivity, tighten the open-tag boundary), `f9a6509a` (pin the close-lookup retirement) — and `42f1c172` (pin case-insensitive tag matching). Verified by `npx vitest run src/app/tag-pair-walk.test.ts src/app/docx-extract.test.ts src/app/xlsx-extract.test.ts src/app/pptx-extract.test.ts src/app/office-xml.test.ts --maxWorkers=1`.
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups`: `docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts` and the shared `extractRuns` in `office-xml.ts` all located their elements with lazy backtracking `[\s\S]*?` pair regexes, so a single unclosed open tag made every following open re-scan to end of input. All four now walk one linear cursor — `forEachTagPair` in the new `src/app/tag-pair-walk.ts`, extracted from `html-extract.ts`, which had already solved this for itself and was the only OOXML-adjacent extractor not affected. `xlsx-extract.ts` additionally needed a local `forEachXmlElement` (`grep -n "function forEachXmlElement" src/app/xlsx-extract.ts`), because real xlsx self-closes empty rows and cells and the shared walk is paired-only. Eleven commits: `0ac53c0c` (extract the walk), `4fdabde6` (docx), `5d354f76` (the close-name ordering test), `fc904400` (xlsx, pptx, `extractRuns`), `ecf88557` and `afe0b925` (the self-closing path, and marking which of its tests are mutation-proved and which are not), then three fix rounds — `10dbc77f` (`extractRuns` corrupted output on a bare self-closing text tag), `9f0a697d` (harden the xlsx cache pin, correct the docx perf comment's numbers, drop the now-dead `runsText`), `d061d37e` (restore case sensitivity, tighten the open-tag boundary), `f9a6509a` (pin the close-lookup retirement) — and `42f1c172` (pin case-insensitive tag matching). The final review then found three more quadratic reads in the same extractors. That sweep could not see them because it grepped only for the lazy pair shape. `0655e54e` fixed all three. docx `renderParagraph` read its heading level with `<w:pStyle\b[^>]*w:val=…`. It now calls `headingDigit` (`docx-extract.ts`). xlsx `sheetNames` used `<sheet\b[^>]*\bname=…`, and `sheetEntries` used `<sheet\b[^>]*\/?>` and `<Relationship\b[^>]*\/?>`. All three now call `forEachOpenTag`, a new walk in `tag-pair-walk.ts`. xlsx `cellValue` used `<v>([\s\S]*?)<\/v>`. It now finds the first `<v>` with two forward `indexOf` scans. The same commit makes `sheetRows` drop a cell whose column is past XFD (`MAX_XLSX_COLUMNS`). Before, `<c r="ZZZZZZZ1"/>` padded the row towards about 8e9 entries. Verified by `npx vitest run src/app/tag-pair-walk.test.ts src/app/docx-extract.test.ts src/app/xlsx-extract.test.ts src/app/pptx-extract.test.ts src/app/office-xml.test.ts src/app/html-extract.test.ts --maxWorkers=1`.
 
 **The shape.** A lazy pair regex is linear on well-formed markup, because each open finds its close
 nearby. It is quadratic on markup where the close is missing: the engine scans from the open to end
@@ -38707,6 +38707,10 @@ below sits in a comment beside the fixture that produces it, with the command to
 | `pptx-extract.ts` `a:p` walk | ~11 s | <5 ms | 120k unclosed `<a:p ` opens |
 | `docx-extract.ts` `w:tbl`/`w:p` walk | ~24.4 s | linear | 120k unclosed `<w:tbl ` opens (840,063 chars) |
 | `xlsx-extract.ts` row/cell walk | 195 / 785 / 3783 ms at 80k / 160k / 320k reps | 2.6 / 4.4 / 20.8 ms | 320k unclosed `<c ` opens |
+| `docx-extract.ts` pStyle heading read | ~5.3 s | 1 ms | 40k unclosed `<w:pStyle ` opens in one `<w:p>` |
+| `xlsx-extract.ts` `sheetNames` | ~14.7 s | 1 ms | 80k unclosed `<sheet ` opens |
+| `xlsx-extract.ts` `sheetEntries` workbook and rels reads | ~4.5 s and ~9.8 s, each mutated alone | 1 ms | 40k `<sheet ` plus 40k `<Relationship ` opens, with no `>` anywhere |
+| `xlsx-extract.ts` `cellValue` | ~9.6 s | 2 ms | 160k unclosed `<v>` inside one `<c>` |
 
 The xlsx row is the clearest demonstration that the growth is quadratic rather than merely steep:
 four times the input for roughly nineteen times the time. The docx row says the same at a different
@@ -38732,17 +38736,36 @@ guard fires. The browser tab hangs.
 ★★★ **THE GREP BLIND SPOT, which caused two wrong claims in this slice.** `office-xml.ts` built its
 pair regex with `new RegExp` from a template string, so its SOURCE carried the double-escaped
 `[\\s\\S]*?`. Every sweep written for the regex-literal spelling returned zero against it, and it
-was missed twice for exactly that reason — an empty grep read as "already clean". Sweep BOTH
-spellings:
+was missed twice for exactly that reason — an empty grep read as "already clean".
+
+★★ **The sweep then missed a second shape.** It matched only the lazy `[\s\S]*?`. But a greedy
+`[^>]*` is quadratic by its own mechanism. With no `>` nearby, it runs to the next `>` from EVERY
+open and backtracks. The final review found three such reads, and one more lazy read that had been
+excused as bounded. The table above lists all four. The "bounded per-cell `<v>` read" this entry once
+exempted was false, because one `<c>` can hold the whole sheet. The sweep below catches three shapes:
+
+- the lazy `[\s\S]*?`, in literal spelling and in a template string's double-escaped spelling;
+- a greedy `[^>]*`;
+- a greedy `[^>]+`.
+
+The last two look the same in a literal and in a string source. The sweep drops comment lines and
+test files:
 
 ```bash
-grep -rnE '\[\\s\\S\]\*\?|\[\\\\s\\\\S\]\*\?' src/app --include=*.ts | grep -vE ': *\*'
+grep -rnE '\[\^>\][*+]|\[\\s\\S\]\*\?|\[\\\\s\\\\S\]\*\?' src/app --include=*.ts --include=*.tsx | grep -vE '^[^:]+:[0-9]+: *(/?\*|//)' | grep -vE '\.test\.tsx?:'
 ```
 
-The surviving hits after this fix are all benign — `markdown-codecs-core.ts` fenced-block extraction
-(bounded, well-formed by construction), a bounded per-cell `<v>` read in `xlsx-extract.ts`, test
-fixtures, and comments quoting the retired regexes. The point of the command is that it can SEE
-them; the earlier one could not.
+It does NOT see a bounded `[^>]{0,N}`, such as `html-extract.ts`'s `TAG_STRIP_RE`, which is built by
+string concatenation. It does not see other backtracking shapes either, such as a leading `\s*`. It
+returns no hits in the four extractors (`docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts`,
+`html-extract.ts`) or in `office-xml.ts`. The `markdown-codecs-core.ts` fenced-block reads are safe:
+each read is a single `exec` behind a fixed heading. The other hits are outside this entry's scope and
+are not yet judged: `html-to-text.ts` (`<\s*li[^>]*>` and `<[^>]+>`, reached from Confluence ingest
+through `project-ingest.ts`), `narrative-html.ts` `isNarrativeEmpty`, and `raid-escalation.ts`
+`BREAK_TAG`. On a synthetic string, each of those regexes took roughly four times as long per
+doubling. At 80k repeats, `<\s*li[^>]*>` took ~10.7 s, `<[^>]+>` ~2.6 s and `BREAK_TAG` ~23 s. That
+measures the bare regex. Nobody has yet checked whether untrusted input of that size can reach each
+call site. The point of the command is that it can SEE them. The earlier one could not.
 
 ★★ **The performance tests are mutation-proved, and the fixture sizes ARE the proof — do not shrink
 them.** Each was verified by restoring the lazy regex, watching the test go red, and reverting the
@@ -38760,7 +38783,7 @@ Related: §13 (the audit that found it), §559, §560.
 
 ## 559. The Jira and Timelog proxies followed upstream redirects with credentials attached — CLOSED 2026-09-18
 
-**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups` (`8aec2a24`): `api/jira/_helpers.ts` and `api/timelog/_helpers.ts` now pass `redirect: "manual"` to `fetch` and reject any 3xx as a 502, mirroring what `api/stt/_helpers.ts` already did. Verified by the proxy unit suites.
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups` (`8aec2a24`): `api/jira/_helpers.ts` and `api/timelog/_helpers.ts` now pass `redirect: "manual"` to `fetch` and reject any 3xx as a 502, mirroring what `api/stt/_helpers.ts` already did. `382efe57` makes both proxies cancel the body of the refused response before they return. Before that, the unread body held the upstream connection until it was garbage-collected. Verified by `npx vitest run src/app/api/jira/_helpers.test.ts src/app/api/timelog/_helpers.test.ts`.
 
 Both proxies applied their host allowlist to the INITIAL URL only, and neither set a redirect
 policy, so `fetch` followed a 3xx by default. A redirect from the configured upstream therefore
