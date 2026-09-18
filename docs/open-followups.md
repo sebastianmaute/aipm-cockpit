@@ -788,7 +788,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§580](#580-dashboardmodelburn-and-forecast-have-no-reader-outside-dashboardts--closed-2026-09-18) | `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` — CLOSED 2026-09-18 | found 2026-09-18 auditing the dashboard model after spec C removed `ForecastHeadline`; GitLab #365 | S — delete the dead field(s) or give them a reader | closed |
 | [§581](#581-the-kpi-strips-lggrid-cols-5-leaves-a-gap-when-only-one-of-spicpi-shows--open) | The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows — OPEN | found 2026-09-18 reading `dashboard-kpi-strip.tsx`'s `cols` ternary; not eye-checked; GitLab #366 | XS — branch the class on the real tile count, not the OR | open |
 | [§582](#582-the-next-actions-heros-open-cta-renders-and-does-nothing-without-onopenaction--closed-2026-09-18) | The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — CLOSED 2026-09-18 | found 2026-09-18 reading `action-hero-card.tsx`/`action-cta-controls.tsx`; latent, every production caller passes it; GitLab #367 | S — hide the CTA when the handler is absent, or make the prop required | closed |
-| [§583](#583-budget-historypropertytestts-flaked-once-in-ci-under-an-unseeded-fast-check-run--open) | `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — OPEN | one failure in CI pipeline 7251's unit-tests job on the spec-B release branch, cleared by retry; hypothesis not confirmed; GitLab #368 | S — capture a counterexample at high `numRuns`, then fix the tolerance or the summation | open |
+| [§583](#583-budget-historypropertytestts-flaked-once-in-ci-under-an-unseeded-fast-check-run--closed-2026-09-19) | `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — CLOSED 2026-09-19 | one failure in CI pipeline 7251's unit-tests job on the spec-B release branch, cleared by retry; root cause confirmed 2026-09-19; GitLab #368 | S — capture a counterexample at high `numRuns`, then fix the tolerance or the summation | closed |
 | [§584](#584-two-next-actions-hero-tests-are-weaker-than-they-look--closed-2026-09-18) | Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18 | found 2026-09-18 reading `actions-panel.test.tsx`, `dashboard-panel-layout.test.tsx` and `next-actions/group.test.ts`; GitLab #369 | S — add a monitor-topped fixture and a visible-text uniqueness assertion | closed |
 | [§585](#585-on-xl-the-kpi-tile-lands-below-the-2x8-burn-tile-not-beside-it--open) | On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — OPEN | accepted during spec C; measured 2026-09-18 against `DASHBOARD_TILES`/`xl:grid-cols-4`; GitLab #370 | S — revisit the burn tile's default width or the tile order | open |
 <!-- INDEX:END -->
@@ -38909,31 +38909,34 @@ Fix shape: hide the "open" CTA (and the ghost Open button) in `action-cta-contro
 `handlers.onOpen` is falsy, or drop `NOOP_OPEN` and make `onOpenAction` a required prop on `DashboardPanel`
 so a future caller cannot omit it silently.
 
-## 583. `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — OPEN
+## 583. `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — CLOSED 2026-09-19
 
-**Status:** OPEN 2026-09-18 — one failure observed in CI pipeline 7251's unit-tests job on the spec-B release
-branch, cleared by a retry; not reproduced locally, never machine-verified against a captured counterexample.
+**Status:** CLOSED 2026-09-19 — root cause found and fixed on `docs/spec-c-dashboard-rework`. Reproduced by
+running `npx vitest run src/app/budget-history.property.test.ts -t "unattributed is 0"` five times with no
+explicit seed (unseeded, so each run drew its own); the third run failed at `seed -1591760474` after 39378
+property runs, with `Counterexample: [0,[0.000001,1.0587911840678754e-22,0.0000018680146407231636,0],0]`.
 
 **Work item:** #368
 
-The property "unattributed is 0 when bac equals the last recorded after" (`budget-history.property.test.ts`)
-asserts `Math.abs(split.unattributed) <= 1e-6` — the same flat tolerance the file's `closeTo` helper
-documents as "Absolute 1e-6 tolerance (values run up to 1e7)". `scalarArb` (`fc.double({ min: 0, max: 1e7,
-noNaN: true })`) is unseeded — `fc.assert` is called with no explicit seed anywhere in the file — so the
-specific input that failed in pipeline 7251 cannot be recovered from the CI log.
+Root cause, confirmed against the counterexample: NOT accumulated floating-point error against large
+magnitudes (the counterexample's values are all ~1e-6, nowhere near the 1e7 ceiling the original hypothesis
+suspected). `recordBudgetChange` drops a step as a no-op when its move is below `BAC_EPSILON`
+(`Math.abs(dh) < BAC_EPSILON && Math.abs(dv) < BAC_EPSILON`), but `buildHistory`'s `prev` still advances past
+a dropped step — so the next RECORDED entry's `before` is the dropped step's true (tiny) value, not the
+previous recorded entry's `after`. The recorded delta chain then omits exactly the dropped transition's own
+delta, which `BAC_EPSILON` bounds by construction (that bound is why it was droppable) but does not make
+exactly zero. With up to `steps.length - 1` such drops possible in one chain, the true `unattributed` value
+can legitimately sit up to `(steps.length - 1) * BAC_EPSILON` away from 0 — a property of the design, not a
+production bug. The old assertion's flat `1e-6` bound had zero headroom against even a single drop, so a few
+ULPs of ordinary floating summation noise on top of that design-level gap tipped it over.
 
-Suspected cause, not confirmed: a flat 1e-6 absolute tolerance against inputs up to 1e7 may be too tight for
-accumulated floating-point error on some generated chain of up to 20 steps. This is a hypothesis; nothing has
-isolated an actual counterexample.
-
-Repro idea: rerun the property at high volume to hunt for a reproducible failure, e.g. `npx vitest run
-src/app/budget-history.property.test.ts -t "unattributed is 0"` with `numRuns` temporarily raised
-(`fc.assert(..., { numRuns: 10000 })`), and add `{ numRuns: 10000, verbose: true }` if it reproduces so the
-failing input can be pinned as a fixed fast-check example.
-
-Fix shape: once a counterexample is captured, use a tolerance proportional to the generated magnitude
-(relative, not flat) or fix the summation to reduce accumulated float error — do not just raise the flat
-absolute tolerance until it passes without knowing why.
+Fix: `budget-history.property.test.ts`'s "unattributed is 0…" property now asserts
+`Math.abs(split.unattributed) <= steps.length * BAC_EPSILON` (one full `BAC_EPSILON` more slack than the
+`steps.length - 1` design bound, to absorb the summation noise) instead of the flat `1e-6`. The captured
+counterexample is pinned as an explicit regression test alongside it. Verified stable: 3 further runs of
+200000 `numRuns` each (600000 total) against the new bound, all green; mutation check reverted the bound to
+flat `1e-6` on the regression test, confirmed it went red, then restored it — `git diff --stat` clean apart
+from this file and the register.
 
 ## 584. Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18
 
