@@ -156,6 +156,12 @@ function stagingWorkspace(ws: Workspace | undefined): Workspace {
   return ws ?? emptyWorkspace();
 }
 
+/** True when a drag carries files — the only drag the pane-root drop target
+ *  claims. Text and link drags must pass through to the composer. */
+function isFileDrag(dt: DataTransfer | null): boolean {
+  return !!dt && Array.from(dt.types ?? []).includes("Files");
+}
+
 function ChatPanelImpl({
   lang,
   ai,
@@ -1047,6 +1053,10 @@ function ChatPanelInner({
       blocks: [...a.blocks],
       summary: summaries.get(a.name) ?? null,
     }));
+    // Advance the ref NOW, not on the next render: an overlapping pick whose
+    // reads resolve before React re-renders must plan against this pick's
+    // staged set, or the two together can exceed the cap.
+    attachmentsRef.current = [...current, ...staged];
     if (staged.length > 0) setAttachments((prev) => [...prev, ...staged]);
     if (errors.length > 0) setError(errors.join("\n"));
     // Reset the input so re-selecting the same file fires onChange again.
@@ -1072,12 +1082,14 @@ function ChatPanelInner({
     <div
       ref={chatRef}
       className={CHAT_PANE_CLASS}
+      // Only FILE drags are ours: cancelling a text or link drag here would
+      // swallow it before it reached the composer textarea.
       onDragOver={(e) => {
-        if (attachDisabled) return;
+        if (attachDisabled || !isFileDrag(e.dataTransfer)) return;
         e.preventDefault();
       }}
       onDrop={(e) => {
-        if (attachDisabled) return;
+        if (attachDisabled || !isFileDrag(e.dataTransfer)) return;
         e.preventDefault();
         void handleFiles(Array.from(e.dataTransfer.files));
       }}

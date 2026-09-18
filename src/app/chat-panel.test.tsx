@@ -297,8 +297,48 @@ describe("Attachment guidance", () => {
   it("stages dropped files exactly like picked ones", async () => {
     const { container } = renderComposer();
     const target = container.firstElementChild as HTMLElement;
-    fireEvent.drop(target, { dataTransfer: { files: [txt("dropped.txt")] } });
+    fireEvent.drop(target, { dataTransfer: { types: ["Files"], files: [txt("dropped.txt")] } });
     expect(await screen.findByRole("button", { name: "Remove dropped.txt" })).toBeInTheDocument();
+  });
+
+  // A text or link drag has no "Files" type. The pane root used to cancel
+  // EVERY drag, so selected text dropped on the composer textarea vanished.
+  // ★ `fireEvent` returns false exactly when a handler called preventDefault,
+  // which is the observable the browser uses to decide whether its own
+  // default (inserting the text) runs.
+  it("lets a text drag through to the composer instead of cancelling it", async () => {
+    const { container } = renderComposer();
+    const target = container.firstElementChild as HTMLElement;
+    const dt = { types: ["text/plain", "text/uri-list"], files: [] };
+    expect(fireEvent.dragOver(target, { dataTransfer: dt })).toBe(true);
+    expect(fireEvent.drop(target, { dataTransfer: dt })).toBe(true);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(screen.queryAllByRole("button", { name: /^Remove / })).toHaveLength(0);
+  });
+
+  it("still claims a file drag (dragover and drop are cancelled)", () => {
+    const { container } = renderComposer();
+    const target = container.firstElementChild as HTMLElement;
+    const dt = { types: ["Files"], files: [txt("claimed.txt")] };
+    expect(fireEvent.dragOver(target, { dataTransfer: dt })).toBe(false);
+    expect(fireEvent.drop(target, { dataTransfer: dt })).toBe(false);
+  });
+
+  // Two picks fired back-to-back, neither awaited: each reads its files
+  // before planning, so the second plans BEFORE React re-renders the first's
+  // chips. It must still see the first pick's staged set through the ref.
+  it("caps two overlapping picks at 10 in total", async () => {
+    const { container } = renderComposer();
+    pick(container, Array.from({ length: 6 }, (_, i) => txt(`p${i}.txt`)));
+    pick(container, Array.from({ length: 6 }, (_, i) => txt(`q${i}.txt`)));
+    await screen.findByRole("button", { name: "Remove q0.txt" });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(screen.getAllByRole("button", { name: /^Remove [pq]\d\.txt$/ })).toHaveLength(10);
+    expect(screen.getByRole("alert").textContent).toContain("q5.txt");
   });
 
   // No dedicated "API key missing" test fixture exists in this file (grepped
@@ -316,7 +356,7 @@ describe("Attachment guidance", () => {
       />,
     );
     const target = container.firstElementChild as HTMLElement;
-    fireEvent.drop(target, { dataTransfer: { files: [txt("blocked.txt")] } });
+    fireEvent.drop(target, { dataTransfer: { types: ["Files"], files: [txt("blocked.txt")] } });
     // handleFiles is async (ingestFile awaits file.arrayBuffer()) — a
     // synchronous check here would pass whether the onDrop guard blocked the
     // drop OR the async chain simply had not resolved yet, which is vacuous
