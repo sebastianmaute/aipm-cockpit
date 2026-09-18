@@ -59,7 +59,7 @@ export function unescapeXml(input: string): string {
  * (`<t xml:space="preserve"/>` merged forward identically, pre-dating this
  * whole slice) — one fix, two bugs, only one of which was a regression.
  *
- * ★★★ The open pattern is `(?=[\s/>])`, a lookahead, NOT `\b` — `\b` is a
+ * ★★★ The open pattern is `(?=[\s>]|/>)`, a lookahead, NOT `\b` — `\b` is a
  * SECOND regression of the same shape as the one above, found in the same
  * review round. `\b` admits ANY non-word character after the tag name, not
  * just whitespace/"/"/">", so `<t-alt>decoy</t-alt><t>real</t>` matched
@@ -75,6 +75,23 @@ export function unescapeXml(input: string): string {
  * replaced (docx/pptx/xlsx/html's own comments all quote a `<name\b...`
  * shape), so `\b` there is faithful porting, not a second instance of this
  * bug — extractRuns's original shape was the one exception.
+ *
+ * ★★★ M-3 (final-release-review.md): a THIRD regression, same shape again,
+ * found in the pre-release review. The lookahead above used to be
+ * `(?=[\s/>])` — admitting a bare "/" right after the tag name whether or
+ * not it was actually followed by ">". `<a:t/a:r><a:r><a:t>t2</a:t>` (only
+ * reachable on malformed input, per the review's fuzz) has `<a:t/` satisfy
+ * that lookahead; the first ">" it then finds is not preceded by "/" (it
+ * belongs to `<a:r>`), so the tag-pair-walk's self-close check
+ * (`html[gt-1] === "/"`, see the note above) does NOT fire, and `<a:t/a:r>`
+ * is treated as an ordinary open, pairing with the far-away `</a:t>` and
+ * merging `<a:r><a:t>t2` — raw markup — into the extracted text. The fix
+ * splits the lookahead into two alternatives: `[\s>]` (unchanged — an
+ * ordinary open, whitespace or an immediate ">") and the literal `/>` (a
+ * bare "/" is now admitted ONLY when it is immediately followed by ">", i.e.
+ * only for a real self-close). A lone "/" not followed by ">" now fails the
+ * lookahead outright, so the malformed tag is skipped rather than merged
+ * forward.
  *
  * ★ A THIRD divergence from the original regex, found in the round-4
  * re-review, not fixed (both behaviours are wrong, so there is nothing to
@@ -92,7 +109,7 @@ export function unescapeXml(input: string): string {
  */
 export function extractRuns(xml: string, tag: string): string[] {
   const spec: TagPairSpec = {
-    openPattern: `<${tag}(?=[\\s/>])`,
+    openPattern: `<${tag}(?=[\\s>]|/>)`,
     closeName: () => tag,
     hasAttributes: true,
     skipSelfClosing: true,

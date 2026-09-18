@@ -81,6 +81,23 @@ describe("office-xml", () => {
     expect(extractRuns(xml, "w:t")).toEqual(["Real"]);
   });
 
+  it("does not treat a bare `/` mid-tag as self-closing and merge forward (M-3)", () => {
+    // final-release-review.md M-3: the old openPattern `(?=[\s/>])` admits a
+    // "/" right after the tag name even when it is NOT followed by ">", so
+    // `<a:t/a:r>` (malformed) matched as if it were an ordinary open tag and
+    // paired with the NEXT real `</a:t>`, leaking raw markup into the
+    // extracted text. Old (buggy) output: ["<a:r><a:t>t2"]. Fixed output
+    // skips the malformed tag entirely (it is not a real open, and not a
+    // real self-close either) and extracts only the well-formed run.
+    const xml = "<a:t/a:r><a:r><a:t>t2</a:t>";
+    expect(extractRuns(xml, "a:t")).toEqual(["t2"]);
+  });
+
+  it("still extracts a normal well-formed pptx-shaped document unchanged", () => {
+    const xml = `<a:p><a:r><a:t>Hello</a:t></a:r><a:r><a:t> world</a:t></a:r></a:p>`;
+    expect(extractRuns(xml, "a:t")).toEqual(["Hello", " world"]);
+  });
+
   it("does not blow up on repetitive unclosed markup", () => {
     // 100k unclosed <t opens, no closing tag anywhere - same shape as
     // docx-extract.test.ts's fixture, sized up from its 40k: at 40k the
