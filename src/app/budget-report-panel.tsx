@@ -28,7 +28,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { ratioHealth, marginHealth, costPerformanceHealth, planVsBudgetHealth } from "./budget-health";
 import { computeBurndownSeries } from "./budget-burndown";
 import { resolveBucketChain } from "./budget-bucket-chain";
-import { BurndownChartPanel } from "./burndown-chart-panel";
+import { BurndownChartPanel, BurndownChangeTableBlock } from "./burndown-chart-panel";
 import { BurndownChainWarning } from "./budget-chain-warning";
 import { EmptyState } from "./empty-state";
 import { ViewCallout } from "./view-callout";
@@ -175,24 +175,37 @@ export function BudgetReportPanel({
         <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} />
       </Section>
 
+      {/* Spec B, Decision 6: ONE Forecast section — banners, the rate-mix note,
+          a row with the chosen card (30%) beside the chart (70%), then the
+          recorded-change table at full width below the row. */}
       <Section title={t(lang, "forecastTitle")}>
-        <ForecastSection lang={lang} bundle={bundle} granularity={plan.granularity} />
-      </Section>
-
-      <Section title={t(lang, "budgetBurndownTitle")}>
-        <BurndownChainWarning lang={lang} chain={bucketChain} />
-        {/* ★★ EUR, not `plan.currency`: `computeBurndownSeries` builds every
-            value as `budgetHours × role.rates.external` and converts NOTHING,
-            and the engine's money unit is EUR (a fixed-price bucket's contract
-            amount is converted to EUR at `computeBucketReport`'s one read). The
-            `money` helper above already hardcodes EUR for the cost/EVM tiles,
-            which are rate-derived in exactly the same way — this chart was the
-            one figure in the file still labelled otherwise (open-followups
-            §465). ★ Contrast `budget-panel.tsx`'s per-bucket tiles, which
-            convert EUR→bucket currency BEFORE labelling and so correctly use
-            the bucket's own currency. */}
-        <BurndownChartPanel lang={lang} series={burndown} bundle={bundle} today={today} planEnd={plan.endDate} currency="EUR" />
-        <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
+        <ForecastSection
+          lang={lang}
+          bundle={bundle}
+          granularity={plan.granularity}
+          chart={
+            <>
+              <BurndownChainWarning lang={lang} chain={bucketChain} />
+              {/* ★★ EUR, not `plan.currency`: `computeBurndownSeries` builds every
+                  value as `budgetHours × role.rates.external` and converts NOTHING,
+                  and the engine's money unit is EUR (a fixed-price bucket's contract
+                  amount is converted to EUR at `computeBucketReport`'s one read). The
+                  `money` helper above already hardcodes EUR for the cost/EVM tiles,
+                  which are rate-derived in exactly the same way — this chart was the
+                  one figure in the file still labelled otherwise (open-followups
+                  §465). ★ Contrast `budget-panel.tsx`'s per-bucket tiles, which
+                  convert EUR→bucket currency BEFORE labelling and so correctly use
+                  the bucket's own currency.
+                  The change table is DETACHED: at 70% of even a wide viewport the
+                  chart is near its 640px floor, so the panel's `2xl` side-by-side
+                  placement is unreachable here, and the table goes full width
+                  below the row instead (spec B, Decision 7). */}
+              <BurndownChartPanel lang={lang} series={burndown} bundle={bundle} today={today} planEnd={plan.endDate} currency="EUR" detachChangeTable />
+              <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
+            </>
+          }
+          belowRow={<BurndownChangeTableBlock lang={lang} series={burndown} bundle={bundle} currency="EUR" />}
+        />
       </Section>
 
       <BucketDetailTable

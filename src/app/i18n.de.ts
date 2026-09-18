@@ -581,7 +581,6 @@ export const de: Record<TranslationKey, string> = {
   budgetRoleStatus: "Status",
   budgetShowPeople: "Personen anzeigen",
   budgetPeopleFigureHint: "Gebuchte / geplante Stunden",
-  budgetBurndownTitle: "Burn-down",
   burndownHoursRemaining: "Verbleibende Stunden",
   burndownBudgetRemaining: "Verbleibendes Budget",
   burndownChainMultipleRoots: "Burn-down umfasst den gesamten Planzeitraum: Diese Buckets sind nicht zu einer Kette verknüpft ({0}). Setze bei jedem Bucket den Nachfolger.",

@@ -635,7 +635,6 @@ const enUS = {
   budgetRoleStatus: "Status",
   budgetShowPeople: "Show people",
   budgetPeopleFigureHint: "Booked / planned hours",
-  budgetBurndownTitle: "Burn-down",
   burndownHoursRemaining: "Hours remaining",
   burndownBudgetRemaining: "Budget remaining",
   burndownChainMultipleRoots: "Burn-down covers the whole plan period: these budget buckets are not linked into one chain ({0}). Set each bucket's successor to chain them.",
