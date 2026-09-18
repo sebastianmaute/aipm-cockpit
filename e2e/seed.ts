@@ -148,11 +148,15 @@ const SEED_WORKSPACE: Record<string, unknown> = {
   // hand-curated source the CSV/Markdown goldens are generated FROM, so a
   // test-only row there would force regenerating -big, -huge and every
   // __fixtures__/golden-* fixture — which makes a real format change and a
-  // fixture refresh indistinguishable in review. Neither slice exists in the
-  // master at all (verify:
+  // fixture refresh indistinguishable in review.
+  // ★★ BOTH SLICES NOW EXIST IN THE MASTER, AND THESE KEYS REPLACE THEM WHOLESALE.
+  // This comment used to say neither existed there, so nothing here overrode
+  // curated data; the demo refresh (DEMO_AS_OF 2026-09-18) seeded both in the
+  // master. The object spread above means the keys below WIN, deliberately:
+  // seed-content.spec.ts pins THESE four insight rows (counts and the same-type
+  // pair), not the master's. Verify what the master carries:
   //   node -e 'const m=JSON.parse(require("fs").readFileSync("sample-workspace-small.json","utf8"));
   //   for (const k of ["insights","timelogLinks"]) console.log(k, m[k]==null?"ABSENT":"present")'
-  // ), so nothing here overrides curated data.
   // ★★★ FOUR insights, and TWO OF THEM SHARE A TYPE ON PURPOSE. Every per-row
   // control in insights-panel.tsx is named by the insight's rendered TITLE
   // ("Acknowledge – <title>"), and `insightTitle` (insights/insight-text.ts) is
@@ -220,7 +224,7 @@ const SEED_WORKSPACE: Record<string, unknown> = {
     {
       id: 9101, key: "milestoneSlip:1", type: "milestoneSlip", severity: "high",
       entityRef: { view: "milestones", id: 1 },
-      data: { name: "Design Sign-off", date: "2026-04-20", daysOverdue: 5 }, status: "active",
+      data: { name: "Design Sign-off", date: "2026-07-07", daysOverdue: 5 }, status: "active",
       firstSeenAt: "2026-06-01T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 2,
     },
     {
@@ -230,7 +234,7 @@ const SEED_WORKSPACE: Record<string, unknown> = {
       // dropped silently and the seed goes inert.
       id: 9104, key: "milestoneSlip:3", type: "milestoneSlip", severity: "medium",
       entityRef: { view: "milestones", id: 3 },
-      data: { name: "Hypercare Exit", date: "2026-12-15", daysOverdue: 2 }, status: "active",
+      data: { name: "Hypercare Exit", date: "2026-12-16", daysOverdue: 2 }, status: "active",
       firstSeenAt: "2026-06-04T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 1,
     },
     {
@@ -251,12 +255,16 @@ const SEED_WORKSPACE: Record<string, unknown> = {
   // axe gate and the visual baselines said nothing about any of them. Kept out
   // of the sample master for the same golden-fixture reason as `insights`.
   // ★ Shape: one `baseline`, then a create, an increase and a delete, all dated
-  // inside the plan window (2026-04-01 … 2026-07-31) and before FROZEN_NOW, one
+  // inside the master's plan window (2026-06-01 … 2026-12-18 since the
+  // DEMO_AS_OF refresh; read `plan` in the master) and before FROZEN_NOW, one
   // per month so each change gets its own chart marker (the chart groups markers
-  // by plan period). Each running BAC is the previous one plus its delta, which
-  // is the invariant `recordBudgetChange` writes. The final 1400 h / €262,000
-  // deliberately differs from today's own-basis BAC (1440 h / €264,927.27 at the
-  // time of writing), so the split rows show a non-zero "unexplained" part
+  // by plan period, and `bacFields` CLAMPS a date before the plan start into
+  // the first period — so a history left on the old 2026-04…06 dates would
+  // collapse all three changes into ONE marker). Each running BAC is the
+  // previous one plus its delta, which is the invariant `recordBudgetChange`
+  // writes. The final 1400 h / €262,000 deliberately differs from today's
+  // own-basis BAC (3565.2 h / €492,320.21 at the time of writing), so the split
+  // rows show a non-zero "unexplained" part
   // (seed-content.spec.ts asserts that figure is not zero). The probe below
   // passes `[]` for tasks exactly as `BudgetReportPanel` does, the default 8 h
   // workday, and an EMPTY holiday set, where the app passes its configured one.
@@ -271,22 +279,22 @@ const SEED_WORKSPACE: Record<string, unknown> = {
   //   npx vite-node probe.tmp.ts && rm probe.tmp.ts
   budgetHistory: [
     {
-      id: "e2e-bh-1", at: "2026-04-06T09:00:00.000Z", date: "2026-04-06", kind: "baseline",
+      id: "e2e-bh-1", at: "2026-06-01T09:00:00.000Z", date: "2026-06-01", kind: "baseline",
       bucketId: null, bucketName: "",
       projectBacHours: 1200, projectBacValue: 220000, deltaHours: 0, deltaValue: 0,
     },
     {
-      id: "e2e-bh-2", at: "2026-04-20T09:00:00.000Z", date: "2026-04-20", kind: "created",
+      id: "e2e-bh-2", at: "2026-07-06T09:00:00.000Z", date: "2026-07-06", kind: "created",
       bucketId: 3, bucketName: "Capped SOW (rate override)",
       projectBacHours: 1360, projectBacValue: 244000, deltaHours: 160, deltaValue: 24000,
     },
     {
-      id: "e2e-bh-3", at: "2026-05-11T09:00:00.000Z", date: "2026-05-11", kind: "updated",
+      id: "e2e-bh-3", at: "2026-08-03T09:00:00.000Z", date: "2026-08-03", kind: "updated",
       bucketId: 4, bucketName: "Data Migration (fixed price)",
       projectBacHours: 1480, projectBacValue: 274000, deltaHours: 120, deltaValue: 30000,
     },
     {
-      id: "e2e-bh-4", at: "2026-06-01T09:00:00.000Z", date: "2026-06-01", kind: "deleted",
+      id: "e2e-bh-4", at: "2026-09-07T09:00:00.000Z", date: "2026-09-07", kind: "deleted",
       bucketId: 9201, bucketName: "Pilot Workshop",
       projectBacHours: 1400, projectBacValue: 262000, deltaHours: -80, deltaValue: -12000,
     },
@@ -376,7 +384,13 @@ function seedIndexedDb(ws: Record<string, unknown>): Promise<void> {
   // — the map below carries FOUR of the ten (`documents`, `documentVersions`,
   // `insights`, `timelogLinks`), so SIX are absentees: `steeringCommittee` and
   // `calendarEvents` are case (a) and STILL DROPPED; `fieldVisibility`,
-  // `features`, `knowledgeItems` and `settingsOverrides` are case (b).
+  // `features` and `settingsOverrides` are case (b). ★★ `knowledgeItems` MOVED
+  // TO CASE (a) with the DEMO_AS_OF refresh, which seeded four items in the
+  // master — it is still unmapped here, so they are dropped too. So is the
+  // master's `activityLog` (also newly seeded; one of the three keys the "TEN"
+  // predates, see the `budgetHistory` row below). Neither was added to this map
+  // in that refresh: doing so changes what the Knowledge and Activity scans see,
+  // which wants its own a11y run.
   // `insights` and `timelogLinks` were case (b) — absent from the master AND
   // unmapped here, so Insights (which IS in A11Y_VIEWS) was scanned against its
   // empty state. Both are now AUTHORED in SEED_WORKSPACE above and mapped here,
@@ -647,7 +661,13 @@ const NAV_SELECTOR = 'aside a, aside button, nav a, nav button, [role="tab"]';
 // due-soon highlighting, "as of …" captions, Gantt today-line / visible window)
 // renders identically on every run — otherwise the a11y and visual specs drift
 // with the calendar date.
-export const FROZEN_NOW = new Date("2026-06-15T09:00:00.000Z");
+// ★ It is the master's own as-of date (DEMO_AS_OF, 2026-09-18 — the date
+// sample-workspace-small.json is authored to represent, mid-project), so the
+// done / overdue / upcoming split, the past / current / future buckets and the
+// dated actuals render as the demo shows them. It was 2026-06-15 while the
+// master's plan ran 2026-04 … 2026-07; moving the master without moving this
+// would scan a project two weeks old with all of its history in the future.
+export const FROZEN_NOW = new Date("2026-09-18T09:00:00.000Z");
 
 /**
  * Navigate to the app and wait until the sidebar shell is interactive. The

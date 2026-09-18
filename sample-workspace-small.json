@@ -6,15 +6,15 @@
       "taskName": "Design SSO architecture",
       "assignee": "Alex Example",
       "assigneeEmail": "Sample.Dummy@example.com",
-      "createdDate": "2026-04-01",
-      "startDate": "2026-04-01",
-      "dueDate": "2026-04-20",
-      "lastUpdateDate": "2026-04-22",
+      "createdDate": "2026-06-01",
+      "startDate": "2026-06-01",
+      "dueDate": "2026-07-07",
+      "lastUpdateDate": "2026-07-10",
       "priority": "High",
       "status": "Done",
       "blockers": "",
       "description": "<p>Replace the hand-rolled session cookie with the shared <strong>token service</strong>. The old cookie is issued in three different places and none of them agree on expiry.</p><p>Definition of done:</p><ul><li>One issuing path, covered by tests</li><li>Expiry read from config, not hard-coded</li><li>Old cookie name still accepted for one release</li></ul><p>See the <a href=\"https://example.com/adr/017-token-service\">ADR</a> for the agreed contract.</p>",
-      "completedDate": "2026-04-22",
+      "completedDate": "2026-07-10",
       "inquiriesSent": 0,
       "group": "Auth Migration",
       "labels": [
@@ -36,13 +36,13 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-04-22T00:00:00.000Z",
+          "timestamp": "2026-07-10T00:00:00.000Z",
           "html": "<p>Reviewed OIDC vs SAML; OIDC selected based on partner roadmap.</p>",
           "text": "Reviewed OIDC vs SAML; OIDC selected based on partner roadmap."
         },
         {
           "id": 2,
-          "timestamp": "2026-04-23T09:15:00.000Z",
+          "timestamp": "2026-07-12T09:15:00.000Z",
           "html": "<p>Partner confirmed the OIDC discovery endpoint is stable; no SAML fallback needed.</p>",
           "text": "Partner confirmed the OIDC discovery endpoint is stable; no SAML fallback needed.",
           "authorResourceId": 1,
@@ -55,15 +55,15 @@
       "taskName": "POC OIDC integration",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
-      "createdDate": "2026-04-15",
-      "startDate": "2026-04-15",
-      "dueDate": "2026-04-30",
-      "lastUpdateDate": "2026-05-04",
+      "createdDate": "2026-06-29",
+      "startDate": "2026-06-29",
+      "dueDate": "2026-07-27",
+      "lastUpdateDate": "2026-08-03",
       "priority": "High",
       "status": "Done",
       "blockers": "",
       "description": "",
-      "completedDate": "2026-05-04",
+      "completedDate": "2026-08-03",
       "inquiriesSent": 1,
       "group": "Auth Migration",
       "labels": [
@@ -83,7 +83,7 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-04T00:00:00.000Z",
+          "timestamp": "2026-08-02T00:00:00.000Z",
           "html": "<p>Worked through token refresh edge cases. One inquiry from product lead about UX. Merged to main.</p>",
           "text": "Worked through token refresh edge cases. One inquiry from product lead about UX. Merged to main."
         }
@@ -94,14 +94,14 @@
       "taskName": "Stakeholder workshop",
       "assignee": "Taylor Specimen",
       "assigneeEmail": "aria.patel@example.com",
-      "createdDate": "2026-05-05",
-      "dueDate": "2026-05-05",
-      "lastUpdateDate": "2026-05-05",
+      "createdDate": "2026-08-04",
+      "dueDate": "2026-08-04",
+      "lastUpdateDate": "2026-08-04",
       "priority": "Medium",
       "status": "Done",
       "blockers": "",
       "description": "<p>Frontend still reads <em>user.roles</em> straight off the legacy payload. Switch it to the claim on the new token — <strong>do not</strong> ship this before the backend task above.</p>",
-      "completedDate": "2026-05-05",
+      "completedDate": "2026-08-04",
       "inquiriesSent": 0,
       "group": "Auth Migration",
       "labels": [
@@ -119,7 +119,7 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-05T00:00:00.000Z",
+          "timestamp": "2026-08-04T00:00:00.000Z",
           "html": "<p>Workshop with security, legal, product. Action items captured in Confluence: SSO-2026-Q2.</p>",
           "text": "Workshop with security, legal, product. Action items captured in Confluence: SSO-2026-Q2."
         }
@@ -130,10 +130,10 @@
       "taskName": "Backend API skeleton",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
-      "createdDate": "2026-05-04",
-      "startDate": "2026-05-04",
-      "dueDate": "2026-05-12",
-      "lastUpdateDate": "2026-05-13",
+      "createdDate": "2026-08-03",
+      "startDate": "2026-08-03",
+      "dueDate": "2026-08-17",
+      "lastUpdateDate": "2026-08-19",
       "priority": "Urgent",
       "status": "To Do",
       "blockers": "Waiting on database schema review from DBA team.",
@@ -152,20 +152,20 @@
       ],
       "jiraKey": "LOP-103",
       "jiraIssueType": "Story",
-      "lastSyncedAt": "2026-05-13T10:30:00.000Z",
-      "localModifiedAt": "2026-05-13T10:35:12.000Z",
+      "lastSyncedAt": "2026-08-19T10:30:00.000Z",
+      "localModifiedAt": "2026-08-19T10:35:12.000Z",
       "resourceId": 2,
       "knowledgeLinks": [],
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-13T00:00:00.000Z",
+          "timestamp": "2026-08-19T00:00:00.000Z",
           "html": "<p>Stalled while Jane is on holiday. Rate-limit middleware design needs review; current draft uses sliding-window over Redis.</p>",
           "text": "Stalled while Jane is on holiday. Rate-limit middleware design needs review; current draft uses sliding-window over Redis."
         },
         {
           "id": 2,
-          "timestamp": "2026-05-14T11:00:00.000Z",
+          "timestamp": "2026-08-21T11:00:00.000Z",
           "html": "<p>Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.</p>",
           "text": "Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.",
           "authorResourceId": 2,
@@ -178,10 +178,10 @@
       "taskName": "Frontend login flow",
       "assignee": "Alex Example",
       "assigneeEmail": "Sample.Dummy@example.com",
-      "createdDate": "2026-05-15",
-      "startDate": "2026-05-15",
-      "dueDate": "2026-05-22",
-      "lastUpdateDate": "2026-05-14",
+      "createdDate": "2026-08-21",
+      "startDate": "2026-08-24",
+      "dueDate": "2026-09-07",
+      "lastUpdateDate": "2026-08-21",
       "priority": "High",
       "status": "To Do",
       "blockers": "",
@@ -198,13 +198,13 @@
           "type": "FS"
         }
       ],
-      "localModifiedAt": "2026-05-14T16:20:00.000Z",
+      "localModifiedAt": "2026-08-21T16:20:00.000Z",
       "resourceId": 1,
       "knowledgeLinks": [],
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-14T00:00:00.000Z",
+          "timestamp": "2026-08-21T00:00:00.000Z",
           "html": "<p>React component scaffolded; need to wire token storage. Considering httpOnly cookie vs sessionStorage tradeoff.</p>",
           "text": "React component scaffolded; need to wire token storage. Considering httpOnly cookie vs sessionStorage tradeoff."
         }
@@ -215,10 +215,10 @@
       "taskName": "Migration script for legacy users",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
-      "createdDate": "2026-05-12",
-      "startDate": "2026-05-12",
-      "dueDate": "2026-05-25",
-      "lastUpdateDate": "2026-05-15",
+      "createdDate": "2026-08-17",
+      "startDate": "2026-08-17",
+      "dueDate": "2026-09-10",
+      "lastUpdateDate": "2026-08-24",
       "priority": "High",
       "status": "To Do",
       "blockers": "Pending DBA approval on dry-run plan.",
@@ -241,7 +241,7 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-15T00:00:00.000Z",
+          "timestamp": "2026-08-23T00:00:00.000Z",
           "html": "<p>50k legacy users with bcrypt-hashed passwords. Plan for incremental migration in 5k batches with rollback markers.</p>",
           "text": "50k legacy users with bcrypt-hashed passwords. Plan for incremental migration in 5k batches with rollback markers."
         }
@@ -252,10 +252,10 @@
       "taskName": "Security review",
       "assignee": "Morgan Standin",
       "assigneeEmail": "Invented.Riley@example.com",
-      "createdDate": "2026-05-20",
-      "startDate": "2026-05-20",
-      "dueDate": "2026-06-02",
-      "lastUpdateDate": "2026-05-15",
+      "createdDate": "2026-08-24",
+      "startDate": "2026-09-01",
+      "dueDate": "2026-09-24",
+      "lastUpdateDate": "2026-08-24",
       "priority": "Medium",
       "status": "To Do",
       "blockers": "",
@@ -277,7 +277,7 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-15T00:00:00.000Z",
+          "timestamp": "2026-08-23T00:00:00.000Z",
           "html": "<p>Schedule with InfoSec. Expect ~1 week turnaround. Scope: token storage, redirect URIs, CSP, session fixation.</p>",
           "text": "Schedule with InfoSec. Expect ~1 week turnaround. Scope: token storage, redirect URIs, CSP, session fixation."
         }
@@ -288,10 +288,10 @@
       "taskName": "Load testing",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
-      "createdDate": "2026-06-03",
-      "startDate": "2026-06-03",
-      "dueDate": "2026-06-10",
-      "lastUpdateDate": "2026-05-15",
+      "createdDate": "2026-08-24",
+      "startDate": "2026-09-25",
+      "dueDate": "2026-10-05",
+      "lastUpdateDate": "2026-08-24",
       "priority": "Medium",
       "status": "To Do",
       "blockers": "",
@@ -317,7 +317,7 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-15T00:00:00.000Z",
+          "timestamp": "2026-08-23T00:00:00.000Z",
           "html": "<p>Target: 10k concurrent logins/sec sustained for 30 minutes. Tools: k6 or Gatling. Hold a slot in the staging env.</p>",
           "text": "Target: 10k concurrent logins/sec sustained for 30 minutes. Tools: k6 or Gatling. Hold a slot in the staging env."
         }
@@ -328,9 +328,9 @@
       "taskName": "Documentation",
       "assignee": "Taylor Specimen",
       "assigneeEmail": "aria.patel@example.com",
-      "createdDate": "2026-05-10",
-      "dueDate": "2026-06-15",
-      "lastUpdateDate": "2026-05-10",
+      "createdDate": "2026-08-13",
+      "dueDate": "2026-10-13",
+      "lastUpdateDate": "2026-08-13",
       "priority": "Low",
       "status": "To Do",
       "blockers": "",
@@ -358,7 +358,7 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-10T00:00:00.000Z",
+          "timestamp": "2026-08-13T00:00:00.000Z",
           "html": "<p>Update Confluence runbook + internal API docs. Add a runbook for token rotation incidents.</p>",
           "text": "Update Confluence runbook + internal API docs. Add a runbook for token rotation incidents."
         }
@@ -369,9 +369,9 @@
       "taskName": "Production cutover",
       "assignee": "Alex Example",
       "assigneeEmail": "Sample.Dummy@example.com",
-      "createdDate": "2026-05-15",
-      "dueDate": "2026-06-20",
-      "lastUpdateDate": "2026-05-15",
+      "createdDate": "2026-08-24",
+      "dueDate": "2026-10-20",
+      "lastUpdateDate": "2026-08-24",
       "priority": "Urgent",
       "status": "To Do",
       "blockers": "",
@@ -397,7 +397,7 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-15T00:00:00.000Z",
+          "timestamp": "2026-08-23T00:00:00.000Z",
           "html": "<p>Maintenance window: Sun 02:00-06:00 UTC. Rollback via DNS flip (60s TTL pre-staged). Status page banner from -30min.</p>",
           "text": "Maintenance window: Sun 02:00-06:00 UTC. Rollback via DNS flip (60s TTL pre-staged). Status page banner from -30min."
         }
@@ -408,9 +408,9 @@
       "taskName": "Quarterly OKR review",
       "assignee": "Morgan Standin",
       "assigneeEmail": "Invented.Riley@example.com",
-      "createdDate": "2026-05-08",
-      "dueDate": "2026-05-30",
-      "lastUpdateDate": "2026-05-08",
+      "createdDate": "2026-08-10",
+      "dueDate": "2026-09-21",
+      "lastUpdateDate": "2026-08-10",
       "priority": "Medium",
       "status": "To Do",
       "blockers": "",
@@ -427,20 +427,20 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-08T00:00:00.000Z",
-          "html": "<p>Compile Q2 metrics: KR1 conversion, KR2 incident MTTR, KR3 NPS. Slides due 48h before steering committee.</p>",
-          "text": "Compile Q2 metrics: KR1 conversion, KR2 incident MTTR, KR3 NPS. Slides due 48h before steering committee."
+          "timestamp": "2026-08-10T00:00:00.000Z",
+          "html": "<p>Compile Q3 metrics: KR1 conversion, KR2 incident MTTR, KR3 NPS. Slides due 48h before steering committee.</p>",
+          "text": "Compile Q3 metrics: KR1 conversion, KR2 incident MTTR, KR3 NPS. Slides due 48h before steering committee."
         }
       ]
     },
     {
       "id": 12,
-      "taskName": "Vendor renewal: Datadog",
+      "taskName": "Vendor renewal: monitoring platform",
       "assignee": "Taylor Specimen",
       "assigneeEmail": "aria.patel@example.com",
-      "createdDate": "2026-05-15",
-      "dueDate": "2026-07-01",
-      "lastUpdateDate": "2026-05-15",
+      "createdDate": "2026-08-24",
+      "dueDate": "2026-11-05",
+      "lastUpdateDate": "2026-08-24",
       "priority": "Low",
       "status": "To Do",
       "blockers": "",
@@ -462,9 +462,9 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-15T00:00:00.000Z",
-          "html": "<p>Auto-renew expires 2026-07-15. Negotiate seat count downward (we overprovisioned by ~30%).</p>",
-          "text": "Auto-renew expires 2026-07-15. Negotiate seat count downward (we overprovisioned by ~30%)."
+          "timestamp": "2026-08-23T00:00:00.000Z",
+          "html": "<p>Auto-renew expires two weeks after the due date. Negotiate seat count downward (we overprovisioned by ~30%).</p>",
+          "text": "Auto-renew expires two weeks after the due date. Negotiate seat count downward (we overprovisioned by ~30%)."
         }
       ]
     },
@@ -473,15 +473,15 @@
       "taskName": "Dev environment setup",
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
-      "createdDate": "2026-03-28",
-      "startDate": "2026-03-28",
-      "dueDate": "2026-04-04",
-      "lastUpdateDate": "2026-04-05",
+      "createdDate": "2026-05-28",
+      "startDate": "2026-05-28",
+      "dueDate": "2026-06-08",
+      "lastUpdateDate": "2026-06-09",
       "priority": "Medium",
       "status": "Done",
       "blockers": "",
       "description": "",
-      "completedDate": "2026-04-05",
+      "completedDate": "2026-06-09",
       "inquiriesSent": 0,
       "group": "Auth Migration",
       "labels": [
@@ -491,13 +491,13 @@
       "dependencies": [],
       "jiraKey": "LOP-100",
       "jiraIssueType": "Task",
-      "lastSyncedAt": "2026-05-13T10:30:00.000Z",
+      "lastSyncedAt": "2026-08-19T10:30:00.000Z",
       "resourceId": 2,
       "knowledgeLinks": [],
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-04-05T00:00:00.000Z",
+          "timestamp": "2026-06-09T00:00:00.000Z",
           "html": "<p>Docker Compose stack + seed data scripts ready. All four team members confirmed access.</p>",
           "text": "Docker Compose stack + seed data scripts ready. All four team members confirmed access."
         }
@@ -508,15 +508,15 @@
       "taskName": "Risk & compliance kick-off",
       "assignee": "Morgan Standin",
       "assigneeEmail": "Invented.Riley@example.com",
-      "createdDate": "2026-04-08",
-      "startDate": "2026-04-08",
-      "dueDate": "2026-04-10",
-      "lastUpdateDate": "2026-04-10",
+      "createdDate": "2026-06-15",
+      "startDate": "2026-06-15",
+      "dueDate": "2026-06-18",
+      "lastUpdateDate": "2026-06-18",
       "priority": "Medium",
       "status": "Done",
       "blockers": "",
       "description": "",
-      "completedDate": "2026-04-10",
+      "completedDate": "2026-06-18",
       "inquiriesSent": 0,
       "group": "Auth Migration",
       "labels": [
@@ -534,7 +534,7 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-04-10T00:00:00.000Z",
+          "timestamp": "2026-06-18T00:00:00.000Z",
           "html": "<p>Identified 4 risk items. RAID log bootstrapped. SOC2 evidence tracker set up in Confluence.</p>",
           "text": "Identified 4 risk items. RAID log bootstrapped. SOC2 evidence tracker set up in Confluence."
         }
@@ -558,8 +558,8 @@
       "linkedTaskIds": [
         6
       ],
-      "raisedDate": "2026-04-25",
-      "targetDate": "2026-06-15",
+      "raisedDate": "2026-07-16",
+      "targetDate": "2026-10-13",
       "causedByRaidIds": [],
       "stakeholderIds": [],
       "knowledgeLinks": [
@@ -568,6 +568,16 @@
           "name": "Migration Runbook.pdf",
           "url": "https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Migration-Runbook.pdf",
           "kind": "file"
+        }
+      ],
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-09-09T15:20:00.000Z",
+          "html": "<p>Dry-runs of batches 1–3 came back clean and the integrity checks are green; marking this <strong>mitigated</strong>.</p>",
+          "text": "Dry-runs of batches 1–3 came back clean and the integrity checks are green; marking this mitigated.",
+          "authorResourceId": 2,
+          "authorName": "Sam Placeholder"
         }
       ]
     },
@@ -585,7 +595,7 @@
       "ownerResourceId": 4,
       "mitigation": "Provider SLA: 99.95%. Fallback: temporary local-account bypass for ops accounts (documented, time-boxed).",
       "linkedTaskIds": [],
-      "raisedDate": "2026-05-01",
+      "raisedDate": "2026-07-27",
       "causedByRaidIds": [],
       "stakeholderIds": [
         1,
@@ -595,7 +605,7 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-22T08:30:00.000Z",
+          "timestamp": "2026-09-05T08:30:00.000Z",
           "html": "<p>Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.</p>",
           "text": "Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.",
           "authorResourceId": 4,
@@ -619,10 +629,20 @@
       "linkedTaskIds": [
         4
       ],
-      "raisedDate": "2026-05-08",
+      "raisedDate": "2026-08-10",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "knowledgeLinks": []
+      "knowledgeLinks": [],
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-09-11T10:40:00.000Z",
+          "html": "<p>p95 is back under 120 ms after the session-index fix. Keeping it open until the load test confirms.</p>",
+          "text": "p95 is back under 120 ms after the session-index fix. Keeping it open until the load test confirms.",
+          "authorResourceId": 2,
+          "authorName": "Sam Placeholder"
+        }
+      ]
     },
     {
       "id": 4,
@@ -636,12 +656,12 @@
       "owner": "Alex Example",
       "ownerEmail": "Sample.Dummy@example.com",
       "ownerResourceId": 1,
-      "mitigation": "Pinned to patched fork until upstream releases v1.8.0. Scheduled upgrade 2026-06-01.",
+      "mitigation": "Pinned to patched fork until upstream releases v1.8.0. Upgrade scheduled for the next maintenance release.",
       "linkedTaskIds": [
         5
       ],
-      "raisedDate": "2026-05-12",
-      "targetDate": "2026-06-01",
+      "raisedDate": "2026-08-17",
+      "targetDate": "2026-09-22",
       "causedByRaidIds": [],
       "stakeholderIds": [],
       "knowledgeLinks": []
@@ -657,7 +677,7 @@
       "ownerEmail": "aria.patel@example.com",
       "ownerResourceId": 3,
       "linkedTaskIds": [],
-      "raisedDate": "2026-05-05",
+      "raisedDate": "2026-08-04",
       "causedByRaidIds": [],
       "stakeholderIds": [],
       "knowledgeLinks": []
@@ -671,12 +691,12 @@
       "owner": "Alex Example",
       "ownerEmail": "Sample.Dummy@example.com",
       "ownerResourceId": 1,
-      "mitigation": "Assumption was wrong — ran a knowledge check; 2 of 4 devs unaware. Remediated with doc session on 2026-05-15.",
+      "mitigation": "Assumption was wrong — ran a knowledge check; 2 of 4 devs unaware. Remediated with a doc session the same week.",
       "linkedTaskIds": [
         5
       ],
-      "raisedDate": "2026-05-01",
-      "closedDate": "2026-05-15",
+      "raisedDate": "2026-07-27",
+      "closedDate": "2026-08-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
       "knowledgeLinks": []
@@ -693,8 +713,8 @@
       "linkedTaskIds": [
         8
       ],
-      "raisedDate": "2026-05-10",
-      "targetDate": "2026-06-03",
+      "raisedDate": "2026-08-13",
+      "targetDate": "2026-09-25",
       "causedByRaidIds": [],
       "stakeholderIds": [],
       "knowledgeLinks": []
@@ -714,13 +734,23 @@
         4,
         5
       ],
-      "raisedDate": "2026-05-13",
-      "targetDate": "2026-05-22",
+      "raisedDate": "2026-08-19",
+      "targetDate": "2026-09-07",
       "causedByRaidIds": [
         3
       ],
       "stakeholderIds": [],
-      "knowledgeLinks": []
+      "knowledgeLinks": [],
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-09-14T13:10:00.000Z",
+          "html": "<p>Security review accepts <em>SameSite=Lax</em> for the redirect cookie; the prod change is queued behind the pen test.</p>",
+          "text": "Security review accepts SameSite=Lax for the redirect cookie; the prod change is queued behind the pen test.",
+          "authorResourceId": 4,
+          "authorName": "Morgan Standin"
+        }
+      ]
     },
     {
       "id": 9,
@@ -736,19 +766,29 @@
       "linkedTaskIds": [
         4
       ],
-      "raisedDate": "2026-05-17",
-      "targetDate": "2026-05-24",
+      "raisedDate": "2026-08-26",
+      "targetDate": "2026-09-09",
       "causedByRaidIds": [],
       "stakeholderIds": [],
       "knowledgeLinks": [],
       "escalations": [
         {
-          "at": "2026-05-20T09:30:00.000Z",
+          "at": "2026-09-01T09:30:00.000Z",
           "toName": "Sam Placeholder",
           "toEmail": "Fictional.Jordan@example.com",
           "toResourceId": 2,
           "fromSeverity": "Medium",
           "toSeverity": "High"
+        }
+      ],
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-09-01T09:30:00.000Z",
+          "html": "<p>Escalated to <strong>High</strong> after a second burst of spurious 429s in staging.</p>",
+          "text": "Escalated to High after a second burst of spurious 429s in staging.",
+          "authorResourceId": 4,
+          "authorName": "Morgan Standin"
         }
       ]
     },
@@ -762,12 +802,12 @@
       "owner": "Alex Example",
       "ownerEmail": "Sample.Dummy@example.com",
       "ownerResourceId": 1,
-      "mitigation": "Fixed in PR #87; merged 2026-05-16.",
+      "mitigation": "Fixed in PR #87; merged the same day.",
       "linkedTaskIds": [
         5
       ],
-      "raisedDate": "2026-05-16",
-      "closedDate": "2026-05-16",
+      "raisedDate": "2026-08-25",
+      "closedDate": "2026-08-25",
       "causedByRaidIds": [],
       "stakeholderIds": [],
       "knowledgeLinks": []
@@ -785,8 +825,8 @@
       "linkedTaskIds": [
         7
       ],
-      "raisedDate": "2026-05-10",
-      "targetDate": "2026-06-02",
+      "raisedDate": "2026-08-13",
+      "targetDate": "2026-09-24",
       "causedByRaidIds": [],
       "stakeholderIds": [
         1,
@@ -796,7 +836,7 @@
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-25T16:45:00.000Z",
+          "timestamp": "2026-09-10T16:45:00.000Z",
           "html": "<p>Compliance pre-review complete; formal sign-off pending the final pen-test report.</p>",
           "text": "Compliance pre-review complete; formal sign-off pending the final pen-test report.",
           "authorResourceId": 4,
@@ -814,13 +854,13 @@
       "owner": "Taylor Specimen",
       "ownerEmail": "aria.patel@example.com",
       "ownerResourceId": 3,
-      "mitigation": "Confirmed by ticket NET-2342 closed 2026-05-10.",
+      "mitigation": "Confirmed by ticket NET-2342, closed on the target date.",
       "linkedTaskIds": [
         4
       ],
-      "raisedDate": "2026-04-28",
-      "targetDate": "2026-05-10",
-      "closedDate": "2026-05-10",
+      "raisedDate": "2026-07-22",
+      "targetDate": "2026-08-13",
+      "closedDate": "2026-08-13",
       "causedByRaidIds": [],
       "stakeholderIds": [],
       "knowledgeLinks": []
@@ -838,15 +878,25 @@
       "linkedTaskIds": [
         6
       ],
-      "raisedDate": "2026-05-14",
-      "targetDate": "2026-05-21",
+      "raisedDate": "2026-08-21",
+      "targetDate": "2026-09-03",
       "causedByRaidIds": [
         11
       ],
       "stakeholderIds": [
         5
       ],
-      "knowledgeLinks": []
+      "knowledgeLinks": [],
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-09-16T08:50:00.000Z",
+          "html": "<p>DBA review slipped a second time; chasing the DBA lead for a slot this week.</p>",
+          "text": "DBA review slipped a second time; chasing the DBA lead for a slot this week.",
+          "authorResourceId": 4,
+          "authorName": "Morgan Standin"
+        }
+      ]
     }
   ],
   "absences": [
@@ -854,8 +904,8 @@
       "id": 1,
       "assignee": "Alex Example",
       "assigneeEmail": "Sample.Dummy@example.com",
-      "startDate": "2026-06-01",
-      "endDate": "2026-06-14",
+      "startDate": "2026-08-10",
+      "endDate": "2026-08-21",
       "type": "vacation",
       "note": "Family trip",
       "localModifiedAt": "",
@@ -865,8 +915,8 @@
       "id": 2,
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
-      "startDate": "2026-05-28",
-      "endDate": "2026-05-28",
+      "startDate": "2026-09-15",
+      "endDate": "2026-09-15",
       "type": "sick",
       "localModifiedAt": "",
       "resourceId": 2
@@ -875,8 +925,8 @@
       "id": 3,
       "assignee": "Taylor Specimen",
       "assigneeEmail": "aria.patel@example.com",
-      "startDate": "2026-06-23",
-      "endDate": "2026-06-25",
+      "startDate": "2026-09-28",
+      "endDate": "2026-09-30",
       "type": "training",
       "note": "Kubernetes cert",
       "localModifiedAt": "",
@@ -886,8 +936,8 @@
       "id": 4,
       "assignee": "Morgan Standin",
       "assigneeEmail": "Invented.Riley@example.com",
-      "startDate": "2026-06-17",
-      "endDate": "2026-06-18",
+      "startDate": "2026-09-21",
+      "endDate": "2026-09-22",
       "type": "other",
       "note": "Offsite leadership summit",
       "localModifiedAt": "",
@@ -897,8 +947,8 @@
       "id": 5,
       "assignee": "Sam Placeholder",
       "assigneeEmail": "Fictional.Jordan@example.com",
-      "startDate": "2026-07-07",
-      "endDate": "2026-07-11",
+      "startDate": "2026-11-09",
+      "endDate": "2026-11-13",
       "type": "vacation",
       "note": "Summer holiday",
       "localModifiedAt": "",
@@ -909,7 +959,7 @@
     {
       "id": 1,
       "title": "Project standup",
-      "startDate": "2026-01-05",
+      "startDate": "2026-06-01",
       "startTime": "09:00",
       "durationMinutes": 15,
       "recurrence": {
@@ -925,7 +975,7 @@
     {
       "id": 2,
       "title": "Steering board",
-      "startDate": "2026-01-13",
+      "startDate": "2026-06-09",
       "startTime": "14:00",
       "durationMinutes": 60,
       "recurrence": {
@@ -938,7 +988,7 @@
       },
       "exceptions": [
         {
-          "date": "2026-04-14",
+          "date": "2026-08-11",
           "kind": "skip"
         }
       ]
@@ -1022,10 +1072,13 @@
       "roleId": 1,
       "utilizationMode": "percent",
       "utilization": {
-        "2026-04": 80,
-        "2026-05": 100,
-        "2026-06": 60,
-        "2026-07": 50
+        "2026-06": 90,
+        "2026-07": 90,
+        "2026-08": 50,
+        "2026-09": 80,
+        "2026-10": 80,
+        "2026-11": 60,
+        "2026-12": 50
       },
       "email": "Sample.Dummy@example.com",
       "title": "Lead Architect",
@@ -1036,7 +1089,7 @@
       "birthday": "06-14",
       "notes": "Primary SSO architect; OIDC lead.",
       "absenceOverride": {
-        "2026-06": 88
+        "2026-08": 88
       }
     },
     {
@@ -1046,10 +1099,13 @@
       "roleId": 2,
       "utilizationMode": "percent",
       "utilization": {
-        "2026-04": 100,
-        "2026-05": 100,
         "2026-06": 80,
-        "2026-07": 30
+        "2026-07": 100,
+        "2026-08": 90,
+        "2026-09": 100,
+        "2026-10": 80,
+        "2026-11": 90,
+        "2026-12": 40
       },
       "email": "Fictional.Jordan@example.com",
       "title": "Senior Developer",
@@ -1067,10 +1123,13 @@
       "roleId": 3,
       "utilizationMode": "hours",
       "utilization": {
-        "2026-04": 40,
-        "2026-05": 60,
-        "2026-06": 56,
-        "2026-07": 32
+        "2026-06": 120,
+        "2026-07": 110,
+        "2026-08": 100,
+        "2026-09": 100,
+        "2026-10": 60,
+        "2026-11": 40,
+        "2026-12": 24
       },
       "email": "aria.patel@example.com",
       "title": "Business Analyst",
@@ -1088,10 +1147,13 @@
       "roleId": 4,
       "utilizationMode": "percent",
       "utilization": {
-        "2026-04": 50,
-        "2026-05": 60,
         "2026-06": 50,
-        "2026-07": 30
+        "2026-07": 50,
+        "2026-08": 50,
+        "2026-09": 60,
+        "2026-10": 60,
+        "2026-11": 40,
+        "2026-12": 30
       },
       "email": "Invented.Riley@example.com",
       "title": "Project Manager",
@@ -1109,10 +1171,13 @@
       "roleId": 5,
       "utilizationMode": "percent",
       "utilization": {
-        "2026-04": 100,
-        "2026-05": 0,
-        "2026-06": 0,
-        "2026-07": 0
+        "2026-06": 100,
+        "2026-07": 0,
+        "2026-08": 0,
+        "2026-09": 0,
+        "2026-10": 50,
+        "2026-11": 50,
+        "2026-12": 50
       },
       "email": "david.Avery@example.com",
       "title": "Consultant",
@@ -1121,7 +1186,7 @@
       "department": "Consulting",
       "company": "Acme",
       "birthday": "12-30",
-      "notes": "Rolled off after April (0% utilization)."
+      "notes": "Rolled off after June (0% utilization); back part-time for the Q4 advisory retainer."
     }
   ],
   "roles": [
@@ -1133,7 +1198,8 @@
       "externalRate": 145,
       "rateBasis": "day",
       "internalRateDay": 760,
-      "externalRateDay": 1160
+      "externalRateDay": 1160,
+      "order": 1
     },
     {
       "id": 2,
@@ -1143,7 +1209,8 @@
       "externalRate": 165,
       "rateBasis": "day",
       "internalRateDay": 880,
-      "externalRateDay": 1320
+      "externalRateDay": 1320,
+      "order": 0
     },
     {
       "id": 3,
@@ -1153,7 +1220,8 @@
       "externalRate": 120,
       "rateBasis": "day",
       "internalRateDay": 640,
-      "externalRateDay": 960
+      "externalRateDay": 960,
+      "order": 4
     },
     {
       "id": 4,
@@ -1163,7 +1231,8 @@
       "externalRate": 150,
       "rateBasis": "day",
       "internalRateDay": 800,
-      "externalRateDay": 1200
+      "externalRateDay": 1200,
+      "order": 5
     },
     {
       "id": 5,
@@ -1173,7 +1242,8 @@
       "externalRate": 110,
       "rateBasis": "day",
       "internalRateDay": 600,
-      "externalRateDay": 880
+      "externalRateDay": 880,
+      "order": 2
     },
     {
       "id": 6,
@@ -1181,9 +1251,7 @@
       "gradeId": 5,
       "internalRate": 115,
       "externalRate": 170,
-      "rateBasis": "day",
-      "internalRateDay": 920,
-      "externalRateDay": 1360
+      "order": 3
     }
   ],
   "disciplines": [
@@ -1231,10 +1299,11 @@
     }
   ],
   "plan": {
-    "startDate": "2026-04-01",
-    "endDate": "2026-07-31",
+    "startDate": "2026-06-01",
+    "endDate": "2026-12-18",
     "granularity": "month",
-    "currency": "EUR"
+    "currency": "EUR",
+    "budgetFollowsPlan": true
   },
   "budgets": [
     {
@@ -1242,8 +1311,8 @@
       "name": "Identity Platform – T&M",
       "type": "tm",
       "currency": "EUR",
-      "startDate": "2026-04-01",
-      "endDate": "2026-06-30",
+      "startDate": "2026-06-01",
+      "endDate": "2026-09-30",
       "status": "open",
       "allocations": [
         {
@@ -1252,16 +1321,29 @@
             1
           ],
           "budgetHours": {
-            "2026-04": 150,
-            "2026-05": 165,
-            "2026-06": 65
+            "2026-06": 150,
+            "2026-07": 140,
+            "2026-08": 70,
+            "2026-09": 120
           },
           "actualHours": {
-            "2026-04": 116,
-            "2026-05": 128,
-            "2026-06-01": 16,
-            "2026-06-02": 16,
-            "2026-06-03": 16
+            "2026-06": 138,
+            "2026-07": 131,
+            "2026-08": 64,
+            "2026-09-01": 6,
+            "2026-09-02": 6,
+            "2026-09-03": 6,
+            "2026-09-04": 6,
+            "2026-09-07": 6,
+            "2026-09-08": 6,
+            "2026-09-09": 6,
+            "2026-09-10": 6,
+            "2026-09-11": 6,
+            "2026-09-14": 6,
+            "2026-09-15": 6,
+            "2026-09-16": 6,
+            "2026-09-17": 6,
+            "2026-09-18": 6
           }
         },
         {
@@ -1270,12 +1352,27 @@
             3
           ],
           "budgetHours": {
-            "2026-05": 130,
-            "2026-06": 120
+            "2026-07": 100,
+            "2026-08": 90,
+            "2026-09": 80
           },
           "actualHours": {
-            "2026-05": 78,
-            "2026-06": 55
+            "2026-07": 92,
+            "2026-08": 85,
+            "2026-09-01": 5,
+            "2026-09-02": 5,
+            "2026-09-03": 5,
+            "2026-09-04": 3,
+            "2026-09-07": 5,
+            "2026-09-08": 5,
+            "2026-09-09": 5,
+            "2026-09-10": 5,
+            "2026-09-11": 3,
+            "2026-09-14": 5,
+            "2026-09-15": 5,
+            "2026-09-16": 5,
+            "2026-09-17": 5,
+            "2026-09-18": 3
           }
         },
         {
@@ -1284,36 +1381,54 @@
             4
           ],
           "budgetHours": {
-            "2026-05": 80,
-            "2026-06": 70
+            "2026-06": 60,
+            "2026-07": 60,
+            "2026-08": 60,
+            "2026-09": 60
           },
           "actualHours": {
-            "2026-05": 42,
-            "2026-06": 38
+            "2026-06": 55,
+            "2026-07": 58,
+            "2026-08": 52,
+            "2026-09-01": 4,
+            "2026-09-02": 4,
+            "2026-09-03": 4,
+            "2026-09-04": 4,
+            "2026-09-07": 4,
+            "2026-09-08": 4,
+            "2026-09-09": 4,
+            "2026-09-10": 4,
+            "2026-09-11": 4,
+            "2026-09-14": 4,
+            "2026-09-15": 4,
+            "2026-09-16": 4,
+            "2026-09-17": 4,
+            "2026-09-18": 4
           }
         }
       ],
       "poNumber": "4400125303",
       "successorId": 4,
-      "order": 0,
+      "order": 2,
       "planningMode": "detailed",
       "taskIds": [
         1,
         2,
         4
-      ]
+      ],
+      "createdDate": "2026-05-28"
     },
     {
       "id": 2,
       "name": "Advisory Retainer (blended)",
       "type": "tm",
       "currency": "EUR",
-      "startDate": "2026-06-01",
-      "endDate": "2026-07-31",
+      "startDate": "2026-10-01",
+      "endDate": "2026-12-18",
       "status": "open",
       "allocations": [],
       "poNumber": "4400141354",
-      "order": 1,
+      "order": 5,
       "planningMode": "blended",
       "disciplineAllocations": [
         {
@@ -1322,13 +1437,11 @@
             5
           ],
           "budgetHours": {
-            "2026-06": 100,
-            "2026-07": 120
+            "2026-10": 60,
+            "2026-11": 80,
+            "2026-12": 50
           },
-          "actualHours": {
-            "2026-06": 72,
-            "2026-07": 85
-          }
+          "actualHours": {}
         },
         {
           "disciplineId": 1,
@@ -1336,23 +1449,21 @@
             2
           ],
           "budgetHours": {
-            "2026-06": 40,
-            "2026-07": 40
+            "2026-11": 20,
+            "2026-12": 40
           },
-          "actualHours": {
-            "2026-06": 37,
-            "2026-07": 37
-          }
+          "actualHours": {}
         }
-      ]
+      ],
+      "createdDate": "2026-09-07"
     },
     {
       "id": 3,
       "name": "Capped SOW (rate override)",
       "type": "tm",
       "currency": "EUR",
-      "startDate": "2026-06-01",
-      "endDate": "2026-07-31",
+      "startDate": "2026-09-01",
+      "endDate": "2026-11-30",
       "status": "open",
       "allocations": [
         {
@@ -1361,57 +1472,83 @@
             2
           ],
           "budgetHours": {
-            "2026-06": 80,
-            "2026-07": 70
+            "2026-09": 40,
+            "2026-10": 50,
+            "2026-11": 100
           },
           "actualHours": {
-            "2026-06": 55,
-            "2026-07": 45
+            "2026-09-01": 3,
+            "2026-09-02": 3,
+            "2026-09-03": 3,
+            "2026-09-07": 3,
+            "2026-09-08": 3,
+            "2026-09-09": 3,
+            "2026-09-10": 3,
+            "2026-09-14": 3,
+            "2026-09-16": 3,
+            "2026-09-17": 3
           }
         }
       ],
       "poNumber": "4400087177",
       "successorId": 2,
-      "order": 2,
+      "order": 4,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
       "rateOverrideExternal": 200,
-      "percentComplete": 45
+      "percentComplete": 15,
+      "createdDate": "2026-08-17"
     },
     {
       "id": 4,
       "name": "Data Migration (fixed price)",
       "type": "fixed",
       "currency": "USD",
-      "startDate": "2026-06-01",
-      "endDate": "2026-07-31",
+      "startDate": "2026-08-01",
+      "endDate": "2026-10-31",
       "status": "open",
       "allocations": [
+        {
+          "roleId": 2,
+          "resourceIds": [
+            2
+          ],
+          "budgetHours": {
+            "2026-08": 60,
+            "2026-09": 90,
+            "2026-10": 80
+          },
+          "actualHours": {
+            "2026-08-17": 7,
+            "2026-08-18": 6,
+            "2026-08-19": 6,
+            "2026-08-20": 7,
+            "2026-08-24": 6,
+            "2026-08-25": 6,
+            "2026-08-26": 7,
+            "2026-08-27": 6,
+            "2026-08-31": 6,
+            "2026-09-01": 6,
+            "2026-09-02": 6,
+            "2026-09-03": 6,
+            "2026-09-07": 6,
+            "2026-09-08": 6,
+            "2026-09-09": 6,
+            "2026-09-10": 6,
+            "2026-09-14": 6,
+            "2026-09-16": 6,
+            "2026-09-17": 6
+          }
+        },
         {
           "roleId": 1,
           "resourceIds": [
             1
           ],
           "budgetHours": {
-            "2026-06": 30,
-            "2026-07": 90
+            "2026-10": 100
           },
-          "actualHours": {
-            "2026-06": 32,
-            "2026-07": 88
-          }
-        },
-        {
-          "roleId": 5,
-          "resourceIds": [
-            5
-          ],
-          "budgetHours": {
-            "2026-06": 40
-          },
-          "actualHours": {
-            "2026-06": 40
-          }
+          "actualHours": {}
         }
       ],
       "poNumber": "4400098499",
@@ -1419,15 +1556,16 @@
       "fixedPriceAmount": 80000,
       "fxRateOverride": 1.1,
       "order": 3,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "createdDate": "2026-07-20"
     },
     {
       "id": 5,
       "name": "Discovery Phase (closed)",
       "type": "tm",
       "currency": "EUR",
-      "startDate": "2026-04-01",
-      "endDate": "2026-04-30",
+      "startDate": "2026-06-01",
+      "endDate": "2026-06-30",
       "status": "closed",
       "allocations": [
         {
@@ -1436,34 +1574,112 @@
             3
           ],
           "budgetHours": {
-            "2026-04": 50
+            "2026-06": 50
           },
           "actualHours": {
-            "2026-04": 30
+            "2026-06": 46
           }
         }
       ],
       "poNumber": "4400053230",
       "successorId": 1,
-      "closedDate": "2026-04-30",
-      "order": 4,
-      "planningMode": "detailed"
+      "closedDate": "2026-06-30",
+      "order": 0,
+      "planningMode": "detailed",
+      "createdDate": "2026-05-26"
+    },
+    {
+      "id": 6,
+      "name": "Hypercare Support (fixed price)",
+      "type": "fixed",
+      "currency": "GBP",
+      "startDate": "2026-11-01",
+      "endDate": "2026-12-18",
+      "status": "open",
+      "allocations": [],
+      "poNumber": "4400172608",
+      "fixedPriceAmount": 36000,
+      "order": 6,
+      "planningMode": "blended",
+      "createdDate": "2026-09-14",
+      "disciplineAllocations": [
+        {
+          "disciplineId": 1,
+          "resourceIds": [
+            1
+          ],
+          "budgetHours": {
+            "2026-11": 80,
+            "2026-12": 60
+          },
+          "actualHours": {}
+        },
+        {
+          "disciplineId": 4,
+          "resourceIds": [
+            4
+          ],
+          "budgetHours": {
+            "2026-11": 40,
+            "2026-12": 30
+          },
+          "actualHours": {}
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Security Review (closed, rate override)",
+      "type": "tm",
+      "currency": "EUR",
+      "startDate": "2026-07-01",
+      "endDate": "2026-07-31",
+      "status": "closed",
+      "closedDate": "2026-07-31",
+      "allocations": [
+        {
+          "roleId": 6,
+          "resourceIds": [],
+          "budgetHours": {
+            "2026-07": 60
+          },
+          "actualHours": {
+            "2026-07": 68
+          }
+        }
+      ],
+      "poNumber": "4400163921",
+      "successorId": 3,
+      "order": 1,
+      "planningMode": "detailed",
+      "createdDate": "2026-06-24",
+      "rateOverrideInternal": 105,
+      "rateOverrideExternal": 185
     }
   ],
-  "fxRates": null,
+  "fxRates": {
+    "base": "EUR",
+    "date": "2026-09-17",
+    "fetchedAt": "2026-09-17T16:00:00.000Z",
+    "rates": {
+      "EUR": 1,
+      "USD": 1.1,
+      "GBP": 0.85
+    }
+  },
   "status": {
     "ragOverride": "A",
     "scheduleOverride": "A",
     "budgetOverride": "G",
     "scopeOverride": "G",
-    "narrative": "Migration on track for the September go-live; design sign-off is complete and the OIDC PoC validated. Schedule is amber — the legacy-user migration script is the critical-path item and load testing slips if it lands late. Budget is tracking to plan and scope is stable.",
-    "narrativeUpdatedAt": "2026-05-28T09:00:00.000Z"
+    "narrative": "Migration on track for the October go-live; design sign-off is complete and the OIDC PoC validated. Schedule is amber — the legacy-user migration script is the critical-path item and load testing slips if it lands late. Budget is tracking to plan and scope is stable.",
+    "narrativeUpdatedAt": "2026-09-16T09:00:00.000Z"
   },
   "milestones": [
     {
       "id": 1,
       "name": "Design Sign-off",
-      "date": "2026-04-20",
+      "date": "2026-07-07",
       "linkedTaskIds": [],
       "knowledgeLinks": [
         {
@@ -1477,14 +1693,14 @@
     {
       "id": 2,
       "name": "Go-Live",
-      "date": "2026-09-01",
+      "date": "2026-10-20",
       "linkedTaskIds": [],
       "description": "<p>Production cutover. Entry criteria are a green regression cycle and a completed hypercare rehearsal; the four-hour maintenance window is already agreed with comms.</p><p><em>Not</em> a go/no-go gate for MFA — that rides the change request.</p>"
     },
     {
       "id": 3,
       "name": "Hypercare Exit",
-      "date": "2026-12-15",
+      "date": "2026-12-16",
       "linkedTaskIds": []
     }
   ],
@@ -1492,10 +1708,10 @@
     {
       "id": 1,
       "title": "Add MFA to SSO scope",
-      "description": "Extend the current SSO implementation to require multi-factor authentication (TOTP / push) for all privileged accounts before production go-live. Driven by updated InfoSec policy issued 2026-05-20.",
+      "description": "Extend the current SSO implementation to require multi-factor authentication (TOTP / push) for all privileged accounts before production go-live. Driven by updated InfoSec policy issued this quarter.",
       "type": "Scope",
       "status": "Under Review",
-      "raisedDate": "2026-05-21",
+      "raisedDate": "2026-09-03",
       "linkedTaskIds": [
         2
       ],
@@ -1512,19 +1728,19 @@
       "costImpact": 18000,
       "requestedBy": "Morgan Standin",
       "decisionBy": "Elena Fischer",
-      "localModifiedAt": "2026-05-21T09:00:00.000Z",
+      "localModifiedAt": "2026-09-03T09:00:00.000Z",
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-22T11:15:00.000Z",
-          "html": "<p>CAB slot booked for 2026-06-03; InfoSec will present the revised policy alongside this request.</p>",
-          "text": "CAB slot booked for 2026-06-03; InfoSec will present the revised policy alongside this request.",
+          "timestamp": "2026-09-05T11:15:00.000Z",
+          "html": "<p>CAB slot booked for the next change board; InfoSec will present the revised policy alongside this request.</p>",
+          "text": "CAB slot booked for the next change board; InfoSec will present the revised policy alongside this request.",
           "authorResourceId": 4,
           "authorName": "Morgan Standin"
         },
         {
           "id": 2,
-          "timestamp": "2026-05-26T09:40:00.000Z",
+          "timestamp": "2026-09-12T09:40:00.000Z",
           "html": "<p>Backend estimate confirmed at <strong>13 days</strong>; the recovery-code screen is the open question.</p>",
           "text": "Backend estimate confirmed at 13 days; the recovery-code screen is the open question.",
           "authorResourceId": 2,
@@ -1535,10 +1751,10 @@
     {
       "id": 2,
       "title": "Extend go-live by two weeks",
-      "description": "Proposed two-week slip of the production cutover (from 2026-09-01 to 2026-09-15) to accommodate the MFA scope addition and unresolved SSO provider SLA concerns. Allows a full regression cycle and a second hypercare rehearsal.",
+      "description": "Proposed two-week slip of the production cutover (two weeks past the planned go-live) to accommodate the MFA scope addition and unresolved SSO provider SLA concerns. Allows a full regression cycle and a second hypercare rehearsal.",
       "type": "Schedule",
       "status": "Proposed",
-      "raisedDate": "2026-05-28",
+      "raisedDate": "2026-09-16",
       "linkedTaskIds": [],
       "linkedRaidIds": [
         2
@@ -1548,16 +1764,16 @@
         4
       ],
       "impact": "Medium",
-      "impactDescription": "Delays hypercare exit to 2026-12-29. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.",
+      "impactDescription": "Pushes hypercare exit past the year-end change freeze. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.",
       "scheduleImpactDays": 14,
       "costImpact": 6000,
       "requestedBy": "Alex Example",
       "decisionBy": "Elena Fischer",
-      "localModifiedAt": "2026-05-28T14:30:00.000Z",
+      "localModifiedAt": "2026-09-16T14:30:00.000Z",
       "noteLog": [
         {
           "id": 1,
-          "timestamp": "2026-05-29T13:05:00.000Z",
+          "timestamp": "2026-09-18T13:05:00.000Z",
           "html": "<p>Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.</p>",
           "text": "Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.",
           "authorResourceId": 1,
@@ -1687,8 +1903,8 @@
     ],
     "products": "SSO, MFA, Customer Directory",
     "deployment": "Cloud",
-    "startDate": "2026-01-15",
-    "endDate": "2026-09-15",
+    "startDate": "2026-06-01",
+    "endDate": "2026-12-18",
     "profitCenter": "PC-4711",
     "contactPersons": [
       {
@@ -1730,8 +1946,8 @@
     "meetings": [
       {
         "id": 1,
-        "date": "2026-07-10",
-        "title": "Q3 steering review",
+        "date": "2026-10-13",
+        "title": "Q4 steering review",
         "agenda": "Migration readiness, load-test results, go-live gate decision.",
         "location": "Teams"
       }
@@ -1756,7 +1972,7 @@
         },
         {
           "type": "paragraph",
-          "html": "<p>Delivery is on track for the March gate.</p>"
+          "html": "<p>Delivery is on track for the October go-live gate.</p>"
         },
         {
           "type": "bullets",
@@ -1795,8 +2011,8 @@
           "key": "raid"
         }
       ],
-      "createdAt": "2026-08-01T09:00:00.000Z",
-      "updatedAt": "2026-08-01T09:00:00.000Z",
+      "createdAt": "2026-09-14T09:00:00.000Z",
+      "updatedAt": "2026-09-14T09:00:00.000Z",
       "linkedEntities": [
         {
           "kind": "task",
@@ -1819,12 +2035,340 @@
         },
         {
           "type": "paragraph",
-          "html": "<p>First draft, before the March gate date was confirmed.</p>"
+          "html": "<p>First draft, before the go-live gate date was confirmed.</p>"
         }
       ],
-      "savedAt": "2026-08-01T08:30:00.000Z",
+      "savedAt": "2026-09-14T08:30:00.000Z",
       "source": "ai",
       "op": "update"
+    }
+  ],
+  "knowledgeItems": [
+    {
+      "id": "dl-6",
+      "name": "Cutover runbook (draft)",
+      "url": "https://example.com/cip/cutover-runbook",
+      "kind": "file",
+      "linkKind": "url",
+      "addedAt": "2026-09-10T14:05:00.000Z",
+      "taskIds": [
+        10
+      ]
+    },
+    {
+      "id": "dl-7",
+      "name": "Load-test report – staging",
+      "url": "https://example.com/cip/load-test-report",
+      "kind": "file",
+      "linkKind": "url",
+      "addedAt": "2026-09-15T11:30:00.000Z",
+      "taskIds": [
+        8
+      ]
+    },
+    {
+      "id": "dl-8",
+      "name": "MFA vendor comparison",
+      "url": "https://example.com/cip/mfa-vendor-comparison",
+      "kind": "file",
+      "linkKind": "url",
+      "addedAt": "2026-09-03T09:20:00.000Z"
+    },
+    {
+      "id": "dl-9",
+      "name": "Hypercare on-call rota",
+      "url": "https://example.com/cip/hypercare-rota",
+      "kind": "file",
+      "linkKind": "url",
+      "addedAt": "2026-09-17T16:05:00.000Z"
+    }
+  ],
+  "insights": [
+    {
+      "id": 1,
+      "key": "budgetVariance",
+      "type": "budgetVariance",
+      "severity": "medium",
+      "data": {
+        "name": "Security Review (closed, rate override)",
+        "variancePct": 13,
+        "buckets": 1
+      },
+      "status": "active",
+      "firstSeenAt": "2026-08-03T07:00:00.000Z",
+      "lastSeenAt": "2026-09-18T07:00:00.000Z",
+      "occurrences": 12
+    },
+    {
+      "id": 2,
+      "key": "raidAging:13",
+      "type": "raidAging",
+      "severity": "medium",
+      "entityRef": {
+        "view": "raid",
+        "id": 13
+      },
+      "data": {
+        "name": "DBA schema approval for migration tables",
+        "targetDate": "2026-09-03",
+        "daysSinceUpdate": 28
+      },
+      "status": "acknowledged",
+      "firstSeenAt": "2026-09-09T07:00:00.000Z",
+      "lastSeenAt": "2026-09-18T07:00:00.000Z",
+      "occurrences": 6,
+      "acknowledgedAt": "2026-09-11T10:15:00.000Z"
+    },
+    {
+      "id": 3,
+      "key": "stalledWork",
+      "type": "stalledWork",
+      "severity": "medium",
+      "data": {
+        "count": 4
+      },
+      "status": "acted",
+      "firstSeenAt": "2026-09-01T07:00:00.000Z",
+      "lastSeenAt": "2026-09-18T07:00:00.000Z",
+      "occurrences": 9,
+      "actedAt": "2026-09-08T09:00:00.000Z",
+      "metricAtAction": {
+        "count": 5
+      }
+    },
+    {
+      "id": 4,
+      "key": "milestoneSlip:1",
+      "type": "milestoneSlip",
+      "severity": "high",
+      "entityRef": {
+        "view": "milestones",
+        "id": 1
+      },
+      "data": {
+        "name": "Design Sign-off",
+        "date": "2026-07-07",
+        "daysOverdue": 2
+      },
+      "status": "dismissed",
+      "firstSeenAt": "2026-07-08T07:00:00.000Z",
+      "lastSeenAt": "2026-07-09T07:00:00.000Z",
+      "occurrences": 2,
+      "dismissedAt": "2026-07-09T11:30:00.000Z",
+      "dismissReason": "Signed off in the steering call; the minutes were filed late."
+    },
+    {
+      "id": 5,
+      "key": "overdueTrend",
+      "type": "overdueTrend",
+      "severity": "low",
+      "data": {
+        "current": 3,
+        "prior": 1,
+        "delta": 2
+      },
+      "status": "active",
+      "firstSeenAt": "2026-09-14T07:00:00.000Z",
+      "lastSeenAt": "2026-09-18T07:00:00.000Z",
+      "occurrences": 4
+    }
+  ],
+  "timelogLinks": {
+    "userLinks": [
+      {
+        "timelogUserId": 501,
+        "resourceId": 1,
+        "manual": true
+      },
+      {
+        "timelogUserId": 502,
+        "resourceId": 2,
+        "manual": true
+      },
+      {
+        "timelogUserId": 503,
+        "resourceId": 3,
+        "manual": true
+      },
+      {
+        "timelogUserId": 504,
+        "resourceId": 4,
+        "manual": true
+      }
+    ],
+    "projectLinks": [
+      {
+        "timelogProjectId": 701,
+        "bucketId": 1,
+        "manual": true
+      },
+      {
+        "timelogProjectId": 702,
+        "bucketId": 4,
+        "manual": true
+      },
+      {
+        "timelogProjectId": 703,
+        "bucketId": 3,
+        "manual": true
+      }
+    ],
+    "customerId": 42,
+    "projectIds": [
+      701,
+      702,
+      703
+    ]
+  },
+  "activityLog": [
+    {
+      "id": "demo-seed-001",
+      "timestamp": "2026-05-26T08:30:00.000Z",
+      "kind": "budget.created",
+      "args": [
+        "Discovery Phase"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-002",
+      "timestamp": "2026-05-28T09:10:00.000Z",
+      "kind": "budget.created",
+      "args": [
+        "Identity Platform – T&M"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-003",
+      "timestamp": "2026-06-30T16:40:00.000Z",
+      "kind": "budget.updated",
+      "args": [
+        "Discovery Phase (closed)"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-005",
+      "timestamp": "2026-07-07T17:00:00.000Z",
+      "kind": "milestone.updated",
+      "args": [
+        1
+      ],
+      "actor": "user",
+      "changes": [
+        {
+          "field": "description",
+          "from": "",
+          "to": "Signed off by the steering committee."
+        }
+      ]
+    },
+    {
+      "id": "demo-seed-004",
+      "timestamp": "2026-07-10T16:20:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        1,
+        "Design SSO architecture"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-006",
+      "timestamp": "2026-07-31T15:00:00.000Z",
+      "kind": "budget.updated",
+      "args": [
+        "Security Review (closed, rate override)"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-007",
+      "timestamp": "2026-08-03T11:45:00.000Z",
+      "kind": "task.completed",
+      "args": [
+        2,
+        "POC OIDC integration"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-008",
+      "timestamp": "2026-08-21T10:05:00.000Z",
+      "kind": "raid.created",
+      "args": [
+        13,
+        "D",
+        "DBA schema approval for migration tables"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-009",
+      "timestamp": "2026-09-01T09:30:00.000Z",
+      "kind": "raid.escalated",
+      "args": [
+        9,
+        "Medium",
+        "High"
+      ],
+      "actor": "ai"
+    },
+    {
+      "id": "demo-seed-010",
+      "timestamp": "2026-09-07T14:00:00.000Z",
+      "kind": "budget.created",
+      "args": [
+        "Advisory Retainer (blended)"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-011",
+      "timestamp": "2026-09-10T08:45:00.000Z",
+      "kind": "raid.statusChanged",
+      "args": [
+        3,
+        "Open",
+        "Realized"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-012",
+      "timestamp": "2026-09-14T09:05:00.000Z",
+      "kind": "task.updated",
+      "args": [
+        6,
+        "Migration script for legacy users"
+      ],
+      "actor": "user",
+      "changes": [
+        {
+          "field": "healthOverride",
+          "from": "",
+          "to": "R"
+        }
+      ]
+    },
+    {
+      "id": "demo-seed-013",
+      "timestamp": "2026-09-14T09:30:00.000Z",
+      "kind": "budget.created",
+      "args": [
+        "Hypercare Support (fixed price)"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-014",
+      "timestamp": "2026-09-17T16:05:00.000Z",
+      "kind": "doc.linkAdded",
+      "args": [
+        "Hypercare on-call rota"
+      ],
+      "actor": "user"
     }
   ]
 }

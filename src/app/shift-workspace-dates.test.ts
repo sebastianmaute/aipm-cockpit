@@ -33,8 +33,10 @@ describe("demoShiftFor", () => {
 
 describe("shiftWorkspaceDates", () => {
   it("is the identity for n = 0", () => {
-    // The master carries several weekend date-only values (e.g. tasks[8].createdDate
-    // "2026-05-10" is a Sunday) — this is what pins the n===0 guard: without it,
+    // The master carries weekend date-only values (e.g. budget bucket 4's startDate
+    // "2026-08-01" is a Saturday, bucket 6's "2026-11-01" a Sunday — list them with
+    //   node -e "const w=require('./sample-workspace-small.json');(function f(v,p){if(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&[0,6].includes(new Date(v+'T00:00:00Z').getUTCDay()))console.log(p,v);else if(v&&typeof v==='object')for(const[k,x]of Object.entries(v))f(x,p+'.'+k)})(w,'')"
+    // ) — this is what pins the n===0 guard: without it,
     // shiftDate's roll-to-Monday step would move these even though n is 0.
     expect(shiftWorkspaceDates(master, 0)).toEqual(master);
   });
