@@ -46,10 +46,10 @@ describe("upgradeDashboardLayout (spec C decision 11)", () => {
     }
   });
 
-  it("preserves every other tile's order, size and hidden state", () => {
+  it("preserves every other tile's order, size and hidden state — bar the KPI tile's old default width", () => {
     const out = upgradeDashboardLayout(legacy());
     expect(out.board.slice(1)).toEqual([
-      { id: "kpi", w: 4, h: 2 },
+      { id: "kpi", w: 2, h: 2 },
       { id: "raid", w: 1, h: 3 },
       { id: "completionTrend", w: 3, h: 2 },
       { id: "upcoming", w: 2, h: 4 },
@@ -77,6 +77,33 @@ describe("upgradeDashboardLayout (spec C decision 11)", () => {
     }
   });
 
+  // §585: the KPI tile moves BESIDE burn on xl, which needs it at w:2. Only the
+  // old catalogue default (w:4) is taken to be "never chosen"; any other width
+  // is the user's, and it rides through.
+  describe("the KPI tile's width (§585)", () => {
+    const kpiOf = (l: DashboardLayout) => l.board.find((p) => p.id === "kpi");
+
+    it("resizes a stored KPI tile at the old default w:4 to w:2, keeping its height", () => {
+      const stored: DashboardLayout = { ...legacy(), board: legacy().board.map((p) => (p.id === "kpi" ? { ...p, h: 3 } : p)) };
+      expect(kpiOf(upgradeDashboardLayout(stored))).toEqual({ id: "kpi", w: 2, h: 3 });
+    });
+
+    it("leaves a user-chosen width alone — w:3 stays 3", () => {
+      const stored: DashboardLayout = { ...legacy(), board: legacy().board.map((p) => (p.id === "kpi" ? { ...p, w: 3 } : p)) };
+      expect(kpiOf(upgradeDashboardLayout(stored))).toEqual({ id: "kpi", w: 3, h: 2 });
+    });
+
+    it("leaves w:4 alone when burn is hidden, because burn is not moved beside it", () => {
+      const stored: DashboardLayout = { ...legacy(), board: legacy().board.filter((p) => p.id !== "burn"), hidden: ["changes", "burn"] };
+      expect(kpiOf(upgradeDashboardLayout(stored))).toEqual({ id: "kpi", w: 4, h: 2 });
+    });
+
+    it("never touches a layout that already carries the id, w:4 included", () => {
+      const done: DashboardLayout = { ...legacy(), upgrades: [DASHBOARD_BURN_UPGRADE] };
+      expect(kpiOf(upgradeDashboardLayout(done))).toEqual({ id: "kpi", w: 4, h: 2 });
+    });
+  });
+
   it("survives reconcile: burn stays first at 2×8 and the id stays recorded", () => {
     const out = reconcile(upgradeDashboardLayout(legacy()));
     expect(out.board[0]).toEqual({ id: "burn", w: 2, h: 8 });
@@ -87,6 +114,10 @@ describe("upgradeDashboardLayout (spec C decision 11)", () => {
 describe("DEFAULT_LAYOUT (spec C)", () => {
   it("puts Budget burn first at 2×8", () => {
     expect(DEFAULT_LAYOUT.board[0]).toEqual({ id: "burn", w: 2, h: 8 });
+  });
+
+  it("gives a fresh board the KPI tile at w:2, directly after burn (§585)", () => {
+    expect(DEFAULT_LAYOUT.board[1]).toEqual({ id: "kpi", w: 2, h: 2 });
   });
 
   it("already carries the upgrade id, so a fresh or reset board is never upgraded", () => {

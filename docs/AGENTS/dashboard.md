@@ -45,7 +45,8 @@ on.
 ★★ **WIDTHS RUN 1–4 AND HEIGHTS 1–8, AS TWO TYPES (spec C).** `BlockWidth` (the four-column grid)
 and `BlockHeight` replaced the one shared union, so an 8-wide block cannot type-check; `H_CLASS`
 carries literal `row-span-5` … `row-span-8`. Only the Dashboard's catalogue reaches past 4 — `burn` is
-`w:2 h:8`, FIRST in `DEFAULT_LAYOUT` — and Reports caps itself through its own `maxH`, pinned in
+`w:2 h:8`, FIRST in `DEFAULT_LAYOUT`, with `kpi` second at `w:2` (§585) so that on xl dense packing puts it in
+columns 3–4 BESIDE burn rather than below its eight rows — and Reports caps itself through its own `maxH`, pinned in
 `report-blocks.test.ts`. The 8-row box is measured by `e2e/dashboard-grid.spec.ts`.
 
 ★★ **A STORED LAYOUT CARRIES AN OPTIONAL `upgrades` LIST, NOT A NEW VERSION (spec C).** `v` stays 1
@@ -53,7 +54,9 @@ carries literal `row-span-5` … `row-span-8`. Only the Dashboard's catalogue re
 an optional `upgrade` that runs on a stored `ok` read BEFORE `reconcile`; a different object back marks
 that read dirty, so the upgraded layout is written back once. The Dashboard passes
 `upgradeDashboardLayout` (`dashboard-layout-upgrade.ts`), keyed on `DASHBOARD_BURN_UPGRADE`: Budget burn
-to the front at 2×8 unless hidden, Completion trend's height clamped into 2–4, nothing else touched.
+to the front at 2×8 unless hidden, Completion trend's height clamped into 2–4, and — only alongside that
+burn move, only from exactly the old default `w:4` — the KPI tile narrowed to `w:2` (§585; any other stored
+width is the user's and stays). Nothing else is touched.
 ★★★ `DEFAULT_LAYOUT` already carries the id and must — a fresh or reset board is persisted from it,
 and without the id its next load would drag burn back to the front. `readArrangement` sanitises the list
 (junk is dropped, never a rejection) and `reconcile` carries it. ★ An older build's `reconcile` drops the
@@ -430,6 +433,9 @@ The presentational slices:
   always carry a `TrendArrow`, completion
   carries one only outside the no-active-scope state below); the body of the `kpi` tile. Uses a
   `dc.cardPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
+  ★★ Its columns come from `KPI_STRIP_COLS`, keyed on the VISIBLE cell count (3, 4 or 5 — so no count leaves
+  an empty cell) and read as CONTAINER queries off that wrapper, which is the `@container`: they size to the
+  tile, not the viewport (§581). The breakpoints are measured label widths; the derivation sits on the constant.
   ★★★ **NEVER RE-DERIVE "is this project all cancelled" — call `hasNoActiveScope(progress)`
   (`dashboard.ts`), or `tasksHaveNoActiveScope(tasks)` when you hold only tasks.** Both go through the
   one `scopeCounts`, so a surface gated on either cannot drift from the tiles. This rule exists

@@ -786,11 +786,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
 | [§573](#573-the-open-points-visual-baseline-is-stale--open) | The Open Points visual baseline is stale — OPEN | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | open |
 | [§580](#580-dashboardmodelburn-and-forecast-have-no-reader-outside-dashboardts--closed-2026-09-18) | `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` — CLOSED 2026-09-18 | found 2026-09-18 auditing the dashboard model after spec C removed `ForecastHeadline`; GitLab #365 | S — delete the dead field(s) or give them a reader | closed |
-| [§581](#581-the-kpi-strips-lggrid-cols-5-leaves-a-gap-when-only-one-of-spicpi-shows--open) | The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows — OPEN | found 2026-09-18 reading `dashboard-kpi-strip.tsx`'s `cols` ternary; not eye-checked; GitLab #366 | XS — branch the class on the real tile count, not the OR | open |
+| [§581](#581-the-kpi-strips-lggrid-cols-5-leaves-a-gap-when-only-one-of-spicpi-shows--closed-2026-09-19) | The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows — CLOSED 2026-09-19 | found 2026-09-18 reading `dashboard-kpi-strip.tsx`'s `cols` ternary; not eye-checked; GitLab #366 | XS — branch the class on the real tile count, not the OR | closed |
 | [§582](#582-the-next-actions-heros-open-cta-renders-and-does-nothing-without-onopenaction--closed-2026-09-18) | The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — CLOSED 2026-09-18 | found 2026-09-18 reading `action-hero-card.tsx`/`action-cta-controls.tsx`; latent, every production caller passes it; GitLab #367 | S — hide the CTA when the handler is absent, or make the prop required | closed |
 | [§583](#583-budget-historypropertytestts-flaked-once-in-ci-under-an-unseeded-fast-check-run--closed-2026-09-19) | `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — CLOSED 2026-09-19 | one failure in CI pipeline 7251's unit-tests job on the spec-B release branch, cleared by retry; root cause confirmed 2026-09-19; GitLab #368 | S — capture a counterexample at high `numRuns`, then fix the tolerance or the summation | closed |
 | [§584](#584-two-next-actions-hero-tests-are-weaker-than-they-look--closed-2026-09-18) | Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18 | found 2026-09-18 reading `actions-panel.test.tsx`, `dashboard-panel-layout.test.tsx` and `next-actions/group.test.ts`; GitLab #369 | S — add a monitor-topped fixture and a visible-text uniqueness assertion | closed |
-| [§585](#585-on-xl-the-kpi-tile-lands-below-the-2x8-burn-tile-not-beside-it--open) | On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — OPEN | accepted during spec C; measured 2026-09-18 against `DASHBOARD_TILES`/`xl:grid-cols-4`; GitLab #370 | S — revisit the burn tile's default width or the tile order | open |
+| [§585](#585-on-xl-the-kpi-tile-lands-below-the-2x8-burn-tile-not-beside-it--closed-2026-09-19) | On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — CLOSED 2026-09-19 | accepted during spec C; measured 2026-09-18 against `DASHBOARD_TILES`/`xl:grid-cols-4`; GitLab #370 | S — revisit the burn tile's default width or the tile order | closed |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38850,10 +38850,17 @@ Fix shape: delete `burn` from `DashboardModel` (updating or dropping the two `da
 stop exporting `forecast` as a top-level model field and compute it as a local inside `dashboard.ts` for
 `budgetBucketStatus` alone, or give either field a real external reader.
 
-## 581. The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows — OPEN
+## 581. The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows — CLOSED 2026-09-19
 
-**Status:** OPEN 2026-09-18 — read `dashboard-kpi-strip.tsx`'s `cols` ternary against its `showSpi`/`showCpi`
-gates; not eye-checked in a browser.
+**Status:** CLOSED 2026-09-19 on `docs/spec-c-dashboard-rework`, with §585. `DashboardKpiStrip` now counts its
+visible cells (3 + SPI + CPI) and takes the grid classes from `KPI_STRIP_COLS`, one whole literal string per
+count, as Tailwind CONTAINER queries off the strip's own `@container` wrapper, so they size to the tile (half
+width on xl since §585) rather than the viewport: 3 → one row; 4 → 2 × 2, then one row; 5 → 3 + 2 on a
+six-track grid (a full second row), then one row. Breakpoints come from measured label widths (DE's
+`evmSpi`/`evmCpi` are the widest), derived on the constant. Verified with
+`npx vitest run src/app/dashboard-sections/dashboard-kpi-strip.test.tsx` (per-count class tests; a mutant
+restoring the OR turned the 4-cell test red) and a Chromium probe at 1100/1280/1600/1920px viewports showing no
+label wrap and no empty cell for 3, 4 and 5 cells.
 
 **Work item:** #366
 
@@ -39001,10 +39008,17 @@ Fix shape: (a) add a fixture where the first (top-ranked) group is `monitor` and
 `actions-panel.test.tsx`/`workspace-section.test.tsx` wiring level. (b) add an assertion on visible text
 (e.g. via `textContent` or a non-aria-label query) alongside the existing `aria-label` uniqueness check.
 
-## 585. On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — OPEN
+## 585. On `xl` the KPI tile lands below the 2x8 burn tile, not beside it — CLOSED 2026-09-19
 
-**Status:** OPEN 2026-09-18 — read `DASHBOARD_TILES`'s order/widths in `dashboard-tiles.ts` and confirmed
-`xl:grid-cols-4` in `arrangement-layout.ts`; not eye-checked in a browser at `xl`.
+**Status:** CLOSED 2026-09-19 on `docs/spec-c-dashboard-rework`, with §581. The KPI tile's catalogue default in
+`DASHBOARD_TILES` is now `w: 2` (`minW: 2` unchanged), so on xl dense packing puts it in columns 3–4 beside
+burn. Stored layouts: the ONE existing upgrade, `upgradeDashboardLayout` (still keyed on
+`DASHBOARD_BURN_UPGRADE`; the branch is unreleased), also narrows a stored `kpi` block from exactly `w: 4` to
+`w: 2` — only when it moves burn to the front, never when burn is hidden, and never a user-chosen width. Verified
+with `npx vitest run src/app/dashboard-layout-upgrade.test.ts` (resized at 4, untouched at 3 and with burn
+hidden, a fresh board gets 2; a mutant dropping the narrowing went red) and
+`npx playwright test e2e/dashboard-grid.spec.ts --project=chromium --workers=1`, whose new test asserts the KPI
+box sits right of burn with overlapping vertical ranges (red against a `w: 4` default).
 
 **Work item:** #370
 

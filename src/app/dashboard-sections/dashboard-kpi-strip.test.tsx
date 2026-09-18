@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { computeDashboard, buildDashboardInput } from "../dashboard";
 import { densityClasses } from "../dashboard-density";
 import { computeMetricTrends } from "../dashboard-trends";
-import { DashboardKpiStrip } from "./dashboard-kpi-strip";
+import { DashboardKpiStrip, KPI_STRIP_COLS } from "./dashboard-kpi-strip";
 import { t } from "../i18n";
 
 const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const };
@@ -243,6 +243,56 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
     render(<DashboardKpiStrip lang="en-US" model={modelFor(SPI_ONLY_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
     expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "evmCpi"))).toBeNull();
+  });
+
+  // §581: the column classes follow the VISIBLE cell count, so no count leaves
+  // an empty cell (the old `showSpi || showCpi` OR gave four cells a
+  // five-column row). jsdom has no layout and no container queries — this pins
+  // the class plumbing; the breakpoints themselves were measured in Chromium
+  // (see `KPI_STRIP_COLS`).
+  describe("columns follow the visible cell count (§581)", () => {
+    function stripGrid(container: HTMLElement): { wrapper: HTMLElement; grid: HTMLElement } {
+      const wrapper = container.firstElementChild as HTMLElement;
+      return { wrapper, grid: wrapper.firstElementChild as HTMLElement };
+    }
+    const classesOf = (el: HTMLElement) => el.className.split(/\s+/);
+
+    it("is a container, so the columns size to the tile rather than the viewport", () => {
+      const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={densityClasses("comfortable")} />);
+      expect(classesOf(stripGrid(container).wrapper)).toContain("@container");
+    });
+
+    it("3 cells: one row of three, never four or five columns", () => {
+      const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={densityClasses("comfortable")} />);
+      const { grid } = stripGrid(container);
+      expect(grid.children).toHaveLength(3);
+      expect(classesOf(grid)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[3].split(" ")));
+      expect(KPI_STRIP_COLS[3]).toBe("@[25rem]:grid-cols-3");
+    });
+
+    it("4 cells (one index): two by two, then one row of four — never five columns", () => {
+      const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(SPI_ONLY_TASKS)} trends={trends} dc={densityClasses("comfortable")} />);
+      const { grid } = stripGrid(container);
+      expect(grid.children).toHaveLength(4);
+      expect(classesOf(grid)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[4].split(" ")));
+      expect(KPI_STRIP_COLS[4]).toBe("@2xs:grid-cols-2 @[34rem]:grid-cols-4");
+      expect(grid.className).not.toMatch(/grid-cols-[35]\b/);
+    });
+
+    it("5 cells: 3 + 2 on six tracks (a full second row), then one row of five", () => {
+      const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} dc={densityClasses("comfortable")} />);
+      const { grid } = stripGrid(container);
+      expect(grid.children).toHaveLength(5);
+      expect(classesOf(grid)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[5].split(" ")));
+      expect(KPI_STRIP_COLS[5].split(" ")).toEqual([
+        "@[25rem]:grid-cols-6", "@[25rem]:*:col-span-2", "@[25rem]:*:nth-last-[-n+2]:col-span-3",
+        "@2xl:grid-cols-5", "@2xl:*:col-span-1", "@2xl:*:nth-last-[-n+2]:col-span-1",
+      ]);
+    });
+
+    it("gives each count its own classes", () => {
+      expect(new Set([KPI_STRIP_COLS[3], KPI_STRIP_COLS[4], KPI_STRIP_COLS[5]]).size).toBe(3);
+    });
   });
 
   it("shows only Effort CPI when hours are booked on a task that is not yet due", () => {

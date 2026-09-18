@@ -91,9 +91,13 @@ const ALWAYS = () => true;
 // 8 tall. Moving it here does NOT move it for users who already have a stored
 // layout — `reconcile` never reorders an existing tile — which is why
 // `dashboard-layout-upgrade.ts` exists.
+// ★★ `kpi` IS w:2 SO IT SITS BESIDE `burn` ON xl (§585). The xl grid is four
+// columns with `grid-flow-row-dense`, so a 2-wide KPI tile packs into columns
+// 3–4 of burn's first rows; at its former w:4 it could not fit there and landed
+// below all eight of burn's rows. The upgrade resizes a stored w:4 to match.
 export const DASHBOARD_TILES: readonly TileSpec[] = [
   { id: "burn",            labelKey: "dashboardBudgetBurn",     w: 2, h: 8, minW: 1, maxW: 4, minH: 4, maxH: 8, gate: (g) => g.showBudget },
-  { id: "kpi",             labelKey: "dashboardKpiTile",        w: 4, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 3, gate: ALWAYS },
+  { id: "kpi",             labelKey: "dashboardKpiTile",        w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 3, gate: ALWAYS },
   { id: "topActions",      labelKey: "dashboardTopActions",     w: 2, h: 3, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasTopActions },
   { id: "insights",        labelKey: "dashboardInsights",       w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasInsights },
   { id: "raid",            labelKey: "dashboardRaidRegister",   w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showRaid },

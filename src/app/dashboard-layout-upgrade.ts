@@ -9,6 +9,10 @@
  *     hidden it: a hidden tile stays hidden, and restoring it later gives it the
  *     catalogue default, which is 2×8 anyway.
  *   · Completion trend's height is clamped into its new 2–4.
+ *   · The KPI tile goes from the old catalogue default `w: 4` to `w: 2`, so it
+ *     sits BESIDE burn on xl (§585) — but only when burn is moved (not hidden),
+ *     and only from exactly 4: any other stored width is the user's choice and
+ *     stays. Its height is kept.
  *   · Every other tile keeps its order, size and hidden state.
  * The id is then recorded, so it never runs again.
  *
@@ -37,6 +41,16 @@ function clampTrendHeight(h: number): TileHeight {
   return Math.max(TREND_MIN_H, Math.min(TREND_MAX_H, Math.round(h))) as TileHeight;
 }
 
+/** The KPI tile's catalogue default before §585, and the width beside burn.
+ *  Literals, like the 2×8 below, never a read of the catalogue. */
+const KPI_OLD_DEFAULT_W = 4;
+const KPI_BESIDE_BURN_W = 2;
+
+/** §585: only the untouched old default narrows; a user-chosen width stays. */
+function narrowKpi(p: PlacedTile): PlacedTile {
+  return p.id === "kpi" && p.w === KPI_OLD_DEFAULT_W ? { ...p, w: KPI_BESIDE_BURN_W } : p;
+}
+
 /**
  * ★ Takes `unknown`, not a layout: junk falls back to `DEFAULT_LAYOUT` (by
  * reference). Through the hook it only ever sees a validated, sanitised layout
@@ -56,8 +70,10 @@ export function upgradeDashboardLayout(stored: unknown): DashboardLayout {
   const burnHidden = layout.hidden.includes("burn");
   return {
     ...layout,
-    // The literal 2×8 the id names, never a read of the catalogue.
-    board: burnHidden ? rest : [{ id: "burn", w: 2, h: 8 }, ...rest],
+    // The literal 2×8 the id names, never a read of the catalogue. The KPI
+    // tile narrows only alongside that move: with burn hidden there is nothing
+    // for it to sit beside.
+    board: burnHidden ? rest : [{ id: "burn", w: 2, h: 8 }, ...rest.map(narrowKpi)],
     upgrades: [...(layout.upgrades ?? []), DASHBOARD_BURN_UPGRADE],
   };
 }

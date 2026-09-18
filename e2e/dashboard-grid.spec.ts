@@ -1,5 +1,6 @@
 import { test, expect, gotoApp, openView } from "./seed";
 import { DASHBOARD_LAYOUT_KEY } from "../src/app/dashboard-layout-store";
+import { DASHBOARD_BURN_UPGRADE } from "../src/app/dashboard-layout";
 
 /**
  * The ONE measurement of the Dashboard grid that no unit test can make.
@@ -67,6 +68,10 @@ test.describe("dashboard grid geometry", () => {
     // to one track, because the w:4 tile's own `xl:col-span-4` spans past the two
     // explicit `lg:grid-cols-2` tracks and grid MANUFACTURES two implicit ones to
     // hold it. Only these unequal widths give it away (delta 556.28px).
+    // ★ That was measured while `kpi` defaulted to w:4. Since §585 no default
+    // tile is 4 wide, so the implicit tracks this mutant manufactures now come
+    // from 2-wide spans instead — NOT re-measured; re-run the mutant before
+    // quoting the figures above for today's board.
     for (const w of m.tracks) expect(Math.abs(w - m.tracks[0])).toBeLessThan(1);
     // ★★ …and the sum below does NOT catch it either, which is the surprise:
     // implicit tracks are content-sized, so the row still tiles the content box
@@ -117,6 +122,50 @@ test.describe("dashboard grid geometry", () => {
     expect(Math.abs(burn.width - (m.contentWidth - m.colGap) / 2)).toBeLessThan(1.5);
   });
 
+  test("places the KPI tile BESIDE the 2×8 burn tile on xl, not below it (§585)", async ({ page }) => {
+    // ★ The default board (no stored layout): burn w2 h8 takes columns 1-2 for
+    // eight rows, and the KPI tile's w:2 default lets dense packing put it in
+    // columns 3-4 of burn's first rows. At its former w:4 it could only fit
+    // below all eight.
+    const burn = await tileBox(page, "burn");
+    const kpi = await tileBox(page, "kpi");
+    expect(kpi.x).toBeGreaterThanOrEqual(burn.x + burn.width - 1.5);
+    // Overlapping vertical ranges: each starts before the other ends.
+    expect(kpi.y).toBeLessThan(burn.y + burn.height);
+    expect(burn.y).toBeLessThan(kpi.y + kpi.height);
+  });
+});
+
+/**
+ * ★ No catalogue tile defaults to w:4 since §585 moved the KPI tile to w:2, so
+ * the full-row width is measured on a SEEDED w:4 KPI tile. The layout carries
+ * the burn upgrade id, or `upgradeDashboardLayout` would narrow that w:4 back
+ * to 2 before it ever rendered.
+ */
+const W4_LAYOUT = {
+  v: 1,
+  board: [
+    { id: "kpi", w: 4, h: 2 },
+    { id: "upcoming", w: 2, h: 2 },
+  ],
+  hidden: [],
+  upgrades: [DASHBOARD_BURN_UPGRADE],
+};
+
+test.describe("dashboard grid width spans", () => {
+  test.beforeEach(async ({ page }) => {
+    // `e2e-1`: see the dense-packing describe below.
+    await page.addInitScript(
+      ([key, layout]) => {
+        localStorage.setItem(key as string, JSON.stringify({ "e2e-1": layout }));
+      },
+      [DASHBOARD_LAYOUT_KEY, W4_LAYOUT] as const,
+    );
+    await page.setViewportSize({ width: XL, height: 1000 });
+    await gotoApp(page);
+    await openView(page, "Dashboard");
+  });
+
   test("emitted the width-span utilities — a w:4 tile fills the row, a w:2 tile is half", async ({ page }) => {
     // ★★★ THIS IS THE FAILURE MODE THAT IS INVISIBLE EVERYWHERE ELSE. If
     // `W_CLASS` were built by interpolation, Tailwind would emit no rule, every
@@ -128,10 +177,12 @@ test.describe("dashboard grid geometry", () => {
     // w:2 line fails (upcoming renders 54.72px against an expected 611px) while
     // the w:4 line PASSES (kpi still fills 1238px, because its span reaches the
     // implicit tracks). So of the five tests here that mutant turns exactly TWO
-    // red, each on its second assertion: 3 passed / 2 failed.
+    // red, each on its second assertion: 3 passed / 2 failed. ★ Measured
+    // before §585 split this test into its own seeded describe; the tally is
+    // that run's, not today's.
     const m = await gridMetrics(page);
-    const kpi = await tileBox(page, "kpi");           // catalogue default w: 4
-    const upcoming = await tileBox(page, "upcoming"); // catalogue default w: 2
+    const kpi = await tileBox(page, "kpi");           // seeded w: 4 (W4_LAYOUT above)
+    const upcoming = await tileBox(page, "upcoming"); // seeded w: 2
 
     expect(Math.abs(kpi.width - m.contentWidth)).toBeLessThan(1.5);
     expect(Math.abs(upcoming.width - (m.contentWidth - m.colGap) / 2)).toBeLessThan(1.5);
@@ -160,6 +211,10 @@ test.describe("dashboard grid geometry", () => {
  * ★ Every other tile is HIDDEN, not merely omitted: `reconcile` re-inserts any
  * catalogue tile that is absent from both lists, next to its nearest present
  * catalogue neighbour — which would silently rewrite this order.
+ * ★ It carries no `upgrades` list, so the burn upgrade DOES run on it — and
+ * leaves kpi at w:4 only because burn is hidden: the upgrade narrows a w:4 KPI
+ * tile solely when it moves burn beside it (§585). Unhide burn here and kpi
+ * becomes w:2, which fits beside upcoming and voids the backfill this measures.
  */
 const DENSE_LAYOUT = {
   v: 1,
