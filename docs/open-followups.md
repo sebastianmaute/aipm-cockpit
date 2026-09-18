@@ -38789,8 +38789,9 @@ four extractors, both closed 2026-09-18 on `fix/security-audit-followups`.**
   after the tag name whether or not it was actually followed by `>`. `<a:t/a:r><a:r><a:t>t2</a:t>`
   (only reachable on corrupted input, per the review's fuzz) has `<a:t/` satisfy that lookahead; the
   self-close check (`tag-pair-walk.ts`, `html[gt-1] === "/"`) then does NOT fire, because the first
-  `>` found belongs to `<a:r>`, not the tag itself — so `<a:t/a:r>` was treated as an ordinary open
-  and paired with the far-away `</a:t>`, leaking raw markup (`<a:r><a:t>t2`) into extracted text.
+  `>` found closes the malformed `<a:t/a:r>` tag itself — it is preceded by "r", not "/" — rather
+  than `<a:r>` — so `<a:t/a:r>` was treated as an ordinary open and paired with the far-away
+  `</a:t>`, leaking raw markup (`<a:r><a:t>t2`) into extracted text.
   Fixed by splitting the lookahead into `(?=[\s>]|/>)`: a bare `/` is now admitted only immediately
   before a `>`. Scoped to `extractRuns` alone — every other `TagPairSpec` in the four extractors
   already uses `\b`, faithfully porting the regex it replaced, so this is not a second instance of
@@ -38900,8 +38901,8 @@ only `process.execPath` use in the traced `next/dist/server` + `next/dist/lib` i
 `electron-fuses read` on the packaged exe reports `RunAsNode is Disabled`,
 `EnableNodeCliInspectArguments is Disabled`, `EnableNodeOptionsEnvironmentVariable is Disabled` and
 `OnlyLoadAppFromAsar is Enabled`; launched directly, the packaged exe answered HTTP 200 on
-`127.0.0.1:17300`, the listener was the `--type=utility` child, the window reached the app, and a
-normal window close killed the child and freed the port.
+`127.0.0.1:17300`, the listener was the `--type=utility` child, the window reached the app, and
+after a graceful window close the child was gone and the port was freed.
 
 ★★ **The fuses also broke the packaged smoke, which is now reworked.** Playwright's
 `electron.launch` injects `--inspect=0`, which `enableNodeCliInspectArguments: false` refuses, so
@@ -38931,16 +38932,26 @@ model as the rest of this entry.
    (`spawnServer` builds it from `{ ...process.env, ... }`), as opposed to only the exe itself.
    `server-child.ts` now scrubs `NODE_OPTIONS`, `NODE_PATH` and `NODE_REPL_EXTERNAL_MODULE` from that
    env before spawning (`scrubbedEnv`) — the Node env vars documented to load/execute code or attach
-   a debugger. **Verified by probe, not assumed:** launched the packaged exe with
-   `NODE_OPTIONS=--require <marker-writing script>` set in its own environment, let the server child
-   start, quit it gracefully, and checked whether the marker was created. Result, reported honestly:
-   the marker was NOT created either way — with the scrub in place, and with it mutated back to
-   `...process.env` (rebuilt, repackaged, same probe rerun). **So the fuse already covers the
-   utility-process child on this build** — the scrub did not turn a leak off, because there was no
-   observable leak to turn off; it stays as belt-and-braces since the fuse's coverage of this child
-   is measured, not a documented Electron contract. `npm run e2e:desktop` stayed green (3/3) at
-   fixed, mutant and restored. This is a NARROWER probe than items 1 and 3 above (one env var family,
-   one build) and does not close them.
+   a debugger. **Probed, not assumed, reported for what it actually shows:** launched the packaged
+   exe with `NODE_OPTIONS=--require <marker-writing script>` set in its own environment, let the
+   server child start, quit it gracefully, and checked whether the marker was created. Result: the
+   marker was NOT created either way — with the scrub in place, and with it mutated back to
+   `...process.env` (rebuilt, repackaged, same probe rerun). **This does not show that the fuse
+   covers the utility-process child.** The probe's only positive control was plain `node` outside
+   Electron; no run showed a marker appearing THROUGH Electron at all, so the no-marker result cannot
+   distinguish the fuse blocking the injection from Electron's own packaged-app `NODE_OPTIONS`
+   restrictions, or from the utility process simply never honouring the variable. The scrub stays as
+   belt-and-braces either way. `npm run e2e:desktop` stayed green (3/3) at fixed and restored. This is
+   a NARROWER probe than items 1 and 3 above (one env var family, one build) and does not close them.
+5. A positive control for the M-6 probe: rerun the same marker-file probe on an unfused or
+   unpackaged (`electron .`) build, to see the marker actually appear through Electron when nothing
+   should be blocking it. Without that control, item 4's no-marker result cannot be attributed to any
+   one cause. Not done.
+6. **`killServer` (`desktop/src/server-child.ts`) is unproven.** `npm run e2e:desktop` stays green
+   (3/3) with `killServer` made a no-op (round-1 mutant of the I-2 smoke rework), because the OS/
+   Chromium teardown of a window's child processes frees the port anyway regardless of whether
+   `killServer` ran. Needs a probe that can tell the two apart — for example the child's own exit log,
+   or a quit fired while a spawn is still pending. Not done.
 
 ★ This lands in the same gap as the M365 sign-in verification already owed on a packaged 1.6.1+
 build: anything that only exists in a packaged artifact is invisible to every local gate and to

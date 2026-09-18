@@ -20,30 +20,34 @@ import { APP_HOST, APP_PORT } from "./lib/constants";
 //    "Environment variables").
 //  - NODE_PATH: extra module-resolution search directories -- an attacker
 //    who controls ANY directory on NODE_PATH can shadow a module the server
-//    requires with one of the same name. Confirmed live on this project's
-//    pinned Node (v24.21.0, engines.node >=24): a same-named module placed on
-//    NODE_PATH resolves ahead of "module not found".
+//    requires with one of the same name. Confirmed on system Node outside
+//    Electron, on this project's pinned version (v24.21.0, engines.node
+//    >=24): a same-named module placed on NODE_PATH resolves ahead of
+//    "module not found". Not probed through the packaged exe.
 //  - NODE_REPL_EXTERNAL_MODULE: loads an external module into the REPL on
 //    startup. The Next server never starts a REPL, so this is inert here in
 //    practice, but it is a documented code-load vector and costs nothing to
 //    scrub as belt-and-braces.
 //
-// Verified by probe, not assumed (M-6, final-release-review.md; see
+// Probed, not assumed (M-6, final-release-review.md; see
 // docs/open-followups.md §561): launched the PACKAGED exe with
 // NODE_OPTIONS=--require <marker-writing script> set in its OWN environment,
 // let the utility-process server start, quit it gracefully, and checked
 // whether the marker was created. Result: the marker was NOT created EITHER
 // WAY -- with this scrub in place, AND with it reverted (mutation-tested by
 // rebuilding/repackaging with `scrubbedEnv()` bypassed back to the plain
-// `...process.env` it replaces, then rerunning the same probe). So the
-// enableNodeOptionsEnvironmentVariable fuse (electron-builder.yml, §561)
-// ALREADY covers the utility-process child -- NODE_OPTIONS never reached
-// `process.env` by the time this function read it, scrub or no scrub -- and
-// this scrub is belt-and-braces, not the thing standing between an inherited
-// NODE_OPTIONS and the server. It stays anyway: the fuse's behaviour here is
-// not documented Electron API contract, only measured, and NODE_PATH /
-// NODE_REPL_EXTERNAL_MODULE were not re-measured at all (no realistic probe
-// for either against this server).
+// `...process.env` it replaces, then rerunning the same probe). THIS DOES
+// NOT SHOW that the enableNodeOptionsEnvironmentVariable fuse
+// (electron-builder.yml, §561) already covers the utility-process child --
+// the probe's only positive control was plain `node` outside Electron, and
+// no run showed a marker appearing through Electron at all, so the no-marker
+// result cannot distinguish the fuse blocking the injection from Electron's
+// own packaged-app NODE_OPTIONS restrictions, or from the utility process
+// simply never honouring the variable. The scrub stays as belt-and-braces
+// either way (§561's owed list carries the missing positive control as an
+// open item). NODE_PATH / NODE_REPL_EXTERNAL_MODULE were not probed through
+// the packaged exe at all (no realistic probe for either against this
+// server).
 const DANGEROUS_NODE_ENV_VARS = ["NODE_OPTIONS", "NODE_PATH", "NODE_REPL_EXTERNAL_MODULE"] as const;
 
 /** A copy of `process.env` with `DANGEROUS_NODE_ENV_VARS` removed -- deleted

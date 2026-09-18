@@ -189,7 +189,8 @@ describe("callJira — SSRF / URL hardening", () => {
 
   it("refuses an upstream 3xx rather than following it to an unvalidated host", async () => {
     // normalizeSiteUrl allowlisted the INITIAL siteUrl only. A redirect is a
-    // second hop nothing checked — and the Basic auth header rides along.
+    // second hop nothing checked — an unauthenticated hop to wherever the
+    // upstream points.
     fetchMock.mockResolvedValueOnce(
       new Response(null, { status: 302, headers: { location: "https://evil.example/" } }),
     );

@@ -74,7 +74,8 @@ describe("timelog proxy SSRF guard", () => {
   });
   it("refuses an upstream 3xx rather than following it to an unvalidated host", async () => {
     // normalizeHost allowlisted the INITIAL host only. A redirect is a second
-    // hop nothing checked — and the Bearer token rides along.
+    // hop nothing checked — an unauthenticated hop to wherever the upstream
+    // points.
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response(null, { status: 302, headers: { location: "https://evil.example/" } }));

@@ -57,6 +57,11 @@ helper has redirect test coverage today; `stt/route.test.ts` shows the shape.
 `redirect: "manual"` and reject 3xx, so a sweep of `src/app/api/` for a redirect policy finds all
 three helpers, not just stt. At `ed6ed8e4` only stt set one.
 
+**2026-09-18 correction:** Node 24's `fetch` (undici) strips the `Authorization` header on a
+cross-origin redirect per the Fetch spec, so the credential itself was never at risk here. The
+residual risk this finding describes is an unauthenticated hop to a host the allowlist never
+validated, not a leaked credential. Fixed by §559.
+
 ## HIGH-2 — Quadratic blowup in the OOXML extractors (client-side denial of service)
 
 **Where:** `extractRuns` in `src/app/office-xml.ts` (the shared helper, and the one with the widest

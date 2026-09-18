@@ -62,7 +62,9 @@ export function unescapeXml(input: string): string {
  * ★★★ The open pattern is `(?=[\s>]|/>)`, a lookahead, NOT `\b` — `\b` is a
  * SECOND regression of the same shape as the one above, found in the same
  * review round. `\b` admits ANY non-word character after the tag name, not
- * just whitespace/"/"/">", so `<t-alt>decoy</t-alt><t>real</t>` matched
+ * just this lookahead's own alternatives — whitespace, an immediate ">", or
+ * the two-character "/>" (a bare "/" alone is NOT admitted, see M-3 below) —
+ * so `<t-alt>decoy</t-alt><t>real</t>` matched
  * `<t-alt` as if it were `<t ...>` (boundary fires between "t" and "-") and
  * merged forward into `<t>real</t>` exactly like the self-closing bug did:
  * `["decoy</t-alt><t>real"]` instead of `["real"]`. The ORIGINAL regex never
@@ -81,8 +83,9 @@ export function unescapeXml(input: string): string {
  * `(?=[\s/>])` — admitting a bare "/" right after the tag name whether or
  * not it was actually followed by ">". `<a:t/a:r><a:r><a:t>t2</a:t>` (only
  * reachable on malformed input, per the review's fuzz) has `<a:t/` satisfy
- * that lookahead; the first ">" it then finds is not preceded by "/" (it
- * belongs to `<a:r>`), so the tag-pair-walk's self-close check
+ * that lookahead; the first ">" it then finds is the one that closes the
+ * malformed `<a:t/a:r>` tag itself — it is preceded by "r", not "/" (it does
+ * NOT belong to `<a:r>`) — so the tag-pair-walk's self-close check
  * (`html[gt-1] === "/"`, see the note above) does NOT fire, and `<a:t/a:r>`
  * is treated as an ordinary open, pairing with the far-away `</a:t>` and
  * merging `<a:r><a:t>t2` — raw markup — into the extracted text. The fix
@@ -93,8 +96,10 @@ export function unescapeXml(input: string): string {
  * lookahead outright, so the malformed tag is skipped rather than merged
  * forward.
  *
- * ★ A THIRD divergence from the original regex, found in the round-4
- * re-review, not fixed (both behaviours are wrong, so there is nothing to
+ * ★ A separate divergence from the original regex — not part of the THIRD
+ * regression's count above, a different axis (quote-awareness, not the
+ * open-tag boundary) — found in the round-4 re-review, not fixed (both
+ * behaviours are wrong, so there is nothing to
  * restore): `html[gt - 1] === "/"` (tag-pair-walk.ts) reads whatever
  * character sits right before the FIRST ">", with no awareness of
  * quoting. `<w:t a="x/>y">text</w:t>` has a literal ">" inside a quoted

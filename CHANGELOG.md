@@ -13,7 +13,7 @@ longer carries its own changelog comment.
 The 2026-09 security audit's follow-up fixes: hostile Office files can no longer stall document
 ingest, two backend proxies no longer follow an upstream redirect to a host outside their
 allowlist, the packaged desktop app can no longer be used as a general-purpose Node runtime or
-debugger target, and an imported RAID item with an oversized name no longer costs seconds to
+Node debugger target, and an imported RAID item with an oversized name no longer costs seconds to
 load.
 
 ### Fixed
@@ -42,8 +42,8 @@ load.
 - **The config export now redacts every sealed secret, not three of five.** The redaction backstop
   missed two of the five `SecretId`s, so it would not have caught a leak of those two if
   `writeSettings` ever regressed (`§560`).
-- **The packaged desktop app can no longer be used as a general-purpose Node runtime or debugger
-  target.** The `RunAsNode`, Node-inspect and `NODE_OPTIONS` fuses are off and only `app.asar` is
+- **The packaged desktop app can no longer be used as a general-purpose Node runtime or Node
+  debugger target.** The `RunAsNode`, Node-inspect and `NODE_OPTIONS` fuses are off and only `app.asar` is
   loaded, so the shipped exe can no longer be run as a plain Node interpreter or attached to by a
   Node debugger. To keep the app starting with `RunAsNode` off, its server now launches via
   Electron's `utilityProcess.fork` instead of the old child-process spawn (`§561`; the CI
@@ -52,9 +52,10 @@ load.
   `NODE_REPL_EXTERNAL_MODULE`) from its launch environment.** These can make Node load or execute
   code, or attach a debugger, that was never part of the app. A packaged-exe probe — launch with
   `NODE_OPTIONS=--require <a script that writes a marker file>` set, let the server start, quit,
-  check for the marker — found the marker was NOT written either way, with or without this change,
-  so the existing Node-options fuse already covered the server process; this is belt-and-braces
-  hardening rather than a fix for a demonstrated leak (`§561`).
+  check for the marker — found no marker either way, with or without this change. The probe's only
+  positive control was plain Node outside Electron, so it does not establish why: whether the fuse,
+  Electron's own packaged-app `NODE_OPTIONS` restrictions, or the utility process simply ignoring the
+  variable is what blocked it. The scrub is kept as belt-and-braces defence in depth (`§561`).
 
 Two follow-ups filed by the same audit remain open: quadratic regexes outside the OOXML extractors,
 in `html-to-text.ts`, `narrative-html.ts`, the Markdown fenced-block reads and the RAID escalation
