@@ -166,10 +166,11 @@ file-mode project a hand-entered bucket (it has no recorded progress there) is k
 (when it has one), partial from then (from the first point, without one) until today, and known at today's point from its current percent
 (`valueFn` in `budget-ev-history.ts`).
 
-★ **The chart's hover/keyboard readout (chart-hover-readout branch):** hovering, tapping or
+★ **The chart's hover/keyboard readout:** hovering, tapping or
 focusing the chart's trigger `<button>` and pressing an arrow key opens a box naming every drawn
 series' value at one "stop". `readoutStops` (`burndown-readout.ts`) only ever lands on a RECORDED
-date — each series' own points, today, the plan end, every budget-change marker and the run-out —
+date — each series' own points, today, the plan end, every budget-change marker and the run-out,
+minus any of those where `readoutAt` finds no row (a stop must have something to say) —
 never an arbitrary calendar day, because `actual` and the earned-value spans carry one point per
 plan period (a value between two of them would be invented) and the two forecast segments are
 already straight lines, so reading along one at a stop is exactly what the chart draws.

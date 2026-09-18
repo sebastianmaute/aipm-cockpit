@@ -5,10 +5,15 @@
 // same interaction, not just that SOMETHING renders.
 //
 // ★ `getByRole`'s `name` here is a case-insensitive SUBSTRING match by
-// default (the opposite of Testing Library), so `exact: true` guards every
-// name that could collide with another control on the page.
+// default (the opposite of Testing Library). The one role query in this file
+// is the trigger's, and it guards against a collision by SCOPE, not by
+// `exact`: a `/arrow keys/i` regex resolved inside the
+// `report-block-budget-report` block. Were a second button there to match,
+// Playwright's strict mode would fail the first action on the locator rather
+// than pick one silently.
 //
-// ★ The box is queried by `[data-tooltip-portal]`, NOT `getByRole("tooltip")`.
+// ★ The box is queried by `[data-readout-box]`, NOT `getByRole("tooltip")`,
+// and not by the `[data-tooltip-portal]` hook every `TooltipSurface` sets.
 // `TooltipSurface`'s `decorative` prop (chart-readout.tsx) takes the whole
 // portaled node out of the accessibility tree — no `role`, `aria-hidden` — so
 // a role query finds nothing whether the box is open or not. The live region
@@ -28,7 +33,7 @@ test("the budget chart reads out values on hover and from the keyboard", async (
   const block = page.getByTestId("report-block-budget-report");
   const trigger = block.getByRole("button", { name: /arrow keys/i });
   await expect(trigger).toBeVisible();
-  const tip = page.locator("[data-tooltip-portal]");
+  const tip = page.locator("[data-readout-box]");
   await expect(tip).toHaveCount(0);
 
   // The block sits below several other report blocks and starts off-screen;

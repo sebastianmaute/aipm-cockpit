@@ -384,9 +384,11 @@ test("Reports with the chart readout open has no axe violations", async ({ page 
   await page.keyboard.press("ArrowRight");
   // Without this the scan can run before the box mounts and report GREEN over
   // markup that is not in the DOM — the silent no-op this file warns about.
-  // The box carries no ARIA role, so its presence is checked via
-  // `[data-tooltip-portal]`, not `getByRole("tooltip")`.
-  await expect(page.locator("[data-tooltip-portal]")).toBeVisible();
+  // The box carries no ARIA role, so its presence is checked via its own
+  // `[data-readout-box]` hook, not `getByRole("tooltip")` — and not the
+  // `[data-tooltip-portal]` hook every `TooltipSurface` sets, which would let
+  // the scan pass with an unrelated tooltip up and the readout closed.
+  await expect(page.locator("[data-readout-box]")).toBeVisible();
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
