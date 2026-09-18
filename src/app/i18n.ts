@@ -788,6 +788,23 @@ const enUS = {
   burndownAriaEndPace: "Variance at plan end: {0} at current pace.",
   burndownAriaEndEfficiency: "Variance at plan end: {0} at current efficiency.",
   burndownBacBaseline: "Budget at start of recording",
+  burndownReadoutTrigger:
+    "Read the chart's values: press the left and right arrow keys to step through each recorded point.",
+  burndownReadoutBudget: "Budget",
+  burndownReadoutChange: "Budget change",
+  burndownReadoutForecast: "forecast",
+  burndownReadoutTodayFlag: "today",
+  burndownReadoutTipPlan: "What the plan expected to be spent by this date.",
+  burndownReadoutTipBudget: "The budget at completion in force on this date.",
+  burndownReadoutTipBaseline: "The budget at completion before the first recorded change.",
+  burndownReadoutTipActual: "The value of all hours booked up to this date.",
+  burndownReadoutTipEv: "The budget value of the work finished by this date.",
+  burndownReadoutTipEvPoint: "The budget value of all work finished so far.",
+  burndownReadoutTipPace: "Where spending lands if it continues at the recent daily average.",
+  burndownReadoutTipEfficiency: "Where spending lands if the remaining work costs what finished work did.",
+  burndownReadoutTipChange: "A recorded change to the budget, summed over this period.",
+  burndownReadoutTipRunOut: "The day the budget is used up at the current pace.",
+  burndownReadoutSentence: "{0}: {1}",
   // {0} is the signed amount in the displayed unit, {1} the bucket names. The
   // ordinary (non-deletion) marker is the same pair with no trailing word, so
   // it is composed in the chart rather than carrying a key of its own.
