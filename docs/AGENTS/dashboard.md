@@ -174,10 +174,13 @@ either would unmount on every change, dropping keyboard focus to `<body>`. The c
 a `RagBadge` from `paceVacHealth` over that card's own VAC, with NO `title` prop, so its accessible name is
 the health word. The report passes the chart column in as `chart`, with `BurndownChartPanel`'s
 `detachChangeTable` set, and mounts `BurndownChangeTableBlock` as `belowRow`, so the recorded-change table
-spans the section under the row; both go through one `changeTableFor` rule. The dashboard tile passes
-neither prop and is unchanged. ★ jsdom has no layout: the 30/70 split and the `xl` breakpoint are pinned
-only by class assertions in `budget-forecast-section.test.tsx` and `budget-report-panel.test.tsx`; the
-geometry itself is checked by eye and by the two Reports visual baselines.
+spans the section under the row; both go through one `changeTableFor` rule. The dashboard tile mounts no
+`ForecastSection` and never sets `detachChangeTable` (it passes `compact`, which already builds no
+table), so it is unchanged. ★ jsdom has no layout: the 30/70 split and the `xl` breakpoint are pinned
+only by class assertions in `budget-forecast-section.test.tsx` and `budget-report-panel.test.tsx`. The
+chart capture's width in the Reports visual spec (1440px only) pins the chart column, and the
+change-table capture pins the table outside it. The card column, the switch and the stacking below `xl`
+are photographed by nothing, so check them by eye.
 
 ★ **The chart's hover/keyboard readout:** hovering, tapping or
 focusing the chart's trigger `<button>` and pressing an arrow key opens a box naming every drawn

@@ -323,10 +323,16 @@ describe("ForecastCards — gap line (conditions unchanged)", () => {
   });
 
   it("renders nothing when either forecast is unavailable, in either view", () => {
+    const unavailableScenarios: BudgetForecast[] = [
+      { ...withEfficiencyUnavailable({ unavailable: "no-actual-cost" }), gap: AVAILABLE.gap },
+      { ...withPaceUnavailable({ unavailable: "no-burn", windowStart: "2026-08-17", windowEnd: "2026-09-11", lastBookingDate: null }), gap: AVAILABLE.gap },
+    ];
     for (const view of VIEWS) {
-      const { unmount } = render(<Cards lang="en-US" view={view} forecast={{ ...withEfficiencyUnavailable({ unavailable: "no-actual-cost" }), gap: AVAILABLE.gap }} />);
-      expect(screen.queryByText(/The forecasts differ by/)).toBeNull();
-      unmount();
+      for (const forecast of unavailableScenarios) {
+        const { unmount } = render(<Cards lang="en-US" view={view} forecast={forecast} />);
+        expect(screen.queryByText(/The forecasts differ by/)).toBeNull();
+        unmount();
+      }
     }
   });
 });
