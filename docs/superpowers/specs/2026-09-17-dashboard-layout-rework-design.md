@@ -92,7 +92,12 @@ becomes big enough to read, and the numbers that crowded it move to where they b
 8. **Effort SPI and Effort CPI move into the KPI tile**, keeping their existing labels
    (`evmSpi`/`evmCpi`) and hint texts (`evmSpiHint`/`evmCpiHint`). They are the only figures on the
    dashboard that explain a Schedule or Budget badge that has gone amber on the index alone, so
-   they stay on the dashboard rather than being dropped. No computation changes.
+   they stay on the dashboard rather than being dropped. No computation changes. **Each index is
+   shown whenever it can move a value the user actually sees, independent of the Budget module:**
+   Effort SPI always (it feeds the Schedule RAG unconditionally), and Effort CPI too, because the
+   Budget RAG it feeds also reaches the dashboard's own delta-strip flip badges, the AI dashboard
+   snapshot tool, Trends' persisted budget RAG and the Portfolio health table even with the Budget
+   module off.
 9. **Completion trend** becomes `h:2 minH:2 maxH:4`.
 10. **Heights 5–8 exist for the Dashboard only.** Width and height get separate span types: width
     stays `1 | 2 | 3 | 4`, height becomes `1 | … | 8`, so an 8-wide tile cannot type-check. `H_CLASS`
@@ -207,3 +212,7 @@ grid   [ budget burn 2×8 (chart only) ][ kpi 4×2 incl. Effort SPI/CPI ]
 - The `RagBadge` `aria-hidden` wrapper exists in `milestone-horizon-strip.tsx`; the file is now named.
 - Rulings added without a user question: width and height get separate span types; the badge
   reuses the tray's drop-target wiring.
+- The user's rule for decision 8's visibility: "hiding something which affects a value is not
+  acceptable" — an index is never gated on a module switch that does not actually gate every value
+  it can move. Confirmed by re-reading `dashboard-panel.tsx`, `dashboard-delta-strip.tsx`,
+  `ai-dashboard-snapshot.ts`, `snapshot.ts` and `portfolio-health-panel.tsx`.

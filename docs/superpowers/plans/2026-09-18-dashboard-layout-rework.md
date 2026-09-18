@@ -45,7 +45,7 @@
 | `src/app/dashboard-layout.ts` (modify) | `DASHBOARD_BURN_UPGRADE`; `DEFAULT_LAYOUT` carries it. |
 | `src/app/dashboard-layout-upgrade.ts` (create) | Pure `upgradeDashboardLayout`. Coverage-gated `.ts` — tested, not excluded. |
 | `src/app/use-dashboard-layout.ts` (modify) | Passes the upgrade to `useArrangement`. |
-| `src/app/dashboard-tile-bodies.tsx` (modify) | Burn body chart-only; KPI body gets `showEvm`. |
+| `src/app/dashboard-tile-bodies.tsx` (modify) | Burn body chart-only; the KPI body's Effort SPI/CPI tiles are model-keyed, no new prop. |
 | `src/app/dashboard-sections/dashboard-kpi-strip.tsx` (modify) | Effort SPI/CPI tiles with their hints. |
 | `src/app/next-actions/group.ts` (modify) | `pickHeroGroup`; `topGroupPrimaries` takes groups. |
 | `src/app/task-manager.tsx`, `src/app/workspace-section-types.ts`, `src/app/workspace-section.tsx`, `src/app/actions-panel.tsx`, `src/app/action-hero-card.tsx` (modify) | Grouping lifted once; groups + hero + handler bundle threaded. |
@@ -1480,39 +1480,42 @@ EOF
 ## Task 4: Budget burn becomes chart-only; Effort SPI/CPI move into the KPI tile
 
 **Files:**
-- Modify: `src/app/dashboard-tile-bodies.tsx`, `src/app/dashboard-sections/dashboard-kpi-strip.tsx`, `src/app/dashboard-panel.tsx`, `src/app/i18n.ts`, `src/app/i18n.de.ts`
+- Modify: `src/app/dashboard-tile-bodies.tsx`, `src/app/dashboard-sections/dashboard-kpi-strip.tsx`, `src/app/dashboard-panel.tsx`, `src/app/budget-forecast-link.tsx`, `src/app/i18n.ts`, `src/app/i18n.de.ts`
+- Delete: `src/app/budget-forecast-headline.tsx`, `src/app/budget-forecast-headline.test.tsx`
 - Test: `src/app/dashboard-panel.test.tsx`, `src/app/dashboard-sections/dashboard-kpi-strip.test.tsx`
 
 **Interfaces:**
 - Consumes: nothing new.
-- Produces: `DashboardKpiStrip` gains `showEvm?: boolean` (default false). `TileBodyArgs` loses `money`, `buckets`, `fxRates`; gains `showBudget: boolean`. i18n keys `dashboardSubSpent`, `dashboardSpentHint`, `dashboardHoursHint` are REMOVED from both dictionaries (their only reader was the burn body).
+- Produces: `DashboardKpiStrip` renders its Effort SPI/Effort CPI tiles keyed directly on `model.evm.spi`/`model.evm.cpi` — no new prop (each index is visible whenever it can move a value the user sees, independent of the Budget module; see the Rulings below). `TileBodyArgs` loses `money`, `buckets`, `fxRates` and gains nothing. `src/app/budget-forecast-headline.tsx` and its test are DELETED — its only production caller (the burn tile) is removed by this task — along with four i18n keys dead only because of that deletion (`forecastTileActuals`, `forecastTileRange`, `forecastTileSingle`, `forecastTileRunsOut`) and the three already-dead `dashboardSubSpent`, `dashboardSpentHint`, `dashboardHoursHint`; all seven are REMOVED from both dictionaries.
 
 **Rulings:**
 - *Spec file names:* the spec asks for `dashboard-tile-bodies.test.tsx`, which does not exist. Burn-body assertions go in `dashboard-panel.test.tsx` (the body needs a `DashboardModel`, and the panel is its only producer; the existing S5 spy pattern already swaps a forecast bundle in), and KPI-body assertions go in `dashboard-kpi-strip.test.tsx` (the body IS `DashboardKpiStrip`). No new file.
 - *What stays in the burn tile:* the compact `BurndownChartPanel` and its `BurndownChainWarning` (a qualifier of the chart it heads, and its three tests stay green). With no burn-down series the tile shows `dashboardNoBudget`. The burn caption (`dashboardBurnCaption`) leaves the tile: its first sentence describes the Spent/hours figures that left. The key stays (the Budget report uses it).
-- *SPI/CPI gating in the KPI tile:* shown only when `showBudget && model.evm.coverage.withEstimate > 0` — the burn tile that held them was gated on `showBudget`, and `dashboard-panel.test.tsx` "hides Budget burn section and EVM when showBudget is false" pins exactly that; it stays green. With no estimates the two tiles are simply absent (the old "No task estimates yet." line is not carried into the KPI tile: an index that does not exist cannot turn a badge amber, and `evmIndexHealth(null)` is null).
-- *The orphaned `ForecastHeadline`:* the component and its test stay (open question for the user — see the report); nothing on the Dashboard mounts it after this task.
+- *SPI/CPI visibility — user's resolution of the open question ("hiding something which affects a value is not acceptable"):* each index is shown whenever it can move a value the user actually sees, independent of the Budget module — NOT `showBudget && model.evm.coverage.withEstimate > 0` as first drafted. Evidence: `computeEvm(input.tasks, todayISO, …)` (`evm.ts`) runs over `input.tasks` alone; `dashboard-panel.tsx` passes `tasks: props.tasks` into `computeDashboard` UNCONDITIONALLY, unlike `budgets: showBudget ? props.budgets : []` — so `model.evm.spi`/`model.evm.cpi` are non-null whenever estimates exist, Budget module on or off. SPI: `evmIndexHealth(evm.spi)` is worst-of'd into `scheduleComputed` (`dashboard.ts`), which has no `showBudget` gate anywhere. CPI: `evmIndexHealth(evm.cpi)` is worst-of'd into `budgetComputed` → `model.budget.effective` — the hero's own Budget `OverrideSelect` IS gated on `showBudget` (`dashboard-sections/dashboard-hero.tsx:79`), but `model.budget.effective` ALSO feeds three surfaces with no such gate: `dashboard-panel.tsx:199`'s `currentRag.budget`, fed straight to `useLandingDelta` so a CPI-driven flip renders as a flip badge in the Dashboard's OWN row-1 delta strip (`dashboard-delta-strip.tsx`'s flip renderer takes no `showBudget`); `ai-dashboard-snapshot.ts:81`'s `rag.budget` (the `get_dashboard_snapshot` chat tool payload); and `snapshot.ts:224`'s persisted `budgetRag` (Trends) and `use-portfolio-health.ts:142`'s `budget` column, rendered unconditionally by `portfolio-health-panel.tsx:188`'s `<RagCell value={row.budget} />` (Portfolio health table). So CPI, like SPI, can move a value the user sees with Budget off, and gets the same rule. `showSpi`/`showCpi` inside `DashboardKpiStrip` are keyed directly on `model.evm.spi !== null` / `model.evm.cpi !== null`, with no prop at all — consistent with the strip's other three tiles, which are also plain functions of `model`. `TileBodyArgs` and the KPI call site in `dashboard-tile-bodies.tsx` need no `showBudget` plumbing for this. With no estimates both tiles are simply absent, unchanged from the first draft: an index that does not exist cannot turn a badge amber, and `evmIndexHealth(null)` is null.
+- *`ForecastHeadline` deletion — user's resolution of the open question:* its only production caller was `dashboard-tile-bodies.tsx`'s burn body, removed by Step 5 of this task, so `src/app/budget-forecast-headline.tsx` and `src/app/budget-forecast-headline.test.tsx` are deleted (Step 5(i)) rather than left orphaned. Breakage sweep, `grep -rn "ForecastHeadline\|budget-forecast-headline" src e2e docs/AGENTS AGENTS.md`: `dashboard-tile-bodies.tsx`'s import and JSX use — DELETE (Step 5(a)/(e) of this task); the file's own export and its whole test file — DELETE; `budget-forecast-link.tsx`'s comment naming `budget-forecast-headline.tsx`'s EAC-ordering ternary — MIGRATE (Step 5(i); `forecastLinkText` itself never imported the file and is untouched); `dashboard-panel.test.tsx`'s lead comment for the S5 rate-mix-chip describe block — already DELETE (Step 1(f) of this task deletes that whole block); `docs/AGENTS/dashboard.md`'s two mentions (the forecast-figures paragraph naming `budget-forecast-headline.tsx`, and the MR-3 paragraph's `ForecastHeadline`/`RateMixChip` sentence) — MIGRATE in Task 7 (Task 7 Step 5(d), revised to say DELETED rather than "NO production caller"). Four i18n keys become dead ONLY because of this deletion — `forecastTileActuals`, `forecastTileRange`, `forecastTileSingle`, `forecastTileRunsOut` (each greps to only `i18n.ts`/`i18n.de.ts` and `budget-forecast-headline.tsx` outside this check) — removed by Step 3 alongside the three already-dead keys. Consequence for this task's own new test: the "holds the chart and none of the headline, rate-mix chip, Spent or hours figures" test (Step 1(f)) can no longer import `forecastHeadlineText` to compute the exact absent string, so it asserts absence with a substring match (`/EAC|VAC/`) instead.
 
-Breakage sweep (brief item 7): `grep -rn "dashboardSubSpent\|dashboardSpentHint\|dashboardHoursHint\|dashboardBurnCaption\|BudgetFxRollupNotice\|ForecastHeadline\|Effort SPI\|Effort CPI\|evmSpi\|evmCpi\|\"Spent\"\|getByText(\"h\")" src e2e docs/AGENTS --include=*.ts --include=*.tsx --include=*.md`:
+Breakage sweep (brief item 7): `grep -rn "dashboardSubSpent\|dashboardSpentHint\|dashboardHoursHint\|dashboardBurnCaption\|BudgetFxRollupNotice\|ForecastHeadline\|budget-forecast-headline\|Effort SPI\|Effort CPI\|evmSpi\|evmCpi\|forecastTileActuals\|forecastTileRange\|forecastTileSingle\|forecastTileRunsOut\|\"Spent\"\|getByText(\"h\")" src e2e docs/AGENTS AGENTS.md --include=*.ts --include=*.tsx --include=*.md`:
 - `dashboard-panel.test.tsx` "renders the progress and burn captions" — MIGRATE (progress caption present, burn caption absent).
 - `dashboard-panel.test.tsx` describe "DashboardPanel budget-burn CPI stat": "shows the CPI value in the EVM row…" — MIGRATE (scoped to `tile-kpi`); "does not duplicate CPI in the budget-burn (Sub-budget + hours) row" — MIGRATE (CPI once, in the KPI tile, not in burn; its `getByText("h")` anchor no longer exists).
-- `dashboard-panel.test.tsx` module-visibility "shows the Effort SPI/CPI tiles when showBudget is true" and "hides Budget burn section and EVM when showBudget is false" — KEEP (the KPI gating reproduces them).
+- `dashboard-panel.test.tsx` module-visibility "shows the Effort SPI/CPI tiles when showBudget is true" — KEEP (still true, trivially, once neither index is gated on `showBudget`); "hides Budget burn section and EVM when showBudget is false" — MIGRATE (the Budget-burn TILE still hides on `showBudget` via the catalogue's own gate; the EVM indices no longer do — see the SPI/CPI ruling above).
 - `dashboard-panel.test.tsx` "labels the burn tile's spend box \"Spent\"…" — DELETE (the Spent box leaves the dashboard; its absence is asserted in the new burn test).
 - `dashboard-panel.test.tsx` "DashboardPanel currency labelling" → "labels the Budget tile in EUR…" — DELETE (that tile no longer exists); "labels the burn-down value axis in EUR…" — KEEP.
 - `dashboard-panel.test.tsx` describe "budget tile — unresolved-rate FX rollup notice (§474)" (3 tests) — DELETE (decision 7 moves the notice off the dashboard; replaced by an absence assertion).
-- `dashboard-panel.test.tsx` describe "burn tile — rate-mix chip (S5)" — DELETE (the headline that carried the chip leaves the tile; its spy pattern is reused by the new test, which asserts the chip is ABSENT).
+- `dashboard-panel.test.tsx` describe "burn tile — rate-mix chip (S5)", including its lead comment naming `ForecastHeadline` — DELETE (the headline that carried the chip leaves the tile; its spy pattern is reused by the new test, which asserts the chip is ABSENT).
 - `dashboard-panel.test.tsx` "top-band Budget/Scope pill gating" — KEEP (`"Budget"` exact text still absent when Budget is off).
 - `dashboard-panel.test.tsx` "burn-down chain warning" (3) — KEEP.
-- `budget-forecast-headline.test.tsx`, `budget-fx-rollup-notice.test.tsx`, `budget-report-panel.test.tsx` — KEEP (other surfaces).
-- `dashboard-kpi-strip.test.tsx` existing tests — KEEP (`showEvm` defaults to false).
-- `docs/AGENTS/dashboard.md` burn-content paragraphs — MIGRATE in Task 7.
+- `budget-forecast-headline.tsx` (`forecastHeadlineText`, `ForecastHeadline`) and its whole test file `budget-forecast-headline.test.tsx` — DELETE (Step 5(i); see the `ForecastHeadline` deletion ruling above).
+- `budget-forecast-link.tsx`'s comment naming `budget-forecast-headline.tsx`'s EAC-ordering ternary — MIGRATE (Step 5(i); `forecastLinkText` itself never imported the file and is untouched).
+- `budget-fx-rollup-notice.test.tsx`, `budget-report-panel.test.tsx` — KEEP (other surfaces, unaffected by the `ForecastHeadline` deletion).
+- `dashboard-kpi-strip.test.tsx` existing tests — KEEP (unaffected; the new SPI/CPI tests are keyed on the model, not on a new prop).
+- `docs/AGENTS/dashboard.md` burn-content paragraphs, including its two `ForecastHeadline`/`budget-forecast-headline.tsx` mentions — MIGRATE in Task 7 (Step 5(d), revised to say DELETED rather than "NO production caller").
 - e2e: no hit.
 
 - [ ] **Step 1: Write the tests (one characterization test that must already pass, the rest failing)**
 
 `src/app/dashboard-panel.test.tsx`:
 
-(a) add `import { forecastHeadlineText } from "./budget-forecast-headline";` and `import { healthColorName } from "./health";` to the imports.
+(a) add `import { healthColorName } from "./health";` to the imports. (Do NOT add an import from `./budget-forecast-headline` — Step 5(i) deletes that file; the new chart-only test in (f) below checks the headline's absence with a substring match instead of computing the exact string.)
 
 (b) in "renders the progress and burn captions", replace
 
@@ -1644,7 +1647,9 @@ describe("DashboardPanel burn tile is chart-only (spec C)", () => {
       const tile = screen.getByTestId("tile-burn");
       // Positive control: the chart is there (its € caption).
       expect(within(tile).getByText(/Budget remaining/i)).toBeInTheDocument();
-      expect(within(tile).queryByText(forecastHeadlineText(BUNDLE_HOURS_WORSE.eur, "en-US"))).toBeNull();
+      // `forecastHeadlineText` is gone with the deleted `budget-forecast-headline.tsx`
+      // (see Step 5(i)); a substring match is enough to prove the headline is absent.
+      expect(within(tile).queryByText(/EAC|VAC/)).toBeNull();
       const chipText = rateMixTileChipText("en-US", MIX_HOURS_WORSE, HOURS_FORECAST_HOURS_WORSE);
       expect(within(tile).queryByRole("button", { name: rateMixWhyName("en-US", chipText) })).toBeNull();
       expect(screen.queryByText("Spent")).toBeNull();
@@ -1708,6 +1713,62 @@ describe("DashboardPanel health inputs are unchanged by spec C", () => {
 
 `rateMixTileChipText`, `rateMixWhyName`, `BUNDLE_HOURS_WORSE`, `HOURS_FORECAST_HOURS_WORSE` and `MIX_HOURS_WORSE` stay imported — the new burn test uses all five.
 
+(g) In the existing `describe("DashboardPanel module visibility gates (Task 8)", …)` block, replace — from the comment line `// The EVM tiles only render once there is estimate coverage (\`evm.ts\`` through the closing `});` of "hides Budget burn section and EVM when showBudget is false" — with:
+
+```tsx
+// The EVM tiles only render once there is estimate coverage (`evm.ts`
+// `computeEvm`: a task participates iff `originalEstimateMinutes > 0`) —
+// plain `fullProps` (tasks: []) never reaches that branch. This task gives a
+// non-null coverage without otherwise changing what `fullProps`-based
+// baseline assertions see. ★ Spec C: Effort SPI and Effort CPI are each keyed
+// on their OWN model field (`model.evm.spi`/`model.evm.cpi`), never on
+// `showBudget` (see the SPI/CPI visibility ruling above), so
+// `tasksWithEvmEstimate` is exercised both WITH and WITHOUT the Budget
+// module below.
+const tasksWithEvmEstimate = [
+  {
+    id: 1, title: "Done task", status: "Done", health: "G",
+    originalEstimateMinutes: 57, timeSpentMinutes: 60,
+    dueDate: "2026-06-01", completedDate: "2026-06-01",
+    linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [],
+  },
+] as never[];
+
+describe("DashboardPanel module visibility gates (Task 8)", () => {
+  it("shows Budget burn section and RAID section when all flags are true (baseline)", () => {
+    render(<DashboardPanel {...fullProps} />, { wrapper });
+    expect(screen.getByText("Budget burn")).toBeInTheDocument();
+    expect(screen.getByText("Top open RAID")).toBeInTheDocument();
+    expect(screen.getByText("Milestones")).toBeInTheDocument();
+    expect(screen.getByText("Changes")).toBeInTheDocument();
+  });
+
+  it("shows the Effort SPI/CPI tiles when showBudget is true (positive control)", () => {
+    // Without this, the negative test below (queryByText → toBeNull) would pass
+    // just as happily if the EVM row's text were renamed out from under the
+    // query — a bare `queryByText` failing to find a stale string reads
+    // identically to the gate actually working.
+    render(<DashboardPanel {...fullProps} tasks={tasksWithEvmEstimate} />, { wrapper });
+    expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
+  });
+
+  // ★ Spec C ruling: "hiding something which affects a value is not
+  // acceptable" — SPI feeds the Schedule RAG and CPI feeds the Budget RAG
+  // (`dashboard.ts` `evmIndexHealth`) from `model.evm`, which is computed over
+  // `tasks` alone and never gated on `showBudget`; the Budget RAG it moves
+  // also reaches the delta strip's flip badges, the AI snapshot tool, Trends'
+  // `budgetRag` and the Portfolio health table with the Budget module off. So
+  // neither index hides with the module — only the (unrelated) "Budget burn"
+  // tile itself still does, via the catalogue's own `showBudget` gate.
+  it("keeps the Effort SPI/CPI tiles visible when showBudget is false, and still hides the Budget burn tile", () => {
+    render(<DashboardPanel {...fullProps} tasks={tasksWithEvmEstimate} showBudget={false} />, { wrapper });
+    expect(screen.queryByText("Budget burn")).toBeNull();
+    expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
+  });
+```
+
 `src/app/dashboard-sections/dashboard-kpi-strip.test.tsx` — append at the end of the file:
 
 ```tsx
@@ -1719,8 +1780,8 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
     { ...taskFixture(2, "To Do"), dueDate: "2026-06-02", originalEstimateMinutes: 2400 },
   ];
 
-  it("adds both index tiles with their labels, values and hints when showEvm and estimates exist", () => {
-    render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} showEvm />);
+  it("adds both index tiles with their labels, values and hints when estimates exist", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
     expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
     expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
     expect(screen.getByText("0.67")).toBeInTheDocument();
@@ -1731,7 +1792,7 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
 
   it("opens the Budget view from either index tile, named after its own label", () => {
     const onNavigate = vi.fn();
-    render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} onNavigate={onNavigate} dc={densityClasses("comfortable")} showEvm />);
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} onNavigate={onNavigate} dc={densityClasses("comfortable")} />);
     const open = t("en-US", "dashboardOpenBudgetView");
     screen.getByRole("button", { name: `${t("en-US", "evmSpi")} – ${open}` }).click();
     screen.getByRole("button", { name: `${t("en-US", "evmCpi")} – ${open}` }).click();
@@ -1739,17 +1800,16 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
     expect(onNavigate).toHaveBeenNthCalledWith(2, "budget");
   });
 
-  it("omits both without showEvm — the Budget module is off", () => {
-    render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+  // ★ Neither tile takes a Budget-module signal at all — `modelFor` above
+  // always passes `budgets: []` (see its definition earlier in this file), so
+  // this run doubles as proof that both render with the Budget module
+  // effectively off, exactly as the migrated `dashboard-panel.test.tsx`
+  // integration test pins.
+  it("omits both when no task carries an estimate", () => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
     expect(screen.getByText("Complete")).toBeInTheDocument();          // positive control
     expect(screen.queryByText(t("en-US", "evmSpi"))).toBeNull();
     expect(screen.queryByText(t("en-US", "evmCpi"))).toBeNull();
-  });
-
-  it("omits both when no task carries an estimate", () => {
-    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} showEvm />);
-    expect(screen.getByText("Complete")).toBeInTheDocument();
-    expect(screen.queryByText(t("en-US", "evmSpi"))).toBeNull();
   });
 });
 ```
@@ -1759,15 +1819,18 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
 ```bash
 npx vitest run src/app/dashboard-panel.test.tsx src/app/dashboard-sections/dashboard-kpi-strip.test.tsx > /tmp/dlr-t4.log 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests |FAIL|✓.*health inputs|×.*health inputs" /tmp/dlr-t4.log | head -30
 ```
-Expected: EXIT=1. Failing: the caption test (burn caption still rendered), both migrated CPI tests (CPI is in `tile-burn`), the two chart-only tests (headline/Spent/FX notice still there), and the four KPI tests (`showEvm` does not exist yet). **"keeps Schedule Red and Budget Amber for a bad-SPI/CPI fixture" MUST PASS here** — it is the before-half of the characterization. If it fails on the old tree, stop: the fixture is wrong, not the code.
+Expected: EXIT=1. Failing: the caption test (burn caption still rendered), both migrated CPI tests (CPI is in `tile-burn`), the two chart-only tests (headline/Spent/FX notice still there), the migrated module-visibility test (the EVM indices still hide with `showBudget={false}`, because the old burn-tile gate still holds them), and the two KPI-strip tests that expect the index tiles at all (`DashboardKpiStrip` does not render them yet). **"keeps Schedule Red and Budget Amber for a bad-SPI/CPI fixture" MUST PASS here** — it is the before-half of the characterization. If it fails on the old tree, stop: the fixture is wrong, not the code.
 
-- [ ] **Step 3: Remove the three dead keys from both dictionaries**
+- [ ] **Step 3: Remove the seven dead keys from both dictionaries**
 
-Save as `remove-burn-keys.mjs` in your scratchpad directory and run `node <that path>`:
+Three are dead because the burn tile's Spent/hours figures leave (`dashboardSubSpent`, `dashboardSpentHint`, `dashboardHoursHint`); four more are dead only because Step 5(i) deletes `budget-forecast-headline.tsx`, their only reader (`forecastTileActuals`, `forecastTileRange`, `forecastTileSingle`, `forecastTileRunsOut` — each greps to nowhere else in `src`). Save as `remove-burn-keys.mjs` in your scratchpad directory and run `node <that path>`:
 
 ```js
 import { readFileSync, writeFileSync } from "node:fs";
-const KEYS = ["dashboardSubSpent", "dashboardSpentHint", "dashboardHoursHint"];
+const KEYS = [
+  "dashboardSubSpent", "dashboardSpentHint", "dashboardHoursHint",
+  "forecastTileActuals", "forecastTileRange", "forecastTileSingle", "forecastTileRunsOut",
+];
 for (const p of ["C:/Projects/aipm-cockpit/src/app/i18n.ts", "C:/Projects/aipm-cockpit/src/app/i18n.de.ts"]) {
   let s = readFileSync(p, "utf8");
   for (const k of KEYS) {
@@ -1787,43 +1850,18 @@ for (const p of ["C:/Projects/aipm-cockpit/src/app/i18n.ts", "C:/Projects/aipm-c
 It exits 1 without writing if any key is not exactly one whole line. Verify:
 
 ```bash
-grep -c "dashboardSubSpent\|dashboardSpentHint\|dashboardHoursHint" src/app/i18n.ts src/app/i18n.de.ts   # expect 0 and 0
+grep -c "dashboardSubSpent\|dashboardSpentHint\|dashboardHoursHint\|forecastTileActuals\|forecastTileRange\|forecastTileSingle\|forecastTileRunsOut" src/app/i18n.ts src/app/i18n.de.ts   # expect 0 and 0
 git ls-files --eol src/app/i18n.ts src/app/i18n.de.ts                                                  # expect w/crlf twice
-git diff --stat src/app/i18n.ts src/app/i18n.de.ts                                                     # expect 3 deletions in each
+git diff --stat src/app/i18n.ts src/app/i18n.de.ts                                                     # expect 7 deletions in each
 ```
 
 - [ ] **Step 4: Implement the KPI tiles**
 
 `src/app/dashboard-sections/dashboard-kpi-strip.tsx`:
 
-(a) in `DashboardKpiStripProps` replace
+(a) replace the doc line `/** Standalone "at a glance" KPI card: completion % · overdue · open RAID.` with `/** Standalone "at a glance" KPI card: completion % · overdue · open RAID, plus Effort SPI · Effort CPI whenever \`model.evm.spi\`/\`model.evm.cpi\` is non-null (spec C decision 8) — each is independent of the Budget module (see the SPI/CPI visibility ruling above); \`DashboardKpiStripProps\` gains no new field.`
 
-```tsx
-  onNavigate?: (view: AppView) => void;
-  dc: DensityClasses;
-}
-```
-
-with
-
-```tsx
-  onNavigate?: (view: AppView) => void;
-  dc: DensityClasses;
-  /**
-   * Spec C decision 8: render Effort SPI and Effort CPI here. They moved from
-   * the Budget burn tile, whose gate was the Budget module, so the caller
-   * passes `showBudget` — switching Budget off still removes them. They are the
-   * only figures on the dashboard that explain a Schedule or Budget badge gone
-   * amber on the index alone (`evmIndexHealth` in `dashboard.ts`). Default
-   * false, so a caller that does not know about them renders the three tiles.
-   */
-  showEvm?: boolean;
-}
-```
-
-(b) replace the doc line `/** Standalone "at a glance" KPI card: completion % · overdue · open RAID.` with `/** Standalone "at a glance" KPI card: completion % · overdue · open RAID, plus Effort SPI · Effort CPI when `showEvm` and estimates exist (spec C).`
-
-(c) replace
+(b) replace
 
 ```tsx
 export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: DashboardKpiStripProps) {
@@ -1836,38 +1874,45 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
 with
 
 ```tsx
-export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, showEvm = false }: DashboardKpiStripProps) {
+export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: DashboardKpiStripProps) {
   const noActiveScope = hasNoActiveScope(model.progress);
-  // ★ No estimates → no index → `evmIndexHealth(null)` is null, so there is no
-  // badge for these tiles to explain; they are absent rather than "—".
-  const showIndices = showEvm && model.evm.coverage.withEstimate > 0;
+  // ★ Spec C decision 8, user's ruling: each index is shown whenever IT can
+  // move a value the user sees — never gated on the Budget module. SPI feeds
+  // the Schedule RAG and CPI feeds the Budget RAG (`dashboard.ts`
+  // `evmIndexHealth`) from `model.evm`, which is computed over `tasks` alone
+  // and is never gated on `showBudget`; the Budget RAG it moves also reaches
+  // the delta strip, the AI snapshot tool, Trends and the Portfolio health
+  // table with the Budget module off. No estimate → the index is `null` → no
+  // badge for it to explain, so the tile is simply absent (never "—").
+  const showSpi = model.evm.spi !== null;
+  const showCpi = model.evm.cpi !== null;
   const openBudget = onNavigate ? () => onNavigate("budget") : undefined;
   // ★★ Whole literal class strings — an interpolated grid-cols emits no CSS.
-  // Five tiles fit one row from `lg`, where the KPI tile is full width.
-  const cols = showIndices ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-3";
+  // Up to five tiles fit one row from `lg`, where the KPI tile is full width.
+  const cols = showSpi || showCpi ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-3";
   return (
     <div className={dc.cardPad}>
       <div className={`grid grid-cols-1 ${cols} ${dc.kpiGap}`}>
 ```
 
-(d) directly before the closing `</div>` of that grid — i.e. after the Open RAID `Tile`'s closing `/>` — insert:
+(c) directly before the closing `</div>` of that grid — i.e. after the Open RAID `Tile`'s closing `/>` — insert:
 
 ```tsx
-        {showIndices && (
-          <>
-            <Tile
-              label={t(lang, "evmSpi")} hint={t(lang, "evmSpiHint")}
-              value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"}
-              onActivate={openBudget}
-              activateLabel={`${t(lang, "evmSpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
-            />
-            <Tile
-              label={t(lang, "evmCpi")} hint={t(lang, "evmCpiHint")}
-              value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
-              onActivate={openBudget}
-              activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
-            />
-          </>
+        {showSpi && (
+          <Tile
+            label={t(lang, "evmSpi")} hint={t(lang, "evmSpiHint")}
+            value={model.evm.spi!.toFixed(2)}
+            onActivate={openBudget}
+            activateLabel={`${t(lang, "evmSpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
+          />
+        )}
+        {showCpi && (
+          <Tile
+            label={t(lang, "evmCpi")} hint={t(lang, "evmCpiHint")}
+            value={model.evm.cpi!.toFixed(2)}
+            onActivate={openBudget}
+            activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
+          />
         )}
 ```
 
@@ -1903,10 +1948,9 @@ with
    *  is `budgetHours × role.rates.external` and converts nothing — see the
    *  `currency` argument in `dashboard-panel.tsx`. */
   currency: string;
-  /** The Budget module flag. Spec C decision 8: it gates the Effort SPI/CPI
-   *  tiles in the KPI body, as the burn tile that used to hold them was gated. */
-  showBudget: boolean;
 ```
+
+(no `showBudget` field is added here: the KPI tile's Effort SPI/CPI visibility is keyed on `model.evm.spi`/`model.evm.cpi` alone — see the SPI/CPI visibility ruling above — so `TileBodyArgs` needs no new field for it.)
 
 (c) replace
 
@@ -1923,7 +1967,7 @@ with
   const openTasks = a.onNavigate ? () => a.onNavigate!("open-points") : undefined;
 ```
 
-(d) replace `      <DashboardKpiStrip lang={lang} model={model} trends={a.trends} onNavigate={a.onNavigate} dc={dc} />` with `      <DashboardKpiStrip lang={lang} model={model} trends={a.trends} onNavigate={a.onNavigate} dc={dc} showEvm={a.showBudget} />`
+(d) No change: the KPI strip call site (`      <DashboardKpiStrip lang={lang} model={model} trends={a.trends} onNavigate={a.onNavigate} dc={dc} />`) is unchanged. `showSpi`/`showCpi` are computed inside `DashboardKpiStrip` from `model.evm.spi`/`model.evm.cpi` (Step 4), not passed in — see the SPI/CPI visibility ruling above.
 
 (e) replace the whole `burn:` entry — from the line `    burn: (` through the `    ),` line directly above `    milestones: (` — with:
 
@@ -1981,38 +2025,78 @@ with
     // union still admits USD/GBP — and labelling with it printed EUR money
     // under another symbol on the LANDING view (docs/open-followups.md §465).
     currency: "EUR",
-    // Spec C decision 8: gates Effort SPI/CPI in the KPI tile.
-    showBudget,
+```
+
+(no `showBudget` is threaded into `buildTileBodies` here either — same reason as (b) above.)
+
+(i) Delete the now-orphaned `ForecastHeadline` component and its test (user's resolution of the open question — see the `ForecastHeadline` deletion ruling above; its only production caller was the burn body just replaced in (e)):
+
+```bash
+rm src/app/budget-forecast-headline.tsx src/app/budget-forecast-headline.test.tsx
+```
+
+In `src/app/budget-forecast-link.tsx`, replace
+
+```tsx
+// ★ The EAC-range ordering (low EAC first) is the same IDEA as
+//   `budget-forecast-headline.tsx`'s tile headline, but the two are NOT
+//   extracted into a shared helper: the only thing they share is a one-line
+//   ternary (`a.eac <= b.eac ? [a, b] : [b, a]`), and every other formatting
+//   detail differs — the headline also emits a VAC pair and a "runs out"
+//   clause and has its own pace-unavailable branch (Actuals of BAC), while
+//   this line never shows VAC/run-out and has THREE pace-unavailable texts of
+//   its own (§6.4). Sharing a one-line ternary across files is not worth the
+//   coupling; duplicating one ternary is not the "duplicated logic block" the
+//   task brief warns against.
+```
+
+with
+
+```tsx
+// ★ The EAC-range ordering (low EAC first) mirrored the same idea in
+//   `budget-forecast-headline.tsx`'s tile headline before spec C deleted that
+//   file (its only production caller, the burn tile, moved to a chart-only
+//   body). The two were never worth extracting into a shared helper: they
+//   shared only a one-line ternary (`a.eac <= b.eac ? [a, b] : [b, a]`), and
+//   every other formatting detail differed — the deleted headline also
+//   emitted a VAC pair and a "runs out" clause and had its own
+//   pace-unavailable branch (Actuals of BAC), while this line never shows
+//   VAC/run-out and has THREE pace-unavailable texts of its own (§6.4).
 ```
 
 - [ ] **Step 6: Run the tests and the gates**
 
 ```bash
-npx vitest run src/app/dashboard-panel.test.tsx src/app/dashboard-sections/dashboard-kpi-strip.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts > /tmp/dlr-t4.log 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " /tmp/dlr-t4.log
+npx vitest run src/app/dashboard-panel.test.tsx src/app/dashboard-sections/dashboard-kpi-strip.test.tsx src/app/budget-forecast-link.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts > /tmp/dlr-t4.log 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " /tmp/dlr-t4.log
 npx tsc --noEmit > /tmp/dlr-tsc4.log 2>&1; echo "TSC_EXIT=$?"; grep -c "error TS" /tmp/dlr-tsc4.log
-npx eslint --max-warnings=0 src/app/dashboard-tile-bodies.tsx src/app/dashboard-sections/dashboard-kpi-strip.tsx src/app/dashboard-panel.tsx src/app/dashboard-panel.test.tsx src/app/dashboard-sections/dashboard-kpi-strip.test.tsx src/app/i18n.ts; echo "LINT_EXIT=$?"
+npx eslint --max-warnings=0 src/app/dashboard-tile-bodies.tsx src/app/dashboard-sections/dashboard-kpi-strip.tsx src/app/dashboard-panel.tsx src/app/budget-forecast-link.tsx src/app/dashboard-panel.test.tsx src/app/dashboard-sections/dashboard-kpi-strip.test.tsx src/app/i18n.ts; echo "LINT_EXIT=$?"
 ```
-Expected: EXIT=0 with `Test Files  4 passed (4)`; TSC_EXIT=0 and `0` (tsc also proves the two dictionaries still have identical key sets); LINT_EXIT=0. The characterization test is still green — the after-half.
+Expected: EXIT=0 with `Test Files  5 passed (5)`; TSC_EXIT=0 and `0` (tsc also proves the two dictionaries still have identical key sets, and that nothing still imports the deleted `budget-forecast-headline.tsx`); LINT_EXIT=0. The characterization test is still green — the after-half.
 
-- [ ] **Step 7: Mutation-check the Budget gate on the moved indices**
+- [ ] **Step 7: Mutation-check the model-keyed gate on the moved indices**
 
-Change `  const showIndices = showEvm && model.evm.coverage.withEstimate > 0;` to `  const showIndices = model.evm.coverage.withEstimate > 0;`. Re-run the vitest command: EXIT=1 — "omits both without showEvm" and the panel's "hides Budget burn section and EVM when showBudget is false" fail. Revert; EXIT=0. `git diff --stat` — exactly the seven files of this task.
+Change `  const showCpi = model.evm.cpi !== null;` to `  const showCpi = model.evm.cpi === null;` in `dashboard-sections/dashboard-kpi-strip.tsx`. Re-run the vitest command: EXIT=1 — "adds both index tiles…" fails (CPI now absent when it should show) and "omits both when no task carries an estimate" fails (CPI now present when it should not); the panel's migrated "keeps the Effort SPI/CPI tiles visible when showBudget is false…" test fails too (CPI absent for `tasksWithEvmEstimate`, whose `cpi` is non-null). Revert; EXIT=0. `git diff --stat` — exactly the ten files of this task (eight modified, two deleted).
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/app/dashboard-tile-bodies.tsx src/app/dashboard-sections/dashboard-kpi-strip.tsx src/app/dashboard-panel.tsx src/app/i18n.ts src/app/i18n.de.ts src/app/dashboard-panel.test.tsx src/app/dashboard-sections/dashboard-kpi-strip.test.tsx
+git add src/app/dashboard-tile-bodies.tsx src/app/dashboard-sections/dashboard-kpi-strip.tsx src/app/dashboard-panel.tsx src/app/budget-forecast-link.tsx src/app/i18n.ts src/app/i18n.de.ts src/app/dashboard-panel.test.tsx src/app/dashboard-sections/dashboard-kpi-strip.test.tsx
+git rm src/app/budget-forecast-headline.tsx src/app/budget-forecast-headline.test.tsx
 git commit -F - <<'EOF'
 feat(dashboard): make the Budget burn tile chart-only and move Effort SPI/CPI to the KPI tile
 
 The burn tile now renders the compact burn-down chart (with its chain
 warning) and nothing else; the forecast headline, Spent, hours, the FX
 rollup notice and the caption leave it. Effort SPI and Effort CPI keep
-their labels and hints in the KPI tile, gated on the Budget module as
-before, because they explain a Schedule or Budget badge gone amber on the
-index alone. A characterization test pins that the Schedule and Budget RAG
-did not move. Three now-unused i18n keys are removed from both
-dictionaries.
+their labels and hints in the KPI tile, each shown whenever its own
+model field is non-null — independent of the Budget module, because
+both indices can move a value the user sees with Budget off (SPI the
+Schedule RAG always; CPI the Budget RAG, which still reaches the
+dashboard's own delta strip, the AI snapshot tool, Trends and the
+Portfolio health table). A characterization test pins that the
+Schedule and Budget RAG did not move. The now-orphaned
+`ForecastHeadline` component and its test are deleted, along with
+seven now-unused i18n keys, from both dictionaries.
 
 Claude-Session: https://[session link removed]
 EOF
@@ -3905,11 +3989,18 @@ numbers predate spec C, which made `burn` chart-only at h:8 — re-measure befor
 ★★ **The `burn` tile is CHART-ONLY (spec C decision 7).** Its body is the compact
 `BurndownChartPanel` (the component the Budget report mounts, with the device settings
 `budgetChartView` / `budgetChartUnit`) headed by `BurndownChainWarning`, or `dashboardNoBudget` with no
-burn-down series. The forecast headline (`ForecastHeadline`, which now has NO production caller), the
-Spent and hours tiles, the FX rollup notice, the caption and the Effort SPI/CPI tiles all left it.
-★★ Effort SPI and Effort CPI moved into the KPI tile (`DashboardKpiStrip`'s `showEvm`, fed
-`showBudget`), keeping `evmSpi`/`evmCpi` and their hints: they are the only figures on the dashboard
-that explain a Schedule or Budget badge gone amber on the index alone. That RAG comes from the MODEL —
+burn-down series. The forecast headline, the Spent and hours tiles, the FX rollup notice, the caption
+and the Effort SPI/CPI tiles all left it; `ForecastHeadline` (`budget-forecast-headline.tsx`) is now
+DELETED — its only production caller was this tile's headline — along with its test and four i18n keys
+(`forecastTileActuals`, `forecastTileRange`, `forecastTileSingle`, `forecastTileRunsOut`) that had no
+other reader.
+★★ Effort SPI and Effort CPI moved into the KPI tile (`DashboardKpiStrip`), keeping `evmSpi`/`evmCpi`
+and their hints: they are the only figures on the dashboard that explain a Schedule or Budget badge gone
+amber on the index alone. Neither is gated on the Budget module — `showSpi`/`showCpi` inside the strip
+key on `model.evm.spi`/`model.evm.cpi` alone, never `showBudget` — because SPI feeds the Schedule RAG
+unconditionally and CPI feeds the Budget RAG, which reaches the dashboard's own delta-strip flip badges,
+the AI `get_dashboard_snapshot` tool, Trends' persisted `budgetRag` and the Portfolio health table with
+the Budget module off, none of them gated either. That RAG comes from the MODEL —
 `evmIndexHealth(evm.spi)` into Schedule, `evmIndexHealth(evm.cpi)` into Budget (`dashboard.ts`) — never
 from a tile, and a characterization test in `dashboard-panel.test.tsx` pins that moving the tiles moved
 no badge. `dashboard.ts`'s `budgetComputed` still reads the budget RAG from `paceVacHealth` once the pace
@@ -3992,8 +4083,9 @@ with
 
 ```
 - `dashboard-sections/dashboard-kpi-strip.tsx` (`DashboardKpiStrip`) — the "at a glance" KPI tiles
-  (complete % · overdue · open RAID, plus Effort SPI · Effort CPI when `showEvm` and estimates exist —
-  spec C; overdue and open-RAID always carry a `TrendArrow`, completion
+  (complete % · overdue · open RAID, plus Effort SPI · Effort CPI whenever `model.evm.spi`/
+  `model.evm.cpi` is non-null — spec C, independent of the Budget module; overdue and open-RAID
+  always carry a `TrendArrow`, completion
 ```
 
 (j) Replace
@@ -4051,7 +4143,7 @@ npm run dup:check > /tmp/dlr-dup.log 2>&1; echo "DUP_EXIT=$?"; tail -3 /tmp/dlr-
 npx eslint --max-warnings=0 e2e/dashboard-grid.spec.ts; echo "LINT_EXIT=$?"
 npx tsc --noEmit > /tmp/dlr-tsc7.log 2>&1; echo "TSC_EXIT=$?"; grep -c "error TS" /tmp/dlr-tsc7.log
 ```
-Expected: every EXIT=0 and `0`. `docs:symbols:check` proves every backticked mixed-case name added to the two docs exists (`DashboardHiddenBadge`, `DashboardTopRow`, `DashboardStatusRow`, `ArrangementShelfTray`, `upgradeDashboardLayout`, `pickHeroGroup`, `nextActionGroups`, `BlockWidth`, `BlockHeight`, `showEvm`, …) — it proves the NAMES, never the claims, so re-read each edited sentence against the code once. The whole-repo unit gates (`npm run test:run`, `test:shuffle`, `test:coverage`) are deliberately NOT run — the user runs them at the end.
+Expected: every EXIT=0 and `0`. `docs:symbols:check` proves every backticked mixed-case name added to the two docs exists (`DashboardHiddenBadge`, `DashboardTopRow`, `DashboardStatusRow`, `ArrangementShelfTray`, `upgradeDashboardLayout`, `pickHeroGroup`, `nextActionGroups`, `BlockWidth`, `BlockHeight`, `showSpi`, `showCpi`, …) — it proves the NAMES, never the claims, so re-read each edited sentence against the code once. The whole-repo unit gates (`npm run test:run`, `test:shuffle`, `test:coverage`) are deliberately NOT run — the user runs them at the end.
 
 - [ ] **Step 8: Confirm the tree, then commit**
 
@@ -4096,7 +4188,7 @@ Quote every EXIT above, the Test Files counts from Tasks 1–6, each mutation's 
 | Decision 5 — Top actions tile keeps showing the hero's action | Task 5 ("keeps the hero's action in the Top actions tile too…") |
 | Decision 6 — order after row 2: narrative → coaching → tip → grid | Task 5 (row 2 moved above narrative; order test), Task 6 (digest leaves that run) |
 | Decision 7 — burn chart-only, 2×8 default, 1–4 × 4–8, first in `DEFAULT_LAYOUT` | Task 3 (catalogue, default), Task 4 (body; chart-only tests) |
-| Decision 8 — Effort SPI/CPI into KPI tile, same labels and hints, no computation change | Task 4 (`showEvm`; KPI tests; characterization test) |
+| Decision 8 — Effort SPI/CPI into KPI tile, same labels and hints, no computation change, each shown whenever it can move a visible value regardless of the Budget module | Task 4 (model-keyed `showSpi`/`showCpi`; KPI tests; characterization test) |
 | Decision 9 — Completion trend `h:2 minH:2 maxH:4` | Task 3 |
 | Decision 10 — width/height types split; `H_CLASS` 5–8 literal; `W_CLASS` untouched; Reports max 4 via its catalogue | Task 1 (+ Reports cap tests; literal-class test) |
 | Decision 11 — `upgrades` list at `v: 1`, one-time upgrade, validator sanitises, `reconcile` carries | Task 2 (engine, store, hook), Task 3 (Dashboard upgrade + default + wiring) |
@@ -4119,7 +4211,7 @@ Quote every EXIT above, the Test Files counts from Tasks 1–6, each mutation's 
 | Testing — `dashboard-visual` refreshed deliberately, eyeballed | Task 7 Steps 3–4 |
 | Out of scope — scoring/grouping/providers, EVM/forecast/health, Reports layout, tip/coaching/narrative contents | No task touches `next-actions/providers`, `group.ts`'s grouping function, `dashboard.ts`, `evm.ts`, the budget engines, `report-blocks.ts`'s catalogue, or those cards |
 
-**Placeholders:** none of "TBD"/"similar to Task N"; every code step carries its code and every run step its command and expected result. A few long deletions/replacements are specified by an exact start line and an exact end line rather than by quoting the whole old block (Task 4 Step 1(c), Step 5(e) and Step 5(g); Task 6 Step 6(b), (f) and (h)); the implementer reads the file and selects between those two lines, and the replacement text is given in full.
+**Placeholders:** none of "TBD"/"similar to Task N"; every code step carries its code and every run step its command and expected result. A few long deletions/replacements are specified by an exact start line and an exact end line rather than by quoting the whole old block (Task 4 Step 1(c), (g) and Step 5(e) and Step 5(g); Task 6 Step 6(b), (f) and (h)); the implementer reads the file and selects between those two lines, and the replacement text is given in full.
 
 **Type consistency:** `BlockWidth`/`BlockHeight`/`TileWidth`/`TileHeight` (Task 1) are the names Tasks 3 and 6 use. `upgrades?: readonly string[]` and `upgrade?:` (Task 2) are what Task 3's `DEFAULT_LAYOUT`, `upgradeDashboardLayout` and `use-dashboard-layout.ts` use. `DASHBOARD_BURN_UPGRADE = "dashboard-burn-2x8"` is the literal the Task 3 tests assert. `pickHeroGroup`, `topGroupPrimaries(groups, n)`, `nextActionGroups`, `heroGroup`, `actionHandlers`, `expertMode` (Task 5) are the names `workspace-section.tsx`, `dashboard-panel.tsx` and their tests use. `DashboardStatusRow` (Task 5) and `DashboardTopRow` (Task 6) share `dashboard-rows.tsx`. `DASHBOARD_SHELF_TRAY_ID`, `DashboardShelf`'s `open` prop, `ArrangementShelfTray` and `DashboardHiddenBadge`'s props (Task 6) match the harness and the panel. `dashboardHiddenTilesBadge`/`…One` (Task 6 Step 1) are the keys the badge renders through `tPlural` and the toolbar-order test reads.
 
@@ -4129,13 +4221,13 @@ Quote every EXIT above, the Test Files counts from Tasks 1–6, each mutation's 
 3. *An upgraded read starts dirty (reference-inequality of the upgrade's own output)* — if an upgrade ever copies unconditionally it would rewrite storage on every load; the contract is documented on the option and pinned by "writes nothing when the upgrade has nothing to do".
 4. *`DEFAULT_LAYOUT` carries the upgrade id* — without it a reset board would be re-upgraded on its next load (burn dragged back to the front); pinned by mutation 2 of Task 3.
 5. *Width and height are separate types with no `BlockSpan` alias left behind* — cost if wrong: none at runtime; a larger diff than an alias, paid once.
-6. *Hero CTA names get a section segment on the Dashboard only* ("Open – Do this first – <title>") — the spec says the hero keeps its Next-actions names AND must not collide with the tile; both cannot hold, because the tile's tokens are unique only within the tile. If the user prefers the hero's names byte-identical, the alternative is to qualify the TILE's names instead (changes pinned tile names and tests).
+6. *Hero CTA names get a section segment on the Dashboard only* ("Open – Do this first – <title>") — **RESOLVED, confirmed by the user (Option A):** the spec says the hero keeps its Next-actions names AND must not collide with the tile; both cannot hold, because the tile's tokens are unique only within the tile, so the Dashboard hero alone carries the section-segment token. Cost if the user had preferred the alternative instead (qualifying the TILE's names): a larger diff, since the tile's pinned names and tests would change instead of the hero's.
 7. *Grouping lifted to `task-manager.tsx`; `topGroupPrimaries` takes groups; `ActionsPanel` takes `groups` (its tests migrate through one wrapper)* — cost if wrong: one more prop contract change on `ActionsPanel`; no behaviour change (same function, same list).
 8. *Burn/KPI body tests live in `dashboard-panel.test.tsx` and `dashboard-kpi-strip.test.tsx`, not a new `dashboard-tile-bodies.test.tsx`* — cost: the spec's file name does not exist; the assertions it lists are all present.
-9. *SPI/CPI in the KPI tile stay gated on the Budget module and are absent with no estimates* — keeps today's behaviour (the existing gate test stays green). If the user wants them whenever SPI drives the Schedule badge even with Budget off, it is a one-condition change plus one test.
+9. *SPI/CPI in the KPI tile are each shown whenever its own `model.evm` field is non-null, independent of the Budget module* — **RESOLVED, confirmed by the user** ("hiding something which affects a value is not acceptable"): SPI always feeds the Schedule RAG, and CPI's Budget RAG also reaches the dashboard's own delta-strip flip badges, the AI snapshot tool, Trends and the Portfolio health table with Budget off (see the SPI/CPI visibility ruling in Task 4). Both tiles are absent only with no estimates. Cost if the user had preferred keeping today's `showBudget`-gated behaviour instead: a one-condition change (`&& showBudget`) plus reverting the migrated test.
 10. *The burn caption and the "No task estimates yet." line leave the dashboard; three i18n keys are deleted* — cost if wrong: re-adding a caption means a new, accurate string (the old one described figures that left).
 11. *Hero handlers are dropped entirely in a popout*, including the two `task-manager.tsx` does not gate — stricter than `ActionsPanel` in a popout; cost if wrong: a popout hero offers no snooze.
 12. *Restoring the LAST hidden tile focuses that tile's ⋮ trigger, not the badge* — forced: the badge unmounts at 0. Cost if wrong: none for a sighted user; a screen-reader user lands on the tile they just brought back.
 13. *The tray is shown only while open AND (count > 0 OR dragging)* — prevents an open tray with no badge to close it; cost: a tray open when the last tile is restored closes itself.
 14. *`expectButtonOrder` uses the singular key* — the helper cannot match a `{0}` placeholder; cost if the helper later gains args support: none, the test still holds.
-15. *`ForecastHeadline` is left in place with no production caller* — flagged as an open question rather than deleted inside a layout change.
+15. *`ForecastHeadline` and its test are deleted in Task 4* — **RESOLVED, confirmed by the user:** its only production caller left with the burn tile's Spent/hours figures. Cost if wrong (some caller still needed it): none found by Task 4's breakage sweep (`grep -rn "ForecastHeadline\|budget-forecast-headline" src e2e docs/AGENTS AGENTS.md`), and its EAC-range-ordering idea was never shared with `budget-forecast-link.tsx`'s own formatter — reverting to "stays orphaned" is a two-file `git checkout` away.
