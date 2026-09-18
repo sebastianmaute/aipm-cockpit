@@ -35,7 +35,9 @@ describe("DASHBOARD_TILES", () => {
     // ★ Tile chrome costs a fixed ~26px off every tile. At the 80px row unit a
     // h:1 tile has ~54px of body — a sparkline fits, a list of rows does not.
     // Any tile claiming minH 1 must be on this list deliberately.
-    const singleLine = new Set(["completionTrend"]);
+    // ★ Spec C raised Completion trend to minH 2, so NO tile claims 1 today;
+    // the empty set makes this pin that. Adding one means adding it here.
+    const singleLine = new Set<string>();
     for (const t of DASHBOARD_TILES) {
       if (t.minH === 1) expect(singleLine.has(t.id), `${t.id} claims minH 1`).toBe(true);
     }

@@ -47,7 +47,7 @@ describe("restoreTile", () => {
   it("appends a hidden tile to the board at its catalogue default size", () => {
     const next = restoreTile(layout(), "burn");
     expect(next.hidden).toEqual([]);
-    expect(next.board.at(-1)).toEqual({ id: "burn", w: 1, h: 3 });
+    expect(next.board.at(-1)).toEqual({ id: "burn", w: 2, h: 8 });   // spec C catalogue default
   });
 
   it("inserts at an explicit index when given one", () => {
@@ -104,7 +104,8 @@ describe("reconcile", () => {
   });
 
   it("inserts a new catalogue tile after its nearest present predecessor", () => {
-    // Catalogue order starts kpi, topActions, insights, raid, upcoming...
+    // Catalogue order starts burn, kpi, topActions, insights, raid, upcoming...
+    // (spec C moved burn first; burn itself is absent here and lands at 0.)
     // Store knows kpi and raid only; insights must land between them.
     const stored = { v: 1 as const, board: [{ id: "kpi" as const, w: 4 as const, h: 2 as const }, { id: "raid" as const, w: 2 as const, h: 2 as const }], hidden: [] };
     const next = reconcile(stored);
@@ -116,7 +117,7 @@ describe("reconcile", () => {
   it("inserts at index 0 when no predecessor is present", () => {
     const stored = { v: 1 as const, board: [{ id: "changes" as const, w: 2 as const, h: 2 as const }], hidden: [] };
     const next = reconcile(stored);
-    expect(next.board[0].id).toBe("kpi");
+    expect(next.board[0].id).toBe("burn");   // spec C: burn is catalogue-first
   });
 
   it("clamps a stored size outside the tile's limits, per axis", () => {

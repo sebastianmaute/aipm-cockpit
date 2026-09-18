@@ -147,3 +147,39 @@ describe("useDashboardLayout debounce flush", () => {
     expect(loadLayout("p-popout")).toBeNull();
   });
 });
+
+describe("useDashboardLayout — the one-time burn upgrade (spec C)", () => {
+  beforeEach(() => { localStorage.clear(); vi.useRealTimers(); });
+
+  it("upgrades a pre-spec-C stored layout on load and writes it back once", async () => {
+    vi.useFakeTimers();
+    saveLayout("p1", { v: 1, board: [{ id: "kpi", w: 4, h: 2 }, { id: "burn", w: 1, h: 3 }], hidden: [] });
+    render(<Harness />);
+    expect(screen.getByTestId("order").textContent!.split(",")[0]).toBe("burn");
+    await act(async () => { vi.advanceTimersByTime(LAYOUT_PERSIST_MS + 50); });
+    const stored = loadLayout("p1")!;
+    expect(stored.upgrades).toContain("dashboard-burn-2x8");
+    expect(stored.board[0]).toEqual({ id: "burn", w: 2, h: 8 });
+  });
+
+  it("never runs again: a burn the user moved back keeps its place", async () => {
+    vi.useFakeTimers();
+    saveLayout("p1", {
+      v: 1, board: [{ id: "kpi", w: 4, h: 2 }, { id: "burn", w: 1, h: 4 }], hidden: [], upgrades: ["dashboard-burn-2x8"],
+    });
+    const before = localStorage.getItem("aipm-cockpit:dashboard-layout");
+    render(<Harness />);
+    expect(screen.getByTestId("order").textContent!.split(",")[0]).toBe("kpi");
+    await act(async () => { vi.advanceTimersByTime(LAYOUT_PERSIST_MS + 50); });
+    expect(localStorage.getItem("aipm-cockpit:dashboard-layout")).toBe(before);
+  });
+
+  it("persists the id with a reset, so the next load does not re-run the upgrade", async () => {
+    vi.useFakeTimers();
+    render(<Harness />);
+    act(() => { screen.getByText("hide").click(); });
+    act(() => { screen.getByText("reset").click(); });
+    await act(async () => { vi.advanceTimersByTime(LAYOUT_PERSIST_MS + 50); });
+    expect(loadLayout("p1")!.upgrades).toContain("dashboard-burn-2x8");
+  });
+});

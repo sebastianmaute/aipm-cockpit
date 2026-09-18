@@ -86,7 +86,13 @@ export interface TileSpec {
 
 const ALWAYS = () => true;
 
+// ★★ `burn` IS FIRST, AND ORDER HERE IS `DEFAULT_LAYOUT`'S ORDER (spec C
+// decision 7): the chart-only Budget burn tile leads a fresh board at 2 wide ×
+// 8 tall. Moving it here does NOT move it for users who already have a stored
+// layout — `reconcile` never reorders an existing tile — which is why
+// `dashboard-layout-upgrade.ts` exists.
 export const DASHBOARD_TILES: readonly TileSpec[] = [
+  { id: "burn",            labelKey: "dashboardBudgetBurn",     w: 2, h: 8, minW: 1, maxW: 4, minH: 4, maxH: 8, gate: (g) => g.showBudget },
   { id: "kpi",             labelKey: "dashboardKpiTile",        w: 4, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 3, gate: ALWAYS },
   { id: "topActions",      labelKey: "dashboardTopActions",     w: 2, h: 3, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasTopActions },
   { id: "insights",        labelKey: "dashboardInsights",       w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasInsights },
@@ -94,10 +100,9 @@ export const DASHBOARD_TILES: readonly TileSpec[] = [
   { id: "upcoming",        labelKey: "dashboardUpcoming",       w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: ALWAYS },
   { id: "progress",        labelKey: "dashboardProgress",       w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 3, gate: ALWAYS },
   { id: "trends",          labelKey: "dashboardTrends",         w: 1, h: 2, minW: 1, maxW: 2, minH: 2, maxH: 3, gate: (g) => g.tursoActive },
-  { id: "burn",            labelKey: "dashboardBudgetBurn",     w: 1, h: 3, minW: 1, maxW: 2, minH: 3, maxH: 4, gate: (g) => g.showBudget },
   { id: "milestones",      labelKey: "dashboardMilestones",     w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showMilestones },
   { id: "changes",         labelKey: "dashboardChangesHeading", w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showChanges },
-  { id: "completionTrend", labelKey: "dashboardCompletionTrend", w: 2, h: 1, minW: 2, maxW: 4, minH: 1, maxH: 2, gate: (g) => g.hasCompletionTrend },
+  { id: "completionTrend", labelKey: "dashboardCompletionTrend", w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasCompletionTrend },
 ];
 
 /** ★ DELEGATES to the engine's `specById` rather than re-implementing the find.
