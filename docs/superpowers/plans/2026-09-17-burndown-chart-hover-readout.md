@@ -585,7 +585,7 @@ EOF
     triggerProps: {
       ref: (el: HTMLElement | null) => void;
       onPointerMove: (e: React.PointerEvent<HTMLElement>) => void;
-      onPointerLeave: () => void;
+      onPointerLeave: (e: React.PointerEvent<HTMLElement>) => void;
       onPointerDown: (e: React.PointerEvent<HTMLElement>) => void;
       onClick: (e: React.MouseEvent<HTMLElement>) => void;
       onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => void;
@@ -686,14 +686,18 @@ describe("useChartReadout", () => {
     expect(screen.getByRole("status")).toHaveTextContent("closed");
   });
 
-  it("opens on a tap and stays open on a second tap", async () => {
+  // ★ A REAL touch interaction, not `user.click()`. `click()` fires pointermove first,
+  // which opens the readout by itself — so it can never tell whether onPointerDown works
+  // and is useless as this test's guard. A touch pointer fires no leading move.
+  it("opens on a touch tap and stays open after the finger lifts", async () => {
     stubRect();
     const user = userEvent.setup();
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "chart" });
-    await user.click(trigger);
-    expect(screen.getByRole("status")).not.toHaveTextContent("closed");
-    await user.click(trigger);
+    await user.pointer([
+      { keys: "[TouchA>]", target: trigger, coords: { clientX: 412, clientY: 60 } },
+      { keys: "[/TouchA]" },
+    ]);
     expect(screen.getByRole("status")).not.toHaveTextContent("closed");
   });
 
@@ -770,7 +774,7 @@ export type ChartReadoutApi = {
   triggerProps: {
     ref: (el: HTMLElement | null) => void;
     onPointerMove: (e: PointerEvent<HTMLElement>) => void;
-    onPointerLeave: () => void;
+    onPointerLeave: (e: PointerEvent<HTMLElement>) => void;
     onPointerDown: (e: PointerEvent<HTMLElement>) => void;
     onClick: (e: MouseEvent<HTMLElement>) => void;
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
@@ -843,7 +847,13 @@ export function useChartReadout({
     triggerProps: {
       ref: (el) => { hostRef.current = el; },
       onPointerMove: (e) => move(e.clientX),
-      onPointerLeave: close,
+      // ★ Touch gets implicit pointer capture on pointerdown, so a genuine drag-off keeps
+      // targeting this element and never fires pointerleave. The ONLY pointerleave a touch
+      // pointer produces is the one at release, immediately after pointerup (measured:
+      // user-event's `release()` dispatches pointerout+pointerleave unconditionally, and
+      // that models the spec's behaviour for a pointer that ceases to exist). Closing on
+      // that made every tap open and instantly close itself. Touch closes by blur instead.
+      onPointerLeave: (e) => { if (e.pointerType !== "touch") close(); },
       // Touch has no hover, and a pointerdown carries real coordinates on touch as
       // well as mouse — so this, not onClick, is what opens the readout on a tap.
       onPointerDown: (e) => move(e.clientX),
@@ -884,7 +894,12 @@ Expected: all EXIT=0, 7 tests pass. If the anchor assertion's number disagrees w
 
 Change `Math.min(Math.max(..., 0), stops.length - 1)` to `at + delta` (unclamped) and run the file: the End-then-ArrowRight assertion must fail, because stepping past the last stop indexes off the end. ★ It fails reading **"closed"**, not the literal `undefined` an earlier revision of this line predicted — the harness renders `r.stop ?? "closed"` and `??` treats `undefined` as nullish just as it does `null`. Revert with an anchored Edit and confirm `git diff --stat` is empty for the file.
 
-Three further mutations are mandated, each guarding one of the three click/tap tests: remove `onPointerDown` (the tap test must fail); empty the `e.clientX === 0 && stop === null` body (the keyboard-activation test must fail); re-introduce the old `if (stop !== null) { close(); return; }` at the top of `onClick` (the hover-then-click test must fail, proving that regression test guards the defect rather than merely passing beside it).
+Four further mutations are mandated, and the last two are a PAIR — a one-sided check cannot tell a correct `pointerType` gate from a handler that never closes at all:
+
+- remove `onPointerDown` → the touch-tap test must fail. ★ It must be the real-touch test: against `user.click()` this mutation SURVIVES, because the synthetic pointermove opens the readout on its own.
+- empty the `e.clientX === 0 && stop === null` body → the keyboard-activation test must fail.
+- re-introduce `if (stop !== null) { close(); return; }` at the top of `onClick` → the hover-then-click test must fail, proving that regression test guards the defect rather than merely passing beside it.
+- drop the `pointerType` guard so `onPointerLeave` closes unconditionally → the touch-tap test must fail; AND empty `onPointerLeave` entirely → "opens on pointer move at the nearest stop and closes on pointer leave" must fail. Both directions, or the guard is unpinned.
 
 - [ ] **Step 6: Commit**
 
