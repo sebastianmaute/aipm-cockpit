@@ -14,16 +14,37 @@ const DAY_MS = 86_400_000;
 
 function toUtc(iso: string): Date { return new Date(`${iso}T00:00:00Z`); }
 function fromUtc(d: Date): string { return d.toISOString().slice(0, 10); }
+function pad2(x: number): string { return String(x).padStart(2, "0"); }
 
-function addMonths(iso: string, n: number): string {
-  const [y, m, d] = iso.split("-").map(Number);
+/** Target {year, 0-based month} for `iso` moved by `n` calendar months. */
+function targetYearMonth(iso: string, n: number): [number, number] {
+  const [y, m] = iso.split("-").map(Number);
   const total = y * 12 + (m - 1) + n;
   const ny = Math.floor(total / 12);
-  const nm = total - ny * 12; // 0-based
-  const last = new Date(Date.UTC(ny, nm + 1, 0)).getUTCDate();
-  return fromUtc(new Date(Date.UTC(ny, nm, Math.min(d, last))));
+  return [ny, total - ny * 12];
+}
+function lastDayOfMonth(year: number, month0: number): number {
+  return new Date(Date.UTC(year, month0 + 1, 0)).getUTCDate();
+}
+function addMonths(iso: string, n: number): string {
+  const d = Number(iso.slice(8, 10));
+  const [ny, nm] = targetYearMonth(iso, n);
+  return fromUtc(new Date(Date.UTC(ny, nm, Math.min(d, lastDayOfMonth(ny, nm)))));
 }
 function addDays(iso: string, days: number): string { return fromUtc(new Date(toUtc(iso).getTime() + days * DAY_MS)); }
+function isFirstOfMonth(iso: string): boolean { return iso.slice(8, 10) === "01"; }
+function isLastOfMonth(iso: string): boolean {
+  const [y, m, d] = iso.split("-").map(Number);
+  return d === lastDayOfMonth(y, m - 1);
+}
+/** 1st or last day of the target month that `iso` (itself a 1st/last-of-month
+ *  date) moves to under an `n`-month shift — computed directly, never via
+ *  `addMonths`' day-clamp, which can land short of the target's OWN last day
+ *  (e.g. Feb 28 clamped into a 31-day March gives 31-03-28, not 31-03-31). */
+function monthBoundary(iso: string, n: number, wantLast: boolean): string {
+  const [ny, nm] = targetYearMonth(iso, n);
+  return `${ny}-${pad2(nm + 1)}-${pad2(wantLast ? lastDayOfMonth(ny, nm) : 1)}`;
+}
 function rollToWeekday(iso: string): string {
   const dow = toUtc(iso).getUTCDay(); // 0 Sun … 6 Sat
   return dow === 6 ? addDays(iso, 2) : dow === 0 ? addDays(iso, 1) : iso;
@@ -39,6 +60,13 @@ function isoWeekMonday(year: number, week: number): string {
 
 function shiftDate(iso: string, n: number, unit: PlanGranularity, roll: boolean): string {
   if (unit === "week") return addDays(iso, 7 * n);
+  // Month-boundary date-only values (the 1st or the last day of their month)
+  // stay on the SAME boundary of the target month and are never weekend-rolled
+  // — rolling a bucket's 1st-of-month startDate off the 1st desyncs it from
+  // `bucketActivePeriods`, which compares against a period's `start`, always
+  // the 1st (controller ruling, budget-report.ts §bucketActivePeriods).
+  if (roll && isFirstOfMonth(iso)) return monthBoundary(iso, n, false);
+  if (roll && isLastOfMonth(iso)) return monthBoundary(iso, n, true);
   const moved = addMonths(iso, n);
   return roll ? rollToWeekday(moved) : moved;
 }

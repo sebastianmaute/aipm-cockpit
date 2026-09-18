@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { jsonToWorkspace, type Workspace } from "./workspace";
 import { demoShiftFor, shiftWorkspaceDates } from "./shift-workspace-dates";
+import { bucketActivePeriods, computeBudgetReport } from "./budget-report";
 
 const master = jsonToWorkspace(
   readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8"),
@@ -33,12 +34,24 @@ describe("demoShiftFor", () => {
 
 describe("shiftWorkspaceDates", () => {
   it("is the identity for n = 0", () => {
-    // The master carries weekend date-only values (e.g. budget bucket 4's startDate
-    // "2026-08-01" is a Saturday, bucket 6's "2026-11-01" a Sunday — list them with
-    //   node -e "const w=require('./sample-workspace-small.json');(function f(v,p){if(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&[0,6].includes(new Date(v+'T00:00:00Z').getUTCDay()))console.log(p,v);else if(v&&typeof v==='object')for(const[k,x]of Object.entries(v))f(x,p+'.'+k)})(w,'')"
-    // ) — this is what pins the n===0 guard: without it,
-    // shiftDate's roll-to-Monday step would move these even though n is 0.
+    // The master's own weekend date-only values are now all month-boundary
+    // dates (verified: budgets[3].startDate "2026-08-01" Sat, budgets[3].endDate
+    // "2026-10-31" Sat, budgets[5].startDate "2026-11-01" Sun — see the boundary
+    // test below), so per the controller ruling they no longer roll at any n,
+    // including n=0 — this assertion no longer exercises the n===0 guard by
+    // itself. Kept as a broad regression check; the guard itself is pinned by
+    // the dedicated non-boundary-weekend fixture test right after this one.
     expect(shiftWorkspaceDates(master, 0)).toEqual(master);
+  });
+
+  it("the n===0 guard: a non-boundary weekend date-only value must not roll at n=0", () => {
+    // The current master carries no such value (checked: every weekend
+    // date-only value/key in it is a month boundary), so this synthetic
+    // fixture is what actually pins the guard now — without it, shiftDate's
+    // roll-to-Monday step would move a mid-month Saturday/Sunday even at n=0.
+    const ws = { ...master, plan: { ...master.plan, granularity: "month" as const, startDate: "2026-08-15" } };
+    expect(new Date("2026-08-15T00:00:00Z").getUTCDay()).toBe(6); // Saturday, mid-month — anti-vacuity
+    expect(shiftWorkspaceDates(ws, 0).plan.startDate).toBe("2026-08-15");
   });
 
   it("does not mutate its input", () => {
@@ -57,16 +70,52 @@ describe("shiftWorkspaceDates", () => {
     expect(unmoved).toEqual([]);
   });
 
-  it("adds months with day clamping and rolls a weekend date-only value to Monday", () => {
-    const ws = { ...master, plan: { ...master.plan, granularity: "month" as const, startDate: "2026-01-31", endDate: "2026-03-07" } };
+  it("adds months with day clamping for a non-boundary date", () => {
+    const ws = { ...master, plan: { ...master.plan, granularity: "month" as const, startDate: "2026-08-05", endDate: "2026-03-07" } };
     const out = shiftWorkspaceDates(ws, 1);
-    expect(out.plan.startDate).toBe("2026-03-02"); // 01-31 +1m → 02-28 (Sat) → Mon 03-02
-    expect(out.plan.endDate).toBe("2026-04-07");   // Tue stays
+    expect(out.plan.endDate).toBe("2026-04-07"); // Tue stays (non-boundary, no rolling needed)
+  });
+
+  it("exempts a month-boundary date-only value from weekend rolling (controller ruling)", () => {
+    // 2026-01-31 is the LAST day of January. Naive addMonths+clamp gives 02-28
+    // too (Jan has more days than Feb), so this alone wouldn't distinguish the
+    // fix from the old code — the point is that 02-28 IS a Saturday and must
+    // stay put: rolling a bucket's boundary date off the 1st/last of its month
+    // desyncs it from `bucketActivePeriods` (budget-report.ts), which compares
+    // against a period's `start`, always the 1st of a month.
+    const ws = { ...master, plan: { ...master.plan, granularity: "month" as const, startDate: "2026-01-31", endDate: "2026-01-01" } };
+    const out = shiftWorkspaceDates(ws, 1);
+    expect(new Date("2026-02-28T00:00:00Z").getUTCDay()).toBe(6); // Saturday — anti-vacuity
+    expect(out.plan.startDate).toBe("2026-02-28"); // last-of-month stays last-of-month, unrolled
+    expect(out.plan.endDate).toBe("2026-02-01");   // 1st-of-month stays 1st-of-month
+  });
+
+  it("still rolls a weekend date-only value to Monday when it is NOT a month boundary", () => {
+    const ws = { ...master, plan: { ...master.plan, granularity: "month" as const, startDate: "2026-08-05", endDate: "2026-08-06" } };
+    const out = shiftWorkspaceDates(ws, 1);
+    expect(new Date("2026-09-05T00:00:00Z").getUTCDay()).toBe(6); // Saturday — anti-vacuity
+    expect(new Date("2026-09-06T00:00:00Z").getUTCDay()).toBe(0); // Sunday — anti-vacuity
+    expect(out.plan.startDate).toBe("2026-09-07"); // Sat rolled to Monday
+    expect(out.plan.endDate).toBe("2026-09-07");   // Sun rolled to Monday
+  });
+
+  it("maps a last-day-of-month boundary to the target month's OWN last day, not a day-clamp", () => {
+    // 2026-04-30 is April's last day. A naive clamp (min(30, May's 31)) would
+    // leave it at 2026-05-30 — one day short of May's actual last day.
+    const ws = { ...master, plan: { ...master.plan, granularity: "month" as const, startDate: "2026-04-30", endDate: "2026-04-30" } };
+    const out = shiftWorkspaceDates(ws, 1);
+    expect(out.plan.startDate).toBe("2026-05-31");
   });
 
   it("shifts a timestamp's date part without rolling and keeps the time", () => {
-    const ws = { ...master, status: { ...master.status, narrativeUpdatedAt: "2026-01-31T09:15:00.000Z" } } as Workspace;
-    expect(shiftWorkspaceDates(ws, 1).status?.narrativeUpdatedAt).toBe("2026-02-28T09:15:00.000Z");
+    // 2026-08-05 is NOT a month boundary, and +1m (2026-09-05) is a Saturday —
+    // chosen so this pins the `roll=false` flag specifically: a mutant that
+    // rolls timestamps would move this one to 2026-09-07, whereas testing on a
+    // month-boundary date (e.g. 2026-01-31) would pass either way, since the
+    // boundary rule above computes the same result regardless of `roll`.
+    const ws = { ...master, status: { ...master.status, narrativeUpdatedAt: "2026-08-05T09:15:00.000Z" } } as Workspace;
+    expect(new Date("2026-09-05T00:00:00Z").getUTCDay()).toBe(6); // Saturday — anti-vacuity
+    expect(shiftWorkspaceDates(ws, 1).status?.narrativeUpdatedAt).toBe("2026-09-05T09:15:00.000Z");
   });
 
   it("re-keys month periods and sums day keys that collide after the roll", () => {
@@ -92,5 +141,57 @@ describe("shiftWorkspaceDates", () => {
     // NOT 2027-W02 as a naive "+2" on the week number would suggest. Verified via
     // isoWeekParts(2026-12-28)/(2026-12-31) both reporting {year:2026, week:53}.
     expect(shiftWorkspaceDates(ws, 2).budgets![0].allocations[0].budgetHours).toEqual({ "2027-W01": 4 });
+  });
+
+  // Controller ruling / probe: before the month-boundary exemption above,
+  // rolling a bucket's weekend 1st-of-month `startDate` off the 1st desynced
+  // it from `bucketActivePeriods` (budget-report.ts), which keeps only periods
+  // whose `start` (always the 1st) falls within [bucket.startDate,
+  // bucket.endDate] — silently dropping the bucket's first month of budget and
+  // actuals. This holds for every n in -3..15 on the real master.
+  it("preserves every bucket's active-period count and totals for n in -3..15 (probe)", () => {
+    const before = master.budgets!.map((b) => ({
+      id: b.id,
+      periods: bucketActivePeriods(b, master.plan).length,
+    }));
+    expect(before.every((b) => b.periods > 0)).toBe(true); // anti-vacuity
+    const beforeRep = computeBudgetReport(
+      master.budgets!, master.plan, master.roles, master.resources, 8, new Set<string>(), master.absences, [], null,
+    );
+    for (let n = -3; n <= 15; n++) {
+      if (n === 0) continue; // identity, covered above
+      const shifted = shiftWorkspaceDates(master, n);
+      for (const b of before) {
+        const sb = shifted.budgets!.find((x) => x.id === b.id)!;
+        const afterPeriods = bucketActivePeriods(sb, shifted.plan).length;
+        expect([n, b.id, afterPeriods]).toEqual([n, b.id, b.periods]);
+      }
+      const afterRep = computeBudgetReport(
+        shifted.budgets!, shifted.plan, shifted.roles, shifted.resources, 8, new Set<string>(), shifted.absences, [], null,
+      );
+      for (const br of beforeRep.buckets) {
+        const ar = afterRep.buckets.find((x) => x.bucketId === br.bucketId)!;
+        // actualHours is literal TimeLog history keyed by day/month — invariant
+        // under the shift regardless of which real calendar month it lands in.
+        expect([n, br.bucketId, ar.actualHours]).toEqual([n, br.bucketId, br.actualHours]);
+        // budgetHours is NOT expected to be bit-identical for a staffed
+        // (budgetFollowsPlan) bucket: `effectiveBudgetHours` derives it from
+        // real resource CAPACITY for the period (workdays minus absences), and
+        // a real calendar month's workday count varies (28-31 days, different
+        // weekend distributions) depending on which actual month the shift
+        // lands the bucket in — unrelated to the boundary fix. Measured on this
+        // master over n = -3..15: the largest observed relative move with the
+        // fix in place is ~7.1% (bucket 5, n=8). A DROPPED first month (the
+        // bug this fix closes) removes far more than that — measured with the
+        // boundary exemption reverted, every n where a period was dropped also
+        // showed a budgetHours move of 22%-100% on the affected bucket. 20% is
+        // comfortably above the legitimate variance and comfortably below a
+        // dropped month.
+        expect(ar.budgetHours, `n=${n} bucket=${br.bucketId} budgetHours=0`).toBeGreaterThan(0);
+        const rel = Math.abs(ar.budgetHours - br.budgetHours) / br.budgetHours;
+        expect(rel, `n=${n} bucket=${br.bucketId} budgetHours ${br.budgetHours} -> ${ar.budgetHours} (${(rel * 100).toFixed(1)}%)`)
+          .toBeLessThanOrEqual(0.2);
+      }
+    }
   });
 });
