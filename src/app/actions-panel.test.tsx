@@ -2,8 +2,21 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { t } from "./i18n";
-import { ActionsPanel } from "./actions-panel";
+import type { ComponentProps } from "react";
+import { ActionsPanel as GroupedActionsPanel } from "./actions-panel";
+import { groupNextActions, pickHeroGroup } from "./next-actions/group";
 import type { SuggestedAction } from "./next-actions/types";
+
+/**
+ * ★ Spec C lifted grouping out of `ActionsPanel` into `task-manager.tsx`, so
+ * the panel now takes `groups`. This wrapper groups exactly as production does
+ * (`groupNextActions` over the flat list) and keeps every render site below
+ * byte-identical — "the actions-panel tests still pass when fed grouped data
+ * from above", which is the spec's own wording.
+ */
+function ActionsPanel({ actions, ...rest }: Omit<ComponentProps<typeof GroupedActionsPanel>, "groups"> & { actions: readonly SuggestedAction[] }) {
+  return <GroupedActionsPanel {...rest} groups={groupNextActions(actions)} />;
+}
 import type { ActionAnalysis } from "./action-ai";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
@@ -393,5 +406,15 @@ describe("ActionsPanel", () => {
       fireEvent.click(screen.getByRole("button", { name: /open next-actions settings/i }));
       expect(opened).toBe(1);
     });
+  });
+});
+
+describe("ActionsPanel — fed grouped data from above (spec C)", () => {
+  it("promotes exactly the group pickHeroGroup picks, so the Dashboard's hero cannot differ", () => {
+    const groups = groupNextActions([mk("low", "monitor"), mk("mid", "soon"), mk("top", "now")]);
+    render(<GroupedActionsPanel lang="en-US" groups={groups} onOpen={() => {}} />);
+    const expected = pickHeroGroup(groups)!;
+    const hero = screen.getByRole("region", { name: /Do this first/i });
+    expect(hero).toHaveTextContent(t("en-US", expected.primary.title.key, ...(expected.primary.title.params ?? [])));
   });
 });

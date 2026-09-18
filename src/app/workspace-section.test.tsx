@@ -18,6 +18,7 @@ import type { Absence, Shift } from "./types";
 import { saveActualsCache } from "./timelog-actuals-store";
 import type { FeatureModuleId } from "./feature-modules";
 import type { SuggestedAction } from "./next-actions/types";
+import { groupNextActions, pickHeroGroup } from "./next-actions/group";
 
 vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
@@ -191,6 +192,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
       refresh: vi.fn(async () => {}),
     },
     nextActions: [],
+    nextActionGroups: [],
     onOpenAction: vi.fn(),
     ...overrides,
   };
@@ -871,9 +873,54 @@ describe("WorkspaceSection — dashboard Top actions", () => {
     };
     const nextActions = [fact("code", 36), fact("projectManager", 35), fact("customer", 34), fact("startDate", 31), fact("products", 20), other];
 
-    render(<WorkspaceSection {...makeProps({ nextActions })} />, { wrapper: Wrapper });
+    render(<WorkspaceSection {...makeProps({ nextActions, nextActionGroups: groupNextActions(nextActions) })} />, { wrapper: Wrapper });
 
     const topActions = dashboardPanelMock.props.at(-1)!.topActions as SuggestedAction[];
     expect(topActions.map((a) => a.id)).toEqual(["project-meta:p1:code", "raid:7:severity"]);
+  });
+});
+
+describe("WorkspaceSection — the dashboard hero and its CTA bundle (spec C)", () => {
+  beforeEach(() => {
+    dashboardPanelMock.props.length = 0;
+  });
+
+  const mkAction = (id: string, tier: SuggestedAction["tier"], score: number, ctaId: number): SuggestedAction => ({
+    id, source: "raid",
+    title: { key: "actionRaidTitle", params: [ctaId, id] },
+    why: { key: "actionRaidWhySeverity", params: ["High"] },
+    score, tier,
+    cta: { kind: "open", view: "raid", id: ctaId },
+  });
+
+  it("hands the dashboard pickHeroGroup's choice, from the ONE grouping it was given", () => {
+    const groups = groupNextActions([mkAction("n", "now", 60, 1), mkAction("s", "soon", 30, 2)]);
+    render(<WorkspaceSection {...makeProps({ nextActions: groups.map((g) => g.primary), nextActionGroups: groups })} />, { wrapper: Wrapper });
+    const props = dashboardPanelMock.props.at(-1)!;
+    expect(props.heroGroup).toBe(pickHeroGroup(groups));
+    expect(props.heroGroup).toBe(groups[0]);
+  });
+
+  it("hands the dashboard no hero when the top group is monitor-only", () => {
+    const groups = groupNextActions([mkAction("m", "monitor", 10, 1)]);
+    render(<WorkspaceSection {...makeProps({ nextActions: groups.map((g) => g.primary), nextActionGroups: groups })} />, { wrapper: Wrapper });
+    expect(dashboardPanelMock.props.at(-1)!.heroGroup).toBeNull();
+  });
+
+  it("threads the SAME ten handler functions ActionsPanel receives, as one bag", () => {
+    const onMarkDone = vi.fn();
+    const onSnooze = vi.fn();
+    const onLogAsRaid = vi.fn();
+    render(<WorkspaceSection {...makeProps({ onMarkDone, onSnooze, onLogAsRaid, expertMode: true })} />, { wrapper: Wrapper });
+    const props = dashboardPanelMock.props.at(-1)!;
+    const bag = props.actionHandlers as Record<string, unknown>;
+    expect(Object.keys(bag).sort()).toEqual([
+      "assignOwner", "escalate", "onClearBlocker", "onCreateTask", "onDraftMessage",
+      "onLogAsRaid", "onMarkDone", "onSnooze", "rebaseline", "reschedule",
+    ]);
+    expect(bag.onMarkDone).toBe(onMarkDone);
+    expect(bag.onSnooze).toBe(onSnooze);
+    expect(bag.onLogAsRaid).toBe(onLogAsRaid);
+    expect(props.expertMode).toBe(true);
   });
 });

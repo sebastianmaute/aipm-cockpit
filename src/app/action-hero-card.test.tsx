@@ -85,3 +85,15 @@ describe("ActionHeroCard", () => {
     expect(screen.getByText(/demoted/i)).toBeInTheDocument();
   });
 });
+
+describe("ActionHeroCard — the box (spec C)", () => {
+  it("keeps its bottom margin by default and takes a caller class instead", () => {
+    const { unmount } = render(<ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner)} onOpen={() => {}} />);
+    expect(screen.getByRole("region", { name: /Do this first/i }).className).toContain("mb-4");
+    unmount();
+    render(<ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner)} onOpen={() => {}} className="h-full" />);
+    const region = screen.getByRole("region", { name: /Do this first/i });
+    expect(region.className).toContain("h-full");
+    expect(region.className).not.toContain("mb-4");
+  });
+});

@@ -8,6 +8,11 @@ import { type Lang, t } from "./i18n";
 import type { Health } from "./health";
 import type { Absence, BudgetBucket, ChangeItem, Discipline, Grade, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
 import type { SuggestedAction } from "./next-actions/types";
+import type { ActionGroup } from "./next-actions/group";
+import type { ActionHandlers } from "./action-cta-controls";
+import { ActionHeroCard } from "./action-hero-card";
+import { rowLabel } from "./row-tokens";
+import { DashboardStatusRow } from "./dashboard-rows";
 import type { InsightActions } from "./insights/insight";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetLayoutButton, ResetSizeButton } from "./task-manager-ui";
@@ -42,6 +47,10 @@ import type { PlacedTile } from "./dashboard-layout";
 // memo's `snapshots` dependency for no input change (AGENTS.md memo bullet).
 const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
 
+/** Stable empties for the hero's CTA bundle — see `heroHandlers` below. */
+const NO_HANDLERS: Omit<ActionHandlers, "onOpen"> = {};
+const NOOP_OPEN = () => {};
+
 interface DashboardPanelProps {
   lang: Lang;
   tasks: readonly Task[];
@@ -67,6 +76,15 @@ interface DashboardPanelProps {
   showChanges?: boolean;
   topActions?: readonly SuggestedAction[];
   onOpenAction?: (a: SuggestedAction) => void;
+  /** Row 2's Next-Actions hero (spec C decisions 3–4): `pickHeroGroup` over the
+   *  ONE grouping `task-manager.tsx` runs, so this panel and the Next-actions
+   *  page cannot promote different groups. null/absent = no Now/Soon group →
+   *  Overall status takes the whole row. */
+  heroGroup?: ActionGroup | null;
+  /** The CTA bundle `ActionsPanel` hands its hero, minus `onOpen` (this panel's
+   *  `onOpenAction` is that). Ignored in a popout. */
+  actionHandlers?: Omit<ActionHandlers, "onOpen">;
+  expertMode?: boolean;
   variance?: readonly VarianceRow[];
   snapshots?: readonly SnapshotRecord[];
   tursoActive?: boolean;
@@ -200,6 +218,32 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // Representative task for the strip's task chips (first overdue, else first
   // due-soon). undefined ⇒ the strip downgrades those chips to info-only spans.
   const repTaskId = model.overdue[0]?.id ?? model.dueSoon[0]?.id;
+
+  // ── Row 2: the Next-Actions hero (spec C decisions 3–4) ─────────────────────
+  // ★ A popout is read-only: the hero renders without ANY handler, including
+  // the two `task-manager.tsx` does not popout-gate (`onSnooze`, `onLogAsRaid`).
+  const heroGroup = props.heroGroup ?? null;
+  const heroHandlers = props.isPopout ? NO_HANDLERS : (props.actionHandlers ?? NO_HANDLERS);
+  // ★★ THE HERO'S TOKEN CARRIES A SECTION SEGMENT HERE, and only here. The Top
+  // actions tile keeps listing the hero's action (decision 5), and its rows are
+  // row-unique only WITHIN the tile, so a bare title would give the hero and the
+  // tile row the same "Open – <title>" — a WCAG 2.4.6 collision axe cannot see.
+  // "Open – Do this first – <title>" still contains the visible "Open"; the
+  // tile's names are unchanged. Same shape as `AiActionRow`'s section segment.
+  const heroEl = heroGroup ? (
+    <ActionHeroCard
+      {...heroHandlers}
+      onOpen={onOpenAction ?? NOOP_OPEN}
+      lang={lang}
+      group={heroGroup}
+      expertMode={props.expertMode}
+      rowToken={rowLabel(
+        t(lang, "actionHeroEyebrow"),
+        t(lang, heroGroup.primary.title.key, ...(heroGroup.primary.title.params ?? [])),
+      )}
+      className="h-full"
+    />
+  ) : null;
 
   // Forward "what's coming" milestone horizon for the dashboard strip.
   const milestoneBuckets = useMemo(
@@ -511,6 +555,24 @@ export function DashboardPanel(props: DashboardPanelProps) {
           </div>
         </div>
 
+        {/* Row 2 (spec C decision 3): the Next-Actions hero beside Overall
+            status; the order below it is narrative → coaching → tip → grid. */}
+        <DashboardStatusRow
+          dc={dc}
+          hero={heroEl}
+          status={
+            <DashboardHero
+              lang={lang}
+              today={today}
+              model={model}
+              status={status}
+              setStatus={setStatus}
+              showBudget={showBudget}
+              showChanges={showChanges}
+            />
+          }
+        />
+
         {/* Tier 0 — read-only status narrative summary (self-hides when empty) */}
         <NarrativeSummary lang={lang} status={status} />
 
@@ -528,17 +590,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
           raid={props.raid}
           projectId={props.projectId ?? "default"}
           isPopout={props.isPopout ?? false}
-        />
-
-        {/* Tier 1 — hero: Overall RAG band + Adjust-health disclosure */}
-        <DashboardHero
-          lang={lang}
-          today={today}
-          model={model}
-          status={status}
-          setStatus={setStatus}
-          showBudget={showBudget}
-          showChanges={showChanges}
         />
 
         {/* The arrangeable tile grid — REPLACES the fixed masonry flow. Order is
