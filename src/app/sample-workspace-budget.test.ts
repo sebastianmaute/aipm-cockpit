@@ -2,7 +2,8 @@ import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { jsonToWorkspace } from "./storage";
-import { computeBudgetReport } from "./budget-report";
+import { bucketActivePeriods, computeBudgetReport } from "./budget-report";
+import { detectInsights } from "./insights/detect";
 import { absencesForResource, absenceWorkdays, generatePeriods, workdaysInRange } from "./resource-capacity";
 import { actualHoursIn, isDayKey } from "./actual-hours";
 
@@ -20,15 +21,16 @@ describe("sample-workspace budgets", () => {
     const r1 = b.allocations.find((a) => a.roleId === 1)!;
     // The buckets are a staggered chain (5 -> 1 -> 4 -> 3 -> 2, and 7 -> 3), so
     // each one carries hours only in the periods its own window covers. Bucket 1
-    // runs 2026-06-01..2026-09-30 and is the CURRENT bucket on DEMO_AS_OF
-    // (2026-09-18): June-August are hand-entered month totals, September is
-    // TimeLog-applied day keys up to the as-of date. August is the thin month
-    // because Alex Example is on vacation for half of it.
-    expect(b.startDate).toBe("2026-06-01");
+    // runs 2026-07-01..2026-09-30 (June is the Discovery bucket 5's) and is the
+    // CURRENT bucket on DEMO_AS_OF (2026-09-18): July-August are hand-entered
+    // month totals, September is TimeLog-applied day keys up to the as-of date.
+    // The stored budget equals Alex Example's planned capacity (the plan's budget
+    // follows planning), so August is the thin month: half of it is vacation.
+    expect(b.startDate).toBe("2026-07-01");
     expect(b.endDate).toBe("2026-09-30");
-    expect(r1.budgetHours).toEqual({ "2026-06": 150, "2026-07": 140, "2026-08": 70, "2026-09": 120 });
-    expect(r1.actualHours["2026-06"]).toBe(138);
-    expect(r1.actualHours["2026-08"]).toBe(64);
+    expect(r1.budgetHours).toEqual({ "2026-07": 166, "2026-08": 40, "2026-09": 141 });
+    expect(r1.actualHours["2026-07"]).toBe(156);
+    expect(r1.actualHours["2026-08"]).toBe(38);
     const septDays = Object.keys(r1.actualHours).filter(isDayKey);
     // Every working day 2026-09-01..09-18 at 6 h, none on a weekend or after the as-of date.
     expect(septDays).toHaveLength(14);
@@ -41,12 +43,12 @@ describe("sample-workspace budgets", () => {
     expect(b.planningMode).toBe("blended");
     expect(b.disciplineAllocations).toHaveLength(2);
     // Bucket 2 is the tail of the chain and still in the FUTURE on DEMO_AS_OF,
-    // spanning 2026-10-01..2026-12-18 so its 190 consultant hours land across
-    // three months instead of all in one.
+    // spanning 2026-10-01..2026-12-18 so its 264 consultant hours (David
+    // Avery's 50 % capacity) land across three months instead of all in one.
     expect(b.startDate).toBe("2026-10-01");
     expect(b.endDate).toBe("2026-12-18");
     const d3 = b.disciplineAllocations!.find((a) => a.disciplineId === 3)!;
-    expect(d3.budgetHours).toEqual({ "2026-10": 60, "2026-11": 80, "2026-12": 50 });
+    expect(d3.budgetHours).toEqual({ "2026-10": 88, "2026-11": 84, "2026-12": 92 });
   });
   test("no allocation is keyed outside its bucket's window", () => {
     // An entry keyed to a period the window does not cover is silently dropped
@@ -137,5 +139,41 @@ describe("sample-workspace budgets", () => {
     expect(rep.project.actualHours).toBeGreaterThan(1000);
     expect(rep.project.cost).toBeGreaterThan(80000);   // would be ~9000 if empty overrides zeroed the rates
     expect(rep.project.revenue).toBeGreaterThan(80000);
+  });
+  test("with budgetFollowsPlan on, no resource is staffed in two buckets in the same period", () => {
+    // A staffed row's budget IS its resources' full planned capacity for every
+    // period of the bucket's window (effectiveBudgetHours), so a person staffed
+    // in two overlapping buckets is counted twice and every bucket reads far
+    // under plan. Unstaffed rows fall back to their stored hours and are exempt.
+    expect(ws.plan.budgetFollowsPlan).toBe(true);
+    const seen = new Map<string, number>();
+    const clashes: string[] = [];
+    for (const b of ws.budgets!) {
+      for (const p of bucketActivePeriods(b, ws.plan)) {
+        const ids = new Set([...b.allocations, ...(b.disciplineAllocations ?? [])].flatMap((r) => r.resourceIds));
+        for (const rid of ids) {
+          const other = seen.get(`${rid}:${p.key}`);
+          if (other !== undefined && other !== b.id) clashes.push(`res${rid} ${p.key}: b${other} + b${b.id}`);
+          seen.set(`${rid}:${p.key}`, b.id);
+        }
+      }
+    }
+    expect(seen.size).toBeGreaterThan(0);
+    expect(clashes).toEqual([]);
+  });
+  test("closed buckets land within 15% of plan, and the curated budgetVariance insight matches the live detector", () => {
+    const rep = computeBudgetReport(ws.budgets!, ws.plan, ws.roles, ws.resources, 8, new Set<string>(), ws.absences, [], null);
+    const closed = rep.buckets.filter((b) => b.status === "closed");
+    expect(closed.length).toBeGreaterThanOrEqual(2);
+    for (const b of closed) {
+      expect([b.name, Math.abs(b.actualHours - b.budgetHours) / b.budgetHours <= 0.15]).toEqual([b.name, true]);
+    }
+    const live = detectInsights({
+      tasks: ws.tasks, milestones: ws.milestones ?? [], raid: ws.raid, budgets: ws.budgets ?? [], roles: ws.roles,
+      resources: ws.resources, plan: ws.plan, priorOverdueCount: null, timelogViolations: null, holidaySet: new Set<string>(),
+    }, "2026-09-18").find((d) => d.type === "budgetVariance");
+    const curated = (ws.insights ?? []).find((i) => i.type === "budgetVariance");
+    expect(live).toBeDefined();
+    expect(curated?.data).toEqual(live?.data);
   });
 });

@@ -263,7 +263,7 @@ const SEED_WORKSPACE: Record<string, unknown> = {
   // collapse all three changes into ONE marker). Each running BAC is the
   // previous one plus its delta, which is the invariant `recordBudgetChange`
   // writes. The final 1400 h / €262,000 deliberately differs from today's
-  // own-basis BAC (3565.2 h / €492,320.21 at the time of writing), so the split
+  // own-basis BAC (2778.4 h / €412,736.21 at the time of writing), so the split
   // rows show a non-zero "unexplained" part
   // (seed-content.spec.ts asserts that figure is not zero). The probe below
   // passes `[]` for tasks exactly as `BudgetReportPanel` does, the default 8 h
