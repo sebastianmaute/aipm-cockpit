@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 1.10.1 "Leonard" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 1.11.0 "Tey" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
 
 # Data
 
