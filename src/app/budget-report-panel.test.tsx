@@ -563,7 +563,7 @@ describe("BudgetReportPanel — forecast section order", () => {
     expect(found).toEqual(sectionTitles);
   });
 
-  it("shows the facts row and forecast cards inside their own Forecast section", () => {
+  it("shows the reading switch and the chosen card inside their own Forecast section", () => {
     renderPanel();
     const forecastHeading = screen.getByRole("heading", { name: t("en-US", "forecastTitle") });
     // Finding 7: `within` the actual Forecast section, not a bare "exists
@@ -571,11 +571,12 @@ describe("BudgetReportPanel — forecast section order", () => {
     // wrapper (`report-table.tsx`'s `Section` renders `<h3>{title}</h3>` as a
     // sibling of its children inside one wrapping `<div>`).
     const forecastSection = forecastHeading.parentElement as HTMLElement;
-    // Finding 2: each card's `aria-labelledby` now points at an inner <span>
-    // holding only the title text, so the region's accessible name is the
-    // exact EN title — no regex needed.
+    expect(within(forecastSection).getByRole("radiogroup", { name: t("en-US", "forecastViewLabel") })).toBeInTheDocument();
+    // Finding 2: the region's accessible name is the exact EN title.
     expect(within(forecastSection).getByRole("region", { name: t("en-US", "forecastPaceTitle") })).toBeInTheDocument();
-    expect(within(forecastSection).getByRole("region", { name: t("en-US", "forecastEfficiencyTitle") })).toBeInTheDocument();
+    // One card at a time; pace is the default device reading
+    // (vitest.setup.ts clears localStorage after every test).
+    expect(within(forecastSection).queryByRole("region", { name: t("en-US", "forecastEfficiencyTitle") })).toBeNull();
   });
 });
 

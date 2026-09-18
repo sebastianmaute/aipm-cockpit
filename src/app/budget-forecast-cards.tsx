@@ -2,11 +2,15 @@
 
 // Forecast method cards (spec §6.1, §6.2): "At current pace" and "At current
 // efficiency", each with a question subtitle, its EAC as the large figure, a
-// <dl> of VAC/ETC plus method-specific rows, and the gap line below both.
+// <dl> of VAC/ETC plus method-specific rows. ONE card shows at a time, chosen
+// by a SegmentedControl above it (forecast-switch spec B); the chosen card's
+// title carries a RagBadge over its own VAC, and the gap line sits below.
 // Pure presentation over `BudgetForecast` — every figure is formatted here,
 // nothing is computed.
 import { useId, type ReactNode } from "react";
 import { type Lang, t, localeFor } from "./i18n";
+import { SegmentedControl } from "./segmented-control";
+import { RagBadge } from "./rag-badge";
 import { formatCurrency } from "./resource-cost";
 import { formatSignedPercent, formatDayMonth, formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { TermTooltip } from "./budget-forecast-tooltip";
@@ -16,13 +20,27 @@ import { rateMixChipName, rateMixChipText, rateMixExplanation } from "./budget-r
 import type { RateMix } from "./budget-rate-mix";
 import { splitVariance, type BudgetHistorySummary } from "./budget-history";
 import {
-  isPaceAvailable, isEfficiencyAvailable, BURN_RATE_WINDOW_WORKING_DAYS,
+  isPaceAvailable, isEfficiencyAvailable, paceVacHealth, BURN_RATE_WINDOW_WORKING_DAYS,
   type BudgetForecast, type PaceForecast, type PaceUnavailable,
   type EfficiencyForecast, type EfficiencyUnavailable, type ForecastGap,
 } from "./budget-forecast";
 
 type Money = (n: number) => string;
 type Facts = BudgetForecast["facts"];
+
+/** Which forecast card shows — the device setting `budgetForecastView`. */
+export type ForecastView = "pace" | "efficiency";
+
+/** The card's health at a glance (spec B, Decision 3): `paceVacHealth` over
+ *  THIS card's own VAC. ★ No `title` on purpose — `RagBadge` then names the
+ *  health in words ("Amber"), so the badge is never colour-only; a `title`
+ *  would REPLACE that word with the title text. Nothing renders when the rule
+ *  yields null (BAC ≤ 0); the caller renders nothing for an unavailable card. */
+function VacBadge({ lang, vac, bac }: { lang: Lang; vac: number; bac: number }) {
+  const health = paceVacHealth(vac, bac);
+  if (health === null) return null;
+  return <span className="ml-1.5 inline-flex"><RagBadge value={health} lang={lang} /></span>;
+}
 
 /** One `<dl>` row: term (+ tooltip) on the left, value on the right. */
 function MetricRow({
@@ -179,6 +197,7 @@ function PaceCard({
     <section aria-labelledby={titleId} className="rounded-lg border border-line bg-surface p-3">
       <h4 className="flex items-center text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
         <span id={titleId}>{paceTitle}</span>
+        {isPaceAvailable(pace) && <VacBadge lang={lang} vac={pace.vac} bac={facts.bac} />}
         <TermTooltip lang={lang} term={paceTitle} means tip={t(lang, "forecastTipPace", String(BURN_RATE_WINDOW_WORKING_DAYS))} />
       </h4>
       <p className="text-xs text-muted-foreground">{t(lang, "forecastPaceQuestion", String(BURN_RATE_WINDOW_WORKING_DAYS))}</p>
@@ -272,6 +291,7 @@ function EfficiencyCard({
     <section aria-labelledby={titleId} className="rounded-lg border border-line bg-surface p-3">
       <h4 className="flex items-center text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
         <span id={titleId}>{effTitle}</span>
+        {isEfficiencyAvailable(efficiency) && <VacBadge lang={lang} vac={efficiency.vac} bac={facts.bac} />}
         <TermTooltip lang={lang} term={effTitle} means tip={t(lang, "forecastTipEfficiency")} />
       </h4>
       <p className="text-xs text-muted-foreground">{t(lang, "forecastEfficiencyQuestion")}</p>
@@ -381,9 +401,13 @@ function GapLine({
 }
 
 export function ForecastCards({
-  lang, forecast, hours = null, mix = null, history = null,
+  lang, forecast, view, onViewChange, hours = null, mix = null, history = null,
 }: {
-  lang: Lang; forecast: BudgetForecast; hours?: BudgetForecast | null; mix?: RateMix | null;
+  lang: Lang; forecast: BudgetForecast;
+  /** Which card shows. The caller owns it (`ForecastSection` reads the device setting). */
+  view: ForecastView;
+  onViewChange: (view: ForecastView) => void;
+  hours?: BudgetForecast | null; mix?: RateMix | null;
   history?: BudgetHistorySummary | null;
 }) {
   const locale = localeFor(lang);
@@ -391,10 +415,30 @@ export function ForecastCards({
   const { pace, efficiency, gap, facts, hasFixedPrice } = forecast;
   return (
     <div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <PaceCard lang={lang} pace={pace} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} />
-        <EfficiencyCard lang={lang} efficiency={efficiency} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} />
+      {/* ★ The switch heads the card COLUMN, never the card: PaceCard and
+          EfficiencyCard are different components, so a switch inside either
+          would unmount on every change and an arrow key would drop keyboard
+          focus to <body>. The options reuse the cards' own titles, so each
+          radio's accessible name IS its visible text (WCAG 2.5.3). The switch
+          does not print; the chosen card does. */}
+      <div className="mb-2 print:hidden">
+        <SegmentedControl<ForecastView>
+          value={view}
+          options={[
+            { value: "pace", label: t(lang, "forecastPaceTitle") },
+            { value: "efficiency", label: t(lang, "forecastEfficiencyTitle") },
+          ]}
+          onChange={onViewChange}
+          ariaLabel={t(lang, "forecastViewLabel")}
+        />
       </div>
+      {view === "pace" ? (
+        <PaceCard lang={lang} pace={pace} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} />
+      ) : (
+        <EfficiencyCard lang={lang} efficiency={efficiency} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} />
+      )}
+      {/* The gap line compares BOTH forecasts, so it shows under whichever card
+          is chosen; its conditions are unchanged. */}
       {gap && isPaceAvailable(pace) && isEfficiencyAvailable(efficiency) && (
         <GapLine lang={lang} gap={gap} pace={pace} efficiency={efficiency} money={money} locale={locale} />
       )}

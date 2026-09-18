@@ -595,6 +595,7 @@ export const de: Record<TranslationKey, string> = {
   burndownToday: "heute",
   budgetReportTitle: "Budgetbericht",
   forecastTitle: "Prognose",
+  forecastViewLabel: "Prognosegrundlage",
   forecastWhatIs: "Was ist {0}?",
   forecastWhatMeans: "Was bedeutet {0}?",
   forecastFactBac: "Budget (BAC)",
