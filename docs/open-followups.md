@@ -247,7 +247,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§10](#10-keyboard-move-has-no-preview--band-and-day-grid-both--open) | Keyboard move has no preview — band and day grid both — open | R5 (0.202.2) | M | open |
 | [§11](#11-instanceof-domexception-abort-check-misreports-a-user-cancel--closed-in-02111) | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED** in 0.211.1 |
 | [§12](#12-list_allocations-dumps-the-grid-should-be-a-scoped-query--open-design) | `list_allocations` dumps the grid; should be a scoped query — open, design | R4 (0.201.0) | M | open |
-| [§13](#13-security-audit-is-scope-stale--open) | Security audit is scope-stale — open | audit was v0.164 | M | open |
+| [§13](#13-security-audit-is-scope-stale--closed-2026-09-18) | Security audit is scope-stale | audit was v0.164 | M | **CLOSED** 2026-09-18 |
 | [§14](#14-timelog-has-two-per-device-stores-keyed-differently--closed-in-02111) | ~~Timelog has two per-device stores keyed differently~~ | 0.207.0 | S | **CLOSED** in 0.211.1 |
 | [§15](#15-two-file-picker-patterns--extract-a-filepickerbutton-primitive--closed-in-02111) | ~~Two file-picker patterns — extract a `FilePickerButton` primitive~~ | 0.208.0 (Yolen) | S | **CLOSED** in 0.211.1 |
 | [§16](#16-dictation-flattens-rich-formatting--open-needs-a-design) | Dictation flattens rich formatting — open, needs a design | 0.196.0, widened 0.209.0 | M | open |
@@ -780,6 +780,16 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§555](#555-the-next-actions-and-ai-dashboard-model-never-receives-recorded-budget-history--closed-2026-09-17) | The Next Actions and AI dashboard model never receives recorded budget history — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #345 | S — pass snapshots and budget history, or say why that model omits them | closed |
 | [§556](#556-the-earned-value-today-point-never-flags-a-partial-bucket-or-a-join--closed-2026-09-17) | The earned-value today point never flags a partial bucket or a join — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #346 | S — decide whether today's point may carry partial and join entries | closed |
 | [§557](#557-no-end-to-end-fixture-carries-budget-history-so-no-browser-run-renders-the-new-budget-surfaces--closed-2026-09-17) | No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #347 | M — seed budget history and bucket progress, then extend the axe and visual runs | closed |
+| [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-unclosed-markup--closed-2026-09-18) | The three OOXML extractors were quadratic on repetitive unclosed markup | audit (2026-09) | M | **CLOSED** 2026-09-18 |
+| [§559](#559-the-jira-and-timelog-proxies-followed-upstream-redirects-with-credentials-attached--closed-2026-09-18) | The Jira and Timelog proxies followed upstream redirects with credentials attached | audit (2026-09) | S | **CLOSED** 2026-09-18 |
+| [§560](#560-the-config-export-redaction-backstop-covered-three-of-the-five-sealed-secrets--closed-2026-09-18) | The config-export redaction backstop covered three of the five sealed secrets | audit (2026-09) | S | **CLOSED** 2026-09-18 |
+| [§561](#561-the-electron-fuses-are-set-but-no-packaged-build-has-confirmed-them--open) | The Electron fuses are set but no packaged build has confirmed them — OPEN | audit (2026-09) | S (verify) | open |
+| [§562](#562-the-shared-proxy-rate-limiter-is-bypassable-by-a-client-supplied-header-and-its-store-is-in-memory--open-decision-owed) | The shared proxy rate limiter is bypassable by a client-supplied header, and its store is in-memory — OPEN (decision owed) | audit (2026-09) | decision | open |
+| [§563](#563-the-desktop-installer-is-unsigned--open-tied-to-the-publishing-decision) | The desktop installer is unsigned — OPEN (tied to the publishing decision) | audit (2026-09) | decision | open |
+| [§564](#564-diagnostics-redactts-has-no-catch-all-for-an-opaque-token-in-free-text--open) | `diagnostics-redact.ts` has no catch-all for an opaque token in free text — OPEN | audit (2026-09) | S | open |
+| [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--open) | Two settings sections clear a token by resealing an empty string instead of removing it — OPEN | audit (2026-09) | S | open |
+| [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--open) | The Jira proxy logs the raw fetch-rejection object server-side — OPEN | audit (2026-09) | S | open |
+| [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--open) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — OPEN | slice (2026-09) | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1441,11 +1451,10 @@ parameters does not change either property; do not add a guard while in there.
 
 ---
 
-## 13. Security audit is scope-stale — open
+## 13. Security audit is scope-stale — CLOSED 2026-09-18
 
-**Status:** open — a scope-stale audit, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups`: the re-scope was run and landed as `docs/security/findings-2026-09.md` (`71bc3ea1`), a dated snapshot verified against `origin/main` at `ed6ed8e4`. It covers the two surfaces no prior audit had touched — **`/api/stt`**, the BYO-base-URL proxy this entry singles out, and the whole `desktop/` Electron shell — and it corrects the stale `SecretId` count below. It found three fixable items, all remediated on the same branch (§558, §559, §560), one configuration change awaiting a packaged build (§561), and five accepted or deferred observations (§562–§566). ★ It does NOT supersede the PX-9 note below: that remains a conditional trigger, now restated with its own scope correction in §562.
 
-**Work item:** #92
 
 `docs/security/findings-2026-07.md` is dated **2026-07-02, scope "v0.164 Cixin"**. The app is
 **0.259.0** (re-read 2026-08-25 at that release — `grep -n APP_VERSION src/app/version.ts`; this
@@ -38678,3 +38687,279 @@ Established by reading the seed, the sample and `e2e/a11y.spec.ts`; not run.
 Fix shape: seed a baseline plus create, increase and delete entries (in `e2e/seed.ts` rather than the sample
 master, if the sample should stay free of history), re-baseline the affected visual specs, and confirm the
 axe scan renders the change table. Leave the Turso-only span to an eye-verify.
+
+## 558. The three OOXML extractors were quadratic on repetitive unclosed markup — CLOSED 2026-09-18
+
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups`: `docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts` and the shared `extractRuns` in `office-xml.ts` all located their elements with lazy backtracking `[\s\S]*?` pair regexes, so a single unclosed open tag made every following open re-scan to end of input. All four now walk one linear cursor — `forEachTagPair` in the new `src/app/tag-pair-walk.ts`, extracted from `html-extract.ts`, which had already solved this for itself and was the only OOXML-adjacent extractor not affected. `xlsx-extract.ts` additionally needed a local `forEachXmlElement` (`xlsx-extract.ts:164`), because real xlsx self-closes empty rows and cells and the shared walk is paired-only. Eleven commits: `0ac53c0c` (extract the walk), `4fdabde6` (docx), `5d354f76` (the close-name ordering test), `fc904400` (xlsx, pptx, `extractRuns`), `ecf88557` and `afe0b925` (the self-closing path, and marking which of its tests are mutation-proved and which are not), then three fix rounds — `10dbc77f` (`extractRuns` corrupted output on a bare self-closing text tag), `9f0a697d` (harden the xlsx cache pin, correct the docx perf comment's numbers, drop the now-dead `runsText`), `d061d37e` (restore case sensitivity, tighten the open-tag boundary), `f9a6509a` (pin the close-lookup retirement) — and `42f1c172` (pin case-insensitive tag matching). Verified by `npx vitest run src/app/tag-pair-walk.test.ts src/app/docx-extract.test.ts src/app/xlsx-extract.test.ts src/app/pptx-extract.test.ts src/app/office-xml.test.ts --maxWorkers=1`.
+
+**The shape.** A lazy pair regex is linear on well-formed markup, because each open finds its close
+nearby. It is quadratic on markup where the close is missing: the engine scans from the open to end
+of input, fails, backtracks, and the next open repeats the whole scan. Repetitive unclosed markup is
+therefore the worst case for all four extractors at once, and it is trivial to author.
+
+**★★ The measured cost — read it off the committed tests, never off this paragraph.** Each number
+below sits in a comment beside the fixture that produces it, with the command to re-check:
+
+| site | old regex | cursor walk | fixture as committed |
+|---|---|---|---|
+| `office-xml.ts` `extractRuns` | ~11.5 s | <5 ms | 100k unclosed `<t ` opens |
+| `pptx-extract.ts` `a:p` walk | ~11 s | <5 ms | 120k unclosed `<a:p ` opens |
+| `docx-extract.ts` `w:tbl`/`w:p` walk | ~24.4 s | linear | 120k unclosed `<w:tbl ` opens (840,063 chars) |
+| `xlsx-extract.ts` row/cell walk | 195 / 785 / 3783 ms at 80k / 160k / 320k reps | 2.6 / 4.4 / 20.8 ms | 320k unclosed `<c ` opens |
+
+The xlsx row is the clearest demonstration that the growth is quadratic rather than merely steep:
+four times the input for roughly nineteen times the time. The docx row says the same at a different
+scale — three times the reps (40k to 120k) for roughly sixteen times the time (~1.5 s to ~24.4 s).
+
+★★★ **An earlier statement of this curve — "36 / 142 / 524 / 1861 ms at 20k / 40k / 80k / 160k
+chars" — is WRONG and was retracted on this branch by `9f0a697d`.** It conflated repetition count
+with character count and understated the fixture tenfold: the committed 40k-repetition fixture is
+280,063 chars and measured ~1.5 s, not 142 ms. It survived into the slice's own hand-off brief after
+being corrected in the tree, which is the whole reason it is written out here — a reader who
+re-derives from the test files gets the table above, and a reader who copies a prose curve gets a
+number that refutes itself. Re-check any of these with `node -e` against the fixture and print
+`xml.length` before trusting a figure.
+
+**Reachability — this is not a theoretical parse bomb.** `unzip.ts` admits `MAX_INFLATED_BYTES` =
+100 MB per entry and `MAX_TOTAL_INFLATED_BYTES` = 256 MB in aggregate, from an upstream attachment
+cap of 20 MB compressed. Repetitive unclosed markup compresses at an extreme ratio, so a small file
+reaches those ceilings easily. The file arrives by three routes: as a chat attachment, through the
+import wizard, or nested inside a `.eml`/`.msg` that the mail parsers expand into an `IngestNode`
+tree. Nothing on that path throws — the extractor simply runs — so no `catch` intervenes and no
+guard fires. The browser tab hangs.
+
+★★★ **THE GREP BLIND SPOT, which caused two wrong claims in this slice.** `office-xml.ts` built its
+pair regex with `new RegExp` from a template string, so its SOURCE carried the double-escaped
+`[\\s\\S]*?`. Every sweep written for the regex-literal spelling returned zero against it, and it
+was missed twice for exactly that reason — an empty grep read as "already clean". Sweep BOTH
+spellings:
+
+```bash
+grep -rnE '\[\\s\\S\]\*\?|\[\\\\s\\\\S\]\*\?' src/app --include=*.ts | grep -vE ': *\*'
+```
+
+The surviving hits after this fix are all benign — `markdown-codecs-core.ts` fenced-block extraction
+(bounded, well-formed by construction), a bounded per-cell `<v>` read in `xlsx-extract.ts`, test
+fixtures, and comments quoting the retired regexes. The point of the command is that it can SEE
+them; the earlier one could not.
+
+★★ **The performance tests are mutation-proved, and the fixture sizes ARE the proof — do not shrink
+them.** Each was verified by restoring the lazy regex, watching the test go red, and reverting the
+mutant. The mutant margins were 14543 ms (`extractRuns`), 11741 ms (pptx) and 11107 ms (xlsx)
+against shipped times of 0, 4 and 3 ms. **At the 40,000 repetitions originally planned, the pptx
+test PASSED against the unfixed code** — under the 1000 ms ceiling, and therefore vacuous. Fixtures
+were re-sized to clear a ≥10x red/green margin, which is why they read as 100k / 120k / 120k / 320k
+rather than a round 40k. The xlsx fixture is larger again for a second, independent reason: it is
+sized to kill a NO-CACHE mutant as well as the regex one, and at 80k that mutant measured ~195 ms —
+comfortably under the ceiling, so that size could not have caught it. The next person to add one of
+these will reach for 40k; the ceiling is deliberately loose because it must fail on the pattern
+class, not on a machine's speed.
+
+Related: §13 (the audit that found it), §559, §560.
+
+## 559. The Jira and Timelog proxies followed upstream redirects with credentials attached — CLOSED 2026-09-18
+
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups` (`8aec2a24`): `api/jira/_helpers.ts` and `api/timelog/_helpers.ts` now pass `redirect: "manual"` to `fetch` and reject any 3xx as a 502, mirroring what `api/stt/_helpers.ts` already did. Verified by the proxy unit suites.
+
+Both proxies applied their host allowlist to the INITIAL URL only, and neither set a redirect
+policy, so `fetch` followed a 3xx by default. A redirect from the configured upstream therefore
+reached a host nobody validated, with the `Authorization` header still attached — the allowlist
+silently stopped applying at exactly the point it was most needed.
+
+Reaching it requires control of, or a foothold in, the configured upstream, so this is not a
+drive-by. That is the argument for LOW severity, not an argument for leaving it: the allowlist is
+precisely the control meant to survive an upstream that has gone bad, and a control that lapses
+under the condition it was written for is not a control.
+
+★ `/api/stt` was already correct here, and for an instructive reason — its base URL is user-supplied
+BYO, so it could never lean on a vendor apex and had to state a redirect policy explicitly. The two
+proxies that COULD pin an apex are the two that forgot.
+
+## 560. The config-export redaction backstop covered three of the five sealed secrets — CLOSED 2026-09-18
+
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups` (`acae29be`): `redactSettings` (`recovery-config.ts:144`) no longer carries a hand-written path list. `secrets.ts` now exports `SECRET_IDS` and an id→settings-path mapping, `redactSettings` derives from it, and a test asserts every `SecretId` has an entry — so a sixth secret fails loudly instead of slipping through the backstop.
+
+`redactSettings` redacted `integrations.turso.authToken`, `jira.apiToken` and `ai.apiKey`, and never
+`timelog.apiToken` or `dictation.sttApiKey`.
+
+**★ This entry is about the SHAPE, not a live leak, and the distinction is the whole finding.** No
+exposure was found: `writeSettings` blanks all five fields before the settings blob is ever
+readable, so in practice the two unredacted paths are already empty by the time `redactSettings`
+sees them. But this function exists *as the backstop for a `writeSettings` regression* — it is the
+second layer, and the only scenario in which it does any work at all is the one where the first
+layer has failed. A hardcoded list is the one shape a backstop must not have, because it silently
+stops covering the case it exists for.
+
+The two that were missed are, unsurprisingly, the two most recently added. That is how a hardcoded
+allowlist fails: never at the moment it is written, always three secrets later.
+
+Related: §564 (the same hardcoded-list rot in `diagnostics-redact.ts`), §567 (two more hardcoded
+`SecretId` lists that `SECRET_IDS` can now close).
+
+## 561. The Electron fuses are set but no packaged build has confirmed them — OPEN
+
+**Status:** OPEN 2026-09-18 — the code change landed (`40f47dc5`) and is readable with `grep -n "electronFuses" -A 6 desktop/electron-builder.yml`, but the EFFECT is **never machine-verified**. Fuses take effect only in a packaged build, and `desktop-package` is a MANUAL CI job, so nothing in this slice observed them on a real binary. Do not read the commit as closing this.
+
+**Work item:** _not yet filed — opening a GitLab issue is outward-facing and needs the user's explicit say, which has not been given (2026-09-18)._
+
+`electronFuses` was absent from `desktop/electron-builder.yml`, which left `RunAsNode` enabled on
+the packaged binary: a local actor could run arbitrary Node through the shipped executable, using
+the app's own signature and install path as cover. Local-only impact, so LOW, but free to fix.
+
+`desktop/electron-builder.yml` now sets `runAsNode: false`,
+`enableNodeCliInspectArguments: false`, `enableNodeOptionsEnvironmentVariable: false` and
+`onlyLoadAppFromAsar: true`.
+
+**What is owed:** run the manual `desktop-package` job, then confirm on the produced binary — the
+fuse wire is readable from the packaged executable, and `ELECTRON_RUN_AS_NODE=1 <app>.exe -e
+"console.log(1)"` should no longer execute. Until someone does that, this is a configuration
+asserted by reading a YAML file, which is the class of claim this register exists to distrust.
+
+★ This lands in the same gap as the M365 sign-in verification already owed on a packaged 1.6.1+
+build: anything that only exists in a packaged artifact is invisible to every local gate and to
+every automatic CI job.
+
+## 562. The shared proxy rate limiter is bypassable by a client-supplied header, and its store is in-memory — OPEN (decision owed)
+
+**Status:** OPEN 2026-09-18 — established by reading `api/jira/_rate-limit.ts` and by `grep -rn "rateLimit(" src/app/api --include=*.ts`, which enumerates the call sites and their scopes; the limiter itself is **never machine-verified** under a varying forwarding header. Filed as a DECISION to record, not a defect to fix: "accept, self-hosted single-process app" may well be the right answer, but it is currently implicit, and an implicit acceptance is indistinguishable from an oversight the next time someone reads the file.
+
+**Work item:** none — decision record
+
+Two independent weaknesses in one helper:
+
+- **The key is attacker-controlled.** `getClientIp` reads `x-forwarded-for` (first comma-segment),
+  then `x-real-ip`, then falls back to `"unknown"`. There is no trusted-proxy configuration, so
+  nothing distinguishes a header set by a reverse proxy from one set by the caller. A client that
+  varies the header gets a fresh bucket per request, and the limit is not a limit.
+- **The store does not survive anything.** A bare in-memory `Map` bounded by `evictElapsed`. It
+  resets on restart and is per-process, so it bounds nothing across replicas. This is the
+  pre-existing **PX-9** accepted risk from `findings-2026-07.md`, whose own verdict says "register
+  as TD if the app moves" to a multi-instance deploy.
+
+**★★ The scope of the limit is narrower than it is usually described, and the correction matters.**
+`MAX_REQUESTS` is 60 per minute per IP **per `scope`**, not 60 shared across the app: `rateLimit`
+namespaces its bucket so routes do not drain each other's quota. Reading it off the call sites there
+are three buckets, not four — `jira` (the default, and Confluence shares it, because
+`api/confluence/page/route.ts` goes through `parseJiraRequest`/`callJira`), `timelog` and `ecb`.
+★ **`/api/stt` is not rate-limited at all** — it never calls `rateLimit`. That is arguably the more
+interesting half of this entry, and it is the route the 2026-07 audit had never looked at.
+
+Re-derive the call sites rather than trusting this list:
+`grep -rn "rateLimit(" src/app/api --include=*.ts | grep -v "\.test\."`.
+
+**The decision to record:** for a self-hosted, single-process, single-tenant deployment behind the
+user's own network boundary, all three observations are acceptable and the cost of fixing them is
+not obviously repaid. What this entry asks for is that the acceptance be WRITTEN, with its trigger:
+if the app ever moves to a multi-instance deploy, or is exposed where the caller is not already
+trusted, the header-derived key and the `Map` both have to go.
+
+Related: §13 (PX-9's original filing).
+
+## 563. The desktop installer is unsigned — OPEN (tied to the publishing decision)
+
+**Status:** OPEN 2026-09-18 — established by reading `desktop/electron-builder.yml`, readable with `grep -n "signExecutable" desktop/electron-builder.yml`; **never machine-verified** against a produced installer. Not filed as a defect: it is acceptable under the current distribution model and becomes a real gap only under a distribution model nobody has decided on yet.
+
+**Work item:** none — decision record
+
+While distribution is internal — the installer handed to known recipients over a channel that
+already authenticates them — the signature adds little the channel does not already provide, and a
+code-signing certificate is a real cost and a real key-management obligation.
+
+It becomes a supply-chain gap the moment the repo goes public and the installer sits on a public
+releases page. There the signature is the ONLY control a downloader has: they cannot inspect the
+build, they cannot verify the channel, and an unsigned binary is indistinguishable from a
+substituted one. SmartScreen friction is the visible symptom; the substituted-installer case is the
+actual risk.
+
+★ This is deliberately tied to the open publishing decision rather than filed as work. Do not close
+it by signing; close it by deciding, and sign if the decision is "public".
+
+## 564. `diagnostics-redact.ts` has no catch-all for an opaque token in free text — OPEN
+
+**Status:** OPEN 2026-09-18 — established by reading `SECRET_VALUE_PATTERNS` via `grep -n "SECRET_VALUE_PATTERNS" -A 8 src/app/diagnostics-redact.ts`; no live leak found, and the gap is **never machine-verified** because no test feeds it an opaque token. Structurally the same hardcoded-list rot as §560, which is why it is worth a line rather than a shrug.
+
+**Work item:** _not yet filed — needs the user's explicit say before a GitLab issue is opened (2026-09-18)._
+
+`scrubSecretValues` runs a fixed list of six patterns: `sk-ant-…`, `Bearer …`, `Basic …`, JWTs,
+Atlassian `ATATT…`, and a `key=value` form whose alternation covers the api-key/api-token/
+auth-token/token/secret/authorization/password/passphrase spellings. Every one of them keys off either a VENDOR-SHAPED prefix or a surrounding `key=` frame.
+
+A Timelog API token or an STT key is an opaque string with neither. Landing in free text — an error
+message, a URL fragment, a pasted diagnostic — it matches nothing and is written out whole. The
+`SECRET_KEY_PARTS` name check catches it only when it arrives as a FIELD whose key looks secret-ish,
+not when it arrives inside a value.
+
+No such leak was observed; this is about the same failure mode as §560, where the list stopped
+covering the two most recently added secrets. A high-entropy catch-all (a long unbroken
+`[A-Za-z0-9_-]{32,}` run, redacted with its length preserved) would degrade gracefully instead, at
+the cost of some false positives in diagnostics — which is the right trade for a redactor.
+
+Related: §560, §567.
+
+## 565. Two settings sections clear a token by resealing an empty string instead of removing it — OPEN
+
+**Status:** OPEN 2026-09-18 — established by `grep -rnE "saveSecretValue|removeSealed" src/app --include=*.tsx | grep -v "[.]test[.]"`, which shows which sections call which; **never machine-verified** by a test asserting the store is empty after a clear. An inconsistent mechanism, NOT an exposure: the resealed value is empty, so nothing recoverable is left behind.
+
+**Work item:** _not yet filed — needs the user's explicit say before a GitLab issue is opened (2026-09-18)._
+
+`jira-settings.tsx:191` and `timelog-settings.tsx:59` call `saveSecretValue(<id>, value, "device")`
+unconditionally on change, so clearing the field seals `""` and leaves a ciphertext entry in
+`aipm-cockpit:secrets` that decrypts to nothing. The other three sections —
+`settings-sections/ai-section.tsx`, `dictation-section.tsx` and `integrations-section.tsx` (Turso) —
+call `removeSealed(<id>)` and delete the entry.
+
+Harmless today, and worth one line only because of what an inconsistency like this costs later: a
+reader auditing "is the secret gone?" finds an entry under the id and has to decrypt it to learn
+that it is empty, and any future check that treats *presence of an entry* as *a secret is set* is
+wrong for two of five ids. Route both through `removeSealed` on an empty value.
+
+Related: §567 (the same file family, a heavier version of the same problem).
+
+## 566. The Jira proxy logs the raw fetch-rejection object server-side — OPEN
+
+**Status:** OPEN 2026-09-18 — established by `grep -n "console[.]" src/app/api/jira/_helpers.ts`; **never machine-verified**, and there is nothing to verify until the undici error shape changes. No reachable leak today; filed as robustness, at the bottom of the priority order.
+
+**Work item:** _not yet filed — needs the user's explicit say before a GitLab issue is opened (2026-09-18)._
+
+`console.error("Jira upstream fetch failed:", err)` serialises whatever the rejection carries. No
+`Authorization` header is reachable through an undici fetch error as it stands — the error does not
+carry the request — so there is nothing to redact today.
+
+It is filed because that is a property of the CURRENT undici error shape, not a guarantee, and a
+server log is a place where a future shape change would be noticed late or never. `err.message`
+gives the same diagnostic value with no dependence on what the rejection happens to hold.
+
+## 567. `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — OPEN
+
+**Status:** OPEN 2026-09-18 — established by `grep -nE "SECRET_IDS|isSealedSecret" src/app/secrets.ts` and `grep -n "readStore" -A 14 src/app/secrets-store.ts`; **never machine-verified**, since no test drops an id to watch the read fail. Found while fixing §560, NOT in the 2026-09 audit, and the reason it was not found is the point: it is a data-loss path, not an exposure path, so a security sweep looking for leaks walked straight past it. **Deliberately not fixed in this slice.**
+
+**Work item:** _not yet filed — needs the user's explicit say before a GitLab issue is opened (2026-09-18)._
+
+Two hardcoded enumerations of the five `SecretId`s survive:
+
+- `secrets.ts:58` — `isSealedSecret` validates the id with a five-way `s.id === "…" || …` chain.
+- `secrets-store.ts:13` — `readStore` iterates a five-element `as const` array and copies across
+  only the ids it names. ★ Note the FILE: this one lives in `secrets-store.ts`, not `secrets.ts`,
+  which is where a reader following AGENTS.md's six-edit lockstep bullet would look first.
+
+**Why it is worse than the §560 shape it resembles.** §560's hardcoded list, when it fell behind,
+failed to REDACT — bad, but detectable by inspection. These two fail to READ: an id missing from
+either list means `readStore` drops the entry on load and `isSealedSecret` rejects it, so a
+correctly sealed secret is silently discarded and the user is shown an empty field they will retype.
+The ciphertext is still on disk; nothing reports anything. AGENTS.md already warns that a missed id
+in the `isSealedSecret` allowlist "silently drops the ciphertext on read" — this entry records that
+the warning is still live, and that the tool to retire it now exists.
+
+**Why it is now cheap.** §560 introduced the exported `SECRET_IDS` and its id→path mapping precisely
+so a list like this can be derived. A sixth secret already gets export redaction for free; these two
+are what stands between that and the whole lockstep collapsing to one edit.
+
+**★★ Why it was deliberately deferred, which is a judgement worth recording rather than repeating.**
+`secrets.ts` and `secrets-store.ts` are the most safety-critical modules in the app, and the failure
+mode of a mistake here is silent loss of a user's API keys with no error and no log line. Doing that
+as an unplanned addition at the tail of a long branch — after eleven commits and three fix rounds,
+with the branch's own review attention spent — is the exact circumstance in which that kind of
+mistake ships. It wants its own slice, its own tests (a round-trip per id, driven off `SECRET_IDS`
+so a sixth id is covered without being named) and its own reviewer.
+
+Related: §560, §564, §13.
