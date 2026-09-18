@@ -156,8 +156,8 @@ function dropSubtrees(html: string): string {
  *  returns the input UNCHANGED and the script body survives as on-page text.
  *  Dropping to EOF is a deliberate hardening of that,
  *  pinned by the "drops to end of input for an unterminated drop-subtree tag"
- *  test — not a behaviour to preserve out of fidelity. forEachTagPair below
- *  keeps the pair regex's real fallback instead: what it drops is formatting,
+ *  test — not a behaviour to preserve out of fidelity. forEachTagPair
+ *  (./tag-pair-walk) keeps the pair regex's real fallback instead: what it drops is formatting,
  *  not the noise subtrees this function exists to suppress, so an unclosed
  *  <li> is better left as text than used to delete the document's tail. */
 function dropTagSubtree(html: string, tag: string): string {
@@ -264,7 +264,7 @@ export const NO_EXTRACTABLE_TEXT = "_(document contained no extractable text)_";
  *  hostile by assumption and is processed on the browser MAIN THREAD, so one
  *  quadratic step is enough to freeze the tab. The `<tag>...</tag>` pair regex
  *  is the recurring way to reintroduce one — stripComments, dropTagSubtree and
- *  forEachTagPair above each replace one instance of it, and no
+ *  forEachTagPair (./tag-pair-walk) each replace one instance of it, and no
  *  `[\s\S]*?` regex is left here. stripTrailingOpenTag replaces the fourth
  *  and worst one, which wore no `[\s\S]*?` at all. TAG_STRIP_RE is the one
  *  unbounded-looking scan left and is the exception: it is bounded by
