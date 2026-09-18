@@ -115,6 +115,13 @@ export async function callJira(
       redirect: "manual",
     });
     if (res.status >= 300 && res.status < 400) {
+      // Never read, so release it rather than leave the connection held open
+      // until the body is garbage-collected.
+      try {
+        await res.body?.cancel();
+      } catch (err) {
+        console.error("Jira upstream redirect body cancel failed:", err);
+      }
       return Response.json(
         { error: "upstream-redirect" },
         { status: 502 },

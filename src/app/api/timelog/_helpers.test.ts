@@ -87,6 +87,19 @@ describe("timelog proxy SSRF guard", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it("releases the body of a refused 3xx instead of leaving it unread", async () => {
+    const cancel = vi.fn();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(new ReadableStream({ cancel }), {
+        status: 302,
+        headers: { location: "https://evil.example/" },
+      }),
+    );
+    const r = await callTimelog(creds, "/v1/user", { method: "GET" });
+    expect(r.status).toBe(502);
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
   it("tells fetch not to follow redirects itself", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
     await callTimelog(creds, "/v1/user", { method: "GET" });
