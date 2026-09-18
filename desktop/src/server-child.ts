@@ -5,6 +5,9 @@ import { APP_HOST, APP_PORT } from "./lib/constants";
 
 // Children whose `exit` has fired. UtilityProcess has no `exitCode`, so
 // killServer cannot ask the child whether it is dead; it asks this set.
+// Belt-and-braces: electron.d.ts also types `pid` as undefined after `exit`,
+// but that is the only other signal, and it is equally undefined BEFORE
+// `spawn` -- so on its own it cannot tell "dead" from "not started yet".
 const exited = new WeakSet<UtilityProcess>();
 
 // Start the Next standalone server on ELECTRON'S OWN NODE, as a utility
@@ -47,7 +50,13 @@ export function spawnServer(resourcesPath: string): UtilityProcess {
 // other Node process they own. This mirrors the discipline in
 // scripts/stop-dev.mjs, which is port-scoped for the same reason.
 export function killServer(child: UtilityProcess | null): void {
-  if (!child || exited.has(child) || child.pid === undefined) return;
+  if (!child || exited.has(child)) return;
+  if (child.pid === undefined) {
+    // Forked but not spawned yet: there is no PID to kill. Kill it the moment
+    // it gets one, or a quit during start-up would orphan it onto the port.
+    child.once("spawn", () => killServer(child));
+    return;
+  }
   try {
     if (process.platform === "win32") {
       // /T kills the process TREE, so a server that spawned workers does not

@@ -783,7 +783,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-unclosed-markup--closed-2026-09-18) | The three OOXML extractors were quadratic on repetitive unclosed markup | audit (2026-09) | M | **CLOSED** 2026-09-18 |
 | [§559](#559-the-jira-and-timelog-proxies-followed-upstream-redirects-with-credentials-attached--closed-2026-09-18) | The Jira and Timelog proxies followed upstream redirects with credentials attached | audit (2026-09) | S | **CLOSED** 2026-09-18 |
 | [§560](#560-the-config-export-redaction-backstop-covered-three-of-the-five-sealed-secrets--closed-2026-09-18) | The config-export redaction backstop covered three of the five sealed secrets | audit (2026-09) | S | **CLOSED** 2026-09-18 |
-| [§561](#561-the-electron-fuses-are-set-but-no-packaged-build-has-confirmed-them--open) | The Electron fuses are set but no packaged build has confirmed them — OPEN | audit (2026-09) | S (verify) | open |
+| [§561](#561-the-electron-fuses-are-confirmed-on-a-local-package-only-not-by-the-ci-desktop-package-job--open) | The Electron fuses are confirmed on a local package only, not by the CI desktop-package job — OPEN | audit (2026-09) | S (verify) | open |
 | [§562](#562-the-shared-proxy-rate-limiter-is-bypassable-by-a-client-supplied-header-and-its-store-is-in-memory--open-decision-owed) | The shared proxy rate limiter is bypassable by a client-supplied header, and its store is in-memory — OPEN (decision owed) | audit (2026-09) | decision | open |
 | [§563](#563-the-desktop-installer-is-unsigned--open-tied-to-the-publishing-decision) | The desktop installer is unsigned — OPEN (tied to the publishing decision) | audit (2026-09) | decision | open |
 | [§564](#564-diagnostics-redactts-has-no-catch-all-for-an-opaque-token-in-free-text--open) | `diagnostics-redact.ts` has no catch-all for an opaque token in free text — OPEN | audit (2026-09) | S | open |
@@ -38801,9 +38801,9 @@ allowlist fails: never at the moment it is written, always three secrets later.
 Related: §564 (the same hardcoded-list rot in `diagnostics-redact.ts`), §567 (two more hardcoded
 `SecretId` lists that `SECRET_IDS` can now close), §13.
 
-## 561. The Electron fuses are set but no packaged build has confirmed them — OPEN
+## 561. The Electron fuses are confirmed on a local package only, not by the CI desktop-package job — OPEN
 
-**Status:** OPEN 2026-09-18 — the code change landed (`40f47dc5`) and is readable with `grep -n "electronFuses" -A 6 desktop/electron-builder.yml`, but the EFFECT is **never machine-verified** by any gate. Fuses take effect only in a packaged build, and `desktop-package` is a MANUAL CI job. One LOCAL package was checked by hand on 2026-09-18 (below), and the packaged smoke spec cannot run against a fused build. Do not read the commit as closing this.
+**Status:** OPEN 2026-09-18 — the code change landed (`40f47dc5`) and is readable with `grep -n "electronFuses" -A 6 desktop/electron-builder.yml`, but the EFFECT is **never machine-verified** by any gate. Fuses take effect only in a packaged build, and `desktop-package` is a MANUAL CI job. One LOCAL package was checked on 2026-09-18 (below), including a green packaged smoke; the CI job has not run. Do not read the commit as closing this.
 
 **Work item:** #348
 
@@ -38839,16 +38839,31 @@ only `process.execPath` use in the traced `next/dist/server` + `next/dist/lib` i
 `EnableNodeCliInspectArguments is Disabled`, `EnableNodeOptionsEnvironmentVariable is Disabled` and
 `OnlyLoadAppFromAsar is Enabled`; launched directly, the packaged exe answered HTTP 200 on
 `127.0.0.1:17300`, the listener was the `--type=utility` child, the window reached the app, and a
-normal window close killed the child and freed the port. **Not verified:**
-`ELECTRON_RUN_AS_NODE=1 <app>.exe -e "console.log(1)"` was not run, and `npm run e2e:desktop` is
-RED on this build for a reason of its own — Playwright's `electron.launch` injects `--inspect=0`,
-which `enableNodeCliInspectArguments: false` refuses, so the launch times out before any assertion
-runs. The smoke spec cannot drive a fused package as written.
+normal window close killed the child and freed the port.
 
-**What is owed:** run the manual `desktop-package` job, then confirm on the produced binary — the
-fuse wire is readable from the packaged executable, and `ELECTRON_RUN_AS_NODE=1 <app>.exe -e
-"console.log(1)"` should no longer execute. Until someone does that, this is a configuration
-asserted by reading a YAML file, which is the class of claim this register exists to distrust.
+★★ **The fuses also broke the packaged smoke, which is now reworked.** Playwright's
+`electron.launch` injects `--inspect=0`, which `enableNodeCliInspectArguments: false` refuses, so
+`npm run e2e:desktop` timed out before any assertion ran. `e2e/desktop-smoke.spec.ts` now spawns
+the exe with `--remote-debugging-port=0`, reads the bound port from `DevToolsActivePort` in its
+throwaway profile and attaches with `chromium.connectOverCDP`; the loopback/LAN test uses no CDP at
+all. It drives the FUSED binary — never package an unfused one for the test.
+
+★★ **The inspect fuse does not close every local attach route, and must not be read as if it
+did.** `--remote-debugging-port` is a Chromium switch that no Electron fuse gates, which is exactly
+why the smoke can use it: a local actor can launch the shipped exe with it and drive the renderer
+over CDP. Chromium refuses the switch on its DEFAULT profile directory, so it cannot attach to the
+user's real profile that way — that narrows the route, it does not close it. (That refusal is
+Chromium's documented behaviour; it was NOT measured against this Electron build.) Same local-only threat
+model as the rest of this entry.
+
+**What is owed:**
+
+1. Run the manual CI `desktop-package` job and read the fuse wire off the binary it produces
+   (`electron-fuses read --app <exe>`). Not done — only a local package has been checked.
+2. The packaged smoke on a fused build. **Done 2026-09-18** on the local package: `npm run
+   e2e:desktop` green, all three tests.
+3. `ELECTRON_RUN_AS_NODE=1 <app>.exe -e "console.log(1)"` must no longer execute as Node. Not run;
+   the fuse read is the only evidence so far.
 
 ★ This lands in the same gap as the M365 sign-in verification already owed on a packaged 1.6.1+
 build: anything that only exists in a packaged artifact is invisible to every local gate and to
