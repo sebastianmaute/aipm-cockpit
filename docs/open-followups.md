@@ -38921,32 +38921,39 @@ so a future caller cannot omit it silently.
 
 ## 583. `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — CLOSED 2026-09-19
 
-**Status:** CLOSED 2026-09-19 — root cause found and fixed on `docs/spec-c-dashboard-rework`. Reproduced by
-running `npx vitest run src/app/budget-history.property.test.ts -t "unattributed is 0"` five times with no
-explicit seed (unseeded, so each run drew its own); the third run failed at `seed -1591760474` after 39378
-property runs, with `Counterexample: [0,[0.000001,1.0587911840678754e-22,0.0000018680146407231636,0],0]`.
+**Status:** CLOSED 2026-09-19 — root cause found and fixed on `docs/spec-c-dashboard-rework`; sharpened in
+fix round 1 after review. Reproduced by running `npx vitest run src/app/budget-history.property.test.ts -t
+"unattributed is 0"` five times with no explicit seed (unseeded, so each run drew its own); the third run
+failed at `seed -1591760474` after 39378 property runs, with `Counterexample:
+[0,[0.000001,1.0587911840678754e-22,0.0000018680146407231636,0],0]`.
 
 **Work item:** #368
 
 Root cause, confirmed against the counterexample: NOT accumulated floating-point error against large
 magnitudes (the counterexample's values are all ~1e-6, nowhere near the 1e7 ceiling the original hypothesis
 suspected). `recordBudgetChange` drops a step as a no-op when its move is below `BAC_EPSILON`
-(`Math.abs(dh) < BAC_EPSILON && Math.abs(dv) < BAC_EPSILON`), but `buildHistory`'s `prev` still advances past
-a dropped step — so the next RECORDED entry's `before` is the dropped step's true (tiny) value, not the
-previous recorded entry's `after`. The recorded delta chain then omits exactly the dropped transition's own
-delta, which `BAC_EPSILON` bounds by construction (that bound is why it was droppable) but does not make
-exactly zero. With up to `steps.length - 1` such drops possible in one chain, the true `unattributed` value
-can legitimately sit up to `(steps.length - 1) * BAC_EPSILON` away from 0 — a property of the design, not a
-production bug. The old assertion's flat `1e-6` bound had zero headroom against even a single drop, so a few
-ULPs of ordinary floating summation noise on top of that design-level gap tipped it over.
+(`Math.abs(dh) < BAC_EPSILON && Math.abs(dv) < BAC_EPSILON`) — an intentional sub-epsilon noise filter, not
+an engine defect, confirmed by review. The PRODUCTION writer, `commitBuckets` (`use-budget-buckets.ts`,
+`before = projectBac(prev)`), recomputes `before`/`after` from the live bucket state on every commit rather
+than from the last RECORDED entry; the test's `buildHistory` mirrors that exactly (its own `prev` advances
+past a dropped step the same way). So the next recorded entry's `before` is the dropped step's true (tiny)
+value, not the previous recorded entry's `after`, and the recorded delta chain omits exactly the dropped
+transition's own delta — bounded by `BAC_EPSILON` by construction (that bound is why it was droppable) but
+not exactly zero. That dropped delta surfaces later as unattributed variance, same as undo/version-restore
+bypassing this write path entirely (documented in the file header, now also on `recordBudgetChange` itself).
 
-Fix: `budget-history.property.test.ts`'s "unattributed is 0…" property now asserts
-`Math.abs(split.unattributed) <= steps.length * BAC_EPSILON` (one full `BAC_EPSILON` more slack than the
-`steps.length - 1` design bound, to absorb the summation noise) instead of the flat `1e-6`. The captured
-counterexample is pinned as an explicit regression test alongside it. Verified stable: 3 further runs of
-200000 `numRuns` each (600000 total) against the new bound, all green; mutation check reverted the bound to
-flat `1e-6` on the regression test, confirmed it went red, then restored it — `git diff --stat` clean apart
-from this file and the register.
+Fix: `budget-history.property.test.ts`'s "unattributed is close to 0…" property now sizes its slack to the
+drops actually observed in that run — `droppedCount = steps.length - (history.length - 1)` — and asserts
+`Math.abs(split.unattributed) <= (droppedCount + 1) * BAC_EPSILON` (one extra `BAC_EPSILON` of headroom for
+ordinary floating summation noise on top), replacing the round-1 fix's `steps.length * BAC_EPSILON`
+worst-case bound. The captured counterexample is pinned as an explicit MECHANISM regression (history has
+baseline + 3 recorded, i.e. `steps[1]` was dropped; `split.unattributed` equals the dropped move
+`steps[1] - steps[0]` to 12 decimal places), not just the widened bound. Verified stable: 3 further runs of
+200000 `numRuns` each (600000 total) against both the droppedCount-based property bound and the original
+round-1 bound, all green; two mutation checks — reverting the regression's tolerance to a flat `1e-6` (round
+1) and temporarily disabling the `BAC_EPSILON` skip in `recordBudgetChange` itself so the sub-ε move gets
+recorded (round-1-fix round, a production mutant) — both turned the regression red, then were reverted;
+`git diff --stat` clean apart from this file and the two source files each round touched.
 
 ## 584. Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18
 
