@@ -103,6 +103,20 @@ test.describe("dashboard grid geometry", () => {
     expect(Math.abs(kpi.height - (2 * 80 + m.rowGap))).toBeLessThan(1.5);
   });
 
+  test("emitted the Dashboard-only height utilities — an h:8 tile is eight row units tall", async ({ page }) => {
+    // ★★ Spec C: `H_CLASS` gained literal `row-span-5`…`row-span-8`, and only
+    // the rendered box can prove Tailwind emitted the rule — a missing one
+    // would collapse the tile to one implicit row with every unit test green.
+    // `burn` is 2×8 by default and first on a fresh board (this seed stores no
+    // layout, so the default is what renders).
+    const m = await gridMetrics(page);
+    expect(m.autoRows).toBe("80px");
+    const burn = await tileBox(page, "burn");
+    expect(Math.abs(burn.height - (8 * 80 + 7 * m.rowGap))).toBeLessThan(1.5);
+    // …and it is two of the four xl tracks wide.
+    expect(Math.abs(burn.width - (m.contentWidth - m.colGap) / 2)).toBeLessThan(1.5);
+  });
+
   test("emitted the width-span utilities — a w:4 tile fills the row, a w:2 tile is half", async ({ page }) => {
     // ★★★ THIS IS THE FAILURE MODE THAT IS INVISIBLE EVERYWHERE ELSE. If
     // `W_CLASS` were built by interpolation, Tailwind would emit no rule, every

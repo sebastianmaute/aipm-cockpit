@@ -738,7 +738,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **Action-Center grouping (slice 1):** pure i18n-free `next-actions/group.ts` `groupNextActions(actions)` collapses
   signals on the SAME entity into one `ActionGroup` (key = open-CTA `${cta.view}:${cta.id}`, else the action's own id
   so snooze-only ids never merge; `primary`=max-score, `extra`=rest, group `score`/`tier`=primary's). `computeNextActions`
-  stays FLAT — grouping is SURFACE-ONLY; learning/notifications/AI keep the flat list. `actions-panel.tsx` caps Now/Soon
+  stays FLAT — grouping is SURFACE-ONLY; learning/notifications/AI keep the flat list. ★ It runs ONCE, in
+  `task-manager.tsx` (`nextActionGroups`), which `ActionsPanel` renders and the Dashboard takes its hero and Top-actions
+  primaries from (spec C). `actions-panel.tsx` caps Now/Soon
   at `MAX_VISIBLE_PER_TIER=5` with a show-more toggle.
 - **Action-row layout (slice 2):** `action-row.tsx` shows tier as a coloured LEFT STRIPE (`TIER_STRIPE` →
   `border-l-[var(--rag-red)]` for now, with `--rag-amber`/`--rag-green` for soon/monitor — REPLACED the dot; RAG tokens
@@ -762,7 +764,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `action-row.tsx` AND `action-hero-card.tsx`) + `TIER_RAG` (tier→stripe/dot token classes — ★ NO `text` variant, see
   landmine). Shared React controls in `action-cta-controls.tsx` (`ActionPrimaryCta`/`ActionOverflowMenu`/`useActionCaps`/
   `ActionHandlers`/`AssignOwnerBundle`, re-exported by `action-row`) render identical CTAs for the compact row AND the
-  hero. Hero = `groups[0]`, shown only when `tier!=="monitor"`, DE-DUPED from its tier list (`g.key!==heroKey`).
+  hero. Hero = `pickHeroGroup(groups)` (`groups[0]`, only when `tier!=="monitor"` — the Dashboard's row 2 calls the same helper), DE-DUPED from its tier list (`g.key!==heroKey`).
   `action-reasons.tsx` = shared +N-reasons expander. Escalate/Rebaseline/Reschedule popovers + the assign button take a
   `prominent?` prop (hero = filled+larger via `action-cta-styles.ts` `popoverTriggerClass`; rows pass nothing → unchanged
   ghost). Source icon/pill GONE — source label is a bold prefix in the why-line; numeric score is `expertMode`-only.
@@ -1087,6 +1089,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   assertion is mutation-proved — reordering the two resets turns it red. ★ It is also the one member carrying its
   own `!arrangement.readOnly` guard, because the stack around it is gated only on `print:hidden`; a popout is
   read-only by design and would otherwise gain a working reset.
+  ★★ SINCE SPEC C THE DASHBOARD'S STACK ENDS WITH A FOURTH CONTROL AFTER THE GROUP — `DashboardHiddenBadge`, the
+  hidden-tiles count that toggles the tray under row 1: Print · reset-layout · reset-size · badge. It is the one
+  deliberate exception to "ends with the trailing group": it is the arrangement's disclosure and drop target, not a
+  utility, and it renders only while a tile is hidden or a drag is in flight, so the three resets stay contiguous with
+  or without it. Pinned by the same `contiguous: true` assertion, once without the badge and once with it.
   ★★★ **A PANE WITH BOTH IS FOUR MEMBERS: Print · reset-columns · reset-layout · reset-size.** Reports is the
   first pane to carry all four; the two above are the three-member SPECIAL CASES of it. ★ NO VERSION IS
   QUOTED, and adding one back is a regression twice over: this said "(0.290.x)" while `version.ts` read
