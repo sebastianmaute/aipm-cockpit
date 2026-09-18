@@ -130,6 +130,18 @@ describe("shiftWorkspaceDates", () => {
     expect(a.actualHours).toEqual({ "2026-06-30": 5, "2026-07": 1 });
   });
 
+  // Only two NUMBERS can be merged; any other colliding pair has no sound sum,
+  // so the shift refuses (loadDemo surfaces it as the demo-error toast) rather
+  // than silently keeping one value. Same collision as the test above.
+  it("throws when two date keys collide after the roll and a value is not numeric", () => {
+    const bucket = {
+      ...master.budgets![0],
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: {}, actualHours: { "2026-05-30": "two", "2026-05-31": 3 } }],
+    };
+    const ws = { ...master, plan: { ...master.plan, granularity: "month" as const }, budgets: [bucket] } as unknown as Workspace;
+    expect(() => shiftWorkspaceDates(ws, 1)).toThrow("non-numeric collision on key 2026-06-30");
+  });
+
   it("re-keys ISO week periods for a week plan", () => {
     const ws = {
       ...master,
@@ -181,16 +193,17 @@ describe("shiftWorkspaceDates", () => {
         // weekend distributions) depending on which actual month the shift
         // lands the bucket in — unrelated to the boundary fix. Measured on this
         // master over n = -3..15: the largest observed relative move with the
-        // fix in place is ~7.1% (bucket 5, n=8). A DROPPED first month (the
-        // bug this fix closes) removes far more than that — measured with the
-        // boundary exemption reverted, every n where a period was dropped also
-        // showed a budgetHours move of 22%-100% on the affected bucket. 20% is
-        // comfortably above the legitimate variance and comfortably below a
-        // dropped month.
+        // fix in place is ~7.1% (bucket 5, n=8).
+        // ★ THE PIN IS THE PERIOD-COUNT AND EXACT-ACTUALS ASSERTIONS ABOVE, not
+        // this bound. With the boundary exemption reverted, the dropped-month
+        // moves measured 22%-100% — so the LOW end of that range sits close to
+        // any loose bound, and a bound alone is no reliable detector of a
+        // dropped month. This is a SANITY FLOOR on budgetHours, tightened to
+        // 12% (still above the ~7.1% legitimate maximum on every n here).
         expect(ar.budgetHours, `n=${n} bucket=${br.bucketId} budgetHours=0`).toBeGreaterThan(0);
         const rel = Math.abs(ar.budgetHours - br.budgetHours) / br.budgetHours;
         expect(rel, `n=${n} bucket=${br.bucketId} budgetHours ${br.budgetHours} -> ${ar.budgetHours} (${(rel * 100).toFixed(1)}%)`)
-          .toBeLessThanOrEqual(0.2);
+          .toBeLessThanOrEqual(0.12);
       }
     }
   });

@@ -1,7 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isJsonFile, parseNativeWorkspace } from "./native-workspace-import";
+import { jsonToWorkspace } from "./workspace";
+
+// The real decoder, wrapped so one test can force a NON-WorkspaceParseError.
+vi.mock("./workspace", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./workspace")>();
+  return { ...actual, jsonToWorkspace: vi.fn(actual.jsonToWorkspace) };
+});
 
 const sample = readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8");
 
@@ -28,6 +35,13 @@ describe("parseNativeWorkspace", () => {
   });
   it("calls a workspace-shaped object with a broken slice invalid", () => {
     expect(parseNativeWorkspace('{"tasks": [], "raid": 7}')).toEqual({ kind: "invalid", reason: "shape" });
+  });
+  it("calls any other decoder failure invalid/shape, never letting it escape", () => {
+    // A plain Error carries no `reason`: the fallback must supply one.
+    vi.mocked(jsonToWorkspace).mockImplementationOnce(() => {
+      throw new Error("unexpected decoder failure");
+    });
+    expect(parseNativeWorkspace(sample)).toEqual({ kind: "invalid", reason: "shape" });
   });
 });
 
