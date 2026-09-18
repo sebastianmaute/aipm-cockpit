@@ -32,14 +32,14 @@
 // import is erased at compile time, so nothing here pulls the dictionaries into
 // a bare node process. A VALUE import from `./i18n` would break that.
 import type { TranslationKey } from "./i18n";
-import { specById, type BlockSpan } from "./arrangement-layout";
+import { specById, type BlockHeight, type BlockWidth } from "./arrangement-layout";
 
-/** ★ AN ALIAS OF THE ENGINE'S `BlockSpan`, NOT A SECOND DECLARATION. The two
- *  were briefly independent spellings of the same closed union, which is how a
- *  widened engine and an un-widened catalogue could have disagreed in silence.
- *  The NAME stays because it has 20+ call sites across the Dashboard's own
- *  components — this is a rename-free collapse, not an export change. */
-export type TileSpan = BlockSpan;
+/** ★ ALIASES OF THE ENGINE'S `BlockWidth` / `BlockHeight`, NOT SECOND
+ *  DECLARATIONS. Two independent spellings of one union are how a widened
+ *  engine and an un-widened catalogue could disagree in silence. Spec C split
+ *  the former single `TileSpan` in two so an 8-wide tile cannot type-check. */
+export type TileWidth = BlockWidth;
+export type TileHeight = BlockHeight;
 
 export type DashboardTileId =
   | "kpi" | "topActions" | "insights" | "raid" | "upcoming"
@@ -74,12 +74,12 @@ export interface TileSpec {
    * to BOTH dicts first, or `tsc` is telling you the tile has no title.
    */
   labelKey: TranslationKey;
-  w: TileSpan;
-  h: TileSpan;
-  minW: TileSpan;
-  maxW: TileSpan;
-  minH: TileSpan;
-  maxH: TileSpan;
+  w: TileWidth;
+  h: TileHeight;
+  minW: TileWidth;
+  maxW: TileWidth;
+  minH: TileHeight;
+  maxH: TileHeight;
   /** True when this tile exists at all for the given project. */
   gate: (g: TileGateInput) => boolean;
 }

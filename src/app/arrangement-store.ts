@@ -114,7 +114,7 @@ function isPlacedBlock(v: unknown): boolean {
  * assignable TO that but not FROM it. The cast back down belongs at the
  * surface's adapter, where it is one visible line rather than a hidden generic.
  * ★★ THE ID IS NOT THE ONLY UNSOUND AXIS — the SPANS are too, and by more. A
- * `PlacedBlock`'s `w`/`h` are `BlockSpan = 1|2|3|4`, while this accepts any
+ * `PlacedBlock`'s `w`/`h` are `BlockWidth`/`BlockHeight` (1–4 / 1–8), while this accepts any
  * finite number: `99`, `-3` and `2.7` all pass. That is the deliberate
  * looseness `isPlacedBlock` documents (range is `reconcile`'s job — it clamps
  * per axis), but do not read the narrowing as proving anything about the values

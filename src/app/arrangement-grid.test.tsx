@@ -25,6 +25,17 @@ describe("span class tables", () => {
   it("does not clamp height", () => {
     expect(H_CLASS[3]).toBe("row-span-3");
   });
+
+  it("holds a WHOLE literal row-span class for each Dashboard-only height 5–8 (spec C)", () => {
+    // ★★ A literal assertion, not the regex above: `/^row-span-\d$/` would pass
+    // a table that spelled 8 as `row-span-4`. Heights 5–8 exist for the
+    // Dashboard's tall Budget burn tile; Reports caps itself at 4 through its
+    // own catalogue (`report-blocks.test.ts`).
+    expect(H_CLASS[5]).toBe("row-span-5");
+    expect(H_CLASS[6]).toBe("row-span-6");
+    expect(H_CLASS[7]).toBe("row-span-7");
+    expect(H_CLASS[8]).toBe("row-span-8");
+  });
 });
 
 /**
@@ -86,13 +97,17 @@ describe("span class tables (source form)", () => {
     return m![1];
   };
 
-  for (const name of ["W_CLASS", "H_CLASS"]) {
+  // ★ Spec C split the span type: four WIDTHS (`BlockWidth`, the four-column
+  // grid) and eight HEIGHTS (`BlockHeight`). A miss means the regex drifted or
+  // a table lost an entry.
+  const ENTRIES: Record<"W_CLASS" | "H_CLASS", number> = { W_CLASS: 4, H_CLASS: 8 };
+  for (const name of ["W_CLASS", "H_CLASS"] as const) {
     it(`holds ${name} as whole double-quoted literals, never a template`, () => {
       const body = tableBody(name);
       expect(body).not.toContain("${");
       expect(body).not.toContain("`");
       const values = [...body.matchAll(/^\s*\d\s*:\s*(.+?),\s*$/gm)].map((m) => m[1]);
-      expect(values).toHaveLength(4);          // one per BlockSpan; a miss means the regex drifted
+      expect(values).toHaveLength(ENTRIES[name]);
       // Only class characters between the quotes — an interpolation cannot pass.
       for (const v of values) expect(v).toMatch(/^"[a-z0-9:\- ]+"$/);
     });

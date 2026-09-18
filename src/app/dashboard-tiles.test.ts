@@ -16,11 +16,17 @@ describe("DASHBOARD_TILES", () => {
     }
   });
 
-  it("keeps every limit within the 1..4 span range", () => {
+  it("keeps every width within 1..4 and every height within 1..8", () => {
+    // ★ Spec C split the span type: widths stay on the four-column grid,
+    // heights reach 8 for the Dashboard's tall tiles.
     for (const t of DASHBOARD_TILES) {
-      for (const v of [t.minW, t.maxW, t.minH, t.maxH]) {
-        expect(v).toBeGreaterThanOrEqual(1);
-        expect(v).toBeLessThanOrEqual(4);
+      for (const v of [t.minW, t.maxW]) {
+        expect(v, `${t.id} width`).toBeGreaterThanOrEqual(1);
+        expect(v, `${t.id} width`).toBeLessThanOrEqual(4);
+      }
+      for (const v of [t.minH, t.maxH]) {
+        expect(v, `${t.id} height`).toBeGreaterThanOrEqual(1);
+        expect(v, `${t.id} height`).toBeLessThanOrEqual(8);
       }
     }
   });

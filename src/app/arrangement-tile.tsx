@@ -4,7 +4,7 @@ import { W_CLASS, H_CLASS } from "./arrangement-grid";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { DragHandle } from "./drag-handle";
 import { t, type Lang } from "./i18n";
-import type { BlockSpan } from "./arrangement-layout";
+import type { BlockHeight, BlockWidth } from "./arrangement-layout";
 
 /** Spread onto the DROP TARGET — `useListReorderDnd(...).itemProps(id)`. */
 export interface BlockDragProps {
@@ -22,8 +22,8 @@ export interface BlockHandleProps {
 export interface ArrangementTileProps {
   id: string;
   title: string;
-  w: BlockSpan;
-  h: BlockSpan;
+  w: BlockWidth;
+  h: BlockHeight;
   lang: Lang;
   readOnly: boolean;
   dragProps: BlockDragProps;
