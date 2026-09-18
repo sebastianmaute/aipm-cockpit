@@ -179,7 +179,9 @@ cannot rot out of step with the `SecretId` union again. At `ed6ed8e4` it named t
 the shipped exe. Local-only impact, cheap fix.
 
 **Status:** fixed (register §561). `desktop/electron-builder.yml` now carries an `electronFuses`
-block; at `ed6ed8e4` it carried none.
+block; at `ed6ed8e4` it carried none. Disabling `RunAsNode` also broke the desktop server launch,
+which relied on `ELECTRON_RUN_AS_NODE`; `desktop/src/server-child.ts` now uses
+`utilityProcess.fork` instead (see §561).
 
 ## MEDIUM-4 (by design) — MSAL auth-flow trusts any https host once entered
 

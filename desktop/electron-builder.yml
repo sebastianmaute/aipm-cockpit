@@ -75,7 +75,10 @@ extraResources:
 # `desktop-package` CI job is the only thing that runs this step.
 electronFuses:
   # Stops `ELECTRON_RUN_AS_NODE=1` turning the shipped exe into a
-  # general-purpose Node interpreter.
+  # general-purpose Node interpreter. The app's own Next server does NOT
+  # depend on it: server-child.ts launches it with `utilityProcess.fork`,
+  # which runs a Node child without this fuse (the earlier
+  # spawn(process.execPath) + ELECTRON_RUN_AS_NODE launch broke with it off).
   runAsNode: false
   # Closes `--inspect`/`--inspect-brk` (and SIGUSR1) as a way to attach a
   # debugger to, or inject code into, the packaged process.

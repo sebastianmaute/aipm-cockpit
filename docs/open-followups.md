@@ -38803,7 +38803,7 @@ Related: §564 (the same hardcoded-list rot in `diagnostics-redact.ts`), §567 (
 
 ## 561. The Electron fuses are set but no packaged build has confirmed them — OPEN
 
-**Status:** OPEN 2026-09-18 — the code change landed (`40f47dc5`) and is readable with `grep -n "electronFuses" -A 6 desktop/electron-builder.yml`, but the EFFECT is **never machine-verified**. Fuses take effect only in a packaged build, and `desktop-package` is a MANUAL CI job, so nothing in this slice observed them on a real binary. Do not read the commit as closing this.
+**Status:** OPEN 2026-09-18 — the code change landed (`40f47dc5`) and is readable with `grep -n "electronFuses" -A 6 desktop/electron-builder.yml`, but the EFFECT is **never machine-verified** by any gate. Fuses take effect only in a packaged build, and `desktop-package` is a MANUAL CI job. One LOCAL package was checked by hand on 2026-09-18 (below), and the packaged smoke spec cannot run against a fused build. Do not read the commit as closing this.
 
 **Work item:** #348
 
@@ -38820,6 +38820,30 @@ fuses on a packaged build.
 `desktop/electron-builder.yml` now sets `runAsNode: false`,
 `enableNodeCliInspectArguments: false`, `enableNodeOptionsEnvironmentVariable: false` and
 `onlyLoadAppFromAsar: true`.
+
+★★★ **Turning `RunAsNode` off broke the app's own server launch, and the fuse commit alone would
+have shipped a desktop app that never starts.** `desktop/src/server-child.ts` started the Next
+standalone server as `spawn(process.execPath, [server.js])` with `ELECTRON_RUN_AS_NODE=1` — which is
+exactly the switch this fuse disables. With it off, Electron ignores the variable, the child boots
+as a second Electron GUI instance, nothing listens on the port, and the app dies in its "did not
+finish starting" dialog. No gate could see it: the fuses exist only in a packaged build. The server
+is now launched with Electron's `utilityProcess.fork`, which runs a Node child without the fuse, so
+`runAsNode: false` stays. The Next standalone server itself was checked for the same dependency: the
+only `process.execPath` use in the traced `next/dist/server` + `next/dist/lib` is
+`runTypeScriptCli.js` (build-time), and the one `child_process` call on the runtime path
+(`start-server.js`, a port-owner lookup via `netstat`/`lsof` on `EADDRINUSE`) spawns a shell, not
+`process.execPath`.
+
+**What was verified, 2026-09-18, on a LOCAL `npm run desktop:package` build — not the CI job:**
+`electron-fuses read` on the packaged exe reports `RunAsNode is Disabled`,
+`EnableNodeCliInspectArguments is Disabled`, `EnableNodeOptionsEnvironmentVariable is Disabled` and
+`OnlyLoadAppFromAsar is Enabled`; launched directly, the packaged exe answered HTTP 200 on
+`127.0.0.1:17300`, the listener was the `--type=utility` child, the window reached the app, and a
+normal window close killed the child and freed the port. **Not verified:**
+`ELECTRON_RUN_AS_NODE=1 <app>.exe -e "console.log(1)"` was not run, and `npm run e2e:desktop` is
+RED on this build for a reason of its own — Playwright's `electron.launch` injects `--inspect=0`,
+which `enableNodeCliInspectArguments: false` refuses, so the launch times out before any assertion
+runs. The smoke spec cannot drive a fused package as written.
 
 **What is owed:** run the manual `desktop-package` job, then confirm on the produced binary — the
 fuse wire is readable from the packaged executable, and `ELECTRON_RUN_AS_NODE=1 <app>.exe -e
