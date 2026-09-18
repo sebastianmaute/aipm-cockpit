@@ -75,6 +75,20 @@ export function unescapeXml(input: string): string {
  * replaced (docx/pptx/xlsx/html's own comments all quote a `<name\b...`
  * shape), so `\b` there is faithful porting, not a second instance of this
  * bug — extractRuns's original shape was the one exception.
+ *
+ * ★ A THIRD divergence from the original regex, found in the round-4
+ * re-review, not fixed (both behaviours are wrong, so there is nothing to
+ * restore): `html[gt - 1] === "/"` (tag-pair-walk.ts) reads whatever
+ * character sits right before the FIRST ">", with no awareness of
+ * quoting. `<w:t a="x/>y">text</w:t>` has a literal ">" inside a quoted
+ * attribute value — legal XML (AttValue excludes only "<", "&", and the
+ * quote character, not ">") — so the real tag-closing ">" is the SECOND
+ * one, not the first. This walk finds the first ">" (inside the quotes),
+ * sees a "/" immediately before it, and misreads the whole tag as
+ * self-closing — skipping it (no entry) where the original regex's same
+ * first-">"-wins greediness instead yielded `y">text` as a run. Different
+ * wrong answers, same root cause (neither this walk nor the regex it
+ * replaces is attribute-quote-aware), pre-dating this whole slice.
  */
 export function extractRuns(xml: string, tag: string): string[] {
   const spec: TagPairSpec = {

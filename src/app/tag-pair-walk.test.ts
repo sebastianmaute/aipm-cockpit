@@ -70,6 +70,33 @@ describe("forEachTagPair", () => {
     expect(pairs).toEqual(["value"]);
   });
 
+  it("pins that skipSelfClosing silently no-ops without hasAttributes (documented coupling, not enforced)", () => {
+    // §558 fix round 4, N4: self-close DETECTION lives entirely inside the
+    // `hasAttributes` block (it needs that block's `gt` lookup to find the
+    // tag's own ">"), so setting skipSelfClosing without hasAttributes:
+    // true does nothing - TagPairSpec's own docs state the coupling in
+    // prose, but nothing enforces it. Pinning the CURRENT behaviour here
+    // rather than making the two independent: no spec in this codebase
+    // needs skipSelfClosing without hasAttributes, and self-close detection
+    // is inherently about knowing where the tag's own ">" is - exactly what
+    // hasAttributes computes.
+    const spec: TagPairSpec = {
+      openPattern: "<a\\b",
+      closeName: () => "a",
+      hasAttributes: false,
+      skipSelfClosing: true,
+    };
+    const pairs: string[] = [];
+    forEachTagPair("<a/>real</a>", spec, (p) => {
+      pairs.push(p.inner);
+      return true;
+    });
+    // If skipSelfClosing worked without hasAttributes, <a/> would be
+    // skipped, leaving no "a" left to match - instead the self-close is
+    // invisible and "/>real" is swallowed as one (wrong) pair's inner text.
+    expect(pairs).toEqual(["/>real"]);
+  });
+
   it("keeps retired-name lookups cheap, so a missing close stays linear", () => {
     // A single ">" at the very end (no space after "w:tbl", so `\b` still
     // matches against the following "<") means the FIRST open pays for one
