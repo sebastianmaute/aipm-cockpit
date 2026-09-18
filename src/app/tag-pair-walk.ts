@@ -31,6 +31,26 @@ export interface TagPairSpec {
    *  open tag's ">"; false for the bare `<name\b` shape, whose inner text
    *  starts immediately (those call sites only read `whole`). */
   hasAttributes: boolean;
+  /** When true, an open tag that is ITSELF self-closing (`<name/>` or
+   *  `<name attr="..."/>` — detected the same way `hasAttributes` finds the
+   *  open tag's own ">") is skipped entirely: `visit` is never called for
+   *  it, and the walk moves on to the next open of the same name. Requires
+   *  `hasAttributes: true` (the check needs that ">").
+   *
+   *  Without this flag, a self-closing open is paired with the NEXT
+   *  same-named close tag, silently merging real content between them into
+   *  this pair's `inner`/`whole` — extractRuns (office-xml.ts) hit exactly
+   *  this on `<t/>`: `<si><t/></si><si><t>hello</t></si>` extracted
+   *  `["</si><si><t>hello"]` instead of `["hello"]` (§558 fix round 3).
+   *
+   *  Default (omitted): OFF, preserving every existing call site's
+   *  behaviour — html-extract.ts's TABLE/ROW/CELL/HEADING/LIST_ITEM pairs
+   *  and docx/pptx/xlsx's own block-level pairs never saw a self-closing
+   *  form of their own tag from the ORIGINAL lazy-regex shape they replace
+   *  either (that regex shape merges forward on one too, identically to
+   *  the un-flagged behaviour here — see forEachTagPair's own note), so
+   *  turning this on for them would be a NEW divergence, not a fix. */
+  skipSelfClosing?: boolean;
 }
 
 /** Walk every `<name ...>...</name>` pair in document order, linearly, calling
@@ -90,6 +110,19 @@ export function forEachTagPair(html: string, spec: TagPairSpec, visit: (pair: Ta
       const gt = html.indexOf(">", innerStart);
       // `[^>]*>` cannot match here, nor at any open further right.
       if (gt === -1) return;
+      // ★ Checked BEFORE touching `closers` — a self-closing instance says
+      // nothing about whether OTHER opens of this name have a real close
+      // elsewhere (`<t/><t>real</t>` still needs the second one paired
+      // normally), so this must never retire `name`. No caching needed
+      // either: each self-close's own ">" is necessarily near ITS OWN start
+      // (bounded by that one tag's attribute length), so this scan can't
+      // reintroduce the O(n^2) shape forEachXmlElement's cache exists for —
+      // and a name with no ">" anywhere still aborts via the `gt === -1`
+      // check above on the very first attempt, before any of this runs.
+      if (spec.skipSelfClosing && html[gt - 1] === "/") {
+        openRe.lastIndex = gt + 1;
+        continue;
+      }
       innerStart = gt + 1;
     }
     closeRe.lastIndex = innerStart;

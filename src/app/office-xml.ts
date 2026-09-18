@@ -35,18 +35,38 @@ export function unescapeXml(input: string): string {
  * Return the ordered inner text of every `<tag ...>...</tag>` occurrence,
  * XML-unescaped. `\b` after the tag name guards against a prefix collision
  * (`<w:t>` must not match `<w:tbl>`) and `hasAttributes` skips to the open
- * tag's own closing `>` before reading inner text. Self-closing tags and
- * tags with child elements are out of scope — OOXML text tags (w:t/a:t/t) hold
- * pure text.
+ * tag's own closing `>` before reading inner text. A self-closing `<tag/>`
+ * or `<tag attr="..."/>` is SKIPPED — it produces no entry in the returned
+ * array — never matched as a pair with a later close tag. Tags with child
+ * elements are out of scope — OOXML text tags (w:t/a:t/t) hold pure text.
  *
  * Walked via the shared forEachTagPair cursor (tag-pair-walk.ts) rather than
  * a `[\s\S]*?` lazy pair regex — that shape is quadratic on repetitive
  * unclosed markup (every open re-scans to end of input), and this is a
  * shared primitive three extractors call, so the fix belongs here once
  * rather than at each caller (§558).
+ *
+ * ★★★ `skipSelfClosing: true` is REQUIRED here and is not decorative. The
+ * ORIGINAL lazy regex this replaced, `<tag(?:\s[^>]*)?>([\s\S]*?)</tag>`,
+ * did not match a bare self-closing `<tag/>` at all (its optional-attribute
+ * group only fires after a LEADING WHITESPACE, and a bare "/" satisfies
+ * neither that nor the immediate-">" path), so callers never saw an entry
+ * for one. Porting to forEachTagPair WITHOUT this flag regressed that: the
+ * walk paired the self-closing open with the NEXT same-named close tag
+ * instead, silently injecting raw XML markup into extracted text —
+ * `<si><t/></si><si><t>hello</t></si>` yielded `["</si><si><t>hello"]`
+ * instead of `["hello"]`. Fixed in fix round 3 of §558. The SAME check also
+ * closes a bug the old regex already had for the ATTRIBUTE form
+ * (`<t xml:space="preserve"/>` merged forward identically, pre-dating this
+ * whole slice) — one fix, two bugs, only one of which was a regression.
  */
 export function extractRuns(xml: string, tag: string): string[] {
-  const spec: TagPairSpec = { openPattern: `<${tag}\\b`, closeName: () => tag, hasAttributes: true };
+  const spec: TagPairSpec = {
+    openPattern: `<${tag}\\b`,
+    closeName: () => tag,
+    hasAttributes: true,
+    skipSelfClosing: true,
+  };
   const out: string[] = [];
   forEachTagPair(xml, spec, (pair) => {
     out.push(unescapeXml(pair.inner));

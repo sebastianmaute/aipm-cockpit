@@ -32,6 +32,34 @@ describe("office-xml", () => {
     expect(extractRuns(xml, "w:t")).toEqual(["cell"]);
   });
 
+  it("skips a bare self-closing tag instead of merging the next run into it (xlsx shape)", () => {
+    // §558 fix round 3: porting extractRuns onto forEachTagPair regressed
+    // this - without skipSelfClosing, <t/> paired with the NEXT <t>...</t>,
+    // swallowing "</si><si><t>" as if it were part of the first run's text.
+    // Old regex: ["hello"]. New code before this fix: ["</si><si><t>hello"].
+    const xml = "<si><t/></si><si><t>hello</t></si>";
+    expect(extractRuns(xml, "t")).toEqual(["hello"]);
+  });
+
+  it("skips a bare self-closing tag instead of merging the next run into it (docx shape)", () => {
+    // Same regression, the docx w:t namespace form. Old regex: ["Real"].
+    // New code before this fix: ["</w:p><w:p><w:t>Real"].
+    const xml = "<w:p><w:t/></w:p><w:p><w:t>Real</w:t></w:p>";
+    expect(extractRuns(xml, "w:t")).toEqual(["Real"]);
+  });
+
+  it("skips a self-closing tag with attributes, not just the bare form", () => {
+    // A DIFFERENT, pre-existing bug: the ORIGINAL regex (before this whole
+    // slice, and before Task 3's port) already merged THIS form forward -
+    // `(?:\s[^>]*)?>` fires on the leading whitespace before `xml:space`,
+    // so it matched `<t xml:space="preserve"/>` as an ordinary open tag and
+    // then searched for the next `</t>`. The `gt - 1 === "/"` check fixes
+    // both forms with one guard, so this one is fixed as a side effect, not
+    // separately targeted.
+    const xml = '<w:p><w:t xml:space="preserve"/></w:p><w:p><w:t>Real</w:t></w:p>';
+    expect(extractRuns(xml, "w:t")).toEqual(["Real"]);
+  });
+
   it("does not blow up on repetitive unclosed markup", () => {
     // 100k unclosed <t opens, no closing tag anywhere - same shape as
     // docx-extract.test.ts's fixture, sized up from its 40k: at 40k the
