@@ -7,6 +7,9 @@
 // redacted). All localStorage access is guarded; nothing throws to callers.
 
 import { type Lang, migrateLang } from "./i18n";
+// secrets.ts is a leaf module (no imports, no React) — safe for this pure
+// module to depend on, unlike use-settings/portfolio-mode noted below.
+import { SECRET_IDS, SECRET_SETTINGS_PATHS } from "./secrets";
 
 // Literal copies of the real key names (asserted equal to the source consts in
 // recovery-config.test.ts, so they can't drift). Kept literal so this pure
@@ -107,27 +110,56 @@ export function listBackups(): BackupMeta[] {
   return readIndex(store);
 }
 
+/**
+ * Immutably replace the value at `path` with REDACTED. Two deliberate no-ops:
+ * a missing branch is left absent (an unconfigured integration must not gain an
+ * empty object in its export), and a falsy leaf is left as-is (writeSettings
+ * blanks these to "", and rewriting "" as REDACTED would tell a reader a secret
+ * was present when none was).
+ */
+function redactPath(
+  node: Record<string, unknown>,
+  path: readonly string[],
+): Record<string, unknown> {
+  const [head, ...rest] = path;
+  const child = node[head];
+  if (rest.length === 0) {
+    return child ? { ...node, [head]: REDACTED } : node;
+  }
+  if (!child || typeof child !== "object" || Array.isArray(child)) return node;
+  const next = redactPath(child as Record<string, unknown>, rest);
+  return next === child ? node : { ...node, [head]: next };
+}
+
+/**
+ * Defense-in-depth: writeSettings already blanks every sealed secret before
+ * persisting, but redact here too so a config export cannot leak one if that
+ * regresses — which is the only scenario this function exists for.
+ *
+ * It walks SECRET_SETTINGS_PATHS rather than naming fields, because naming them
+ * is the defect being fixed: the hardcoded version covered three of the five
+ * and missed timelog.apiToken and dictation.sttApiKey for as long as they had
+ * existed. A sixth secret is now covered by adding it to that one mapping.
+ */
 function redactSettings(raw: string): unknown {
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const out = { ...parsed };
-    const integrations = out.integrations as { turso?: { authToken?: string } } | undefined;
-    if (integrations?.turso?.authToken) {
-      out.integrations = {
-        ...integrations,
-        turso: { ...integrations.turso, authToken: REDACTED },
-      };
-    }
-    const jira = out.jira as { apiToken?: string } | undefined;
-    if (jira?.apiToken) out.jira = { ...jira, apiToken: REDACTED };
-    // Defense-in-depth: writeSettings already blanks ai.apiKey before persisting,
-    // but redact here too so a config export can never leak it if that regresses.
-    const ai = out.ai as { apiKey?: string } | undefined;
-    if (ai?.apiKey) out.ai = { ...ai, apiKey: REDACTED };
-    return out;
+    parsed = JSON.parse(raw);
   } catch {
+    // Unparseable blob: hand back the raw string rather than dropping it, so a
+    // corrupted settings key is still visible in the export the user downloads.
     return raw;
   }
+  // The catch above deliberately wraps JSON.parse ALONE. It used to wrap the
+  // redaction too, which turned any fault in the walk into `return raw` — i.e.
+  // a broken mapping would have emitted the whole settings blob UNREDACTED,
+  // every secret in it, and reported success. Measured, not theorised: deleting
+  // one mapping entry did exactly that. A redaction backstop must fail loudly.
+  let out = { ...(parsed as Record<string, unknown>) };
+  for (const id of SECRET_IDS) {
+    out = redactPath(out, SECRET_SETTINGS_PATHS[id]);
+  }
+  return out;
 }
 
 /** JSON of the current live config keys, with secrets redacted. For download. */

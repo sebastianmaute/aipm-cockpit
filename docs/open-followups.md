@@ -247,7 +247,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§10](#10-keyboard-move-has-no-preview--band-and-day-grid-both--open) | Keyboard move has no preview — band and day grid both — open | R5 (0.202.2) | M | open |
 | [§11](#11-instanceof-domexception-abort-check-misreports-a-user-cancel--closed-in-02111) | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED** in 0.211.1 |
 | [§12](#12-list_allocations-dumps-the-grid-should-be-a-scoped-query--open-design) | `list_allocations` dumps the grid; should be a scoped query — open, design | R4 (0.201.0) | M | open |
-| [§13](#13-security-audit-is-scope-stale--open) | Security audit is scope-stale — open | audit was v0.164 | M | open |
+| [§13](#13-security-audit-is-scope-stale--closed-2026-09-18) | Security audit is scope-stale | audit was v0.164 | M | **CLOSED** 2026-09-18 |
 | [§14](#14-timelog-has-two-per-device-stores-keyed-differently--closed-in-02111) | ~~Timelog has two per-device stores keyed differently~~ | 0.207.0 | S | **CLOSED** in 0.211.1 |
 | [§15](#15-two-file-picker-patterns--extract-a-filepickerbutton-primitive--closed-in-02111) | ~~Two file-picker patterns — extract a `FilePickerButton` primitive~~ | 0.208.0 (Yolen) | S | **CLOSED** in 0.211.1 |
 | [§16](#16-dictation-flattens-rich-formatting--open-needs-a-design) | Dictation flattens rich formatting — open, needs a design | 0.196.0, widened 0.209.0 | M | open |
@@ -780,11 +780,24 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§555](#555-the-next-actions-and-ai-dashboard-model-never-receives-recorded-budget-history--closed-2026-09-17) | The Next Actions and AI dashboard model never receives recorded budget history — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #345 | S — pass snapshots and budget history, or say why that model omits them | closed |
 | [§556](#556-the-earned-value-today-point-never-flags-a-partial-bucket-or-a-join--closed-2026-09-17) | The earned-value today point never flags a partial bucket or a join — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #346 | S — decide whether today's point may carry partial and join entries | closed |
 | [§557](#557-no-end-to-end-fixture-carries-budget-history-so-no-browser-run-renders-the-new-budget-surfaces--closed-2026-09-17) | No end-to-end fixture carries budget history, so no browser run renders the new budget surfaces — CLOSED 2026-09-17 | found 2026-09-17 while finishing the earned-value history branch, user approved filing; GitLab #347 | M — seed budget history and bucket progress, then extend the axe and visual runs | closed |
+| [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-unclosed-markup--closed-2026-09-18) | The three OOXML extractors were quadratic on repetitive unclosed markup | audit (2026-09) | M | **CLOSED** 2026-09-18 |
+| [§559](#559-the-jira-and-timelog-proxies-followed-upstream-redirects-to-hosts-outside-the-allowlist--closed-2026-09-18) | The Jira and Timelog proxies followed upstream redirects to hosts outside the allowlist | audit (2026-09) | S | **CLOSED** 2026-09-18 |
+| [§560](#560-the-config-export-redaction-backstop-covered-three-of-the-five-sealed-secrets--closed-2026-09-18) | The config-export redaction backstop covered three of the five sealed secrets | audit (2026-09) | S | **CLOSED** 2026-09-18 |
+| [§561](#561-the-electron-fuses-are-confirmed-on-a-local-package-only-not-by-the-ci-desktop-package-job--open) | The Electron fuses are confirmed on a local package only, not by the CI desktop-package job — OPEN | audit (2026-09) | S (verify) | open |
+| [§562](#562-the-shared-proxy-rate-limiter-is-bypassable-by-a-client-supplied-header-and-its-store-is-in-memory--open-decision-owed) | The shared proxy rate limiter is bypassable by a client-supplied header, and its store is in-memory — OPEN (decision owed) | audit (2026-09) | decision | open |
+| [§563](#563-the-desktop-installer-is-unsigned--open-tied-to-the-publishing-decision) | The desktop installer is unsigned — OPEN (tied to the publishing decision) | audit (2026-09) | decision | open |
+| [§564](#564-diagnostics-redactts-has-no-catch-all-for-an-opaque-token-in-free-text--open) | `diagnostics-redact.ts` has no catch-all for an opaque token in free text — OPEN | audit (2026-09) | S | open |
+| [§565](#565-two-settings-sections-clear-a-token-by-resealing-an-empty-string-instead-of-removing-it--open) | Two settings sections clear a token by resealing an empty string instead of removing it — OPEN | audit (2026-09) | S | open |
+| [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--open) | The Jira proxy logs the raw fetch-rejection object server-side — OPEN | audit (2026-09) | S | open |
+| [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--open) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — OPEN | slice (2026-09) | M | open |
+| [§568](#568-the-registers-index-rebuild-recipe-is-not-a-no-op-on-the-committed-table-and-discards-hand-written-state-prose--open) | The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN | slice (2026-09) | S–M | open |
 | [§569](#569-screen-readers-may-never-deliver-the-chart-readouts-arrow-keys--open) | Screen readers may never deliver the chart readout's arrow keys — OPEN | found 2026-09-18 reviewing the merged chart hover readout; never run under a real screen reader; GitLab #354 | S — a real NVDA and JAWS pass, then pick `role="application"`, instructions, or the live-region fallback | open |
 | [§570](#570-the-spoken-readout-capitalises-mid-sentence--open) | The spoken readout capitalises mid-sentence — OPEN | found 2026-09-18 reading `rowText` against the tip strings in `i18n.ts`/`i18n.de.ts`; GitLab #355 | XS — lower-case the explanation or join with a full stop; German nouns make a blanket lower-case unsafe | open |
 | [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--open) | The chart-box clamp's boundary width has no test — OPEN | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | open |
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
 | [§573](#573-the-open-points-visual-baseline-is-stale--open) | The Open Points visual baseline is stale — OPEN | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | open |
+| [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
+| [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN | audit (2026-09) | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1446,11 +1459,10 @@ parameters does not change either property; do not add a guard while in there.
 
 ---
 
-## 13. Security audit is scope-stale — open
+## 13. Security audit is scope-stale — CLOSED 2026-09-18
 
-**Status:** open — a scope-stale audit, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups`: the re-scope was run and landed as `docs/security/findings-2026-09.md` (`71bc3ea1`), a dated snapshot verified against `origin/main` at `ed6ed8e4`. It covers the two surfaces no prior audit had touched — **`/api/stt`**, the BYO-base-URL proxy this entry singles out, and the whole `desktop/` Electron shell — and it corrects the stale `SecretId` count below. It found three fixable items, all remediated on the same branch (§558, §559, §560); one configuration change that is committed but still awaiting a packaged build to confirm it (§561); two accepted observations recorded as decision records (§562, §563); and three robustness items (§564, §565, §566). §567 was found while fixing §560 rather than by the audit, and is filed beside them. ★ It does NOT supersede the PX-9 note below: that remains a conditional trigger, now restated with its own scope correction in §562.
 
-**Work item:** #92
 
 `docs/security/findings-2026-07.md` is dated **2026-07-02, scope "v0.164 Cixin"**. The app is
 **0.259.0** (re-read 2026-08-25 at that release — `grep -n APP_VERSION src/app/version.ts`; this
@@ -38684,6 +38696,455 @@ Fix shape: seed a baseline plus create, increase and delete entries (in `e2e/see
 master, if the sample should stay free of history), re-baseline the affected visual specs, and confirm the
 axe scan renders the change table. Leave the Turso-only span to an eye-verify.
 
+## 558. The three OOXML extractors were quadratic on repetitive unclosed markup — CLOSED 2026-09-18
+
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups`: `docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts` and the shared `extractRuns` in `office-xml.ts` all located their elements with lazy backtracking `[\s\S]*?` pair regexes, so a single unclosed open tag made every following open re-scan to end of input. All four now walk one linear cursor — `forEachTagPair` in the new `src/app/tag-pair-walk.ts`, extracted from `html-extract.ts`, which had already solved this for itself and was the only OOXML-adjacent extractor not affected. `xlsx-extract.ts` additionally needed a local `forEachXmlElement` (`grep -n "function forEachXmlElement" src/app/xlsx-extract.ts`), because real xlsx self-closes empty rows and cells and the shared walk is paired-only. Eleven commits: `0ac53c0c` (extract the walk), `4fdabde6` (docx), `5d354f76` (the close-name ordering test), `fc904400` (xlsx, pptx, `extractRuns`), `ecf88557` and `afe0b925` (the self-closing path, and marking which of its tests are mutation-proved and which are not), then three fix rounds — `10dbc77f` (`extractRuns` corrupted output on a bare self-closing text tag), `9f0a697d` (harden the xlsx cache pin, correct the docx perf comment's numbers, drop the now-dead `runsText`), `d061d37e` (restore case sensitivity, tighten the open-tag boundary), `f9a6509a` (pin the close-lookup retirement) — and `42f1c172` (pin case-insensitive tag matching). The final review then found three more quadratic reads in the same extractors. That sweep could not see them because it grepped only for the lazy pair shape. `0655e54e` fixed all three. docx `renderParagraph` read its heading level with `<w:pStyle\b[^>]*w:val=…`. It now calls `headingDigit` (`docx-extract.ts`). xlsx `sheetEntries` used `<sheet\b[^>]*\/?>` and `<Relationship\b[^>]*\/?>`. Both now call `forEachOpenTag`, a new walk in `tag-pair-walk.ts`. xlsx `sheetNames` used `<sheet\b[^>]*\bname=…`. It now calls `readSheetName`, which `345ff195` made keep a quoted `>` inside a name, as the regex did. xlsx `cellValue` used `<v>([\s\S]*?)<\/v>`. It now finds the first `<v>` with two forward `indexOf` scans. The same commit makes `sheetRows` drop a cell whose column is past XFD (`MAX_XLSX_COLUMNS`). Before, `<c r="ZZZZZZZ1"/>` padded the row towards about 8e9 entries. The cap bounds a ROW, not a sheet: many rows can each still pad out to 16,384 cells ([§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open)). Verified by `npx vitest run src/app/tag-pair-walk.test.ts src/app/docx-extract.test.ts src/app/xlsx-extract.test.ts src/app/pptx-extract.test.ts src/app/office-xml.test.ts src/app/html-extract.test.ts --maxWorkers=1`.
+
+**The shape.** A lazy pair regex is linear on well-formed markup, because each open finds its close
+nearby. It is quadratic on markup where the close is missing: the engine scans from the open to end
+of input, fails, backtracks, and the next open repeats the whole scan. Repetitive unclosed markup is
+therefore the worst case for all four extractors at once, and it is trivial to author.
+
+**★★ The measured cost — read it off the committed tests, never off this paragraph.** Each number
+below sits in a comment beside the fixture that produces it, with the command to re-check:
+
+| site | old regex | cursor walk | fixture as committed |
+|---|---|---|---|
+| `office-xml.ts` `extractRuns` | ~11.5 s | <5 ms | 100k unclosed `<t ` opens |
+| `pptx-extract.ts` `a:p` walk | ~11 s | <5 ms | 120k unclosed `<a:p ` opens |
+| `docx-extract.ts` `w:tbl`/`w:p` walk | ~24.4 s | linear | 120k unclosed `<w:tbl ` opens (840,063 chars) |
+| `xlsx-extract.ts` row/cell walk | 195 / 785 / 3783 ms at 80k / 160k / 320k reps | 2.6 / 4.4 / 20.8 ms | 320k unclosed `<c ` opens |
+| `docx-extract.ts` pStyle heading read | ~5.3 s | 1 ms | 40k unclosed `<w:pStyle ` opens in one `<w:p>` |
+| `xlsx-extract.ts` `sheetNames` | ~14.7 s | 1 ms | 80k unclosed `<sheet ` opens |
+| `xlsx-extract.ts` `sheetEntries` workbook and rels reads | ~4.5 s and ~9.8 s, each mutated alone | 1 ms | 40k `<sheet ` plus 40k `<Relationship ` opens, with no `>` anywhere |
+| `xlsx-extract.ts` `cellValue` | ~9.6 s | 2 ms | 160k unclosed `<v>` inside one `<c>` |
+
+The xlsx row is the clearest demonstration that the growth is quadratic rather than merely steep:
+four times the input for roughly nineteen times the time. The docx row says the same at a different
+scale — three times the reps (40k to 120k) for roughly sixteen times the time (~1.5 s to ~24.4 s).
+
+★★★ **An earlier statement of this curve — "36 / 142 / 524 / 1861 ms at 20k / 40k / 80k / 160k
+chars" — is WRONG and was retracted on this branch by `9f0a697d`.** It conflated repetition count
+with character count and understated the fixture tenfold: the committed 40k-repetition fixture is
+280,063 chars and measured ~1.5 s, not 142 ms. It survived into the slice's own hand-off brief after
+being corrected in the tree, which is the whole reason it is written out here — a reader who
+re-derives from the test files gets the table above, and a reader who copies a prose curve gets a
+number that refutes itself. Re-check any of these with `node -e` against the fixture and print
+`xml.length` before trusting a figure.
+
+**Reachability — this is not a theoretical parse bomb.** `unzip.ts` admits `MAX_INFLATED_BYTES` =
+100 MB per entry and `MAX_TOTAL_INFLATED_BYTES` = 256 MB in aggregate, from an upstream attachment
+cap of 20 MB compressed. Repetitive unclosed markup compresses at an extreme ratio, so a small file
+reaches those ceilings easily. The file arrives by three routes: as a chat attachment, through the
+import wizard, or nested inside a `.eml`/`.msg` that the mail parsers expand into an `IngestNode`
+tree. Nothing on that path throws — the extractor simply runs — so no `catch` intervenes and no
+guard fires. The browser tab hangs.
+
+★★★ **THE GREP BLIND SPOT, which caused two wrong claims in this slice.** `office-xml.ts` built its
+pair regex with `new RegExp` from a template string, so its SOURCE carried the double-escaped
+`[\\s\\S]*?`. Every sweep written for the regex-literal spelling returned zero against it, and it
+was missed twice for exactly that reason — an empty grep read as "already clean".
+
+★★ **The sweep then missed a second shape.** It matched only the lazy `[\s\S]*?`. But a greedy
+`[^>]*` is quadratic by its own mechanism. With no `>` nearby, it runs to the next `>` from EVERY
+open and backtracks. The final review found three such reads, and one more lazy read that had been
+excused as bounded. The table above lists all four. The "bounded per-cell `<v>` read" this entry once
+exempted was false, because one `<c>` can hold the whole sheet. The sweep below catches three shapes:
+
+- the lazy `[\s\S]*?`, in literal spelling and in a template string's double-escaped spelling;
+- a greedy `[^>]*`;
+- a greedy `[^>]+`.
+
+The last two look the same in a literal and in a string source. The sweep drops comment lines and
+test files:
+
+```bash
+grep -rnE '\[\^>\][*+]|\[\\s\\S\]\*\?|\[\\\\s\\\\S\]\*\?' src/app --include=*.ts --include=*.tsx | grep -vE '^[^:]+:[0-9]+: *(/?\*|//)' | grep -vE '\.test\.tsx?:'
+```
+
+It does NOT see a bounded `[^>]{0,N}`, such as `html-extract.ts`'s `TAG_STRIP_RE`, which is built by
+string concatenation. It does not see other backtracking shapes either, such as a leading `\s*`. It
+returns no hits in the four extractors (`docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts`,
+`html-extract.ts`) or in `office-xml.ts`. Quadratic regexes outside the four OOXML extractors are
+out of this entry's scope and are tracked in a separate entry ([§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open)). The
+point of the command is that it can SEE them. The earlier one could not.
+
+★★ **The performance tests are mutation-proved, and the fixture sizes ARE the proof — do not shrink
+them.** Each was verified by restoring the lazy regex, watching the test go red, and reverting the
+mutant. The mutant margins were 14543 ms (`extractRuns`), 11741 ms (pptx) and 11107 ms (xlsx)
+against shipped times of 0, 4 and 3 ms. **At the 40,000 repetitions originally planned, the pptx
+test PASSED against the unfixed code** — under the 1000 ms ceiling, and therefore vacuous. Fixtures
+were re-sized to clear a ≥10x red/green margin, which is why they read as 100k / 120k / 120k / 320k
+rather than a round 40k. The xlsx fixture is larger again for a second, independent reason: it is
+sized to kill a NO-CACHE mutant as well as the regex one, and at 80k that mutant measured ~195 ms —
+comfortably under the ceiling, so that size could not have caught it. The next person to add one of
+these will reach for 40k; the ceiling is deliberately loose because it must fail on the pattern
+class, not on a machine's speed.
+
+★★ **A later pre-release review (`final-release-review.md`) found two more defects in the same
+four extractors, both closed 2026-09-18 on `fix/security-audit-followups`.**
+
+- **M-3 — `05480846`: `extractRuns`'s open pattern admitted a malformed tag as if it were
+  self-closing.** `openPattern: \`<${tag}(?=[\\s/>])\`` (`office-xml.ts`) admitted a bare `/` right
+  after the tag name whether or not it was actually followed by `>`. `<a:t/a:r><a:r><a:t>t2</a:t>`
+  (only reachable on corrupted input, per the review's fuzz) has `<a:t/` satisfy that lookahead; the
+  self-close check (`tag-pair-walk.ts`, `html[gt-1] === "/"`) then does NOT fire, because the first
+  `>` found closes the malformed `<a:t/a:r>` tag itself — it is preceded by "r", not "/" — rather
+  than `<a:r>` — so `<a:t/a:r>` was treated as an ordinary open and paired with the far-away
+  `</a:t>`, leaking raw markup (`<a:r><a:t>t2`) into extracted text.
+  Fixed by splitting the lookahead into `(?=[\s>]|/>)`: a bare `/` is now admitted only immediately
+  before a `>`. Scoped to `extractRuns` alone — every other `TagPairSpec` in the four extractors
+  already uses `\b`, faithfully porting the regex it replaced, so this is not a second instance of
+  the same bug. Verified with `npx vitest run src/app/office-xml.test.ts` (the reviewer's exact
+  repro as a new test, plus a normal-document regression test) and mutation-proved (reverted,
+  confirmed the named test alone goes red, restored).
+- **M-7 — `619f4366`: `sheetEntries`'s rels-path read still cut a `<sheet` tag at a quoted `>`.**
+  `xlsx-extract.ts` `sheetEntries` scanned the workbook's `<sheet ...>` tags via `forEachOpenTag`,
+  whose returned tag text is truncated at the FIRST `>` — including one sitting inside a quoted
+  `name=` value, which legal XML permits unescaped. `345ff195` already fixed this for the
+  POSITIONAL-fallback reader (`sheetNames`/`readSheetName`), but the rels-mapping reader (the one
+  real files use) still had it, and because real Excel writes `name` before `r:id`, the truncation
+  lost `r:id` too — the sheet dropped out of `mapped` entirely (not merely mis-titled), and with
+  another sheet still present `mapped.length > 0` stayed true so `sheetEntries` never fell back to
+  the positional reader either: the sheet vanished from the export altogether. Pre-existing on
+  `main`; the review's fuzz confirmed parity with the old `<sheet\b[^>]*\/?>` regex, which had the
+  identical truncation. Fixed by extracting the quote-aware scan `readSheetName` already used into a
+  shared `quoteAwareTagEnd` (skips a `>` found inside a quoted attribute value), now called by both
+  `readSheetName` and the new `sheetTagAttrs` (the rels-path reader) — one shared helper, not a
+  second copy of the quote-tracking scan (dup:check is blocking). Verified with `npx vitest run
+  src/app/xlsx-extract.test.ts` (a two-sheet, reordered-rels fixture where one name contains `>`,
+  plus the existing linearity/performance fixtures unchanged) and mutation-proved (reverted
+  `sheetTagAttrs`'s bound to a naive `indexOf`, confirmed the named test alone goes red, restored).
+
+Related: §13 (the audit that found it), §559, §560.
+
+## 559. The Jira and Timelog proxies followed upstream redirects to hosts outside the allowlist — CLOSED 2026-09-18
+
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups` (`8aec2a24`): `api/jira/_helpers.ts` and `api/timelog/_helpers.ts` now pass `redirect: "manual"` to `fetch` and reject any 3xx as a 502, mirroring what `api/stt/_helpers.ts` already did. `382efe57` makes both proxies cancel the body of the refused response before they return. Before that, the unread body held the upstream connection until it was garbage-collected. Verified by `npx vitest run src/app/api/jira/_helpers.test.ts src/app/api/timelog/_helpers.test.ts`.
+
+Both proxies applied their host allowlist to the INITIAL URL only, and neither set a redirect
+policy, so `fetch` followed a 3xx by default. A redirect from the configured upstream therefore
+reached a host nobody validated: an unauthenticated request hop to wherever the redirect pointed —
+the allowlist silently stopped applying at exactly the point it was most needed. (Node's `fetch`
+already strips the `Authorization` header on a cross-origin redirect per the Fetch spec, so the
+credential itself was never at risk; the exposure was the unvalidated destination, not a leaked
+credential.)
+
+★ **The 2026-09 audit rates this HIGH-1, and that label governs** — `docs/security/findings-2026-09.md`
+is the dated record of the judgement made at `ed6ed8e4`, and this entry cites it rather than
+re-scoring it. What follows is the practical qualifier, not a competing severity.
+
+Reaching it requires control of, or a foothold in, the configured upstream, so it is not a drive-by,
+and that is why it was never an emergency. It is also why it was FIXED rather than accepted: the
+allowlist is precisely the control meant to survive an upstream that has gone bad, and a control
+that lapses under the condition it was written for is not a control.
+
+★ `/api/stt` was already correct here, and for an instructive reason — its base URL is user-supplied
+BYO, so it could never lean on a vendor apex and had to state a redirect policy explicitly. The two
+proxies that COULD pin an apex are the two that forgot.
+
+## 560. The config-export redaction backstop covered three of the five sealed secrets — CLOSED 2026-09-18
+
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups` (`acae29be`): `redactSettings` (`grep -n "function redactSettings" src/app/recovery-config.ts`) no longer carries a hand-written path list. `secrets.ts` now exports `SECRET_IDS` and an id→settings-path mapping, `redactSettings` derives from it, and a test asserts every `SecretId` has an entry — so a sixth secret fails loudly instead of slipping through the backstop.
+
+`redactSettings` redacted `integrations.turso.authToken`, `jira.apiToken` and `ai.apiKey`, and never
+`timelog.apiToken` or `dictation.sttApiKey`.
+
+**★ This entry is about the SHAPE, not a live leak, and the distinction is the whole finding.** No
+exposure was found: `writeSettings` blanks all five fields before the settings blob is ever
+readable, so in practice the two unredacted paths are already empty by the time `redactSettings`
+sees them. But this function exists *as the backstop for a `writeSettings` regression* — it is the
+second layer, and the only scenario in which it does any work at all is the one where the first
+layer has failed. A hardcoded list is the one shape a backstop must not have, because it silently
+stops covering the case it exists for.
+
+The two that were missed are, unsurprisingly, the two most recently added. That is how a hardcoded
+allowlist fails: never at the moment it is written, always three secrets later.
+
+Related: §564 (the same hardcoded-list rot in `diagnostics-redact.ts`), §567 (two more hardcoded
+`SecretId` lists that `SECRET_IDS` can now close), §13.
+
+## 561. The Electron fuses are confirmed on a local package only, not by the CI desktop-package job — OPEN
+
+**Status:** OPEN 2026-09-18 — the code change landed (`40f47dc5`) and is readable with `grep -n "electronFuses" -A 6 desktop/electron-builder.yml`, but the EFFECT is **never machine-verified** by any gate. Fuses take effect only in a packaged build, and `desktop-package` is a MANUAL CI job. One LOCAL package was checked on 2026-09-18 (below), including a green packaged smoke; the CI job has not run. Do not read the commit as closing this.
+
+**Work item:** #348
+
+`electronFuses` was absent from `desktop/electron-builder.yml`, which left `RunAsNode` enabled on
+the packaged binary: a local actor could run arbitrary Node through the shipped executable, using
+the app's own signature and install path as cover.
+
+★ **The 2026-09 audit rates this MEDIUM-3, and that label governs** — this entry cites the audit
+rather than re-scoring it. The qualifier: the impact is local-only, since an actor who can already
+run code on the machine is the only one who can use the shipped binary as a Node interpreter. It was
+cheap to close, which is why it was closed; it stays OPEN only because nothing has verified the
+fuses on a packaged build.
+
+`desktop/electron-builder.yml` now sets `runAsNode: false`,
+`enableNodeCliInspectArguments: false`, `enableNodeOptionsEnvironmentVariable: false` and
+`onlyLoadAppFromAsar: true`.
+
+★★★ **Turning `RunAsNode` off broke the app's own server launch, and the fuse commit alone would
+have shipped a desktop app that never starts.** `desktop/src/server-child.ts` started the Next
+standalone server as `spawn(process.execPath, [server.js])` with `ELECTRON_RUN_AS_NODE=1` — which is
+exactly the switch this fuse disables. With it off, Electron ignores the variable, the child boots
+as a second Electron GUI instance, nothing listens on the port, and the app dies in its "did not
+finish starting" dialog. No gate could see it: the fuses exist only in a packaged build. The server
+is now launched with Electron's `utilityProcess.fork`, which runs a Node child without the fuse, so
+`runAsNode: false` stays. The Next standalone server itself was checked for the same dependency: the
+only `process.execPath` use in the traced `next/dist/server` + `next/dist/lib` is
+`runTypeScriptCli.js` (build-time), and the one `child_process` call on the runtime path
+(`start-server.js`, a port-owner lookup via `netstat`/`lsof` on `EADDRINUSE`) spawns a shell, not
+`process.execPath`.
+
+**What was verified, 2026-09-18, on a LOCAL `npm run desktop:package` build — not the CI job:**
+`electron-fuses read` on the packaged exe reports `RunAsNode is Disabled`,
+`EnableNodeCliInspectArguments is Disabled`, `EnableNodeOptionsEnvironmentVariable is Disabled` and
+`OnlyLoadAppFromAsar is Enabled`; launched directly, the packaged exe answered HTTP 200 on
+`127.0.0.1:17300`, the listener was the `--type=utility` child, the window reached the app, and
+after a graceful window close the child was gone and the port was freed.
+
+★★ **The fuses also broke the packaged smoke, which is now reworked.** Playwright's
+`electron.launch` injects `--inspect=0`, which `enableNodeCliInspectArguments: false` refuses, so
+`npm run e2e:desktop` timed out before any assertion ran. `e2e/desktop-smoke.spec.ts` now spawns
+the exe with `--remote-debugging-port=0`, reads the bound port from `DevToolsActivePort` in its
+throwaway profile and attaches with `chromium.connectOverCDP`; the loopback/LAN test uses no CDP at
+all. It drives the FUSED binary — never package an unfused one for the test.
+
+★★ **The inspect fuse does not close every local attach route, and must not be read as if it
+did.** `--remote-debugging-port` is a Chromium switch that no Electron fuse gates, which is exactly
+why the smoke can use it: a local actor can launch the shipped exe with it and drive the renderer
+over CDP. Chromium refuses the switch on its DEFAULT profile directory, so it cannot attach to the
+user's real profile that way — that narrows the route, it does not close it. (That refusal is
+Chromium's documented behaviour; it was NOT measured against this Electron build.) Same local-only threat
+model as the rest of this entry.
+
+**What is owed:**
+
+1. Run the manual CI `desktop-package` job and read the fuse wire off the binary it produces
+   (`electron-fuses read --app <exe>`). Not done — only a local package has been checked.
+2. The packaged smoke on a fused build. **Done 2026-09-18** on the local package: `npm run
+   e2e:desktop` green, all three tests.
+3. `ELECTRON_RUN_AS_NODE=1 <app>.exe -e "console.log(1)"` must no longer execute as Node. Not run;
+   the fuse read is the only evidence so far.
+4. **M-6 (`final-release-review.md`) — Done 2026-09-18, `9801919c`.** Nothing had verified that the
+   `enableNodeOptionsEnvironmentVariable` fuse also covers a `utilityProcess.fork`ed child's own env
+   (`spawnServer` builds it from `{ ...process.env, ... }`), as opposed to only the exe itself.
+   `server-child.ts` now scrubs `NODE_OPTIONS`, `NODE_PATH` and `NODE_REPL_EXTERNAL_MODULE` from that
+   env before spawning (`scrubbedEnv`) — the Node env vars documented to load/execute code or attach
+   a debugger. **Probed, not assumed, reported for what it actually shows:** launched the packaged
+   exe with `NODE_OPTIONS=--require <marker-writing script>` set in its own environment, let the
+   server child start, quit it gracefully, and checked whether the marker was created. Result: the
+   marker was NOT created either way — with the scrub in place, and with it mutated back to
+   `...process.env` (rebuilt, repackaged, same probe rerun). **This does not show that the fuse
+   covers the utility-process child.** The probe's only positive control was plain `node` outside
+   Electron; no run showed a marker appearing THROUGH Electron at all, so the no-marker result cannot
+   distinguish the fuse blocking the injection from Electron's own packaged-app `NODE_OPTIONS`
+   restrictions, or from the utility process simply never honouring the variable. The scrub stays as
+   belt-and-braces either way. `npm run e2e:desktop` stayed green (3/3) at fixed and restored. This is
+   a NARROWER probe than items 1 and 3 above (one env var family, one build) and does not close them.
+5. A positive control for the M-6 probe: rerun the same marker-file probe on an unfused or
+   unpackaged (`electron .`) build, to see the marker actually appear through Electron when nothing
+   should be blocking it. Without that control, item 4's no-marker result cannot be attributed to any
+   one cause. Not done.
+6. **`killServer` (`desktop/src/server-child.ts`) is unproven.** `npm run e2e:desktop` stays green
+   (3/3) with `killServer` made a no-op (round-1 mutant of the I-2 smoke rework), because the OS/
+   Chromium teardown of a window's child processes frees the port anyway regardless of whether
+   `killServer` ran. Needs a probe that can tell the two apart — for example the child's own exit log,
+   or a quit fired while a spawn is still pending. Not done.
+7. **`desktop/src/server-child.ts` left the blocking typecheck.** It now imports `utilityProcess` from
+   `electron`, which the root install does not carry, so MR !500's `typecheck` and `build` jobs failed
+   with TS2307. A local `npx tsc --noEmit` did not catch it because electron resolves on a machine that
+   has installed the desktop package. The fix follows the `main.ts` precedent (§547): the root
+   `tsconfig.json` `exclude` list now names `"desktop/src/server-child.ts"`, so only the manual
+   `desktop-package` job compiles it. Getting it back under a blocking gate needs either the fork
+   injected from `main.ts` or a desktop typecheck job in CI. Not done.
+
+★ This lands in the same gap as the M365 sign-in verification already owed on a packaged 1.6.1+
+build: anything that only exists in a packaged artifact is invisible to every local gate and to
+every automatic CI job.
+
+## 562. The shared proxy rate limiter is bypassable by a client-supplied header, and its store is in-memory — OPEN (decision owed)
+
+**Status:** OPEN 2026-09-18 — established by reading `api/jira/_rate-limit.ts` and by `grep -rn "rateLimit(" src/app/api --include=*.ts`, which enumerates the call sites and their scopes; the limiter itself is **never machine-verified** under a varying forwarding header. Filed as a DECISION to record, not a defect to fix: "accept, self-hosted single-process app" may well be the right answer, but it is currently implicit, and an implicit acceptance is indistinguishable from an oversight the next time someone reads the file.
+
+**Work item:** none — decision record
+
+Two independent weaknesses in one helper:
+
+- **The key is attacker-controlled.** `getClientIp` reads `x-forwarded-for` (first comma-segment),
+  then `x-real-ip`, then falls back to `"unknown"`. There is no trusted-proxy configuration, so
+  nothing distinguishes a header set by a reverse proxy from one set by the caller. A client that
+  varies the header gets a fresh bucket per request, and the limit is not a limit.
+- **The store does not survive anything.** A bare in-memory `Map` bounded by `evictElapsed`. It
+  resets on restart and is per-process, so it bounds nothing across replicas. This is the
+  pre-existing **PX-9** accepted risk from `findings-2026-07.md`, whose own verdict says "register
+  as TD if the app moves" to a multi-instance deploy.
+
+**★★ The scope of the limit is narrower than it is usually described, and the correction matters.**
+`MAX_REQUESTS` is 60 per minute per IP **per `scope`**, not 60 shared across the app: `rateLimit`
+namespaces its bucket so routes do not drain each other's quota. Reading it off the call sites there
+are three buckets, not four — `jira` (the default, and Confluence shares it, because
+`api/confluence/page/route.ts` goes through `parseJiraRequest`/`callJira`), `timelog` and `ecb`.
+★ **`/api/stt` is not rate-limited at all** — it never calls `rateLimit`. That is arguably the more
+interesting half of this entry, and it is the route the 2026-07 audit had never looked at.
+
+Re-derive the call sites rather than trusting this list:
+`grep -rn "rateLimit(" src/app/api --include=*.ts | grep -v "\.test\."`.
+
+**The decision to record:** for a self-hosted, single-process, single-tenant deployment behind the
+user's own network boundary, all three observations are acceptable and the cost of fixing them is
+not obviously repaid. What this entry asks for is that the acceptance be WRITTEN, with its trigger:
+if the app ever moves to a multi-instance deploy, or is exposed where the caller is not already
+trusted, the header-derived key and the `Map` both have to go.
+
+Related: §13 (PX-9's original filing).
+
+## 563. The desktop installer is unsigned — OPEN (tied to the publishing decision)
+
+**Status:** OPEN 2026-09-18 — established by reading `desktop/electron-builder.yml`, readable with `grep -n "signExecutable" desktop/electron-builder.yml`; **never machine-verified** against a produced installer. Not filed as a defect: it is acceptable under the current distribution model and becomes a real gap only under a distribution model nobody has decided on yet.
+
+**Work item:** none — decision record
+
+While distribution is internal — the installer handed to known recipients over a channel that
+already authenticates them — the signature adds little the channel does not already provide, and a
+code-signing certificate is a real cost and a real key-management obligation.
+
+It becomes a supply-chain gap the moment the repo goes public and the installer sits on a public
+releases page. There the signature is the ONLY control a downloader has: they cannot inspect the
+build, they cannot verify the channel, and an unsigned binary is indistinguishable from a
+substituted one. SmartScreen friction is the visible symptom; the substituted-installer case is the
+actual risk.
+
+★ This is deliberately tied to the open publishing decision rather than filed as work. Do not close
+it by signing; close it by deciding, and sign if the decision is "public".
+
+## 564. `diagnostics-redact.ts` has no catch-all for an opaque token in free text — OPEN
+
+**Status:** OPEN 2026-09-18 — established by reading `SECRET_VALUE_PATTERNS` via `grep -n "SECRET_VALUE_PATTERNS" -A 8 src/app/diagnostics-redact.ts`; no live leak found, and the gap is **never machine-verified** because no test feeds it an opaque token. Structurally the same hardcoded-list rot as §560, which is why it is worth a line rather than a shrug.
+
+**Work item:** #349
+
+`scrubSecretValues` runs a fixed list of six patterns: `sk-ant-…`, `Bearer …`, `Basic …`, JWTs,
+Atlassian `ATATT…`, and a `key=value` form whose alternation covers the api-key/api-token/
+auth-token/token/secret/authorization/password/passphrase spellings. Every one of them keys off either a VENDOR-SHAPED prefix or a surrounding `key=` frame.
+
+A Timelog API token or an STT key is an opaque string with neither. Landing in free text — an error
+message, a URL fragment, a pasted diagnostic — it matches nothing and is written out whole. The
+`SECRET_KEY_PARTS` name check catches it only when it arrives as a FIELD whose key looks secret-ish,
+not when it arrives inside a value.
+
+No such leak was observed; this is about the same failure mode as §560, where the list stopped
+covering the two most recently added secrets. A high-entropy catch-all (a long unbroken
+`[A-Za-z0-9_-]{32,}` run, redacted with its length preserved) would degrade gracefully instead, at
+the cost of some false positives in diagnostics — which is the right trade for a redactor.
+
+Related: §560, §567.
+
+## 565. Two settings sections clear a token by resealing an empty string instead of removing it — OPEN
+
+**Status:** OPEN 2026-09-18 — established by `grep -rnE "saveSecretValue|removeSealed" src/app --include=*.tsx | grep -v "[.]test[.]"`, which shows which sections call which; **never machine-verified** by a test asserting the store is empty after a clear. An inconsistent mechanism, NOT an exposure: the resealed value is empty, so nothing recoverable is left behind.
+
+**Work item:** #350
+
+`jira-settings.tsx` and `timelog-settings.tsx` each call `saveSecretValue(<id>, value, "device")`
+unconditionally on change, so clearing the field seals `""` and leaves a ciphertext entry in
+`aipm-cockpit:secrets` that decrypts to nothing. The other three sections —
+`settings-sections/ai-section.tsx`, `dictation-section.tsx` and `integrations-section.tsx` (Turso) —
+call `removeSealed(<id>)` and delete the entry.
+
+Harmless today, and worth one line only because of what an inconsistency like this costs later: a
+reader auditing "is the secret gone?" finds an entry under the id and has to decrypt it to learn
+that it is empty, and any future check that treats *presence of an entry* as *a secret is set* is
+wrong for two of five ids. Route both through `removeSealed` on an empty value.
+
+Related: §567 (the same file family, a heavier version of the same problem).
+
+## 566. The Jira proxy logs the raw fetch-rejection object server-side — OPEN
+
+**Status:** OPEN 2026-09-18 — established by `grep -n "console[.]" src/app/api/jira/_helpers.ts`; **never machine-verified**, and there is nothing to verify until the undici error shape changes. No reachable leak today; filed as robustness, at the bottom of the priority order.
+
+**Work item:** #351
+
+`console.error("Jira upstream fetch failed:", err)` serialises whatever the rejection carries. No
+`Authorization` header is reachable through an undici fetch error as it stands — the error does not
+carry the request — so there is nothing to redact today.
+
+It is filed because that is a property of the CURRENT undici error shape, not a guarantee, and a
+server log is a place where a future shape change would be noticed late or never. `err.message`
+gives the same diagnostic value with no dependence on what the rejection happens to hold.
+
+## 567. `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — OPEN
+
+**Status:** OPEN 2026-09-18 — established by `grep -nE "SECRET_IDS|isSealedSecret" src/app/secrets.ts` and `grep -n "readStore" -A 14 src/app/secrets-store.ts`; **never machine-verified**, since no test drops an id to watch the read fail. Found while fixing §560, NOT in the 2026-09 audit, and the reason it was not found is the point: it is a data-loss path, not an exposure path, so a security sweep looking for leaks walked straight past it. **Deliberately not fixed in this slice.**
+
+**Work item:** #352
+
+Two hardcoded enumerations of the five `SecretId`s survive:
+
+- `secrets.ts` — `isSealedSecret` validates the id with a five-way `s.id === "…" || …` chain.
+- `secrets-store.ts` — `readStore` iterates a five-element `as const` array and copies across
+  only the ids it names. ★ Note the FILE: this one lives in `secrets-store.ts`, not `secrets.ts`,
+  which is where a reader following AGENTS.md's six-edit lockstep bullet would look first.
+
+**Why it is worse than the §560 shape it resembles.** §560's hardcoded list, when it fell behind,
+failed to REDACT — bad, but detectable by inspection. These two fail to READ: an id missing from
+either list means `readStore` drops the entry on load and `isSealedSecret` rejects it, so a
+correctly sealed secret is silently discarded and the user is shown an empty field they will retype.
+The ciphertext is still on disk; nothing reports anything. AGENTS.md already warns that a missed id
+in the `isSealedSecret` allowlist "silently drops the ciphertext on read" — this entry records that
+the warning is still live, and that the tool to retire it now exists.
+
+**Why it is now cheap.** §560 introduced the exported `SECRET_IDS` and its id→path mapping precisely
+so a list like this can be derived. A sixth secret already gets export redaction for free; these two
+are what stands between that and the whole lockstep collapsing to one edit.
+
+**★★ Why it was deliberately deferred, which is a judgement worth recording rather than repeating.**
+`secrets.ts` and `secrets-store.ts` are the most safety-critical modules in the app, and the failure
+mode of a mistake here is silent loss of a user's API keys with no error and no log line. Doing that
+as an unplanned addition at the tail of a long branch — after eleven commits and three fix rounds,
+with the branch's own review attention spent — is the exact circumstance in which that kind of
+mistake ships. It wants its own slice, its own tests (a round-trip per id, driven off `SECRET_IDS`
+so a sixth id is covered without being named) and its own reviewer.
+
+Related: §560, §564, §13.
+
+## 568. The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN
+
+**Status:** OPEN 2026-09-18 — measured, not reasoned: the `REBUILD` recipe above was extracted, pointed at a copy of this file with `node`, and the region between the two `INDEX:` markers diffed against the committed one (157 rows changed, nothing outside the markers); a second run on the rebuilt copy was byte-identical; and `npm run followups:index:check` exited 0 on the same committed table throughout. Found during the 2026-09 security audit follow-up slice, which spliced its new rows in by hand to avoid it.
+
+**Work item:** #353
+
+The recipe's own text says it "is idempotent — a rebuild that changes nothing is the proof that the
+table already matches the headings". Half of that holds and half does not, and the half that fails is
+the one a contributor relies on.
+
+- **It IS idempotent** in the strict sense: run it twice and the second run changes nothing.
+- **It is NOT a no-op on the committed table.** Run once against the table as committed, it rewrites
+  **157 of 555 rows** — while `npm run followups:index:check`, the blocking gate over the same table,
+  reports no drift at all. So "a rebuild that changes nothing" never happens, the proof it promises
+  never fires, and anyone who follows this file's own instruction ("rebuild after adding, closing,
+  retitling or renumbering an entry") gets a 157-row diff on a one-entry change.
+
+The 157 rows split into two kinds, and only one is harmless:
+
+- **132 Item cells** lose a trailing `— CLOSED <date>` that the committed table repeats beside the
+  State column. Cosmetic: the date survives in State.
+- **78 State cells** are cut back to the bare `**CLOSED** <date>` marker, discarding hand-written
+  prose after it. That is data loss. §30's cell is the worked example — it carries a one-line summary
+  of the decision taken ("real links where the sink allows one, `text (url)` where it does not"),
+  and that wording appears nowhere in §30's own entry, so the rebuild deletes the only copy.
+
+Why the gate cannot see it: `followups:index:check` compares heading and row SETS by section number;
+it does not compare cell content, so a table can pass it while disagreeing with what the recipe would
+generate.
+
+Options, not yet decided: make the recipe preserve the existing State and Item cells the way it
+already preserves Origin and Size (`keep` holds only those two columns today); or normalise the table
+once, first moving any State prose that exists nowhere else into its entry; or correct the recipe's
+claim to say it is a normaliser rather than a proof. Any of them needs the 78 prose cells checked
+individually before a rebuild is ever run for real.
+
 ## 569. Screen readers may never deliver the chart readout's arrow keys — OPEN
 
 **Status:** OPEN 2026-09-18 — found reviewing the merged chart hover readout (`feat/chart-hover-readout`,
@@ -38807,3 +39268,77 @@ drift is invisible to CI and stays invisible until someone runs the visual proje
 Fix shape: after eye-checking the new Open Points screenshot against the real view, regenerate just that
 baseline with `npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --update-snapshots`
 (on win32, since baselines are per-platform).
+
+## 578. Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN
+
+**Status:** OPEN 2026-09-18 — this entry lists the hits of §558's widened sweep that fall outside the
+extractors. `ee584d71` (committed before this entry was filed) bounded one of them, the RAID
+`BREAK_TAG` LOAD path; the rest — `html-to-text.ts`, `narrative-html.ts`, the RAID WRITE path and the
+eleven `markdown-codecs-core.ts` fenced-block reads — remain open. Established by
+`grep -rnE '\[\^>\][*+]|\[\\s\\S\]\*\?|\[\\\\s\\\\S\]\*\?' src/app --include=*.ts --include=*.tsx | grep -vE '^[^:]+:[0-9]+: *(/?\*|//)' | grep -vE '\.test\.tsx?:'`
+and by `grep -cF '\s*\n+```json' src/app/markdown-codecs-core.ts` (prints 11). The growth rate was measured on the bare
+regexes with `node -e` one-liners, for example
+`node -e "for(const n of [20000,40000,80000]){const s='<li '.repeat(n),t=performance.now();s.replace(/<\s*li[^>]*>/gi,'');console.log(n,Math.round(performance.now()-t))}"`
+(printed 496 / 1970 / 8357 ms). **Never measured end to end through a real call site.**
+
+**Work item:** #363
+
+§558's sweep found the lazy-pair regex shape and greedy `[^>]*` in the OOXML extractors. Widened to
+catch `[^>]*` and `[^>]+`, it also hits four modules outside those extractors. Each is quadratic on
+adversarial input, with roughly four times the time per doubling. The same mechanism appears in every
+case: a greedy class with no bound runs to the end of input from EVERY start position and then
+backtracks.
+
+| site | regex | measured, bare regex | what reaches it | reachability verdict |
+|---|---|---|---|---|
+| `html-to-text.ts` `htmlToPlainText` | `<\s*li[^>]*>` | 496 / 1970 / 8357 ms at 20k / 40k / 80k `<li ` | Confluence page HTML: `confluence-api.ts` passes it to `confluenceJsonToText` (`project-ingest.ts`), which calls `htmlToPlainText` BEFORE the `MAX_INGEST_TEXT` slice | **Most reachable.** Anyone who can edit a Confluence page a user ingests supplies the input, and nothing bounds it before this runs. |
+| `html-to-text.ts` `htmlToPlainText` | `<[^>]+>` | ~0.64 / 2.6 s at 40k / 80k `<` | the same, plus task descriptions on the AI read path (`chat-tools-lists.ts`), rendered templates (`comm-templates.ts`) and the meeting-report diff (`meeting-report-panel.tsx`) | Confluence: as above. The others take workspace data, so a shared or imported workspace file is needed. |
+| `narrative-html.ts` `isNarrativeEmpty` | `<[^>]*>` | 124 / 517 / 2140 ms at 20k / 40k / 80k `<` | `dashboard-narrative.tsx`: on every render of the saved status narrative, and on the draft | Needs a narrative that was imported or hand-edited into the workspace. It is typed in the app's own editor otherwise. Low. It runs per render, so one bad value makes the dashboard itself slow. |
+| `raid-escalation.ts` `BREAK_TAG` (`stripBreakTags`), LOAD path | `\s*<br\b[^>]*>\s*` | `<br ` ×80k: ~23 s bare. Whitespace alone ×80k: ~2.3 s (the leading `\s*` is quadratic on its own). Through `sanitizeRaidEscalations`: ~15.6 s before the fix, 1 ms after. | `sanitizeEntry` (`decodeRaidEscalations` / `sanitizeRaidEscalations`) | **BOUNDED by `ee584d71`.** `sanitizeEntry` now calls `stripBreakTagsWithin(o.toName, NAME_MAX)`, which cuts to `NAME_MAX` before it strips. This row stays only as a record; nothing on the load path is left open. |
+| `raid-escalation.ts` `BREAK_TAG` (`stripBreakTags`), WRITE path | the same | the same, bare | `buildEscalationEntry` (`action-escalate.ts`) strips `recipient.name`, the Escalate popover's ResourcePicker value, with no length cap | **Still unbounded, low.** It needs a huge resource name, from an imported workspace or pasted in, AND a user's Escalate click. The cost is paid once per click. The stored name is not capped here either, but every reload now caps it in `sanitizeEntry`. Fix shape: slice to `RAID_ESCALATION_NAME_MAX` before stripping, as the load path now does. |
+| `markdown-codecs-core.ts`, 11 fenced-block reads (Field Visibility, Functions, Steering Committee, Timelog Links, Knowledge Items, Documents, Document versions, Insights, Activity Log, Budget History, Settings Overrides) | `## <Heading>\s*\n+```json\s*\n([\s\S]*?)\n```` | 32 / 125 / 501 ms at 10k / 20k / 40k newlines after one heading | `markdownToWorkspace`, called from `local-file-backend.ts` when a Markdown workspace file is loaded in file mode. No size cap found on that read. | Needs a Markdown workspace file from someone else. The input is cheap: newlines only. By extrapolation, 400k newlines, a 400 KB file, would take roughly 50 s per heading. `\s*` and `\n+` overlap on `\n`, so every way of splitting the run is tried before ```` ```json ```` fails. §558 once called these reads "safe". It was wrong, and this entry's round 1 removed that verdict. |
+
+**The fix shape,** per site:
+
+- `html-to-text.ts` and `narrative-html.ts`: a bounded class such as `html-extract.ts`'s `TAG_STRIP_RE`
+  (`[^>]{0,N}?`), or the linear `forEachOpenTag` walk (`tag-pair-walk.ts`).
+- `project-ingest.ts`: bound the input BEFORE the HTML pass, not only the output.
+- `BREAK_TAG`: the load path already slices before stripping (`ee584d71`). The write path in
+  `buildEscalationEntry` should do the same. Optionally, drop the leading and trailing `\s*` from the
+  regex and trim afterwards, so that `stripBreakTags` itself is linear.
+- The markdown reads: `\n\s*` or `[ \t]*\n+` in place of `\s*\n+`, so that one class cannot match
+  what the other matches.
+
+Each fix needs a perf test in §558's style: a loose absolute ceiling, a committed fixture with a
+comment giving its old/new timing, and a mutation proof.
+
+Related: [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-unclosed-markup--closed-2026-09-18) (the extractor half and the sweep command).
+
+## 579. An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN
+
+**Status:** OPEN 2026-09-18 — established by `grep -n "MAX_XLSX_COLUMNS" src/app/xlsx-extract.ts` (the
+cap is per cell, checked against one row's column index) and
+`grep -nE "MAX_INFLATED_BYTES|MAX_TOTAL_INFLATED_BYTES" src/app/unzip.ts`. The amplification is
+**never machine-verified**: no test or probe has run a many-row XFD sheet through `extractXlsx`.
+
+**Work item:** #364
+
+§558 capped a cell's column index at Excel's last column, XFD (`MAX_XLSX_COLUMNS`). That removed the
+~8e9-entry pad that `<c r="ZZZZZZZ1"/>` caused. The cap bounds a ROW, not a SHEET. A row such as
+`<row><c r="XFD1"><v>1</v></c></row>`, about 35 bytes of XML, still makes `sheetRows` pad that row out
+to 16,384 strings. Its one non-empty cell keeps it past `renderRows`'s empty-row filter, and
+`renderRows` then pads every kept row to the widest one and joins it into Markdown. The only bound on
+the row count is `unzip.ts`'s inflate cap: `MAX_INFLATED_BYTES` per entry and
+`MAX_TOTAL_INFLATED_BYTES` in total, reached from a 20 MB compressed attachment. That allows millions
+of rows, each expanding about 16k-fold in memory and in the output string.
+
+A legitimate sheet with data in column XFD produces the same shape. So this is not a malformed-input
+guard: it needs a budget.
+
+**The fix shape:** a total cell budget, or an output-size budget, in `sheetRows` / `renderRows`. For
+example, stop the sheet (or truncate with a marker) once rows × width, or the rendered length, passes
+a constant. `html-extract.ts` already caps its tables at `MAX_TABLE_COLUMNS` / `MAX_TABLE_ROWS`, for
+the same reason (a 58 KB input rendered 8 MB before that cap existed). Reusing that shape would keep
+the two extractors consistent.
+
+Related: [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-unclosed-markup--closed-2026-09-18) (the per-row cap).

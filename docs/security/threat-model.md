@@ -74,7 +74,7 @@ The strongest surface — this is where the server makes outbound calls on the u
 | I | Decrypted secret written to disk | `writeSettings` is the SOLE writer of `aipm-cockpit:settings` and BLANKS every `SecretId` field before write (AGENTS.md secrets lockstep; guarded by Phase 1 Task 7 test) | a raw `setItem` bypass would leak — prevented by convention + test | Phase 1 Task 7 pins it |
 | I | Secret exported / synced to Turso | `aipm-cockpit:secrets` ciphertext excluded from exports, Turso, and recovery `CONFIG_KEYS` (`recovery-config.ts`) | — | Phase 1 Task 7 pins it |
 | T | Tampered ciphertext | AES-GCM auth tag → `SecretUnlockError` on tamper (`secrets.ts:137-148`); `isSealedSecret` validates shape from untrusted storage (`secrets.ts:23-36`) | — | none |
-| I | XSS reads localStorage | Every `dangerouslySetInnerHTML` sink sanitizes or renders an app-authored constant — 6 sites, see the `style-src-attr` note in `proxy.ts` (corrected 2026-08-09: this cell previously read "No `dangerouslySetInnerHTML` anywhere", which was false, and cited a `proxy.ts` comment that said the same); branding logo/favicon raster-only, SVG excluded; rich text via `sanitize-html.ts`; strict nonce-based CSP, no `unsafe-inline` script | `style-src-attr 'unsafe-inline'` required for React inline styles (documented low-risk, `proxy.ts`) | none |
+| I | XSS reads localStorage | Every raw-HTML sink either sanitizes or renders an app-authored constant — **11 sinks: 8 `dangerouslySetInnerHTML` + 3 `document.write(`**, of which 2 are static literals (see "Raw-HTML sinks" below for the reproduce commands and the breakdown); branding logo/favicon raster-only, SVG excluded; rich text via `sanitize-html.ts`; strict nonce-based CSP, no `unsafe-inline` script (corrected 2026-08-09: this cell previously read "No `dangerouslySetInnerHTML` anywhere", which was false, and cited a `proxy.ts` comment that said the same. Corrected again 2026-09-18: it then read "6 sites", also false — re-derived, not restated) | `style-src-attr 'unsafe-inline'` required for React inline styles (documented low-risk, `proxy.ts`) | none |
 
 ---
 
@@ -87,6 +87,32 @@ The strongest surface — this is where the server makes outbound calls on the u
 - **Input validation:** `sanitize.ts` barrel at every entity boundary; `sanitizeIssueFields` server-side field allowlist for Jira writes.
 - **AI output validation:** `parseAnalysis` / `groundEntity` / `parseWeightSuggestions` / `NEXT_ACTIONS_FIELD_COERCE` re-validate untrusted model output before any state write or deep-link.
 - **URL sinks:** `isSafeHttpUrl` (`document-link.ts`, `ai-project-proposal.ts`, `sanitize-html.ts`).
+- **Raw-HTML sinks — 11, re-derived 2026-09-18.** Do not quote this number; re-run the commands.
+
+  ```bash
+  grep -rn "dangerouslySetInnerHTML={" src --include=*.tsx | wc -l          # 8
+  grep -rnE 'document\.write\(' src --include=*.ts --include=*.tsx | wc -l  # 3
+  ```
+
+  ★★ The second command's dot is ESCAPED on purpose. The unescaped spelling
+  `grep -rn "document.write" ...` printed **19** on the same tree, because `.` matches a space and
+  the phrase "document write" appears in sixteen comments and test names. That is where a count
+  goes wrong without anyone noticing.
+
+  **Breakdown (each site opened, 2026-09-18).** 2 are static app-authored literals — the
+  `NO_FLASH_THEME_SCRIPT` constant rendered by `layout.tsx`, and `PREPARING_HTML` in
+  `document-download.ts`. The other 9 all carry a sanitizer, but not all at the sink: 5 call
+  `sanitizeRichHtml` or `sanitizeDocumentHtml` inline in the JSX, while `document-preview.tsx`,
+  `documents-history-modal.tsx` and the two dynamic `document.write` sites render output of the
+  document renderer, which sanitizes on its unescaped paths (`doc-render-html.ts`; both preview
+  files carry a header comment saying there is deliberately no second pass). **Count and risk are
+  different questions** — this bullet answers the count, and the per-sink judgement is the audit's,
+  in `findings-2026-09.md`.
+
+  ★ The enumeration in the `src/proxy.ts` CSP comment used to name six JSX sinks, omitting
+  `document-block-notices.tsx` and `document-editor.tsx`. Both omitted sinks sanitize, so the
+  comment's rationale always held and only its list was wrong. **Corrected 2026-09-18 in
+  `src/proxy.ts`**, which now enumerates all eight and carries both sweep commands.
 - **Dependency posture:** `npm audit` = 0 vulns across 719 deps (verified 2026-07-02); Phase 1 adds a blocking CI audit gate.
 
 ---
@@ -94,6 +120,12 @@ The strongest surface — this is where the server makes outbound calls on the u
 ## Findings
 
 Detailed severity-tagged findings (proxy review, secrets review, URL-sink review, SAST, DAST) live in `docs/security/findings-2026-07.md`. Headline going in: **no CRITICAL or HIGH identified in the manual pass**; residual items are LOW and deployment-topology dependent (in-memory rate-limit store; loopback-plaintext Turso for self-host).
+
+**Added 2026-09-18:** `docs/security/findings-2026-09.md` is the current snapshot in that series and
+**supersedes the 2026-07 file's SCOPE** — it covers the desktop shell, `/api/stt`, and the documents
+and attachment-ingest subsystems, none of which existed in 2026-07. It records 3 high and 4 medium
+findings and no critical. Read it first; the 2026-07 file remains as the dated record it is, with
+corrections appended beside its original text rather than written over it.
 
 ---
 
