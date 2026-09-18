@@ -38688,7 +38688,7 @@ axe scan renders the change table. Leave the Turso-only span to an eye-verify.
 
 **Status:** OPEN 2026-09-18 — found reviewing the merged chart hover readout (`feat/chart-hover-readout`,
 1.9.0 "James"); the browse-mode mechanism is established from NVDA/JAWS documentation, not measured against
-either screen reader.
+either screen reader — never machine-verified.
 
 **Work item:** #354
 
@@ -38716,7 +38716,8 @@ exists in this project today, so this entry carries none.
 ## 570. The spoken readout capitalises mid-sentence — OPEN
 
 **Status:** OPEN 2026-09-18 — found reading `rowText` in `src/app/chart-readout.tsx` against the tip strings
-in `i18n.ts` and `i18n.de.ts`; not measured against a real screen reader.
+in `i18n.ts` and `i18n.de.ts` (reproduce: `grep -n "burndownReadoutTip" src/app/i18n.ts src/app/i18n.de.ts`
+shows every tip opening with a capital); not measured against a real screen reader.
 
 **Work item:** #355
 
@@ -38739,7 +38740,7 @@ sidesteps the question for every language and is the safer fix.
 ## 571. The chart-box clamp's boundary width has no test — OPEN
 
 **Status:** OPEN 2026-09-18 — found by mutation-testing `anchorFor` in `src/app/use-chart-readout.ts`:
-mutating `>` to `>=` and rerunning `use-chart-readout.test.tsx` left all 19 tests green.
+mutating `>` to `>=` and rerunning `npx vitest run src/app/use-chart-readout.test.tsx` left all 19 tests green.
 
 **Work item:** #356
 
