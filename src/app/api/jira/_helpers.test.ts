@@ -187,6 +187,29 @@ describe("callJira — SSRF / URL hardening", () => {
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
+  it("refuses an upstream 3xx rather than following it to an unvalidated host", async () => {
+    // normalizeSiteUrl allowlisted the INITIAL siteUrl only. A redirect is a
+    // second hop nothing checked — and the Basic auth header rides along.
+    fetchMock.mockResolvedValueOnce(
+      new Response(null, { status: 302, headers: { location: "https://evil.example/" } }),
+    );
+    const res = await callWith("https://acme.atlassian.net");
+    expect(res.status).toBe(502);
+    await expect(res.json()).resolves.toEqual({ error: "upstream-redirect" });
+    // LOAD-BEARING: a followed redirect could ALSO end in a 502 (the second hop
+    // refusing us), so the status alone passes against the unfixed code. Only
+    // the call count proves we stopped at the first hop.
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("tells fetch not to follow redirects itself", async () => {
+    await callWith("https://acme.atlassian.net");
+    // The mock cannot model a real redirect chain, so the 3xx test above can
+    // never see this option go missing: against a real fetch without it, the
+    // redirect is followed transparently and a 3xx never reaches our check.
+    expect(fetchMock.mock.calls[0][1].redirect).toBe("manual");
+  });
+
   it("returns the same 502 envelope when the upstream call times out", async () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     // AbortSignal.timeout rejects the fetch with a TimeoutError DOMException —

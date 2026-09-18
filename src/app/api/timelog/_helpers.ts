@@ -132,7 +132,7 @@ export async function callTimelog(
   const pathOnly = path.split("?")[0];
   const startedAt = Date.now();
   try {
-    return await fetch(url, {
+    const res = await fetch(url, {
       ...init,
       headers: {
         Authorization: `Bearer ${creds.token}`,
@@ -142,7 +142,19 @@ export async function callTimelog(
       },
       cache: "no-store",
       signal: AbortSignal.timeout(upstreamTimeoutFor(pathOnly)),
+      // normalizeHost allowlisted the INITIAL url only. Following a redirect
+      // would re-issue this request — Bearer token and all — against a host that
+      // passed no check, which is exactly the SSRF the allowlist exists to stop.
+      // "manual" hands us the 3xx instead of chasing it, so we can refuse.
+      redirect: "manual",
     });
+    if (res.status >= 300 && res.status < 400) {
+      return Response.json(
+        { error: "upstream-redirect" },
+        { status: 502 },
+      ) as unknown as Response;
+    }
+    return res;
   } catch (err) {
     // Network-level failure before any response (DNS, connection refused, TLS,
     // timeout). Log enough to ATTRIBUTE it — the failure class, the elapsed time

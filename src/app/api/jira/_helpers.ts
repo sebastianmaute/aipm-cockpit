@@ -97,7 +97,7 @@ export async function callJira(
   }
   const url = base + path;
   try {
-    return await fetch(url, {
+    const res = await fetch(url, {
       ...init,
       headers: {
         Authorization: basicAuth(creds.email, creds.apiToken),
@@ -108,7 +108,19 @@ export async function callJira(
       // Server-to-server, no credentials/cookies.
       cache: "no-store",
       signal: AbortSignal.timeout(JIRA_UPSTREAM_TIMEOUT_MS),
+      // normalizeSiteUrl allowlisted the INITIAL url only. Following a redirect
+      // would re-issue this request — Basic credentials and all — against a host
+      // that passed no check, which is exactly the SSRF the allowlist exists to
+      // stop. "manual" hands us the 3xx instead of chasing it, so we can refuse.
+      redirect: "manual",
     });
+    if (res.status >= 300 && res.status < 400) {
+      return Response.json(
+        { error: "upstream-redirect" },
+        { status: 502 },
+      ) as unknown as Response;
+    }
+    return res;
   } catch (err) {
     // Network-level failure before any response (DNS, connection refused, TLS,
     // timeout). Log the detail server-side and hand the client the app's error
