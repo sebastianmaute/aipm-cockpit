@@ -8,6 +8,31 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.9.0] - 2026-09-18 "James"
+
+The budget report and dashboard burn-down and cumulative charts now answer "what was that worth"
+wherever you point. Hover, tap or use a pen over a plotted date, or reach one by keyboard, to open a
+box naming every line's value there with a one-line explanation of what it means, and the same words
+are spoken to a screen reader.
+
+### Added
+
+- **The budget charts get a hover, tap and keyboard readout.** Point at, tap or use a pen on any
+  plotted date on the burn-down or cumulative chart — on both the Budget Report and the dashboard
+  tile, since they share the same chart — to open a box listing every line drawn at that date: its
+  value in the current unit and a one-line explanation of what it means, in the legend's order. A
+  stop with nothing to show there is left out of the box rather than shown empty.
+- **The chart is reachable by keyboard.** Tab to the chart, then use the Left and Right arrow keys
+  to step from one stop to the next, Home and End to jump to the first or last, and Escape to close
+  the box; the same rows are spoken to a screen reader through a live region as you step.
+- **The box stays on screen.** It is clamped inside both the chart and the browser window, so it
+  never runs off either edge.
+
+### Changed
+
+- **The info-hint bubble (ⓘ) now shares its box styling with the chart readout** instead of drawing
+  its own — no visible change to the existing hints.
+
 ## [1.8.0] - 2026-09-17 "Rendell"
 
 The budget chart now shows where the budget moved. Every budget change is recorded, the cumulative
