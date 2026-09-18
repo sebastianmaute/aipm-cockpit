@@ -728,7 +728,6 @@ export const de: Record<TranslationKey, string> = {
   burndownReadoutBudget: "Budget",
   burndownReadoutChange: "Budgetänderung",
   burndownReadoutForecast: "Prognose",
-  burndownReadoutPartialFlag: "teilweise",
   burndownReadoutTodayFlag: "heute",
   burndownReadoutTipPlan: "Was der Plan bis zu diesem Datum an Ausgaben erwartet hat.",
   burndownReadoutTipBudget: "Das zu diesem Datum gültige Budget bei Fertigstellung.",

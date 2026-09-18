@@ -28,20 +28,32 @@ describe("ChartReadout", () => {
     // to see past that — otherwise Testing Library excludes them from the a11y tree.
     const rows = screen.getAllByRole("listitem", { hidden: true }).map((li) => li.textContent ?? "");
     expect(rows).toHaveLength(10);
+    // Every row asserts BOTH its label and its own formatted value — the fixture gives
+    // each row a distinct number precisely so a value-mapping mutation on any one of
+    // them (e.g. two rows swapping values) fails on a named row instead of hiding
+    // behind a label-only check.
     expect(rows[0]).toContain("Planned");
     expect(rows[0]).toContain("80 EUR");
     expect(rows[1]).toContain("Budget");
+    expect(rows[1]).toContain("100 EUR");
     expect(rows[2]).toContain("Budget at start of recording");
+    expect(rows[2]).toContain("90 EUR");
     expect(rows[3]).toContain("Actual");
+    expect(rows[3]).toContain("70 EUR");
     expect(rows[4]).toContain("Partial earned value");
+    expect(rows[4]).toContain("65 EUR");
     // "Earned value (today)" (`burndownEv`), NOT "Earned value" (`burndownEvHistory`) — a bare
     // "Earned value" here is a substring of both and would pass against the wrong key.
     expect(rows[5]).toContain("Earned value (today)");
     expect(rows[5]).toContain("64 EUR");
     expect(rows[6]).toContain("At current pace");
+    expect(rows[6]).toContain("60 EUR");
     expect(rows[7]).toContain("At current efficiency");
+    expect(rows[7]).toContain("55 EUR");
     expect(rows[8]).toContain("Ops");
+    expect(rows[8]).toContain("-8 EUR");
     expect(rows[9]).toContain("Runs out");
+    expect(rows[9]).toContain("0 EUR");
   });
 
   // Every tip is asserted BY NAME. An earlier cut checked two of them, which left seven

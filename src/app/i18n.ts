@@ -793,7 +793,6 @@ const enUS = {
   burndownReadoutBudget: "Budget",
   burndownReadoutChange: "Budget change",
   burndownReadoutForecast: "forecast",
-  burndownReadoutPartialFlag: "partial",
   burndownReadoutTodayFlag: "today",
   burndownReadoutTipPlan: "What the plan expected to be spent by this date.",
   burndownReadoutTipBudget: "The budget at completion in force on this date.",

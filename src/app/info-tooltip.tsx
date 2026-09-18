@@ -74,7 +74,9 @@ export function InfoTooltip({ text, label, children }: InfoTooltipProps) {
       >
         {children === undefined ? "i" : children}
       </span>
-      {open && pos && <TooltipSurface top={pos.top} left={pos.left}>{text}</TooltipSurface>}
+      {open && pos && (
+        <TooltipSurface top={pos.top} left={pos.left} className="max-w-[16rem]">{text}</TooltipSurface>
+      )}
     </span>
   );
 }

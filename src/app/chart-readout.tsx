@@ -10,9 +10,14 @@ import { TooltipSurface } from "./tooltip-surface";
 import type { Readout, ReadoutKind, ReadoutRow } from "./burndown-readout";
 import type { ReadoutAnchor } from "./use-chart-readout";
 
-/** Label, explanation and swatch per row kind. The swatch classes mirror the
- *  lines `burndown-chart.tsx` draws; the dash patterns are not repeated, since
- *  the row's own words carry the meaning. */
+/** Label, explanation and swatch per row kind. The swatch classes mirror each
+ *  series' DEFAULT colour in `burndown-chart.tsx`; the dash patterns are not
+ *  repeated, since the row's own words carry the meaning. ★ This is NOT a
+ *  full mirror: the chart recolours the actual line `stroke-ui-pink` when
+ *  `model.over`, but `ReadoutRow` carries no over/under flag, so the `actual`
+ *  swatch here is always `bg-ui-green`. Deliberate — the row's LABEL, not its
+ *  colour, carries that meaning, and threading the flag through Task 1's
+ *  `ReadoutRow` for a swatch tint alone was not judged worth the coupling. */
 const ROW: Record<ReadoutKind, { label: TranslationKey; tip: TranslationKey; swatch: string }> = {
   plan: { label: "burndownPlanned", tip: "burndownReadoutTipPlan", swatch: "bg-muted-foreground" },
   budget: { label: "burndownReadoutBudget", tip: "burndownReadoutTipBudget", swatch: "bg-muted-foreground" },

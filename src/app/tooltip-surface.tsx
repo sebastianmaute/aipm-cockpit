@@ -7,10 +7,16 @@
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 
-/** ★ The exact class string `InfoTooltip` shipped; changing it restyles every
+/** ★ The exact class string `InfoTooltip` shipped, MINUS its `max-w-[16rem]`.
+ *  Width is the CALLER's job (see `className` below): two same-specificity
+ *  `max-w-*` utilities landing in one class string are resolved by generated
+ *  stylesheet order, not by their order in the attribute, and jsdom has no
+ *  layout to catch a wrong winner — so this file must never carry a `max-w`
+ *  of its own. `InfoTooltip` now passes `max-w-[16rem]` itself; the chart
+ *  readout passes `max-w-[22rem]`. Changing anything else here restyles every
  *  tooltip in the app, not just one. */
 export const TOOLTIP_SURFACE_CLASS =
-  "pointer-events-none fixed z-[100] w-max max-w-[16rem] rounded-md border border-line bg-surface px-2 py-1 text-xs font-normal normal-case text-foreground";
+  "pointer-events-none fixed z-[100] w-max rounded-md border border-line bg-surface px-2 py-1 text-xs font-normal normal-case text-foreground";
 
 export function TooltipSurface({
   top, left, className, children,
