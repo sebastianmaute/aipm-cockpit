@@ -8,6 +8,32 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.10.0] - 2026-09-18 "Leonard"
+
+The Budget forecast now shows one card at a time — a switch above it lets you pick "At current
+pace" or "At current efficiency", remembered per device, and the chosen card carries a badge
+showing its health at a glance. On the Budget report, the forecast and burn-down live in one
+Forecast section, with the card and chart side by side on wide screens.
+
+### Added
+
+- **The Budget forecast shows one card at a time.** A switch above the card — "At current pace" /
+  "At current efficiency" — picks which forecast reads, remembered per device
+  (`budgetForecastView`, defaulting to pace); the switch is hidden when printing, so the printout
+  shows the card you had chosen.
+- **The shown card carries a red/amber/green badge** naming its own variance at completion at a
+  glance — no badge when there is no budget to compare against or the forecast cannot be
+  calculated yet.
+- **The Budget report's Forecast and Burn-down sections are now one "Forecast" section** — the
+  card sits beside the chart at roughly 30%/70% on wide screens, the two stack into one column
+  below 1280px, and the recorded-change table runs full width underneath.
+
+### Changed
+
+- **The gap line now names both readings it compares** — "The pace and efficiency forecasts
+  differ by …" — instead of leaving the reader to infer which two figures it means.
+- The dashboard budget tile is unchanged by this release.
+
 ## [1.9.0] - 2026-09-18 "James"
 
 The budget report and dashboard burn-down and cumulative charts now answer "what was that worth"
