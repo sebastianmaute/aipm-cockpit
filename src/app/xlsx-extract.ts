@@ -150,6 +150,16 @@ function cellValue(cXml: string, shared: string[]): string {
  * this function side by side against two such malformed fixtures (a bare
  * stray "<c" and one with an intervening attribute) — both produced
  * byte-identical (also-wrong-but-identically-wrong) merged output.
+ *
+ * ★ ONE deliberate, benign divergence survived a systematic twelve-shape
+ * check of that byte-identity claim: the close pattern here is
+ * `</name\s*>`, so `</c >` (whitespace before the ">") matches where the
+ * original `<\/c>` alternative required an exact `</c>`. NOT tightened —
+ * `\s*` is what forEachTagPair (tag-pair-walk.ts) already uses for the same
+ * reason, and XML's own ETag grammar explicitly allows whitespace there
+ * (`ETag ::= '</' Name S? '>'`), so this walk is MORE spec-compliant than
+ * the regex it replaces, not less correct. A real writer emitting `</c >`
+ * now gets its cell recognized instead of silently dropped.
  */
 function forEachXmlElement(xml: string, name: string, visit: (whole: string) => boolean): void {
   // Case-sensitive ("g", not "gi") to match the original regexes this

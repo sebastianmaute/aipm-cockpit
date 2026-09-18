@@ -48,6 +48,28 @@ describe("forEachTagPair", () => {
     expect(performance.now() - start).toBeLessThan(250);
   });
 
+  it("retires one name's close lookup without affecting a different name", () => {
+    // §558 fix round 3, item 8: SPEC above always returns "w:tbl", so the
+    // per-name retirement map (`closers`) never holds more than one entry
+    // anywhere in this file - the multi-name path is exercised only
+    // indirectly, through docx's BLOCK_PAIR. This spec returns "a" or "b"
+    // depending on which one matched. "<a>" here has no closing "</a>"
+    // anywhere, so it retires; "<b>value</b>" appears AFTER that retirement
+    // and must still be found - a global (rather than per-name) retirement
+    // flag would incorrectly skip it too.
+    const twoNames: TagPairSpec = {
+      openPattern: "<([ab])\\b",
+      closeName: (m) => m[1],
+      hasAttributes: true,
+    };
+    const pairs: string[] = [];
+    forEachTagPair("<a><b>value</b>", twoNames, (p) => {
+      pairs.push(p.inner);
+      return true;
+    });
+    expect(pairs).toEqual(["value"]);
+  });
+
   it("keeps retired-name lookups cheap, so a missing close stays linear", () => {
     // A single ">" at the very end (no space after "w:tbl", so `\b` still
     // matches against the following "<") means the FIRST open pays for one
