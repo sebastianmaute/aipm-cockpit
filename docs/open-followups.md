@@ -791,6 +791,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§566](#566-the-jira-proxy-logs-the-raw-fetch-rejection-object-server-side--open) | The Jira proxy logs the raw fetch-rejection object server-side — OPEN | audit (2026-09) | S | open |
 | [§567](#567-issealedsecret-and-readstore-still-hardcode-their-own-secretid-lists-and-a-missed-id-is-silent-data-loss--open) | `isSealedSecret` and `readStore` still hardcode their own `SecretId` lists, and a missed id is silent DATA LOSS — OPEN | slice (2026-09) | M | open |
 | [§568](#568-the-registers-index-rebuild-recipe-is-not-a-no-op-on-the-committed-table-and-discards-hand-written-state-prose--open) | The register's index-rebuild recipe is not a no-op on the committed table and discards hand-written State prose — OPEN | slice (2026-09) | S–M | open |
+| [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
+| [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN | audit (2026-09) | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38691,7 +38693,7 @@ axe scan renders the change table. Leave the Turso-only span to an eye-verify.
 
 ## 558. The three OOXML extractors were quadratic on repetitive unclosed markup — CLOSED 2026-09-18
 
-**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups`: `docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts` and the shared `extractRuns` in `office-xml.ts` all located their elements with lazy backtracking `[\s\S]*?` pair regexes, so a single unclosed open tag made every following open re-scan to end of input. All four now walk one linear cursor — `forEachTagPair` in the new `src/app/tag-pair-walk.ts`, extracted from `html-extract.ts`, which had already solved this for itself and was the only OOXML-adjacent extractor not affected. `xlsx-extract.ts` additionally needed a local `forEachXmlElement` (`grep -n "function forEachXmlElement" src/app/xlsx-extract.ts`), because real xlsx self-closes empty rows and cells and the shared walk is paired-only. Eleven commits: `0ac53c0c` (extract the walk), `4fdabde6` (docx), `5d354f76` (the close-name ordering test), `fc904400` (xlsx, pptx, `extractRuns`), `ecf88557` and `afe0b925` (the self-closing path, and marking which of its tests are mutation-proved and which are not), then three fix rounds — `10dbc77f` (`extractRuns` corrupted output on a bare self-closing text tag), `9f0a697d` (harden the xlsx cache pin, correct the docx perf comment's numbers, drop the now-dead `runsText`), `d061d37e` (restore case sensitivity, tighten the open-tag boundary), `f9a6509a` (pin the close-lookup retirement) — and `42f1c172` (pin case-insensitive tag matching). The final review then found three more quadratic reads in the same extractors. That sweep could not see them because it grepped only for the lazy pair shape. `0655e54e` fixed all three. docx `renderParagraph` read its heading level with `<w:pStyle\b[^>]*w:val=…`. It now calls `headingDigit` (`docx-extract.ts`). xlsx `sheetEntries` used `<sheet\b[^>]*\/?>` and `<Relationship\b[^>]*\/?>`. Both now call `forEachOpenTag`, a new walk in `tag-pair-walk.ts`. xlsx `sheetNames` used `<sheet\b[^>]*\bname=…`. It now calls `readSheetName`, which `345ff195` made keep a quoted `>` inside a name, as the regex did. xlsx `cellValue` used `<v>([\s\S]*?)<\/v>`. It now finds the first `<v>` with two forward `indexOf` scans. The same commit makes `sheetRows` drop a cell whose column is past XFD (`MAX_XLSX_COLUMNS`). Before, `<c r="ZZZZZZZ1"/>` padded the row towards about 8e9 entries. The cap bounds a ROW, not a sheet: many rows can each still pad out to 16,384 cells (separate entry — filing pending). Verified by `npx vitest run src/app/tag-pair-walk.test.ts src/app/docx-extract.test.ts src/app/xlsx-extract.test.ts src/app/pptx-extract.test.ts src/app/office-xml.test.ts src/app/html-extract.test.ts --maxWorkers=1`.
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups`: `docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts` and the shared `extractRuns` in `office-xml.ts` all located their elements with lazy backtracking `[\s\S]*?` pair regexes, so a single unclosed open tag made every following open re-scan to end of input. All four now walk one linear cursor — `forEachTagPair` in the new `src/app/tag-pair-walk.ts`, extracted from `html-extract.ts`, which had already solved this for itself and was the only OOXML-adjacent extractor not affected. `xlsx-extract.ts` additionally needed a local `forEachXmlElement` (`grep -n "function forEachXmlElement" src/app/xlsx-extract.ts`), because real xlsx self-closes empty rows and cells and the shared walk is paired-only. Eleven commits: `0ac53c0c` (extract the walk), `4fdabde6` (docx), `5d354f76` (the close-name ordering test), `fc904400` (xlsx, pptx, `extractRuns`), `ecf88557` and `afe0b925` (the self-closing path, and marking which of its tests are mutation-proved and which are not), then three fix rounds — `10dbc77f` (`extractRuns` corrupted output on a bare self-closing text tag), `9f0a697d` (harden the xlsx cache pin, correct the docx perf comment's numbers, drop the now-dead `runsText`), `d061d37e` (restore case sensitivity, tighten the open-tag boundary), `f9a6509a` (pin the close-lookup retirement) — and `42f1c172` (pin case-insensitive tag matching). The final review then found three more quadratic reads in the same extractors. That sweep could not see them because it grepped only for the lazy pair shape. `0655e54e` fixed all three. docx `renderParagraph` read its heading level with `<w:pStyle\b[^>]*w:val=…`. It now calls `headingDigit` (`docx-extract.ts`). xlsx `sheetEntries` used `<sheet\b[^>]*\/?>` and `<Relationship\b[^>]*\/?>`. Both now call `forEachOpenTag`, a new walk in `tag-pair-walk.ts`. xlsx `sheetNames` used `<sheet\b[^>]*\bname=…`. It now calls `readSheetName`, which `345ff195` made keep a quoted `>` inside a name, as the regex did. xlsx `cellValue` used `<v>([\s\S]*?)<\/v>`. It now finds the first `<v>` with two forward `indexOf` scans. The same commit makes `sheetRows` drop a cell whose column is past XFD (`MAX_XLSX_COLUMNS`). Before, `<c r="ZZZZZZZ1"/>` padded the row towards about 8e9 entries. The cap bounds a ROW, not a sheet: many rows can each still pad out to 16,384 cells ([§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open)). Verified by `npx vitest run src/app/tag-pair-walk.test.ts src/app/docx-extract.test.ts src/app/xlsx-extract.test.ts src/app/pptx-extract.test.ts src/app/office-xml.test.ts src/app/html-extract.test.ts --maxWorkers=1`.
 
 **The shape.** A lazy pair regex is linear on well-formed markup, because each open finds its close
 nearby. It is quadratic on markup where the close is missing: the engine scans from the open to end
@@ -38759,7 +38761,7 @@ It does NOT see a bounded `[^>]{0,N}`, such as `html-extract.ts`'s `TAG_STRIP_RE
 string concatenation. It does not see other backtracking shapes either, such as a leading `\s*`. It
 returns no hits in the four extractors (`docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts`,
 `html-extract.ts`) or in `office-xml.ts`. Quadratic regexes outside the four OOXML extractors are
-out of this entry's scope and are tracked in a separate entry (separate entry — filing pending). The
+out of this entry's scope and are tracked in a separate entry ([§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open)). The
 point of the command is that it can SEE them. The earlier one could not.
 
 ★★ **The performance tests are mutation-proved, and the fixture sizes ARE the proof — do not shrink
@@ -39067,3 +39069,77 @@ already preserves Origin and Size (`keep` holds only those two columns today); o
 once, first moving any State prose that exists nowhere else into its entry; or correct the recipe's
 claim to say it is a normaliser rather than a proof. Any of them needs the 78 prose cells checked
 individually before a rebuild is ever run for real.
+
+## 578. Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN
+
+**Status:** OPEN 2026-09-18 — this entry lists the hits of §558's widened sweep that fall outside the
+extractors. `ee584d71` (committed before this entry was filed) bounded one of them, the RAID
+`BREAK_TAG` LOAD path; the rest — `html-to-text.ts`, `narrative-html.ts`, the RAID WRITE path and the
+eleven `markdown-codecs-core.ts` fenced-block reads — remain open. Established by
+`grep -rnE '\[\^>\][*+]|\[\\s\\S\]\*\?|\[\\\\s\\\\S\]\*\?' src/app --include=*.ts --include=*.tsx | grep -vE '^[^:]+:[0-9]+: *(/?\*|//)' | grep -vE '\.test\.tsx?:'`
+and by `grep -cF '\s*\n+```json' src/app/markdown-codecs-core.ts` (prints 11). The growth rate was measured on the bare
+regexes with `node -e` one-liners, for example
+`node -e "for(const n of [20000,40000,80000]){const s='<li '.repeat(n),t=performance.now();s.replace(/<\s*li[^>]*>/gi,'');console.log(n,Math.round(performance.now()-t))}"`
+(printed 496 / 1970 / 8357 ms). **Never measured end to end through a real call site.**
+
+**Work item:** #363
+
+§558's sweep found the lazy-pair regex shape and greedy `[^>]*` in the OOXML extractors. Widened to
+catch `[^>]*` and `[^>]+`, it also hits four modules outside those extractors. Each is quadratic on
+adversarial input, with roughly four times the time per doubling. The same mechanism appears in every
+case: a greedy class with no bound runs to the end of input from EVERY start position and then
+backtracks.
+
+| site | regex | measured, bare regex | what reaches it | reachability verdict |
+|---|---|---|---|---|
+| `html-to-text.ts` `htmlToPlainText` | `<\s*li[^>]*>` | 496 / 1970 / 8357 ms at 20k / 40k / 80k `<li ` | Confluence page HTML: `confluence-api.ts` passes it to `confluenceJsonToText` (`project-ingest.ts`), which calls `htmlToPlainText` BEFORE the `MAX_INGEST_TEXT` slice | **Most reachable.** Anyone who can edit a Confluence page a user ingests supplies the input, and nothing bounds it before this runs. |
+| `html-to-text.ts` `htmlToPlainText` | `<[^>]+>` | ~0.64 / 2.6 s at 40k / 80k `<` | the same, plus task descriptions on the AI read path (`chat-tools-lists.ts`), rendered templates (`comm-templates.ts`) and the meeting-report diff (`meeting-report-panel.tsx`) | Confluence: as above. The others take workspace data, so a shared or imported workspace file is needed. |
+| `narrative-html.ts` `isNarrativeEmpty` | `<[^>]*>` | 124 / 517 / 2140 ms at 20k / 40k / 80k `<` | `dashboard-narrative.tsx`: on every render of the saved status narrative, and on the draft | Needs a narrative that was imported or hand-edited into the workspace. It is typed in the app's own editor otherwise. Low. It runs per render, so one bad value makes the dashboard itself slow. |
+| `raid-escalation.ts` `BREAK_TAG` (`stripBreakTags`), LOAD path | `\s*<br\b[^>]*>\s*` | `<br ` ×80k: ~23 s bare. Whitespace alone ×80k: ~2.3 s (the leading `\s*` is quadratic on its own). Through `sanitizeRaidEscalations`: ~15.6 s before the fix, 1 ms after. | `sanitizeEntry` (`decodeRaidEscalations` / `sanitizeRaidEscalations`) | **BOUNDED by `ee584d71`.** `sanitizeEntry` now calls `stripBreakTagsWithin(o.toName, NAME_MAX)`, which cuts to `NAME_MAX` before it strips. This row stays only as a record; nothing on the load path is left open. |
+| `raid-escalation.ts` `BREAK_TAG` (`stripBreakTags`), WRITE path | the same | the same, bare | `buildEscalationEntry` (`action-escalate.ts`) strips `recipient.name`, the Escalate popover's ResourcePicker value, with no length cap | **Still unbounded, low.** It needs a huge resource name, from an imported workspace or pasted in, AND a user's Escalate click. The cost is paid once per click. The stored name is not capped here either, but every reload now caps it in `sanitizeEntry`. Fix shape: slice to `RAID_ESCALATION_NAME_MAX` before stripping, as the load path now does. |
+| `markdown-codecs-core.ts`, 11 fenced-block reads (Field Visibility, Functions, Steering Committee, Timelog Links, Knowledge Items, Documents, Document versions, Insights, Activity Log, Budget History, Settings Overrides) | `## <Heading>\s*\n+```json\s*\n([\s\S]*?)\n```` | 32 / 125 / 501 ms at 10k / 20k / 40k newlines after one heading | `markdownToWorkspace`, called from `local-file-backend.ts` when a Markdown workspace file is loaded in file mode. No size cap found on that read. | Needs a Markdown workspace file from someone else. The input is cheap: newlines only. By extrapolation, 400k newlines, a 400 KB file, would take roughly 50 s per heading. `\s*` and `\n+` overlap on `\n`, so every way of splitting the run is tried before ```` ```json ```` fails. §558 once called these reads "safe". It was wrong, and this entry's round 1 removed that verdict. |
+
+**The fix shape,** per site:
+
+- `html-to-text.ts` and `narrative-html.ts`: a bounded class such as `html-extract.ts`'s `TAG_STRIP_RE`
+  (`[^>]{0,N}?`), or the linear `forEachOpenTag` walk (`tag-pair-walk.ts`).
+- `project-ingest.ts`: bound the input BEFORE the HTML pass, not only the output.
+- `BREAK_TAG`: the load path already slices before stripping (`ee584d71`). The write path in
+  `buildEscalationEntry` should do the same. Optionally, drop the leading and trailing `\s*` from the
+  regex and trim afterwards, so that `stripBreakTags` itself is linear.
+- The markdown reads: `\n\s*` or `[ \t]*\n+` in place of `\s*\n+`, so that one class cannot match
+  what the other matches.
+
+Each fix needs a perf test in §558's style: a loose absolute ceiling, a committed fixture with a
+comment giving its old/new timing, and a mutation proof.
+
+Related: [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-unclosed-markup--closed-2026-09-18) (the extractor half and the sweep command).
+
+## 579. An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN
+
+**Status:** OPEN 2026-09-18 — established by `grep -n "MAX_XLSX_COLUMNS" src/app/xlsx-extract.ts` (the
+cap is per cell, checked against one row's column index) and
+`grep -nE "MAX_INFLATED_BYTES|MAX_TOTAL_INFLATED_BYTES" src/app/unzip.ts`. The amplification is
+**never machine-verified**: no test or probe has run a many-row XFD sheet through `extractXlsx`.
+
+**Work item:** #364
+
+§558 capped a cell's column index at Excel's last column, XFD (`MAX_XLSX_COLUMNS`). That removed the
+~8e9-entry pad that `<c r="ZZZZZZZ1"/>` caused. The cap bounds a ROW, not a SHEET. A row such as
+`<row><c r="XFD1"><v>1</v></c></row>`, about 35 bytes of XML, still makes `sheetRows` pad that row out
+to 16,384 strings. Its one non-empty cell keeps it past `renderRows`'s empty-row filter, and
+`renderRows` then pads every kept row to the widest one and joins it into Markdown. The only bound on
+the row count is `unzip.ts`'s inflate cap: `MAX_INFLATED_BYTES` per entry and
+`MAX_TOTAL_INFLATED_BYTES` in total, reached from a 20 MB compressed attachment. That allows millions
+of rows, each expanding about 16k-fold in memory and in the output string.
+
+A legitimate sheet with data in column XFD produces the same shape. So this is not a malformed-input
+guard: it needs a budget.
+
+**The fix shape:** a total cell budget, or an output-size budget, in `sheetRows` / `renderRows`. For
+example, stop the sheet (or truncate with a marker) once rows × width, or the rendered length, passes
+a constant. `html-extract.ts` already caps its tables at `MAX_TABLE_COLUMNS` / `MAX_TABLE_ROWS`, for
+the same reason (a 58 KB input rendered 8 MB before that cap existed). Reusing that shape would keep
+the two extractors consistent.
+
+Related: [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-unclosed-markup--closed-2026-09-18) (the per-row cap).
