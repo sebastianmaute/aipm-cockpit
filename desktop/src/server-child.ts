@@ -52,8 +52,12 @@ export function spawnServer(resourcesPath: string): UtilityProcess {
 export function killServer(child: UtilityProcess | null): void {
   if (!child || exited.has(child)) return;
   if (child.pid === undefined) {
-    // Forked but not spawned yet: there is no PID to kill. Kill it the moment
-    // it gets one, or a quit during start-up would orphan it onto the port.
+    // Forked but not spawned yet: there is no PID to kill. This only covers a
+    // `spawn` that completes while the app is still running, i.e. a call from
+    // `before-quit` — it then kills the child the moment `spawn` fires. Called
+    // from `process.on("exit")` instead, the event loop is already done and
+    // this listener never fires; that path has nothing to fall back on but
+    // Chromium's own teardown of its child processes.
     child.once("spawn", () => killServer(child));
     return;
   }
