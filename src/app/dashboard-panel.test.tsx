@@ -6,7 +6,7 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 import { RaidRegisterCard } from "./dashboard-sections/registers-band";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import { healthColorName } from "./health";
 import * as dashboardModule from "./dashboard";
 import type { ActivityEntry } from "./activity-log";
@@ -871,6 +871,7 @@ const EN = "en-US" as const;
 // Count the enclosing `it(` blocks, not the failures and not the call sites.
 const grip = (title: string) => `${t(EN, "reorderHandleDragOnly")} – ${title}`;
 const kebab = (title: string) => `${t(EN, "actionMoreActions")} – ${title}`;
+const badgeName = (n: number) => tPlural(EN, "dashboardHiddenTilesBadge", n, n);
 
 describe("DashboardPanel arrangeable tile grid", () => {
   it("renders the cards as tiles inside one dense grid", () => {
@@ -918,7 +919,7 @@ describe("DashboardPanel arrangeable tile grid", () => {
     expect(
       screen.queryByRole("button", { name: t(EN, "arrangementResetLayout") }),
     ).toBeNull();
-    expect(screen.queryByRole("button", { name: t(EN, "arrangementShelfCount", 0) })).toBeNull();
+    expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();
   });
 
   it("hides a tile from the ⋮ menu onto the shelf, announces it, and restores it", async () => {
@@ -933,12 +934,12 @@ describe("DashboardPanel arrangeable tile grid", () => {
     const announced = screen.getAllByRole("status").map((el) => el.textContent);
     expect(announced).toContain(t(EN, "arrangementTileHidden", "Progress"));
 
-    await user.click(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) }));
+    await user.click(screen.getByRole("button", { name: badgeName(1) }));
     await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
     expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
   });
 
-  it("lands focus on the shelf disclosure after hiding, instead of dropping it on <body>", async () => {
+  it("lands focus on the hidden-tiles badge after hiding, instead of dropping it on <body>", async () => {
     // ★★★ HIDING DESTROYS THE CONTROL THAT WAS PRESSED. Hide lives inside the ⋮
     // popover, which is anchored to the tile's own ⋮ trigger — hiding unmounts
     // BOTH, and `PopoverPanel` restores focus to nothing on close (it focuses
@@ -952,27 +953,26 @@ describe("DashboardPanel arrangeable tile grid", () => {
     await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
 
     expect(screen.queryByTestId("tile-progress")).toBeNull();      // the trigger really did unmount
-    const shelf = screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) });
-    expect(document.activeElement).toBe(shelf);
+    // ★ Spec C: the badge MOUNTS in the commit this hide causes (it is absent at
+    // 0), which is why the panel focuses it post-commit rather than inline.
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: badgeName(1) }));
   });
 
-  it("lands focus back on the shelf disclosure after restoring a tile", async () => {
-    // ★★ THE MIRROR CASE, and the chip is the wrong destination for it: the
-    // Restore button the user pressed is removed by that very click, and the
-    // remaining chips shift underneath them. The disclosure is the one node in
-    // the shelf that survives both directions.
+  it("lands focus on the restored tile's ⋮ trigger when the restore empties the tray", async () => {
+    // ★★ Spec C: the badge unmounts at a count of 0, so "focus returns to the
+    // badge" cannot hold for the LAST hidden tile. The restored tile is now on
+    // the board, and its own ⋮ is the route to act on it again.
     const user = userEvent.setup();
     render(<DashboardPanel {...fullProps} projectId="p-grid-restore-focus" />, { wrapper });
     await user.click(screen.getByRole("button", { name: kebab("Progress") }));
     const menu = screen.getByRole("dialog", { name: kebab("Progress") });
     await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
 
-    await user.click(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) }));
+    await user.click(screen.getByRole("button", { name: badgeName(1) }));
     await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
     expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
-    expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 0) }),
-    );
+    expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: kebab("Progress") }));
   });
 
   it("moves a tile earlier from the ⋮ menu and announces its new position", async () => {
@@ -1048,10 +1048,11 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // pointer wanders in with nothing being dragged" test pins at the component.
     render(<DashboardPanel {...fullProps} projectId="p-grid-shelfdrop" />, { wrapper });
     fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
-    fireEvent.drop(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 0) }));
+    // Spec C: the badge is the drop target; during a drag it shows even at 0.
+    fireEvent.drop(screen.getByRole("button", { name: badgeName(0) }));
     expect(screen.queryByTestId("tile-progress")).toBeNull();     // the grip really did unmount
 
-    const shelf = screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) });
+    const shelf = screen.getByRole("button", { name: badgeName(1) });
     expect(shelf).toHaveAttribute("aria-expanded", "false");
     fireEvent.dragEnter(shelf);
     expect(shelf).toHaveAttribute("aria-expanded", "false");
@@ -1063,7 +1064,7 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // against a shelf whose guard was broken shut.
     render(<DashboardPanel {...fullProps} projectId="p-grid-shelfopen" />, { wrapper });
     fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
-    const shelf = screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 0) });
+    const shelf = screen.getByRole("button", { name: badgeName(0) });
     fireEvent.dragEnter(shelf);
     expect(shelf).toHaveAttribute("aria-expanded", "true");
   });
@@ -1081,13 +1082,13 @@ describe("DashboardPanel arrangeable tile grid", () => {
     await user.click(screen.getByRole("button", { name: kebab("Budget burn") }));
     const menu = screen.getByRole("dialog", { name: kebab("Budget burn") });
     await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
-    await user.click(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) }));
+    await user.click(screen.getByRole("button", { name: badgeName(1) }));
     const chip = `${t(EN, "arrangementTileRestore")} – Budget burn`;
     expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
 
     rerender(<DashboardPanel {...fullProps} projectId="p-grid-gate" showBudget={false} />);
     expect(screen.queryByRole("button", { name: chip })).toBeNull();
-    expect(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 0) })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();   // spec C: absent at 0
 
     rerender(<DashboardPanel {...fullProps} projectId="p-grid-gate" />);
     expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
@@ -1117,11 +1118,24 @@ describe("DashboardPanel reset-layout control", () => {
   // reset-pane-size. Reset layout is the reset-columns ANALOGUE (it restores
   // content arrangement, where reset-size restores the pane box), so it sorts
   // between them.
-  it("orders the stack Print, Reset layout, Reset size", () => {
+  // ★ Spec C: the stack is Print · Reset layout · Reset size · hidden-tiles
+  // badge. The badge only renders while a tile is hidden (or a drag is in
+  // flight), so the three resets are asserted contiguous with it absent, then
+  // all four with one tile hidden. `dashboardHiddenTilesBadgeOne` is the key
+  // because `expectButtonOrder` substring-matches `t(lang, key)` with no args —
+  // the singular carries no placeholder.
+  it("orders the stack Print, Reset layout, Reset size, then the hidden-tiles badge", async () => {
+    const user = userEvent.setup();
     render(<DashboardPanel {...fullProps} projectId="p-reset-order" />, { wrapper });
-    expectButtonOrder(["printHint", "arrangementResetLayout", "tableResetSizeHint"], {
-      contiguous: true,
-    });
+    expectButtonOrder(["printHint", "arrangementResetLayout", "tableResetSizeHint"], { contiguous: true });
+
+    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
+    expectButtonOrder(
+      ["printHint", "arrangementResetLayout", "tableResetSizeHint", "dashboardHiddenTilesBadgeOne"],
+      { contiguous: true },
+    );
   });
 
   it("restores a hidden tile when the reset button is clicked", async () => {

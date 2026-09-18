@@ -1,62 +1,59 @@
 "use client";
 /**
- * The Dashboard's binding of the shared arrangement shelf.
+ * The Dashboard's binding of the shared arrangement shelf's TRAY (spec C split
+ * the toggle out to `DashboardHiddenBadge`, which owns the disclosure).
  *
- * ★★ THIS FILE IS AN ADAPTER, NOT A SHELF. Every landmine that used to live here
+ * ★★ THIS FILE IS AN ADAPTER, NOT A TRAY. Every landmine that used to live here
  * now lives in `arrangement-shelf.tsx` — the restore-button-is-the-keyboard-path
- * rule, the always-mounted `hidden`-toggled tray behind `aria-controls`, the
- * `isDragging` guard on the drag-to-open, why the disclosure renders at zero
- * hidden blocks, the absent `onHide`, and the `toggleRef` focus-landing
- * contract. Read them there before changing anything here.
+ * rule, the always-mounted `hidden`-toggled tray behind `aria-controls`, and the
+ * absent `onHide`. Since spec C, the disclosure itself (`aria-expanded`, the
+ * `isDragging` drag-to-open guard, why it is absent at a count of 0 except while
+ * dragging, and the post-hide/restore focus-landing contract) lives in
+ * `dashboard-hidden-badge.tsx` — read them there before changing anything here.
  *
- * ★ The exported name and props are UNCHANGED on purpose — `dashboard-panel.tsx`
- * and the Dashboard's own tests keep compiling and passing untouched. If a
- * Dashboard test needs editing to accommodate a change here, the change is
- * wrong.
+ * ★ SPEC C CHANGED THIS ADAPTER'S PROPS: the toggle, `isDragging` and the
+ * focus ref left for `DashboardHiddenBadge`, and its tests moved to
+ * `dashboard-hidden-badge.test.tsx`, which exercises the badge and this tray
+ * together exactly as the panel wires them.
  */
-import type { RefObject } from "react";
-import { ArrangementShelf } from "./arrangement-shelf";
+import { ArrangementShelfTray } from "./arrangement-shelf";
 import type { Lang } from "./i18n";
 import type { TileDragProps } from "./dashboard-tile";
 import type { DashboardTileId } from "./dashboard-tiles";
 
-/** ★ UNCHANGED VALUE, now passed in rather than read from module scope. The
- *  generic shelf takes its tray id as a prop so two surfaces cannot mint the
- *  same DOM id; this literal is what keeps the Dashboard's rendered
- *  `aria-controls` byte-identical. */
-const TRAY_ID = "dashboard-shelf-tray";
+/** ★ UNCHANGED VALUE, exported since spec C: the badge's `aria-controls`
+ *  (`dashboard-hidden-badge.tsx`) must name this same id. */
+export const DASHBOARD_SHELF_TRAY_ID = "dashboard-shelf-tray";
 
+/* ★★ SINCE SPEC C THIS BINDS THE TRAY ONLY. The toggle is the Dashboard's own
+ * `DashboardHiddenBadge` in the control stack, and the panel owns the one `open`
+ * state both read; Reports keeps the combined `ArrangementShelf`. The `onRestore`
+ * cast is the adapter's job for the reason below. */
 /* ★★ THE `onRestore` LAMBDA IS THE ADAPTER'S JOB AND IS DELIBERATELY VISIBLE.
- * The generic shelf hands back a `string`, because it cannot know a surface's id
+ * The generic tray hands back a `string`, because it cannot know a surface's id
  * union; the Dashboard's handler wants a `DashboardTileId`, and under
  * `strictFunctionTypes` a `(id: DashboardTileId) => void` is NOT assignable to a
- * `(id: string) => void` parameter. The cast is safe for the reason the store's
- * equivalent one is: every id the shelf can hand back came out of the `hidden`
- * array THIS component was given, so it is a `DashboardTileId` by construction.
- * Do not push the narrowing into the generic component as an id parameter — it
- * would then be invisible at every call site instead of stated once here. */
+ * `(id: string) => void` parameter. The cast is safe: every id the tray can hand
+ * back came out of the `hidden` array THIS component was given. */
 export function DashboardShelf({
-  lang, hidden, onRestore, dropProps, isDragging, toggleRef,
+  lang, hidden, onRestore, dropProps, open,
 }: {
   lang: Lang;
   hidden: { id: DashboardTileId; title: string }[];
   onRestore: (id: DashboardTileId) => void;
-  /** The grid's own drop handlers — the shelf never decodes the drag itself. */
+  /** The grid's own drop handlers — the tray never decodes the drag itself. */
   dropProps: TileDragProps;
-  isDragging: boolean;
-  /** The stable focus target after a hide or restore — see the generic
-   *  component's own docstring for why the chip list is the wrong one. */
-  toggleRef?: RefObject<HTMLButtonElement | null>;
+  /** Controlled by the panel, which also drives the badge's `aria-expanded`. */
+  open: boolean;
 }) {
   return (
-    <ArrangementShelf
+    <ArrangementShelfTray
       lang={lang}
       hidden={hidden}
       onRestore={(id) => onRestore(id as DashboardTileId)}
       dropProps={dropProps}
-      isDragging={isDragging}
-      toggleRef={toggleRef}
-      trayId={TRAY_ID}
+      open={open}
+      trayId={DASHBOARD_SHELF_TRAY_ID}
     />
   );
 }

@@ -2448,6 +2448,8 @@ export const de: Record<TranslationKey, string> = {
   arrangementShelfCount: "{0} ausgeblendet",
   arrangementShelfEmpty: "Nichts ausgeblendet",
   arrangementResetLayout: "Anordnung zurücksetzen",
+  dashboardHiddenTilesBadge: "{0} ausgeblendete Kacheln",
+  dashboardHiddenTilesBadgeOne: "1 ausgeblendete Kachel",
   arrangementTileMoved: "{0} an Position {1} von {2} verschoben",
   arrangementTileHidden: "{0} ist jetzt ausgeblendet",
   arrangementTileResized: "{0} auf {1} mal {2} geändert",

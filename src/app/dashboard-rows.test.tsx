@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { DashboardStatusRow } from "./dashboard-rows";
+import { DashboardStatusRow, DashboardTopRow } from "./dashboard-rows";
 import { densityClasses } from "./dashboard-density";
 
 const dc = densityClasses("comfortable");
@@ -38,5 +38,32 @@ describe("DashboardStatusRow (spec C row 2)", () => {
   it("spaces the row with the density class, not a literal gap", () => {
     render(<DashboardStatusRow dc={densityClasses("compact")} hero={<p>hero</p>} status={<p>status</p>} />);
     expect(screen.getByTestId("dashboard-row-status").className).toContain(densityClasses("compact").sectionGap);
+  });
+});
+
+describe("DashboardTopRow (spec C row 1)", () => {
+  it("puts the digest beside the delta strip at about a third, with the controls on the far right", () => {
+    render(<DashboardTopRow dc={dc} delta={<p>delta</p>} digest={<p>digest</p>} controls={<div data-testid="controls" />} />);
+    const row = screen.getByTestId("dashboard-row-top");
+    const slot = screen.getByTestId("dashboard-row-top-digest");
+    expect(slot).toHaveTextContent("digest");
+    expect(slot.className).toContain("lg:w-1/3");
+    expect(row.lastElementChild).toBe(screen.getByTestId("controls"));
+    expect(screen.getByText("delta").parentElement!.className).toContain("flex-1");
+  });
+
+  it("stacks the delta strip and the digest below lg", () => {
+    render(<DashboardTopRow dc={dc} delta={<p>delta</p>} digest={<p>digest</p>} controls={<div />} />);
+    const inner = screen.getByTestId("dashboard-row-top-digest").parentElement!;
+    expect(inner.className).toContain("flex-col");
+    expect(inner.className).toContain("lg:flex-row");
+  });
+
+  it("collapses the digest slot when the digest renders nothing, so the delta strip takes the width", () => {
+    function NoDigest() { return null; }
+    render(<DashboardTopRow dc={dc} delta={<p>delta</p>} digest={<NoDigest />} controls={<div />} />);
+    const slot = screen.getByTestId("dashboard-row-top-digest");
+    expect(slot.matches(":empty")).toBe(true);
+    expect(slot.className).toContain("empty:hidden");
   });
 });

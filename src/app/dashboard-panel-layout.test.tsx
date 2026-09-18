@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -7,7 +7,7 @@ import { WorkspaceProvider } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 import { groupNextActions } from "./next-actions/group";
 import { rowLabel } from "./row-tokens";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 
 /**
@@ -109,5 +109,68 @@ describe("DashboardPanel row 2 — the hero beside Overall status (spec C)", () 
     );
     expect(screen.getByRole("region", { name: HERO })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: rowLabel(t(EN, "actionMoreActions"), HERO_TOKEN) })).toBeNull();
+  });
+});
+
+const kebab = (title: string) => `${t(EN, "actionMoreActions")} – ${title}`;
+const grip = (title: string) => `${t(EN, "reorderHandleDragOnly")} – ${title}`;
+const badgeName = (n: number) => tPlural(EN, "dashboardHiddenTilesBadge", n, n);
+
+async function hideFromMenu(user: ReturnType<typeof userEvent.setup>, title: string) {
+  await user.click(screen.getByRole("button", { name: kebab(title) }));
+  const menu = screen.getByRole("dialog", { name: kebab(title) });
+  await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
+}
+
+describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
+  it("holds the delta strip, the digest slot and the control stack in row 1", () => {
+    render(<DashboardPanel {...baseProps} projectId="p-row1" />, { wrapper });
+    const row = screen.getByTestId("dashboard-row-top");
+    expect(within(row).getByTestId("dashboard-row-top-digest")).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: t(EN, "printHint") })).toBeInTheDocument();
+    expect(within(row).getByText(/Welcome/i)).toBeInTheDocument();
+  });
+
+  it("renders the tray under row 1 and above row 2", () => {
+    render(<DashboardPanel {...baseProps} projectId="p-row1-tray" />, { wrapper });
+    const tray = document.getElementById("dashboard-shelf-tray")!;
+    expect(tray).not.toBeNull();
+    expect(screen.getByTestId("dashboard-row-top").compareDocumentPosition(tray) & FOLLOWING).toBeTruthy();
+    expect(tray.compareDocumentPosition(screen.getByTestId("dashboard-row-status")) & FOLLOWING).toBeTruthy();
+  });
+
+  it("shows no badge with nothing hidden, and a count badge once a tile is hidden", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...baseProps} projectId="p-row1-badge" />, { wrapper });
+    expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();
+    await hideFromMenu(user, "Progress");
+    expect(screen.getByRole("button", { name: badgeName(1) })).toHaveTextContent(/^1$/);
+  });
+
+  it("shows the badge while a tile is being dragged, even at a count of 0", () => {
+    render(<DashboardPanel {...baseProps} projectId="p-row1-drag" />, { wrapper });
+    fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
+    expect(screen.getByRole("button", { name: badgeName(0) })).toBeInTheDocument();
+  });
+
+  it("never renders the badge in a popout", async () => {
+    // A tile hidden in the editable view, then the same project read-only.
+    const user = userEvent.setup();
+    const { unmount } = render(<DashboardPanel {...baseProps} projectId="p-row1-popout" />, { wrapper });
+    await hideFromMenu(user, "Progress");
+    unmount();                                                        // flushes the write
+    render(<DashboardPanel {...baseProps} projectId="p-row1-popout" isPopout />, { wrapper });
+    expect(screen.queryByTestId("tile-progress")).toBeNull();         // the hide was persisted
+    expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();
+  });
+
+  it("returns focus to the badge after a Restore that leaves tiles hidden", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...baseProps} projectId="p-row1-restore" />, { wrapper });
+    await hideFromMenu(user, "Progress");
+    await hideFromMenu(user, "Upcoming & overdue");
+    await user.click(screen.getByRole("button", { name: badgeName(2) }));
+    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: badgeName(1) }));
   });
 });

@@ -2593,6 +2593,11 @@ const enUS = {
   arrangementShelfCount: "{0} hidden",
   arrangementShelfEmpty: "Nothing hidden",
   arrangementResetLayout: "Reset layout",
+  // Spec C decision 2: the Dashboard's hidden-tiles badge. Its visible text is
+  // the bare count; the name states it in words and contains the digit
+  // (WCAG 2.5.3). A paired key — render it with `tPlural`, never `t`.
+  dashboardHiddenTilesBadge: "{0} hidden tiles",
+  dashboardHiddenTilesBadgeOne: "1 hidden tile",
   arrangementTileMoved: "{0} moved to position {1} of {2}",
   arrangementTileHidden: "{0} is now hidden",
   arrangementTileResized: "{0} resized to {1} by {2}",
