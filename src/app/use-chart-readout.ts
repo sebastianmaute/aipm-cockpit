@@ -96,16 +96,19 @@ export function useChartReadout({
     triggerProps: {
       ref: (el) => { hostRef.current = el; },
       onPointerMove: (e) => move(e.clientX),
-      // Touch gets implicit pointer capture on pointerdown, so a genuine drag-off keeps
-      // targeting this element and never fires pointerleave. The only pointerleave a
-      // touch pointer produces is the one at release, right after pointerup — closing on
-      // that would make every tap open and instantly close itself. Touch closes by blur
-      // instead (tapping elsewhere moves focus off this button).
-      onPointerLeave: (e) => { if (e.pointerType !== "touch") close(); },
+      // Only a hovering pointer closes on leave. ★ An ALLOW-LIST, not `!== "touch"`: a
+      // touch pointer and a non-hovering stylus both fire pointerleave the instant contact
+      // ends, which would close the readout a frame after opening it. Anything that is not
+      // a mouse therefore closes by blur or Escape instead. An unknown or future
+      // pointerType fails safe this way — it leaves the readout open, which a blur clears,
+      // rather than making the readout unusable with that device.
+      onPointerLeave: (e) => { if (e.pointerType === "mouse") close(); },
       // A tap has no preceding hover, but its pointerdown carries a real
       // coordinate on touch as well as mouse — this is what makes "tap shows
-      // it" work without a click-driven toggle.
-      onPointerDown: (e) => move(e.clientX),
+      // it" work without a click-driven toggle. Only the primary button/contact
+      // (button 0) opens it, so a right- or middle-click doesn't reposition the
+      // readout while a context menu is opening.
+      onPointerDown: (e) => { if (e.button === 0) move(e.clientX); },
       onClick: (e) => {
         e.preventDefault();
         // A real pointer click was already handled by onPointerDown/onPointerMove
