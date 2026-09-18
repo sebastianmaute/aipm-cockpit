@@ -785,7 +785,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--open) | The chart-box clamp's boundary width has no test — OPEN | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | open |
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
 | [§573](#573-the-open-points-visual-baseline-is-stale--open) | The Open Points visual baseline is stale — OPEN | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | open |
-| [§580](#580-dashboardmodelburn-and-forecast-have-no-reader-outside-dashboardts--open) | `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` — OPEN | found 2026-09-18 auditing the dashboard model after spec C removed `ForecastHeadline`; GitLab #365 | S — delete the dead field(s) or give them a reader | open |
+| [§580](#580-dashboardmodelburn-and-forecast-have-no-reader-outside-dashboardts--closed-2026-09-18) | `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` — CLOSED 2026-09-18 | found 2026-09-18 auditing the dashboard model after spec C removed `ForecastHeadline`; GitLab #365 | S — delete the dead field(s) or give them a reader | closed |
 | [§581](#581-the-kpi-strips-lggrid-cols-5-leaves-a-gap-when-only-one-of-spicpi-shows--open) | The KPI strip's `lg:grid-cols-5` leaves a gap when only one of SPI/CPI shows — OPEN | found 2026-09-18 reading `dashboard-kpi-strip.tsx`'s `cols` ternary; not eye-checked; GitLab #366 | XS — branch the class on the real tile count, not the OR | open |
 | [§582](#582-the-next-actions-heros-open-cta-renders-and-does-nothing-without-onopenaction--open) | The Next-actions hero's Open CTA renders and does nothing without `onOpenAction` — OPEN | found 2026-09-18 reading `action-hero-card.tsx`/`action-cta-controls.tsx`; latent, every production caller passes it; GitLab #367 | S — hide the CTA when the handler is absent, or make the prop required | open |
 | [§583](#583-budget-historypropertytestts-flaked-once-in-ci-under-an-unseeded-fast-check-run--open) | `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — OPEN | one failure in CI pipeline 7251's unit-tests job on the spec-B release branch, cleared by retry; hypothesis not confirmed; GitLab #368 | S — capture a counterexample at high `numRuns`, then fix the tolerance or the summation | open |
@@ -38814,12 +38814,20 @@ Fix shape: after eye-checking the new Open Points screenshot against the real vi
 baseline with `npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --update-snapshots`
 (on win32, since baselines are per-platform).
 
-## 580. `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` — OPEN
+## 580. `DashboardModel.burn` and `forecast` have no reader outside `dashboard.ts` — CLOSED 2026-09-18
 
-**Status:** OPEN 2026-09-18 — measured by grepping every production accessor of `.burn`/`.forecast` outside
-`dashboard.ts` and its own tests (reproduce: `grep -rn "\.burn\b" src/app --include=*.ts --include=*.tsx |
-grep -v "\.test\.\|dashboard\.ts:"` returns nothing; the equivalent `.forecast` sweep returns only unrelated
-fields — `row.forecast` in `chart-readout.tsx` and a milestone `forecast` string in `snapshot-schema.ts`).
+**Status:** CLOSED 2026-09-18 on `docs/spec-c-dashboard-rework`, taking the first fix-shape option below:
+`DashboardBurn`/`burn` are deleted outright (the type, the per-build computation and the model field), and
+`forecast` is now a `computeDashboard`-local `const` that feeds `budgetBucketStatus` alone — never exported
+on `DashboardModel`. `forecastBundle` (and `forecastBundle.eur`, the same value `forecast` always was) is
+unchanged and still the model's one exported forecast surface. The two `dashboard.test.ts` assertions this
+entry names were migrated (`m.forecast` → `m.forecastBundle!.eur`/`m.forecastBundle`) or dropped where the
+removed field was the only source (`m.burn!.budgetHours`, `m.forecast === m.forecastBundle!.eur`) — the
+Budget RAG's own assertions (`m.budget.computed`/`.effective`) are byte-identical. Verified with
+`npx vitest run src/app/dashboard.test.ts` (62/62 passed) and a mutation check that nulled the local
+`forecast` const and watched the pace-VAC RAG tests go red before reverting. Reproduce the "no outside
+reader" premise itself with the same two greps this entry was filed from — they still return nothing/only
+unrelated fields, which is now expected since the fields are gone rather than merely unread.
 
 **Work item:** #365
 
