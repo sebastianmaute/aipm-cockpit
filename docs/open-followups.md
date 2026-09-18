@@ -38690,7 +38690,7 @@ axe scan renders the change table. Leave the Turso-only span to an eye-verify.
 
 ## 558. The three OOXML extractors were quadratic on repetitive unclosed markup — CLOSED 2026-09-18
 
-**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups`: `docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts` and the shared `extractRuns` in `office-xml.ts` all located their elements with lazy backtracking `[\s\S]*?` pair regexes, so a single unclosed open tag made every following open re-scan to end of input. All four now walk one linear cursor — `forEachTagPair` in the new `src/app/tag-pair-walk.ts`, extracted from `html-extract.ts`, which had already solved this for itself and was the only OOXML-adjacent extractor not affected. `xlsx-extract.ts` additionally needed a local `forEachXmlElement` (`xlsx-extract.ts:164`), because real xlsx self-closes empty rows and cells and the shared walk is paired-only. Eleven commits: `0ac53c0c` (extract the walk), `4fdabde6` (docx), `5d354f76` (the close-name ordering test), `fc904400` (xlsx, pptx, `extractRuns`), `ecf88557` and `afe0b925` (the self-closing path, and marking which of its tests are mutation-proved and which are not), then three fix rounds — `10dbc77f` (`extractRuns` corrupted output on a bare self-closing text tag), `9f0a697d` (harden the xlsx cache pin, correct the docx perf comment's numbers, drop the now-dead `runsText`), `d061d37e` (restore case sensitivity, tighten the open-tag boundary), `f9a6509a` (pin the close-lookup retirement) — and `42f1c172` (pin case-insensitive tag matching). Verified by `npx vitest run src/app/tag-pair-walk.test.ts src/app/docx-extract.test.ts src/app/xlsx-extract.test.ts src/app/pptx-extract.test.ts src/app/office-xml.test.ts --maxWorkers=1`.
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups`: `docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts` and the shared `extractRuns` in `office-xml.ts` all located their elements with lazy backtracking `[\s\S]*?` pair regexes, so a single unclosed open tag made every following open re-scan to end of input. All four now walk one linear cursor — `forEachTagPair` in the new `src/app/tag-pair-walk.ts`, extracted from `html-extract.ts`, which had already solved this for itself and was the only OOXML-adjacent extractor not affected. `xlsx-extract.ts` additionally needed a local `forEachXmlElement` (`grep -n "function forEachXmlElement" src/app/xlsx-extract.ts`), because real xlsx self-closes empty rows and cells and the shared walk is paired-only. Eleven commits: `0ac53c0c` (extract the walk), `4fdabde6` (docx), `5d354f76` (the close-name ordering test), `fc904400` (xlsx, pptx, `extractRuns`), `ecf88557` and `afe0b925` (the self-closing path, and marking which of its tests are mutation-proved and which are not), then three fix rounds — `10dbc77f` (`extractRuns` corrupted output on a bare self-closing text tag), `9f0a697d` (harden the xlsx cache pin, correct the docx perf comment's numbers, drop the now-dead `runsText`), `d061d37e` (restore case sensitivity, tighten the open-tag boundary), `f9a6509a` (pin the close-lookup retirement) — and `42f1c172` (pin case-insensitive tag matching). Verified by `npx vitest run src/app/tag-pair-walk.test.ts src/app/docx-extract.test.ts src/app/xlsx-extract.test.ts src/app/pptx-extract.test.ts src/app/office-xml.test.ts --maxWorkers=1`.
 
 **The shape.** A lazy pair regex is linear on well-formed markup, because each open finds its close
 nearby. It is quadratic on markup where the close is missing: the engine scans from the open to end
@@ -38777,7 +38777,7 @@ proxies that COULD pin an apex are the two that forgot.
 
 ## 560. The config-export redaction backstop covered three of the five sealed secrets — CLOSED 2026-09-18
 
-**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups` (`acae29be`): `redactSettings` (`recovery-config.ts:144`) no longer carries a hand-written path list. `secrets.ts` now exports `SECRET_IDS` and an id→settings-path mapping, `redactSettings` derives from it, and a test asserts every `SecretId` has an entry — so a sixth secret fails loudly instead of slipping through the backstop.
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups` (`acae29be`): `redactSettings` (`grep -n "function redactSettings" src/app/recovery-config.ts`) no longer carries a hand-written path list. `secrets.ts` now exports `SECRET_IDS` and an id→settings-path mapping, `redactSettings` derives from it, and a test asserts every `SecretId` has an entry — so a sixth secret fails loudly instead of slipping through the backstop.
 
 `redactSettings` redacted `integrations.turso.authToken`, `jira.apiToken` and `ai.apiKey`, and never
 `timelog.apiToken` or `dictation.sttApiKey`.
@@ -38902,7 +38902,7 @@ Related: §560, §567.
 
 **Work item:** _not yet filed — needs the user's explicit say before a GitLab issue is opened (2026-09-18)._
 
-`jira-settings.tsx:191` and `timelog-settings.tsx:59` call `saveSecretValue(<id>, value, "device")`
+`jira-settings.tsx` and `timelog-settings.tsx` each call `saveSecretValue(<id>, value, "device")`
 unconditionally on change, so clearing the field seals `""` and leaves a ciphertext entry in
 `aipm-cockpit:secrets` that decrypts to nothing. The other three sections —
 `settings-sections/ai-section.tsx`, `dictation-section.tsx` and `integrations-section.tsx` (Turso) —
@@ -38937,8 +38937,8 @@ gives the same diagnostic value with no dependence on what the rejection happens
 
 Two hardcoded enumerations of the five `SecretId`s survive:
 
-- `secrets.ts:58` — `isSealedSecret` validates the id with a five-way `s.id === "…" || …` chain.
-- `secrets-store.ts:13` — `readStore` iterates a five-element `as const` array and copies across
+- `secrets.ts` — `isSealedSecret` validates the id with a five-way `s.id === "…" || …` chain.
+- `secrets-store.ts` — `readStore` iterates a five-element `as const` array and copies across
   only the ids it names. ★ Note the FILE: this one lives in `secrets-store.ts`, not `secrets.ts`,
   which is where a reader following AGENTS.md's six-edit lockstep bullet would look first.
 
