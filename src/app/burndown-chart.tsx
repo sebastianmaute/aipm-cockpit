@@ -4,7 +4,7 @@
 // Dash patterns and the legend carry each series' meaning, not colour alone.
 // End labels are foreground text (small `ui-purple` text fails AA on dark
 // schemes); the line swatch in the legend carries the colour.
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
@@ -71,6 +71,13 @@ function BurndownChartBody({
 }: {
   lang: Lang; currency: string; model: ChartModel; unit: ChartUnit; orientation: ChartOrientation; periods: readonly string[];
 }) {
+  // The SVG's own `aria-label` (below) is the chart's whole non-visual summary;
+  // `aria-describedby` folds it into the trigger button's accessible DESCRIPTION
+  // (the button's own `aria-label` already claims its NAME, which is not folded
+  // in by the accessible-name computation) with no second copy of the string.
+  // A stable per-render literal would collide — this component renders twice on
+  // one page (Budget report + dashboard tile) — so the id comes from `useId`.
+  const svgDescId = useId();
   const locale = localeFor(lang);
   const fmt = (v: number) => (unit === "eur" ? formatCurrency(v, currency, locale) : formatHours(v, locale));
   // The hours key carries its own " h", so the join amount is the bare number.
@@ -168,9 +175,10 @@ function BurndownChartBody({
           type="button"
           {...readout.triggerProps}
           aria-label={t(lang, "burndownReadoutTrigger")}
+          aria-describedby={svgDescId}
           className="block w-full cursor-crosshair rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green print:cursor-auto"
         >
-          <svg viewBox={`0 0 ${W} ${height}`} className="w-full" role="img" aria-label={aria.join(" ")}>
+          <svg id={svgDescId} viewBox={`0 0 ${W} ${height}`} className="w-full" role="img" aria-label={aria.join(" ")}>
           {belowZero && <rect x={X0} y={zeroY} width={X1 - X0} height={yBottom - zeroY} className="fill-ui-pink/10" />}
           <line x1={X0} y1={yTop} x2={X0} y2={yBottom} className="stroke-line" strokeWidth={1} />
           <line x1={X0} y1={zeroY} x2={X1} y2={zeroY} className="stroke-line" strokeWidth={1} />

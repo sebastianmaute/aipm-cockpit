@@ -101,9 +101,14 @@ describe("ChartReadout", () => {
     expect(screen.getByRole("tooltip")).toHaveStyle({ top: "33px", left: "44px" });
   });
 
-  // The box is a portal (`TooltipSurface` → `document.body`), so a `print:hidden`
-  // wrapper anywhere in `burndown-chart.tsx`'s own tree can never cascade into it —
-  // the rule has to live on the portaled node's OWN class list, which is what
+  // The PRIMARY guard is `globals.css`'s `[data-tooltip-portal] { display: none
+  // !important; }` print rule, which already hides every `TooltipSurface` portal
+  // (it predates this branch — `InfoTooltip` carries no local print class
+  // precisely because it relies on that rule alone). This `print:hidden` class is
+  // a deliberate SECOND layer, not the fix for a real gap: the box is a portal
+  // (`TooltipSurface` → `document.body`), so a `print:hidden` wrapper anywhere in
+  // `burndown-chart.tsx`'s own tree could never have cascaded into it regardless
+  // — the rule has to live on the portaled node's OWN class list, which is what
   // `TooltipSurface`'s `className` prop lands it on. Assert it here, at the node
   // that actually needs to disappear on print.
   it("hides the box from print", () => {

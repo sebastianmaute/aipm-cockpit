@@ -571,6 +571,47 @@ describe("BurndownChart", () => {
       expect(screen.getByRole("img").getAttribute("aria-label") ?? "").toContain("in ");
     });
 
+    // The trigger button's own `aria-label` is its accessible NAME and is not
+    // folded together with the nested image's `aria-label` — without
+    // `aria-describedby` linking the two, a screen-reader user tabbing to the
+    // button would never hear the chart's summary at all. Mutation: drop
+    // `aria-describedby` from the button → this goes red on the id assertion.
+    it("describes the trigger button with the chart's own accessible name via aria-describedby", () => {
+      render(<BurndownChart lang="en-US" currency="EUR" model={MODEL} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
+      const button = screen.getByRole("button", { name: /arrow keys/i });
+      const img = screen.getByRole("img");
+      expect(button.getAttribute("aria-describedby")).toBe(img.id);
+      expect(img.id).not.toBe("");
+      // A distinctive substring, not the whole string — the full sentence is
+      // pinned elsewhere and would make this test re-assert format, not linkage.
+      expect(img.getAttribute("aria-label") ?? "").toContain("Runs out");
+    });
+
+    // §5: a budget-change marker carries a delta amount, not a chart y position,
+    // so its readout row must be filtered out of the dot list. MODEL's own
+    // `bacMarkers: []` never produces a "change" row, so this needs its own
+    // fixture. Mutation: delete the `row.kind !== "change"` filter in
+    // `burndown-chart.tsx` → the dot count goes to 6 and this goes red.
+    it("draws no dot for a change row, which has no y position", async () => {
+      const withChange = {
+        ...MODEL,
+        bacMarkers: [{ date: "2026-02-01", value: 60, amount: 500, label: "Vendor", removed: false }],
+      };
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(RECT);
+      const user = userEvent.setup();
+      render(<BurndownChart lang="en-US" currency="EUR" model={withChange} unit="eur" orientation="cumulative" periods={["Jan", "Mar"]} />);
+      await user.tab();
+      // Sorted stops for this fixture: 2026-01-01, 2026-02-01, 2026-02-15,
+      // 2026-03-01 — Home lands on the first, one ArrowRight on the second,
+      // which is where the marker sits and where `actual`/`evPoint`/`pace`/
+      // `efficiency`/`budget` (bacLine, unconditional here) all also land.
+      await user.keyboard("{Home}{ArrowRight}");
+      // Anti-vacuity: the box lists all six rows, the change row included —
+      // only the CHART's dots must drop it.
+      expect(screen.getAllByRole("listitem", { hidden: true })).toHaveLength(6);
+      expect(document.querySelectorAll("[data-readout-dot]")).toHaveLength(5);
+    });
+
     it("renders no trigger for an empty model", () => {
       render(<BurndownChart lang="en-US" currency="EUR" model={{ ...MODEL, empty: true }} unit="eur" orientation="cumulative" periods={[]} />);
       expect(screen.queryByRole("button")).toBeNull();
