@@ -31,14 +31,48 @@ function sheetNames(entries: Map<string, Uint8Array>): string[] {
   if (!b) return [];
   const xml = decodeUtf8(b);
   const out: string[] = [];
-  // Tag by tag, not the former `<sheet\b[^>]*\bname="..."` regex, whose
-  // `[^>]*` ran to the next ">" from every unclosed open — quadratic (§558).
-  forEachOpenTag(xml, "<sheet\\b", (tag) => {
-    const m = /\bname="([^"]*)"/.exec(tag);
-    if (m) out.push(unescapeXml(m[1]));
-    return true;
-  });
+  const openRe = /<sheet\b/g;
+  while (openRe.exec(xml) !== null) {
+    const next = readSheetName(xml, openRe.lastIndex);
+    if (next === null) return out;
+    if (next.name !== null) out.push(unescapeXml(next.name));
+    openRe.lastIndex = next.resume;
+  }
   return out;
+}
+
+/**
+ * The name="…" of the `<sheet` open whose tag text starts at `from`, read as
+ * the former `<sheet\b[^>]*\bname="([^"]*)"` regex read it, but linearly —
+ * that regex's `[^>]*` ran to the next ">" from EVERY open (§558).
+ *
+ * The name is looked for before the tag's first ">" (or end of input), and
+ * the RIGHTMOST one wins, as the greedy `[^>]*` backtracked to it — the same
+ * choice docx's headingDigit makes. Its value then runs to the closing quote
+ * even past a ">", which XML allows unescaped inside an attribute value.
+ *
+ * `resume` is where the regex resumed: past the value's closing quote, or,
+ * with no name in the tag, past its ">" — any open inside the tag sees the
+ * same ">" and so no name either. So each character is scanned at most
+ * twice: the first open after a name, inside the same tag, rescans that
+ * tag's tail, finds no name (the one read was the rightmost) and skips past
+ * the ">". Null means no open further right can yield a name.
+ *
+ * ONE divergence, on malformed input only: when the rightmost name's quote
+ * never closes, the regex backtracked to an EARLIER name and read a "value"
+ * running into the later `name="`; this stops instead.
+ */
+function readSheetName(xml: string, from: number): { name: string | null; resume: number } | null {
+  const gt = xml.indexOf(">", from);
+  const tagEnd = gt === -1 ? xml.length : gt;
+  const nameRe = /\bname="/g;
+  const tag = xml.slice(from, tagEnd);
+  let valueStart = -1;
+  while (nameRe.exec(tag) !== null) valueStart = from + nameRe.lastIndex;
+  if (valueStart === -1) return gt === -1 ? null : { name: null, resume: gt + 1 };
+  const quote = xml.indexOf('"', valueStart);
+  if (quote === -1) return null;
+  return { name: xml.slice(valueStart, quote), resume: quote + 1 };
 }
 
 function worksheetPaths(entries: Map<string, Uint8Array>): string[] {

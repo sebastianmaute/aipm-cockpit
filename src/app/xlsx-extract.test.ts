@@ -254,6 +254,42 @@ describe("extractXlsx", () => {
     expect(extractXlsx(entries)).toBe("## Sheet: Sheet1\n\n| first | a & b |  |\n| --- | --- | --- |");
   });
 
+  const namesOnly = (workbook: string, sheets: number): string[] => {
+    const files: [string, Uint8Array][] = Array.from({ length: sheets }, (_, i) => [
+      `xl/worksheets/sheet${i + 1}.xml`,
+      enc(`<worksheet><sheetData><row r="1"><c r="A1"><v>${i + 1}</v></c></row></sheetData></worksheet>`),
+    ]);
+    const out = extractXlsx(new Map([["xl/workbook.xml", enc(workbook)], ...files]));
+    return [...out.matchAll(/^## Sheet: (.*)$/gm)].map((m) => m[1]);
+  };
+
+  it("keeps a '>' inside a quoted sheet name (the fallback reader)", () => {
+    // Legal XML: ">" need not be escaped in an attribute value, and the former
+    // `<sheet\b[^>]*\bname="([^"]*)"` let the value run past it.
+    const workbook = `<workbook><sheets><sheet name="a>b"/><sheet name="c"/></sheets></workbook>`;
+    expect(namesOnly(workbook, 2)).toEqual(["a>b", "c"]);
+  });
+
+  it("takes the rightmost name= in a tag, as docx's headingDigit does", () => {
+    const workbook = `<workbook><sheets><sheet name="left" x:name="right"/></sheets></workbook>`;
+    expect(namesOnly(workbook, 1)).toEqual(["right"]);
+  });
+
+  it("stays linear on quoted names, unclosed quotes and opens inside one tag", () => {
+    // Three shapes where a name read that resumes short of what it already
+    // scanned rescans out to the one ">" at the end from every open.
+    const fixtures = [
+      '<sheet name="v" '.repeat(80_000) + ">",
+      '<sheet name="'.repeat(80_000) + ">",
+      '<sheet name="v"' + " <sheet".repeat(80_000) + ">",
+    ];
+    for (const workbook of fixtures) {
+      const start = performance.now();
+      namesOnly(workbook, 0);
+      expect(performance.now() - start).toBeLessThan(1000);
+    }
+  });
+
   it("keeps sheet names in declaration order whatever the attribute order", () => {
     // Both workbook readers — the rels mapping and the positional fallback.
     const workbook = `<workbook><sheets>
