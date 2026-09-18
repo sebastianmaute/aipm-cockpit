@@ -143,9 +143,10 @@ export async function callTimelog(
       cache: "no-store",
       signal: AbortSignal.timeout(upstreamTimeoutFor(pathOnly)),
       // normalizeHost allowlisted the INITIAL url only. Following a redirect
-      // would re-issue this request — Bearer token and all — against a host that
-      // passed no check, which is exactly the SSRF the allowlist exists to stop.
-      // "manual" hands us the 3xx instead of chasing it, so we can refuse.
+      // would re-issue this request against a host that passed no check — an
+      // unauthenticated hop to wherever the upstream points, which is exactly
+      // the SSRF the allowlist exists to stop. "manual" hands us the 3xx
+      // instead of chasing it, so we can refuse.
       redirect: "manual",
     });
     if (res.status >= 300 && res.status < 400) {
