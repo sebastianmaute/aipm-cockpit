@@ -107,6 +107,45 @@ describe("readoutAt", () => {
     expect(readoutAt(flat, "2026-02-01")!.rows.find((r) => r.kind === "pace")!.value).toBe(60);
   });
 
+  it("reads the stepped budget at a real duplicate-date change (before/after pair, same date)", () => {
+    const stepped = model({
+      bacSteps: [
+        { date: "2026-01-01", value: 90 },
+        { date: "2026-01-20", value: 90 },
+        { date: "2026-01-20", value: 82 },
+        { date: "2026-03-01", value: 82 },
+      ],
+      bacBaseline: 90,
+      bacLine: null,
+    });
+    expect(readoutAt(stepped, "2026-01-20")!.rows.find((r) => r.kind === "budget")!.value).toBe(82);
+  });
+
+  it("shows the EV diamond (evPoint) in the default burndown shape, where evSegments is null", () => {
+    const out = readoutAt(model({}), "2026-02-01")!;
+    expect(out.rows.find((r) => r.kind === "evPoint")).toMatchObject({ value: 55 });
+    expect(out.rows.some((r) => r.kind === "ev")).toBe(false);
+  });
+
+  it("shows both the EV history row and the EV diamond in the cumulative shape, ev before evPoint", () => {
+    const withBoth = model({
+      evSegments: [
+        { partial: false, points: [{ date: "2026-01-01", value: 0 }, { date: "2026-02-01", value: 55 }] },
+      ],
+      ev: { date: "2026-02-01", value: 55 },
+    });
+    const out = readoutAt(withBoth, "2026-02-01")!;
+    const kinds = out.rows.map((r) => r.kind);
+    expect(kinds).toContain("ev");
+    expect(kinds).toContain("evPoint");
+    expect(kinds.indexOf("ev")).toBeLessThan(kinds.indexOf("evPoint"));
+  });
+
+  it("omits the EV diamond at a stop that is not the EV point's own date", () => {
+    const out = readoutAt(model({}), "2026-01-01")!;
+    expect(out.rows.some((r) => r.kind === "evPoint")).toBe(false);
+  });
+
   it("flags a partial earned-value point and prefers a complete span on a shared boundary", () => {
     const withEv = model({
       evSegments: [

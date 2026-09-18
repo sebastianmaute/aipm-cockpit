@@ -5,7 +5,7 @@
 import { daysBetweenUtc, scaleDate, type ChartModel, type ChartPoint, type ChartSegment } from "./burndown-geometry";
 
 export type ReadoutKind =
-  | "plan" | "budget" | "baseline" | "actual" | "ev"
+  | "plan" | "budget" | "baseline" | "actual" | "ev" | "evPoint"
   | "pace" | "efficiency" | "change" | "runOut";
 
 export type ReadoutRow = {
@@ -119,6 +119,7 @@ export function readoutAt(model: ChartModel, date: string): Readout | null {
   push("actual", pointAt(model.actual, date));
   const ev = evAt(model, date);
   if (ev) rows.push({ kind: "ev", value: ev.value, partial: ev.partial });
+  if (model.ev && model.ev.date === date) rows.push({ kind: "evPoint", value: model.ev.value });
   push("pace", segmentAt(model.pace, date), { forecast: true });
   push("efficiency", segmentAt(model.efficiency, date), { forecast: true });
   const marker = model.bacMarkers.find((m) => m.date === date);
