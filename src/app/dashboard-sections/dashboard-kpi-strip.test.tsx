@@ -174,3 +174,44 @@ describe("DashboardKpiStrip completion tile no-active-scope state", () => {
     expect(screen.queryByText(t("en-US", "dashboardNoActiveScope"))).toBeNull();
   });
 });
+
+// ── Spec C decision 8: Effort SPI / Effort CPI live in the KPI tile ─────────
+describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
+  // 80 h earned of 120 h planned → SPI 0.67; 100 h booked → CPI 0.80.
+  const EVM_TASKS = [
+    { ...taskFixture(1, "Done", "2026-06-02"), dueDate: "2026-06-02", originalEstimateMinutes: 4800, timeSpentMinutes: 6000 },
+    { ...taskFixture(2, "To Do"), dueDate: "2026-06-02", originalEstimateMinutes: 2400 },
+  ];
+
+  it("adds both index tiles with their labels, values and hints when estimates exist", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
+    expect(screen.getByText("0.67")).toBeInTheDocument();
+    expect(screen.getByText("0.80")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "evmSpiHint") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "evmCpiHint") })).toBeInTheDocument();
+  });
+
+  it("opens the Budget view from either index tile, named after its own label", () => {
+    const onNavigate = vi.fn();
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} onNavigate={onNavigate} dc={densityClasses("comfortable")} />);
+    const open = t("en-US", "dashboardOpenBudgetView");
+    screen.getByRole("button", { name: `${t("en-US", "evmSpi")} – ${open}` }).click();
+    screen.getByRole("button", { name: `${t("en-US", "evmCpi")} – ${open}` }).click();
+    expect(onNavigate).toHaveBeenNthCalledWith(1, "budget");
+    expect(onNavigate).toHaveBeenNthCalledWith(2, "budget");
+  });
+
+  // ★ Neither tile takes a Budget-module signal at all — `modelFor` above
+  // always passes `budgets: []` (see its definition earlier in this file), so
+  // this run doubles as proof that both render with the Budget module
+  // effectively off, exactly as the migrated `dashboard-panel.test.tsx`
+  // integration test pins.
+  it("omits both when no task carries an estimate", () => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    expect(screen.getByText("Complete")).toBeInTheDocument();          // positive control
+    expect(screen.queryByText(t("en-US", "evmSpi"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "evmCpi"))).toBeNull();
+  });
+});

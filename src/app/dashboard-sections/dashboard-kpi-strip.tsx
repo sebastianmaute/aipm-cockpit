@@ -16,16 +16,35 @@ interface DashboardKpiStripProps {
   dc: DensityClasses;
 }
 
-/** Standalone "at a glance" KPI card: completion % · overdue · open RAID.
+/** Standalone "at a glance" KPI card: completion % · overdue · open RAID,
+ *  plus Effort SPI · Effort CPI whenever `model.evm.spi`/`model.evm.cpi` is
+ *  non-null (spec C decision 8) — each is independent of the Budget module
+ *  (see the SPI/CPI visibility ruling above); `DashboardKpiStripProps` gains
+ *  no new field.
  *
  *  ★ NO BOX OF ITS OWN — the arrangeable tile chrome (`dashboard-tile.tsx`)
  *  draws the border and the title ("At a glance"). A `Card boxed` here would
  *  nest a second bordered surface inside the first. */
 export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: DashboardKpiStripProps) {
   const noActiveScope = hasNoActiveScope(model.progress);
+  // ★ Spec C decision 8, user's ruling: each index is shown whenever IT can
+  // move a value the user sees — never gated on the Budget module. SPI feeds
+  // the Schedule RAG and CPI feeds the Budget RAG (`dashboard.ts`
+  // `evmIndexHealth`) from `model.evm`, which is computed over `tasks` alone
+  // and is never gated on `showBudget`; the Budget RAG it moves also reaches
+  // the delta strip, the AI snapshot tool, Trends and the Portfolio health
+  // table with the Budget module off. No estimate → the index is `null` → no
+  // badge for it to explain, so the tile is simply absent (never "—").
+  const showSpi = model.evm.spi !== null;
+  const showCpi = model.evm.cpi !== null;
+  const openBudget = onNavigate ? () => onNavigate("budget") : undefined;
+  // ★★ Whole literal class strings — an interpolated grid-cols emits no CSS.
+  // Up to five tiles fit one row from `lg`, at the tile's default width (it
+  // can be narrowed).
+  const cols = showSpi || showCpi ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-3";
   return (
     <div className={dc.cardPad}>
-      <div className={`grid grid-cols-1 sm:grid-cols-3 ${dc.kpiGap}`}>
+      <div className={`grid grid-cols-1 ${cols} ${dc.kpiGap}`}>
         <Tile
           label={noActiveScope ? t(lang, "dashboardNoActiveScope") : t(lang, "dashboardKpiComplete")}
           // Dropped with the bar and the trend: the hint explains how a
@@ -57,6 +76,22 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
           onActivate={onNavigate ? () => onNavigate("raid") : undefined}
           activateLabel={`${t(lang, "dashboardKpiOpenRaid")} – ${t(lang, "dashboardOpenRaidView")}`}
         />
+        {showSpi && (
+          <Tile
+            label={t(lang, "evmSpi")} hint={t(lang, "evmSpiHint")}
+            value={model.evm.spi!.toFixed(2)}
+            onActivate={openBudget}
+            activateLabel={`${t(lang, "evmSpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
+          />
+        )}
+        {showCpi && (
+          <Tile
+            label={t(lang, "evmCpi")} hint={t(lang, "evmCpiHint")}
+            value={model.evm.cpi!.toFixed(2)}
+            onActivate={openBudget}
+            activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
+          />
+        )}
       </div>
     </div>
   );

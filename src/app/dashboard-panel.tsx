@@ -4,10 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReportCard } from "./report-table";
 import { buildDashboardInput, computeDashboard, hasNoActiveScope } from "./dashboard";
 import { useWorkspace } from "./workspace-context";
-import { type Lang, t, localeFor } from "./i18n";
+import { type Lang, t } from "./i18n";
 import type { Health } from "./health";
 import type { Absence, BudgetBucket, ChangeItem, Discipline, Grade, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
-import { formatCurrency } from "./resource-cost";
 import type { SuggestedAction } from "./next-actions/types";
 import type { InsightActions } from "./insights/insight";
 import { useResizable } from "./use-resizable";
@@ -100,26 +99,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // never invalidates for no input change.
   const snapshots = props.snapshots ?? EMPTY_SNAPSHOTS;
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:dashboard-size");
-
-  const locale = localeFor(lang);
-  // ★★ Both money surfaces on this panel render figures that came straight out
-  // of the budget engine and convert NOTHING: `money` prints
-  // `model.burn.consumedValue`/`budgetValue`, which `dashboard.ts` copies off
-  // `computeBudgetReport(...).project`, and `currency` below labels
-  // `model.burndown`, whose values are `budgetHours × role.rates.external`.
-  // Every figure the engine returns is EUR — a fixed-price bucket's contract
-  // amount is converted to EUR at the engine's one read — so these are EUR
-  // whatever `plan.currency` says. Narrowing that field to the `BudgetCurrency`
-  // union did NOT make it safe to label with: the union still admits
-  // `USD`/`GBP`, so it states the plan's base currency, never the unit of an
-  // unconverted engine figure. Labelling them
-  // `plan.currency` printed EUR money under another currency's symbol on the
-  // LANDING view (docs/open-followups.md §465).
-  // ★ Contrast the per-bucket tiles in `budget-panel.tsx`: those convert
-  // EUR→bucket currency (`inCur`/`cci`) BEFORE labelling, so there the
-  // bucket's own currency is the right label. The discriminator is whether the
-  // figure was converted, never where it is rendered.
-  const money = (n: number) => formatCurrency(n, "EUR", locale);
 
   const model = useMemo(
     () =>
@@ -315,16 +294,12 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const bodies = buildTileBodies({
     lang, dc, model,
     trends,
-    money,
-    // EUR for the same reason as `money` above — this labels the engine's
-    // burn-down series, which converts nothing.
+    // ★★ EUR, never `plan.currency`: this labels the engine's burn-down series
+    // (`budgetHours × role.rates.external`), which converts nothing. Narrowing
+    // `plan.currency` to the `BudgetCurrency` union did not make it safe — the
+    // union still admits USD/GBP — and labelling with it printed EUR money
+    // under another symbol on the LANDING view (docs/open-followups.md §465).
     currency: "EUR",
-    // §474 (third surface): same raw buckets/fxRates budget-panel.tsx and
-    // budget-report-panel.tsx already pass to `BudgetFxRollupNotice` — the
-    // "burn" tile body only renders it alongside `model.burn`, so it never
-    // shows for a tile built with budgets gated off (showBudget=false).
-    buckets: props.budgets,
-    fxRates,
     noActiveScope,
     completionSeries,
     milestoneBuckets,
