@@ -5,9 +5,11 @@ import {
   isEscalationEmail,
   isEscalationWriteEmail,
   lastEscalation,
+  RAID_ESCALATION_NAME_MAX,
   RAID_ESCALATIONS_MAX,
   requireEscalationRecipient,
   sanitizeRaidEscalations,
+  stripBreakTags,
 } from "./raid-escalation";
 import type { RaidEscalation } from "./types";
 
@@ -43,6 +45,29 @@ describe("sanitizeRaidEscalations", () => {
     expect(out[4].toName).not.toMatch(/<br\s*\/?>/i);
     // Positive control: a name with no tag is kept verbatim, and a name that was ONLY a tag is dropped.
     expect(sanitizeRaidEscalations([RAISED, { ...NOTIFY, toName: "<br>" }])).toEqual([RAISED, NOTIFY]);
+  });
+  it("does not blow up on a huge stored toName full of unclosed <br opens", () => {
+    // BREAK_TAG's `\s*` and `[^>]*` backtrack to the end of the value from
+    // every start, so stripping BEFORE the length cap measured ~15.6 s here
+    // (the bare regex, ~4x per doubling, took ~23 s at 80k). The ceiling is deliberately loose — it fails
+    // on the pattern class, not on a machine's speed.
+    const toName = "<br ".repeat(80_000);
+    const start = performance.now();
+    const [entry] = sanitizeRaidEscalations([{ ...NOTIFY, toName }]);
+    expect(performance.now() - start).toBeLessThan(1000);
+    expect(entry.toName!.length).toBeLessThanOrEqual(RAID_ESCALATION_NAME_MAX);
+  });
+  it("strips a within-cap name exactly as stripBreakTags does", () => {
+    const names = ["Ada Lovelace", "  Ada <br/> Lovelace  ", "Ada<BR class=\"x\">Lovelace", "a".repeat(RAID_ESCALATION_NAME_MAX)];
+    const out = sanitizeRaidEscalations(names.map((toName) => ({ ...NOTIFY, toName })));
+    expect(out.map((e) => e.toName)).toEqual(names.map(stripBreakTags));
+  });
+  it("drops a <br> tag the length cap cuts in half, but keeps a '<b' that was never one", () => {
+    const pad = "a".repeat(RAID_ESCALATION_NAME_MAX - 2);
+    const out = sanitizeRaidEscalations(
+      [`${pad}<br>tail`, `${pad.slice(3)} <br class="x"/>tail`, `${pad}<bob>`, `${pad}<brx>`].map((toName) => ({ ...NOTIFY, toName })),
+    );
+    expect(out.map((e) => e.toName)).toEqual([pad, pad.slice(3), `${pad}<b`, `${pad}<b`]);
   });
   it("keeps only the newest RAID_ESCALATIONS_MAX entries", () => {
     const many = Array.from({ length: RAID_ESCALATIONS_MAX + 5 }, (_, i) => ({ ...NOTIFY, toEmail: `p${i}@example.com` }));
