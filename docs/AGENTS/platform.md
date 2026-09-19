@@ -24,13 +24,17 @@
   `dataloss.*` codes. ★ load() must THROW on a malformed/partial read, never mask it as an empty project
   (`relationalReadIsEmpty`); the save effect refuses a full-wipe / mass-deletion over a populated project
   unless `allowDestructiveSave()` armed (clear-all self-arms) — the data-loss defense.
-  ★★★ **NO SAVE RUNS BEFORE A LOAD FOR THE CURRENT BACKEND HAS SUCCEEDED (§586).** Before it, render
-  scope holds the EMPTY boot workspace (or the previous backend's), and that guard cannot see it — its
-  baselines start at 0/0 — so a pre-load save was a Turso `DELETE FROM` every table. `savesAllowedFor`
-  in `use-storage-backend.ts` (identity, like `loadedBackend`; NOT `workspaceLoaded`, which stays shut
-  after an empty-load refusal) is checked by the save effect, by `doSave` (the debounce timer AND
-  flush-on-hide both call it) and by the pre-switch `flushCurrent`. A new path that writes the live
-  workspace to the ACTIVE backend must check it too.
+  ★★★ **NO SAVE RUNS BEFORE A LOAD FOR THE CURRENT BACKEND HAS BEEN APPLIED (§586, §587).** Before it,
+  render scope holds the EMPTY boot workspace — or, after a settings-driven rebuild (a Turso URL/token
+  keystroke, a SharePoint target change), the PREVIOUS target's — and that guard cannot see it: its
+  baselines start at 0/0, or equal the previous project's counts. So a pre-load save was a Turso
+  `DELETE FROM` every table, or a copy of one project over another. `savesAllowedFor` in
+  `use-storage-backend.ts` is an identity like `loadedBackend`, opened where `loadedBackend` is stamped
+  plus after an explicit "Pick storage file" write. It is checked by the save effect, by `doSave` (the
+  debounce timer AND flush-on-hide both call it) and by the pre-switch `flushCurrent`. A failed load,
+  and an empty load REFUSED over populated scope, leave it shut for that backend and announce
+  `storageSavePausedLoadFailed` on the first refused edit. A new path that writes the live workspace to
+  the ACTIVE backend must check it too.
 - **Guard transparency (`guard-feedback.ts`):** `reportSilentFailure(showToast, lang, code, err, msgKey)`
   (error toast + `logDiag`) / `reportCapabilityGap(showToast, lang, code, guidanceKey)` (info toast +
   `logDiag`) — the pattern for surfacing a swallowed user-action failure or an off/unconfigured-feature

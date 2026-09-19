@@ -803,6 +803,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
 | [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN | audit (2026-09) | S | open |
 | [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19) | A startup autosave saves the empty workspace over the stored project before the first load lands — CLOSED 2026-09-19 | found 2026-09-19 by the startup-autosave probe; filed and fixed on fix/startup-autosave-wipe; GitLab #371 | S — gate every save to the active backend on a successful load | closed |
+| [§587](#587-a-settings-driven-backend-rebuild-saves-the-previous-targets-workspace-into-the-new-target--closed-2026-09-19) | A settings-driven backend rebuild saves the previous target's workspace into the new target — CLOSED 2026-09-19 | found 2026-09-19 by the rebuild follow-up probe; filed already closed, fixed by the §586 change on fix/startup-autosave-wipe | S — the §586 gate, kept shut after an empty-load refusal | closed |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -39483,7 +39484,7 @@ Related: [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-un
 
 ## 586. A startup autosave saves the empty workspace over the stored project before the first load lands — CLOSED 2026-09-19
 
-**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe` (`84185ece`), filed and fixed on the same branch; GitLab #371 is closed by the MR that merges it, not by this entry. `use-storage-backend.ts` now carries a save gate, `savesAllowedFor` (state + ref, keyed on backend IDENTITY like `loadedBackend`), that opens only once a load for THAT backend instance has succeeded. Three paths check it: the save effect (it schedules nothing while the gate is shut), `doSave` (the debounce timer and flush-on-hide both call it, and nothing else in `debounced-save.ts` reaches the save), and the pre-switch `flushCurrent`, which now skips rather than writing the unloaded workspace over the project being left. After a FAILED load the first refused edit shows `storageSavePausedLoadFailed` through the existing error toast, once per backend. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`.
+**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe` (`84185ece`), filed and fixed on the same branch; GitLab #371 is closed by the MR that merges it, not by this entry. `use-storage-backend.ts` now carries a save gate, `savesAllowedFor` (state + ref, keyed on backend IDENTITY like `loadedBackend`), that opens only once a load for THAT backend instance has succeeded. Three paths check it: the save effect (it schedules nothing while the gate is shut), `doSave` (the debounce timer and flush-on-hide both call it, and nothing else in `debounced-save.ts` reaches the save), and the pre-switch `flushCurrent`, which now skips rather than writing the unloaded workspace over the project being left. After a FAILED load, or an empty load refused over populated scope (§587), the first refused edit shows `storageSavePausedLoadFailed` through the existing error toast, once per backend. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`.
 
 At boot every workspace slice is empty, and the save effect runs on the same commit as the load
 effect because both key on `hydrated`. Nothing on the save path refused a save issued before the load
@@ -39506,23 +39507,68 @@ code, never executed:
 - IndexedDB: the keyed stores diff against empty baselines and are spared, but every key-value slice
   is overwritten or deleted.
 
-**The fix, and why the gate is not `workspaceLoaded`.** The two differ at one site: the empty-load
-REFUSAL, where a load SUCCEEDED but was not applied. There `loadedBackend` is deliberately not stamped
-([§77](#77-the-snapshot-capture-gate-is-a-one-way-latch-so-a-mid-session-storage-switch-can-still-capture-the-wrong-project--closed-post-02260)). But the load succeeded,
-so saving goes on as it did before §586. The gate also opens wherever `loadedBackend` is stamped, and
-after an explicit "Pick storage file" write, since the backend then holds exactly the live workspace.
-The effect-level check sits ABOVE the suppress branch, and `savesAllowed` is an effect dep. So a
-project switch spends its one-shot suppress when the gate opens, not on the run where the gate is
-still shut. Placing the check below the suppress branch would re-write the just-loaded workspace to
-the target.
+**The fix, and how the gate relates to `workspaceLoaded`.** The gate opens wherever `loadedBackend` is
+stamped: in `applyWorkspace`, and at the suppress-branch re-stamp that follows a switch, create or
+load-from-file op. It also opens after an explicit "Pick storage file" write, since the backend then
+holds exactly the live workspace. That write is the only place where the gate and `workspaceLoaded`
+differ. Like `loadedBackend`
+([§77](#77-the-snapshot-capture-gate-is-a-one-way-latch-so-a-mid-session-storage-switch-can-still-capture-the-wrong-project--closed-post-02260)),
+it stays SHUT after an empty-load REFUSAL, for the reason given in
+[§587](#587-a-settings-driven-backend-rebuild-saves-the-previous-targets-workspace-into-the-new-target--closed-2026-09-19).
+The effect-level check sits ABOVE the suppress branch, and `savesAllowed` is an effect dependency. So
+a project switch spends its one-shot suppress when the gate opens, not on the run where the gate is
+still shut. With the check below the suppress branch, the just-loaded workspace would be written back
+to the target.
 
 ★★ **The two checks mask each other, so a single-gate mutant proves little.** Removing either check
-alone leaves (a) and (b) green; removing both turns six of the nine tests red. The `doSave` check
+alone leaves (a) and (b) green, and removing both turns six of the ten tests red. The `doSave` check
 cannot be the sole guard today, because a backend change re-runs the effect and cancels the pending
 save. It is there so that a future path which schedules without the effect's check still cannot write.
 
-★ **Out of scope, noted.** The empty-load refusal is reachable only when the load effect started with
-data already on screen, which means a backend REBUILD (a Turso URL or token change, or a new
-`acquireToken` identity). On that path the kept workspace is then saved to the NEW backend. That is
-unchanged from before §586, is pinned as unchanged by test (h), and is the cross-target write the
-probe flagged as a separate question.
+## 587. A settings-driven backend rebuild saves the previous target's workspace into the new target — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe`. It was filed already closed and fixed by the same change as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19): the save gate in `84185ece`, and `c360190f`, which keeps the gate shut after an empty-load refusal. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`, tests (e), (h) and (j).
+
+`useStorageBackend` memoises `backend` on `storageConfig` (by identity), `auth.acquireToken`, the Turso
+`databaseUrl` and `authToken`, and `tursoProjectId`. When one of them changes without going through a
+project op, both effects re-run on the new instance. Nothing suppresses the save. The destructive
+baselines equal the current populated counts, so `evaluateSaveGuard` allows it, and the save effect
+schedules a save of the PREVIOUS target's in-memory workspace to the NEW backend. Only a load that
+is applied within 500 ms cancels that save. A slow load, a failed load, or an empty load that the
+empty-load guard refuses all let the save through. On Turso the new instance's diff baseline is
+`null`, so the save is a full rewrite.
+
+**Measured vs read.** A follow-up probe drove the real hook with Turso settings. It loaded A, then
+re-rendered with a new `databaseUrl`, which returned backend B. It MEASURED three cases:
+- B populated, 2000 ms load: `B.save` received A's project at about 500 ms. B's load was then
+  applied on top, so the screen showed B while storage held A.
+- B populated, 100 ms load: no save.
+- B empty, 100 ms load: the refusal kept A on screen and left the save running, so `B.save`
+  received A's project.
+
+Which settings reach the rebuild was READ from code:
+- The Turso URL and token fields call `setSettings` on every keystroke.
+- A SharePoint target change creates a new `storageConfig` identity.
+- An `acquireToken` identity change (M365 sign-in or sign-out) rebuilds against the same target, so
+  the data written back is that target's own. On Turso that is still a full rewrite.
+
+**The fix.** It is the §586 gate. A rebuilt instance fails the identity check until its own load is
+applied, so nothing reaches it before then. ★★★ The one addition is the empty-load refusal. It is
+reachable ONLY on such a rebuild: the load effect's `currentWorkspace` is the closure of the render
+that started it, so an empty FIRST load simply applies. The refusal therefore leaves the gate SHUT
+and marks the backend paused, where opening it would copy the previous project into the empty
+target. The first refused edit then announces `storageSavePausedLoadFailed`, as a failed load
+does. Saving to that backend resumes only once a load is applied, from a reload, a switch or a
+Pick storage file.
+
+**Not affected, by design.**
+- A storage-KIND switch (`onRequestStorageSwitch`) writes the live workspace to the new kind through
+  `guardedWrite`, not the save effect, so the gate does not see it. It then arms `suppressNextLoadRef`
+  (not `suppressNextSaveRef`). The re-stamp opens the gate, and the `savesAllowed` dependency re-runs
+  the effect. That produces the same one redundant post-switch save as before, with no edit needed;
+  test (j) pins it.
+- Pick file and open file bind the same instance, so there is no rebuild.
+
+★ **Still open, and out of scope:** each keystroke in the Turso URL field still starts a `load()`
+against a partial URL. Those loads cannot save any more, but they still cost network requests and
+error toasts.
