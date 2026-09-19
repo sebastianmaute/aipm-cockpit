@@ -140,12 +140,15 @@ Rules for every site:
 
 1. **Keep the fixture's shape.** Only N changes; the fixture keeps hitting the same input pattern
    and code path.
-2. **Never scale up.** Today's N becomes the LARGE size everywhere, or something smaller, and `n` is
-   a quarter of the large size. `html-extract` goes smaller still (large 125,000, `n` 31,250) to fit
-   the time budget in rule 7. Each site is verified by the ratio its mutant produces at the new sizes.
-   If a mutant's ratio would not exceed 8 at the chosen `n`, the implementer picks the smallest `n`
-   where it does (at most today's N / 4) and records why in the site's comment; if even N / 4 does
-   not, that is a finding to report, not a reason to loosen the limit.
+2. **Start small, and require a red margin.** The starting size never scales up: today's N becomes
+   the LARGE size everywhere, or something smaller, and `n` is a quarter of the large size.
+   `html-extract` starts smaller still (large 125,000, `n` 31,250) to fit the time budget in rule 7.
+   Each site is verified by the ratio its mutant produces at the committed sizes, and that ratio must
+   be **at least 12** — 1.5× the limit of 8. A mutant ratio between 8 and 12 is a survivor to
+   investigate, never a pass. A quadratic mutant's ratio rises with `n`, so a site short of 12 raises
+   `n` until it gets there, even past today's N / 4. **The red margin wins over the time budget:** the
+   implementer records the resulting green time and flags the site in the task report. If raising `n`
+   cannot reach 12, that is a finding to report, never a reason to loosen the limit.
 3. **Record ratios, not ms.** Each site's comment currently records green and red durations. It is
    rewritten to record the green and red RATIOS measured during conversion, with the date, in the
    style of the `DOS_BUDGET_MS` docstring. Old ms figures are removed, not left beside the ratios.
@@ -156,8 +159,10 @@ Rules for every site:
    an expected cell count, and so on. "Is non-empty" does not count.
 6. **Keep fixture-row loops.** Looped rows call the helper once per row, and the failure message
    names the row.
-7. **Budget about 1.5 s green per converted `it`,** or less. A fixture-row loop whose rows together
-   would exceed that becomes `it.each`, one row per test, named by the row label.
+7. **Budget about 1.5 s green per converted `it`,** or less. This is a target, not a gate; rule 2's red
+   margin overrides it. A fixture-row loop whose rows together would exceed it becomes `it.each`, one
+   row per test, named by the row label. A loop whose rows share a mutant also splits whatever its
+   time, so the mutant proof can select one row (Section 3).
 8. **Pass the hang backstop.** Every converted test takes `{ timeout: 120_000 }` as its options
    argument, with a one-line comment calling it a hang backstop, not the guard. In vitest 4.1.11 the
    options object is the SECOND argument (`it(name, { timeout }, fn)`, and likewise for
@@ -167,9 +172,12 @@ Rules for every site:
 Special cases:
 
 - **`raid-escalation`** — the default limit (`factor ** 1.5`, 8). Green is linear (ratio ≈ 4, see the
-  inventory). The mutant to prove is removing the 200-character clamp, i.e. stripping the full value;
-  `BREAK_TAG`'s nested runs then make it quadratic ("~4x per doubling" in the test's own comment), a
-  ratio of about 16.
+  inventory). The mutant is the exact pre-fix code from `ee584d716`: strip the full value, THEN
+  slice — `stripBreakTags(raw).slice(0, max)`. The slice matters. Without it the output keeps ~80,000
+  characters and fails `check` on the untimed warm-up, so no ratio is ever measured. With it, `check`
+  passes and only the ratio can fail. `BREAK_TAG`'s nested runs make the mutant quadratic ("~4x per
+  doubling" in the test's own comment), for an expected red ratio of about 16. A node replica measured
+  15.6–15.9 (revision, 2026-09-19).
 - **`xlsx-extract`'s XFD case** — no ratio. Its timing lines go; its exact output assertion stays, and
   the mutant (removing the column cap) is proved against that assertion.
 - **`tag-pair-walk`'s 50 ms site** — the green side at `n` = 20,000 is a millisecond or two, so it is
@@ -193,10 +201,15 @@ under an outer 120 s kill, and a kill counts as red (Section 3).
 **Mutation proof, per site.** Reintroduce the regression each site guards — the reverted linear walk,
 the swapped check order, the restored backtracking regex, the removed clamp — and see the site go red.
 Because vitest cannot interrupt a synchronous test (Section 1, "Hang backstop"), a mutant runs to
-completion; every mutant run therefore goes through a wrapper that starts vitest on the one file and
-kills that process tree by its PID after 120 s. A kill counts as red. Record the printed red ratio (or
-"killed at 120 s") in the site's comment and the task report. A mutant that survives is a question to
-investigate, never a reason to loosen a ratio. Mutants run one at a time and are reverted before the
+completion. Every mutant run therefore goes through a wrapper that starts vitest on the one file,
+selects the ONE site under proof with `-t "<escaped exact test title>$"`, and kills that process tree
+by its PID (`/T`) after 120 s. `-t` is needed because several mutants slow more than one site in a
+file. Run whole-file, a kill could not be pinned on the site under proof. With `-t`, a kill is
+attributed only to the selected test, and the file's other tests do not run (the module is still
+collected). The log must show exactly one test run; zero means the pattern matched nothing. A kill
+counts as red. Record the printed red ratio (or "killed at 120 s") in the site's comment and the task
+report. A mutant that survives — green, or red with a ratio below 12 (Section 2, rule 2) — is a
+question to investigate, never a reason to loosen a ratio. Mutants run one at a time and are reverted before the
 next; each report ends with `git diff --stat` showing only the intended files.
 
 **Peer protocol.** Only one vitest run at a time on this machine — never two, so the load check below
@@ -227,7 +240,9 @@ full suite.
 4. `rich-text-plain`, `document-asset-patterns.differential`, `raid-escalation`.
 5. Docs and register — close §592 (#376) and §593 (#377) with dated closure notes, removing their
    `**Work item:**` lines (a closed entry must not carry one) and setting both index rows' status cell
-   to `**CLOSED** 2026-09-19`, the form §567's row uses; add one line to `CONTRIBUTING.md`'s
+   to `**CLOSED** 2026-09-19`, the form §567's row uses. §592's closure note restates its "~80x
+   ordering gap" as the ratio pair (green ≈ 4 against a mutant ratio of at least 12). Add one line to
+   `CONTRIBUTING.md`'s
    testing section saying new timing guards use `expectLinearScaling`.
 
 ## Out of scope
