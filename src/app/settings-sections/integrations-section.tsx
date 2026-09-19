@@ -220,6 +220,32 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     });
   }
 
+  // ★★★ §548 — THE URL AND TOKEN ARE DRAFTS, COMMITTED ON BLUR (the SharePoint URL field in
+  //   `storage-config.tsx` is the precedent: blur only, no Enter). On Turso storage both values feed
+  //   the backend memo in `useStorageBackend`, so committing per keystroke built a new backend per
+  //   keystroke — and each rebuild re-arms the load hold, which replaces the whole main-window tree,
+  //   this section included, with the skeleton. The field unmounted after the first character.
+  // ★ Every read in THIS section goes through the drafts (the probe, its fingerprint, the configured
+  //   check, the passphrase seal), so what the user sees is what those act on. Resynced from settings
+  //   by the render-time reconcile below whenever the stored value changes from outside (reload,
+  //   "remove stored secret"); `set-state-in-effect` is fatal here.
+  const [tursoUrl, setTursoUrl] = useState(turso.databaseUrl);
+  const [tursoToken, setTursoToken] = useState(turso.authToken);
+  const [prevStoredTursoUrl, setPrevStoredTursoUrl] = useState(turso.databaseUrl);
+  const [prevStoredTursoToken, setPrevStoredTursoToken] = useState(turso.authToken);
+  if (prevStoredTursoUrl !== turso.databaseUrl) {
+    setPrevStoredTursoUrl(turso.databaseUrl);
+    setTursoUrl(turso.databaseUrl);
+  }
+  if (prevStoredTursoToken !== turso.authToken) {
+    setPrevStoredTursoToken(turso.authToken);
+    setTursoToken(turso.authToken);
+  }
+
+  function commitTursoUrl() {
+    if (tursoUrl !== turso.databaseUrl) updateTurso({ databaseUrl: tursoUrl });
+  }
+
   // Turso auth-token at-rest wrap mode + passphrase entry. writeSettings blanks
   // turso.authToken from persisted settings, so this device-seal is what survives
   // a reload (mirrors the Anthropic API-key handling in ai-section.tsx).
@@ -282,8 +308,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // flag.
   const tursoTestFresh =
     tursoTest !== null &&
-    tursoTest.url === turso.databaseUrl &&
-    tursoTest.token === turso.authToken;
+    tursoTest.url === tursoUrl &&
+    tursoTest.token === tursoToken;
   // ★ No `?.` — `tursoTestFresh` opens with `tursoTest !== null` and TS narrows
   // through the aliased const, so an optional chain would only paper over a
   // broken invariant: it would render the gate CLOSED (safe-looking) instead of
@@ -310,8 +336,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     setTursoTesting(true);
     setTursoTest(null);
     try {
-      await testTursoConnection(getTursoConfig(turso.databaseUrl, turso.authToken));
-      setTursoTest({ kind: "ok", url: turso.databaseUrl, token: turso.authToken });
+      await testTursoConnection(getTursoConfig(tursoUrl, tursoToken));
+      setTursoTest({ kind: "ok", url: tursoUrl, token: tursoToken });
     } catch (e) {
       // ★ A kind, never the config and never a raw message — nothing thrown
       // here may carry the URL or token into the DOM.
@@ -327,15 +353,18 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         // coalesce only fills in `tursoErrorKind`'s `null` (unrecognised), and
         // widening the union makes it TS2322 — the author has to decide.
         reason: kind ?? "generic",
-        url: turso.databaseUrl,
-        token: turso.authToken,
+        url: tursoUrl,
+        token: tursoToken,
       });
     } finally {
       setTursoTesting(false);
     }
   }
 
-  function handleAuthTokenChange(value: string) {
+  // ★ The device-seal rides the COMMIT, not the keystroke: the sealed value is the one settings hold.
+  function commitTursoToken() {
+    if (tursoToken === turso.authToken) return;
+    const value = tursoToken ?? "";
     updateTurso({ authToken: value });
     if (tokenWrap === "device") {
       void saveSecretValue("tursoAuthToken", value, "device").then(() => setTokenStored(true));
@@ -353,8 +382,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // is in memory (keeps the token); otherwise forget the locked-and-unknown
     // secret. Either way flip wrap to device so the checkbox actually toggles.
     void (async () => {
-      if ((turso.authToken ?? "").trim()) {
-        await saveSecretValue("tursoAuthToken", turso.authToken ?? "", "device");
+      if ((tursoToken ?? "").trim()) {
+        await saveSecretValue("tursoAuthToken", tursoToken ?? "", "device");
         setTokenStored(true);
       } else if (isPassphraseLocked("tursoAuthToken")) {
         removeSealed("tursoAuthToken");
@@ -368,7 +397,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
   function handleTokenLockConfirm() {
     void (async () => {
-      await setSecretPassphrase("tursoAuthToken", turso.authToken ?? "", tokenPassphrase);
+      await setSecretPassphrase("tursoAuthToken", tursoToken ?? "", tokenPassphrase);
       setTokenStored(true);
       setTokenPassphrase("");
       setTokenConfirm("");
@@ -379,6 +408,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     if (!(await confirm({ message: t(lang, "secretPassphraseRemoveConfirm") }))) return;
     removeSealed("tursoAuthToken");
     updateTurso({ authToken: "" });
+    // ★ Also clear the draft: when the stored token is already "" the reconcile sees no change.
+    setTursoToken("");
     setTokenStored(false);
     setTokenWrap("device");
     setTokenPassphrase("");
@@ -402,7 +433,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const [pendingMode, setPendingMode] = useState<PortfolioMode>(portfolioMode);
   // Turso portfolio mode is only safe once Turso resolves a config (URL + token,
   // or env vars). Disable it until then so a switch can't land in a dead portfolio.
-  const tursoConfigured = !!getTursoConfig(turso.databaseUrl, turso.authToken);
+  const tursoConfigured = !!getTursoConfig(tursoUrl, tursoToken);
   // "On Turso" = data lives in Turso: either the single-DB Turso storage backend
   // (Settings → Storage) OR turso portfolio mode (Move-to-Turso). Snapshot
   // recording is available in either.
@@ -673,8 +704,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 <Input
                   size="xs"
                   type="text"
-                  value={turso.databaseUrl ?? ""}
-                  onChange={(e) => updateTurso({ databaseUrl: e.target.value })}
+                  value={tursoUrl ?? ""}
+                  onChange={(e) => setTursoUrl(e.target.value)}
+                  onBlur={commitTursoUrl}
                   placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
                   className="w-full"
                   aria-describedby={envTursoUrlSet ? tursoUrlEnvNoticeId : undefined}
@@ -708,8 +740,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 <Input
                   size="xs"
                   type="password"
-                  value={turso.authToken ?? ""}
-                  onChange={(e) => handleAuthTokenChange(e.target.value)}
+                  value={tursoToken ?? ""}
+                  onChange={(e) => setTursoToken(e.target.value)}
+                  onBlur={commitTursoToken}
                   placeholder={t(lang, "integrationsTursoTokenPlaceholder")}
                   className="w-full"
                   aria-describedby={tursoTokenNoteId}
@@ -757,7 +790,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     variant="primary"
                     size="sm"
                     className="self-start whitespace-nowrap"
-                    disabled={!(turso.authToken ?? "").trim() || !tokenPassphrase || tokenPassphrase !== tokenConfirm}
+                    disabled={!(tursoToken ?? "").trim() || !tokenPassphrase || tokenPassphrase !== tokenConfirm}
                     onClick={handleTokenLockConfirm}
                   >
                     {t(lang, "secretPassphraseSave")}

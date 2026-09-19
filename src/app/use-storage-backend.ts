@@ -76,12 +76,19 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // so load/save scope to the per-project (tenant-mode) TursoBackend.
   const [tursoProjectId, setTursoProjectId] = useState<string | null>(loadCurrentTursoProjectId());
 
+  // ★★★ §548 — THE TURSO URL AND TOKEN FEED THE BACKEND ONLY WHEN THE STORAGE KIND IS TURSO.
+  //   `createBackend` reads `tursoConfig` for kind "turso" alone, but these two used to sit in the
+  //   memo deps for EVERY kind — so on file or SharePoint storage an edit to either Settings field
+  //   built a new (identical) backend, which re-armed the load hold and unmounted the Settings view
+  //   under the user's cursor. `undefined` for every other kind keeps the deps still.
+  //   `storageTargetKey` already ignores both fields for a non-Turso kind, so key and backend agree.
+  const isTursoStorage = args.settings.storageConfig.kind === "turso";
+  const tursoUrlForBackend = isTursoStorage ? args.settings.integrations?.turso?.databaseUrl : undefined;
+  const tursoTokenForBackend = isTursoStorage ? args.settings.integrations?.turso?.authToken : undefined;
+
   // Backend instance — memoised on storageConfig identity
   const backend = useMemo(() => {
-    const tursoConfig = getTursoConfig(
-      args.settings.integrations?.turso?.databaseUrl,
-      args.settings.integrations?.turso?.authToken,
-    );
+    const tursoConfig = getTursoConfig(tursoUrlForBackend, tursoTokenForBackend);
     return createBackend(args.settings.storageConfig, {
       acquireToken: auth.acquireToken,
       tursoConfig,
@@ -90,8 +97,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   }, [
     args.settings.storageConfig,
     auth.acquireToken,
-    args.settings.integrations?.turso?.databaseUrl,
-    args.settings.integrations?.turso?.authToken,
+    tursoUrlForBackend,
+    tursoTokenForBackend,
     tursoProjectId,
   ]);
 
@@ -99,8 +106,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   unions the loaded activity log and budget history with whatever is in memory, so it is right only
   //   when memory holds THIS target's project. A settings-driven rebuild (a Turso URL/token edit, a
   //   SharePoint target change) leaves the PREVIOUS target's project in scope, and merging it would
-  //   carry that project's audit trail into this one. `targetKey` excludes `acquireToken`: an M365
-  //   sign-in/out rebuilds against the same target and must keep merging.
+  //   carry that project's audit trail into this one. `targetKey` excludes `acquireToken` so that IF
+  //   its identity ever changed (a rebuild against the same target), the load would keep merging.
+  //   Today `useMsAuth`'s `acquireToken` is a stable `useCallback`, so an M365 sign-in/out does not
+  //   rebuild the backend at all.
   // ★ The ref is stamped (1) on the load effect's first hydrated run (the boot workspace holds only
   //   this session's own appends), (2) wherever a load is APPLIED from the current target, and (3) on
   //   the suppress-branch re-stamp after a project op. It is deliberately NOT stamped by the empty-load
@@ -108,8 +117,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★ `targetKey` contains the Turso auth token. Never log it.
   const targetKey = storageTargetKey({
     storageConfig: args.settings.storageConfig,
-    tursoDatabaseUrl: args.settings.integrations?.turso?.databaseUrl,
-    tursoAuthToken: args.settings.integrations?.turso?.authToken,
+    tursoDatabaseUrl: tursoUrlForBackend,
+    tursoAuthToken: tursoTokenForBackend,
     tursoProjectId,
   });
   const scopeTargetKeyRef = useRef<string | null>(null);
@@ -155,7 +164,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   "Pick storage file" (`guardedWrite`, open follow-up §590), a conversion after a successful load,
   //   create and load-from-file. Identity, like `loadedBackend`, so a rebuilt
   //   backend starts shut and a failed load never opens it.
-  //   ★★ That covers a settings-driven REBUILD too (§587): a Turso URL/token keystroke or a SharePoint
+  //   ★★ That covers a settings-driven REBUILD too (§587): a committed Turso URL/token edit (on Turso storage) or a SharePoint
   //   target change builds a new instance with the PREVIOUS target's workspace still in scope.
   // ★★★ IT OPENS IN EXACTLY THREE PLACES, and only one of them is "a load of THIS instance":
   //   1. `applyWorkspace` — the load effect's applied load, `reloadCurrentProject`, and the switch /
