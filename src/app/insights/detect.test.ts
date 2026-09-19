@@ -256,6 +256,25 @@ describe("budgetVariance", () => {
     });
     expect(detect({ budgets: [predecessor, successor], plan: PLAN }).filter((i) => i.type === "budgetVariance")).toHaveLength(0);
   });
+
+  // ★★★ §577 F3 — the residual: actuals were still summed over the bucket's WHOLE window, so a future
+  // booking inflated the variance even once the budget side was correctly cut off to-date.
+  it("a started bucket with on-plan past actuals plus a big future-period booking is NOT flagged (§577 F3)", () => {
+    const b = bucket({
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 100, "2026-12": 1000 } }],
+    });
+    expect(detect({ budgets: [b], plan: PLAN }).filter((i) => i.type === "budgetVariance")).toHaveLength(0);
+  });
+
+  it("the same booking moved into a past period is flagged (§577 F3)", () => {
+    const b = bucket({
+      name: "Moved booking",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 100, "2026-03": 1000 } }],
+    });
+    const bv = detect({ budgets: [b], plan: PLAN }).filter((i) => i.type === "budgetVariance");
+    expect(bv).toHaveLength(1);
+    expect(bv[0].data.name).toBe("Moved booking");
+  });
 });
 
 describe("raidAging", () => {
