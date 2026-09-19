@@ -49,7 +49,17 @@ export type ToolUseLike = { type: string; id?: string; name?: string; input?: un
 export interface FieldDiff { entity: InlineEntity; field: string; before: string; after: string; raw?: string; rawInput?: unknown }
 export interface NewItem { entity: string; title: string; toolName: string; input: Record<string, unknown> }
 export interface Deletion { entity: string; label: string; toolName: string; id: number }
-export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input" | "unsupported"; detail: string }
+export interface Rejected {
+  toolName: string;
+  reason: "unknown-id" | "bad-input" | "unsupported";
+  detail: string;
+  /** §534 — the input FIELD this rejection refuses. Set only where the verdict
+   *  is about ONE field of a call whose other fields still land: the update
+   *  branch's field guards and the row-link merge-site guard. Absent on a
+   *  whole-call rejection (an unknown or unsupported id). `stripRejectedFields`
+   *  removes exactly these from a replayed call; `detail` stays display text. */
+  field?: string;
+}
 /** A relationship or FK change, rendered from RESOLVED TITLES rather than ids.
  *
  *  ★★★ THIS IS NOT A `FieldDiff` AND MUST NEVER BE PUT IN `plan.updates`.
@@ -387,7 +397,8 @@ interface EntityItem { id: number; [k: string]: unknown }
  *   silently destructive". That is true ONLY of the REBUILDING consumer, which
  *   reconstructs its patch from this plan. The two REPLAYING consumers
  *   (`chat-proposal-apply.ts`, `use-insight-recommendations.ts`) resend the
- *   original tool input and never read the plan, so for them the swap IS
+ *   original tool input minus only the fields `plan.rejected` names (§534) —
+ *   a suppressed link line is not a rejection — so for them the swap IS
  *   written, behind a card that showed no link line at all. The trade still
  *   stands — but the cost is "undisclosed on two surfaces", not "dropped
  *   everywhere", and the difference is the whole subject of this module.
@@ -454,7 +465,7 @@ function pushLinkDiffs(
     //   `link.sanitize` already carries the row's `typeof` leg.
     const guard = d.rawTypeGuards?.[f];
     if (guard && !guard(input[f])) {
-      if (toolName) plan.rejected.push({ toolName, reason: "bad-input", detail: `${f}=${str(input[f])}` });
+      if (toolName) plan.rejected.push({ toolName, reason: "bad-input", detail: `${f}=${str(input[f])}`, field: f });
       continue;
     }
     const beforeIds = link.sanitize(prior[f]);
@@ -594,7 +605,9 @@ export function describeEntityCalls(
         const normalize = previewNormalizerFor(d, f);
         const before = normalize ? normalize(item[f], merged) : str(item[f]);
         const after = normalize ? normalize(input[f], merged) : str(input[f]);
-        const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
+        // ★ `field: f` for EVERY field-level refusal, the group one included: its
+        //  detail names the whole group, but the field under judgement is `f`.
+        const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail, field: f });
         // ★★★ §422 — THE ONE SHARED RULE, `findTornEmail` (`sanitize-core.ts`),
         //  asked with the SAME arguments `updateResource` uses: the RAW incoming
         //  value and the stored list. Refusing the FIELD keeps it out of the
@@ -621,8 +634,9 @@ export function describeEntityCalls(
         // null` — an OR over the row `updateResource` has already merged — so a
         // mononym rename is a legal write that stores `lastName: ""`. Judging
         // the halves separately previewed it as REJECTED while the write went
-        // through: the two REPLAYING consumers resend the original tool input
-        // and never read this plan (§384).
+        // through: the two REPLAYING consumers resent the original tool input
+        // and never read this plan (§384). Since §534 they strip every field
+        // `plan.rejected` names, so a false rejection here now DROPS a legal edit.
         const group = d.requiredNonEmptyGroups.find((g) => g.has(f));
         if (after === "") {
           if (group) {
@@ -761,12 +775,12 @@ export function describeEntityCalls(
       //  change and wrote TWO, both different from what the card said.
       //
       //  ★★★ A REJECTION WOULD BE THE WRONG FIX, and it was the first option on
-      //   the table. The write SUCCEEDS — and the two REPLAYING consumers
-      //   (`chat-proposal-apply.ts`, `use-insight-recommendations.ts`) resend the
-      //   original tool input and never read this plan, so a "refused" card sits
-      //   in front of a write that lands: the §384 shape this module exists to
-      //   prevent, reintroduced by the fix. Disclosing the swap is the only
-      //   answer that is true for BOTH consumer kinds.
+      //   the table. The write SUCCEEDS. When this was written the two REPLAYING
+      //   consumers (`chat-proposal-apply.ts`, `use-insight-recommendations.ts`)
+      //   resent the original tool input, so a "refused" card sat in front of a
+      //   write that landed; since §534 they strip every field `plan.rejected`
+      //   names, so a rejection would instead REFUSE an edit the sanitizer
+      //   accepts. Disclosing the swap is the only answer true for every consumer.
       //
       //  ★ `raw` is set to the corrected value too, so the REBUILDING consumer's
       //   patch carries the already-ordered pair — which the sanitizer then
@@ -883,4 +897,41 @@ export function describeToolCalls(blocks: readonly ToolUseLike[], ctx: { task: T
 /** True when the plan would write nothing (used to disable Apply / show a note). */
 export function isEmptyPlan(p: EditPlan): boolean {
   return p.updates.length === 0 && p.creates.length === 0 && p.deletes.length === 0 && p.links.length === 0;
+}
+
+/** Keys a tool input carries that ADDRESS the write rather than make one. */
+const ADDRESS_KEYS: ReadonlySet<string> = new Set(["id", "expectedToken"]);
+
+/** What a replaying consumer may send for ONE call (§534). */
+export interface StrippedInput {
+  /** The call's input minus every field the plan refused. */
+  readonly input: Record<string, unknown>;
+  /** The fields removed, in input order. */
+  readonly stripped: readonly string[];
+  /** Stripping removed every field the call writes — dispatch nothing. */
+  readonly writesNothing: boolean;
+}
+
+/**
+ * §534 — the call's input with every field `plan.rejected` names removed, so
+ * chat Apply and insight-recommendation confirm send only what the card showed
+ * as landing. The dispatcher throws for a whole call on one bad field, so
+ * replaying the model's input verbatim lost every sibling the card promised.
+ *
+ * ★★ `plan` MUST describe exactly this one call. A plan merged across calls
+ *   attributes a field to no particular call, and stripping by it would remove
+ *   one call's rejected field from another call that sent it legally.
+ * ★ A whole-call rejection names no field, so it strips nothing: that call is
+ *   still dispatched and fails exactly as it did before.
+ */
+export function stripRejectedFields(input: Readonly<Record<string, unknown>>, plan: EditPlan): StrippedInput {
+  const refused = new Set(plan.rejected.flatMap((r) => (r.field === undefined ? [] : [r.field])));
+  const kept: Record<string, unknown> = {};
+  const stripped: string[] = [];
+  for (const [key, value] of Object.entries(input)) {
+    if (refused.has(key)) stripped.push(key);
+    else kept[key] = value;
+  }
+  const writesNothing = stripped.length > 0 && Object.keys(kept).every((key) => ADDRESS_KEYS.has(key));
+  return { input: kept, stripped, writesNothing };
 }

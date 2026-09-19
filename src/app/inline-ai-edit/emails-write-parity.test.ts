@@ -1,7 +1,8 @@
 // ★★★ open-followups §422 — THE WRITE-PARITY MATRIX for `resource.emails`.
 // Three consumers must give ONE answer for the same model call:
 //  • the card (`describeEntityCalls`, judged on the RAW incoming value),
-//  • chat Apply, which replays the ORIGINAL call into `updateResource`,
+//  • the raw dispatcher write, `updateResource` on the ORIGINAL call (what chat
+//    Apply sent before §534),
 //  • the inline edit, which rebuilds its patch from `plan.updates` through
 //    `inlinePatchValue` and sends it to `updateResource`.
 // Every cell crosses a stored list with an incoming value and asserts:
@@ -13,6 +14,8 @@
 //      untorn;
 //  (iii) the inline patch never holds a rejected `emails`, the sibling `title`
 //      lands, and an accepted inline write stores what the raw replay stored.
+//  (iv) §534 — chat Apply's STRIPPED call never throws, lands `title`, and
+//      never carries a rejected `emails`.
 // ★ Seeded through `TestProviders` (the same seed `renderDispatcher` uses):
 //  the write boundaries refuse a new unsafe address, so a stored one cannot be
 //  created through them.
@@ -27,7 +30,7 @@ import { inlinePatchValue } from "../use-inline-entity-edit";
 import { useWorkspace } from "../workspace-context";
 import { type Workspace } from "../workspace";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
-import { describeEntityCalls } from "./plan";
+import { describeEntityCalls, stripRejectedFields } from "./plan";
 
 const D = INLINE_DESCRIPTORS.resource;
 
@@ -154,5 +157,13 @@ describe("§422 write parity: card ⇔ updateResource ⇔ inline write", () => {
     const inlineRow = storedRow(inline);
     expect(inlineRow?.title).toBe("Lead");
     if (!planRejects) expect(inlineRow?.emails).toEqual(storedRow(chat)?.emails);
+
+    // (iv) §534 — chat Apply sends the STRIPPED call.
+    const sent = stripRejectedFields(fields, plan);
+    expect("emails" in sent.input).toBe(inc.present && !planRejects);
+    const stripped = mount(s.list);
+    expect(write(stripped, sent.input)).toBeUndefined();
+    expect(storedRow(stripped)?.title).toBe("Lead");
+    if (!planRejects) expect(storedRow(stripped)?.emails).toEqual(storedRow(chat)?.emails);
   });
 });

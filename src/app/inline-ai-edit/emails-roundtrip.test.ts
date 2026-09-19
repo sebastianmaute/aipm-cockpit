@@ -80,7 +80,7 @@ describe("§422: a comma-bearing address cannot be torn in two by an inline edit
     // `use-inline-entity-edit.ts` builds its patch from `plan.updates` alone.
     expect(plan.updates.map((u) => u.field)).not.toContain("emails");
     expect(plan.rejected).toEqual([
-      { toolName: d.updateTool, reason: "bad-input", detail: "emails=a,b@x.com, c;d@y.com" },
+      { toolName: d.updateTool, reason: "bad-input", detail: "emails=a,b@x.com, c;d@y.com", field: "emails" },
     ]);
   });
 

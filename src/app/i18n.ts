@@ -4513,6 +4513,7 @@ const enUS = {
   chatProposalFailedDependency: "Not applied — a row it depends on was not created",
   chatProposalFailedUnreadable: "Not applied — its target could not be read back",
   chatProposalFailedError: "Not applied",
+  chatProposalFailedRejected: "Not applied — every change in it was rejected",
   // Shown in place of the card when the transcript still carries a proposal
   // marker but the live plan is gone (a project or thread switch, or a restored
   // conversation). Deliberately NOT an error: nothing failed, the plan simply

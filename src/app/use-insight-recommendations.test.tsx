@@ -168,3 +168,36 @@ describe("a stale recommendation is refused visibly, not swallowed", () => {
     expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationStalePartial"));
   });
 });
+
+// §534 — confirm used to replay the stored call whole, so a field the review
+// modal showed as rejected was still sent. It now strips it, from the SAME
+// per-call plan the modal's merged plan is made of.
+describe("§534 — confirm sends only what the review modal showed", () => {
+  it("lands the valid sibling and omits a rejected assigneeEmail", async () => {
+    const store = mkStore([mkInsight({ recommendation: mkRec({ id: 42, status: "In Progress", assigneeEmail: "not-an-email", expectedToken: entityToken("task", task) }) })]);
+    const d = mkDispatcher();
+    const deps = mkDeps({ insights: store.read(), setInsights: store.setInsights, dispatcher: d.dispatcher });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    act(() => { result.current.setReviewInsightId(1); });
+    // Parity: the modal names the same field the confirm will strip.
+    expect(result.current.reviewPlan?.rejected.map((r) => r.field)).toEqual(["assigneeEmail"]);
+    await act(async () => { await result.current.confirmInsightRecommendation(); });
+    expect(d.read().status).toBe("In Progress");
+    expect(d.read()).not.toHaveProperty("assigneeEmail");
+    expect(store.read()[0].recommendation?.status).toBe("applied");
+    expect(deps.showToast).toHaveBeenCalledWith("info", t("en-US", "insightRecommendationApplied"));
+  });
+
+  it("sends nothing for a call whose every field was rejected, and leaves the insight where it was", async () => {
+    const store = mkStore([mkInsight({ recommendation: mkRec({ id: 42, assigneeEmail: "not-an-email", expectedToken: entityToken("task", task) }) })]);
+    const d = mkDispatcher();
+    const deps = mkDeps({ insights: store.read(), setInsights: store.setInsights, dispatcher: d.dispatcher });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    act(() => { result.current.setReviewInsightId(1); });
+    await act(async () => { await result.current.confirmInsightRecommendation(); });
+    expect(d.read()).not.toHaveProperty("assigneeEmail");
+    expect(store.calls).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationApplyFailed"));
+    expect(deps.logActivityAs).not.toHaveBeenCalled();
+  });
+});

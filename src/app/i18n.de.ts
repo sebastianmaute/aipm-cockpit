@@ -4253,6 +4253,7 @@ export const de: Record<TranslationKey, string> = {
   chatProposalFailedDependency: "Nicht übernommen – ein Eintrag, den diese Änderung benötigt, wurde nicht erstellt",
   chatProposalFailedUnreadable: "Nicht übernommen – das Ziel konnte nicht erneut gelesen werden",
   chatProposalFailedError: "Nicht übernommen",
+  chatProposalFailedRejected: "Nicht übernommen – jede Änderung darin wurde abgelehnt",
   chatProposalExpired: "Dieser Vorschlag ist nicht mehr aktiv.",
   chatProposalDiscarded: "Vorschlag verworfen.",
 };

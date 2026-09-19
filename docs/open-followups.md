@@ -756,7 +756,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§531](#531-nothing-checks-that-the-register-and-gitlab-issues-stay-one-to-one--closed-2026-09-13) | Nothing checks that the register and GitLab issues stay one-to-one — CLOSED 2026-09-13 | housekeeping audit 2026-09-13 (register ⇄ GitLab sync), GitLab #321 | S–M — a blocking register-only check, plus a warn-only GitLab comparison run on main | **CLOSED** 2026-09-13 |
 | [§532](#532-two-projects-without-a-code-look-like-the-same-project-to-the-timelog-picker--closed-2026-09-14) | Two projects without a code look like the same project to the TimeLog picker — CLOSED 2026-09-14 | found 2026-09-13 while correcting the O-1 spec's TimeLog claim against `origin/main` `c3598637` | S — pass a per-project id as the switch signal, and pin a switch between two code-less projects | **CLOSED** 2026-09-14 |
 | [§533](#533-csv-markdown-and-turso-split-a-stored-email-address-containing-a-comma-or-semicolon-on-save--closed-2026-09-14-as-an-accepted-limit) | CSV, Markdown and Turso split a stored email address containing a comma or semicolon on save — CLOSED 2026-09-14 as an accepted limit | found 2026-09-14 in the cold review of the data-loss batch, measured by a codec round-trip probe; GitLab #323 | S–M — a quote-aware join for the `emails` cell, or a one-time migration | **CLOSED** 2026-09-14 as an accepted limit |
-| [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--open) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | open |
+| [§534](#534-the-chat-review-card-can-reject-one-field-while-apply-replays-the-whole-call-so-the-fields-it-shows-as-landing-are-lost--closed-2026-09-19) | The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost | found 2026-09-14 in the cold re-review of the §422 fix (data-loss batch); pre-existing, CLOSED §384 described the class; GitLab #324 | S–M — strip plan-rejected fields from the replayed call, or reject the whole row on the card when the dispatcher would throw | **CLOSED** 2026-09-19 |
 | [§535](#535-a-cold-item-deep-link-to-a-non-default-view-ends-on-the-dashboard-under-strictmode-and-loses-its-item-id-outside-it--open) | A cold item deep link to a non-default view ends on the Dashboard under StrictMode, and loses its item id outside it — OPEN | found 2026-09-14 while fixing §478 on `fix/ui-a11y-batch` | S — let the cold apply's view commit before the view→hash write, and pin `#raid/123` with and without StrictMode | open |
 | [§536](#536-a-page-loaded-in-the-classic-layout-still-applies-the-cold-hash-rule-on-its-first-switch-to-modern--open) | A page loaded in the classic layout still applies the cold hash rule on its first switch to modern — OPEN | found 2026-09-14 by the whole-branch review of `fix/ui-a11y-batch` (§478) | S–M — give the hook a signal that tells a classic-loaded page from a settings load still in flight | open |
 | [§537](#537-project-contact-persons-have-no-ids--open) | Project contact persons have no ids — OPEN | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | open |
@@ -37842,22 +37842,9 @@ and the first save to CSV, Markdown or Turso tears it with no edit involved.
   must still read every cell written before the change.
 - A one-time migration that finds stored addresses holding `,` or `;` and asks the user to correct them.
 
-## 534. The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — OPEN
+## 534. The chat review card can reject one field while Apply replays the whole call, so the fields it shows as landing are lost — CLOSED 2026-09-19
 
-**Status:** open 2026-09-14 — found while closing §422, in the cold re-review of the fix branch. Pre-existing,
-not specific to `emails`. `describeEntityCalls` (`src/app/inline-ai-edit/plan.ts`) judges a call PER FIELD: an
-invalid field goes into `plan.rejected` while the call's other fields still show as landing in `plan.updates`.
-Chat Apply does not consult that verdict — `applyProposal` (`src/app/chat-proposal-apply.ts`) runs
-`runTool(dispatcher, guarded.name, guarded.input)` on the model's ORIGINAL call, where `guarded` is
-`remapStagedCall(row.stamped, real)`, with only an `expectedToken` added for a row pending on a create — no
-field the card rejected is removed. When the dispatcher throws for the whole call, every sibling field the
-card promised is lost along with the rejected one. Verified with
-`grep -n "runTool(dispatcher" src/app/chat-proposal-apply.ts src/app/use-insight-recommendations.ts` (both
-replay the raw call unchanged) and
-`grep -n "assigneeEmail is invalid" src/app/chat-task-patch.ts src/app/use-chat-dispatcher.ts` (the task-side
-throw).
-
-**Work item:** #324
+**Status:** CLOSED 2026-09-19 by `fix/data-loss-batch`: `describeEntityCalls` now records the refused field on every field-level rejection, and `stripRejectedFields` (`inline-ai-edit/plan.ts`) removes those fields from a call before `applyProposal` and `confirmInsightRecommendation` dispatch it; a call left with nothing to write is not sent and reports as rejected (`chatProposalFailedRejected` on the card). Pinned by the §534 blocks in `chat-proposal-apply.test.tsx`, `use-insight-recommendations.test.tsx` and `plan.test.ts`, the merged-plan parity test in `recommend-plan.test.ts`, and row (iv) of the `emails-write-parity.test.ts` matrix.
 
 Three instances found while closing §422:
 - **resource `emails`.** The card rejects `emails` via §422's `findTornEmail` (`src/app/sanitize-core.ts`); the

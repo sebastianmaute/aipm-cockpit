@@ -251,9 +251,11 @@ export interface EntityDescriptor {
    *   stored `endDate` previewed ONE field and wrote TWO, both differently.
    *
    *  ★★★ THE HONEST PROJECTION IS THE SWAP, NOT A REJECTION. The write
-   *   SUCCEEDS, and the two REPLAYING consumers resend the original tool input
-   *   without reading the plan — so refusing here would put "declined" on the
-   *   card in front of a write that lands (§384's shape). Disclose, do not
+   *   SUCCEEDS. The two REPLAYING consumers once resent the original tool
+   *   input without reading the plan, so refusing here put "declined" on the
+   *   card in front of a write that landed (§384's shape); since §534 they
+   *   strip every field `plan.rejected` names, so a refusal would instead DROP
+   *   an edit the writer accepts. Disclose, do not
    *   refuse, whenever the writer's rule is a REWRITE rather than a DROP.
    *
    *  ★ Values are the RENDERED strings a `FieldDiff` carries, not raw types —
@@ -674,9 +676,11 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // rename ("Cher Bono" -> "Cher") previewed `lastName` as REJECTED while the
     // write accepted the row and stored `""`. That is not the safe direction it
     // was written as — the two REPLAYING consumers (`chat-proposal-apply.ts`,
-    // `use-insight-recommendations.ts`) resend the ORIGINAL tool input and never
-    // read the plan, so they perform the write the card said would not happen
-    // (§384). Blanking BOTH is still rejected, by the group rule.
+    // `use-insight-recommendations.ts`) then resent the ORIGINAL tool input and
+    // never read the plan, so they performed the write the card said would not
+    // happen (§384); since §534 they strip the rejected field, so the same
+    // over-rejection would DROP a legal rename. Blanking BOTH is still
+    // rejected, by the group rule.
     requiredNonEmpty: new Set<string>([]),
     requiredNonEmptyGroups: [new Set(["firstName", "lastName"])],
     // `birthday` is the only date-shaped Resource field and it is NOT writable

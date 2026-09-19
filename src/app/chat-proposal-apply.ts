@@ -32,6 +32,7 @@ import { TOOL_DEFS } from "./chat-tool-defs";
 import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { namesPendingMint, remapStagedCall } from "./chat-proposal";
 import type { DescribedRow } from "./chat-proposal-describe";
+import { stripRejectedFields } from "./inline-ai-edit/plan";
 import type { UndoBatch } from "./use-undo-batch";
 import type { TokenEntity } from "./ai-entity-token";
 import { entityToken } from "./ai-entity-token";
@@ -102,17 +103,23 @@ export const NEW_ROW_TOKEN_UNAVAILABLE_ERROR =
   "this call targets a row created earlier in the same plan, and that row " +
   "could not be read back to derive its concurrency token — it was not applied";
 
-/** Which of the four not-ok outcomes a row hit, so the card can say something
+/** `AppliedRow.error` for a row NOT SENT because the review card rejected every
+ *  field it writes (§534). Exported, like its two siblings above, so the card
+ *  and a test recognise the outcome without matching prose. */
+export const ALL_FIELDS_REJECTED_ERROR =
+  "every field this call writes was rejected on the review card, so nothing was sent";
+
+/** Which of the five not-ok outcomes a row hit, so the card can say something
  *  true about it.
  *
- *  ★★★ KEYED OFF THE EXPORTED CONSTANTS, NEVER BY MATCHING PROSE. Both refusal
- *   strings are exported precisely so a consumer can recognise the outcome
+ *  ★★★ KEYED OFF THE EXPORTED CONSTANTS, NEVER BY MATCHING PROSE. All three
+ *   refusal strings are exported precisely so a consumer can recognise the outcome
  *   without string-sniffing a message that may be reworded.
  *
  *  ★★ `stale` IS CHECKED FIRST because it is the only outcome the original card
  *   string was ever right about. Everything else is a row that did not land for
  *   a reason that has nothing to do with concurrency. */
-export type ProposalFailureKind = "conflict" | "dependency" | "unreadable" | "error";
+export type ProposalFailureKind = "conflict" | "dependency" | "unreadable" | "rejected" | "error";
 
 /** An `AppliedRow` that did NOT land — the only shape `failureKindOf` has an
  *  honest answer for.
@@ -134,6 +141,7 @@ export function failureKindOf(row: FailedAppliedRow): ProposalFailureKind {
   if (row.stale === true) return "conflict";
   if (row.error === PENDING_MINT_ERROR) return "dependency";
   if (row.error === NEW_ROW_TOKEN_UNAVAILABLE_ERROR) return "unreadable";
+  if (row.error === ALL_FIELDS_REJECTED_ERROR) return "rejected";
   return "error";
 }
 
@@ -406,7 +414,18 @@ export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyPropo
             input: { ...call.input, expectedToken: entityToken(source.kind, current) },
           };
         }
-        const result = await runTool(dispatcher, guarded.name, guarded.input);
+        // ★★★ §534 — SEND ONLY WHAT THE CARD SHOWED AS LANDING. The dispatcher
+        //  throws for the whole call on one field it refuses, so replaying the
+        //  model's input verbatim lost every sibling the card promised. Stripped
+        //  AFTER the remap and the token stamp, which only touch `id` and
+        //  `expectedToken`, and against this row's OWN one-call plan. A pending
+        //  row's plan is empty, so it strips nothing.
+        const sent = stripRejectedFields(guarded.input, row.plan);
+        if (sent.writesNothing) {
+          applied.push({ index, ok: false, error: ALL_FIELDS_REJECTED_ERROR });
+          continue;
+        }
+        const result = await runTool(dispatcher, guarded.name, sent.input);
         resolveMintedId(row, result, real, pending);
         applied.push({ index, ok: true });
       } catch (e) {
