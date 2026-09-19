@@ -32,12 +32,14 @@ it has no table of its own, NOT because it sits outside the workspace.
   `nonEmptyCollectionCount`/`workspaceRecordCount`. Pinned by `workspace.test.ts` ("a workspace holding
   ONLY activity entries is still EMPTY (inverse of documents)"). Do not "complete" the documents
   precedent.
-  ★★★ **`applyWorkspace`'s `logMode` has TWO branches and they are not interchangeable.** MERGE
+  ★★★ **`applyWorkspaceFromLoad`'s `logMode` has TWO branches and they are not interchangeable.** MERGE
   (same-project load/reload) unions by id via `mergeActivityLogs` so entries appended while a load was
   in flight survive; REPLACE (project switch/create/load-from-file) stops the outgoing project's trail
   leaking into the target. **The default is REPLACE — the contaminating direction must be asked for
   explicitly.** ★★ Those switch/create/load-from-file sites do NOT hide from a bare
-  `grep "applyWorkspace("` — they spell it `deps.applyWorkspace(ws)` and the grep finds all six. What
+  `grep "applyWorkspace("` — they spell it `deps.applyWorkspace(ws)` and the grep finds all six (that
+  deps member is now wired to `applyWorkspaceForOp`, §548 clause (b), which bumps the scope epoch and
+  then calls `applyWorkspaceFromLoad`). What
   hides is the ARGUMENT: the deps contract in `use-storage-file-ops.ts` / `use-storage-turso-ops.ts` is
   typed `(ws: Workspace) => void`, one parameter, so those call sites structurally CANNOT pass a
   `logMode` and silently take the default. Widening that contract is what would let one of them opt into
@@ -62,7 +64,7 @@ it has no table of its own, NOT because it sits outside the workspace.
   earlier revision said "the one slice" and its successors said THREE and FOUR; each sends a reader who
   diffs the funnels off to distrust the doc or to "complete the pattern" on the rest. ★★★ **THAT
   SENTENCE HAS NOW BEEN OVERTAKEN THREE TIMES BY SLICES THAT NEVER OPENED THIS FILE** —
-  `documentAssets` joined `applyWorkspace` with S3c-1, `budgetHistory` with the budget-history
+  `documentAssets` joined `applyWorkspaceFromLoad` with S3c-1, `budgetHistory` with the budget-history
   persistence slice, and nothing here moved either time. Do not repair it by writing FIVE and walking
   away; re-derive, which is why the commands sit below rather than the count. ★★ That diff returns
   SEVEN names, not five — the sixth and seventh are `setLoadedBackend` and `setSettledBackend`: the load
@@ -71,7 +73,7 @@ it has no table of its own, NOT because it sits outside the workspace.
   restore funnel deliberately omits the first; a restore settles no load, so it omits the second too.
   Five SLICES, seven NAMES; a reader who stops at the count will think this line is wrong. ★ A range
   that stops at `setCalendarEvents` hides both — they are deliberately the LAST two setters in
-  `applyWorkspace` (only the §586 save-gate call `allowSavesTo`, which the `set` grep does not match,
+  `applyWorkspaceFromLoad` (only the §586 save-gate call `allowSavesTo`, which the `set` grep does not match,
   follows them), so end the range at the function's close brace. ★ It does NOT hide
   `setDocumentAssets`, which shares `setCalendarEvents`' source line.
   ★★★ RUN THESE RATHER THAN PARAPHRASE THEM. The paragraph above described this diff in prose
@@ -85,23 +87,27 @@ it has no table of its own, NOT because it sits outside the workspace.
   and the command COULD go back into the source comment. The reason to keep it HERE is unchanged and
   is the one that always mattered: prose describing a command is not a command, and a comment that
   gets condensed loses it again. Read the paragraph above as the rationale, not the line count.
-  `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **31**
+  `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **31**
   `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
-  `comm -23 <(sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
+  `comm -23 <(sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
   → `setActivityLog(` `setBudgetHistory(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(` `setSettledBackend(`
   ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
   `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
   end anchor there runs 676 lines and reports 39. And that first command's start pattern needs the
-  `const … = ` prefix: bare, it spans 707 printed lines and reports 35.
+  `const … = ` prefix: bare, it spans 717 printed lines and reports 35 (it was 707 before §548 round
+  2 renamed the function — re-measure rather than trusting either number).
   ★★★ **THE NUMBERS ARE RIGHT AND THE MECHANISM WAS WRONG, and the correct one is two lines below.**
-  This said a bare match "starts at an earlier mention". It does not: the FIRST occurrence of
-  `applyWorkspace` in that file IS the declaration, so anchored and bare open at the very same line.
-  707 is not an offset — it is the TOTAL printed span, because `sed` RE-TRIGGERS the range at every
+  This said a bare match "starts at an earlier mention". ★★ THAT WAS TRUE OF THE OLD NAME AND IS NOT
+  TRUE NOW: §548 round 2 renamed the function to `applyWorkspaceFromLoad`, so the substring
+  `applyWorkspace` first occurs in a COMMENT well above the declaration and the bare form really does
+  open earlier (`grep -n applyWorkspace src/app/use-storage-backend.ts | head -1`). The span was
+  never an offset either — it is the TOTAL printed span, because `sed` RE-TRIGGERS the range at every
   LATER mention (the comments, the call site, the two return-object keys), each opening a fresh
   range that runs to the next `^  };$`. That is exactly the re-trigger the paragraph below already
   describes correctly, which is what makes this the file contradicting itself rather than merely
-  being stale. The anchored form spans 68 lines. Reproduce both spans:
-  `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | wc -l` against
+  being stale. The anchored form spans 68 lines and the bare one 717 (it reported 707 before the
+  rename, and it moves on any edit) — re-measure, never quote these:
+  `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | wc -l` against
   `sed -n '/applyWorkspace/,/^  };$/p' src/app/use-storage-backend.ts | wc -l`, and
   `grep -n applyWorkspace src/app/use-storage-backend.ts | head -1` for the start line.
   ★★★ **THE SELF-MATCH CAME BACK, AND THIS PARAGRAPH HAD DECLARED IT RETIRED.** It read: the code

@@ -210,7 +210,9 @@
   instant at which the new project's workspace is in scope while the epoch still reads old. A writer
   resolving between the bump and React's commit is dropped although scope still holds the OUTGOING
   project — the conservative direction, and that write would have been replaced anyway.
-- ★ **Guarded today** (`grep -rn "dropStaleScopeWrite(" src/app --include=*.ts | grep -v test`):
+- ★ **Guarded today** (`grep -rn "dropStaleScopeWrite(" src/app --include=*.ts | grep -v test` — ★★ one
+  of its rows is the DECLARATION in `scope-epoch.ts`, so subtract it before quoting a count; today it
+  prints 10 call sites plus that row):
   `useEntityCalendarPush` and `useOutlookCalendarPush` (TWICE each — once before any Graph mutation,
   once before the workspace write), `useEntityCalendarPull`, `useMilestoneCalendarPull`,
   `useCommitteeOutlookPush` (also twice), `useInsightRecommend` and `useInsightRecommendRunner` (per
