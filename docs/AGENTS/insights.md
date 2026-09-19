@@ -100,13 +100,14 @@
   (`{direction: improved|unchanged|worsened, baseline, current, delta, measuredAt}`). Both ride the SAME
   insights blob (no new backend path, byte-stable when absent). Pure i18n-free `insights/outcome.ts` owns
   `METRIC_FIELD` (milestoneSlip→`daysOverdue` · overdueTrend→`current` · stalledWork→`count` ·
-  budgetVariance→`variancePct` · raidAging→`daysSinceUpdate` · each of the four TimeLog guardrail types→`count`). ★ **Since §577, `budgetVariance`'s `variancePct` means TO-DATE variance, not whole-window.**
-  `budgetVarianceInsight` compares a bucket's actual hours (summed over its whole active window, so a
-  future-dated booking still counts) against its budget TO DATE — its own budget over the periods whose
-  start is ≤ `today` (`ownBudgetHoursToDate`), plus a closed predecessor's spillover once the bucket's
-  own window has started — and skips a bucket with nothing booked or whose window has not started. An
-  outcome `baseline` captured before this change compares a whole-window figure against this to-date
-  one. `insightMetricValue`/`insightMetricSnapshot`/
+  budgetVariance→`variancePct` · raidAging→`daysSinceUpdate` · each of the four TimeLog guardrail types→`count`). ★ **Since §577, `budgetVariance`'s `variancePct` means TO-DATE variance, not whole-window —
+  and since the §577 F3 follow-up, BOTH sides are to-date.** `budgetVarianceInsight` compares a bucket's
+  actual hours TO DATE against its budget TO DATE — both restricted to the SAME periods, whose start is ≤
+  `today` (`bucketFiguresToDate`) — plus a closed predecessor's spillover added to the budget side once
+  the bucket's own window has started — and skips a bucket with nothing booked to date or whose window
+  has not started. A booking in a future period no longer inflates either side. An outcome `baseline`
+  captured before the F3 follow-up compares a figure that still counted future-period actuals against
+  this fully to-date one — a one-time delta jump, same as the original §577 change. `insightMetricValue`/`insightMetricSnapshot`/
   `metricAtActionPatch`/`baselineOf`/`computeOutcome`. ★★ ALL metrics are LOWER-IS-BETTER, so `improved` ⇔
   current < baseline and `delta = baseline − current` — there is deliberately NO per-type direction table;
   a new detector whose metric is higher-is-better would break that assumption and needs one. ★ `delta` is

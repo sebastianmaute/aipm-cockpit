@@ -160,8 +160,7 @@
   keeping a dirty one when the stored value moves.
 - ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
   (`task-manager.tsx`), the recommendation store `applyInsightRecommendation`
-  (`use-insight-recommendations.ts`, which both the background runner and the on-demand generate write
-  through), the four calendar auto-sync pushes and four background pulls plus the auto-pull runner
+  (`use-insight-recommendations.ts`), the four calendar auto-sync pushes and four background pulls plus the auto-pull runner
   (`use-calendar-integrations.ts`), and the undo hotkey (`useUndoHotkey`, read through `loadPendingRef`).
   **A new timer, interval, listener or subscription that writes workspace state must check
   `loadPending` too**; the render hold cannot reach it. ★ `useCalendarAutoPull` re-ticks when its
