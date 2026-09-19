@@ -1023,6 +1023,35 @@ describe("§534 — Apply sends only what the card showed", () => {
     expect(after.emails).toBeUndefined();
   });
 
+  // ★★★ PARITY UNDER A REJECTED SIBLING (§534 fix round 2). `emails` is deduped
+  //  against the primary `email`; judged beside the REJECTED `email` it used to
+  //  preview `"" → x@y.com` while the stripped write, deduping against the
+  //  stored `x@y.com`, stored nothing and still reported ok. The plan now
+  //  re-judges without the rejected field, so the card shows no `emails`
+  //  change, nothing is left to write, and the row is refused as rejected.
+  test("a rejected primary email does not leave a sibling emails diff the write cannot make", async () => {
+    const seed: TestSeed = { ...SEED, resources: [{ ...seedResource(2), email: "x@y.com" }] };
+    const { result } = renderApply(seed);
+    const live = result.current.dispatcher.getResourceRow(2) as Resource;
+    const ws: Workspace = { ...seedWorkspace(seed), resources: [live] };
+    const calls: ProposedCall[] = [
+      {
+        name: "update_resource",
+        input: { id: 2, email: "not-an-email", emails: ["x@y.com"], expectedToken: entityToken("resource", live) },
+      },
+    ];
+    const rows = describeProposal(calls, ws);
+    expect(rows[0].plan.rejected.map((r) => r.field)).toEqual(["email"]);
+    expect(rows[0].plan.updates).toEqual([]);
+    expect(rows[0].plan.links).toEqual([]);
+
+    const outcome = await applyAll(result, calls, ws);
+    expect(outcome.rows).toEqual([{ index: 0, ok: false, error: ALL_FIELDS_REJECTED_ERROR }]);
+    const after = result.current.dispatcher.getResourceRow(2) as Resource;
+    expect(after.email).toBe("x@y.com");
+    expect(after.emails).toBeUndefined();
+  });
+
   test("a call whose every written field the card rejected is not sent, and reports as rejected", async () => {
     const { result } = renderApply();
     const calls: ProposedCall[] = [{ name: "update_task", input: { id: 2, assigneeEmail: "not-an-email" } }];

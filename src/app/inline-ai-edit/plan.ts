@@ -477,13 +477,13 @@ function pushLinkDiffs(
   }
 }
 
-/** Build the plan for one entity. `ctx.item` is the row the popover opened on;
- *  `ctx.ws` the live workspace (id grounding + delete labels); `ctx.descriptor`
- *  drives which fields are diffable + how a value is validated so a previewed
- *  diff never diverges from what the sanitizer would persist. */
-export function describeEntityCalls(
+type DescribeCtx = { descriptor: EntityDescriptor; item: EntityItem; ws: Workspace };
+
+/** ONE judging pass over `blocks`. `describeEntityCalls` is the public entry,
+ *  and it runs this per block until the block's verdict is stable (§534). */
+function describeEntityCallsOnce(
   blocks: readonly ToolUseLike[],
-  ctx: { descriptor: EntityDescriptor; item: EntityItem; ws: Workspace },
+  ctx: DescribeCtx,
 ): EditPlan {
   const { descriptor: d, item, ws } = ctx;
   const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
@@ -885,6 +885,66 @@ export function describeEntityCalls(
       plan.deletes.push({ entity, label, toolName: name, id });
       continue;
     }
+  }
+  return plan;
+}
+
+/** `input` minus every key in `drop`. A non-object input is `{}`, as the pass reads it. */
+function omitKeys(input: unknown, drop: ReadonlySet<string>): Record<string, unknown> {
+  const src = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  return Object.fromEntries(Object.entries(src).filter(([k]) => !drop.has(k)));
+}
+
+/** One block's plan, judged on the call a replaying consumer will SEND (§534).
+ *
+ *  ★★★ A SIBLING IS JUDGED AGAINST THE MERGED ROW, and that row carries every
+ *   value in the input — including one this pass rejects. `resource.emails` is
+ *   deduped against the merged `email`, so `{email: "not-an-email", emails:
+ *   ["x@y.com"]}` over a stored `x@y.com` previewed `emails → x@y.com` while the
+ *   stripped write deduped against the STORED primary and stored nothing.
+ *   So a block with a field-level rejection is RE-JUDGED with every rejected
+ *   field removed, until a pass rejects no new field. The final pass's rows are
+ *   the plan's rows; `rejected` is the union over passes, each entry keeping its
+ *   `field`, so `stripRejectedFields` reads the same plan the card renders.
+ *  ★ Each extra pass follows a pass that named at least one NEW field, and a
+ *   field is an input key, a `diffFields` member or a `linkFields` key, so the
+ *   loop is bounded by that count; the throw past it is a broken invariant, not
+ *   a user error.
+ *  ★ A rejected field that is NOT an input key (the `name` alias projected onto
+ *   `firstName`/`lastName`) removes nothing, rejects the same field again, adds
+ *   nothing new, and so ends the loop. */
+function describeBlockUntilStable(b: ToolUseLike, ctx: DescribeCtx): EditPlan {
+  let pass = describeEntityCallsOnce([b], ctx);
+  const rejected = [...pass.rejected];
+  const refused = new Set(rejected.flatMap((r) => (r.field === undefined ? [] : [r.field])));
+  if (refused.size === 0) return pass;
+  const d = ctx.descriptor;
+  const bound = Object.keys(omitKeys(b.input, new Set())).length + d.diffFields.length + Object.keys(d.linkFields).length;
+  for (let i = 0; i <= bound; i++) {
+    pass = describeEntityCallsOnce([{ ...b, input: omitKeys(b.input, refused) }], ctx);
+    const fresh = pass.rejected.filter((r) => r.field !== undefined && !refused.has(r.field));
+    if (fresh.length === 0) return { ...pass, rejected };
+    for (const r of fresh) { rejected.push(r); refused.add(r.field as string); }
+  }
+  throw new Error(`describeEntityCalls: ${String(b.name)} did not settle within ${bound} re-judging passes`);
+}
+
+/** Build the plan for one entity. `ctx.item` is the row the popover opened on;
+ *  `ctx.ws` the live workspace (id grounding + delete labels); `ctx.descriptor`
+ *  drives which fields are diffable + how a value is validated so a previewed
+ *  diff never diverges from what the sanitizer would persist.
+ *  ★ Each block is judged on its own, re-judged without its rejected fields
+ *   (`describeBlockUntilStable`), and the per-block plans are concatenated in
+ *   block order. */
+export function describeEntityCalls(blocks: readonly ToolUseLike[], ctx: DescribeCtx): EditPlan {
+  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
+  for (const b of blocks) {
+    const one = describeBlockUntilStable(b, ctx);
+    plan.updates.push(...one.updates);
+    plan.creates.push(...one.creates);
+    plan.deletes.push(...one.deletes);
+    plan.rejected.push(...one.rejected);
+    plan.links.push(...one.links);
   }
   return plan;
 }

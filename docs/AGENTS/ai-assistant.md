@@ -911,6 +911,13 @@
   §534), so a preview that rejects a value the writer would ACCEPT now drops a legal edit, and a call
   whose every field was rejected is not sent at all. Neither is "the" data-loss path, and assuming one
   is how §384 was mis-scoped.
+  ★★★ **THE PLAN JUDGES THE CALL THAT IS SENT, NOT THE ONE THE MODEL WROTE.** A sibling field is
+  normalised against the MERGED row, which carries every input value — including one the same pass
+  rejects (`resource.emails` dedupes against the merged `email`). So `describeEntityCalls` judges each
+  block, and if any field was rejected it RE-JUDGES the block with every rejected field removed, until a
+  pass adds no new rejection (`describeBlockUntilStable`). The final pass's rows are the plan's rows;
+  `rejected` is the union over passes. Every consumer inherits it, so the card, the inline patch and
+  `stripRejectedFields` all read the plan of the stripped call.
   ★★ `tool-input-coverage.test.ts` fails when a DECLARED tool input is neither previewable nor
   excluded with a written reason — the property is enforced rather than maintained. ★★★ Read its
   reach exactly, because it is WIDER than it was and still bounded (§401, CLOSED 2026-09-06). It now

@@ -1759,6 +1759,32 @@ describe("stripRejectedFields (§534)", () => {
     });
   });
 
+  // ★★★ THE RE-JUDGE. `emails` is deduped against the MERGED primary, so judged
+  //  beside a rejected `email` it previewed `emails → x@y.com` — a change the
+  //  stripped write (merged against the STORED primary `x@y.com`) never makes.
+  //  Re-judged without `email`, the sibling dedupes away and the card is empty.
+  describe("re-judges a call without its rejected fields", () => {
+    const stored = { id: 7, firstName: "Ada", lastName: "Lovelace", email: "x@y.com", roleId: null, utilizationMode: "percent", utilization: {} };
+    const planFor = (input: Record<string, unknown>) =>
+      describeEntityCalls([block("update_resource", input)], {
+        descriptor: INLINE_DESCRIPTORS.resource,
+        item: stored as never,
+        ws: wsWith({ resources: [stored] as never }),
+      });
+
+    it("drops a sibling diff that only existed because of the rejected value", () => {
+      const plan = planFor({ id: 7, email: "not-an-email", emails: ["x@y.com"] });
+      expect(plan.rejected).toEqual([{ toolName: "update_resource", reason: "bad-input", detail: "email=not-an-email", field: "email" }]);
+      expect(plan.updates).toEqual([]);
+    });
+
+    it("keeps a sibling diff that survives without the rejected value (anti-vacuity)", () => {
+      const plan = planFor({ id: 7, email: "not-an-email", emails: ["z@y.com"] });
+      expect(plan.rejected.map((r) => r.field)).toEqual(["email"]);
+      expect(plan.updates.map((u) => [u.field, u.after])).toEqual([["emails", "z@y.com"]]);
+    });
+  });
+
   // ★ …but only when something was stripped: an all-unchanged call is not a
   //  rejection and is dispatched exactly as before.
   it("does not report writesNothing for an all-unchanged call with nothing stripped", () => {
