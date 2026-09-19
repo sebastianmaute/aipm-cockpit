@@ -188,6 +188,10 @@ describe("§534 — confirm sends only what the review modal showed", () => {
     expect(deps.showToast).toHaveBeenCalledWith("info", t("en-US", "insightRecommendationApplied"));
   });
 
+  // Final review Minor 4: this is the ALL-REFUSED case — nothing committed, no
+  // hard failure, nothing stale — so the toast must say nothing was applied,
+  // not the generic partial-failure wording ("Some changes … couldn't be
+  // applied"), which overstated what happened when nothing landed at all.
   it("sends nothing for a call whose every field was rejected, and leaves the insight where it was", async () => {
     const store = mkStore([mkInsight({ recommendation: mkRec({ id: 42, assigneeEmail: "not-an-email", expectedToken: entityToken("task", task) }) })]);
     const d = mkDispatcher();
@@ -197,7 +201,8 @@ describe("§534 — confirm sends only what the review modal showed", () => {
     await act(async () => { await result.current.confirmInsightRecommendation(); });
     expect(d.read()).not.toHaveProperty("assigneeEmail");
     expect(store.calls).not.toHaveBeenCalled();
-    expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationApplyFailed"));
+    expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationAllRejected"));
+    expect(deps.showToast).not.toHaveBeenCalledWith("error", t("en-US", "insightRecommendationApplyFailed"));
     expect(deps.logActivityAs).not.toHaveBeenCalled();
   });
 

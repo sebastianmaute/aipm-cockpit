@@ -345,8 +345,14 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // something, and this task is not the place to re-open that rule.
     // ★ A refused call wrote nothing either, so it joins the no-write case.
     //   The stale message still wins when both kinds occurred.
+    // ★★ Final review Minor 4: this branch is also the ALL-REFUSED case (no
+    //   committed, no hard failure, nothing stale) — nothing was applied at
+    //   all, so the generic partial-failure wording ("Some changes … couldn't
+    //   be applied") overstated it. `insightRecommendationAllRejected` says
+    //   nothing landed, mirroring the chat card's `chatProposalFailedRejected`.
     if (committed === 0 && failed === 0 && (stale > 0 || refused > 0)) {
-      showToast("error", t(lang, stale > 0 ? "insightRecommendationStale" : "insightRecommendationApplyFailed"));
+      const key = stale > 0 ? "insightRecommendationStale" : "insightRecommendationAllRejected";
+      showToast("error", t(lang, key));
       return;
     }
     setInsights((prev) =>

@@ -294,8 +294,8 @@
   `insightRecommendationStale`), so the user can regenerate against the moved data; a mixed run still advances
   but reports `insightRecommendationStalePartial`. ★ Since §534 a call whose every field the review modal
   rejected is not sent at all (`stripRejectedFields`) and joins that no-write case: with nothing committed
-  and no hard failure the insight is left where it was, toasting `insightRecommendationApplyFailed` unless a
-  stale refusal also occurred. The unconditional advance-on-failure rule exists because a
+  and no hard failure the insight is left where it was, toasting `insightRecommendationAllRejected` unless a
+  stale refusal also occurred, in which case the stale message wins. The unconditional advance-on-failure rule exists because a
   failed call MAY have committed and a retry would duplicate `create_*` entities — a `ConcurrencyTokenError`
   is thrown before the dispatcher is reached, so that reasoning does not apply to it, and folding it in makes
   a correctly-refused recommendation silently unretryable.
