@@ -87,6 +87,21 @@ describe("extractHtmlMarkdown", () => {
     expect(lines[3]).toBe("| Dev | 80 |");
   });
 
+  it("renders uppercase tag names, matching HTML's case-insensitive tags", () => {
+    // §558 fix round 4, N1: TABLE_PAIR/ROW_PAIR/CELL_PAIR/HEADING_PAIR all
+    // set caseInsensitive: true on TagPairSpec - this is the ONLY test that
+    // exercises the true side of that flag (the two OOXML regression tests
+    // added earlier this slice only exercise the false side). Uppercase tag
+    // names are ordinary in real-world HTML, especially mail from Outlook
+    // and older clients, which is exactly this module's input.
+    const out = extractHtmlMarkdown(
+      `<H2>Title</H2><TABLE><TR><TH>Role</TH></TR><TR><TD>PM</TD></TR></TABLE>`,
+    );
+    expect(out).toContain("## Title");
+    expect(out).toContain("| Role |");
+    expect(out).toContain("| PM |");
+  });
+
   it("decodes entities", () => {
     expect(extractHtmlMarkdown(`<p>A &amp; B &lt; C &#39;quoted&#39; &nbsp;end</p>`))
       .toContain("A & B < C 'quoted'");

@@ -98,7 +98,8 @@ import { navLabelKey, filterNavGroups } from "./nav-config";
 import { useSnapshots } from "./use-snapshots";
 import { useVersionHistory } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
-import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
+import { workspaceToJson, type Workspace } from "./workspace";
+import { buildDemoWorkspace } from "./demo-workspace";
 import { buildLiveDashboardInput, computeDashboard } from "./dashboard";
 import { CORE_INSIGHT_TYPES, detectInsights, type InsightInput } from "./insights/detect";
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
@@ -1382,9 +1383,8 @@ function TaskManagerInner() {
   const loadDemo = useCallback(async () => {
     try {
       const mod = await import("../../sample-workspace-small.json");
-      const ws = jsonToWorkspace(
-        JSON.stringify((mod as { default?: unknown }).default ?? mod),
-      );
+      const today = new Date().toISOString().slice(0, 10); // callback context — lint-safe
+      const ws = buildDemoWorkspace((mod as { default?: unknown }).default ?? mod, today);
       await createDemoProject(ws);
       startTour();
     } catch {

@@ -3,8 +3,8 @@ import { sanitizeAiRichText } from "./ai-rich-text";
 import { aiSeedUnsafeEmails, buildNewProjectWorkspace } from "./new-project-workspace";
 import { appendSeed } from "./template-apply";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
-import type { ProjectMeta } from "./types";
-import type { Workspace } from "./workspace";
+import type { ProjectMeta, Task } from "./types";
+import { emptyWorkspace, type Workspace } from "./workspace";
 
 const tpl: ProjectTemplate = {
   id: "t",
@@ -310,6 +310,39 @@ describe("buildNewProjectWorkspace — an AI seed does not store an unsafe email
       includeSeed: true,
     });
     expect(ws.raid.map((r) => r.ownerEmail)).toEqual(["not-an-email", "ok@x.com"]);
+  });
+});
+
+describe("buildNewProjectWorkspace — imported native workspace (Task 4)", () => {
+  const importedTask: Task = {
+    id: 7,
+    taskName: "Imported",
+    assignee: "",
+    assigneeEmail: "",
+    dueDate: "",
+    lastUpdateDate: "",
+    status: "To Do",
+    priority: "Medium",
+    blockers: "",
+    description: "",
+  };
+
+  it("seeds from an imported workspace, with the wizard's meta winning", () => {
+    const imported: Workspace = { ...emptyWorkspace(), tasks: [importedTask], project: { ...meta, name: "From file" } };
+    const ws = buildNewProjectWorkspace({ ...meta, name: "Typed name" }, { importedWorkspace: imported });
+    expect(ws.tasks.map((t) => t.id)).toEqual([7]);
+    expect(ws.project?.name).toBe("Typed name");
+  });
+
+  it("ignores template, AI seed and features when a workspace is imported", () => {
+    const imported: Workspace = { ...emptyWorkspace(), features: ["raid"] };
+    const ws = buildNewProjectWorkspace(meta, {
+      importedWorkspace: imported,
+      features: [],
+      aiSeed: { tasks: [] },
+      includeSeed: true,
+    });
+    expect(ws.features).toEqual(["raid"]);
   });
 });
 

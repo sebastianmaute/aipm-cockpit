@@ -1,9 +1,23 @@
 // src/app/docx-extract.ts — WordprocessingML (word/document.xml) → Markdown.
 // Paragraphs, heading levels (w:pStyle "HeadingN"), and tables (w:tbl). Pure.
 // LIMITATION: nested tables (a w:tbl inside a table cell) are not supported —
-// the lazy w:tbl match closes on the inner table; such docs extract partially.
+// the w:tbl pair spec closes on the inner table's close tag; such docs
+// extract partially.
 
 import { decodeUtf8, extractRuns } from "./office-xml";
+import { forEachOpenTag, forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
+
+const TC_PAIR: TagPairSpec = { openPattern: "<w:tc\\b", closeName: () => "w:tc", hasAttributes: true };
+const TR_PAIR: TagPairSpec = { openPattern: "<w:tr\\b", closeName: () => "w:tr", hasAttributes: true };
+// w:tbl and w:p are walked together, in document order, exactly as the
+// former `<w:tbl\b[\s\S]*?<\/w:tbl>|<w:p\b[\s\S]*?<\/w:p>` alternation did —
+// a table's inner paragraphs are consumed as part of the table's own pair,
+// since the close scan for "w:tbl" runs past them to the table's own close.
+const BLOCK_PAIR: TagPairSpec = {
+  openPattern: "<w:tbl\\b|<w:p\\b",
+  closeName: (openMatch) => (openMatch[0] === "<w:tbl" ? "w:tbl" : "w:p"),
+  hasAttributes: true,
+};
 
 function cellText(tcXml: string): string {
   return extractRuns(tcXml, "w:t").join("").trim().replace(/\|/g, "\\|");
@@ -11,15 +25,15 @@ function cellText(tcXml: string): string {
 
 function renderTable(tblXml: string): string {
   const rows: string[][] = [];
-  const trRe = /<w:tr\b[\s\S]*?<\/w:tr>/g;
-  let tr: RegExpExecArray | null;
-  while ((tr = trRe.exec(tblXml)) !== null) {
+  forEachTagPair(tblXml, TR_PAIR, (tr) => {
     const cells: string[] = [];
-    const tcRe = /<w:tc\b[\s\S]*?<\/w:tc>/g;
-    let tc: RegExpExecArray | null;
-    while ((tc = tcRe.exec(tr[0])) !== null) cells.push(cellText(tc[0]));
+    forEachTagPair(tr.whole, TC_PAIR, (tc) => {
+      cells.push(cellText(tc.whole));
+      return true;
+    });
     rows.push(cells);
-  }
+    return true;
+  });
   if (rows.length === 0) return "";
   const width = Math.max(...rows.map((r) => r.length));
   const pad = (r: string[]): string[] => {
@@ -39,12 +53,28 @@ function renderTable(tblXml: string): string {
 function renderParagraph(pXml: string): string {
   const text = extractRuns(pXml, "w:t").join("").trim();
   if (text === "") return "";
-  const h = /<w:pStyle\b[^>]*w:val="(?:Heading|heading)(\d)"/.exec(pXml);
-  if (h) {
-    const level = Math.min(6, Math.max(1, parseInt(h[1], 10)));
+  const digit = headingDigit(pXml);
+  if (digit !== null) {
+    const level = Math.min(6, Math.max(1, parseInt(digit, 10)));
     return `${"#".repeat(level)} ${text}`;
   }
   return text;
+}
+
+/** The N of the first `<w:pStyle ... w:val="HeadingN">` in a paragraph, or
+ *  null. Read tag by tag rather than by the former
+ *  `<w:pStyle\b[^>]*w:val=...` regex, whose `[^>]*` ran to the paragraph's
+ *  close from every unclosed open — quadratic (§558). Within one tag the
+ *  rightmost hit wins, as that greedy `[^>]*` backtracked to it. */
+function headingDigit(pXml: string): string | null {
+  let digit: string | null = null;
+  forEachOpenTag(pXml, "<w:pStyle\\b", (tag) => {
+    const valRe = /w:val="(?:Heading|heading)(\d)"/g;
+    let m: RegExpExecArray | null;
+    while ((m = valRe.exec(tag)) !== null) digit = m[1];
+    return digit === null;
+  });
+  return digit;
 }
 
 /** Extract Markdown from a docx's entry map (needs `word/document.xml`). */
@@ -52,15 +82,13 @@ export function extractDocx(entries: Map<string, Uint8Array>): string {
   const bytes = entries.get("word/document.xml");
   if (!bytes) return "";
   const doc = decodeUtf8(bytes);
-  // Walk top-level tables and paragraphs in document order. A w:tbl is matched
-  // (lazily) before w:p so a table's inner paragraphs are consumed as one block.
-  const blockRe = /<w:tbl\b[\s\S]*?<\/w:tbl>|<w:p\b[\s\S]*?<\/w:p>/g;
+  // Walk top-level tables and paragraphs in document order — see BLOCK_PAIR.
   const out: string[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = blockRe.exec(doc)) !== null) {
-    const block = m[0];
-    const rendered = block.startsWith("<w:tbl") ? renderTable(block) : renderParagraph(block);
+  forEachTagPair(doc, BLOCK_PAIR, (block) => {
+    const rendered =
+      block.openMatch[0] === "<w:tbl" ? renderTable(block.whole) : renderParagraph(block.whole);
     if (rendered !== "") out.push(rendered);
-  }
+    return true;
+  });
   return out.join("\n\n");
 }

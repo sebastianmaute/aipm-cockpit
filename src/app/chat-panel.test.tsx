@@ -178,7 +178,9 @@ describe("Attachment guidance", () => {
 
   it("shows the accepted-types + size hint up front", () => {
     renderComposer();
-    expect(screen.getByText(/Attach PDF, image.*up to 20 MB/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Attach or drop one or more files.*up to 20 MB/i),
+    ).toBeInTheDocument();
   });
 
   it("surfaces EVERY failed file when several are picked at once", async () => {
@@ -253,6 +255,119 @@ describe("Attachment guidance", () => {
     const click = vi.spyOn(input, "click");
     await user.click(screen.getByRole("button", { name: t("en-US", "chatAttach") }));
     expect(click).toHaveBeenCalled();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Multi-file caps + drag-and-drop (json-import-multi-attach-demo-refresh, task 3)
+  // ---------------------------------------------------------------------------
+  function pick(container: HTMLElement, files: File[]) {
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files } });
+  }
+  const txt = (name: string, body = "hello") => new File([body], name, { type: "text/plain" });
+
+  it("stages every valid file from one pick as its own chip", async () => {
+    const { container } = renderComposer();
+    pick(container, [txt("a.txt"), txt("b.md"), new File(["{}"], "c.json", { type: "application/json" })]);
+    for (const n of ["a.txt", "b.md", "c.json"]) {
+      expect(await screen.findByRole("button", { name: `Remove ${n}` })).toBeInTheDocument();
+    }
+  });
+
+  it("stages at most 10 and names every file past the cap", async () => {
+    const { container } = renderComposer();
+    pick(container, Array.from({ length: 12 }, (_, i) => txt(`f${i}.txt`)));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("f10.txt");
+    expect(alert.textContent).toContain("f11.txt");
+    expect(alert.textContent).not.toContain("f9.txt");
+    expect(screen.getAllByRole("button", { name: /^Remove f\d+\.txt$/ })).toHaveLength(10);
+  });
+
+  it("counts already-staged files toward the cap across two picks", async () => {
+    const { container } = renderComposer();
+    pick(container, Array.from({ length: 9 }, (_, i) => txt(`a${i}.txt`)));
+    await screen.findByRole("button", { name: "Remove a8.txt" });
+    pick(container, [txt("b0.txt"), txt("b1.txt")]);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("b1.txt");
+    expect(screen.getByRole("button", { name: "Remove b0.txt" })).toBeInTheDocument();
+  });
+
+  it("stages dropped files exactly like picked ones", async () => {
+    const { container } = renderComposer();
+    const target = container.firstElementChild as HTMLElement;
+    fireEvent.drop(target, { dataTransfer: { types: ["Files"], files: [txt("dropped.txt")] } });
+    expect(await screen.findByRole("button", { name: "Remove dropped.txt" })).toBeInTheDocument();
+  });
+
+  // A text or link drag has no "Files" type. The pane root used to cancel
+  // EVERY drag, so selected text dropped on the composer textarea vanished.
+  // ★ `fireEvent` returns false exactly when a handler called preventDefault,
+  // which is the observable the browser uses to decide whether its own
+  // default (inserting the text) runs.
+  it("lets a text drag through to the composer instead of cancelling it", async () => {
+    const { container } = renderComposer();
+    const target = container.firstElementChild as HTMLElement;
+    const dt = { types: ["text/plain", "text/uri-list"], files: [] };
+    expect(fireEvent.dragOver(target, { dataTransfer: dt })).toBe(true);
+    expect(fireEvent.drop(target, { dataTransfer: dt })).toBe(true);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(screen.queryAllByRole("button", { name: /^Remove / })).toHaveLength(0);
+  });
+
+  it("still claims a file drag (dragover and drop are cancelled)", () => {
+    const { container } = renderComposer();
+    const target = container.firstElementChild as HTMLElement;
+    const dt = { types: ["Files"], files: [txt("claimed.txt")] };
+    expect(fireEvent.dragOver(target, { dataTransfer: dt })).toBe(false);
+    expect(fireEvent.drop(target, { dataTransfer: dt })).toBe(false);
+  });
+
+  // Two picks fired back-to-back, neither awaited: each reads its files
+  // before planning, so the second plans BEFORE React re-renders the first's
+  // chips. It must still see the first pick's staged set through the ref.
+  it("caps two overlapping picks at 10 in total", async () => {
+    const { container } = renderComposer();
+    pick(container, Array.from({ length: 6 }, (_, i) => txt(`p${i}.txt`)));
+    pick(container, Array.from({ length: 6 }, (_, i) => txt(`q${i}.txt`)));
+    await screen.findByRole("button", { name: "Remove q0.txt" });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(screen.getAllByRole("button", { name: /^Remove [pq]\d\.txt$/ })).toHaveLength(10);
+    expect(screen.getByRole("alert").textContent).toContain("q5.txt");
+  });
+
+  // No dedicated "API key missing" test fixture exists in this file (grepped
+  // `apiKeyMissing` / `AI_WITHOUT_KEY`) — reuse the `guidesReady gate`
+  // describe block's own mechanism (groundInGuides + guidesReady=false) to
+  // reach `attachDisabled`, rather than skip drop-guard coverage entirely.
+  it("does not stage a dropped file while the composer is disabled (guides pending)", async () => {
+    const { container } = render(
+      <ChatPanel
+        lang="en-US"
+        ai={{ ...AI_WITH_KEY, groundInGuides: true }}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+        guidesReady={false}
+      />,
+    );
+    const target = container.firstElementChild as HTMLElement;
+    fireEvent.drop(target, { dataTransfer: { types: ["Files"], files: [txt("blocked.txt")] } });
+    // handleFiles is async (ingestFile awaits file.arrayBuffer()) — a
+    // synchronous check here would pass whether the onDrop guard blocked the
+    // drop OR the async chain simply had not resolved yet, which is vacuous
+    // (fix-round-1: a mutant that deletes only the guard line, leaving
+    // onDrop/handleFiles intact, stayed green against the old synchronous
+    // assertion). Flush real timers first so any staging that WOULD happen
+    // has actually happened before asserting its absence.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(screen.queryByRole("button", { name: "Remove blocked.txt" })).toBeNull();
   });
 });
 

@@ -5,12 +5,12 @@ import {
   Menu,
   shell,
   type MenuItemConstructorOptions,
+  type UtilityProcess,
   type WebContents,
   type WebFrameMain,
 } from "electron";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { ChildProcess } from "node:child_process";
 import { APP_ORIGIN, APP_PORT, RELEASES_URL } from "./lib/constants";
 import { classifyPortOwner, type PortProbe } from "./lib/port-owner";
 import { shouldReportServerExit } from "./lib/exit-reporting";
@@ -40,7 +40,7 @@ import { liveWindow } from "./lib/window-liveness";
 import { waitForReady } from "./lib/readiness";
 import { killServer, spawnServer } from "./server-child";
 
-let serverChild: ChildProcess | null = null;
+let serverChild: UtilityProcess | null = null;
 let win: BrowserWindow | null = null;
 // Set the moment WE decide to stop. killServer goes through `taskkill /F` on
 // Windows, so a deliberate shutdown exits the child with code 1 -- exactly
@@ -556,6 +556,9 @@ async function start(): Promise<void> {
 
   if (owner === "free") {
     serverChild = spawnServer(process.resourcesPath);
+    // Both streams are piped, so both are drained: an unread pipe fills and
+    // stalls the server on its next write.
+    serverChild.stdout?.on("data", (d: Buffer) => log(`server: ${d.toString().trimEnd()}`));
     serverChild.stderr?.on("data", (d: Buffer) => log(`server: ${d.toString().trimEnd()}`));
     serverChild.on("exit", (code) => {
       log(`server exited with code ${code}`);

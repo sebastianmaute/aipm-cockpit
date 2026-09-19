@@ -68,6 +68,28 @@ extraResources:
       - "**/*"
       - "!@img/**"
       - "!sharp/**"
+# electron-builder flips these into the packaged Electron binary's fuse wire
+# (app-builder-lib's `FuseOptionsV1`, backed by @electron/fuses) after
+# packaging -- they only take effect in a PACKAGED build, never in `npm run
+# dev`/`electron .`, so nothing local exercises them; the manual
+# `desktop-package` CI job is the only thing that runs this step.
+electronFuses:
+  # Stops `ELECTRON_RUN_AS_NODE=1` turning the shipped exe into a
+  # general-purpose Node interpreter. The app's own Next server does NOT
+  # depend on it: server-child.ts launches it with `utilityProcess.fork`,
+  # which runs a Node child without this fuse (the earlier
+  # spawn(process.execPath) + ELECTRON_RUN_AS_NODE launch broke with it off).
+  runAsNode: false
+  # Closes `--inspect`/`--inspect-brk` (and SIGUSR1) as a way to attach a
+  # debugger to, or inject code into, the packaged process.
+  enableNodeCliInspectArguments: false
+  # Closes NODE_OPTIONS (and NODE_EXTRA_CA_CERTS) as an env-var injection
+  # route into the packaged process's Node runtime.
+  enableNodeOptionsEnvironmentVariable: false
+  # Narrows Electron's app-code search order to `app.asar` alone, so a
+  # swapped-in `app` directory next to the exe can no longer be loaded ahead
+  # of the archive.
+  onlyLoadAppFromAsar: true
 win:
   target: nsis
   # ★★ Paths here are resolved by app-builder-lib's getResource(), which tries

@@ -2019,6 +2019,9 @@ describe("useStorageBackend — project flows", () => {
   it.each([
     ["a template", { includeSeed: true, template: { id: "t", name: "T", features: [], fieldVisibility: {}, seed: { tasks: [SEED_TASK] } } }, "a,b@x.com"],
     ["an AI-import seed", { includeSeed: true, aiSeed: { tasks: [SEED_TASK] } }, ""],
+    // An imported workspace IS the project's content and is stored as-is, so
+    // it is summarised like a template — aiSeedUnsafeEmails would see no seed.
+    ["an imported workspace", { importedWorkspace: { ...emptyWorkspace(), tasks: [SEED_TASK] } }, "a,b@x.com"],
   ])("createProject with %s shows the unsafe-email notice after projectCreatedToast (spec Part 2, pre-flight I5)", async (_label, opts, stored) => {
     const targetBackend = {
       kind: "local-json",

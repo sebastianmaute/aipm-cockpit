@@ -18,6 +18,8 @@
 // defends against catastrophic cost and outright injection of forged
 // structure, not against every possible reconstruction.
 
+import { forEachTagPair, replaceTagPairs, type TagPairSpec } from "./tag-pair-walk";
+
 /** Elements whose entire subtree is noise for a reader. */
 const DROP_SUBTREE = ["script", "style", "head", "nav", "footer", "aside", "noscript", "svg"];
 
@@ -154,8 +156,8 @@ function dropSubtrees(html: string): string {
  *  returns the input UNCHANGED and the script body survives as on-page text.
  *  Dropping to EOF is a deliberate hardening of that,
  *  pinned by the "drops to end of input for an unterminated drop-subtree tag"
- *  test — not a behaviour to preserve out of fidelity. forEachTagPair below
- *  keeps the pair regex's real fallback instead: what it drops is formatting,
+ *  test — not a behaviour to preserve out of fidelity. forEachTagPair
+ *  (./tag-pair-walk) keeps the pair regex's real fallback instead: what it drops is formatting,
  *  not the noise subtrees this function exists to suppress, so an unclosed
  *  <li> is better left as text than used to delete the document's tail. */
 function dropTagSubtree(html: string, tag: string): string {
@@ -180,139 +182,40 @@ function dropTagSubtree(html: string, tag: string): string {
   return out;
 }
 
-/** A `<name ...>inner</name>` pair located by forEachTagPair. */
-interface TagPair {
-  /** Index of the open tag's "<". */
-  start: number;
-  /** Index just past the close tag's ">". */
-  end: number;
-  /** The whole pair, open and close tags included. */
-  whole: string;
-  /** The text between the open tag and the close tag. */
-  inner: string;
-  /** The open-tag match, for its capture groups. */
-  openMatch: RegExpExecArray;
-}
-
-/** How to locate one family of pairs. */
-interface TagPairSpec {
-  /** Open-tag pattern, compiled "gi" — e.g. `<h([1-6])\b`. */
-  openPattern: string;
-  /** The close-tag NAME an open match must be closed by — e.g. "h2" for
-   *  `<h2 ...>`. Derived from the open match rather than given as a fixed
-   *  close pattern because two of the call sites closed on a `\1`
-   *  backreference (the heading level, and td-vs-th). */
-  closeName: (openMatch: RegExpExecArray) => string;
-  /** True for the `<name\b[^>]*>` shape, whose inner text starts after the
-   *  open tag's ">"; false for the bare `<name\b` shape, whose inner text
-   *  starts immediately (those call sites only read `whole`). */
-  hasAttributes: boolean;
-}
-
-/** Walk every `<name ...>...</name>` pair in document order, linearly, calling
- *  `visit` on each; `visit` returns false to stop the walk.
- *
- *  This is the shared replacement for the `<name\b[^>]*>([\s\S]*?)</name\s*>`
- *  pair regex — the O(n^2) shape stripComments and dropTagSubtree above
- *  already avoid, quadratic by two mechanisms at once: an unterminated open
- *  tag makes the lazy `[\s\S]*?` rescan to end of input from every open, and
- *  `[^>]*` on input with no ">" at all backtracks to EOF from every start
- *  position. Five steps of this pipeline went on using it — tables, their
- *  rows, their cells, headings and list items — while the two comments above
- *  explained why it was banned.
- *
- *  Measured at MAX_HTML_INPUT_CHARS, one unit repeated to fill, before ->
- *  after this walk (2026-09-03): "<h1" with no ">" anywhere 27,864 -> 895ms,
- *  "<h1>" 8,871 -> 12ms, "<li>" 3,548 -> 11ms, "<table>" 1,130 -> 8ms, one
- *  <table> of unterminated "<tr" 14,858 -> 7ms, one <table> of unterminated
- *  "<td" 31,418 -> 12ms. Every one of those produced 42 characters of output.
- *  ★ The surviving 895ms is NOT this walk: 815ms of it is the generic
- *  TAG_STRIP_RE pass at the end of extractHtmlMarkdown, bounded (finite, not
- *  cheap) by MAX_TAG_SCAN_CHARS. 500k bare "<" characters, an input that
- *  reaches no pair walk at all, cost 2,511ms on the same machine — that is
- *  the pipeline's floor, and it is what a processing-time test must clear.
- *
- *  Linear because every scan only moves forward: open tags are visited in
- *  increasing order, and one close scanner is kept per close NAME, so a name
- *  whose close is missing is searched for exactly once and then retired. The
- *  name set is bounded per call site (1 for table/tr/li, 2 for td/th, 6 for
- *  h1-h6), so the whole walk is O(n) in the clamped input length.
- *
- *  ★ The unterminated-input fallback here is NOT dropTagSubtree's, and copying
- *  that one would silently delete the rest of the document. A pair regex that
- *  finds no close does not match AT ALL, so an unclosed open tag is left in
- *  place for the later generic TAG_STRIP_RE to remove. */
-function forEachTagPair(html: string, spec: TagPairSpec, visit: (pair: TagPair) => boolean): void {
-  const openRe = new RegExp(spec.openPattern, "gi");
-  // null = this name has already been shown to have no close left anywhere in
-  // the input, so no open of the same name further right can match either.
-  const closers = new Map<string, RegExp | null>();
-  let openMatch: RegExpExecArray | null;
-  while ((openMatch = openRe.exec(html)) !== null) {
-    const name = spec.closeName(openMatch);
-    let closeRe = closers.get(name);
-    if (closeRe === undefined) {
-      closeRe = new RegExp("</" + name + "\\s*>", "gi");
-      closers.set(name, closeRe);
-    }
-    // ★ Before the attribute scan below, not after. That scan can run to end
-    // of input, and a retired name would otherwise pay for it again at every
-    // remaining open tag — which is the same O(n^2) this walk exists to
-    // remove (measured: a <table> full of unterminated "<td" spent 994ms
-    // here with the two swapped, against 9ms in this order).
-    if (closeRe === null) continue;
-    let innerStart = openRe.lastIndex;
-    if (spec.hasAttributes) {
-      const gt = html.indexOf(">", innerStart);
-      // `[^>]*>` cannot match here, nor at any open further right.
-      if (gt === -1) return;
-      innerStart = gt + 1;
-    }
-    closeRe.lastIndex = innerStart;
-    const closeMatch = closeRe.exec(html);
-    if (closeMatch === null) {
-      closers.set(name, null);
-      continue;
-    }
-    const end = closeMatch.index + closeMatch[0].length;
-    const keepGoing = visit({
-      start: openMatch.index,
-      end,
-      whole: html.slice(openMatch.index, end),
-      inner: html.slice(innerStart, closeMatch.index),
-      openMatch,
-    });
-    if (!keepGoing) return;
-    openRe.lastIndex = end;
-  }
-}
-
-/** forEachTagPair with each pair replaced by `render`'s output — what
- *  String.replace did with the pair regex, minus the backtracking. */
-function replaceTagPairs(html: string, spec: TagPairSpec, render: (pair: TagPair) => string): string {
-  let out = "";
-  let cursor = 0;
-  forEachTagPair(html, spec, (pair) => {
-    out += html.slice(cursor, pair.start) + render(pair);
-    cursor = pair.end;
-    return true;
-  });
-  return out + html.slice(cursor);
-}
-
-const TABLE_PAIR: TagPairSpec = { openPattern: "<table\\b", closeName: () => "table", hasAttributes: false };
-const ROW_PAIR: TagPairSpec = { openPattern: "<tr\\b", closeName: () => "tr", hasAttributes: false };
+// HTML tag names are case-insensitive (`<TABLE>`/`<Table>` are the same
+// element as `<table>`), so every spec below opts into forEachTagPair's
+// "gi" flags — unlike the OOXML specs elsewhere, whose element/namespace
+// names are case-sensitive (§558 fix round 3, item 5).
+const TABLE_PAIR: TagPairSpec = {
+  openPattern: "<table\\b",
+  closeName: () => "table",
+  hasAttributes: false,
+  caseInsensitive: true,
+};
+const ROW_PAIR: TagPairSpec = {
+  openPattern: "<tr\\b",
+  closeName: () => "tr",
+  hasAttributes: false,
+  caseInsensitive: true,
+};
 const CELL_PAIR: TagPairSpec = {
   openPattern: "<(t[dh])\\b",
   closeName: (openMatch) => openMatch[1].toLowerCase(),
   hasAttributes: true,
+  caseInsensitive: true,
 };
 const HEADING_PAIR: TagPairSpec = {
   openPattern: "<h([1-6])\\b",
   closeName: (openMatch) => "h" + openMatch[1],
   hasAttributes: true,
+  caseInsensitive: true,
 };
-const LIST_ITEM_PAIR: TagPairSpec = { openPattern: "<li\\b", closeName: () => "li", hasAttributes: true };
+const LIST_ITEM_PAIR: TagPairSpec = {
+  openPattern: "<li\\b",
+  closeName: () => "li",
+  hasAttributes: true,
+  caseInsensitive: true,
+};
 
 function cellText(html: string): string {
   const stripped = html.replace(TAG_STRIP_RE, "");
@@ -381,9 +284,10 @@ export const NO_EXTRACTABLE_TEXT = "_(document contained no extractable text)_";
  *  property of the whole pipeline, not of any one step: input reaching here is
  *  hostile by assumption and is processed on the browser MAIN THREAD, so one
  *  quadratic step is enough to freeze the tab. The `<tag>...</tag>` pair regex
- *  is the recurring way to reintroduce one — stripComments, dropTagSubtree and
- *  forEachTagPair above each replace one instance of it, and no
- *  `[\s\S]*?` regex is left here. stripTrailingOpenTag replaces the fourth
+ *  is the recurring way to reintroduce one — stripComments, dropTagSubtree,
+ *  and forEachTagPair (./tag-pair-walk, used five times below: table/tr/td-
+ *  th/heading/li) between them replace every remaining occurrence of it, and
+ *  no `[\s\S]*?` regex is left here. stripTrailingOpenTag replaces the fourth
  *  and worst one, which wore no `[\s\S]*?` at all. TAG_STRIP_RE is the one
  *  unbounded-looking scan left and is the exception: it is bounded by
  *  MAX_TAG_SCAN_CHARS to a linear pass with a 4096 constant, which is the

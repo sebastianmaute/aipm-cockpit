@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CreateProjectWizard } from "./create-project-wizard";
@@ -7,6 +9,11 @@ import { type NewProjectOpts } from "./new-project-workspace";
 import { defaultSettings } from "./settings-types";
 import { SETTINGS_KEY } from "./use-settings";
 import { loadI18n, t } from "./i18n";
+
+const sampleText = readFileSync(
+  join(import.meta.dirname, "..", "..", "sample-workspace-small.json"),
+  "utf8",
+);
 
 const generateMock = vi.fn();
 vi.mock("./use-project-proposal", () => ({
@@ -549,6 +556,37 @@ describe("CreateProjectWizard AI Step 0", () => {
     expect(last.source.data).toBe("hi");
   });
 
+  // Final-review finding: import a workspace, go Back to Step 0 and accept an
+  // AI proposal instead. `imported` used to survive that, so Next on Step 1
+  // took the import shortcut and created from the OLD file — dropping the
+  // proposal (and its seed) the user had just accepted.
+  it("a new AI proposal after Back supersedes an earlier workspace import", async () => {
+    generateMock.mockResolvedValue({ meta: { name: "Proposed Project" }, features: [], seed: undefined });
+    const { onCreate } = renderWithKey();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateSkip") }));
+    const picker = screen
+      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
+      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(picker, {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    await screen.findByText(/Importing sample\.json: \d+ tasks/);
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.change(screen.getByLabelText(t("en-US", "aiCreateDescribeLabel")), {
+      target: { value: "a crm project" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateGenerate") }));
+    await waitFor(() => expect(screen.getByDisplayValue("Proposed Project")).toBeInTheDocument());
+    expect(screen.queryByText(/Importing sample\.json/)).toBeNull();
+    completeStep1();
+    // The import shortcut would have called onCreate right here.
+    expect(onCreate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(onCreate.mock.calls[0][2].importedWorkspace).toBeUndefined();
+  });
+
   it("hides SharePoint without M365 and Confluence without Jira config", () => {
     // defaultSettings: M365 disabled + no jira creds.
     renderWithKey();
@@ -562,5 +600,127 @@ describe("CreateProjectWizard AI Step 0", () => {
         name: t("en-US", "wizardImportMethodConfluence"),
       }),
     ).toBeNull();
+  });
+});
+
+describe("CreateProjectWizard native workspace import (Step 1, key-free)", () => {
+  beforeEach(() => {
+    window.localStorage.removeItem(SETTINGS_KEY);
+  });
+
+  /** The Step-1 picker renders `<Button>` + a sibling hidden file input
+   *  (FilePickerButton's DOM shape). */
+  function workspacePickerInput() {
+    return screen
+      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
+      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+  }
+
+  // Regression guard for the "picker AI-only" mutant: the workspace-import
+  // control must be offered even when no Anthropic key is configured — it is
+  // the key-free route, not an AI-fast-path extra.
+  it("offers the workspace import without an API key", () => {
+    setup();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") }),
+    ).toBeInTheDocument();
+  });
+
+  it("imports a workspace file from Step 1 and creates the project with its content", async () => {
+    const { onCreate } = setup();
+    fireEvent.change(workspacePickerInput(), {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByText(/Importing sample\.json: \d+ tasks/)).toBeInTheDocument();
+    // The imported file's own project meta pre-fills Step 1 — not a blank form.
+    expect(
+      screen.getByLabelText("Project name", { exact: false }),
+    ).toHaveValue("Customer Identity Platform");
+    // Submit Step 1 with its pre-filled name — the import must have replaced
+    // the (previously blank) form draft, or Next stays disabled.
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    const opts = onCreate.mock.calls[0][2];
+    expect(opts.importedWorkspace?.tasks.length).toBeGreaterThan(0);
+  });
+
+  it("rejects a JSON that is not a workspace, and creates nothing", async () => {
+    const { onCreate } = setup();
+    fireEvent.change(workspacePickerInput(), {
+      target: { files: [new File(['{"a":1}'], "x.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByText("x.json is not a workspace file.")).toBeInTheDocument();
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  // Final-review finding: Step 1's picker read the file with no size gate and
+  // no catch — a failed read was an unhandled rejection with no message.
+  it("rejects an oversize workspace file without reading it", async () => {
+    const { onCreate } = setup();
+    const big = new File([sampleText], "huge.json", { type: "application/json" });
+    Object.defineProperty(big, "size", { value: 21 * 1024 * 1024 });
+    const text = vi.spyOn(big, "text");
+    fireEvent.change(workspacePickerInput(), { target: { files: [big] } });
+    expect(await screen.findByText(t("en-US", "wizardImportErrorTooLarge"))).toBeInTheDocument();
+    expect(text).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Importing huge\.json/)).toBeNull();
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  it("reports a workspace file whose read fails", async () => {
+    const { onCreate } = setup();
+    const broken = new File([sampleText], "broken.json", { type: "application/json" });
+    vi.spyOn(broken, "text").mockRejectedValue(new Error("NotReadableError"));
+    fireEvent.change(workspacePickerInput(), { target: { files: [broken] } });
+    expect(
+      await screen.findByText("broken.json looks like a workspace file but could not be read."),
+    ).toBeInTheDocument();
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  // Review finding 1: acceptImport must clear any meta captured from a prior
+  // manual Step-1 visit (the same guard runIngest already carries), or an
+  // import that lands AFTER a Details → Next → Back round-trip is shadowed by
+  // the stale meta — the notice says "Importing X" but the form (and the
+  // eventual submit) still carries the OLD project's name.
+  it("clears stale Step-1 meta on import, so Back-then-import shows the file's own project name", async () => {
+    setup();
+    // Submit Step 1 manually (captures `meta` with name "WizardProj") …
+    completeStep1();
+    // … then Back to Step 1: the manually-submitted meta is still in effect.
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(
+      screen.getByLabelText("Project name", { exact: false }),
+    ).toHaveValue("WizardProj");
+    // Now import — the file's OWN project name must win, not the stale meta.
+    fireEvent.change(workspacePickerInput(), {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText("Project name", { exact: false }),
+      ).toHaveValue("Customer Identity Platform"),
+    );
+  });
+
+  // Controller ruling: the clear button must be a REAL control, not a no-op —
+  // it drops `imported` so a subsequent Next takes the normal (Template/
+  // Functions) path instead of the import shortcut.
+  it("Clear import removes the notice, and a subsequent Next takes the normal (non-import) path", async () => {
+    const { onCreate } = setup();
+    fireEvent.change(workspacePickerInput(), {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    await screen.findByText(/Importing sample\.json: \d+ tasks/);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear imported workspace sample.json" }),
+    );
+    expect(screen.queryByText(/Importing sample\.json: \d+ tasks/)).toBeNull();
+    // The form draft is untouched by Clear (still valid from the import), so
+    // Next is enabled — but `imported` is gone, so it goes to Step 2
+    // (Template), never straight to onCreate.
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(onCreate).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /Standard PM/ })).toBeInTheDocument();
   });
 });

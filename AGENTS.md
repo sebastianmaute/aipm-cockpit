@@ -168,12 +168,12 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # that never repros in isolation or in CI. Don't "fix" such a flake by
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
-                            # ★ `--minWorkers` DOES NOT EXIST in vitest 4.1.8 either — it exits with a CACError
+                            # ★ `--minWorkers` DOES NOT EXIST in vitest 4.1.11 either — it exits with a CACError
                             # before running anything, which reads like a broken suite. `--maxWorkers=N` DOES
                             # exist and is the fix when a saturated machine kills the fork pool (measured: 8x
                             # "Failed to start forks worker" reported as `Test Files no tests` at EXIT=1 —
                             # ground rule 2's false-green shape, but red).
-                            # ★ `--reporter=basic` DOES NOT EXIST in vitest 4.1.8 — it fails to load a
+                            # ★ `--reporter=basic` DOES NOT EXIST in vitest 4.1.11 — it fails to load a
                             # reporter module and errors at startup, which reads like a broken test run.
                             # Use `--reporter=dot`.
                             # ★★ `onTestFailed` runs AFTER every `afterEach`, and `afterEach` is LIFO — by

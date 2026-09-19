@@ -8,6 +8,113 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.11.0] - 2026-09-18 "Grisham"
+
+A new project can now be created straight from a workspace JSON file, the AI Assistant takes
+several attachments at once — including `.json` and files dropped onto it — within a per-message
+budget, and the demo project opens mid-flight with its dates moved to today.
+
+### Added
+
+- **Create a project from a workspace JSON file.** Give the create wizard's first step a workspace
+  file and it goes straight into the wizard instead of to the model; the details step also gains an
+  "Import workspace file…" button, shown whether or not an AI key is configured. The file's content
+  becomes the new project, the details step is pre-filled from the file's own project details, and
+  what you enter there replaces them; a notice names the file with its task, RAID and budget counts
+  and can clear the import, and Create then skips the template and functions steps. The file is read
+  with the same strict decoder as "Load project from file", so a file that has the workspace shape
+  but cannot be decoded is reported and creates nothing, and other files given alongside it are
+  named as ignored. Addresses in the file that are not safe to store are named on create, as for a
+  template.
+- **The AI Assistant accepts `.json` files**, as text — and so does the create wizard's first step,
+  which shares the same list of accepted types.
+- **Files can be dropped onto the AI Assistant.** Only a drag that carries files is taken, so text
+  or a link dragged onto the message box still lands there.
+- **The AI Assistant caps a message at 10 attachments and 30 MB**, counting what is already staged,
+  and names each file it leaves out and why — the Messages API refuses a request over 32 MB.
+- **"Explore a demo project" opens a project in mid-flight.** Every date in the demo is moved by
+  whole plan periods so that today falls where the demo was written: in a monthly plan a date on the
+  first or last day of its month stays on the first or last day, and any other date that lands on a
+  weekend moves to the Monday; a weekly plan moves by whole weeks.
+
+### Changed
+
+- **The demo workspace is brought up to date.** `sample-workspace-small.json` now runs from June to
+  December 2026 with budget buckets that are closed, current and still to come, and covers
+  budget-follows-plan, FX rates with a GBP bucket, a fixed-price, a blended and a rate-override
+  bucket, dated TimeLog-style actuals, and a seeded activity log, insights, knowledge items and
+  TimeLog links, with note logs on more RAID items. Each person is staffed in one bucket per month,
+  so the demo's budget-variance insight matches what the live detector reports. The larger generated
+  samples are regenerated from it.
+- **The AI Assistant's attach button reads "Attach documents"**, and its hint lists `.json`, drag
+  and drop and the per-message limits.
+
+### Fixed
+
+- **A demo file that cannot be read now shows "Couldn't load the demo project."** instead of
+  quietly creating an empty demo project.
+
+Four follow-ups are filed and open: "Load project from file" throws in Firefox and Safari and blames
+Settings rather than the browser (`§574`); the AI Assistant re-sends every earlier turn's
+attachments, so a long thread can exceed the Messages API's 32 MB limit (`§575`); `sanitizeFxRates`
+reorders its rates on a second decode, so an FX snapshot is not byte-stable through a JSON round
+trip (`§576`); and the budget-variance insight compares a bucket's full-window budget against its
+to-date actuals, so an open bucket with months still to come is flagged (`§577`).
+
+## [1.10.1] - 2026-09-18 "Leonard"
+
+The 2026-09 security audit's follow-up fixes: hostile Office files can no longer stall document
+ingest, two backend proxies no longer follow an upstream redirect to a host outside their
+allowlist, the packaged desktop app can no longer be used as a general-purpose Node runtime or
+Node debugger target, and an imported RAID item with an oversized name no longer costs seconds to
+load.
+
+### Fixed
+
+- **A docx, xlsx or pptx file with repetitive unclosed markup no longer stalls document ingest.**
+  `docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts` and the shared `extractRuns` walked their
+  markup with lazy backtracking regexes, which are linear on well-formed input but quadratic once a
+  closing tag is missing — trivial for a hostile file to arrange. All four now walk one linear
+  cursor (`§558`).
+- **An imported RAID item with an oversized name no longer costs seconds to load.** The load path
+  stripped `<br>` tags before capping a name to its length limit; a very long name made that strip
+  itself quadratic. The value is now capped first (`§578`).
+- **A malformed docx/pptx tag no longer leaks raw markup into extracted text, and an xlsx sheet
+  whose name contains `>` no longer silently vanishes from the export.** Found in the same round as
+  the fix above: `extractRuns` admitted a bare `/` right after a tag name even when it was not
+  actually a self-close, and the rels-mapping sheet reader truncated a `<sheet ...>` tag at the
+  first `>` — including one sitting inside a quoted `name=`, which is legal XML — losing the sheet's
+  `r:id` along with it (`§558`).
+
+### Security
+
+- **The Jira and TimeLog proxies no longer follow an upstream redirect.** Both proxies validated
+  their host allowlist against the initial URL only, so an upstream 3xx response could send the
+  request on to a host the allowlist never checked — an unauthenticated hop to wherever the
+  redirect pointed. They now refuse the redirect outright (`§559`).
+- **The config export now redacts every sealed secret, not three of five.** The redaction backstop
+  missed two of the five `SecretId`s, so it would not have caught a leak of those two if
+  `writeSettings` ever regressed (`§560`).
+- **The packaged desktop app can no longer be used as a general-purpose Node runtime or Node
+  debugger target.** The `RunAsNode`, Node-inspect and `NODE_OPTIONS` fuses are off and only `app.asar` is
+  loaded, so the shipped exe can no longer be run as a plain Node interpreter or attached to by a
+  Node debugger. To keep the app starting with `RunAsNode` off, its server now launches via
+  Electron's `utilityProcess.fork` instead of the old child-process spawn (`§561`; the CI
+  desktop-package job does not yet confirm the fuses on every build — tracked open).
+- **The packaged app's server no longer inherits `NODE_OPTIONS` (or `NODE_PATH` /
+  `NODE_REPL_EXTERNAL_MODULE`) from its launch environment.** These can make Node load or execute
+  code, or attach a debugger, that was never part of the app. A packaged-exe probe — launch with
+  `NODE_OPTIONS=--require <a script that writes a marker file>` set, let the server start, quit,
+  check for the marker — found no marker either way, with or without this change. The probe's only
+  positive control was plain Node outside Electron, so it does not establish why: whether the fuse,
+  Electron's own packaged-app `NODE_OPTIONS` restrictions, or the utility process simply ignoring the
+  variable is what blocked it. The scrub is kept as belt-and-braces defence in depth (`§561`).
+
+Two follow-ups filed by the same audit remain open: quadratic regexes outside the OOXML extractors,
+in `html-to-text.ts`, `narrative-html.ts`, the Markdown fenced-block reads and the RAID escalation
+write path (`buildEscalationEntry`) (`§578`), and an xlsx whose rows each reach column XFD, bounded
+only by the inflate cap rather than a row budget (`§579`).
+
 ## [1.10.0] - 2026-09-18 "Leonard"
 
 The Budget forecast now shows one card at a time — a switch above it lets you pick "At current

@@ -1,15 +1,9 @@
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { connect, createServer } from "node:net";
 import { networkInterfaces, tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import {
-  test,
-  expect,
-  _electron as electron,
-  type ElectronApplication,
-  type Page,
-} from "@playwright/test";
+import { test, expect, chromium, type Browser, type Page } from "@playwright/test";
 import { APP_HOST, APP_ORIGIN, APP_PORT } from "../desktop/src/lib/constants";
 import { APP_VERSION } from "../src/app/version";
 
@@ -23,6 +17,16 @@ import { APP_VERSION } from "../src/app/version";
 // readiness probe never succeeds, and the app dies in its own "did not finish
 // starting" dialog. The whole point of this spec is the PACKAGE, so it drives
 // the artifact electron-builder produced.
+//
+// ★★★ IT DOES NOT USE PLAYWRIGHT'S `_electron.launch`, AND CANNOT. That launch
+// injects `--inspect=0` and waits for the Node inspector, and the packaged exe
+// ships with the `enableNodeCliInspectArguments` fuse OFF (electronFuses in
+// desktop/electron-builder.yml, open-followups §561), so it refuses the flag
+// and the launch times out before any assertion runs -- measured 2026-09-18.
+// Instead the exe is spawned with `--remote-debugging-port=0`, a CHROMIUM
+// switch that no Electron fuse gates, and the renderer is reached with
+// `chromium.connectOverCDP`. Never "fix" this by packaging an unfused build
+// for the test: the fused binary is the thing that ships.
 //
 // ★★ It is deliberately OUT of the CI `e2e` job (`playwright.config.ts` gives
 // it its own `desktop` project, and the `chromium` project ignores this file):
@@ -96,16 +100,18 @@ function sleep(ms: number): Promise<void> {
 
 // ★★ THE APP REUSES ONE WINDOW: `main.ts` creates a single BrowserWindow,
 // `loadFile`s splash.html into it, and only later `loadURL`s the app origin.
-// So `app.firstWindow()` resolves against a `file://…splash.html` page, and an
+// So the FIRST page CDP reports is a `file://…splash.html` page, and an
 // assertion made on it sees the splash markup — no themed background, no
-// `data-app-version`. Polling by URL rather than by window INDEX is correct
+// `data-app-version`. Polling by URL rather than by page INDEX is correct
 // for that, and stays correct if the splash is ever moved into a window of its
-// own (which is the shape `firstWindow()` would silently get wrong).
-async function appWindow(app: ElectronApplication): Promise<Page> {
+// own (which is the shape "take the first page" would silently get wrong).
+// It scans every context, since a CDP-attached browser reports the app's
+// pages under whichever context Chromium hands back.
+async function appWindow(browser: Browser): Promise<Page> {
   const deadline = Date.now() + WINDOW_BUDGET_MS;
   let lastSeen = "(no window yet)";
   while (Date.now() < deadline) {
-    for (const page of app.windows()) {
+    for (const page of browser.contexts().flatMap((c) => c.pages())) {
       const url = page.url();
       if (url.startsWith(APP_ORIGIN)) return page;
       lastSeen = url;
@@ -123,7 +129,7 @@ async function appWindow(app: ElectronApplication): Promise<Page> {
 // ★★★ BOTH TESTS BIND THE SAME FIXED PORT (17300 is not configurable — see
 // desktop/src/lib/constants.ts) and main.ts holds a single-instance lock, so
 // they must not overlap AND the previous server child must be gone before the
-// next launch. `app.close()` returns before the OS has torn the listener down,
+// next launch. `taskkill` returns before the OS has torn the listener down,
 // so the second launch's port-owner probe would classify a dying server as
 // "foreign" and refuse to start with a "Port in use" dialog.
 //
@@ -140,7 +146,7 @@ async function waitForPortRelease(): Promise<void> {
     await sleep(POLL_INTERVAL_MS);
   }
   throw new Error(
-    `Something is still serving ${APP_ORIGIN} 30s after app.close(). ` +
+    `Something is still serving ${APP_ORIGIN} 30s after the app was killed. ` +
       `A leaked server child holds the pinned port and every subsequent launch ` +
       `will refuse to start.`,
   );
@@ -153,8 +159,8 @@ async function waitForPortRelease(): Promise<void> {
 // window then loads the INSTALLED copy's server, so the boot test's assertions
 // run against the wrong build and pass whenever the two versions match (reasoned
 // from main.ts's owner branches, not measured). What this spec actually
-// reported was waitForPortRelease()'s "leaked server child ... after
-// app.close()", blaming the package for a process it never started.
+// reported was waitForPortRelease()'s "leaked server child" (then worded
+// "after app.close()"), blaming the package for a process it never started.
 //
 // ★★★ TWO CHECKS, AND THE CONNECT IS THE ONE THAT MIRRORS THE APP. main.ts
 // decides ownership with an HTTP fetch of APP_ORIGIN (`probePort`), i.e. by
@@ -211,7 +217,13 @@ async function assertPortFree(): Promise<void> {
   });
 }
 
-type Launched = { app: ElectronApplication; profile: string };
+type Launched = {
+  child: ChildProcess;
+  profile: string;
+  // The spawn's own `error` event, if it fired (e.g. the exe could not be
+  // started). Read through a getter because it arrives asynchronously.
+  spawnError: () => Error | undefined;
+};
 
 // ★★★ EVERY LAUNCH GETS A THROWAWAY `--user-data-dir`, AND WITHOUT IT THE
 // STYLING ASSERTION BELOW IS VACUOUS. Measured 2026-09-10, not reasoned: with
@@ -231,26 +243,174 @@ type Launched = { app: ElectronApplication; profile: string };
 // assertion from leaking a live app onto the pinned port and turning the next
 // test red for an unrelated reason — which is what makes a mutation run
 // readable at all.
-async function launchPackagedApp(): Promise<Launched> {
+async function launchPackagedApp(extraArgs: readonly string[] = []): Promise<Launched> {
   await assertPortFree();
   const profile = mkdtempSync(join(tmpdir(), "aipm-desktop-smoke-"));
-  return {
-    app: await electron.launch({
-      executablePath: PACKAGED_EXE,
-      args: [`--user-data-dir=${profile}`],
-    }),
-    profile,
-  };
+  const child = spawn(PACKAGED_EXE, [`--user-data-dir=${profile}`, ...extraArgs], {
+    stdio: "ignore",
+  });
+  let spawnError: Error | undefined;
+  child.once("error", (error) => {
+    spawnError = error;
+  });
+  return { child, profile, spawnError: () => spawnError };
 }
 
-async function shutdown({ app, profile }: Launched): Promise<void> {
-  await app.close();
-  await waitForPortRelease();
+// Throws if the exe never started or has already exited: every poll below
+// would otherwise run out its whole budget waiting on a process that is gone.
+function assertStillRunning({ child, spawnError }: Launched): void {
+  const error = spawnError();
+  if (error) throw new Error(`Packaged exe did not start: ${error.message}`);
+  if (child.exitCode !== null) {
+    throw new Error(`Packaged exe exited with code ${child.exitCode} during start-up.`);
+  }
+}
+
+// Chromium writes the port it actually bound for `--remote-debugging-port=0`
+// to line 1 of `<user-data-dir>/DevToolsActivePort` -- measured on the fused
+// package 2026-09-18. Reading it (rather than choosing a port) means no second
+// fixed port this spec could collide on.
+async function connectOverCdp(launched: Launched): Promise<Browser> {
+  const portFile = join(launched.profile, "DevToolsActivePort");
+  const deadline = Date.now() + WINDOW_BUDGET_MS;
+  while (Date.now() < deadline) {
+    assertStillRunning(launched);
+    let port = "";
+    try {
+      port = readFileSync(portFile, "utf8").split(/\r?\n/)[0].trim();
+    } catch {
+      // Not written yet.
+    }
+    if (/^[1-9]\d*$/.test(port)) {
+      return chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+    }
+    await sleep(POLL_INTERVAL_MS);
+  }
+  throw new Error(
+    `${portFile} held no DevTools port within ${WINDOW_BUDGET_MS}ms — did the exe ` +
+      `ignore --remote-debugging-port?`,
+  );
+}
+
+// Polls APP_ORIGIN until it answers 200 and returns the last status seen (0 =
+// nothing answered). No CDP: the loopback/LAN test needs only the server.
+async function waitForAppOrigin(launched: Launched): Promise<number> {
+  const deadline = Date.now() + WINDOW_BUDGET_MS;
+  let status = 0;
+  while (Date.now() < deadline) {
+    assertStillRunning(launched);
+    try {
+      status = (await fetch(APP_ORIGIN, { signal: AbortSignal.timeout(2_000) })).status;
+      if (status === 200) return status;
+    } catch {
+      // Not listening yet.
+    }
+    await sleep(POLL_INTERVAL_MS);
+  }
+  return status;
+}
+
+// How long a graceful quit gets before this spec gives up and forces the app
+// down. Generous but bounded -- the same "wait on the condition, not a guess"
+// discipline as waitForPortRelease(), just with an upper bound because there
+// is no condition here to poll: only `exit`.
+const GRACEFUL_QUIT_BUDGET_MS = 20_000;
+
+// Resolves `true` once `child` has actually exited, `false` once `budgetMs`
+// passes without that. A `taskkill` call RETURNING is not the process
+// exiting -- see the note above waitForPortRelease(). `signalCode !== null`
+// counts as exited too (N-8, final-rereview.md): a POSIX child that exited on
+// a signal before this call has `exitCode === null` with `signalCode` set, so
+// checking `exitCode` alone would wait out the whole budget on a process that
+// has already exited and then throw a misleading force-kill error. Windows,
+// where this smoke runs, is unaffected either way.
+function waitForExit(child: ChildProcess, budgetMs: number): Promise<boolean> {
+  if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      child.off("exit", onExit);
+      resolve(false);
+    }, budgetMs);
+    function onExit(): void {
+      clearTimeout(timer);
+      resolve(true);
+    }
+    child.once("exit", onExit);
+  });
+}
+
+// PID-scoped, never by image name -- the same discipline as killServer in
+// desktop/src/server-child.ts. `/T /F` takes the whole process tree down
+// directly and unconditionally, including the utility-process server, so
+// waitForPortRelease() passes whether or not killServer() did anything at
+// all. Used ONLY as killApp()'s fallback, after a graceful quit failed to
+// exit the app within budget.
+function forceKillApp(child: ChildProcess): void {
+  if (child.pid === undefined || child.exitCode !== null) return;
   try {
-    rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    if (process.platform === "win32") {
+      execFileSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+    } else {
+      child.kill("SIGKILL");
+    }
   } catch {
-    // A profile directory Windows still holds open is harmless — it is under
-    // the OS temp dir. Never fail a smoke test on its own cleanup.
+    // Already gone.
+  }
+}
+
+// ★★★ GRACEFUL FIRST, AND THAT IS THE WHOLE POINT OF THIS FUNCTION. The old
+// code went straight to `taskkill /T /F`, which tears the process tree down
+// itself and never asks the app to quit -- so this spec proved nothing about
+// `killServer(serverChild)`, the "child MUST die with the parent" guard in
+// desktop/src/main.ts. `taskkill /PID <pid>` WITHOUT `/F` sends WM_CLOSE to
+// the process's top-level window, the same message Windows sends when a user
+// clicks the window's own close button; that reaches main.ts's
+// `window-all-closed` -> `app.quit()` -> `before-quit` chain, which is what
+// actually calls `killServer`. Reaching the `/T /F` fallback now FAILS the
+// test rather than silently "working" -- but that only proves the APP quit
+// within budget, not that `killServer` ran: a round-1 mutant (`killServer`
+// made a no-op) left this spec green anyway, because Windows tears the
+// utility-process child down with the app regardless. `killServer` staying
+// unproven is filed as an owed item in open-followups §561, not a gap §561
+// flags this spec for.
+async function killApp(child: ChildProcess): Promise<void> {
+  if (child.pid === undefined || child.exitCode !== null) return;
+  const pid = child.pid;
+  try {
+    if (process.platform === "win32") {
+      execFileSync("taskkill", ["/PID", String(pid)], { stdio: "ignore" });
+    } else {
+      child.kill("SIGTERM");
+    }
+  } catch {
+    // Already gone.
+  }
+  if (await waitForExit(child, GRACEFUL_QUIT_BUDGET_MS)) return;
+  forceKillApp(child);
+  throw new Error(
+    `Packaged app (PID ${pid}) did not quit within ${GRACEFUL_QUIT_BUDGET_MS}ms of a ` +
+      `graceful close request and had to be force-killed. A graceful quit should reach ` +
+      `window-all-closed -> app.quit() -> before-quit -> killServer() in ` +
+      `desktop/src/main.ts -- investigate that chain, don't raise this budget.`,
+  );
+}
+
+async function shutdown({ child, profile }: Launched, browser?: Browser): Promise<void> {
+  // A CDP-connected browser's close() only DISCONNECTS; killApp() below does
+  // the real shutdown.
+  await browser?.close().catch(() => undefined);
+  try {
+    await killApp(child);
+    await waitForPortRelease();
+  } finally {
+    // Runs even when killApp() or waitForPortRelease() throws -- cleanup must
+    // not depend on the app having shut down cleanly.
+    try {
+      rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    } catch {
+      // A profile directory Windows still holds open is harmless — it is under
+      // the OS temp dir. Never fail a smoke test on its own cleanup.
+    }
   }
 }
 
@@ -258,9 +418,11 @@ test.describe.serial("packaged desktop app", () => {
   test("boots, is styled, and reports this version", async () => {
     requirePackagedExe();
 
-    const launched = await launchPackagedApp();
+    const launched = await launchPackagedApp(["--remote-debugging-port=0"]);
+    let browser: Browser | undefined;
     try {
-      const page = await appWindow(launched.app);
+      browser = await connectOverCdp(launched);
+      const page = await appWindow(browser);
 
       // ★★★ RACE FIX. appWindow() resolves the instant the window's URL
       // flips to the app origin, which can be BEFORE the stylesheet has
@@ -340,7 +502,7 @@ test.describe.serial("packaged desktop app", () => {
         `Packaged app reports ${served ?? "(absent)"} but this checkout is ${APP_VERSION}.`,
       ).toBe(APP_VERSION);
     } finally {
-      await shutdown(launched);
+      await shutdown(launched, browser);
     }
   });
 
@@ -356,14 +518,14 @@ test.describe.serial("packaged desktop app", () => {
     // test.skip() throws, so nothing below runs — but TS cannot see that.
     if (lan === undefined) return;
 
+    // No CDP here: this test needs only the server, so it takes no debugging
+    // port it does not use.
     const launched = await launchPackagedApp();
     try {
-      await appWindow(launched.app);
-
       // ★ CONTROL FIRST. A server that is simply down refuses on every
       // address, so without this the "refused on the LAN" half below proves
       // nothing at all.
-      const loopback = await fetch(APP_ORIGIN).then((r) => r.status);
+      const loopback = await waitForAppOrigin(launched);
       expect(
         loopback,
         `${APP_HOST}:${APP_PORT} did not answer, so the LAN assertion below proves nothing`,
