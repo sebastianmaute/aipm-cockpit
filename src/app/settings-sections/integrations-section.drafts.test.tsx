@@ -25,13 +25,14 @@ import {
   type Settings,
 } from "../settings-types";
 import type { StorageConfig } from "../storage";
-import { saveSecretValue } from "../use-secrets";
+import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { SECRET_MERGE_TIMEOUT_MS } from "../use-settings";
 import { savePortfolioMode } from "../portfolio-mode";
 
 vi.mock("../use-secrets", async (importActual) => ({
   ...(await importActual<typeof import("../use-secrets")>()),
   saveSecretValue: vi.fn(),
+  setSecretPassphrase: vi.fn(),
 }));
 
 const URL_A = "libsql://a.turso.io";
@@ -56,6 +57,8 @@ const applyLabel = t("en-US", "integrationsTursoApplyLabel");
 beforeEach(() => {
   vi.mocked(saveSecretValue).mockReset();
   vi.mocked(saveSecretValue).mockResolvedValue(undefined);
+  vi.mocked(setSecretPassphrase).mockReset();
+  vi.mocked(setSecretPassphrase).mockResolvedValue(undefined);
   localStorage.clear();
 });
 afterEach(() => {
@@ -226,5 +229,126 @@ describe("A6 — an outside change to the stored value keeps a draft being edite
     act(() => setExternal(settingsWith("libsql://other.turso.io", "ext-tok")));
     expect(tokenField()).toHaveValue("tokzz");
     expect(urlField()).toHaveValue("libsql://other.turso.io"); // control
+  });
+});
+
+// I1 — boot's `hydrateSecretsInto` restores `authToken` from the sealed store, so sealing an
+// UNAPPLIED draft would silently apply it on the next reload. On Turso storage the passphrase
+// actions must seal the COMMITTED token. Mutation MA7: seal the draft again
+// (`sealableTursoToken = tursoToken`) → both tests red.
+describe("I1 — on Turso storage the passphrase actions seal the APPLIED token, never the draft", () => {
+  const lock = () => screen.getByLabelText(t("en-US", "secretLockPassphrase"));
+
+  it("unticking the lock re-seals the committed token", async () => {
+    const user = userEvent.setup();
+    render(<IntegrationsSection lang="en-US" settings={settingsWith(URL_A, "tok")} onChange={vi.fn()} />);
+    await user.type(tokenField(), "NEW");
+    await user.click(lock()); // tick: no seal yet
+    await user.click(lock()); // untick: re-seal device-wrapped
+    await waitFor(() => expect(saveSecretValue).toHaveBeenCalledTimes(1));
+    expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tok", "device");
+    expect(saveSecretValue).not.toHaveBeenCalledWith("tursoAuthToken", "tokNEW", "device");
+  });
+
+  it("passphrase Save seals the committed token", async () => {
+    const user = userEvent.setup();
+    render(<IntegrationsSection lang="en-US" settings={settingsWith(URL_A, "tok")} onChange={vi.fn()} />);
+    await user.type(tokenField(), "NEW");
+    await user.click(lock());
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder")), "pw");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.click(screen.getByRole("button", { name: t("en-US", "secretPassphraseSave") }));
+    await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledTimes(1));
+    expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tok", "pw");
+  });
+});
+
+// Passphrase mode — the passphrase is never held in memory, so a changed token can be sealed only
+// under a passphrase typed into the section's own fields. Until then Apply and "Save & switch" are
+// disabled; with it, both re-seal the NEW token under it (else a reload + unlock yields the old
+// token, or none after the switch's `writeSettings`).
+//   MA9 — drop the passphrase seal from `commitTurso` → the Apply test goes red.
+//   MA9b — `tokenSealBlocked` always false → the Apply test goes red (enabled while blocked).
+//   MA10 — drop the passphrase seal from `confirmPortfolioModeSwitch` → the switch test goes red.
+//   MA10b — Save & switch `disabled={switchBusy}` only → the switch test goes red.
+describe("Passphrase mode — Apply and Save & switch re-seal the new token under the typed passphrase", () => {
+  const lock = () => screen.getByLabelText(t("en-US", "secretLockPassphrase"));
+  const typePassphrase = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder")), "pw");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+  };
+
+  it("Apply is disabled for a changed token until the passphrase is typed, then seals under it", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<IntegrationsSection lang="en-US" settings={settingsWith(URL_A, "tok")} onChange={onChange} />);
+    await user.click(lock()); // passphrase mode
+    await user.type(tokenField(), "NEW");
+    const apply = screen.getByRole("button", { name: applyLabel });
+    expect(apply).toBeDisabled();
+    await user.keyboard("{Enter}"); // the keyboard path is gated the same way
+    expect(onChange).not.toHaveBeenCalled();
+
+    await typePassphrase(user);
+    expect(apply).toBeEnabled();
+    await user.click(apply);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0].integrations.turso.authToken).toBe("tokNEW");
+    await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokNEW", "pw"));
+    expect(saveSecretValue).not.toHaveBeenCalled();
+  });
+
+  describe("Save & switch", () => {
+    let reload: ReturnType<typeof vi.fn>;
+    const originalLocation = window.location;
+    beforeEach(() => {
+      reload = vi.fn();
+      Object.defineProperty(window, "location", { configurable: true, value: { ...originalLocation, reload } });
+      savePortfolioMode("file");
+    });
+    afterEach(() => {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    });
+
+    it("is disabled for a changed token until the passphrase is typed, then seals the new token under it", async () => {
+      const user = userEvent.setup();
+      function Controlled() {
+        const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "tok"));
+        return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+      }
+      render(<Controlled />);
+      await user.click(lock());
+      await user.type(tokenField(), "NEW");
+      await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+      const switchBtn = screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") });
+      expect(switchBtn).toBeDisabled();
+
+      await typePassphrase(user);
+      expect(switchBtn).toBeEnabled();
+      await user.click(switchBtn);
+      await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+      expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokNEW", "pw");
+    });
+  });
+});
+
+// Enter in either field applies on Turso storage, exactly when Apply is enabled.
+// Mutation MA8: drop the `onKeyDown` on the inputs → red.
+describe("Enter applies the Turso drafts on Turso storage", () => {
+  it.each([
+    ["URL", () => urlField(), "x", { databaseUrl: `${URL_A}x`, authToken: "tok" }],
+    ["token", () => tokenField(), "x", { databaseUrl: URL_A, authToken: "tokx" }],
+  ] as const)("Enter in the %s field commits both drafts once; Enter while clean does nothing", async (_n, field, typed, expected) => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<IntegrationsSection lang="en-US" settings={settingsWith(URL_A, "tok")} onChange={onChange} />);
+    await user.click(field());
+    await user.keyboard("{Enter}");
+    expect(onChange).not.toHaveBeenCalled(); // clean: Apply disabled, Enter inert
+    await user.type(field(), typed);
+    expect(onChange).not.toHaveBeenCalled();
+    await user.keyboard("{Enter}");
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0].integrations.turso).toMatchObject(expected);
   });
 });

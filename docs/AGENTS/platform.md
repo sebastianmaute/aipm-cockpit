@@ -129,10 +129,18 @@
   vanishes under the cursor. The memo reads the Turso URL and token only for storage kind "turso",
   and `integrations-section.tsx` picks the commit model by that same kind (`tursoIsLive`):
   **on Turso storage both fields are pure drafts that ONLY the explicit Apply button commits**
-  (`applyTursoDrafts`: one `onChange` for both fields, the token device-sealed as before); nothing
+  (`applyTursoDrafts`, or Enter in either field: one `onChange` for both fields, the token
+  device-sealed in device mode; in passphrase mode a CHANGED token is re-sealed under the passphrase
+  typed into the section's own passphrase fields (`sealUnderTypedPassphrase`) — the passphrase is never
+  held in memory, so until it is typed Apply and "Save & switch" stay disabled (`tokenSealBlocked`),
+  else a reload + unlock would yield the OLD token, or none after the switch); nothing
   commits on a keystroke, blur, Tab or Escape, and unapplied drafts are discarded when the section
   unmounts. Apply is disabled while the drafts equal the stored values, so an enabled Apply is the
-  "unapplied change" signal; it is the only action there that rebuilds the backend and shows the hold.
+  "unapplied change" signal; it is the only action that commits the drafts (Remove token,
+  `handleRemoveToken`, also rebuilds: it commits an empty token). ★★ The passphrase lock toggle and
+  its Save seal the COMMITTED token on Turso storage (`sealableTursoToken`), never the draft:
+  `hydrateSecretsInto` restores `authToken` from the sealed store at boot, so sealing a draft would
+  silently apply it on the next reload.
   On any OTHER kind each keystroke commits (`commitTurso`) with no rebuild, and no Apply renders —
   that covers the hosts that configure Turso before switching the kind to it (the setup wizard,
   `BackendConfigModal` from create-project). "Test connection" probes the drafts without committing.

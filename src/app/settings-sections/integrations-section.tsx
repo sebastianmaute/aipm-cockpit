@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, type KeyboardEvent } from "react";
 import { logDiag } from "../diagnostics";
 import { ArrowPathIcon, CalendarDaysIcon } from "../icons";
 import { ToggleButton } from "../toggle-button";
@@ -273,8 +273,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   //     `useStorageBackend`, so a commit builds a new backend — and a rebuild re-arms the load
   //     hold, which replaces the whole main-window tree, this section included, with the
   //     skeleton. So both fields are pure DRAFTS: nothing commits on a keystroke, blur, Tab or
-  //     Escape. The explicit Apply button (`applyTursoDrafts`) commits both in one `onChange`, and
-  //     is the only action here that rebuilds the backend. Unapplied drafts are discarded when the
+  //     Escape. The explicit Apply button (`applyTursoDrafts`, or Enter in either field) commits
+  //     both in one `onChange`; it is the only action that commits the drafts. (Remove token,
+  //     `handleRemoveToken`, also rebuilds: it commits an empty token.) Unapplied drafts are discarded when the
   //     section unmounts. (An earlier cut committed on blur of the credentials group; every
   //     variant of it lost a click, a focus or a draft to the remount.)
   //   • Any other kind: the backend memo ignores the Turso URL/token, so each keystroke commits
@@ -316,13 +317,40 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     });
     if (tokenChanged && tokenWrap === "device") {
       trackTokenSeal(saveSecretValue("tursoAuthToken", tokenValue, "device").then(() => setTokenStored(true)));
+    } else if (tokenChanged && tursoIsLive && passphraseReady) {
+      trackTokenSeal(sealUnderTypedPassphrase(tokenValue));
     }
   }
 
+  // ★★ §548 — PASSPHRASE MODE: the passphrase is never kept in memory (the boot unlock hands over
+  //   only the plaintext), so a changed token can be re-sealed ONLY under a passphrase typed into
+  //   the fields this section already shows in that mode. Without it, a reload + unlock would yield
+  //   the OLD token (or, via "Save & switch", none: `writeSettings` blanks it) — so Apply and
+  //   "Save & switch" stay disabled until it is typed (`tokenSealBlocked`), exactly as the
+  //   passphrase Save button is. Clears the fields afterwards, as that button does.
+  async function sealUnderTypedPassphrase(token: string) {
+    await setSecretPassphrase("tursoAuthToken", token, tokenPassphrase);
+    setTokenStored(true);
+    setTokenPassphrase("");
+    setTokenConfirm("");
+  }
+
   const tursoDraftsDirty = tursoUrl !== turso.databaseUrl || tursoToken !== turso.authToken;
+  // ★★ §548 — THE TOKEN THE PASSPHRASE ACTIONS SEAL. On Turso storage it is the COMMITTED token,
+  //   never the draft: `hydrateSecretsInto` restores `authToken` from the sealed store at boot, so
+  //   sealing an unapplied draft would silently apply it on the next reload. Off Turso storage the
+  //   draft IS the committed value (each keystroke commits), so the two are the same.
+  const sealableTursoToken = tursoIsLive ? turso.authToken : tursoToken;
 
   function applyTursoDrafts() {
     commitTurso(tursoUrl, tursoToken);
+  }
+
+  // The keyboard path to Apply: Enter in either field applies, exactly when Apply is enabled.
+  function handleTursoFieldKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter" || !tursoIsLive || !canApplyTurso) return;
+    e.preventDefault();
+    applyTursoDrafts();
   }
 
   // Off Turso storage each keystroke commits, and it carries the OTHER field's draft too, so a
@@ -346,6 +374,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const [tokenPassphrase, setTokenPassphrase] = useState("");
   const [tokenConfirm, setTokenConfirm] = useState("");
   const [tokenStored, setTokenStored] = useState(() => loadSealed("tursoAuthToken") != null);
+  const passphraseReady = tokenPassphrase !== "" && tokenPassphrase === tokenConfirm;
+  // A changed token in passphrase mode can only be sealed under a typed passphrase (see
+  // `sealUnderTypedPassphrase`); until then Apply and "Save & switch" are disabled.
+  const tokenSealBlocked =
+    tursoIsLive && tokenWrap === "passphrase" && tursoToken !== turso.authToken && !passphraseReady;
+  const canApplyTurso = tursoDraftsDirty && !tokenSealBlocked;
   // ★ The env-unusable notice is a DESCRIPTION, not part of the field's name —
   // see the render site for why it sits outside the <label>.
   const tursoUrlEnvNoticeId = `${useId()}-turso-url-env`;
@@ -463,8 +497,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // is in memory (keeps the token); otherwise forget the locked-and-unknown
     // secret. Either way flip wrap to device so the checkbox actually toggles.
     trackTokenSeal((async () => {
-      if ((tursoToken ?? "").trim()) {
-        await saveSecretValue("tursoAuthToken", tursoToken ?? "", "device");
+      if ((sealableTursoToken ?? "").trim()) {
+        await saveSecretValue("tursoAuthToken", sealableTursoToken ?? "", "device");
         setTokenStored(true);
       } else if (isPassphraseLocked("tursoAuthToken")) {
         removeSealed("tursoAuthToken");
@@ -478,7 +512,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
   function handleTokenLockConfirm() {
     trackTokenSeal((async () => {
-      await setSecretPassphrase("tursoAuthToken", tursoToken ?? "", tokenPassphrase);
+      await setSecretPassphrase("tursoAuthToken", sealableTursoToken ?? "", tokenPassphrase);
       setTokenStored(true);
       setTokenPassphrase("");
       setTokenConfirm("");
@@ -526,6 +560,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   function confirmPortfolioModeSwitch() {
     if (!portfolioModeDirty || switchBusy) return;
     if (pendingMode === "turso" && !tursoConfigured) return; // guard
+    if (tokenSealBlocked) return; // the button is disabled; a changed passphrase-mode token needs the passphrase
     // Mark busy so a rapid second click can't re-enter before the reload tears
     // the component down (also announces the pending switch to SR users).
     setSwitchBusy(true);
@@ -537,6 +572,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     const tokenDirty = tursoToken !== turso.authToken;
     if (tokenDirty && tokenWrap === "device") {
       trackTokenSeal(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"));
+    } else if (tokenDirty && passphraseReady) {
+      trackTokenSeal(sealUnderTypedPassphrase(tursoToken ?? ""));
     }
     const base: Settings =
       tokenDirty || tursoUrl !== turso.databaseUrl
@@ -821,6 +858,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   type="text"
                   value={tursoUrl ?? ""}
                   onChange={(e) => handleTursoUrlChange(e.target.value)}
+                  onKeyDown={handleTursoFieldKeyDown}
                   placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
                   className="w-full"
                   aria-describedby={envTursoUrlSet ? tursoUrlEnvNoticeId : undefined}
@@ -856,6 +894,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   type="password"
                   value={tursoToken ?? ""}
                   onChange={(e) => handleTursoTokenChange(e.target.value)}
+                  onKeyDown={handleTursoFieldKeyDown}
                   placeholder={t(lang, "integrationsTursoTokenPlaceholder")}
                   className="w-full"
                   aria-describedby={tursoTokenNoteId}
@@ -903,7 +942,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     variant="primary"
                     size="sm"
                     className="self-start whitespace-nowrap"
-                    disabled={!(tursoToken ?? "").trim() || !tokenPassphrase || tokenPassphrase !== tokenConfirm}
+                    disabled={!(sealableTursoToken ?? "").trim() || !tokenPassphrase || tokenPassphrase !== tokenConfirm}
                     onClick={handleTokenLockConfirm}
                   >
                     {t(lang, "secretPassphraseSave")}
@@ -928,12 +967,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               credentials rebuilds the backend (see `tursoIsLive`). Disabled while the drafts
               equal the stored values, so an enabled Apply IS the "unapplied change" signal.
               Hidden when the env supplies both values: there is nothing to draft. */}
+          <div className="flex flex-wrap gap-2">
           {tursoIsLive && !(envTursoUrlUsable && envTursoTokenSet) && (
             <Button
               variant="primary"
               size="sm"
               className="self-start whitespace-nowrap"
-              disabled={!tursoDraftsDirty}
+              disabled={!canApplyTurso}
               onClick={applyTursoDrafts}
               aria-label={t(lang, "integrationsTursoApplyLabel")}
             >
@@ -949,6 +989,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           >
             {t(lang, "integrationsTursoTest")}
           </button>
+          </div>
           <p role="status" className="text-xs text-muted-foreground">
             {/* ★ No `?.` — `tursoTestFresh` opens with `tursoTest !== null`, and
                 TS narrows through the aliased const, so the optional chain would
@@ -1104,7 +1145,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   size="sm"
                   className="mt-2"
                   onClick={confirmPortfolioModeSwitch}
-                  disabled={switchBusy}
+                  disabled={switchBusy || tokenSealBlocked}
                   aria-busy={switchBusy}
                 >
                   {t(lang, noCurrentProject ? "portfolioModeSwitchConfirmNoProject" : "portfolioModeSwitchConfirm")}
