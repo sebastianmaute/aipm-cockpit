@@ -114,8 +114,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   the boot workspace is EMPTY, and a save of it is `DELETE FROM` every Turso table, an empty
   //   SharePoint PUT, an overwritten file. Every path that writes the live workspace to the ACTIVE
   //   backend checks it: the save effect (no schedule), `doSave` (the debounce timer AND the
-  //   flush-on-hide, which both call it) and the pre-switch `flushCurrent`; a storage-KIND conversion
-  //   is refused while it is shut (`loadSucceeded` below). Identity, like `loadedBackend`, so a rebuilt
+  //   flush-on-hide, which both call it) and the pre-switch `flushCurrent`; a storage-KIND switch
+  //   skips its conversion write while it is shut (`loadSucceeded` below). Identity, like `loadedBackend`, so a rebuilt
   //   backend starts shut and a failed load never opens it.
   //   ★★ That covers a settings-driven REBUILD too (§587): a Turso URL/token keystroke or a SharePoint
   //   target change builds a new instance with the PREVIOUS target's workspace still in scope.

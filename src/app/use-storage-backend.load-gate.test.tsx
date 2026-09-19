@@ -383,52 +383,68 @@ describe("§586 — no save before a load for the current backend has succeeded"
     expect(current.save).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
   });
-  // ── review I2: a storage-KIND conversion needs a project to convert ────────
-  // `onRequestStorageSwitch` copies the LIVE workspace into the new kind through `guardedWrite` and
-  // repoints the app at it. Before any load of the current storage was applied, that workspace is the
-  // empty boot one (or, after an empty-load refusal, the PREVIOUS target's project), so the
-  // conversion is refused, with a toast saying why, before the confirm dialog. (j) above is the
-  // after-a-successful-load control: it converts exactly as before.
-  async function expectConversionRefused(
-    result: { current: { onRequestStorageSwitch: (k: StorageConfig["kind"]) => Promise<void> } },
-    confirmSpy: { mock: { calls: unknown[] } },
-  ) {
-    const callsBefore = createBackendMock.mock.calls.length;
-    await act(async () => { await result.current.onRequestStorageSwitch("local-json"); });
-    expect(confirmSpy.mock.calls).toHaveLength(0); // refused BEFORE the "convert N tasks?" dialog
-    expect(createBackendMock.mock.calls.length).toBe(callsBefore); // no target was even built
-    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertRefusedNotLoaded"));
+  // ── §586/§587 (user ruling): a storage-KIND switch with nothing loaded copies nothing ──
+  // `onRequestStorageSwitch` normally copies the LIVE workspace into the new kind through
+  // `guardedWrite`. Before any load of the current storage was applied, that workspace is the empty
+  // boot one (or, after an empty-load refusal, the PREVIOUS target's project), so the switch goes
+  // ahead WITHOUT the write: nothing is written anywhere, the new backend loads its own target, and
+  // a notice says why nothing was copied. (j) above is the after-a-successful-load control: it
+  // converts exactly as before.
+  function renderSwitchable(first: FakeBackend, ...rest: FakeBackend[]) {
+    let chain = createBackendMock.mockReturnValueOnce(first);
+    for (const b of rest.slice(0, -1)) chain = chain.mockReturnValueOnce(b);
+    chain.mockReturnValue(rest[rest.length - 1]);
+    let rerenderWith: (cfg: StorageConfig) => void = () => {};
+    const setStorageConfig = vi.fn((cfg: StorageConfig) => rerenderWith(cfg));
+    const utils = render({ ...makeArgs(), setStorageConfig });
+    rerenderWith = (cfg) => utils.rerender({ args: { ...makeArgs(cfg), setStorageConfig } });
+    return { ...utils, setStorageConfig };
   }
 
-  it("(k) a storage-kind conversion after a FAILED load is refused and says why", async () => {
-    const backend = makeBackend(100, "reject");
-    createBackendMock.mockReturnValue(backend);
+  it("(k) a storage-kind switch after a FAILED load switches WITHOUT writing, and the new backend loads its data", async () => {
+    const a = makeBackend(100, "reject");
+    const b = makeBackend(100, "resolve", STORED_B); // the memo's instance for the new kind
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-    const setStorageConfig = vi.fn();
-    const { result } = render({ ...makeArgs(), setStorageConfig });
-    await advance(200);
+    const { result, setStorageConfig } = renderSwitchable(a, b);
+    await advance(200); // A's load has failed
 
-    await expectConversionRefused(result, confirmSpy);
-    expect(setStorageConfig).not.toHaveBeenCalled();
-    expect(backend.save).not.toHaveBeenCalled();
+    await act(async () => { await result.current.onRequestStorageSwitch("local-json"); });
+    expect(setStorageConfig).toHaveBeenCalledWith({ kind: "local-json" });
+    expect(confirmSpy).not.toHaveBeenCalled(); // no "convert N tasks?" — nothing is converted
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "storageSwitchedWithoutCopy", t("en-US", "storageLocalJson")));
+
+    await advance(900);
+    expect(b.load).toHaveBeenCalledTimes(1); // NOT suppressed: the new backend loads its own target
+    expect(result.current.tasks.map((x) => x.id)).toEqual([9]);
+    expect(a.save).not.toHaveBeenCalled();
+    expect(b.save).not.toHaveBeenCalled();
+    expect(result.current.loadPause).toBeNull();
     confirmSpy.mockRestore();
   });
 
-  it("(l) a storage-kind conversion after an EMPTY-load refusal is refused and says why", async () => {
+  it("(l) a storage-kind switch after an EMPTY-load refusal switches WITHOUT writing, and the new backend loads its data", async () => {
     const a = makeBackend(100);
     const b = makeBackend(100, "resolve", EMPTY);
-    createBackendMock.mockReturnValueOnce(a).mockReturnValue(b);
+    const c = makeBackend(100, "resolve", STORED_B); // the memo's instance for the new kind
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-    const setStorageConfig = vi.fn();
-    const { result, rerender } = render({ ...makeArgs(), setStorageConfig });
+    const { result, rerender, setStorageConfig } = renderSwitchable(a, b, c);
     await advance(700);
     rerender({ args: { ...makeArgs({ kind: "browser" }), setStorageConfig } });
     await advance(700); // B's empty load is refused; A's project stays on screen
     expect(result.current.loadPause).toBe("empty-refused");
 
-    await expectConversionRefused(result, confirmSpy);
-    expect(setStorageConfig).not.toHaveBeenCalled();
+    await act(async () => { await result.current.onRequestStorageSwitch("local-json"); });
+    expect(setStorageConfig).toHaveBeenCalledWith({ kind: "local-json" });
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "storageSwitchedWithoutCopy", t("en-US", "storageLocalJson")));
+
+    await advance(900);
+    expect(c.load).toHaveBeenCalledTimes(1);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([9]);
+    // A's project reached no backend: not the refused one, not the new one.
+    expect(a.save).not.toHaveBeenCalled();
     expect(b.save).not.toHaveBeenCalled();
+    expect(c.save).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
   });
 

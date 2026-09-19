@@ -477,15 +477,6 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     if (deps.isPopout) return;
     const current = deps.settingsRef.current.storageConfig;
     if (newKind === current.kind) return;
-    // ★★★ §586 (review I2): a conversion copies the LIVE workspace into the new kind and repoints the
-    // app at it. If the current storage's project never reached render scope (load failed, was refused
-    // as empty, or is still pending), what would be copied is the empty boot workspace or the previous
-    // target's project — on Turso a `DELETE FROM` every table of the target. Refuse, and say why,
-    // BEFORE the confirm dialog, which would otherwise ask the user to confirm "0 tasks".
-    if (!deps.loadSucceeded()) {
-      deps.emitToast("error", t(deps.langRef.current, "storageConvertRefusedNotLoaded"));
-      return;
-    }
     const newConfig: StorageConfig =
       (newKind === "sp-json" || newKind === "sp-csv") && (current.kind === "sp-json" || current.kind === "sp-csv")
         ? { ...current, kind: newKind }
@@ -494,6 +485,19 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
         // the spread branch above.
         : ({ kind: newKind } as StorageConfig);
     const label = t(deps.langRef.current, STORAGE_LABEL_KEYS[newKind]);
+    // ★★★ §586/§587 (user ruling): a conversion copies the LIVE workspace into the new kind. If the
+    // current storage's project never reached render scope (its load failed, came back empty over a
+    // populated project and was refused, or is still pending), that workspace is the empty boot one or
+    // the PREVIOUS target's project — on Turso a `DELETE FROM` every table of the target. So in that
+    // state the switch goes ahead WITHOUT the conversion write: nothing is written anywhere, the new
+    // backend LOADS its own target (no `suppressNextLoadRef`), and the §586 save gate keeps it shut
+    // until that load is applied. ★ No confirm: both confirm texts describe a conversion, and nothing
+    // here is written or overwritten. The notice says why nothing was copied.
+    if (!deps.loadSucceeded()) {
+      deps.emitStorageConfig(newConfig);
+      deps.emitToast("info", t(deps.langRef.current, "storageSwitchedWithoutCopy", label));
+      return;
+    }
     const leavingTurso = current.kind === "turso" && newKind !== "turso";
     const confirmKey = leavingTurso ? "storageTursoLeaveWarn" : "storageConvertConfirm";
     if (!window.confirm(tPlural(deps.langRef.current, confirmKey, deps.tasks.length, deps.tasks.length, label))) return;
