@@ -585,6 +585,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     const doSave = () => {
       // ★★ §586, second check: the debounce timer AND flush-on-hide both call this (debounced-save.ts),
       // possibly long after this run — so it re-reads the gate's REF rather than trusting the run above.
+      // ★★★ DEFENCE IN DEPTH — NO TEST CAN REACH IT TODAY, and none claims to. A save is scheduled only
+      // on a run that passed the effect-level check, and the gate for THAT backend never closes again:
+      // the ref moves only when a DIFFERENT backend opens it, which means a rebuild, which re-runs this
+      // effect and whose cleanup clears the timer and drops both hide listeners first. Measured by
+      // mutation: deleting this line alone leaves every load-gate test green; deleting it together with
+      // the effect-level check turns (a) (b) (c) (e) (h) (i) red. It is here for a future path that
+      // schedules without that check.
       if (savesAllowedForRef.current !== backend) return;
       backend.save(outgoing).then(() => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
