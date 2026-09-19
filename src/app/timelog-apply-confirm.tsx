@@ -12,6 +12,11 @@
 // used to disclose that as a bare count ("Apply 2 bucket changes?"). Showing
 // every row is what makes it an informed write instead of a silent overwrite;
 // do not reduce this back to a count.
+//
+// ★ §546: a dated Apply also DELETES any bare period key of the other
+// granularity that one of its routed days falls in. Those keys are listed too,
+// as removal rows labelled `timelogApplyRemoval`, so that loss is disclosed here
+// before the user confirms.
 import { t, tPlural, type Lang } from "./i18n";
 import { Button } from "./button";
 import type { ApplyDiffLabel } from "./timelog-apply";
@@ -50,10 +55,11 @@ export function TimelogApplyConfirm({
           }`}
         >
           {rows.map((r) => (
-            <li key={`${r.bucketId}:${r.allocIndex}:${r.period}`} className="tabular-nums">
+            <li key={`${r.bucketId}:${r.allocIndex}:${r.period}${r.removal ? ":removal" : ""}`} className="tabular-nums">
               {[r.bucketName, r.lineName, r.period].filter(Boolean).join(" · ")}
               {": "}
               {r.current} → <span className="font-medium text-foreground">{r.next}</span>
+              {r.removal && <> ({t(lang, "timelogApplyRemoval")})</>}
             </li>
           ))}
         </ul>

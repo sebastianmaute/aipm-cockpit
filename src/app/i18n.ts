@@ -1821,6 +1821,7 @@ const enUS = {
   timelogApply: "Apply to budget",
   timelogApplyConfirmOne: "Apply 1 bucket change to budget actual hours?",
   timelogApplyConfirm: "Apply {0} bucket changes to budget actual hours?",
+  timelogApplyRemoval: "removed: a hand-entered total for the other period type",
   timelogApplyPartial:
     "Some projects could not be fetched, so these bookings are incomplete. Applying them would overwrite the missing projects' hours with zero, so applying is disabled — refresh the bookings and try again.",
   timelogApplyNoAllocation:

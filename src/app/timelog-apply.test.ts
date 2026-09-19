@@ -697,6 +697,31 @@ describe("dated apply", () => {
     const after = applyActualsToBuckets([bucketWith({ "2026-07": 8 })], bucketOverlay(agg, "week"), resources, roles);
     expect(after[0].allocations[0].actualHours["2026-07"]).toBe(8);
   });
+
+  it("lists the removal of a hand-typed month key that overlaps a weekly dated apply (§546)", () => {
+    const agg = aggregateActuals([tItem(1, 9, "2026-06-10", 4)], links);
+    const rows = planApply([bucketWith({ "2026-06": 10 })], bucketOverlay(agg, "week"), resources, roles);
+    expect(rows).toContainEqual({ bucketId: 7, allocIndex: 0, period: "2026-06", current: 10, next: 0, removal: true });
+    // Control: the routed week row is still listed beside it, unflagged.
+    expect(rows).toContainEqual({ bucketId: 7, allocIndex: 0, period: "2026-W24", current: 0, next: 4 });
+  });
+
+  // §546 — the keys the dialog lists as removals ≡ the other-granularity keys
+  // the write deletes. ONE function feeds both, and this is what pins it.
+  it.each([
+    { name: "weekly apply over a month key", hours: { "2026-06": 10, "2026-07": 8 } as Record<string, number>, g: "week" as const, days: ["2026-06-10"] },
+    { name: "monthly apply over a week key", hours: { "2026-W24": 10, "2026-W30": 3 } as Record<string, number>, g: "month" as const, days: ["2026-06-10"] },
+    { name: "weekly apply spanning two month keys", hours: { "2026-06": 5, "2026-07": 6 } as Record<string, number>, g: "week" as const, days: ["2026-06-30", "2026-07-01"] },
+  ])("shows exactly the other-granularity keys it deletes: $name (§546)", ({ hours, g, days }) => {
+    const agg = aggregateActuals(days.map((day, i) => tItem(i + 1, 9, day, 4)), links);
+    const ov = bucketOverlay(agg, g);
+    const before = [bucketWith(hours)];
+    const shown = planApply(before, ov, resources, roles).filter((r) => r.removal).map((r) => r.period).sort();
+    const after = applyActualsToBuckets(before, ov, resources, roles)[0].allocations[0].actualHours;
+    const deleted = Object.keys(hours).filter((k) => !(k in after)).sort();
+    expect(shown.length).toBeGreaterThan(0); // anti-vacuity
+    expect(shown).toEqual(deleted);
+  });
 });
 
 describe("bucketsMissingAllocations", () => {

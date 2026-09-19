@@ -1725,6 +1725,7 @@ export const de: Record<TranslationKey, string> = {
   timelogApply: "Auf Budget anwenden",
   timelogApplyConfirm: "{0} Bucket-Änderungen auf die Ist-Stunden des Budgets anwenden?",
   timelogApplyConfirmOne: "1 Bucket-Änderung auf die Ist-Stunden des Budgets anwenden?",
+  timelogApplyRemoval: "entfernt: eine von Hand eingetragene Summe für den anderen Zeitraumtyp",
   timelogApplyPartial:
     "Einige Projekte konnten nicht geladen werden, daher sind diese Buchungen unvollständig. Ein Übernehmen würde die Stunden der fehlenden Projekte auf null setzen — deshalb ist das Übernehmen deaktiviert. Laden Sie die Buchungen erneut.",
   timelogApplyNoAllocation:
