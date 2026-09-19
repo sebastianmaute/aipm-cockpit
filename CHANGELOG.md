@@ -8,6 +8,59 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.11.0] - 2026-09-18 "Grisham"
+
+A new project can now be created straight from a workspace JSON file, the AI Assistant takes
+several attachments at once — including `.json` and files dropped onto it — within a per-message
+budget, and the demo project opens mid-flight with its dates moved to today.
+
+### Added
+
+- **Create a project from a workspace JSON file.** Give the create wizard's first step a workspace
+  file and it goes straight into the wizard instead of to the model; the details step also gains an
+  "Import workspace file…" button, shown whether or not an AI key is configured. The file's content
+  becomes the new project, the details step is pre-filled from the file's own project details, and
+  what you enter there replaces them; a notice names the file with its task, RAID and budget counts
+  and can clear the import, and Create then skips the template and functions steps. The file is read
+  with the same strict decoder as "Load project from file", so a file that has the workspace shape
+  but cannot be decoded is reported and creates nothing, and other files given alongside it are
+  named as ignored. Addresses in the file that are not safe to store are named on create, as for a
+  template.
+- **The AI Assistant accepts `.json` files**, as text — and so does the create wizard's first step,
+  which shares the same list of accepted types.
+- **Files can be dropped onto the AI Assistant.** Only a drag that carries files is taken, so text
+  or a link dragged onto the message box still lands there.
+- **The AI Assistant caps a message at 10 attachments and 30 MB**, counting what is already staged,
+  and names each file it leaves out and why — the Messages API refuses a request over 32 MB.
+- **"Explore a demo project" opens a project in mid-flight.** Every date in the demo is moved by
+  whole plan periods so that today falls where the demo was written: in a monthly plan a date on the
+  first or last day of its month stays on the first or last day, and any other date that lands on a
+  weekend moves to the Monday; a weekly plan moves by whole weeks.
+
+### Changed
+
+- **The demo workspace is brought up to date.** `sample-workspace-small.json` now runs from June to
+  December 2026 with budget buckets that are closed, current and still to come, and covers
+  budget-follows-plan, FX rates with a GBP bucket, a fixed-price, a blended and a rate-override
+  bucket, dated TimeLog-style actuals, and a seeded activity log, insights, knowledge items and
+  TimeLog links, with note logs on more RAID items. Each person is staffed in one bucket per month,
+  so the demo's budget-variance insight matches what the live detector reports. The larger generated
+  samples are regenerated from it.
+- **The AI Assistant's attach button reads "Attach documents"**, and its hint lists `.json`, drag
+  and drop and the per-message limits.
+
+### Fixed
+
+- **A demo file that cannot be read now shows "Couldn't load the demo project."** instead of
+  quietly creating an empty demo project.
+
+Four follow-ups are filed and open: "Load project from file" throws in Firefox and Safari and blames
+Settings rather than the browser (`§574`); the AI Assistant re-sends every earlier turn's
+attachments, so a long thread can exceed the Messages API's 32 MB limit (`§575`); `sanitizeFxRates`
+reorders its rates on a second decode, so an FX snapshot is not byte-stable through a JSON round
+trip (`§576`); and the budget-variance insight compares a bucket's full-window budget against its
+to-date actuals, so an open bucket with months still to come is flagged (`§577`).
+
 ## [1.10.1] - 2026-09-18 "Leonard"
 
 The 2026-09 security audit's follow-up fixes: hostile Office files can no longer stall document

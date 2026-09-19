@@ -796,6 +796,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§571](#571-the-chart-box-clamps-boundary-width-has-no-test--open) | The chart-box clamp's boundary width has no test — OPEN | found 2026-09-18 by mutation-testing `anchorFor`, `>` to `>=`, suite stayed green; GitLab #356 | XS — add a case at `rect.width === 352` | open |
 | [§572](#572-agentsmds-tsc-guidance-cannot-detect-a-vacuous-run--open) | AGENTS.md's tsc guidance cannot detect a vacuous run — OPEN | measured 2026-09-18 on this branch: a corrupt generated file hides a real `src/` error from `tsc`; GitLab #357 | S — amend the Commands block's `npx tsc --noEmit` guidance | open |
 | [§573](#573-the-open-points-visual-baseline-is-stale--open) | The Open Points visual baseline is stale — OPEN | measured 2026-09-18 running `npm run e2e:visual`; not run by any CI job; GitLab #358 | S — eye-check and regenerate the win32 baseline | open |
+| [§574](#574-load-project-from-file-throws-in-firefoxsafari-and-blames-settings-instead-of-the-browser--open) | "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #359 | S — gate the CTA behind `isFileSystemAccessSupported()`, or have `reportProjectError` emit the specific message | open |
+| [§575](#575-ai-assistant-chat-history-re-sends-every-earlier-turns-attachments-so-a-long-thread-can-exceed-the-messages-apis-32-mb-request-limit--open) | AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), out-of-scope gap found during Task 9; GitLab #360 | M — drop/summarize older attachment blocks before send, or track running payload bytes | open |
+| [§576](#576-sanitizefxrates-reorders-its-rates-object-on-a-second-decode-so-an-fx-snapshot-is-not-byte-stable-through-a-json-round-trip--open) | sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), found + verified during Task 9; GitLab #361 | S — iterate `SUPPORTED_CURRENCIES` unconditionally instead of conditionally inserting present keys | open |
+| [§577](#577-the-budgetvariance-insight-compares-full-window-budget-against-to-date-actuals-so-open-buckets-with-future-months-are-flagged-and-an-unstarted-bucket-can-read-100-and-win-worst--open) | The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), found + verified against sample-workspace-small.json during Task 9; GitLab #362 | M — scope budgetHours to periods to-date, and/or exclude unstarted buckets from "worst" | open |
 | [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
 | [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN | audit (2026-09) | S | open |
 <!-- INDEX:END -->
@@ -39268,6 +39272,139 @@ drift is invisible to CI and stays invisible until someone runs the visual proje
 Fix shape: after eye-checking the new Open Points screenshot against the real view, regenerate just that
 baseline with `npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --update-snapshots`
 (on win32, since baselines are per-platform).
+
+## 574. "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN
+
+**Status:** OPEN 2026-09-18 — established by reading `fs-access.ts`, `use-storage-file-ops.ts` and
+`i18n.ts`; never machine-verified (no headless Firefox/Safari run in this session — the bundled
+Playwright browsers here are Chromium-family only). Verified by code reading:
+`grep -n "pickOpenFileAny\|isFileSystemAccessSupported" src/app/fs-access.ts src/app/use-storage-file-ops.ts src/app/storage-config.tsx`.
+
+**Work item:** #359
+
+`fs-access.ts`'s `pickOpenFileAny` (used by the "Load project from file" empty-state / header CTA, via
+`use-storage-file-ops.ts`'s `loadProjectFromFile`) throws `StorageNotReadyError` with hint
+`file-system-access-unsupported` whenever `showOpenFilePicker` is not on `window` — i.e. on Firefox and
+Safari, which do not implement the File System Access API. That much is a known, accepted platform
+limitation: `storage-config.tsx`'s Settings panel already checks `isFileSystemAccessSupported()` and
+shows a dedicated `storageFsaUnsupported` hint there instead of letting the picker throw.
+
+The gap: `loadProjectFromFile`'s call site is not gated the same way. It calls `pickOpenFileAny()`
+unconditionally, the throw is caught by the generic `reportProjectError` handler, and because the hint
+is `file-system-access-unsupported` (not the more specific `local-file-permission-needed`),
+`reportProjectError` maps it to the generic `storageNotReady` toast: "Storage isn't configured yet —
+pick a file in Settings." On Firefox/Safari, following that instruction into Settings still fails the
+same way (Settings correctly explains FSA is unsupported there, but only once the user has already been
+told the wrong thing once). So the user-visible defect is not merely "throws" — it is a toast that
+misdiagnoses a browser-capability gap as a configuration problem and sends the user on a detour before
+they learn the real reason.
+
+Fix shape: either gate the "Load project from file" CTA behind `isFileSystemAccessSupported()` (hide or
+disable it, matching Settings' treatment), or have `reportProjectError` recognize the
+`file-system-access-unsupported` hint specifically and emit the same `storageFsaUnsupported` message
+Settings already has, instead of falling through to the generic `storageNotReady` text.
+
+## 575. AI Assistant chat history re-sends every earlier turn's attachments, so a long thread can exceed the Messages API's 32 MB request limit — OPEN
+
+**Status:** OPEN 2026-09-18 — established by reading `chat-panel.tsx`'s `submitPrompt` and
+`chat-attachments.ts`; never machine-verified end-to-end (would need a live multi-turn send against the
+real Anthropic API with several large attachments to observe the 413 — not attempted). Verified by code
+reading: `grep -n "MAX_STAGED_PAYLOAD_BYTES" src/app/chat-attachments.ts src/app/chat-panel.tsx`.
+
+**Work item:** #360
+
+`chat-attachments.ts`'s `MAX_STAGED_PAYLOAD_BYTES` (30 MB) caps a single outgoing message's staged
+attachment payload via `planStaging`, leaving headroom under the Messages API's real 32 MB body limit —
+the constant's own doc comment says so explicitly, and adds: "Earlier turns' attachments re-sent in
+history are NOT counted here." That is exactly the gap: `chat-panel.tsx`'s `submitPrompt` builds the
+outgoing user turn's `content` from the freshly staged `attachments` (correctly capped), but then pushes
+that turn onto `history` permanently — the attachment content blocks are embedded straight into the
+persisted `ApiMessage`. Every subsequent `submitPrompt` call sends `messages = newHistory.slice()`, i.e.
+the entire accumulated history, including every prior turn's attachment blocks, as the request body.
+`stripAttachmentsForPersistence` (`chat-threads.ts`) only strips attachment bytes when a thread is
+written to Turso for storage — it is never applied to the in-memory `history` that is actually sent to
+the API mid-session.
+
+So a thread with, say, three turns each carrying a 12 MB attachment (each individually well under the
+30 MB per-message cap) sends a fourth turn's request with roughly 36 MB of attachment payload plus
+prompt/system/history overhead — over the Messages API's 32 MB limit, which the source comment names
+directly. The failure mode is a 413 that (depending on how the send-turn loop handles a non-2xx
+response) likely surfaces as a generic send failure with no indication that the cause is accumulated
+history, not the message just typed.
+
+Fix shape: either drop or summarize attachment blocks from turns beyond some recency window before
+building the outgoing `messages` array (mirroring what `stripAttachmentsForPersistence` already does for
+storage, but applied to the wire path too), or track running payload bytes across `history` and
+warn/block before a send would exceed budget.
+
+## 576. sanitizeFxRates reorders its rates object on a second decode, so an FX snapshot is not byte-stable through a JSON round-trip — OPEN
+
+**Status:** OPEN 2026-09-18 — reproduced with `npx vite-node` against a throwaway script (not
+committed); byte-stability impact confirmed as observed, not merely theoretical, by Task 7 of this same
+plan, whose golden-workspace round-trip fixture broke until the sample master's FX rates listed EUR
+first. Verified by code reading: `grep -n "SUPPORTED_CURRENCIES" src/app/sanitize-entities.ts src/app/types.ts`.
+
+**Work item:** #361
+
+`sanitize-entities.ts`'s `fxRatesWithDateReader` (backing both `sanitizeFxRates` and
+`sanitizeLoadedFxRates`) builds the `rates` record by iterating `SUPPORTED_CURRENCIES` (declared as
+`["EUR", "USD", "GBP"]` in `types.ts`) and only inserting a key when the input object already carries
+it, then unconditionally sets `rates.EUR = 1` after the loop. On a first decode of an input that lacks
+an explicit `EUR` entry (e.g. the ECB fetch only ever returns non-EUR rates, since EUR is the base),
+`EUR` is a brand-new key and JS object insertion order places it last: `{USD, GBP, EUR}`. Feed that same
+object back through the sanitizer (as happens on any load→decode round trip, e.g. a JSON file
+save/reload) and this time `EUR` is already present in the input, so the `SUPPORTED_CURRENCIES` loop
+inserts it first (matching the array's declared order), and the trailing `rates.EUR = 1` only reassigns
+the existing key's value without moving it: `{EUR, USD, GBP}`.
+
+This is a real, code-confirmed defect, not merely a suspicion — reproduced twice with two different
+staged input shapes. Severity is limited: `FxRates.rates` is a plain record consumed by property name
+everywhere it's read (`fx.ts`, budget engines), so functional behavior is unaffected by key order. The
+risk is confined to anything that treats the JSON serialization as stable — most notably the
+byte-stable serializer discipline this repo enforces elsewhere (`golden-workspace.test`). Task 7 of this
+same plan confirmed the impact is not hypothetical: the golden-workspace round-trip fixture broke until
+`sample-workspace-small.json`'s FX rates master listed EUR first, i.e. this defect already forced a
+workaround in the sample data rather than a fix in the sanitizer.
+
+Fix shape: build `rates` by iterating `SUPPORTED_CURRENCIES` unconditionally (assign every currency its
+value-or-default in one pass, including EUR at its natural array position) rather than conditionally
+inserting only currencies present in the input and patching EUR on afterward — that makes key order a
+function of `SUPPORTED_CURRENCIES` alone, independent of what the input happened to contain.
+
+## 577. The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" — OPEN
+
+**Status:** OPEN 2026-09-18 — reproduced against the real `sample-workspace-small.json` with
+`npx vite-node` (throwaway script, not committed) calling `computeBudgetReport` and `detectInsights`
+directly. Verified by code reading: `grep -n "budgetVarianceInsight\|BUDGET_VARIANCE_PCT" src/app/insights/detect.ts`.
+
+**Work item:** #362
+
+`insights/detect.ts`'s `budgetVarianceInsight` calls `computeBudgetReport` (`budget-report.ts`) and, per
+bucket, compares `b.actualHours` against `b.budgetHours`, flagging when
+`|actualHours − budgetHours| / budgetHours * 100 >= BUDGET_VARIANCE_PCT` (10%). Inside
+`computeBucketReport`, `budgetHours` is accumulated over every active period in the bucket's whole
+window (`bucketActivePeriods`), including months that have not happened yet, while `actualHours` is
+summed only from hours actually booked to date. For any open bucket whose window extends into the
+future — which is the ordinary, expected shape of an in-progress budget bucket — this compares an
+apples (full-window plan) figure against an oranges (elapsed-to-date actual) figure, so the "variance"
+is really just "how much of the plan hasn't happened yet," not a real overrun/underrun signal. An
+unstarted bucket (0 actual hours against a nonzero full-window budget) necessarily reads exactly 100%
+variance and, because `budgetVarianceInsight` tracks the single highest-`pct` bucket as `worstName`, an
+untouched bucket routinely wins "worst" over buckets that are actually over budget.
+
+Reproduced against the real `sample-workspace-small.json` (as of 2026-09-18, today = 2026-09-18): 6 of
+the workspace's 7 budget buckets breach the 10% threshold, including both closed buckets sitting
+right at/near the line and both genuinely-over-budget open buckets — but the flagged "worst" bucket is
+"Advisory Retainer (blended)", an open bucket with 0 actual hours and 324 full-window budget hours
+(100.0% variance), beating an actually-overspent bucket ("Capped SOW (rate override)", 83.5% variance,
+real overspend signal) for the "worst" slot.
+
+Fix shape: either (1) scope `budgetHours` to periods up to `today` (elapsed-to-date budget) rather than
+the whole bucket window, so the comparison is like-for-like, or (2) exclude buckets with no actual hours
+booked yet from the "worst" ranking (an unstarted bucket has no variance to report, it simply hasn't
+started), or (3) both — compare to-date budget vs to-date actual for the breach test, and separately
+surface "unstarted with an approaching/passed budget window" as its own, differently worded signal if
+that is still worth flagging.
 
 ## 578. Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN
 

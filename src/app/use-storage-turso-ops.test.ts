@@ -208,6 +208,10 @@ describe("useTursoProjectOps — §103 truncation", () => {
   it.each([
     ["a template", { includeSeed: true, template: { id: "t", name: "T", features: [], fieldVisibility: {}, seed: { tasks: [SEED_TASK] } } }],
     ["an AI-import seed", { includeSeed: true, aiSeed: { tasks: [SEED_TASK] } }],
+    // The imported workspace IS the new project's content, so its records are
+    // summarised like a template's — not routed through aiSeedUnsafeEmails,
+    // which would see no aiSeed and report nothing.
+    ["an imported workspace", { importedWorkspace: { ...emptyWorkspace(), tasks: [SEED_TASK] } }],
   ])("createTursoProject with %s shows the unsafe-email notice after projectCreatedToast (pre-flight I5)", async (_label, opts) => {
     const { result } = renderWithRealGuard(async () => {});
     await act(async () => {

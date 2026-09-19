@@ -52,8 +52,10 @@ export interface ProjectFormProps {
   initialDraftPatch?: Partial<ProjectFormDraft>;
 }
 
-/** Build the editable draft from an existing ProjectMeta (edit mode). */
-function draftFromMeta(meta: ProjectMeta): ProjectFormDraft {
+/** Build the editable draft from an existing ProjectMeta (edit mode). Also
+ *  reused by the create wizard's workspace-import shortcut to pre-fill Step 1
+ *  from an imported file's own `project` meta. */
+export function draftFromMeta(meta: ProjectMeta): ProjectFormDraft {
   return {
     name: meta.name,
     code: meta.code,

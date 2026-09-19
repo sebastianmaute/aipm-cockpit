@@ -191,7 +191,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.showToast("info", t(deps.langRef.current, "projectCreatedToast", meta.name));
       // ★ M5: a TEMPLATE is a copy source, kept and notice-only; an AI seed's unsafe addresses were left
       //  blank by `buildNewProjectWorkspace`, so its notice is judged on the seed as supplied.
-      const seededEmails = opts.template ? summarizeUnsafeEmailRecords(ws) : aiSeedUnsafeEmails(opts);
+      const seededEmails = opts.template || opts.importedWorkspace ? summarizeUnsafeEmailRecords(ws) : aiSeedUnsafeEmails(opts);
       if (seededEmails) {
         deps.announcedUnsafeEmailsRef.current.add(id); // an explicit import always announces (M4)
         deps.showToast("info", t(deps.langRef.current, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
