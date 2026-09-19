@@ -814,6 +814,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§589](#589-an-edit-made-less-than-500-ms-before-a-backend-rebuild-is-dropped--open) | An edit made less than 500 ms before a backend rebuild is dropped — OPEN | §586 cold review (M5), read from code, pre-existing; GitLab #373 | S — flush the pending save to the old backend on a backend change | open |
 | [§590](#590-pick-storage-file-after-a-failed-load-writes-the-empty-workspace-into-the-chosen-file--open) | Pick storage file after a failed load writes the empty workspace into the chosen file — OPEN | §586 round-1 concern 6 (implementer), read from code; the cold review kept Pick ungated; GitLab #374 | S — refuse or confirm when the picked file already holds data | open |
 | [§591](#591-after-a-turso-urltoken-or-sharepoint-target-change-the-previous-projects-activity-log-and-budget-history-are-merged-into-the-new-target--open) | After a Turso URL/token or SharePoint target change, the previous project's activity log and budget history are merged into the new target — OPEN | §586 whole-branch review (I1), read from code, pre-existing; GitLab #375 | M — decide how a load tells a refresh of the same project from a new target | open |
+| [§592](#592-the-50-ms-wall-clock-ceiling-in-tag-pair-walktestts-can-fail-a-correct-build-under-load--open) | The 50 ms wall-clock ceiling in tag-pair-walk.test.ts can fail a correct build under load — OPEN | found 2026-09-19 reading the test's own comment, no failure observed; GitLab #376 | S — a load-independent assertion, or evidence the ceiling holds under CI load | open |
+| [§593](#593-html-extracts-8000-ms-dos-budget-test-failed-at-8301-ms-under-a-saturated-full-suite-run--open) | html-extract's 8000 ms DoS-budget test failed at 8301 ms under a saturated full-suite run — OPEN | observed 2026-09-08 in a local full-suite run, filed 2026-09-19; GitLab #377 | S — a load-independent assertion, or a ceiling with margin measured under load | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -39896,3 +39898,53 @@ already pass REPLACE.
 refreshed" from "new target". A rebuild of the SAME target — an M365 `acquireToken` identity change —
 must keep merging, so "a new backend instance" is not the test on its own; the target's identity
 (storage kind plus URL, token scope, SharePoint item, project id) is.
+
+## 592. The 50 ms wall-clock ceiling in tag-pair-walk.test.ts can fail a correct build under load — OPEN
+
+**Status:** OPEN 2026-09-19 — read from the test's own comment, verified present with `grep -n "keeps
+retired-name lookups cheap" src/app/tag-pair-walk.test.ts`; no failure has ever been observed, and the
+ceiling holding under real CI load is never machine-verified.
+
+**Work item:** #376
+
+The test "keeps retired-name lookups cheap, so a missing close stays linear"
+(`src/app/tag-pair-walk.test.ts`) asserts `performance.now() - start` is under 50 ms over
+`"<w:tbl".repeat(80_000) + ">"`. Its own comment records what it measured when written: "correct order
+(checked-first): ~5.4ms", "swapped order (scanned-first): ~433.2ms (~80x slower)", and that "the 50ms
+ceiling sits roughly midway between the two on a log scale (correct-order margin ~9x under budget,
+swapped ~9x over it)" — the comment is explicit that the ~80x gap between orderings, not the exact
+ceiling, is what makes the test discriminating.
+
+This is a filed RISK, not an observed failure. A ~9x margin on the passing side is real headroom on an
+idle machine but is not orders of magnitude — a full-suite run, or a concurrent `vitest` invocation
+(this repo already warns against running two at once), could plausibly saturate the CPU enough to push
+a correct build's ~5.4ms measurement past the 50ms ceiling, failing a build that has not regressed.
+
+**The fix shape:** a load-independent assertion — for example, measuring the swapped (naive) ordering
+or a smaller-N run inside the same test and asserting a ratio against it — or evidence that the flat
+50ms ceiling holds under genuine CI load. Either way, the fix must not shrink the ~80x ordering gap the
+test currently relies on to catch the regression it is mutation-proved against.
+
+## 593. html-extract's 8000 ms DoS-budget test failed at 8301 ms under a saturated full-suite run — OPEN
+
+**Status:** OPEN 2026-09-19 — the failure was observed in a local full-suite run on 2026-09-08 (not
+reproduced today); `DOS_BUDGET_MS`/`CLAMP_CHARS` verified present with `grep -n
+"DOS_BUDGET_MS\|CLAMP_CHARS" src/app/html-extract.test.ts`. The ceiling holding under load has not been
+re-machine-verified since.
+
+**Work item:** #377
+
+On 2026-09-08 a local full-suite run failed `src/app/html-extract.test.ts` > `extractHtmlMarkdown` >
+"bounds processing time on unterminated tags that the pair-regex steps walked quadratically", with
+exactly: `list item, no '>' at all took 8301ms: expected 8301.290800000002 to be less than 8000`. In
+the same run, `i18n-plural.test.ts` and `label-binding.guard.test.ts` each separately hit `Test timed
+out in 20000ms` — evidence the machine was saturated at the time, not that the extractor regressed.
+`DOS_BUDGET_MS = 8_000` and `CLAMP_CHARS = 500_000` in that test file.
+
+Same class as [§592](#592-the-50-ms-wall-clock-ceiling-in-tag-pair-walktestts-can-fail-a-correct-build-under-load--open):
+a wall-clock ceiling in a unit test, sized with margin measured on one idle machine rather than against
+load, tripped exactly once under contention rather than by a real regression in the extractor.
+
+**The fix shape:** a load-independent assertion, or a ceiling carrying margin measured under a
+saturated full-suite run, without letting a genuine quadratic regression in the pair-regex walk pass
+silently.
