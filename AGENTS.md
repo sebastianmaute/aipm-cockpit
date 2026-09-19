@@ -831,6 +831,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   pending request. Seed `undefined`/sentinel + guard `!== undefined`; parent must CLEAR (consume) or
   monotonically bump the nonce so re-mounts don't re-fire stale. Bit settings-view learning deep-link AND
   milestones-panel `openCreateNonce` (Gantt "Add milestone").
+  ★★ **THE WHOLE MAIN-WINDOW TREE UNMOUNTS WHILE `loadPending` IS TRUE (§548)** — the first load, a
+  backend-change reload and every project-swap op render `PanelSkeleton` instead — so EVERY panel, the
+  two exceptions below included, mounts fresh after each; the sentinel rule applies to them too. A new
+  BACKGROUND writer (timer, listener, interval) does not unmount and must gate on `loadPending` itself:
+  [`docs/AGENTS/platform.md`](docs/AGENTS/platform.md) "The load hold".
   ★★★ **TWO PANELS ARE THE EXCEPTION AND THIS BULLET USED TO DENY IT** — it said flatly that
   workspace-section "renders ONLY the active tabpanel", which is true of 27 of its 29 tabpanels and
   FALSE for `panel-chat` and `panel-raid`: those two are mounted UNCONDITIONALLY and merely

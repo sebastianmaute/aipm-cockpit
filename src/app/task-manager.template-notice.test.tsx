@@ -84,6 +84,9 @@ async function mount() {
   // real IndexedDB/localStorage read, not a synchronous re-render -- the
   // timeouts removed from the taskCount waits below are unrelated and stay
   // at the default now that they no longer have a race to paper over.
+  // ★ §548 CLOSED the product window this comment describes: the main window now renders PanelSkeleton
+  //   until the load settles, so `findByTestId("ws-section-mock")` above already implies it. The wait is
+  //   kept as a second, independent pin on the same fact.
   await waitFor(
     () =>
       expect(window.localStorage.getItem("aipm-cockpit:diag-log") ?? "").toContain("storage.loaded"),
