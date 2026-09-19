@@ -36,9 +36,24 @@ export default defineConfig({
     {
       // Visual-regression snapshots — opt-in (`npm run e2e:visual`), kept out of
       // the default run because baselines are per-platform (see visual.spec.ts).
+      // ★ §573: `timezoneId`/`locale` are pinned HERE, not just the clock
+      // (`VISUAL_FROZEN_NOW` in visual.spec.ts). A frozen UTC instant alone
+      // still leaks the machine's local timezone into anything that reads
+      // local getters — `dashboard-panel.tsx`'s greeting hour
+      // (`new Date().getHours()`) and `gantt-engine.ts`'s `localTodayUTC()`
+      // (built from local `getFullYear()/getMonth()/getDate()`, by design —
+      // see its docstring) both do. UTC keeps the local calendar date/hour
+      // identical to the pinned UTC instant's own date/hour, so both of those
+      // read as if machine-timezone-independent; `en-US` pins `navigator.language`
+      // the same way
+      // for anything that formats via the browser default locale (the app's
+      // own date/number formatting already passes an explicit locale, see
+      // `gantt-engine.ts`). Chromium/a11y (`chromium` project above) is
+      // deliberately left on the machine's own timezone/locale — this only
+      // narrows the `visual` project.
       name: "visual",
       testMatch: /visual\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"] },
+      use: { ...devices["Desktop Chrome"], timezoneId: "UTC", locale: "en-US" },
     },
     {
       // Packaged Electron desktop app — opt-in (`npm run e2e:desktop`), and
