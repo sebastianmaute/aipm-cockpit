@@ -387,6 +387,8 @@ export interface StorageFilePickerDeps {
   suppressNextSaveRef: React.MutableRefObject<boolean>;
   suppressNextLoadRef: React.MutableRefObject<boolean>;
   emitStorageConfig: (config: StorageConfig) => void;
+  /** §586: open the save gate for the ACTIVE backend — it now holds exactly the live workspace. */
+  allowSavesToActiveBackend: () => void;
   acquireToken: UseMsAuthResult["acquireToken"];
   setTasks: React.Dispatch<React.SetStateAction<readonly Task[]>>;
   setRaid: React.Dispatch<React.SetStateAction<readonly RaidItem[]>>;
@@ -401,6 +403,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     await promise;
     try {
       if (!(await deps.truncationOps.guardedWrite(deps.backend, deps.currentWorkspace()))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
+      deps.allowSavesToActiveBackend(); // ★★ §586: after a FAILED load autosave is refused; this write put the live workspace on the backend, so it belongs there now. Without it a user who re-picks a lost file would never autosave again this session.
       await deps.refreshBackendStatus();
       deps.emitToast("info", t(deps.langRef.current, "storageSwitchedToast"));
     } catch (err) {

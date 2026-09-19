@@ -4175,6 +4175,7 @@ const enUS = {
   reloadEmptyConfirm: "Reloading would replace this project with empty data (the saved copy has no records). This usually means a failed read. Reload anyway and discard the current content?",
   storageKeptCurrentData: "Storage returned no data, so your current project was kept. Reload the page if this persists.",
   storageRefusedWipe: "Saving is paused - a large deletion was withheld. Review it in the banner above, or reload the page to restore your saved data.",
+  storageSavePausedLoadFailed: "Saving is paused because the project could not be loaded. Changes you make now are not saved. Reload the project to try again.",
   storageDestructiveBanner: "Saving is paused. A large deletion was withheld to protect your project.",
   storageDestructiveBannerAria: "Saving paused - a large deletion was withheld",
   storageDestructiveCount: "{0} of {1} records would be removed.",

@@ -3967,6 +3967,7 @@ export const de: Record<TranslationKey, string> = {
   storageDestructiveWipeSaveAnyway: "Diese vollständige Löschung speichern",
   storageDestructiveWipeBannerSaveAnyway: "Diese Komplettlöschung speichern",
   storageRefusedWipe: "Das Speichern ist pausiert - eine große Löschung wurde zurückgehalten. Prüfen Sie sie im Hinweis oben, oder laden Sie die Seite neu, um Ihre gespeicherten Daten wiederherzustellen.",
+  storageSavePausedLoadFailed: "Das Speichern ist pausiert, weil das Projekt nicht geladen werden konnte. Änderungen, die Sie jetzt vornehmen, werden nicht gespeichert. Laden Sie das Projekt neu, um es erneut zu versuchen.",
   historyRestoreNothing: "Nichts wiederherzustellen — diese Version unterscheidet sich nicht vom aktuellen Projekt (möglicherweise ein leerer Snapshot).",
   historyRestoreNothingManaged: "Nichts wiederherzustellen — alle Änderungen dieser Version gehören zur Dokumenthistorie und werden pro Dokument verwaltet.",
   projectsSwitch: "Projekt wechseln",
