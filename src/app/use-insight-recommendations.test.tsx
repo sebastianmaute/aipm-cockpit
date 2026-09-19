@@ -49,6 +49,7 @@ function mkDeps(over: Partial<InsightRecommendationDeps> = {}): InsightRecommend
   return {
     isPopout: false,
     loadPending: false,
+    getScopeEpoch: () => 0,
     settings: { ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" } } as unknown as InsightRecommendationDeps["settings"],
     lang: "en-US",
     today: "2026-09-03",

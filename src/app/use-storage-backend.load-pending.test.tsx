@@ -249,3 +249,57 @@ describe("§548 — loadPending", () => {
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageLoadFailed", "Error: SharePoint did not respond within 10 s. Try again later."));
   });
 });
+
+// §548 (F7) — the SCOPE EPOCH, the companion signal `loadPending` cannot supply: a Graph/AI call that
+// started before a swap and resolves AFTER it finished sees `loadPending === false` again, so only a
+// changed epoch tells it the workspace it would write into is no longer the one it read from.
+describe("§548 — getScopeEpoch", () => {
+  it("(h) does NOT bump for the first load, bumps once per false→true transition, and never on the way back down", async () => {
+    const a = makeBackend(100);
+    const b = makeBackend(100);
+    createBackendMock.mockReturnValue(a);
+    const { result, rerender } = render(makeArgs({ kind: "browser" }, false));
+    const read = result.current.getScopeEpoch;
+    expect(read()).toBe(0); // pre-hydration is pending, but nothing can have been in flight yet
+
+    rerender({ args: makeArgs({ kind: "browser" }, true) }); // same instance → the first load, not a rebuild
+    await advance(300);
+    expect(a.load).toHaveBeenCalledTimes(1); // control: the first load really ran
+    expect(result.current.loadPending).toBe(false);
+    expect(read()).toBe(0); // …and settling is a true→false transition, which must not bump
+
+    createBackendMock.mockReturnValue(b);
+    rerender({ args: makeArgs({ kind: "browser" }, true) }); // new config identity → rebuilt backend
+    await advance(50);
+    expect(result.current.loadPending).toBe(true); // control: the rebuild raised the hold
+    expect(read()).toBe(1);
+
+    await advance(300);
+    expect(result.current.loadPending).toBe(false);
+    expect(read()).toBe(1); // still 1 — the swap is over, but scope is a DIFFERENT project than at 0
+  });
+
+  it("(i) bumps while a held op runs, and the reader identity is stable across every render", async () => {
+    const backend = makeBackend(300);
+    createBackendMock.mockReturnValue(backend);
+    const { result } = render();
+    await advance(400);
+    const read = result.current.getScopeEpoch;
+    expect(result.current.loadPending).toBe(false);
+    expect(read()).toBe(0);
+
+    let op: Promise<void> = Promise.resolve();
+    act(() => { op = result.current.reloadCurrentProject(); });
+    await advance(100);
+    expect(result.current.loadPending).toBe(true); // control: holdDuring raised it
+    expect(read()).toBe(1);
+
+    await advance(400);
+    await act(async () => { await op; });
+    await advance(100);
+    expect(result.current.loadPending).toBe(false);
+    expect(read()).toBe(1);
+    // Stable identity: a consumer mirrors this into a `[]`-dep ref and must not re-subscribe.
+    expect(result.current.getScopeEpoch).toBe(read);
+  });
+});

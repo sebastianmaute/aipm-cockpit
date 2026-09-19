@@ -506,7 +506,7 @@ function TaskManagerInner() {
     truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
-    restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending,
+    restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch,
   } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
 
   // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
@@ -2098,7 +2098,7 @@ function TaskManagerInner() {
     reviewPlan,
     setReviewInsightId,
   } = useInsightRecommendations({
-    isPopout, loadPending, settings, lang, today, project,
+    isPopout, loadPending, getScopeEpoch, settings, lang, today, project,
     tasks, raid, milestones, changes, stakeholders,
     resourcesById, insights, setInsights, dispatcher,
     showToast, logActivityAs,
@@ -2364,6 +2364,7 @@ function TaskManagerInner() {
   } = useCalendarIntegrations({
     isPopout,
     loadPending,
+    getScopeEpoch,
     settings,
     m365Enabled,
     portfolioCurrentId,

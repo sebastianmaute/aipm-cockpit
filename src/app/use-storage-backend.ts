@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBroadcastSync } from "./broadcast-sync";
 import { t } from "./i18n";
 import {
@@ -163,6 +163,30 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   through that window. The hold therefore relies on `hydrated` always becoming true — bounded in
   //   `useSettings` by `SECRET_MERGE_TIMEOUT_MS`.
   const loadPending = !args.hydrated || settledBackend !== backend || swapsInFlight > 0;
+  // ★★★ §548 — THE SCOPE EPOCH. A monotonic counter bumped on every false→true transition of
+  //   `loadPending`, i.e. every time the in-scope workspace stops being the settled project of the
+  //   current backend (a backend rebuild, one of the nine `holdDuring` ops starting). A writer that
+  //   awaits Graph or the AI captures it before its first await and DROPS its write when the value
+  //   differs at resolution — `scope-epoch.ts` (`isScopeStale` / `dropStaleScopeWrite`) is the shared
+  //   guard, and the hold's own gates (`loadPending` at START) do not cover that case: the swap can
+  //   have COMPLETED by the time the promise resolves, which puts `loadPending` back to false.
+  // ★ Bumped in an EFFECT, never in render: a ref write during render trips the react-hooks purity
+  //   rules, and the one-commit lag is safe — a write landing inside it goes into scope that still
+  //   holds the OUTGOING project and is then replaced by the incoming load, i.e. lost, never
+  //   misattributed. (Every held op flushes the outgoing project BEFORE its first await.)
+  // ★ `lastLoadPendingRef` is seeded with the MOUNT value, so the first-ever render does not count as
+  //   a transition — nothing can have been in flight before the hook existed.
+  const scopeEpochRef = useRef(0);
+  const lastLoadPendingRef = useRef(loadPending);
+  useEffect(() => {
+    const was = lastLoadPendingRef.current;
+    lastLoadPendingRef.current = loadPending;
+    if (loadPending && !was) scopeEpochRef.current += 1;
+  }, [loadPending]);
+  // ★ STABLE for the hook's lifetime, so a consumer can mirror it into a `[]`-dep ref or callback
+  //   without re-subscribing anything. Deliberately NOT a render value: publishing the number would
+  //   re-render every consumer on each swap.
+  const getScopeEpoch = useCallback(() => scopeEpochRef.current, []);
   // ★★★ §586 — THE SAVE GATE: the backend instance render scope may be written to. Before it opens,
   //   the boot workspace is EMPTY, and a save of it is `DELETE FROM` every Turso table, an empty
   //   SharePoint PUT, an overwritten file. The AUTOMATIC writes of the live workspace to the ACTIVE
@@ -953,7 +977,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // number here — this comment said "sits AT" while the file had 14 lines of headroom.
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   return {
-    storageDescription, storageReady, workspaceLoaded, loadPause, loadPending,
+    storageDescription, storageReady, workspaceLoaded, loadPause, loadPending, getScopeEpoch,
     onPickStorageFile, onGrantWriteAccess, onOpenStorageFile: holdDuring(onOpenStorageFile), onRequestStorageSwitch,
     reloadCurrentProject: holdDuring(reloadCurrentProject), allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject: holdDuring(switchToProject), createProject: holdDuring(createProject),

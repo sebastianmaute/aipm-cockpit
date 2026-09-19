@@ -278,3 +278,29 @@ describe("useInsightRecommendRunner cadence", () => {
     expect(applyRecommendation).toHaveBeenCalledTimes(1);
   });
 });
+
+// §548 (F7) — a tick's billed calls are serial, so a swap part-way through must drop the candidate it
+// invalidated AND stop the tick: every remaining candidate was read from the project that just left.
+describe("useInsightRecommendRunner — the scope epoch (§548)", () => {
+  test("drops the result and stops the tick when the scope changed while the model was answering", async () => {
+    const epoch = { v: 4 };
+    const insights = [makeInsight(1), makeInsight(2)];
+    mockRun.mockImplementation(async () => { epoch.v += 1; return fakeRec; });
+    const { applyRecommendation } = renderRunner({ insights, getScopeEpoch: () => epoch.v });
+    await act(async () => { await flushMicrotasks(); });
+
+    expect(mockRun).toHaveBeenCalledTimes(1); // control: the tick ran, and STOPPED after the first
+    expect(applyRecommendation).not.toHaveBeenCalled();
+  });
+
+  test("CONTROL — the same tick stores both results when the scope is unchanged", async () => {
+    const epoch = { v: 4 };
+    const insights = [makeInsight(1), makeInsight(2)];
+    mockRun.mockResolvedValue(fakeRec);
+    const { applyRecommendation } = renderRunner({ insights, getScopeEpoch: () => epoch.v });
+    await act(async () => { await flushMicrotasks(); });
+
+    expect(mockRun).toHaveBeenCalledTimes(2);
+    expect(applyRecommendation).toHaveBeenCalledTimes(2);
+  });
+});

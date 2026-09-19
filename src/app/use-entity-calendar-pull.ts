@@ -7,6 +7,7 @@ import { CALENDAR_READWRITE_SCOPE, updateEvent, type GraphEvent } from "./outloo
 import { fetchProjectEventDates } from "./outlook-calendar-read";
 import { planCalendarPull, type PullPlan } from "./calendar-pull";
 import { loadBaseline, writeBaselineDate, removeBaselineEntry } from "./calendar-sync-baseline";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 
 interface Args<T extends { id: number; outlookEventId?: string }> {
   items: readonly T[];
@@ -26,6 +27,9 @@ interface Args<T extends { id: number; outlookEventId?: string }> {
   /** Called once per background pull that auto-applied ≥1 Outlook move, with the
    *  applied count — lets the caller record an audit-trail activity entry. */
   onBackgroundApply?: (count: number) => void;
+  /** §548 — `useStorageBackend`'s scope-epoch reader. Omitted by a caller outside the storage hook's
+   *  reach (tests, `tasks-section.tsx`), which keeps the pre-§548 behaviour. */
+  getScopeEpoch?: ScopeEpochReader;
 }
 
 // Cross-instance in-flight lock keyed `${projectId}:${entityType}` so a manual pull
@@ -41,7 +45,7 @@ const inFlightPull = new Set<string>();
  * Jira-synced tasks whose dates Jira owns). Popouts are read-only.
  */
 export function useEntityCalendarPull<T extends { id: number; outlookEventId?: string }>(
-  { items, entityType, projectId, getDate, getEndDate, withDate, toGraphEvent, setItems, isPullable, isPopout, lang, enabled, background, onBackgroundApply }: Args<T>,
+  { items, entityType, projectId, getDate, getEndDate, withDate, toGraphEvent, setItems, isPullable, isPopout, lang, enabled, background, onBackgroundApply, getScopeEpoch }: Args<T>,
 ) {
   const { acquireToken } = useMsAuth(enabled);
   const showToast = useToastContext();
@@ -92,6 +96,8 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
     if (inFlightPull.has(lockKey)) return; // another pull for this entity is already running
     inFlightPull.add(lockKey);
     if (!background) setBusy(true);
+    // §548 — the project `items` (and every write below) belong to.
+    const startEpoch = getScopeEpoch?.();
     try {
       const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: !background }).catch(() => null);
       if (!token) {
@@ -103,6 +109,11 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
         return;
       }
       const { events, truncated } = await fetchProjectEventDates(token, projectId, entityType);
+      // §548 — a swap or backend change started while Graph was answering, so `items` (and the
+      // baseline, and the activity log this would append to) are the PREVIOUS project's. Every write
+      // this pull makes sits below this line, so one check covers `applyMove`, `prune`,
+      // `onBackgroundApply` and the manual summary modal.
+      if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useEntityCalendarPull", { entityType, background: !!background })) return;
       const baseline = loadBaseline(projectId, entityType);
       const pullable = isPullable ? items.filter(isPullable) : items;
       const entities = pullable
@@ -158,7 +169,7 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
       inFlightPull.delete(lockKey);
       if (!background) setBusy(false);
     }
-  }, [isPopout, enabled, background, acquireToken, showToast, lang, items, projectId, entityType, getDate, getEndDate, isPullable, applyMove, prune, onBackgroundApply]);
+  }, [isPopout, enabled, background, acquireToken, showToast, lang, items, projectId, entityType, getDate, getEndDate, isPullable, applyMove, prune, onBackgroundApply, getScopeEpoch]);
 
   return { pull, busy, result, clearResult: useCallback(() => setResult(null), []), keepApp, applyMove };
 }

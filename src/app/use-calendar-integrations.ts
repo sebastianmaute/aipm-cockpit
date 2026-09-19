@@ -23,6 +23,7 @@ import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import { useCalendarAutoPull } from "./use-calendar-auto-pull";
 import { useCalendarAutoSync } from "./use-calendar-auto-sync";
 import { calendarSyncFor } from "./calendar-sync-config";
+import type { ScopeEpochReader } from "./scope-epoch";
 import { useCommitteeOutlookPush } from "./use-committee-outlook-push";
 import { taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, absenceToGraphEvent } from "./outlook-calendar-write";
 
@@ -40,6 +41,11 @@ export interface CalendarIntegrationDeps {
    *  below (auto-sync pushes, background pulls, the auto-pull runner) run on timers and never unmount
    *  with the held app tree, so they hold themselves; the manual controls are unmounted by the hold. */
   loadPending: boolean;
+  /** §548 — `useStorageBackend`'s stable scope-epoch reader, threaded into every calendar hook below.
+   *  `loadPending` gates a call when it STARTS; this catches the other half — a Graph call already in
+   *  flight when the swap starts, resolving after it FINISHED (`loadPending` false again). See
+   *  `scope-epoch.ts`. Required, so tsc proves the call site hands it over. */
+  getScopeEpoch: ScopeEpochReader;
   settings: Settings;
   m365Enabled: boolean;
   portfolioCurrentId: string | null;
@@ -71,6 +77,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   const {
     isPopout,
     loadPending,
+    getScopeEpoch,
     settings,
     m365Enabled,
     portfolioCurrentId,
@@ -120,6 +127,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     isPopout,
     lang,
     enabled: calendarPushEnabled,
+    getScopeEpoch,
   });
   const calendarPushToOutlook = calendarPush.pushToOutlook;
   const calendarPushBusy = calendarPush.busy;
@@ -130,6 +138,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     isPopout,
     lang,
     enabled: calendarPushEnabled,
+    getScopeEpoch,
   });
 
   // Push the steering committee's meetings + info-pack reminders to Outlook.
@@ -143,6 +152,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     isPopout,
     lang,
     enabled: calendarPushEnabled,
+    getScopeEpoch,
   });
 
   // Background AUTO calendar-sync for tasks (opt-in enable + auto). When the
@@ -179,6 +189,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     lang,
     enabled: taskAutoSyncActive,
     interactive: false,
+    getScopeEpoch,
   });
   useCalendarAutoSync({ active: taskAutoSyncActive, contentKey: taskAutoSyncKey, push: autoPushTasks, staggerMs: 0 });
 
@@ -202,12 +213,12 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   const { pushToOutlook: pushRaidToOutlook, busy: calendarRaidPushBusy } = useEntityCalendarPush<RaidItem>({
     items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
     toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
-    isPopout, lang, enabled: calendarRaidEnabled,
+    isPopout, lang, enabled: calendarRaidEnabled, getScopeEpoch,
   });
   const { pushToOutlook: autoPushRaid } = useEntityCalendarPush<RaidItem>({
     items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
     toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
-    isPopout, lang, enabled: raidAutoSyncActive, interactive: false,
+    isPopout, lang, enabled: raidAutoSyncActive, interactive: false, getScopeEpoch,
   });
   useCalendarAutoSync({ active: raidAutoSyncActive, contentKey: raidAutoSyncKey, push: autoPushRaid, staggerMs: AUTO_SYNC_STAGGER_STEP_MS });
   const onToggleCalendarRaid = useCallback(
@@ -232,6 +243,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     isPopout,
     lang,
     enabled: calendarRaidEnabled,
+    getScopeEpoch,
   });
 
   // --- Change decision-date calendar write-back (SP3) — mirrors the RAID block ---
@@ -251,12 +263,12 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   const { pushToOutlook: pushChangeToOutlook, busy: calendarChangePushBusy } = useEntityCalendarPush<ChangeItem>({
     items: pushableChanges, entityType: "change", projectId: calendarProjectId,
     toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
-    isPopout, lang, enabled: calendarChangeEnabled,
+    isPopout, lang, enabled: calendarChangeEnabled, getScopeEpoch,
   });
   const { pushToOutlook: autoPushChange } = useEntityCalendarPush<ChangeItem>({
     items: pushableChanges, entityType: "change", projectId: calendarProjectId,
     toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
-    isPopout, lang, enabled: changeAutoSyncActive, interactive: false,
+    isPopout, lang, enabled: changeAutoSyncActive, interactive: false, getScopeEpoch,
   });
   useCalendarAutoSync({ active: changeAutoSyncActive, contentKey: changeAutoSyncKey, push: autoPushChange, staggerMs: AUTO_SYNC_STAGGER_STEP_MS * 2 });
   const onToggleCalendarChange = useCallback(
@@ -281,6 +293,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     isPopout,
     lang,
     enabled: calendarChangeEnabled,
+    getScopeEpoch,
   });
 
   // --- Absence calendar write-back (SP4) — mirrors the Change block ---
@@ -304,12 +317,12 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
   const { pushToOutlook: pushAbsenceToOutlook, busy: calendarAbsencePushBusy } = useEntityCalendarPush<Absence>({
     items: pushableAbsences, entityType: "absence", projectId: calendarProjectId,
     toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
-    isPopout, lang, enabled: calendarAbsenceEnabled,
+    isPopout, lang, enabled: calendarAbsenceEnabled, getScopeEpoch,
   });
   const { pushToOutlook: autoPushAbsence } = useEntityCalendarPush<Absence>({
     items: pushableAbsences, entityType: "absence", projectId: calendarProjectId,
     toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
-    isPopout, lang, enabled: absenceAutoSyncActive, interactive: false,
+    isPopout, lang, enabled: absenceAutoSyncActive, interactive: false, getScopeEpoch,
   });
   useCalendarAutoSync({ active: absenceAutoSyncActive, contentKey: absenceAutoSyncKey, push: autoPushAbsence, staggerMs: AUTO_SYNC_STAGGER_STEP_MS * 3 });
   const onToggleCalendarAbsence = useCallback(
@@ -335,6 +348,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     isPopout,
     lang,
     enabled: calendarAbsenceEnabled,
+    getScopeEpoch,
   });
 
   // --- Background auto-pull (two-way SP5) — periodic reverse-sync for the four
@@ -346,21 +360,21 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     items: pushableTasks, entityType: "task", projectId: calendarProjectId,
     getDate: (x) => x.dueDate, withDate: (x, date) => ({ ...x, dueDate: date }),
     toGraphEvent: taskToGraphEvent, setItems: setTasksForAuto,
-    isPullable: (x) => !x.jiraKey, isPopout, lang, enabled: taskAutoSyncActive, background: true,
+    isPullable: (x) => !x.jiraKey, isPopout, lang, enabled: taskAutoSyncActive, background: true, getScopeEpoch,
     onBackgroundApply: (n) => logActivityAs("integration", "calendar.autoPulled", n, t(lang, "calendarSyncEntityTask")),
   });
   const { pull: autoPullRaid } = useEntityCalendarPull<RaidItem>({
     items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
     getDate: (r) => r.targetDate, withDate: (r, date) => ({ ...r, targetDate: date }),
     toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
-    isPopout, lang, enabled: raidAutoSyncActive, background: true,
+    isPopout, lang, enabled: raidAutoSyncActive, background: true, getScopeEpoch,
     onBackgroundApply: (n) => logActivityAs("integration", "calendar.autoPulled", n, t(lang, "calendarSyncEntityRaid")),
   });
   const { pull: autoPullChange } = useEntityCalendarPull<ChangeItem>({
     items: pushableChanges, entityType: "change", projectId: calendarProjectId,
     getDate: (c) => c.decisionDate, withDate: (c, date) => ({ ...c, decisionDate: date }),
     toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
-    isPopout, lang, enabled: changeAutoSyncActive, background: true,
+    isPopout, lang, enabled: changeAutoSyncActive, background: true, getScopeEpoch,
     onBackgroundApply: (n) => logActivityAs("integration", "calendar.autoPulled", n, t(lang, "calendarSyncEntityChange")),
   });
   const { pull: autoPullAbsence } = useEntityCalendarPull<Absence>({
@@ -368,7 +382,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     getDate: (a) => a.startDate, getEndDate: (a) => a.endDate,
     withDate: (a, start, end) => ({ ...a, startDate: start, endDate: end ?? a.endDate }),
     toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
-    isPopout, lang, enabled: absenceAutoSyncActive, background: true,
+    isPopout, lang, enabled: absenceAutoSyncActive, background: true, getScopeEpoch,
     onBackgroundApply: (n) => logActivityAs("integration", "calendar.autoPulled", n, t(lang, "calendarSyncEntityAbsence")),
   });
   useCalendarAutoPull({

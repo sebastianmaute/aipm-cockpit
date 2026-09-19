@@ -228,4 +228,44 @@ describe("useCommitteeOutlookPush", () => {
     expect(setSteeringCommittee).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
+
+  // §548 (F7) — a push in flight when a project swap starts must not write the OLD project's event
+  // ids onto the NEW project's committee. See `scope-epoch.ts`.
+  it("drops the whole reconcile when the scope epoch changed while the token was acquired", async () => {
+    const epoch = { v: 1 };
+    let release!: () => void;
+    acquireToken.mockReturnValueOnce(new Promise((r) => { release = () => r("tok"); }));
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() =>
+      useCommitteeOutlookPush({
+        committee: committee(), committeeName: "Board", projectId: "p", today: TODAY,
+        setSteeringCommittee, isPopout: false, lang: "en-US", enabled: true, getScopeEpoch: () => epoch.v,
+      }));
+    let push: Promise<void> = Promise.resolve();
+    act(() => { push = result.current.pushToOutlook(); });
+    epoch.v = 2;
+    await act(async () => { release(); await push; });
+
+    expect(acquireToken).toHaveBeenCalledTimes(1); // control: the push really ran
+    expect(createEvent).not.toHaveBeenCalled();
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
+  });
+
+  it("CONTROL — the same push persists the ids when the scope epoch is unchanged", async () => {
+    const epoch = { v: 1 };
+    let release!: () => void;
+    acquireToken.mockReturnValueOnce(new Promise((r) => { release = () => r("tok"); }));
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() =>
+      useCommitteeOutlookPush({
+        committee: committee(), committeeName: "Board", projectId: "p", today: TODAY,
+        setSteeringCommittee, isPopout: false, lang: "en-US", enabled: true, getScopeEpoch: () => epoch.v,
+      }));
+    let push: Promise<void> = Promise.resolve();
+    act(() => { push = result.current.pushToOutlook(); });
+    await act(async () => { release(); await push; });
+
+    expect(createEvent).toHaveBeenCalledTimes(2);
+    expect(setSteeringCommittee).toHaveBeenCalledTimes(1);
+  });
 });

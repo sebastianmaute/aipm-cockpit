@@ -15,6 +15,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { clampInsightRecInterval } from "./settings-types";
 import { MAX_BG_RECS_PER_TICK, type Insight, type InsightRecommendation } from "./insights/insight";
 import type { GroundingIndex } from "./action-ai";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 
 export interface InsightRecommendRunnerArgs {
   /** Caller passes isAiEnabled && ai.insightRecommendations===true && !isPopout. */
@@ -30,6 +31,11 @@ export interface InsightRecommendRunnerArgs {
   buildContextFor: (insight: Insight) => string;
   /** Functional setInsights writer (Task 9 provides). */
   applyRecommendation: (id: number, rec: InsightRecommendation) => void;
+  /** §548 — `useStorageBackend`'s scope-epoch reader. Captured per CANDIDATE, immediately before its
+   *  billed call, and re-read before `applyRecommendation`: a tick spans several serial calls, so a
+   *  swap part-way through must drop only what it invalidates. Omitted outside the storage hook's
+   *  reach (tests). */
+  getScopeEpoch?: ScopeEpochReader;
 }
 
 export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): void {
@@ -42,6 +48,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   const buildIndexRef = useRef(args.buildIndex);
   const buildContextForRef = useRef(args.buildContextFor);
   const applyRecommendationRef = useRef(args.applyRecommendation);
+  const getScopeEpochRef = useRef(args.getScopeEpoch);
   useEffect(() => { enabledRef.current = args.enabled; }, [args.enabled]);
   useEffect(() => { insightsRef.current = args.insights; }, [args.insights]);
   useEffect(() => { aiRef.current = args.ai; }, [args.ai]);
@@ -49,6 +56,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   useEffect(() => { buildIndexRef.current = args.buildIndex; }, [args.buildIndex]);
   useEffect(() => { buildContextForRef.current = args.buildContextFor; }, [args.buildContextFor]);
   useEffect(() => { applyRecommendationRef.current = args.applyRecommendation; }, [args.applyRecommendation]);
+  useEffect(() => { getScopeEpochRef.current = args.getScopeEpoch; }, [args.getScopeEpoch]);
 
   // Overlap guard: skip a tick while a previous async run is still in flight.
   const isRunningRef = useRef(false);
@@ -92,6 +100,9 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
       // landed can slip past.
       for (const insight of candidates) {
         if (controller.signal.aborted) break;
+        // §548 — per CANDIDATE, not per tick: the calls are serial, so a swap between two of them
+        // must drop only the one it invalidates.
+        const startEpoch = getScopeEpochRef.current?.();
         try {
           const rec = await runInsightRecommendation({
             apiKey: aiRef.current.apiKey,
@@ -102,6 +113,10 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
             signal: controller.signal,
           });
           if (controller.signal.aborted) break;
+          // A swap or backend change ran while the model was answering: `insight.id` names a row of
+          // the PREVIOUS project. `break`, not `continue` — every remaining candidate of this tick
+          // was read from that same project, and the next tick re-derives them from the new one.
+          if (dropStaleScopeWrite(getScopeEpochRef.current, startEpoch, "useInsightRecommendRunner", { insightId: insight.id })) break;
           applyRecommendationRef.current(insight.id, rec);
         } catch (e) {
           // NEVER log/echo the api key or response body. An abort (unmount)

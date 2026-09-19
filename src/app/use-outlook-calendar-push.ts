@@ -5,6 +5,7 @@ import { useToastContext } from "./toast-context";
 import { t, type Lang } from "./i18n";
 import { planCalendarReconcile } from "./calendar-reconcile";
 import { logDiag } from "./diagnostics";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import {
   CALENDAR_READWRITE_SCOPE, milestoneToGraphEvent, listProjectEvents, createEvent, updateEvent, deleteEvent,
   GraphCalendarError,
@@ -18,9 +19,11 @@ interface Args {
   isPopout: boolean;
   lang: Lang;
   enabled: boolean;
+  /** §548 — `useStorageBackend`'s scope-epoch reader; omitted outside the storage hook's reach. */
+  getScopeEpoch?: ScopeEpochReader;
 }
 
-export function useOutlookCalendarPush({ milestones, projectId, setMilestones, isPopout, lang, enabled }: Args) {
+export function useOutlookCalendarPush({ milestones, projectId, setMilestones, isPopout, lang, enabled, getScopeEpoch }: Args) {
   const { acquireToken } = useMsAuth(enabled);
   const showToast = useToastContext();
   const [busy, setBusy] = useState(false);
@@ -28,10 +31,14 @@ export function useOutlookCalendarPush({ milestones, projectId, setMilestones, i
   const pushToOutlook = useCallback(async () => {
     if (isPopout) return;
     setBusy(true);
+    // §548 — the project `milestones` were read from; see `scope-epoch.ts`.
+    const startEpoch = getScopeEpoch?.();
     try {
       const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
       if (!token) { showToast("error", t(lang, "calendarPushNoAccess")); return; }
       const existing = await listProjectEvents(token, projectId);
+      // A swap started while Graph was answering — bail before any Graph mutation.
+      if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useOutlookCalendarPush", { at: "plan" })) return;
       const plan = planCalendarReconcile(milestones, existing);
       const newIds = new Map<number, string>();
       const staleIds = new Set<number>();
@@ -55,6 +62,9 @@ export function useOutlookCalendarPush({ milestones, projectId, setMilestones, i
         try { await deleteEvent(token, id); }
         catch (err) { failed++; logDiag("warn", "calendar.pushItemFailed", { entityType: "milestone", op: "delete", message: err instanceof Error ? err.message : String(err) }); }
       }
+      // §548 — the swap can land during the create/update/delete loop too; orphaned event ids beat
+      // this project's ids written onto the next project's milestones.
+      if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "useOutlookCalendarPush", { at: "write" })) return;
       if (newIds.size > 0 || staleIds.size > 0) {
         setMilestones((prev) => prev.map((m) => {
           if (newIds.has(m.id)) return { ...m, outlookEventId: newIds.get(m.id) };
@@ -69,7 +79,7 @@ export function useOutlookCalendarPush({ milestones, projectId, setMilestones, i
     } finally {
       setBusy(false);
     }
-  }, [isPopout, acquireToken, showToast, lang, milestones, projectId, setMilestones]);
+  }, [isPopout, acquireToken, showToast, lang, milestones, projectId, setMilestones, getScopeEpoch]);
 
   return { pushToOutlook, busy };
 }

@@ -32,6 +32,7 @@ import {
 import type { Insight, InsightActions, InsightRecommendation } from "./insights/insight";
 import { ALLOWED_REC_TOOLS } from "./insights/insight";
 import { metricAtActionPatch } from "./insights/outcome";
+import type { ScopeEpochReader } from "./scope-epoch";
 import { useInsightRecommend } from "./use-insight-recommend";
 import { useInsightRecommendRunner } from "./use-insight-recommend-runner";
 import { buildRecommendContext } from "./insights/recommend-context";
@@ -57,6 +58,11 @@ export interface InsightRecommendationDeps {
   /** §548 — a load or project swap is still in flight (`useStorageBackend`). A recommendation stored
    *  meanwhile would be replaced when the load lands. */
   loadPending: boolean;
+  /** §548 — `useStorageBackend`'s stable scope-epoch reader, threaded into both AI hooks below.
+   *  `loadPending` covers a result landing DURING the hold; this covers one landing after the swap
+   *  FINISHED, when `loadPending` is false again. See `scope-epoch.ts`. Required, so tsc proves the
+   *  call site hands it over. */
+  getScopeEpoch: ScopeEpochReader;
   settings: Settings;
   lang: Lang;
   today: string;
@@ -83,6 +89,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   const {
     isPopout,
     loadPending,
+    getScopeEpoch,
     settings,
     lang,
     today,
@@ -216,6 +223,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
     applyRecommendation: applyInsightRecommendation,
+    getScopeEpoch,
     isPopout,
     onError: (kind) => {
       showToast("error", t(lang, kind === "limit" ? "aiUsageLimitReached" : "insightRecommendationError"));
@@ -233,6 +241,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
     applyRecommendation: applyInsightRecommendation,
+    getScopeEpoch,
   });
 
   const onGenerateRecommendationInsight = useCallback(

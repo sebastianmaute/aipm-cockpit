@@ -40,6 +40,7 @@ function deps(loadPending: boolean): CalendarIntegrationDeps {
   return {
     isPopout: false,
     loadPending,
+    getScopeEpoch: () => 0,
     settings: {
       integrations: { m365: { enabled: true, outlookCalendarPush: true } },
       outlookCalendar: { task: ON, raid: ON, change: ON, absence: ON },

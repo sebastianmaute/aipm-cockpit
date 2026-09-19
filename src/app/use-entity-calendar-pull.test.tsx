@@ -387,3 +387,55 @@ describe("useEntityCalendarPull date-range (absence) entities", () => {
     );
   });
 });
+
+// §548 (F7) — a pull already in flight when a project swap starts must not apply the OLD project's
+// Outlook moves to the NEW project's rows (nor log them, nor rewrite its baseline).
+describe("useEntityCalendarPull — the scope epoch (§548)", () => {
+  /** A pull whose Graph read is held open, so the test can swap projects mid-flight. */
+  function startHeldPull(epochRef: { v: number }, onBackgroundApply: (n: number) => void) {
+    let release!: () => void;
+    fetchProjectEventDates.mockReturnValueOnce(new Promise((r) => {
+      release = () => r({ events: [{ id: "evt", date: "2026-07-10" }], truncated: false });
+    }));
+    loadBaseline.mockReturnValue({ evt: "2026-07-01" }); // baseline===appDate ⇒ a clean auto-apply
+    const { result } = renderHook(() => useEntityCalendarPull<FakeItem>({
+      items: [{ id: 1, outlookEventId: "evt", d: "2026-07-01" }],
+      entityType: "task", projectId: "p", getDate: (x) => x.d,
+      withDate: (x, date) => ({ ...x, d: date }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      toGraphEvent: (x) => ({ subject: String(x.id) } as any),
+      setItems, isPopout: false, lang: "en-US", enabled: true,
+      background: true, onBackgroundApply,
+      getScopeEpoch: () => epochRef.v,
+    }));
+    return { result, release };
+  }
+
+  it("drops every write — setItems, the baseline and the activity log — when the scope changed during the Graph read", async () => {
+    const epoch = { v: 2 };
+    const onBackgroundApply = vi.fn();
+    const { result, release } = startHeldPull(epoch, onBackgroundApply);
+    let pull: Promise<void> = Promise.resolve();
+    act(() => { pull = result.current.pull(); });
+    epoch.v = 3; // a swap/backend change started while Graph was answering
+    await act(async () => { release(); await pull; });
+
+    expect(fetchProjectEventDates).toHaveBeenCalledTimes(1); // control: the pull really ran
+    expect(setItems).not.toHaveBeenCalled();
+    expect(writeBaselineDate).not.toHaveBeenCalled();
+    expect(onBackgroundApply).not.toHaveBeenCalled();
+  });
+
+  it("CONTROL — the same pull applies the move when the scope is unchanged", async () => {
+    const epoch = { v: 2 };
+    const onBackgroundApply = vi.fn();
+    const { result, release } = startHeldPull(epoch, onBackgroundApply);
+    let pull: Promise<void> = Promise.resolve();
+    act(() => { pull = result.current.pull(); });
+    await act(async () => { release(); await pull; });
+
+    expect(setItems).toHaveBeenCalledTimes(1);
+    expect(writeBaselineDate).toHaveBeenCalledWith("p", "task", "evt", "2026-07-10");
+    expect(onBackgroundApply).toHaveBeenCalledWith(1);
+  });
+});
