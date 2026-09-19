@@ -100,6 +100,13 @@ expectLinearScaling({
   fastest run. A load spike therefore lands on both sizes, and the minimum discards the runs a spike
   hit. Load that arrives mid-run and stays still leaves the first pair clean, which a helper that ran
   every small repeat before any large one would not.
+  > **As shipped (2026-09-19):** the ratio is the MEDIAN of the per-pair ratios (large_i / small_i),
+  > not the fastest large run over the fastest small run. The minima are taken independently, so a
+  > load step that starts after the first small run and stays paired a clean small run with a loaded
+  > large one and failed a correct build (pre-merge review I1). Per pair, both sides share the load in
+  > force, so a step or a spike spoils one pair, the median of 3 outvotes it, and a real quadratic still
+  > pushes every pair to about 16. `smallMs`/`largeMs` remain as the per-size minima, for the message
+  > only; the result gains `pairRatios`, and the failure message prints them.
 - **Timer-floor guard.** If one small run takes under 20 ms, the helper calibrates a loop count that
   brings the small side to at least 20 ms and uses the SAME count for the large side. Otherwise a
   5 ms measurement makes the ratio mostly timer noise. The count is measured each run, never a
@@ -109,6 +116,12 @@ expectLinearScaling({
   work on later calls. None of today's sites is affected; the helper's docstring says so.
 - **Output check is mandatory.** `check` is a required property and runs on the output of both
   sizes, so an early bail that made the input trivial fails the check.
+  > **As shipped (2026-09-19):** that holds only where the correct output shows how far the code got —
+  > the sentinel sites (`xlsx-extract`, `docx-extract`) and the identity-output sites. Where the correct
+  > output is itself the trivial one (the no-`>` walks in `tag-pair-walk` and `office-xml`, the
+  > non-attribute `document-asset-patterns` rows and its pattern-level test, `degradeToPlain`), a
+  > sentinel would change the fixture the mutant depends on, so those sites rely on the ratio alone and
+  > each site's comment says why.
 - **Self-describing failure.** The failure message states the small and large minima, the ratio,
   `maxRatio`, and the loop count — reverting a fix prints the real numbers, so no separate probe is
   needed to record a red ratio.

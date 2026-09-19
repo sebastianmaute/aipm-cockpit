@@ -6,6 +6,12 @@
 
 **Architecture:** One helper, `expectLinearScaling` in `src/test/scaling.ts`, times the code under test at `n` and `n * factor` after one untimed warm-up, interleaved, keeps each size's minimum, and asserts the ratio is below `maxRatio`. It requires an output check at both sizes. Nine test files move onto it: 22 call sites (34 executions) convert to a ratio, and one site (`xlsx-extract`'s XFD case, which has no size axis) drops its timing and keeps its exact output assertion. No production code changes.
 
+> **As shipped (2026-09-19):** the helper judges the MEDIAN of the per-pair ratios (large_i / small_i),
+> not "each size's minimum". Independent minima let a load step that starts after the first small run
+> pair a clean small run with a loaded large one and fail a correct build (pre-merge review I1); per
+> pair, a step or spike spoils one pair and the median of 3 outvotes it. The Task 1 code below is the
+> original min/min version; `src/test/scaling.ts` is the shipped one.
+
 **Tech Stack:** TypeScript, Vitest 4.1.11.
 
 **Spec:** `docs/superpowers/specs/2026-09-19-timing-guards-scaling-ratio-design.md`

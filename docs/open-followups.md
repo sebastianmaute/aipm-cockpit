@@ -39909,7 +39909,12 @@ vitest's 20 s default, and stayed green under the load burn at a measured 7.13×
 slowdown, measured 2026-09-19 during the conversion. The guard no longer
 rests on the ~80x absolute-time gap the original finding below cites (~5.4 ms vs ~433 ms at 80,000): it
 instead separates the orderings by how their cost grows from 20,000 to 80,000, about 4x for the shipped
-ordering against a mutant ratio of at least 12 (measured 15.9) for the swapped one.
+ordering against a mutant ratio of at least 12 (measured 15.9) for the swapped one. Before merge the
+helper was changed to judge the MEDIAN of the per-pair ratios (large_i / small_i) instead of the
+fastest large run over the fastest small run, because a load step starting after the first small run
+could still fail a correct build under min/min; four sites were re-proved red under the median, at
+16.09 (raid-escalation), 16.23 (tag-pair-walk, no '>' anywhere), 13.62 (html-extract heading row) and
+16.28 (office-xml).
 
 _Original finding, as filed 2026-09-19. Preserved as the dated record; see Status._
 
@@ -39939,7 +39944,9 @@ and a red ratio of 15.0 for the list-step-reverted mutant, carries a 120 s hang 
 vitest's 20 s default, and stayed green under the load burn at a measured 7.08× single-thread
 slowdown, measured 2026-09-19 during the conversion. `DOS_BUDGET_MS`, named
 in the original finding below, has been removed; `CLAMP_CHARS` remains as the input-size clamp, now
-paired with the ratio check in place of the fixed 8,000 ms wall-clock budget.
+paired with the ratio check in place of the fixed 8,000 ms wall-clock budget. The ratio is now the
+median of the per-pair ratios (see §592's Status), and all nine converted files stayed green with a
+20-process load step starting about 3 s into a `--maxWorkers=1` run, at a measured 3.25× slowdown.
 
 _Original finding, as filed 2026-09-19. Preserved as the dated record; see Status._
 
@@ -39965,7 +39972,9 @@ guards to a scaling ratio (§592, §593 class, `docs/timing-flake-592-593`); mac
 `npx vitest run src/app/document-asset-patterns.differential.test.ts -t "stays bounded on one huge tag" --maxWorkers=1 --reporter=dot`
 against three reverted-source mutants (predicate, ANY_TAG tag-name class, IMG_TAG without its §253
 guard), each staying green; the underlying regression this row is meant to catch is not reproduced —
-none is known.
+none is known. That command proves only the green half (the shipped row passes); the red half — that
+no mutant turns it red — comes from the mutant runs recorded on 2026-09-19 with each revert applied by
+hand, and no single command can re-verify it.
 
 **Work item:** #378
 
@@ -39979,8 +39988,11 @@ exclusion, a nested `+` inside `*`, `[^\s/>]*`, and the old `\b` predicate — w
 node replica and stayed linear; only a contrived, implausible `"(?:[^"]|a)*"` pattern went
 super-linear.
 
-No commit names a regression this row is meant to catch (`git log -S` on the row finds only the two
-test-only commits that added and converted it, neither with a source hunk). The row was already
+No commit names a regression this row is meant to catch:
+``git log -S'" x=1>`' --oneline -- src/app/document-asset-patterns.differential.test.ts`` returns one
+commit, `afcf29591`, which added the row and touched only that test file. One commit added it; none
+has a source hunk that changes the pattern it exercises (the conversion to a ratio left the row's text
+unchanged, so `-S` does not list it). The row was already
 unproven under the old fixed wall-clock ceiling this branch replaced — the guard has never had a
 demonstrated kill.
 
