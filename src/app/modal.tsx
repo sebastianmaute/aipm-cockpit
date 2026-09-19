@@ -57,6 +57,16 @@ import { FOCUSABLE_SELECTOR } from "./focusables";
  *  intentionally use a stronger variant and are not folded onto this. */
 export const MODAL_BACKDROP_CLASS = "bg-ui-dark-blue/40";
 
+/** Blur the focused element when it sits inside `root` (not `root` itself), returning it. */
+function blurFocusInside(root: HTMLElement | null): HTMLElement | null {
+  const active = typeof document !== "undefined" ? document.activeElement : null;
+  if (!root || !(active instanceof HTMLElement) || active === root || !root.contains(active)) {
+    return null;
+  }
+  active.blur();
+  return active;
+}
+
 interface BaseProps {
   /** When false the modal renders nothing and listeners aren't attached. */
   open: boolean;
@@ -194,7 +204,28 @@ export function Modal({
         // convincing it looks under React Testing Library.
         if (!claimsEscape(e, token)) return;
         e.preventDefault();
+        // ★★ §548 — BLUR BEFORE CLOSING. A field that commits a draft on blur (the Turso
+        // credentials group in `IntegrationsSection`, the SharePoint URL in
+        // `StorageConfigSection`) gets no reliable React `onBlur` when the dialog unmounts
+        // under it, so Escape silently dropped the draft. `blur()` dispatches focusout
+        // synchronously, so the commit lands before `onClose`. Only after the claim: an
+        // Escape owned by a layer above never reaches here. Backdrop click and the ✕ need
+        // nothing — their mousedown already moves focus.
+        const blurred = blurFocusInside(dialogRef.current);
         onCloseRef.current();
+        // ★ If `onClose` did not close (a busy or guarded host), put focus back rather than
+        // leave it on <body> behind an open dialog. Queued AFTER `onClose`, so React's own
+        // microtask flush of that update runs first and `dialogRef` reflects it (REASONED from
+        // React 19 scheduling a discrete-priority update on a microtask; the close case is
+        // pinned in `modal.test.tsx`, the flush order itself is not).
+        if (blurred) {
+          queueMicrotask(() => {
+            const root = dialogRef.current;
+            if (root && root.contains(blurred) && document.activeElement === document.body) {
+              blurred.focus();
+            }
+          });
+        }
         return;
       }
       if (e.key !== "Tab") return;

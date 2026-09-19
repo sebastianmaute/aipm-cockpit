@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StorageConfigSection } from "./storage-config";
+import { Modal } from "./modal";
 import { t } from "./i18n";
 
 vi.mock("./use-ms-auth", () => ({
@@ -136,6 +137,44 @@ describe("StorageConfigSection — SharePoint gating", () => {
       sitePath: "/sites/Alpha",
       itemPath: "Shared Documents/workspace.json",
     });
+  });
+
+  // §548 — inside a `Modal` host, Escape unmounted the field with no blur, so the blur commit
+  // never ran and the typed URL was dropped. Mutation: delete `blurFocusInside` in `modal.tsx`'s
+  // Escape branch → `onChange` is never called.
+  it("Escape in a Modal host commits the typed SharePoint URL before the dialog closes", async () => {
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => { cb(0); return 0; });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+    try {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const onClose = vi.fn();
+      render(
+        <Modal open onClose={onClose} ariaLabel="Storage">
+          <StorageConfigSection
+            {...baseProps({
+              config: { kind: "sp-json", hostname: "old.sharepoint.com", sitePath: "/sites/old", itemPath: "old.json" },
+              onChange,
+              m365Enabled: true,
+              sharepointEnabled: true,
+            })}
+          />
+        </Modal>,
+      );
+      const input = screen.getByPlaceholderText(/your-tenant.sharepoint.com/i);
+      await user.clear(input);
+      await user.type(input, "https://contoso.sharepoint.com/sites/Alpha/Shared%20Documents/workspace.json");
+      await user.keyboard("{Escape}");
+      expect(onChange).toHaveBeenCalledWith({
+        kind: "sp-json",
+        hostname: "contoso.sharepoint.com",
+        sitePath: "/sites/Alpha",
+        itemPath: "Shared Documents/workspace.json",
+      });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
