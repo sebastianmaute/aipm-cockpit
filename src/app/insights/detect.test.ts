@@ -238,7 +238,7 @@ describe("budgetVariance", () => {
     expect(detect({ budgets: [predecessor, successor], plan: PLAN }).filter((i) => i.type === "budgetVariance")).toHaveLength(0);
   });
 
-  // Ruling 4's other half — the not-started EARLY RETURN in ownBudgetHoursToDate must not be bypassed
+  // Ruling 4's other half — the not-started EARLY RETURN in bucketFiguresToDate must not be bypassed
   // by a positive spillover: a successor whose own window has not started is counted "once the bucket's
   // first period has started" (the ruling's own words), not the moment its predecessor closes. Here the
   // successor already has hours booked in one of its own (still-future) periods — actuals sum over every

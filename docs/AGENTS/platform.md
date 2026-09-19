@@ -181,16 +181,44 @@
   it STARTS, except the recommendation store, which checks it when it WRITES
   (`applyInsightRecommendation`'s `if (loadPending) return;`, the one choke point both the background
   runner and on-demand generate write through — a result computed during a hold is dropped, not
-  queued, and the runner's next tick regenerates it). Either way, a Graph pull/push already in flight
-  when a swap starts can still land its write after the swap resolves. Pre-existing, unchanged by this
-  batch.
+  queued, and the runner's next tick regenerates it).
+- ★★★ **`loadPending` ANSWERS "may I START?", NOT "may I still WRITE?" — that is what the SCOPE EPOCH
+  is for.** A Graph or AI call that began before a swap can resolve after the swap FINISHED, when
+  `loadPending` is false again, and write the previous project's result into the new project's
+  workspace. `useStorageBackend` therefore keeps a monotonic counter beside `loadPending`, bumped in an
+  effect on every false→true transition of it, and publishes a STABLE reader `getScopeEpoch` (a
+  `useCallback` over a ref — deliberately not a render value, which would re-render every consumer on
+  each swap). `scope-epoch.ts` holds the shared guard: a writer captures `getScopeEpoch()` BEFORE its
+  first await and calls `dropStaleScopeWrite` before it touches workspace state, which returns true and
+  logs one `storage.staleScopeWriteDropped` naming the writer. Dropped, never queued — the runners
+  regenerate. ★ A bump happens when scope stops being settled, so a result landing DURING a hold is
+  already stale; the epoch subsumes the `loadPending`-at-write question. ★ Bumped in an EFFECT, not in
+  render (a ref write during render trips the react-hooks purity rules): the one-commit lag is safe,
+  because a write landing inside it goes into scope that still holds the OUTGOING project and is then
+  replaced by the incoming load — lost, never misattributed. ★ Guarded today: `useEntityCalendarPush`
+  and `useOutlookCalendarPush` (TWICE each — once before any Graph mutation, once before the workspace
+  write, so a swap during the create/update loop orphans event ids rather than writing them onto the
+  next project's rows), `useEntityCalendarPull`, `useMilestoneCalendarPull`, `useCommitteeOutlookPush`,
+  `useInsightRecommend` and `useInsightRecommendRunner` (per CANDIDATE, and the tick `break`s — every
+  remaining candidate came from the project that just left). ★★ The reader is OPTIONAL at each child
+  hook, so a caller outside the storage hook's reach keeps the pre-§548 behaviour and is NOT guarded:
+  `tasks-section.tsx`'s own manual task push/pull, and the chat agent loop (which has no such reader at
+  all). Both `deps` members (`CalendarIntegrationDeps` / `InsightRecommendationDeps`) are REQUIRED, so
+  tsc proves `task-manager.tsx` hands the reader over. ★ Enumerate the guarded sites with
+  `grep -rn "dropStaleScopeWrite(" src/app --include=*.ts | grep -v test`.
 - ★ Pinned by `use-storage-backend.load-pending.test.tsx` (the signal, including before hydration and
   a SharePoint load that times out), `use-storage-backend.hold-ops.test.tsx` (all nine held ops: in
   flight, resolved, threw), `use-settings.hydration.test.ts` (hydration completes on a throw, without
   IndexedDB and at the bound), `fetch-with-timeout.test.ts` and `sharepoint-backend.test.ts` (the 10 s
   bound), `task-manager.load-hold.test.tsx` (render hold, pre-hydration hold, failed load with banner,
   reconcile, hotkey, popout exemption, wiring), `use-calendar-integrations.load-hold.test.ts`,
-  `use-insight-recommendations.test.tsx` and `e2e/load-hold.spec.ts`.
+  `use-insight-recommendations.test.tsx` and `e2e/load-hold.spec.ts`. The scope epoch adds
+  `scope-epoch.test.ts` (the guard), `use-storage-backend.load-pending.test.tsx` cases (h)+(i) (the
+  bump, and that settling does NOT bump), and a drop + a positive control per writer in
+  `use-entity-calendar-push.test.tsx`, `use-entity-calendar-pull.test.tsx`,
+  `use-outlook-calendar-push.test.tsx`, `use-milestone-calendar-pull.test.tsx`,
+  `use-committee-outlook-push.test.tsx`, `use-insight-recommend.test.tsx` and
+  `use-insight-recommend-runner.test.ts`.
 - ★ **The settings secret merge is itself bounded, and the bound has a cost.** `useSettings` races
   `migratePlaintextSecrets`/`hydrateSecretsInto` against `SECRET_MERGE_TIMEOUT_MS` (5 s; `use-settings.ts`)
   and falls back exactly like the existing throw path on a timeout, which is what keeps `hydrated`

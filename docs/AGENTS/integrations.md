@@ -63,7 +63,12 @@ entities: ★★ NEW entity types MUST use a TYPE-SCOPED category `categoryFor(p
 `useEntityCalendarPush<T>` (`use-entity-calendar-push.ts`) = a parameterized `useOutlookCalendarPush` clone (same
 404-on-PATCH self-heal, popout no-op). ★★ A MODULE-LEVEL `inFlightReconcile` Set keyed `${projectId}:${type}`
 serializes the auto + manual push instances so a manual click during an in-flight auto reconcile can't DOUBLE-CREATE
-(check-then-add is synchronous before the first await; released in `finally`). ★ `interactive:false` (auto runner)
+(check-then-add is synchronous before the first await; released in `finally`). ★★★ §548 — EVERY calendar hook that
+awaits Graph takes an optional `getScopeEpoch` and DROPS its workspace write when a project swap or backend change
+happened meanwhile (`dropStaleScopeWrite`, `scope-epoch.ts`; the load hold's own gates only ask when a call STARTS).
+`use-calendar-integrations.ts` threads the reader into all seventeen child-hook call sites; a hook mounted outside
+that reach — `tasks-section.tsx`'s own manual task push/pull — passes nothing and is NOT guarded. The full mechanism
+is in [platform.md](platform.md) "The load hold". ★ `interactive:false` (auto runner)
 → non-interactive token + FULLY SILENT (no result/partial/no-access toasts). **Tasks (SP1, v0.157+):**
 `Task.outlookEventId?` persists across the 6 write paths (mirrors `Milestone.outlookEventId` — CSV `CSV_COLUMNS`
 generic `fieldToString` default arm; MD decoder lives in `markdown-codecs-decode.ts` not `-core`; Turso derives from

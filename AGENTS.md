@@ -838,7 +838,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   backend-change reload and every project-swap op render `PanelSkeleton` instead — so EVERY panel, the
   two exceptions below included, mounts fresh after each; the sentinel rule applies to them too. A new
   BACKGROUND writer (timer, listener, interval) does not unmount and must gate on `loadPending` itself:
-  [`docs/AGENTS/platform.md`](docs/AGENTS/platform.md) "The load hold".
+  [`docs/AGENTS/platform.md`](docs/AGENTS/platform.md) "The load hold". ★★ AND THAT IS ONLY HALF —
+  `loadPending` answers "may I START?"; a writer that AWAITS (Graph, the AI) can resolve after the swap
+  FINISHED, when it is false again, so it must also capture `getScopeEpoch()` before its first await and
+  drop its write through `dropStaleScopeWrite` (`scope-epoch.ts`). Same file, same section.
   ★★★ **TWO PANELS ARE THE EXCEPTION AND THIS BULLET USED TO DENY IT** — it said flatly that
   workspace-section "renders ONLY the active tabpanel", which is true of 27 of its 29 tabpanels and
   FALSE for `panel-chat` and `panel-raid`: those two are mounted UNCONDITIONALLY and merely
