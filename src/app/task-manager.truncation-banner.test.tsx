@@ -552,3 +552,74 @@ describe("task-manager → destructive-refusal banner mount", () => {
     expect(destructiveDismiss.getAttribute("aria-label")).toBe(truncationDismiss.getAttribute("aria-label"));
   }, 45000);
 });
+
+// ── §586/§587: the LOAD pause (review I1) ─────────────────────────────────────
+// The storage hook publishes `loadPause` while the active backend's save gate is shut because its
+// load FAILED or came back EMPTY over a populated project. The refused-edit toast times out after
+// seven seconds; this banner is what keeps the pause visible. It has NO "save anyway": the live
+// workspace is the empty boot one or the previous target's project, so its primary action is
+// "Reload project".
+describe("task-manager → load-pause banner mount", () => {
+  let reload: ReturnType<typeof vi.fn>;
+
+  function loadPauseBanner() {
+    return screen.queryByRole("alert", { name: t("en-US", "storageSavingPaused") });
+  }
+
+  beforeEach(() => {
+    reload = vi.fn(async () => {});
+    override.value = {
+      storageReady: true,
+      truncation: null,
+      loadWasIncomplete: false,
+      allowIncompleteSave: override.allowIncompleteSave,
+      destructiveRefusal: null,
+      loadPause: "load-failed",
+      reloadCurrentProject: reload,
+    };
+  });
+
+  it.each([
+    ["load-failed", "storageSavePausedLoadFailed"],
+    ["empty-refused", "storageSavePausedEmptyLoad"],
+  ] as const)("mounts for %s with its own headline, and its primary action reloads", async (reason, key) => {
+    override.value = { ...override.value, loadPause: reason };
+    await mountApp();
+    const el = loadPauseBanner();
+    expect(el).not.toBeNull();
+    expect(within(el as HTMLElement).getByText(t("en-US", key))).toBeInTheDocument();
+    // Neither save-anyway label may reach this cause: there is nothing to save.
+    expect(within(el as HTMLElement).queryByRole("button", { name: t("en-US", "documentsTruncatedSaveAnyway") })).toBeNull();
+    fireEvent.click(within(el as HTMLElement).getByRole("button", { name: t("en-US", "reloadProject") }));
+    expect(reload).toHaveBeenCalledTimes(1);
+    // ...and it is THIS cause, not one of the other two banners.
+    expect(banner()).toBeNull();
+    expect(destructiveBanner()).toBeNull();
+  }, 45000);
+
+  it("dismiss hides the banner without resolving the pause, and the indicator brings it back", async () => {
+    await mountApp();
+    fireEvent.click(within(loadPauseBanner() as HTMLElement).getByRole("button", { name: /dismiss/i }));
+    await waitFor(() => expect(loadPauseBanner()).toBeNull());
+    expect(reload).not.toHaveBeenCalled();
+
+    const control = pausedControl();
+    expect(control).not.toBeNull();
+    fireEvent.click(control as HTMLElement);
+    await waitFor(() => expect(loadPauseBanner()).not.toBeNull());
+  }, 45000);
+
+  it("stops reporting storage as healthy while the load pause holds", async () => {
+    await mountApp();
+    await waitFor(() => expect(footerSeen.storageReady.length).toBeGreaterThan(0));
+    expect(footerSeen.storageReady.some((v) => v === true)).toBe(false);
+  }, 45000);
+
+  it("control: with no load pause the banner and the paused indicator are absent, and storage reads healthy", async () => {
+    override.value = { ...override.value, loadPause: null };
+    await mountApp();
+    expect(loadPauseBanner()).toBeNull();
+    expect(pausedControl()).toBeNull();
+    await waitFor(() => expect(footerSeen.storageReady).toContain(true), { timeout: 40000 });
+  }, 45000);
+});

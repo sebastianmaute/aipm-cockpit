@@ -110,24 +110,29 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // someone to delete the suppress-path re-stamp below. §77 has the seven arm
   // sites and its reproduce grep.
   const workspaceLoaded = loadedBackend !== null && loadedBackend === backend;
-  // ★★★ §586 — THE SAVE GATE: the backend whose load SUCCEEDED, so render scope may be written to it.
-  //   Before it, the boot workspace is EMPTY, and a save of it is `DELETE FROM` every Turso table, an
-  //   empty SharePoint PUT, an overwritten file. Every path that writes the live workspace to the
-  //   ACTIVE backend checks it: the save effect (no schedule), `doSave` (the debounce timer AND the
-  //   flush-on-hide, which both call it) and the pre-switch `flushCurrent`. Identity, like
-  //   `loadedBackend`, so a rebuilt backend starts closed and a failed load never opens it.
+  // ★★★ §586 — THE SAVE GATE: the backend instance render scope may be written to. Before it opens,
+  //   the boot workspace is EMPTY, and a save of it is `DELETE FROM` every Turso table, an empty
+  //   SharePoint PUT, an overwritten file. Every path that writes the live workspace to the ACTIVE
+  //   backend checks it: the save effect (no schedule), `doSave` (the debounce timer AND the
+  //   flush-on-hide, which both call it) and the pre-switch `flushCurrent`; a storage-KIND conversion
+  //   is refused while it is shut (`loadSucceeded` below). Identity, like `loadedBackend`, so a rebuilt
+  //   backend starts shut and a failed load never opens it.
   //   ★★ That covers a settings-driven REBUILD too (§587): a Turso URL/token keystroke or a SharePoint
-  //   target change builds a new instance with the PREVIOUS target's workspace still in scope, and the
-  //   gate stays shut until the new instance's own load is APPLIED.
-  // ★★ Opened wherever `loadedBackend` is stamped, plus one site it is not: an explicit "Pick storage
-  //   file" write (the backend then holds exactly what is in memory). So it is `workspaceLoaded` plus
-  //   that write — and it stays SHUT after the empty-load REFUSAL below. ★★★ Deliberately: the
-  //   refusal is reachable only when the load effect STARTED over populated scope (its
-  //   `currentWorkspace` is that render's closure), i.e. a REBUILD onto an empty target, and opening
-  //   there would copy the previous project into it (§587). Saving stays paused for that backend and
-  //   is announced like a failed load (`savesPausedForRef`); a reload or switch reopens it.
-  // ★ The REF is what `doSave`/`flushCurrent` read — they run after this render, possibly much
-  //   later; the STATE is a save-effect dep so the effect re-runs when the gate opens.
+  //   target change builds a new instance with the PREVIOUS target's workspace still in scope.
+  // ★★★ IT OPENS IN EXACTLY THREE PLACES, and only one of them is "a load of THIS instance":
+  //   1. `applyWorkspace` — the load effect's applied load, `reloadCurrentProject`, and the switch /
+  //      create / load-from-file ops (those stamp the render-scope, i.e. OUTGOING, instance);
+  //   2. the load effect's suppress-branch RE-STAMP after such an op — the op loaded a SIBLING instance
+  //      of the same target, built a fresh workspace, or (a kind conversion) wrote the live one there;
+  //      the memo's own instance is never loaded;
+  //   3. an explicit "Pick storage file" write — the backend then holds exactly what is in memory.
+  //   So it is `workspaceLoaded` plus (3). It stays SHUT after a failed load and after the empty-load
+  //   REFUSAL below. ★★★ The refusal is deliberate: it is reachable only when the load effect STARTED
+  //   over populated scope (its `currentWorkspace` is that render's closure), i.e. a REBUILD onto an
+  //   empty target, and opening there would copy the previous project into it (§587). Both states are
+  //   published as `loadPause`, which task-manager mounts on the sticky saving-paused banner.
+  // ★ The REF is what `doSave`/`flushCurrent`/`loadSucceeded` read — they run after this render,
+  //   possibly much later; the STATE is a save-effect dep so the effect re-runs when the gate opens.
   const [savesAllowedFor, setSavesAllowedFor] = useState<ReturnType<typeof createBackend> | null>(null);
   const savesAllowedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
   const savesAllowed = savesAllowedFor !== null && savesAllowedFor === backend;
@@ -137,9 +142,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     savesAllowedForRef.current = target;
     setSavesAllowedFor(target);
   };
-  // The backend whose load FAILED or was REFUSED as empty (so saving to it stays paused), and the
-  // one the save-paused toast was already shown for — once per backend, not once per refused edit.
-  const savesPausedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
+  // Why saving to an instance is paused: its load FAILED, or it came back EMPTY over a populated
+  // project and was refused. STATE, not a ref, because the banner must stay up for as long as the
+  // pause holds — a toast alone disappears after seven seconds (review I1). Published only while the
+  // gate for the CURRENT instance is shut, so any opener above clears it by construction.
+  const [savesPaused, setSavesPaused] = useState<{ backend: ReturnType<typeof createBackend>; reason: "load-failed" | "empty-refused" } | null>(null);
+  const loadPause = savesPaused !== null && savesPaused.backend === backend && !savesAllowed ? savesPaused.reason : null;
+  // The instance the save-paused toast was already shown for — once per backend, not per refused edit.
   const savePausedAnnouncedForRef = useRef<ReturnType<typeof createBackend> | null>(null);
 
   // Storage status
@@ -372,7 +381,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
           recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: true });
           emitToast("info", t(langRef.current, "storageKeptCurrentData"));
-          savesPausedForRef.current = backend; // ★★★ §587: the save gate stays SHUT — opening it here copied the previous project into this (empty) target. See `savesAllowedFor`; the save effect announces the pause.
+          setSavesPaused({ backend, reason: "empty-refused" }); // ★★★ §587: the save gate stays SHUT — opening it here copied the previous project into this (empty) target. See `savesAllowedFor`; the save effect announces the pause.
           truncationOps.raiseDecodeFailuresFor(backend); // ★★ Since §587 this refusal also leaves the save gate SHUT for THIS backend, but a later load that lands reopens it, so the flag is still published: a decode failure is a fact about its stored bytes, not about the workspace that stayed live — so the decode half is published while truncation's is not. AFTER the toast above: single-slot surface, see the landmine on `reportFor`. Raise-only; the doc on `raiseDecodeFailuresFor` carries why lowering here would clear a warning that is still true.
           await refreshBackendStatus();
           emitOutcome(null);
@@ -386,7 +395,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         emitOutcome(null);
       } catch (err) {
         if (cancelled) return;
-        savesPausedForRef.current = backend; // §586: saves stay refused; the save effect announces it on the first refused edit.
+        setSavesPaused({ backend, reason: "load-failed" }); // §586: saves stay refused; published as `loadPause` (sticky banner), and the first refused edit toasts once.
         emitOutcome(err);
         logDiag("error", "storage.loadFailed", { kind: settingsRef.current.storageConfig.kind, message: String(err) });
         // Turso connectivity/auth failures surface as the persistent storage
@@ -453,9 +462,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   run and the re-run the gate's opening triggers (`savesAllowed` is a dep) would re-write the
     //   workspace the op had just loaded.
     if (!savesAllowed) {
-      if (savesPausedForRef.current === backend && savePausedAnnouncedForRef.current !== backend) {
+      if (loadPause !== null && savePausedAnnouncedForRef.current !== backend) {
         savePausedAnnouncedForRef.current = backend;
-        emitToast("error", t(langRef.current, "storageSavePausedLoadFailed"));
+        // ★ The SAME shape as the destructive refusal's toast: it names the pause and its action
+        // re-shows the sticky banner (the toast itself times out; the banner is the lasting surface).
+        emitToastAction("error", t(langRef.current, loadPause === "empty-refused" ? "storageSavePausedEmptyLoad" : "storageSavePausedLoadFailed"), {
+          labelKey: "storageSavingPausedAction",
+          run: () => args.onRevealSavingPaused(),
+        });
       }
       return;
     }
@@ -799,6 +813,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     suppressNextLoadRef,
     emitStorageConfig,
     allowSavesToActiveBackend: () => allowSavesTo(backend),
+    loadSucceeded: () => savesAllowedForRef.current === backend,
     acquireToken: auth.acquireToken,
     setTasks,
     setRaid,
@@ -856,7 +871,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // number here — this comment said "sits AT" while the file had 14 lines of headroom.
   // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   return {
-    storageDescription, storageReady, workspaceLoaded,
+    storageDescription, storageReady, workspaceLoaded, loadPause,
     onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
     reloadCurrentProject, allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,

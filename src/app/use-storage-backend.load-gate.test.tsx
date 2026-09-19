@@ -83,6 +83,11 @@ function makeBackend(ms: number, outcome: "resolve" | "reject" = "resolve", stor
 }
 
 const showToast = vi.fn();
+const showToastAction = vi.fn();
+/** The save-paused announcements: an ACTION toast whose action re-shows the sticky banner. */
+function pausedToasts(key: "storageSavePausedLoadFailed" | "storageSavePausedEmptyLoad") {
+  return showToastAction.mock.calls.filter((c) => c[1] === t("en-US", key));
+}
 
 function makeArgs(storageConfig: StorageConfig = { kind: "browser" }): Parameters<typeof useStorageBackend>[0] {
   return {
@@ -91,7 +96,7 @@ function makeArgs(storageConfig: StorageConfig = { kind: "browser" }): Parameter
     hydrated: true,
     isPopout: false,
     showToast,
-    showToastAction: vi.fn(),
+    showToastAction,
     onRevealSavingPaused: vi.fn(),
     setStorageConfig: vi.fn(),
   };
@@ -187,8 +192,14 @@ describe("§586 — no save before a load for the current backend has succeeded"
     await advance(600);
 
     expect(backend.save).not.toHaveBeenCalled();
-    const paused = showToast.mock.calls.filter((c) => c[1] === t("en-US", "storageSavePausedLoadFailed"));
-    expect(paused).toEqual([["error", t("en-US", "storageSavePausedLoadFailed")]]);
+    const paused = pausedToasts("storageSavePausedLoadFailed");
+    expect(paused).toHaveLength(1);
+    expect(paused[0][0]).toBe("error");
+    expect(paused[0][2]).toMatchObject({ labelKey: "storageSavingPausedAction" });
+    // ★ review I1: the toast is gone after 7 s; the pause must stay PUBLISHED for the sticky banner.
+    await advance(8000);
+    expect(result.current.loadPause).toBe("load-failed");
+    expect(backend.save).not.toHaveBeenCalled();
   });
 
   it("(d) control: a fast load (100 ms) behaves exactly as before", async () => {
@@ -203,7 +214,8 @@ describe("§586 — no save before a load for the current backend has succeeded"
     await act(async () => { result.current.setTasks(EDIT); });
     await advance(600);
     expect(backend.save).toHaveBeenCalledTimes(1);
-    expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "storageSavePausedLoadFailed"));
+    expect(pausedToasts("storageSavePausedLoadFailed")).toHaveLength(0);
+    expect(result.current.loadPause).toBeNull();
   });
 
   it("(e) §587 — a REBUILT backend (e.g. a Turso URL/token edit) with a slow POPULATED load: nothing saved before its load, and the old workspace never", async () => {
@@ -299,8 +311,14 @@ describe("§586 — no save before a load for the current backend has succeeded"
 
     expect(b.save).not.toHaveBeenCalled();
     expect(a.save).not.toHaveBeenCalled();
-    const paused = showToast.mock.calls.filter((c) => c[1] === t("en-US", "storageSavePausedLoadFailed"));
-    expect(paused).toEqual([["error", t("en-US", "storageSavePausedLoadFailed")]]);
+    // ★ review I1: its OWN wording — "could not be loaded" is false here, the load came back empty.
+    expect(pausedToasts("storageSavePausedLoadFailed")).toHaveLength(0);
+    const paused = pausedToasts("storageSavePausedEmptyLoad");
+    expect(paused).toHaveLength(1);
+    expect(paused[0][2]).toMatchObject({ labelKey: "storageSavingPausedAction" });
+    await advance(8000); // the toast has timed out; the pause is still published
+    expect(result.current.loadPause).toBe("empty-refused");
+    expect(b.save).not.toHaveBeenCalled();
   });
 
   it("(i) a project switch still loads-then-suppresses: the gate adds no write to the target", async () => {
@@ -364,5 +382,85 @@ describe("§586 — no save before a load for the current backend has succeeded"
     expect(memo.save.mock.calls[0][0].tasks.map((x: Task) => x.id)).toEqual([1]);
     expect(current.save).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
+  });
+  // ── review I2: a storage-KIND conversion needs a project to convert ────────
+  // `onRequestStorageSwitch` copies the LIVE workspace into the new kind through `guardedWrite` and
+  // repoints the app at it. Before any load of the current storage was applied, that workspace is the
+  // empty boot one (or, after an empty-load refusal, the PREVIOUS target's project), so the
+  // conversion is refused, with a toast saying why, before the confirm dialog. (j) above is the
+  // after-a-successful-load control: it converts exactly as before.
+  async function expectConversionRefused(
+    result: { current: { onRequestStorageSwitch: (k: StorageConfig["kind"]) => Promise<void> } },
+    confirmSpy: { mock: { calls: unknown[] } },
+  ) {
+    const callsBefore = createBackendMock.mock.calls.length;
+    await act(async () => { await result.current.onRequestStorageSwitch("local-json"); });
+    expect(confirmSpy.mock.calls).toHaveLength(0); // refused BEFORE the "convert N tasks?" dialog
+    expect(createBackendMock.mock.calls.length).toBe(callsBefore); // no target was even built
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertRefusedNotLoaded"));
+  }
+
+  it("(k) a storage-kind conversion after a FAILED load is refused and says why", async () => {
+    const backend = makeBackend(100, "reject");
+    createBackendMock.mockReturnValue(backend);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const setStorageConfig = vi.fn();
+    const { result } = render({ ...makeArgs(), setStorageConfig });
+    await advance(200);
+
+    await expectConversionRefused(result, confirmSpy);
+    expect(setStorageConfig).not.toHaveBeenCalled();
+    expect(backend.save).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it("(l) a storage-kind conversion after an EMPTY-load refusal is refused and says why", async () => {
+    const a = makeBackend(100);
+    const b = makeBackend(100, "resolve", EMPTY);
+    createBackendMock.mockReturnValueOnce(a).mockReturnValue(b);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const setStorageConfig = vi.fn();
+    const { result, rerender } = render({ ...makeArgs(), setStorageConfig });
+    await advance(700);
+    rerender({ args: { ...makeArgs({ kind: "browser" }), setStorageConfig } });
+    await advance(700); // B's empty load is refused; A's project stays on screen
+    expect(result.current.loadPause).toBe("empty-refused");
+
+    await expectConversionRefused(result, confirmSpy);
+    expect(setStorageConfig).not.toHaveBeenCalled();
+    expect(b.save).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  // ── review M4: the gate under StrictMode ───────────────────────────────────
+  // ★★★ `reactStrictMode: true`, NOT a StrictMode inside the wrapper: RTL then renders
+  // `<StrictMode><Wrapper>…`, the shape that really double-invokes on mount
+  // (src/app/strictmode.meta.test.tsx). The double invoke is ASSERTED (two `load()` calls), so the
+  // test cannot go vacuous-but-green if the harness stops double-invoking.
+  // The StrictMode-only hazard: mount runs the load effect, cancels it, and runs it again. Here the
+  // CANCELLED first run's load fails late, after the live second run's load was applied. The gate
+  // must ignore it (no pause, no load-failure toast), and saving must work.
+  it("(m) StrictMode: a cancelled first-run load failing late neither pauses saving nor reports a failure", async () => {
+    const backend = makeBackend(0);
+    backend.load
+      .mockImplementationOnce(() => new Promise((_, reject) => { setTimeout(() => reject(new Error("stale boom")), 300); }))
+      .mockImplementationOnce(() => new Promise((resolve) => { setTimeout(() => resolve(STORED), 100); }));
+    createBackendMock.mockReturnValue(backend);
+    const { result } = renderHook((props: { args: Parameters<typeof useStorageBackend>[0] }) => useProbe(props.args), {
+      initialProps: { args: makeArgs() },
+      wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+      reactStrictMode: true,
+    });
+
+    await advance(700); // live load applied at 100, the stale one rejects at 300
+    expect(backend.load).toHaveBeenCalledTimes(2); // StrictMode really double-invoked
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1]);
+    expect(result.current.loadPause).toBeNull();
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("stale boom"));
+
+    await act(async () => { result.current.setTasks(EDIT); });
+    await advance(600);
+    expect(backend.save).toHaveBeenCalledTimes(1);
+    expect(pausedToasts("storageSavePausedLoadFailed")).toHaveLength(0);
   });
 });

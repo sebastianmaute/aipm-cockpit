@@ -4176,6 +4176,8 @@ const enUS = {
   storageKeptCurrentData: "Storage returned no data, so your current project was kept. Reload the page if this persists.",
   storageRefusedWipe: "Saving is paused - a large deletion was withheld. Review it in the banner above, or reload the page to restore your saved data.",
   storageSavePausedLoadFailed: "Saving is paused because the project could not be loaded. Changes you make now are not saved. Reload the project to try again.",
+  storageSavePausedEmptyLoad: "Saving is paused: this storage returned no data, so the project on screen was kept but is not written into it. Changes you make now are not saved. Check the storage settings, or reload the project to open the empty storage.",
+  storageConvertRefusedNotLoaded: "Can't convert the storage: no project was loaded from the current storage, so there is nothing to convert. Reload the project first.",
   storageDestructiveBanner: "Saving is paused. A large deletion was withheld to protect your project.",
   storageDestructiveBannerAria: "Saving paused - a large deletion was withheld",
   storageDestructiveCount: "{0} of {1} records would be removed.",

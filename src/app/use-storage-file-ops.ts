@@ -389,6 +389,8 @@ export interface StorageFilePickerDeps {
   emitStorageConfig: (config: StorageConfig) => void;
   /** §586: open the save gate for the ACTIVE backend — it now holds exactly the live workspace. */
   allowSavesToActiveBackend: () => void;
+  /** §586: is the ACTIVE backend's save gate open, i.e. does render scope hold its project? */
+  loadSucceeded: () => boolean;
   acquireToken: UseMsAuthResult["acquireToken"];
   setTasks: React.Dispatch<React.SetStateAction<readonly Task[]>>;
   setRaid: React.Dispatch<React.SetStateAction<readonly RaidItem[]>>;
@@ -475,6 +477,15 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     if (deps.isPopout) return;
     const current = deps.settingsRef.current.storageConfig;
     if (newKind === current.kind) return;
+    // ★★★ §586 (review I2): a conversion copies the LIVE workspace into the new kind and repoints the
+    // app at it. If the current storage's project never reached render scope (load failed, was refused
+    // as empty, or is still pending), what would be copied is the empty boot workspace or the previous
+    // target's project — on Turso a `DELETE FROM` every table of the target. Refuse, and say why,
+    // BEFORE the confirm dialog, which would otherwise ask the user to confirm "0 tasks".
+    if (!deps.loadSucceeded()) {
+      deps.emitToast("error", t(deps.langRef.current, "storageConvertRefusedNotLoaded"));
+      return;
+    }
     const newConfig: StorageConfig =
       (newKind === "sp-json" || newKind === "sp-csv") && (current.kind === "sp-json" || current.kind === "sp-csv")
         ? { ...current, kind: newKind }
