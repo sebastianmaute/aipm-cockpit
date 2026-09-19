@@ -39265,6 +39265,23 @@ Fix shape: after eye-checking the new Open Points screenshot against the real vi
 baseline with `npx playwright test e2e/visual.spec.ts --project=visual -g "Open Points" --update-snapshots`
 (on win32, since baselines are per-platform).
 
+A follow-up fix in the same branch closed the mechanism behind future recurrence, not just this one
+instance: `gotoApp` (`e2e/seed.ts`) freezes the browser clock to the shared `FROZEN_NOW`, which gets
+bumped whenever `sample-workspace-small.json`'s `DEMO_AS_OF` is refreshed (it already moved once,
+2026-06-15 → 2026-09-18) — expected for the rest of e2e, but it invalidates every "today"-relative pixel
+here regardless of any UI change. Re-running all three views before this fix found `visual: Gantt` failing
+on its own (54400 pixels different, ratio 0.05) with `visual: Dashboard` and `visual: Open Points` still
+passing, confirming a second, date-only drift path distinct from the UI-drift one above. `e2e/visual.spec.ts`
+now owns its own fixed instant (`VISUAL_FROZEN_NOW`, a literal copy of `FROZEN_NOW`'s value at the time of
+this fix) and passes it through `gotoApp`'s new optional `time` parameter, so a future `FROZEN_NOW` bump no
+longer forces these three baselines to be regenerated; the other e2e specs are unaffected, since they keep
+calling `gotoApp` with no second argument. All three baselines
+(`dashboard-visual-win32.png`/`gantt-visual-win32.png`/`open-points-visual-win32.png`) were regenerated and
+re-run clean twice. Moving `VISUAL_FROZEN_NOW` one day later in a throwaway edit (reverted; `git diff --stat`
+proved clean) reproduced a real, non-zero pixel diff on Dashboard and Gantt at `maxDiffPixelRatio: 0`
+(`visual: Open Points` still matched exactly at that tolerance for a one-day shift), confirming the pin is
+load-bearing.
+
 ## 574. "Load project from file" throws in Firefox/Safari and blames Settings instead of the browser — OPEN
 
 **Status:** OPEN 2026-09-18 — established by reading `fs-access.ts`, `use-storage-file-ops.ts` and

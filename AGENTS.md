@@ -222,6 +222,9 @@ npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts 
 npm run e2e                 # playwright (incl. the 17-view axe a11y gate)
 npm run e2e:smoke           # fast subset. e2e:visual / e2e:visual:update drive the visual-regression
                             # specs; e2e:ui opens the Playwright UI; e2e:install fetches browsers.
+                            # ★ The visual project pins its own frozen clock (`VISUAL_FROZEN_NOW` in
+                            # `e2e/visual.spec.ts`, passed through `gotoApp`'s `time` param) so a
+                            # `FROZEN_NOW` bump in `e2e/seed.ts` no longer forces a re-baseline (§573).
 npm run e2e:smoke:prod      # smoke against a REAL production server (build FIRST — it does not build).
                             # ★★★ THE ONLY LOCAL REPRODUCTION OF THE PROD CSP. `e2e:smoke` starts no
                             # server, so it is only ever pointed at a dev server — and dev grants

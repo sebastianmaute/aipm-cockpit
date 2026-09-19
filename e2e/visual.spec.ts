@@ -4,7 +4,9 @@ import { test, expect, gotoApp, openView } from "./seed";
 // whole game here:
 //   • seeded fixture  → fixed sample data (stable rows/colours)
 //   • frozen clock    → "today"-dependent rendering (RAG, due-soon, "as of …")
-//                       doesn't drift by run date
+//                       doesn't drift by run date, pinned to THIS file's own
+//                       instant (VISUAL_FROZEN_NOW below), not seed.ts's
+//                       FROZEN_NOW, so it survives that constant moving too
 //   • fonts ready     → no glyph-swap flicker between baseline and run
 //   • animations off  → toHaveScreenshot disables CSS animations/transitions
 //   • masked version  → the sidebar version label changes every release
@@ -16,6 +18,20 @@ import { test, expect, gotoApp, openView } from "./seed";
 // is therefore NOT part of the default `npm run e2e` (functional) run.
 
 const VISUAL_VIEWS = ["Dashboard", "Gantt", "Open Points"] as const;
+
+// §573: a fixed instant OWNED by this file, not imported from seed.ts's
+// `FROZEN_NOW`. Every "today"-relative pixel (the RAG status of a task/bar,
+// the Gantt today-line and its visible window, due-soon highlighting) is
+// stable only as long as the frozen instant `gotoApp` installs never moves —
+// but `FROZEN_NOW` is the shared demo as-of date and gets bumped whenever
+// `sample-workspace-small.json`'s `DEMO_AS_OF` is refreshed (it already moved
+// once, 2026-06-15 → 2026-09-18), which is expected for the rest of e2e and
+// fatal for a pixel baseline. A literal copy of today's `FROZEN_NOW` value,
+// decoupled here, means a future bump no longer forces these three baselines
+// to be regenerated. Pick a fresh instant only if it drifts outside the
+// sample data's populated date range (see e2e/seed.ts's `plan`/`budgetHistory`
+// comments for that range).
+const VISUAL_FROZEN_NOW = new Date("2026-09-18T09:00:00.000Z");
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -37,8 +53,10 @@ for (const name of VISUAL_VIEWS) {
     await page.addInitScript(() => {
       localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
     });
-    // gotoApp freezes the clock (see seed.ts FROZEN_NOW) for determinism.
-    await gotoApp(page);
+    // gotoApp freezes the clock to VISUAL_FROZEN_NOW (this file's own fixed
+    // instant, not seed.ts's FROZEN_NOW — see the comment above) for
+    // determinism that survives a DEMO_AS_OF refresh.
+    await gotoApp(page, VISUAL_FROZEN_NOW);
     await openView(page, name);
 
     // Wait for web fonts so text metrics match the baseline. No fixed sleep:
