@@ -26,7 +26,6 @@ import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../por
 import { getTursoConfig, isUsableTursoUrl } from "../turso-config";
 import { testTursoConnection } from "../turso-pipeline";
 import { tursoErrorKind } from "../storage-error";
-import { INTERACTIVE } from "../interaction-styles";
 import { SECRET_MERGE_TIMEOUT_MS, writeSettings } from "../use-settings";
 import { loadRegistry } from "../projects-registry";
 import { defaultStorageConfig } from "../workspace";
@@ -969,10 +968,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               Hidden when the env supplies both values: there is nothing to draft. */}
           <div className="flex flex-wrap gap-2">
           {tursoIsLive && !(envTursoUrlUsable && envTursoTokenSet) && (
+            // ★ Same `size` as "Test connection" beside it; the transparent border matches the
+            //   secondary variant's 1px border, so the two buttons are the same height.
             <Button
               variant="primary"
-              size="sm"
-              className="self-start whitespace-nowrap"
+              size="xs"
+              className="whitespace-nowrap border border-transparent"
               disabled={!canApplyTurso}
               onClick={applyTursoDrafts}
               aria-label={t(lang, "integrationsTursoApplyLabel")}
@@ -980,15 +981,16 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               {t(lang, "integrationsTursoApply")}
             </Button>
           )}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="xs"
+            className="whitespace-nowrap"
             onClick={() => void runTursoTest()}
             disabled={tursoTesting || !tursoConfigured}
             aria-label={t(lang, "integrationsTursoTestLabel")}
-            className={`self-start rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-ui-dark-blue disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
           >
             {t(lang, "integrationsTursoTest")}
-          </button>
+          </Button>
           </div>
           <p role="status" className="text-xs text-muted-foreground">
             {/* ★ No `?.` — `tursoTestFresh` opens with `tursoTest !== null`, and
