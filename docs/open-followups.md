@@ -816,6 +816,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§591](#591-after-a-turso-urltoken-or-sharepoint-target-change-the-previous-projects-activity-log-and-budget-history-are-merged-into-the-new-target--open) | After a Turso URL/token or SharePoint target change, the previous project's activity log and budget history are merged into the new target — OPEN | §586 whole-branch review (I1), read from code, pre-existing; GitLab #375 | M — decide how a load tells a refresh of the same project from a new target | open |
 | [§592](#592-the-50-ms-wall-clock-ceiling-in-tag-pair-walktestts-can-fail-a-correct-build-under-load--closed-2026-09-19) | The 50 ms wall-clock ceiling in tag-pair-walk.test.ts can fail a correct build under load — CLOSED 2026-09-19 | found 2026-09-19 reading the test's own comment, no failure observed; GitLab #376 | S — a load-independent assertion, or evidence the ceiling holds under CI load | **CLOSED** 2026-09-19 |
 | [§593](#593-html-extracts-8000-ms-dos-budget-test-failed-at-8301-ms-under-a-saturated-full-suite-run--closed-2026-09-19) | html-extract's 8000 ms DoS-budget test failed at 8301 ms under a saturated full-suite run — CLOSED 2026-09-19 | observed 2026-09-08 in a local full-suite run, filed 2026-09-19; GitLab #377 | S — a load-independent assertion, or a ceiling with margin measured under load | **CLOSED** 2026-09-19 |
+| [§594](#594-the-document-asset-patterns-one-huge-tag-scaling-ratio-row-has-no-known-mutant-that-turns-it-red--open) | The document-asset-patterns "one huge tag" scaling-ratio row has no known mutant that turns it red — OPEN | found 2026-09-19 converting the file's timing guards to a scaling ratio (§592, §593 class); GitLab #378 | S — find the regression it guards, or delete/re-scope the row | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -39956,3 +39957,34 @@ load, tripped exactly once under contention rather than by a real regression in 
 **The fix shape:** a load-independent assertion, or a ceiling carrying margin measured under a
 saturated full-suite run, without letting a genuine quadratic regression in the pair-regex walk pass
 silently.
+
+## 594. The document-asset-patterns "one huge tag" scaling-ratio row has no known mutant that turns it red — OPEN
+
+**Status:** OPEN 2026-09-19 — found converting `document-asset-patterns.differential.test.ts`'s timing
+guards to a scaling ratio (§592, §593 class, `docs/timing-flake-592-593`); machine-verified by
+`npx vitest run src/app/document-asset-patterns.differential.test.ts -t "stays bounded on one huge tag" --maxWorkers=1 --reporter=dot`
+against three reverted-source mutants (predicate, ANY_TAG tag-name class, IMG_TAG without its §253
+guard), each staying green; the underlying regression this row is meant to catch is not reproduced —
+none is known.
+
+**Work item:** #378
+
+The `"one huge tag"` row (`` `<img alt="${"a".repeat(n)}" x=1>` ``) is one of the `ADVERSARIAL` rows
+converted to `expectLinearScaling`. Against all three historical mutants — the predicate widened to
+`[^>]*`, `ANY_TAG_ASSET_ID_RE`'s tag-name class widened to `[^\s/>"']*`, and `IMG_TAG_ASSET_ID_RE`
+without its §253 guard — the row stayed linear, with green ratios of 4.08, 3.90 and 3.97
+respectively (the guard's pass threshold is a ratio under 8; a real quadratic regression measures
+near 16 elsewhere in the same file). Several other plausible variants — `[^<>]` without the quote
+exclusion, a nested `+` inside `*`, `[^\s/>]*`, and the old `\b` predicate — were also checked in a
+node replica and stayed linear; only a contrived, implausible `"(?:[^"]|a)*"` pattern went
+super-linear.
+
+No commit names a regression this row is meant to catch (`git log -S` on the row finds only the two
+test-only commits that added and converted it, neither with a source hunk). The row was already
+unproven under the old fixed wall-clock ceiling this branch replaced — the guard has never had a
+demonstrated kill.
+
+**The open question:** find the regression this row is meant to guard against, so a mutant can prove
+it, or delete the row, or re-scope it to a pattern that does have a known quadratic case. The row's
+own comment in `document-asset-patterns.differential.test.ts` (beside the `"one huge tag"` entry)
+already records it as unproven rather than claimed as covered.
