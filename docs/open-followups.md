@@ -802,6 +802,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§577](#577-the-budgetvariance-insight-compares-full-window-budget-against-to-date-actuals-so-open-buckets-with-future-months-are-flagged-and-an-unstarted-bucket-can-read-100-and-win-worst--open) | The budgetVariance insight compares full-window budget against to-date actuals, so open buckets with future months are flagged and an unstarted bucket can read 100% and win "worst" — OPEN | json-import-multi-attach-demo-refresh (2026-09-18), found + verified against sample-workspace-small.json during Task 9; GitLab #362 | M — scope budgetHours to periods to-date, and/or exclude unstarted buckets from "worst" | open |
 | [§578](#578-quadratic-regexes-outside-the-ooxml-extractors-html-to-text-narrative-html-raid-escalation-and-the-markdown-fenced-block-reads--open) | Quadratic regexes outside the OOXML extractors: html-to-text, narrative-html, raid-escalation and the markdown fenced-block reads — OPEN | audit (2026-09) | M | open |
 | [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN | audit (2026-09) | S | open |
+| [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19) | A startup autosave saves the empty workspace over the stored project before the first load lands — CLOSED 2026-09-19 | found 2026-09-19 by the startup-autosave probe; filed and fixed on fix/startup-autosave-wipe; GitLab #371 | S — gate every save to the active backend on a successful load | closed |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -39479,3 +39480,49 @@ the same reason (a 58 KB input rendered 8 MB before that cap existed). Reusing t
 the two extractors consistent.
 
 Related: [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-unclosed-markup--closed-2026-09-18) (the per-row cap).
+
+## 586. A startup autosave saves the empty workspace over the stored project before the first load lands — CLOSED 2026-09-19
+
+**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe` (`84185ece`), filed and fixed on the same branch; GitLab #371 is closed by the MR that merges it, not by this entry. `use-storage-backend.ts` now carries a save gate, `savesAllowedFor` (state + ref, keyed on backend IDENTITY like `loadedBackend`), that opens only once a load for THAT backend instance has succeeded. Three paths check it: the save effect (it schedules nothing while the gate is shut), `doSave` (the debounce timer and flush-on-hide both call it, and nothing else in `debounced-save.ts` reaches the save), and the pre-switch `flushCurrent`, which now skips rather than writing the unloaded workspace over the project being left. After a FAILED load the first refused edit shows `storageSavePausedLoadFailed` through the existing error toast, once per backend. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`.
+
+At boot every workspace slice is empty, and the save effect runs on the same commit as the load
+effect because both key on `hydrated`. Nothing on the save path refused a save issued before the load
+landed. `evaluateSaveGuard` starts from 0/0 baselines, so it had nothing to compare against.
+`suppressNextSaveRef` is set only after a SUCCESSFUL load, and `workspaceLoaded` gated snapshot capture
+only. So the debounced save of the empty workspace fired unless the load won the 500 ms race. Hiding
+the tab during the load defeated even that race: flush-on-hide fired the save at once.
+
+**What was MEASURED vs what was READ.** A throwaway probe mounted the real hook over a fake backend on
+fake timers. It MEASURED three things. With a 2000 ms load, `save()` ran at 500 ms with every slice
+empty. With a 100 ms load, no save ran. With `visibilitychange` to hidden at 100 ms, the save ran at
+100 ms. Only the hook-level save was exercised. The per-backend damage was READ from the backends'
+code, never executed:
+- Turso single-DB: the backend's diff baseline is still `null`, so the save emits `DELETE FROM` for
+  every `TABLE_NAMES` table. Full wipe.
+- Turso tenant: the same diff, scoped `WHERE project_id = ?`, wipes the active project.
+- SharePoint: a full-file PUT of the empty workspace.
+- Local file: a rewrite with the empty workspace where write permission is already granted.
+  Otherwise the save throws `local-file-permission-needed`, which protects the file by accident.
+- IndexedDB: the keyed stores diff against empty baselines and are spared, but every key-value slice
+  is overwritten or deleted.
+
+**The fix, and why the gate is not `workspaceLoaded`.** The two differ at one site: the empty-load
+REFUSAL, where a load SUCCEEDED but was not applied. There `loadedBackend` is deliberately not stamped
+([§77](#77-the-snapshot-capture-gate-is-a-one-way-latch-so-a-mid-session-storage-switch-can-still-capture-the-wrong-project--closed-post-02260)). But the load succeeded,
+so saving goes on as it did before §586. The gate also opens wherever `loadedBackend` is stamped, and
+after an explicit "Pick storage file" write, since the backend then holds exactly the live workspace.
+The effect-level check sits ABOVE the suppress branch, and `savesAllowed` is an effect dep. So a
+project switch spends its one-shot suppress when the gate opens, not on the run where the gate is
+still shut. Placing the check below the suppress branch would re-write the just-loaded workspace to
+the target.
+
+★★ **The two checks mask each other, so a single-gate mutant proves little.** Removing either check
+alone leaves (a) and (b) green; removing both turns six of the nine tests red. The `doSave` check
+cannot be the sole guard today, because a backend change re-runs the effect and cancels the pending
+save. It is there so that a future path which schedules without the effect's check still cannot write.
+
+★ **Out of scope, noted.** The empty-load refusal is reachable only when the load effect started with
+data already on screen, which means a backend REBUILD (a Turso URL or token change, or a new
+`acquireToken` identity). On that path the kept workspace is then saved to the NEW backend. That is
+unchanged from before §586, is pinned as unchanged by test (h), and is the cross-target write the
+probe flagged as a separate question.

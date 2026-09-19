@@ -56,7 +56,8 @@ it has no table of its own, NOT because it sits outside the workspace.
   not a workspace slice, and the comment above `applyRestoredWorkspace` already says the restore
   funnel deliberately omits it. Four SLICES, five NAMES; a reader who stops at the count will think
   this line is wrong. ★ A range that stops at `setCalendarEvents` hides `setLoadedBackend` and returns
-  four — it is deliberately the LAST call in `applyWorkspace`, so end the range at the function's close
+  four — it is deliberately the LAST setter in `applyWorkspace` (only the §586 save-gate call
+  `allowSavesTo`, which the `set` grep does not match, follows it), so end the range at the function's close
   brace. ★ It does NOT hide `setDocumentAssets`, which shares `setCalendarEvents`' source line.
   ★★★ RUN THESE RATHER THAN PARAPHRASE THEM. The paragraph above described this diff in prose
   ("extract the setter names … and `comm` them") while the code comment that carried the real command
