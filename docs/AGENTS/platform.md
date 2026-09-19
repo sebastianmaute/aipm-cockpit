@@ -129,6 +129,19 @@
   field vanishes under the cursor. The Turso URL and token in `integrations-section.tsx` are drafts
   committed on blur, and the memo reads them only for storage kind "turso"
   (`integrations-section.backend-hold.test.tsx` pins both halves).
+  ★★ "On blur" means **when focus leaves the credentials GROUP** (`handleCredentialsBlur`), not the
+  field: a per-field commit on Turso storage remounted Settings on the way to the next control and
+  swallowed its click ("Test connection" needed two). Buttons that act on the drafts also prevent
+  their mousedown (`keepFocusOnMouseDown` — WebKit does not focus a clicked button, so the group
+  test alone cannot see the click). ★ Keyboard: Tab inside the group commits nothing; Tab OUT of it
+  on Turso storage commits, rebuilds and remounts, and focus falls to `<body>` — accepted, it
+  happens once per real target change. Three more ways a draft was lost, each pinned in
+  `integrations-section.drafts.test.tsx`: Escape in a `Modal` host (fixed in `modal.tsx`, which now
+  blurs before `onClose` — see `docs/AGENTS/ui-shell.md` dismissal); "Save & switch" reloading before
+  the token's device-seal settled (it waits on `pendingTokenSeals`, tracked at MODULE scope because
+  the instance that started the seal may already be remounted away, and folds any uncommitted draft
+  into what it persists); and the render-time reconcile overwriting a DIRTY draft when the stored
+  value moved (it now resyncs a clean draft only).
 - ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
   (`task-manager.tsx`), the recommendation store `applyInsightRecommendation`
   (`use-insight-recommendations.ts`, which both the background runner and the on-demand generate write
