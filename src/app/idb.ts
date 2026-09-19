@@ -41,7 +41,24 @@ async function openIdb(): Promise<IDBDatabase> {
       reject(new Error("IndexedDB unavailable"));
       return;
     }
+    // `blocked` fires when an older tab (running an earlier IDB_VERSION)
+    // still holds a connection open with no onversionchange handler of its
+    // own — the upgrade transaction then waits with no further event until
+    // that tab closes. Reject rather than hang so the caller's load fails
+    // instead of holding the app forever. `settled` guards the one race
+    // this creates: a blocked request can still fire onsuccess later, once
+    // the other tab closes on its own — that late connection must be
+    // closed immediately rather than leaked or resolved a second time.
+    let settled = false;
     const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onblocked = () => {
+      settled = true;
+      reject(
+        new Error(
+          "IndexedDB upgrade is blocked by another open tab of this app. Close the other tabs and reload.",
+        ),
+      );
+    };
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(IDB_KV_STORE)) {
@@ -75,8 +92,27 @@ async function openIdb(): Promise<IDBDatabase> {
         db.createObjectStore(IDB_BUDGETS_STORE, { keyPath: "id" });
       }
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      if (settled) {
+        // A blocked request that already rejected can still succeed once
+        // the blocking tab closes. Nobody is waiting on this connection
+        // any more — close it rather than leak it or resolve twice.
+        db.close();
+        return;
+      }
+      settled = true;
+      // Every connection this resolves yields to a NEWER tab's upgrade:
+      // this tab may itself be the one blocking someone else later. Older
+      // builds (pre-dating this handler) don't have it, which is why
+      // onblocked above is still needed on the other side of that race.
+      db.onversionchange = () => db.close();
+      resolve(db);
+    };
+    req.onerror = () => {
+      settled = true;
+      reject(req.error);
+    };
   });
 }
 
