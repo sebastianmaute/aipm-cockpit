@@ -12,7 +12,7 @@
 // Uses fake-indexeddb for a real IDB implementation under jsdom, same setup
 // as storage-browser-kv.test.ts / browser-backend.test.ts.
 import "fake-indexeddb/auto";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { idbGet } from "./idb";
 
@@ -127,25 +127,37 @@ describe("openIdb — blocked upgrade", () => {
   });
 
   it("closes a late connection that succeeds after the blocked promise already rejected", async () => {
-    await deleteIdb();
-    const blockerDb = await openBlockerConnection();
+    // A later raw open one version higher is NOT a valid proof by itself: a
+    // late connection that merely gains an `onversionchange` handler (but is
+    // never closed up front) also yields once THAT open fires versionchange
+    // on it — so a "does a later open still succeed" check cannot tell
+    // "closed immediately" (Req 3) apart from "leaked, but happens to yield
+    // when something else later asks". Spy on the close the fix must make
+    // and assert it fires with no further open involved.
+    const closeSpy = vi.spyOn(IDBDatabase.prototype, "close");
+    try {
+      await deleteIdb();
+      const blockerDb = await openBlockerConnection();
 
-    await expect(
-      withTimeout(idbGet("any-key"), 2000, "idbGet to reject as blocked"),
-    ).rejects.toThrow(BLOCKED_MESSAGE);
+      await expect(
+        withTimeout(idbGet("any-key"), 2000, "idbGet to reject as blocked"),
+      ).rejects.toThrow(BLOCKED_MESSAGE);
 
-    // The blocker closes, letting the earlier (already-rejected) open finish
-    // its upgrade and fire the late onsuccess this fix must not leak.
-    blockerDb.close();
+      // Closing the blocker lets the earlier (already-rejected) open finish
+      // its upgrade and fire the late onsuccess this fix must not leak. This
+      // call is the blocker's OWN manual close, not the fix under test — it
+      // sets the baseline the fix's own close call must exceed.
+      blockerDb.close();
+      const callsAfterBlockerCloses = closeSpy.mock.calls.length;
 
-    // If the late connection were left open, this next open one version
-    // higher would itself be blocked by it.
-    const outcome = await withTimeout(
-      rawOpenOutcome(CURRENT_IDB_VERSION + 1),
-      2000,
-      "post-close open to succeed",
-    );
-
-    expect(outcome).toBe("success");
+      await vi.waitFor(
+        () => {
+          expect(closeSpy.mock.calls.length).toBeGreaterThan(callsAfterBlockerCloses);
+        },
+        { timeout: 2000, interval: 20 },
+      );
+    } finally {
+      closeSpy.mockRestore();
+    }
   });
 });
