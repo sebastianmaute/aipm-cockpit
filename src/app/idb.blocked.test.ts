@@ -99,6 +99,19 @@ function rawOpenOutcome(version: number): Promise<"blocked" | "success" | "error
   });
 }
 
+/** Shared setup+assertion for (a) and (c): delete the DB, open a blocking (old-build-shaped)
+ *  connection with no `onversionchange` handler, and assert that a public `idb.ts` open rejects
+ *  with the exact blocked message. Returns the blocker connection so the caller can close it —
+ *  (a) closes it immediately, (c) closes it to observe the late connection this fix must not leak. */
+async function assertBlockedRejection(): Promise<IDBDatabase> {
+  await deleteIdb();
+  const blockerDb = await openBlockerConnection();
+  await expect(
+    withTimeout(idbGet("any-key"), 2000, "idbGet to reject as blocked"),
+  ).rejects.toThrow(BLOCKED_MESSAGE);
+  return blockerDb;
+}
+
 describe("openIdb — blocked upgrade", () => {
   beforeEach(() => {
     // Fresh in-memory IDB per test so connections/blocks don't leak across
@@ -110,15 +123,8 @@ describe("openIdb — blocked upgrade", () => {
   });
 
   it("rejects with the exact message when another tab's connection blocks the upgrade", async () => {
-    await deleteIdb();
-    const blockerDb = await openBlockerConnection();
-    try {
-      await expect(
-        withTimeout(idbGet("any-key"), 2000, "idbGet to reject as blocked"),
-      ).rejects.toThrow(BLOCKED_MESSAGE);
-    } finally {
-      blockerDb.close();
-    }
+    const blockerDb = await assertBlockedRejection();
+    blockerDb.close();
   });
 
   it("closes on versionchange so a newer tab's open succeeds instead of blocking", async () => {
@@ -150,12 +156,7 @@ describe("openIdb — blocked upgrade", () => {
     // and assert it fires with no further open involved.
     const closeSpy = vi.spyOn(IDBDatabase.prototype, "close");
     try {
-      await deleteIdb();
-      const blockerDb = await openBlockerConnection();
-
-      await expect(
-        withTimeout(idbGet("any-key"), 2000, "idbGet to reject as blocked"),
-      ).rejects.toThrow(BLOCKED_MESSAGE);
+      const blockerDb = await assertBlockedRejection();
 
       // Closing the blocker lets the earlier (already-rejected) open finish
       // its upgrade and fire the late onsuccess this fix must not leak. This
