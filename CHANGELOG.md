@@ -8,6 +8,22 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.12.3] - 2026-09-19 "Child"
+
+Test infrastructure only — no production code changes, no user-visible behaviour change.
+
+### Changed
+
+- **Unit-test timing guards are no longer wall-clock ceilings.** Every timed test now uses
+  `expectLinearScaling` (`src/test/scaling.ts`), which times the code at two input sizes — n and 4n,
+  paired back to back — and judges the median of the per-pair ratios against a limit of 8, so ordinary
+  machine load can no longer fail a correct build; a real quadratic regression still fails, at a ratio
+  of about 16. 22 call sites across 9 test files were converted, and the xlsx XFD test dropped its
+  timing check while keeping its exact output check. Each converted guard was proven against its
+  historical regression at a ratio of at least 12, and every one keeps a 120 s hang backstop. `§592`
+  and `§593` are closed; `§594` is filed open, since the document-asset-patterns "one huge tag" row has
+  no known regression to prove its guard against.
+
 ## [1.12.2] - 2026-09-19 "Child"
 
 A data-loss patch. Three places could lose data without saying so: the assistant's review card, a
