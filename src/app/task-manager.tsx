@@ -219,7 +219,7 @@ function TaskManagerInner() {
   // to the other hotkey hooks.
   const allowDestructiveSaveRef = useRef<(() => void) | undefined>(undefined);
   const isPopoutRef = useRef(isPopout);
-  const loadPendingRef = useRef(false); // §548 — filled beside `allowDestructiveSaveRef`, read by the undo hotkey below.
+  const loadPendingRef = useRef(true); // §548 — filled beside `allowDestructiveSaveRef`, read by the undo hotkey below. Starts TRUE (fail safe) so a keystroke landing before the first effect commit cannot slip through the false-by-default window; `loadPending` itself is true pre-hydration anyway (ruling 8), so the effect below overwrites this immediately either way.
   const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
   const readOnlyForUndo = useCallback(() => isPopoutRef.current, []);
   const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo, isReadOnly: readOnlyForUndo });

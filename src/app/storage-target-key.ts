@@ -35,7 +35,16 @@ export function storageTargetKey(input: StorageTargetInput): string {
     case "sp-json":
     case "sp-csv":
       return JSON.stringify([config.kind, config.hostname, config.sitePath, config.itemPath]);
-    default:
+    case "browser":
+    case "local-json":
+    case "local-csv":
+    case "local-md":
       return JSON.stringify([config.kind]);
+    default: {
+      // Exhaustiveness check: an unhandled StorageConfig kind is a compile error here, not a silent
+      // fall-through to a key some other kind might collide with.
+      const exhaustiveCheck: never = config;
+      throw new Error(`storageTargetKey: unhandled StorageConfig kind ${JSON.stringify(exhaustiveCheck)}`);
+    }
   }
 }

@@ -122,6 +122,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     tursoProjectId,
   });
   const scopeTargetKeyRef = useRef<string | null>(null);
+  // §591 — the one place the "merge onto the same target, else replace" ternary is decided, shared by
+  // the load effect's applied branch and reloadCurrentProject (previously duplicated at both sites).
+  // Reads the ref BEFORE stamping it to the CURRENT load's target — same order as the duplicated code.
+  const resolveLogModeAndStamp = (): "merge" | "replace" => {
+    const logMode = scopeTargetKeyRef.current === targetKey ? "merge" : "replace";
+    scopeTargetKeyRef.current = targetKey;
+    return logMode;
+  };
 
   // ★★★ IDENTITY, NOT A LATCH (open-followups §77 — full rationale there).
   // Holds the BACKEND the applied workspace came from; the published boolean is
@@ -442,8 +450,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         }
         // §591 — "merge" (keep appends made while this load was in flight) ONLY onto the same target;
         // after a rebuild onto another target, scope holds the previous project, so REPLACE.
-        applyWorkspace(workspace, "reset", scopeTargetKeyRef.current === targetKey ? "merge" : "replace");
-        scopeTargetKeyRef.current = targetKey;
+        applyWorkspace(workspace, "reset", resolveLogModeAndStamp());
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
         truncationOps.reportFor(backend); // ★ after applyWorkspace only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the TRUNCATION flag would describe the workspace that is actually live. ★★ That reasoning is TRUNCATION-specific and does NOT extend to the decode cause — the refusal path publishes that one itself, just above.
         suppressNextSaveRef.current = true;
@@ -908,8 +915,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // §591 — "merge" (a reload must not drop this device's entries) ONLY while scope holds THIS target's
       // project. After a rebuild onto an EMPTY target the refusal left the previous project in scope, and
       // `reloadEmptyConfirm` promises the user a REPLACE.
-      applyWorkspace(workspace, "raise", scopeTargetKeyRef.current === targetKey ? "merge" : "replace");
-      scopeTargetKeyRef.current = targetKey;
+      applyWorkspace(workspace, "raise", resolveLogModeAndStamp());
       // Confirm the manual recovery action succeeded (a bare re-render gives no feedback that the reload actually re-read the backend).
       // ★★ BEFORE `reportFor`, not after — single-slot surface, see the landmine there. Safe to hoist past the await: `refreshBackendStatus` swallows every error, so this cannot report success over a status check that blew up.
       emitToast("success", t(langRef.current, "reloadProjectSuccess"));
