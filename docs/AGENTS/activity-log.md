@@ -50,8 +50,10 @@ it has no table of its own, NOT because it sits outside the workspace.
   The ref is stamped on the load effect's first hydrated run (so the boot load merges this session's own
   appends), on every applied load and on the suppress-branch re-stamp after a project op; the empty-load
   refusal and a failed load leave it alone, so a later "Reload project" onto that target REPLACES, as
-  `reloadEmptyConfirm` says. An M365 sign-in/out (an `acquireToken`-only rebuild) keeps merging. Pinned
-  by `use-storage-backend.target-key.test.tsx`.
+  `reloadEmptyConfirm` says. `acquireToken` is excluded so that IF its identity ever changed (a rebuild
+  against the same target), the load would keep merging; today `useMsAuth`'s `acquireToken` is a stable
+  `useCallback`, so an M365 sign-in/out does not rebuild the backend at all. Pinned by
+  `use-storage-backend.target-key.test.tsx`.
   ★★ **`applyRestoredWorkspace` (`task-manager.tsx`, the SECOND load funnel) deliberately does NOT set
   `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
   `activityLog`, so fanning it out would blank the audit trail on every version restore.

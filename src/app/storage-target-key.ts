@@ -2,9 +2,12 @@ import type { StorageConfig } from "./workspace";
 
 /**
  * §591 — the inputs that decide WHICH stored project a backend reads. They mirror `createBackend`'s
- * inputs with ONE deliberate omission: `acquireToken`. An M365 sign-in or sign-out rebuilds the
- * backend against the SAME target, and a load after it must keep MERGING the activity log and budget
- * history (see `applyWorkspace`'s `logMode`).
+ * inputs with ONE deliberate omission: `acquireToken`. It names no target, so IF its identity ever
+ * changed and rebuilt the backend against the SAME target, a load after it would keep MERGING the
+ * activity log and budget history (see `applyWorkspace`'s `logMode`). Today `useMsAuth`'s
+ * `acquireToken` is a stable `useCallback`, so an M365 sign-in or sign-out does not rebuild at all.
+ * ★ `useStorageBackend` passes the Turso URL and token only for kind "turso" (the same values its
+ * backend memo reads); the key ignores them for every other kind either way.
  */
 export interface StorageTargetInput {
   storageConfig: StorageConfig;

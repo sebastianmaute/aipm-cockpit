@@ -3277,7 +3277,10 @@ function TaskManagerInner() {
   // ★★★ §548 — THE LOAD HOLD. While `loadPending` (settings not yet hydrated, the first load, a
   //   backend-change reload, or a project-swap op in flight) the MAIN window renders the same `PanelSkeleton` the Turso list-load
   //   window uses INSTEAD of the app tree, so no control that writes workspace state exists — an edit
-  //   made in that window was silently replaced when the load landed. A failed or refused load SETTLES,
+  //   made in that window was silently replaced when the load landed. ★ EXCEPT the two branches that
+  //   rank ABOVE the hold in this ternary: `SecretUnlockGate` and `ProjectEmptyState` (file mode with an
+  //   empty registry keeps the latter up through the first load and its own create/demo ops, whose
+  //   swaps are themselves held via `holdDuring`). A failed or refused load SETTLES,
   //   so the storage banner and its recovery paths stay reachable. Popouts returned above and are never
   //   held. Every panel mounts FRESH after a hold (AGENTS.md "Remount-swallow"). Writers that do not
   //   unmount gate on `loadPending` themselves (docs/AGENTS/platform.md, "The load hold").

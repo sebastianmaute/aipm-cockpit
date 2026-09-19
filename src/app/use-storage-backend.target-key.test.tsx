@@ -5,7 +5,8 @@
 // (`storageTargetKey`), otherwise REPLACE. (d) and (e) are the anti-overcorrection pins: a rebuild
 // of the SAME target must keep merging.
 // ★ Own file, like the load-gate pins: the main suite's module-level `mockBackend` is shared state,
-//   and this file also mocks `useMsAuth` to drive an `acquireToken`-only rebuild.
+//   and this file also mocks `useMsAuth` to drive an `acquireToken`-only rebuild (hypothetical today:
+//   the real `acquireToken` is stable, see (d)).
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "./activity-log";
@@ -223,7 +224,10 @@ describe("§591 — a load merges the activity log and budget history only onto 
     confirmSpy.mockRestore();
   });
 
-  it("(d) an acquireToken-only rebuild (M365 sign-in/out) is the SAME target: an entry appended during its load is still MERGED", async () => {
+  // ★ HYPOTHETICAL TODAY: `useMsAuth`'s `acquireToken` is a stable `useCallback`, so an M365 sign-in/out
+  //   does NOT rebuild the backend. This mock swaps the identity by hand to pin the key's `acquireToken`
+  //   exclusion, so that IF the identity ever changes, a rebuild against the same target keeps merging.
+  it("(d) an acquireToken-only rebuild is the SAME target: an entry appended during its load is still MERGED", async () => {
     const args = spArgs("/Shared Documents/a.json");
     const a = makeBackend(100, A_WS);
     const b = makeBackend(1000, A_WS); // the same target's stored copy: it has never seen the local append

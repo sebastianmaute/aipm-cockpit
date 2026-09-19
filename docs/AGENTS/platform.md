@@ -118,9 +118,17 @@
 - **The render hold.** `task-manager.tsx` renders `PanelSkeleton` instead of the main-window app tree
   while `loadPending` is true (the same ternary `showTursoListLoading` uses). No control that writes
   workspace state exists during the hold, so the UI writers outside `guardEdit` are covered, and so is
-  any writer added later. A failed or refused load settles, so the storage banner, Settings and "Pick
+  any writer added later — ★ EXCEPT the two branches ranked ABOVE the hold in that ternary,
+  `SecretUnlockGate` and `ProjectEmptyState` (file mode with an empty registry keeps the latter up
+  through the first load and through its own create/demo ops, whose swaps are themselves held by
+  `holdDuring`). A failed or refused load settles, so the storage banner, Settings and "Pick
   storage file" stay reachable. Popouts return before this ternary and are never held. `guardEdit` /
   `makeEditGuard` are unchanged.
+  ★★ The hold unmounts Settings too, so **a Settings field that feeds `useStorageBackend`'s backend memo
+  must commit on blur, never per keystroke** — else the first character rebuilds the backend and the
+  field vanishes under the cursor. The Turso URL and token in `integrations-section.tsx` are drafts
+  committed on blur, and the memo reads them only for storage kind "turso"
+  (`integrations-section.backend-hold.test.tsx` pins both halves).
 - ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
   (`task-manager.tsx`), the recommendation store `applyInsightRecommendation`
   (`use-insight-recommendations.ts`, which both the background runner and the on-demand generate write
