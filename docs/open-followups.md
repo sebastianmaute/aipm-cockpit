@@ -804,6 +804,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open) | An xlsx whose rows each reach column XFD expands to 16,384 cells per row, bounded only by the inflate cap — OPEN | audit (2026-09) | S | open |
 | [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19) | A startup autosave saves the empty workspace over the stored project before the first load lands — CLOSED 2026-09-19 | found 2026-09-19 by the startup-autosave probe; filed and fixed on fix/startup-autosave-wipe; GitLab #371 | S — gate every save to the active backend on a successful load | closed |
 | [§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19) | Changing the Turso URL or token, or the SharePoint target, saves the open project into the new target — CLOSED 2026-09-19 | found 2026-09-19 by the rebuild follow-up probe; filed already closed, fixed by the §586 change on fix/startup-autosave-wipe | S — the §586 gate, kept shut after an empty-load refusal | closed |
+| [§588](#588-a-reload-or-file-pick-still-running-from-before-a-backend-rebuild-can-shut-the-new-backends-save-gate-and-nothing-says-so--open) | A reload or file pick still running from before a backend rebuild can shut the new backend's save gate, and nothing says so — OPEN | §586 cold review (M3), read from code; GitLab #372 | S — drop results that belong to a superseded backend | open |
+| [§589](#589-an-edit-made-less-than-500-ms-before-a-backend-rebuild-is-dropped--open) | An edit made less than 500 ms before a backend rebuild is dropped — OPEN | §586 cold review (M5), read from code, pre-existing; GitLab #373 | S — flush the pending save to the old backend on a backend change | open |
+| [§590](#590-pick-storage-file-after-a-failed-load-writes-the-empty-workspace-into-the-chosen-file--open) | Pick storage file after a failed load writes the empty workspace into the chosen file — OPEN | §586 round-1 concern 6, confirmed by the cold review (I2); read from code; GitLab #374 | S — refuse or confirm when the picked file already holds data | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -39484,7 +39487,7 @@ Related: [§558](#558-the-three-ooxml-extractors-were-quadratic-on-repetitive-un
 
 ## 586. A startup autosave saves the empty workspace over the stored project before the first load lands — CLOSED 2026-09-19
 
-**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe` (`84185ece`), filed and fixed on the same branch; GitLab #371 is closed by the MR that merges it, not by this entry. `use-storage-backend.ts` now carries a save gate, `savesAllowedFor` (state + ref, keyed on backend IDENTITY like `loadedBackend`), that opens only once a load for THAT backend instance has succeeded. Three paths check it: the save effect (it schedules nothing while the gate is shut), `doSave` (the debounce timer and flush-on-hide both call it, and nothing else in `debounced-save.ts` reaches the save), and the pre-switch `flushCurrent`, which now skips rather than writing the unloaded workspace over the project being left. After a FAILED load, or an empty load refused over populated scope (§587), the first refused edit shows `storageSavePausedLoadFailed` through the existing error toast, once per backend. Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`.
+**Status:** CLOSED 2026-09-19 by `fix/startup-autosave-wipe` (`84185ece`), filed and fixed on the same branch; GitLab #371 is closed by the MR that merges it, not by this entry. `use-storage-backend.ts` now carries a save gate, `savesAllowedFor` (state + ref, keyed on backend IDENTITY like `loadedBackend`). It opens in exactly three places, and only the first is a load of that instance: `applyWorkspace` (an applied load of the load effect, `reloadCurrentProject`, and the switch/create/load-from-file ops); the load effect's suppress-branch RE-STAMP after such an op, whose memo instance is never loaded itself (the op loaded a sibling instance, built a fresh workspace, or converted the live one); and an explicit "Pick storage file" write. Three paths check it: the save effect (it schedules nothing while the gate is shut), `doSave` (the debounce timer and flush-on-hide both call it, and nothing else in `debounced-save.ts` reaches the save), and the pre-switch `flushCurrent`, which now skips rather than writing the unloaded workspace over the project being left. While the gate is shut because a load FAILED, or an empty load was refused over populated scope (§587), the hook publishes `loadPause` and task-manager mounts it on the sticky `SavingPausedBanner` (a `load` cause, primary action "Reload project") for as long as the pause holds; the first refused edit also shows an action toast that re-shows the banner. The empty-load case has its own wording, `storageSavePausedEmptyLoad`. A storage-kind conversion is refused while the gate is shut (`storageConvertRefusedNotLoaded`). Verified by `npx vitest run src/app/use-storage-backend.load-gate.test.tsx --maxWorkers=1`.
 
 At boot every workspace slice is empty, and the save effect runs on the same commit as the load
 effect because both key on `hydrated`. Nothing on the save path refused a save issued before the load
@@ -39520,8 +39523,10 @@ a project switch spends its one-shot suppress when the gate opens, not on the ru
 still shut. With the check below the suppress branch, the just-loaded workspace would be written back
 to the target.
 
+Open follow-ups found on the way: [§588](#588-a-reload-or-file-pick-still-running-from-before-a-backend-rebuild-can-shut-the-new-backends-save-gate-and-nothing-says-so--open), [§589](#589-an-edit-made-less-than-500-ms-before-a-backend-rebuild-is-dropped--open), [§590](#590-pick-storage-file-after-a-failed-load-writes-the-empty-workspace-into-the-chosen-file--open).
+
 ★★ **The two checks mask each other, so a single-gate mutant proves little.** Removing either check
-alone leaves (a) and (b) green, and removing both turns six of the ten tests red. The `doSave` check
+alone leaves (a) and (b) green, and removing both turned (a) (b) (c) (e) (h) (i) red (measured on the ten-test file of `c360190f`). The `doSave` check
 cannot be the sole guard today, because a backend change re-runs the effect and cancels the pending
 save. It is there so that a future path which schedules without the effect's check still cannot write.
 
@@ -39557,13 +39562,26 @@ applied, so nothing reaches it before then. ★★★ The one addition is the em
 reachable ONLY on such a rebuild: the load effect's `currentWorkspace` is the closure of the render
 that started it, so an empty FIRST load simply applies. The refusal therefore leaves the gate SHUT
 and marks the backend paused, where opening it would copy the previous project into the empty
-target. The first refused edit then announces `storageSavePausedLoadFailed`, as a failed load
-does. Saving to that backend resumes only once a load is applied, from a reload, a switch or a
-Pick storage file.
+target. The pause is published as `loadPause` and stays on the sticky saving-paused banner, with its own
+wording (`storageSavePausedEmptyLoad`: the storage returned no data, the project on screen is kept
+but not written into it). Saving to that backend resumes only when one of the three openers in §586
+runs: an applied load (a reload that the user confirms, or a switch), an op's re-stamp, or a Pick
+storage file write.
+
+★ **Open file after a failed load leaves autosave paused, and that is the safe outcome.**
+`onOpenStorageFile` applies only the file's tasks and RAID, through raw setters rather than
+`applyWorkspace`, so it opens no gate; the banner keeps naming the load failure. Opening the gate
+there would have written the file back with every other slice empty, which is the §586 wipe in a
+smaller shape. The user reloads the project instead.
+
+★ **A storage-kind conversion is refused while the gate is shut.** It would copy the live workspace,
+which is then the empty boot one or the previous target's project, into the new kind and repoint the
+app at it. `onRequestStorageSwitch` now says so (`storageConvertRefusedNotLoaded`) before its
+confirm dialog. After a successful load it converts exactly as before.
 
 **Not affected, by design.**
-- A storage-KIND switch (`onRequestStorageSwitch`) writes the live workspace to the new kind through
-  `guardedWrite`, not the save effect, so the gate does not see it. It then arms `suppressNextLoadRef`
+- A storage-KIND switch (`onRequestStorageSwitch`), once the current load has succeeded, writes the
+  live workspace to the new kind through `guardedWrite`, not the save effect. It then arms `suppressNextLoadRef`
   (not `suppressNextSaveRef`). The re-stamp opens the gate, and the `savesAllowed` dependency re-runs
   the effect. That produces the same one redundant post-switch save as before, with no edit needed;
   test (j) pins it.
@@ -39578,3 +39596,52 @@ Pick storage file.
 ★ **Still open, and out of scope:** each keystroke in the Turso URL field still starts a `load()`
 against a partial URL. Those loads cannot save any more, but they still cost network requests and
 error toasts.
+
+## 588. A reload or file pick still running from before a backend rebuild can shut the new backend's save gate, and nothing says so — OPEN
+
+**Status:** OPEN 2026-09-19 — read from code in the §586 cold review (finding M3), not reproduced: the stall is never machine-verified. `reloadCurrentProject` and `onPickStorageFile` capture the render-scope `backend` and call `allowSavesTo` with it after an `await`.
+
+**Work item:** #372
+
+If a settings-driven rebuild ([§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)) replaces the backend while one of those two is awaiting,
+it finishes by calling `allowSavesTo(<the OLD instance>)`. That moves the save gate
+([§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19)) away from the NEW instance. The gate then stays shut for the new backend. Nothing
+is written anywhere wrong, so it is safe, but it is a silent stall: `loadPause` is published only
+for an instance whose load failed or was refused, so no banner or toast appears. `reloadCurrentProject`
+also has no `cancelled` check of the kind the load effect has, so it applies the old target's data
+as well.
+
+**The fix shape:** have both callers compare their captured backend with the live one (a ref) before
+applying or opening, and drop a result that belongs to a superseded instance.
+
+## 589. An edit made less than 500 ms before a backend rebuild is dropped — OPEN
+
+**Status:** OPEN 2026-09-19 — read from code in the §586 cold review (finding M5), not reproduced: the dropped edit is never machine-verified. Pre-existing; neither §586 nor §587 changed it.
+
+**Work item:** #373
+
+The save effect lists `backend` as a dependency, so a rebuild (a project switch, or a settings change
+under [§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)) runs the previous run's cleanup. `scheduleDebouncedSave`'s cleanup clears the
+timer and removes the hide listeners WITHOUT flushing, so an edit still inside the 500 ms debounce is
+never written to the old target. A switch op's own `flushCurrent` covers the op paths; a bare
+settings rebuild has no flush. Once the new target's load applies, the edit leaves memory too.
+
+**The fix shape:** flush a pending save to the OLD backend in the cleanup when the cause is a backend
+change, gated as [§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19) requires (only if the old instance's gate is open).
+
+## 590. Pick storage file after a failed load writes the empty workspace into the chosen file — OPEN
+
+**Status:** OPEN 2026-09-19 — read from code, not reproduced: the overwrite is never machine-verified. Raised as concern 6 of the §586 implementation's first round and confirmed in the cold review (I2).
+
+**Work item:** #374
+
+After a failed load the live workspace is the empty boot one. `onPickStorageFile` writes it into the
+file the user picks, through `guardedWrite`, and then opens the save gate
+([§586](#586-a-startup-autosave-saves-the-empty-workspace-over-the-stored-project-before-the-first-load-lands--closed-2026-09-19)). If the user picks the EXISTING project file (the save picker warns before
+overwriting), that file is replaced with an empty workspace. The sibling explicit write, the
+storage-kind conversion, is now refused before a load succeeds
+([§587](#587-changing-the-turso-url-or-token-or-the-sharepoint-target-saves-the-open-project-into-the-new-target--closed-2026-09-19)); Pick storage file is not, because it is also the only way a first-time
+local-file user (whose load fails with no file picked) can create a file.
+
+**The fix shape:** refuse when the picked handle already holds data, or confirm with the task counts on
+both sides, rather than blocking the pick outright.

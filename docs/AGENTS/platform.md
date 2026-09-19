@@ -31,10 +31,12 @@
   `DELETE FROM` every table, or a copy of one project over another. `savesAllowedFor` in
   `use-storage-backend.ts` is an identity like `loadedBackend`, opened where `loadedBackend` is stamped
   plus after an explicit "Pick storage file" write. It is checked by the save effect, by `doSave` (the
-  debounce timer AND flush-on-hide both call it) and by the pre-switch `flushCurrent`. A failed load,
-  and an empty load REFUSED over populated scope, leave it shut for that backend and announce
-  `storageSavePausedLoadFailed` on the first refused edit. A new path that writes the live workspace to
-  the ACTIVE backend must check it too.
+  debounce timer AND flush-on-hide both call it) and by the pre-switch `flushCurrent`; a storage-kind
+  conversion is refused while it is shut. A failed load, and an empty load REFUSED over populated
+  scope, leave it shut for that backend and publish `loadPause`, which task-manager mounts on the
+  STICKY `SavingPausedBanner` (a `load` cause whose action is "Reload project") — never a toast
+  alone, which times out. A new path that writes the live workspace to the ACTIVE backend must check
+  the gate too.
 - **Guard transparency (`guard-feedback.ts`):** `reportSilentFailure(showToast, lang, code, err, msgKey)`
   (error toast + `logDiag`) / `reportCapabilityGap(showToast, lang, code, guidanceKey)` (info toast +
   `logDiag`) — the pattern for surfacing a swallowed user-action failure or an off/unconfigured-feature
