@@ -25,8 +25,8 @@
   (`relationalReadIsEmpty`); the save effect refuses a full-wipe / mass-deletion over a populated project
   unless `allowDestructiveSave()` armed (clear-all self-arms) — the data-loss defense.
   ★★★ **NO AUTOMATIC SAVE RUNS BEFORE A LOAD FOR THE CURRENT BACKEND HAS BEEN APPLIED (§586, §587).** Before it,
-  render scope holds the EMPTY boot workspace — or, after a settings-driven rebuild (a Turso URL/token
-  keystroke, a SharePoint target change), the PREVIOUS target's — and that guard cannot see it: its
+  render scope holds the EMPTY boot workspace — or, after a settings-driven rebuild (an applied Turso
+  URL/token change, a SharePoint target change), the PREVIOUS target's — and that guard cannot see it: its
   baselines start at 0/0, or equal the previous project's counts. So a pre-load save was a Turso
   `DELETE FROM` every table, or a copy of one project over another. `savesAllowedFor` in
   `use-storage-backend.ts` is an identity like `loadedBackend`, opened where `loadedBackend` is stamped
@@ -125,23 +125,30 @@
   storage file" stay reachable. Popouts return before this ternary and are never held. `guardEdit` /
   `makeEditGuard` are unchanged.
   ★★ The hold unmounts Settings too, so **a Settings field that feeds `useStorageBackend`'s backend memo
-  must commit on blur, never per keystroke** — else the first character rebuilds the backend and the
-  field vanishes under the cursor. The Turso URL and token in `integrations-section.tsx` are drafts
-  committed on blur, and the memo reads them only for storage kind "turso"
-  (`integrations-section.backend-hold.test.tsx` pins both halves).
-  ★★ "On blur" means **when focus leaves the credentials GROUP** (`handleCredentialsBlur`), not the
-  field: a per-field commit on Turso storage remounted Settings on the way to the next control and
-  swallowed its click ("Test connection" needed two). Buttons that act on the drafts also prevent
-  their mousedown (`keepFocusOnMouseDown` — WebKit does not focus a clicked button, so the group
-  test alone cannot see the click). ★ Keyboard: Tab inside the group commits nothing; Tab OUT of it
-  on Turso storage commits, rebuilds and remounts, and focus falls to `<body>` — accepted, it
-  happens once per real target change. Three more ways a draft was lost, each pinned in
-  `integrations-section.drafts.test.tsx`: Escape in a `Modal` host (fixed in `modal.tsx`, which now
-  blurs before `onClose` — see `docs/AGENTS/ui-shell.md` dismissal); "Save & switch" reloading before
-  the token's device-seal settled (it waits on `pendingTokenSeals`, tracked at MODULE scope because
-  the instance that started the seal may already be remounted away, and folds any uncommitted draft
-  into what it persists); and the render-time reconcile overwriting a DIRTY draft when the stored
-  value moved (it now resyncs a clean draft only).
+  must never commit per keystroke** — else the first character rebuilds the backend and the field
+  vanishes under the cursor. The memo reads the Turso URL and token only for storage kind "turso",
+  and `integrations-section.tsx` picks the commit model by that same kind (`tursoIsLive`):
+  **on Turso storage both fields are pure drafts that ONLY the explicit Apply button commits**
+  (`applyTursoDrafts`: one `onChange` for both fields, the token device-sealed as before); nothing
+  commits on a keystroke, blur, Tab or Escape, and unapplied drafts are discarded when the section
+  unmounts. Apply is disabled while the drafts equal the stored values, so an enabled Apply is the
+  "unapplied change" signal; it is the only action there that rebuilds the backend and shows the hold.
+  On any OTHER kind each keystroke commits (`commitTurso`) with no rebuild, and no Apply renders —
+  that covers the hosts that configure Turso before switching the kind to it (the setup wizard,
+  `BackendConfigModal` from create-project). "Test connection" probes the drafts without committing.
+  (`integrations-section.backend-hold.test.tsx` pins both models against the real hook.)
+  ★★ The blur-commit design this replaced — commit when focus left the credentials group — lost a
+  click (WebKit does not focus a clicked button), a focus (Tab out dropped it to `<body>` after the
+  remount) or a draft (an unmount with no blur) in every variant; do NOT reintroduce a blur commit.
+  Edges pinned in `integrations-section.drafts.test.tsx`: Escape in a `Modal` host blurs the field
+  before `onClose` (`docs/AGENTS/ui-shell.md` dismissal) and must NOT commit a Turso draft;
+  "Save & switch" is itself an explicit save, so it APPLIES any unapplied drafts (the Turso option it
+  offers is enabled by the drafts, and the reload means no hold can swallow anything) and waits for
+  every in-flight token seal before reloading — tracked at MODULE scope (`pendingTokenSeals`),
+  because the instance that started a seal may already be remounted away, and BOUNDED by
+  `waitForTokenSeals` (`SECRET_MERGE_TIMEOUT_MS`; on timeout it proceeds and logs
+  `settings.tursoTokenSealWaitTimedOut`); and the render-time reconcile resyncs a CLEAN draft only,
+  keeping a dirty one when the stored value moves.
 - ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
   (`task-manager.tsx`), the recommendation store `applyInsightRecommendation`
   (`use-insight-recommendations.ts`, which both the background runner and the on-demand generate write

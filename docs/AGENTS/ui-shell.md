@@ -615,8 +615,8 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   re-runs the effect and re-pushes that modal's token to the top → wrong modal becomes topmost. Push/pop
   lives in a SEPARATE `[open]`-only effect (order = mount order). Regression-tested in `modal.test.tsx`.
   ★★ **`Modal`'s Escape BLURS the focused field before `onClose`** (`blurFocusInside`, §548). A field
-  that commits a draft on blur (the Turso credentials group, the SharePoint URL in
-  `storage-config.tsx`) got no reliable React `onBlur` when the dialog unmounted under it — Firefox
+  that commits a draft on blur (the SharePoint URL in `storage-config.tsx`; NOT the Turso URL/token,
+  which on Turso storage commit only on an explicit Apply — see `docs/AGENTS/platform.md`) got no reliable React `onBlur` when the dialog unmounted under it — Firefox
   and jsdom fire no focusout on removal — so Escape silently dropped the draft. It runs only AFTER
   `claimsEscape`, so an Escape owned by a layer above never blurs anything here. If `onClose` does not
   close (busy/guarded host), a queued microtask puts focus back on the blurred field. Backdrop click
