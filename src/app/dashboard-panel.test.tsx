@@ -6,7 +6,8 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 import { RaidRegisterCard } from "./dashboard-sections/registers-band";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
+import { healthColorName } from "./health";
 import * as dashboardModule from "./dashboard";
 import type { ActivityEntry } from "./activity-log";
 import type { SnapshotRecord } from "./snapshot";
@@ -178,10 +179,13 @@ describe("DashboardPanel captions and thresholds", () => {
   // correct caption from an incorrect one; it only makes copy edits fail. It
   // never was, and still is not, coverage for whether the sentence is TRUE —
   // nothing automated is. It just no longer pretends to be.
-  it("renders the progress and burn captions", () => {
+  // ★ Spec C: the burn caption described the Spent/hours figures, which left the
+  // chart-only burn tile, so the caption left with them (the Budget report
+  // keeps it). The positive half keeps this from passing on an empty render.
+  it("renders the progress caption, and no longer the burn caption", () => {
     renderDashboard();
     expect(screen.getByText(t("en-US", "dashboardProgressCaption"))).toBeInTheDocument();
-    expect(screen.getByText(t("en-US", "dashboardBurnCaption"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "dashboardBurnCaption"))).toBeNull();
   });
 
   it("applies the RAG role-token colour class to the overall status word", () => {
@@ -375,18 +379,19 @@ describe("DashboardPanel budget-burn CPI stat", () => {
     },
   ] as never[];
 
-  // CPI is an EVM index → it lives ONLY in the EVM SPI/CPI row (the burn row now
-  // holds just Spent + "h"). The EVM row renders only when there's estimate
-  // coverage; its CPI tile sits beside the SPI tile.
-  function evmCpiTile(): HTMLElement {
-    const spiTile = screen.getByText("Effort SPI").closest("div.rounded-lg") as HTMLElement;
-    // Each hinted tile is wrapped in a `div.relative` (tooltip sibling), so the
-    // shared EVM row is the wrapper's parent, not the tile's direct parent.
-    const evmRow = spiTile.parentElement?.parentElement as HTMLElement;
-    return within(evmRow).getByText("Effort CPI").closest("div.rounded-lg") as HTMLElement;
+  // ★ Spec C decision 8: the EVM indices live in the KPI tile now, not the burn
+  // tile. The KPI tile's grid holds all five tiles, so SPI and CPI still share
+  // one row there. No `onNavigate` is passed in this fixture, so the CPI
+  // `Tile`'s `onActivate` is undefined and it renders its `Card` (`<div>`)
+  // branch rather than a `<button>` — `closest("div.rounded-lg")` from the CPI
+  // label lands on that tile's own box, which sits BESIDE (never inside or
+  // around) the SPI tile's box, so this stays scoped to the CPI tile alone.
+  function cpiTile(): HTMLElement {
+    const kpi = screen.getByTestId("tile-kpi");
+    return within(kpi).getByText("Effort CPI").closest("div.rounded-lg") as HTMLElement;
   }
 
-  it("shows the CPI value in the EVM row when model.evm.cpi is present", () => {
+  it("shows the CPI value in the KPI tile when model.evm.cpi is present", () => {
     render(
       <DashboardPanel
         lang="en-US"
@@ -403,10 +408,10 @@ describe("DashboardPanel budget-burn CPI stat", () => {
       />,
       { wrapper },
     );
-    expect(within(evmCpiTile()).getByText("0.95")).toBeInTheDocument();
+    expect(within(cpiTile()).getByText("0.95")).toBeInTheDocument();
   });
 
-  it("does not duplicate CPI in the budget-burn (Sub-budget + hours) row", () => {
+  it("renders CPI exactly once — in the KPI tile, never in the burn tile", () => {
     render(
       <DashboardPanel
         lang="en-US"
@@ -423,11 +428,9 @@ describe("DashboardPanel budget-burn CPI stat", () => {
       />,
       { wrapper },
     );
-    // The burn row (the flex row containing the "h" tile) must NOT contain a CPI
-    // tile — CPI now lives only in the EVM row, so CPI appears exactly once.
-    const burnRow = (screen.getByText("h").closest("div.rounded-lg") as HTMLElement).parentElement as HTMLElement;
-    expect(within(burnRow).queryByText("Effort CPI")).toBeNull();
     expect(screen.getAllByText("Effort CPI")).toHaveLength(1);
+    expect(within(screen.getByTestId("tile-kpi")).getByText("Effort CPI")).toBeInTheDocument();
+    expect(within(screen.getByTestId("tile-burn")).queryByText("Effort CPI")).toBeNull();
   });
 });
 
@@ -552,10 +555,13 @@ const fullProps = {
 };
 
 // The EVM tiles only render once there is estimate coverage (`evm.ts`
-// `computeEvm`: a task participates iff `originalEstimateMinutes > 0`) — plain
-// `fullProps` (tasks: []) never reaches that branch, so it cannot exercise the
-// showBudget→EVM gate below. This task gives a non-null coverage without
-// otherwise changing what `fullProps`-based baseline assertions see.
+// `computeEvm`: a task participates iff `originalEstimateMinutes > 0`) —
+// plain `fullProps` (tasks: []) never reaches that branch. This task gives a
+// non-null coverage without otherwise changing what `fullProps`-based
+// baseline assertions see. ★ Spec C: Effort SPI and Effort CPI are each keyed
+// on their OWN model field (`model.evm.spi`/`model.evm.cpi`), never on
+// `showBudget`, so `tasksWithEvmEstimate` is exercised both WITH and WITHOUT
+// the Budget module below.
 const tasksWithEvmEstimate = [
   {
     id: 1, title: "Done task", status: "Done", health: "G",
@@ -574,21 +580,27 @@ describe("DashboardPanel module visibility gates (Task 8)", () => {
     expect(screen.getByText("Changes")).toBeInTheDocument();
   });
 
-  it("shows the Effort SPI/CPI tiles when showBudget is true (positive control)", () => {
-    // Without this, the negative test below (queryByText → toBeNull) would pass
-    // just as happily if the EVM row's text were renamed out from under the
-    // query — a bare `queryByText` failing to find a stale string reads
-    // identically to the gate actually working.
+  it("shows the Effort SPI/CPI tiles when showBudget is true (its default)", () => {
+    // Covers the default `showBudget=true` path; the next test covers
+    // `showBudget=false`.
     render(<DashboardPanel {...fullProps} tasks={tasksWithEvmEstimate} />, { wrapper });
     expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
     expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
   });
 
-  it("hides Budget burn section and EVM when showBudget is false", () => {
+  // ★ Spec C ruling: "hiding something which affects a value is not
+  // acceptable" — SPI feeds the Schedule RAG and CPI feeds the Budget RAG
+  // (`dashboard.ts` `evmIndexHealth`) from `model.evm`, which is computed over
+  // `tasks` alone and never gated on `showBudget`; the Budget RAG it moves
+  // also reaches the delta strip's flip badges, the AI snapshot tool, Trends'
+  // `budgetRag` and the Portfolio health table with the Budget module off. So
+  // neither index hides with the module — only the (unrelated) "Budget burn"
+  // tile itself still does, via the catalogue's own `showBudget` gate.
+  it("keeps the Effort SPI/CPI tiles visible when showBudget is false, and still hides the Budget burn tile", () => {
     render(<DashboardPanel {...fullProps} tasks={tasksWithEvmEstimate} showBudget={false} />, { wrapper });
     expect(screen.queryByText("Budget burn")).toBeNull();
-    expect(screen.queryByText(t("en-US", "evmSpi"))).toBeNull();
-    expect(screen.queryByText(t("en-US", "evmCpi"))).toBeNull();
+    expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
   });
 
   it("hides RAID section when showRaid is false", () => {
@@ -827,21 +839,6 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
     expect(onOpenChange).toHaveBeenCalledWith(7);
   });
 
-  it("labels the burn tile's spend box \"Spent\", not \"Budget\" (the budget rating now follows the forecast)", () => {
-    const onNavigate = vi.fn();
-    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
-    // The label + activate button both carry the new "Spent" wording, and the
-    // accessible name (label-in-name) still contains the visible "Spent" text.
-    expect(screen.getByText("Spent")).toBeInTheDocument();
-    // The top-band pill (dashboard-hero.tsx, a separate surface) is unaffected
-    // and still reads "Budget" — this proves the rename is scoped to the burn
-    // tile, not a global string swap.
-    expect(screen.getAllByText("Budget").length).toBeGreaterThan(0);
-    const activateBtn = screen.getByRole("button", { name: /^Spent – /  });
-    fireEvent.click(activateBtn);
-    expect(onNavigate).toHaveBeenCalledWith("budget");
-  });
-
 });
 
 // ★★ EVERY TEST HERE NEEDS ITS OWN `projectId`. `useDashboardLayout` keys its
@@ -874,6 +871,7 @@ const EN = "en-US" as const;
 // Count the enclosing `it(` blocks, not the failures and not the call sites.
 const grip = (title: string) => `${t(EN, "reorderHandleDragOnly")} – ${title}`;
 const kebab = (title: string) => `${t(EN, "actionMoreActions")} – ${title}`;
+const badgeName = (n: number) => tPlural(EN, "dashboardHiddenTilesBadge", n, n);
 
 describe("DashboardPanel arrangeable tile grid", () => {
   it("renders the cards as tiles inside one dense grid", () => {
@@ -921,7 +919,7 @@ describe("DashboardPanel arrangeable tile grid", () => {
     expect(
       screen.queryByRole("button", { name: t(EN, "arrangementResetLayout") }),
     ).toBeNull();
-    expect(screen.queryByRole("button", { name: t(EN, "arrangementShelfCount", 0) })).toBeNull();
+    expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();
   });
 
   it("hides a tile from the ⋮ menu onto the shelf, announces it, and restores it", async () => {
@@ -936,12 +934,12 @@ describe("DashboardPanel arrangeable tile grid", () => {
     const announced = screen.getAllByRole("status").map((el) => el.textContent);
     expect(announced).toContain(t(EN, "arrangementTileHidden", "Progress"));
 
-    await user.click(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) }));
+    await user.click(screen.getByRole("button", { name: badgeName(1) }));
     await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
     expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
   });
 
-  it("lands focus on the shelf disclosure after hiding, instead of dropping it on <body>", async () => {
+  it("lands focus on the hidden-tiles badge after hiding, instead of dropping it on <body>", async () => {
     // ★★★ HIDING DESTROYS THE CONTROL THAT WAS PRESSED. Hide lives inside the ⋮
     // popover, which is anchored to the tile's own ⋮ trigger — hiding unmounts
     // BOTH, and `PopoverPanel` restores focus to nothing on close (it focuses
@@ -955,27 +953,26 @@ describe("DashboardPanel arrangeable tile grid", () => {
     await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
 
     expect(screen.queryByTestId("tile-progress")).toBeNull();      // the trigger really did unmount
-    const shelf = screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) });
-    expect(document.activeElement).toBe(shelf);
+    // ★ Spec C: the badge MOUNTS in the commit this hide causes (it is absent at
+    // 0), which is why the panel focuses it post-commit rather than inline.
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: badgeName(1) }));
   });
 
-  it("lands focus back on the shelf disclosure after restoring a tile", async () => {
-    // ★★ THE MIRROR CASE, and the chip is the wrong destination for it: the
-    // Restore button the user pressed is removed by that very click, and the
-    // remaining chips shift underneath them. The disclosure is the one node in
-    // the shelf that survives both directions.
+  it("lands focus on the restored tile's ⋮ trigger when the restore empties the tray", async () => {
+    // ★★ Spec C: the badge unmounts at a count of 0, so "focus returns to the
+    // badge" cannot hold for the LAST hidden tile. The restored tile is now on
+    // the board, and its own ⋮ is the route to act on it again.
     const user = userEvent.setup();
     render(<DashboardPanel {...fullProps} projectId="p-grid-restore-focus" />, { wrapper });
     await user.click(screen.getByRole("button", { name: kebab("Progress") }));
     const menu = screen.getByRole("dialog", { name: kebab("Progress") });
     await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
 
-    await user.click(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) }));
+    await user.click(screen.getByRole("button", { name: badgeName(1) }));
     await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
     expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
-    expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 0) }),
-    );
+    expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: kebab("Progress") }));
   });
 
   it("moves a tile earlier from the ⋮ menu and announces its new position", async () => {
@@ -1051,10 +1048,11 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // pointer wanders in with nothing being dragged" test pins at the component.
     render(<DashboardPanel {...fullProps} projectId="p-grid-shelfdrop" />, { wrapper });
     fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
-    fireEvent.drop(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 0) }));
+    // Spec C: the badge is the drop target; during a drag it shows even at 0.
+    fireEvent.drop(screen.getByRole("button", { name: badgeName(0) }));
     expect(screen.queryByTestId("tile-progress")).toBeNull();     // the grip really did unmount
 
-    const shelf = screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) });
+    const shelf = screen.getByRole("button", { name: badgeName(1) });
     expect(shelf).toHaveAttribute("aria-expanded", "false");
     fireEvent.dragEnter(shelf);
     expect(shelf).toHaveAttribute("aria-expanded", "false");
@@ -1066,7 +1064,7 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // against a shelf whose guard was broken shut.
     render(<DashboardPanel {...fullProps} projectId="p-grid-shelfopen" />, { wrapper });
     fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
-    const shelf = screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 0) });
+    const shelf = screen.getByRole("button", { name: badgeName(0) });
     fireEvent.dragEnter(shelf);
     expect(shelf).toHaveAttribute("aria-expanded", "true");
   });
@@ -1084,13 +1082,13 @@ describe("DashboardPanel arrangeable tile grid", () => {
     await user.click(screen.getByRole("button", { name: kebab("Budget burn") }));
     const menu = screen.getByRole("dialog", { name: kebab("Budget burn") });
     await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
-    await user.click(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) }));
+    await user.click(screen.getByRole("button", { name: badgeName(1) }));
     const chip = `${t(EN, "arrangementTileRestore")} – Budget burn`;
     expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
 
     rerender(<DashboardPanel {...fullProps} projectId="p-grid-gate" showBudget={false} />);
     expect(screen.queryByRole("button", { name: chip })).toBeNull();
-    expect(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 0) })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();   // spec C: absent at 0
 
     rerender(<DashboardPanel {...fullProps} projectId="p-grid-gate" />);
     expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
@@ -1120,11 +1118,24 @@ describe("DashboardPanel reset-layout control", () => {
   // reset-pane-size. Reset layout is the reset-columns ANALOGUE (it restores
   // content arrangement, where reset-size restores the pane box), so it sorts
   // between them.
-  it("orders the stack Print, Reset layout, Reset size", () => {
+  // ★ Spec C: the stack is Print · Reset layout · Reset size · hidden-tiles
+  // badge. The badge only renders while a tile is hidden (or a drag is in
+  // flight), so the three resets are asserted contiguous with it absent, then
+  // all four with one tile hidden. `dashboardHiddenTilesBadgeOne` is the key
+  // because `expectButtonOrder` substring-matches `t(lang, key)` with no args —
+  // the singular carries no placeholder.
+  it("orders the stack Print, Reset layout, Reset size, then the hidden-tiles badge", async () => {
+    const user = userEvent.setup();
     render(<DashboardPanel {...fullProps} projectId="p-reset-order" />, { wrapper });
-    expectButtonOrder(["printHint", "arrangementResetLayout", "tableResetSizeHint"], {
-      contiguous: true,
-    });
+    expectButtonOrder(["printHint", "arrangementResetLayout", "tableResetSizeHint"], { contiguous: true });
+
+    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
+    expectButtonOrder(
+      ["printHint", "arrangementResetLayout", "tableResetSizeHint", "dashboardHiddenTilesBadgeOne"],
+      { contiguous: true },
+    );
   });
 
   it("restores a hidden tile when the reset button is clicked", async () => {
@@ -1410,19 +1421,10 @@ describe("DashboardPanel forecast bundle wiring (snapshots / budgetHistory)", ()
   });
 });
 
-// ★★ The dashboard is the LANDING view, and both of its money surfaces render
-// figures that came out of the budget engine and convert NOTHING:
-//   · the Budget tile prints `model.burn.consumedValue / budgetValue`, which
-//     `dashboard.ts` copies straight off `computeBudgetReport(...).project`;
-//   · the burn-down chart prints `model.burndown`, whose values are
-//     `budgetHours × role.rates.external`.
-// The engine's money unit is EUR (`computeBucketReport` converts a fixed-price
-// contract amount to EUR at its one read), so both are EUR whatever
-// `plan.currency` says. Narrowing that field to the `BudgetCurrency` union did
-// NOT make it safe to label with: the union still admits `USD`/`GBP`, so it
-// states the plan's base currency, never the unit of an unconverted engine
-// figure. Labelling them `plan.currency` printed EUR money
-// under another currency's symbol (docs/open-followups.md §465).
+// ★★ The dashboard is the LANDING view, and its one money surface — the
+// burn-down chart (`model.burndown`, values `budgetHours × role.rates.external`)
+// — renders figures that came out of the budget engine and convert NOTHING.
+// (Spec C removed the second one, the Budget tile's Spent figure.)
 describe("DashboardPanel currency labelling", () => {
   // Rated roles + budgeted AND actual hours are both required: with no rate
   // card every value is 0, the burn-down renders its "no budget" line instead
@@ -1455,41 +1457,6 @@ describe("DashboardPanel currency labelling", () => {
     );
   }
 
-  it("labels the Budget tile in EUR even when the plan names another currency", () => {
-    renderUsdDashboard();
-    // Anchored on the hours tile, which is labelled "h" and is the one handle
-    // here already proven unique. TWO hops up, and the shape this walks is NOT
-    // a property of `Tile` — it holds only while BOTH of these are true of
-    // this fixture, and they pull in opposite directions:
-    //   · no `onNavigate` is passed, so `buildTileBodies` leaves `openBudget`
-    //     undefined (`dashboard-tile-bodies.tsx`) and the tile's `onActivate`
-    //     with it — so `Tile` takes its `Card` branch, a `div.rounded-lg`.
-    //     Pass `onNavigate` and the tile becomes a `<button class="…rounded-lg…">`
-    //     instead, and `closest("div.rounded-lg")` walks straight PAST both
-    //     tiles.
-    //   · a `hint` IS passed, and `Tile` returns the bare tile when there is
-    //     none (`if (!hint) return tile;`). The hint is what adds the
-    //     `relative h-full w-full` wrapper, which is the whole reason this is
-    //     two hops rather than one — drop the hint and the second hop
-    //     overshoots the flex row.
-    // Either way the failure is loud (`getAllByText` throws on zero matches)
-    // rather than a silent pass, so the test is not at risk — but do not read
-    // the hop count as something `Tile` guarantees.
-    const burnRow = (screen.getByText("h").closest("div.rounded-lg") as HTMLElement)
-      .parentElement!.parentElement as HTMLElement;
-
-    // ★★★ THE POSITIVE CONTROL. `queryByText(/\$/) === null` passes just as
-    // happily when the query is wrong, the scope is empty, or the tile failed
-    // to render. `getAllByText` THROWS on zero matches. MEASURED, not reasoned:
-    // 1 — the tile prints consumed and budget as ONE string ("€6,000 /
-    // €15,000"), so the pair is a single text node, and the neighbouring hours
-    // tile carries no currency at all.
-    const money = within(burnRow).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
-    expect(money).toHaveLength(1);
-    expect(money.filter((s) => s.includes("$"))).toEqual([]);
-    expect(money.every((s) => s.includes("€"))).toBe(true);
-  });
-
   it("labels the burn-down value axis in EUR even when the plan names another currency", () => {
     renderUsdDashboard();
     // Scoped to the € chart: `BurndownChart` renders `<div>{caption}</div><button><svg>…</svg></button>`,
@@ -1507,64 +1474,17 @@ describe("DashboardPanel currency labelling", () => {
   });
 });
 
-// §474 (third surface): budget-panel.tsx and budget-report-panel.tsx already
-// disclose how many of their EUR-rollup summands were counted at par because
-// no FX rate was ever confirmed for them (`BudgetFxRollupNotice`, fx.ts's
-// `countUnresolvedBuckets`). The Dashboard budget tile sums the SAME
-// `computeBudgetReport(...).project` figures and had the same blind spot —
-// this pins the notice reused verbatim on that tile.
-describe("DashboardPanel budget tile — unresolved-rate FX rollup notice (§474)", () => {
+// ── Spec C decision 7: the burn tile is chart-only ──────────────────────────
+describe("DashboardPanel burn tile is chart-only (spec C)", () => {
   const ratedRoles = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+  const ratedBucket = {
+    id: 1, name: "PO", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-12-31", status: "open",
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
+  } as unknown as BudgetBucket;
 
-  function budgetBucket(over: Partial<BudgetBucket> = {}): BudgetBucket {
-    return {
-      id: 1, name: "PO", type: "tm", currency: "EUR",
-      startDate: "2026-01-01", endDate: "2026-12-31", status: "open",
-      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
-      ...over,
-    } as unknown as BudgetBucket;
-  }
-
-  function renderDashboard(budgets: BudgetBucket[]) {
-    render(
-      <DashboardPanel
-        lang="en-US" tasks={[]} raid={[]} budgets={budgets} plan={plan} roles={ratedRoles}
-        resources={[]} absences={[]} holidaySet={new Set<string>()} workdayHours={8} today="2026-06-02"
-      />,
-      { wrapper },
-    );
-  }
-
-  it("names the unresolved count when a non-EUR bucket has no confirmed rate (fxRates null)", () => {
-    // USD with no fxRateOverride and no cached rate (fxRates defaults to null
-    // in WorkspaceProvider) -> resolveRateSource is "unresolved" (fx.ts).
-    // Fixed-price: only a contract amount is converted, so only it is summed at par.
-    renderDashboard([budgetBucket({ currency: "USD", type: "fixed", fixedPriceAmount: 10000 })]);
-    const tile = screen.getByTestId("tile-burn");
-    expect(within(tile).getByText(t("en-US", "budgetFxRollupUnresolvedOne"))).toBeInTheDocument();
-  });
-
-  it("renders no notice when the only rateless non-EUR bucket is T&M", () => {
-    // T&M money is hours × EUR role rates, converted nowhere.
-    renderDashboard([budgetBucket({ currency: "USD" })]);
-    const tile = screen.getByTestId("tile-burn");
-    expect(within(tile).queryByText(/without an FX rate/i)).toBeNull();
-  });
-
-  it("renders no notice when every bucket resolves (EUR)", () => {
-    renderDashboard([budgetBucket()]);
-    const tile = screen.getByTestId("tile-burn");
-    expect(within(tile).queryByText(/without an FX rate/i)).toBeNull();
-  });
-});
-
-// S5: the burn tile threads the bundle's `hours` and `mix` into
-// `ForecastHeadline`. Replacing either prop with null left every other test
-// green, so this pins the wiring with a triggered mix. The model is the real
-// one with only the forecast bundle swapped in: building a triggered mix from
-// workspace data would need a whole booked-hours scenario for one chip.
-describe("DashboardPanel burn tile — rate-mix chip (S5)", () => {
-  it("shows the hours-view chip inside the burn tile when the rate mix triggers", () => {
+  it("holds the chart and none of the headline, rate-mix chip, Spent or hours figures", () => {
+    // The real model with a forecast bundle swapped in, so the headline and the
+    // chip WOULD render if the body still built them (the S5 pattern).
     const realCompute = dashboardModule.computeDashboard;
     const spy = vi.spyOn(dashboardModule, "computeDashboard").mockImplementation(
       (...args: Parameters<typeof realCompute>) => ({
@@ -1572,23 +1492,75 @@ describe("DashboardPanel burn tile — rate-mix chip (S5)", () => {
       }),
     );
     try {
-      const bucket = {
-        id: 1, name: "PO", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-12-31", status: "open",
-        allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
-      } as unknown as BudgetBucket;
       render(
         <DashboardPanel
-          lang="en-US" tasks={[]} raid={[]} budgets={[bucket]} plan={plan}
-          roles={[{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }]}
+          lang="en-US" tasks={[]} raid={[]} budgets={[ratedBucket]} plan={plan} roles={ratedRoles}
           resources={[]} absences={[]} holidaySet={new Set<string>()} workdayHours={8} today="2026-06-02"
         />,
         { wrapper },
       );
-      const chipText = rateMixTileChipText("en-US", MIX_HOURS_WORSE, HOURS_FORECAST_HOURS_WORSE);
       const tile = screen.getByTestId("tile-burn");
-      expect(within(tile).getByRole("button", { name: rateMixWhyName("en-US", chipText) })).toBeInTheDocument();
+      // Positive control: the chart is there (its € caption).
+      expect(within(tile).getByText(/Budget remaining/i)).toBeInTheDocument();
+      // `forecastHeadlineText` is gone with the deleted `budget-forecast-headline.tsx`;
+      // a substring match is enough to prove the headline is absent.
+      expect(within(tile).queryByText(/EAC|VAC/)).toBeNull();
+      const chipText = rateMixTileChipText("en-US", MIX_HOURS_WORSE, HOURS_FORECAST_HOURS_WORSE);
+      expect(within(tile).queryByRole("button", { name: rateMixWhyName("en-US", chipText) })).toBeNull();
+      expect(screen.queryByText("Spent")).toBeNull();
+      expect(within(tile).queryByText("h")).toBeNull();
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it("carries no FX rollup notice, even for a rateless non-EUR fixed-price bucket", () => {
+    const usdFixed = { ...ratedBucket, currency: "USD", type: "fixed", fixedPriceAmount: 10000 } as unknown as BudgetBucket;
+    render(
+      <DashboardPanel
+        lang="en-US" tasks={[]} raid={[]} budgets={[usdFixed]} plan={plan} roles={ratedRoles}
+        resources={[]} absences={[]} holidaySet={new Set<string>()} workdayHours={8} today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    expect(screen.getByTestId("tile-burn")).toBeInTheDocument();
+    expect(screen.queryByText(/without an FX rate/i)).toBeNull();
+  });
+});
+
+// ── Spec C: removing the figures changed no health input ───────────────────
+// ★★★ A CHARACTERIZATION TEST: it is written BEFORE the change and must pass on
+// the old tree AND the new one — that is what "the same before and after"
+// means. Effort SPI/CPI feed the Schedule and Budget RAG through `dashboard.ts`
+// (`evmIndexHealth`), never through the tile, so moving the tiles must not move
+// a badge. Fixture: 80 h earned of 120 h planned (SPI 0.67 → Red) and 100 h
+// booked (CPI 0.80 → Amber), no budget buckets.
+describe("DashboardPanel health inputs are unchanged by spec C", () => {
+  const BAD_EVM_TASKS = [
+    {
+      id: 1, title: "Built", status: "Done", health: "G",
+      originalEstimateMinutes: 4800, timeSpentMinutes: 6000,
+      dueDate: "2026-06-02", completedDate: "2026-06-02",
+      linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [],
+    },
+    {
+      id: 2, title: "Open", status: "To Do", health: "G",
+      originalEstimateMinutes: 2400, dueDate: "2026-06-02",
+      linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [],
+    },
+  ] as never[];
+
+  it("keeps Schedule Red and Budget Amber for a bad-SPI/CPI fixture", () => {
+    render(
+      <DashboardPanel
+        lang="en-US" tasks={BAD_EVM_TASKS} raid={[]} budgets={[]} plan={plan} roles={[]}
+        resources={[]} absences={[]} holidaySet={new Set<string>()} workdayHours={8} today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    // `getByTitle`, not `getByRole`: the badges sit inside the closed
+    // Adjust-health <details>, and the title IS their accessible name.
+    expect(screen.getByTitle(`${t("en-US", "dashboardSubSchedule")}: ${healthColorName("R", "en-US")}`)).toBeInTheDocument();
+    expect(screen.getByTitle(`${t("en-US", "dashboardSubBudget")}: ${healthColorName("A", "en-US")}`)).toBeInTheDocument();
   });
 });

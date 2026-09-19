@@ -28,6 +28,26 @@ describe("ActionRow", () => {
   });
 });
 
+describe("ActionRow — inert without onOpen (§582 fix round)", () => {
+  // ★★ Without a handler the row's outer div still rendered `cursor-pointer` +
+  // `hover:bg-surface-muted`, so it LOOKED clickable and did nothing — worse
+  // than no affordance at all. Those classes belong on the div only when
+  // `onOpen` is actually wired.
+  it("has no cursor-pointer or hover class on the row when onOpen is absent", () => {
+    const { container } = render(<ActionRow rowToken="Row" lang="en-US" action={action} />);
+    const row = container.firstElementChild as HTMLElement;
+    expect(row.className).not.toMatch(/cursor-pointer/);
+    expect(row.className).not.toMatch(/hover:bg-surface-muted/);
+  });
+
+  it("keeps cursor-pointer and the hover class on the row when onOpen is present", () => {
+    const { container } = render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} />);
+    const row = container.firstElementChild as HTMLElement;
+    expect(row.className).toMatch(/cursor-pointer/);
+    expect(row.className).toMatch(/hover:bg-surface-muted/);
+  });
+});
+
 describe("ActionRow snooze", () => {
   it("opens the snooze menu and fires onSnooze with 1h / 1d", () => {
     const onSnooze = vi.fn();

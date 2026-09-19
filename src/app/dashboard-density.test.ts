@@ -3,11 +3,21 @@ import { densityClasses } from "./dashboard-density";
 
 describe("densityClasses", () => {
   test("comfortable keeps the current spacing (no-op for existing users)", () => {
-    expect(densityClasses("comfortable")).toEqual({ outer: "space-y-4", kpiGap: "gap-2", cardPad: "p-3", sectionGap: "gap-4", tileRow: "auto-rows-[80px]" });
+    expect(densityClasses("comfortable")).toEqual({ outer: "space-y-4", kpiGap: "gap-2", cardPad: "p-3", kpiPad: "p-3", sectionGap: "gap-4", tileRow: "auto-rows-[80px]" });
   });
 
   test("compact tightens rhythm, KPI gap, and card padding", () => {
-    expect(densityClasses("compact")).toEqual({ outer: "space-y-2", kpiGap: "gap-1", cardPad: "p-2", sectionGap: "gap-2", tileRow: "auto-rows-[72px]" });
+    expect(densityClasses("compact")).toEqual({ outer: "space-y-2", kpiGap: "gap-1", cardPad: "p-2", kpiPad: "px-2 py-0", sectionGap: "gap-2", tileRow: "auto-rows-[72px]" });
+  });
+
+  test("kpiPad keeps the KPI strip's width in both densities, dropping only compact's vertical padding (§585)", () => {
+    // ★ Width is what the strip's container queries read (`KPI_STRIP_COLS`),
+    // so the horizontal padding must match `cardPad` exactly; only compact's
+    // vertical padding goes, because at h:3 and a 72px row a wrapped strip
+    // overflowed its tile body by 3px with it (measured in
+    // `e2e/dashboard-grid.spec.ts`). Comfortable is unchanged.
+    expect(densityClasses("comfortable").kpiPad).toBe(densityClasses("comfortable").cardPad);
+    expect(densityClasses("compact").kpiPad).toBe("px-2 py-0");
   });
 
   test("exposes a grid row unit per density", () => {

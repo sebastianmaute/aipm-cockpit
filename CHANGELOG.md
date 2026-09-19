@@ -8,6 +8,41 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [1.12.0] - 2026-09-19 "Child"
+
+The Dashboard's landing screen is reworked around three questions — what changed, what to do next, and
+how the project is doing — with the Budget burn chart now leading the tile grid at full height.
+
+### Changed
+
+- **The Dashboard's first row now holds the delta strip, the digest card and the Print / Reset layout /
+  Reset size controls**, with a hidden-tiles count badge replacing the always-visible shelf — the tray
+  it opens sits directly under row 1, shown only while open. The second row carries the Next-actions
+  hero beside Overall status, at equal height, the hero absent when there is nothing in the Now or Soon
+  tier; then the narrative summary, the coaching card and the tip-of-the-day card, and finally the
+  arrangeable tile grid.
+- **The Budget burn tile is chart-only** — the forecast headline, the Spent and hours figures, the FX
+  rollup notice and the caption all left it — and now leads the grid at 2 wide by 8 tall, the tallest
+  tile on the board.
+- **The KPI tile sits beside the burn chart on wide screens.** It carries Effort SPI and Effort CPI
+  whenever each can be computed, alongside completion, overdue and open-RAID, and its columns follow
+  how many of those cells are actually visible rather than the viewport width. Sketched as a 4-wide,
+  2-tall block below the burn chart, it shipped instead at 2 wide by 3 tall beside it, with its height
+  now fixed so a wrapped row of tiles never lands inside a scrolling tile body.
+- **A saved dashboard layout is upgraded once** — the burn tile moves to the front and, only alongside
+  that move, an untouched default-sized KPI tile resizes to match; a layout a user has already resized
+  keeps its own sizes.
+
+### Fixed
+
+- **The Next-actions hero's Open button no longer renders when it would do nothing** — it used to show
+  even without a handler wired up.
+- **A budget-history property test that flaked once in CI under an unseeded run is fixed at its root
+  cause**, not just widened: its tolerance now sizes itself to the sub-epsilon budget-change steps
+  actually dropped in a given run, rather than assuming a fixed worst case.
+
+§580–§585 were filed and closed in this release.
+
 ## [1.11.0] - 2026-09-18 "Grisham"
 
 A new project can now be created straight from a workspace JSON file, the AI Assistant takes

@@ -14,7 +14,7 @@
  * green unit suite is not evidence that anyone has looked at them:
  *
  *   1. THE SEVEN `minW: 4` ROWS. Those blocks carry column-resizable tables or a
- *      whole embedded report panel. `BlockSpan` is `1|2|3|4` over a four-column
+ *      whole embedded report panel. `BlockWidth` is `1|2|3|4` over a four-column
  *      grid, so a narrower `minW` lets a user squeeze an entire report table
  *      into a quarter of the width, where it is unusable. `minW` is the only
  *      thing preventing it. `report-blocks.test.ts` pins the NUMBERS; nothing
@@ -31,7 +31,7 @@
  *      the very command that refutes it. It was true when written and was
  *      re-staled by a later commit ON THE SAME BRANCH. Run the grep; do not read
  *      an obligation's tense off the prose around it.
- *      The reason for the number: `BlockSpan` caps at 4, so at the Dashboard's
+ *      The reason for the number: this catalogue caps every `maxH` at 4, so at the Dashboard's
  *      unit the tallest a block could ever be is 320px — too short for an
  *      embedded report. The class is injected rather than declared here, because
  *      this file is i18n- and DOM-free; the REASON lives here because it is a

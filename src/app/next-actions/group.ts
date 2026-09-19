@@ -56,7 +56,21 @@ export function groupNextActions(actions: readonly SuggestedAction[]): ActionGro
 /** The primaries of the top `n` groups, in group rank order. For a compact
  *  surface that renders one row per action (the dashboard's Top actions tile):
  *  slicing the FLAT list first would let several signals on one entity — e.g.
- *  one per missing project key fact — fill every slot with the same row. */
-export function topGroupPrimaries(actions: readonly SuggestedAction[], n: number): SuggestedAction[] {
-  return groupNextActions(actions).slice(0, n).map((g) => g.primary);
+ *  one per missing project key fact — fill every slot with the same row.
+ *  ★ Takes the GROUPS (spec C): `task-manager.tsx` groups once and hands the
+ *  result down, so this no longer runs `groupNextActions` a second time. */
+export function topGroupPrimaries(groups: readonly ActionGroup[], n: number): SuggestedAction[] {
+  return groups.slice(0, n).map((g) => g.primary);
+}
+
+/**
+ * The single group a surface promotes to "Do this first": the top-ranked group,
+ * but only when it carries real urgency (tier !== "monitor" — never promote a
+ * low/monitor item). ★★ ONE helper for BOTH surfaces (spec C decision 4): the
+ * Next-actions page and the Dashboard's row 2 call it on the same array, so
+ * they cannot promote different heroes.
+ */
+export function pickHeroGroup(groups: readonly ActionGroup[]): ActionGroup | null {
+  const top = groups[0];
+  return top && top.tier !== "monitor" ? top : null;
 }

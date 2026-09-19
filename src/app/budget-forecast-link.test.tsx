@@ -4,8 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { forecastLinkText, BudgetForecastLink } from "./budget-forecast-link";
 import type { BudgetForecast } from "./budget-forecast";
 
-// Same §5.6 worked example as budget-forecast-headline.test.tsx: BAC €240,000;
-// pace EAC €261,150 (VAC -8.8%); efficiency EAC €270,968 (VAC -12.9%).
+// Same §5.6 worked example the now-deleted budget-forecast-headline.test.tsx
+// used: BAC €240,000; pace EAC €261,150 (VAC -8.8%); efficiency EAC €270,968
+// (VAC -12.9%).
 const BASE_FACTS = { bac: 240000, ac: 168000, remaining: 72000, ev: 148800, percentComplete: 62 };
 const PACE: BudgetForecast["pace"] = {
   burnRatePerDay: 1350, windowDays: 20, windowStart: "2026-08-17", windowEnd: "2026-09-11",

@@ -207,7 +207,6 @@ describe("computeDashboard", () => {
   it("returns neutral values for an empty workspace (no crash, no budget)", () => {
     const m = computeDashboard(baseInput());
     expect(m.overall.effective).toBe("G");
-    expect(m.burn).toBeNull();
     expect(m.budget.effective).toBeNull();
     expect(m.progress.percent).toBe(0);
     expect(m.scope.effective).toBeNull();
@@ -333,10 +332,10 @@ describe("computeDashboard", () => {
         budgets, roles: [forecastRole], today: forecastToday,
         plan: { startDate: "2026-01-01", endDate: "2026-10-12", granularity: "month", currency: "EUR" },
       }));
-      expect(m.forecast).not.toBeNull();
-      expect(isPaceAvailable(m.forecast!.pace)).toBe(true);
-      if (isPaceAvailable(m.forecast!.pace)) {
-        expect(m.forecast!.pace.vac).toBeCloseTo(-15_000, 6);
+      expect(m.forecastBundle).not.toBeNull();
+      expect(isPaceAvailable(m.forecastBundle!.eur.pace)).toBe(true);
+      if (isPaceAvailable(m.forecastBundle!.eur.pace)) {
+        expect(m.forecastBundle!.eur.pace.vac).toBeCloseTo(-15_000, 6);
       }
       expect(m.budget.computed).toBe("R");
       expect(m.budget.effective).toBe("R");
@@ -348,8 +347,8 @@ describe("computeDashboard", () => {
         budgets, roles: [forecastRole], today: forecastToday,
         plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
       }));
-      expect(m.forecast).not.toBeNull();
-      expect(isPaceAvailable(m.forecast!.pace)).toBe(false);
+      expect(m.forecastBundle).not.toBeNull();
+      expect(isPaceAvailable(m.forecastBundle!.eur.pace)).toBe(false);
       // consumedValue 0 / budgetValue 100,000 -> the ratio rule's Green branch.
       expect(m.budget.computed).toBe("G");
     });
@@ -363,10 +362,10 @@ describe("computeDashboard", () => {
         budgets, roles: [forecastRole], today: forecastToday,
         plan: { startDate: "2026-01-01", endDate: forecastToday, granularity: "month", currency: "EUR" },
       }));
-      expect(m.forecast).not.toBeNull();
-      expect(isPaceAvailable(m.forecast!.pace)).toBe(true);
-      if (isPaceAvailable(m.forecast!.pace)) {
-        expect(m.forecast!.pace.vac).toBeGreaterThanOrEqual(0);
+      expect(m.forecastBundle).not.toBeNull();
+      expect(isPaceAvailable(m.forecastBundle!.eur.pace)).toBe(true);
+      if (isPaceAvailable(m.forecastBundle!.eur.pace)) {
+        expect(m.forecastBundle!.eur.pace.vac).toBeGreaterThanOrEqual(0);
       }
       expect(m.budget.computed).toBe("G");
     });
@@ -430,11 +429,9 @@ describe("computeDashboard", () => {
     expect(m.burndown?.periods).toHaveLength(12);
   });
 
-  it("carries the forecast bundle (MR 3) and keeps forecast as its € member", () => {
+  it("carries the forecast bundle (MR 3)", () => {
     const m = computeDashboard(baseInput({ budgets: [bucketA, bucketB], roles: [bucketChainRole] }));
     expect(m.forecastBundle).not.toBeNull();
-    expect(m.forecast).toBe(m.forecastBundle!.eur);
-    expect(m.forecastBundle!.hours.facts.bac).toBe(m.burn!.budgetHours);
     // P12: non-vacuous — bucketA/bucketB now carry real allocations with a
     // rated role and actual hours, so these are real figures, not 0 === 0.
     expect(m.forecastBundle!.hours.facts.bac).toBeGreaterThan(0);

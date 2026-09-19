@@ -26,7 +26,18 @@ export type DashboardLayout = ArrangementLayout<DashboardTileId>;
  *
  *  ★ ONE instance, module-level. A factory called per use would break the
  *  reference identity that `reconcile(null)` and `reset()` both depend on. */
-export const DEFAULT_LAYOUT: DashboardLayout = defaultLayout(DASHBOARD_TILES);
+/** The Dashboard's one stored-layout upgrade id (spec C decision 11): Budget
+ *  burn to the front at 2×8, Completion trend's height into 2–4. */
+export const DASHBOARD_BURN_UPGRADE = "dashboard-burn-2x8";
+
+// ★★★ THE DEFAULT CARRIES THE UPGRADE ID, AND MUST. A fresh board and a Reset
+// layout both persist THIS object; without the id they would be upgraded again
+// on the next load, dragging burn back to the front of a board the user has
+// since rearranged. Still ONE module-level instance (see above).
+export const DEFAULT_LAYOUT: DashboardLayout = {
+  ...defaultLayout(DASHBOARD_TILES),
+  upgrades: [DASHBOARD_BURN_UPGRADE],
+};
 
 /* ★ THE RETURN TYPES ARE ANNOTATED, NOT INFERRED, AND THAT IS THE POINT OF THE
  * ADAPTER. These five are the Dashboard's whole public layout API. Left to

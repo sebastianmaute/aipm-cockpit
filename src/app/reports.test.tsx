@@ -611,7 +611,7 @@ describe("ReportsPanel — the arrangement grid", () => {
   it("binds a 120px row unit and a gap, as WHOLE LITERAL class strings", () => {
     // ★★★ THE ONLY GUARD THAT EXISTS FOR THE ROW UNIT, and it closes the
     // obligation `report-blocks.ts` records. 120px, not the Dashboard's 80px:
-    // `BlockSpan` caps at 4, so an 80px unit would put an embedded report in a
+    // `REPORT_BLOCKS` caps heights at 4, so an 80px unit would put an embedded report in a
     // 320px box. ★★ jsdom has no layout, so this can only assert that the CLASS
     // was rendered — never that Tailwind emitted a rule for it. An interpolated
     // class would produce this identical string and emit no CSS at all, so a

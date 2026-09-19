@@ -247,3 +247,17 @@ describe("useReportsArrangement — the binding", () => {
     expect(second.result.current.layout.hidden).not.toContain("byPriority");
   });
 });
+
+describe("useReportsArrangement — no Dashboard upgrade (spec C)", () => {
+  it("never upgrades or rewrites a stored Reports layout", () => {
+    // ★ Reports binds `useArrangement` with no `upgrade`, so a stored layout
+    // with no upgrades list is read, reconciled and left alone — the Dashboard's
+    // one-time migration can never reach this surface's key.
+    localStorage.setItem(REPORTS_LAYOUT_KEY, JSON.stringify({ p1: { v: 1, board: [{ id: "stats", w: 4, h: 1 }], hidden: [] } }));
+    const before = localStorage.getItem(REPORTS_LAYOUT_KEY);
+    const r = mount();
+    settle();
+    expect(localStorage.getItem(REPORTS_LAYOUT_KEY)).toBe(before);
+    expect(r.result.current.layout.upgrades).toBeUndefined();
+  });
+});

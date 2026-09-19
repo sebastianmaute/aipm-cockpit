@@ -47,6 +47,21 @@ describe("DashboardTopActions", () => {
     expect(openBtns).toHaveLength(2);
   });
 
+  // §582 — the Top-actions tile had the same "Open-does-nothing" fallback the
+  // hero's fix removed (`onOpenAction ?? (() => {})`), just here for rows
+  // instead. `ActionHandlers.onOpen` is optional now, so the row must hide its
+  // Open CTA rather than render one wired to a no-op.
+  it("hides the Open CTA when onOpenAction is absent, and shows it once wired (§582)", () => {
+    const { rerender } = render(
+      <DashboardTopActions lang="en-US" topActions={[sampleAction1]} dc={dc} />,
+    );
+    expect(screen.queryByRole("button", { name: /^Open – /})).toBeNull();
+    rerender(
+      <DashboardTopActions lang="en-US" topActions={[sampleAction1]} onOpenAction={vi.fn()} dc={dc} />,
+    );
+    expect(screen.getByRole("button", { name: /^Open – /})).toBeInTheDocument();
+  });
+
   // §324. This card is a SECOND list owner for `ActionRow` (the Next-actions
   // panel is the other), so it mints its own token map — and until this test
   // that map had NO detector: the fixtures above carry DISTINCT titles

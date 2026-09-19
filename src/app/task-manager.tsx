@@ -166,6 +166,7 @@ import { useTursoProjects } from "./use-turso-projects";
 import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { ProjectRegistryEntry } from "./projects-registry";
 import { computeNextActions } from "./next-actions";
+import { groupNextActions } from "./next-actions/group";
 import { buildActionInput } from "./next-actions-input";
 import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
@@ -1223,6 +1224,11 @@ function TaskManagerInner() {
       ),
     [tasks, raid, changes, milestones, stakeholders, steeringCommittee, dashboardModel, comms.items, settings.features, effectiveNotifications, effectiveNextActions, project, portfolioCurrentId, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
   );
+  // ★ Spec C decision 4: grouping runs ONCE, here, beside `computeNextActions`.
+  // Both the Next-actions page and the Dashboard (its hero and Top actions tile)
+  // read this array, so the two surfaces cannot pick different heroes. The flat
+  // list keeps flowing to everything that wants it (notifications, chips, AI).
+  const nextActionGroups = useMemo(() => groupNextActions(nextActions), [nextActions]);
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   // Stakeholder ids with a pending stakeholder-comms next-action. Feeds the
   // influence/interest matrix's "needs communication" jump-to-Action-Center icon.
@@ -2588,6 +2594,7 @@ function TaskManagerInner() {
     onRestoreProject: handleRestoreTursoProject,
     onHardDeleteProject: handleHardDeleteTursoProject,
     nextActions,
+    nextActionGroups,
     onOpenAction: openAction,
     // Insights lifecycle bag (#6B SP1/SP2).
     insightActions: isPopout ? undefined : insightActions,

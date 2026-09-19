@@ -89,8 +89,12 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
 
   it("threads the action-center handler bundles (Phase 3: use-action-center-handlers)", () => {
     const p = captured.props!;
+    // ★ Spec C: grouping runs ONCE in task-manager, and both the Next-actions
+    // page and the Dashboard read this array.
+    expect(Array.isArray(p.nextActionGroups), "nextActionGroups must reach WorkspaceSection as an array").toBe(true);
     for (const key of [
       "nextActions",
+      "nextActionGroups",
       "onOpenAction",
       "onSnooze",
       "assignOwner",

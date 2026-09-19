@@ -4,11 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReportCard } from "./report-table";
 import { buildDashboardInput, computeDashboard, hasNoActiveScope } from "./dashboard";
 import { useWorkspace } from "./workspace-context";
-import { type Lang, t, localeFor } from "./i18n";
+import { type Lang, t } from "./i18n";
 import type { Health } from "./health";
 import type { Absence, BudgetBucket, ChangeItem, Discipline, Grade, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
-import { formatCurrency } from "./resource-cost";
 import type { SuggestedAction } from "./next-actions/types";
+import type { ActionGroup } from "./next-actions/group";
+import type { ActionHandlers } from "./action-cta-controls";
+import { ActionHeroCard } from "./action-hero-card";
+import { rowLabel } from "./row-tokens";
+import { DashboardStatusRow, DashboardTopRow } from "./dashboard-rows";
 import type { InsightActions } from "./insights/insight";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetLayoutButton, ResetSizeButton } from "./task-manager-ui";
@@ -31,7 +35,8 @@ import { PopoverPanel } from "./popover-panel";
 import { DashboardGrid } from "./dashboard-grid";
 import { DashboardTile, type TileDragProps } from "./dashboard-tile";
 import { DashboardTileMenu } from "./dashboard-tile-menu";
-import { DashboardShelf } from "./dashboard-shelf";
+import { DashboardShelf, DASHBOARD_SHELF_TRAY_ID } from "./dashboard-shelf";
+import { DashboardHiddenBadge } from "./dashboard-hidden-badge";
 import { buildTileBodies } from "./dashboard-tile-bodies";
 import { useDashboardLayout } from "./use-dashboard-layout";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
@@ -42,6 +47,9 @@ import type { PlacedTile } from "./dashboard-layout";
 // fallback would mint a fresh array every render, invalidating the `model`
 // memo's `snapshots` dependency for no input change (AGENTS.md memo bullet).
 const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
+
+/** Stable empty for the hero's CTA bundle — see `heroHandlers` below. */
+const NO_HANDLERS: Omit<ActionHandlers, "onOpen"> = {};
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -68,6 +76,15 @@ interface DashboardPanelProps {
   showChanges?: boolean;
   topActions?: readonly SuggestedAction[];
   onOpenAction?: (a: SuggestedAction) => void;
+  /** Row 2's Next-Actions hero (spec C decisions 3–4): `pickHeroGroup` over the
+   *  ONE grouping `task-manager.tsx` runs, so this panel and the Next-actions
+   *  page cannot promote different groups. null/absent = no Now/Soon group →
+   *  Overall status takes the whole row. */
+  heroGroup?: ActionGroup | null;
+  /** The CTA bundle `ActionsPanel` hands its hero, minus `onOpen` (this panel's
+   *  `onOpenAction` is that). Ignored in a popout. */
+  actionHandlers?: Omit<ActionHandlers, "onOpen">;
+  expertMode?: boolean;
   variance?: readonly VarianceRow[];
   snapshots?: readonly SnapshotRecord[];
   tursoActive?: boolean;
@@ -100,26 +117,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // never invalidates for no input change.
   const snapshots = props.snapshots ?? EMPTY_SNAPSHOTS;
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:dashboard-size");
-
-  const locale = localeFor(lang);
-  // ★★ Both money surfaces on this panel render figures that came straight out
-  // of the budget engine and convert NOTHING: `money` prints
-  // `model.burn.consumedValue`/`budgetValue`, which `dashboard.ts` copies off
-  // `computeBudgetReport(...).project`, and `currency` below labels
-  // `model.burndown`, whose values are `budgetHours × role.rates.external`.
-  // Every figure the engine returns is EUR — a fixed-price bucket's contract
-  // amount is converted to EUR at the engine's one read — so these are EUR
-  // whatever `plan.currency` says. Narrowing that field to the `BudgetCurrency`
-  // union did NOT make it safe to label with: the union still admits
-  // `USD`/`GBP`, so it states the plan's base currency, never the unit of an
-  // unconverted engine figure. Labelling them
-  // `plan.currency` printed EUR money under another currency's symbol on the
-  // LANDING view (docs/open-followups.md §465).
-  // ★ Contrast the per-bucket tiles in `budget-panel.tsx`: those convert
-  // EUR→bucket currency (`inCur`/`cci`) BEFORE labelling, so there the
-  // bucket's own currency is the right label. The discriminator is whether the
-  // figure was converted, never where it is rendered.
-  const money = (n: number) => formatCurrency(n, "EUR", locale);
 
   const model = useMemo(
     () =>
@@ -222,6 +219,32 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // due-soon). undefined ⇒ the strip downgrades those chips to info-only spans.
   const repTaskId = model.overdue[0]?.id ?? model.dueSoon[0]?.id;
 
+  // ── Row 2: the Next-Actions hero (spec C decisions 3–4) ─────────────────────
+  // ★ A popout is read-only: the hero renders without ANY handler, including
+  // the two `task-manager.tsx` does not popout-gate (`onSnooze`, `onLogAsRaid`).
+  const heroGroup = props.heroGroup ?? null;
+  const heroHandlers = props.isPopout ? NO_HANDLERS : (props.actionHandlers ?? NO_HANDLERS);
+  // ★★ THE HERO'S TOKEN CARRIES A SECTION SEGMENT HERE, and only here. The Top
+  // actions tile keeps listing the hero's action (decision 5), and its rows are
+  // row-unique only WITHIN the tile, so a bare title would give the hero and the
+  // tile row the same "Open – <title>" — a WCAG 2.4.6 collision axe cannot see.
+  // "Open – Do this first – <title>" still contains the visible "Open"; the
+  // tile's names are unchanged. Same shape as `AiActionRow`'s section segment.
+  const heroEl = heroGroup ? (
+    <ActionHeroCard
+      {...heroHandlers}
+      onOpen={onOpenAction}
+      lang={lang}
+      group={heroGroup}
+      expertMode={props.expertMode}
+      rowToken={rowLabel(
+        t(lang, "actionHeroEyebrow"),
+        t(lang, heroGroup.primary.title.key, ...(heroGroup.primary.title.params ?? [])),
+      )}
+      className="h-full"
+    />
+  ) : null;
+
   // Forward "what's coming" milestone horizon for the dashboard strip.
   const milestoneBuckets = useMemo(
     () =>
@@ -315,16 +338,12 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const bodies = buildTileBodies({
     lang, dc, model,
     trends,
-    money,
-    // EUR for the same reason as `money` above — this labels the engine's
-    // burn-down series, which converts nothing.
+    // ★★ EUR, never `plan.currency`: this labels the engine's burn-down series
+    // (`budgetHours × role.rates.external`), which converts nothing. Narrowing
+    // `plan.currency` to the `BudgetCurrency` union did not make it safe — the
+    // union still admits USD/GBP — and labelling with it printed EUR money
+    // under another symbol on the LANDING view (docs/open-followups.md §465).
     currency: "EUR",
-    // §474 (third surface): same raw buckets/fxRates budget-panel.tsx and
-    // budget-report-panel.tsx already pass to `BudgetFxRollupNotice` — the
-    // "burn" tile body only renders it alongside `model.burn`, so it never
-    // shows for a tile built with budgets gated off (showBudget=false).
-    buckets: props.budgets,
-    fxRates,
     noActiveScope,
     completionSeries,
     milestoneBuckets,
@@ -388,28 +407,16 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // one of them has to say where focus goes or the browser drops it on `<body>`.
   // Hide is pressed inside the ⋮ popover, which unmounts along with the tile it
   // was anchored to; Restore is pressed on a chip that the same click removes.
-  // ★★ `PopoverPanel` DOES restore focus to its anchor when it unmounts with
-  // focus still inside it (§297) — this comment claimed the opposite, which was
-  // true when it was written and stopped being true when that guard landed. The
-  // restore below still stands, and the primitive is what makes it stand: the
-  // guard is a containment check over an eagerly recorded answer, so
-  // `focusShelfToggle()` moves focus to an element outside the panel, the
-  // panel's `focusout` records that (a real, non-null `relatedTarget`), and the
-  // primitive declines. Restore is not a popover path at all — its chip is not
-  // inside one — so nothing else was ever going to catch that half.
-  // ★★★ THIS SENTENCE USED TO SAY "running FIRST", AND THE HIDE HANDLER BELOW
-  // RUNS IT LAST — the wording was inherited by `reports.tsx` and repeated there
-  // as a load-bearing ordering rule, which it is not. `arrangement.hide` is a
-  // plain `setState` (`use-arrangement.ts`'s `mutate`), batched and flushed only
-  // after the handler returns, while `focus()` is synchronous DOM: focus leaves
-  // the panel before the unmounting commit whichever line runs first. Both
-  // surfaces are correct as written; do not "align" one to the other.
-  // The shelf disclosure is the destination for both: it is the one node in that
-  // subtree that never unmounts, it is where the hidden tile now lives, and it
-  // is the route back. The `.focus()` is safe to call synchronously because the
-  // toggle is already mounted and stays mounted across the state update.
-  const shelfToggleRef = useRef<HTMLButtonElement | null>(null);
-  const focusShelfToggle = () => shelfToggleRef.current?.focus();
+  // ★★ SPEC C: THE DESTINATION IS THE HIDDEN-TILES BADGE — and it is absent at a
+  // count of 0, so hiding the FIRST tile MOUNTS it in the very commit the hide
+  // causes. Focus is therefore a POST-COMMIT request (`focusRequest` below, the
+  // same effect the Move case uses), never a synchronous `.focus()`, which would
+  // find nothing. `PopoverPanel`'s own §297 restore runs in a passive CLEANUP,
+  // before this passive effect, so the request wins; its anchor (the hidden
+  // tile's ⋮) is detached by then anyway.
+  // ★★ Restoring the LAST hidden tile empties the tray and unmounts the badge,
+  // so that one case lands on the restored tile's own ⋮ trigger instead.
+  const badgeRef = useRef<HTMLButtonElement | null>(null);
 
   // ★★★ A MOVE IS THE OTHER HALF OF THE SAME DEFECT, AND IT NEEDS A DIFFERENT
   // MECHANISM. The move commands close the popover too, but the TILE survives —
@@ -434,12 +441,15 @@ export function DashboardPanel(props: DashboardPanelProps) {
   //
   // ★ A fresh object per request, never a bare id: two consecutive moves of the
   // SAME tile must both re-run this, and `setState` with an equal id would not.
+  // ★ Spec C generalised it: a request names a tile's ⋮ trigger (Move, and a
+  // Restore that empties the tray) or the hidden-tiles badge (Hide, Restore).
   const triggerRefs = useRef(new Map<DashboardTileId, HTMLButtonElement>());
-  const [focusAfterMove, setFocusAfterMove] = useState<{ id: DashboardTileId } | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{ tile: DashboardTileId } | { badge: true } | null>(null);
   useEffect(() => {
-    if (focusAfterMove === null) return;
-    triggerRefs.current.get(focusAfterMove.id)?.focus();
-  }, [focusAfterMove]);
+    if (focusRequest === null) return;
+    if ("tile" in focusRequest) triggerRefs.current.get(focusRequest.tile)?.focus();
+    else badgeRef.current?.focus();
+  }, [focusRequest]);
 
   const [menu, setMenu] = useState<{ id: DashboardTileId; index: number; count: number } | null>(null);
   // PopoverPanel anchors off a ref; `DashboardTile` hands us the trigger ELEMENT,
@@ -461,7 +471,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     const j = delta === "first" ? 0 : i + delta;
     if (j === i || j < 0 || j >= visibleIds.length) return;
     arrangement.move(id, visibleIds[j]);
-    setFocusAfterMove({ id });
+    setFocusRequest({ tile: id });
     const spec = tileById(id);
     if (!spec) return;
     setAnnouncement(
@@ -492,6 +502,49 @@ export function DashboardPanel(props: DashboardPanelProps) {
         },
       };
 
+  // The tray's chips. ★★ Filtered by `isRenderable`, the SAME predicate the
+  // board uses — the tray must never offer a tile restoring cannot bring back.
+  // flatMap, not map + `!`: a stale id would otherwise throw on the title.
+  const shelfHidden = layout.hidden.flatMap((id) => {
+    const spec = tileById(id);
+    return spec && isRenderable(id) ? [{ id, title: t(lang, spec.labelKey) }] : [];
+  });
+  // ★ Spec C: ONE open state drives the badge's `aria-expanded` and the tray's
+  // `hidden`. The tray only SHOWS while there is something to show or a drag is
+  // in flight — otherwise it could be left open with no badge to close it.
+  const [trayOpen, setTrayOpen] = useState(false);
+  const trayShown = trayOpen && (shelfHidden.length > 0 || reorder.isDragging);
+  // ★ Fix round 2: a drag that opens the tray via the badge while hidden
+  // count is 0 (dragEnter sets `trayOpen`) and then ends WITHOUT a drop
+  // leaves `trayOpen` stuck true even though `trayShown` already fell back
+  // to false for this render — the very next Hide via the tile menu would
+  // then flip `trayShown` back to true unasked. Only clear `trayOpen` when a
+  // drag actually JUST ended (this render's `isDragging` is false, the
+  // PREVIOUS render's was true) and there is still nothing to show — NOT on
+  // every count-0 render, which also happens when a module gate hides the
+  // sole chip, where `trayOpen` must survive to reopen the tray once the
+  // gate comes back (see "drops a hidden tile from the shelf once its
+  // module gate goes off" in dashboard-panel.test.tsx). Render-time
+  // reconcile against a last-seen STATE, not a ref (`react-hooks/refs` bans
+  // reading/writing a ref during render) and not an effect
+  // (`react-hooks/set-state-in-effect` is banned) — same shape as
+  // `tasks-section.tsx`'s `handledClearNonce`.
+  const [wasDragging, setWasDragging] = useState(reorder.isDragging);
+  if (wasDragging !== reorder.isDragging) {
+    if (wasDragging && trayOpen && shelfHidden.length === 0) setTrayOpen(false);
+    setWasDragging(reorder.isDragging);
+  }
+  const restoreFromShelf = (id: DashboardTileId) => {
+    arrangement.restore(id);
+    // ★ Fix round 1: restoring the LAST hidden tile must also close the tray's
+    // own `open` state, not just let `trayShown` fall to false for this render.
+    // Without this, `trayOpen` stays true and the very next Hide re-opens the
+    // tray unasked (`trayShown = trayOpen && shelfHidden.length > 0` flips back
+    // true the moment a tile is hidden again).
+    if (shelfHidden.length <= 1) setTrayOpen(false);
+    setFocusRequest(shelfHidden.length > 1 ? { badge: true } : { tile: id });
+  };
+
   return (
     <ReportCard
       lang={lang}
@@ -501,40 +554,103 @@ export function DashboardPanel(props: DashboardPanelProps) {
       hideToolbar
     >
       <div className={dc.outer}>
-        {/* Landing: greeting + since-you-last-looked. The heading is removed; the
-            Print + Reset-size controls are stacked to the RIGHT of this first box. */}
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
+        {/* Row 1 (spec C decision 1): "since you last looked", the weekly digest
+            beside it, and the control stack on the far right. */}
+        <DashboardTopRow
+          dc={dc}
+          delta={
             <DashboardDeltaStrip
               lang={lang}
               delta={delta}
               greeting={greeting}
               onOpenTask={
-            // onOpenTask opens a SPECIFIC task editor by id, so only wire it
-            // when a representative task exists — otherwise the strip renders
-            // the chip as a non-interactive span (no dead -1 click). RAID/
-            // milestone/change handlers route to the VIEW (ignore the id), so
-            // they stay wired unconditionally below.
-            onOpenTask && repTaskId !== undefined ? () => onOpenTask(repTaskId) : undefined
-          }
+                // onOpenTask opens a SPECIFIC task editor by id, so only wire it
+                // when a representative task exists — otherwise the strip renders
+                // the chip as a non-interactive span (no dead -1 click). RAID/
+                // milestone/change handlers route to the VIEW (ignore the id), so
+                // they stay wired unconditionally below.
+                onOpenTask && repTaskId !== undefined ? () => onOpenTask(repTaskId) : undefined
+              }
               onOpenRaid={onOpenRaid ? () => onOpenRaid(model.topRaid[0]?.id ?? -1) : undefined}
               onOpenMilestone={props.onOpenMilestone ? () => props.onOpenMilestone!(-1) : undefined}
               onOpenChange={props.onOpenChange ? () => props.onOpenChange!(-1) : undefined}
             />
+          }
+          digest={
+            // Weekly status digest — self-hides until enabled (Settings) + generated;
+            // its slot collapses then (`DashboardTopRow`).
+            <DigestCardConnected
+              lang={lang}
+              dc={dc}
+              model={model}
+              raid={props.raid}
+              projectId={props.projectId ?? "default"}
+              isPopout={props.isPopout ?? false}
+            />
+          }
+          controls={
+            // ★ `gap-2` here is MOVED, unchanged, from this same control stack
+            // before spec C — not a new literal (D7 binds new spacing to `dc.*`).
+            <div className="flex shrink-0 flex-col gap-2 print:hidden">
+              <PrintButton lang={lang} />
+              {/* ★★★ The `!arrangement.readOnly` guard is LOAD-BEARING and is not
+                  inherited here: the stack itself is gated only on `print:hidden`.
+                  Without it a popout — a surface with no grip, no ⋮ menu and no
+                  tray by design — gains a working reset. */}
+              {!arrangement.readOnly && (
+                <ResetLayoutButton onClick={arrangement.reset} lang={lang} />
+              )}
+              <ResetSizeButton onClick={resetSize} lang={lang} />
+              {/* Spec C decision 2: the hidden-tiles badge, directly under Reset
+                  size; carries its own `readOnly` guard like Reset layout. */}
+              {!arrangement.readOnly && (
+                <DashboardHiddenBadge
+                  lang={lang}
+                  count={shelfHidden.length}
+                  open={trayShown}
+                  onOpenChange={setTrayOpen}
+                  isDragging={reorder.isDragging}
+                  dropProps={shelfDropProps}
+                  trayId={DASHBOARD_SHELF_TRAY_ID}
+                  badgeRef={badgeRef}
+                />
+              )}
+            </div>
+          }
+        />
+
+        {/* The hidden-tiles tray, directly under row 1 (spec C). The wrapper is
+            `hidden` while the tray is shut, so the `space-y` flow gains no empty
+            gap; the tray node itself stays mounted for `aria-controls`. */}
+        {!arrangement.readOnly && (
+          <div className="print:hidden" hidden={!trayShown}>
+            <DashboardShelf
+              lang={lang}
+              hidden={shelfHidden}
+              onRestore={restoreFromShelf}
+              dropProps={shelfDropProps}
+              open={trayShown}
+            />
           </div>
-          <div className="flex shrink-0 flex-col gap-2 print:hidden">
-            <PrintButton lang={lang} />
-            {/* ★★★ The `!arrangement.readOnly` guard is LOAD-BEARING and is not
-                inherited here. It used to come from the block below the grid
-                that this button was lifted out of; the stack itself is gated
-                only on `print:hidden`. Without it a popout — a surface with no
-                grip, no ⋮ menu and no shelf by design — gains a working reset. */}
-            {!arrangement.readOnly && (
-              <ResetLayoutButton onClick={arrangement.reset} lang={lang} />
-            )}
-            <ResetSizeButton onClick={resetSize} lang={lang} />
-          </div>
-        </div>
+        )}
+
+        {/* Row 2 (spec C decision 3): the Next-Actions hero beside Overall
+            status; the order below it is narrative → coaching → tip → grid. */}
+        <DashboardStatusRow
+          dc={dc}
+          hero={heroEl}
+          status={
+            <DashboardHero
+              lang={lang}
+              today={today}
+              model={model}
+              status={status}
+              setStatus={setStatus}
+              showBudget={showBudget}
+              showChanges={showChanges}
+            />
+          }
+        />
 
         {/* Tier 0 — read-only status narrative summary (self-hides when empty) */}
         <NarrativeSummary lang={lang} status={status} />
@@ -544,27 +660,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
 
         {/* Tip of the day — dismissable, rotates daily (per-device) */}
         <DashboardTipCard lang={lang} dc={dc} isPopout={props.isPopout} />
-
-        {/* Weekly status digest — self-hides until enabled (Settings) + generated */}
-        <DigestCardConnected
-          lang={lang}
-          dc={dc}
-          model={model}
-          raid={props.raid}
-          projectId={props.projectId ?? "default"}
-          isPopout={props.isPopout ?? false}
-        />
-
-        {/* Tier 1 — hero: Overall RAG band + Adjust-health disclosure */}
-        <DashboardHero
-          lang={lang}
-          today={today}
-          model={model}
-          status={status}
-          setStatus={setStatus}
-          showBudget={showBudget}
-          showChanges={showChanges}
-        />
 
         {/* The arrangeable tile grid — REPLACES the fixed masonry flow. Order is
             the whole placement model (`grid-auto-flow: row dense`), so there are
@@ -610,30 +705,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
           })}
         </DashboardGrid>
 
-        {/* Popout is READ-ONLY: no shelf, no menu (the reset is guarded at its
-            own site in the top control stack) — and the tile chrome drops its
-            own grip and ⋮ on the same flag. */}
-        {!arrangement.readOnly && (
-          <div className="print:hidden">
-            <DashboardShelf
-              lang={lang}
-              // flatMap, not map + `!`: `reconcile` drops unknown ids from
-              // `hidden`, but a stale id would otherwise throw on the title.
-              // ★★ Filtered by `isRenderable`, the SAME predicate the board
-              // uses — the shelf must never offer a tile that restoring cannot
-              // bring back.
-              hidden={layout.hidden.flatMap((id) => {
-                const spec = tileById(id);
-                return spec && isRenderable(id) ? [{ id, title: t(lang, spec.labelKey) }] : [];
-              })}
-              onRestore={(id) => { arrangement.restore(id); focusShelfToggle(); }}
-              dropProps={shelfDropProps}
-              isDragging={reorder.isDragging}
-              toggleRef={shelfToggleRef}
-            />
-          </div>
-        )}
-
         {/* ★ `PopoverPanel` owns the shared dismissal protocol (Escape via
             `useDismissable` → the dismissal stack, outside-click across both the
             anchor and the portaled panel, close-on-scroll, focus-first-control).
@@ -669,7 +740,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
               onHide={() => {
                 arrangement.hide(menu.id);
                 setAnnouncement(t(lang, "arrangementTileHidden", t(lang, menuSpec.labelKey)));
-                focusShelfToggle();
+                setFocusRequest({ badge: true });
               }}
               onClose={closeMenu}
             />

@@ -2,16 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { ArrangementBlockMenu, AxisGroup } from "./arrangement-block-menu";
 import { expectRowUniqueNames } from "../test/row-unique-names";
-import type { BlockSpan } from "./arrangement-layout";
+import type { BlockHeight, BlockWidth } from "./arrangement-layout";
 
-type Bounds = { minW?: BlockSpan; maxW?: BlockSpan; minH?: BlockSpan; maxH?: BlockSpan };
+type Bounds = { minW?: BlockWidth; maxW?: BlockWidth; minH?: BlockHeight; maxH?: BlockHeight };
 
 function menu(
   opts: Bounds & {
     title?: string;
     index?: number;
     count?: number;
-    onResize?: (a: "w" | "h", v: BlockSpan) => void;
+    onResize?: (a: "w" | "h", v: BlockHeight) => void;
     onMove?: (d: -1 | 1 | "first") => void;
     onHide?: () => void;
     onClose?: () => void;
@@ -90,6 +90,15 @@ describe("ArrangementBlockMenu — the axes", () => {
       .getByRole("radio", { name: /height 4/i })
       .click();
     expect(onResize).toHaveBeenCalledWith("h", 4);
+  });
+
+  it("offers the Dashboard-only heights 5–8 when a block's bounds allow them (spec C)", () => {
+    menu({ minH: 4, maxH: 8 });
+    const group = screen.getByRole("radiogroup", { name: "Height – Alpha board" });
+    expect(within(group).getAllByRole("radio")).toHaveLength(5);
+    for (const n of [4, 5, 6, 7, 8]) {
+      expect(within(group).getByRole("radio", { name: `Height ${n} – Alpha board` })).toBeInTheDocument();
+    }
   });
 });
 

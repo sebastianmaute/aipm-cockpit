@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { computeDashboard, buildDashboardInput } from "../dashboard";
 import { densityClasses } from "../dashboard-density";
 import { computeMetricTrends } from "../dashboard-trends";
-import { DashboardKpiStrip } from "./dashboard-kpi-strip";
+import { DashboardKpiStrip, KPI_STRIP_COLS } from "./dashboard-kpi-strip";
 import { t } from "../i18n";
 
 const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const };
@@ -172,5 +172,139 @@ describe("DashboardKpiStrip completion tile no-active-scope state", () => {
     );
     expect(screen.getByText("0%")).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "dashboardNoActiveScope"))).toBeNull();
+  });
+});
+
+// ── Spec C decision 8: Effort SPI / Effort CPI live in the KPI tile ─────────
+describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
+  // 80 h earned of 120 h planned → SPI 0.67; 100 h booked → CPI 0.80.
+  const EVM_TASKS = [
+    { ...taskFixture(1, "Done", "2026-06-02"), dueDate: "2026-06-02", originalEstimateMinutes: 4800, timeSpentMinutes: 6000 },
+    { ...taskFixture(2, "To Do"), dueDate: "2026-06-02", originalEstimateMinutes: 2400 },
+  ];
+
+  // pv = 80h (due by today, so it counts), ev = 80h (completed by today), ac = 0
+  // (`timeSpentMinutes` 0) → spi = 1.00, cpi = null (`evm.ts`: cpi is null when
+  // ac === 0). The common early case: an estimate exists and its due date has
+  // passed, but no hours have been booked against it yet.
+  const SPI_ONLY_TASKS = [
+    { ...taskFixture(1, "In Progress", "2026-06-01"), dueDate: "2026-06-01", originalEstimateMinutes: 4800, timeSpentMinutes: 0 },
+  ];
+
+  // pv = 0 (due date is AFTER today, so it never counts toward pv) → spi = null.
+  // ac = 100h (`timeSpentMinutes` booked) → cpi = 0/100 = 0.00. The mirror case:
+  // hours are booked against a task before its due date arrives.
+  const CPI_ONLY_TASKS = [
+    { ...taskFixture(1, "In Progress"), dueDate: "2026-07-01", originalEstimateMinutes: 4800, timeSpentMinutes: 6000 },
+  ];
+
+  // Each index's own `<Tile>` — a `<button>` here since every render in this
+  // describe block passes `onNavigate`. Scoping a value to its own tile (not
+  // just to the strip as a whole) is what catches a mutant that swapped the
+  // SPI and CPI values under their labels.
+  function tileFor(label: string): HTMLElement {
+    return screen.getByText(label).closest("button") as HTMLElement;
+  }
+
+  it("adds both index tiles with their labels, values and hints when estimates exist", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    expect(within(tileFor(t("en-US", "evmSpi"))).getByText("0.67")).toBeInTheDocument();
+    expect(within(tileFor(t("en-US", "evmCpi"))).getByText("0.80")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "evmSpiHint") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "evmCpiHint") })).toBeInTheDocument();
+  });
+
+  it("opens the Budget view from either index tile, named after its own label", () => {
+    const onNavigate = vi.fn();
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} onNavigate={onNavigate} dc={densityClasses("comfortable")} />);
+    const open = t("en-US", "dashboardOpenBudgetView");
+    screen.getByRole("button", { name: `${t("en-US", "evmSpi")} – ${open}` }).click();
+    screen.getByRole("button", { name: `${t("en-US", "evmCpi")} – ${open}` }).click();
+    expect(onNavigate).toHaveBeenNthCalledWith(1, "budget");
+    expect(onNavigate).toHaveBeenNthCalledWith(2, "budget");
+  });
+
+  // ★ Neither tile takes a Budget-module signal at all — `modelFor` above
+  // always passes `budgets: []` (see its definition earlier in this file), so
+  // this run doubles as proof that both render with the Budget module
+  // effectively off, exactly as the migrated `dashboard-panel.test.tsx`
+  // integration test pins.
+  it("omits both when no task carries an estimate", () => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    expect(screen.getByText("Complete")).toBeInTheDocument();          // positive control
+    expect(screen.queryByText(t("en-US", "evmSpi"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "evmCpi"))).toBeNull();
+  });
+
+  // The engine makes the two indices INDEPENDENT (`evm.ts`: spi is null when
+  // pv === 0, cpi is null when ac === 0 — two different sums), so a tile gated
+  // on the WRONG field is a real, reachable bug, not just a theoretical one.
+  it("shows only Effort SPI when an estimate is due but no hours are booked yet", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(SPI_ONLY_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    expect(screen.getByText(t("en-US", "evmSpi"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "evmCpi"))).toBeNull();
+  });
+
+  // §581: the column classes follow the VISIBLE cell count, so no count leaves
+  // an empty cell (the old `showSpi || showCpi` OR gave four cells a
+  // five-column row). jsdom has no layout and no container queries — this pins
+  // the class plumbing; the breakpoints themselves were measured in Chromium
+  // (see `KPI_STRIP_COLS`).
+  describe("columns follow the visible cell count (§581)", () => {
+    function stripGrid(container: HTMLElement): { wrapper: HTMLElement; grid: HTMLElement } {
+      const wrapper = container.firstElementChild as HTMLElement;
+      return { wrapper, grid: wrapper.firstElementChild as HTMLElement };
+    }
+    const classesOf = (el: HTMLElement) => el.className.split(/\s+/);
+
+    it("is a container, so the columns size to the tile rather than the viewport", () => {
+      const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={densityClasses("comfortable")} />);
+      expect(classesOf(stripGrid(container).wrapper)).toContain("@container");
+    });
+
+    it("pads with the density's kpiPad, not cardPad (§585)", () => {
+      const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={densityClasses("compact")} />);
+      const wrapper = classesOf(stripGrid(container).wrapper);
+      expect(wrapper).toEqual(expect.arrayContaining(["px-2", "py-0"]));
+      expect(wrapper).not.toContain("p-2");
+    });
+
+    it("3 cells: one row of three, never four or five columns", () => {
+      const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={densityClasses("comfortable")} />);
+      const { grid } = stripGrid(container);
+      expect(grid.children).toHaveLength(3);
+      expect(classesOf(grid)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[3].split(" ")));
+      expect(KPI_STRIP_COLS[3]).toBe("@[25rem]:grid-cols-3");
+    });
+
+    it("4 cells (one index): two by two, then one row of four — never five columns", () => {
+      const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(SPI_ONLY_TASKS)} trends={trends} dc={densityClasses("comfortable")} />);
+      const { grid } = stripGrid(container);
+      expect(grid.children).toHaveLength(4);
+      expect(classesOf(grid)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[4].split(" ")));
+      expect(KPI_STRIP_COLS[4]).toBe("@2xs:grid-cols-2 @[34rem]:grid-cols-4");
+      expect(grid.className).not.toMatch(/grid-cols-[35]\b/);
+    });
+
+    it("5 cells: 3 + 2 on six tracks (a full second row), then one row of five", () => {
+      const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trends} dc={densityClasses("comfortable")} />);
+      const { grid } = stripGrid(container);
+      expect(grid.children).toHaveLength(5);
+      expect(classesOf(grid)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[5].split(" ")));
+      expect(KPI_STRIP_COLS[5].split(" ")).toEqual([
+        "@[25rem]:grid-cols-6", "@[25rem]:*:col-span-2", "@[25rem]:*:nth-last-[-n+2]:col-span-3",
+        "@2xl:grid-cols-5", "@2xl:*:col-span-1", "@2xl:*:nth-last-[-n+2]:col-span-1",
+      ]);
+    });
+
+    it("gives each count its own classes", () => {
+      expect(new Set([KPI_STRIP_COLS[3], KPI_STRIP_COLS[4], KPI_STRIP_COLS[5]]).size).toBe(3);
+    });
+  });
+
+  it("shows only Effort CPI when hours are booked on a task that is not yet due", () => {
+    render(<DashboardKpiStrip lang="en-US" model={modelFor(CPI_ONLY_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "evmSpi"))).toBeNull();
   });
 });

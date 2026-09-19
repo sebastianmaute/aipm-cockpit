@@ -2,8 +2,21 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { t } from "./i18n";
-import { ActionsPanel } from "./actions-panel";
+import type { ComponentProps } from "react";
+import { ActionsPanel as GroupedActionsPanel } from "./actions-panel";
+import { groupNextActions, pickHeroGroup } from "./next-actions/group";
 import type { SuggestedAction } from "./next-actions/types";
+
+/**
+ * ★ Spec C lifted grouping out of `ActionsPanel` into `task-manager.tsx`, so
+ * the panel now takes `groups`. This wrapper groups exactly as production does
+ * (`groupNextActions` over the flat list) and keeps every render site below
+ * byte-identical — "the actions-panel tests still pass when fed grouped data
+ * from above", which is the spec's own wording.
+ */
+function ActionsPanel({ actions, ...rest }: Omit<ComponentProps<typeof GroupedActionsPanel>, "groups"> & { actions: readonly SuggestedAction[] }) {
+  return <GroupedActionsPanel {...rest} groups={groupNextActions(actions)} />;
+}
 import type { ActionAnalysis } from "./action-ai";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
@@ -393,5 +406,32 @@ describe("ActionsPanel", () => {
       fireEvent.click(screen.getByRole("button", { name: /open next-actions settings/i }));
       expect(opened).toBe(1);
     });
+  });
+});
+
+describe("ActionsPanel — fed grouped data from above (spec C)", () => {
+  it("promotes exactly the group pickHeroGroup picks, so the Dashboard's hero cannot differ", () => {
+    const groups = groupNextActions([mk("low", "monitor"), mk("mid", "soon"), mk("top", "now")]);
+    render(<GroupedActionsPanel lang="en-US" groups={groups} onOpen={() => {}} />);
+    const expected = pickHeroGroup(groups)!;
+    const hero = screen.getByRole("region", { name: /Do this first/i });
+    expect(hero).toHaveTextContent(t("en-US", expected.primary.title.key, ...(expected.primary.title.params ?? [])));
+  });
+  // §584(a) — `mk`'s own score table always puts a `now` action on top, so the
+  // test above cannot tell `pickHeroGroup` apart from a naive `groups[0]` rule:
+  // both agree whenever the top-ranked group is already non-monitor. Force the
+  // TOP-SCORED group to be monitor-tier (score overridden past `mk`'s table) so
+  // `pickHeroGroup` (refuses to promote past a monitor-tier top group) and an
+  // inline `groups[0]` (would promote it anyway) disagree — the former yields no
+  // hero, the latter would render one. Mutation check: swapping the panel's
+  // `pickHeroGroup(groups)` for a bare `groups[0]` turns this test red.
+  it("shows no hero when the top-ranked group is monitor tier, even with a lower non-monitor one (mutant: groups[0])", () => {
+    const groups = groupNextActions([
+      { ...mk("top-monitor", "monitor"), score: 90 },
+      { ...mk("low-now", "now"), score: 20 },
+    ]);
+    expect(pickHeroGroup(groups)).toBeNull();
+    render(<GroupedActionsPanel lang="en-US" groups={groups} onOpen={() => {}} />);
+    expect(screen.queryByRole("region", { name: /Do this first/i })).toBeNull();
   });
 });

@@ -14,7 +14,7 @@
  * test needs editing to accommodate a change here, the change is wrong.
  */
 import { ArrangementBlockMenu, AxisGroup } from "./arrangement-block-menu";
-import { tileById, type DashboardTileId, type TileSpan } from "./dashboard-tiles";
+import { tileById, type DashboardTileId, type TileHeight, type TileWidth } from "./dashboard-tiles";
 import type { Lang } from "./i18n";
 
 /* ★★★ THE CATALOGUE LOOKUP LIVES HERE NOW, AND THAT IS THE POINT OF THE TASK.
@@ -32,12 +32,12 @@ export function DashboardTileMenu({
   lang: Lang;
   tileId: DashboardTileId;
   title: string;
-  w: TileSpan;
-  h: TileSpan;
+  w: TileWidth;
+  h: TileHeight;
   /** Position of this tile in the visible board, for the move commands. */
   index: number;
   count: number;
-  onResize: (axis: "w" | "h", value: TileSpan) => void;
+  onResize: (axis: "w" | "h", value: TileHeight) => void;
   onMove: (delta: -1 | 1 | "first") => void;
   onHide: () => void;
   onClose: () => void;
@@ -76,10 +76,10 @@ export function TileAxisGroup({
   lang: Lang;
   axis: "w" | "h";
   tileTitle: string;
-  value: TileSpan;
-  lo: TileSpan;
-  hi: TileSpan;
-  onPick: (v: TileSpan) => void;
+  value: TileHeight;
+  lo: TileHeight;
+  hi: TileHeight;
+  onPick: (v: TileHeight) => void;
 }) {
   return (
     <AxisGroup lang={lang} axis={axis} blockTitle={tileTitle} value={value} lo={lo} hi={hi} onPick={onPick} />

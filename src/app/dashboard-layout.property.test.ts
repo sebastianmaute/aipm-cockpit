@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { reconcile, type DashboardLayout } from "./dashboard-layout";
-import { DASHBOARD_TILES, type DashboardTileId, type TileSpan } from "./dashboard-tiles";
+import { DASHBOARD_TILES, type DashboardTileId, type TileHeight, type TileWidth } from "./dashboard-tiles";
 
 const anyId = fc.constantFrom(...DASHBOARD_TILES.map((t) => t.id));
-const anySpan = fc.constantFrom<TileSpan>(1, 2, 3, 4);
+const anyWidth = fc.constantFrom<TileWidth>(1, 2, 3, 4);
+const anyHeight = fc.constantFrom<TileHeight>(1, 2, 3, 4, 5, 6, 7, 8);
 
 const anyLayout = fc.record({
   v: fc.constant(1 as const),
-  board: fc.array(fc.record({ id: anyId, w: anySpan, h: anySpan }), { maxLength: 15 }),
+  board: fc.array(fc.record({ id: anyId, w: anyWidth, h: anyHeight }), { maxLength: 15 }),
   hidden: fc.array(anyId, { maxLength: 6 }),
 }) as fc.Arbitrary<DashboardLayout>;
 

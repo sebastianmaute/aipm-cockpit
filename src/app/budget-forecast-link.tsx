@@ -5,16 +5,15 @@
 // a `TextButton` link to the Budget report. This module only formats fields
 // of `BudgetForecast` — it computes nothing.
 //
-// ★ The EAC-range ordering (low EAC first) is the same IDEA as
-//   `budget-forecast-headline.tsx`'s tile headline, but the two are NOT
-//   extracted into a shared helper: the only thing they share is a one-line
-//   ternary (`a.eac <= b.eac ? [a, b] : [b, a]`), and every other formatting
-//   detail differs — the headline also emits a VAC pair and a "runs out"
-//   clause and has its own pace-unavailable branch (Actuals of BAC), while
-//   this line never shows VAC/run-out and has THREE pace-unavailable texts of
-//   its own (§6.4). Sharing a one-line ternary across files is not worth the
-//   coupling; duplicating one ternary is not the "duplicated logic block" the
-//   task brief warns against.
+// ★ The EAC-range ordering (low EAC first) mirrored the same idea in
+//   `budget-forecast-headline.tsx`'s tile headline before spec C deleted that
+//   file (its only production caller, the burn tile, moved to a chart-only
+//   body). The two were never worth extracting into a shared helper: they
+//   shared only a one-line ternary (`a.eac <= b.eac ? [a, b] : [b, a]`), and
+//   every other formatting detail differed — the deleted headline also
+//   emitted a VAC pair and a "runs out" clause and had its own
+//   pace-unavailable branch (Actuals of BAC), while this line never shows
+//   VAC/run-out and has THREE pace-unavailable texts of its own (§6.4).
 import { t, localeFor, type Lang } from "./i18n";
 import { formatMoneyCompact, formatDayMonthYear } from "./forecast-format";
 import { isPaceAvailable, isEfficiencyAvailable, type BudgetForecast } from "./budget-forecast";

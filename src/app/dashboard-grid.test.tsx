@@ -3,12 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 // to `arrangement-grid.test.tsx`. Dropping them is part of that one move, not a
 // second edit: `@typescript-eslint/no-unused-vars` is severity 1 and CI runs
 // `--max-warnings=0`, so leaving them behind would fail the lint gate outright.
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { H_CLASS, W_CLASS } from "./dashboard-grid";
 import { DashboardTile } from "./dashboard-tile";
 import { DashboardTileMenu, TileAxisGroup } from "./dashboard-tile-menu";
-import { DashboardShelf } from "./dashboard-shelf";
-import type { DashboardTileId } from "./dashboard-tiles";
 
 describe("span class tables", () => {
   it("resolves to the class strings the grid expects at runtime", () => {
@@ -124,17 +122,21 @@ describe("DashboardTile", () => {
   });
 });
 
+const MENU_TITLES: Record<"raid" | "trends" | "kpi", string> = {
+  raid: "RAID register", trends: "Trends", kpi: "KPI tile",
+};
+
 function menuFor(
-  id: "raid" | "trends",
-  extra: { index?: number; count?: number; onResize?: (a: "w" | "h", v: number) => void } = {},
+  id: "raid" | "trends" | "kpi",
+  extra: { index?: number; count?: number; h?: number; onResize?: (a: "w" | "h", v: number) => void } = {},
 ) {
   return render(
     <DashboardTileMenu
       lang="en-US"
       tileId={id}
-      title={id === "raid" ? "RAID register" : "Trends"}
+      title={MENU_TITLES[id]}
       w={2}
-      h={2}
+      h={(extra.h ?? 2) as never}
       index={extra.index ?? 1}
       count={extra.count ?? 3}
       onResize={extra.onResize ?? (() => {})}
@@ -178,16 +180,25 @@ describe("DashboardTileMenu", () => {
   });
 
   it("renders NO chooser for an axis whose min equals its max", () => {
-    // ★★ No tile in the catalogue pins an axis today, so this branch is
-    // unreachable through `DashboardTileMenu` — it is exercised on the axis
-    // component directly. A row of buttons with every value but one disabled
-    // reads as a broken control, which is why nothing is rendered instead.
+    // ★★ Exercised directly on the axis component rather than through a
+    // catalogue tile when this was written; the Dashboard's `kpi` tile now
+    // pins its height too (see the next test) so the branch is reachable
+    // through `DashboardTileMenu` as well. A row of buttons with every value
+    // but one disabled reads as a broken control, which is why nothing is
+    // rendered instead.
     render(
       <TileAxisGroup lang="en-US" axis="h" tileTitle="RAID register" value={2} lo={2} hi={2} onPick={() => {}} />,
     );
     expect(screen.queryByRole("radiogroup")).toBeNull();
     expect(screen.queryAllByRole("radio")).toHaveLength(0);
     expect(screen.getByText("Fixed at 2")).toBeInTheDocument();
+  });
+
+  it("renders no height chooser for the KPI tile — minH === maxH === 3 (§585 fix round)", () => {
+    menuFor("kpi", { h: 3 });
+    expect(screen.getByRole("radiogroup", { name: /width/i })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: /height/i })).toBeNull();
+    expect(screen.getByText("Fixed at 3")).toBeInTheDocument();
   });
 
   it("calls onResize with the axis and the picked value", () => {
@@ -233,96 +244,3 @@ describe("DashboardTileMenu", () => {
   });
 });
 
-const HIDDEN: { id: DashboardTileId; title: string }[] = [
-  { id: "raid", title: "RAID register" },
-  { id: "burn", title: "Budget burn" },
-];
-
-function shelf(
-  opts: {
-    hidden?: { id: DashboardTileId; title: string }[];
-    isDragging?: boolean;
-    onRestore?: (id: DashboardTileId) => void;
-  } = {},
-) {
-  return render(
-    <DashboardShelf
-      lang="en-US"
-      hidden={opts.hidden ?? HIDDEN}
-      onRestore={opts.onRestore ?? (() => {})}
-      dropProps={{}}
-      isDragging={opts.isDragging ?? false}
-    />,
-  );
-}
-
-const toggle = () => screen.getByRole("button", { name: /hidden/i });
-
-describe("DashboardShelf", () => {
-  it("summarises the hidden count on a collapsed disclosure", () => {
-    shelf();
-    expect(toggle()).toHaveAttribute("aria-expanded", "false");
-    expect(toggle()).toHaveTextContent("2");
-  });
-
-  it("opens the tray on click", () => {
-    shelf();
-    fireEvent.click(toggle());
-    expect(toggle()).toHaveAttribute("aria-expanded", "true");
-  });
-
-  it("opens the tray when a drag enters the collapsed button", () => {
-    // ★ Without this the user must open the tray BEFORE picking a tile up — a
-    // sequence that cannot be discovered mid-drag.
-    shelf({ isDragging: true });
-    fireEvent.dragEnter(toggle());
-    expect(toggle()).toHaveAttribute("aria-expanded", "true");
-  });
-
-  it("leaves the tray shut when a pointer wanders in with nothing being dragged", () => {
-    // ★★ Pins the `isDragging` guard. Without it this test is the only thing
-    // between the shelf and a tray that pops open on a stray dragEnter, and the
-    // happy-path test above passes either way — it is vacuous on its own.
-    shelf({ isDragging: false });
-    fireEvent.dragEnter(toggle());
-    expect(toggle()).toHaveAttribute("aria-expanded", "false");
-  });
-
-  it("gives every Restore button a tile-unique accessible name", () => {
-    // ★★ Two chips minimum, or the collision cannot render. axe cannot detect
-    // duplicate accessible names in any view at any seed size.
-    shelf();
-    fireEvent.click(toggle());
-    const names = screen.getAllByRole("button", { name: /restore/i }).map((b) => b.getAttribute("aria-label"));
-    expect(names).toHaveLength(2);
-    expect(new Set(names).size).toBe(2);
-  });
-
-  it("restores a tile from the tray through a keyboard-reachable button", () => {
-    // ★★ The button IS the keyboard path. Dragging a chip back is the mouse
-    // shortcut; without this a keyboard user who hid a tile could never get it
-    // back.
-    const onRestore = vi.fn();
-    shelf({ onRestore });
-    fireEvent.click(toggle());
-    fireEvent.click(screen.getAllByRole("button", { name: /restore/i })[0]);
-    expect(onRestore).toHaveBeenCalledWith("raid");
-  });
-
-  it("keeps the aria-controls target mounted while collapsed", () => {
-    // ★★ `hidden`-toggled, never conditionally rendered: an aria-controls that
-    // points at nothing is a dangling reference. Same shape as
-    // `action-reasons.tsx`.
-    shelf();
-    const target = document.getElementById(toggle().getAttribute("aria-controls")!);
-    expect(target).not.toBeNull();
-    expect(target).toHaveAttribute("hidden");
-  });
-
-  it("still offers the disclosure when nothing is hidden, so a drag has a target", () => {
-    shelf({ hidden: [] });
-    expect(toggle()).toHaveTextContent("0");
-    fireEvent.click(toggle());
-    expect(screen.getByText("Nothing hidden")).toBeInTheDocument();
-  });
-});
