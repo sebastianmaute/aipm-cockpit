@@ -202,8 +202,9 @@ slowdown that is about 14 s, far inside the 120 s hang backstop.
 
 > **As shipped (2026-09-19):** three of the five `html-extract` rows (heading, list-item, table
 > cells) were raised from n 31,250 to n 62,500 by judgement, not by the red-margin rule — each
-> measured ratio sat within a single run's noise of the 12 floor. Green cost rose to about 1.9–2.8 s
-> for those rows, over the 1.5 s target, which the red-margin rule allows.
+> measured ratio sat within a single run's noise of the 12 floor. Green cost rose to about 1.9 s
+> (heading) and 2.3 s (list-item), over the 1.5 s target, which the red-margin rule allows; the
+> table-cells row's green cost is 701 ms, under the target.
 
 On the red side a mutant runs to completion — vitest cannot interrupt it — so mutant proofs run
 under an outer 120 s kill, and a kill counts as red (Section 3).

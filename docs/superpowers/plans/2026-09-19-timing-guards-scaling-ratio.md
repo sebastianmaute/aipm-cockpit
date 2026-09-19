@@ -515,8 +515,9 @@ Adapt `run`/`check` to each other site's callback and to what that fixture reall
 
   > **As shipped (2026-09-19):** three of the five rows (heading, list-item, table cells) were raised
   > from n 31,250 to n 62,500 by judgement, not by the red-margin rule — each measured ratio sat
-  > within a single run's noise of the 12 floor. Green cost rose to about 1.9–2.8 s for those rows,
-  > over the 1.5 s target, which the red-margin rule allows.
+  > within a single run's noise of the 12 floor. Green cost rose to about 1.9 s (heading) and 2.3 s
+  > (list-item), over the 1.5 s target, which the red-margin rule allows; the table-cells row's green
+  > cost is 701 ms, under the target.
 
   ```ts
   /** Pins a fixture under the clamp, so a later edit cannot push the large
