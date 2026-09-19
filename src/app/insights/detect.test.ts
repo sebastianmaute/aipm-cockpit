@@ -237,6 +237,25 @@ describe("budgetVariance", () => {
     });
     expect(detect({ budgets: [predecessor, successor], plan: PLAN }).filter((i) => i.type === "budgetVariance")).toHaveLength(0);
   });
+
+  // Ruling 4's other half — the not-started EARLY RETURN in ownBudgetHoursToDate must not be bypassed
+  // by a positive spillover: a successor whose own window has not started is counted "once the bucket's
+  // first period has started" (the ruling's own words), not the moment its predecessor closes. Here the
+  // successor already has hours booked in one of its own (still-future) periods — actuals sum over every
+  // active-period key regardless of date — so if the not-started skip did not apply, the bucket would be
+  // measured against the spillover ALONE (90h) rather than skipped outright, and 200h booked against a
+  // 90h budget-to-date would wrongly breach.
+  it("a not-started successor is skipped even with a positive predecessor spillover and hours already booked (§577)", () => {
+    const predecessor = bucket({
+      id: 1, name: "Phase 1", status: "closed", successorId: 2, startDate: "2026-01-01", endDate: "2026-03-31",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 400, "2026-02": 300, "2026-03": 300 }, actualHours: { "2026-01": 910 } }],
+    });
+    const successor = bucket({
+      id: 2, name: "Phase 2 (not yet started)", startDate: "2026-09-01", endDate: "2026-12-31",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: {}, actualHours: { "2026-09": 200 } }],
+    });
+    expect(detect({ budgets: [predecessor, successor], plan: PLAN }).filter((i) => i.type === "budgetVariance")).toHaveLength(0);
+  });
 });
 
 describe("raidAging", () => {
