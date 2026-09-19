@@ -20,10 +20,22 @@ const IDB_NAME = "aipm-cockpit";
 const BLOCKED_MESSAGE =
   "IndexedDB upgrade is blocked by another open tab of this app. Close the other tabs and reload.";
 
-// idb.ts's own current schema version. Kept local (not exported from idb.ts,
-// which is deliberately unchanged apart from the two handlers) so a raw open
-// here can target "one version newer" without guessing.
-const CURRENT_IDB_VERSION = 6;
+/** Reads the version the database is CURRENTLY at, by opening it with no
+ *  version argument (which never upgrades). ★ DERIVED, never hard-coded: a
+ *  literal copy of idb.ts's `IDB_VERSION` goes stale on the next bump, and a
+ *  "newer" open at a version that is no longer newer fires no versionchange —
+ *  so the test below would pass whether or not the handler exists. */
+function openedVersion(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME);
+    req.onsuccess = () => {
+      const { version } = req.result;
+      req.result.close();
+      resolve(version);
+    };
+    req.onerror = () => reject(req.error as Error);
+  });
+}
 
 /** Races `promise` against a short timer so a mutant that removes a handler
  *  and leaves the request hanging fails fast instead of stalling the suite
@@ -116,9 +128,11 @@ describe("openIdb — blocked upgrade", () => {
     // completed call opened is still live — the narrowest honest route to
     // proving `onversionchange` without exporting `openIdb` for the test.
     await idbGet("any-key");
+    const current = await openedVersion();
+    expect(current).toBeGreaterThan(1); // control: idb.ts really upgraded past a bare open
 
     const outcome = await withTimeout(
-      rawOpenOutcome(CURRENT_IDB_VERSION + 1),
+      rawOpenOutcome(current + 1),
       2000,
       "newer-version open to succeed",
     );
